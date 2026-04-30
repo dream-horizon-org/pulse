@@ -45,7 +45,6 @@ public class ProjectMemberService {
     private final UserService userService;
     private final ProjectDao projectDao;
     private final OpenFgaService openFgaService;
-    private final EmailService emailService;
     private final TenantMemberService tenantMemberService;
     private final NotificationService notificationService;
     

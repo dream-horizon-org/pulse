@@ -101,7 +101,7 @@ export function NetworkList({
     // Add screen name filter only if provided
     if (screenName) {
       filters.push({
-        field: `SpanAttributes['${PulseType.SCREEN_NAME}']`,
+        field: COLUMN_NAME.SCREEN_NAME,
         operator: "EQ" as const,
         value: [screenName],
       });
@@ -124,7 +124,7 @@ export function NetworkList({
           filterField = COLUMN_NAME.NETWORK_STATUS_CODE;
           break;
         case "operation_name":
-          filterField = "SpanAttributes['graphql.operation.name']";
+          filterField = COLUMN_NAME.GRAPHQL_OPERATION_NAME;
           break;
         default:
           filterField = COLUMN_NAME.HTTP_URL;
@@ -172,14 +172,14 @@ export function NetworkList({
         {
           function: "CUSTOM" as const,
           param: {
-            expression: "SpanAttributes['graphql.operation.name']",
+            expression: COLUMN_NAME.GRAPHQL_OPERATION_NAME,
           },
           alias: "graphql_operation_name",
         },
         {
           function: "CUSTOM" as const,
           param: {
-            expression: "SpanAttributes['graphql.operation.type']",
+            expression: COLUMN_NAME.GRAPHQL_OPERATION_TYPE,
           },
           alias: "graphql_operation_type",
         },
@@ -207,7 +207,7 @@ export function NetworkList({
         {
           function: "CUSTOM" as const,
           param: {
-            expression: "uniqCombined64(nullIf(SessionId, ''))",
+            expression: "uniq(nullIf(SessionId, ''))",
           },
           alias: "all_sessions",
         },
@@ -222,7 +222,7 @@ export function NetworkList({
           ? [
               {
                 function: "COL" as const,
-                param: { field: `SpanAttributes['${PulseType.SCREEN_NAME}']` },
+                param: { field: COLUMN_NAME.SCREEN_NAME },
                 alias: "screen_name",
               },
             ]

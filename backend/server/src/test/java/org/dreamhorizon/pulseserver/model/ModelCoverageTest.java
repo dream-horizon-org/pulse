@@ -318,6 +318,7 @@ class ModelCoverageTest {
           .jobCreationMode(JobCreationMode.JOB_CREATION_OPTIONAL)
           .tenantId("tenant-1")
           .projectId("proj-1")
+          .useQueryConditionCache(true)
           .build();
 
       assertThat(config.getQuery()).isEqualTo("SELECT 1");
@@ -326,12 +327,23 @@ class ModelCoverageTest {
       assertThat(config.getTenantId()).isEqualTo("tenant-1");
       assertThat(config.getProjectId()).isEqualTo("proj-1");
       assertThat(config.isUseLegacySql()).isFalse();
+      assertThat(config.isUseQueryConditionCache()).isTrue();
     }
 
     @Test
     void shouldUseDefaultTimeout() {
       QueryConfiguration config = QueryConfiguration.newQuery("SELECT 1").build();
       assertThat(config.getTimeoutMs()).isEqualTo(60000);
+      assertThat(config.isUseQueryConditionCache())
+          .as("useQueryConditionCache defaults to false unless opted in")
+          .isFalse();
+    }
+
+    @Test
+    void shouldAllowEnablingQueryConditionCache() {
+      QueryConfiguration config =
+          QueryConfiguration.newQuery("SELECT 1").useQueryConditionCache(true).build();
+      assertThat(config.isUseQueryConditionCache()).isTrue();
     }
   }
 

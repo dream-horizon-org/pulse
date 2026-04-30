@@ -1,4 +1,5 @@
-import { Box, Text } from "@mantine/core";
+import { Box, Group, Text, Tooltip } from "@mantine/core";
+import { IconInfoCircle } from "@tabler/icons-react";
 import { useMemo } from "react";
 import { useGetDataQuery } from "../../../../hooks";
 import { useQueryError } from "../../../../hooks/useQueryError";
@@ -6,6 +7,7 @@ import { StatsSkeleton } from "../../../../components/StatsSkeleton";
 import type { DataQueryResponse } from "../../../../hooks/useGetDataQuery/useGetDataQuery.interface";
 import classes from "./ANRMetricsStats.module.css";
 import { buildCommonFilters } from "../TrendGraphWithData/helpers/trendDataHelpers";
+import { COLUMN_NAME } from "../../../../constants/PulseOtelSemcov";
 
 interface ANRMetricsStatsProps {
   startTime: string;
@@ -86,7 +88,7 @@ export function ANRMetricsStats({
           function: "CUSTOM",
           param: {
             expression:
-              "uniqCombined64If(nullIf(UserId, ''), PulseType = 'device.anr')",
+              `uniqCombined64If(nullIf(${COLUMN_NAME.USER_ID}, ''), PulseType = 'device.anr')`,
           },
           alias: "anr_users",
         },
@@ -180,7 +182,17 @@ export function ANRMetricsStats({
       <Text className={classes.sectionTitle}>ANR Metrics</Text>
       <Box className={classes.metricsGrid}>
         <Box className={classes.statItem}>
-          <Text className={classes.statLabel}>ANR-Free Users</Text>
+          <Group gap={4} wrap="nowrap" align="center">
+            <Text className={classes.statLabel}>ANR-Free Users</Text>
+            <Tooltip
+              label="Unique users are identified by installation ID. The same device can open the app multiple times — each unique installation counts as one user."
+              withArrow
+              multiline
+              w={260}
+            >
+              <IconInfoCircle size={13} style={{ opacity: 0.5, cursor: "help", flexShrink: 0 }} />
+            </Tooltip>
+          </Group>
           <Text
             className={classes.statValue}
             c={metrics.anrFreeUsers !== null ? "orange" : "dimmed"}

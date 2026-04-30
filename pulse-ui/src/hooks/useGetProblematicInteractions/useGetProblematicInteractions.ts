@@ -146,7 +146,7 @@ export const useGetProblematicInteractions = ({
         },
         {
           function: "COL",
-          param: { field: COLUMN_NAME.USER_ID },
+          param: { field: COLUMN_NAME.INSTALLATION_ID },
           alias: "userid",
         },
         {

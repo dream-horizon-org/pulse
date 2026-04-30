@@ -94,7 +94,9 @@ export function CreateJourney() {
         if (rollingType === FunnelType.ONCE) {
           return !!(customStartDate && customEndDate);
         }
-        return true;
+        // AUTO journeys must have an expiry date so the cron knows when to stop
+        // refreshing them.
+        return !!expiryDate;
       case 2:
         return anchorEvent.trim().length > 0;
       default:
@@ -107,7 +109,9 @@ export function CreateJourney() {
       case 0:
         return JOURNEY_CREATE_STEP_ERRORS.NAME;
       case 1:
-        return JOURNEY_CREATE_STEP_ERRORS.SCHEDULE_ONCE;
+        return rollingType === FunnelType.ONCE
+          ? JOURNEY_CREATE_STEP_ERRORS.SCHEDULE_ONCE
+          : JOURNEY_CREATE_STEP_ERRORS.SCHEDULE_RECURRING;
       case 2:
         return JOURNEY_CREATE_STEP_ERRORS.PATH;
       default:
@@ -132,7 +136,10 @@ export function CreateJourney() {
       if (customStartDate) body.startTime = customStartDate.toISOString();
       if (customEndDate) body.endTime = customEndDate.toISOString();
     } else {
-      if (expiryDate) body.expiry = expiryDate.toISOString();
+      // AUTO journeys: expiry is mandatory (validated upstream by stepValid).
+      // The non-null assertion is safe because the wizard blocks submission
+      // when expiryDate is null for AUTO.
+      body.expiry = expiryDate!.toISOString();
     }
 
     createJourney(body, {
