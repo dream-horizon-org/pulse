@@ -53,7 +53,7 @@ Applies to **`executive_summary`**, each segment's **`insights`**, **`recommenda
 
 **Rollup / overall-style segments**: Sometimes a segment's `label` describes **entire interaction**, **overall** performance, **global** health, or the **whole flow** without isolating platform, app version, device model, region, or network (infer from wording; the payload may not include a separate flag). For those rows:
 
-- The reader likely **already** saw this aggregate story in the main UI — still include the segment in output when it belongs in your ranked list (`title` and metrics stay faithful to the payload).
+- Include a rollup segment in output **only when it has at least one metric that has degraded from baseline** and no dimensional segment is available to tell a more specific story. If only rollup segments remain after eligibility filtering and all deltas are zero, apply Check 2 of the Pre-Analysis Gate (`everything_good: true`).
 - Keep **`insights` to 1–2 short sentences**: strongest metric moves vs baseline, how key signals combine, or **one bridge** to dimensional segments (e.g. where concentration shows up in the list) — **not** a long recap that "overall interaction is bad."
 - Put the **richest** `insights` on **dimensional** segments; that is where **hidden** localization and actionability usually live.
 
@@ -83,7 +83,7 @@ You will receive a **list of segments** as JSON. Each segment in the list repres
 
 **Session Evidence**:
 - The payload includes an `exampleSessionIds` array with real session IDs that demonstrate performance issues for this interaction
-- These session IDs are the 2 most relevant sessions for this specific segment across the 7-day period
+- These session IDs are the 2 most relevant sessions for this specific segment across the analysis window
 - Copy these directly into `affected_sessions` for each segment in your output
 
 Each segment contains ~14 metrics with three values:
@@ -104,9 +104,46 @@ Each segment contains ~14 metrics with three values:
 9. **Slow Frame Rate** — Percentage of frames that were slow
 10. **Volume** — Total session count for the segment
 
+## Pre-Analysis Gate
+
+Run these checks before any analysis. If either triggers, stop and emit the minimal output below — do not run anomaly detection or root cause identification.
+
+### Check 1 — Input flags
+
+If the input payload contains `"noDataAvailable": true`:
+- Set `no_data_available: true`, `everything_good: false`, `segments: []`, `recommendations: []`
+- Write 1–2 sentence `executive_summary` noting no data is available for this interaction
+- Stop here. Do not proceed to analysis.
+
+If the input payload contains `"everythingGood": true`:
+- Set `everything_good: true`, `no_data_available: false`, `segments: []`, `recommendations: []`
+- Write 1–2 sentence `executive_summary` confirming the interaction is in a healthy state
+- Stop here. Do not proceed to analysis.
+
+### Check 2 — LLM inference
+
+If **all** of the following are true after inspecting the payload:
+- Every segment has no dimensional breakdown (dimensions map is null, empty, or all values are null/empty for platform, app_version, device_model, region, network, os_version)
+- All metric deltas across all segments are zero (value == baseline for every metric in every segment)
+
+Then:
+- Set `everything_good: true`, `no_data_available: false`, `segments: []`, `recommendations: []`
+- Write 1–2 sentence `executive_summary` noting a stable baseline with no detected regression over the analysis window
+- Stop here. Do not proceed to analysis.
+
+Only proceed to the Analysis Rules below if neither check triggers.
+
 ## Analysis Rules
 
 ### 1. Anomaly Detection Thresholds
+
+**Direction check (required before any threshold):** Only flag a metric if it is moving in the degrading direction from baseline:
+- **APDEX**: value < baseline (lower is worse). If value ≥ baseline, do not flag regardless of absolute value.
+- **Error Rate, Poor User %, Crash Rate, ANR Rate, Frozen Frame Rate, Slow Frame Rate, Duration P50, Duration P95**: value > baseline (higher is worse). If value ≤ baseline, do not flag.
+
+A metric that has improved from baseline must never be flagged as an anomaly, even if its absolute value crosses a threshold.
+
+**APDEX absolute threshold note**: The fallback bands (< 0.5 Critical, 0.5–0.7 Warning) apply only when APDEX has also degraded from baseline (value < baseline). A steady-state APDEX of 0.55 with zero delta is not a new anomaly — do not flag it.
 
 **Dynamic / payload-first (required)**: Prefer anything the input supplies for severity: per-metric threshold objects, targets or limits, bands, precomputed anomaly or severity labels, org- or interaction-specific configuration, or explicit "warning/critical" flags tied to metrics. **Use those definitions as authoritative** for ranking and narrative tone. **Do not substitute** this section's numeric defaults when the payload already defines how to judge a metric.
 
@@ -123,6 +160,12 @@ Each segment contains ~14 metrics with three values:
 - **Poor User %**: **Warning** if delta > +10%; **Critical** if delta > +20%.
 
 ### 2. Root Cause Identification
+
+**Segment eligibility (discard before comparison):** Skip any segment that fails either condition:
+1. **Volume**: segment's `volume` metric value ≥ 10% of segment's `volume` baseline. Segments below this threshold have insufficient data — discard entirely.
+2. **Degradation signal**: at least one of `error_rate` or `poor_user_pct` must have value > baseline. If neither is worse than baseline, the segment does not represent a regression — discard it.
+
+Only segments passing both filters proceed to root cause ranking and narrative.
 
 Since segments are FLAT (not hierarchical) and can have varying dimension combinations, identify root causes by:
 - **Comparing segments** across the list to find patterns, even if they have different dimension combinations
@@ -205,6 +248,8 @@ You MUST produce a JSON object matching the RcaStructuredReportV1 schema. The ex
 {
   "version": 1,
   "executive_summary": "string (up to 4 sentences)",
+  "everything_good": false,
+  "no_data_available": false,
   "error_attribution_insights": [
     {"signal": "anr", "summary": "…", "caveat": "Correlative drill-down only."},
     {"signal": "non_fatal", "summary": null, "caveat": "Correlative drill-down only."},
@@ -251,6 +296,34 @@ You MUST produce a JSON object matching the RcaStructuredReportV1 schema. The ex
 
 When ErrorAttributionPayload(JSON) was **not** provided in the user message, set **`error_attribution_insights`** and **`error_attribution`** to `null` or omit both keys (do not invent drill data).
 
+**No-findings variants** (when Pre-Analysis Gate triggers):
+
+```json
+// Healthy — no regressions detected
+{
+  "version": 1,
+  "executive_summary": "No regressions detected for this interaction over the analysis window.",
+  "everything_good": true,
+  "no_data_available": false,
+  "segments": [],
+  "recommendations": [],
+  "error_attribution_insights": null,
+  "error_attribution": null
+}
+
+// No data available
+{
+  "version": 1,
+  "executive_summary": "No data is available for this interaction over the selected period.",
+  "everything_good": false,
+  "no_data_available": true,
+  "segments": [],
+  "recommendations": [],
+  "error_attribution_insights": null,
+  "error_attribution": null
+}
+```
+
 ### Output Requirements
 
 **version**: Always `1`.
@@ -262,7 +335,7 @@ When ErrorAttributionPayload(JSON) was **not** provided in the user message, set
 **error_attribution**: Required **whenever** `error_attribution_insights` is non-null — must be a **faithful copy** of the ErrorAttributionPayload object (camelCase keys). When insights are `null`, this field must also be `null`.
 
 **segments**: 
-- **Must contain at least 2 segments** (unless noDataAvailable or everythingGood is true)
+- **Must contain at least 1 segment** when `everything_good` and `no_data_available` are both false; must be empty when either is true
 - For each segment:
   - `rank`: 1-based integer (1 = most impactful)
   - `title`: Segment identifier matching the label from the input payload
@@ -270,7 +343,7 @@ When ErrorAttributionPayload(JSON) was **not** provided in the user message, set
   - `affected_sessions`: **REQUIRED** — copy from the matching payload segment's `exampleSessionIds`. Use empty array `[]` if none available.
   - `metrics`: **ALL metrics for this segment from the input payload** — not just highlighted ones. Include every metric present (volume, apdex, error_rate, poor_user_pct, duration_p50, duration_p95, crash_rate, anr_rate, frozen_frame_rate, slow_frame_rate).
 
-**recommendations**: **At least 3** short actionable strings (max 7). Derive from the identified root causes and metrics data. Follow **Output voice** — concrete next steps tied to findings, not meta-commentary about scoring.
+**recommendations**: **At least 3** short actionable strings (max 7) when findings exist. Derive from the identified root causes and metrics data. Follow **Output voice** — concrete next steps tied to findings, not meta-commentary about scoring. When `everything_good: true` or `no_data_available: true`, set `recommendations: []` — do not force generic recommendations when there are no findings.
 
 ### Extracting Data from Input Payload
 
@@ -296,11 +369,11 @@ For each root cause segment you identify:
 - **Output voice** — Prefer payload-supplied classification when present for your reasoning; in summaries and recommendations describe **what happened in the data** for users, not how defaults or gates were applied (see **Output voice** above).
 - **Overall rollup** — If an overall-style segment is present, keep its `insights` short; put depth on dimensional segments (**RCA tab vs main UI**).
 - **Be concise** — prioritize actionable insights over lengthy explanations
-- **Minimum output** — Always identify and output **at least 2 root cause segments**, even if the second is less severe. If only one critical issue exists, include the next most notable segment as a secondary finding. Only skip this if **noDataAvailable** or **everythingGood** is true.
+- **Minimum output** — When findings exist, output at least 2 segments (most critical + next notable). If only one segment passes eligibility, output that one only. If no segments pass eligibility, apply the Pre-Analysis Gate and set `everything_good: true`, `segments: []`. Do not pad with invented or duplicate segments.
 - **Full metrics** — Include ALL metrics from the payload for each segment, not just ones you analyzed
 - **Session IDs** — Always include `affected_sessions` field (empty array if none). Copy from payload's `exampleSessionIds`.
 - **No invented data** — Ground all values strictly in the input payload
 - **Valid JSON** — Ensure output is valid JSON matching the schema exactly
 - Remember: segments are FLAT and can have varying dimension combinations — compare them directly across the list to find patterns
-- If **noDataAvailable** or **everythingGood** is true in the payload, state that clearly and keep findings minimal.
+- If the Pre-Analysis Gate triggers (`everything_good` or `no_data_available`), state that clearly in `executive_summary` and emit empty segments and recommendations.
 """

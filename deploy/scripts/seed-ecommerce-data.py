@@ -656,8 +656,8 @@ def generate_interaction_rows(interaction, project_id):
             "'pulse.type','interaction'",
             f"'session.id','{escape(session_id)}'",
             f"'user.id','{escape(user_id)}'",
-            f"'geo.region.iso_code','{escape(state)}'",
-            "'geo.country.iso_code','IN'",
+            f"'geo.state','{escape(state)}'",
+            "'geo.country','IN'",
             f"'network.carrier.name','{escape(network)}'",
             f"'pulse.interaction.apdex_score','{apdex_score}'",
         ]
@@ -671,12 +671,12 @@ def generate_interaction_rows(interaction, project_id):
         span_attr_str = "map(" + ",".join(span_attrs_parts) + ")"
 
         resource_attrs_parts = [
-            f"'os.name','{escape(platform)}'",
+            f"'os.type','{escape(platform)}'",
             f"'os.version','{escape(os_version)}'",
-            f"'app.build_name','{escape(app_version)}'",
-            f"'device.model.name','{escape(device)}'",
+            f"'app.version','{escape(app_version)}'",
+            f"'device.model.identifier','{escape(device)}'",
             f"'project.id','{escape(project_id)}'",
-            f"'rum.sdk.version','{escape(sdk_version)}'",
+            f"'telemetry.sdk.version','{escape(sdk_version)}'",
         ]
         resource_attr_str = "map(" + ",".join(resource_attrs_parts) + ")"
 
@@ -703,12 +703,12 @@ TRACK_B_INTERACTION_NAME = "add_to_cart"
 def _track_b_resource_attrs(project_id, platform, os_version, device, app_version, sdk_version):
     return (
         "map("
-        f"'os.name','{escape(platform)}',"
+        f"'os.type','{escape(platform)}',"
         f"'os.version','{escape(os_version)}',"
-        f"'app.build_name','{escape(app_version)}',"
-        f"'device.model.name','{escape(device)}',"
+        f"'app.version','{escape(app_version)}',"
+        f"'device.model.identifier','{escape(device)}',"
         f"'project.id','{escape(project_id)}',"
-        f"'rum.sdk.version','{escape(sdk_version)}')"
+        f"'telemetry.sdk.version','{escape(sdk_version)}')"
     )
 
 
@@ -739,8 +739,8 @@ def _track_b_interaction_span_row(
         "'pulse.type','interaction'",
         f"'session.id','{escape(session_id)}'",
         f"'user.id','{escape(user_id)}'",
-        f"'geo.region.iso_code','{escape(state)}'",
-        "'geo.country.iso_code','IN'",
+        f"'geo.state','{escape(state)}'",
+        "'geo.country','IN'",
         f"'network.carrier.name','{escape(network)}'",
         f"'pulse.interaction.name','{escape(TRACK_B_INTERACTION_NAME)}'",
     ]
@@ -777,8 +777,8 @@ def _track_b_network_error_span_row(
         "'pulse.type','network.http'",
         f"'session.id','{escape(session_id)}'",
         f"'user.id','{escape(user_id)}'",
-        f"'geo.region.iso_code','{escape(state)}'",
-        "'geo.country.iso_code','IN'",
+        f"'geo.state','{escape(state)}'",
+        "'geo.country','IN'",
         f"'network.carrier.name','{escape(network)}'",
     ]
     span_attr_str = "map(" + ",".join(span_attrs_parts) + ")"
@@ -1133,19 +1133,19 @@ def generate_rum_events(interaction_name, count, project_id):
             f"'pulse.type','{pulse_type}'",
             f"'session.id','{escape(session_id)}'",
             f"'user.id','{escape(user_id)}'",
-            f"'geo.region.iso_code','{escape(state)}'",
-            "'geo.country.iso_code','IN'",
+            f"'geo.state','{escape(state)}'",
+            "'geo.country','IN'",
             f"'network.carrier.name','{escape(network)}'",
         ]
         span_attr_str = "map(" + ",".join(span_attrs_parts) + ")"
 
         resource_attrs_parts = [
-            f"'os.name','{escape(platform)}'",
+            f"'os.type','{escape(platform)}'",
             f"'os.version','{escape(os_version)}'",
-            f"'app.build_name','{escape(app_version)}'",
-            f"'device.model.name','{escape(device)}'",
+            f"'app.version','{escape(app_version)}'",
+            f"'device.model.identifier','{escape(device)}'",
             f"'project.id','{escape(project_id)}'",
-            f"'rum.sdk.version','{escape(sdk_version)}'",
+            f"'telemetry.sdk.version','{escape(sdk_version)}'",
         ]
         resource_attr_str = "map(" + ",".join(resource_attrs_parts) + ")"
 
@@ -1332,10 +1332,12 @@ def generate_session_start_logs(count, project_id):
             f"'rum.sdk.version','{escape(sdk_version)}')"
         )
 
+        # EventName is MATERIALIZED on otel_logs (not insertable). PulseType comes from
+        # LogAttributes['pulse.type'] and is what App Vitals / backend filters use.
         row = (
             f"('{ts_str}','{trace_id}','{span_id}',0,"
-            f"'INFO',6,'pulse-sdk','Session started',"
-            f"{resource_attrs},{log_attrs},'session.start')"
+            f"'INFO',6,'pulse-sdk','session.start',"
+            f"{resource_attrs},{log_attrs})"
         )
         rows.append(row)
 
@@ -1394,7 +1396,7 @@ def insert_log_rows(rows, label=""):
             "INSERT INTO otel_logs "
             "(Timestamp, TraceId, SpanId, TraceFlags, "
             "SeverityText, SeverityNumber, ServiceName, Body, "
-            "ResourceAttributes, LogAttributes, EventName) "
+            "ResourceAttributes, LogAttributes) "
             "VALUES " + ",".join(batch)
         )
         ch_query(insert_sql)
@@ -1539,8 +1541,8 @@ if __name__ == "__main__":
         f" distinct_sessions={tb_sessions}, poor_sessions={tb_poor} (expect poor >= 1100 for gate)"
     )
 
-    session_logs = ch_query(f"SELECT count() FROM otel_logs WHERE EventName = 'session.start'{ch_where}").strip()
-    unique_users = ch_query(f"SELECT uniqExact(LogAttributes['user.id']) FROM otel_logs WHERE EventName = 'session.start'{ch_where}").strip()
+    session_logs = ch_query(f"SELECT count() FROM otel_logs WHERE PulseType = 'session.start'{ch_where}").strip()
+    unique_users = ch_query(f"SELECT uniqExact(LogAttributes['user.id']) FROM otel_logs WHERE PulseType = 'session.start'{ch_where}").strip()
     print(f"  otel_logs:             sessions={session_logs}, unique_users={unique_users}")
 
     print("\n" + "=" * 60)

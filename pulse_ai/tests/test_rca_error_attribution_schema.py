@@ -150,3 +150,74 @@ def test_accepts_three_insights_with_null_summaries_and_drill() -> None:
 def test_coerces_blank_summary_to_none() -> None:
     row = ErrorAttributionInsightV1(signal="anr", summary="   ")
     assert row.summary is None
+
+
+class TestNoFindingsFlags:
+    def test_everything_good_allows_empty_segments(self) -> None:
+        report = RcaStructuredReportV1(
+            executive_summary="No regressions detected.",
+            everything_good=True,
+            segments=[],
+            recommendations=[],
+        )
+        assert report.everything_good is True
+        assert report.no_data_available is False
+        assert report.segments == []
+        assert report.recommendations == []
+
+    def test_no_data_available_allows_empty_segments(self) -> None:
+        report = RcaStructuredReportV1(
+            executive_summary="No data available.",
+            no_data_available=True,
+            segments=[],
+            recommendations=[],
+        )
+        assert report.no_data_available is True
+        assert report.everything_good is False
+        assert report.segments == []
+
+    def test_both_flags_true_valid(self) -> None:
+        report = RcaStructuredReportV1(
+            executive_summary="No data.",
+            everything_good=True,
+            no_data_available=True,
+            segments=[],
+            recommendations=[],
+        )
+        assert report.everything_good is True
+        assert report.no_data_available is True
+
+    def test_default_flags_require_non_empty_segments(self) -> None:
+        with pytest.raises(ValidationError):
+            RcaStructuredReportV1(
+                executive_summary="s",
+                segments=[],
+                recommendations=["r1", "r2", "r3"],
+            )
+
+    def test_everything_good_rejects_non_empty_segments(self) -> None:
+        with pytest.raises(ValidationError):
+            RcaStructuredReportV1(
+                executive_summary="s",
+                everything_good=True,
+                segments=[_minimal_segment()],
+                recommendations=[],
+            )
+
+    def test_everything_good_rejects_non_empty_recommendations(self) -> None:
+        with pytest.raises(ValidationError):
+            RcaStructuredReportV1(
+                executive_summary="s",
+                everything_good=True,
+                segments=[],
+                recommendations=["investigate something"],
+            )
+
+    def test_no_data_available_rejects_non_empty_segments(self) -> None:
+        with pytest.raises(ValidationError):
+            RcaStructuredReportV1(
+                executive_summary="s",
+                no_data_available=True,
+                segments=[_minimal_segment()],
+                recommendations=[],
+            )

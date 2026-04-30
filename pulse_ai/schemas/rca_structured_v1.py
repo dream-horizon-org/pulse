@@ -110,6 +110,8 @@ class RcaStructuredSegmentV1(BaseModel):
 class RcaStructuredReportV1(BaseModel):
     version: int = 1
     executive_summary: str
+    everything_good: bool = False
+    no_data_available: bool = False
     segments: list[RcaStructuredSegmentV1]
     recommendations: list[str]
     error_attribution_insights: list[ErrorAttributionInsightV1] | None = Field(
@@ -147,6 +149,23 @@ class RcaStructuredReportV1(BaseModel):
                     f"error_attribution_insights[{i}].signal must be {exp!r}, got {v[i].signal!r}",
                 )
         return v
+
+    @model_validator(mode="after")
+    def validate_segments_vs_state_flags(self) -> RcaStructuredReportV1:
+        no_findings = self.everything_good or self.no_data_available
+        if no_findings and len(self.segments) > 0:
+            raise ValueError(
+                "segments must be empty when everything_good or no_data_available is true"
+            )
+        if not no_findings and len(self.segments) == 0:
+            raise ValueError(
+                "segments must not be empty when neither everything_good nor no_data_available is true"
+            )
+        if no_findings and len(self.recommendations) > 0:
+            raise ValueError(
+                "recommendations must be empty when everything_good or no_data_available is true"
+            )
+        return self
 
     @model_validator(mode="after")
     def validate_insights_and_drill_together(self) -> RcaStructuredReportV1:
