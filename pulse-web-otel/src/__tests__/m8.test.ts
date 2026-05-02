@@ -121,9 +121,16 @@ describe("TC 8.1 — pagehide registered once on start()", () => {
     const origAdd = window.addEventListener.bind(window);
     const addSpy = vi
       .spyOn(window, "addEventListener")
-      .mockImplementation((ev: string, ...rest) => {
-        adds.push(ev);        origAdd(ev, ...rest);
-      });
+      .mockImplementation(
+        (
+          type: string,
+          listener: EventListenerOrEventListenerObject,
+          options?: boolean | AddEventListenerOptions,
+        ) => {
+          adds.push(type);
+          origAdd(type, listener, options);
+        },
+      );
 
     const { PulseWeb } = await import("../sdk");
     PulseWeb.start(makeConfig());
@@ -255,7 +262,6 @@ describe("TC 8.6 — SSR guard: no pagehide listener when window is undefined", 
       expect(() => PulseWeb.start(makeConfig())).not.toThrow();
       await Promise.resolve();
     } finally {
-      // @ts-expect-error restore
       globalThis.window = origWindow;
     }
   });
