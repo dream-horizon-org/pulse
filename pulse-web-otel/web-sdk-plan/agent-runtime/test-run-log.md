@@ -6,6 +6,8 @@ Append E2E / gate results for Web SDK work (per `pulse-web-sdk-sanity`).
 
 | Date | Command | Browser | Result | Notes |
 |------|---------|---------|--------|-------|
+| 2026-05-03 | Review polish: PLAN-C P2.4 doc fix, error-path Vitest, E1 `session.id`/`screen.name`, P1 `server.port` finite; PLAN-B deferrals + E2E table | — | pass | Vitest 382; M4 8/8. |
+| 2026-05-03 | PLAN-C OTel alignment (`sanitize` credentials, `server.port` 80/443, `network.protocol.version`) | — | pass | Vitest 378; M4 8/8; `yarn lint`. |
 | 2026-05-03 | `pulse.type` parity (`AMENDMENT-pulse-type-parity.md`): `networkPulseType`, `findAllNetworkSpans`; removed `PulseType.HTTP` | — | — | Vitest 373 pass; M4 Playwright 8/8; `graphify update . --no-viz`. |
 | 2026-05-02 | `yarn test:run` (cwd `pulse-web-otel`) | — | pass | Network `network-http.test.ts` + full Vitest suite (v3-network instrumentation close-out). |
 | 2026-05-02 | `yarn playwright test … e2e/m4-network.spec.ts` (cwd `examples/ecommerce-demo`) | Chromium | pass (2/2) | Assert on probe `url.full` — excludes config-fetch `http` spans (404). |

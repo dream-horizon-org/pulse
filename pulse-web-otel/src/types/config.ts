@@ -26,6 +26,11 @@ export interface InstrumentationConfig {
     capturedResponseHeaders?: string[];
     /** Default false — strips query string from {@code url.full}. */
     captureQueryParams?: boolean;
+    /**
+     * Reserved for PLAN-C §P3.5 — emit OTel stable histogram {@code http.client.request.duration}
+     * (seconds). **Not implemented yet**; default ignored until wired in {@code NetworkInstrumentation}.
+     */
+    emitRequestDurationMetric?: boolean;
   };
   /**
    * `captureContext` defaults to true when omitted (Android parity).

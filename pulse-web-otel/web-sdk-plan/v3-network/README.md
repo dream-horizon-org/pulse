@@ -17,7 +17,8 @@
 
 1. [DESIGN.md](./DESIGN.md)
 2. [PLAN-B-network-http-spans.md](./PLAN-B-network-http-spans.md)
-3. [ADR-network.md](./ADR-network.md)
-4. [04-contract-parity.md](./04-contract-parity.md)
+3. [PLAN-C-otel-spec-alignment.md](./PLAN-C-otel-spec-alignment.md) — OTel HTTP semconv gaps / intentional deviations
+4. [ADR-network.md](./ADR-network.md)
+5. [04-contract-parity.md](./04-contract-parity.md)
 
 **Legacy detail:** [../v1/02-instrumentations/network.md](../v1/02-instrumentations/network.md)

@@ -1,6 +1,6 @@
 # PLAN-C — OTel HTTP spec alignment
 
-**Status:** PROPOSED  
+**Status:** P1–P2 **IMPLEMENTED** (2026-05-03); P3 metric **deferred** (`emitRequestDurationMetric` reserved on config only).  
 **Source:** OTel HTTP spans spec + metrics spec reviewed 2026-05-03  
 **Refs:** https://opentelemetry.io/docs/specs/semconv/http/http-spans/  
          https://opentelemetry.io/docs/specs/semconv/http/http-metrics/
@@ -27,13 +27,7 @@ an exception class name for transport failures.
 
 **Pulse Web:** Uses class strings — `"4xx"`, `"5xx"`, `"network_error"`, `"cors_error"`.
 
-**Decision needed:**
-- **Option A — Keep Pulse convention:** `"4xx"` / `"5xx"` is intentional — it's a Pulse product
-  signal, not a raw OTel attribute. Document as deliberate deviation in ADR.
-- **Option B — Dual emit:** Emit both `error.type = "404"` (OTel-spec) and keep class string
-  under a Pulse-specific key.
-- **Recommendation: Option A.** The class grouping is what ClickHouse queries use. Spec
-  deviation is acceptable as long as it is documented. Add one-liner to ADR and parity doc.
+**Decision:** **Option A** — keep Pulse class strings (`4xx` / `5xx` / …). Documented in [`ADR-network.md`](ADR-network.md) and [`04-contract-parity.md`](04-contract-parity.md).
 
 ---
 
@@ -73,30 +67,28 @@ the same `getEntriesByName` lookup.
 **Emit rule:** Set only when present; omit when absent (opt-in timing entry, CORS-blocked
 resources may not expose it).
 
+**E2E:** Do not assert in `m4-network` when using Playwright `page.route` — synthetic responses usually lack a real `PerformanceResourceTiming` with `nextHopProtocol`. Same deferral as PLAN-B (`network.protocol.version` row).
+
 ---
 
 ### 4. `server.port` — always required, not just non-standard
 
 **OTel spec:** `server.port` is **Required**.
 
-**Pulse Web:** Only set for non-standard ports (skips 80, 443, and empty string).
-
-**Fix:** Remove the port-skip guard. Always set `server.port` if parseable from the URL.
-Port 80 for `http:` and 443 for `https:` are valid values the spec expects.
+**Implementation (shipped):** When `URL.port` is empty, Pulse sets **443** for `https:` and **80** for `http:`; otherwise uses the explicit numeric port from the URL. This satisfies the spec without relying on upstream FetchInstrumentation alone.
 
 ```ts
-// current (skips standard ports)
-if (port !== "" && port !== "80" && port !== "443") { ... }
-
-// correct (always set if present in URL)
-// Note: URL.port is "" for default ports — so default-port requests won't have it.
-// OTel base instrumentation may already cover this; verify before changing.
+let serverPort: number | undefined;
+if (parsed.port !== "") {
+  serverPort = Number(parsed.port);
+} else if (parsed.protocol === "https:") {
+  serverPort = 443;
+} else if (parsed.protocol === "http:") {
+  serverPort = 80;
+}
 ```
 
-**Note:** `URL.port` is `""` for default ports (80/http, 443/https). So even after removing
-the guard, default-port URLs produce no port value — this is unavoidable without hardcoding
-the default. The OTel FetchInstrumentation may already emit `server.port` for explicit ports.
-Verify against what the base library already sets before changing `applyPulseHttpClientSpanAttributes`.
+**E2E:** `m4-network` P1 asserts `server.port` is a finite number (exact port follows demo origin). Other rows defer exact-value checks to Vitest.
 
 ---
 
@@ -151,11 +143,11 @@ network?: {
 
 | # | Item | Now or defer | Effort |
 |---|------|-------------|--------|
-| P1.1 | Document `error.type` convention as intentional deviation (ADR + parity doc) | **Now — docs only** | Trivial |
-| P1.2 | Strip `url.username` + `url.password` in `sanitizeHttpUrl` | **Now — 2 lines** | Trivial |
-| P2.3 | `network.protocol.version` from `PerformanceResourceTiming.nextHopProtocol` | **Now** | Small |
-| P2.4 | `server.port` guard removal + verify base OTel lib behavior | **Now — verify first** | Small |
-| P3.5 | `http.client.request.duration` metric + `emitRequestDurationMetric` flag in config | **Defer — own milestone** | Medium |
+| P1.1 | Document `error.type` convention as intentional deviation (ADR + parity doc) | **Done** | Trivial |
+| P1.2 | Strip `url.username` + `url.password` in `sanitizeHttpUrl` | **Done** | Trivial |
+| P2.3 | `network.protocol.version` from `PerformanceResourceTiming.nextHopProtocol` | **Done** | Small |
+| P2.4 | `server.port` for default http/https when `URL.port` empty | **Done** | Small |
+| P3.5 | `http.client.request.duration` metric + `emitRequestDurationMetric` | **Defer** — config key reserved; histogram not wired | Medium |
 
 ---
 
@@ -172,8 +164,9 @@ network?: {
 - `src/__tests__/network-http.test.ts` — mock `performance.getEntriesByName`; assert value set
 
 ### P2.4 (`server.port` always-required)
-- `src/utils/network-http.ts` — verify base OTel library behavior, then remove guard if needed
-- `src/__tests__/network-http.test.ts` — test explicit port URL sets `server.port`
+- `src/utils/network-http.ts` — explicit **443** / **80** fallbacks when `URL.port` is empty
+- `src/__tests__/network-http.test.ts` — https default + explicit `:8080`
+- `examples/ecommerce-demo/e2e/m4-network.spec.ts` — P1 asserts finite `server.port`
 
 ### P3.5 (`http.client.request.duration` metric — deferred)
 - `src/types/config.ts` — add `emitRequestDurationMetric?: boolean` to `network` config

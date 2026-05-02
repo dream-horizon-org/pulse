@@ -20,6 +20,10 @@ Spans follow the **existing trace pipeline**: `BatchSpanProcessor` schedule (`sc
 
 **`PulseFeature.NETWORK_INSTRUMENTATION`** (`network_instrumentation`) applies to SDK **`pulse_web_js`** via remote config `features[]`; absent feature → treat as enabled (`FeatureGate`). Local override: `instrumentations.network.enabled`.
 
+## OTel HTTP spans spec alignment
+
+Stable semconv ([HTTP spans](https://opentelemetry.io/docs/specs/semconv/http/http-spans/)): Pulse Web follows attribute names; intentional deviations (`error.type` class strings) and deferred histogram metric are recorded in [`PLAN-C-otel-spec-alignment.md`](PLAN-C-otel-spec-alignment.md) and [`ADR-network.md`](ADR-network.md).
+
 ## References
 
 - OTel JS browser: `@opentelemetry/instrumentation-fetch`, `@opentelemetry/instrumentation-xml-http-request`.

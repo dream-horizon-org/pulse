@@ -68,6 +68,9 @@ export function sanitizeHttpUrl(
     if (!privacy.captureQueryParams) {
       u.search = "";
     }
+    /** OTel `url.full` MUST NOT contain credentials (user:password@…). */
+    u.username = "";
+    u.password = "";
     return u.toString();
   } catch {
     return rawUrl;
@@ -111,9 +114,9 @@ export function extractGraphQlMeta(body: string): {
   return out;
 }
 
-export function resourceTimingDurationMs(
+function getLastPerformanceResourceTiming(
   resourceUrl: string,
-): number | undefined {
+): PerformanceResourceTiming | undefined {
   if (typeof performance === "undefined" || !performance.getEntriesByName) {
     return undefined;
   }
@@ -121,11 +124,55 @@ export function resourceTimingDurationMs(
   for (let i = entries.length - 1; i >= 0; i--) {
     const e = entries[i];
     if (e instanceof PerformanceResourceTiming) {
-      const ms = Math.round(e.duration);
-      return Number.isFinite(ms) ? ms : undefined;
+      return e;
     }
   }
   return undefined;
+}
+
+export function resourceTimingDurationMs(
+  resourceUrl: string,
+): number | undefined {
+  const e = getLastPerformanceResourceTiming(resourceUrl);
+  if (!e) {
+    return undefined;
+  }
+  const ms = Math.round(e.duration);
+  return Number.isFinite(ms) ? ms : undefined;
+}
+
+/**
+ * Maps {@link PerformanceResourceTiming#nextHopProtocol} to OTel
+ * {@code network.protocol.version} (`1.1`, `2`, `3`).
+ */
+export function networkProtocolVersionFromNextHop(
+  nextHopProtocol: string,
+): string | undefined {
+  const n = nextHopProtocol.trim().toLowerCase();
+  if (n === "http/1.1") {
+    return "1.1";
+  }
+  if (n === "http/1.0") {
+    return "1.0";
+  }
+  if (n === "h2" || n === "http/2" || n === "http2") {
+    return "2";
+  }
+  if (n === "h3" || n === "http/3" || n === "http3") {
+    return "3";
+  }
+  return undefined;
+}
+
+/** Recommended OTel attr — set only when {@link PerformanceResourceTiming} exists. */
+export function resourceTimingProtocolVersion(
+  resourceUrl: string,
+): string | undefined {
+  const e = getLastPerformanceResourceTiming(resourceUrl);
+  if (!e?.nextHopProtocol) {
+    return undefined;
+  }
+  return networkProtocolVersionFromNextHop(e.nextHopProtocol);
 }
 
 function setOptionalString(
@@ -193,12 +240,16 @@ export function applyPulseHttpClientSpanAttributes(params: {
   span.setAttribute(ak.HTTP_REQUEST_METHOD, params.method.toUpperCase());
   span.setAttribute(ak.URL_FULL, sanitized);
   span.setAttribute(ak.SERVER_ADDRESS, parsed.hostname);
-  const port = parsed.port;
-  if (port !== "" && port !== "80" && port !== "443") {
-    const n = Number(port);
-    if (Number.isFinite(n)) {
-      span.setAttribute(ak.SERVER_PORT, n);
-    }
+  let serverPort: number | undefined;
+  if (parsed.port !== "") {
+    serverPort = Number(parsed.port);
+  } else if (parsed.protocol === "https:") {
+    serverPort = 443;
+  } else if (parsed.protocol === "http:") {
+    serverPort = 80;
+  }
+  if (serverPort !== undefined && Number.isFinite(serverPort)) {
+    span.setAttribute(ak.SERVER_PORT, Math.trunc(serverPort));
   }
 
   const host = parsed.hostname;
@@ -208,6 +259,11 @@ export function applyPulseHttpClientSpanAttributes(params: {
   const perfKey = params.perfLookupUrl ?? sanitized;
   const dur = resourceTimingDurationMs(perfKey);
   setOptionalLong(span, ak.HTTP_DURATION_MS, dur);
+  setOptionalString(
+    span,
+    ak.NETWORK_PROTOCOL_VERSION,
+    resourceTimingProtocolVersion(perfKey),
+  );
 
   const status = params.statusCode;
   if (status !== undefined) {

@@ -25,9 +25,11 @@ Only one credible approach: **browser client spans** must reuse OTel’s patched
 
 | Attribute | OTel spec | Pulse | Rationale |
 |-----------|-----------|-------|-----------|
-| `error.type` | Specific code string (`"404"`, `"500"`) | Class string (`"4xx"`, `"5xx"`, `"network_error"`, `"cors_error"`) | ClickHouse error-rate queries use class grouping across Android + Web. |
-| `http.client.request.duration` metric | Stable Required histogram (seconds) | Not emitted; `http.duration` span attr (ms) used instead | Deferred — opt-in via `emitRequestDurationMetric` config flag (PLAN-C §P3.5). |
+| `error.type` | Specific code string (`"404"`, `"500"`) | Class string (`"4xx"`, `"5xx"`, `"network_error"`, `"cors_error"`) | ClickHouse error-rate queries use class grouping across Android + Web. See PLAN-C §P1.1. |
+| `http.client.request.duration` metric | Stable Required histogram (seconds) | Not emitted; `http.duration` span attr (ms) used instead | Deferred — reserved `emitRequestDurationMetric` on `instrumentations.network` (PLAN-C §P3.5). |
+
+**Aligned per PLAN-C:** `url.full` strips credentials; `server.port` emitted for default http/https ports; `network.protocol.version` set when `PerformanceResourceTiming` exposes `nextHopProtocol`.
 
 ## Status
 
-Accepted — implementation matches this ADR and PLAN-B. OTel spec gaps tracked in PLAN-C.
+Accepted — implementation matches this ADR and PLAN-B. PLAN-C (OTel HTTP alignment) P1–P2 implemented; P3 metric deferred.

@@ -79,6 +79,8 @@ export const PulseWebSemconv = {
     HTTP_RESPONSE_BODY_SIZE: "http.response.body.size",
     SERVER_ADDRESS: "server.address",
     SERVER_PORT: "server.port",
+    /** OTel Recommended — populated from Resource Timing `nextHopProtocol` when available. */
+    NETWORK_PROTOCOL_VERSION: "network.protocol.version",
     PEER_SERVICE: "peer.service",
     /** Pulse convenience duplicate of span duration (integer ms). */
     HTTP_DURATION_MS: "http.duration",

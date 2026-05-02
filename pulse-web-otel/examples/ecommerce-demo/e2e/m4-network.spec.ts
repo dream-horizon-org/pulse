@@ -111,6 +111,7 @@ test.describe("@M4 network e2e", () => {
     expect(getAttr(span.attributes, "screen.name")).toBeTruthy();
     expect(getAttr(span.attributes, "http.request.method")).toBe("GET");
     expect(getAttr(span.attributes, "server.address")).toBeTruthy();
+    expectFiniteNumberAttr(span.attributes, "server.port");
 
     const dur = getAttr(span.attributes, "http.duration");
     if (dur !== undefined) {
@@ -241,6 +242,8 @@ test.describe("@M4 network e2e", () => {
     expect(getAttr(span.attributes, "pulse.type")).toBe("network.404");
     expect(getAttr(span.attributes, "http.response.status_code")).toBe(404);
     expect(getAttr(span.attributes, "error.type")).toBe("4xx");
+    expect(getAttr(span.attributes, "session.id")).toBeTruthy();
+    expect(getAttr(span.attributes, "screen.name")).toBeTruthy();
   });
 
   test("E1: 500 fetch sets error.type 5xx", async ({ page, otlp }) => {
@@ -269,6 +272,8 @@ test.describe("@M4 network e2e", () => {
     expect(getAttr(span.attributes, "pulse.type")).toBe("network.500");
     expect(getAttr(span.attributes, "http.response.status_code")).toBe(500);
     expect(getAttr(span.attributes, "error.type")).toBe("5xx");
+    expect(getAttr(span.attributes, "session.id")).toBeTruthy();
+    expect(getAttr(span.attributes, "screen.name")).toBeTruthy();
   });
 
   test("E2: local instrumentations.network.enabled false yields no network client spans", async ({

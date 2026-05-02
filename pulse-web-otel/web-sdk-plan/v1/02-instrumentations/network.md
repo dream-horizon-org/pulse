@@ -20,12 +20,13 @@
 | `pulse.type` | string | `network.<statusCode>` (e.g. `network.200`; unknown → `network.0`) | ✅ |
 | `http.request.method` | string | Request method (`GET`, `POST`, etc.) | ✅ |
 | `http.request.method_original` | string | Original method when `http.request.method = "_OTHER"` | conditional |
-| `url.full` | string | Sanitised request URL | ✅ |
+| `url.full` | string | Sanitised URL — query stripped unless `captureQueryParams`; **credentials stripped** (`user:pass@`) per OTel | ✅ |
 | `http.response.status_code` | long | Response HTTP status | ✅ |
 | `http.request.body.size` | long | `Content-Length` request header (bytes) | optional |
 | `http.response.body.size` | long | `Content-Length` response header (bytes) | optional |
 | `server.address` | string | Hostname extracted from URL | ✅ |
-| `server.port` | long | Port extracted from URL | optional |
+| `server.port` | long | Explicit port or **80** / **443** when scheme default (OTel Required) | ✅ |
+| `network.protocol.version` | string | `1.1` / `2` / `3` from `PerformanceResourceTiming.nextHopProtocol` when present (OTel Recommended) | optional |
 | `peer.service` | string | Configured `peerServiceMap[server.address]` e.g. `"orders-service"` | optional (opt-in config) |
 | `http.duration` | long | Total request duration (ms) — **Pulse custom** (OTel captures duration as span duration; this is a convenience attribute) | ✅ |
 | `graphql.operation.name` | string | Parsed from request body | optional |
