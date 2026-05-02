@@ -9,12 +9,15 @@ import io.reactivex.rxjava3.core.Completable;
 import io.reactivex.rxjava3.core.Flowable;
 import io.reactivex.rxjava3.core.Single;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.dreamhorizon.pulseserver.config.ClickhouseConfig;
 import org.dreamhorizon.pulseserver.dao.clickhouseprojectcredentials.ClickhouseProjectCredentialsDao;
 import org.dreamhorizon.pulseserver.dao.usagelimit.ProjectUsageLimitQueries;
 import org.dreamhorizon.pulseserver.dto.response.GetRawUserEventsResponseDto;
@@ -24,16 +27,20 @@ import org.dreamhorizon.pulseserver.model.QueryConfiguration;
 import org.dreamhorizon.pulseserver.model.QueryResultResponse;
 import org.dreamhorizon.pulseserver.service.IAnalyticalStoreClient;
 import org.dreamhorizon.pulseserver.service.usagelimit.models.UsageStats;
-import java.util.HashMap;
 
 @Slf4j
 @Data
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
 public class ClickhouseQueryService implements IAnalyticalStoreClient<GetRawUserEventsResponseDto> {
+
+  private static final String USE_QUERY_CONDITION_CACHE_SETTINGS =
+      " SETTINGS use_query_condition_cache = 1";
+
   private final ClickhouseReadClient clickhouseReadClient;
   private final ClickhouseWriteClient clickhouseWriteClient;
   private final ClickhouseProjectConnectionPoolManager clickhouseProjectConnectionPoolManager;
   private final ClickhouseProjectCredentialsDao clickhouseProjectCredentialsDao;
+  private final ClickhouseConfig clickhouseConfig;
   private final ObjectMapper objectMapper;
 
 
@@ -67,12 +74,22 @@ public class ClickhouseQueryService implements IAnalyticalStoreClient<GetRawUser
   }
 
   // TODO: Combine this with the executeTenantQuery method
+
   /**
    * Root-cause analysis ClickHouse queries only: runs SQL with named binds ({@code :name}) as required by
    * {@code clickhouse-r2dbc}.
    */
   public Single<GetQueryDataResponseDto<GetRawUserEventsResponseDto>> executeRootCauseQuery(
       String projectId, String sql, List<String> bindNames, List<Object> bindValues) {
+    return executeRootCauseQuery(projectId, sql, bindNames, bindValues, false);
+  }
+
+  public Single<GetQueryDataResponseDto<GetRawUserEventsResponseDto>> executeRootCauseQuery(
+      String projectId,
+      String sql,
+      List<String> bindNames,
+      List<Object> bindValues,
+      boolean useQueryConditionCache) {
     final List<GetRawUserEventsResponseDto.Field> schemaFields = new ArrayList<>();
 
     if (projectId == null) {
@@ -82,6 +99,9 @@ public class ClickhouseQueryService implements IAnalyticalStoreClient<GetRawUser
     log.debug("Executing root-cause query with named binds for project: {}", projectId);
     List<String> names = bindNames == null ? List.of() : bindNames;
     List<Object> values = bindValues == null ? List.of() : bindValues;
+    String sqlToRun =
+        resolveSqlForExecution(
+            sql, useQueryConditionCache);
 
     return clickhouseProjectCredentialsDao
         .getCredentialsByProjectId(projectId)
@@ -93,7 +113,7 @@ public class ClickhouseQueryService implements IAnalyticalStoreClient<GetRawUser
                       projectId,
                       credentials.getClickhouseUsername(),
                       credentials.getClickhousePasswordEncrypted());
-              return executeTenantQueryWithNamedParameters(pool, sql, names, values, schemaFields);
+              return executeTenantQueryWithNamedParameters(pool, sqlToRun, names, values, schemaFields);
             })
         .doOnError(error -> log.error("Error executing root-cause query for project: {}", projectId, error));
   }
@@ -106,7 +126,11 @@ public class ClickhouseQueryService implements IAnalyticalStoreClient<GetRawUser
     return Single.fromPublisher(pool.create())
         .flatMap(
             conn -> Flowable.fromPublisher(
-                    conn.createStatement(queryConfig.getQuery()).execute())
+                    conn.createStatement(
+                            resolveSqlForExecution(
+                                queryConfig.getQuery(),
+                                queryConfig.isUseQueryConditionCache()))
+                        .execute())
                 .flatMap(
                     result -> {
                       return result.map(
@@ -232,24 +256,56 @@ public class ClickhouseQueryService implements IAnalyticalStoreClient<GetRawUser
     }
   }
 
+  /**
+   * Runs SQL with the global ClickHouse user ({@link ClickhouseReadClient} pool). Skips per-project credentials
+   * and row policies — SQL must enforce isolation (e.g. literal {@code ProjectId} in {@code WHERE} / {@code INSERT}).
+   * Used for server-trusted cache tables so project users do not need {@code INSERT} grants on those tables.
+   */
+  public <T> Single<QueryResultResponse<T>> executeGenericQueryWithGlobalPool(
+      QueryConfiguration queryConfig, Class<T> clazz) {
+    log.debug(
+        "Executing generic ClickHouse query with global pool (projectId={})",
+        queryConfig.getProjectId());
+    return executeTenantGenericQuery(clickhouseReadClient.getPool(), queryConfig, clazz);
+  }
+
+  /**
+   * Same as {@link #executeGenericQueryWithGlobalPool} for statements that return the raw row shape (e.g. {@code
+   * INSERT} with no row mapper class).
+   */
+  public Single<GetQueryDataResponseDto<GetRawUserEventsResponseDto>> executeQueryWithGlobalPool(
+      QueryConfiguration queryConfig) {
+    final List<GetRawUserEventsResponseDto.Field> schemaFields = new ArrayList<>();
+    log.debug(
+        "Executing ClickHouse query with global pool (projectId={})",
+        queryConfig.getProjectId());
+    return executeTenantQuery(clickhouseReadClient.getPool(), queryConfig, schemaFields);
+  }
+
   private <T> Single<QueryResultResponse<T>> executeTenantGenericQuery(
       io.r2dbc.pool.ConnectionPool pool, QueryConfiguration queryConfig, Class<T> clazz) {
 
     return Single.fromPublisher(pool.create())
         .flatMap(
             conn ->
-                Flowable.fromPublisher(conn.createStatement(queryConfig.getQuery()).execute())
+                Flowable.fromPublisher(
+                        conn
+                            .createStatement(
+                                resolveSqlForExecution(
+                                    queryConfig.getQuery(),
+                                    queryConfig.isUseQueryConditionCache()))
+                            .execute())
                     .flatMap(
                         result ->
                             result.map(
                                 (row, md) -> {
                                   Map<String, Object> m = new LinkedHashMap<>();
-                                    for (int i = 0; i < md.getColumnMetadatas().size(); i++) {
-                                        Object cell = row.get(i);
-                                        m.put(
-                                                md.getColumnMetadatas().get(i).getName(),
-                                                cell == null ? null : cell.toString());
-                                    }
+                                  for (int i = 0; i < md.getColumnMetadatas().size(); i++) {
+                                    Object cell = row.get(i);
+                                    m.put(
+                                        md.getColumnMetadatas().get(i).getName(),
+                                        cell == null ? null : cell.toString());
+                                  }
                                   return m;
                                 }))
                     .toList()
@@ -293,12 +349,12 @@ public class ClickhouseQueryService implements IAnalyticalStoreClient<GetRawUser
                     connection
                         .createStatement(ProjectUsageLimitQueries.CLICKHOUSE_GET_CURRENT_MONTH_USAGE_BY_PROJECT)
                         .execute())
-                .flatMap(result -> 
+                .flatMap(result ->
                     result.map((row, metadata) -> {
                       String projectId = row.get("project_id", String.class);
                       Long eventsUsed = row.get("events_used", Long.class);
                       Long sessionsUsed = row.get("sessions_used", Long.class);
-                      
+
                       return UsageStats.builder()
                           .projectId(projectId)
                           .eventsUsed(eventsUsed != null ? eventsUsed : 0L)
@@ -316,12 +372,30 @@ public class ClickhouseQueryService implements IAnalyticalStoreClient<GetRawUser
                 })
                 .doFinally(() -> Completable.fromPublisher(connection.close()).subscribe())
         )
-        .doOnSuccess(statsMap -> 
+        .doOnSuccess(statsMap ->
             log.info("✅ Successfully fetched usage stats for {} projects", statsMap.size())
         )
-        .doOnError(error -> 
+        .doOnError(error ->
             log.error("❌ Error fetching usage stats from ClickHouse", error)
         );
+  }
+
+  /**
+   * Appends {@link #USE_QUERY_CONDITION_CACHE_SETTINGS} when requested; avoids double-appending if
+   * the string already contains {@code use_query_condition_cache}.
+   */
+  static String resolveSqlForExecution(String sql, boolean useQueryConditionCache) {
+    if (sql == null) {
+      return null;
+    }
+    String trimmed = sql.replaceAll("\\s*;\\s*$", "");
+    if (!useQueryConditionCache) {
+      return trimmed;
+    }
+    if (trimmed.toLowerCase(Locale.ROOT).contains("use_query_condition_cache")) {
+      return trimmed;
+    }
+    return trimmed + USE_QUERY_CONDITION_CACHE_SETTINGS;
   }
 
   /**

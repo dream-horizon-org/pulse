@@ -338,7 +338,8 @@ class ConfigControllerTest {
         pulseConfig.getInteraction().setCollectorUrl("http://custom-collector.example.com");
         pulseConfig.getInteraction().setConfigUrl(null);
 
-        when(applicationConfig.getInteractionConfigUrl()).thenReturn("http://default-config.example.com");
+        when(applicationConfig.buildInteractionConfigFileUrl("test-project"))
+            .thenReturn("http://default-config.example.com/projects/test-project/interaction.json");
 
         PulseConfig createdConfig = createPulseConfigWithVersion(pulseConfig, 13L);
 
@@ -355,7 +356,7 @@ class ConfigControllerTest {
             // URL should include project path only: base_url/projects/{project_id}/interaction.json
             assertEquals("http://default-config.example.com/projects/test-project/interaction.json",
                 pulseConfig.getInteraction().getConfigUrl());
-            verify(applicationConfig, times(1)).getInteractionConfigUrl();
+            verify(applicationConfig, times(1)).buildInteractionConfigFileUrl("test-project");
           });
           testContext.completeNow();
         });
@@ -373,7 +374,8 @@ class ConfigControllerTest {
         pulseConfig.getInteraction().setCollectorUrl("http://custom-collector.example.com");
         pulseConfig.getInteraction().setConfigUrl("");
 
-        when(applicationConfig.getInteractionConfigUrl()).thenReturn("http://default-config.example.com");
+        when(applicationConfig.buildInteractionConfigFileUrl("test-project"))
+            .thenReturn("http://default-config.example.com/projects/test-project/interaction.json");
 
         PulseConfig createdConfig = createPulseConfigWithVersion(pulseConfig, 14L);
 
@@ -407,7 +409,8 @@ class ConfigControllerTest {
         pulseConfig.getInteraction().setConfigUrl("");
 
         when(applicationConfig.getOtelCollectorUrl()).thenReturn("http://default-collector.example.com");
-        when(applicationConfig.getInteractionConfigUrl()).thenReturn("http://default-config.example.com");
+        when(applicationConfig.buildInteractionConfigFileUrl("test-project"))
+            .thenReturn("http://default-config.example.com/projects/test-project/interaction.json");
 
         PulseConfig createdConfig = createPulseConfigWithVersion(pulseConfig, 15L);
 
@@ -455,7 +458,7 @@ class ConfigControllerTest {
             assertNull(pulseConfig.getInteraction());
             // Verify applicationConfig methods were not called
             verify(applicationConfig, times(0)).getOtelCollectorUrl();
-            verify(applicationConfig, times(0)).getInteractionConfigUrl();
+            verify(applicationConfig, times(0)).buildInteractionConfigFileUrl(anyString());
           });
           testContext.completeNow();
         });

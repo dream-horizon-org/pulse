@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { useGetDataQuery } from "../../../../hooks";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
-import { PulseType } from "../../../../constants/PulseOtelSemcov";
+import { COLUMN_NAME, PulseType } from "../../../../constants/PulseOtelSemcov";
 
 dayjs.extend(utc);
 
@@ -71,7 +71,7 @@ export function useGetScreenActiveUsers({
       value: string[];
     }> = [
       {
-        field: `SpanAttributes['${PulseType.SCREEN_NAME}']`,
+        field: COLUMN_NAME.SCREEN_NAME,
         operator: "IN",
         value: [screenName],
       },
@@ -124,7 +124,7 @@ export function useGetScreenActiveUsers({
       select: [
         {
           function: "CUSTOM" as const,
-          param: { expression: "uniqCombined64(nullIf(UserId, ''))" },
+          param: { expression: `uniq(nullIf(${COLUMN_NAME.INSTALLATION_ID}, ''))` },
           alias: "user_count",
         },
       ],
@@ -148,7 +148,7 @@ export function useGetScreenActiveUsers({
       select: [
         {
           function: "CUSTOM" as const,
-          param: { expression: "uniqCombined64(nullIf(UserId, ''))" },
+          param: { expression: `uniq(nullIf(${COLUMN_NAME.INSTALLATION_ID}, ''))` },
           alias: "user_count",
         },
       ],
@@ -172,7 +172,7 @@ export function useGetScreenActiveUsers({
       select: [
         {
           function: "CUSTOM" as const,
-          param: { expression: "uniqCombined64(nullIf(UserId, ''))" },
+          param: { expression: `uniq(nullIf(${COLUMN_NAME.INSTALLATION_ID}, ''))` },
           alias: "user_count",
         },
       ],
@@ -201,7 +201,7 @@ export function useGetScreenActiveUsers({
         },
         {
           function: "CUSTOM" as const,
-          param: { expression: "uniqCombined64(nullIf(UserId, ''))" },
+          param: { expression: `uniq(nullIf(${COLUMN_NAME.INSTALLATION_ID}, ''))` },
           alias: "user_count",
         },
       ],

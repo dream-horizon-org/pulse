@@ -66,6 +66,11 @@ export const PulseWebSemconv = {
     /** Logical viewport (`window.innerWidth` / `innerHeight`), Android `device.screen.*` parity. */
     DEVICE_SCREEN_WIDTH: "device.screen.width",
     DEVICE_SCREEN_HEIGHT: "device.screen.height",
+    /** Web vital metric name: LCP, INP, CLS, FID, FCP. */
+    WEB_VITAL_NAME: "web_vital.name",
+    WEB_VITAL_VALUE: "web_vital.value",
+    WEB_VITAL_RATING: "web_vital.rating",
+    WEB_VITAL_NAVIGATION_TYPE: "web_vital.navigation_type",
   },
   FixedValue: {
     PLATFORM_WEB: "web",
@@ -88,6 +93,7 @@ export const PulseWebSemconv = {
     INTERACTION: "interaction",
     /** Same value as Android `PulseAttributes.PulseTypeValues.TOUCH` (`app.click`). */
     APP_CLICK: "app.click",
+    WEB_VITAL: "web_vital",
   },
   LogBody: {
     SESSION_START: "session.start",
@@ -97,6 +103,7 @@ export const PulseWebSemconv = {
     USER_SESSION_END: "pulse.user.session.end",
     /** OTLP log body; matches Android log event name `app.widget.click`. */
     APP_WIDGET_CLICK: "app.widget.click",
+    WEB_VITAL: "web_vital",
   },
   /**
    * Init milestones as OTLP **logs** (Android `SdkInitializationEvents` / `RumConstants.Events`).

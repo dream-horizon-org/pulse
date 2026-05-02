@@ -6,7 +6,8 @@ public class UserExperienceCategoriesQuery {
       (\
       SELECT groupUniqArray(SessionId) AS ids
       FROM otel_traces
-      WHERE SpanName = '${span_name}'
+      WHERE ProjectId = '${project_id}'
+      AND SpanName = '${span_name}'
       ) AS session_ids
       SELECT
       SessionId,
@@ -21,6 +22,7 @@ public class UserExperienceCategoriesQuery {
       FROM otel_logs
       WHERE
       has(session_ids, SessionId)
+      AND ProjectId = '${project_id}'
       AND Timestamp >= toDateTime64('${start_time}', 9, 'UTC')
       AND Timestamp <= toDateTime64('${end_time}', 9, 'UTC')
       ${app_version_filter}
