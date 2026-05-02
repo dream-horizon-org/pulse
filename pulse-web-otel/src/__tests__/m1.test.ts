@@ -26,10 +26,7 @@ import {
   computeAspectRatio,
   extractProjectId,
 } from "../resource";
-import {
-  SdkConfigFetcher,
-  resolveConfigUrl,
-} from "../remote-config";
+import { SdkConfigFetcher, resolveConfigUrl } from "../remote-config";
 import { DEFAULT_SDK_CONFIG } from "../constants/default-sdk-config";
 import { FeatureGate } from "../feature-gate";
 import type { PulseWebConfig } from "../config";
@@ -352,12 +349,16 @@ describe("M1 — Resource builder", () => {
 
   it("includes platform=web", () => {
     const resource = buildResource(makeConfig(), "14");
-    expect(resource.attributes[resourceKeys.PLATFORM]).toBe(fixedValues.PLATFORM_WEB);
+    expect(resource.attributes[resourceKeys.PLATFORM]).toBe(
+      fixedValues.PLATFORM_WEB,
+    );
   });
 
   it("includes rum.sdk.name=pulse_web_js", () => {
     const resource = buildResource(makeConfig(), "14");
-    expect(resource.attributes[resourceKeys.RUM_SDK_NAME]).toBe(fixedValues.RUM_SDK_NAME);
+    expect(resource.attributes[resourceKeys.RUM_SDK_NAME]).toBe(
+      fixedValues.RUM_SDK_NAME,
+    );
   });
 
   it("includes service.name from config", () => {
@@ -962,7 +963,9 @@ describe("M1 — Resource Builder (extended)", () => {
 
   it("includes rum.sdk.version as a non-empty string", () => {
     const resource = buildResource(makeConfig(), "14");
-    expect(typeof resource.attributes[resourceKeys.RUM_SDK_VERSION]).toBe("string");
+    expect(typeof resource.attributes[resourceKeys.RUM_SDK_VERSION]).toBe(
+      "string",
+    );
     expect(
       (resource.attributes[resourceKeys.RUM_SDK_VERSION] as string).length,
     ).toBeGreaterThan(0);
@@ -1017,7 +1020,9 @@ describe("M1 — Resource Builder (extended)", () => {
 
   it("screen.aspect_ratio is in W:H format", () => {
     const resource = buildResource(makeConfig(), "14");
-    const ratio = resource.attributes[resourceKeys.SCREEN_ASPECT_RATIO] as string;
+    const ratio = resource.attributes[
+      resourceKeys.SCREEN_ASPECT_RATIO
+    ] as string;
     expect(ratio).toMatch(/^\d+:\d+$/);
   });
 
@@ -1218,7 +1223,11 @@ describe("M1 — GlobalAttributesProcessor", () => {
   it("screen.name heuristic: replaces numeric segment with :id", () => {
     const { processor } = makeProcessor();
     Object.defineProperty(window, "location", {
-      value: { ...window.location, pathname: "/products/12345", href: "http://localhost/products/12345" },
+      value: {
+        ...window.location,
+        pathname: "/products/12345",
+        href: "http://localhost/products/12345",
+      },
       writable: true,
     });
     expect(processor.getCurrentScreenName()).toBe("/products/:id");
@@ -1292,7 +1301,11 @@ describe("M1 — GlobalAttributesProcessor", () => {
   it("screen.name heuristic: single numeric-only path becomes /:id", () => {
     const { processor } = makeProcessor();
     Object.defineProperty(window, "location", {
-      value: { ...window.location, pathname: "/12345", href: "http://localhost/12345" },
+      value: {
+        ...window.location,
+        pathname: "/12345",
+        href: "http://localhost/12345",
+      },
       writable: true,
     });
     expect(processor.getCurrentScreenName()).toBe("/:id");
@@ -1301,7 +1314,11 @@ describe("M1 — GlobalAttributesProcessor", () => {
   it("screen.name heuristic: static-only path is unchanged", () => {
     const { processor } = makeProcessor();
     Object.defineProperty(window, "location", {
-      value: { ...window.location, pathname: "/blog/my-post", href: "http://localhost/blog/my-post" },
+      value: {
+        ...window.location,
+        pathname: "/blog/my-post",
+        href: "http://localhost/blog/my-post",
+      },
       writable: true,
     });
     expect(processor.getCurrentScreenName()).toBe("/blog/my-post");
@@ -1457,7 +1474,8 @@ describe("M1 — SessionInstrumentation events", () => {
     instr.install(makeFakeSdk(sessionProvider));
 
     const starts = captured.filter(
-      (l) => l.attributes[attributeKeys.PULSE_TYPE] === pulseTypes.SESSION_START,
+      (l) =>
+        l.attributes[attributeKeys.PULSE_TYPE] === pulseTypes.SESSION_START,
     );
     expect(starts).toHaveLength(1);
   });
@@ -1470,7 +1488,8 @@ describe("M1 — SessionInstrumentation events", () => {
     instr.install(makeFakeSdk(sessionProvider));
 
     const startLog = captured.find(
-      (l) => l.attributes[attributeKeys.PULSE_TYPE] === pulseTypes.SESSION_START,
+      (l) =>
+        l.attributes[attributeKeys.PULSE_TYPE] === pulseTypes.SESSION_START,
     );
     expect(startLog?.body).toBe(logBodies.SESSION_START);
   });
@@ -1483,7 +1502,8 @@ describe("M1 — SessionInstrumentation events", () => {
     instr.install(makeFakeSdk(sessionProvider));
 
     const startLog = captured.find(
-      (l) => l.attributes[attributeKeys.PULSE_TYPE] === pulseTypes.SESSION_START,
+      (l) =>
+        l.attributes[attributeKeys.PULSE_TYPE] === pulseTypes.SESSION_START,
     );
     expect(startLog?.attributes[attributeKeys.SESSION_ID]).toBeTruthy();
   });
@@ -1497,9 +1517,12 @@ describe("M1 — SessionInstrumentation events", () => {
 
     const activeSessionId = sessionProvider.getSessionId();
     const startLog = captured.find(
-      (l) => l.attributes[attributeKeys.PULSE_TYPE] === pulseTypes.SESSION_START,
+      (l) =>
+        l.attributes[attributeKeys.PULSE_TYPE] === pulseTypes.SESSION_START,
     );
-    expect(startLog?.attributes[attributeKeys.SESSION_ID]).toBe(activeSessionId);
+    expect(startLog?.attributes[attributeKeys.SESSION_ID]).toBe(
+      activeSessionId,
+    );
   });
 
   it("session.start carries session.start_reason = sdk_init on first start", () => {
@@ -1510,9 +1533,12 @@ describe("M1 — SessionInstrumentation events", () => {
     instr.install(makeFakeSdk(sessionProvider));
 
     const startLog = captured.find(
-      (l) => l.attributes[attributeKeys.PULSE_TYPE] === pulseTypes.SESSION_START,
+      (l) =>
+        l.attributes[attributeKeys.PULSE_TYPE] === pulseTypes.SESSION_START,
     );
-    expect(startLog?.attributes[attributeKeys.SESSION_START_REASON]).toBe("sdk_init");
+    expect(startLog?.attributes[attributeKeys.SESSION_START_REASON]).toBe(
+      "sdk_init",
+    );
   });
 
   it("session.start carries empty session.previous_id on first start", () => {
@@ -1523,7 +1549,8 @@ describe("M1 — SessionInstrumentation events", () => {
     instr.install(makeFakeSdk(sessionProvider));
 
     const startLog = captured.find(
-      (l) => l.attributes[attributeKeys.PULSE_TYPE] === pulseTypes.SESSION_START,
+      (l) =>
+        l.attributes[attributeKeys.PULSE_TYPE] === pulseTypes.SESSION_START,
     );
     expect(startLog?.attributes[attributeKeys.SESSION_PREVIOUS_ID]).toBe("");
   });
@@ -1564,7 +1591,9 @@ describe("M1 — SessionInstrumentation events", () => {
     const endLog = captured.find(
       (l) => l.attributes[attributeKeys.PULSE_TYPE] === pulseTypes.SESSION_END,
     );
-    expect(endLog?.attributes[attributeKeys.SESSION_DURATION_MS]).toBeGreaterThanOrEqual(0);
+    expect(
+      endLog?.attributes[attributeKeys.SESSION_DURATION_MS],
+    ).toBeGreaterThanOrEqual(0);
   });
 
   it("session.end carries the correct session.id", () => {
@@ -1613,7 +1642,8 @@ describe("M1 — SessionInstrumentation events", () => {
     instr.install(makeFakeSdk(sessionProvider));
 
     const starts = captured.filter(
-      (l) => l.attributes[attributeKeys.PULSE_TYPE] === pulseTypes.SESSION_START,
+      (l) =>
+        l.attributes[attributeKeys.PULSE_TYPE] === pulseTypes.SESSION_START,
     );
     const ends = captured.filter(
       (l) => l.attributes[attributeKeys.PULSE_TYPE] === pulseTypes.SESSION_END,
@@ -1658,9 +1688,12 @@ describe("M1 — SessionInstrumentation events", () => {
     sessionProvider.getSessionId();
 
     const rotationStart = captured.find(
-      (l) => l.attributes[attributeKeys.PULSE_TYPE] === pulseTypes.SESSION_START,
+      (l) =>
+        l.attributes[attributeKeys.PULSE_TYPE] === pulseTypes.SESSION_START,
     );
-    expect(rotationStart?.attributes[attributeKeys.SESSION_PREVIOUS_ID]).toBe(firstId);
+    expect(rotationStart?.attributes[attributeKeys.SESSION_PREVIOUS_ID]).toBe(
+      firstId,
+    );
   });
 
   it("uninstall() stops emitting events — rotation after uninstall is silent", () => {
@@ -1690,7 +1723,8 @@ describe("M1 — SessionInstrumentation events", () => {
     instr.install(makeFakeSdk(sessionProvider));
 
     const starts = captured.filter(
-      (l) => l.attributes[attributeKeys.PULSE_TYPE] === pulseTypes.SESSION_START,
+      (l) =>
+        l.attributes[attributeKeys.PULSE_TYPE] === pulseTypes.SESSION_START,
     );
     expect(starts).toHaveLength(1);
   });
@@ -2278,7 +2312,9 @@ describe("M1 — SDK public API signals", () => {
       attributes: Record<string, unknown>;
     };
     expect(call.body).toBe("something broke");
-    expect(call.attributes[attributeKeys.PULSE_TYPE]).toBe(pulseTypes.NON_FATAL);
+    expect(call.attributes[attributeKeys.PULSE_TYPE]).toBe(
+      pulseTypes.NON_FATAL,
+    );
     expect(call.attributes[attributeKeys.EXCEPTION_TYPE]).toBe("Error");
     expect(call.attributes[attributeKeys.NON_FATAL_IS_MANUAL]).toBe(true);
   });
@@ -2305,8 +2341,12 @@ describe("M1 — SDK public API signals", () => {
       attributes: Record<string, unknown>;
     };
     expect(call.body).toBe("payment_declined");
-    expect(call.attributes[attributeKeys.PULSE_TYPE]).toBe(pulseTypes.NON_FATAL);
-    expect(call.attributes[attributeKeys.NON_FATAL_TYPE]).toBe("payment_declined");
+    expect(call.attributes[attributeKeys.PULSE_TYPE]).toBe(
+      pulseTypes.NON_FATAL,
+    );
+    expect(call.attributes[attributeKeys.NON_FATAL_TYPE]).toBe(
+      "payment_declined",
+    );
     expect(call.attributes[attributeKeys.NON_FATAL_IS_MANUAL]).toBe(true);
   });
 
@@ -2331,7 +2371,11 @@ describe("M1 — SDK public API signals", () => {
       body: string;
       attributes: Record<string, unknown>;
     };
-    expect(call.attributes[attributeKeys.PULSE_TYPE]).toBe(pulseTypes.CUSTOM_EVENT);
-    expect(call.attributes[attributeKeys.EVENT_NAME]).toBe(fixedValues.EVENT_NAME_CUSTOM_EVENT);
+    expect(call.attributes[attributeKeys.PULSE_TYPE]).toBe(
+      pulseTypes.CUSTOM_EVENT,
+    );
+    expect(call.attributes[attributeKeys.EVENT_NAME]).toBe(
+      fixedValues.EVENT_NAME_CUSTOM_EVENT,
+    );
   });
 });

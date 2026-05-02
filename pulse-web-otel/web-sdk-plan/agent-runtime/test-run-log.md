@@ -7,6 +7,8 @@ Append E2E / gate results for Web SDK work (per `pulse-web-sdk-sanity`).
 | Date | Command | Browser | Result | Notes |
 |------|---------|---------|--------|-------|
 | 2026-04-30 | `yarn test:run src/__tests__/interactions-config-fetcher.test.ts` | — | pass (7/7) | After aligning MySQL seeds + `interaction-config.json` with mock; no E2E rerun (seed/static JSON only). |
+| 2026-05-02 | `yarn test:run` (cwd `pulse-web-otel`) | — | pass (342/342) | Full Vitest suite (web-sdk-guardian / all unit+integration tests). |
+| 2026-05-02 | `yarn workspace ecommerce-demo e2e:web-sdk-gates` | Chromium | pass (130/130) | m1 + m2-interactions + web-vitals. |
 
 ## Web Vitals (v2) — reserved
 

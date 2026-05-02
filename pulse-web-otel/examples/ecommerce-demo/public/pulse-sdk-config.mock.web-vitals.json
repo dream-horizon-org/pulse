@@ -1,5 +1,5 @@
 {
-  "version": 201,
+  "version": 1,
   "description": "Manual Web Vitals (CWV) QA — remote gate web_vitals ON, no log export filters so web_vital OTLP records are not dropped. Use with VITE_PULSE_MOCK_SDK_CONFIG=true and VITE_PULSE_MOCK_SDK_CONFIG_PATH=/pulse-sdk-config.mock.web-vitals.json. Pair static instrumentations via env/query (see MANUAL-WEB-VITALS-DEMO.md): VITE_PULSE_WEB_VITALS_FID/FCP, ?pulse_wv_fid=1, VITE_PULSE_FORMAT=json, shorter VITE_PULSE_BATCH_DELAY_MS.",
   "sampling": {
     "default": { "sessionSampleRate": 1 },
@@ -72,7 +72,7 @@
     },
     {
       "featureName": "interaction",
-      "sessionSampleRate": 1,
+      "sessionSampleRate": 0,
       "sdks": ["pulse_web_js"],
       "config": null
     },
