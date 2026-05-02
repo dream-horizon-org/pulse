@@ -1215,22 +1215,16 @@ describe("M1 — GlobalAttributesProcessor", () => {
     expect(attrs[attributeKeys.SCREEN_NAME]).toBe("checkout");
   });
 
-  it("screen.name heuristic: strips numeric segments from path", () => {
+  it("screen.name heuristic: replaces numeric segment with :id", () => {
     const { processor } = makeProcessor();
-    // Simulate pathname /products/12345
     Object.defineProperty(window, "location", {
-      value: {
-        ...window.location,
-        pathname: "/products/12345",
-        href: "http://localhost/products/12345",
-      },
+      value: { ...window.location, pathname: "/products/12345", href: "http://localhost/products/12345" },
       writable: true,
     });
-
-    expect(processor.getCurrentScreenName()).toBe("/products");
+    expect(processor.getCurrentScreenName()).toBe("/products/:id");
   });
 
-  it("screen.name heuristic: strips UUID segments from path", () => {
+  it("screen.name heuristic: replaces UUID segment with :id, preserves surrounding segments", () => {
     const { processor } = makeProcessor();
     Object.defineProperty(window, "location", {
       value: {
@@ -1240,8 +1234,86 @@ describe("M1 — GlobalAttributesProcessor", () => {
       },
       writable: true,
     });
+    expect(processor.getCurrentScreenName()).toBe("/users/:id/profile");
+  });
 
-    expect(processor.getCurrentScreenName()).toBe("/users/profile");
+  it("screen.name heuristic: replaces UUID without dashes (32 hex) with :id", () => {
+    const { processor } = makeProcessor();
+    Object.defineProperty(window, "location", {
+      value: {
+        ...window.location,
+        pathname: "/sessions/550e8400e29b41d4a716446655440000",
+        href: "http://localhost/sessions/550e8400e29b41d4a716446655440000",
+      },
+      writable: true,
+    });
+    expect(processor.getCurrentScreenName()).toBe("/sessions/:id");
+  });
+
+  it("screen.name heuristic: replaces MongoDB ObjectId (24 hex) with :id", () => {
+    const { processor } = makeProcessor();
+    Object.defineProperty(window, "location", {
+      value: {
+        ...window.location,
+        pathname: "/orders/507f1f77bcf86cd799439011/detail",
+        href: "http://localhost/orders/507f1f77bcf86cd799439011/detail",
+      },
+      writable: true,
+    });
+    expect(processor.getCurrentScreenName()).toBe("/orders/:id/detail");
+  });
+
+  it("screen.name heuristic: replaces ULID (26 Crockford base32) with :id", () => {
+    const { processor } = makeProcessor();
+    Object.defineProperty(window, "location", {
+      value: {
+        ...window.location,
+        pathname: "/events/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+        href: "http://localhost/events/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+      },
+      writable: true,
+    });
+    expect(processor.getCurrentScreenName()).toBe("/events/:id");
+  });
+
+  it("screen.name heuristic: replaces multiple dynamic segments independently", () => {
+    const { processor } = makeProcessor();
+    Object.defineProperty(window, "location", {
+      value: {
+        ...window.location,
+        pathname: "/users/123/posts/456",
+        href: "http://localhost/users/123/posts/456",
+      },
+      writable: true,
+    });
+    expect(processor.getCurrentScreenName()).toBe("/users/:id/posts/:id");
+  });
+
+  it("screen.name heuristic: single numeric-only path becomes /:id", () => {
+    const { processor } = makeProcessor();
+    Object.defineProperty(window, "location", {
+      value: { ...window.location, pathname: "/12345", href: "http://localhost/12345" },
+      writable: true,
+    });
+    expect(processor.getCurrentScreenName()).toBe("/:id");
+  });
+
+  it("screen.name heuristic: static-only path is unchanged", () => {
+    const { processor } = makeProcessor();
+    Object.defineProperty(window, "location", {
+      value: { ...window.location, pathname: "/blog/my-post", href: "http://localhost/blog/my-post" },
+      writable: true,
+    });
+    expect(processor.getCurrentScreenName()).toBe("/blog/my-post");
+  });
+
+  it("screen.name heuristic: root path returns /", () => {
+    const { processor } = makeProcessor();
+    Object.defineProperty(window, "location", {
+      value: { ...window.location, pathname: "/", href: "http://localhost/" },
+      writable: true,
+    });
+    expect(processor.getCurrentScreenName()).toBe("/");
   });
 
   it("screen.name route pattern takes priority over heuristic", () => {
@@ -1256,7 +1328,6 @@ describe("M1 — GlobalAttributesProcessor", () => {
       },
       writable: true,
     });
-
     expect(processor.getCurrentScreenName()).toBe("Products");
   });
 
@@ -1265,23 +1336,7 @@ describe("M1 — GlobalAttributesProcessor", () => {
       routePatterns: [{ pattern: "^/products", name: "Products" }],
     });
     processor.setScreenName("ManualName");
-
     expect(processor.getCurrentScreenName()).toBe("ManualName");
-  });
-
-  it("screen.name falls back to raw pathname when no segments remain after heuristic", () => {
-    const { processor } = makeProcessor();
-    Object.defineProperty(window, "location", {
-      value: {
-        ...window.location,
-        pathname: "/12345",
-        href: "http://localhost/12345",
-      },
-      writable: true,
-    });
-
-    // All segments stripped → falls back to raw pathname
-    expect(processor.getCurrentScreenName()).toBe("/12345");
   });
 
   it("globalAttributes from config are injected on every span", () => {
