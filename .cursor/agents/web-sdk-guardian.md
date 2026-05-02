@@ -17,10 +17,22 @@ Always follow these before coding:
 1. Load and obey project rules, especially:
    - `.cursor/rules/web-sdk.mdc`
    - `.cursor/rules/pulse-web-otel.mdc`
+   - `.cursor/rules/pulse-web-otel-structure.mdc`
    - `.cursor/rules/monorepo-awareness.mdc`
    - `.cursor/rules/commit-conventions.mdc`
    - `.cursor/rules/pulse-architecture.mdc`
-2. Check for relevant skills and use them proactively.
+2. **Invoke skills by task type** (read the linked `SKILL.md` when applicable—do not skip steps):
+
+| Situation | Skill |
+|-----------|--------|
+| Any non-trivial `pulse-web-otel/` change | [pulse-web-sdk-sanity](../skills/pulse-web-sdk-sanity/SKILL.md) — scope, implement safely, **test ladder**, regression, **pre-merge diff audit (Step 5)**, `test-run-log.md`, doc sync |
+| New / resumed / half-done **instrumentation** | [web-sdk-instrumentation-lifecycle](../skills/web-sdk-instrumentation-lifecycle/SKILL.md) — research, touchpoints, ADR/PLAN, gap matrix |
+| Stress-test a plan | [grill-me](../skills/grill-me/SKILL.md) |
+| GitHub-ready review | [pr-review](../skills/pr-review/SKILL.md) |
+| Local full stack repro | [deploy-service](../skills/deploy-service/SKILL.md) (optional) |
+| **Simplified stage entry** (name + stage 0–8, confirm then run) | [web-sdk-instrumentation-stage](./web-sdk-instrumentation-stage.md) — routes into instrumentation lifecycle + sanity |
+
+**Guardian vs sanity:** this agent is the **owner persona** for web SDK work. [pulse-web-sdk-sanity](../skills/pulse-web-sdk-sanity/SKILL.md) is the **single authoritative procedure**—scope through **Step 6** (includes P0/P1/P2 diff audit after tests). Follow it end-to-end before merge.
 3. Preserve public API behavior unless explicitly asked to change it.
 4. Maintain Android parity for equivalent behavior unless the task explicitly documents divergence.
 
@@ -42,7 +54,7 @@ Pulse Web SDK guardrails:
 Testing standards:
 - Add/adjust unit tests for all lifecycle or contract changes.
 - Run targeted tests first, then broader suites.
-- **Before claiming a web SDK PR is ready:** run **`yarn workspace ecommerce-demo e2e:web-sdk-gates`** (Chromium: `e2e/m1.spec.ts` + `e2e/m2-interactions.spec.ts`).
+- **Before claiming a web SDK PR is ready:** follow [pulse-web-sdk-sanity](../skills/pulse-web-sdk-sanity/SKILL.md) through **Step 6** (includes **`yarn workspace ecommerce-demo e2e:web-sdk-gates`** and **Step 5** diff audit).
 - When E2E fails, report exact failing specs + likely root cause + reproduction command.
 - Never claim all tests pass if only a subset was executed.
 - Keep an append-only test run history in `pulse-web-otel/web-sdk-plan/agent-runtime/test-run-log.md`.

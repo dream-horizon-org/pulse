@@ -1,21 +1,23 @@
 # Web Vitals — planning package (v2)
 
-Ordered deliverables for introducing **Core Web Vitals** into Pulse Web SDK and related systems.
+**Active implementation:** **[Plan B — OTLP logs](PLAN-B-logs-events.md)** (not Plan A metrics). Implementation and review should follow Plan B first; [DESIGN.md](./DESIGN.md) and [ADR-web-vitals.md](./ADR-web-vitals.md) are aligned to Plan B.
 
-**Start here for implementation / review:** [**DESIGN.md**](./DESIGN.md) (consolidated architecture, contract, gates, testing, rollout).
+**SPA / `screen.name`:** See [PLAN-B — SPA navigation and screen.name accuracy](PLAN-B-logs-events.md) (hard navigation; attrs at callback time).
+
+**Start here for narrative:** [DESIGN.md](./DESIGN.md)
 
 Then read in sequence for depth:
 
 | # | Document | Description |
 |---|----------|-------------|
-| 0 | [DESIGN.md](./DESIGN.md) | **Single design doc** — scope, architecture, contract, touchpoints summary, tests |
-| 1 | [01-research-otel-ecosystem-and-industry.md](./01-research-otel-ecosystem-and-industry.md) | OTel conventions, signal types, industry capture, Pulse pipeline |
-| 2 | [02-research-otel-js-browser-and-pulse-sdk.md](./02-research-otel-js-browser-and-pulse-sdk.md) | Browser OTel metrics + this repo’s `MeterProvider`, config, registry |
-| 3 | [03-touchpoints-matrix.md](./03-touchpoints-matrix.md) | SDK, backend, ingestion, UI, AI — MVP vs later |
-| 4 | [ADR-web-vitals.md](./ADR-web-vitals.md) | **Architecture decisions** — metrics-first, attributes, lifecycle |
-| 5 | [04-contract-parity.md](./04-contract-parity.md) | Parity with mobile SDKs + **web-only** attributes |
-| 6 | [05-implementation-and-test-plan.md](./05-implementation-and-test-plan.md) | Phased implementation + unit/E2E/edge matrix |
+| 0 | [PLAN-B-logs-events.md](./PLAN-B-logs-events.md) | **Primary spec** — emit path, flush, E2E, SQL |
+| 1 | [DESIGN.md](./DESIGN.md) | Overview (Plan B) |
+| 2 | [ADR-web-vitals.md](./ADR-web-vitals.md) | ADR — logs-first decisions |
+| 3 | [04-contract-parity.md](./04-contract-parity.md) | Mobile vs web + log attrs |
+| 4 | [01-research-otel-ecosystem-and-industry.md](./01-research-otel-ecosystem-and-industry.md) | Ecosystem research |
+| 5 | [02-research-otel-js-browser-and-pulse-sdk.md](./02-research-otel-js-browser-and-pulse-sdk.md) | OTel JS wiring (metrics context; logs path used for Plan B) |
+| 6 | [03-touchpoints-matrix.md](./03-touchpoints-matrix.md) | Repo touchpoints |
+| 7 | [PLAN-A-metrics-histogram.md](./PLAN-A-metrics-histogram.md) | Deferred alternative |
+| 8 | [05-implementation-and-test-plan.md](./05-implementation-and-test-plan.md) | Phased tests (update mentally for Plan B logs where it says metrics) |
 
-**Skills (when executing code):** [`pulse-web-sdk-sanity`](../../../.cursor/skills/pulse-web-sdk-sanity/SKILL.md), [`deploy-service`](../../../.cursor/skills/deploy-service/SKILL.md); optional **web-sdk-guardian** subagent for implementation review.
-
-**Parent meta-plan:** Ordered research → touchpoints → ADR → contract → implementation (*do not skip ADR for coding*).
+**Skills:** [`pulse-web-sdk-sanity`](../../../.cursor/skills/pulse-web-sdk-sanity/SKILL.md), [`deploy-service`](../../../.cursor/skills/deploy-service/SKILL.md).

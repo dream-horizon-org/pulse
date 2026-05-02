@@ -1296,8 +1296,8 @@ test.describe("@M1 screen.name resolution", () => {
     expect(getAttr(log.attributes, "screen.name")).toBe("/products");
   });
 
-  // 2.3 — screen.name strips numeric IDs
-  test("screen.name strips numeric segment: /products/123 → '/products'", async ({
+  // 2.3 — dynamic path segments normalized to :id (route shape; see GlobalAttributesProcessor)
+  test("screen.name normalizes numeric segment: /products/123 → '/products/:id'", async ({
     page,
     otlp,
   }) => {
@@ -1309,7 +1309,7 @@ test.describe("@M1 screen.name resolution", () => {
       ).PulseWeb.trackEvent("numeric_strip_check"),
     );
     const log = await otlp.waitForLogByBody("numeric_strip_check");
-    expect(getAttr(log.attributes, "screen.name")).toBe("/products");
+    expect(getAttr(log.attributes, "screen.name")).toBe("/products/:id");
   });
 
   // 2.16 — screen.name for root path /
@@ -1330,8 +1330,8 @@ test.describe("@M1 screen.name resolution", () => {
     expect(screenName).toBe("/");
   });
 
-  // 2.17 — screen.name strips UUIDs
-  test("screen.name strips UUID segment: /products/<uuid> → '/products'", async ({
+  // 2.17 — UUID path segments normalized to :id
+  test("screen.name normalizes UUID segment: /products/<uuid> → '/products/:id'", async ({
     page,
     otlp,
   }) => {
@@ -1343,7 +1343,7 @@ test.describe("@M1 screen.name resolution", () => {
       ).PulseWeb.trackEvent("uuid_strip_check"),
     );
     const log = await otlp.waitForLogByBody("uuid_strip_check");
-    expect(getAttr(log.attributes, "screen.name")).toBe("/products");
+    expect(getAttr(log.attributes, "screen.name")).toBe("/products/:id");
   });
 });
 

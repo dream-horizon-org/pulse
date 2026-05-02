@@ -18,6 +18,63 @@ import {
 import { PulseDebugPanel } from "./components/PulseDebugPanel";
 import { CartProvider } from "./hooks/useCart";
 
+/**
+ * Manual Web Vitals QA: FID/FCP opt-in and local disable via env or URL (see MANUAL-WEB-VITALS-DEMO.md).
+ * Remote `web_vitals` gate still comes from SDK config (mock JSON / server), not from here.
+ */
+type ManualWebVitalsInstrumentation = {
+  webVitals: {
+    enabled?: boolean;
+    fid?: boolean;
+    fcp?: boolean;
+  };
+};
+
+function readManualWebVitalsInstrumentation(
+  searchParams: URLSearchParams,
+): ManualWebVitalsInstrumentation | undefined {
+  const q = (key: string): string | null => searchParams.get(key);
+  const truthy = (v: string | null): boolean =>
+    v === "1" || v === "true" || v === "yes";
+  const falsy = (v: string | null): boolean => v === "0" || v === "false";
+
+  const fid =
+    truthy(q("pulse_wv_fid")) ||
+    import.meta.env["VITE_PULSE_WEB_VITALS_FID"] === "true";
+  const fcp =
+    truthy(q("pulse_wv_fcp")) ||
+    import.meta.env["VITE_PULSE_WEB_VITALS_FCP"] === "true";
+
+  let enabled: boolean | undefined;
+  let touchedEnabled = false;
+  if (falsy(q("pulse_wv_enabled"))) {
+    enabled = false;
+    touchedEnabled = true;
+  } else if (import.meta.env["VITE_PULSE_WEB_VITALS_ENABLED"] === "false") {
+    enabled = false;
+    touchedEnabled = true;
+  } else if (truthy(q("pulse_wv_enabled"))) {
+    enabled = true;
+    touchedEnabled = true;
+  }
+
+  if (!fid && !fcp && !touchedEnabled) {
+    return undefined;
+  }
+
+  const webVitals: ManualWebVitalsInstrumentation["webVitals"] = {};
+  if (touchedEnabled) {
+    webVitals.enabled = enabled;
+  }
+  if (fid) {
+    webVitals.fid = true;
+  }
+  if (fcp) {
+    webVitals.fcp = true;
+  }
+  return { webVitals };
+}
+
 const Home = lazy(() => import("./routes/Home"));
 const Products = lazy(() => import("./routes/Products"));
 const ProductDetail = lazy(() => import("./routes/ProductDetail"));
@@ -133,6 +190,9 @@ export default function App() {
         ? String(serviceVersionRaw).trim()
         : undefined;
 
+    const manualInstrumentations =
+      readManualWebVitalsInstrumentation(searchParams);
+
     return {
       apiKey:
         import.meta.env["VITE_PULSE_API_KEY"] ?? "default-project_devkey01",
@@ -156,6 +216,9 @@ export default function App() {
       debugLogRecordLifecycle: legacyDebugLifecycle,
       ...(logLevel !== undefined ? { logLevel } : {}),
       ...(diskBuffering !== undefined ? { diskBuffering } : {}),
+      ...(manualInstrumentations !== undefined
+        ? { instrumentations: manualInstrumentations }
+        : {}),
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

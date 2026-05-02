@@ -13,7 +13,13 @@ export interface InstrumentationConfig {
   errors?: { enabled: boolean };
   network?: { enabled: boolean };
   clicks?: { enabled: boolean };
-  webVitals?: { enabled: boolean };
+  webVitals?: {
+    enabled?: boolean;
+    /** First Input Delay — deprecated CWV; default off. */
+    fid?: boolean;
+    /** First Contentful Paint — non-core; default off. */
+    fcp?: boolean;
+  };
   navigation?: { enabled: boolean };
   session?: { enabled: boolean };
   interactions?: { enabled: boolean };
