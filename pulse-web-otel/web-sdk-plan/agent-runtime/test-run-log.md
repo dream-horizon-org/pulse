@@ -2,6 +2,12 @@
 
 Append E2E / gate results for Web SDK work (per `pulse-web-sdk-sanity`).
 
+## DB seed / demo static parity — 2026-04-30
+
+| Date | Command | Browser | Result | Notes |
+|------|---------|---------|--------|-------|
+| 2026-04-30 | `yarn test:run src/__tests__/interactions-config-fetcher.test.ts` | — | pass (7/7) | After aligning MySQL seeds + `interaction-config.json` with mock; no E2E rerun (seed/static JSON only). |
+
 ## Web Vitals (v2) — reserved
 
 | Date | Command | Browser | Result | Notes |
