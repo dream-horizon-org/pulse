@@ -200,47 +200,18 @@ CREATE TABLE interaction (
 );
 
 -- ============================================================================
--- DEV MODE: Sample Interactions for default-project
--- These interactions match the current production data for testing.
+-- default-project interactions: keep in sync with backend/db/dev/mysql/mysql-init.sql
+--   Web flows interaction_id 1..5 = pulse-web-otel/.../interaction-config.mock.json
+--   BasicInteraction + FullShopping after (auto ids 6, 7).
 -- ============================================================================
-INSERT INTO interaction (project_id, name, status, details, is_archived, created_by, updated_by)
+INSERT INTO interaction (interaction_id, project_id, name, status, details, is_archived, created_by, updated_by)
 VALUES
--- BasicInteraction
-('default-project', 'BasicInteraction', 'RUNNING', JSON_OBJECT(
-    'description', 'NewInteraction',
-    'uptimeLowerLimitInMs', 16,
-    'uptimeMidLimitInMs', 50,
-    'uptimeUpperLimitInMs', 100,
-    'thresholdInMs', 20000,
-    'events', JSON_ARRAY(
-        JSON_OBJECT('name', 'Go shopping', 'props', JSON_ARRAY(), 'isBlacklisted', false),
-        JSON_OBJECT('name', 'Telescope selected', 'props', JSON_ARRAY(), 'isBlacklisted', false)
-    ),
-    'globalBlacklistedEvents', JSON_ARRAY()
-), 0, 'system', 'system'),
-
--- FullShopping
-('default-project', 'FullShopping', 'RUNNING', JSON_OBJECT(
-    'description', 'FullShopping',
-    'uptimeLowerLimitInMs', 16,
-    'uptimeMidLimitInMs', 50,
-    'uptimeUpperLimitInMs', 100,
-    'thresholdInMs', 20000,
-    'events', JSON_ARRAY(
-        JSON_OBJECT('name', 'Go shopping', 'props', JSON_ARRAY(), 'isBlacklisted', false),
-        JSON_OBJECT('name', 'Telescope selected', 'props', JSON_ARRAY(), 'isBlacklisted', false),
-        JSON_OBJECT('name', 'Add to cart', 'props', JSON_ARRAY(), 'isBlacklisted', false)
-    ),
-    'globalBlacklistedEvents', JSON_ARRAY()
-), 0, 'system', 'system'),
-
--- WebCheckoutHappyPath (pulse-web-otel ecommerce mock parity)
-('default-project', 'WebCheckoutHappyPath', 'RUNNING', JSON_OBJECT(
+(1, 'default-project', 'Checkout Happy Path', 'RUNNING', JSON_OBJECT(
     'description', 'Checkout Happy Path',
+    'thresholdInMs', 3000,
     'uptimeLowerLimitInMs', 700,
     'uptimeMidLimitInMs', 1400,
     'uptimeUpperLimitInMs', 2500,
-    'thresholdInMs', 3000,
     'events', JSON_ARRAY(
         JSON_OBJECT('name', 'checkout_step_1', 'props', JSON_ARRAY(), 'isBlacklisted', false),
         JSON_OBJECT('name', 'checkout_step_2', 'props', JSON_ARRAY(), 'isBlacklisted', false),
@@ -251,13 +222,12 @@ VALUES
     )
 ), 0, 'system', 'system'),
 
--- WebCartOpenToCheckout (pulse-web-otel ecommerce mock parity)
-('default-project', 'WebCartOpenToCheckout', 'RUNNING', JSON_OBJECT(
+(2, 'default-project', 'Cart Open To Checkout Click', 'RUNNING', JSON_OBJECT(
     'description', 'Cart Open To Checkout Click',
+    'thresholdInMs', 2500,
     'uptimeLowerLimitInMs', 500,
     'uptimeMidLimitInMs', 1000,
     'uptimeUpperLimitInMs', 1800,
-    'thresholdInMs', 2500,
     'events', JSON_ARRAY(
         JSON_OBJECT('name', 'cart_open', 'props', JSON_ARRAY(), 'isBlacklisted', false),
         JSON_OBJECT(
@@ -273,13 +243,12 @@ VALUES
     )
 ), 0, 'system', 'system'),
 
--- WebProductQuickAdd (pulse-web-otel ecommerce mock parity)
-('default-project', 'WebProductQuickAdd', 'RUNNING', JSON_OBJECT(
+(3, 'default-project', 'Product List Quick Add', 'RUNNING', JSON_OBJECT(
     'description', 'Product List Quick Add',
+    'thresholdInMs', 2000,
     'uptimeLowerLimitInMs', 350,
     'uptimeMidLimitInMs', 900,
     'uptimeUpperLimitInMs', 1600,
-    'thresholdInMs', 2000,
     'events', JSON_ARRAY(
         JSON_OBJECT(
             'name', 'product_item_visible',
@@ -301,13 +270,12 @@ VALUES
     )
 ), 0, 'system', 'system'),
 
--- WebProductDetailAddToCart (pulse-web-otel ecommerce mock parity)
-('default-project', 'WebProductDetailAddToCart', 'RUNNING', JSON_OBJECT(
+(4, 'default-project', 'Product Detail Add To Cart', 'RUNNING', JSON_OBJECT(
     'description', 'Product Detail Add To Cart',
+    'thresholdInMs', 3500,
     'uptimeLowerLimitInMs', 800,
     'uptimeMidLimitInMs', 1500,
     'uptimeUpperLimitInMs', 2800,
-    'thresholdInMs', 3500,
     'events', JSON_ARRAY(
         JSON_OBJECT(
             'name', 'product_detail_open',
@@ -329,13 +297,12 @@ VALUES
     )
 ), 0, 'system', 'system'),
 
--- WebRemoveItemThenCheckout (pulse-web-otel ecommerce mock parity)
-('default-project', 'WebRemoveItemThenCheckout', 'RUNNING', JSON_OBJECT(
+(5, 'default-project', 'Cart Remove Item Then Checkout', 'RUNNING', JSON_OBJECT(
     'description', 'Cart Remove Item Then Checkout',
+    'thresholdInMs', 2600,
     'uptimeLowerLimitInMs', 600,
     'uptimeMidLimitInMs', 1200,
     'uptimeUpperLimitInMs', 2100,
-    'thresholdInMs', 2600,
     'events', JSON_ARRAY(
         JSON_OBJECT('name', 'cart_remove_item', 'props', JSON_ARRAY(), 'isBlacklisted', false),
         JSON_OBJECT(
@@ -349,6 +316,35 @@ VALUES
     'globalBlacklistedEvents', JSON_ARRAY(
         JSON_OBJECT('name', 'device.crash', 'props', JSON_ARRAY(), 'isBlacklisted', true)
     )
+), 0, 'system', 'system');
+
+INSERT INTO interaction (project_id, name, status, details, is_archived, created_by, updated_by)
+VALUES
+('default-project', 'BasicInteraction', 'RUNNING', JSON_OBJECT(
+    'description', 'NewInteraction',
+    'uptimeLowerLimitInMs', 16,
+    'uptimeMidLimitInMs', 50,
+    'uptimeUpperLimitInMs', 100,
+    'thresholdInMs', 20000,
+    'events', JSON_ARRAY(
+        JSON_OBJECT('name', 'Go shopping', 'props', JSON_ARRAY(), 'isBlacklisted', false),
+        JSON_OBJECT('name', 'Telescope selected', 'props', JSON_ARRAY(), 'isBlacklisted', false)
+    ),
+    'globalBlacklistedEvents', JSON_ARRAY()
+), 0, 'system', 'system'),
+
+('default-project', 'FullShopping', 'RUNNING', JSON_OBJECT(
+    'description', 'FullShopping',
+    'uptimeLowerLimitInMs', 16,
+    'uptimeMidLimitInMs', 50,
+    'uptimeUpperLimitInMs', 100,
+    'thresholdInMs', 20000,
+    'events', JSON_ARRAY(
+        JSON_OBJECT('name', 'Go shopping', 'props', JSON_ARRAY(), 'isBlacklisted', false),
+        JSON_OBJECT('name', 'Telescope selected', 'props', JSON_ARRAY(), 'isBlacklisted', false),
+        JSON_OBJECT('name', 'Add to cart', 'props', JSON_ARRAY(), 'isBlacklisted', false)
+    ),
+    'globalBlacklistedEvents', JSON_ARRAY()
 ), 0, 'system', 'system')
 ON DUPLICATE KEY UPDATE name = name;
 
