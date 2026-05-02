@@ -9,13 +9,15 @@
 
 ## Signals Produced
 
-### `pulse.type: http` — one span per HTTP request
+### `pulse.type: network.<statusCode>` — one span per HTTP request
 
 > **OTel alignment:** All attribute names follow the [stable OTel HTTP semconv](https://opentelemetry.io/docs/specs/semconv/http/http-spans/) (`http.request.method`, `url.full`, `http.response.status_code`, `server.address`). Deprecated names (`http.method`, `http.url`, `http.status_code`, `net.peer.name`) are NOT used.
 
+> **`pulse.type` matches Android:** values like `network.200`, `network.404`; missing or failed response status → `network.0`. Implemented as `networkPulseType()` in `src/utils/network-http.ts`.
+
 | Attribute | Type | Source | Required |
 |---|---|---|---|
-| `pulse.type` | string | `"http"` | ✅ |
+| `pulse.type` | string | `network.<statusCode>` (e.g. `network.200`; unknown → `network.0`) | ✅ |
 | `http.request.method` | string | Request method (`GET`, `POST`, etc.) | ✅ |
 | `http.request.method_original` | string | Original method when `http.request.method = "_OTHER"` | conditional |
 | `url.full` | string | Sanitised request URL | ✅ |
@@ -38,6 +40,7 @@
 | Aspect | Android (`OkHttpInstrumentation.kt`) | Web |
 |---|---|---|
 | Base instrumentation | OTel `OkHttp3Instrumenter` via `OkHttp3Singletons` | OTel `FetchInstrumentation` + `XMLHttpRequestInstrumentation` ✅ |
+| `pulse.type` | `network.<statusCode>` (Android span processor) | Same — `networkPulseType(status)` ✅ |
 | Attribute contract | Stable OTel HTTP semconv (`http.request.method`, `url.full`, etc.) | Same stable semconv ✅ |
 | `capturedRequestHeaders` | Configurable allowlist → `http.request.header.<name>` | Same ✅ |
 | `capturedResponseHeaders` | Configurable allowlist → `http.response.header.<name>` | Same ✅ |
@@ -61,6 +64,7 @@ Uses the official OTEL `FetchInstrumentation` and `XMLHttpRequestInstrumentation
 // src/instrumentations/network.ts
 import { FetchInstrumentation } from '@opentelemetry/instrumentation-fetch';
 import { XMLHttpRequestInstrumentation } from '@opentelemetry/instrumentation-xml-http-request';
+import { networkPulseType } from '../utils/network-http';
 
 export function createNetworkInstrumentation(config: NetworkConfig) {
   const ignored = [
@@ -73,7 +77,7 @@ export function createNetworkInstrumentation(config: NetworkConfig) {
       ignoreUrls: ignored,
       propagateTraceHeaderCorsUrls: config.allowedUrls ?? [],
       applyCustomAttributesOnSpan: (span, request, response) => {
-        span.setAttribute('pulse.type', 'http');
+        span.setAttribute('pulse.type', networkPulseType(response.status));
         span.setAttribute('http.duration', getSpanDuration(span));
 
         // peer.service mapping (opt-in, mirrors Android setPeerServiceMapping())
@@ -111,7 +115,7 @@ export function createNetworkInstrumentation(config: NetworkConfig) {
     new XMLHttpRequestInstrumentation({
       ignoreUrls: ignored,
       applyCustomAttributesOnSpan: (span, xhr) => {
-        span.setAttribute('pulse.type', 'http');
+        span.setAttribute('pulse.type', networkPulseType(xhr.status));
       },
     }),
   ];
@@ -246,7 +250,7 @@ it('sanitizes query params from URL', () => {
 test('fetch request produces http span', async ({ page }) => {
   await page.goto('/test-page');
   await page.evaluate(() => fetch('https://api.example.com/data'));
-  const span = await waitForSpan(receiver, 'http');
+  const span = await waitForSpan(receiver, 'network.200');
   expect(span['http.request.method']).toBe('GET');
   expect(span['url.full']).toBe('https://api.example.com/data');
   expect(span['http.response.status_code']).toBe(200);
@@ -264,8 +268,8 @@ test('OTLP calls are not traced', async ({ page }) => {
 
 ## Done Criteria
 
-- [x] Every `fetch()` call produces an `http` span with `http.request.method`, `url.full`, `http.response.status_code`, `server.address`
-- [x] XHR calls also produce `http` spans
+- [x] Every `fetch()` call produces a span with `pulse.type = network.<code>` and `http.request.method`, `url.full`, `http.response.status_code`, `server.address`
+- [x] XHR calls also produce `network.<code>` spans
 - [x] Pulse's own OTLP endpoints excluded from tracing
 - [x] GraphQL `operation.name` and `operation.type` extracted from POST body
 - [x] Query params stripped from URL by default
@@ -292,7 +296,7 @@ test('OTLP calls are not traced', async ({ page }) => {
 3. Open CH / OTLP capture
 
 **Expected:**
-- Span with `pulse.type = "http"` present
+- Span with `pulse.type = "network.200"` (or matching stubbed status) present
 - `http.request.method = "GET"` (or correct method)
 - `url.full` = sanitized URL (no query params)
 - `server.address` = hostname of target
@@ -322,7 +326,7 @@ test('OTLP calls are not traced', async ({ page }) => {
 **Steps:**
 1. Load app (SDK initializes and starts sending OTLP data to localhost:4318)
 2. Wait 2s for exports to happen
-3. Query spans with `pulse.type = "http"` in CH or OTLP fixture
+3. Query spans with `pulse.type LIKE 'network.%'` (or exact `network.<code>`) in CH or OTLP fixture
 
 **Expected:** Zero spans with `url.full` containing `4318` or the configured OTLP endpoint
 
@@ -501,7 +505,7 @@ test('OTLP calls are not traced', async ({ page }) => {
    ```
 2. Check span
 
-**Expected:** Span with `pulse.type = "http"` present
+**Expected:** Span with `pulse.type = "network.200"` present
 
 **Status:** ✅ Pass — E2E TC15
 
@@ -557,7 +561,7 @@ Note: may be absent if PerformanceResourceTiming not available for CORS requests
           SpanAttributes['url.full'], SpanAttributes['http.response.status_code'],
           SpanAttributes['error.type'], SpanAttributes['graphql.operation.name']
    FROM otel_traces
-   WHERE SpanAttributes['pulse.type'] = 'http'
+   WHERE SpanAttributes['pulse.type'] LIKE 'network.%'
    ORDER BY Timestamp DESC LIMIT 10
    ```
 
@@ -594,7 +598,7 @@ Note: OTel `FetchInstrumentation` v0.53.0 uses stable semconv. Deprecated keys a
 | Status code | `http.response.status_code` | `http.status_code` | `http.response.status_code` |
 | Hostname | `server.address` | `net.peer.name` | `server.address` |
 | Port | `server.port` | `net.peer.port` | `server.port` |
-| Pulse signal type | `pulse.type = "http"` | — | `pulse.type = "http"` |
+| Pulse signal type | `pulse.type = network.<statusCode>` | — | `pulse.type = network.<statusCode>` |
 | Duration (Pulse custom) | `http.duration` | — | span duration |
 | Req body size | `http.request.body.size` | — | `http.request.body.size` |
 | Res body size | `http.response.body.size` | — | `http.response.body.size` |

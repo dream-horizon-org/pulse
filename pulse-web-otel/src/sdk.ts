@@ -69,7 +69,7 @@ class PulseWebSDK implements SdkContext {
   config!: PulseWebConfig;
   globalAttrsProcessor!: PulseGlobalAttributesProcessor;
 
-  private tracerProvider?: WebTracerProvider;
+  private _webTracerProvider?: WebTracerProvider;
   private _loggerProvider?: LoggerProvider;
   private meterProvider?: MeterProvider;
   private _prepareForDocumentUnload?: () => void;
@@ -83,6 +83,11 @@ class PulseWebSDK implements SdkContext {
   /** Exposed on {@link SdkContext} for instrumentations that must flush logs (Web Vitals). */
   get loggerProvider(): LoggerProvider | undefined {
     return this._loggerProvider;
+  }
+
+  /** Exposed on {@link SdkContext} for Fetch/XHR auto-instrumentation (`NetworkInstrumentation`). */
+  get tracerProvider(): WebTracerProvider | undefined {
+    return this._webTracerProvider;
   }
 
   static getInstance(): PulseWebSDK {
@@ -285,7 +290,7 @@ class PulseWebSDK implements SdkContext {
   }
 
   private assignProviders(bundle: ProviderBundle): void {
-    this.tracerProvider = bundle.tracerProvider;
+    this._webTracerProvider = bundle.tracerProvider;
     this._loggerProvider = bundle.loggerProvider;
     this.meterProvider = bundle.meterProvider;
     this._prepareForDocumentUnload = bundle.prepareForDocumentUnload;
@@ -299,7 +304,7 @@ class PulseWebSDK implements SdkContext {
         this._prepareForDocumentUnload?.();
         void Promise.all([
           this._loggerProvider?.forceFlush(),
-          this.tracerProvider?.forceFlush(),
+          this._webTracerProvider?.forceFlush(),
           this.meterProvider?.forceFlush(),
         ]).catch(() => {});
       }
@@ -308,7 +313,7 @@ class PulseWebSDK implements SdkContext {
   }
 
   private bindGlobalProviders(): void {
-    const tracerProvider = this.tracerProvider;
+    const tracerProvider = this._webTracerProvider;
     const loggerProvider = this._loggerProvider;
     const meterProvider = this.meterProvider;
     if (!tracerProvider || !loggerProvider || !meterProvider) return;
@@ -368,7 +373,7 @@ class PulseWebSDK implements SdkContext {
     this.sessionProvider?.shutdown();
 
     await Promise.all([
-      this.tracerProvider?.forceFlush(),
+      this._webTracerProvider?.forceFlush(),
       this._loggerProvider?.forceFlush(),
       this.meterProvider?.forceFlush(),
     ]);

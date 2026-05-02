@@ -71,6 +71,20 @@ export const PulseWebSemconv = {
     WEB_VITAL_VALUE: "web_vital.value",
     WEB_VITAL_RATING: "web_vital.rating",
     WEB_VITAL_NAVIGATION_TYPE: "web_vital.navigation_type",
+    /** Stable OTel HTTP semconv keys for CLIENT spans; {@code pulse.type} values are {@code network.<statusCode>} (Android parity). */
+    HTTP_REQUEST_METHOD: "http.request.method",
+    URL_FULL: "url.full",
+    HTTP_RESPONSE_STATUS_CODE: "http.response.status_code",
+    HTTP_REQUEST_BODY_SIZE: "http.request.body.size",
+    HTTP_RESPONSE_BODY_SIZE: "http.response.body.size",
+    SERVER_ADDRESS: "server.address",
+    SERVER_PORT: "server.port",
+    PEER_SERVICE: "peer.service",
+    /** Pulse convenience duplicate of span duration (integer ms). */
+    HTTP_DURATION_MS: "http.duration",
+    GRAPHQL_OPERATION_NAME: "graphql.operation.name",
+    GRAPHQL_OPERATION_TYPE: "graphql.operation.type",
+    ERROR_TYPE: "error.type",
   },
   FixedValue: {
     PLATFORM_WEB: "web",

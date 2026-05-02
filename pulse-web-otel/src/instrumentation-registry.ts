@@ -7,6 +7,7 @@ import type { FeatureGate } from "./feature-gate";
 import { SessionInstrumentation } from "./instrumentations/session";
 import { ClicksInstrumentation } from "./instrumentations/clicks";
 import { WebVitalsInstrumentation } from "./instrumentations/web-vitals";
+import { NetworkInstrumentation } from "./instrumentations/network";
 import { InstrumentationKeys } from "./config";
 import { PulseFeature } from "./remote-config";
 import type { PulseFeatureName } from "./remote-config";
@@ -80,8 +81,10 @@ export class InstrumentationRegistry {
       new WebVitalsInstrumentation(),
       InstrumentationKeys.WEB_VITALS,
     );
-
-    // M3+: ErrorsInstrumentation, NetworkInstrumentation, NavigationInstrumentation, etc.
+    this.registerAndInstall(
+      new NetworkInstrumentation(),
+      InstrumentationKeys.NETWORK,
+    );
   }
 
   uninstallAll(): void {

@@ -138,6 +138,29 @@ export function findAllSpans(
   return out;
 }
 
+/**
+ * HTTP client spans: {@code pulse.type} is {@code network.<statusCode>} (Android parity).
+ * Prefix-matches {@code network.} but excludes {@code network.change}.
+ */
+export function findAllNetworkSpans(captured: CapturedRequest[]): OtlpSpan[] {
+  const out: OtlpSpan[] = [];
+  for (const c of captured) {
+    if (c.type !== "traces") continue;
+    for (const rs of c.body.resourceSpans ?? []) {
+      for (const ss of rs.scopeSpans ?? []) {
+        for (const sp of ss.spans ?? []) {
+          const pt = getAttr(sp.attributes, "pulse.type");
+          const s = typeof pt === "string" ? pt : "";
+          if (s.startsWith("network.") && s !== "network.change") {
+            out.push(sp);
+          }
+        }
+      }
+    }
+  }
+  return out;
+}
+
 /** Find all spans matching a span name (for trackEvent / custom spans that have no pulse.type). */
 export function findAllSpansByName(
   captured: CapturedRequest[],

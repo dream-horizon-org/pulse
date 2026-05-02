@@ -11,7 +11,7 @@
     "e2e": "playwright test --config e2e/playwright.config.ts",
     "e2e:m1": "playwright test --config e2e/playwright.config.ts e2e/m1.spec.ts --project=chromium",
     "e2e:m2-interactions": "playwright test --config e2e/playwright.config.ts e2e/m2-interactions.spec.ts --project=chromium",
-    "e2e:web-sdk-gates": "playwright test --config e2e/playwright.config.ts e2e/m1.spec.ts e2e/m2-interactions.spec.ts e2e/web-vitals.spec.ts e2e/m3-clicks.spec.ts --project=chromium",
+    "e2e:web-sdk-gates": "playwright test --config e2e/playwright.config.ts e2e/m1.spec.ts e2e/m2-interactions.spec.ts e2e/web-vitals.spec.ts e2e/m3-clicks.spec.ts e2e/m4-network.spec.ts --project=chromium",
     "e2e:headed": "playwright test --config e2e/playwright.config.ts --headed",
     "e2e:report": "playwright test --config e2e/playwright.config.ts; playwright show-report e2e-report",
     "e2e:ch": "playwright test --config e2e/playwright.ch.config.ts",

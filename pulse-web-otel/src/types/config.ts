@@ -9,9 +9,24 @@ export enum PulseDataCollectionConsent {
   PENDING = "PENDING",
 }
 
+/** OTel browser trace header propagation allowlist — same shape as {@code propagateTraceHeaderCorsUrls}. */
+export type PulseNetworkPropagateCorsUrls =
+  | string
+  | RegExp
+  | Array<string | RegExp>;
+
 export interface InstrumentationConfig {
   errors?: { enabled: boolean };
-  network?: { enabled: boolean };
+  network?: {
+    enabled?: boolean;
+    peerServiceMap?: Record<string, string>;
+    blockedUrls?: Array<string | RegExp>;
+    propagateTraceHeaderCorsUrls?: PulseNetworkPropagateCorsUrls;
+    capturedRequestHeaders?: string[];
+    capturedResponseHeaders?: string[];
+    /** Default false — strips query string from {@code url.full}. */
+    captureQueryParams?: boolean;
+  };
   /**
    * `captureContext` defaults to true when omitted (Android parity).
    * `rage` defaults on (Android `ClickEventBuffer`); set `rage.enabled: false` for immediate per-click emit.

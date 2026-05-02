@@ -192,6 +192,19 @@ export default function App() {
 
     const manualInstrumentations =
       readManualWebVitalsInstrumentation(searchParams);
+    /** E2E: `?pulse_network_enabled=0` disables network instrumentation while remote gate may stay on. */
+    const pulseNetworkDisabled =
+      searchParams.get("pulse_network_enabled") === "0" ||
+      searchParams.get("pulse_network_enabled") === "false";
+    const instrumentationsPartial =
+      manualInstrumentations !== undefined || pulseNetworkDisabled
+        ? {
+            ...(manualInstrumentations ?? {}),
+            ...(pulseNetworkDisabled
+              ? { network: { enabled: false as const } }
+              : {}),
+          }
+        : undefined;
 
     return {
       apiKey:
@@ -216,8 +229,8 @@ export default function App() {
       debugLogRecordLifecycle: legacyDebugLifecycle,
       ...(logLevel !== undefined ? { logLevel } : {}),
       ...(diskBuffering !== undefined ? { diskBuffering } : {}),
-      ...(manualInstrumentations !== undefined
-        ? { instrumentations: manualInstrumentations }
+      ...(instrumentationsPartial !== undefined
+        ? { instrumentations: instrumentationsPartial }
         : {}),
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
