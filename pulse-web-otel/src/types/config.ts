@@ -12,8 +12,20 @@ export enum PulseDataCollectionConsent {
 export interface InstrumentationConfig {
   errors?: { enabled: boolean };
   network?: { enabled: boolean };
-  /** `captureContext` defaults to true when omitted (Android parity). */
-  clicks?: { enabled: boolean; captureContext?: boolean };
+  /**
+   * `captureContext` defaults to true when omitted (Android parity).
+   * `rage` defaults on (Android `ClickEventBuffer`); set `rage.enabled: false` for immediate per-click emit.
+   */
+  clicks?: {
+    enabled: boolean;
+    captureContext?: boolean;
+    rage?: {
+      enabled?: boolean;
+      timeWindowMs?: number;
+      threshold?: number;
+      radiusDp?: number;
+    };
+  };
   webVitals?: {
     enabled?: boolean;
     /** First Input Delay — deprecated CWV; default off. */

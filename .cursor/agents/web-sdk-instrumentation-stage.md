@@ -50,11 +50,11 @@ If parameters are missing, ask only for **instrumentation** + **stage** + **scop
 | **0** | Entry — gap assessment | Fill [reference.md](../skills/web-sdk-instrumentation-lifecycle/reference.md) matrix A–E; branch diff; MISSING/PARTIAL list. |
 | **1** | Phase 0 — Research | `01` + `02` research docs path under `web-sdk-plan/`. |
 | **2** | Phase 1 — Touchpoints | `03-touchpoints-matrix.md`. |
-| **3** | Phase 2 — Plan A / alternative | Rejected approach doc + rationale. |
+| **3** | Phase 2 — Plan A / alternative | **`PLAN-A-*.md` only if** a real rejected fork exists; else ADR one-liner “why no Plan A.” |
 | **4** | Phase 3 — Grill + ADR + canonical PLAN | [grill-me](../skills/grill-me/SKILL.md) or explicit defer per mandatory gates in lifecycle skill. |
 | **5** | Phase 4 — Design synthesis | `DESIGN.md`, `04-contract-parity.md`, plan `README.md`. |
 | **6** | Phase 5 — Implementation | Code + registry + backend if gated; follow lifecycle Phase 5 bullets. |
-| **7** | Phase 6 — Testing | [pulse-web-sdk-sanity](../skills/pulse-web-sdk-sanity/SKILL.md) Step 3 ladder + `test-run-log.md`; lifecycle Phase 6 (D2 / D2b, gate-off recipe). |
+| **7** | Phase 6 — Testing | [web-sdk-instrumentation-e2e-from-design](../skills/web-sdk-instrumentation-e2e-from-design/SKILL.md) → E2E checklist from `DESIGN.md`; then [pulse-web-sdk-sanity](../skills/pulse-web-sdk-sanity/SKILL.md) Step 3 ladder + `test-run-log.md`; lifecycle Phase 6 (D2 / D2b, gate-off recipe). |
 | **8** | Phase 7–8 — Revalidate + debug | Lifecycle Phase 7 checklist; Phase 8 playbook if failures; [pulse-web-sdk-sanity](../skills/pulse-web-sdk-sanity/SKILL.md) Steps **4–6** if not already done. |
 
 **Default if `stage` omitted:** treat as **0** (gap assessment only) until user confirms a higher stage.
@@ -68,7 +68,7 @@ If parameters are missing, ask only for **instrumentation** + **stage** + **scop
    - [.cursor/skills/web-sdk-instrumentation-lifecycle/reference.md](../skills/web-sdk-instrumentation-lifecycle/reference.md) when stage ≤ 0 or any testing/E2E work.
 2. **Rules:** `.cursor/rules/pulse-web-otel.mdc`, `pulse-web-otel-structure.mdc`, `web-sdk.mdc` (as in lifecycle skill).
 3. **Run** every stage row from **N** through **8** if `scope: from-stage`; only row **N** if `scope: single-stage`. **Before Stage 6:** apply lifecycle Phase 5 approval gate (recap + explicit user go-ahead); never start implementation files without it.
-4. For stage **≥ 6**, always align with [pulse-web-sdk-sanity](../skills/pulse-web-sdk-sanity/SKILL.md) (implement + tests + log).
+4. For stage **≥ 6**, always align with [pulse-web-sdk-sanity](../skills/pulse-web-sdk-sanity/SKILL.md) (implement + tests + log). For stage **≥ 7** (testing), run [web-sdk-instrumentation-e2e-from-design](../skills/web-sdk-instrumentation-e2e-from-design/SKILL.md) before finalizing Playwright coverage when instrumentation E2E changed or added.
 5. For large or ambiguous implementation, suggest handoff to [web-sdk-guardian](./web-sdk-guardian.md) with a copy-paste prompt listing instrumentation, stage, and gap summary.
 
 ---

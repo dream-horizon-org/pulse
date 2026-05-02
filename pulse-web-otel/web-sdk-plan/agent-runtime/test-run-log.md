@@ -11,6 +11,11 @@ Append E2E / gate results for Web SDK work (per `pulse-web-sdk-sanity`).
 | 2026-05-02 | `yarn workspace ecommerce-demo e2e:web-sdk-gates` | Chromium | pass (130/130) | m1 + m2-interactions + web-vitals. |
 | 2026-04-30 | `yarn test:run` (cwd `pulse-web-otel`) | — | pass (357/357) | After merge `chore/web-vital-instrumentation` → `feat/web-sdk-clicks`; registry resolves clicks + web vitals. |
 | 2026-04-30 | `yarn workspace ecommerce-demo e2e:web-sdk-gates` | Chromium | pass (132/132) | m1 + m2-interactions + web-vitals + m3-clicks (combined gate script). |
+| 2026-04-30 | `yarn test:run` (cwd `pulse-web-otel`) | — | pass (360/360) | v2-clicks: `ClickEventBuffer` + wired `clicks.ts`, `click-rage-buffer.test.ts`, m8 pagehide budget (no extra `pagehide` on clicks). |
+| 2026-04-30 | `yarn workspace ecommerce-demo e2e:web-sdk-gates` | Chromium | pass (134/134) | After v2-clicks buffer + m3 rage + click gate-off (m1+m2+m3+web-vitals). |
+| 2026-04-30 | `yarn workspace ecommerce-demo e2e:web-sdk-gates` | Chromium | pass (134/134) | M3 D2 close-out: tests 1–2 assert `session.id`, `screen.name`, finite numeric coords (skill assertion floor). |
+| 2026-04-30 | `yarn playwright test … e2e/m3-clicks.spec.ts` (cwd `examples/ecommerce-demo`) | Chromium | pass (4/4) | M3: rage path asserts body + `click.type` good + widget + finite coords; good-click uses `otlp.reset()` after `session.start`. |
+| 2026-04-30 | `yarn workspace ecommerce-demo run e2e:web-sdk-gates` (cwd `pulse-web-otel`) | Chromium | pass (134/134) | Same M3 changes — full gate. |
 
 ## Web Vitals (v2) — reserved
 

@@ -9,7 +9,7 @@ Copy into chat or a scratch doc; set each row to **DONE** | **PARTIAL** | **MISS
 | A1 | `01-research-*-ecosystem*.md` | `pulse-web-otel/web-sdk-plan/**/` | Create or **update** if industry/spec assumptions changed. |
 | A2 | `02-research-*-pulse-sdk*.md` | same | Create or **update** if `SdkContext`, exporters, or wiring changed. |
 | A3 | `03-touchpoints-matrix.md` | same | Must list every file you intend to touch; add rows if branch added files not on matrix. |
-| A4 | Rejected / deferred alternative | `PLAN-A-*.md` or ADR section | **MISSING** only OK for tiny extensions if ADR states “no alternative evaluated” with one-line rationale. |
+| A4 | Rejected / deferred alternative | **`PLAN-A-*.md` only when** you document a **real rejected fork**; otherwise **ADR section** (“Why no Plan A”) for tiny extensions / single obvious approach. **MISSING** only OK if ADR states “no alternative evaluated” with one-line rationale (see lifecycle Principle 3 / Phase 2). |
 | A5 | ADR | `ADR-*.md` | Must match implemented signal type and flush story. |
 | A6 | Canonical implementation spec | `PLAN-B-*.md` or named plan | Unit matrix + E2E outline; mark deferred items explicitly. |
 | A7 | `DESIGN.md` | plan folder | Router doc; must link active PLAN + ADR. |

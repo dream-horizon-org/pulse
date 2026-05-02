@@ -22,7 +22,21 @@ const pulseTypes = PulseWebSemconv.PulseType;
 const logBodies = PulseWebSemconv.LogBody;
 const clickKind = PulseWebSemconv.ClickTypeValue;
 
+/** Default: rage buffer off so assertions stay synchronous (buffer needs flush). */
 function makeSdk(overrides?: Partial<SdkContext["config"]>): SdkContext {
+  const config = {
+    apiKey: "proj_abc_secret",
+    dataCollectionState: PulseDataCollectionConsent.ALLOWED,
+    ...overrides,
+    instrumentations: {
+      ...overrides?.instrumentations,
+      clicks: {
+        enabled: true,
+        rage: { enabled: false },
+        ...overrides?.instrumentations?.clicks,
+      },
+    },
+  };
   return {
     endpointBaseUrl: "https://collector.example.com",
     gate: new FeatureGate(DEFAULT_SDK_CONFIG),
@@ -32,11 +46,7 @@ function makeSdk(overrides?: Partial<SdkContext["config"]>): SdkContext {
     } as unknown as SdkContext["sessionProvider"],
     logger: {} as never,
     tracer: {} as never,
-    config: {
-      apiKey: "proj_abc_secret",
-      dataCollectionState: PulseDataCollectionConsent.ALLOWED,
-      ...overrides,
-    },
+    config,
     globalAttrsProcessor: {} as never,
   };
 }
