@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Lint ClickHouse DDL under backend/ingestion/: fail if CREATE TABLE otel.* declares
-a physical project-scoping column that is not exactly ProjectId (PascalCase).
+Lint ClickHouse DDL under backend/db/**/clickhouse/: fail if CREATE TABLE otel.*
+declares a physical project-scoping column that is not exactly ProjectId (PascalCase).
 Row policies use ProjectId on otel.*.
 
 Catches common variants (project_id, projectId, PROJECT_ID, projectid, proj_id, …)
@@ -18,6 +18,7 @@ import sys
 from pathlib import Path
 
 # Tables allowed to use legacy project key column names (e.g. project_id).
+# Matches logical name and physical shard/suffix tables (e.g. project_monthly_usage_local).
 PROJECT_KEY_COLUMN_LEGACY_TABLES = frozenset({"project_monthly_usage"})
 
 # Canonical project column name for new otel tables (matches row policies).
@@ -27,7 +28,7 @@ CANONICAL_PROJECT_COLUMN = "ProjectId"
 _FORBIDDEN_PROJECT_KEY_NORMALIZED = frozenset({"projectid", "projid"})
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
-_INGESTION_GLOB = "backend/ingestion/**/*.sql"
+_SQL_GLOB = "backend/db/**/clickhouse/**/*.sql"
 
 # CREATE TABLE otel.something — capture table name (word chars + underscore).
 _CREATE_OTEL_TABLE_RE = re.compile(
@@ -54,15 +55,16 @@ def _is_noncanonical_project_key_column(name: str) -> bool:
     return key in _FORBIDDEN_PROJECT_KEY_NORMALIZED
 
 
+def _allows_legacy_project_key_column_table(table: str) -> bool:
+    t = table.strip("`\"")
+    for base in PROJECT_KEY_COLUMN_LEGACY_TABLES:
+        if t == base or t.startswith(f"{base}_"):
+            return True
+    return False
+
+
 def _repo_root() -> Path:
     return Path(os.environ.get("GITHUB_WORKSPACE", _REPO_ROOT)).resolve()
-
-
-def _should_scan_sql_file(path: Path) -> bool:
-    name = path.name.lower()
-    if name == "athena-otel-tables.sql":
-        return False
-    return "clickhouse" in name or name == "session-summary-mv.sql"
 
 
 def _strip_line_comments(text: str) -> str:
@@ -149,7 +151,7 @@ def _violations_in_statement(stmt: str, filepath: Path) -> list[tuple[str, str]]
     if not m:
         return []
     table = m.group(1).strip("`\"")
-    if table in PROJECT_KEY_COLUMN_LEGACY_TABLES:
+    if _allows_legacy_project_key_column_table(table):
         return []
 
     header_end = _table_header_end_pos(stmt, m.end())
@@ -199,14 +201,14 @@ def lint_file(path: Path) -> list[tuple[str, str, str]]:
 
 def main() -> int:
     root = _repo_root()
-    ingestion = root / "backend" / "ingestion"
-    if not ingestion.is_dir():
-        print(f"error: ingestion directory not found: {ingestion}", file=sys.stderr)
+    db_root = root / "backend" / "db"
+    if not db_root.is_dir():
+        print(f"error: backend/db directory not found: {db_root}", file=sys.stderr)
         return 2
 
     all_issues: list[tuple[str, str, str]] = []
-    for path in sorted(root.glob(_INGESTION_GLOB)):
-        if not path.is_file() or not _should_scan_sql_file(path):
+    for path in sorted(root.glob(_SQL_GLOB)):
+        if not path.is_file():
             continue
         all_issues.extend(lint_file(path))
 

@@ -8,6 +8,8 @@ import {
 import { makeRequest } from "../../helpers/makeRequest";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
+import { COLUMN_NAME } from "../../constants/PulseOtelSemcov";
+
 
 dayjs.extend(utc);
 
@@ -46,35 +48,28 @@ const fetchSessionTraces = async (sessionId: string, timeRange: { start: string;
       {
         function: "CUSTOM",
         param: {
-          expression: "SpanAttributes['graphql.operation.name']",
+          expression: COLUMN_NAME.GRAPHQL_OPERATION_NAME,
         },
         alias: "graphqlOperationName",
       },
       {
         function: "CUSTOM",
         param: {
-          expression: "SpanAttributes['graphql.operation.method']",
-        },
-        alias: "graphqlOperationMethod",
-      },
-      {
-        function: "CUSTOM",
-        param: {
-          expression: "SpanAttributes['graphql.operation.type']",
+          expression: COLUMN_NAME.GRAPHQL_OPERATION_TYPE,
         },
         alias: "graphqlOperationType",
       },
       {
         function: "CUSTOM",
         param: {
-          expression: "SpanAttributes['http.url']",
+          expression: COLUMN_NAME.HTTP_URL,
         },
         alias: "httpUrl",
       },
       {
         function: "CUSTOM",
         param: {
-          expression: "SpanAttributes['screen.name']",
+          expression: COLUMN_NAME.SCREEN_NAME,
         },
         alias: "screenNameAttr",
       },

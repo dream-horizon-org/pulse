@@ -86,6 +86,46 @@ describe('assertPulsePluginProps', () => {
     ).toThrow(/instrumentation/);
   });
 
+  it('rejects numeric top-level logLevel', () => {
+    expect(() =>
+      assertPulsePluginProps({
+        apiKey: 'k',
+        dataCollectionState: 'PENDING',
+        logLevel: 2,
+      } as unknown as PulsePluginProps)
+    ).toThrow(/logLevel/);
+  });
+
+  it('accepts optional top-level logLevel string', () => {
+    expect(() =>
+      assertPulsePluginProps({
+        apiKey: 'k',
+        dataCollectionState: 'PENDING',
+        logLevel: 'WARN',
+      })
+    ).not.toThrow();
+  });
+
+  it('accepts logLevel as enum name string (case-insensitive)', () => {
+    expect(() =>
+      assertPulsePluginProps({
+        apiKey: 'k',
+        dataCollectionState: 'PENDING',
+        logLevel: 'verbose',
+      } as unknown as PulsePluginProps)
+    ).not.toThrow();
+  });
+
+  it('rejects invalid logLevel string', () => {
+    expect(() =>
+      assertPulsePluginProps({
+        apiKey: 'k',
+        dataCollectionState: 'PENDING',
+        logLevel: 'SILLY',
+      } as unknown as PulsePluginProps)
+    ).toThrow(/logLevel/);
+  });
+
   it('rejects non-object android', () => {
     expect(() =>
       assertPulsePluginProps({
@@ -94,6 +134,50 @@ describe('assertPulsePluginProps', () => {
         android: 'bad',
       })
     ).toThrow(/android/);
+  });
+
+  it('rejects non-object android.okHttpInstrumentation', () => {
+    expect(() =>
+      assertPulsePluginProps({
+        apiKey: 'k',
+        dataCollectionState: 'PENDING',
+        android: { okHttpInstrumentation: true as unknown as object },
+      } as unknown as PulsePluginProps)
+    ).toThrow(/okHttpInstrumentation/);
+  });
+
+  it('rejects invalid android.okHttpInstrumentation object fields', () => {
+    expect(() =>
+      assertPulsePluginProps({
+        apiKey: 'k',
+        dataCollectionState: 'PENDING',
+        android: { okHttpInstrumentation: { enabled: 'yes' } },
+      } as unknown as PulsePluginProps)
+    ).toThrow(/okHttpInstrumentation\.enabled/);
+  });
+
+  it('rejects non-string android.okHttpInstrumentation.byteBuddyGradlePluginVersion', () => {
+    expect(() =>
+      assertPulsePluginProps({
+        apiKey: 'k',
+        dataCollectionState: 'PENDING',
+        android: {
+          okHttpInstrumentation: { byteBuddyGradlePluginVersion: 1 },
+        },
+      } as unknown as PulsePluginProps)
+    ).toThrow(/byteBuddyGradlePluginVersion/);
+  });
+
+  it('rejects non-boolean android.okHttpInstrumentation.ensureJetifierIgnoresByteBuddy', () => {
+    expect(() =>
+      assertPulsePluginProps({
+        apiKey: 'k',
+        dataCollectionState: 'PENDING',
+        android: {
+          okHttpInstrumentation: { ensureJetifierIgnoresByteBuddy: 'yes' },
+        },
+      } as unknown as PulsePluginProps)
+    ).toThrow(/ensureJetifierIgnoresByteBuddy/);
   });
 });
 
@@ -121,6 +205,11 @@ describe('resolveAndroidProps / resolveIosProps', () => {
       enabled: false,
       version: '2.1.4',
     });
+    expect(a.okHttpInstrumentation).toEqual({
+      enabled: false,
+      byteBuddyGradlePluginVersion: '1.17.8',
+      ensureJetifierIgnoresByteBuddy: false,
+    });
 
     const i = resolveIosProps(props);
     expect(i.apiKey).toBe('key');
@@ -129,6 +218,31 @@ describe('resolveAndroidProps / resolveIosProps', () => {
     expect(i.instrumentation).toEqual({
       screenLifecycle: { enabled: true },
     });
+  });
+
+  it('merges logLevel from top-level and per-platform overrides', () => {
+    const props: PulsePluginProps = {
+      apiKey: 'key',
+      dataCollectionState: 'PENDING',
+      logLevel: 'DEBUG',
+      android: { logLevel: 'ERROR' },
+      ios: {},
+    };
+    expect(resolveAndroidProps(props).logLevel).toBe(4);
+    expect(resolveIosProps(props).logLevel).toBe(1);
+  });
+
+  it('normalizes string logLevel in merged props', () => {
+    const props = {
+      apiKey: 'key',
+      dataCollectionState: 'PENDING',
+      logLevel: 'WARN',
+      android: { logLevel: 'ERROR' },
+      ios: {},
+    } as unknown as PulsePluginProps;
+    assertPulsePluginProps(props);
+    expect(resolveAndroidProps(props).logLevel).toBe(4);
+    expect(resolveIosProps(props).logLevel).toBe(3);
   });
 
   it('throws when merge leaves android without apiKey', () => {
@@ -168,6 +282,87 @@ describe('resolveAndroidProps / resolveIosProps', () => {
     expect(resolveAndroidProps(props).coreLibraryDesugaring).toEqual({
       enabled: true,
       version: '2.1.4',
+    });
+  });
+});
+
+describe('resolveAndroidProps okHttpInstrumentation', () => {
+  const base: PulsePluginProps = {
+    apiKey: 'key',
+    dataCollectionState: 'PENDING',
+  };
+
+  it('defaults okHttp when android has no okHttp block', () => {
+    expect(resolveAndroidProps(base).okHttpInstrumentation).toEqual({
+      enabled: false,
+      byteBuddyGradlePluginVersion: '1.17.8',
+      ensureJetifierIgnoresByteBuddy: false,
+    });
+  });
+
+  it('enables when okHttpInstrumentation.enabled is true', () => {
+    expect(
+      resolveAndroidProps({
+        ...base,
+        android: { okHttpInstrumentation: { enabled: true } },
+      }).okHttpInstrumentation
+    ).toEqual({
+      enabled: true,
+      byteBuddyGradlePluginVersion: '1.17.8',
+      ensureJetifierIgnoresByteBuddy: true,
+    });
+  });
+
+  it('uses explicit byteBuddyGradlePluginVersion', () => {
+    expect(
+      resolveAndroidProps({
+        ...base,
+        android: {
+          okHttpInstrumentation: {
+            enabled: true,
+            byteBuddyGradlePluginVersion: ' 1.17.0 ',
+          },
+        },
+      }).okHttpInstrumentation
+    ).toEqual({
+      enabled: true,
+      byteBuddyGradlePluginVersion: '1.17.0',
+      ensureJetifierIgnoresByteBuddy: true,
+    });
+  });
+
+  it('enabled false leaves Gradle flag off but still resolves version strings', () => {
+    expect(
+      resolveAndroidProps({
+        ...base,
+        android: {
+          okHttpInstrumentation: {
+            enabled: false,
+          },
+        },
+      }).okHttpInstrumentation
+    ).toEqual({
+      enabled: false,
+      byteBuddyGradlePluginVersion: '1.17.8',
+      ensureJetifierIgnoresByteBuddy: false,
+    });
+  });
+
+  it('allows disabling jetifier ignore merge when OkHttp instrumentation is on', () => {
+    expect(
+      resolveAndroidProps({
+        ...base,
+        android: {
+          okHttpInstrumentation: {
+            enabled: true,
+            ensureJetifierIgnoresByteBuddy: false,
+          },
+        },
+      }).okHttpInstrumentation
+    ).toEqual({
+      enabled: true,
+      byteBuddyGradlePluginVersion: '1.17.8',
+      ensureJetifierIgnoresByteBuddy: false,
     });
   });
 });

@@ -53,6 +53,7 @@ public class SessionEvidenceServiceImpl implements SessionEvidenceService {
               log.info("Executing session evidence query...");
               QueryConfiguration config = QueryConfiguration.newQuery(sqlQuery)
                   .projectId(projectId)
+                  .useQueryConditionCache(true)
                   .build();
               return clickhouseQueryService.executeQueryOrCreateJob(config);
             })

@@ -1,0 +1,159 @@
+# exporter queue near capacity
+- alert: OtelCollectorQueueHigh
+  expr: otelcol_exporter_queue_size / otelcol_exporter_queue_capacity > 0.8
+  for: 5m
+  labels:
+    severity: warning
+  annotations:
+    summary: "OTel exporter queue above 80% for {{ $labels.exporter }} ({{ $labels.data_type }})"
+    description: "Queue at {{ $value | humanizePercentage }}. If it hits 100%, new data is dropped."
+
+# Generic per-signal export failures (covers logs, spans, metrics)
+- alert: OtelCollectorExportFailing
+  expr: |
+    sum by (exporter, instance) (
+      rate(otelcol_exporter_send_failed_log_records_total[5m])
+      + rate(otelcol_exporter_send_failed_spans_total[5m])
+      + rate(otelcol_exporter_send_failed_metric_points_total[5m])
+    ) > 0
+  for: 2m
+  labels:
+    severity: critical
+  annotations:
+    summary: "OTel exporter {{ $labels.exporter }} is dropping data"
+    description: "Items per second failing: {{ $value | humanize }}"
+
+### Availability & process health
+- alert: OtelCollectorDown
+  expr: up{job="otel-collector-producer"} == 0
+  for: 2m
+  labels:
+    severity: critical
+  annotations:
+    summary: "OTel collector {{ $labels.instance }} is unreachable"
+
+- alert: OtelCollectorRestarted
+  expr: otelcol_process_uptime_seconds_total < 300
+  for: 1m
+  labels:
+    severity: info
+  annotations:
+    summary: "OTel collector {{ $labels.instance }} restarted (uptime {{ $value | humanizeDuration }})"
+
+- alert: OtelCollectorMemoryHigh
+  expr: otelcol_process_memory_rss_bytes > 1.5e9    # 1.5 GiB — adjust to your container limit
+  for: 10m
+  labels:
+    severity: warning
+  annotations:
+    summary: "OTel collector RSS at {{ $value | humanize1024 }}B"
+    description: "Memory may be approaching limit. Current state: {{ $value | humanize1024 }}B."
+
+- alert: OtelCollectorCPUHigh
+  expr: rate(otelcol_process_cpu_seconds_total[5m]) > 1.5    # 1.5 cores — adjust
+  for: 10m
+  labels:
+    severity: warning
+  annotations:
+    summary: "OTel collector CPU at {{ $value | humanize }} cores"
+
+
+### Receiver-side problems
+- alert: OtelReceiverRefusingData
+  expr: |
+    sum by (receiver, instance) (
+      rate(otelcol_receiver_refused_spans_total[5m])
+      + rate(otelcol_receiver_refused_log_records_total[5m])
+      + rate(otelcol_receiver_refused_metric_points_total[5m])
+    ) > 0
+  for: 5m
+  labels:
+    severity: critical
+  annotations:
+    summary: "Receiver {{ $labels.receiver }} refusing data — pipeline backpressure"
+    description: "Refused {{ $value | humanize }} items/s. Usually means downstream queue is full."
+
+- alert: OtelReceiverFailing
+  expr: |
+    sum by (receiver, instance) (
+      rate(otelcol_receiver_failed_spans_total[5m])
+      + rate(otelcol_receiver_failed_log_records_total[5m])
+      + rate(otelcol_receiver_failed_metric_points_total[5m])
+    ) > 0
+  for: 5m
+  labels:
+    severity: warning
+  annotations:
+    summary: "Receiver {{ $labels.receiver }} encountering errors"
+
+- alert: OtelNoTracesFlowing
+  expr: |
+    rate(otelcol_receiver_accepted_spans_total[10m]) == 0
+    and on(instance) otelcol_process_uptime_seconds_total > 600
+  for: 10m
+  labels:
+    severity: warning
+  annotations:
+    summary: "No spans received in 10m on {{ $labels.instance }}"
+    description: "Either upstream is silent, or the receiver is broken."
+
+- alert: OtelNoLogsFlowing
+  expr: |
+    rate(otelcol_receiver_accepted_log_records_total[10m]) == 0
+    and on(instance) otelcol_process_uptime_seconds_total > 600
+  for: 10m
+  labels:
+    severity: warning
+  annotations:
+    summary: "No logs received in 10m on {{ $labels.instance }}"
+
+### Kafka exporter health
+- alert: OtelKafkaWriteLatencyHigh
+  expr: |
+    histogram_quantile(0.99,
+      sum by (le, node_id, instance) (rate(otelcol_kafka_exporter_write_latency_seconds_bucket[5m]))
+    ) > 1
+  for: 5m
+  labels:
+    severity: warning
+  annotations:
+    summary: "Kafka p99 write latency to broker {{ $labels.node_id }} is {{ $value | humanizeDuration }}"
+    description: "Sustained high latency causes queue buildup and eventually drops."
+
+- alert: OtelKafkaBrokerFlapping
+  expr: rate(otelcol_kafka_broker_closed_total[5m]) > 0.1    # >6 disconnects/min
+  for: 5m
+  labels:
+    severity: warning
+  annotations:
+    summary: "Kafka broker {{ $labels.node_id }} connection flapping ({{ $value | humanize }}/s closes)"
+    description: "Connections to broker are repeatedly closing. Check broker health and network."
+
+
+### Pipeline integrity
+- alert: OtelProcessorDropping
+  expr: |
+    (
+      sum by (processor, otel_signal, instance) (rate(otelcol_processor_incoming_items_total[5m]))
+      -
+      sum by (processor, otel_signal, instance) (rate(otelcol_processor_outgoing_items_total[5m]))
+    ) > 1
+  for: 5m
+  labels:
+    severity: warning
+  annotations:
+    summary: "Processor {{ $labels.processor }} dropping {{ $labels.otel_signal }} items"
+    description: "Incoming - outgoing = {{ $value | humanize }} items/s being lost."
+
+- alert: OtelBatchTimeoutTriggerDominant
+  expr: |
+    rate(otelcol_processor_batch_timeout_trigger_send_total[10m])
+    /
+    (rate(otelcol_processor_batch_timeout_trigger_send_total[10m])
+     + rate(otelcol_processor_batch_size_trigger_send_total[10m])) > 0.5
+  for: 30m
+  labels:
+    severity: info
+  annotations:
+    summary: "Batch processor flushing on timeout > 50% of the time"
+    description: "Throughput is too low to fill batches. Either traffic dropped or batch size is too large."

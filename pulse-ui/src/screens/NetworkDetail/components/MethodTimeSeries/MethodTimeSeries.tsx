@@ -14,6 +14,7 @@ import { ErrorAndEmptyState } from "../../../../components/ErrorAndEmptyState";
 import { getTimeBucketSize } from "../../../../utils/TimeBucketUtil";
 import { MethodTimeSeriesProps } from "./MethodTimeSeries.interface";
 import classes from "./MethodTimeSeries.module.css";
+import { COLUMN_NAME, PulseType } from "../../../../constants/PulseOtelSemcov";
 
 dayjs.extend(utc);
 
@@ -52,7 +53,7 @@ export const MethodTimeSeries: React.FC<MethodTimeSeriesProps> = ({
     ? "Request types over time"
     : "Request methods over time";
   const dimensionExpression = isGraphqlMode
-    ? "SpanAttributes['graphql.operation.type']"
+    ? COLUMN_NAME.GRAPHQL_OPERATION_TYPE
     : "SpanAttributes['http.method']";
   const dimensionAlias = isGraphqlMode ? "operation_type" : "http_method";
 
@@ -93,10 +94,10 @@ export const MethodTimeSeries: React.FC<MethodTimeSeriesProps> = ({
         {
           field: "PulseType",
           operator: "LIKE" as const,
-          value: ["%network%"],
+          value: [PulseType.NETWORK_LIKE],
         },
         {
-          field: "SpanAttributes['http.url']",
+          field: COLUMN_NAME.HTTP_URL,
           operator: "EQ" as const,
           value: [url],
         },

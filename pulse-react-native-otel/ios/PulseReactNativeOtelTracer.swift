@@ -4,18 +4,18 @@ import OpenTelemetryApi
 
 @objc(PulseReactNativeOtelTracer)
 public class PulseReactNativeOtelTracer: NSObject {
-    
-    private static var _tracer: Tracer?
-    private static let tracerInitQueue = DispatchQueue(label: "com.pulse.tracer.init")
-    private static var tracer: Tracer {
-        return tracerInitQueue.sync {
-            if _tracer == nil {
-                _tracer = PulseSDK.getOtelOrThrow()
-                    .tracerProvider
-                    .get(instrumentationName: PulseOtelConstants.INSTRUMENTATION_SCOPE, instrumentationVersion: "0.0.1")
-            }
-            return _tracer!
+
+    private static func getTracer() -> Tracer {
+        if let otel = Pulse.shared.getOtelOrNull() {
+            return otel.tracerProvider.get(
+                instrumentationName: PulseOtelConstants.INSTRUMENTATION_SCOPE,
+                instrumentationVersion: PulseOtelConstants.INSTRUMENTATION_VERSION
+            )
         }
+        return DefaultTracerProvider.instance.get(
+            instrumentationName: PulseOtelConstants.INSTRUMENTATION_SCOPE,
+            instrumentationVersion: PulseOtelConstants.INSTRUMENTATION_VERSION
+        )
     }
     
     private static let spanStore = NSMutableDictionary()
@@ -23,7 +23,7 @@ public class PulseReactNativeOtelTracer: NSObject {
     
     @objc(startSpan:inheritContext:attributes:)
     public static func startSpan(name: String, inheritContext: Bool, attributes: NSDictionary?) -> String {
-        let builder = tracer.spanBuilder(spanName: name)
+        let builder = getTracer().spanBuilder(spanName: name)
             .setSpanKind(spanKind: SpanKind.internal)
 
         if let attributes = attributes {
@@ -39,7 +39,7 @@ public class PulseReactNativeOtelTracer: NSObject {
         if inheritContext {
             builder.setActive(true)
         }
-        
+
         let span = builder.startSpan()
         
         let spanId = UUID().uuidString

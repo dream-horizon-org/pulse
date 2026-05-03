@@ -79,10 +79,16 @@ public final class LocationProvider: NSObject {
 
         #if os(iOS) || os(watchOS) || os(tvOS)
         guard status == .authorizedWhenInUse || status == .authorizedAlways else {
+            if status == .denied || status == .restricted {
+                PulseLogger.info("sdk.location.permission_denied status=\(status.rawValue)")
+            }
             return
         }
         #elseif os(macOS)
         guard status == .authorizedAlways else {
+            if status == .denied || status == .restricted {
+                PulseLogger.info("sdk.location.permission_denied status=\(status.rawValue)")
+            }
             return
         }
         #endif
@@ -174,7 +180,8 @@ extension LocationProvider: CLLocationManagerDelegate {
         _ manager: CLLocationManager,
         didFailWithError error: Error
     ) {
-        // Silently handle location errors
+        let errClass = PulseErrorClassification.classify(error)
+        PulseLogger.warn("sdk.location.provider_error error_class=\(errClass)")
     }
 
     public func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {

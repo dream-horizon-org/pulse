@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
@@ -103,7 +104,9 @@ class ApplicationConfigTest {
             "secret-key"),
         "replayBaseUrl",
         null,
-        null
+        null,
+        "localhost",
+        6379
     );
     assertNotNull(config);
     assertEquals("dev", config.getAppEnvironment());
@@ -134,6 +137,46 @@ class ApplicationConfigTest {
 
     assertEquals(a.hashCode(), b.hashCode());
     assertNotEquals(0, a.hashCode());
+  }
+
+  @Test
+  void buildInteractionConfigFileUrlStripsTrailingSlashOnBase() {
+    ApplicationConfig config = new ApplicationConfig();
+    config.setInteractionConfigUrl("http://10.0.2.2:8080/v1/interaction-configs/");
+    assertEquals(
+        "http://10.0.2.2:8080/v1/interaction-configs/projects/default-project/interaction.json",
+        config.buildInteractionConfigFileUrl("default-project"));
+  }
+
+  @Test
+  void buildInteractionConfigFileUrlStripsMultipleTrailingSlashes() {
+    ApplicationConfig config = new ApplicationConfig();
+    config.setInteractionConfigUrl("https://cdn.example.com/base///");
+    assertEquals(
+        "https://cdn.example.com/base/projects/p1/interaction.json",
+        config.buildInteractionConfigFileUrl("p1"));
+  }
+
+  @Test
+  void buildInteractionConfigFileUrlWorksWithoutTrailingSlashOnBase() {
+    ApplicationConfig config = new ApplicationConfig();
+    config.setInteractionConfigUrl("https://cdn.example.com");
+    assertEquals(
+        "https://cdn.example.com/projects/x/interaction.json",
+        config.buildInteractionConfigFileUrl("x"));
+  }
+
+  @Test
+  void buildInteractionConfigFileUrlReturnsNullWhenBaseUrlMissing() {
+    ApplicationConfig config = new ApplicationConfig();
+    assertNull(config.buildInteractionConfigFileUrl("p1"));
+  }
+
+  @Test
+  void buildInteractionConfigFileUrlReturnsNullWhenBaseUrlBlank() {
+    ApplicationConfig config = new ApplicationConfig();
+    config.setInteractionConfigUrl("   ");
+    assertNull(config.buildInteractionConfigFileUrl("p1"));
   }
 
   @Test

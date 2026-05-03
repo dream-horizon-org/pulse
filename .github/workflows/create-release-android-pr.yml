@@ -1,0 +1,92 @@
+# Opens a PR against main that bumps pulse-android-otel/gradle.properties (version= only).
+# After merge, manually run "Publish Android SDK to Maven Central".
+name: Android - Create Release PR
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Pulse Android SDK version (e.g. 0.0.11; no -alpha suffix)'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  create-pr:
+    name: Bump Android SDK version and open PR
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          token: ${{ secrets.RELEASE_REPO_TOKEN }}
+
+      - name: Require default branch (main)
+        run: |
+          if [[ "${GITHUB_REF_NAME}" != "main" ]]; then
+            echo "Run this workflow from branch main only (selected ref: ${GITHUB_REF_NAME})."
+            exit 1
+          fi
+
+      - name: Set version in gradle.properties
+        run: |
+          VERSION="${{ inputs.version }}"
+          FILE="pulse-android-otel/gradle.properties"
+          if [[ ! -f "$FILE" ]]; then
+            echo "Missing $FILE"
+            exit 1
+          fi
+          sed -i "s/^version=.*/version=${VERSION}/" "$FILE"
+          grep -q "^version=${VERSION}$" "$FILE" || { echo "version line mismatch"; exit 1; }
+
+      - name: Configure Git for commits
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Commit, push, open PR
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_REPO_TOKEN }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          SLUG="$(echo "$VERSION" | sed 's/[\/ :]/-/g')"
+          BRANCH="release/android-${SLUG}"
+          TITLE="[release] Bump Android SDK version to ${VERSION}"
+          git checkout -b "$BRANCH"
+          git add pulse-android-otel/gradle.properties
+          git commit -m "$TITLE"
+          git push --set-upstream origin "$BRANCH"
+          BODY="$(cat <<EOF
+          ## ${TITLE}
+
+          ### Source
+          Workflow run: [\`${GITHUB_RUN_ID}\`](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID})
+
+          ### Files
+          - \`pulse-android-otel/gradle.properties\` → \`version=${VERSION}\`
+
+          ### After merge
+          Manually run **Publish Android SDK to Maven Central** (\`.github/workflows/publish-android.yml\`).
+
+          ### Checklist
+          - [ ] Version matches intended Maven release (base version; publish adds \`-alpha\` per module conventions unless stable/final flags apply)
+          EOF
+          )"
+          gh pr create \
+            --repo "${{ github.repository }}" \
+            --base main \
+            --head "$BRANCH" \
+            --title "$TITLE" \
+            --body "$BODY"
+
+      - name: Summary
+        run: |
+          echo "## Android release PR" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Version: \`${{ inputs.version }}\`" >> "$GITHUB_STEP_SUMMARY"

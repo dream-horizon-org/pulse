@@ -82,10 +82,10 @@ class ClickHouseFunnelComputeDaoTest {
     }
 
     @Test
-    void shouldUseUserIdGroupKeyForUniqueUsers() {
+    void shouldUseAppInstallationIdGroupKeyForUniqueUsers() {
       String sql = ClickHouseFunnelComputeDao.buildInsertSql(
           baseRow().mode("UNIQUE_USERS").build());
-      assertThat(sql).contains("SELECT UserId AS uid");
+      assertThat(sql).contains("SELECT AppInstallationId AS uid");
     }
 
     @Test
@@ -262,11 +262,11 @@ class ClickHouseFunnelComputeDaoTest {
     }
 
     @Test
-    void shouldUseMaterializedUserIdColumnForUniqueUsersMode() {
+    void shouldUseMaterializedAppInstallationIdColumnForUniqueUsersMode() {
       String sql = ClickHouseFunnelComputeDao.buildInsertSqlChain(
           baseRow().mode("UNIQUE_USERS").build());
       assertThat(sql)
-          .contains("SELECT UserId AS uid")
+          .contains("SELECT AppInstallationId AS uid")
           .doesNotContain("SELECT LogAttributes['user.id'] AS uid");
     }
 
@@ -500,15 +500,176 @@ class ClickHouseFunnelComputeDaoTest {
   }
 
   @Nested
+  class BuildInsertSqlWindowFunnel {
+
+    @Test
+    void shouldReturnEmptyStringForNullSteps() {
+      String sql = ClickHouseFunnelComputeDao.buildInsertSqlWindowFunnel(baseRow().stepsJson(null).build());
+      assertThat(sql).isEmpty();
+    }
+
+    @Test
+    void shouldReturnEmptyStringForEmptyStepsArray() {
+      String sql = ClickHouseFunnelComputeDao.buildInsertSqlWindowFunnel(baseRow().stepsJson("[]").build());
+      assertThat(sql).isEmpty();
+    }
+
+    @Test
+    void shouldContainInsertIntoFunnelResultsWithAllColumns() {
+      String sql = ClickHouseFunnelComputeDao.buildInsertSqlWindowFunnel(baseRow().build());
+      assertThat(sql).contains(
+          "INSERT INTO otel.funnel_results\n"
+              + "  (FunnelId, ProjectId, RunTime, StepIndex, StepName, UserCount, ConversionPct, MedianStepSeconds)");
+    }
+
+    @Test
+    void shouldUseAppInstallationIdForUniqueUsersMode() {
+      String sql = ClickHouseFunnelComputeDao.buildInsertSqlWindowFunnel(
+          baseRow().mode("UNIQUE_USERS").build());
+      assertThat(sql).contains("SELECT AppInstallationId AS uid");
+    }
+
+    @Test
+    void shouldUseSessionIdForSessionsMode() {
+      String sql = ClickHouseFunnelComputeDao.buildInsertSqlWindowFunnel(
+          baseRow().mode("SESSIONS").build());
+      assertThat(sql).contains("SELECT SessionId AS uid");
+    }
+
+    @Test
+    void shouldFilterByProjectIdAndPulseType() {
+      String sql = ClickHouseFunnelComputeDao.buildInsertSqlWindowFunnel(baseRow().build());
+      assertThat(sql)
+          .contains("ProjectId = '" + PROJECT_ID + "'")
+          .contains("PulseType = 'custom_event'");
+    }
+
+    @Test
+    void shouldUsePrwehereForProjectIdAndTimestamp() {
+      String sql = ClickHouseFunnelComputeDao.buildInsertSqlWindowFunnel(baseRow().build());
+      assertThat(sql).contains("PREWHERE ProjectId = '" + PROJECT_ID + "'");
+    }
+
+    @Test
+    void shouldIncludeWindowFunnelWithCorrectWindowSeconds() {
+      String sql = ClickHouseFunnelComputeDao.buildInsertSqlWindowFunnel(baseRow().build());
+      assertThat(sql).contains("windowFunnel(3600)(FunnelTs,");
+    }
+
+    @Test
+    void shouldIncludeAllStepConditionsInWindowFunnel() {
+      String sql = ClickHouseFunnelComputeDao.buildInsertSqlWindowFunnel(baseRow().build());
+      assertThat(sql)
+          .contains("EventName = 'screen_view'")
+          .contains("EventName = 'add_to_cart'")
+          .contains("EventName = 'purchase'");
+    }
+
+    @Test
+    void shouldOrderByUidAndFunnelTsInsideFunnelCte() {
+      String sql = ClickHouseFunnelComputeDao.buildInsertSqlWindowFunnel(baseRow().build());
+      assertThat(sql).contains("ORDER BY uid ASC, FunnelTs ASC");
+    }
+
+    @Test
+    void shouldEmitOneSelectPerStepWithZeroBasedStepIndex() {
+      String sql = ClickHouseFunnelComputeDao.buildInsertSqlWindowFunnel(baseRow().build());
+      assertThat(sql)
+          .contains("toUInt8(0), 'screen_view'")
+          .contains("toUInt8(1), 'add_to_cart'")
+          .contains("toUInt8(2), 'purchase'");
+    }
+
+    @Test
+    void shouldEmitNullMedianForAllSteps() {
+      String sql = ClickHouseFunnelComputeDao.buildInsertSqlWindowFunnel(baseRow().build());
+      assertThat(sql).doesNotContain("quantileExactIf");
+      long nullCount = sql.lines()
+          .filter(l -> l.contains("CAST(NULL AS Nullable(Int64))"))
+          .count();
+      assertThat(nullCount).isEqualTo(3);
+    }
+
+    @Test
+    void shouldUseUnionAllBetweenStepSelects() {
+      String sql = ClickHouseFunnelComputeDao.buildInsertSqlWindowFunnel(baseRow().build());
+      assertThat(sql.split("UNION ALL", -1)).hasSize(3);
+    }
+
+    @Test
+    void shouldUseSharedRunTimeLiteralAcrossAllBranches() {
+      String sql = ClickHouseFunnelComputeDao.buildInsertSqlWindowFunnel(baseRow().build());
+      assertThat(sql).contains("toDateTime64('");
+      // same literal appears for each step row — verify no now64() per branch
+      assertThat(sql).doesNotContain("now64()");
+    }
+
+    @Test
+    void shouldIncludeFunnelId() {
+      String sql = ClickHouseFunnelComputeDao.buildInsertSqlWindowFunnel(baseRow().id(99L).build());
+      assertThat(sql).contains("toUInt64(99)");
+    }
+
+    @Test
+    void shouldEscapeSingleQuotesInEventNames() {
+      String stepsJson = "[{\"eventName\":\"O'Brien's Event\"},{\"eventName\":\"checkout\"}]";
+      String sql = ClickHouseFunnelComputeDao.buildInsertSqlWindowFunnel(
+          baseRow().stepsJson(stepsJson).build());
+      assertThat(sql).contains("O\\'Brien\\'s Event");
+    }
+
+    @Test
+    void shouldUseIntervalForAutoMode() {
+      String sql = ClickHouseFunnelComputeDao.buildInsertSqlWindowFunnel(
+          baseRow().funnelType("AUTO").dateRangeDays(14).build());
+      assertThat(sql).contains("INTERVAL 14 DAY");
+    }
+
+    @Test
+    void shouldUseToDateTime64ForOnceMode() {
+      Instant start = Instant.parse("2024-03-01T00:00:00Z");
+      Instant end   = Instant.parse("2024-03-31T23:59:59Z");
+      String sql = ClickHouseFunnelComputeDao.buildInsertSqlWindowFunnel(
+          baseRow().funnelType("ONCE").startTime(start).endTime(end).build());
+      assertThat(sql)
+          .contains("toDateTime64('2024-03-01 00:00:00', 9)")
+          .contains("toDateTime64('2024-03-31 23:59:59', 9)");
+    }
+
+    @Test
+    void shouldAppendAdditionalFilterClauses() {
+      String filtersJson = "[{\"field\":\"OS_NAME\",\"operator\":\"EQ\",\"value\":[\"Android\"]}]";
+      String sql = ClickHouseFunnelComputeDao.buildInsertSqlWindowFunnel(
+          baseRow().filtersJson(filtersJson).build());
+      assertThat(sql).contains("AND Platform = 'Android'");
+    }
+
+    @Test
+    void shouldHandleSingleStepFunnel() {
+      String singleStep = "[{\"eventName\":\"app_open\"}]";
+      String sql = ClickHouseFunnelComputeDao.buildInsertSqlWindowFunnel(
+          baseRow().stepsJson(singleStep).build());
+      assertThat(sql)
+          .contains("INSERT INTO otel.funnel_results")
+          .contains("windowFunnel(3600)(FunnelTs,")
+          .contains("toUInt8(0), 'app_open'")
+          .doesNotContain("UNION ALL");
+    }
+  }
+
+  @Nested
   class BuildInsertSqlForDefinition {
 
     @Test
-    void shouldUseOrderedChainBuilderWhenStepOrderTypeIsNotUnordered() {
+    void shouldUseWindowFunnelBuilderWhenStepOrderTypeIsNotUnordered() {
       String sql = ClickHouseFunnelComputeDao.buildInsertSqlForDefinition(
           baseRow().stepOrderType("ORDERED").build());
       assertThat(sql)
-          .contains("attempts AS (")
-          .contains("argMax(tuple(")
+          .contains("windowFunnel(")
+          .contains("funnel AS (")
+          .contains("CAST(NULL AS Nullable(Int64))")
+          .doesNotContain("attempts AS (")
+          .doesNotContain("argMax(tuple(")
           .doesNotContain("window_scores AS (");
     }
 

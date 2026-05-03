@@ -7,15 +7,15 @@ import io.vertx.core.Vertx;
 import io.vertx.core.VertxOptions;
 import io.vertx.core.file.FileSystemOptions;
 import io.vertx.core.impl.cpu.CpuCoreSensor;
+import io.vertx.tracing.opentelemetry.OpenTelemetryOptions;
+import java.util.Arrays;
+import java.util.concurrent.TimeUnit;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.config.ApplicationConfig;
 import org.dreamhorizon.pulseserver.guice.GuiceInjector;
 import org.dreamhorizon.pulseserver.module.*;
 import org.dreamhorizon.pulseserver.util.MaintenanceUtil;
 import org.dreamhorizon.pulseserver.vertx.SharedDataUtils;
-
-import java.util.Arrays;
-import java.util.concurrent.TimeUnit;
 
 @Slf4j
 public class MainApplication extends Launcher {
@@ -31,7 +31,8 @@ public class MainApplication extends Launcher {
       .setEventLoopPoolSize(2)
       .setPreferNativeTransport(true)
       .setFileSystemOptions(new FileSystemOptions().setClassPathResolvingEnabled(true))
-      .setWorkerPoolSize(10);
+      .setWorkerPoolSize(10)
+            .setTracingOptions(new OpenTelemetryOptions());
   }
 
   @Override

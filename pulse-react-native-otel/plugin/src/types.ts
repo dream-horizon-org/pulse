@@ -18,6 +18,27 @@ export type PulseAttributes = Record<
 
 export type PulseDataCollectionState = 'PENDING' | 'ALLOWED' | 'DENIED';
 
+/** Values allowed in `app.json` / Expo plugin options for `logLevel` (case-insensitive when parsed). */
+export type PulseLogLevelConfig =
+  | 'VERBOSE'
+  | 'DEBUG'
+  | 'INFO'
+  | 'WARN'
+  | 'ERROR'
+  | 'NONE';
+
+/**
+ * Ordinal log level for native codegen (Kotlin / Swift). Maps from {@link PulseLogLevelConfig}.
+ */
+export enum PulseLogLevelValue {
+  VERBOSE = 0,
+  DEBUG = 1,
+  INFO = 2,
+  WARN = 3,
+  ERROR = 4,
+  NONE = 5,
+}
+
 /** Simple on/off for `app.json` instrumentation (Android + iOS). */
 export interface PulseInstrumentationEnabled {
   enabled?: boolean;
@@ -119,6 +140,8 @@ export type PulseNativeInitFields = {
   apiKey?: string;
   dataCollectionState?: PulseDataCollectionState;
   globalAttributes?: PulseAttributes;
+  /** Override top-level `logLevel` for this platform when set. */
+  logLevel?: PulseLogLevelConfig;
 };
 
 export interface PulseAndroidCoreLibraryDesugaring {
@@ -127,9 +150,23 @@ export interface PulseAndroidCoreLibraryDesugaring {
   version?: string;
 }
 
+/** Android OkHttp / Byte Buddy Gradle wiring (under `android` only), parallel to `coreLibraryDesugaring`. */
+export interface PulseAndroidOkHttpInstrumentation {
+  enabled?: boolean;
+  /** `net.bytebuddy:byte-buddy-gradle-plugin` on root `buildscript` classpath; default when omitted: see `androidBuildConstants`. */
+  byteBuddyGradlePluginVersion?: string;
+  /**
+   * When `true` (default) and {@link enabled} is `true`, prebuild merges `net.bytebuddy` into
+   * `android.jetifier.ignorelist` **only if** `android.enableJetifier=true` is already present in
+   * `gradle.properties`. Set `false` to skip that merge (e.g. you edit `gradle.properties` yourself).
+   */
+  ensureJetifierIgnoresByteBuddy?: boolean;
+}
+
 export interface PulseAndroidSection extends PulseNativeInitFields {
   instrumentation?: PulseAndroidInstrumentationProps;
   coreLibraryDesugaring?: PulseAndroidCoreLibraryDesugaring;
+  okHttpInstrumentation?: PulseAndroidOkHttpInstrumentation;
 }
 
 export interface PulseIosSection extends PulseNativeInitFields {
@@ -142,6 +179,7 @@ export interface PulsePlatformInitProps {
   apiKey: string;
   dataCollectionState: PulseDataCollectionState;
   globalAttributes?: PulseAttributes;
+  logLevel?: PulseLogLevelValue;
 }
 
 export type ResolvedAndroidPulseProps = PulsePlatformInitProps & {
@@ -150,6 +188,13 @@ export type ResolvedAndroidPulseProps = PulsePlatformInitProps & {
     enabled: boolean;
     /** Meaningful when `enabled`; always set for stable plugin internals. */
     version: string;
+  };
+  okHttpInstrumentation: {
+    enabled: boolean;
+    /** Meaningful when `enabled`; always set for stable plugin internals (defaults from androidBuildConstants). */
+    byteBuddyGradlePluginVersion: string;
+    /** When `enabled`, default `true`; prebuild may merge `android.jetifier.ignorelist` if `enableJetifier=true` in gradle.properties. */
+    ensureJetifierIgnoresByteBuddy: boolean;
   };
 };
 
@@ -162,10 +207,13 @@ export type ResolvedIosPulseProps = PulsePlatformInitProps & {
  * Expo config plugin props. Top-level `apiKey` and `dataCollectionState` are required.
  * `android` / `ios`: optional init overrides, `globalAttributes`, `instrumentation`; iOS also `configuration`.
  * Do not put `globalAttributes`, `instrumentation`, or `configuration` at the top level.
+ * Optional `logLevel`: `VERBOSE` | `DEBUG` | `INFO` | `WARN` | `ERROR` | `NONE` at the top level
+ * and/or overridden per platform.
  */
 export interface PulsePluginProps {
   apiKey: string;
   dataCollectionState: PulseDataCollectionState;
+  logLevel?: PulseLogLevelConfig;
 
   android?: PulseAndroidSection;
   ios?: PulseIosSection;

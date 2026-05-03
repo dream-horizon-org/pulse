@@ -30,7 +30,7 @@ export function useGetScreensHealthData({
       select: [
         {
           function: "COL",
-          param: { field: `SpanAttributes['${PulseType.SCREEN_NAME}']` },
+          param: { field: COLUMN_NAME.SCREEN_NAME },
           alias: "screen_name",
         },
         {
@@ -57,7 +57,7 @@ export function useGetScreensHealthData({
         {
           function: "CUSTOM",
           param: {
-            expression: `uniqCombined64(nullIf(${COLUMN_NAME.USER_ID}, ''))`,
+            expression: `uniq(nullIf(${COLUMN_NAME.INSTALLATION_ID}, ''))`,
           },
           alias: "user_count",
         },
@@ -71,7 +71,7 @@ export function useGetScreensHealthData({
         {
           function: "CUSTOM",
           param: {
-            expression: `uniqCombined64(nullIf(${COLUMN_NAME.SESSION_ID}, ''))`,
+            expression: `uniq(nullIf(${COLUMN_NAME.SESSION_ID}, ''))`,
           },
           alias: "unique_session_count",
         },

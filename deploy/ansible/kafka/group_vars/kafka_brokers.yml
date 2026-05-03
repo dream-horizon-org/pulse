@@ -12,18 +12,17 @@ jmx_exporter_port: 7071
 
 replication_factor: 2
 min_insync_replicas: 1
-retention_ms: 21600000       # 1 hour
-compression_type: "gzip"
+retention_ms: 21600000       # 6 hour
+compression_type: "zstd"
 
 # Topics created on first boot by node-01 (idempotent via --if-not-exists).
-# Note: puls.traces was a typo in the original config — corrected to pulse.traces
 kafka_topics:
   - { name: "session_recording_events",        partitions: 6 }
   - { name: "clickhouse_session_replay_events", partitions: 6 }
   - { name: "pulse.logs.anr_crash",             partitions: 6 }
-  - { name: "pulse.traces",                     partitions: 1 }
-  - { name: "pulse.metrics",                    partitions: 1 }
-  - { name: "pulse.logs",                       partitions: 1 }
+  - { name: "pulse.traces",                     partitions: 6 }
+  - { name: "pulse.metrics",                    partitions: 6 }
+  - { name: "pulse.logs",                       partitions: 6 }
 
 # --- Runtime variables (pass via Jenkins --extra-vars, NOT hardcoded here) ---
 # kraft_cluster_id:  fetched from SSM /pulse/kafka/production/kraft_cluster_id

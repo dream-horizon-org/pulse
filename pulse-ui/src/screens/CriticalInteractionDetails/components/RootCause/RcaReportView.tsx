@@ -3,6 +3,7 @@ import {
   Box,
   Button,
   Card,
+  Divider,
   Group,
   Stack,
   Table,
@@ -10,10 +11,13 @@ import {
 } from "@mantine/core";
 import { IconRefresh, IconSparkles } from "@tabler/icons-react";
 import type {
+  ErrorAttributionInsightV1,
   RcaStructuredMetricRowV1,
   RcaStructuredReportV1,
 } from "../../../../hooks/useGetRcaReport/useGetRcaReport.interface";
 import type { RcaReportViewProps } from "./RcaReportView.interface";
+import { ERROR_ATTRIBUTION_MESSAGES } from "../ErrorAttribution/ErrorAttribution.constants";
+import { RcaEmbeddedErrorAttribution } from "./RcaEmbeddedErrorAttribution";
 import { ROOT_CAUSE_MESSAGES } from "./RootCause.constants";
 import { getMetricValueTone } from "./rcaMetricTone";
 import rcaClasses from "./RcaReportView.module.css";
@@ -23,6 +27,54 @@ import { RcaSessionReplayEvidenceCard } from "./RcaSessionReplayEvidenceCard";
 
 /** Max heatmap tiles per segment (evidence strip). */
 const HEATMAP_EVIDENCE_MAX = 2;
+
+const RCA_ERROR_ATTRIBUTION_HEADING = `${ERROR_ATTRIBUTION_MESSAGES.SECTION_TITLE} (correlative)`;
+
+/** Metric sort order for RCA table - volume first, then by severity. */
+const METRIC_PRIORITY_ORDER: string[] = [
+  "volume",
+  "apdex",
+  "error_rate",
+  "poor_user_pct",
+  "crash_rate",
+  "anr_rate",
+  "duration_p95",
+  "frozen_frame_rate",
+  "duration_p50",
+  "slow_frame_rate",
+];
+
+const sortMetricsByPriority = (
+  metrics: RcaStructuredMetricRowV1[],
+): RcaStructuredMetricRowV1[] => {
+  const priorityIndexMap = new Map<string, number>();
+  METRIC_PRIORITY_ORDER.forEach((id, index) => {
+    priorityIndexMap.set(id, index);
+  });
+
+  return [...metrics].sort((a, b) => {
+    const aPriority =
+      priorityIndexMap.get(a.metric_id) ?? Number.MAX_SAFE_INTEGER;
+    const bPriority =
+      priorityIndexMap.get(b.metric_id) ?? Number.MAX_SAFE_INTEGER;
+    return aPriority - bPriority;
+  });
+};
+
+const errorAttributionSignalTitle = (
+  signal: ErrorAttributionInsightV1["signal"],
+) => {
+  switch (signal) {
+    case "anr":
+      return "ANR";
+    case "non_fatal":
+      return "Non-fatal errors";
+    case "api":
+      return "API errors";
+    default:
+      return signal;
+  }
+};
 
 const StructuredMetricRow = ({ row }: { row: RcaStructuredMetricRowV1 }) => {
   const tone = getMetricValueTone(
@@ -106,11 +158,23 @@ const RcaStructuredReportV1View = ({
     (line) => String(line).trim() !== "",
   );
   const hasRecommendations = recommendations.length > 0;
+  const embeddedErrorAttribution =
+    structured.error_attribution ?? structured.errorAttribution ?? null;
+  const hasEmbeddedErrorAttribution = embeddedErrorAttribution != null;
+  const attributionInsights = structured.error_attribution_insights ?? [];
+  const hasAttributionInsights = attributionInsights.some(
+    (row) =>
+      (row.summary?.trim() ?? "") !== "" || (row.caveat?.trim() ?? "") !== "",
+  );
 
   const hasRegenerate = typeof onRegenerate === "function";
   const showAsOf = cachedAt != null && cachedAt !== "";
   const trimmedProjectId = projectId != null ? String(projectId).trim() : "";
   const hasProjectForHeatmaps = trimmedProjectId !== "";
+  const showDrill = hasEmbeddedErrorAttribution && hasProjectForHeatmaps;
+  const showUnifiedErrorAttribution = hasAttributionInsights || showDrill;
+  const relatedCount =
+    embeddedErrorAttribution?.relatedAttributions?.length ?? 0;
 
   return (
     <Box className={rootCauseClasses.container}>
@@ -295,12 +359,14 @@ const RcaStructuredReportV1View = ({
                                 </Table.Tr>
                               </Table.Thead>
                               <Table.Tbody>
-                                {metrics.map((row, rowIndex) => (
-                                  <StructuredMetricRow
-                                    key={`${row.metric_id}-${rowIndex}`}
-                                    row={row}
-                                  />
-                                ))}
+                                {sortMetricsByPriority(metrics).map(
+                                  (row, rowIndex) => (
+                                    <StructuredMetricRow
+                                      key={`${row.metric_id}-${rowIndex}`}
+                                      row={row}
+                                    />
+                                  ),
+                                )}
                               </Table.Tbody>
                             </Table>
                           </Table.ScrollContainer>
@@ -409,6 +475,78 @@ const RcaStructuredReportV1View = ({
               </ul>
             </Card>
           )}
+
+          {showUnifiedErrorAttribution ? (
+            <Card padding="lg" radius="md" withBorder>
+              <Group gap="sm" wrap="wrap" align="center" mb="xs">
+                <Text fw={700} size="md" tt="uppercase" c="gray.7">
+                  {RCA_ERROR_ATTRIBUTION_HEADING}
+                </Text>
+                {showDrill && relatedCount > 0 ? (
+                  <Badge size="sm" variant="light" color="gray">
+                    {relatedCount}
+                  </Badge>
+                ) : null}
+              </Group>
+              <Text size="xs" c="dimmed" mb="lg" lh={1.55}>
+                Narrative summaries interpret drill-down groupings; the table
+                lists observational associations from telemetry. Neither proves
+                root cause.
+              </Text>
+
+              {hasAttributionInsights ? (
+                <Stack gap="md">
+                  {attributionInsights.map((row) => {
+                    const summaryText = row.summary?.trim() ?? "";
+                    const caveatText = row.caveat?.trim() ?? "";
+                    if (summaryText === "" && caveatText === "") {
+                      return null;
+                    }
+                    return (
+                      <Box key={row.signal}>
+                        <Text
+                          size="xs"
+                          fw={700}
+                          tt="uppercase"
+                          c="dimmed"
+                          mb={6}
+                        >
+                          {errorAttributionSignalTitle(row.signal)}
+                        </Text>
+                        {summaryText !== "" ? (
+                          <Text size="sm" lh={1.65}>
+                            {summaryText}
+                          </Text>
+                        ) : null}
+                        {caveatText !== "" ? (
+                          <Text
+                            size="xs"
+                            c="dimmed"
+                            mt={summaryText !== "" ? 6 : 0}
+                            lh={1.55}
+                          >
+                            {caveatText}
+                          </Text>
+                        ) : null}
+                      </Box>
+                    );
+                  })}
+                </Stack>
+              ) : null}
+
+              {hasAttributionInsights && showDrill ? (
+                <Divider my="lg" label="Drill-down" labelPosition="left" />
+              ) : null}
+
+              {showDrill && embeddedErrorAttribution != null ? (
+                <RcaEmbeddedErrorAttribution
+                  hideSectionTitle
+                  data={embeddedErrorAttribution}
+                  projectId={trimmedProjectId}
+                />
+              ) : null}
+            </Card>
+          ) : null}
         </Stack>
       </Box>
     </Box>
@@ -427,8 +565,22 @@ export const RcaReportView = ({
   const hasSegmentOrRec =
     (structured?.segments?.length ?? 0) > 0 ||
     (structured?.recommendations?.length ?? 0) > 0;
+  const hasAttributionNlp = (structured?.error_attribution_insights ?? []).some(
+    (row) =>
+      (row.summary?.trim() ?? "") !== "" || (row.caveat?.trim() ?? "") !== "",
+  );
+  const drill =
+    structured?.error_attribution ?? structured?.errorAttribution ?? null;
+  const hasDrillOnly =
+    drill != null &&
+    ((drill.relatedAttributions?.length ?? 0) > 0 ||
+      (drill.disclaimer?.trim() ?? "") !== "");
   const hasRenderableContent =
-    isValidStructured && (executiveSummaryText !== "" || hasSegmentOrRec);
+    isValidStructured &&
+    (executiveSummaryText !== "" ||
+      hasSegmentOrRec ||
+      hasAttributionNlp ||
+      hasDrillOnly);
 
   if (!hasRenderableContent || structured == null || structured.version !== 1) {
     return (

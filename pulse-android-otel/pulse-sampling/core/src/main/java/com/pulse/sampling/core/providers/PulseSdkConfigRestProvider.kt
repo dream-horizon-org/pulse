@@ -3,7 +3,9 @@ package com.pulse.sampling.core.providers
 import com.pulse.sampling.models.PulseSdkConfig
 import com.pulse.sampling.remote.PulseSdkConfigApiService
 import com.pulse.sampling.remote.PulseSdkConfigRetrofitClient
+import com.pulse.utils.PulseLogger
 import com.pulse.utils.PulseNetworkingUtils
+import com.pulse.utils.RedactionUtils
 import okhttp3.Cache
 import okhttp3.OkHttpClient
 import java.io.File
@@ -19,6 +21,7 @@ public class PulseSdkConfigRestProvider(
     private var retrofitClient: PulseSdkConfigRetrofitClient? = null
 
     override suspend fun provide(): PulseSdkConfig? {
+        val startNs = System.nanoTime()
         val url = urlProvider()
         val finalOkHttpClient =
             if (okHttpClient.cache == null) {
@@ -59,19 +62,43 @@ public class PulseSdkConfigRestProvider(
                     headers = headers,
                 )
             }
-        return if (restResponseResult.isSuccess) {
-            val config = restResponseResult.getOrThrow()
-            if (config.version >= 0) {
-                config
+        val durationMs = (System.nanoTime() - startNs) / 1_000_000
+        val isTransportOk = restResponseResult.isSuccess
+        val httpStatus = if (isTransportOk) "ok" else "error"
+        val errClass =
+            restResponseResult
+                .exceptionOrNull()
+                ?.let { RedactionUtils.classifyError(it) }
+                .orEmpty()
+
+        val resolved: PulseSdkConfig? =
+            if (isTransportOk) {
+                val config = restResponseResult.getOrThrow()
+                if (config.version >= 0) {
+                    config
+                } else {
+                    val urlIterator = finalOkHttpClient.cache?.urls()
+                    urlIterator?.forEach { if (it == url) urlIterator.remove() }
+                    null
+                }
             } else {
-                // config is negative version which means default value is being used
-                val urlIterator = finalOkHttpClient.cache?.urls()
-                urlIterator?.forEach { if (it == url) urlIterator.remove() }
                 null
             }
+
+        val versionStr = resolved?.run { version.toString() } ?: "none"
+        val isConfigOk = resolved != null
+        if (isConfigOk) {
+            PulseLogger.logInfo(TAG) {
+                "sdk.config.fetch success=true duration_ms=$durationMs http_status=$httpStatus config_version=$versionStr"
+            }
         } else {
-            null
+            val errSuffix = if (errClass.isNotEmpty()) " error_class=$errClass" else ""
+            PulseLogger.logWarn(TAG) {
+                "sdk.config.fetch success=false duration_ms=$durationMs http_status=$httpStatus config_version=$versionStr$errSuffix"
+            }
         }
+
+        return resolved
     }
 
     internal companion object {
