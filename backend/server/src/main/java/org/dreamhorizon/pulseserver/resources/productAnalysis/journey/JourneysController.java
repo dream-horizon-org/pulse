@@ -78,6 +78,23 @@ public class JourneysController {
   }
 
   /**
+   * Stops auto-refresh for an AUTO journey. Flips {@code journey_type} to {@code ONCE} so
+   * the daily cron skips it; combined with the latest job's {@code SUCCEEDED} status, the
+   * journey reads as {@code COMPLETED} in the listing. Idempotent.
+   */
+  @POST
+  @RequiresPermission("can_edit")
+  @Path("/{id: \\d+}/stop")
+  public CompletionStage<Response<String>> stopAutoJourney(
+    @HeaderParam("X-Project-Id") @NotBlank(message = "X-Project-Id header is required") String projectId,
+    @PathParam("id") long id) {
+    return journeyService
+      .stopAuto(projectId, id)
+      .toSingleDefault(Response.successfulResponse("Success"))
+      .toCompletionStage();
+  }
+
+  /**
    * Replaces all tags for the journey (empty {@code tags} clears them). Mappings:
    * {@code funnel_journey_tag}.
    */

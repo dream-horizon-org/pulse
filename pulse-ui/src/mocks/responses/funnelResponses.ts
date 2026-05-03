@@ -4,7 +4,7 @@
 
 import { MockRequest, MockResponse } from "../types";
 import { API_ROUTES } from "../../constants";
-import { FunnelType, StepOrderType } from "../../services/funnels.service";
+import { FunnelMode, FunnelType, StepOrderType } from "../../services/funnels.service";
 
 /**
  * Single source of truth for funnel conversion KPIs in mocks.
@@ -542,7 +542,19 @@ const MOCK_EXPIRY_ONE_YEAR_FROM_NOW = (() => {
   return d.toISOString();
 })();
 
-/** Saved funnels & journeys listing (mock only; TODO: replace with real API). */
+/**
+ * Internal canonical shape backing both listing and detail mock responses for funnels &
+ * journeys. Mirrors the union of {@code FunnelDetail} ∪ {@code JourneyDetail} from
+ * `services/funnels.service.ts` plus an internal `kind` discriminator. Listing handlers
+ * project to {@code FunnelListItem}/{@code JourneyListItem}; detail handlers return the full
+ * row plus injected {@code createdAt}/{@code description}/{@code funnelResults}/
+ * {@code journeyResults}.
+ *
+ * Field-name conventions match prod:
+ *   - Detail uses `expiry` (not `expiryDate`) for the AUTO refresh deadline.
+ *   - `filters` is `FilterField[]` shape: `{ field, operator, value }`.
+ *   - `mode` defaults to `UNIQUE_USERS` (the analysis grouping default on create).
+ */
 const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
   id: string;
   name: string;
@@ -557,21 +569,40 @@ const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
   createdBy: string;
   updatedAt: string;
   tags: string[];
-  expiryDate?: string;
+  /** AUTO funnels/journeys: ISO datetime when auto-refresh stops (canonical detail name). */
+  expiry?: string;
+  /** ONCE funnels/journeys: fixed analysis window. */
+  startTime?: string;
+  endTime?: string;
   description?: string;
+  /** Funnel-only fields. */
   stepOrderType?: StepOrderType;
   funnelType?: FunnelType;
   windowSeconds?: number;
-  filters?: any[];
-  steps?: any[];
-  timeRange?: { start: string; end: string };
+  steps?: Array<{ eventName: string }>;
+  /** Listing-level conversion summary used by the funnels list view. */
+  overallConversionRate?: number;
+  conversionTrend?: number;
+  /** Journey-only fields. */
+  journeyType?: FunnelType;
   anchorEvent?: string;
   direction?: "START" | "END";
   depth?: number;
-  /** FUNNEL listing: latest overall conversion % (mock). */
-  overallConversionRate?: number;
-  /** FUNNEL listing: change vs prior period (percentage points). */
-  conversionTrend?: number;
+  /** Shared (detail-shape) fields. */
+  mode?: FunnelMode;
+  dateRangeDays?: number;
+  filters?: Array<{
+    field: string;
+    operator: "EQ" | "NE" | "IN" | "NOT_IN";
+    value: string | string[];
+  }>;
+  /**
+   * @deprecated Older mock rows still set this for the analyze flow's display window.
+   * Prod detail uses `startTime`/`endTime` (ONCE) or `dateRangeDays` (AUTO). Kept on the
+   * internal row type so legacy fixtures compile, but never returned by the listing or
+   * detail projectors.
+   */
+  timeRange?: { start: string; end: string };
 }> = [
   {
     id: "fj-1",
@@ -580,12 +611,12 @@ const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
     status: "ACTIVE",
     createdBy: "alice@example.com",
     updatedAt: "2026-03-20T14:22:00Z",
-    expiryDate: MOCK_EXPIRY_ONE_YEAR_FROM_NOW,
+    expiry: MOCK_EXPIRY_ONE_YEAR_FROM_NOW,
     tags: ["checkout", "revenue"],
     stepOrderType: StepOrderType.ORDERED,
     filters: [
-      { field: "OS Name", value: "iOS" },
-      { field: "App Version", value: "4.2.1" },
+      { field: "OS Name", operator: "EQ", value: "iOS" },
+      { field: "App Version", operator: "EQ", value: "4.2.1" },
     ],
     steps: [
       { eventName: "Screen_View: Home" },
@@ -603,7 +634,7 @@ const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
     status: "ACTIVE",
     createdBy: "bob@example.com",
     updatedAt: "2026-03-19T09:10:00Z",
-    expiryDate: MOCK_EXPIRY_ONE_YEAR_FROM_NOW,
+    expiry: MOCK_EXPIRY_ONE_YEAR_FROM_NOW,
     tags: ["onboarding"],
     stepOrderType: StepOrderType.UNORDERED,
     funnelType: FunnelType.AUTO,
@@ -626,7 +657,7 @@ const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
     status: "WARN",
     createdBy: "alice@example.com",
     updatedAt: "2026-03-10T18:45:00Z",
-    expiryDate: MOCK_EXPIRY_ONE_YEAR_FROM_NOW,
+    expiry: MOCK_EXPIRY_ONE_YEAR_FROM_NOW,
     tags: ["search", "product"],
     stepOrderType: StepOrderType.ORDERED,
     funnelType: FunnelType.AUTO,
@@ -648,9 +679,9 @@ const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
     status: "ACTIVE",
     createdBy: "carol@example.com",
     updatedAt: "2026-03-21T11:30:00Z",
-    expiryDate: MOCK_EXPIRY_ONE_YEAR_FROM_NOW,
+    expiry: MOCK_EXPIRY_ONE_YEAR_FROM_NOW,
     tags: ["auth", "onboarding"],
-    filters: [{ field: "OS Name", value: "Android" }],
+    filters: [{ field: "OS Name", operator: "EQ", value: "Android" }],
     anchorEvent: "Tap: Sign Up",
     direction: "START",
     depth: 5,
@@ -662,7 +693,7 @@ const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
     status: "FAILED",
     createdBy: "bob@example.com",
     updatedAt: "2026-02-28T08:00:00Z",
-    expiryDate: MOCK_EXPIRY_ONE_YEAR_FROM_NOW,
+    expiry: MOCK_EXPIRY_ONE_YEAR_FROM_NOW,
     tags: ["checkout", "cart"],
     anchorEvent: "Tap: Add to Cart",
     direction: "START",
@@ -675,7 +706,7 @@ const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
     status: "ACTIVE",
     createdBy: "dev@example.com",
     updatedAt: "2026-03-22T16:05:00Z",
-    expiryDate: MOCK_EXPIRY_ONE_YEAR_FROM_NOW,
+    expiry: MOCK_EXPIRY_ONE_YEAR_FROM_NOW,
     tags: ["marketing"],
     stepOrderType: StepOrderType.ORDERED,
     funnelType: FunnelType.AUTO,
@@ -697,7 +728,7 @@ const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
     status: "ACTIVE",
     createdBy: "sarah@example.com",
     updatedAt: "2026-03-21T14:30:00Z",
-    expiryDate: MOCK_EXPIRY_ONE_YEAR_FROM_NOW,
+    expiry: MOCK_EXPIRY_ONE_YEAR_FROM_NOW,
     tags: ["payment", "conversion", "critical"],
     description:
       "Tracks user conversion through the payment process including checkout and order completion.",
@@ -705,8 +736,8 @@ const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
     funnelType: FunnelType.AUTO,
     windowSeconds: 3600,
     filters: [
-      { field: "OS Name", value: "iOS" },
-      { field: "App Version", value: "4.2.1" },
+      { field: "OS Name", operator: "EQ", value: "iOS" },
+      { field: "App Version", operator: "EQ", value: "4.2.1" },
     ],
     steps: [
       { eventName: "Screen_View: Cart" },
@@ -729,7 +760,7 @@ const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
     status: "ACTIVE",
     createdBy: "alex@example.com",
     updatedAt: "2026-03-17T09:15:00Z",
-    expiryDate: MOCK_EXPIRY_ONE_YEAR_FROM_NOW,
+    expiry: MOCK_EXPIRY_ONE_YEAR_FROM_NOW,
     tags: ["onboarding", "ux", "retention"],
     description:
       "Maps the complete user journey from app launch to account creation and first purchase.",
@@ -738,8 +769,8 @@ const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
     depth: 5,
     funnelType: FunnelType.AUTO,
     filters: [
-      { field: "OS Name", value: "Android" },
-      { field: "App Version", value: "4.2.0" },
+      { field: "OS Name", operator: "EQ", value: "Android" },
+      { field: "App Version", operator: "EQ", value: "4.2.0" },
     ],
     timeRange: {
       start: "2026-03-17T00:00:00Z",
@@ -753,13 +784,13 @@ const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
     status: "COMPLETED",
     createdBy: "ops@example.com",
     updatedAt: "2026-03-15T12:00:00Z",
-    expiryDate: MOCK_EXPIRY_ONE_YEAR_FROM_NOW,
+    expiry: MOCK_EXPIRY_ONE_YEAR_FROM_NOW,
     tags: ["promo", "checkout", "archived"],
     description: "Holiday campaign funnel — run completed; data is read-only.",
     stepOrderType: StepOrderType.ORDERED,
     funnelType: FunnelType.ONCE,
     windowSeconds: 86400,
-    filters: [{ field: "OS Name", value: "iOS" }],
+    filters: [{ field: "OS Name", operator: "EQ", value: "iOS" }],
     steps: [
       { eventName: "Screen_View: Home" },
       { eventName: "Screen_View: Product Detail" },
@@ -780,7 +811,7 @@ const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
     status: "COMPLETED",
     createdBy: "ops@example.com",
     updatedAt: "2026-03-10T09:00:00Z",
-    expiryDate: MOCK_EXPIRY_ONE_YEAR_FROM_NOW,
+    expiry: MOCK_EXPIRY_ONE_YEAR_FROM_NOW,
     tags: ["launch", "archived"],
     description:
       "Exploratory journey for a past release — completed; no longer updating.",
@@ -788,7 +819,7 @@ const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
     direction: "START",
     depth: 5,
     funnelType: FunnelType.AUTO,
-    filters: [{ field: "App Version", value: "4.2.1" }],
+    filters: [{ field: "App Version", operator: "EQ", value: "4.2.1" }],
     timeRange: {
       start: "2026-03-01T00:00:00Z",
       end: "2026-03-14T23:59:59Z",
@@ -801,7 +832,7 @@ const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
     status: "IN_PROGRESS",
     createdBy: "dev@example.com",
     updatedAt: "2026-03-24T10:00:00Z",
-    expiryDate: MOCK_EXPIRY_ONE_YEAR_FROM_NOW,
+    expiry: MOCK_EXPIRY_ONE_YEAR_FROM_NOW,
     tags: ["feature"],
     stepOrderType: StepOrderType.ORDERED,
     steps: [{ eventName: "App_Opened" }, { eventName: "Tap: New Feature" }],
@@ -813,13 +844,149 @@ const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
     status: "IN_PROGRESS",
     createdBy: "alice@example.com",
     updatedAt: "2026-03-24T11:00:00Z",
-    expiryDate: MOCK_EXPIRY_ONE_YEAR_FROM_NOW,
+    expiry: MOCK_EXPIRY_ONE_YEAR_FROM_NOW,
     tags: ["onboarding"],
     anchorEvent: "App_Opened",
     direction: "START",
     depth: 5,
   },
 ];
+
+type MockFunnelJourneyRow = (typeof MOCK_FUNNELS_JOURNEYS_ALL)[number];
+
+/**
+ * Projects an internal mock row to the {@code FunnelListItem} shape returned by
+ * `GET /v1/funnels`. Strips detail-only fields (steps, filters, windowSeconds, …) so
+ * mocks match the lean prod listing payload.
+ */
+function projectFunnelListItem(row: MockFunnelJourneyRow) {
+  return {
+    id: row.id,
+    name: row.name,
+    status: row.status,
+    createdBy: row.createdBy,
+    updatedAt: row.updatedAt,
+    tags: row.tags,
+    funnelType: row.funnelType ?? FunnelType.AUTO,
+    stepOrderType: row.stepOrderType,
+    overallConversionRate: row.overallConversionRate,
+    conversionTrend: row.conversionTrend,
+  };
+}
+
+/**
+ * Projects an internal mock row to the {@code JourneyListItem} shape returned by
+ * `GET /v1/journeys`. Lean: id/name/status/createdBy/updatedAt/tags/journeyType only.
+ */
+function projectJourneyListItem(row: MockFunnelJourneyRow) {
+  return {
+    id: row.id,
+    name: row.name,
+    status: row.status,
+    createdBy: row.createdBy,
+    updatedAt: row.updatedAt,
+    tags: row.tags,
+    journeyType: row.journeyType ?? row.funnelType ?? FunnelType.AUTO,
+  };
+}
+
+/** Default `funnelResults` payload for funnel detail when no precomputed shape exists. */
+function buildFunnelResultsForRow(row: MockFunnelJourneyRow) {
+  if (!row.steps?.length) return undefined;
+  if (row.id === "funnel-payment-001") {
+    return {
+      steps: MOCK_PAYMENT_FUNNEL_ANALYZE_RESPONSE.steps,
+      overallConversionRate:
+        MOCK_PAYMENT_FUNNEL_ANALYZE_RESPONSE.overallConversionRate,
+    };
+  }
+  const built = buildMockFunnelAnalyzeAndTrendFromSteps({ steps: row.steps });
+  if (
+    row.overallConversionRate != null &&
+    row.conversionTrend != null &&
+    built.analyze.steps.length > 0
+  ) {
+    built.analyze.steps[built.analyze.steps.length - 1].conversionRate =
+      row.overallConversionRate;
+    built.analyze.overallConversionRate = row.overallConversionRate;
+  }
+  return {
+    steps: built.analyze.steps,
+    overallConversionRate: built.analyze.overallConversionRate,
+  };
+}
+
+/** Default `journeyResults` payload for journey detail. */
+function buildJourneyResultsForRow(row: MockFunnelJourneyRow) {
+  if (row.anchorEvent === "App_Launch" && row.direction === "START") {
+    return MOCK_ONBOARDING_JOURNEY_RESPONSE;
+  }
+  return row.direction === "END" ? MOCK_JOURNEY_REVERSE : MOCK_JOURNEY_FORWARD;
+}
+
+/**
+ * Projects an internal mock row to the {@code FunnelDetail} shape returned by
+ * `GET /v1/funnels/:id`. Adds prod-canonical defaults (mode, dateRangeDays,
+ * windowSeconds, funnelType, stepOrderType, createdAt, description, funnelResults).
+ */
+function projectFunnelDetail(row: MockFunnelJourneyRow) {
+  const createdAt = "2026-01-15T10:00:00Z";
+  return {
+    id: row.id,
+    name: row.name,
+    description:
+      row.description ??
+      "Conversion funnel across key product events. Edit steps and run analysis from the builder when the full editor is connected.",
+    status: row.status,
+    funnelType: row.funnelType ?? FunnelType.AUTO,
+    stepOrderType: row.stepOrderType ?? StepOrderType.ORDERED,
+    steps: row.steps ?? [],
+    filters: row.filters ?? [],
+    windowSeconds: row.windowSeconds ?? 86400,
+    mode: row.mode ?? FunnelMode.UNIQUE_USERS,
+    dateRangeDays: row.dateRangeDays ?? 7,
+    startTime: row.startTime,
+    endTime: row.endTime,
+    expiry: row.expiry,
+    createdAt,
+    updatedAt: row.updatedAt,
+    createdBy: row.createdBy,
+    tags: row.tags,
+    funnelResults: buildFunnelResultsForRow(row),
+  };
+}
+
+/**
+ * Projects an internal mock row to the {@code JourneyDetail} shape returned by
+ * `GET /v1/journeys/:id`. Adds prod defaults (mode, dateRangeDays, journeyType,
+ * createdAt, description, journeyResults).
+ */
+function projectJourneyDetail(row: MockFunnelJourneyRow) {
+  const createdAt = "2026-02-01T12:00:00Z";
+  return {
+    id: row.id,
+    name: row.name,
+    description:
+      row.description ??
+      "Exploratory journey map for navigation paths after this anchor event. Open the journey explorer to adjust the root event and direction.",
+    status: row.status,
+    anchorEvent: row.anchorEvent ?? "",
+    direction: row.direction ?? "START",
+    depth: row.depth ?? 5,
+    mode: row.mode ?? FunnelMode.UNIQUE_USERS,
+    journeyType: row.journeyType ?? row.funnelType ?? FunnelType.AUTO,
+    filters: row.filters ?? [],
+    startTime: row.startTime,
+    endTime: row.endTime,
+    expiry: row.expiry,
+    dateRangeDays: row.dateRangeDays ?? 7,
+    createdAt,
+    updatedAt: row.updatedAt,
+    createdBy: row.createdBy,
+    tags: row.tags,
+    journeyResults: buildJourneyResultsForRow(row),
+  };
+}
 
 function normalizeFunnelStepSignature(
   steps: Array<{ eventName?: string } | undefined> | undefined,
@@ -989,10 +1156,22 @@ function mockResourceListing(
   if (page > totalPages) page = totalPages;
 
   const start = (page - 1) * pageSize;
-  // Strip internal `kind` field — real server doesn't return it
-  const paginatedItems = items
-    .slice(start, start + pageSize)
-    .map(({ kind: _kind, ...rest }) => rest);
+  const pageRows = items.slice(start, start + pageSize);
+  // Project to the lean prod listing shape (FunnelListItem / JourneyListItem).
+  // Detail-only fields (steps, filters, windowSeconds, anchorEvent, depth, …)
+  // are intentionally stripped to mirror what the real /v1/funnels and /v1/journeys
+  // endpoints return.
+  const paginatedItems = pageRows.map((row) =>
+    row.kind === "FUNNEL"
+      ? projectFunnelListItem(row)
+      : projectJourneyListItem(row),
+  );
+
+  // filterOptions: distinct creators + tags across the FILTERED pool (so the
+  // sidebar's facets reflect what's actually selectable). Keeps parity with
+  // ListFilterOptions returned by the prod listing endpoint.
+  const creators = Array.from(new Set(pool.map((r) => r.createdBy))).sort();
+  const tags = Array.from(new Set(pool.flatMap((r) => r.tags))).sort();
 
   return {
     data: {
@@ -1001,6 +1180,7 @@ function mockResourceListing(
       page,
       pageSize,
       totalPages,
+      filterOptions: { creators, tags },
     },
     status: 200,
   };
@@ -1037,23 +1217,13 @@ function mockSavedResourceDetail(
     };
   }
 
-  const createdAt =
-    row.kind === "FUNNEL" ? "2026-01-15T10:00:00Z" : "2026-02-01T12:00:00Z";
-  const description =
-    row.kind === "FUNNEL"
-      ? "Conversion funnel across key product events. Edit steps and run analysis from the builder when the full editor is connected."
-      : "Exploratory journey map for navigation paths after this anchor event. Open the journey explorer to adjust the root event and direction.";
-
-  // Strip internal `kind` field — real server doesn't return it
-  const { kind: _kind, ...rest } = row;
-  return {
-    data: {
-      ...rest,
-      description,
-      createdAt,
-    },
-    status: 200,
-  };
+  // Project to the prod detail shape (FunnelDetail / JourneyDetail). The detail
+  // projector fills in canonical defaults (mode, dateRangeDays, windowSeconds, …)
+  // and attaches funnelResults / journeyResults so the visualization renders
+  // without requiring a separate analyze call.
+  const data =
+    row.kind === "FUNNEL" ? projectFunnelDetail(row) : projectJourneyDetail(row);
+  return { data, status: 200 };
 }
 
 const MOCK_TAGS = [
@@ -1076,6 +1246,48 @@ function mockJourneyListing(request: MockRequest): MockResponse {
   return mockResourceListing(request, "JOURNEY");
 }
 
+/**
+ * Mocks `POST /v1/funnels/:id/stop` and `POST /v1/journeys/:id/stop`.
+ *
+ * <p>Mirrors the backend's new STOP_AUTO behavior: sets {@code expiry = NOW()} on the row
+ * but leaves {@code funnelType}/{@code journeyType} unchanged. The listing's status is
+ * recomputed by the backend from `(type, expiry, latest_job)` — for the mock we just flip
+ * status to COMPLETED so the listing repaints. Idempotent: a re-stop is a no-op success.
+ */
+function mockStopAuto(
+  id: string,
+  expectedKind: "FUNNEL" | "JOURNEY",
+): MockResponse {
+  const index = MOCK_FUNNELS_JOURNEYS_ALL.findIndex((r) => r.id === id);
+  if (index === -1) {
+    return {
+      data: null,
+      status: 404,
+      error: {
+        code: "NOT_FOUND",
+        message:
+          expectedKind === "FUNNEL" ? "Funnel not found" : "Journey not found",
+        cause: `No ${expectedKind === "FUNNEL" ? "funnel" : "journey"} with id ${id}`,
+      },
+    };
+  }
+  if (MOCK_FUNNELS_JOURNEYS_ALL[index].kind !== expectedKind) {
+    return { data: null, status: 404 };
+  }
+  const row = MOCK_FUNNELS_JOURNEYS_ALL[index];
+  const now = new Date().toISOString();
+  // Set expiry to now; keep funnelType/journeyType as-is so the listing still shows
+  // "AUTO" — the badge flips to COMPLETED via the (type, expiry, latest_job) mapping.
+  const updated: MockFunnelJourneyRow = {
+    ...row,
+    expiry: now,
+    status: "COMPLETED",
+    updatedAt: now,
+  };
+  MOCK_FUNNELS_JOURNEYS_ALL[index] = updated;
+  return { data: "Success", status: 200 };
+}
+
 function mockPostCreateFunnelOrJourney(
   request: MockRequest,
   kind: "FUNNEL" | "JOURNEY",
@@ -1087,31 +1299,43 @@ function mockPostCreateFunnelOrJourney(
     /* ignore */
   }
   const newId = `fj-${Date.now()}`;
-  const newItem = {
+  // Funnel CREATE body uses `expiryDate` (CreateFunnelRequestBody); journey CREATE
+  // body uses `expiry` (CreateJourneyRequestBody). Normalize both to the canonical
+  // detail field name `expiry`. Detail projector handles defaults.
+  const expiry =
+    body.expiry ?? body.expiryDate ?? MOCK_EXPIRY_ONE_YEAR_FROM_NOW;
+  const newItem: MockFunnelJourneyRow = {
     id: newId,
+    kind,
     name: body.name || "Untitled",
     description: body.description || "",
-    kind,
-    status: "IN_PROGRESS" as const,
+    status: "IN_PROGRESS",
     createdBy: "dev@example.com",
-    createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     tags: body.tags || [],
-    stepOrderType: body.stepOrderType,
+    expiry,
+    startTime: body.startTime,
+    endTime: body.endTime,
+    mode: body.mode ?? FunnelMode.UNIQUE_USERS,
+    dateRangeDays: body.dateRangeDays ?? 7,
     filters: body.filters || [],
-    expiryDate: body.expiryDate ?? MOCK_EXPIRY_ONE_YEAR_FROM_NOW,
     funnelType: body.funnelType,
-    steps: body.steps,
-    timeRange: body.timeRange,
+    journeyType: body.journeyType,
+    stepOrderType: body.stepOrderType,
     windowSeconds: body.windowSeconds,
+    steps: body.steps,
     anchorEvent: body.anchorEvent,
     direction: body.direction,
     depth: body.depth,
   };
   MOCK_FUNNELS_JOURNEYS_ALL.unshift(newItem);
-  // Strip internal `kind` field — real server doesn't return it
-  const { kind: _kind, ...rest } = newItem;
-  return { data: rest, status: 201 };
+  // Return the detail shape so the create flow can navigate straight to the detail
+  // page without a follow-up GET.
+  const data =
+    kind === "FUNNEL"
+      ? projectFunnelDetail(newItem)
+      : projectJourneyDetail(newItem);
+  return { data, status: 201 };
 }
 
 function mockPutFunnelOrJourney(
@@ -1133,15 +1357,28 @@ function mockPutFunnelOrJourney(
   if (MOCK_FUNNELS_JOURNEYS_ALL[index].kind !== expectedKind) {
     return { data: null, status: 404 };
   }
-  MOCK_FUNNELS_JOURNEYS_ALL[index] = {
+  // PUT bodies (UpdateFunnelRequestBody / CreateJourneyRequestBody) both use
+  // `expiry`. Accept legacy `expiryDate` too for back-compat with older callers.
+  const { expiryDate: legacyExpiry, ...bodyRest } = body;
+  const merged: MockFunnelJourneyRow = {
     ...MOCK_FUNNELS_JOURNEYS_ALL[index],
-    ...body,
-    status: "IN_PROGRESS" as const,
+    ...bodyRest,
+    status: "IN_PROGRESS",
     updatedAt: new Date().toISOString(),
   };
-  // Strip internal `kind` field — real server doesn't return it
-  const { kind: _kind, ...rest } = MOCK_FUNNELS_JOURNEYS_ALL[index];
-  return { data: rest, status: 200 };
+  if (bodyRest.expiry !== undefined) {
+    merged.expiry = bodyRest.expiry;
+  } else if (legacyExpiry !== undefined) {
+    merged.expiry = legacyExpiry;
+  }
+  MOCK_FUNNELS_JOURNEYS_ALL[index] = merged;
+  // Return the detail shape so the update flow can repaint the detail page
+  // immediately on success.
+  const data =
+    expectedKind === "FUNNEL"
+      ? projectFunnelDetail(merged)
+      : projectJourneyDetail(merged);
+  return { data, status: 200 };
 }
 
 export function handleFunnelEndpoints(
@@ -1162,6 +1399,18 @@ export function handleFunnelEndpoints(
   }
   if (method === "POST" && journeyCollectionSuffix.test(pathOnly)) {
     return mockPostCreateFunnelOrJourney(request, "JOURNEY");
+  }
+
+  // POST /v1/funnels/:id/stop and /v1/journeys/:id/stop — stop auto-refresh.
+  // Flips the row's funnel_type/journey_type from AUTO → ONCE so it reads as
+  // COMPLETED and is excluded from any (mock) cron logic.
+  const stopFunnelMatch = pathOnly.match(/\/v1\/funnels?\/([^/]+)\/stop$/);
+  if (method === "POST" && stopFunnelMatch) {
+    return mockStopAuto(stopFunnelMatch[1], "FUNNEL");
+  }
+  const stopJourneyMatch = pathOnly.match(/\/v1\/journeys?\/([^/]+)\/stop$/);
+  if (method === "POST" && stopJourneyMatch) {
+    return mockStopAuto(stopJourneyMatch[1], "JOURNEY");
   }
 
   if (method === "PUT") {

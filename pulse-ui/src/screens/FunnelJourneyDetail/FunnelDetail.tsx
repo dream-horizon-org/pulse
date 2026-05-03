@@ -20,6 +20,7 @@ import {
 } from "../../hooks";
 import { getDateRangeFromPreset } from "../FunnelJourneyCreate/FunnelJourneyCreate.util";
 import { useUpdateFunnel } from "../../hooks/useUpdateFunnel";
+import { useStopFunnel } from "../../hooks/useStopFunnel";
 import { GlobalFilterBar } from "../FunnelJourneyCreate/components/GlobalFilterBar";
 import funnelClasses from "../FunnelJourneyCreate/FunnelCreate.module.css";
 import { FunnelBuilder } from "../FunnelJourneyCreate/components/FunnelBuilder";
@@ -399,6 +400,8 @@ export function FunnelDetail() {
     navigate(-1);
   };
 
+  const { mutate: stopFunnelMutation, isPending: isStopping } = useStopFunnel();
+
   if (isLoading) {
     return (
       <Box
@@ -451,7 +454,13 @@ export function FunnelDetail() {
         height: "calc(100vh - 60px)",
       }}
     >
-      <FunnelJourneyDetailChrome detail={detail} kind="FUNNEL" onBack={goBack} />
+      <FunnelJourneyDetailChrome
+        detail={detail}
+        kind="FUNNEL"
+        onBack={goBack}
+        onStop={() => stopFunnelMutation(detail.id)}
+        isStopping={isStopping}
+      />
       <FunnelDetailView detail={detail} isEditing={isEditing} onEdit={() => setIsEditing(true)} />
     </Box>
   );

@@ -179,6 +179,26 @@ public class JourneyServiceImpl implements JourneyService {
             }));
   }
 
+  /**
+   * Stops auto-refresh by flipping the row to ONCE. Idempotent: 0-row updates from
+   * already-stopped journeys succeed; a missing journey raises JOURNEY_NOT_FOUND.
+   */
+  @Override
+  public Completable stopAuto(String projectId, long id) {
+    return journeyDao
+      .stopAuto(projectId, id)
+      .flatMapCompletable(
+        rowCount -> {
+          if (rowCount > 0) {
+            return Completable.complete();
+          }
+          return journeyDao
+            .findByProjectAndId(projectId, id)
+            .switchIfEmpty(Single.error(ServiceError.JOURNEY_NOT_FOUND.getException()))
+            .ignoreElement();
+        });
+  }
+
   @Override
   public Single<JourneyResponse> get(String projectId, long id) {
     return journeyDao
@@ -400,7 +420,9 @@ public class JourneyServiceImpl implements JourneyService {
       }
       AnalysisComputedStatus computed =
         AnalysisComputedStatusResolver.compute(
-          FunnelType.fromJson(row.getJourneyType()), row.getLatestJobStatus());
+          FunnelType.fromJson(row.getJourneyType()),
+          row.getLatestJobStatus(),
+          row.getExpiry());
       return JourneyResponse.builder()
         .id(row.getId())
         .projectId(row.getProjectId())

@@ -178,6 +178,30 @@ public class FunnelServiceImpl implements FunnelService {
             }));
   }
 
+  /**
+   * Stops auto-refresh by flipping the row to ONCE. The DAO's WHERE clause guards against
+   * stopping a funnel that's already ONCE, missing, or owned by another project — all those
+   * cases yield rowCount=0. We treat 0 as NOT_FOUND only when the row truly doesn't exist;
+   * an already-stopped funnel is a no-op success (idempotent stop).
+   */
+  @Override
+  public Completable stopAuto(String projectId, long id) {
+    return funnelDefinitionDao
+      .stopAuto(projectId, id)
+      .flatMapCompletable(
+        rowCount -> {
+          if (rowCount > 0) {
+            return Completable.complete();
+          }
+          // No row updated. Distinguish "already stopped" (200 OK no-op) from "not found"
+          // by checking whether the funnel exists for this project at all.
+          return funnelDefinitionDao
+            .findByProjectAndId(projectId, id)
+            .switchIfEmpty(Single.error(ServiceError.FUNNEL_NOT_FOUND.getException()))
+            .ignoreElement();
+        });
+  }
+
   @Override
   public Single<FunnelDefinitionResponse> get(String projectId, long id) {
     return funnelDefinitionDao
@@ -459,7 +483,9 @@ public class FunnelServiceImpl implements FunnelService {
       }
       AnalysisComputedStatus computed =
         AnalysisComputedStatusResolver.compute(
-          FunnelType.fromJson(row.getFunnelType()), row.getLatestJobStatus());
+          FunnelType.fromJson(row.getFunnelType()),
+          row.getLatestJobStatus(),
+          row.getExpiry());
       return FunnelDefinitionResponse.builder()
         .id(row.getId())
         .projectId(row.getProjectId())

@@ -19,6 +19,7 @@ import {
 } from "../../hooks";
 import { FunnelType, type CreateJourneyRequestBody } from "../../services/funnels.service";
 import { useUpdateJourney } from "../../hooks/useUpdateJourney";
+import { useStopJourney } from "../../hooks/useStopJourney";
 import { GlobalFilterBar } from "../FunnelJourneyCreate/components/GlobalFilterBar";
 import funnelClasses from "../FunnelJourneyCreate/FunnelCreate.module.css";
 import { JourneyExplorer } from "../FunnelJourneyCreate/components/JourneyExplorer";
@@ -423,6 +424,8 @@ export function JourneyDetail() {
     navigate(-1);
   };
 
+  const { mutate: stopJourneyMutation, isPending: isStopping } = useStopJourney();
+
   if (isLoading) {
     return (
       <Box
@@ -475,7 +478,13 @@ export function JourneyDetail() {
         height: "calc(100vh - 60px)",
       }}
     >
-      <FunnelJourneyDetailChrome detail={detail} kind="JOURNEY" onBack={goBack} />
+      <FunnelJourneyDetailChrome
+        detail={detail}
+        kind="JOURNEY"
+        onBack={goBack}
+        onStop={() => stopJourneyMutation(detail.id)}
+        isStopping={isStopping}
+      />
       <JourneyDetailView detail={detail} isEditing={isEditing} onEdit={() => setIsEditing(true)} />
     </Box>
   );
