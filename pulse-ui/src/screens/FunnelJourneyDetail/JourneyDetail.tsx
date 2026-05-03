@@ -20,6 +20,7 @@ import {
 import { FunnelType, type CreateJourneyRequestBody } from "../../services/funnels.service";
 import { useUpdateJourney } from "../../hooks/useUpdateJourney";
 import { useStopJourney } from "../../hooks/useStopJourney";
+import { useDeleteJourney } from "../../hooks/useDeleteJourney";
 import { GlobalFilterBar } from "../FunnelJourneyCreate/components/GlobalFilterBar";
 import funnelClasses from "../FunnelJourneyCreate/FunnelCreate.module.css";
 import { JourneyExplorer } from "../FunnelJourneyCreate/components/JourneyExplorer";
@@ -407,7 +408,10 @@ function JourneyDetailView({ detail, isEditing, onEdit }: { detail: any; isEditi
 
 export function JourneyDetail() {
   const navigate = useNavigate();
-  const { journeyId } = useParams<{ projectId: string; journeyId: string }>();
+  const { journeyId, projectId } = useParams<{
+    projectId: string;
+    journeyId: string;
+  }>();
   const [isEditing, setIsEditing] = useState(false);
 
   const journeyQuery = useGetJourneyDetail(journeyId);
@@ -425,6 +429,20 @@ export function JourneyDetail() {
   };
 
   const { mutate: stopJourneyMutation, isPending: isStopping } = useStopJourney();
+  const { mutate: deleteJourneyMutation, isPending: isDeleting } = useDeleteJourney();
+
+  const handleDeleteJourney = () => {
+    if (!detail) return;
+    deleteJourneyMutation(detail.id, {
+      onSuccess: () => {
+        if (projectId) {
+          navigate(generatePath(ROUTES.JOURNEYS_LIST.path, { projectId }));
+        } else {
+          navigate(-1);
+        }
+      },
+    });
+  };
 
   if (isLoading) {
     return (
@@ -484,6 +502,8 @@ export function JourneyDetail() {
         onBack={goBack}
         onStop={() => stopJourneyMutation(detail.id)}
         isStopping={isStopping}
+        onDelete={handleDeleteJourney}
+        isDeleting={isDeleting}
       />
       <JourneyDetailView detail={detail} isEditing={isEditing} onEdit={() => setIsEditing(true)} />
     </Box>

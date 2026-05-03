@@ -1247,6 +1247,38 @@ function mockJourneyListing(request: MockRequest): MockResponse {
 }
 
 /**
+ * Mocks the cascading `DELETE /v1/funnels/:id` and `DELETE /v1/journeys/:id`.
+ *
+ * <p>For the in-memory mock store this just removes the row from
+ * {@code MOCK_FUNNELS_JOURNEYS_ALL}. The "and its tags / analytics_jobs /
+ * funnel_results" cleanup is server-side; mocks have no separate tag/job/results
+ * stores to clean up. 404 when the id is missing or the kind doesn't match.
+ */
+function mockCascadeDelete(
+  id: string,
+  expectedKind: "FUNNEL" | "JOURNEY",
+): MockResponse {
+  const index = MOCK_FUNNELS_JOURNEYS_ALL.findIndex((r) => r.id === id);
+  if (index === -1) {
+    return {
+      data: null,
+      status: 404,
+      error: {
+        code: "NOT_FOUND",
+        message:
+          expectedKind === "FUNNEL" ? "Funnel not found" : "Journey not found",
+        cause: `No ${expectedKind === "FUNNEL" ? "funnel" : "journey"} with id ${id}`,
+      },
+    };
+  }
+  if (MOCK_FUNNELS_JOURNEYS_ALL[index].kind !== expectedKind) {
+    return { data: null, status: 404 };
+  }
+  MOCK_FUNNELS_JOURNEYS_ALL.splice(index, 1);
+  return { data: "Success", status: 200 };
+}
+
+/**
  * Mocks `POST /v1/funnels/:id/stop` and `POST /v1/journeys/:id/stop`.
  *
  * <p>Mirrors the backend's new STOP_AUTO behavior: sets {@code expiry = NOW()} on the row
@@ -1411,6 +1443,18 @@ export function handleFunnelEndpoints(
   const stopJourneyMatch = pathOnly.match(/\/v1\/journeys?\/([^/]+)\/stop$/);
   if (method === "POST" && stopJourneyMatch) {
     return mockStopAuto(stopJourneyMatch[1], "JOURNEY");
+  }
+
+  // DELETE /v1/funnels/:id and /v1/journeys/:id — cascading delete on the mock store.
+  if (method === "DELETE") {
+    const funnelDel = pathOnly.match(/\/v1\/funnels?\/([^/]+)$/);
+    if (funnelDel) {
+      return mockCascadeDelete(funnelDel[1], "FUNNEL");
+    }
+    const journeyDel = pathOnly.match(/\/v1\/journeys?\/([^/]+)$/);
+    if (journeyDel) {
+      return mockCascadeDelete(journeyDel[1], "JOURNEY");
+    }
   }
 
   if (method === "PUT") {

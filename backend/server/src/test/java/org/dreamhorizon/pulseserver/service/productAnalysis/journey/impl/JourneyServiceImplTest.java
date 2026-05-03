@@ -44,13 +44,24 @@ class JourneyServiceImplTest {
   @Mock
   AnalyticsBatchService analyticsBatchService;
 
+  @Mock
+  org.dreamhorizon.pulseserver.dao.analyticsjob.AnalyticsJobDao analyticsJobDao;
+
+  @Mock
+  org.dreamhorizon.pulseserver.service.analytics.ClickHouseComputeService clickHouseComputeService;
+
   JourneyServiceImpl service;
 
   @BeforeEach
   void setUp() {
     service =
         new JourneyServiceImpl(
-            journeyDao, funnelJourneyTagDao, journeyResultsDao, analyticsBatchService);
+            journeyDao,
+            funnelJourneyTagDao,
+            journeyResultsDao,
+            analyticsBatchService,
+            analyticsJobDao,
+            clickHouseComputeService);
   }
 
   private CreateJourneyRequest validCreateRequest() {
@@ -134,8 +145,16 @@ class JourneyServiceImplTest {
             PROJECT, FunnelJourneyTagEntityType.JOURNEY, 4L))
         .thenReturn(Completable.complete());
     when(journeyDao.delete(PROJECT, 4L)).thenReturn(Single.just(1));
+    when(analyticsJobDao.deleteByReference(
+            org.dreamhorizon.pulseserver.dao.analyticsjob.AnalyticsJobType.JOURNEY, 4L))
+        .thenReturn(Single.just(0));
+    when(clickHouseComputeService.deleteJourneyResults(PROJECT, 4L))
+        .thenReturn(Single.just(true));
 
     service.delete(PROJECT, 4L).blockingAwait();
     verify(journeyDao).delete(PROJECT, 4L);
+    verify(analyticsJobDao).deleteByReference(
+        org.dreamhorizon.pulseserver.dao.analyticsjob.AnalyticsJobType.JOURNEY, 4L);
+    verify(clickHouseComputeService).deleteJourneyResults(PROJECT, 4L);
   }
 }

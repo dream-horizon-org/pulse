@@ -1,6 +1,6 @@
 import { ActionIcon, Badge, Box, Button, Group, Text } from "@mantine/core";
 import { modals } from "@mantine/modals";
-import { IconArrowLeft, IconPlayerStopFilled } from "@tabler/icons-react";
+import { IconArrowLeft, IconPlayerStopFilled, IconTrash } from "@tabler/icons-react";
 import dayjs from "dayjs";
 import funnelClasses from "../FunnelJourneyCreate/FunnelCreate.module.css";
 
@@ -30,6 +30,8 @@ export function FunnelJourneyDetailChrome({
   onBack,
   onStop,
   isStopping = false,
+  onDelete,
+  isDeleting = false,
 }: {
   detail: DetailChrome;
   kind: "FUNNEL" | "JOURNEY";
@@ -37,6 +39,9 @@ export function FunnelJourneyDetailChrome({
   /** Provided when the Stop control should be shown (AUTO non-COMPLETED items). */
   onStop?: () => void;
   isStopping?: boolean;
+  /** Provided when delete is enabled. Cascades server-side. */
+  onDelete?: () => void;
+  isDeleting?: boolean;
 }) {
   // Show "Stop" only for AUTO funnels/journeys that haven't already been stopped.
   // Backend's stopAuto is idempotent but the button should disappear once the row
@@ -65,6 +70,25 @@ export function FunnelJourneyDetailChrome({
       labels: { confirm: "Mark as Completed", cancel: "Cancel" },
       confirmProps: { color: "red" },
       onConfirm: onStop,
+    });
+  };
+
+  const handleDeleteClick = () => {
+    if (!onDelete) return;
+    modals.openConfirmModal({
+      title: `Delete this ${kind === "FUNNEL" ? "funnel" : "journey"}?`,
+      centered: true,
+      children: (
+        <Text size="sm">
+          The {kind === "FUNNEL" ? "funnel" : "journey"} &quot;
+          <Text span fw={600}>{detail.name}</Text>&quot; and all its data will be
+          permanently removed: tag mappings, run history, and computed results.
+          This can&apos;t be undone.
+        </Text>
+      ),
+      labels: { confirm: "Delete permanently", cancel: "Cancel" },
+      confirmProps: { color: "red" },
+      onConfirm: onDelete,
     });
   };
 
@@ -138,8 +162,8 @@ export function FunnelJourneyDetailChrome({
           </Box>
         </Group>
       </Box>
-      {canStop && (
-        <Box>
+      <Group gap="xs">
+        {canStop && (
           <Button
             variant="light"
             color="red"
@@ -150,8 +174,20 @@ export function FunnelJourneyDetailChrome({
           >
             Mark as Completed
           </Button>
-        </Box>
-      )}
+        )}
+        {onDelete && (
+          <Button
+            variant="subtle"
+            color="red"
+            size="xs"
+            leftSection={<IconTrash size={14} />}
+            onClick={handleDeleteClick}
+            loading={isDeleting}
+          >
+            Delete
+          </Button>
+        )}
+      </Group>
     </Box>
   );
 }

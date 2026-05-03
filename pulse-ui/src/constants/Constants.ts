@@ -988,6 +988,11 @@ export const API_ROUTES: StreamverseRoutes = {
     apiPath: `/v1/funnels`,
     method: API_METHODS.POST,
   },
+  FUNNEL_DELETE: {
+    key: "FUNNEL_DELETE",
+    apiPath: `/v1/funnels`,
+    method: API_METHODS.DELETE,
+  },
   FUNNEL_SESSIONS: {
     key: "FUNNEL_SESSIONS",
     apiPath: `/v1/funnels/sessions`,
@@ -1022,6 +1027,11 @@ export const API_ROUTES: StreamverseRoutes = {
     key: "JOURNEY_STOP",
     apiPath: `/v1/journeys`,
     method: API_METHODS.POST,
+  },
+  JOURNEY_DELETE: {
+    key: "JOURNEY_DELETE",
+    apiPath: `/v1/journeys`,
+    method: API_METHODS.DELETE,
   },
   FUNNEL_EVENTS: {
     key: "FUNNEL_EVENTS",

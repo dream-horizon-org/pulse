@@ -19,11 +19,14 @@ import org.dreamhorizon.pulseserver.dao.productAnalysis.funneldefinition.models.
 import org.dreamhorizon.pulseserver.dao.productAnalysis.funneljourneytag.FunnelJourneyTagDao;
 import org.dreamhorizon.pulseserver.dao.productAnalysis.funneljourneytag.FunnelJourneyTagEntityType;
 import org.dreamhorizon.pulseserver.dao.productAnalysis.funnelresults.FunnelResultsDao;
+import org.dreamhorizon.pulseserver.dao.analyticsjob.AnalyticsJobDao;
+import org.dreamhorizon.pulseserver.dao.analyticsjob.AnalyticsJobType;
 import org.dreamhorizon.pulseserver.error.ServiceError;
 import org.dreamhorizon.pulseserver.resources.productAnalysis.funnel.models.*;
 import org.dreamhorizon.pulseserver.resources.productAnalysis.models.FunnelJourneyTagsListResponse;
 import org.dreamhorizon.pulseserver.resources.productAnalysis.models.ListFilterOptions;
 import org.dreamhorizon.pulseserver.service.analytics.AnalyticsBatchService;
+import org.dreamhorizon.pulseserver.service.analytics.ClickHouseComputeService;
 import org.dreamhorizon.pulseserver.service.productAnalysis.AnalysisEntityTags;
 import org.dreamhorizon.pulseserver.service.productAnalysis.funnel.FunnelResultsMapper;
 import org.dreamhorizon.pulseserver.service.productAnalysis.funnel.FunnelService;
@@ -45,6 +48,8 @@ public class FunnelServiceImpl implements FunnelService {
   private final FunnelJourneyTagDao funnelJourneyTagDao;
   private final FunnelResultsDao funnelResultsDao;
   private final AnalyticsBatchService analyticsBatchService;
+  private final AnalyticsJobDao analyticsJobDao;
+  private final ClickHouseComputeService clickHouseComputeService;
   private final ObjectMapper objectMapper = new ObjectMapper();
 
   @Override
@@ -162,6 +167,19 @@ public class FunnelServiceImpl implements FunnelService {
         });
   }
 
+  /**
+   * Cascading delete for a funnel. Order matters:
+   * <ol>
+   *   <li>Delete tag mappings (FK-style cleanup of {@code funnel_journey_tag}).</li>
+   *   <li>Delete the funnel row in MySQL — this is the authoritative existence check;
+   *       a 0-row result means NOT_FOUND and the caller sees that error before any
+   *       further side effects fire.</li>
+   *   <li>Best-effort: delete {@code analytics_jobs} rows for this funnel (FUNNEL type +
+   *       reference_id). Failure here only logs — the row is gone in the listing.</li>
+   *   <li>Best-effort: delete {@code otel.funnel_results} rows in ClickHouse. CH DELETE is
+   *       async; we kick it off and don't fail the request on CH errors.</li>
+   * </ol>
+   */
   @Override
   public Completable delete(String projectId, long id) {
     return funnelJourneyTagDao
@@ -174,8 +192,36 @@ public class FunnelServiceImpl implements FunnelService {
               if (n == 0) {
                 return Completable.error(ServiceError.FUNNEL_NOT_FOUND.getException());
               }
-              return Completable.complete();
+              return cascadeDeleteSideEffects(projectId, id);
             }));
+  }
+
+  /**
+   * Best-effort cleanup of analytics_jobs and ClickHouse results after the funnel row
+   * itself has been removed. Errors here are swallowed (logged) — the funnel is already
+   * gone from the user's perspective and we don't want orphaned-row cleanup failures to
+   * surface as a failed delete.
+   */
+  private Completable cascadeDeleteSideEffects(String projectId, long id) {
+    Completable deleteJobs =
+      analyticsJobDao
+        .deleteByReference(AnalyticsJobType.FUNNEL, id)
+        .ignoreElement()
+        .onErrorComplete(err -> {
+          log.warn("Failed to delete analytics_jobs rows for funnelId={}: {}",
+              id, err.getMessage());
+          return true;
+        });
+    Completable deleteResults =
+      clickHouseComputeService
+        .deleteFunnelResults(projectId, id)
+        .ignoreElement()
+        .onErrorComplete(err -> {
+          log.warn("Failed to delete otel.funnel_results rows for funnelId={}: {}",
+              id, err.getMessage());
+          return true;
+        });
+    return deleteJobs.andThen(deleteResults);
   }
 
   /**

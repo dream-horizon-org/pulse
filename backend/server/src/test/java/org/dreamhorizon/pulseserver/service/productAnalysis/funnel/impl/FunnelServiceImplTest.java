@@ -47,13 +47,24 @@ class FunnelServiceImplTest {
   @Mock
   AnalyticsBatchService analyticsBatchService;
 
+  @Mock
+  org.dreamhorizon.pulseserver.dao.analyticsjob.AnalyticsJobDao analyticsJobDao;
+
+  @Mock
+  org.dreamhorizon.pulseserver.service.analytics.ClickHouseComputeService clickHouseComputeService;
+
   FunnelServiceImpl service;
 
   @BeforeEach
   void setUp() {
     service =
         new FunnelServiceImpl(
-            funnelDefinitionDao, funnelJourneyTagDao, funnelResultsDao, analyticsBatchService);
+            funnelDefinitionDao,
+            funnelJourneyTagDao,
+            funnelResultsDao,
+            analyticsBatchService,
+            analyticsJobDao,
+            clickHouseComputeService);
   }
 
   private CreateFunnelDefinitionRequest validCreateRequest() {
@@ -158,8 +169,18 @@ class FunnelServiceImplTest {
             PROJECT, FunnelJourneyTagEntityType.FUNNEL, 3L))
         .thenReturn(Completable.complete());
     when(funnelDefinitionDao.delete(PROJECT, 3L)).thenReturn(Single.just(1));
+    // Cascading delete: analytics_jobs cleanup + ClickHouse results cleanup. Both are
+    // best-effort post-deletion side effects; stub success so the chain completes.
+    when(analyticsJobDao.deleteByReference(
+            org.dreamhorizon.pulseserver.dao.analyticsjob.AnalyticsJobType.FUNNEL, 3L))
+        .thenReturn(Single.just(0));
+    when(clickHouseComputeService.deleteFunnelResults(PROJECT, 3L))
+        .thenReturn(Single.just(true));
 
     service.delete(PROJECT, 3L).blockingAwait();
     verify(funnelDefinitionDao).delete(PROJECT, 3L);
+    verify(analyticsJobDao).deleteByReference(
+        org.dreamhorizon.pulseserver.dao.analyticsjob.AnalyticsJobType.FUNNEL, 3L);
+    verify(clickHouseComputeService).deleteFunnelResults(PROJECT, 3L);
   }
 }

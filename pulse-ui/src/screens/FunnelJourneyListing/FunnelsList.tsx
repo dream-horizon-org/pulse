@@ -1,4 +1,5 @@
 import {
+  ActionIcon,
   Badge,
   Box,
   Button,
@@ -8,8 +9,15 @@ import {
   Select,
   Text,
   TextInput,
+  Tooltip,
 } from "@mantine/core";
-import { IconChartFunnel, IconSearch } from "@tabler/icons-react";
+import { modals } from "@mantine/modals";
+import {
+  IconChartFunnel,
+  IconSearch,
+  IconTrash,
+} from "@tabler/icons-react";
+import { useDeleteFunnel } from "../../hooks/useDeleteFunnel";
 import { DataTable } from "mantine-datatable";
 import { ChangeEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { generatePath, useNavigate } from "react-router-dom";
@@ -149,6 +157,33 @@ export function FunnelsList() {
     );
   };
 
+  const { mutate: deleteFunnelMutation, isPending: isDeleting } = useDeleteFunnel();
+
+  /**
+   * Per-row delete handler. Cascades server-side (tags + analytics_jobs +
+   * funnel_results). The mutation hook invalidates `funnelsList` so the row
+   * disappears once the request resolves; the modal handles the confirm step.
+   */
+  const handleDeleteRow = useCallback(
+    (row: FunnelListItem) => {
+      modals.openConfirmModal({
+        title: "Delete this funnel?",
+        centered: true,
+        children: (
+          <Text size="sm">
+            The funnel &quot;<Text span fw={600}>{row.name}</Text>&quot; and all
+            its data will be permanently removed: tag mappings, run history,
+            and computed results. This can&apos;t be undone.
+          </Text>
+        ),
+        labels: { confirm: "Delete permanently", cancel: "Cancel" },
+        confirmProps: { color: "red" },
+        onConfirm: () => deleteFunnelMutation(row.id),
+      });
+    },
+    [deleteFunnelMutation],
+  );
+
   const onSearchChange = (e: ChangeEvent<HTMLInputElement>) => {
     setSearchStr(e.currentTarget.value);
   };
@@ -257,8 +292,31 @@ export function FunnelsList() {
           </Text>
         ),
       },
+      {
+        accessor: "actions",
+        title: "",
+        // Per-row trash icon. Stops row-click propagation so we don't navigate
+        // into the detail page when the user clicks delete.
+        render: (row: FunnelListItem) => (
+          <Tooltip label="Delete funnel" withArrow position="left">
+            <ActionIcon
+              variant="subtle"
+              color="red"
+              size="sm"
+              loading={isDeleting}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleDeleteRow(row);
+              }}
+              aria-label={`Delete ${row.name}`}
+            >
+              <IconTrash size={16} />
+            </ActionIcon>
+          </Tooltip>
+        ),
+      },
     ],
-    [],
+    [handleDeleteRow, isDeleting],
   );
 
   const requestError =

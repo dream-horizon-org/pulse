@@ -19,6 +19,8 @@ import org.dreamhorizon.pulseserver.dao.productAnalysis.journey.JourneyDao;
 import org.dreamhorizon.pulseserver.dao.productAnalysis.journey.JourneyListParams;
 import org.dreamhorizon.pulseserver.dao.productAnalysis.journey.models.JourneyRow;
 import org.dreamhorizon.pulseserver.dao.productAnalysis.journeyresults.JourneyResultsDao;
+import org.dreamhorizon.pulseserver.dao.analyticsjob.AnalyticsJobDao;
+import org.dreamhorizon.pulseserver.dao.analyticsjob.AnalyticsJobType;
 import org.dreamhorizon.pulseserver.error.ServiceError;
 import org.dreamhorizon.pulseserver.resources.productAnalysis.funnel.models.FunnelAttributeFilter;
 import org.dreamhorizon.pulseserver.resources.productAnalysis.funnel.models.FunnelMode;
@@ -27,6 +29,7 @@ import org.dreamhorizon.pulseserver.resources.productAnalysis.journey.models.*;
 import org.dreamhorizon.pulseserver.resources.productAnalysis.models.ListFilterOptions;
 import org.dreamhorizon.pulseserver.service.productAnalysis.AnalysisEntityTags;
 import org.dreamhorizon.pulseserver.service.analytics.AnalyticsBatchService;
+import org.dreamhorizon.pulseserver.service.analytics.ClickHouseComputeService;
 import org.dreamhorizon.pulseserver.service.productAnalysis.journey.JourneyResultsMapper;
 import org.dreamhorizon.pulseserver.service.productAnalysis.journey.JourneyService;
 
@@ -47,6 +50,8 @@ public class JourneyServiceImpl implements JourneyService {
   private final FunnelJourneyTagDao funnelJourneyTagDao;
   private final JourneyResultsDao journeyResultsDao;
   private final AnalyticsBatchService analyticsBatchService;
+  private final AnalyticsJobDao analyticsJobDao;
+  private final ClickHouseComputeService clickHouseComputeService;
   private final ObjectMapper objectMapper = new ObjectMapper();
 
   @Override
@@ -163,6 +168,11 @@ public class JourneyServiceImpl implements JourneyService {
         });
   }
 
+  /**
+   * Cascading delete for a journey. Mirrors {@code FunnelService.delete}: tags →
+   * journey row (authoritative existence check) → analytics_jobs (best-effort) →
+   * {@code otel.journey_results} in ClickHouse (best-effort).
+   */
   @Override
   public Completable delete(String projectId, long id) {
     return funnelJourneyTagDao
@@ -175,8 +185,31 @@ public class JourneyServiceImpl implements JourneyService {
               if (n == 0) {
                 return Completable.error(ServiceError.JOURNEY_NOT_FOUND.getException());
               }
-              return Completable.complete();
+              return cascadeDeleteSideEffects(projectId, id);
             }));
+  }
+
+  /** Best-effort post-delete cleanup of analytics_jobs + ClickHouse journey_results. */
+  private Completable cascadeDeleteSideEffects(String projectId, long id) {
+    Completable deleteJobs =
+      analyticsJobDao
+        .deleteByReference(AnalyticsJobType.JOURNEY, id)
+        .ignoreElement()
+        .onErrorComplete(err -> {
+          log.warn("Failed to delete analytics_jobs rows for journeyId={}: {}",
+              id, err.getMessage());
+          return true;
+        });
+    Completable deleteResults =
+      clickHouseComputeService
+        .deleteJourneyResults(projectId, id)
+        .ignoreElement()
+        .onErrorComplete(err -> {
+          log.warn("Failed to delete otel.journey_results rows for journeyId={}: {}",
+              id, err.getMessage());
+          return true;
+        });
+    return deleteJobs.andThen(deleteResults);
   }
 
   /**

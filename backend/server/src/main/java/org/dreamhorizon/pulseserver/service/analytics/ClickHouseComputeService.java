@@ -247,6 +247,34 @@ public class ClickHouseComputeService {
   /** Pairs a journey id with the analytics_jobs row id created for its current run. */
   private record JourneyJobHandle(long journeyId, long jobDbId) {}
 
+  // ── Cascading-delete helpers ─────────────────────────────────────────────────
+
+  /**
+   * Best-effort delete of every {@code otel.funnel_results} row for a single funnel.
+   * Used by {@code FunnelService.delete} so a removed funnel doesn't leave orphan
+   * computed rows in ClickHouse. ClickHouse {@code DELETE} is asynchronous; this kicks
+   * off the mutation and returns success once the statement is accepted by the server.
+   */
+  public Single<Boolean> deleteFunnelResults(String projectId, long funnelId) {
+    String safeProject = projectId == null ? "" : projectId.replace("'", "''");
+    String sql =
+        "DELETE FROM otel.funnel_results "
+            + "WHERE ProjectId = '" + safeProject + "' AND FunnelId = " + funnelId;
+    return executeInsert(projectId, sql);
+  }
+
+  /**
+   * Best-effort delete of every {@code otel.journey_results} row for a single journey.
+   * Used by {@code JourneyService.delete}.
+   */
+  public Single<Boolean> deleteJourneyResults(String projectId, long journeyId) {
+    String safeProject = projectId == null ? "" : projectId.replace("'", "''");
+    String sql =
+        "DELETE FROM otel.journey_results "
+            + "WHERE ProjectId = '" + safeProject + "' AND JourneyId = " + journeyId;
+    return executeInsert(projectId, sql);
+  }
+
   /**
    * Matches Spark journey compute: only the literal {@code "START"} uses forward anchor semantics;
    * any other stored value uses END semantics.
