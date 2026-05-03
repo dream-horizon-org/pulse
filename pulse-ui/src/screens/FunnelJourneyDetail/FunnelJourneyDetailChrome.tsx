@@ -1,5 +1,6 @@
-import { ActionIcon, Badge, Box, Group, Text } from "@mantine/core";
-import { IconArrowLeft } from "@tabler/icons-react";
+import { ActionIcon, Badge, Box, Button, Group, Text } from "@mantine/core";
+import { modals } from "@mantine/modals";
+import { IconArrowLeft, IconPlayerStopFilled, IconTrash } from "@tabler/icons-react";
 import dayjs from "dayjs";
 import funnelClasses from "../FunnelJourneyCreate/FunnelCreate.module.css";
 
@@ -10,6 +11,9 @@ type DetailChrome = {
   updatedAt?: string;
   /** Analysis grouping key — surfaced as a read-only badge when present. */
   mode?: string;
+  /** Schedule type — drives whether the Stop button is shown. */
+  funnelType?: string;
+  journeyType?: string;
 };
 
 /** Human-readable label for a FunnelMode value. */
@@ -24,11 +28,70 @@ export function FunnelJourneyDetailChrome({
   detail,
   kind,
   onBack,
+  onStop,
+  isStopping = false,
+  onDelete,
+  isDeleting = false,
 }: {
   detail: DetailChrome;
   kind: "FUNNEL" | "JOURNEY";
   onBack: () => void;
+  /** Provided when the Stop control should be shown (AUTO non-COMPLETED items). */
+  onStop?: () => void;
+  isStopping?: boolean;
+  /** Provided when delete is enabled. Cascades server-side. */
+  onDelete?: () => void;
+  isDeleting?: boolean;
 }) {
+  // Show "Stop" only for AUTO funnels/journeys that haven't already been stopped.
+  // Backend's stopAuto is idempotent but the button should disappear once the row
+  // becomes COMPLETED so the chrome reflects the final state.
+  const scheduleType =
+    kind === "FUNNEL" ? detail.funnelType : detail.journeyType;
+  const canStop =
+    onStop != null &&
+    scheduleType === "AUTO" &&
+    detail.status !== "COMPLETED" &&
+    detail.status !== "FAILED";
+
+  const handleStopClick = () => {
+    if (!onStop) return;
+    modals.openConfirmModal({
+      title: `Mark this ${kind === "FUNNEL" ? "funnel" : "journey"} as Completed?`,
+      centered: true,
+      children: (
+        <Text size="sm">
+          The {kind === "FUNNEL" ? "funnel" : "journey"} will stop auto-updating
+          and be marked as Completed. Existing computed data is preserved. This
+          can&apos;t be undone from here — you&apos;d need to recreate the{" "}
+          {kind === "FUNNEL" ? "funnel" : "journey"} to resume auto-refresh.
+        </Text>
+      ),
+      labels: { confirm: "Mark as Completed", cancel: "Cancel" },
+      confirmProps: { color: "red" },
+      onConfirm: onStop,
+    });
+  };
+
+  const handleDeleteClick = () => {
+    if (!onDelete) return;
+    modals.openConfirmModal({
+      title: `Delete this ${kind === "FUNNEL" ? "funnel" : "journey"}?`,
+      centered: true,
+      children: (
+        <Text size="sm">
+          The {kind === "FUNNEL" ? "funnel" : "journey"} &quot;
+          <Text span fw={600}>{detail.name}</Text>&quot; and all its data will be
+          permanently removed: tag mappings, run history, and computed results.
+          This can&apos;t be undone.
+        </Text>
+      ),
+      labels: { confirm: "Delete permanently", cancel: "Cancel" },
+      confirmProps: { color: "red" },
+      onConfirm: onDelete,
+    });
+  };
+
   return (
     <Box className={funnelClasses.topBar}>
       <Box className={funnelClasses.topBarLeft}>
@@ -99,6 +162,32 @@ export function FunnelJourneyDetailChrome({
           </Box>
         </Group>
       </Box>
+      <Group gap="xs">
+        {canStop && (
+          <Button
+            variant="light"
+            color="red"
+            size="xs"
+            leftSection={<IconPlayerStopFilled size={14} />}
+            onClick={handleStopClick}
+            loading={isStopping}
+          >
+            Mark as Completed
+          </Button>
+        )}
+        {onDelete && (
+          <Button
+            variant="subtle"
+            color="red"
+            size="xs"
+            leftSection={<IconTrash size={14} />}
+            onClick={handleDeleteClick}
+            loading={isDeleting}
+          >
+            Delete
+          </Button>
+        )}
+      </Group>
     </Box>
   );
 }

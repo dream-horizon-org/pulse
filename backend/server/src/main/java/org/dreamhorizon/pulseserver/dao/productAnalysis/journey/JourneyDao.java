@@ -84,6 +84,33 @@ public class JourneyDao {
       .map(r -> (int) r.rowCount());
   }
 
+  /**
+   * Stops auto-refresh for an AUTO journey by flipping it to ONCE and freezing the analysis
+   * window. Returns the number of rows updated — {@code 0} when the journey is already
+   * stopped, missing, or owned by another project. Mirrors
+   * {@link org.dreamhorizon.pulseserver.dao.productAnalysis.funneldefinition.FunnelDefinitionDao#stopAuto}.
+   */
+  public Single<Integer> stopAuto(String projectId, long id) {
+    MySQLPool pool = mysqlClient.getWriterPool();
+    return pool
+      .preparedQuery(JourneyQueries.STOP_AUTO)
+      .rxExecute(Tuple.of(projectId, id))
+      .map(r -> (int) r.rowCount());
+  }
+
+  /**
+   * Bumps {@code journey.updated_at} to {@code CURRENT_TIMESTAMP} for a single journey id.
+   * Used by the AUTO batch cron after a successful ClickHouse compute so the listing's
+   * "Last updated" reflects the most recent auto-run, not just the last manual edit.
+   */
+  public Single<Integer> touchUpdatedAt(long id) {
+    MySQLPool pool = mysqlClient.getWriterPool();
+    return pool
+      .preparedQuery(JourneyQueries.TOUCH_UPDATED_AT)
+      .rxExecute(Tuple.of(id))
+      .map(r -> (int) r.rowCount());
+  }
+
   public Maybe<JourneyRow> findByProjectAndId(String projectId, long id) {
     MySQLPool pool = mysqlClient.getReaderPool();
     return pool

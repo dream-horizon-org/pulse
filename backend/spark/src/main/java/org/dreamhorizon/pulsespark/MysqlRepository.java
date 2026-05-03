@@ -177,4 +177,62 @@ public class MysqlRepository {
       stmt.executeUpdate();
     }
   }
+
+  /**
+   * Bumps {@code funnel.updated_at} to {@code CURRENT_TIMESTAMP}.
+   * Called after successful funnel compute so listing shows latest auto-run.
+   */
+  public void touchFunnelUpdatedAt(long funnelId) throws SQLException {
+    try (var conn = DriverManager.getConnection(jdbcUrl, user, password);
+         var stmt = conn.prepareStatement(
+             "UPDATE funnel SET updated_at = CURRENT_TIMESTAMP WHERE id = ?")) {
+      stmt.setLong(1, funnelId);
+      int updated = stmt.executeUpdate();
+      if (updated > 0) {
+        System.out.println("[MysqlRepository] Touched updated_at for funnel id=" + funnelId);
+      }
+    }
+  }
+
+  /**
+   * Bumps {@code journey.updated_at} to {@code CURRENT_TIMESTAMP}.
+   * Called after successful journey compute so listing shows latest auto-run.
+   */
+  public void touchJourneyUpdatedAt(long journeyId) throws SQLException {
+    try (var conn = DriverManager.getConnection(jdbcUrl, user, password);
+         var stmt = conn.prepareStatement(
+             "UPDATE journey SET updated_at = CURRENT_TIMESTAMP WHERE id = ?")) {
+      stmt.setLong(1, journeyId);
+      int updated = stmt.executeUpdate();
+      if (updated > 0) {
+        System.out.println("[MysqlRepository] Touched updated_at for journey id=" + journeyId);
+      }
+    }
+  }
+
+  /**
+   * Bumps {@code updated_at} for all AUTO funnels.
+   * Called after successful FUNNELS_DAILY batch job.
+   */
+  public void touchAllAutoFunnelsUpdatedAt() throws SQLException {
+    try (var conn = DriverManager.getConnection(jdbcUrl, user, password);
+         var stmt = conn.prepareStatement(
+             "UPDATE funnel SET updated_at = CURRENT_TIMESTAMP WHERE funnel_type = 'AUTO'")) {
+      int updated = stmt.executeUpdate();
+      System.out.println("[MysqlRepository] Touched updated_at for " + updated + " AUTO funnel(s)");
+    }
+  }
+
+  /**
+   * Bumps {@code updated_at} for all AUTO journeys.
+   * Called after successful JOURNEYS_DAILY batch job.
+   */
+  public void touchAllAutoJourneysUpdatedAt() throws SQLException {
+    try (var conn = DriverManager.getConnection(jdbcUrl, user, password);
+         var stmt = conn.prepareStatement(
+             "UPDATE journey SET updated_at = CURRENT_TIMESTAMP WHERE journey_type = 'AUTO'")) {
+      int updated = stmt.executeUpdate();
+      System.out.println("[MysqlRepository] Touched updated_at for " + updated + " AUTO journey(s)");
+    }
+  }
 }

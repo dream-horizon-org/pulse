@@ -482,6 +482,64 @@ export async function updateFunnel(
   });
 }
 
+/**
+ * POST /v1/funnels/:funnelId/stop — stop auto-refresh on an AUTO funnel.
+ * Backend flips funnel_type to ONCE; the funnel becomes COMPLETED in the listing.
+ * Idempotent — safe to call on an already-stopped funnel.
+ */
+export async function stopFunnel(funnelId: string) {
+  const encoded = encodeURIComponent(funnelId);
+  return makeRequest<string>({
+    url: `${API_BASE_URL}${API_ROUTES.FUNNEL_STOP.apiPath}/${encoded}/stop`,
+    init: {
+      method: API_ROUTES.FUNNEL_STOP.method,
+    },
+  });
+}
+
+/**
+ * DELETE /v1/funnels/:funnelId — cascading delete of a funnel.
+ * Backend removes: funnel row, tag mappings, analytics_jobs rows for this funnel,
+ * and any associated otel.funnel_results rows in ClickHouse (best-effort).
+ */
+export async function deleteFunnel(funnelId: string) {
+  const encoded = encodeURIComponent(funnelId);
+  return makeRequest<string>({
+    url: `${API_BASE_URL}${API_ROUTES.FUNNEL_DELETE.apiPath}/${encoded}`,
+    init: {
+      method: API_ROUTES.FUNNEL_DELETE.method,
+    },
+  });
+}
+
+/**
+ * DELETE /v1/journeys/:journeyId — cascading delete of a journey.
+ * Mirrors {@link deleteFunnel}.
+ */
+export async function deleteJourney(journeyId: string) {
+  const encoded = encodeURIComponent(journeyId);
+  return makeRequest<string>({
+    url: `${API_BASE_URL}${API_ROUTES.JOURNEY_DELETE.apiPath}/${encoded}`,
+    init: {
+      method: API_ROUTES.JOURNEY_DELETE.method,
+    },
+  });
+}
+
+/**
+ * POST /v1/journeys/:journeyId/stop — stop auto-refresh on an AUTO journey.
+ * Mirrors {@link stopFunnel}. Idempotent.
+ */
+export async function stopJourney(journeyId: string) {
+  const encoded = encodeURIComponent(journeyId);
+  return makeRequest<string>({
+    url: `${API_BASE_URL}${API_ROUTES.JOURNEY_STOP.apiPath}/${encoded}/stop`,
+    init: {
+      method: API_ROUTES.JOURNEY_STOP.method,
+    },
+  });
+}
+
 /** PUT /v1/journeys/:journeyId */
 export async function updateJourney(
   journeyId: string,

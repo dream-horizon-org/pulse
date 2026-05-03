@@ -4,16 +4,20 @@ import com.google.inject.Inject;
 import com.google.inject.Singleton;
 import io.reactivex.rxjava3.core.Observable;
 import io.reactivex.rxjava3.core.Single;
-
-import java.util.List;
-
+import io.reactivex.rxjava3.schedulers.Schedulers;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.client.chclient.ClickhouseWriteClient;
+import org.dreamhorizon.pulseserver.dao.analyticsjob.AnalyticsJobDao;
+import org.dreamhorizon.pulseserver.dao.analyticsjob.AnalyticsJobStatus;
+import org.dreamhorizon.pulseserver.dao.analyticsjob.AnalyticsJobType;
 import org.dreamhorizon.pulseserver.dao.productAnalysis.funneldefinition.FunnelDefinitionDao;
 import org.dreamhorizon.pulseserver.dao.productAnalysis.funneldefinition.models.FunnelDefinitionRow;
 import org.dreamhorizon.pulseserver.dao.productAnalysis.journey.JourneyDao;
 import org.dreamhorizon.pulseserver.dao.productAnalysis.journey.models.JourneyRow;
+
+import java.time.LocalDateTime;
+import java.util.List;
 
 @Slf4j
 @Singleton
@@ -22,6 +26,7 @@ public class ClickHouseComputeService {
 
   private final FunnelDefinitionDao funnelDefinitionDao;
   private final JourneyDao journeyDao;
+  private final AnalyticsJobDao analyticsJobDao;
   private final ClickhouseWriteClient clickhouseWriteClient;
 
   // ── On-save path ─────────────────────────────────────────────────────────────
@@ -106,6 +111,12 @@ public class ClickHouseComputeService {
    * (one concurrent query per project). Per-funnel failure is isolated via
    * {@code onErrorReturn}; the project batch succeeds only if all funnels succeed.
    *
+   * <p>For each funnel we also write a per-item {@code analytics_jobs} row with
+   * {@code job_type = 'FUNNEL'} and {@code reference_id = funnel.id} so the listing's
+   * {@code latest_job_status} subquery reflects the latest cron run (not just the last
+   * on-save). On success we also bump {@code funnel.updated_at} so the "Last updated" column
+   * advances on each scheduled run.
+   *
    * <p>The legacy single-query batch builder
    * ({@link ClickHouseFunnelComputeDao#buildBatchInsertSql}) is retained as a backup.
    */
@@ -114,21 +125,78 @@ public class ClickHouseComputeService {
       return Single.just(true);
     }
     return Observable.fromIterable(defs)
-      .concatMapSingle(def ->
-        computeOne(def)
-          .onErrorReturn(err -> {
-            log.error(
-              "Funnel compute failed for projectId={}, funnelId={}",
-              projectId, def.getId(), err);
-            return false;
-          }))
+      .concatMapSingle(def -> computeAndRecordFunnel(projectId, def))
       .toList()
       .map(results -> results.stream().allMatch(Boolean::booleanValue));
   }
 
   /**
+   * Computes a single funnel inside a batch run, recording a per-item {@code analytics_jobs}
+   * row (RUNNING → SUCCEEDED/FAILED) tied to the funnel id, and bumping {@code updated_at}
+   * on success. The compute boolean propagates upstream; per-item bookkeeping failures only log.
+   */
+  private Single<Boolean> computeAndRecordFunnel(String projectId, FunnelDefinitionRow def) {
+    final long funnelId = def.getId();
+    final LocalDateTime startedAt = LocalDateTime.now();
+    return analyticsJobDao
+      .insertJob(AnalyticsJobType.FUNNEL, funnelId, null, AnalyticsJobStatus.RUNNING)
+      .onErrorResumeNext(insertErr -> {
+        log.warn("Failed to insert RUNNING analytics_jobs row for funnelId={}: {}",
+          funnelId, insertErr.getMessage());
+        return Single.just(-1L);
+      })
+      .flatMap(jobDbId ->
+        executeInsert(projectId, ClickHouseFunnelComputeDao.buildInsertSqlForDefinition(def))
+          .flatMap(success -> finalizeFunnelJob(funnelId, jobDbId, success, null, startedAt))
+          .onErrorResumeNext(err -> {
+            log.error("Funnel compute failed for projectId={}, funnelId={}",
+              projectId, funnelId, err);
+            return finalizeFunnelJob(funnelId, jobDbId, false, err.getMessage(), startedAt);
+          }));
+  }
+
+  /**
+   * Closes out the per-funnel {@code analytics_jobs} row and (on success) bumps
+   * {@code funnel.updated_at}. Returns the compute success boolean unchanged so the
+   * batch's allMatch semantics are preserved.
+   */
+  private Single<Boolean> finalizeFunnelJob(
+    long funnelId, long jobDbId, boolean success, String errorMessage, LocalDateTime startedAt) {
+    LocalDateTime completedAt = LocalDateTime.now();
+    AnalyticsJobStatus status = success ? AnalyticsJobStatus.SUCCEEDED : AnalyticsJobStatus.FAILED;
+
+    Single<Integer> updateJob = jobDbId > 0
+      ? analyticsJobDao.updateJobStatus(jobDbId, status, errorMessage, startedAt, completedAt)
+      .onErrorReturn(err -> {
+        log.warn("Failed to update analytics_jobs row id={} for funnelId={}: {}",
+          jobDbId, funnelId, err.getMessage());
+        return 0;
+      })
+      : Single.just(0);
+
+    return updateJob.flatMap(__ -> {
+      if (!success) {
+        return Single.just(false);
+      }
+      return funnelDefinitionDao.touchUpdatedAt(funnelId)
+        .map(rows -> true)
+        .onErrorReturn(err -> {
+          log.warn("Failed to bump funnel.updated_at for funnelId={}: {}",
+            funnelId, err.getMessage());
+          return true; // compute succeeded; touch failure shouldn't fail the batch
+        });
+    });
+  }
+
+  /**
    * Computes all provided journeys for a single project. Journeys with {@code direction == "START"}
    * are batched into one INSERT; remaining journeys (END) into another — same semantics as Spark.
+   *
+   * <p>For each journey we also write a per-item {@code analytics_jobs} row with
+   * {@code job_type = 'JOURNEY'} and {@code reference_id = journey.id} so the listing's
+   * {@code latest_job_status} subquery reflects the latest cron run. Because journeys in a
+   * direction batch share a single ClickHouse INSERT, all rows share the same
+   * SUCCEEDED/FAILED outcome. On success we also bump {@code journey.updated_at} for each.
    */
   public Single<Boolean> computeJourneyBatch(String projectId, List<JourneyRow> defs) {
     if (defs == null || defs.isEmpty()) {
@@ -141,20 +209,111 @@ public class ClickHouseComputeService {
 
     Single<Boolean> chain = Single.just(true);
     if (!startDefs.isEmpty()) {
-      chain =
-        chain.flatMap(
-          __ ->
-            executeInsert(
-              projectId, ClickHouseJourneyComputeDao.buildBatchInsertSql(startDefs, "START")));
+      chain = chain.flatMap(__ -> computeAndRecordJourneyDirection(projectId, startDefs, "START"));
     }
     if (!endDefs.isEmpty()) {
-      chain =
-        chain.flatMap(
-          __ ->
-            executeInsert(
-              projectId, ClickHouseJourneyComputeDao.buildBatchInsertSql(endDefs, "END")));
+      chain = chain.flatMap(prev ->
+        computeAndRecordJourneyDirection(projectId, endDefs, "END")
+          .map(curr -> prev && curr));
     }
     return chain;
+  }
+
+  /**
+   * Runs one direction's batch INSERT and writes per-journey {@code analytics_jobs} rows.
+   * RUNNING rows are inserted upfront so a long-running ClickHouse INSERT is observable in MySQL;
+   * after the INSERT resolves, every row is updated to SUCCEEDED or FAILED en bloc.
+   */
+  private Single<Boolean> computeAndRecordJourneyDirection(
+    String projectId, List<JourneyRow> directionDefs, String direction) {
+    final LocalDateTime startedAt = LocalDateTime.now();
+    return Observable.fromIterable(directionDefs)
+      .flatMapSingle(def ->
+        analyticsJobDao
+          .insertJob(AnalyticsJobType.JOURNEY, def.getId(), null, AnalyticsJobStatus.RUNNING)
+          .onErrorReturn(err -> {
+            log.warn("Failed to insert RUNNING analytics_jobs row for journeyId={}: {}",
+              def.getId(), err.getMessage());
+            return -1L;
+          })
+          .map(jobDbId -> new JourneyJobHandle(def.getId(), jobDbId)))
+      .toList()
+      .flatMap(handles ->
+        executeInsert(projectId, ClickHouseJourneyComputeDao.buildBatchInsertSql(directionDefs, direction))
+          .flatMap(success -> finalizeJourneyHandles(handles, success, null, startedAt))
+          .onErrorResumeNext(err -> {
+            log.error("Journey {} batch compute failed for projectId={}, count={}",
+              direction, projectId, directionDefs.size(), err);
+            return finalizeJourneyHandles(handles, false, err.getMessage(), startedAt);
+          }));
+  }
+
+  private Single<Boolean> finalizeJourneyHandles(
+    List<JourneyJobHandle> handles, boolean success, String errorMessage, LocalDateTime startedAt) {
+    LocalDateTime completedAt = LocalDateTime.now();
+    AnalyticsJobStatus status = success ? AnalyticsJobStatus.SUCCEEDED : AnalyticsJobStatus.FAILED;
+
+    return Observable.fromIterable(handles)
+      .flatMapSingle(h -> {
+        Single<Integer> updateJob = h.jobDbId() > 0
+          ? analyticsJobDao.updateJobStatus(h.jobDbId(), status, errorMessage, startedAt, completedAt)
+          .onErrorReturn(err -> {
+            log.warn("Failed to update analytics_jobs row id={} for journeyId={}: {}",
+              h.jobDbId(), h.journeyId(), err.getMessage());
+            return 0;
+          })
+          : Single.just(0);
+
+        return updateJob.flatMap(__ -> {
+          if (!success) {
+            return Single.just(true);
+          }
+          return journeyDao.touchUpdatedAt(h.journeyId())
+            .map(rows -> true)
+            .onErrorReturn(err -> {
+              log.warn("Failed to bump journey.updated_at for journeyId={}: {}",
+                h.journeyId(), err.getMessage());
+              return true;
+            });
+        });
+      })
+      .toList()
+      .map(__ -> success)
+      .subscribeOn(Schedulers.io());
+  }
+
+  /**
+   * Pairs a journey id with the analytics_jobs row id created for its current run.
+   */
+  private record JourneyJobHandle(long journeyId, long jobDbId) {
+  }
+
+  // ── Cascading-delete helpers ─────────────────────────────────────────────────
+
+  /**
+   * Best-effort delete of every {@code otel.funnel_results} row for a single funnel.
+   * Used by {@code FunnelService.delete} so a removed funnel doesn't leave orphan
+   * computed rows in ClickHouse. ClickHouse {@code DELETE} is asynchronous; this kicks
+   * off the mutation and returns success once the statement is accepted by the server.
+   */
+  public Single<Boolean> deleteFunnelResults(String projectId, long funnelId) {
+    String safeProject = projectId == null ? "" : projectId.replace("'", "''");
+    String sql =
+      "DELETE FROM otel.funnel_results "
+        + "WHERE ProjectId = '" + safeProject + "' AND FunnelId = " + funnelId;
+    return executeInsert(projectId, sql);
+  }
+
+  /**
+   * Best-effort delete of every {@code otel.journey_results} row for a single journey.
+   * Used by {@code JourneyService.delete}.
+   */
+  public Single<Boolean> deleteJourneyResults(String projectId, long journeyId) {
+    String safeProject = projectId == null ? "" : projectId.replace("'", "''");
+    String sql =
+      "DELETE FROM otel.journey_results "
+        + "WHERE ProjectId = '" + safeProject + "' AND JourneyId = " + journeyId;
+    return executeInsert(projectId, sql);
   }
 
   /**
@@ -174,8 +333,8 @@ public class ClickHouseComputeService {
       .doOnError(
         err ->
           log.error(
-              "ClickHouse INSERT failed for project {}: {}",
-              projectId,
-              err.getMessage()));
+            "ClickHouse INSERT failed for project {}: {}",
+            projectId,
+            err.getMessage()));
   }
 }
