@@ -1,0 +1,1077 @@
+{
+  "id": null,
+  "uid": "pulse-session-capture-v1",
+  "title": "Pulse — Session Capture Service",
+  "description": "HTTP traffic, request latency, payload stats, and Kafka health for pulse-session-capture",
+  "tags": ["pulse", "session-capture", "kafka"],
+  "timezone": "browser",
+  "schemaVersion": 38,
+  "version": 1,
+  "refresh": "30s",
+  "time": { "from": "now-1h", "to": "now" },
+  "timepicker": {},
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "links": [],
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": { "type": "grafana", "uid": "-- Grafana --" },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "templating": {
+    "list": [
+      {
+        "current": {},
+        "hide": 0,
+        "includeAll": false,
+        "label": "Datasource",
+        "multi": false,
+        "name": "datasource",
+        "options": [],
+        "query": "prometheus",
+        "refresh": 1,
+        "regex": "",
+        "type": "datasource"
+      },
+      {
+        "current": {},
+        "datasource": { "uid": "${datasource}" },
+        "definition": "label_values(http_requests_total{service=\"pulse-session-capture\"}, instance)",
+        "hide": 0,
+        "includeAll": true,
+        "allValue": ".*",
+        "label": "Instance",
+        "multi": true,
+        "name": "instance",
+        "options": [],
+        "query": {
+          "query": "label_values(http_requests_total{service=\"pulse-session-capture\"}, instance)",
+          "refId": "StandardVariableQuery"
+        },
+        "refresh": 2,
+        "regex": "",
+        "sort": 1,
+        "type": "query"
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Request Rate",
+      "description": "Requests per second across selected instances",
+      "gridPos": { "x": 0, "y": 0, "w": 4, "h": 4 },
+      "datasource": { "uid": "${datasource}" },
+      "targets": [
+        {
+          "datasource": { "uid": "${datasource}" },
+          "expr": "sum(rate(http_requests_total{service=\"pulse-session-capture\",instance=~\"$instance\"}[2m]))",
+          "refId": "A",
+          "instant": true
+        }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "green", "value": null }]
+          },
+          "unit": "reqps",
+          "decimals": 2
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Error Rate (5xx)",
+      "description": "Percentage of 5xx responses in the last 2m",
+      "gridPos": { "x": 4, "y": 0, "w": 4, "h": 4 },
+      "datasource": { "uid": "${datasource}" },
+      "targets": [
+        {
+          "datasource": { "uid": "${datasource}" },
+          "expr": "sum(rate(http_requests_total{service=\"pulse-session-capture\",instance=~\"$instance\",status=~\"5..\"}[2m])) / sum(rate(http_requests_total{service=\"pulse-session-capture\",instance=~\"$instance\"}[2m])) * 100",
+          "refId": "A",
+          "instant": true
+        }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 1 },
+              { "color": "red", "value": 5 }
+            ]
+          },
+          "unit": "percent",
+          "decimals": 2
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Active Connections",
+      "gridPos": { "x": 8, "y": 0, "w": 4, "h": 4 },
+      "datasource": { "uid": "${datasource}" },
+      "targets": [
+        {
+          "datasource": { "uid": "${datasource}" },
+          "expr": "sum(capture_active_connections{service=\"pulse-session-capture\",instance=~\"$instance\"})",
+          "refId": "A",
+          "instant": true
+        }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 500 },
+              { "color": "red", "value": 1000 }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Events Captured/s",
+      "description": "Recording events accepted per second",
+      "gridPos": { "x": 12, "y": 0, "w": 4, "h": 4 },
+      "datasource": { "uid": "${datasource}" },
+      "targets": [
+        {
+          "datasource": { "uid": "${datasource}" },
+          "expr": "sum(rate(capture_events_received_total{service=\"pulse-session-capture\",instance=~\"$instance\"}[2m]))",
+          "refId": "A",
+          "instant": true
+        }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "green", "value": null }]
+          },
+          "unit": "short",
+          "decimals": 1
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Timeouts (5m)",
+      "description": "Request timeouts in last 5 minutes",
+      "gridPos": { "x": 16, "y": 0, "w": 4, "h": 4 },
+      "datasource": { "uid": "${datasource}" },
+      "targets": [
+        {
+          "datasource": { "uid": "${datasource}" },
+          "expr": "sum(increase(middleware_request_timed_out_total{service=\"pulse-session-capture\",instance=~\"$instance\"}[5m]))",
+          "refId": "A",
+          "instant": true
+        }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 1 }
+            ]
+          },
+          "unit": "short",
+          "decimals": 0
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 6,
+      "type": "stat",
+      "title": "Kafka Producer Queue",
+      "description": "Messages buffered in producer queue",
+      "gridPos": { "x": 20, "y": 0, "w": 4, "h": 4 },
+      "datasource": { "uid": "${datasource}" },
+      "targets": [
+        {
+          "datasource": { "uid": "${datasource}" },
+          "expr": "sum(capture_kafka_producer_queue_depth{service=\"pulse-session-capture\",instance=~\"$instance\"})",
+          "refId": "A",
+          "instant": true
+        }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 1000 },
+              { "color": "red", "value": 5000 }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 7,
+      "type": "row",
+      "title": "HTTP Traffic",
+      "gridPos": { "x": 0, "y": 4, "w": 24, "h": 1 },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Requests per Second (by HTTP Status)",
+      "gridPos": { "x": 0, "y": 5, "w": 12, "h": 8 },
+      "datasource": { "uid": "${datasource}" },
+      "targets": [
+        {
+          "datasource": { "uid": "${datasource}" },
+          "expr": "sum by (status) (rate(http_requests_total{service=\"pulse-session-capture\",instance=~\"$instance\"}[2m]))",
+          "refId": "A",
+          "legendFormat": "{{status}}",
+          "range": true
+        }
+      ],
+      "options": {
+        "tooltip": { "mode": "multi", "sort": "none" },
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": { "type": "linear" },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": { "group": "A", "mode": "none" },
+            "thresholdsStyle": { "mode": "off" }
+          },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] },
+          "unit": "reqps"
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byRegexp", "options": "^2.*" },
+            "properties": [{ "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }]
+          },
+          {
+            "matcher": { "id": "byRegexp", "options": "^4.*" },
+            "properties": [{ "id": "color", "value": { "fixedColor": "yellow", "mode": "fixed" } }]
+          },
+          {
+            "matcher": { "id": "byRegexp", "options": "^5.*" },
+            "properties": [{ "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } }]
+          }
+        ]
+      }
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "Request Duration Percentiles",
+      "gridPos": { "x": 12, "y": 5, "w": 12, "h": 8 },
+      "datasource": { "uid": "${datasource}" },
+      "targets": [
+        {
+          "datasource": { "uid": "${datasource}" },
+          "expr": "histogram_quantile(0.50, sum by (le) (rate(http_requests_duration_seconds_bucket{service=\"pulse-session-capture\",instance=~\"$instance\"}[2m])))",
+          "refId": "A",
+          "legendFormat": "P50",
+          "range": true
+        },
+        {
+          "datasource": { "uid": "${datasource}" },
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(http_requests_duration_seconds_bucket{service=\"pulse-session-capture\",instance=~\"$instance\"}[2m])))",
+          "refId": "B",
+          "legendFormat": "P95",
+          "range": true
+        },
+        {
+          "datasource": { "uid": "${datasource}" },
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(http_requests_duration_seconds_bucket{service=\"pulse-session-capture\",instance=~\"$instance\"}[2m])))",
+          "refId": "C",
+          "legendFormat": "P99",
+          "range": true
+        }
+      ],
+      "options": {
+        "tooltip": { "mode": "multi", "sort": "desc" },
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": ["lastNotNull", "max"]
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": { "type": "linear" },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": { "group": "A", "mode": "none" },
+            "thresholdsStyle": { "mode": "off" }
+          },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] },
+          "unit": "s"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 10,
+      "type": "row",
+      "title": "Pipeline Latency",
+      "gridPos": { "x": 0, "y": 13, "w": 24, "h": 1 },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 11,
+      "type": "timeseries",
+      "title": "Pipeline Stage Latencies — P95",
+      "description": "Time spent per stage: body read → decompress → JSON parse → e2e processing",
+      "gridPos": { "x": 0, "y": 14, "w": 24, "h": 8 },
+      "datasource": { "uid": "${datasource}" },
+      "targets": [
+        {
+          "datasource": { "uid": "${datasource}" },
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(capture_body_read_time_seconds_bucket{service=\"pulse-session-capture\",instance=~\"$instance\"}[2m])))",
+          "refId": "A",
+          "legendFormat": "body read",
+          "range": true
+        },
+        {
+          "datasource": { "uid": "${datasource}" },
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(capture_decompress_time_seconds_bucket{service=\"pulse-session-capture\",instance=~\"$instance\"}[2m])))",
+          "refId": "B",
+          "legendFormat": "decompress",
+          "range": true
+        },
+        {
+          "datasource": { "uid": "${datasource}" },
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(capture_json_parse_time_seconds_bucket{service=\"pulse-session-capture\",instance=~\"$instance\"}[2m])))",
+          "refId": "C",
+          "legendFormat": "json parse",
+          "range": true
+        },
+        {
+          "datasource": { "uid": "${datasource}" },
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(capture_processing_time_seconds_bucket{service=\"pulse-session-capture\",instance=~\"$instance\"}[2m])))",
+          "refId": "D",
+          "legendFormat": "e2e processing",
+          "range": true
+        }
+      ],
+      "options": {
+        "tooltip": { "mode": "multi", "sort": "desc" },
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": ["lastNotNull", "max"]
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": { "type": "linear" },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": { "group": "A", "mode": "none" },
+            "thresholdsStyle": { "mode": "off" }
+          },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] },
+          "unit": "s"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 12,
+      "type": "row",
+      "title": "Payload Sizes",
+      "gridPos": { "x": 0, "y": 22, "w": 24, "h": 1 },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 13,
+      "type": "timeseries",
+      "title": "Raw (Compressed) Payload Size Percentiles",
+      "description": "Sizes of payloads as received from SDK before decompression",
+      "gridPos": { "x": 0, "y": 23, "w": 12, "h": 8 },
+      "datasource": { "uid": "${datasource}" },
+      "targets": [
+        {
+          "datasource": { "uid": "${datasource}" },
+          "expr": "histogram_quantile(0.50, sum by (le) (rate(capture_raw_payload_size_bucket{service=\"pulse-session-capture\",instance=~\"$instance\"}[2m])))",
+          "refId": "A",
+          "legendFormat": "P50",
+          "range": true
+        },
+        {
+          "datasource": { "uid": "${datasource}" },
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(capture_raw_payload_size_bucket{service=\"pulse-session-capture\",instance=~\"$instance\"}[2m])))",
+          "refId": "B",
+          "legendFormat": "P95",
+          "range": true
+        },
+        {
+          "datasource": { "uid": "${datasource}" },
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(capture_raw_payload_size_bucket{service=\"pulse-session-capture\",instance=~\"$instance\"}[2m])))",
+          "refId": "C",
+          "legendFormat": "P99",
+          "range": true
+        }
+      ],
+      "options": {
+        "tooltip": { "mode": "multi", "sort": "none" },
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": { "type": "linear" },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": { "group": "A", "mode": "none" },
+            "thresholdsStyle": { "mode": "off" }
+          },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] },
+          "unit": "bytes"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 14,
+      "type": "timeseries",
+      "title": "Full (Decompressed) Payload Size Percentiles",
+      "description": "Sizes after decompression — what gets parsed and forwarded to Kafka",
+      "gridPos": { "x": 12, "y": 23, "w": 12, "h": 8 },
+      "datasource": { "uid": "${datasource}" },
+      "targets": [
+        {
+          "datasource": { "uid": "${datasource}" },
+          "expr": "histogram_quantile(0.50, sum by (le) (rate(capture_full_payload_size_bucket{service=\"pulse-session-capture\",instance=~\"$instance\"}[2m])))",
+          "refId": "A",
+          "legendFormat": "P50",
+          "range": true
+        },
+        {
+          "datasource": { "uid": "${datasource}" },
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(capture_full_payload_size_bucket{service=\"pulse-session-capture\",instance=~\"$instance\"}[2m])))",
+          "refId": "B",
+          "legendFormat": "P95",
+          "range": true
+        },
+        {
+          "datasource": { "uid": "${datasource}" },
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(capture_full_payload_size_bucket{service=\"pulse-session-capture\",instance=~\"$instance\"}[2m])))",
+          "refId": "C",
+          "legendFormat": "P99",
+          "range": true
+        }
+      ],
+      "options": {
+        "tooltip": { "mode": "multi", "sort": "none" },
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": { "type": "linear" },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": { "group": "A", "mode": "none" },
+            "thresholdsStyle": { "mode": "off" }
+          },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] },
+          "unit": "bytes"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 15,
+      "type": "row",
+      "title": "Kafka Health",
+      "gridPos": { "x": 0, "y": 31, "w": 24, "h": 1 },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 16,
+      "type": "stat",
+      "title": "Brokers Down",
+      "description": "1 = at least one broker is not in UP state",
+      "gridPos": { "x": 0, "y": 32, "w": 4, "h": 4 },
+      "datasource": { "uid": "${datasource}" },
+      "targets": [
+        {
+          "datasource": { "uid": "${datasource}" },
+          "expr": "max(capture_kafka_any_brokers_down{service=\"pulse-session-capture\",instance=~\"$instance\"})",
+          "refId": "A",
+          "instant": true
+        }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 1 }
+            ]
+          },
+          "mappings": [
+            {
+              "options": {
+                "0": { "text": "OK" },
+                "1": { "text": "DOWN" }
+              },
+              "type": "value"
+            }
+          ],
+          "unit": "short"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 24,
+      "type": "stat",
+      "title": "Producer Queue Bytes",
+      "description": "Bytes currently buffered in the Kafka producer queue",
+      "gridPos": { "x": 0, "y": 36, "w": 4, "h": 4 },
+      "datasource": { "uid": "${datasource}" },
+      "targets": [
+        {
+          "datasource": { "uid": "${datasource}" },
+          "expr": "sum(capture_kafka_producer_queue_bytes{service=\"pulse-session-capture\",instance=~\"$instance\"})",
+          "refId": "A",
+          "instant": true
+        }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "green", "value": null }]
+          },
+          "unit": "bytes"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 17,
+      "type": "timeseries",
+      "title": "Kafka Producer Queue Depth (messages vs limit)",
+      "gridPos": { "x": 4, "y": 32, "w": 10, "h": 8 },
+      "datasource": { "uid": "${datasource}" },
+      "targets": [
+        {
+          "datasource": { "uid": "${datasource}" },
+          "expr": "sum(capture_kafka_producer_queue_depth{service=\"pulse-session-capture\",instance=~\"$instance\"})",
+          "refId": "A",
+          "legendFormat": "queued messages",
+          "range": true
+        },
+        {
+          "datasource": { "uid": "${datasource}" },
+          "expr": "sum(capture_kafka_producer_queue_depth_limit{service=\"pulse-session-capture\",instance=~\"$instance\"})",
+          "refId": "B",
+          "legendFormat": "queue limit",
+          "range": true
+        }
+      ],
+      "options": {
+        "tooltip": { "mode": "multi", "sort": "none" },
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": { "type": "linear" },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": { "group": "A", "mode": "none" },
+            "thresholdsStyle": { "mode": "off" }
+          },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] },
+          "unit": "short"
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "queue limit" },
+            "properties": [
+              { "id": "custom.lineStyle", "value": { "dash": [10, 10], "fill": "dash" } },
+              { "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": 18,
+      "type": "timeseries",
+      "title": "Kafka Produce RTT Latency (µs)",
+      "description": "Round-trip time from producer to broker by quantile",
+      "gridPos": { "x": 14, "y": 32, "w": 10, "h": 8 },
+      "datasource": { "uid": "${datasource}" },
+      "targets": [
+        {
+          "datasource": { "uid": "${datasource}" },
+          "expr": "avg by (quantile) (capture_kafka_produce_rtt_latency_us{service=\"pulse-session-capture\",instance=~\"$instance\"})",
+          "refId": "A",
+          "legendFormat": "{{quantile}}",
+          "range": true
+        }
+      ],
+      "options": {
+        "tooltip": { "mode": "multi", "sort": "desc" },
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": ["lastNotNull", "max"]
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": { "type": "linear" },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": { "group": "A", "mode": "none" },
+            "thresholdsStyle": { "mode": "off" }
+          },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] },
+          "unit": "µs"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 19,
+      "type": "timeseries",
+      "title": "Kafka Broker TX / RX Errors",
+      "gridPos": { "x": 0, "y": 40, "w": 12, "h": 8 },
+      "datasource": { "uid": "${datasource}" },
+      "targets": [
+        {
+          "datasource": { "uid": "${datasource}" },
+          "expr": "sum by (broker) (rate(capture_kafka_broker_tx_errors_total{service=\"pulse-session-capture\",instance=~\"$instance\"}[2m]))",
+          "refId": "A",
+          "legendFormat": "tx broker={{broker}}",
+          "range": true
+        },
+        {
+          "datasource": { "uid": "${datasource}" },
+          "expr": "sum by (broker) (rate(capture_kafka_broker_rx_errors_total{service=\"pulse-session-capture\",instance=~\"$instance\"}[2m]))",
+          "refId": "B",
+          "legendFormat": "rx broker={{broker}}",
+          "range": true
+        }
+      ],
+      "options": {
+        "tooltip": { "mode": "multi", "sort": "none" },
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": { "type": "linear" },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": { "group": "A", "mode": "none" },
+            "thresholdsStyle": { "mode": "off" }
+          },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] },
+          "unit": "short"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 20,
+      "type": "timeseries",
+      "title": "Kafka Broker Requests Pending + Awaiting Response",
+      "gridPos": { "x": 12, "y": 40, "w": 12, "h": 8 },
+      "datasource": { "uid": "${datasource}" },
+      "targets": [
+        {
+          "datasource": { "uid": "${datasource}" },
+          "expr": "sum by (broker) (capture_kafka_broker_requests_pending{service=\"pulse-session-capture\",instance=~\"$instance\"})",
+          "refId": "A",
+          "legendFormat": "pending broker={{broker}}",
+          "range": true
+        },
+        {
+          "datasource": { "uid": "${datasource}" },
+          "expr": "sum by (broker) (capture_kafka_broker_responses_awaiting{service=\"pulse-session-capture\",instance=~\"$instance\"})",
+          "refId": "B",
+          "legendFormat": "awaiting resp broker={{broker}}",
+          "range": true
+        }
+      ],
+      "options": {
+        "tooltip": { "mode": "multi", "sort": "none" },
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": { "type": "linear" },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": { "group": "A", "mode": "none" },
+            "thresholdsStyle": { "mode": "off" }
+          },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] },
+          "unit": "short"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 21,
+      "type": "row",
+      "title": "Timeout Middleware",
+      "gridPos": { "x": 0, "y": 48, "w": 24, "h": 1 },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 22,
+      "type": "timeseries",
+      "title": "Timed Out Requests (by path)",
+      "description": "Requests that hit the request timeout limit and returned 504",
+      "gridPos": { "x": 0, "y": 49, "w": 12, "h": 8 },
+      "datasource": { "uid": "${datasource}" },
+      "targets": [
+        {
+          "datasource": { "uid": "${datasource}" },
+          "expr": "sum by (path) (rate(middleware_request_timed_out_total{service=\"pulse-session-capture\",instance=~\"$instance\"}[2m]))",
+          "refId": "A",
+          "legendFormat": "{{path}}",
+          "range": true
+        }
+      ],
+      "options": {
+        "tooltip": { "mode": "multi", "sort": "none" },
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "fixed", "fixedColor": "red" },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 15,
+            "gradientMode": "none",
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": { "type": "linear" },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": { "group": "A", "mode": "none" },
+            "thresholdsStyle": { "mode": "off" }
+          },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] },
+          "unit": "reqps"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 23,
+      "type": "timeseries",
+      "title": "Middleware Pass: Threshold Exceeded vs Respected",
+      "description": "Successful requests grouped by whether they took longer than the configured timeout threshold",
+      "gridPos": { "x": 12, "y": 49, "w": 12, "h": 8 },
+      "datasource": { "uid": "${datasource}" },
+      "targets": [
+        {
+          "datasource": { "uid": "${datasource}" },
+          "expr": "sum by (threshold) (rate(middleware_pass_total{service=\"pulse-session-capture\",instance=~\"$instance\"}[2m]))",
+          "refId": "A",
+          "legendFormat": "{{threshold}}",
+          "range": true
+        }
+      ],
+      "options": {
+        "tooltip": { "mode": "multi", "sort": "none" },
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": { "type": "linear" },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": { "group": "A", "mode": "none" },
+            "thresholdsStyle": { "mode": "off" }
+          },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] },
+          "unit": "reqps"
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "exceeded" },
+            "properties": [{ "id": "color", "value": { "fixedColor": "orange", "mode": "fixed" } }]
+          }
+        ]
+      }
+    }
+  ]
+}

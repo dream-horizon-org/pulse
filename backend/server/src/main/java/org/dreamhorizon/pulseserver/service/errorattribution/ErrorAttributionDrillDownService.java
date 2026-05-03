@@ -41,7 +41,8 @@ public class ErrorAttributionDrillDownService {
         ErrorAttributionDrillDownQueryBuilder.build(
             projectId, interactionName, startInclusive, endExclusive, signal, params);
     return clickhouseQueryService
-        .executeRootCauseQuery(projectId, spec.sql(), spec.bindNames(), spec.bindValues())
+        .executeRootCauseQuery(
+            projectId, spec.sql(), spec.bindNames(), spec.bindValues(), true)
         .map(ClickhouseQueryRowUtils::rowsToMaps)
         .map(rows -> mapResult(signal, rows, params));
   }

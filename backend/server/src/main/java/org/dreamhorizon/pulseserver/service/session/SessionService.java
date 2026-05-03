@@ -93,6 +93,7 @@ public class SessionService {
         .timeoutMs(2000)
         .tenantId(TenantContext.getTenantId())
         .projectId(ProjectContext.getProjectId())
+        .useQueryConditionCache(true)
         .build();
     return clickhouseQueryService.executeQueryOrCreateJob(configuration, GetSessionResponse.Session.class)
         .map(result -> {
