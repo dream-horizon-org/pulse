@@ -14,11 +14,11 @@ alwaysApply: false
 | openfga-migrate | alpine:3.19 | — | mysql |
 | openfga | openfga/openfga:v1.5.3 | 8180, 8181, 3001 | mysql, openfga-migrate |
 | openfga-init | alpine:3.19 | — | openfga |
-| clickhouse | clickhouse/clickhouse-server:24.8 | 8123, 9000 | — |
+| clickhouse | clickhouse/clickhouse-server:25.3.9 | 8123, 9000 | — |
 | kafka | confluentinc/cp-kafka:7.6.0 | 9092 | — |
 | minio | minio/minio:latest | 9100→9000, 9101→9001 (console) | — |
 | minio-init | minio/mc:latest | — | minio |
-| clickhouse-init | clickhouse/clickhouse-server:24.8 | — | clickhouse **and** kafka (healthy) |
+| clickhouse-init | clickhouse/clickhouse-server:25.3.9 | — | clickhouse **and** kafka (healthy) |
 | pulse-session-capture | `backend/session-capture-service` | 3400 | kafka |
 | pulse-session-replay-ingestion | `backend/session-replay-ingestion` | — | kafka, minio-init |
 | otel-collector | otel-collector-contrib:0.137.0 | 4317, 4318, 8888, 13133 | clickhouse |
