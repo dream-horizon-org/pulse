@@ -67,16 +67,16 @@ aws codeartifact get-package-version-asset \
   --asset "$APPLICATION_NAME-$VERSION.zip" \
   "$APPLICATION_NAME.zip"
 
-unzip -o "$APPLICATION_NAME.zip"
-if [ ! -f "$APPLICATION_NAME/dist/index.js" ]; then
-  echo "ERROR: dist/index.js not found under $APPLICATION_NAME/"
+UNZIP_TMP=$(mktemp -d)
+unzip -o "$APPLICATION_NAME.zip" -d "$UNZIP_TMP"
+if [ ! -f "$UNZIP_TMP/$APPLICATION_NAME/dist/index.js" ]; then
+  echo "ERROR: dist/index.js not found under $UNZIP_TMP/$APPLICATION_NAME/"
   exit 1
 fi
 
 sudo rm -rf "$APP_ROOT"
-sudo mkdir -p "$APP_ROOT"
-sudo cp -a "$APPLICATION_NAME"/. "$APP_ROOT"/
-sudo rm -rf "$HOME/$APPLICATION_NAME"
+sudo mv "$UNZIP_TMP/$APPLICATION_NAME" "$APP_ROOT"
+sudo rm -rf "$UNZIP_TMP"
 
 echo "$SECRET_JSON" | jq -r '.app_env[] | "\(.key)=\(.value)"' | sudo tee "$ENV_FILE" >/dev/null
 sudo chmod 600 "$ENV_FILE"
