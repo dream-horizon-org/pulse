@@ -60,7 +60,7 @@ export const MethodDistribution: React.FC<MethodDistributionProps> = ({
     ? "Request breakdown by GraphQL operation type"
     : "Request breakdown by HTTP method type";
   const dimensionExpression = isGraphqlMode
-    ? "SpanAttributes['graphql.operation.type']"
+    ? COLUMN_NAME.GRAPHQL_OPERATION_TYPE
     : "SpanAttributes['http.method']";
   const dimensionAlias = isGraphqlMode ? "operation_type" : "http_method";
 

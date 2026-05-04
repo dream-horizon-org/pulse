@@ -36,6 +36,7 @@ public class Queries {
 
   /**
    * Distinct telemetry dimension values for the interaction UI, scoped to one project.
+   * Only spans from the last 60 days ({@code Timestamp >= now() - INTERVAL 60 DAY}) are considered.
    */
   public static String getTelemetryFilterValuesQuery(String projectId) {
     String pid = escapeChStringLiteral(projectId);
@@ -47,7 +48,8 @@ public class Queries {
         + " arraySort(arrayFilter(x -> x != '', groupUniqArray(OsVersion)))        AS osVersions,\n"
         + " arraySort(arrayFilter(x -> x != '', groupUniqArray(Platform)))         AS platforms\n"
         + " FROM otel.otel_traces\n"
-        + " WHERE ProjectId = '" + pid + "' SETTINGS use_query_cache = 1, query_cache_ttl = 3600;";
+        + " WHERE ProjectId = '" + pid + "'\n"
+        + " AND Timestamp >= now() - INTERVAL 60 DAY";
   }
 
   static String escapeChStringLiteral(String s) {
