@@ -32,11 +32,11 @@ echo "node $(node --version) pm2 $(pm2 --version)"
 # App environment from AWS Secrets Manager (same contract as pulse-server /
 # session-capture: { "app_env": [ { "key": "...", "value": "..." }, ... ] })
 # Keys match backend/session-replay-ingestion/src/config.ts (KAFKA_*, S3_*, etc.).
+# Env file is written after artifact install so APP_ROOT can be replaced cleanly.
 # -------------------------------------------------------------------
 SECRET_NAME="prod/pulse-session-replay-ingestion/appenv"
-ENV_FILE="/etc/pulse/ingestion.env"
-
-sudo mkdir -p /etc/pulse
+APP_ROOT="$HOME/pulse-session-replay-ingestion"
+ENV_FILE="$APP_ROOT/ingestion.env"
 
 echo "Fetching secret '$SECRET_NAME' from AWS Secrets Manager..."
 SECRET_JSON=$(aws secretsmanager get-secret-value \
@@ -50,16 +50,11 @@ if [ -z "$SECRET_JSON" ]; then
   exit 1
 fi
 
-echo "$SECRET_JSON" | jq -r '.app_env[] | "\(.key)=\(.value)"' | sudo tee "$ENV_FILE" >/dev/null
-sudo chmod 600 "$ENV_FILE"
-echo "Exported $(wc -l < "$ENV_FILE") environment variables to $ENV_FILE"
-
 AWS_REGION="ap-south-1"
 CODEARTIFACT_DOMAIN="pulse-prod"
 CODEARTIFACT_REPOSITORY="pulse-session-replay-ingestion"
 APPLICATION_NAME="pulse-session-replay-ingestion"
 VERSION="${artifact_version}"
-INSTALL_DIR="/opt/pulse-session-replay-ingestion"
 
 aws codeartifact get-package-version-asset \
   --region "$AWS_REGION" \
@@ -78,10 +73,16 @@ if [ ! -f "$APPLICATION_NAME/dist/index.js" ]; then
   exit 1
 fi
 
-sudo rm -rf "$INSTALL_DIR"
-sudo mkdir -p "$INSTALL_DIR"
-sudo cp -a "$APPLICATION_NAME"/. "$INSTALL_DIR"/
-sudo chown -R root:root "$INSTALL_DIR"
+sudo rm -rf "$APP_ROOT"
+sudo mkdir -p "$APP_ROOT"
+sudo cp -a "$APPLICATION_NAME"/. "$APP_ROOT"/
+sudo rm -rf "$HOME/$APPLICATION_NAME"
+
+echo "$SECRET_JSON" | jq -r '.app_env[] | "\(.key)=\(.value)"' | sudo tee "$ENV_FILE" >/dev/null
+sudo chmod 600 "$ENV_FILE"
+echo "Exported $(wc -l < "$ENV_FILE") environment variables to $ENV_FILE"
+
+sudo chown -R admin:admin "$APP_ROOT"
 
 # Ensure nvm node/pm2 are on PATH for this shell (same session as above).
 export NVM_DIR="$HOME/.nvm"
@@ -94,11 +95,11 @@ nvm use 20
 echo "Starting $APPLICATION_NAME via pm2..."
 set -a
 # shellcheck disable=SC1090
-source /etc/pulse/ingestion.env
+source "$ENV_FILE"
 set +a
 
 pm2 delete "$APPLICATION_NAME" 2>/dev/null || true
-pm2 start "$INSTALL_DIR/dist/index.js" \
+pm2 start "$APP_ROOT/dist/index.js" \
   --name "$APPLICATION_NAME" \
   --node-args="--require @opentelemetry/auto-instrumentations-node/register"
 pm2 save
