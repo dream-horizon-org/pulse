@@ -88,6 +88,9 @@ sudo chown -R admin:admin "$APP_ROOT"
 # cloud-init is root, so we use a temp script + sudo -u admin to switch users cleanly.
 echo "Starting $APPLICATION_NAME via pm2..."
 
+# Remove any stale root-owned pm2 sockets from previous runs
+rm -f /home/admin/.pm2/rpc.sock /home/admin/.pm2/pub.sock 2>/dev/null || true
+
 PM2_START_SCRIPT=$(mktemp)
 cat > "$PM2_START_SCRIPT" << INNERSCRIPT
 #!/bin/bash
@@ -102,7 +105,7 @@ cd "$${APP_ROOT}"
 pm2 start dist/index.js --name "$${APPLICATION_NAME}" --node-args="--require @opentelemetry/auto-instrumentations-node/register"
 pm2 save
 INNERSCRIPT
-chmod +x "$PM2_START_SCRIPT"
+chmod 755 "$PM2_START_SCRIPT"
 sudo -u admin bash "$PM2_START_SCRIPT"
 rm -f "$PM2_START_SCRIPT"
 
@@ -115,7 +118,7 @@ export NVM_DIR="/home/admin/.nvm"
 nvm use 20
 pm2 startup systemd -u admin --hp /home/admin 2>&1
 INNERSCRIPT
-chmod +x "$PM2_STARTUP_SCRIPT"
+chmod 755 "$PM2_STARTUP_SCRIPT"
 STARTUP_OUTPUT="$(sudo -u admin bash "$PM2_STARTUP_SCRIPT")" || true
 rm -f "$PM2_STARTUP_SCRIPT"
 echo "$STARTUP_OUTPUT"
