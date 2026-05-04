@@ -681,7 +681,8 @@ public class RootCauseService {
 
   private Single<List<Map<String, Object>>> executeQuery(String projectId, RootCauseQuerySpec spec) {
     return clickhouseQueryService
-        .executeRootCauseQuery(projectId, spec.sql(), spec.bindNames(), spec.bindValues())
+        .executeRootCauseQuery(
+            projectId, spec.sql(), spec.bindNames(), spec.bindValues(), true)
         .map(ClickhouseQueryRowUtils::rowsToMaps);
   }
 

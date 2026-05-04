@@ -269,7 +269,7 @@ export function buildTracesQuery(params: QueryParams): DataQueryRequestBody {
       {
         function: "CUSTOM",
         param: {
-          expression: "SpanAttributes['screen.name']",
+          expression: COLUMN_NAME.SCREEN_NAME,
         },
         alias: "screen_name_attr",
       },
