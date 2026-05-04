@@ -5,7 +5,6 @@ import {
   HEADER_CONFIG,
   LAYOUT_PAGE_CONSTANTS,
   ROUTES,
-  INTERNAL_ROUTE_PREFIX,
 } from "../../constants";
 import { TENANT_ROLES, TenantRole } from "../../constants/Roles";
 import { TIERS, TierType } from "../../constants/Tiers";
