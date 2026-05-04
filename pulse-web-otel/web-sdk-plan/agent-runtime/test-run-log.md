@@ -11,6 +11,7 @@ Append E2E / gate results for Web SDK work (per `pulse-web-sdk-sanity`).
 | 2026-05-02 | `yarn workspace ecommerce-demo e2e:web-sdk-gates` | Chromium | pass (130/130) | m1 + m2-interactions + web-vitals. |
 | 2026-05-04 | `yarn test:run` (cwd `pulse-web-otel`) | — | pass (341/341) | TTFB + always-on FCP/FID; Vitest web-vitals mock includes `onTTFB`. |
 | 2026-05-04 | `yarn workspace ecommerce-demo e2e:web-sdk-gates` | Chromium | pass (134/134) | Web vitals: TTFB, FCP, LCP, INP, FID, CLS + gate-off. |
+| 2026-05-04 | `yarn test:run` + `yarn workspace ecommerce-demo e2e:web-sdk-gates` (cwd `pulse-web-otel`) | Chromium (E2E) | pass (341/341, 134/134) | Added `examples/web-sdk-docs` vanilla demo; no SDK `src/` changes. |
 
 ## Web Vitals (v2) — reserved
 
