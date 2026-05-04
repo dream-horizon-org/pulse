@@ -32,7 +32,6 @@ dependencies {
     implementation(projects.instrumentation.interaction.interactionLibrary)
     implementation(projects.instrumentation.memory)
     implementation(projects.instrumentation.battery)
-    implementation(projects.instrumentation.interaction.interactionLibrary)
     implementation(projects.instrumentation.location.locationProcessors)
     implementation(projects.instrumentation.sessionReplay)
     implementation(platform(libs.opentelemetry.platform.alpha))
