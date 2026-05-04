@@ -162,4 +162,31 @@ describe("useNextPagesRouterTracking", () => {
     // When includeSearch=true, dependency = url (the full string as received)
     expect(mockSetScreenName).toHaveBeenCalledWith("/page?q=1#section");
   });
+
+  // ─── skipInitial ─────────────────────────────────────────────────────────
+
+  it("skipInitial defaults to false — first navigation is tracked", () => {
+    renderHook(() => useNextPagesRouterTracking());
+    activeHandler?.("/first");
+    expect(mockSetScreenName).toHaveBeenCalledTimes(1);
+    expect(mockSetScreenName).toHaveBeenCalledWith("/first");
+  });
+
+  it("skipInitial=true — skips first routeChangeComplete, tracks subsequent", () => {
+    renderHook(() => useNextPagesRouterTracking({ skipInitial: true }));
+    activeHandler?.("/first");   // skipped
+    expect(mockSetScreenName).not.toHaveBeenCalled();
+    activeHandler?.("/second");  // tracked
+    expect(mockSetScreenName).toHaveBeenCalledTimes(1);
+    expect(mockSetScreenName).toHaveBeenCalledWith("/second");
+  });
+
+  it("skipInitial=false — all navigations tracked including first", () => {
+    renderHook(() => useNextPagesRouterTracking({ skipInitial: false }));
+    activeHandler?.("/first");
+    activeHandler?.("/second");
+    expect(mockSetScreenName).toHaveBeenCalledTimes(2);
+    expect(mockSetScreenName).toHaveBeenNthCalledWith(1, "/first");
+    expect(mockSetScreenName).toHaveBeenNthCalledWith(2, "/second");
+  });
 });
