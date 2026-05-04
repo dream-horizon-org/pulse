@@ -1,14 +1,26 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback } from "react";
 
 /**
  * Dev / manual QA helpers to surface CLS and INP reliably (same patterns as Playwright E2E).
  * TTFB is tied to the HTML navigation response — reload or DevTools throttling, not a DOM toggle.
  */
 export function WebVitalsManualTriggers(): React.ReactElement {
-  const [clsTall, setClsTall] = useState(false);
-
-  const triggerClsShift = useCallback(() => {
-    setClsTall((v) => !v);
+  /**
+   * CLS ignores layout shifts that count as “recent input” (~500ms window). A shift caused
+   * directly by a click handler is excluded, so CLS stays 0. Delay the DOM change so the
+   * shift is not attributed to the gesture (matches `e2e/web-vitals.spec.ts`).
+   */
+  const scheduleClsProbe = useCallback(() => {
+    window.setTimeout(() => {
+      const box = document.createElement("div");
+      box.setAttribute("data-manual-cls-shift", "1");
+      box.style.cssText =
+        "width:80px;height:80px;background:#fecaca;border:1px solid #ef4444;border-radius:6px;position:fixed;top:120px;left:24px;z-index:99998;";
+      document.body.appendChild(box);
+      requestAnimationFrame(() => {
+        box.style.height = "200px";
+      });
+    }, 600);
   }, []);
 
   const slowInpHandler = useCallback(() => {
@@ -63,7 +75,7 @@ export function WebVitalsManualTriggers(): React.ReactElement {
           </div>
           <button
             type="button"
-            onClick={triggerClsShift}
+            onClick={scheduleClsProbe}
             style={{
               padding: "8px 14px",
               borderRadius: 8,
@@ -74,23 +86,13 @@ export function WebVitalsManualTriggers(): React.ReactElement {
               cursor: "pointer",
             }}
           >
-            Toggle shifting box (CLS)
+            Schedule CLS probe (~600ms delay)
           </button>
-          <div
-            style={{
-              marginTop: 10,
-              width: 80,
-              height: clsTall ? 200 : 80,
-              background: "#fecaca",
-              border: "1px solid #ef4444",
-              borderRadius: 6,
-              transition: "height 0.05s linear",
-            }}
-            aria-hidden
-          />
           <p style={{ fontSize: 12, color: "#94a3b8", marginTop: 6 }}>
-            Changing height moves existing content — cumulative layout shift.
-            Hide the tab or wait for batch export.
+            A box appears and grows after a short delay so the shift is not
+            excluded as user-input–adjacent. Then hide the tab or wait for batch
+            export — web-vitals reports CLS when the page becomes hidden
+            (default).
           </p>
         </div>
 
