@@ -166,6 +166,7 @@ export type FunnelDetail = {
   expiry?: string;
   createdAt: string;
   updatedAt?: string;
+  lastRunAt?: string;
   createdBy: string;
   tags: string[];
   funnelResults?: unknown;
@@ -195,6 +196,7 @@ export type JourneyDetail = {
   dateRangeDays?: number;
   createdAt: string;
   updatedAt?: string;
+  lastRunAt?: string;
   createdBy: string;
   tags: string[];
   journeyResults?: unknown;

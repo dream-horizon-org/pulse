@@ -8,7 +8,7 @@ type DetailChrome = {
   name: string;
   status: string;
   createdBy?: string;
-  updatedAt?: string;
+  lastRunAt?: string;
   /** Analysis grouping key — surfaced as a read-only badge when present. */
   mode?: string;
   /** Schedule type — drives whether the Stop button is shown. */
@@ -142,11 +142,11 @@ export function FunnelJourneyDetailChrome({
                   </Text>
                 </>
               )}
-              {detail.updatedAt && (
+              {detail.lastRunAt && (
                 <>
                   <Text size="xs" c="dimmed">·</Text>
                   <Text size="xs" c="dark.3" fw={500}>
-                    Updated {dayjs(detail.updatedAt).format("MMM D, YYYY HH:mm")}
+                    Updated {dayjs(detail.lastRunAt).format("MMM D, YYYY HH:mm")}
                   </Text>
                 </>
               )}
