@@ -19,6 +19,7 @@ import io.opentelemetry.instrumentation.okhttp.v3_0.internal.ConnectionErrorSpan
 import io.opentelemetry.instrumentation.okhttp.v3_0.internal.OkHttpAttributesGetter;
 import io.opentelemetry.instrumentation.okhttp.v3_0.internal.OkHttpClientInstrumenterBuilderFactory;
 import io.opentelemetry.instrumentation.okhttp.v3_0.internal.TracingInterceptor;
+import java.util.concurrent.atomic.AtomicReference;
 import okhttp3.Interceptor;
 import okhttp3.Request;
 import okhttp3.Response;
@@ -31,8 +32,23 @@ public final class OkHttp3Singletons {
     private static final Interceptor NOOP_INTERCEPTOR = chain -> chain.proceed(chain.request());
     private static final String RN_TRACKED_HEADER = "x-pulse-rn-tracked";
 
-    public static Interceptor CONNECTION_ERROR_INTERCEPTOR = NOOP_INTERCEPTOR;
-    public static Interceptor TRACING_INTERCEPTOR = NOOP_INTERCEPTOR;
+    /**
+     * Delegates through [AtomicReference] so existing [OkHttpClient] instances that already
+     * registered [TRACING_INTERCEPTOR] / [CONNECTION_ERROR_INTERCEPTOR] stop calling the real
+     * instrumented interceptors after [disableInstrumentedInterceptors] (e.g. Pulse SDK shutdown),
+     * without rebuilding the client.
+     */
+    private static final AtomicReference<Interceptor> tracingHead =
+            new AtomicReference<>(NOOP_INTERCEPTOR);
+
+    private static final AtomicReference<Interceptor> connectionErrorHead =
+            new AtomicReference<>(NOOP_INTERCEPTOR);
+
+    public static final Interceptor TRACING_INTERCEPTOR =
+            chain -> tracingHead.get().intercept(chain);
+
+    public static final Interceptor CONNECTION_ERROR_INTERCEPTOR =
+            chain -> connectionErrorHead.get().intercept(chain);
 
     public static void configure(
             OkHttpInstrumentation instrumentation, OpenTelemetry openTelemetry) {
@@ -69,9 +85,18 @@ public final class OkHttp3Singletons {
         TracingInterceptor baseTracingInterceptor =
                 new TracingInterceptor(instrumenter, openTelemetry.getPropagators());
 
-        CONNECTION_ERROR_INTERCEPTOR =
-                skipInstrumentationIfReactNativeTracked(baseConnectionErrorInterceptor);
-        TRACING_INTERCEPTOR = skipInstrumentationIfReactNativeTracked(baseTracingInterceptor);
+        connectionErrorHead.set(
+                skipInstrumentationIfReactNativeTracked(baseConnectionErrorInterceptor));
+        tracingHead.set(skipInstrumentationIfReactNativeTracked(baseTracingInterceptor));
+    }
+
+    /**
+     * Stops OkHttp span creation after the SDK/tracer provider is shut down. Safe to call multiple
+     * times.
+     */
+    public static void disableInstrumentedInterceptors() {
+        connectionErrorHead.set(NOOP_INTERCEPTOR);
+        tracingHead.set(NOOP_INTERCEPTOR);
     }
 
     public static final Interceptor CALLBACK_CONTEXT_INTERCEPTOR =

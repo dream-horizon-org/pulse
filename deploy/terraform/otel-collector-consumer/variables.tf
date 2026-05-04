@@ -48,3 +48,14 @@ variable "instance_profile_name" {
   default     = null
 }
 
+variable "route53_zone_id" {
+  description = "Route53 private hosted zone ID (e.g. pulse.local) for per-instance OTEL consumer A records"
+  type        = string
+}
+
+variable "route53_zone_name" {
+  description = "Private zone DNS name without trailing dot (FQDN suffix for records, e.g. pulse.local)"
+  type        = string
+  default     = "pulse.local"
+}
+
