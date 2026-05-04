@@ -88,8 +88,8 @@ sudo chown -R admin:admin "$APP_ROOT"
 # cloud-init is root, so we use a temp script + sudo -u admin to switch users cleanly.
 echo "Starting $APPLICATION_NAME via pm2..."
 
-# Remove any stale root-owned pm2 sockets from previous runs
-rm -f /home/admin/.pm2/rpc.sock /home/admin/.pm2/pub.sock 2>/dev/null || true
+# Remove any stale root-owned .pm2/ dir from previous runs so admin can create it fresh
+rm -rf /home/admin/.pm2 2>/dev/null || true
 
 PM2_START_SCRIPT=$(mktemp)
 cat > "$PM2_START_SCRIPT" << INNERSCRIPT
