@@ -229,4 +229,42 @@ class ClickHouseComputeServiceTest {
     assertThat(service.executeInsert(PROJECT, "  ").blockingGet()).isTrue();
     assertThat(service.executeInsert(PROJECT, null).blockingGet()).isTrue();
   }
+
+  @Test
+  void deleteFunnelResults_cascadesAcrossResultsAndDropoffBridgeTables() {
+    // FunnelService.delete depends on this cascade — without it, drop-off bridge rows for
+    // a deleted funnel keep serving the panel until 90d TTL, and re-creating a funnel that
+    // reuses the same id would mix old + new rows.
+    when(clickhouseWriteClient.executeSql(anyString())).thenReturn(Single.just(true));
+
+    assertThat(service.deleteFunnelResults(PROJECT, 42L).blockingGet()).isTrue();
+
+    verify(clickhouseWriteClient).executeSql(org.mockito.ArgumentMatchers.argThat(
+        s -> s.contains("DELETE FROM otel.funnel_results")
+            && s.contains("ProjectId = 'proj-x'")
+            && s.contains("FunnelId = 42")));
+    verify(clickhouseWriteClient).executeSql(org.mockito.ArgumentMatchers.argThat(
+        s -> s.contains("DELETE FROM otel.funnel_session_state")
+            && s.contains("FunnelId = 42")));
+    verify(clickhouseWriteClient).executeSql(org.mockito.ArgumentMatchers.argThat(
+        s -> s.contains("DELETE FROM otel.funnel_user_state")
+            && s.contains("FunnelId = 42")));
+    verify(clickhouseWriteClient).executeSql(org.mockito.ArgumentMatchers.argThat(
+        s -> s.contains("DELETE FROM otel.funnel_dropoff_attribution")
+            && s.contains("FunnelId = 42")));
+  }
+
+  @Test
+  void deleteFunnelResults_swallowsBridgeFailureWhenPrimaryDeleteSucceeds() {
+    // Primary funnel_results delete must succeed independently — bridge cleanup failures
+    // are best-effort and shouldn't surface to FunnelService.delete.
+    when(clickhouseWriteClient.executeSql(org.mockito.ArgumentMatchers.argThat(
+        s -> s.contains("DELETE FROM otel.funnel_results"))))
+        .thenReturn(Single.just(true));
+    when(clickhouseWriteClient.executeSql(org.mockito.ArgumentMatchers.argThat(
+        s -> s.contains("DELETE FROM otel.funnel_session_state"))))
+        .thenReturn(Single.error(new RuntimeException("bridge ch boom")));
+
+    assertThat(service.deleteFunnelResults(PROJECT, 42L).blockingGet()).isTrue();
+  }
 }

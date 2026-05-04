@@ -67,9 +67,21 @@ public class ClickHouseComputeService {
   }
 
   /**
-   * Fires the two bridge inserts sequentially (session_state first, then user_state which
-   * reads from session_state). Never fails the upstream funnel compute — errors are logged
-   * and swallowed.
+   * Fires the bridge inserts. What fires depends on funnel mode:
+   * <ul>
+   *   <li>SESSIONS funnels → only {@code funnel_session_state} (per-session windowFunnel chain).
+   *       Drop-off DAO uses this for cohort + correlation.</li>
+   *   <li>UNIQUE_USERS funnels → BOTH {@code funnel_session_state} AND
+   *       {@code funnel_user_state}. The user_state table (cross-session windowFunnel chain
+   *       directly on {@code otel_logs}) drives the cohort + lift numbers shown in the panel.
+   *       The session_state table is written purely to power the x-ray drill-in
+   *       ("show all of this user's attempts") and the single-session debug view — its rows
+   *       don't feed the cohort calculation in UNIQUE_USERS mode.</li>
+   * </ul>
+   * The two tables are independent (user_state no longer derives from session_state), so order
+   * doesn't matter. Both inserts are issued; either may no-op for unordered/zero-step funnels.
+   *
+   * <p>Never fails the upstream funnel compute — errors are logged and swallowed.
    */
   private Single<Boolean> emitDropoffBridge(FunnelDefinitionRow def, String runTime) {
     String projectId = def.getProjectId();
@@ -291,17 +303,34 @@ public class ClickHouseComputeService {
   // ── Cascading-delete helpers ─────────────────────────────────────────────────
 
   /**
-   * Best-effort delete of every {@code otel.funnel_results} row for a single funnel.
-   * Used by {@code FunnelService.delete} so a removed funnel doesn't leave orphan
-   * computed rows in ClickHouse. ClickHouse {@code DELETE} is asynchronous; this kicks
-   * off the mutation and returns success once the statement is accepted by the server.
+   * Best-effort delete of every row this funnel produced across the four ClickHouse tables it
+   * touches: {@code funnel_results} plus the three drop-off correlation tables
+   * ({@code funnel_session_state}, {@code funnel_user_state}, {@code funnel_dropoff_attribution}).
+   * Used by {@code FunnelService.delete} so a removed funnel doesn't leave orphan rows that the
+   * drop-off panel would still surface (TTL is 90 days — too long to wait).
+   *
+   * <p>ClickHouse {@code DELETE} is asynchronous; this kicks off four mutations and returns
+   * success once all four statements are accepted by the server. The bridge-table deletes are
+   * best-effort: a failure on any of them is logged but doesn't abort the cascade — the
+   * primary {@code funnel_results} delete is what {@code FunnelService.delete} actually depends on.
    */
   public Single<Boolean> deleteFunnelResults(String projectId, long funnelId) {
     String safeProject = projectId == null ? "" : projectId.replace("'", "''");
-    String sql =
-      "DELETE FROM otel.funnel_results "
-        + "WHERE ProjectId = '" + safeProject + "' AND FunnelId = " + funnelId;
-    return executeInsert(projectId, sql);
+    String where = "WHERE ProjectId = '" + safeProject + "' AND FunnelId = " + funnelId;
+
+    Single<Boolean> primary = executeInsert(projectId, "DELETE FROM otel.funnel_results " + where);
+
+    Single<Boolean> bridges = executeInsert(projectId, "DELETE FROM otel.funnel_session_state " + where)
+      .flatMap(ok -> executeInsert(projectId, "DELETE FROM otel.funnel_user_state " + where))
+      .flatMap(ok -> executeInsert(projectId, "DELETE FROM otel.funnel_dropoff_attribution " + where))
+      .onErrorReturn(err -> {
+        log.warn(
+          "Drop-off cascade delete failed for projectId={}, funnelId={}: {}",
+          safeProject, funnelId, err.getMessage());
+        return true;
+      });
+
+    return primary.flatMap(primaryOk -> bridges.map(bridgesOk -> primaryOk));
   }
 
   /**
