@@ -550,6 +550,7 @@ public class FunnelServiceImpl implements FunnelService {
         .expiry(row.getExpiry())
         .createdAt(row.getCreatedAt())
         .updatedAt(row.getUpdatedAt())
+        .lastRunAt(funnelResults != null ? funnelResults.getLastRunAt() : null)
         .createdBy(row.getCreatedBy())
         .overallConversionRate(overallConversionRate)
         .conversionTrend(conversionTrend)

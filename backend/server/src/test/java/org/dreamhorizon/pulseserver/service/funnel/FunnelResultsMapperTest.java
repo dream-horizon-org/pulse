@@ -7,6 +7,7 @@ import org.dreamhorizon.pulseserver.service.productAnalysis.funnel.FunnelResults
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
+import java.time.Instant;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -20,6 +21,22 @@ class FunnelResultsMapperTest {
     void shouldReturnZerosWhenNullOrEmpty() {
       assertThat(FunnelResultsMapper.fromRows(null).getTotalEnteredUsers()).isZero();
       assertThat(FunnelResultsMapper.fromRows(List.of()).getSteps()).isEmpty();
+    }
+
+    @Test
+    void shouldSetLastRunAtFromFirstRow() {
+      Instant runTime = Instant.parse("2026-05-01T10:00:00Z");
+      List<FunnelResultRow> rows = List.of(
+        FunnelResultRow.builder()
+          .stepIndex(0).stepName("A").userCount(100L).conversionPct(100.0)
+          .runTime(runTime).build());
+
+      assertThat(FunnelResultsMapper.fromRows(rows).getLastRunAt()).isEqualTo(runTime);
+    }
+
+    @Test
+    void shouldHaveNullLastRunAtWhenEmpty() {
+      assertThat(FunnelResultsMapper.fromRows(List.of()).getLastRunAt()).isNull();
     }
 
     @Test

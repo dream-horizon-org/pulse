@@ -18,6 +18,7 @@ import org.dreamhorizon.pulseserver.dao.productAnalysis.funneldefinition.models.
 import org.dreamhorizon.pulseserver.dao.productAnalysis.funneljourneytag.FunnelJourneyTagDao;
 import org.dreamhorizon.pulseserver.dao.productAnalysis.funneljourneytag.FunnelJourneyTagEntityType;
 import org.dreamhorizon.pulseserver.dao.productAnalysis.funnelresults.FunnelResultsDao;
+import org.dreamhorizon.pulseserver.dao.productAnalysis.funnelresults.models.FunnelResultRow;
 import org.dreamhorizon.pulseserver.resources.productAnalysis.funnel.models.CreateFunnelDefinitionRequest;
 import org.dreamhorizon.pulseserver.resources.productAnalysis.funnel.models.FunnelDefinitionStep;
 import org.dreamhorizon.pulseserver.resources.productAnalysis.funnel.models.FunnelListQueryParams;
@@ -154,6 +155,22 @@ class FunnelServiceImplTest {
     var resp = service.get(PROJECT, 10L).blockingGet();
     assertThat(resp.getId()).isEqualTo(10L);
     assertThat(resp.getTags()).containsExactly("t1");
+  }
+
+  @Test
+  void get_setsLastRunAtFromResults() {
+    Instant runTime = Instant.parse("2026-05-01T10:00:00Z");
+    when(funnelDefinitionDao.findByProjectAndId(PROJECT, 10L))
+        .thenReturn(Maybe.just(storedRow()));
+    when(funnelResultsDao.queryLatest(PROJECT, 10L))
+        .thenReturn(Single.just(List.of(
+            FunnelResultRow.builder()
+                .stepIndex(0).stepName("A").userCount(100L).conversionPct(100.0)
+                .runTime(runTime).build())));
+    when(funnelJourneyTagDao.listTagsForEntity(PROJECT, FunnelJourneyTagEntityType.FUNNEL, 10L))
+        .thenReturn(Single.just(List.of()));
+
+    assertThat(service.get(PROJECT, 10L).blockingGet().getLastRunAt()).isEqualTo(runTime);
   }
 
   @Test

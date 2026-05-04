@@ -135,7 +135,6 @@ class ClickHouseComputeServiceTest {
     JourneyRow start = journeyRowWithDirection(1L, "START");
     JourneyRow end = journeyRowWithDirection(2L, "END");
     when(clickhouseWriteClient.executeSql(anyString())).thenReturn(Single.just(true));
-    when(journeyDao.touchUpdatedAt(ArgumentMatchers.anyLong())).thenReturn(Single.just(1));
     stubAnalyticsJobLifecycle();
 
     assertThat(service.computeJourneyBatch(PROJECT, List.of(start, end)).blockingGet()).isTrue();
@@ -149,7 +148,6 @@ class ClickHouseComputeServiceTest {
     JourneyRow start = journeyRowWithDirection(1L, "START");
     JourneyRow end = journeyRowWithDirection(2L, "END");
     when(clickhouseWriteClient.executeSql(anyString())).thenReturn(Single.just(true));
-    when(journeyDao.touchUpdatedAt(ArgumentMatchers.anyLong())).thenReturn(Single.just(1));
     stubAnalyticsJobLifecycle();
 
     service.computeJourneyBatch(PROJECT, List.of(start, end)).blockingGet();
@@ -164,8 +162,6 @@ class ClickHouseComputeServiceTest {
         ArgumentMatchers.eq(2L),
         ArgumentMatchers.isNull(),
         ArgumentMatchers.eq(AnalyticsJobStatus.RUNNING));
-    verify(journeyDao).touchUpdatedAt(1L);
-    verify(journeyDao).touchUpdatedAt(2L);
   }
 
   @Test
@@ -181,7 +177,6 @@ class ClickHouseComputeServiceTest {
         .mode("UNIQUE_USERS").dateRangeDays(7).windowSeconds(3600L)
         .stepsJson("[{\"eventName\":\"e1\"}]").filtersJson(null).build();
     when(clickhouseWriteClient.executeSql(anyString())).thenReturn(Single.just(true));
-    when(funnelDefinitionDao.touchUpdatedAt(ArgumentMatchers.anyLong())).thenReturn(Single.just(1));
     stubAnalyticsJobLifecycle();
 
     service.computeFunnelBatch(PROJECT, List.of(f1, f2)).blockingGet();
@@ -196,8 +191,6 @@ class ClickHouseComputeServiceTest {
         ArgumentMatchers.eq(8L),
         ArgumentMatchers.isNull(),
         ArgumentMatchers.eq(AnalyticsJobStatus.RUNNING));
-    verify(funnelDefinitionDao).touchUpdatedAt(7L);
-    verify(funnelDefinitionDao).touchUpdatedAt(8L);
   }
 
   private JourneyRow journeyRowWithDirection(long id, String direction) {

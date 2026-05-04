@@ -2,6 +2,7 @@ package org.dreamhorizon.pulseserver.dao.productAnalysis.funnelresults.models;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import java.time.Instant;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -31,4 +32,7 @@ public class FunnelResultRow {
 
   @JsonProperty("medianStepSeconds")
   private Long medianStepSeconds;
+
+  @JsonProperty("runTime")
+  private Instant runTime;
 }

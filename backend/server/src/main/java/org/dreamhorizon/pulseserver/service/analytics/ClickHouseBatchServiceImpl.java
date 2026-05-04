@@ -206,25 +206,6 @@ public class ClickHouseBatchServiceImpl implements AnalyticsBatchService {
                   startedAt,
                   LocalDateTime.now());
             })
-        .flatMap(
-            rowCount -> {
-              // Touch updated_at for all funnels so listing shows latest auto-run
-              return Observable.fromIterable(all)
-                  .flatMap(
-                      funnel ->
-                          funnelDefinitionDao
-                              .touchUpdatedAt(funnel.getId())
-                              .doOnError(
-                                  err ->
-                                      log.warn(
-                                          "Failed to touch updated_at for funnel id={}",
-                                          funnel.getId(),
-                                          err))
-                              .onErrorReturnItem(0)
-                              .toObservable())
-                  .toList()
-                  .map(ignored -> rowCount);
-            })
         .subscribeOn(Schedulers.io())
         .subscribe(
             unused -> { },
@@ -263,25 +244,6 @@ public class ClickHouseBatchServiceImpl implements AnalyticsBatchService {
                   allOk ? null : "One or more project batches failed",
                   startedAt,
                   LocalDateTime.now());
-            })
-        .flatMap(
-            rowCount -> {
-              // Touch updated_at for all journeys so listing shows latest auto-run
-              return Observable.fromIterable(all)
-                  .flatMap(
-                      journey ->
-                          journeyDao
-                              .touchUpdatedAt(journey.getId())
-                              .doOnError(
-                                  err ->
-                                      log.warn(
-                                          "Failed to touch updated_at for journey id={}",
-                                          journey.getId(),
-                                          err))
-                              .onErrorReturnItem(0)
-                              .toObservable())
-                  .toList()
-                  .map(ignored -> rowCount);
             })
         .subscribeOn(Schedulers.io())
         .subscribe(
