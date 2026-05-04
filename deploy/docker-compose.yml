@@ -90,7 +90,7 @@ services:
 
   # ClickHouse Database (OTEL data only - traces, logs, metrics)
   clickhouse:
-    image: clickhouse/clickhouse-server:24.8
+    image: clickhouse/clickhouse-server:25.3.9
     container_name: pulse-clickhouse
     ports:
       - "8123:8123"  # HTTP interface
@@ -115,7 +115,7 @@ services:
 
   # ClickHouse Table Initializer (runs once to ensure tables exist)
   clickhouse-init:
-    image: clickhouse/clickhouse-server:24.8
+    image: clickhouse/clickhouse-server:25.3.9
     container_name: pulse-clickhouse-init
     command: /bin/bash /scripts/init-clickhouse.sh
     volumes:

@@ -18,6 +18,12 @@ ZIP_NAME="${APPLICATION_NAME}-${VERSION}.zip"
 ROOT_DIR="$(cd "$(dirname "$0")/../../.." && pwd)"
 APP_DIR="${ROOT_DIR}/backend/session-replay-ingestion"
 
+# Same idea as deploy/jenkinsfile/pulse-ui/publish-artifact.sh: source nvm so npm exists (non-login Jenkins sh).
+# Extra: default HOME for agents where it is unset; pin Node 20 (matches typical nvm on artifact fleet).
+echo "Sourcing NVM directly"
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+
 rm -rf "${ROOT_DIR}/artifact"
 mkdir -p "${ROOT_DIR}/artifact"
 
