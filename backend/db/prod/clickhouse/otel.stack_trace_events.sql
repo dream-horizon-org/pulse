@@ -1,7 +1,7 @@
 CREATE TABLE otel.stack_trace_events_local
 ON CLUSTER 'pulse-ch'
 (
-    Timestamp DateTime64(9, 'UTC') CODEC(DoubleDelta, ZSTD(1)) COMMENT 'event time (ns precision, store UTC)',
+    Timestamp DateTime64(9, 'UTC') CODEC(DoubleDelta, ZSTD(1)),
     EventName LowCardinality(String) CODEC(ZSTD(1)),
     Title String CODEC(ZSTD(3)),
     ExceptionStackTrace String CODEC(ZSTD(3)),
