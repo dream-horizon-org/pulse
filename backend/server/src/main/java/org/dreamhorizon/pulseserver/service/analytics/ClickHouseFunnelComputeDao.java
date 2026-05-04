@@ -88,6 +88,10 @@ public final class ClickHouseFunnelComputeDao {
    * {@code windowSeconds} starting from any step-0 occurrence.
    * {@code MedianStepSeconds} is {@code NULL} for all steps.
    *
+   * <p>{@code ConversionPct} for each step divides by the number of <em>funnel entrants</em>
+   * ({@code countIf(winning_depth >= 1)}), not all identities that logged any funnel step event.
+   * Step 1 is therefore 100% whenever there is at least one entrant.
+   *
    * @param def funnel definition; must have at least one step
    * @return the INSERT SQL, or an empty string if the funnel has no steps
    */
@@ -158,7 +162,7 @@ public final class ClickHouseFunnelComputeDao {
           .append("', ").append(runTime).append(", toUInt8(").append(k - 1).append("), '").append(stepName).append("',\n")
           .append("       countIf(winning_depth >= ").append(k).append("),\n")
           .append("       countIf(winning_depth >= ").append(k)
-          .append(") * 100.0 / greatest(count(), 1),\n")
+          .append(") * 100.0 / greatest(countIf(winning_depth >= 1), 1),\n")
           .append("       CAST(NULL AS Nullable(Int64))\n")
           .append("FROM funnel\n");
     }
