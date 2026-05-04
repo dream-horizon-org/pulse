@@ -147,7 +147,7 @@ network?: {
 | P1.2 | Strip `url.username` + `url.password` in `sanitizeHttpUrl` | **Done** | Trivial |
 | P2.3 | `network.protocol.version` from `PerformanceResourceTiming.nextHopProtocol` | **Done** | Small |
 | P2.4 | `server.port` for default http/https when `URL.port` empty | **Done** | Small |
-| P3.5 | `http.client.request.duration` metric + `emitRequestDurationMetric` | **Defer** — config key reserved; histogram not wired | Medium |
+| P3.5 | `http.client.request.duration` metric + `emitRequestDurationMetric` | **Defer** — config key reserved; histogram not wired. Full plan: [PLAN-D](./PLAN-D-http-client-request-duration.md) | Medium |
 
 ---
 

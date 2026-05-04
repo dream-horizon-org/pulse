@@ -18,7 +18,9 @@
 1. [DESIGN.md](./DESIGN.md)
 2. [PLAN-B-network-http-spans.md](./PLAN-B-network-http-spans.md)
 3. [PLAN-C-otel-spec-alignment.md](./PLAN-C-otel-spec-alignment.md) — OTel HTTP semconv gaps / intentional deviations
-4. [ADR-network.md](./ADR-network.md)
-5. [04-contract-parity.md](./04-contract-parity.md)
+4. [PLAN-D-http-client-request-duration.md](./PLAN-D-http-client-request-duration.md) — `http.client.request.duration` histogram metric (own milestone, proposed)
+5. [PLAN-D-context-and-open-questions.md](./PLAN-D-context-and-open-questions.md) — resume snapshot (decisions, touchpoints, **E2E / Resource Timing open question**)
+6. [ADR-network.md](./ADR-network.md)
+7. [04-contract-parity.md](./04-contract-parity.md)
 
 **Legacy detail:** [../v1/02-instrumentations/network.md](../v1/02-instrumentations/network.md)
