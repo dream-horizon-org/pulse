@@ -105,7 +105,7 @@ class DefaultSdkConfigTemplateTest {
     @Test
     void shouldIncludeAllExpectedFeatures() {
       ConfigData config = DefaultSdkConfigTemplate.createDefaultConfig(TEST_PROJECT_ID, "creator", appConfig);
-      assertThat(config.getFeatures()).hasSize(22);
+      assertThat(config.getFeatures()).hasSize(24);
 
       assertThat(config.getFeatures()).extracting(FeatureConfig::getFeatureName)
           .containsExactlyInAnyOrder(
