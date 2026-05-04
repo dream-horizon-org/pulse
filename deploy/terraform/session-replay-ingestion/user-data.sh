@@ -95,11 +95,11 @@ export NVM_DIR="/home/admin/.nvm"
 [ -s "\$NVM_DIR/nvm.sh" ] && . "\$NVM_DIR/nvm.sh"
 nvm use 20
 set -a
-source "${ENV_FILE}"
+source "$${ENV_FILE}"
 set +a
-pm2 delete "${APPLICATION_NAME}" 2>/dev/null || true
-cd "${APP_ROOT}"
-pm2 start dist/index.js --name "${APPLICATION_NAME}" --node-args="--require @opentelemetry/auto-instrumentations-node/register"
+pm2 delete "$${APPLICATION_NAME}" 2>/dev/null || true
+cd "$${APP_ROOT}"
+pm2 start dist/index.js --name "$${APPLICATION_NAME}" --node-args="--require @opentelemetry/auto-instrumentations-node/register"
 pm2 save
 INNERSCRIPT
 chmod +x "$PM2_START_SCRIPT"
