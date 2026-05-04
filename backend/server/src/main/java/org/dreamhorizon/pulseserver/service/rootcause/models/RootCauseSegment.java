@@ -1,6 +1,7 @@
 package org.dreamhorizon.pulseserver.service.rootcause.models;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -28,4 +29,11 @@ public class RootCauseSegment {
   /** Example session IDs demonstrating this segment's issues (2 most relevant). */
   @Default
   private List<String> exampleSessionIds = new ArrayList<>();
+
+  /**
+   * Heatmap drill-down metadata (Pulse UI parity). Attached before AI enrichment and again after AI
+   * by {@code RcaRelatedHeatmapsMerger}.
+   */
+  @JsonProperty("related_heatmaps")
+  private RcaRelatedHeatmapsWire relatedHeatmaps;
 }

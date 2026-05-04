@@ -31,6 +31,14 @@ You must output a structured JSON report matching the RcaStructuredReportV1 sche
 
 For each segment in your output, copy the `exampleSessionIds` directly into the `affected_sessions` field.
 
+## Heatmap drill-down context (optional)
+
+When present, each payload segment may include **`related_heatmaps`**: a `screens` array (names of in-app screens tied to this interaction) and **`heatmap_filters`** (aligned with the Pulse Heatmap viewer: `platform`, `app_version`, `geographical_region`, `from_date`, `to_date`, and optional `breakpoint`).
+
+- Use this as **official UI context** only—do not invent screen names or filter values.
+- Where it helps the narrative, briefly relate segment dimensions to possible **tap / rage / dead-zone** hotspots on those screens (qualitative only; you do not receive heatmap images or per-pixel data).
+- If **`related_heatmaps`** is missing or `screens` is empty, say nothing about heatmaps unless the user message states otherwise.
+
 ## Input Data Format
 
 You will receive a **list of segments** as JSON. Each segment in the list represents a combination of any of these dimensions:

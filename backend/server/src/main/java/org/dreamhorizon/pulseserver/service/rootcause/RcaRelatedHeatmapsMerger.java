@@ -8,7 +8,6 @@ import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
-import java.util.Map;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import lombok.RequiredArgsConstructor;
@@ -73,33 +72,9 @@ public final class RcaRelatedHeatmapsMerger {
       related.set("screens", screensArray);
       related.set(
           "heatmap_filters",
-          buildHeatmapFilters(rcaSegments.get(i).getDimensions(), fromIso, toIso));
+          objectMapper.valueToTree(
+              RcaHeatmapFilterWireFactory.buildFilters(rcaSegments.get(i).getDimensions(), fromIso, toIso)));
       segObj.set("related_heatmaps", related);
-    }
-  }
-
-  private ObjectNode buildHeatmapFilters(Map<String, String> dimensions, String fromIso, String toIso) {
-    ObjectNode filters = objectMapper.createObjectNode();
-    filters.putNull("breakpoint");
-    putDimensionAsHeatmapField(filters, "platform", dimensions, "Platform");
-    putDimensionAsHeatmapField(filters, "app_version", dimensions, "AppVersion");
-    putDimensionAsHeatmapField(filters, "geographical_region", dimensions, "GeoState");
-    filters.put("from_date", fromIso);
-    filters.put("to_date", toIso);
-    return filters;
-  }
-
-  private static void putDimensionAsHeatmapField(
-      ObjectNode filters, String jsonKey, Map<String, String> dimensions, String dimKey) {
-    if (dimensions == null) {
-      filters.putNull(jsonKey);
-      return;
-    }
-    String v = dimensions.get(dimKey);
-    if (v == null || v.isBlank()) {
-      filters.putNull(jsonKey);
-    } else {
-      filters.put(jsonKey, v);
     }
   }
 }

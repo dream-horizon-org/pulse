@@ -9,6 +9,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
@@ -78,6 +79,51 @@ class RcaReportEnrichmentServiceTest {
     when(errorAttributionService.getErrorAttributionWithOptionalDrillDown(
             any(), any(), any(), any(), any()))
         .thenReturn(Single.just(new ErrorAttributionWithDrillDown(List.of(), 2.0)));
+    when(rootCauseService.fetchDistinctScreensForInteraction(any(), any(), any()))
+        .thenReturn(Single.just(List.of()));
+  }
+
+  @Test
+  void shouldAttachRelatedHeatmapsWhenScreensAreResolved()
+      throws Exception {
+    when(rootCauseService.fetchDistinctScreensForInteraction(any(), any(), any()))
+        .thenReturn(Single.just(List.of("Home", "Checkout")));
+    RootCauseSegment segment =
+        RootCauseSegment.builder()
+            .label("s1")
+            .dimensions(Map.of("Platform", "Android", "AppVersion", "1.0", "GeoState", "CA"))
+            .metrics(Map.of("error_rate", 0.1, "volume", 100L, "problematic_count", 10L))
+            .build();
+    when(rootCauseService.getRootCause(eq("p1"), eq("ix"), eq(DATE), any(), eq(false)))
+        .thenReturn(
+            Single.just(
+                RootCauseResult.builder()
+                    .baseline(Map.of("volume", 1000L))
+                    .segments(List.of(segment))
+                    .build()));
+    when(sessionEvidenceService.getSessionEvidence(any(), any(), any(), any(), any(), any(), anyInt()))
+        .thenReturn(Single.just(SessionEvidenceResult.builder().sessions(List.of()).build()));
+
+    ObjectNode body = objectMapper.createObjectNode();
+    body.put("entityKey", "ix");
+    body.put("date", "2025-06-01");
+    RcaParsedReportBody parsed =
+        new RcaParsedReportBody(body.toString(), body, "p1", RcaType.INTERACTION, "ix", DATE, false);
+
+    RcaEnrichmentOutcome outcome =
+        service.enrichAsync(parsed, false).toCompletableFuture().get(10, TimeUnit.SECONDS);
+
+    assertThat(outcome.enrichmentOk()).isTrue();
+    ObjectNode parsedBody = (ObjectNode) objectMapper.readTree(outcome.body());
+    JsonNode seg0 =
+        parsedBody.path("rootCausePayload").path("segments").get(0).path("related_heatmaps");
+    assertThat(seg0.path("screens").get(0).asText()).isEqualTo("Home");
+    assertThat(seg0.path("screens").get(1).asText()).isEqualTo("Checkout");
+    assertThat(seg0.path("heatmap_filters").path("platform").asText()).isEqualTo("Android");
+    assertThat(seg0.path("heatmap_filters").path("app_version").asText()).isEqualTo("1.0");
+    assertThat(seg0.path("heatmap_filters").path("geographical_region").asText()).isEqualTo("CA");
+    assertThat(seg0.path("heatmap_filters").path("from_date").asText()).matches("\\d{4}-\\d{2}-\\d{2}");
+    assertThat(seg0.path("heatmap_filters").path("to_date").asText()).matches("\\d{4}-\\d{2}-\\d{2}");
   }
 
   @Test

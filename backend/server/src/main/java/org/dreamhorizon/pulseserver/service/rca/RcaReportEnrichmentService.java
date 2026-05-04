@@ -10,12 +10,15 @@ import io.reactivex.rxjava3.schedulers.Schedulers;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import lombok.RequiredArgsConstructor;
@@ -25,19 +28,20 @@ import org.dreamhorizon.pulseserver.dao.rcajob.RcaType;
 import org.dreamhorizon.pulseserver.service.errorattribution.ErrorAttributionRcaDrillSignals;
 import org.dreamhorizon.pulseserver.service.errorattribution.ErrorAttributionRestResponseMapper;
 import org.dreamhorizon.pulseserver.service.errorattribution.ErrorAttributionService;
+import org.dreamhorizon.pulseserver.service.rootcause.RcaHeatmapFilterWireFactory;
 import org.dreamhorizon.pulseserver.service.rootcause.RootCauseQueryBuilder;
 import org.dreamhorizon.pulseserver.service.rootcause.RootCauseService;
 import org.dreamhorizon.pulseserver.service.rootcause.ScreenRcaService;
 import org.dreamhorizon.pulseserver.service.rootcause.SessionEvidenceService;
 import org.dreamhorizon.pulseserver.service.rootcause.models.EvidenceSession;
+import org.dreamhorizon.pulseserver.service.rootcause.models.RcaRelatedHeatmapsWire;
 import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseResult;
 import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseSegment;
 import org.dreamhorizon.pulseserver.util.NumberCoercionUtils;
 
 /**
  * Builds the RCA POST body with {@code rootCausePayload}, optional {@code errorAttributionPayload},
- * and per-segment session evidence (same pipeline as the legacy synchronous {@code
- * RcaReportProxyHandler} path).
+ * per-segment session evidence, and per-segment {@code related_heatmaps} drill-down metadata for AI.
  */
 @Slf4j
 @Singleton
@@ -49,6 +53,8 @@ public class RcaReportEnrichmentService {
   private static final String ERROR_ATTRIBUTION_PAYLOAD_FIELD = "errorAttributionPayload";
   private static final String START_FIELD = "start";
   private static final String END_FIELD = "end";
+
+  private static final long HEATMAP_CONTEXT_TIMEOUT_SEC = 30L;
 
   private final ObjectMapper objectMapper;
   private final RootCauseService rootCauseService;
@@ -102,42 +108,57 @@ public class RcaReportEnrichmentService {
               }
 
               RootCauseResult sanitizedResult = sanitizeForAiReport(rootCauseResult);
-              JsonNode resultNode = objectMapper.valueToTree(sanitizedResult);
-              working.set(ROOT_CAUSE_PAYLOAD_FIELD, resultNode);
-
               List<RootCauseSegment> segments = sanitizedResult.getSegments();
 
               if (segments.isEmpty()) {
+                working.set(
+                    ROOT_CAUSE_PAYLOAD_FIELD, objectMapper.valueToTree(sanitizedResult));
                 return serializeEnrichedBody(
                         working, rootCauseResult, date, windowEndExclusive, projectId, entityKey)
                     .onErrorReturnItem(
                         new RcaEnrichmentOutcome(fallbackBody, null, date, windowEndExclusive, false));
               }
 
-              // Skip session evidence queries if root cause was cached (already has exampleSessionIds)
               boolean isCachedFromStore = rootCauseResult.getCachedAt() != null;
               boolean allSegmentsHaveSessions =
                   segments.stream()
                       .allMatch(
-                          s -> s.getExampleSessionIds() != null && !s.getExampleSessionIds().isEmpty());
+                          s ->
+                              s.getExampleSessionIds() != null
+                                  && !s.getExampleSessionIds().isEmpty());
               boolean skipSessionEvidence = isCachedFromStore && allSegmentsHaveSessions;
 
+              Single<List<RootCauseSegment>> segmentsWithSessionsSingle;
               if (skipSessionEvidence) {
-                return serializeEnrichedBody(
-                        working, rootCauseResult, date, windowEndExclusive, projectId, entityKey)
-                    .onErrorReturnItem(
-                        new RcaEnrichmentOutcome(fallbackBody, null, date, windowEndExclusive, false));
+                segmentsWithSessionsSingle = Single.just(segments);
+              } else {
+                segmentsWithSessionsSingle =
+                    fetchSessionEvidenceForAllSegments(segments, projectId, entityKey, date);
               }
 
-              return fetchSessionEvidenceForAllSegments(segments, projectId, entityKey, date)
+              return segmentsWithSessionsSingle
                   .flatMap(
-                      enrichedSegments -> {
-                        JsonNode rcPayloadNode = working.get(ROOT_CAUSE_PAYLOAD_FIELD);
-                        if (rcPayloadNode instanceof ObjectNode rcPayload) {
-                          rcPayload.set("segments", objectMapper.valueToTree(enrichedSegments));
-                        }
+                      segmentList ->
+                          attachRelatedHeatmapContext(
+                              projectId,
+                              entityKey,
+                              date,
+                              windowEndExclusive,
+                              segmentList))
+                  .flatMap(
+                      segmentListWithHeatmap -> {
+                        RootCauseResult payloadRoot =
+                            sanitizedResult.toBuilder().segments(segmentListWithHeatmap).build();
+                        working.set(
+                            ROOT_CAUSE_PAYLOAD_FIELD,
+                            objectMapper.valueToTree(payloadRoot));
                         return serializeEnrichedBody(
-                            working, rootCauseResult, date, windowEndExclusive, projectId, entityKey);
+                            working,
+                            rootCauseResult,
+                            date,
+                            windowEndExclusive,
+                            projectId,
+                            entityKey);
                       })
                   .onErrorReturnItem(
                       new RcaEnrichmentOutcome(fallbackBody, null, date, windowEndExclusive, false));
@@ -267,6 +288,57 @@ public class RcaReportEnrichmentService {
 
           return enrichedSegments;
         });
+  }
+
+  private Single<List<RootCauseSegment>> attachRelatedHeatmapContext(
+      String projectId,
+      String entityKey,
+      LocalDate anchorDate,
+      Instant windowEndExclusive,
+      List<RootCauseSegment> segments) {
+
+    RootCauseQueryBuilder.Window window =
+        new RootCauseQueryBuilder.Window(
+            anchorDate, rootCauseConfig.getLookbackDays(), windowEndExclusive);
+    LocalDate fromDate = LocalDate.ofInstant(window.startInclusive, ZoneOffset.UTC);
+    LocalDate toDate =
+        LocalDate.ofInstant(window.endExclusive.minusNanos(1), ZoneOffset.UTC);
+    String fromIso = fromDate.format(DateTimeFormatter.ISO_LOCAL_DATE);
+    String toIso = toDate.format(DateTimeFormatter.ISO_LOCAL_DATE);
+
+    return rootCauseService
+        .fetchDistinctScreensForInteraction(projectId, entityKey, window)
+        .subscribeOn(Schedulers.io())
+        .timeout(HEATMAP_CONTEXT_TIMEOUT_SEC, TimeUnit.SECONDS)
+        .map(screens -> applyRelatedHeatmapsToSegments(segments, screens, fromIso, toIso))
+        .onErrorResumeNext(
+            error -> {
+              log.warn(
+                  "RCA enrichment: heatmap context screens fetch failed for interaction={}: {}",
+                  entityKey,
+                  error.getMessage());
+              return Single.just(
+                  applyRelatedHeatmapsToSegments(segments, List.of(), fromIso, toIso));
+            });
+  }
+
+  private static List<RootCauseSegment> applyRelatedHeatmapsToSegments(
+      List<RootCauseSegment> segments,
+      List<String> screens,
+      String fromIso,
+      String toIso) {
+    List<String> screenList =
+        screens == null ? new ArrayList<>() : new ArrayList<>(screens);
+    for (RootCauseSegment seg : segments) {
+      seg.setRelatedHeatmaps(
+          RcaRelatedHeatmapsWire.builder()
+              .screens(new ArrayList<>(screenList))
+              .heatmapFilters(
+                  RcaHeatmapFilterWireFactory.buildFilters(
+                      seg.getDimensions(), fromIso, toIso))
+              .build());
+    }
+    return segments;
   }
 
   private Single<RcaEnrichmentOutcome> serializeEnrichedBody(

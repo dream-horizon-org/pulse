@@ -23,8 +23,11 @@ export const GET_RCA_JOB_ROUTE = {
 /** Read-only status check: returns cached report or active job without triggering new job creation. */
 export const GET_RCA_STATUS_ROUTE = {
   key: "GET_RCA_STATUS",
-  apiPath: (interactionName: string, date?: string | null) => {
-    const params = new URLSearchParams({ interactionName });
+  apiPath: (entityKey: string, date?: string | null) => {
+    const params = new URLSearchParams({
+      rcaType: "INTERACTION",
+      entityKey,
+    });
     if (date) {
       params.set("date", date);
     }
