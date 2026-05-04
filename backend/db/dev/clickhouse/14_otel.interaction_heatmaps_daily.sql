@@ -11,12 +11,12 @@ CREATE TABLE IF NOT EXISTS otel.interaction_heatmaps_daily
   `YBin`               Float32                      CODEC(Gorilla, ZSTD(1)),
   `WeightNormal`       UInt64                       CODEC(T64, ZSTD(1)),
   `WeightRage`         UInt64                       CODEC(T64, ZSTD(1)),
-  `WeightDead`         UInt64                       CODEC(T64, ZSTD(1)),
-  )
-  ENGINE = SummingMergeTree()
-  PARTITION BY toYYYYMM(Date)
-  PRIMARY KEY (Date, ProjectId, ScreenName)
-  ORDER BY (Date, ProjectId, ScreenName, AppVersion, Platform, GeographicalRegion, Breakpoint, XBin, YBin);
+  `WeightDead`         UInt64                       CODEC(T64, ZSTD(1))
+)
+ENGINE = SummingMergeTree()
+PARTITION BY toYYYYMM(Date)
+PRIMARY KEY (Date, ProjectId, ScreenName)
+ORDER BY (Date, ProjectId, ScreenName, AppVersion, Platform, GeographicalRegion, Breakpoint, XBin, YBin)
 SETTINGS index_granularity = 8192;
 
 

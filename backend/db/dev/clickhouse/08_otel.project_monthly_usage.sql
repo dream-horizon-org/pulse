@@ -12,7 +12,7 @@ ORDER BY (project_id, month, source)
 SETTINGS index_granularity = 8192;
 
 
-CREATE MATERIALIZED VIEW otel.project_monthly_logs_mv TO otel.project_monthly_usage
+CREATE MATERIALIZED VIEW IF NOT EXISTS otel.project_monthly_logs_mv TO otel.project_monthly_usage
 (
     `project_id` LowCardinality(String),
     `month` Date,
@@ -30,10 +30,10 @@ AS SELECT
    GROUP BY
     project_id,
     month,
-    source
+    source;
 
 
-CREATE MATERIALIZED VIEW otel.project_monthly_traces_mv TO otel.project_monthly_usage
+CREATE MATERIALIZED VIEW IF NOT EXISTS otel.project_monthly_traces_mv TO otel.project_monthly_usage
 (
     `project_id` LowCardinality(String),
     `month` Date,
@@ -51,10 +51,10 @@ AS SELECT
    GROUP BY
               project_id,
               month,
-              source
+              source;
 
 
-CREATE MATERIALIZED VIEW otel.project_monthly_stack_traces_events_mv TO otel.project_monthly_usage
+CREATE MATERIALIZED VIEW IF NOT EXISTS otel.project_monthly_stack_traces_events_mv TO otel.project_monthly_usage
 (
     `project_id` LowCardinality(String),
     `month` Date,
@@ -72,4 +72,4 @@ AS SELECT
    GROUP BY
               project_id,
               month,
-              source
+              source;
