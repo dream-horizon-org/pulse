@@ -19,14 +19,13 @@ import { PulseDebugPanel } from "./components/PulseDebugPanel";
 import { CartProvider } from "./hooks/useCart";
 
 /**
- * Manual Web Vitals QA: FID/FCP opt-in and local disable via env or URL (see MANUAL-WEB-VITALS-DEMO.md).
+ * Manual Web Vitals QA: optional local disable via env or URL (`pulse_wv_enabled`, `VITE_PULSE_WEB_VITALS_ENABLED`).
+ * FCP/FID/TTFB register with other vitals whenever instrumentation installs — no separate demo knobs.
  * Remote `web_vitals` gate still comes from SDK config (mock JSON / server), not from here.
  */
 type ManualWebVitalsInstrumentation = {
   webVitals: {
     enabled?: boolean;
-    fid?: boolean;
-    fcp?: boolean;
   };
 };
 
@@ -37,13 +36,6 @@ function readManualWebVitalsInstrumentation(
   const truthy = (v: string | null): boolean =>
     v === "1" || v === "true" || v === "yes";
   const falsy = (v: string | null): boolean => v === "0" || v === "false";
-
-  const fid =
-    truthy(q("pulse_wv_fid")) ||
-    import.meta.env["VITE_PULSE_WEB_VITALS_FID"] === "true";
-  const fcp =
-    truthy(q("pulse_wv_fcp")) ||
-    import.meta.env["VITE_PULSE_WEB_VITALS_FCP"] === "true";
 
   let enabled: boolean | undefined;
   let touchedEnabled = false;
@@ -58,21 +50,11 @@ function readManualWebVitalsInstrumentation(
     touchedEnabled = true;
   }
 
-  if (!fid && !fcp && !touchedEnabled) {
+  if (!touchedEnabled) {
     return undefined;
   }
 
-  const webVitals: ManualWebVitalsInstrumentation["webVitals"] = {};
-  if (touchedEnabled) {
-    webVitals.enabled = enabled;
-  }
-  if (fid) {
-    webVitals.fid = true;
-  }
-  if (fcp) {
-    webVitals.fcp = true;
-  }
-  return { webVitals };
+  return { webVitals: { enabled } };
 }
 
 const Home = lazy(() => import("./routes/Home"));

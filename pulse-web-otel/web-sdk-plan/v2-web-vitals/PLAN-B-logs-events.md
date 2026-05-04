@@ -120,36 +120,30 @@ WHERE
 
 ## When each vital fires (`reportAllChanges: false`)
 
-### Core Web Vitals — always on
+### Field vitals — always on when instrumentation installs
 
 | Vital | When callback fires | Value | `navigationType` |
 |-------|--------------------|----|---|
 | LCP | First user interaction or `pagehide` | Final largest contentful paint (ms) | Yes |
-| INP | `pagehide` | Worst interaction latency seen during page lifetime (ms) | Yes |
-| CLS | `pagehide` | Largest cumulative layout shift window score (unitless) | Yes |
+| INP | `pagehide` / tab hide | Worst interaction latency seen during page lifetime (ms) | Yes |
+| CLS | `pagehide` / tab hide | Largest cumulative layout shift window score (unitless) | Yes |
+| FCP | After first contentful paint | Time to first text or image paint (ms) | Yes |
+| FID | First user interaction | First input delay (ms) | Yes |
+| TTFB | After navigation / response start | Time to first byte (ms) | Yes |
 
 **CLS "session window" note:** `web-vitals` reports the largest *browser measurement window* (layout shifts within 1s of each other, max 5s total). Unrelated to the Pulse user session concept.
 
-### Optional vitals — off by default
+**FID** is deprecated as a Google Core Web Vital (replaced by INP) but is still registered for operator dashboards. **FCP** and **TTFB** are not CWV “trio” metrics but are standard RUM paint/navigation signals.
 
-| Vital | When | Value | Default | Why opt-in |
-|-------|------|-------|---------|-----------|
-| **FID** | First user interaction | First input delay (ms) — time from first tap/key to first browser response | `fid: false` | Deprecated as Core Web Vital March 2024; replaced by INP. Enable only for legacy dashboards that still report FID. |
-| **FCP** | First contentful paint event | Time to first text or image paint (ms) | `fcp: false` | Useful perf signal but not part of the Core Web Vitals trio; Google Search ranking does not use FCP. Enable when product wants paint timing breakdowns. |
-
-Both follow the same emit pattern as core vitals — one callback per page load, same attributes, same pipeline.
-
-**Config to opt in** (extend `instrumentations.webVitals` in `config.ts`):
+**Config** (`instrumentations.webVitals` in `config.ts`) — **master switch only**:
 
 ```ts
 webVitals?: {
-  enabled?: boolean;   // master switch — default true
-  fid?: boolean;       // default false — deprecated, legacy only
-  fcp?: boolean;       // default false — non-core, opt-in
+  enabled?: boolean;   // false → skip entire WebVitalsInstrumentation; default treat as true when undefined
 }
 ```
 
-`config.ts` change: extend the existing `webVitals` shape with `fid?: boolean` and `fcp?: boolean`.
+No per-vital `fid` / `fcp` flags.
 
 ---
 
@@ -243,85 +237,75 @@ Installation predicate: `consent OK ∧ gate(web_vitals) ∧ config.webVitals.en
 
 ## SDK implementation
 
+**Implementation note:** `visibilitychange` and `pageshow` must use **stored function references** on the class so `uninstall()` can `removeEventListener` with the same ref. The snippet below is schematic; see `src/instrumentations/web-vitals.ts` for the exact `Metric` → `emit` mapping and `PulseWebSemconv` attribute keys.
+
 ```ts
-// src/instrumentations/web-vitals.ts
+// src/instrumentations/web-vitals.ts (schematic)
 import { logs } from "@opentelemetry/api-logs";
-import { onLCP, onINP, onCLS, onFID, onFCP } from "web-vitals";
+import { onLCP, onINP, onCLS, onFID, onFCP, onTTFB } from "web-vitals";
 import type { PulseInstrumentation, SdkContext } from "../instrumentation-registry";
 import { PulseWebSemconv } from "../semconv";
 
 export class WebVitalsInstrumentation implements PulseInstrumentation {
   readonly name = "web-vitals";
+  private onVisibilityChange?: () => void;
+  private onPageShow?: (e: PageTransitionEvent) => void;
 
   install(sdk: SdkContext): void {
     if (typeof window === "undefined") return;
 
     const logger = logs.getLogger("pulse-web-vitals");
-    const wvConfig = sdk.config?.instrumentations?.webVitals;
 
-    const emit = (name: string, value: number, rating: string, navigationType?: string) => {
-      const attrs: Record<string, unknown> = {
+    const emit = (m: import("web-vitals").Metric): void => {
+      const attrs: Record<string, string | number | boolean> = {
         [PulseWebSemconv.AttributeKey.PULSE_TYPE]: PulseWebSemconv.PulseType.WEB_VITAL,
-        "web_vital.name":   name,
-        "web_vital.value":  value,
-        "web_vital.rating": rating,
+        [PulseWebSemconv.AttributeKey.WEB_VITAL_NAME]: m.name,
+        [PulseWebSemconv.AttributeKey.WEB_VITAL_VALUE]: m.value,
+        [PulseWebSemconv.AttributeKey.WEB_VITAL_RATING]: m.rating,
       };
-      if (navigationType) {
-        attrs["web_vital.navigation_type"] = navigationType;
+      if (m.navigationType !== undefined) {
+        attrs[PulseWebSemconv.AttributeKey.WEB_VITAL_NAVIGATION_TYPE] = m.navigationType;
       }
-      logger.emit({
-        body: PulseWebSemconv.LogBody.WEB_VITAL,
-        attributes: attrs,
-      });
-      // No forceFlush — BatchLogRecordProcessor + existing pagehide flush handles export
+      logger.emit({ body: PulseWebSemconv.LogBody.WEB_VITAL, attributes: attrs });
     };
 
-    // Core Web Vitals — always on when feature is enabled
-    // reportAllChanges: false (default) — one callback per vital, final value only
-    onLCP((m) => emit("LCP", m.value, m.rating, m.navigationType));
-    onINP((m) => emit("INP", m.value, m.rating, m.navigationType));
-    onCLS((m) => emit("CLS", m.value, m.rating, m.navigationType));
+    onLCP(emit);
+    onINP(emit);
+    onCLS(emit);
+    onFCP(emit);
+    onFID(emit);
+    onTTFB(emit);
 
-    // Optional vitals — off by default, enabled via config
-    if (wvConfig?.fid) {
-      // FID deprecated as CWV March 2024; still fires on first interaction
-      onFID((m) => emit("FID", m.value, m.rating, m.navigationType));
-    }
-    if (wvConfig?.fcp) {
-      onFCP((m) => emit("FCP", m.value, m.rating, m.navigationType));
-    }
-
-    // Flush on tab hide — mobile safety net (pagehide unreliable on iOS Safari).
-    // web-vitals fires its own callbacks on visibilitychange, which enqueue log records.
-    // Without this flush those records are lost when iOS kills the background tab.
-    document.addEventListener("visibilitychange", () => {
-      if (document.visibilityState === "hidden") {
-        void sdk.loggerProvider.forceFlush();
-      }
-    });
-
-    // Flush on bfcache restore — pending records from the previous navigation
-    // survive in the BatchLogRecordProcessor queue across the bfcache cycle.
-    // web-vitals fires new callbacks for the restored page automatically.
-    window.addEventListener("pageshow", (e: PageTransitionEvent) => {
-      if (e.persisted) {
-        void sdk.loggerProvider.forceFlush();
-      }
-    });
+    const flushLogs = (): void => {
+      void sdk.loggerProvider?.forceFlush().catch(() => {});
+    };
+    this.onVisibilityChange = (): void => {
+      if (document.visibilityState === "hidden") flushLogs();
+    };
+    document.addEventListener("visibilitychange", this.onVisibilityChange);
+    this.onPageShow = (e: PageTransitionEvent): void => {
+      if (e.persisted) flushLogs();
+    };
+    window.addEventListener("pageshow", this.onPageShow);
   }
 
   uninstall(): void {
-    // web-vitals v4 has no cancel() API — listeners cannot be detached.
-    // visibilitychange and pageshow listeners also cannot be removed without
-    // storing refs; after SDK shutdown, loggerProvider.forceFlush() becomes a no-op.
-    // No data leaks after shutdown.
+    if (this.onVisibilityChange) {
+      document.removeEventListener("visibilitychange", this.onVisibilityChange);
+      this.onVisibilityChange = undefined;
+    }
+    if (this.onPageShow) {
+      window.removeEventListener("pageshow", this.onPageShow);
+      this.onPageShow = undefined;
+    }
+    // onLCP/onINP/… have no public cancel in web-vitals v4 — metric subscriptions may remain.
   }
 }
 ```
 
 **Logger access:** Uses `logs.getLogger()` global — same pattern as session and error instrumentations. `logs.setGlobalLoggerProvider` is called in `bindGlobalProviders()` before `installAll()`, so the global is set when `install()` runs. No `SdkContext` change needed.
 
-**`sdk.config` access:** `SdkContext` must expose `config` (or `instrumentations` subset) for the optional vital flags to be readable in `install()`. If `config` is not currently on `SdkContext`, either add it or pass the webVitals sub-config directly when constructing `WebVitalsInstrumentation`. Confirm current `SdkContext` shape at implementation time.
+**`SdkContext.config`:** Exposes `instrumentations.webVitals.enabled` for the registry/gate only — **no per-vital flags** (FCP, FID, TTFB register unconditionally when the instrumentation installs).
 
 ### Semconv additions required
 
@@ -374,7 +358,7 @@ Update `DefaultSdkConfigTemplateTest` — expected feature count increases by 1.
 
 | Suite | Cases |
 |-------|-------|
-| **Gate off** | Remote config with `web_vitals` disabled → `shouldInstall` returns false → `WebVitalsInstrumentation.install()` never called → no `onLCP`/`onINP`/`onCLS` subscriptions |
+| **Gate off** | Remote config with `web_vitals` disabled → `shouldInstall` returns false → `WebVitalsInstrumentation.install()` never called → no `onLCP`/`onINP`/`onCLS`/`onFCP`/`onFID`/`onTTFB` subscriptions |
 | **Config off** | `instrumentations: { webVitals: { enabled: false } }` → not installed |
 | **Consent denied** | `dataCollectionState: DENIED` → `start()` returns before providers init → no logger, no vitals |
 | **Attribute shape** | Mock `logs.getLogger` → spy on `logger.emit` → assert emitted record has `pulse.type = "web_vital"`, `web_vital.name = "LCP"`, `web_vital.value = 1800`, `web_vital.rating = "good"` |
@@ -385,12 +369,8 @@ Update `DefaultSdkConfigTemplateTest` — expected feature count increases by 1.
 | **before-send drop** | Configure `beforeSendLog` to drop all records where `Attributes['pulse.type'] = 'web_vital'` → OTLP export receives zero web vital records |
 | **sampling drop** | `ExportSamplingGate` unsampled → batch processor discards all log records including vitals (regression: confirm vitals do not bypass sampling) |
 | **global attrs** | `PulseGlobalAttributesProcessor` stamps `session.id` and `screen.name` on vitals log records (same as session/click records) |
-| **FID off by default** | `wvConfig.fid` absent/false → `onFID` never registered → no FID log records emitted |
-| **FID on** | `wvConfig.fid = true` → `onFID` fires → log record with `web_vital.name = "FID"`, correct value and rating |
-| **FCP off by default** | `wvConfig.fcp` absent/false → `onFCP` never registered → no FCP log records emitted |
-| **FCP on** | `wvConfig.fcp = true` → `onFCP` fires → log record with `web_vital.name = "FCP"`, correct value and rating |
-| **FID + FCP both on** | Both flags true → exactly 5 records per page load (LCP + INP + CLS + FID + FCP); no cross-contamination of `web_vital.name` |
-| **Optional vital gate off** | Remote gate disabled + `fid: true` → instrumentation not installed → `onFID` not registered |
+| **Six registrations** | Mock `web-vitals` → `install()` calls `onLCP`, `onINP`, `onCLS`, `onFCP`, `onFID`, `onTTFB` exactly once each |
+| **FID / FCP / TTFB always on** | No config flags — when instrumentation installs, all six handlers register (FID deprecated by Google but still emitted) |
 | **visibilitychange flush** | Fire `visibilitychange` with `hidden` → `loggerProvider.forceFlush` called once |
 | **visibilitychange visible** | Fire `visibilitychange` with `visible` → `forceFlush` NOT called |
 | **pageshow bfcache restore** | Fire `pageshow` with `persisted = true` → `loggerProvider.forceFlush` called |
@@ -404,8 +384,7 @@ Update `DefaultSdkConfigTemplateTest` — expected feature count increases by 1.
 | Case | How |
 |------|-----|
 | OTLP payload shape | Export to in-memory log exporter; assert `ResourceLogs[0].ScopeLogs[0].LogRecords[0].Attributes` contains all required keys |
-| Core 3 only by default | Simulate LCP + INP + CLS callbacks, no config flags → exactly 3 log records |
-| FID + FCP enabled | Set `fid: true, fcp: true`; simulate all 5 callbacks → exactly 5 log records, correct `web_vital.name` per record |
+| Six vitals when installed | Simulate LCP, INP, CLS, FCP, FID, TTFB callbacks → six log records, distinct `web_vital.name` per record (browser may omit some vitals in real navigation — integration uses mocks) |
 | visibilitychange flushes queue | Enqueue a log record; fire `visibilitychange hidden`; assert record exported without waiting for 5s batch |
 | bfcache restore flushes pending | Simulate `pagehide persisted=true` (page cached); fire `pageshow persisted=true`; assert queued records exported |
 | bfcache fresh vitals | After restore, simulate new LCP callback → new log record with `navigationType = "back-forward"` and updated `screen.name` |
@@ -418,9 +397,7 @@ Update `DefaultSdkConfigTemplateTest` — expected feature count increases by 1.
 | Dimension | Values | Expected |
 |-----------|--------|----------|
 | Feature gate | on / off | off → no install |
-| `instrumentations.webVitals.enabled` | true / false / undefined | false → no install; undefined → install |
-| `fid` flag | true / false / undefined | false/undefined → no FID; true → FID registered |
-| `fcp` flag | true / false / undefined | false/undefined → no FCP; true → FCP registered |
+| `instrumentations.webVitals.enabled` | true / false / undefined | false → no install; undefined → install when remote gate on |
 | Consent | ALLOWED / DENIED | DENIED → no install |
 | `beforeSendLog` | pass-through / drop vitals | drop → zero records exported |
 | Sampling | sampled / unsampled session | unsampled → vitals drop with all signals |
@@ -493,7 +470,7 @@ Required command: `yarn workspace ecommerce-demo e2e:web-sdk-gates` must pass. A
 | `semconv.ts` | Add `PulseType.WEB_VITAL`, `LogBody.WEB_VITAL` | [ ] |
 | `src/instrumentations/web-vitals.ts` | New file — `WebVitalsInstrumentation` | [ ] |
 | `instrumentation-registry.ts` | Wire in `installAll()` | [ ] |
-| `src/types/config.ts` | Extend `webVitals` shape: add `fid?: boolean` and `fcp?: boolean` | [ ] |
+| `src/types/config.ts` | `webVitals?: { enabled?: boolean }` only | [ ] |
 | `src/types/instrumentation-registry.ts` | Confirm `SdkContext` exposes `loggerProvider` or a flush callback | [ ] |
 | `ADR-web-vitals.md` | Update D1/D2/D6 to reflect logs decision; update D5 to include visibilitychange + pageshow | [ ] |
 | `04-contract-parity.md` | Add `web_vital.value`, `web_vital.navigation_type` to web-only attrs table | [ ] |
@@ -543,7 +520,7 @@ ORDER BY p75_lcp_ms DESC
 LIMIT 20
 ```
 
-### All three vitals in one query
+### All installed vitals in one query
 
 ```sql
 SELECT
@@ -556,32 +533,14 @@ WHERE
   ProjectId = 'your-project'
   AND Timestamp >= now() - INTERVAL 7 DAY
   AND Attributes['pulse.type'] = 'web_vital'
-  AND Attributes['web_vital.name'] IN ('LCP', 'INP', 'CLS')
+  AND Attributes['web_vital.name'] IN ('LCP', 'INP', 'CLS', 'FCP', 'FID', 'TTFB')
 GROUP BY vital
 ORDER BY vital
 ```
 
-### FID / FCP (when enabled)
+### Single-vital slice (e.g. FID or TTFB)
 
-Identical query pattern — just change the `web_vital.name` filter:
-
-```sql
--- FID p75 (only meaningful if fid: true was set)
-SELECT quantile(0.75)(toFloat64(Attributes['web_vital.value'])) AS p75_fid_ms
-FROM otel.otel_logs
-WHERE ProjectId = 'your-project'
-  AND Timestamp >= now() - INTERVAL 7 DAY
-  AND Attributes['pulse.type'] = 'web_vital'
-  AND Attributes['web_vital.name'] = 'FID'
-
--- FCP p75
-SELECT quantile(0.75)(toFloat64(Attributes['web_vital.value'])) AS p75_fcp_ms
-FROM otel.otel_logs
-WHERE ProjectId = 'your-project'
-  AND Timestamp >= now() - INTERVAL 7 DAY
-  AND Attributes['pulse.type'] = 'web_vital'
-  AND Attributes['web_vital.name'] = 'FCP'
-```
+Use the same aggregate pattern with `Attributes['web_vital.name'] = 'FID'` (or `'TTFB'`, `'FCP'`, etc.).
 
 ### By navigation type
 
@@ -616,7 +575,7 @@ ORDER BY p75_lcp_ms DESC
 
 ## Export volume
 
-3 log records per page load (LCP + INP + CLS). At 100k daily sessions: +300k log records/day. `otel_logs` already handles sessions, clicks, errors at comparable volume. Negligible.
+Up to **six** `web_vital` log records per page load when the browser reports all metrics (LCP, INP, CLS, FCP, FID, TTFB). Roughly **2×** OTLP log volume vs the earlier three-metric default for gated-on traffic — intentional tradeoff (see ADR). `otel_logs` already handles sessions, clicks, errors at comparable volume.
 
 ---
 
@@ -625,9 +584,9 @@ ORDER BY p75_lcp_ms DESC
 | Limitation | Notes |
 |------------|-------|
 | Crash loss | `pagehide` never fires on crash/force-kill. Final vital value not exported. Same as Plan A and PostHog — accepted for MVP (< 5% of sessions) |
-| FID deprecated | Available via `instrumentations.webVitals.fid: true`. Off by default — deprecated as Core Web Vital March 2024 |
-| FCP non-core | Available via `instrumentations.webVitals.fcp: true`. Off by default — not part of the Core Web Vitals trio |
+| FID deprecated (Google) | Still emitted when Web Vitals instrumentation is installed — no separate opt-in |
+| FCP / TTFB non-CWV | Always registered with core trio when installed — standard RUM paint/navigation signals |
 | `web-vitals` no cancel API | `uninstall()` is a no-op on subscriptions. After SDK shutdown, `logger.emit()` is a no-op — no data leaks |
 | bfcache double-subscription | `install()` called once at `start()`; verify SDK does not re-call `installAll()` on bfcache restore |
 | SPA vitals scope | LCP/INP/CLS measure from hard navigation, not SPA route change. `screen.name` reflects URL at callback time. Per-route SPA vitals require web-vitals soft nav API (experimental, out of MVP scope) |
-| `uninstall` listeners | `visibilitychange` and `pageshow` listeners cannot be removed without storing refs — after shutdown, `forceFlush()` on a shut-down provider is a no-op, so no leak |
+| `uninstall` DOM listeners | `visibilitychange` / `pageshow` stored on the class → `removeEventListener` in `uninstall()`; metric callbacks from `web-vitals` still have no public cancel |

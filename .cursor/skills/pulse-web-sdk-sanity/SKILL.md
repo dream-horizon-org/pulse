@@ -1,7 +1,6 @@
 ---
 name: pulse-web-sdk-sanity
 description: Single canonical workflow for pulse-web-otel—scope, contract, safe implementation, test ladder, regression checklist, pre-merge diff audit (P0/P1/P2), test-run-log, and doc sync.
-disable-model-invocation: true
 ---
 
 # Pulse Web SDK Sanity Workflow

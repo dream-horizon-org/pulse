@@ -12,10 +12,10 @@ This table lists where Web Vitals must be introduced or aligned. **MVP** = requi
 
 | Touchpoint | File / area | Today | Action |
 |------------|-------------|--------|--------|
-| Semconv | [`src/semconv.ts`](../../src/semconv.ts) | `PulseType` has no `web_vital` | Add constant(s) and any metric attribute keys (e.g. `web_vital.name`, `web_vital.rating`) per ADR. |
-| Instrumentation | New `src/instrumentations/web-vitals.ts` (or similar) | Missing | Implement `PulseInstrumentation`; register in registry. |
-| Registry | [`src/instrumentation-registry.ts`](../../src/instrumentation-registry.ts) | Maps `WEB_VITALS` → feature; not installed | Call `registerAndInstall(..., InstrumentationKeys.WEB_VITALS)` in `installAll()`. |
-| Config | [`src/types/config.ts`](../../src/types/config.ts) | `webVitals?: { enabled }` | Optional: extend with `reportOnly?: ('LCP' \| 'INP' \| ... )[]` if product needs subset (Later). |
+| Semconv | [`src/semconv.ts`](../../src/semconv.ts) | `WEB_VITAL`, `web_vital.*` keys | Keep in sync with ADR / `04-contract-parity.md` (include **TTFB** in name list docs). |
+| Instrumentation | [`src/instrumentations/web-vitals.ts`](../../src/instrumentations/web-vitals.ts) | `onLCP`/`onINP`/`onCLS`/`onFCP`/`onFID`/`onTTFB` + flush listeners | **No** per-vital config flags; master `enabled` + remote `web_vitals` gate only. |
+| Registry | [`src/instrumentation-registry.ts`](../../src/instrumentation-registry.ts) | `WEB_VITALS` feature map | `installAll()` registers when gate + `instrumentations.webVitals.enabled` allow. |
+| Config | [`src/types/config.ts`](../../src/types/config.ts) | `webVitals?: { enabled?: boolean }` | **No** `fid` / `fcp` — all six vitals register when instrumentation installs. |
 | Remote types | [`src/types/remote-config.ts`](../../src/types/remote-config.ts) | `web_vitals` in `PulseFeatureName` | **No change** if names stay aligned with backend. |
 | Feature gate | [`src/feature-gate.ts`](../../src/feature-gate.ts) | Works by feature name | Ensure backend sends `web_vitals` for `pulse_web_js` when product wants remote control. |
 | Exporters | [`src/exporters.ts`](../../src/exporters.ts) | Metrics pipeline ready | Use existing `MeterProvider` only (ADR). |

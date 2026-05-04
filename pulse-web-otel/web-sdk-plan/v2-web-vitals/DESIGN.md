@@ -10,7 +10,7 @@
 
 ### 1.1 Goal
 
-Capture **LCP**, **INP**, **CLS** (optional **FID** / **FCP** via config) using the existing **OTLP logs** pipeline (`/v1/logs`), with remote/static gates, consent, **`beforeSendLog`**, and session sampling — no separate metrics path for vitals.
+Capture **LCP**, **INP**, **CLS**, **FCP**, **FID**, **TTFB** (all registered when `web_vitals` instrumentation installs) using the existing **OTLP logs** pipeline (`/v1/logs`), with remote/static gates, consent, **`beforeSendLog`**, and session sampling — no separate metrics path for vitals.
 
 ### 1.2 In scope (MVP)
 
@@ -71,7 +71,7 @@ flowchart LR
 
 Consent → `FeatureGate(web_vitals)` → `instrumentations.webVitals.enabled` → **`beforeSendLog`** (not beforeSendMetric for vitals) → `ExportSamplingGate` on log export.
 
-Optional **`instrumentations.webVitals.fid`** / **`.fcp`** (default false).
+Master off: **`instrumentations.webVitals.enabled === false`** disables the whole instrumentation (no per-vital toggles).
 
 ---
 

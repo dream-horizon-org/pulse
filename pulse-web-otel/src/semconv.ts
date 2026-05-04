@@ -53,7 +53,7 @@ export const PulseWebSemconv = {
     NON_FATAL_IS_MANUAL: "non_fatal.is_manual",
     /** Init log (`otel.initialization.events`) — exporter wiring hint (Android parity). */
     SPAN_EXPORTER: "span.exporter",
-    /** Web vital metric name: LCP, INP, CLS, FID, FCP. */
+    /** Web vital metric name: LCP, INP, CLS, FCP, FID, TTFB. */
     WEB_VITAL_NAME: "web_vital.name",
     WEB_VITAL_VALUE: "web_vital.value",
     WEB_VITAL_RATING: "web_vital.rating",

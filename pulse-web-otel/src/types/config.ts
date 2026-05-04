@@ -15,10 +15,6 @@ export interface InstrumentationConfig {
   clicks?: { enabled: boolean };
   webVitals?: {
     enabled?: boolean;
-    /** First Input Delay — deprecated CWV; default off. */
-    fid?: boolean;
-    /** First Contentful Paint — non-core; default off. */
-    fcp?: boolean;
   };
   navigation?: { enabled: boolean };
   session?: { enabled: boolean };

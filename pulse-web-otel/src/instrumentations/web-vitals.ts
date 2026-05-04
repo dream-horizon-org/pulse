@@ -1,17 +1,23 @@
 // Web Vitals — OTLP logs (Plan B). See web-sdk-plan/v2-web-vitals/PLAN-B-logs-events.md
 
 import { logs } from "@opentelemetry/api-logs";
-import { onCLS, onFCP, onFID, onINP, onLCP } from "web-vitals";
+import { onCLS, onFCP, onFID, onINP, onLCP, onTTFB } from "web-vitals";
 import type { Metric } from "web-vitals";
 
 import type {
   PulseInstrumentation,
   SdkContext,
 } from "../instrumentation-registry";
+import {
+  DomEventType,
+  DomVisibilityState,
+  PulseInstrumentationName,
+  PulseOtelLoggerScope,
+} from "../constants/pulse-otel-runtime";
 import { PulseWebSemconv } from "../semconv";
 
 export class WebVitalsInstrumentation implements PulseInstrumentation {
-  readonly name = "web-vitals";
+  readonly name = PulseInstrumentationName.WEB_VITALS;
 
   private onVisibilityChange?: () => void;
   private onPageShow?: (e: PageTransitionEvent) => void;
@@ -19,8 +25,7 @@ export class WebVitalsInstrumentation implements PulseInstrumentation {
   install(sdk: SdkContext): void {
     if (typeof window === "undefined") return;
 
-    const logger = logs.getLogger("pulse-web-vitals");
-    const wv = sdk.config.instrumentations?.webVitals;
+    const logger = logs.getLogger(PulseOtelLoggerScope.PULSE_WEB_VITALS);
 
     const emit = (metric: Metric): void => {
       const attrs: Record<string, string | number | boolean> = {
@@ -43,40 +48,42 @@ export class WebVitalsInstrumentation implements PulseInstrumentation {
     onLCP(emit);
     onINP(emit);
     onCLS(emit);
-
-    if (wv?.fid === true) {
-      onFID(emit);
-    }
-    if (wv?.fcp === true) {
-      onFCP(emit);
-    }
+    onFCP(emit);
+    onFID(emit);
+    onTTFB(emit);
 
     const flushLogs = (): void => {
       void sdk.loggerProvider?.forceFlush().catch(() => {});
     };
 
     this.onVisibilityChange = (): void => {
-      if (document.visibilityState === "hidden") {
+      if (document.visibilityState === DomVisibilityState.HIDDEN) {
         flushLogs();
       }
     };
-    document.addEventListener("visibilitychange", this.onVisibilityChange);
+    document.addEventListener(
+      DomEventType.VISIBILITY_CHANGE,
+      this.onVisibilityChange,
+    );
 
     this.onPageShow = (e: PageTransitionEvent): void => {
       if (e.persisted) {
         flushLogs();
       }
     };
-    window.addEventListener("pageshow", this.onPageShow);
+    window.addEventListener(DomEventType.PAGESHOW, this.onPageShow);
   }
 
   uninstall(): void {
     if (this.onVisibilityChange) {
-      document.removeEventListener("visibilitychange", this.onVisibilityChange);
+      document.removeEventListener(
+        DomEventType.VISIBILITY_CHANGE,
+        this.onVisibilityChange,
+      );
       this.onVisibilityChange = undefined;
     }
     if (this.onPageShow) {
-      window.removeEventListener("pageshow", this.onPageShow);
+      window.removeEventListener(DomEventType.PAGESHOW, this.onPageShow);
       this.onPageShow = undefined;
     }
   }

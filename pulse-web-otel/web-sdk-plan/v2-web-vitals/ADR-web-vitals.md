@@ -4,6 +4,10 @@
 **Date:** 2026-04-30 (updated for Plan B)  
 **Context:** [PLAN-B-logs-events.md](./PLAN-B-logs-events.md), [01-research-otel-ecosystem-and-industry.md](./01-research-otel-ecosystem-and-industry.md), [03-touchpoints-matrix.md](./03-touchpoints-matrix.md).
 
+**Phase 0 research:** No new `01-research-*` files for this change — evolutionary update to the same `web-vitals` signal family and OTLP logs path (documented here only).
+
+**Volume / always-on bundle:** When `web_vitals` is enabled, the SDK registers **six** `web-vitals` callbacks (LCP, INP, CLS, FCP, FID, TTFB) versus the prior default of three core metrics — roughly **~2×** web vital log rows per fully instrumented page load where the browser reports all signals. **FID** remains deprecated as a Google Core Web Vital but is still emitted for dashboards and parity with field paint/input diagnostics.
+
 ---
 
 ## Context
@@ -22,15 +26,16 @@ Pulse Web SDK ships OTLP **logs** (`LoggerProvider`, `/v1/logs`) and OTLP metric
 
 **Rationale:** Same pipeline as session, errors, interactions; `pagehide` / optional `visibilitychange` + `pageshow` flushes align with Plan B.
 
-### D2 — Vitals and optional metrics
+### D2 — Vitals (always on when instrumentation installs)
 
 | Vital | `web-vitals` callback | Log attributes |
 |-------|----------------------|----------------|
 | LCP | `onLCP` | `web_vital.name`, `web_vital.value` (ms), `web_vital.rating`, optional `web_vital.navigation_type` |
 | INP | `onINP` | same shape |
 | CLS | `onCLS` | same shape (unitless score) |
-| FID | `onFID` | opt-in via `instrumentations.webVitals.fid` (default off) |
-| FCP | `onFCP` | opt-in via `instrumentations.webVitals.fcp` (default off) |
+| FCP | `onFCP` | same shape (ms) |
+| FID | `onFID` | same shape (ms); deprecated CWV — still emitted |
+| TTFB | `onTTFB` | same shape (ms) — time to first byte (navigation) |
 
 Default `reportAllChanges: false` — one callback per vital per navigation where applicable (per `web-vitals`).
 
@@ -85,7 +90,7 @@ sequenceDiagram
 
 ## ClickHouse query note
 
-`otel_logs.Attributes` stores string values. Use **`toFloat64(Attributes['web_vital.value'])`** for percentiles on LCP/INP/FCP/FID.
+`otel_logs.Attributes` stores string values. Use **`toFloat64(Attributes['web_vital.value'])`** for percentiles on LCP/INP/FCP/FID/TTFB; CLS remains unitless.
 
 ---
 
@@ -93,4 +98,4 @@ sequenceDiagram
 
 Update [04-contract-parity.md](./04-contract-parity.md) when attributes change. Implement per [PLAN-B-logs-events.md](./PLAN-B-logs-events.md) and execution checklist.
 
-**Grill deferred:** Full [grill-me](../../../.cursor/skills/grill-me/SKILL.md) transcript not attached for this ADR revision; edge cases below are covered by **PLAN-B + Vitest** (`web-vitals-instrumentation.test.ts`: SSR, uninstall listener symmetry, `loggerProvider.forceFlush`, double `installAll`, gate-off) and **Playwright** (`web-vitals.spec.ts`: gate-disabled zero export, INP/Chromium). Remaining exploratory items (e.g. consent **PENDING** long soak, vitals × sampling matrix) tracked in PLAN-B / follow-up issues. **Owner:** Web SDK (branch author).
+**Grill deferred:** Always-on **six** vitals vs prior three increases OTLP log volume (~2× vital rows per load) — accepted per product; **owner:** Web SDK maintainer. Full [grill-me](../../../.cursor/skills/grill-me/SKILL.md) transcript optional when PLAN-B + Vitest + Playwright gates green. Edge cases covered by **PLAN-B + Vitest** (`web-vitals-instrumentation.test.ts`) and **Playwright** (`web-vitals.spec.ts`). Remaining exploratory items (e.g. consent **PENDING** long soak) tracked in PLAN-B / follow-up issues.
