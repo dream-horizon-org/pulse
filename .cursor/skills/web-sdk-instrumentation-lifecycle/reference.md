@@ -9,7 +9,7 @@ Copy into chat or a scratch doc; set each row to **DONE** | **PARTIAL** | **MISS
 | A1 | `01-research-*-ecosystem*.md` | `pulse-web-otel/web-sdk-plan/**/` | Create or **update** if industry/spec assumptions changed. |
 | A2 | `02-research-*-pulse-sdk*.md` | same | Create or **update** if `SdkContext`, exporters, or wiring changed. |
 | A3 | `03-touchpoints-matrix.md` | same | Must list every file you intend to touch; add rows if branch added files not on matrix. |
-| A4 | Rejected / deferred alternative | `PLAN-A-*.md` or ADR section | **MISSING** only OK for tiny extensions if ADR states “no alternative evaluated” with one-line rationale. |
+| A4 | Rejected / deferred alternative | **`PLAN-A-*.md` only when** you document a **real rejected fork**; otherwise **ADR section** (“Why no Plan A”) for tiny extensions / single obvious approach. **MISSING** only OK if ADR states “no alternative evaluated” with one-line rationale (see lifecycle Principle 3 / Phase 2). |
 | A5 | ADR | `ADR-*.md` | Must match implemented signal type and flush story. |
 | A6 | Canonical implementation spec | `PLAN-B-*.md` or named plan | Unit matrix + E2E outline; mark deferred items explicitly. |
 | A7 | `DESIGN.md` | plan folder | Router doc; must link active PLAN + ADR. |
@@ -67,6 +67,20 @@ Copy into chat or a scratch doc; set each row to **DONE** | **PARTIAL** | **MISS
 | E3 | Graphify | `graphify update . --no-viz` in `pulse-web-otel/` after substantive TS changes. |
 | E4 | PR review | [pr-review](../pr-review/SKILL.md) before merge. |
 | E5 | Handoff | Plan folder `HANDOFF-NEXT-AGENT.md` if pausing / handoff (done vs deferred + next-agent prompt). |
+
+---
+
+## F. Durable learnings (self-heal log)
+
+**Purpose:** After a **valid** review or post-merge finding, add **one line per lesson** so the next instrumentation pass inherits the fix as **system context** (not chat memory). Keep bullets **atomic** (≤500 chars). Prefer this section over duplicating long prose in ADR unless the lesson is feature-specific.
+
+**Judgement:** Promote here when the issue would likely **recur** on another instrumentation PR; keep feature-only notes in that plan’s ADR/PLAN; promote to `.cursor/rules/pulse-web-otel.mdc` only when **repo-wide** contract/lifecycle.
+
+| Date (YYYY-MM-DD) | Source (PR / reviewer) | Lesson (imperative, testable) |
+|-------------------|--------------------------|-------------------------------|
+| *example* | *#123* | *Always assert `screen.name` on new log E2E positives.* |
+
+*(Append new rows at the bottom; do not delete history without archival note.)*
 
 ---
 

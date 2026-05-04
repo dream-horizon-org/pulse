@@ -1,6 +1,6 @@
 ---
 name: web-sdk-instrumentation-lifecycle
-description: New or resumed instrumentation in pulse-web-otel—research, touchpoints matrix, ADR/PLAN-B, implementation, testing. Covers greenfield and half-done branches; uses sanity skill, rules, and optional stage agent for confirm-then-execute.
+description: New or resumed instrumentation in pulse-web-otel—research, touchpoints matrix, ADR/PLAN-B, implementation, testing. Uses web-sdk-instrumentation-e2e-from-design to derive comprehensive E2E cases from DESIGN.md; sanity skill for gates; optional stage agent for confirm-then-execute.
 disable-model-invocation: true
 ---
 
@@ -35,11 +35,12 @@ For **any** non-trivial `pulse-web-otel/` change (including finishing half-done 
 | Skill | When |
 |-------|------|
 | [pulse-web-sdk-sanity](../pulse-web-sdk-sanity/SKILL.md) | **Always** for implementation + test close-out on web SDK (Steps 3–6 include merge-ready diff audit). |
+| [web-sdk-instrumentation-e2e-from-design](../web-sdk-instrumentation-e2e-from-design/SKILL.md) | **Before** writing or tightening Playwright specs: read the plan folder `DESIGN.md` (plus PLAN-B, ADR, `PulseWebSemconv`) and produce the **full E2E case checklist**—positive paths, D2b gate-off, consent, flush/timing, lifecycle/edges—then diff against existing `e2e/*.spec.ts` and raise assertions to the same bar. Fold the checklist into PLAN-B’s E2E section (or track gaps explicitly). |
 | [grill-me](../grill-me/SKILL.md) | Plan stress-test before locking ADR / after resume. |
 | [pr-review](../pr-review/SKILL.md) | Before merge. |
 | [deploy-service](../deploy-service/SKILL.md) | Only if you need full Docker stack to reproduce ingest (optional; most instrumentation is unit + Playwright). |
 
-This lifecycle skill owns **phasing and gaps**; **pulse-web-sdk-sanity** owns **execution + verification + pre-merge audit**—run both for instrumentation work (sanity is one skill end-to-end).
+This lifecycle skill owns **phasing and gaps**; **pulse-web-sdk-sanity** owns **execution + verification + pre-merge audit**—run both for instrumentation work (sanity is one skill end-to-end). **web-sdk-instrumentation-e2e-from-design** turns **design artifacts → exhaustive E2E matrix** so Phase 6 does not improvise scenarios.
 
 ---
 
@@ -47,11 +48,12 @@ This lifecycle skill owns **phasing and gaps**; **pulse-web-sdk-sanity** owns **
 
 1. **Touchpoints before commitment** — enumerate files and layers *before* picking the final design (KPI: no surprise files mid-implementation).
 2. **Research before code** — short written artifacts you can link from ADR/DESIGN.
-3. **One rejected alternative** — document at least one plausible approach and *why* it loses (flush ordering, contract drift, industry mismatch, etc.).
+3. **Rejected alternative (when there was a real fork)** — If you seriously considered another mechanism (e.g. metrics vs logs, immediate emit vs buffer), document it and *why* it loses in **`PLAN-A-<mechanism>.md`** and link from ADR. **If there was no credible alternative** (obvious single approach or tiny extension), skip Plan A and record one line in the ADR: why no separate alternative doc was needed—do **not** invent a strawman Plan A.
 4. **Grill before lock-in** — run the grill skill on the chosen plan after touchpoints exist, ADR before bulk implementation.
 5. **Single-owner lifecycle** — install once per registry lifetime unless `uninstallAll` reset; no double listeners.
 6. **Contract hygiene** — `PulseWebSemconv`, `PulseFeature`, `InstrumentationKeys`; enforce via **Web SDK rules** above + [pulse-web-sdk-sanity](../pulse-web-sdk-sanity/SKILL.md) checklist.
 7. **Implementation sign-off** — **Never** start **Phase 5** (production code under `pulse-web-otel/src/**`, registry, gated backend Java, demo **behavior** wiring, new E2E) until the user **explicitly approves** in the current thread (see Phase 5 gate below). Prior “yes” to research, matrix, or ADR alone is **not** enough.
+8. **Self-heal from review** — When human review, [pr-review](../pr-review/SKILL.md), or CI flags a **valid, repeatable** gap (missed gate, wrong E2E pattern, semconv leak), **judge** whether it belongs in repo-wide rules vs this workstream. If it should recur for future instrumentations, **promote** it: append an **atomic** bullet to [reference.md](reference.md) section **F — Durable learnings**, and/or extend the relevant checklist row (A–E). **Do not** paste whole threads—one finding → one line + optional PR link. Skip one-off style nits.
 
 ---
 
@@ -68,7 +70,7 @@ This lifecycle skill owns **phasing and gaps**; **pulse-web-sdk-sanity** owns **
 3. **Inventory the branch** — `git diff main --stat` (or `main...HEAD`) for `pulse-web-otel/`, relevant `backend/server/` paths, demo E2E. Read changed files; note TODOs and commented placeholders.
 4. **Fill the gap matrix** — Use [reference.md](reference.md) (sections **A–E**, including **E5** handoff when applicable). Mark each row **DONE**, **PARTIAL** (with next action), or **MISSING**.
 5. **Reconcile code vs docs** — If code exists but A1–A9 are missing or stale, **create or update docs before adding more code** (prevents orphan implementation). If docs describe behavior the branch does not implement, either implement or amend ADR/PLAN with explicit deferrals.
-6. **Order work** — Typical: missing research → matrix → ADR/PLAN sync → implementation gaps → unit tests → E2E → `test-run-log.md` → revalidation → [pr-review](../pr-review/SKILL.md).
+6. **Order work** — Typical: missing research → matrix → ADR/PLAN sync → **[web-sdk-instrumentation-e2e-from-design](../web-sdk-instrumentation-e2e-from-design/SKILL.md)** checklist (once DESIGN + PLAN-B exist) → implementation gaps → unit tests → implement E2E from checklist → `test-run-log.md` → revalidation → [pr-review](../pr-review/SKILL.md).
 7. **Re-grill on resume** — At least a short pass: shutdown, double-install, consent, sampling, contract attrs (use [grill-me](../grill-me/SKILL.md) if decisions were implicit).
 
 ### Outputs
@@ -85,11 +87,11 @@ These cannot be skipped; if skipped, state **explicit deferral** in ADR or PLAN-
 | Gate | Requirement |
 |------|-------------|
 | **Research & documentation** | A1–A2 exist and are **current** relative to the branch (update if wiring or industry choice changed). Touchpoints matrix A3 matches touched files. |
-| **Design record** | A5–A9 consistent: ADR + active PLAN + DESIGN + parity README; rejected alternative documented where applicable. |
+| **Design record** | A5–A9 consistent: ADR + active PLAN + DESIGN + parity README; **`PLAN-A-*.md` only if** a rejected alternative is documented there—otherwise ADR states why no Plan A (see Principle 3). |
 | **Testing** | D1 unit coverage; D2 + **D2b** per [reference.md](reference.md) (assertion floor + gate-off zero-export pattern where applicable); `yarn test:run` + `e2e:web-sdk-gates` green unless documented env skip. |
 | **Pre-implementation grill** | [grill-me](../grill-me/SKILL.md) completed **before Phase 5** (after touchpoints + ADR/PLAN exist) **or** ADR/PLAN-B line: `Grill deferred: <named risks + owner>`. Silent skip is not allowed. |
 | **Execution log** | D5 `test-run-log.md` updated for gate runs; non-obvious failures include **symptom → cause → fix** (see Phase 8). |
-| **Review** | [pr-review](../pr-review/SKILL.md) (or equivalent) before merge. |
+| **Review** | [pr-review](../pr-review/SKILL.md) (or equivalent) before merge. After merge-worthy feedback, apply **Principle 8** (self-heal) so the next run loads the fix as context. |
 | **Rules + sanity** | Edits comply with [pulse-web-otel.mdc](../../rules/pulse-web-otel.mdc); [pulse-web-sdk-sanity](../pulse-web-sdk-sanity/SKILL.md) **Steps 2–6** executed and cited in the done report (Step 5 diff audit required for substantive code unless explicit N/A). |
 | **Handoff doc** | If work pauses on a branch: plan-folder `HANDOFF-NEXT-AGENT.md` updated (or N/A with reason). |
 | **Implementation start** | **Phase 5 user approval:** no first implementation edit until the user explicitly green-lights implementation after your short recap (Phase 5 gate). |
@@ -127,11 +129,13 @@ Store under `pulse-web-otel/web-sdk-plan/<milestone>/` (mirror [v2-web-vitals](.
 
 ---
 
-## Phase 2 — Alternatives & rejection (Plan A slot)
+## Phase 2 — Alternatives & rejection (Plan A — **only if**)
 
-**Goal:** One doc named `PLAN-A-<mechanism>.md` or “Alternative N” — the obvious approach (often metrics or synchronous flush).
+**When:** Add **`PLAN-A-<mechanism>.md`** only when there is a **real rejected fork** worth naming (the path you did **not** ship—e.g. immediate per-click emit vs buffer, metrics vs logs). That doc is the **rejected** option; ADR + PLAN-B describe the **chosen** path.
 
-Record **quantified rejection** where possible:
+**Skip Phase 2 as a file** when no meaningful alternative existed—capture a short **“Why no Plan A”** sentence in **ADR** instead (see Principle 3).
+
+When you **do** write Plan A, record **quantified rejection** where possible:
 
 - Same information density as the winning design? (e.g. single histogram observation vs scalar)
 - **Flush / ordering / threading** risks (e.g. `forceFlush` inside hot callbacks)
@@ -143,8 +147,8 @@ Record **quantified rejection** where possible:
 ## Phase 3 — Grill, ADR, canonical plan
 
 1. **Grill** — Invoke [grill-me](../grill-me/SKILL.md) on: signal shape, sampling, shutdown, bfcache/mobile web edges, double-install, contract parity with Android/RN.
-2. **ADR** — `ADR-<topic>.md`: decision table; explicitly reference phased research + rejected alternative.
-3. **Canonical spec** — `PLAN-B-<topic>.md` (or equivalent): lifecycle diagram, attribute schema, flush rules, unit matrix, E2E outline, optional SQL checks.
+2. **ADR** — `ADR-<topic>.md`: decision table; reference phased research + **`PLAN-A-*.md` when it exists**, otherwise the one-line “no Plan A” rationale.
+3. **Canonical spec** — `PLAN-B-<topic>.md` (or equivalent): lifecycle diagram, attribute schema, flush rules, unit matrix, **E2E outline** (expand later via [web-sdk-instrumentation-e2e-from-design](../web-sdk-instrumentation-e2e-from-design/SKILL.md) full checklist), optional SQL checks.
 
 **Revalidate after ADR:** Re-read touchpoints matrix; add rows if grill exposed new integration surfaces.
 
@@ -190,6 +194,8 @@ If the user asked to “run everything” or “stages 0–8”, you still **pau
 
 ## Phase 6 — Testing
 
+**E2E case generation (required for new/changed instrumentation E2E):** Run [web-sdk-instrumentation-e2e-from-design](../web-sdk-instrumentation-e2e-from-design/SKILL.md) against the plan folder—starts from **`DESIGN.md`**, pulls **`PLAN-B`**, **`ADR`**, **`04-contract-parity.md`**, **`PulseWebSemconv`**, **`PulseFeature`** names, and existing specs—outputs **Output A** (full scenario checklist + grill/revalidate) and **Output B** (upgrade partial tests). Implement or extend Playwright from that checklist; keep PLAN-B E2E section aligned with what you ship or defer.
+
 Execute [pulse-web-sdk-sanity](../pulse-web-sdk-sanity/SKILL.md): **Step 3** test ladder (focused Vitest → wiring/lifecycle → `e2e:web-sdk-gates` → targeted E2E if needed → append `test-run-log.md`); then **Steps 4–6** (regression, pre-merge diff audit, doc sync).
 
 **Demo readiness (before writing specs):** Before any `e2e/*.spec.ts` is useful, the demo must actually exercise the new signal and the test infrastructure must be wired. See [reference.md](reference.md) **D0a–D0d**:
@@ -229,6 +235,7 @@ Add further attrs from PLAN-B / contract parity. See [reference.md](reference.md
 
 ## Phase 7 — Revalidation
 
+- [ ] [web-sdk-instrumentation-e2e-from-design](../web-sdk-instrumentation-e2e-from-design/SKILL.md) checklist: every **P0** scenario covered in Vitest/E2E or explicitly deferred in ADR/PLAN-B.
 - [ ] PLAN-B unit matrix rows addressed or explicitly deferred with rationale.
 - [ ] [pulse-web-sdk-sanity](../pulse-web-sdk-sanity/SKILL.md) **Steps 4–6** — regression checklist, **Step 5** pre-merge diff audit, documentation sync (no listener leaks, no contract drift).
 - [ ] Docs index (`README.md` in plan folder) points to active PLAN variant.
@@ -262,7 +269,7 @@ pulse-web-otel/web-sdk-plan/<version>-<slug>/
   01-research-<slug>-ecosystem-and-industry.md
   02-research-<slug>-otel-js-browser-and-pulse-sdk.md
   03-touchpoints-matrix.md
-  PLAN-A-<alternative-mechanism>.md        # rejected or deferred
+  PLAN-A-<alternative-mechanism>.md        # optional — only when documenting a rejected fork (see Phase 2)
   ADR-<slug>.md
   PLAN-B-<slug>-<signal-family>.md          # canonical implementation spec
   DESIGN.md
@@ -275,10 +282,11 @@ pulse-web-otel/web-sdk-plan/<version>-<slug>/
 
 ## Done report (copy into PR / chat)
 
-0a. Gap matrix: all rows **DONE** or **explicitly deferred** in ADR/PLAN with rationale (link or paste summary).
+0a. Gap matrix: all rows **DONE** or **explicitly deferred** in ADR/PLAN with rationale (link or paste summary). E2E: [web-sdk-instrumentation-e2e-from-design](../web-sdk-instrumentation-e2e-from-design/SKILL.md) checklist addressed or deferrals noted.
 0b. **Pre-implementation grill:** [grill-me](../grill-me/SKILL.md) done before Phase 5, or one-line `Grill deferred: <risks + owner>` in ADR/PLAN-B.
 0c. **Handoff doc:** `HANDOFF-NEXT-AGENT.md` updated if pausing mid-branch (or N/A).
 0d. **Implementation approval:** user explicitly approved Phase 5 before first implementation edit (or N/A — docs-only / Phase 4-only work).
+0e. **Self-heal:** if post-review lessons apply to future runs, new row in [reference.md](reference.md) **section F** (or N/A).
 1. Summary of decision (one line) + link to ADR + PLAN-B.
 2. Files changed (grouped: SDK, demo, backend, docs).
 3. Tests run (exact commands + result).

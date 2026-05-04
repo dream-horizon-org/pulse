@@ -1,0 +1,1 @@
+../../.cursor/agents/web-sdk-guardian.md
