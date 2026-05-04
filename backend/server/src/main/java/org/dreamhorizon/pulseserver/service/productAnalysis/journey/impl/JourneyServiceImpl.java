@@ -475,6 +475,7 @@ public class JourneyServiceImpl implements JourneyService {
         .createdAt(row.getCreatedAt())
         .updatedAt(row.getUpdatedAt())
         .createdBy(row.getCreatedBy())
+        .lastRunAt(journeyResults != null ? journeyResults.getLastRunAt() : null)
         .journeyResults(journeyResults)
         .tags(tags)
         .build();
