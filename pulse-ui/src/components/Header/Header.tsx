@@ -1,4 +1,4 @@
-import { AppShell, Group, Text, Box, Select, Badge } from "@mantine/core";
+import { AppShell, Group, Text, Box, Select, Badge, Button } from "@mantine/core";
 
 import classes from "./Header.module.css";
 import { HeaderProps } from "./Header.interface";
@@ -6,11 +6,14 @@ import { useNavigate } from "react-router-dom";
 import { IconFolder, IconBuilding } from "@tabler/icons-react";
 import { useTenantContext, useProjectContext } from "../../contexts";
 import { TIERS } from "../../constants/Tiers";
+import { getCookies } from "../../helpers/cookies";
+import { COOKIES_KEY, ROUTES } from "../../constants";
 
 export function Header({ toggle: toogle, opened }: HeaderProps) {
   const navigate = useNavigate();
   const { projects, tier, tenantName, tenantId } = useTenantContext();
   const { projectId, projectName, navigateToProject } = useProjectContext();
+  const systemRole = getCookies(COOKIES_KEY.SYSTEM_ROLE);
 
   const handleProjectSwitch = async (newProjectId: string | null) => {
     if (!newProjectId || newProjectId === projectId) return;
@@ -24,6 +27,15 @@ export function Header({ toggle: toogle, opened }: HeaderProps) {
           {/* Organization Name Section */}
           <Box className={classes.leftSection}>
             <Group gap="xs">
+              {systemRole && (
+                <Button
+                  variant="subtle"
+                  size="xs"
+                  onClick={() => navigate(ROUTES.INTERNAL_TENANT_SELECTOR.path)}
+                >
+                  ← Switch Workspace
+                </Button>
+              )}
               <IconBuilding size={20} style={{ color: "#0ba09a" }} />
               <Text fw={600} size="md" className={classes.orgName}>
                 {tenantName || "Organization"}

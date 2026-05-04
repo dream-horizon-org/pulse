@@ -66,6 +66,11 @@ function buildAuthHeaders(): Record<string, string> {
     headers["X-Project-ID"] = projectId;
   }
 
+  const tenantId = getCookies(COOKIES_KEY.TENANT_ID);
+  if (tenantId && tenantId !== "undefined") {
+    headers["X-Tenant-ID"] = tenantId;
+  }
+
   return headers;
 }
 

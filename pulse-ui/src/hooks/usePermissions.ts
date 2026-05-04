@@ -1,6 +1,8 @@
 import { useTenantContext } from '../contexts/TenantContext';
 import { useProjectContext } from '../contexts/ProjectContext';
+import { COOKIES_KEY, SYSTEM_ROLES } from '../constants';
 import { TENANT_ROLES, PROJECT_ROLES } from '../constants/Roles';
+import { getCookies } from '../helpers/cookies';
 
 /**
  * Hook for checking user permissions based on their roles in tenant and project contexts.
@@ -11,7 +13,8 @@ import { TENANT_ROLES, PROJECT_ROLES } from '../constants/Roles';
 export function usePermissions() {
   const { userRole: tenantRole } = useTenantContext();
   const { userRole: projectRole } = useProjectContext();
-  
+  const isSuperadminSession = getCookies(COOKIES_KEY.SYSTEM_ROLE) === SYSTEM_ROLES.SUPERADMIN;
+
   return {
     // Tenant-level permissions (organization)
     canInviteTenantMembers: tenantRole === TENANT_ROLES.ADMIN,
@@ -22,12 +25,15 @@ export function usePermissions() {
     canViewOrgMembers: !!tenantRole, // Any tenant member can view
     
     // Project-level permissions
-    canInviteProjectMembers: projectRole === PROJECT_ROLES.ADMIN,
-    canRemoveProjectMembers: projectRole === PROJECT_ROLES.ADMIN,
+    canInviteProjectMembers:
+      projectRole === PROJECT_ROLES.ADMIN || isSuperadminSession,
+    canRemoveProjectMembers:
+      projectRole === PROJECT_ROLES.ADMIN || isSuperadminSession,
     canEditProject: projectRole === PROJECT_ROLES.ADMIN || projectRole === PROJECT_ROLES.EDITOR,
     canDeleteProject: projectRole === PROJECT_ROLES.ADMIN,
     canViewProject: !!projectRole,
-    canManageProjectSettings: projectRole === PROJECT_ROLES.ADMIN,
+    canManageProjectSettings:
+      projectRole === PROJECT_ROLES.ADMIN || isSuperadminSession,
     
     // Role info (for display purposes)
     tenantRole,
