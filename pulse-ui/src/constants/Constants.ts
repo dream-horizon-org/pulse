@@ -1182,6 +1182,8 @@ export const COOKIES_KEY: Record<string, string> = {
   // REMOVED: PROJECT_ID, PROJECT_NAME - Now handled by React Context
 };
 
+export const INTERNAL_ROUTE_PREFIX = "/internal";
+
 export const LAYOUT_PAGE_CONSTANTS: Record<string, string> = {
   CHECKING_CREDENTIALS: "Checking credentials",
 };
@@ -1744,3 +1746,14 @@ export const CRITICAL_INTERACTION_DETAILS_FILTER_KEYS: CriticalInteractionDetail
 export const DATE_FORMAT = "MMM D, YY HH:mm";
 
 export const STATUS_CODE_ERROR = "Error";
+
+// System Role Constants
+export const SYSTEM_ROLES = {
+  SUPERADMIN: "superadmin",
+  INTERNAL_VIEWER: "internal_viewer",
+} as const;
+
+// LoginResponse property key constant
+export const LOGIN_RESPONSE_KEYS = {
+  SYSTEM_ROLE: "systemRole",
+} as const;

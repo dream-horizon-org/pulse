@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { makeRequest } from "../../helpers/makeRequest";
 import type { ApiResponse } from "../../helpers/makeRequest/makeRequest.interface";
 import { getCookies, removeCookie } from "../../helpers/cookies";
-import { API_BASE_URL, API_METHODS, API_ROUTES, COOKIES_KEY } from "../../constants";
+import { API_BASE_URL, API_METHODS, API_ROUTES, COOKIES_KEY, SYSTEM_ROLES } from "../../constants";
 
 export interface InternalRoleMember {
   userId: string;
@@ -28,7 +28,7 @@ function mapAdminMembers(data: SuperAdminsListResponse | null | undefined): Inte
 }
 
 function adminPathForRole(role: string): string {
-  if (role === "internal_viewer") {
+  if (role === SYSTEM_ROLES.INTERNAL_VIEWER) {
     return API_ROUTES.ADMIN_INTERNAL_VIEWERS.apiPath;
   }
   return API_ROUTES.ADMIN_SUPERADMINS.apiPath;
@@ -99,7 +99,7 @@ export const useAssignRole = () => {
       role,
     }: {
       identifier: string;
-      role: "superadmin" | "internal_viewer";
+      role: typeof SYSTEM_ROLES[keyof typeof SYSTEM_ROLES];
     }) => {
       const trimmed = identifier.trim();
       const body =
@@ -134,7 +134,7 @@ export const useRevokeRole = (options?: UseRevokeRoleOptions) => {
       role,
     }: {
       userId: string;
-      role: "superadmin" | "internal_viewer";
+      role: typeof SYSTEM_ROLES[keyof typeof SYSTEM_ROLES];
     }) => {
       const res = await makeRequest({
         url: `${API_BASE_URL}${adminPathForRole(role)}/${encodeURIComponent(userId)}`,
@@ -147,11 +147,11 @@ export const useRevokeRole = (options?: UseRevokeRoleOptions) => {
     },
     onSuccess: (
       _data: unknown,
-      variables: { userId: string; role: "superadmin" | "internal_viewer" },
+      variables: { userId: string; role: typeof SYSTEM_ROLES[keyof typeof SYSTEM_ROLES] },
     ) => {
       const me = getCookies(COOKIES_KEY.USER_ID);
       if (
-        variables.role === "superadmin" &&
+        variables.role === SYSTEM_ROLES.SUPERADMIN &&
         me &&
         variables.userId === me
       ) {

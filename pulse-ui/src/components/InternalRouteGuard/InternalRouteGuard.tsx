@@ -1,7 +1,7 @@
 import { PropsWithChildren, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { getCookies } from "../../helpers/cookies";
-import { COOKIES_KEY, ROUTES } from "../../constants";
+import { COOKIES_KEY, ROUTES, SYSTEM_ROLES } from "../../constants";
 
 interface InternalRouteGuardProps extends PropsWithChildren {
   requireSuperadmin?: boolean;
@@ -32,12 +32,12 @@ export function InternalRouteGuard({
       );
       return;
     }
-    if (requireSuperadmin && systemRole !== "superadmin") {
+    if (requireSuperadmin && systemRole !== SYSTEM_ROLES.SUPERADMIN) {
       navigate(ROUTES.INTERNAL_TENANT_SELECTOR.path, { replace: true });
     }
   }, [accessToken, systemRole, requireSuperadmin, navigate, location]);
 
   if (!accessToken || !systemRole) return null;
-  if (requireSuperadmin && systemRole !== "superadmin") return null;
+  if (requireSuperadmin && systemRole !== SYSTEM_ROLES.SUPERADMIN) return null;
   return <>{children}</>;
 }

@@ -5,6 +5,7 @@ import {
   HEADER_CONFIG,
   LAYOUT_PAGE_CONSTANTS,
   ROUTES,
+  INTERNAL_ROUTE_PREFIX,
 } from "../../constants";
 import { TENANT_ROLES, TenantRole } from "../../constants/Roles";
 import { TIERS, TierType } from "../../constants/Tiers";
@@ -21,6 +22,7 @@ import { ProjectGuard } from "../ProjectGuard";
 import { ProjectInitializingModal } from "../ProjectInitializingModal";
 import { useTenantContext, useProjectContext } from "../../contexts";
 import { useGetTncStatus } from "../../hooks/useGetTncStatus";
+import { useIsInternalRoute } from "../../hooks/useIsInternalRoute";
 import { TncAcceptance } from "../../screens/TncAcceptance";
 
 export function Layout({ children }: LayoutProps) {
@@ -43,7 +45,7 @@ export function Layout({ children }: LayoutProps) {
   const isLoginPage = pathname === ROUTES.LOGIN.path;
   const isOnboardingPage = pathname === ROUTES.ONBOARDING.basePath;
   const isInitialOnboarding = pathname === ROUTES.ONBOARDING.basePath;
-  const isInternalRoute = pathname.startsWith("/internal");
+  const isInternalRoute = useIsInternalRoute();
   const shouldShowHeader = !isLoginPage && !isInitialOnboarding && !isInternalRoute;
 
   useEffect(() => {

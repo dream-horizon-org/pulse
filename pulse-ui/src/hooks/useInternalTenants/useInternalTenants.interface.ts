@@ -6,3 +6,15 @@ export interface InternalTenant {
   tier?: string;
   userRole?: TenantRole;
 }
+
+export type TenantListRestRow = {
+  tenantId: string;
+  name: string;
+  tier?: string;
+  tenantRole?: string;
+};
+
+export type TenantListRestEnvelope = {
+  tenants: TenantListRestRow[];
+  totalCount?: number;
+};

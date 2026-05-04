@@ -17,7 +17,7 @@ import {
 import { useInternalTenants } from "../../../hooks/useInternalTenants";
 import { InternalTenant } from "../../../hooks/useInternalTenants/useInternalTenants.interface";
 import { getCookies, setCookies } from "../../../helpers/cookies";
-import { API_ROUTES, COOKIES_KEY, ROUTES } from "../../../constants";
+import { API_ROUTES, COOKIES_KEY, ROUTES, SYSTEM_ROLES } from "../../../constants";
 import { useTenantContext, useProjectContext } from "../../../contexts";
 import { TIERS } from "../../../constants/Tiers";
 import { TENANT_ROLES } from "../../../constants/Roles";
@@ -172,7 +172,7 @@ export function TenantSelector() {
         count={tenants?.length}
         countLabel={tenants?.length === 1 ? "Tenant" : "Tenants"}
         actions={
-          systemRole === "superadmin" ? (
+          systemRole === SYSTEM_ROLES.SUPERADMIN ? (
             <Button
               variant="light"
               color="teal"

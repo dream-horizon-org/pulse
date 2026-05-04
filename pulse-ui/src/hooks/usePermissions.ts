@@ -1,6 +1,6 @@
 import { useTenantContext } from '../contexts/TenantContext';
 import { useProjectContext } from '../contexts/ProjectContext';
-import { COOKIES_KEY } from '../constants';
+import { COOKIES_KEY, SYSTEM_ROLES } from '../constants';
 import { TENANT_ROLES, PROJECT_ROLES } from '../constants/Roles';
 import { getCookies } from '../helpers/cookies';
 
@@ -13,7 +13,7 @@ import { getCookies } from '../helpers/cookies';
 export function usePermissions() {
   const { userRole: tenantRole } = useTenantContext();
   const { userRole: projectRole } = useProjectContext();
-  const isSuperadminSession = getCookies(COOKIES_KEY.SYSTEM_ROLE) === 'superadmin';
+  const isSuperadminSession = getCookies(COOKIES_KEY.SYSTEM_ROLE) === SYSTEM_ROLES.SUPERADMIN;
 
   return {
     // Tenant-level permissions (organization)
