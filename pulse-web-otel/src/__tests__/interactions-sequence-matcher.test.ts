@@ -97,26 +97,35 @@ describe("matchInteractionSequence", () => {
     }
   });
 
-  it("sequence violation when wrong event during ongoing", () => {
-    const c = cfg();
+  it("sequence violation when relevant wrong step during ongoing (not tracker-irrelevant)", () => {
+    // "bad" would be dropped in InteractionTracker.checkAndAdd — never buffered. Use a third
+    // config step C: after A, matcher expects B; C matches config but is wrong for the slot.
+    const c = cfg({
+      events: [
+        { name: "step_a", isBlacklisted: false },
+        { name: "step_b", isBlacklisted: false },
+        { name: "step_c", isBlacklisted: false },
+      ],
+    });
     const t0 = 1e12;
     const events = [
       { name: "step_a", timeInNano: t0 },
-      { name: "bad", timeInNano: t0 + 1 },
+      { name: "step_c", timeInNano: t0 + 1 },
     ];
     const r = matchInteractionSequence("id-1", events, [], c);
     expect(r).not.toBeNull();
     expect(r!.shouldTakeFirstEvent).toBe(true);
-    if (r!.interactionStatus.kind === "ongoing") {
-      expect(
-        r!.interactionStatus.interaction?.props[INTERACTION_PROP_KEYS.IS_ERROR],
-      ).toBe(true);
-      expect(
-        r!.interactionStatus.interaction?.props[
-          INTERACTION_PROP_KEYS.ERROR_TYPE
-        ],
-      ).toBe("sequence_violation");
+    expect(r!.shouldResetList).toBe(true);
+    const ir = r!.interactionStatus;
+    expect(ir.kind).toBe("ongoing");
+    if (ir.kind !== "ongoing") {
+      throw new Error("expected ongoing match status");
     }
+    expect(ir.interaction).not.toBeNull();
+    expect(ir.interaction!.props[INTERACTION_PROP_KEYS.IS_ERROR]).toBe(true);
+    expect(ir.interaction!.props[INTERACTION_PROP_KEYS.ERROR_TYPE]).toBe(
+      "sequence_violation",
+    );
   });
 
   it("global blacklist resets ongoing (no interaction payload)", () => {
