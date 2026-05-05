@@ -34,6 +34,10 @@ import { buildMergedResource } from "./resource";
 import { parseUserAgent, getOsVersionAsync } from "./utils/ua-parser";
 import { SdkConfigFetcher, PulseFeature } from "./remote-config";
 import { DEFAULT_SDK_CONFIG } from "./constants/default-sdk-config";
+import {
+  DomEventType,
+  PulseOtelLoggerScope,
+} from "./constants/pulse-otel-runtime";
 import { FeatureGate } from "./feature-gate";
 import { PulseGlobalAttributesProcessor } from "./processors/global-attrs-processor";
 import { SignalFilterProcessor } from "./processors/signal-filter-processor";
@@ -309,7 +313,7 @@ class PulseWebSDK implements SdkContext {
         ]).catch(() => {});
       }
     };
-    window.addEventListener("pagehide", this._pagehideListener);
+    window.addEventListener(DomEventType.PAGEHIDE, this._pagehideListener);
   }
 
   private bindGlobalProviders(): void {
@@ -322,8 +326,8 @@ class PulseWebSDK implements SdkContext {
     logs.setGlobalLoggerProvider(loggerProvider);
     metrics.setGlobalMeterProvider(meterProvider);
 
-    this.logger = loggerProvider.getLogger("pulse-web");
-    this.tracer = tracerProvider.getTracer("pulse-web");
+    this.logger = loggerProvider.getLogger(PulseOtelLoggerScope.PULSE_WEB);
+    this.tracer = tracerProvider.getTracer(PulseOtelLoggerScope.PULSE_WEB);
   }
 
   private installInstrumentations(
@@ -363,7 +367,7 @@ class PulseWebSDK implements SdkContext {
     this._starting = false; // kill any pending async init
 
     if (this._pagehideListener && typeof window !== "undefined") {
-      window.removeEventListener("pagehide", this._pagehideListener);
+      window.removeEventListener(DomEventType.PAGEHIDE, this._pagehideListener);
       this._pagehideListener = undefined;
     }
 
@@ -552,7 +556,7 @@ class PulseWebSDK implements SdkContext {
     const attributeKeys = PulseWebSemconv.AttributeKey;
     const rumSdkInit = PulseWebSemconv.RumSdkInit;
     const initLogger = this._loggerProvider.getLogger(
-      "otel.initialization.events",
+      PulseOtelLoggerScope.INITIALIZATION_EVENTS,
     );
 
     initLogger.emit({

@@ -4,18 +4,24 @@ receivers:
       http:
         endpoint: 0.0.0.0:4318
         cors:
-          # confighttp/rs.cors: `*` alone is invalid with Allow-Credentials. Use protocol
-          # wildcards so any dev port (e.g. :3002 demo, :3099 Playwright) matches — not
-          # `http://localhost:*` (wildcard is for host labels like *.example.com, not ports).
+          # confighttp/rs.cors: `allowed_origins: ["*"]` is invalid with
+          # Access-Control-Allow-Credentials. Use protocol wildcards + explicit dev ports
+          # (browsers send Origin: http://localhost:3002 for ecommerce-demo / Vite).
+          # See: https://github.com/open-telemetry/opentelemetry-collector/blob/main/config/confighttp/README.md
           allowed_origins:
+            - "http://localhost:3000"
+            - "http://localhost:3002"
+            - "http://127.0.0.1:3002"
+            - "http://localhost:5173"
+            - "http://127.0.0.1:5173"
             - "http://*"
             - "https://*"
+          # Wildcard: browser preflight must echo every Access-Control-Request-Header
+          # (OTLP may add trace context, content-type, etc.). Listing only a few keys
+          # causes CORS failures on /v1/logs from the web SDK.
           allowed_headers:
-            - "x-api-key"
-            - "x-pulse-metering-session-id"
-            - "content-type"
-            - "content-encoding"
-            - "accept"
+            - "*"
+          max_age: 7200
 
 extensions:
   health_check:

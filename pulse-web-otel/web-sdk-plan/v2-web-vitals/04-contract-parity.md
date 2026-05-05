@@ -42,7 +42,7 @@ Mobile and RN SDKs do **not** emit browser **Core Web Vitals**. Parity means:
 
 | Attribute | Description |
 |-----------|-------------|
-| `web_vital.name` | `LCP`, `INP`, `CLS`, `FID`, `FCP`, … |
+| `web_vital.name` | `LCP`, `INP`, `CLS`, `FCP`, `FID`, `TTFB`, … |
 | `web_vital.value` | Numeric in OTLP; in ClickHouse `otel_logs` map values are **strings** — use **`toFloat64(Attributes['web_vital.value'])`** for quantiles. |
 | `web_vital.rating` | `good` / `needs-improvement` / `poor` |
 | `web_vital.navigation_type` | Present only when defined — **omit key** if undefined (no null / empty / `"undefined"`). |

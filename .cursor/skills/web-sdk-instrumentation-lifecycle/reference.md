@@ -45,7 +45,8 @@ Copy into chat or a scratch doc; set each row to **DONE** | **PARTIAL** | **MISS
 | D0a | Demo app UI surface | Does `examples/ecommerce-demo/src/` have a page or element that reaches the new code path? If not, add it before writing specs — specs that never reach the instrumented code always pass vacuously. |
 | D0b | `.env.test` vars complete | Required: `VITE_PULSE_FORMAT=json`, `VITE_PULSE_COMPRESSION=none`, `VITE_PULSE_BATCH_DELAY_MS=200`, `VITE_PULSE_MOCK_SDK_CONFIG=false`, `VITE_PULSE_MOCK_INTERACTION_CONFIG=false`. Add any feature-specific `VITE_` vars the new instrumentation reads from `import.meta.env`. |
 | D0c | `test-sdk-config.ts` coverage | `minimalPulseSdkConfig` features array: gate-off test needs a matching `featureName` entry with `sessionSampleRate: 0`. `demoE2eWhitelistFilterValues`: consent/whitelist tests need new signal patterns if not already covered. Update before writing gate-off or consent tests. |
-| D0d | `fixture.ts` extraction helpers | `findAllLogs` for log signals; `findAllSpans` for traces; `findAllMetrics` for metrics. If the new signal type needs a different extraction helper, add it to `e2e/fixture.ts` before writing specs. |
+| D0d | `fixture.ts` extraction helpers | `findAllLogs` for log signals; `findAllSpans` for traces; `findAllMetrics` for metrics. If the new signal type needs a different extraction helper (e.g. **prefix match** when `pulse.type` varies per status), add it to `e2e/fixture.ts` before writing specs. |
+| D0e | Resource Timing / Playwright traffic | E2E that assert **PerformanceResourceTiming-sourced** attrs: `page.route`-fulfilled requests often **lack** real Resource Timing entries—probe first or **defer** in ADR/PLAN-B; do not write vacuous assertions. |
 
 ### D1+. Unit, integration, E2E
 
@@ -67,6 +68,21 @@ Copy into chat or a scratch doc; set each row to **DONE** | **PARTIAL** | **MISS
 | E3 | Graphify | `graphify update . --no-viz` in `pulse-web-otel/` after substantive TS changes. |
 | E4 | PR review | [pr-review](../pr-review/SKILL.md) before merge. |
 | E5 | Handoff | Plan folder `HANDOFF-NEXT-AGENT.md` if pausing / handoff (done vs deferred + next-agent prompt). |
+
+---
+
+## F. Durable learnings (self-heal log)
+
+**Purpose:** After a **valid** review or post-merge finding, add **one line per lesson** so the next instrumentation pass inherits the fix as **system context** (not chat memory). Keep bullets **atomic** (≤500 chars). Prefer this section over duplicating long prose in ADR unless the lesson is feature-specific.
+
+**Judgement:** Promote here when the issue would likely **recur** on another instrumentation PR; keep feature-only notes in that plan’s ADR/PLAN; promote to `.cursor/rules/pulse-web-otel.mdc` only when **repo-wide** contract/lifecycle.
+
+| Date (YYYY-MM-DD) | Source (PR / reviewer) | Lesson (imperative, testable) |
+|-------------------|--------------------------|-------------------------------|
+| *example* | *#123* | *Always assert `screen.name` on new log E2E positives.* |
+| 2026-05-04 | web-sdk-instrumentation-e2e-from-design review | D2b gate-off: `features[].featureName` must be **this** instrumentation’s `PulseFeature` (e.g. `web_vitals`), not `session`, or the gate stays on. Resource Timing attrs + `page.route` stubs: probe or defer—avoid vacuous passes. |
+
+*(Append new rows at the bottom; do not delete history without archival note.)*
 
 ---
 

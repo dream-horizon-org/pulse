@@ -4,6 +4,7 @@ const wvMocks = vi.hoisted(() => ({
   onCLS: vi.fn(),
   onFID: vi.fn(),
   onFCP: vi.fn(),
+  onTTFB: vi.fn(),
 }));
 
 vi.mock("web-vitals", () => ({
@@ -12,6 +13,7 @@ vi.mock("web-vitals", () => ({
   onCLS: wvMocks.onCLS,
   onFID: wvMocks.onFID,
   onFCP: wvMocks.onFCP,
+  onTTFB: wvMocks.onTTFB,
 }));
 
 vi.mock("@opentelemetry/api-logs", () => ({
@@ -23,6 +25,7 @@ vi.mock("@opentelemetry/api-logs", () => ({
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { logs } from "@opentelemetry/api-logs";
+import { DomEventType } from "../constants/pulse-otel-runtime";
 import { WebVitalsInstrumentation } from "../instrumentations/web-vitals";
 import { FeatureGate } from "../feature-gate";
 import { InstrumentationRegistry } from "../instrumentation-registry";
@@ -80,6 +83,7 @@ describe("WebVitalsInstrumentation", () => {
     wvMocks.onCLS.mockClear();
     wvMocks.onFID.mockClear();
     wvMocks.onFCP.mockClear();
+    wvMocks.onTTFB.mockClear();
     vi.mocked(logs.getLogger).mockClear();
     vi.mocked(logs.getLogger).mockReturnValue({ emit: vi.fn() });
   });
@@ -88,41 +92,17 @@ describe("WebVitalsInstrumentation", () => {
     vi.restoreAllMocks();
   });
 
-  it("registers onLCP, onINP, onCLS and optional FID/FCP from config", () => {
+  it("registers onLCP, onINP, onCLS, onFCP, onFID, and onTTFB once", () => {
     const instr = new WebVitalsInstrumentation();
-    instr.install(
-      makeMinimalSdk({
-        config: {
-          apiKey: "proj_x_key",
-          dataCollectionState: PulseDataCollectionConsent.ALLOWED,
-          instrumentations: { webVitals: { fid: true, fcp: true } },
-        },
-      }),
-    );
+    instr.install(makeMinimalSdk());
 
     expect(wvMocks.onLCP).toHaveBeenCalledTimes(1);
     expect(wvMocks.onINP).toHaveBeenCalledTimes(1);
     expect(wvMocks.onCLS).toHaveBeenCalledTimes(1);
-    expect(wvMocks.onFID).toHaveBeenCalledTimes(1);
     expect(wvMocks.onFCP).toHaveBeenCalledTimes(1);
+    expect(wvMocks.onFID).toHaveBeenCalledTimes(1);
+    expect(wvMocks.onTTFB).toHaveBeenCalledTimes(1);
 
-    instr.uninstall();
-  });
-
-  it("does not register FID or FCP when flags are false or omitted", () => {
-    const instr = new WebVitalsInstrumentation();
-    instr.install(
-      makeMinimalSdk({
-        config: {
-          apiKey: "proj_x_key",
-          dataCollectionState: PulseDataCollectionConsent.ALLOWED,
-          instrumentations: { webVitals: { enabled: true } },
-        },
-      }),
-    );
-
-    expect(wvMocks.onFID).not.toHaveBeenCalled();
-    expect(wvMocks.onFCP).not.toHaveBeenCalled();
     instr.uninstall();
   });
 
@@ -182,11 +162,11 @@ describe("WebVitalsInstrumentation", () => {
 
     const visSpy = vi.spyOn(document, "visibilityState", "get");
     visSpy.mockReturnValue("visible");
-    document.dispatchEvent(new Event("visibilitychange"));
+    document.dispatchEvent(new Event(DomEventType.VISIBILITY_CHANGE));
     expect(sdk.loggerProvider?.forceFlush).not.toHaveBeenCalled();
 
     visSpy.mockReturnValue("hidden");
-    document.dispatchEvent(new Event("visibilitychange"));
+    document.dispatchEvent(new Event(DomEventType.VISIBILITY_CHANGE));
     expect(sdk.loggerProvider?.forceFlush).toHaveBeenCalled();
 
     visSpy.mockRestore();
@@ -198,7 +178,9 @@ describe("WebVitalsInstrumentation", () => {
     const instr = new WebVitalsInstrumentation();
     instr.install(sdk);
 
-    const ev = new PageTransitionEvent("pageshow", { persisted: true });
+    const ev = new PageTransitionEvent(DomEventType.PAGESHOW, {
+      persisted: true,
+    });
     window.dispatchEvent(ev);
     expect(sdk.loggerProvider?.forceFlush).toHaveBeenCalled();
 

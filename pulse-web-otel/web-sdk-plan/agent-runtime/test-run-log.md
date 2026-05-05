@@ -23,6 +23,9 @@ Append E2E / gate results for Web SDK work (per `pulse-web-sdk-sanity`).
 | 2026-04-30 | `yarn workspace ecommerce-demo e2e:web-sdk-gates` | Chromium | pass (134/134) | M3 D2 close-out: tests 1–2 assert `session.id`, `screen.name`, finite numeric coords (skill assertion floor). |
 | 2026-04-30 | `yarn playwright test … e2e/m3-clicks.spec.ts` (cwd `examples/ecommerce-demo`) | Chromium | pass (4/4) | M3: rage path asserts body + `click.type` good + widget + finite coords; good-click uses `otlp.reset()` after `session.start`. |
 | 2026-04-30 | `yarn workspace ecommerce-demo run e2e:web-sdk-gates` (cwd `pulse-web-otel`) | Chromium | pass (134/134) | Same M3 changes — full gate. |
+| 2026-05-04 | `yarn test:run` (cwd `pulse-web-otel`) | — | pass (341/341) | TTFB + always-on FCP/FID; Vitest web-vitals mock includes `onTTFB`. |
+| 2026-05-04 | `yarn workspace ecommerce-demo e2e:web-sdk-gates` | Chromium | pass (134/134) | Web vitals: TTFB, FCP, LCP, INP, FID, CLS + gate-off. |
+| 2026-05-04 | `yarn test:run` + `yarn workspace ecommerce-demo e2e:web-sdk-gates` (cwd `pulse-web-otel`) | Chromium (E2E) | pass (341/341, 134/134) | Added `examples/web-sdk-docs` vanilla demo; no SDK `src/` changes. |
 
 ## Web Vitals (v2) — reserved
 
@@ -30,6 +33,7 @@ Append E2E / gate results for Web SDK work (per `pulse-web-sdk-sanity`).
 |------|---------|---------|--------|-------|
 | 2026-04-30 | `yarn workspace ecommerce-demo e2e:web-sdk-gates` | Chromium | pass | See **Playwright OTLP decode + screen.name** below. |
 | 2026-05-02 | `yarn workspace ecommerce-demo e2e:web-sdk-gates` | Chromium | pass (130/130) | 3 WebVitals specs added: LCP full contract, INP tab-hide, gate-disabled. See **INP headless spin-loop** below. |
+| 2026-05-04 | `yarn workspace ecommerce-demo e2e:web-sdk-gates` | Chromium | pass (134/134) | Added TTFB, FCP, FID (Chromium), CLS (layout shift + visibility); D2b unchanged. |
 | 2026-05-02 | `yarn playwright test --config e2e/playwright.config.ts e2e/web-vitals.spec.ts --project=chromium` (cwd `examples/ecommerce-demo`) | Chromium | pass (3/3) | Lifecycle P1 close-out: INP asserts `web_vital.value` (finite), `session.id`, `screen.name` (parity with LCP test). |
 
 ### 2026-04-30 — Playwright OTLP decode + screen.name (try this first on similar failures)

@@ -1,7 +1,6 @@
 ---
 name: pulse-web-sdk-sanity
 description: Single canonical workflow for pulse-web-otel—scope, contract, safe implementation, test ladder, regression checklist, pre-merge diff audit (P0/P1/P2), test-run-log, and doc sync.
-disable-model-invocation: true
 ---
 
 # Pulse Web SDK Sanity Workflow
@@ -120,6 +119,12 @@ After **Step 3 is green**, walk this list on the **diff** (or touched modules if
 1. Update plan/docs/csv if test matrix or behavior changed.
 2. Keep descriptions explicit and parse-safe for CSV cells.
 3. Refresh graph cache summary after meaningful code changes.
+4. **Self-heal (instrumentation & web SDK workflow):** If Step 5 or PR review surfaced a **valid, repeatable** gap, **judge** scope:
+   - **Instrumentation projects:** append one atomic row to [web-sdk-instrumentation-lifecycle/reference.md](../web-sdk-instrumentation-lifecycle/reference.md) section **F — Durable learnings** (and tighten A–E matrix rows if the lesson fits a checkbox).
+   - **Repo-wide contract / every PR:** propose an edit to `.cursor/rules/pulse-web-otel.mdc` (or structure/web-sdk) instead of bloating the lifecycle reference.
+   - **Skip** one-off nits and subjective style—this log is for **next-run** prevention, not transcripts.
+
+---
 
 ---
 

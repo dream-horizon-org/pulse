@@ -65,8 +65,9 @@ yarn install
 # Build SDK
 yarn build
 
-# Run demo app (examples/ecommerce-demo) on localhost:3002
-yarn demo
+# Run demo apps
+yarn demo          # React ecommerce-demo → localhost:3002
+yarn demo:docs     # Vanilla web-sdk-docs → localhost:3003
 
 # Typecheck + unit tests
 yarn lint

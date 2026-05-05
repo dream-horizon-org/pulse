@@ -1,7 +1,6 @@
 ---
 name: web-sdk-instrumentation-lifecycle
 description: New or resumed instrumentation in pulse-web-otel—research, touchpoints matrix, ADR/PLAN-B, implementation, testing. Uses web-sdk-instrumentation-e2e-from-design to derive comprehensive E2E cases from DESIGN.md; sanity skill for gates; optional stage agent for confirm-then-execute.
-disable-model-invocation: true
 ---
 
 # Web SDK instrumentation lifecycle
@@ -53,6 +52,7 @@ This lifecycle skill owns **phasing and gaps**; **pulse-web-sdk-sanity** owns **
 5. **Single-owner lifecycle** — install once per registry lifetime unless `uninstallAll` reset; no double listeners.
 6. **Contract hygiene** — `PulseWebSemconv`, `PulseFeature`, `InstrumentationKeys`; enforce via **Web SDK rules** above + [pulse-web-sdk-sanity](../pulse-web-sdk-sanity/SKILL.md) checklist.
 7. **Implementation sign-off** — **Never** start **Phase 5** (production code under `pulse-web-otel/src/**`, registry, gated backend Java, demo **behavior** wiring, new E2E) until the user **explicitly approves** in the current thread (see Phase 5 gate below). Prior “yes” to research, matrix, or ADR alone is **not** enough.
+8. **Self-heal from review** — When human review, [pr-review](../pr-review/SKILL.md), or CI flags a **valid, repeatable** gap (missed gate, wrong E2E pattern, semconv leak), **judge** whether it belongs in repo-wide rules vs this workstream. If it should recur for future instrumentations, **promote** it: append an **atomic** bullet to [reference.md](reference.md) section **F — Durable learnings**, and/or extend the relevant checklist row (A–E). **Do not** paste whole threads—one finding → one line + optional PR link. Skip one-off style nits.
 
 ---
 
@@ -90,7 +90,7 @@ These cannot be skipped; if skipped, state **explicit deferral** in ADR or PLAN-
 | **Testing** | D1 unit coverage; D2 + **D2b** per [reference.md](reference.md) (assertion floor + gate-off zero-export pattern where applicable); `yarn test:run` + `e2e:web-sdk-gates` green unless documented env skip. |
 | **Pre-implementation grill** | [grill-me](../grill-me/SKILL.md) completed **before Phase 5** (after touchpoints + ADR/PLAN exist) **or** ADR/PLAN-B line: `Grill deferred: <named risks + owner>`. Silent skip is not allowed. |
 | **Execution log** | D5 `test-run-log.md` updated for gate runs; non-obvious failures include **symptom → cause → fix** (see Phase 8). |
-| **Review** | [pr-review](../pr-review/SKILL.md) (or equivalent) before merge. |
+| **Review** | [pr-review](../pr-review/SKILL.md) (or equivalent) before merge. After merge-worthy feedback, apply **Principle 8** (self-heal) so the next run loads the fix as context. |
 | **Rules + sanity** | Edits comply with [pulse-web-otel.mdc](../../rules/pulse-web-otel.mdc); [pulse-web-sdk-sanity](../pulse-web-sdk-sanity/SKILL.md) **Steps 2–6** executed and cited in the done report (Step 5 diff audit required for substantive code unless explicit N/A). |
 | **Handoff doc** | If work pauses on a branch: plan-folder `HANDOFF-NEXT-AGENT.md` updated (or N/A with reason). |
 | **Implementation start** | **Phase 5 user approval:** no first implementation edit until the user explicitly green-lights implementation after your short recap (Phase 5 gate). |
@@ -197,7 +197,7 @@ If the user asked to “run everything” or “stages 0–8”, you still **pau
 
 Execute [pulse-web-sdk-sanity](../pulse-web-sdk-sanity/SKILL.md): **Step 3** test ladder (focused Vitest → wiring/lifecycle → `e2e:web-sdk-gates` → targeted E2E if needed → append `test-run-log.md`); then **Steps 4–6** (regression, pre-merge diff audit, doc sync).
 
-**Demo readiness (before writing specs):** Before any `e2e/*.spec.ts` is useful, the demo must actually exercise the new signal and the test infrastructure must be wired. See [reference.md](reference.md) **D0a–D0d**:
+**Demo readiness (before writing specs):** Before any `e2e/*.spec.ts` is useful, the demo must actually exercise the new signal and the test infrastructure must be wired. See [reference.md](reference.md) **D0a–D0e**:
 
 1. **UI surface** — Does `examples/ecommerce-demo/src/` have a page or element that reaches the new code path? If not, add it first — specs that never reach the code always pass vacuously.
 2. **`.env.test`** — Confirm: `VITE_PULSE_FORMAT=json` + `VITE_PULSE_COMPRESSION=none` (fixture JSON-decodes); `VITE_PULSE_BATCH_DELAY_MS=200` (fast flush); `VITE_PULSE_MOCK_SDK_CONFIG=false` + `VITE_PULSE_MOCK_INTERACTION_CONFIG=false` (prevents mock config overwriting seeded config). Add any feature-specific `VITE_` vars the instrumentation reads from `import.meta.env`.
@@ -285,14 +285,9 @@ pulse-web-otel/web-sdk-plan/<version>-<slug>/
 0b. **Pre-implementation grill:** [grill-me](../grill-me/SKILL.md) done before Phase 5, or one-line `Grill deferred: <risks + owner>` in ADR/PLAN-B.
 0c. **Handoff doc:** `HANDOFF-NEXT-AGENT.md` updated if pausing mid-branch (or N/A).
 0d. **Implementation approval:** user explicitly approved Phase 5 before first implementation edit (or N/A — docs-only / Phase 4-only work).
+0e. **Self-heal:** if post-review lessons apply to future runs, new row in [reference.md](reference.md) **section F** (or N/A).
 1. Summary of decision (one line) + link to ADR + PLAN-B.
 2. Files changed (grouped: SDK, demo, backend, docs).
 3. Tests run (exact commands + result).
 4. `test-run-log.md` updated (Y/N).
 5. Known limitations / follow-ups (e.g. upstream library has no cancel API).
-
----
-
-## Skill metadata note
-
-`disable-model-invocation: true` is honored by **Cursor** skills. If this file is **copied** to another runner (e.g. Claude Code), confirm that tool respects the same YAML frontmatter or remove the field if it causes the skill to be ignored.
