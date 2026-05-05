@@ -6,6 +6,7 @@ import {
   applyPulseHttpClientSpanAttributes,
   buildNetworkIgnoreUrls,
   extractGraphQlMeta,
+  getOtelHttpUrlFromSpan,
   methodFromOtelClientSpanName,
   networkProtocolVersionFromNextHop,
   networkPulseType,
@@ -88,6 +89,22 @@ describe("network-http helpers", () => {
     const m = extractGraphQlMeta(body);
     expect(m.operationType).toBe("query");
     expect(m.operationName).toBe("GetProducts");
+  });
+});
+
+describe("getOtelHttpUrlFromSpan", () => {
+  it("reads deprecated http.url from SDK span bag", () => {
+    const span = {
+      attributes: { "http.url": "http://localhost/foo/bar" },
+    } as unknown as import("@opentelemetry/api").Span;
+    expect(getOtelHttpUrlFromSpan(span)).toBe("http://localhost/foo/bar");
+  });
+
+  it("returns empty when absent", () => {
+    const span = {
+      attributes: {},
+    } as unknown as import("@opentelemetry/api").Span;
+    expect(getOtelHttpUrlFromSpan(span)).toBe("");
   });
 });
 

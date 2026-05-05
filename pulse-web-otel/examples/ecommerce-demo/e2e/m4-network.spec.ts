@@ -8,7 +8,9 @@ import {
   test,
   expect,
   getAttr,
+  findAllLogs,
   findAllNetworkSpans,
+  getOtlpSpanStatusCode,
   type OtlpSpan,
 } from "./fixture";
 import {
@@ -17,7 +19,12 @@ import {
   blockActiveConfigFetch,
 } from "./test-sdk-config";
 
+/** OTLP JSON span.status.code — matches {@link SpanStatusCode} from `@opentelemetry/api`. */
+const OTLP_SPAN_STATUS_OK = 1;
+const OTLP_SPAN_STATUS_ERROR = 2;
+
 async function waitForPulseWebInitialized(page: Page): Promise<void> {
+  await page.waitForLoadState("domcontentloaded");
   await expect
     .poll(
       async () =>
@@ -49,6 +56,19 @@ function httpSpansTargetingOtlpExport(captured: unknown[]): OtlpSpan[] {
   });
 }
 
+/**
+ * PLAN-B flush path: SDK listens for `pagehide` and `forceFlush()` trace batch processor.
+ * Aligns E2E with lifecycle doc instead of relying only on {@code VITE_PULSE_BATCH_DELAY_MS}.
+ */
+async function flushTraceExport(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    window.dispatchEvent(
+      new PageTransitionEvent("pagehide", { persisted: false }),
+    );
+  });
+  await page.waitForTimeout(400);
+}
+
 async function pollProbeHttpSpan(
   otlp: { captured: unknown[] },
   probeSubstring: string,
@@ -71,6 +91,62 @@ async function pollProbeHttpSpan(
 }
 
 test.describe("@M4 network e2e", () => {
+  test("Network Lab: fetch GET button emits network.200 span", async ({
+    page,
+    otlp,
+  }) => {
+    await page.goto("/network-lab");
+    await waitForPulseWebInitialized(page);
+    await otlp.waitForLog("session.start", 15_000);
+    otlp.reset();
+
+    await page.getByTestId("network-lab-fetch-get-local").click();
+    await expect(page.getByText("ok — status=200")).toBeVisible();
+
+    await flushTraceExport(page);
+    const span = await pollProbeHttpSpan(otlp, "/api/products.json");
+
+    expect(getOtlpSpanStatusCode(span)).toBe(OTLP_SPAN_STATUS_OK);
+    expect(getAttr(span.attributes, "pulse.type")).toBe("network.200");
+    expect(getAttr(span.attributes, "http.request.method")).toBe("GET");
+    expect(getAttr(span.attributes, "http.response.status_code")).toBe(200);
+    expect(getAttr(span.attributes, "session.id")).toBeTruthy();
+    expect(getAttr(span.attributes, "screen.name")).toBeTruthy();
+  });
+
+  test("Network Lab: fetch 404 button emits network.404 span", async ({
+    page,
+    otlp,
+  }) => {
+    await page.route(
+      (url) => url.pathname.includes("/api/does-not-exist.json"),
+      async (route) => {
+        await route.fulfill({
+          status: 404,
+          headers: { "Content-Type": "application/json" },
+          body: '{"error":"not_found"}',
+        });
+      },
+    );
+
+    await page.goto("/network-lab");
+    await waitForPulseWebInitialized(page);
+    await otlp.waitForLog("session.start", 15_000);
+    otlp.reset();
+
+    await page.getByTestId("network-lab-fetch-404").click();
+
+    await flushTraceExport(page);
+    const span = await pollProbeHttpSpan(otlp, "/api/does-not-exist.json");
+
+    expect(getOtlpSpanStatusCode(span)).toBe(OTLP_SPAN_STATUS_ERROR);
+    expect(getAttr(span.attributes, "pulse.type")).toBe("network.404");
+    expect(getAttr(span.attributes, "http.response.status_code")).toBe(404);
+    expect(getAttr(span.attributes, "error.type")).toBe("4xx");
+    expect(getAttr(span.attributes, "session.id")).toBeTruthy();
+    expect(getAttr(span.attributes, "screen.name")).toBeTruthy();
+  });
+
   test("P1/P2/P4: fetch emits network.* span, strips query, optional http.duration numeric", async ({
     page,
     otlp,
@@ -91,14 +167,14 @@ test.describe("@M4 network e2e", () => {
     await otlp.waitForLog("session.start", 15_000);
     otlp.reset();
 
-    await page.evaluate(() => {
-      void fetch("/pulse-e2e-network/data?token=secret", { method: "GET" });
+    await page.evaluate(async () => {
+      await fetch("/pulse-e2e-network/data?token=secret", { method: "GET" });
     });
-
-    await page.waitForTimeout(600);
+    await flushTraceExport(page);
 
     const span = await pollProbeHttpSpan(otlp, "pulse-e2e-network");
 
+    expect(getOtlpSpanStatusCode(span)).toBe(OTLP_SPAN_STATUS_OK);
     expect(getAttr(span.attributes, "pulse.type")).toBe("network.200");
     expectFiniteNumberAttr(span.attributes, "http.response.status_code");
     expect(getAttr(span.attributes, "http.response.status_code")).toBe(200);
@@ -149,14 +225,16 @@ test.describe("@M4 network e2e", () => {
       });
     });
 
-    await page.waitForTimeout(600);
+    await flushTraceExport(page);
 
     const span = await pollProbeHttpSpan(otlp, "xhr-probe");
 
+    expect(getOtlpSpanStatusCode(span)).toBe(OTLP_SPAN_STATUS_OK);
     expect(getAttr(span.attributes, "pulse.type")).toBe("network.200");
     expect(getAttr(span.attributes, "http.request.method")).toBe("GET");
     expectFiniteNumberAttr(span.attributes, "http.response.status_code");
     expect(getAttr(span.attributes, "http.response.status_code")).toBe(200);
+    expectFiniteNumberAttr(span.attributes, "server.port");
 
     const full = String(getAttr(span.attributes, "url.full") ?? "");
     expect(full).not.toContain("?");
@@ -173,7 +251,7 @@ test.describe("@M4 network e2e", () => {
     await page.goto("/");
     await waitForPulseWebInitialized(page);
     await otlp.waitForLog("session.start", 15_000);
-    await page.waitForTimeout(1200);
+    await flushTraceExport(page);
 
     expect(httpSpansTargetingOtlpExport(otlp.captured)).toHaveLength(0);
   });
@@ -207,15 +285,18 @@ test.describe("@M4 network e2e", () => {
     await otlp.waitForLog("session.start", 15_000);
     otlp.reset();
 
-    await page.evaluate(() => {
-      void fetch("/pulse-e2e-network/gate-off-probe");
+    await page.evaluate(async () => {
+      await fetch("/pulse-e2e-network/gate-off-probe");
     });
-    await page.waitForTimeout(600);
+    await flushTraceExport(page);
 
     expect(findAllNetworkSpans(otlp.captured)).toHaveLength(0);
   });
 
-  test("E1: 404 fetch sets error.type 4xx", async ({ page, otlp }) => {
+  test("E1: 404 fetch sets error.type 4xx and OTLP span ERROR", async ({
+    page,
+    otlp,
+  }) => {
     await page.route(
       (url) => url.pathname.includes("/pulse-e2e-network/err-404"),
       async (route) => {
@@ -232,13 +313,14 @@ test.describe("@M4 network e2e", () => {
     await otlp.waitForLog("session.start", 15_000);
     otlp.reset();
 
-    await page.evaluate(() => {
-      void fetch("/pulse-e2e-network/err-404");
+    await page.evaluate(async () => {
+      await fetch("/pulse-e2e-network/err-404");
     });
-    await page.waitForTimeout(600);
+    await flushTraceExport(page);
 
     const span = await pollProbeHttpSpan(otlp, "err-404");
 
+    expect(getOtlpSpanStatusCode(span)).toBe(OTLP_SPAN_STATUS_ERROR);
     expect(getAttr(span.attributes, "pulse.type")).toBe("network.404");
     expect(getAttr(span.attributes, "http.response.status_code")).toBe(404);
     expect(getAttr(span.attributes, "error.type")).toBe("4xx");
@@ -246,7 +328,10 @@ test.describe("@M4 network e2e", () => {
     expect(getAttr(span.attributes, "screen.name")).toBeTruthy();
   });
 
-  test("E1: 500 fetch sets error.type 5xx", async ({ page, otlp }) => {
+  test("E1: 500 fetch sets error.type 5xx and OTLP span ERROR", async ({
+    page,
+    otlp,
+  }) => {
     await page.route(
       (url) => url.pathname.includes("/pulse-e2e-network/err-500"),
       async (route) => {
@@ -262,16 +347,126 @@ test.describe("@M4 network e2e", () => {
     await otlp.waitForLog("session.start", 15_000);
     otlp.reset();
 
-    await page.evaluate(() => {
-      void fetch("/pulse-e2e-network/err-500");
+    await page.evaluate(async () => {
+      await fetch("/pulse-e2e-network/err-500");
     });
-    await page.waitForTimeout(600);
+    await flushTraceExport(page);
 
     const span = await pollProbeHttpSpan(otlp, "err-500");
 
+    expect(getOtlpSpanStatusCode(span)).toBe(OTLP_SPAN_STATUS_ERROR);
     expect(getAttr(span.attributes, "pulse.type")).toBe("network.500");
     expect(getAttr(span.attributes, "http.response.status_code")).toBe(500);
     expect(getAttr(span.attributes, "error.type")).toBe("5xx");
+    expect(getAttr(span.attributes, "session.id")).toBeTruthy();
+    expect(getAttr(span.attributes, "screen.name")).toBeTruthy();
+  });
+
+  test("E3: cross-origin no-cors opaque response → cors_error, network.0, OTLP ERROR", async ({
+    page,
+    otlp,
+  }) => {
+    await page.route(
+      (url) => url.pathname.includes("/pulse-e2e-network/cors-opaque"),
+      async (route) => {
+        await route.fulfill({
+          status: 200,
+          headers: { "Content-Type": "text/plain" },
+          body: "ok",
+        });
+      },
+    );
+
+    await page.goto("/");
+    await waitForPulseWebInitialized(page);
+    await otlp.waitForLog("session.start", 15_000);
+    otlp.reset();
+
+    await page.evaluate(async () => {
+      /* localhost vs 127.0.0.1 = cross-origin; no-cors → opaque response, status 0 in Chromium */
+      await fetch("http://127.0.0.1:3099/pulse-e2e-network/cors-opaque/x", {
+        mode: "no-cors",
+        credentials: "omit",
+      });
+    });
+    await flushTraceExport(page);
+
+    const span = await pollProbeHttpSpan(otlp, "cors-opaque");
+
+    expect(getOtlpSpanStatusCode(span)).toBe(OTLP_SPAN_STATUS_ERROR);
+    expect(getAttr(span.attributes, "pulse.type")).toBe("network.0");
+    expect(getAttr(span.attributes, "error.type")).toBe("cors_error");
+    expect(getAttr(span.attributes, "session.id")).toBeTruthy();
+    expect(getAttr(span.attributes, "screen.name")).toBeTruthy();
+  });
+
+  test("E4: route.abort failed fetch → network_error, network.0, OTLP ERROR", async ({
+    page,
+    otlp,
+  }) => {
+    await page.route(
+      (url) => url.pathname.includes("/pulse-e2e-network/net-fail"),
+      (route) => route.abort("failed"),
+    );
+
+    await page.goto("/");
+    await waitForPulseWebInitialized(page);
+    await otlp.waitForLog("session.start", 15_000);
+    otlp.reset();
+
+    await page.evaluate(async () => {
+      try {
+        await fetch("/pulse-e2e-network/net-fail/x");
+      } catch {
+        /* expected — Playwright abort */
+      }
+    });
+    await flushTraceExport(page);
+
+    const span = await pollProbeHttpSpan(otlp, "net-fail");
+
+    expect(getOtlpSpanStatusCode(span)).toBe(OTLP_SPAN_STATUS_ERROR);
+    expect(getAttr(span.attributes, "pulse.type")).toBe("network.0");
+    expect(getAttr(span.attributes, "error.type")).toBe("network_error");
+    expect(getAttr(span.attributes, "session.id")).toBeTruthy();
+    expect(getAttr(span.attributes, "screen.name")).toBeTruthy();
+  });
+
+  test("E5: aborted fetch → network_error, network.0, OTLP ERROR", async ({
+    page,
+    otlp,
+  }) => {
+    await page.route(
+      (url) => url.pathname.includes("/pulse-e2e-network/abort-probe"),
+      async (route) => {
+        await route.fulfill({
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+          body: "{}",
+        });
+      },
+    );
+
+    await page.goto("/");
+    await waitForPulseWebInitialized(page);
+    await otlp.waitForLog("session.start", 15_000);
+    otlp.reset();
+
+    await page.evaluate(async () => {
+      const ac = new AbortController();
+      const p = fetch("/pulse-e2e-network/abort-probe/x", {
+        signal: ac.signal,
+      }).catch(() => undefined);
+      ac.abort();
+      await p;
+    });
+    await flushTraceExport(page);
+
+    const span = await pollProbeHttpSpan(otlp, "abort-probe");
+
+    expect(getOtlpSpanStatusCode(span)).toBe(OTLP_SPAN_STATUS_ERROR);
+    expect(getAttr(span.attributes, "pulse.type")).toBe("network.0");
+    expect(getAttr(span.attributes, "error.type")).toBe("network_error");
     expect(getAttr(span.attributes, "session.id")).toBeTruthy();
     expect(getAttr(span.attributes, "screen.name")).toBeTruthy();
   });
@@ -292,20 +487,21 @@ test.describe("@M4 network e2e", () => {
     await otlp.waitForLog("session.start", 15_000);
     otlp.reset();
 
-    await page.evaluate(() => {
-      void fetch("/pulse-e2e-network/local-network-off");
+    await page.evaluate(async () => {
+      await fetch("/pulse-e2e-network/local-network-off");
     });
-    await page.waitForTimeout(600);
+    await flushTraceExport(page);
 
     expect(findAllNetworkSpans(otlp.captured)).toHaveLength(0);
   });
 
-  test("C1: DENIED consent — SDK does not start, no network client spans", async ({
+  test("C1: DENIED consent — no session.start, no network client spans", async ({
     page,
     otlp,
   }) => {
     await page.goto("/?pulse_consent=denied");
     await page.waitForTimeout(1500);
+    expect(findAllLogs(otlp.captured, "session.start")).toHaveLength(0);
     expect(findAllNetworkSpans(otlp.captured)).toHaveLength(0);
   });
 });

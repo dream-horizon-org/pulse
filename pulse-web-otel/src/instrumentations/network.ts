@@ -5,14 +5,17 @@ import type {
   PulseInstrumentation,
   SdkContext,
 } from "../instrumentation-registry";
+import type { Span } from "@opentelemetry/api";
 import {
   applyPulseHttpClientSpanAttributes,
   buildNetworkIgnoreUrls,
+  getOtelHttpUrlFromSpan,
   methodFromOtelClientSpanName,
   type NetworkSpanOptionalConfig,
 } from "../utils/network-http";
 
 function resolveFetchUrl(
+  span: Span,
   request: Request | RequestInit,
   result: Response | unknown,
 ): string {
@@ -22,7 +25,7 @@ function resolveFetchUrl(
   if (request instanceof Request) {
     return request.url;
   }
-  return "";
+  return getOtelHttpUrlFromSpan(span);
 }
 
 function resolveFetchMethod(request: Request | RequestInit): string {
@@ -97,7 +100,7 @@ export class NetworkInstrumentation implements PulseInstrumentation {
         : {}),
       applyCustomAttributesOnSpan: (span, request, result) => {
         const resolvedUrl =
-          resolveFetchUrl(request, result) ||
+          resolveFetchUrl(span, request, result) ||
           (request instanceof Request ? request.url : "");
         const method = resolveFetchMethod(request);
         const statusCode = resolveFetchStatus(result);

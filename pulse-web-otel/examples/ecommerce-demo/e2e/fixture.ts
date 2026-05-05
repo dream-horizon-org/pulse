@@ -41,6 +41,12 @@ export interface OtlpLogRecord {
   attributes: OtlpAttr[];
 }
 
+/** OTLP span status — {@code code} matches {@link SpanStatusCode} numeric values (ERROR = 2). */
+export interface OtlpSpanStatus {
+  code?: number;
+  message?: string;
+}
+
 export interface OtlpSpan {
   traceId?: string;
   spanId?: string;
@@ -49,6 +55,13 @@ export interface OtlpSpan {
   startTimeUnixNano?: string;
   endTimeUnixNano?: string;
   attributes: OtlpAttr[];
+  status?: OtlpSpanStatus;
+}
+
+/** Numeric OTLP status code, or undefined if missing / malformed. */
+export function getOtlpSpanStatusCode(span: OtlpSpan): number | undefined {
+  const c = span.status?.code;
+  return typeof c === "number" && Number.isFinite(c) ? c : undefined;
 }
 
 export interface OtlpDataPoint {

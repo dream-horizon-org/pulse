@@ -6,6 +6,22 @@
 import type { Span } from "@opentelemetry/api";
 import { SpanStatusCode } from "@opentelemetry/api";
 
+/**
+ * {@link FetchInstrumentation} stores the request URL on the span at creation
+ * ({@code http.url} / deprecated semconv) but passes only {@link RequestInit} to
+ * {@code applyCustomAttributesOnSpan} for {@code fetch(url, opts)} — not the URL
+ * string. On failure/abort, {@link Response#url} is absent; read the span.
+ */
+export function getOtelHttpUrlFromSpan(span: Span): string {
+  const store = span as unknown as { attributes?: Record<string, unknown> };
+  const attrs = store.attributes;
+  if (!attrs) {
+    return "";
+  }
+  const u = attrs["http.url"];
+  return typeof u === "string" && u.trim().length > 0 ? u : "";
+}
+
 import { PulseWebSemconv } from "../semconv";
 
 export type NetworkSpanPrivacy = {

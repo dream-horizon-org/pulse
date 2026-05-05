@@ -84,12 +84,19 @@ class PulseWebSDK implements SdkContext {
   private _providerCleanup: () => void = () => {};
   private interactionInstrumentation?: InteractionInstrumentation;
 
+  /** Promise for in-flight {@link start}; cleared when {@code finishStart} settles. */
+  private _startSettled: Promise<void> | null = null;
+
   /** Exposed on {@link SdkContext} for instrumentations that must flush logs (Web Vitals). */
   get loggerProvider(): LoggerProvider | undefined {
     return this._loggerProvider;
   }
 
-  /** Exposed on {@link SdkContext} for Fetch/XHR auto-instrumentation (`NetworkInstrumentation`). */
+  /**
+   * OTel {@link WebTracerProvider} — defined after {@link start}'s async init completes.
+   * Await {@link whenReady} (or the promise returned from {@link start}) before use; until then
+   * this getter may be undefined even though {@link start} was called.
+   */
   get tracerProvider(): WebTracerProvider | undefined {
     return this._webTracerProvider;
   }
@@ -101,8 +108,18 @@ class PulseWebSDK implements SdkContext {
     return PulseWebSDK._instance;
   }
 
-  start(config: PulseWebConfig): void {
-    if (this._initialized || this._shuttingDown || this._starting) return;
+  /**
+   * Begins SDK initialization. Returns a promise that settles when async bootstrap
+   * ({@code finishStart}) completes — same instant as {@link whenReady}. Safe to ignore
+   * the return value unless you need {@link tracerProvider} immediately after.
+   */
+  start(config: PulseWebConfig): Promise<void> {
+    if (this._initialized || this._shuttingDown) {
+      return Promise.resolve();
+    }
+    if (this._starting) {
+      return this.whenReady();
+    }
     // Step 1: Validate config
     validateConfig(config);
     PulseWebLogger.setLevel(config.logLevel ?? PulseLogLevel.NONE);
@@ -111,7 +128,9 @@ class PulseWebSDK implements SdkContext {
     this.endpointBaseUrl = endpointBaseUrl;
 
     // Consent gate — DENIED or PENDING → no-op, zero signals emitted
-    if (!isDataCollectionAllowed(config.dataCollectionState)) return;
+    if (!isDataCollectionAllowed(config.dataCollectionState)) {
+      return Promise.resolve();
+    }
     this.config = config;
 
     const meteringSessionId = crypto.randomUUID();
@@ -119,7 +138,27 @@ class PulseWebSDK implements SdkContext {
     // Set _starting before the async finishStart so the singleton guard blocks
     // any duplicate start() calls that arrive during the 200ms OS-version await.
     this._starting = true;
-    void this.finishStart(config, endpointBaseUrl, meteringSessionId);
+    const done = this.finishStart(
+      config,
+      endpointBaseUrl,
+      meteringSessionId,
+    ).finally(() => {
+      this._startSettled = null;
+    });
+    this._startSettled = done;
+    return done;
+  }
+
+  /**
+   * Resolves when {@link start}'s async work has finished (or immediately if already
+   * {@link isInitialized}). If consent blocked init or startup aborted, still resolves —
+   * check {@link isInitialized} before using {@link tracerProvider}.
+   */
+  whenReady(): Promise<void> {
+    if (this._initialized) {
+      return Promise.resolve();
+    }
+    return this._startSettled ?? Promise.resolve();
   }
 
   private async finishStart(
@@ -381,6 +420,11 @@ class PulseWebSDK implements SdkContext {
       this._loggerProvider?.forceFlush(),
       this.meterProvider?.forceFlush(),
     ]);
+
+    this._webTracerProvider = undefined;
+    this._loggerProvider = undefined;
+    this.meterProvider = undefined;
+    this._prepareForDocumentUnload = undefined;
 
     this._initialized = false;
     this._shuttingDown = false;

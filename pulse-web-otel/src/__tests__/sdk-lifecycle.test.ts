@@ -125,6 +125,38 @@ describe("SDK lifecycle — shutdown() before start()", () => {
 });
 
 // ---------------------------------------------------------------------------
+// whenReady / start() promise — tracerProvider available after async finishStart
+// ---------------------------------------------------------------------------
+
+describe("SDK lifecycle — whenReady & tracerProvider", () => {
+  it("tracerProvider is undefined until whenReady after fire-and-forget start()", async () => {
+    const { PulseWeb } = await import("../sdk");
+    void PulseWeb.start(makeConfig());
+    expect(PulseWeb.tracerProvider).toBeUndefined();
+    await PulseWeb.whenReady();
+    expect(PulseWeb.isInitialized()).toBe(true);
+    expect(PulseWeb.tracerProvider).toBeDefined();
+  });
+
+  it("await start() defines tracerProvider in the same turn", async () => {
+    const { PulseWeb } = await import("../sdk");
+    await PulseWeb.start(makeConfig());
+    expect(PulseWeb.isInitialized()).toBe(true);
+    expect(PulseWeb.tracerProvider).toBeDefined();
+  });
+
+  it("whenReady resolves immediately when consent denied (no async pipeline)", async () => {
+    const { PulseWeb } = await import("../sdk");
+    await PulseWeb.start(
+      makeConfig({ dataCollectionState: PulseDataCollectionConsent.DENIED }),
+    );
+    await PulseWeb.whenReady();
+    expect(PulseWeb.isInitialized()).toBe(false);
+    expect(PulseWeb.tracerProvider).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Test 2 — shutdown() resets _starting so restart works
 // ---------------------------------------------------------------------------
 

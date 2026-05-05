@@ -63,6 +63,7 @@ const ProductDetail = lazy(() => import("./routes/ProductDetail"));
 const Cart = lazy(() => import("./routes/Cart"));
 const Checkout = lazy(() => import("./routes/Checkout"));
 const ErrorDemo = lazy(() => import("./routes/ErrorDemo"));
+const NetworkLab = lazy(() => import("./routes/NetworkLab"));
 
 function NavBar() {
   const location = useLocation();
@@ -111,6 +112,7 @@ function NavBar() {
         {link("/products", "Products")}
         {link("/cart", "Cart")}
         {link("/checkout", "Checkout")}
+        {link("/network-lab", "Network Lab")}
         {link("/error-demo", "Error Demo")}
       </nav>
     </header>
@@ -288,6 +290,7 @@ export default function App() {
                 <Route path="/products/:id" element={<ProductDetail />} />
                 <Route path="/cart" element={<Cart />} />
                 <Route path="/checkout" element={<Checkout />} />
+                <Route path="/network-lab" element={<NetworkLab />} />
                 <Route path="/error-demo" element={<ErrorDemo />} />
               </Routes>
             </Suspense>
