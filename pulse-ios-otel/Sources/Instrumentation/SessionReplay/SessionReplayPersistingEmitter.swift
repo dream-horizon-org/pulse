@@ -64,6 +64,8 @@ internal final class SessionReplayPersistingEmitter {
         self.flushAt = flushAt
         self.maxBatchSize = maxBatchSize
 
+        PulseLogger.debug("SessionReplay: PersistingEmitter initialized (flushInterval=\(flushIntervalSeconds)s, flushAt=\(flushAt), maxBatchSize=\(maxBatchSize), storageDir=\(self.storageDir.lastPathComponent))")
+
         try? FileManager.default.createDirectory(at: self.storageDir, withIntermediateDirectories: true)
 
         queue.setSpecific(key: Self.queueSpecificKey, value: Self.queueMarker)
@@ -77,6 +79,7 @@ internal final class SessionReplayPersistingEmitter {
             flushTimerStateLock.lock()
             isFlushTimerPaused = true
             flushTimerStateLock.unlock()
+            PulseLogger.debug("SessionReplay: flush timer deferred (consent pending)")
         }
     }
 
@@ -114,6 +117,7 @@ internal final class SessionReplayPersistingEmitter {
     func pauseFlushTimer() {
         queue.async { [weak self] in
             guard let self = self else { return }
+            PulseLogger.debug("SessionReplay: pausing flush timer")
             self.flushTimer?.cancel()
             self.flushTimer = nil
             self.flushTimerStateLock.lock()
@@ -137,6 +141,7 @@ internal final class SessionReplayPersistingEmitter {
             }
             self.flushTimerStateLock.unlock()
             guard wasPaused else { return }
+            PulseLogger.debug("SessionReplay: resuming flush timer")
             self.scheduleFlushTimer()
         }
     }
@@ -159,6 +164,9 @@ internal final class SessionReplayPersistingEmitter {
                 }
 
                 guard let encrypted = self.encryption.encrypt(jsonData) else {
+                    PulseLogger.error(
+                        "sdk.replay.encrypt_failure error_class=encrypt_returned_nil"
+                    )
                     return
                 }
 
@@ -177,10 +185,18 @@ internal final class SessionReplayPersistingEmitter {
 
                 let currentCount = self.deque.count
                 self.dequeLock.unlock()
+
+                PulseLogger.debug("SessionReplay: batch stored (queuedBatches=\(currentCount), flushThreshold=\(self.flushAt))")
+
                 if currentCount >= self.flushAt {
+                    PulseLogger.debug("SessionReplay: queue reached flushAt threshold (\(currentCount) >= \(self.flushAt)), triggering flush")
                     self.flushIfNeeded()
                 }
             } catch {
+                let errClass = PulseErrorClassification.classify(error)
+                PulseLogger.error(
+                    "sdk.replay.persist_failure error_class=\(errClass)"
+                )
             }
         }
     }
@@ -283,6 +299,10 @@ internal final class SessionReplayPersistingEmitter {
                     }
                 }
             } catch {
+                let errClass = PulseErrorClassification.classify(error)
+                PulseLogger.error(
+                    "sdk.replay.persist_failure error_class=\(errClass)"
+                )
             }
         }
     }
@@ -324,6 +344,8 @@ internal final class SessionReplayPersistingEmitter {
             flushLock.unlock()
             return
         }
+
+        PulseLogger.debug("SessionReplay: flushing \(toSend.count) batch(es)")
 
         var fileToContent: [(URL, String)] = []
         let fm = FileManager.default
@@ -395,11 +417,13 @@ internal final class SessionReplayPersistingEmitter {
             let queueSize = self.deque.count
             self.dequeLock.unlock()
             if queueSize > 0 {
+                PulseLogger.debug("SessionReplay: periodic flush timer triggered (queuedBatches=\(queueSize))")
                 self.flushIfNeeded()
             }
         }
         timer.resume()
         self.flushTimer = timer
+        PulseLogger.debug("SessionReplay: flush timer scheduled (interval=\(flushIntervalSeconds)s)")
     }
 
     private func readFileContent(_ file: URL) throws -> String {
@@ -414,6 +438,9 @@ internal final class SessionReplayPersistingEmitter {
             return json
         }
 
+        PulseLogger.error(
+            "sdk.replay.persist_failure error_class=decode_failed"
+        )
         throw NSError(
             domain: "com.pulse.sessionreplay",
             code: -1,
@@ -440,6 +467,10 @@ internal final class SessionReplayPersistingEmitter {
 
                 self.evictOldestFilesIfNeeded()
             } catch {
+                let errClass = PulseErrorClassification.classify(error)
+                PulseLogger.error(
+                    "sdk.replay.persist_failure error_class=\(errClass)"
+                )
             }
         }
     }
@@ -453,6 +484,9 @@ internal final class SessionReplayPersistingEmitter {
 
             let fm: FileManager = FileManager.default
             for file: URL in filesToRemove {
+                PulseLogger.warn(
+                    "sdk.replay.queue_overflow reason=batch_file_cap queue_cap=\(maxBatchSize) file=\(file.lastPathComponent)"
+                )
                 try? fm.removeItem(at: file)
             }
         }

@@ -2,178 +2,204 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## What Is Pulse
+## What Pulse Is
 
-Pulse is a real-time **mobile observability platform** built on OpenTelemetry. It consists of:
+Real-time mobile + web observability platform on OpenTelemetry. Mobile/web SDKs send OTLP signals → Collector → ClickHouse. A React dashboard lets teams drill into crashes, sessions, network, interactions, and web vitals.
 
-- `backend/server` — Java/Vert.x REST API (port 8080)
-- `backend/pulse-alerts-cron` — Cron-based alert evaluation service (port 4000)
-- `pulse-ui` — React 18 dashboard (port 3000)
-- `pulse_ai` — Python/Google ADK AI analysis agent (port 8000)
-- `pulse-android-otel` — Kotlin Android SDK
-- `pulse-react-native-otel` — TypeScript React Native SDK
-- `deploy/` — Docker Compose orchestration
+## Monorepo Layout
 
-## Build & Run Commands
+| Directory | Service | Tech | Port |
+|---|---|---|---|
+| `backend/server/` | REST API | Java 17, Vert.x 4.5, Guice, Maven | 8080 |
+| `backend/pulse-alerts-cron/` | Alert cron | Java/Vert.x | 4000 |
+| `backend/ingestion/` | OTEL Collector configs + ClickHouse schema | YAML/SQL | — |
+| `pulse-ui/` | Dashboard | React 18, TypeScript, Mantine v7 | 3000 |
+| `pulse_ai/` | AI agent | Python, Google ADK + Gemini | 8000 |
+| `pulse-android-otel/` | Android SDK | Kotlin, OpenTelemetry | — |
+| `pulse-react-native-otel/` | React Native SDK | TypeScript | — |
+| `pulse-web-otel/` | Web SDK (in progress) | TypeScript, OTLP | — |
+| `deploy/` | Docker Compose, scripts | — | — |
 
-### Full Stack (Docker)
+## Data Flow
+
+```
+Mobile/Web SDKs → OTEL Collector (4317/4318) → ClickHouse (otel DB)
+Custom Events   → Vector (14317/14318) → S3 (Parquet) → Athena
+```
+
+## Build & Dev Commands
+
 ```bash
-cd deploy
-./scripts/quickstart.sh        # Build and start everything
-./scripts/start.sh             # Start all services
-./scripts/stop.sh              # Stop all services
-./scripts/logs.sh [service]    # View logs for a service
-./scripts/reset-databases.sh   # Wipe MySQL + ClickHouse data
+# Backend — build + test
+cd backend/server && mvn clean install
+cd backend/server && mvn verify               # tests + checkstyle + JaCoCo
+cd backend/server && mvn -Dtest=MyTestClass test   # single test class
+cd backend/server && mvn -Dtest=MyClass#myMethod test  # single method
+
+# Frontend
+cd pulse-ui && yarn install && yarn start     # dev :3000
+cd pulse-ui && yarn build && yarn lint
+cd pulse-ui && yarn test                      # all tests
+cd pulse-ui && yarn test --testPathPattern=ComponentName  # single test
+
+# Web SDK (pulse-web-otel — once scaffolded)
+cd pulse-web-otel && yarn install
+cd pulse-web-otel && yarn build
+cd pulse-web-otel && yarn test
+cd pulse-web-otel && yarn workspace ecommerce-demo dev  # demo app :3002
+
+# AI Agent
+cd pulse_ai && ./setup.sh                     # start Docker on :8000
+
+# Full stack
+cd deploy && ./scripts/quickstart.sh          # build + start all
+cd deploy && ./scripts/start.sh -d            # start detached
+cd deploy && ./scripts/logs.sh [service]      # tail logs (server/ui/ai/cron/otel-collector)
+cd deploy && ./scripts/stop.sh [-v]           # stop; -v removes volumes
 ```
 
-### Backend (Java/Maven)
-```bash
-cd backend/server
-mvn clean package              # Build JAR
-mvn test                       # Run unit tests
-mvn verify                     # Run all tests + Checkstyle
-mvn jacoco:report              # Generate coverage report
+## Auth
 
-# Run a single test class
-mvn -Dtest=InteractionServiceTest test
+- **Production:** Google OAuth 2.0 → JWT (access 24h, refresh 30d)
+- **Dev mode** (`GOOGLE_OAUTH_ENABLED=false`): mock users `mock-user-1` / `mock-user-2`, project `default-project`, key `default-project_devkey01`
 
-# Run a single test method
-mvn -Dtest=InteractionServiceTest#shouldThrowExceptionIfInteractionAlreadyPresent test
-```
+---
 
-### Frontend (React/Yarn)
-```bash
-cd pulse-ui
-corepack enable                # Enable Yarn 4 (first time only)
-yarn install
-yarn start                     # Dev server at http://localhost:3000
-yarn build                     # Production build
-yarn lint                      # ESLint
-yarn format                    # Prettier
-yarn test                      # Jest (all)
-yarn test --testNamePattern="name"   # Single test
-yarn test --watch              # Watch mode
-```
+## Backend Architecture (Java)
 
-### AI Agent (Python)
-```bash
-cd pulse_ai
-python3 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-cp .env.example .env           # Add GOOGLE_API_KEY
-adk web                        # Start dev server at port 8000
-```
-
-### Android SDK (Kotlin)
-```bash
-cd pulse-android-otel
-./gradlew assemble             # Build SDK
-./gradlew check                # Tests + checks
-./gradlew spotlessApply        # Format code
-```
-
-## Backend Architecture
-
-### Package Structure (`org.dreamhorizon.pulseserver/`)
+**Layer order:** Controller → Service (interface + impl) → DAO → SQL
 
 ```
-resources/      # JAX-RS REST controllers, grouped by domain
-service/        # Business logic interfaces + impls
-dao/            # Data access objects + SQL queries
-client/         # External clients (ClickHouse, MySQL, Athena, S3)
-verticle/       # Vert.x verticles (MainVerticle, RestVerticle)
-module/         # Guice modules (*Module.java)
-error/          # ServiceError enum (codes like BE1001)
+org.dreamhorizon.pulseserver/
+├── resources/<domain>/     Controller + MapStruct mapper + DTOs
+├── service/<domain>/       Interface + impl/ (RxJava3 Single/Maybe/Completable)
+├── dao/<domain>/           DAO + Queries.java (SQL constants) + row models
+├── error/                  ServiceError enum (codes: BE1001)
+├── module/                 Guice modules
+└── verticle/               MainVerticle, RestVerticle
 ```
 
-**Verticle pattern**: `MainVerticle` loads config and stores it in `SharedDataUtils`, then deploys one `RestVerticle` per CPU core. `RestVerticle` extends `AbstractRestVerticle`, scans for JAX-RS resources, and configures Guice + CORS.
+- Inject via: `@RequiredArgsConstructor(onConstructor = @__({@Inject}))` + `@Slf4j`
+- SQL lives in `Queries.java` as `static final UPPER_SNAKE_CASE` constants
+- Errors: `ServiceError.X.getException()` → `Response<T>` with `Error.of(code, message)`
+- Lombok `@Data` on DTOs; `@JsonIgnoreProperties(ignoreUnknown = true)` on response DTOs
+- Google Checkstyle: 140-char lines, 2-space indent, no wildcard imports
+- Coverage: 35% overall, **80% on changed files** (JaCoCo); tests use JUnit 5 + Mockito + AssertJ, method names `should*`
 
-**Reactive pattern**: All service methods return RxJava3 `Single<T>`, `Maybe<T>`, or `Completable` — never block the event loop. Bridge to Vert.x using `RestResponse.jaxrsRestHandler()`.
+**Alerts cron** (`backend/pulse-alerts-cron/`) follows identical conventions. `CronManager` schedules evaluation via Vert.x timers; `AlertsService` builds ClickHouse query URLs. Same ServiceError/RxJava3/Guice/Checkstyle.
 
-**Dependency injection**: Guice. Use `@RequiredArgsConstructor(onConstructor = @__({@Inject}))`.
+---
 
-**File naming conventions**:
-- Controllers: `*Controller`, DAOs: `*Dao`, Services: `*Service` / `*ServiceImpl`
-- MapStruct mappers: `Rest*Mapper` (REST ↔ service), `Dao*Mapper` (DAO ↔ service)
-- SQL constants: `Queries.java` with `UPPER_SNAKE_CASE` static fields
-- Guice modules: `*Module`
-
-**Error handling**: Use `ServiceError` enum — throw via `ServiceError.X.getException()`. Response shape: `Response<T>` with `data` and `Error.of(code, message)`.
-
-**Code style**: Google Checkstyle, 140-char lines, 2-space indent, no wildcard imports. Lombok `@Data`, `@Slf4j`.
-
-**Testing**: JUnit 5 + Mockito + AssertJ. Test method naming: `should*`. Use `@Nested` for logical groups. JaCoCo enforces **35% overall** / **80% on changed files**.
-
-## Frontend Architecture
-
-### Structure (`pulse-ui/src/`)
+## Frontend Architecture (React)
 
 ```
-screens/        # Page-level screens (one folder per route)
-components/     # Shared reusable components
-hooks/          # Custom React hooks wrapping API calls
-stores/         # Zustand client state stores
-constants/      # API_ROUTES, ROUTES, OTEL semconv enums
-helpers/        # makeRequest(), auth, cookies
-types/          # Shared TypeScript types
+pulse-ui/src/
+├── screens/        Page-level (one folder per route, folder = ScreenName/)
+├── components/     Shared components (same folder pattern)
+├── hooks/          useHookName/ with index.ts + useHookName.ts
+├── stores/         Zustand (devtools middleware)
+├── constants/      ROUTES, API_ROUTES, OTEL semconv
+├── helpers/        makeRequest (handles 401 refresh), auth, cookies
+└── theme/          Mantine config
 ```
 
-**Screen/component folder pattern**: Each screen or component gets its own folder containing `index.ts` (barrel), `Name.tsx`, `Name.module.css`, optional `Name.interface.ts`, `Name.constants.ts`, and a `components/` subfolder for sub-components.
+Each screen/component folder: `index.ts` (barrel) + `Name.tsx` + `Name.module.css` + optional `Name.interface.ts` / `Name.constants.ts`.
 
-**Hook folder pattern**: `hooks/useHookName/` with `index.ts`, `useHookName.ts`, and `useHookName.interface.ts`.
+- **State:** TanStack Query v5 for server state; Zustand for client state
+- **Forms:** `react-hook-form`; **Routing:** React Router v6 routes in `ROUTES` constant
+- **API:** always through `makeRequest<T>()` — never raw fetch; base URL `REACT_APP_PULSE_SERVER_URL`
+- **Styles:** CSS modules preferred; Mantine CSS vars (`var(--mantine-spacing-md)`)
+- **Tests:** Jest + React Testing Library; wrap with `MantineProvider`; mock at `makeRequest` level
 
-**State**: TanStack Query v5 for server state; Zustand with `devtools` for client state; `react-hook-form` for forms.
+---
 
-**API calls**: Use `makeRequest<T>()` from `helpers/makeRequest/` — handles 401 token refresh. API routes live in `constants/Constants.ts` → `API_ROUTES`. New routes must also be added to `ROUTES` and `App.tsx`.
+## ClickHouse Schema
 
-**UI**: Mantine v7 components, Tabler icons, `echarts-for-react` for charts, `mantine-datatable` for tables. Use CSS modules + Mantine CSS variables (`var(--mantine-spacing-md)`).
+Database: `otel`. Key tables: `otel_traces`, `otel_logs`, `otel_metrics_gauge`, `stack_trace_events`, `interaction_heatmaps_daily`.
 
-## Data Layer
+**Always use materialized columns over map access:**
 
-### ClickHouse (Analytics DB)
-Database: `otel`. Core tables: `otel_traces`, `otel_logs`, `otel_metrics_gauge`, `stack_trace_events`.
+| Column | Source attribute |
+|---|---|
+| `ProjectId` | `ResourceAttributes['project.id']` |
+| `PulseType` | `SpanAttributes/LogAttributes['pulse.type']` |
+| `Platform` | `ResourceAttributes['os.name']` |
+| `AppVersion` | `ResourceAttributes['app.build_name']` |
+| `SessionId` | `SpanAttributes/LogAttributes['session.id']` |
 
-**Always use materialized columns** (e.g., `ProjectId`, `Platform`, `AppVersion`, `UserId`, `SessionId`) instead of accessing the underlying Map columns (`SpanAttributes`, `ResourceAttributes`) — they are indexed and faster.
+Every query must include: time-range on `Timestamp`, `LIMIT`, `ProjectId` filter. Use tenant credentials — never admin user in application code. Multi-tenant isolation enforced via row policies per project.
 
-**Multi-tenancy**: Each project gets a dedicated ClickHouse user + row policy filtering by `ProjectId`. Always query through the tenant user to enforce isolation.
+---
 
-**Query rules**: Always include a `Timestamp` range filter, always use `LIMIT`.
+## Web SDK (`pulse-web-otel/`)
 
-### MySQL (Metadata DB)
-Used for user accounts, projects, alert configs, SDK configs, and ClickHouse tenant credentials. Managed with Flyway migrations under `backend/server/src/main/resources/db/migration/`.
+Package `@dreamhorizon/pulse-web`. Data contract — every signal must carry `platform = 'web'`. Key `pulse.type` values: `session.start`, `session.end`, `device.crash`, `non_fatal`, `http`, `app.click`, `web_vital`, `screen_load`, `screen_interactive`, `screen_session`.
 
-## Authentication
+Full file map, data contract tables, and phase-by-phase implementation spec: **`pulse-web-otel/web-sdk-plan/WEB-SDK-AGENT-CONTEXT.md`**
+Milestone exit criteria + verification queries: **`pulse-web-otel/web-sdk-plan/v1/MILESTONES.md`**
+Use `/web-sdk` skill for context-loaded implementation or verification.
 
-- **Production**: Google OAuth 2.0 → JWT (24h access token, 30d refresh token)
-- **Dev mode** (`GOOGLE_OAUTH_ENABLED=false`): Mock users pre-seeded in MySQL + OpenFGA
-- Authorization: OpenFGA (RBAC), running on port 8180/8181
+---
 
-## Commit Conventions
+## Android SDK (`pulse-android-otel/`)
 
-Format: `<type>(<scope>): <short description>` (≤ 72 chars, imperative mood, no trailing period)
+Kotlin, OTel Android SDK, Gradle multi-module. Two package roots that must never mix:
+- `io.opentelemetry.android.*` — OTel-upstream
+- `com.pulse.*` — Pulse-specific API, semconv, sampling
 
-**Types**: `feat`, `fix`, `refactor`, `docs`, `test`, `chore`, `ci`, `perf`, `build`
+Instrumentations use `@AutoService(AndroidInstrumentation::class)` for automatic discovery. `pulse.type` values mirror web SDK (`screen_session`, `device.crash`, `app.click`, etc.).
 
-**Scopes**: `backend`, `ui`, `ai`, `android-sdk`, `rn-sdk`, `deploy`, `alerts-cron`, `ingestion`
+---
 
-Examples:
-```
-feat(backend): add SLOW_RENDER_RATE alert metric
-fix(ui): resolve date picker timezone offset in filters
-test(backend): add InteractionService unit tests
-```
+## React Native SDK (`pulse-react-native-otel/`)
 
-## Key Ports
+TypeScript strict. Single `Pulse` facade exported from `index.tsx`. Call `isSupportedPlatform()` before any native bridge call. Lefthook runs lint + typecheck on pre-commit.
 
-| Service | Port |
-|---------|------|
-| pulse-server (API) | 8080 |
-| pulse-ui | 3000 |
-| pulse-ai | 8000 |
-| alerts-cron | 4000 |
-| MySQL | 3307 (Docker) / 3306 |
-| ClickHouse HTTP | 8123 |
-| ClickHouse native | 9000 |
-| OTEL Collector gRPC | 4317 |
-| OTEL Collector HTTP | 4318 |
-| OpenFGA | 8180/8181 |
+---
+
+## AI Agent (`pulse_ai/`)
+
+Google ADK with Gemini. `agent.py` defines `root_agent`. Tools are plain functions returning `{"status": ..., "data": ...}` wrapped in `FunctionTool`. Sub-agent types: `SequentialAgent`, `ParallelAgent`, `LoopAgent`. Requires `GOOGLE_API_KEY` env var.
+
+---
+
+## Cross-Cutting: Adding an Alert Metric
+
+Touches all of these in order: MySQL schema → `backend/server/` DAO/service → ClickHouse query → `backend/pulse-alerts-cron/` → `pulse-ui/` alert form → `pulse_ai/` registry.
+
+---
+
+## Commit & PR Conventions
+
+Format: `<type>(<scope>): <description>` — max 72 chars, imperative mood.
+
+Types: `feat` `fix` `refactor` `docs` `test` `chore` `ci` `perf` `build`
+Scopes: `backend` `ui` `ai` `android-sdk` `rn-sdk` `web-sdk` `deploy` `alerts-cron` `ingestion`
+
+Branch naming: `feat/*` · `fix/*` · `release/v*`
+PR template: Summary → Context/Motivation → What Changed (Backend / UI / SDK / Deploy) → Screenshots
+
+---
+
+## Safety
+
+- Never commit `.env` — use `.env.example`
+- Never force-push to `main`
+- Never run `reset-databases.sh` without explicit user confirmation
+
+## Rules Reference
+
+Detailed conventions loaded per file type:
+- Java backend/cron: `.claude/rules/java-backend.md`, `.claude/rules/alerts-cron.md`
+- Web SDK: `.claude/rules/web-sdk.md`
+- React UI: `.claude/rules/react-frontend.md`, `.claude/rules/react-testing.md`
+- ClickHouse: `.claude/rules/clickhouse-sql.md`
+- Android SDK: `.claude/rules/android-sdk.md`
+- React Native SDK: `.claude/rules/react-native-sdk.md`
+- Python AI: `.claude/rules/python-ai-agent.md`
+- Docker/deploy: `.claude/rules/docker-deploy.md`
+
+## Compaction
+
+Preserve: API contracts, auth logic, schema changes, test failures and fixes.
+Discard: debug output, failed attempts, exploratory reads.

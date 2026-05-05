@@ -1,6 +1,6 @@
 pipeline {
     agent {
-        node { label 'pulse-artifact-build-default-ec2-fleet' }
+        node { label 'pulse-artifact-arm-build-ec2-fleet' }
     }
 
     options {
@@ -24,9 +24,22 @@ pipeline {
             steps {
                 checkout([
                         $class           : 'GitSCM',
-                        branches         : [[name: '*/feat/session-replay-service-terraform']],
+                        branches         : [[name: '*/main']],
                         userRemoteConfigs: [[url: 'https://github.com/dream-horizon-org/pulse.git', credentialsId: 'd11-horizon-bot']]
                 ])
+            }
+        }
+
+        // Native deps for cargo-linked libraries.
+        stage('Install native build dependencies') {
+            steps {
+                sh """
+                    #!/bin/bash -el
+                    sudo DEBIAN_FRONTEND=noninteractive apt-get update
+                    sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \\
+                        build-essential pkg-config libssl-dev cmake libcurl4-openssl-dev \\
+                        libsasl2-dev zlib1g-dev libzstd-dev liblz4-dev
+                """
             }
         }
 
@@ -85,14 +98,14 @@ pipeline {
                 slackSend(teamDomain: 'dreamsports.enterprise', channel: channel, color: 'good', message: message, tokenCredentialId: 'slack-creds', botUser: true)
             }
         }
-        // failure {
-        //     script {
-        //         def message = "<!channel> pulse-session-capture version *${ARTIFACT_VERSION}* publish failed\n" +
-        //                 "<${env.BUILD_URL}|${env.JOB_NAME} ${env.BUILD_DISPLAY_NAME}>"
-        //         def channel = "${env.DEPLOYMENT_SLACK_CHANNEL}"
-        //         slackSend(teamDomain: 'dreamsports.enterprise', channel: channel, color: 'danger', message: message, tokenCredentialId: 'slack-creds', botUser: true)
-        //     }
-        // }
+        failure {
+            script {
+                def message = "<!channel> pulse-session-capture version *${ARTIFACT_VERSION}* publish failed\n" +
+                        "<${env.BUILD_URL}|${env.JOB_NAME} ${env.BUILD_DISPLAY_NAME}>"
+                def channel = "${env.DEPLOYMENT_SLACK_CHANNEL}"
+                slackSend(teamDomain: 'dreamsports.enterprise', channel: channel, color: 'danger', message: message, tokenCredentialId: 'slack-creds', botUser: true)
+            }
+        }
     }
 }
 

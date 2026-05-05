@@ -1,6 +1,6 @@
 /**
  * Heatmap breakpoint labels — must stay aligned with
- * `otel.interaction_heatmaps_daily_mv` in `backend/ingestion/clickhouse-otel-schema.sql`
+ * `otel.interaction_heatmaps_daily_mv` in `backend/db/prod/clickhouse/otel.interaction_heatmaps_daily.sql`
  * (multiIf order and string values).
  */
 export const HeatmapBreakpoint = {

@@ -1,3 +1,4 @@
+import { COLUMN_NAME } from "../../../constants/PulseOtelSemcov";
 import { DataQueryRequestBody } from "../../../hooks";
 import { TimeRange } from "../../../hooks/useGetDataQuery/useGetDataQuery.interface";
 
@@ -247,35 +248,28 @@ export function buildTracesQuery(params: QueryParams): DataQueryRequestBody {
       {
         function: "CUSTOM",
         param: {
-          expression: "SpanAttributes['graphql.operation.name']",
+          expression: COLUMN_NAME.GRAPHQL_OPERATION_NAME,
         },
         alias: "graphql_operation_name",
       },
       {
         function: "CUSTOM",
         param: {
-          expression: "SpanAttributes['graphql.operation.method']",
-        },
-        alias: "graphql_operation_method",
-      },
-      {
-        function: "CUSTOM",
-        param: {
-          expression: "SpanAttributes['graphql.operation.type']",
+          expression: COLUMN_NAME.GRAPHQL_OPERATION_TYPE,
         },
         alias: "graphql_operation_type",
       },
       {
         function: "CUSTOM",
         param: {
-          expression: "SpanAttributes['http.url']",
+          expression: COLUMN_NAME.HTTP_URL,
         },
         alias: "http_url",
       },
       {
         function: "CUSTOM",
         param: {
-          expression: "SpanAttributes['screen.name']",
+          expression: COLUMN_NAME.SCREEN_NAME,
         },
         alias: "screen_name_attr",
       },

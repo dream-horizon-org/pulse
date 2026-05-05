@@ -78,7 +78,10 @@ export type FunnelListItem = {
   name: string;
   status: AnalysisStatus;
   createdBy: string;
-  lastUpdatedAt: string;
+  /** Server-side `createdAt` from FunnelDefinitionResponse. */
+  createdAt: string;
+  /** Server-side `updatedAt` from FunnelDefinitionResponse. Kept for back-compat. */
+  updatedAt?: string;
   tags: string[];
   funnelType?: FunnelType;
   stepOrderType?: StepOrderType;
@@ -112,7 +115,10 @@ export type JourneyListItem = {
   name: string;
   status: AnalysisStatus;
   createdBy: string;
-  lastUpdatedAt: string;
+  /** Server-side `createdAt` from JourneyResponse. */
+  createdAt: string;
+  /** Server-side `updatedAt` from JourneyResponse. Kept for back-compat. */
+  updatedAt?: string;
   tags: string[];
   journeyType?: FunnelType;
 };
@@ -164,9 +170,14 @@ export type FunnelDetail = {
   expiry?: string;
   createdAt: string;
   updatedAt?: string;
+  lastRunAt?: string;
   createdBy: string;
   tags: string[];
   funnelResults?: unknown;
+  /** Latest overall conversion % — same value the listing surfaces. */
+  overallConversionRate?: number;
+  /** Change vs prior run (percentage points); positive = up. Same as listing. */
+  conversionTrend?: number;
   /** @deprecated Kept for backwards compat; use startTime/endTime or dateRangeDays. */
   timeRange?: TimeRange;
   expiryDate?: string;
@@ -193,6 +204,7 @@ export type JourneyDetail = {
   dateRangeDays?: number;
   createdAt: string;
   updatedAt?: string;
+  lastRunAt?: string;
   createdBy: string;
   tags: string[];
   journeyResults?: unknown;
@@ -249,9 +261,18 @@ export interface CreateFunnelRequestBody {
 
 /**
  * Request body for PUT /v1/funnel/:id.
- * PUT is a full replace so it accepts the same shape as create.
+ * PUT is a full replace, but the backend update DTO names the rolling-window
+ * deadline `expiry` (vs. `expiryDate` on create). Kept as a distinct type so
+ * callers can't accidentally send the create-shaped field name on update.
  */
-export type UpdateFunnelRequestBody = CreateFunnelRequestBody;
+export interface UpdateFunnelRequestBody
+  extends Omit<CreateFunnelRequestBody, "expiryDate"> {
+  /**
+   * AUTO funnels only — ISO-8601 datetime after which the funnel stops refreshing.
+   * Matches `UpdateFunnelDefinitionRequest.expiry` on the backend.
+   */
+  expiry?: string;
+}
 
 /** Request body for POST /v1/journeys (create) and PUT /v1/journeys/:id (update). */
 export interface CreateJourneyRequestBody {
@@ -378,6 +399,64 @@ export async function updateFunnel(
     init: {
       method: "PUT",
       body: JSON.stringify(payload),
+    },
+  });
+}
+
+/**
+ * POST /v1/funnels/:funnelId/stop — stop auto-refresh on an AUTO funnel.
+ * Backend flips funnel_type to ONCE; the funnel becomes COMPLETED in the listing.
+ * Idempotent — safe to call on an already-stopped funnel.
+ */
+export async function stopFunnel(funnelId: string) {
+  const encoded = encodeURIComponent(funnelId);
+  return makeRequest<string>({
+    url: `${API_BASE_URL}${API_ROUTES.FUNNEL_STOP.apiPath}/${encoded}/stop`,
+    init: {
+      method: API_ROUTES.FUNNEL_STOP.method,
+    },
+  });
+}
+
+/**
+ * DELETE /v1/funnels/:funnelId — cascading delete of a funnel.
+ * Backend removes: funnel row, tag mappings, analytics_jobs rows for this funnel,
+ * and any associated otel.funnel_results rows in ClickHouse (best-effort).
+ */
+export async function deleteFunnel(funnelId: string) {
+  const encoded = encodeURIComponent(funnelId);
+  return makeRequest<string>({
+    url: `${API_BASE_URL}${API_ROUTES.FUNNEL_DELETE.apiPath}/${encoded}`,
+    init: {
+      method: API_ROUTES.FUNNEL_DELETE.method,
+    },
+  });
+}
+
+/**
+ * DELETE /v1/journeys/:journeyId — cascading delete of a journey.
+ * Mirrors {@link deleteFunnel}.
+ */
+export async function deleteJourney(journeyId: string) {
+  const encoded = encodeURIComponent(journeyId);
+  return makeRequest<string>({
+    url: `${API_BASE_URL}${API_ROUTES.JOURNEY_DELETE.apiPath}/${encoded}`,
+    init: {
+      method: API_ROUTES.JOURNEY_DELETE.method,
+    },
+  });
+}
+
+/**
+ * POST /v1/journeys/:journeyId/stop — stop auto-refresh on an AUTO journey.
+ * Mirrors {@link stopFunnel}. Idempotent.
+ */
+export async function stopJourney(journeyId: string) {
+  const encoded = encodeURIComponent(journeyId);
+  return makeRequest<string>({
+    url: `${API_BASE_URL}${API_ROUTES.JOURNEY_STOP.apiPath}/${encoded}/stop`,
+    init: {
+      method: API_ROUTES.JOURNEY_STOP.method,
     },
   });
 }

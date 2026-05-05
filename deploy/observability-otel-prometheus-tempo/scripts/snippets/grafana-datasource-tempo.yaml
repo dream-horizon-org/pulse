@@ -1,0 +1,11 @@
+apiVersion: 1
+datasources:
+  - name: Pulse OTEL (Tempo)
+    type: tempo
+    access: proxy
+    url: http://127.0.0.1:3200
+    isDefault: false
+    editable: true
+    uid: pulse_otel_tempo
+    jsonData:
+      httpMethod: GET

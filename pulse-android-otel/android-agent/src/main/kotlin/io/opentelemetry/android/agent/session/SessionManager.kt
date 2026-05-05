@@ -6,6 +6,7 @@
 package io.opentelemetry.android.agent.session
 
 import android.content.Context
+import com.pulse.utils.PulseLogger
 import io.opentelemetry.android.Incubating
 import io.opentelemetry.android.session.Session
 import io.opentelemetry.android.session.SessionObserver
@@ -71,6 +72,16 @@ internal class SessionManager(
                     } else {
                         currentSession
                     }
+
+                val prevId = previousSession.getId()
+                if (prevId.isNotEmpty()) {
+                    PulseLogger.logInfo(SESSION_HEALTH_TAG) {
+                        "sdk.session event=end session_id_prefix=${prevId.take(8)}"
+                    }
+                }
+                PulseLogger.logInfo(SESSION_HEALTH_TAG) {
+                    "sdk.session event=start session_id_prefix=${newId.take(8)}"
+                }
 
                 val isPreviousSessionExpiredDueToMaxLifetime =
                     if (expiredRestored.getId().isNotEmpty()) {
@@ -177,5 +188,7 @@ internal class SessionManager(
                 maxSessionLifetime = maxLifetime,
             )
         }
+
+        private const val SESSION_HEALTH_TAG = "SessionManager"
     }
 }

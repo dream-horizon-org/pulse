@@ -338,7 +338,7 @@ export function CiritcalInteractionDetails() {
           <Tabs.Panel value="root-cause">
             {activeTab === "root-cause" ? (
               <RootCause
-                interactionName={interactionName ?? null}
+                entityKey={interactionName ?? null}
                 date={rootCauseDate}
                 projectId={projectId}
               />

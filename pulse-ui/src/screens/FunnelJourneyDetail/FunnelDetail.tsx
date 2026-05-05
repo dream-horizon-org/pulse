@@ -20,6 +20,8 @@ import {
 } from "../../hooks";
 import { getDateRangeFromPreset } from "../FunnelJourneyCreate/FunnelJourneyCreate.util";
 import { useUpdateFunnel } from "../../hooks/useUpdateFunnel";
+import { useStopFunnel } from "../../hooks/useStopFunnel";
+import { useDeleteFunnel } from "../../hooks/useDeleteFunnel";
 import { GlobalFilterBar } from "../FunnelJourneyCreate/components/GlobalFilterBar";
 import funnelClasses from "../FunnelJourneyCreate/FunnelCreate.module.css";
 import { FunnelBuilder } from "../FunnelJourneyCreate/components/FunnelBuilder";
@@ -29,7 +31,7 @@ import {
   FunnelMode,
   FunnelType,
   StepOrderType,
-  type CreateFunnelRequestBody,
+  type UpdateFunnelRequestBody,
 } from "../../services/funnels.service";
 
 /** Extracts an integer day-count from a preset string like "7d" → 7. */
@@ -58,8 +60,11 @@ function FunnelDetailView({ detail, isEditing, onEdit }: { detail: any; isEditin
   const [customEndDate, setCustomEndDate] = useState<Date | null>(
     detail.endTime ? new Date(detail.endTime) : null,
   );
+  // Backend response names this field `expiry` (see FunnelDefinitionResponse).
+  // Legacy `expiryDate` is kept as a fallback for older cached payloads.
+  const initialExpiry = detail.expiry ?? detail.expiryDate;
   const [expiryDate, setExpiryDate] = useState<Date | null>(
-    detail.expiryDate ? new Date(detail.expiryDate) : null,
+    initialExpiry ? new Date(initialExpiry) : null,
   );
 
   const [filters, setFilters] = useState<any[]>(
@@ -151,11 +156,10 @@ function FunnelDetailView({ detail, isEditing, onEdit }: { detail: any; isEditin
       return true;
     if (analysisMode !== (detail.mode || FunnelMode.UNIQUE_USERS)) return true;
     if (conversionWindow !== String(detail.windowSeconds || 86400)) return true;
+    const detailExpiry = detail.expiry ?? detail.expiryDate;
     if (
       expiryDate?.toISOString() !==
-      (detail.expiryDate
-        ? new Date(detail.expiryDate).toISOString()
-        : undefined)
+      (detailExpiry ? new Date(detailExpiry).toISOString() : undefined)
     )
       return true;
 
@@ -215,7 +219,7 @@ function FunnelDetailView({ detail, isEditing, onEdit }: { detail: any; isEditin
   const { mutate: updateFunnel, isPending: isUpdating } = useUpdateFunnel();
 
   const handleUpdate = () => {
-    const body: CreateFunnelRequestBody = {
+    const body: UpdateFunnelRequestBody = {
       name,
       description,
       tags,
@@ -232,7 +236,7 @@ function FunnelDetailView({ detail, isEditing, onEdit }: { detail: any; isEditin
       if (customStartDate) body.startTime = customStartDate.toISOString();
       if (customEndDate) body.endTime = customEndDate.toISOString();
     } else {
-      if (expiryDate) body.expiryDate = expiryDate.toISOString();
+      if (expiryDate) body.expiry = expiryDate.toISOString();
     }
 
     updateFunnel(
@@ -353,8 +357,14 @@ function FunnelDetailView({ detail, isEditing, onEdit }: { detail: any; isEditin
             <>
               <FunnelVisualization
                 steps={funnelResult.steps}
-                totalConversionRate={funnelResult.overallConversionRate ?? 0}
-                conversionTrend={0}
+                totalConversionRate={
+                  detail.overallConversionRate ??
+                  funnelResult.overallConversionRate ??
+                  0
+                }
+                // Backend's detail response carries `conversionTrend` for the same
+                // funnel that the listing shows; surface that instead of hardcoding 0.
+                conversionTrend={detail.conversionTrend ?? 0}
                 medianTimes={funnelResult.steps.map((s: any) => s.medianStepSeconds ?? null)}
                 mode={analysisMode}
               />
@@ -380,7 +390,10 @@ function FunnelDetailView({ detail, isEditing, onEdit }: { detail: any; isEditin
 
 export function FunnelDetail() {
   const navigate = useNavigate();
-  const { funnelId } = useParams<{ projectId: string; funnelId: string }>();
+  const { funnelId, projectId } = useParams<{
+    projectId: string;
+    funnelId: string;
+  }>();
   const [isEditing, setIsEditing] = useState(false);
 
   const funnelQuery = useGetFunnelDetail(funnelId);
@@ -395,6 +408,22 @@ export function FunnelDetail() {
 
   const goBack = () => {
     navigate(-1);
+  };
+
+  const { mutate: stopFunnelMutation, isPending: isStopping } = useStopFunnel();
+  const { mutate: deleteFunnelMutation, isPending: isDeleting } = useDeleteFunnel();
+
+  const handleDeleteFunnel = () => {
+    if (!detail) return;
+    deleteFunnelMutation(detail.id, {
+      onSuccess: () => {
+        if (projectId) {
+          navigate(generatePath(ROUTES.FUNNELS_LIST.path, { projectId }));
+        } else {
+          navigate(-1);
+        }
+      },
+    });
   };
 
   if (isLoading) {
@@ -449,7 +478,15 @@ export function FunnelDetail() {
         height: "calc(100vh - 60px)",
       }}
     >
-      <FunnelJourneyDetailChrome detail={detail} kind="FUNNEL" onBack={goBack} />
+      <FunnelJourneyDetailChrome
+        detail={detail}
+        kind="FUNNEL"
+        onBack={goBack}
+        onStop={() => stopFunnelMutation(detail.id)}
+        isStopping={isStopping}
+        onDelete={handleDeleteFunnel}
+        isDeleting={isDeleting}
+      />
       <FunnelDetailView detail={detail} isEditing={isEditing} onEdit={() => setIsEditing(true)} />
     </Box>
   );

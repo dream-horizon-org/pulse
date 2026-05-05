@@ -44,6 +44,10 @@ export const HELP_BAR_TEXT: string = "About Critical Interaction";
 export const HELP_LINK: string =
   "https://dream11.atlassian.net/wiki/spaces/FE/pages/3222176234/SOP+User+experience+monitoring+dashboard";
 
+/** Public docs — SDK integration, instrumentation, platform guides */
+export const PULSE_DEVELOPER_DOCS_URL: string =
+  "https://pulse-ux.com/docs/category/developer-guide";
+
 export const HEADER_CONFIG: AppShellHeaderConfiguration = {
   height: 60,
 };
@@ -266,6 +270,11 @@ export const ROUTES: Routes = {
     key: "COMING_SOON",
     basePath: "/coming-soon",
     path: "/coming-soon",
+  },
+  PERSONAL_TOKENS: {
+    key: "PERSONAL_TOKENS",
+    basePath: "/account/tokens",
+    path: "/account/tokens",
   },
   PROJECT_SETTINGS: {
     key: "PROJECT_SETTINGS",
@@ -979,6 +988,16 @@ export const API_ROUTES: StreamverseRoutes = {
     apiPath: `/v1/funnels`,
     method: API_METHODS.GET,
   },
+  FUNNEL_STOP: {
+    key: "FUNNEL_STOP",
+    apiPath: `/v1/funnels`,
+    method: API_METHODS.POST,
+  },
+  FUNNEL_DELETE: {
+    key: "FUNNEL_DELETE",
+    apiPath: `/v1/funnels`,
+    method: API_METHODS.DELETE,
+  },
   FUNNEL_SESSIONS: {
     key: "FUNNEL_SESSIONS",
     apiPath: `/v1/funnels/sessions`,
@@ -1008,6 +1027,16 @@ export const API_ROUTES: StreamverseRoutes = {
     key: "JOURNEY_DETAILS",
     apiPath: `/v1/journeys`,
     method: API_METHODS.GET,
+  },
+  JOURNEY_STOP: {
+    key: "JOURNEY_STOP",
+    apiPath: `/v1/journeys`,
+    method: API_METHODS.POST,
+  },
+  JOURNEY_DELETE: {
+    key: "JOURNEY_DELETE",
+    apiPath: `/v1/journeys`,
+    method: API_METHODS.DELETE,
   },
   FUNNEL_EVENTS: {
     key: "FUNNEL_EVENTS",
@@ -1049,6 +1078,21 @@ export const API_ROUTES: StreamverseRoutes = {
     key: "GET_USER_PROJECTS",
     apiPath: `/v1/users/me/projects`,
     method: API_METHODS.GET,
+  },
+  LIST_USER_API_KEYS: {
+    key: "LIST_USER_API_KEYS",
+    apiPath: `/v1/users/me/api-keys`,
+    method: API_METHODS.GET,
+  },
+  CREATE_USER_API_KEY: {
+    key: "CREATE_USER_API_KEY",
+    apiPath: `/v1/users/me/api-keys`,
+    method: API_METHODS.POST,
+  },
+  REVOKE_USER_API_KEY: {
+    key: "REVOKE_USER_API_KEY",
+    apiPath: `/v1/users/me/api-keys/:keyId`,
+    method: API_METHODS.DELETE,
   },
   // Auth API Routes
   LOGIN: {

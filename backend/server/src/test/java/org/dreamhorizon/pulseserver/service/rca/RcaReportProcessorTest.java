@@ -2,7 +2,6 @@ package org.dreamhorizon.pulseserver.service.rca;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
-import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.argThat;
@@ -10,8 +9,8 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -53,7 +52,10 @@ class RcaReportProcessorTest {
 
   private static final LocalDate DATE = LocalDate.of(2025, 1, 1);
   private static final String JOB_ID = "rca-job-x";
-  private static final String BODY = "{\"interactionName\":\"ix\"}";
+  private static final String BODY = "{\"rcaType\":\"INTERACTION\",\"entityKey\":\"ix\"}";
+  private static final String SCREEN_BODY =
+      "{\"rcaType\":\"SCREEN\",\"entityKey\":\"Home\",\"date\":\"2025-01-01\","
+          + "\"start\":\"2024-12-26T00:00:00Z\",\"end\":\"2025-01-01T12:00:00Z\"}";
 
   @Mock private Vertx vertx;
   @Mock private RcaReportJobDao jobDao;
@@ -91,6 +93,12 @@ class RcaReportProcessorTest {
   private RcaReportJob job() {
     return new RcaReportJob(
         JOB_ID, "p1", RcaType.INTERACTION, "ix", DATE, RcaJobStatus.PENDING, null,
+        Instant.now(), null, null, null, null);
+  }
+
+  private RcaReportJob screenJob() {
+    return new RcaReportJob(
+        JOB_ID, "p1", RcaType.SCREEN, "Home", DATE, RcaJobStatus.PENDING, null,
         Instant.now(), null, null, null, null);
   }
 
@@ -137,6 +145,26 @@ class RcaReportProcessorTest {
             ArgumentMatchers.<Callable<Object>>any(),
             eq(false),
             ArgumentMatchers.<Handler<AsyncResult<Object>>>any());
+  }
+
+  @Test
+  void shouldMarkFailedWhenEnrichmentCompletesExceptionally() {
+    stubSyncExecution();
+    CompletableFuture<RcaEnrichmentOutcome> failed = new CompletableFuture<>();
+    failed.completeExceptionally(new RuntimeException("clickhouse timeout"));
+    when(enrichmentService.enrichAsync(any(), anyBoolean())).thenReturn(failed);
+
+    processor.enqueueProcess(screenJob(), SCREEN_BODY, false, "Bearer t", null);
+
+    verify(jobDao)
+        .markFailed(
+            eq(JOB_ID),
+            eq("p1"),
+            eq(RcaType.SCREEN),
+            eq("Home"),
+            eq(DATE),
+            argThat(msg -> msg != null && msg.contains("clickhouse timeout")));
+    verifyNoInteractions(httpRequest);
   }
 
   @Test

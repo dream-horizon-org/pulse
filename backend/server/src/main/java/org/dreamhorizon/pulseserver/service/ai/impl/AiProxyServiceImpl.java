@@ -5,6 +5,7 @@ import com.google.inject.Inject;
 import io.vertx.rxjava3.ext.web.client.WebClient;
 import java.util.concurrent.CompletionStage;
 import lombok.extern.slf4j.Slf4j;
+import org.dreamhorizon.pulseserver.config.RootCauseConfig;
 import org.dreamhorizon.pulseserver.dao.rcareport.RcaReportCacheDao;
 import org.dreamhorizon.pulseserver.service.ai.AiProxyService;
 import org.dreamhorizon.pulseserver.service.ai.AiProxyUpstreamResult;
@@ -17,13 +18,15 @@ import org.dreamhorizon.pulseserver.service.rca.RcaReportProcessor;
  * {@link jakarta.ws.rs.core.Response}.
  *
  * <p>POST {@code rca/report} is delegated to {@link RcaReportProxyHandler} when full collaborators
- * are wired; otherwise the request is forwarded unchanged (see two-arg constructor).
+ * are wired; POST {@code rca/screen-report} to {@link ScreenRcaNarrativeProxyHandler}. Otherwise
+ * the request is forwarded unchanged (see two-arg constructor).
  */
 @Slf4j
 public class AiProxyServiceImpl implements AiProxyService {
 
   private static final String DEFAULT_AI_SERVICE_URL = "http://localhost:8000";
   private static final String RCA_REPORT_PATH = "rca/report";
+  private static final String RCA_SCREEN_REPORT_PATH = "rca/screen-report";
 
   /**
    * Per-request upstream timeout. Aligns with {@link
@@ -33,6 +36,7 @@ public class AiProxyServiceImpl implements AiProxyService {
 
   private final AiUpstreamProxyExecutor upstreamExecutor;
   private final RcaReportProxyHandler rcaReportProxyHandler;
+  private final ScreenRcaNarrativeProxyHandler screenRcaNarrativeProxyHandler;
 
   @Inject
   public AiProxyServiceImpl(
@@ -40,11 +44,15 @@ public class AiProxyServiceImpl implements AiProxyService {
       ObjectMapper objectMapper,
       RcaReportCacheDao rcaReportCacheDao,
       RcaReportJobService rcaReportJobService,
-      RcaReportProcessor rcaReportProcessor) {
+      RcaReportProcessor rcaReportProcessor,
+      RootCauseConfig rootCauseConfig) {
     this.upstreamExecutor = upstreamExecutor;
     this.rcaReportProxyHandler =
         new RcaReportProxyHandler(
             objectMapper, rcaReportCacheDao, rcaReportJobService, rcaReportProcessor);
+    this.screenRcaNarrativeProxyHandler =
+        new ScreenRcaNarrativeProxyHandler(
+            upstreamExecutor, objectMapper, rcaReportCacheDao, rootCauseConfig);
     log.info("AI proxy service initialized → {}", upstreamExecutor.getAiServiceUrl());
   }
 
@@ -55,6 +63,7 @@ public class AiProxyServiceImpl implements AiProxyService {
     this.upstreamExecutor =
         new AiUpstreamProxyExecutor(webClient, normalizeAiServiceUrl(aiServiceUrl));
     this.rcaReportProxyHandler = null;
+    this.screenRcaNarrativeProxyHandler = null;
     log.info("AI proxy service initialized → {}", upstreamExecutor.getAiServiceUrl());
   }
 
@@ -67,13 +76,15 @@ public class AiProxyServiceImpl implements AiProxyService {
       ObjectMapper objectMapper,
       RcaReportCacheDao rcaReportCacheDao,
       RcaReportJobService rcaReportJobService,
-      RcaReportProcessor rcaReportProcessor) {
+      RcaReportProcessor rcaReportProcessor,
+      RootCauseConfig rootCauseConfig) {
     this(
         new AiUpstreamProxyExecutor(webClient, normalizeAiServiceUrl(aiServiceUrl)),
         objectMapper,
         rcaReportCacheDao,
         rcaReportJobService,
-        rcaReportProcessor);
+        rcaReportProcessor,
+        rootCauseConfig);
   }
 
   private static String normalizeAiServiceUrl(String url) {
@@ -94,6 +105,11 @@ public class AiProxyServiceImpl implements AiProxyService {
     if (isRcaReportPost && rcaReportProxyHandler != null) {
       return rcaReportProxyHandler.handlePost(
           rawQuery, body, authorization, projectId, createdByOrNull);
+    }
+    boolean isRcaScreenReportPost = "POST".equals(method) && RCA_SCREEN_REPORT_PATH.equals(path);
+    if (isRcaScreenReportPost && screenRcaNarrativeProxyHandler != null) {
+      return screenRcaNarrativeProxyHandler.handlePost(
+          rawQuery, body, authorization, projectId);
     }
     String targetUrl = upstreamExecutor.buildTargetUrl(path, rawQuery);
     return upstreamExecutor.executeProxy(method, targetUrl, body, authorization, projectId);

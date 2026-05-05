@@ -21,7 +21,7 @@ public final class JourneyResultsQueries {
     String jid = Long.toString(journeyId);
     String dir = escapeChStringLiteral(direction);
     return "SELECT Direction AS direction, PosFrom AS posFrom, EventFrom AS eventFrom, PosTo AS posTo, "
-      + "EventTo AS eventTo, UserCount AS userCount "
+      + "EventTo AS eventTo, UserCount AS userCount, RunTime AS runTime "
       + "FROM otel.journey_results WHERE JourneyId = "
       + jid
       + " AND ProjectId = '"

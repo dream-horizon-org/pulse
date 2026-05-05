@@ -1,0 +1,78 @@
+pipeline {
+    agent {
+        node { label 'built-in' }
+    }
+
+    triggers {
+        cron('0 2 * * 2')  // Every Tuesday ~2 AM; MaxMind releases GeoLite2 bi-weekly on Tuesdays
+    }
+
+    environment {
+        MAXMIND_ACCOUNT_ID       = credentials('maxmind-account-id')
+        MAXMIND_LICENSE_KEY      = credentials('maxmind-license-key')
+        EDITION                  = 'GeoLite2-City'
+        S3_BUCKET                = 'pulse-geo-ip-mmdb'
+        DB_FILE                  = 'GeoLite2-City.mmdb'
+        DEPLOYMENT_SLACK_CHANNEL = credentials('DEPLOYMENT_SLACK_CHANNEL')
+    }
+
+    stages {
+        stage('Download') {
+            steps {
+                sh '''
+                    curl -fSL \
+                        -u "${MAXMIND_ACCOUNT_ID}:${MAXMIND_LICENSE_KEY}" \
+                        "https://download.maxmind.com/geoip/databases/${EDITION}/download?suffix=tar.gz" \
+                        -o geoip.tar.gz
+                '''
+            }
+        }
+
+        stage('Extract') {
+            steps {
+                sh '''
+                    tar -xzf geoip.tar.gz
+                    find . -name "${DB_FILE}" -not -path "./geoip.tar.gz" | head -1 | xargs -I{} cp {} ./${DB_FILE}
+                    test -f "${DB_FILE}" || (echo "ERROR: mmdb not found after extraction" && exit 1)
+                '''
+            }
+        }
+
+        stage('Upload to S3') {
+            steps {
+                sh 'aws s3 cp "${DB_FILE}" "s3://${S3_BUCKET}/${DB_FILE}" --no-progress'
+            }
+        }
+
+        stage('Verify') {
+            steps {
+                sh 'aws s3 ls "s3://${S3_BUCKET}/${DB_FILE}"'
+            }
+        }
+    }
+
+    post {
+        always {
+            sh 'rm -f geoip.tar.gz *.mmdb || true'
+            cleanWs()
+        }
+        success {
+            script {
+                def message = "<!channel> GeoIP DB updated successfully\n" +
+                        "- Edition: *${env.EDITION}*\n" +
+                        "- Uploaded: *s3://${env.S3_BUCKET}/${env.DB_FILE}*\n" +
+                        "<${env.BUILD_URL}|${env.JOB_NAME} ${env.BUILD_DISPLAY_NAME}>"
+                slackSend(teamDomain: 'dreamsports.enterprise', channel: "${env.DEPLOYMENT_SLACK_CHANNEL}", color: 'good', message: message, tokenCredentialId: 'slack-creds', botUser: true)
+            }
+        }
+        failure {
+            script {
+                def message = "<!channel> GeoIP DB update FAILED\n" +
+                        "- Edition: *${env.EDITION}*\n" +
+                        "- Check MaxMind credentials and S3 IAM role\n" +
+                        "<${env.BUILD_URL}|${env.JOB_NAME} ${env.BUILD_DISPLAY_NAME}>"
+                slackSend(teamDomain: 'dreamsports.enterprise', channel: "${env.DEPLOYMENT_SLACK_CHANNEL}", color: 'danger', message: message, tokenCredentialId: 'slack-creds', botUser: true)
+            }
+        }
+    }
+}

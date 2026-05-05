@@ -18,6 +18,9 @@ public final class NotificationConstants {
     public static final String EVENT_USAGE_LIMIT_REACHED = "usage_limit_reached";
     public static final String EVENT_USAGE_LIMIT_THRESHOLD = "usage_limit_threshold";
     public static final String EVENT_USAGE_LIMIT_BLOCKED = "usage_limit_blocked";
+    public static final String TENANT_COLLABORATOR_ADDED = "tenant_collaborator_added";
+    public static final String TENANT_COLLABORATOR_REMOVED = "tenant_collaborator_removed";
+    public static final String TENANT_COLLABORATOR_ROLE_UPDATED = "tenant_collaborator_role_updated";
 
     public record DefaultMapping(String eventName, String recipient) {}
 

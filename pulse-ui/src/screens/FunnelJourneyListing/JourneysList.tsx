@@ -1,5 +1,19 @@
-import { Badge, Box, Button, Group, Loader, MultiSelect, Select, Text, TextInput } from "@mantine/core";
-import { IconRoute, IconSearch } from "@tabler/icons-react";
+import {
+  ActionIcon,
+  Badge,
+  Box,
+  Button,
+  Group,
+  Loader,
+  MultiSelect,
+  Select,
+  Text,
+  TextInput,
+  Tooltip,
+} from "@mantine/core";
+import { modals } from "@mantine/modals";
+import { IconRoute, IconSearch, IconTrash } from "@tabler/icons-react";
+import { useDeleteJourney } from "../../hooks/useDeleteJourney";
 import { DataTable } from "mantine-datatable";
 import { ChangeEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { generatePath, useNavigate } from "react-router-dom";
@@ -125,6 +139,29 @@ export function JourneysList() {
     );
   };
 
+  const { mutate: deleteJourneyMutation, isPending: isDeleting } = useDeleteJourney();
+
+  /** Per-row delete handler. Mirrors FunnelsList's. */
+  const handleDeleteRow = useCallback(
+    (row: JourneyListItem) => {
+      modals.openConfirmModal({
+        title: "Delete this journey?",
+        centered: true,
+        children: (
+          <Text size="sm">
+            The journey &quot;<Text span fw={600}>{row.name}</Text>&quot; and
+            all its data will be permanently removed: tag mappings, run
+            history, and computed results. This can&apos;t be undone.
+          </Text>
+        ),
+        labels: { confirm: "Delete permanently", cancel: "Cancel" },
+        confirmProps: { color: "red" },
+        onConfirm: () => deleteJourneyMutation(row.id),
+      });
+    },
+    [deleteJourneyMutation],
+  );
+
   const onSearchChange = (e: ChangeEvent<HTMLInputElement>) => {
     setSearchStr(e.currentTarget.value);
   };
@@ -216,16 +253,39 @@ export function JourneysList() {
         ),
       },
       {
-        accessor: "lastUpdatedAt",
-        title: "Last updated",
+        accessor: "createdAt",
+        title: "Created at",
         render: (row: JourneyListItem) => (
           <Text size="sm" c="dark.4" ta="left">
-            {dayjs(row.lastUpdatedAt).format("MMM D, YYYY HH:mm")}
+            {row.createdAt
+              ? dayjs(row.createdAt).format("MMM D, YYYY HH:mm")
+              : "—"}
           </Text>
         ),
       },
+      {
+        accessor: "actions",
+        title: "",
+        render: (row: JourneyListItem) => (
+          <Tooltip label="Delete journey" withArrow position="left">
+            <ActionIcon
+              variant="subtle"
+              color="red"
+              size="sm"
+              loading={isDeleting}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleDeleteRow(row);
+              }}
+              aria-label={`Delete ${row.name}`}
+            >
+              <IconTrash size={16} />
+            </ActionIcon>
+          </Tooltip>
+        ),
+      },
     ],
-    [],
+    [handleDeleteRow, isDeleting],
   );
 
   const requestError =

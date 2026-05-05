@@ -26,6 +26,8 @@ class FilesOrchestrator {
     self.dateProvider = dateProvider
   }
 
+  var persistenceDirectoryURL: URL { directory.url }
+
   // MARK: - `WritableFile` orchestration
 
   func getWritableFile(writeSize: UInt64) throws -> WritableFile {
