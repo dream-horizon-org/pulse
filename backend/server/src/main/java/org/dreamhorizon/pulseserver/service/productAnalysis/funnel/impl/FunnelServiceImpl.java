@@ -19,11 +19,15 @@ import org.dreamhorizon.pulseserver.dao.productAnalysis.funneldefinition.models.
 import org.dreamhorizon.pulseserver.dao.productAnalysis.funneljourneytag.FunnelJourneyTagDao;
 import org.dreamhorizon.pulseserver.dao.productAnalysis.funneljourneytag.FunnelJourneyTagEntityType;
 import org.dreamhorizon.pulseserver.dao.productAnalysis.funnelresults.FunnelResultsDao;
+import org.dreamhorizon.pulseserver.dao.productAnalysis.funnelresults.models.FunnelConversionSummaryRow;
+import org.dreamhorizon.pulseserver.dao.analyticsjob.AnalyticsJobDao;
+import org.dreamhorizon.pulseserver.dao.analyticsjob.AnalyticsJobType;
 import org.dreamhorizon.pulseserver.error.ServiceError;
 import org.dreamhorizon.pulseserver.resources.productAnalysis.funnel.models.*;
 import org.dreamhorizon.pulseserver.resources.productAnalysis.models.FunnelJourneyTagsListResponse;
 import org.dreamhorizon.pulseserver.resources.productAnalysis.models.ListFilterOptions;
 import org.dreamhorizon.pulseserver.service.analytics.AnalyticsBatchService;
+import org.dreamhorizon.pulseserver.service.analytics.ClickHouseComputeService;
 import org.dreamhorizon.pulseserver.service.productAnalysis.AnalysisEntityTags;
 import org.dreamhorizon.pulseserver.service.productAnalysis.funnel.FunnelResultsMapper;
 import org.dreamhorizon.pulseserver.service.productAnalysis.funnel.FunnelService;
@@ -45,6 +49,8 @@ public class FunnelServiceImpl implements FunnelService {
   private final FunnelJourneyTagDao funnelJourneyTagDao;
   private final FunnelResultsDao funnelResultsDao;
   private final AnalyticsBatchService analyticsBatchService;
+  private final AnalyticsJobDao analyticsJobDao;
+  private final ClickHouseComputeService clickHouseComputeService;
   private final ObjectMapper objectMapper = new ObjectMapper();
 
   @Override
@@ -162,6 +168,19 @@ public class FunnelServiceImpl implements FunnelService {
         });
   }
 
+  /**
+   * Cascading delete for a funnel. Order matters:
+   * <ol>
+   *   <li>Delete tag mappings (FK-style cleanup of {@code funnel_journey_tag}).</li>
+   *   <li>Delete the funnel row in MySQL — this is the authoritative existence check;
+   *       a 0-row result means NOT_FOUND and the caller sees that error before any
+   *       further side effects fire.</li>
+   *   <li>Best-effort: delete {@code analytics_jobs} rows for this funnel (FUNNEL type +
+   *       reference_id). Failure here only logs — the row is gone in the listing.</li>
+   *   <li>Best-effort: delete {@code otel.funnel_results} rows in ClickHouse. CH DELETE is
+   *       async; we kick it off and don't fail the request on CH errors.</li>
+   * </ol>
+   */
   @Override
   public Completable delete(String projectId, long id) {
     return funnelJourneyTagDao
@@ -174,8 +193,60 @@ public class FunnelServiceImpl implements FunnelService {
               if (n == 0) {
                 return Completable.error(ServiceError.FUNNEL_NOT_FOUND.getException());
               }
-              return Completable.complete();
+              return cascadeDeleteSideEffects(projectId, id);
             }));
+  }
+
+  /**
+   * Best-effort cleanup of analytics_jobs and ClickHouse results after the funnel row
+   * itself has been removed. Errors here are swallowed (logged) — the funnel is already
+   * gone from the user's perspective and we don't want orphaned-row cleanup failures to
+   * surface as a failed delete.
+   */
+  private Completable cascadeDeleteSideEffects(String projectId, long id) {
+    Completable deleteJobs =
+      analyticsJobDao
+        .deleteByReference(AnalyticsJobType.FUNNEL, id)
+        .ignoreElement()
+        .onErrorComplete(err -> {
+          log.warn("Failed to delete analytics_jobs rows for funnelId={}: {}",
+              id, err.getMessage());
+          return true;
+        });
+    Completable deleteResults =
+      clickHouseComputeService
+        .deleteFunnelResults(projectId, id)
+        .ignoreElement()
+        .onErrorComplete(err -> {
+          log.warn("Failed to delete otel.funnel_results rows for funnelId={}: {}",
+              id, err.getMessage());
+          return true;
+        });
+    return deleteJobs.andThen(deleteResults);
+  }
+
+  /**
+   * Stops auto-refresh by flipping the row to ONCE. The DAO's WHERE clause guards against
+   * stopping a funnel that's already ONCE, missing, or owned by another project — all those
+   * cases yield rowCount=0. We treat 0 as NOT_FOUND only when the row truly doesn't exist;
+   * an already-stopped funnel is a no-op success (idempotent stop).
+   */
+  @Override
+  public Completable stopAuto(String projectId, long id) {
+    return funnelDefinitionDao
+      .stopAuto(projectId, id)
+      .flatMapCompletable(
+        rowCount -> {
+          if (rowCount > 0) {
+            return Completable.complete();
+          }
+          // No row updated. Distinguish "already stopped" (200 OK no-op) from "not found"
+          // by checking whether the funnel exists for this project at all.
+          return funnelDefinitionDao
+            .findByProjectAndId(projectId, id)
+            .switchIfEmpty(Single.error(ServiceError.FUNNEL_NOT_FOUND.getException()))
+            .ignoreElement();
+        });
   }
 
   @Override
@@ -203,7 +274,27 @@ public class FunnelServiceImpl implements FunnelService {
             funnelJourneyTagDao
               .listTagsForEntity(projectId, FunnelJourneyTagEntityType.FUNNEL, id)
               .onErrorReturnItem(List.of());
-          return Single.zip(results, tags, (r, t) -> toResponse(row, r, t));
+          // Listing populates conversionTrend via queryConversionSummaries; the detail
+          // path was building the response via the 3-arg toResponse(...) overload that
+          // passed null/null for the trend, so the UI rendered "+0% from last week".
+          // Fetch the same summary here so detail and listing agree.
+          Single<FunnelConversionSummaryRow> summary =
+            funnelResultsDao
+              .queryConversionSummaries(projectId, List.of(id))
+              .map(map -> map.getOrDefault(
+                id,
+                FunnelConversionSummaryRow.builder().funnelId(id).build()))
+              .onErrorReturn(err -> {
+                log.warn(
+                  "Failed to load conversion summary for funnel {} (project {}): {}",
+                  id, projectId, err.toString());
+                return FunnelConversionSummaryRow.builder().funnelId(id).build();
+              });
+          return Single.zip(
+            results,
+            tags,
+            summary,
+            (r, t, s) -> toResponse(row, r, t, s.getConversionPct(), s.getConversionTrend()));
         });
   }
 
@@ -459,7 +550,9 @@ public class FunnelServiceImpl implements FunnelService {
       }
       AnalysisComputedStatus computed =
         AnalysisComputedStatusResolver.compute(
-          FunnelType.fromJson(row.getFunnelType()), row.getLatestJobStatus());
+          FunnelType.fromJson(row.getFunnelType()),
+          row.getLatestJobStatus(),
+          row.getExpiry());
       return FunnelDefinitionResponse.builder()
         .id(row.getId())
         .projectId(row.getProjectId())
@@ -478,6 +571,7 @@ public class FunnelServiceImpl implements FunnelService {
         .expiry(row.getExpiry())
         .createdAt(row.getCreatedAt())
         .updatedAt(row.getUpdatedAt())
+        .lastRunAt(funnelResults != null ? funnelResults.getLastRunAt() : null)
         .createdBy(row.getCreatedBy())
         .overallConversionRate(overallConversionRate)
         .conversionTrend(conversionTrend)

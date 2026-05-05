@@ -14,6 +14,7 @@ import java.time.Instant;
 import java.util.Collections;
 import java.util.List;
 import org.dreamhorizon.pulseserver.dao.productAnalysis.funneljourneytag.FunnelJourneyTagDao;
+import org.dreamhorizon.pulseserver.dao.productAnalysis.journeyresults.models.JourneyResultRow;
 import org.dreamhorizon.pulseserver.dao.productAnalysis.funneljourneytag.FunnelJourneyTagEntityType;
 import org.dreamhorizon.pulseserver.dao.productAnalysis.journey.JourneyDao;
 import org.dreamhorizon.pulseserver.dao.productAnalysis.journey.models.JourneyRow;
@@ -44,13 +45,24 @@ class JourneyServiceImplTest {
   @Mock
   AnalyticsBatchService analyticsBatchService;
 
+  @Mock
+  org.dreamhorizon.pulseserver.dao.analyticsjob.AnalyticsJobDao analyticsJobDao;
+
+  @Mock
+  org.dreamhorizon.pulseserver.service.analytics.ClickHouseComputeService clickHouseComputeService;
+
   JourneyServiceImpl service;
 
   @BeforeEach
   void setUp() {
     service =
         new JourneyServiceImpl(
-            journeyDao, funnelJourneyTagDao, journeyResultsDao, analyticsBatchService);
+            journeyDao,
+            funnelJourneyTagDao,
+            journeyResultsDao,
+            analyticsBatchService,
+            analyticsJobDao,
+            clickHouseComputeService);
   }
 
   private CreateJourneyRequest validCreateRequest() {
@@ -122,6 +134,21 @@ class JourneyServiceImplTest {
   }
 
   @Test
+  void get_setsLastRunAtFromResults() {
+    Instant runTime = Instant.parse("2026-05-01T10:00:00Z");
+    when(journeyDao.findByProjectAndId(PROJECT, 20L)).thenReturn(Maybe.just(storedRow()));
+    when(journeyResultsDao.queryLatest(PROJECT, 20L, "START"))
+        .thenReturn(Single.just(List.of(
+            JourneyResultRow.builder()
+                .direction("START").posFrom(-1).eventFrom("").posTo(0).eventTo("App_Launch")
+                .userCount(100L).runTime(runTime).build())));
+    when(funnelJourneyTagDao.listTagsForEntity(PROJECT, FunnelJourneyTagEntityType.JOURNEY, 20L))
+        .thenReturn(Single.just(List.of()));
+
+    assertThat(service.get(PROJECT, 20L).blockingGet().getLastRunAt()).isEqualTo(runTime);
+  }
+
+  @Test
   void get_throwsWhenMissing() {
     when(journeyDao.findByProjectAndId(PROJECT, 1L)).thenReturn(Maybe.empty());
 
@@ -134,8 +161,16 @@ class JourneyServiceImplTest {
             PROJECT, FunnelJourneyTagEntityType.JOURNEY, 4L))
         .thenReturn(Completable.complete());
     when(journeyDao.delete(PROJECT, 4L)).thenReturn(Single.just(1));
+    when(analyticsJobDao.deleteByReference(
+            org.dreamhorizon.pulseserver.dao.analyticsjob.AnalyticsJobType.JOURNEY, 4L))
+        .thenReturn(Single.just(0));
+    when(clickHouseComputeService.deleteJourneyResults(PROJECT, 4L))
+        .thenReturn(Single.just(true));
 
     service.delete(PROJECT, 4L).blockingAwait();
     verify(journeyDao).delete(PROJECT, 4L);
+    verify(analyticsJobDao).deleteByReference(
+        org.dreamhorizon.pulseserver.dao.analyticsjob.AnalyticsJobType.JOURNEY, 4L);
+    verify(clickHouseComputeService).deleteJourneyResults(PROJECT, 4L);
   }
 }

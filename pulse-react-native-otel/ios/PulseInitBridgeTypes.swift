@@ -41,32 +41,14 @@ public class PulseObjcSessionsConfig: NSObject {
     }
 }
 
-@objc(PulseObjcRageConfig)
-public class PulseObjcRageConfig: NSObject {
-    @objc public var timeWindowMs: NSNumber?
-    @objc public var rageThreshold: NSNumber?
-    @objc public var radiusPt: NSNumber?
-}
-
 @objc(PulseObjcUIKitTapConfig)
 public class PulseObjcUIKitTapConfig: NSObject {
-    @objc public var enabled: NSNumber?
     @objc public var captureContext: NSNumber?
-    @objc public var rage: PulseObjcRageConfig?
 }
 
 @objc(PulseObjcSessionReplayConfig)
 public class PulseObjcSessionReplayConfig: NSObject {
-    @objc public var enabled: NSNumber?
-    @objc public var replayEndpointBaseUrl: String?
-    @objc public var textAndInputPrivacy: String?
-    @objc public var imagePrivacy: String?
-    @objc public var captureIntervalMs: NSNumber?
-    @objc public var compressionQuality: NSNumber?
-    @objc public var screenshotScale: NSNumber?
-    @objc public var flushIntervalSeconds: NSNumber?
-    @objc public var flushAt: NSNumber?
-    @objc public var maxBatchSize: NSNumber?
+    /// Code-level masking rules only. Privacy/quality/flush settings are backend-controlled.
     @objc public var maskViewClasses: NSArray?
     @objc public var unmaskViewClasses: NSArray?
 }
@@ -147,56 +129,25 @@ enum PulseObjcInitMappers {
             if let b = boolNumber(root.appStartup?.enabled) {
                 config.appStartup { $0.enabled(b) }
             }
-            if let t = root.uiKitTap {
-                let has = t.enabled != nil || t.captureContext != nil || t.rage != nil
-                if has {
-                    config.uiKitTap { tap in
-                        if let v = boolNumber(t.enabled) { tap.enabled(v) }
-                        if let v = boolNumber(t.captureContext) { tap.captureContext(v) }
-                        if let rage = t.rage {
-                            tap.rage { r in
-                                if let v = rage.timeWindowMs?.intValue { r.timeWindowMs = v }
-                                if let v = rage.rageThreshold?.intValue { r.rageThreshold = v }
-                                if let v = rage.radiusPt?.floatValue { r.radiusPt = v }
-                            }
-                        }
-                    }
+            if let t = root.uiKitTap, t.captureContext != nil {
+                config.uiKitTap { tap in
+                    if let v = boolNumber(t.captureContext) { tap.captureContext(v) }
                 }
             }
             if let sr = root.sessionReplay {
-                let nestedConfig =
-                    sr.replayEndpointBaseUrl != nil
-                    || sr.textAndInputPrivacy != nil
-                    || sr.imagePrivacy != nil
-                    || sr.captureIntervalMs != nil
-                    || sr.compressionQuality != nil
-                    || sr.screenshotScale != nil
-                    || sr.flushIntervalSeconds != nil
-                    || sr.flushAt != nil
-                    || sr.maxBatchSize != nil
-                    || sr.maskViewClasses != nil
-                    || sr.unmaskViewClasses != nil
-                let doReplay = sr.enabled != nil || nestedConfig
-                if doReplay {
+                let nestedConfig = sr.maskViewClasses != nil || sr.unmaskViewClasses != nil
+                if nestedConfig {
                     config.sessionReplay { replay in
-                        if let v = boolNumber(sr.enabled) { replay.enabled(v) }
-                        if nestedConfig {
-                            replay.configure { local in
-                                if let s = sr.replayEndpointBaseUrl { local.replayEndpointBaseUrl = s }
-                                if let s = sr.textAndInputPrivacy {
-                                    local.textAndInputPrivacy = textPrivacy(from: s)
-                                }
-                                if let s = sr.imagePrivacy { local.imagePrivacy = imagePrivacy(from: s) }
-                                if let v = sr.captureIntervalMs?.intValue { local.captureIntervalMs = v }
-                                if let v = sr.compressionQuality?.doubleValue {
-                                    local.compressionQuality = CGFloat(v)
-                                }
-                                if let v = sr.screenshotScale?.doubleValue { local.screenshotScale = CGFloat(v) }
-                                if let v = sr.flushIntervalSeconds?.doubleValue { local.flushIntervalSeconds = v }
-                                if let v = sr.flushAt?.intValue { local.flushAt = v }
-                                if let v = sr.maxBatchSize?.intValue { local.maxBatchSize = v }
-                                if let arr = sr.maskViewClasses { local.maskViewClasses = stringSet(from: arr) }
-                                if let arr = sr.unmaskViewClasses { local.unmaskViewClasses = stringSet(from: arr) }
+                        if let arr = sr.maskViewClasses {
+                            for item in arr {
+                                if let s = item as? String { replay.addMaskViewClass(s) }
+                                else if let s = item as? NSString { replay.addMaskViewClass(s as String) }
+                            }
+                        }
+                        if let arr = sr.unmaskViewClasses {
+                            for item in arr {
+                                if let s = item as? String { replay.addUnmaskViewClass(s) }
+                                else if let s = item as? NSString { replay.addUnmaskViewClass(s as String) }
                             }
                         }
                     }
@@ -207,32 +158,5 @@ enum PulseObjcInitMappers {
 
     private static func boolNumber(_ n: NSNumber?) -> Bool? {
         n.map { $0.boolValue }
-    }
-
-    private static func stringSet(from: NSArray) -> Set<String> {
-        var out = Set<String>()
-        for o in from {
-            if let s = o as? String { out.insert(s) }
-            else if let s = o as? NSString { out.insert(s as String) }
-        }
-        return out
-    }
-
-    private static func textPrivacy(from s: String) -> TextAndInputPrivacy {
-        switch s.lowercased() {
-        case "maskallinputs", "mask_all_inputs":
-            return .maskAllInputs
-        case "masksensitiveinputs", "mask_sensitive_inputs":
-            return .maskSensitiveInputs
-        default:
-            return .maskAll
-        }
-    }
-
-    private static func imagePrivacy(from s: String) -> ImagePrivacy {
-        if s.lowercased() == "masknone" || s.lowercased() == "mask_none" {
-            return .maskNone
-        }
-        return .maskAll
     }
 }

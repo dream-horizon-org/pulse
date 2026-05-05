@@ -21,9 +21,26 @@ import java.io.IOException
  */
 public class SessionReplayApiClient(
     private val baseUrl: String,
+    private val headers: Map<String, String> = emptyMap(),
 ) {
     private val okHttpClient
-        get() = PulseNetworkingUtils.okHttpClient
+        get() =
+            if (headers.isEmpty()) {
+                PulseNetworkingUtils.okHttpClient
+            } else {
+                PulseNetworkingUtils.okHttpClient
+                    .newBuilder()
+                    .addInterceptor { chain ->
+                        val request =
+                            chain
+                                .request()
+                                .newBuilder()
+                                .apply {
+                                    headers.forEach { (key, value) -> header(key, value) }
+                                }.build()
+                        chain.proceed(request)
+                    }.build()
+            }
 
     private val apiService: SessionReplayApiService by lazy {
         Retrofit
