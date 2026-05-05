@@ -14,13 +14,15 @@ import org.dreamhorizon.pulseserver.service.interaction.InteractionTelemetryCons
 /**
  * Builds ClickHouse SELECTs for Root Cause Analysis:
  * (1) Baseline: no GROUP BY, same WHERE ({@link InteractionTelemetryConstants#INTERACTION_PULSE_TYPE},
- *     bound SpanName/Timestamp/ProjectId).
+ * bound SpanName/Timestamp/ProjectId).
  * (2) Segment: GROUP BY dimension(s), same WHERE plus dimension filters (bound values).
  * Includes problematic count (error OR poor) for segment selection.
  */
 public class RootCauseQueryBuilder {
 
-  /** Valid dimension column names for RCA queries. Used to prevent SQL injection. */
+  /**
+   * Valid dimension column names for RCA queries. Used to prevent SQL injection.
+   */
   private static final Set<String> VALID_DIMENSION_COLUMNS =
       Set.of("Platform", "OsVersion", "AppVersion", "DeviceModel", "NetworkProvider", "GeoState");
 
@@ -108,7 +110,7 @@ public class RootCauseQueryBuilder {
             + p3
             + ", 9, 'UTC')";
     String spanRows =
-        "SELECT nullIf(trimBoth(SpanAttributes['screen.name']), '') AS screen_name FROM "
+        "SELECT nullIf(trimBoth(ScreenName), '') AS screen_name FROM "
             + ClickhouseConstants.OTEL_TRACES_TABLE
             + " WHERE "
             + where;
@@ -259,7 +261,9 @@ public class RootCauseQueryBuilder {
     return sb.toString();
   }
 
-  /** Collects {@code :rca_pN} names and values for {@link RootCauseQuerySpec}. */
+  /**
+   * Collects {@code :rca_pN} names and values for {@link RootCauseQuerySpec}.
+   */
   public static final class BindAccumulator {
     private int nextSeq;
     private final List<String> bindNames = new ArrayList<>();
