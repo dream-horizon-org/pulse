@@ -52,11 +52,12 @@ pipeline {
             }
         }
 
-        stage('Bump version for next development') {
+        stage('Bump snapshot version') {
             steps {
                 script {
                     withCredentials([usernamePassword(credentialsId: 'yasir6jan', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_TOKEN')]) {
                         def nextVersion = bumpSemverMinor(ARTIFACT_VERSION)
+                        def nextSnapshot = "${nextVersion}-SNAPSHOT"
                         sh """
                             #!/bin/bash -el
                             PKG="${WORKSPACE}/backend/heatmap-screenshot-ingestion/package.json"
@@ -64,7 +65,7 @@ pipeline {
                               const fs = require('fs');
                               const p = process.argv[1];
                               const j = JSON.parse(fs.readFileSync(p, 'utf8'));
-                              j.version = '${nextVersion}';
+                              j.version = '${nextSnapshot}';
                               fs.writeFileSync(p, JSON.stringify(j, null, 2) + '\\n');
                             " "\$PKG"
 
@@ -72,7 +73,7 @@ pipeline {
                             git config user.name "${GITBOT_USERNAME}"
 
                             git add backend/heatmap-screenshot-ingestion/package.json
-                            git commit -m "chore: bump pulse-heatmap-screenshot-ingestion version to ${nextVersion}"
+                            git commit -m "chore: bump pulse-heatmap-screenshot-ingestion version to ${nextSnapshot}"
 
                             git push https://${GIT_USER}:${GIT_TOKEN}@github.com/dream-horizon-org/pulse.git HEAD:main
                         """

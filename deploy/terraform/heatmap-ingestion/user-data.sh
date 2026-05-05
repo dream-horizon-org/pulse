@@ -5,11 +5,12 @@ exec > >(sudo tee /var/log/user-data.log) 2>&1
 echo "Starting heatmap-ingestion user-data at $(date)"
 
 export HOME=/home/admin
-cd "$HOME" || cd /root
+cd "$HOME"
 
 AWS_REGION="ap-south-1"
 SECRET_NAME="prod/pulse-heatmap-screenshot-ingestion/appenv"
-ENV_FILE="/etc/pulse/heatmap-ingestion.env"
+# Relative to $HOME after cd (same pattern as pulse-server `.pulse-server.env`).
+ENV_FILE=".heatmap-ingestion.env"
 
 echo "Fetching secret '$SECRET_NAME' from AWS Secrets Manager..."
 SECRET_JSON=$(aws secretsmanager get-secret-value \
@@ -23,7 +24,6 @@ if [ -z "$SECRET_JSON" ]; then
   exit 1
 fi
 
-sudo mkdir -p /etc/pulse
 # Secret format matches pulse-server / pulse-alerts-cron: { "app_env": [ { "key": "...", "value": "..." } ] }
 # Use stdlib json (AMI may not ship jq).
 if ! command -v python3 >/dev/null 2>&1; then
@@ -37,15 +37,15 @@ for item in data.get("app_env", []):
     v = item.get("value", "")
     if k:
         print("%s=%s" % (k, v))
-' | sudo tee "$ENV_FILE" >/dev/null
+' | sudo -u admin tee "$ENV_FILE" >/dev/null
 
-sudo chmod 600 "$ENV_FILE"
+sudo -u admin chmod 600 "$ENV_FILE"
 
 CODEARTIFACT_DOMAIN="pulse-prod"
 CODEARTIFACT_REPOSITORY="pulse-heatmap-screenshot-ingestion"
 APPLICATION_NAME="pulse-heatmap-screenshot-ingestion"
 VERSION="${artifact_version}"
-INSTALL_DIR="/opt/pulse-heatmap-screenshot-ingestion"
+INSTALL_DIR="$HOME/pulse-heatmap-screenshot-ingestion"
 
 # Download artifact from CodeArtifact
 aws codeartifact get-package-version-asset \
@@ -66,11 +66,11 @@ if [ ! -f "$APPLICATION_NAME/dist/index.js" ]; then
   exit 1
 fi
 
-# Install to /opt
+# Install under /home/admin only
 sudo rm -rf "$INSTALL_DIR"
 sudo mkdir -p "$INSTALL_DIR"
 sudo cp -a "$APPLICATION_NAME"/. "$INSTALL_DIR"/
-sudo chown -R root:root "$INSTALL_DIR"
+sudo chown -R admin:admin "$INSTALL_DIR"
 
 # Node.js + pm2 (minimal AMIs often lack both). Tarball from nodejs.org with retries;
 # bake Node into AMI or ship via CodeArtifact to avoid boot-time egress to nodejs.org.

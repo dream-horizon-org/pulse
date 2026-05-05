@@ -32,7 +32,6 @@ locals {
     org_name         = "horizon"
     environment_name = "production"
     component_name   = local.component_name
-    component_type   = "application"
     service_name     = "pulse"
   }
 }
@@ -44,6 +43,7 @@ resource "aws_launch_template" "ingestion" {
 
   tags = merge(local.tag_base, {
     Name          = "pulse-heatmap-screenshot-ingestion-lt"
+    component_type   = "application"
     resource_type = "lt"
   })
 
@@ -74,6 +74,7 @@ resource "aws_launch_template" "ingestion" {
     tags = merge(local.tag_base, {
       Name          = "pulse-heatmap-screenshot-ingestion-instance"
       resource_type = "ec2"
+      component_type   = "application"
     })
   }
 
@@ -83,6 +84,7 @@ resource "aws_launch_template" "ingestion" {
     tags = merge(local.tag_base, {
       Name          = "pulse-heatmap-screenshot-ingestion-volume"
       resource_type = "ebs"
+      component_type   = "application"
     })
   }
 
@@ -155,7 +157,7 @@ resource "aws_autoscaling_group" "ingestion" {
   }
   tag {
     key                 = "component_type"
-    value               = local.tag_base.component_type
+    value               = "application"
     propagate_at_launch = false
   }
   tag {
