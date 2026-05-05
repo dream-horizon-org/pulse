@@ -28,6 +28,10 @@ import {
   type RcaReportResponse,
   type UseGetRcaReportParams,
 } from "./useGetRcaReport.interface";
+import {
+  getMockInteractionRcaReportApiResponse,
+  getMockInteractionRcaStaleStatusApiResponse,
+} from "../../mocks/mockInteractionRcaReport";
 
 const RCA_HTTP_ACCEPTED = 202;
 const RCA_HTTP_OK = 200;
@@ -240,6 +244,9 @@ export function useGetRcaReport({
           status: 400,
         };
       }
+      if (process.env.REACT_APP_USE_MOCK_SERVER === "true") {
+        return getMockInteractionRcaReportApiResponse(entityKey);
+      }
       return requestRcaReportPost(entityKey, date ?? null, trimmedProjectId);
     },
     enabled: baseEnabled && pollJobId === null,
@@ -384,6 +391,9 @@ export function useGetRcaReport({
           },
           status: 400,
         };
+      }
+      if (process.env.REACT_APP_USE_MOCK_SERVER === "true") {
+        return getMockInteractionRcaStaleStatusApiResponse();
       }
       return requestRcaStatusGet(entityKey, date ?? null, trimmedProjectId);
     },

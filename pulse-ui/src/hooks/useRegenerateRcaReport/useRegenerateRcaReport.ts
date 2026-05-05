@@ -13,6 +13,7 @@ import type {
   RcaReportResponse,
 } from "../useGetRcaReport/useGetRcaReport.interface";
 import type { UseRegenerateRcaReportParams } from "./useRegenerateRcaReport.interface";
+import { getMockInteractionRcaReportApiResponse } from "../../mocks/mockInteractionRcaReport";
 
 /**
  * Recomputes ClickHouse segments and regenerates the AI RCA report for the key.
@@ -29,6 +30,11 @@ export const useRegenerateRcaReport = () => {
       date,
       projectId,
     }: UseRegenerateRcaReportParams) => {
+      if (process.env.REACT_APP_USE_MOCK_SERVER === "true") {
+        return unwrapRcaReportPostApiBody(
+          getMockInteractionRcaReportApiResponse(entityKey),
+        );
+      }
       const apiBaseUrl = getApiBaseUrl();
       const url = `${apiBaseUrl}${POST_RCA_REPORT_ROUTE.apiPath}`;
       const body: {
