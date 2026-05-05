@@ -39,6 +39,7 @@ import { CreateFunnel, CreateJourney } from "../screens/FunnelJourneyCreate";
 import { FunnelsList, JourneysList } from "../screens/FunnelJourneyListing";
 import { FunnelDetail, JourneyDetail } from "../screens/FunnelJourneyDetail";
 import { SessionReplayRouteGuard } from "../components/SessionReplayRouteGuard";
+import { PersonalTokens } from "../screens/PersonalTokens";
 
 function SessionReplaySessionsGuarded() {
   return (
@@ -73,6 +74,10 @@ function SessionReplayInsightsGuarded() {
 }
 
 export const ROUTES = {
+  PERSONAL_TOKENS: {
+    ...ROUTE_PATHS.PERSONAL_TOKENS,
+    element: PersonalTokens,
+  },
   // Organization-level routes
   ORGANIZATION_DASHBOARD: {
     ...ROUTE_PATHS.ORGANIZATION_DASHBOARD,
