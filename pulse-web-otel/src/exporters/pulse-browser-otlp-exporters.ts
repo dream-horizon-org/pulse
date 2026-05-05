@@ -71,6 +71,13 @@ abstract class PulseBrowserOtelExporter<
     this._transport?.switchToKeepalive();
   }
 
+  switchToBeacon(apiKey?: string): void {
+    this._transport?.switchToBeacon({
+      apiKey,
+      contentType: this._pulse.contentType,
+    });
+  }
+
   private ensureTransport(): void {
     if (this._transport) return;
     const pulse = this._pulse;

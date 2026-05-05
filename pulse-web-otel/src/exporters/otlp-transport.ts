@@ -192,8 +192,70 @@ export function createPulseFetchTransport(parameters: {
   };
 }
 
+/**
+ * Recommended max body size for navigator.sendBeacon.
+ * The spec soft limit is 64 KiB; payloads above this fall back to keepalive fetch.
+ */
+export const BEACON_BODY_LIMIT_BYTES = 64 * 1024;
+
+/**
+ * SendBeacon transport — most reliable for page-unload delivery.
+ *
+ * navigator.sendBeacon cannot carry custom request headers.  To preserve
+ * auth, the API key is appended as a `?apiKey=<key>` query parameter.
+ * The OTLP Content-Type is conveyed via the Blob type so the collector
+ * can still deserialise the payload correctly.
+ *
+ * Returns `{status:"failure"}` when sendBeacon is unavailable or the
+ * browser rejects the beacon (quota exceeded).
+ */
+export function createPulseSendBeaconTransport(params: {
+  url: string;
+  apiKey?: string;
+  contentType: string;
+}): IExporterTransport {
+  return {
+    send(data: Uint8Array, _timeoutMillis: number): Promise<ExportResponse> {
+      if (
+        typeof navigator === "undefined" ||
+        typeof navigator.sendBeacon !== "function"
+      ) {
+        return Promise.resolve({
+          status: "failure",
+          error: new Error("sendBeacon not available in this environment"),
+        });
+      }
+      // sendBeacon cannot send custom headers → embed apiKey as URL query param
+      const url =
+        params.apiKey != null && params.apiKey !== ""
+          ? `${params.url}${params.url.includes("?") ? "&" : "?"}apiKey=${encodeURIComponent(params.apiKey)}`
+          : params.url;
+      const blob = new Blob([data], { type: params.contentType });
+      const queued = navigator.sendBeacon(url, blob);
+      return Promise.resolve(
+        queued
+          ? ({ status: "success" } as const)
+          : ({
+              status: "failure",
+              error: new Error(
+                "sendBeacon rejected by browser (quota exceeded or unload not in progress)",
+              ),
+            } as const),
+      );
+    },
+    shutdown() {},
+  };
+}
+
 export type BrowserExportTransport = IExporterTransport & {
   switchToKeepalive(): void;
+  /**
+   * Switch the inner transport to an unload-safe mode:
+   * - payloads ≤ {@link BEACON_BODY_LIMIT_BYTES} → sendBeacon (most reliable)
+   * - payloads > limit → keepalive fetch (handles larger batches)
+   * Falls back to keepalive fetch if sendBeacon is not available.
+   */
+  switchToBeacon(params: { apiKey?: string; contentType: string }): void;
 };
 
 /**
@@ -234,6 +296,35 @@ export function buildBrowserExportTransport(
         ...xhrParams,
         keepalive: true,
       });
+    },
+    switchToBeacon({ apiKey, contentType }: { apiKey?: string; contentType: string }) {
+      const beacon = createPulseSendBeaconTransport({
+        url: xhrParams.url,
+        apiKey,
+        contentType,
+      });
+      const keepalive = createPulseFetchTransport({
+        ...xhrParams,
+        keepalive: true,
+      });
+
+      innerXhr = {
+        send(data: Uint8Array, timeout: number): Promise<ExportResponse> {
+          // For small payloads, prefer sendBeacon (survives page close).
+          // For larger payloads that exceed the beacon limit, fall back to keepalive fetch.
+          if (data.byteLength <= BEACON_BODY_LIMIT_BYTES) {
+            return beacon.send(data, timeout).then((res) => {
+              if (res.status === "failure") {
+                // sendBeacon failed (unavailable or quota) → try keepalive fetch
+                return keepalive.send(data, timeout);
+              }
+              return res;
+            });
+          }
+          return keepalive.send(data, timeout);
+        },
+        shutdown() {},
+      };
     },
   };
 }
