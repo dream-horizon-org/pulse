@@ -127,7 +127,7 @@ public class DefaultSdkConfigTemplate {
             .textAndInputPrivacy(TextAndInputPrivacy.MASK_ALL)
             .imagePrivacy(ImagePrivacy.MASK_ALL)
             .throttleDelayMs(2000L)
-            .screenshotScale(0.2f)
+            .screenshotScale(0.3f)
             .screenshotQuality(30)
             .flushIntervalSeconds(60)
             .flushAt(10)

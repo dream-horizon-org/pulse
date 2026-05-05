@@ -30,7 +30,7 @@ public class SessionReplayConfig(
     public val isCaptureLogcat: Boolean = false,
     public val throttleDelayMs: Long = 2000L,
     public val drawableConverter: DrawableConverter? = null,
-    public val screenshotScale: Float = 0.2f,
+    public val screenshotScale: Float = 0.3f,
     public val screenshotQuality: Int = 30,
     public val flushIntervalSeconds: Int = 60,
     public val flushAt: Int = 10,
