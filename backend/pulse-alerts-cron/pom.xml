@@ -410,9 +410,6 @@
                                 <exclude>org/dreamhorizon/pulsealertscron/verticle/**</exclude>
                                 <exclude>org/dreamhorizon/pulsealertscron/module/**</exclude>
                                 <exclude>org/dreamhorizon/pulsealertscron/guice/**</exclude>
-                                <exclude>org/dreamhorizon/pulsealertscron/client/**</exclude>
-                                <exclude>org/dreamhorizon/pulsealertscron/services/**</exclude>
-                                <exclude>org/dreamhorizon/pulsealertscron/dao/**</exclude>
                                 <exclude>org/dreamhorizon/pulsealertscron/MainApplication.class</exclude>
                                 <exclude>org/dreamhorizon/pulsealertscron/MainModule.class</exclude>
                                 <exclude>org/dreamhorizon/pulsealertscron/package-info.class</exclude>
@@ -437,9 +434,6 @@
                                 <exclude>org/dreamhorizon/pulsealertscron/verticle/**</exclude>
                                 <exclude>org/dreamhorizon/pulsealertscron/module/**</exclude>
                                 <exclude>org/dreamhorizon/pulsealertscron/guice/**</exclude>
-                                <exclude>org/dreamhorizon/pulsealertscron/client/**</exclude>
-                                <exclude>org/dreamhorizon/pulsealertscron/services/**</exclude>
-                                <exclude>org/dreamhorizon/pulsealertscron/dao/**</exclude>
                                 <exclude>org/dreamhorizon/pulsealertscron/MainApplication.class</exclude>
                                 <exclude>org/dreamhorizon/pulsealertscron/MainModule.class</exclude>
                                 <exclude>org/dreamhorizon/pulsealertscron/package-info.class</exclude>

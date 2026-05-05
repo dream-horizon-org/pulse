@@ -72,6 +72,7 @@ class ApplicationConfigTest {
     ApplicationConfig config = new ApplicationConfig(
         "dev",
         "cronUrl",
+        ApplicationConfig.DEFAULT_DASHBOARD_BASE_URL,
         "serviceUrl",
         30,
         "clientId",
