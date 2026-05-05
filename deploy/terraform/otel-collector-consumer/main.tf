@@ -9,10 +9,10 @@ terraform {
   }
 
   backend "s3" {
-      bucket       = "pulse-deployment-config"
-      key          = "terraform/production/pulse-otel-consumer/terraform.tfstate"
-      region       = "ap-south-1"
-      use_lockfile = true
+    bucket       = "pulse-deployment-config"
+    key          = "terraform/production/pulse-otel-consumer/terraform.tfstate"
+    region       = "ap-south-1"
+    use_lockfile = true
   }
 }
 
@@ -174,4 +174,48 @@ resource "aws_autoscaling_group" "otel-consumer" {
     create_before_destroy = true
     ignore_changes        = [launch_template]
   }
+}
+
+# -------------------------------------------------------------------
+# Route53 — one A record per ASG instance (pulse-otel-consumer-NN.pulse.local)
+# Instance numbering is stable: sorted by EC2 instance id (lexicographic).
+# After ASG rollout, run terraform apply again if the first apply sees zero instances.
+# -------------------------------------------------------------------
+
+data "aws_instances" "otel_consumer_asg" {
+  depends_on = [aws_autoscaling_group.otel-consumer]
+
+  filter {
+    name   = "tag:aws:autoscaling:groupName"
+    values = [aws_autoscaling_group.otel-consumer.name]
+  }
+
+  filter {
+    name   = "instance-state-name"
+    values = ["running"]
+  }
+}
+
+locals {
+  otel_consumer_sorted_ids = sort(data.aws_instances.otel_consumer_asg.ids)
+  # "01" => instance id — NN matches desired hostname pulse-otel-consumer-NN
+  otel_consumer_indexed = {
+    for i, id in local.otel_consumer_sorted_ids :
+    format("%02d", i + 1) => id
+  }
+}
+
+data "aws_instance" "otel_consumer" {
+  for_each    = toset(local.otel_consumer_sorted_ids)
+  instance_id = each.value
+}
+
+resource "aws_route53_record" "otel_consumer_node" {
+  for_each = local.otel_consumer_indexed
+
+  zone_id = var.route53_zone_id
+  name    = "pulse-otel-consumer-${each.key}.${var.route53_zone_name}"
+  type    = "A"
+  ttl     = 60
+  records = [data.aws_instance.otel_consumer[each.value].private_ip]
 }

@@ -94,6 +94,7 @@ public class SparkJobRunner {
         dispatch(jobType, spark, mysql, ch, referenceId, s3Prefix, runTime);
       }
       log.info("Job {} completed successfully", jobType);
+
       if (analyticsJobId != null) {
         mysql.updateAnalyticsJobSucceeded(analyticsJobId);
       }

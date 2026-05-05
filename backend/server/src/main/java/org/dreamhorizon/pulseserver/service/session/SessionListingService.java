@@ -251,6 +251,7 @@ public class SessionListingService {
                 .timeoutMs(TIMEOUT_MS)
                 .tenantId(tenantId)
                 .projectId(tenantId)
+                .useQueryConditionCache(true)
                 .build();
         return clickhouseQueryService.executeQueryOrCreateJob(config, SessionRow.class)
                 .map(result -> result.getRows() != null ? result.getRows() : Collections.emptyList());
@@ -261,6 +262,7 @@ public class SessionListingService {
                 .timeoutMs(TIMEOUT_MS)
                 .tenantId(tenantId)
                 .projectId(tenantId)
+                .useQueryConditionCache(true)
                 .build();
         return clickhouseQueryService.executeQueryOrCreateJob(config, JourneyRow.class)
                 .map(result -> result.getRows() != null ? result.getRows() : Collections.emptyList());
@@ -271,6 +273,7 @@ public class SessionListingService {
                 .timeoutMs(TIMEOUT_MS)
                 .tenantId(tenantId)
                 .projectId(tenantId)
+                .useQueryConditionCache(true)
                 .build();
         return clickhouseQueryService.executeQueryOrCreateJob(config, ImpactedScreensRow.class)
                 .map(result -> result.getRows() != null ? result.getRows() : Collections.emptyList());
@@ -281,6 +284,7 @@ public class SessionListingService {
                 .timeoutMs(TIMEOUT_MS)
                 .tenantId(tenantId)
                 .projectId(tenantId)
+                .useQueryConditionCache(true)
                 .build();
         return clickhouseQueryService.executeQueryOrCreateJob(config, ImpactedInteractionsRow.class)
                 .map(result -> result.getRows() != null ? result.getRows() : Collections.emptyList());

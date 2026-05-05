@@ -393,6 +393,7 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
                     userIdProvider = { userSessionEmitter.userId?.takeIf { it.isNotEmpty() } ?: "anonymous" },
                     isStartActive = dataCollectionState == PulseDataCollectionConsent.ALLOWED,
                     screenNameProvider = { Services.get(application).visibleScreenTracker.currentlyVisibleScreen },
+                    endpointHeaders = endpointHeaders,
                 ),
             )
         }

@@ -236,6 +236,7 @@ public class ClickhouseMetricService implements PerformanceMetricService {
             .timeoutMs(2000)
             .jobCreationMode(JobCreationMode.JOB_CREATION_OPTIONAL)
             .projectId(request.getProjectId())
+            .useQueryConditionCache(true)
             .build())
         .map(rawRes -> {
           GetRawUserEventsResponseDto.Schema schema = rawRes.data.getSchema();
