@@ -93,6 +93,7 @@ export * from "./useProjectMembers";
 
 // Project management hooks
 export * from "./useCreateProject";
+export * from "./useCreateTenant";
 export * from "./useProjectApiKeys";
 
 // Auth hooks
