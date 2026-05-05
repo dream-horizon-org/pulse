@@ -5,11 +5,28 @@ import org.dreamhorizon.pulseserver.resources.productAnalysis.journey.models.Jou
 import org.dreamhorizon.pulseserver.service.productAnalysis.journey.JourneyResultsMapper;
 import org.junit.jupiter.api.Test;
 
+import java.time.Instant;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 class JourneyResultsMapperTest {
+
+  @Test
+  void shouldHaveNullLastRunAtWhenEmpty() {
+    assertThat(JourneyResultsMapper.fromRows(List.of()).getLastRunAt()).isNull();
+  }
+
+  @Test
+  void shouldSetLastRunAtFromFirstRow() {
+    Instant runTime = Instant.parse("2026-05-01T10:00:00Z");
+    List<JourneyResultRow> rows = List.of(
+      JourneyResultRow.builder()
+        .direction("START").posFrom(-1).eventFrom("").posTo(0).eventTo("App_Launch")
+        .userCount(100L).runTime(runTime).build());
+
+    assertThat(JourneyResultsMapper.fromRows(rows).getLastRunAt()).isEqualTo(runTime);
+  }
 
   @Test
   void shouldMapEntryEdgeAndBuildNodes() {

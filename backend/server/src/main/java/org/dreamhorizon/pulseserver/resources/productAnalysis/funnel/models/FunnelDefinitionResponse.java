@@ -57,6 +57,8 @@ public class FunnelDefinitionResponse {
 
   private Instant updatedAt;
 
+  private Instant lastRunAt;
+
   private String createdBy;
 
   /**

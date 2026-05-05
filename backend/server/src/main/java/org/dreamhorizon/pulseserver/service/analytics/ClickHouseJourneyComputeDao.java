@@ -216,9 +216,10 @@ public final class ClickHouseJourneyComputeDao {
     int maxDays = defs.stream().mapToInt(JourneyRow::getDateRangeDays).max().orElse(30);
     String runTime = runTimeLiteral();
 
-    // All journeys in a batch must share a group key (UserId vs SessionId) so the shared
-    // `base` scan can carry a single `gid` column. ClickHouseComputeService groups by mode
-    // upstream, but defend against a mixed batch by falling back to single-builder paths.
+    // All journeys in a batch must share a group key (AppInstallationId vs SessionId) so
+    // the shared `base` scan can carry a single `gid` column. ClickHouseComputeService
+    // groups by mode upstream, but defend against a mixed batch by falling back to
+    // single-builder paths.
     String groupKey = ClickhouseAnalyticsQueryUtils.resolveMaterializedGroupKey(defs.get(0).getMode());
     boolean mixedGroupKeys = defs.stream().anyMatch(d ->
         !groupKey.equals(ClickhouseAnalyticsQueryUtils.resolveMaterializedGroupKey(d.getMode())));
