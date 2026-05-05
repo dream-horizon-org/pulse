@@ -350,23 +350,30 @@ class RootCauseSegmentTest {
   }
 
   @Nested
-  class AllArgsConstructor {
+  class FullFieldBuild {
 
     @Test
-    void shouldAllowCreationViaAllArgsConstructor() {
+    void shouldPopulateAllCoreFieldsViaBuilder() {
       Map<String, String> dimensions = Map.of("Platform", "Android");
       Map<String, Object> metrics = Map.of("error_rate", 5.0);
       Map<String, Double> deltas = Map.of("error_rate", 10.0);
       List<String> sessions = List.of("session-1");
 
       RootCauseSegment segment =
-          new RootCauseSegment("Android", dimensions, metrics, deltas, sessions);
+          RootCauseSegment.builder()
+              .label("Android")
+              .dimensions(dimensions)
+              .metrics(metrics)
+              .deltas(deltas)
+              .exampleSessionIds(sessions)
+              .build();
 
       assertThat(segment.getLabel()).isEqualTo("Android");
       assertThat(segment.getDimensions()).isEqualTo(dimensions);
       assertThat(segment.getMetrics()).isEqualTo(metrics);
       assertThat(segment.getDeltas()).isEqualTo(deltas);
       assertThat(segment.getExampleSessionIds()).isEqualTo(sessions);
+      assertThat(segment.getRelatedHeatmaps()).isNull();
     }
   }
 
