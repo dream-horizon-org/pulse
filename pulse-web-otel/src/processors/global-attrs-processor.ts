@@ -87,7 +87,8 @@ export class PulseGlobalAttributesProcessor
    * Use PulseWeb.setUserId() to persist across refreshes.
    */
   private _userId: string | null = null;
-  private _userProperties: Record<string, string> = {};
+  /** null values mark keys that should be suppressed even if present in localStorage. */
+  private _userProperties: Record<string, string | null> = {};
 
   constructor(
     private readonly sessionProvider: SessionProvider,
@@ -114,7 +115,7 @@ export class PulseGlobalAttributesProcessor
     props: Record<string, string>,
   ): void {
     this._userId = userId;
-    this._userProperties = { ...props };
+    this._userProperties = { ...props } as Record<string, string | null>;
   }
 
   setUserId(id: string | null): void {
@@ -126,11 +127,7 @@ export class PulseGlobalAttributesProcessor
   }
 
   setUserProperty(key: string, value: string | null): void {
-    if (value === null) {
-      delete this._userProperties[key];
-    } else {
-      this._userProperties[key] = value;
-    }
+    this._userProperties[key] = value; // null = suppression marker
   }
 
   setUserProperties(props: Record<string, string | null>): void {
@@ -140,7 +137,11 @@ export class PulseGlobalAttributesProcessor
   }
 
   getUserPropertiesSnapshot(): Record<string, string> {
-    return { ...this._userProperties };
+    const out: Record<string, string> = {};
+    for (const [k, v] of Object.entries(this._userProperties)) {
+      if (v !== null) out[k] = v;
+    }
+    return out;
   }
 
   getCurrentScreenName(): string {
@@ -211,11 +212,18 @@ export class PulseGlobalAttributesProcessor
       attrs["user.id"] = resolvedUserId;
     }
 
-    // User properties: merge persisted base with in-memory overrides.
+    // User properties: start from localStorage, apply in-memory overrides (null = suppress).
     const persistedProps = getPersistedUserProperties();
-    const merged: Record<string, string> = { ...persistedProps, ...this._userProperties };
+    const merged: Record<string, string> = { ...persistedProps };
+    for (const [k, v] of Object.entries(this._userProperties)) {
+      if (v === null) {
+        delete merged[k];
+      } else {
+        merged[k] = v;
+      }
+    }
     for (const [k, v] of Object.entries(merged)) {
-      attrs[`user.${k}`] = v;
+      attrs[`pulse.user.${k}`] = v;
     }
 
     return attrs;

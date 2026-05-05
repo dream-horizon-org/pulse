@@ -27,7 +27,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import {
   SessionProvider,
-  setPersistedUserId,
+  persistUserId as setPersistedUserId,
   getPersistedUserId,
   setPersistedUserProperties,
   getPersistedUserProperties,
@@ -47,7 +47,7 @@ const SESSION_START_KEY = "pulse_session_start";
 const SESSION_TAB_KEY = "pulse_tab_session";
 const SESSION_CLONE_FLAG_KEY = "pulse_session_clone_flag";
 const USER_ID_KEY = "pulse_user_id";
-const USER_PROPS_KEY = "pulse_user_props";
+const USER_PROPS_KEY = "pulse_user_properties";
 
 beforeEach(() => {
   window.localStorage.clear();
@@ -313,8 +313,8 @@ describe("PulseGlobalAttributesProcessor user identity injection", () => {
     setPersistedUserProperties({ plan: "pro", locale: "en-IN" });
     const proc = makeProcessor();
     const attrs = getAttrs(proc);
-    expect(attrs["user.plan"]).toBe("pro");
-    expect(attrs["user.locale"]).toBe("en-IN");
+    expect(attrs["pulse.user.plan"]).toBe("pro");
+    expect(attrs["pulse.user.locale"]).toBe("en-IN");
   });
 
   it("in-memory setUserId overrides localStorage value", () => {
@@ -338,8 +338,8 @@ describe("PulseGlobalAttributesProcessor user identity injection", () => {
     const proc = makeProcessor();
     proc.setUserProperties({ temp: null });
     const attrs = getAttrs(proc);
-    expect(attrs["user.plan"]).toBe("pro");
-    expect("user.temp" in attrs).toBe(false);
+    expect(attrs["pulse.user.plan"]).toBe("pro");
+    expect("pulse.user.temp" in attrs).toBe(false);
   });
 
   it("in-memory user props override localStorage props", () => {
@@ -347,6 +347,6 @@ describe("PulseGlobalAttributesProcessor user identity injection", () => {
     const proc = makeProcessor();
     proc.setUserProperties({ plan: "pro" });
     const attrs = getAttrs(proc);
-    expect(attrs["user.plan"]).toBe("pro");
+    expect(attrs["pulse.user.plan"]).toBe("pro");
   });
 });

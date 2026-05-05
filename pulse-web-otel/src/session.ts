@@ -28,17 +28,12 @@ const SESSION_ID_KEY = "pulse_session_id";
 const SESSION_TS_KEY = "pulse_session_ts";
 const SESSION_START_KEY = "pulse_session_start";
 const USER_ID_KEY = "pulse_user_id";
-const USER_PROPS_KEY = "pulse_user_props";
+const USER_PROPS_KEY = "pulse_user_properties";
 
 // Clone detection key (PostHog beforeunload flag pattern)
 // Written to sessionStorage on init; removed on beforeunload so reload sees it gone.
 // If flag is present on init → tab was cloned (duplicated tab) → session reused.
 const SESSION_CLONE_FLAG_KEY = "pulse_session_clone_flag";
-
-/** Android parity: persisted logged-in user id (localStorage). */
-const USER_ID_KEY = "pulse_user_id";
-/** Android parity: JSON map of user properties → `pulse.user.*` attributes. */
-const USER_PROPS_KEY = "pulse_user_properties";
 
 // Tab session key — written to sessionStorage on init and NOT removed on beforeunload.
 // Survives page reload (sessionStorage persists across reload in the same tab).
@@ -142,6 +137,24 @@ export function persistUserProperties(props: Record<string, string>): void {
   } catch (err: unknown) {
     swallowStorageError("userProps:localStorage", err);
   }
+}
+
+/**
+ * Merge-patch persisted user properties.
+ * Null values remove the corresponding key; all other values are written.
+ */
+export function setPersistedUserProperties(
+  props: Record<string, string | null>,
+): void {
+  const current = getPersistedUserProperties();
+  for (const [k, v] of Object.entries(props)) {
+    if (v === null) {
+      delete current[k];
+    } else {
+      current[k] = v;
+    }
+  }
+  persistUserProperties(current);
 }
 
 /** Clear all persisted user identity (userId + properties). Call on logout. */
