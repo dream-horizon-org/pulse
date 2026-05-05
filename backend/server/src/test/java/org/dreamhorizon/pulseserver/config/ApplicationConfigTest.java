@@ -180,6 +180,26 @@ class ApplicationConfigTest {
   }
 
   @Test
+  void resolveDashboardBaseUrlForNotificationsUsesDefaultWhenUnset() {
+    ApplicationConfig config = new ApplicationConfig();
+    assertEquals(ApplicationConfig.DEFAULT_DASHBOARD_BASE_URL, config.resolveDashboardBaseUrlForNotifications());
+  }
+
+  @Test
+  void resolveDashboardBaseUrlForNotificationsUsesDefaultWhenBlank() {
+    ApplicationConfig config = new ApplicationConfig();
+    config.setDashboardBaseUrl("  ");
+    assertEquals(ApplicationConfig.DEFAULT_DASHBOARD_BASE_URL, config.resolveDashboardBaseUrlForNotifications());
+  }
+
+  @Test
+  void resolveDashboardBaseUrlForNotificationsNormalizesConfiguredValue() {
+    ApplicationConfig config = new ApplicationConfig();
+    config.setDashboardBaseUrl(" https://custom.example.com/// ");
+    assertEquals("https://custom.example.com", config.resolveDashboardBaseUrlForNotifications());
+  }
+
+  @Test
   void toStringContainsFields() {
     ApplicationConfig config = new ApplicationConfig();
     config.setFirebaseProjectId("proj1");

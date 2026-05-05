@@ -14,8 +14,15 @@ import lombok.extern.slf4j.Slf4j;
 public class ApplicationConfig {
   public String appEnvironment;
   public String cronManagerBaseUrl;
-  /** Public Pulse UI origin for usage-limit email template param {@code {{dashboardUrl}}}. */
+  /**
+   * Public Pulse UI origin (env {@code CONFIG_SERVICE_APPLICATION_DASHBOARDBASEURL}). Used for
+   * {@code {{dashboardUrl}}} in all notification templates; see {@link
+   * #resolveDashboardBaseUrlForNotifications()}.
+   */
   public String dashboardBaseUrl;
+
+  /** Fallback when {@link #dashboardBaseUrl} is unset or blank after normalization. */
+  public static final String DEFAULT_DASHBOARD_BASE_URL = "https://app.pulse-ux.com";
   public String serviceUrl;
   public Integer shutdownGracePeriod;
   public String googleOAuthClientId;
@@ -92,5 +99,21 @@ public class ApplicationConfig {
       end--;
     }
     return url.substring(0, end);
+  }
+
+  /**
+   * Normalized public UI base for email and other templates ({@code {{dashboardUrl}}}). Trims
+   * {@link #dashboardBaseUrl}, strips trailing slashes, then falls back to {@link
+   * #DEFAULT_DASHBOARD_BASE_URL} when unset or blank.
+   */
+  public String resolveDashboardBaseUrlForNotifications() {
+    if (dashboardBaseUrl == null) {
+      return DEFAULT_DASHBOARD_BASE_URL;
+    }
+    String trimmed = dashboardBaseUrl.trim();
+    if (trimmed.isEmpty()) {
+      return DEFAULT_DASHBOARD_BASE_URL;
+    }
+    return stripTrailingSlashes(trimmed);
   }
 }

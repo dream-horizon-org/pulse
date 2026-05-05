@@ -14,7 +14,6 @@ import java.util.stream.Collectors;
 import io.reactivex.rxjava3.schedulers.Schedulers;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.dreamhorizon.pulseserver.config.ApplicationConfig;
 import org.dreamhorizon.pulseserver.resources.notification.models.NotificationBatchResponseDto;
 import org.dreamhorizon.pulseserver.resources.notification.models.NotificationResultDto;
 import org.dreamhorizon.pulseserver.resources.notification.models.RecipientsDto;
@@ -36,8 +35,6 @@ import org.dreamhorizon.pulseserver.service.usagelimit.models.UsageNotificationR
 @RequiredArgsConstructor(onConstructor_ = @Inject)
 public class UsageLimitNotificationProcessService {
 
-  /** Used when {@link ApplicationConfig#dashboardBaseUrl} is unset or blank after trim. */
-  private static final String DEFAULT_DASHBOARD_URL = "https://app.pulse-ux.com";
   /** Cap combined error text (DB column allows ~8k; dao truncates at 8k). */
   private static final int MAX_ERROR_MESSAGE_TOTAL = 7500;
   /** Per failure line to avoid one huge message eating the budget. */
@@ -52,7 +49,6 @@ public class UsageLimitNotificationProcessService {
 
   private final UsageLimitService usageLimitService;
   private final NotificationService notificationService;
-  private final ApplicationConfig applicationConfig;
 
   public Completable processUsageLimitNotifications() {
     long startTime = System.currentTimeMillis();
@@ -199,7 +195,6 @@ public class UsageLimitNotificationProcessService {
     params.put("notifyFor", notification.getNotifyFor());
     params.put("eventsPercentageDisplay", eventsDisplay);
     params.put("sessionsPercentageDisplay", sessionsDisplay);
-    params.put("dashboardUrl", resolveDashboardUrlForEmail());
     if (notification.getTenantId() != null && !notification.getTenantId().isBlank()) {
       params.put("tenantId", notification.getTenantId());
     }
@@ -221,25 +216,6 @@ public class UsageLimitNotificationProcessService {
             .recipients(recipients)
             .build();
     return notificationService.sendNotification(notification.getProjectId(), request);
-  }
-
-  /**
-   * Trims configured {@link ApplicationConfig#getDashboardBaseUrl()}, strips trailing slashes, and
-   * falls back to {@link #DEFAULT_DASHBOARD_URL} when unset or blank.
-   */
-  private String resolveDashboardUrlForEmail() {
-    String configured = applicationConfig.getDashboardBaseUrl();
-    if (configured == null) {
-      return DEFAULT_DASHBOARD_URL;
-    }
-    String trimmed = configured.trim();
-    if (trimmed.isEmpty()) {
-      return DEFAULT_DASHBOARD_URL;
-    }
-    while (trimmed.endsWith("/")) {
-      trimmed = trimmed.substring(0, trimmed.length() - 1);
-    }
-    return trimmed;
   }
 
   /**
