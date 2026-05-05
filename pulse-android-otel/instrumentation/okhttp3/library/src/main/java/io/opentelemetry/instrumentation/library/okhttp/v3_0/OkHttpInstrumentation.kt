@@ -112,5 +112,9 @@ class OkHttpInstrumentation : AndroidInstrumentation {
         OkHttp3Singletons.configure(this, ctx.openTelemetry)
     }
 
+    override fun uninstall(ctx: InstallationContext) {
+        OkHttp3Singletons.disableInstrumentedInterceptors()
+    }
+
     override val name: String = "okhttp"
 }

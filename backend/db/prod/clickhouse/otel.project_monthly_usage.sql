@@ -20,7 +20,7 @@ AS otel.project_monthly_usage_local
 ENGINE = Distributed('pulse-ch', otel, project_monthly_usage_local, cityHash64(project_id));
 
 
-CREATE MATERIALIZED VIEW otel.project_monthly_logs_mv
+CREATE MATERIALIZED VIEW IF NOT EXISTS otel.project_monthly_logs_mv
     ON CLUSTER 'pulse-ch' -- Clause moved here
     TO otel.project_monthly_usage
 (
@@ -43,7 +43,7 @@ GROUP BY
     source;
 
 
-CREATE MATERIALIZED VIEW otel.project_monthly_traces_mv
+CREATE MATERIALIZED VIEW IF NOT EXISTS otel.project_monthly_traces_mv
     ON CLUSTER 'pulse-ch'
     TO otel.project_monthly_usage
 (
@@ -63,10 +63,10 @@ AS SELECT
    GROUP BY
     project_id,
     month,
-    source
+    source;
 
 
-CREATE MATERIALIZED VIEW otel.project_monthly_stack_traces_events_mv
+CREATE MATERIALIZED VIEW IF NOT EXISTS otel.project_monthly_stack_traces_events_mv
     ON CLUSTER 'pulse-ch'
     TO otel.project_monthly_usage
 (
@@ -86,4 +86,4 @@ AS SELECT
    GROUP BY
     project_id,
     month,
-    source
+    source;

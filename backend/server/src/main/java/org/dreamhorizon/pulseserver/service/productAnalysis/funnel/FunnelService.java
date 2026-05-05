@@ -16,6 +16,14 @@ public interface FunnelService {
 
   Completable delete(String projectId, long id);
 
+  /**
+   * Stops auto-refresh for an AUTO funnel by flipping its type to ONCE and freezing the
+   * analysis window. The cron's {@code listAllAuto()} no longer picks it up, and the
+   * computed-status CASE renders it as COMPLETED. Idempotent — calling on an already-stopped
+   * funnel is a no-op (DAO returns 0 rows).
+   */
+  Completable stopAuto(String projectId, long id);
+
   Single<FunnelDefinitionResponse> get(String projectId, long id);
 
   Single<FunnelDefinitionListResponse> list(String projectId, FunnelListQueryParams query);

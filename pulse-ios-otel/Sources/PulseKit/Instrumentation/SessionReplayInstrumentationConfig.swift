@@ -9,24 +9,29 @@ import UIKit
 #endif
 
 public struct SessionReplayInstrumentationConfig {
-    public private(set) var enabled: Bool = false
     public private(set) var config: SessionReplayConfig = SessionReplayConfig()
+    internal private(set) var enabled: Bool = false
 
     /// Set from `Pulse.initialize` before `installInstrumentations`. Defaults match legacy “always allowed” if unset.
     internal private(set) var pulseIsSessionReplayCaptureAllowed: () -> Bool = { true }
     internal private(set) var pulseSessionReplayStartActiveAtInstall: Bool = true
 
-    public init(enabled: Bool = false, config: SessionReplayConfig = SessionReplayConfig()) {
-        self.enabled = enabled
+    public init(config: SessionReplayConfig = SessionReplayConfig()) {
         self.config = config
     }
 
-    public mutating func enabled(_ value: Bool) {
+    internal mutating func enabled(_ value: Bool) {
         self.enabled = value
     }
 
-    public mutating func configure(_ configure: (inout SessionReplayConfig) -> Void) {
-        configure(&self.config)
+    /// Add a view class (fully-qualified name) to always mask. Subclasses are also masked.
+    public mutating func addMaskViewClass(_ className: String) {
+        config.addMaskViewClass(className)
+    }
+
+    /// Add a view class (fully-qualified name) to never mask by global config.
+    public mutating func addUnmaskViewClass(_ className: String) {
+        config.addUnmaskViewClass(className)
     }
 
     internal mutating func attachPulseSessionReplayConsent(
@@ -35,6 +40,11 @@ public struct SessionReplayInstrumentationConfig {
     ) {
         pulseIsSessionReplayCaptureAllowed = isCaptureAllowed
         pulseSessionReplayStartActiveAtInstall = startActiveAtInstall
+    }
+
+    /// SDK-internal: applies resolved backend config after merge. Not for public use.
+    internal mutating func internalSetRuntimeConfig(_ config: SessionReplayConfig) {
+        self.config = config
     }
 }
 
