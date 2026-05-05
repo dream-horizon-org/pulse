@@ -22,6 +22,7 @@ import com.pulse.android.sdk.replay.events.WireframeType
 import com.pulse.android.sdk.replay.internal.util.isValid
 import com.pulse.android.sdk.replay.internal.util.webpBase64
 import kotlinx.coroutines.suspendCancellableCoroutine
+import java.util.Locale
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import kotlin.coroutines.resume
@@ -245,6 +246,8 @@ internal object ScreenshotCapture {
     ): ReplayWireframe? {
         val scale = screenshotScale.coerceIn(0.01f, 1f)
         val quality = screenshotQuality.coerceIn(0, 100)
+        val origW = bitmap.width
+        val origH = bitmap.height
         // Scale before try/catch so toEncode is always defined for cleanup in catch.
         val toEncode: Bitmap =
             if (scale < 1f && bitmap.isValid()) {
@@ -257,7 +260,21 @@ internal object ScreenshotCapture {
                 bitmap
             }
         return try {
+            val encW = toEncode.width
+            val encH = toEncode.height
             val base64 = if (isSuccess) toEncode.webpBase64(quality) else null
+            if (isSuccess) {
+                logScreenshotEncodedSize(
+                    logger = logger,
+                    base64 = base64,
+                    scale = scale,
+                    origWidthPx = origW,
+                    origHeightPx = origH,
+                    encWidthPx = encW,
+                    encHeightPx = encH,
+                    quality = quality,
+                )
+            }
             if (toEncode.isValid()) toEncode.recycle()
             ReplayWireframe(
                 id = viewId,
@@ -371,6 +388,8 @@ internal object ScreenshotCapture {
                 }
                 canvas.drawRoundRect(RectF(rect), 10f, 10f, maskPaint)
             }
+            val origW = bitmap.width
+            val origH = bitmap.height
             val toEncode =
                 if (scale < 1f && bitmap.isValid()) {
                     val w = (bitmap.width * scale).toInt().coerceAtLeast(1)
@@ -381,7 +400,19 @@ internal object ScreenshotCapture {
                 } else {
                     bitmap
                 }
+            val encW = toEncode.width
+            val encH = toEncode.height
             val base64 = toEncode.webpBase64(quality)
+            logScreenshotEncodedSize(
+                logger = logger,
+                base64 = base64,
+                scale = scale,
+                origWidthPx = origW,
+                origHeightPx = origH,
+                encWidthPx = encW,
+                encHeightPx = encH,
+                quality = quality,
+            )
             if (toEncode.isValid()) toEncode.recycle()
             ReplayWireframe(
                 id = viewId,
@@ -398,6 +429,66 @@ internal object ScreenshotCapture {
             logger("Session Replay PixelCopy callback failed: $e")
             null
         }
+    }
+
+    /**
+     * Logs WebP size (KB + bytes from base64, no decode allocation), optional downscale
+     * (original → encoded pixels and scale factor), and quality.
+     */
+    private fun logScreenshotEncodedSize(
+        logger: (String) -> Unit,
+        base64: String?,
+        scale: Float,
+        origWidthPx: Int,
+        origHeightPx: Int,
+        encWidthPx: Int,
+        encHeightPx: Int,
+        quality: Int,
+    ) {
+        val scaleDetail = formatScreenshotScaleDetail(scale, origWidthPx, origHeightPx, encWidthPx, encHeightPx)
+        if (base64 == null) {
+            logger(
+                "Session Replay screenshot: WebP encode returned null ($scaleDetail, quality=$quality)",
+            )
+            return
+        }
+        val webpBytes = base64DecodedByteLength(base64)
+        val webpKb = webpBytes / 1024.0
+        logger(
+            "Session Replay screenshot: WebP ${String.format(Locale.US, "%.2f", webpKb)} KB " +
+                "($webpBytes bytes), base64 ${base64.length} chars, $scaleDetail, quality=$quality",
+        )
+    }
+
+    /** e.g. `1080x2340 → 540x1170px (scale 0.50, downscaled)` or `1080x2340px (scale 1.00)`. */
+    private fun formatScreenshotScaleDetail(
+        scale: Float,
+        origWidthPx: Int,
+        origHeightPx: Int,
+        encWidthPx: Int,
+        encHeightPx: Int,
+    ): String {
+        val scaleStr = String.format(Locale.US, "%.2f", scale)
+        return if (scale < 1f) {
+            "${origWidthPx}x${origHeightPx} → ${encWidthPx}x${encHeightPx}px (scale $scaleStr, downscaled)"
+        } else {
+            "${encWidthPx}x${encHeightPx}px (scale $scaleStr)"
+        }
+    }
+
+    /** Binary length represented by standard base64 without decoding. */
+    private fun base64DecodedByteLength(base64: String): Int {
+        val len = base64.length
+        if (len == 0) {
+            return 0
+        }
+        val padding =
+            when {
+                len >= 2 && base64[len - 2] == '=' -> 2
+                base64[len - 1] == '=' -> 1
+                else -> 0
+            }
+        return len * 3 / 4 - padding
     }
 
     internal fun isVisible(

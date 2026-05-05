@@ -23,7 +23,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         ]
         
         Pulse.shared.initialize(
-            apiKey: "default-project_devkey01",
+            apiKey: "Bharti11-Vhg9eEy9_foRWzkosKnAVhKwqeGyR19cO",
             dataCollectionState: .allowed,
             globalAttributes: globalAttributes,
             instrumentations: { config in

@@ -280,8 +280,25 @@ public class SessionReplayRecorder {
                     image: capturedImage,
                     quality: self.config.effectiveCompressionQuality
                 ) else {
+                    let scaleLog = String(format: "%.2f", Double(self.config.effectiveScreenshotScale))
+                    PulseLogger.debug(
+                        "Session Replay screenshot: compress returned nil (image pt \(Int(capturedImage.size.width))x\(Int(capturedImage.size.height)), scale=\(scaleLog))"
+                    )
                     return
                 }
+
+                var dedupStatus = self.getWindowStatus(window: window)
+                if dedupStatus.lastCompressedData == compressed.data {
+                    return
+                }
+                dedupStatus.lastCompressedData = compressed.data
+                self.updateWindowStatus(window: window, status: dedupStatus)
+
+                self.logSessionReplayScreenshotPayload(
+                    compressedData: compressed.data,
+                    format: compressed.format,
+                    capturedImage: capturedImage
+                )
 
                 let imgW = Int(capturedImage.size.width)
                 let imgH = Int(capturedImage.size.height)
@@ -590,6 +607,53 @@ public class SessionReplayRecorder {
         let flag = onDrawFlag
         drawFlagLock.unlock()
         return flag
+    }
+
+    /// Debug: encoded image size (matches wire payload binary), estimated base64 length scale/downscale, quality.
+    private func logSessionReplayScreenshotPayload(
+        compressedData: Data,
+        format: SessionReplayFrame.ImageFormat,
+        capturedImage: UIImage
+    ) {
+        let clampedScale = self.config.effectiveScreenshotScale
+        let compressionQuality = self.config.effectiveCompressionQuality
+
+        let encW: Int
+        let encH: Int
+        if let cg = capturedImage.cgImage {
+            encW = cg.width
+            encH = cg.height
+        } else {
+            encW = Int(round(capturedImage.size.width * capturedImage.scale))
+            encH = Int(round(capturedImage.size.height * capturedImage.scale))
+        }
+
+        let origW: Int
+        let origH: Int
+        if clampedScale < 1.0 {
+            origW = max(1, Int((Double(encW) / Double(clampedScale)).rounded()))
+            origH = max(1, Int((Double(encH) / Double(clampedScale)).rounded()))
+        } else {
+            origW = encW
+            origH = encH
+        }
+
+        let byteCount = compressedData.count
+        let kb = Double(byteCount) / 1024.0
+        let base64CharCount = (byteCount + 2) / 3 * 4
+        let scaleStr = String(format: "%.2f", Double(clampedScale))
+        let qualityStr = String(format: "%.2f", Double(compressionQuality))
+        let scaleDetail: String
+        if clampedScale < 1.0 {
+            scaleDetail = "\(origW)x\(origH) → \(encW)x\(encH)px (scale \(scaleStr), downscaled)"
+        } else {
+            scaleDetail = "\(encW)x\(encH)px (scale \(scaleStr))"
+        }
+        let formatStr = format == .webp ? "WebP" : "JPEG"
+        let kbStr = String(format: "%.2f", kb)
+        PulseLogger.debug(
+            "Session Replay screenshot: \(formatStr) \(kbStr) KB (\(byteCount) bytes), base64 \(base64CharCount) chars, \(scaleDetail), quality=\(qualityStr)"
+        )
     }
 }
 #else
