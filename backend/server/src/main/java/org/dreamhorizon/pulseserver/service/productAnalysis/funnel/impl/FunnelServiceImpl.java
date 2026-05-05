@@ -19,6 +19,7 @@ import org.dreamhorizon.pulseserver.dao.productAnalysis.funneldefinition.models.
 import org.dreamhorizon.pulseserver.dao.productAnalysis.funneljourneytag.FunnelJourneyTagDao;
 import org.dreamhorizon.pulseserver.dao.productAnalysis.funneljourneytag.FunnelJourneyTagEntityType;
 import org.dreamhorizon.pulseserver.dao.productAnalysis.funnelresults.FunnelResultsDao;
+import org.dreamhorizon.pulseserver.dao.productAnalysis.funnelresults.models.FunnelConversionSummaryRow;
 import org.dreamhorizon.pulseserver.dao.analyticsjob.AnalyticsJobDao;
 import org.dreamhorizon.pulseserver.dao.analyticsjob.AnalyticsJobType;
 import org.dreamhorizon.pulseserver.error.ServiceError;
@@ -273,7 +274,27 @@ public class FunnelServiceImpl implements FunnelService {
             funnelJourneyTagDao
               .listTagsForEntity(projectId, FunnelJourneyTagEntityType.FUNNEL, id)
               .onErrorReturnItem(List.of());
-          return Single.zip(results, tags, (r, t) -> toResponse(row, r, t));
+          // Listing populates conversionTrend via queryConversionSummaries; the detail
+          // path was building the response via the 3-arg toResponse(...) overload that
+          // passed null/null for the trend, so the UI rendered "+0% from last week".
+          // Fetch the same summary here so detail and listing agree.
+          Single<FunnelConversionSummaryRow> summary =
+            funnelResultsDao
+              .queryConversionSummaries(projectId, List.of(id))
+              .map(map -> map.getOrDefault(
+                id,
+                FunnelConversionSummaryRow.builder().funnelId(id).build()))
+              .onErrorReturn(err -> {
+                log.warn(
+                  "Failed to load conversion summary for funnel {} (project {}): {}",
+                  id, projectId, err.toString());
+                return FunnelConversionSummaryRow.builder().funnelId(id).build();
+              });
+          return Single.zip(
+            results,
+            tags,
+            summary,
+            (r, t, s) -> toResponse(row, r, t, s.getConversionPct(), s.getConversionTrend()));
         });
   }
 

@@ -282,12 +282,12 @@ export function FunnelsList() {
         ),
       },
       {
-        accessor: "updatedAt",
-        title: "Last updated",
+        accessor: "createdAt",
+        title: "Created at",
         render: (row: FunnelListItem) => (
           <Text size="sm" c="dark.4" ta="left">
-            {row.updatedAt
-              ? dayjs(row.updatedAt).format("MMM D, YYYY HH:mm")
+            {row.createdAt
+              ? dayjs(row.createdAt).format("MMM D, YYYY HH:mm")
               : "—"}
           </Text>
         ),

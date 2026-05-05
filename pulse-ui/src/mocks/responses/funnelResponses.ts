@@ -567,6 +567,8 @@ const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
     | "FAILED"
     | "COMPLETED";
   createdBy: string;
+  /** Optional explicit creation timestamp; synthesised by the detail projector when omitted. */
+  createdAt?: string;
   updatedAt: string;
   tags: string[];
   /** AUTO funnels/journeys: ISO datetime when auto-refresh stops (canonical detail name). */
@@ -865,6 +867,7 @@ function projectFunnelListItem(row: MockFunnelJourneyRow) {
     name: row.name,
     status: row.status,
     createdBy: row.createdBy,
+    createdAt: row.createdAt ?? synthesizeCreatedAt(row.updatedAt),
     updatedAt: row.updatedAt,
     tags: row.tags,
     funnelType: row.funnelType ?? FunnelType.AUTO,
@@ -884,10 +887,22 @@ function projectJourneyListItem(row: MockFunnelJourneyRow) {
     name: row.name,
     status: row.status,
     createdBy: row.createdBy,
+    createdAt: row.createdAt ?? synthesizeCreatedAt(row.updatedAt),
     updatedAt: row.updatedAt,
     tags: row.tags,
     journeyType: row.journeyType ?? row.funnelType ?? FunnelType.AUTO,
   };
+}
+
+/**
+ * Mocks rows historically only carry `updatedAt`. To render a plausible "Created at"
+ * column without backfilling every fixture, default to two days before the update
+ * timestamp. Real prod listings always include both, so this only matters in mock mode.
+ */
+function synthesizeCreatedAt(updatedAt: string): string {
+  const t = new Date(updatedAt).getTime();
+  if (Number.isNaN(t)) return updatedAt;
+  return new Date(t - 2 * 24 * 60 * 60 * 1000).toISOString();
 }
 
 /** Default `funnelResults` payload for funnel detail when no precomputed shape exists. */
@@ -930,7 +945,12 @@ function buildJourneyResultsForRow(row: MockFunnelJourneyRow) {
  * windowSeconds, funnelType, stepOrderType, createdAt, description, funnelResults).
  */
 function projectFunnelDetail(row: MockFunnelJourneyRow) {
-  const createdAt = "2026-01-15T10:00:00Z";
+  // Honor an explicit createdAt on the mock row when set; otherwise synthesise it from
+  // updatedAt (so the detail page matches whatever the listing column shows) and fall
+  // back to a fixed seed date for fixtures that have neither.
+  const createdAt =
+    row.createdAt ??
+    (row.updatedAt ? synthesizeCreatedAt(row.updatedAt) : "2026-01-15T10:00:00Z");
   return {
     id: row.id,
     name: row.name,
@@ -953,6 +973,10 @@ function projectFunnelDetail(row: MockFunnelJourneyRow) {
     createdBy: row.createdBy,
     tags: row.tags,
     funnelResults: buildFunnelResultsForRow(row),
+    // Surface listing-level conversion summary on the detail too so the detail
+    // page's "+X% from last week" matches the listing's trend chip.
+    overallConversionRate: row.overallConversionRate,
+    conversionTrend: row.conversionTrend,
   };
 }
 
@@ -962,7 +986,9 @@ function projectFunnelDetail(row: MockFunnelJourneyRow) {
  * createdAt, description, journeyResults).
  */
 function projectJourneyDetail(row: MockFunnelJourneyRow) {
-  const createdAt = "2026-02-01T12:00:00Z";
+  const createdAt =
+    row.createdAt ??
+    (row.updatedAt ? synthesizeCreatedAt(row.updatedAt) : "2026-02-01T12:00:00Z");
   return {
     id: row.id,
     name: row.name,
