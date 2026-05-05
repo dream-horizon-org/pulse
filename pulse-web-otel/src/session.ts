@@ -27,6 +27,8 @@ const INSTALL_KEY = "pulse_installation_id";
 const SESSION_ID_KEY = "pulse_session_id";
 const SESSION_TS_KEY = "pulse_session_ts";
 const SESSION_START_KEY = "pulse_session_start";
+const USER_ID_KEY = "pulse_user_id";
+const USER_PROPS_KEY = "pulse_user_props";
 
 // Clone detection key (PostHog beforeunload flag pattern)
 // Written to sessionStorage on init; removed on beforeunload so reload sees it gone.
@@ -139,6 +141,16 @@ export function persistUserProperties(props: Record<string, string>): void {
     }
   } catch (err: unknown) {
     swallowStorageError("userProps:localStorage", err);
+  }
+}
+
+/** Clear all persisted user identity (userId + properties). Call on logout. */
+export function clearPersistedUserIdentity(): void {
+  try {
+    localStorage.removeItem(USER_ID_KEY);
+    localStorage.removeItem(USER_PROPS_KEY);
+  } catch (err: unknown) {
+    swallowStorageError("clearUserIdentity", err);
   }
 }
 
@@ -285,11 +297,21 @@ export class SessionProvider {
         const lifetimeOk = age <= this.maxSessionLifetimeMs;
 
         if (inactivityOk && lifetimeOk) {
-          // Reuse session only when: clone (duplicated tab) OR same-tab reload.
-          // A brand-new tab has neither flag → session.start must fire.
-          if (hasCloneFlag || hasTabSession) {
-            this._sessionReused = true;
-          }
+          // Reuse any unexpired session from localStorage, regardless of how this
+          // page load arrived (same-tab reload, new tab, or cross-origin redirect).
+          //
+          // Previously this was gated on `hasCloneFlag || hasTabSession` (sessionStorage
+          // flags), which correctly distinguished reloads from new tabs but broke payment
+          // flows: a payment gateway redirect clears sessionStorage, so returning users
+          // would get a duplicate session.start for the same session ID.
+          //
+          // Standard web analytics behaviour (PostHog, Sentry, Mixpanel) is: any page
+          // load within the inactivity window continues the existing session regardless
+          // of how the navigation arrived.  The sessionStorage flags are still written so
+          // clone detection works for other purposes.
+          this._sessionReused = true;
+          void hasCloneFlag; // read above, still useful for future clone-specific logic
+          void hasTabSession;
         }
         // If session expired (by inactivity or lifetime), rotation happens lazily in getSessionId()
       }

@@ -5,7 +5,11 @@ import type { Span, Context } from "@opentelemetry/api";
 import type { SpanProcessor, ReadableSpan } from "@opentelemetry/sdk-trace-web";
 import type { LogRecord, LogRecordProcessor } from "@opentelemetry/sdk-logs";
 import type { SessionProvider } from "../session";
-import { getOrCreateInstallationId } from "../session";
+import {
+  getOrCreateInstallationId,
+  getPersistedUserId,
+  getPersistedUserProperties,
+} from "../session";
 import type { PulseWebConfig } from "../config";
 import { computeAspectRatio } from "../resource";
 
@@ -76,6 +80,12 @@ export class PulseGlobalAttributesProcessor
   private manualScreenName: string | null = null;
   private manualScreenNamePath: string | null = null;
   private readonly screenAspectRatio: string;
+  /**
+   * In-memory user ID. null = read from localStorage (persisted value).
+   * Set explicitly via setUserId() to override the persisted value for
+   * the current page load without writing to localStorage.
+   * Use PulseWeb.setUserId() to persist across refreshes.
+   */
   private _userId: string | null = null;
   private _userProperties: Record<string, string> = {};
 
@@ -97,20 +107,6 @@ export class PulseGlobalAttributesProcessor
     this.manualScreenName = name;
     this.manualScreenNamePath =
       typeof location !== "undefined" ? location.pathname : null;
-  }
-
-  getCurrentScreenName(): string {
-    // Clear manual override if the URL has changed since it was set (SPA navigation).
-    if (
-      this.manualScreenName !== null &&
-      this.manualScreenNamePath !== null &&
-      typeof location !== "undefined" &&
-      location.pathname !== this.manualScreenNamePath
-    ) {
-      this.manualScreenName = null;
-      this.manualScreenNamePath = null;
-    }
-    return resolveScreenName(this.manualScreenName, this.config);
   }
 
   hydrateUserIdentity(
@@ -145,6 +141,20 @@ export class PulseGlobalAttributesProcessor
 
   getUserPropertiesSnapshot(): Record<string, string> {
     return { ...this._userProperties };
+  }
+
+  getCurrentScreenName(): string {
+    // Clear manual override if the URL has changed since it was set (SPA navigation).
+    if (
+      this.manualScreenName !== null &&
+      this.manualScreenNamePath !== null &&
+      typeof location !== "undefined" &&
+      location.pathname !== this.manualScreenNamePath
+    ) {
+      this.manualScreenName = null;
+      this.manualScreenNamePath = null;
+    }
+    return resolveScreenName(this.manualScreenName, this.config);
   }
 
   /**
@@ -194,12 +204,18 @@ export class PulseGlobalAttributesProcessor
       }
     }
 
-    // User identity — always overrides globalAttributes so API wins over config
-    if (this._userId !== null) {
-      attrs["user.id"] = this._userId;
+    // User identity — in-memory takes priority; falls back to localStorage so
+    // userId/properties set via PulseWeb.setUserId() survive page refresh.
+    const resolvedUserId = this._userId ?? getPersistedUserId();
+    if (resolvedUserId) {
+      attrs["user.id"] = resolvedUserId;
     }
-    for (const [k, v] of Object.entries(this._userProperties)) {
-      attrs[`pulse.user.${k}`] = v;
+
+    // User properties: merge persisted base with in-memory overrides.
+    const persistedProps = getPersistedUserProperties();
+    const merged: Record<string, string> = { ...persistedProps, ...this._userProperties };
+    for (const [k, v] of Object.entries(merged)) {
+      attrs[`user.${k}`] = v;
     }
 
     return attrs;
