@@ -36,7 +36,7 @@ ORDER BY (ProjectId, sessionId)
 SETTINGS index_granularity = 8192;
 
 
-CREATE MATERIALIZED VIEW otel.session_crash_mv TO otel.session_summary
+CREATE MATERIALIZED VIEW IF NOT EXISTS otel.session_crash_mv TO otel.session_summary
 (
     `ProjectId` LowCardinality(String),
     `sessionId` String,
@@ -58,10 +58,9 @@ AS SELECT
    WHERE SessionId != ''
    GROUP BY
             ProjectId,
-            SessionId
+            SessionId;
 
-
-CREATE MATERIALIZED VIEW otel.session_summary_mv TO otel.session_summary
+CREATE MATERIALIZED VIEW IF NOT EXISTS otel.session_summary_mv TO otel.session_summary
 (
     `ProjectId` LowCardinality(String),
     `sessionId` String,
@@ -107,9 +106,9 @@ AS SELECT
    WHERE SessionId != ''
    GROUP BY
             ProjectId,
-            SessionId
+            SessionId;
 
-CREATE MATERIALIZED VIEW otel.session_summary_replay_mv TO otel.session_summary
+CREATE MATERIALIZED VIEW IF NOT EXISTS otel.session_summary_replay_mv TO otel.session_summary
 (
     `ProjectId` LowCardinality(String),
     `sessionId` String,
@@ -127,4 +126,4 @@ AS SELECT
    WHERE (SessionId != '') AND (ProjectId != '') AND (MinFirstTimestamp IS NOT NULL) AND (MaxLastTimestamp IS NOT NULL)
    GROUP BY
             ProjectId,
-            SessionId
+            SessionId;

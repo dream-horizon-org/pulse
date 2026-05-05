@@ -127,39 +127,6 @@ sessions.shouldPersist = @YES;
 inst.sessions = sessions;
 ```
 
-### UIKit Tap (Interaction)
-```objc
-PulseObjcUIKitTapConfig *tap = [PulseObjcUIKitTapConfig new];
-tap.enabled = @YES;
-tap.captureContext = @YES;
-
-PulseObjcRageConfig *rage = [PulseObjcRageConfig new];
-rage.timeWindowMs = @(400);
-rage.rageThreshold = @(3);
-rage.radiusPt = @(20.0);
-tap.rage = rage;
-
-inst.uiKitTap = tap;
-```
-
-### Session Replay
-```objc
-PulseObjcSessionReplayConfig *replay = [PulseObjcSessionReplayConfig new];
-replay.enabled = @YES;
-replay.replayEndpointBaseUrl = @"https://replay.your-domain.com";
-replay.textAndInputPrivacy = @"mask_sensitive_inputs"; // "mask_all_inputs" | "mask_sensitive_inputs" | "mask_all" (default)
-replay.imagePrivacy = @"mask_none";                    // "mask_none" | "mask_all" (default)
-replay.captureIntervalMs = @(100);
-replay.compressionQuality = @(0.8);
-replay.screenshotScale = @(1.0);
-replay.flushIntervalSeconds = @(30);
-replay.flushAt = @(20);
-replay.maxBatchSize = @(50);
-replay.maskViewClasses = @[@"SensitiveView"];
-replay.unmaskViewClasses = @[@"PublicBannerView"];
-inst.sessionReplay = replay;
-```
-
 ### App Lifecycle
 ```objc
 inst.appLifecycle = [PulseObjcEnabledConfig enabled];
@@ -173,16 +140,6 @@ inst.screenLifecycle = [PulseObjcEnabledConfig enabled];
 ### App Startup
 ```objc
 inst.appStartup = [PulseObjcEnabledConfig enabled];
-```
-
-### Location
-```objc
-inst.location = [PulseObjcEnabledConfig enabled];
-```
-
-### SignPost Integration
-```objc
-inst.signPost = [PulseObjcEnabledConfig enabled];
 ```
 
 ### Interaction

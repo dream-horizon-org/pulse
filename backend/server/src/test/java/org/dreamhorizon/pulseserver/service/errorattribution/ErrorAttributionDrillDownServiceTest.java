@@ -108,7 +108,7 @@ class ErrorAttributionDrillDownServiceTest {
   @Test
   void rowsToMaps_shouldYieldEmptyRowsWhenJobIncomplete() {
     when(clickhouseQueryService.executeRootCauseQuery(
-            eq(PROJECT), anyString(), anyList(), anyList()))
+            eq(PROJECT), anyString(), anyList(), anyList(), eq(true)))
         .thenReturn(Single.just(chResponse(false, null)));
 
     ErrorAttributionDrillDownResult r =
@@ -121,7 +121,7 @@ class ErrorAttributionDrillDownServiceTest {
   @Test
   void rowsToMaps_shouldYieldEmptyRowsWhenDataNull() {
     when(clickhouseQueryService.executeRootCauseQuery(
-            eq(PROJECT), anyString(), anyList(), anyList()))
+            eq(PROJECT), anyString(), anyList(), anyList(), eq(true)))
         .thenReturn(Single.just(chResponse(true, null)));
 
     ErrorAttributionDrillDownResult r =
@@ -163,7 +163,7 @@ class ErrorAttributionDrillDownServiceTest {
             .rows(List.of(row))
             .build();
     when(clickhouseQueryService.executeRootCauseQuery(
-            eq(PROJECT), anyString(), anyList(), anyList()))
+            eq(PROJECT), anyString(), anyList(), anyList(), eq(true)))
         .thenReturn(Single.just(chResponse(true, data)));
 
     ErrorAttributionDrillDownResult r =
@@ -192,7 +192,7 @@ class ErrorAttributionDrillDownServiceTest {
                 List.of("g1", "CrashTitle", 10L, 90L, 2L, 8L),
                 List.of("g2", "Other", 5L, 95L, 1L, 9L)));
     when(clickhouseQueryService.executeRootCauseQuery(
-            eq(PROJECT), anyString(), anyList(), anyList()))
+            eq(PROJECT), anyString(), anyList(), anyList(), eq(true)))
         .thenReturn(Single.just(resp));
 
     ErrorAttributionDrillDownResult r =
@@ -215,7 +215,7 @@ class ErrorAttributionDrillDownServiceTest {
             List.of("group_id", "title", "n_treated", "n_control", "n_treated_low", "n_control_low"),
             List.of(List.of("g1", "T", 10L, 90L, 2L, 8L)));
     when(clickhouseQueryService.executeRootCauseQuery(
-            eq(PROJECT), anyString(), anyList(), anyList()))
+            eq(PROJECT), anyString(), anyList(), anyList(), eq(true)))
         .thenReturn(Single.just(resp));
 
     ErrorAttributionDrillDownResult r =
@@ -235,7 +235,7 @@ class ErrorAttributionDrillDownServiceTest {
             new ArrayList<>(m.keySet()),
             List.of(new ArrayList<>(m.values())));
     when(clickhouseQueryService.executeRootCauseQuery(
-            eq(PROJECT), anyString(), anyList(), anyList()))
+            eq(PROJECT), anyString(), anyList(), anyList(), eq(true)))
         .thenReturn(Single.just(resp));
 
     ErrorAttributionDrillDownResult r =
@@ -256,7 +256,7 @@ class ErrorAttributionDrillDownServiceTest {
             new ArrayList<>(m.keySet()),
             List.of(new ArrayList<>(m.values())));
     when(clickhouseQueryService.executeRootCauseQuery(
-            eq(PROJECT), anyString(), anyList(), anyList()))
+            eq(PROJECT), anyString(), anyList(), anyList(), eq(true)))
         .thenReturn(Single.just(resp));
 
     ErrorAttributionDrillDownResult r =
@@ -289,7 +289,7 @@ class ErrorAttributionDrillDownServiceTest {
                     1L,
                     20L)));
     when(clickhouseQueryService.executeRootCauseQuery(
-            eq(PROJECT), anyString(), anyList(), anyList()))
+            eq(PROJECT), anyString(), anyList(), anyList(), eq(true)))
         .thenReturn(Single.just(resp));
 
     ErrorAttributionDrillDownResult r =
@@ -310,7 +310,7 @@ class ErrorAttributionDrillDownServiceTest {
   @SuppressWarnings("unchecked")
   void query_shouldForwardProjectAndBindsToClickHouse() {
     when(clickhouseQueryService.executeRootCauseQuery(
-            eq(PROJECT), anyString(), anyList(), anyList()))
+            eq(PROJECT), anyString(), anyList(), anyList(), eq(true)))
         .thenReturn(
             Single.just(
                 tableWithRows(
@@ -323,7 +323,8 @@ class ErrorAttributionDrillDownServiceTest {
     ArgumentCaptor<List<String>> namesCaptor = ArgumentCaptor.forClass(List.class);
     ArgumentCaptor<List<Object>> valuesCaptor = ArgumentCaptor.forClass(List.class);
     verify(clickhouseQueryService)
-        .executeRootCauseQuery(eq(PROJECT), anyString(), namesCaptor.capture(), valuesCaptor.capture());
+        .executeRootCauseQuery(
+            eq(PROJECT), anyString(), namesCaptor.capture(), valuesCaptor.capture(), eq(true));
     assertThat(namesCaptor.getValue()).isNotEmpty();
     assertThat(valuesCaptor.getValue()).hasSameSizeAs(namesCaptor.getValue());
   }

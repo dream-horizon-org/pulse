@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS otel.interaction_heatmaps_daily
   ENGINE = SummingMergeTree()
   PARTITION BY toYYYYMM(Date)
   PRIMARY KEY (Date, ProjectId, ScreenName)
-  ORDER BY (Date, ProjectId, ScreenName, AppVersion, Platform, GeographicalRegion, Breakpoint, XBin, YBin);
+  ORDER BY (Date, ProjectId, ScreenName, AppVersion, Platform, GeographicalRegion, Breakpoint, XBin, YBin)
 SETTINGS index_granularity = 8192;
 
 
