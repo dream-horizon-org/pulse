@@ -236,7 +236,7 @@ public class AlertEvaluationService {
         QueryRequest.SelectItem methodFieldItem = new QueryRequest.SelectItem();
         methodFieldItem.setFunction(Functions.COL);
         Map<String, String> methodFieldParams = new HashMap<>();
-        methodFieldParams.put("field", "SpanAttributes['http.method']");
+        methodFieldParams.put("field", "HttpMethod");
         methodFieldItem.setParam(methodFieldParams);
         methodFieldItem.setAlias("method");
         selectItems.add(methodFieldItem);
@@ -1247,8 +1247,8 @@ public class AlertEvaluationService {
 
     return switch (scope.toUpperCase()) {
       case "INTERACTION" -> "SpanName";
-      case "SCREEN" -> "SpanAttributes['screen.name']";
-      case "NETWORK_API" -> "SpanAttributes['http.url']";
+      case "SCREEN" -> "ScreenName";
+      case "NETWORK_API" -> "HttpUrl";
       case "APP_VITALS" -> "GroupId";
       default -> "SpanName";
     };

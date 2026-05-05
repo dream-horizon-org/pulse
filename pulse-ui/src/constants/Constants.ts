@@ -284,6 +284,11 @@ export const ROUTES: Routes = {
     basePath: "/coming-soon",
     path: "/coming-soon",
   },
+  PERSONAL_TOKENS: {
+    key: "PERSONAL_TOKENS",
+    basePath: "/account/tokens",
+    path: "/account/tokens",
+  },
   PROJECT_SETTINGS: {
     key: "PROJECT_SETTINGS",
     basePath: "/settings",
@@ -960,6 +965,86 @@ export const API_ROUTES: StreamverseRoutes = {
     apiPath: `/query/ai`,
     method: API_METHODS.POST,
   },
+  FUNNEL_LIST: {
+    key: "FUNNEL_LIST",
+    apiPath: `/v1/funnels`,
+    method: API_METHODS.GET,
+  },
+  FUNNEL_CREATE: {
+    key: "FUNNEL_CREATE",
+    apiPath: `/v1/funnels`,
+    method: API_METHODS.POST,
+  },
+  FUNNEL_DETAILS: {
+    key: "FUNNEL_DETAILS",
+    apiPath: `/v1/funnels`,
+    method: API_METHODS.GET,
+  },
+  FUNNEL_STOP: {
+    key: "FUNNEL_STOP",
+    apiPath: `/v1/funnels`,
+    method: API_METHODS.POST,
+  },
+  FUNNEL_DELETE: {
+    key: "FUNNEL_DELETE",
+    apiPath: `/v1/funnels`,
+    method: API_METHODS.DELETE,
+  },
+  FUNNEL_SESSIONS: {
+    key: "FUNNEL_SESSIONS",
+    apiPath: `/v1/funnels/sessions`,
+    method: API_METHODS.POST,
+  },
+  FUNNEL_GROUPED: {
+    key: "FUNNEL_GROUPED",
+    apiPath: `/v1/funnels/grouped`,
+    method: API_METHODS.POST,
+  },
+  JOURNEY_EXPLORE: {
+    key: "JOURNEY_EXPLORE",
+    apiPath: `/v1/journeys/explore`,
+    method: API_METHODS.POST,
+  },
+  JOURNEY_LIST: {
+    key: "JOURNEY_LIST",
+    apiPath: `/v1/journeys`,
+    method: API_METHODS.GET,
+  },
+  JOURNEY_CREATE: {
+    key: "JOURNEY_CREATE",
+    apiPath: `/v1/journeys`,
+    method: API_METHODS.POST,
+  },
+  JOURNEY_DETAILS: {
+    key: "JOURNEY_DETAILS",
+    apiPath: `/v1/journeys`,
+    method: API_METHODS.GET,
+  },
+  JOURNEY_STOP: {
+    key: "JOURNEY_STOP",
+    apiPath: `/v1/journeys`,
+    method: API_METHODS.POST,
+  },
+  JOURNEY_DELETE: {
+    key: "JOURNEY_DELETE",
+    apiPath: `/v1/journeys`,
+    method: API_METHODS.DELETE,
+  },
+  FUNNEL_EVENTS: {
+    key: "FUNNEL_EVENTS",
+    apiPath: `/v1/funnels/events`,
+    method: API_METHODS.GET,
+  },
+  FUNNEL_FILTERS: {
+    key: "FUNNEL_FILTERS",
+    apiPath: `/v1/funnels/filters`,
+    method: API_METHODS.GET,
+  },
+  FUNNEL_TAGS: {
+    key: "FUNNEL_TAGS",
+    apiPath: `/v1/funnels/tags`,
+    method: API_METHODS.GET,
+  },
   GET_TNC_STATUS: {
     key: "GET_TNC_STATUS",
     apiPath: `/v1/tnc/status`,
@@ -985,6 +1070,21 @@ export const API_ROUTES: StreamverseRoutes = {
     key: "GET_USER_PROJECTS",
     apiPath: `/v1/users/me/projects`,
     method: API_METHODS.GET,
+  },
+  LIST_USER_API_KEYS: {
+    key: "LIST_USER_API_KEYS",
+    apiPath: `/v1/users/me/api-keys`,
+    method: API_METHODS.GET,
+  },
+  CREATE_USER_API_KEY: {
+    key: "CREATE_USER_API_KEY",
+    apiPath: `/v1/users/me/api-keys`,
+    method: API_METHODS.POST,
+  },
+  REVOKE_USER_API_KEY: {
+    key: "REVOKE_USER_API_KEY",
+    apiPath: `/v1/users/me/api-keys/:keyId`,
+    method: API_METHODS.DELETE,
   },
   // Auth API Routes
   LOGIN: {

@@ -6,25 +6,20 @@
 import Foundation
 
 /// Rage-click detection configuration.
-/// Controls sensitivity of rage detection: how many taps within what time window and radius trigger rage.
-public struct RageConfig {
-    public var timeWindowMs: Int = 2000
-    public var rageThreshold: Int = 3
-    public var radiusPt: Float = 50.0
-
-    public init(timeWindowMs: Int = 2000, rageThreshold: Int = 3, radiusPt: Float = 50.0) {
-        self.timeWindowMs = timeWindowMs
-        self.rageThreshold = rageThreshold
-        self.radiusPt = radiusPt
-    }
+/// Configured exclusively via backend remote config — not exposed in the public initialization API.
+struct RageConfig {
+    var timeWindowMs: Int = 2000
+    var rageThreshold: Int = 3
+    var radiusPt: Float = 50.0
 }
 
 /// Configuration for UIKit tap auto-instrumentation.
-/// When enabled, automatically intercepts all user taps (UIControl, gesture-recognized views,
-/// table/collection cells) and emits `app.widget.click` log events with rich context:
+/// Intercepted automatically for UIControl, gesture-recognized views, and
+/// table/collection cells. Emits `app.widget.click` log events with rich context:
 /// touch coordinates, label, element type, and accessibility identifiers.
+/// Whether this is active is controlled by the backend feature flag, not by app code.
 public struct UIKitTapInstrumentationConfig {
-    public private(set) var enabled: Bool = false
+    internal private(set) var enabled: Bool = false
 
     /// When true, extracts rich label context from the tapped view — including
     /// recursive subview text scan for container views (cards, cells, stacks).
@@ -32,16 +27,14 @@ public struct UIKitTapInstrumentationConfig {
     public private(set) var captureContext: Bool = false
 
     /// Rage-click detection configuration (time window, threshold, radius).
-    /// Backend config overrides these defaults if present.
-    public private(set) var rage: RageConfig = RageConfig()
+    /// Set exclusively via backend remote config.
+    internal private(set) var rage: RageConfig = RageConfig()
 
-    public init(enabled: Bool = false, captureContext: Bool = false, rage: RageConfig = RageConfig()) {
-        self.enabled = enabled
+    public init(captureContext: Bool = false) {
         self.captureContext = captureContext
-        self.rage = rage
     }
 
-    public mutating func enabled(_ value: Bool) {
+    internal mutating func enabled(_ value: Bool) {
         self.enabled = value
     }
 
@@ -49,7 +42,7 @@ public struct UIKitTapInstrumentationConfig {
         self.captureContext = value
     }
 
-    public mutating func rage(_ configure: (inout RageConfig) -> Void) {
+    internal mutating func rage(_ configure: (inout RageConfig) -> Void) {
         configure(&rage)
     }
 }
