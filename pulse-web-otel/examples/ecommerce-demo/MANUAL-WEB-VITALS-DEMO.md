@@ -34,7 +34,7 @@ These merge into `PulseProvider` → `PulseWeb.start({ instrumentations: { webVi
 |--------|--------|
 | `VITE_PULSE_WEB_VITALS_ENABLED=false` | Local opt-out — no Web Vitals instrumentation even if remote gate is on. |
 | `?pulse_wv_enabled=0` | Same — force `instrumentations.webVitals.enabled: false`. |
-| `?pulse_wv_enabled=1` | Force `enabled: true` (only needed if you explicitly turned vitals off via env and want to re-enable from URL after reload). |
+| `?pulse_wv_enabled=1` | Force `enabled: true` only when env does not force-disable (`VITE_PULSE_WEB_VITALS_ENABLED=false` still wins). |
 
 Query overrides are read once at first paint (same `useMemo` as the rest of `pulseConfig`); reload after changing URL.
 
