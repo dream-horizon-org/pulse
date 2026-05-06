@@ -6,7 +6,7 @@
 
 import { trace } from "@opentelemetry/api";
 import type { Tracer } from "@opentelemetry/api";
-import { logs } from "@opentelemetry/api-logs";
+import { logs, SeverityNumber } from "@opentelemetry/api-logs";
 import type { Logger } from "@opentelemetry/api-logs";
 import { metrics } from "@opentelemetry/api";
 import type { WebTracerProvider } from "@opentelemetry/sdk-trace-web";
@@ -142,7 +142,12 @@ class PulseWebSDK implements SdkContext {
       logProcessors,
     );
 
-    this.drainBufferedExports(bundle, config, endpointBaseUrl, meteringSessionId);
+    this.drainBufferedExports(
+      bundle,
+      config,
+      endpointBaseUrl,
+      meteringSessionId,
+    );
     this.assignProviders(bundle);
     this.bindPagehideFlush();
     this.bindGlobalProviders();
@@ -392,10 +397,7 @@ class PulseWebSDK implements SdkContext {
       this.emitUserSessionEndLog(oldId);
     }
     if (nextId !== null) {
-      this.emitUserSessionStartLog(
-        nextId,
-        oldId !== null ? oldId : undefined,
-      );
+      this.emitUserSessionStartLog(nextId, oldId !== null ? oldId : undefined);
     }
   }
 
@@ -403,14 +405,18 @@ class PulseWebSDK implements SdkContext {
   setUserProperty(key: string, value: string | null): void {
     if (!this._initialized || !this.globalAttrsProcessor) return;
     this.globalAttrsProcessor.setUserProperty(key, value);
-    persistUserProperties(this.globalAttrsProcessor.getUserPropertiesSnapshot());
+    persistUserProperties(
+      this.globalAttrsProcessor.getUserPropertiesSnapshot(),
+    );
   }
 
   /** Batch update user properties; `null` removes a key. */
   setUserProperties(props: Record<string, string | null>): void {
     if (!this._initialized || !this.globalAttrsProcessor) return;
     this.globalAttrsProcessor.setUserProperties(props);
-    persistUserProperties(this.globalAttrsProcessor.getUserPropertiesSnapshot());
+    persistUserProperties(
+      this.globalAttrsProcessor.getUserPropertiesSnapshot(),
+    );
   }
 
   private emitUserSessionEndLog(userId: string): void {
@@ -476,6 +482,9 @@ class PulseWebSDK implements SdkContext {
     const err = error instanceof Error ? error : new Error(String(error));
     this.logger.emit({
       body: err.message,
+      timestamp: Date.now(),
+      severityNumber: SeverityNumber.WARN,
+      severityText: "WARN",
       attributes: {
         [PulseWebSemconv.AttributeKey.PULSE_TYPE]:
           PulseWebSemconv.PulseType.NON_FATAL,
@@ -483,7 +492,9 @@ class PulseWebSDK implements SdkContext {
         [PulseWebSemconv.AttributeKey.EXCEPTION_MESSAGE]: err.message,
         [PulseWebSemconv.AttributeKey.EXCEPTION_STACKTRACE]: err.stack ?? "",
         [PulseWebSemconv.AttributeKey.NON_FATAL_IS_MANUAL]: true,
-        ...(attrs ?? {}),
+        [PulseWebSemconv.AttributeKey.URL_PATH]:
+          typeof window !== "undefined" ? window.location.pathname : "",
+        ...(attrs as Record<string, string | number | boolean>),
       },
     });
   }
@@ -497,6 +508,9 @@ class PulseWebSDK implements SdkContext {
     const stack = err.stack ?? "";
     this.logger.emit({
       body: err.message,
+      timestamp: Date.now(),
+      severityNumber: SeverityNumber.FATAL,
+      severityText: "FATAL",
       attributes: {
         [PulseWebSemconv.AttributeKey.PULSE_TYPE]:
           PulseWebSemconv.PulseType.DEVICE_CRASH,
@@ -505,7 +519,9 @@ class PulseWebSDK implements SdkContext {
         [PulseWebSemconv.AttributeKey.EXCEPTION_STACKTRACE]: stack,
         [PulseWebSemconv.AttributeKey.ERROR_FILENAME]:
           errorFilenameFromStack(stack),
-        ...(attrs ?? {}),
+        [PulseWebSemconv.AttributeKey.URL_PATH]:
+          typeof window !== "undefined" ? window.location.pathname : "",
+        ...(attrs as Record<string, string | number | boolean>),
       },
     });
   }
