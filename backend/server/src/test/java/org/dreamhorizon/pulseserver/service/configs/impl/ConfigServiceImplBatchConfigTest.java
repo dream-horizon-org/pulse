@@ -4,11 +4,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.when;
 
 import io.reactivex.rxjava3.core.Single;
 import io.vertx.core.Context;
+import io.vertx.core.Handler;
 import io.vertx.core.Vertx;
 import org.dreamhorizon.pulseserver.config.ApplicationConfig;
 import org.dreamhorizon.pulseserver.dao.configs.SdkConfigsDao;
@@ -37,11 +38,11 @@ class ConfigServiceImplBatchConfigTest {
   @BeforeEach
   void setUp() {
     when(vertx.getOrCreateContext()).thenReturn(context);
-    when(context.runOnContext(any())).thenAnswer(invocation -> {
-      Runnable r = invocation.getArgument(0);
-      r.run();
+    doAnswer(invocation -> {
+      Handler<Void> handler = invocation.getArgument(0);
+      handler.handle(null);
       return null;
-    });
+    }).when(context).runOnContext(any(Handler.class));
     configService = new ConfigServiceImpl(vertx, sdkConfigsDao, uploadConfigDetailService, applicationConfig);
   }
 
