@@ -261,7 +261,7 @@ public struct PulseAttributeValue: Codable, Equatable {
 // MARK: - Interaction
 
 public struct PulseInteractionConfig: Codable, Equatable {
-    public let collectorUrl: String
+    public let collectorUrl: String?
     public let configUrl: String
     public let beforeInitQueueSize: Int
 }
