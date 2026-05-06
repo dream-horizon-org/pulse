@@ -319,25 +319,40 @@ public class OpenFgaService {
                 .map(t -> t.getTenantId())
                 .toList();
           }
-          return Single.fromCallable(() -> {
-            Set<String> tenantIds = new HashSet<>();
-            for (String role : TENANT_ROLES) {
-              ClientListObjectsRequest request = new ClientListObjectsRequest()
-                  .user(USER_PREFIX + userId)
-                  .relation(role)
-                  .type("tenant");
-              var response = client.listObjects(request).get();
-              var objects = response.getObjects();
-              if (objects != null) {
-                objects.stream()
-                    .map(obj -> obj.startsWith(TENANT_PREFIX) ? obj.substring(TENANT_PREFIX.length()) : obj)
-                    .forEach(tenantIds::add);
-              }
-            }
-            log.debug("getUserTenants: user={} -> {} tenant(s)", userId, tenantIds.size());
-            return new ArrayList<>(tenantIds);
-          });
+          return getUserDirectTenants(userId);
         });
+  }
+
+  /**
+   * Get tenant memberships from direct tenant tuples only.
+   * Unlike {@link #getUserTenants(String)}, this method never expands system roles.
+   *
+   * @param userId User ID
+   * @return Single emitting direct tenant IDs only
+   */
+  public Single<List<String>> getUserDirectTenants(String userId) {
+    if (!enabled) {
+      log.debug("[DISABLED] getUserDirectTenants: user={}", userId);
+      return Single.just(new ArrayList<>());
+    }
+    return Single.fromCallable(() -> {
+      Set<String> tenantIds = new HashSet<>();
+      for (String role : TENANT_ROLES) {
+        ClientListObjectsRequest request = new ClientListObjectsRequest()
+            .user(USER_PREFIX + userId)
+            .relation(role)
+            .type("tenant");
+        var response = client.listObjects(request).get();
+        var objects = response.getObjects();
+        if (objects != null) {
+          objects.stream()
+              .map(obj -> obj.startsWith(TENANT_PREFIX) ? obj.substring(TENANT_PREFIX.length()) : obj)
+              .forEach(tenantIds::add);
+        }
+      }
+      log.debug("getUserDirectTenants: user={} -> {} tenant(s)", userId, tenantIds.size());
+      return new ArrayList<>(tenantIds);
+    });
   }
 
   /**
