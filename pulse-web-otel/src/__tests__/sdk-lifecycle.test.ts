@@ -1,6 +1,22 @@
 // sdk-lifecycle.test.ts — Tests for SDK singleton lifecycle, shutdown guards,
 // restart cycles, and the race condition between shutdown() and finishStart().
 
+// Shimmer would log unwrap noise when real OTel XHR instr. tears down stubbed globals.
+vi.mock("@opentelemetry/instrumentation-fetch", () => ({
+  FetchInstrumentation: class {
+    setTracerProvider(): void {}
+    enable(): void {}
+    disable(): void {}
+  },
+}));
+vi.mock("@opentelemetry/instrumentation-xml-http-request", () => ({
+  XMLHttpRequestInstrumentation: class {
+    setTracerProvider(): void {}
+    enable(): void {}
+    disable(): void {}
+  },
+}));
+
 // Mock @opentelemetry/api-logs — same pattern as m1.test.ts
 vi.mock("@opentelemetry/api-logs", () => ({
   logs: {

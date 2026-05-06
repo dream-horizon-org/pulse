@@ -87,8 +87,6 @@ export class InstrumentationRegistry {
       InstrumentationKeys.NETWORK,
     );
 
-    // M3: will install ErrorsInstrumentation, NetworkInstrumentation,
-    // ClicksInstrumentation, NavigationInstrumentation, etc.
     if (this.shouldInstall(InstrumentationKeys.ERRORS)) {
       const errInstr = new ErrorInstrumentation();
       errInstr.install(this.sdk);

@@ -65,6 +65,8 @@ export class NetworkInstrumentation implements PulseInstrumentation {
 
   private fetchInstr?: FetchInstrumentation;
   private xhrInstr?: XMLHttpRequestInstrumentation;
+  /** True after Fetch + XHR instrumentations are enabled; avoids double `disable()` noise. */
+  private instrumentsActive = false;
 
   install(sdk: SdkContext): void {
     if (typeof window === "undefined") {
@@ -131,11 +133,15 @@ export class NetworkInstrumentation implements PulseInstrumentation {
         ? { propagateTraceHeaderCorsUrls: propagate }
         : {}),
       applyCustomAttributesOnSpan: (span, xhr) => {
+        // Upstream invokes this when ending the span (request finished); guard so we never
+        // stamp `network_error` from `undefined` status if a hypothetical early hook fired.
+        if (xhr.readyState !== XMLHttpRequest.DONE) {
+          return;
+        }
         const url = xhr.responseURL || "";
         const opaque = span as unknown as { name?: string };
         const method = methodFromOtelClientSpanName(opaque.name);
-        const statusCode =
-          xhr.readyState === XMLHttpRequest.DONE ? xhr.status : undefined;
+        const statusCode = xhr.status;
 
         applyPulseHttpClientSpanAttributes({
           span,
@@ -156,9 +162,14 @@ export class NetworkInstrumentation implements PulseInstrumentation {
     this.fetchInstr.enable();
     this.xhrInstr.setTracerProvider(provider);
     this.xhrInstr.enable();
+    this.instrumentsActive = true;
   }
 
   uninstall(): void {
+    if (!this.instrumentsActive) {
+      return;
+    }
+    this.instrumentsActive = false;
     this.fetchInstr?.disable();
     this.xhrInstr?.disable();
     this.fetchInstr = undefined;
