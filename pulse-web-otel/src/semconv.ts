@@ -49,6 +49,10 @@ export const PulseWebSemconv = {
     EXCEPTION_MESSAGE: "exception.message",
     EXCEPTION_STACKTRACE: "exception.stacktrace",
     ERROR_FILENAME: "error.filename",
+    ERROR_LINENO: "error.lineno",
+    ERROR_COLNO: "error.colno",
+    BATTERY_PERCENT: "battery.percent",
+    STORAGE_FREE: "storage.free",
     NON_FATAL_TYPE: "non_fatal.type",
     NON_FATAL_IS_MANUAL: "non_fatal.is_manual",
     /** Init log (`otel.initialization.events`) — exporter wiring hint (Android parity). */

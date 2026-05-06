@@ -65,39 +65,14 @@ export interface PulseIosInteractionInstrumentation {
   enabled?: boolean;
 }
 
-export interface PulseIosUIKitTapRage {
-  timeWindowMs?: number;
-  rageThreshold?: number;
-  radiusPt?: number;
-}
-
 export interface PulseIosUIKitTapInstrumentation {
-  enabled?: boolean;
   captureContext?: boolean;
-  rage?: PulseIosUIKitTapRage;
 }
 
-export type PulseIosSessionReplayTextPrivacy =
-  | 'maskAll'
-  | 'maskAllInputs'
-  | 'maskSensitiveInputs';
-
-export type PulseIosSessionReplayImagePrivacy = 'maskAll' | 'maskNone';
-
-/** iOS session replay + `SessionReplayConfig` fields expressible from JSON. */
+/** iOS session replay - only code-level masking rules are configurable. Backend controls all other settings. */
 export interface PulseIosSessionReplayInstrumentation {
-  enabled?: boolean;
-  replayEndpointBaseUrl?: string;
   maskViewClasses?: string[];
   unmaskViewClasses?: string[];
-  textAndInputPrivacy?: PulseIosSessionReplayTextPrivacy;
-  imagePrivacy?: PulseIosSessionReplayImagePrivacy;
-  captureIntervalMs?: number;
-  compressionQuality?: number;
-  screenshotScale?: number;
-  flushIntervalSeconds?: number;
-  flushAt?: number;
-  maxBatchSize?: number;
 }
 
 /** iOS URL session instrumentation (`URLSessionInstrumentationConfig`). */

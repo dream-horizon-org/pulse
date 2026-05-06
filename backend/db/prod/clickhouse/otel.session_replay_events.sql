@@ -47,7 +47,7 @@ AS otel.session_replay_events_local
     ENGINE = Distributed('pulse-ch', otel, session_replay_events_local, cityHash64(SessionId));
 
 
-CREATE MATERIALIZED VIEW otel.session_replay_events_mv
+CREATE MATERIALIZED VIEW IF NOT EXISTS otel.session_replay_events_mv
        ON CLUSTER 'pulse-ch'
        TO otel.session_replay_events
 (
@@ -74,4 +74,4 @@ AS SELECT
    FROM otel.kafka_session_replay_events_local
    GROUP BY
             SessionId,
-            ProjectId
+            ProjectId;

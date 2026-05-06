@@ -63,6 +63,7 @@ public final class FunnelResultsMapper {
       .steps(steps)
       .totalEnteredUsers(firstCount)
       .overallConversionRate(overall)
+      .lastRunAt(rows.get(0).getRunTime())
       .build();
   }
 

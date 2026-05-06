@@ -41,6 +41,35 @@ Append E2E / gate results for Web SDK work (per `pulse-web-sdk-sanity`).
 | 2026-05-04 | `yarn workspace ecommerce-demo e2e:web-sdk-gates` | Chromium | pass (134/134) | Added TTFB, FCP, FID (Chromium), CLS (layout shift + visibility); D2b unchanged. |
 | 2026-05-02 | `yarn playwright test --config e2e/playwright.config.ts e2e/web-vitals.spec.ts --project=chromium` (cwd `examples/ecommerce-demo`) | Chromium | pass (3/3) | Lifecycle P1 close-out: INP asserts `web_vital.value` (finite), `session.id`, `screen.name` (parity with LCP test). |
 
+## Error instrumentation rerun (v1-errors) — 2026-05-05
+
+| Date | Command | Browser | Result | Notes |
+|------|---------|---------|--------|-------|
+| 2026-05-05 | `yarn test:run src/__tests__/m3.test.ts` | — | pass (20/20) | Targeted unit pass after dependency bootstrap in `pulse-web-otel/`. |
+| 2026-05-05 | `yarn workspace ecommerce-demo e2e -- e2e/m3-errors.spec.ts --project=chromium` | chromium/firefox/webkit | fail (27 pass, 3 fail) | Failed only on render-boundary assertion expecting fallback text not present in demo app boundary configuration. |
+| 2026-05-05 | `yarn workspace ecommerce-demo e2e -- e2e/m3-errors.spec.ts --project=chromium` | chromium/firefox/webkit | pass (30/30) | Fixed assertion to validate `react.component_stack` on `device.crash` instead of non-existent fallback text. |
+| 2026-05-05 | `yarn workspace ecommerce-demo e2e:web-sdk-gates` | Chromium | pass (137/137) | Gates now include `e2e/m3-errors.spec.ts`; m1 + m2 + m3 all green. |
+| 2026-05-05 | `yarn workspace ecommerce-demo e2e -- e2e/m3-errors.spec.ts --project=chromium` (cwd `pulse-web-otel`) | chromium/firefox/webkit | fail (36 pass, 3 fail) | New coexistence test expected exact listener message; browser prefixes (`Error:`/`Uncaught Error:`) broke strict equality. |
+| 2026-05-05 | `yarn playwright test --config e2e/playwright.config.ts e2e/m3-errors.spec.ts --project=chromium` (cwd `examples/ecommerce-demo`) | Chromium | pass (13/13) | Updated coexistence assertion to substring match; expanded suite includes dedupe-different-fingerprint and timestamp checks. |
+| 2026-05-05 | `yarn workspace ecommerce-demo e2e:web-sdk-gates` | Chromium | pass (140/140) | Revalidated full gates after expanding M3 errors scenarios and coexistence assertion fix. |
+| 2026-05-05 | `yarn workspace ecommerce-demo e2e -- e2e/m3-errors.spec.ts` | chromium/firefox/webkit | pass (39/39) | Final tri-browser validation after coexistence assertion fix. |
+
+### 2026-05-05 — render-boundary E2E mismatch (symptom -> cause -> fix)
+
+**Symptom:** `m3-errors.spec.ts` timed out waiting for `getByText("Render error caught by PulseErrorBoundary")` in all three browser engines.
+
+**Cause:** Demo app does not render that fallback text. `PulseErrorBoundary` fallback is not configured with this string in ecommerce demo route tree; behavior is crash log emission rather than textual fallback UI.
+
+**Fix:** Updated test assertion to check `react.component_stack` on emitted `device.crash` log, which is the actual product contract for render-boundary crash capture.
+
+### 2026-05-05 — error listener coexistence string variance (symptom -> cause -> fix)
+
+**Symptom:** New coexistence test (`existing window error listener still receives events`) failed in Chromium/Firefox/WebKit even though crash exports were present.
+
+**Cause:** Browser `error` event message formatting differs by engine (`Error: ...` vs `Uncaught Error: ...`), so strict `toContain(exactMessage)` on the array did not hold.
+
+**Fix:** Changed assertion to substring match (`some(message => message.includes("Demo uncaught error from ErrorDemo"))`) while still verifying shared listener execution across engines.
+
 ### 2026-04-30 — Playwright OTLP decode + screen.name (try this first on similar failures)
 
 **Symptom:** `waitForLog("session.start")` (or any `otlp.waitForLog`) timed out at 8s. Not specific to Web Vitals — any spec using the shared `e2e/fixture.ts` OTLP capture looked “broken.”

@@ -32,6 +32,7 @@ import {
   IconCreditCard,
   IconFolder,
   IconHelp,
+  IconKey,
   IconLogout,
   IconMail,
   IconMessageCircle,
@@ -360,6 +361,27 @@ export function Navbar({
                           {tenantName || currentTenantId}
                         </Text>
                       )}
+                  </Box>
+                </Group>
+              </Box>
+
+              <Box
+                className={classes.menuItem}
+                onClick={() => {
+                  navigate(ROUTES.PERSONAL_TOKENS.basePath);
+                  setPopoverOpened(false);
+                }}
+                style={{ cursor: "pointer" }}
+              >
+                <Group gap="sm">
+                  <IconKey size={20} style={{ color: "#0ba09a" }} />
+                  <Box>
+                    <Text size="sm" fw={500}>
+                      Personal Access Tokens
+                    </Text>
+                    <Text size="xs" c="dimmed">
+                      API keys for MCP access
+                    </Text>
                   </Box>
                 </Group>
               </Box>

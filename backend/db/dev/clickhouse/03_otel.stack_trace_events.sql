@@ -1,6 +1,6 @@
 CREATE TABLE IF NOT EXISTS otel.stack_trace_events
 (
-    Timestamp DateTime64(9, 'UTC') COMMENT 'event time (ns precision, store UTC)' CODEC(DoubleDelta, ZSTD(1)),
+    Timestamp DateTime64(9, 'UTC') CODEC(DoubleDelta, ZSTD(1)),
     EventName LowCardinality(String) CODEC(ZSTD(1)),
     Title String CODEC(ZSTD(3)),
     ExceptionStackTrace String CODEC(ZSTD(3)),

@@ -8,6 +8,7 @@ import { SessionInstrumentation } from "./instrumentations/session";
 import { ClicksInstrumentation } from "./instrumentations/clicks";
 import { WebVitalsInstrumentation } from "./instrumentations/web-vitals";
 import { NetworkInstrumentation } from "./instrumentations/network";
+import { ErrorInstrumentation } from "./instrumentations/errors";
 import { InstrumentationKeys } from "./config";
 import { PulseFeature } from "./remote-config";
 import type { PulseFeatureName } from "./remote-config";
@@ -85,6 +86,14 @@ export class InstrumentationRegistry {
       new NetworkInstrumentation(),
       InstrumentationKeys.NETWORK,
     );
+
+    // M3: will install ErrorsInstrumentation, NetworkInstrumentation,
+    // ClicksInstrumentation, NavigationInstrumentation, etc.
+    if (this.shouldInstall(InstrumentationKeys.ERRORS)) {
+      const errInstr = new ErrorInstrumentation();
+      errInstr.install(this.sdk);
+      this.installed.push(errInstr);
+    }
   }
 
   uninstallAll(): void {
