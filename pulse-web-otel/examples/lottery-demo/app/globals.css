@@ -1,0 +1,21 @@
+@import "tailwindcss";
+
+@theme {
+  --color-sapphire: #1b2e4b;
+  --color-sapphire-light: #2d4a6e;
+  --color-gold: #f5a623;
+  --color-gold-light: #fff3d6;
+
+  --shadow-card: 0 1px 4px rgba(0, 0, 0, 0.08), 0 4px 12px rgba(0, 0, 0, 0.04);
+  --shadow-card-hover: 0 4px 16px rgba(0, 0, 0, 0.12), 0 8px 24px rgba(0, 0, 0, 0.06);
+}
+
+body {
+  background: #f6f4f0;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Safe area for Capacitor / native status bars */
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}

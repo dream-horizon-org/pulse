@@ -154,7 +154,7 @@ export class PulseGlobalAttributesProcessor
     // Inject global attributes from config
     if (this.config.globalAttributes) {
       for (const [key, value] of Object.entries(this.config.globalAttributes)) {
-        attrs[key] = value;
+        if (!Array.isArray(value)) attrs[key] = value;
       }
     }
 

@@ -15,20 +15,118 @@ Captures:
 yarn add @dreamhorizon/pulse-web
 ```
 
-## Quickstart
+## Integrating Pulse Web SDK
 
-```ts
-import { PulseWeb, PulseDataCollectionConsent, PulseLogLevel } from "@dreamhorizon/pulse-web";
+### 1. Install
 
-PulseWeb.start({
-  apiKey: "your-project_api-key",
-  serviceName: "web-app",
+```bash
+npm install @dreamhorizon/pulse-web
+```
+
+### 2. Wrap your app with PulseProvider
+
+`PulseProvider` from `@dreamhorizon/pulse-web/react` does everything in one shot:
+- calls `PulseWeb.start` on mount
+- catches React render errors via the built-in `PulseErrorBoundary`
+- exposes the SDK via context
+
+**React (CRA / Vite):**
+
+```tsx
+import { PulseProvider } from '@dreamhorizon/pulse-web/react'
+import { PulseDataCollectionConsent } from '@dreamhorizon/pulse-web'
+
+const config = {
+  apiKey: 'your-project-key',
+  serviceName: 'my-app',
   dataCollectionState: PulseDataCollectionConsent.ALLOWED,
-  logLevel: PulseLogLevel.NONE,
-});
+}
 
-PulseWeb.setScreenName("Home");
-PulseWeb.trackEvent("cta_click", { location: "hero" });
+<PulseProvider config={config}>
+  <App />
+</PulseProvider>
+```
+
+**Next.js App Router:** the compiled SDK dist does not include `"use client"`, so `PulseProvider` cannot be imported directly from a Server Component. Create a thin wrapper first:
+
+```tsx
+// app/providers/PulseProvider.tsx
+'use client'
+import { PulseProvider as SDKPulseProvider } from '@dreamhorizon/pulse-web/react'
+
+export function PulseProvider({ config, children }: { config: any; children: React.ReactNode }) {
+  return <SDKPulseProvider config={config} shutdownOnUnmount={false}>{children}</SDKPulseProvider>
+}
+```
+
+Then use the wrapper in `layout.tsx`:
+
+```tsx
+// app/layout.tsx
+import { PulseProvider } from './providers/PulseProvider'
+import { PulseDataCollectionConsent } from '@dreamhorizon/pulse-web'
+
+const config = {
+  apiKey: process.env.NEXT_PUBLIC_PULSE_API_KEY,
+  serviceName: 'my-app',
+  dataCollectionState: PulseDataCollectionConsent.ALLOWED,
+}
+
+export default function RootLayout({ children }) {
+  return (
+    <html lang="en">
+      <body>
+        <PulseProvider config={config}>
+          {children}
+        </PulseProvider>
+      </body>
+    </html>
+  )
+}
+```
+
+After mount, these signals auto-capture with zero extra work:
+
+| Signal | Trigger |
+|---|---|
+| `session.start` / `session.end` | Tab open / close |
+| `http` | Every `fetch` / `XMLHttpRequest` |
+| `app.click` | User clicks anywhere |
+| `web_vital` | LCP, FID, CLS, TTFB, FCP, INP |
+| `screen_load` / `screen_interactive` | Navigation timing |
+| `device.crash` | Uncaught JS errors + React render errors (via built-in `PulseErrorBoundary`) |
+
+### 3. Screen tracking (Next.js App Router only)
+
+`useRouterTracking` from `@dreamhorizon/pulse-web/react` requires `react-router-dom` — it won't work in Next.js. Add this null-rendering component once inside `<PulseProvider>` in `layout.tsx`:
+
+```tsx
+// app/components/PulsePageView.tsx
+'use client'
+import { usePathname } from 'next/navigation'
+import { useEffect } from 'react'
+import { PulseWeb } from '@dreamhorizon/pulse-web'
+
+export function PulsePageView() {
+  const pathname = usePathname()
+  useEffect(() => { PulseWeb.setScreenName(pathname) }, [pathname])
+  return null
+}
+```
+
+```tsx
+// layout.tsx — add inside <PulseProvider>
+<PulseProvider config={config}>
+  <PulsePageView />
+  {children}
+</PulseProvider>
+```
+
+For React Router apps, use the built-in hook instead — no extra component needed:
+
+```tsx
+import { useRouterTracking } from '@dreamhorizon/pulse-web/react'
+useRouterTracking() // inside a component rendered within <BrowserRouter>
 ```
 
 ## Public API

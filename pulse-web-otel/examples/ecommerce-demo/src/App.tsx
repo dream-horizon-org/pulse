@@ -1,4 +1,4 @@
-import React, { lazy, Suspense, useMemo } from "react";
+import React, { lazy, Suspense } from "react";
 import {
   BrowserRouter,
   Routes,
@@ -6,11 +6,7 @@ import {
   Link,
   useLocation,
 } from "react-router-dom";
-import {
-  PulseWeb,
-  PulseDataCollectionConsent,
-  PulseLogLevel,
-} from "@dreamhorizon/pulse-web";
+import { PulseWeb, PulseDataCollectionConsent } from "@dreamhorizon/pulse-web";
 import {
   PulseProvider,
   useRouterTracking,
@@ -77,68 +73,18 @@ function NavBar() {
   );
 }
 
+// SDK is already started in main.tsx before React mounts.
+// PulseProvider here is only for PulseErrorBoundary + context — it skips re-init.
+const PULSE_CONFIG = {
+  apiKey: import.meta.env["VITE_PULSE_API_KEY"] ?? "dev-key",
+  serviceName: import.meta.env["VITE_PULSE_SERVICE_NAME"] ?? "ecommerce-demo",
+  dataCollectionState: PulseDataCollectionConsent.ALLOWED,
+};
+
 export default function App() {
-  const pulseConfig = useMemo(() => {
-    const searchParams = new URLSearchParams(window.location.search);
-    const consentParam = searchParams.get("pulse_consent");
-
-    // Disk buffering defaults on (Android parity). Opt out with ?pulse_disk=0 or VITE_PULSE_DISK_BUFFER=false.
-    const diskOffQuery = searchParams.get("pulse_disk") === "0";
-    const diskOffEnv = import.meta.env["VITE_PULSE_DISK_BUFFER"] === "false";
-    const diskBuffering =
-      diskOffQuery || diskOffEnv ? { enabled: false as const } : undefined;
-
-    const dataCollectionState =
-      consentParam === "denied"
-        ? PulseDataCollectionConsent.DENIED
-        : consentParam === "pending"
-          ? PulseDataCollectionConsent.PENDING
-          : PulseDataCollectionConsent.ALLOWED;
-
-    const formatEnv = import.meta.env["VITE_PULSE_FORMAT"] as
-      | "json"
-      | "protobuf"
-      | undefined;
-    const debugLifecycle =
-      import.meta.env["VITE_PULSE_DEBUG_LOG_LIFECYCLE"] === "true";
-
-    const serviceVersionRaw = import.meta.env["VITE_PULSE_SERVICE_VERSION"] as
-      | string
-      | undefined;
-    const serviceVersion =
-      serviceVersionRaw && String(serviceVersionRaw).trim() !== ""
-        ? String(serviceVersionRaw).trim()
-        : undefined;
-
-    return {
-      apiKey: import.meta.env["VITE_PULSE_API_KEY"] ?? "dev-key",
-      serviceName:
-        import.meta.env["VITE_PULSE_SERVICE_NAME"] ?? "ecommerce-demo",
-      ...(serviceVersion !== undefined ? { serviceVersion } : {}),
-      dataCollectionState,
-      export: {
-        format: (formatEnv ?? ("protobuf" as const)) as "json" | "protobuf",
-        compression:
-          (import.meta.env["VITE_PULSE_COMPRESSION"] as
-            | "gzip"
-            | "none"
-            | undefined) ?? "gzip",
-        batch: {
-          scheduledDelayMillis: import.meta.env["VITE_PULSE_BATCH_DELAY_MS"]
-            ? Number(import.meta.env["VITE_PULSE_BATCH_DELAY_MS"])
-            : 5000,
-        },
-      },
-      debugLogRecordLifecycle: debugLifecycle,
-      ...(debugLifecycle ? { logLevel: PulseLogLevel.DEBUG } : {}),
-      ...(diskBuffering !== undefined ? { diskBuffering } : {}),
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   return (
     <BrowserRouter>
-      <PulseProvider config={pulseConfig} shutdownOnUnmount={false}>
+      <PulseProvider config={PULSE_CONFIG} shutdownOnUnmount={false}>
         {/* Expose for E2E shutdown test (m1.spec.ts) */}
         <_PulseWebExpose />
         <_PulseWebRouterTracking />
