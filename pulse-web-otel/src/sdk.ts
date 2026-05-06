@@ -217,6 +217,12 @@ class PulseWebSDK implements SdkContext {
   }
 
   private abortStartIfUnavailable(): boolean {
+    // SSR / non-browser: no `window` on globalThis — skip init (TC-C16).
+    const w = (globalThis as { window?: unknown }).window;
+    if (w == null) {
+      this._starting = false;
+      return true;
+    }
     if (this._initialized || this._shuttingDown) {
       this._starting = false;
       return true;
@@ -313,7 +319,9 @@ class PulseWebSDK implements SdkContext {
           }
         : { enabled: false },
       ...(beforeSendResolved ? { beforeSendData: beforeSendResolved } : {}),
-      ...(config.beaconRelayUrl ? { beaconRelayUrl: config.beaconRelayUrl } : {}),
+      ...(config.beaconRelayUrl
+        ? { beaconRelayUrl: config.beaconRelayUrl }
+        : {}),
     };
   }
 
@@ -489,9 +497,9 @@ class PulseWebSDK implements SdkContext {
       this.globalAttrsProcessor.setUserId(null);
       this.globalAttrsProcessor.setUserProperties(
         Object.fromEntries(
-          Object.keys(this.globalAttrsProcessor.getUserPropertiesSnapshot()).map(
-            (k) => [k, null],
-          ),
+          Object.keys(
+            this.globalAttrsProcessor.getUserPropertiesSnapshot(),
+          ).map((k) => [k, null]),
         ),
       );
     }

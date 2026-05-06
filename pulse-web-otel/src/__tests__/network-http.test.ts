@@ -56,10 +56,12 @@ describe("resolveFetchUrl", () => {
       value: "https://final.example/api",
       configurable: true,
     });
-    const span = { attributes: {} } as unknown as import("@opentelemetry/api").Span;
-    expect(
-      resolveFetchUrl(span, { method: "GET" } as RequestInit, res),
-    ).toBe("https://final.example/api");
+    const span = {
+      attributes: {},
+    } as unknown as import("@opentelemetry/api").Span;
+    expect(resolveFetchUrl(span, { method: "GET" } as RequestInit, res)).toBe(
+      "https://final.example/api",
+    );
   });
 
   it("prefers Response.url over Request.url after redirect", () => {
@@ -69,7 +71,9 @@ describe("resolveFetchUrl", () => {
       value: "https://final.example/after-redirect",
       configurable: true,
     });
-    const span = { attributes: {} } as unknown as import("@opentelemetry/api").Span;
+    const span = {
+      attributes: {},
+    } as unknown as import("@opentelemetry/api").Span;
     expect(resolveFetchUrl(span, req, res)).toBe(
       "https://final.example/after-redirect",
     );
@@ -210,13 +214,33 @@ describe("network-http helpers", () => {
   });
 
   it("buildNetworkIgnoreUrls matches OTLP prefix", () => {
-    const ignored = buildNetworkIgnoreUrls("http://localhost:8080");
-    const target = "http://localhost:8080/v1/traces";
+    const ignored = buildNetworkIgnoreUrls("http://localhost:4318");
+    const traces = "http://localhost:4318/v1/traces";
     expect(
       ignored.some((p) =>
-        typeof p === "string" ? p === target : p.test(target),
+        typeof p === "string" ? p === traces : p.test(traces),
       ),
     ).toBe(true);
+  });
+
+  it("buildNetworkIgnoreUrls ignores local pulse-server REST (:8080) when OTLP is :4318", () => {
+    const ignored = buildNetworkIgnoreUrls("http://localhost:4318");
+    const config = "http://localhost:8080/v1/configs/active/default-project/";
+    const interaction = "http://localhost:8080/v1/interaction-configs/";
+    expect(ignored.some((p) => typeof p !== "string" && p.test(config))).toBe(
+      true,
+    );
+    expect(
+      ignored.some((p) => typeof p !== "string" && p.test(interaction)),
+    ).toBe(true);
+  });
+
+  it("buildNetworkIgnoreUrls does not duplicate pattern when endpoint is already :8080", () => {
+    const ignored = buildNetworkIgnoreUrls("http://localhost:8080");
+    const otlpish = "http://localhost:8080/v1/traces";
+    expect(
+      ignored.filter((p) => typeof p !== "string" && p.test(otlpish)).length,
+    ).toBe(1);
   });
 
   it("extractGraphQlMeta reads named operation", () => {

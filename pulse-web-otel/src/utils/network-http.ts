@@ -36,7 +36,9 @@ export function getOtelHttpUrlFromSpan(span: Span): string {
  * HTTP method already on the span (stable {@code http.request.method}), if upstream set it.
  * Prefer over parsing {@link Span#name} — names are not a stable contract across OTel versions.
  */
-export function getOtelHttpRequestMethodFromSpan(span: Span): string | undefined {
+export function getOtelHttpRequestMethodFromSpan(
+  span: Span,
+): string | undefined {
   const store = span as unknown as { attributes?: Record<string, unknown> };
   const attrs = store.attributes;
   if (!attrs) {
@@ -191,13 +193,49 @@ export function methodFromOtelClientSpanName(
   return "GET";
 }
 
-/** Prefix-ignore OTLP and optional blocked URLs (OTel {@code ignoreUrls} rules). */
+function escapeRegexFragment(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * Local dev stack: OTLP on :4318, pulse-server REST on :8080 (sdk config + interaction-config).
+ * Same rewrite as {@link resolveConfigUrl} / {@link resolveInteractionConfigRequest}.
+ */
+function pulseServerRestBaseForNetworkIgnore(
+  endpointBaseUrl: string,
+): string | null {
+  if (
+    !endpointBaseUrl.includes("localhost") &&
+    !endpointBaseUrl.includes("10.0.2.2")
+  ) {
+    return null;
+  }
+  return endpointBaseUrl.replace(/:4318\b/, ":8080").replace(/\/$/, "");
+}
+
+/**
+ * Prefix-ignore OTLP export URLs, Pulse internal REST on local dev (:8080 when OTLP is :4318),
+ * and optional {@code blocked}. Prod: sdk + interaction JSON share the OTLP host (see
+ * {@code resolveConfigUrl} / interaction URLs), so the OTLP prefix already excludes them.
+ */
 export function buildNetworkIgnoreUrls(
   endpointBaseUrl: string,
   blocked?: Array<string | RegExp>,
 ): Array<string | RegExp> {
-  const escaped = endpointBaseUrl.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  return [new RegExp(`^${escaped}`), ...(blocked ?? [])];
+  const normalizedBase = endpointBaseUrl.replace(/\/$/, "");
+  const patterns: Array<string | RegExp> = [
+    new RegExp(`^${escapeRegexFragment(normalizedBase)}`),
+  ];
+
+  const restBase = pulseServerRestBaseForNetworkIgnore(endpointBaseUrl);
+  if (restBase && restBase !== normalizedBase) {
+    patterns.push(new RegExp(`^${escapeRegexFragment(restBase)}`));
+  }
+
+  if (blocked?.length) {
+    patterns.push(...blocked);
+  }
+  return patterns;
 }
 
 export function sanitizeHttpUrl(
