@@ -313,6 +313,76 @@ describe("PulseSourceMapPlugin — emit hook", () => {
     await expect(compiler.runEmit()).resolves.not.toThrow();
   });
 
+  it("does NOT delete maps when upload fails — regression for data-loss bug", async () => {
+    // HTTP failure → uploadSourceMaps returns false → maps must stay in output
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: false, status: 500, text: async () => "server error" }),
+    );
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const compiler = makeCompiler({ "static/chunks/main.js.map": '{"version":3}' });
+
+    const plugin = new PulseSourceMapPlugin({
+      ...DEFAULT_OPTS,
+      dryRun: false,
+      deleteAfterUpload: true,
+    });
+
+    plugin.apply(compiler);
+    await compiler.runEmit();
+
+    // Map MUST still be present — deleting on failure would make stacks permanently unreadable
+    expect("static/chunks/main.js.map" in compiler.compilation.assets).toBe(true);
+  });
+
+  it("uses full relative asset path as fileName — avoids basename collision across dirs", async () => {
+    // Two chunks in different subdirectories that share the same basename.
+    // Before the fix both would upload as "page.js.map", causing the backend
+    // to overwrite one with the other.
+    type FakeFormData = {
+      _entries: Array<[string, unknown, string?]>;
+      append(name: string, value: unknown, filename?: string): void;
+    };
+    let capturedForm: FakeFormData | null = null;
+
+    vi.stubGlobal(
+      "FormData",
+      class implements FakeFormData {
+        _entries: Array<[string, unknown, string?]> = [];
+        append(name: string, value: unknown, filename?: string) {
+          this._entries.push([name, value, filename]);
+          if (name === "metadata") capturedForm = this;
+        }
+      },
+    );
+
+    const compiler = makeCompiler({
+      "static/chunks/app/page.js.map": '{"version":3,"file":"app-page"}',
+      "static/chunks/pages/page.js.map": '{"version":3,"file":"pages-page"}',
+    });
+
+    const plugin = new PulseSourceMapPlugin({
+      ...DEFAULT_OPTS,
+      dryRun: false,
+      deleteAfterUpload: false,
+    });
+
+    plugin.apply(compiler);
+    await compiler.runEmit();
+
+    expect(capturedForm).not.toBeNull();
+    const metadataEntry = (capturedForm as FakeFormData)._entries.find(([k]) => k === "metadata");
+    const parsed = JSON.parse(metadataEntry![1] as string) as Array<{ fileName: string }>;
+
+    const fileNames = parsed.map((m) => m.fileName);
+    // Full relative paths — no collision
+    expect(fileNames).toContain("static/chunks/app/page.js.map");
+    expect(fileNames).toContain("static/chunks/pages/page.js.map");
+    // Bare basename must NOT appear
+    expect(fileNames.every((f) => f !== "page.js.map")).toBe(true);
+  });
+
   it("sends X-API-KEY header", async () => {
     const compiler = makeCompiler({ "main.js.map": '{"version":3}' });
 

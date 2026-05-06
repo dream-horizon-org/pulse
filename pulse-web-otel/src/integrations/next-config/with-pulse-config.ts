@@ -124,14 +124,18 @@ export class PulseSourceMapPlugin {
         if (mapAssetNames.length === 0) return;
 
         const files = mapAssetNames.map((assetPath) => ({
-          // Use only the basename as the fileName sent to the backend
-          fileName: assetPath.split("/").pop() ?? assetPath,
+          // Use the full relative asset path (not just basename) to avoid
+          // collisions when two chunks in different subdirectories share a
+          // filename (e.g. static/chunks/page.js.map in multiple routes).
+          fileName: assetPath,
           content: String(compilation.assets[assetPath]!.source()),
         }));
 
-        await uploadSourceMaps(files, this.opts);
+        const uploadOk = await uploadSourceMaps(files, this.opts);
 
-        if (this.opts.deleteAfterUpload) {
+        // Only delete maps when upload succeeded — deleting on failure leaves
+        // stacks permanently unreadable with no recovery path.
+        if (uploadOk && this.opts.deleteAfterUpload) {
           for (const name of mapAssetNames) {
             delete (compilation.assets as Record<string, unknown>)[name];
           }

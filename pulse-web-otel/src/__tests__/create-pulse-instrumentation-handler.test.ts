@@ -33,13 +33,15 @@ describe("createPulseInstrumentationHandler", () => {
     );
   });
 
-  it("sends Authorization Bearer token", () => {
+  it("sends X-API-KEY header (aligned with browser transport contract)", () => {
     const handler = createPulseInstrumentationHandler(CONFIG);
     handler(ERROR, REQUEST, CONTEXT);
     const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
-    expect((init.headers as Record<string, string>)["Authorization"]).toBe(
-      "Bearer test-api-key",
+    expect((init.headers as Record<string, string>)["X-API-KEY"]).toBe(
+      "test-api-key",
     );
+    // Confirm old Bearer header is gone
+    expect((init.headers as Record<string, string>)["Authorization"]).toBeUndefined();
   });
 
   it("sends OTLP JSON body with device.crash pulse.type", () => {

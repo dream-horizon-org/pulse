@@ -201,17 +201,36 @@ export const BEACON_BODY_LIMIT_BYTES = 64 * 1024;
 /**
  * SendBeacon transport — most reliable for page-unload delivery.
  *
- * navigator.sendBeacon cannot carry custom request headers.  To preserve
- * auth, the API key is appended as a `?apiKey=<key>` query parameter.
- * The OTLP Content-Type is conveyed via the Blob type so the collector
- * can still deserialise the payload correctly.
+ * `navigator.sendBeacon` cannot carry custom request headers, so auth must be
+ * handled out-of-band.  Two modes:
  *
- * Returns `{status:"failure"}` when sendBeacon is unavailable or the
- * browser rejects the beacon (quota exceeded).
+ * 1. **Relay URL (preferred)** — set `beaconRelayUrl` to a same-origin endpoint
+ *    (e.g. `/api/pulse-relay`) that forwards the payload with a server-side
+ *    `X-API-KEY` header.  The API key never appears in the URL.
+ *
+ * 2. **Query-param fallback** — when no relay URL is provided the API key is
+ *    appended as `?apiKey=<key>`.  This is visible in server access logs,
+ *    browser DevTools network panel, and reverse-proxy logs.  A one-time
+ *    `console.warn` is emitted to flag the exposure.
+ *
+ * The OTLP Content-Type is conveyed via the Blob type so the collector can
+ * still deserialise the payload correctly.
+ *
+ * Returns `{status:"failure"}` when sendBeacon is unavailable or the browser
+ * rejects the beacon (quota exceeded).
  */
+
+let _beaconKeyWarnEmitted = false;
+/** Reset warning gate — for unit tests only. */
+export function _resetBeaconKeyWarnForTesting(): void {
+  _beaconKeyWarnEmitted = false;
+}
+
 export function createPulseSendBeaconTransport(params: {
   url: string;
   apiKey?: string;
+  /** Same-origin relay URL. When provided the apiKey is NOT appended to the URL. */
+  beaconRelayUrl?: string;
   contentType: string;
 }): IExporterTransport {
   return {
@@ -225,11 +244,25 @@ export function createPulseSendBeaconTransport(params: {
           error: new Error("sendBeacon not available in this environment"),
         });
       }
-      // sendBeacon cannot send custom headers → embed apiKey as URL query param
-      const url =
-        params.apiKey != null && params.apiKey !== ""
-          ? `${params.url}${params.url.includes("?") ? "&" : "?"}apiKey=${encodeURIComponent(params.apiKey)}`
-          : params.url;
+
+      let url: string;
+      if (params.beaconRelayUrl) {
+        // Relay endpoint handles auth server-side — key stays out of the URL.
+        url = params.beaconRelayUrl;
+      } else if (params.apiKey != null && params.apiKey !== "") {
+        // Fallback: embed key in query string. Warn once about exposure risk.
+        if (!_beaconKeyWarnEmitted) {
+          _beaconKeyWarnEmitted = true;
+          console.warn(
+            "[Pulse] sendBeacon: API key sent as URL query parameter — " +
+              "visible in server access logs and browser tooling. " +
+              "Set PulseWebConfig.beaconRelayUrl to route through a same-origin proxy instead.",
+          );
+        }
+        url = `${params.url}${params.url.includes("?") ? "&" : "?"}apiKey=${encodeURIComponent(params.apiKey)}`;
+      } else {
+        url = params.url;
+      }
       const blob = new Blob([data], { type: params.contentType });
       const queued = navigator.sendBeacon(url, blob);
       return Promise.resolve(
@@ -255,7 +288,7 @@ export type BrowserExportTransport = IExporterTransport & {
    * - payloads > limit → keepalive fetch (handles larger batches)
    * Falls back to keepalive fetch if sendBeacon is not available.
    */
-  switchToBeacon(params: { apiKey?: string; contentType: string }): void;
+  switchToBeacon(params: { apiKey?: string; beaconRelayUrl?: string; contentType: string }): void;
 };
 
 /**
@@ -297,10 +330,11 @@ export function buildBrowserExportTransport(
         keepalive: true,
       });
     },
-    switchToBeacon({ apiKey, contentType }: { apiKey?: string; contentType: string }) {
+    switchToBeacon({ apiKey, beaconRelayUrl, contentType }: { apiKey?: string; beaconRelayUrl?: string; contentType: string }) {
       const beacon = createPulseSendBeaconTransport({
         url: xhrParams.url,
         apiKey,
+        beaconRelayUrl,
         contentType,
       });
       const keepalive = createPulseFetchTransport({

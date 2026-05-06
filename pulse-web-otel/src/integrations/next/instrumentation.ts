@@ -23,7 +23,7 @@
 import { PulseWebSemconv } from "../../semconv";
 
 export interface PulseInstrumentationConfig {
-  /** Pulse API key (used as Bearer token). */
+  /** Pulse API key — sent as X-API-KEY header, matching the browser transport contract. */
   apiKey: string;
   /** OTLP/HTTP logs endpoint, e.g. https://collector.example.com/v1/logs */
   collectorEndpoint: string;
@@ -122,7 +122,7 @@ export function createPulseInstrumentationHandler(
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${config.apiKey}`,
+        "X-API-KEY": config.apiKey,
       },
       body: buildOtlpLogsBody(config.serviceName, attrs, error.message),
     }).catch(() => {

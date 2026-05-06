@@ -9,3 +9,8 @@ export {
   useRouterTracking,
   type UseRouterTrackingOptions,
 } from "../react/useRouterTracking";
+
+export {
+  PulseErrorBoundary,
+  type PulseErrorBoundaryProps,
+} from "../react/PulseErrorBoundary";

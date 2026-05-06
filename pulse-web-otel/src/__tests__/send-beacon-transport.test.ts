@@ -22,6 +22,7 @@ import {
   createPulseSendBeaconTransport,
   buildBrowserExportTransport,
   BEACON_BODY_LIMIT_BYTES,
+  _resetBeaconKeyWarnForTesting,
 } from "../exporters/otlp-transport";
 import type { IdbSignalBuffer } from "../persistence/indexed-db";
 
@@ -199,6 +200,60 @@ describe("createPulseSendBeaconTransport", () => {
       contentType: CONTENT_TYPE,
     });
     expect(() => transport.shutdown()).not.toThrow();
+  });
+
+  // ── beaconRelayUrl ────────────────────────────────────────────────────────
+
+  it("uses beaconRelayUrl as the beacon URL — apiKey NOT in query param", async () => {
+    const RELAY = "https://myapp.example.com/api/pulse-relay";
+    const transport = createPulseSendBeaconTransport({
+      url: ENDPOINT,
+      apiKey: API_KEY,
+      beaconRelayUrl: RELAY,
+      contentType: CONTENT_TYPE,
+    });
+    await transport.send(makePayload(100), 5000);
+    const [url] = mockSendBeacon.mock.calls[0] as [string, Blob];
+    expect(url).toBe(RELAY);
+    expect(url).not.toContain("apiKey");
+    expect(url).not.toContain(ENDPOINT);
+  });
+
+  it("emits console.warn once when falling back to query-param (no relay URL)", async () => {
+    _resetBeaconKeyWarnForTesting();
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const transport = createPulseSendBeaconTransport({
+      url: ENDPOINT,
+      apiKey: API_KEY,
+      contentType: CONTENT_TYPE,
+    });
+
+    await transport.send(makePayload(64), 5000);
+    await transport.send(makePayload(64), 5000); // second send must NOT warn again
+
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+    expect(warnSpy.mock.calls[0]?.[0]).toContain("beaconRelayUrl");
+    warnSpy.mockRestore();
+    _resetBeaconKeyWarnForTesting();
+  });
+
+  it("does NOT emit console.warn when beaconRelayUrl is provided", async () => {
+    _resetBeaconKeyWarnForTesting();
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const transport = createPulseSendBeaconTransport({
+      url: ENDPOINT,
+      apiKey: API_KEY,
+      beaconRelayUrl: "https://myapp.example.com/api/pulse-relay",
+      contentType: CONTENT_TYPE,
+    });
+
+    await transport.send(makePayload(64), 5000);
+
+    expect(warnSpy).not.toHaveBeenCalled();
+    warnSpy.mockRestore();
+    _resetBeaconKeyWarnForTesting();
   });
 });
 

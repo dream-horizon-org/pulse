@@ -261,6 +261,7 @@ class PulseWebSDK implements SdkContext {
           }
         : { enabled: false },
       ...(beforeSendResolved ? { beforeSendData: beforeSendResolved } : {}),
+      ...(config.beaconRelayUrl ? { beaconRelayUrl: config.beaconRelayUrl } : {}),
     };
   }
 
