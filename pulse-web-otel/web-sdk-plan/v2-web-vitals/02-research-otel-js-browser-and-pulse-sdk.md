@@ -116,6 +116,6 @@ If user provides **`beforeSendMetric`** that drops all web vital metrics → ins
 
 ## 7. References
 
-- [@opentelemetry/sdk-metrics](https://github.com/open-telemetry/opentelemetry-js/tree/main/experimental/packages/opentelemetry-sdk-metrics) — `MeterProvider`, `PeriodicExportingMetricReader`  
+- [@opentelemetry/sdk-metrics](https://github.com/open-telemetry/opentelemetry-js/tree/main/packages/sdk-metrics) — `MeterProvider`, `PeriodicExportingMetricReader`  
 - [`pulse-web-otel/src/exporters.ts`](../../src/exporters.ts)  
 - [`pulse-web-otel/src/sdk.ts`](../../src/sdk.ts)  

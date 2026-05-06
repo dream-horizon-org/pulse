@@ -265,8 +265,11 @@ export function createProviders(
   }
 
   const prepareForDocumentUnload = (): void => {
-    innerTraceExporter.switchToKeepalive();
-    baseLogExporter.switchToKeepalive();
+    // Switch to beacon-first unload transport:
+    // - sendBeacon for small payloads (browser-guaranteed delivery even after page close)
+    // - keepalive fetch fallback for payloads > 64 KiB
+    innerTraceExporter.switchToBeacon(config.apiKey, config.beaconRelayUrl);
+    baseLogExporter.switchToBeacon(config.apiKey, config.beaconRelayUrl);
   };
 
   const cleanup = () => {};

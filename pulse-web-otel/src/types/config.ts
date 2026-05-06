@@ -104,4 +104,18 @@ export interface PulseWebConfig {
    * {@code VITE_PULSE_DISK_BUFFER_MAX_SIZE_BYTES} can override defaults when buffering is active.
    */
   diskBuffering?: PulseWebDiskBufferingConfig;
+
+  /**
+   * Same-origin relay URL for sendBeacon unload delivery.
+   *
+   * `navigator.sendBeacon` cannot carry custom headers, so by default the API
+   * key is embedded as a `?apiKey=` query parameter — visible in server access
+   * logs and browser tooling. Providing a `beaconRelayUrl` on your own origin
+   * (e.g. `/api/pulse-relay`) lets a server-side handler forward the payload
+   * with a proper `X-API-KEY` header, keeping the key out of the URL entirely.
+   *
+   * If omitted, the SDK falls back to the query-parameter approach and logs a
+   * one-time warning to the console.
+   */
+  beaconRelayUrl?: string;
 }
