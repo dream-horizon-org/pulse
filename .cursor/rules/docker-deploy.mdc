@@ -21,6 +21,7 @@ alwaysApply: false
 | clickhouse-init | clickhouse/clickhouse-server:24.8 | — | clickhouse **and** kafka (healthy) |
 | pulse-session-capture | `backend/session-capture-service` | 3400 | kafka |
 | pulse-session-replay-ingestion | `backend/session-replay-ingestion` | — | kafka, minio-init |
+| pulse-heatmap-screenshot-ingestion | `backend/heatmap-screenshot-ingestion` | — | kafka, minio-init |
 | otel-collector | otel-collector-contrib:0.137.0 | 4317, 4318, 8888, 13133 | clickhouse |
 | vector | `650012445044.../pulse-vector:latest` | 8686, 14317, 14318 | — | *(profile `vector`; `VECTOR_ENABLED=true`)* |
 | pulse-ai-agent | `pulse_ai/` | 8000 | — |
@@ -77,7 +78,7 @@ All services on `pulse-network` (bridge). Internal references use container name
 - `LOGS_COLLECTOR_URL` — OTLP logs collector endpoint (default: `http://localhost:4318/v1/logs`)
 - `METRIC_COLLECTOR_URL` — OTLP metrics collector endpoint (default: `http://localhost:4318/v1/metrics`)
 - `CUSTOM_EVENT_COLLECTOR_URL` — Custom event collector endpoint (default: `http://localhost:4318/v1/logs`)
-- `INTERACTION_CONFIG_URL` — Interaction config URL (default: `http://localhost:4318/v1/traces`)
+- `INTERACTION_CONFIG_URL` — Interaction config for pulse-server (project flows); in compose, passed through from `.env` (see `deploy/.env.example` — e.g. `http://pulse-server:8080/v1/interaction-configs/` in-stack, or host/dev URLs). **Not** the OTLP traces URL.
 - `VECTOR_ENABLED` — Optional. Set to `true` when using Vector (custom events → S3/Athena). The Vector **service is commented out** in `docker-compose.yml` until you uncomment it. Default: `false`.
 - `REDIS_URL` / `REDIS_HOST` + `REDIS_PORT` — Optional; used by `pulse-heatmap-screenshot-ingestion` when pointing at an **external** Redis (not a compose service here). Empty `REDIS_URL` and `REDIS_HOST` disables Redis-backed quota/dedupe in that worker. Compose also passes **`REDIS_HOST`** / **`REDIS_PORT`** to **`pulse-server`** for Kong plugin materialization (API key map + usage credits in Redis); `pulse-alerts-cron` triggers internal POSTs on pulse-server—cron does **not** connect to Redis or ClickHouse directly.
 - `HEATMAP_QUOTA_PER_DAY`, `HEATMAP_QUOTA_TTL_SECONDS`, `HEATMAP_DEDUPE_TTL_SECONDS` — Optional; heatmap ingestion quota/dedupe TTLs (defaults in compose; see `deploy/.env.example`).
@@ -107,7 +108,7 @@ Credentials (defined in docker-compose, overridable via `.env`):
 
 | Script | Options |
 |--------|---------|
-| `build.sh` | `[--no-cache]` and targets `ui`, `server`, `cron`, `capture`, `ingestion`, `ai`, `all` — default (no args) or `all` builds UI, server, cron, capture, ingestion, and AI (`capture` = pulse-session-capture; `ingestion` = pulse-session-replay-ingestion) |
+| `build.sh` | `[--no-cache]` and targets `ui`, `server`, `cron`, `capture`, `ingestion`, `heatmap` \| `heatmap-ingestion`, `ai`, `all` — default (no args) or `all` builds UI, server, cron, capture, session replay ingestion, **heatmap screenshot ingestion**, and AI (`capture` = pulse-session-capture; `ingestion` = pulse-session-replay-ingestion; `heatmap-ingestion` = pulse-heatmap-screenshot-ingestion) |
 | `start.sh` | `[-d` or `--detach] [--build] [--no-cache] [--skip-env-check]` |
 | `stop.sh` | `-v` to remove volumes; service aliases include `ai`, `pulse-ai-agent` |
 | `logs.sh` | service name (e.g., `server`, `ai`, `otel-collector`) |

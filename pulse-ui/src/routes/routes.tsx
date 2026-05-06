@@ -21,7 +21,6 @@ import { Settings } from "../screens/Settings";
 import { AlertListingPage } from "../screens/AlertListingPage";
 import { AlertForm } from "../screens/AlertFormWizard";
 import { AlertDetail } from "../screens/AlertDetail";
-import { RealTimeQuery } from "../screens/RealTimeQuery";
 import { OrganizationDashboard } from "../screens/OrganizationDashboard";
 import { OrganizationSettings } from "../screens/OrganizationSettings";
 import { OrganizationMembers } from "../screens/OrganizationMembers";
@@ -184,10 +183,6 @@ export const ROUTES = {
   PROJECT_ALERTS_FORM: {
     ...ROUTE_PATHS.PROJECT_ALERTS_FORM,
     element: AlertForm,
-  },
-  PROJECT_QUERY_BUILDER: {
-    ...ROUTE_PATHS.PROJECT_QUERY_BUILDER,
-    element: RealTimeQuery,
   },
 
   // Standalone routes
