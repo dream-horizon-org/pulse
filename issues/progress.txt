@@ -29,6 +29,25 @@
     spot-check histograms, may be best for a hands-on session. 005 still gated
     on 004. 007 closeout after 004+005.
 
+2026-05-06 — Issue 004 (seed tuning, doc-only slice) closed.
+  - docs/rca-segmentation-scenarios.md: added Appendix B "Seed-owned interactions"
+    covering notifications_open (A3/G2 FLAT-everythingGood), profile_update (C1 FLAT
+    no-strong-signal), checkout_start (C3/E1/G2 HIERARCHICAL multi-step), app_launch
+    (B1/E2 hybrid + flat-extras). Each section: target post-materialize shape,
+    threshold story, and concrete seed knobs with line refs into
+    deploy/scripts/seed-ecommerce-data.py (incl. _APP_LAUNCH_OS10_JIO_BIAS=0.33 and
+    _APP_LAUNCH_SM_A135F_STANDALONE_BIAS=0.14). B.5 cross-checks every §9 seed-
+    column row. Revision-history entry added.
+  - No changes to seed-ecommerce-data.py — existing INTERACTIONS[] rows already
+    produce the matrix-required cohorts (PRD lock: no new interaction identifiers
+    this pass). AC#1 + AC#2 ticked; AC#3 (live cache spot-check) deferred to 007.
+  - Next unblocked: 005 (strict rca-db-audit dimensions+sort+mode) is now eligible
+    — 001 + 004 doc deliverables both landed. 005 still needs running stack to
+    record golden expected segments from a clean cache (grill-me decision); the
+    audit-script changes themselves (sort helper, EXPECTATIONS shape, fail-on-
+    count-mismatch) can be coded without infra and validated under 007. 007 still
+    gated on 005.
+
 2026-05-06 — Issue 003 (discoverability skill + doc links) closed.
   - .cursor/skills/rca-e2e/SKILL.md: added a "When rca-db-audit fails" callout in
     the validation section linking docs/rca-segmentation-scenarios.md and
