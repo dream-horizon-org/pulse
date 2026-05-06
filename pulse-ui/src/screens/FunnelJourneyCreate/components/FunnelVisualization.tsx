@@ -34,10 +34,15 @@ export function FunnelVisualization({
   const maxCompleted = steps.length > 0 ? steps[0].count : 1;
   const isPositiveTrend = conversionTrend >= 0;
 
+  // Round to one decimal place to match the listing's conversion column. The
+  // raw percentage from ClickHouse can carry many decimals (e.g. 83.61529016630755);
+  // both the headline KPI and the trend chip below should be displayed compactly.
+  const formatPct = (n: number): string => (Math.round(n * 10) / 10).toString();
+
   return (
     <>
       <Box className={classes.kpiSection}>
-        <Text className={classes.kpiBigNumber}>{totalConversionRate}%</Text>
+        <Text className={classes.kpiBigNumber}>{formatPct(totalConversionRate)}%</Text>
         <Box>
           <Text className={classes.kpiLabel}>Total Conversion</Text>
           <Box
@@ -49,7 +54,7 @@ export function FunnelVisualization({
               <IconTrendingDown size={14} />
             )}
             {isPositiveTrend ? "+" : ""}
-            {conversionTrend}% from last week
+            {formatPct(conversionTrend)}% from last week
           </Box>
         </Box>
       </Box>

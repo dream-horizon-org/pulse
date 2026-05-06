@@ -222,13 +222,15 @@ class ProductAnalysisDaoCoverageTest {
 
     @Test
     void shouldSupportNoArgsAndAllArgsAndEquality() {
+      Instant runTime = Instant.parse("2026-01-01T12:00:00Z");
       FunnelResultRow a = new FunnelResultRow();
       a.setStepIndex(1);
       a.setStepName("checkout");
       a.setUserCount(50L);
       a.setConversionPct(50.0);
       a.setMedianStepSeconds(20L);
-      FunnelResultRow b = new FunnelResultRow(1, "checkout", 50L, 50.0, 20L);
+      a.setRunTime(runTime);
+      FunnelResultRow b = new FunnelResultRow(1, "checkout", 50L, 50.0, 20L, runTime);
       assertThat(a).isEqualTo(b).hasSameHashCodeAs(b);
     }
   }
@@ -433,6 +435,7 @@ class ProductAnalysisDaoCoverageTest {
 
     @Test
     void shouldSupportConstructorsAndEquality() {
+      Instant runTime = Instant.parse("2026-01-01T12:00:00Z");
       JourneyResultRow a = new JourneyResultRow();
       a.setDirection("END");
       a.setPosFrom(1);
@@ -440,7 +443,9 @@ class ProductAnalysisDaoCoverageTest {
       a.setPosTo(2);
       a.setEventTo("exit");
       a.setUserCount(5L);
-      JourneyResultRow b = new JourneyResultRow("END", 1, "logout", 2, "exit", 5L);
+      a.setRunTime(runTime);
+      JourneyResultRow b =
+          new JourneyResultRow("END", 1, "logout", 2, "exit", 5L, runTime);
       assertThat(a).isEqualTo(b).hasSameHashCodeAs(b);
     }
   }

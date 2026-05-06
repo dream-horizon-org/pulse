@@ -209,7 +209,6 @@ class TncDaoTest {
     @Test
     void shouldInsertAcceptanceAndReturnIt() {
       setupWriterPreparedQuery();
-      setupReaderPreparedQuery();
       Row acceptanceRow = createMockTncAcceptanceRow();
       RowIterator<Row> iterator = createMockRowIterator(Collections.singletonList(acceptanceRow));
       when(rowSet.size()).thenReturn(1);
@@ -268,15 +267,13 @@ class TncDaoTest {
     @Test
     void shouldPublishVersionSuccessfully() {
       setupWriterPreparedQuery();
-      setupReaderPreparedQuery();
       Row versionRow = createMockTncVersionRow();
       RowIterator<Row> iterator = createMockRowIterator(Collections.singletonList(versionRow));
       when(rowSet.size()).thenReturn(1);
       when(rowSet.iterator()).thenReturn(iterator);
       when(preparedQuery.rxExecute(any(Tuple.class)))
           .thenReturn(Single.just(rowSet))
-          .thenReturn(Single.just(rowSet));
-      when(preparedQuery.rxExecute())
+          .thenReturn(Single.just(rowSet))
           .thenReturn(Single.just(rowSet));
 
       TncVersion result = tncDao.publishVersion(
