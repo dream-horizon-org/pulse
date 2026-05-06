@@ -4,8 +4,8 @@ This file is the **canonical entry** for milestone scope, **summarized** exit cr
 
 ## M1 — Foundation
 
-- Lifecycle, config, consent, identity: [`01-foundation/`](01-foundation/)
-- SDK start / shutdown: `sdk-lifecycle.md` (same folder)
+- Lifecycle, config, consent, identity: [`01-foundation/README.md`](01-foundation/README.md)
+- SDK start / shutdown: [`01-foundation/sdk-lifecycle.md`](01-foundation/sdk-lifecycle.md)
 
 **Exit criteria (summary):** SDK starts only with allowed consent; session + identity attributes match Android parity where documented in foundation docs.
 
