@@ -14,31 +14,31 @@ class ClickhouseAnalyticsQueryUtilsTest {
     @Test
     void shouldReturnUserIdForUniqueUsers() {
       assertThat(ClickhouseAnalyticsQueryUtils.resolveGroupKey("UNIQUE_USERS"))
-          .isEqualTo("LogAttributes['user.id']");
+          .isEqualTo("UserId");
     }
 
     @Test
     void shouldReturnSessionIdForSessions() {
       assertThat(ClickhouseAnalyticsQueryUtils.resolveGroupKey("SESSIONS"))
-          .isEqualTo("LogAttributes['session.id']");
+          .isEqualTo("SessionId");
     }
 
     @Test
     void shouldBeCaseInsensitiveForSessions() {
       assertThat(ClickhouseAnalyticsQueryUtils.resolveGroupKey("sessions"))
-          .isEqualTo("LogAttributes['session.id']");
+          .isEqualTo("SessionId");
     }
 
     @Test
     void shouldDefaultToUserIdForUnknownType() {
       assertThat(ClickhouseAnalyticsQueryUtils.resolveGroupKey("UNKNOWN"))
-          .isEqualTo("LogAttributes['user.id']");
+          .isEqualTo("UserId");
     }
 
     @Test
     void shouldDefaultToUserIdForNull() {
       assertThat(ClickhouseAnalyticsQueryUtils.resolveGroupKey(null))
-          .isEqualTo("LogAttributes['user.id']");
+          .isEqualTo("UserId");
     }
   }
 

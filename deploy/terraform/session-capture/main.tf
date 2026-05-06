@@ -52,27 +52,6 @@ resource "aws_launch_template" "capture" {
   key_name               = var.ssh_key_name
   vpc_security_group_ids = var.ec2_security_group_ids
 
-  iam_instance_profile {
-    name = var.instance_profile_name
-  }
-
-  private_dns_name_options {
-    enable_resource_name_dns_a_record = true
-  }
-
-  metadata_options {
-    http_endpoint = "enabled"
-    http_tokens   = "required"
-  }
-
-  user_data = base64encode(templatefile("${path.module}/user-data.sh", {
-    artifact_version = var.artifact_version
-    port             = var.listen_port
-    kafka_brokers    = var.kafka_brokers
-    kafka_topic      = var.kafka_topic
-    rust_log         = var.rust_log
-  }))
-
   tag_specifications {
     resource_type = "instance"
 
@@ -91,9 +70,22 @@ resource "aws_launch_template" "capture" {
     })
   }
 
-  lifecycle {
-    create_before_destroy = true
+  iam_instance_profile {
+    name = var.instance_profile_name
   }
+
+  private_dns_name_options {
+    enable_resource_name_dns_a_record = true
+  }
+
+  metadata_options {
+    http_endpoint = "enabled"
+    http_tokens   = "required"
+  }
+
+  user_data = base64encode(templatefile("${path.module}/user-data.sh", {
+    artifact_version = var.artifact_version
+  }))
 }
 
 # -------------------------------------------------------------------

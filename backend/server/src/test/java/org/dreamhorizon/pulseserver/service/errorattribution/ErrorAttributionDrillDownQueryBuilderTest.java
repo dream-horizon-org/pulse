@@ -30,81 +30,93 @@ class ErrorAttributionDrillDownQueryBuilderTest {
           true);
 
   @Test
-  void crashUsesModeAStackSessionsAndKeyStats() {
+  void crashUsesOptimizedStackSql() {
     RootCauseQuerySpec spec =
         ErrorAttributionDrillDownQueryBuilder.build(
             "proj-1", "checkout", START, END, ErrorAttributionDrillDownSignal.crash, PARAMS_OFF);
     String sql = spec.sql();
-    assertThat(sql).contains("stack_sessions AS");
-    assertThat(sql).contains("key_stats AS");
-    assertThat(sql).contains("universe AS");
-    assertThat(sql).contains("poor_tot AS");
-    assertThat(sql).contains("AS poor_ts,");
-    assertThat(sql).doesNotContain("eligible_stack_groups");
-    assertThat(sql).doesNotContain("poor_sessions AS");
-    assertThat(sql).contains("SELECT SessionId, GroupId, Title FROM ");
+    assertThat(sql).contains("session_metrics AS");
+    assertThat(sql).contains("error_sessions AS");
+    assertThat(sql).contains("uniq(es.SessionId)");
+    assertThat(sql).contains("uniqIf(es.SessionId");
     assertThat(sql).contains("PulseType = 'device.crash'");
     assertThat(sql).contains("LIMIT toInt64(:");
-    assertThat(sql).doesNotContain("toIntervalNanosecond(ta.poor_max_duration_ns)");
+    assertThat(sql).doesNotContain("stack_sessions AS");
+    assertThat(sql).doesNotContain("trace_agg AS");
+    assertThat(sql).doesNotContain("eligible_stack_groups");
+    assertThat(sql).doesNotContain("poor_sessions AS");
     assertSharedBinds(spec);
   }
 
   @Test
-  void crashWhenIssueMustPrecedePoor_includesFirstIssueTsAndPoorWindowGuard() {
+  void crashWhenIssueMustPrecedePoor_usesPoorEndTsAgainstFirstIssueTs() {
     RootCauseQuerySpec spec =
         ErrorAttributionDrillDownQueryBuilder.build(
             "proj-1", "checkout", START, END, ErrorAttributionDrillDownSignal.crash, PARAMS_TEMPORAL_ON);
     String sql = spec.sql();
-    assertThat(sql).contains("min(Timestamp) AS first_issue_ts");
-    assertThat(sql).contains("AS poor_max_duration_ns");
-    assertThat(sql).contains("maxIf(greatest(0, toInt64(ifNull(Duration, 0)))");
-    assertThat(sql)
-        .contains(
-            "ss.first_issue_ts < (ta.poor_ts + toIntervalNanosecond(ta.poor_max_duration_ns))");
-    assertThat(sql).contains("ta.poor_ts >= toDateTime64(:");
-    assertThat(sql).contains("ta.poor_ts < toDateTime64(:");
-    assertThat(sql).doesNotContain("poor_ts IS NOT NULL");
+    assertThat(sql).contains("min(ss.Timestamp) AS first_issue_ts");
+    assertThat(sql).contains("first_issue_ts < es.poor_end_ts");
+    assertThat(sql).contains("maxIf(Timestamp + toIntervalNanosecond");
+    assertThat(sql).doesNotContain("ta.poor_max_duration_ns");
     assertSharedBinds(spec);
   }
 
   @Test
-  void nonFatalUsesTripleInStackSessions() {
+  void nonFatalUsesOptimizedTripleKeyStackSql() {
     RootCauseQuerySpec spec =
         ErrorAttributionDrillDownQueryBuilder.build(
             "proj-1", "checkout", START, END, ErrorAttributionDrillDownSignal.non_fatal, PARAMS_OFF);
     String sql = spec.sql();
-    assertThat(sql).contains("SELECT SessionId, GroupId, Title, ExceptionType FROM ");
+    assertThat(sql).contains("session_metrics AS");
+    assertThat(sql).contains("error_sessions AS");
+    assertThat(sql).contains("uniq(es.SessionId)");
+    assertThat(sql).contains("uniqIf(es.SessionId");
     assertThat(sql).contains("PulseType = 'non_fatal'");
+    assertThat(sql).doesNotContain("uniqCombined64(ss.SessionId)");
     assertSharedBinds(spec);
   }
 
   @Test
-  void apiUsesNetworkSessionsAndOtelTableOnly() {
+  void nonFatalWhenIssueMustPrecedePoor_usesPoorEndTsAgainstFirstIssueTs() {
+    RootCauseQuerySpec spec =
+        ErrorAttributionDrillDownQueryBuilder.build(
+            "proj-1", "checkout", START, END, ErrorAttributionDrillDownSignal.non_fatal, PARAMS_TEMPORAL_ON);
+    String sql = spec.sql();
+    assertThat(sql).contains("min(ss.Timestamp) AS first_issue_ts");
+    assertThat(sql).contains("first_issue_ts < es.poor_end_ts");
+    assertThat(sql).contains("maxIf(Timestamp + toIntervalNanosecond");
+    assertThat(sql).doesNotContain("ta.poor_max_duration_ns");
+    assertSharedBinds(spec);
+  }
+
+  @Test
+  void apiUsesOptimizedNetworkSessionsAndSessionMetrics() {
     RootCauseQuerySpec spec =
         ErrorAttributionDrillDownQueryBuilder.build(
             "proj-1", "checkout", START, END, ErrorAttributionDrillDownSignal.api, PARAMS_OFF);
     String sql = spec.sql();
+    assertThat(sql).contains("session_metrics AS");
+    assertThat(sql).contains("globals AS");
     assertThat(sql).contains("network_sessions AS");
+    assertThat(sql).contains("ranked_rows AS");
+    assertThat(sql).contains("uniq(ns.SessionId)");
     assertThat(sql).contains("SpanAttributes['http.url']");
     assertThat(sql).contains("drill_http_method");
     assertThat(sql).contains("drill_http_status");
     assertThat(sql).contains(ClickhouseConstants.OTEL_TRACES_TABLE);
     assertThat(sql).doesNotContain(ClickhouseConstants.STACK_TRACE_EVENTS_TABLE);
-    assertThat(sql).contains("AS poor_ts,");
-    assertThat(sql).contains("AS poor_max_duration_ns");
+    assertThat(sql).contains("SessionId IN (SELECT SessionId FROM session_metrics)");
+    assertThat(sql).doesNotContain("uniqCombined64(ns.SessionId)");
     assertSharedBinds(spec);
   }
 
   @Test
-  void apiWhenIssueMustPrecedePoor_joinsTraceAggTimestampsForNTreatedLow() {
+  void apiWhenIssueMustPrecedePoor_usesPoorEndTsAgainstFirstEndpointErrorTs() {
     RootCauseQuerySpec spec =
         ErrorAttributionDrillDownQueryBuilder.build(
             "proj-1", "checkout", START, END, ErrorAttributionDrillDownSignal.api, PARAMS_TEMPORAL_ON);
     String sql = spec.sql();
-    assertThat(sql).contains("AS poor_max_duration_ns");
-    assertThat(sql)
-        .contains(
-            "ns.first_endpoint_error_ts < (ta.poor_ts + toIntervalNanosecond(ta.poor_max_duration_ns))");
+    assertThat(sql).contains("first_endpoint_error_ts < ta.poor_end_ts");
     assertThat(sql).contains("min(Timestamp) AS first_endpoint_error_ts");
     assertSharedBinds(spec);
   }

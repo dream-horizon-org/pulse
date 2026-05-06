@@ -6,7 +6,6 @@ import io.reactivex.rxjava3.core.Flowable;
 import io.reactivex.rxjava3.core.Maybe;
 import io.reactivex.rxjava3.core.Single;
 import io.vertx.rxjava3.sqlclient.Row;
-import io.vertx.rxjava3.sqlclient.RowSet;
 import io.vertx.rxjava3.sqlclient.Tuple;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -56,7 +55,19 @@ public class TncDao {
         .rxExecute(Tuple.of(tenantId, versionId, email, userAgent))
         .flatMap(result -> {
           log.info("TnC acceptance recorded: tenant={}, version={}, email={}", tenantId, versionId, email);
-          return getAcceptance(tenantId, versionId).toSingle();
+          // Reload on writer pool: reader replica may not have the row yet after INSERT.
+          return mysqlClient.getWriterPool()
+              .preparedQuery(TncQueries.GET_ACCEPTANCE)
+              .rxExecute(Tuple.of(tenantId, versionId))
+              .flatMap(rows -> {
+                if (rows.size() == 0) {
+                  log.error("TnC acceptance not visible on writer after insert: tenant={}, version={}",
+                      tenantId, versionId);
+                  return Single.error(new IllegalStateException(
+                      "TnC acceptance could not be reloaded after insert"));
+                }
+                return Single.just(mapRowToAcceptance(rows.iterator().next()));
+              });
         });
   }
 
@@ -83,7 +94,19 @@ public class TncDao {
         })
         .flatMap(deactivated -> {
           log.info("Published TnC version: {}, deactivated previous versions", version);
-          return getActiveVersion().toSingle();
+          // Must read from writer pool: reader replica can lag behind the insert/update above,
+          // which would make getActiveVersion() empty and .toSingle() throw NoSuchElementException.
+          return mysqlClient.getWriterPool()
+              .preparedQuery(TncQueries.GET_ACTIVE_VERSION_BY_VERSION_STRING)
+              .rxExecute(Tuple.of(version))
+              .flatMap(rows -> {
+                if (rows.size() == 0) {
+                  log.error("TnC version {} not visible on writer after publish", version);
+                  return Single.error(new IllegalStateException(
+                      "Published TnC version could not be reloaded; verify tnc_versions data"));
+                }
+                return Single.just(mapRowToVersion(rows.iterator().next()));
+              });
         });
   }
 
