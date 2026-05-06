@@ -8,6 +8,7 @@ import type {
   SessionStartReason,
 } from "./types/session";
 import { PulseWebLogger } from "./pulse-web-logger";
+import { DomEventType } from "./constants/pulse-otel-runtime";
 
 /** Storage access can throw (disabled, quota, sandbox). Never break the host app. */
 function swallowStorageError(scope: string, err: unknown): void {
@@ -306,7 +307,10 @@ export class SessionProvider {
       this.beforeunloadListener = () => {
         this._removeCloneFlag();
       };
-      window.addEventListener("beforeunload", this.beforeunloadListener);
+      window.addEventListener(
+        DomEventType.BEFORE_UNLOAD,
+        this.beforeunloadListener,
+      );
 
       // Set up pagehide listener
       this.pagehideListener = (e: PageTransitionEvent) => {
@@ -365,10 +369,10 @@ export class SessionProvider {
         }
       };
 
-      window.addEventListener("pagehide", this.pagehideListener);
-      window.addEventListener("pageshow", this.pageshowListener);
+      window.addEventListener(DomEventType.PAGEHIDE, this.pagehideListener);
+      window.addEventListener(DomEventType.PAGESHOW, this.pageshowListener);
       document.addEventListener(
-        "visibilitychange",
+        DomEventType.VISIBILITY_CHANGE,
         this.visibilityChangeListener,
       );
     }
@@ -705,17 +709,26 @@ export class SessionProvider {
 
     if (typeof window !== "undefined") {
       if (this.pagehideListener) {
-        window.removeEventListener("pagehide", this.pagehideListener);
+        window.removeEventListener(
+          DomEventType.PAGEHIDE,
+          this.pagehideListener,
+        );
       }
       if (this.pageshowListener) {
-        window.removeEventListener("pageshow", this.pageshowListener);
+        window.removeEventListener(
+          DomEventType.PAGESHOW,
+          this.pageshowListener,
+        );
       }
       if (this.beforeunloadListener) {
-        window.removeEventListener("beforeunload", this.beforeunloadListener);
+        window.removeEventListener(
+          DomEventType.BEFORE_UNLOAD,
+          this.beforeunloadListener,
+        );
       }
       if (this.visibilityChangeListener) {
         document.removeEventListener(
-          "visibilitychange",
+          DomEventType.VISIBILITY_CHANGE,
           this.visibilityChangeListener,
         );
       }

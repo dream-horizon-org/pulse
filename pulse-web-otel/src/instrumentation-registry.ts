@@ -5,6 +5,7 @@
 import type { InstrumentationConfig } from "./config";
 import type { FeatureGate } from "./feature-gate";
 import { SessionInstrumentation } from "./instrumentations/session";
+import { WebVitalsInstrumentation } from "./instrumentations/web-vitals";
 import { ErrorInstrumentation } from "./instrumentations/errors";
 import { InstrumentationKeys } from "./config";
 import { PulseFeature } from "./remote-config";
@@ -21,6 +22,8 @@ export type {
 
 export class InstrumentationRegistry {
   private installed: PulseInstrumentation[] = [];
+  /** Prevents duplicate `installAll()` without `uninstallAll()` (single owner for web-vitals listeners). */
+  private installAllCompleted = false;
 
   constructor(
     private readonly sdk: SdkContext,
@@ -60,11 +63,22 @@ export class InstrumentationRegistry {
   }
 
   installAll(): void {
+    if (this.installAllCompleted) {
+      return;
+    }
+    this.installAllCompleted = true;
     // M1: Install session instrumentation
     if (this.shouldInstall(InstrumentationKeys.SESSION)) {
       this.registerAndInstall(new SessionInstrumentation());
     }
 
+    this.registerAndInstall(
+      new WebVitalsInstrumentation(),
+      InstrumentationKeys.WEB_VITALS,
+    );
+
+    // M3: will install ErrorsInstrumentation, NetworkInstrumentation,
+    // ClicksInstrumentation, NavigationInstrumentation, etc.
     if (this.shouldInstall(InstrumentationKeys.ERRORS)) {
       const errInstr = new ErrorInstrumentation();
       errInstr.install(this.sdk);
@@ -85,5 +99,6 @@ export class InstrumentationRegistry {
       }
     }
     this.installed = [];
+    this.installAllCompleted = false;
   }
 }

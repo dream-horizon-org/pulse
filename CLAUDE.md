@@ -46,7 +46,8 @@ cd pulse-ui && yarn test --testPathPattern=ComponentName  # single test
 cd pulse-web-otel && yarn install
 cd pulse-web-otel && yarn build
 cd pulse-web-otel && yarn test
-cd pulse-web-otel && yarn workspace ecommerce-demo dev  # demo app :3002
+cd pulse-web-otel && yarn workspace ecommerce-demo dev   # React demo :3002
+cd pulse-web-otel && yarn demo:docs                      # vanilla demo :3003
 
 # AI Agent
 cd pulse_ai && ./setup.sh                     # start Docker on :8000

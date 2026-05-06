@@ -34,6 +34,10 @@ import { buildMergedResource } from "./resource";
 import { parseUserAgent, getOsVersionAsync } from "./utils/ua-parser";
 import { SdkConfigFetcher, PulseFeature } from "./remote-config";
 import { DEFAULT_SDK_CONFIG } from "./constants/default-sdk-config";
+import {
+  DomEventType,
+  PulseOtelLoggerScope,
+} from "./constants/pulse-otel-runtime";
 import { FeatureGate } from "./feature-gate";
 import { PulseGlobalAttributesProcessor } from "./processors/global-attrs-processor";
 import { SignalFilterProcessor } from "./processors/signal-filter-processor";
@@ -70,7 +74,7 @@ class PulseWebSDK implements SdkContext {
   globalAttrsProcessor!: PulseGlobalAttributesProcessor;
 
   private tracerProvider?: WebTracerProvider;
-  private loggerProvider?: LoggerProvider;
+  private _loggerProvider?: LoggerProvider;
   private meterProvider?: MeterProvider;
   private _prepareForDocumentUnload?: () => void;
   private _pagehideListener?: (e: PageTransitionEvent) => void;
@@ -79,6 +83,11 @@ class PulseWebSDK implements SdkContext {
   gate: FeatureGate = new FeatureGate(DEFAULT_SDK_CONFIG);
   private _providerCleanup: () => void = () => {};
   private interactionInstrumentation?: InteractionInstrumentation;
+
+  /** Exposed on {@link SdkContext} for instrumentations that must flush logs (Web Vitals). */
+  get loggerProvider(): LoggerProvider | undefined {
+    return this._loggerProvider;
+  }
 
   static getInstance(): PulseWebSDK {
     if (!PulseWebSDK._instance) {
@@ -281,7 +290,7 @@ class PulseWebSDK implements SdkContext {
 
   private assignProviders(bundle: ProviderBundle): void {
     this.tracerProvider = bundle.tracerProvider;
-    this.loggerProvider = bundle.loggerProvider;
+    this._loggerProvider = bundle.loggerProvider;
     this.meterProvider = bundle.meterProvider;
     this._prepareForDocumentUnload = bundle.prepareForDocumentUnload;
     this._providerCleanup = bundle.cleanup ?? (() => {});
@@ -293,18 +302,18 @@ class PulseWebSDK implements SdkContext {
       if (!e.persisted && this._initialized) {
         this._prepareForDocumentUnload?.();
         void Promise.all([
-          this.loggerProvider?.forceFlush(),
+          this._loggerProvider?.forceFlush(),
           this.tracerProvider?.forceFlush(),
           this.meterProvider?.forceFlush(),
         ]).catch(() => {});
       }
     };
-    window.addEventListener("pagehide", this._pagehideListener);
+    window.addEventListener(DomEventType.PAGEHIDE, this._pagehideListener);
   }
 
   private bindGlobalProviders(): void {
     const tracerProvider = this.tracerProvider;
-    const loggerProvider = this.loggerProvider;
+    const loggerProvider = this._loggerProvider;
     const meterProvider = this.meterProvider;
     if (!tracerProvider || !loggerProvider || !meterProvider) return;
 
@@ -312,8 +321,8 @@ class PulseWebSDK implements SdkContext {
     logs.setGlobalLoggerProvider(loggerProvider);
     metrics.setGlobalMeterProvider(meterProvider);
 
-    this.logger = loggerProvider.getLogger("pulse-web");
-    this.tracer = tracerProvider.getTracer("pulse-web");
+    this.logger = loggerProvider.getLogger(PulseOtelLoggerScope.PULSE_WEB);
+    this.tracer = tracerProvider.getTracer(PulseOtelLoggerScope.PULSE_WEB);
   }
 
   private installInstrumentations(
@@ -353,7 +362,7 @@ class PulseWebSDK implements SdkContext {
     this._starting = false; // kill any pending async init
 
     if (this._pagehideListener && typeof window !== "undefined") {
-      window.removeEventListener("pagehide", this._pagehideListener);
+      window.removeEventListener(DomEventType.PAGEHIDE, this._pagehideListener);
       this._pagehideListener = undefined;
     }
 
@@ -364,7 +373,7 @@ class PulseWebSDK implements SdkContext {
 
     await Promise.all([
       this.tracerProvider?.forceFlush(),
-      this.loggerProvider?.forceFlush(),
+      this._loggerProvider?.forceFlush(),
       this.meterProvider?.forceFlush(),
     ]);
 
@@ -547,12 +556,12 @@ class PulseWebSDK implements SdkContext {
    * install (so {@code session.start} follows these in the pipeline).
    */
   private emitSdkInitializationLogRecords(endpointBaseUrl: string): void {
-    if (this.loggerProvider === undefined) return;
+    if (this._loggerProvider === undefined) return;
 
     const attributeKeys = PulseWebSemconv.AttributeKey;
     const rumSdkInit = PulseWebSemconv.RumSdkInit;
-    const initLogger = this.loggerProvider.getLogger(
-      "otel.initialization.events",
+    const initLogger = this._loggerProvider.getLogger(
+      PulseOtelLoggerScope.INITIALIZATION_EVENTS,
     );
 
     initLogger.emit({

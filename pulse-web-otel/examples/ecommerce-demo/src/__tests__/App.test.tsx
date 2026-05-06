@@ -26,6 +26,8 @@ vi.mock("@dreamhorizon/pulse-web", () => ({
     start: mockStart,
     shutdown: mockShutdown,
     setScreenName: mockSetScreenName,
+    setUserId: vi.fn(),
+    setUserProperties: vi.fn(),
     trackEvent: mockTrackEvent,
     isInitialized: mockIsInitialized,
     reportDeviceCrash: vi.fn(),
@@ -36,6 +38,14 @@ vi.mock("@dreamhorizon/pulse-web", () => ({
     ALLOWED: "ALLOWED",
     DENIED: "DENIED",
     PENDING: "PENDING",
+  },
+  PulseLogLevel: {
+    VERBOSE: "VERBOSE",
+    DEBUG: "DEBUG",
+    INFO: "INFO",
+    WARN: "WARN",
+    ERROR: "ERROR",
+    NONE: "NONE",
   },
 }));
 

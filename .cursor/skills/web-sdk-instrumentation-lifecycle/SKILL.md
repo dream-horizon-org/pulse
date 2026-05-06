@@ -1,7 +1,6 @@
 ---
 name: web-sdk-instrumentation-lifecycle
 description: New or resumed instrumentation in pulse-web-otel—research, touchpoints matrix, ADR/PLAN-B, implementation, testing. Uses web-sdk-instrumentation-e2e-from-design to derive comprehensive E2E cases from DESIGN.md; sanity skill for gates; optional stage agent for confirm-then-execute.
-disable-model-invocation: true
 ---
 
 # Web SDK instrumentation lifecycle
@@ -198,7 +197,7 @@ If the user asked to “run everything” or “stages 0–8”, you still **pau
 
 Execute [pulse-web-sdk-sanity](../pulse-web-sdk-sanity/SKILL.md): **Step 3** test ladder (focused Vitest → wiring/lifecycle → `e2e:web-sdk-gates` → targeted E2E if needed → append `test-run-log.md`); then **Steps 4–6** (regression, pre-merge diff audit, doc sync).
 
-**Demo readiness (before writing specs):** Before any `e2e/*.spec.ts` is useful, the demo must actually exercise the new signal and the test infrastructure must be wired. See [reference.md](reference.md) **D0a–D0d**:
+**Demo readiness (before writing specs):** Before any `e2e/*.spec.ts` is useful, the demo must actually exercise the new signal and the test infrastructure must be wired. See [reference.md](reference.md) **D0a–D0e**:
 
 1. **UI surface** — Does `examples/ecommerce-demo/src/` have a page or element that reaches the new code path? If not, add it first — specs that never reach the code always pass vacuously.
 2. **`.env.test`** — Confirm: `VITE_PULSE_FORMAT=json` + `VITE_PULSE_COMPRESSION=none` (fixture JSON-decodes); `VITE_PULSE_BATCH_DELAY_MS=200` (fast flush); `VITE_PULSE_MOCK_SDK_CONFIG=false` + `VITE_PULSE_MOCK_INTERACTION_CONFIG=false` (prevents mock config overwriting seeded config). Add any feature-specific `VITE_` vars the instrumentation reads from `import.meta.env`.
@@ -292,9 +291,3 @@ pulse-web-otel/web-sdk-plan/<version>-<slug>/
 3. Tests run (exact commands + result).
 4. `test-run-log.md` updated (Y/N).
 5. Known limitations / follow-ups (e.g. upstream library has no cancel API).
-
----
-
-## Skill metadata note
-
-`disable-model-invocation: true` is honored by **Cursor** skills. If this file is **copied** to another runner (e.g. Claude Code), confirm that tool respects the same YAML frontmatter or remove the field if it causes the skill to be ignored.

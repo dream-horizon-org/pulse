@@ -4499,6 +4499,16 @@ __metadata:
   languageName: node
   linkType: hard
 
+"web-sdk-docs@workspace:examples/web-sdk-docs":
+  version: 0.0.0-use.local
+  resolution: "web-sdk-docs@workspace:examples/web-sdk-docs"
+  dependencies:
+    "@dreamhorizon/pulse-web": "workspace:*"
+    typescript: "npm:^5.6.0"
+    vite: "npm:^5.4.0"
+  languageName: unknown
+  linkType: soft
+
 "web-vitals@npm:^4.2.0":
   version: 4.2.4
   resolution: "web-vitals@npm:4.2.4"
