@@ -68,7 +68,7 @@ class TenantMemberServiceTest {
     // Stub so add-user flow can call getUserByEmail(email).isEmpty() without NPE
     when(userService.getUserByEmail(any())).thenReturn(Maybe.empty());
     // Default: user has no existing tenants (happy-path baseline; cross-tenant tests override this)
-    when(openFgaService.getUserTenants(any())).thenReturn(Single.just(List.of()));
+    when(openFgaService.getUserDirectTenants(any())).thenReturn(Single.just(List.of()));
   }
 
   private User createUser(String userId, String email, String name) {
@@ -474,8 +474,8 @@ class TenantMemberServiceTest {
       when(userService.getOrCreateUser("cross@test.com", "cross@test.com")).thenReturn(Single.just(crossTenantUser));
       when(openFgaService.getUserTenantRole(any(), eq(TENANT_ID))).thenReturn(Single.just(Optional.empty()));
       // ok@test.com has no tenant; cross@test.com is already in another tenant
-      when(openFgaService.getUserTenants("user-1")).thenReturn(Single.just(List.of()));
-      when(openFgaService.getUserTenants("user-2")).thenReturn(Single.just(List.of("other-tenant")));
+      when(openFgaService.getUserDirectTenants("user-1")).thenReturn(Single.just(List.of()));
+      when(openFgaService.getUserDirectTenants("user-2")).thenReturn(Single.just(List.of("other-tenant")));
       when(openFgaService.assignTenantRole("user-1", TENANT_ID, "member")).thenReturn(Completable.complete());
 
       var result = tenantMemberService.addUsersToTenant(TENANT_ID, emails, "member", ADMIN_ID).blockingGet();
@@ -499,7 +499,7 @@ class TenantMemberServiceTest {
 
       when(tenantService.getTenant(TENANT_ID)).thenReturn(Maybe.just(tenant));
       when(userService.getOrCreateUser(EMAIL, EMAIL)).thenReturn(Single.just(newUser));
-      // Default @BeforeEach stub: getUserTenants(any()) → [] (no existing tenants)
+      // Default @BeforeEach stub: getUserDirectTenants(any()) -> [] (no existing tenants)
       when(openFgaService.assignTenantRole(USER_ID, TENANT_ID, "member")).thenReturn(Completable.complete());
 
       User result = tenantMemberService.addUserToTenantInternal(TENANT_ID, EMAIL).blockingGet();
@@ -521,7 +521,7 @@ class TenantMemberServiceTest {
       when(tenantService.getTenant(TENANT_ID)).thenReturn(Maybe.just(tenant));
       when(userService.getOrCreateUser(EMAIL, EMAIL)).thenReturn(Single.just(existingUser));
       // User is already in this tenant
-      when(openFgaService.getUserTenants(USER_ID)).thenReturn(Single.just(List.of(TENANT_ID)));
+      when(openFgaService.getUserDirectTenants(USER_ID)).thenReturn(Single.just(List.of(TENANT_ID)));
 
       User result = tenantMemberService.addUserToTenantInternal(TENANT_ID, EMAIL).blockingGet();
 
@@ -540,7 +540,7 @@ class TenantMemberServiceTest {
 
       when(tenantService.getTenant(TENANT_ID)).thenReturn(Maybe.just(tenant));
       when(userService.getOrCreateUser(EMAIL, EMAIL)).thenReturn(Single.just(existingUser));
-      when(openFgaService.getUserTenants(USER_ID)).thenReturn(Single.just(List.of("other-tenant")));
+      when(openFgaService.getUserDirectTenants(USER_ID)).thenReturn(Single.just(List.of("other-tenant")));
 
       IllegalStateException ex = assertThrows(IllegalStateException.class, () ->
           tenantMemberService.addUserToTenantInternal(TENANT_ID, EMAIL).blockingGet());
@@ -576,7 +576,7 @@ class TenantMemberServiceTest {
       when(openFgaService.getUserTenantRole(USER_ID, TENANT_ID))
           .thenReturn(Single.just(Optional.empty()));
       // User already belongs to a different tenant
-      when(openFgaService.getUserTenants(USER_ID))
+      when(openFgaService.getUserDirectTenants(USER_ID))
           .thenReturn(Single.just(List.of("other-tenant-id")));
 
       IllegalStateException ex = assertThrows(IllegalStateException.class, () ->
