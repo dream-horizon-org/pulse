@@ -18,7 +18,7 @@ import {
   IconCopy,
   IconCheck,
 } from "@tabler/icons-react";
-import { useOccurrenceBreadcrumbs } from "../pages/hooks/useOccurrenceBreadcrumbs";
+import { useOccurrenceBreadcrumbLogs } from "../pages/hooks/useOccurrenceBreadcrumbLogs";
 import { BreadcrumbTimeline } from "./BreadcrumbTimeline";
 import classes from "./StackTraceSection.module.css";
 
@@ -82,8 +82,9 @@ export const StackTraceSection: React.FC<StackTraceSectionProps> = ({
   const {
     breadcrumbs,
     queryState: breadcrumbsQueryState,
-    resetForNewOccurrence,
-  } = useOccurrenceBreadcrumbs({
+    hasMore,
+    fetchNextPage,
+  } = useOccurrenceBreadcrumbLogs({
     sessionId: currentTrace?.sessionId || "",
     errorTimestamp: currentTrace?.timestamp || null,
     enabled:
@@ -102,7 +103,6 @@ export const StackTraceSection: React.FC<StackTraceSectionProps> = ({
     setCurrentOccurrence((prev) =>
       prev > 0 ? prev - 1 : stackTraces.length - 1,
     );
-    resetForNewOccurrence();
   };
 
   const handleNextOccurrence = () => {
@@ -110,7 +110,6 @@ export const StackTraceSection: React.FC<StackTraceSectionProps> = ({
     setCurrentOccurrence((prev) =>
       prev < stackTraces.length - 1 ? prev + 1 : 0,
     );
-    resetForNewOccurrence();
   };
 
   if (!stackTraces || stackTraces.length === 0) {
@@ -348,13 +347,22 @@ export const StackTraceSection: React.FC<StackTraceSectionProps> = ({
           </Paper>
         </Tabs.Panel>
 
-        <Tabs.Panel value="breadcrumbs">
-          <BreadcrumbTimeline
-            breadcrumbs={breadcrumbs}
-            isLoading={breadcrumbsQueryState.isLoading}
-            isError={breadcrumbsQueryState.isError}
-            errorMessage={breadcrumbsQueryState.errorMessage}
-          />
+        <Tabs.Panel value="breadcrumbs" className={classes.breadcrumbsTabPanel}>
+          <Paper className={classes.breadcrumbsPanel} p={0}>
+            <Box className={classes.breadcrumbsInner}>
+              <BreadcrumbTimeline
+                breadcrumbs={breadcrumbs}
+                sessionId={currentTrace?.sessionId ?? ""}
+                occurrenceResetKey={`${currentTrace?.sessionId ?? ""}-${currentTrace?.timestamp?.getTime() ?? 0}`}
+                isLoading={breadcrumbsQueryState.isLoading}
+                isError={breadcrumbsQueryState.isError}
+                errorMessage={breadcrumbsQueryState.errorMessage}
+                hasMore={hasMore}
+                onLoadMore={fetchNextPage}
+                isLoadingMore={breadcrumbsQueryState.isLoadingMore}
+              />
+            </Box>
+          </Paper>
         </Tabs.Panel>
       </Tabs>
     </Paper>

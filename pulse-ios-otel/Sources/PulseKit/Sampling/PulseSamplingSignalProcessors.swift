@@ -256,7 +256,7 @@ public final class PulseSamplingSignalProcessors {
             let signalName = name ?? "?"
             switch entry.target {
             case .name:
-                PulseLogger.log("Metric derived: \(entry.name) <- \(signalKind) \"\(signalName)\"")
+                PulseLogger.verbose("Metric derived: \(entry.name) <- \(signalKind) \"\(signalName)\"")
                 recorder(name ?? "", nil, pointAttributes)
             case .attribute(let attrCondition, let addPropNameAsSuffix):
                 for (attrKey, attrValue) in props {
@@ -266,7 +266,7 @@ public final class PulseSamplingSignalProcessors {
                     if keyMatches {
                         let suffix = addPropNameAsSuffix ? attrKey : nil
                         let metricName = suffix.map { "\(entry.name).\($0)" } ?? entry.name
-                        PulseLogger.log("Metric derived: \(metricName) <- \(signalKind) \"\(signalName)\" (attr: \(attrKey))")
+                        PulseLogger.verbose("Metric derived: \(metricName) <- \(signalKind) \"\(signalName)\" (attr: \(attrKey))")
                         recorder(attrValue, suffix, pointAttributes)
                     }
                 }
@@ -344,6 +344,11 @@ public final class PulseSamplingSignalProcessors {
                     props: propsMap
                 ) else { return nil }
                 return result
+            }
+            if spans.count > filtered.count {
+                let dropped = spans.count - filtered.count
+                PulseLogger.debug(
+                    "sdk.sampling.decision signal_scope=traces exported=\(filtered.count) dropped=\(dropped)")
             }
             return delegateExporter.export(spans: filtered, explicitTimeout: explicitTimeout)
         }
@@ -441,6 +446,11 @@ public final class PulseSamplingSignalProcessors {
                 ) else { return nil }
                 return result
             }
+            if logRecords.count > filtered.count {
+                let dropped = logRecords.count - filtered.count
+                PulseLogger.debug(
+                    "sdk.sampling.decision signal_scope=logs exported=\(filtered.count) dropped=\(dropped)")
+            }
             return delegateExporter.export(logRecords: filtered, explicitTimeout: explicitTimeout)
         }
 
@@ -481,7 +491,6 @@ public final class PulseSamplingSignalProcessors {
         }
 
         public func export(metrics: [MetricData]) -> ExportResult {
-            // Metrics are only derived (metricsToAdd) currently — no sampling, pass through
             return delegateExporter.export(metrics: metrics)
         }
 

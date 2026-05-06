@@ -22,7 +22,7 @@ import { getStartAndEndDateTimeString } from "../../utils/DateUtil";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 import { encodeNetworkId } from "./utils/networkIdUtils";
-import { STATUS_CODE, PulseType } from "../../constants/PulseOtelSemcov";
+import { STATUS_CODE, PulseType, COLUMN_NAME } from "../../constants/PulseOtelSemcov";
 import { useAnalytics } from "../../hooks/useAnalytics";
 import { useFilterStore } from "../../stores/useFilterStore";
 
@@ -94,14 +94,14 @@ export function NetworkList({
       {
         field: "PulseType",
         operator: "LIKE" as const,
-        value: ["%network%"],
+        value: [PulseType.NETWORK_LIKE],
       },
     ];
 
     // Add screen name filter only if provided
     if (screenName) {
       filters.push({
-        field: `SpanAttributes['${PulseType.SCREEN_NAME}']`,
+        field: COLUMN_NAME.SCREEN_NAME,
         operator: "EQ" as const,
         value: [screenName],
       });
@@ -118,16 +118,16 @@ export function NetworkList({
           break;
         case "url":
         case "endpoint":
-          filterField = "SpanAttributes['http.url']";
+          filterField = COLUMN_NAME.HTTP_URL;
           break;
         case "status_code":
-          filterField = "SpanAttributes['http.status_code']";
+          filterField = COLUMN_NAME.NETWORK_STATUS_CODE;
           break;
         case "operation_name":
-          filterField = "SpanAttributes['graphql.operation.name']";
+          filterField = COLUMN_NAME.GRAPHQL_OPERATION_NAME;
           break;
         default:
-          filterField = "SpanAttributes['http.url']";
+          filterField = COLUMN_NAME.HTTP_URL;
       }
 
       filters.push({
@@ -165,21 +165,21 @@ export function NetworkList({
         {
           function: "CUSTOM" as const,
           param: {
-            expression: "SpanAttributes['http.url']",
+            expression: COLUMN_NAME.HTTP_URL,
           },
           alias: "url",
         },
         {
           function: "CUSTOM" as const,
           param: {
-            expression: "SpanAttributes['graphql.operation.name']",
+            expression: COLUMN_NAME.GRAPHQL_OPERATION_NAME,
           },
           alias: "graphql_operation_name",
         },
         {
           function: "CUSTOM" as const,
           param: {
-            expression: "SpanAttributes['graphql.operation.type']",
+            expression: COLUMN_NAME.GRAPHQL_OPERATION_TYPE,
           },
           alias: "graphql_operation_type",
         },
@@ -207,14 +207,14 @@ export function NetworkList({
         {
           function: "CUSTOM" as const,
           param: {
-            expression: "uniqCombined64(nullIf(SessionId, ''))",
+            expression: "uniq(nullIf(SessionId, ''))",
           },
           alias: "all_sessions",
         },
         // {
         //   function: "CUSTOM" as const,
         //   param: {
-        //     expression: "SpanAttributes['http.status_code']",
+        //     expression: COLUMN_NAME.NETWORK_STATUS_CODE,
         //   },
         //   alias: "status_code",
         // },
@@ -222,7 +222,7 @@ export function NetworkList({
           ? [
               {
                 function: "COL" as const,
-                param: { field: `SpanAttributes['${PulseType.SCREEN_NAME}']` },
+                param: { field: COLUMN_NAME.SCREEN_NAME },
                 alias: "screen_name",
               },
             ]

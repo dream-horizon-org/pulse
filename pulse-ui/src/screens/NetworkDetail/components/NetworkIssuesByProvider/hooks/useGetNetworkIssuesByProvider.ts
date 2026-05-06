@@ -4,6 +4,7 @@ import {
   UseGetNetworkIssuesByProviderParams,
   UseGetNetworkIssuesByProviderReturn,
 } from "./useGetNetworkIssuesByProvider.interface";
+import { COLUMN_NAME } from "../../../../../constants/PulseOtelSemcov";
 
 export const useGetNetworkIssuesByProvider = ({
   method,
@@ -28,7 +29,7 @@ export const useGetNetworkIssuesByProvider = ({
       filters: [
         { field: "PulseType", operator: "EQ" as const, value: ["network.0"] },
         { field: "SpanAttributes['http.method']", operator: "EQ" as const, value: [method] },
-        { field: "SpanAttributes['http.url']", operator: "EQ" as const, value: [url] },
+        { field: COLUMN_NAME.HTTP_URL, operator: "EQ" as const, value: [url] },
         ...additionalFilters,
       ],
       orderBy: [{ field: "conn_error", direction: "ASC" as const }],
@@ -50,7 +51,7 @@ export const useGetNetworkIssuesByProvider = ({
       filters: [
         { field: "PulseType", operator: "LIKE" as const, value: ["network.4%"] },
         { field: "SpanAttributes['http.method']", operator: "EQ" as const, value: [method] },
-        { field: "SpanAttributes['http.url']", operator: "EQ" as const, value: [url] },
+        { field: COLUMN_NAME.HTTP_URL, operator: "EQ" as const, value: [url] },
         ...additionalFilters,
       ],
       orderBy: [{ field: "4xx", direction: "ASC" as const }],
@@ -72,7 +73,7 @@ export const useGetNetworkIssuesByProvider = ({
       filters: [
         { field: "PulseType", operator: "LIKE" as const, value: ["network.5%"] },
         { field: "SpanAttributes['http.method']", operator: "EQ" as const, value: [method] },
-        { field: "SpanAttributes['http.url']", operator: "EQ" as const, value: [url] },
+        { field: COLUMN_NAME.HTTP_URL, operator: "EQ" as const, value: [url] },
         ...additionalFilters,
       ],
       orderBy: [{ field: "5xx", direction: "ASC" as const }],

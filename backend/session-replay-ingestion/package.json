@@ -10,6 +10,7 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1013.0",
     "@aws-sdk/lib-storage": "^3.1013.0",
+    "@opentelemetry/auto-instrumentations-node": "^0.74.0",
     "luxon": "^3.4.0",
     "node-rdkafka": "^2.18.0",
     "snappy": "^7.3.3",

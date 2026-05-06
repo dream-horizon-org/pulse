@@ -38,6 +38,12 @@ public class PulseReactNativeOtelLogger: NSObject {
         params[PulseOtelConstants.ATTR_ERROR_SOURCE] = AttributeValue.string(PulseOtelConstants.ERROR_SOURCE_JS)
         params[PulseAttributes.pulseType] = AttributeValue.string(isFatal ? PulseAttributes.PulseTypeValues.crash : PulseAttributes.PulseTypeValues.nonFatal)
 
+        // Persist the "JS captured this crash" flag before reporting to OTel.
+        // on next launch can suppress the duplicate KSCrash report.
+        if isFatal {
+            NotificationCenter.default.post(name: .pulseJsCrashCaptured, object: nil)
+        }
+
         Pulse.shared.trackNonFatal(
             name: errorMessage,
             observedTimeStampInMs: Int64(observedTimeMs),

@@ -52,7 +52,7 @@ public final class PulseSdkConfigCoordinator {
         // Async, non-blocking: work runs on a background thread (QoS .utility).
         Task.detached(priority: .utility) {
             guard let url = URL(string: configEndpointUrlFinal) else {
-                PulseLogger.log("Config fetch: invalid config URL (skipping fetch) \(configEndpointUrlFinal)")
+                PulseLogger.warn("Config fetch: invalid config URL (skipping fetch) \(PulseRedaction.redactUrl(configEndpointUrlFinal))")
                 return
             }
             let session = Self.makeSessionForConfigAPI()
@@ -65,8 +65,11 @@ public final class PulseSdkConfigCoordinator {
             let shouldPersist = newConfig != nil && newConfig?.version != currentVersion
             let newStr = (newConfig?.version).map { "\($0)" } ?? "nil"
             let curStr = currentVersion.map { "\($0)" } ?? "nil"
-            PulseLogger.log("Config fetch: newVersion=\(newStr) currentVersion=\(curStr) shouldUpdate=\(shouldPersist)")
+            PulseLogger.debug("Config fetch: newVersion=\(newStr) currentVersion=\(curStr) shouldUpdate=\(shouldPersist)")
             if shouldPersist, let config = newConfig {
+                PulseLogger.info(
+                    "sdk.sampling.config_mismatch reason=remote_version_diff persisted_version=\(curStr) fetched_version=\(newStr)"
+                )
                 storageRef.saveSync(config)
             }
         }

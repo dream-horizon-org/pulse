@@ -38,6 +38,7 @@
           "apiKey": "default-project_devkey01",
           "dataCollectionState": "ALLOWED",
           "android": {
+            "okHttpInstrumentation": { "enabled": true },
             "globalAttributes": {
               "string": "value",
               "numberFloatNegative": -9.05,
@@ -58,6 +59,9 @@
               "crash": { "enabled": true },
               "slowRendering": { "enabled": false },
               "fragment": { "enabled": true }
+            },
+            "coreLibraryDesugaring": {
+              "enabled": true
             }
           },
           "ios": {
@@ -70,7 +74,7 @@
               "appLifecycle": { "enabled": true },
               "screenLifecycle": { "enabled": true },
               "appStartup": { "enabled": true },
-              "uiKitTap": { "enabled": true, "captureContext": true }
+              "uiKitTap": { "captureContext": true }
             },
             "configuration": {
               "includeScreenAttributes": true,

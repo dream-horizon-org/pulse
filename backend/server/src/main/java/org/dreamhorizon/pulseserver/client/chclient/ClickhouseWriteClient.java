@@ -7,6 +7,7 @@ import com.clickhouse.client.api.ConnectionReuseStrategy;
 import com.clickhouse.client.api.enums.Protocol;
 import com.clickhouse.client.api.insert.InsertResponse;
 import com.clickhouse.client.api.insert.InsertSettings;
+import com.clickhouse.client.api.query.QueryResponse;
 import com.clickhouse.data.ClickHouseFormat;
 import com.fasterxml.jackson.annotation.JsonSetter;
 import com.fasterxml.jackson.annotation.Nulls;
@@ -44,6 +45,24 @@ public class ClickhouseWriteClient {
         .build();
   }
 
+  public Single<Boolean> executeSql(String sql) {
+    if (sql == null || sql.isBlank()) {
+      return Single.just(true);
+    }
+    return Single.create(emitter -> {
+      client.query(sql).whenComplete((response, err) -> {
+        if (err != null) {
+          emitter.onError(err);
+          return;
+        }
+        try (QueryResponse r = response) {
+          emitter.onSuccess(true);
+        } catch (Exception e) {
+          emitter.onError(e);
+        }
+      });
+    });
+  }
 
   @SneakyThrows
   public Single<InsertResponse> insert(List<StackTraceEvent> events) {

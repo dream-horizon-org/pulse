@@ -172,9 +172,7 @@ docker run -d \
     -e "CLICKHOUSE_PASSWORD=${OTEL_CLICKHOUSE_PASSWORD}" \
     -e CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1 \
     -v "${VOLUME_CLICKHOUSE}:/var/lib/clickhouse" \
-    -v "${ROOT_DIR}/backend/ingestion/clickhouse-otel-schema.sql:/docker-entrypoint-initdb.d/01-clickhouse-otel-schema.sql:ro" \
-    -v "${ROOT_DIR}/backend/ingestion/clickhouse-session-replay-schema.sql:/docker-entrypoint-initdb.d/02-clickhouse-session-replay-schema.sql:ro" \
-    -v "${ROOT_DIR}/backend/ingestion/session-summary-mv.sql:/docker-entrypoint-initdb.d/03-session-summary-mv.sql:ro" \
+    -v "${ROOT_DIR}/backend/db/dev/clickhouse:/docker-entrypoint-initdb.d:ro" \
     --health-cmd 'clickhouse-client --query "SELECT 1"' \
     --health-interval 10s \
     --health-timeout 5s \
@@ -279,9 +277,7 @@ docker run --rm \
     -e "CLICKHOUSE_PASSWORD=${OTEL_CLICKHOUSE_PASSWORD}" \
     -e "CLICKHOUSE_DB=${OTEL_CLICKHOUSE_DATABASE}" \
     -v "${SCRIPT_DIR}/init-clickhouse.sh:/scripts/init-clickhouse.sh:ro" \
-    -v "${ROOT_DIR}/backend/ingestion/clickhouse-otel-schema.sql:/init/clickhouse-otel-schema.sql:ro" \
-    -v "${ROOT_DIR}/backend/ingestion/clickhouse-session-replay-schema.sql:/init/clickhouse-session-replay-schema.sql:ro" \
-    -v "${ROOT_DIR}/backend/ingestion/session-summary-mv.sql:/init/session-summary-mv.sql:ro" \
+    -v "${ROOT_DIR}/backend/db/dev/clickhouse:/init/clickhouse:ro" \
     "$IMAGE_CLICKHOUSE" \
     /bin/bash /scripts/init-clickhouse.sh
 
@@ -456,6 +452,14 @@ docker run -d \
     -e "CONFIG_SERVICE_APPLICATION_ATHENA_DATABASE=${CONFIG_SERVICE_APPLICATION_ATHENA_DATABASE}" \
     -e "CONFIG_SERVICE_APPLICATION_ATHENA_OUTPUT_LOCATION=${CONFIG_SERVICE_APPLICATION_ATHENA_OUTPUT_LOCATION}" \
     -e "CONFIG_SERVICE_APPLICATION_GCP_PROJECT_ID=${CONFIG_SERVICE_APPLICATION_GCP_PROJECT_ID}" \
+    \
+    -e "CONFIG_SERVICE_APPLICATION_EMR_SERVERLESS_ENABLED=${CONFIG_SERVICE_APPLICATION_EMR_SERVERLESS_ENABLED}" \
+    -e "CONFIG_SERVICE_APPLICATION_EMR_SERVERLESS_REGION=${CONFIG_SERVICE_APPLICATION_EMR_SERVERLESS_REGION}" \
+    -e "CONFIG_SERVICE_APPLICATION_EMR_SERVERLESS_APPLICATION_ID=${CONFIG_SERVICE_APPLICATION_EMR_SERVERLESS_APPLICATION_ID}" \
+    -e "CONFIG_SERVICE_APPLICATION_EMR_SERVERLESS_EXECUTION_ROLE_ARN=${CONFIG_SERVICE_APPLICATION_EMR_SERVERLESS_EXECUTION_ROLE_ARN}" \
+    \
+    -e "ANALYTICS_COMPUTE_ENGINE=${ANALYTICS_COMPUTE_ENGINE:-spark}" \
+    -e "ANALYTICS_BATCH_PROJECT_CONCURRENCY=${ANALYTICS_BATCH_PROJECT_CONCURRENCY:-4}" \
     \
     -v "${ROOT_DIR}/backend/server/src/main/resources/config:/app/config:ro" \
     \

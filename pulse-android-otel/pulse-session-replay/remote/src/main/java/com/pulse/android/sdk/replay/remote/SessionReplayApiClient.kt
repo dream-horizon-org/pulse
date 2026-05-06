@@ -1,7 +1,7 @@
 package com.pulse.android.sdk.replay.remote
 
+import com.pulse.utils.PulseLogger
 import com.pulse.utils.PulseNetworkingUtils
-import com.pulse.utils.PulseOtelUtils
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody.Companion.toRequestBody
 import retrofit2.Retrofit
@@ -21,9 +21,26 @@ import java.io.IOException
  */
 public class SessionReplayApiClient(
     private val baseUrl: String,
+    private val headers: Map<String, String> = emptyMap(),
 ) {
     private val okHttpClient
-        get() = PulseNetworkingUtils.okHttpClient
+        get() =
+            if (headers.isEmpty()) {
+                PulseNetworkingUtils.okHttpClient
+            } else {
+                PulseNetworkingUtils.okHttpClient
+                    .newBuilder()
+                    .addInterceptor { chain ->
+                        val request =
+                            chain
+                                .request()
+                                .newBuilder()
+                                .apply {
+                                    headers.forEach { (key, value) -> header(key, value) }
+                                }.build()
+                        chain.proceed(request)
+                    }.build()
+            }
 
     private val apiService: SessionReplayApiService by lazy {
         Retrofit
@@ -54,13 +71,13 @@ public class SessionReplayApiClient(
                         .orEmpty()
                         .take(MAX_ERROR_BODY_LOG)
                 val msg = response.message()
-                PulseOtelUtils.logError(REPLAY_LOG_TAG) {
+                PulseLogger.logError(REPLAY_LOG_TAG) {
                     "Session replay API error: ${response.code()} $msg. Body: $responseBody"
                 }
                 if (body.length <= MAX_REQUEST_LOG) {
-                    PulseOtelUtils.logError(REPLAY_LOG_TAG) { "Request payload: $body" }
+                    PulseLogger.logVerbose(REPLAY_LOG_TAG) { "Request payload: $body" }
                 } else {
-                    PulseOtelUtils.logError(REPLAY_LOG_TAG) {
+                    PulseLogger.logVerbose(REPLAY_LOG_TAG) {
                         "Request payload (first $MAX_REQUEST_LOG chars): ${body.take(MAX_REQUEST_LOG)}..."
                     }
                 }

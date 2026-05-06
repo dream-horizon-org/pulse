@@ -1,3 +1,4 @@
+import Dispatch
 import Foundation
 import OpenTelemetryApi
 import OpenTelemetrySdk
@@ -15,14 +16,6 @@ internal enum PulseKitConstants {
 }
 
 public class Pulse {
-    /// When true, wraps the metric exporter with PulseLoggingMetricExporter to print exported metrics in the console.
-    /// Automatically true in Debug builds, false in Release.
-    #if DEBUG
-    private static let enableMetricExportLogging = true
-    #else
-    private static let enableMetricExportLogging = false
-    #endif
-
     public static let shared = Pulse()
 
     // Thread-safe initialization
@@ -133,20 +126,26 @@ public class Pulse {
         beforeSendLog: BeforeSendLogCallback? = nil,
         beforeSendMetric: BeforeSendMetricCallback? = nil,
         tracerProviderCustomizer: ((TracerProviderBuilder) -> TracerProviderBuilder)? = nil,
-        loggerProviderCustomizer: (([LogRecordProcessor]) -> [LogRecordProcessor])? = nil
+        loggerProviderCustomizer: (([LogRecordProcessor]) -> [LogRecordProcessor])? = nil,
+        logLevel: PulseLogLevel = .none
     ) {
         initializationQueue.sync {
-            guard !_isShutdown else { return }
-            guard !_isInitialized else {
-                PulseLogger.log("Already initialized, skipping.")
+            PulseLogger.currentLevel = logLevel
+            guard !_isShutdown else {
+                PulseLogger.warn("sdk.init skipped reason=shutdown")
                 return
             }
-            PulseLogger.log("Initializing...")
+            guard !_isInitialized else {
+                PulseLogger.debug("sdk.init skipped reason=already_initialized")
+                return
+            }
             if dataCollectionState == .denied {
                 _dataCollectionState = dataCollectionState
-                PulseLogger.log("Initialization skipped: started with DENIED consent.")
+                PulseLogger.info("sdk.init skipped reason=denied_consent")
                 return
             }
+
+            let initStarted = CFAbsoluteTimeGetCurrent()
 
             _globalAttributes = globalAttributes
             var pulseKitConfig = PulseKitConfiguration()
@@ -167,13 +166,14 @@ public class Pulse {
             // Config: load from persistence (sync)
             let useLocalMockConfig = false
             let configCoordinator = PulseSdkConfigCoordinator(useLocalMockConfig: useLocalMockConfig)
-            configStorageQueue.sync {
+            let persistedConfigVersion: Int? = configStorageQueue.sync {
                 _currentSdkConfig = configCoordinator.loadCurrentConfig()
+                return _currentSdkConfig?.version
             }
-            if let v = _currentSdkConfig?.version {
-                PulseLogger.log("Config loaded from persistence (version \(v)).")
+            if let v = persistedConfigVersion {
+                PulseLogger.info("sdk.config.persisted config_version=\(v)")
             } else {
-                PulseLogger.log("No persisted config, using defaults.")
+                PulseLogger.info("sdk.config.persisted config_version=none")
             }
 
             configCoordinator.startBackgroundFetch(
@@ -202,44 +202,30 @@ public class Pulse {
                 let enabledFeatures = processors.getEnabledFeatures()
                 configureFeaturesFromRemoteConfig(features: enabledFeatures, config: &config)
 
-                // Extract and merge Session Replay config from backend
+                // Session replay config merge: extract feature, resolve with backend config
                 let sessionReplayFeature = sdkConfig.features.first { feature in
                     feature.featureName == .session_replay &&
                     feature.sdks.contains(currentSdkName) &&
                     feature.sessionSampleRate > 0
                 }
-
-                if let feature = sessionReplayFeature {
-                    let remoteConfig = SessionReplayRemoteConfig.from(featureConfig: feature)
-                    let localConfig = config.sessionReplay.config
-                    let mergedConfig = SessionReplayConfig.merge(
-                        remote: remoteConfig,
-                        local: localConfig
-                    )
-                    config.sessionReplay { replayConfig in
-                        replayConfig.configure { config in
-                            config.captureIntervalMs = mergedConfig.captureIntervalMs
-                            config.compressionQuality = mergedConfig.compressionQuality
-                            config.textAndInputPrivacy = mergedConfig.textAndInputPrivacy
-                            config.imagePrivacy = mergedConfig.imagePrivacy
-                            config.screenshotScale = mergedConfig.screenshotScale
-                            config.flushIntervalSeconds = mergedConfig.flushIntervalSeconds
-                            config.flushAt = mergedConfig.flushAt
-                            config.maxBatchSize = mergedConfig.maxBatchSize
-                            config.replayEndpointBaseUrl = mergedConfig.replayEndpointBaseUrl
-                            config.maskViewClasses = mergedConfig.maskViewClasses
-                            config.unmaskViewClasses = mergedConfig.unmaskViewClasses
-                        }
-                    }
+                let remoteConfig = sessionReplayFeature.flatMap { SessionReplayRemoteConfig.from(featureConfig: $0) }
+                let resolvedConfig = resolveSessionReplayConfig(
+                    remoteConfig: remoteConfig,
+                    codeConfig: config.sessionReplay,
+                    endpointBaseUrl: endpointBaseUrl
+                )
+                if let resolved = resolvedConfig {
+                    config.sessionReplay { $0.internalSetRuntimeConfig(resolved) }
                 }
 
+                // Click config merge: apply backend rage config with code defaults
                 applyClickFeatureConfig(from: sdkConfig, to: &config, currentSdkName: currentSdkName)
             } else {
                 let derivedInteractionUrl = PulseHostConfiguration.interactionConfigUrl(apiKey: apiKey, projectId: projectId)
                 config.interaction { $0.setConfigUrl { derivedInteractionUrl } }
             }
 
-            let (tracerProvider, loggerProvider, openTelemetry) = buildOpenTelemetrySDK(
+            let (tracerProvider, loggerProvider, openTelemetry, mergedEndpointHeaders) = buildOpenTelemetrySDK(
                 endpointBaseUrl: endpointBaseUrl,
                 customEventCollectorUrl: nil,
                 endpointHeaders: endpointHeadersWithProject,
@@ -268,7 +254,7 @@ public class Pulse {
                 loggerProvider: loggerProvider,
                 openTelemetry: openTelemetry,
                 endpointBaseUrl: endpointBaseUrl,
-                endpointHeaders: endpointHeadersWithProject,
+                endpointHeaders: mergedEndpointHeaders,
                 flushLogProcessor: { [weak self] in
                     _ = self?._consentLogProcessor?.forceFlush()
                 },
@@ -293,11 +279,20 @@ public class Pulse {
 
             self.openTelemetry = openTelemetry
             _isInitialized = true
-            let configVersion = configStorageQueue.sync { _currentSdkConfig?.version }
-            if let v = configVersion {
-                PulseLogger.log("Initialized with config v\(v).")
-            } else {
-                PulseLogger.log("Initialized (using defaults, no config).")
+            let configV = configStorageQueue.sync {
+                _currentSdkConfig.map { String($0.version) }
+            } ?? "none"
+            let overheadMs = Int((CFAbsoluteTimeGetCurrent() - initStarted) * 1000)
+            PulseLogger.info("sdk.startup.overhead_ms value=\(overheadMs)")
+            PulseLogger.info(
+                "sdk.init success=true sdk_version=\(PulseKitConstants.instrumentationVersion) config_version=\(configV)"
+            )
+            if let cache = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first {
+                let pulseDir = cache.appendingPathComponent("pulse", isDirectory: true)
+                let bytes = DiskUsageBytes.bytesUnderDirectory(pulseDir)
+                if bytes > 0 {
+                    PulseLogger.debug("sdk.disk.usage_bytes path=pulse_cache value=\(bytes)")
+                }
             }
         }
     }
@@ -312,7 +307,7 @@ public class Pulse {
         let enabledFeatures = Set(features)
         for feature in PulseFeatureName.allCases {
             let isEnabled = enabledFeatures.contains(feature)
-            PulseLogger.log("\(isEnabled ? "Enabling" : "Disabling") feature: \(feature)")
+            PulseLogger.debug("\(isEnabled ? "Enabling" : "Disabling") feature: \(feature)")
             switch feature {
             case .java_crash: break
             case .js_crash: break
@@ -428,7 +423,7 @@ public class Pulse {
         beforeSendMetric: BeforeSendMetricCallback?,
         tracerProviderCustomizer: ((TracerProviderBuilder) -> TracerProviderBuilder)?,
         loggerProviderCustomizer: (([LogRecordProcessor]) -> [LogRecordProcessor])?
-    ) -> (tracerProvider: TracerProvider, loggerProvider: LoggerProvider, openTelemetry: OpenTelemetry) {
+    ) -> (tracerProvider: TracerProvider, loggerProvider: LoggerProvider, openTelemetry: OpenTelemetry, mergedHeaders: [String: String]) {
         var meteredConfig = MeteredSessionConfig()
         let meteredManager = meteredConfig.createMeteredManager()
         let headers = meteredConfig.addMeteredSessionHeader(to: endpointHeaders, meteredManager: meteredManager)
@@ -476,8 +471,8 @@ public class Pulse {
             finalLogExporter = logsExporter
         }
 
-        // Metric pipeline: OtlpHttpMetricExporter -> BeforeSendMetricExporter? -> PulseLoggingMetricExporter? -> SampledMetricExporter? -> PersistenceMetricExporter -> ConsentMetricExporter -> PeriodicMetricReader -> MeterProviderSdk
-        // PulseLoggingMetricExporter is behind enableMetricExportLogging (dev-only) to avoid prod logs.
+        // Metric pipeline: OtlpHttpMetricExporter -> BeforeSendMetricExporter? -> PulseLoggingMetricExporter -> SampledMetricExporter? -> PersistenceMetricExporter -> ConsentMetricExporter -> PeriodicMetricReader -> MeterProviderSdk
+        // PulseLoggingMetricExporter only emits when PulseLogger.verbose would (same as debug vs release: controlled solely by logLevel).
         // ConsentMetricExporter wraps persistence so pending consent does not write metrics to disk.
         let metricsUrl = currentSdkConfig.map { URL(string: $0.signals.metricCollectorUrl)! }
             ?? URL(string: "\(base)/v1/metrics")!
@@ -486,9 +481,7 @@ public class Pulse {
             BeforeSendMetricExporter(callback: $0, delegate: otlpMetricExporter)
         } ?? otlpMetricExporter
         let baseMetricExporterForPipeline: MetricExporter =
-            Self.enableMetricExportLogging
-                ? PulseLoggingMetricExporter(delegate: metricExporterAfterBeforeSend)
-                : metricExporterAfterBeforeSend
+            PulseLoggingMetricExporter(delegate: metricExporterAfterBeforeSend)
 
         let finalMetricExporter: MetricExporter
         if let processors = _samplingSignalProcessors {
@@ -585,7 +578,7 @@ public class Pulse {
 
         let openTelemetry = OpenTelemetry.instance
 
-        return (tracerProvider, loggerProvider, openTelemetry)
+        return (tracerProvider, loggerProvider, openTelemetry, headers ?? [:])
     }
 
     private func buildProcessors(
@@ -691,9 +684,12 @@ public class Pulse {
         var shouldFlush = false
         var sessionReplayMainWork: (() -> Void)?
         initializationQueue.sync {
+            guard _isInitialized else { return }
             // Read without consentStateLock — safe, we're inside initializationQueue
             let current = _dataCollectionState
             guard current != newState, current != .denied else { return }
+
+            PulseLogger.info("sdk.consent.changed from=\(current) to=\(newState)")
 
             // Write under consentStateLock — so exporters on hot path see update atomically
             consentStateLock.lock()
@@ -752,12 +748,13 @@ public class Pulse {
             _ = meterProvider?.shutdown()
             PersistenceUtils.clearStorage()
 
+            _isShutdown = true
             openTelemetry = nil
             meterProvider = nil
             _consentSpanProcessor = nil
             _consentLogProcessor = nil
             _consentMetricExporter = nil
-            _isShutdown = true
+            PulseLogger.info("sdk.shutdown graceful=true")
         }
     }
 
@@ -803,6 +800,9 @@ public class Pulse {
             .setEventName("pulse.custom_non_fatal")
             .setAttributes(attributes)
             .emit()
+        if isCrashPulseType(in: attributes) {
+            forceFlushLogs()
+        }
     }
 
     public func trackNonFatal(
@@ -833,6 +833,9 @@ public class Pulse {
             .setEventName("pulse.custom_non_fatal")
             .setAttributes(attributes)
             .emit()
+        if isCrashPulseType(in: attributes) {
+            forceFlushLogs()
+        }
     }
 
     public func trackSpan<T>(
@@ -855,6 +858,15 @@ public class Pulse {
         name: String,
         params: [String: AttributeValue] = [:]
     ) -> Span {
+        guard isActive else {
+            let noopTracer = DefaultTracerProvider.instance.get(
+                instrumentationName: PulseKitConstants.instrumentationScopeName,
+                instrumentationVersion: PulseKitConstants.instrumentationVersion
+            )
+            let span = noopTracer.spanBuilder(spanName: name).startSpan()
+            span.setAttributes(params)
+            return span
+        }
         let span = tracer.spanBuilder(spanName: name).startSpan()
         span.setAttributes(params)
         return span
@@ -882,6 +894,17 @@ public class Pulse {
 
     public func isSDKInitialized() -> Bool {
         return isInitialized
+    }
+
+    /// Best-effort flush of batched log records to exporters (including persistence) before the process can exit.
+    private func forceFlushLogs() {
+        guard isActive else { return }
+        _ = _consentLogProcessor?.forceFlush(explicitTimeout: nil)
+    }
+
+    private func isCrashPulseType(in attributes: [String: AttributeValue]) -> Bool {
+        guard let pulseType = attributes[PulseAttributes.pulseType], case .string(let value) = pulseType else { return false }
+        return value == PulseAttributes.PulseTypeValues.crash
     }
 
     public func setUserId(_ id: String?) {
@@ -992,7 +1015,7 @@ internal enum BatchProcessorDefaults {
     static let exportTimeout: TimeInterval = 30
 }
 
-// MARK: - Debug Metric Logging (remove before release)
+// MARK: - Metric export logging (PulseLogger.verbose only; same pipeline in Debug and Release)
 
 internal class PulseLoggingMetricExporter: MetricExporter {
     private let delegate: MetricExporter
@@ -1002,12 +1025,12 @@ internal class PulseLoggingMetricExporter: MetricExporter {
     }
 
     func export(metrics: [MetricData]) -> ExportResult {
-        if !metrics.isEmpty {
-            print("┌─── [PulseMetrics] Exporting \(metrics.count) metric(s) ───")
+        if !metrics.isEmpty, PulseLogger.currentLevel <= .verbose {
+            PulseLogger.verbose("┌─── [PulseMetrics] Exporting \(metrics.count) metric(s) ───")
             for metric in metrics {
-                print("│ Name: \(metric.name)")
-                print("│ Type: \(metric.type) | Unit: \(metric.unit) | Monotonic: \(metric.isMonotonic)")
-                print("│ Scope: \(metric.instrumentationScopeInfo.name)")
+                PulseLogger.verbose("│ Name: \(metric.name)")
+                PulseLogger.verbose("│ Type: \(metric.type) | Unit: \(metric.unit) | Monotonic: \(metric.isMonotonic)")
+                PulseLogger.verbose("│ Scope: \(metric.instrumentationScopeInfo.name)")
                 for point in metric.data.points {
                     let attrs = point.attributes.map { "\($0.key)=\($0.value)" }.joined(separator: ", ")
                     let valueStr: String
@@ -1021,11 +1044,11 @@ internal class PulseLoggingMetricExporter: MetricExporter {
                     default:
                         valueStr = "(unknown point type)"
                     }
-                    print("│   Point: value=\(valueStr) | attrs=[\(attrs)]")
+                    PulseLogger.verbose("│   Point: value=\(valueStr) | attrs=[\(attrs)]")
                 }
-                print("│")
+                PulseLogger.verbose("│")
             }
-            print("└─── [PulseMetrics] Exported ───")
+            PulseLogger.verbose("└─── [PulseMetrics] Exported ───")
         }
         return delegate.export(metrics: metrics)
     }

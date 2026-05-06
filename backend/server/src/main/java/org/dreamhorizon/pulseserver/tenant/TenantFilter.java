@@ -55,6 +55,7 @@ public class TenantFilter implements ContainerRequestFilter, ContainerResponseFi
   private static final String NOTIFICATIONS_PATH_PREFIX = "v1/notifications";
   private static final String INTEGRATIONS_PATH_PREFIX = "v1/integrations";
   private static final String SLACK_INTERACTIVE = "v1/incidents/slack/interactive";
+  private static final String NOTIFICATIONS_CONTACT_US_PATH = NOTIFICATIONS_PATH_PREFIX + "/contact-us";
 
   private JwtService jwtService;
 
@@ -103,8 +104,23 @@ public class TenantFilter implements ContainerRequestFilter, ContainerResponseFi
       || normalizedPath.startsWith(TNC_DOCUMENTS_PATH)
       || normalizedPath.contains(SLACK_INTERACTIVE)
       || normalizedPath.startsWith(INTEGRATIONS_PATH_PREFIX)
-      || normalizedPath.startsWith(NOTIFICATIONS_PATH_PREFIX);
+      || isNotificationsPathExcludedFromTenantResolution(normalizedPath);
   }
+
+    /**
+     * Most {@code v1/notifications} routes use API keys / explicit headers; tenant JWT context is skipped.
+     * {@code v1/notifications/contact-us} is session-authenticated and needs {@link TenantContext}.
+     */
+    private boolean isNotificationsPathExcludedFromTenantResolution(String normalizedPath) {
+        if (!normalizedPath.startsWith(NOTIFICATIONS_PATH_PREFIX)) {
+            return false;
+        }
+        if (normalizedPath.equals(NOTIFICATIONS_CONTACT_US_PATH)
+                || normalizedPath.startsWith(NOTIFICATIONS_CONTACT_US_PATH + "/")) {
+            return false;
+        }
+        return true;
+    }
 
   @Override
   public void filter(ContainerRequestContext requestContext, ContainerResponseContext responseContext)

@@ -75,6 +75,9 @@ export * from "./useRunUniversalQuery";
 export * from "./useSdkConfig";
 export * from "./useSessionReplayFromActiveConfig";
 export * from "./useHeatmapFromActiveConfig";
+export * from "./useGetScreenRootCause";
+export * from "./useGetScreenRcaNarrative";
+export * from "./useRegenerateScreenRcaNarrative";
 export * from "./useSnoozeAlert";
 export * from "./useSubmitQuery";
 export * from "./useUniversalQueryTableColumns";
@@ -108,3 +111,6 @@ export * from "./useUserProjects";
 
 // Re-export constants from hooks.interface
 export { FILTER_MAPPING, EVENT_TYPE } from "./hooks.interface";
+
+// Funnel hooks
+export * from "./useGetFunnelData";

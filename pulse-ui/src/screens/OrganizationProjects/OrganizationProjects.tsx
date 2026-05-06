@@ -10,6 +10,7 @@ import {
   Badge,
   Stack,
   Box,
+  Anchor,
 } from "@mantine/core";
 import {
   IconPlus,
@@ -169,13 +170,13 @@ export function OrganizationProjects() {
             </Text>
           </Stack>
 
-          <Group gap="md">
+          <Group gap="md" wrap="wrap" justify="flex-end">
             {tier === TIERS.FREE && (
               <Text size="sm" c="dimmed" className={classes.projectCount}>
                 {currentProjectCount} / {maxProjects} projects
               </Text>
             )}
-            {hasPermission && (
+            {hasPermission && tier === TIERS.ENTERPRISE && (
               <Button
                 leftSection={<IconPlus size={18} />}
                 onClick={handleCreateProject}
@@ -185,6 +186,20 @@ export function OrganizationProjects() {
               >
                 Create Project
               </Button>
+            )}
+            {hasPermission && tier === TIERS.FREE && (
+              <Text size="sm" c="dimmed" maw={420} ta="right">
+                Upgrade to Enterprise to add more projects.{" "}
+                <Anchor
+                  component="button"
+                  type="button"
+                  c="teal"
+                  fw={500}
+                  onClick={() => navigate(`/${organizationId}/pricing`)}
+                >
+                  View pricing
+                </Anchor>
+              </Text>
             )}
           </Group>
         </Box>

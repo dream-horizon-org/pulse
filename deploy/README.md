@@ -6,13 +6,13 @@ All scripts live under `deploy/scripts/` and automatically detect whether
 Docker Compose is available. If it is, they use Compose; otherwise they fall
 back to pure Docker CLI commands -- no additional setup needed.
 
-
 ## 🚀 Getting Started
 
 ### Prerequisites
 
 - **Docker Engine**: 20.10+ (Docker Compose 2.0+ optional -- scripts fall back to Docker CLI)
-- **macOS users**: [Colima](https://github.com/abiosoft/colima) (open-source, lightweight container runtime). Scripts auto-install it if Docker is missing.
+- **macOS users**: [Colima](https://github.com/abiosoft/colima) (open-source, lightweight container runtime). Scripts
+  auto-install it if Docker is missing.
 - **Linux users**: Docker Engine CE (auto-installed if missing).
 - **Java**: 17+ (for backend development)
 - **Node.js**: 18+ (for frontend development)
@@ -80,7 +80,8 @@ curl http://localhost:8080/healthcheck
 
 6. **Seed e-commerce demo data (optional)**
 
-To populate the Interactions dashboard and Root Cause with realistic data (12 critical interactions, device/network/geo distributions, and bad segments):
+To populate the Interactions dashboard and Root Cause with realistic data (12 critical interactions, device/network/geo
+distributions, and bad segments):
 
 ```bash
 cd deploy
@@ -88,7 +89,8 @@ cd deploy
 ./scripts/seed-ecommerce.sh --clear  # Wipe existing data and re-seed
 ```
 
-Requires Python 3, and MySQL + ClickHouse running (e.g. after `./scripts/start.sh -d`). Uses `deploy/.env` for credentials; MySQL is accessed via `docker exec pulse-mysql` by default so no local MySQL client is needed.
+Requires Python 3, and MySQL + ClickHouse running (e.g. after `./scripts/start.sh -d`). Uses `deploy/.env` for
+credentials; MySQL is accessed via `docker exec pulse-mysql` by default so no local MySQL client is needed.
 
 ## 🛠️ Development Commands
 
@@ -141,18 +143,18 @@ npm run ios        # Run example app (iOS)
 All scripts live under `deploy/scripts/`. They auto-detect Docker Compose and
 fall back to pure Docker CLI when Compose is not available.
 
-| Script | Purpose |
-|--------|---------|
-| `quickstart.sh` | End-to-end setup: prerequisites, build, start, verify |
-| `build.sh` | Build custom Docker images |
-| `start.sh` | Start all containers in dependency order |
-| `stop.sh` | Stop and remove containers |
-| `logs.sh` | View container logs |
-| `reset-databases.sh` | Wipe database data and restart from scratch |
-| `seed-ecommerce.sh` | Seed e-commerce demo data (12 interactions, ClickHouse + MySQL); use `--clear` to wipe and re-seed |
-| `create-users-table.sh` | Create `pulse_db.users` table if missing (fixes login "Table 'pulse_db.users' doesn't exist") |
-| `common.sh` | Shared library (not run directly) |
-| `init-clickhouse.sh` | ClickHouse table initialiser (runs inside a container, not run directly) |
+| Script                                  | Purpose                                                                                                        |
+|-----------------------------------------|----------------------------------------------------------------------------------------------------------------|
+| `quickstart.sh`                         | End-to-end setup: prerequisites, build, start, verify                                                          |
+| `build.sh`                              | Build custom Docker images                                                                                     |
+| `start.sh`                              | Start all containers in dependency order                                                                       |
+| `stop.sh`                               | Stop and remove containers                                                                                     |
+| `logs.sh`                               | View container logs                                                                                            |
+| `reset-databases.sh`                    | Wipe database data and restart from scratch                                                                    |
+| `seed-ecommerce.sh`                     | Seed e-commerce demo data (12 interactions, ClickHouse + MySQL); use `--clear` to wipe and re-seed             |
+| `create-users-table.sh`                 | Create `pulse_db.users` table if missing (fixes login "Table 'pulse_db.users' doesn't exist")                  |
+| `common.sh`                             | Shared library (not run directly)                                                                              |
+| `init-clickhouse.sh`                    | ClickHouse table initialiser (runs inside a container, not run directly)                                       |
 | `sync-default-tenant-ch-credentials.py` | One-time: sync default tenant’s ClickHouse password in MySQL to match `.env` (fixes AI Root Cause auth errors) |
 
 ---
@@ -183,15 +185,15 @@ Builds the three custom Docker images: `pulse-ui`, `pulse-server`, and
 Usage: ./deploy/scripts/build.sh [--no-cache] [ui|server|cron|all] [-h|--help]
 ```
 
-| Flag / Argument | Description |
-|-----------------|-------------|
-| _(no args)_ | Build all three images |
-| `ui` | Build `pulse-ui` only |
-| `server` | Build `pulse-server` only |
-| `cron` | Build `pulse-alerts-cron` only |
-| `all` | Explicitly build all (same as no args) |
-| `--no-cache` | Build from scratch, ignoring Docker layer cache |
-| `-h`, `--help` | Show usage and exit |
+| Flag / Argument | Description                                     |
+|-----------------|-------------------------------------------------|
+| _(no args)_     | Build all three images                          |
+| `ui`            | Build `pulse-ui` only                           |
+| `server`        | Build `pulse-server` only                       |
+| `cron`          | Build `pulse-alerts-cron` only                  |
+| `all`           | Explicitly build all (same as no args)          |
+| `--no-cache`    | Build from scratch, ignoring Docker layer cache |
+| `-h`, `--help`  | Show usage and exit                             |
 
 ```bash
 # Build everything (parallel)
@@ -216,11 +218,11 @@ the backend server, and finally the UI and alerts cron.
 Usage: ./deploy/scripts/start.sh [-d|--detach] [--build] [-h|--help]
 ```
 
-| Flag | Description |
-|------|-------------|
-| `-d`, `--detach` | Run containers in the background and print a status summary |
-| `--build` | Build images before starting (calls `build.sh` in CLI mode, or passes `--build` to Compose) |
-| `-h`, `--help` | Show usage and exit |
+| Flag             | Description                                                                                 |
+|------------------|---------------------------------------------------------------------------------------------|
+| `-d`, `--detach` | Run containers in the background and print a status summary                                 |
+| `--build`        | Build images before starting (calls `build.sh` in CLI mode, or passes `--build` to Compose) |
+| `-h`, `--help`   | Show usage and exit                                                                         |
 
 ```bash
 # Start all services in the background
@@ -244,18 +246,18 @@ dependency order. Optionally removes data volumes and the Docker network.
 Usage: ./deploy/scripts/stop.sh [-v|--volumes] [--all] [SERVICE...] [-h|--help]
 ```
 
-| Flag / Argument | Description |
-|-----------------|-------------|
-| _(no args)_ | Stop and remove all Pulse containers |
+| Flag / Argument   | Description                                                                     |
+|-------------------|---------------------------------------------------------------------------------|
+| _(no args)_       | Stop and remove all Pulse containers                                            |
 | `-v`, `--volumes` | Also remove database data volumes (`pulse-mysql-data`, `pulse-clickhouse-data`) |
-| `--all` | Remove containers, volumes, **and** the Docker network |
-| `ui` | Stop `pulse-ui` only |
-| `server` | Stop `pulse-server` only |
-| `cron` | Stop `pulse-alerts-cron` only |
-| `mysql` | Stop `pulse-mysql` only |
-| `clickhouse` | Stop `pulse-clickhouse` only |
-| `otel` | Stop `pulse-otel-collector` only |
-| `-h`, `--help` | Show usage and exit |
+| `--all`           | Remove containers, volumes, **and** the Docker network                          |
+| `ui`              | Stop `pulse-ui` only                                                            |
+| `server`          | Stop `pulse-server` only                                                        |
+| `cron`            | Stop `pulse-alerts-cron` only                                                   |
+| `mysql`           | Stop `pulse-mysql` only                                                         |
+| `clickhouse`      | Stop `pulse-clickhouse` only                                                    |
+| `otel`            | Stop `pulse-otel-collector` only                                                |
+| `-h`, `--help`    | Show usage and exit                                                             |
 
 ```bash
 # Stop all services (keeps data volumes)
@@ -285,18 +287,18 @@ real time. Supports filtering by service and limiting output.
 Usage: ./deploy/scripts/logs.sh [--no-follow] [--tail N] [SERVICE] [-h|--help]
 ```
 
-| Flag / Argument | Description |
-|-----------------|-------------|
-| _(no args)_ | Follow logs from all running containers |
-| `--no-follow` | Print logs and exit (do not stream) |
-| `--tail N` | Show only the last N lines per container |
-| `ui` | Show logs for `pulse-ui` |
-| `server` | Show logs for `pulse-server` |
-| `cron` | Show logs for `pulse-alerts-cron` |
-| `mysql` | Show logs for `pulse-mysql` |
-| `clickhouse` | Show logs for `pulse-clickhouse` |
-| `otel` | Show logs for `pulse-otel-collector` |
-| `-h`, `--help` | Show usage and exit |
+| Flag / Argument | Description                              |
+|-----------------|------------------------------------------|
+| _(no args)_     | Follow logs from all running containers  |
+| `--no-follow`   | Print logs and exit (do not stream)      |
+| `--tail N`      | Show only the last N lines per container |
+| `ui`            | Show logs for `pulse-ui`                 |
+| `server`        | Show logs for `pulse-server`             |
+| `cron`          | Show logs for `pulse-alerts-cron`        |
+| `mysql`         | Show logs for `pulse-mysql`              |
+| `clickhouse`    | Show logs for `pulse-clickhouse`         |
+| `otel`          | Show logs for `pulse-otel-collector`     |
+| `-h`, `--help`  | Show usage and exit                      |
 
 ```bash
 # Stream all logs (Ctrl+C to stop)
@@ -348,7 +350,7 @@ Shared library sourced by every other script. Provides:
 ### `init-clickhouse.sh` _(internal -- not run directly)_
 
 Runs inside a ClickHouse container as a one-shot job. Waits for ClickHouse to
-accept connections, then applies `backend/ingestion/clickhouse-otel-schema.sql`
+accept connections, then applies `backend/db/dev/clickhouse/*.sql`
 to create the OTEL tables. Called automatically by `start.sh` and
 `docker-compose.yml`; you should never need to run it manually.
 
@@ -424,8 +426,10 @@ curl http://localhost:8888/metrics
 - **Image Size**: ~50-100MB (production)
 
 **Environment Variables:**
+
 - `REACT_APP_GOOGLE_CLIENT_ID`: Google OAuth client ID
-- `GOOGLE_OAUTH_ENABLED`: Common variable to enable/disable Google OAuth (set to `false` to use dummy login). If not set, defaults based on whether client ID is configured.
+- `GOOGLE_OAUTH_ENABLED`: Common variable to enable/disable Google OAuth (set to `false` to use dummy login). If not
+  set, defaults based on whether client ID is configured.
 
 ### Pulse Server (Backend)
 
@@ -436,8 +440,12 @@ curl http://localhost:8888/metrics
 - **Image Size**: ~200-300MB
 
 **Key Environment Variables:**
+
 - See `.env.example` for complete list
 - All variables prefixed with `CONFIG_SERVICE_APPLICATION_*`
+- **pulse-server** also reads **`ANALYTICS_COMPUTE_ENGINE`** and **`ANALYTICS_BATCH_PROJECT_CONCURRENCY`** (see
+  `backend/server/src/main/resources/conf/analytics-engine-default.conf`) for funnel/journey batch routing (Spark vs
+  ClickHouse)
 - All variables prefixed with `VAULT_SERVICE_*`
 - `GOOGLE_OAUTH_ENABLED`: Common variable to enable/disable Google OAuth (shared with frontend)
 
@@ -453,30 +461,30 @@ curl http://localhost:8888/metrics
 ### Frontend Build (pulse-ui)
 
 1. **Stage 1 - Builder**:
-   - Uses Node.js 18 Alpine image
-   - Installs npm dependencies
-   - Runs production build
-   - Output: Optimized static files
+    - Uses Node.js 18 Alpine image
+    - Installs npm dependencies
+    - Runs production build
+    - Output: Optimized static files
 
 2. **Stage 2 - Runtime**:
-   - Uses Nginx Alpine image
-   - Copies built files from Stage 1
-   - Configures Nginx for React Router
-   - Serves static content
+    - Uses Nginx Alpine image
+    - Copies built files from Stage 1
+    - Configures Nginx for React Router
+    - Serves static content
 
 ### Backend Build (pulse-server)
 
 1. **Stage 1 - Builder**:
-   - Uses Maven with JDK 17
-   - Downloads dependencies (cached)
-   - Compiles Java code
-   - Packages as fat JAR
+    - Uses Maven with JDK 17
+    - Downloads dependencies (cached)
+    - Compiles Java code
+    - Packages as fat JAR
 
 2. **Stage 2 - Runtime**:
-   - Uses JRE 17 Alpine (smaller image)
-   - Copies JAR from Stage 1
-   - Copies configuration files
-   - Runs Vert.x application
+    - Uses JRE 17 Alpine (smaller image)
+    - Copies JAR from Stage 1
+    - Copies configuration files
+    - Runs Vert.x application
 
 ## 🔐 Security Notes
 
@@ -562,6 +570,7 @@ This setup is designed for **local development and testing**. For production:
 ## 🆘 Support
 
 For issues or questions:
+
 1. Check logs: `./deploy/scripts/logs.sh`
 2. Verify environment variables in `.env`
 3. Ensure all required services are running: `docker ps --filter network=pulse-network`

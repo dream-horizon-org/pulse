@@ -6,6 +6,7 @@ import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 import org.dreamhorizon.pulseserver.constant.ClickhouseConstants;
 import org.dreamhorizon.pulseserver.service.interaction.InteractionTelemetryConstants;
@@ -13,11 +14,17 @@ import org.dreamhorizon.pulseserver.service.interaction.InteractionTelemetryCons
 /**
  * Builds ClickHouse SELECTs for Root Cause Analysis:
  * (1) Baseline: no GROUP BY, same WHERE ({@link InteractionTelemetryConstants#INTERACTION_PULSE_TYPE},
- *     bound SpanName/Timestamp/ProjectId).
+ * bound SpanName/Timestamp/ProjectId).
  * (2) Segment: GROUP BY dimension(s), same WHERE plus dimension filters (bound values).
  * Includes problematic count (error OR poor) for segment selection.
  */
 public class RootCauseQueryBuilder {
+
+  /**
+   * Valid dimension column names for RCA queries. Used to prevent SQL injection.
+   */
+  private static final Set<String> VALID_DIMENSION_COLUMNS =
+      Set.of("Platform", "OsVersion", "AppVersion", "DeviceModel", "NetworkProvider", "GeoState");
 
   /**
    * Builds the common WHERE clause for interaction traces in the time window.
@@ -57,9 +64,9 @@ public class RootCauseQueryBuilder {
   }
 
   /**
-   * Distinct non-empty {@code screen.name} values for spans matching {@code pulse.interaction.name}
-   * (session listing semantics), same time window as RCA heatmap filters. One row with column
-   * {@code screens}.
+   * Non-empty {@code screen.name} values for spans matching {@code pulse.interaction.name} (session
+   * listing semantics), same time window as RCA heatmap filters. One row with column {@code screens}:
+   * distinct names ordered by descending span count, then ascending name for ties.
    */
   public static RootCauseQuerySpec buildDistinctScreensForInteractionQuery(
       String projectId, String interactionName, Window window) {
@@ -102,11 +109,17 @@ public class RootCauseQueryBuilder {
             + " AND Timestamp < toDateTime64(:"
             + p3
             + ", 9, 'UTC')";
-    String sql =
-        "SELECT arraySort(groupUniqArray(nullIf(trimBoth(SpanAttributes['screen.name']), ''))) AS screens FROM "
+    String spanRows =
+        "SELECT nullIf(trimBoth(ScreenName), '') AS screen_name FROM "
             + ClickhouseConstants.OTEL_TRACES_TABLE
             + " WHERE "
             + where;
+    String sql =
+        "SELECT arrayMap(x -> x.2, arraySort(x -> (x.1, x.2), groupArray(tuple(-toInt64(cnt), screen_name)))) AS screens FROM ("
+            + "SELECT screen_name, count() AS cnt FROM ("
+            + spanRows
+            + ") AS interaction_spans WHERE screen_name != '' GROUP BY screen_name"
+            + ") AS per_screen";
     return acc.toSpec(sql);
   }
 
@@ -142,6 +155,11 @@ public class RootCauseQueryBuilder {
     if (dimensionColumns == null || dimensionColumns.isEmpty()) {
       throw new IllegalArgumentException("dimensionColumns must be non-empty for segment query");
     }
+    for (String dim : dimensionColumns) {
+      if (!VALID_DIMENSION_COLUMNS.contains(dim)) {
+        throw new IllegalArgumentException("Invalid dimension column: " + dim);
+      }
+    }
     BindAccumulator acc = new BindAccumulator();
     String select = buildSelectClauseWithProblematicAndGroupBy(dimensionColumns);
     String where =
@@ -173,6 +191,9 @@ public class RootCauseQueryBuilder {
       Instant endExclusive,
       String dimensionColumn,
       Map<String, String> dimensionFilters) {
+    if (!VALID_DIMENSION_COLUMNS.contains(dimensionColumn)) {
+      throw new IllegalArgumentException("Invalid dimension column: " + dimensionColumn);
+    }
     BindAccumulator acc = new BindAccumulator();
     String select =
         dimensionColumn + ", " + RootCauseMetricsRegistry.getProblematicCountExpression() + " AS problematic_count";
@@ -240,7 +261,9 @@ public class RootCauseQueryBuilder {
     return sb.toString();
   }
 
-  /** Collects {@code :rca_pN} names and values for {@link RootCauseQuerySpec}. */
+  /**
+   * Collects {@code :rca_pN} names and values for {@link RootCauseQuerySpec}.
+   */
   public static final class BindAccumulator {
     private int nextSeq;
     private final List<String> bindNames = new ArrayList<>();
@@ -275,12 +298,13 @@ public class RootCauseQueryBuilder {
       if (lookbackDays < 1) {
         throw new IllegalArgumentException("lookbackDays must be >= 1");
       }
-      this.startInclusive =
+      Instant startInclusiveUtc =
           anchorDateUtc.minusDays(lookbackDays - 1).atStartOfDay(ZoneOffset.UTC).toInstant();
-      this.endExclusive = endExclusiveUtc;
-      if (!endExclusiveUtc.isAfter(startInclusive)) {
+      if (!endExclusiveUtc.isAfter(startInclusiveUtc)) {
         throw new IllegalArgumentException("endExclusiveUtc must be after startInclusive");
       }
+      this.startInclusive = startInclusiveUtc;
+      this.endExclusive = endExclusiveUtc;
     }
   }
 }

@@ -12,7 +12,7 @@ public record RcaParsedReportBody(
     String rawBody,
     ObjectNode bodyRoot,
     String projectId,
-    RcaType type,
+    RcaType entityType,
     String entityKey,
     LocalDate date,
     boolean regenerate) {}

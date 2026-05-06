@@ -4,7 +4,8 @@ import com.pulse.android.sdk.replay.events.ReplayCustomEventData
 import com.pulse.android.sdk.replay.events.ReplayEvent
 import com.pulse.android.sdk.replay.events.ReplayIncrementalMouseInteractionData
 import com.pulse.android.sdk.replay.events.ReplayIncrementalMutationData
-import com.pulse.utils.PulseOtelUtils
+import com.pulse.utils.PulseLogger
+import com.pulse.utils.RedactionUtils
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -119,17 +120,20 @@ public class PersistingReplayEmitter(
                         }.entries
                         .joinToString(", ") { "${it.key}(${it.value.size})" }
                 val eventWord = if (events.size == 1) "event" else "events"
-                PulseOtelUtils.logDebug(ReplayConstants.REPLAY_LOG_TAG) {
+                PulseLogger.logDebug(ReplayConstants.REPLAY_LOG_TAG) {
                     "[Replay flow] Batch persisted to disk (${events.size} $eventWord) — " +
                         "event types: [$eventTypesSummary] — queue size: $queueSize, flush at: $flushAt"
                 }
                 if (queueSize >= flushAt) {
-                    PulseOtelUtils.logDebug(ReplayConstants.REPLAY_LOG_TAG) {
+                    PulseLogger.logDebug(ReplayConstants.REPLAY_LOG_TAG) {
                         "[Replay flow] Queue reached flush threshold ($flushAt) → triggering flush"
                     }
                     flushIfNeeded()
                 }
             } catch (e: Throwable) {
+                PulseLogger.logError(ReplayConstants.REPLAY_LOG_TAG, e) {
+                    "sdk.replay.persist_failure error_class=${RedactionUtils.classifyError(e)}"
+                }
                 logger("Replay persist failed: $e")
             }
         }
@@ -148,7 +152,7 @@ public class PersistingReplayEmitter(
                 val files = listCachedReplayFiles()
                 if (files.isEmpty()) return@launch
                 logger("Sending ${files.size} cached replay batches from previous run ($flushAt per request)")
-                PulseOtelUtils.logDebug(ReplayConstants.REPLAY_LOG_TAG) {
+                PulseLogger.logDebug(ReplayConstants.REPLAY_LOG_TAG) {
                     "[Replay flow] sendCachedEvents: found ${files.size} cached batch(es) from previous run"
                 }
                 sendCachedFileChunksSequentially(files)
@@ -178,7 +182,7 @@ public class PersistingReplayEmitter(
                     List(n) { deque.removeFirst() }
                 }
             if (toSend.isEmpty()) return
-            PulseOtelUtils.logDebug(ReplayConstants.REPLAY_LOG_TAG) {
+            PulseLogger.logDebug(ReplayConstants.REPLAY_LOG_TAG) {
                 "[Replay flow] Flush: taking ${toSend.size} batch(es) from queue (max per upload: $flushAt)"
             }
             val fileToContent =
@@ -188,7 +192,7 @@ public class PersistingReplayEmitter(
                 }
             if (fileToContent.isEmpty()) return
             val payload = buildBatchPayload(fileToContent.map { it.second })
-            PulseOtelUtils.logDebug(ReplayConstants.REPLAY_LOG_TAG) {
+            PulseLogger.logDebug(ReplayConstants.REPLAY_LOG_TAG) {
                 "[Replay flow] Flush → combining ${fileToContent.size} batch(es) " +
                     "into single request (${payload.length} bytes) → sending to backend"
             }
@@ -197,7 +201,7 @@ public class PersistingReplayEmitter(
                     if (!shutDown.get()) fileToContent.forEach { (file) -> file.delete() }
                 },
                 onFailure = { t ->
-                    PulseOtelUtils.logWarn(ReplayConstants.REPLAY_LOG_TAG, t) {
+                    PulseLogger.logWarn(ReplayConstants.REPLAY_LOG_TAG, t) {
                         "[Replay flow] Flush send failed, re-queuing ${fileToContent.size} batch(es) for retry"
                     }
                     logger("Flush send failed: ${t.message.orEmpty()}")
@@ -229,6 +233,9 @@ public class PersistingReplayEmitter(
         val toRemove = files.size - maxBatchSize
         repeat(toRemove) { i ->
             val f = files[i]
+            PulseLogger.logWarn(ReplayConstants.REPLAY_LOG_TAG) {
+                "sdk.replay.queue_overflow reason=disk_file_cap queue_cap=$maxBatchSize file=${f.name}"
+            }
             if (f.delete()) {
                 logger("Replay storage cap: removed oldest batch ${f.name}")
             } else {
@@ -241,6 +248,9 @@ public class PersistingReplayEmitter(
     private fun evictOldestBatchesWhileOverStorageCap() {
         while (deque.size > maxBatchSize) {
             val evicted = deque.removeFirst()
+            PulseLogger.logWarn(ReplayConstants.REPLAY_LOG_TAG) {
+                "sdk.replay.queue_overflow reason=memory_queue_cap queue_cap=$maxBatchSize file=${evicted.name}"
+            }
             if (evicted.delete()) {
                 logger("Replay storage cap: dropped oldest queued batch ${evicted.name}")
             } else {
@@ -264,7 +274,7 @@ public class PersistingReplayEmitter(
                 }
             if (fileToContent.isEmpty()) continue
             val payload = buildBatchPayload(fileToContent.map { it.second })
-            PulseOtelUtils.logDebug(ReplayConstants.REPLAY_LOG_TAG) {
+            PulseLogger.logDebug(ReplayConstants.REPLAY_LOG_TAG) {
                 "[Replay flow] Cached chunk ${idx + 1}/${chunks.size} → ${fileToContent.size} batch(es) " +
                     "(${payload.length} bytes) → backend"
             }
@@ -273,7 +283,7 @@ public class PersistingReplayEmitter(
                     if (!shutDown.get()) fileToContent.forEach { (file) -> file.delete() }
                 },
                 onFailure = { t ->
-                    PulseOtelUtils.logWarn(ReplayConstants.REPLAY_LOG_TAG, t) {
+                    PulseLogger.logWarn(ReplayConstants.REPLAY_LOG_TAG, t) {
                         "[Replay flow] Cached send failed, remaining batch(es) will be retried on next launch"
                     }
                     logger("Send cached replay failed: ${t.message.orEmpty()}")

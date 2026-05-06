@@ -55,7 +55,7 @@ export function useGetScreenEngagementData({
       value: string[];
     }> = [
       {
-        field: `SpanAttributes['${PulseType.SCREEN_NAME}']`,
+        field: COLUMN_NAME.SCREEN_NAME,
         operator: "IN",
         value: [screenName],
       },
@@ -131,7 +131,7 @@ export function useGetScreenEngagementData({
         },
         {
           function: "COL" as const,
-          param: { field: `SpanAttributes['${PulseType.SCREEN_NAME}']` },
+          param: { field: COLUMN_NAME.SCREEN_NAME },
           alias: "screen_name",
         },
         {
@@ -165,14 +165,14 @@ export function useGetScreenEngagementData({
         {
           function: "CUSTOM" as const,
           param: {
-            expression: `uniqCombined64(nullIf(${COLUMN_NAME.USER_ID}, ''))`,
+            expression: `uniq(nullIf(${COLUMN_NAME.INSTALLATION_ID}, ''))`,
           },
           alias: "unique_users",
         },
         {
           function: "CUSTOM" as const,
           param: {
-            expression: `uniqCombined64(nullIf(${COLUMN_NAME.SESSION_ID}, ''))`,
+            expression: `uniq(nullIf(${COLUMN_NAME.SESSION_ID}, ''))`,
           },
           alias: "unique_sessions",
         },
@@ -210,14 +210,14 @@ export function useGetScreenEngagementData({
         {
           function: "CUSTOM" as const,
           param: {
-            expression: `uniqCombined64(nullIf(${COLUMN_NAME.USER_ID}, ''))`,
+            expression: `uniq(nullIf(${COLUMN_NAME.INSTALLATION_ID}, ''))`,
           },
           alias: "unique_users",
         },
         {
           function: "CUSTOM" as const,
           param: {
-            expression: `uniqCombined64(nullIf(${COLUMN_NAME.SESSION_ID}, ''))`,
+            expression: `uniq(nullIf(${COLUMN_NAME.SESSION_ID}, ''))`,
           },
           alias: "unique_sessions",
         },

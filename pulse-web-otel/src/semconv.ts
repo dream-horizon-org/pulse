@@ -1,0 +1,106 @@
+/**
+ * Stable OTEL resource keys, signal attribute keys, and Pulse `pulse.type` values
+ * for the web SDK. Keeps ingest contracts consistent and greppable.
+ */
+
+export const PulseWebSemconv = {
+  ResourceKey: {
+    SERVICE_NAME: "service.name",
+    SERVICE_VERSION: "service.version",
+    PLATFORM: "platform",
+    RUM_SDK_NAME: "rum.sdk.name",
+    RUM_SDK_VERSION: "rum.sdk.version",
+    INSTALLATION_ID: "installation.id",
+    PROJECT_ID: "project.id",
+    BROWSER_NAME: "browser.name",
+    BROWSER_VERSION: "browser.version",
+    OS_NAME: "os.name",
+    OS_VERSION: "os.version",
+    DEVICE_TYPE: "device.type",
+    SCREEN_RESOLUTION: "screen.resolution",
+    SCREEN_ASPECT_RATIO: "screen.aspect_ratio",
+    SCREEN_COLOR_DEPTH: "screen.color_depth",
+    BROWSER_LANGUAGE: "browser.language",
+    NETWORK_ONLINE: "network.online",
+    TIMEZONE: "timezone",
+  },
+  AttributeKey: {
+    PULSE_TYPE: "pulse.type",
+    PULSE_SAMPLED: "pulse.sampled",
+    SESSION_ID: "session.id",
+    WINDOW_ID: "window.id",
+    SESSION_PREVIOUS_ID: "session.previous_id",
+    SESSION_START_REASON: "session.start_reason",
+    SESSION_DURATION_MS: "session.duration_ms",
+    SESSION_END_REASON: "session.end_reason",
+    INSTALLATION_ID: "installation.id",
+    SCREEN_NAME: "screen.name",
+    PLATFORM: "platform",
+    URL_PATH: "url.path",
+    PAGE_URL: "page.url",
+    NETWORK_CONNECTION_TYPE: "network.connection.type",
+    NETWORK_EFFECTIVE_TYPE: "network.effective_type",
+    NETWORK_RTT: "network.rtt",
+    NETWORK_DOWNLINK: "network.downlink",
+    USER_ID: "user.id",
+    PULSE_USER_PREVIOUS_ID: "pulse.user.previous_id",
+    EVENT_NAME: "event.name",
+    EXCEPTION_TYPE: "exception.type",
+    EXCEPTION_MESSAGE: "exception.message",
+    EXCEPTION_STACKTRACE: "exception.stacktrace",
+    ERROR_FILENAME: "error.filename",
+    NON_FATAL_TYPE: "non_fatal.type",
+    NON_FATAL_IS_MANUAL: "non_fatal.is_manual",
+    /** Init log (`otel.initialization.events`) — exporter wiring hint (Android parity). */
+    SPAN_EXPORTER: "span.exporter",
+  },
+  FixedValue: {
+    PLATFORM_WEB: "web",
+    RUM_SDK_NAME: "pulse_web_js",
+    EVENT_NAME_CUSTOM_EVENT: "pulse.custom_event",
+  },
+  PulseType: {
+    INSTALLATION_START: "pulse.app.installation.start",
+    CUSTOM_EVENT: "custom_event",
+    NON_FATAL: "non_fatal",
+    DEVICE_CRASH: "device.crash",
+    SESSION_START: "session.start",
+    SESSION_END: "session.end",
+    USER_SESSION_START: "pulse.user.session.start",
+    USER_SESSION_END: "pulse.user.session.end",
+    INTERACTION: "interaction",
+  },
+  LogBody: {
+    SESSION_START: "session.start",
+    SESSION_END: "session.end",
+    APP_INSTALLATION_START: "pulse.app.installation.start",
+    USER_SESSION_START: "pulse.user.session.start",
+    USER_SESSION_END: "pulse.user.session.end",
+  },
+  /**
+   * Init milestones as OTLP **logs** (Android `SdkInitializationEvents` / `RumConstants.Events`).
+   * Same strings as `io.opentelemetry.android.common.RumConstants.Events` INIT_EVENT_*.
+   */
+  RumSdkInit: {
+    STARTED: "rum.sdk.init.started",
+    SPAN_EXPORTER: "rum.sdk.init.span.exporter",
+  },
+  InteractionAttributeKey: {
+    ID: "pulse.interaction.id",
+    NAME: "pulse.interaction.name",
+    CONFIG_ID: "pulse.interaction.config.id",
+    CONFIG_NAME: "pulse.interaction.config.name",
+    COMPLETE_TIME: "pulse.interaction.complete_time",
+    APDEX_SCORE: "pulse.interaction.apdex_score",
+    USER_CATEGORY: "pulse.interaction.user_category",
+    IS_ERROR: "pulse.interaction.is_error",
+    ERROR_TYPE: "pulse.interaction.error.type",
+    ERROR_MESSAGE: "pulse.interaction.error.message",
+  },
+  InteractionUserCategory: {
+    EXCELLENT: "Excellent",
+    GOOD: "Good",
+    AVERAGE: "Average",
+    POOR: "Poor",
+  },
+} as const;

@@ -5,8 +5,8 @@
 
 package io.opentelemetry.android.export
 
-import android.util.Log
-import io.opentelemetry.android.common.RumConstants.OTEL_RUM_LOG_TAG
+import com.pulse.utils.PulseLogger
+import com.pulse.utils.RedactionUtils
 import io.opentelemetry.api.internal.GuardedBy
 import io.opentelemetry.sdk.common.CompletableResultCode
 import java.nio.BufferOverflowException
@@ -18,7 +18,7 @@ import java.nio.BufferOverflowException
  * If the buffer is full, the exporter will drop any new signals.
  *
  * Export, flush, and shutdown lambdas are invoked on the delegate once it is set; the max buffer
- * size caps buffered items before drops; the log type string labels warning logs.
+ * size caps buffered items before drops; the log type string labels diagnostic logs.
  */
 internal class DelegatingExporter<D, T>(
     private val doExport: D.(data: Collection<T>) -> CompletableResultCode,
@@ -27,6 +27,13 @@ internal class DelegatingExporter<D, T>(
     private val maxBufferedData: Int,
     private val logType: String,
 ) {
+    private val logTypeToken = logType.replace(' ', '_')
+
+    private companion object {
+        private const val TAG = "SdkQueue"
+        private const val EXPORT_DIAG_TAG = "ExportDiag"
+    }
+
     private val lock = Any()
 
     @GuardedBy("lock")
@@ -61,7 +68,7 @@ internal class DelegatingExporter<D, T>(
         // Exporting outside of the synchronized block could lead to an out of order export
         // but export order shouldn't matter so this is fine. It's better to avoid calling external
         // code from within the synchronized block.
-        pendingExport?.setTo(delegate.doExport(buffer))
+        pendingExport?.setTo(exportThroughDelegate(delegate, buffer))
         pendingFlush?.setTo(delegate.doFlush())
         pendingShutdown?.setTo(delegate.doShutdown())
         synchronized(lock) {
@@ -83,17 +90,22 @@ internal class DelegatingExporter<D, T>(
      */
     fun export(data: Collection<T>): CompletableResultCode =
         withDelegate(
-            ifSet = { doExport(this, data) },
+            ifSet = { exportThroughDelegate(this, data) },
             ifNotSet = {
                 val amountToTake = maxBufferedData - buffer.size
                 buffer.addAll(data.take(amountToTake))
                 if (amountToTake < data.size) {
-                    Log.w(OTEL_RUM_LOG_TAG, "The $logType buffer was filled before export delegate set...")
-                    Log.w(OTEL_RUM_LOG_TAG, "This has resulted in a loss of $logType!")
+                    val dropped = data.size - amountToTake
+                    PulseLogger.logWarn(TAG) {
+                        "sdk.queue signal=$logTypeToken depth=${buffer.size} overflow=true dropped_count=$dropped"
+                    }
                 }
 
                 // If all the data was dropped we return an exception
                 if (amountToTake == 0 && data.isNotEmpty()) {
+                    PulseLogger.logError(TAG, BufferOverflowException()) {
+                        "sdk.export.drop signal=$logTypeToken dropped_count=${data.size} reason=queue_full"
+                    }
                     CompletableResultCode.ofExceptionalFailure(BufferOverflowException())
                 } else {
                     pendingExport
@@ -133,6 +145,38 @@ internal class DelegatingExporter<D, T>(
     private fun clearBuffer() {
         buffer.clear()
         buffer.trimToSize()
+    }
+
+    private fun exportThroughDelegate(
+        delegate: D,
+        data: Collection<T>,
+    ): CompletableResultCode {
+        val startNs = System.nanoTime()
+        val batchSize = data.size
+        val result = doExport(delegate, data)
+        result.whenComplete {
+            logSdkExport(batchSize, System.nanoTime() - startNs, result)
+        }
+        return result
+    }
+
+    private fun logSdkExport(
+        batchSize: Int,
+        durationNs: Long,
+        result: CompletableResultCode,
+    ) {
+        val ms = durationNs / 1_000_000
+        if (result.isSuccess) {
+            PulseLogger.logDebug(EXPORT_DIAG_TAG) {
+                "sdk.export signal=$logTypeToken success=true latency_ms=$ms batch_size=$batchSize"
+            }
+        } else {
+            val err =
+                result.failureThrowable?.let { RedactionUtils.classifyError(it) } ?: "unknown"
+            PulseLogger.logWarn(EXPORT_DIAG_TAG) {
+                "sdk.export signal=$logTypeToken success=false latency_ms=$ms batch_size=$batchSize error_class=$err"
+            }
+        }
     }
 
     private inline fun <R> withDelegate(

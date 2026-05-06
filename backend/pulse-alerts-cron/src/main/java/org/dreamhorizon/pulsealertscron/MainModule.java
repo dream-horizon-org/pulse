@@ -9,8 +9,8 @@ import com.google.inject.Singleton;
 import io.vertx.core.Vertx;
 import io.vertx.rxjava3.ext.web.client.WebClient;
 import org.dreamhorizon.pulsealertscron.module.VertxAbstractModule;
+import org.dreamhorizon.pulsealertscron.services.BatchSchedulerService;
 import org.dreamhorizon.pulsealertscron.services.CronManager;
-import org.dreamhorizon.pulsealertscron.services.RedisService;
 import org.dreamhorizon.pulsealertscron.util.SharedDataUtils;
 
 public class MainModule extends VertxAbstractModule {
@@ -31,7 +31,6 @@ public class MainModule extends VertxAbstractModule {
     bind(ObjectMapper.class).toInstance(getObjectMapper());
     bind(WebClient.class).toProvider(() -> SharedDataUtils.get(vertx, WebClient.class));
     bind(CronManager.class).in(Singleton.class);
-    bind(RedisService.class).in(Singleton.class);
   }
 
   protected ObjectMapper getObjectMapper() {

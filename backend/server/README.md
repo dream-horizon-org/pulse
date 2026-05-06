@@ -733,17 +733,23 @@ curl -X POST http://localhost:8080/v1/logs \
 
 ## Query Service
 
-The query service provides a generic interface for executing SQL queries against various query engines (AWS Athena, BigQuery, etc.) with pagination support. Queries are automatically optimized with partition filters for better performance.
+The query service provides a generic interface for executing SQL queries against various query engines (AWS Athena,
+BigQuery, etc.) with pagination support. Queries are automatically optimized with partition filters for better
+performance.
 
 **Base Path:** `/query`
 
 **Authentication:** These endpoints may require authentication depending on your server configuration.
 
-**Note:** The service is designed to be engine-agnostic. Currently, AWS Athena is the default implementation, but the architecture supports plugging in other query engines (e.g., BigQuery, GCP) by implementing the `QueryClient` and `QueryJobDao` interfaces.
+**Note:** The service is designed to be engine-agnostic. Currently, AWS Athena is the default implementation, but the
+architecture supports plugging in other query engines (e.g., BigQuery, GCP) by implementing the `QueryClient` and
+`QueryJobDao` interfaces.
 
 ### Submit Query
 
-**Description:** Submits a SQL query for execution. The service validates that the query is a SELECT statement and includes a timestamp filter in the WHERE clause. If the query completes within 3 seconds, results are returned immediately. Otherwise, a job ID is returned for status checking and result retrieval.
+**Description:** Submits a SQL query for execution. The service validates that the query is a SELECT statement and
+includes a timestamp filter in the WHERE clause. If the query completes within 3 seconds, results are returned
+immediately. Otherwise, a job ID is returned for status checking and result retrieval.
 
 **Business Logic:** The endpoint:
 
@@ -766,9 +772,10 @@ Content-Type: application/json
 
 **Request Fields:**
 
-- `queryString` (required): SQL query string. Must be a SELECT query and must include a timestamp filter in the WHERE clause. The timestamp filter can be either:
-  - TIMESTAMP literals: `TIMESTAMP 'YYYY-MM-DD HH:MM:SS'` format
-  - Timestamp column: `timestamp` column with comparison operators (>=, <=, >, <, =, !=, <>)
+- `queryString` (required): SQL query string. Must be a SELECT query and must include a timestamp filter in the WHERE
+  clause. The timestamp filter can be either:
+    - TIMESTAMP literals: `TIMESTAMP 'YYYY-MM-DD HH:MM:SS'` format
+    - Timestamp column: `timestamp` column with comparison operators (>=, <=, >, <, =, !=, <>)
 
 **Success Response (Query completed within 3 seconds):**
 
@@ -878,10 +885,14 @@ curl --location 'http://localhost:8080/query' \
 
 **Validation Rules:**
 
-- **Query Type**: Only SELECT queries are allowed. INSERT, UPDATE, DELETE, DROP, and other DDL/DML operations are rejected.
-- **Timestamp Filter**: The query must include a timestamp filter in the WHERE clause. This can be satisfied in one of two ways:
-  - **Timestamp Column**: Use the `timestamp` column (with or without quotes) with comparison operators (>=, <=, >, <, =, !=, <>) in the WHERE clause. Example: `WHERE timestamp >= date_add('hour', -24, current_timestamp)`
-  - **TIMESTAMP Literals**: Include at least one `TIMESTAMP 'YYYY-MM-DD HH:MM:SS'` literal in the WHERE clause
+- **Query Type**: Only SELECT queries are allowed. INSERT, UPDATE, DELETE, DROP, and other DDL/DML operations are
+  rejected.
+- **Timestamp Filter**: The query must include a timestamp filter in the WHERE clause. This can be satisfied in one of
+  two ways:
+    - **Timestamp Column**: Use the `timestamp` column (with or without quotes) with comparison
+      operators (>=, <=, >, <, =, !=, <>) in the WHERE clause. Example:
+      `WHERE timestamp >= date_add('hour', -24, current_timestamp)`
+    - **TIMESTAMP Literals**: Include at least one `TIMESTAMP 'YYYY-MM-DD HH:MM:SS'` literal in the WHERE clause
 - **Query Length**: Maximum query length is 100,000 characters
 - **Security**: Queries containing potentially dangerous operations (SQL injection patterns) are rejected
 
@@ -892,7 +903,8 @@ curl --location 'http://localhost:8080/query' \
 - For longer-running queries, use the job ID to check status and retrieve results
 - The service includes retry logic to handle cases where results aren't immediately available after query completion
 - All timestamps (`createdAt`, `updatedAt`, `completedAt`) are sourced from the AWS Athena API for accuracy
-- Query execution statistics (data scanned, execution time, queue time) are captured from AWS Athena and stored in the database
+- Query execution statistics (data scanned, execution time, queue time) are captured from AWS Athena and stored in the
+  database
 - The service architecture is engine-agnostic and supports multiple query engines through pluggable implementations
 
 ### Get Job Status
@@ -954,7 +966,8 @@ curl --location 'http://localhost:8080/query/job/e8a98c57-c987-40bd-b1f5-a6f534e
 
 ### Cancel Query
 
-**Description:** Cancels a running query job. If the query is already in a final state (COMPLETED, FAILED, or CANCELLED), it cannot be cancelled and the current status is returned.
+**Description:** Cancels a running query job. If the query is already in a final state (COMPLETED, FAILED, or
+CANCELLED), it cannot be cancelled and the current status is returned.
 
 ```http
 DELETE /query/job/{jobId}
@@ -1004,7 +1017,9 @@ curl --location --request DELETE 'http://localhost:8080/query/job/e8a98c57-c987-
 
 ### Get Query History
 
-**Description:** Retrieves a paginated list of historical queries for a specific user, ordered by submission time (most recent first). The endpoint automatically checks the status of up to 20 running queries in parallel and updates their status in the database before returning results.
+**Description:** Retrieves a paginated list of historical queries for a specific user, ordered by submission time (most
+recent first). The endpoint automatically checks the status of up to 20 running queries in parallel and updates their
+status in the database before returning results.
 
 ```http
 GET /query/history?limit=20&offset=0
@@ -1049,16 +1064,16 @@ GET /query/history?limit=20&offset=0
 **Response Fields:**
 
 - `queries`: Array of query history items
-  - `jobId`: Unique identifier for the query job
-  - `queryString`: The query string that was executed
-  - `queryExecutionId`: AWS Athena query execution ID
-  - `status`: Job status (SUBMITTED, RUNNING, COMPLETED, FAILED, CANCELLED)
-  - `resultLocation`: S3 location where results are stored (if completed)
-  - `errorMessage`: Error message (if failed)
-  - `dataScannedInBytes`: Amount of data scanned by the query in bytes
-  - `createdAt`: Job creation timestamp (from AWS API)
-  - `updatedAt`: Last update timestamp (from AWS API)
-  - `completedAt`: Job completion timestamp (from AWS API, if completed)
+    - `jobId`: Unique identifier for the query job
+    - `queryString`: The query string that was executed
+    - `queryExecutionId`: AWS Athena query execution ID
+    - `status`: Job status (SUBMITTED, RUNNING, COMPLETED, FAILED, CANCELLED)
+    - `resultLocation`: S3 location where results are stored (if completed)
+    - `errorMessage`: Error message (if failed)
+    - `dataScannedInBytes`: Amount of data scanned by the query in bytes
+    - `createdAt`: Job creation timestamp (from AWS API)
+    - `updatedAt`: Last update timestamp (from AWS API)
+    - `completedAt`: Job completion timestamp (from AWS API, if completed)
 - `total`: Total number of queries in the result set
 - `limit`: Maximum number of queries per page
 - `offset`: Pagination offset
@@ -1075,11 +1090,13 @@ curl --location 'http://localhost:8080/query/history?limit=20&offset=0' \
 - Queries are ordered by submission time (most recent first)
 - The endpoint automatically checks the status of up to 20 running queries in parallel
 - Running queries are updated in the database with their latest status from the query engine
-- All timestamps (`createdAt`, `updatedAt`, `completedAt`) are sourced from the AWS Athena API, not generated by the application
+- All timestamps (`createdAt`, `updatedAt`, `completedAt`) are sourced from the AWS Athena API, not generated by the
+  application
 
 ### Get Query Statistics
 
-**Description:** Retrieves aggregated statistics for all queries run by a specific user within an optional date range. Statistics include summary metrics, data scanned, and execution time information.
+**Description:** Retrieves aggregated statistics for all queries run by a specific user within an optional date range.
+Statistics include summary metrics, data scanned, and execution time information.
 
 ```http
 GET /query/stats?startDate=2026-01-01T00:00:00&endDate=2026-01-12T23:59:59
@@ -1091,8 +1108,10 @@ GET /query/stats?startDate=2026-01-01T00:00:00&endDate=2026-01-12T23:59:59
 
 **Query Parameters:**
 
-- `startDate` (optional): Start date in ISO-8601 format (e.g., "2026-01-01T00:00:00"). If not provided, statistics are calculated from the earliest query.
-- `endDate` (optional): End date in ISO-8601 format (e.g., "2026-01-12T23:59:59"). If not provided, statistics are calculated up to the latest query.
+- `startDate` (optional): Start date in ISO-8601 format (e.g., "2026-01-01T00:00:00"). If not provided, statistics are
+  calculated from the earliest query.
+- `endDate` (optional): End date in ISO-8601 format (e.g., "2026-01-12T23:59:59"). If not provided, statistics are
+  calculated up to the latest query.
 
 **Success Response:**
 
@@ -1145,28 +1164,28 @@ GET /query/stats?startDate=2026-01-01T00:00:00&endDate=2026-01-12T23:59:59
 **Response Fields:**
 
 - `summary`: Summary statistics
-  - `totalQueries`: Total number of queries
-  - `completedQueries`: Number of completed queries
-  - `failedQueries`: Number of failed queries
-  - `cancelledQueries`: Number of cancelled queries
-  - `runningQueries`: Number of currently running queries
+    - `totalQueries`: Total number of queries
+    - `completedQueries`: Number of completed queries
+    - `failedQueries`: Number of failed queries
+    - `cancelledQueries`: Number of cancelled queries
+    - `runningQueries`: Number of currently running queries
 - `data`: Data scanning statistics (in bytes)
-  - `totalDataScanned`: Total data scanned across all queries
-  - `averageDataScanned`: Average data scanned per query
-  - `maxDataScanned`: Maximum data scanned in a single query
-  - `minDataScanned`: Minimum data scanned in a single query
+    - `totalDataScanned`: Total data scanned across all queries
+    - `averageDataScanned`: Average data scanned per query
+    - `maxDataScanned`: Maximum data scanned in a single query
+    - `minDataScanned`: Minimum data scanned in a single query
 - `time`: Execution time statistics (in milliseconds)
-  - `totalExecutionTime`: Total execution time across all queries
-  - `averageExecutionTime`: Average execution time per query
-  - `maxExecutionTime`: Maximum execution time for a single query
-  - `minExecutionTime`: Minimum execution time for a single query
-  - `totalEngineExecutionTime`: Total engine execution time
-  - `averageEngineExecutionTime`: Average engine execution time
-  - `totalQueryQueueTime`: Total time queries spent in queue
-  - `averageQueryQueueTime`: Average queue time per query
+    - `totalExecutionTime`: Total execution time across all queries
+    - `averageExecutionTime`: Average execution time per query
+    - `maxExecutionTime`: Maximum execution time for a single query
+    - `minExecutionTime`: Minimum execution time for a single query
+    - `totalEngineExecutionTime`: Total engine execution time
+    - `averageEngineExecutionTime`: Average engine execution time
+    - `totalQueryQueueTime`: Total time queries spent in queue
+    - `averageQueryQueueTime`: Average queue time per query
 - `period`: Date range for the statistics
-  - `startDate`: Start date of the period
-  - `endDate`: End date of the period
+    - `startDate`: Start date of the period
+    - `endDate`: End date of the period
 - `queries`: Array of individual query items with their statistics
 
 **Example Request (using curl):**
@@ -1179,13 +1198,15 @@ curl --location 'http://localhost:8080/query/stats?startDate=2026-01-01T00:00:00
 **Notes:**
 
 - Statistics are calculated from data stored in the database
-- Execution time metrics (`executionTimeMillis`, `engineExecutionTimeMillis`, `queryQueueTimeMillis`) are sourced from AWS Athena API
+- Execution time metrics (`executionTimeMillis`, `engineExecutionTimeMillis`, `queryQueueTimeMillis`) are sourced from
+  AWS Athena API
 - If `startDate` or `endDate` are not provided, statistics are calculated for all queries
 - Only queries with available statistics are included in the calculations
 
 ### Get Tables and Columns
 
-**Description:** Retrieves metadata for all tables and their columns from the configured Athena database. This endpoint queries the `information_schema` to provide a complete catalog of available tables and their structure.
+**Description:** Retrieves metadata for all tables and their columns from the configured Athena database. This endpoint
+queries the `information_schema` to provide a complete catalog of available tables and their structure.
 
 ```http
 GET /query/tables
@@ -1229,14 +1250,14 @@ GET /query/tables
 **Response Fields:**
 
 - Array of table metadata objects:
-  - `tableName`: Name of the table
-  - `tableSchema`: Schema/database name
-  - `tableType`: Type of table (e.g., "EXTERNAL_TABLE", "VIEW")
-  - `columns`: Array of column metadata:
-    - `columnName`: Name of the column
-    - `dataType`: Data type of the column
-    - `ordinalPosition`: Position of the column in the table (1-based)
-    - `isNullable`: Whether the column allows NULL values ("YES" or "NO")
+    - `tableName`: Name of the table
+    - `tableSchema`: Schema/database name
+    - `tableType`: Type of table (e.g., "EXTERNAL_TABLE", "VIEW")
+    - `columns`: Array of column metadata:
+        - `columnName`: Name of the column
+        - `dataType`: Data type of the column
+        - `ordinalPosition`: Position of the column in the table (1-based)
+        - `isNullable`: Whether the column allows NULL values ("YES" or "NO")
 
 **Example Request (using curl):**
 
@@ -2439,8 +2460,8 @@ curl -X GET 'http://localhost:8080/v1/alert/notificationChannels' \
 - `name`: Name of the notification channel
 - `type`: Notification type (`slack` or `email`)
 - `config`: Configuration value (string, not JSON)
-  - For `slack`: Webhook URL (e.g., `https://hooks.slack.com/services/...`)
-  - For `email`: Email address (e.g., `team@example.com`)
+    - For `slack`: Webhook URL (e.g., `https://hooks.slack.com/services/...`)
+    - For `email`: Email address (e.g., `team@example.com`)
 - `is_active`: Boolean indicating if the channel is active (only active channels are returned)
 
 ### Create Alert Notification Channel
@@ -2463,8 +2484,8 @@ Content-Type: application/json
 - `name` (required): Channel name
 - `type` (required): Notification type (`slack` or `email`)
 - `config` (required): Configuration value (string)
-  - For `slack`: Webhook URL (e.g., `https://hooks.slack.com/services/...`)
-  - For `email`: Email address (e.g., `recipient@example.com`)
+    - For `slack`: Webhook URL (e.g., `https://hooks.slack.com/services/...`)
+    - For `email`: Email address (e.g., `recipient@example.com`)
 
 **Response:**
 
@@ -2506,11 +2527,15 @@ curl -X POST 'http://localhost:8080/v1/alert/notificationChannels' \
 
 **Notes:**
 
-- When an alert is triggered during evaluation, the system automatically fetches the notification channel configuration from the database using the `notification_channel_id` associated with the alert
+- When an alert is triggered during evaluation, the system automatically fetches the notification channel configuration
+  from the database using the `notification_channel_id` associated with the alert
 - Only active notification channels (`is_active = TRUE`) are used for sending notifications during alert evaluation
-- For `slack` type channels, the `config` field contains the webhook URL directly, and notifications are sent to that URL
-- For `email` type channels, the `config` field contains the email address directly (email sending implementation can be added later)
-- The notification channel details (type and config) are retrieved from the `notification_channels` table at the time of alert evaluation
+- For `slack` type channels, the `config` field contains the webhook URL directly, and notifications are sent to that
+  URL
+- For `email` type channels, the `config` field contains the email address directly (email sending implementation can be
+  added later)
+- The notification channel details (type and config) are retrieved from the `notification_channels` table at the time of
+  alert evaluation
 - Only active channels are returned by the GET endpoint
 
 ### Update Alert Notification Channel
@@ -2587,7 +2612,7 @@ GET /v1/alert/notificationChannels/{notificationChannelId}
 **Path Parameters:**
 
 - `notificationChannelId` (required): The ID of the notification channel to retrieve
- 
+
 **Response:**
 
 ```json
@@ -2628,7 +2653,8 @@ curl -X GET 'http://localhost:8080/v1/alert/notificationChannels/1' \
 
 ### Delete Alert Notification Channel
 
-**Description:** Soft deletes a notification channel by setting `is_active = FALSE`. The channel will no longer be returned by the GET endpoint and will not be used for alert notifications.
+**Description:** Soft deletes a notification channel by setting `is_active = FALSE`. The channel will no longer be
+returned by the GET endpoint and will not be used for alert notifications.
 
 ```http
 DELETE /v1/alert/notificationChannels/{notificationChannelId}
@@ -2661,13 +2687,14 @@ curl -X DELETE 'http://localhost:8080/v1/alert/notificationChannels/1' \
 - This is a soft delete operation - the channel is marked as inactive but not removed from the database
 - Deleted channels will not appear in the GET notification channels list
 - Deleted channels will not be used for sending notifications during alert evaluation
-- To reactivate a deleted channel, you can update it using the UPDATE endpoint (though the current implementation requires the channel to be active for updates)
+- To reactivate a deleted channel, you can update it using the UPDATE endpoint (though the current implementation
+  requires the channel to be active for updates)
 
 ## 🗄️ Database Schema
 
 ### ClickHouse Schema
 
-See [../ingestion/clickhouse-otel-schema.sql](../ingestion/clickhouse-otel-schema.sql) for complete schema.
+See backend/db/clickhouse/ for schemas.
 
 ## ⚙️ Configuration
 
@@ -2702,6 +2729,20 @@ CONFIG_SERVICE_APPLICATION_SERVER_PORT=8080
 CONFIG_SERVICE_APPLICATION_SERVER_HOST=0.0.0.0
 ```
 
+**Product analytics batch engine (funnel / journey)**
+
+Mapped from `src/main/resources/conf/analytics-engine-default.conf`. Use `spark` (EMR batch jobs) or `clickhouse` (
+in-process ClickHouse compute). When `APP_ENVIRONMENT` is `prod` and the engine is `clickhouse`,
+`ANALYTICS_BATCH_PROJECT_CONCURRENCY` must be a positive integer (`StartupConfigValidator`).
+
+```bash
+ANALYTICS_COMPUTE_ENGINE=spark
+ANALYTICS_BATCH_PROJECT_CONCURRENCY=4
+```
+
+Docker / quickstart defaults: `deploy/docker-compose.yml`, `deploy/.env.example`, and `deploy/scripts/common.sh` (
+`load_env`).
+
 **Authentication Configuration**
 
 ```bash
@@ -2711,7 +2752,8 @@ VAULT_SERVICE_JWT_SECRET=your-jwt-secret
 
 **Query Engine Configuration**
 
-The query service supports multiple query engines through pluggable implementations. Currently, AWS Athena is the default implementation.
+The query service supports multiple query engines through pluggable implementations. Currently, AWS Athena is the
+default implementation.
 
 **Athena Configuration:**
 
@@ -2733,22 +2775,46 @@ athena {
 The application supports AWS credentials through multiple methods:
 
 1. **Environment Variables** (recommended for local development):
-   - `AWS_ACCESS_KEY_ID`: AWS access key ID
-   - `AWS_SECRET_ACCESS_KEY`: AWS secret access key
-   - `AWS_SESSION_TOKEN`: AWS session token (optional, for temporary credentials)
+    - `AWS_ACCESS_KEY_ID`: AWS access key ID
+    - `AWS_SECRET_ACCESS_KEY`: AWS secret access key
+    - `AWS_SESSION_TOKEN`: AWS session token (optional, for temporary credentials)
 
 2. **Config File**: Credentials can be specified in the config file (mapped from environment variables as shown above)
 
-3. **AWS SDK Default Credential Provider Chain**: If credentials are not provided via environment variables or config file, the AWS SDK automatically looks for credentials in the following order:
-   - Environment variables (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN`)
-   - Java system properties
-   - Web identity token from AWS STS
-   - Shared credentials file (`~/.aws/credentials`)
-   - EC2 instance profile credentials
-   - ECS container credentials
-   - Lambda execution environment credentials
+3. **AWS SDK Default Credential Provider Chain**: If credentials are not provided via environment variables or config
+   file, the AWS SDK automatically looks for credentials in the following order:
+    - Environment variables (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN`)
+    - Java system properties
+    - Web identity token from AWS STS
+    - Shared credentials file (`~/.aws/credentials`)
+    - EC2 instance profile credentials
+    - ECS container credentials
+    - Lambda execution environment credentials
 
-**Note:** For production deployments, it's recommended to use IAM roles (EC2 instance profiles, ECS task roles, or Lambda execution roles) rather than hardcoding credentials. For local development, use environment variables or AWS credential files.
+**Note:** For production deployments, it's recommended to use IAM roles (EC2 instance profiles, ECS task roles, or
+Lambda execution roles) rather than hardcoding credentials. For local development, use environment variables or AWS
+credential files.
+
+**EMR Serverless (batch job API client):**
+
+Configuration is in `src/main/resources/conf/emr-serverless-default.conf`. All keys are read from environment
+variables (same pattern as ClickHouse). Set them in `deploy/.env` / your orchestrator; local Docker supplies defaults
+via `deploy/docker-compose.yml`.
+
+When `CONFIG_SERVICE_APPLICATION_EMR_SERVERLESS_ENABLED` is `false`, leave ARNs and `applicationId` empty. When
+`enabled` is `true`, all of the following must be non-blank:
+
+- `CONFIG_SERVICE_APPLICATION_EMR_SERVERLESS_ENABLED`
+- `CONFIG_SERVICE_APPLICATION_EMR_SERVERLESS_REGION`
+- `CONFIG_SERVICE_APPLICATION_EMR_SERVERLESS_APPLICATION_ID`
+- `CONFIG_SERVICE_APPLICATION_EMR_SERVERLESS_EXECUTION_ROLE_ARN`
+
+When `APP_ENVIRONMENT` is `prod`, startup validation additionally requires EMR to be **enabled** and every value above
+to be set (`StartupConfigValidator`).
+
+The server uses `software.amazon.awssdk:emrserverless` with `DefaultCredentialsProvider` (same chain as other AWS SDK
+usage). Provision the EMR Serverless application and IAM roles in AWS manually (or your own tooling); no Terraform for
+this module lives in this repo.
 
 **Adding Support for Other Query Engines:**
 
@@ -2759,7 +2825,8 @@ To add support for a new query engine (e.g., BigQuery, GCP):
 3. Create a Guice module that binds `QueryClient` and `QueryJobDao` to your implementations
 4. The `QueryService` implementation will automatically work with your new engine
 
-The service architecture is designed to be engine-agnostic, making it easy to switch between or support multiple query engines simultaneously.
+The service architecture is designed to be engine-agnostic, making it easy to switch between or support multiple query
+engines simultaneously.
 
 ### Running Tests
 

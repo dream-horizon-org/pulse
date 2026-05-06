@@ -27,34 +27,22 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             dataCollectionState: .allowed,
             globalAttributes: globalAttributes,
             instrumentations: { config in
-                // Enable UIKit tap instrumentation with context capture
                 config.uiKitTap { tapConfig in
-                    tapConfig.enabled(true)
                     tapConfig.captureContext(true)
                 }
-
-                // Enable Session Replay
                 config.sessionReplay { replayConfig in
-                    replayConfig.enabled(true)
-                    replayConfig.configure { localConfig in
-                        localConfig.textAndInputPrivacy = .maskAllInputs
-                        localConfig.imagePrivacy = .maskNone
-                        
-                        // Register custom classes for class-level overrides
-                        localConfig.maskViewClasses = Set([
-                            "PulseIOSExample.PrivateSecureView",
-                            "PulseIOSExample.PrivateDataLabel",
-                        ])
-                        localConfig.replayEndpointBaseUrl = "http://127.0.0.1:3400"
-                    }
+                    replayConfig.addMaskViewClass("PulseIOSExample.PrivateSecureView")
+                    replayConfig.addMaskViewClass("PulseIOSExample.PrivateDataLabel")
                 }
-            }
+            },
+            logLevel: .debug
         )
         window = UIWindow(frame: UIScreen.main.bounds)
         let mainViewController = MainViewController()
         window?.rootViewController = UINavigationController(rootViewController: mainViewController)
         window?.makeKeyAndVisible()
-        print("SDK Initialised")
+        // Demo only: not using PulseLogger (package-internal). Initialization logs come from SDK when logLevel != .none.
+        print("SDK initialised (Pulse iOS example)")
         return true
     }
 }

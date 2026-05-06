@@ -4,8 +4,8 @@ import android.content.SharedPreferences
 import androidx.core.content.edit
 import com.pulse.sampling.core.providers.PulseSdkConfigRestProvider
 import com.pulse.sampling.models.PulseSdkConfig
+import com.pulse.utils.PulseLogger
 import com.pulse.utils.PulseNetworkingUtils
-import com.pulse.utils.PulseOtelUtils
 import com.pulse.utils.PulseSerialisationUtils
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
@@ -31,7 +31,7 @@ internal object PulseSdkConfigRefresher {
             sharedPrefs.getString(prefsKey, null)?.let {
                 PulseSerialisationUtils.jsonConfigForSerialisation.decodeFromString<PulseSdkConfig>(it)
             }
-        PulseOtelUtils.logDebug(TAG) { "currentSdkConfig version = ${currentSdkConfig?.version ?: "null"}" }
+        PulseLogger.logDebug(TAG) { "currentSdkConfig version = ${currentSdkConfig?.version ?: "null"}" }
 
         scope.launch(ioDispatcher) {
             val apiCache = File(cacheDir, "pulse${File.separatorChar}apiCache")
@@ -43,12 +43,19 @@ internal object PulseSdkConfigRefresher {
                     headers = headers,
                 ) { configUrl }.provide()
             val isDifferentVersion = newConfig != null && newConfig.version != currentSdkConfig?.version
-            PulseOtelUtils.logDebug(TAG) {
+            PulseLogger.logDebug(TAG) {
                 "newConfigVersion = ${newConfig?.version ?: "newConfig is null"}, " +
                     "oldConfigVersion = ${currentSdkConfig?.version ?: "currentSdkConfig is null"}, " +
                     "shouldUpdate = $isDifferentVersion"
             }
-            if (isDifferentVersion) {
+            if (isDifferentVersion && newConfig != null) {
+                val persistedVersion = currentSdkConfig?.version
+                val fetchedVersion = newConfig.version
+                PulseLogger.logInfo(TAG) {
+                    "sdk.sampling.config_mismatch reason=remote_version_diff " +
+                        "persisted_version=${persistedVersion ?: "null"} " +
+                        "fetched_version=$fetchedVersion"
+                }
                 sharedPrefs.edit(commit = true) {
                     putString(
                         prefsKey,

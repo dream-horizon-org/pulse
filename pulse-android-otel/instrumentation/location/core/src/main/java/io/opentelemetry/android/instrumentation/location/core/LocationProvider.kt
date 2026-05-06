@@ -17,7 +17,7 @@ import com.google.android.gms.common.ConnectionResult
 import com.google.android.gms.common.GoogleApiAvailability
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
-import com.pulse.utils.PulseOtelUtils
+import com.pulse.utils.PulseLogger
 import com.pulse.utils.PulseSerialisationUtils
 import com.pulse.utils.await
 import io.opentelemetry.android.instrumentation.location.models.CachedLocation
@@ -100,7 +100,7 @@ public class LocationProvider
                 ) == PackageManager.PERMISSION_GRANTED
             ) {
                 val isLocationAvailable = isGooglePlayServicesAvailable(context)
-                PulseOtelUtils.logDebug(TAG) { "location api availability = ${isLocationAvailable ?: "null"}" }
+                PulseLogger.logDebug(TAG) { "location api availability = ${isLocationAvailable ?: "null"}" }
                 if (isLocationAvailable != false) {
                     val client = actualFusedLocationClient
                     @Suppress("TooGenericExceptionCaught") // async network call can throw any exception
@@ -112,13 +112,19 @@ public class LocationProvider
                         }
                     } catch (e: Throwable) {
                         currentCoroutineContext().ensureActive()
-                        PulseOtelUtils.logError(TAG, e) {
-                            "fetchLocationAsync lastLocation task failed"
+                        PulseLogger.logError(TAG, e) {
+                            "sdk.location.provider_error error_class=last_location_failed"
                         }
+                    }
+                } else {
+                    PulseLogger.logInfo(TAG) {
+                        "sdk.location.provider_error reason=play_services_unavailable"
                     }
                 }
             } else {
-                PulseOtelUtils.logDebug(TAG) { "permission not available" }
+                PulseLogger.logInfo(TAG) {
+                    "sdk.location.permission_denied fine_or_coarse=false"
+                }
             }
         }
 
@@ -202,7 +208,7 @@ public class LocationProvider
                 }
             } catch (e: Throwable) {
                 currentCoroutineContext().ensureActive()
-                PulseOtelUtils.logError(TAG, e) {
+                PulseLogger.logError(TAG, e) {
                     "convertToGeoAttributes geo call failed"
                 }
             }
@@ -236,7 +242,7 @@ public class LocationProvider
                             },
                         )
                     } catch (e: IllegalArgumentException) {
-                        PulseOtelUtils.logError(TAG, e) {
+                        PulseLogger.logError(TAG, e) {
                             "getFromLocationWithListener failed with IllegalArgumentException"
                         }
                     }

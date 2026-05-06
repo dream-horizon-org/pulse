@@ -58,7 +58,8 @@ public final class InteractionManager {
 
             startStateObservation()
         } catch {
-            print("[Pulse] Interaction: Failed to initialize - \(error.localizedDescription). Error: \(error)")
+            let msg = error.localizedDescription.replacingOccurrences(of: " ", with: "_")
+            PulseLogger.error("sdk.interaction.config_fetch success=false error_class=exception detail=\(msg)")
         }
     }
 

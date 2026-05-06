@@ -37,6 +37,11 @@ let package = Package(
   ],
   targets: [
     .target(
+      name: "PulseLogging",
+      dependencies: [],
+      path: "Sources/PulseKit/Logging"
+    ),
+    .target(
       name: "SharedTestUtils",
       dependencies: [],
       path: "Tests/Shared/TestUtils"
@@ -62,6 +67,7 @@ let package = Package(
     .target(
       name: "PrometheusExporter",
       dependencies: [
+        "PulseLogging",
         .product(name: "OpenTelemetrySdk", package: "opentelemetry-swift-core"),
         .product(name: "NIO", package: "swift-nio"),
         .product(name: "NIOHTTP1", package: "swift-nio")
@@ -80,6 +86,7 @@ let package = Package(
     .target(
       name: "OpenTelemetryProtocolExporterHttp",
       dependencies: [
+        "PulseLogging",
         .product(name: "OpenTelemetrySdk", package: "opentelemetry-swift-core"),
         "OpenTelemetryProtocolExporterCommon"
       ],
@@ -88,6 +95,7 @@ let package = Package(
     .target(
       name: "OpenTelemetryProtocolExporterGrpc",
       dependencies: [
+        "PulseLogging",
         .product(name: "OpenTelemetrySdk", package: "opentelemetry-swift-core"),
         "OpenTelemetryProtocolExporterCommon",
         .product(name: "GRPC", package: "grpc-swift")
@@ -104,6 +112,7 @@ let package = Package(
     .target(
       name: "PersistenceExporter",
       dependencies: [
+        "PulseLogging",
         .product(name: "OpenTelemetrySdk", package: "opentelemetry-swift-core")
       ],
       path: "Sources/Exporters/Persistence",
@@ -237,6 +246,7 @@ extension Package {
         .target(
           name: "MetricKitInstrumentation",
           dependencies: [
+            "PulseLogging",
             .product(name: "OpenTelemetrySdk", package: "opentelemetry-swift-core")
           ],
           path: "Sources/Instrumentation/MetricKit",
@@ -254,6 +264,7 @@ extension Package {
         .target(
           name: "PulseKit",
           dependencies: [
+            "PulseLogging",
             .product(name: "OpenTelemetryApi", package: "opentelemetry-swift-core"),
             .product(name: "OpenTelemetrySdk", package: "opentelemetry-swift-core"),
             .product(name: "StdoutExporter", package: "opentelemetry-swift-core"),
@@ -268,6 +279,7 @@ extension Package {
             "PulseKit/README.md",
             "PulseKit/Consent/README.md",
             "PulseKit/Sampling/README.md",
+            "PulseKit/Logging",
             "Instrumentation/Sessions/README.md",
             "Instrumentation/Crashes/README.md",
             "Instrumentation/URLSession/README.md",

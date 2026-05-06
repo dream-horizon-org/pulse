@@ -44,7 +44,7 @@ public final class PulseSdkConfigStorage {
             do {
                 return try PulseSdkConfigStorage.jsonDecoder.decode(PulseSdkConfig.self, from: jsonData)
             } catch {
-                PulseLogger.log("Config: load from persistence decode failed (using defaults).")
+                PulseLogger.warn("Config: load from persistence decode failed (using defaults).")
                 return nil
             }
         }

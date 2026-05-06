@@ -23,9 +23,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.client.chclient.ClickhouseProjectConnectionPoolManager;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClientImpl;
+import org.dreamhorizon.pulseserver.config.AnalyticsEngineConfig;
 import org.dreamhorizon.pulseserver.config.ApplicationConfig;
 import org.dreamhorizon.pulseserver.config.AthenaConfig;
 import org.dreamhorizon.pulseserver.config.ClickhouseConfig;
+import org.dreamhorizon.pulseserver.config.EmrServerlessConfig;
 import org.dreamhorizon.pulseserver.config.ConfigUtils;
 import org.dreamhorizon.pulseserver.config.NotificationConfig;
 import org.dreamhorizon.pulseserver.config.OpenFgaConfig;
@@ -35,6 +37,7 @@ import org.dreamhorizon.pulseserver.constant.Constants;
 import org.dreamhorizon.pulseserver.guice.GuiceInjector;
 import org.dreamhorizon.pulseserver.service.ai.impl.AiProxyServiceImpl;
 import org.dreamhorizon.pulseserver.service.notification.queue.NotificationWorker;
+import org.dreamhorizon.pulseserver.vertx.AiStreamingHttpClient;
 import org.dreamhorizon.pulseserver.vertx.SharedDataUtils;
 
 @Slf4j
@@ -43,6 +46,7 @@ public class MainVerticle extends AbstractVerticle {
   private WebClient webClient;
   /** Long read/idle timeouts for {@code /v1/ai/*} proxy (SSE); not shared with general WebClient. */
   private WebClient aiProxyWebClient;
+  private AiStreamingHttpClient aiStreamingHttpClientHolder;
   private MysqlClient mysqlClient;
 
   @Override
@@ -67,6 +71,21 @@ public class MainVerticle extends AbstractVerticle {
           SharedDataUtils.put(vertx.getDelegate(), chConfig.mapTo(ClickhouseConfig.class));
           JsonObject athenaConfig = config.getJsonObject("athena", new JsonObject());
           SharedDataUtils.put(vertx.getDelegate(), athenaConfig.mapTo(AthenaConfig.class));
+          JsonObject emrServerlessJson = config.getJsonObject("emrServerless", new JsonObject());
+          EmrServerlessConfig emrServerlessConfig = EmrServerlessConfig.fromJsonObject(emrServerlessJson);
+          SharedDataUtils.put(vertx.getDelegate(), emrServerlessConfig);
+          
+          JsonObject sparkJson = config.getJsonObject("spark", new JsonObject());
+          SharedDataUtils.put(vertx.getDelegate(), sparkJson.mapTo(org.dreamhorizon.pulseserver.config.SparkConfig.class));
+
+          JsonObject analyticsEngineJson = config.getJsonObject("analyticsEngine", new JsonObject());
+          AnalyticsEngineConfig analyticsEngineConfig = analyticsEngineJson.mapTo(AnalyticsEngineConfig.class);
+          SharedDataUtils.put(vertx.getDelegate(), analyticsEngineConfig);
+          
+          log.info(
+              "EMR Serverless config: enabled={} region={}",
+              emrServerlessConfig.isEnabled(),
+              emrServerlessConfig.getEffectiveRegion());
                     JsonObject notificationConfig =
                             config.getJsonObject("notification", new JsonObject());
                     SharedDataUtils.put(
@@ -120,11 +139,18 @@ public class MainVerticle extends AbstractVerticle {
           SharedDataUtils.put(vertx.getDelegate(), mysqlClient);
           SharedDataUtils.put(vertx.getDelegate(), webClient);
           SharedDataUtils.put(vertx.getDelegate(), aiProxyWebClient, Constants.WEB_CLIENT_AI_PROXY);
+          this.aiStreamingHttpClientHolder =
+              AiStreamingHttpClient.create(vertx.getDelegate(), webClientConfig);
+          SharedDataUtils.put(
+              vertx.getDelegate(),
+              this.aiStreamingHttpClientHolder,
+              Constants.HTTP_CLIENT_AI_STREAMING);
 
           // Validate startup configuration after all configs are loaded
           ApplicationConfig loadedAppConfig = SharedDataUtils.get(vertx.getDelegate(), ApplicationConfig.class);
           ClickhouseConfig loadedChConfig = SharedDataUtils.get(vertx.getDelegate(), ClickhouseConfig.class);
-          StartupConfigValidator.validate(loadedAppConfig, loadedChConfig);
+          StartupConfigValidator.validate(
+              loadedAppConfig, loadedChConfig, emrServerlessConfig, analyticsEngineConfig);
 
           return config;
         })
@@ -249,14 +275,188 @@ public class MainVerticle extends AbstractVerticle {
     }
   }
 
+  /**
+   * HOCON env substitution often yields strings (e.g. {@code ROOT_CAUSE_*}); Vert.x {@link
+   * JsonObject#getInteger} only accepts JSON numbers.
+   */
+  private static int rootCauseInt(JsonObject json, String key, int defaultValue) {
+    if (!json.containsKey(key)) {
+      return defaultValue;
+    }
+    Object v = json.getValue(key);
+    if (v == null) {
+      return defaultValue;
+    }
+    if (v instanceof Number) {
+      return ((Number) v).intValue();
+    }
+    if (v instanceof String) {
+      String s = ((String) v).trim();
+      if (s.isEmpty()) {
+        return defaultValue;
+      }
+      try {
+        return Integer.parseInt(s);
+      } catch (NumberFormatException e) {
+        log.warn(
+            "Invalid integer for rootCause.{}: {}, using default {}",
+            key,
+            v,
+            defaultValue);
+        return defaultValue;
+      }
+    }
+    log.warn(
+        "Unsupported type for rootCause.{}: {}, using default {}",
+        key,
+        v.getClass().getName(),
+        defaultValue);
+    return defaultValue;
+  }
+
+  private static double rootCauseDouble(JsonObject json, String key, double defaultValue) {
+    if (!json.containsKey(key)) {
+      return defaultValue;
+    }
+    Object v = json.getValue(key);
+    if (v == null) {
+      return defaultValue;
+    }
+    if (v instanceof Number) {
+      return ((Number) v).doubleValue();
+    }
+    if (v instanceof String) {
+      String s = ((String) v).trim();
+      if (s.isEmpty()) {
+        return defaultValue;
+      }
+      try {
+        return Double.parseDouble(s);
+      } catch (NumberFormatException e) {
+        log.warn(
+            "Invalid double for rootCause.{}: {}, using default {}",
+            key,
+            v,
+            defaultValue);
+        return defaultValue;
+      }
+    }
+    log.warn(
+        "Unsupported type for rootCause.{}: {}, using default {}",
+        key,
+        v.getClass().getName(),
+        defaultValue);
+    return defaultValue;
+  }
+
+  /** Parses boolean from YAML/JSON (native boolean) or string (e.g. env substitution). */
+  private static boolean rootCauseBoolean(JsonObject json, String key, boolean defaultValue) {
+    if (!json.containsKey(key)) {
+      return defaultValue;
+    }
+    Object v = json.getValue(key);
+    if (v == null) {
+      return defaultValue;
+    }
+    if (v instanceof Boolean) {
+      return (Boolean) v;
+    }
+    if (v instanceof String) {
+      String s = ((String) v).trim();
+      if (s.isEmpty()) {
+        return defaultValue;
+      }
+      return Boolean.parseBoolean(s);
+    }
+    log.warn(
+        "Unsupported type for rootCause.{}: {}, using default {}",
+        key,
+        v.getClass().getName(),
+        defaultValue);
+    return defaultValue;
+  }
+
+  /** Nullable when key absent; accepts Boolean or String like {@link #rootCauseBoolean}. */
+  private static Boolean rootCauseOptionalBoolean(JsonObject json, String key) {
+    if (!json.containsKey(key)) {
+      return null;
+    }
+    Object v = json.getValue(key);
+    if (v == null) {
+      return null;
+    }
+    if (v instanceof Boolean) {
+      return (Boolean) v;
+    }
+    if (v instanceof String) {
+      String s = ((String) v).trim();
+      if (s.isEmpty()) {
+        return null;
+      }
+      return Boolean.parseBoolean(s);
+    }
+    log.warn(
+        "Unsupported type for rootCause.{}: {}, treating as unset",
+        key,
+        v.getClass().getName());
+    return null;
+  }
+
   private RootCauseConfig buildRootCauseConfig(JsonObject rootCauseJson) {
     final RootCauseConfig.RootCauseConfigBuilder builder = RootCauseConfig.builder()
-        .similarityThresholdPct(rootCauseJson.getInteger("similarityThresholdPct",
-            RootCauseConfig.DEFAULT_SIMILARITY_THRESHOLD_PCT))
-        .lookbackDays(rootCauseJson.getInteger("lookbackDays",
-            RootCauseConfig.DEFAULT_LOOKBACK_DAYS))
-        .maxSegments(rootCauseJson.getInteger("maxSegments",
-            RootCauseConfig.DEFAULT_MAX_SEGMENTS));
+        .similarityThresholdPct(
+            rootCauseInt(
+                rootCauseJson,
+                "similarityThresholdPct",
+                RootCauseConfig.DEFAULT_SIMILARITY_THRESHOLD_PCT))
+        .lookbackDays(
+            rootCauseInt(rootCauseJson, "lookbackDays", RootCauseConfig.DEFAULT_LOOKBACK_DAYS))
+        .maxSegments(
+            rootCauseInt(rootCauseJson, "maxSegments", RootCauseConfig.DEFAULT_MAX_SEGMENTS))
+        .minPoorSessionsForErrorAttribution(
+            rootCauseInt(
+                rootCauseJson,
+                "minPoorSessionsForErrorAttribution",
+                RootCauseConfig.DEFAULT_MIN_POOR_SESSIONS_FOR_ERROR_ATTRIBUTION))
+        .minTreatedSessionsForIssueAttribution(
+            rootCauseInt(
+                rootCauseJson,
+                "minTreatedSessionsForIssueAttribution",
+                RootCauseConfig.DEFAULT_MIN_TREATED_SESSIONS_FOR_ISSUE_ATTRIBUTION))
+        .minControlSessionsForIssueAttribution(
+            rootCauseInt(
+                rootCauseJson,
+                "minControlSessionsForIssueAttribution",
+                RootCauseConfig.DEFAULT_MIN_CONTROL_SESSIONS_FOR_ISSUE_ATTRIBUTION))
+        .issueDrillDownLimit(
+            rootCauseInt(
+                rootCauseJson,
+                "issueDrillDownLimit",
+                RootCauseConfig.DEFAULT_ISSUE_DRILL_DOWN_LIMIT))
+        .issueDrillDownCandidateLimit(
+            rootCauseInt(
+                rootCauseJson,
+                "issueDrillDownCandidateLimit",
+                0));
+    if (rootCauseJson.containsKey("minRiskRatioForIssueAttribution")) {
+      builder.minRiskRatioForIssueAttribution(
+          rootCauseDouble(
+              rootCauseJson,
+              "minRiskRatioForIssueAttribution",
+              RootCauseConfig.DEFAULT_MIN_RISK_RATIO_FOR_ISSUE_ATTRIBUTION));
+    }
+    builder.issueMustPrecedePoor(rootCauseOptionalBoolean(rootCauseJson, "issueMustPrecedePoor"));
+
+    builder.hybridDimensionOrderingEnabled(
+        rootCauseBoolean(
+            rootCauseJson,
+            "hybridDimensionOrderingEnabled",
+            RootCauseConfig.DEFAULT_HYBRID_DIMENSION_ORDERING_ENABLED))
+        .minSegmentVolumePct(
+            rootCauseDouble(
+                rootCauseJson,
+                "minSegmentVolumePct",
+                RootCauseConfig.DEFAULT_MIN_SEGMENT_VOLUME_PCT));
 
     final Object dimensionOrderValue = rootCauseJson.getValue("dimensionOrder");
     final boolean hasCustomDimensionOrder = dimensionOrderValue != null;
@@ -328,6 +528,9 @@ public class MainVerticle extends AbstractVerticle {
     this.webClient.close();
     if (this.aiProxyWebClient != null) {
       this.aiProxyWebClient.close();
+    }
+    if (this.aiStreamingHttpClientHolder != null) {
+      this.aiStreamingHttpClientHolder.client().close();
     }
     return mysqlClient.rxClose();
   }

@@ -34,13 +34,28 @@ public class Queries {
       + "WHERE project_id = ? AND is_archived = 0 "
       + "ORDER BY status, created_by";
 
-  public static final String GET_TELEMETRY_FILTER_VALUES =
-      "SELECT\n"
-          + " arraySort(arrayFilter(x -> x != '', groupUniqArray(AppVersion)))      AS appVersionCodes,\n"
-          + " arraySort(arrayFilter(x -> x != '', groupUniqArray(DeviceModel)))      AS deviceModels,\n"
-          + " arraySort(arrayFilter(x -> x != '', groupUniqArray(NetworkProvider)))  AS networkProviders,\n"
-          + " arraySort(arrayFilter(x -> x != '', groupUniqArray(GeoState)))         AS states,\n"
-          + " arraySort(arrayFilter(x -> x != '', groupUniqArray(OsVersion)))        AS osVersions,\n"
-          + " arraySort(arrayFilter(x -> x != '', groupUniqArray(Platform)))         AS platforms\n"
-          + " FROM otel.otel_traces;";
+  /**
+   * Distinct telemetry dimension values for the interaction UI, scoped to one project.
+   * Only spans from the last 60 days ({@code Timestamp >= now() - INTERVAL 60 DAY}) are considered.
+   */
+  public static String getTelemetryFilterValuesQuery(String projectId) {
+    String pid = escapeChStringLiteral(projectId);
+    return "SELECT\n"
+        + " arraySort(arrayFilter(x -> x != '', groupUniqArray(AppVersion)))      AS appVersionCodes,\n"
+        + " arraySort(arrayFilter(x -> x != '', groupUniqArray(DeviceModel)))      AS deviceModels,\n"
+        + " arraySort(arrayFilter(x -> x != '', groupUniqArray(NetworkProvider)))  AS networkProviders,\n"
+        + " arraySort(arrayFilter(x -> x != '', groupUniqArray(GeoState)))         AS states,\n"
+        + " arraySort(arrayFilter(x -> x != '', groupUniqArray(OsVersion)))        AS osVersions,\n"
+        + " arraySort(arrayFilter(x -> x != '', groupUniqArray(Platform)))         AS platforms\n"
+        + " FROM otel.otel_traces\n"
+        + " WHERE ProjectId = '" + pid + "'\n"
+        + " AND Timestamp >= now() - INTERVAL 60 DAY";
+  }
+
+  static String escapeChStringLiteral(String s) {
+    if (s == null) {
+      return "";
+    }
+    return s.replace("\\", "\\\\").replace("'", "''");
+  }
 }
