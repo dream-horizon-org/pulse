@@ -31,7 +31,7 @@ export function CreateTenantModal({ opened, onClose, onEnterWorkspace }: CreateT
     if (step === "project") {
       return "Create First Project";
     }
-    return "Tenant Ready";
+    return "Workspace Ready";
   }, [step]);
 
   useEffect(() => {
@@ -139,14 +139,14 @@ export function CreateTenantModal({ opened, onClose, onEnterWorkspace }: CreateT
     <Stack gap="sm">
       <TextInput
         label="Tenant Name"
-        placeholder="Acme Mobile Team"
+        placeholder="Enter tenant name"
         value={tenantName}
         onChange={(event) => setTenantName(event.currentTarget.value)}
         required
       />
       <Textarea
         label="Description (Optional)"
-        placeholder="Used for internal testing and onboarding"
+        placeholder="Add a short description for this tenant"
         value={tenantDescription}
         onChange={(event) => setTenantDescription(event.currentTarget.value)}
         minRows={3}
@@ -194,7 +194,8 @@ export function CreateTenantModal({ opened, onClose, onEnterWorkspace }: CreateT
   const renderDoneStep = () => (
     <Stack gap="sm">
       <Text size="sm">
-        Workspace is ready for tenant &quot;{createdTenant?.name}&quot;. Continue to the tenant workspace.
+        Tenant &quot;{createdTenant?.name}&quot; is ready. Open the workspace to start creating
+        projects and inviting team members.
       </Text>
       <Group justify="flex-end" mt="sm">
         <Button variant="default" onClick={onClose} disabled={isSubmitting}>
