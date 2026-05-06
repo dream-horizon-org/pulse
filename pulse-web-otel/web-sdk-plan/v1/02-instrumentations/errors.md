@@ -1,5 +1,8 @@
 # 02.1 — Error Tracking Instrumentation
 
+> Lifecycle rerun docs now live in `web-sdk-plan/v1-errors/` (`README.md` entrypoint).
+> This file is retained as legacy design notes.
+
 **Goal:** Capture every unhandled JavaScript error and promise rejection as a log record, with full stack trace, and route it to the correct `pulse.type` so it appears in the Pulse crashes dashboard.
 
 **File:** `src/instrumentations/errors.ts`

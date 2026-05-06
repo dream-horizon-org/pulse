@@ -135,6 +135,64 @@ export default function ErrorDemo() {
             Report exception
           </button>
         </div>
+
+        <div
+          style={{
+            background: "#fff",
+            borderRadius: 12,
+            padding: 20,
+            boxShadow: "0 1px 3px rgba(0,0,0,.08)",
+          }}
+        >
+          <p style={{ fontWeight: 600, marginBottom: 4 }}>
+            Extra rejection edge cases
+          </p>
+          <p style={{ fontSize: 13, color: "#94a3b8", marginBottom: 12 }}>
+            Trigger string / undefined rejection and dedupe burst scenarios.
+          </p>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <button
+              data-testid="throw-promise-string"
+              style={btn("#f59e0b")}
+              onClick={() => {
+                PulseWeb.trackEvent("error_demo_throw_promise_string");
+                Promise.reject("String rejection from ErrorDemo");
+              }}
+            >
+              Reject string reason
+            </button>
+            <button
+              data-testid="throw-promise-undefined"
+              style={btn("#f59e0b")}
+              onClick={() => {
+                PulseWeb.trackEvent("error_demo_throw_promise_undefined");
+                Promise.reject(undefined);
+              }}
+            >
+              Reject undefined reason
+            </button>
+            <button
+              data-testid="throw-uncaught-burst"
+              style={btn("#dc2626")}
+              onClick={() => {
+                PulseWeb.trackEvent("error_demo_throw_uncaught_burst");
+                for (let i = 0; i < 4; i += 1) {
+                  window.dispatchEvent(
+                    new ErrorEvent("error", {
+                      message: "Demo dedupe burst error",
+                      filename: "error-demo.tsx",
+                      lineno: 201,
+                      colno: 11,
+                      error: new Error("Demo dedupe burst error"),
+                    }),
+                  );
+                }
+              }}
+            >
+              Dispatch uncaught burst
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );

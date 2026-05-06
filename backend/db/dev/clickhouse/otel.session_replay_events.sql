@@ -37,7 +37,7 @@ ORDER BY (ProjectId, SessionId)
 SETTINGS merge_with_ttl_timeout = 86400, index_granularity = 8192;
 
 
-CREATE MATERIALIZED VIEW otel.session_replay_events_mv TO otel.session_replay_events
+CREATE MATERIALIZED VIEW IF NOT EXISTS otel.session_replay_events_mv TO otel.session_replay_events
 (
     `SessionId` String,
     `ProjectId` LowCardinality(String),
@@ -62,4 +62,4 @@ AS SELECT
    FROM otel.kafka_session_replay_events
    GROUP BY
             SessionId,
-            ProjectId
+            ProjectId;

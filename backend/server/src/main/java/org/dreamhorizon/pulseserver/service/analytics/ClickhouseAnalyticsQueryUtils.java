@@ -8,7 +8,7 @@ import java.time.format.DateTimeFormatter;
  * Shared SQL helper utilities for funnel and journey ClickHouse compute builders.
  *
  * <p>Source table is {@code otel.otel_logs}. Custom event names use the {@code EventName} column.
- * Funnel and journey compute SQL group by materialized {@code UserId} / {@code SessionId}
+ * Funnel and journey compute SQL group by materialized {@code AppInstallationId} / {@code SessionId}
  * via {@link #resolveMaterializedGroupKey(String)}. {@link #resolveGroupKey(String)} remains
  * for {@code LogAttributes} map access where needed elsewhere.
  */
@@ -17,7 +17,8 @@ public final class ClickhouseAnalyticsQueryUtils {
   private static final DateTimeFormatter CH_DATETIME =
       DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
-  private ClickhouseAnalyticsQueryUtils() {}
+  private ClickhouseAnalyticsQueryUtils() {
+  }
 
   /**
    * Returns the ClickHouse SQL expression for the group key column based on analysis mode.
@@ -27,28 +28,27 @@ public final class ClickhouseAnalyticsQueryUtils {
    */
   public static String resolveGroupKey(String mode) {
     if ("SESSIONS".equalsIgnoreCase(mode)) {
-      return "LogAttributes['session.id']";
+      return "SessionId";
     }
-    return "LogAttributes['user.id']";
+    return "UserId";
   }
 
   /**
    * Returns the ClickHouse expression for the group key using the
-   * {@code otel.otel_logs} materialized columns ({@code UserId} / {@code SessionId}).
+   * {@code otel.otel_logs} materialized columns ({@code AppInstallationId} / {@code SessionId}).
    *
-   * <p>The {@code UserId} materialized column includes the canonical
-   * {@code user.id → app.installation.id} fallback (see ingestion DDL). Funnel and journey
-   * builders use this for grouping; events with empty {@code UserId} / {@code SessionId} are
-   * grouped separately.
+   * <p>Uses {@code AppInstallationId} (materialized from {@code LogAttributes['app.installation.id']})
+   * for {@code UNIQUE_USERS} mode. {@code UserId} ({@code LogAttributes['user.id']}) is not
+   * used because it is not reliably populated across all SDK versions.
    *
    * @param mode "UNIQUE_USERS" or "SESSIONS" (case-insensitive)
-   * @return {@code UserId} or {@code SessionId}
+   * @return {@code AppInstallationId} or {@code SessionId}
    */
   public static String resolveMaterializedGroupKey(String mode) {
     if ("SESSIONS".equalsIgnoreCase(mode)) {
       return "SessionId";
     }
-    return "UserId";
+    return "AppInstallationId";
   }
 
   /**

@@ -15,6 +15,13 @@ public class QueryConfiguration {
   private final JobCreationMode jobCreationMode;
   private final String tenantId;
   private final String projectId;
+  /**
+   * When true, the server may append {@code SETTINGS use_query_condition_cache = 1} to the SQL so
+   * ClickHouse can reuse granule filter results across similar dashboard-style reads (subject to
+   * {@code ClickhouseConfig#queryConditionCacheEnabled}). The builder defaults to {@code false};
+   * set {@code true} on high-reuse analytical reads only.
+   */
+  private final boolean useQueryConditionCache;
 
   private QueryConfiguration(
       String query,
@@ -22,7 +29,8 @@ public class QueryConfiguration {
       Integer timeoutMs,
       JobCreationMode jobCreationMode,
       String tenantId,
-      String projectId
+      String projectId,
+      boolean useQueryConditionCache
   ) {
     this.query = query;
     this.useLegacySql = useLegacySql;
@@ -30,6 +38,7 @@ public class QueryConfiguration {
     this.jobCreationMode = jobCreationMode;
     this.tenantId = tenantId;
     this.projectId = projectId;
+    this.useQueryConditionCache = useQueryConditionCache;
   }
 
   public static QueryConfigurationBuilder newQuery(@NotBlank @Valid String query) {
@@ -45,6 +54,8 @@ public class QueryConfiguration {
     private JobCreationMode jobCreationMode;
     private String tenantId;
     private String projectId;
+    /** Default {@code false}; set {@code true} for high-traffic / high-reuse dashboard-style reads. */
+    private boolean useQueryConditionCache;
 
     private QueryConfigurationBuilder(String query) {
       this.query = query;
@@ -64,9 +75,14 @@ public class QueryConfiguration {
       this.tenantId = tenantId;
       return this;
     }
-    
+
     public QueryConfigurationBuilder projectId(String projectId) {
       this.projectId = projectId;
+      return this;
+    }
+
+    public QueryConfigurationBuilder useQueryConditionCache(boolean useQueryConditionCache) {
+      this.useQueryConditionCache = useQueryConditionCache;
       return this;
     }
 
@@ -76,7 +92,14 @@ public class QueryConfiguration {
         timeoutMs = 60000;
       }
 
-      return new QueryConfiguration(this.query, this.useLegacySql, this.timeoutMs, jobCreationMode, tenantId, projectId);
+      return new QueryConfiguration(
+          this.query,
+          this.useLegacySql,
+          this.timeoutMs,
+          jobCreationMode,
+          tenantId,
+          projectId,
+          this.useQueryConditionCache);
     }
   }
 }

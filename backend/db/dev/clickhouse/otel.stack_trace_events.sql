@@ -1,6 +1,6 @@
 CREATE TABLE IF NOT EXISTS otel.stack_trace_events
 (
-    Timestamp DateTime64(9, 'UTC') CODEC(DoubleDelta, ZSTD(1)) COMMENT 'event time (ns precision, store UTC)',
+    Timestamp DateTime64(9, 'UTC') COMMENT 'event time (ns precision, store UTC)' CODEC(DoubleDelta, ZSTD(1)),
     EventName LowCardinality(String) CODEC(ZSTD(1)),
     Title String CODEC(ZSTD(3)),
     ExceptionStackTrace String CODEC(ZSTD(3)),
@@ -29,6 +29,7 @@ CREATE TABLE IF NOT EXISTS otel.stack_trace_events
     ProjectId LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['project.id'], '') CODEC(ZSTD(1)),
     PulseType LowCardinality(String) MATERIALIZED ifNull(LogAttributes['pulse.type'], 'otel') CODEC(ZSTD(1)),
     MeteringSessionId String MATERIALIZED ifNull(LogAttributes['pulse.metering.session.id'], '') CODEC(ZSTD(1)),
+    AppInstallationId String MATERIALIZED ifNull(LogAttributes['app.installation.id'], '') CODEC(ZSTD(1)),
 
     INDEX idx_session_id       SessionId          TYPE bloom_filter(0.01) GRANULARITY 1,
     INDEX idx_group_id         GroupId            TYPE bloom_filter(0.01) GRANULARITY 1,
@@ -40,7 +41,8 @@ CREATE TABLE IF NOT EXISTS otel.stack_trace_events
     INDEX idx_pulse_type       PulseType          TYPE set(16)            GRANULARITY 1,
     INDEX idx_platform         Platform           TYPE set(8)             GRANULARITY 1,
     INDEX idx_os_version       OsVersion          TYPE set(256)           GRANULARITY 1,
-    INDEX idx_timestamp        Timestamp          TYPE minmax             GRANULARITY 1
+    INDEX idx_timestamp        Timestamp          TYPE minmax             GRANULARITY 1,
+    INDEX idx_app_installation_id AppInstallationId TYPE bloom_filter(0.01) GRANULARITY 1
 )
 ENGINE = MergeTree
 PARTITION BY toYYYYMMDD(Timestamp)

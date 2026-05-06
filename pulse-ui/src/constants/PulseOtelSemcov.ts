@@ -47,7 +47,10 @@ export enum COLUMN_NAME {
   EVENTS_TIMESTAMP = "Events.Timestamp",
   HTTP_URL = "HttpUrl",
   NETWORK_STATUS_CODE = 'HttpStatusCode',
-  INSTALLATION_ID = 'AppInstallationId'
+  INSTALLATION_ID = 'AppInstallationId',
+  GRAPHQL_OPERATION_NAME = 'GraphqlName',
+  GRAPHQL_OPERATION_TYPE = 'GraphqlType',
+  SCREEN_NAME = 'ScreenName'
 }
 
 /**
