@@ -28,6 +28,7 @@ import {
   getPersistedUserProperties,
   persistUserId,
   persistUserProperties,
+  clearPersistedUserIdentity,
   wasNewInstallation,
 } from "./session";
 import { buildMergedResource } from "./resource";
@@ -312,6 +313,7 @@ class PulseWebSDK implements SdkContext {
           }
         : { enabled: false },
       ...(beforeSendResolved ? { beforeSendData: beforeSendResolved } : {}),
+      ...(config.beaconRelayUrl ? { beaconRelayUrl: config.beaconRelayUrl } : {}),
     };
   }
 
@@ -475,6 +477,24 @@ class PulseWebSDK implements SdkContext {
     persistUserProperties(
       this.globalAttrsProcessor.getUserPropertiesSnapshot(),
     );
+  }
+
+  /**
+   * Clear the persisted user ID and all user properties.
+   * Call on logout to prevent the next user from inheriting the identity.
+   */
+  clearUserIdentity(): void {
+    clearPersistedUserIdentity();
+    if (this.globalAttrsProcessor) {
+      this.globalAttrsProcessor.setUserId(null);
+      this.globalAttrsProcessor.setUserProperties(
+        Object.fromEntries(
+          Object.keys(this.globalAttrsProcessor.getUserPropertiesSnapshot()).map(
+            (k) => [k, null],
+          ),
+        ),
+      );
+    }
   }
 
   private emitUserSessionEndLog(userId: string): void {

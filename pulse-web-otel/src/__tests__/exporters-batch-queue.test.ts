@@ -6,12 +6,16 @@ const {
   metricReaderOptions,
   traceSwitchToKeepalive,
   logSwitchToKeepalive,
+  traceSwitchToBeacon,
+  logSwitchToBeacon,
 } = vi.hoisted(() => ({
   spanBatchOptions: [] as unknown[],
   logBatchOptions: [] as unknown[],
   metricReaderOptions: [] as unknown[],
   traceSwitchToKeepalive: vi.fn(),
   logSwitchToKeepalive: vi.fn(),
+  traceSwitchToBeacon: vi.fn(),
+  logSwitchToBeacon: vi.fn(),
 }));
 
 vi.mock("@opentelemetry/sdk-trace-web", () => {
@@ -56,10 +60,12 @@ vi.mock("@opentelemetry/sdk-metrics", () => {
 vi.mock("../exporters/pulse-browser-otlp-exporters", () => {
   class PulseBrowserTraceExporter {
     switchToKeepalive = traceSwitchToKeepalive;
+    switchToBeacon = traceSwitchToBeacon;
     constructor(_params: unknown, _opts: unknown) {}
   }
   class PulseBrowserLogExporter {
     switchToKeepalive = logSwitchToKeepalive;
+    switchToBeacon = logSwitchToBeacon;
     constructor(_params: unknown, _opts: unknown) {}
   }
   function createPulseBrowserMetricExporter() {
@@ -145,7 +151,7 @@ describe("Exporter batching and queue guardrails", () => {
     );
 
     bundle.prepareForDocumentUnload?.();
-    expect(traceSwitchToKeepalive).toHaveBeenCalledTimes(1);
-    expect(logSwitchToKeepalive).toHaveBeenCalledTimes(1);
+    expect(traceSwitchToBeacon).toHaveBeenCalledTimes(1);
+    expect(logSwitchToBeacon).toHaveBeenCalledTimes(1);
   });
 });

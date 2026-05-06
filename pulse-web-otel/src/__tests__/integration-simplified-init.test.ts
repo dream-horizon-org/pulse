@@ -300,4 +300,14 @@ describe("Config surface — matches Android minimal API", () => {
     await Promise.resolve();
     expect(PulseWeb.isInitialized()).toBe(true);
   });
+
+  it("TC-C16: start() is a no-op when window is undefined (SSR guard)", async () => {
+    vi.stubGlobal("window", undefined);
+    PulseWeb.start({
+      apiKey: "default-project_devkey01",
+      dataCollectionState: PulseDataCollectionConsent.ALLOWED,
+    });
+    await Promise.resolve();
+    expect(PulseWeb.isInitialized()).toBe(false);
+  });
 });

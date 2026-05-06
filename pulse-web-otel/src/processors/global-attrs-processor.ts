@@ -5,10 +5,13 @@ import type { Span, Context } from "@opentelemetry/api";
 import type { SpanProcessor, ReadableSpan } from "@opentelemetry/sdk-trace-web";
 import type { LogRecord, LogRecordProcessor } from "@opentelemetry/sdk-logs";
 import type { SessionProvider } from "../session";
-import { getOrCreateInstallationId } from "../session";
+import {
+  getOrCreateInstallationId,
+  getPersistedUserId,
+  getPersistedUserProperties,
+} from "../session";
 import type { PulseWebConfig } from "../config";
 import { computeAspectRatio } from "../resource";
-import { PulseWebSemconv } from "../semconv";
 
 type NetworkConnection = {
   type?: string;
@@ -75,11 +78,15 @@ export class PulseGlobalAttributesProcessor
   private manualScreenName: string | null = null;
   private manualScreenNamePath: string | null = null;
   private readonly screenAspectRatio: string;
-
-  /** Android `setUserId` parity — stamped as `user.id`. */
+  /**
+   * In-memory user ID. null = read from localStorage (persisted value).
+   * Set explicitly via setUserId() to override the persisted value for
+   * the current page load without writing to localStorage.
+   * Use PulseWeb.setUserId() to persist across refreshes.
+   */
   private _userId: string | null = null;
-  /** Android `setUserProperty` parity — stamped as `pulse.user.<key>`. */
-  private _userProperties: Record<string, string> = {};
+  /** null values mark keys that should be suppressed even if present in localStorage. */
+  private _userProperties: Record<string, string | null> = {};
 
   constructor(
     private readonly sessionProvider: SessionProvider,
@@ -101,16 +108,12 @@ export class PulseGlobalAttributesProcessor
       typeof location !== "undefined" ? location.pathname : null;
   }
 
-  /**
-   * Restore user id + properties from localStorage at cold start (no lifecycle logs).
-   * Must run before signal emission; called from SDK after construction.
-   */
   hydrateUserIdentity(
     userId: string | null,
-    properties: Record<string, string>,
+    props: Record<string, string>,
   ): void {
     this._userId = userId;
-    this._userProperties = { ...properties };
+    this._userProperties = { ...props } as Record<string, string | null>;
   }
 
   setUserId(id: string | null): void {
@@ -122,25 +125,21 @@ export class PulseGlobalAttributesProcessor
   }
 
   setUserProperty(key: string, value: string | null): void {
-    if (value === null) {
-      delete this._userProperties[key];
-    } else {
-      this._userProperties[key] = value;
-    }
+    this._userProperties[key] = value; // null = suppression marker
   }
 
   setUserProperties(props: Record<string, string | null>): void {
     for (const [k, v] of Object.entries(props)) {
-      if (v === null) {
-        delete this._userProperties[k];
-      } else {
-        this._userProperties[k] = v;
-      }
+      this.setUserProperty(k, v);
     }
   }
 
   getUserPropertiesSnapshot(): Record<string, string> {
-    return { ...this._userProperties };
+    const out: Record<string, string> = {};
+    for (const [k, v] of Object.entries(this._userProperties)) {
+      if (v !== null) out[k] = v;
+    }
+    return out;
   }
 
   getCurrentScreenName(): string {
@@ -197,24 +196,31 @@ export class PulseGlobalAttributesProcessor
       attrs["network.downlink"] = network.downlink;
     }
 
-    // Inject global attributes from config (span attributes: primitives only here)
+    // Inject global attributes from config
     if (this.config.globalAttributes) {
       for (const [key, value] of Object.entries(this.config.globalAttributes)) {
-        if (
-          typeof value === "string" ||
-          typeof value === "number" ||
-          typeof value === "boolean"
-        ) {
-          attrs[key] = value;
-        }
+        attrs[key] = value as string | number | boolean;
       }
     }
 
-    const attributeKeys = PulseWebSemconv.AttributeKey;
-    if (this._userId !== null && this._userId !== "") {
-      attrs[attributeKeys.USER_ID] = this._userId;
+    // User identity — in-memory takes priority; falls back to localStorage so
+    // userId/properties set via PulseWeb.setUserId() survive page refresh.
+    const resolvedUserId = this._userId ?? getPersistedUserId();
+    if (resolvedUserId) {
+      attrs["user.id"] = resolvedUserId;
     }
+
+    // User properties: start from localStorage, apply in-memory overrides (null = suppress).
+    const persistedProps = getPersistedUserProperties();
+    const merged: Record<string, string> = { ...persistedProps };
     for (const [k, v] of Object.entries(this._userProperties)) {
+      if (v === null) {
+        delete merged[k];
+      } else {
+        merged[k] = v;
+      }
+    }
+    for (const [k, v] of Object.entries(merged)) {
       attrs[`pulse.user.${k}`] = v;
     }
 
