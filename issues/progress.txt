@@ -13,6 +13,22 @@
     unblocked since 001 landed). Critical-path next is 004 (seed tuning) once
     matrix is finalised; 005 follows 004.
 
+2026-05-06 — Issue 006 (RootCauseServiceTest §9 gaps) closed.
+  - backend/server/src/test/java/.../RootCauseServiceTest.java: confirmed three §9
+    gap-closer tests already present in working tree (B3 empty dimensionOrder,
+    D3 abs-distance tie → first row, D4 null dim value → empty string). Added
+    multiRowTableResponse helper for D3 tie fixture. All 41 RootCauseServiceTest
+    cases pass; full project: 4475 tests, 0 failures.
+  - docs/rca-segmentation-scenarios.md: removed `(gap — issue 006)` markers on
+    matrix rows B3/D3/D4; flipped Appendix A column-key note + Gap summary section
+    to "closed"; added 2026-05-06 revision-history entry.
+  - issues/rca-seg-006-root-cause-service-test-gaps.md: ticked acceptance and
+    added Resolution block. Surefire footnote: `mvn -Dtest=<Class>` reports 0
+    tests because pom uses `<include>**/*.java</include>`; bare `mvn test` works.
+  - Next unblocked: 004 (seed tuning, critical path) — needs Docker/CH stack to
+    spot-check histograms, may be best for a hands-on session. 005 still gated
+    on 004. 007 closeout after 004+005.
+
 2026-05-06 — Issue 003 (discoverability skill + doc links) closed.
   - .cursor/skills/rca-e2e/SKILL.md: added a "When rca-db-audit fails" callout in
     the validation section linking docs/rca-segmentation-scenarios.md and

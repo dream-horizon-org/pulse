@@ -3,7 +3,6 @@ package org.dreamhorizon.pulseserver.service.rootcause;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.lenient;
@@ -92,6 +91,35 @@ class RootCauseServiceTest {
         .build();
   }
 
+  private static GetQueryDataResponseDto<GetRawUserEventsResponseDto> multiRowTableResponse(
+      List<String> columns, List<Map<String, Object>> rowMaps) {
+    List<GetRawUserEventsResponseDto.Field> fields = new ArrayList<>();
+    for (String key : columns) {
+      GetRawUserEventsResponseDto.Field f = new GetRawUserEventsResponseDto.Field();
+      f.setName(key);
+      fields.add(f);
+    }
+    List<GetRawUserEventsResponseDto.Row> rows = new ArrayList<>();
+    for (Map<String, Object> rowMap : rowMaps) {
+      List<GetRawUserEventsResponseDto.RowField> rowFields = new ArrayList<>();
+      for (String key : columns) {
+        GetRawUserEventsResponseDto.RowField rf = new GetRawUserEventsResponseDto.RowField();
+        rf.setValue(rowMap.get(key));
+        rowFields.add(rf);
+      }
+      GetRawUserEventsResponseDto.Row row = new GetRawUserEventsResponseDto.Row();
+      row.setRowFields(rowFields);
+      rows.add(row);
+    }
+    GetRawUserEventsResponseDto.Schema schema = new GetRawUserEventsResponseDto.Schema(fields);
+    GetRawUserEventsResponseDto data =
+        GetRawUserEventsResponseDto.builder().schema(schema).rows(rows).build();
+    return GetQueryDataResponseDto.<GetRawUserEventsResponseDto>builder()
+        .jobComplete(true)
+        .data(data)
+        .build();
+  }
+
   private static GetQueryDataResponseDto<GetRawUserEventsResponseDto> singleRowTableResponse(
       Map<String, Object> rowMap) {
     List<String> keys = new ArrayList<>(rowMap.keySet());
@@ -137,7 +165,7 @@ class RootCauseServiceTest {
                 assertThat(wae.getResponse().getStatus())
                     .isEqualTo(ServiceError.INCORRECT_OR_MISSING_QUERY_PARAMETERS.getHttpStatusCode());
               });
-      verify(clickhouseQueryService, never()).executeRootCauseQuery(anyString(), anyString(), anyList(), anyList(), anyBoolean());
+      verify(clickhouseQueryService, never()).executeRootCauseQuery(anyString(), anyString(), anyList(), anyList());
     }
 
     @Test
@@ -154,7 +182,7 @@ class RootCauseServiceTest {
                 assertThat(wae.getResponse().getStatus())
                     .isEqualTo(ServiceError.INCORRECT_OR_MISSING_QUERY_PARAMETERS.getHttpStatusCode());
               });
-      verify(clickhouseQueryService, never()).executeRootCauseQuery(anyString(), anyString(), anyList(), anyList(), anyBoolean());
+      verify(clickhouseQueryService, never()).executeRootCauseQuery(anyString(), anyString(), anyList(), anyList());
     }
   }
 
@@ -180,7 +208,7 @@ class RootCauseServiceTest {
       assertThat(result.getMode()).isEqualTo(RootCauseAnalysisMode.FLAT);
       assertThat(result.getBaseline()).containsEntry("volume", 10);
       assertThat(result.getSegments()).isEmpty();
-      verify(clickhouseQueryService, never()).executeRootCauseQuery(anyString(), anyString(), anyList(), anyList(), anyBoolean());
+      verify(clickhouseQueryService, never()).executeRootCauseQuery(anyString(), anyString(), anyList(), anyList());
     }
 
     @Test
@@ -268,7 +296,7 @@ class RootCauseServiceTest {
                     .isEqualTo(ServiceError.INTERNAL_SERVER_ERROR.getHttpStatusCode());
               });
 
-      verify(clickhouseQueryService, never()).executeRootCauseQuery(anyString(), anyString(), anyList(), anyList(), anyBoolean());
+      verify(clickhouseQueryService, never()).executeRootCauseQuery(anyString(), anyString(), anyList(), anyList());
     }
 
     @Test
@@ -287,7 +315,7 @@ class RootCauseServiceTest {
       assertThatThrownBy(() -> service.getRootCause(PROJECT_ID, INTERACTION, ANALYSIS_DATE, WINDOW_END).blockingGet())
           .isInstanceOf(WebApplicationException.class);
 
-      verify(clickhouseQueryService, never()).executeRootCauseQuery(anyString(), anyString(), anyList(), anyList(), anyBoolean());
+      verify(clickhouseQueryService, never()).executeRootCauseQuery(anyString(), anyString(), anyList(), anyList());
     }
 
     @Test
@@ -307,7 +335,7 @@ class RootCauseServiceTest {
           service.getRootCause(PROJECT_ID, INTERACTION, ANALYSIS_DATE, WINDOW_END).blockingGet();
 
       assertThat(result.getBaseline()).containsEntry("volume", 3);
-      verify(clickhouseQueryService, never()).executeRootCauseQuery(anyString(), anyString(), anyList(), anyList(), anyBoolean());
+      verify(clickhouseQueryService, never()).executeRootCauseQuery(anyString(), anyString(), anyList(), anyList());
       verify(cacheDao, never()).upsert(any(), any(), any(), any(), any(), any(), any(), any());
     }
 
@@ -316,7 +344,7 @@ class RootCauseServiceTest {
       Map<String, Object> baseline = new LinkedHashMap<>();
       baseline.put(RootCauseMetricsRegistry.VOLUME, 50L);
       baseline.put("problematic_count", 0L);
-      when(clickhouseQueryService.executeRootCauseQuery(anyString(), anyString(), anyList(), anyList(), anyBoolean()))
+      when(clickhouseQueryService.executeRootCauseQuery(anyString(), anyString(), anyList(), anyList()))
           .thenAnswer(
               inv -> {
                 String q = inv.getArgument(1, String.class);
@@ -343,7 +371,7 @@ class RootCauseServiceTest {
     void shouldReturnNoDataWhenBaselineQueryReturnsNoRows() {
       when(cacheDao.findByKey(PROJECT_ID, INTERACTION, ANALYSIS_DATE))
           .thenReturn(Single.just(Optional.empty()));
-      when(clickhouseQueryService.executeRootCauseQuery(anyString(), anyString(), anyList(), anyList(), anyBoolean()))
+      when(clickhouseQueryService.executeRootCauseQuery(anyString(), anyString(), anyList(), anyList()))
           .thenReturn(Single.just(emptyTableResponse()));
 
       RootCauseResult result =
@@ -361,7 +389,7 @@ class RootCauseServiceTest {
           GetQueryDataResponseDto.<GetRawUserEventsResponseDto>builder()
               .jobComplete(false)
               .build();
-      when(clickhouseQueryService.executeRootCauseQuery(anyString(), anyString(), anyList(), anyList(), anyBoolean()))
+      when(clickhouseQueryService.executeRootCauseQuery(anyString(), anyString(), anyList(), anyList()))
           .thenReturn(Single.just(incomplete));
 
       RootCauseResult result =
@@ -377,7 +405,7 @@ class RootCauseServiceTest {
       Map<String, Object> baseline = new LinkedHashMap<>();
       baseline.put(RootCauseMetricsRegistry.VOLUME, 0L);
       baseline.put("problematic_count", 5L);
-      when(clickhouseQueryService.executeRootCauseQuery(anyString(), anyString(), anyList(), anyList(), anyBoolean()))
+      when(clickhouseQueryService.executeRootCauseQuery(anyString(), anyString(), anyList(), anyList()))
           .thenAnswer(
               inv -> {
                 String q = inv.getArgument(1, String.class);
@@ -402,7 +430,7 @@ class RootCauseServiceTest {
       Map<String, Object> baseline = new LinkedHashMap<>();
       baseline.put(RootCauseMetricsRegistry.VOLUME, 200L);
       baseline.put("problematic_count", 0L);
-      when(clickhouseQueryService.executeRootCauseQuery(anyString(), anyString(), anyList(), anyList(), anyBoolean()))
+      when(clickhouseQueryService.executeRootCauseQuery(anyString(), anyString(), anyList(), anyList()))
           .thenAnswer(
               inv -> {
                 String q = inv.getArgument(1, String.class);
@@ -428,7 +456,7 @@ class RootCauseServiceTest {
       Map<String, Object> baseline = new LinkedHashMap<>();
       baseline.put(RootCauseMetricsRegistry.VOLUME, 100L);
       baseline.put("problematic_count", 10L);
-      when(clickhouseQueryService.executeRootCauseQuery(anyString(), anyString(), anyList(), anyList(), anyBoolean()))
+      when(clickhouseQueryService.executeRootCauseQuery(anyString(), anyString(), anyList(), anyList()))
           .thenAnswer(
               inv -> {
                 String q = inv.getArgument(1, String.class);
@@ -455,7 +483,7 @@ class RootCauseServiceTest {
 
       Map<String, Object> baseline = baselineWithVolumeAndProblematic(500L, 100L);
 
-      when(clickhouseQueryService.executeRootCauseQuery(anyString(), anyString(), anyList(), anyList(), anyBoolean()))
+      when(clickhouseQueryService.executeRootCauseQuery(anyString(), anyString(), anyList(), anyList()))
           .thenAnswer(
               inv -> {
                 String q = inv.getArgument(1, String.class);
@@ -511,7 +539,7 @@ class RootCauseServiceTest {
       Map<String, Object> baseline = baselineWithVolumeAndProblematic(500L, 100L);
       String platformValueWithColon = "Washington: D.C.";
 
-      when(clickhouseQueryService.executeRootCauseQuery(anyString(), anyString(), anyList(), anyList(), anyBoolean()))
+      when(clickhouseQueryService.executeRootCauseQuery(anyString(), anyString(), anyList(), anyList()))
           .thenAnswer(
               inv -> {
                 String q = inv.getArgument(1, String.class);
@@ -565,7 +593,7 @@ class RootCauseServiceTest {
 
       Map<String, Object> baseline = baselineWithVolumeAndProblematic(200L, 50L);
 
-      when(clickhouseQueryService.executeRootCauseQuery(anyString(), anyString(), anyList(), anyList(), anyBoolean()))
+      when(clickhouseQueryService.executeRootCauseQuery(anyString(), anyString(), anyList(), anyList()))
           .thenAnswer(
               inv -> {
                 String q = inv.getArgument(1, String.class);
@@ -609,7 +637,7 @@ class RootCauseServiceTest {
       AtomicBoolean sawOsVersionUnderAppVersion = new AtomicBoolean();
       AtomicBoolean sawDeviceModelUnderAppVersion = new AtomicBoolean();
 
-      when(clickhouseQueryService.executeRootCauseQuery(anyString(), anyString(), anyList(), anyList(), anyBoolean()))
+      when(clickhouseQueryService.executeRootCauseQuery(anyString(), anyString(), anyList(), anyList()))
           .thenAnswer(
               inv -> {
                 String q = inv.getArgument(1, String.class);
@@ -685,7 +713,7 @@ class RootCauseServiceTest {
       Map<String, Object> baseline = baselineWithVolumeAndProblematic(100L, 20L);
       AtomicInteger platformBreakdownPass = new AtomicInteger(0);
 
-      when(clickhouseQueryService.executeRootCauseQuery(anyString(), anyString(), anyList(), anyList(), anyBoolean()))
+      when(clickhouseQueryService.executeRootCauseQuery(anyString(), anyString(), anyList(), anyList()))
           .thenAnswer(
               inv -> {
                 String q = inv.getArgument(1, String.class);
@@ -739,7 +767,7 @@ class RootCauseServiceTest {
               .jobComplete(true)
               .data(null)
               .build();
-      when(clickhouseQueryService.executeRootCauseQuery(anyString(), anyString(), anyList(), anyList(), anyBoolean()))
+      when(clickhouseQueryService.executeRootCauseQuery(anyString(), anyString(), anyList(), anyList()))
           .thenReturn(Single.just(noDataPayload));
 
       RootCauseResult result =
@@ -756,7 +784,7 @@ class RootCauseServiceTest {
       // totalProblematic 100 -> threshold 75; unscoped breakdown rows stay at 10 so pickFirst never
       // matches, but flat mode still picks top values with count > 0 (same SQL for both phases).
       Map<String, Object> baseline = baselineWithVolumeAndProblematic(300L, 100L);
-      when(clickhouseQueryService.executeRootCauseQuery(anyString(), anyString(), anyList(), anyList(), anyBoolean()))
+      when(clickhouseQueryService.executeRootCauseQuery(anyString(), anyString(), anyList(), anyList()))
           .thenAnswer(
               inv -> {
                 String q = inv.getArgument(1, String.class);
@@ -812,7 +840,7 @@ class RootCauseServiceTest {
           .thenReturn(Single.just(Optional.empty()));
       Map<String, Object> baseline = baselineWithVolumeAndProblematic(500L, 100L);
       // threshold 75 -> 75; second hierarchy step returns only 50 problematic (< 75) -> flat extras
-      when(clickhouseQueryService.executeRootCauseQuery(anyString(), anyString(), anyList(), anyList(), anyBoolean()))
+      when(clickhouseQueryService.executeRootCauseQuery(anyString(), anyString(), anyList(), anyList()))
           .thenAnswer(
               inv -> {
                 String q = inv.getArgument(1, String.class);
@@ -865,6 +893,111 @@ class RootCauseServiceTest {
     }
 
     @Test
+    void shouldReturnEmptySegmentsWhenDimensionOrderIsEmpty() {
+      when(rootCauseConfig.getDimensionOrder()).thenReturn(List.of());
+      when(cacheDao.findByKey(PROJECT_ID, INTERACTION, ANALYSIS_DATE))
+          .thenReturn(Single.just(Optional.empty()));
+      Map<String, Object> baseline = baselineWithVolumeAndProblematic(200L, 50L);
+      when(clickhouseQueryService.executeRootCauseQuery(anyString(), anyString(), anyList(), anyList()))
+          .thenAnswer(
+              inv -> {
+                String q = inv.getArgument(1, String.class);
+                if (!q.contains("GROUP BY")) {
+                  return Single.just(singleRowTableResponse(baseline));
+                }
+                return Single.just(emptyTableResponse());
+              });
+
+      RootCauseResult result =
+          service.getRootCause(PROJECT_ID, INTERACTION, ANALYSIS_DATE, WINDOW_END).blockingGet();
+
+      assertThat(result.getSegments()).isEmpty();
+      assertThat(result.getMode()).isEqualTo(RootCauseAnalysisMode.FLAT);
+      verify(cacheDao).upsert(any(), any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void shouldPickFirstRowWhenTieOnAbsoluteDistanceToTotal() {
+      when(rootCauseConfig.getMaxSegments()).thenReturn(1);
+      when(cacheDao.findByKey(PROJECT_ID, INTERACTION, ANALYSIS_DATE))
+          .thenReturn(Single.just(Optional.empty()));
+
+      Map<String, Object> baseline = baselineWithVolumeAndProblematic(200L, 100L);
+      // threshold = 75; both rows pass and have abs(count - 100) = 10 → first wins.
+      Map<String, Object> rowAndroid = new LinkedHashMap<>();
+      rowAndroid.put("Platform", "Android");
+      rowAndroid.put("problematic_count", 90L);
+      Map<String, Object> rowIos = new LinkedHashMap<>();
+      rowIos.put("Platform", "iOS");
+      rowIos.put("problematic_count", 110L);
+
+      when(clickhouseQueryService.executeRootCauseQuery(anyString(), anyString(), anyList(), anyList()))
+          .thenAnswer(
+              inv -> {
+                String q = inv.getArgument(1, String.class);
+                if (!q.contains("GROUP BY")) {
+                  return Single.just(singleRowTableResponse(baseline));
+                }
+                if (q.contains(" AS volume")) {
+                  Map<String, Object> row = segmentMetricRow();
+                  row.put("Platform", "Android");
+                  return Single.just(singleRowTableResponse(row));
+                }
+                if (q.contains("GROUP BY Platform") && !q.contains("AND Platform =")) {
+                  return Single.just(
+                      multiRowTableResponse(
+                          List.of("Platform", "problematic_count"), List.of(rowAndroid, rowIos)));
+                }
+                return Single.just(emptyTableResponse());
+              });
+
+      RootCauseResult result =
+          service.getRootCause(PROJECT_ID, INTERACTION, ANALYSIS_DATE, WINDOW_END).blockingGet();
+
+      assertThat(result.getMode()).isEqualTo(RootCauseAnalysisMode.HIERARCHICAL);
+      assertThat(result.getSegments()).hasSize(1);
+      assertThat(result.getSegments().get(0).getLabel()).isEqualTo("Platform: Android");
+    }
+
+    @Test
+    void shouldTreatNullDimensionValueAsEmptyString() {
+      when(rootCauseConfig.getMaxSegments()).thenReturn(1);
+      when(cacheDao.findByKey(PROJECT_ID, INTERACTION, ANALYSIS_DATE))
+          .thenReturn(Single.just(Optional.empty()));
+
+      Map<String, Object> baseline = baselineWithVolumeAndProblematic(200L, 100L);
+      Map<String, Object> nullPlatformRow = new LinkedHashMap<>();
+      nullPlatformRow.put("Platform", null);
+      nullPlatformRow.put("problematic_count", 100L);
+
+      when(clickhouseQueryService.executeRootCauseQuery(anyString(), anyString(), anyList(), anyList()))
+          .thenAnswer(
+              inv -> {
+                String q = inv.getArgument(1, String.class);
+                if (!q.contains("GROUP BY")) {
+                  return Single.just(singleRowTableResponse(baseline));
+                }
+                if (q.contains(" AS volume")) {
+                  Map<String, Object> row = segmentMetricRow();
+                  row.put("Platform", "");
+                  return Single.just(singleRowTableResponse(row));
+                }
+                if (q.contains("GROUP BY Platform") && !q.contains("AND Platform =")) {
+                  return Single.just(singleRowTableResponse(nullPlatformRow));
+                }
+                return Single.just(emptyTableResponse());
+              });
+
+      RootCauseResult result =
+          service.getRootCause(PROJECT_ID, INTERACTION, ANALYSIS_DATE, WINDOW_END).blockingGet();
+
+      assertThat(result.getMode()).isEqualTo(RootCauseAnalysisMode.HIERARCHICAL);
+      assertThat(result.getSegments()).hasSize(1);
+      assertThat(result.getSegments().get(0).getLabel()).isEqualTo("Platform: ");
+      assertThat(result.getSegments().get(0).getDimensions()).containsEntry("Platform", "");
+    }
+
+    @Test
     void shouldPadMissingRowCellsWithNullWhenSchemaIsWider() {
       when(cacheDao.findByKey(PROJECT_ID, INTERACTION, ANALYSIS_DATE))
           .thenReturn(Single.just(Optional.empty()));
@@ -890,7 +1023,7 @@ class RootCauseServiceTest {
               .data(data)
               .build();
 
-      when(clickhouseQueryService.executeRootCauseQuery(anyString(), anyString(), anyList(), anyList(), anyBoolean()))
+      when(clickhouseQueryService.executeRootCauseQuery(anyString(), anyString(), anyList(), anyList()))
           .thenAnswer(
               inv -> {
                 String q = inv.getArgument(1, String.class);
@@ -967,7 +1100,7 @@ class RootCauseServiceTest {
 
       Map<String, Object> baseline = baselineWithVolumeAndProblematic(500L, 100L);
       when(clickhouseQueryService.executeRootCauseQuery(
-          anyString(), anyString(), anyList(), anyList(), anyBoolean()))
+          anyString(), anyString(), anyList(), anyList()))
           .thenAnswer(
               inv -> {
                 String q = inv.getArgument(1, String.class);
@@ -1014,7 +1147,7 @@ class RootCauseServiceTest {
 
       Map<String, Object> baseline = baselineWithVolumeAndProblematic(500L, 100L);
       when(clickhouseQueryService.executeRootCauseQuery(
-          anyString(), anyString(), anyList(), anyList(), anyBoolean()))
+          anyString(), anyString(), anyList(), anyList()))
           .thenAnswer(
               inv -> {
                 String q = inv.getArgument(1, String.class);
@@ -1057,7 +1190,7 @@ class RootCauseServiceTest {
 
     @Test
     void shouldReturnScreensFromFirstQueryRow() {
-      when(clickhouseQueryService.executeRootCauseQuery(anyString(), anyString(), anyList(), anyList(), anyBoolean()))
+      when(clickhouseQueryService.executeRootCauseQuery(anyString(), anyString(), anyList(), anyList()))
           .thenReturn(Single.just(singleRowTableResponse(Map.of("screens", List.of("home", "cart")))));
       RootCauseQueryBuilder.Window w =
           new RootCauseQueryBuilder.Window(ANALYSIS_DATE, 7, WINDOW_END);
@@ -1068,7 +1201,7 @@ class RootCauseServiceTest {
 
     @Test
     void shouldReturnEmptyListWhenQueryFails() {
-      when(clickhouseQueryService.executeRootCauseQuery(anyString(), anyString(), anyList(), anyList(), anyBoolean()))
+      when(clickhouseQueryService.executeRootCauseQuery(anyString(), anyString(), anyList(), anyList()))
           .thenReturn(Single.error(new RuntimeException("ch down")));
       RootCauseQueryBuilder.Window w =
           new RootCauseQueryBuilder.Window(ANALYSIS_DATE, 7, WINDOW_END);
@@ -1079,7 +1212,7 @@ class RootCauseServiceTest {
 
     @Test
     void shouldReturnEmptyListWhenNoRows() {
-      when(clickhouseQueryService.executeRootCauseQuery(anyString(), anyString(), anyList(), anyList(), anyBoolean()))
+      when(clickhouseQueryService.executeRootCauseQuery(anyString(), anyString(), anyList(), anyList()))
           .thenReturn(Single.just(emptyTableResponse()));
       RootCauseQueryBuilder.Window w =
           new RootCauseQueryBuilder.Window(ANALYSIS_DATE, 7, WINDOW_END);
@@ -1090,7 +1223,7 @@ class RootCauseServiceTest {
 
     @Test
     void shouldNormalizeScreensFromStringArrayAndTrimValues() {
-      when(clickhouseQueryService.executeRootCauseQuery(anyString(), anyString(), anyList(), anyList(), anyBoolean()))
+      when(clickhouseQueryService.executeRootCauseQuery(anyString(), anyString(), anyList(), anyList()))
           .thenReturn(
               Single.just(
                   singleRowTableResponse(
@@ -1104,7 +1237,7 @@ class RootCauseServiceTest {
 
     @Test
     void shouldNormalizeScreensFromObjectArraySkippingNulls() {
-      when(clickhouseQueryService.executeRootCauseQuery(anyString(), anyString(), anyList(), anyList(), anyBoolean()))
+      when(clickhouseQueryService.executeRootCauseQuery(anyString(), anyString(), anyList(), anyList()))
           .thenReturn(
               Single.just(
                   singleRowTableResponse(
@@ -1120,7 +1253,7 @@ class RootCauseServiceTest {
     void shouldReturnEmptyScreensWhenColumnIsNull() {
       Map<String, Object> row = new LinkedHashMap<>();
       row.put("screens", null);
-      when(clickhouseQueryService.executeRootCauseQuery(anyString(), anyString(), anyList(), anyList(), anyBoolean()))
+      when(clickhouseQueryService.executeRootCauseQuery(anyString(), anyString(), anyList(), anyList()))
           .thenReturn(Single.just(singleRowTableResponse(row)));
       RootCauseQueryBuilder.Window w =
           new RootCauseQueryBuilder.Window(ANALYSIS_DATE, 7, WINDOW_END);
