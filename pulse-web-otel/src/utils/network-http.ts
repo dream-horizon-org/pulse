@@ -6,11 +6,13 @@
 import type { Span } from "@opentelemetry/api";
 import { SpanStatusCode } from "@opentelemetry/api";
 
+import { PulseWebSemconv } from "../semconv";
+
 /**
- * {@link FetchInstrumentation} stores the request URL on the span at creation
- * ({@code http.url} / deprecated semconv) but passes only {@link RequestInit} to
- * {@code applyCustomAttributesOnSpan} for {@code fetch(url, opts)} — not the URL
- * string. On failure/abort, {@link Response#url} is absent; read the span.
+ * Reads URL the upstream client span may have set before the custom callback.
+ * Tries stable {@code url.full} first, then legacy {@code http.url} (OTel / older
+ * instrumentations). On {@code fetch(url, opts)} without {@link Request}, the URL
+ * often only exists on the span; on failure/abort, {@link Response#url} is absent.
  */
 export function getOtelHttpUrlFromSpan(span: Span): string {
   const store = span as unknown as { attributes?: Record<string, unknown> };
@@ -18,11 +20,137 @@ export function getOtelHttpUrlFromSpan(span: Span): string {
   if (!attrs) {
     return "";
   }
-  const u = attrs["http.url"];
-  return typeof u === "string" && u.trim().length > 0 ? u : "";
+  const ak = PulseWebSemconv.AttributeKey;
+  const full = attrs[ak.URL_FULL];
+  if (typeof full === "string" && full.trim().length > 0) {
+    return full.trim();
+  }
+  const legacy = attrs["http.url"];
+  if (typeof legacy === "string" && legacy.trim().length > 0) {
+    return legacy.trim();
+  }
+  return "";
 }
 
-import { PulseWebSemconv } from "../semconv";
+/**
+ * HTTP method already on the span (stable {@code http.request.method}), if upstream set it.
+ * Prefer over parsing {@link Span#name} — names are not a stable contract across OTel versions.
+ */
+export function getOtelHttpRequestMethodFromSpan(span: Span): string | undefined {
+  const store = span as unknown as { attributes?: Record<string, unknown> };
+  const attrs = store.attributes;
+  if (!attrs) {
+    return undefined;
+  }
+  const ak = PulseWebSemconv.AttributeKey.HTTP_REQUEST_METHOD;
+  const m = attrs[ak] ?? attrs["http.request.method"];
+  if (typeof m === "string") {
+    const t = m.trim();
+    return t.length > 0 ? t.toUpperCase() : undefined;
+  }
+  return undefined;
+}
+
+/**
+ * FetchInstrumentation callback helpers — resolve URL/method/status and header getter for
+ * {@link Request} vs {@link RequestInit}.
+ */
+export function resolveFetchUrl(
+  span: Span,
+  request: Request | RequestInit,
+  result: Response | unknown,
+): string {
+  if (result instanceof Response && result.url) {
+    return result.url;
+  }
+  if (request instanceof Request) {
+    return request.url;
+  }
+  return getOtelHttpUrlFromSpan(span);
+}
+
+export function resolveFetchMethod(request: Request | RequestInit): string {
+  if (request instanceof Request) {
+    return request.method;
+  }
+  const m = request.method;
+  return typeof m === "string" ? m : "GET";
+}
+
+export function resolveFetchStatus(result: unknown): number | undefined {
+  if (result instanceof Response) {
+    return result.status;
+  }
+  if (typeof result === "object" && result !== null && "status" in result) {
+    const s = (result as { status?: number }).status;
+    return typeof s === "number" ? s : undefined;
+  }
+  return undefined;
+}
+
+/**
+ * Case-insensitive header lookup for {@link Request} or {@link RequestInit} (including plain
+ * {@code Record} and {@code string[][]} shapes — the dominant {@code fetch(url, { headers: { ... } })} pattern).
+ */
+export function requestHeaderGetter(
+  request: Request | RequestInit,
+): ((name: string) => string | null | undefined) | undefined {
+  if (request instanceof Request) {
+    return (name: string) => request.headers.get(name);
+  }
+  const h = request.headers;
+  if (h === undefined || h === null) {
+    return undefined;
+  }
+  if (h instanceof Headers) {
+    return (name: string) => h.get(name);
+  }
+  if (Array.isArray(h)) {
+    const map = new Map<string, string>();
+    for (const pair of h) {
+      if (!Array.isArray(pair) || pair.length < 2) {
+        continue;
+      }
+      map.set(String(pair[0]).toLowerCase(), String(pair[1]));
+    }
+    return (name: string) => map.get(name.toLowerCase()) ?? undefined;
+  }
+  const rec = h as Record<string, string | string[] | undefined>;
+  const map = new Map<string, string>();
+  for (const [k, v] of Object.entries(rec)) {
+    if (v === undefined) {
+      continue;
+    }
+    const val = Array.isArray(v) ? v.map(String).join(", ") : String(v);
+    map.set(k.toLowerCase(), val);
+  }
+  return (name: string) => map.get(name.toLowerCase()) ?? undefined;
+}
+
+/**
+ * Names that must never be copied from {@code capturedRequestHeaders} /
+ * {@code capturedResponseHeaders} onto spans — even if remote config lists them.
+ * Case-insensitive match. Prevents credential/session leakage via OTLP on misconfiguration.
+ */
+const SENSITIVE_HEADER_CAPTURE_DENYLIST = new Set<string>(
+  Object.values(PulseWebSemconv.SensitiveCapturedHeaderName),
+);
+
+/** Returns true if this header name must not be emitted on spans (case-insensitive). */
+export function isSensitiveCapturedHeaderName(name: string): boolean {
+  const n = name.trim().toLowerCase();
+  return SENSITIVE_HEADER_CAPTURE_DENYLIST.has(n);
+}
+
+const SENSITIVE_QUERY_PARAM_DENYLIST = new Set<string>(
+  Object.values(PulseWebSemconv.SensitiveQueryParamName),
+);
+
+/** True when this query param name must have its value redacted (case-insensitive key). */
+export function isSensitiveQueryParamName(name: string): boolean {
+  const n = name.trim().toLowerCase();
+  return SENSITIVE_QUERY_PARAM_DENYLIST.has(n);
+}
 
 export type NetworkSpanPrivacy = {
   /** Default false — strips query string from {@code url.full}. */
@@ -83,6 +211,12 @@ export function sanitizeHttpUrl(
     );
     if (!privacy.captureQueryParams) {
       u.search = "";
+    } else {
+      for (const key of Array.from(u.searchParams.keys())) {
+        if (isSensitiveQueryParamName(key)) {
+          u.searchParams.set(key, "***");
+        }
+      }
     }
     /** OTel `url.full` MUST NOT contain credentials (user:password@…). */
     u.username = "";
@@ -213,7 +347,13 @@ function setOptionalLong(
   span.setAttribute(key, Math.round(value));
 }
 
-/** Stable OTel HTTP semconv + Pulse additions; omits optional keys when absent. */
+/**
+ * Stable OTel HTTP semconv + Pulse additions; omits optional keys when absent.
+ *
+ * Optional {@code graphqlRequestBody}: reserved for callers that already have a sync JSON body.
+ * {@code NetworkInstrumentation} does not pass it (Fetch body is async; see network.md Done Criteria).
+ * {@link extractGraphQlMeta} runs only when that field is set.
+ */
 export function applyPulseHttpClientSpanAttributes(params: {
   span: Span;
   /** Fully resolved request URL (may include query — sanitized before storage). */
@@ -226,7 +366,7 @@ export function applyPulseHttpClientSpanAttributes(params: {
   perfLookupUrl?: string;
   requestHeaderGet?: (name: string) => string | null | undefined;
   responseHeaderGet?: (name: string) => string | null | undefined;
-  /** Sync GraphQL JSON body when already materialized (Fetch body async — usually omitted). */
+  /** Sync GraphQL JSON body when already materialized (optional; not wired from Fetch/XHR yet). */
   graphqlRequestBody?: string | null;
 }): void {
   const { span } = params;
@@ -253,6 +393,8 @@ export function applyPulseHttpClientSpanAttributes(params: {
     return;
   }
 
+  // V2: non-standard HTTP verbs → OTel `_OTHER` + `http.request.method_original` — deferred;
+  // see network.md Done Criteria (mapping not duplicated here).
   span.setAttribute(ak.HTTP_REQUEST_METHOD, params.method.toUpperCase());
   span.setAttribute(ak.URL_FULL, sanitized);
   span.setAttribute(ak.SERVER_ADDRESS, parsed.hostname);
@@ -318,6 +460,9 @@ export function applyPulseHttpClientSpanAttributes(params: {
   if (capReq && params.requestHeaderGet) {
     const g = params.requestHeaderGet;
     for (const name of capReq) {
+      if (isSensitiveCapturedHeaderName(name)) {
+        continue;
+      }
       const v = g(name) ?? g(name.toLowerCase());
       if (v !== null && v !== undefined && v !== "") {
         span.setAttribute(`http.request.header.${name.toLowerCase()}`, v);
@@ -328,6 +473,9 @@ export function applyPulseHttpClientSpanAttributes(params: {
   if (capRes && params.responseHeaderGet) {
     const g = params.responseHeaderGet;
     for (const name of capRes) {
+      if (isSensitiveCapturedHeaderName(name)) {
+        continue;
+      }
       const v = g(name) ?? g(name.toLowerCase());
       if (v !== null && v !== undefined && v !== "") {
         span.setAttribute(`http.response.header.${name.toLowerCase()}`, v);

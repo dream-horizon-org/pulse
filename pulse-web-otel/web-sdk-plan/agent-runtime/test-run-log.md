@@ -2,6 +2,23 @@
 
 Append E2E / gate results for Web SDK work (per `pulse-web-sdk-sanity`).
 
+## Network review follow-up — 2026-05-06
+
+| Date | Command | Browser | Result | Notes |
+|------|---------|---------|--------|-------|
+| 2026-05-06 | `yarn vitest run` (cwd `pulse-web-otel`) | — | pass (433/433) | `requestHeaderGetter` plain-object/array; sensitive query redaction; `NetworkInstrumentation` idempotency; `network-instrumentation.test.ts`; XHR stub `DONE=4` on `m1` / `user-identity` mocks. |
+| 2026-05-06 | `yarn playwright test --config e2e/playwright.config.ts e2e/m4-network.spec.ts --project=chromium` (cwd `examples/ecommerce-demo`) | Chromium | pass (15/15) | Added Network Lab XHR timeout/abort; `page.route` 10s stall on `https://httpstat.us/**` + `pollLastNetworkZeroTransportErrorSpan` (empty `url.full` on XHR error). |
+| 2026-05-06 | `graphify update . --no-viz` (cwd `pulse-web-otel`) | — | pass | 763 nodes / 1018 edges / 113 communities; `graph-cache.md` refreshed. |
+| 2026-05-06 | `yarn e2e:web-sdk-gates` (cwd `examples/ecommerce-demo`) | Chromium | pass (166/166) | Full gate after M4 + Network Lab changes. |
+
+### 2026-05-06 — XHR E2E first attempt (symptom → cause → fix)
+
+**Symptom:** `pollProbeHttpSpan(otlp, "httpstat.us")` timed out after Network Lab XHR timeout/abort clicks.
+
+**Cause:** On timeout/abort, `xhr.responseURL` is often empty → `applyPulseHttpClientSpanAttributes` returns early with no `url.full` → substring probe never matched.
+
+**Fix:** Stall third-party URL via `page.route`; poll last span with `pulse.type=network.0` and `error.type=network_error`.
+
 ## DB seed / demo static parity — 2026-04-30
 
 | Date | Command | Browser | Result | Notes |

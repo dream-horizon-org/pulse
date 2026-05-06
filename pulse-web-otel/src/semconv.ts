@@ -70,7 +70,6 @@ export const PulseWebSemconv = {
     /** Logical viewport (`window.innerWidth` / `innerHeight`), Android `device.screen.*` parity. */
     DEVICE_SCREEN_WIDTH: "device.screen.width",
     DEVICE_SCREEN_HEIGHT: "device.screen.height",
-    /** Web vital metric name: LCP, INP, CLS, FID, FCP. */
     /** Web vital metric name: LCP, INP, CLS, FCP, FID, TTFB. */
     WEB_VITAL_NAME: "web_vital.name",
     WEB_VITAL_VALUE: "web_vital.value",
@@ -151,5 +150,36 @@ export const PulseWebSemconv = {
     GOOD: "Good",
     AVERAGE: "Average",
     POOR: "Poor",
+  },
+  /**
+   * Canonical lowercase HTTP header names — never copy values onto spans from optional capture config.
+   * Used by {@code isSensitiveCapturedHeaderName} in {@code utils/network-http.ts}.
+   */
+  SensitiveCapturedHeaderName: {
+    AUTHORIZATION: "authorization",
+    COOKIE: "cookie",
+    SET_COOKIE: "set-cookie",
+    PROXY_AUTHORIZATION: "proxy-authorization",
+    X_API_KEY: "x-api-key",
+    X_AUTH_TOKEN: "x-auth-token",
+  },
+  /**
+   * Lowercase query param names — when {@code captureQueryParams} is true, values are replaced
+   * with {@code ***} (keys kept). See {@code isSensitiveQueryParamName} in {@code utils/network-http.ts}.
+   */
+  SensitiveQueryParamName: {
+    TOKEN: "token",
+    ACCESS_TOKEN: "access_token",
+    REFRESH_TOKEN: "refresh_token",
+    ID_TOKEN: "id_token",
+    BEARER: "bearer",
+    API_KEY: "api_key",
+    APIKEY: "apikey",
+    PASSWORD: "password",
+    SECRET: "secret",
+    CLIENT_SECRET: "client_secret",
+    SIGNATURE: "signature",
+    SIG: "sig",
+    AUTH: "auth",
   },
 } as const;

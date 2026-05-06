@@ -90,6 +90,29 @@ async function pollProbeHttpSpan(
   return found!;
 }
 
+/** Last matching span — `url.full` may be absent on XHR timeout/abort when `responseURL` is empty. */
+async function pollLastNetworkZeroTransportErrorSpan(
+  otlp: { captured: unknown[] },
+): Promise<OtlpSpan> {
+  let found: OtlpSpan | undefined;
+  await expect
+    .poll(
+      () => {
+        const spans = findAllNetworkSpans(otlp.captured as never[]);
+        found = [...spans].reverse().find((s) => {
+          return (
+            getAttr(s.attributes, "pulse.type") === "network.0" &&
+            getAttr(s.attributes, "error.type") === "network_error"
+          );
+        });
+        return found;
+      },
+      { timeout: 15_000 },
+    )
+    .toBeDefined();
+  return found!;
+}
+
 test.describe("@M4 network e2e", () => {
   test("Network Lab: fetch GET button emits network.200 span", async ({
     page,
@@ -110,6 +133,64 @@ test.describe("@M4 network e2e", () => {
     expect(getAttr(span.attributes, "pulse.type")).toBe("network.200");
     expect(getAttr(span.attributes, "http.request.method")).toBe("GET");
     expect(getAttr(span.attributes, "http.response.status_code")).toBe(200);
+    expect(getAttr(span.attributes, "session.id")).toBeTruthy();
+    expect(getAttr(span.attributes, "screen.name")).toBeTruthy();
+  });
+
+  test("Network Lab: XHR timeout emits network.0, network_error, OTLP ERROR", async ({
+    page,
+    otlp,
+  }) => {
+    await page.route("https://httpstat.us/**", async (route) => {
+      await new Promise((r) => setTimeout(r, 10_000));
+      await route.fulfill({ status: 200, body: "{}" });
+    });
+
+    await page.goto("/network-lab");
+    await waitForPulseWebInitialized(page);
+    await otlp.waitForLog("session.start", 15_000);
+    otlp.reset();
+
+    await page.getByTestId("network-lab-xhr-timeout").click();
+    await expect(page.getByText(/xhr\.timeout/)).toBeVisible({
+      timeout: 25_000,
+    });
+
+    await flushTraceExport(page);
+    const span = await pollLastNetworkZeroTransportErrorSpan(otlp);
+
+    expect(getOtlpSpanStatusCode(span)).toBe(OTLP_SPAN_STATUS_ERROR);
+    expect(getAttr(span.attributes, "pulse.type")).toBe("network.0");
+    expect(getAttr(span.attributes, "error.type")).toBe("network_error");
+    expect(getAttr(span.attributes, "session.id")).toBeTruthy();
+    expect(getAttr(span.attributes, "screen.name")).toBeTruthy();
+  });
+
+  test("Network Lab: XHR abort emits network.0, network_error, OTLP ERROR", async ({
+    page,
+    otlp,
+  }) => {
+    await page.route("https://httpstat.us/**", async (route) => {
+      await new Promise((r) => setTimeout(r, 10_000));
+      await route.fulfill({ status: 200, body: "{}" });
+    });
+
+    await page.goto("/network-lab");
+    await waitForPulseWebInitialized(page);
+    await otlp.waitForLog("session.start", 15_000);
+    otlp.reset();
+
+    await page.getByTestId("network-lab-xhr-abort").click();
+    await expect(page.getByText(/xhr\.abort/)).toBeVisible({
+      timeout: 25_000,
+    });
+
+    await flushTraceExport(page);
+    const span = await pollLastNetworkZeroTransportErrorSpan(otlp);
+
+    expect(getOtlpSpanStatusCode(span)).toBe(OTLP_SPAN_STATUS_ERROR);
+    expect(getAttr(span.attributes, "pulse.type")).toBe("network.0");
+    expect(getAttr(span.attributes, "error.type")).toBe("network_error");
     expect(getAttr(span.attributes, "session.id")).toBeTruthy();
     expect(getAttr(span.attributes, "screen.name")).toBeTruthy();
   });
@@ -383,7 +464,8 @@ test.describe("@M4 network e2e", () => {
     otlp.reset();
 
     await page.evaluate(async () => {
-      /* localhost vs 127.0.0.1 = cross-origin; no-cors → opaque response, status 0 in Chromium */
+      /* Dev server is :3099; `localhost` vs `127.0.0.1` is cross-origin. `page.route` still
+       * intercepts `/pulse-e2e-network/*` on 127.0.0.1. no-cors → opaque response, status 0 in Chromium. */
       await fetch("http://127.0.0.1:3099/pulse-e2e-network/cors-opaque/x", {
         mode: "no-cors",
         credentials: "omit",

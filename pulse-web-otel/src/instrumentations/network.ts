@@ -5,59 +5,30 @@ import type {
   PulseInstrumentation,
   SdkContext,
 } from "../instrumentation-registry";
-import type { Span } from "@opentelemetry/api";
 import {
   applyPulseHttpClientSpanAttributes,
   buildNetworkIgnoreUrls,
-  getOtelHttpUrlFromSpan,
+  getOtelHttpRequestMethodFromSpan,
   methodFromOtelClientSpanName,
+  requestHeaderGetter,
+  resolveFetchMethod,
+  resolveFetchStatus,
+  resolveFetchUrl,
   type NetworkSpanOptionalConfig,
 } from "../utils/network-http";
 
-function resolveFetchUrl(
-  span: Span,
-  request: Request | RequestInit,
-  result: Response | unknown,
-): string {
-  if (result instanceof Response && result.url) {
-    return result.url;
+/** Never throws — each upstream {@code disable()} runs even if a sibling fails. */
+function disableInstrumentationBestEffort(
+  instr: { disable(): void } | undefined,
+): void {
+  if (!instr) {
+    return;
   }
-  if (request instanceof Request) {
-    return request.url;
+  try {
+    instr.disable();
+  } catch {
+    /* OTel unpatch can throw in odd test/env setups */
   }
-  return getOtelHttpUrlFromSpan(span);
-}
-
-function resolveFetchMethod(request: Request | RequestInit): string {
-  if (request instanceof Request) {
-    return request.method;
-  }
-  const m = request.method;
-  return typeof m === "string" ? m : "GET";
-}
-
-function resolveFetchStatus(result: unknown): number | undefined {
-  if (result instanceof Response) {
-    return result.status;
-  }
-  if (typeof result === "object" && result !== null && "status" in result) {
-    const s = (result as { status?: number }).status;
-    return typeof s === "number" ? s : undefined;
-  }
-  return undefined;
-}
-
-function requestHeaderGetter(
-  request: Request | RequestInit,
-): ((name: string) => string | null) | undefined {
-  if (request instanceof Request) {
-    return (name: string) => request.headers.get(name);
-  }
-  const h = request.headers;
-  if (h instanceof Headers) {
-    return (name: string) => h.get(name);
-  }
-  return undefined;
 }
 
 export class NetworkInstrumentation implements PulseInstrumentation {
@@ -69,9 +40,10 @@ export class NetworkInstrumentation implements PulseInstrumentation {
   private instrumentsActive = false;
 
   install(sdk: SdkContext): void {
-    if (typeof window === "undefined") {
+    if (this.instrumentsActive || typeof window === "undefined") {
       return;
     }
+
     const provider = sdk.tracerProvider;
     if (!provider) {
       return;
@@ -104,7 +76,8 @@ export class NetworkInstrumentation implements PulseInstrumentation {
         const resolvedUrl =
           resolveFetchUrl(span, request, result) ||
           (request instanceof Request ? request.url : "");
-        const method = resolveFetchMethod(request);
+        const method =
+          getOtelHttpRequestMethodFromSpan(span) ?? resolveFetchMethod(request);
         const statusCode = resolveFetchStatus(result);
         const perfLookup =
           result instanceof Response ? result.url : resolvedUrl;
@@ -122,7 +95,6 @@ export class NetworkInstrumentation implements PulseInstrumentation {
             result instanceof Response
               ? (name: string) => result.headers.get(name)
               : undefined,
-          graphqlRequestBody: undefined,
         });
       },
     });
@@ -140,7 +112,9 @@ export class NetworkInstrumentation implements PulseInstrumentation {
         }
         const url = xhr.responseURL || "";
         const opaque = span as unknown as { name?: string };
-        const method = methodFromOtelClientSpanName(opaque.name);
+        const method =
+          getOtelHttpRequestMethodFromSpan(span) ??
+          methodFromOtelClientSpanName(opaque.name);
         const statusCode = xhr.status;
 
         applyPulseHttpClientSpanAttributes({
@@ -153,7 +127,6 @@ export class NetworkInstrumentation implements PulseInstrumentation {
           perfLookupUrl: url || undefined,
           requestHeaderGet: undefined,
           responseHeaderGet: (name) => xhr.getResponseHeader(name),
-          graphqlRequestBody: undefined,
         });
       },
     });
@@ -170,9 +143,12 @@ export class NetworkInstrumentation implements PulseInstrumentation {
       return;
     }
     this.instrumentsActive = false;
-    this.fetchInstr?.disable();
-    this.xhrInstr?.disable();
-    this.fetchInstr = undefined;
-    this.xhrInstr = undefined;
+    try {
+      disableInstrumentationBestEffort(this.fetchInstr);
+      disableInstrumentationBestEffort(this.xhrInstr);
+    } finally {
+      this.fetchInstr = undefined;
+      this.xhrInstr = undefined;
+    }
   }
 }

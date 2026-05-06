@@ -10,6 +10,13 @@
 | Header allowlists | Captured request/response headers | Same keys (`http.request.header.*`, `http.response.header.*`) |
 | Errors | 4xx/5xx / transport errors → span error + `error.type` classification | Same intent (`error.type`: `4xx`/`5xx`/`network_error`/`cors_error`) |
 
+## React Native (semantic mapping)
+
+| Topic | Notes |
+|-------|-------|
+| HTTP attribute keys | RN uses internal `ATTRIBUTE_KEYS` in `pulse-react-native-otel/src/network-interceptor/span-helpers.ts` — not necessarily the literal OTel string constants in source. |
+| Parity with web | Align on semantics: `pulse.type` = `network.<statusCode>`, method, URL, status / error classification — not on grepping identical attribute key spellings in TS files. |
+
 ## Web-only
 
 | Topic | Notes |

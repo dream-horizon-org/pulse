@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 
 type ScenarioKind = "fetch" | "xhr";
 
@@ -14,6 +14,8 @@ type Scenario = {
   label: string;
   kind: ScenarioKind;
   expected: string;
+  /** Calls jsonplaceholder / httpstat / example.com — runnable only in Vite dev (Playwright uses dev). */
+  thirdParty?: boolean;
   run: () => Promise<string>;
 };
 
@@ -61,6 +63,15 @@ function runXhr(request: XhrRequest): Promise<string> {
 
 export default function NetworkLab() {
   const [results, setResults] = useState<Record<string, ScenarioResult>>({});
+  const thirdPartyDemoAllowed = import.meta.env.DEV;
+
+  useEffect(() => {
+    if (!thirdPartyDemoAllowed) {
+      console.info(
+        "[NetworkLab] Third-party demo scenarios are hidden in production builds.",
+      );
+    }
+  }, [thirdPartyDemoAllowed]);
 
   const scenarios = useMemo<Scenario[]>(
     () => [
@@ -90,6 +101,7 @@ export default function NetworkLab() {
         id: "fetch-post-json",
         label: "Fetch POST JSON body",
         kind: "fetch",
+        thirdParty: true,
         expected: "network.201 or network.200",
         run: async () => {
           const response = await fetch(
@@ -114,6 +126,7 @@ export default function NetworkLab() {
         id: "fetch-put-json",
         label: "Fetch PUT JSON body",
         kind: "fetch",
+        thirdParty: true,
         expected: "network.200",
         run: async () => {
           const response = await fetch(
@@ -138,6 +151,7 @@ export default function NetworkLab() {
         id: "fetch-delete",
         label: "Fetch DELETE request",
         kind: "fetch",
+        thirdParty: true,
         expected: "network.200",
         run: async () => {
           const response = await fetch(
@@ -163,6 +177,7 @@ export default function NetworkLab() {
         id: "fetch-500",
         label: "Fetch 500 remote endpoint",
         kind: "fetch",
+        thirdParty: true,
         expected: "network.500 (or network.0 if CORS blocks)",
         run: async () => {
           const response = await fetch("https://httpstat.us/500");
@@ -173,6 +188,7 @@ export default function NetworkLab() {
         id: "fetch-abort",
         label: "Fetch AbortController immediate abort",
         kind: "fetch",
+        thirdParty: true,
         expected: "network.0 + error.type=network_error",
         run: async () => {
           const controller = new AbortController();
@@ -188,6 +204,7 @@ export default function NetworkLab() {
         id: "fetch-timeout",
         label: "Fetch timeout-style abort after 800ms",
         kind: "fetch",
+        thirdParty: true,
         expected: "network.0 + error.type=network_error",
         run: async () => {
           const controller = new AbortController();
@@ -206,6 +223,7 @@ export default function NetworkLab() {
         id: "fetch-no-cors",
         label: "Fetch no-cors opaque request",
         kind: "fetch",
+        thirdParty: true,
         expected: "network.0 (opaque/cors path)",
         run: async () => {
           await fetch("https://example.com", {
@@ -231,6 +249,7 @@ export default function NetworkLab() {
         id: "xhr-post-json",
         label: "XHR POST JSON",
         kind: "xhr",
+        thirdParty: true,
         expected: "network.201 or network.200",
         run: async () => {
           return runXhr({
@@ -264,6 +283,7 @@ export default function NetworkLab() {
         id: "xhr-timeout",
         label: "XHR timeout 700ms",
         kind: "xhr",
+        thirdParty: true,
         expected: "network.0 + error.type=network_error",
         run: async () => {
           return runXhr({
@@ -277,6 +297,7 @@ export default function NetworkLab() {
         id: "xhr-abort",
         label: "XHR abort after 200ms",
         kind: "xhr",
+        thirdParty: true,
         expected: "network.0 + error.type=network_error",
         run: async () => {
           return runXhr({
@@ -311,8 +332,15 @@ export default function NetworkLab() {
     }
   }
 
+  const runnableScenarioCount = scenarios.filter(
+    (s) => !s.thirdParty || thirdPartyDemoAllowed,
+  ).length;
+
   async function runAllScenarios(): Promise<void> {
     for (const scenario of scenarios) {
+      if (scenario.thirdParty && !thirdPartyDemoAllowed) {
+        continue;
+      }
       await runScenario(scenario);
       await new Promise((resolve) => window.setTimeout(resolve, 200));
     }
@@ -331,9 +359,10 @@ export default function NetworkLab() {
         Network Instrumentation Lab
       </h1>
       <p style={{ color: "#475569", marginTop: 0, marginBottom: 20 }}>
-        Trigger 15 API-call patterns manually. Open Pulse Debug Panel (Shift+P)
-        to inspect captured spans and verify <code>pulse.type</code>, status,
-        and attrs.
+        Trigger {runnableScenarioCount} runnable API-call pattern
+        {runnableScenarioCount === 1 ? "" : "s"} manually (third-party demos only
+        in dev). Open Pulse Debug Panel (Shift+P) to inspect captured spans and
+        verify <code>pulse.type</code>, status, and attrs.
       </p>
       <div
         style={{
@@ -368,12 +397,13 @@ export default function NetworkLab() {
             cursor: "pointer",
           }}
         >
-          Run All (15)
+          Run All ({runnableScenarioCount})
         </button>
       </div>
       <div style={{ display: "grid", gap: 10 }}>
         {scenarios.map((scenario) => {
           const result = results[scenario.id] ?? { status: "idle" as const };
+          const gated = Boolean(scenario.thirdParty && !thirdPartyDemoAllowed);
           return (
             <div
               key={scenario.id}
@@ -407,27 +437,42 @@ export default function NetworkLab() {
                   {result.details ? ` — ${result.details}` : ""}
                 </div>
               </div>
-              <button
-                type="button"
-                data-testid={`network-lab-${scenario.id}`}
-                onClick={() => {
-                  void runScenario(scenario);
-                }}
-                disabled={result.status === "running"}
-                style={{
-                  background:
-                    result.status === "running" ? "#94a3b8" : "#0f172a",
-                  color: "#fff",
-                  border: "none",
-                  borderRadius: 8,
-                  padding: "9px 14px",
-                  fontWeight: 700,
-                  cursor:
-                    result.status === "running" ? "not-allowed" : "pointer",
-                }}
-              >
-                {result.status === "running" ? "Running..." : "Run"}
-              </button>
+              {gated ? (
+                <div
+                  style={{
+                    fontSize: 13,
+                    color: "#64748b",
+                    textAlign: "right",
+                    maxWidth: 220,
+                    justifySelf: "end",
+                  }}
+                >
+                  Production build — third-party requests disabled for artifact
+                  safety.
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  data-testid={`network-lab-${scenario.id}`}
+                  onClick={() => {
+                    void runScenario(scenario);
+                  }}
+                  disabled={result.status === "running"}
+                  style={{
+                    background:
+                      result.status === "running" ? "#94a3b8" : "#0f172a",
+                    color: "#fff",
+                    border: "none",
+                    borderRadius: 8,
+                    padding: "9px 14px",
+                    fontWeight: 700,
+                    cursor:
+                      result.status === "running" ? "not-allowed" : "pointer",
+                  }}
+                >
+                  {result.status === "running" ? "Running..." : "Run"}
+                </button>
+              )}
             </div>
           );
         })}

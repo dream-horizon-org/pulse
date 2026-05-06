@@ -65,21 +65,29 @@ and `examples/ecommerce-demo/e2e/m4-network.spec.ts`.
     - action: open `/?pulse_consent=denied`
     - expected: no `session.start`, no network spans
 
+14. **Network Lab — XHR timeout (`httpstat.us` stalled via `page.route`)**
+    - action: click `network-lab-xhr-timeout`
+    - expected: UI `xhr.timeout`; span `pulse.type=network.0`, `error.type=network_error`, OTLP ERROR
+
+15. **Network Lab — XHR abort (`httpstat.us` stalled via `page.route`)**
+    - action: click `network-lab-xhr-abort`
+    - expected: UI `xhr.abort`; span `pulse.type=network.0`, `error.type=network_error`, OTLP ERROR
+
 ## Manual-only Network Lab scenarios (UI buttons present, not E2E asserted yet)
 
+Third-party rows are **dev-only** in `NetworkLab.tsx` (`import.meta.env.DEV`); production builds show a static notice instead of Run.
+
 1. Fetch GET local with query params (`network-lab-fetch-get-query`)
-2. Fetch POST JSON (`network-lab-fetch-post-json`)
-3. Fetch PUT JSON (`network-lab-fetch-put-json`)
-4. Fetch DELETE (`network-lab-fetch-delete`)
-5. Fetch 500 remote endpoint (`network-lab-fetch-500`)
-6. Fetch immediate abort (`network-lab-fetch-abort`)
-7. Fetch timeout-style abort (`network-lab-fetch-timeout`)
-8. Fetch no-cors opaque (`network-lab-fetch-no-cors`)
+2. Fetch POST JSON (`network-lab-fetch-post-json`) — dev only
+3. Fetch PUT JSON (`network-lab-fetch-put-json`) — dev only
+4. Fetch DELETE (`network-lab-fetch-delete`) — dev only
+5. Fetch 500 remote endpoint (`network-lab-fetch-500`) — dev only
+6. Fetch immediate abort (`network-lab-fetch-abort`) — dev only
+7. Fetch timeout-style abort (`network-lab-fetch-timeout`) — dev only
+8. Fetch no-cors opaque (`network-lab-fetch-no-cors`) — dev only
 9. XHR GET local JSON (`network-lab-xhr-get-local`)
-10. XHR POST JSON (`network-lab-xhr-post-json`)
+10. XHR POST JSON (`network-lab-xhr-post-json`) — dev only
 11. XHR 404 (`network-lab-xhr-404`)
-12. XHR timeout (`network-lab-xhr-timeout`)
-13. XHR abort (`network-lab-xhr-abort`)
 
 ## Quick verify checklist (manual)
 

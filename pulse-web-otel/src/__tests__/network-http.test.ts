@@ -1,18 +1,145 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Span } from "@opentelemetry/api";
 import { SpanStatusCode } from "@opentelemetry/api";
 
+import { PulseWebSemconv } from "../semconv";
 import {
   applyPulseHttpClientSpanAttributes,
   buildNetworkIgnoreUrls,
   extractGraphQlMeta,
+  getOtelHttpRequestMethodFromSpan,
   getOtelHttpUrlFromSpan,
+  isSensitiveCapturedHeaderName,
+  isSensitiveQueryParamName,
   methodFromOtelClientSpanName,
   networkProtocolVersionFromNextHop,
   networkPulseType,
+  requestHeaderGetter,
+  resolveFetchMethod,
+  resolveFetchStatus,
+  resolveFetchUrl,
   resourceTimingProtocolVersion,
   sanitizeHttpUrl,
 } from "../utils/network-http";
+
+const DENY = PulseWebSemconv.SensitiveCapturedHeaderName;
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
+
+describe("resolveFetchMethod", () => {
+  it("reads method from Request", () => {
+    const req = new Request("https://a.test/", { method: "POST" });
+    expect(resolveFetchMethod(req)).toBe("POST");
+  });
+
+  it("defaults to GET when RequestInit.method missing", () => {
+    expect(resolveFetchMethod({})).toBe("GET");
+  });
+});
+
+describe("resolveFetchStatus", () => {
+  it("reads Response.status", () => {
+    expect(resolveFetchStatus(new Response("", { status: 418 }))).toBe(418);
+  });
+
+  it("returns undefined for non-Response without status", () => {
+    expect(resolveFetchStatus(undefined)).toBeUndefined();
+  });
+});
+
+describe("resolveFetchUrl", () => {
+  it("prefers Response.url when present", () => {
+    const res = new Response("", {});
+    Object.defineProperty(res, "url", {
+      value: "https://final.example/api",
+      configurable: true,
+    });
+    const span = { attributes: {} } as unknown as import("@opentelemetry/api").Span;
+    expect(
+      resolveFetchUrl(span, { method: "GET" } as RequestInit, res),
+    ).toBe("https://final.example/api");
+  });
+
+  it("prefers Response.url over Request.url after redirect", () => {
+    const req = new Request("https://start.example/redirect");
+    const res = new Response("", {});
+    Object.defineProperty(res, "url", {
+      value: "https://final.example/after-redirect",
+      configurable: true,
+    });
+    const span = { attributes: {} } as unknown as import("@opentelemetry/api").Span;
+    expect(resolveFetchUrl(span, req, res)).toBe(
+      "https://final.example/after-redirect",
+    );
+  });
+});
+
+describe("requestHeaderGetter", () => {
+  it("returns undefined when RequestInit has no headers", () => {
+    expect(requestHeaderGetter({ method: "GET" })).toBeUndefined();
+  });
+
+  it("reads plain-object headers case-insensitively", () => {
+    const get = requestHeaderGetter({
+      method: "POST",
+      headers: { "X-Custom": "a", "Content-Length": "256" },
+    });
+    expect(get?.("x-custom")).toBe("a");
+    expect(get?.("CONTENT-LENGTH")).toBe("256");
+  });
+
+  it("reads HeadersInit tuple array", () => {
+    const get = requestHeaderGetter({
+      headers: [
+        ["Content-Type", "application/json"],
+        ["X-Foo", "bar"],
+      ],
+    });
+    expect(get?.("content-type")).toBe("application/json");
+    expect(get?.("X-FOO")).toBe("bar");
+  });
+
+  it("delegates to Request.headers for Request input", () => {
+    const req = new Request("https://a.test/", {
+      headers: { "X-Req": "1" },
+    });
+    const get = requestHeaderGetter(req);
+    expect(get?.("x-req")).toBe("1");
+  });
+});
+
+describe("isSensitiveQueryParamName", () => {
+  it("flags common secret-like keys case-insensitively", () => {
+    expect(isSensitiveQueryParamName("access_token")).toBe(true);
+    expect(isSensitiveQueryParamName("refresh_token")).toBe(true);
+    expect(isSensitiveQueryParamName("client_secret")).toBe(true);
+    expect(isSensitiveQueryParamName("API_KEY")).toBe(true);
+  });
+
+  it("allows non-sensitive keys", () => {
+    expect(isSensitiveQueryParamName("page")).toBe(false);
+    expect(isSensitiveQueryParamName("sort")).toBe(false);
+  });
+});
+
+describe("isSensitiveCapturedHeaderName", () => {
+  it("flags auth and cookie headers case-insensitively", () => {
+    expect(isSensitiveCapturedHeaderName("Authorization")).toBe(true);
+    expect(isSensitiveCapturedHeaderName(DENY.AUTHORIZATION)).toBe(true);
+    expect(isSensitiveCapturedHeaderName(DENY.COOKIE)).toBe(true);
+    expect(isSensitiveCapturedHeaderName(DENY.SET_COOKIE)).toBe(true);
+    expect(isSensitiveCapturedHeaderName("X-Api-Key")).toBe(true);
+    expect(isSensitiveCapturedHeaderName(DENY.X_AUTH_TOKEN)).toBe(true);
+    expect(isSensitiveCapturedHeaderName(DENY.PROXY_AUTHORIZATION)).toBe(true);
+  });
+
+  it("allows safe header names", () => {
+    expect(isSensitiveCapturedHeaderName("content-type")).toBe(false);
+    expect(isSensitiveCapturedHeaderName("x-request-id")).toBe(false);
+  });
+});
 
 describe("networkPulseType", () => {
   it("maps status code to network.<code>", () => {
@@ -71,6 +198,17 @@ describe("network-http helpers", () => {
     ).toBe("https://api.example.com/path");
   });
 
+  it("sanitizeHttpUrl redacts sensitive query values when captureQueryParams is true", () => {
+    const out = sanitizeHttpUrl(
+      "https://api.example.com/search?token=secret&q=ok",
+      { captureQueryParams: true },
+    );
+    expect(out).toContain("q=ok");
+    expect(out).toContain("token=");
+    expect(out).toContain("***");
+    expect(out).not.toContain("secret");
+  });
+
   it("buildNetworkIgnoreUrls matches OTLP prefix", () => {
     const ignored = buildNetworkIgnoreUrls("http://localhost:8080");
     const target = "http://localhost:8080/v1/traces";
@@ -93,7 +231,17 @@ describe("network-http helpers", () => {
 });
 
 describe("getOtelHttpUrlFromSpan", () => {
-  it("reads deprecated http.url from SDK span bag", () => {
+  it("prefers url.full over deprecated http.url when both exist", () => {
+    const span = {
+      attributes: {
+        [PulseWebSemconv.AttributeKey.URL_FULL]: "https://stable.example/a",
+        "http.url": "http://legacy.example/b",
+      },
+    } as unknown as import("@opentelemetry/api").Span;
+    expect(getOtelHttpUrlFromSpan(span)).toBe("https://stable.example/a");
+  });
+
+  it("reads deprecated http.url when url.full absent", () => {
     const span = {
       attributes: { "http.url": "http://localhost/foo/bar" },
     } as unknown as import("@opentelemetry/api").Span;
@@ -105,6 +253,31 @@ describe("getOtelHttpUrlFromSpan", () => {
       attributes: {},
     } as unknown as import("@opentelemetry/api").Span;
     expect(getOtelHttpUrlFromSpan(span)).toBe("");
+  });
+});
+
+describe("getOtelHttpRequestMethodFromSpan", () => {
+  it("reads http.request.method from span attributes", () => {
+    const span = {
+      attributes: {
+        [PulseWebSemconv.AttributeKey.HTTP_REQUEST_METHOD]: "post",
+      },
+    } as unknown as import("@opentelemetry/api").Span;
+    expect(getOtelHttpRequestMethodFromSpan(span)).toBe("POST");
+  });
+
+  it("accepts legacy http.request.method string key", () => {
+    const span = {
+      attributes: { "http.request.method": "PATCH" },
+    } as unknown as import("@opentelemetry/api").Span;
+    expect(getOtelHttpRequestMethodFromSpan(span)).toBe("PATCH");
+  });
+
+  it("returns undefined when missing", () => {
+    const span = {
+      attributes: {},
+    } as unknown as import("@opentelemetry/api").Span;
+    expect(getOtelHttpRequestMethodFromSpan(span)).toBeUndefined();
   });
 });
 
@@ -144,8 +317,6 @@ describe("resourceTimingProtocolVersion", () => {
     expect(resourceTimingProtocolVersion("https://api.example.com/z")).toBe(
       "2",
     );
-
-    vi.restoreAllMocks();
   });
 });
 
@@ -167,7 +338,6 @@ describe("applyPulseHttpClientSpanAttributes", () => {
       privacy: { captureQueryParams: false },
       optional: undefined,
       perfLookupUrl: "https://api.example.com/items",
-      graphqlRequestBody: undefined,
     });
 
     expect(attrs["pulse.type"]).toBe("network.200");
@@ -195,10 +365,37 @@ describe("applyPulseHttpClientSpanAttributes", () => {
       privacy: { captureQueryParams: false },
       optional: undefined,
       perfLookupUrl: "http://api.example.com:8080/items",
-      graphqlRequestBody: undefined,
     });
 
     expect(attrs["server.port"]).toBe(8080);
+  });
+
+  it("sets http.request.body.size from plain-object Content-Length via requestHeaderGetter", () => {
+    const attrs: Record<string, unknown> = {};
+    const span = {
+      setAttribute: (k: string, v: string | number | boolean) => {
+        attrs[k] = v;
+      },
+      setStatus: vi.fn(),
+    } as unknown as Span;
+
+    applyPulseHttpClientSpanAttributes({
+      span,
+      resolvedUrl: "https://api.example.com/items",
+      method: "POST",
+      statusCode: 200,
+      privacy: { captureQueryParams: false },
+      optional: undefined,
+      requestHeaderGet: requestHeaderGetter({
+        method: "POST",
+        headers: { "Content-Length": "256" },
+      }),
+      perfLookupUrl: "https://api.example.com/items",
+    });
+
+    expect(attrs[PulseWebSemconv.AttributeKey.HTTP_REQUEST_BODY_SIZE]).toBe(
+      256,
+    );
   });
 
   it("returns early with error when resolvedUrl empty", () => {
@@ -296,6 +493,52 @@ describe("applyPulseHttpClientSpanAttributes", () => {
     expect(attrs["pulse.type"]).toBe("network.0");
     expect(attrs["error.type"]).toBe("network_error");
     expect(attrs["http.response.status_code"]).toBeUndefined();
+  });
+
+  it("does not copy denylisted headers even when optional capture lists them", () => {
+    const attrs: Record<string, unknown> = {};
+    const span = {
+      setAttribute: (k: string, v: string | number | boolean) => {
+        attrs[k] = v;
+      },
+      setStatus: vi.fn(),
+    } as unknown as Span;
+
+    applyPulseHttpClientSpanAttributes({
+      span,
+      resolvedUrl: "https://api.example.com/items",
+      method: "GET",
+      statusCode: 200,
+      privacy: { captureQueryParams: false },
+      optional: {
+        capturedRequestHeaders: [DENY.AUTHORIZATION, "X-Request-Id"],
+        capturedResponseHeaders: [DENY.SET_COOKIE, "Content-Type"],
+      },
+      perfLookupUrl: "https://api.example.com/items",
+      requestHeaderGet: (name) => {
+        if (name.toLowerCase() === DENY.AUTHORIZATION) {
+          return "Bearer secret";
+        }
+        if (name.toLowerCase() === "x-request-id") {
+          return "req-123";
+        }
+        return null;
+      },
+      responseHeaderGet: (name) => {
+        if (name.toLowerCase() === DENY.SET_COOKIE) {
+          return "session=abc";
+        }
+        if (name.toLowerCase() === "content-type") {
+          return "application/json";
+        }
+        return null;
+      },
+    });
+
+    expect(attrs["http.request.header.authorization"]).toBeUndefined();
+    expect(attrs["http.request.header.x-request-id"]).toBe("req-123");
+    expect(attrs["http.response.header.set-cookie"]).toBeUndefined();
+    expect(attrs["http.response.header.content-type"]).toBe("application/json");
   });
 
   it("status 0 (opaque / CORS) → network.0 and cors_error", () => {

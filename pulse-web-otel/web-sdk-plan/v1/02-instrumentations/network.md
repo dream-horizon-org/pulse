@@ -272,7 +272,7 @@ test('OTLP calls are not traced', async ({ page }) => {
 - [x] Every `fetch()` call produces a span with `pulse.type = network.<code>` and `http.request.method`, `url.full`, `http.response.status_code`, `server.address`
 - [x] XHR calls also produce `network.<code>` spans
 - [x] Pulse's own OTLP endpoints excluded from tracing
-- [x] GraphQL `operation.name` and `operation.type` extracted from POST body
+- [ ] GraphQL `operation.name` / `operation.type` from **Fetch/XHR request body** — **deferred** (body is async; `graphqlRequestBody` + `extractGraphQlMeta` exist for future wiring; unit tests cover parser only)
 - [x] Query params stripped from URL by default
 - [x] `http.request.body.size` / `http.response.body.size` present when `Content-Length` header available
 - [x] `peer.service` set when `peerServiceMap` configured and hostname matches
