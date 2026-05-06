@@ -90,7 +90,7 @@ yarn workspace ecommerce-demo e2e:web-sdk-gates
 ## Useful docs
 
 - Web Vitals (planning): `web-sdk-plan/v2-web-vitals/README.md`
-- milestone criteria: `web-sdk-plan/v1/MILESTONES.md`
+- milestones (index, exit summaries, verification / CH example): `web-sdk-plan/v1/MILESTONES.md`
 - interactions verification: `web-sdk-plan/v1/M2-INTERACTIONS-EXIT-VERIFICATION.md`
 - interactions coverage matrix: `web-sdk-plan/v1/WEB-SDK Interactions test coverage (M2).csv`
 - demo lifecycle notes: `examples/ecommerce-demo/MANUAL-PULSEWEB-LIFECYCLE.md`

@@ -137,6 +137,8 @@ test.describe("@M4 network e2e", () => {
     expect(getAttr(span.attributes, "screen.name")).toBeTruthy();
   });
 
+  // OTel XMLHttpRequestInstrumentation ends the span (and runs applyCustomAttributesOnSpan)
+  // on completion including timeout and abort — otherwise these assertions would never see a span.
   test("Network Lab: XHR timeout emits network.0, network_error, OTLP ERROR", async ({
     page,
     otlp,

@@ -127,6 +127,9 @@ describe("NetworkInstrumentation", () => {
   });
 
   it("applyCustomAttributesOnSpan sets peer.service from peerServiceMap", () => {
+    // FetchInstrumentation is mocked — no real fetch runs. Read the ctor config from our
+    // mock capture (`fetchConfigs`) and invoke `applyCustomAttributesOnSpan` manually (same
+    // shape as vi.mocked(FetchInstrumentation).mock.calls[0][0].applyCustomAttributesOnSpan).
     const instr = new NetworkInstrumentation();
     instr.install(makeSdk());
     const cb = fetchConfigs[0]?.applyCustomAttributesOnSpan;
