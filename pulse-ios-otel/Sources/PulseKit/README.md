@@ -67,7 +67,6 @@ Pulse.shared.initialize(
     instrumentations: { config in
         config.urlSession { $0.setShouldInstrument { $0.url?.scheme == "https" } }
         config.sessions { $0.maxLifetime(2 * 60 * 60) }   // 2 hours
-        config.uiKitTap { $0.enabled(true) }
         config.location { $0.enabled(true) }
     }
 )
@@ -280,8 +279,6 @@ Automatically intercepts user taps via `UIWindow.sendEvent` and emits `app.widge
 
 ```swift
 config.uiKitTap { uiKitTap in
-    uiKitTap.enabled(true)
-
     // Extract label text from tapped views (slightly more CPU-intensive)
     uiKitTap.captureContext(true)
 
@@ -296,7 +293,6 @@ config.uiKitTap { uiKitTap in
 
 | Method                 | Default   | Description                                                                                              |
 | ---------------------- | --------- | -------------------------------------------------------------------------------------------------------- |
-| `enabled(Bool)`        | `false`   | Enable / disable                                                                                         |
 | `captureContext(Bool)` | `false`   | Extract and emit label text from the tapped view. Disable for apps with very large/deep view hierarchies |
 | `rage { }`             | see below | Configure rage-click detection sensitivity                                                               |
 
@@ -336,39 +332,31 @@ Attributes added: `geo.location.lat`, `geo.location.lon`, `geo.country.iso_code`
 
 ### Session Replay _(disabled by default)_
 
-Captures screenshots at a configurable interval, applies privacy masking, and uploads batched replay data. Opt-in due to data volume and privacy implications.
+Captures screenshots at a configurable interval, applies privacy masking, and uploads batched replay data. **Enabled/disabled by the backend via the session replay feature flag;** 
 
 ```swift
 config.sessionReplay { replay in
-    replay.enabled(true)
-
-    replay.configure { replayConfig in
-        replayConfig.captureIntervalMs = 1000          // default: 1000 ms between frames
-        replayConfig.compressionQuality = 0.3          // default: 0.3 (WebP; JPEG fallback)
-        replayConfig.textAndInputPrivacy = .maskAll    // default: .maskAll
-        replayConfig.imagePrivacy = .maskAll           // default: .maskAll
-        replayConfig.screenshotScale = 1.0             // default: 1.0
-        replayConfig.flushIntervalSeconds = 60         // default: 60 s
-        replayConfig.flushAt = 10                      // default: 10 batches
-        replayConfig.maxBatchSize = 50                 // default: 50 batches per flush
-        replayConfig.replayEndpointBaseUrl = nil       // default: uses derived collector base from apiKey
-    }
+    // Add view classes to always mask
+    replay.addMaskViewClass("MyApp.SensitiveView")
+    
+    // Add view classes to never mask
+    replay.addUnmaskViewClass("MyApp.PublicView")
 }
 ```
 
 | `SessionReplayConfig` property | Default    | Description                                                                |
 | ------------------------------ | ---------- | -------------------------------------------------------------------------- |
-| `captureIntervalMs`            | `1000`     | Milliseconds between screenshot captures                                   |
-| `compressionQuality`           | `0.3`      | WebP/JPEG quality (0.0 = smallest, 1.0 = lossless)                         |
-| `textAndInputPrivacy`          | `.maskAll` | `.maskAll` · `.maskAllInputs` · `.maskSensitiveInputs`                     |
-| `imagePrivacy`                 | `.maskAll` | `.maskAll` · `.maskNone`                                                   |
-| `screenshotScale`              | `1.0`      | Screenshot resolution scale relative to screen scale                       |
-| `flushIntervalSeconds`         | `60`       | Time-based flush interval                                                  |
-| `flushAt`                      | `10`       | Flush when this many batches accumulate                                    |
-| `maxBatchSize`                 | `50`       | Maximum batches included in a single flush                                 |
-| `replayEndpointBaseUrl`        | `nil`      | Custom replay endpoint; uses derived collector base from `apiKey` when nil |
-| `maskViewClasses`              | `[]`       | Class names to always mask (by class name string)                          |
-| `unmaskViewClasses`            | `[]`       | Class names to always unmask                                               |
+| `captureIntervalMs`            | `1000`     | Milliseconds between screenshot captures (backend-controlled)               |
+| `compressionQuality`           | `0.3`      | WebP/JPEG quality 0.0–1.0 (backend-controlled)                             |
+| `textAndInputPrivacy`          | `.maskAll` | Privacy policy: `.maskAll` · `.maskAllInputs` · `.maskSensitiveInputs`     |
+| `imagePrivacy`                 | `.maskAll` | Privacy policy: `.maskAll` · `.maskNone` (backend-controlled)               |
+| `screenshotScale`              | `1.0`      | Screenshot resolution scale (backend-controlled)                           |
+| `flushIntervalSeconds`         | `60`       | Time-based flush interval (backend-controlled)                             |
+| `flushAt`                      | `10`       | Flush when this many batches accumulate (backend-controlled)                |
+| `maxBatchSize`                 | `50`       | Maximum batches per flush (backend-controlled)                             |
+| `replayEndpointBaseUrl`        | `nil`      | Custom replay endpoint (backend-controlled)                                |
+| `maskViewClasses`              | `[]`       | Class names to always mask (code-configurable)                             |
+| `unmaskViewClasses`            | `[]`       | Class names to always unmask (code-configurable)                           |
 
 > UIKit-first. SwiftUI is not reliably supported. See [Session Replay README](../Instrumentation/SessionReplay/README.md).
 

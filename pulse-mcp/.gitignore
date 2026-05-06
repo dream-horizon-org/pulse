@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+
+# Build output (tsc → dist/; optional local bin/ scripts)
+dist/
+bin/
+
+# Local secrets (see .env.example)
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# TypeScript incremental build
+*.tsbuildinfo
+
+# Coverage
+coverage/
+
+# OS / editor noise
+.DS_Store
+*.swp
+*.swo

@@ -1,0 +1,4 @@
+.container {
+  padding: var(--mantine-spacing-xl);
+  max-width: 800px;
+}

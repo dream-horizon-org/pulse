@@ -9,8 +9,12 @@ import static org.mockito.Mockito.when;
 
 import io.reactivex.rxjava3.core.Maybe;
 import io.reactivex.rxjava3.core.Single;
+import java.time.LocalDateTime;
 import java.util.List;
 import org.dreamhorizon.pulseserver.client.chclient.ClickhouseWriteClient;
+import org.dreamhorizon.pulseserver.dao.analyticsjob.AnalyticsJobDao;
+import org.dreamhorizon.pulseserver.dao.analyticsjob.AnalyticsJobStatus;
+import org.dreamhorizon.pulseserver.dao.analyticsjob.AnalyticsJobType;
 import org.dreamhorizon.pulseserver.dao.productAnalysis.funneldefinition.FunnelDefinitionDao;
 import org.dreamhorizon.pulseserver.dao.productAnalysis.funneldefinition.models.FunnelDefinitionRow;
 import org.dreamhorizon.pulseserver.dao.productAnalysis.journey.JourneyDao;
@@ -18,6 +22,7 @@ import org.dreamhorizon.pulseserver.dao.productAnalysis.journey.models.JourneyRo
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentMatchers;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -33,13 +38,37 @@ class ClickHouseComputeServiceTest {
   JourneyDao journeyDao;
 
   @Mock
+  AnalyticsJobDao analyticsJobDao;
+
+  @Mock
   ClickhouseWriteClient clickhouseWriteClient;
 
   ClickHouseComputeService service;
 
   @BeforeEach
   void setUp() {
-    service = new ClickHouseComputeService(funnelDefinitionDao, journeyDao, clickhouseWriteClient);
+    service = new ClickHouseComputeService(
+        funnelDefinitionDao, journeyDao, analyticsJobDao, clickhouseWriteClient);
+  }
+
+  /**
+   * Stubs the per-item analytics_jobs lifecycle so batch tests don't have to set it up
+   * individually. RUNNING insert returns id=1, status updates return rowCount=1.
+   */
+  private void stubAnalyticsJobLifecycle() {
+    when(analyticsJobDao.insertJob(
+            ArgumentMatchers.any(AnalyticsJobType.class),
+            ArgumentMatchers.anyLong(),
+            ArgumentMatchers.isNull(),
+            ArgumentMatchers.eq(AnalyticsJobStatus.RUNNING)))
+        .thenReturn(Single.just(1L));
+    when(analyticsJobDao.updateJobStatus(
+            ArgumentMatchers.anyLong(),
+            ArgumentMatchers.any(AnalyticsJobStatus.class),
+            ArgumentMatchers.any(),
+            ArgumentMatchers.any(LocalDateTime.class),
+            ArgumentMatchers.any(LocalDateTime.class)))
+        .thenReturn(Single.just(1));
   }
 
   private FunnelDefinitionRow funnelRow() {
@@ -106,9 +135,62 @@ class ClickHouseComputeServiceTest {
     JourneyRow start = journeyRowWithDirection(1L, "START");
     JourneyRow end = journeyRowWithDirection(2L, "END");
     when(clickhouseWriteClient.executeSql(anyString())).thenReturn(Single.just(true));
+    stubAnalyticsJobLifecycle();
 
     assertThat(service.computeJourneyBatch(PROJECT, List.of(start, end)).blockingGet()).isTrue();
-    verify(clickhouseWriteClient, times(2)).executeSql(org.mockito.ArgumentMatchers.anyString());
+    verify(clickhouseWriteClient, times(2)).executeSql(ArgumentMatchers.anyString());
+  }
+
+  @Test
+  void computeJourneyBatch_recordsPerJourneyJobRowsWithReferenceId() {
+    // Each journey in the batch must get its own analytics_jobs row with reference_id
+    // set to the journey id, so the listing's latest_job_status subquery resolves.
+    JourneyRow start = journeyRowWithDirection(1L, "START");
+    JourneyRow end = journeyRowWithDirection(2L, "END");
+    when(clickhouseWriteClient.executeSql(anyString())).thenReturn(Single.just(true));
+    stubAnalyticsJobLifecycle();
+
+    service.computeJourneyBatch(PROJECT, List.of(start, end)).blockingGet();
+
+    verify(analyticsJobDao).insertJob(
+        ArgumentMatchers.eq(AnalyticsJobType.JOURNEY),
+        ArgumentMatchers.eq(1L),
+        ArgumentMatchers.isNull(),
+        ArgumentMatchers.eq(AnalyticsJobStatus.RUNNING));
+    verify(analyticsJobDao).insertJob(
+        ArgumentMatchers.eq(AnalyticsJobType.JOURNEY),
+        ArgumentMatchers.eq(2L),
+        ArgumentMatchers.isNull(),
+        ArgumentMatchers.eq(AnalyticsJobStatus.RUNNING));
+  }
+
+  @Test
+  void computeFunnelBatch_recordsPerFunnelJobRowsWithReferenceId() {
+    // Each funnel in the batch must get its own analytics_jobs row with reference_id
+    // set to the funnel id, so the listing's latest_job_status subquery resolves.
+    FunnelDefinitionRow f1 = FunnelDefinitionRow.builder()
+        .id(7L).projectId(PROJECT).name("F1").funnelType("AUTO").stepOrderType("ORDERED")
+        .mode("UNIQUE_USERS").dateRangeDays(7).windowSeconds(3600L)
+        .stepsJson("[{\"eventName\":\"e1\"}]").filtersJson(null).build();
+    FunnelDefinitionRow f2 = FunnelDefinitionRow.builder()
+        .id(8L).projectId(PROJECT).name("F2").funnelType("AUTO").stepOrderType("ORDERED")
+        .mode("UNIQUE_USERS").dateRangeDays(7).windowSeconds(3600L)
+        .stepsJson("[{\"eventName\":\"e1\"}]").filtersJson(null).build();
+    when(clickhouseWriteClient.executeSql(anyString())).thenReturn(Single.just(true));
+    stubAnalyticsJobLifecycle();
+
+    service.computeFunnelBatch(PROJECT, List.of(f1, f2)).blockingGet();
+
+    verify(analyticsJobDao).insertJob(
+        ArgumentMatchers.eq(AnalyticsJobType.FUNNEL),
+        ArgumentMatchers.eq(7L),
+        ArgumentMatchers.isNull(),
+        ArgumentMatchers.eq(AnalyticsJobStatus.RUNNING));
+    verify(analyticsJobDao).insertJob(
+        ArgumentMatchers.eq(AnalyticsJobType.FUNNEL),
+        ArgumentMatchers.eq(8L),
+        ArgumentMatchers.isNull(),
+        ArgumentMatchers.eq(AnalyticsJobStatus.RUNNING));
   }
 
   private JourneyRow journeyRowWithDirection(long id, String direction) {
