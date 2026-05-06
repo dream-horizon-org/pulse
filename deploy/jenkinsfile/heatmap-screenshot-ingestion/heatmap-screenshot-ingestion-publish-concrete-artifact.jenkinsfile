@@ -55,7 +55,7 @@ pipeline {
         stage('Bump snapshot version') {
             steps {
                 script {
-                    withCredentials([usernamePassword(credentialsId: 'yasir6jan', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_TOKEN')]) {
+                    withCredentials([usernamePassword(credentialsId: 'd11-horizon-bot', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_TOKEN')]) {
                         def nextVersion = bumpSemverMinor(ARTIFACT_VERSION)
                         def nextSnapshot = "${nextVersion}-SNAPSHOT"
                         sh """
