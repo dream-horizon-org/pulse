@@ -42,6 +42,8 @@ export const PulseWebSemconv = {
     NETWORK_EFFECTIVE_TYPE: "network.effective_type",
     NETWORK_RTT: "network.rtt",
     NETWORK_DOWNLINK: "network.downlink",
+    USER_ID: "user.id",
+    PULSE_USER_PREVIOUS_ID: "pulse.user.previous_id",
     EVENT_NAME: "event.name",
     EXCEPTION_TYPE: "exception.type",
     EXCEPTION_MESSAGE: "exception.message",
@@ -49,6 +51,8 @@ export const PulseWebSemconv = {
     ERROR_FILENAME: "error.filename",
     NON_FATAL_TYPE: "non_fatal.type",
     NON_FATAL_IS_MANUAL: "non_fatal.is_manual",
+    /** Init log (`otel.initialization.events`) — exporter wiring hint (Android parity). */
+    SPAN_EXPORTER: "span.exporter",
   },
   FixedValue: {
     PLATFORM_WEB: "web",
@@ -62,11 +66,16 @@ export const PulseWebSemconv = {
     DEVICE_CRASH: "device.crash",
     SESSION_START: "session.start",
     SESSION_END: "session.end",
+    USER_SESSION_START: "pulse.user.session.start",
+    USER_SESSION_END: "pulse.user.session.end",
+    INTERACTION: "interaction",
   },
   LogBody: {
     SESSION_START: "session.start",
     SESSION_END: "session.end",
     APP_INSTALLATION_START: "pulse.app.installation.start",
+    USER_SESSION_START: "pulse.user.session.start",
+    USER_SESSION_END: "pulse.user.session.end",
   },
   /**
    * Init milestones as OTLP **logs** (Android `SdkInitializationEvents` / `RumConstants.Events`).
@@ -75,5 +84,23 @@ export const PulseWebSemconv = {
   RumSdkInit: {
     STARTED: "rum.sdk.init.started",
     SPAN_EXPORTER: "rum.sdk.init.span.exporter",
+  },
+  InteractionAttributeKey: {
+    ID: "pulse.interaction.id",
+    NAME: "pulse.interaction.name",
+    CONFIG_ID: "pulse.interaction.config.id",
+    CONFIG_NAME: "pulse.interaction.config.name",
+    COMPLETE_TIME: "pulse.interaction.complete_time",
+    APDEX_SCORE: "pulse.interaction.apdex_score",
+    USER_CATEGORY: "pulse.interaction.user_category",
+    IS_ERROR: "pulse.interaction.is_error",
+    ERROR_TYPE: "pulse.interaction.error.type",
+    ERROR_MESSAGE: "pulse.interaction.error.message",
+  },
+  InteractionUserCategory: {
+    EXCELLENT: "Excellent",
+    GOOD: "Good",
+    AVERAGE: "Average",
+    POOR: "Poor",
   },
 } as const;

@@ -59,6 +59,7 @@ CREATE TABLE IF NOT EXISTS otel.otel_traces
     INDEX idx_kind          SpanKind          TYPE set(8)              GRANULARITY 1,
     INDEX idx_duration      Duration          TYPE minmax              GRANULARITY 1,
     INDEX idx_ts            Timestamp         TYPE minmax              GRANULARITY 1,
+    INDEX idx_http_url      HttpUrl           TYPE bloom_filter(0.01)  GRANULARITY 1,
     INDEX idx_http_host     HttpHost          TYPE bloom_filter(0.01)  GRANULARITY 1,
     INDEX idx_http_method   HttpMethod        TYPE set(16)             GRANULARITY 1,
     INDEX idx_http_status   HttpStatusCode    TYPE minmax              GRANULARITY 1,
