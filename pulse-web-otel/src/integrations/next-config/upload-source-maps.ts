@@ -39,6 +39,11 @@ export async function uploadSourceMaps(
     return true;
   }
 
+  if (!options.apiKey) {
+    console.error("[Pulse] Source map upload skipped: apiKey is empty.");
+    return false;
+  }
+
   if (options.dryRun) {
     console.log(
       `[Pulse] dry-run: would upload ${files.length} source map(s) for v${options.appVersion}`,

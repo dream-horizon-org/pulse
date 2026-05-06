@@ -176,6 +176,13 @@ export function withPulseConfig(
     return nextConfig;
   }
 
+  if (!apiKey) {
+    throw new Error(
+      "[Pulse] withPulseConfig: apiKey is required for source map upload. " +
+        "Pass it explicitly or set PULSE_API_KEY in your environment.",
+    );
+  }
+
   const pluginOpts: SourceMapUploadOptions & { deleteAfterUpload: boolean } = {
     apiKey,
     serverUrl,

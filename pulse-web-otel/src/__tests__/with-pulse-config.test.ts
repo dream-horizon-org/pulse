@@ -167,6 +167,18 @@ describe("withPulseConfig", () => {
     expect(plugins[0]).toBe(existingPlugin);
   });
 
+  it("throws when apiKey is missing and not disabled", () => {
+    expect(() =>
+      withPulseConfig({}, { apiKey: "", disabled: false }),
+    ).toThrow("[Pulse] withPulseConfig: apiKey is required");
+  });
+
+  it("does NOT throw when apiKey is missing but disabled: true", () => {
+    expect(() =>
+      withPulseConfig({}, { apiKey: "", disabled: true }),
+    ).not.toThrow();
+  });
+
   it("is disabled by default when NODE_ENV is not production", () => {
     const original = process.env.NODE_ENV;
     // NODE_ENV is 'test' in vitest — so disabled defaults to true
@@ -431,6 +443,20 @@ describe("uploadSourceMaps", () => {
     const result = await uploadSourceMaps([], DEFAULT_OPTS);
     expect(result).toBe(true);
     expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("returns false and logs error when apiKey is empty", async () => {
+    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const result = await uploadSourceMaps(
+      [{ fileName: "main.js.map", content: "{}" }],
+      { ...DEFAULT_OPTS, apiKey: "" },
+    );
+    expect(result).toBe(false);
+    expect(fetch).not.toHaveBeenCalled();
+    expect(consoleSpy).toHaveBeenCalledWith(
+      expect.stringContaining("apiKey is empty"),
+    );
+    consoleSpy.mockRestore();
   });
 
   it("returns true on successful upload", async () => {
