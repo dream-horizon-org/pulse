@@ -12,3 +12,14 @@
     in repo; add link to scenarios doc), 006 (RootCauseServiceTest §9 gaps — now
     unblocked since 001 landed). Critical-path next is 004 (seed tuning) once
     matrix is finalised; 005 follows 004.
+
+2026-05-06 — Issue 003 (discoverability skill + doc links) closed.
+  - .cursor/skills/rca-e2e/SKILL.md: added a "When rca-db-audit fails" callout in
+    the validation section linking docs/rca-segmentation-scenarios.md and
+    prd/rca-segmentation-coverage-prd.md (§9 matrix). Paths use ../../../ relative
+    from .cursor/skills/rca-e2e/.
+  - docs/rca-e2e-test-cases.md cross-link to scenarios + PRD was already added in
+    issue 002 (top of doc). No .claude/skills/rca-e2e/SKILL.md exists in the repo
+    today; if added later, mirror the same callout (per grill-me parity rule).
+  - Next unblocked: 006 (RootCauseServiceTest §9 gaps; needs 001 matrix appendix
+    cross-ref), 004 (seed tuning, critical path). 005 still gated on 004.
