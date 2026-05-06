@@ -58,3 +58,28 @@
     today; if added later, mirror the same callout (per grill-me parity rule).
   - Next unblocked: 006 (RootCauseServiceTest §9 gaps; needs 001 matrix appendix
     cross-ref), 004 (seed tuning, critical path). 005 still gated on 004.
+
+2026-05-06 — Issue 005 (strict rca-db-audit dimensions + sort + mode) closed (infra slice).
+  - deploy/scripts/rca-db-audit.py: added `segment_sort_key(seg)` helper returning
+    tuple(sorted(dimensions.items())) — order-independent, deterministic, faithful
+    to the comparison target. Header comment block documents the schema.
+  - EXPECTATIONS gained two optional fields: `expected_dimensions` (list of dicts,
+    strict post-sort equality + hard count-mismatch fail) and `mode` (string,
+    asserted only for the small allowlist).
+  - check_segments now takes `mode` arg. When expected_mode is set → MODE pass/fail
+    line. When expected_dimensions is set → COUNT line on length mismatch, then
+    DIMS#i pass/fail at each post-sort index.
+  - Mode allowlist populated per scenarios doc G2: checkout_start=HIERARCHICAL,
+    notifications_open=FLAT. notifications_open also gets `expected_dimensions: []`
+    (trivially correct everything-good case).
+  - rca-audit.py untouched (AC#6 confirmed — only existing noise/empty-value reads
+    at lines 387/584; no strict map equality added).
+  - docs/rca-segmentation-scenarios.md: revision-history entry added.
+  - issues/rca-seg-005-*.md: ACs ticked (5 of 6); golden `expected_dimensions`
+    lists for the remaining 15 interactions deferred to 007 (per grill-me: record
+    from clean cache after 004 lands, then human review/trim).
+  - Next unblocked: 007 (verification + closeout). Body of 007 is now (a) run
+    seed→generate→cache pipeline, (b) record `expected_dimensions` golden lists
+    from the clean cache for 15 remaining interactions, (c) wire them into
+    EXPECTATIONS, (d) run rca-db-audit + RootCauseServiceTest end-to-end. Needs
+    Docker/CH stack — best for a hands-on session.
