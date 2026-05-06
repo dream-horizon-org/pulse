@@ -110,7 +110,7 @@
     },
     {
       "featureName": "interaction",
-      "sessionSampleRate": 1,
+      "sessionSampleRate": 0,
       "sdks": ["pulse_web_js"],
       "config": null
     },

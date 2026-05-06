@@ -57,6 +57,11 @@ export const PulseWebSemconv = {
     NON_FATAL_IS_MANUAL: "non_fatal.is_manual",
     /** Init log (`otel.initialization.events`) — exporter wiring hint (Android parity). */
     SPAN_EXPORTER: "span.exporter",
+    /** Web vital metric name: LCP, INP, CLS, FCP, FID, TTFB. */
+    WEB_VITAL_NAME: "web_vital.name",
+    WEB_VITAL_VALUE: "web_vital.value",
+    WEB_VITAL_RATING: "web_vital.rating",
+    WEB_VITAL_NAVIGATION_TYPE: "web_vital.navigation_type",
   },
   FixedValue: {
     PLATFORM_WEB: "web",
@@ -73,6 +78,7 @@ export const PulseWebSemconv = {
     USER_SESSION_START: "pulse.user.session.start",
     USER_SESSION_END: "pulse.user.session.end",
     INTERACTION: "interaction",
+    WEB_VITAL: "web_vital",
   },
   LogBody: {
     SESSION_START: "session.start",
@@ -80,6 +86,7 @@ export const PulseWebSemconv = {
     APP_INSTALLATION_START: "pulse.app.installation.start",
     USER_SESSION_START: "pulse.user.session.start",
     USER_SESSION_END: "pulse.user.session.end",
+    WEB_VITAL: "web_vital",
   },
   /**
    * Init milestones as OTLP **logs** (Android `SdkInitializationEvents` / `RumConstants.Events`).

@@ -65,8 +65,9 @@ yarn install
 # Build SDK
 yarn build
 
-# Run demo app (examples/ecommerce-demo) on localhost:3002
-yarn demo
+# Run demo apps
+yarn demo          # React ecommerce-demo → localhost:3002
+yarn demo:docs     # Vanilla web-sdk-docs → localhost:3003
 
 # Typecheck + unit tests
 yarn lint
@@ -88,6 +89,7 @@ yarn workspace ecommerce-demo e2e:web-sdk-gates
 
 ## Useful docs
 
+- Web Vitals (planning): `web-sdk-plan/v2-web-vitals/README.md`
 - milestone criteria: `web-sdk-plan/v1/MILESTONES.md`
 - interactions verification: `web-sdk-plan/v1/M2-INTERACTIONS-EXIT-VERIFICATION.md`
 - interactions coverage matrix: `web-sdk-plan/v1/WEB-SDK Interactions test coverage (M2).csv`

@@ -1,0 +1,67 @@
+{
+  "version": 900,
+  "description": "web-sdk-docs — minimal sampling, gates on for session/custom_events/interaction/web_vitals",
+  "sampling": {
+    "default": { "sessionSampleRate": 1 },
+    "rules": [],
+    "signalsToSample": []
+  },
+  "signals": {
+    "scheduleDurationMs": 5000,
+    "attributesToDrop": [],
+    "attributesToAdd": [],
+    "filters": { "mode": "BLACKLIST", "values": [] },
+    "metricsToAdd": []
+  },
+  "interaction": { "beforeInitQueueSize": 5000 },
+  "features": [
+    {
+      "featureName": "session",
+      "sessionSampleRate": 1,
+      "sdks": ["pulse_web_js"],
+      "config": null
+    },
+    {
+      "featureName": "custom_events",
+      "sessionSampleRate": 1,
+      "sdks": ["pulse_web_js"],
+      "config": null
+    },
+    {
+      "featureName": "interaction",
+      "sessionSampleRate": 1,
+      "sdks": ["pulse_web_js"],
+      "config": null
+    },
+    {
+      "featureName": "web_vitals",
+      "sessionSampleRate": 1,
+      "sdks": ["pulse_web_js"],
+      "config": null
+    },
+    {
+      "featureName": "js_crash",
+      "sessionSampleRate": 1,
+      "sdks": ["pulse_web_js"],
+      "config": null
+    },
+    {
+      "featureName": "network_instrumentation",
+      "sessionSampleRate": 1,
+      "sdks": ["pulse_web_js"],
+      "config": null
+    },
+    {
+      "featureName": "click",
+      "sessionSampleRate": 1,
+      "sdks": ["pulse_web_js"],
+      "config": null
+    },
+    {
+      "featureName": "screen_session",
+      "sessionSampleRate": 1,
+      "sdks": ["pulse_web_js"],
+      "config": null
+    }
+  ]
+}

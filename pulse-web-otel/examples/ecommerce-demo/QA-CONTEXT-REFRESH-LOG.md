@@ -1,0 +1,10 @@
+# QA context refresh log (append-only)
+
+Agents and humans: append **one line per refresh** after updating `DEMO-QA-MAP.md` or equivalent when the demo or SDK install path changes.
+
+| Date (UTC) | Summary |
+|------------|---------|
+| 2026-05-04 | Initial log. Added `DEMO-QA-MAP.md` + ecommerce-demo-manual-qa skill. |
+| 2026-05-04 | Guardian review: `trackEvent` custom_events + interaction; interaction install order; `graphify update . --no-viz` in `pulse-web-otel/`. |
+| 2026-05-04 | Web Vitals: always-on FCP/FID/TTFB with LCP/INP/CLS; App.tsx master `enabled` only; manual docs + QA map updated. |
+| 2026-05-04 | Home: `WebVitalsManualTriggers` — CLS toggle box, INP ~70ms handler, TTFB reload + copy; DEMO-QA-MAP + MANUAL-WEB-VITALS-DEMO updated. |

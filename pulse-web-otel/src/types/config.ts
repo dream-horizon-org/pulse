@@ -13,7 +13,9 @@ export interface InstrumentationConfig {
   errors?: { enabled: boolean };
   network?: { enabled: boolean };
   clicks?: { enabled: boolean };
-  webVitals?: { enabled: boolean };
+  webVitals?: {
+    enabled?: boolean;
+  };
   navigation?: { enabled: boolean };
   session?: { enabled: boolean };
   interactions?: { enabled: boolean };

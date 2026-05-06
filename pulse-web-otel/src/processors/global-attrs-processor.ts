@@ -26,6 +26,20 @@ function getNetworkConnection(): NetworkConnection {
   return nav.connection ?? {};
 }
 
+function isDynamicSegment(seg: string): boolean {
+  // Pure integers: 123, 456789
+  if (/^\d+$/.test(seg)) return true;
+  // Standard UUID v4 (with dashes): 550e8400-e29b-41d4-a716-446655440000
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(seg)) return true;
+  // UUID without dashes (32 hex chars): 550e8400e29b41d4a716446655440000
+  if (/^[0-9a-f]{32}$/i.test(seg)) return true;
+  // MongoDB ObjectId (24 hex chars): 507f1f77bcf86cd799439011
+  if (/^[0-9a-f]{24}$/i.test(seg)) return true;
+  // ULID (26 Crockford base32 chars): 01ARZ3NDEKTSV4RRFFQ69G5FAV
+  if (/^[0-9a-hjkmnp-tv-zA-HJKMNP-TV-Z]{26}$/.test(seg)) return true;
+  return false;
+}
+
 function resolveScreenName(
   manualScreenName: string | null,
   config: PulseWebConfig,
@@ -36,7 +50,7 @@ function resolveScreenName(
 
   const pathname = window.location.pathname;
 
-  // Check route patterns
+  // routePatterns take priority over heuristic
   if (config.routePatterns && config.routePatterns.length > 0) {
     for (const { pattern, name } of config.routePatterns) {
       try {
@@ -48,30 +62,14 @@ function resolveScreenName(
     }
   }
 
-  // Heuristic: strip UUIDs and pure-number segments from path
+  // Heuristic: replace dynamic segments with :id, preserve static segments.
+  // /products/123        → /products/:id   (not /products — preserves route shape)
+  // /users/uuid/settings → /users/:id/settings
+  // /blog/my-post        → /blog/my-post   (unchanged — no dynamic segment detected)
   const segments = pathname.split("/").filter(Boolean);
-  const cleaned = segments.filter((seg) => {
-    // Remove UUID-like segments
-    if (
-      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-        seg,
-      )
-    ) {
-      return false;
-    }
-    // Remove pure number segments
-    if (/^\d+$/.test(seg)) {
-      return false;
-    }
-    return true;
-  });
+  if (segments.length === 0) return pathname || "/";
 
-  if (cleaned.length > 0) {
-    return "/" + cleaned.join("/");
-  }
-
-  // Fall back to raw pathname
-  return pathname || "/";
+  return "/" + segments.map((seg) => (isDynamicSegment(seg) ? ":id" : seg)).join("/");
 }
 
 export class PulseGlobalAttributesProcessor

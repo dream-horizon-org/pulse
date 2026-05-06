@@ -5,11 +5,11 @@
  * Positive cases:
  *   - manual override returned directly
  *   - route pattern match returns mapped name
- *   - UUID segments stripped from pathname
- *   - pure-number segments stripped from pathname
- *   - multiple dynamic segments stripped, static parts kept
- *   - root "/" returned when all segments are dynamic
- *   - raw pathname returned when no segments after strip
+ *   - UUID segments replaced with :id in pathname
+ *   - pure-number segments replaced with :id in pathname
+ *   - multiple dynamic segments replaced independently, static parts kept
+ *   - single UUID-only path normalised to /:id
+ *   - all-numeric path normalised to /:id/:id/:id
  *
  * Negative cases:
  *   - invalid regex pattern skipped (no crash)
@@ -137,7 +137,7 @@ describe("screen name — route pattern matching", () => {
   });
 });
 
-describe("screen name — UUID and numeric segment stripping", () => {
+describe("screen name — UUID and numeric segment normalisation", () => {
   beforeEach(() => {
     _resetInstallationStateForTesting();
     window.localStorage.clear();
@@ -145,37 +145,35 @@ describe("screen name — UUID and numeric segment stripping", () => {
 
   afterEach(() => vi.restoreAllMocks());
 
-  it("strips UUID segment from path", () => {
+  it("replaces UUID segment with :id", () => {
     setPath("/users/550e8400-e29b-41d4-a716-446655440000/profile");
     const proc = makeProcessor();
-    expect(proc.getCurrentScreenName()).toBe("/users/profile");
+    expect(proc.getCurrentScreenName()).toBe("/users/:id/profile");
   });
 
-  it("strips pure-number segment from path", () => {
+  it("replaces pure-number segment with :id", () => {
     setPath("/orders/12345/items");
     const proc = makeProcessor();
-    expect(proc.getCurrentScreenName()).toBe("/orders/items");
+    expect(proc.getCurrentScreenName()).toBe("/orders/:id/items");
   });
 
-  it("strips multiple dynamic segments", () => {
+  it("replaces multiple dynamic segments independently", () => {
     setPath("/org/99/team/abc-123-def/member/550e8400-e29b-41d4-a716-446655440000");
     const proc = makeProcessor();
-    // 99 stripped, abc-123-def kept (not pure-number, not UUID), UUID stripped
-    expect(proc.getCurrentScreenName()).toBe("/org/team/abc-123-def/member");
+    // 99 → :id, abc-123-def kept (slug — not pure-number, not UUID), UUID → :id
+    expect(proc.getCurrentScreenName()).toBe("/org/:id/team/abc-123-def/member/:id");
   });
 
-  it("falls back to raw pathname when all segments are dynamic (UUID-only path)", () => {
-    // When all segments are stripped, the code returns the raw pathname
-    // (not "/" — that would suppress valid long UUIDs used as slugs)
+  it("single UUID-only path becomes /:id", () => {
     setPath("/550e8400-e29b-41d4-a716-446655440000");
     const proc = makeProcessor();
-    expect(proc.getCurrentScreenName()).toBe("/550e8400-e29b-41d4-a716-446655440000");
+    expect(proc.getCurrentScreenName()).toBe("/:id");
   });
 
-  it("falls back to raw pathname when all segments are numeric", () => {
+  it("all-numeric path normalised to /:id/:id/:id", () => {
     setPath("/123/456/789");
     const proc = makeProcessor();
-    expect(proc.getCurrentScreenName()).toBe("/123/456/789");
+    expect(proc.getCurrentScreenName()).toBe("/:id/:id/:id");
   });
 
   it("returns '/' for root path", () => {
