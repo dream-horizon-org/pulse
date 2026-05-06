@@ -448,6 +448,8 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
                 metricExporter = metricExporter,
                 shouldIgnoreJavaScriptExceptions = currentSdkName == PulseSdkName.ANDROID_RN,
             )
+        // Apply batch configuration after initialization
+        OpenTelemetryRumInitializer.applyBatchConfig(currentSdkConfig?.batchConfig)
 
         // SessionReplayInstrumentation installs from registry during RUM build; get reference for shutdown
         sessionReplay = SessionReplayRegistry.getIntegration()

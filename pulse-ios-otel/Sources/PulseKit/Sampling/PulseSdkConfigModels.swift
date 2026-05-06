@@ -39,6 +39,7 @@ public struct PulseSdkConfig: Codable, Equatable {
     public let signals: PulseSignalConfig
     public let interaction: PulseInteractionConfig
     public let features: [PulseFeatureConfig]
+    public let batchConfig: PulseBatchProcessorConfig?
 
     public init(
         version: Int,
@@ -46,7 +47,8 @@ public struct PulseSdkConfig: Codable, Equatable {
         sampling: PulseSamplingConfig,
         signals: PulseSignalConfig,
         interaction: PulseInteractionConfig,
-        features: [PulseFeatureConfig]
+        features: [PulseFeatureConfig],
+        batchConfig: PulseBatchProcessorConfig? = nil
     ) {
         self.version = version
         self.description = description
@@ -54,6 +56,7 @@ public struct PulseSdkConfig: Codable, Equatable {
         self.signals = signals
         self.interaction = interaction
         self.features = features
+        self.batchConfig = batchConfig
     }
 }
 
@@ -261,9 +264,41 @@ public struct PulseAttributeValue: Codable, Equatable {
 // MARK: - Interaction
 
 public struct PulseInteractionConfig: Codable, Equatable {
-    public let collectorUrl: String
+    public let collectorUrl: String?
     public let configUrl: String
     public let beforeInitQueueSize: Int
+}
+
+// MARK: - Batch Processor Config
+
+public struct PulseBatchProcessorConfig: Codable, Equatable {
+    public let batchLogs: PulseBatchProcessorOption?
+    public let batchSpans: PulseBatchProcessorOption?
+
+    enum CodingKeys: String, CodingKey {
+        case batchLogs
+        case batchSpans
+    }
+
+    public init(batchLogs: PulseBatchProcessorOption? = nil, batchSpans: PulseBatchProcessorOption? = nil) {
+        self.batchLogs = batchLogs
+        self.batchSpans = batchSpans
+    }
+}
+
+public struct PulseBatchProcessorOption: Codable, Equatable {
+    public let maxExportBatchSize: Int
+    public let scheduleDelay: Int // milliseconds
+
+    enum CodingKeys: String, CodingKey {
+        case maxExportBatchSize
+        case scheduleDelay
+    }
+
+    public init(maxExportBatchSize: Int, scheduleDelay: Int) {
+        self.maxExportBatchSize = maxExportBatchSize
+        self.scheduleDelay = scheduleDelay
+    }
 }
 
 // MARK: - Features

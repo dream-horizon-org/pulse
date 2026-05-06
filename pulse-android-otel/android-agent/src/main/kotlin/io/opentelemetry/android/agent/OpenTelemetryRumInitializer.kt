@@ -162,6 +162,21 @@ object OpenTelemetryRumInitializer {
         }
     }
 
+    /**
+     * Apply batch configuration to the builder.
+     * Called by PulseSDKInternal after initialize().
+     */
+    fun applyBatchConfig(batchConfig: com.pulse.sampling.models.PulseBatchProcessorConfig?) {
+        if (::builder.isInitialized && batchConfig != null) {
+            batchConfig.batchSpans?.let {
+                builder.setSpanBatchConfig(it.scheduleDelay.toLong(), it.maxExportBatchSize)
+            }
+            batchConfig.batchLogs?.let {
+                builder.setLogBatchConfig(it.scheduleDelay.toLong(), it.maxExportBatchSize)
+            }
+        }
+    }
+
     fun disposeExporters() {
         builder.disposeExporters()
     }

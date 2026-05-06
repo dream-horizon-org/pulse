@@ -27,6 +27,7 @@ import org.dreamhorizon.pulseserver.service.configs.models.Features;
 import org.dreamhorizon.pulseserver.service.configs.models.Scope;
 import org.dreamhorizon.pulseserver.service.configs.models.Sdk;
 import org.dreamhorizon.pulseserver.service.configs.models.rules;
+import org.dreamhorizon.pulseserver.service.configs.models.BatchProcessorConfig;
 
 @Slf4j
 public class ConfigServiceImpl implements ConfigService {
@@ -85,6 +86,7 @@ public class ConfigServiceImpl implements ConfigService {
 
   @Override
   public Single<PulseConfig> createSdkConfig(String projectId, ConfigData createConfigRequest) {
+    validateBatchConfig(createConfigRequest);
     return sdkConfigsDao.createConfig(projectId, createConfigRequest)
         .doOnSuccess(resp -> {
           latestConfigCache.synchronous().invalidate(projectId);
@@ -127,5 +129,39 @@ public class ConfigServiceImpl implements ConfigService {
         .scope(Arrays.stream(Scope.values()).map(Enum::name).collect(Collectors.toList()))
         .sdks(Arrays.stream(Sdk.values()).map(Enum::name).collect(Collectors.toList()))
         .build());
+  }
+
+  /**
+   * Validates batch config ranges if present.
+   * Throws ServiceException if values are out of valid ranges.
+   */
+  private void validateBatchConfig(ConfigData configData) {
+    if (configData == null || configData.getBatchConfig() == null) {
+      return;
+    }
+
+    BatchProcessorConfig batchConfig = configData.getBatchConfig();
+    validateBatchOption("batchLogs", batchConfig.getBatchLogs());
+    validateBatchOption("batchSpans", batchConfig.getBatchSpans());
+  }
+
+  private void validateBatchOption(String name, BatchProcessorConfig.BatchProcessorOption option) {
+    if (option == null) {
+      return;
+    }
+
+    if (option.getMaxExportBatchSize() != null) {
+      if (option.getMaxExportBatchSize() < 1 || option.getMaxExportBatchSize() > 5000) {
+        throw new IllegalArgumentException(
+            name + ".maxExportBatchSize must be between 1 and 5000, got: " + option.getMaxExportBatchSize());
+      }
+    }
+
+    if (option.getScheduleDelay() != null) {
+      if (option.getScheduleDelay() < 100 || option.getScheduleDelay() > 60000) {
+        throw new IllegalArgumentException(
+            name + ".scheduleDelay must be between 100 and 60000 milliseconds, got: " + option.getScheduleDelay());
+      }
+    }
   }
 }
