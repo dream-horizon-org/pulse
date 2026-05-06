@@ -9,7 +9,6 @@ import {
   IconBell,
   IconCalendarEvent,
   IconChartFunnel,
-  IconDatabaseSearch,
   IconDeviceDesktop,
   IconHome,
   IconListDetails,
@@ -35,7 +34,6 @@ import {
 } from "../screens/CriticalInteractionForm";
 import { OperatorType } from "../screens/AlertForm/AlertForm.interface";
 import { AiChat } from "../screens/AiChat";
-import { RealTimeQuery } from "../screens/RealTimeQuery";
 
 export const APP_NAME: string = "Pulse";
 
@@ -219,12 +217,6 @@ export const ROUTES: Routes = {
     basePath: "/projects/:projectId/configure-alert",
     path: "/projects/:projectId/configure-alert/*",
   },
-  PROJECT_QUERY_BUILDER: {
-    key: "PROJECT_QUERY_BUILDER",
-    basePath: "/projects/:projectId/query-builder",
-    path: "/projects/:projectId/query-builder",
-    element: RealTimeQuery,
-  },
   // PROJECT_SESSION_REPLAY_INSIGHTS: {
   //   key: "PROJECT_SESSION_REPLAY_INSIGHTS",
   //   basePath: "/projects/:projectId/session-replay/insights",
@@ -358,7 +350,6 @@ export const NAVBAR_ROUTES = {
   SCREENS: "/screens",
   NETWORK_LIST: "/network-apis",
   SESSION_REPLAY: "/session-replay/sessions",
-  QUERY_BUILDER: "/query-builder",
   FUNNELS: "/funnels",
   JOURNEYS: "/journeys",
   ALERTS: "/alerts",
@@ -429,14 +420,6 @@ export const NAVBAR_ITEMS: NavbarItems = [
     icon: IconVideo,
     routeTo: NAVBAR_ROUTES.SESSION_REPLAY,
     path: NAVBAR_ROUTES.SESSION_REPLAY,
-    iconSize: 25,
-  },
-
-  {
-    tabName: "Query Builder",
-    icon: IconDatabaseSearch,
-    routeTo: NAVBAR_ROUTES.QUERY_BUILDER,
-    path: NAVBAR_ROUTES.QUERY_BUILDER,
     iconSize: 25,
   },
   {
