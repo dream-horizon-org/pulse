@@ -1,3 +1,14 @@
 # Handoff log (append-only). Each run of ralph/once.sh should add a dated note here.
 
-2026-05-06 — Issue 001 DONE. Appended §9 traceability matrix as Appendix A to docs/rca-segmentation-scenarios.md. All 22 §9 checklist items mapped to RootCauseServiceTest methods, rca-db-audit interactions, and seed profiles. Three test gaps surfaced and named for issue 006: shouldReturnEmptySegmentsWhenDimensionOrderIsEmpty (B3), shouldPickFirstRowWhenTieOnAbsoluteDistanceToTotal (D3), shouldTreatNullDimensionValueAsEmptyString (D4). Issue 004 and 006 are now unblocked. Next: pick 002 (canonical names) or 003 (discoverability links) — both independent with no blockers.
+2026-05-06 — Issue 002 (E2E doc canonical interaction names) closed.
+  - docs/rca-e2e-test-cases.md: added "Canonical interaction names (seed / audit)" table
+    after the intro; renamed §1.6 to `checkout_start` (legacy `cart_checkout` noted)
+    and §1.12 to `profile_update` (legacy `user_profile_load` noted); body rows in
+    those sections now use canonical names; appendix Seed Volume Summary updated.
+  - Also added top-of-doc cross-links to docs/rca-segmentation-scenarios.md and
+    prd/rca-segmentation-coverage-prd.md (overlaps with issue 003 — discoverability
+    from E2E doc side already in place; SKILL.md side still pending under 003).
+  - Next unblocked: 003 (skill links — only `.cursor/skills/rca-e2e/SKILL.md` exists
+    in repo; add link to scenarios doc), 006 (RootCauseServiceTest §9 gaps — now
+    unblocked since 001 landed). Critical-path next is 004 (seed tuning) once
+    matrix is finalised; 005 follows 004.
