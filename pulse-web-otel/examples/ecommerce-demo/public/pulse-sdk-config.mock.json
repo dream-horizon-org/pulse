@@ -117,17 +117,7 @@
       ]
     },
     "metricsToAdd": [
-      {
-        "name": "mock_demo_custom_event_total",
-        "target": { "type": "name" },
-        "condition": {
-          "name": ".*",
-          "props": [{ "key": "pulse\\.type", "value": "^custom_event$" }],
-          "scopes": ["LOGS"],
-          "sdks": ["pulse_web_js"]
-        },
-        "type": { "type": "counter" }
-      }
+
     ]
   },
   "interaction": {

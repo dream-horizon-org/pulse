@@ -23,10 +23,7 @@ Key columns: `TraceId`, `SpanId`, `ParentSpanId`, `SpanName`, `SpanKind`, `Servi
 
 Key columns: `TraceId`, `Body` (custom event name text for `pulse.type` = `custom_event`), `SeverityText`,
 `SeverityNumber`, `Timestamp`, `LogAttributes` (Map), `ResourceAttributes` (Map). Prefer `Body` for event name in
-queries; do not assume a separate populated `EventName` column in all deployments.
-
-Key columns: `TraceId`, `Body`, `SeverityText`, `SeverityNumber`, `Timestamp`, `EventName`, `LogAttributes` (Map),
-`ResourceAttributes` (Map)
+queries; `EventName` may exist depending on pipeline but is not guaranteed populated everywhere.
 
 ### OTLP metrics (physical tables — collector `INSERT` targets)
 
@@ -80,8 +77,8 @@ Aggregated monthly usage by `project_id` / `month` / `source`; fed by MVs from l
 ### Heatmap tables (`backend/db/prod/clickhouse/otel.interaction_heatmaps_daily.sql`)
 
 - **`interaction_heatmaps_daily`** — SummingMergeTree aggregates (`WeightNormal`, `WeightRage`, `WeightDead`, `XBin`,
-  `YBin`, `Breakpoint`, …). Filled by **`interaction_heatmaps_daily_mv`** from **`otel_logs`** where *
-  *`PulseType = 'app.click'`** (tap/widget logs with normalized coordinates on `otel_logs`).
+  `YBin`, `Breakpoint`, …). Filled by **`interaction_heatmaps_daily_mv`** from **`otel_logs`** where
+  **`PulseType = 'app.click'`** (tap/widget logs with normalized coordinates).
 
 ### Materialized Columns (all tables)
 
