@@ -304,7 +304,8 @@ extension Package {
             "Instrumentation/Location",
             "Instrumentation/AppLifecycle",
             "Instrumentation/UIKitTap",
-            "Instrumentation/SessionReplay"
+            "Instrumentation/SessionReplay",
+            "Instrumentation/SystemMetrics"
           ],
           linkerSettings: [.linkedFramework("CoreTelephony", .when(platforms: [.iOS]))]
         ),
@@ -389,6 +390,14 @@ extension Package {
             .product(name: "OpenTelemetrySdk", package: "opentelemetry-swift-core")
           ],
           path: "Tests/InstrumentationTests/SDKResourceExtensionTests"
+        ),
+        .testTarget(
+          name: "SystemMetricsTests",
+          dependencies: [
+            "PulseKit",
+            .product(name: "OpenTelemetrySdk", package: "opentelemetry-swift-core")
+          ],
+          path: "Tests/InstrumentationTests/SystemMetricsTests"
         ),
         .testTarget(
           name: "PulseKitTests",

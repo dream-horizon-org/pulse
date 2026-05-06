@@ -84,6 +84,10 @@ public enum PulseAttributes {
         public static let appSessionEnd = "session.end"
         /// Session replay
         public static let sessionReplay = "session_replay"
+        /// Periodic system/app memory samples (log record).
+        public static let memory = "memory"
+        /// Periodic battery level / power source samples.
+        public static let battery = "battery"
         public static func isNetworkType(_ pulseType: String) -> Bool {
             return pulseType == network || pulseType.hasPrefix("\(network).")
         }

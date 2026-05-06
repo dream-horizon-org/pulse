@@ -20,20 +20,10 @@ Pod::Spec.new do |spec|
 
   spec.source_files = [
     "Sources/PulseKit/**/*.{swift,h,m}",
-    "Sources/Instrumentation/Sessions/*.swift",
-    "Sources/Instrumentation/Crashes/**/*.{swift,h,m}",
-    "Sources/Instrumentation/URLSession/*.swift",
-    "Sources/Instrumentation/Interaction/**/*.swift",
-    "Sources/Instrumentation/NetworkStatus/*.swift",
-    "Sources/Instrumentation/SignPostIntegration/*.swift",
-    "Sources/Instrumentation/SDKResourceExtension/**/*.swift",
+    "Sources/Instrumentation/**/*.{swift,h,m}",
     "Sources/Exporters/OpenTelemetryProtocolCommon/**/*.swift",
     "Sources/Exporters/OpenTelemetryProtocolHttp/**/*.swift",
     "Sources/Exporters/Persistence/**/*.swift",
-    "Sources/Instrumentation/Location/*.swift",
-    "Sources/Instrumentation/AppLifecycle/*.swift",
-    "Sources/Instrumentation/UIKitTap/*.swift",
-    "Sources/Instrumentation/SessionReplay/**/*.swift"
   ]
 
   spec.exclude_files = [

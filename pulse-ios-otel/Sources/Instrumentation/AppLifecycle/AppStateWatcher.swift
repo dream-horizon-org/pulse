@@ -17,6 +17,8 @@ public final class AppStateWatcher {
     private let lock = NSLock()
     private var listeners: [WeakListener] = []
     public private(set) var currentState: AppState = .created
+    /// Prevents duplicate `NotificationCenter` registrations when multiple instrumentations call `start()`.
+    private var didRegisterNotificationObservers = false
 
     private init() {}
 
@@ -37,9 +39,17 @@ public final class AppStateWatcher {
     }
 
     /// Begin observing NotificationCenter for UIApplication lifecycle events.
-    /// Called once during SDK initialization.
+    /// Safe to call from multiple instrumentations (idempotent).
     public func start() {
         #if os(iOS) || os(tvOS)
+        lock.lock()
+        if didRegisterNotificationObservers {
+            lock.unlock()
+            return
+        }
+        didRegisterNotificationObservers = true
+        lock.unlock()
+
         let nc = NotificationCenter.default
 
         nc.addObserver(
@@ -72,6 +82,9 @@ public final class AppStateWatcher {
     /// Stop observing. Called on SDK shutdown.
     public func stop() {
         #if os(iOS) || os(tvOS)
+        lock.lock()
+        didRegisterNotificationObservers = false
+        lock.unlock()
         NotificationCenter.default.removeObserver(self)
         #endif
     }

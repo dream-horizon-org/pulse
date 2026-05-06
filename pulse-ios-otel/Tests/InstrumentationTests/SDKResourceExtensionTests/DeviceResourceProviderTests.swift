@@ -18,5 +18,8 @@ class DeviceResourceProviderTests: XCTestCase {
 
     XCTAssertEqual(mock.model, resource.attributes[ResourceAttributes.deviceModelIdentifier.rawValue]?.description)
     XCTAssertEqual(mock.identifier, resource.attributes[ResourceAttributes.deviceId.rawValue]?.description)
+
+    let expectedRam = Int(truncatingIfNeeded: ProcessInfo.processInfo.physicalMemory)
+    XCTAssertEqual(resource.attributes[PulseDeviceAttributes.systemMemorySize], AttributeValue.int(expectedRam))
   }
 }

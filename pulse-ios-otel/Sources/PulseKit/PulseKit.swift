@@ -355,6 +355,10 @@ public class Pulse {
             case .android_activity: break
             case .android_fragment: break
             case .android_slowrendering: break
+            case .memory:
+                config.memory { $0.enabled(isEnabled) }
+            case .battery:
+                config.battery { $0.enabled(isEnabled) }
             case .unknown: break
             }
         }

@@ -34,6 +34,11 @@ public class DeviceResourceProvider: ResourceProvider {
     attributes[ResourceAttributes.deviceManufacturer.rawValue] = AttributeValue.string("Apple")
     #endif
 
+    // Total physical RAM (bytes). Parity with Android `AndroidResource` / `pulse.system.memory.size`.
+    attributes[PulseDeviceAttributes.systemMemorySize] = AttributeValue.int(
+      Int(truncatingIfNeeded: ProcessInfo.processInfo.physicalMemory)
+    )
+
     // OpenTelemetry spec: https://opentelemetry.io/docs/specs/semconv/resource/device/#model
     #if os(iOS)
     // iOS: Use UIDevice for user-friendly names (required by OpenTelemetry spec)

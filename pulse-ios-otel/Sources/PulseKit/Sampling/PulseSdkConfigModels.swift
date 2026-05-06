@@ -361,6 +361,8 @@ public enum PulseFeatureName: String, CaseIterable {
     case android_activity
     case android_fragment
     case android_slowrendering
+    case memory
+    case battery
     case unknown
 }
 

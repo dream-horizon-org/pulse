@@ -17,6 +17,8 @@ public struct InstrumentationConfiguration {
     private var _appStartup: AppStartupInstrumentationConfig = AppStartupInstrumentationConfig()
     private var _uiKitTap: UIKitTapInstrumentationConfig = UIKitTapInstrumentationConfig()
     private var _sessionReplay: SessionReplayInstrumentationConfig = SessionReplayInstrumentationConfig()
+    private var _memory: MemoryInstrumentationConfig = MemoryInstrumentationConfig()
+    private var _battery: BatteryInstrumentationConfig = BatteryInstrumentationConfig()
 
     public init() {}
 
@@ -64,6 +66,14 @@ public struct InstrumentationConfiguration {
         configure(&_sessionReplay)
     }
 
+    public mutating func memory(_ configure: (inout MemoryInstrumentationConfig) -> Void) {
+        configure(&_memory)
+    }
+
+    public mutating func battery(_ configure: (inout BatteryInstrumentationConfig) -> Void) {
+        configure(&_battery)
+    }
+
     internal mutating func attachSessionReplayConsentFromPulse(
         isCaptureAllowed: @escaping () -> Bool,
         startActiveAtInstall: Bool
@@ -85,6 +95,8 @@ public struct InstrumentationConfiguration {
     internal var appStartup: AppStartupInstrumentationConfig { _appStartup }
     internal var uiKitTap: UIKitTapInstrumentationConfig { _uiKitTap }
     internal var sessionReplay: SessionReplayInstrumentationConfig { _sessionReplay }
+    internal var memory: MemoryInstrumentationConfig { _memory }
+    internal var battery: BatteryInstrumentationConfig { _battery }
 
     internal var instrumentations: [InstrumentationLifecycle] {
         [
@@ -98,7 +110,9 @@ public struct InstrumentationConfiguration {
             _screenLifecycle,
             _appStartup,
             _uiKitTap,
-            _sessionReplay
+            _sessionReplay,
+            _memory,
+            _battery
         ]
     }
 }
