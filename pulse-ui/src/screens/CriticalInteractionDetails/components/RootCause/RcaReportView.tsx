@@ -1,5 +1,6 @@
 import {
   ActionIcon,
+  Alert,
   Badge,
   Box,
   Button,
@@ -11,7 +12,12 @@ import {
   Text,
   Tooltip,
 } from "@mantine/core";
-import { IconInfoCircle, IconRefresh, IconSparkles } from "@tabler/icons-react";
+import {
+  IconCircleCheck,
+  IconInfoCircle,
+  IconRefresh,
+  IconSparkles,
+} from "@tabler/icons-react";
 import {
   insightRowHasDisplayableNarrative,
   segmentHasDisplayableBody,
@@ -200,6 +206,8 @@ const RcaStructuredReportV1View = ({
   onRegenerate?: () => void;
   projectId?: string | null;
 }) => {
+  const isEverythingGood = structured.everything_good === true;
+  const isNoDataAvailable = structured.no_data_available === true;
   const executiveSummaryText = structured.executive_summary?.trim() ?? "";
   const hasExecutiveSummary = executiveSummaryText !== "";
   const segments = structured.segments ?? [];
@@ -239,6 +247,46 @@ const RcaStructuredReportV1View = ({
   const showUnifiedErrorAttribution =
     hasRelatedAttributionRows &&
     (hasMeaningfulAttributionInsights || showMeaningfulDrill);
+
+  if (isEverythingGood || isNoDataAvailable) {
+    const alertColor = isEverythingGood ? "teal" : "gray";
+    const alertTitle = isEverythingGood
+      ? ROOT_CAUSE_MESSAGES.EVERYTHING_GOOD
+      : ROOT_CAUSE_MESSAGES.NO_DATA_AVAILABLE;
+    const alertIcon = isEverythingGood ? (
+      <IconCircleCheck size={16} />
+    ) : undefined;
+    return (
+      <Box className={rootCauseClasses.container}>
+        <Box className={rcaClasses.reportShell}>
+          {hasRegenerate ? (
+            <Group justify="flex-end" mb="sm">
+              <Button
+                variant="light"
+                size="xs"
+                leftSection={<IconRefresh size={14} />}
+                onClick={onRegenerate}
+              >
+                {ROOT_CAUSE_MESSAGES.REGENERATE_REPORT}
+              </Button>
+            </Group>
+          ) : null}
+          <Alert
+            color={alertColor}
+            variant="light"
+            icon={alertIcon}
+            title={alertTitle}
+          >
+            {hasExecutiveSummary ? (
+              <Text size="sm" lh={1.65}>
+                {executiveSummaryText}
+              </Text>
+            ) : null}
+          </Alert>
+        </Box>
+      </Box>
+    );
+  }
 
   return (
     <Box className={rootCauseClasses.container}>

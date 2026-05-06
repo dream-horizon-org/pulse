@@ -13,6 +13,9 @@ export const RCA_TYPE = {
 
 export const ROOT_CAUSE_MESSAGES = {
   GENERIC_ERROR: "Something went wrong.",
+  EVERYTHING_GOOD: "No regressions detected for this interaction.",
+  NO_DATA_AVAILABLE:
+    "No telemetry data is available for this interaction in the selected period.",
   REGENERATE_REPORT: "Regenerate report",
   NO_DATA: "No data available for this interaction in the selected period.",
   /** Per-segment placeholder when rank/title exist but body has nothing to show. */

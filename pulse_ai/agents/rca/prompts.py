@@ -163,7 +163,10 @@ A metric that has improved from baseline must never be flagged as an anomaly, ev
 
 **Segment eligibility (discard before comparison):** Skip any segment that fails either condition:
 1. **Volume**: segment's `volume` metric value ≥ 10% of segment's `volume` baseline. Segments below this threshold have insufficient data — discard entirely.
-2. **Degradation signal**: at least one of `error_rate` or `poor_user_pct` must have value > baseline. If neither is worse than baseline, the segment does not represent a regression — discard it.
+2. **Degradation signal**: at least one of the following must be true:
+   - `error_rate` value exceeds baseline by **≥ 2 percentage points** (absolute)
+   - `poor_user_pct` value exceeds baseline by **≥ 5 percentage points** (absolute)
+   A segment where both deltas are below these minimums is statistical noise — discard it even if value > baseline.
 
 Only segments passing both filters proceed to root cause ranking and narrative.
 

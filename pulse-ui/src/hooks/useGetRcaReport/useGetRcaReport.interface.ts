@@ -87,6 +87,10 @@ export function segmentHasDisplayableBody(
 export type RcaStructuredReportV1 = {
   version: 1;
   executive_summary: string;
+  /** True when the agent found no regressions — segments and recommendations will be empty. */
+  everything_good?: boolean | null;
+  /** True when no telemetry data was available for the analysis window — segments empty. */
+  no_data_available?: boolean | null;
   segments: RcaStructuredSegmentV1[];
   recommendations: string[];
   /** Model-generated interpretation of pre-AI ErrorAttributionPayload when present. */
@@ -131,6 +135,9 @@ export const isRcaStructuredReportV1WithContent = (
 ): boolean => {
   if (structured == null) {
     return false;
+  }
+  if (structured.everything_good || structured.no_data_available) {
+    return (structured.executive_summary?.trim() ?? "") !== "";
   }
   const drill = structured.error_attribution ?? structured.errorAttribution;
   /** Insight copy is only shown when this list has rows; do not count NLP-only empty drill. */
