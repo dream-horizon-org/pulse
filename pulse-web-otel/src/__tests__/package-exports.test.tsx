@@ -20,6 +20,26 @@ vi.mock("next/router", () => ({
 
 import * as NextExports from "../integrations/next/index";
 
+type ConditionalSubpathExport = {
+  import: { types: string; default: string };
+  require: { types: string; default: string };
+};
+
+type PackageExportsMap = Record<
+  string,
+  ConditionalSubpathExport | string | undefined
+>;
+
+const getConditionalExport = (
+  exports: PackageExportsMap,
+  subpath: string,
+): ConditionalSubpathExport => {
+  const entry = exports[subpath];
+  expect(entry).toBeDefined();
+  expect(typeof entry).toBe("object");
+  return entry as ConditionalSubpathExport;
+};
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Export shape
 // ─────────────────────────────────────────────────────────────────────────────
@@ -102,16 +122,18 @@ describe("package.json — peer dependency wiring", () => {
     expect(exports["./react"]).toBeDefined();
   });
 
-  it("./react export has ESM, CJS and types entries", () => {
-    const exports = packageJson.exports as Record<
-      string,
-      { types: string; import: string; require: string } | undefined
-    >;
-    const reactExport = exports["./react"];
-    expect(reactExport).toBeDefined();
-    expect(reactExport!.types).toMatch(/react\.d\.ts$/);
-    expect(reactExport!.import).toMatch(/react\.js$/);
-    expect(reactExport!.require).toMatch(/react\.cjs$/);
+  it("./package.json export points to package manifest", () => {
+    const exports = packageJson.exports as PackageExportsMap;
+    expect(exports["./package.json"]).toBe("./package.json");
+  });
+
+  it("./react export has nested ESM/CJS type + default entries", () => {
+    const exports = packageJson.exports as PackageExportsMap;
+    const reactExport = getConditionalExport(exports, "./react");
+    expect(reactExport.import.types).toMatch(/react\.d\.ts$/);
+    expect(reactExport.import.default).toMatch(/react\.js$/);
+    expect(reactExport.require.types).toMatch(/react\.d\.cts$/);
+    expect(reactExport.require.default).toMatch(/react\.cjs$/);
   });
 });
 
@@ -172,16 +194,27 @@ describe("package.json — /next peer dep wiring", () => {
     expect(exports["./next"]).toBeDefined();
   });
 
-  it("./next export has ESM, CJS and types entries", () => {
-    const exports = packageJson.exports as Record<
-      string,
-      { types: string; import: string; require: string } | undefined
-    >;
-    const nextExport = exports["./next"];
-    expect(nextExport).toBeDefined();
-    expect(nextExport!.types).toMatch(/next\.d\.ts$/);
-    expect(nextExport!.import).toMatch(/next\.js$/);
-    expect(nextExport!.require).toMatch(/next\.cjs$/);
+  it("./next export has nested ESM/CJS type + default entries", () => {
+    const exports = packageJson.exports as PackageExportsMap;
+    const nextExport = getConditionalExport(exports, "./next");
+    expect(nextExport.import.types).toMatch(/next\.d\.ts$/);
+    expect(nextExport.import.default).toMatch(/next\.js$/);
+    expect(nextExport.require.types).toMatch(/next\.d\.cts$/);
+    expect(nextExport.require.default).toMatch(/next\.cjs$/);
+  });
+
+  it("declares ./next-config subpath export in exports map", () => {
+    const exports = packageJson.exports as Record<string, unknown>;
+    expect(exports["./next-config"]).toBeDefined();
+  });
+
+  it("./next-config export has nested ESM/CJS type + default entries", () => {
+    const exports = packageJson.exports as PackageExportsMap;
+    const nextConfigExport = getConditionalExport(exports, "./next-config");
+    expect(nextConfigExport.import.types).toMatch(/next-config\.d\.ts$/);
+    expect(nextConfigExport.import.default).toMatch(/next-config\.js$/);
+    expect(nextConfigExport.require.types).toMatch(/next-config\.d\.cts$/);
+    expect(nextConfigExport.require.default).toMatch(/next-config\.cjs$/);
   });
 });
 

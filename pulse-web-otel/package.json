@@ -32,8 +32,7 @@
   "license": "Apache-2.0",
   "publishConfig": {
     "access": "public",
-    "registry": "https://registry.npmjs.org/",
-    "provenance": true
+    "registry": "https://registry.npmjs.org/"
   },
   "type": "module",
   "main": "dist/index.cjs",
@@ -95,7 +94,7 @@
   ],
   "packageManager": "yarn@4.3.1",
   "scripts": {
-    "build": "rm -rf dist && tsup",
+    "build": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\" && tsup",
     "test": "vitest",
     "test:run": "vitest run",
     "lint": "tsc --noEmit",
