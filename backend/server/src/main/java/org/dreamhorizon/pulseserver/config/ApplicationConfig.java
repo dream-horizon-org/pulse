@@ -78,7 +78,7 @@ public class ApplicationConfig {
       return null;
     }
     String base = stripTrailingSlashes(interactionConfigUrl);
-    return String.format("%s/projects/%s/interaction.json", base, projectId);
+    return String.format("%s/projects/%s/interaction-config.json", base, projectId);
   }
 
   private static String stripTrailingSlashes(String url) {
