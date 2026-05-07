@@ -1,0 +1,14 @@
+2026-05-07 — Issue 02 (interaction-cache gate + config) done.
+  - Issue 01 helper (`SegmentSignalGate`) was already in tree; reused it.
+  - Added `RootCauseConfig.minCombinedDeltaSignal` (default 15.0, sentinel -1.0, 0.0 = disabled at runtime).
+  - Wired `rootcause-default.conf` key + `ROOT_CAUSE_MIN_COMBINED_DELTA_SIGNAL` env override; `MainVerticle.buildRootCauseConfig` reads it.
+  - Applied gate in `RootCauseService.computeAndCache` post-deltas / pre-`cacheDao.upsert`. Per-drop debug + summary info log.
+  - Tests: `RootCauseConfigTest` extended (default / unset-negative / zero-preserved / custom). Service-level test skipped (AC says optional; helper coverage strong; existing service tests still pass with mock returning 0.0 → gate disabled).
+  - Verified: `mvn test-compile` clean, 0 checkstyle violations; `*RootCauseService*` (41) and `*SegmentSignal*` (21) green.
+  - NOT done in this slice (left for next iteration):
+      * Issue 03 — screen-RCA parity (`ScreenRcaService` does not yet call the gate).
+      * Issue 04 — `rca-db-audit.py` combined-S rule.
+      * Issue 05 — HTTP `rca-audit` alignment.
+      * Issue 06 — verification playbook docs update.
+      * `graphify update` per repo rules (Java touched).
+  - Note: ralph/prompt.md mentions `pnpm ai-hero-cli internal lint` and `npx tsc --noEmit`; those are TS-stack commands and don't apply to this Java-only slice. Used `mvn test-compile` + targeted surefire instead.

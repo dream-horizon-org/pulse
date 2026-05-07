@@ -28,6 +28,27 @@ class RootCauseConfigTest {
     assertThat(config.getIssueMustPrecedePoor()).isTrue();
     assertThat(config.getDimensionOrder()).contains("Platform");
     assertThat(config.isHybridDimensionOrderingEnabled()).isFalse();
+    assertThat(config.getMinCombinedDeltaSignal())
+        .isEqualTo(RootCauseConfig.DEFAULT_MIN_COMBINED_DELTA_SIGNAL);
+  }
+
+  @Test
+  void minCombinedDeltaSignalUnsetNegativeUsesDefault() {
+    RootCauseConfig raw = RootCauseConfig.builder().minCombinedDeltaSignal(-1.0d).build();
+    assertThat(RootCauseConfig.withDefaults(raw).getMinCombinedDeltaSignal())
+        .isEqualTo(RootCauseConfig.DEFAULT_MIN_COMBINED_DELTA_SIGNAL);
+  }
+
+  @Test
+  void minCombinedDeltaSignalZeroPreservedAsDisabledAtRuntime() {
+    RootCauseConfig raw = RootCauseConfig.builder().minCombinedDeltaSignal(0.0d).build();
+    assertThat(RootCauseConfig.withDefaults(raw).getMinCombinedDeltaSignal()).isZero();
+  }
+
+  @Test
+  void minCombinedDeltaSignalCustomPositiveValuePreserved() {
+    RootCauseConfig raw = RootCauseConfig.builder().minCombinedDeltaSignal(25.0d).build();
+    assertThat(RootCauseConfig.withDefaults(raw).getMinCombinedDeltaSignal()).isEqualTo(25.0d);
   }
 
   @Test

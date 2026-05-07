@@ -195,6 +195,11 @@ public class RootCauseService {
           if (result.getNoDataAvailable() != null && result.getNoDataAvailable()) {
             return Single.just(result);
           }
+          List<RootCauseSegment> gated =
+              applySignalGate(result.getSegments(), interactionName);
+          if (gated != result.getSegments()) {
+            result = result.toBuilder().segments(gated).build();
+          }
           String baselineJson = objectMapper.writeValueAsString(result.getBaseline());
           String segmentsJson = objectMapper.writeValueAsString(result.getSegments());
           RootCauseAnalysisMode modeForCache =
@@ -217,6 +222,47 @@ public class RootCauseService {
    * may contain ":" (e.g. geo names), and single-step hierarchy uses the same "Dim: value" label as flat.
    */
   private record SegmentsWithMode(List<RootCauseSegment> segments, RootCauseAnalysisMode mode) {}
+
+  /**
+   * Drops pre-LLM segments whose combined absolute delta {@code S = |Δerror_rate| +
+   * |Δpoor_user_pct|} is below {@link RootCauseConfig#getMinCombinedDeltaSignal()}. Returns the
+   * input list unchanged when the gate is disabled ({@code threshold <= 0}) or no segments are
+   * dropped, so callers can detect a no-op via reference equality. Order of kept segments is
+   * preserved.
+   */
+  private List<RootCauseSegment> applySignalGate(
+      List<RootCauseSegment> segments, String interactionName) {
+    if (segments == null || segments.isEmpty()) {
+      return segments;
+    }
+    double threshold = config.getMinCombinedDeltaSignal();
+    if (threshold <= 0) {
+      return segments;
+    }
+    List<RootCauseSegment> kept = SegmentSignalGate.filter(segments, threshold);
+    if (kept.size() == segments.size()) {
+      return segments;
+    }
+    if (log.isDebugEnabled()) {
+      for (RootCauseSegment s : segments) {
+        if (!kept.contains(s)) {
+          log.debug(
+              "[RCA-SEGMENT] Drop segment below combined signal: interaction={}, label={}, S={}, threshold={}",
+              interactionName,
+              s.getLabel(),
+              SegmentSignalGate.computeSignal(s),
+              threshold);
+        }
+      }
+    }
+    log.info(
+        "[RCA-SEGMENT] Signal gate filtered segments: interaction={}, kept={}/{}, threshold={}",
+        interactionName,
+        kept.size(),
+        segments.size(),
+        threshold);
+    return kept;
+  }
 
   private Single<Optional<Map<String, Object>>> runBaseline(
       String projectId,
@@ -682,7 +728,7 @@ public class RootCauseService {
   private Single<List<Map<String, Object>>> executeQuery(String projectId, RootCauseQuerySpec spec) {
     return clickhouseQueryService
         .executeRootCauseQuery(
-            projectId, spec.sql(), spec.bindNames(), spec.bindValues(), true)
+            projectId, spec.sql(), spec.bindNames(), spec.bindValues())
         .map(ClickhouseQueryRowUtils::rowsToMaps);
   }
 
