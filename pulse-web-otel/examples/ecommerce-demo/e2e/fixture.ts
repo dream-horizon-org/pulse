@@ -351,9 +351,48 @@ export async function attachOtlpCapture(
       });
     };
 
-  await target.route("**/v1/logs", intercept("logs"));
-  await target.route("**/v1/traces", intercept("traces"));
-  await target.route("**/v1/metrics", intercept("metrics"));
+  // Use `*` suffix so unload beacon/query-param fallback (e.g. `?apiKey=...`)
+  // is captured by the same OTLP interceptors.
+  await target.route("**/v1/logs*", intercept("logs"));
+  await target.route("**/v1/traces*", intercept("traces"));
+  await target.route("**/v1/metrics*", intercept("metrics"));
+}
+
+/**
+ * In unload flows the SDK may use `navigator.sendBeacon`, which is not reliably
+ * observable by Playwright route interception across engines. For E2E determinism,
+ * remap beacon calls to keepalive fetch so OTLP payloads still flow through
+ * the same OTLP route-capture path (`/v1/logs|traces|metrics`).
+ */
+export async function attachSendBeaconFetchShim(
+  target: Page | BrowserContext,
+): Promise<void> {
+  await target.addInitScript(() => {
+    const nav = navigator as Navigator & {
+      sendBeacon?: (url: string | URL, data?: BodyInit | null) => boolean;
+    };
+    const original =
+      typeof nav.sendBeacon === "function"
+        ? nav.sendBeacon.bind(nav)
+        : undefined;
+
+    Object.defineProperty(nav, "sendBeacon", {
+      configurable: true,
+      writable: true,
+      value: (url: string | URL, data?: BodyInit | null): boolean => {
+        try {
+          void fetch(String(url), {
+            method: "POST",
+            body: data ?? null,
+            keepalive: true,
+          });
+          return true;
+        } catch {
+          return original?.(url, data) ?? false;
+        }
+      },
+    });
+  });
 }
 
 /** Poll `captured` until a log with the given `pulse.type` appears. */
@@ -395,6 +434,7 @@ export type OtlpFixture = {
 export const test = base.extend<{ otlp: OtlpFixture }>({
   otlp: async ({ page }, use) => {
     const captured: CapturedRequest[] = [];
+    await attachSendBeaconFetchShim(page);
     await attachDefaultSdkConfigStub(page);
     await attachOtlpCapture(page, captured);
 
