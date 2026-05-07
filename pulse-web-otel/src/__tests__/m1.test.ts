@@ -418,10 +418,9 @@ describe("M1 — SDK singleton guard", () => {
       withCredentials: false,
       upload: { addEventListener: vi.fn() },
     };
-    vi.stubGlobal(
-      "XMLHttpRequest",
-      vi.fn(() => mockXHR),
-    );
+    const XhrCtor = vi.fn(() => mockXHR);
+    Object.assign(XhrCtor, { DONE: 4 });
+    vi.stubGlobal("XMLHttpRequest", XhrCtor);
 
     window.localStorage.clear();
     window.sessionStorage.clear();
@@ -2248,10 +2247,9 @@ describe("M1 — SDK public API signals", () => {
       withCredentials: false,
       upload: { addEventListener: vi.fn() },
     };
-    vi.stubGlobal(
-      "XMLHttpRequest",
-      vi.fn(() => mockXHR),
-    );
+    const XhrCtor = vi.fn(() => mockXHR);
+    Object.assign(XhrCtor, { DONE: 4 });
+    vi.stubGlobal("XMLHttpRequest", XhrCtor);
 
     window.localStorage.clear();
     window.sessionStorage.clear();

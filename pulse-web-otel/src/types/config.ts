@@ -9,10 +9,49 @@ export enum PulseDataCollectionConsent {
   PENDING = "PENDING",
 }
 
+/** OTel browser trace header propagation allowlist — same shape as {@code propagateTraceHeaderCorsUrls}. */
+export type PulseNetworkPropagateCorsUrls =
+  | string
+  | RegExp
+  | Array<string | RegExp>;
+
 export interface InstrumentationConfig {
   errors?: { enabled: boolean };
-  network?: { enabled: boolean };
-  clicks?: { enabled: boolean };
+  network?: {
+    enabled?: boolean;
+    peerServiceMap?: Record<string, string>;
+    blockedUrls?: Array<string | RegExp>;
+    propagateTraceHeaderCorsUrls?: PulseNetworkPropagateCorsUrls;
+    /** Names of request headers to copy onto spans. `PulseWebSemconv.SensitiveCapturedHeaderName` keys are never emitted (see `isSensitiveCapturedHeaderName` in `utils/network-http.ts`). */
+    capturedRequestHeaders?: string[];
+    /** Names of response headers to copy onto spans. Same denylist as request headers. */
+    capturedResponseHeaders?: string[];
+    /**
+     * Default false — strips query string from {@code url.full}. When true, query is kept but
+     * values for keys in {@code PulseWebSemconv.SensitiveQueryParamName} are replaced with
+     * {@code ***} (see {@code isSensitiveQueryParamName} in {@code utils/network-http.ts}).
+     */
+    captureQueryParams?: boolean;
+    /**
+     * Reserved for PLAN-C §P3.5 — emit OTel stable histogram {@code http.client.request.duration}
+     * (seconds). **Not implemented yet**; default ignored until wired in {@code NetworkInstrumentation}.
+     */
+    emitRequestDurationMetric?: boolean;
+  };
+  /**
+   * `captureContext` defaults to true when omitted (Android parity).
+   * `rage` defaults on (Android `ClickEventBuffer`); set `rage.enabled: false` for immediate per-click emit.
+   */
+  clicks?: {
+    enabled: boolean;
+    captureContext?: boolean;
+    rage?: {
+      enabled?: boolean;
+      timeWindowMs?: number;
+      threshold?: number;
+      radiusDp?: number;
+    };
+  };
   webVitals?: {
     enabled?: boolean;
   };

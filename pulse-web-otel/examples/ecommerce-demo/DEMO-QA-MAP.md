@@ -18,12 +18,14 @@
 | `/products/:id` | Product detail |
 | `/cart` | Cart |
 | `/checkout` | Checkout |
+| `/network-lab` | Network Lab — 15 one-click fetch/XHR scenarios for manual network instrumentation QA |
 | `/error-demo` | Error Demo — intentional crashes/rejections (see page copy for M3 errors instrumentation) |
 
 ## Documentation already in this folder
 
 - **[MANUAL-WEB-VITALS-DEMO.md](./MANUAL-WEB-VITALS-DEMO.md)** — Web Vitals manual QA, mock JSON, query/env overrides.
 - **[MANUAL-PULSEWEB-LIFECYCLE.md](./MANUAL-PULSEWEB-LIFECYCLE.md)** — shutdown, disk buffer, consent, lifecycle.
+- **[MANUAL-NETWORK-LAB-SCENARIOS.md](./MANUAL-NETWORK-LAB-SCENARIOS.md)** — tested network scenarios (E2E-covered + manual-only Network Lab cases).
 
 ## Feature → install path (current code)
 
@@ -42,6 +44,7 @@ Remote **`PulseFeature`** names map in `instrumentation-registry.ts` `featureMap
 | Web vitals (LCP, INP, CLS, FCP, FID, TTFB) | `WebVitalsInstrumentation` | Needs **`web_vitals`** gate + see MANUAL-WEB-VITALS-DEMO for mock; six vitals when installed |
 | Error Demo buttons | Future/partial errors instr. | Page text describes `device.crash` / `non_fatal` when M3 errors ship |
 | Rage click UI (where mounted) | Interaction module | Fast repeated clicks — see interaction PLAN/E2E |
+| Network Lab API buttons | Network instrumentation (`FetchInstrumentation` + `XMLHttpRequestInstrumentation`) | Includes GET/POST/PUT/DELETE, 404/500-ish, abort/timeout, no-cors, local + cross-origin paths; verify `pulse.type` like `network.200`, `network.404`, `network.0` in spans |
 
 Always confirm **`pulse.type`** and attrs in `src/semconv.ts` and the relevant `src/instrumentations/*.ts` file.
 

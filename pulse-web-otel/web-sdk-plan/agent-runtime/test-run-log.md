@@ -2,13 +2,49 @@
 
 Append E2E / gate results for Web SDK work (per `pulse-web-sdk-sanity`).
 
+## Network review follow-up — 2026-05-06
+
+| Date | Command | Browser | Result | Notes |
+|------|---------|---------|--------|-------|
+| 2026-05-06 | `yarn vitest run` (cwd `pulse-web-otel`) | — | pass (433/433) | `requestHeaderGetter` plain-object/array; sensitive query redaction; `NetworkInstrumentation` idempotency; `network-instrumentation.test.ts`; XHR stub `DONE=4` on `m1` / `user-identity` mocks. |
+| 2026-05-06 | `yarn playwright test --config e2e/playwright.config.ts e2e/m4-network.spec.ts --project=chromium` (cwd `examples/ecommerce-demo`) | Chromium | pass (15/15) | Added Network Lab XHR timeout/abort; `page.route` 10s stall on `https://httpstat.us/**` + `pollLastNetworkZeroTransportErrorSpan` (empty `url.full` on XHR error). |
+| 2026-05-06 | `graphify update . --no-viz` (cwd `pulse-web-otel`) | — | pass | 763 nodes / 1018 edges / 113 communities; `graph-cache.md` refreshed. |
+| 2026-05-06 | `yarn e2e:web-sdk-gates` (cwd `examples/ecommerce-demo`) | Chromium | pass (166/166) | Full gate after M4 + Network Lab changes. |
+
+### 2026-05-06 — XHR E2E first attempt (symptom → cause → fix)
+
+**Symptom:** `pollProbeHttpSpan(otlp, "httpstat.us")` timed out after Network Lab XHR timeout/abort clicks.
+
+**Cause:** On timeout/abort, `xhr.responseURL` is often empty → `applyPulseHttpClientSpanAttributes` returns early with no `url.full` → substring probe never matched.
+
+**Fix:** Stall third-party URL via `page.route`; poll last span with `pulse.type=network.0` and `error.type=network_error`.
+
 ## DB seed / demo static parity — 2026-04-30
 
 | Date | Command | Browser | Result | Notes |
 |------|---------|---------|--------|-------|
+| 2026-05-05 | `yarn workspace ecommerce-demo playwright test --config e2e/playwright.config.ts e2e/m4-network.spec.ts --project=chromium` | Chromium | pass (13/13) | Added Network Lab UI E2E cases: click `network-lab-fetch-get-local` (`network.200`) and `network-lab-fetch-404` (`network.404` with route-fulfilled 404), plus existing M4 assertions. |
+| 2026-05-05 | `yarn workspace ecommerce-demo e2e:web-sdk-gates` | Chromium | fail (149/151) | Unrelated M1 identity fallback regressions: `m1.spec.ts` localStorage/sessionStorage fallback `session.start` timeout (same area pre-existing, not touched by Network Lab changes). |
+| 2026-05-05 | `yarn workspace ecommerce-demo playwright test --config e2e/playwright.config.ts e2e/m1.spec.ts --project=chromium -g "falls back"` | Chromium | fail (1/2) | Recheck of failing gate tests: `installation.id falls back to sessionStorage when localStorage throws` still times out waiting `session.start`; in-memory fallback passed. |
+| 2026-05-05 | `yarn workspace ecommerce-demo test && yarn workspace ecommerce-demo build` (cwd `pulse-web-otel`) | — | pass | Added `/network-lab` manual QA route with 15 API call variants (fetch/xhr, methods, 404/500-ish, abort/timeout/no-cors); updated demo QA map + refresh log; `graphify update . --no-viz`. |
+| 2026-05-05 | `yarn test:run src/__tests__/network-http.test.ts` + `yarn playwright test … e2e/m4-network.spec.ts --project=chromium` (cwd `examples/ecommerce-demo`) | Chromium | pass | M4 hardening: `pagehide` flush helper, OTLP span status, E3 cors / E4 abort / E5 AbortController, C1 `session.start` absent; **`getOtelHttpUrlFromSpan`** fixes empty `url.full` on failed fetch (OTel passes `RequestInit` only). Vitest `network-http` 24/24. `graphify update . --no-viz`. |
+| 2026-05-03 | Review polish: PLAN-C P2.4 doc fix, error-path Vitest, E1 `session.id`/`screen.name`, P1 `server.port` finite; PLAN-B deferrals + E2E table | — | pass | Vitest 382; M4 8/8. |
+| 2026-05-03 | PLAN-C OTel alignment (`sanitize` credentials, `server.port` 80/443, `network.protocol.version`) | — | pass | Vitest 378; M4 8/8; `yarn lint`. |
+| 2026-05-03 | `pulse.type` parity (`AMENDMENT-pulse-type-parity.md`): `networkPulseType`, `findAllNetworkSpans`; removed `PulseType.HTTP` | — | — | Vitest 373 pass; M4 Playwright 8/8; `graphify update . --no-viz`. |
+| 2026-05-02 | `yarn test:run` (cwd `pulse-web-otel`) | — | pass | Network `network-http.test.ts` + full Vitest suite (v3-network instrumentation close-out). |
+| 2026-05-02 | `yarn playwright test … e2e/m4-network.spec.ts` (cwd `examples/ecommerce-demo`) | Chromium | pass (2/2) | Assert on probe `url.full` — excludes config-fetch `http` spans (404). |
+| 2026-05-02 | `yarn workspace ecommerce-demo e2e:web-sdk-gates` | Chromium | pass (142/142) | M4 expanded (P3/P5/E1/E2/C1 + G1); replaces prior 136-row gate run. |
+| 2026-05-02 | `yarn playwright test … e2e/m4-network.spec.ts` (8 cases, cwd `examples/ecommerce-demo`) | Chromium | pass (8/8) | P3 XHR, P5 OTLP-ignore, E1 4xx/5xx, E2 `pulse_network_enabled=0`, C1 consent; `App.tsx` query for local network off. |
 | 2026-04-30 | `yarn test:run src/__tests__/interactions-config-fetcher.test.ts` | — | pass (7/7) | After aligning MySQL seeds + `interaction-config.json` with mock; no E2E rerun (seed/static JSON only). |
 | 2026-05-02 | `yarn test:run` (cwd `pulse-web-otel`) | — | pass (342/342) | Full Vitest suite (web-sdk-guardian / all unit+integration tests). |
 | 2026-05-02 | `yarn workspace ecommerce-demo e2e:web-sdk-gates` | Chromium | pass (130/130) | m1 + m2-interactions + web-vitals. |
+| 2026-04-30 | `yarn test:run` (cwd `pulse-web-otel`) | — | pass (357/357) | After merge `chore/web-vital-instrumentation` → `feat/web-sdk-clicks`; registry resolves clicks + web vitals. |
+| 2026-04-30 | `yarn workspace ecommerce-demo e2e:web-sdk-gates` | Chromium | pass (132/132) | m1 + m2-interactions + web-vitals + m3-clicks (combined gate script). |
+| 2026-04-30 | `yarn test:run` (cwd `pulse-web-otel`) | — | pass (360/360) | v2-clicks: `ClickEventBuffer` + wired `clicks.ts`, `click-rage-buffer.test.ts`, m8 pagehide budget (no extra `pagehide` on clicks). |
+| 2026-04-30 | `yarn workspace ecommerce-demo e2e:web-sdk-gates` | Chromium | pass (134/134) | After v2-clicks buffer + m3 rage + click gate-off (m1+m2+m3+web-vitals). |
+| 2026-04-30 | `yarn workspace ecommerce-demo e2e:web-sdk-gates` | Chromium | pass (134/134) | M3 D2 close-out: tests 1–2 assert `session.id`, `screen.name`, finite numeric coords (skill assertion floor). |
+| 2026-04-30 | `yarn playwright test … e2e/m3-clicks.spec.ts` (cwd `examples/ecommerce-demo`) | Chromium | pass (4/4) | M3: rage path asserts body + `click.type` good + widget + finite coords; good-click uses `otlp.reset()` after `session.start`. |
+| 2026-04-30 | `yarn workspace ecommerce-demo run e2e:web-sdk-gates` (cwd `pulse-web-otel`) | Chromium | pass (134/134) | Same M3 changes — full gate. |
 | 2026-05-04 | `yarn test:run` (cwd `pulse-web-otel`) | — | pass (341/341) | TTFB + always-on FCP/FID; Vitest web-vitals mock includes `onTTFB`. |
 | 2026-05-04 | `yarn workspace ecommerce-demo e2e:web-sdk-gates` | Chromium | pass (134/134) | Web vitals: TTFB, FCP, LCP, INP, FID, CLS + gate-off. |
 | 2026-05-04 | `yarn test:run` + `yarn workspace ecommerce-demo e2e:web-sdk-gates` (cwd `pulse-web-otel`) | Chromium (E2E) | pass (341/341, 134/134) | Added `examples/web-sdk-docs` vanilla demo; no SDK `src/` changes. |

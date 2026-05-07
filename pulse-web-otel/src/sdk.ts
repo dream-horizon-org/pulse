@@ -74,7 +74,7 @@ class PulseWebSDK implements SdkContext {
   config!: PulseWebConfig;
   globalAttrsProcessor!: PulseGlobalAttributesProcessor;
 
-  private tracerProvider?: WebTracerProvider;
+  private _webTracerProvider?: WebTracerProvider;
   private _loggerProvider?: LoggerProvider;
   private meterProvider?: MeterProvider;
   private _prepareForDocumentUnload?: () => void;
@@ -85,9 +85,21 @@ class PulseWebSDK implements SdkContext {
   private _providerCleanup: () => void = () => {};
   private interactionInstrumentation?: InteractionInstrumentation;
 
+  /** Promise for in-flight {@link start}; cleared when {@code finishStart} settles. */
+  private _startSettled: Promise<void> | null = null;
+
   /** Exposed on {@link SdkContext} for instrumentations that must flush logs (Web Vitals). */
   get loggerProvider(): LoggerProvider | undefined {
     return this._loggerProvider;
+  }
+
+  /**
+   * OTel {@link WebTracerProvider} — defined after {@link start}'s async init completes.
+   * Await {@link whenReady} (or the promise returned from {@link start}) before use; until then
+   * this getter may be undefined even though {@link start} was called.
+   */
+  get tracerProvider(): WebTracerProvider | undefined {
+    return this._webTracerProvider;
   }
 
   static getInstance(): PulseWebSDK {
@@ -97,9 +109,18 @@ class PulseWebSDK implements SdkContext {
     return PulseWebSDK._instance;
   }
 
-  start(config: PulseWebConfig): void {
-    if (typeof window === "undefined") return;
-    if (this._initialized || this._shuttingDown || this._starting) return;
+  /**
+   * Begins SDK initialization. Returns a promise that settles when async bootstrap
+   * ({@code finishStart}) completes — same instant as {@link whenReady}. Safe to ignore
+   * the return value unless you need {@link tracerProvider} immediately after.
+   */
+  start(config: PulseWebConfig): Promise<void> {
+    if (this._initialized || this._shuttingDown) {
+      return Promise.resolve();
+    }
+    if (this._starting) {
+      return this.whenReady();
+    }
     // Step 1: Validate config
     validateConfig(config);
     PulseWebLogger.setLevel(config.logLevel ?? PulseLogLevel.NONE);
@@ -108,7 +129,9 @@ class PulseWebSDK implements SdkContext {
     this.endpointBaseUrl = endpointBaseUrl;
 
     // Consent gate — DENIED or PENDING → no-op, zero signals emitted
-    if (!isDataCollectionAllowed(config.dataCollectionState)) return;
+    if (!isDataCollectionAllowed(config.dataCollectionState)) {
+      return Promise.resolve();
+    }
     this.config = config;
 
     const meteringSessionId = crypto.randomUUID();
@@ -116,7 +139,27 @@ class PulseWebSDK implements SdkContext {
     // Set _starting before the async finishStart so the singleton guard blocks
     // any duplicate start() calls that arrive during the 200ms OS-version await.
     this._starting = true;
-    void this.finishStart(config, endpointBaseUrl, meteringSessionId);
+    const done = this.finishStart(
+      config,
+      endpointBaseUrl,
+      meteringSessionId,
+    ).finally(() => {
+      this._startSettled = null;
+    });
+    this._startSettled = done;
+    return done;
+  }
+
+  /**
+   * Resolves when {@link start}'s async work has finished (or immediately if already
+   * {@link isInitialized}). If consent blocked init or startup aborted, still resolves —
+   * check {@link isInitialized} before using {@link tracerProvider}.
+   */
+  whenReady(): Promise<void> {
+    if (this._initialized) {
+      return Promise.resolve();
+    }
+    return this._startSettled ?? Promise.resolve();
   }
 
   private async finishStart(
@@ -174,6 +217,12 @@ class PulseWebSDK implements SdkContext {
   }
 
   private abortStartIfUnavailable(): boolean {
+    // SSR / non-browser: no `window` on globalThis — skip init (TC-C16).
+    const w = (globalThis as { window?: unknown }).window;
+    if (w == null) {
+      this._starting = false;
+      return true;
+    }
     if (this._initialized || this._shuttingDown) {
       this._starting = false;
       return true;
@@ -270,7 +319,9 @@ class PulseWebSDK implements SdkContext {
           }
         : { enabled: false },
       ...(beforeSendResolved ? { beforeSendData: beforeSendResolved } : {}),
-      ...(config.beaconRelayUrl ? { beaconRelayUrl: config.beaconRelayUrl } : {}),
+      ...(config.beaconRelayUrl
+        ? { beaconRelayUrl: config.beaconRelayUrl }
+        : {}),
     };
   }
 
@@ -292,7 +343,7 @@ class PulseWebSDK implements SdkContext {
   }
 
   private assignProviders(bundle: ProviderBundle): void {
-    this.tracerProvider = bundle.tracerProvider;
+    this._webTracerProvider = bundle.tracerProvider;
     this._loggerProvider = bundle.loggerProvider;
     this.meterProvider = bundle.meterProvider;
     this._prepareForDocumentUnload = bundle.prepareForDocumentUnload;
@@ -306,7 +357,7 @@ class PulseWebSDK implements SdkContext {
         this._prepareForDocumentUnload?.();
         void Promise.all([
           this._loggerProvider?.forceFlush(),
-          this.tracerProvider?.forceFlush(),
+          this._webTracerProvider?.forceFlush(),
           this.meterProvider?.forceFlush(),
         ]).catch(() => {});
       }
@@ -315,7 +366,7 @@ class PulseWebSDK implements SdkContext {
   }
 
   private bindGlobalProviders(): void {
-    const tracerProvider = this.tracerProvider;
+    const tracerProvider = this._webTracerProvider;
     const loggerProvider = this._loggerProvider;
     const meterProvider = this.meterProvider;
     if (!tracerProvider || !loggerProvider || !meterProvider) return;
@@ -375,10 +426,15 @@ class PulseWebSDK implements SdkContext {
     this.sessionProvider?.shutdown();
 
     await Promise.all([
-      this.tracerProvider?.forceFlush(),
+      this._webTracerProvider?.forceFlush(),
       this._loggerProvider?.forceFlush(),
       this.meterProvider?.forceFlush(),
     ]);
+
+    this._webTracerProvider = undefined;
+    this._loggerProvider = undefined;
+    this.meterProvider = undefined;
+    this._prepareForDocumentUnload = undefined;
 
     this._initialized = false;
     this._shuttingDown = false;
@@ -441,9 +497,9 @@ class PulseWebSDK implements SdkContext {
       this.globalAttrsProcessor.setUserId(null);
       this.globalAttrsProcessor.setUserProperties(
         Object.fromEntries(
-          Object.keys(this.globalAttrsProcessor.getUserPropertiesSnapshot()).map(
-            (k) => [k, null],
-          ),
+          Object.keys(
+            this.globalAttrsProcessor.getUserPropertiesSnapshot(),
+          ).map((k) => [k, null]),
         ),
       );
     }

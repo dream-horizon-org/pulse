@@ -40,36 +40,19 @@ vi.mock("@dreamhorizon/pulse-web", () => ({
     PENDING: "PENDING",
   },
   PulseLogLevel: {
-    VERBOSE: "VERBOSE",
-    DEBUG: "DEBUG",
-    INFO: "INFO",
-    WARN: "WARN",
-    ERROR: "ERROR",
-    NONE: "NONE",
+    VERBOSE: 0,
+    DEBUG: 1,
+    INFO: 2,
+    WARN: 3,
+    ERROR: 4,
+    NONE: 5,
   },
 }));
 
-// Mock the React integration — use lightweight stubs so we can assert wiring
+// Mock the React integration — lightweight stubs; PulseProvider wraps children in
+// PulseErrorBoundary (matches real PulseProvider) so route render errors are contained.
 vi.mock("@dreamhorizon/pulse-web/react", () => {
   const React = require("react");
-
-  function PulseProvider({
-    children,
-    config,
-  }: {
-    children: React.ReactNode;
-    config: unknown;
-    shutdownOnUnmount?: boolean;
-  }) {
-    React.useEffect(() => {
-      mockStart(config);
-      mockIsInitialized.mockReturnValue(true);
-      return () => {
-        void mockShutdown();
-      };
-    }, []);
-    return React.createElement(React.Fragment, null, children);
-  }
 
   class PulseErrorBoundary extends React.Component<{
     children: React.ReactNode;
@@ -87,6 +70,24 @@ vi.mock("@dreamhorizon/pulse-web/react", () => {
       }
       return this.props.children;
     }
+  }
+
+  function PulseProvider({
+    children,
+    config,
+  }: {
+    children: React.ReactNode;
+    config: unknown;
+    shutdownOnUnmount?: boolean;
+  }) {
+    React.useEffect(() => {
+      mockStart(config);
+      mockIsInitialized.mockReturnValue(true);
+      return () => {
+        void mockShutdown();
+      };
+    }, []);
+    return React.createElement(PulseErrorBoundary, null, children);
   }
 
   function useRouterTracking(opts?: { skipInitial?: boolean }) {
@@ -112,9 +113,15 @@ vi.mock("@dreamhorizon/pulse-web/react", () => {
   return { PulseProvider, PulseErrorBoundary, useRouterTracking, usePulse };
 });
 
-// Mock lazy-loaded routes
+// Mock lazy-loaded routes — Home can throw when `homeThrowsOnRender` is true (error-boundary test).
+let homeThrowsOnRender = false;
 vi.mock("../routes/Home", () => ({
-  default: () => React.createElement("div", { "data-testid": "home" }, "Home"),
+  default: () => {
+    if (homeThrowsOnRender) {
+      throw new Error("test render crash");
+    }
+    return React.createElement("div", { "data-testid": "home" }, "Home");
+  },
 }));
 vi.mock("../routes/Products", () => ({
   default: () =>
@@ -190,21 +197,17 @@ describe("Demo App — PulseErrorBoundary wiring", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.resetModules();
+    homeThrowsOnRender = true;
     // Suppress React error boundary console noise
     vi.spyOn(console, "error").mockImplementation(() => {});
   });
 
   afterEach(() => {
+    homeThrowsOnRender = false;
     vi.restoreAllMocks();
   });
 
   it("catches render errors silently via internal PulseErrorBoundary", async () => {
-    // Override Home to throw
-    vi.doMock("../routes/Home", () => ({
-      default: () => {
-        throw new Error("test render crash");
-      },
-    }));
     const App = (await import("../App")).default;
     let result: ReturnType<typeof render> | undefined;
     await act(async () => {

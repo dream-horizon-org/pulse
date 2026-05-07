@@ -162,7 +162,9 @@ describe("PulseWeb — setUserId lifecycle + persistence", () => {
       withCredentials: false,
       upload: { addEventListener: vi.fn() },
     };
-    vi.stubGlobal("XMLHttpRequest", vi.fn(() => mockXHR));
+    const XhrCtor = vi.fn(() => mockXHR);
+    Object.assign(XhrCtor, { DONE: 4 });
+    vi.stubGlobal("XMLHttpRequest", XhrCtor);
     window.localStorage.clear();
     window.sessionStorage.clear();
     emitFn.mockClear();

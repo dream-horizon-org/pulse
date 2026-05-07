@@ -4,6 +4,22 @@
 // restart balance, SSR guard, post-shutdown no-op.
 
 // ─── OTel mocks ──────────────────────────────────────────────────────────────
+// Avoid shimmer unwrap stderr when tests stub `XMLHttpRequest` — lifecycle tests
+// do not assert network span patching.
+vi.mock("@opentelemetry/instrumentation-fetch", () => ({
+  FetchInstrumentation: class {
+    setTracerProvider(): void {}
+    enable(): void {}
+    disable(): void {}
+  },
+}));
+vi.mock("@opentelemetry/instrumentation-xml-http-request", () => ({
+  XMLHttpRequestInstrumentation: class {
+    setTracerProvider(): void {}
+    enable(): void {}
+    disable(): void {}
+  },
+}));
 
 vi.mock("@opentelemetry/api-logs", () => ({
   logs: {

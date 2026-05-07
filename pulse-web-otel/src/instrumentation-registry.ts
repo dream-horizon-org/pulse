@@ -5,7 +5,9 @@
 import type { InstrumentationConfig } from "./config";
 import type { FeatureGate } from "./feature-gate";
 import { SessionInstrumentation } from "./instrumentations/session";
+import { ClicksInstrumentation } from "./instrumentations/clicks";
 import { WebVitalsInstrumentation } from "./instrumentations/web-vitals";
+import { NetworkInstrumentation } from "./instrumentations/network";
 import { ErrorInstrumentation } from "./instrumentations/errors";
 import { InstrumentationKeys } from "./config";
 import { PulseFeature } from "./remote-config";
@@ -73,12 +75,18 @@ export class InstrumentationRegistry {
     }
 
     this.registerAndInstall(
+      new ClicksInstrumentation(),
+      InstrumentationKeys.CLICKS,
+    );
+    this.registerAndInstall(
       new WebVitalsInstrumentation(),
       InstrumentationKeys.WEB_VITALS,
     );
+    this.registerAndInstall(
+      new NetworkInstrumentation(),
+      InstrumentationKeys.NETWORK,
+    );
 
-    // M3: will install ErrorsInstrumentation, NetworkInstrumentation,
-    // ClicksInstrumentation, NavigationInstrumentation, etc.
     if (this.shouldInstall(InstrumentationKeys.ERRORS)) {
       const errInstr = new ErrorInstrumentation();
       errInstr.install(this.sdk);

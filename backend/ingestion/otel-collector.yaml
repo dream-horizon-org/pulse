@@ -3,6 +3,14 @@ receivers:
     protocols:
       http:
         endpoint: 0.0.0.0:4318
+        # Browser SDKs (e.g. Pulse web demo on :3002) send OTLP/HTTP cross-origin; enable CORS on the receiver.
+        # See confighttp server `cors` (do not use allowed_origins: ["*"] — incompatible with credentials).
+        cors:
+          allowed_origins:
+            - "http://*"
+            - "https://*"
+          allowed_headers:
+            - "*"
 
 extensions:
   health_check:
