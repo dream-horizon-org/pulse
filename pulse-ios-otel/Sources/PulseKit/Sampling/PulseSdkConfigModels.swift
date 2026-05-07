@@ -271,6 +271,8 @@ public struct PulseInteractionConfig: Codable, Equatable {
 
 // MARK: - Batch Processor Config
 
+/// All spans reported by the SDK are exported every scheduleDelayMillis to the exporter pipeline in batches of maxExportBatchSize.
+
 public struct PulseBatchProcessorConfig: Codable, Equatable {
     public let batchLogs: PulseBatchProcessorOption?
     public let batchSpans: PulseBatchProcessorOption?
@@ -347,7 +349,7 @@ public struct PulseFeatureConfig: Codable, Equatable {
 
 // MARK: - Enums (JSON string values match API compatibility)
 
-public enum PulseSignalScope: String, Codable, CaseIterable {
+public enum PulseSignalScope: String, CaseIterable, PulseFallbackDecodable {
     case logs
     case traces
     case metrics
@@ -355,7 +357,7 @@ public enum PulseSignalScope: String, Codable, CaseIterable {
     case unknown
 }
 
-public enum PulseSdkName: String, CaseIterable {
+public enum PulseSdkName: String, CaseIterable, PulseFallbackDecodable {
     case pulse_android_java
     case pulse_android_rn
     case pulse_ios_swift
@@ -373,31 +375,7 @@ public enum PulseSdkName: String, CaseIterable {
     }
 }
 
-extension PulseSdkName: Codable {
-    /// Unknown or future server values decode to `.unknown` (parity with Android `PulseFallbackToUnknownEnumSerializer`).
-    public init(from decoder: Decoder) throws {
-        do {
-            let container = try decoder.singleValueContainer()
-            if try container.decodeNil() {
-                self = .unknown
-                return
-            }
-            let raw = try container.decode(String.self)
-            self = Self(rawValue: raw) ?? .unknown
-        } catch {
-            self = .unknown
-        }
-    }
-
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.singleValueContainer()
-        try container.encode(rawValue)
-    }
-}
-
-/// JSON uses snake_case strings. Unknown or future server values decode to `.unknown` (same idea as Android
-/// `PulseFallbackToUnknownEnumSerializer`).
-public enum PulseFeatureName: String, CaseIterable {
+public enum PulseFeatureName: String, CaseIterable, PulseFallbackDecodable {
     case java_crash
     case js_crash
     case cpp_crash
@@ -421,29 +399,7 @@ public enum PulseFeatureName: String, CaseIterable {
     case unknown
 }
 
-extension PulseFeatureName: Codable {
-    /// Bad types, null, or unexpected payloads map to `.unknown` instead of failing the whole config (parity with Android fallback).
-    public init(from decoder: Decoder) throws {
-        do {
-            let container = try decoder.singleValueContainer()
-            if try container.decodeNil() {
-                self = .unknown
-                return
-            }
-            let raw = try container.decode(String.self)
-            self = Self(rawValue: raw) ?? .unknown
-        } catch {
-            self = .unknown
-        }
-    }
-
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.singleValueContainer()
-        try container.encode(rawValue)
-    }
-}
-
-public enum PulseDeviceAttributeName: String, Codable, CaseIterable {
+public enum PulseDeviceAttributeName: String, CaseIterable, PulseFallbackDecodable {
     case os_version
     case app_version
     case country

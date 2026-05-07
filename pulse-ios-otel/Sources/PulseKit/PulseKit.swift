@@ -1024,6 +1024,11 @@ public class Pulse {
 
 // MARK: - Batch Processor Constants
 
+/// All spans reported by the SDK implementation are first added to a synchronized queue (with maxQueueSize maximum size, after the size is reached spans are dropped) and exported
+/// every scheduleDelayMillis to the exporter pipeline in batches of maxExportBatchSize.
+/// If the queue gets half full a preemptive notification is sent to the worker thread that
+/// triggers an export. The exportTimeout parameter specifies the maximum duration (in seconds) to wait for an export batch to complete;
+/// if exceeded, the export is abandoned to prevent blocking the application.
 internal enum BatchProcessorDefaults {
     static let scheduleDelay: TimeInterval = 5
     static let maxQueueSize: Int = 2048
