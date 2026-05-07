@@ -1,3 +1,13 @@
+// Polyfill crypto.randomUUID for Android WebView < Chrome 92 and other environments
+// that expose crypto but not randomUUID (e.g. HTTP non-secure contexts).
+if (typeof crypto !== "undefined" && typeof crypto.randomUUID !== "function") {
+  (crypto as Crypto).randomUUID = (): `${string}-${string}-${string}-${string}-${string}` =>
+    "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+      const r = (Math.random() * 16) | 0;
+      return (c === "x" ? r : (r & 0x3) | 0x8).toString(16);
+    }) as `${string}-${string}-${string}-${string}-${string}`;
+}
+
 // M1: PulseSDK — minimal init sequence matching Android's public API surface.
 // Endpoint URL, wire format, compression, and batch timing are fixed internally.
 // `diskBuffering` mirrors Android `DiskBufferingConfig`: **on by default** (PulseSDK does not expose
@@ -134,13 +144,7 @@ class PulseSDK implements SdkContext {
     }
     this.config = config;
 
-    const meteringSessionId =
-      typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
-        ? crypto.randomUUID()
-        : "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
-            const r = (Math.random() * 16) | 0;
-            return (c === "x" ? r : (r & 0x3) | 0x8).toString(16);
-          });
+    const meteringSessionId = crypto.randomUUID();
 
     // Set _initializing before the async finishInit so the singleton guard blocks
     // any duplicate init() calls that arrive during the 200ms OS-version await.
