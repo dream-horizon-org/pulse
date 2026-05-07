@@ -26,7 +26,7 @@ variable "collector_count" {
 }
 
 variable "subnet_ids" {
-  description = "List of subnets (usually private) for the collectors/ALB"
+  description = "List of subnets (usually private) for the collectors and NLB"
   type        = list(string)
 }
 
@@ -41,7 +41,7 @@ variable "vpc_security_group_ids" {
 }
 
 variable "alb_security_group_ids" {
-  description = "Security group IDs to attach to the OTEL consumer ALB"
+  description = "Security group IDs to attach to the OTEL consumer NLB (optional on NLB; omit or use [] if unused)"
   type        = list(string)
 }
 
@@ -59,12 +59,12 @@ variable "instance_profile_name" {
 }
 
 variable "route53_zone_id" {
-  description = "Route53 hosted zone ID for OTEL consumer ALB alias record"
+  description = "Route53 hosted zone ID for OTEL consumer NLB alias record"
   type        = string
 }
 
 variable "route53_record_name" {
-  description = "DNS record name for OTEL consumer ALB (for example, pulse-otel-consumer.pulse.local)"
+  description = "DNS record name for OTEL consumer NLB (for example, pulse-otel-consumer.pulse.local)"
   type        = string
 }
 
@@ -75,13 +75,13 @@ variable "route53_zone_name" {
 }
 
 variable "alb_listener_port" {
-  description = "ALB listener port for OTEL consumer traffic"
+  description = "NLB listener port for OTEL consumer traffic (TCP)"
   type        = number
   default     = 4318
 }
 
 variable "alb_target_group_port" {
-  description = "Target group port on OTEL consumer instances"
+  description = "Target group TCP port on OTEL consumer instances (OTLP HTTP)"
   type        = number
   default     = 4318
 }

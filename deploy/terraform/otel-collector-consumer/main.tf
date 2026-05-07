@@ -178,21 +178,20 @@ resource "aws_autoscaling_group" "otel-consumer" {
 }
 
 # -------------------------------------------------------------------
-# ALB + Target Group + Listener
+# NLB + Target Group + Listener (TCP pass-through for OTLP HTTP on instances)
 # -------------------------------------------------------------------
 
 resource "aws_lb" "otel-consumer" {
-  load_balancer_type         = "application"
-  name                       = "pulse-otel-consumer-alb"
+  load_balancer_type         = "network"
+  name                       = "pulse-otel-consumer-nlb"
   internal                   = true
   ip_address_type            = "ipv4"
   subnets                    = var.subnet_ids
   security_groups            = var.alb_security_group_ids
   enable_deletion_protection = false
-  drop_invalid_header_fields = true
 
   tags = {
-    Name             = "pulse-otel-consumer-alb"
+    Name             = "pulse-otel-consumer-nlb"
     org_name         = "horizon"
     environment_name = "production"
     component_name   = "pulse-otel-consumer"
@@ -208,7 +207,7 @@ resource "aws_lb_target_group" "otel-consumer" {
   port            = var.alb_target_group_port
   ip_address_type = "ipv4"
   vpc_id          = var.vpc_id
-  protocol        = "HTTP"
+  protocol        = "TCP"
 
   health_check {
     enabled             = true
@@ -235,10 +234,10 @@ resource "aws_lb_target_group" "otel-consumer" {
   }
 }
 
-resource "aws_lb_listener" "otel-consumer-http" {
+resource "aws_lb_listener" "otel-consumer-tcp" {
   load_balancer_arn = aws_lb.otel-consumer.arn
   port              = var.alb_listener_port
-  protocol          = "HTTP"
+  protocol          = "TCP"
 
   default_action {
     type             = "forward"
@@ -247,7 +246,7 @@ resource "aws_lb_listener" "otel-consumer-http" {
 }
 
 # -------------------------------------------------------------------
-# Route53 Alias Record for OTEL consumer ALB
+# Route53 alias for OTEL consumer NLB
 # -------------------------------------------------------------------
 
 resource "aws_route53_record" "otel_consumer" {
