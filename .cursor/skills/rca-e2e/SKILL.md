@@ -90,10 +90,20 @@ One concrete command the user should run next.
 ## Key invariants being tested
 
 - **Direction filter** — improving cohorts (Δerr < 0, Δpoor < 0) must NEVER appear in output
-- **Eligibility gate** — `value_number − baseline_number < 0.02` for error_rate AND `< 0.05` for poor_user_pct → discard (noise)
+- **Combined signal gate (server-enforced, PRD `prd/rca-segment-signal-gate-prd.md`)** — `S = |Δerror_rate| + |Δpoor_user_pct| ≥ MIN_COMBINED_DELTA_SIGNAL` (default **15**, env `RCA_MIN_COMBINED_DELTA_SIGNAL` for audits, `ROOT_CAUSE_MIN_COMBINED_DELTA_SIGNAL` for server). Missing delta → 0 for that term. Failures print `S=… < 15` in both `rca-db-audit.py` and `rca-audit.py`.
 - **Volume gate** — segment current volume ≥ 10% of its own historical baseline volume
 - **No padding** — if only 1 eligible segment, output exactly 1 (never fabricate a 2nd)
 - **Healthy detection** — `everything_good: true` + `segments: []` + `recommendations: []` when zero eligible segments
+
+## Cache recompute after server changes
+
+The signal gate runs **server-side** before `root_cause_cache` is written. After **any** server change that touches segmentation or the gate:
+
+1. Re-seed if seed semantics changed: `python3 deploy/scripts/seed-ecommerce-data.py [--clear]`.
+2. **Recompute cache** so audits see current behavior — either `--seed` mode of `rca-e2e.py` (clears + regenerates) or `python3 deploy/scripts/rca-generate.py`. Stale cache will mask gate effects and produce ghost `[NOISE]` / `[WEAK]` failures.
+3. Then run db-audit and (if HTTP needed) the full audit.
+
+`screen_root_cause_cache` parity is tracked separately; if you touched screen RCA, recompute it via the same regenerate flow.
 
 ## Available interactions
 
