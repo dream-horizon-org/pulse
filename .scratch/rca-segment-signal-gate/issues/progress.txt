@@ -12,3 +12,22 @@
       * Issue 06 — verification playbook docs update.
       * `graphify update` per repo rules (Java touched).
   - Note: ralph/prompt.md mentions `pnpm ai-hero-cli internal lint` and `npx tsc --noEmit`; those are TS-stack commands and don't apply to this Java-only slice. Used `mvn test-compile` + targeted surefire instead.
+
+2026-05-07 — Issue 04 (rca-db-audit combined-S rule) done.
+  - `deploy/scripts/rca-db-audit.py`: replaced dual `noise_threshold_err`/`noise_threshold_poor` with single
+    `MIN_COMBINED_DELTA_SIGNAL` (default 15.0, env `RCA_MIN_COMBINED_DELTA_SIGNAL`). Mirrors server gate from issue 02.
+  - `_combined_signal(derr, dpup)` helper: missing delta → 0, absolute on each term (matches PRD/SegmentSignalGate.java).
+  - [NOISE] / [WEAK] verdicts now print `S=… < threshold` so failures are self-explaining; [OK] also shows S.
+  - Removed per-interaction `noise_threshold_*` keys from EXPECTATIONS — single global knob per PRD v1.
+  - Banner prints active threshold and env var name.
+  - Lint/type: ralph TS commands N/A for this Python-only slice; `python3 -c "ast.parse(...)"` clean.
+  - NOT done — left for next iteration:
+      * Issue 03 — screen-RCA parity. BLOCKER surfaced: `SegmentSignalGate` keys on
+        ERROR_RATE/POOR_USER_PCT, but `ScreenRcaService.computeScreenDeltas` only emits
+        CLICK_VOLUME/TAP_COUNT/RAGE_COUNT/DEAD_COUNT/BAD_FRUSTRATION → literal "identical S formula"
+        application would compute S=0 for every screen segment and drop all output at default
+        threshold 15. Needs PRD clarification before coding (either define screen-equivalent
+        metric mapping in the gate, or scope screen RCA out until its deltas include the same keys).
+      * Issue 05 — HTTP `rca-audit.py` alignment (still references the same dual keys; same change applies).
+      * Issue 06 — verification playbook docs.
+      * `graphify update` not needed (no Java touched in this slice).

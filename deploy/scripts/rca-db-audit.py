@@ -11,13 +11,15 @@ segmentation issues without needing a running server or a JWT token.
 
 What it checks per interaction:
   • Expected bad segments are present in ClickHouse
-  • Their signal is above the noise floor (Δerr and Δpoor are meaningful)
+  • Their combined signal S = |Δerr| + |Δpoor| meets the same floor pulse-server
+    enforces before persisting to root_cause_cache (default 15; missing delta → 0)
   • No pure-noise segments are being sent to the LLM unnecessarily
 
 Usage:
     python3 deploy/scripts/rca-db-audit.py [--project <id>] [--date <YYYY-MM-DD>]
     python3 deploy/scripts/rca-db-audit.py --interaction app_launch
     python3 deploy/scripts/rca-db-audit.py --verbose
+    RCA_MIN_COMBINED_DELTA_SIGNAL=20 python3 deploy/scripts/rca-db-audit.py
     PROJECT_ID=x python3 deploy/scripts/rca-db-audit.py
 """
 
@@ -38,6 +40,11 @@ CH_DB       = os.environ.get("CH_DB",       "otel")
 
 DEFAULT_DATE = str(date.today())
 
+# Combined-signal floor mirrored from pulse-server's RootCauseConfig.minCombinedDeltaSignal
+# (default 15.0). Override with RCA_MIN_COMBINED_DELTA_SIGNAL when staging tunes the server.
+# Formula: S = |Δerror_rate| + |Δpoor_user_pct|; missing delta counts as 0.
+MIN_COMBINED_DELTA_SIGNAL = float(os.environ.get("RCA_MIN_COMBINED_DELTA_SIGNAL", "15"))
+
 INTERACTIONS = [
     "app_launch", "home_feed_load", "product_search", "product_detail_view",
     "add_to_cart", "checkout_start", "payment_processing", "order_confirmation",
@@ -47,8 +54,12 @@ INTERACTIONS = [
 
 # ── Expectations (keep in sync with rca-audit.py) ─────────────────────────────
 # Per-interaction schema:
-#   expected_segments    — list of {keywords, borderline}: readability fallback for
-#                          presence checks. Always populated.
+#   expected_segments    — list of {keywords, borderline}: presence checks. Each
+#                          entry is independent: **every** entry must match some
+#                          segment. Within one entry, keywords are OR (any keyword
+#                          match counts). Use separate entries to require multiple
+#                          cohort signals (e.g. Os "10" and "Jio" as two rows, not
+#                          ["Jio","android"] which allowed either).
 #   expected_dimensions  — optional list of dimensions dicts (e.g. {"OsVersion": "10"}).
 #                          When present, audit performs STRICT post-sort equality:
 #                            • sort key: tuple(sorted(dimensions.items())) — stable,
@@ -58,37 +69,37 @@ INTERACTIONS = [
 #                            • each index after sort must match exactly.
 #                          Golden lists are recorded from a clean root_cause_cache
 #                          run after issue 004 (deferred to issue 007 closeout).
-#   mode                 — optional "HIERARCHICAL" / "FLAT" assertion. Allowlist
-#                          (per docs/rca-segmentation-scenarios.md row G2):
-#                            • checkout_start    → HIERARCHICAL
-#                            • notifications_open → FLAT (everything_good path)
+#   mode                 — optional mode assertion. Allowlist (scenarios doc G2):
+#                            • checkout_start     → hierarchical (alias: HIERARCHICAL)
+#                            • notifications_open → flat (alias: FLAT)
+#                          ClickHouse stores Java wire values: flat, hierarchical
+#                          (RootCauseAnalysisMode). Comparison is case-insensitive.
 #                          Other interactions: mode is informational only.
-#   noise_threshold_*    — segments below both thresholds are flagged as noise
-#                          being sent to LLM.
+#   Noise/weak floor     — single global S threshold from MIN_COMBINED_DELTA_SIGNAL
+#                          (env RCA_MIN_COMBINED_DELTA_SIGNAL); mirrors the server
+#                          gate. Per-interaction overrides intentionally omitted in
+#                          v1 — keep the audit policy aligned with one knob.
 #
 # rca-audit.py (LLM path) intentionally does NOT carry strict dimensions parity —
 # scenarios doc §G1 locks ownership of strict map equality to this script only.
 EXPECTATIONS = {
     "app_launch": {
         "expected_segments": [
-            {"keywords": ["10"],             "borderline": False},
-            {"keywords": ["Jio", "android"], "borderline": False},
-            {"keywords": ["SM-A135F"],       "borderline": True},
+            {"keywords": ["10"],       "borderline": False},
+            {"keywords": ["Jio"],      "borderline": False},
+            {"keywords": ["SM-A135F"], "borderline": True},
         ],
-        "noise_threshold_err": 10, "noise_threshold_poor": 15,
     },
     "home_feed_load": {
         "expected_segments": [
             {"keywords": ["Redmi"],  "borderline": False},
             {"keywords": ["4.1.0"], "borderline": True},
         ],
-        "noise_threshold_err": 10, "noise_threshold_poor": 15,
     },
     "product_search": {
         "expected_segments": [
             {"keywords": ["11"], "borderline": False},
         ],
-        "noise_threshold_err": 10, "noise_threshold_poor": 15,
     },
     "product_detail_view": {
         "expected_segments": [
@@ -96,13 +107,11 @@ EXPECTATIONS = {
             {"keywords": ["4.1.0"],             "borderline": False},
             {"keywords": ["Vivo", "POCO", "Vi"],"borderline": True},
         ],
-        "noise_threshold_err": 10, "noise_threshold_poor": 15,
     },
     "add_to_cart": {
         "expected_segments": [
             {"keywords": ["android", "4.2.0"], "borderline": False},
         ],
-        "noise_threshold_err": 10, "noise_threshold_poor": 15,
     },
     "checkout_start": {
         "expected_segments": [
@@ -110,81 +119,69 @@ EXPECTATIONS = {
             {"keywords": ["android"],  "borderline": True},
         ],
         "mode": "HIERARCHICAL",  # G2 allowlist
-        "noise_threshold_err": 10, "noise_threshold_poor": 15,
     },
     "payment_processing": {
         "expected_segments": [
             {"keywords": ["13"],    "borderline": False},
             {"keywords": ["4.2.0"], "borderline": False},
         ],
-        "noise_threshold_err": 10, "noise_threshold_poor": 15,
     },
     "order_confirmation": {
         "expected_segments": [
             {"keywords": ["4.2.0", "android"], "borderline": False},
             {"keywords": ["13"],               "borderline": True},
         ],
-        "noise_threshold_err": 10, "noise_threshold_poor": 15,
     },
     "order_tracking": {
         "expected_segments": [
             {"keywords": ["16", "ios"],    "borderline": False},
             {"keywords": ["iPhone", "14"], "borderline": True},
         ],
-        "noise_threshold_err": 10, "noise_threshold_poor": 15,
     },
     "category_browse": {
         "expected_segments": [
             {"keywords": ["4.0.0"],   "borderline": False},
             {"keywords": ["OnePlus"], "borderline": False},
         ],
-        "noise_threshold_err": 10, "noise_threshold_poor": 15,
     },
     "image_gallery_load": {
         "expected_segments": [
             {"keywords": ["SM-A135F"],                "borderline": False},
             {"keywords": ["android", "OsVersion","12"],"borderline": True},
         ],
-        "noise_threshold_err": 10, "noise_threshold_poor": 15,
     },
     "profile_update": {
         "expected_segments": [
             {"keywords": ["4.0.0", "android"], "borderline": False},
             {"keywords": ["KA", "Vi"],         "borderline": True},
         ],
-        "noise_threshold_err": 10, "noise_threshold_poor": 15,
     },
     "wishlist_add": {
         "expected_segments": [
             {"keywords": ["android", "Vivo", "POCO", "BSNL"],  "borderline": True},
             {"keywords": ["SM-A135F", "4.2.0", "UP", "BR"],    "borderline": True},
         ],
-        "noise_threshold_err": 10, "noise_threshold_poor": 15,
     },
     "coupon_apply": {
         "expected_segments": [
             {"keywords": ["android", "12", "Redmi", "Jio"], "borderline": True},
         ],
-        "noise_threshold_err": 10, "noise_threshold_poor": 15,
     },
     "review_submit": {
         "expected_segments": [
             {"keywords": ["OnePlus", "android", "4.3.0"], "borderline": True},
         ],
-        "noise_threshold_err": 10, "noise_threshold_poor": 15,
     },
     "notifications_open": {
         # Healthy — all segments in ClickHouse should be noise (nothing should trigger RCA)
         "expected_segments": [],
         "expected_dimensions": [],  # strict: zero segments expected on the everything-good path
         "mode": "FLAT",             # G2 allowlist (everything_good emits FLAT)
-        "noise_threshold_err": 10, "noise_threshold_poor": 15,
     },
     "deeplink_open": {
         "expected_segments": [
             {"keywords": ["ios", "16", "Vi"], "borderline": True},
         ],
-        "noise_threshold_err": 10, "noise_threshold_poor": 15,
     },
 }
 
@@ -264,6 +261,19 @@ def _fmt_pct(v):
     return f"{'+'if v >= 0 else ''}{v:.1f}%"
 
 
+def _norm_mode_for_audit(mode):
+    """
+    Normalize RCA mode for equality checks. Server persists wire values 'flat' and
+    'hierarchical'; EXPECTATIONS may use uppercase readable aliases.
+    """
+    if mode is None:
+        return None
+    s = str(mode).strip()
+    if not s:
+        return None
+    return s.lower()
+
+
 # ── Sort key ───────────────────────────────────────────────────────────────────
 # Documented stable sort key for both expected and actual segment lists.
 # Choice: tuple of sorted (key, value) pairs from the segment's `dimensions` map.
@@ -305,7 +315,7 @@ def check_segments(segments, mode, name):
     # Mode allowlist assertion — only when EXPECTATIONS pins a mode.
     expected_mode = exp.get("mode")
     if expected_mode is not None:
-        if mode == expected_mode:
+        if _norm_mode_for_audit(mode) == _norm_mode_for_audit(expected_mode):
             issues.append((PASS, f"[MODE]    mode={mode}"))
         else:
             issues.append((FAIL, f"[MODE]    expected mode={expected_mode}, got {mode}"))
@@ -338,17 +348,20 @@ def check_segments(segments, mode, name):
         issues.append((FAIL, "No segments in ClickHouse for this interaction/date"))
         return issues
 
-    te = exp.get("noise_threshold_err",  10)
-    tp = exp.get("noise_threshold_poor", 15)
+    threshold = MIN_COMBINED_DELTA_SIGNAL
 
-    # Noise check — segments below the noise floor waste LLM context
+    # Noise check — combined signal S below the server gate means the segment should
+    # not have been persisted at all (any leak here = backend gate / config drift).
     for s in segments:
         label  = s.get("label", "?")
         deltas = s.get("deltas", {})
         derr   = deltas.get("error_rate")
         dpup   = deltas.get("poor_user_pct")
-        if derr is not None and dpup is not None and abs(derr) < te and abs(dpup) < tp:
-            issues.append((FAIL, f"[NOISE]   [{label}]  Δerr={_fmt_pct(derr)}  Δpoor={_fmt_pct(dpup)}"))
+        signal = _combined_signal(derr, dpup)
+        if signal < threshold:
+            issues.append((FAIL,
+                f"[NOISE]   [{label}]  Δerr={_fmt_pct(derr)}  Δpoor={_fmt_pct(dpup)}  "
+                f"S={signal:.1f} < {threshold:g}"))
 
     # Presence check — every expected bad segment (including borderline) must exist
     for exp_seg in exp.get("expected_segments", []):
@@ -368,14 +381,22 @@ def check_segments(segments, mode, name):
 
         derr = (matched.get("deltas") or {}).get("error_rate")
         dpup = (matched.get("deltas") or {}).get("poor_user_pct")
-        if derr is not None and dpup is not None and abs(derr) < te and abs(dpup) < tp:
+        signal = _combined_signal(derr, dpup)
+        if signal < threshold:
             issues.append((FAIL,
-                f"[WEAK]    [{matched['label']}]  Δerr={_fmt_pct(derr)}  Δpoor={_fmt_pct(dpup)} — below noise floor"))
+                f"[WEAK]    [{matched['label']}]  Δerr={_fmt_pct(derr)}  Δpoor={_fmt_pct(dpup)}  "
+                f"S={signal:.1f} < {threshold:g} — below combined-signal floor"))
         else:
             issues.append((PASS,
-                f"[OK]      [{matched['label']}]  Δerr={_fmt_pct(derr)}  Δpoor={_fmt_pct(dpup)}"))
+                f"[OK]      [{matched['label']}]  Δerr={_fmt_pct(derr)}  Δpoor={_fmt_pct(dpup)}  "
+                f"S={signal:.1f}"))
 
     return issues
+
+
+def _combined_signal(derr, dpup):
+    """S = |Δerror_rate| + |Δpoor_user_pct|; treat missing delta as 0 (PRD)."""
+    return (abs(derr) if derr is not None else 0.0) + (abs(dpup) if dpup is not None else 0.0)
 
 
 # ── Per-interaction audit ──────────────────────────────────────────────────────
@@ -430,7 +451,9 @@ def main():
 
     targets = [args.interaction] if args.interaction else INTERACTIONS
     print(f"RCA ClickHouse Audit  |  project={args.project}  date={args.date}")
-    print(f"ClickHouse: {CH_HOST}:{CH_PORT}/{CH_DB}\n")
+    print(f"ClickHouse: {CH_HOST}:{CH_PORT}/{CH_DB}")
+    print(f"Combined-signal floor: S >= {MIN_COMBINED_DELTA_SIGNAL:g}  "
+          f"(env RCA_MIN_COMBINED_DELTA_SIGNAL)\n")
 
     results = {}
     for name in targets:
