@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { PulseWeb } from '@dreamhorizon/pulse-web';
+import { useCart } from "../hooks/useCart";
 
 interface ProductDetail {
   id: string;
@@ -17,6 +18,7 @@ export default function ProductDetail() {
   const { id } = useParams<{ id: string }>();
   const [product, setProduct] = useState<ProductDetail | null>(null);
   const [loading, setLoading] = useState(true);
+  const { addItem } = useCart();
 
   useEffect(() => {
     fetch(`/api/product-detail.json?id=${id}`)
@@ -24,6 +26,14 @@ export default function ProductDetail() {
       .then(setProduct)
       .catch(() => setProduct(null))
       .finally(() => setLoading(false));
+  }, [id]);
+
+  useEffect(() => {
+    if (!id) return;
+    PulseWeb.trackEvent("product_detail_open", {
+      product_id: id,
+      path: window.location.pathname,
+    });
   }, [id]);
 
   if (loading) return <p style={{ color: '#94a3b8', textAlign: 'center', padding: 40 }}>Loading…</p>;
@@ -42,7 +52,19 @@ export default function ProductDetail() {
           <p style={{ color: '#64748b', lineHeight: 1.6 }}>{product.description}</p>
           <div style={{ fontWeight: 800, fontSize: 28, color: '#4f46e5' }}>${product.price.toFixed(2)}</div>
           <button
-            onClick={() => PulseWeb.trackEvent('add_to_cart', { product_id: product.id, product_name: product.name, price: product.price, source: 'product_detail' })}
+            onClick={() => {
+              addItem({
+                id: product.id,
+                name: product.name,
+                price: product.price,
+              });
+              PulseWeb.trackEvent("add_to_cart", {
+                product_id: product.id,
+                product_name: product.name,
+                price: product.price,
+                source: "product_detail",
+              });
+            }}
             style={{ background: '#4f46e5', color: '#fff', border: 'none', borderRadius: 10, padding: '12px 28px', fontWeight: 700, fontSize: 15, cursor: 'pointer' }}
           >
             Add to Cart

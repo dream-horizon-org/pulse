@@ -20,6 +20,8 @@ import {
 } from "../../hooks";
 import { getDateRangeFromPreset } from "../FunnelJourneyCreate/FunnelJourneyCreate.util";
 import { useUpdateFunnel } from "../../hooks/useUpdateFunnel";
+import { useStopFunnel } from "../../hooks/useStopFunnel";
+import { useDeleteFunnel } from "../../hooks/useDeleteFunnel";
 import { GlobalFilterBar } from "../FunnelJourneyCreate/components/GlobalFilterBar";
 import funnelClasses from "../FunnelJourneyCreate/FunnelCreate.module.css";
 import { FunnelBuilder } from "../FunnelJourneyCreate/components/FunnelBuilder";
@@ -355,8 +357,14 @@ function FunnelDetailView({ detail, isEditing, onEdit }: { detail: any; isEditin
             <>
               <FunnelVisualization
                 steps={funnelResult.steps}
-                totalConversionRate={funnelResult.overallConversionRate ?? 0}
-                conversionTrend={0}
+                totalConversionRate={
+                  detail.overallConversionRate ??
+                  funnelResult.overallConversionRate ??
+                  0
+                }
+                // Backend's detail response carries `conversionTrend` for the same
+                // funnel that the listing shows; surface that instead of hardcoding 0.
+                conversionTrend={detail.conversionTrend ?? 0}
                 medianTimes={funnelResult.steps.map((s: any) => s.medianStepSeconds ?? null)}
                 mode={analysisMode}
               />
@@ -382,7 +390,10 @@ function FunnelDetailView({ detail, isEditing, onEdit }: { detail: any; isEditin
 
 export function FunnelDetail() {
   const navigate = useNavigate();
-  const { funnelId } = useParams<{ projectId: string; funnelId: string }>();
+  const { funnelId, projectId } = useParams<{
+    projectId: string;
+    funnelId: string;
+  }>();
   const [isEditing, setIsEditing] = useState(false);
 
   const funnelQuery = useGetFunnelDetail(funnelId);
@@ -397,6 +408,22 @@ export function FunnelDetail() {
 
   const goBack = () => {
     navigate(-1);
+  };
+
+  const { mutate: stopFunnelMutation, isPending: isStopping } = useStopFunnel();
+  const { mutate: deleteFunnelMutation, isPending: isDeleting } = useDeleteFunnel();
+
+  const handleDeleteFunnel = () => {
+    if (!detail) return;
+    deleteFunnelMutation(detail.id, {
+      onSuccess: () => {
+        if (projectId) {
+          navigate(generatePath(ROUTES.FUNNELS_LIST.path, { projectId }));
+        } else {
+          navigate(-1);
+        }
+      },
+    });
   };
 
   if (isLoading) {
@@ -451,7 +478,15 @@ export function FunnelDetail() {
         height: "calc(100vh - 60px)",
       }}
     >
-      <FunnelJourneyDetailChrome detail={detail} kind="FUNNEL" onBack={goBack} />
+      <FunnelJourneyDetailChrome
+        detail={detail}
+        kind="FUNNEL"
+        onBack={goBack}
+        onStop={() => stopFunnelMutation(detail.id)}
+        isStopping={isStopping}
+        onDelete={handleDeleteFunnel}
+        isDeleting={isDeleting}
+      />
       <FunnelDetailView detail={detail} isEditing={isEditing} onEdit={() => setIsEditing(true)} />
     </Box>
   );

@@ -572,6 +572,13 @@ class ClickHouseFunnelComputeDaoTest {
     }
 
     @Test
+    void shouldUseFunnelEntrantsAsConversionDenominator() {
+      String sql = ClickHouseFunnelComputeDao.buildInsertSqlWindowFunnel(baseRow().build());
+      assertThat(sql).contains(" * 100.0 / greatest(countIf(winning_depth >= 1), 1),");
+      assertThat(sql).doesNotContain(" * 100.0 / greatest(count(), 1),");
+    }
+
+    @Test
     void shouldEmitOneSelectPerStepWithZeroBasedStepIndex() {
       String sql = ClickHouseFunnelComputeDao.buildInsertSqlWindowFunnel(baseRow().build());
       assertThat(sql)

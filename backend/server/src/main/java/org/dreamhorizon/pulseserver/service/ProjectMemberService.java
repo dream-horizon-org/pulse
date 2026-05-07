@@ -7,6 +7,7 @@ import io.reactivex.rxjava3.core.Single;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -270,12 +271,12 @@ public class ProjectMemberService {
                     }
                     return Single.just(ctx);
                 }))
-            // Check if removing an admin (need to validate admin count)
-            .flatMap(ctx -> openFgaService.isProjectAdmin(userIdToRemove, projectId)
-                .map(isUserToRemoveAdmin -> new RemoveValidationContext(ctx, isUserToRemoveAdmin)))
+            // Check direct project role (ignore inherited effective admin privileges)
+            .flatMap(ctx -> openFgaService.getUserProjectRole(userIdToRemove, projectId)
+                .map(currentRole -> new RemoveValidationContext(ctx, currentRole)))
             // Validate not removing last admin
             .flatMap(ctx -> {
-                if (ctx.isRemovingAdmin) {
+                if (ctx.currentRole.filter("admin"::equals).isPresent()) {
                     return openFgaService.countProjectAdmins(projectId)
                         .flatMap(adminCount -> {
                             if (adminCount <= 1) {
@@ -319,9 +320,9 @@ public class ProjectMemberService {
     public Completable leaveProject(String projectId, String userId) {
         log.info("User leaving project: user={}, project={}", userId, projectId);
         
-        return openFgaService.isProjectAdmin(userId, projectId)
-            .flatMapCompletable(isAdmin -> {
-                if (isAdmin) {
+        return openFgaService.getUserProjectRole(userId, projectId)
+            .flatMapCompletable(currentRole -> {
+                if (currentRole.filter("admin"::equals).isPresent()) {
                     return openFgaService.countProjectAdmins(projectId)
                         .flatMapCompletable(adminCount -> {
                             if (adminCount <= 1) {
@@ -388,12 +389,12 @@ public class ProjectMemberService {
                     }
                     return Single.just(ctx);
                 }))
-            // Check if downgrading from admin
-            .flatMap(ctx -> openFgaService.isProjectAdmin(userId, projectId)
-                .map(isCurrentlyAdmin -> new UpdateValidationContext(ctx, isCurrentlyAdmin)))
+            // Check direct project role (ignore inherited effective admin privileges)
+            .flatMap(ctx -> openFgaService.getUserProjectRole(userId, projectId)
+                .map(currentRole -> new UpdateValidationContext(ctx, currentRole)))
             // Validate admin count if downgrading
             .flatMap(ctx -> {
-                if (ctx.isCurrentlyAdmin && !"admin".equals(newRole)) {
+                if (ctx.currentRole.filter("admin"::equals).isPresent() && !"admin".equals(newRole)) {
                     return openFgaService.countProjectAdmins(projectId)
                         .flatMap(adminCount -> {
                             if (adminCount <= 1) {
@@ -462,7 +463,7 @@ public class ProjectMemberService {
      * This allows project admins to add users to projects without needing tenant admin permissions.
      */
     private Completable ensureUserInTenant(User user, String tenantId, String addedBy) {
-        return openFgaService.getUserTenants(user.getUserId())
+        return openFgaService.getUserDirectTenants(user.getUserId())
             .flatMapCompletable(existingTenants -> {
                 if (existingTenants != null && !existingTenants.isEmpty()
                         && !existingTenants.contains(tenantId)) {
@@ -620,7 +621,7 @@ public class ProjectMemberService {
     @Value
     private static class RemoveValidationContext {
         RemoveContext removeContext;
-        boolean isRemovingAdmin;
+        Optional<String> currentRole;
     }
     
     @Value
@@ -633,6 +634,6 @@ public class ProjectMemberService {
     @Value
     private static class UpdateValidationContext {
         UpdateContext updateContext;
-        boolean isCurrentlyAdmin;
+        Optional<String> currentRole;
     }
 }

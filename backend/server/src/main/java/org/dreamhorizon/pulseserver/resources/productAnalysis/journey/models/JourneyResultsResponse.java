@@ -1,8 +1,10 @@
 package org.dreamhorizon.pulseserver.resources.productAnalysis.journey.models;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
 
+import java.time.Instant;
 import java.util.List;
 
 import lombok.AllArgsConstructor;
@@ -25,4 +27,7 @@ public class JourneyResultsResponse {
   private List<JourneySankeyNode> nodes;
 
   private List<JourneySankeyLink> links;
+
+  @JsonIgnore
+  private Instant lastRunAt;
 }

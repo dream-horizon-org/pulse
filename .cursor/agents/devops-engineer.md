@@ -20,7 +20,8 @@ Services on `pulse-network` bridge:
 **Init Containers**: openfga-migrate, openfga-init, minio-init, clickhouse-init (run-once; CH init waits on kafka
 healthy)
 **Data Pipeline**: otel-collector (4317/4318 → ClickHouse). Session replay: pulse-session-capture (3400) → kafka →
-pulse-session-replay-ingestion → minio + ClickHouse. Vector (14317/14318 → S3) is optional; enable via
+pulse-session-replay-ingestion → minio + ClickHouse. Heatmap screenshots: same Kafka topic →
+`pulse-heatmap-screenshot-ingestion` → S3 (`heatmap-assets`). Vector (14317/14318 → S3) is optional; enable via
 `VECTOR_ENABLED=true` in .env.
 **Application**: pulse-ai-agent (8000), pulse-server (8080), pulse-alerts-cron (4000), pulse-ui (3000)
 
@@ -57,7 +58,7 @@ Template: `deploy/.env.example` → copy to `deploy/.env`
 | Script               | Purpose                                                                                                                                         |
 |----------------------|-------------------------------------------------------------------------------------------------------------------------------------------------|
 | `quickstart.sh`      | Prereqs → build → start → health checks                                                                                                         |
-| `build.sh`           | Build images (`ui`, `server`, `cron`, `capture`, `ingestion`, `ai`, `all`, `--no-cache`; default no-args = ui+server+cron+capture+ingestion+ai) |
+| `build.sh`           | Build images (`ui`, `server`, `cron`, `capture`, `ingestion`, `heatmap-ingestion`, `ai`, `all`, `--no-cache`; default no-args = ui+server+cron+capture+ingestion+heatmap-ingestion+ai) |
 | `start.sh`           | Start services (`-d`, `--build`, `--no-cache`)                                                                                                  |
 | `stop.sh`            | Stop services (`-v` removes volumes)                                                                                                            |
 | `logs.sh`            | View logs (optionally filter by service)                                                                                                        |
