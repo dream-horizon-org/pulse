@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -72,6 +73,10 @@ class AuthServiceTest {
   void setUp() {
     authService = new AuthService(applicationConfig, jwtService, tenantDao, userService,
         openFgaService, projectService, tierService);
+
+    // Default stubs so role lookups used by Single.zip() never return null.
+    when(openFgaService.isSuperAdmin(nullable(String.class))).thenReturn(Single.just(false));
+    when(openFgaService.isInternalViewer(nullable(String.class))).thenReturn(Single.just(false));
   }
 
   @Nested

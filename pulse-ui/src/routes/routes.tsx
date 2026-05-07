@@ -21,7 +21,6 @@ import { Settings } from "../screens/Settings";
 import { AlertListingPage } from "../screens/AlertListingPage";
 import { AlertForm } from "../screens/AlertFormWizard";
 import { AlertDetail } from "../screens/AlertDetail";
-import { RealTimeQuery } from "../screens/RealTimeQuery";
 import { OrganizationDashboard } from "../screens/OrganizationDashboard";
 import { OrganizationSettings } from "../screens/OrganizationSettings";
 import { OrganizationMembers } from "../screens/OrganizationMembers";
@@ -40,6 +39,9 @@ import { FunnelsList, JourneysList } from "../screens/FunnelJourneyListing";
 import { FunnelDetail, JourneyDetail } from "../screens/FunnelJourneyDetail";
 import { SessionReplayRouteGuard } from "../components/SessionReplayRouteGuard";
 import { PersonalTokens } from "../screens/PersonalTokens";
+import { TenantSelector } from "../screens/internal/TenantSelector";
+import { DeveloperSettings } from "../screens/internal/DeveloperSettings";
+import { InternalRouteGuard } from "../components/InternalRouteGuard";
 
 function SessionReplaySessionsGuarded() {
   return (
@@ -70,6 +72,22 @@ function SessionReplayInsightsGuarded() {
     <SessionReplayRouteGuard>
       <SessionReplayInsights />
     </SessionReplayRouteGuard>
+  );
+}
+
+function TenantSelectorGuarded() {
+  return (
+    <InternalRouteGuard>
+      <TenantSelector />
+    </InternalRouteGuard>
+  );
+}
+
+function DeveloperSettingsGuarded() {
+  return (
+    <InternalRouteGuard requireSuperadmin>
+      <DeveloperSettings />
+    </InternalRouteGuard>
   );
 }
 
@@ -185,10 +203,6 @@ export const ROUTES = {
     ...ROUTE_PATHS.PROJECT_ALERTS_FORM,
     element: AlertForm,
   },
-  PROJECT_QUERY_BUILDER: {
-    ...ROUTE_PATHS.PROJECT_QUERY_BUILDER,
-    element: RealTimeQuery,
-  },
 
   // Standalone routes
   LOGIN: {
@@ -277,5 +291,15 @@ export const ROUTES = {
   JOURNEY_DETAIL: {
     ...ROUTE_PATHS.JOURNEY_DETAIL,
     element: JourneyDetail,
+  },
+
+  // Internal system-role routes
+  INTERNAL_TENANT_SELECTOR: {
+    ...ROUTE_PATHS.INTERNAL_TENANT_SELECTOR,
+    element: TenantSelectorGuarded,
+  },
+  INTERNAL_DEVELOPER_SETTINGS: {
+    ...ROUTE_PATHS.INTERNAL_DEVELOPER_SETTINGS,
+    element: DeveloperSettingsGuarded,
   },
 };
