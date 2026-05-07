@@ -1445,6 +1445,195 @@ function mockPutFunnelOrJourney(
   return { data, status: 200 };
 }
 
+// ── Drop-off correlation mocks (windowFunnel-aligned) ──────────────────────
+//
+// Two endpoints, both keyed on (funnelId, stepIndex):
+//   GET /v1/funnels/:funnelId/dropoffs/:stepIndex            → ranked causes
+//   GET /v1/funnels/:funnelId/dropoffs/:stepIndex/evidence   → per-session evidence rows
+//
+// The cohort/lift numbers below are deliberately consistent with the
+// `MOCK_PAYMENT_FUNNEL_ANALYZE_RESPONSE` step counts so PMs/devs see numbers
+// that line up with the funnel chart in the dev environment. Numbers shift
+// on `mode`: UNIQUE_USERS produces tighter cohorts and larger lifts than
+// SESSIONS (matches the §5 "subtle consequence" doc note).
+
+type MockDropoffMode = "UNIQUE_USERS" | "SESSIONS";
+
+const MOCK_DROPOFF_STEP_NAMES: Record<number, string> = {
+  0: "Screen_View: Cart",
+  1: "Tap: Checkout",
+  2: "Screen_View: Payment",
+  3: "Tap: Enter Payment Details",
+  4: "Tap: Place Order",
+  5: "Screen_View: Order Confirmation",
+};
+
+/**
+ * Returns the funnel mode for a given mock funnel id, defaulting to
+ * UNIQUE_USERS to match the rest of the mock fixtures. Detail-page dropoff
+ * tests can flip mode by editing the matching row in MOCK_FUNNELS_JOURNEYS_ALL.
+ */
+function resolveMockFunnelMode(funnelId: string): MockDropoffMode {
+  const row = MOCK_FUNNELS_JOURNEYS_ALL.find((r) => r.id === funnelId);
+  if (row?.mode === FunnelMode.SESSIONS) return "SESSIONS";
+  return "UNIQUE_USERS";
+}
+
+/**
+ * Synthesises a ranked-causes payload for one funnel step. SESSIONS-mode
+ * cohorts are ~30% larger than UNIQUE_USERS (each user contributes multiple
+ * sessions); UNIQUE_USERS lifts are ~3x larger because converter "bad
+ * sessions" don't dilute the baseline (see §5.3 of the design doc).
+ */
+function mockFunnelDropoff(
+  funnelId: string,
+  stepIndex: number,
+): MockResponse {
+  const mode = resolveMockFunnelMode(funnelId);
+  const stepName =
+    MOCK_DROPOFF_STEP_NAMES[stepIndex] ?? `Step ${stepIndex}`;
+
+  // Base cohort tuned per step so dropoffs/converters look plausible against
+  // the analyze response step counts.
+  const baseDropoff =
+    stepIndex === 1 ? 1930
+      : stepIndex === 2 ? 880
+      : stepIndex === 3 ? 960
+      : stepIndex === 4 ? 750
+      : stepIndex === 5 ? 180
+      : 1200;
+  const baseConverter = Math.max(8750 - baseDropoff, 100);
+
+  // UNIQUE_USERS dedupes — roughly 70% of session counts.
+  const userScale = mode === "UNIQUE_USERS" ? 0.7 : 1;
+  const dropoffCohort = Math.round(baseDropoff * userScale);
+  const converterCohort = Math.round(baseConverter * userScale);
+
+  // Lift multiplier — UNIQUE_USERS produces larger lifts (cleaner baseline).
+  const liftBoost = mode === "UNIQUE_USERS" ? 3.1 : 1;
+
+  const causes = [
+    {
+      causeKind: "crash" as const,
+      causeKey: "OutOfMemoryError@CheckoutActivity",
+      causeLabel: "OOM @ CheckoutActivity",
+      dropoffCohort,
+      dropoffAffected: Math.round(dropoffCohort * 0.175),
+      converterCohort,
+      converterAffected: Math.round(converterCohort * 0.002),
+      lift: +(85 * liftBoost).toFixed(1),
+      dropoffRate: 17.5,
+      exampleSessionIds: [
+        "sess_abc123",
+        "sess_def456",
+        "sess_ghi789",
+      ],
+    },
+    {
+      causeKind: "http_5xx" as const,
+      causeKey: "POST /v2/cart/checkout",
+      causeLabel: "HTTP 503 · POST /v2/cart/checkout",
+      dropoffCohort,
+      dropoffAffected: Math.round(dropoffCohort * 0.3),
+      converterCohort,
+      converterAffected: Math.round(converterCohort * 0.015),
+      lift: +(20 * liftBoost).toFixed(1),
+      dropoffRate: 30.0,
+      exampleSessionIds: [
+        "sess_abc123",
+        "sess_jkl012",
+        "sess_mno345",
+      ],
+    },
+    {
+      causeKind: "frozen_frame" as const,
+      causeKey: "CheckoutPage",
+      causeLabel: "Frozen frames on CheckoutPage",
+      dropoffCohort,
+      dropoffAffected: Math.round(dropoffCohort * 0.067),
+      converterCohort,
+      converterAffected: Math.round(converterCohort * 0.04),
+      lift: +(1.7 * (mode === "UNIQUE_USERS" ? 1.2 : 1)).toFixed(2),
+      dropoffRate: 6.7,
+      exampleSessionIds: ["sess_pqr678", "sess_stu901"],
+    },
+    {
+      causeKind: "http_4xx" as const,
+      causeKey: "GET /v2/user/profile 401",
+      causeLabel: "HTTP 401 · GET /v2/user/profile",
+      dropoffCohort,
+      dropoffAffected: Math.round(dropoffCohort * 0.042),
+      converterCohort,
+      converterAffected: Math.round(converterCohort * 0.039),
+      lift: 1.07,
+      dropoffRate: 4.2,
+      exampleSessionIds: ["sess_vwx234"],
+    },
+  ];
+
+  // Numeric funnelId for the response — backend uses Long. Strip non-digits
+  // from the mock id ("fj-1" → 1, "funnel-payment-001" → 1) and fall back to 0.
+  const numericFunnelId =
+    parseInt(String(funnelId).replace(/\D+/g, ""), 10) || 0;
+
+  return {
+    data: {
+      funnelId: numericFunnelId,
+      stepIndex,
+      stepName,
+      mode,
+      dropoffCohort,
+      converterCohort,
+      causes,
+    },
+    status: 200,
+  };
+}
+
+/**
+ * Synthesises an evidence-rows payload — one row per requested sessionId.
+ * Used by the cause-row expansion in DropoffPanel to populate replay/trace
+ * deep links. Falls back to deterministic dummy rows when no sessionIds
+ * query param is supplied.
+ */
+function mockFunnelDropoffEvidence(
+  funnelId: string,
+  stepIndex: number,
+  request: MockRequest,
+): MockResponse {
+  let url: URL;
+  try {
+    url = new URL(request.url);
+  } catch {
+    url = new URL(request.url, "http://localhost");
+  }
+  const sidsRaw = url.searchParams.get("sessionIds") ?? "";
+  const sessionIds = sidsRaw
+    ? sidsRaw.split(",").map((s) => s.trim()).filter(Boolean)
+    : ["sess_abc123", "sess_def456", "sess_ghi789"];
+
+  const stepName =
+    MOCK_DROPOFF_STEP_NAMES[stepIndex] ?? `Step ${stepIndex}`;
+
+  // Stable timestamp window so replay deep-links don't drift across renders.
+  const baseTs = Date.UTC(2026, 3, 19, 10, 1, 25);
+
+  const examples = sessionIds.map((sessionId, i) => ({
+    sessionId,
+    userId: `user_${sessionId.slice(-4)}`,
+    lastReachedAt: new Date(baseTs + i * 1000).toISOString(),
+    traceId: `trace_${sessionId.slice(-8)}`,
+    screen: stepName,
+    appVersion: i % 2 === 0 ? "4.2.1" : "4.2.0",
+    platform: i % 3 === 0 ? "iOS" : "Android",
+  }));
+
+  return {
+    data: { examples },
+    status: 200,
+  };
+}
+
 export function handleFunnelEndpoints(
   pathname: string,
   method: string,
@@ -1501,6 +1690,32 @@ export function handleFunnelEndpoints(
   }
 
   // ── Named GET endpoints — must be checked before the generic /{id} matcher ──
+
+  // GET /v1/funnels/:funnelId/dropoffs/:stepIndex/evidence — must be checked
+  // BEFORE the bare /dropoffs/:stepIndex matcher below.
+  const dropoffEvidenceMatch = pathOnly.match(
+    /\/v1\/funnels\/([^/]+)\/dropoffs\/(\d+)\/evidence$/,
+  );
+  if (method === "GET" && dropoffEvidenceMatch) {
+    const stepIdx = parseInt(dropoffEvidenceMatch[2], 10);
+    return mockFunnelDropoffEvidence(
+      dropoffEvidenceMatch[1],
+      Number.isFinite(stepIdx) ? stepIdx : 0,
+      request,
+    );
+  }
+
+  // GET /v1/funnels/:funnelId/dropoffs/:stepIndex — ranked causes payload.
+  const dropoffMatch = pathOnly.match(
+    /\/v1\/funnels\/([^/]+)\/dropoffs\/(\d+)$/,
+  );
+  if (method === "GET" && dropoffMatch) {
+    const stepIdx = parseInt(dropoffMatch[2], 10);
+    return mockFunnelDropoff(
+      dropoffMatch[1],
+      Number.isFinite(stepIdx) ? stepIdx : 0,
+    );
+  }
 
   if (method === "GET" && pathOnly.endsWith("/v1/funnels/events")) {
     return { data: { events: MOCK_FUNNEL_EVENTS }, status: 200 };
