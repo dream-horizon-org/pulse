@@ -12,6 +12,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.dreamhorizon.pulseserver.config.ApplicationConfig;
 import org.dreamhorizon.pulseserver.constant.NotificationConstants;
 import org.dreamhorizon.pulseserver.dao.notification.*;
 import org.dreamhorizon.pulseserver.error.ServiceError;
@@ -33,6 +34,7 @@ public class NotificationServiceImpl implements NotificationService {
   private final ChannelEventMappingDao mappingDao;
   private final NotificationProviderFactory providerFactory;
   private final SqsNotificationQueue notificationQueue;
+  private final ApplicationConfig applicationConfig;
   private final ObjectMapper objectMapper;
 
   // ==================== Send (mapping-driven) ====================
@@ -287,6 +289,22 @@ public class NotificationServiceImpl implements NotificationService {
 
   // ==================== Dispatch / Send / Enqueue ====================
 
+  /**
+   * Ensures {@code {{dashboardUrl}}} is available for all templates. Non-blank explicit
+   * {@code dashboardUrl} in the request wins (callers can override the server default).
+   */
+  private Map<String, Object> mergeDefaultNotificationParams(Map<String, Object> requestParams) {
+    Map<String, Object> merged = new LinkedHashMap<>();
+    if (requestParams != null) {
+      merged.putAll(requestParams);
+    }
+    Object existing = merged.get("dashboardUrl");
+    if (!(existing instanceof String s) || s.isBlank()) {
+      merged.put("dashboardUrl", applicationConfig.resolveDashboardBaseUrlForNotifications());
+    }
+    return merged;
+  }
+
   private Single<List<NotificationResultDto>> dispatchToRecipients(
       boolean async,
       String projectId,
@@ -295,9 +313,12 @@ public class NotificationServiceImpl implements NotificationService {
       NotificationTemplate template,
       String idempotencyKey,
       List<String> recipients) {
+    Map<String, Object> effectiveParams = mergeDefaultNotificationParams(request.getParams());
     return async
-        ? enqueueRecipients(projectId, request, channel, template, idempotencyKey, recipients)
-        : sendToRecipients(projectId, request, channel, template, idempotencyKey, recipients);
+        ? enqueueRecipients(
+            projectId, request, channel, template, idempotencyKey, recipients, effectiveParams)
+        : sendToRecipients(
+            projectId, request, channel, template, idempotencyKey, recipients, effectiveParams);
   }
 
   private Single<List<NotificationResultDto>> sendToRecipients(
@@ -306,7 +327,8 @@ public class NotificationServiceImpl implements NotificationService {
       NotificationChannel channel,
       NotificationTemplate template,
       String idempotencyKey,
-      List<String> recipients) {
+      List<String> recipients,
+      Map<String, Object> effectiveParams) {
 
     ChannelType channelType = channel.getChannelType();
 
@@ -334,7 +356,7 @@ public class NotificationServiceImpl implements NotificationService {
                       template,
                       subject,
                       provider,
-                      request.getParams());
+                      effectiveParams);
 
               return withSuppressionCheck(
                   projectId, recipient, channelType, sendChain);
@@ -458,7 +480,8 @@ public class NotificationServiceImpl implements NotificationService {
       NotificationChannel channel,
       NotificationTemplate template,
       String idempotencyKey,
-      List<String> recipients) {
+      List<String> recipients,
+      Map<String, Object> effectiveParams) {
 
     ChannelType channelType = channel.getChannelType();
     String subject = extractSubjectFromBody(template.getBody());
@@ -514,7 +537,7 @@ public class NotificationServiceImpl implements NotificationService {
                                                     .templateBody(template.getBody())
                                                     .recipient(recipient)
                                                     .subject(subject)
-                                                    .params(request.getParams())
+                                                    .params(effectiveParams)
                                                     .metadata(request.getMetadata())
                                                     .build();
 

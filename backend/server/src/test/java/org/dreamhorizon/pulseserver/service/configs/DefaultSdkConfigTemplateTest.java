@@ -157,8 +157,8 @@ class DefaultSdkConfigTemplateTest {
       SessionReplayFeatureConfig replayConfig = (SessionReplayFeatureConfig) sessionReplayFeature.getConfig();
       assertThat(replayConfig.getTextAndInputPrivacy()).isEqualTo(TextAndInputPrivacy.MASK_ALL);
       assertThat(replayConfig.getImagePrivacy()).isEqualTo(ImagePrivacy.MASK_ALL);
-      assertThat(replayConfig.getThrottleDelayMs()).isEqualTo(1000L);
-      assertThat(replayConfig.getScreenshotScale()).isEqualTo(1.0f);
+      assertThat(replayConfig.getThrottleDelayMs()).isEqualTo(2000L);
+      assertThat(replayConfig.getScreenshotScale()).isEqualTo(0.3f);
       assertThat(replayConfig.getScreenshotQuality()).isEqualTo(30);
       assertThat(replayConfig.getFlushIntervalSeconds()).isEqualTo(60);
       assertThat(replayConfig.getFlushAt()).isEqualTo(10);

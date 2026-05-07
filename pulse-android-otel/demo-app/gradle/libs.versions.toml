@@ -46,6 +46,7 @@ androidx-material3 = { group = "androidx.compose.material3", name = "material3" 
 androidx-constraintlayout = { group = "androidx.constraintlayout", name = "constraintlayout", version = "2.2.1" }
 material = { group = "com.google.android.material", name = "material", version = "1.13.0" }
 material-icons-core = { group = "androidx.compose.material", name = "material-icons-core", version = "1.7.8" }
+material-icons-extended = { group = "androidx.compose.material", name = "material-icons-extended", version = "1.7.8" }
 
 androidx-lifecycle-livedata-ktx = { group = "androidx.lifecycle", name = "lifecycle-livedata-ktx", version = "2.9.4" }
 androidx-lifecycle-viewmodel-ktx = { group = "androidx.lifecycle", name = "lifecycle-viewmodel-ktx", version = "2.9.4" }

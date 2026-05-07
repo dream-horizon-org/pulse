@@ -19,6 +19,8 @@ import org.dreamhorizon.pulseserver.constant.Constants;
 import org.dreamhorizon.pulseserver.dao.clickhouseprojectcredentials.ClickhouseProjectCredentialsDao;
 import org.dreamhorizon.pulseserver.dao.notification.*;
 import org.dreamhorizon.pulseserver.dao.project.ProjectDao;
+import org.dreamhorizon.pulseserver.dao.tenant.TenantDao;
+import org.dreamhorizon.pulseserver.guice.OpenFgaServiceProvider;
 import org.dreamhorizon.pulseserver.dao.user.UserDao;
 import org.dreamhorizon.pulseserver.errorgrouping.IosLlvmSymbolicator;
 import org.dreamhorizon.pulseserver.errorgrouping.Symbolicator;
@@ -108,6 +110,7 @@ public class MainModule extends VertxAbstractModule {
     // === NEW: Multi-tenancy & RBAC Services ===
     // === NEW: Multi-tenancy & RBAC DAOs ===
     bind(UserDao.class).in(Singleton.class);
+    bind(TenantDao.class).in(Singleton.class);
     bind(ProjectDao.class).in(Singleton.class);
     bind(UserApiKeyDao.class).in(Singleton.class);
     bind(UserApiKeyService.class).to(UserApiKeyServiceImpl.class).in(Singleton.class);
@@ -160,18 +163,7 @@ public class MainModule extends VertxAbstractModule {
       return RootCauseConfig.withDefaults(config);
     }).in(Singleton.class);
 
-    bind(OpenFgaService.class).toProvider(() -> {
-      OpenFgaConfig config = SharedDataUtils.get(vertx, OpenFgaConfig.class);
-      if (config != null && config.isEnabled()) {
-        try {
-          return new OpenFgaService(config);
-        } catch (Exception e) {
-          log.error("Failed to initialize OpenFgaService: {}", e.getMessage());
-          return null;
-        }
-      }
-      return null;
-    }).in(Singleton.class);
+    bind(OpenFgaService.class).toProvider(OpenFgaServiceProvider.class).in(Singleton.class);
 
     bindOnCallProvider();
     bind(OnCallService.class).in(Singleton.class);

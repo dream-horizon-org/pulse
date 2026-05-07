@@ -283,6 +283,13 @@ public class SessionReplayRecorder {
                     return
                 }
 
+                var dedupStatus = self.getWindowStatus(window: window)
+                if dedupStatus.lastCompressedData == compressed.data {
+                    return
+                }
+                dedupStatus.lastCompressedData = compressed.data
+                self.updateWindowStatus(window: window, status: dedupStatus)
+
                 let imgW = Int(capturedImage.size.width)
                 let imgH = Int(capturedImage.size.height)
 
@@ -591,6 +598,7 @@ public class SessionReplayRecorder {
         drawFlagLock.unlock()
         return flag
     }
+
 }
 #else
 public class SessionReplayRecorder {

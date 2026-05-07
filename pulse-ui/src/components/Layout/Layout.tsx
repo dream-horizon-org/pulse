@@ -21,6 +21,7 @@ import { ProjectGuard } from "../ProjectGuard";
 import { ProjectInitializingModal } from "../ProjectInitializingModal";
 import { useTenantContext, useProjectContext } from "../../contexts";
 import { useGetTncStatus } from "../../hooks/useGetTncStatus";
+import { useIsInternalRoute } from "../../hooks/useIsInternalRoute";
 import { TncAcceptance } from "../../screens/TncAcceptance";
 
 export function Layout({ children }: LayoutProps) {
@@ -43,7 +44,8 @@ export function Layout({ children }: LayoutProps) {
   const isLoginPage = pathname === ROUTES.LOGIN.path;
   const isOnboardingPage = pathname === ROUTES.ONBOARDING.basePath;
   const isInitialOnboarding = pathname === ROUTES.ONBOARDING.basePath;
-  const shouldShowHeader = !isLoginPage && !isInitialOnboarding;
+  const isInternalRoute = useIsInternalRoute();
+  const shouldShowHeader = !isLoginPage && !isInitialOnboarding && !isInternalRoute;
 
   useEffect(() => {
     const initializeAuth = async () => {
@@ -56,14 +58,25 @@ export function Layout({ children }: LayoutProps) {
         return;
       }
 
-      // Initialize tenant context if tenantId exists in cookies but not in context
+      if (isInternalRoute) {
+        setCheckingCredentials(false);
+        return;
+      }
+
+      const systemRole = getCookies(COOKIES_KEY.SYSTEM_ROLE);
       const cookieTenantId = getCookies(COOKIES_KEY.TENANT_ID);
+
+      if (systemRole && (!cookieTenantId || cookieTenantId === "undefined")) {
+        setCheckingCredentials(false);
+        navigate(ROUTES.INTERNAL_TENANT_SELECTOR.path, { replace: true });
+        return;
+      }
+
       const cookieTenantName = getCookies(COOKIES_KEY.TENANT_NAME);
       const cookieTenantRole = getCookies(COOKIES_KEY.TENANT_ROLE);
       const cookieTier = getCookies(COOKIES_KEY.TIER);
       if (cookieTenantId && cookieTenantId !== "undefined" && !tenantId) {
         try {
-          // Set tenant info (which will automatically trigger project fetch)
           setTenantInfo({
             tenantId: cookieTenantId,
             tenantName: cookieTenantName || "",
@@ -99,7 +112,7 @@ export function Layout({ children }: LayoutProps) {
 
   const navbarWidth = opened ? 255 : 95;
 
-  if (isOnboardingPage) {
+  if (isOnboardingPage || isInternalRoute) {
     return <>{children}</>;
   }
 

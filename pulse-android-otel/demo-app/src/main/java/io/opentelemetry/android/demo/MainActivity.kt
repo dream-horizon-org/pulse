@@ -46,6 +46,7 @@ import io.opentelemetry.android.demo.about.AboutActivity
 import io.opentelemetry.android.demo.fragment.FragmentActivity
 import io.opentelemetry.android.demo.theme.DemoAppTheme
 import io.opentelemetry.android.demo.shop.ui.AstronomyShopActivity
+import io.opentelemetry.android.demo.sports.ui.SportsActivity
 
 class MainActivity : ComponentActivity() {
     private val viewModel by viewModels<DemoViewModel>()
@@ -106,6 +107,13 @@ class MainActivity : ComponentActivity() {
                             onClick = {
                                 OtelDemoApplication.logEvent("Go shopping", mapOf("shopping" to "true"))
                                 context.startActivity(Intent(this@MainActivity, AstronomyShopActivity::class.java))
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        LauncherButton(
+                            text = "Sports Live",
+                            onClick = {
+                                context.startActivity(Intent(this@MainActivity, SportsActivity::class.java))
                             },
                             modifier = Modifier.fillMaxWidth(),
                         )

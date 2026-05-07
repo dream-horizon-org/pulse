@@ -106,9 +106,9 @@ class SessionReplayConfigValidationTest {
         @Test
         fun `has sane effective values`() {
             val config = SessionReplayConfig()
-            assertThat(config.effectiveScreenshotScale).isEqualTo(1f)
+            assertThat(config.effectiveScreenshotScale).isEqualTo(0.3f)
             assertThat(config.effectiveScreenshotQuality).isEqualTo(30)
-            assertThat(config.effectiveThrottleDelayMs).isEqualTo(1000L)
+            assertThat(config.effectiveThrottleDelayMs).isEqualTo(2000L)
             assertThat(config.effectiveFlushIntervalSeconds).isEqualTo(60)
             assertThat(config.effectiveFlushAt).isEqualTo(10)
             assertThat(config.effectiveMaxBatchSize).isEqualTo(50)
