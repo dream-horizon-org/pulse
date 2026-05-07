@@ -76,14 +76,18 @@ export default function SdkLabPage() {
   const abortRef = useRef<AbortController | null>(null);
 
   function addLog(msg: string) {
-    setLog((prev) => [`[${new Date().toLocaleTimeString()}] ${msg}`, ...prev].slice(0, 30));
+    setLog((prev) =>
+      [`[${new Date().toLocaleTimeString()}] ${msg}`, ...prev].slice(0, 30),
+    );
   }
 
   // ── Errors ────────────────────────────────────────────────────────────────
 
   function throwUncaught() {
     Pulse.trackEvent("lab_throw_uncaught");
-    setTimeout(() => { throw new Error("SDK Lab: uncaught error"); }, 0);
+    setTimeout(() => {
+      throw new Error("SDK Lab: uncaught error");
+    }, 0);
     addLog("Threw uncaught error → device.crash via window.onerror");
   }
 
@@ -196,7 +200,9 @@ export default function SdkLabPage() {
     addLog("Blocking main thread 600ms → poor INP…");
     const start = Date.now();
     // Synchronous CPU burn — simulates heavy JS blocking INP measurement
-    while (Date.now() - start < 600) { /* busy wait */ }
+    while (Date.now() - start < 600) {
+      /* busy wait */
+    }
     // Force a DOM update after the block so INP is measured
     document.title = document.title; // trigger reflow hint
     addLog("Main thread unblocked — INP spike emitted to web-vitals");
@@ -212,7 +218,10 @@ export default function SdkLabPage() {
     const main = document.querySelector("main");
     if (main) {
       main.insertBefore(el, main.firstChild);
-      setTimeout(() => document.getElementById("lab-cls-banner")?.remove(), 4000);
+      setTimeout(
+        () => document.getElementById("lab-cls-banner")?.remove(),
+        4000,
+      );
     }
     addLog("Banner injected — CLS recorded. Removes in 4s.");
   }
@@ -255,7 +264,9 @@ export default function SdkLabPage() {
 
   function simulateNewInstall() {
     localStorage.removeItem("pulse_installation_id");
-    addLog("Installation ID cleared → reload to trigger installation.start + new session");
+    addLog(
+      "Installation ID cleared → reload to trigger installation.start + new session",
+    );
     setTimeout(() => window.location.reload(), 1000);
   }
 
@@ -315,7 +326,10 @@ export default function SdkLabPage() {
           description="PulseErrorBoundary → device.crash"
           color="purple"
           testId="lab-throw-render"
-          onClick={() => { Pulse.trackEvent("lab_throw_render"); setThrowRender(true); }}
+          onClick={() => {
+            Pulse.trackEvent("lab_throw_render");
+            setThrowRender(true);
+          }}
         />
         {throwRender && <RenderBomb />}
         <LabButton
