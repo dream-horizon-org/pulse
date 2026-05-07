@@ -12,6 +12,11 @@ import type {
   ResourceMetrics,
 } from "@opentelemetry/sdk-metrics";
 
+import type {
+  PulseExportSignal,
+  PulseBeforeSendResult,
+  PulseWebBeforeSendCallbacks,
+} from "../types/before-send";
 import {
   validateBeforeSendConfig,
   resolveBeforeSend,
@@ -43,14 +48,16 @@ describe("validateBeforeSendConfig", () => {
     expect(() =>
       validateBeforeSendConfig({ beforeSendSpan: 1 } as never),
     ).toThrow(
-      "[PulseWeb] beforeSendData.beforeSendSpan must be a function when provided",
+      "[Pulse] beforeSendData.beforeSendSpan must be a function when provided",
     );
   });
 });
 
 describe("BeforeSendSpanExporter", () => {
   it("invokes generic then typed; null from generic drops (Android order)", () => {
-    const generic = vi.fn(() => null as unknown);
+    const generic = vi.fn(
+      (_s: PulseExportSignal): PulseBeforeSendResult => null,
+    );
     const typed = vi.fn((s: ReadableSpan) => s);
     const delegate: SpanExporter = {
       export: vi.fn((_spans, cb) => cb({ code: ExportResultCode.SUCCESS })),
@@ -78,7 +85,10 @@ describe("BeforeSendSpanExporter", () => {
       forceFlush: async () => {},
     };
     const exp = new BeforeSendSpanExporter(delegate, {
-      beforeSend: () => ({ not: "a span" }),
+      // Intentionally wrong return shape — runtime must drop (see applyBeforeSendGeneric).
+      beforeSend: ((_s: PulseExportSignal) => ({
+        not: "a span",
+      })) as unknown as PulseWebBeforeSendCallbacks["beforeSend"],
     });
     const cb = vi.fn();
     exp.export([mockSpan("x")], cb);
@@ -169,7 +179,7 @@ describe("BeforeSendMetricExporter", () => {
 
 describe("resolveBeforeSend", () => {
   it("wraps a function as generic-only hooks", () => {
-    const fn = (x: unknown) => x;
+    const fn = (x: PulseExportSignal) => x;
     const r = resolveBeforeSend(fn);
     expect(r?.beforeSend).toBe(fn);
     expect(r?.beforeSendSpan).toBeUndefined();

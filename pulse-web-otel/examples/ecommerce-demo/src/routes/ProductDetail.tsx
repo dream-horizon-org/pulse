@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { PulseWeb } from '@dreamhorizon/pulse-web';
+import { Pulse } from '@dreamhorizon/pulse-web';
 import { useCart } from "../hooks/useCart";
 
 interface ProductDetail {
@@ -30,7 +30,7 @@ export default function ProductDetail() {
 
   useEffect(() => {
     if (!id) return;
-    PulseWeb.trackEvent("product_detail_open", {
+    Pulse.trackEvent("product_detail_open", {
       product_id: id,
       path: window.location.pathname,
     });
@@ -58,7 +58,7 @@ export default function ProductDetail() {
                 name: product.name,
                 price: product.price,
               });
-              PulseWeb.trackEvent("add_to_cart", {
+              Pulse.trackEvent("add_to_cart", {
                 product_id: product.id,
                 product_name: product.name,
                 price: product.price,

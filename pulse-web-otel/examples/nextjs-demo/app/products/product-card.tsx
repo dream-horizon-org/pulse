@@ -2,7 +2,7 @@
 
 import React from "react";
 import Link from "next/link";
-import { PulseWeb } from "@dreamhorizon/pulse-web";
+import { Pulse } from "@dreamhorizon/pulse-web";
 import type { Product } from "../../lib/products";
 
 const cardStyle: React.CSSProperties = {
@@ -24,7 +24,7 @@ export function FeaturedProductCard({
       style={{ textDecoration: "none", color: "inherit" }}
       onClick={() => {
         // Client-side event fired even though product data came from the server
-        PulseWeb.trackEvent("product_viewed", {
+        Pulse.trackEvent("product_viewed", {
           product_id: product.id,
           product_name: product.name,
           product_category: product.category,
@@ -69,7 +69,7 @@ export function ProductCard({
       href={`/products/${product.id}`}
       style={{ textDecoration: "none", color: "inherit" }}
       onClick={() => {
-        PulseWeb.trackEvent("product_viewed", {
+        Pulse.trackEvent("product_viewed", {
           product_id: product.id,
           product_name: product.name,
           product_category: product.category,

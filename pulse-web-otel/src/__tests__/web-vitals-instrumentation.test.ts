@@ -289,4 +289,42 @@ describe("InstrumentationRegistry Web Vitals gate", () => {
     expect(wvMocks.onLCP).toHaveBeenCalledTimes(2);
     registry.uninstallAll();
   });
+
+  it(
+    "installAll continues installing remaining instrumentations when one " +
+      "throws and still flips the single-owner gate",
+    () => {
+      wvMocks.onLCP.mockClear();
+      const sdk = makeMinimalSdk();
+      const registry = new InstrumentationRegistry(
+        sdk,
+        sdk.gate,
+        sdk.config.instrumentations,
+      );
+
+      // Simulate a transient throw inside one instrumentation install.
+      // We register a custom instrumentation via registerAndInstall first to
+      // exercise the per-call try/catch; then installAll should still bring
+      // up Web Vitals (onLCP) and flip installAllCompleted.
+      const throwing = {
+        name: "throwing-test-instr",
+        install() {
+          throw new Error("simulated install failure");
+        },
+        uninstall() {},
+      };
+      const ok = registry.registerAndInstall(throwing);
+      expect(ok).toBe(false);
+
+      registry.installAll();
+      expect(wvMocks.onLCP).toHaveBeenCalledTimes(1);
+
+      // Second installAll() must no-op (single owner) — the throw above must
+      // not have left the gate stuck open or closed unexpectedly.
+      registry.installAll();
+      expect(wvMocks.onLCP).toHaveBeenCalledTimes(1);
+
+      registry.uninstallAll();
+    },
+  );
 });

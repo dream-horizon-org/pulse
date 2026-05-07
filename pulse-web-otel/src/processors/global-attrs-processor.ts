@@ -1,7 +1,7 @@
 // M1: Global attributes processor — injects session.id, screen.name, network attrs
 // on every span and log record.
 
-import type { Span, Context } from "@opentelemetry/api";
+import type { Span, Context, AttributeValue } from "@opentelemetry/api";
 import type { SpanProcessor, ReadableSpan } from "@opentelemetry/sdk-trace-web";
 import type { LogRecord, LogRecordProcessor } from "@opentelemetry/sdk-logs";
 import type { SessionProvider } from "../session";
@@ -30,7 +30,10 @@ function isDynamicSegment(seg: string): boolean {
   // Pure integers: 123, 456789
   if (/^\d+$/.test(seg)) return true;
   // Standard UUID v4 (with dashes): 550e8400-e29b-41d4-a716-446655440000
-  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(seg)) return true;
+  if (
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(seg)
+  )
+    return true;
   // UUID without dashes (32 hex chars): 550e8400e29b41d4a716446655440000
   if (/^[0-9a-f]{32}$/i.test(seg)) return true;
   // MongoDB ObjectId (24 hex chars): 507f1f77bcf86cd799439011
@@ -69,7 +72,9 @@ function resolveScreenName(
   const segments = pathname.split("/").filter(Boolean);
   if (segments.length === 0) return pathname || "/";
 
-  return "/" + segments.map((seg) => (isDynamicSegment(seg) ? ":id" : seg)).join("/");
+  return (
+    "/" + segments.map((seg) => (isDynamicSegment(seg) ? ":id" : seg)).join("/")
+  );
 }
 
 export class PulseGlobalAttributesProcessor
@@ -82,7 +87,7 @@ export class PulseGlobalAttributesProcessor
    * In-memory user ID. null = read from localStorage (persisted value).
    * Set explicitly via setUserId() to override the persisted value for
    * the current page load without writing to localStorage.
-   * Use PulseWeb.setUserId() to persist across refreshes.
+   * Use Pulse.setUserId() to persist across refreshes.
    */
   private _userId: string | null = null;
   /** null values mark keys that should be suppressed even if present in localStorage. */
@@ -160,17 +165,17 @@ export class PulseGlobalAttributesProcessor
    * Public accessor used by the metric exporter wrapper so metric data points
    * receive the same global attributes as spans and logs.
    */
-  getCommonAttrsForMetrics(): Record<string, string | number | boolean> {
+  getCommonAttrsForMetrics(): Record<string, AttributeValue> {
     return this.getCommonAttrs();
   }
 
-  private getCommonAttrs(): Record<string, string | number | boolean> {
+  private getCommonAttrs(): Record<string, AttributeValue> {
     const sessionId = this.sessionProvider.getSessionId();
     const screenName = this.getCurrentScreenName();
     const network = getNetworkConnection();
 
     const installationId = getOrCreateInstallationId();
-    const attrs: Record<string, string | number | boolean> = {
+    const attrs: Record<string, AttributeValue> = {
       "session.id": sessionId,
       "window.id": this.sessionProvider.getWindowId(),
       "installation.id": installationId,
@@ -199,12 +204,12 @@ export class PulseGlobalAttributesProcessor
     // Inject global attributes from config
     if (this.config.globalAttributes) {
       for (const [key, value] of Object.entries(this.config.globalAttributes)) {
-        attrs[key] = value as string | number | boolean;
+        attrs[key] = value;
       }
     }
 
     // User identity — in-memory takes priority; falls back to localStorage so
-    // userId/properties set via PulseWeb.setUserId() survive page refresh.
+    // userId/properties set via Pulse.setUserId() survive page refresh.
     const resolvedUserId = this._userId ?? getPersistedUserId();
     if (resolvedUserId) {
       attrs["user.id"] = resolvedUserId;

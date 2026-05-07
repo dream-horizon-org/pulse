@@ -43,7 +43,7 @@ describe("@dreamhorizon/pulse-web/react — export shape", () => {
     ).toBe("function");
   });
 
-  it("has no unexpected named exports beyond the 5 public symbols + types", () => {
+  it("has no unexpected named exports beyond the 6 public symbols + types", () => {
     // Only runtime values (functions/classes) — type-only exports are erased
     const runtimeExports = Object.keys(ReactExports).filter(
       (k) => typeof (ReactExports as Record<string, unknown>)[k] === "function",
@@ -51,7 +51,13 @@ describe("@dreamhorizon/pulse-web/react — export shape", () => {
     // Internal test helper is also present — exclude it
     const publicExports = runtimeExports.filter((k) => !k.startsWith("_reset"));
     expect(publicExports.sort()).toEqual(
-      ["PulseErrorBoundary", "PulseProvider", "usePulse", "useRouterTracking"].sort(),
+      [
+        "PulseErrorBoundary",
+        "PulseProvider",
+        "PulseRouterEvents",
+        "usePulse",
+        "useRouterTracking",
+      ].sort(),
     );
   });
 });
@@ -134,12 +140,14 @@ describe("@dreamhorizon/pulse-web/next — export shape", () => {
     expect(typeof NextExports.useNextPagesRouterTracking).toBe("function");
   });
 
-  it("exports PulseNavigationEvents as a function", () => {
-    expect(typeof NextExports.PulseNavigationEvents).toBe("function");
+  it("exports PulseRouterEvents as a function", () => {
+    expect(typeof NextExports.PulseRouterEvents).toBe("function");
   });
 
   it("exports createPulseInstrumentationHandler as a function", () => {
-    expect(typeof NextExports.createPulseInstrumentationHandler).toBe("function");
+    expect(typeof NextExports.createPulseInstrumentationHandler).toBe(
+      "function",
+    );
   });
 });
 

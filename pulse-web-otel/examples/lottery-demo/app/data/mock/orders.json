@@ -1,0 +1,36 @@
+[
+  {
+    "id": "ORD-2026-001",
+    "lotteryId": "diwali-bumper",
+    "lotteryName": "Diwali Bumper",
+    "tickets": ["A/1234", "A/5678"],
+    "totalAmount": 300,
+    "status": "confirmed",
+    "drawDate": "2026-05-10",
+    "drawTime": "20:00",
+    "purchasedAt": "2026-05-05T10:23:00Z"
+  },
+  {
+    "id": "ORD-2026-002",
+    "lotteryId": "navratri-special",
+    "lotteryName": "Navratri Special",
+    "tickets": ["B/4321"],
+    "totalAmount": 100,
+    "status": "confirmed",
+    "drawDate": "2026-05-11",
+    "drawTime": "19:00",
+    "purchasedAt": "2026-05-05T09:10:00Z"
+  },
+  {
+    "id": "ORD-2025-088",
+    "lotteryId": "demo-expired",
+    "lotteryName": "Lohri Special",
+    "tickets": ["A/0042", "A/7777", "A/9999"],
+    "totalAmount": 300,
+    "status": "draw_complete",
+    "drawDate": "2026-04-01",
+    "drawTime": "20:00",
+    "purchasedAt": "2026-03-28T14:05:00Z",
+    "result": "no_win"
+  }
+]

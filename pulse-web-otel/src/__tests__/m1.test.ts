@@ -304,7 +304,7 @@ describe("M1 — Session Provider", () => {
 describe("M1 — Config validation", () => {
   it("throws when apiKey is missing", () => {
     expect(() => validateConfig(makeConfig({ apiKey: "" }))).toThrow(
-      "[PulseWeb] apiKey is required",
+      "[Pulse] apiKey is required",
     );
   });
 
@@ -427,45 +427,45 @@ describe("M1 — SDK singleton guard", () => {
   });
 
   afterEach(async () => {
-    // Import PulseWeb fresh each test via dynamic import to test singleton
-    const { PulseWeb } = await import("../sdk");
-    if (PulseWeb.isInitialized()) {
-      await PulseWeb.shutdown();
+    // Import Pulse fresh each test via dynamic import to test singleton
+    const { Pulse } = await import("../sdk");
+    if (Pulse.isInitialized()) {
+      await Pulse.shutdown();
     }
     vi.unstubAllGlobals();
   });
 
   it("second start() call is a no-op", async () => {
-    const { PulseWeb } = await import("../sdk");
+    const { Pulse } = await import("../sdk");
     const config = makeConfig();
 
-    PulseWeb.start(config);
+    Pulse.init(config);
     // finishStart is async (awaits OS version resolution); flush microtasks.
     await Promise.resolve();
-    expect(PulseWeb.isInitialized()).toBe(true);
+    expect(Pulse.isInitialized()).toBe(true);
 
     // Second call should be no-op
-    PulseWeb.start(config);
+    Pulse.init(config);
     await Promise.resolve();
-    expect(PulseWeb.isInitialized()).toBe(true);
+    expect(Pulse.isInitialized()).toBe(true);
   });
 
   it("shutdown() allows re-initialization after complete", async () => {
-    const { PulseWeb } = await import("../sdk");
+    const { Pulse } = await import("../sdk");
     const config = makeConfig();
 
-    PulseWeb.start(config);
+    Pulse.init(config);
     // finishStart is async (awaits OS version resolution); flush microtasks.
     await Promise.resolve();
-    expect(PulseWeb.isInitialized()).toBe(true);
+    expect(Pulse.isInitialized()).toBe(true);
 
-    await PulseWeb.shutdown();
-    expect(PulseWeb.isInitialized()).toBe(false);
+    await Pulse.shutdown();
+    expect(Pulse.isInitialized()).toBe(false);
 
     // Should be able to re-initialize
-    PulseWeb.start(config);
+    Pulse.init(config);
     await Promise.resolve();
-    expect(PulseWeb.isInitialized()).toBe(true);
+    expect(Pulse.isInitialized()).toBe(true);
   });
 });
 
@@ -1382,6 +1382,29 @@ describe("M1 — GlobalAttributesProcessor", () => {
     expect(attrs["tenant.id"]).toBe("acme");
   });
 
+  it("globalAttributes preserves array values (Android parity)", () => {
+    const { processor } = makeProcessor({
+      globalAttributes: {
+        "flags.enabled": [true, false],
+        "release.channels": ["beta", "stable"],
+        "retry.windows_ms": [100, 300, 500],
+      },
+    });
+
+    const attrs: Record<string, unknown> = {};
+    const fakeSpan = {
+      setAttribute: (k: string, v: unknown) => {
+        attrs[k] = v;
+      },
+    } as unknown as Parameters<typeof processor.onStart>[0];
+
+    processor.onStart(fakeSpan, {} as never);
+
+    expect(attrs["flags.enabled"]).toEqual([true, false]);
+    expect(attrs["release.channels"]).toEqual(["beta", "stable"]);
+    expect(attrs["retry.windows_ms"]).toEqual([100, 300, 500]);
+  });
+
   it("after session rotation — new session.id appears on next signal", () => {
     vi.useFakeTimers();
     const timeoutMs = 1000;
@@ -2256,9 +2279,9 @@ describe("M1 — SDK public API signals", () => {
   });
 
   afterEach(async () => {
-    const { PulseWeb } = await import("../sdk");
-    if (PulseWeb.isInitialized()) {
-      await PulseWeb.shutdown();
+    const { Pulse } = await import("../sdk");
+    if (Pulse.isInitialized()) {
+      await Pulse.shutdown();
     }
     vi.unstubAllGlobals();
   });
@@ -2270,8 +2293,8 @@ describe("M1 — SDK public API signals", () => {
       makeMockBundle(emitSpy) as unknown as ReturnType<typeof createProviders>,
     );
 
-    const { PulseWeb } = await import("../sdk");
-    PulseWeb.start(makeConfig());
+    const { Pulse } = await import("../sdk");
+    Pulse.init(makeConfig());
     await Promise.resolve();
     // finishStart awaits getOsVersionAsync (≤200ms race).
     await new Promise((r) => setTimeout(r, 250));
@@ -2303,15 +2326,15 @@ describe("M1 — SDK public API signals", () => {
       makeMockBundle(emitSpy) as unknown as ReturnType<typeof createProviders>,
     );
 
-    const { PulseWeb } = await import("../sdk");
-    PulseWeb.start(makeConfig());
+    const { Pulse } = await import("../sdk");
+    Pulse.init(makeConfig());
     // finishStart is async (awaits OS version resolution); flush microtasks.
     await Promise.resolve();
 
     // Clear calls from session.start that happen during start()
     emitSpy.mockClear();
 
-    PulseWeb.reportException(new Error("something broke"));
+    Pulse.reportException(new Error("something broke"));
 
     expect(emitSpy).toHaveBeenCalled();
     const call = emitSpy.mock.calls[0]?.[0] as {
@@ -2333,14 +2356,14 @@ describe("M1 — SDK public API signals", () => {
       makeMockBundle(emitSpy) as unknown as ReturnType<typeof createProviders>,
     );
 
-    const { PulseWeb } = await import("../sdk");
-    PulseWeb.start(makeConfig());
+    const { Pulse } = await import("../sdk");
+    Pulse.init(makeConfig());
     // finishStart is async (awaits OS version resolution); flush microtasks.
     await Promise.resolve();
 
     emitSpy.mockClear();
 
-    PulseWeb.trackNonFatal("payment_declined", { amount: 99 });
+    Pulse.trackNonFatal("payment_declined", { amount: 99 });
 
     expect(emitSpy).toHaveBeenCalled();
     const call = emitSpy.mock.calls[0]?.[0] as {
@@ -2364,14 +2387,14 @@ describe("M1 — SDK public API signals", () => {
       makeMockBundle(emitSpy) as unknown as ReturnType<typeof createProviders>,
     );
 
-    const { PulseWeb } = await import("../sdk");
-    PulseWeb.start(makeConfig());
+    const { Pulse } = await import("../sdk");
+    Pulse.init(makeConfig());
     // finishStart is async (awaits OS version resolution); flush microtasks.
     await Promise.resolve();
 
     emitSpy.mockClear();
 
-    PulseWeb.trackEvent("shop_now_click");
+    Pulse.trackEvent("shop_now_click");
 
     expect(emitSpy).toHaveBeenCalled();
     const call = emitSpy.mock.calls[0]?.[0] as {

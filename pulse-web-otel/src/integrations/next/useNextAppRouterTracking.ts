@@ -2,18 +2,18 @@
 
 import { useEffect, useRef } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
-import { PulseWeb } from "../../sdk";
+import { Pulse } from "../../sdk";
 import type { UseNextAppRouterTrackingOptions } from "../../types/next";
 
 export type { UseNextAppRouterTrackingOptions } from "../../types/next";
 
 /**
- * Next.js App Router integration — calls {@link PulseWeb.setScreenName} on
+ * Next.js App Router integration — calls {@link Pulse.setScreenName} on
  * every client-side navigation so subsequent signals carry the new screen name.
  *
  * Must be rendered in a Client Component (`"use client"`) inside a
  * `<Suspense>` boundary (required by `useSearchParams`). Use the ready-made
- * {@link PulseNavigationEvents} component which wraps this hook.
+ * {@link PulseRouterEvents} component which wraps this hook.
  *
  * Implementation notes:
  * - `usePathname()` can return `null` during static pre-rendering — we skip
@@ -57,7 +57,7 @@ export function useNextAppRouterTracking(
         })
       : dependency;
 
-    PulseWeb.setScreenName(name);
+    Pulse.setScreenName(name);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dependency]);
 }

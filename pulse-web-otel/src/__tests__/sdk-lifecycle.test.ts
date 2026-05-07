@@ -119,9 +119,9 @@ beforeEach(() => {
 afterEach(async () => {
   // Always attempt to shut down between tests to avoid singleton pollution.
   // Dynamic import gives us the same module instance without resetting it.
-  const { PulseWeb } = await import("../sdk");
-  if (PulseWeb.isInitialized()) {
-    await PulseWeb.shutdown();
+  const { Pulse } = await import("../sdk");
+  if (Pulse.isInitialized()) {
+    await Pulse.shutdown();
   }
   vi.unstubAllGlobals();
 });
@@ -132,11 +132,11 @@ afterEach(async () => {
 
 describe("SDK lifecycle — shutdown() before start()", () => {
   it("shutdown() on uninitialized SDK returns without error; isInitialized stays false", async () => {
-    const { PulseWeb } = await import("../sdk");
+    const { Pulse } = await import("../sdk");
 
     // Should not throw and should return cleanly
-    await expect(PulseWeb.shutdown()).resolves.toBeUndefined();
-    expect(PulseWeb.isInitialized()).toBe(false);
+    await expect(Pulse.shutdown()).resolves.toBeUndefined();
+    expect(Pulse.isInitialized()).toBe(false);
   });
 });
 
@@ -146,29 +146,29 @@ describe("SDK lifecycle — shutdown() before start()", () => {
 
 describe("SDK lifecycle — whenReady & tracerProvider", () => {
   it("tracerProvider is undefined until whenReady after fire-and-forget start()", async () => {
-    const { PulseWeb } = await import("../sdk");
-    void PulseWeb.start(makeConfig());
-    expect(PulseWeb.tracerProvider).toBeUndefined();
-    await PulseWeb.whenReady();
-    expect(PulseWeb.isInitialized()).toBe(true);
-    expect(PulseWeb.tracerProvider).toBeDefined();
+    const { Pulse } = await import("../sdk");
+    void Pulse.init(makeConfig());
+    expect(Pulse.tracerProvider).toBeUndefined();
+    await Pulse.whenReady();
+    expect(Pulse.isInitialized()).toBe(true);
+    expect(Pulse.tracerProvider).toBeDefined();
   });
 
   it("await start() defines tracerProvider in the same turn", async () => {
-    const { PulseWeb } = await import("../sdk");
-    await PulseWeb.start(makeConfig());
-    expect(PulseWeb.isInitialized()).toBe(true);
-    expect(PulseWeb.tracerProvider).toBeDefined();
+    const { Pulse } = await import("../sdk");
+    await Pulse.init(makeConfig());
+    expect(Pulse.isInitialized()).toBe(true);
+    expect(Pulse.tracerProvider).toBeDefined();
   });
 
   it("whenReady resolves immediately when consent denied (no async pipeline)", async () => {
-    const { PulseWeb } = await import("../sdk");
-    await PulseWeb.start(
+    const { Pulse } = await import("../sdk");
+    await Pulse.init(
       makeConfig({ dataCollectionState: PulseDataCollectionConsent.DENIED }),
     );
-    await PulseWeb.whenReady();
-    expect(PulseWeb.isInitialized()).toBe(false);
-    expect(PulseWeb.tracerProvider).toBeUndefined();
+    await Pulse.whenReady();
+    expect(Pulse.isInitialized()).toBe(false);
+    expect(Pulse.tracerProvider).toBeUndefined();
   });
 });
 
@@ -178,21 +178,21 @@ describe("SDK lifecycle — whenReady & tracerProvider", () => {
 
 describe("SDK lifecycle — shutdown during _starting resets state for restart", () => {
   it("start() → flush microtasks → shutdown() → start() again → isInitialized() true", async () => {
-    const { PulseWeb } = await import("../sdk");
+    const { Pulse } = await import("../sdk");
     const config = makeConfig();
 
-    PulseWeb.start(config);
+    Pulse.init(config);
     // Flush the microtask queue (finishStart awaits getOsVersionAsync)
     await Promise.resolve();
-    expect(PulseWeb.isInitialized()).toBe(true);
+    expect(Pulse.isInitialized()).toBe(true);
 
-    await PulseWeb.shutdown();
-    expect(PulseWeb.isInitialized()).toBe(false);
+    await Pulse.shutdown();
+    expect(Pulse.isInitialized()).toBe(false);
 
     // Restart — should work because _starting was reset by shutdown()
-    PulseWeb.start(config);
+    Pulse.init(config);
     await Promise.resolve();
-    expect(PulseWeb.isInitialized()).toBe(true);
+    expect(Pulse.isInitialized()).toBe(true);
   });
 });
 
@@ -202,22 +202,22 @@ describe("SDK lifecycle — shutdown during _starting resets state for restart",
 
 describe("SDK lifecycle — 3× restart cycle never accumulates state", () => {
   it("start → shutdown → start → shutdown → start → each time isInitialized correct", async () => {
-    const { PulseWeb } = await import("../sdk");
+    const { Pulse } = await import("../sdk");
     const config = makeConfig();
 
     for (let i = 0; i < 3; i++) {
-      PulseWeb.start(config);
+      Pulse.init(config);
       await Promise.resolve();
-      expect(PulseWeb.isInitialized()).toBe(true);
+      expect(Pulse.isInitialized()).toBe(true);
 
-      await PulseWeb.shutdown();
-      expect(PulseWeb.isInitialized()).toBe(false);
+      await Pulse.shutdown();
+      expect(Pulse.isInitialized()).toBe(false);
     }
 
     // Final start: ends initialised
-    PulseWeb.start(config);
+    Pulse.init(config);
     await Promise.resolve();
-    expect(PulseWeb.isInitialized()).toBe(true);
+    expect(Pulse.isInitialized()).toBe(true);
   });
 });
 
@@ -258,12 +258,12 @@ describe("SDK lifecycle — cleanup() called on shutdown", () => {
       prepareForDocumentUnload: vi.fn(),
     });
 
-    const { PulseWeb } = await import("../sdk");
-    PulseWeb.start(makeConfig());
+    const { Pulse } = await import("../sdk");
+    Pulse.init(makeConfig());
     await Promise.resolve();
-    expect(PulseWeb.isInitialized()).toBe(true);
+    expect(Pulse.isInitialized()).toBe(true);
 
-    await PulseWeb.shutdown();
+    await Pulse.shutdown();
 
     expect(cleanupFn).toHaveBeenCalledTimes(1);
   });
@@ -283,12 +283,12 @@ describe("SDK lifecycle — uninstallAll() called on shutdown", () => {
       "uninstallAll",
     );
 
-    const { PulseWeb } = await import("../sdk");
-    PulseWeb.start(makeConfig());
+    const { Pulse } = await import("../sdk");
+    Pulse.init(makeConfig());
     await Promise.resolve();
-    expect(PulseWeb.isInitialized()).toBe(true);
+    expect(Pulse.isInitialized()).toBe(true);
 
-    await PulseWeb.shutdown();
+    await Pulse.shutdown();
 
     expect(uninstallAllSpy).toHaveBeenCalledTimes(1);
     uninstallAllSpy.mockRestore();
@@ -348,10 +348,10 @@ describe("SDK lifecycle — all DOM listeners removed on shutdown", () => {
       });
 
     try {
-      const { PulseWeb } = await import("../sdk");
-      PulseWeb.start(makeConfig());
+      const { Pulse } = await import("../sdk");
+      Pulse.init(makeConfig());
       await Promise.resolve();
-      expect(PulseWeb.isInitialized()).toBe(true);
+      expect(Pulse.isInitialized()).toBe(true);
 
       // Sanity: start() actually registered the listeners we're tracking.
       expect(adds.pagehide).toBeGreaterThan(0);
@@ -359,7 +359,7 @@ describe("SDK lifecycle — all DOM listeners removed on shutdown", () => {
       expect(adds.beforeunload).toBeGreaterThan(0);
       expect(adds.visibilitychange).toBeGreaterThan(0);
 
-      await PulseWeb.shutdown();
+      await Pulse.shutdown();
 
       // Every listener added must have been removed. Counts balance per event.
       expect(removes.pagehide).toBe(adds.pagehide);
@@ -397,15 +397,15 @@ describe("SDK lifecycle — shutdown during async init race (Bug 2)", () => {
     });
 
     // Get the already-loaded SDK singleton (same module, not re-isolated)
-    const { PulseWeb } = await import("../sdk");
+    const { Pulse } = await import("../sdk");
     const config = makeConfig();
 
     // Start — finishStart will pause at await getOsVersionAsync
-    PulseWeb.start(config);
+    Pulse.init(config);
 
     // At this point _starting=true, _initialized=false
     // Call shutdown() before the OS version resolves
-    const shutdownPromise = PulseWeb.shutdown();
+    const shutdownPromise = Pulse.shutdown();
 
     // Now resolve the OS version — finishStart resumes but should see _shuttingDown=true
     resolveOsVersion("14");
@@ -417,7 +417,7 @@ describe("SDK lifecycle — shutdown during async init race (Bug 2)", () => {
     await Promise.resolve();
 
     // The SDK must NOT become initialized after shutdown was called mid-flight
-    expect(PulseWeb.isInitialized()).toBe(false);
+    expect(Pulse.isInitialized()).toBe(false);
 
     vi.doUnmock("../utils/ua-parser");
   });

@@ -2,14 +2,14 @@
 
 import { useEffect, useRef } from "react";
 import { useRouter } from "next/router";
-import { PulseWeb } from "../../sdk";
+import { Pulse } from "../../sdk";
 import type { UseNextPagesRouterTrackingOptions } from "../../types/next";
 
 export type { UseNextPagesRouterTrackingOptions } from "../../types/next";
 
 /**
  * Next.js Pages Router integration — listens to `router.events.routeChangeComplete`
- * and calls {@link PulseWeb.setScreenName} on every client-side navigation.
+ * and calls {@link Pulse.setScreenName} on every client-side navigation.
  *
  * Note: `routeChangeComplete` does NOT fire on the initial page load — the
  * first screen name is set by the SDK's session.start signal (url.path attribute).
@@ -53,7 +53,7 @@ export function useNextPagesRouterTracking(
             hash: parsed.hash.slice(1),
           })
         : dependency;
-      PulseWeb.setScreenName(name);
+      Pulse.setScreenName(name);
     };
 
     router.events.on("routeChangeComplete", handleRouteChangeComplete);

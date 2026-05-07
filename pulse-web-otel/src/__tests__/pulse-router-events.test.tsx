@@ -1,6 +1,4 @@
-/**
- * Unit tests for PulseNavigationEvents component.
- */
+/** Unit tests for Next.js PulseRouterEvents component. */
 import React from "react";
 import { describe, it, expect, vi } from "vitest";
 import { render } from "@testing-library/react";
@@ -13,7 +11,7 @@ vi.mock("next/navigation", () => ({
 }));
 
 vi.mock("../sdk", () => ({
-  PulseWeb: { setScreenName: vi.fn() },
+  Pulse: { setScreenName: vi.fn() },
 }));
 
 const mockUseNextAppRouterTracking = vi.fn();
@@ -22,20 +20,20 @@ vi.mock("../integrations/next/useNextAppRouterTracking", () => ({
     mockUseNextAppRouterTracking(opts),
 }));
 
-import { PulseNavigationEvents } from "../integrations/next/PulseNavigationEvents";
+import { PulseRouterEvents } from "../integrations/next/PulseRouterEvents";
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
-describe("PulseNavigationEvents", () => {
+describe("PulseRouterEvents (Next.js)", () => {
   it("renders null — nothing in the DOM", () => {
-    const { container } = render(<PulseNavigationEvents />);
+    const { container } = render(<PulseRouterEvents />);
     expect(container.firstChild).toBeNull();
   });
 
   it("forwards options to useNextAppRouterTracking", () => {
     const format = vi.fn(() => "custom");
     render(
-      <PulseNavigationEvents
+      <PulseRouterEvents
         skipInitial={false}
         includeSearch={true}
         format={format}
@@ -51,6 +49,6 @@ describe("PulseNavigationEvents", () => {
   });
 
   it("wraps in Suspense — does not throw during render", () => {
-    expect(() => render(<PulseNavigationEvents />)).not.toThrow();
+    expect(() => render(<PulseRouterEvents />)).not.toThrow();
   });
 });

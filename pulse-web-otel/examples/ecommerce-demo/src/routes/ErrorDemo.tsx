@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { PulseWeb } from "@dreamhorizon/pulse-web";
+import { Pulse } from "@dreamhorizon/pulse-web";
 
 function RenderBomb(): React.ReactNode {
   throw new Error("Intentional render error from ErrorDemo");
@@ -46,7 +46,7 @@ export default function ErrorDemo() {
             data-testid="throw-uncaught"
             style={btn("#ef4444")}
             onClick={() => {
-              PulseWeb.trackEvent("error_demo_throw_uncaught");
+              Pulse.trackEvent("error_demo_throw_uncaught");
               setTimeout(() => {
                 throw new Error("Demo uncaught error from ErrorDemo");
               }, 0);
@@ -74,7 +74,7 @@ export default function ErrorDemo() {
             data-testid="throw-promise"
             style={btn("#f97316")}
             onClick={() => {
-              PulseWeb.trackEvent("error_demo_throw_promise");
+              Pulse.trackEvent("error_demo_throw_promise");
               Promise.reject(
                 new Error("Demo unhandled rejection from ErrorDemo"),
               );
@@ -100,7 +100,7 @@ export default function ErrorDemo() {
             data-testid="throw-render-error"
             style={btn("#8b5cf6")}
             onClick={() => {
-              PulseWeb.trackEvent("error_demo_throw_render");
+              Pulse.trackEvent("error_demo_throw_render");
               setThrowRender(true);
             }}
           >
@@ -121,13 +121,13 @@ export default function ErrorDemo() {
             Manual reportException
           </p>
           <p style={{ fontSize: 13, color: "#94a3b8", marginBottom: 12 }}>
-            Calls PulseWeb.reportException() → <code>non_fatal</code> log
+            Calls Pulse.reportException() → <code>non_fatal</code> log
           </p>
           <button
             data-testid="report-exception"
             style={btn("#0ea5e9")}
             onClick={() =>
-              PulseWeb.reportException(new Error("Manually reported error"), {
+              Pulse.reportException(new Error("Manually reported error"), {
                 context: "error-demo",
               })
             }
@@ -155,7 +155,7 @@ export default function ErrorDemo() {
               data-testid="throw-promise-string"
               style={btn("#f59e0b")}
               onClick={() => {
-                PulseWeb.trackEvent("error_demo_throw_promise_string");
+                Pulse.trackEvent("error_demo_throw_promise_string");
                 Promise.reject("String rejection from ErrorDemo");
               }}
             >
@@ -165,7 +165,7 @@ export default function ErrorDemo() {
               data-testid="throw-promise-undefined"
               style={btn("#f59e0b")}
               onClick={() => {
-                PulseWeb.trackEvent("error_demo_throw_promise_undefined");
+                Pulse.trackEvent("error_demo_throw_promise_undefined");
                 Promise.reject(undefined);
               }}
             >
@@ -175,7 +175,7 @@ export default function ErrorDemo() {
               data-testid="throw-uncaught-burst"
               style={btn("#dc2626")}
               onClick={() => {
-                PulseWeb.trackEvent("error_demo_throw_uncaught_burst");
+                Pulse.trackEvent("error_demo_throw_uncaught_burst");
                 for (let i = 0; i < 4; i += 1) {
                   window.dispatchEvent(
                     new ErrorEvent("error", {

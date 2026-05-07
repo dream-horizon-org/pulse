@@ -22,7 +22,7 @@ vi.mock("next/router", () => ({
 
 const mockSetScreenName = vi.fn();
 vi.mock("../sdk", () => ({
-  PulseWeb: { setScreenName: (name: string) => mockSetScreenName(name) },
+  Pulse: { setScreenName: (name: string) => mockSetScreenName(name) },
 }));
 
 import { useNextPagesRouterTracking } from "../integrations/next/useNextPagesRouterTracking";
@@ -75,7 +75,11 @@ describe("useNextPagesRouterTracking", () => {
     );
     renderHook(() => useNextPagesRouterTracking({ format }));
     activeHandler?.("/cart");
-    expect(format).toHaveBeenCalledWith({ pathname: "/cart", search: "", hash: "" });
+    expect(format).toHaveBeenCalledWith({
+      pathname: "/cart",
+      search: "",
+      hash: "",
+    });
     expect(mockSetScreenName).toHaveBeenCalledWith("SCREEN:/cart");
   });
 
@@ -174,9 +178,9 @@ describe("useNextPagesRouterTracking", () => {
 
   it("skipInitial=true — skips first routeChangeComplete, tracks subsequent", () => {
     renderHook(() => useNextPagesRouterTracking({ skipInitial: true }));
-    activeHandler?.("/first");   // skipped
+    activeHandler?.("/first"); // skipped
     expect(mockSetScreenName).not.toHaveBeenCalled();
-    activeHandler?.("/second");  // tracked
+    activeHandler?.("/second"); // tracked
     expect(mockSetScreenName).toHaveBeenCalledTimes(1);
     expect(mockSetScreenName).toHaveBeenCalledWith("/second");
   });

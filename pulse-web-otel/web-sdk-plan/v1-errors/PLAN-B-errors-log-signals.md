@@ -41,7 +41,7 @@
 
 ## 3) Manual report
 
-- Trigger: `PulseWeb.reportException(...)`
+- Trigger: `Pulse.reportException(...)`
 - `pulse.type`: `non_fatal`
 - Required attrs:
   - same as non-fatal path

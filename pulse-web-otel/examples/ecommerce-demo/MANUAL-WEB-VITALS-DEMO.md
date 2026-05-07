@@ -3,7 +3,7 @@
 Web Vitals need **two** layers:
 
 1. **Remote SDK config** (`localStorage` via mock JSON or server) — `features[].web_vitals` with `sessionSampleRate: 1` for `pulse_web_js` so `FeatureGate` installs the instrumentation.
-2. **Static `PulseWeb.start` config** — optional **`instrumentations.webVitals.enabled`** from **App.tsx** / env / query params (whole Web Vitals block off only; not from the mock JSON file).
+2. **Static `Pulse.start` config** — optional **`instrumentations.webVitals.enabled`** from **App.tsx** / env / query params (whole Web Vitals block off only; not from the mock JSON file).
 
 ---
 
@@ -28,7 +28,7 @@ Then `yarn dev`, open `/`, allow consent, watch collector or DevTools **Network*
 
 ## Static instrumentations (SDK config from App)
 
-These merge into `PulseProvider` → `PulseWeb.start({ instrumentations: { webVitals: … } })`.
+These merge into `PulseProvider` → `Pulse.init({ instrumentations: { webVitals: … } })`.
 
 | Source | Effect |
 |--------|--------|

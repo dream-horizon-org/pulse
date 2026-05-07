@@ -537,7 +537,7 @@ describe("PulseWebSDK error reporting methods — TC3 / TC4 / TC14", () => {
       const logger = { emit: sdkMockEmit };
       const err = new Error("Manually reported error");
 
-      // Simulate what PulseWeb.reportException does internally
+      // Simulate what Pulse.reportException does internally
       logger.emit({
         body: err.message,
         timestamp: Date.now(),
@@ -568,7 +568,7 @@ describe("PulseWebSDK error reporting methods — TC3 / TC4 / TC14", () => {
       const logger = { emit: sdkMockEmit };
       const err = new Error("Intentional render error from ErrorDemo");
 
-      // Simulate what PulseWeb.reportDeviceCrash does internally
+      // Simulate what Pulse.reportDeviceCrash does internally
       logger.emit({
         body: err.message,
         timestamp: Date.now(),

@@ -29,7 +29,7 @@ export interface UseNextPagesRouterTrackingOptions {
   format?: (loc: PulseNextLocationLike) => string;
 }
 
-export interface PulseNavigationEventsProps
+export interface PulseRouterEventsProps
   extends UseNextAppRouterTrackingOptions {
   /** Ignored — component renders null. Accepted for convenience in layouts. */
   children?: never;

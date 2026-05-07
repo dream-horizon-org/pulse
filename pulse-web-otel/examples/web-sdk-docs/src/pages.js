@@ -1,4 +1,4 @@
-import { PulseWeb } from "@dreamhorizon/pulse-web";
+import { Pulse } from "@dreamhorizon/pulse-web";
 
 function el(html) {
   const t = document.createElement("template");
@@ -8,7 +8,7 @@ function el(html) {
 
 function safeInit(fn) {
   return () => {
-    if (!PulseWeb.isInitialized()) {
+    if (!Pulse.isInitialized()) {
       window.alert(
         "Pulse is not initialized (e.g. consent denied). No events will be sent.",
       );
@@ -32,7 +32,7 @@ function renderHome(root) {
     <article class="doc">
       <h1>Vanilla Pulse Web SDK</h1>
       <p class="lead">Plain HTML, CSS, and JavaScript — no React. The SDK is the same <code>@dreamhorizon/pulse-web</code> package as the ecommerce demo.</p>
-      <p>Use the nav to change routes; each navigation calls <code>PulseWeb.setScreenName(pathname)</code> so <code>screen.name</code> on OTLP logs matches the current page.</p>
+      <p>Use the nav to change routes; each navigation calls <code>Pulse.setScreenName(pathname)</code> so <code>screen.name</code> on OTLP logs matches the current page.</p>
       <p class="muted">See <code>pulse-web-otel/web-sdk-plan/</code> in the repo for full contracts. For a product-style SPA, use <code>examples/ecommerce-demo</code> (port 3002). This app runs on port 3003 by default.</p>
     </article>
   `),
@@ -44,17 +44,17 @@ function renderInstall(root) {
     el(`
     <article class="doc">
       <h1>Install &amp; start</h1>
-      <pre class="code"><code>import { PulseWeb, PulseDataCollectionConsent } from "@dreamhorizon/pulse-web";
+      <pre class="code"><code>import { Pulse, PulseDataCollectionConsent } from "@dreamhorizon/pulse-web";
 
-PulseWeb.start({
-  apiKey: import.meta.env.VITE_PULSE_API_KEY ?? "default-project_devkey01",
+Pulse.init({
+  apiKey: import.meta.env.VITE_PULSE_API_KEY,
   serviceName: "web-sdk-docs",
   dataCollectionState: PulseDataCollectionConsent.ALLOWED,
   export: { format: "json" },
 });
 
-PulseWeb.setScreenName("/");
-PulseWeb.trackEvent("docs.page_view", { section: "install" });</code></pre>
+Pulse.setScreenName("/");
+Pulse.trackEvent("docs.page_view", { section: "install" });</code></pre>
       <h2>Environment (Vite)</h2>
       <p>Copy <code>.env.example</code> to <code>.env.local</code>. Key variables:</p>
       <ul>
@@ -73,7 +73,7 @@ function renderEvents(root) {
     el(`
     <article class="doc">
       <h1>Custom events</h1>
-      <p><code>PulseWeb.trackEvent</code> requires the <code>custom_events</code> feature in remote config. This demo uses mock JSON when <code>VITE_PULSE_MOCK_SDK_CONFIG=true</code>.</p>
+      <p><code>Pulse.trackEvent</code> requires the <code>custom_events</code> feature in remote config. This demo uses mock JSON when <code>VITE_PULSE_MOCK_SDK_CONFIG=true</code>.</p>
       <div class="btn-row">
         <button type="button" id="btn-event-a" class="btn">trackEvent("docs.demo.cta")</button>
         <button type="button" id="btn-event-b" class="btn">trackEvent("docs.demo.secondary", attrs)</button>
@@ -85,13 +85,13 @@ function renderEvents(root) {
   root.querySelector("#btn-event-a").addEventListener(
     "click",
     safeInit(() => {
-      PulseWeb.trackEvent("docs.demo.cta", { placement: "events_panel" });
+      Pulse.trackEvent("docs.demo.cta", { placement: "events_panel" });
     }),
   );
   root.querySelector("#btn-event-b").addEventListener(
     "click",
     safeInit(() => {
-      PulseWeb.trackEvent("docs.demo.secondary", {
+      Pulse.trackEvent("docs.demo.secondary", {
         source: "vanilla-demo",
         variant: "b",
       });
@@ -116,7 +116,7 @@ function renderErrors(root) {
   root.querySelector("#btn-nf").addEventListener(
     "click",
     safeInit(() => {
-      PulseWeb.trackNonFatal("docs.demo.breadcrumb", {
+      Pulse.trackNonFatal("docs.demo.breadcrumb", {
         step: "checkout_preview",
       });
     }),
@@ -124,7 +124,7 @@ function renderErrors(root) {
   root.querySelector("#btn-ex").addEventListener(
     "click",
     safeInit(() => {
-      PulseWeb.reportException(new Error("docs.demo.handled_exception"), {
+      Pulse.reportException(new Error("docs.demo.handled_exception"), {
         handled: true,
       });
     }),
@@ -148,14 +148,14 @@ function renderUser(root) {
   root.querySelector("#btn-user-set").addEventListener(
     "click",
     safeInit(() => {
-      PulseWeb.setUserId("docs-demo-user-1");
-      PulseWeb.setUserProperty("plan", "pro");
+      Pulse.setUserId("docs-demo-user-1");
+      Pulse.setUserProperty("plan", "pro");
     }),
   );
   root.querySelector("#btn-user-clear").addEventListener(
     "click",
     safeInit(() => {
-      PulseWeb.setUserId(null);
+      Pulse.setUserId(null);
     }),
   );
 }

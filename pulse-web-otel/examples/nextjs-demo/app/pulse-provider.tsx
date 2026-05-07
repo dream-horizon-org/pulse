@@ -1,10 +1,7 @@
 "use client";
 
 import React, { type ReactNode } from "react";
-import {
-  PulseProvider,
-  PulseNavigationEvents,
-} from "@dreamhorizon/pulse-web/next";
+import { PulseProvider, PulseRouterEvents } from "@dreamhorizon/pulse-web/next";
 import { PulseDataCollectionConsent } from "@dreamhorizon/pulse-web";
 
 export function PulseClientProvider({
@@ -15,14 +12,13 @@ export function PulseClientProvider({
   return (
     <PulseProvider
       config={{
-        apiKey:
-          process.env["NEXT_PUBLIC_PULSE_API_KEY"] ?? "demo-key",
+        apiKey: process.env["NEXT_PUBLIC_PULSE_API_KEY"] ?? "demo-key",
         dataCollectionState: PulseDataCollectionConsent.ALLOWED,
         serviceName:
           process.env["NEXT_PUBLIC_PULSE_SERVICE_NAME"] ?? "nextjs-demo",
       }}
     >
-      <PulseNavigationEvents />
+      <PulseRouterEvents />
       {children}
     </PulseProvider>
   );

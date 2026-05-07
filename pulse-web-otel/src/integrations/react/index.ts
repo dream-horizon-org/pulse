@@ -11,6 +11,11 @@ export {
 } from "../react/useRouterTracking";
 
 export {
+  PulseRouterEvents,
+  type PulseRouterEventsProps,
+} from "../react/PulseRouterEvents";
+
+export {
   PulseErrorBoundary,
   type PulseErrorBoundaryProps,
 } from "../react/PulseErrorBoundary";

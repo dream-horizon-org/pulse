@@ -17,9 +17,9 @@ export {
 } from "./useNextPagesRouterTracking";
 
 export {
-  PulseNavigationEvents,
-  type PulseNavigationEventsProps,
-} from "./PulseNavigationEvents";
+  PulseRouterEvents,
+  type PulseRouterEventsProps,
+} from "./PulseRouterEvents";
 
 export {
   createPulseInstrumentationHandler,

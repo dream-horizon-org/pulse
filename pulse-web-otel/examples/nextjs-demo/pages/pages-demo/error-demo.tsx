@@ -5,7 +5,7 @@
 import React, { useState } from "react";
 import { PagesNavBar } from "../../components/pages-nav";
 import { PulseErrorBoundary } from "@dreamhorizon/pulse-web/next";
-import { PulseWeb } from "@dreamhorizon/pulse-web";
+import { Pulse } from "@dreamhorizon/pulse-web";
 
 function ThrowingComponent(): React.JSX.Element {
   throw new Error("Boundary crash from pages-demo/error-demo");
@@ -43,7 +43,7 @@ export default function PagesDemoErrorDemo(): React.JSX.Element {
           <button
             data-testid="pages-manual-exception-btn"
             onClick={() => {
-              PulseWeb.reportException(
+              Pulse.reportException(
                 new Error("Pages Router — manual non_fatal"),
               );
             }}
@@ -57,7 +57,7 @@ export default function PagesDemoErrorDemo(): React.JSX.Element {
           <button
             data-testid="pages-manual-crash-btn"
             onClick={() => {
-              PulseWeb.reportDeviceCrash(
+              Pulse.reportDeviceCrash(
                 new Error("Pages Router — manual device.crash"),
               );
             }}

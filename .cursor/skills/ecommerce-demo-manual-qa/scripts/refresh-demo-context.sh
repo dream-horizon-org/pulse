@@ -10,8 +10,8 @@ echo "=== $(date -u +%Y-%m-%dT%H:%M:%SZ) demo QA context refresh ==="
 echo "--- Routes (App.tsx <Route) ---"
 grep -n '<Route' "$DEMO/src/App.tsx" || true
 
-echo "--- PulseWeb / pulse config knobs (grep App.tsx) ---"
-grep -nE 'pulse_|VITE_PULSE|PulseWeb|consent' "$DEMO/src/App.tsx" | head -80 || true
+echo "--- Pulse / pulse config knobs (grep App.tsx) ---"
+grep -nE 'pulse_|VITE_PULSE|Pulse\.|window\.Pulse|consent' "$DEMO/src/App.tsx" | head -80 || true
 
 echo "--- SDK installInstrumentations (sdk.ts) ---"
 grep -nA45 'installInstrumentations' "$ROOT/pulse-web-otel/src/sdk.ts" | head -55 || true

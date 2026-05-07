@@ -1,6 +1,6 @@
 /**
  * When VITE_PULSE_MOCK_SDK_CONFIG=true, fetches mock JSON into localStorage before
- * PulseWeb.start so SdkConfigFetcher matches ecommerce-demo / Playwright patterns.
+ * Pulse.start so SdkConfigFetcher matches ecommerce-demo / Playwright patterns.
  */
 
 const STORAGE_KEY = "pulse_sdk_config";

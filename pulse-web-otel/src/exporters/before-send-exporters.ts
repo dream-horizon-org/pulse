@@ -12,18 +12,11 @@ import type {
 
 import type { ResolvedBeforeSend } from "../types/before-send";
 import {
+  applyBeforeSendGeneric,
   isReadableLogRecord,
   isReadableSpan,
   isResourceMetrics,
 } from "../before-send";
-
-function applyGeneric(
-  hooks: ResolvedBeforeSend,
-  signal: unknown,
-): unknown | null {
-  if (hooks.beforeSend) return hooks.beforeSend(signal);
-  return signal;
-}
 
 /** Outer exporter — batch processor calls this first (Android {@code PulseBeforeSendSpanExporter}). */
 export class BeforeSendSpanExporter implements SpanExporter {
@@ -38,8 +31,7 @@ export class BeforeSendSpanExporter implements SpanExporter {
   ): void {
     const out: ReadableSpan[] = [];
     for (const span of spans) {
-      let current: unknown = span;
-      current = applyGeneric(this.hooks, current);
+      let current = applyBeforeSendGeneric(this.hooks, span);
       if (current === null) continue;
       if (!isReadableSpan(current)) continue;
       if (this.hooks.beforeSendSpan) {
@@ -78,8 +70,7 @@ export class BeforeSendLogRecordExporter implements LogRecordExporter {
   ): void {
     const out: ReadableLogRecord[] = [];
     for (const log of logs) {
-      let current: unknown = log;
-      current = applyGeneric(this.hooks, current);
+      let current = applyBeforeSendGeneric(this.hooks, log);
       if (current === null) continue;
       if (!isReadableLogRecord(current)) continue;
       if (this.hooks.beforeSendLog) {
@@ -127,8 +118,7 @@ export class BeforeSendMetricExporter implements PushMetricExporter {
     metrics: ResourceMetrics,
     resultCallback: (result: ExportResult) => void,
   ): void {
-    let current: unknown = metrics;
-    current = applyGeneric(this.hooks, current);
+    let current = applyBeforeSendGeneric(this.hooks, metrics);
     if (current === null) {
       resultCallback({ code: ExportResultCode.SUCCESS });
       return;

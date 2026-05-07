@@ -12,11 +12,11 @@ export default function CartPage(): React.JSX.Element {
       </p>
       <p style={{ marginTop: "1rem", fontSize: "0.85rem", color: "#888" }}>
         Each successful add-to-cart fires{" "}
-        <code>PulseWeb.trackEvent("add_to_cart", &#123; product_id &#125;)</code>{" "}
+        <code>Pulse.trackEvent("add_to_cart", &#123; product_id &#125;)</code>{" "}
         after the Server Action resolves.
         <br />
         Failed adds (e.g. out-of-stock product p3) fire{" "}
-        <code>PulseWeb.reportException()</code>.
+        <code>Pulse.reportException()</code>.
       </p>
     </div>
   );

@@ -5,11 +5,11 @@
  * fires Pulse SDK events based on the result.
  *
  * This is the key pattern for tracking Server Action outcomes:
- *   - Success → PulseWeb.trackEvent("add_to_cart", { product_id, ... })
- *   - Failure → PulseWeb.reportException(error)
+ *   - Success → Pulse.trackEvent("add_to_cart", { product_id, ... })
+ *   - Failure → Pulse.reportException(error)
  */
 import React, { useState, useTransition } from "react";
-import { PulseWeb } from "@dreamhorizon/pulse-web";
+import { Pulse } from "@dreamhorizon/pulse-web";
 import { addToCartAction } from "../../cart/actions";
 
 export function AddToCartButton({
@@ -30,7 +30,7 @@ export function AddToCartButton({
 
       if (result.ok) {
         // Server Action succeeded — fire client-side success event
-        PulseWeb.trackEvent("add_to_cart", {
+        Pulse.trackEvent("add_to_cart", {
           product_id: result.productId,
           product_name: result.productName,
         });
@@ -38,7 +38,7 @@ export function AddToCartButton({
         setMessage(`${result.productName} added to cart`);
       } else {
         // Server Action failed — report as non-fatal exception
-        PulseWeb.reportException(
+        Pulse.reportException(
           new Error(`Add to cart failed: ${result.error}`),
           { product_id: result.productId },
         );

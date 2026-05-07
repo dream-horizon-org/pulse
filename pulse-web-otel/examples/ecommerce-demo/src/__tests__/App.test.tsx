@@ -3,7 +3,7 @@
  *
  * Unit tests for the ecommerce demo App.tsx refactor:
  * - Verifies PulseProvider / PulseErrorBoundary / useRouterTracking are used
- *   instead of manual PulseWeb.start() wiring.
+ *   instead of manual Pulse.init() wiring.
  * - Tests config derivation from env vars and query params.
  * - Tests error boundary fallback renders on child crash.
  */
@@ -22,8 +22,8 @@ const mockTrackEvent = vi.fn();
 const mockIsInitialized = vi.fn().mockReturnValue(false);
 
 vi.mock("@dreamhorizon/pulse-web", () => ({
-  PulseWeb: {
-    start: mockStart,
+  Pulse: {
+    init: mockStart,
     shutdown: mockShutdown,
     setScreenName: mockSetScreenName,
     setUserId: vi.fn(),
@@ -166,7 +166,7 @@ describe("Demo App — PulseProvider wiring", () => {
     vi.resetModules();
   });
 
-  it("calls PulseWeb.start() exactly once on mount via PulseProvider", async () => {
+  it("calls Pulse.init() exactly once on mount via PulseProvider", async () => {
     await renderApp();
     expect(mockStart).toHaveBeenCalledTimes(1);
   });

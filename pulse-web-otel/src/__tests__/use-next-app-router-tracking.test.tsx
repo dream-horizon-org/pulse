@@ -17,7 +17,7 @@ vi.mock("next/navigation", () => ({
 
 const mockSetScreenName = vi.fn();
 vi.mock("../sdk", () => ({
-  PulseWeb: { setScreenName: (name: string) => mockSetScreenName(name) },
+  Pulse: { setScreenName: (name: string) => mockSetScreenName(name) },
 }));
 
 // ─── Import after mocks ───────────────────────────────────────────────────────
@@ -88,20 +88,22 @@ describe("useNextAppRouterTracking", () => {
   });
 
   it("calls format callback with pathname/search/hash", () => {
-    const format = vi.fn((loc: { pathname: string; search: string; hash: string }) =>
-      `SCREEN:${loc.pathname}`,
+    const format = vi.fn(
+      (loc: { pathname: string; search: string; hash: string }) =>
+        `SCREEN:${loc.pathname}`,
     );
-    renderHook(() =>
-      useNextAppRouterTracking({ skipInitial: false, format }),
-    );
-    expect(format).toHaveBeenCalledWith({ pathname: "/", search: "", hash: "" });
+    renderHook(() => useNextAppRouterTracking({ skipInitial: false, format }));
+    expect(format).toHaveBeenCalledWith({
+      pathname: "/",
+      search: "",
+      hash: "",
+    });
     expect(mockSetScreenName).toHaveBeenCalledWith("SCREEN:/");
   });
 
   it("does not call setScreenName again when same pathname re-renders (StrictMode safety)", () => {
     const { rerender } = renderHook(
-      (opts: UseNextAppRouterTrackingOptions) =>
-        useNextAppRouterTracking(opts),
+      (opts: UseNextAppRouterTrackingOptions) => useNextAppRouterTracking(opts),
       { initialProps: { skipInitial: false } },
     );
     expect(mockSetScreenName).toHaveBeenCalledTimes(1);
@@ -112,12 +114,8 @@ describe("useNextAppRouterTracking", () => {
 
   it("format receives empty hash in App Router", () => {
     const format = vi.fn(() => "custom");
-    renderHook(() =>
-      useNextAppRouterTracking({ skipInitial: false, format }),
-    );
-    expect(format).toHaveBeenCalledWith(
-      expect.objectContaining({ hash: "" }),
-    );
+    renderHook(() => useNextAppRouterTracking({ skipInitial: false, format }));
+    expect(format).toHaveBeenCalledWith(expect.objectContaining({ hash: "" }));
   });
 
   // ─── Negative: includeSearch=false isolation ──────────────────────────────
@@ -129,13 +127,17 @@ describe("useNextAppRouterTracking", () => {
     );
     // screen name must be pathname only — no query string
     expect(mockSetScreenName).toHaveBeenCalledWith("/");
-    expect(mockSetScreenName).not.toHaveBeenCalledWith(expect.stringContaining("?"));
+    expect(mockSetScreenName).not.toHaveBeenCalledWith(
+      expect.stringContaining("?"),
+    );
   });
 
   it("search-params-only change does NOT fire when includeSearch=false", () => {
     const hook = renderHook(
       (opts: UseNextAppRouterTrackingOptions) => useNextAppRouterTracking(opts),
-      { initialProps: { skipInitial: false } as UseNextAppRouterTrackingOptions },
+      {
+        initialProps: { skipInitial: false } as UseNextAppRouterTrackingOptions,
+      },
     );
     expect(mockSetScreenName).toHaveBeenCalledTimes(1); // initial mount
     vi.clearAllMocks();
@@ -150,7 +152,12 @@ describe("useNextAppRouterTracking", () => {
     mockSearchParams.mockReturnValue(new URLSearchParams());
     const hook = renderHook(
       (opts: UseNextAppRouterTrackingOptions) => useNextAppRouterTracking(opts),
-      { initialProps: { skipInitial: false, includeSearch: true } as UseNextAppRouterTrackingOptions },
+      {
+        initialProps: {
+          skipInitial: false,
+          includeSearch: true,
+        } as UseNextAppRouterTrackingOptions,
+      },
     );
     expect(mockSetScreenName).toHaveBeenCalledWith("/?");
     vi.clearAllMocks();
@@ -167,7 +174,9 @@ describe("useNextAppRouterTracking", () => {
     mockPathname.mockReturnValue(null);
     const hook = renderHook(
       (opts: UseNextAppRouterTrackingOptions) => useNextAppRouterTracking(opts),
-      { initialProps: { skipInitial: false } as UseNextAppRouterTrackingOptions },
+      {
+        initialProps: { skipInitial: false } as UseNextAppRouterTrackingOptions,
+      },
     );
     // null → skipped entirely (prevDependency stays null)
     expect(mockSetScreenName).not.toHaveBeenCalled();

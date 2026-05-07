@@ -48,9 +48,7 @@ function makeCompiler(assets: Record<string, string> = {}) {
       emit: {
         tapPromise(
           _name: string,
-          handler: (
-            c: ReturnType<typeof makeCompilation>,
-          ) => Promise<void>,
+          handler: (c: ReturnType<typeof makeCompilation>) => Promise<void>,
         ) {
           emitHandlers.push(handler);
         },
@@ -81,6 +79,7 @@ const DEFAULT_OPTS = {
   serverUrl: "http://localhost:8080",
   appVersion: "1.0.0",
   bundleId: "com.test.app",
+  dryRun: false,
 };
 
 // ─── withPulseConfig ──────────────────────────────────────────────────────────
@@ -88,7 +87,10 @@ const DEFAULT_OPTS = {
 describe("withPulseConfig", () => {
   it("returns the original config unchanged when disabled: true", () => {
     const original = { reactStrictMode: true };
-    const result = withPulseConfig(original, { ...DEFAULT_OPTS, disabled: true });
+    const result = withPulseConfig(original, {
+      ...DEFAULT_OPTS,
+      disabled: true,
+    });
     expect(result).toBe(original);
   });
 
@@ -124,7 +126,9 @@ describe("withPulseConfig", () => {
 
     const config = result.webpack!({}, { isServer: false });
     expect(originalWebpack).toHaveBeenCalledOnce();
-    expect((config["resolve"] as { alias: unknown })?.alias).toEqual({ "@": "src" });
+    expect((config["resolve"] as { alias: unknown })?.alias).toEqual({
+      "@": "src",
+    });
   });
 
   it("injects PulseSourceMapPlugin for client build (isServer: false)", () => {
@@ -145,7 +149,10 @@ describe("withPulseConfig", () => {
 
   it("does NOT inject plugin for edge runtime", () => {
     const result = withPulseConfig({}, { ...DEFAULT_OPTS, disabled: false });
-    const config = result.webpack!({}, { isServer: false, nextRuntime: "edge" });
+    const config = result.webpack!(
+      {},
+      { isServer: false, nextRuntime: "edge" },
+    );
     // Edge runtime is treated as server-like; plugin should not be injected
     // when isServer is effectively true for edge
     // (our impl uses !context.isServer — edge sets isServer=false but nextRuntime='edge')
@@ -168,9 +175,9 @@ describe("withPulseConfig", () => {
   });
 
   it("throws when apiKey is missing and not disabled", () => {
-    expect(() =>
-      withPulseConfig({}, { apiKey: "", disabled: false }),
-    ).toThrow("[Pulse] withPulseConfig: apiKey is required");
+    expect(() => withPulseConfig({}, { apiKey: "", disabled: false })).toThrow(
+      "[Pulse] withPulseConfig: apiKey is required",
+    );
   });
 
   it("does NOT throw when apiKey is missing but disabled: true", () => {
@@ -196,17 +203,31 @@ describe("withPulseConfig", () => {
 
 describe("PulseSourceMapPlugin — emit hook", () => {
   beforeEach(() => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, text: async () => "" }));
-    vi.stubGlobal("FormData", class {
-      private _entries: Array<[string, unknown, string?]> = [];
-      append(name: string, value: unknown, filename?: string) {
-        this._entries.push([name, value, filename]);
-      }
-      getEntries() { return this._entries; }
-    });
-    vi.stubGlobal("Blob", class {
-      constructor(public parts: unknown[], public opts: unknown) {}
-    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: true, text: async () => "" }),
+    );
+    vi.stubGlobal(
+      "FormData",
+      class {
+        private _entries: Array<[string, unknown, string?]> = [];
+        append(name: string, value: unknown, filename?: string) {
+          this._entries.push([name, value, filename]);
+        }
+        getEntries() {
+          return this._entries;
+        }
+      },
+    );
+    vi.stubGlobal(
+      "Blob",
+      class {
+        constructor(
+          public parts: unknown[],
+          public opts: unknown,
+        ) {}
+      },
+    );
   });
 
   afterEach(() => {
@@ -231,7 +252,9 @@ describe("PulseSourceMapPlugin — emit hook", () => {
 
     expect(fetch).toHaveBeenCalledOnce();
     // map file removed, js file stays
-    expect("static/chunks/main.js.map" in compiler.compilation.assets).toBe(false);
+    expect("static/chunks/main.js.map" in compiler.compilation.assets).toBe(
+      false,
+    );
     expect("static/chunks/main.js" in compiler.compilation.assets).toBe(true);
   });
 
@@ -249,7 +272,9 @@ describe("PulseSourceMapPlugin — emit hook", () => {
     plugin.apply(compiler);
     await compiler.runEmit();
 
-    expect("static/chunks/main.js.map" in compiler.compilation.assets).toBe(true);
+    expect("static/chunks/main.js.map" in compiler.compilation.assets).toBe(
+      true,
+    );
   });
 
   it("does not call fetch when no .js.map assets are present", async () => {
@@ -281,17 +306,15 @@ describe("PulseSourceMapPlugin — emit hook", () => {
     await compiler.runEmit();
 
     expect(fetch).not.toHaveBeenCalled();
-    expect(consoleSpy).toHaveBeenCalledWith(
-      expect.stringContaining("dry-run"),
-    );
+    expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining("dry-run"));
     consoleSpy.mockRestore();
   });
 
   it("only processes .js.map files (ignores other extensions)", async () => {
     const compiler = makeCompiler({
       "styles.css.map": "{}", // should be ignored
-      "data.json": "{}",      // should be ignored
-      "bundle.js.map": "{}",  // should be uploaded
+      "data.json": "{}", // should be ignored
+      "bundle.js.map": "{}", // should be uploaded
     });
 
     const plugin = new PulseSourceMapPlugin({
@@ -312,7 +335,10 @@ describe("PulseSourceMapPlugin — emit hook", () => {
   });
 
   it("upload failure does not throw (non-fatal)", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("network error")));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockRejectedValue(new Error("network error")),
+    );
     const compiler = makeCompiler({ "main.js.map": "{}" });
 
     const plugin = new PulseSourceMapPlugin({
@@ -329,11 +355,17 @@ describe("PulseSourceMapPlugin — emit hook", () => {
     // HTTP failure → uploadSourceMaps returns false → maps must stay in output
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValue({ ok: false, status: 500, text: async () => "server error" }),
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 500,
+        text: async () => "server error",
+      }),
     );
     vi.spyOn(console, "error").mockImplementation(() => {});
 
-    const compiler = makeCompiler({ "static/chunks/main.js.map": '{"version":3}' });
+    const compiler = makeCompiler({
+      "static/chunks/main.js.map": '{"version":3}',
+    });
 
     const plugin = new PulseSourceMapPlugin({
       ...DEFAULT_OPTS,
@@ -345,7 +377,9 @@ describe("PulseSourceMapPlugin — emit hook", () => {
     await compiler.runEmit();
 
     // Map MUST still be present — deleting on failure would make stacks permanently unreadable
-    expect("static/chunks/main.js.map" in compiler.compilation.assets).toBe(true);
+    expect("static/chunks/main.js.map" in compiler.compilation.assets).toBe(
+      true,
+    );
   });
 
   it("uses full relative asset path as fileName — avoids basename collision across dirs", async () => {
@@ -384,8 +418,13 @@ describe("PulseSourceMapPlugin — emit hook", () => {
     await compiler.runEmit();
 
     expect(capturedForm).not.toBeNull();
-    const metadataEntry = (capturedForm as FakeFormData)._entries.find(([k]) => k === "metadata");
-    const parsed = JSON.parse(metadataEntry![1] as string) as Array<{ fileName: string }>;
+    // Cast through unknown: TS does not narrow let-vars assigned inside a closure.
+    const metadataEntry = (
+      capturedForm as unknown as FakeFormData
+    )._entries.find(([k]) => k === "metadata");
+    const parsed = JSON.parse(metadataEntry![1] as string) as Array<{
+      fileName: string;
+    }>;
 
     const fileNames = parsed.map((m) => m.fileName);
     // Full relative paths — no collision
@@ -421,17 +460,31 @@ describe("PulseSourceMapPlugin — emit hook", () => {
 
 describe("uploadSourceMaps", () => {
   beforeEach(() => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, text: async () => "" }));
-    vi.stubGlobal("FormData", class {
-      private _entries: Array<[string, unknown, string?]> = [];
-      append(name: string, value: unknown, filename?: string) {
-        this._entries.push([name, value, filename]);
-      }
-      getEntries() { return this._entries; }
-    });
-    vi.stubGlobal("Blob", class {
-      constructor(public parts: unknown[], public opts: unknown) {}
-    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: true, text: async () => "" }),
+    );
+    vi.stubGlobal(
+      "FormData",
+      class {
+        private _entries: Array<[string, unknown, string?]> = [];
+        append(name: string, value: unknown, filename?: string) {
+          this._entries.push([name, value, filename]);
+        }
+        getEntries() {
+          return this._entries;
+        }
+      },
+    );
+    vi.stubGlobal(
+      "Blob",
+      class {
+        constructor(
+          public parts: unknown[],
+          public opts: unknown,
+        ) {}
+      },
+    );
   });
 
   afterEach(() => {
@@ -468,19 +521,19 @@ describe("uploadSourceMaps", () => {
   });
 
   it("posts to correct endpoint", async () => {
-    await uploadSourceMaps(
-      [{ fileName: "main.js.map", content: "{}" }],
-      { ...DEFAULT_OPTS, serverUrl: "https://api.pulse.example.io" },
-    );
+    await uploadSourceMaps([{ fileName: "main.js.map", content: "{}" }], {
+      ...DEFAULT_OPTS,
+      serverUrl: "https://api.pulse.example.io",
+    });
     const [url] = (fetch as ReturnType<typeof vi.fn>).mock.calls[0] as [string];
     expect(url).toBe("https://api.pulse.example.io/v1/symbolicate/file/upload");
   });
 
   it("strips trailing slash from serverUrl", async () => {
-    await uploadSourceMaps(
-      [{ fileName: "main.js.map", content: "{}" }],
-      { ...DEFAULT_OPTS, serverUrl: "https://api.pulse.example.io/" },
-    );
+    await uploadSourceMaps([{ fileName: "main.js.map", content: "{}" }], {
+      ...DEFAULT_OPTS,
+      serverUrl: "https://api.pulse.example.io/",
+    });
     const [url] = (fetch as ReturnType<typeof vi.fn>).mock.calls[0] as [string];
     expect(url).toBe("https://api.pulse.example.io/v1/symbolicate/file/upload");
   });
@@ -502,7 +555,11 @@ describe("uploadSourceMaps", () => {
   it("returns false on non-OK HTTP response", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValue({ ok: false, status: 401, text: async () => "Unauthorized" }),
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 401,
+        text: async () => "Unauthorized",
+      }),
     );
     const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     const result = await uploadSourceMaps(
@@ -515,7 +572,10 @@ describe("uploadSourceMaps", () => {
   });
 
   it("returns false and logs on network error", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("connection refused")));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockRejectedValue(new Error("connection refused")),
+    );
     const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     const result = await uploadSourceMaps(
       [{ fileName: "main.js.map", content: "{}" }],
@@ -569,9 +629,10 @@ describe("uploadSourceMaps", () => {
     );
 
     expect(capturedForm).not.toBeNull();
-    const metadataEntry = (capturedForm as FakeFormData)._entries.find(
-      ([k]) => k === "metadata",
-    );
+    // Cast through unknown: TS does not narrow let-vars assigned inside a closure.
+    const metadataEntry = (
+      capturedForm as unknown as FakeFormData
+    )._entries.find(([k]) => k === "metadata");
     const parsed = JSON.parse(metadataEntry![1] as string) as unknown[];
     expect(parsed).toHaveLength(2);
     expect((parsed[0] as { type: string }).type).toBe("js");

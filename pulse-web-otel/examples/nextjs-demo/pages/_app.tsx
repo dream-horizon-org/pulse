@@ -2,7 +2,7 @@
  * Pages Router entry point — _app.tsx
  *
  * Mounts PulseProvider + useNextPagesRouterTracking for all Pages Router routes.
- * The PulseWeb singleton is shared with the App Router section (same browser
+ * The `Pulse` SDK singleton is shared with the App Router section (same browser
  * window), but navigating between the two sections triggers a full page reload,
  * so the SDK re-initialises on each section entry.
  */

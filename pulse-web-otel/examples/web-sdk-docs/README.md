@@ -5,8 +5,8 @@ Plain **HTML + CSS + JavaScript** (no React). Uses the same `@dreamhorizon/pulse
 ## What it demonstrates
 
 - **Client-side routes** (`/`, `/install`, `/events`, `/errors`, `/user`) via the History API.
-- **`PulseWeb.setScreenName(pathname)`** on every in-app navigation so `screen.name` follows the URL.
-- **`PulseWeb.trackEvent`**, **`trackNonFatal`**, **`reportException`**, **`setUserId`** on dedicated pages.
+- **`Pulse.setScreenName(pathname)`** on every in-app navigation so `screen.name` follows the URL.
+- **`Pulse.trackEvent`**, **`trackNonFatal`**, **`reportException`**, **`setUserId`** on dedicated pages.
 
 ## Run
 

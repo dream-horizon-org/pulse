@@ -6,16 +6,16 @@
  * Q4 from design review: "if there's an API call on SSR and it has some event
  * on success, does it get processed?"
  *
- * Answer: NO for SSR — PulseWeb is not initialized server-side.
+ * Answer: NO for SSR — `Pulse` is not initialized server-side.
  * YES for client-side fetch — as shown here.
  *
  * Pattern:
  *   fetch('/api/data')
- *     .then(r => r.ok ? PulseWeb.trackEvent('api_success') : PulseWeb.reportException())
- *     .catch(err => PulseWeb.reportException(err))
+ *     .then(r => r.ok ? Pulse.trackEvent('api_success') : Pulse.reportException())
+ *     .catch(err => Pulse.reportException(err))
  */
 import React, { useState } from "react";
-import { PulseWeb } from "@dreamhorizon/pulse-web";
+import { Pulse } from "@dreamhorizon/pulse-web";
 
 interface ApiData {
   activeUsers: number;
@@ -43,7 +43,7 @@ export default function ApiDemoPage(): React.JSX.Element {
         const err = new Error(body.error ?? `HTTP ${res.status}`);
 
         // API call failed — report as non-fatal (operation-level error, not a crash)
-        PulseWeb.reportException(err, {
+        Pulse.reportException(err, {
           "api.endpoint": "/api/data",
           "api.status": res.status,
         });
@@ -55,7 +55,7 @@ export default function ApiDemoPage(): React.JSX.Element {
       const data = (await res.json()) as ApiData;
 
       // API call succeeded — track business event
-      PulseWeb.trackEvent("dashboard_data_loaded", {
+      Pulse.trackEvent("dashboard_data_loaded", {
         active_users: data.activeUsers,
         orders_today: data.ordersToday,
       });
@@ -63,7 +63,7 @@ export default function ApiDemoPage(): React.JSX.Element {
       setState({ status: "success", data });
     } catch (err) {
       // Network error — report as exception
-      PulseWeb.reportException(
+      Pulse.reportException(
         err instanceof Error ? err : new Error(String(err)),
         { "api.endpoint": "/api/data" },
       );
@@ -80,14 +80,23 @@ export default function ApiDemoPage(): React.JSX.Element {
       <p style={{ color: "#555", marginBottom: "0.5rem" }}>
         Calls <code>GET /api/data</code> and tracks the result with Pulse.
       </p>
-      <ul style={{ fontSize: "0.85rem", color: "#6b7280", marginBottom: "1.5rem", lineHeight: "1.8" }}>
+      <ul
+        style={{
+          fontSize: "0.85rem",
+          color: "#6b7280",
+          marginBottom: "1.5rem",
+          lineHeight: "1.8",
+        }}
+      >
         <li>
           <strong>Success (70%):</strong>{" "}
-          <code>PulseWeb.trackEvent("dashboard_data_loaded", &#123; ... &#125;)</code>
+          <code>
+            Pulse.trackEvent("dashboard_data_loaded", &#123; ... &#125;)
+          </code>
         </li>
         <li>
           <strong>Failure (30%):</strong>{" "}
-          <code>PulseWeb.reportException(error, &#123; api.endpoint &#125;)</code>
+          <code>Pulse.reportException(error, &#123; api.endpoint &#125;)</code>
         </li>
       </ul>
 
@@ -119,21 +128,33 @@ export default function ApiDemoPage(): React.JSX.Element {
             borderRadius: "6px",
           }}
         >
-          <p style={{ color: "#15803d", fontWeight: "bold", marginBottom: "0.5rem" }}>
+          <p
+            style={{
+              color: "#15803d",
+              fontWeight: "bold",
+              marginBottom: "0.5rem",
+            }}
+          >
             ✓ Success — trackEvent("dashboard_data_loaded") fired
           </p>
           <table style={{ fontSize: "0.9rem", borderCollapse: "collapse" }}>
             <tbody>
               <tr>
-                <td style={{ padding: "2px 1rem 2px 0", color: "#6b7280" }}>Active Users</td>
+                <td style={{ padding: "2px 1rem 2px 0", color: "#6b7280" }}>
+                  Active Users
+                </td>
                 <td>{state.data.activeUsers}</td>
               </tr>
               <tr>
-                <td style={{ padding: "2px 1rem 2px 0", color: "#6b7280" }}>Orders Today</td>
+                <td style={{ padding: "2px 1rem 2px 0", color: "#6b7280" }}>
+                  Orders Today
+                </td>
                 <td>{state.data.ordersToday}</td>
               </tr>
               <tr>
-                <td style={{ padding: "2px 1rem 2px 0", color: "#6b7280" }}>Revenue</td>
+                <td style={{ padding: "2px 1rem 2px 0", color: "#6b7280" }}>
+                  Revenue
+                </td>
                 <td>${state.data.revenue}</td>
               </tr>
             </tbody>
@@ -152,7 +173,13 @@ export default function ApiDemoPage(): React.JSX.Element {
             borderRadius: "6px",
           }}
         >
-          <p style={{ color: "#dc2626", fontWeight: "bold", marginBottom: "0.25rem" }}>
+          <p
+            style={{
+              color: "#dc2626",
+              fontWeight: "bold",
+              marginBottom: "0.25rem",
+            }}
+          >
             ✗ Error — reportException() fired
           </p>
           <code style={{ fontSize: "0.85rem" }}>{state.message}</code>

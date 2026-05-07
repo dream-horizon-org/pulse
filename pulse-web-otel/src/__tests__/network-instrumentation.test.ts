@@ -49,10 +49,13 @@ function makeSdk(overrides?: Partial<SdkContext>): SdkContext {
   const base: SdkContext = {
     endpointBaseUrl: "https://collector.example.com",
     gate: new FeatureGate(DEFAULT_SDK_CONFIG),
+    // Network instrumentation only consumes the structural shape below; cast
+    // through `unknown` because SessionProvider has many private fields that
+    // are not relevant to this test.
     sessionProvider: {
       onSessionChange: () => () => {},
       emitInitialSession: () => {},
-    } as SdkContext["sessionProvider"],
+    } as unknown as SdkContext["sessionProvider"],
     logger: {} as SdkContext["logger"],
     tracer: {} as SdkContext["tracer"],
     globalAttrsProcessor: {} as SdkContext["globalAttrsProcessor"],

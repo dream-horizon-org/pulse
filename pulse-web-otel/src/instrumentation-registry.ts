@@ -1,6 +1,8 @@
 // M1: InstrumentationRegistry — holds all Instrumentation instances,
-// calls installAll() during SDK.start() and uninstallAll() during shutdown().
+// calls installAll() during SDK.init() and uninstallAll() during shutdown().
 // See: web-sdk-plan/v1/01-foundation/sdk-lifecycle.md
+
+import { diag } from "@opentelemetry/api";
 
 import type { InstrumentationConfig } from "./config";
 import type { FeatureGate } from "./feature-gate";
@@ -59,17 +61,27 @@ export class InstrumentationRegistry {
     if (key !== undefined && !this.shouldInstall(key)) {
       return false;
     }
-    instrumentation.install(this.sdk);
-    this.installed.push(instrumentation);
-    return true;
+    // Per-instrumentation try/catch: a transient error in one must not skip
+    // the rest, and must not poison `installAllCompleted` (single-owner gate
+    // is set only after the full sweep — see `installAll`).
+    try {
+      instrumentation.install(this.sdk);
+      this.installed.push(instrumentation);
+      return true;
+    } catch (err) {
+      diag.error(
+        `[Pulse] instrumentation install failed${key ? ` (${key})` : ""}`,
+        err,
+      );
+      return false;
+    }
   }
 
   installAll(): void {
     if (this.installAllCompleted) {
       return;
     }
-    this.installAllCompleted = true;
-    // M1: Install session instrumentation
+
     if (this.shouldInstall(InstrumentationKeys.SESSION)) {
       this.registerAndInstall(new SessionInstrumentation());
     }
@@ -88,10 +100,19 @@ export class InstrumentationRegistry {
     );
 
     if (this.shouldInstall(InstrumentationKeys.ERRORS)) {
-      const errInstr = new ErrorInstrumentation();
-      errInstr.install(this.sdk);
-      this.installed.push(errInstr);
+      this.registerAndInstall(
+        new ErrorInstrumentation(),
+        InstrumentationKeys.ERRORS,
+      );
     }
+
+    // Set the single-owner flag only after the full sweep completes.
+    // If we set it earlier and a sync throw escaped one install, future
+    // installAll() calls would silently no-op until uninstallAll() ran.
+    // Per-instrumentation try/catch above ensures one failure does not
+    // skip the others; setting the flag here makes the gate idempotent
+    // without hiding partial failures.
+    this.installAllCompleted = true;
   }
 
   uninstallAll(): void {

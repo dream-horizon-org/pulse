@@ -1,13 +1,13 @@
 import React, { useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { PulseWeb } from '@dreamhorizon/pulse-web';
+import { Pulse } from '@dreamhorizon/pulse-web';
 import { useCart } from '../hooks/useCart';
 
 export default function Cart() {
   const { items, removeItem, total } = useCart();
 
   useEffect(() => {
-    PulseWeb.trackEvent("cart_open", { item_count: items.length });
+    Pulse.trackEvent("cart_open", { item_count: items.length });
   }, [items.length]);
 
   if (items.length === 0) {
@@ -42,7 +42,7 @@ export default function Cart() {
             <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
               <span style={{ fontWeight: 700, color: '#4f46e5' }}>${(item.price * item.qty).toFixed(2)}</span>
               <button
-                onClick={() => { removeItem(item.id); PulseWeb.trackEvent('cart_remove_item', { item_id: item.id, item_name: item.name }); }}
+                onClick={() => { removeItem(item.id); Pulse.trackEvent('cart_remove_item', { item_id: item.id, item_name: item.name }); }}
                 style={{ background: 'none', border: '1px solid #e2e8f0', borderRadius: 6, padding: '4px 10px', cursor: 'pointer', color: '#ef4444', fontSize: 13 }}
               >
                 Remove
@@ -55,7 +55,7 @@ export default function Cart() {
         <span style={{ fontSize: 20, fontWeight: 700 }}>Total: ${total.toFixed(2)}</span>
         <Link
           to="/checkout"
-          onClick={() => PulseWeb.trackEvent('cart_checkout_click', { item_count: items.length, total })}
+          onClick={() => Pulse.trackEvent('cart_checkout_click', { item_count: items.length, total })}
           style={{ background: '#4f46e5', color: '#fff', textDecoration: 'none', borderRadius: 10, padding: '12px 28px', fontWeight: 700 }}
         >
           Checkout →
