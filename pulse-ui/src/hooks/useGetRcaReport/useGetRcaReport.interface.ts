@@ -57,10 +57,28 @@ export type RcaStructuredReportV1 = {
   errorAttribution?: ErrorAttributionResponse | null;
 };
 
+export type SessionRcaSegmentInsight = {
+  label: string;
+  impact: "critical" | "normal" | string;
+  z_score: number | null;
+  quality_score: number | null;
+  volume_pct: number | null;
+  key_finding: string;
+};
+
+export type SessionRcaNarrativeV1 = {
+  version: 1;
+  executive_summary: string;
+  segment_insights: SessionRcaSegmentInsight[];
+  recommendations: string[];
+};
+
 export type RcaReportPayload = {
   structured?: RcaStructuredReportV1 | null;
   /** Backend may return double-wrapped report: { report: { structured } } */
   report?: RcaReportPayload | null;
+  /** Session RCA narrative (rcaType=SESSION only). */
+  narrative?: SessionRcaNarrativeV1 | null;
 };
 
 /**
@@ -154,4 +172,6 @@ export type UseGetRcaReportParams = {
    * Increment when forcing a new POST (e.g. after regenerate returns 200) while entityKey/date/project are unchanged.
    */
   requestSession?: number;
+  /** RCA type to POST (default: "INTERACTION"). Use "SESSION" for session quality RCA. */
+  rcaType?: string;
 };

@@ -20,6 +20,7 @@ from .app import (
     app,
     rca_runner,
     screen_rca_runner,
+    session_rca_runner,
     runner,
     session_service,
     session_scope_store,
@@ -36,11 +37,14 @@ from pulse_ai.schemas import RootCausePayloadSchema
 from .root_cause_fetch import RootCauseFetchError, fetch_root_cause_payload
 from .rca_runner import RcaRunnerError, generate_rca_report
 from .screen_rca_runner import ScreenRcaRunnerError, generate_screen_rca_report
+from .session_rca_runner import SessionRcaRunnerError, generate_session_rca_report
 from .schemas import (
     RcaReportRequest,
     RcaReportResponse,
     ScreenRcaReportRequest,
     ScreenRcaReportResponse,
+    SessionRcaReportRequest,
+    SessionRcaReportResponse,
 )
 
 logger = logging.getLogger(__name__)
@@ -317,4 +321,30 @@ async def generate_screen_root_cause_narrative(
             as_of_iso=request.asOf,
         )
     except ScreenRcaRunnerError as error:
+        raise HTTPException(status_code=error.status_code, detail=error.message) from error
+
+
+@app.post("/rca/session-report")
+async def generate_session_root_cause_narrative(
+    request: SessionRcaReportRequest,
+) -> SessionRcaReportResponse:
+    """Generate executive summary, segment insights, and recommendations for session quality RCA.
+
+    Requires **rootCausePayload** (tabular JSON from GET /v1/sessions/rca).
+    """
+    try:
+        payload = RootCausePayloadSchema.model_validate(request.rootCausePayload)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid rootCausePayload: {exc}",
+        ) from exc
+    try:
+        return await generate_session_rca_report(
+            runner=session_rca_runner,
+            payload=payload,
+            date_str=request.date,
+            as_of_iso=request.asOf,
+        )
+    except SessionRcaRunnerError as error:
         raise HTTPException(status_code=error.status_code, detail=error.message) from error

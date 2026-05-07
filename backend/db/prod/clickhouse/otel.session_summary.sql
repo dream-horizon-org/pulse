@@ -23,6 +23,7 @@ ON CLUSTER 'pulse-ch'
     slowInteractionCount SimpleAggregateFunction(sum, UInt64) CODEC(T64, ZSTD(1)),
     frozenFrameCount    SimpleAggregateFunction(sum, Float64) CODEC(ZSTD(1)),
     spanCount           SimpleAggregateFunction(sum, UInt64)  CODEC(T64, ZSTD(1)),
+    startType           SimpleAggregateFunction(any, LowCardinality(String)) CODEC(ZSTD(1)),
 
     INDEX idx_user_id     userId      TYPE bloom_filter(0.01) GRANULARITY 1,
     INDEX idx_start_time  startTime   TYPE minmax             GRANULARITY 1,
@@ -93,7 +94,8 @@ CREATE MATERIALIZED VIEW IF NOT EXISTS otel.session_summary_mv
     `interactionErrors` UInt64,
     `slowInteractionCount` UInt64,
     `frozenFrameCount` Float64,
-    `spanCount` UInt64
+    `spanCount` UInt64,
+    `startType` String
 )
 AS SELECT
             ProjectId,
@@ -114,7 +116,8 @@ AS SELECT
             countIf(ifNull(SpanAttributes['pulse.interaction.is_error'], '') = 'true') AS interactionErrors,
             countIf(ifNull(SpanAttributes['pulse.interaction.user_category'], '') = 'Poor') AS slowInteractionCount,
             sum(toFloat64OrZero(SpanAttributes['app.interaction.frozen_frame_count'])) AS frozenFrameCount,
-            count() AS spanCount
+            count() AS spanCount,
+            anyIf(SpanAttributes['start.type'], SpanName = 'AppStart') AS startType
    FROM otel.otel_traces_local
    WHERE SessionId != ''
    GROUP BY

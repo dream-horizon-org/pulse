@@ -53,3 +53,11 @@ export const GET_SCREEN_ROOT_CAUSE_ROUTE = {
   apiPathSuffix: "/root-cause",
   method: "GET",
 } as const;
+
+/** GET /v1/sessions/rca — project-wide session quality RCA. */
+export const GET_SESSION_RCA_ROUTE = {
+  key: "GET_SESSION_RCA",
+  apiPath: "/v1/sessions/rca",
+  method: "GET",
+} as const;
+

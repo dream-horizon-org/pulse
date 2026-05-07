@@ -1,0 +1,5 @@
+.page {
+  padding: var(--mantine-spacing-lg);
+  max-width: 1100px;
+  margin: 0 auto;
+}

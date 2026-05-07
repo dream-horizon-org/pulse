@@ -66,7 +66,7 @@ function buildProjectHeaders(projectId: string): Record<string, string> {
 function buildPostBody(
   entityKey: string,
   date: string | null | undefined,
-  rcaType: string,
+  rcaType: string = RCA_TYPE.INTERACTION,
 ): { rcaType: string; entityKey: string; date?: string } {
   const body: { rcaType: string; entityKey: string; date?: string } = {
     rcaType,
@@ -82,7 +82,7 @@ async function requestRcaReportPost(
   entityKey: string,
   date: string | null | undefined,
   projectId: string,
-  rcaType: string,
+  rcaType: string = RCA_TYPE.INTERACTION,
 ): Promise<ApiResponse<RcaReportResponse | RcaJobResponse>> {
   const apiBaseUrl = getApiBaseUrl();
   const url = `${apiBaseUrl}${POST_RCA_REPORT_ROUTE.apiPath}`;
@@ -206,6 +206,7 @@ export function useGetRcaReport({
   enabled = true,
   projectId,
   requestSession = 0,
+  rcaType = RCA_TYPE.INTERACTION,
 }: UseGetRcaReportParams) {
   const queryClient = useQueryClient();
   const trimmedProjectId =
@@ -246,12 +247,7 @@ export function useGetRcaReport({
           status: 400,
         };
       }
-      return requestRcaReportPost(
-        entityKey,
-        date ?? null,
-        trimmedProjectId,
-        rcaType,
-      );
+      return requestRcaReportPost(entityKey, date ?? null, trimmedProjectId, rcaType);
     },
     enabled: baseEnabled && pollJobId === null,
     retry: false,

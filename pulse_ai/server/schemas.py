@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 
 from pulse_ai.schemas.rca_structured_v1 import RcaStructuredReportV1
 from pulse_ai.schemas.screen_rca_narrative_v1 import ScreenRcaNarrativeV1
+from pulse_ai.schemas.session_rca_narrative_v1 import SessionRcaNarrativeV1
 
 
 class RcaReportRequest(BaseModel):
@@ -48,4 +49,21 @@ class ScreenRcaReportPayloadSchema(BaseModel):
 
 class ScreenRcaReportResponse(BaseModel):
     report: ScreenRcaReportPayloadSchema
+    cached: bool = False
+
+
+class SessionRcaReportRequest(BaseModel):
+    """Embedded rootCausePayload is required (v1); window fields are echoed into the LLM prompt."""
+
+    rootCausePayload: dict[str, Any]
+    date: str | None = None
+    asOf: str | None = None
+
+
+class SessionRcaReportPayloadSchema(BaseModel):
+    narrative: SessionRcaNarrativeV1
+
+
+class SessionRcaReportResponse(BaseModel):
+    report: SessionRcaReportPayloadSchema
     cached: bool = False
