@@ -1,5 +1,5 @@
 ---
-description: Coding conventions, architecture, and testing workflow for pulse-web-otel (@dreamhorizon/pulse-web).
+description: Coding conventions, architecture, and testing workflow for pulse-web-otel (@dreamhorizonorg/pulse-web).
 globs: pulse-web-otel/**/*.{ts,tsx}
 alwaysApply: false
 ---

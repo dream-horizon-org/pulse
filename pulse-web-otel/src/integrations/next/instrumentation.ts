@@ -4,7 +4,7 @@
  * Usage — create `instrumentation.ts` at your project root:
  *
  * ```ts
- * import { createPulseInstrumentationHandler } from "@dreamhorizon/pulse-web/next";
+ * import { createPulseInstrumentationHandler } from "@dreamhorizonorg/pulse-web/next";
  *
  * export const onRequestError = createPulseInstrumentationHandler({
  *   apiKey: process.env.PULSE_API_KEY!,
@@ -78,7 +78,7 @@ function buildOtlpLogsBody(
         },
         scopeLogs: [
           {
-            scope: { name: "@dreamhorizon/pulse-web" },
+            scope: { name: "@dreamhorizonorg/pulse-web" },
             logRecords: [
               {
                 timeUnixNano: String(Date.now() * 1_000_000),

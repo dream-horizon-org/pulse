@@ -7,7 +7,7 @@ import type { GetServerSideProps } from "next";
 import { PagesNavBar } from "../../components/pages-nav";
 import { getProduct } from "../../lib/products";
 import type { Product } from "../../lib/products";
-import { Pulse } from "@dreamhorizon/pulse-web";
+import { Pulse } from "@dreamhorizonorg/pulse-web";
 
 interface Props {
   product: Product;

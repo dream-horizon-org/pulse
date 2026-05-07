@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from "react";
-import { Pulse } from "@dreamhorizon/pulse-web";
+import { Pulse } from "@dreamhorizonorg/pulse-web";
 import { useProducts } from "../hooks/useProducts";
 import { useCart } from "../hooks/useCart";
 import { ProductCard } from "../components/ProductCard";

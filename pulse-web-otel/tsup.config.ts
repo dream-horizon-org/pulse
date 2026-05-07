@@ -1,3 +1,4 @@
+/// <reference types="node" />
 import { defineConfig } from "tsup";
 
 export default defineConfig([
@@ -10,7 +11,6 @@ export default defineConfig([
     },
     format: ["esm", "cjs"],
     dts: true,
-    clean: true,
     sourcemap: true,
     define: {
       __SDK_VERSION__: JSON.stringify(

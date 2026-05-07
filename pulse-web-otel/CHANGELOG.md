@@ -8,9 +8,9 @@ unambiguous.
 
 | Old name (≤ 0.1.0-alpha.1) | New name (this release) | Module |
 |----------------------------|--------------------------|--------|
-| `PulseWeb` (singleton)     | `Pulse`                  | `@dreamhorizon/pulse-web` |
-| `Pulse.start(config)`      | `Pulse.init(config)`     | `@dreamhorizon/pulse-web` |
-| `PulseNavigationEvents`    | `PulseRouterEvents`      | `@dreamhorizon/pulse-web/react` |
+| `PulseWeb` (singleton)     | `Pulse`                  | `@dreamhorizonorg/pulse-web` |
+| `Pulse.start(config)`      | `Pulse.init(config)`     | `@dreamhorizonorg/pulse-web` |
+| `PulseNavigationEvents`    | `PulseRouterEvents`      | `@dreamhorizonorg/pulse-web/react` |
 
 #### Why no compatibility shim
 
@@ -24,16 +24,16 @@ forever, plus per-call `console.warn`s) for zero known external upgraders.
 #### Migration
 
 ```diff
-- import { PulseWeb } from "@dreamhorizon/pulse-web";
-+ import { Pulse }    from "@dreamhorizon/pulse-web";
+- import { PulseWeb } from "@dreamhorizonorg/pulse-web";
++ import { Pulse }    from "@dreamhorizonorg/pulse-web";
 
 - await PulseWeb.start({ apiKey: "…" });
 + await Pulse.init({ apiKey: "…" });
 ```
 
 ```diff
-- import { PulseNavigationEvents } from "@dreamhorizon/pulse-web/react";
-+ import { PulseRouterEvents }     from "@dreamhorizon/pulse-web/react";
+- import { PulseNavigationEvents } from "@dreamhorizonorg/pulse-web/react";
++ import { PulseRouterEvents }     from "@dreamhorizonorg/pulse-web/react";
 
 - <PulseNavigationEvents />
 + <PulseRouterEvents />

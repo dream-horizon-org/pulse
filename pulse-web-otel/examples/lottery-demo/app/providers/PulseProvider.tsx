@@ -3,8 +3,8 @@
 import {
   PulseProvider as SDKPulseProvider,
   PulseRouterEvents,
-} from "@dreamhorizon/pulse-web/next";
-import { PulseDataCollectionConsent } from "@dreamhorizon/pulse-web";
+} from "@dreamhorizonorg/pulse-web/next";
+import { PulseDataCollectionConsent } from "@dreamhorizonorg/pulse-web";
 
 // 'use client' boundary — SDK dist does not ship the directive so it cannot
 // be imported directly from a Next.js Server Component.

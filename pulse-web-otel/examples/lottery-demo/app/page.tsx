@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Pulse } from "@dreamhorizon/pulse-web";
+import { Pulse } from "@dreamhorizonorg/pulse-web";
 import { BannerCarousel } from "./components/BannerCarousel";
 import { LotteryCard } from "./components/LotteryCard";
 import { useUser } from "./context/UserContext";

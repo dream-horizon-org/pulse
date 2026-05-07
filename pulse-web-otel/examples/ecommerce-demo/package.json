@@ -19,7 +19,7 @@
     "test": "yarn --cwd ../.. vitest run --config examples/ecommerce-demo/vitest.config.ts examples/ecommerce-demo/src/__tests__/App.test.tsx"
   },
   "dependencies": {
-    "@dreamhorizon/pulse-web": "workspace:*",
+    "@dreamhorizonorg/pulse-web": "workspace:*",
     "react": "^18.3.0",
     "react-dom": "^18.3.0",
     "react-router-dom": "^6.26.0"

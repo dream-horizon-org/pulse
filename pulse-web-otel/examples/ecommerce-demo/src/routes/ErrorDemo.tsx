@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Pulse } from "@dreamhorizon/pulse-web";
+import { Pulse } from "@dreamhorizonorg/pulse-web";
 
 function RenderBomb(): React.ReactNode {
   throw new Error("Intentional render error from ErrorDemo");

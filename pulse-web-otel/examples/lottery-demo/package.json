@@ -14,7 +14,7 @@
     "@capacitor/app": "^8.0.1",
     "@capacitor/core": "^8.1.0",
     "@capacitor/ios": "8.1.0",
-    "@dreamhorizon/pulse-web": "workspace:*",
+    "@dreamhorizonorg/pulse-web": "workspace:*",
     "@tanstack/react-query": "^5.90.21",
     "next": "^15.3.1",
     "react": "19.2.3",

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Pulse } from "@dreamhorizon/pulse-web";
+import { Pulse } from "@dreamhorizonorg/pulse-web";
 import type { Lottery } from "../types/lottery";
 
 export function LotteryCard({ lottery }: { lottery: Lottery }) {

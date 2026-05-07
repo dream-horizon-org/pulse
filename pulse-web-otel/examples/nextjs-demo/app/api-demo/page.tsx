@@ -15,7 +15,7 @@
  *     .catch(err => Pulse.reportException(err))
  */
 import React, { useState } from "react";
-import { Pulse } from "@dreamhorizon/pulse-web";
+import { Pulse } from "@dreamhorizonorg/pulse-web";
 
 interface ApiData {
   activeUsers: number;

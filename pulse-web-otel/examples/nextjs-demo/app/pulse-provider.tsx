@@ -1,8 +1,8 @@
 "use client";
 
 import React, { type ReactNode } from "react";
-import { PulseProvider, PulseRouterEvents } from "@dreamhorizon/pulse-web/next";
-import { PulseDataCollectionConsent } from "@dreamhorizon/pulse-web";
+import { PulseProvider, PulseRouterEvents } from "@dreamhorizonorg/pulse-web/next";
+import { PulseDataCollectionConsent } from "@dreamhorizonorg/pulse-web";
 
 export function PulseClientProvider({
   children,

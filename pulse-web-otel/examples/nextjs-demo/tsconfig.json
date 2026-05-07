@@ -16,9 +16,9 @@
     "plugins": [{ "name": "next" }],
     "paths": {
       "@/*": ["./*"],
-      "@dreamhorizon/pulse-web": ["../../dist/index.d.ts"],
-      "@dreamhorizon/pulse-web/react": ["../../dist/react.d.ts"],
-      "@dreamhorizon/pulse-web/next": ["../../dist/next.d.ts"]
+      "@dreamhorizonorg/pulse-web": ["../../dist/index.d.ts"],
+      "@dreamhorizonorg/pulse-web/react": ["../../dist/react.d.ts"],
+      "@dreamhorizonorg/pulse-web/next": ["../../dist/next.d.ts"]
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],

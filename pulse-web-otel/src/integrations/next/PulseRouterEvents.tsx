@@ -27,7 +27,7 @@ function NavigationEventsInner(
  *
  * ```tsx
  * // app/layout.tsx
- * import { PulseRouterEvents } from "@dreamhorizon/pulse-web/next";
+ * import { PulseRouterEvents } from "@dreamhorizonorg/pulse-web/next";
  *
  * export default function RootLayout({ children }) {
  *   return (

@@ -1,6 +1,6 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import { Pulse } from "@dreamhorizon/pulse-web";
+import { Pulse } from "@dreamhorizonorg/pulse-web";
 import { WebVitalsManualTriggers } from "../components/WebVitalsManualTriggers";
 
 export default function Home() {
