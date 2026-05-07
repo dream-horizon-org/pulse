@@ -1,7 +1,7 @@
 // M1: Global attributes processor — injects session.id, screen.name, network attrs
 // on every span and log record.
 
-import type { Span, Context } from "@opentelemetry/api";
+import type { Span, Context, AttributeValue } from "@opentelemetry/api";
 import type { SpanProcessor, ReadableSpan } from "@opentelemetry/sdk-trace-web";
 import type { LogRecord, LogRecordProcessor } from "@opentelemetry/sdk-logs";
 import type { SessionProvider } from "../session";
@@ -165,17 +165,17 @@ export class PulseGlobalAttributesProcessor
    * Public accessor used by the metric exporter wrapper so metric data points
    * receive the same global attributes as spans and logs.
    */
-  getCommonAttrsForMetrics(): Record<string, string | number | boolean> {
+  getCommonAttrsForMetrics(): Record<string, AttributeValue> {
     return this.getCommonAttrs();
   }
 
-  private getCommonAttrs(): Record<string, string | number | boolean> {
+  private getCommonAttrs(): Record<string, AttributeValue> {
     const sessionId = this.sessionProvider.getSessionId();
     const screenName = this.getCurrentScreenName();
     const network = getNetworkConnection();
 
     const installationId = getOrCreateInstallationId();
-    const attrs: Record<string, string | number | boolean> = {
+    const attrs: Record<string, AttributeValue> = {
       "session.id": sessionId,
       "window.id": this.sessionProvider.getWindowId(),
       "installation.id": installationId,
@@ -204,10 +204,7 @@ export class PulseGlobalAttributesProcessor
     // Inject global attributes from config
     if (this.config.globalAttributes) {
       for (const [key, value] of Object.entries(this.config.globalAttributes)) {
-        // Only scalars go on this map; array-valued global attrs need a different path.
-        if (!Array.isArray(value)) {
-          attrs[key] = value as string | number | boolean;
-        }
+        attrs[key] = value;
       }
     }
 
