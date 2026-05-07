@@ -72,6 +72,7 @@ class ApplicationConfigTest {
     ApplicationConfig config = new ApplicationConfig(
         "dev",
         "cronUrl",
+        ApplicationConfig.DEFAULT_DASHBOARD_BASE_URL,
         "serviceUrl",
         30,
         "clientId",
@@ -177,6 +178,26 @@ class ApplicationConfigTest {
     ApplicationConfig config = new ApplicationConfig();
     config.setInteractionConfigUrl("   ");
     assertNull(config.buildInteractionConfigFileUrl("p1"));
+  }
+
+  @Test
+  void resolveDashboardBaseUrlForNotificationsUsesDefaultWhenUnset() {
+    ApplicationConfig config = new ApplicationConfig();
+    assertEquals(ApplicationConfig.DEFAULT_DASHBOARD_BASE_URL, config.resolveDashboardBaseUrlForNotifications());
+  }
+
+  @Test
+  void resolveDashboardBaseUrlForNotificationsUsesDefaultWhenBlank() {
+    ApplicationConfig config = new ApplicationConfig();
+    config.setDashboardBaseUrl("  ");
+    assertEquals(ApplicationConfig.DEFAULT_DASHBOARD_BASE_URL, config.resolveDashboardBaseUrlForNotifications());
+  }
+
+  @Test
+  void resolveDashboardBaseUrlForNotificationsNormalizesConfiguredValue() {
+    ApplicationConfig config = new ApplicationConfig();
+    config.setDashboardBaseUrl(" https://custom.example.com/// ");
+    assertEquals("https://custom.example.com", config.resolveDashboardBaseUrlForNotifications());
   }
 
   @Test

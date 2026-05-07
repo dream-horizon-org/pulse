@@ -60,6 +60,7 @@ All services on `pulse-network` (bridge). Internal references use container name
 
 - `APP_ENVIRONMENT` — **Required.** Application environment (`dev`, `stag`, `uat`, `prod`). Validated at startup. Passed to pulse-server in docker-compose (default: `dev`).
 - `CONFIG_SERVICE_APPLICATION_*` — backend app config
+- `CONFIG_SERVICE_APPLICATION_DASHBOARDBASEURL` — Public Pulse UI origin for usage-limit email links (`pulse-server` HOCON `app.dashboardBaseUrl`; compose default `http://localhost:3000` on `pulse-server` in `deploy/docker-compose.yml`).
 - `CONFIG_REPLAY_API_BASE_URL` — session replay API base URL (e.g. `http://localhost:3400`); used in default SDK config
 - `VAULT_SERVICE_*` — secrets (Slack, Grafana, etc.)
 - `OTEL_CLICKHOUSE_*` — OTEL collector ClickHouse connection

@@ -17,7 +17,7 @@ import com.pulse.sampling.models.PulseFeatureName
 import kotlinx.serialization.json.Json
 
 @ReactModule(name = PulseReactNativeOtelModule.NAME)
-internal class PulseReactNativeOtelModule(reactContext: ReactApplicationContext) :
+class PulseReactNativeOtelModule(reactContext: ReactApplicationContext) :
   NativePulseReactNativeOtelSpec(reactContext) {
 
   override fun getName(): String {

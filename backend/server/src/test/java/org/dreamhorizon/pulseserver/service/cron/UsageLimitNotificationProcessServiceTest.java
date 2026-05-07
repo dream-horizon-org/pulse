@@ -139,7 +139,7 @@ class UsageLimitNotificationProcessServiceTest {
   }
 
   @Test
-  void shouldIncludeAppDashboardUrlAndTenantIdInEmailParams() {
+  void shouldIncludeTenantIdAndProjectIdInEmailParams() {
     UsageNotification n =
         UsageNotification.builder()
             .projectId("p-dash")
@@ -168,9 +168,9 @@ class UsageLimitNotificationProcessServiceTest {
         ArgumentCaptor.forClass(SendNotificationRequestDto.class);
     verify(notificationService).sendNotification(eq("p-dash"), captor.capture());
     assertThat(captor.getValue().getParams())
-        .containsEntry("dashboardUrl", "https://app.pulse-ux.com")
         .containsEntry("tenantId", "tenant-abc")
-        .containsEntry("projectId", "p-dash");
+        .containsEntry("projectId", "p-dash")
+        .doesNotContainKey("dashboardUrl");
   }
 
   @Test
