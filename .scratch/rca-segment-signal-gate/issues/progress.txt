@@ -31,3 +31,25 @@
       * Issue 05 — HTTP `rca-audit.py` alignment (still references the same dual keys; same change applies).
       * Issue 06 — verification playbook docs.
       * `graphify update` not needed (no Java touched in this slice).
+
+2026-05-07 — Issue 05 (HTTP rca-audit alignment) done.
+  - `deploy/scripts/rca-audit.py`: replaced dual `noise_threshold_err`/`noise_threshold_poor`
+    with single `MIN_COMBINED_DELTA_SIGNAL` (default 15.0, env `RCA_MIN_COMBINED_DELTA_SIGNAL`)
+    and `_combined_signal(derr, dpup)` helper — parity with server `SegmentSignalGate` and
+    `rca-db-audit.py` from issue 04.
+  - `check_input_segments` and `check_output_segments` both WARN when `S < threshold` and
+    print `S=… < {threshold:g}` so operators see the same rule on input AND output.
+  - Removed per-interaction `noise_threshold_*` keys from all EXPECTATIONS entries
+    (single global knob per PRD v1).
+  - Banner prints active threshold + env var name; module docstring updated to describe
+    the single combined-signal floor.
+  - Lint/type: ralph TS commands N/A (Python-only); `python3 -c "ast.parse(...)"` clean.
+  - NOT done — left for next iteration:
+      * Issue 03 — screen-RCA parity. STILL BLOCKED on PRD clarification (see prior note):
+        `SegmentSignalGate` keys on ERROR_RATE/POOR_USER_PCT but `ScreenRcaService`
+        emits CLICK_VOLUME/TAP_COUNT/RAGE_COUNT/DEAD_COUNT/BAD_FRUSTRATION → literal S
+        formula would zero everything at default threshold. Needs product call: define
+        screen-equivalent metric mapping, or scope screen RCA out for v1.
+      * Issue 06 — verification playbook docs (failure-buckets + scenarios + RCA E2E
+        re-seed/recompute note).
+      * `graphify update` not needed (no Java touched in this slice).
