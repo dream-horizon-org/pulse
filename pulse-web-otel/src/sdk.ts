@@ -134,7 +134,13 @@ class PulseSDK implements SdkContext {
     }
     this.config = config;
 
-    const meteringSessionId = crypto.randomUUID();
+    const meteringSessionId =
+      typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+        ? crypto.randomUUID()
+        : "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+            const r = (Math.random() * 16) | 0;
+            return (c === "x" ? r : (r & 0x3) | 0x8).toString(16);
+          });
 
     // Set _initializing before the async finishInit so the singleton guard blocks
     // any duplicate init() calls that arrive during the 200ms OS-version await.
