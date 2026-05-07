@@ -26,7 +26,7 @@ npm install @dreamhorizon/pulse-web
 ### 2. Wrap your app with PulseProvider
 
 `PulseProvider` from `@dreamhorizon/pulse-web/react` does everything in one shot:
-- calls `Pulse.start` on mount
+- calls `Pulse.init` on mount
 - catches React render errors via the built-in `PulseErrorBoundary`
 - exposes the SDK via context
 

@@ -177,7 +177,8 @@ export function createPulseFetchTransport(parameters: {
       })
         .then((res) => {
           if (res.ok) return { status: "success" as const };
-          if (RETRYABLE.has(res.status)) return { status: "retryable" as const };
+          if (RETRYABLE.has(res.status))
+            return { status: "retryable" as const };
           return {
             status: "failure" as const,
             error: new Error(`Fetch failed: ${res.status}`),
@@ -263,7 +264,10 @@ export function createPulseSendBeaconTransport(params: {
       } else {
         url = params.url;
       }
-      const blob = new Blob([data], { type: params.contentType });
+      // Cast: TS 5.7+ types Uint8Array as Uint8Array<ArrayBufferLike>; Blob's
+      // BlobPart constraint accepts Uint8Array<ArrayBuffer>. Runtime is fine —
+      // sendBeacon copies the buffer synchronously before resolving.
+      const blob = new Blob([data as BlobPart], { type: params.contentType });
       const queued = navigator.sendBeacon(url, blob);
       return Promise.resolve(
         queued
@@ -288,7 +292,11 @@ export type BrowserExportTransport = IExporterTransport & {
    * - payloads > limit → keepalive fetch (handles larger batches)
    * Falls back to keepalive fetch if sendBeacon is not available.
    */
-  switchToBeacon(params: { apiKey?: string; beaconRelayUrl?: string; contentType: string }): void;
+  switchToBeacon(params: {
+    apiKey?: string;
+    beaconRelayUrl?: string;
+    contentType: string;
+  }): void;
 };
 
 /**
@@ -310,8 +318,12 @@ export function buildBrowserExportTransport(
   let innerXhr: IExporterTransport = createPulseXhrTransport(xhrParams);
 
   const switcher: IExporterTransport = {
-    send(data, timeout) { return innerXhr.send(data, timeout); },
-    shutdown() { innerXhr.shutdown(); },
+    send(data, timeout) {
+      return innerXhr.send(data, timeout);
+    },
+    shutdown() {
+      innerXhr.shutdown();
+    },
   };
 
   let t: IExporterTransport = switcher;
@@ -330,7 +342,15 @@ export function buildBrowserExportTransport(
         keepalive: true,
       });
     },
-    switchToBeacon({ apiKey, beaconRelayUrl, contentType }: { apiKey?: string; beaconRelayUrl?: string; contentType: string }) {
+    switchToBeacon({
+      apiKey,
+      beaconRelayUrl,
+      contentType,
+    }: {
+      apiKey?: string;
+      beaconRelayUrl?: string;
+      contentType: string;
+    }) {
       const beacon = createPulseSendBeaconTransport({
         url: xhrParams.url,
         apiKey,

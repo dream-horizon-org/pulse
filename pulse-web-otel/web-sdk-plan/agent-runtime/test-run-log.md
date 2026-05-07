@@ -132,3 +132,60 @@ Also removed duplicate `VITE_PULSE_BATCH_DELAY_MS` line in `.env.test`.
 2. If CORS/preflight on config is suspected, compare with `attachDefaultSdkConfigStub` (OPTIONS + GET) vs tests that add later `page.route` handlers.
 3. If `screen.name` assertions fail after URL changes, read **`resolveScreenName`** in `pulse-web-otel/src/processors/global-attrs-processor.ts` — expect **`:id`** placeholders, not collapsed parent paths like `/products`.
 4. Run `yarn workspace ecommerce-demo e2e:web-sdk-gates` (Chromium) after `.env.test` or fixture changes.
+
+### 2026-05-07 — PR review fixes (P0 lint gate + P1 registry + P1 alpha rename)
+
+**Branch:** `chore/lottery-demo-app-init-simplification`. **Goal:** restore merge-ready state after PR review identified `yarn lint` failure on this branch and two registry/API hardening items.
+
+**Symptom A (P0 typecheck):** `yarn lint` failed across three files:
+
+```
+src/exporters/otlp-transport.ts(266,30): TS2322 — Uint8Array<ArrayBufferLike> not assignable to BlobPart
+src/__tests__/with-pulse-config.test.ts (×11) — DEFAULT_OPTS missing required dryRun
+src/__tests__/with-pulse-config.test.ts (×2) — Conversion of 'null' to 'FakeFormData' may be a mistake
+src/__tests__/network-instrumentation.test.ts(52) — invalid cast to SessionProvider
+```
+
+**Cause:** TS 5.7+ DOM lib types `Uint8Array` as `Uint8Array<ArrayBufferLike>`; `Blob` `BlobPart` and `FormData`-style helpers want `Uint8Array<ArrayBuffer>`. `SourceMapUploadOptions` made `dryRun` required but `DEFAULT_OPTS` test fixture was not updated. `let capturedForm: FakeFormData | null` cannot be narrowed by `expect(...).not.toBeNull()` — TS does not narrow `let` reassigned inside a closure.
+
+**Fix:**
+- `src/exporters/otlp-transport.ts` — explicit `data as BlobPart` on the `sendBeacon` Blob construction (no runtime change; sendBeacon copies the buffer synchronously).
+- `src/__tests__/with-pulse-config.test.ts` — added `dryRun: false` to `DEFAULT_OPTS`; replaced two `(capturedForm as FakeFormData)` casts with `(capturedForm as unknown as FakeFormData)`.
+- `src/__tests__/network-instrumentation.test.ts` — `as SdkContext["sessionProvider"]` → `as unknown as SdkContext["sessionProvider"]` (network instrumentation only uses the structural `SessionProvider` shape; tests should not rebuild every private field).
+
+**Symptom B (P1 registry):** PR review flagged `InstrumentationRegistry.installAll()` flips `installAllCompleted = true` *before* installs run, so a sync throw in any single instrumentation strands the registry — subsequent `installAll()` calls no-op until `uninstallAll()` runs, silently skipping all five instrumentations.
+
+**Cause:** Defensive assignment intended to prevent re-entrancy was stronger than needed — there is no re-entrant path (installs are sync), and the early flip turns transient throws into permanent registry-stuck states.
+
+**Fix:** `src/instrumentation-registry.ts`
+- `registerAndInstall()` now wraps `instrumentation.install(this.sdk)` in try/catch, logs failures via `diag.error`, and returns `false` on throw — one failed install no longer cascades.
+- `installAll()` flips `installAllCompleted = true` only after the full sweep, preserving single-owner semantics (second call no-ops) without silent skipping. `uninstallAll()` still resets the flag for explicit retries.
+- `errors` install path moved into `registerAndInstall` (was inline `try`-less `errInstr.install(this.sdk)` followed by `installed.push`).
+
+**Regression test:** `src/__tests__/web-vitals-instrumentation.test.ts` — new case proves: a `registerAndInstall` of a throwing stub returns `false`; subsequent `installAll()` still installs Web Vitals (`onLCP` called once); a second `installAll()` no-ops (`onLCP` count stays 1).
+
+**Symptom C (P1 alpha rename):** PR review asked for a compatibility shim around the `4cbec8e4c` rename (`PulseWeb` → `Pulse`, `Pulse.start` → `Pulse.init`, `PulseNavigationEvents` → `PulseRouterEvents`).
+
+**Decision:** No shim — package is `@dreamhorizon/pulse-web@0.1.0-alpha.1`, no published non-alpha release, all consumers in-monorepo and migrated in the same commit. SemVer permits breaking changes in `0.x` and especially in alpha. A shim would persist deprecated surface plus per-call warnings forever for zero known external upgraders.
+
+**Fix:**
+- `pulse-web-otel/CHANGELOG.md` — new file with a `0.1.0-alpha.2 (unreleased)` section tabulating old → new names, `git grep` migration command, and a paragraph explaining why no compat shim.
+- `pulse-web-otel/README.md` — stale `Pulse.start` reference updated to `Pulse.init`.
+
+**Result:**
+
+```
+yarn lint                                         PASS (TS 5.9.3, 0 errors)
+yarn test:run                                     46 files / 643 tests / PASS
+```
+
+E2E (`yarn workspace ecommerce-demo e2e:web-sdk-gates`) **deferred** to CI / a follow-up — registry change is additive try/catch with no behavioral effect on the happy path exercised by the gates; otlp-transport change is a TS-only cast. Will re-verify if CI surfaces a regression.
+
+**Self-heal check (Principle 8):** All three findings are durable lessons. Added [reference.md](../../../.claude/skills/web-sdk-instrumentation-lifecycle/reference.md) candidates inline in the next commit message of this PR, not in a separate refactor — see PR body.
+
+**Checklist for next time:**
+
+1. When a TS lib bump (5.7+) lands, expect `Uint8Array<ArrayBufferLike>` mismatches at every `new Blob([uint8])` / `BodyInit` site — grep for `new Blob\(\[` in transports and exporters, and either cast to `BlobPart` or `.slice()` and copy.
+2. Required-field changes in shared option types (`SourceMapUploadOptions.dryRun`) need a follow-up grep across `__tests__/**` for `DEFAULT_OPTS`-style fixtures *in the same commit* — Checkstyle/lint won't catch the omission until tests are typechecked.
+3. Test-only `let` capture-via-closure patterns (`let captured: T | null = null`) need `as unknown as T` after a non-null assertion — TS does not narrow `let` written inside a callback.
+4. Single-owner gates must flip *after* the protected work, not before — early flips turn transient errors into permanent skips. Per-instrumentation try/catch + late flag flip is the standard pattern.
