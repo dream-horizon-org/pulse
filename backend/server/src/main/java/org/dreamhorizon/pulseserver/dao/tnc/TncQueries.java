@@ -7,6 +7,12 @@ public class TncQueries {
           + "is_active, published_at, created_by, created_at "
           + "FROM tnc_versions WHERE is_active = TRUE ORDER BY id DESC LIMIT 1";
 
+  /** Same columns as GET_ACTIVE_VERSION; use on writer pool after publish (read-your-writes). */
+  public static final String GET_ACTIVE_VERSION_BY_VERSION_STRING =
+      "SELECT id, version, tos_s3_url, aup_s3_url, privacy_policy_s3_url, summary, "
+          + "is_active, published_at, created_by, created_at "
+          + "FROM tnc_versions WHERE version = ? AND is_active = TRUE LIMIT 1";
+
   public static final String GET_ACCEPTANCE =
       "SELECT id, tenant_id, tnc_version_id, accepted_by_email, accepted_at, user_agent "
           + "FROM tnc_acceptances WHERE tenant_id = ? AND tnc_version_id = ?";

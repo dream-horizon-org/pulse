@@ -1,5 +1,6 @@
 package org.dreamhorizon.pulseserver.resources.v1.auth.models;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -31,6 +32,7 @@ import org.dreamhorizon.pulseserver.model.LoginStatus;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public class LoginResponse {
     
     /**
@@ -66,6 +68,14 @@ public class LoginResponse {
     
     @JsonProperty("tier")
     private String tier;  // "free" or "enterprise"
+
+    /**
+     * Present only for superadmin / internal_viewer.
+     * Absent (null) for all customer users.
+     * Values: "superadmin" | "internal_viewer"
+     */
+    @JsonProperty("systemRole")
+    private String systemRole;
     
     @JsonProperty("needsOnboarding")
     private Boolean needsOnboarding;

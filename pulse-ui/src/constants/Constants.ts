@@ -9,7 +9,6 @@ import {
   IconBell,
   IconCalendarEvent,
   IconChartFunnel,
-  IconDatabaseSearch,
   IconDeviceDesktop,
   IconHome,
   IconListDetails,
@@ -35,7 +34,6 @@ import {
 } from "../screens/CriticalInteractionForm";
 import { OperatorType } from "../screens/AlertForm/AlertForm.interface";
 import { AiChat } from "../screens/AiChat";
-import { RealTimeQuery } from "../screens/RealTimeQuery";
 
 export const APP_NAME: string = "Pulse";
 
@@ -219,12 +217,6 @@ export const ROUTES: Routes = {
     basePath: "/projects/:projectId/configure-alert",
     path: "/projects/:projectId/configure-alert/*",
   },
-  PROJECT_QUERY_BUILDER: {
-    key: "PROJECT_QUERY_BUILDER",
-    basePath: "/projects/:projectId/query-builder",
-    path: "/projects/:projectId/query-builder",
-    element: RealTimeQuery,
-  },
   // PROJECT_SESSION_REPLAY_INSIGHTS: {
   //   key: "PROJECT_SESSION_REPLAY_INSIGHTS",
   //   basePath: "/projects/:projectId/session-replay/insights",
@@ -270,6 +262,11 @@ export const ROUTES: Routes = {
     key: "COMING_SOON",
     basePath: "/coming-soon",
     path: "/coming-soon",
+  },
+  PERSONAL_TOKENS: {
+    key: "PERSONAL_TOKENS",
+    basePath: "/account/tokens",
+    path: "/account/tokens",
   },
   PROJECT_SETTINGS: {
     key: "PROJECT_SETTINGS",
@@ -321,6 +318,16 @@ export const ROUTES: Routes = {
     basePath: "/support-queries",
     path: "/support-queries",
   },
+  INTERNAL_TENANT_SELECTOR: {
+    key: "internal-tenant-selector",
+    path: "/internal/tenant-selector",
+    basePath: "/internal/tenant-selector",
+  },
+  INTERNAL_DEVELOPER_SETTINGS: {
+    key: "internal-developer-settings",
+    path: "/internal/developer-settings",
+    basePath: "/internal/developer-settings",
+  },
   SESSION_REPLAY: {
     key: "SESSION_REPLAY",
     basePath: "/session-replay",
@@ -353,7 +360,6 @@ export const NAVBAR_ROUTES = {
   SCREENS: "/screens",
   NETWORK_LIST: "/network-apis",
   SESSION_REPLAY: "/session-replay/sessions",
-  QUERY_BUILDER: "/query-builder",
   FUNNELS: "/funnels",
   JOURNEYS: "/journeys",
   ALERTS: "/alerts",
@@ -424,14 +430,6 @@ export const NAVBAR_ITEMS: NavbarItems = [
     icon: IconVideo,
     routeTo: NAVBAR_ROUTES.SESSION_REPLAY,
     path: NAVBAR_ROUTES.SESSION_REPLAY,
-    iconSize: 25,
-  },
-
-  {
-    tabName: "Query Builder",
-    icon: IconDatabaseSearch,
-    routeTo: NAVBAR_ROUTES.QUERY_BUILDER,
-    path: NAVBAR_ROUTES.QUERY_BUILDER,
     iconSize: 25,
   },
   {
@@ -983,6 +981,16 @@ export const API_ROUTES: StreamverseRoutes = {
     apiPath: `/v1/funnels`,
     method: API_METHODS.GET,
   },
+  FUNNEL_STOP: {
+    key: "FUNNEL_STOP",
+    apiPath: `/v1/funnels`,
+    method: API_METHODS.POST,
+  },
+  FUNNEL_DELETE: {
+    key: "FUNNEL_DELETE",
+    apiPath: `/v1/funnels`,
+    method: API_METHODS.DELETE,
+  },
   FUNNEL_SESSIONS: {
     key: "FUNNEL_SESSIONS",
     apiPath: `/v1/funnels/sessions`,
@@ -1012,6 +1020,16 @@ export const API_ROUTES: StreamverseRoutes = {
     key: "JOURNEY_DETAILS",
     apiPath: `/v1/journeys`,
     method: API_METHODS.GET,
+  },
+  JOURNEY_STOP: {
+    key: "JOURNEY_STOP",
+    apiPath: `/v1/journeys`,
+    method: API_METHODS.POST,
+  },
+  JOURNEY_DELETE: {
+    key: "JOURNEY_DELETE",
+    apiPath: `/v1/journeys`,
+    method: API_METHODS.DELETE,
   },
   FUNNEL_EVENTS: {
     key: "FUNNEL_EVENTS",
@@ -1053,6 +1071,21 @@ export const API_ROUTES: StreamverseRoutes = {
     key: "GET_USER_PROJECTS",
     apiPath: `/v1/users/me/projects`,
     method: API_METHODS.GET,
+  },
+  LIST_USER_API_KEYS: {
+    key: "LIST_USER_API_KEYS",
+    apiPath: `/v1/users/me/api-keys`,
+    method: API_METHODS.GET,
+  },
+  CREATE_USER_API_KEY: {
+    key: "CREATE_USER_API_KEY",
+    apiPath: `/v1/users/me/api-keys`,
+    method: API_METHODS.POST,
+  },
+  REVOKE_USER_API_KEY: {
+    key: "REVOKE_USER_API_KEY",
+    apiPath: `/v1/users/me/api-keys/:keyId`,
+    method: API_METHODS.DELETE,
   },
   // Auth API Routes
   LOGIN: {
@@ -1134,6 +1167,30 @@ export const API_ROUTES: StreamverseRoutes = {
     key: "REVOKE_PROJECT_API_KEY",
     apiPath: `/v1/projects/:projectId/api-keys/:apiKeyId`,
     method: API_METHODS.DELETE,
+  },
+  /** System-role tenant picker: same list as admin; caller must be superadmin / internal_viewer. */
+  INTERNAL_TENANTS: {
+    key: "INTERNAL_TENANTS",
+    apiPath: `/v1/tenants`,
+    method: API_METHODS.GET,
+  },
+  /** System-role tenant creation: superadmin/internal_viewer only. */
+  POST_CREATE_TENANT: {
+    key: "POST_CREATE_TENANT",
+    apiPath: `/v1/tenants`,
+    method: API_METHODS.POST,
+  },
+  /** OpenFGA superadmin tuples on system:pulse (JWT-verified; superadmin-only for mutations). */
+  ADMIN_SUPERADMINS: {
+    key: "ADMIN_SUPERADMINS",
+    apiPath: `/v1/admin/superadmins`,
+    method: API_METHODS.GET,
+  },
+  /** OpenFGA internal_viewer tuples (mutations superadmin-only). */
+  ADMIN_INTERNAL_VIEWERS: {
+    key: "ADMIN_INTERNAL_VIEWERS",
+    apiPath: `/v1/admin/internal-viewers`,
+    method: API_METHODS.GET,
   },
 };
 
@@ -1261,8 +1318,11 @@ export const COOKIES_KEY: Record<string, string> = {
   TENANT_NAME: "tenantName", // Store tenant name for initial hydration
   TENANT_ROLE: "tenantRole", // Store tenant role for permissions
   TIER: "tier", // Store tier for initial hydration
+  SYSTEM_ROLE: "systemRole",
   // REMOVED: PROJECT_ID, PROJECT_NAME - Now handled by React Context
 };
+
+export const INTERNAL_ROUTE_PREFIX = "/internal";
 
 export const LAYOUT_PAGE_CONSTANTS: Record<string, string> = {
   CHECKING_CREDENTIALS: "Checking credentials",
@@ -1826,3 +1886,14 @@ export const CRITICAL_INTERACTION_DETAILS_FILTER_KEYS: CriticalInteractionDetail
 export const DATE_FORMAT = "MMM D, YY HH:mm";
 
 export const STATUS_CODE_ERROR = "Error";
+
+// System Role Constants
+export const SYSTEM_ROLES = {
+  SUPERADMIN: "superadmin",
+  INTERNAL_VIEWER: "internal_viewer",
+} as const;
+
+// LoginResponse property key constant
+export const LOGIN_RESPONSE_KEYS = {
+  SYSTEM_ROLE: "systemRole",
+} as const;

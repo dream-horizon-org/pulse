@@ -2,6 +2,8 @@ package org.dreamhorizon.pulseserver.service.tenant;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -94,6 +96,56 @@ class TenantServiceTest {
       assertThat(captor.getValue().getTenantId()).isEqualTo("tenant-1");
       assertThat(captor.getValue().getName()).isEqualTo("Test Org");
       assertThat(captor.getValue().getIsActive()).isTrue();
+
+      verify(openFgaService, never()).linkTenantToSystem(anyString());
+    }
+
+    @Test
+    void shouldLinkTenantToSystemWhenOpenFgaEnabled() {
+      CreateTenantRequest request = CreateTenantRequest.builder()
+          .tenantId("tenant-1")
+          .name("Test Org")
+          .description("A test organization")
+          .build();
+
+      Tenant expected = Tenant.builder()
+          .tenantId("tenant-1")
+          .name("Test Org")
+          .description("A test organization")
+          .isActive(true)
+          .build();
+
+      when(tenantDao.createTenant(any(Tenant.class))).thenReturn(Single.just(expected));
+      when(openFgaService.isEnabled()).thenReturn(true);
+      when(openFgaService.linkTenantToSystem("tenant-1")).thenReturn(Completable.complete());
+
+      tenantService.createTenant(request).blockingGet();
+
+      verify(openFgaService).linkTenantToSystem("tenant-1");
+    }
+
+    @Test
+    void shouldPropagateErrorWhenLinkTenantToSystemFails() {
+      CreateTenantRequest request = CreateTenantRequest.builder()
+          .tenantId("tenant-1")
+          .name("Test Org")
+          .build();
+
+      Tenant expected = Tenant.builder()
+          .tenantId("tenant-1")
+          .name("Test Org")
+          .isActive(true)
+          .build();
+
+      when(tenantDao.createTenant(any(Tenant.class))).thenReturn(Single.just(expected));
+      when(openFgaService.isEnabled()).thenReturn(true);
+      when(openFgaService.linkTenantToSystem("tenant-1"))
+          .thenReturn(Completable.error(new RuntimeException("OpenFGA write failed")));
+
+      tenantService.createTenant(request)
+          .test()
+          .assertError(RuntimeException.class)
+          .assertError(e -> e.getMessage().contains("OpenFGA write failed"));
     }
 
     @Test

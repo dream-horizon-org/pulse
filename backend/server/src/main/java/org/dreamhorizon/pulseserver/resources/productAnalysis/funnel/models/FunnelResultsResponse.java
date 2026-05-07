@@ -1,8 +1,10 @@
 package org.dreamhorizon.pulseserver.resources.productAnalysis.funnel.models;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
 
+import java.time.Instant;
 import java.util.List;
 
 import lombok.AllArgsConstructor;
@@ -33,4 +35,7 @@ public class FunnelResultsResponse {
    * Overall conversion from first to last step (%).
    */
   private double overallConversionRate;
+
+  @JsonIgnore
+  private Instant lastRunAt;
 }

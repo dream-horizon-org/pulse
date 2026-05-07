@@ -408,6 +408,7 @@ class AlertCronServiceTest {
       ApplicationConfig config = new ApplicationConfig(
           "dev",
           "http://cron.url",
+          "http://dashboard.url",
           "http://service.url",
           30,
           "google-client-id",
@@ -521,6 +522,7 @@ class AlertCronServiceTest {
       ApplicationConfig config = new ApplicationConfig(
           "dev",
           "http://cron.url",
+          "http://dashboard.url",
           "http://service.url",
           30,
           "google-client-id",
@@ -566,7 +568,7 @@ class AlertCronServiceTest {
     @Test
     void shouldHaveCorrectEqualsAndHashCodeForApplicationConfig() {
       ApplicationConfig config1 = new ApplicationConfig(
-          "dev", "http://cron.url", "http://service.url", 30, "client-id", true, "project-id", "secret",
+          "dev", "http://cron.url", "http://dashboard.url", "http://service.url", 30, "client-id", true, "project-id", "secret",
           "http://otel.url", "http://interaction.url", "http://logs.url", "http://metric.url",
           "http://span.url", "http://custom-event.url", "bucket", "path.json", "dist-id", "/path.json", "http://webhook.url",
           "interaction-path.json", "/interaction-path.json",
@@ -579,7 +581,7 @@ class AlertCronServiceTest {
               6379
       );
       ApplicationConfig config2 = new ApplicationConfig(
-          "dev", "http://cron.url", "http://service.url", 30, "client-id", true, "project-id", "secret",
+          "dev", "http://cron.url", "http://dashboard.url", "http://service.url", 30, "client-id", true, "project-id", "secret",
           "http://otel.url", "http://interaction.url", "http://logs.url", "http://metric.url",
           "http://span.url", "http://custom-event.url", "bucket", "path.json", "dist-id", "/path.json", "http://webhook.url",
           "interaction-path.json", "/interaction-path.json",
@@ -592,7 +594,7 @@ class AlertCronServiceTest {
               6379
       );
       ApplicationConfig config3 = new ApplicationConfig(
-          "dev", "http://different.url", "http://service.url", 30, "client-id", true, "project-id", "secret",
+          "dev", "http://different.url", "http://dashboard.url", "http://service.url", 30, "client-id", true, "project-id", "secret",
           "http://otel.url", "http://interaction.url", "http://logs.url", "http://metric.url",
           "http://span.url", "http://custom-event.url", "bucket", "path.json", "dist-id", "/path.json", "http://webhook.url",
           "interaction-path.json", "/interaction-path.json",
