@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">LotteryDemo</string>
+    <string name="title_activity_main">LotteryDemo</string>
+    <string name="package_name">com.dreamhorizon.lotterydemo</string>
+    <string name="custom_url_scheme">com.dreamhorizon.lotterydemo</string>
+</resources>

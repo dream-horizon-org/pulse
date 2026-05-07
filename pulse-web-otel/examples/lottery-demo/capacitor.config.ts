@@ -7,11 +7,8 @@ const config: CapacitorConfig = {
   // For dev: comment out webDir and use server.url instead.
   webDir: "out",
   server: {
-    // Dev mode: point at the running Next.js dev server on your local machine.
-    // Find your IP: ipconfig getifaddr en0 (Mac)
-    // Uncomment for native dev testing:
-    // url: "http://YOUR_IP:3001",
-    // cleartext: true,
+    url: "http://10.0.2.2:3006",
+    cleartext: true,
   },
 };
 

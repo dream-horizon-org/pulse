@@ -47,10 +47,11 @@ export const PULSE_PROD_ENDPOINT_URL =
 
 /**
  * Mirrors Android's PulseSDKInternal.isApiLocalDev().
- * Matches: default-project_* OR Test-*_*
+ * Matches: default-project* — covers default-project_devkey01 and
+ * project slugs like default-project-lottery-<id>_<secret>.
  */
 export function isLocalEnvironment(apiKey: string): boolean {
-  return /^default-project_.*|^Test-.*_.*/.test(apiKey);
+  return /^default-project.*_.*/.test(apiKey);
 }
 
 /**

@@ -7,6 +7,7 @@ import { CartProvider } from "./context/CartContext";
 import { NavBar } from "./components/NavBar";
 import { BottomNav } from "./components/BottomNav";
 import { PulseDebugPanel } from "./components/PulseDebugPanel";
+import { PulseHealthCheck } from "./components/PulseHealthCheck";
 
 export const metadata: Metadata = {
   title: "DreamLotto — Pulse Web SDK Demo",
@@ -26,6 +27,7 @@ export default function RootLayout({
           <UserProvider>
             <CartProvider>
               <PulseProvider>
+                <PulseHealthCheck />
                 <NavBar />
                 <main className="max-w-2xl mx-auto px-4 pb-32 pt-4 min-h-dvh">
                   {children}
