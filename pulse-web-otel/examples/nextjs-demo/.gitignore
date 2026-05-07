@@ -1,0 +1,4 @@
+.next/
+node_modules/
+# Override root .gitignore — lib/ here is TypeScript source, not Java build artifacts
+!lib/

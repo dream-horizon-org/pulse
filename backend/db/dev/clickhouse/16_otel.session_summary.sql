@@ -60,7 +60,6 @@ AS SELECT
             ProjectId,
             SessionId;
 
-
 CREATE MATERIALIZED VIEW IF NOT EXISTS otel.session_summary_mv TO otel.session_summary
 (
     `ProjectId` LowCardinality(String),

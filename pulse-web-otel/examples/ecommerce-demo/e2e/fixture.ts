@@ -41,6 +41,12 @@ export interface OtlpLogRecord {
   attributes: OtlpAttr[];
 }
 
+/** OTLP span status — {@code code} matches {@link SpanStatusCode} numeric values (ERROR = 2). */
+export interface OtlpSpanStatus {
+  code?: number;
+  message?: string;
+}
+
 export interface OtlpSpan {
   traceId?: string;
   spanId?: string;
@@ -49,6 +55,13 @@ export interface OtlpSpan {
   startTimeUnixNano?: string;
   endTimeUnixNano?: string;
   attributes: OtlpAttr[];
+  status?: OtlpSpanStatus;
+}
+
+/** Numeric OTLP status code, or undefined if missing / malformed. */
+export function getOtlpSpanStatusCode(span: OtlpSpan): number | undefined {
+  const c = span.status?.code;
+  return typeof c === "number" && Number.isFinite(c) ? c : undefined;
 }
 
 export interface OtlpDataPoint {
@@ -108,9 +121,9 @@ export function findAllLogs(
   const out: OtlpLogRecord[] = [];
   for (const c of captured) {
     if (c.type !== "logs") continue;
-    for (const rl of (c.body.resourceLogs ?? [])) {
-      for (const sl of (rl.scopeLogs ?? [])) {
-        for (const lr of (sl.logRecords ?? [])) {
+    for (const rl of c.body.resourceLogs ?? []) {
+      for (const sl of rl.scopeLogs ?? []) {
+        for (const lr of sl.logRecords ?? []) {
           if (getAttr(lr.attributes, "pulse.type") === pulseType) out.push(lr);
         }
       }
@@ -127,10 +140,33 @@ export function findAllSpans(
   const out: OtlpSpan[] = [];
   for (const c of captured) {
     if (c.type !== "traces") continue;
-    for (const rs of (c.body.resourceSpans ?? [])) {
-      for (const ss of (rs.scopeSpans ?? [])) {
-        for (const sp of (ss.spans ?? [])) {
+    for (const rs of c.body.resourceSpans ?? []) {
+      for (const ss of rs.scopeSpans ?? []) {
+        for (const sp of ss.spans ?? []) {
           if (getAttr(sp.attributes, "pulse.type") === pulseType) out.push(sp);
+        }
+      }
+    }
+  }
+  return out;
+}
+
+/**
+ * HTTP client spans: {@code pulse.type} is {@code network.<statusCode>} (Android parity).
+ * Prefix-matches {@code network.} but excludes {@code network.change}.
+ */
+export function findAllNetworkSpans(captured: CapturedRequest[]): OtlpSpan[] {
+  const out: OtlpSpan[] = [];
+  for (const c of captured) {
+    if (c.type !== "traces") continue;
+    for (const rs of c.body.resourceSpans ?? []) {
+      for (const ss of rs.scopeSpans ?? []) {
+        for (const sp of ss.spans ?? []) {
+          const pt = getAttr(sp.attributes, "pulse.type");
+          const s = typeof pt === "string" ? pt : "";
+          if (s.startsWith("network.") && s !== "network.change") {
+            out.push(sp);
+          }
         }
       }
     }
@@ -146,9 +182,9 @@ export function findAllSpansByName(
   const out: OtlpSpan[] = [];
   for (const c of captured) {
     if (c.type !== "traces") continue;
-    for (const rs of (c.body.resourceSpans ?? [])) {
-      for (const ss of (rs.scopeSpans ?? [])) {
-        for (const sp of (ss.spans ?? [])) {
+    for (const rs of c.body.resourceSpans ?? []) {
+      for (const ss of rs.scopeSpans ?? []) {
+        for (const sp of ss.spans ?? []) {
           if (sp.name === spanName) out.push(sp);
         }
       }
@@ -165,9 +201,9 @@ export function findAllLogsByBody(
   const out: OtlpLogRecord[] = [];
   for (const c of captured) {
     if (c.type !== "logs") continue;
-    for (const rl of (c.body.resourceLogs ?? [])) {
-      for (const sl of (rl.scopeLogs ?? [])) {
-        for (const lr of (sl.logRecords ?? [])) {
+    for (const rl of c.body.resourceLogs ?? []) {
+      for (const sl of rl.scopeLogs ?? []) {
+        for (const lr of sl.logRecords ?? []) {
           if (lr.body?.stringValue === body) out.push(lr);
         }
       }
@@ -184,7 +220,7 @@ export function findAllMetricPoints(
   const out: OtlpDataPoint[] = [];
   for (const c of captured) {
     if (c.type !== "metrics") continue;
-    for (const rm of (c.body.resourceMetrics ?? [])) {
+    for (const rm of c.body.resourceMetrics ?? []) {
       for (const sm of rm.scopeMetrics) {
         for (const m of sm.metrics) {
           if (m.name === metricName) {
@@ -340,6 +376,8 @@ export type OtlpFixture = {
   captured: CapturedRequest[];
   /** Wait until a log with the given pulse.type arrives. Throws on timeout. */
   waitForLog(pulseType: string, timeoutMs?: number): Promise<OtlpLogRecord>;
+  /** Wait until an `app.click` widget-click log arrives (`pulse.type` + body `app.widget.click`). */
+  waitForClickLog(timeoutMs?: number): Promise<OtlpLogRecord>;
   /** Wait until a span with the given pulse.type arrives (SDK signal types). Throws on timeout. */
   waitForSpan(pulseType: string, timeoutMs?: number): Promise<OtlpSpan>;
   /** Wait until a span with the given span.name arrives (SDK-internal spans only). Throws on timeout. */
@@ -367,6 +405,15 @@ export const test = base.extend<{ otlp: OtlpFixture }>({
           () => findAllLogs(captured, t)[0],
           ms,
           `log(pulse.type="${t}")`,
+        ),
+      waitForClickLog: (ms = 8_000) =>
+        pollUntil(
+          () =>
+            findAllLogs(captured, "app.click").find(
+              (lr) => lr.body?.stringValue === "app.widget.click",
+            ),
+          ms,
+          `log(app.click / app.widget.click)`,
         ),
       waitForSpan: (t, ms = 8_000) =>
         pollUntil(

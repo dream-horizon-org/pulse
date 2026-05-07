@@ -4,6 +4,22 @@
 // restart balance, SSR guard, post-shutdown no-op.
 
 // ─── OTel mocks ──────────────────────────────────────────────────────────────
+// Avoid shimmer unwrap stderr when tests stub `XMLHttpRequest` — lifecycle tests
+// do not assert network span patching.
+vi.mock("@opentelemetry/instrumentation-fetch", () => ({
+  FetchInstrumentation: class {
+    setTracerProvider(): void {}
+    enable(): void {}
+    disable(): void {}
+  },
+}));
+vi.mock("@opentelemetry/instrumentation-xml-http-request", () => ({
+  XMLHttpRequestInstrumentation: class {
+    setTracerProvider(): void {}
+    enable(): void {}
+    disable(): void {}
+  },
+}));
 
 vi.mock("@opentelemetry/api-logs", () => ({
   logs: {
@@ -99,7 +115,10 @@ beforeEach(() => {
     withCredentials: false,
     upload: { addEventListener: vi.fn() },
   };
-  vi.stubGlobal("XMLHttpRequest", vi.fn(() => mockXHR));
+  vi.stubGlobal(
+    "XMLHttpRequest",
+    vi.fn(() => mockXHR),
+  );
   window.localStorage.clear();
   window.sessionStorage.clear();
 });
@@ -118,11 +137,16 @@ describe("TC 8.1 — pagehide registered once on start()", () => {
     const origAdd = window.addEventListener.bind(window);
     const addSpy = vi
       .spyOn(window, "addEventListener")
-      .mockImplementation((ev: string, ...rest) => {
-        adds.push(ev);
-        // @ts-expect-error spread
-        origAdd(ev, ...rest);
-      });
+      .mockImplementation(
+        (
+          type: string,
+          listener: EventListenerOrEventListenerObject,
+          options?: boolean | AddEventListenerOptions,
+        ) => {
+          adds.push(type);
+          origAdd(type, listener, options);
+        },
+      );
 
     const { PulseWeb } = await import("../sdk");
     PulseWeb.start(makeConfig());
@@ -198,16 +222,28 @@ describe("TC 8.5 — restart cycle keeps add/remove balanced for pagehide", () =
 
     const addSpy = vi
       .spyOn(window, "addEventListener")
-      .mockImplementation((ev: string, fn: EventListenerOrEventListenerObject, opts?: boolean | AddEventListenerOptions) => {
-        if (ev === "pagehide") sdkAdds.pagehide++;
-        origAdd(ev, fn, opts as AddEventListenerOptions);
-      });
+      .mockImplementation(
+        (
+          ev: string,
+          fn: EventListenerOrEventListenerObject,
+          opts?: boolean | AddEventListenerOptions,
+        ) => {
+          if (ev === "pagehide") sdkAdds.pagehide++;
+          origAdd(ev, fn, opts as AddEventListenerOptions);
+        },
+      );
     const removeSpy = vi
       .spyOn(window, "removeEventListener")
-      .mockImplementation((ev: string, fn: EventListenerOrEventListenerObject, opts?: boolean | EventListenerOptions) => {
-        if (ev === "pagehide") sdkRemoves.pagehide++;
-        origRemove(ev, fn, opts as EventListenerOptions);
-      });
+      .mockImplementation(
+        (
+          ev: string,
+          fn: EventListenerOrEventListenerObject,
+          opts?: boolean | EventListenerOptions,
+        ) => {
+          if (ev === "pagehide") sdkRemoves.pagehide++;
+          origRemove(ev, fn, opts as EventListenerOptions);
+        },
+      );
 
     const { PulseWeb } = await import("../sdk");
     const config = makeConfig();
@@ -242,7 +278,6 @@ describe("TC 8.6 — SSR guard: no pagehide listener when window is undefined", 
       expect(() => PulseWeb.start(makeConfig())).not.toThrow();
       await Promise.resolve();
     } finally {
-      // @ts-expect-error restore
       globalThis.window = origWindow;
     }
   });

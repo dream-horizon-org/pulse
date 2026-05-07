@@ -2,6 +2,8 @@
 
 Prereqs: demo running (`yarn demo` from `pulse-web-otel`), consent allowed, `PulseWeb` on `window` (ecommerce-demo `_PulseWebExpose`).
 
+**Web Vitals (LCP, INP, CLS, optional FID/FCP):** use [MANUAL-WEB-VITALS-DEMO.md](./MANUAL-WEB-VITALS-DEMO.md) — dedicated mock JSON + `instrumentations.webVitals` env/query knobs (remote gate vs static SDK config).
+
 ---
 
 ## React wiring — how the demo initialises the SDK

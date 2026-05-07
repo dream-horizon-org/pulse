@@ -26,7 +26,9 @@ public enum Features {
   ios_lifecycle,
   android_activity,
   android_fragment,
-  android_slowrendering;
+  android_slowrendering,
+  /** Web Core Web Vitals (LCP, INP, CLS); {@code pulse_web_js} SDK. */
+  web_vitals;
 
   public static List<String> getFeatures() {
     return Arrays.stream(Features.values()).map(Enum::name).collect(Collectors.toList());

@@ -1098,6 +1098,7 @@ test.describe("@M1 window.id uniqueness", () => {
     page,
     otlp,
   }) => {
+    await blockActiveConfigFetch(page);
     // First load — capture window.id
     await page.goto("/");
     const log1 = await otlp.waitForLog("session.start");
@@ -1283,6 +1284,7 @@ test.describe("@M1 screen.name resolution", () => {
     otlp,
   }) => {
     await page.goto("/products");
+    await waitForPulseWebInitialized(page);
     await page.evaluate(
       () =>
         (window as unknown as Record<string, unknown>)["PulseWeb"] &&
@@ -1294,19 +1296,20 @@ test.describe("@M1 screen.name resolution", () => {
     expect(getAttr(log.attributes, "screen.name")).toBe("/products");
   });
 
-  // 2.3 — screen.name strips numeric IDs
-  test("screen.name strips numeric segment: /products/123 → '/products'", async ({
+  // 2.3 — dynamic path segments normalized to :id (route shape; see GlobalAttributesProcessor)
+  test("screen.name normalizes numeric segment: /products/123 → '/products/:id'", async ({
     page,
     otlp,
   }) => {
     await page.goto("/products/123");
+    await waitForPulseWebInitialized(page);
     await page.evaluate(() =>
       (
         window as unknown as { PulseWeb: { trackEvent: (n: string) => void } }
       ).PulseWeb.trackEvent("numeric_strip_check"),
     );
     const log = await otlp.waitForLogByBody("numeric_strip_check");
-    expect(getAttr(log.attributes, "screen.name")).toBe("/products");
+    expect(getAttr(log.attributes, "screen.name")).toBe("/products/:id");
   });
 
   // 2.16 — screen.name for root path /
@@ -1315,6 +1318,7 @@ test.describe("@M1 screen.name resolution", () => {
     otlp,
   }) => {
     await page.goto("/");
+    await waitForPulseWebInitialized(page);
     await page.evaluate(() =>
       (
         window as unknown as { PulseWeb: { trackEvent: (n: string) => void } }
@@ -1326,19 +1330,20 @@ test.describe("@M1 screen.name resolution", () => {
     expect(screenName).toBe("/");
   });
 
-  // 2.17 — screen.name strips UUIDs
-  test("screen.name strips UUID segment: /products/<uuid> → '/products'", async ({
+  // 2.17 — UUID path segments normalized to :id
+  test("screen.name normalizes UUID segment: /products/<uuid> → '/products/:id'", async ({
     page,
     otlp,
   }) => {
     await page.goto("/products/550e8400-e29b-41d4-a716-446655440000");
+    await waitForPulseWebInitialized(page);
     await page.evaluate(() =>
       (
         window as unknown as { PulseWeb: { trackEvent: (n: string) => void } }
       ).PulseWeb.trackEvent("uuid_strip_check"),
     );
     const log = await otlp.waitForLogByBody("uuid_strip_check");
-    expect(getAttr(log.attributes, "screen.name")).toBe("/products");
+    expect(getAttr(log.attributes, "screen.name")).toBe("/products/:id");
   });
 });
 
@@ -1400,6 +1405,7 @@ test.describe("@M1 screen.name manual override", () => {
     page,
     otlp,
   }) => {
+    await blockActiveConfigFetch(page);
     await page.goto("/products");
     await otlp.waitForLog("session.start");
     otlp.reset();
@@ -1458,6 +1464,7 @@ test.describe("@M1 url attributes", () => {
     page,
     otlp,
   }) => {
+    await blockActiveConfigFetch(page);
     await page.goto("/products");
     await otlp.waitForLog("session.start");
     otlp.reset();

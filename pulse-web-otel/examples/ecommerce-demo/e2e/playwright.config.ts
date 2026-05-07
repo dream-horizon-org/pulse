@@ -9,7 +9,7 @@ import { defineConfig, devices } from "@playwright/test";
  * The webServer starts Vite in --mode test which loads .env.test:
  *   - OTLP calls go to http://127.0.0.1:4318 (intercepted via page.route — no real collector needed)
  *   - Batch flush delay = 200ms (fast assertions instead of waiting 5s)
- *   - gzip disabled (plain JSON; fixture also handles gzip transparently)
+ *   - `.env.test` sets VITE_PULSE_FORMAT=json + VITE_PULSE_COMPRESSION=none — fixture decodes JSON only (not protobuf)
  *
  * Run all:           yarn e2e                       (from ecommerce-demo/)
  * Single milestone:  yarn e2e --grep "@M1"
@@ -17,6 +17,7 @@ import { defineConfig, devices } from "@playwright/test";
  * Headed (debug):    yarn e2e --headed
  *
  * From SDK root:     yarn workspace ecommerce-demo e2e
+ * Web SDK PR gate:   yarn workspace ecommerce-demo e2e:web-sdk-gates  (m1 + m2-interactions, Chromium)
  */
 export default defineConfig({
   testDir: ".", // specs live alongside this config file in e2e/

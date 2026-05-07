@@ -1,6 +1,22 @@
 // sdk-lifecycle.test.ts — Tests for SDK singleton lifecycle, shutdown guards,
 // restart cycles, and the race condition between shutdown() and finishStart().
 
+// Shimmer would log unwrap noise when real OTel XHR instr. tears down stubbed globals.
+vi.mock("@opentelemetry/instrumentation-fetch", () => ({
+  FetchInstrumentation: class {
+    setTracerProvider(): void {}
+    enable(): void {}
+    disable(): void {}
+  },
+}));
+vi.mock("@opentelemetry/instrumentation-xml-http-request", () => ({
+  XMLHttpRequestInstrumentation: class {
+    setTracerProvider(): void {}
+    enable(): void {}
+    disable(): void {}
+  },
+}));
+
 // Mock @opentelemetry/api-logs — same pattern as m1.test.ts
 vi.mock("@opentelemetry/api-logs", () => ({
   logs: {
@@ -121,6 +137,38 @@ describe("SDK lifecycle — shutdown() before start()", () => {
     // Should not throw and should return cleanly
     await expect(PulseWeb.shutdown()).resolves.toBeUndefined();
     expect(PulseWeb.isInitialized()).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// whenReady / start() promise — tracerProvider available after async finishStart
+// ---------------------------------------------------------------------------
+
+describe("SDK lifecycle — whenReady & tracerProvider", () => {
+  it("tracerProvider is undefined until whenReady after fire-and-forget start()", async () => {
+    const { PulseWeb } = await import("../sdk");
+    void PulseWeb.start(makeConfig());
+    expect(PulseWeb.tracerProvider).toBeUndefined();
+    await PulseWeb.whenReady();
+    expect(PulseWeb.isInitialized()).toBe(true);
+    expect(PulseWeb.tracerProvider).toBeDefined();
+  });
+
+  it("await start() defines tracerProvider in the same turn", async () => {
+    const { PulseWeb } = await import("../sdk");
+    await PulseWeb.start(makeConfig());
+    expect(PulseWeb.isInitialized()).toBe(true);
+    expect(PulseWeb.tracerProvider).toBeDefined();
+  });
+
+  it("whenReady resolves immediately when consent denied (no async pipeline)", async () => {
+    const { PulseWeb } = await import("../sdk");
+    await PulseWeb.start(
+      makeConfig({ dataCollectionState: PulseDataCollectionConsent.DENIED }),
+    );
+    await PulseWeb.whenReady();
+    expect(PulseWeb.isInitialized()).toBe(false);
+    expect(PulseWeb.tracerProvider).toBeUndefined();
   });
 });
 

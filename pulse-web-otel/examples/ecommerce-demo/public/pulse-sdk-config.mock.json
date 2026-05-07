@@ -1,6 +1,6 @@
 {
   "version": 100,
-  "description": "Manual filter/sampling mock. Session rules: platform 0 then device 1 (first match wins). Session mocks: session-app-version, session-fallback-default. critical-session-key; signal-normalization.json (lowercase scopes, metricsToAdd name→key, screen.* drop on sdk.init). BLACKLIST custom_event; whitelist/bad-regex; alwaysSend+device.crash. Toggle VITE_PULSE_MOCK_SDK_CONFIG=false for server config.",
+  "description": "Manual filter/sampling mock. Session rules: platform 0 then device 1 (first match wins). Session mocks: session-app-version, session-fallback-default. critical-session-key; signal-normalization.json (lowercase scopes, metricsToAdd name→key, screen.* drop on sdk.init). BLACKLIST custom_event; whitelist/bad-regex; alwaysSend+device.crash. Toggle VITE_PULSE_MOCK_SDK_CONFIG=false for server config. For Web Vitals manual QA without export filter surprises, use pulse-sdk-config.mock.web-vitals.json + MANUAL-WEB-VITALS-DEMO.md.",
   "sampling": {
     "default": { "sessionSampleRate": 1 },
     "rules": [
@@ -116,19 +116,7 @@
         }
       ]
     },
-    "metricsToAdd": [
-      {
-        "name": "mock_demo_custom_event_total",
-        "target": { "type": "name" },
-        "condition": {
-          "name": ".*",
-          "props": [{ "key": "pulse\\.type", "value": "^custom_event$" }],
-          "scopes": ["LOGS"],
-          "sdks": ["pulse_web_js"]
-        },
-        "type": { "type": "counter" }
-      }
-    ]
+    "metricsToAdd": []
   },
   "interaction": {
     "beforeInitQueueSize": 5000

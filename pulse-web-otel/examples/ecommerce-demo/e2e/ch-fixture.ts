@@ -116,12 +116,16 @@ export async function pollUntilCH<T>(
   throw new Error(`CH timeout (${timeoutMs}ms): no ${description} found`);
 }
 
-// ─── Base WHERE clause ────────────────────────────────────────────────────────
+// ─── Base WHERE helpers ───────────────────────────────────────────────────────
 
 export function baseWhere(extraSeconds = 120): string {
-  return `ServiceName = '${SERVICE_NAME}' AND Timestamp > now() - INTERVAL ${extraSeconds} SECOND`;
+  return `
+    ServiceName = '${SERVICE_NAME}'
+    AND Timestamp > now() - INTERVAL ${extraSeconds} SECOND
+  `;
 }
 
+/** For tables that use ResourceAttributes instead of a materialised ServiceName column. */
 export function baseWhereResourceAttr(extraSeconds = 120): string {
   return `ResourceAttributes['service.name'] = '${SERVICE_NAME}' AND Timestamp > now() - INTERVAL ${extraSeconds} SECOND`;
 }
@@ -137,18 +141,18 @@ export function waitForCHSpan(
     SELECT
       SpanName,
       ServiceName,
-      toString(Timestamp)                       AS span_ts,
-      toString(Duration)                        AS span_duration,
+      toString(Timestamp) AS span_ts,
+      toString(Duration)  AS span_duration,
       PulseType,
-      SpanAttributes['screen.name']             AS screen_name,
-      SpanAttributes['url.path']                AS url_path,
-      SpanAttributes['navigation.type']         AS navigation_type,
-      SpanAttributes['start.type']              AS start_type,
-      SpanAttributes['load.duration_ms']        AS load_duration_ms,
-      SpanAttributes['ttfb_ms']                 AS ttfb_ms,
-      SpanAttributes['tti']                     AS tti,
-      SpanAttributes['session.duration']        AS session_duration,
-      SpanAttributes['previous_screen.name']    AS previous_screen_name
+      SpanAttributes['screen.name']          AS screen_name,
+      SpanAttributes['url.path']             AS url_path,
+      SpanAttributes['navigation.type']      AS navigation_type,
+      SpanAttributes['start.type']           AS start_type,
+      SpanAttributes['load.duration_ms']     AS load_duration_ms,
+      SpanAttributes['ttfb_ms']              AS ttfb_ms,
+      SpanAttributes['tti']                  AS tti,
+      SpanAttributes['session.duration']     AS session_duration,
+      SpanAttributes['previous_screen.name'] AS previous_screen_name
     FROM ${CH_DB}.otel_traces
     WHERE ${baseWhere()}
       AND SpanName = '${spanName}'
@@ -168,7 +172,8 @@ export async function countCHSpans(
   const sql = `
     SELECT count() AS cnt
     FROM ${CH_DB}.otel_traces
-    WHERE ${baseWhere(windowSeconds)}
+    WHERE ServiceName = '${SERVICE_NAME}'
+      AND Timestamp > now() - INTERVAL ${windowSeconds} SECOND
       AND SpanName = '${spanName}'
       ${extraWhere ? `AND ${extraWhere}` : ""}
     FORMAT JSONEachRow
@@ -186,12 +191,12 @@ export function waitForCHLog(
 ): Promise<ChLogRow> {
   const sql = `
     SELECT
-      toString(Timestamp)                   AS log_ts,
+      toString(Timestamp)               AS log_ts,
       PulseType,
       Body,
-      LogAttributes['screen.name']          AS screen_name,
-      LogAttributes['session.id']           AS session_id,
-      LogAttributes['installation.id']      AS installation_id
+      LogAttributes['screen.name']      AS screen_name,
+      LogAttributes['session.id']       AS session_id,
+      LogAttributes['installation.id']  AS installation_id
     FROM ${CH_DB}.otel_logs
     WHERE ${baseWhere()}
       AND PulseType = '${pulseType}'
@@ -211,7 +216,8 @@ export async function countCHLogs(
   const sql = `
     SELECT count() AS cnt
     FROM ${CH_DB}.otel_logs
-    WHERE ${baseWhere(windowSeconds)}
+    WHERE ServiceName = '${SERVICE_NAME}'
+      AND Timestamp > now() - INTERVAL ${windowSeconds} SECOND
       AND PulseType = '${pulseType}'
       ${extraWhere ? `AND ${extraWhere}` : ""}
     FORMAT JSONEachRow

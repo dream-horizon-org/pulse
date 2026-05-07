@@ -42,18 +42,64 @@ export const PulseWebSemconv = {
     NETWORK_EFFECTIVE_TYPE: "network.effective_type",
     NETWORK_RTT: "network.rtt",
     NETWORK_DOWNLINK: "network.downlink",
+    USER_ID: "user.id",
+    PULSE_USER_PREVIOUS_ID: "pulse.user.previous_id",
     EVENT_NAME: "event.name",
     EXCEPTION_TYPE: "exception.type",
     EXCEPTION_MESSAGE: "exception.message",
     EXCEPTION_STACKTRACE: "exception.stacktrace",
     ERROR_FILENAME: "error.filename",
+    ERROR_LINENO: "error.lineno",
+    ERROR_COLNO: "error.colno",
+    BATTERY_PERCENT: "battery.percent",
+    STORAGE_FREE: "storage.free",
     NON_FATAL_TYPE: "non_fatal.type",
     NON_FATAL_IS_MANUAL: "non_fatal.is_manual",
+    /** Init log (`otel.initialization.events`) — exporter wiring hint (Android parity). */
+    SPAN_EXPORTER: "span.exporter",
+    CLICK_TYPE: "click.type",
+    CLICK_IS_RAGE: "click.is_rage",
+    CLICK_RAGE_COUNT: "click.rage_count",
+    APP_SCREEN_COORDINATE_X: "app.screen.coordinate.x",
+    APP_SCREEN_COORDINATE_Y: "app.screen.coordinate.y",
+    APP_SCREEN_COORDINATE_NX: "app.screen.coordinate.nx",
+    APP_SCREEN_COORDINATE_NY: "app.screen.coordinate.ny",
+    APP_WIDGET_NAME: "app.widget.name",
+    APP_WIDGET_ID: "app.widget.id",
+    APP_CLICK_CONTEXT: "app.click.context",
+    /** Logical viewport (`window.innerWidth` / `innerHeight`), Android `device.screen.*` parity. */
+    DEVICE_SCREEN_WIDTH: "device.screen.width",
+    DEVICE_SCREEN_HEIGHT: "device.screen.height",
+    /** Web vital metric name: LCP, INP, CLS, FCP, FID, TTFB. */
+    WEB_VITAL_NAME: "web_vital.name",
+    WEB_VITAL_VALUE: "web_vital.value",
+    WEB_VITAL_RATING: "web_vital.rating",
+    WEB_VITAL_NAVIGATION_TYPE: "web_vital.navigation_type",
+    /** Stable OTel HTTP semconv keys for CLIENT spans; {@code pulse.type} values are {@code network.<statusCode>} (Android parity). */
+    HTTP_REQUEST_METHOD: "http.request.method",
+    URL_FULL: "url.full",
+    HTTP_RESPONSE_STATUS_CODE: "http.response.status_code",
+    HTTP_REQUEST_BODY_SIZE: "http.request.body.size",
+    HTTP_RESPONSE_BODY_SIZE: "http.response.body.size",
+    SERVER_ADDRESS: "server.address",
+    SERVER_PORT: "server.port",
+    /** OTel Recommended — populated from Resource Timing `nextHopProtocol` when available. */
+    NETWORK_PROTOCOL_VERSION: "network.protocol.version",
+    PEER_SERVICE: "peer.service",
+    /** Pulse convenience duplicate of span duration (integer ms). */
+    HTTP_DURATION_MS: "http.duration",
+    GRAPHQL_OPERATION_NAME: "graphql.operation.name",
+    GRAPHQL_OPERATION_TYPE: "graphql.operation.type",
+    ERROR_TYPE: "error.type",
   },
   FixedValue: {
     PLATFORM_WEB: "web",
     RUM_SDK_NAME: "pulse_web_js",
     EVENT_NAME_CUSTOM_EVENT: "pulse.custom_event",
+  },
+  ClickTypeValue: {
+    GOOD: "good",
+    DEAD: "dead",
   },
   PulseType: {
     INSTALLATION_START: "pulse.app.installation.start",
@@ -62,11 +108,22 @@ export const PulseWebSemconv = {
     DEVICE_CRASH: "device.crash",
     SESSION_START: "session.start",
     SESSION_END: "session.end",
+    USER_SESSION_START: "pulse.user.session.start",
+    USER_SESSION_END: "pulse.user.session.end",
+    INTERACTION: "interaction",
+    /** Same value as Android `PulseAttributes.PulseTypeValues.TOUCH` (`app.click`). */
+    APP_CLICK: "app.click",
+    WEB_VITAL: "web_vital",
   },
   LogBody: {
     SESSION_START: "session.start",
     SESSION_END: "session.end",
     APP_INSTALLATION_START: "pulse.app.installation.start",
+    USER_SESSION_START: "pulse.user.session.start",
+    USER_SESSION_END: "pulse.user.session.end",
+    /** OTLP log body; matches Android log event name `app.widget.click`. */
+    APP_WIDGET_CLICK: "app.widget.click",
+    WEB_VITAL: "web_vital",
   },
   /**
    * Init milestones as OTLP **logs** (Android `SdkInitializationEvents` / `RumConstants.Events`).
@@ -75,5 +132,54 @@ export const PulseWebSemconv = {
   RumSdkInit: {
     STARTED: "rum.sdk.init.started",
     SPAN_EXPORTER: "rum.sdk.init.span.exporter",
+  },
+  InteractionAttributeKey: {
+    ID: "pulse.interaction.id",
+    NAME: "pulse.interaction.name",
+    CONFIG_ID: "pulse.interaction.config.id",
+    CONFIG_NAME: "pulse.interaction.config.name",
+    COMPLETE_TIME: "pulse.interaction.complete_time",
+    APDEX_SCORE: "pulse.interaction.apdex_score",
+    USER_CATEGORY: "pulse.interaction.user_category",
+    IS_ERROR: "pulse.interaction.is_error",
+    ERROR_TYPE: "pulse.interaction.error.type",
+    ERROR_MESSAGE: "pulse.interaction.error.message",
+  },
+  InteractionUserCategory: {
+    EXCELLENT: "Excellent",
+    GOOD: "Good",
+    AVERAGE: "Average",
+    POOR: "Poor",
+  },
+  /**
+   * Canonical lowercase HTTP header names — never copy values onto spans from optional capture config.
+   * Used by {@code isSensitiveCapturedHeaderName} in {@code utils/network-http.ts}.
+   */
+  SensitiveCapturedHeaderName: {
+    AUTHORIZATION: "authorization",
+    COOKIE: "cookie",
+    SET_COOKIE: "set-cookie",
+    PROXY_AUTHORIZATION: "proxy-authorization",
+    X_API_KEY: "x-api-key",
+    X_AUTH_TOKEN: "x-auth-token",
+  },
+  /**
+   * Lowercase query param names — when {@code captureQueryParams} is true, values are replaced
+   * with {@code ***} (keys kept). See {@code isSensitiveQueryParamName} in {@code utils/network-http.ts}.
+   */
+  SensitiveQueryParamName: {
+    TOKEN: "token",
+    ACCESS_TOKEN: "access_token",
+    REFRESH_TOKEN: "refresh_token",
+    ID_TOKEN: "id_token",
+    BEARER: "bearer",
+    API_KEY: "api_key",
+    APIKEY: "apikey",
+    PASSWORD: "password",
+    SECRET: "secret",
+    CLIENT_SECRET: "client_secret",
+    SIGNATURE: "signature",
+    SIG: "sig",
+    AUTH: "auth",
   },
 } as const;

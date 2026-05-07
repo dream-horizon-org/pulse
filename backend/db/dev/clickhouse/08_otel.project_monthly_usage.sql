@@ -32,7 +32,6 @@ AS SELECT
     month,
     source;
 
-
 CREATE MATERIALIZED VIEW IF NOT EXISTS otel.project_monthly_traces_mv TO otel.project_monthly_usage
 (
     `project_id` LowCardinality(String),
@@ -52,7 +51,6 @@ AS SELECT
               project_id,
               month,
               source;
-
 
 CREATE MATERIALIZED VIEW IF NOT EXISTS otel.project_monthly_stack_traces_events_mv TO otel.project_monthly_usage
 (

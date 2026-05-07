@@ -39,7 +39,7 @@ export type { PulseBrowserExporterOptions } from "../types/browser-exporter";
 abstract class PulseBrowserOtelExporter<
   ExportItem,
   ServiceResponse,
-> extends OTLPExporterBase<OTLPExporterConfigBase, ExportItem> {
+> extends OTLPExporterBase<OTLPExporterConfigBase, ExportItem> { 
   private _serializer!: ISerializer<ExportItem[], ServiceResponse>;
   private _transport?: BrowserExportTransport;
   /** Set in onInit (runs during super()) before subclass ctor assigns _pulse. */
@@ -69,6 +69,14 @@ abstract class PulseBrowserOtelExporter<
 
   switchToKeepalive(): void {
     this._transport?.switchToKeepalive();
+  }
+
+  switchToBeacon(apiKey?: string, beaconRelayUrl?: string): void {
+    this._transport?.switchToBeacon({
+      apiKey,
+      beaconRelayUrl,
+      contentType: this._pulse.contentType,
+    });
   }
 
   private ensureTransport(): void {
