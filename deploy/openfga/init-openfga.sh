@@ -24,9 +24,9 @@ echo "Store Name:  $STORE_NAME"
 echo "Idempotent:  Yes (safe to run multiple times)"
 echo ""
 
-# Install required tools (curl for API calls)
+# Install required tools (curl + jq: OpenFGA JSON is spaced; grep patterns miss matches)
 echo "Installing required tools..."
-apk add --no-cache curl > /dev/null 2>&1 || true
+apk add --no-cache curl jq > /dev/null 2>&1 || true
 echo "  ✓ Tools installed"
 echo ""
 
@@ -55,12 +55,21 @@ echo ""
 # ═══════════════════════════════════════════════════════════════════════════════
 echo "Step 1: Checking for existing store '$STORE_NAME'..."
 
-# List existing stores and find one matching our name
+# List existing stores and find one matching our name (JSON field order/spacing varies)
 STORES_RESPONSE=$(curl -s "$OPENFGA_URL/stores")
-EXISTING_STORE_ID=$(echo "$STORES_RESPONSE" | grep -o '"id":"[^"]*","name":"'"$STORE_NAME"'"' | head -1 | grep -o '"id":"[^"]*"' | cut -d'"' -f4 || true)
+EXISTING_STORE_ID=$(echo "$STORES_RESPONSE" | jq -r --arg STORE_NAME "$STORE_NAME" '
+  (.stores // [])
+  | map(select(.name == $STORE_NAME))
+  | sort_by(.created_at // "")
+  | .[0].id // empty
+' 2>/dev/null || true)
 
 if [ -n "$EXISTING_STORE_ID" ]; then
     STORE_ID="$EXISTING_STORE_ID"
+    DUP_COUNT=$(echo "$STORES_RESPONSE" | jq --arg STORE_NAME "$STORE_NAME" '[.stores[]? | select(.name == $STORE_NAME)] | length' 2>/dev/null || echo "0")
+    if [ "$DUP_COUNT" -gt 1 ] 2>/dev/null; then
+        echo "  ⚠ Warning: $DUP_COUNT stores named '$STORE_NAME' exist; using oldest by created_at: $STORE_ID"
+    fi
     echo "  ✓ Found existing store: $STORE_ID"
 else
     echo "  Creating new store..."
@@ -68,7 +77,7 @@ else
         -H "Content-Type: application/json" \
         -d '{"name": "'"$STORE_NAME"'"}')
     
-    STORE_ID=$(echo "$STORE_RESPONSE" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+    STORE_ID=$(echo "$STORE_RESPONSE" | jq -r '.id // empty' 2>/dev/null || true)
     
     if [ -z "$STORE_ID" ]; then
         echo "  ✗ ERROR: Failed to create store"
@@ -85,9 +94,9 @@ echo ""
 # ═══════════════════════════════════════════════════════════════════════════════
 echo "Step 2: Writing authorization model..."
 
-# Get latest model to check if we need to write
+# List models (for logging); API returns JSON with spaces — use jq
 MODELS_RESPONSE=$(curl -s "$OPENFGA_URL/stores/$STORE_ID/authorization-models")
-EXISTING_MODEL_ID=$(echo "$MODELS_RESPONSE" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4 || true)
+EXISTING_MODEL_ID=$(echo "$MODELS_RESPONSE" | jq -r '(.authorization_models // [])[0].id // empty' 2>/dev/null || true)
 
 if [ -n "$EXISTING_MODEL_ID" ]; then
     echo "  Found existing model: $EXISTING_MODEL_ID"
@@ -98,7 +107,7 @@ MODEL_RESPONSE=$(curl -s -X POST "$OPENFGA_URL/stores/$STORE_ID/authorization-mo
     -H "Content-Type: application/json" \
     -d @"$SCRIPT_DIR/pulse-authz-model.json")
 
-MODEL_ID=$(echo "$MODEL_RESPONSE" | grep -o '"authorization_model_id":"[^"]*"' | cut -d'"' -f4)
+MODEL_ID=$(echo "$MODEL_RESPONSE" | jq -r '.authorization_model_id // empty' 2>/dev/null || true)
 
 if [ -z "$MODEL_ID" ]; then
     echo "  ✗ ERROR: Failed to write authorization model"
@@ -153,6 +162,16 @@ echo "  ✓ Project parent relationships written (or already exist)"
 echo ""
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# Step 3b: Link tenants to system (superadmin bridge via system_parent)
+# ═══════════════════════════════════════════════════════════════════════════════
+echo "Step 3b: Linking seed tenants to system (superadmin bridge)..."
+write_tuple "system:pulse" "system_parent" "tenant:default"
+write_tuple "system:pulse" "system_parent" "tenant:fancode"
+write_tuple "system:pulse" "system_parent" "tenant:dream11"
+echo "  ✓ system_parent tuples written (or already exist)"
+echo ""
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # Step 4: Write Sample User Roles (IDEMPOTENT)
 # ═══════════════════════════════════════════════════════════════════════════════
 echo "Step 4: Writing sample user roles..."
@@ -184,6 +203,10 @@ write_tuple "user:mock-user-2" "member" "tenant:default"
 # Mock users have access to default-project
 write_tuple "user:mock-user-1" "admin" "project:default-project"
 write_tuple "user:mock-user-2" "viewer" "project:default-project"
+
+# Seed a dev internal_viewer for local testing (cross-tenant read-only)
+write_tuple "user:dev-viewer@dreamhorizon.org" "internal_viewer" "system:pulse"
+echo "  ✓ Dev internal_viewer seeded (or already exists)"
 
 echo "  ✓ Mock user roles written (or already exist)"
 echo ""

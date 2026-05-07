@@ -15,11 +15,19 @@ import {
   ProjectContextType,
   StoredProjectData,
 } from "./ProjectContext.interface";
-import { API_BASE_URL, API_ROUTES } from "../constants";
+import { API_BASE_URL, API_ROUTES, COOKIES_KEY } from "../constants";
+import { getCookies } from "../helpers/cookies";
 import { makeRequest } from "../helpers/makeRequest";
 import { ProjectDetailsResponse } from "../hooks/useGetProject";
+import { SYSTEM_ROLES } from "../constants";
 
 const ProjectContext = createContext<ProjectContextType | undefined>(undefined);
+
+/** Superadmin / internal_viewer: enter workspace directly; skip SDK customer onboarding. */
+function isInternalSystemRoleSession(): boolean {
+  const role = getCookies(COOKIES_KEY.SYSTEM_ROLE);
+  return role === SYSTEM_ROLES.SUPERADMIN || role === SYSTEM_ROLES.INTERNAL_VIEWER;
+}
 
 const STORAGE_KEY = "pulse_project_context";
 
@@ -167,17 +175,20 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
         const isOnProjectSubRoute = currentPath.startsWith(
           `/projects/${targetProjectId}/`,
         );
+        const needsCustomerOnboarding =
+          !projectData.isEventFlowStarted && !isInternalSystemRoleSession();
+
         if (isOnExactDashboard) {
-          // CASE 1: On exact dashboard route - redirect to onboarding if needed
-          if (!projectData.isEventFlowStarted) {            navigate(`/projects/${targetProjectId}/onboarding`);
-          } else {          }
+          if (needsCustomerOnboarding) {
+            navigate(`/projects/${targetProjectId}/onboarding`);
+          }
         } else if (isOnProjectSubRoute) {
-          // CASE 2: On a sub-route (deep link) - preserve it          // Don't navigate - just set context and stay on current route
+          // Deep link under this project — keep current path; context updated above
         } else {
-          // CASE 3: NOT on a project route at all (e.g., projects listing page, other pages)
-          // Navigate to appropriate destination
-          if (!projectData.isEventFlowStarted) {            navigate(`/projects/${targetProjectId}/onboarding`);
-          } else {            navigate(`/projects/${targetProjectId}`);
+          if (needsCustomerOnboarding) {
+            navigate(`/projects/${targetProjectId}/onboarding`);
+          } else {
+            navigate(`/projects/${targetProjectId}`);
           }
         }
       } catch (err) {
@@ -185,7 +196,8 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
         // because a newer request for the same data is made (e.g., from duplicate useEffect calls)
         const isCancelled =
           err instanceof Error && err.message === "CancelledError";
-        if (isCancelled) {          return;
+        if (isCancelled) {
+          return;
         }
 
         if (tenantId) {

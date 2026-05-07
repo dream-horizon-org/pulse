@@ -54,20 +54,6 @@ public class InteractionConfigRestFetcher: InteractionConfigFetcher {
             return nil
         }
 
-        if let contentType = httpResponse.value(forHTTPHeaderField: "Content-Type"),
-           !contentType.contains("application/json") && !contentType.contains("text/json") {
-            let ms = Int(Date().timeIntervalSince(t0) * 1000)
-            PulseLogger.warn(
-                "sdk.interaction.parse_failure duration_ms=\(ms) error_class=non_json_content_type content_type=\(contentType)"
-            )
-            throw DecodingError.dataCorrupted(
-                DecodingError.Context(
-                    codingPath: [],
-                    debugDescription: "Expected JSON response but got Content-Type: \(contentType). URL might be incorrect or server returned error page."
-                )
-            )
-        }
-
         do {
             let configs = try JSONDecoder().decode([InteractionConfig].self, from: data)
             let ms = Int(Date().timeIntervalSince(t0) * 1000)

@@ -783,7 +783,7 @@ CREATE TABLE IF NOT EXISTS user_api_keys (
     UNIQUE KEY uk_user_api_key_hash (api_key_hash),
     KEY idx_user_api_key_user (user_id),
     KEY idx_user_api_key_active (user_id, is_active)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================================================
 -- CLICKHOUSE PROJECT CREDENTIALS TABLE

@@ -261,7 +261,7 @@ public struct PulseAttributeValue: Codable, Equatable {
 // MARK: - Interaction
 
 public struct PulseInteractionConfig: Codable, Equatable {
-    public let collectorUrl: String
+    public let collectorUrl: String?
     public let configUrl: String
     public let beforeInitQueueSize: Int
 }
@@ -320,7 +320,7 @@ public enum PulseSignalScope: String, Codable, CaseIterable {
     case unknown
 }
 
-public enum PulseSdkName: String, Codable, CaseIterable {
+public enum PulseSdkName: String, CaseIterable {
     case pulse_android_java
     case pulse_android_rn
     case pulse_ios_swift
@@ -335,6 +335,28 @@ public enum PulseSdkName: String, Codable, CaseIterable {
         case PulseSdkName.pulse_ios_rn.rawValue: return .pulse_ios_rn
         default: return .unknown
         }
+    }
+}
+
+extension PulseSdkName: Codable {
+    /// Unknown or future server values decode to `.unknown` (parity with Android `PulseFallbackToUnknownEnumSerializer`).
+    public init(from decoder: Decoder) throws {
+        do {
+            let container = try decoder.singleValueContainer()
+            if try container.decodeNil() {
+                self = .unknown
+                return
+            }
+            let raw = try container.decode(String.self)
+            self = Self(rawValue: raw) ?? .unknown
+        } catch {
+            self = .unknown
+        }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
     }
 }
 

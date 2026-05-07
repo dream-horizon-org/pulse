@@ -12,6 +12,7 @@ import lombok.NoArgsConstructor;
 public class TenantRestResponse {
   private String tenantId;
   private String name;
+  private String tenantRole;
   private String description;
   private Boolean isActive;
   private String createdAt;

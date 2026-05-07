@@ -108,6 +108,16 @@ public final class Constants {
    */
   public static final long AI_UPSTREAM_TIMEOUT_MS = 120_000L;
 
+  /** OpenFGA object id for the Pulse system resource (tuples use type:id form). */
+  public static final String OPENFGA_OBJECT_SYSTEM_PULSE =
+      RESOURCE_TYPE_SYSTEM + ":" + RESOURCE_SYSTEM_PULSE;
+
+  public static final String RELATION_SUPERADMIN = "superadmin";
+  public static final String RELATION_INTERNAL_VIEWER = "internal_viewer";
+  public static final String RELATION_SYSTEM_PARENT = "system_parent";
+  public static final String RELATION_BELONGS_TO = "belongs_to";
+  public static final String OBJECT_TYPE_TENANT = "tenant";
+
   /**
    * {@link io.vertx.rxjava3.ext.web.client.WebClient} stored in {@link
    * org.dreamhorizon.pulseserver.vertx.SharedDataUtils} and bound in Guice with {@link

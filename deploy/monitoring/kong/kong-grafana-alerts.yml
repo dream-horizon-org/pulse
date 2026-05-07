@@ -1,0 +1,312 @@
+# ============================================================================
+# Kong API Gateway — Prometheus Alert Rules
+# Target: pulse-kong EC2 instances, ap-south-1, port 8001
+#
+# Groups
+#   kong.availability  — scrape health, datastore
+#   kong.connections   — nginx connection & timer pressure   [metrics present]
+#   kong.memory        — shared dict, worker Lua VM          [metrics present]
+#   kong.traffic       — nginx-level request drop            [metrics present]
+#   kong.plugin        — http errors & latency               [NEEDS Kong Prometheus plugin on services]
+# ============================================================================
+
+groups:
+
+  # ── 1. Availability ─────────────────────────────────────────────────────────
+  - name: kong.availability
+    interval: 30s
+    rules:
+
+      - alert: KongInstanceDown
+        # Prometheus cannot scrape the instance at all
+        expr: up{job="pulse-kong"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "Kong instance {{ $labels.instance }} is unreachable"
+          description: >
+            Prometheus cannot scrape {{ $labels.instance }} (job=pulse-kong).
+            Instance may be down or port 8001 is blocked by the security group.
+            Check EC2 health and SG rules for ap-south-1.
+          runbook_url: "https://wiki.internal/runbooks/kong-instance-down"
+
+      - alert: KongDatastoreUnreachable
+        # kong_datastore_reachable is always emitted — safe anchor metric
+        expr: min by (instance) (kong_datastore_reachable{job="pulse-kong"}) == 0
+        for: 1m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "Kong datastore unreachable on {{ $labels.instance }}"
+          description: >
+            kong_datastore_reachable == 0 on {{ $labels.instance }}.
+            Kong cannot reach its backing datastore (Postgres/Cassandra).
+            Route/plugin config updates are stale until this is resolved.
+          runbook_url: "https://wiki.internal/runbooks/kong-datastore"
+
+  # ── 2. Nginx Connections & Timers ───────────────────────────────────────────
+  - name: kong.connections
+    interval: 30s
+    rules:
+
+      - alert: KongNginxActiveConnectionsHigh
+        expr: |
+          sum by (instance) (
+            kong_nginx_connections_total{job="pulse-kong", subsystem="http", state="active"}
+          ) > 800
+        for: 5m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "Kong active connections > 800 on {{ $labels.instance }}"
+          description: >
+            Active nginx connections on {{ $labels.instance }} are {{ $value }}.
+            Threshold: 800. May indicate slow upstreams holding connections open
+            or insufficient worker processes.
+          runbook_url: "https://wiki.internal/runbooks/kong-connections"
+
+      - alert: KongNginxWaitingConnectionsHigh
+        expr: |
+          sum by (instance) (
+            kong_nginx_connections_total{job="pulse-kong", subsystem="http", state="waiting"}
+          ) > 200
+        for: 5m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "Kong keep-alive waiting connections > 200 on {{ $labels.instance }}"
+          description: >
+            {{ $value }} keep-alive connections waiting on {{ $labels.instance }}.
+            Threshold: 200. A persistent high waiting count can exhaust the
+            worker connection pool under burst traffic.
+          runbook_url: "https://wiki.internal/runbooks/kong-connections"
+
+      - alert: KongNginxTimersPendingHigh
+        expr: |
+          kong_nginx_timers{job="pulse-kong", state="pending"} > 100
+        for: 3m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "Kong nginx pending timers > 100"
+          description: >
+            {{ $value }} pending nginx timers on {{ $labels.instance }}.
+            Threshold: 100. Excessive pending timers indicate a plugin is
+            creating timers faster than they are consumed (possible memory/CPU leak).
+          runbook_url: "https://wiki.internal/runbooks/kong-timers"
+
+      - alert: KongNginxTimersPendingCritical
+        expr: |
+          kong_nginx_timers{job="pulse-kong", state="pending"} > 500
+        for: 2m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "Kong nginx pending timers critically high ({{ $value }}) on {{ $labels.instance }}"
+          description: >
+            {{ $value }} pending nginx timers — critically high. This will cause
+            Kong to become unresponsive. Immediate restart may be required.
+          runbook_url: "https://wiki.internal/runbooks/kong-timers"
+
+  # ── 3. Memory ────────────────────────────────────────────────────────────────
+  - name: kong.memory
+    interval: 60s
+    rules:
+
+      - alert: KongLuaSharedDictHighUsage
+        expr: |
+          (
+            kong_memory_lua_shared_dict_bytes{job="pulse-kong", kong_subsystem="http"}
+            /
+            kong_memory_lua_shared_dict_total_bytes{job="pulse-kong", kong_subsystem="http"}
+          ) > 0.85
+        for: 5m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "Kong shared dict '{{ $labels.shared_dict }}' > 85% on {{ $labels.instance }}"
+          description: >
+            Lua shared dict {{ $labels.shared_dict }} on {{ $labels.instance }}
+            is {{ $value | humanizePercentage }} full. Risk of OOM evictions
+            affecting rate-limiting counters and DB cache.
+          runbook_url: "https://wiki.internal/runbooks/kong-memory"
+
+      - alert: KongPulseCreditsDictHighUsage
+        # pulse_credits is business-critical — tighter threshold
+        expr: |
+          (
+            kong_memory_lua_shared_dict_bytes{job="pulse-kong", shared_dict="pulse_credits", kong_subsystem="http"}
+            /
+            kong_memory_lua_shared_dict_total_bytes{job="pulse-kong", shared_dict="pulse_credits", kong_subsystem="http"}
+          ) > 0.80
+        for: 5m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "Kong pulse_credits dict > 80% on {{ $labels.instance }}"
+          description: >
+            pulse_credits shared dict is {{ $value | humanizePercentage }} full
+            on {{ $labels.instance }}. Capacity: 5 MB. Hitting the ceiling
+            will cause credit-based rate limiting to fail open or drop requests.
+          runbook_url: "https://wiki.internal/runbooks/kong-pulse-credits"
+
+      - alert: KongPulseMetadataDictHighUsage
+        expr: |
+          (
+            kong_memory_lua_shared_dict_bytes{job="pulse-kong", shared_dict="pulse_metadata", kong_subsystem="http"}
+            /
+            kong_memory_lua_shared_dict_total_bytes{job="pulse-kong", shared_dict="pulse_metadata", kong_subsystem="http"}
+          ) > 0.80
+        for: 5m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "Kong pulse_metadata dict > 80% on {{ $labels.instance }}"
+          description: >
+            pulse_metadata shared dict is {{ $value | humanizePercentage }} full
+            on {{ $labels.instance }}. Capacity: 10 MB.
+          runbook_url: "https://wiki.internal/runbooks/kong-memory"
+
+      - alert: KongDBCacheDictHighUsage
+        expr: |
+          (
+            kong_memory_lua_shared_dict_bytes{job="pulse-kong", shared_dict=~"kong_core_db_cache|kong_db_cache", kong_subsystem="http"}
+            /
+            kong_memory_lua_shared_dict_total_bytes{job="pulse-kong", shared_dict=~"kong_core_db_cache|kong_db_cache", kong_subsystem="http"}
+          ) > 0.90
+        for: 5m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "Kong DB cache dict '{{ $labels.shared_dict }}' > 90% on {{ $labels.instance }}"
+          description: >
+            {{ $labels.shared_dict }} is {{ $value | humanizePercentage }} full
+            on {{ $labels.instance }}. Capacity: 128 MB each. Cache evictions
+            will increase datastore query load.
+          runbook_url: "https://wiki.internal/runbooks/kong-memory"
+
+      - alert: KongWorkerLuaVMHighMemory
+        expr: |
+          kong_memory_workers_lua_vms_bytes{job="pulse-kong", kong_subsystem="http"} > 150000000
+        for: 5m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "Kong worker pid={{ $labels.pid }} Lua VM > 150 MB on {{ $labels.instance }}"
+          description: >
+            Worker pid={{ $labels.pid }} is using {{ $value | humanize }}B of
+            Lua VM memory on {{ $labels.instance }}. Threshold: 150 MB.
+            Possible memory leak in a custom plugin.
+          runbook_url: "https://wiki.internal/runbooks/kong-worker-memory"
+
+      - alert: KongWorkerLuaVMCriticalMemory
+        expr: |
+          kong_memory_workers_lua_vms_bytes{job="pulse-kong", kong_subsystem="http"} > 250000000
+        for: 3m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "Kong worker pid={{ $labels.pid }} Lua VM critically high ({{ $value | humanize }}B)"
+          description: >
+            Worker pid={{ $labels.pid }} on {{ $labels.instance }} is consuming
+            {{ $value | humanize }}B. Threshold: 250 MB. OOM kill risk.
+            Consider restarting Kong to reclaim memory.
+          runbook_url: "https://wiki.internal/runbooks/kong-worker-memory"
+
+  # ── 4. Traffic (nginx-level — always available) ──────────────────────────────
+  - name: kong.traffic
+    interval: 30s
+    rules:
+
+      - alert: KongNginxRequestRateDrop
+        # Uses kong_nginx_requests_total (TYPE gauge, cumulative — use increase())
+        # Fires if request volume drops >70% vs 30 min ago and baseline > 0
+        expr: |
+          (
+            increase(kong_nginx_requests_total{job="pulse-kong", subsystem="http"}[5m])
+            /
+            increase(kong_nginx_requests_total{job="pulse-kong", subsystem="http"}[5m] offset 30m)
+          ) < 0.3
+          and
+            increase(kong_nginx_requests_total{job="pulse-kong", subsystem="http"}[5m] offset 30m) > 10
+        for: 5m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "Kong nginx request rate dropped > 70% on {{ $labels.instance }}"
+          description: >
+            Request throughput on {{ $labels.instance }} is less than 30% of
+            what it was 30 minutes ago. Could indicate a load balancer
+            deregistration, upstream failure, or DNS issue.
+          runbook_url: "https://wiki.internal/runbooks/kong-traffic-drop"
+
+# ============================================================================
+# ── 5. Plugin-dependent alerts (DISABLED until Kong Prometheus plugin is
+#       enabled on services — metrics not yet emitted)
+# ============================================================================
+#
+#  - name: kong.plugin_errors
+#    rules:
+#
+#      - alert: KongHighErrorRate
+#        expr: |
+#          (
+#            sum(rate(kong_http_requests_total{job="pulse-kong", code=~"5.."}[5m]))
+#            / sum(rate(kong_http_requests_total{job="pulse-kong"}[5m]))
+#          ) > 0.05
+#        for: 3m
+#        labels:
+#          severity: critical
+#        annotations:
+#          summary: "Kong global 5xx error rate above 5%"
+#
+#      - alert: KongServiceHighErrorRate
+#        expr: |
+#          (
+#            sum by (service) (rate(kong_http_requests_total{job="pulse-kong", code=~"5.."}[5m]))
+#            / sum by (service) (rate(kong_http_requests_total{job="pulse-kong"}[5m]))
+#          ) > 0.10
+#        for: 3m
+#        labels:
+#          severity: warning
+#        annotations:
+#          summary: "Service {{ $labels.service }} 5xx rate > 10%"
+#
+#      - alert: KongHighP99Latency
+#        expr: |
+#          histogram_quantile(0.99,
+#            sum by (le) (rate(kong_request_latency_ms_bucket{job="pulse-kong"}[5m]))
+#          ) > 2000
+#        for: 5m
+#        labels:
+#          severity: critical
+#        annotations:
+#          summary: "Kong P99 request latency > 2 s"
+#
+#      - alert: KongHighUpstreamLatency
+#        expr: |
+#          histogram_quantile(0.99,
+#            sum by (le) (rate(kong_upstream_latency_ms_bucket{job="pulse-kong"}[5m]))
+#          ) > 1500
+#        for: 5m
+#        labels:
+#          severity: warning
+#        annotations:
+#          summary: "Kong upstream P99 latency > 1.5 s"
+#
+# To enable: add Prometheus plugin to Kong services, then uncomment above.
+# Docs: https://docs.konghq.com/hub/kong-inc/prometheus/

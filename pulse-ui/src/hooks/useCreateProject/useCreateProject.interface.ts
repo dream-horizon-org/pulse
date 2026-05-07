@@ -1,6 +1,7 @@
 export interface CreateProjectParams {
   name: string;
   description?: string;
+  tenantId?: string;
 }
 
 export interface ProjectResponse {
