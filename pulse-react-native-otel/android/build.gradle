@@ -4,6 +4,7 @@ buildscript {
   }
 
   repositories {
+    mavenLocal()
     google()
     mavenCentral()
   }
@@ -73,11 +74,41 @@ kotlin {
 }
 
 repositories {
-  mavenCentral()
+  mavenLocal()
   google()
+  mavenCentral()
 }
 
-def pulse_version = "0.0.13-alpha"
+// Match the Kotlin Gradle plugin version used by the host app (RN/Expo often uses 1.9.x). Prevents kotlin-stdlib 2.1+ on the classpath when compiled with 1.9.
+def pulseKotlinCompilerVersion = rootProject.ext.has("kotlinVersion")
+    ? rootProject.ext.get("kotlinVersion").toString()
+    : (project.findProperty("PulseReactNativeOtel_kotlinVersion") ?: "1.9.25").toString()
+def pulseKotlinIs19Family = pulseKotlinCompilerVersion.startsWith("1.9")
+def kotlinxSerializationVersion = pulseKotlinIs19Family ? "1.6.3" : "1.8.0"
+def kotlinxCoroutinesAlignedVersion = pulseKotlinIs19Family ? "1.8.1" : "1.10.2"
+
+configurations.configureEach {
+  resolutionStrategy.eachDependency { details ->
+    def requested = details.requested
+    if (requested.group == "org.jetbrains.kotlin") {
+      details.useVersion(pulseKotlinCompilerVersion)
+      details.because("pulse-react-native-android aligns Kotlin artifacts with host compiler ($pulseKotlinCompilerVersion)")
+    }
+    if (requested.group == "org.jetbrains.kotlinx") {
+      if (requested.name.contains("kotlinx-coroutines")) {
+        details.useVersion(kotlinxCoroutinesAlignedVersion)
+        details.because("pulse-react-native-android aligns coroutines for Kotlin ${pulseKotlinIs19Family ? '1.9' : '2.x'} consumers")
+      }
+      if (requested.name.contains("kotlinx-serialization")) {
+        details.useVersion(kotlinxSerializationVersion)
+        details.because("pulse-react-native-android aligns kotlinx-serialization for Kotlin ${pulseKotlinIs19Family ? '1.9' : '2.x'} consumers")
+      }
+    }
+  }
+}
+
+// Keep aligned with pulse-android-otel gradle.properties `version` + "-alpha" (with publishToMavenLocal -Pfinal=true).
+def pulse_version = "0.0.18-alpha"
 dependencies {
   implementation("com.facebook.react:react-android")
 
@@ -93,5 +124,5 @@ dependencies {
   implementation("org.dreamhorizon:pulse-sampling-models:$pulse_version")
   api("com.squareup.okhttp3:okhttp:5.0.0-alpha.14")
   implementation("io.opentelemetry:opentelemetry-sdk")
-  implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.0")
+  implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:$kotlinxSerializationVersion")
 }

@@ -26,6 +26,7 @@ import com.pulse.android.sdk.replay.models.PulseReplayStyle
 import com.pulse.android.sdk.replay.models.PulseReplayWireframe
 import com.pulse.utils.PulseMathUtils
 import com.pulse.utils.PulseSerialisationUtils
+import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
@@ -34,7 +35,10 @@ import kotlinx.serialization.json.buildJsonObject
 
 internal object ReplayEventPayloadEncoder {
     fun encodeToJson(events: List<ReplayEvent>): String =
-        PulseSerialisationUtils.jsonConfigForSerialisation.encodeToString(toPulseReplayWireEvents(events))
+        PulseSerialisationUtils.jsonConfigForSerialisation.encodeToString(
+            ListSerializer(PulseReplaySnapshotEvent.serializer()),
+            toPulseReplayWireEvents(events),
+        )
 
     internal fun toPulseReplayWireEvents(events: List<ReplayEvent>): List<PulseReplaySnapshotEvent> = events.map { it.toPulseReplayWire() }
 

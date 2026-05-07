@@ -1,4 +1,4 @@
-import dev.detekt.gradle.Detekt
+import io.gitlab.arturbosch.detekt.Detekt
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.dsl.KotlinVersion
 
@@ -9,7 +9,7 @@ plugins {
     id("com.google.devtools.ksp")
     id("otel.animalsniffer-conventions")
     id("otel.android-dependency-conventions")
-    id("dev.detekt")
+    id("io.gitlab.arturbosch.detekt")
     id("org.jetbrains.kotlinx.binary-compatibility-validator")
     id("org.jetbrains.kotlinx.kover")
     id("otel.spotless-conventions")
@@ -74,10 +74,7 @@ detekt {
 
 project.tasks.withType(Detekt::class.java).configureEach {
     jvmTarget = targetJvm.target
-    reports {
-        html.required.set(true)
-        checkstyle.required.set(false)
-    }
+    reports.html.required.set(true)
 }
 
 // disable kotlin's binary compat validator for unwanted modules

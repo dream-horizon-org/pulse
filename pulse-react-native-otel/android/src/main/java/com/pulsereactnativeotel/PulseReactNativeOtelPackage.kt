@@ -21,11 +21,12 @@ internal class PulseReactNativeOtelPackage : BaseReactPackage() {
       val moduleInfos: MutableMap<String, ReactModuleInfo> = HashMap()
       moduleInfos[PulseReactNativeOtelModule.NAME] = ReactModuleInfo(
         PulseReactNativeOtelModule.NAME,
-        PulseReactNativeOtelModule.NAME,
-        canOverrideExistingModule = false,
-        needsEagerInit = false,
-        isCxxModule = false,
-        isTurboModule = true,
+        PulseReactNativeOtelModule::class.java.name,
+        false,
+        false,
+        false,
+        false,
+        true,
       )
       moduleInfos
     }

@@ -1,4 +1,5 @@
 @file:Suppress("ForbiddenImport") // utils around serialisation
+@file:OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
 
 package com.pulse.sampling.models
 

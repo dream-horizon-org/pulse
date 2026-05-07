@@ -140,7 +140,7 @@ public class LocationProvider
                     localityName = null,
                     postalCode = null,
                 )
-            val jsonString = json.encodeToString(cachedLocation)
+            val jsonString = json.encodeToString(CachedLocation.serializer(), cachedLocation)
             sharedPreferences.edit { putString(LocationConstants.LOCATION_CACHE_KEY, jsonString) }
         }
 
@@ -202,7 +202,7 @@ public class LocationProvider
                                 localityName = geoAttributes.localityName,
                                 postalCode = geoAttributes.postalCode,
                             )
-                        val jsonString = json.encodeToString(updatedCached)
+                        val jsonString = json.encodeToString(CachedLocation.serializer(), updatedCached)
                         sharedPreferences.edit { putString(LocationConstants.LOCATION_CACHE_KEY, jsonString) }
                     }
                 }

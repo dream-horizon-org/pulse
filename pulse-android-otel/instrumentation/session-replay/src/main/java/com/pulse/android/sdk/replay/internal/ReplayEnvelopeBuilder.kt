@@ -41,7 +41,10 @@ internal object ReplayEnvelopeBuilder {
                         appVersion = appVersion?.takeIf { it.isNotEmpty() },
                     ),
             )
-        return PulseSerialisationUtils.jsonConfigForSerialisation.encodeToString(envelope)
+        return PulseSerialisationUtils.jsonConfigForSerialisation.encodeToString(
+            PulseReplayEnvelope.serializer(),
+            envelope,
+        )
     }
 
     fun getSessionIdsForLog(payload: String): String? =

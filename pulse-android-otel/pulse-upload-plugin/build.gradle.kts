@@ -1,3 +1,4 @@
+import io.gitlab.arturbosch.detekt.Detekt
 import org.gradle.api.GradleException
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
@@ -38,11 +39,8 @@ detekt {
     }
 }
 
-tasks.withType<dev.detekt.gradle.Detekt>().configureEach {
-    reports {
-        html.required.set(true)
-        checkstyle.required.set(false)
-    }
+tasks.withType<Detekt>().configureEach {
+    reports.html.required.set(true)
 }
 
 dependencies {

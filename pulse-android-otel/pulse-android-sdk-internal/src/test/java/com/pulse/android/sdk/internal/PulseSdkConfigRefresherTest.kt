@@ -94,13 +94,21 @@ class PulseSdkConfigRefresherTest {
 
         private fun enqueueConfig(version: Int) {
             val config = PulseSdkConfigFakeUtils.createFakeConfig(version = version)
-            val json = PulseSerialisationUtils.jsonConfigForSerialisation.encodeToString(config)
+            val json =
+                PulseSerialisationUtils.jsonConfigForSerialisation.encodeToString(
+                    PulseSdkConfig.serializer(),
+                    config,
+                )
             server.enqueue(MockResponse().setBody(json).setResponseCode(200))
         }
 
         private fun storeConfig(version: Int) {
             val config = PulseSdkConfigFakeUtils.createFakeConfig(version = version)
-            val json = PulseSerialisationUtils.jsonConfigForSerialisation.encodeToString(config)
+            val json =
+                PulseSerialisationUtils.jsonConfigForSerialisation.encodeToString(
+                    PulseSdkConfig.serializer(),
+                    config,
+                )
             sharedPrefs.putString(prefsKey, json)
         }
 

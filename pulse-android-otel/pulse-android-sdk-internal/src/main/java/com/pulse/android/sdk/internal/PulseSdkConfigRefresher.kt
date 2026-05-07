@@ -59,7 +59,10 @@ internal object PulseSdkConfigRefresher {
                 sharedPrefs.edit(commit = true) {
                     putString(
                         prefsKey,
-                        PulseSerialisationUtils.jsonConfigForSerialisation.encodeToString(newConfig),
+                        PulseSerialisationUtils.jsonConfigForSerialisation.encodeToString(
+                            PulseSdkConfig.serializer(),
+                            newConfig,
+                        ),
                     )
                 }
             }

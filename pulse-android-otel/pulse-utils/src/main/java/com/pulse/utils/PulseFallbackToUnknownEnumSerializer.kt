@@ -1,4 +1,5 @@
 @file:Suppress("ForbiddenImport") // this utility requires it but rest all are forbidden
+@file:OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
 
 package com.pulse.utils
 
