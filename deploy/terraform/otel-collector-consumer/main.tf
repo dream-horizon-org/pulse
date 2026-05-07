@@ -100,8 +100,9 @@ resource "aws_autoscaling_group" "otel-consumer" {
   min_size                  = var.collector_count
   desired_capacity          = var.collector_count
   vpc_zone_identifier       = var.subnet_ids
-  health_check_type         = "EC2"
-  health_check_grace_period = 60
+  health_check_type         = "ELB"
+  health_check_grace_period = 300
+  target_group_arns         = [aws_lb_target_group.otel-consumer.arn]
 
   mixed_instances_policy {
     instances_distribution {
@@ -177,45 +178,86 @@ resource "aws_autoscaling_group" "otel-consumer" {
 }
 
 # -------------------------------------------------------------------
-# Route53 — one A record per ASG instance (pulse-otel-consumer-NN.pulse.local)
-# Instance numbering is stable: sorted by EC2 instance id (lexicographic).
-# After ASG rollout, run terraform apply again if the first apply sees zero instances.
+# ALB + Target Group + Listener
 # -------------------------------------------------------------------
 
-data "aws_instances" "otel_consumer_asg" {
-  depends_on = [aws_autoscaling_group.otel-consumer]
+resource "aws_lb" "otel-consumer" {
+  load_balancer_type         = "application"
+  name                       = "pulse-otel-consumer-alb"
+  internal                   = true
+  ip_address_type            = "ipv4"
+  subnets                    = var.subnet_ids
+  security_groups            = var.alb_security_group_ids
+  enable_deletion_protection = false
+  drop_invalid_header_fields = true
 
-  filter {
-    name   = "tag:aws:autoscaling:groupName"
-    values = [aws_autoscaling_group.otel-consumer.name]
-  }
-
-  filter {
-    name   = "instance-state-name"
-    values = ["running"]
-  }
-}
-
-locals {
-  otel_consumer_sorted_ids = sort(data.aws_instances.otel_consumer_asg.ids)
-  # "01" => instance id — NN matches desired hostname pulse-otel-consumer-NN
-  otel_consumer_indexed = {
-    for i, id in local.otel_consumer_sorted_ids :
-    format("%02d", i + 1) => id
+  tags = {
+    Name             = "pulse-otel-consumer-alb"
+    org_name         = "horizon"
+    environment_name = "production"
+    component_name   = "pulse-otel-consumer"
+    component_type   = "application"
+    service_name     = "pulse"
+    resource_type    = "lb"
   }
 }
 
-data "aws_instance" "otel_consumer" {
-  for_each    = toset(local.otel_consumer_sorted_ids)
-  instance_id = each.value
+resource "aws_lb_target_group" "otel-consumer" {
+  target_type     = "instance"
+  name            = "pulse-otel-consumer-tg"
+  port            = var.alb_target_group_port
+  ip_address_type = "ipv4"
+  vpc_id          = var.vpc_id
+  protocol        = "HTTP"
+
+  health_check {
+    enabled             = true
+    protocol            = "HTTP"
+    path                = var.healthcheck_path
+    port                = tostring(var.healthcheck_port)
+    healthy_threshold   = 5
+    unhealthy_threshold = 2
+    timeout             = 10
+    interval            = 120
+    matcher             = "200-399"
+  }
+
+  deregistration_delay = 30
+
+  tags = {
+    Name             = "pulse-otel-consumer-tg"
+    org_name         = "horizon"
+    environment_name = "production"
+    component_name   = "pulse-otel-consumer"
+    component_type   = "application"
+    service_name     = "pulse"
+    resource_type    = "tg"
+  }
 }
 
-resource "aws_route53_record" "otel_consumer_node" {
-  for_each = local.otel_consumer_indexed
+resource "aws_lb_listener" "otel-consumer-http" {
+  load_balancer_arn = aws_lb.otel-consumer.arn
+  port              = var.alb_listener_port
+  protocol          = "HTTP"
 
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.otel-consumer.arn
+  }
+}
+
+# -------------------------------------------------------------------
+# Route53 Alias Record for OTEL consumer ALB
+# -------------------------------------------------------------------
+
+resource "aws_route53_record" "otel_consumer" {
   zone_id = var.route53_zone_id
-  name    = "pulse-otel-consumer-${each.key}.${var.route53_zone_name}"
+  name    = var.route53_record_name
   type    = "A"
-  ttl     = 60
-  records = [data.aws_instance.otel_consumer[each.value].private_ip]
+
+  alias {
+    name                   = aws_lb.otel-consumer.dns_name
+    zone_id                = aws_lb.otel-consumer.zone_id
+    evaluate_target_health = false
+  }
 }

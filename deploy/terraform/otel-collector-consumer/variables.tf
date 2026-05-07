@@ -30,8 +30,18 @@ variable "subnet_ids" {
   type        = list(string)
 }
 
+variable "vpc_id" {
+  description = "VPC ID for OTEL consumer target group"
+  type        = string
+}
+
 variable "vpc_security_group_ids" {
   description = "Security group IDs to attach to OTEL instances"
+  type        = list(string)
+}
+
+variable "alb_security_group_ids" {
+  description = "Security group IDs to attach to the OTEL consumer ALB"
   type        = list(string)
 }
 
@@ -49,13 +59,42 @@ variable "instance_profile_name" {
 }
 
 variable "route53_zone_id" {
-  description = "Route53 private hosted zone ID (e.g. pulse.local) for per-instance OTEL consumer A records"
+  description = "Route53 hosted zone ID for OTEL consumer ALB alias record"
+  type        = string
+}
+
+variable "route53_record_name" {
+  description = "DNS record name for OTEL consumer ALB (for example, pulse-otel-consumer.pulse.local)"
   type        = string
 }
 
 variable "route53_zone_name" {
-  description = "Private zone DNS name without trailing dot (FQDN suffix for records, e.g. pulse.local)"
+  description = "Private zone DNS name without trailing dot (kept for backward compatibility)"
   type        = string
   default     = "pulse.local"
+}
+
+variable "alb_listener_port" {
+  description = "ALB listener port for OTEL consumer traffic"
+  type        = number
+  default     = 4318
+}
+
+variable "alb_target_group_port" {
+  description = "Target group port on OTEL consumer instances"
+  type        = number
+  default     = 4318
+}
+
+variable "healthcheck_path" {
+  description = "Health check path for OTEL consumer target group"
+  type        = string
+  default     = "/"
+}
+
+variable "healthcheck_port" {
+  description = "Health check port for OTEL consumer target group"
+  type        = number
+  default     = 13133
 }
 
