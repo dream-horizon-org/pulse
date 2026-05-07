@@ -47,7 +47,7 @@ function renderInstall(root) {
       <pre class="code"><code>import { Pulse, PulseDataCollectionConsent } from "@dreamhorizon/pulse-web";
 
 Pulse.init({
-  apiKey: import.meta.env.VITE_PULSE_API_KEY ?? "default-project_devkey01",
+  apiKey: import.meta.env.VITE_PULSE_API_KEY,
   serviceName: "web-sdk-docs",
   dataCollectionState: PulseDataCollectionConsent.ALLOWED,
   export: { format: "json" },

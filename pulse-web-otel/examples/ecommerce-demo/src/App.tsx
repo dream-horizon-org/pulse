@@ -13,7 +13,7 @@ import {
 } from "@dreamhorizon/pulse-web";
 import {
   PulseProvider,
-  useRouterTracking,
+  PulseRouterEvents,
 } from "@dreamhorizon/pulse-web/react";
 import { PulseDebugPanel } from "./components/PulseDebugPanel";
 import { CartProvider } from "./hooks/useCart";
@@ -119,21 +119,11 @@ function NavBar() {
   );
 }
 
-// SDK is already started in main.tsx before React mounts.
-// PulseProvider here is only for PulseErrorBoundary + context — it skips re-init.
-const PULSE_CONFIG = {
-  apiKey: import.meta.env["VITE_PULSE_API_KEY"] ?? "dev-key",
-  serviceName: import.meta.env["VITE_PULSE_SERVICE_NAME"] ?? "ecommerce-demo",
-  dataCollectionState: PulseDataCollectionConsent.ALLOWED,
-};
-
 export default function App() {
   const pulseConfig = useMemo(() => {
     const searchParams = new URLSearchParams(window.location.search);
     const consentParam = searchParams.get("pulse_consent");
     const queryLogLevel = searchParams.get("pulse_log_level");
-    const queryUserEnabled = searchParams.get("pulse_user_enabled");
-    const queryUserId = searchParams.get("pulse_user_id");
 
     // Disk buffering defaults on (Android parity). Opt out with ?pulse_disk=0 or VITE_PULSE_DISK_BUFFER=false.
     const diskOffQuery = searchParams.get("pulse_disk") === "0";
@@ -160,8 +150,6 @@ export default function App() {
       .toString()
       .trim()
       .toLowerCase();
-    const legacyDebugLifecycle =
-      import.meta.env["VITE_PULSE_DEBUG_LOG_LIFECYCLE"] === "true";
     const logLevelMap: Record<string, PulseLogLevel> = {
       verbose: PulseLogLevel.VERBOSE,
       debug: PulseLogLevel.DEBUG,
@@ -170,9 +158,7 @@ export default function App() {
       error: PulseLogLevel.ERROR,
       none: PulseLogLevel.NONE,
     };
-    const logLevel =
-      logLevelMap[logLevelRaw] ??
-      (legacyDebugLifecycle ? PulseLogLevel.DEBUG : undefined);
+    const logLevel = logLevelMap[logLevelRaw];
 
     const serviceVersionRaw = import.meta.env["VITE_PULSE_SERVICE_VERSION"] as
       | string
@@ -198,27 +184,22 @@ export default function App() {
           }
         : undefined;
 
+    const apiKey = import.meta.env["VITE_PULSE_API_KEY"];
+    if (!apiKey) {
+      throw new Error(
+        "Missing VITE_PULSE_API_KEY for ecommerce-demo Pulse integration",
+      );
+    }
+
     return {
-      apiKey:
-        import.meta.env["VITE_PULSE_API_KEY"] ?? "default-project_devkey01",
+      apiKey,
       serviceName:
         import.meta.env["VITE_PULSE_SERVICE_NAME"] ?? "ecommerce-demo",
       ...(serviceVersion !== undefined ? { serviceVersion } : {}),
       dataCollectionState,
       export: {
         format: (formatEnv ?? ("protobuf" as const)) as "json" | "protobuf",
-        compression:
-          (import.meta.env["VITE_PULSE_COMPRESSION"] as
-            | "gzip"
-            | "none"
-            | undefined) ?? "gzip",
-        batch: {
-          scheduledDelayMillis: import.meta.env["VITE_PULSE_BATCH_DELAY_MS"]
-            ? Number(import.meta.env["VITE_PULSE_BATCH_DELAY_MS"])
-            : 5000,
-        },
       },
-      debugLogRecordLifecycle: legacyDebugLifecycle,
       ...(logLevel !== undefined ? { logLevel } : {}),
       ...(diskBuffering !== undefined ? { diskBuffering } : {}),
       ...(instrumentationsPartial !== undefined
@@ -271,7 +252,7 @@ export default function App() {
       <PulseProvider config={pulseConfig} shutdownOnUnmount={false}>
         {/* Expose for E2E shutdown test (m1.spec.ts) */}
         <_PulseExpose />
-        <_PulseRouterTracking />
+        <PulseRouterEvents skipInitial={false} />
         <_PulseDemoUserSetup config={userSetupConfig} />
         <CartProvider>
           <NavBar />
@@ -315,12 +296,6 @@ function _PulseExpose(): null {
   React.useEffect(() => {
     (window as unknown as Record<string, unknown>)["Pulse"] = Pulse;
   }, []);
-  return null;
-}
-
-/** Mounts route tracking inside BrowserRouter + PulseProvider tree. */
-function _PulseRouterTracking(): null {
-  useRouterTracking({ skipInitial: false });
   return null;
 }
 

@@ -39,21 +39,19 @@ export function buildPulseConfig() {
   const diskOffEnv = import.meta.env["VITE_PULSE_DISK_BUFFER"] === "false";
   const diskBuffering =
     diskOffQuery || diskOffEnv ? { enabled: false } : undefined;
-
-  const batchDelayRaw = import.meta.env["VITE_PULSE_BATCH_DELAY_MS"];
-  const scheduledDelayMillis = batchDelayRaw ? Number(batchDelayRaw) : 5000;
+  const apiKey = import.meta.env["VITE_PULSE_API_KEY"];
+  if (!apiKey) {
+    throw new Error(
+      "Missing VITE_PULSE_API_KEY for web-sdk-docs Pulse integration",
+    );
+  }
 
   return {
-    apiKey: import.meta.env["VITE_PULSE_API_KEY"] ?? "default-project_devkey01",
+    apiKey,
     serviceName: import.meta.env["VITE_PULSE_SERVICE_NAME"] ?? "web-sdk-docs",
     dataCollectionState,
     export: {
       format: (formatEnv ?? "protobuf") === "json" ? "json" : "protobuf",
-      compression:
-        import.meta.env["VITE_PULSE_COMPRESSION"] === "none" ? "none" : "gzip",
-      batch: {
-        scheduledDelayMillis,
-      },
     },
     ...(logLevel !== undefined ? { logLevel } : {}),
     ...(diskBuffering !== undefined ? { diskBuffering } : {}),

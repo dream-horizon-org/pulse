@@ -6,7 +6,6 @@ import { UserProvider } from "./context/UserContext";
 import { CartProvider } from "./context/CartContext";
 import { NavBar } from "./components/NavBar";
 import { BottomNav } from "./components/BottomNav";
-import { PulsePageView } from "./components/PulseRouterTracker";
 import { PulseDebugPanel } from "./components/PulseDebugPanel";
 
 export const metadata: Metadata = {
@@ -27,7 +26,6 @@ export default function RootLayout({
           <UserProvider>
             <CartProvider>
               <PulseProvider>
-                <PulsePageView />
                 <NavBar />
                 <main className="max-w-2xl mx-auto px-4 pb-32 pt-4 min-h-dvh">
                   {children}
