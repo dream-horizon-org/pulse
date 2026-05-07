@@ -6,10 +6,10 @@ export default defineConfig({
   server: { port: 3003 },
   resolve: {
     alias: {
-      "@dreamhorizon/pulse-web": path.resolve(__dirname, "../../src/index.ts"),
+      "@dreamhorizonorg/pulse-web": path.resolve(__dirname, "../../src/index.ts"),
     },
   },
   optimizeDeps: {
-    include: ["@dreamhorizon/pulse-web"],
+    include: ["@dreamhorizonorg/pulse-web"],
   },
 });

@@ -2,7 +2,7 @@
 
 > Persona for this doc: **a new app team** (React or Next.js) integrating Pulse for the first time. Goal: ship telemetry in under 15 minutes with no surprises.
 
-Package: `@dreamhorizon/pulse-web` (subpath exports: `/react`, `/next`, `/next-config`).
+Package: `@dreamhorizonorg/pulse-web` (subpath exports: `/react`, `/next`, `/next-config`).
 
 ---
 
@@ -10,10 +10,10 @@ Package: `@dreamhorizon/pulse-web` (subpath exports: `/react`, `/next`, `/next-c
 
 | App type | What you install | Where you wire it | Optional extras |
 |---|---|---|---|
-| **React (CSR / Vite / CRA)** | `@dreamhorizon/pulse-web` | `<PulseProvider>` at app root + `<PulseRouterEvents />` *(or `useRouterTracking()` once)* under your router | `<PulseErrorBoundary>` (already inside `PulseProvider`) |
-| **Next.js (App Router)** | `@dreamhorizon/pulse-web` | `<PulseProvider>` in a `"use client"` boundary inside `app/layout.tsx` + `<PulseRouterEvents />` | `instrumentation.ts` for SSR crashes; `withPulseConfig` in `next.config.js` for source maps |
-| **Next.js (Pages Router)** | `@dreamhorizon/pulse-web` | `<PulseProvider>` in `pages/_app.tsx` + `useNextPagesRouterTracking()` once | same as App Router |
-| **Vanilla SPA (no React)** | `@dreamhorizon/pulse-web` | `Pulse.init(...)` once on startup + `Pulse.setScreenName(pathname)` on route change | Example: `examples/web-sdk-docs` |
+| **React (CSR / Vite / CRA)** | `@dreamhorizonorg/pulse-web` | `<PulseProvider>` at app root + `<PulseRouterEvents />` *(or `useRouterTracking()` once)* under your router | `<PulseErrorBoundary>` (already inside `PulseProvider`) |
+| **Next.js (App Router)** | `@dreamhorizonorg/pulse-web` | `<PulseProvider>` in a `"use client"` boundary inside `app/layout.tsx` + `<PulseRouterEvents />` | `instrumentation.ts` for SSR crashes; `withPulseConfig` in `next.config.js` for source maps |
+| **Next.js (Pages Router)** | `@dreamhorizonorg/pulse-web` | `<PulseProvider>` in `pages/_app.tsx` + `useNextPagesRouterTracking()` once | same as App Router |
+| **Vanilla SPA (no React)** | `@dreamhorizonorg/pulse-web` | `Pulse.init(...)` once on startup + `Pulse.setScreenName(pathname)` on route change | Example: `examples/web-sdk-docs` |
 
 Everything else (sessions, errors, web vitals, network, clicks, rage clicks) is automatic once `PulseProvider` mounts.
 
@@ -22,9 +22,9 @@ Everything else (sessions, errors, web vitals, network, clicks, rage clicks) is 
 ## 1. Install
 
 ```bash
-yarn add @dreamhorizon/pulse-web
+yarn add @dreamhorizonorg/pulse-web
 # or
-npm install @dreamhorizon/pulse-web
+npm install @dreamhorizonorg/pulse-web
 ```
 
 Peers (already in your app, but listed for clarity):
@@ -58,8 +58,8 @@ Public env prefixes are required because the SDK runs in the browser. Treat the 
 // src/main.tsx  (or index.tsx)
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { PulseProvider, PulseRouterEvents } from "@dreamhorizon/pulse-web/react";
-import { PulseDataCollectionConsent } from "@dreamhorizon/pulse-web";
+import { PulseProvider, PulseRouterEvents } from "@dreamhorizonorg/pulse-web/react";
+import { PulseDataCollectionConsent } from "@dreamhorizonorg/pulse-web";
 import App from "./App";
 
 createRoot(document.getElementById("root")!).render(
@@ -95,7 +95,7 @@ For React Router, use whichever style your app prefers:
 - Component form (recommended for consistency with Next docs):
 
 ```tsx
-import { PulseRouterEvents } from "@dreamhorizon/pulse-web/react";
+import { PulseRouterEvents } from "@dreamhorizonorg/pulse-web/react";
 
 <BrowserRouter>
   <PulseRouterEvents includeSearch={false} />
@@ -106,7 +106,7 @@ import { PulseRouterEvents } from "@dreamhorizon/pulse-web/react";
 - Hook form (equivalent behavior):
 
 ```tsx
-import { useRouterTracking } from "@dreamhorizon/pulse-web/react";
+import { useRouterTracking } from "@dreamhorizonorg/pulse-web/react";
 
 function RouterTracking() {
   useRouterTracking();
@@ -131,8 +131,8 @@ function RouterTracking() {
 ```tsx
 "use client";
 
-import { PulseProvider, PulseRouterEvents } from "@dreamhorizon/pulse-web/next";
-import { PulseDataCollectionConsent } from "@dreamhorizon/pulse-web";
+import { PulseProvider, PulseRouterEvents } from "@dreamhorizonorg/pulse-web/next";
+import { PulseDataCollectionConsent } from "@dreamhorizonorg/pulse-web";
 import { type ReactNode } from "react";
 
 export function PulseClientProvider({ children }: { children: ReactNode }) {
@@ -175,8 +175,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
 ```tsx
 import type { AppProps } from "next/app";
-import { PulseProvider, useNextPagesRouterTracking } from "@dreamhorizon/pulse-web/next";
-import { PulseDataCollectionConsent } from "@dreamhorizon/pulse-web";
+import { PulseProvider, useNextPagesRouterTracking } from "@dreamhorizonorg/pulse-web/next";
+import { PulseDataCollectionConsent } from "@dreamhorizonorg/pulse-web";
 
 function RouterTracking() {
   useNextPagesRouterTracking();
@@ -203,7 +203,7 @@ export default function MyApp({ Component, pageProps }: AppProps) {
 
 ```ts
 // instrumentation.ts (project root)
-import { createPulseInstrumentationHandler } from "@dreamhorizon/pulse-web/next";
+import { createPulseInstrumentationHandler } from "@dreamhorizonorg/pulse-web/next";
 
 export const onRequestError = createPulseInstrumentationHandler({
   apiKey: process.env.PULSE_API_KEY!,                        // server-side env, NOT NEXT_PUBLIC_*
@@ -217,7 +217,7 @@ Edge-safe: uses `fetch` only.
 ### 4.4 Source maps for production stack traces — `next.config.js`
 
 ```js
-const { withPulseConfig } = require("@dreamhorizon/pulse-web/next-config");
+const { withPulseConfig } = require("@dreamhorizonorg/pulse-web/next-config");
 
 module.exports = withPulseConfig(
   { /* your existing next config */ },
@@ -239,7 +239,7 @@ Effect:
 For plain JavaScript apps without React/Next providers:
 
 ```ts
-import { Pulse, PulseDataCollectionConsent } from "@dreamhorizon/pulse-web";
+import { Pulse, PulseDataCollectionConsent } from "@dreamhorizonorg/pulse-web";
 
 Pulse.init({
   apiKey: import.meta.env.VITE_PULSE_API_KEY,
@@ -260,7 +260,7 @@ When your router changes URL (History API / hash router), call `Pulse.setScreenN
 Once initialised, use `Pulse` from anywhere — or `usePulse()` inside React:
 
 ```ts
-import { Pulse } from "@dreamhorizon/pulse-web";
+import { Pulse } from "@dreamhorizonorg/pulse-web";
 
 // Login
 Pulse.setUserId("user-123");
@@ -285,7 +285,7 @@ Pulse.reportException(err, { route: "/checkout" });
 Pulse will not emit anything unless `dataCollectionState === ALLOWED`.
 
 ```ts
-import { PulseDataCollectionConsent } from "@dreamhorizon/pulse-web";
+import { PulseDataCollectionConsent } from "@dreamhorizonorg/pulse-web";
 
 // Banner not yet answered:
 dataCollectionState: PulseDataCollectionConsent.PENDING

@@ -4,7 +4,7 @@ import {
   Pulse,
   PulseDataCollectionConsent,
   PulseLogLevel,
-} from "@dreamhorizon/pulse-web";
+} from "@dreamhorizonorg/pulse-web";
 import App from "./App";
 import { maybeLoadMockInteractionConfig } from "./maybeLoadMockInteractionConfig";
 import { maybeLoadMockPulseSdkConfig } from "./maybeLoadMockPulseSdkConfig";

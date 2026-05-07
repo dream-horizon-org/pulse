@@ -21,7 +21,7 @@ const mockSetScreenName = vi.fn();
 const mockTrackEvent = vi.fn();
 const mockIsInitialized = vi.fn().mockReturnValue(false);
 
-vi.mock("@dreamhorizon/pulse-web", () => ({
+vi.mock("@dreamhorizonorg/pulse-web", () => ({
   Pulse: {
     init: mockStart,
     shutdown: mockShutdown,
@@ -51,7 +51,7 @@ vi.mock("@dreamhorizon/pulse-web", () => ({
 
 // Mock the React integration — lightweight stubs; PulseProvider wraps children in
 // PulseErrorBoundary (matches real PulseProvider) so route render errors are contained.
-vi.mock("@dreamhorizon/pulse-web/react", () => {
+vi.mock("@dreamhorizonorg/pulse-web/react", () => {
   const React = require("react");
 
   class PulseErrorBoundary extends React.Component<{

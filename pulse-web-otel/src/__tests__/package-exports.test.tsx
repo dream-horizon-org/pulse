@@ -1,7 +1,7 @@
 /**
  * Task 4 — Package Export + React Router Peer Dep
  *
- * Verifies that `@dreamhorizon/pulse-web/react` (src/integrations/react/index.ts)
+ * Verifies that `@dreamhorizonorg/pulse-web/react` (src/integrations/react/index.ts)
  * exports exactly the right symbols and types, and that the react-router-dom
  * peer dependency is wired as optional in package.json.
  */
@@ -24,7 +24,7 @@ import * as NextExports from "../integrations/next/index";
 // Export shape
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe("@dreamhorizon/pulse-web/react — export shape", () => {
+describe("@dreamhorizonorg/pulse-web/react — export shape", () => {
   it("exports PulseProvider as a function", () => {
     expect(typeof ReactExports.PulseProvider).toBe("function");
   });
@@ -116,10 +116,10 @@ describe("package.json — peer dependency wiring", () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// @dreamhorizon/pulse-web/next — export shape
+// @dreamhorizonorg/pulse-web/next — export shape
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe("@dreamhorizon/pulse-web/next — export shape", () => {
+describe("@dreamhorizonorg/pulse-web/next — export shape", () => {
   it("exports PulseProvider as a function", () => {
     expect(typeof NextExports.PulseProvider).toBe("function");
   });

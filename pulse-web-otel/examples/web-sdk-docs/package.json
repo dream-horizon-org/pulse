@@ -10,7 +10,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@dreamhorizon/pulse-web": "workspace:*"
+    "@dreamhorizonorg/pulse-web": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.6.0",

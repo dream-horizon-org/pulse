@@ -1,4 +1,4 @@
-import { Pulse } from "@dreamhorizon/pulse-web";
+import { Pulse } from "@dreamhorizonorg/pulse-web";
 
 function el(html) {
   const t = document.createElement("template");
@@ -31,7 +31,7 @@ function renderHome(root) {
     el(`
     <article class="doc">
       <h1>Vanilla Pulse Web SDK</h1>
-      <p class="lead">Plain HTML, CSS, and JavaScript — no React. The SDK is the same <code>@dreamhorizon/pulse-web</code> package as the ecommerce demo.</p>
+      <p class="lead">Plain HTML, CSS, and JavaScript — no React. The SDK is the same <code>@dreamhorizonorg/pulse-web</code> package as the ecommerce demo.</p>
       <p>Use the nav to change routes; each navigation calls <code>Pulse.setScreenName(pathname)</code> so <code>screen.name</code> on OTLP logs matches the current page.</p>
       <p class="muted">See <code>pulse-web-otel/web-sdk-plan/</code> in the repo for full contracts. For a product-style SPA, use <code>examples/ecommerce-demo</code> (port 3002). This app runs on port 3003 by default.</p>
     </article>
@@ -44,7 +44,7 @@ function renderInstall(root) {
     el(`
     <article class="doc">
       <h1>Install &amp; start</h1>
-      <pre class="code"><code>import { Pulse, PulseDataCollectionConsent } from "@dreamhorizon/pulse-web";
+      <pre class="code"><code>import { Pulse, PulseDataCollectionConsent } from "@dreamhorizonorg/pulse-web";
 
 Pulse.init({
   apiKey: import.meta.env.VITE_PULSE_API_KEY,

@@ -10,7 +10,7 @@ A new sample app under `pulse-web-otel/examples/lottery-demo/` that:
 
 - Mirrors the real DH Lottery app stack exactly (Next.js + Tailwind + Capacitor)
 - Runs fully on mocked data â€” no backend required
-- Integrates `@dreamhorizon/pulse-web` and exercises **every signal type, both positive and negative**
+- Integrates `@dreamhorizonorg/pulse-web` and exercises **every signal type, both positive and negative**
 - Replicates realistic lottery user journeys so signals match what we'd see in production
 - Capacitor wrapper validates the SDK in the real native WebView environment
 
@@ -191,7 +191,7 @@ Rage-click target: the "Buy Now" button when it's disabled (sale closed state) â
 'use client'
 import { usePathname } from 'next/navigation'
 import { useEffect } from 'react'
-import { Pulse } from '@dreamhorizon/pulse-web'
+import { Pulse } from '@dreamhorizonorg/pulse-web'
 
 const ROUTE_NAMES: Record<string, string> = {
   '/':                    'Home',
@@ -334,13 +334,13 @@ Sections and controls:
 
 ## 8. Pulse SDK Init (SSR-safe, Next.js)
 
-`PulseProvider` from `@dreamhorizon/pulse-web/react` is already marked `'use client'` and SSR-safe. Drop into `layout.tsx`:
+`PulseProvider` from `@dreamhorizonorg/pulse-web/react` is already marked `'use client'` and SSR-safe. Drop into `layout.tsx`:
 
 ```tsx
 // app/providers/PulseProvider.tsx
 'use client'
-import { PulseProvider as SDKPulseProvider } from '@dreamhorizon/pulse-web/react'
-import { PulseDataCollectionConsent } from '@dreamhorizon/pulse-web'
+import { PulseProvider as SDKPulseProvider } from '@dreamhorizonorg/pulse-web/react'
+import { PulseDataCollectionConsent } from '@dreamhorizonorg/pulse-web'
 
 export function PulseProvider({ children }) {
   return (
@@ -389,7 +389,7 @@ Next.js route-level and root error boundaries require explicit `reportDeviceCras
 // app/error.tsx and app/global-error.tsx
 'use client'
 import { useEffect } from 'react'
-import { Pulse } from '@dreamhorizon/pulse-web'
+import { Pulse } from '@dreamhorizonorg/pulse-web'
 
 export default function Error({ error }: { error: Error }) {
   useEffect(() => {

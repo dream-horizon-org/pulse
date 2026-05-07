@@ -9,7 +9,7 @@
  *     publicly served (deleteAfterUpload, default true).
  *
  * Usage — next.config.js:
- *   const { withPulseConfig } = require("@dreamhorizon/pulse-web/next-config");
+ *   const { withPulseConfig } = require("@dreamhorizonorg/pulse-web/next-config");
  *   module.exports = withPulseConfig({ ...yourNextConfig }, {
  *     apiKey: process.env.PULSE_API_KEY,
  *   });

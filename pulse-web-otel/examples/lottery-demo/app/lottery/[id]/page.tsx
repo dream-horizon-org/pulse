@@ -2,7 +2,7 @@
 
 import { use } from "react";
 import Link from "next/link";
-import { Pulse } from "@dreamhorizon/pulse-web";
+import { Pulse } from "@dreamhorizonorg/pulse-web";
 import { useLottery } from "../../hooks/useLottery";
 import { PrizeBreakupTable } from "../../components/PrizeBreakupTable";
 import { CartFooter } from "../../components/CartFooter";

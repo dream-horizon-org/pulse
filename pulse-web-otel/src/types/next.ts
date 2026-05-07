@@ -1,5 +1,5 @@
 /**
- * Types for the @dreamhorizon/pulse-web/next subpath.
+ * Types for the @dreamhorizonorg/pulse-web/next subpath.
  */
 
 /** Normalized location passed to the `format` callback in Next.js hooks. */

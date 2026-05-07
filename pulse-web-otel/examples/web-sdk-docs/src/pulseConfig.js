@@ -1,10 +1,10 @@
 import {
   PulseDataCollectionConsent,
   PulseLogLevel,
-} from "@dreamhorizon/pulse-web";
+} from "@dreamhorizonorg/pulse-web";
 
 /**
- * @returns {import("@dreamhorizon/pulse-web").PulseWebConfig}
+ * @returns {import("@dreamhorizonorg/pulse-web").PulseWebConfig}
  */
 export function buildPulseConfig() {
   const searchParams = new URLSearchParams(window.location.search);

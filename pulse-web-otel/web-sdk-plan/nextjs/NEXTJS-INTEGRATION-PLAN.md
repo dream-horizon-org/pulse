@@ -1,9 +1,9 @@
-# Next.js Integration Plan — `@dreamhorizon/pulse-web/next`
+# Next.js Integration Plan — `@dreamhorizonorg/pulse-web/next`
 
 ## Overview
 
 Add Next.js framework support to the Pulse Web SDK, mirroring the existing
-`@dreamhorizon/pulse-web/react` subpath. A Next.js app that installs this
+`@dreamhorizonorg/pulse-web/react` subpath. A Next.js app that installs this
 integration gets the same signal coverage as a React + React Router app today:
 session tracking, error tracking (manual + auto), and screen name tracking on
 every route change.
@@ -33,7 +33,7 @@ network tracking, click tracking, web vitals, navigation timing spans.
 | Screen tracking — App Router | `useNextAppRouterTracking` hook + `<PulseNavigationEvents>` component |
 | Screen tracking — Pages Router | `useNextPagesRouterTracking` hook |
 | Server-side crash capture | `createPulseInstrumentationHandler()` for `instrumentation.ts` (Next.js 15+) |
-| Package wiring | `@dreamhorizon/pulse-web/next` subpath, types, barrel exports |
+| Package wiring | `@dreamhorizonorg/pulse-web/next` subpath, types, barrel exports |
 | Tests + demo | Unit tests, Next.js demo app, Playwright E2E |
 
 ### Not supported — future milestones (missing for all frameworks, not Next.js specific)
@@ -56,7 +56,7 @@ network tracking, click tracking, web vitals, navigation timing spans.
 | Decision | Reasoning |
 |---|---|
 | **No auto-detect App vs Pages Router** | Dynamic imports bundle both routers regardless of which runs — user picks the right hook in one line and gets full tree-shaking. Auto-detect makes bundle size worse, not better. |
-| **No separate npm package `@dreamhorizon/pulse-web-next`** | Subpath export means one package, one version, one publish. No version skew between core and Next.js integration. Bundle size is identical — `next` is an external peer dep, not bundled either way. |
+| **No separate npm package `@dreamhorizonorg/pulse-web-next`** | Subpath export means one package, one version, one publish. No version skew between core and Next.js integration. Bundle size is identical — `next` is an external peer dep, not bundled either way. |
 | **No Pages Router demo app** | `useNextPagesRouterTracking` is fully built and unit tested. Pages Router is the legacy model — all new Next.js projects use App Router. The `nextjs-demo` app already proves Next.js wiring end-to-end. A Pages Router demo adds no new signal coverage to verify. |
 
 ---
@@ -65,7 +65,7 @@ network tracking, click tracking, web vitals, navigation timing spans.
 
 | What exists | Where |
 |---|---|
-| React integration | `src/integrations/react/` → `@dreamhorizon/pulse-web/react` |
+| React integration | `src/integrations/react/` → `@dreamhorizonorg/pulse-web/react` |
 | `PulseProvider` with `"use client"` + SSR guards | `src/integrations/react/PulseProvider.tsx` |
 | `useRouterTracking` — hard-coupled to `react-router-dom`'s `useLocation` | `src/integrations/react/useRouterTracking.ts` |
 | `"next"` already listed as external in tsup | `tsup.config.ts:17` |
@@ -81,7 +81,7 @@ Everything else in `PulseProvider` and the SDK core already works in Next.js.
 
 ```
 src/integrations/next/
-├── index.ts                      ← public barrel for @dreamhorizon/pulse-web/next
+├── index.ts                      ← public barrel for @dreamhorizonorg/pulse-web/next
 ├── useNextAppRouterTracking.ts   ← App Router hook (usePathname + useSearchParams)
 ├── useNextPagesRouterTracking.ts ← Pages Router hook (router.events)
 └── PulseNavigationEvents.tsx     ← Drop-in <Suspense>-wrapped component for layout.tsx
@@ -325,8 +325,8 @@ to `layout.tsx` without a `<Suspense>` boundary.
 
 **Usage in `app/layout.tsx`:**
 ```tsx
-import { PulseProvider } from "@dreamhorizon/pulse-web/react";
-import { PulseNavigationEvents } from "@dreamhorizon/pulse-web/next";
+import { PulseProvider } from "@dreamhorizonorg/pulse-web/react";
+import { PulseNavigationEvents } from "@dreamhorizonorg/pulse-web/next";
 
 export default function RootLayout({ children }) {
   return (
@@ -426,7 +426,7 @@ call with server-side metadata.
 
 **Usage in user's `instrumentation.ts`:**
 ```ts
-import { createPulseInstrumentationHandler } from "@dreamhorizon/pulse-web/next";
+import { createPulseInstrumentationHandler } from "@dreamhorizonorg/pulse-web/next";
 
 export function register() {
   // guard: only run in Node.js runtime, not Edge
@@ -547,7 +547,7 @@ Test cases:
 
 Add assertions:
 ```ts
-// @dreamhorizon/pulse-web/next exports
+// @dreamhorizonorg/pulse-web/next exports
 expect(nextExports).toHaveProperty("useNextAppRouterTracking");
 expect(nextExports).toHaveProperty("useNextPagesRouterTracking");
 expect(nextExports).toHaveProperty("PulseNavigationEvents");
@@ -568,8 +568,8 @@ expect(nextExports).toHaveProperty("usePulse");
 
 `app/layout.tsx`
 ```tsx
-import { PulseProvider } from "@dreamhorizon/pulse-web/react";
-import { PulseNavigationEvents } from "@dreamhorizon/pulse-web/next";
+import { PulseProvider } from "@dreamhorizonorg/pulse-web/react";
+import { PulseNavigationEvents } from "@dreamhorizonorg/pulse-web/next";
 
 const pulseConfig = {
   apiKey: process.env.NEXT_PUBLIC_PULSE_API_KEY!,

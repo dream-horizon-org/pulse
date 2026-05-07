@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
-import { Pulse } from "@dreamhorizon/pulse-web";
+import { Pulse } from "@dreamhorizonorg/pulse-web";
 import { api, ApiError } from "../lib/api";
 import { useUser } from "../context/UserContext";
 import type { MockUser } from "../context/UserContext";

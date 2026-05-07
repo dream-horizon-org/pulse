@@ -2,7 +2,7 @@
  * History API SPA router — Pulse.setScreenName after each navigation.
  */
 
-import { Pulse } from "@dreamhorizon/pulse-web";
+import { Pulse } from "@dreamhorizonorg/pulse-web";
 
 function normalizePath(path) {
   if (!path || path === "") return "/";

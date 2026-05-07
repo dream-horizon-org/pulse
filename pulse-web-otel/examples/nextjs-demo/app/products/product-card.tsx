@@ -2,7 +2,7 @@
 
 import React from "react";
 import Link from "next/link";
-import { Pulse } from "@dreamhorizon/pulse-web";
+import { Pulse } from "@dreamhorizonorg/pulse-web";
 import type { Product } from "../../lib/products";
 
 const cardStyle: React.CSSProperties = {

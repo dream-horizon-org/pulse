@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useState } from "react";
-import { PulseErrorBoundary } from "@dreamhorizon/pulse-web/next";
-import { Pulse } from "@dreamhorizon/pulse-web";
+import { PulseErrorBoundary } from "@dreamhorizonorg/pulse-web/next";
+import { Pulse } from "@dreamhorizonorg/pulse-web";
 
 function ThrowingComponent(): React.JSX.Element {
   throw new Error("Boundary crash from error-demo");

@@ -8,7 +8,7 @@ import Link from "next/link";
 import { PagesNavBar } from "../../components/pages-nav";
 import { getProducts } from "../../lib/products";
 import type { Product } from "../../lib/products";
-import { Pulse } from "@dreamhorizon/pulse-web";
+import { Pulse } from "@dreamhorizonorg/pulse-web";
 
 interface Props {
   products: Product[];
