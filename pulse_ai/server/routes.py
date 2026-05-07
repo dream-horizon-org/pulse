@@ -339,12 +339,24 @@ async def generate_session_root_cause_narrative(
             status_code=400,
             detail=f"Invalid rootCausePayload: {exc}",
         ) from exc
+    example_sessions_by_label: dict[str, list[str]] | None = None
+    if isinstance(request.rootCausePayload, dict):
+        raw_segments = request.rootCausePayload.get("segments") or []
+        by_label: dict[str, list[str]] = {}
+        for seg in raw_segments:
+            label = seg.get("label")
+            ids = seg.get("exampleSessionIds")
+            if label and ids:
+                by_label[label] = ids
+        if by_label:
+            example_sessions_by_label = by_label
     try:
         return await generate_session_rca_report(
             runner=session_rca_runner,
             payload=payload,
             date_str=request.date,
             as_of_iso=request.asOf,
+            example_sessions_by_label=example_sessions_by_label,
         )
     except SessionRcaRunnerError as error:
         raise HTTPException(status_code=error.status_code, detail=error.message) from error

@@ -48,6 +48,7 @@ async def generate_session_rca_report(
     payload: RootCausePayloadSchema,
     date_str: str | None = None,
     as_of_iso: str | None = None,
+    example_sessions_by_label: dict[str, list[str]] | None = None,
 ) -> SessionRcaReportResponse:
     session_id = str(uuid.uuid4())
     user_text = _build_session_rca_user_message(payload, date_str, as_of_iso)
@@ -95,6 +96,12 @@ async def generate_session_rca_report(
     if narrative is None:
         logger.error("Session RCA narrative missing, session_id=%s", session_id)
         raise SessionRcaRunnerError(500, "Session RCA narrative missing structured payload")
+
+    if example_sessions_by_label:
+        for insight in narrative.segment_insights:
+            ids = example_sessions_by_label.get(insight.label)
+            if ids:
+                insight.example_session_ids = ids
 
     report_payload = SessionRcaReportPayloadSchema(narrative=narrative)
     response = SessionRcaReportResponse(report=report_payload, cached=False)

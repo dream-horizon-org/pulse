@@ -167,7 +167,14 @@ public class RcaReportProcessor {
       final RcaEnrichmentOutcome enrichment,
       final RcaReportJob job) {
 
-    String body = result.getBufferedBody();
+    final String body = result.getBufferedBody();
+
+    if (job.entityType() == RcaType.SESSION
+        && enrichment.enrichmentOk()
+        && enrichment.rootCause() != null) {
+      String sessionBody = mergeSessionRootCausePayload(body, enrichment);
+      return persistBufferedRcaReport(sessionBody, result, job);
+    }
 
     boolean shouldMergeHeatmaps =
         job.entityType() != RcaType.SCREEN
@@ -221,6 +228,23 @@ public class RcaReportProcessor {
               log.warn("Failed to fetch screens for heatmap merging: {}", error.getMessage());
               return persistBufferedRcaReport(body, result, job);
             });
+  }
+
+  private String mergeSessionRootCausePayload(
+      final String body, final RcaEnrichmentOutcome enrichment) {
+    try {
+      JsonNode bodyNode = objectMapper.readTree(body);
+      if (bodyNode instanceof ObjectNode bodyObj) {
+        JsonNode reportNode = bodyObj.get("report");
+        if (reportNode instanceof ObjectNode reportObj) {
+          reportObj.set("rootCausePayload", objectMapper.valueToTree(enrichment.rootCause()));
+        }
+        return objectMapper.writeValueAsString(bodyObj);
+      }
+    } catch (Exception e) {
+      log.warn("Session RCA: failed to merge rootCausePayload into response: {}", e.getMessage());
+    }
+    return body;
   }
 
   private Single<AiProxyUpstreamResult> persistBufferedRcaReport(

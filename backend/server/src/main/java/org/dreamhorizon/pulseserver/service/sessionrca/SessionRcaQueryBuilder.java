@@ -133,6 +133,34 @@ public final class SessionRcaQueryBuilder {
   }
 
   /**
+   * Returns up to {@code limit} session IDs from {@code session_summary} that match the
+   * segment's dimension filters and have quality_score below the critical threshold.
+   * Ordered by quality_score ASC (worst sessions first) so the most degraded examples surface.
+   */
+  public static RootCauseQuerySpec buildExampleSessionsQuery(
+      String projectId,
+      Instant startInclusive,
+      Instant endExclusive,
+      Map<String, String> dimensionFilters,
+      double criticalThreshold,
+      int limit) {
+    BindAccumulator acc = new BindAccumulator();
+    String thresholdParam = acc.nextName();
+    acc.add(thresholdParam, criticalThreshold);
+    String where = appendDimensionFilters(
+        baseWhereSql(acc, projectId, startInclusive, endExclusive), acc, dimensionFilters);
+    String qualityExpr = "apdexSum / apdexCount";
+    String sql = "SELECT sessionId"
+        + " FROM " + SESSION_SUMMARY_TABLE
+        + " WHERE " + where
+        + " AND apdexCount > 0"
+        + " AND (" + qualityExpr + ") < :" + thresholdParam
+        + " ORDER BY (" + qualityExpr + ") ASC"
+        + " LIMIT " + limit;
+    return acc.toSpec(sql);
+  }
+
+  /**
    * WHERE clause for session_summary: project + time window.
    * Uses bind params prefixed {@code srca_p}.
    */

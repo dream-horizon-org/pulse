@@ -9,6 +9,8 @@ export type {
   RcaStructuredReportV1,
   RcaStructuredSegmentV1,
   SessionRcaNarrativeV1,
+  SessionRcaRootCausePayload,
+  SessionRcaSegment,
   SessionRcaSegmentInsight,
   UseGetRcaReportParams,
 } from "./useGetRcaReport.interface";

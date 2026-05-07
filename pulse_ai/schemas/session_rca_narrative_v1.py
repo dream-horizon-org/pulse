@@ -24,6 +24,10 @@ class SessionRcaSegmentInsight(BaseModel):
         ...,
         description="One sentence: what is notable about this segment.",
     )
+    example_session_ids: list[str] | None = Field(
+        default=None,
+        description="Up to 2 session IDs with quality_score below the critical threshold for this segment.",
+    )
 
 
 class SessionRcaNarrativeV1(BaseModel):

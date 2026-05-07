@@ -64,6 +64,7 @@ export type SessionRcaSegmentInsight = {
   quality_score: number | null;
   volume_pct: number | null;
   key_finding: string;
+  example_session_ids?: string[] | null;
 };
 
 export type SessionRcaNarrativeV1 = {
@@ -73,12 +74,32 @@ export type SessionRcaNarrativeV1 = {
   recommendations: string[];
 };
 
+export type SessionRcaSegment = {
+  label: string;
+  dimensions: Record<string, string>;
+  metrics: Record<string, unknown>;
+  deltas?: Record<string, number> | null;
+  exampleSessionIds?: string[] | null;
+};
+
+export type SessionRcaRootCausePayload = {
+  baseline: Record<string, unknown> | null;
+  segments: SessionRcaSegment[] | null;
+  mode?: string | null;
+  cachedAt?: string | null;
+  everythingGood?: boolean | null;
+  noDataAvailable?: boolean | null;
+  message?: string | null;
+};
+
 export type RcaReportPayload = {
   structured?: RcaStructuredReportV1 | null;
   /** Backend may return double-wrapped report: { report: { structured } } */
   report?: RcaReportPayload | null;
   /** Session RCA narrative (rcaType=SESSION only). */
   narrative?: SessionRcaNarrativeV1 | null;
+  /** Session RCA tabular data merged by backend (rcaType=SESSION only). */
+  rootCausePayload?: SessionRcaRootCausePayload | null;
 };
 
 /**

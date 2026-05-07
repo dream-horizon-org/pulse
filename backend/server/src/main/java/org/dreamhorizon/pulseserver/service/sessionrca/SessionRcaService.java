@@ -53,6 +53,8 @@ public class SessionRcaService {
   private static final String CACHE_FIELD_BASELINE = "baseline";
   private static final String CACHE_FIELD_SEGMENTS = "segments";
 
+  private static final int EVIDENCE_SESSION_LIMIT = 2;
+
   private final RootCauseConfig config;
   private final ClickhouseQueryService clickhouseQueryService;
   private final SessionRcaCacheDao cacheDao;
@@ -375,7 +377,7 @@ public class SessionRcaService {
       String label = dim + ": " + value;
       return fetchAndMaterializeSegment(
           projectId, window, baseline, label, List.of(dim), filters,
-          qualityMean, qualityStd, p20Ms, p80Ms)
+          qualityMean, qualityStd, criticalThreshold, p20Ms, p80Ms)
           .flatMap(optSeg -> {
             List<RootCauseSegment> next = new ArrayList<>(accumulated);
             optSeg.ifPresent(next::add);
@@ -402,13 +404,13 @@ public class SessionRcaService {
       long p20Ms,
       long p80Ms) {
     if (path.size() >= maxSegments) {
-      return materializeSegments(projectId, window, baseline, path, qualityMean, qualityStd, p20Ms, p80Ms);
+      return materializeSegments(projectId, window, baseline, path, qualityMean, qualityStd, criticalThreshold, p20Ms, p80Ms);
     }
     Map<String, String> currentFilters = path.stream()
         .collect(Collectors.toMap(s -> s.dimension, s -> s.value, (a, b) -> b));
     int nextDimIndex = hierarchyStartDimIndex + path.size();
     if (nextDimIndex >= dimOrder.size()) {
-      return materializeSegments(projectId, window, baseline, path, qualityMean, qualityStd, p20Ms, p80Ms);
+      return materializeSegments(projectId, window, baseline, path, qualityMean, qualityStd, criticalThreshold, p20Ms, p80Ms);
     }
     String nextDim = dimOrder.get(nextDimIndex);
     var spec = SessionRcaQueryBuilder.buildLowQualityCountByDimensionQuery(
@@ -423,7 +425,7 @@ public class SessionRcaService {
             projectId, window, dimOrder, maxSegments, 0, flatExtras, dimsInPath,
             criticalThreshold, p20Ms, p80Ms)
             .flatMap(finalPath ->
-                materializeSegments(projectId, window, baseline, finalPath, qualityMean, qualityStd, p20Ms, p80Ms));
+                materializeSegments(projectId, window, baseline, finalPath, qualityMean, qualityStd, criticalThreshold, p20Ms, p80Ms));
       }
       List<SegmentPath> newPath = new ArrayList<>(path);
       newPath.add(picked.get());
@@ -482,11 +484,12 @@ public class SessionRcaService {
       List<SegmentPath> path,
       double qualityMean,
       double qualityStd,
+      double criticalThreshold,
       long p20Ms,
       long p80Ms) {
     return materializeSegmentsFromIndex(
         projectId, window, baseline, path, 0, new LinkedHashMap<>(), new ArrayList<>(),
-        qualityMean, qualityStd, p20Ms, p80Ms);
+        qualityMean, qualityStd, criticalThreshold, p20Ms, p80Ms);
   }
 
   private Single<List<RootCauseSegment>> materializeSegmentsFromIndex(
@@ -499,6 +502,7 @@ public class SessionRcaService {
       List<RootCauseSegment> segments,
       double qualityMean,
       double qualityStd,
+      double criticalThreshold,
       long p20Ms,
       long p80Ms) {
     if (index >= path.size()) {
@@ -516,7 +520,7 @@ public class SessionRcaService {
     if (isIntermediateHierarchy) {
       return materializeSegmentsFromIndex(
           projectId, window, baseline, path, index + 1, nextAcc, segments,
-          qualityMean, qualityStd, p20Ms, p80Ms);
+          qualityMean, qualityStd, criticalThreshold, p20Ms, p80Ms);
     }
 
     String label = p.isFlatExtra || path.size() == 1
@@ -525,13 +529,13 @@ public class SessionRcaService {
     return fetchAndMaterializeSegment(
         projectId, window, baseline, label,
         new ArrayList<>(nextAcc.keySet()), Map.copyOf(nextAcc),
-        qualityMean, qualityStd, p20Ms, p80Ms)
+        qualityMean, qualityStd, criticalThreshold, p20Ms, p80Ms)
         .flatMap(optSeg -> {
           List<RootCauseSegment> nextSegs = new ArrayList<>(segments);
           optSeg.ifPresent(nextSegs::add);
           return materializeSegmentsFromIndex(
               projectId, window, baseline, path, index + 1, nextAcc, nextSegs,
-              qualityMean, qualityStd, p20Ms, p80Ms);
+              qualityMean, qualityStd, criticalThreshold, p20Ms, p80Ms);
         });
   }
 
@@ -544,6 +548,7 @@ public class SessionRcaService {
       Map<String, String> dimensionFilters,
       double qualityMean,
       double qualityStd,
+      double criticalThreshold,
       long p20Ms,
       long p80Ms) {
     double baselineVolume = NumberCoercionUtils.toDouble(
@@ -553,16 +558,16 @@ public class SessionRcaService {
     var spec = SessionRcaQueryBuilder.buildSegmentQuery(
         projectId, window.startInclusive, window.endExclusive,
         dimColumns, dimensionFilters, p20Ms, p80Ms);
-    return executeQuery(projectId, spec).map(rows -> {
+    return executeQuery(projectId, spec).flatMap(rows -> {
       if (rows.isEmpty()) {
-        return Optional.<RootCauseSegment>empty();
+        return Single.just(Optional.<RootCauseSegment>empty());
       }
       Map<String, Object> row = rows.get(0);
       long segVolume = NumberCoercionUtils.toLong(row.get(SessionRcaMetricsRegistry.VOLUME));
       if (segVolume < minVolumeAbs) {
         log.debug("[SESSION-RCA] volume guard: segment='{}' volume={} < minVolumeAbs={}, excluded",
             label, segVolume, minVolumeAbs);
-        return Optional.<RootCauseSegment>empty();
+        return Single.just(Optional.<RootCauseSegment>empty());
       }
       double segQuality = NumberCoercionUtils.toDouble(
           row.get(SessionRcaMetricsRegistry.QUALITY_SCORE));
@@ -582,15 +587,35 @@ public class SessionRcaService {
       Map<String, Object> metrics = new LinkedHashMap<>(row);
       metrics.put(SessionRcaMetricsRegistry.Z_SCORE, zScore);
       metrics.put(SessionRcaMetricsRegistry.IMPACT, impact);
-
       Map<String, Double> deltas = computeDeltas(baseline, row);
-      RootCauseSegment segment = RootCauseSegment.builder()
-          .label(label)
-          .dimensions(new LinkedHashMap<>(dimensionFilters))
-          .metrics(metrics)
-          .deltas(deltas)
-          .build();
-      return Optional.of(segment);
+
+      var evidenceSpec = SessionRcaQueryBuilder.buildExampleSessionsQuery(
+          projectId, window.startInclusive, window.endExclusive,
+          dimensionFilters, criticalThreshold, EVIDENCE_SESSION_LIMIT);
+      return executeQuery(projectId, evidenceSpec)
+          .map(evidenceRows -> {
+            List<String> exampleSessionIds = evidenceRows.stream()
+                .map(r -> {
+                  Object sid = r.get("sessionId");
+                  return sid != null ? sid.toString() : null;
+                })
+                .filter(sid -> sid != null && !sid.isBlank())
+                .toList();
+            RootCauseSegment segment = RootCauseSegment.builder()
+                .label(label)
+                .dimensions(new LinkedHashMap<>(dimensionFilters))
+                .metrics(metrics)
+                .deltas(deltas)
+                .exampleSessionIds(exampleSessionIds.isEmpty() ? null : exampleSessionIds)
+                .build();
+            return Optional.of(segment);
+          })
+          .onErrorReturnItem(Optional.of(RootCauseSegment.builder()
+              .label(label)
+              .dimensions(new LinkedHashMap<>(dimensionFilters))
+              .metrics(metrics)
+              .deltas(deltas)
+              .build()));
     });
   }
 

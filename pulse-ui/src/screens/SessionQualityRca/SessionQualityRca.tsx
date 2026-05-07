@@ -15,9 +15,14 @@ import { IconRefresh, IconSparkles } from "@tabler/icons-react";
 import dayjs from "dayjs";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ErrorAndEmptyState } from "../../components/ErrorAndEmptyState";
-import { useGetSessionRca } from "../../hooks/useGetSessionRca";
+import { RcaSessionReplayEvidenceCard } from "../CriticalInteractionDetails/components/RootCause/RcaSessionReplayEvidenceCard";
 import { useGetRcaReport } from "../../hooks/useGetRcaReport";
-import type { SessionRcaNarrativeV1, SessionRcaSegmentInsight } from "../../hooks/useGetRcaReport";
+import type {
+  SessionRcaNarrativeV1,
+  SessionRcaRootCausePayload,
+  SessionRcaSegment,
+  SessionRcaSegmentInsight,
+} from "../../hooks/useGetRcaReport";
 import {
   RCA_TYPE,
   ROOT_CAUSE_MESSAGES,
@@ -91,7 +96,14 @@ function ImpactBadge({ impact }: { impact: string }) {
   );
 }
 
-function SegmentInsightRow({ insight }: { insight: SessionRcaSegmentInsight }) {
+function SegmentInsightRow({
+  insight,
+  projectId,
+}: {
+  insight: SessionRcaSegmentInsight;
+  projectId?: string | null;
+}) {
+  const evidenceIds = insight.example_session_ids?.filter(Boolean) ?? [];
   return (
     <Box className={classes.insightRow}>
       <Group gap="xs" mb={4}>
@@ -110,6 +122,26 @@ function SegmentInsightRow({ insight }: { insight: SessionRcaSegmentInsight }) {
         )}
       </Group>
       <Text size="sm" c="dimmed" lh={1.5}>{insight.key_finding}</Text>
+      {evidenceIds.length > 0 && (
+        <div className={rcaClasses.evidenceSection}>
+          <div className={rcaClasses.evidenceSectionTitleRow}>
+            <Text size="xs" fw={600} tt="uppercase" c="gray.6">Session evidence</Text>
+          </div>
+          <div className={rcaClasses.evidenceCardRow}>
+            {evidenceIds.map((sid, idx) => (
+              <div key={sid} className={rcaClasses.evidenceCardSlot}>
+                <RcaSessionReplayEvidenceCard
+                  sessionId={sid}
+                  segmentTitle={insight.label}
+                  projectId={projectId}
+                  evidenceOrdinal={idx + 1}
+                  evidenceSessionCount={evidenceIds.length}
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </Box>
   );
 }
@@ -122,34 +154,6 @@ export function SessionQualityRca({
   const regenerateTimerRef = useRef<number | null>(null);
   const pid = projectId != null ? String(projectId).trim() : "";
   const isProjectIdMissing = pid === "";
-
-  const {
-    data: apiResult,
-    isLoading,
-    isError,
-    error,
-    refetch,
-  } = useGetSessionRca({
-    date,
-    asOfIso,
-    projectId,
-    enabled:
-      !isProjectIdMissing &&
-      /^\d{4}-\d{2}-\d{2}$/.test(String(date)) &&
-      String(asOfIso).trim() !== "",
-  });
-
-  const payload = apiResult?.data ?? null;
-  const errMsg =
-    apiResult?.error?.message ?? (error instanceof Error ? error.message : null);
-  const shouldShowError = isError || (apiResult?.error != null && !payload);
-
-  const narrativeEnabled =
-    !isProjectIdMissing &&
-    !isLoading &&
-    !shouldShowError &&
-    payload != null &&
-    !payload.noDataAvailable;
 
   const [requestSession, setRequestSession] = useState(0);
 
@@ -168,7 +172,7 @@ export function SessionQualityRca({
   } = useGetRcaReport({
     entityKey: SESSION_RCA_ENTITY_KEY,
     date,
-    enabled: narrativeEnabled,
+    enabled: !isProjectIdMissing && /^\d{4}-\d{2}-\d{2}$/.test(String(date)) && String(asOfIso).trim() !== "",
     projectId,
     rcaType: RCA_TYPE.SESSION,
     requestSession,
@@ -176,13 +180,13 @@ export function SessionQualityRca({
 
   const narrativeBusy = narrativeLoading || isRcaQueuePending || isProcessing;
 
-  // Extract session narrative from job result
+  // Extract session narrative and tabular data from job result
   const reportPayload = narrativeData?.data?.report;
+  const innerReport = reportPayload?.report ?? reportPayload;
   const narrative: SessionRcaNarrativeV1 | null =
-    (reportPayload?.narrative ??
-      (reportPayload?.report as { narrative?: SessionRcaNarrativeV1 } | null | undefined)
-        ?.narrative ??
-      null) as SessionRcaNarrativeV1 | null;
+    (innerReport?.narrative ?? null) as SessionRcaNarrativeV1 | null;
+  const rcaPayload: SessionRcaRootCausePayload | null =
+    (innerReport?.rootCausePayload ?? null) as SessionRcaRootCausePayload | null;
 
   const executiveSummaryText = narrative?.executive_summary?.trim() ?? "";
   const segmentInsights = (narrative?.segment_insights ?? []).filter(
@@ -195,10 +199,9 @@ export function SessionQualityRca({
   const hasInsights = segmentInsights.length > 0;
   const hasRecommendations = recommendationLines.length > 0;
 
-  const showNarrativeWait = narrativeEnabled && narrativeBusy && !narrativeIsError;
+  const showNarrativeWait = !isProjectIdMissing && narrativeBusy && !narrativeIsError;
 
   const handleRegenerate = useCallback(() => {
-    if (!payload) return;
     if (regenerateTimerRef.current !== null) {
       window.clearTimeout(regenerateTimerRef.current);
     }
@@ -206,7 +209,7 @@ export function SessionQualityRca({
       setRequestSession((s) => s + 1);
       regenerateTimerRef.current = null;
     }, REGENERATE_DEBOUNCE_MS);
-  }, [payload]);
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -236,10 +239,8 @@ export function SessionQualityRca({
 
   const noticeModalOpen = showNarrativeWait && !dismissedNotice && noticeDelayElapsed;
 
-  const cachedAt = narrativeData?.data?.cachedAt;
-  const reportAsOf = formatReportAsOf(
-    cachedAt != null ? String(cachedAt) : (payload?.cachedAt ?? null),
-  );
+  const cachedAt = narrativeData?.data?.cachedAt ?? rcaPayload?.cachedAt ?? null;
+  const reportAsOf = formatReportAsOf(cachedAt != null ? String(cachedAt) : null);
 
   if (isProjectIdMissing) {
     return (
@@ -254,62 +255,19 @@ export function SessionQualityRca({
     );
   }
 
-  if (isLoading) {
-    return (
-      <Box className={interactionRcaClasses.container}>
-        <div className={interactionRcaClasses.skeletonWrapper}>
-          <Skeleton height={24} width={200} mb="md" />
-          <Skeleton height={120} mb="md" />
-          <Skeleton height={120} mb="md" />
-          <Skeleton height={120} />
-        </div>
-      </Box>
-    );
-  }
-
-  if (shouldShowError) {
-    const isTimeout = (errMsg ?? "").toLowerCase().includes("timeout");
-    return (
-      <Box className={interactionRcaClasses.container}>
-        <Stack align="center" gap="md" className={interactionRcaClasses.stateMessage}>
-          <ErrorAndEmptyState
-            message={isTimeout ? ROOT_CAUSE_MESSAGES.REQUEST_TIMEOUT : (errMsg ?? ROOT_CAUSE_MESSAGES.GENERIC_ERROR)}
-            classes={[interactionRcaClasses.errorState]}
-          />
-          <Button
-            className={interactionRcaClasses.retryButton}
-            leftSection={<IconRefresh size={16} />}
-            variant="light"
-            onClick={() => refetch()}
-          >
-            Retry
-          </Button>
-        </Stack>
-      </Box>
-    );
-  }
-
-  if (!payload) {
-    return (
-      <Box className={interactionRcaClasses.container}>
-        <Text className={interactionRcaClasses.stateMessage}>No data available</Text>
-      </Box>
-    );
-  }
-
-  if (payload.noDataAvailable) {
+  if (isCompleted && rcaPayload?.noDataAvailable) {
     return (
       <Box className={interactionRcaClasses.container}>
         <Alert color="gray" title="No data in selected period">
-          {payload.message ?? "No session data available for the selected period."}
+          {rcaPayload.message ?? "No session data available for the selected period."}
         </Alert>
       </Box>
     );
   }
 
-  const baseline = payload.baseline ?? {};
-  const segments = payload.segments ?? [];
-  const showGoodBanner = payload.everythingGood === true;
+  const baseline = rcaPayload?.baseline ?? {};
+  const segments = rcaPayload?.segments ?? [];
+  const showGoodBanner = isCompleted && rcaPayload?.everythingGood === true;
 
   return (
     <>
@@ -332,7 +290,7 @@ export function SessionQualityRca({
         <Stack gap="lg">
           {showGoodBanner ? (
             <Alert color="teal" title="Session quality is healthy">
-              {payload.message ?? "No quality degradation detected in the selected period."}
+              {rcaPayload?.message ?? "No quality degradation detected in the selected period."}
             </Alert>
           ) : null}
 
@@ -351,9 +309,9 @@ export function SessionQualityRca({
               </Text>
             ) : <div />}
             <Group gap="xs">
-              {payload.mode != null && (
+              {rcaPayload?.mode != null && (
                 <Badge size="sm" variant="outline" color="gray">
-                  {payload.mode}
+                  {rcaPayload.mode}
                 </Badge>
               )}
               <Button
@@ -432,7 +390,7 @@ export function SessionQualityRca({
               </Group>
               <Stack gap="sm">
                 {segmentInsights.map((si, i) => (
-                  <SegmentInsightRow key={`${si.label}-${i}`} insight={si} />
+                  <SegmentInsightRow key={`${si.label}-${i}`} insight={si} projectId={projectId} />
                 ))}
               </Stack>
             </Card>
@@ -455,11 +413,11 @@ export function SessionQualityRca({
           ) : null}
 
           {/* Tabular segments */}
-          {segments.length === 0 ? (
+          {isCompleted && !narrativeBusy && segments.length === 0 ? (
             <Text className={interactionRcaClasses.stateMessage}>
               No segment breakdown available.
             </Text>
-          ) : (
+          ) : isCompleted && !narrativeBusy && segments.length > 0 ? (
             <Box>
               <div className={rcaClasses.segmentsSectionTitleRow}>
                 <Text fw={700} size="md" tt="uppercase" c="gray.7">
@@ -468,8 +426,8 @@ export function SessionQualityRca({
                 <Badge size="sm" variant="light" color="gray">{segments.length}</Badge>
               </div>
               <Stack gap="md">
-                {segments.map((seg, idx) => {
-                  const impact = seg.metrics?.impact;
+                {(segments as SessionRcaSegment[]).map((seg, idx) => {
+                  const impact = seg.metrics?.impact as string | undefined;
                   return (
                     <Card
                       key={`${seg.label}-${idx}`}
@@ -576,7 +534,7 @@ export function SessionQualityRca({
                 })}
               </Stack>
             </Box>
-          )}
+          ) : null}
         </Stack>
       </Box>
     </>
