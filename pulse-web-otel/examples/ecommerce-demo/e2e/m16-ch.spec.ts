@@ -143,9 +143,9 @@ test.describe("@M16-CH useRouterTracking + screen.name", () => {
     // Emit custom event — screen.name should be /cart in otel_logs
     await page.evaluate(() => {
       const w = window as unknown as {
-        PulseWeb?: { trackEvent: (n: string) => void };
+        Pulse?: { trackEvent: (n: string) => void };
       };
-      w.PulseWeb?.trackEvent("ch_screen_name_check");
+      w.Pulse?.trackEvent("ch_screen_name_check");
     });
 
     await page.waitForTimeout(INGEST_WAIT);

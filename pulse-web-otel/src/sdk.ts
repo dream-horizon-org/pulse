@@ -1,4 +1,4 @@
-// M1: PulseWebSDK — minimal init sequence matching Android's public API surface.
+// M1: PulseSDK — minimal init sequence matching Android's public API surface.
 // Endpoint URL, wire format, compression, and batch timing are fixed internally.
 // `diskBuffering` mirrors Android `DiskBufferingConfig`: **on by default** (PulseSDK does not expose
 // a disk toggle; OTel `DiskBufferingConfigurationSpec` defaults `isEnabled = true`). Pass
@@ -61,11 +61,11 @@ import { resolveBeforeSend } from "./before-send";
 import { InteractionInstrumentation } from "./instrumentations/interaction";
 import type { PulseAttributes } from "./types/attributes";
 
-class PulseWebSDK implements SdkContext {
-  private static _instance: PulseWebSDK | null = null;
+class PulseSDK implements SdkContext {
+  private static _instance: PulseSDK | null = null;
   private _initialized = false;
   private _shuttingDown = false;
-  private _starting = false;
+  private _initializing = false;
 
   endpointBaseUrl = "";
   sessionProvider!: SessionProvider;
@@ -85,8 +85,8 @@ class PulseWebSDK implements SdkContext {
   private _providerCleanup: () => void = () => {};
   private interactionInstrumentation?: InteractionInstrumentation;
 
-  /** Promise for in-flight {@link start}; cleared when {@code finishStart} settles. */
-  private _startSettled: Promise<void> | null = null;
+  /** Promise for in-flight {@link init}; cleared when {@code finishInit} settles. */
+  private _initSettled: Promise<void> | null = null;
 
   /** Exposed on {@link SdkContext} for instrumentations that must flush logs (Web Vitals). */
   get loggerProvider(): LoggerProvider | undefined {
@@ -94,31 +94,31 @@ class PulseWebSDK implements SdkContext {
   }
 
   /**
-   * OTel {@link WebTracerProvider} — defined after {@link start}'s async init completes.
-   * Await {@link whenReady} (or the promise returned from {@link start}) before use; until then
-   * this getter may be undefined even though {@link start} was called.
+   * OTel {@link WebTracerProvider} — defined after {@link init}'s async bootstrap completes.
+   * Await {@link whenReady} (or the promise returned from {@link init}) before use; until then
+   * this getter may be undefined even though {@link init} was called.
    */
   get tracerProvider(): WebTracerProvider | undefined {
     return this._webTracerProvider;
   }
 
-  static getInstance(): PulseWebSDK {
-    if (!PulseWebSDK._instance) {
-      PulseWebSDK._instance = new PulseWebSDK();
+  static getInstance(): PulseSDK {
+    if (!PulseSDK._instance) {
+      PulseSDK._instance = new PulseSDK();
     }
-    return PulseWebSDK._instance;
+    return PulseSDK._instance;
   }
 
   /**
    * Begins SDK initialization. Returns a promise that settles when async bootstrap
-   * ({@code finishStart}) completes — same instant as {@link whenReady}. Safe to ignore
+   * ({@code finishInit}) completes — same instant as {@link whenReady}. Safe to ignore
    * the return value unless you need {@link tracerProvider} immediately after.
    */
-  start(config: PulseWebConfig): Promise<void> {
+  init(config: PulseWebConfig): Promise<void> {
     if (this._initialized || this._shuttingDown) {
       return Promise.resolve();
     }
-    if (this._starting) {
+    if (this._initializing) {
       return this.whenReady();
     }
     // Step 1: Validate config
@@ -136,22 +136,22 @@ class PulseWebSDK implements SdkContext {
 
     const meteringSessionId = crypto.randomUUID();
 
-    // Set _starting before the async finishStart so the singleton guard blocks
-    // any duplicate start() calls that arrive during the 200ms OS-version await.
-    this._starting = true;
-    const done = this.finishStart(
+    // Set _initializing before the async finishInit so the singleton guard blocks
+    // any duplicate init() calls that arrive during the 200ms OS-version await.
+    this._initializing = true;
+    const done = this.finishInit(
       config,
       endpointBaseUrl,
       meteringSessionId,
     ).finally(() => {
-      this._startSettled = null;
+      this._initSettled = null;
     });
-    this._startSettled = done;
+    this._initSettled = done;
     return done;
   }
 
   /**
-   * Resolves when {@link start}'s async work has finished (or immediately if already
+   * Resolves when {@link init}'s async work has finished (or immediately if already
    * {@link isInitialized}). If consent blocked init or startup aborted, still resolves —
    * check {@link isInitialized} before using {@link tracerProvider}.
    */
@@ -159,15 +159,15 @@ class PulseWebSDK implements SdkContext {
     if (this._initialized) {
       return Promise.resolve();
     }
-    return this._startSettled ?? Promise.resolve();
+    return this._initSettled ?? Promise.resolve();
   }
 
-  private async finishStart(
+  private async finishInit(
     config: PulseWebConfig,
     endpointBaseUrl: string,
     meteringSessionId: string,
   ): Promise<void> {
-    if (this.abortStartIfUnavailable()) return;
+    if (this.abortInitIfUnavailable()) return;
 
     this.initializeSessionContext();
 
@@ -175,7 +175,7 @@ class PulseWebSDK implements SdkContext {
     const syncUA = parseUserAgent();
     const resolvedOsVersion = await getOsVersionAsync(syncUA.osVersion);
     if (this._shuttingDown) {
-      this._starting = false;
+      this._initializing = false;
       return;
     }
     const resource = buildMergedResource(config, resolvedOsVersion);
@@ -212,19 +212,19 @@ class PulseWebSDK implements SdkContext {
     void this.configFetcher.fetchInBackground();
 
     this._initialized = true;
-    this._starting = false;
+    this._initializing = false;
     this.emitInstallationStartIfNeeded();
   }
 
-  private abortStartIfUnavailable(): boolean {
-    // SSR / non-browser: no `window` on globalThis — skip init (TC-C16).
-    const w = (globalThis as { window?: unknown }).window;
+  private abortInitIfUnavailable(): boolean {
+    // SSR / non-browser — skip init (TC-C16). Avoid `unknown`; `window` may be absent on globalThis.
+    const w = (globalThis as typeof globalThis & { window?: Window }).window;
     if (w == null) {
-      this._starting = false;
+      this._initializing = false;
       return true;
     }
     if (this._initialized || this._shuttingDown) {
-      this._starting = false;
+      this._initializing = false;
       return true;
     }
     return false;
@@ -411,9 +411,9 @@ class PulseWebSDK implements SdkContext {
   }
 
   async shutdown(): Promise<void> {
-    if (!this._initialized && !this._starting) return;
+    if (!this._initialized && !this._initializing) return;
     this._shuttingDown = true;
-    this._starting = false; // kill any pending async init
+    this._initializing = false; // kill any pending async init
 
     if (this._pagehideListener && typeof window !== "undefined") {
       window.removeEventListener(DomEventType.PAGEHIDE, this._pagehideListener);
@@ -439,7 +439,7 @@ class PulseWebSDK implements SdkContext {
     this._initialized = false;
     this._shuttingDown = false;
     PulseWebLogger.setLevel(PulseLogLevel.NONE);
-    // _starting already reset above
+    // _initializing already reset above
   }
 
   isInitialized(): boolean {
@@ -563,6 +563,10 @@ class PulseWebSDK implements SdkContext {
     }
   }
 
+  /**
+   * Manual non-fatal error report. Parameter is {@link unknown} because callers may pass
+   * non-{@link Error} throws/rejections; values are normalised to {@link Error} internally.
+   */
   reportException(error: unknown, attrs?: PulseAttributes): void {
     if (!this._initialized) return;
     const err = error instanceof Error ? error : new Error(String(error));
@@ -588,6 +592,7 @@ class PulseWebSDK implements SdkContext {
   /**
    * React render errors and similar fatals — `pulse.type` = device.crash (dashboard contract).
    */
+  /** Fatals / render crashes — same {@link unknown} rationale as {@link reportException}. */
   reportDeviceCrash(error: unknown, attrs?: PulseAttributes): void {
     if (!this._initialized) return;
     const err = error instanceof Error ? error : new Error(String(error));
@@ -664,4 +669,4 @@ class PulseWebSDK implements SdkContext {
   }
 }
 
-export const PulseWeb = PulseWebSDK.getInstance();
+export const Pulse = PulseSDK.getInstance();

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { PulseWeb } from "@dreamhorizon/pulse-web";
+import { Pulse } from "@dreamhorizon/pulse-web";
 import { useCart } from "../context/CartContext";
 import { api, ApiError } from "../lib/api";
 
@@ -23,7 +23,7 @@ export function CartFooter({ lotteryId, pricePerTicket, saleOpen }: Props) {
 
   async function handleBuy() {
     setBuying(true);
-    PulseWeb.trackEvent("cart_checkout_click", {
+    Pulse.trackEvent("cart_checkout_click", {
       lottery_id: lotteryId,
       ticket_count: totalTickets,
       total_amount: totalAmount(pricePerTicket),
@@ -36,7 +36,7 @@ export function CartFooter({ lotteryId, pricePerTicket, saleOpen }: Props) {
         pricePerTicket,
       });
 
-      PulseWeb.trackEvent("ticket_purchased", {
+      Pulse.trackEvent("ticket_purchased", {
         lottery_id: lotteryId,
         ticket_count: totalTickets,
         amount: totalAmount(pricePerTicket),
@@ -47,7 +47,7 @@ export function CartFooter({ lotteryId, pricePerTicket, saleOpen }: Props) {
     } catch (err) {
       const code =
         err instanceof ApiError ? err.code : "UNKNOWN";
-      PulseWeb.trackEvent("purchase_failed", {
+      Pulse.trackEvent("purchase_failed", {
         lottery_id: lotteryId,
         error_code: code,
         scenario,

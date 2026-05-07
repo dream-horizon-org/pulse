@@ -9,7 +9,7 @@ interface OtlpCall {
   sizeBytes: number;
 }
 
-type PulseWebInstance = {
+type PulseSdkWindow = {
   isInitialized: () => boolean;
 };
 
@@ -63,7 +63,9 @@ export function PulseDebugPanel() {
               ? "metrics"
               : url;
         const sizeBytes = Number(
-          res.headers.get("content-length") ?? init?.body?.toString().length ?? 0,
+          res.headers.get("content-length") ??
+            init?.body?.toString().length ??
+            0,
         );
         setOtlpCalls((prev) =>
           [
@@ -86,9 +88,12 @@ export function PulseDebugPanel() {
     };
   }, [open, refresh]);
 
-  const pulse = typeof window !== "undefined"
-    ? (window as unknown as Record<string, unknown>)["PulseWeb"] as PulseWebInstance | undefined
-    : undefined;
+  const pulse =
+    typeof window !== "undefined"
+      ? ((window as unknown as Record<string, unknown>)["Pulse"] as
+          | PulseSdkWindow
+          | undefined)
+      : undefined;
 
   if (!open) {
     return (
@@ -138,39 +143,76 @@ export function PulseDebugPanel() {
         padding: "12px 14px",
       }}
     >
-      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          marginBottom: 8,
+        }}
+      >
         <span style={{ fontWeight: 700, color: "#6366f1" }}>Pulse Debug</span>
         <button
           onClick={() => setOpen(false)}
-          style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: 12 }}
+          style={{
+            background: "none",
+            border: "none",
+            color: "#94a3b8",
+            cursor: "pointer",
+            fontSize: 12,
+          }}
         >
           ✕
         </button>
       </div>
 
       <div style={{ color: "#94a3b8", marginBottom: 8 }}>
-        <div>SDK: {pulse?.isInitialized() ? "✅ initialized" : "⏳ not ready"}</div>
-        <div>Session: <span style={{ color: "#fbbf24" }}>{sessionId.slice(0, 8)}…</span></div>
-        <div>Install: <span style={{ color: "#fbbf24" }}>{installId.slice(0, 8)}…</span></div>
+        <div>
+          SDK: {pulse?.isInitialized() ? "✅ initialized" : "⏳ not ready"}
+        </div>
+        <div>
+          Session:{" "}
+          <span style={{ color: "#fbbf24" }}>{sessionId.slice(0, 8)}…</span>
+        </div>
+        <div>
+          Install:{" "}
+          <span style={{ color: "#fbbf24" }}>{installId.slice(0, 8)}…</span>
+        </div>
         {idbCount !== null && <div>IDB buffer: {idbCount} rows</div>}
       </div>
 
-      <div style={{ borderTop: "1px solid #1e293b", paddingTop: 8, marginTop: 4 }}>
-        <div style={{ color: "#64748b", marginBottom: 4, fontSize: 10, textTransform: "uppercase" }}>
+      <div
+        style={{ borderTop: "1px solid #1e293b", paddingTop: 8, marginTop: 4 }}
+      >
+        <div
+          style={{
+            color: "#64748b",
+            marginBottom: 4,
+            fontSize: 10,
+            textTransform: "uppercase",
+          }}
+        >
           OTLP calls ({otlpCalls.length})
         </div>
         {otlpCalls.length === 0 && (
           <div style={{ color: "#475569" }}>No OTLP traffic yet…</div>
         )}
         {otlpCalls.map((c, i) => (
-          <div key={i} style={{ color: c.status < 300 ? "#4ade80" : "#f87171", marginBottom: 2 }}>
+          <div
+            key={i}
+            style={{
+              color: c.status < 300 ? "#4ade80" : "#f87171",
+              marginBottom: 2,
+            }}
+          >
             [{c.time}] {c.endpoint} {c.status}
             {c.sizeBytes > 0 ? ` (${c.sizeBytes}b)` : ""}
           </div>
         ))}
       </div>
 
-      <div style={{ marginTop: 8, borderTop: "1px solid #1e293b", paddingTop: 8 }}>
+      <div
+        style={{ marginTop: 8, borderTop: "1px solid #1e293b", paddingTop: 8 }}
+      >
         <button
           onClick={refresh}
           style={{

@@ -24,9 +24,9 @@ async function waitForSdkReady(page: Page): Promise<void> {
       () =>
         page.evaluate(() => {
           const w = window as unknown as {
-            PulseWeb?: { isInitialized: () => boolean };
+            Pulse?: { isInitialized: () => boolean };
           };
-          return w.PulseWeb?.isInitialized?.() ?? false;
+          return w.Pulse?.isInitialized?.() ?? false;
         }),
       { timeout: 15_000 },
     )

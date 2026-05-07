@@ -167,7 +167,7 @@ Without this, CI has no size gate on the new subpath. Tune the limit after first
 
 **What it does:**
 - Uses `usePathname()` + `useSearchParams()` from `next/navigation`
-- Calls `PulseWeb.setScreenName(name)` on every pathname change
+- Calls `Pulse.setScreenName(name)` on every pathname change
 - Mirrors the exact same options API as `useRouterTracking` for consistency:
   `format`, `includeSearch`, `skipInitial` (default `true`)
 - StrictMode-safe via `useRef` guard (same pattern as `useRouterTracking`)
@@ -182,7 +182,7 @@ triggers a re-render). This is a Next.js platform limitation — document it.
 "use client";
 import { useEffect, useRef } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
-import { PulseWeb } from "../../sdk";
+import { Pulse } from "../../sdk";
 import type { UseNextAppRouterTrackingOptions } from "../../types/next";
 
 export function useNextAppRouterTracking(
@@ -219,7 +219,7 @@ export function useNextAppRouterTracking(
       ? format({ pathname: resolvedPathname ?? "", search: searchParams.toString(), hash: "" })
       : dependency;
 
-    PulseWeb.setScreenName(name);
+    Pulse.setScreenName(name);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dependency]);
 }
@@ -251,7 +251,7 @@ require a `<Suspense>` boundary above it during SSR prerendering. This is why
   `router.events.on('routeChangeComplete')` in a `useEffect`
 - Unlike App Router, Pages Router gives us `routeChangeStart` — navigation
   start time can be captured for future use when NavigationInstrumentation lands
-- Calls `PulseWeb.setScreenName(url)` on `routeChangeComplete`
+- Calls `Pulse.setScreenName(url)` on `routeChangeComplete`
 - Same options API: `format`, `includeSearch`, `skipInitial`
 - `"use client"` directive at top
 
@@ -271,7 +271,7 @@ Users pick the right hook for their router version.
 "use client";
 import { useEffect, useRef } from "react";
 import { useRouter } from "next/router";
-import { PulseWeb } from "../../sdk";
+import { Pulse } from "../../sdk";
 import type { UseNextPagesRouterTrackingOptions } from "../../types/next";
 
 export function useNextPagesRouterTracking(
@@ -292,7 +292,7 @@ export function useNextPagesRouterTracking(
       const name = format
         ? format({ pathname: parsedUrl.pathname, search: parsedUrl.search.slice(1) })
         : dependency;
-      PulseWeb.setScreenName(name);
+      Pulse.setScreenName(name);
     };
 
     router.events.on("routeChangeComplete", handleRouteChangeComplete);
@@ -477,7 +477,7 @@ export function createPulseInstrumentationHandler(
 ```
 
 **Note:** Server-side signal sending uses a raw `fetch` OTLP call — the browser
-SDK singleton (`PulseWeb`) is not available in the Node.js server runtime.
+SDK singleton (`Pulse`) is not available in the Node.js server runtime.
 The helper constructs a minimal OTLP log record and ships it directly.
 
 **Compatibility:** Next.js 15.0.0+ only (stable `onRequestError`). Document this.
@@ -594,7 +594,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 to demo navigation screen tracking.
 
 `app/error-demo/page.tsx` — button that throws + one that calls
-`PulseWeb.reportException()` manually.
+`Pulse.reportException()` manually.
 
 `.env.example`:
 ```

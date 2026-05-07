@@ -10,7 +10,7 @@ Lifecycle, configuration, consent gating, and identity attributes — summarized
 
 ## Code entrypoints
 
-- `pulse-web-otel/src/sdk.ts` — `PulseWeb.init`, shutdown, feature wiring
+- `pulse-web-otel/src/sdk.ts` — `Pulse.init`, shutdown, feature wiring
 - Feature gates — `PulseFeature` and instrumentation registration under `src/instrumentations/`
 
 ## Related

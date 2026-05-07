@@ -23,16 +23,16 @@ import {
 const OTLP_SPAN_STATUS_OK = 1;
 const OTLP_SPAN_STATUS_ERROR = 2;
 
-async function waitForPulseWebInitialized(page: Page): Promise<void> {
+async function waitForPulseInitialized(page: Page): Promise<void> {
   await page.waitForLoadState("domcontentloaded");
   await expect
     .poll(
       async () =>
         page.evaluate(() => {
           const w = window as unknown as {
-            PulseWeb?: { isInitialized: () => boolean };
+            Pulse?: { isInitialized: () => boolean };
           };
-          return w.PulseWeb?.isInitialized?.() ?? false;
+          return w.Pulse?.isInitialized?.() ?? false;
         }),
       { timeout: 15_000 },
     )
@@ -91,9 +91,9 @@ async function pollProbeHttpSpan(
 }
 
 /** Last matching span — `url.full` may be absent on XHR timeout/abort when `responseURL` is empty. */
-async function pollLastNetworkZeroTransportErrorSpan(
-  otlp: { captured: unknown[] },
-): Promise<OtlpSpan> {
+async function pollLastNetworkZeroTransportErrorSpan(otlp: {
+  captured: unknown[];
+}): Promise<OtlpSpan> {
   let found: OtlpSpan | undefined;
   await expect
     .poll(
@@ -119,7 +119,7 @@ test.describe("@M4 network e2e", () => {
     otlp,
   }) => {
     await page.goto("/network-lab");
-    await waitForPulseWebInitialized(page);
+    await waitForPulseInitialized(page);
     await otlp.waitForLog("session.start", 15_000);
     otlp.reset();
 
@@ -149,7 +149,7 @@ test.describe("@M4 network e2e", () => {
     });
 
     await page.goto("/network-lab");
-    await waitForPulseWebInitialized(page);
+    await waitForPulseInitialized(page);
     await otlp.waitForLog("session.start", 15_000);
     otlp.reset();
 
@@ -178,7 +178,7 @@ test.describe("@M4 network e2e", () => {
     });
 
     await page.goto("/network-lab");
-    await waitForPulseWebInitialized(page);
+    await waitForPulseInitialized(page);
     await otlp.waitForLog("session.start", 15_000);
     otlp.reset();
 
@@ -213,7 +213,7 @@ test.describe("@M4 network e2e", () => {
     );
 
     await page.goto("/network-lab");
-    await waitForPulseWebInitialized(page);
+    await waitForPulseInitialized(page);
     await otlp.waitForLog("session.start", 15_000);
     otlp.reset();
 
@@ -246,7 +246,7 @@ test.describe("@M4 network e2e", () => {
     );
 
     await page.goto("/");
-    await waitForPulseWebInitialized(page);
+    await waitForPulseInitialized(page);
     await otlp.waitForLog("session.start", 15_000);
     otlp.reset();
 
@@ -294,7 +294,7 @@ test.describe("@M4 network e2e", () => {
     );
 
     await page.goto("/");
-    await waitForPulseWebInitialized(page);
+    await waitForPulseInitialized(page);
     await otlp.waitForLog("session.start", 15_000);
     otlp.reset();
 
@@ -332,7 +332,7 @@ test.describe("@M4 network e2e", () => {
     otlp,
   }) => {
     await page.goto("/");
-    await waitForPulseWebInitialized(page);
+    await waitForPulseInitialized(page);
     await otlp.waitForLog("session.start", 15_000);
     await flushTraceExport(page);
 
@@ -392,7 +392,7 @@ test.describe("@M4 network e2e", () => {
     );
 
     await page.goto("/");
-    await waitForPulseWebInitialized(page);
+    await waitForPulseInitialized(page);
     await otlp.waitForLog("session.start", 15_000);
     otlp.reset();
 
@@ -426,7 +426,7 @@ test.describe("@M4 network e2e", () => {
     );
 
     await page.goto("/");
-    await waitForPulseWebInitialized(page);
+    await waitForPulseInitialized(page);
     await otlp.waitForLog("session.start", 15_000);
     otlp.reset();
 
@@ -461,7 +461,7 @@ test.describe("@M4 network e2e", () => {
     );
 
     await page.goto("/");
-    await waitForPulseWebInitialized(page);
+    await waitForPulseInitialized(page);
     await otlp.waitForLog("session.start", 15_000);
     otlp.reset();
 
@@ -494,7 +494,7 @@ test.describe("@M4 network e2e", () => {
     );
 
     await page.goto("/");
-    await waitForPulseWebInitialized(page);
+    await waitForPulseInitialized(page);
     await otlp.waitForLog("session.start", 15_000);
     otlp.reset();
 
@@ -532,7 +532,7 @@ test.describe("@M4 network e2e", () => {
     );
 
     await page.goto("/");
-    await waitForPulseWebInitialized(page);
+    await waitForPulseInitialized(page);
     await otlp.waitForLog("session.start", 15_000);
     otlp.reset();
 
@@ -567,7 +567,7 @@ test.describe("@M4 network e2e", () => {
     );
 
     await page.goto("/?pulse_network_enabled=0");
-    await waitForPulseWebInitialized(page);
+    await waitForPulseInitialized(page);
     await otlp.waitForLog("session.start", 15_000);
     otlp.reset();
 

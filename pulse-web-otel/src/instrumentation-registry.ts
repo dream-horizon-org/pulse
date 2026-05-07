@@ -1,5 +1,5 @@
 // M1: InstrumentationRegistry — holds all Instrumentation instances,
-// calls installAll() during SDK.start() and uninstallAll() during shutdown().
+// calls installAll() during SDK.init() and uninstallAll() during shutdown().
 // See: web-sdk-plan/v1/01-foundation/sdk-lifecycle.md
 
 import type { InstrumentationConfig } from "./config";

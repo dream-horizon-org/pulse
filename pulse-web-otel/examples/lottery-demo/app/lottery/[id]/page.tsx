@@ -2,7 +2,7 @@
 
 import { use } from "react";
 import Link from "next/link";
-import { PulseWeb } from "@dreamhorizon/pulse-web";
+import { Pulse } from "@dreamhorizon/pulse-web";
 import { useLottery } from "../../hooks/useLottery";
 import { PrizeBreakupTable } from "../../components/PrizeBreakupTable";
 import { CartFooter } from "../../components/CartFooter";
@@ -61,7 +61,7 @@ export default function LotteryDetailPage({
   function handleRandomPick() {
     const series = lottery!.series[Math.floor(Math.random() * lottery!.series.length)];
     const num = String(Math.floor(Math.random() * 10_000)).padStart(4, "0");
-    PulseWeb.trackEvent("ticket_pick_random", {
+    Pulse.trackEvent("ticket_pick_random", {
       lottery_id: lottery!.id,
       ticket: `${series}/${num}`,
       series,
@@ -108,7 +108,7 @@ export default function LotteryDetailPage({
           <Link
             href={`/lottery/${id}/choose`}
             onClick={() =>
-              PulseWeb.trackEvent("ticket_choose_screen_open", { lottery_id: id })
+              Pulse.trackEvent("ticket_choose_screen_open", { lottery_id: id })
             }
             className="flex-1 py-3 bg-sapphire text-white rounded-xl font-bold text-sm text-center active:scale-95 transition-transform"
           >

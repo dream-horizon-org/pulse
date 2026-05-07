@@ -1,8 +1,8 @@
 /**
- * History API SPA router — PulseWeb.setScreenName after each navigation.
+ * History API SPA router — Pulse.setScreenName after each navigation.
  */
 
-import { PulseWeb } from "@dreamhorizon/pulse-web";
+import { Pulse } from "@dreamhorizon/pulse-web";
 
 function normalizePath(path) {
   if (!path || path === "") return "/";
@@ -24,7 +24,7 @@ export function createRouter(opts) {
   const knownSet = new Set(Object.keys(routeLabels));
 
   function pulseSetScreen(name) {
-    if (PulseWeb.isInitialized()) PulseWeb.setScreenName(name);
+    if (Pulse.isInitialized()) Pulse.setScreenName(name);
   }
 
   function syncNav(activePath) {

@@ -1,6 +1,6 @@
-# Manual tests — PulseWeb lifecycle, shutdown, disk buffer
+# Manual tests — Pulse SDK lifecycle, shutdown, disk buffer
 
-Prereqs: demo running (`yarn demo` from `pulse-web-otel`), consent allowed, `PulseWeb` on `window` (ecommerce-demo `_PulseWebExpose`).
+Prereqs: demo running (`yarn demo` from `pulse-web-otel`), consent allowed, `Pulse` on `window` (ecommerce-demo `_PulseExpose`).
 
 **Web Vitals (LCP, INP, CLS, optional FID/FCP):** use [MANUAL-WEB-VITALS-DEMO.md](./MANUAL-WEB-VITALS-DEMO.md) — dedicated mock JSON + `instrumentations.webVitals` env/query knobs (remote gate vs static SDK config).
 
@@ -8,7 +8,7 @@ Prereqs: demo running (`yarn demo` from `pulse-web-otel`), consent allowed, `Pul
 
 ## React wiring — how the demo initialises the SDK
 
-The demo uses the React component API (`@dreamhorizon/pulse-web/react`) instead of calling `PulseWeb.start()` directly:
+The demo uses the React component API (`@dreamhorizon/pulse-web/react`) instead of calling `Pulse.init()` directly:
 
 ```tsx
 // App.tsx (simplified)
@@ -26,7 +26,7 @@ import { PulseProvider } from "@dreamhorizon/pulse-web/react";
 </BrowserRouter>
 ```
 
-`PulseProvider` handles two things internally: error capture (via a built-in `PulseErrorBoundary` that calls `PulseWeb.reportDeviceCrash`) and router tracking (when `routerTracking` is passed and the provider is inside a `<BrowserRouter>`).
+`PulseProvider` handles two things internally: error capture (via a built-in `PulseErrorBoundary` that calls `Pulse.reportDeviceCrash`) and router tracking (when `routerTracking` is passed and the provider is inside a `<BrowserRouter>`).
 
 | Knob | Env var | Query param | Effect |
 |------|---------|-------------|--------|
@@ -42,15 +42,15 @@ import { PulseProvider } from "@dreamhorizon/pulse-web/react";
 
 ---
 
-## 1. `PulseWeb.shutdown()` — `forceFlush` (positive)
+## 1. `Pulse.shutdown()` — `forceFlush` (positive)
 
 **Goal:** Pending batches flush; shutdown resolves without throw.
 
-1. Open app, wait for `session.start`, then emit extra signals (navigate or `PulseWeb.trackEvent("shutdown_probe")`).
+1. Open app, wait for `session.start`, then emit extra signals (navigate or `Pulse.trackEvent("shutdown_probe")`).
 2. DevTools console:
 
    ```js
-   await window.PulseWeb.shutdown();
+   await window.Pulse.shutdown();
    ```
 
 3. **Expect:** Network shows **/v1/logs** (and/or traces/metrics) as flush runs; console **no** uncaught errors. Full reload for a fresh SDK instance.
@@ -63,7 +63,7 @@ import { PulseProvider } from "@dreamhorizon/pulse-web/react";
 
 1. Default demo load (`/`).
 2. Count **`session.start`** for that page load before reload.
-3. **Expect:** **Exactly one** (E2E: `m1.spec.ts` “double PulseWeb.start() is a no-op”).
+3. **Expect:** **Exactly one** (E2E: `m1.spec.ts` “double Pulse.init() is a no-op”).
 
 ---
 
@@ -101,7 +101,7 @@ Use tiny **`VITE_PULSE_DISK_BUFFER_MAX_AGE_MS`** / **`VITE_PULSE_DISK_BUFFER_MAX
 
 | Scenario | Unit test | E2E test |
 |---|---|---|
-| StrictMode init-once (createProviders × 1) | `pulse-provider.test.tsx` — StrictMode suite | `m1.spec.ts` — "double PulseWeb.start() is a no-op" |
+| StrictMode init-once (createProviders × 1) | `pulse-provider.test.tsx` — StrictMode suite | `m1.spec.ts` — "double Pulse.init() is a no-op" |
 | Internal error boundary crash capture + react.component_stack | `pulse-provider.test.tsx` — PulseErrorBoundary suite | `m1.spec.ts` — "@M1 error boundary crash capture" |
 | `routerTracking` prop fires setScreenName on navigation | `use-router-tracking.test.tsx` — route change suite | — |
 | useRouterTracking unmount no-leak | `use-router-tracking.test.tsx` — no-leak suite | — |

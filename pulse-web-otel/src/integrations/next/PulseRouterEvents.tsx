@@ -3,14 +3,14 @@
 import React, { Suspense, type JSX } from "react";
 import { useNextAppRouterTracking } from "./useNextAppRouterTracking";
 import type {
-  PulseNavigationEventsProps,
+  PulseRouterEventsProps,
   UseNextAppRouterTrackingOptions,
 } from "../../types/next";
 
-export type { PulseNavigationEventsProps } from "../../types/next";
+export type { PulseRouterEventsProps } from "../../types/next";
 
 function NavigationEventsInner(
-  props: Omit<PulseNavigationEventsProps, "children">,
+  props: Omit<PulseRouterEventsProps, "children">,
 ): null {
   useNextAppRouterTracking(props as UseNextAppRouterTrackingOptions);
   return null;
@@ -27,13 +27,13 @@ function NavigationEventsInner(
  *
  * ```tsx
  * // app/layout.tsx
- * import { PulseNavigationEvents } from "@dreamhorizon/pulse-web/next";
+ * import { PulseRouterEvents } from "@dreamhorizon/pulse-web/next";
  *
  * export default function RootLayout({ children }) {
  *   return (
  *     <html>
  *       <body>
- *         <PulseNavigationEvents />
+ *         <PulseRouterEvents />
  *         {children}
  *       </body>
  *     </html>
@@ -41,11 +41,11 @@ function NavigationEventsInner(
  * }
  * ```
  */
-export function PulseNavigationEvents({
+export function PulseRouterEvents({
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   children: _children,
   ...hookProps
-}: PulseNavigationEventsProps): JSX.Element {
+}: PulseRouterEventsProps): JSX.Element {
   return (
     <Suspense fallback={null}>
       <NavigationEventsInner {...hookProps} />

@@ -87,7 +87,7 @@ export class PulseGlobalAttributesProcessor
    * In-memory user ID. null = read from localStorage (persisted value).
    * Set explicitly via setUserId() to override the persisted value for
    * the current page load without writing to localStorage.
-   * Use PulseWeb.setUserId() to persist across refreshes.
+   * Use Pulse.setUserId() to persist across refreshes.
    */
   private _userId: string | null = null;
   /** null values mark keys that should be suppressed even if present in localStorage. */
@@ -212,7 +212,7 @@ export class PulseGlobalAttributesProcessor
     }
 
     // User identity — in-memory takes priority; falls back to localStorage so
-    // userId/properties set via PulseWeb.setUserId() survive page refresh.
+    // userId/properties set via Pulse.setUserId() survive page refresh.
     const resolvedUserId = this._userId ?? getPersistedUserId();
     if (resolvedUserId) {
       attrs["user.id"] = resolvedUserId;

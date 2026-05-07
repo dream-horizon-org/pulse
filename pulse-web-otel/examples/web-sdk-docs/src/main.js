@@ -3,13 +3,13 @@ import { maybeLoadMockPulseSdkConfig } from "./maybeLoadMockPulseSdkConfig.js";
 import { buildPulseConfig } from "./pulseConfig.js";
 import { createRouter } from "./router.js";
 import { routes, routeLabels } from "./pages.js";
-import { PulseWeb } from "@dreamhorizon/pulse-web";
+import { Pulse } from "@dreamhorizon/pulse-web";
 
 async function main() {
   await maybeLoadMockPulseSdkConfig();
   const config = buildPulseConfig();
-  PulseWeb.start(config);
-  globalThis.PulseWeb = PulseWeb;
+  Pulse.init(config);
+  globalThis.Pulse = Pulse;
 
   const outlet = document.getElementById("outlet");
   const navRoot = document.getElementById("nav");

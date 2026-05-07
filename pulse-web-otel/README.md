@@ -26,7 +26,7 @@ npm install @dreamhorizon/pulse-web
 ### 2. Wrap your app with PulseProvider
 
 `PulseProvider` from `@dreamhorizon/pulse-web/react` does everything in one shot:
-- calls `PulseWeb.start` on mount
+- calls `Pulse.start` on mount
 - catches React render errors via the built-in `PulseErrorBoundary`
 - exposes the SDK via context
 
@@ -105,11 +105,11 @@ After mount, these signals auto-capture with zero extra work:
 'use client'
 import { usePathname } from 'next/navigation'
 import { useEffect } from 'react'
-import { PulseWeb } from '@dreamhorizon/pulse-web'
+import { Pulse } from '@dreamhorizon/pulse-web'
 
 export function PulsePageView() {
   const pathname = usePathname()
-  useEffect(() => { PulseWeb.setScreenName(pathname) }, [pathname])
+  useEffect(() => { Pulse.setScreenName(pathname) }, [pathname])
   return null
 }
 ```
@@ -131,14 +131,14 @@ useRouterTracking() // inside a component rendered within <BrowserRouter>
 
 ## Public API
 
-- `PulseWeb.start(config)`
-- `PulseWeb.shutdown()`
-- `PulseWeb.isInitialized()`
-- `PulseWeb.setScreenName(name)`
-- `PulseWeb.trackEvent(name, attrs?)`
-- `PulseWeb.reportException(error, attrs?)`
-- `PulseWeb.reportDeviceCrash(error, attrs?)`
-- `PulseWeb.trackNonFatal(name, attrs?)`
+- `Pulse.init(config)`
+- `Pulse.shutdown()`
+- `Pulse.isInitialized()`
+- `Pulse.setScreenName(name)`
+- `Pulse.trackEvent(name, attrs?)`
+- `Pulse.reportException(error, attrs?)`
+- `Pulse.reportDeviceCrash(error, attrs?)`
+- `Pulse.trackNonFatal(name, attrs?)`
 
 ## Interaction config contract
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { PulseWeb } from "@dreamhorizon/pulse-web";
+import { Pulse } from "@dreamhorizon/pulse-web";
 import { BannerCarousel } from "./components/BannerCarousel";
 import { LotteryCard } from "./components/LotteryCard";
 import { useUser } from "./context/UserContext";
@@ -14,7 +14,7 @@ export default function Home() {
   const { data, isLoading, isError, error, refetch } = useLotteries(scenario);
 
   useEffect(() => {
-    PulseWeb.trackEvent("home_screen_loaded", {
+    Pulse.trackEvent("home_screen_loaded", {
       user_id: user?.userId ?? "guest",
       is_new_user: !user,
     });

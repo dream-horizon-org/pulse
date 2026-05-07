@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
-import { PulseWeb } from "@dreamhorizon/pulse-web";
+import { Pulse } from "@dreamhorizon/pulse-web";
 import { api, ApiError } from "../lib/api";
 import { useUser } from "../context/UserContext";
 import type { MockUser } from "../context/UserContext";
@@ -49,12 +49,12 @@ export default function LoginPage() {
       );
       setRequestId(res.requestId);
       setMobile(data.mobile);
-      PulseWeb.trackEvent("otp_sent", { masked_mobile: res.maskedMobile });
+      Pulse.trackEvent("otp_sent", { masked_mobile: res.maskedMobile });
       setStep("otp");
     } catch (err) {
       const msg = err instanceof ApiError ? err.message : "Failed to send OTP";
       setApiError(msg);
-      PulseWeb.trackNonFatal("otp_send_failed", { reason: msg });
+      Pulse.trackNonFatal("otp_send_failed", { reason: msg });
     } finally {
       setLoading(false);
     }
@@ -76,13 +76,13 @@ export default function LoginPage() {
         otp: data.otp,
       });
 
-      PulseWeb.trackEvent("otp_verified", { is_new_user: res.user.onBoarding });
+      Pulse.trackEvent("otp_verified", { is_new_user: res.user.onBoarding });
       setUser(res.user);
       router.push("/");
     } catch (err) {
       const msg = err instanceof ApiError ? err.message : "Verification failed";
       setApiError(msg);
-      PulseWeb.trackNonFatal("otp_verify_failed", {
+      Pulse.trackNonFatal("otp_verify_failed", {
         reason: msg,
         scenario: verifyScenario ?? "normal",
       });

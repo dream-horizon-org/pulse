@@ -10,15 +10,15 @@ import {
   blockActiveConfigFetch,
 } from "./test-sdk-config";
 
-async function waitForPulseWebInitialized(page: Page): Promise<void> {
+async function waitForPulseInitialized(page: Page): Promise<void> {
   await expect
     .poll(
       async () =>
         page.evaluate(() => {
           const w = window as unknown as {
-            PulseWeb?: { isInitialized: () => boolean };
+            Pulse?: { isInitialized: () => boolean };
           };
-          return w.PulseWeb?.isInitialized?.() ?? false;
+          return w.Pulse?.isInitialized?.() ?? false;
         }),
       { timeout: 15_000 },
     )
@@ -59,7 +59,7 @@ test.describe("@M3 clicks e2e", () => {
     otlp,
   }) => {
     await page.goto("/");
-    await waitForPulseWebInitialized(page);
+    await waitForPulseInitialized(page);
     await otlp.waitForLog("session.start", 15_000);
     otlp.reset();
 
@@ -87,7 +87,7 @@ test.describe("@M3 clicks e2e", () => {
     otlp,
   }) => {
     await page.goto("/");
-    await waitForPulseWebInitialized(page);
+    await waitForPulseInitialized(page);
     await otlp.waitForLog("session.start", 15_000);
     otlp.reset();
 
@@ -120,7 +120,7 @@ test.describe("@M3 clicks e2e", () => {
     otlp,
   }) => {
     await page.goto("/");
-    await waitForPulseWebInitialized(page);
+    await waitForPulseInitialized(page);
     await otlp.waitForLog("session.start", 15_000);
     otlp.reset();
 

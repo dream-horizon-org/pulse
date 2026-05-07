@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { PulseWeb } from "@dreamhorizon/pulse-web";
+import { Pulse } from "@dreamhorizon/pulse-web";
 import { api } from "../lib/api";
 
 // ─── helpers ───────────────────────────────────────────────────────────────
@@ -82,46 +82,46 @@ export default function SdkLabPage() {
   // ── Errors ────────────────────────────────────────────────────────────────
 
   function throwUncaught() {
-    PulseWeb.trackEvent("lab_throw_uncaught");
+    Pulse.trackEvent("lab_throw_uncaught");
     setTimeout(() => { throw new Error("SDK Lab: uncaught error"); }, 0);
     addLog("Threw uncaught error → device.crash via window.onerror");
   }
 
   function throwUnhandledRejection() {
-    PulseWeb.trackEvent("lab_throw_rejection");
+    Pulse.trackEvent("lab_throw_rejection");
     // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors
     Promise.reject(new Error("SDK Lab: unhandled promise rejection"));
     addLog("Promise.reject() → non_fatal via unhandledrejection");
   }
 
   function manualReportException() {
-    PulseWeb.reportException(new Error("SDK Lab: manual reportException"), {
+    Pulse.reportException(new Error("SDK Lab: manual reportException"), {
       context: "sdk_lab",
       severity: "warning",
     });
-    addLog("PulseWeb.reportException() → non_fatal");
+    addLog("Pulse.reportException() → non_fatal");
   }
 
   function manualReportCrash() {
-    PulseWeb.reportDeviceCrash(new Error("SDK Lab: manual reportDeviceCrash"), {
+    Pulse.reportDeviceCrash(new Error("SDK Lab: manual reportDeviceCrash"), {
       context: "sdk_lab",
     });
-    addLog("PulseWeb.reportDeviceCrash() → device.crash");
+    addLog("Pulse.reportDeviceCrash() → device.crash");
   }
 
   function manualTrackNonFatal() {
-    PulseWeb.trackNonFatal("lab_manual_non_fatal", {
+    Pulse.trackNonFatal("lab_manual_non_fatal", {
       context: "sdk_lab",
       trigger: "button_click",
     });
-    addLog("PulseWeb.trackNonFatal() → non_fatal");
+    addLog("Pulse.trackNonFatal() → non_fatal");
   }
 
   function jsonParseError() {
     try {
       JSON.parse("not-valid-json {{{{");
     } catch (e) {
-      PulseWeb.reportException(e as Error, { context: "json_parse_error" });
+      Pulse.reportException(e as Error, { context: "json_parse_error" });
       addLog("JSON.parse error caught + reported → non_fatal");
     }
   }
@@ -135,7 +135,7 @@ export default function SdkLabPage() {
         i++;
       }
     } catch (e) {
-      PulseWeb.reportException(e as Error, { context: "localstorage_quota" });
+      Pulse.reportException(e as Error, { context: "localstorage_quota" });
       addLog("localStorage quota exceeded + reported → non_fatal");
     } finally {
       // Clean up quota fill
@@ -249,7 +249,7 @@ export default function SdkLabPage() {
     } catch {
       // ignore
     }
-    PulseWeb.trackEvent("session_rotate_manual");
+    Pulse.trackEvent("session_rotate_manual");
     addLog("Session clock advanced 31min → will rotate on next signal");
   }
 
@@ -261,24 +261,24 @@ export default function SdkLabPage() {
 
   async function forceFlush() {
     addLog("Force-flushing all providers…");
-    await PulseWeb.shutdown();
+    await Pulse.shutdown();
     addLog("Shutdown complete. Reload to re-init.");
   }
 
   // ── Custom Events ─────────────────────────────────────────────────────────
 
   function fireCustomEvent() {
-    PulseWeb.trackEvent("lab_custom_event", {
+    Pulse.trackEvent("lab_custom_event", {
       source: "sdk_lab",
       timestamp: Date.now(),
       random: Math.random(),
     });
-    addLog("PulseWeb.trackEvent('lab_custom_event') fired");
+    addLog("Pulse.trackEvent('lab_custom_event') fired");
   }
 
   function batchStress() {
     for (let i = 0; i < 600; i++) {
-      PulseWeb.trackEvent("lab_batch_stress", { seq: i });
+      Pulse.trackEvent("lab_batch_stress", { seq: i });
     }
     addLog("600× trackEvent fired → batch overflow test");
   }
@@ -315,7 +315,7 @@ export default function SdkLabPage() {
           description="PulseErrorBoundary → device.crash"
           color="purple"
           testId="lab-throw-render"
-          onClick={() => { PulseWeb.trackEvent("lab_throw_render"); setThrowRender(true); }}
+          onClick={() => { Pulse.trackEvent("lab_throw_render"); setThrowRender(true); }}
         />
         {throwRender && <RenderBomb />}
         <LabButton
@@ -425,7 +425,7 @@ export default function SdkLabPage() {
         />
         <LabButton
           label="Force flush (shutdown)"
-          description="PulseWeb.shutdown() → drain all buffered signals"
+          description="Pulse.shutdown() → drain all buffered signals"
           color="blue"
           onClick={forceFlush}
         />

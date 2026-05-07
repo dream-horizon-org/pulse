@@ -8,7 +8,7 @@ import Link from "next/link";
 import { PagesNavBar } from "../../components/pages-nav";
 import { getProducts } from "../../lib/products";
 import type { Product } from "../../lib/products";
-import { PulseWeb } from "@dreamhorizon/pulse-web";
+import { Pulse } from "@dreamhorizon/pulse-web";
 
 interface Props {
   products: Product[];
@@ -16,7 +16,7 @@ interface Props {
 }
 
 export const getServerSideProps: GetServerSideProps<Props> = async () => {
-  // Runs on the server — PulseWeb.start() is a no-op here (SSR guard).
+  // Runs on the server — Pulse.init() is a no-op here (SSR guard).
   // Any events here would be silently dropped. Events must be fired client-side.
   const products = await getProducts();
   return {
@@ -50,7 +50,7 @@ export default function PagesDemoShop({
               style={{ textDecoration: "none", color: "inherit" }}
               onClick={() => {
                 // Event fires client-side even though data came from getServerSideProps
-                PulseWeb.trackEvent("product_viewed", {
+                Pulse.trackEvent("product_viewed", {
                   product_id: p.id,
                   product_name: p.name,
                   source: "pages-router-shop",

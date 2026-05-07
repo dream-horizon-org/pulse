@@ -31,11 +31,16 @@ export interface UseRouterTrackingOptions {
   includeSearch?: boolean;
   /**
    * Skip the very first render. Default `true` — the SDK already emits an
-   * initial `session.start` / `screen.session` on `start()`, and the router
+   * initial `session.start` / `screen.session` on `init()`, and the router
    * mount would otherwise cause a duplicate signal. Set `false` if you want
    * the hook to own the first screen name instead.
    */
   skipInitial?: boolean;
+}
+
+export interface PulseRouterEventsProps extends UseRouterTrackingOptions {
+  /** Ignored — component renders null. Accepted for API symmetry with Next.js. */
+  children?: never;
 }
 
 export interface PulseProviderProps {
@@ -46,13 +51,13 @@ export interface PulseProviderProps {
   config: PulseWebConfig;
   children: ReactNode;
   /**
-   * If true (default), the SDK is shut down when the last `PulseProvider`
-   * unmounts. Set to `false` to keep the SDK alive for the full page lifetime
-   * regardless of provider unmounts (recommended for most apps).
+   * If true, the SDK is shut down when the last `PulseProvider` unmounts.
+   * Default `false` — keep the SDK alive for the full page lifetime regardless
+   * of provider unmounts (recommended for most apps).
    *
    * StrictMode's synthetic unmount/remount in dev is handled automatically —
    * shutdown is deferred by a microtask and cancelled if the provider
-   * re-mounts, so `start()` is never called twice.
+   * re-mounts, so `init()` is never called twice.
    */
   shutdownOnUnmount?: boolean;
 }

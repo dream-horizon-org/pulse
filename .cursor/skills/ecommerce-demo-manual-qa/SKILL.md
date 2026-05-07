@@ -24,8 +24,8 @@ This skill does **not** replace E2E or `pulse-web-sdk-sanity`; it gives **human-
 1. **Consent** — `PulseDataCollectionConsent.ALLOWED` in `PulseProvider` config (`App.tsx` / query `?pulse_consent=`) or SDK never initializes; no instrumentations.
 2. **Remote config** — `SdkConfigFetcher` loads features for `pulse_web_js`. `FeatureGate.isEnabled(PulseFeature.*)` must be true for that key (and `config.instrumentations[InstrumentationKeys.*]` if present).
 3. **Registry** — `InstrumentationRegistry.shouldInstall` combines gate + per-key config. `registerAndInstall` calls `instrumentation.install(sdk)`.
-4. **Extra wiring** — `sdk.ts` constructs `InteractionInstrumentation`, runs `registry.installAll()`, then **`registerAndInstall(..., InstrumentationKeys.INTERACTIONS)`** so the interaction module installs **after** session/web-vitals entries inside `installAll()`. `useRouterTracking` only calls `PulseWeb.setScreenName` (stamps `screen.name` on later signals; it is **not** a separate navigation log unless Navigation instrumentation is installed and spec says otherwise).
-5. **`PulseWeb.trackEvent`** — can emit **two** paths when enabled: (a) `PulseFeature.CUSTOM_EVENTS` → log with `pulse.type` **custom_event**; (b) if data collection allowed → `interactionInstrumentation.trackEvent` (interaction pipeline / feature gate **interaction**). Same click may satisfy both.
+4. **Extra wiring** — `sdk.ts` constructs `InteractionInstrumentation`, runs `registry.installAll()`, then **`registerAndInstall(..., InstrumentationKeys.INTERACTIONS)`** so the interaction module installs **after** session/web-vitals entries inside `installAll()`. `useRouterTracking` only calls **`Pulse.setScreenName`** (stamps `screen.name` on later signals; it is **not** a separate navigation log unless Navigation instrumentation is installed and spec says otherwise).
+5. **`Pulse.trackEvent`** — can emit **two** paths when enabled: (a) `PulseFeature.CUSTOM_EVENTS` → log with `pulse.type` **custom_event**; (b) if data collection allowed → `interactionInstrumentation.trackEvent` (interaction pipeline / feature gate **interaction**). Same click may satisfy both.
 
 When describing a scenario, name **consent → feature(s) → class → pulse.type** where applicable (`trackEvent` may need **custom_events** and **interaction** called out separately).
 
@@ -56,10 +56,10 @@ Use this for any instrumentation or demo flow. Output Markdown the human can fol
 - Shift+P → **PulseDebugPanel** (dev): OTLP calls list
 - Network: `/v1/logs` (json/protobuf per env)
 
-**Cleanup / reload** — if testing init-once or shutdown: note reload or `await window.PulseWeb.shutdown()`
+**Cleanup / reload** — if testing init-once or shutdown: note reload or `await window.Pulse.shutdown()` (demo may expose the singleton on `window` for debugging)
 ```
 
-For Web Vitals specifics, point to **`MANUAL-WEB-VITALS-DEMO.md`**. For lifecycle / disk / shutdown, point to **`MANUAL-PULSEWEB-LIFECYCLE.md`**.
+For Web Vitals specifics, point to **`MANUAL-WEB-VITALS-DEMO.md`**. For lifecycle / disk / shutdown, point to **`MANUAL-PULSE-LIFECYCLE.md`**.
 
 ## Self-heal — keep context from going stale
 

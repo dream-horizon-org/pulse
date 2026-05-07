@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { PulseWeb } from "@dreamhorizon/pulse-web";
+import { Pulse } from "@dreamhorizon/pulse-web";
 import type { Lottery } from "../types/lottery";
 
 export function LotteryCard({ lottery }: { lottery: Lottery }) {
@@ -11,7 +11,7 @@ export function LotteryCard({ lottery }: { lottery: Lottery }) {
     <Link
       href={`/lottery/${lottery.id}`}
       onClick={() =>
-        PulseWeb.trackEvent("lottery_card_clicked", {
+        Pulse.trackEvent("lottery_card_clicked", {
           lottery_id: lottery.id,
           lottery_name: lottery.name,
           prize_amount: lottery.prize,

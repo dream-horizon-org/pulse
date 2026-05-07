@@ -10,13 +10,15 @@ export type {
   PulseWebConfig,
 } from "./types/config";
 export type {
+  PulseBeforeSendResult,
+  PulseExportSignal,
   PulseWebBeforeSendCallbacks,
   PulseWebBeforeSendConfig,
 } from "./types/before-send";
 export { PulseLogLevel } from "./pulse-log-level";
 
 export function validateConfig(config: PulseWebConfig): void {
-  if (!config.apiKey) throw new Error("[PulseWeb] apiKey is required");
+  if (!config.apiKey) throw new Error("[Pulse] apiKey is required");
   validateBeforeSendConfig(config.beforeSendData);
   const diskOn = config.diskBuffering?.enabled !== false;
   const disk = config.diskBuffering;
@@ -26,7 +28,7 @@ export function validateConfig(config: PulseWebConfig): void {
       (!Number.isFinite(disk.maxAgeMs) || disk.maxAgeMs <= 0)
     ) {
       throw new Error(
-        "[PulseWeb] diskBuffering.maxAgeMs must be a positive finite number",
+        "[Pulse] diskBuffering.maxAgeMs must be a positive finite number",
       );
     }
     if (
@@ -34,7 +36,7 @@ export function validateConfig(config: PulseWebConfig): void {
       (!Number.isFinite(disk.maxCacheSizeBytes) || disk.maxCacheSizeBytes <= 0)
     ) {
       throw new Error(
-        "[PulseWeb] diskBuffering.maxCacheSizeBytes must be a positive finite number",
+        "[Pulse] diskBuffering.maxCacheSizeBytes must be a positive finite number",
       );
     }
   }

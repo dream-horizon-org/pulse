@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import Link from "next/link";
-import { PulseWeb } from "@dreamhorizon/pulse-web";
+import { Pulse } from "@dreamhorizon/pulse-web";
 
 export default function LotteryError({
   error,
@@ -12,7 +12,7 @@ export default function LotteryError({
   reset: () => void;
 }) {
   useEffect(() => {
-    PulseWeb.reportDeviceCrash(error, {
+    Pulse.reportDeviceCrash(error, {
       boundary: "lottery_detail_error_boundary",
       digest: error.digest ?? "",
     });

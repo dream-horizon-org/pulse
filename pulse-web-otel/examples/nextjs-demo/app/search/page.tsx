@@ -4,11 +4,11 @@
  * /search — demonstrates includeSearch: true in App Router.
  *
  * When a user types a query, the URL becomes /search?q=shoes.
- * With includeSearch: true in PulseNavigationEvents, screen.name
+ * With includeSearch: true in PulseRouterEvents, screen.name
  * becomes "/search?q=shoes" — capturing what users search for.
  *
  * To enable search tracking, update pulse-provider.tsx:
- *   <PulseNavigationEvents includeSearch />
+ *   <PulseRouterEvents includeSearch />
  */
 import React, { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -43,12 +43,15 @@ export default function SearchPage(): React.JSX.Element {
     <div>
       <h1>Search</h1>
       <p style={{ fontSize: "0.85rem", color: "#888", marginBottom: "1rem" }}>
-        With <code>{"<PulseNavigationEvents includeSearch />"}</code>, searching
+        With <code>{"<PulseRouterEvents includeSearch />"}</code>, searching
         tracks <code>screen.name = /search?q=shoes</code>. Without it, only{" "}
         <code>/search</code> is tracked.
       </p>
 
-      <form onSubmit={handleSearch} style={{ display: "flex", gap: "0.5rem", marginBottom: "1.5rem" }}>
+      <form
+        onSubmit={handleSearch}
+        style={{ display: "flex", gap: "0.5rem", marginBottom: "1.5rem" }}
+      >
         <input
           type="text"
           value={input}

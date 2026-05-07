@@ -92,7 +92,7 @@ const meter = metrics.getMeter("pulse.web.web_vitals", "1.0.0");
 ## 5. Wiring diagram (text)
 
 ```text
-PulseWeb.start(config)
+Pulse.init(config)
   → consent check
   → build resource, FeatureGate, SamplingGate, exporters
   → createProviders → MeterProvider + PeriodicExportingMetricReader

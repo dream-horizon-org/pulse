@@ -7,7 +7,7 @@ import {
   useLocation,
 } from "react-router-dom";
 import {
-  PulseWeb,
+  Pulse,
   PulseDataCollectionConsent,
   PulseLogLevel,
 } from "@dreamhorizon/pulse-web";
@@ -270,9 +270,9 @@ export default function App() {
     <BrowserRouter>
       <PulseProvider config={pulseConfig} shutdownOnUnmount={false}>
         {/* Expose for E2E shutdown test (m1.spec.ts) */}
-        <_PulseWebExpose />
-        <_PulseWebRouterTracking />
-        <_PulseWebDemoUserSetup config={userSetupConfig} />
+        <_PulseExpose />
+        <_PulseRouterTracking />
+        <_PulseDemoUserSetup config={userSetupConfig} />
         <CartProvider>
           <NavBar />
           <main
@@ -310,16 +310,16 @@ export default function App() {
   );
 }
 
-/** Exposes PulseWeb on window for E2E tests. No UI rendered. */
-function _PulseWebExpose(): null {
+/** Exposes `Pulse` on window for E2E tests. No UI rendered. */
+function _PulseExpose(): null {
   React.useEffect(() => {
-    (window as unknown as Record<string, unknown>)["PulseWeb"] = PulseWeb;
+    (window as unknown as Record<string, unknown>)["Pulse"] = Pulse;
   }, []);
   return null;
 }
 
 /** Mounts route tracking inside BrowserRouter + PulseProvider tree. */
-function _PulseWebRouterTracking(): null {
+function _PulseRouterTracking(): null {
   useRouterTracking({ skipInitial: false });
   return null;
 }
@@ -330,17 +330,17 @@ type DemoUserSetupConfig = {
   userProps: Record<string, string | null>;
 };
 
-function _PulseWebDemoUserSetup({
+function _PulseDemoUserSetup({
   config,
 }: {
   config: DemoUserSetupConfig;
 }): null {
   useEffect(() => {
     if (config.enabled) {
-      PulseWeb.setUserId(config.userId);
-      PulseWeb.setUserProperties(config.userProps);
+      Pulse.setUserId(config.userId);
+      Pulse.setUserProperties(config.userProps);
     } else {
-      PulseWeb.setUserId(null);
+      Pulse.setUserId(null);
     }
   }, [config.enabled, config.userId, config.userProps]);
 

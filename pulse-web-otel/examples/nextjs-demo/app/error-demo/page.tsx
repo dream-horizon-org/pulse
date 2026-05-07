@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { PulseErrorBoundary } from "@dreamhorizon/pulse-web/next";
-import { PulseWeb } from "@dreamhorizon/pulse-web";
+import { Pulse } from "@dreamhorizon/pulse-web";
 
 function ThrowingComponent(): React.JSX.Element {
   throw new Error("Boundary crash from error-demo");
@@ -38,7 +38,7 @@ export default function ErrorDemoPage(): React.JSX.Element {
         <button
           data-testid="manual-exception-btn"
           onClick={() => {
-            PulseWeb.reportException(new Error("Manual non_fatal error"));
+            Pulse.reportException(new Error("Manual non_fatal error"));
           }}
         >
           Report non_fatal
@@ -50,7 +50,7 @@ export default function ErrorDemoPage(): React.JSX.Element {
         <button
           data-testid="manual-crash-btn"
           onClick={() => {
-            PulseWeb.reportDeviceCrash(new Error("Manual device.crash error"));
+            Pulse.reportDeviceCrash(new Error("Manual device.crash error"));
           }}
         >
           Report device.crash

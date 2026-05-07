@@ -2,7 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import { useEffect } from "react";
-import { PulseWeb } from "@dreamhorizon/pulse-web";
+import { Pulse } from "@dreamhorizon/pulse-web";
 
 const ROUTE_NAMES: Record<string, string> = {
   "/": "Home",
@@ -17,14 +17,14 @@ function resolveScreenName(pathname: string): string {
   return ROUTE_NAMES[pathname] ?? pathname;
 }
 
-// Next.js App Router equivalent of ecommerce-demo's _PulseWebRouterTracking.
+// Next.js App Router equivalent of ecommerce-demo's _PulseRouterTracking.
 // Follows PostHog's PostHogPageView pattern — null-returning 'use client'
 // component mounted once inside <PulseProvider> in layout.tsx.
 export function PulsePageView() {
   const pathname = usePathname();
 
   useEffect(() => {
-    PulseWeb.setScreenName(resolveScreenName(pathname));
+    Pulse.setScreenName(resolveScreenName(pathname));
   }, [pathname]);
 
   return null;

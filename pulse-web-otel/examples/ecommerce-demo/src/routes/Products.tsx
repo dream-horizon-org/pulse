@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from "react";
-import { PulseWeb } from "@dreamhorizon/pulse-web";
+import { Pulse } from "@dreamhorizon/pulse-web";
 import { useProducts } from "../hooks/useProducts";
 import { useCart } from "../hooks/useCart";
 import { ProductCard } from "../components/ProductCard";
@@ -13,11 +13,11 @@ export default function Products() {
   useEffect(() => {
     // if (loading || error || products.length === 0 || batchStressDone.current)
     //   return;
-    // if (!PulseWeb.isInitialized()) return;
+    // if (!Pulse.isInitialized()) return;
     // batchStressDone.current = true;
     // // Batch default maxExportBatchSize is 512 — fire 600 custom_event logs once to overflow one batch. Comment out when done.
     // for (let i = 0; i < 600; i++) {
-    //   PulseWeb.trackEvent("products_batch_stress", { seq: i });
+    //   Pulse.trackEvent("products_batch_stress", { seq: i });
     // }
   }, [loading, error, products.length]);
 

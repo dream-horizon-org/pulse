@@ -7,7 +7,7 @@ import type { GetServerSideProps } from "next";
 import { PagesNavBar } from "../../components/pages-nav";
 import { getProduct } from "../../lib/products";
 import type { Product } from "../../lib/products";
-import { PulseWeb } from "@dreamhorizon/pulse-web";
+import { Pulse } from "@dreamhorizon/pulse-web";
 
 interface Props {
   product: Product;
@@ -25,7 +25,7 @@ export default function PagesDemoProductDetail({
 }: Props): React.JSX.Element {
   // Fire product_detail_viewed once on mount (after hydration)
   useEffect(() => {
-    PulseWeb.trackEvent("product_detail_viewed", {
+    Pulse.trackEvent("product_detail_viewed", {
       product_id: product.id,
       product_name: product.name,
       router: "pages",

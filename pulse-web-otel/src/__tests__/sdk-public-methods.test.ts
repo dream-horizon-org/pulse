@@ -1,5 +1,5 @@
 /**
- * Unit tests for PulseWeb public SDK methods that had ZERO coverage:
+ * Unit tests for Pulse public SDK methods that had ZERO coverage:
  *   - trackEvent()
  *   - reportException()
  *   - reportDeviceCrash()
@@ -20,7 +20,13 @@ vi.mock("@opentelemetry/api-logs", () => ({
     setGlobalLoggerProvider: vi.fn(),
   },
   SeverityNumber: {
-    UNSPECIFIED: 0, TRACE: 1, DEBUG: 5, INFO: 9, WARN: 13, ERROR: 17, FATAL: 21,
+    UNSPECIFIED: 0,
+    TRACE: 1,
+    DEBUG: 5,
+    INFO: 9,
+    WARN: 13,
+    ERROR: 17,
+    FATAL: 21,
   },
 }));
 
@@ -29,7 +35,9 @@ vi.mock("../exporters", () => ({
     tracerProvider: {
       addSpanProcessor: vi.fn(),
       getTracer: vi.fn().mockReturnValue({
-        startSpan: vi.fn().mockReturnValue({ setAttribute: vi.fn(), end: vi.fn() }),
+        startSpan: vi
+          .fn()
+          .mockReturnValue({ setAttribute: vi.fn(), end: vi.fn() }),
       }),
       forceFlush: vi.fn().mockResolvedValue(undefined),
       shutdown: vi.fn().mockResolvedValue(undefined),
@@ -68,7 +76,13 @@ const BASE_CONFIG = {
 };
 
 function emittedAttrs(callIdx = 0): Record<string, unknown> {
-  return (emitFn.mock.calls[callIdx]?.[0] as { attributes?: Record<string, unknown> })?.attributes ?? {};
+  return (
+    (
+      emitFn.mock.calls[callIdx]?.[0] as {
+        attributes?: Record<string, unknown>;
+      }
+    )?.attributes ?? {}
+  );
 }
 
 function emittedCall(callIdx = 0): Record<string, unknown> {
@@ -76,7 +90,7 @@ function emittedCall(callIdx = 0): Record<string, unknown> {
 }
 
 // Follow user-identity.test.ts pattern — no vi.resetModules(), SDK imported once
-describe("PulseWeb public SDK methods", () => {
+describe("Pulse public SDK methods", () => {
   beforeEach(() => {
     window.localStorage.clear();
     window.sessionStorage.clear();
@@ -85,8 +99,8 @@ describe("PulseWeb public SDK methods", () => {
   });
 
   afterEach(async () => {
-    const { PulseWeb } = await import("../sdk");
-    if (PulseWeb.isInitialized()) await PulseWeb.shutdown();
+    const { Pulse } = await import("../sdk");
+    if (Pulse.isInitialized()) await Pulse.shutdown();
     vi.unstubAllGlobals();
   });
 
@@ -94,12 +108,12 @@ describe("PulseWeb public SDK methods", () => {
 
   describe("trackEvent()", () => {
     it("emits a log record with pulse.type = custom_event", async () => {
-      const { PulseWeb } = await import("../sdk");
-      PulseWeb.start(BASE_CONFIG);
+      const { Pulse } = await import("../sdk");
+      Pulse.init(BASE_CONFIG);
       await Promise.resolve();
       emitFn.mockClear();
 
-      PulseWeb.trackEvent("button_click");
+      Pulse.trackEvent("button_click");
 
       const attrs = emittedAttrs();
       expect(attrs[PulseWebSemconv.AttributeKey.PULSE_TYPE]).toBe(
@@ -108,23 +122,23 @@ describe("PulseWeb public SDK methods", () => {
     });
 
     it("uses the event name as the log body", async () => {
-      const { PulseWeb } = await import("../sdk");
-      PulseWeb.start(BASE_CONFIG);
+      const { Pulse } = await import("../sdk");
+      Pulse.init(BASE_CONFIG);
       await Promise.resolve();
       emitFn.mockClear();
 
-      PulseWeb.trackEvent("checkout_started");
+      Pulse.trackEvent("checkout_started");
 
       expect(emittedCall().body).toBe("checkout_started");
     });
 
     it("merges custom attrs into the log record", async () => {
-      const { PulseWeb } = await import("../sdk");
-      PulseWeb.start(BASE_CONFIG);
+      const { Pulse } = await import("../sdk");
+      Pulse.init(BASE_CONFIG);
       await Promise.resolve();
       emitFn.mockClear();
 
-      PulseWeb.trackEvent("add_to_cart", { item_id: "sku-123", quantity: "2" });
+      Pulse.trackEvent("add_to_cart", { item_id: "sku-123", quantity: "2" });
 
       const attrs = emittedAttrs();
       expect(attrs["item_id"]).toBe("sku-123");
@@ -132,20 +146,20 @@ describe("PulseWeb public SDK methods", () => {
     });
 
     it("is a no-op before SDK is initialized", async () => {
-      const { PulseWeb } = await import("../sdk");
+      const { Pulse } = await import("../sdk");
       // NOT started
-      PulseWeb.trackEvent("should_not_emit");
+      Pulse.trackEvent("should_not_emit");
 
       expect(emitFn).not.toHaveBeenCalled();
     });
 
     it("handles absent attrs gracefully (no throw)", async () => {
-      const { PulseWeb } = await import("../sdk");
-      PulseWeb.start(BASE_CONFIG);
+      const { Pulse } = await import("../sdk");
+      Pulse.init(BASE_CONFIG);
       await Promise.resolve();
       emitFn.mockClear();
 
-      expect(() => PulseWeb.trackEvent("bare_event")).not.toThrow();
+      expect(() => Pulse.trackEvent("bare_event")).not.toThrow();
       expect(emitFn).toHaveBeenCalledOnce();
     });
   });
@@ -154,12 +168,12 @@ describe("PulseWeb public SDK methods", () => {
 
   describe("reportException()", () => {
     it("emits with pulse.type = non_fatal and WARN severity", async () => {
-      const { PulseWeb } = await import("../sdk");
-      PulseWeb.start(BASE_CONFIG);
+      const { Pulse } = await import("../sdk");
+      Pulse.init(BASE_CONFIG);
       await Promise.resolve();
       emitFn.mockClear();
 
-      PulseWeb.reportException(new Error("network timeout"));
+      Pulse.reportException(new Error("network timeout"));
 
       const call = emittedCall();
       const attrs = emittedAttrs();
@@ -170,57 +184,65 @@ describe("PulseWeb public SDK methods", () => {
     });
 
     it("stamps is_manual = true", async () => {
-      const { PulseWeb } = await import("../sdk");
-      PulseWeb.start(BASE_CONFIG);
+      const { Pulse } = await import("../sdk");
+      Pulse.init(BASE_CONFIG);
       await Promise.resolve();
       emitFn.mockClear();
 
-      PulseWeb.reportException(new Error("manual error"));
+      Pulse.reportException(new Error("manual error"));
 
-      expect(emittedAttrs()[PulseWebSemconv.AttributeKey.NON_FATAL_IS_MANUAL]).toBe(true);
+      expect(
+        emittedAttrs()[PulseWebSemconv.AttributeKey.NON_FATAL_IS_MANUAL],
+      ).toBe(true);
     });
 
     it("captures exception type, message, stacktrace from Error", async () => {
-      const { PulseWeb } = await import("../sdk");
-      PulseWeb.start(BASE_CONFIG);
+      const { Pulse } = await import("../sdk");
+      Pulse.init(BASE_CONFIG);
       await Promise.resolve();
       emitFn.mockClear();
 
-      PulseWeb.reportException(new TypeError("bad type"));
+      Pulse.reportException(new TypeError("bad type"));
 
       const attrs = emittedAttrs();
-      expect(attrs[PulseWebSemconv.AttributeKey.EXCEPTION_TYPE]).toBe("TypeError");
-      expect(attrs[PulseWebSemconv.AttributeKey.EXCEPTION_MESSAGE]).toBe("bad type");
-      expect(typeof attrs[PulseWebSemconv.AttributeKey.EXCEPTION_STACKTRACE]).toBe("string");
+      expect(attrs[PulseWebSemconv.AttributeKey.EXCEPTION_TYPE]).toBe(
+        "TypeError",
+      );
+      expect(attrs[PulseWebSemconv.AttributeKey.EXCEPTION_MESSAGE]).toBe(
+        "bad type",
+      );
+      expect(
+        typeof attrs[PulseWebSemconv.AttributeKey.EXCEPTION_STACKTRACE],
+      ).toBe("string");
     });
 
     it("coerces non-Error string input to Error message", async () => {
-      const { PulseWeb } = await import("../sdk");
-      PulseWeb.start(BASE_CONFIG);
+      const { Pulse } = await import("../sdk");
+      Pulse.init(BASE_CONFIG);
       await Promise.resolve();
       emitFn.mockClear();
 
-      PulseWeb.reportException("something went wrong");
+      Pulse.reportException("something went wrong");
 
-      expect(emittedAttrs()[PulseWebSemconv.AttributeKey.EXCEPTION_MESSAGE]).toBe(
-        "something went wrong",
-      );
+      expect(
+        emittedAttrs()[PulseWebSemconv.AttributeKey.EXCEPTION_MESSAGE],
+      ).toBe("something went wrong");
     });
 
     it("merges custom attrs into log record", async () => {
-      const { PulseWeb } = await import("../sdk");
-      PulseWeb.start(BASE_CONFIG);
+      const { Pulse } = await import("../sdk");
+      Pulse.init(BASE_CONFIG);
       await Promise.resolve();
       emitFn.mockClear();
 
-      PulseWeb.reportException(new Error("oops"), { component: "Checkout" });
+      Pulse.reportException(new Error("oops"), { component: "Checkout" });
 
       expect(emittedAttrs()["component"]).toBe("Checkout");
     });
 
     it("is a no-op before SDK is initialized", async () => {
-      const { PulseWeb } = await import("../sdk");
-      PulseWeb.reportException(new Error("early"));
+      const { Pulse } = await import("../sdk");
+      Pulse.reportException(new Error("early"));
 
       expect(emitFn).not.toHaveBeenCalled();
     });
@@ -230,12 +252,12 @@ describe("PulseWeb public SDK methods", () => {
 
   describe("reportDeviceCrash()", () => {
     it("emits with pulse.type = device.crash and FATAL severity", async () => {
-      const { PulseWeb } = await import("../sdk");
-      PulseWeb.start(BASE_CONFIG);
+      const { Pulse } = await import("../sdk");
+      Pulse.init(BASE_CONFIG);
       await Promise.resolve();
       emitFn.mockClear();
 
-      PulseWeb.reportDeviceCrash(new Error("render crash"));
+      Pulse.reportDeviceCrash(new Error("render crash"));
 
       const call = emittedCall();
       const attrs = emittedAttrs();
@@ -246,44 +268,52 @@ describe("PulseWeb public SDK methods", () => {
     });
 
     it("captures exception type and message", async () => {
-      const { PulseWeb } = await import("../sdk");
-      PulseWeb.start(BASE_CONFIG);
+      const { Pulse } = await import("../sdk");
+      Pulse.init(BASE_CONFIG);
       await Promise.resolve();
       emitFn.mockClear();
 
-      PulseWeb.reportDeviceCrash(new RangeError("out of range"));
+      Pulse.reportDeviceCrash(new RangeError("out of range"));
 
       const attrs = emittedAttrs();
-      expect(attrs[PulseWebSemconv.AttributeKey.EXCEPTION_TYPE]).toBe("RangeError");
-      expect(attrs[PulseWebSemconv.AttributeKey.EXCEPTION_MESSAGE]).toBe("out of range");
+      expect(attrs[PulseWebSemconv.AttributeKey.EXCEPTION_TYPE]).toBe(
+        "RangeError",
+      );
+      expect(attrs[PulseWebSemconv.AttributeKey.EXCEPTION_MESSAGE]).toBe(
+        "out of range",
+      );
     });
 
     it("coerces non-Error input — produces a string message", async () => {
-      const { PulseWeb } = await import("../sdk");
-      PulseWeb.start(BASE_CONFIG);
+      const { Pulse } = await import("../sdk");
+      Pulse.init(BASE_CONFIG);
       await Promise.resolve();
       emitFn.mockClear();
 
-      PulseWeb.reportDeviceCrash({ message: "crash obj" });
+      Pulse.reportDeviceCrash({ message: "crash obj" });
 
       const attrs = emittedAttrs();
-      expect(typeof attrs[PulseWebSemconv.AttributeKey.EXCEPTION_MESSAGE]).toBe("string");
+      expect(typeof attrs[PulseWebSemconv.AttributeKey.EXCEPTION_MESSAGE]).toBe(
+        "string",
+      );
     });
 
     it("merges custom attrs", async () => {
-      const { PulseWeb } = await import("../sdk");
-      PulseWeb.start(BASE_CONFIG);
+      const { Pulse } = await import("../sdk");
+      Pulse.init(BASE_CONFIG);
       await Promise.resolve();
       emitFn.mockClear();
 
-      PulseWeb.reportDeviceCrash(new Error("crash"), { component_stack: "App > Router" });
+      Pulse.reportDeviceCrash(new Error("crash"), {
+        component_stack: "App > Router",
+      });
 
       expect(emittedAttrs()["component_stack"]).toBe("App > Router");
     });
 
     it("is a no-op before SDK is initialized", async () => {
-      const { PulseWeb } = await import("../sdk");
-      PulseWeb.reportDeviceCrash(new Error("early crash"));
+      const { Pulse } = await import("../sdk");
+      Pulse.reportDeviceCrash(new Error("early crash"));
 
       expect(emitFn).not.toHaveBeenCalled();
     });
@@ -293,12 +323,12 @@ describe("PulseWeb public SDK methods", () => {
 
   describe("trackNonFatal()", () => {
     it("emits with pulse.type = non_fatal", async () => {
-      const { PulseWeb } = await import("../sdk");
-      PulseWeb.start(BASE_CONFIG);
+      const { Pulse } = await import("../sdk");
+      Pulse.init(BASE_CONFIG);
       await Promise.resolve();
       emitFn.mockClear();
 
-      PulseWeb.trackNonFatal("api_timeout");
+      Pulse.trackNonFatal("api_timeout");
 
       expect(emittedAttrs()[PulseWebSemconv.AttributeKey.PULSE_TYPE]).toBe(
         PulseWebSemconv.PulseType.NON_FATAL,
@@ -306,36 +336,43 @@ describe("PulseWeb public SDK methods", () => {
     });
 
     it("stamps non_fatal_type = name and is_manual = true", async () => {
-      const { PulseWeb } = await import("../sdk");
-      PulseWeb.start(BASE_CONFIG);
+      const { Pulse } = await import("../sdk");
+      Pulse.init(BASE_CONFIG);
       await Promise.resolve();
       emitFn.mockClear();
 
-      PulseWeb.trackNonFatal("payment_declined");
+      Pulse.trackNonFatal("payment_declined");
 
       const attrs = emittedAttrs();
-      expect(attrs[PulseWebSemconv.AttributeKey.NON_FATAL_TYPE]).toBe("payment_declined");
-      expect(attrs[PulseWebSemconv.AttributeKey.NON_FATAL_IS_MANUAL]).toBe(true);
+      expect(attrs[PulseWebSemconv.AttributeKey.NON_FATAL_TYPE]).toBe(
+        "payment_declined",
+      );
+      expect(attrs[PulseWebSemconv.AttributeKey.NON_FATAL_IS_MANUAL]).toBe(
+        true,
+      );
     });
 
     it("uses the name as the log body", async () => {
-      const { PulseWeb } = await import("../sdk");
-      PulseWeb.start(BASE_CONFIG);
+      const { Pulse } = await import("../sdk");
+      Pulse.init(BASE_CONFIG);
       await Promise.resolve();
       emitFn.mockClear();
 
-      PulseWeb.trackNonFatal("slow_render");
+      Pulse.trackNonFatal("slow_render");
 
       expect(emittedCall().body).toBe("slow_render");
     });
 
     it("merges custom attrs", async () => {
-      const { PulseWeb } = await import("../sdk");
-      PulseWeb.start(BASE_CONFIG);
+      const { Pulse } = await import("../sdk");
+      Pulse.init(BASE_CONFIG);
       await Promise.resolve();
       emitFn.mockClear();
 
-      PulseWeb.trackNonFatal("api_error", { endpoint: "/checkout", status: "503" });
+      Pulse.trackNonFatal("api_error", {
+        endpoint: "/checkout",
+        status: "503",
+      });
 
       const attrs = emittedAttrs();
       expect(attrs["endpoint"]).toBe("/checkout");
@@ -343,8 +380,8 @@ describe("PulseWeb public SDK methods", () => {
     });
 
     it("is a no-op before SDK is initialized", async () => {
-      const { PulseWeb } = await import("../sdk");
-      PulseWeb.trackNonFatal("early_non_fatal");
+      const { Pulse } = await import("../sdk");
+      Pulse.trackNonFatal("early_non_fatal");
 
       expect(emitFn).not.toHaveBeenCalled();
     });
@@ -354,13 +391,13 @@ describe("PulseWeb public SDK methods", () => {
 
   describe("setUserProperties()", () => {
     it("merges multiple properties without overwriting unrelated keys", async () => {
-      const { PulseWeb } = await import("../sdk");
-      PulseWeb.start(BASE_CONFIG);
+      const { Pulse } = await import("../sdk");
+      Pulse.init(BASE_CONFIG);
       await Promise.resolve();
 
-      PulseWeb.setUserId("u1");
-      PulseWeb.setUserProperty("plan", "pro");
-      PulseWeb.setUserProperties({ locale: "en-IN", tier: "gold" });
+      Pulse.setUserId("u1");
+      Pulse.setUserProperty("plan", "pro");
+      Pulse.setUserProperties({ locale: "en-IN", tier: "gold" });
 
       const props = getPersistedUserProperties();
       expect(props.plan).toBe("pro");
@@ -369,13 +406,13 @@ describe("PulseWeb public SDK methods", () => {
     });
 
     it("null value removes the key from persisted props", async () => {
-      const { PulseWeb } = await import("../sdk");
-      PulseWeb.start(BASE_CONFIG);
+      const { Pulse } = await import("../sdk");
+      Pulse.init(BASE_CONFIG);
       await Promise.resolve();
 
-      PulseWeb.setUserId("u1");
-      PulseWeb.setUserProperties({ plan: "pro", temp: "x" });
-      PulseWeb.setUserProperties({ temp: null });
+      Pulse.setUserId("u1");
+      Pulse.setUserProperties({ plan: "pro", temp: "x" });
+      Pulse.setUserProperties({ temp: null });
 
       const props = getPersistedUserProperties();
       expect(props.plan).toBe("pro");
@@ -383,18 +420,18 @@ describe("PulseWeb public SDK methods", () => {
     });
 
     it("is a no-op before SDK is initialized (no crash)", async () => {
-      const { PulseWeb } = await import("../sdk");
-      expect(() => PulseWeb.setUserProperties({ plan: "pro" })).not.toThrow();
+      const { Pulse } = await import("../sdk");
+      expect(() => Pulse.setUserProperties({ plan: "pro" })).not.toThrow();
     });
 
     it("overwrites an existing key with a new value", async () => {
-      const { PulseWeb } = await import("../sdk");
-      PulseWeb.start(BASE_CONFIG);
+      const { Pulse } = await import("../sdk");
+      Pulse.init(BASE_CONFIG);
       await Promise.resolve();
 
-      PulseWeb.setUserId("u1");
-      PulseWeb.setUserProperties({ plan: "free" });
-      PulseWeb.setUserProperties({ plan: "enterprise" });
+      Pulse.setUserId("u1");
+      Pulse.setUserProperties({ plan: "free" });
+      Pulse.setUserProperties({ plan: "enterprise" });
 
       expect(getPersistedUserProperties().plan).toBe("enterprise");
     });
@@ -404,44 +441,44 @@ describe("PulseWeb public SDK methods", () => {
 
   describe("clearUserIdentity()", () => {
     it("removes userId and properties from localStorage", async () => {
-      const { PulseWeb } = await import("../sdk");
-      PulseWeb.start(BASE_CONFIG);
+      const { Pulse } = await import("../sdk");
+      Pulse.init(BASE_CONFIG);
       await Promise.resolve();
 
-      PulseWeb.setUserId("user-to-clear");
-      PulseWeb.setUserProperty("plan", "pro");
-      PulseWeb.clearUserIdentity();
+      Pulse.setUserId("user-to-clear");
+      Pulse.setUserProperty("plan", "pro");
+      Pulse.clearUserIdentity();
 
       expect(getPersistedUserId()).toBeNull();
       expect(getPersistedUserProperties()).toEqual({});
     });
 
     it("after clearing, user.id is absent from emitted signals", async () => {
-      const { PulseWeb } = await import("../sdk");
-      PulseWeb.start(BASE_CONFIG);
+      const { Pulse } = await import("../sdk");
+      Pulse.init(BASE_CONFIG);
       await Promise.resolve();
 
-      PulseWeb.setUserId("user-to-clear");
-      PulseWeb.clearUserIdentity();
+      Pulse.setUserId("user-to-clear");
+      Pulse.clearUserIdentity();
       emitFn.mockClear();
 
-      PulseWeb.trackEvent("post_clear_event");
+      Pulse.trackEvent("post_clear_event");
 
       const attrs = emittedAttrs();
       expect(attrs["user.id"]).toBeUndefined();
     });
 
     it("is safe to call when nothing was set (no crash)", async () => {
-      const { PulseWeb } = await import("../sdk");
-      PulseWeb.start(BASE_CONFIG);
+      const { Pulse } = await import("../sdk");
+      Pulse.init(BASE_CONFIG);
       await Promise.resolve();
 
-      expect(() => PulseWeb.clearUserIdentity()).not.toThrow();
+      expect(() => Pulse.clearUserIdentity()).not.toThrow();
     });
 
     it("is safe to call before SDK is initialized (no crash)", async () => {
-      const { PulseWeb } = await import("../sdk");
-      expect(() => PulseWeb.clearUserIdentity()).not.toThrow();
+      const { Pulse } = await import("../sdk");
+      expect(() => Pulse.clearUserIdentity()).not.toThrow();
     });
   });
 
@@ -449,20 +486,20 @@ describe("PulseWeb public SDK methods", () => {
 
   describe("setScreenName()", () => {
     it("does not throw and allows subsequent emit calls", async () => {
-      const { PulseWeb } = await import("../sdk");
-      PulseWeb.start(BASE_CONFIG);
+      const { Pulse } = await import("../sdk");
+      Pulse.init(BASE_CONFIG);
       await Promise.resolve();
       emitFn.mockClear();
 
-      PulseWeb.setScreenName("/checkout");
+      Pulse.setScreenName("/checkout");
 
-      expect(() => PulseWeb.trackEvent("view")).not.toThrow();
+      expect(() => Pulse.trackEvent("view")).not.toThrow();
       expect(emitFn).toHaveBeenCalledOnce();
     });
 
     it("is a no-op before SDK is initialized (no crash)", async () => {
-      const { PulseWeb } = await import("../sdk");
-      expect(() => PulseWeb.setScreenName("/early")).not.toThrow();
+      const { Pulse } = await import("../sdk");
+      expect(() => Pulse.setScreenName("/early")).not.toThrow();
     });
   });
 });

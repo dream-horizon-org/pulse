@@ -84,7 +84,11 @@ function waitForCHStackTrace(
     LIMIT 1
     FORMAT JSONEachRow
   `;
-  return pollUntilCH<ChStackTraceRow>(sql, timeoutMs, `${pulseType} stack trace`);
+  return pollUntilCH<ChStackTraceRow>(
+    sql,
+    timeoutMs,
+    `${pulseType} stack trace`,
+  );
 }
 
 async function countCHStackTraces(
@@ -110,14 +114,19 @@ async function countCHStackTraces(
 test.beforeEach(async () => {
   const available = await isCHAvailable();
   if (!available) {
-    test.skip(true, "ClickHouse not reachable — start full stack with deploy/scripts/start.sh");
+    test.skip(
+      true,
+      "ClickHouse not reachable — start full stack with deploy/scripts/start.sh",
+    );
   }
 });
 
 // ─── TC1: Uncaught error → device.crash in CH ────────────────────────────────
 
 test.describe("@M3-CH device.crash basic", () => {
-  test("TC1: uncaught error → device.crash in CH with stable attrs", async ({ page }) => {
+  test("TC1: uncaught error → device.crash in CH with stable attrs", async ({
+    page,
+  }) => {
     await page.goto("/error-demo");
     await page.getByTestId("throw-uncaught").click();
     await page.waitForTimeout(INGEST_WAIT);
@@ -146,7 +155,9 @@ test.describe("@M3-CH device.crash basic", () => {
     );
 
     expect(row.PulseType).toBe("non_fatal");
-    expect(row.ExceptionMessage).toBe("Demo unhandled rejection from ErrorDemo");
+    expect(row.ExceptionMessage).toBe(
+      "Demo unhandled rejection from ErrorDemo",
+    );
     expect(row.non_fatal_is_manual).toBe("false");
     console.log("TC2 PASS");
   });
@@ -155,7 +166,9 @@ test.describe("@M3-CH device.crash basic", () => {
 // ─── TC3: React render error in CH ───────────────────────────────────────────
 
 test.describe("@M3-CH React render error", () => {
-  test("TC3: PulseErrorBoundary → device.crash in CH with render error message", async ({ page }) => {
+  test("TC3: PulseErrorBoundary → device.crash in CH with render error message", async ({
+    page,
+  }) => {
     await page.goto("/error-demo");
     await page.getByTestId("throw-render-error").click();
     await page.waitForTimeout(INGEST_WAIT);
@@ -166,7 +179,9 @@ test.describe("@M3-CH React render error", () => {
     );
 
     expect(row.PulseType).toBe("device.crash");
-    expect(row.ExceptionMessage).toBe("Intentional render error from ErrorDemo");
+    expect(row.ExceptionMessage).toBe(
+      "Intentional render error from ErrorDemo",
+    );
     console.log("TC3 PASS");
   });
 });
@@ -174,7 +189,9 @@ test.describe("@M3-CH React render error", () => {
 // ─── TC4: Manual reportException in CH ───────────────────────────────────────
 
 test.describe("@M3-CH manual reportException", () => {
-  test("TC4: reportException → non_fatal in CH with is_manual=true", async ({ page }) => {
+  test("TC4: reportException → non_fatal in CH with is_manual=true", async ({
+    page,
+  }) => {
     await page.goto("/error-demo");
     await page.getByTestId("report-exception").click();
     await page.waitForTimeout(INGEST_WAIT);
@@ -194,7 +211,9 @@ test.describe("@M3-CH manual reportException", () => {
 // ─── TC5: url.path in CH ─────────────────────────────────────────────────────
 
 test.describe("@M3-CH url.path", () => {
-  test("TC5: url.path = /error-demo on device.crash in CH", async ({ page }) => {
+  test("TC5: url.path = /error-demo on device.crash in CH", async ({
+    page,
+  }) => {
     await page.goto("/error-demo");
     await page.getByTestId("throw-uncaught").click();
     await page.waitForTimeout(INGEST_WAIT);
@@ -212,7 +231,9 @@ test.describe("@M3-CH url.path", () => {
 // ─── TC6: Deduplication → only 1 entry in CH ─────────────────────────────────
 
 test.describe("@M3-CH deduplication", () => {
-  test("TC6: same error 5x within 5s → exactly 1 entry in CH", async ({ page }) => {
+  test("TC6: same error 5x within 5s → exactly 1 entry in CH", async ({
+    page,
+  }) => {
     const before = Date.now();
 
     await page.goto("/error-demo");
@@ -277,21 +298,28 @@ test.describe("@M3-CH consent / lifecycle", () => {
     console.log("TC9 PASS: 0 entries in CH with DENIED consent");
   });
 
-  test("TC10: post-shutdown → no error entries in CH after SDK shutdown", async ({ page }) => {
-    type PulseWebWindow = Window & {
-      PulseWeb?: { isInitialized: () => boolean; shutdown: () => Promise<void> };
+  test("TC10: post-shutdown → no error entries in CH after SDK shutdown", async ({
+    page,
+  }) => {
+    type PulseWindow = Window & {
+      Pulse?: { isInitialized: () => boolean; shutdown: () => Promise<void> };
     };
 
     await page.goto("/error-demo");
     await expect
       .poll(
-        () => page.evaluate(() => (window as unknown as PulseWebWindow).PulseWeb?.isInitialized?.() ?? false),
+        () =>
+          page.evaluate(
+            () =>
+              (window as unknown as PulseWindow).Pulse?.isInitialized?.() ??
+              false,
+          ),
         { timeout: 15_000 },
       )
       .toBe(true);
 
     await page.evaluate(async () => {
-      await (window as unknown as PulseWebWindow).PulseWeb!.shutdown();
+      await (window as unknown as PulseWindow).Pulse!.shutdown();
     });
 
     const before = Date.now();
@@ -324,7 +352,9 @@ test.describe("@M3-CH consent / lifecycle", () => {
 // ─── TC12: cross-origin excluded ─────────────────────────────────────────────
 
 test.describe("@M3-CH cross-origin excluded", () => {
-  test("TC12: cross-origin 'Script error.' → no entry in CH", async ({ page }) => {
+  test("TC12: cross-origin 'Script error.' → no entry in CH", async ({
+    page,
+  }) => {
     const before = Date.now();
 
     await page.goto("/");

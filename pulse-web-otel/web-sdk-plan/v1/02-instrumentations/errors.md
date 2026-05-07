@@ -509,7 +509,7 @@ export class ErrorInstrumentation implements PulseInstrumentation {
 
 | Same error after 5s window                                  | Emitted again — recurring errors are still captured                       |
 
-| Manual `reportException()` called before `PulseWeb.start()` | No-op — sdk guard returns early; app code should call after `start()`     |
+| Manual `reportException()` called before `Pulse.init()` | No-op — sdk guard returns early; app code should call after `start()`     |
 
 | `window.onerror` already set by another library             | We use `addEventListener` not the `onerror` property — no conflict        |
 
@@ -741,12 +741,12 @@ Use the ecommerce demo (`yarn demo`) with the local ingest stack running (`deplo
 | 10 | battery.percent absent on Firefox/Safari — error still captured | 1. Open in Firefox or Safari 2. Trigger uncaught error 3. Inspect log record | `battery.percent` attribute absent; all other attributes present; error captured correctly | | Expected — getBattery() not supported in Firefox/Safari |
 | 11 | storage.free included in all modern browsers | 1. Open in any modern browser 2. Trigger uncaught error 3. Inspect attributes | `storage.free` attribute present with value > 0 | | |
 | 12 | Cross-origin script error silently skipped | 1. Add `<script src="https://cross-origin.example.com/throws.js">` to page 2. Script throws 3. Check dashboard | No log record emitted; browser shows `Script error.` in console only | | Security — browser blocks stack for cross-origin scripts |
-| 13 | Error dispatched before SDK init is ignored | 1. Do NOT call `PulseWeb.start()` 2. Dispatch `new ErrorEvent('error', {message:'early', error: new Error('early')})` 3. Check dashboard | No log record emitted | | Listeners not attached before init |
-| 14 | reportException before SDK init is a no-op | 1. Do NOT call `PulseWeb.start()` 2. Call `PulseWeb.reportException(new Error('early'))` 3. Check dashboard | No log record emitted | | SDK guard returns early if not initialized |
+| 13 | Error dispatched before SDK init is ignored | 1. Do NOT call `Pulse.init()` 2. Dispatch `new ErrorEvent('error', {message:'early', error: new Error('early')})` 3. Check dashboard | No log record emitted | | Listeners not attached before init |
+| 14 | reportException before SDK init is a no-op | 1. Do NOT call `Pulse.init()` 2. Call `Pulse.reportException(new Error('early'))` 3. Check dashboard | No log record emitted | | SDK guard returns early if not initialized |
 | 15 | String promise rejection reason wrapped in Error | 1. Open console 2. Run `Promise.reject('something went wrong')` 3. Check dashboard | Log record with `exception.type = Error`, `exception.message = something went wrong` | | String wrapped in new Error() |
 | 16 | Undefined rejection reason handled gracefully | 1. Open console 2. Run `Promise.reject(undefined)` 3. Check dashboard | Log record with `exception.message = Unknown rejection` | | |
 | 17 | timestamp reflects exact time of error | 1. Note wall clock time 2. Trigger any error 3. Inspect `timestamp` field in raw OTLP payload | `timestamp` within 1000ms of noted wall clock time | | Exact event time — not batch flush time |
-| 18 | No conflict with pre-existing window.onerror handler | 1. Before calling `PulseWeb.start()` set `window.onerror = () => console.log('existing handler fired')` 2. Start SDK 3. Trigger uncaught error | Console shows `existing handler fired`; Pulse log record also emitted in dashboard | | SDK uses addEventListener — does not overwrite onerror property |
+| 18 | No conflict with pre-existing window.onerror handler | 1. Before calling `Pulse.init()` set `window.onerror = () => console.log('existing handler fired')` 2. Start SDK 3. Trigger uncaught error | Console shows `existing handler fired`; Pulse log record also emitted in dashboard | | SDK uses addEventListener — does not overwrite onerror property |
 
 ---
 

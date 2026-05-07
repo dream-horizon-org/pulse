@@ -124,8 +124,8 @@ Controlled via query params so one handler covers positive + negative:
 | API 5xx manually reported | `reportException(error)` | Lottery list 500 error state |
 | Ticket already sold | UI catches "ticket taken" response, reports non_fatal | Choose screen, ticket already reserved |
 | localStorage quota exceeded | Fill localStorage to limit, then write | SDK Lab |
-| Manual `trackNonFatal` | `PulseWeb.trackNonFatal('form_validation_failed')` | OTP form validation |
-| Manual `reportException` | `PulseWeb.reportException(err, { context: 'checkout' })` | SDK Lab |
+| Manual `trackNonFatal` | `Pulse.trackNonFatal('form_validation_failed')` | OTP form validation |
+| Manual `reportException` | `Pulse.reportException(err, { context: 'checkout' })` | SDK Lab |
 
 ### 5.5 Web Vitals — All 6, Good + Poor
 
@@ -191,7 +191,7 @@ Rage-click target: the "Buy Now" button when it's disabled (sale closed state) �
 'use client'
 import { usePathname } from 'next/navigation'
 import { useEffect } from 'react'
-import { PulseWeb } from '@dreamhorizon/pulse-web'
+import { Pulse } from '@dreamhorizon/pulse-web'
 
 const ROUTE_NAMES: Record<string, string> = {
   '/':                    'Home',
@@ -208,7 +208,7 @@ function resolveScreenName(pathname: string): string {
 export function PulseRouterTracker() {
   const pathname = usePathname()
   useEffect(() => {
-    PulseWeb.setScreenName(resolveScreenName(pathname))
+    Pulse.setScreenName(resolveScreenName(pathname))
   }, [pathname])
   return null
 }
@@ -322,7 +322,7 @@ Sections and controls:
 |---|---|---|
 | Rotate session | `session.end` + `session.start` | Advance session timestamp 31 min |
 | Simulate new install | `installation.start` + `session.start` | Clear installation ID + reload |
-| Force session flush | — | `PulseWeb.loggerProvider.forceFlush()` |
+| Force session flush | — | `Pulse.loggerProvider.forceFlush()` |
 
 ### Custom Events
 | Button | Signal |
@@ -389,11 +389,11 @@ Next.js route-level and root error boundaries require explicit `reportDeviceCras
 // app/error.tsx and app/global-error.tsx
 'use client'
 import { useEffect } from 'react'
-import { PulseWeb } from '@dreamhorizon/pulse-web'
+import { Pulse } from '@dreamhorizon/pulse-web'
 
 export default function Error({ error }: { error: Error }) {
   useEffect(() => {
-    PulseWeb.reportDeviceCrash(error, { boundary: 'route_error_boundary' })
+    Pulse.reportDeviceCrash(error, { boundary: 'route_error_boundary' })
   }, [error])
   // ... error UI
 }

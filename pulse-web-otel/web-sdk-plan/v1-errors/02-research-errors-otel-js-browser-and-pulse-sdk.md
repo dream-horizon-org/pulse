@@ -9,7 +9,7 @@ Map error signal paths through the Pulse Web SDK and identify lifecycle/gate tou
 1. `ErrorInstrumentation` uses `@opentelemetry/api-logs` logger emit path and captures:
    - `window.error` as `device.crash`
    - `unhandledrejection` as `non_fatal`
-2. `PulseWeb.reportException` and `PulseWeb.reportDeviceCrash` in `sdk.ts` are manual entrypoints.
+2. `Pulse.reportException` and `Pulse.reportDeviceCrash` in `sdk.ts` are manual entrypoints.
 3. Install gate path is owned by `InstrumentationRegistry.shouldInstall()`:
    - instrumentation key: `errors`
    - feature gate: `PulseFeature.JS_CRASH` (`js_crash`)

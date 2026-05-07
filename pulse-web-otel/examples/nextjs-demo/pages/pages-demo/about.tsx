@@ -13,7 +13,7 @@ export default function PagesDemoAbout(): React.JSX.Element {
         <h1>About</h1>
         <p>
           Navigating here triggered <code>routeChangeComplete</code> →{" "}
-          <code>PulseWeb.setScreenName("/pages-demo/about")</code>.
+          <code>Pulse.setScreenName("/pages-demo/about")</code>.
         </p>
       </main>
     </>

@@ -2,7 +2,7 @@
 
 **Implementation:** `pulse-web-otel/src/sdk.ts`
 
-## Start (`PulseWeb.init`)
+## Start (`Pulse.init`)
 
 - Validates configuration (API key, OTLP endpoint, project identity where required).
 - Builds the OTel `WebTracerProvider`, exporters, and resource attributes (session, platform = `web`, etc.).
@@ -10,12 +10,12 @@
 
 ## Runtime
 
-- Session and identity updates (`setUserId`, screen name, etc.) flow through the public API on `PulseWeb`.
+- Session and identity updates (`setUserId`, screen name, etc.) flow through the public API on `Pulse`.
 - Batched export follows OTel Web SDK + Pulse defaults (flush on shutdown / visibility when configured).
 
 ## Shutdown
 
-- Call `PulseWeb.shutdown()` (or the documented teardown path) so exporters flush and listeners unregister — avoids duplicates on hot reload in SPAs.
+- Call `Pulse.shutdown()` (or the documented teardown path) so exporters flush and listeners unregister — avoids duplicates on hot reload in SPAs.
 
 ## Verification
 

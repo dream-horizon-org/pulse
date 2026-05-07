@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { PulseWeb } from "@dreamhorizon/pulse-web";
+import { Pulse } from "@dreamhorizon/pulse-web";
 import { useCart } from "../context/CartContext";
 
 const SERIES_LABELS = ["A", "B", "C"];
@@ -41,7 +41,7 @@ export function TicketGrid({ series, lotteryId }: Props) {
 
   function handleTicketClick(num: string) {
     addItem(selectedSeries, num);
-    PulseWeb.trackEvent("ticket_pick_manual", {
+    Pulse.trackEvent("ticket_pick_manual", {
       lottery_id: lotteryId,
       ticket: `${selectedSeries}/${num}`,
     });

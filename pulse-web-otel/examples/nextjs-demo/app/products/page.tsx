@@ -15,7 +15,7 @@ export default async function ProductsPage(): Promise<React.JSX.Element> {
       <p style={{ fontSize: "0.85rem", color: "#888", marginBottom: "1rem" }}>
         {products.length} products — fetched server-side (RSC). Clicking a
         product fires <code>product_viewed</code> via{" "}
-        <code>PulseWeb.trackEvent()</code>.
+        <code>Pulse.trackEvent()</code>.
       </p>
       <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap" }}>
         {products.map((p) => (

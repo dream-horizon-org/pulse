@@ -46,7 +46,7 @@ vi.mock("../exporters", () => {
 });
 
 import { useRouterTracking } from "../integrations/react/useRouterTracking";
-import { PulseWeb } from "../sdk";
+import { Pulse } from "../sdk";
 
 type NavigateFn = (to: string) => void;
 type ReactRouterDomExports = {
@@ -65,7 +65,7 @@ function getReactRouterDom(): ReactRouterDomExports {
     return require("react-router-dom") as ReactRouterDomExports;
   } catch {
     throw new Error(
-      "[PulseWeb] use-router-tracking tests require react-router-dom to be installed.",
+      "[Pulse] use-router-tracking tests require react-router-dom to be installed.",
     );
   }
 }
@@ -77,7 +77,7 @@ beforeEach(() => {
   window.localStorage.clear();
   window.sessionStorage.clear();
   setScreenNameSpy = vi
-    .spyOn(PulseWeb, "setScreenName")
+    .spyOn(Pulse, "setScreenName")
     .mockImplementation(() => {});
 });
 
