@@ -2,6 +2,10 @@ package org.dreamhorizon.pulseserver.service.analytics;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.extern.slf4j.Slf4j;
+import org.dreamhorizon.pulseserver.dao.productAnalysis.funneldefinition.models.FunnelDefinitionRow;
+import org.dreamhorizon.pulseserver.resources.productAnalysis.funnel.models.FunnelAttributeFilter;
+import org.dreamhorizon.pulseserver.resources.productAnalysis.funnel.models.FunnelDefinitionStep;
 
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -10,11 +14,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
-
-import lombok.extern.slf4j.Slf4j;
-import org.dreamhorizon.pulseserver.dao.productAnalysis.funneldefinition.models.FunnelDefinitionRow;
-import org.dreamhorizon.pulseserver.resources.productAnalysis.funnel.models.FunnelAttributeFilter;
-import org.dreamhorizon.pulseserver.resources.productAnalysis.funnel.models.FunnelDefinitionStep;
 
 /**
  * Builds ClickHouse INSERT…WITH SQL for funnel computation.
@@ -109,6 +108,10 @@ public final class ClickHouseFunnelComputeDao {
    * {@code windowSeconds} starting from any step-0 occurrence.
    * {@code MedianStepSeconds} is {@code NULL} for all steps.
    *
+   * <p>{@code ConversionPct} for each step divides by the number of <em>funnel entrants</em>
+   * ({@code countIf(winning_depth >= 1)}), not all identities that logged any funnel step event.
+   * Step 1 is therefore 100% whenever there is at least one entrant.
+   *
    * @param def funnel definition; must have at least one step
    * @return the INSERT SQL, or an empty string if the funnel has no steps
    */
@@ -188,7 +191,7 @@ public final class ClickHouseFunnelComputeDao {
         .append("', ").append(runTime).append(", toUInt8(").append(k - 1).append("), '").append(stepName).append("',\n")
         .append("       countIf(winning_depth >= ").append(k).append("),\n")
         .append("       countIf(winning_depth >= ").append(k)
-        .append(") * 100.0 / greatest(count(), 1),\n")
+        .append(") * 100.0 / greatest(countIf(winning_depth >= 1), 1),\n")
         .append("       CAST(NULL AS Nullable(Int64))\n")
         .append("FROM funnel\n");
     }
@@ -799,7 +802,7 @@ public final class ClickHouseFunnelComputeDao {
       String prevAlias = i == 1 ? "a" : ("s" + (i - 1));
       String stepName = escape(steps.get(i).getEventName());
       String windowCond = "e.FunnelTs >= " + prevAlias + ".t" + (i - 1)
-          + " AND e.FunnelTs <= " + prevAlias + ".t0 + INTERVAL " + windowSeconds + " SECOND";
+        + " AND e.FunnelTs <= " + prevAlias + ".t0 + INTERVAL " + windowSeconds + " SECOND";
 
       sql.append(",\n  s").append(i).append(" AS (\n")
         .append("    SELECT ").append(prevAlias).append(".uid, ").append(prevAlias).append(".t0, ")

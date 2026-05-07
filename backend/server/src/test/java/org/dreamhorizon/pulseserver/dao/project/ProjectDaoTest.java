@@ -248,6 +248,29 @@ class ProjectDaoTest {
   }
 
   @Nested
+  class GetAllActiveProjectIds {
+
+    @Test
+    void shouldReturnAllActiveProjectIdsFromRows() {
+      setupReaderPreparedQuery();
+      Row r1 = mock(Row.class);
+      when(r1.getString("project_id")).thenReturn("proj-alpha");
+      Row r2 = mock(Row.class);
+      when(r2.getString("project_id")).thenReturn("proj-beta");
+      RowIterator<Row> iterator = createMockRowIterator(List.of(r1, r2));
+      when(rowSet.iterator()).thenReturn(iterator);
+      when(preparedQuery.rxExecute()).thenReturn(Single.just(rowSet));
+
+      List<String> result = projectDao.getAllActiveProjectIds().blockingGet();
+
+      assertNotNull(result);
+      assertEquals(2, result.size());
+      assertTrue(result.contains("proj-alpha"));
+      assertTrue(result.contains("proj-beta"));
+    }
+  }
+
+  @Nested
   class UpdateProject {
 
     @Test

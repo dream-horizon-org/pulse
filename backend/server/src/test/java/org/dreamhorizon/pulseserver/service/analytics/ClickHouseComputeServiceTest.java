@@ -9,8 +9,10 @@ import static org.mockito.Mockito.when;
 
 import io.reactivex.rxjava3.core.Maybe;
 import io.reactivex.rxjava3.core.Single;
+
 import java.time.LocalDateTime;
 import java.util.List;
+
 import org.dreamhorizon.pulseserver.client.chclient.ClickhouseWriteClient;
 import org.dreamhorizon.pulseserver.dao.analyticsjob.AnalyticsJobDao;
 import org.dreamhorizon.pulseserver.dao.analyticsjob.AnalyticsJobStatus;
@@ -48,7 +50,7 @@ class ClickHouseComputeServiceTest {
   @BeforeEach
   void setUp() {
     service = new ClickHouseComputeService(
-        funnelDefinitionDao, journeyDao, analyticsJobDao, clickhouseWriteClient);
+      funnelDefinitionDao, journeyDao, analyticsJobDao, clickhouseWriteClient);
   }
 
   /**
@@ -57,33 +59,33 @@ class ClickHouseComputeServiceTest {
    */
   private void stubAnalyticsJobLifecycle() {
     when(analyticsJobDao.insertJob(
-            ArgumentMatchers.any(AnalyticsJobType.class),
-            ArgumentMatchers.anyLong(),
-            ArgumentMatchers.isNull(),
-            ArgumentMatchers.eq(AnalyticsJobStatus.RUNNING)))
-        .thenReturn(Single.just(1L));
+      ArgumentMatchers.any(AnalyticsJobType.class),
+      ArgumentMatchers.anyLong(),
+      ArgumentMatchers.isNull(),
+      ArgumentMatchers.eq(AnalyticsJobStatus.RUNNING)))
+      .thenReturn(Single.just(1L));
     when(analyticsJobDao.updateJobStatus(
-            ArgumentMatchers.anyLong(),
-            ArgumentMatchers.any(AnalyticsJobStatus.class),
-            ArgumentMatchers.any(),
-            ArgumentMatchers.any(LocalDateTime.class),
-            ArgumentMatchers.any(LocalDateTime.class)))
-        .thenReturn(Single.just(1));
+      ArgumentMatchers.anyLong(),
+      ArgumentMatchers.any(AnalyticsJobStatus.class),
+      ArgumentMatchers.any(),
+      ArgumentMatchers.any(LocalDateTime.class),
+      ArgumentMatchers.any(LocalDateTime.class)))
+      .thenReturn(Single.just(1));
   }
 
   private FunnelDefinitionRow funnelRow() {
     return FunnelDefinitionRow.builder()
-        .id(42L)
-        .projectId(PROJECT)
-        .name("F")
-        .funnelType("AUTO")
-        .stepOrderType("ORDERED")
-        .mode("UNIQUE_USERS")
-        .dateRangeDays(7)
-        .windowSeconds(3600L)
-        .stepsJson("[{\"eventName\":\"e1\"}]")
-        .filtersJson(null)
-        .build();
+      .id(42L)
+      .projectId(PROJECT)
+      .name("F")
+      .funnelType("AUTO")
+      .stepOrderType("ORDERED")
+      .mode("UNIQUE_USERS")
+      .dateRangeDays(7)
+      .windowSeconds(3600L)
+      .stepsJson("[{\"eventName\":\"e1\"}]")
+      .filtersJson(null)
+      .build();
   }
 
   private JourneyRow journeyRow() {
@@ -95,7 +97,7 @@ class ClickHouseComputeServiceTest {
     when(funnelDefinitionDao.findById(1L)).thenReturn(Maybe.empty());
 
     assertThatThrownBy(() -> service.computeFunnel(1L).blockingGet())
-        .hasMessageContaining("Funnel not found");
+      .hasMessageContaining("Funnel not found");
   }
 
   @Test
@@ -112,7 +114,7 @@ class ClickHouseComputeServiceTest {
     when(journeyDao.findById(1L)).thenReturn(Maybe.empty());
 
     assertThatThrownBy(() -> service.computeJourney(1L).blockingGet())
-        .hasMessageContaining("Journey not found");
+      .hasMessageContaining("Journey not found");
   }
 
   @Test
@@ -135,7 +137,6 @@ class ClickHouseComputeServiceTest {
     JourneyRow start = journeyRowWithDirection(1L, "START");
     JourneyRow end = journeyRowWithDirection(2L, "END");
     when(clickhouseWriteClient.executeSql(anyString())).thenReturn(Single.just(true));
-    when(journeyDao.touchUpdatedAt(ArgumentMatchers.anyLong())).thenReturn(Single.just(1));
     stubAnalyticsJobLifecycle();
 
     assertThat(service.computeJourneyBatch(PROJECT, List.of(start, end)).blockingGet()).isTrue();
@@ -149,23 +150,20 @@ class ClickHouseComputeServiceTest {
     JourneyRow start = journeyRowWithDirection(1L, "START");
     JourneyRow end = journeyRowWithDirection(2L, "END");
     when(clickhouseWriteClient.executeSql(anyString())).thenReturn(Single.just(true));
-    when(journeyDao.touchUpdatedAt(ArgumentMatchers.anyLong())).thenReturn(Single.just(1));
     stubAnalyticsJobLifecycle();
 
     service.computeJourneyBatch(PROJECT, List.of(start, end)).blockingGet();
 
     verify(analyticsJobDao).insertJob(
-        ArgumentMatchers.eq(AnalyticsJobType.JOURNEY),
-        ArgumentMatchers.eq(1L),
-        ArgumentMatchers.isNull(),
-        ArgumentMatchers.eq(AnalyticsJobStatus.RUNNING));
+      ArgumentMatchers.eq(AnalyticsJobType.JOURNEY),
+      ArgumentMatchers.eq(1L),
+      ArgumentMatchers.isNull(),
+      ArgumentMatchers.eq(AnalyticsJobStatus.RUNNING));
     verify(analyticsJobDao).insertJob(
-        ArgumentMatchers.eq(AnalyticsJobType.JOURNEY),
-        ArgumentMatchers.eq(2L),
-        ArgumentMatchers.isNull(),
-        ArgumentMatchers.eq(AnalyticsJobStatus.RUNNING));
-    verify(journeyDao).touchUpdatedAt(1L);
-    verify(journeyDao).touchUpdatedAt(2L);
+      ArgumentMatchers.eq(AnalyticsJobType.JOURNEY),
+      ArgumentMatchers.eq(2L),
+      ArgumentMatchers.isNull(),
+      ArgumentMatchers.eq(AnalyticsJobStatus.RUNNING));
   }
 
   @Test
@@ -173,55 +171,52 @@ class ClickHouseComputeServiceTest {
     // Each funnel in the batch must get its own analytics_jobs row with reference_id
     // set to the funnel id, so the listing's latest_job_status subquery resolves.
     FunnelDefinitionRow f1 = FunnelDefinitionRow.builder()
-        .id(7L).projectId(PROJECT).name("F1").funnelType("AUTO").stepOrderType("ORDERED")
-        .mode("UNIQUE_USERS").dateRangeDays(7).windowSeconds(3600L)
-        .stepsJson("[{\"eventName\":\"e1\"}]").filtersJson(null).build();
+      .id(7L).projectId(PROJECT).name("F1").funnelType("AUTO").stepOrderType("ORDERED")
+      .mode("UNIQUE_USERS").dateRangeDays(7).windowSeconds(3600L)
+      .stepsJson("[{\"eventName\":\"e1\"}]").filtersJson(null).build();
     FunnelDefinitionRow f2 = FunnelDefinitionRow.builder()
-        .id(8L).projectId(PROJECT).name("F2").funnelType("AUTO").stepOrderType("ORDERED")
-        .mode("UNIQUE_USERS").dateRangeDays(7).windowSeconds(3600L)
-        .stepsJson("[{\"eventName\":\"e1\"}]").filtersJson(null).build();
+      .id(8L).projectId(PROJECT).name("F2").funnelType("AUTO").stepOrderType("ORDERED")
+      .mode("UNIQUE_USERS").dateRangeDays(7).windowSeconds(3600L)
+      .stepsJson("[{\"eventName\":\"e1\"}]").filtersJson(null).build();
     when(clickhouseWriteClient.executeSql(anyString())).thenReturn(Single.just(true));
-    when(funnelDefinitionDao.touchUpdatedAt(ArgumentMatchers.anyLong())).thenReturn(Single.just(1));
     stubAnalyticsJobLifecycle();
 
     service.computeFunnelBatch(PROJECT, List.of(f1, f2)).blockingGet();
 
     verify(analyticsJobDao).insertJob(
-        ArgumentMatchers.eq(AnalyticsJobType.FUNNEL),
-        ArgumentMatchers.eq(7L),
-        ArgumentMatchers.isNull(),
-        ArgumentMatchers.eq(AnalyticsJobStatus.RUNNING));
+      ArgumentMatchers.eq(AnalyticsJobType.FUNNEL),
+      ArgumentMatchers.eq(7L),
+      ArgumentMatchers.isNull(),
+      ArgumentMatchers.eq(AnalyticsJobStatus.RUNNING));
     verify(analyticsJobDao).insertJob(
-        ArgumentMatchers.eq(AnalyticsJobType.FUNNEL),
-        ArgumentMatchers.eq(8L),
-        ArgumentMatchers.isNull(),
-        ArgumentMatchers.eq(AnalyticsJobStatus.RUNNING));
-    verify(funnelDefinitionDao).touchUpdatedAt(7L);
-    verify(funnelDefinitionDao).touchUpdatedAt(8L);
+      ArgumentMatchers.eq(AnalyticsJobType.FUNNEL),
+      ArgumentMatchers.eq(8L),
+      ArgumentMatchers.isNull(),
+      ArgumentMatchers.eq(AnalyticsJobStatus.RUNNING));
   }
 
   private JourneyRow journeyRowWithDirection(long id, String direction) {
     return JourneyRow.builder()
-        .id(id)
-        .projectId(PROJECT)
-        .name("J")
-        .description(null)
-        .anchorEvent("anchor")
-        .direction(direction)
-        .depth(3)
-        .mode("UNIQUE_USERS")
-        .filtersJson(null)
-        .startTime(null)
-        .endTime(null)
-        .journeyType("AUTO")
-        .expiry(null)
-        .dateRangeDays(7)
-        .createdAt(null)
-        .updatedAt(null)
-        .createdBy(null)
-        .latestJobStatus(null)
-        .totalCount(0L)
-        .build();
+      .id(id)
+      .projectId(PROJECT)
+      .name("J")
+      .description(null)
+      .anchorEvent("anchor")
+      .direction(direction)
+      .depth(3)
+      .mode("UNIQUE_USERS")
+      .filtersJson(null)
+      .startTime(null)
+      .endTime(null)
+      .journeyType("AUTO")
+      .expiry(null)
+      .dateRangeDays(7)
+      .createdAt(null)
+      .updatedAt(null)
+      .createdBy(null)
+      .latestJobStatus(null)
+      .totalCount(0L)
+      .build();
   }
 
   @Test
@@ -240,18 +235,18 @@ class ClickHouseComputeServiceTest {
     assertThat(service.deleteFunnelResults(PROJECT, 42L).blockingGet()).isTrue();
 
     verify(clickhouseWriteClient).executeSql(org.mockito.ArgumentMatchers.argThat(
-        s -> s.contains("DELETE FROM otel.funnel_results")
-            && s.contains("ProjectId = 'proj-x'")
-            && s.contains("FunnelId = 42")));
+      s -> s.contains("DELETE FROM otel.funnel_results")
+        && s.contains("ProjectId = 'proj-x'")
+        && s.contains("FunnelId = 42")));
     verify(clickhouseWriteClient).executeSql(org.mockito.ArgumentMatchers.argThat(
-        s -> s.contains("DELETE FROM otel.funnel_session_state")
-            && s.contains("FunnelId = 42")));
+      s -> s.contains("DELETE FROM otel.funnel_session_state")
+        && s.contains("FunnelId = 42")));
     verify(clickhouseWriteClient).executeSql(org.mockito.ArgumentMatchers.argThat(
-        s -> s.contains("DELETE FROM otel.funnel_user_state")
-            && s.contains("FunnelId = 42")));
+      s -> s.contains("DELETE FROM otel.funnel_user_state")
+        && s.contains("FunnelId = 42")));
     verify(clickhouseWriteClient).executeSql(org.mockito.ArgumentMatchers.argThat(
-        s -> s.contains("DELETE FROM otel.funnel_dropoff_attribution")
-            && s.contains("FunnelId = 42")));
+      s -> s.contains("DELETE FROM otel.funnel_dropoff_attribution")
+        && s.contains("FunnelId = 42")));
   }
 
   @Test
@@ -259,11 +254,11 @@ class ClickHouseComputeServiceTest {
     // Primary funnel_results delete must succeed independently — bridge cleanup failures
     // are best-effort and shouldn't surface to FunnelService.delete.
     when(clickhouseWriteClient.executeSql(org.mockito.ArgumentMatchers.argThat(
-        s -> s.contains("DELETE FROM otel.funnel_results"))))
-        .thenReturn(Single.just(true));
+      s -> s.contains("DELETE FROM otel.funnel_results"))))
+      .thenReturn(Single.just(true));
     when(clickhouseWriteClient.executeSql(org.mockito.ArgumentMatchers.argThat(
-        s -> s.contains("DELETE FROM otel.funnel_session_state"))))
-        .thenReturn(Single.error(new RuntimeException("bridge ch boom")));
+      s -> s.contains("DELETE FROM otel.funnel_session_state"))))
+      .thenReturn(Single.error(new RuntimeException("bridge ch boom")));
 
     assertThat(service.deleteFunnelResults(PROJECT, 42L).blockingGet()).isTrue();
   }

@@ -14,14 +14,16 @@ public final class io/opentelemetry/instrumentation/library/okhttp/v3_0/OkHttpIn
 	public final fun setEmitExperimentalHttpClientTelemetry (Z)V
 	public final fun setKnownMethods (Ljava/util/Set;)V
 	public final fun setPeerServiceMapping (Ljava/util/Map;)V
+	public fun uninstall (Lio/opentelemetry/android/instrumentation/InstallationContext;)V
 }
 
 public final class io/opentelemetry/instrumentation/library/okhttp/v3_0/internal/OkHttp3Singletons {
 	public static final field CALLBACK_CONTEXT_INTERCEPTOR Lokhttp3/Interceptor;
-	public static field CONNECTION_ERROR_INTERCEPTOR Lokhttp3/Interceptor;
+	public static final field CONNECTION_ERROR_INTERCEPTOR Lokhttp3/Interceptor;
 	public static final field RESEND_COUNT_CONTEXT_INTERCEPTOR Lokhttp3/Interceptor;
-	public static field TRACING_INTERCEPTOR Lokhttp3/Interceptor;
+	public static final field TRACING_INTERCEPTOR Lokhttp3/Interceptor;
 	public static fun configure (Lio/opentelemetry/instrumentation/library/okhttp/v3_0/OkHttpInstrumentation;Lio/opentelemetry/api/OpenTelemetry;)V
+	public static fun disableInstrumentedInterceptors ()V
 }
 
 public final class io/opentelemetry/instrumentation/library/okhttp/v3_0/internal/OkHttpCallbackAdviceHelper {

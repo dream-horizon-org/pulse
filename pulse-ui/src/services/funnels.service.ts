@@ -78,8 +78,10 @@ export type FunnelListItem = {
   name: string;
   status: AnalysisStatus;
   createdBy: string;
-  /** Server-side `updatedAt` from FunnelDefinitionResponse. */
-  updatedAt: string;
+  /** Server-side `createdAt` from FunnelDefinitionResponse. */
+  createdAt: string;
+  /** Server-side `updatedAt` from FunnelDefinitionResponse. Kept for back-compat. */
+  updatedAt?: string;
   tags: string[];
   funnelType?: FunnelType;
   stepOrderType?: StepOrderType;
@@ -113,8 +115,10 @@ export type JourneyListItem = {
   name: string;
   status: AnalysisStatus;
   createdBy: string;
-  /** Server-side `updatedAt` from JourneyResponse. */
-  updatedAt: string;
+  /** Server-side `createdAt` from JourneyResponse. */
+  createdAt: string;
+  /** Server-side `updatedAt` from JourneyResponse. Kept for back-compat. */
+  updatedAt?: string;
   tags: string[];
   journeyType?: FunnelType;
 };
@@ -166,9 +170,14 @@ export type FunnelDetail = {
   expiry?: string;
   createdAt: string;
   updatedAt?: string;
+  lastRunAt?: string;
   createdBy: string;
   tags: string[];
   funnelResults?: unknown;
+  /** Latest overall conversion % — same value the listing surfaces. */
+  overallConversionRate?: number;
+  /** Change vs prior run (percentage points); positive = up. Same as listing. */
+  conversionTrend?: number;
   /** @deprecated Kept for backwards compat; use startTime/endTime or dateRangeDays. */
   timeRange?: TimeRange;
   expiryDate?: string;
@@ -195,6 +204,7 @@ export type JourneyDetail = {
   dateRangeDays?: number;
   createdAt: string;
   updatedAt?: string;
+  lastRunAt?: string;
   createdBy: string;
   tags: string[];
   journeyResults?: unknown;

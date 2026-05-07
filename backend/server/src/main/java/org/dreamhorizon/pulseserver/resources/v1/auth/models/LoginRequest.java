@@ -16,4 +16,7 @@ public class LoginRequest {
     @NotBlank(message = "Firebase ID token is required")
     @JsonProperty("firebaseIdToken")
     private String firebaseIdToken;
+
+    @JsonProperty("pulseClientHost")
+    private String pulseClientHost;
 }

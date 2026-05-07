@@ -14,6 +14,7 @@ import java.time.Instant;
 import java.util.Collections;
 import java.util.List;
 import org.dreamhorizon.pulseserver.dao.productAnalysis.funneljourneytag.FunnelJourneyTagDao;
+import org.dreamhorizon.pulseserver.dao.productAnalysis.journeyresults.models.JourneyResultRow;
 import org.dreamhorizon.pulseserver.dao.productAnalysis.funneljourneytag.FunnelJourneyTagEntityType;
 import org.dreamhorizon.pulseserver.dao.productAnalysis.journey.JourneyDao;
 import org.dreamhorizon.pulseserver.dao.productAnalysis.journey.models.JourneyRow;
@@ -130,6 +131,21 @@ class JourneyServiceImplTest {
 
     var resp = service.get(PROJECT, 20L).blockingGet();
     assertThat(resp.getId()).isEqualTo(20L);
+  }
+
+  @Test
+  void get_setsLastRunAtFromResults() {
+    Instant runTime = Instant.parse("2026-05-01T10:00:00Z");
+    when(journeyDao.findByProjectAndId(PROJECT, 20L)).thenReturn(Maybe.just(storedRow()));
+    when(journeyResultsDao.queryLatest(PROJECT, 20L, "START"))
+        .thenReturn(Single.just(List.of(
+            JourneyResultRow.builder()
+                .direction("START").posFrom(-1).eventFrom("").posTo(0).eventTo("App_Launch")
+                .userCount(100L).runTime(runTime).build())));
+    when(funnelJourneyTagDao.listTagsForEntity(PROJECT, FunnelJourneyTagEntityType.JOURNEY, 20L))
+        .thenReturn(Single.just(List.of()));
+
+    assertThat(service.get(PROJECT, 20L).blockingGet().getLastRunAt()).isEqualTo(runTime);
   }
 
   @Test

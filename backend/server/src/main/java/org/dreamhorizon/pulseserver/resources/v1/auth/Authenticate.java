@@ -10,6 +10,8 @@ import jakarta.ws.rs.HeaderParam;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.core.Context;
+import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.MediaType;
 import java.util.concurrent.CompletionStage;
 import lombok.RequiredArgsConstructor;
@@ -25,6 +27,7 @@ import org.dreamhorizon.pulseserver.resources.v1.auth.models.VerifyAuthTokenResp
 import org.dreamhorizon.pulseserver.rest.io.Response;
 import org.dreamhorizon.pulseserver.rest.io.RestResponse;
 import org.dreamhorizon.pulseserver.service.AuthService;
+import org.dreamhorizon.pulseserver.service.auth.LoginHostContext;
 
 @Slf4j
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
@@ -90,15 +93,28 @@ public class Authenticate {
   public CompletionStage<Response<LoginResponse>> login(
       @RequestBody(description = "Login with Firebase ID token")
       @Valid
-      LoginRequest loginRequest) {
+      LoginRequest loginRequest,
+      @Context HttpHeaders headers) {
     try {
+      LoginHostContext hostContext = LoginHostContext.builder()
+          .pulseClientHost(loginRequest.getPulseClientHost())
+          .forwardedHost(firstHeaderSegment(headers.getHeaderString("X-Forwarded-Host")))
+          .build();
+
       return authService
-          .login(loginRequest.getFirebaseIdToken())
+          .login(loginRequest.getFirebaseIdToken(), hostContext)
           .to(RestResponse.jaxrsRestHandler());
     } catch (Exception e) {
       String cause = e.getMessage() != null ? e.getMessage() : "Invalid ID token";
       throw ServiceError.SERVICE_UNKNOWN_EXCEPTION.getCustomException("Login failed", cause);
     }
+  }
+
+  private static String firstHeaderSegment(String header) {
+    if (header == null) {
+      return null;
+    }
+    return header.split(",")[0].trim();
   }
 
   @GET

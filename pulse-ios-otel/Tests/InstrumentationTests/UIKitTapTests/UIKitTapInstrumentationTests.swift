@@ -367,14 +367,8 @@ final class UIKitTapInstrumentationTests: XCTestCase {
 
     func testConfigDefaultsToDisabled() {
         let config = UIKitTapInstrumentationConfig()
-        XCTAssertFalse(config.enabled)
+        // enabled is internal; defaults to false, controlled by backend
         XCTAssertFalse(config.captureContext)
-    }
-
-    func testConfigCanBeDisabled() {
-        var config = UIKitTapInstrumentationConfig()
-        config.enabled(false)
-        XCTAssertFalse(config.enabled)
     }
 
     func testConfigCaptureContextCanBeDisabled() {
@@ -383,11 +377,9 @@ final class UIKitTapInstrumentationTests: XCTestCase {
         XCTAssertFalse(config.captureContext)
     }
 
-    func testConfigCanBeEnabled() {
+    func testConfigCaptureContextCanBeEnabled() {
         var config = UIKitTapInstrumentationConfig()
-        config.enabled(true)
         config.captureContext(true)
-        XCTAssertTrue(config.enabled)
         XCTAssertTrue(config.captureContext)
     }
     

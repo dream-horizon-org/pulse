@@ -19,6 +19,8 @@ import org.dreamhorizon.pulseserver.constant.Constants;
 import org.dreamhorizon.pulseserver.dao.clickhouseprojectcredentials.ClickhouseProjectCredentialsDao;
 import org.dreamhorizon.pulseserver.dao.notification.*;
 import org.dreamhorizon.pulseserver.dao.project.ProjectDao;
+import org.dreamhorizon.pulseserver.dao.tenant.TenantDao;
+import org.dreamhorizon.pulseserver.guice.OpenFgaServiceProvider;
 import org.dreamhorizon.pulseserver.dao.user.UserDao;
 import org.dreamhorizon.pulseserver.errorgrouping.IosLlvmSymbolicator;
 import org.dreamhorizon.pulseserver.errorgrouping.Symbolicator;
@@ -49,9 +51,12 @@ import org.dreamhorizon.pulseserver.service.cron.UsageLimitNotificationProcessSe
 import org.dreamhorizon.pulseserver.service.kong.KongApiKeyRedisSyncService;
 import org.dreamhorizon.pulseserver.service.kong.KongUsageCreditsRedisSyncService;
 import org.dreamhorizon.pulseserver.service.notification.webhook.SesWebhookHandler;
+import org.dreamhorizon.pulseserver.dao.userapikey.UserApiKeyDao;
 import org.dreamhorizon.pulseserver.service.session.SessionBlockFetcher;
 import org.dreamhorizon.pulseserver.service.session.SessionReplayService;
 import org.dreamhorizon.pulseserver.service.spark.SparkJobService;
+import org.dreamhorizon.pulseserver.service.userapikey.UserApiKeyService;
+import org.dreamhorizon.pulseserver.service.userapikey.impl.UserApiKeyServiceImpl;
 import org.dreamhorizon.pulseserver.service.spark.impl.SparkJobServiceImpl;
 import org.dreamhorizon.pulseserver.util.ApiKeyGenerator;
 import org.dreamhorizon.pulseserver.util.RxObjectMapper;
@@ -105,7 +110,10 @@ public class MainModule extends VertxAbstractModule {
     // === NEW: Multi-tenancy & RBAC Services ===
     // === NEW: Multi-tenancy & RBAC DAOs ===
     bind(UserDao.class).in(Singleton.class);
+    bind(TenantDao.class).in(Singleton.class);
     bind(ProjectDao.class).in(Singleton.class);
+    bind(UserApiKeyDao.class).in(Singleton.class);
+    bind(UserApiKeyService.class).to(UserApiKeyServiceImpl.class).in(Singleton.class);
     bind(ClickhouseProjectCredentialsDao.class).in(Singleton.class);
 
     // === NEW: Utilities ===
@@ -155,18 +163,7 @@ public class MainModule extends VertxAbstractModule {
       return RootCauseConfig.withDefaults(config);
     }).in(Singleton.class);
 
-    bind(OpenFgaService.class).toProvider(() -> {
-      OpenFgaConfig config = SharedDataUtils.get(vertx, OpenFgaConfig.class);
-      if (config != null && config.isEnabled()) {
-        try {
-          return new OpenFgaService(config);
-        } catch (Exception e) {
-          log.error("Failed to initialize OpenFgaService: {}", e.getMessage());
-          return null;
-        }
-      }
-      return null;
-    }).in(Singleton.class);
+    bind(OpenFgaService.class).toProvider(OpenFgaServiceProvider.class).in(Singleton.class);
 
     bindOnCallProvider();
     bind(OnCallService.class).in(Singleton.class);

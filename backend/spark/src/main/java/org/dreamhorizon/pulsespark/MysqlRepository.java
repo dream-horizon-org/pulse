@@ -2,12 +2,14 @@ package org.dreamhorizon.pulsespark;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.util.Optional;
 import java.util.ArrayList;
 import java.util.List;
+
 import org.dreamhorizon.pulsespark.model.FunnelDefinition;
 import org.dreamhorizon.pulsespark.model.FunnelFilter;
 import org.dreamhorizon.pulsespark.model.FunnelStep;
@@ -27,7 +29,7 @@ public class MysqlRepository {
 
   public MysqlRepository(String host, int port, String db, String user, String password) {
     this.jdbcUrl = "jdbc:mysql://%s:%d/%s?useSSL=false&allowPublicKeyRetrieval=true"
-        .formatted(host, port, db);
+      .formatted(host, port, db);
     this.user = user;
     this.password = password;
   }
@@ -38,8 +40,8 @@ public class MysqlRepository {
    */
   public List<FunnelDefinition> fetchFunnels(Long referenceId) throws Exception {
     var sql = referenceId != null
-        ? "SELECT * FROM funnel WHERE id = ?"
-        : "SELECT * FROM funnel WHERE funnel_type = 'AUTO' AND (end_time IS NULL OR end_time >= NOW())";
+      ? "SELECT * FROM funnel WHERE id = ?"
+      : "SELECT * FROM funnel WHERE funnel_type = 'AUTO' AND (end_time IS NULL OR end_time >= NOW())";
 
     var results = new ArrayList<FunnelDefinition>();
     try (var conn = DriverManager.getConnection(jdbcUrl, user, password);
@@ -53,21 +55,21 @@ public class MysqlRepository {
       while (rs.next()) {
         List<FunnelStep> steps = MAPPER.readValue(rs.getString("steps_json"), STEPS_TYPE);
         List<FunnelFilter> filters = rs.getString("filters_json") != null
-            ? MAPPER.readValue(rs.getString("filters_json"), FILTERS_TYPE)
-            : List.of();
+          ? MAPPER.readValue(rs.getString("filters_json"), FILTERS_TYPE)
+          : List.of();
 
         results.add(new FunnelDefinition(
-            rs.getLong("id"),
-            rs.getString("project_id"),
-            steps,
-            rs.getLong("window_seconds"),
-            rs.getString("mode"),
-            rs.getInt("date_range"),
-            filters,
-            rs.getString("funnel_type"),
-            rs.getString("step_order_type"),
-            rs.getTimestamp("start_time"),
-            rs.getTimestamp("end_time")
+          rs.getLong("id"),
+          rs.getString("project_id"),
+          steps,
+          rs.getLong("window_seconds"),
+          rs.getString("mode"),
+          rs.getInt("date_range"),
+          filters,
+          rs.getString("funnel_type"),
+          rs.getString("step_order_type"),
+          rs.getTimestamp("start_time"),
+          rs.getTimestamp("end_time")
         ));
       }
     }
@@ -80,8 +82,8 @@ public class MysqlRepository {
    */
   public List<JourneyDefinition> fetchJourneys(Long referenceId) throws Exception {
     var sql = referenceId != null
-        ? "SELECT * FROM journey WHERE id = ?"
-        : "SELECT * FROM journey WHERE journey_type = 'AUTO' AND (end_time IS NULL OR end_time >= NOW())";
+      ? "SELECT * FROM journey WHERE id = ?"
+      : "SELECT * FROM journey WHERE journey_type = 'AUTO' AND (end_time IS NULL OR end_time >= NOW())";
 
     var results = new ArrayList<JourneyDefinition>();
     try (var conn = DriverManager.getConnection(jdbcUrl, user, password);
@@ -94,21 +96,21 @@ public class MysqlRepository {
 
       while (rs.next()) {
         List<FunnelFilter> filters = rs.getString("filters_json") != null
-            ? MAPPER.readValue(rs.getString("filters_json"), FILTERS_TYPE)
-            : List.of();
+          ? MAPPER.readValue(rs.getString("filters_json"), FILTERS_TYPE)
+          : List.of();
 
         results.add(new JourneyDefinition(
-            rs.getLong("id"),
-            rs.getString("project_id"),
-            rs.getString("anchor_event"),
-            rs.getString("direction"),
-            rs.getInt("depth"),
-            rs.getString("mode"),
-            rs.getInt("date_range"),
-            filters,
-            rs.getString("journey_type"),
-            rs.getTimestamp("start_time"),
-            rs.getTimestamp("end_time")
+          rs.getLong("id"),
+          rs.getString("project_id"),
+          rs.getString("anchor_event"),
+          rs.getString("direction"),
+          rs.getInt("depth"),
+          rs.getString("mode"),
+          rs.getInt("date_range"),
+          filters,
+          rs.getString("journey_type"),
+          rs.getTimestamp("start_time"),
+          rs.getTimestamp("end_time")
         ));
       }
     }
@@ -123,9 +125,9 @@ public class MysqlRepository {
   public Optional<Timestamp> getLatestSucceededEventCatalogJobStartedAt() throws SQLException {
     try (var conn = DriverManager.getConnection(jdbcUrl, user, password);
          var stmt = conn.prepareStatement(
-             "SELECT MAX(started_at) AS ts FROM analytics_jobs "
-                 + "WHERE job_type = 'EVENTS_INCREMENTAL' "
-                 + "AND status = 'SUCCEEDED' AND started_at IS NOT NULL")) {
+           "SELECT MAX(started_at) AS ts FROM analytics_jobs "
+             + "WHERE job_type = 'EVENTS_INCREMENTAL' "
+             + "AND status = 'SUCCEEDED' AND started_at IS NOT NULL")) {
       var rs = stmt.executeQuery();
       if (!rs.next() || rs.getTimestamp("ts") == null) {
         return Optional.empty();
@@ -152,7 +154,7 @@ public class MysqlRepository {
   public void updateAnalyticsJobRunning(long analyticsJobId) throws SQLException {
     try (var conn = DriverManager.getConnection(jdbcUrl, user, password);
          var stmt = conn.prepareStatement(
-             "UPDATE analytics_jobs SET status = 'RUNNING', started_at = NOW() WHERE id = ?")) {
+           "UPDATE analytics_jobs SET status = 'RUNNING', started_at = NOW() WHERE id = ?")) {
       stmt.setLong(1, analyticsJobId);
       stmt.executeUpdate();
     }
@@ -161,7 +163,7 @@ public class MysqlRepository {
   public void updateAnalyticsJobSucceeded(long analyticsJobId) throws SQLException {
     try (var conn = DriverManager.getConnection(jdbcUrl, user, password);
          var stmt = conn.prepareStatement(
-             "UPDATE analytics_jobs SET status = 'SUCCEEDED', completed_at = NOW() WHERE id = ?")) {
+           "UPDATE analytics_jobs SET status = 'SUCCEEDED', completed_at = NOW() WHERE id = ?")) {
       stmt.setLong(1, analyticsJobId);
       stmt.executeUpdate();
     }
@@ -170,69 +172,11 @@ public class MysqlRepository {
   public void updateAnalyticsJobFailed(long analyticsJobId, String errorMessage) throws SQLException {
     try (var conn = DriverManager.getConnection(jdbcUrl, user, password);
          var stmt = conn.prepareStatement(
-             "UPDATE analytics_jobs SET status = 'FAILED', error_message = ?, completed_at = NOW() WHERE id = ?")) {
+           "UPDATE analytics_jobs SET status = 'FAILED', error_message = ?, completed_at = NOW() WHERE id = ?")) {
       stmt.setString(1, errorMessage != null && errorMessage.length() > 2000
-          ? errorMessage.substring(0, 2000) : errorMessage);
+        ? errorMessage.substring(0, 2000) : errorMessage);
       stmt.setLong(2, analyticsJobId);
       stmt.executeUpdate();
-    }
-  }
-
-  /**
-   * Bumps {@code funnel.updated_at} to {@code CURRENT_TIMESTAMP}.
-   * Called after successful funnel compute so listing shows latest auto-run.
-   */
-  public void touchFunnelUpdatedAt(long funnelId) throws SQLException {
-    try (var conn = DriverManager.getConnection(jdbcUrl, user, password);
-         var stmt = conn.prepareStatement(
-             "UPDATE funnel SET updated_at = CURRENT_TIMESTAMP WHERE id = ?")) {
-      stmt.setLong(1, funnelId);
-      int updated = stmt.executeUpdate();
-      if (updated > 0) {
-        System.out.println("[MysqlRepository] Touched updated_at for funnel id=" + funnelId);
-      }
-    }
-  }
-
-  /**
-   * Bumps {@code journey.updated_at} to {@code CURRENT_TIMESTAMP}.
-   * Called after successful journey compute so listing shows latest auto-run.
-   */
-  public void touchJourneyUpdatedAt(long journeyId) throws SQLException {
-    try (var conn = DriverManager.getConnection(jdbcUrl, user, password);
-         var stmt = conn.prepareStatement(
-             "UPDATE journey SET updated_at = CURRENT_TIMESTAMP WHERE id = ?")) {
-      stmt.setLong(1, journeyId);
-      int updated = stmt.executeUpdate();
-      if (updated > 0) {
-        System.out.println("[MysqlRepository] Touched updated_at for journey id=" + journeyId);
-      }
-    }
-  }
-
-  /**
-   * Bumps {@code updated_at} for all AUTO funnels.
-   * Called after successful FUNNELS_DAILY batch job.
-   */
-  public void touchAllAutoFunnelsUpdatedAt() throws SQLException {
-    try (var conn = DriverManager.getConnection(jdbcUrl, user, password);
-         var stmt = conn.prepareStatement(
-             "UPDATE funnel SET updated_at = CURRENT_TIMESTAMP WHERE funnel_type = 'AUTO'")) {
-      int updated = stmt.executeUpdate();
-      System.out.println("[MysqlRepository] Touched updated_at for " + updated + " AUTO funnel(s)");
-    }
-  }
-
-  /**
-   * Bumps {@code updated_at} for all AUTO journeys.
-   * Called after successful JOURNEYS_DAILY batch job.
-   */
-  public void touchAllAutoJourneysUpdatedAt() throws SQLException {
-    try (var conn = DriverManager.getConnection(jdbcUrl, user, password);
-         var stmt = conn.prepareStatement(
-             "UPDATE journey SET updated_at = CURRENT_TIMESTAMP WHERE journey_type = 'AUTO'")) {
-      int updated = stmt.executeUpdate();
-      System.out.println("[MysqlRepository] Touched updated_at for " + updated + " AUTO journey(s)");
     }
   }
 }

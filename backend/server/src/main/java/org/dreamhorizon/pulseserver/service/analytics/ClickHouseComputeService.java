@@ -5,6 +5,10 @@ import com.google.inject.Singleton;
 import io.reactivex.rxjava3.core.Observable;
 import io.reactivex.rxjava3.core.Single;
 import io.reactivex.rxjava3.schedulers.Schedulers;
+
+import java.time.LocalDateTime;
+import java.util.List;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.client.chclient.ClickhouseWriteClient;
@@ -167,11 +171,6 @@ public class ClickHouseComputeService {
           }));
   }
 
-  /**
-   * Closes out the per-funnel {@code analytics_jobs} row and (on success) bumps
-   * {@code funnel.updated_at}. Returns the compute success boolean unchanged so the
-   * batch's allMatch semantics are preserved.
-   */
   private Single<Boolean> finalizeFunnelJob(
     long funnelId, long jobDbId, boolean success, String errorMessage, LocalDateTime startedAt) {
     LocalDateTime completedAt = LocalDateTime.now();
@@ -186,18 +185,7 @@ public class ClickHouseComputeService {
       })
       : Single.just(0);
 
-    return updateJob.flatMap(__ -> {
-      if (!success) {
-        return Single.just(false);
-      }
-      return funnelDefinitionDao.touchUpdatedAt(funnelId)
-        .map(rows -> true)
-        .onErrorReturn(err -> {
-          log.warn("Failed to bump funnel.updated_at for funnelId={}: {}",
-            funnelId, err.getMessage());
-          return true; // compute succeeded; touch failure shouldn't fail the batch
-        });
-    });
+    return updateJob.map(__ -> success);
   }
 
   /**
@@ -208,7 +196,7 @@ public class ClickHouseComputeService {
    * {@code job_type = 'JOURNEY'} and {@code reference_id = journey.id} so the listing's
    * {@code latest_job_status} subquery reflects the latest cron run. Because journeys in a
    * direction batch share a single ClickHouse INSERT, all rows share the same
-   * SUCCEEDED/FAILED outcome. On success we also bump {@code journey.updated_at} for each.
+   * SUCCEEDED/FAILED outcome.
    */
   public Single<Boolean> computeJourneyBatch(String projectId, List<JourneyRow> defs) {
     if (defs == null || defs.isEmpty()) {
@@ -276,18 +264,7 @@ public class ClickHouseComputeService {
           })
           : Single.just(0);
 
-        return updateJob.flatMap(__ -> {
-          if (!success) {
-            return Single.just(true);
-          }
-          return journeyDao.touchUpdatedAt(h.journeyId())
-            .map(rows -> true)
-            .onErrorReturn(err -> {
-              log.warn("Failed to bump journey.updated_at for journeyId={}: {}",
-                h.journeyId(), err.getMessage());
-              return true;
-            });
-        });
+        return updateJob.map(__ -> true);
       })
       .toList()
       .map(__ -> success)

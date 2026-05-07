@@ -39,7 +39,7 @@ export type { PulseBrowserExporterOptions } from "../types/browser-exporter";
 abstract class PulseBrowserOtelExporter<
   ExportItem,
   ServiceResponse,
-> extends OTLPExporterBase<OTLPExporterConfigBase, ExportItem> {
+> extends OTLPExporterBase<OTLPExporterConfigBase, ExportItem> { 
   private _serializer!: ISerializer<ExportItem[], ServiceResponse>;
   private _transport?: BrowserExportTransport;
   /** Set in onInit (runs during super()) before subclass ctor assigns _pulse. */

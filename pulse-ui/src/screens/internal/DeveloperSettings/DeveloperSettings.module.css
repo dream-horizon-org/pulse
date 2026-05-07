@@ -1,0 +1,90 @@
+.container {
+  width: 100%;
+  min-height: 100vh;
+  background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
+}
+
+.content {
+  padding: 0 var(--mantine-spacing-lg) var(--mantine-spacing-lg);
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+/* ── Tabs ── */
+.tabsList {
+  border-bottom: 1px solid rgba(14, 201, 194, 0.15);
+  margin-bottom: var(--mantine-spacing-md);
+}
+
+/* ── Per-role section ── */
+.roleSection {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mantine-spacing-md);
+}
+
+/* ── Table ── */
+.tableWrapper {
+  background: #ffffff;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid rgba(14, 201, 194, 0.12);
+  box-shadow: 0 2px 8px rgba(14, 201, 194, 0.06);
+}
+
+.table {
+  border: none !important;
+}
+
+/* ── Empty state (inline, inside panel) ── */
+.emptyState {
+  padding: 40px;
+  text-align: center;
+  background: linear-gradient(145deg, #ffffff 0%, #fafbfc 100%);
+  border-radius: 12px;
+  border: 2px dashed rgba(14, 201, 194, 0.2);
+  min-height: 140px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ── Add user bar ── */
+.addUserBar {
+  display: flex;
+  gap: var(--mantine-spacing-sm);
+  align-items: center;
+  padding: 14px 16px;
+  background: linear-gradient(145deg, #ffffff 0%, #fafbfc 100%);
+  border-radius: 12px;
+  border: 1px solid rgba(14, 201, 194, 0.12);
+  box-shadow: 0 2px 8px rgba(14, 201, 194, 0.06);
+}
+
+.addInput {
+  flex: 1;
+}
+
+/* ── Error state ── */
+.stateWrapper {
+  padding: 60px 40px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 240px;
+  background: linear-gradient(145deg, #ffffff 0%, #fafbfc 100%);
+  border-radius: 12px;
+  border: 1px solid rgba(14, 201, 194, 0.12);
+}
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+  .content {
+    padding: 0 var(--mantine-spacing-md) var(--mantine-spacing-md);
+  }
+
+  .addUserBar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

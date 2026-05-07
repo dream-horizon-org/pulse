@@ -200,12 +200,126 @@ CREATE TABLE interaction (
 );
 
 -- ============================================================================
--- DEV MODE: Sample Interactions for default-project
--- These interactions match the current production data for testing.
+-- default-project interactions: keep in sync with backend/db/dev/mysql/mysql-init.sql
+--   Web flows interaction_id 1..5 = pulse-web-otel/.../interaction-config.mock.json
+--   BasicInteraction + FullShopping after (auto ids 6, 7).
 -- ============================================================================
+INSERT INTO interaction (interaction_id, project_id, name, status, details, is_archived, created_by, updated_by)
+VALUES
+(1, 'default-project', 'Checkout Happy Path', 'RUNNING', JSON_OBJECT(
+    'description', 'Checkout Happy Path',
+    'thresholdInMs', 3000,
+    'uptimeLowerLimitInMs', 700,
+    'uptimeMidLimitInMs', 1400,
+    'uptimeUpperLimitInMs', 2500,
+    'events', JSON_ARRAY(
+        JSON_OBJECT('name', 'checkout_step_1', 'props', JSON_ARRAY(), 'isBlacklisted', false),
+        JSON_OBJECT('name', 'checkout_step_2', 'props', JSON_ARRAY(), 'isBlacklisted', false),
+        JSON_OBJECT('name', 'checkout_step_3', 'props', JSON_ARRAY(), 'isBlacklisted', false)
+    ),
+    'globalBlacklistedEvents', JSON_ARRAY(
+        JSON_OBJECT('name', 'ad_impression', 'props', JSON_ARRAY(), 'isBlacklisted', true)
+    )
+), 0, 'system', 'system'),
+
+(2, 'default-project', 'Cart Open To Checkout Click', 'RUNNING', JSON_OBJECT(
+    'description', 'Cart Open To Checkout Click',
+    'thresholdInMs', 2500,
+    'uptimeLowerLimitInMs', 500,
+    'uptimeMidLimitInMs', 1000,
+    'uptimeUpperLimitInMs', 1800,
+    'events', JSON_ARRAY(
+        JSON_OBJECT('name', 'cart_open', 'props', JSON_ARRAY(), 'isBlacklisted', false),
+        JSON_OBJECT(
+            'name', 'cart_checkout_click',
+            'props', JSON_ARRAY(
+                JSON_OBJECT('name', 'item_count', 'value', '0', 'operator', 'NOTEQUALS')
+            ),
+            'isBlacklisted', false
+        )
+    ),
+    'globalBlacklistedEvents', JSON_ARRAY(
+        JSON_OBJECT('name', 'device.crash', 'props', JSON_ARRAY(), 'isBlacklisted', true)
+    )
+), 0, 'system', 'system'),
+
+(3, 'default-project', 'Product List Quick Add', 'RUNNING', JSON_OBJECT(
+    'description', 'Product List Quick Add',
+    'thresholdInMs', 2000,
+    'uptimeLowerLimitInMs', 350,
+    'uptimeMidLimitInMs', 900,
+    'uptimeUpperLimitInMs', 1600,
+    'events', JSON_ARRAY(
+        JSON_OBJECT(
+            'name', 'product_item_visible',
+            'props', JSON_ARRAY(
+                JSON_OBJECT('name', 'source', 'value', 'product_list', 'operator', 'EQUALS')
+            ),
+            'isBlacklisted', false
+        ),
+        JSON_OBJECT(
+            'name', 'add_to_cart',
+            'props', JSON_ARRAY(
+                JSON_OBJECT('name', 'source', 'value', 'product_list', 'operator', 'EQUALS')
+            ),
+            'isBlacklisted', false
+        )
+    ),
+    'globalBlacklistedEvents', JSON_ARRAY(
+        JSON_OBJECT('name', 'error_demo_throw_uncaught', 'props', JSON_ARRAY(), 'isBlacklisted', true)
+    )
+), 0, 'system', 'system'),
+
+(4, 'default-project', 'Product Detail Add To Cart', 'RUNNING', JSON_OBJECT(
+    'description', 'Product Detail Add To Cart',
+    'thresholdInMs', 3500,
+    'uptimeLowerLimitInMs', 800,
+    'uptimeMidLimitInMs', 1500,
+    'uptimeUpperLimitInMs', 2800,
+    'events', JSON_ARRAY(
+        JSON_OBJECT(
+            'name', 'product_detail_open',
+            'props', JSON_ARRAY(
+                JSON_OBJECT('name', 'path', 'value', '/products/', 'operator', 'STARTSWITH')
+            ),
+            'isBlacklisted', false
+        ),
+        JSON_OBJECT(
+            'name', 'add_to_cart',
+            'props', JSON_ARRAY(
+                JSON_OBJECT('name', 'source', 'value', 'product_detail', 'operator', 'EQUALS')
+            ),
+            'isBlacklisted', false
+        )
+    ),
+    'globalBlacklistedEvents', JSON_ARRAY(
+        JSON_OBJECT('name', 'ad_impression', 'props', JSON_ARRAY(), 'isBlacklisted', true)
+    )
+), 0, 'system', 'system'),
+
+(5, 'default-project', 'Cart Remove Item Then Checkout', 'RUNNING', JSON_OBJECT(
+    'description', 'Cart Remove Item Then Checkout',
+    'thresholdInMs', 2600,
+    'uptimeLowerLimitInMs', 600,
+    'uptimeMidLimitInMs', 1200,
+    'uptimeUpperLimitInMs', 2100,
+    'events', JSON_ARRAY(
+        JSON_OBJECT('name', 'cart_remove_item', 'props', JSON_ARRAY(), 'isBlacklisted', false),
+        JSON_OBJECT(
+            'name', 'cart_checkout_click',
+            'props', JSON_ARRAY(
+                JSON_OBJECT('name', 'item_count', 'value', '0', 'operator', 'NOTEQUALS')
+            ),
+            'isBlacklisted', false
+        )
+    ),
+    'globalBlacklistedEvents', JSON_ARRAY(
+        JSON_OBJECT('name', 'device.crash', 'props', JSON_ARRAY(), 'isBlacklisted', true)
+    )
+), 0, 'system', 'system');
+
 INSERT INTO interaction (project_id, name, status, details, is_archived, created_by, updated_by)
 VALUES
--- BasicInteraction
 ('default-project', 'BasicInteraction', 'RUNNING', JSON_OBJECT(
     'description', 'NewInteraction',
     'uptimeLowerLimitInMs', 16,
@@ -219,7 +333,6 @@ VALUES
     'globalBlacklistedEvents', JSON_ARRAY()
 ), 0, 'system', 'system'),
 
--- FullShopping
 ('default-project', 'FullShopping', 'RUNNING', JSON_OBJECT(
     'description', 'FullShopping',
     'uptimeLowerLimitInMs', 16,
@@ -651,6 +764,26 @@ CREATE TABLE IF NOT EXISTS project_api_keys (
     INDEX idx_pak_grace_period (grace_period_ends_at),
     INDEX idx_pak_expires (expires_at)
 );
+
+-- ============================================================================
+-- USER API KEYS TABLE
+-- Stores personal API keys for MCP and CLI access (user-scoped, not project-scoped)
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS user_api_keys (
+    id               BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id          VARCHAR(255) NOT NULL,
+    display_name     VARCHAR(128) NOT NULL,
+    api_key_hash     VARCHAR(512) NOT NULL,
+    key_prefix       VARCHAR(24)  NOT NULL,
+    is_active        BOOLEAN      NOT NULL DEFAULT TRUE,
+    created_at       TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    revoked_at       TIMESTAMP    NULL,
+    revoked_by       VARCHAR(255) NULL,
+    CONSTRAINT fk_user_api_keys_user FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
+    UNIQUE KEY uk_user_api_key_hash (api_key_hash),
+    KEY idx_user_api_key_user (user_id),
+    KEY idx_user_api_key_active (user_id, is_active)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================================================
 -- CLICKHOUSE PROJECT CREDENTIALS TABLE

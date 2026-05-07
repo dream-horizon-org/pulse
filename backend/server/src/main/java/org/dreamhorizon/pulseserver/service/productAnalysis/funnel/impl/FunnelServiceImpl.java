@@ -13,14 +13,15 @@ import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.dreamhorizon.pulseserver.analysis.AnalysisComputedStatus;
 import org.dreamhorizon.pulseserver.analysis.AnalysisComputedStatusResolver;
+import org.dreamhorizon.pulseserver.dao.analyticsjob.AnalyticsJobDao;
+import org.dreamhorizon.pulseserver.dao.analyticsjob.AnalyticsJobType;
 import org.dreamhorizon.pulseserver.dao.productAnalysis.funneldefinition.FunnelDefinitionDao;
 import org.dreamhorizon.pulseserver.dao.productAnalysis.funneldefinition.FunnelDefinitionListParams;
 import org.dreamhorizon.pulseserver.dao.productAnalysis.funneldefinition.models.FunnelDefinitionRow;
 import org.dreamhorizon.pulseserver.dao.productAnalysis.funneljourneytag.FunnelJourneyTagDao;
 import org.dreamhorizon.pulseserver.dao.productAnalysis.funneljourneytag.FunnelJourneyTagEntityType;
 import org.dreamhorizon.pulseserver.dao.productAnalysis.funnelresults.FunnelResultsDao;
-import org.dreamhorizon.pulseserver.dao.analyticsjob.AnalyticsJobDao;
-import org.dreamhorizon.pulseserver.dao.analyticsjob.AnalyticsJobType;
+import org.dreamhorizon.pulseserver.dao.productAnalysis.funnelresults.models.FunnelConversionSummaryRow;
 import org.dreamhorizon.pulseserver.error.ServiceError;
 import org.dreamhorizon.pulseserver.resources.productAnalysis.funnel.models.*;
 import org.dreamhorizon.pulseserver.resources.productAnalysis.models.FunnelJourneyTagsListResponse;
@@ -100,8 +101,8 @@ public class FunnelServiceImpl implements FunnelService {
             .toSingleDefault(funnelId))
       .flatMap(funnelId ->
         analyticsBatchService
-            .triggerFunnelOnSaveJob(funnelId)
-            .map(__ -> funnelId))
+          .triggerFunnelOnSaveJob(funnelId)
+          .map(__ -> funnelId))
       .onErrorResumeNext(
         err ->
           Single.error(
@@ -209,7 +210,7 @@ public class FunnelServiceImpl implements FunnelService {
         .ignoreElement()
         .onErrorComplete(err -> {
           log.warn("Failed to delete analytics_jobs rows for funnelId={}: {}",
-              id, err.getMessage());
+            id, err.getMessage());
           return true;
         });
     Completable deleteResults =
@@ -218,7 +219,7 @@ public class FunnelServiceImpl implements FunnelService {
         .ignoreElement()
         .onErrorComplete(err -> {
           log.warn("Failed to delete otel.funnel_results rows for funnelId={}: {}",
-              id, err.getMessage());
+            id, err.getMessage());
           return true;
         });
     return deleteJobs.andThen(deleteResults);
@@ -273,7 +274,27 @@ public class FunnelServiceImpl implements FunnelService {
             funnelJourneyTagDao
               .listTagsForEntity(projectId, FunnelJourneyTagEntityType.FUNNEL, id)
               .onErrorReturnItem(List.of());
-          return Single.zip(results, tags, (r, t) -> toResponse(row, r, t));
+          // Listing populates conversionTrend via queryConversionSummaries; the detail
+          // path was building the response via the 3-arg toResponse(...) overload that
+          // passed null/null for the trend, so the UI rendered "+0% from last week".
+          // Fetch the same summary here so detail and listing agree.
+          Single<FunnelConversionSummaryRow> summary =
+            funnelResultsDao
+              .queryConversionSummaries(projectId, List.of(id))
+              .map(map -> map.getOrDefault(
+                id,
+                FunnelConversionSummaryRow.builder().funnelId(id).build()))
+              .onErrorReturn(err -> {
+                log.warn(
+                  "Failed to load conversion summary for funnel {} (project {}): {}",
+                  id, projectId, err.toString());
+                return FunnelConversionSummaryRow.builder().funnelId(id).build();
+              });
+          return Single.zip(
+            results,
+            tags,
+            summary,
+            (r, t, s) -> toResponse(row, r, t, s.getConversionPct(), s.getConversionTrend()));
         });
   }
 
@@ -330,10 +351,10 @@ public class FunnelServiceImpl implements FunnelService {
         .build();
 
     return Single.zip(
-      funnelDefinitionDao.listByProject(projectId, params),
-      funnelDefinitionDao.listDistinctCreatedBy(projectId),
-      funnelJourneyTagDao.listDistinctTagsForProject(projectId),
-      (funnels, creators, allTags) -> new Object[] {funnels, creators, allTags})
+        funnelDefinitionDao.listByProject(projectId, params),
+        funnelDefinitionDao.listDistinctCreatedBy(projectId),
+        funnelJourneyTagDao.listDistinctTagsForProject(projectId),
+        (funnels, creators, allTags) -> new Object[]{funnels, creators, allTags})
       .flatMap(
         arr -> {
           @SuppressWarnings("unchecked")
@@ -550,6 +571,7 @@ public class FunnelServiceImpl implements FunnelService {
         .expiry(row.getExpiry())
         .createdAt(row.getCreatedAt())
         .updatedAt(row.getUpdatedAt())
+        .lastRunAt(funnelResults != null ? funnelResults.getLastRunAt() : null)
         .createdBy(row.getCreatedBy())
         .overallConversionRate(overallConversionRate)
         .conversionTrend(conversionTrend)

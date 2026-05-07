@@ -12,6 +12,7 @@ import dev.openfga.sdk.api.client.model.ClientTupleKeyWithoutCondition;
 import dev.openfga.sdk.api.client.model.ClientWriteRequest;
 import dev.openfga.sdk.api.configuration.ClientConfiguration;
 import dev.openfga.sdk.api.model.Tuple;
+import dev.openfga.sdk.api.model.TupleKey;
 import io.reactivex.rxjava3.core.Completable;
 import io.reactivex.rxjava3.core.Single;
 import java.util.ArrayList;
@@ -22,6 +23,9 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.config.OpenFgaConfig;
+import org.dreamhorizon.pulseserver.constant.Constants;
+import org.dreamhorizon.pulseserver.dao.project.ProjectDao;
+import org.dreamhorizon.pulseserver.dao.tenant.TenantDao;
 
 /**
  * OpenFGA Service for Relationship-Based Access Control (ReBAC).
@@ -44,9 +48,13 @@ public class OpenFgaService {
 
   private final OpenFgaClient client;
   private final boolean enabled;
+  private final TenantDao tenantDao;
+  private final ProjectDao projectDao;
 
   @Inject
-  public OpenFgaService(OpenFgaConfig config) throws Exception {
+  public OpenFgaService(OpenFgaConfig config, TenantDao tenantDao, ProjectDao projectDao) throws Exception {
+    this.tenantDao = tenantDao;
+    this.projectDao = projectDao;
     if (config != null && config.isEnabled()) {
       ClientConfiguration configuration = new ClientConfiguration()
           .apiUrl(config.getApiUrl())
@@ -302,6 +310,31 @@ public class OpenFgaService {
       log.debug("[DISABLED] getUserTenants: user={}", userId);
       return Single.just(new ArrayList<>());
     }
+    return Single.zip(isSuperAdmin(userId), isInternalViewer(userId),
+            (isSa, isIv) -> Boolean.TRUE.equals(isSa) || Boolean.TRUE.equals(isIv))
+        .flatMap(isSystemRole -> {
+          if (Boolean.TRUE.equals(isSystemRole) && tenantDao != null) {
+            log.debug("getUserTenants: system-role user {} -> returning all tenants from DB", userId);
+            return tenantDao.getAllTenants()
+                .map(t -> t.getTenantId())
+                .toList();
+          }
+          return getUserDirectTenants(userId);
+        });
+  }
+
+  /**
+   * Get tenant memberships from direct tenant tuples only.
+   * Unlike {@link #getUserTenants(String)}, this method never expands system roles.
+   *
+   * @param userId User ID
+   * @return Single emitting direct tenant IDs only
+   */
+  public Single<List<String>> getUserDirectTenants(String userId) {
+    if (!enabled) {
+      log.debug("[DISABLED] getUserDirectTenants: user={}", userId);
+      return Single.just(new ArrayList<>());
+    }
     return Single.fromCallable(() -> {
       Set<String> tenantIds = new HashSet<>();
       for (String role : TENANT_ROLES) {
@@ -317,7 +350,7 @@ public class OpenFgaService {
               .forEach(tenantIds::add);
         }
       }
-      log.debug("getUserTenants: user={} -> {} tenant(s)", userId, tenantIds.size());
+      log.debug("getUserDirectTenants: user={} -> {} tenant(s)", userId, tenantIds.size());
       return new ArrayList<>(tenantIds);
     });
   }
@@ -669,23 +702,228 @@ public class OpenFgaService {
       log.debug("[DISABLED] getUserProjects: user={}", userId);
       return Single.just(new ArrayList<>());
     }
+    return Single.zip(isSuperAdmin(userId), isInternalViewer(userId),
+            (isSa, isIv) -> Boolean.TRUE.equals(isSa) || Boolean.TRUE.equals(isIv))
+        .flatMap(isSystemRole -> {
+          if (Boolean.TRUE.equals(isSystemRole) && projectDao != null) {
+            log.debug("getUserProjects: system-role user {} -> returning all active projects from DB", userId);
+            return projectDao.getAllActiveProjectIds();
+          }
+          return Single.fromCallable(() -> {
+            Set<String> projectIds = new HashSet<>();
+            for (String role : PROJECT_ROLES) {
+              ClientListObjectsRequest request = new ClientListObjectsRequest()
+                  .user(USER_PREFIX + userId)
+                  .relation(role)
+                  .type("project");
+              var response = client.listObjects(request).get();
+              var objects = response.getObjects();
+              if (objects != null) {
+                objects.stream()
+                    .map(obj -> obj.startsWith(PROJECT_PREFIX) ? obj.substring(PROJECT_PREFIX.length()) : obj)
+                    .forEach(projectIds::add);
+              }
+            }
+            log.debug("getUserProjects: user={} -> {} project(s)", userId, projectIds.size());
+            return new ArrayList<>(projectIds);
+          });
+        });
+  }
+
+  /**
+   * Writes {@code system:pulse} —{@code system_parent}→ {@code tenant:<id>} so tenant-level superadmin
+   * resolution can reach {@link Constants#OPENFGA_OBJECT_SYSTEM_PULSE}.
+   */
+  public Completable linkTenantToSystem(String tenantId) {
+    if (!enabled) {
+      log.debug("[DISABLED] linkTenantToSystem: tenant={}", tenantId);
+      return Completable.complete();
+    }
+    return Completable.fromAction(() -> {
+      log.info("Linking tenant to system: tenant={}", tenantId);
+      ClientWriteRequest request = new ClientWriteRequest()
+          .writes(List.of(new ClientTupleKey()
+              .user(Constants.OPENFGA_OBJECT_SYSTEM_PULSE)
+              .relation(Constants.RELATION_SYSTEM_PARENT)
+              ._object(TENANT_PREFIX + tenantId)));
+      client.write(request).get();
+    });
+  }
+
+  /** True if the user holds {@code superadmin} on {@link Constants#OPENFGA_OBJECT_SYSTEM_PULSE}. */
+  public Single<Boolean> isSuperAdmin(String userId) {
+    if (!enabled) {
+      log.debug("[DISABLED] isSuperAdmin: user={}", userId);
+      return Single.just(false);
+    }
     return Single.fromCallable(() -> {
-      Set<String> projectIds = new HashSet<>();
-      for (String role : PROJECT_ROLES) {
-        ClientListObjectsRequest request = new ClientListObjectsRequest()
-            .user(USER_PREFIX + userId)
-            .relation(role)
-            .type("project");
-        var response = client.listObjects(request).get();
-        var objects = response.getObjects();
-        if (objects != null) {
-          objects.stream()
-              .map(obj -> obj.startsWith(PROJECT_PREFIX) ? obj.substring(PROJECT_PREFIX.length()) : obj)
-              .forEach(projectIds::add);
-        }
+      ClientCheckRequest request = new ClientCheckRequest()
+          .user(USER_PREFIX + userId)
+          .relation(Constants.RELATION_SUPERADMIN)
+          ._object(Constants.OPENFGA_OBJECT_SYSTEM_PULSE);
+      var response = client.check(request).get();
+      boolean isSa = Boolean.TRUE.equals(response.getAllowed());
+      log.debug("isSuperAdmin: user={} -> {}", userId, isSa);
+      return isSa;
+    });
+  }
+
+  /** True if the user holds {@code internal_viewer} on {@link Constants#OPENFGA_OBJECT_SYSTEM_PULSE}. */
+  public Single<Boolean> isInternalViewer(String userId) {
+    if (!enabled) {
+      log.debug("[DISABLED] isInternalViewer: user={}", userId);
+      return Single.just(false);
+    }
+    return Single.fromCallable(() -> {
+      ClientCheckRequest request = new ClientCheckRequest()
+          .user(USER_PREFIX + userId)
+          .relation(Constants.RELATION_INTERNAL_VIEWER)
+          ._object(Constants.OPENFGA_OBJECT_SYSTEM_PULSE);
+      var response = client.check(request).get();
+      boolean isIv = Boolean.TRUE.equals(response.getAllowed());
+      log.debug("isInternalViewer: user={} -> {}", userId, isIv);
+      return isIv;
+    });
+  }
+
+  /**
+   * Returns ALL tenant IDs accessible to a system-role user (superadmin or internal_viewer).
+   * Uses the {@code belongs_to} relation which expands through system_parent.
+   * Must only be called after confirming the user holds a system role.
+   */
+  public Single<List<String>> getAllTenantsForSystemRole(String userId) {
+    if (!enabled) {
+      log.debug("[DISABLED] getAllTenantsForSystemRole: user={}", userId);
+      return Single.just(new ArrayList<>());
+    }
+    return Single.fromCallable(() -> {
+      var request = new ClientListObjectsRequest()
+          .user(USER_PREFIX + userId)
+          .relation(Constants.RELATION_BELONGS_TO)
+          .type(Constants.OBJECT_TYPE_TENANT);
+      var response = client.listObjects(request).get();
+      var objects = response.getObjects();
+
+      List<String> results = new ArrayList<>();
+      if (objects != null) {
+        objects.forEach(obj ->
+            results.add(obj.replace(Constants.OBJECT_TYPE_TENANT + ":", ""))
+        );
       }
-      log.debug("getUserProjects: user={} -> {} project(s)", userId, projectIds.size());
-      return new ArrayList<>(projectIds);
+      log.debug("getAllTenantsForSystemRole: user={} -> {} tenant(s)", userId, results.size());
+      return results;
+    });
+  }
+
+  public Completable assignSuperAdmin(String userId) {
+    if (!enabled) {
+      log.debug("[DISABLED] assignSuperAdmin: user={}", userId);
+      return Completable.complete();
+    }
+    return Completable.fromAction(() -> {
+      log.info("Assigning superadmin: user={}", userId);
+      ClientWriteRequest request = new ClientWriteRequest()
+          .writes(List.of(new ClientTupleKey()
+              .user(USER_PREFIX + userId)
+              .relation(Constants.RELATION_SUPERADMIN)
+              ._object(Constants.OPENFGA_OBJECT_SYSTEM_PULSE)));
+      client.write(request).get();
+    });
+  }
+
+  public Completable revokeSuperAdmin(String userId) {
+    if (!enabled) {
+      log.debug("[DISABLED] revokeSuperAdmin: user={}", userId);
+      return Completable.complete();
+    }
+    return Completable.fromAction(() -> {
+      log.info("Revoking superadmin: user={}", userId);
+      ClientWriteRequest request = new ClientWriteRequest()
+          .deletes(List.of(new ClientTupleKeyWithoutCondition()
+              .user(USER_PREFIX + userId)
+              .relation(Constants.RELATION_SUPERADMIN)
+              ._object(Constants.OPENFGA_OBJECT_SYSTEM_PULSE)));
+      client.write(request).get();
+    });
+  }
+
+  public Completable assignInternalViewerRole(String userId) {
+    if (!enabled) {
+      log.debug("[DISABLED] assignInternalViewerRole: user={}", userId);
+      return Completable.complete();
+    }
+    return Completable.fromAction(() -> {
+      log.info("Assigning internal_viewer: user={}", userId);
+      ClientWriteRequest request = new ClientWriteRequest()
+          .writes(List.of(new ClientTupleKey()
+              .user(USER_PREFIX + userId)
+              .relation(Constants.RELATION_INTERNAL_VIEWER)
+              ._object(Constants.OPENFGA_OBJECT_SYSTEM_PULSE)));
+      client.write(request).get();
+    });
+  }
+
+  public Completable revokeInternalViewerRole(String userId) {
+    if (!enabled) {
+      log.debug("[DISABLED] revokeInternalViewerRole: user={}", userId);
+      return Completable.complete();
+    }
+    return Completable.fromAction(() -> {
+      log.info("Revoking internal_viewer: user={}", userId);
+      ClientWriteRequest request = new ClientWriteRequest()
+          .deletes(List.of(new ClientTupleKeyWithoutCondition()
+              .user(USER_PREFIX + userId)
+              .relation(Constants.RELATION_INTERNAL_VIEWER)
+              ._object(Constants.OPENFGA_OBJECT_SYSTEM_PULSE)));
+      client.write(request).get();
+    });
+  }
+
+  /** User IDs with the {@code superadmin} relation on {@link Constants#OPENFGA_OBJECT_SYSTEM_PULSE}. */
+  public Single<Set<String>> getSuperAdmins() {
+    if (!enabled) {
+      log.debug("[DISABLED] getSuperAdmins");
+      return Single.just(new HashSet<>());
+    }
+    return Single.fromCallable(() -> {
+      ClientReadRequest request = new ClientReadRequest()
+          .relation(Constants.RELATION_SUPERADMIN)
+          ._object(Constants.OPENFGA_OBJECT_SYSTEM_PULSE);
+      var response = client.read(request).get();
+      var tuples = response.getTuples();
+      if (tuples == null || tuples.isEmpty()) {
+        return new HashSet<String>();
+      }
+      return tuples.stream()
+          .map(Tuple::getKey)
+          .filter(key -> key != null && key.getUser() != null && key.getUser().startsWith(USER_PREFIX))
+          .map(TupleKey::getUser)
+          .map(u -> u.substring(USER_PREFIX.length()))
+          .collect(Collectors.toSet());
+    });
+  }
+
+  /** User IDs with the {@code internal_viewer} relation on {@link Constants#OPENFGA_OBJECT_SYSTEM_PULSE}. */
+  public Single<Set<String>> getInternalViewers() {
+    if (!enabled) {
+      log.debug("[DISABLED] getInternalViewers");
+      return Single.just(new HashSet<>());
+    }
+    return Single.fromCallable(() -> {
+      ClientReadRequest request = new ClientReadRequest()
+          .relation(Constants.RELATION_INTERNAL_VIEWER)
+          ._object(Constants.OPENFGA_OBJECT_SYSTEM_PULSE);
+      var response = client.read(request).get();
+      var tuples = response.getTuples();
+      if (tuples == null || tuples.isEmpty()) {
+        return new HashSet<String>();
+      }
+      return tuples.stream()
+          .map(Tuple::getKey)
+          .filter(key -> key != null && key.getUser() != null && key.getUser().startsWith(USER_PREFIX))
+          .map(TupleKey::getUser)
+          .map(u -> u.substring(USER_PREFIX.length()))
+          .collect(Collectors.toSet());
     });
   }
 

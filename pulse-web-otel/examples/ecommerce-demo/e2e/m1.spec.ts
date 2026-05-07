@@ -1098,6 +1098,7 @@ test.describe("@M1 window.id uniqueness", () => {
     page,
     otlp,
   }) => {
+    await blockActiveConfigFetch(page);
     // First load — capture window.id
     await page.goto("/");
     const log1 = await otlp.waitForLog("session.start");
@@ -1283,6 +1284,7 @@ test.describe("@M1 screen.name resolution", () => {
     otlp,
   }) => {
     await page.goto("/products");
+    await waitForPulseWebInitialized(page);
     await page.evaluate(
       () =>
         (window as unknown as Record<string, unknown>)["PulseWeb"] &&
@@ -1300,6 +1302,7 @@ test.describe("@M1 screen.name resolution", () => {
     otlp,
   }) => {
     await page.goto("/products/123");
+    await waitForPulseWebInitialized(page);
     await page.evaluate(() =>
       (
         window as unknown as { PulseWeb: { trackEvent: (n: string) => void } }
@@ -1315,6 +1318,7 @@ test.describe("@M1 screen.name resolution", () => {
     otlp,
   }) => {
     await page.goto("/");
+    await waitForPulseWebInitialized(page);
     await page.evaluate(() =>
       (
         window as unknown as { PulseWeb: { trackEvent: (n: string) => void } }
@@ -1332,6 +1336,7 @@ test.describe("@M1 screen.name resolution", () => {
     otlp,
   }) => {
     await page.goto("/products/550e8400-e29b-41d4-a716-446655440000");
+    await waitForPulseWebInitialized(page);
     await page.evaluate(() =>
       (
         window as unknown as { PulseWeb: { trackEvent: (n: string) => void } }
@@ -1400,6 +1405,7 @@ test.describe("@M1 screen.name manual override", () => {
     page,
     otlp,
   }) => {
+    await blockActiveConfigFetch(page);
     await page.goto("/products");
     await otlp.waitForLog("session.start");
     otlp.reset();
@@ -1458,6 +1464,7 @@ test.describe("@M1 url attributes", () => {
     page,
     otlp,
   }) => {
+    await blockActiveConfigFetch(page);
     await page.goto("/products");
     await otlp.waitForLog("session.start");
     otlp.reset();

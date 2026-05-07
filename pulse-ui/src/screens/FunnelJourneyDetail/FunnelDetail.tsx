@@ -360,8 +360,14 @@ function FunnelDetailView({ detail, isEditing, onEdit }: { detail: any; isEditin
             <>
               <FunnelVisualization
                 steps={funnelResult.steps}
-                totalConversionRate={funnelResult.overallConversionRate ?? 0}
-                conversionTrend={0}
+                totalConversionRate={
+                  detail.overallConversionRate ??
+                  funnelResult.overallConversionRate ??
+                  0
+                }
+                // Backend's detail response carries `conversionTrend` for the same
+                // funnel that the listing shows; surface that instead of hardcoding 0.
+                conversionTrend={detail.conversionTrend ?? 0}
                 medianTimes={funnelResult.steps.map((s: any) => s.medianStepSeconds ?? null)}
                 mode={analysisMode}
                 onStepDropoffClick={(idx) => setDropoffStepIndex(idx)}

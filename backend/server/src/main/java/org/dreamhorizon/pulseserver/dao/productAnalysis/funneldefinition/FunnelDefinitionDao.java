@@ -212,7 +212,9 @@ public class FunnelDefinitionDao {
         });
   }
 
-  /** Distinct non-null created_by values for all funnels in the project. */
+  /**
+   * Distinct non-null created_by values for all funnels in the project.
+   */
   public Single<List<String>> listDistinctCreatedBy(String projectId) {
     MySQLPool pool = mysqlClient.getReaderPool();
     return pool

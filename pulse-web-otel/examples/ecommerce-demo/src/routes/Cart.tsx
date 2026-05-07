@@ -1,10 +1,14 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { PulseWeb } from '@dreamhorizon/pulse-web';
 import { useCart } from '../hooks/useCart';
 
 export default function Cart() {
   const { items, removeItem, total } = useCart();
+
+  useEffect(() => {
+    PulseWeb.trackEvent("cart_open", { item_count: items.length });
+  }, [items.length]);
 
   if (items.length === 0) {
     return (
