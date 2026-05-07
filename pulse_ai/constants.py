@@ -41,7 +41,7 @@ def get_pulse_base_url() -> str:
     return configured or DEFAULT_PULSE_BASE_URL
 
 
-# Root-cause tabular fetch from pulse-server (server/root_cause_fetch.py)
+# Root-cause tabular fetch from pulse-server (see root_cause_payload_fetch.py)
 ROOT_CAUSE_FETCH_DATE_QUERY_PARAM = "date"
 ROOT_CAUSE_FETCH_PATH_TEMPLATE = "/v1/interactions/{interaction}/root-cause"
 # HTTP statuses returned to clients when mapping upstream/timeout failures
