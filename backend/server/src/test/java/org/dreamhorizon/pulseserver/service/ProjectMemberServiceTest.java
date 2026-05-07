@@ -20,7 +20,6 @@ import org.dreamhorizon.pulseserver.dao.project.ProjectDao;
 import org.dreamhorizon.pulseserver.dao.project.models.Project;
 import org.dreamhorizon.pulseserver.model.User;
 import org.dreamhorizon.pulseserver.resources.notification.models.NotificationBatchResponseDto;
-import org.dreamhorizon.pulseserver.service.TenantMemberService;
 import org.dreamhorizon.pulseserver.service.notification.NotificationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
@@ -67,7 +66,7 @@ class ProjectMemberServiceTest {
     // Stub so add-member flow can call getUserByEmail(email).isEmpty() without NPE
     when(userService.getUserByEmail(any())).thenReturn(Maybe.empty());
     // Default: user has no existing tenants (happy-path baseline; cross-tenant tests override this)
-    when(openFgaService.getUserTenants(any())).thenReturn(Single.just(List.of()));
+    when(openFgaService.getUserDirectTenants(any())).thenReturn(Single.just(List.of()));
   }
 
   private Project createProject(String projectId, String tenantId, String name) {
@@ -144,7 +143,7 @@ class ProjectMemberServiceTest {
       when(openFgaService.getUserProjectRole(USER_ID, PROJECT_ID))
           .thenReturn(Single.just(Optional.empty()));
       // User already in this tenant — ensureUserInTenant should short-circuit
-      when(openFgaService.getUserTenants(USER_ID))
+      when(openFgaService.getUserDirectTenants(USER_ID))
           .thenReturn(Single.just(List.of(TENANT_ID)));
       when(openFgaService.assignProjectRole(USER_ID, PROJECT_ID, "viewer"))
           .thenReturn(Completable.complete());
@@ -247,7 +246,7 @@ class ProjectMemberServiceTest {
       when(userService.getUserById(ADMIN_ID)).thenReturn(Single.just(admin));
       when(userService.getUserById(USER_ID)).thenReturn(Single.just(userToRemove));
       when(openFgaService.isProjectAdmin(ADMIN_ID, PROJECT_ID)).thenReturn(Single.just(true));
-      when(openFgaService.isProjectAdmin(USER_ID, PROJECT_ID)).thenReturn(Single.just(false));
+      when(openFgaService.getUserProjectRole(USER_ID, PROJECT_ID)).thenReturn(Single.just(Optional.of("viewer")));
       when(openFgaService.removeProjectMember(USER_ID, PROJECT_ID)).thenReturn(Completable.complete());
 
       projectMemberService.removeMemberFromProject(PROJECT_ID, USER_ID, ADMIN_ID).blockingAwait();
@@ -266,7 +265,7 @@ class ProjectMemberServiceTest {
       when(userService.getUserById(ADMIN_ID)).thenReturn(Single.just(admin));
       when(userService.getUserById(USER_ID)).thenReturn(Single.just(userToRemove));
       when(openFgaService.isProjectAdmin(ADMIN_ID, PROJECT_ID)).thenReturn(Single.just(true));
-      when(openFgaService.isProjectAdmin(USER_ID, PROJECT_ID)).thenReturn(Single.just(true));
+      when(openFgaService.getUserProjectRole(USER_ID, PROJECT_ID)).thenReturn(Single.just(Optional.of("admin")));
       when(openFgaService.countProjectAdmins(PROJECT_ID)).thenReturn(Single.just(1));
 
       Exception ex = assertThrows(IllegalStateException.class, () ->
@@ -287,7 +286,7 @@ class ProjectMemberServiceTest {
       when(userService.getUserById(ADMIN_ID)).thenReturn(Single.just(admin));
       when(userService.getUserById(USER_ID)).thenReturn(Single.just(adminToRemove));
       when(openFgaService.isProjectAdmin(ADMIN_ID, PROJECT_ID)).thenReturn(Single.just(true));
-      when(openFgaService.isProjectAdmin(USER_ID, PROJECT_ID)).thenReturn(Single.just(true));
+      when(openFgaService.getUserProjectRole(USER_ID, PROJECT_ID)).thenReturn(Single.just(Optional.of("admin")));
       when(openFgaService.countProjectAdmins(PROJECT_ID)).thenReturn(Single.just(2));
       when(openFgaService.removeProjectMember(USER_ID, PROJECT_ID)).thenReturn(Completable.complete());
 
@@ -330,7 +329,7 @@ class ProjectMemberServiceTest {
 
     @Test
     void shouldFailWhenLeavingAsLastAdmin() {
-      when(openFgaService.isProjectAdmin(USER_ID, PROJECT_ID)).thenReturn(Single.just(true));
+      when(openFgaService.getUserProjectRole(USER_ID, PROJECT_ID)).thenReturn(Single.just(Optional.of("admin")));
       when(openFgaService.countProjectAdmins(PROJECT_ID)).thenReturn(Single.just(1));
 
       Exception ex = assertThrows(IllegalStateException.class, () ->
@@ -341,7 +340,7 @@ class ProjectMemberServiceTest {
 
     @Test
     void shouldLeaveProjectSuccessfullyWhenNotAdmin() {
-      when(openFgaService.isProjectAdmin(USER_ID, PROJECT_ID)).thenReturn(Single.just(false));
+      when(openFgaService.getUserProjectRole(USER_ID, PROJECT_ID)).thenReturn(Single.just(Optional.of("viewer")));
       when(openFgaService.removeProjectMember(USER_ID, PROJECT_ID)).thenReturn(Completable.complete());
 
       projectMemberService.leaveProject(PROJECT_ID, USER_ID).blockingAwait();
@@ -351,7 +350,7 @@ class ProjectMemberServiceTest {
 
     @Test
     void shouldLeaveProjectSuccessfullyWhenAdminWithOtherAdmins() {
-      when(openFgaService.isProjectAdmin(USER_ID, PROJECT_ID)).thenReturn(Single.just(true));
+      when(openFgaService.getUserProjectRole(USER_ID, PROJECT_ID)).thenReturn(Single.just(Optional.of("admin")));
       when(openFgaService.countProjectAdmins(PROJECT_ID)).thenReturn(Single.just(2));
       when(openFgaService.removeProjectMember(USER_ID, PROJECT_ID)).thenReturn(Completable.complete());
 
@@ -451,7 +450,7 @@ class ProjectMemberServiceTest {
       when(userService.getUserById(ADMIN_ID)).thenReturn(Single.just(admin));
       when(userService.getUserById(USER_ID)).thenReturn(Single.just(userToUpdate));
       when(openFgaService.isProjectAdmin(ADMIN_ID, PROJECT_ID)).thenReturn(Single.just(true));
-      when(openFgaService.isProjectAdmin(USER_ID, PROJECT_ID)).thenReturn(Single.just(false));
+      when(openFgaService.getUserProjectRole(USER_ID, PROJECT_ID)).thenReturn(Single.just(Optional.of("viewer")));
       when(openFgaService.updateProjectRole(USER_ID, PROJECT_ID, "editor"))
           .thenReturn(Completable.complete());
 
@@ -471,7 +470,7 @@ class ProjectMemberServiceTest {
       when(userService.getUserById(ADMIN_ID)).thenReturn(Single.just(admin));
       when(userService.getUserById(USER_ID)).thenReturn(Single.just(userToUpdate));
       when(openFgaService.isProjectAdmin(ADMIN_ID, PROJECT_ID)).thenReturn(Single.just(true));
-      when(openFgaService.isProjectAdmin(USER_ID, PROJECT_ID)).thenReturn(Single.just(true));
+      when(openFgaService.getUserProjectRole(USER_ID, PROJECT_ID)).thenReturn(Single.just(Optional.of("admin")));
       when(openFgaService.countProjectAdmins(PROJECT_ID)).thenReturn(Single.just(1));
 
       Exception ex = assertThrows(IllegalStateException.class, () ->
@@ -492,7 +491,7 @@ class ProjectMemberServiceTest {
       when(userService.getUserById(ADMIN_ID)).thenReturn(Single.just(admin));
       when(userService.getUserById(USER_ID)).thenReturn(Single.just(userToUpdate));
       when(openFgaService.isProjectAdmin(ADMIN_ID, PROJECT_ID)).thenReturn(Single.just(true));
-      when(openFgaService.isProjectAdmin(USER_ID, PROJECT_ID)).thenReturn(Single.just(true));
+      when(openFgaService.getUserProjectRole(USER_ID, PROJECT_ID)).thenReturn(Single.just(Optional.of("admin")));
       when(openFgaService.countProjectAdmins(PROJECT_ID)).thenReturn(Single.just(2));
       when(openFgaService.updateProjectRole(USER_ID, PROJECT_ID, "editor"))
           .thenReturn(Completable.complete());
@@ -574,7 +573,7 @@ class ProjectMemberServiceTest {
       when(openFgaService.getUserProjectRole(any(), eq(PROJECT_ID)))
           .thenReturn(Single.just(Optional.empty()));
       // Users already in this tenant — ensureUserInTenant should short-circuit
-      when(openFgaService.getUserTenants(any())).thenReturn(Single.just(List.of(TENANT_ID)));
+      when(openFgaService.getUserDirectTenants(any())).thenReturn(Single.just(List.of(TENANT_ID)));
       when(openFgaService.assignProjectRole(any(), eq(PROJECT_ID), eq("viewer")))
           .thenReturn(Completable.complete());
 
@@ -601,7 +600,7 @@ class ProjectMemberServiceTest {
       when(openFgaService.getUserProjectRole(any(), eq(PROJECT_ID)))
           .thenReturn(Single.just(Optional.empty()));
       // User already in this tenant
-      when(openFgaService.getUserTenants(any())).thenReturn(Single.just(List.of(TENANT_ID)));
+      when(openFgaService.getUserDirectTenants(any())).thenReturn(Single.just(List.of(TENANT_ID)));
       when(openFgaService.assignProjectRole(any(), eq(PROJECT_ID), eq("viewer")))
           .thenReturn(Completable.complete());
 
@@ -628,7 +627,7 @@ class ProjectMemberServiceTest {
       when(openFgaService.getUserProjectRole(any(), eq(PROJECT_ID)))
           .thenReturn(Single.just(Optional.empty()));
       // user-1 already in this tenant; default @BeforeEach stub covers user-2 (fails before ensureUserInTenant)
-      when(openFgaService.getUserTenants("user-1")).thenReturn(Single.just(List.of(TENANT_ID)));
+      when(openFgaService.getUserDirectTenants("user-1")).thenReturn(Single.just(List.of(TENANT_ID)));
       when(openFgaService.assignProjectRole("user-1", PROJECT_ID, "editor"))
           .thenReturn(Completable.complete());
 
@@ -684,7 +683,7 @@ class ProjectMemberServiceTest {
       when(openFgaService.getUserProjectRole(any(), eq(PROJECT_ID)))
           .thenReturn(Single.just(Optional.empty()));
       // user-1 already in this tenant
-      when(openFgaService.getUserTenants("user-1")).thenReturn(Single.just(List.of(TENANT_ID)));
+      when(openFgaService.getUserDirectTenants("user-1")).thenReturn(Single.just(List.of(TENANT_ID)));
       when(openFgaService.assignProjectRole("user-1", PROJECT_ID, "viewer"))
           .thenReturn(Completable.complete());
 
@@ -716,9 +715,9 @@ class ProjectMemberServiceTest {
       when(openFgaService.getUserProjectRole(any(), eq(PROJECT_ID)))
           .thenReturn(Single.just(Optional.empty()));
       // user-1 already in this tenant — short-circuit
-      when(openFgaService.getUserTenants("user-1")).thenReturn(Single.just(List.of(TENANT_ID)));
+      when(openFgaService.getUserDirectTenants("user-1")).thenReturn(Single.just(List.of(TENANT_ID)));
       // user-2 belongs to a different tenant — cross-tenant violation
-      when(openFgaService.getUserTenants("user-2")).thenReturn(Single.just(List.of("other-tenant-id")));
+      when(openFgaService.getUserDirectTenants("user-2")).thenReturn(Single.just(List.of("other-tenant-id")));
       when(openFgaService.assignProjectRole("user-1", PROJECT_ID, "viewer"))
           .thenReturn(Completable.complete());
 
@@ -748,7 +747,7 @@ class ProjectMemberServiceTest {
       when(openFgaService.getUserProjectRole(USER_ID, PROJECT_ID))
           .thenReturn(Single.just(Optional.empty()));
       // User already belongs to a different tenant
-      when(openFgaService.getUserTenants(USER_ID))
+      when(openFgaService.getUserDirectTenants(USER_ID))
           .thenReturn(Single.just(List.of("other-tenant-id")));
 
       Exception ex = assertThrows(IllegalStateException.class, () ->
@@ -774,7 +773,7 @@ class ProjectMemberServiceTest {
       when(openFgaService.getUserProjectRole(USER_ID, PROJECT_ID))
           .thenReturn(Single.just(Optional.empty()));
       // User already in this tenant — short-circuit without calling addUserToTenantInternal
-      when(openFgaService.getUserTenants(USER_ID))
+      when(openFgaService.getUserDirectTenants(USER_ID))
           .thenReturn(Single.just(List.of(TENANT_ID)));
       when(openFgaService.assignProjectRole(USER_ID, PROJECT_ID, "viewer"))
           .thenReturn(Completable.complete());

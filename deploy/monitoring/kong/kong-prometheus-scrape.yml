@@ -1,0 +1,14 @@
+scrape_configs:
+  - job_name: "pulse-kong"
+    metrics_path: /metrics
+    scrape_interval: 30s
+    ec2_sd_configs:
+      - region: ap-south-1
+        refresh_interval: 60s
+    relabel_configs:
+      - source_labels: [ __meta_ec2_tag_Name ]
+        regex: pulse-kong-instance
+        action: keep
+      - source_labels: [ __meta_ec2_private_ip ]
+        target_label: __address__
+        replacement: $1:8001
