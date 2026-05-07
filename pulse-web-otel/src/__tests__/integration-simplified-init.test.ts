@@ -209,6 +209,23 @@ describe("Config surface — matches Android minimal API", () => {
     expect(attrs?.["tenant.id"]).toBe("t1");
   });
 
+  it("TC-C8b: globalAttributes array values are preserved", async () => {
+    Pulse.init({
+      apiKey: "default-project_devkey01",
+      dataCollectionState: PulseDataCollectionConsent.ALLOWED,
+      globalAttributes: {
+        "flags.enabled": [true, false],
+        "release.channels": ["beta", "stable"],
+        "retry.windows_ms": [100, 300, 500],
+      },
+    });
+    await new Promise((r) => setTimeout(r, 50));
+    const attrs = Pulse.globalAttrsProcessor?.getCommonAttrsForMetrics();
+    expect(attrs?.["flags.enabled"]).toEqual([true, false]);
+    expect(attrs?.["release.channels"]).toEqual(["beta", "stable"]);
+    expect(attrs?.["retry.windows_ms"]).toEqual([100, 300, 500]);
+  });
+
   // TC-C9
   it("TC-C9: second start() is no-op (singleton guard — matches Android)", async () => {
     Pulse.init({
