@@ -8,11 +8,11 @@ Prereqs: demo running (`yarn demo` from `pulse-web-otel`), consent allowed, `Pul
 
 ## React wiring — how the demo initialises the SDK
 
-The demo uses the React component API (`@dreamhorizon/pulse-web/react`) instead of calling `Pulse.init()` directly:
+The demo uses the React component API (`@dreamhorizonorg/pulse-web/react`) instead of calling `Pulse.init()` directly:
 
 ```tsx
 // App.tsx (simplified)
-import { PulseProvider } from "@dreamhorizon/pulse-web/react";
+import { PulseProvider } from "@dreamhorizonorg/pulse-web/react";
 
 // Config derived from env vars + query params (see useMemo in App.tsx)
 <BrowserRouter>

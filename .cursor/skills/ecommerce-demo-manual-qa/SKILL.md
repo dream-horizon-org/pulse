@@ -76,7 +76,7 @@ Optional: run **`scripts/refresh-demo-context.sh`** in this skill folder to prin
 
 ### New demo app (not ecommerce)
 
-If the workspace adds **`examples/<other-app>/`** wired to `@dreamhorizon/pulse-web`:
+If the workspace adds **`examples/<other-app>/`** wired to `@dreamhorizonorg/pulse-web`:
 
 - Add a **`DEMO-QA-MAP.md`** (or `APP-QA-MAP.md`) in that app with the same sections: routes, SDK entry, env/query table, “action → feature → signal” table.
 - Add a one-line pointer in **`DEMO-QA-MAP.md`** (ecommerce) or in this skill’s [reference.md](reference.md) under “Other apps” so the next session discovers it.

@@ -1,6 +1,6 @@
 # web-sdk-docs — vanilla Pulse Web SDK demo
 
-Plain **HTML + CSS + JavaScript** (no React). Uses the same `@dreamhorizon/pulse-web` workspace package as `examples/ecommerce-demo`.
+Plain **HTML + CSS + JavaScript** (no React). Uses the same `@dreamhorizonorg/pulse-web` workspace package as `examples/ecommerce-demo`.
 
 ## What it demonstrates
 

@@ -1,4 +1,4 @@
-# @dreamhorizon/pulse-web
+# @dreamhorizonorg/pulse-web
 
 OpenTelemetry-based web SDK for Pulse RUM telemetry.
 
@@ -12,7 +12,7 @@ Captures:
 ## Install
 
 ```bash
-yarn add @dreamhorizon/pulse-web
+yarn add @dreamhorizonorg/pulse-web
 ```
 
 ## Integrating Pulse Web SDK
@@ -20,12 +20,12 @@ yarn add @dreamhorizon/pulse-web
 ### 1. Install
 
 ```bash
-npm install @dreamhorizon/pulse-web
+npm install @dreamhorizonorg/pulse-web
 ```
 
 ### 2. Wrap your app with PulseProvider
 
-`PulseProvider` from `@dreamhorizon/pulse-web/react` does everything in one shot:
+`PulseProvider` from `@dreamhorizonorg/pulse-web/react` does everything in one shot:
 - calls `Pulse.init` on mount
 - catches React render errors via the built-in `PulseErrorBoundary`
 - exposes the SDK via context
@@ -33,8 +33,8 @@ npm install @dreamhorizon/pulse-web
 **React (CRA / Vite):**
 
 ```tsx
-import { PulseProvider } from '@dreamhorizon/pulse-web/react'
-import { PulseDataCollectionConsent } from '@dreamhorizon/pulse-web'
+import { PulseProvider } from '@dreamhorizonorg/pulse-web/react'
+import { PulseDataCollectionConsent } from '@dreamhorizonorg/pulse-web'
 
 const config = {
   apiKey: 'your-project-key',
@@ -52,7 +52,7 @@ const config = {
 ```tsx
 // app/providers/PulseProvider.tsx
 'use client'
-import { PulseProvider as SDKPulseProvider } from '@dreamhorizon/pulse-web/react'
+import { PulseProvider as SDKPulseProvider } from '@dreamhorizonorg/pulse-web/react'
 
 export function PulseProvider({ config, children }: { config: any; children: React.ReactNode }) {
   return <SDKPulseProvider config={config} shutdownOnUnmount={false}>{children}</SDKPulseProvider>
@@ -64,7 +64,7 @@ Then use the wrapper in `layout.tsx`:
 ```tsx
 // app/layout.tsx
 import { PulseProvider } from './providers/PulseProvider'
-import { PulseDataCollectionConsent } from '@dreamhorizon/pulse-web'
+import { PulseDataCollectionConsent } from '@dreamhorizonorg/pulse-web'
 
 const config = {
   apiKey: process.env.NEXT_PUBLIC_PULSE_API_KEY,
@@ -98,14 +98,14 @@ After mount, these signals auto-capture with zero extra work:
 
 ### 3. Screen tracking (Next.js App Router only)
 
-`useRouterTracking` from `@dreamhorizon/pulse-web/react` requires `react-router-dom` — it won't work in Next.js. Add this null-rendering component once inside `<PulseProvider>` in `layout.tsx`:
+`useRouterTracking` from `@dreamhorizonorg/pulse-web/react` requires `react-router-dom` — it won't work in Next.js. Add this null-rendering component once inside `<PulseProvider>` in `layout.tsx`:
 
 ```tsx
 // app/components/PulsePageView.tsx
 'use client'
 import { usePathname } from 'next/navigation'
 import { useEffect } from 'react'
-import { Pulse } from '@dreamhorizon/pulse-web'
+import { Pulse } from '@dreamhorizonorg/pulse-web'
 
 export function PulsePageView() {
   const pathname = usePathname()
@@ -125,7 +125,7 @@ export function PulsePageView() {
 For React Router apps, use the built-in hook instead — no extra component needed:
 
 ```tsx
-import { useRouterTracking } from '@dreamhorizon/pulse-web/react'
+import { useRouterTracking } from '@dreamhorizonorg/pulse-web/react'
 useRouterTracking() // inside a component rendered within <BrowserRouter>
 ```
 

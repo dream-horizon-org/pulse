@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Pulse } from '@dreamhorizon/pulse-web';
+import { Pulse } from '@dreamhorizonorg/pulse-web';
 
 const STEPS = ['Shipping', 'Payment', 'Review'] as const;
 

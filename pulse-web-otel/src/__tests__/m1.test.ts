@@ -1382,6 +1382,29 @@ describe("M1 — GlobalAttributesProcessor", () => {
     expect(attrs["tenant.id"]).toBe("acme");
   });
 
+  it("globalAttributes preserves array values (Android parity)", () => {
+    const { processor } = makeProcessor({
+      globalAttributes: {
+        "flags.enabled": [true, false],
+        "release.channels": ["beta", "stable"],
+        "retry.windows_ms": [100, 300, 500],
+      },
+    });
+
+    const attrs: Record<string, unknown> = {};
+    const fakeSpan = {
+      setAttribute: (k: string, v: unknown) => {
+        attrs[k] = v;
+      },
+    } as unknown as Parameters<typeof processor.onStart>[0];
+
+    processor.onStart(fakeSpan, {} as never);
+
+    expect(attrs["flags.enabled"]).toEqual([true, false]);
+    expect(attrs["release.channels"]).toEqual(["beta", "stable"]);
+    expect(attrs["retry.windows_ms"]).toEqual([100, 300, 500]);
+  });
+
   it("after session rotation — new session.id appears on next signal", () => {
     vi.useFakeTimers();
     const timeoutMs = 1000;

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Pulse } from '@dreamhorizon/pulse-web';
+import { Pulse } from '@dreamhorizonorg/pulse-web';
 import { useCart } from "../hooks/useCart";
 
 interface ProductDetail {

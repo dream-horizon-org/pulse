@@ -39,6 +39,12 @@ public class TenantService {
         .build();
 
     return tenantDao.createTenant(tenant)
+        .flatMap(t -> {
+          if (openFgaService != null && openFgaService.isEnabled()) {
+            return openFgaService.linkTenantToSystem(t.getTenantId()).toSingleDefault(t);
+          }
+          return Single.just(t);
+        })
         .doOnSuccess(t -> log.info("Tenant created: {}", t.getTenantId()))
         .doOnError(error -> log.error("Failed to create tenant: {}", request.getTenantId(), error));
   }

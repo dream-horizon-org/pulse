@@ -166,7 +166,7 @@ src/__tests__/network-instrumentation.test.ts(52) — invalid cast to SessionPro
 
 **Symptom C (P1 alpha rename):** PR review asked for a compatibility shim around the `4cbec8e4c` rename (`PulseWeb` → `Pulse`, `Pulse.start` → `Pulse.init`, `PulseNavigationEvents` → `PulseRouterEvents`).
 
-**Decision:** No shim — package is `@dreamhorizon/pulse-web@0.1.0-alpha.1`, no published non-alpha release, all consumers in-monorepo and migrated in the same commit. SemVer permits breaking changes in `0.x` and especially in alpha. A shim would persist deprecated surface plus per-call warnings forever for zero known external upgraders.
+**Decision:** No shim — package is `@dreamhorizonorg/pulse-web@0.1.0-alpha.1`, no published non-alpha release, all consumers in-monorepo and migrated in the same commit. SemVer permits breaking changes in `0.x` and especially in alpha. A shim would persist deprecated surface plus per-call warnings forever for zero known external upgraders.
 
 **Fix:**
 - `pulse-web-otel/CHANGELOG.md` — new file with a `0.1.0-alpha.2 (unreleased)` section tabulating old → new names, `git grep` migration command, and a paragraph explaining why no compat shim.

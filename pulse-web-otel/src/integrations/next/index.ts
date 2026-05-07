@@ -1,5 +1,5 @@
 /**
- * @dreamhorizon/pulse-web/next
+ * @dreamhorizonorg/pulse-web/next
  *
  * Next.js integration for the Pulse Web SDK.
  * Re-exports PulseProvider, usePulse, PulseErrorBoundary from /react

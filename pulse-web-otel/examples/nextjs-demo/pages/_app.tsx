@@ -8,9 +8,9 @@
  */
 import type { AppProps } from "next/app";
 import React from "react";
-import { PulseProvider } from "@dreamhorizon/pulse-web/next";
-import { useNextPagesRouterTracking } from "@dreamhorizon/pulse-web/next";
-import { PulseDataCollectionConsent } from "@dreamhorizon/pulse-web";
+import { PulseProvider } from "@dreamhorizonorg/pulse-web/next";
+import { useNextPagesRouterTracking } from "@dreamhorizonorg/pulse-web/next";
+import { PulseDataCollectionConsent } from "@dreamhorizonorg/pulse-web";
 
 /** Thin wrapper so the hook lives inside PulseProvider's React tree. */
 function PulsePageTracker(): null {

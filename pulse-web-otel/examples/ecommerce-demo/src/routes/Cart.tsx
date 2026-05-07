@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Pulse } from '@dreamhorizon/pulse-web';
+import { Pulse } from '@dreamhorizonorg/pulse-web';
 import { useCart } from '../hooks/useCart';
 
 export default function Cart() {

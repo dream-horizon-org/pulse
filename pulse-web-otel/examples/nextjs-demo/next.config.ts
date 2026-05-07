@@ -8,10 +8,10 @@ const nextConfig: NextConfig = {
   webpack(config) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const alias = (config.resolve.alias as Record<string, any>) ?? {};
-    // Use $ for exact match to prevent prefix-matching @dreamhorizon/pulse-web/next → index.cjs/next
-    alias["@dreamhorizon/pulse-web$"] = path.join(DIST, "index.cjs");
-    alias["@dreamhorizon/pulse-web/react"] = path.join(DIST, "react.cjs");
-    alias["@dreamhorizon/pulse-web/next"] = path.join(DIST, "next.cjs");
+    // Use $ for exact match to prevent prefix-matching @dreamhorizonorg/pulse-web/next → index.cjs/next
+    alias["@dreamhorizonorg/pulse-web$"] = path.join(DIST, "index.cjs");
+    alias["@dreamhorizonorg/pulse-web/react"] = path.join(DIST, "react.cjs");
+    alias["@dreamhorizonorg/pulse-web/next"] = path.join(DIST, "next.cjs");
     config.resolve.alias = alias;
     return config;
   },

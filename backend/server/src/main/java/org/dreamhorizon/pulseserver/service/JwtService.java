@@ -27,6 +27,7 @@ public class JwtService {
   private static final String CLAIM_NAME = "name";
   private static final String CLAIM_TYPE = "type";
   private static final String CLAIM_TENANT_ID = "tenantId";
+  private static final String CLAIM_SYSTEM_ROLE = "systemRole";
   private static final int MINIMUM_SECRET_LENGTH = 32;
 
   private final ApplicationConfig applicationConfig;
@@ -68,6 +69,39 @@ public class JwtService {
 
     if (tenantId != null) {
       builder.claim(CLAIM_TENANT_ID, tenantId);
+    }
+
+    return builder
+        .issuedAt(now)
+        .expiration(expiry)
+        .signWith(getSigningKey())
+        .compact();
+  }
+
+  /**
+   * Generates an access token that includes a systemRole claim.
+   * Used exclusively for superadmin / internal_viewer login responses.
+   *
+   * @param systemRole "superadmin" | "internal_viewer" — must not be null
+   */
+  public String generateAccessToken(
+      String userId, String email, String name,
+      String tenantId, String systemRole) {
+
+    Date now = new Date();
+    Date expiry = new Date(now.getTime() + ACCESS_TOKEN_VALIDITY_MS);
+
+    var builder = Jwts.builder()
+        .subject(userId)
+        .claim(CLAIM_EMAIL, email)
+        .claim(CLAIM_NAME, name)
+        .claim(CLAIM_TYPE, TOKEN_TYPE_ACCESS);
+
+    if (tenantId != null) {
+      builder.claim(CLAIM_TENANT_ID, tenantId);
+    }
+    if (systemRole != null) {
+      builder.claim(CLAIM_SYSTEM_ROLE, systemRole);
     }
 
     return builder

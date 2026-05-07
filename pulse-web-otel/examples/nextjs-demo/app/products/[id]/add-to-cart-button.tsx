@@ -9,7 +9,7 @@
  *   - Failure → Pulse.reportException(error)
  */
 import React, { useState, useTransition } from "react";
-import { Pulse } from "@dreamhorizon/pulse-web";
+import { Pulse } from "@dreamhorizonorg/pulse-web";
 import { addToCartAction } from "../../cart/actions";
 
 export function AddToCartButton({

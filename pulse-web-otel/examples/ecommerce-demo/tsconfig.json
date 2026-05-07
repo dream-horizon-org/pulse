@@ -12,8 +12,8 @@
     "noEmit": true,
     "baseUrl": ".",
     "paths": {
-      "@dreamhorizon/pulse-web": ["../../src/index.ts"],
-      "@dreamhorizon/pulse-web/react": ["../../src/integrations/react/index.ts"]
+      "@dreamhorizonorg/pulse-web": ["../../src/index.ts"],
+      "@dreamhorizonorg/pulse-web/react": ["../../src/integrations/react/index.ts"]
     }
   },
   "include": ["src", "e2e"],
