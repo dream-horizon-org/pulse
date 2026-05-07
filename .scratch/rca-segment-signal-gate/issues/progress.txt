@@ -54,6 +54,39 @@
         re-seed/recompute note).
       * `graphify update` not needed (no Java touched in this slice).
 
+2026-05-07 — Issue 03 (screen-RCA signal gate parity) done. PRD-clarification blocker resolved.
+  - Resolution: extended `SegmentSignalGate` with `String... metricKeys` overloads. Existing
+    no-arg APIs delegate to `DEFAULT_METRIC_KEYS = {ERROR_RATE, POOR_USER_PCT}` so interaction
+    RCA, `rca-db-audit.py`, and HTTP `rca-audit.py` are unchanged. Screen RCA passes
+    `{BAD_FRUSTRATION}` (the screen-side "poor user" / "bad experience" driver — dead ∪ rage).
+  - `ScreenRcaService.computeAndPersistCache`: applies gate post-deltas / pre-`upsert`. Mirrors
+    interaction `applySignalGate` (same threshold via `config.getMinCombinedDeltaSignal()`,
+    `<= 0` short-circuits, no-op preserves reference equality, per-drop debug + summary info
+    log under `[SCREEN-RCA-SEGMENT]`).
+  - Single-metric S for screen is consistent with PRD User Story 4 (one term zero is allowed
+    when the other carries enough signal); the inequality `S >= 15` stays identical.
+  - Tests: `SegmentSignalGateTest` gained `CustomMetricKeys` nested class (8 tests covering
+    abs / null-as-zero / boundary 14.9 vs 15 / cross-key isolation / empty-keys / filter
+    order). `*SegmentSignalGate*` 29 green. `*RootCauseService*` 41 + `*ScreenRcaService*`
+    13 = 54 service tests still green; existing screen tests don't change because their
+    fixtures don't populate `bad_frustration` deltas → `S = 0` and gate filters all segments
+    only when `RootCauseConfig.minCombinedDeltaSignal > 0`. The default test config
+    leaves it at -1.0 (disabled) so service tests are unaffected.
+  - Lint: 0 checkstyle violations on `mvn test`. ralph TS commands N/A (Java-only slice).
+  - Files touched:
+      backend/server/src/main/java/.../service/rootcause/SegmentSignalGate.java
+      backend/server/src/main/java/.../service/rootcause/ScreenRcaService.java
+      backend/server/src/test/java/.../service/rootcause/SegmentSignalGateTest.java
+      .scratch/rca-segment-signal-gate/issues/03-screen-rca-signal-gate-parity.md
+  - Follow-ups (not blocking PRD completion):
+      * `graphify update` per repo rules (Java touched).
+      * Optional: extend `ScreenRcaServiceTest` with a fixture that populates `bad_frustration`
+        deltas and asserts gate filtering when threshold > 0. Skipped here — helper coverage
+        is strong, screen wiring is a near-mirror of interaction wiring (already tested).
+      * Audit scripts (`rca-db-audit.py`, `rca-audit.py`) are interaction-scoped today; if
+        screen RCA grows its own audit later, port the same single-knob (`MIN_COMBINED_DELTA_SIGNAL`)
+        with `bad_frustration` as the driver.
+
 2026-05-07 — Issue 06 (docs + RCA verification playbook) done.
   - `docs/rca-audit-failure-buckets.md`: Bucket C rewritten — `S = |Δerr| + |Δpoor| ≥ 15`
     framed as product policy (server-enforced), not audit-only. Removed legacy
