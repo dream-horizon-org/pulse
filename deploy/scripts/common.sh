@@ -56,7 +56,7 @@ ALL_CONTAINERS=(
 # Constants -- Image references
 # ---------------------------------------------------------------------------
 IMAGE_MYSQL="mysql:8.0"
-IMAGE_CLICKHOUSE="clickhouse/clickhouse-server:25.3"
+IMAGE_CLICKHOUSE="clickhouse/clickhouse-server:24.8"
 IMAGE_OTEL_COLLECTOR="otel/opentelemetry-collector-contrib:0.137.0"
 IMAGE_KAFKA="confluentinc/cp-kafka:7.6.0"
 IMAGE_MINIO="minio/minio:latest"
