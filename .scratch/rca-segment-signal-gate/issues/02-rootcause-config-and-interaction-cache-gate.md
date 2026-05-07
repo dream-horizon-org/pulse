@@ -1,4 +1,4 @@
-Status: in-progress (interaction wiring landed; awaiting graphify update)
+Status: done (graphify update ran 2026-05-07; graphify-out/ regenerated locally, gitignored per repo policy)
 
 ## Parent
 
@@ -21,7 +21,8 @@ Add **minimum combined delta** (default **15**) to **root-cause configuration** 
   - Filter operates on the in-memory `List<RootCauseSegment>` returned from `runAlgorithm`; no new query specs.
 - [x] Debug logging explains dropped segments without spamming info/warn.
   - Per-drop debug line (`label`, `S`, `threshold`); single info line summarizing `kept/total` only when something was dropped.
-- [ ] After Java changes, run **graphify update** per repo rules (note in PR if automated check not in CI).
+- [x] After Java changes, run **graphify update** per repo rules (note in PR if automated check not in CI).
+  - `graphify update .` rebuilt graphify-out/ locally on 2026-05-07 (24220 nodes, 63383 edges, 2159 communities). Output dir is gitignored (`.gitignore:30`), so the artifact stays local; this is the documented repo workflow.
 
 ## Decisions captured
 

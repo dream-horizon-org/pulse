@@ -113,3 +113,24 @@
         compute S=0 for every screen segment and drop everything at the default
         threshold. Needs product call: define a screen-equivalent metric mapping
         (or extend the gate to take a metric pair), or scope screen RCA out of v1.
+
+2026-05-07 — Effort close-out (Issue 01 + Issue 02 AC#5).
+  - Issue 01 retroactively closed: helper (`SegmentSignalGate`) and tests
+    (`SegmentSignalGateTest`, 29 cases incl. boundary 14.9 vs 15.0) verified
+    in tree at backend/server/.../service/rootcause/. All 4 ACs ticked with
+    pointers to the implementing class + test class. Issue file Status →
+    "done (closed retroactively)".
+  - Issue 02 AC#5 ticked: ran `graphify update .` from repo root. Result:
+    24220 nodes, 63383 edges, 2159 communities; graphify-out/graph.json +
+    GRAPH_REPORT.md regenerated. graphify-out/ is gitignored
+    (`.gitignore:30`), which matches the documented `~/.cursor/rules/graphify.mdc`
+    workflow ("AST-only, no API cost"; artifact is local), so no commit
+    payload from the regen. Issue 02 Status → "done".
+  - All 6 issues now ✅. Screen-RCA parity (issue 03) was unblocked earlier
+    today by extending the helper with `metricKeys` overloads — see
+    commit 6448ee145 — so the BLOCKER bullet copied across older entries
+    is historical only.
+  - Lint/type: no source code touched in this slice (issue files +
+    progress doc + local graph artifact). ralph TS commands N/A.
+  - PRD `prd/rca-segment-signal-gate-prd.md` + canonical scratch PRD
+    fully covered by issues 01–06. Effort complete.
