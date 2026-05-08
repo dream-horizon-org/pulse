@@ -13,7 +13,7 @@ class RootCauseConfigTest {
 
     assertThat(config.getSimilarityThresholdPct()).isEqualTo(75);
     assertThat(config.getLookbackDays()).isEqualTo(7);
-    assertThat(config.getMaxSegments()).isEqualTo(4);
+    assertThat(config.getMaxSegments()).isEqualTo(5);
     assertThat(config.getMinPoorSessionsForErrorAttribution())
         .isEqualTo(RootCauseConfig.DEFAULT_MIN_POOR_SESSIONS_FOR_ERROR_ATTRIBUTION);
     assertThat(config.getMinTreatedSessionsForIssueAttribution())
@@ -86,7 +86,7 @@ class RootCauseConfigTest {
 
     assertThat(config.getSimilarityThresholdPct()).isEqualTo(75);
     assertThat(config.getLookbackDays()).isEqualTo(7);
-    assertThat(config.getMaxSegments()).isEqualTo(4);
+    assertThat(config.getMaxSegments()).isEqualTo(5);
     assertThat(config.getDimensionOrder()).isNotEmpty();
   }
 

@@ -10,10 +10,12 @@ import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseSegment;
 /**
  * Combined signal eligibility for {@link RootCauseSegment} entries.
  *
- * <p>S = sum of |Δm| over a configured set of driver metrics. Default driver set is
- * {@code (error_rate, poor_user_pct)} for interaction RCA. Screen RCA passes its own
- * driver keys (e.g. {@code bad_frustration}). A missing delta for any metric is
- * treated as 0. A segment is eligible when {@code S >= threshold}.
+ * <p>S = sum of |Δm| over a configured set of driver metrics. Product use is
+ * {@linkplain org.dreamhorizon.pulseserver.service.rootcause.RootCauseService interaction RCA}
+ * with {@code (error_rate, poor_user_pct)}. Overloads accept custom metric keys for tests or
+ * future callers; {@linkplain org.dreamhorizon.pulseserver.service.rootcause.ScreenRcaService
+ * Screen RCA} does not apply this gate. A missing delta for any metric is treated as 0. A segment
+ * is eligible when {@code S >= threshold}.
  */
 @UtilityClass
 public class SegmentSignalGate {

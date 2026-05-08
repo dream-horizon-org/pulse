@@ -124,11 +124,6 @@ public class ScreenRcaService {
               if (result.getNoDataAvailable() != null && result.getNoDataAvailable()) {
                 return Single.just(result);
               }
-              List<RootCauseSegment> gated =
-                  applySignalGate(result.getSegments(), screenName);
-              if (gated != result.getSegments()) {
-                result = result.toBuilder().segments(gated).build();
-              }
               String baselineJson = objectMapperUtil.writeValueAsString(result.getBaseline());
               String segmentsJson = objectMapperUtil.writeValueAsString(result.getSegments());
               RootCauseAnalysisMode modeForCache =
@@ -254,50 +249,6 @@ public class ScreenRcaService {
   }
 
   private record SegmentsWithMode(List<RootCauseSegment> segments, RootCauseAnalysisMode mode) {}
-
-  /**
-   * Drops pre-cache screen segments whose combined absolute delta on the screen "poor user"
-   * driver — {@code |Δbad_frustration|} — is below {@link RootCauseConfig#getMinCombinedDeltaSignal()}.
-   * Single-metric S for screen since {@code error_rate}/{@code poor_user_pct} are not emitted by
-   * {@link #computeScreenDeltas}; same helper, same threshold, same null-as-zero contract as
-   * interaction RCA. Returns the input list unchanged when the gate is disabled
-   * ({@code threshold <= 0}) or no segments are dropped, so callers can detect a no-op via
-   * reference equality. Order of kept segments is preserved.
-   */
-  private List<RootCauseSegment> applySignalGate(
-      List<RootCauseSegment> segments, String screenName) {
-    if (segments == null || segments.isEmpty()) {
-      return segments;
-    }
-    double threshold = config.getMinCombinedDeltaSignal();
-    if (threshold <= 0) {
-      return segments;
-    }
-    String[] keys = {ScreenRcaQueryBuilder.BAD_FRUSTRATION};
-    List<RootCauseSegment> kept = SegmentSignalGate.filter(segments, threshold, keys);
-    if (kept.size() == segments.size()) {
-      return segments;
-    }
-    if (log.isDebugEnabled()) {
-      for (RootCauseSegment s : segments) {
-        if (!kept.contains(s)) {
-          log.debug(
-              "[SCREEN-RCA-SEGMENT] Drop segment below combined signal: screen={}, label={}, S={}, threshold={}",
-              screenName,
-              s.getLabel(),
-              SegmentSignalGate.computeSignal(s, keys),
-              threshold);
-        }
-      }
-    }
-    log.info(
-        "[SCREEN-RCA-SEGMENT] Signal gate filtered segments: screen={}, kept={}/{}, threshold={}",
-        screenName,
-        kept.size(),
-        segments.size(),
-        threshold);
-    return kept;
-  }
 
   private Single<Optional<Map<String, Object>>> runBaseline(
       String projectId, String screenName, RootCauseQueryBuilder.Window window) {

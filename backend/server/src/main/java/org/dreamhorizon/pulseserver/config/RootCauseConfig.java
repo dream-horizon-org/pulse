@@ -17,7 +17,7 @@ public class RootCauseConfig {
   /** Default lookback window in days for querying otel_traces. */
   public static final int DEFAULT_LOOKBACK_DAYS = 7;
   /** Default maximum segments in the result (hierarchy + flat combined). */
-  public static final int DEFAULT_MAX_SEGMENTS = 4;
+  public static final int DEFAULT_MAX_SEGMENTS = 5;
   /** Default minimum segment volume as percentage of baseline volume to be included in AI report. */
   public static final double DEFAULT_MIN_SEGMENT_VOLUME_PCT = 5.0;
   /**

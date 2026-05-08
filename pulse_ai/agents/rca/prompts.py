@@ -162,11 +162,13 @@ A metric that has improved from baseline must never be flagged as an anomaly, ev
 ### 2. Root Cause Identification
 
 **Segment eligibility (discard before comparison):** Skip any segment that fails either condition:
-1. **Volume**: segment's `volume` metric value ≥ 10% of segment's `volume` baseline. Segments below this threshold have insufficient data — discard entirely.
-2. **Degradation signal**: at least one of the following must be true:
-   - `error_rate` value exceeds baseline by **≥ 2 percentage points** (absolute)
-   - `poor_user_pct` value exceeds baseline by **≥ 5 percentage points** (absolute)
-   A segment where both deltas are below these minimums is statistical noise — discard it even if value > baseline.
+1. **Volume**: segment's current `volume` (`value_number`) ≥ 10% of **that same segment's own historical** `volume` (`baseline_number`). This checks whether the segment's sample size in the current window is sufficient relative to its own historical level — it does NOT compare against the overall interaction's total session count. A segment with value_number=500 and baseline_number=480 passes (104%); a segment with value_number=5 and baseline_number=450 fails (1%).
+2. **Degradation signal**: compute the **absolute difference** as `value_number − baseline_number` (NOT the relative `delta_display` string, which shows percentage change). Metrics are stored as **fractions from 0.0 to 1.0** (e.g., 21.8% error rate = `value_number: 0.218`). At least one of the following must be true:
+   - `error_rate`: `value_number − baseline_number` ≥ **0.02** (= 2 percentage points). **Example that PASSES**: baseline_number=0.087 (8.7%), value_number=0.218 (21.8%) → delta=0.131 ≥ 0.02. **Example that FAILS**: baseline_number=0.002 (0.2%), value_number=0.004 (0.4%) → delta=0.002 < 0.02 — this is noise even though `delta_display` shows "+100%" relative change.
+   - `poor_user_pct`: `value_number − baseline_number` ≥ **0.05** (= 5 percentage points). **Example that PASSES**: baseline_number=0.194, value_number=0.604 → delta=0.410 ≥ 0.05. **Example that FAILS**: baseline_number=0.190, value_number=0.195 → delta=0.005 < 0.05.
+   A segment where both absolute deltas are below these minimums is statistical noise — discard it even if `delta_display` shows a large relative percentage.
+
+**MANDATORY**: After applying both filters, if **at least 1 segment passes**, proceed to analysis. You MUST NOT set `everything_good: true` when eligible segments exist. Only set `everything_good: true` if **zero segments pass both eligibility checks**.
 
 Only segments passing both filters proceed to root cause ranking and narrative.
 
