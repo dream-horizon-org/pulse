@@ -1,0 +1,10 @@
+2026-05-08 — Issue 01 complete (RcaSegmentMergePolicy deep module)
+  Created: backend/server/src/main/java/.../service/rootcause/RcaSegmentMergePolicy.java
+  Created: backend/server/src/test/java/.../service/rootcause/RcaSegmentMergePolicyTest.java
+  19 unit tests, all green.
+  Key decisions:
+    - @UtilityClass static entry point mergeAndCap(baseline, hierarchicalCandidates, flatCandidates, dimensionOrder, maxSegments)
+    - 1D segments passed as hierarchicalCandidates are silently dropped (not promoted to flat tier)
+    - computeLift() is package-private for test access
+    - Uses NumberCoercionUtils for zero-safe arithmetic
+  Next: Issue 02 — wire orchestration in RootCauseService + ScreenRcaService, add HYBRID enum, service tests.
