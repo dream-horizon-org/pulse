@@ -178,8 +178,8 @@ Introduce a **unified segment pipeline** for interaction RCA:
 
 - **Open decision:** Whether **flat collection** runs with an **independent sub-cap** (e.g. reserve K slots for flat) vs **pure global top N** after merge; current stakeholder preference is **global top N** with **hierarchical first**.
 
-- **Open decision:** Exact **cache / API** representation of **hybrid** results—prefer **explicit enum value** over overloading **HIERARCHICAL**.
+- **Resolved (v1):** **Cache / API** uses explicit wire value **`hybrid`** for merged 2D+ + 1D output — see `RootCauseAnalysisMode.HYBRID`, `docs/rca-http-audit-failure-buckets.md`.
 
 - **Module confirmation:** Implementers should **review** the proposed **merge/sort/cap** extraction with maintainers during triage; tests should follow **module** boundaries agreed there.
 
-- **Documentation:** Update **RCA HTTP audit failure buckets** and any **agent context** that defines **rank 1** / **primary cohort** so **WARN** categories stay interpretable.
+- **Documentation:** RCA HTTP audit failure buckets: **`docs/rca-http-audit-failure-buckets.md`** (**rank 1** / **hybrid** / WARN vs FAIL).

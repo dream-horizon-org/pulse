@@ -23,11 +23,13 @@ lib/
 terraform.rc
 env.json
 
-docs/
+docs/*
+!docs/rca-http-audit-failure-buckets.md
 **/.idea
 docs/api
 docs/architecture
 graphify-out/
+ralph/.logs/
 /CLAUDE.md
 !.claude/CLAUDE.md
 backend/server/src/test/graphify-out/

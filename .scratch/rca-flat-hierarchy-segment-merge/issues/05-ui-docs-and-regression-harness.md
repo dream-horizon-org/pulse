@@ -1,4 +1,4 @@
-**Triage:** needs-triage
+**Triage:** complete
 
 ## Parent
 
@@ -10,10 +10,10 @@ Update **UI types/labels** that mirror **`RootCauseRestResponse.mode`**, refresh
 
 ## Acceptance criteria
 
-- [ ] `pulse-ui` screen RCA types/constants include **`hybrid`** where `flat | hierarchical` is declared (e.g. `ScreenRootCauseMode`, label map).
-- [ ] `docs/rca-http-audit-failure-buckets.md` explains **Bucket 2 / primary cohort** under **hybrid** ordering.
-- [ ] Deploy scripts or docs note **cache mode** value **`hybrid`** for new computations; **rca-db-audit** dimensions/mode checks reviewed for regressions.
-- [ ] Optional: extend or re-seed **RCA e2e** scenarios if ordering assertions exist — document what was run.
+- [x] `pulse-ui` screen RCA types/constants include **`hybrid`** where `flat | hierarchical` is declared (e.g. `ScreenRootCauseMode`, label map).
+- [x] `docs/rca-http-audit-failure-buckets.md` explains **Bucket 2 / primary cohort** under **hybrid** ordering.
+- [x] Deploy scripts or docs note **cache mode** value **`hybrid`** for new computations; **rca-db-audit** dimensions/mode checks reviewed for regressions (`checkout_start` → **HYBRID** in `EXPECTATIONS`).
+- [x] Optional: extend or re-seed **RCA e2e** scenarios if ordering assertions exist — document what was run (not re-run this slice; harness unchanged aside from db-audit mode pin).
 
 ## Blocked by
 
@@ -23,4 +23,4 @@ Update **UI types/labels** that mirror **`RootCauseRestResponse.mode`**, refresh
 
 ## User stories covered
 
-PRD **11–12, 18, 23, 26–27, 31, 38**.
+PRD **11–12, 18, 23, 26–27, 31, 38** (docs + UI types + audit alignment).

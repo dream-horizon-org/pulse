@@ -37,3 +37,16 @@
   Verify: pytest tests/test_root_cause_schema.py (2 tests). pulse-ui `npx tsc --noEmit` OK.
   Ralph: `pnpm ai-hero-cli internal lint` at repo root → ERR_PNPM_NO_IMPORTER_MANIFEST_FOUND (no root package.json).
   Next: Issue 05 — UI/docs + regression harness (audit scripts, runbooks per PRD user stories 12/18).
+
+2026-05-08 — Issue 05 complete (UI hybrid type + audit failure-bucket doc + rca-db-audit mode)
+  Touch: pulse-ui `ScreenRootCauseMode` + `SCREEN_RCA_MODE_LABELS` — **hybrid** aligned with
+    `RootCauseRestResponse.mode`.
+  Touch: **docs/rca-http-audit-failure-buckets.md** — Bucket 1 vs 2, **rank 1** under **hybrid**
+    (2D+ before 1D; `segments[0]` is headline cohort). **.gitignore:** `docs/*` + un-ignore this file
+    so the doc is versioned (whole `docs/` was ignored before).
+  Touch: deploy/scripts/rca-db-audit.py — EXPECTATIONS `checkout_start.mode` **HYBRID** (merged pipeline);
+    docstring + `_norm_mode_for_audit` note `hybrid` wire value.
+  Verify: pulse-ui `npx tsc --noEmit` OK. `pnpm ai-hero-cli internal lint` at repo root →
+    ERR_PNPM_NO_IMPORTER_MANIFEST_FOUND (no root package.json; same as prior iterations).
+  Optional rca e2e / full audit: not run this slice; rca-audit.py unchanged.
+  Follow-up: old ClickHouse rows may still show `hierarchical` until refresh; db-audit compares latest row.

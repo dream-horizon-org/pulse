@@ -70,9 +70,10 @@ INTERACTIONS = [
 #                          Golden lists are recorded from a clean root_cause_cache
 #                          run after issue 004 (deferred to issue 007 closeout).
 #   mode                 — optional mode assertion. Allowlist (scenarios doc G2):
-#                            • checkout_start     → hierarchical (alias: HIERARCHICAL)
+#                            • checkout_start     → hybrid (alias: HYBRID) — merged
+#                              2D+ + flat pipeline; old caches may still show hierarchical
 #                            • notifications_open → flat (alias: FLAT)
-#                          ClickHouse stores Java wire values: flat, hierarchical
+#                          ClickHouse stores Java wire values: flat, hierarchical, hybrid
 #                          (RootCauseAnalysisMode). Comparison is case-insensitive.
 #                          Other interactions: mode is informational only.
 #   Noise/weak floor     — single global S threshold from MIN_COMBINED_DELTA_SIGNAL
@@ -118,7 +119,7 @@ EXPECTATIONS = {
             {"keywords": ["SM-A135F"], "borderline": False},
             {"keywords": ["android"],  "borderline": True},
         ],
-        "mode": "HIERARCHICAL",  # G2 allowlist
+        "mode": "HYBRID",  # G2 allowlist — merged pipeline (2D+ tier non-empty)
     },
     "payment_processing": {
         "expected_segments": [
@@ -263,8 +264,8 @@ def _fmt_pct(v):
 
 def _norm_mode_for_audit(mode):
     """
-    Normalize RCA mode for equality checks. Server persists wire values 'flat' and
-    'hierarchical'; EXPECTATIONS may use uppercase readable aliases.
+    Normalize RCA mode for equality checks. Server persists wire values 'flat',
+    'hierarchical', and 'hybrid'; EXPECTATIONS may use uppercase readable aliases.
     """
     if mode is None:
         return None
