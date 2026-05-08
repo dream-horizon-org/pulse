@@ -13,6 +13,7 @@ import io.vertx.core.Handler;
 import io.vertx.core.Vertx;
 import org.dreamhorizon.pulseserver.config.ApplicationConfig;
 import org.dreamhorizon.pulseserver.dao.configs.SdkConfigsDao;
+import org.dreamhorizon.pulseserver.dto.response.EmptyResponse;
 import org.dreamhorizon.pulseserver.resources.configs.models.PulseConfig;
 import org.dreamhorizon.pulseserver.service.configs.UploadConfigDetailService;
 import org.dreamhorizon.pulseserver.service.configs.models.BatchProcessorConfig;
@@ -43,6 +44,8 @@ class ConfigServiceImplBatchConfigTest {
       handler.handle(null);
       return null;
     }).when(context).runOnContext(any(Handler.class));
+    lenient().when(uploadConfigDetailService.pushInteractionDetailsToObjectStore(anyString()))
+        .thenReturn(Single.just(new EmptyResponse()));
     configService = new ConfigServiceImpl(vertx, sdkConfigsDao, uploadConfigDetailService, applicationConfig);
   }
 
