@@ -1,7 +1,6 @@
 package org.dreamhorizon.pulseserver.resources.symbolicate;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doReturn;
@@ -24,6 +23,7 @@ import java.util.concurrent.CompletionStage;
 import org.dreamhorizon.pulseserver.context.ProjectContext;
 import org.dreamhorizon.pulseserver.util.serialization.ObjectMapperFactory;
 import org.dreamhorizon.pulseserver.errorgrouping.service.SymbolFileService;
+import org.dreamhorizon.pulseserver.service.apikey.ProjectApiKeyService;
 import org.dreamhorizon.pulseserver.rest.io.Response;
 import org.jboss.resteasy.plugins.providers.multipart.InputPart;
 import org.jboss.resteasy.plugins.providers.multipart.MultipartFormDataInput;
@@ -50,13 +50,17 @@ class MappingFileUploadTest {
   @Mock
   private MultipartFormDataInput multipartInput;
 
+  @Mock
+  private ProjectApiKeyService projectApiKeyService;
+
   private MappingFileUpload mappingFileUpload;
 
   private final ObjectMapper objectMapper = ObjectMapperFactory.get();
 
   @BeforeEach
   void setUp() {
-    mappingFileUpload = new MappingFileUpload(objectMapper, symbolFileService);
+    mappingFileUpload = new MappingFileUpload(objectMapper, symbolFileService, projectApiKeyService);
+    lenient().when(projectApiKeyService.validateProjectExists(anyString())).thenReturn(Single.just(true));
     ProjectContext.setProjectId("test-project");
   }
 
