@@ -14,8 +14,6 @@ import org.dreamhorizon.pulseserver.errorgrouping.model.UploadMetadata;
 @Slf4j
 public abstract class SymbolFileService {
 
-  private static final String FILE_PART_NAME = "fileContent";
-
   public Single<Boolean> uploadFiles(String projectId,
                                      List<UploadFileData> uploadFiles,
                                      List<UploadMetadata> metadataList) {
@@ -28,20 +26,10 @@ public abstract class SymbolFileService {
             },
             (existing, replacement) -> existing
         ));
-    if (uploadFiles == null || uploadFiles.isEmpty()) {
-      log.error("Missing file part(s) named '{}'", FILE_PART_NAME);
-      return Single.error(new IllegalArgumentException("Missing file part(s) named '" + FILE_PART_NAME + "'"));
-    }
-
     List<Single<Boolean>> uploads = new ArrayList<>();
 
     for (UploadFileData uploadFileData : uploadFiles) {
       String fileName = uploadFileData.getFileName();
-      if (fileName.isEmpty() || fileName.equals("unknown-file")) {
-        log.warn("Skipping file part with unknown filename. projectId={}", projectId);
-        continue;
-      }
-
       UploadMetadata metadata = metadataMap.get(fileName);
       if (metadata == null) {
         log.warn("Skipping file '{}': No matching metadata found in JSON payload. projectId={}", 

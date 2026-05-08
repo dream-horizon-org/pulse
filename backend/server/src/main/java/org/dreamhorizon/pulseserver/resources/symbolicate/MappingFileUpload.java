@@ -90,6 +90,10 @@ public class MappingFileUpload {
         log.error("API key invalid or missing: error={}", e.getMessage());
         return Single.error(
             ServiceError.UNAUTHORISED.getCustomException("Missing or invalid API key", e.getMessage()));
+      } catch (IllegalArgumentException e) {
+        log.error("Upload request validation failed: {}", e.getMessage());
+        return Single.error(
+            ServiceError.INVALID_REQUEST_BODY.getCustomException(e.getMessage(), e.getMessage()));
       } catch (Exception e) {
         log.error("Upload processing failed: error={}", e.getMessage(), e);
         return Single.error(
@@ -100,7 +104,8 @@ public class MappingFileUpload {
 
   private List<UploadFileData> parseUploadFiles(List<InputPart> fileParts) {
     if (fileParts == null || fileParts.isEmpty()) {
-      return List.of();
+      log.warn("Missing file part(s) named '{}'", FILE_PART_NAME);
+      throw new IllegalArgumentException("Missing file part(s) named '" + FILE_PART_NAME + "'");
     }
 
     List<UploadFileData> uploadFiles = new ArrayList<>();
@@ -117,6 +122,9 @@ public class MappingFileUpload {
       } catch (Exception e) {
         throw new RuntimeException("Failed to process file '" + fileName + "': " + e.getMessage(), e);
       }
+    }
+    if (uploadFiles.isEmpty()) {
+      throw new IllegalArgumentException("No valid files to upload");
     }
     return uploadFiles;
   }
