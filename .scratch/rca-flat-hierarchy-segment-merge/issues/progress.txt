@@ -8,3 +8,14 @@
     - computeLift() is package-private for test access
     - Uses NumberCoercionUtils for zero-safe arithmetic
   Next: Issue 02 — wire orchestration in RootCauseService + ScreenRcaService, add HYBRID enum, service tests.
+
+2026-05-08 — Issue 03 complete (enrichment serverRank = merged segment order)
+  Touch: RcaReportEnrichmentService.sanitizeForAiReport — removed problematic_count sort; serverRank 1..N follows
+    RootCauseService segment list order (hybrid merge + cap + signal gate as returned on GET).
+  Touch: RootCauseSegment.serverRank javadoc; RcaReportEnrichmentServiceTest — two segment-order tests hoisted to
+    top-level (Surefire in this repo was only executing outer-class @Test methods).
+  Verification: mvn compiler:testCompile -Dmaven.compiler.testIncludes='**/RcaReportEnrichmentServiceTest.java'
+    && mvn surefire:test -Dtest=RcaReportEnrichmentServiceTest (4 tests). Full mvn test may hit pre-existing
+    Kotlin test compile errors (MetricsToAddPolymorphicJsonTest.kt) on clean builds.
+  Ralph lint: pnpm ai-hero-cli internal lint — N/A (no package.json at repo root).
+  Next: Issue 04 — pulse_ai schema + prompts for mode hybrid; Issue 05 — UI/docs/audit harness.
