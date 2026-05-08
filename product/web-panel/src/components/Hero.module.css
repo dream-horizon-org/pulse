@@ -1,0 +1,78 @@
+.hero {
+  margin: 0 0 28px;
+  padding: 36px 40px;
+  border-radius: 14px;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Default flat: subtle surface */
+.variant-flat {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
+.variant-flat .title { color: #0f172a; }
+.variant-flat .eyebrow { color: #64748b; }
+
+/* Gradient variant */
+.variant-gradient {
+  background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
+  color: white;
+  box-shadow: 0 12px 32px rgba(79, 70, 229, 0.18);
+}
+.variant-gradient .title { color: white; letter-spacing: -0.025em; }
+.variant-gradient .chip { background: rgba(255, 255, 255, 0.18); color: white; }
+
+/* Layer-tinted accent for flat hero */
+.variant-flat.layer-detect { border-left: 4px solid #2563eb; }
+.variant-flat.layer-diagnose { border-left: 4px solid #7c3aed; }
+.variant-flat.layer-quantify { border-left: 4px solid #db2777; }
+.variant-flat.layer-resolve { border-left: 4px solid #059669; }
+.variant-flat.layer-predict { border-left: 4px solid #d97706; }
+.variant-flat.layer-framework { border-left: 4px solid #4f46e5; }
+.variant-flat.layer-meta { border-left: 4px solid #94a3b8; }
+
+.eyebrow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.chip {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.chipLayer { background: #eef2ff; color: #3730a3; }
+.chipPersona { background: #fce7f3; color: #9f1239; }
+
+.title {
+  font-size: 36px;
+  font-weight: 700;
+  line-height: 1.15;
+  margin: 0;
+  letter-spacing: -0.02em;
+}
+
+@media (max-width: 768px) {
+  .hero {
+    padding: 24px 22px;
+    border-radius: 10px;
+  }
+  .title {
+    font-size: 26px;
+  }
+  .eyebrow {
+    margin-bottom: 12px;
+  }
+}

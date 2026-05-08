@@ -1,0 +1,125 @@
+.matrix {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin: 18px 0;
+  background: #e2e8f0;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.headRow,
+.bodyRow {
+  display: grid;
+  grid-template-columns: 130px repeat(3, 1fr);
+  gap: 1px;
+  background: #e2e8f0;
+}
+
+.corner {
+  background: #f1f5f9;
+}
+
+.headCell {
+  background: #f1f5f9;
+  padding: 14px 14px;
+  font-weight: 700;
+  font-size: 13px;
+  text-align: center;
+  color: #0f172a;
+}
+
+.rowLabel {
+  background: #f8fafc;
+  padding: 16px 14px;
+  font-weight: 700;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  color: #0f172a;
+}
+
+.cell {
+  background: #ffffff;
+  padding: 14px 14px;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.cellBuilt {
+  background: linear-gradient(180deg, #ffffff 0%, #ecfdf5 100%);
+}
+
+.cellWip {
+  background: linear-gradient(180deg, #ffffff 0%, #fffbeb 100%);
+}
+
+.cellNotbuilt {
+  background: #f8fafc;
+  color: #94a3b8;
+}
+
+.cellContent {
+  font-size: 13px;
+  line-height: 1.55;
+  color: #0f172a;
+}
+
+.cellContent strong {
+  font-weight: 600;
+}
+
+.cellNotbuilt .cellContent {
+  color: #94a3b8;
+}
+
+.fallback {
+  /* fallback table styling — picks up DocViewer's table styles by default */
+}
+
+@media (max-width: 768px) {
+  .matrix {
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    gap: 12px;
+  }
+  .headRow {
+    display: none;
+  }
+  .bodyRow {
+    display: block;
+    background: transparent;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .rowLabel {
+    background: #eef2ff;
+    color: #3730a3;
+    padding: 12px 14px;
+  }
+  .cell {
+    padding: 12px 14px;
+    border-top: 1px solid #e2e8f0;
+  }
+  .cell::before {
+    display: block;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: #94a3b8;
+    margin-bottom: 6px;
+  }
+  .bodyRow > .cell:nth-child(2)::before {
+    content: 'Tech';
+  }
+  .bodyRow > .cell:nth-child(3)::before {
+    content: 'Product';
+  }
+  .bodyRow > .cell:nth-child(4)::before {
+    content: 'UX';
+  }
+}

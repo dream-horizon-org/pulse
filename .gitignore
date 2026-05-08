@@ -9,9 +9,13 @@ lib/
 .env
 
 .cursor/.env
-# Claude Code: keep shared project memory; ignore other local-only files under .claude/
+# Claude Code: keep shared project memory and skills; ignore other local-only files under .claude/
 .claude/*
 !.claude/CLAUDE.md
+!.claude/rules/
+!.claude/rules/**
+!.claude/skills/
+!.claude/skills/**
 .cursor/hooks/state/
 .cursor/plans/
 .terraform/
