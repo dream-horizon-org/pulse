@@ -10,9 +10,9 @@ Extend the **RCA agent payload contract** for **`mode: hybrid`** and refresh **p
 
 ## Acceptance criteria
 
-- [ ] `RootCausePayloadSchema.mode` accepts **`hybrid`** (and remains backward compatible with stored payloads).
-- [ ] `pulse_ai/agents/rca/prompts.py` documents **hybrid** tier behavior and **rank** alignment with **`serverRank`** under the new policy.
-- [ ] Tests or schema validation updated so invalid literals fail fast (e.g. serializer / unit test on schema).
+- [x] `RootCausePayloadSchema.mode` accepts **`hybrid`** (and remains backward compatible with stored payloads).
+- [x] `pulse_ai/agents/rca/prompts.py` documents **hybrid** tier behavior and **rank** alignment with **`serverRank`** under the new policy.
+- [x] Tests or schema validation updated so invalid literals fail fast (e.g. serializer / unit test on schema).
 
 ## Blocked by
 

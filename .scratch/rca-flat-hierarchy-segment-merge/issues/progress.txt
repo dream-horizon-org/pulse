@@ -29,3 +29,11 @@
   Verify: mvn verify -Dmaven.test.skip=true; pulse-ui npx tsc --noEmit OK.
   Ralph: pnpm ai-hero-cli internal lint — N/A (no repo-root package.json; ERR_PNPM_NO_IMPORTER_MANIFEST_FOUND).
   Next: Issue 04 — pulse_ai `hybrid` schema + prompts (unblocks after Issue 02 per issue file); then Issue 05.
+
+2026-05-08 — Issue 04 complete (pulse_ai hybrid contract + prompts)
+  Touch: pulse_ai/schemas/root_cause.py — `mode` Literal adds **hybrid**; `serverRank` Field description = merged-order priority (2D+ before 1D in hybrid).
+  Touch: pulse_ai/agents/rca/prompts.py — Input format + wire format + server-assigned rank: hybrid tier semantics; rank 1 = final merged list head, not raw problematic_count.
+  Touch: pulse_ai/tests/test_root_cause_schema.py — accept flat/hierarchical/hybrid; `model_validate` rejects bad mode literal.
+  Verify: pytest tests/test_root_cause_schema.py (2 tests). pulse-ui `npx tsc --noEmit` OK.
+  Ralph: `pnpm ai-hero-cli internal lint` at repo root → ERR_PNPM_NO_IMPORTER_MANIFEST_FOUND (no root package.json).
+  Next: Issue 05 — UI/docs + regression harness (audit scripts, runbooks per PRD user stories 12/18).

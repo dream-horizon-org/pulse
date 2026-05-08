@@ -138,7 +138,7 @@ Introduce a **unified segment pipeline** for interaction RCA:
 
 - **Analysis mode enum:** Add **`HYBRID`** (or equivalent) **or** document that **`HIERARCHICAL`** now **may include** flat segments—pick one approach and update **cache serialization**, **API DTOs**, and **consumers** (UI, audits, docs).
 
-- **Enrichment / LLM:** Update **segment ordering** used for **`serverRank`** to match **post-merge** order. Prompt text should state that **rank 1** may be **2D+** when hierarchy exists, and **1D** segments may follow. *(Implemented: `RcaReportEnrichmentService.sanitizeForAiReport` assigns ranks in `RootCauseResult.getSegments()` list order — same as cached `GET /root-cause` after merge/gate.)*
+- **Enrichment / LLM:** Update **segment ordering** used for **`serverRank`** to match **post-merge** order. Prompt text should state that **rank 1** may be **2D+** when hierarchy exists, and **1D** segments may follow. *(Implemented: `RcaReportEnrichmentService.sanitizeForAiReport` assigns ranks in `RootCauseResult.getSegments()` list order — same as cached `GET /root-cause` after merge/gate.)* **Agent:** `pulse_ai/schemas/root_cause.py` accepts **`mode: hybrid`**; `pulse_ai/agents/rca/prompts.py` documents hybrid + **`serverRank`**; see `issues/04-pulse-ai-rca-contract-and-prompts.md`.
 
 - **Combined signal gate:** Apply **after** merged list is formed (or preserve current **per-segment** gate on the **final** list) so behavior stays **consistent** with today’s intent—exact placement is an implementation detail but must be **documented** in tests.
 

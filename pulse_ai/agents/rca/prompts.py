@@ -74,22 +74,20 @@ You will receive a **list of segments** as JSON. Each segment in the list repres
 6. **App Version** (e.g., 4.2.1, 5.30.0)
 
 **Important**:
-- Segments are FLAT — there is NO hierarchy. Each segment is independent.
+- The payload is a **flat JSON array** of segments (no nested parent/child tree in the wire format). Each row is independent for comparison.
+- Top-level **`mode`** (when present) describes how segments were produced: **`flat`** (1D cohorts only), **`hierarchical`** (legacy single-tier), or **`hybrid`** (server-merged: **multi-dimensional / 2D+** slices first, then **single-dimension flat** cohorts, then **top-N** cap). Stored/cached payloads may omit **`mode`** — infer only from labels/dimensions when needed.
 - Segments can have **different dimension combinations**. For example:
   - One segment might be: `{"platform": "android", "os_version": "12", "app_version": "4.2.1"}`
   - Another segment might be: `{"app_version": "4.2.1", "region": "US-CA", "network": "4G"}`
   - Yet another might be: `{"device_model": "SM-A135F", "network": "WiFi"}`
-- Segments are NOT nested — they are separate, comparable data points in a flat list.
+- Segments are NOT nested in JSON — they are separate, comparable rows. Under **`hybrid`**, **lower `serverRank`** still means **higher Pulse priority** after merge (2D+ tier before 1D flat tier).
 
 **Session Evidence**:
 - The payload includes an `exampleSessionIds` array with real session IDs that demonstrate performance issues for this interaction
 - These session IDs are the 2 most relevant sessions for this specific segment across the analysis window
 - Copy these directly into `affected_sessions` for each segment in your output
 
-Each segment contains ~14 metrics with three values:
-- **Value**: Current metric value
-- **Baseline**: Expected/reference value
-- **Delta**: Change from baseline (Value - Baseline)
+Each segment carries interaction **`baseline`** (reference) separately; per-segment **`metrics`** are current values for that slice, and **`deltas`** are server-computed relative changes vs `baseline` (see **Wire format** below).
 
 ## Key Metrics to Analyze
 
@@ -102,7 +100,11 @@ Each segment contains ~14 metrics with three values:
 7. **ANR Rate** — Application Not Responding rate
 8. **Frozen Frame Rate** — Percentage of frames that froze
 9. **Slow Frame Rate** — Percentage of frames that were slow
-10. **Volume** — Total session count for the segment
+10. **Volume** — Total session count for the segment (`metrics.volume`; session counts, not a 0–1 fraction)
+
+**Wire format (RootCausePayload):** Top-level **`baseline`** holds interaction-wide metric values. Each **`segments[]`** item has **`metrics`** (current values for that slice), **`deltas`** (per-metric **relative** change vs that same `baseline`, as computed by the server — e.g. for rates, approximately `(segment - baseline) / baseline * 100` when baseline is non-zero), **`dimensions`**, and usually **`serverRank`** (1-based priority after server merge/sort — see **Server-assigned rank** below). Optional top-level **`mode`** includes **`hybrid`** when flat and hierarchical contributions are merged per Pulse policy. There are **no** per-metric `value_number` / `baseline_number` objects in the input JSON — those exist only on your **output** schema.
+
+**Rate scale:** In payloads from Pulse, **`error_rate`**, **`poor_user_pct`**, **`crash_rate`**, **`anr_rate`**, **`frozen_frame_rate`**, and **`slow_frame_rate`** in **`metrics`** / **`baseline`** are on a **0–100** percent scale (e.g. 8.7 means 8.7%), **not** 0–1 fractions.
 
 ## Pre-Analysis Gate
 
@@ -124,7 +126,7 @@ If the input payload contains `"everythingGood": true`:
 
 If **all** of the following are true after inspecting the payload:
 - Every segment has no dimensional breakdown (dimensions map is null, empty, or all values are null/empty for platform, app_version, device_model, region, network, os_version)
-- All metric deltas across all segments are zero (value == baseline for every metric in every segment)
+- Every segment is **flat vs interaction baseline** on degrading metrics: e.g. `metrics.error_rate` ≤ `baseline.error_rate` and `metrics.poor_user_pct` ≤ `baseline.poor_user_pct` when those keys exist (no worse-than-baseline error or poor-user rate), consistent with the **Direction check** below — i.e. nothing in the list is actually regressing vs `baseline`
 
 Then:
 - Set `everything_good: true`, `no_data_available: false`, `segments: []`, `recommendations: []`
@@ -161,23 +163,39 @@ A metric that has improved from baseline must never be flagged as an anomaly, ev
 
 ### 2. Root Cause Identification
 
-**Segment eligibility (discard before comparison):** Skip any segment that fails either condition:
-1. **Volume**: segment's current `volume` (`value_number`) ≥ 10% of **that same segment's own historical** `volume` (`baseline_number`). This checks whether the segment's sample size in the current window is sufficient relative to its own historical level — it does NOT compare against the overall interaction's total session count. A segment with value_number=500 and baseline_number=480 passes (104%); a segment with value_number=5 and baseline_number=450 fails (1%).
-2. **Degradation signal**: compute the **absolute difference** as `value_number − baseline_number` (NOT the relative `delta_display` string, which shows percentage change). Metrics are stored as **fractions from 0.0 to 1.0** (e.g., 21.8% error rate = `value_number: 0.218`). At least one of the following must be true:
-   - `error_rate`: `value_number − baseline_number` ≥ **0.02** (= 2 percentage points). **Example that PASSES**: baseline_number=0.087 (8.7%), value_number=0.218 (21.8%) → delta=0.131 ≥ 0.02. **Example that FAILS**: baseline_number=0.002 (0.2%), value_number=0.004 (0.4%) → delta=0.002 < 0.02 — this is noise even though `delta_display` shows "+100%" relative change.
-   - `poor_user_pct`: `value_number − baseline_number` ≥ **0.05** (= 5 percentage points). **Example that PASSES**: baseline_number=0.194, value_number=0.604 → delta=0.410 ≥ 0.05. **Example that FAILS**: baseline_number=0.190, value_number=0.195 → delta=0.005 < 0.05.
-   A segment where both absolute deltas are below these minimums is statistical noise — discard it even if `delta_display` shows a large relative percentage.
+**Segment eligibility (discard before ranking):** Use the **actual JSON fields** (`baseline`, each segment's `metrics` and `deltas`). Do **not** invent `value_number` / `baseline_number` on input.
 
-**MANDATORY**: After applying both filters, if **at least 1 segment passes**, proceed to analysis. You MUST NOT set `everything_good: true` when eligible segments exist. Only set `everything_good: true` if **zero segments pass both eligibility checks**.
+1. **Trust the server list:** Pulse already applies a **combined-signal gate** before segments reach you: roughly **S = |`deltas.error_rate`| + |`deltas.poor_user_pct`|** (same definition as in Pulse RCA; threshold is server-configured). Segments in **`segments[]`** passed that gate. **Do not drop a segment because of a “10% of historical volume” rule** — per-segment **historical** volume baselines are **not** present in this payload.
 
-Only segments passing both filters proceed to root cause ranking and narrative.
+2. **Minimum slice size (input-only):** Skip a segment only if **`metrics.volume`** is missing, zero, or not a positive number — treat as unusable for evidence-backed findings.
 
-Since segments are FLAT (not hierarchical) and can have varying dimension combinations, identify root causes by:
+3. **Direction check (required):** After the global **Direction check** in §1, a segment is **ineligible** only if **neither** `error_rate` **nor** `poor_user_pct` is degrading vs interaction baseline — i.e. both `metrics.error_rate` ≤ `baseline.error_rate` and `metrics.poor_user_pct` ≤ `baseline.poor_user_pct` (when both keys exist on segment and baseline). If one key is missing on one side, judge from available metrics without inventing values.
+
+4. **Optional noise trim (only when both degrading):** If both rates degrade but the lifts are **tiny** on the **0–100** scale, you may treat as non-actionable: **absolute** interaction-level lifts **(segment − baseline)** below **2.0** percentage points on `error_rate` **and** below **5.0** percentage points on `poor_user_pct`. Prefer this only when **`deltas`** also show weak combined signal; do **not** discard large-|relative-delta| cohorts the server kept solely because this optional band disagrees.
+
+**MANDATORY**: If **`segments`** is **non-empty**, Pre-Analysis **Check 1** did **not** fire, and **at least one** segment passes rules **2** and **3** above, you **MUST** proceed with analysis and **MUST NOT** set `everything_good: true` with empty `segments`. Only use `everything_good: true` with empty `segments` when **zero** input segments pass **2** and **3**, or when Pre-Analysis **Check 2** applies.
+
+Only segments passing **2** and **3** (and not excluded by **4** when you apply it) proceed to root cause ranking and narrative.
+
+### Server-assigned rank (`serverRank`)
+
+When an input segment includes **`serverRank`** (interaction RCA payloads from Pulse include it on every segment after enrichment):
+
+- **`serverRank` = 1** is Pulse’s **primary** slice for this interaction — the **first row in the server’s final merged segment list** ( **`hybrid`**: **2D+** actionable intersections rank above **1D** flat cohorts; within tiers the server applies lift / volume rules — **trust `serverRank`**, do not re-sort by problematic mass alone).
+- For each output segment you emit for an eligible input row, set structured **`rank` = that row’s `serverRank`**. Match rows by the same cohort identity as the input (**`label`** and **`dimensions`**). **Do not permute** ranks relative to the server.
+- List output **`segments`** in **ascending `rank`**.
+- **Truncation:** You may emit **fewer** rows than the input only by **dropping** the **largest** `serverRank` values first (tail truncation). **Never** emit a segment with **`rank`** > 1 while omitting an **eligible** row with a **lower** `serverRank`. **Never** omit **`serverRank` 1** if that input row passed eligibility in §2.
+- **`executive_summary`:** When findings exist, the **first** substantive issue you describe must align with **`serverRank` 1** (same cohort).
+- If **`serverRank` is absent** on all rows (edge case): treat **JSON list order** as priority — **`rank` 1** = first segment — then use **Dimensions Priority** and tie-breakers below for conflicts only in that mode.
+
+**Dimensions Priority** and localized-vs-overall prose guidance apply to **how you write `insights` and `recommendations`**, not to **reordering** output **`rank`** when **`serverRank`** is present.
+
+Since the segment list is a **flat array** (see **Input Data Format**) with varying dimension combinations, identify root causes by:
 - **Comparing segments** across the list to find patterns, even if they have different dimension combinations
 - **Isolating problematic segments** — if segments with a specific dimension (e.g., device_model: SM-A135F) show issues while segments with other values for that dimension are normal, that dimension value is likely the root cause
 - **Volume-weighted analysis** — prioritize segments with higher volume (more users affected) when ranking issues
 - **Dimension correlation** — if multiple segments share a common dimension value (e.g., same app_version or network type) and all show issues, that dimension is likely the root cause, regardless of what other dimensions each segment has
-- **Overall vs dimensional emphasis** — **Ranking (`rank`)** still follows severity and volume first (`rank` 1 = most impactful). In **prose**, do not let an **overall-style** segment (see **Output voice → Rollup / overall-style segments**) consume most of the report; dimensional segments should carry the **detailed** explanations that justify deep analysis. When severity and volume are **genuinely comparable** between an overall-style row and a more **localized** segment, prefer the localized segment for **richer `insights` and recommendations**, and assign **`rank` 1** to it over the overall row when tie-breaking is needed.
+- **Overall vs dimensional emphasis** — When **`serverRank`** is present, output **`rank`** follows it; in **prose**, do not let an **overall-style** segment (see **Output voice → Rollup / overall-style segments**) consume most of the report; dimensional segments should carry the **detailed** explanations. Put depth on **`serverRank` 1**’s row first, then lower ranks.
 
 **Priority Order for Tie-Breaking**: When comparing segments that are otherwise difficult to distinguish (e.g., similar severity, similar volume), use this priority order as a tie-breaker:
 
@@ -201,7 +219,7 @@ Since segments are FLAT (not hierarchical) and can have varying dimension combin
 5. Region (geographic or rollout concentration)
 6. Network (connectivity class effects — WiFi vs cellular)
 
-**Note**: This priority order is a tie-breaker mechanism. Primary prioritization should still be based on:
+**Note**: This priority order is a **narrative and comparison** tie-breaker when **`serverRank` is missing** or for **insights** depth when **`serverRank`** is present. It must **not** override **`rank` ↔ `serverRank`** alignment. Primary prioritization for **`rank`** is always **`serverRank`** when present; for narrative, still weigh:
 - **Severity** (critical thresholds breached)
 - **Volume** (more users affected = higher priority)
 - **Actionability** (dimensions that can be fixed quickly)
@@ -342,7 +360,7 @@ When ErrorAttributionPayload(JSON) was **not** provided in the user message, set
 **segments**: 
 - **Must contain at least 1 segment** when `everything_good` and `no_data_available` are both false; must be empty when either is true
 - For each segment:
-  - `rank`: 1-based integer (1 = most impactful)
+  - `rank`: **Must equal** the matching input segment’s **`serverRank`** when that field is present; otherwise 1-based order follows JSON list order (see **Server-assigned rank**). Sort output rows by ascending `rank`.
   - `title`: Segment identifier matching the label from the input payload
   - `insights`: Typically **2–4 sentences** explaining why this segment ranks here, summarizing the most critical metric degradations, what they mean for users, and why this segment matters. For **rollup / overall-style** segments (see **Output voice**), **1–2 sentences** is enough when the value is localization elsewhere. Follow **Output voice**: user-grounded, outcome-first.
   - `affected_sessions`: **REQUIRED** — copy from the matching payload segment's `exampleSessionIds`. Use empty array `[]` if none available.
@@ -360,11 +378,13 @@ When ErrorAttributionPayload(JSON) was **not** provided in the user message, set
 
 Algorithm for building output:
 ```
-For each root cause segment you identify:
-  1. Determine rank (1 = most critical)
-  2. Set title = segment label from payload
-  3. Write insights based on your analysis
-  4. Find matching payload segment by label
+When serverRank is present on input segments:
+  1. Take each eligible input segment (§2 Root Cause Identification) in ascending serverRank
+  2. For each included row: rank = serverRank; title = that row's label
+  3. You may tail-truncate (drop highest serverRanks only); never skip a lower serverRank
+When serverRank is absent: use prior list order — rank 1, 2, … for rows you emit
+For each emitted row:
+  4. Write insights based on your analysis
   5. affected_sessions = payload_segment.exampleSessionIds (or [])
   6. metrics = ALL metrics from payload_segment (format each with metric_id, label, displays, numbers)
 ```
@@ -374,7 +394,7 @@ For each root cause segment you identify:
 - **Output voice** — Prefer payload-supplied classification when present for your reasoning; in summaries and recommendations describe **what happened in the data** for users, not how defaults or gates were applied (see **Output voice** above).
 - **Overall rollup** — If an overall-style segment is present, keep its `insights` short; put depth on dimensional segments (**RCA tab vs main UI**).
 - **Be concise** — prioritize actionable insights over lengthy explanations
-- **Minimum output** — When findings exist, output at least 2 segments (most critical + next notable). If only one segment passes eligibility, output that one only. If no segments pass eligibility, apply the Pre-Analysis Gate and set `everything_good: true`, `segments: []`. Do not pad with invented or duplicate segments.
+- **Minimum output** — When findings exist and **`serverRank`** is present: include **at least** the **`serverRank` 1** row; if **two or more** input rows passed eligibility, include **both `serverRank` 1 and 2** unless you tail-truncate per **Server-assigned rank** rules. When only one input row is eligible, output that one only. If **`serverRank`** is absent, output at least 2 segments when at least 2 eligible rows exist (most critical + next). If no segments pass eligibility, apply the Pre-Analysis Gate and set `everything_good: true`, `segments: []`. Do not pad with invented or duplicate segments.
 - **Full metrics** — Include ALL metrics from the payload for each segment, not just ones you analyzed
 - **Session IDs** — Always include `affected_sessions` field (empty array if none). Copy from payload's `exampleSessionIds`.
 - **No invented data** — Ground all values strictly in the input payload

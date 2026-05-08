@@ -19,7 +19,7 @@ Update **UI types/labels** that mirror **`RootCauseRestResponse.mode`**, refresh
 
 - ~~`issues/02-backend-rca-unified-pipeline.md`~~ (**complete**)
 - `issues/03-enrichment-server-rank-merged-order.md` (complete)
-- `issues/04-pulse-ai-rca-contract-and-prompts.md`
+- ~~`issues/04-pulse-ai-rca-contract-and-prompts.md`~~ (**complete**)
 
 ## User stories covered
 
