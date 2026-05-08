@@ -55,8 +55,7 @@ export class InstrumentationRegistry {
     //   true  → force on  (install regardless of BE gate)
     //   false → defer to BE gate (not a hard disable — lets remote config decide)
     //   undefined → defer to BE gate (same as false, no local override)
-    if (configEnabled === true) return true;
-    return gateEnabled;
+    return configEnabled || gateEnabled;
   }
 
   registerAndInstall(
