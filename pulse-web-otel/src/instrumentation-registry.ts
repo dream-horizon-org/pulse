@@ -49,9 +49,14 @@ export class InstrumentationRegistry {
 
     const featureName = featureMap[key];
     const gateEnabled = this.gate.isEnabled(featureName);
-    const configEnabled = this.instrConfig?.[key]?.enabled ?? true;
+    const configEnabled = this.instrConfig?.[key]?.enabled;
 
-    return gateEnabled && configEnabled;
+    // Three-state semantics:
+    //   true  → force on  (install regardless of BE gate)
+    //   false → defer to BE gate (not a hard disable — lets remote config decide)
+    //   undefined → defer to BE gate (same as false, no local override)
+    if (configEnabled === true) return true;
+    return gateEnabled;
   }
 
   registerAndInstall(
@@ -82,10 +87,10 @@ export class InstrumentationRegistry {
       return;
     }
 
-    if (this.shouldInstall(InstrumentationKeys.SESSION)) {
-      this.registerAndInstall(new SessionInstrumentation());
-    }
-
+    this.registerAndInstall(
+      new SessionInstrumentation(),
+      InstrumentationKeys.SESSION,
+    );
     this.registerAndInstall(
       new ClicksInstrumentation(),
       InstrumentationKeys.CLICKS,
@@ -98,13 +103,10 @@ export class InstrumentationRegistry {
       new NetworkInstrumentation(),
       InstrumentationKeys.NETWORK,
     );
-
-    if (this.shouldInstall(InstrumentationKeys.ERRORS)) {
-      this.registerAndInstall(
-        new ErrorInstrumentation(),
-        InstrumentationKeys.ERRORS,
-      );
-    }
+    this.registerAndInstall(
+      new ErrorInstrumentation(),
+      InstrumentationKeys.ERRORS,
+    );
 
     // Set the single-owner flag only after the full sweep completes.
     // If we set it earlier and a sync throw escaped one install, future

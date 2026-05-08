@@ -157,4 +157,12 @@ export interface PulseWebConfig {
    * one-time warning to the console.
    */
   beaconRelayUrl?: string;
+
+  /**
+   * Override the OTLP collector base URL (e.g. `http://192.168.1.x:4318`).
+   * Useful in native WebView (Capacitor/Cordova) where `localhost` resolves to
+   * the device, not the dev host. When omitted, the SDK auto-resolves from
+   * `apiKey` (local dev → `http://localhost:4318`, prod → Pulse cloud).
+   */
+  endpoint?: string;
 }
