@@ -16,30 +16,22 @@ import org.dreamhorizon.pulseserver.util.NumberCoercionUtils;
  *   <li><b>Hierarchical tier:</b> segments whose {@code dimensions} map has ≥ 2 entries.
  *       Sorted by lift (segment problematic rate − baseline problematic rate) DESC; tie-break by
  *       dimension count DESC (more specific intersection wins).
- *   <li><b>Flat tier:</b> all remaining candidates (1D). Sorted by {@code problematic_count}
- *       DESC; tie-break by dimension order index ASC (earlier configured dimension wins).
+ *   <li><b>Flat tier:</b> all remaining candidates (1D). Sorted by {@code countKey} DESC;
+ *       tie-break by dimension order index ASC (earlier configured dimension wins).
  *   <li><b>Merge:</b> hierarchical tier first, then flat tier, truncated to {@code maxSegments}.
  * </ul>
  */
 @UtilityClass
 public class RcaSegmentMergePolicy {
 
-  private static final String PROBLEMATIC_COUNT_KEY = "problematic_count";
-  private static final String VOLUME_KEY = RootCauseMetricsRegistry.VOLUME;
+  static final String DEFAULT_VOLUME_KEY = RootCauseMetricsRegistry.VOLUME;
+  static final String DEFAULT_COUNT_KEY = "problematic_count";
 
   /**
-   * Merges hierarchical and flat segment candidates into a single ordered list capped at
-   * {@code maxSegments}. Hierarchical candidates with fewer than 2 dimensions are silently dropped
-   * from the hierarchical tier (they do not fall through to the flat tier; pass them as
-   * {@code flatCandidates} if 1D representation is desired).
+   * Merges hierarchical and flat segment candidates using interaction RCA metric keys
+   * ({@code volume} / {@code problematic_count}).
    *
-   * @param baseline               baseline metrics row (needs {@code volume} and
-   *                               {@code problematic_count} for lift computation)
-   * @param hierarchicalCandidates segments from hierarchical analysis; only 2D+ are kept
-   * @param flatCandidates         segments from the flat 1D pass
-   * @param dimensionOrder         configured dimension order for flat tier tie-breaks
-   * @param maxSegments            upper bound on the returned list size
-   * @return final ordered list, length ≤ maxSegments
+   * @see #mergeAndCap(Map, List, List, List, int, String, String)
    */
   public static List<RootCauseSegment> mergeAndCap(
       Map<String, Object> baseline,
@@ -47,25 +39,55 @@ public class RcaSegmentMergePolicy {
       List<RootCauseSegment> flatCandidates,
       List<String> dimensionOrder,
       int maxSegments) {
+    return mergeAndCap(baseline, hierarchicalCandidates, flatCandidates,
+        dimensionOrder, maxSegments, DEFAULT_VOLUME_KEY, DEFAULT_COUNT_KEY);
+  }
 
-    double baselineRate = computeProblematicRate(baseline);
+  /**
+   * Merges hierarchical and flat segment candidates into a single ordered list capped at
+   * {@code maxSegments}. Hierarchical candidates with fewer than 2 dimensions are silently dropped
+   * from the hierarchical tier (they do not fall through to the flat tier; pass them as
+   * {@code flatCandidates} if 1D representation is desired).
+   *
+   * @param baseline               baseline metrics row (needs {@code volumeKey} and
+   *                               {@code countKey} for lift computation)
+   * @param hierarchicalCandidates segments from hierarchical analysis; only 2D+ are kept
+   * @param flatCandidates         segments from the flat 1D pass
+   * @param dimensionOrder         configured dimension order for flat tier tie-breaks
+   * @param maxSegments            upper bound on the returned list size
+   * @param volumeKey              metrics map key for the volume field (e.g. "volume" or "click_volume")
+   * @param countKey               metrics map key for the problematic count (e.g. "problematic_count"
+   *                               or "bad_frustration")
+   * @return final ordered list, length ≤ maxSegments
+   */
+  public static List<RootCauseSegment> mergeAndCap(
+      Map<String, Object> baseline,
+      List<RootCauseSegment> hierarchicalCandidates,
+      List<RootCauseSegment> flatCandidates,
+      List<String> dimensionOrder,
+      int maxSegments,
+      String volumeKey,
+      String countKey) {
+
+    double baselineRate = computeRateFromMap(baseline, volumeKey, countKey);
 
     List<RootCauseSegment> hierarchicalTier = hierarchicalCandidates.stream()
         .filter(s -> s.getDimensions() != null && s.getDimensions().size() >= 2)
         .sorted((a, b) -> {
-          int liftCmp = Double.compare(computeLift(b, baselineRate), computeLift(a, baselineRate));
+          int liftCmp = Double.compare(
+              computeLift(b, baselineRate, volumeKey, countKey),
+              computeLift(a, baselineRate, volumeKey, countKey));
           if (liftCmp != 0) {
             return liftCmp;
           }
-          int dimA = a.getDimensions().size();
-          int dimB = b.getDimensions().size();
-          return Integer.compare(dimB, dimA);
+          return Integer.compare(b.getDimensions().size(), a.getDimensions().size());
         })
         .toList();
 
     List<RootCauseSegment> flatTier = flatCandidates.stream()
         .sorted((a, b) -> {
-          int countCmp = Long.compare(getProblematicCount(b), getProblematicCount(a));
+          int countCmp = Long.compare(
+              getCount(b, countKey), getCount(a, countKey));
           if (countCmp != 0) {
             return countCmp;
           }
@@ -81,36 +103,42 @@ public class RcaSegmentMergePolicy {
   }
 
   /**
-   * Lift = segment problematic rate − baseline problematic rate. Zero-volume-safe (rate is 0.0
-   * when volume is 0).
+   * Lift = segment problematic rate − baseline problematic rate using default interaction keys.
+   * Zero-volume-safe (rate is 0.0 when volume is 0).
    *
    * <p>Package-private for unit tests.
    */
   static double computeLift(RootCauseSegment segment, double baselineRate) {
-    return computeProblematicRateFromMap(segment.getMetrics()) - baselineRate;
+    return computeLift(segment, baselineRate, DEFAULT_VOLUME_KEY, DEFAULT_COUNT_KEY);
   }
 
-  private static double computeProblematicRate(Map<String, Object> metricsOrBaseline) {
-    return computeProblematicRateFromMap(metricsOrBaseline);
+  /**
+   * Lift = segment problematic rate − baseline problematic rate using the given metric keys.
+   *
+   * <p>Package-private for unit tests.
+   */
+  static double computeLift(
+      RootCauseSegment segment, double baselineRate, String volumeKey, String countKey) {
+    return computeRateFromMap(segment.getMetrics(), volumeKey, countKey) - baselineRate;
   }
 
-  private static double computeProblematicRateFromMap(Map<String, Object> map) {
+  private static double computeRateFromMap(Map<String, Object> map, String volumeKey, String countKey) {
     if (map == null) {
       return 0.0;
     }
-    long volume = NumberCoercionUtils.toLong(map.get(VOLUME_KEY));
+    long volume = NumberCoercionUtils.toLong(map.get(volumeKey));
     if (volume == 0) {
       return 0.0;
     }
-    long problematic = NumberCoercionUtils.toLong(map.get(PROBLEMATIC_COUNT_KEY));
-    return (double) problematic / volume;
+    long count = NumberCoercionUtils.toLong(map.get(countKey));
+    return (double) count / volume;
   }
 
-  private static long getProblematicCount(RootCauseSegment segment) {
+  private static long getCount(RootCauseSegment segment, String countKey) {
     if (segment.getMetrics() == null) {
       return 0L;
     }
-    return NumberCoercionUtils.toLong(segment.getMetrics().get(PROBLEMATIC_COUNT_KEY));
+    return NumberCoercionUtils.toLong(segment.getMetrics().get(countKey));
   }
 
   private static int getDimensionOrderIndex(

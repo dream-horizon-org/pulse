@@ -19,3 +19,13 @@
     Kotlin test compile errors (MetricsToAddPolymorphicJsonTest.kt) on clean builds.
   Ralph lint: pnpm ai-hero-cli internal lint — N/A (no package.json at repo root).
   Next: Issue 04 — pulse_ai schema + prompts for mode hybrid; Issue 05 — UI/docs/audit harness.
+
+2026-05-08 — Issue 02 complete (shared hybrid merge outcome + backend pipeline closure)
+  Touch: RcaHybridMergeOutcome.java — mergeForInteraction / mergeForScreen → RcaSegmentMergePolicy;
+    modeFromHierarchicalTier; debug logs for candidate counts + merged 2D+/1D tier counts.
+  Touch: RootCauseService.java, ScreenRcaService.java — call merge helper (no duplicated merge/mode).
+  Tests: RcaHybridMergeOutcomeTest (new). Existing RootCauseServiceTest / ScreenRcaServiceTest unchanged
+    behavior; full mvn test may still fail on Kotlin MetricsToAddPolymorphicJsonTest compile (pre-existing).
+  Verify: mvn verify -Dmaven.test.skip=true; pulse-ui npx tsc --noEmit OK.
+  Ralph: pnpm ai-hero-cli internal lint — N/A (no repo-root package.json; ERR_PNPM_NO_IMPORTER_MANIFEST_FOUND).
+  Next: Issue 04 — pulse_ai `hybrid` schema + prompts (unblocks after Issue 02 per issue file); then Issue 05.

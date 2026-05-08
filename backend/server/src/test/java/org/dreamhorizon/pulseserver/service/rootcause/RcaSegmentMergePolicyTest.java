@@ -285,6 +285,73 @@ class RcaSegmentMergePolicyTest {
     }
   }
 
+  // ── screen RCA keys (click_volume / bad_frustration) ─────────────────────
+
+  @Nested
+  class ScreenRcaKeys {
+
+    private static RootCauseSegment screenSeg(
+        String label, Map<String, String> dims, long clickVolume, long badFrustration) {
+      return RootCauseSegment.builder()
+          .label(label)
+          .dimensions(dims)
+          .metrics(Map.of("click_volume", clickVolume, "bad_frustration", badFrustration))
+          .build();
+    }
+
+    private static Map<String, Object> screenBaseline(long clickVolume, long badFrustration) {
+      return Map.of("click_volume", clickVolume, "bad_frustration", badFrustration);
+    }
+
+    @Test
+    void shouldRankHierarchicalByLiftUsingScreenKeys() {
+      // baseline rate = 20/200 = 0.10
+      // hier1: 50/100 − 0.10 = 0.40  (higher lift)
+      // hier2: 30/200 − 0.10 = 0.05
+      RootCauseSegment hier1 =
+          screenSeg("A+B", Map.of("Platform", "A", "AppVersion", "B"), 100, 50);
+      RootCauseSegment hier2 =
+          screenSeg("C+D", Map.of("GeoState", "C", "DeviceModel", "D"), 200, 30);
+      RootCauseSegment flat =
+          screenSeg("Platform: Android", Map.of("Platform", "Android"), 150, 40);
+
+      List<RootCauseSegment> result = RcaSegmentMergePolicy.mergeAndCap(
+          screenBaseline(200, 20),
+          List.of(hier2, hier1), // pass in reverse order — sort should fix
+          List.of(flat),
+          DIM_ORDER,
+          3,
+          "click_volume",
+          "bad_frustration");
+
+      assertThat(result).hasSize(3);
+      assertThat(result.get(0).getLabel()).isEqualTo("A+B");   // higher lift first
+      assertThat(result.get(1).getLabel()).isEqualTo("C+D");
+      assertThat(result.get(2).getLabel()).isEqualTo("Platform: Android"); // flat last
+    }
+
+    @Test
+    void shouldSortFlatTierByBadFrustrationCountUsingScreenKeys() {
+      // flat1 bad_frustration = 60, flat2 = 90 → flat2 should rank first
+      RootCauseSegment flat1 =
+          screenSeg("Platform: Android", Map.of("Platform", "Android"), 100, 60);
+      RootCauseSegment flat2 =
+          screenSeg("OsVersion: 14", Map.of("OsVersion", "14"), 200, 90);
+
+      List<RootCauseSegment> result = RcaSegmentMergePolicy.mergeAndCap(
+          screenBaseline(500, 50),
+          List.of(),
+          List.of(flat1, flat2),
+          DIM_ORDER,
+          5,
+          "click_volume",
+          "bad_frustration");
+
+      assertThat(result).hasSize(2);
+      assertThat(result.get(0).getLabel()).isEqualTo("OsVersion: 14"); // higher bad_frustration first
+    }
+  }
+
   // ── computeLift ───────────────────────────────────────────────────────────
 
   @Nested

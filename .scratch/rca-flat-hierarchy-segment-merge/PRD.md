@@ -124,7 +124,7 @@ Introduce a **unified segment pipeline** for interaction RCA:
 
 ## Implementation Decisions
 
-- **Orchestration:** Extend the interaction RCA segment builder so it runs **flat collection**, **hierarchical collection** (existing threshold behavior), **filters hierarchical to 2D+**, **sorts within tiers**, **concatenates** (hierarchical then flat), then **truncates** to **`maxSegments`**.
+- **Orchestration:** Extend the interaction RCA segment builder so it runs **flat collection**, **hierarchical collection** (existing threshold behavior), **filters hierarchical to 2D+**, **sorts within tiers**, **concatenates** (hierarchical then flat), then **truncates** to **`maxSegments`**. **Screen RCA** uses the same flow; **`RcaHybridMergeOutcome`** (`mergeForInteraction` / `mergeForScreen`) is the single adapter for **merge + cap + `FLAT`/`HYBRID` mode** so interaction vs screen metric keys cannot drift.
 
 - **Deep module (recommended):** Introduce a small, testable component responsible for **normalizing segment tier**, **comparing segments for sort** (lift, problematic count, dimension count, dimension order index), and **merging + capping**. The RCA orchestration service delegates **merge/sort/cap** to this module; **ClickHouse query orchestration** stays in the existing service layer.
 

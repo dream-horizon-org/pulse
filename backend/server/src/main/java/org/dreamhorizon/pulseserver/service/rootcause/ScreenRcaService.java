@@ -124,6 +124,11 @@ public class ScreenRcaService {
               if (result.getNoDataAvailable() != null && result.getNoDataAvailable()) {
                 return Single.just(result);
               }
+              List<RootCauseSegment> gated =
+                  applySignalGate(result.getSegments(), screenName);
+              if (gated != result.getSegments()) {
+                result = result.toBuilder().segments(gated).build();
+              }
               String baselineJson = objectMapperUtil.writeValueAsString(result.getBaseline());
               String segmentsJson = objectMapperUtil.writeValueAsString(result.getSegments());
               RootCauseAnalysisMode modeForCache =
@@ -207,6 +212,48 @@ public class ScreenRcaService {
     return ServiceError.INTERNAL_SERVER_ERROR.getException();
   }
 
+  /**
+   * After merge+cap: drop segments whose combined signal on the screen driver delta is below
+   * {@link RootCauseConfig#getMinCombinedDeltaSignal()}. Uses {@link ScreenRcaQueryBuilder#BAD_FRUSTRATION}
+   * only (not {@link RootCauseMetricsRegistry} interaction metrics). Preserves order of kept segments.
+   * Returns the input list unchanged when the gate is disabled or no rows are dropped (reference equality
+   * check, same pattern as {@link RootCauseService}).
+   */
+  private List<RootCauseSegment> applySignalGate(List<RootCauseSegment> segments, String screenName) {
+    if (segments == null || segments.isEmpty()) {
+      return segments;
+    }
+    double threshold = config.getMinCombinedDeltaSignal();
+    if (threshold <= 0) {
+      return segments;
+    }
+    String driverKey = ScreenRcaQueryBuilder.BAD_FRUSTRATION;
+    List<RootCauseSegment> kept =
+        SegmentSignalGate.filter(segments, threshold, driverKey);
+    if (kept.size() == segments.size()) {
+      return segments;
+    }
+    if (log.isDebugEnabled()) {
+      for (RootCauseSegment s : segments) {
+        if (!kept.contains(s)) {
+          log.debug(
+              "[SCREEN-RCA-SEGMENT] Drop segment below combined signal: screen={}, label={}, S={}, threshold={}",
+              screenName,
+              s.getLabel(),
+              SegmentSignalGate.computeSignal(s, driverKey),
+              threshold);
+        }
+      }
+    }
+    log.info(
+        "[SCREEN-RCA-SEGMENT] Signal gate filtered segments: screen={}, kept={}/{}, threshold={}",
+        screenName,
+        kept.size(),
+        segments.size(),
+        threshold);
+    return kept;
+  }
+
   private Single<RootCauseResult> compute(
       String projectId, String screenName, RootCauseQueryBuilder.Window window) {
     return runBaseline(projectId, screenName, window)
@@ -284,39 +331,34 @@ public class ScreenRcaService {
                 projectId, screenName, window, config.getDimensionOrder(), threshold)
             : Single.just(config.getDimensionOrder());
 
-    return dimOrderSingle.flatMap(
-        dimOrder -> {
-          log.info(
-              "[SCREEN-RCA-SEGMENT] Dimension order: {} (hybridEnabled={})",
-              dimOrder,
-              hybridEnabled);
-          return pickFirstDimension(projectId, screenName, window, dimOrder, threshold, totalBad)
-              .flatMap(
-                  optFirst -> {
+    return dimOrderSingle.flatMap(dimOrder -> {
+      log.info("[SCREEN-RCA-SEGMENT] Dimension order: {} (hybridEnabled={})", dimOrder, hybridEnabled);
+      return buildFlatSegments(projectId, screenName, window, baseline, dimOrder, maxSegments)
+          .flatMap(flatCandidates ->
+              pickFirstDimension(projectId, screenName, window, dimOrder, threshold, totalBad)
+                  .flatMap(optFirst -> {
                     if (optFirst.isEmpty()) {
-                      return buildFlatSegments(
-                              projectId, screenName, window, baseline, dimOrder, maxSegments)
-                          .map(
-                              segments -> new SegmentsWithMode(
-                                  segments, RootCauseAnalysisMode.FLAT));
+                      log.debug("[SCREEN-RCA-SEGMENT] No first dimension picked, returning flat-only");
+                      return Single.just(new SegmentsWithMode(flatCandidates, RootCauseAnalysisMode.FLAT));
                     }
                     FirstDimensionPick first = optFirst.get();
-                    return buildHierarchyThenFlat(
-                            projectId,
-                            screenName,
-                            window,
-                            baseline,
-                            dimOrder,
-                            maxSegments,
-                            totalBad,
-                            threshold,
-                            first.dimOrderIndex(),
-                            List.of(first.path()))
-                        .map(
-                            segments -> new SegmentsWithMode(
-                                segments, RootCauseAnalysisMode.HIERARCHICAL));
-                  });
-        });
+                    return buildHierarchicalCandidates(
+                            projectId, screenName, window, baseline, dimOrder,
+                            maxSegments, totalBad, threshold,
+                            first.dimOrderIndex(), List.of(first.path()))
+                        .map(hierarchicalCandidates -> {
+                          RcaHybridMergeOutcome.Result out =
+                              RcaHybridMergeOutcome.mergeForScreen(
+                                  "[SCREEN-RCA-SEGMENT]",
+                                  baseline,
+                                  hierarchicalCandidates,
+                                  flatCandidates,
+                                  dimOrder,
+                                  maxSegments);
+                          return new SegmentsWithMode(out.segments(), out.mode());
+                        });
+                  }));
+    });
   }
 
   private Single<List<String>> computeHybridDimensionOrder(
@@ -440,7 +482,11 @@ public class ScreenRcaService {
             projectId, screenName, window.startInclusive, window.endExclusive, dim, null);
     return executeQuery(projectId, q).flatMap(rows -> {
       Optional<Map.Entry<String, Long>> top = rows.stream()
-          .map(r -> Map.entry(String.valueOf(r.get(dim)), NumberCoercionUtils.toLong(r.get(ScreenRcaQueryBuilder.BAD_FRUSTRATION))))
+          .map(r -> {
+            Object raw = r.get(dim);
+            String dimValue = raw != null ? raw.toString() : "";
+            return Map.entry(dimValue, NumberCoercionUtils.toLong(r.get(ScreenRcaQueryBuilder.BAD_FRUSTRATION)));
+          })
           .filter(e -> e.getValue() > 0)
           .max(Map.Entry.comparingByValue());
       if (top.isEmpty()) {
@@ -463,7 +509,11 @@ public class ScreenRcaService {
     });
   }
 
-  private Single<List<RootCauseSegment>> buildHierarchyThenFlat(
+  /**
+   * Drills the hierarchical path and returns only materialized segments with ≥ 2 dimensions.
+   * Stops when the similarity threshold is not met — no flat extras (global flat pass owns 1D).
+   */
+  private Single<List<RootCauseSegment>> buildHierarchicalCandidates(
       String projectId,
       String screenName,
       RootCauseQueryBuilder.Window window,
@@ -475,13 +525,13 @@ public class ScreenRcaService {
       int hierarchyStartDimIndex,
       List<SegmentPath> path) {
     if (path.size() >= maxSegments) {
-      return materializeSegments(projectId, screenName, window, baseline, path);
+      return materializeHierarchicalSegments(projectId, screenName, window, baseline, path);
     }
     Map<String, String> currentFilters = path.stream()
         .collect(Collectors.toMap(s -> s.dimension, s -> s.value, (a, b) -> b));
     int nextDimIndex = hierarchyStartDimIndex + path.size();
     if (nextDimIndex >= dimOrder.size()) {
-      return materializeSegments(projectId, screenName, window, baseline, path);
+      return materializeHierarchicalSegments(projectId, screenName, window, baseline, path);
     }
     String nextDim = dimOrder.get(nextDimIndex);
     RootCauseQuerySpec q =
@@ -491,68 +541,28 @@ public class ScreenRcaService {
         .flatMap(rows -> {
           Optional<SegmentPath> picked = pickClosestToTotal(rows, nextDim, totalBad, threshold);
           if (picked.isEmpty()) {
-            java.util.Set<String> dimsInPath = path.stream()
-                .map(s -> s.dimension)
-                .collect(Collectors.toSet());
-            List<SegmentPath> flatExtras = new ArrayList<>(path);
-            return collectFlatExtrasFromDimensionIndex(
-                projectId, screenName, window, dimOrder, maxSegments, 0, flatExtras, dimsInPath)
-                .flatMap(finalPath ->
-                    materializeSegments(projectId, screenName, window, baseline, finalPath));
+            return materializeHierarchicalSegments(projectId, screenName, window, baseline, path);
           }
           List<SegmentPath> newPath = new ArrayList<>(path);
           newPath.add(picked.get());
-          return buildHierarchyThenFlat(
+          return buildHierarchicalCandidates(
               projectId, screenName, window, baseline, dimOrder, maxSegments,
               totalBad, threshold, hierarchyStartDimIndex, newPath);
         });
   }
 
-  private Single<List<RootCauseSegment>> materializeSegments(
+  /** Materializes the progressive path slices, keeping only segments with ≥ 2 dimensions. */
+  private Single<List<RootCauseSegment>> materializeHierarchicalSegments(
       String projectId,
       String screenName,
       RootCauseQueryBuilder.Window window,
       Map<String, Object> baseline,
       List<SegmentPath> path) {
     return materializeSegmentsFromIndex(
-        projectId, screenName, window, baseline, path, 0, new LinkedHashMap<>(), new ArrayList<>());
-  }
-
-  private Single<List<SegmentPath>> collectFlatExtrasFromDimensionIndex(
-      String projectId,
-      String screenName,
-      RootCauseQueryBuilder.Window window,
-      List<String> dimOrder,
-      int maxSegments,
-      int index,
-      List<SegmentPath> flatExtras,
-      java.util.Set<String> dimsInHierarchy) {
-    if (flatExtras.size() >= maxSegments || index >= dimOrder.size()) {
-      return Single.just(flatExtras);
-    }
-    String d = dimOrder.get(index);
-    if (dimsInHierarchy.contains(d)) {
-      return collectFlatExtrasFromDimensionIndex(
-          projectId, screenName, window, dimOrder, maxSegments, index + 1, flatExtras, dimsInHierarchy);
-    }
-    RootCauseQuerySpec q2 =
-        ScreenRcaQueryBuilder.buildBadFrustrationByDimensionQuery(
-            projectId, screenName, window.startInclusive, window.endExclusive, d, null);
-    return executeQuery(projectId, q2).flatMap(r2 -> {
-      Optional<Map.Entry<String, Long>> top = r2.stream()
-          .map(row -> Map.entry(String.valueOf(row.get(d)), NumberCoercionUtils.toLong(row.get(ScreenRcaQueryBuilder.BAD_FRUSTRATION))))
-          .filter(e -> e.getValue() > 0)
-          .max(Map.Entry.comparingByValue());
-      List<SegmentPath> next = new ArrayList<>(flatExtras);
-      if (top.isPresent()) {
-        next.add(new SegmentPath(d, top.get().getKey(), true));
-      }
-      if (next.size() >= maxSegments) {
-        return Single.just(next);
-      }
-      return collectFlatExtrasFromDimensionIndex(
-          projectId, screenName, window, dimOrder, maxSegments, index + 1, next, dimsInHierarchy);
-    });
+        projectId, screenName, window, baseline, path, 0, new LinkedHashMap<>(), new ArrayList<>())
+        .map(segs -> segs.stream()
+            .filter(s -> s.getDimensions() != null && s.getDimensions().size() >= 2)
+            .toList());
   }
 
   private Single<List<RootCauseSegment>> materializeSegmentsFromIndex(
