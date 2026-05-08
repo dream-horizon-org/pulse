@@ -71,14 +71,14 @@ public class MappingFileUpload {
         }
 
         List<InputPart> fileParts = formPartsMap.get(FILE_PART_NAME);
-        List<UploadFileData> uploadFiles = parseUploadFiles(fileParts);
+        List<UploadFileData> parsedFiles = parseUploadFiles(fileParts);
         String projectId = ProjectContext.requireProjectId();
         return projectApiKeyService.validateProjectExists(projectId)
           .flatMap(exists -> { 
             if (!exists) {
               return Single.error(new RuntimeException("Project not found: " + projectId));
             }
-            return symbolFileService.uploadFiles(projectId, uploadFiles, metadataList)
+            return symbolFileService.uploadFiles(projectId, parsedFiles, metadataList)
               .map(Response::successfulResponse)
               .onErrorResumeNext(error -> {
                 log.error("Upload failed: projectId={}, error={}", projectId, error.getMessage(), error);
@@ -108,7 +108,7 @@ public class MappingFileUpload {
       throw new IllegalArgumentException("Missing file part(s) named '" + FILE_PART_NAME + "'");
     }
 
-    List<UploadFileData> uploadFiles = new ArrayList<>();
+    List<UploadFileData> parsedFiles = new ArrayList<>();
     for (InputPart inputPart : fileParts) {
       String fileName = getFileNameFromPart(inputPart);
       if (fileName.isEmpty() || fileName.equals("unknown-file")) {
@@ -118,15 +118,15 @@ public class MappingFileUpload {
 
       try (InputStream fileInputStream = inputPart.getBody(InputStream.class, null)) {
         byte[] fileBytes = fileInputStream.readAllBytes();
-        uploadFiles.add(new UploadFileData(fileName, fileBytes));
+        parsedFiles.add(new UploadFileData(fileName, fileBytes));
       } catch (Exception e) {
         throw new RuntimeException("Failed to process file '" + fileName + "': " + e.getMessage(), e);
       }
     }
-    if (uploadFiles.isEmpty()) {
+    if (parsedFiles.isEmpty()) {
       throw new IllegalArgumentException("No valid files to upload");
     }
-    return uploadFiles;
+    return parsedFiles;
   }
 
   private String getFileNameFromPart(InputPart inputPart) {

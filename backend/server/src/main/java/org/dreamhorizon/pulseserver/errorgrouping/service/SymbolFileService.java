@@ -15,7 +15,7 @@ import org.dreamhorizon.pulseserver.errorgrouping.model.UploadMetadata;
 public abstract class SymbolFileService {
 
   public Single<Boolean> uploadFiles(String projectId,
-                                     List<UploadFileData> uploadFiles,
+                                     List<UploadFileData> parsedFiles,
                                      List<UploadMetadata> metadataList) {
     Map<String, UploadMetadata> metadataMap = metadataList.stream()
         .collect(Collectors.toMap(
@@ -26,9 +26,9 @@ public abstract class SymbolFileService {
             },
             (existing, replacement) -> existing
         ));
-    List<Single<Boolean>> uploads = new ArrayList<>();
+    List<Single<Boolean>> uploadTasks = new ArrayList<>();
 
-    for (UploadFileData uploadFileData : uploadFiles) {
+    for (UploadFileData uploadFileData : parsedFiles) {
       String fileName = uploadFileData.getFileName();
       UploadMetadata metadata = metadataMap.get(fileName);
       if (metadata == null) {
@@ -37,15 +37,15 @@ public abstract class SymbolFileService {
         continue;
       }
 
-      uploads.add(uploadFile(fileName, new ByteArrayInputStream(uploadFileData.getFileBytes()), metadata));
+      uploadTasks.add(uploadFile(fileName, new ByteArrayInputStream(uploadFileData.getFileBytes()), metadata));
     }
 
-    if (uploads.isEmpty()) {
-      log.error("No valid files to upload after processing");
-      return Single.error(new IllegalArgumentException("No valid files to upload"));
+    if (uploadTasks.isEmpty()) {
+      log.error("No upload tasks created: metadata missing for all files. projectId={}", projectId);
+      return Single.error(new IllegalArgumentException("No matching metadata found for uploaded files"));
     }
 
-    return Single.merge(uploads)
+    return Single.merge(uploadTasks)
         .toList()
         .flatMap(res -> {
           boolean allSuccess = res.stream().allMatch(result -> result == true);
