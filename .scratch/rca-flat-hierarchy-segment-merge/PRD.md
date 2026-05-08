@@ -1,6 +1,6 @@
-/# PRD: RCA flat + hierarchical segment merge and ranking
+# PRD: RCA flat + hierarchical segment merge and ranking
 
-**Triage:** needs-triage
+**Triage:** complete — issues `01`–`05` in `.scratch/rca-flat-hierarchy-segment-merge/issues/` shipped (2026-05-08).
 
 ## Problem Statement
 

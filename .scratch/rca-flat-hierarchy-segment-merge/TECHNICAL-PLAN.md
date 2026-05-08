@@ -1,5 +1,7 @@
 # Technical plan: RCA hybrid segment pipeline
 
+**Status:** Complete (implementation matches this plan; see issues `01`–`05`, 2026-05-08).
+
 **Parent:** [PRD](./PRD.md)
 
 ## Goal

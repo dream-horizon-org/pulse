@@ -50,3 +50,11 @@
     ERR_PNPM_NO_IMPORTER_MANIFEST_FOUND (no root package.json; same as prior iterations).
   Optional rca e2e / full audit: not run this slice; rca-audit.py unchanged.
   Follow-up: old ClickHouse rows may still show `hierarchical` until refresh; db-audit compares latest row.
+
+2026-05-08 — Iteration 5 Ralph: **effort close-out** (docs only, no product code)
+  Slice: Mark **PRD** + **TECHNICAL-PLAN** + **Issue 04** triage as **complete**; fix PRD title `#` typo (`/#` → `#`).
+  Rationale: Issues **01–05** already shipped (git: 726c1a722 down to 60a748e3c); scratch metadata still said “needs-triage”.
+  Verify: `pulse-ui` `npx tsc --noEmit` OK.
+  Ralph lint: repo-root `pnpm ai-hero-cli internal lint` → **ERR_PNPM_NO_IMPORTER_MANIFEST_FOUND** (no root package.json);
+    `npx ai-hero-cli internal lint` runs but logs **ERROR** — missing `exercises/` directory (tool scans it); workaround: add `exercises/` or ignore for this repo.
+  Next: no further tracked slices in `.scratch/rca-flat-hierarchy-segment-merge/issues/`; optional follow-ups remain in PRD (e.g. optional RCA e2e seed/assertions — Issue 05 optional).
