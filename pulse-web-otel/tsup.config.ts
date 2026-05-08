@@ -7,6 +7,7 @@ export default defineConfig([
     entry: {
       index: "src/index.ts",
       react: "src/integrations/react/index.ts",
+      "react-router": "src/integrations/react/router.ts",
       next: "src/integrations/next/index.ts",
     },
     format: ["esm", "cjs"],

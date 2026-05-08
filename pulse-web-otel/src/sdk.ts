@@ -457,7 +457,8 @@ class PulseSDK implements SdkContext {
   }
 
   setScreenName(name: string): void {
-    this.globalAttrsProcessor?.setScreenName(name);
+    if (!this._initialized || !this.globalAttrsProcessor) return;
+    this.globalAttrsProcessor.setScreenName(name);
   }
 
   /**

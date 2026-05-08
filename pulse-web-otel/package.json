@@ -61,6 +61,16 @@
         "default": "./dist/react.cjs"
       }
     },
+    "./react/router": {
+      "import": {
+        "types": "./dist/react-router.d.ts",
+        "default": "./dist/react-router.js"
+      },
+      "require": {
+        "types": "./dist/react-router.d.cts",
+        "default": "./dist/react-router.cjs"
+      }
+    },
     "./next": {
       "import": {
         "types": "./dist/next.d.ts",

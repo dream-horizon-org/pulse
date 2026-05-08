@@ -168,6 +168,44 @@ describe("useNextAppRouterTracking", () => {
     expect(mockSetScreenName).toHaveBeenCalledWith("/?filter=new");
   });
 
+  // ─── Resilience: navigation instrumentation disabled ─────────────────────
+  // When PulseProvider is configured with `navigation: { enabled: false }`,
+  // the SDK's setScreenName becomes a no-op (guarded by _initialized check).
+  // The hook must not crash and must still attempt the call — the SDK is
+  // responsible for no-oping when navigation is disabled / not yet init'd.
+
+  it("does NOT throw when setScreenName is a no-op (simulates navigation instrumentation disabled)", () => {
+    // mockSetScreenName is already a jest.fn() no-op by default — this mirrors
+    // what the SDK does when it isn't initialized or navigation is disabled.
+    expect(() =>
+      renderHook(() => useNextAppRouterTracking({ skipInitial: false })),
+    ).not.toThrow();
+    // Hook still invokes setScreenName — guarding belongs in the SDK, not here.
+    expect(mockSetScreenName).toHaveBeenCalledWith("/");
+  });
+
+  it("resumes tracking after setScreenName transitions from no-op to active", () => {
+    // First render: setScreenName is a no-op (SDK not ready / navigation disabled).
+    // After SDK init, setScreenName starts recording. The hook must pick up the
+    // next navigation normally.
+    mockSetScreenName.mockImplementationOnce(() => {
+      /* no-op — SDK not ready */
+    });
+
+    const hook = renderHook(
+      (opts: UseNextAppRouterTrackingOptions) => useNextAppRouterTracking(opts),
+      { initialProps: { skipInitial: false } as UseNextAppRouterTrackingOptions },
+    );
+    // First call was a no-op but the hook still called through.
+    expect(mockSetScreenName).toHaveBeenCalledTimes(1);
+    vi.clearAllMocks();
+
+    // SDK is now active — navigate to /dashboard.
+    mockPathname.mockReturnValue("/dashboard");
+    hook.rerender({ skipInitial: false });
+    expect(mockSetScreenName).toHaveBeenCalledWith("/dashboard");
+  });
+
   // ─── Edge: null → real pathname transition ────────────────────────────────
 
   it("fires setScreenName when pathname recovers from null to a real path", () => {
