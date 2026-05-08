@@ -47,7 +47,7 @@ internal class VisibleScreenTracker {
 
     /// Overrides UIViewController-based tracking for non-UIKit navigators (React Native, Flutter, etc.).
     /// When set, `currentlyVisibleScreen` returns this value instead of the VC stack.
-    static var externalScreenNameProvider: (() -> String?)? = nil
+    static var externalScreenNameProvider: (() -> String?)?
 
     private init() {}
 
