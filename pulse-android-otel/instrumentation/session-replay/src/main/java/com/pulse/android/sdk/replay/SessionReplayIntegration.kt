@@ -70,7 +70,7 @@ public class SessionReplayIntegration(
      * When set, takes precedence over [screenNameProvider] for both meta events and screen-change detection.
      */
     @Volatile
-    public var externalScreenNameProvider: (() -> String?)? = null
+    public override var externalScreenNameProvider: (() -> String?)? = null
 
     private val drawCounter = AtomicLong(0)
 
@@ -287,7 +287,7 @@ public class SessionReplayIntegration(
      * Called by non-native navigators (React Native, Flutter) when the active screen changes.
      * Triggers a full snapshot reset so the next captured frame emits meta + full snapshot.
      */
-    public fun notifyScreenChange() {
+    public override fun notifyScreenChange() {
         clearSnapshotStates()
     }
 
