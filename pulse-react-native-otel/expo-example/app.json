@@ -74,7 +74,7 @@
               "appLifecycle": { "enabled": true },
               "screenLifecycle": { "enabled": true },
               "appStartup": { "enabled": true },
-              "uiKitTap": { "enabled": true, "captureContext": true }
+              "uiKitTap": { "captureContext": true }
             },
             "configuration": {
               "includeScreenAttributes": true,

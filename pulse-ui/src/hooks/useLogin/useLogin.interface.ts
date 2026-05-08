@@ -1,4 +1,5 @@
 import { TierType } from "../../constants/Tiers";
+import { SYSTEM_ROLES } from "../../constants";
 
 export interface LoginResponse {
   status: string;
@@ -14,6 +15,8 @@ export interface LoginResponse {
   needsOnboarding: boolean;
   tokenType?: string;
   expiresIn?: number;
+  systemRole?: typeof SYSTEM_ROLES[keyof typeof SYSTEM_ROLES];
+  redirectTo?: string;
 }
 
 export interface LoginResult {

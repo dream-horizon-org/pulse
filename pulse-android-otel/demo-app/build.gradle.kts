@@ -75,6 +75,7 @@ dependencies {
     implementation(libs.androidx.navigation.ui.ktx)
     implementation(libs.androidx.navigation.compose)
     implementation(libs.material.icons.core)
+    implementation(libs.material.icons.extended)
 
     coreLibraryDesugaring(libs.desugarJdkLibs)
 

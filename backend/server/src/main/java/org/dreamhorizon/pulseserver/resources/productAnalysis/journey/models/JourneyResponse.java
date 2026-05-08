@@ -65,6 +65,8 @@ public class JourneyResponse {
    */
   private JourneyResultsResponse journeyResults;
 
+  private Instant lastRunAt;
+
   /** Tags from {@code funnel_journey_tag} for this journey. */
   private List<String> tags;
 }
