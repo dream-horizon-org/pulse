@@ -58,3 +58,11 @@
   Ralph lint: repo-root `pnpm ai-hero-cli internal lint` → **ERR_PNPM_NO_IMPORTER_MANIFEST_FOUND** (no root package.json);
     `npx ai-hero-cli internal lint` runs but logs **ERROR** — missing `exercises/` directory (tool scans it); workaround: add `exercises/` or ignore for this repo.
   Next: no further tracked slices in `.scratch/rca-flat-hierarchy-segment-merge/issues/`; optional follow-ups remain in PRD (e.g. optional RCA e2e seed/assertions — Issue 05 optional).
+
+2026-05-08 — Iteration 6 Ralph: **hybrid tier-order assertion in rca-db-audit**
+  Slice: `deploy/scripts/rca-db-audit.py` — for every interaction whose cached **mode** is **hybrid**, assert list order:
+    no **2D+** segment appears after a **1D** segment (PRD merge-tier priority). Vacuous if only one tier remains after gate.
+  Touch: scratch `PRD.md` (Testing Decisions), `issues/05-ui-docs-and-regression-harness.md` (optional checkbox note).
+  Verify: `pnpm ai-hero-cli internal lint` @ repo root → ERR_PNPM_NO_IMPORTER_MANIFEST_FOUND; `pulse-ui` `npx tsc --noEmit` OK.
+  Follow-up: run `python3 deploy/scripts/rca-db-audit.py` against a **fresh** cache after server changes; stale `hierarchical` rows skip the new hybrid-order path.
+  Next: Iteration 7 — if no remaining scope, close Ralph with `<promise>NO MORE TASKS</promise>` or `<promise>COMPLETE</promise>` after sweep.

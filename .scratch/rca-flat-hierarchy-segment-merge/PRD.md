@@ -158,6 +158,8 @@ Introduce a **unified segment pipeline** for interaction RCA:
 
 - **Prior art:** Existing **RootCauseService** tests, **RcaReportEnrichmentService** tests, and **RCA audit / e2e** scripts as **regression** harnesses after seed or expectation updates.
 
+- **DB audit (post-ship):** `deploy/scripts/rca-db-audit.py` asserts **hybrid** cache rows keep **2D+ segments before any 1D** segment in list order (merge-tier invariant), in addition to signal-gate and keyword presence checks.
+
 ## Out of Scope
 
 - Changing **definitions** of **problematic_count**, **error_rate**, **poor_user_pct**, or ClickHouse metric expressions.

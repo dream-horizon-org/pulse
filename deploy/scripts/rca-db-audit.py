@@ -14,6 +14,8 @@ What it checks per interaction:
   • Their combined signal S = |Δerr| + |Δpoor| meets the same floor pulse-server
     enforces before persisting to root_cause_cache (default 15; missing delta → 0)
   • No pure-noise segments are being sent to the LLM unnecessarily
+  • When cache mode is hybrid, segment list order respects merge policy (every 2D+
+    segment before any 1D segment)
 
 Usage:
     python3 deploy/scripts/rca-db-audit.py [--project <id>] [--date <YYYY-MM-DD>]
@@ -69,6 +71,9 @@ INTERACTIONS = [
 #                            • each index after sort must match exactly.
 #                          Golden lists are recorded from a clean root_cause_cache
 #                          run after issue 004 (deferred to issue 007 closeout).
+#   Hybrid segment order  — for any row with mode=hybrid (not tied to EXPECTATIONS),
+#                          the audit asserts 2D+ segments precede all 1D segments in the
+#                          cached `segments` JSON array (merge-tier invariant; PRD).
 #   mode                 — optional mode assertion. Allowlist (scenarios doc G2):
 #                            • checkout_start     → hybrid (alias: HYBRID) — merged
 #                              2D+ + flat pipeline; old caches may still show hierarchical
@@ -293,6 +298,28 @@ def segment_sort_key(seg):
     return tuple(sorted((str(k), str(v)) for k, v in dims.items()))
 
 
+def _hybrid_tier_list_order_ok(segments):
+    """
+    Hybrid pipeline merges 2D+ hierarchical candidates before flat 1D segments.
+    Enforce list order: once a 1D segment appears, no later segment may be 2D+.
+    (Vacuously true for flat-only or 2D+-only lists. Ignores segments with 0 dimensions.)
+    """
+    seen_one_d = False
+    for s in segments:
+        dims = s.get("dimensions") or {}
+        n = len(dims)
+        if n >= 2:
+            if seen_one_d:
+                lab = s.get("label", "?")
+                return False, (
+                    f"[ORDER]   hybrid tier violation: 2D+ segment [{lab}] after a 1D segment — "
+                    "expected hierarchical tier before flat tier"
+                )
+        elif n == 1:
+            seen_one_d = True
+    return True, None
+
+
 # ── Check ──────────────────────────────────────────────────────────────────────
 
 def check_segments(segments, mode, name):
@@ -320,6 +347,15 @@ def check_segments(segments, mode, name):
             issues.append((PASS, f"[MODE]    mode={mode}"))
         else:
             issues.append((FAIL, f"[MODE]    expected mode={expected_mode}, got {mode}"))
+
+    # Hybrid merged-order regression — all interaction RCA rows with wire mode hybrid
+    # must list 2D+ segments before any 1D segment (PRD: cross-tier priority).
+    if segments and _norm_mode_for_audit(mode) == "hybrid":
+        ok, msg = _hybrid_tier_list_order_ok(segments)
+        if ok:
+            issues.append((PASS, "[ORDER]   hybrid tier list order OK (2D+ before 1D)"))
+        else:
+            issues.append((FAIL, msg))
 
     # Strict dimensions equality — only when expected_dimensions is provided.
     exp_dims = exp.get("expected_dimensions")

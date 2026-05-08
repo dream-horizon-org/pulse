@@ -13,7 +13,7 @@ Update **UI types/labels** that mirror **`RootCauseRestResponse.mode`**, refresh
 - [x] `pulse-ui` screen RCA types/constants include **`hybrid`** where `flat | hierarchical` is declared (e.g. `ScreenRootCauseMode`, label map).
 - [x] `docs/rca-http-audit-failure-buckets.md` explains **Bucket 2 / primary cohort** under **hybrid** ordering.
 - [x] Deploy scripts or docs note **cache mode** value **`hybrid`** for new computations; **rca-db-audit** dimensions/mode checks reviewed for regressions (`checkout_start` → **HYBRID** in `EXPECTATIONS`).
-- [x] Optional: extend or re-seed **RCA e2e** scenarios if ordering assertions exist — document what was run (not re-run this slice; harness unchanged aside from db-audit mode pin).
+- [x] Optional: extend or re-seed **RCA e2e** scenarios if ordering assertions exist — **done for db-audit:** all **`hybrid`** ClickHouse cache rows are checked for **tier list order** (2D+ before 1D); optional full e2e re-run still manual when seeds/regenerate.
 
 ## Blocked by
 
