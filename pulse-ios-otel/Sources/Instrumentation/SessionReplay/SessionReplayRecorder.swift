@@ -284,6 +284,13 @@ public class SessionReplayRecorder {
                 }
 
                 var dedupStatus = self.getWindowStatus(window: window)
+                if let prev = dedupStatus.lastScreenName, prev != screenName {
+                    dedupStatus.sentFullSnapshot = false
+                    dedupStatus.sentMetaEvent = false
+                    dedupStatus.lastSnapshot = nil
+                    dedupStatus.lastCompressedData = nil
+                }
+                dedupStatus.lastScreenName = screenName
                 if dedupStatus.lastCompressedData == compressed.data {
                     return
                 }
