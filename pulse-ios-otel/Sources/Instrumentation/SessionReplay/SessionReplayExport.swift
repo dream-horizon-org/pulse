@@ -114,6 +114,7 @@ struct WindowSnapshotStatus {
     var sentMetaEvent: Bool = false
     var lastSnapshot: SessionReplayWireframe?
     var lastCompressedData: Data?
+    var lastScreenName: String? = nil
 }
 
 class SessionReplayEventTransformer {
@@ -138,6 +139,14 @@ class SessionReplayEventTransformer {
         if frame.sessionId != currentSessionId {
             currentSessionId = frame.sessionId
         }
+
+        let currentScreen = frame.screenName
+        if let prev = windowStatus.lastScreenName, prev != currentScreen {
+            windowStatus.sentFullSnapshot = false
+            windowStatus.sentMetaEvent = false
+            windowStatus.lastSnapshot = nil
+        }
+        windowStatus.lastScreenName = currentScreen
 
         if !windowStatus.sentMetaEvent {
             events.append(.meta(makeMetaEvent(from: frame, aspectRatio: aspectRatio)))
