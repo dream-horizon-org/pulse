@@ -1,6 +1,8 @@
 import { useMemo } from 'react';
 import type { Doc } from '../types';
+import type { Theme } from '../hooks/useTheme';
 import { searchDocs } from '../lib/search';
+import ThemeToggle from './ThemeToggle';
 import styles from './Sidebar.module.css';
 
 interface Props {
@@ -11,6 +13,8 @@ interface Props {
   onSearchChange: (q: string) => void;
   open: boolean;
   onClose: () => void;
+  theme: Theme;
+  onToggleTheme: () => void;
 }
 
 const GROUP_LABELS: Record<string, string> = {
@@ -27,6 +31,8 @@ export default function Sidebar({
   onSearchChange,
   open,
   onClose,
+  theme,
+  onToggleTheme,
 }: Props) {
   const grouped = useMemo(() => {
     const result: Record<string, Doc[]> = {};
@@ -45,8 +51,11 @@ export default function Sidebar({
       {open && <div className={styles.scrim} onClick={onClose} />}
       <aside className={`${styles.sidebar} ${open ? styles.open : ''}`}>
         <div className={styles.brand}>
-          <span className={styles.brandTitle}>Pulse</span>
-          <span className={styles.brandSub}>Product</span>
+          <div className={styles.brandText}>
+            <span className={styles.brandTitle}>Pulse</span>
+            <span className={styles.brandSub}>Product</span>
+          </div>
+          <ThemeToggle theme={theme} onToggle={onToggleTheme} />
         </div>
 
         <div className={styles.searchBox}>

@@ -1,9 +1,10 @@
 .toc {
-  border-left: 1px solid #e2e8f0;
+  border-left: 1px solid var(--border-default);
   padding: 56px 20px 96px 20px;
   overflow-y: auto;
   height: 100vh;
-  background: #ffffff;
+  background: var(--bg-base);
+  transition: background-color 0.18s ease, border-color 0.18s ease;
 }
 
 .label {
@@ -11,7 +12,7 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: #94a3b8;
+  color: var(--text-soft);
   margin-bottom: 12px;
   padding: 0 8px;
 }
@@ -28,7 +29,7 @@
 }
 
 .list a {
-  color: #475569;
+  color: var(--text-secondary);
   font-size: 12px;
   text-decoration: none;
   display: block;
@@ -39,9 +40,9 @@
 }
 
 .list a:hover {
-  color: #3730a3;
-  background: #eef2ff;
-  border-left-color: #4f46e5;
+  color: var(--accent-deep);
+  background: var(--accent-soft);
+  border-left-color: var(--accent);
 }
 
 .level2 a {
@@ -54,7 +55,7 @@
 
 .level3 a {
   font-size: 11px;
-  color: #64748b;
+  color: var(--text-muted);
 }
 
 @media (max-width: 1100px) {

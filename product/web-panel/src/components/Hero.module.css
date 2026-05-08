@@ -4,33 +4,44 @@
   border-radius: 14px;
   position: relative;
   overflow: hidden;
+  transition: background-color 0.18s ease, border-color 0.18s ease;
 }
 
 /* Default flat: subtle surface */
 .variant-flat {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
 }
-.variant-flat .title { color: #0f172a; }
-.variant-flat .eyebrow { color: #64748b; }
+.variant-flat .title {
+  color: var(--text-primary);
+}
+.variant-flat .eyebrow {
+  color: var(--text-muted);
+}
 
-/* Gradient variant */
+/* Gradient variant — brand-vibrant in both themes */
 .variant-gradient {
-  background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
+  background: linear-gradient(135deg, var(--hero-gradient-from) 0%, var(--hero-gradient-to) 100%);
   color: white;
-  box-shadow: 0 12px 32px rgba(79, 70, 229, 0.18);
+  box-shadow: var(--shadow-lg);
 }
-.variant-gradient .title { color: white; letter-spacing: -0.025em; }
-.variant-gradient .chip { background: rgba(255, 255, 255, 0.18); color: white; }
+.variant-gradient .title {
+  color: white;
+  letter-spacing: -0.025em;
+}
+.variant-gradient .chip {
+  background: rgba(255, 255, 255, 0.18);
+  color: white;
+}
 
 /* Layer-tinted accent for flat hero */
-.variant-flat.layer-detect { border-left: 4px solid #2563eb; }
-.variant-flat.layer-diagnose { border-left: 4px solid #7c3aed; }
-.variant-flat.layer-quantify { border-left: 4px solid #db2777; }
-.variant-flat.layer-resolve { border-left: 4px solid #059669; }
-.variant-flat.layer-predict { border-left: 4px solid #d97706; }
-.variant-flat.layer-framework { border-left: 4px solid #4f46e5; }
-.variant-flat.layer-meta { border-left: 4px solid #94a3b8; }
+.variant-flat.layer-detect { border-left: 4px solid var(--info); }
+.variant-flat.layer-diagnose { border-left: 4px solid var(--purple); }
+.variant-flat.layer-quantify { border-left: 4px solid var(--rose); }
+.variant-flat.layer-resolve { border-left: 4px solid var(--success); }
+.variant-flat.layer-predict { border-left: 4px solid var(--amber); }
+.variant-flat.layer-framework { border-left: 4px solid var(--accent); }
+.variant-flat.layer-meta { border-left: 4px solid var(--text-soft); }
 
 .eyebrow {
   display: flex;
@@ -53,8 +64,15 @@
   text-transform: uppercase;
 }
 
-.chipLayer { background: #eef2ff; color: #3730a3; }
-.chipPersona { background: #fce7f3; color: #9f1239; }
+.chipLayer {
+  background: var(--accent-soft);
+  color: var(--accent-deep);
+}
+
+.chipPersona {
+  background: var(--rose-bg);
+  color: var(--rose-deep);
+}
 
 .title {
   font-size: 36px;

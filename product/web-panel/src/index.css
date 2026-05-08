@@ -1,30 +1,188 @@
-*, *::before, *::after {
+:root {
+  color-scheme: light;
+
+  /* Surfaces */
+  --bg-base: #ffffff;
+  --bg-elevated: #f8fafc;
+  --bg-subtle: #f1f5f9;
+  --bg-strong: #e2e8f0;
+  --bg-hover: #fafbfc;
+
+  /* Text */
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #64748b;
+  --text-soft: #94a3b8;
+
+  /* Borders */
+  --border-default: #e2e8f0;
+  --border-strong: #cbd5e1;
+
+  /* Brand / accent */
+  --accent: #4f46e5;
+  --accent-2: #6366f1;
+  --accent-deep: #3730a3;
+  --accent-soft: #eef2ff;
+  --accent-ring: rgba(79, 70, 229, 0.12);
+
+  /* Semantic colors */
+  --success: #059669;
+  --success-bg: #d1fae5;
+  --success-tint: #ecfdf5;
+  --success-deep: #065f46;
+  --warning: #d97706;
+  --warning-bg: #fef3c7;
+  --warning-tint: #fffbeb;
+  --warning-deep: #92400e;
+  --danger: #ef4444;
+  --info: #2563eb;
+  --info-bg: #dbeafe;
+  --info-deep: #1e40af;
+  --purple: #7c3aed;
+  --purple-bg: #ede9fe;
+  --purple-deep: #5b21b6;
+  --rose: #db2777;
+  --rose-bg: #fce7f3;
+  --rose-deep: #9f1239;
+  --amber: #d97706;
+  --teal: #0ea5e9;
+
+  /* Code */
+  --code-bg: #f1f5f9;
+  --code-text: #0f172a;
+  --pre-bg: #0f172a;
+  --pre-text: #e2e8f0;
+
+  /* Status pills */
+  --pill-draft-bg: #f1f5f9;
+  --pill-draft-text: #475569;
+  --pill-review-bg: #fef3c7;
+  --pill-review-text: #92400e;
+  --pill-approved-bg: #dbeafe;
+  --pill-approved-text: #1e40af;
+  --pill-execution-bg: #ede9fe;
+  --pill-execution-text: #5b21b6;
+  --pill-live-bg: #d1fae5;
+  --pill-live-text: #065f46;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.05);
+  --shadow: 0 4px 12px rgba(15, 23, 42, 0.07);
+  --shadow-lg: 0 12px 32px rgba(15, 23, 42, 0.1);
+
+  /* Hero gradient stops (kept identical light/dark — the gradient is brand) */
+  --hero-gradient-from: #4f46e5;
+  --hero-gradient-to: #6366f1;
+
+  --link: var(--accent);
+}
+
+[data-theme='dark'] {
+  color-scheme: dark;
+
+  --bg-base: #0b1120;
+  --bg-elevated: #111827;
+  --bg-subtle: #1e293b;
+  --bg-strong: #334155;
+  --bg-hover: #18212f;
+
+  --text-primary: #f1f5f9;
+  --text-secondary: #cbd5e1;
+  --text-muted: #94a3b8;
+  --text-soft: #64748b;
+
+  --border-default: #1f2937;
+  --border-strong: #334155;
+
+  --accent: #818cf8;
+  --accent-2: #a78bfa;
+  --accent-deep: #c7d2fe;
+  --accent-soft: rgba(129, 140, 248, 0.16);
+  --accent-ring: rgba(129, 140, 248, 0.22);
+
+  --success: #34d399;
+  --success-bg: rgba(5, 150, 105, 0.2);
+  --success-tint: rgba(5, 150, 105, 0.1);
+  --success-deep: #6ee7b7;
+  --warning: #fbbf24;
+  --warning-bg: rgba(217, 119, 6, 0.22);
+  --warning-tint: rgba(217, 119, 6, 0.1);
+  --warning-deep: #fde68a;
+  --danger: #f87171;
+  --info: #60a5fa;
+  --info-bg: rgba(37, 99, 235, 0.22);
+  --info-deep: #93c5fd;
+  --purple: #a78bfa;
+  --purple-bg: rgba(124, 58, 237, 0.22);
+  --purple-deep: #c4b5fd;
+  --rose: #f472b6;
+  --rose-bg: rgba(219, 39, 119, 0.22);
+  --rose-deep: #f9a8d4;
+  --amber: #fbbf24;
+  --teal: #38bdf8;
+
+  --code-bg: #1e293b;
+  --code-text: #f1f5f9;
+  --pre-bg: #020617;
+  --pre-text: #e2e8f0;
+
+  --pill-draft-bg: rgba(148, 163, 184, 0.18);
+  --pill-draft-text: #cbd5e1;
+  --pill-review-bg: rgba(217, 119, 6, 0.22);
+  --pill-review-text: #fbbf24;
+  --pill-approved-bg: rgba(37, 99, 235, 0.22);
+  --pill-approved-text: #60a5fa;
+  --pill-execution-bg: rgba(124, 58, 237, 0.22);
+  --pill-execution-text: #a78bfa;
+  --pill-live-bg: rgba(5, 150, 105, 0.22);
+  --pill-live-text: #34d399;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.32);
+  --shadow: 0 4px 12px rgba(0, 0, 0, 0.36);
+  --shadow-lg: 0 16px 36px rgba(0, 0, 0, 0.5);
+}
+
+*,
+*::before,
+*::after {
   box-sizing: border-box;
 }
 
-html, body, #root {
+html,
+body,
+#root {
   margin: 0;
   padding: 0;
   height: 100%;
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, sans-serif;
-  background: #ffffff;
-  color: #0f172a;
+  font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, sans-serif;
+  background: var(--bg-base);
+  color: var(--text-primary);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  transition: background-color 0.18s ease, color 0.18s ease;
 }
 
-button, input, textarea, select {
+button,
+input,
+textarea,
+select {
   font-family: inherit;
+  color: inherit;
 }
 
 a {
-  color: #4f46e5;
+  color: var(--link);
   text-decoration: none;
 }
 
 a:hover {
   text-decoration: underline;
+}
+
+::selection {
+  background: var(--accent-soft);
+  color: var(--accent-deep);
 }

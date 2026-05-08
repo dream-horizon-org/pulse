@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { docs, findDoc } from './lib/docs';
 import { useHashRoute } from './hooks/useHashRoute';
+import { useTheme } from './hooks/useTheme';
 import Sidebar from './components/Sidebar';
 import DocViewer from './components/DocViewer';
 import styles from './App.module.css';
@@ -9,13 +10,13 @@ export default function App() {
   const { route, navigate } = useHashRoute();
   const [searchQuery, setSearchQuery] = useState('');
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { theme, toggle: toggleTheme } = useTheme();
 
   const activeDoc = useMemo(() => {
     if (route) return findDoc(route) ?? docs[0];
     return docs[0];
   }, [route]);
 
-  // Auto-navigate to first doc on first load if no route is set
   useEffect(() => {
     if (!route && docs.length > 0) {
       navigate(docs[0].path);
@@ -46,6 +47,8 @@ export default function App() {
         onSearchChange={setSearchQuery}
         open={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
+        theme={theme}
+        onToggleTheme={toggleTheme}
       />
 
       <main className={styles.main}>
