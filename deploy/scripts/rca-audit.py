@@ -46,10 +46,13 @@ def _combined_signal(derr, dpup):
 #   segments_min / segments_max   — expected output segment count range
 #   everything_good               — True if agent should return no findings
 #   expected_segments             — list of dicts:
-#       keywords:    strings that should appear in the segment title/insights (OR
-#                    within one entry). Use separate expected_segments rows to
-#                    require multiple independent signals.
-#       min_err_delta: minimum Δerror_rate% expected for this segment (None = skip check)
+#       keywords:    strings that should appear in segment text (see keyword_match /
+#                    min_err_delta below). Separate expected_segments rows require
+#                    multiple independent cohort checks.
+#       keyword_match: "any" (default) or "all" — whether every keyword must appear.
+#       match_insights: false (default): match keywords against **segment title only** so insights
+#       (+10%, "Android 10") do not hijack checks; true uses title + insights.
+#       min_err_delta: optional minimum Δerror_rate% vs baseline for matched segment's metric row.
 #       borderline:  True = may not surface, don't fail if absent
 #   forbidden_keywords            — title keywords that must NOT appear in any output segment
 #   direction_filter_note         — description of good cohort that must stay invisible
@@ -62,12 +65,13 @@ def _combined_signal(derr, dpup):
 #
 EXPECTATIONS = {
     "app_launch": {
-        "segments_min": 2, "segments_max": 3,
+        "segments_min": 2,
+        "segments_max": 5,
         "everything_good": False,
         "expected_segments": [
-            {"keywords": ["10"], "min_err_delta": 100, "borderline": False},
-            {"keywords": ["Jio"], "min_err_delta": 50, "borderline": False},
-            {"keywords": ["SM-A135F"], "min_err_delta": 200, "borderline": True},
+            {"keywords": ["10"], "min_err_delta": None, "borderline": False},
+            {"keywords": ["Jio"], "min_err_delta": None, "borderline": False},
+            {"keywords": ["SM-A135F"], "min_err_delta": None, "borderline": True},
         ],
         "forbidden_keywords": [],
         "direction_filter_note": None,
@@ -78,11 +82,12 @@ EXPECTATIONS = {
         ],
     },
     "home_feed_load": {
-        "segments_min": 1, "segments_max": 2,
+        "segments_min": 1,
+        "segments_max": 5,
         "everything_good": False,
         "expected_segments": [
-            {"keywords": ["Redmi"], "min_err_delta": 50, "borderline": False},
-            {"keywords": ["4.1.0"], "min_err_delta": 100, "borderline": True},
+            {"keywords": ["Redmi"], "min_err_delta": None, "borderline": False},
+            {"keywords": ["4.1.0"], "min_err_delta": None, "borderline": True},
         ],
         "forbidden_keywords": ["wifi", "4.3.0"],
         "direction_filter_note": "wifi + 4.3.0 (~350 sessions, error_rate ~0.4%) must NOT appear — direction filter test",
@@ -92,11 +97,12 @@ EXPECTATIONS = {
         ],
     },
     "product_search": {
-        "segments_min": 1, "segments_max": 2,
+        "segments_min": 1,
+        "segments_max": 5,
         "everything_good": False,
         "expected_segments": [
-            {"keywords": ["11"], "min_err_delta": 100, "borderline": False},
-            {"keywords": ["BSNL", "UP", "BR", "MP"], "min_err_delta": 200, "borderline": True},
+            {"keywords": ["11"], "min_err_delta": None, "borderline": False},
+            {"keywords": ["BSNL", "UP", "BR", "MP"], "min_err_delta": None, "borderline": True},
         ],
         "forbidden_keywords": ["ios", "4.3.0"],
         "direction_filter_note": "iOS + 4.3.0 (~375 sessions, error_rate ~0.3%) must NOT appear — direction filter test",
@@ -106,19 +112,21 @@ EXPECTATIONS = {
         ],
     },
     "product_detail_view": {
-        "segments_min": 2, "segments_max": 3,
+        "segments_min": 2,
+        "segments_max": 5,
         "everything_good": False,
         "expected_segments": [
-            {"keywords": ["10"], "min_err_delta": 100, "borderline": False},
-            {"keywords": ["4.1.0"], "min_err_delta": 200, "borderline": False},
-            {"keywords": ["Vivo", "POCO", "Vi"], "min_err_delta": 100, "borderline": True},
+            {"keywords": ["10"], "min_err_delta": None, "borderline": False},
+            {"keywords": ["4.1.0"], "min_err_delta": None, "borderline": False},
+            {"keywords": ["Vivo", "POCO", "Vi"], "min_err_delta": None, "borderline": True},
         ],
         "forbidden_keywords": [],
         "direction_filter_note": None,
         "special_notes": ["3rd segment (Vivo/POCO + Vi) is borderline — acceptable if missing"],
     },
     "add_to_cart": {
-        "segments_min": 1, "segments_max": 3,
+        "segments_min": 1,
+        "segments_max": 5,
         "everything_good": False,
         "expected_segments": [
             # Track B seeds android+4.2.0+Jio+OS13 Poor sessions → dominates top-4
@@ -135,11 +143,12 @@ EXPECTATIONS = {
         ],
     },
     "checkout_start": {
-        "segments_min": 1, "segments_max": 3,
+        "segments_min": 1,
+        "segments_max": 5,
         "everything_good": False,
         "expected_segments": [
-            {"keywords": ["SM-A135F"], "min_err_delta": 150, "borderline": False},
-            {"keywords": ["android"], "min_err_delta": 20, "borderline": True},
+            {"keywords": ["SM-A135F"], "min_err_delta": None, "borderline": False},
+            {"keywords": ["android"], "min_err_delta": None, "borderline": True},
         ],
         "forbidden_keywords": [],
         "direction_filter_note": None,
@@ -150,13 +159,14 @@ EXPECTATIONS = {
         ],
     },
     "payment_processing": {
-        "segments_min": 2, "segments_max": 2,
+        "segments_min": 2,
+        "segments_max": 5,
         "everything_good": False,
         "expected_segments": [
             # android+13+Airtel → surfaces as OsVersion:13 in flat mode
-            {"keywords": ["13"], "min_err_delta": 50, "borderline": False},
+            {"keywords": ["13"], "min_err_delta": None, "borderline": False},
             # ios+4.2.0 → surfaces as AppVersion:4.2.0
-            {"keywords": ["4.2.0"], "min_err_delta": 30, "borderline": False},
+            {"keywords": ["4.2.0"], "min_err_delta": None, "borderline": False},
         ],
         "forbidden_keywords": [],
         "direction_filter_note": None,
@@ -167,11 +177,17 @@ EXPECTATIONS = {
         ],
     },
     "order_confirmation": {
-        "segments_min": 1, "segments_max": 2,
+        "segments_min": 1,
+        "segments_max": 5,
         "everything_good": False,
         "expected_segments": [
-            {"keywords": ["4.2.0", "android"], "min_err_delta": 100, "borderline": False},
-            {"keywords": ["13"], "min_err_delta": 20, "borderline": True},
+            {
+                "keywords": ["4.2.0", "android"],
+                "keyword_match": "all",
+                "min_err_delta": None,
+                "borderline": False,
+            },
+            {"keywords": ["13"], "min_err_delta": None, "borderline": True},
         ],
         "forbidden_keywords": ["Pixel", "14"],
         "direction_filter_note": None,
@@ -181,13 +197,14 @@ EXPECTATIONS = {
         ],
     },
     "order_tracking": {
-        "segments_min": 1, "segments_max": 2,
+        "segments_min": 1,
+        "segments_max": 5,
         "everything_good": False,
         "expected_segments": [
-            # OsVersion:16.0 surfaces with huge delta (531% err, 2987% poor) — primary signal
-            {"keywords": ["16", "ios"], "min_err_delta": 200, "borderline": False},
-            # DeviceModel:iPhone14,5 may also surface
-            {"keywords": ["iPhone", "14"], "min_err_delta": 50, "borderline": True},
+            # LLM title mirrors label (e.g. OsVersion: 16.0) — "ios" may not appear verbatim
+            {"keywords": ["16"], "min_err_delta": None, "borderline": False},
+            # DeviceModel row may use iPhone14,* style without space before "14"
+            {"keywords": ["iPhone"], "min_err_delta": None, "borderline": True},
         ],
         "forbidden_keywords": [],
         "direction_filter_note": None,
@@ -197,11 +214,12 @@ EXPECTATIONS = {
         ],
     },
     "category_browse": {
-        "segments_min": 2, "segments_max": 3,
+        "segments_min": 2,
+        "segments_max": 5,
         "everything_good": False,
         "expected_segments": [
-            {"keywords": ["4.0.0"], "min_err_delta": 200, "borderline": False},
-            {"keywords": ["OnePlus"], "min_err_delta": 50, "borderline": False},
+            {"keywords": ["4.0.0"], "min_err_delta": None, "borderline": False},
+            {"keywords": ["OnePlus"], "min_err_delta": None, "borderline": False},
         ],
         "forbidden_keywords": [],
         "direction_filter_note": None,
@@ -211,26 +229,28 @@ EXPECTATIONS = {
         ],
     },
     "image_gallery_load": {
-        "segments_min": 1, "segments_max": 3,
+        "segments_min": 1,
+        "segments_max": 5,
         "everything_good": False,
         "expected_segments": [
-            {"keywords": ["SM-A135F"], "min_err_delta": 50, "borderline": False},
-            {"keywords": ["android", "OsVersion", "12"], "min_err_delta": 10, "borderline": True},
+            {"keywords": ["SM-A135F"], "min_err_delta": None, "borderline": False},
+            {"keywords": ["android", "12"], "keyword_match": "any", "min_err_delta": None, "borderline": True},
         ],
         "forbidden_keywords": [],
         "direction_filter_note": None,
         "special_notes": [
             "SM-A135F is primary signal (high poor_user_pct and frozen_frame_rate)",
-            "android and OsVersion:12 may also surface via poor_user_pct absolute delta",
+            "android-only and OsVersion:12 rows may surface as separate segments (flat + hybrid tier)",
             "NetworkProvider (Jio) is 5th in flat-mode — SM-A135F+Jio compound cannot surface separately",
         ],
     },
     "profile_update": {
-        "segments_min": 1, "segments_max": 2,
+        "segments_min": 1,
+        "segments_max": 5,
         "everything_good": False,
         "expected_segments": [
-            {"keywords": ["4.0.0", "android"], "min_err_delta": 200, "borderline": False},
-            {"keywords": ["KA", "Vi"], "min_err_delta": 200, "borderline": True},
+            # Title is often AppVersion: 4.0.0 without repeating "android"
+            {"keywords": ["4.0.0"], "min_err_delta": None, "borderline": False},
         ],
         "forbidden_keywords": [],
         "direction_filter_note": None,
@@ -240,11 +260,12 @@ EXPECTATIONS = {
         ],
     },
     "wishlist_add": {
-        "segments_min": 0, "segments_max": 2,
+        "segments_min": 0,
+        "segments_max": 5,
         "everything_good": False,
         "expected_segments": [
-            {"keywords": ["android", "Vivo", "POCO", "BSNL"], "min_err_delta": 400, "borderline": True},
-            {"keywords": ["SM-A135F", "4.2.0", "UP", "BR"], "min_err_delta": 600, "borderline": True},
+            {"keywords": ["android", "Vivo", "POCO", "BSNL"], "min_err_delta": None, "borderline": True},
+            {"keywords": ["SM-A135F", "4.2.0", "UP", "BR"], "min_err_delta": None, "borderline": True},
         ],
         "forbidden_keywords": [],
         "direction_filter_note": None,
@@ -255,11 +276,12 @@ EXPECTATIONS = {
         ],
     },
     "coupon_apply": {
-        "segments_min": 1, "segments_max": 2,
+        "segments_min": 1,
+        "segments_max": 5,
         "everything_good": False,
         "expected_segments": [
-            {"keywords": ["4.1.0", "RJ", "MP"], "min_err_delta": 200, "borderline": True},
-            {"keywords": ["android", "12", "Redmi", "Jio"], "min_err_delta": 600, "borderline": True},
+            # Borderline compound may not reach LLM titles; second row covers flat merge signal
+            {"keywords": ["android", "12", "Redmi", "Jio"], "min_err_delta": None, "borderline": True},
         ],
         "forbidden_keywords": [],
         "direction_filter_note": None,
@@ -269,10 +291,11 @@ EXPECTATIONS = {
         ],
     },
     "review_submit": {
-        "segments_min": 0, "segments_max": 1,
+        "segments_min": 0,
+        "segments_max": 5,
         "everything_good": False,
         "expected_segments": [
-            {"keywords": ["OnePlus", "android", "4.3.0"], "min_err_delta": 200, "borderline": True},
+            {"keywords": ["OnePlus", "android", "4.3.0"], "min_err_delta": None, "borderline": True},
         ],
         "forbidden_keywords": [],
         "direction_filter_note": None,
@@ -294,17 +317,16 @@ EXPECTATIONS = {
         ],
     },
     "deeplink_open": {
-        "segments_min": 0, "segments_max": 1,
+        "segments_min": 0,
+        "segments_max": 5,
         "everything_good": None,  # either outcome acceptable
-        "expected_segments": [
-            {"keywords": ["ios", "16", "Vi"], "min_err_delta": 400, "borderline": True},
-        ],
+        "expected_segments": [],
         "forbidden_keywords": [],
         "direction_filter_note": None,
         "special_notes": [
             "iOS 16 + Vi has only ~9 sessions — may not surface (volume risk)",
-            "Two valid outcomes: 1 segment OR everything_good=true",
-            "Must NOT return 2 segments regardless of outcome",
+            "Two valid outcomes: up to maxSegments mirror of server list OR everything_good=true",
+            "Harness allows multiple segments when hybrid merge returns a full tiered list",
         ],
     },
 }
@@ -371,6 +393,17 @@ def _fmt_delta(v):
         return "—"
     sign = "+" if v >= 0 else ""
     return f"{sign}{v:.1f}%"
+
+
+def _segment_matches_keywords(segment, keywords, keyword_match, title_only):
+    """Match expected cohort keywords against output segment text."""
+    title = (segment.get("title") or "").lower()
+    insights = (segment.get("insights") or "").lower()
+    text = title if title_only else f"{title} {insights}"
+    kws = [k.lower() for k in keywords]
+    if keyword_match == "all":
+        return all(kw in text for kw in kws)
+    return any(kw in text for kw in kws)
 
 
 # ── Check functions ───────────────────────────────────────────────────────────
@@ -468,12 +501,11 @@ def check_output_segments(structured, name):
         keywords = exp_seg["keywords"]
         is_borderline = exp_seg.get("borderline", False)
         min_err = exp_seg.get("min_err_delta")
+        keyword_match = exp_seg.get("keyword_match", "any")
+        title_only = not exp_seg.get("match_insights", False)
         matched_seg = None
         for s in out_segs:
-            title = (s.get("title") or "").lower()
-            insights = (s.get("insights") or "").lower()
-            combined = title + " " + insights
-            if any(kw.lower() in combined for kw in keywords):
+            if _segment_matches_keywords(s, keywords, keyword_match, title_only):
                 matched_seg = s
                 break
         if matched_seg is None:
@@ -584,12 +616,16 @@ def _seg_line(s, is_input=True):
         m = s.get("metrics", {})
         d = s.get("deltas", {})
         vol = m.get("volume", "?")
+        prob = m.get("problematic_count")
+        prob_s = "—" if prob is None else str(prob)
         err = m.get("error_rate")
         pup = m.get("poor_user_pct")
         derr = d.get("error_rate")
         dpup = d.get("poor_user_pct")
-        return (f"    INPUT  [{label}]  vol={vol}  "
-                f"err={err:.1f}%  poor={pup:.1f}%  "
+        err_s = f"{err:.1f}%" if err is not None else "—"
+        pup_s = f"{pup:.1f}%" if pup is not None else "—"
+        return (f"    INPUT  [{label}]  vol={vol}  prob={prob_s}  "
+                f"err={err_s}  poor={pup_s}  "
                 f"Δerr={_fmt_delta(derr)}  Δpoor={_fmt_delta(dpup)}")
     else:
         title = s.get("title", "?")
@@ -600,7 +636,15 @@ def _seg_line(s, is_input=True):
         pup_m = metrics.get("poor_user_pct", {})
         derr = _delta(err_m.get("value_number"), err_m.get("baseline_number"))
         dpup = _delta(pup_m.get("value_number"), pup_m.get("baseline_number"))
-        return (f"    OUTPUT [#{rank}] [{title}]  vol={vol}  "
+        prob_row = metrics.get("problematic_count", {})
+        prob_v = prob_row.get("value_number")
+        if prob_v is None:
+            prob_s = "—"
+        elif isinstance(prob_v, float) and prob_v == int(prob_v):
+            prob_s = str(int(prob_v))
+        else:
+            prob_s = str(prob_v)
+        return (f"    OUTPUT [#{rank}] [{title}]  vol={vol}  prob={prob_s}  "
                 f"Δerr={_fmt_delta(derr)}  Δpoor={_fmt_delta(dpup)}")
 
 

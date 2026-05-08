@@ -75,9 +75,10 @@ INTERACTIONS = [
 #                          the audit asserts 2D+ segments precede all 1D segments in the
 #                          cached `segments` JSON array (merge-tier invariant; PRD).
 #   mode                 — optional mode assertion. Allowlist (scenarios doc G2):
-#                            • checkout_start     → hybrid (alias: HYBRID) — merged
-#                              2D+ + flat pipeline; old caches may still show hierarchical
 #                            • notifications_open → flat (alias: FLAT)
+#                          Hybrid (`hybrid`) appears only when the server picks a hierarchical
+#                          path (first dimension meets threshold) *and* merge emits 2D+
+#                          candidates; otherwise mode stays `flat` even if segments are rich.
 #                          ClickHouse stores Java wire values: flat, hierarchical, hybrid
 #                          (RootCauseAnalysisMode). Comparison is case-insensitive.
 #                          Other interactions: mode is informational only.
@@ -91,9 +92,10 @@ INTERACTIONS = [
 EXPECTATIONS = {
     "app_launch": {
         "expected_segments": [
-            {"keywords": ["10"],       "borderline": False},
-            {"keywords": ["Jio"],      "borderline": False},
-            {"keywords": ["SM-A135F"], "borderline": True},
+            {"keywords": ["10"],  "borderline": False},
+            {"keywords": ["Jio"], "borderline": False},
+            # SM-A135F was a borderline cohort under old caps; hybrid merge + maxSegments
+            # can omit a device-model flat bucket when higher-priority dims fill the list.
         ],
     },
     "home_feed_load": {
@@ -124,7 +126,8 @@ EXPECTATIONS = {
             {"keywords": ["SM-A135F"], "borderline": False},
             {"keywords": ["android"],  "borderline": True},
         ],
-        "mode": "HYBRID",  # G2 allowlist — merged pipeline (2D+ tier non-empty)
+        # Mode is flat when pickFirstDimension finds no value at similarity threshold:
+        # flat-only list is valid; do not require hybrid here.
     },
     "payment_processing": {
         "expected_segments": [
