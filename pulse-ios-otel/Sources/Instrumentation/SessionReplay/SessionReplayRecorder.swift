@@ -451,6 +451,23 @@ public class SessionReplayRecorder {
         }
     }
 
+    /// Called by non-UIKit navigators (React Native, Flutter) when the active screen changes.
+    /// Schedules a full snapshot reset so the next captured frame emits meta + full snapshot.
+    public func notifyScreenChange() {
+        queue.async { [weak self] in
+            guard let self = self else { return }
+            self.windowStatusLock.lock()
+            for key in self.windowStatuses.keys {
+                self.windowStatuses[key]?.sentFullSnapshot = false
+                self.windowStatuses[key]?.sentMetaEvent = false
+                self.windowStatuses[key]?.lastSnapshot = nil
+                self.windowStatuses[key]?.lastCompressedData = nil
+                self.windowStatuses[key]?.lastScreenName = nil
+            }
+            self.windowStatusLock.unlock()
+        }
+    }
+
     #if os(iOS) || os(tvOS)
     private func getCurrentScreenName(from window: UIWindow) -> String {
         return VisibleScreenTracker.shared.currentlyVisibleScreen

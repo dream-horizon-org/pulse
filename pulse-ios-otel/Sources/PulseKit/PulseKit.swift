@@ -912,6 +912,13 @@ public class Pulse {
         userSessionEmitter.userId = id
     }
 
+    /// Overrides UIViewController-based screen name tracking for non-UIKit navigators.
+    /// Call this from platform SDKs (React Native, Flutter) that manage their own navigation stack.
+    /// Pass `nil` to revert to UIViewController-based tracking.
+    public func setExternalScreenNameProvider(_ provider: (() -> String?)?) {
+        VisibleScreenTracker.externalScreenNameProvider = provider
+    }
+
     public func setUserProperty(name: String, value: AttributeValue?) {
         guard isActive else { return }
         userSessionEmitter.setUserProperty(name: name, value: value)

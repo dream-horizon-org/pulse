@@ -45,6 +45,10 @@ internal class VisibleScreenTracker {
     /// Measures time user spent on screen. Gets pulse.type = screen_session.
     private var sessionSpan: Span?
 
+    /// Overrides UIViewController-based tracking for non-UIKit navigators (React Native, Flutter, etc.).
+    /// When set, `currentlyVisibleScreen` returns this value instead of the VC stack.
+    static var externalScreenNameProvider: (() -> String?)? = nil
+
     private init() {}
 
     /// Stores the tracer. Idempotent — safe to call multiple times.
@@ -67,6 +71,9 @@ internal class VisibleScreenTracker {
     }
 
     var currentlyVisibleScreen: String {
+        if let provider = VisibleScreenTracker.externalScreenNameProvider, let name = provider() {
+            return name
+        }
         return queue.sync { currentViewController ?? "unknown" }
     }
 

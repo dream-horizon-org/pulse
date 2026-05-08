@@ -76,6 +76,10 @@ public class PulseSDK: NSObject {
             loggerProviderCustomizer: mergedLoggerProviderCustomizer,
             logLevel: logLevel
         )
+
+        Pulse.shared.setExternalScreenNameProvider {
+            ReactNativeScreenNameTracker.getCurrentScreenName()
+        }
     }
   
     public func isSDKInitialized() -> Bool {
@@ -309,7 +313,9 @@ public class PulseSDK: NSObject {
             "rn_screen_interactive",
             "rn_network",
             "custom_events",
-            "js_crash"
+            "js_crash",
+            "session_replay",
+            "click",
         ]
         var result: [String: Bool] = [:]
         for featureName in requiredFeatures {
