@@ -1,10 +1,10 @@
 package org.dreamhorizon.pulseserver.service.configs.impl;
 
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
 import io.reactivex.rxjava3.core.Single;
@@ -38,7 +38,7 @@ class ConfigServiceImplBatchConfigTest {
   @BeforeEach
   void setUp() {
     when(vertx.getOrCreateContext()).thenReturn(context);
-    doAnswer(invocation -> {
+    lenient().doAnswer(invocation -> {
       Handler<Void> handler = invocation.getArgument(0);
       handler.handle(null);
       return null;
