@@ -1,10 +1,16 @@
 // M1: InstrumentationRegistry — holds all Instrumentation instances,
-// calls installAll() during SDK.start() and uninstallAll() during shutdown().
+// calls installAll() during SDK.init() and uninstallAll() during shutdown().
 // See: web-sdk-plan/v1/01-foundation/sdk-lifecycle.md
+
+import { diag } from "@opentelemetry/api";
 
 import type { InstrumentationConfig } from "./config";
 import type { FeatureGate } from "./feature-gate";
 import { SessionInstrumentation } from "./instrumentations/session";
+import { ClicksInstrumentation } from "./instrumentations/clicks";
+import { WebVitalsInstrumentation } from "./instrumentations/web-vitals";
+import { NetworkInstrumentation } from "./instrumentations/network";
+import { ErrorInstrumentation } from "./instrumentations/errors";
 import { InstrumentationKeys } from "./config";
 import { PulseFeature } from "./remote-config";
 import type { PulseFeatureName } from "./remote-config";
@@ -20,6 +26,8 @@ export type {
 
 export class InstrumentationRegistry {
   private installed: PulseInstrumentation[] = [];
+  /** Prevents duplicate `installAll()` without `uninstallAll()` (single owner for web-vitals listeners). */
+  private installAllCompleted = false;
 
   constructor(
     private readonly sdk: SdkContext,
@@ -53,19 +61,58 @@ export class InstrumentationRegistry {
     if (key !== undefined && !this.shouldInstall(key)) {
       return false;
     }
-    instrumentation.install(this.sdk);
-    this.installed.push(instrumentation);
-    return true;
+    // Per-instrumentation try/catch: a transient error in one must not skip
+    // the rest, and must not poison `installAllCompleted` (single-owner gate
+    // is set only after the full sweep — see `installAll`).
+    try {
+      instrumentation.install(this.sdk);
+      this.installed.push(instrumentation);
+      return true;
+    } catch (err) {
+      diag.error(
+        `[Pulse] instrumentation install failed${key ? ` (${key})` : ""}`,
+        err,
+      );
+      return false;
+    }
   }
 
   installAll(): void {
-    // M1: Install session instrumentation
+    if (this.installAllCompleted) {
+      return;
+    }
+
     if (this.shouldInstall(InstrumentationKeys.SESSION)) {
       this.registerAndInstall(new SessionInstrumentation());
     }
 
-    // M3: will install ErrorsInstrumentation, NetworkInstrumentation,
-    // ClicksInstrumentation, WebVitalsInstrumentation, NavigationInstrumentation, etc.
+    this.registerAndInstall(
+      new ClicksInstrumentation(),
+      InstrumentationKeys.CLICKS,
+    );
+    this.registerAndInstall(
+      new WebVitalsInstrumentation(),
+      InstrumentationKeys.WEB_VITALS,
+    );
+    this.registerAndInstall(
+      new NetworkInstrumentation(),
+      InstrumentationKeys.NETWORK,
+    );
+
+    if (this.shouldInstall(InstrumentationKeys.ERRORS)) {
+      this.registerAndInstall(
+        new ErrorInstrumentation(),
+        InstrumentationKeys.ERRORS,
+      );
+    }
+
+    // Set the single-owner flag only after the full sweep completes.
+    // If we set it earlier and a sync throw escaped one install, future
+    // installAll() calls would silently no-op until uninstallAll() ran.
+    // Per-instrumentation try/catch above ensures one failure does not
+    // skip the others; setting the flag here makes the gate idempotent
+    // without hiding partial failures.
+    this.installAllCompleted = true;
   }
 
   uninstallAll(): void {
@@ -81,5 +128,6 @@ export class InstrumentationRegistry {
       }
     }
     this.installed = [];
+    this.installAllCompleted = false;
   }
 }

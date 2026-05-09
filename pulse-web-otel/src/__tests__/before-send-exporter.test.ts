@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { Resource } from "@opentelemetry/resources";
+import { emptyResource } from "@opentelemetry/resources";
 import type { ExportResult } from "@opentelemetry/core";
 import { ExportResultCode } from "@opentelemetry/core";
 import type { ReadableSpan, SpanExporter } from "@opentelemetry/sdk-trace-web";
@@ -12,6 +12,11 @@ import type {
   ResourceMetrics,
 } from "@opentelemetry/sdk-metrics";
 
+import type {
+  PulseExportSignal,
+  PulseBeforeSendResult,
+  PulseWebBeforeSendCallbacks,
+} from "../types/before-send";
 import {
   validateBeforeSendConfig,
   resolveBeforeSend,
@@ -43,14 +48,16 @@ describe("validateBeforeSendConfig", () => {
     expect(() =>
       validateBeforeSendConfig({ beforeSendSpan: 1 } as never),
     ).toThrow(
-      "[PulseWeb] beforeSendData.beforeSendSpan must be a function when provided",
+      "[Pulse] beforeSendData.beforeSendSpan must be a function when provided",
     );
   });
 });
 
 describe("BeforeSendSpanExporter", () => {
   it("invokes generic then typed; null from generic drops (Android order)", () => {
-    const generic = vi.fn(() => null as unknown);
+    const generic = vi.fn(
+      (_s: PulseExportSignal): PulseBeforeSendResult => null,
+    );
     const typed = vi.fn((s: ReadableSpan) => s);
     const delegate: SpanExporter = {
       export: vi.fn((_spans, cb) => cb({ code: ExportResultCode.SUCCESS })),
@@ -78,7 +85,10 @@ describe("BeforeSendSpanExporter", () => {
       forceFlush: async () => {},
     };
     const exp = new BeforeSendSpanExporter(delegate, {
-      beforeSend: () => ({ not: "a span" }),
+      // Intentionally wrong return shape — runtime must drop (see applyBeforeSendGeneric).
+      beforeSend: ((_s: PulseExportSignal) => ({
+        not: "a span",
+      })) as unknown as PulseWebBeforeSendCallbacks["beforeSend"],
     });
     const cb = vi.fn();
     exp.export([mockSpan("x")], cb);
@@ -120,11 +130,12 @@ describe("BeforeSendSpanExporter", () => {
 describe("BeforeSendLogRecordExporter", () => {
   it("filters logs with generic null", () => {
     const log = {
-      resource: Resource.empty(),
+      resource: emptyResource(),
     } as unknown as ReadableLogRecord;
     const delegate: LogRecordExporter = {
       export: vi.fn((_logs, cb) => cb({ code: ExportResultCode.SUCCESS })),
       shutdown: async () => {},
+      forceFlush: async () => {},
     };
     const exp = new BeforeSendLogRecordExporter(delegate, {
       beforeSend: () => null,
@@ -136,7 +147,7 @@ describe("BeforeSendLogRecordExporter", () => {
 
 describe("BeforeSendMetricExporter", () => {
   const emptyRm: ResourceMetrics = {
-    resource: Resource.empty(),
+    resource: emptyResource(),
     scopeMetrics: [],
   };
 
@@ -169,7 +180,7 @@ describe("BeforeSendMetricExporter", () => {
 
 describe("resolveBeforeSend", () => {
   it("wraps a function as generic-only hooks", () => {
-    const fn = (x: unknown) => x;
+    const fn = (x: PulseExportSignal) => x;
     const r = resolveBeforeSend(fn);
     expect(r?.beforeSend).toBe(fn);
     expect(r?.beforeSendSpan).toBeUndefined();
@@ -179,6 +190,6 @@ describe("resolveBeforeSend", () => {
 describe("isReadableSpan", () => {
   it("identifies mock span", () => {
     expect(isReadableSpan(mockSpan("n"))).toBe(true);
-    expect(isReadableSpan({ resource: Resource.empty() })).toBe(false);
+    expect(isReadableSpan({ resource: emptyResource() })).toBe(false);
   });
 });

@@ -30,16 +30,16 @@ import {
   waitPastSeededSignalsBatchWindow,
 } from "./test-sdk-config";
 
-/** After reload there is often no second `session.start`; `PulseWeb` on `window` is the ready signal. */
-async function waitForPulseWebInitialized(page: Page): Promise<void> {
+/** After reload there is often no second `session.start`; `Pulse` on `window` is the ready signal. */
+async function waitForPulseInitialized(page: Page): Promise<void> {
   await expect
     .poll(
       async () =>
         page.evaluate(() => {
           const w = window as unknown as {
-            PulseWeb?: { isInitialized: () => boolean };
+            Pulse?: { isInitialized: () => boolean };
           };
-          return w.PulseWeb?.isInitialized?.() ?? false;
+          return w.Pulse?.isInitialized?.() ?? false;
         }),
       { timeout: 15_000 },
     )
@@ -124,11 +124,11 @@ test.describe("@M1 session lifecycle", () => {
     expect(findAllLogs(otlp.captured, "session.end").length).toBe(0);
   });
 
-  test("double PulseWeb.start() is a no-op — exactly one session.start", async ({
+  test("double Pulse.init() is a no-op — exactly one session.start", async ({
     page,
     otlp,
   }) => {
-    // App.tsx calls PulseWeb.start() in useEffect; React StrictMode calls it twice
+    // App.tsx calls Pulse.init() in useEffect; React StrictMode calls it twice
     await page.goto("/");
     await otlp.waitForLog("session.start");
     await page.waitForTimeout(1500); // let any duplicate exports arrive
@@ -158,7 +158,7 @@ test.describe("@M1 session lifecycle", () => {
   });
 
   // Dedupe: pagehide already emitted session.end; shutdown must not export a second one
-  test("pagehide then PulseWeb.shutdown emits only one session.end", async ({
+  test("pagehide then Pulse.shutdown emits only one session.end", async ({
     page,
     otlp,
   }) => {
@@ -178,9 +178,9 @@ test.describe("@M1 session lifecycle", () => {
 
     await page.evaluate(async () => {
       const w = window as unknown as {
-        PulseWeb?: { shutdown?: () => Promise<void> };
+        Pulse?: { shutdown?: () => Promise<void> };
       };
-      await w.PulseWeb?.shutdown?.();
+      await w.Pulse?.shutdown?.();
     });
     await page.waitForTimeout(800);
 
@@ -200,7 +200,7 @@ test.describe("@M1 identity persistence", () => {
     otlp.reset();
     await page.reload();
     // After reload the session is reused — no session.start fires (correct behaviour per 3.7).
-    await waitForPulseWebInitialized(page);
+    await waitForPulseInitialized(page);
     const storedId = await page.evaluate(() =>
       localStorage.getItem("pulse_installation_id"),
     );
@@ -287,6 +287,19 @@ test.describe("@M1 identity persistence", () => {
     await page.evaluate(() => {
       localStorage.clear();
       sessionStorage.clear();
+    });
+    // Unload / forceFlush on the outgoing document can call getSessionId() while exporting
+    // queued OTLP (global attrs processor), which re-writes pulse_session_* into
+    // localStorage after the clear above. Run an init script on the *next* document so
+    // storage is still empty when SessionProvider runs, otherwise _sessionReused stays
+    // true and emitInitialSession() does not emit session.start.
+    await page.addInitScript(() => {
+      try {
+        localStorage.clear();
+        sessionStorage.clear();
+      } catch {
+        /* ignore */
+      }
     });
     otlp.reset();
     await page.reload();
@@ -388,7 +401,7 @@ test.describe("@M1 OTLP pipeline", () => {
 // ─── SDK Shutdown ─────────────────────────────────────────────────────────────
 
 test.describe("@M1 SDK shutdown", () => {
-  test("PulseWeb.shutdown() force-flushes providers without error", async ({
+  test("Pulse.shutdown() force-flushes providers without error", async ({
     page,
     otlp,
   }) => {
@@ -401,8 +414,8 @@ test.describe("@M1 SDK shutdown", () => {
     });
 
     await page.evaluate(async () => {
-      // @ts-ignore — PulseWeb exposed on window by App.tsx for testing
-      await window.PulseWeb?.shutdown?.();
+      // @ts-ignore — `Pulse` exposed on window by App.tsx for testing
+      await window.Pulse?.shutdown?.();
     });
 
     expect(errors.filter((e) => !e.includes("favicon"))).toHaveLength(0);
@@ -421,7 +434,7 @@ test.describe("@M1 batching", () => {
 
     // Fire 3 custom events synchronously — all within the same 200ms batch window
     await page.evaluate(() => {
-      const p = (window as unknown as Record<string, unknown>)["PulseWeb"] as {
+      const p = (window as unknown as Record<string, unknown>)["Pulse"] as {
         trackEvent: (name: string) => void;
       };
       p.trackEvent("batch_test_1");
@@ -512,7 +525,7 @@ test.describe("@M1 batching", () => {
     otlp.reset();
 
     await page.evaluate(() => {
-      const p = (window as unknown as Record<string, unknown>)["PulseWeb"] as {
+      const p = (window as unknown as Record<string, unknown>)["Pulse"] as {
         trackEvent: (name: string) => void;
       };
       p.trackEvent("pre_unload_event"); // emits custom_event log (body = 'pre_unload_event')
@@ -757,7 +770,7 @@ test.describe("@M1 localStorage state", () => {
     otlp.reset();
     await page.reload();
     // Session is reused on reload — no session.start fires (correct per 3.7).
-    await waitForPulseWebInitialized(page);
+    await waitForPulseInitialized(page);
     expect(await readCachedMeta()).toEqual({
       version: 1,
       description: "cfg-1",
@@ -766,7 +779,7 @@ test.describe("@M1 localStorage state", () => {
     server.version = 2;
     otlp.reset();
     await page.reload();
-    await waitForPulseWebInitialized(page);
+    await waitForPulseInitialized(page);
     await expect
       .poll(async () => (await readCachedMeta())?.version ?? null, {
         timeout: 10_000,
@@ -775,7 +788,7 @@ test.describe("@M1 localStorage state", () => {
 
     otlp.reset();
     await page.reload();
-    await waitForPulseWebInitialized(page);
+    await waitForPulseInitialized(page);
     expect(await readCachedMeta()).toEqual({
       version: 2,
       description: "cfg-2",
@@ -854,7 +867,7 @@ test.describe("@M1 remote config fetch resilience", () => {
 
     otlp.reset();
     await page.reload();
-    await waitForPulseWebInitialized(page);
+    await waitForPulseInitialized(page);
     const v2 = await page.evaluate(() => {
       const raw = localStorage.getItem("pulse_sdk_config");
       if (!raw) return null;
@@ -867,7 +880,7 @@ test.describe("@M1 remote config fetch resilience", () => {
 // ─── Consent ──────────────────────────────────────────────────────────────────
 
 test.describe("@M1 consent", () => {
-  test("DENIED consent → PulseWeb.isInitialized() returns false", async ({
+  test("DENIED consent → Pulse.isInitialized() returns false", async ({
     page,
   }) => {
     // ?pulse_consent=denied is handled by App.tsx → PulseDataCollectionConsent.DENIED
@@ -875,7 +888,7 @@ test.describe("@M1 consent", () => {
     await page.waitForTimeout(500);
 
     const initialized = await page.evaluate(() => {
-      const p = (window as unknown as Record<string, unknown>)["PulseWeb"] as {
+      const p = (window as unknown as Record<string, unknown>)["Pulse"] as {
         isInitialized: () => boolean;
       };
       return p?.isInitialized?.() ?? false;
@@ -966,7 +979,7 @@ test.describe("@M1 signal headers", () => {
     // initial /v1/logs export before coalescing later signals into a single pagehide flush.
     await page.waitForTimeout(500);
     await page.evaluate(() => {
-      const p = (window as unknown as Record<string, unknown>)["PulseWeb"] as {
+      const p = (window as unknown as Record<string, unknown>)["Pulse"] as {
         trackEvent: (name: string) => void;
       };
       p.trackEvent("header_test_1");
@@ -1042,7 +1055,7 @@ test.describe("@M1 trackNonFatal", () => {
     await otlp.waitForLog("session.start");
 
     await page.evaluate(() => {
-      const p = (window as unknown as Record<string, unknown>)["PulseWeb"] as {
+      const p = (window as unknown as Record<string, unknown>)["Pulse"] as {
         trackNonFatal: (name: string, attrs?: Record<string, unknown>) => void;
       };
       p.trackNonFatal("payment_declined", { amount: 99 });
@@ -1066,7 +1079,7 @@ test.describe("@M1 reportException body", () => {
     await otlp.waitForLog("session.start");
 
     await page.evaluate(() => {
-      const p = (window as unknown as Record<string, unknown>)["PulseWeb"] as {
+      const p = (window as unknown as Record<string, unknown>)["Pulse"] as {
         reportException: (error: Error) => void;
       };
       p.reportException(new Error("test error message"));
@@ -1108,11 +1121,11 @@ test.describe("@M1 window.id uniqueness", () => {
 
     // Reload — should get a different window.id (same session, but new page-load = new in-memory ID)
     await page.reload();
-    await waitForPulseWebInitialized(page);
+    await waitForPulseInitialized(page);
     // After reload, session is reused (no new session.start emitted)
     // So we emit a trackEvent to capture a signal after reload
     await page.evaluate(() => {
-      const p = (window as unknown as Record<string, unknown>)["PulseWeb"] as {
+      const p = (window as unknown as Record<string, unknown>)["Pulse"] as {
         trackEvent: (name: string) => void;
       };
       p.trackEvent("reload_check");
@@ -1139,7 +1152,7 @@ test.describe("@M1 window.id uniqueness", () => {
 
     // Emit another signal
     await page.evaluate(() => {
-      const p = (window as unknown as Record<string, unknown>)["PulseWeb"] as {
+      const p = (window as unknown as Record<string, unknown>)["Pulse"] as {
         trackEvent: (name: string) => void;
       };
       p.trackEvent("window_id_test");
@@ -1284,32 +1297,32 @@ test.describe("@M1 screen.name resolution", () => {
     otlp,
   }) => {
     await page.goto("/products");
-    await waitForPulseWebInitialized(page);
+    await waitForPulseInitialized(page);
     await page.evaluate(
       () =>
-        (window as unknown as Record<string, unknown>)["PulseWeb"] &&
+        (window as unknown as Record<string, unknown>)["Pulse"] &&
         (
-          window as unknown as { PulseWeb: { trackEvent: (n: string) => void } }
-        ).PulseWeb.trackEvent("screen_name_check"),
+          window as unknown as { Pulse: { trackEvent: (n: string) => void } }
+        ).Pulse.trackEvent("screen_name_check"),
     );
     const log = await otlp.waitForLogByBody("screen_name_check");
     expect(getAttr(log.attributes, "screen.name")).toBe("/products");
   });
 
-  // 2.3 — screen.name strips numeric IDs
-  test("screen.name strips numeric segment: /products/123 → '/products'", async ({
+  // 2.3 — dynamic path segments normalized to :id (route shape; see GlobalAttributesProcessor)
+  test("screen.name normalizes numeric segment: /products/123 → '/products/:id'", async ({
     page,
     otlp,
   }) => {
     await page.goto("/products/123");
-    await waitForPulseWebInitialized(page);
+    await waitForPulseInitialized(page);
     await page.evaluate(() =>
       (
-        window as unknown as { PulseWeb: { trackEvent: (n: string) => void } }
-      ).PulseWeb.trackEvent("numeric_strip_check"),
+        window as unknown as { Pulse: { trackEvent: (n: string) => void } }
+      ).Pulse.trackEvent("numeric_strip_check"),
     );
     const log = await otlp.waitForLogByBody("numeric_strip_check");
-    expect(getAttr(log.attributes, "screen.name")).toBe("/products");
+    expect(getAttr(log.attributes, "screen.name")).toBe("/products/:id");
   });
 
   // 2.16 — screen.name for root path /
@@ -1318,11 +1331,11 @@ test.describe("@M1 screen.name resolution", () => {
     otlp,
   }) => {
     await page.goto("/");
-    await waitForPulseWebInitialized(page);
+    await waitForPulseInitialized(page);
     await page.evaluate(() =>
       (
-        window as unknown as { PulseWeb: { trackEvent: (n: string) => void } }
-      ).PulseWeb.trackEvent("root_path_check"),
+        window as unknown as { Pulse: { trackEvent: (n: string) => void } }
+      ).Pulse.trackEvent("root_path_check"),
     );
     const log = await otlp.waitForLogByBody("root_path_check");
     const screenName = getAttr(log.attributes, "screen.name") as string;
@@ -1330,20 +1343,20 @@ test.describe("@M1 screen.name resolution", () => {
     expect(screenName).toBe("/");
   });
 
-  // 2.17 — screen.name strips UUIDs
-  test("screen.name strips UUID segment: /products/<uuid> → '/products'", async ({
+  // 2.17 — UUID path segments normalized to :id
+  test("screen.name normalizes UUID segment: /products/<uuid> → '/products/:id'", async ({
     page,
     otlp,
   }) => {
     await page.goto("/products/550e8400-e29b-41d4-a716-446655440000");
-    await waitForPulseWebInitialized(page);
+    await waitForPulseInitialized(page);
     await page.evaluate(() =>
       (
-        window as unknown as { PulseWeb: { trackEvent: (n: string) => void } }
-      ).PulseWeb.trackEvent("uuid_strip_check"),
+        window as unknown as { Pulse: { trackEvent: (n: string) => void } }
+      ).Pulse.trackEvent("uuid_strip_check"),
     );
     const log = await otlp.waitForLogByBody("uuid_strip_check");
-    expect(getAttr(log.attributes, "screen.name")).toBe("/products");
+    expect(getAttr(log.attributes, "screen.name")).toBe("/products/:id");
   });
 });
 
@@ -1351,7 +1364,7 @@ test.describe("@M1 screen.name resolution", () => {
 
 test.describe("@M1 screen.name manual override", () => {
   // 2.18 — setScreenName() manual override applied immediately
-  test("PulseWeb.setScreenName() overrides screen.name on next signal", async ({
+  test("Pulse.setScreenName() overrides screen.name on next signal", async ({
     page,
     otlp,
   }) => {
@@ -1361,13 +1374,13 @@ test.describe("@M1 screen.name manual override", () => {
 
     await page.evaluate(() => {
       const p = window as unknown as {
-        PulseWeb: {
+        Pulse: {
           setScreenName: (n: string) => void;
           trackEvent: (n: string) => void;
         };
       };
-      p.PulseWeb.setScreenName("custom-screen");
-      p.PulseWeb.trackEvent("override_check");
+      p.Pulse.setScreenName("custom-screen");
+      p.Pulse.trackEvent("override_check");
     });
     const log = await otlp.waitForLogByBody("override_check");
     expect(getAttr(log.attributes, "screen.name")).toBe("custom-screen");
@@ -1384,14 +1397,14 @@ test.describe("@M1 screen.name manual override", () => {
 
     await page.evaluate(() => {
       const p = window as unknown as {
-        PulseWeb: {
+        Pulse: {
           setScreenName: (n: string) => void;
           trackEvent: (n: string) => void;
         };
       };
-      p.PulseWeb.setScreenName("my-screen");
-      p.PulseWeb.trackEvent("persist_check_1");
-      p.PulseWeb.trackEvent("persist_check_2");
+      p.Pulse.setScreenName("my-screen");
+      p.Pulse.trackEvent("persist_check_1");
+      p.Pulse.trackEvent("persist_check_2");
     });
 
     const log1 = await otlp.waitForLogByBody("persist_check_1");
@@ -1413,18 +1426,18 @@ test.describe("@M1 screen.name manual override", () => {
     // Set override on /products
     await page.evaluate(() => {
       const p = window as unknown as {
-        PulseWeb: { setScreenName: (n: string) => void };
+        Pulse: { setScreenName: (n: string) => void };
       };
-      p.PulseWeb.setScreenName("my-screen");
+      p.Pulse.setScreenName("my-screen");
     });
 
     // Navigate to /cart — override should reset
     await page.goto("/cart");
-    await waitForPulseWebInitialized(page);
+    await waitForPulseInitialized(page);
     await page.evaluate(() =>
       (
-        window as unknown as { PulseWeb: { trackEvent: (n: string) => void } }
-      ).PulseWeb.trackEvent("reset_check"),
+        window as unknown as { Pulse: { trackEvent: (n: string) => void } }
+      ).Pulse.trackEvent("reset_check"),
     );
     const log = await otlp.waitForLogByBody("reset_check");
     expect(getAttr(log.attributes, "screen.name")).toBe("/cart");
@@ -1441,14 +1454,14 @@ test.describe("@M1 screen.name manual override", () => {
     // Set override then simulate SPA pushState navigation (no page reload)
     await page.evaluate(() => {
       const p = window as unknown as {
-        PulseWeb: {
+        Pulse: {
           setScreenName: (n: string) => void;
           trackEvent: (n: string) => void;
         };
       };
-      p.PulseWeb.setScreenName("my-screen");
+      p.Pulse.setScreenName("my-screen");
       history.pushState({}, "", "/cart");
-      p.PulseWeb.trackEvent("spa_nav_check");
+      p.Pulse.trackEvent("spa_nav_check");
     });
 
     const log = await otlp.waitForLogByBody("spa_nav_check");
@@ -1472,8 +1485,8 @@ test.describe("@M1 url attributes", () => {
     // First event on /products
     await page.evaluate(() =>
       (
-        window as unknown as { PulseWeb: { trackEvent: (n: string) => void } }
-      ).PulseWeb.trackEvent("url_path_products"),
+        window as unknown as { Pulse: { trackEvent: (n: string) => void } }
+      ).Pulse.trackEvent("url_path_products"),
     );
     const log1 = await otlp.waitForLogByBody("url_path_products");
     expect(getAttr(log1.attributes, "url.path")).toBe("/products");
@@ -1481,11 +1494,11 @@ test.describe("@M1 url attributes", () => {
 
     // Navigate to /cart
     await page.goto("/cart");
-    await waitForPulseWebInitialized(page);
+    await waitForPulseInitialized(page);
     await page.evaluate(() =>
       (
-        window as unknown as { PulseWeb: { trackEvent: (n: string) => void } }
-      ).PulseWeb.trackEvent("url_path_cart"),
+        window as unknown as { Pulse: { trackEvent: (n: string) => void } }
+      ).Pulse.trackEvent("url_path_cart"),
     );
     const log2 = await otlp.waitForLogByBody("url_path_cart");
     expect(getAttr(log2.attributes, "url.path")).toBe("/cart");
@@ -1512,8 +1525,8 @@ test.describe("@M1 url attributes", () => {
     await page.goto("/products");
     await page.evaluate(() =>
       (
-        window as unknown as { PulseWeb: { trackEvent: (n: string) => void } }
-      ).PulseWeb.trackEvent("url_attrs_check"),
+        window as unknown as { Pulse: { trackEvent: (n: string) => void } }
+      ).Pulse.trackEvent("url_attrs_check"),
     );
     const log = await otlp.waitForLogByBody("url_attrs_check");
     const pageUrl = getAttr(log.attributes, "page.url") as string;
@@ -1570,7 +1583,7 @@ test.describe("@M1 Area 3 session lifecycle", () => {
 
     // trackEvent → onEmit → getSessionId() → detects inactivity → rotates
     await page.evaluate(() => {
-      const p = (window as unknown as Record<string, unknown>)["PulseWeb"] as {
+      const p = (window as unknown as Record<string, unknown>)["Pulse"] as {
         trackEvent: (n: string) => void;
       };
       p.trackEvent("after_inactivity");
@@ -1778,7 +1791,7 @@ test.describe("@M1 Area 3 session lifecycle", () => {
     });
 
     await page.evaluate(() => {
-      const p = (window as unknown as Record<string, unknown>)["PulseWeb"] as {
+      const p = (window as unknown as Record<string, unknown>)["Pulse"] as {
         trackEvent: (n: string) => void;
       };
       p.trackEvent("rotation_order_check");
@@ -1880,7 +1893,7 @@ test.describe("@M1 Area 3 session lifecycle", () => {
     page,
     otlp,
   }) => {
-    // ?pulse_consent=denied → App.tsx passes PulseDataCollectionConsent.DENIED to PulseWeb.start()
+    // ?pulse_consent=denied → App.tsx passes PulseDataCollectionConsent.DENIED to Pulse.init()
     // The SDK returns early without installing any instrumentations, so no signals fire.
     await page.goto("/?pulse_consent=denied");
     await page.waitForTimeout(800);
@@ -2077,9 +2090,9 @@ test.describe("@M1 remote config + export gate (seeded localStorage)", () => {
     expect(otlp.captured.length).toBe(0);
     const inited = await page.evaluate(() => {
       const w = window as unknown as {
-        PulseWeb?: { isInitialized: () => boolean };
+        Pulse?: { isInitialized: () => boolean };
       };
-      return w.PulseWeb?.isInitialized?.() ?? false;
+      return w.Pulse?.isInitialized?.() ?? false;
     });
     expect(inited).toBe(false);
   });
@@ -2198,7 +2211,7 @@ test.describe("@M1 remote config + export gate (seeded localStorage)", () => {
     await otlp.waitForLog("session.start");
     otlp.reset();
     await page.evaluate(() => {
-      const p = (window as unknown as Record<string, unknown>)["PulseWeb"] as {
+      const p = (window as unknown as Record<string, unknown>)["Pulse"] as {
         trackEvent: (name: string) => void;
       };
       p.trackEvent("e2e_whitelist_probe");
@@ -2435,7 +2448,7 @@ test.describe("@M1 remote config + export gate (seeded localStorage)", () => {
     await otlp.waitForLog("session.start");
     otlp.reset();
     await page.evaluate(() => {
-      const p = (window as unknown as Record<string, unknown>)["PulseWeb"] as {
+      const p = (window as unknown as Record<string, unknown>)["Pulse"] as {
         trackEvent: (name: string) => void;
       };
       p.trackEvent("e2e_blk_one");
@@ -2514,9 +2527,9 @@ test.describe("@M1 remote config + export gate (seeded localStorage)", () => {
         async () =>
           (await page.evaluate(() => {
             const w = window as unknown as {
-              PulseWeb?: { isInitialized: () => boolean };
+              Pulse?: { isInitialized: () => boolean };
             };
-            return w.PulseWeb?.isInitialized?.() ?? false;
+            return w.Pulse?.isInitialized?.() ?? false;
           }))
             ? true
             : false,
@@ -2562,7 +2575,7 @@ test.describe("@M1 remote config + export gate (seeded localStorage)", () => {
     await otlp.waitForLog("session.start");
     otlp.reset();
     await page.evaluate(() => {
-      const p = (window as unknown as Record<string, unknown>)["PulseWeb"] as {
+      const p = (window as unknown as Record<string, unknown>)["Pulse"] as {
         trackEvent: (name: string) => void;
       };
       p.trackEvent("e2e_sample_blocked");
@@ -2618,7 +2631,7 @@ test.describe("@M1 remote config + export gate (seeded localStorage)", () => {
 
     otlp.reset();
     await page.evaluate(() => {
-      const p = (window as unknown as Record<string, unknown>)["PulseWeb"] as {
+      const p = (window as unknown as Record<string, unknown>)["Pulse"] as {
         trackEvent: (name: string) => void;
       };
       p.trackEvent("e2e_feature_combo_ok");
@@ -2642,7 +2655,7 @@ test.describe("@M1 error boundary crash capture", () => {
     otlp,
   }) => {
     await page.goto("/error-demo");
-    await waitForPulseWebInitialized(page);
+    await waitForPulseInitialized(page);
     otlp.reset();
 
     // Click the "Throw in render" button — triggers RenderBomb inside PulseErrorBoundary

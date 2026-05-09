@@ -168,11 +168,10 @@ export function createProviders(
     batchOptions,
   );
 
-  const tracerProvider = new WebTracerProvider({ resource });
-  for (const processor of spanProcessors) {
-    tracerProvider.addSpanProcessor(processor);
-  }
-  tracerProvider.addSpanProcessor(batchSpanProcessor);
+  const tracerProvider = new WebTracerProvider({
+    resource,
+    spanProcessors: [...spanProcessors, batchSpanProcessor],
+  });
 
   const baseLogExporter = new PulseBrowserLogExporter(
     { url: logsUrl, headers },
@@ -211,11 +210,10 @@ export function createProviders(
     batchOptions,
   );
 
-  const loggerProvider = new LoggerProvider({ resource });
-  for (const processor of logProcessors) {
-    loggerProvider.addLogRecordProcessor(processor);
-  }
-  loggerProvider.addLogRecordProcessor(batchLogProcessor);
+  const loggerProvider = new LoggerProvider({
+    resource,
+    processors: [...logProcessors, batchLogProcessor],
+  });
 
   const rawMetricExporter = createPulseBrowserMetricExporter(
     { url: metricsUrl, headers },
@@ -265,8 +263,11 @@ export function createProviders(
   }
 
   const prepareForDocumentUnload = (): void => {
-    innerTraceExporter.switchToKeepalive();
-    baseLogExporter.switchToKeepalive();
+    // Switch to beacon-first unload transport:
+    // - sendBeacon for small payloads (browser-guaranteed delivery even after page close)
+    // - keepalive fetch fallback for payloads > 64 KiB
+    innerTraceExporter.switchToBeacon(config.apiKey, config.beaconRelayUrl);
+    baseLogExporter.switchToBeacon(config.apiKey, config.beaconRelayUrl);
   };
 
   const cleanup = () => {};

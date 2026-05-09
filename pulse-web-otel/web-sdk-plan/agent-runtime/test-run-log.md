@@ -2,11 +2,58 @@
 
 Append E2E / gate results for Web SDK work (per `pulse-web-sdk-sanity`).
 
+## M1 identity E2E — unload flush vs storage clear — 2026-05-09
+
+| Date | Command | Browser | Result | Notes |
+|------|---------|---------|--------|-------|
+| 2026-05-09 | `yarn e2e --project=chromium --grep "new session.id on each fresh page load"` (cwd `examples/ecommerce-demo`) | Chromium | pass (1/1) | Fix: `page.addInitScript` clears `localStorage`/`sessionStorage` on next document so unload OTLP flush cannot re-persist `pulse_session_*` after test clear (otherwise `_sessionReused` → no `session.start`). |
+
+## Network review follow-up — 2026-05-06
+
+| Date | Command | Browser | Result | Notes |
+|------|---------|---------|--------|-------|
+| 2026-05-06 | `yarn vitest run` (cwd `pulse-web-otel`) | — | pass (433/433) | `requestHeaderGetter` plain-object/array; sensitive query redaction; `NetworkInstrumentation` idempotency; `network-instrumentation.test.ts`; XHR stub `DONE=4` on `m1` / `user-identity` mocks. |
+| 2026-05-06 | `yarn playwright test --config e2e/playwright.config.ts e2e/m4-network.spec.ts --project=chromium` (cwd `examples/ecommerce-demo`) | Chromium | pass (15/15) | Added Network Lab XHR timeout/abort; `page.route` 10s stall on `https://httpstat.us/**` + `pollLastNetworkZeroTransportErrorSpan` (empty `url.full` on XHR error). |
+| 2026-05-06 | `graphify update . --no-viz` (cwd `pulse-web-otel`) | — | pass | 763 nodes / 1018 edges / 113 communities; `graph-cache.md` refreshed. |
+| 2026-05-06 | `yarn e2e:web-sdk-gates` (cwd `examples/ecommerce-demo`) | Chromium | pass (166/166) | Full gate after M4 + Network Lab changes. |
+
+### 2026-05-06 — XHR E2E first attempt (symptom → cause → fix)
+
+**Symptom:** `pollProbeHttpSpan(otlp, "httpstat.us")` timed out after Network Lab XHR timeout/abort clicks.
+
+**Cause:** On timeout/abort, `xhr.responseURL` is often empty → `applyPulseHttpClientSpanAttributes` returns early with no `url.full` → substring probe never matched.
+
+**Fix:** Stall third-party URL via `page.route`; poll last span with `pulse.type=network.0` and `error.type=network_error`.
+
 ## DB seed / demo static parity — 2026-04-30
 
 | Date | Command | Browser | Result | Notes |
 |------|---------|---------|--------|-------|
+| 2026-05-05 | `yarn workspace ecommerce-demo playwright test --config e2e/playwright.config.ts e2e/m4-network.spec.ts --project=chromium` | Chromium | pass (13/13) | Added Network Lab UI E2E cases: click `network-lab-fetch-get-local` (`network.200`) and `network-lab-fetch-404` (`network.404` with route-fulfilled 404), plus existing M4 assertions. |
+| 2026-05-05 | `yarn workspace ecommerce-demo e2e:web-sdk-gates` | Chromium | fail (149/151) | Unrelated M1 identity fallback regressions: `m1.spec.ts` localStorage/sessionStorage fallback `session.start` timeout (same area pre-existing, not touched by Network Lab changes). |
+| 2026-05-05 | `yarn workspace ecommerce-demo playwright test --config e2e/playwright.config.ts e2e/m1.spec.ts --project=chromium -g "falls back"` | Chromium | fail (1/2) | Recheck of failing gate tests: `installation.id falls back to sessionStorage when localStorage throws` still times out waiting `session.start`; in-memory fallback passed. |
+| 2026-05-05 | `yarn workspace ecommerce-demo test && yarn workspace ecommerce-demo build` (cwd `pulse-web-otel`) | — | pass | Added `/network-lab` manual QA route with 15 API call variants (fetch/xhr, methods, 404/500-ish, abort/timeout/no-cors); updated demo QA map + refresh log; `graphify update . --no-viz`. |
+| 2026-05-05 | `yarn test:run src/__tests__/network-http.test.ts` + `yarn playwright test … e2e/m4-network.spec.ts --project=chromium` (cwd `examples/ecommerce-demo`) | Chromium | pass | M4 hardening: `pagehide` flush helper, OTLP span status, E3 cors / E4 abort / E5 AbortController, C1 `session.start` absent; **`getOtelHttpUrlFromSpan`** fixes empty `url.full` on failed fetch (OTel passes `RequestInit` only). Vitest `network-http` 24/24. `graphify update . --no-viz`. |
+| 2026-05-03 | Review polish: PLAN-C P2.4 doc fix, error-path Vitest, E1 `session.id`/`screen.name`, P1 `server.port` finite; PLAN-B deferrals + E2E table | — | pass | Vitest 382; M4 8/8. |
+| 2026-05-03 | PLAN-C OTel alignment (`sanitize` credentials, `server.port` 80/443, `network.protocol.version`) | — | pass | Vitest 378; M4 8/8; `yarn lint`. |
+| 2026-05-03 | `pulse.type` parity (`AMENDMENT-pulse-type-parity.md`): `networkPulseType`, `findAllNetworkSpans`; removed `PulseType.HTTP` | — | — | Vitest 373 pass; M4 Playwright 8/8; `graphify update . --no-viz`. |
+| 2026-05-02 | `yarn test:run` (cwd `pulse-web-otel`) | — | pass | Network `network-http.test.ts` + full Vitest suite (v3-network instrumentation close-out). |
+| 2026-05-02 | `yarn playwright test … e2e/m4-network.spec.ts` (cwd `examples/ecommerce-demo`) | Chromium | pass (2/2) | Assert on probe `url.full` — excludes config-fetch `http` spans (404). |
+| 2026-05-02 | `yarn workspace ecommerce-demo e2e:web-sdk-gates` | Chromium | pass (142/142) | M4 expanded (P3/P5/E1/E2/C1 + G1); replaces prior 136-row gate run. |
+| 2026-05-02 | `yarn playwright test … e2e/m4-network.spec.ts` (8 cases, cwd `examples/ecommerce-demo`) | Chromium | pass (8/8) | P3 XHR, P5 OTLP-ignore, E1 4xx/5xx, E2 `pulse_network_enabled=0`, C1 consent; `App.tsx` query for local network off. |
 | 2026-04-30 | `yarn test:run src/__tests__/interactions-config-fetcher.test.ts` | — | pass (7/7) | After aligning MySQL seeds + `interaction-config.json` with mock; no E2E rerun (seed/static JSON only). |
+| 2026-05-02 | `yarn test:run` (cwd `pulse-web-otel`) | — | pass (342/342) | Full Vitest suite (web-sdk-guardian / all unit+integration tests). |
+| 2026-05-02 | `yarn workspace ecommerce-demo e2e:web-sdk-gates` | Chromium | pass (130/130) | m1 + m2-interactions + web-vitals. |
+| 2026-04-30 | `yarn test:run` (cwd `pulse-web-otel`) | — | pass (357/357) | After merge `chore/web-vital-instrumentation` → `feat/web-sdk-clicks`; registry resolves clicks + web vitals. |
+| 2026-04-30 | `yarn workspace ecommerce-demo e2e:web-sdk-gates` | Chromium | pass (132/132) | m1 + m2-interactions + web-vitals + m3-clicks (combined gate script). |
+| 2026-04-30 | `yarn test:run` (cwd `pulse-web-otel`) | — | pass (360/360) | v2-clicks: `ClickEventBuffer` + wired `clicks.ts`, `click-rage-buffer.test.ts`, m8 pagehide budget (no extra `pagehide` on clicks). |
+| 2026-04-30 | `yarn workspace ecommerce-demo e2e:web-sdk-gates` | Chromium | pass (134/134) | After v2-clicks buffer + m3 rage + click gate-off (m1+m2+m3+web-vitals). |
+| 2026-04-30 | `yarn workspace ecommerce-demo e2e:web-sdk-gates` | Chromium | pass (134/134) | M3 D2 close-out: tests 1–2 assert `session.id`, `screen.name`, finite numeric coords (skill assertion floor). |
+| 2026-04-30 | `yarn playwright test … e2e/m3-clicks.spec.ts` (cwd `examples/ecommerce-demo`) | Chromium | pass (4/4) | M3: rage path asserts body + `click.type` good + widget + finite coords; good-click uses `otlp.reset()` after `session.start`. |
+| 2026-04-30 | `yarn workspace ecommerce-demo run e2e:web-sdk-gates` (cwd `pulse-web-otel`) | Chromium | pass (134/134) | Same M3 changes — full gate. |
+| 2026-05-04 | `yarn test:run` (cwd `pulse-web-otel`) | — | pass (341/341) | TTFB + always-on FCP/FID; Vitest web-vitals mock includes `onTTFB`. |
+| 2026-05-04 | `yarn workspace ecommerce-demo e2e:web-sdk-gates` | Chromium | pass (134/134) | Web vitals: TTFB, FCP, LCP, INP, FID, CLS + gate-off. |
+| 2026-05-04 | `yarn test:run` + `yarn workspace ecommerce-demo e2e:web-sdk-gates` (cwd `pulse-web-otel`) | Chromium (E2E) | pass (341/341, 134/134) | Added `examples/web-sdk-docs` vanilla demo; no SDK `src/` changes. |
 
 ## Web Vitals (v2) — reserved
 
@@ -14,7 +61,37 @@ Append E2E / gate results for Web SDK work (per `pulse-web-sdk-sanity`).
 |------|---------|---------|--------|-------|
 | 2026-04-30 | `yarn workspace ecommerce-demo e2e:web-sdk-gates` | Chromium | pass | See **Playwright OTLP decode + screen.name** below. |
 | 2026-05-02 | `yarn workspace ecommerce-demo e2e:web-sdk-gates` | Chromium | pass (130/130) | 3 WebVitals specs added: LCP full contract, INP tab-hide, gate-disabled. See **INP headless spin-loop** below. |
+| 2026-05-04 | `yarn workspace ecommerce-demo e2e:web-sdk-gates` | Chromium | pass (134/134) | Added TTFB, FCP, FID (Chromium), CLS (layout shift + visibility); D2b unchanged. |
 | 2026-05-02 | `yarn playwright test --config e2e/playwright.config.ts e2e/web-vitals.spec.ts --project=chromium` (cwd `examples/ecommerce-demo`) | Chromium | pass (3/3) | Lifecycle P1 close-out: INP asserts `web_vital.value` (finite), `session.id`, `screen.name` (parity with LCP test). |
+
+## Error instrumentation rerun (v1-errors) — 2026-05-05
+
+| Date | Command | Browser | Result | Notes |
+|------|---------|---------|--------|-------|
+| 2026-05-05 | `yarn test:run src/__tests__/m3.test.ts` | — | pass (20/20) | Targeted unit pass after dependency bootstrap in `pulse-web-otel/`. |
+| 2026-05-05 | `yarn workspace ecommerce-demo e2e -- e2e/m3-errors.spec.ts --project=chromium` | chromium/firefox/webkit | fail (27 pass, 3 fail) | Failed only on render-boundary assertion expecting fallback text not present in demo app boundary configuration. |
+| 2026-05-05 | `yarn workspace ecommerce-demo e2e -- e2e/m3-errors.spec.ts --project=chromium` | chromium/firefox/webkit | pass (30/30) | Fixed assertion to validate `react.component_stack` on `device.crash` instead of non-existent fallback text. |
+| 2026-05-05 | `yarn workspace ecommerce-demo e2e:web-sdk-gates` | Chromium | pass (137/137) | Gates now include `e2e/m3-errors.spec.ts`; m1 + m2 + m3 all green. |
+| 2026-05-05 | `yarn workspace ecommerce-demo e2e -- e2e/m3-errors.spec.ts --project=chromium` (cwd `pulse-web-otel`) | chromium/firefox/webkit | fail (36 pass, 3 fail) | New coexistence test expected exact listener message; browser prefixes (`Error:`/`Uncaught Error:`) broke strict equality. |
+| 2026-05-05 | `yarn playwright test --config e2e/playwright.config.ts e2e/m3-errors.spec.ts --project=chromium` (cwd `examples/ecommerce-demo`) | Chromium | pass (13/13) | Updated coexistence assertion to substring match; expanded suite includes dedupe-different-fingerprint and timestamp checks. |
+| 2026-05-05 | `yarn workspace ecommerce-demo e2e:web-sdk-gates` | Chromium | pass (140/140) | Revalidated full gates after expanding M3 errors scenarios and coexistence assertion fix. |
+| 2026-05-05 | `yarn workspace ecommerce-demo e2e -- e2e/m3-errors.spec.ts` | chromium/firefox/webkit | pass (39/39) | Final tri-browser validation after coexistence assertion fix. |
+
+### 2026-05-05 — render-boundary E2E mismatch (symptom -> cause -> fix)
+
+**Symptom:** `m3-errors.spec.ts` timed out waiting for `getByText("Render error caught by PulseErrorBoundary")` in all three browser engines.
+
+**Cause:** Demo app does not render that fallback text. `PulseErrorBoundary` fallback is not configured with this string in ecommerce demo route tree; behavior is crash log emission rather than textual fallback UI.
+
+**Fix:** Updated test assertion to check `react.component_stack` on emitted `device.crash` log, which is the actual product contract for render-boundary crash capture.
+
+### 2026-05-05 — error listener coexistence string variance (symptom -> cause -> fix)
+
+**Symptom:** New coexistence test (`existing window error listener still receives events`) failed in Chromium/Firefox/WebKit even though crash exports were present.
+
+**Cause:** Browser `error` event message formatting differs by engine (`Error: ...` vs `Uncaught Error: ...`), so strict `toContain(exactMessage)` on the array did not hold.
+
+**Fix:** Changed assertion to substring match (`some(message => message.includes("Demo uncaught error from ErrorDemo"))`) while still verifying shared listener execution across engines.
 
 ### 2026-04-30 — Playwright OTLP decode + screen.name (try this first on similar failures)
 
@@ -61,3 +138,60 @@ Also removed duplicate `VITE_PULSE_BATCH_DELAY_MS` line in `.env.test`.
 2. If CORS/preflight on config is suspected, compare with `attachDefaultSdkConfigStub` (OPTIONS + GET) vs tests that add later `page.route` handlers.
 3. If `screen.name` assertions fail after URL changes, read **`resolveScreenName`** in `pulse-web-otel/src/processors/global-attrs-processor.ts` — expect **`:id`** placeholders, not collapsed parent paths like `/products`.
 4. Run `yarn workspace ecommerce-demo e2e:web-sdk-gates` (Chromium) after `.env.test` or fixture changes.
+
+### 2026-05-07 — PR review fixes (P0 lint gate + P1 registry + P1 alpha rename)
+
+**Branch:** `chore/lottery-demo-app-init-simplification`. **Goal:** restore merge-ready state after PR review identified `yarn lint` failure on this branch and two registry/API hardening items.
+
+**Symptom A (P0 typecheck):** `yarn lint` failed across three files:
+
+```
+src/exporters/otlp-transport.ts(266,30): TS2322 — Uint8Array<ArrayBufferLike> not assignable to BlobPart
+src/__tests__/with-pulse-config.test.ts (×11) — DEFAULT_OPTS missing required dryRun
+src/__tests__/with-pulse-config.test.ts (×2) — Conversion of 'null' to 'FakeFormData' may be a mistake
+src/__tests__/network-instrumentation.test.ts(52) — invalid cast to SessionProvider
+```
+
+**Cause:** TS 5.7+ DOM lib types `Uint8Array` as `Uint8Array<ArrayBufferLike>`; `Blob` `BlobPart` and `FormData`-style helpers want `Uint8Array<ArrayBuffer>`. `SourceMapUploadOptions` made `dryRun` required but `DEFAULT_OPTS` test fixture was not updated. `let capturedForm: FakeFormData | null` cannot be narrowed by `expect(...).not.toBeNull()` — TS does not narrow `let` reassigned inside a closure.
+
+**Fix:**
+- `src/exporters/otlp-transport.ts` — explicit `data as BlobPart` on the `sendBeacon` Blob construction (no runtime change; sendBeacon copies the buffer synchronously).
+- `src/__tests__/with-pulse-config.test.ts` — added `dryRun: false` to `DEFAULT_OPTS`; replaced two `(capturedForm as FakeFormData)` casts with `(capturedForm as unknown as FakeFormData)`.
+- `src/__tests__/network-instrumentation.test.ts` — `as SdkContext["sessionProvider"]` → `as unknown as SdkContext["sessionProvider"]` (network instrumentation only uses the structural `SessionProvider` shape; tests should not rebuild every private field).
+
+**Symptom B (P1 registry):** PR review flagged `InstrumentationRegistry.installAll()` flips `installAllCompleted = true` *before* installs run, so a sync throw in any single instrumentation strands the registry — subsequent `installAll()` calls no-op until `uninstallAll()` runs, silently skipping all five instrumentations.
+
+**Cause:** Defensive assignment intended to prevent re-entrancy was stronger than needed — there is no re-entrant path (installs are sync), and the early flip turns transient throws into permanent registry-stuck states.
+
+**Fix:** `src/instrumentation-registry.ts`
+- `registerAndInstall()` now wraps `instrumentation.install(this.sdk)` in try/catch, logs failures via `diag.error`, and returns `false` on throw — one failed install no longer cascades.
+- `installAll()` flips `installAllCompleted = true` only after the full sweep, preserving single-owner semantics (second call no-ops) without silent skipping. `uninstallAll()` still resets the flag for explicit retries.
+- `errors` install path moved into `registerAndInstall` (was inline `try`-less `errInstr.install(this.sdk)` followed by `installed.push`).
+
+**Regression test:** `src/__tests__/web-vitals-instrumentation.test.ts` — new case proves: a `registerAndInstall` of a throwing stub returns `false`; subsequent `installAll()` still installs Web Vitals (`onLCP` called once); a second `installAll()` no-ops (`onLCP` count stays 1).
+
+**Symptom C (P1 alpha rename):** PR review asked for a compatibility shim around the `4cbec8e4c` rename (`PulseWeb` → `Pulse`, `Pulse.start` → `Pulse.init`, `PulseNavigationEvents` → `PulseRouterEvents`).
+
+**Decision:** No shim — package is `@dreamhorizonorg/pulse-web@0.1.0-alpha.1`, no published non-alpha release, all consumers in-monorepo and migrated in the same commit. SemVer permits breaking changes in `0.x` and especially in alpha. A shim would persist deprecated surface plus per-call warnings forever for zero known external upgraders.
+
+**Fix:**
+- `pulse-web-otel/CHANGELOG.md` — new file with a `0.1.0-alpha.2 (unreleased)` section tabulating old → new names, `git grep` migration command, and a paragraph explaining why no compat shim.
+- `pulse-web-otel/README.md` — stale `Pulse.start` reference updated to `Pulse.init`.
+
+**Result:**
+
+```
+yarn lint                                         PASS (TS 5.9.3, 0 errors)
+yarn test:run                                     46 files / 643 tests / PASS
+```
+
+E2E (`yarn workspace ecommerce-demo e2e:web-sdk-gates`) **deferred** to CI / a follow-up — registry change is additive try/catch with no behavioral effect on the happy path exercised by the gates; otlp-transport change is a TS-only cast. Will re-verify if CI surfaces a regression.
+
+**Self-heal check (Principle 8):** All three findings are durable lessons. Added [reference.md](../../../.claude/skills/web-sdk-instrumentation-lifecycle/reference.md) candidates inline in the next commit message of this PR, not in a separate refactor — see PR body.
+
+**Checklist for next time:**
+
+1. When a TS lib bump (5.7+) lands, expect `Uint8Array<ArrayBufferLike>` mismatches at every `new Blob([uint8])` / `BodyInit` site — grep for `new Blob\(\[` in transports and exporters, and either cast to `BlobPart` or `.slice()` and copy.
+2. Required-field changes in shared option types (`SourceMapUploadOptions.dryRun`) need a follow-up grep across `__tests__/**` for `DEFAULT_OPTS`-style fixtures *in the same commit* — Checkstyle/lint won't catch the omission until tests are typechecked.
+3. Test-only `let` capture-via-closure patterns (`let captured: T | null = null`) need `as unknown as T` after a non-null assertion — TS does not narrow `let` written inside a callback.
+4. Single-owner gates must flip *after* the protected work, not before — early flips turn transient errors into permanent skips. Per-instrumentation try/catch + late flag flip is the standard pattern.

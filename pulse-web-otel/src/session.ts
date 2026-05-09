@@ -8,6 +8,7 @@ import type {
   SessionStartReason,
 } from "./types/session";
 import { PulseWebLogger } from "./pulse-web-logger";
+import { DomEventType } from "./constants/pulse-otel-runtime";
 
 /** Storage access can throw (disabled, quota, sandbox). Never break the host app. */
 function swallowStorageError(scope: string, err: unknown): void {
@@ -27,16 +28,13 @@ const INSTALL_KEY = "pulse_installation_id";
 const SESSION_ID_KEY = "pulse_session_id";
 const SESSION_TS_KEY = "pulse_session_ts";
 const SESSION_START_KEY = "pulse_session_start";
+const USER_ID_KEY = "pulse_user_id";
+const USER_PROPS_KEY = "pulse_user_properties";
 
 // Clone detection key (PostHog beforeunload flag pattern)
 // Written to sessionStorage on init; removed on beforeunload so reload sees it gone.
 // If flag is present on init → tab was cloned (duplicated tab) → session reused.
 const SESSION_CLONE_FLAG_KEY = "pulse_session_clone_flag";
-
-/** Android parity: persisted logged-in user id (localStorage). */
-const USER_ID_KEY = "pulse_user_id";
-/** Android parity: JSON map of user properties → `pulse.user.*` attributes. */
-const USER_PROPS_KEY = "pulse_user_properties";
 
 // Tab session key — written to sessionStorage on init and NOT removed on beforeunload.
 // Survives page reload (sessionStorage persists across reload in the same tab).
@@ -139,6 +137,34 @@ export function persistUserProperties(props: Record<string, string>): void {
     }
   } catch (err: unknown) {
     swallowStorageError("userProps:localStorage", err);
+  }
+}
+
+/**
+ * Merge-patch persisted user properties.
+ * Null values remove the corresponding key; all other values are written.
+ */
+export function setPersistedUserProperties(
+  props: Record<string, string | null>,
+): void {
+  const current = getPersistedUserProperties();
+  for (const [k, v] of Object.entries(props)) {
+    if (v === null) {
+      delete current[k];
+    } else {
+      current[k] = v;
+    }
+  }
+  persistUserProperties(current);
+}
+
+/** Clear all persisted user identity (userId + properties). Call on logout. */
+export function clearPersistedUserIdentity(): void {
+  try {
+    localStorage.removeItem(USER_ID_KEY);
+    localStorage.removeItem(USER_PROPS_KEY);
+  } catch (err: unknown) {
+    swallowStorageError("clearUserIdentity", err);
   }
 }
 
@@ -285,11 +311,21 @@ export class SessionProvider {
         const lifetimeOk = age <= this.maxSessionLifetimeMs;
 
         if (inactivityOk && lifetimeOk) {
-          // Reuse session only when: clone (duplicated tab) OR same-tab reload.
-          // A brand-new tab has neither flag → session.start must fire.
-          if (hasCloneFlag || hasTabSession) {
-            this._sessionReused = true;
-          }
+          // Reuse any unexpired session from localStorage, regardless of how this
+          // page load arrived (same-tab reload, new tab, or cross-origin redirect).
+          //
+          // Previously this was gated on `hasCloneFlag || hasTabSession` (sessionStorage
+          // flags), which correctly distinguished reloads from new tabs but broke payment
+          // flows: a payment gateway redirect clears sessionStorage, so returning users
+          // would get a duplicate session.start for the same session ID.
+          //
+          // Standard web analytics behaviour (PostHog, Sentry, Mixpanel) is: any page
+          // load within the inactivity window continues the existing session regardless
+          // of how the navigation arrived.  The sessionStorage flags are still written so
+          // clone detection works for other purposes.
+          this._sessionReused = true;
+          void hasCloneFlag; // read above, still useful for future clone-specific logic
+          void hasTabSession;
         }
         // If session expired (by inactivity or lifetime), rotation happens lazily in getSessionId()
       }
@@ -306,7 +342,10 @@ export class SessionProvider {
       this.beforeunloadListener = () => {
         this._removeCloneFlag();
       };
-      window.addEventListener("beforeunload", this.beforeunloadListener);
+      window.addEventListener(
+        DomEventType.BEFORE_UNLOAD,
+        this.beforeunloadListener,
+      );
 
       // Set up pagehide listener
       this.pagehideListener = (e: PageTransitionEvent) => {
@@ -365,10 +404,10 @@ export class SessionProvider {
         }
       };
 
-      window.addEventListener("pagehide", this.pagehideListener);
-      window.addEventListener("pageshow", this.pageshowListener);
+      window.addEventListener(DomEventType.PAGEHIDE, this.pagehideListener);
+      window.addEventListener(DomEventType.PAGESHOW, this.pageshowListener);
       document.addEventListener(
-        "visibilitychange",
+        DomEventType.VISIBILITY_CHANGE,
         this.visibilityChangeListener,
       );
     }
@@ -705,17 +744,26 @@ export class SessionProvider {
 
     if (typeof window !== "undefined") {
       if (this.pagehideListener) {
-        window.removeEventListener("pagehide", this.pagehideListener);
+        window.removeEventListener(
+          DomEventType.PAGEHIDE,
+          this.pagehideListener,
+        );
       }
       if (this.pageshowListener) {
-        window.removeEventListener("pageshow", this.pageshowListener);
+        window.removeEventListener(
+          DomEventType.PAGESHOW,
+          this.pageshowListener,
+        );
       }
       if (this.beforeunloadListener) {
-        window.removeEventListener("beforeunload", this.beforeunloadListener);
+        window.removeEventListener(
+          DomEventType.BEFORE_UNLOAD,
+          this.beforeunloadListener,
+        );
       }
       if (this.visibilityChangeListener) {
         document.removeEventListener(
-          "visibilitychange",
+          DomEventType.VISIBILITY_CHANGE,
           this.visibilityChangeListener,
         );
       }

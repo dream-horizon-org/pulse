@@ -1,5 +1,5 @@
 ---
-description: Coding conventions, architecture, and testing workflow for pulse-web-otel (@dreamhorizon/pulse-web).
+description: Coding conventions, architecture, and testing workflow for pulse-web-otel (@dreamhorizonorg/pulse-web).
 globs: pulse-web-otel/**/*.{ts,tsx}
 alwaysApply: false
 ---
@@ -29,7 +29,7 @@ Run: `yarn test:run` (CI-style), `yarn test` (watch), `yarn build`, `yarn demo` 
 
 | Path | Purpose |
 |------|---------|
-| `src/sdk.ts` | `PulseWeb` singleton / lifecycle — keep orchestration here; delegate to features |
+| `src/sdk.ts` | **`Pulse`** singleton (`export { Pulse }`) / lifecycle — keep orchestration here; delegate to features |
 | `src/config.ts`, `src/types/` | Config and shared types — **runtime types** near `types/`; interaction DTOs in `types/interactions/` |
 | `src/interactions/` | Interaction config fetch, coordinator, tracker, matcher, span builder, models |
 | `src/utils/` | Pure helpers (e.g. `utils/interactions/*`, `resource-helpers`, `compression`) |

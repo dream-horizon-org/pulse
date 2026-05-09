@@ -4,6 +4,22 @@
 // restart balance, SSR guard, post-shutdown no-op.
 
 // ─── OTel mocks ──────────────────────────────────────────────────────────────
+// Avoid shimmer unwrap stderr when tests stub `XMLHttpRequest` — lifecycle tests
+// do not assert network span patching.
+vi.mock("@opentelemetry/instrumentation-fetch", () => ({
+  FetchInstrumentation: class {
+    setTracerProvider(): void {}
+    enable(): void {}
+    disable(): void {}
+  },
+}));
+vi.mock("@opentelemetry/instrumentation-xml-http-request", () => ({
+  XMLHttpRequestInstrumentation: class {
+    setTracerProvider(): void {}
+    enable(): void {}
+    disable(): void {}
+  },
+}));
 
 vi.mock("@opentelemetry/api-logs", () => ({
   logs: {
@@ -99,14 +115,17 @@ beforeEach(() => {
     withCredentials: false,
     upload: { addEventListener: vi.fn() },
   };
-  vi.stubGlobal("XMLHttpRequest", vi.fn(() => mockXHR));
+  vi.stubGlobal(
+    "XMLHttpRequest",
+    vi.fn(() => mockXHR),
+  );
   window.localStorage.clear();
   window.sessionStorage.clear();
 });
 
 afterEach(async () => {
-  const { PulseWeb } = await import("../sdk");
-  if (PulseWeb.isInitialized()) await PulseWeb.shutdown();
+  const { Pulse } = await import("../sdk");
+  if (Pulse.isInitialized()) await Pulse.shutdown();
   vi.unstubAllGlobals();
 });
 
@@ -118,14 +137,19 @@ describe("TC 8.1 — pagehide registered once on start()", () => {
     const origAdd = window.addEventListener.bind(window);
     const addSpy = vi
       .spyOn(window, "addEventListener")
-      .mockImplementation((ev: string, ...rest) => {
-        adds.push(ev);
-        // @ts-expect-error spread
-        origAdd(ev, ...rest);
-      });
+      .mockImplementation(
+        (
+          type: string,
+          listener: EventListenerOrEventListenerObject,
+          options?: boolean | AddEventListenerOptions,
+        ) => {
+          adds.push(type);
+          origAdd(type, listener, options);
+        },
+      );
 
-    const { PulseWeb } = await import("../sdk");
-    PulseWeb.start(makeConfig());
+    const { Pulse } = await import("../sdk");
+    Pulse.init(makeConfig());
     await Promise.resolve();
 
     const pagehideCount = adds.filter((e) => e === "pagehide").length;
@@ -142,10 +166,10 @@ describe("TC 8.1 — pagehide registered once on start()", () => {
 
 describe("TC 8.3 — BFCache (persisted=true) does not trigger forceFlush", () => {
   it("dispatching pagehide with persisted=true does NOT call loggerProvider.forceFlush", async () => {
-    const { PulseWeb } = await import("../sdk");
-    PulseWeb.start(makeConfig());
+    const { Pulse } = await import("../sdk");
+    Pulse.init(makeConfig());
     await Promise.resolve();
-    expect(PulseWeb.isInitialized()).toBe(true);
+    expect(Pulse.isInitialized()).toBe(true);
 
     mockForceFlushLog.mockClear();
     mockForceFlushTrace.mockClear();
@@ -168,8 +192,8 @@ describe("TC 8.3 — BFCache (persisted=true) does not trigger forceFlush", () =
 
 describe("TC 8.4 — shutdown() removes pagehide listener", () => {
   it("window.removeEventListener called for pagehide after shutdown()", async () => {
-    const { PulseWeb } = await import("../sdk");
-    PulseWeb.start(makeConfig());
+    const { Pulse } = await import("../sdk");
+    Pulse.init(makeConfig());
     await Promise.resolve();
 
     const removes: string[] = [];
@@ -179,7 +203,7 @@ describe("TC 8.4 — shutdown() removes pagehide listener", () => {
         removes.push(ev);
       });
 
-    await PulseWeb.shutdown();
+    await Pulse.shutdown();
 
     expect(removes).toContain("pagehide");
     removeSpy.mockRestore();
@@ -198,25 +222,37 @@ describe("TC 8.5 — restart cycle keeps add/remove balanced for pagehide", () =
 
     const addSpy = vi
       .spyOn(window, "addEventListener")
-      .mockImplementation((ev: string, fn: EventListenerOrEventListenerObject, opts?: boolean | AddEventListenerOptions) => {
-        if (ev === "pagehide") sdkAdds.pagehide++;
-        origAdd(ev, fn, opts as AddEventListenerOptions);
-      });
+      .mockImplementation(
+        (
+          ev: string,
+          fn: EventListenerOrEventListenerObject,
+          opts?: boolean | AddEventListenerOptions,
+        ) => {
+          if (ev === "pagehide") sdkAdds.pagehide++;
+          origAdd(ev, fn, opts as AddEventListenerOptions);
+        },
+      );
     const removeSpy = vi
       .spyOn(window, "removeEventListener")
-      .mockImplementation((ev: string, fn: EventListenerOrEventListenerObject, opts?: boolean | EventListenerOptions) => {
-        if (ev === "pagehide") sdkRemoves.pagehide++;
-        origRemove(ev, fn, opts as EventListenerOptions);
-      });
+      .mockImplementation(
+        (
+          ev: string,
+          fn: EventListenerOrEventListenerObject,
+          opts?: boolean | EventListenerOptions,
+        ) => {
+          if (ev === "pagehide") sdkRemoves.pagehide++;
+          origRemove(ev, fn, opts as EventListenerOptions);
+        },
+      );
 
-    const { PulseWeb } = await import("../sdk");
+    const { Pulse } = await import("../sdk");
     const config = makeConfig();
 
     for (let i = 0; i < 3; i++) {
-      PulseWeb.start(config);
+      Pulse.init(config);
       await Promise.resolve();
-      expect(PulseWeb.isInitialized()).toBe(true);
-      await PulseWeb.shutdown();
+      expect(Pulse.isInitialized()).toBe(true);
+      await Pulse.shutdown();
     }
 
     // Every add must have a matching remove — no accumulation across cycles
@@ -237,12 +273,11 @@ describe("TC 8.6 — SSR guard: no pagehide listener when window is undefined", 
     delete globalThis.window;
 
     try {
-      const { PulseWeb } = await import("../sdk");
+      const { Pulse } = await import("../sdk");
       // Should not throw even when window is undefined
-      expect(() => PulseWeb.start(makeConfig())).not.toThrow();
+      expect(() => Pulse.init(makeConfig())).not.toThrow();
       await Promise.resolve();
     } finally {
-      // @ts-expect-error restore
       globalThis.window = origWindow;
     }
   });
@@ -252,10 +287,10 @@ describe("TC 8.6 — SSR guard: no pagehide listener when window is undefined", 
 
 describe("TC 8.7 — pagehide (persisted=false) calls forceFlush on all providers", () => {
   it("all 3 provider forceFlush methods are called when persisted=false", async () => {
-    const { PulseWeb } = await import("../sdk");
-    PulseWeb.start(makeConfig());
+    const { Pulse } = await import("../sdk");
+    Pulse.init(makeConfig());
     await Promise.resolve();
-    expect(PulseWeb.isInitialized()).toBe(true);
+    expect(Pulse.isInitialized()).toBe(true);
 
     mockForceFlushLog.mockClear();
     mockForceFlushTrace.mockClear();
@@ -280,10 +315,10 @@ describe("TC 8.7 — pagehide (persisted=false) calls forceFlush on all provider
 
 describe("TC 8.9 — double start() does not double-register pagehide", () => {
   it("second start() while initialized is a no-op — pagehide count stays at initial value", async () => {
-    const { PulseWeb } = await import("../sdk");
-    PulseWeb.start(makeConfig());
+    const { Pulse } = await import("../sdk");
+    Pulse.init(makeConfig());
     await Promise.resolve();
-    expect(PulseWeb.isInitialized()).toBe(true);
+    expect(Pulse.isInitialized()).toBe(true);
 
     const addsAfterInit: string[] = [];
     const addSpy = vi
@@ -293,7 +328,7 @@ describe("TC 8.9 — double start() does not double-register pagehide", () => {
       });
 
     // Second start() — SDK is already initialized, must be a no-op
-    PulseWeb.start(makeConfig());
+    Pulse.init(makeConfig());
     await Promise.resolve();
 
     expect(addsAfterInit.filter((e) => e === "pagehide").length).toBe(0);
@@ -305,10 +340,10 @@ describe("TC 8.9 — double start() does not double-register pagehide", () => {
 
 describe("TC 8.10 — pagehide after shutdown() is a no-op", () => {
   it("dispatching pagehide after shutdown does NOT call forceFlush", async () => {
-    const { PulseWeb } = await import("../sdk");
-    PulseWeb.start(makeConfig());
+    const { Pulse } = await import("../sdk");
+    Pulse.init(makeConfig());
     await Promise.resolve();
-    await PulseWeb.shutdown();
+    await Pulse.shutdown();
 
     mockForceFlushLog.mockClear();
     mockForceFlushTrace.mockClear();
