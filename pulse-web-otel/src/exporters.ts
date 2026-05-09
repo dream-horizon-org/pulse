@@ -168,11 +168,10 @@ export function createProviders(
     batchOptions,
   );
 
-  const tracerProvider = new WebTracerProvider({ resource });
-  for (const processor of spanProcessors) {
-    tracerProvider.addSpanProcessor(processor);
-  }
-  tracerProvider.addSpanProcessor(batchSpanProcessor);
+  const tracerProvider = new WebTracerProvider({
+    resource,
+    spanProcessors: [...spanProcessors, batchSpanProcessor],
+  });
 
   const baseLogExporter = new PulseBrowserLogExporter(
     { url: logsUrl, headers },
@@ -211,11 +210,10 @@ export function createProviders(
     batchOptions,
   );
 
-  const loggerProvider = new LoggerProvider({ resource });
-  for (const processor of logProcessors) {
-    loggerProvider.addLogRecordProcessor(processor);
-  }
-  loggerProvider.addLogRecordProcessor(batchLogProcessor);
+  const loggerProvider = new LoggerProvider({
+    resource,
+    processors: [...logProcessors, batchLogProcessor],
+  });
 
   const rawMetricExporter = createPulseBrowserMetricExporter(
     { url: metricsUrl, headers },

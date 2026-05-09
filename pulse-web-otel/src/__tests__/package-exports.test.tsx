@@ -8,6 +8,7 @@
 
 import { describe, it, expect, vi } from "vitest";
 import * as ReactExports from "../integrations/react/index";
+import * as ReactRouterExports from "../integrations/react/router";
 import packageJson from "../../package.json";
 
 vi.mock("next/navigation", () => ({
@@ -53,8 +54,12 @@ describe("@dreamhorizonorg/pulse-web/react — export shape", () => {
     expect(typeof ReactExports.usePulse).toBe("function");
   });
 
-  it("exports useRouterTracking as a function", () => {
-    expect(typeof ReactExports.useRouterTracking).toBe("function");
+  it("exports useRouterTracking from /react/router subpath", () => {
+    expect(typeof ReactRouterExports.useRouterTracking).toBe("function");
+  });
+
+  it("exports PulseRouterEvents from /react/router subpath", () => {
+    expect(typeof ReactRouterExports.PulseRouterEvents).toBe("function");
   });
 
   it("exports PulseErrorBoundary from /react entrypoint", () => {
@@ -63,7 +68,7 @@ describe("@dreamhorizonorg/pulse-web/react — export shape", () => {
     ).toBe("function");
   });
 
-  it("has no unexpected named exports beyond the 6 public symbols + types", () => {
+  it("has no unexpected named exports beyond the 3 public runtime symbols + types", () => {
     // Only runtime values (functions/classes) — type-only exports are erased
     const runtimeExports = Object.keys(ReactExports).filter(
       (k) => typeof (ReactExports as Record<string, unknown>)[k] === "function",
@@ -71,13 +76,7 @@ describe("@dreamhorizonorg/pulse-web/react — export shape", () => {
     // Internal test helper is also present — exclude it
     const publicExports = runtimeExports.filter((k) => !k.startsWith("_reset"));
     expect(publicExports.sort()).toEqual(
-      [
-        "PulseErrorBoundary",
-        "PulseProvider",
-        "PulseRouterEvents",
-        "usePulse",
-        "useRouterTracking",
-      ].sort(),
+      ["PulseErrorBoundary", "PulseProvider", "usePulse"].sort(),
     );
   });
 });
@@ -226,7 +225,9 @@ describe("useRouterTracking — Router context guard", () => {
   it("throws when called outside a Router context (react-router-dom invariant)", () => {
     const { renderHook } = require("@testing-library/react");
     // react-router-dom's useLocation throws when no Router is present
-    expect(() => renderHook(() => ReactExports.useRouterTracking())).toThrow();
+    expect(() =>
+      renderHook(() => ReactRouterExports.useRouterTracking()),
+    ).toThrow();
   });
 });
 

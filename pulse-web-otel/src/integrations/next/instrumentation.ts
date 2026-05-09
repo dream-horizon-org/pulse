@@ -20,6 +20,7 @@
  * your NodeSDK init to avoid double-exporting from edge workers.
  */
 
+import { SDK_VERSION } from "../../version";
 import { PulseWebSemconv } from "../../semconv";
 
 export interface PulseInstrumentationConfig {
@@ -72,7 +73,21 @@ function buildOtlpLogsBody(
             },
             {
               key: PulseWebSemconv.ResourceKey.PLATFORM,
-              value: { stringValue: "web" },
+              value: { stringValue: PulseWebSemconv.FixedValue.PLATFORM_WEB },
+            },
+            {
+              key: PulseWebSemconv.ResourceKey.TELEMETRY_SDK_NAME,
+              value: {
+                stringValue: PulseWebSemconv.FixedValue.TELEMETRY_SDK_NAME,
+              },
+            },
+            {
+              key: PulseWebSemconv.ResourceKey.RUM_SDK_NAME,
+              value: { stringValue: PulseWebSemconv.FixedValue.RUM_SDK_NAME },
+            },
+            {
+              key: PulseWebSemconv.ResourceKey.RUM_SDK_VERSION,
+              value: { stringValue: SDK_VERSION },
             },
           ],
         },
@@ -83,6 +98,7 @@ function buildOtlpLogsBody(
               {
                 timeUnixNano: String(Date.now() * 1_000_000),
                 severityText: "ERROR",
+                eventName: PulseWebSemconv.LogEventName.DEVICE_CRASH,
                 body: { stringValue: body },
                 attributes,
               },

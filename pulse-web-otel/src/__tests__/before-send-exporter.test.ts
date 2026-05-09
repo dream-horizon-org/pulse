@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { Resource } from "@opentelemetry/resources";
+import { emptyResource } from "@opentelemetry/resources";
 import type { ExportResult } from "@opentelemetry/core";
 import { ExportResultCode } from "@opentelemetry/core";
 import type { ReadableSpan, SpanExporter } from "@opentelemetry/sdk-trace-web";
@@ -130,11 +130,12 @@ describe("BeforeSendSpanExporter", () => {
 describe("BeforeSendLogRecordExporter", () => {
   it("filters logs with generic null", () => {
     const log = {
-      resource: Resource.empty(),
+      resource: emptyResource(),
     } as unknown as ReadableLogRecord;
     const delegate: LogRecordExporter = {
       export: vi.fn((_logs, cb) => cb({ code: ExportResultCode.SUCCESS })),
       shutdown: async () => {},
+      forceFlush: async () => {},
     };
     const exp = new BeforeSendLogRecordExporter(delegate, {
       beforeSend: () => null,
@@ -146,7 +147,7 @@ describe("BeforeSendLogRecordExporter", () => {
 
 describe("BeforeSendMetricExporter", () => {
   const emptyRm: ResourceMetrics = {
-    resource: Resource.empty(),
+    resource: emptyResource(),
     scopeMetrics: [],
   };
 
@@ -189,6 +190,6 @@ describe("resolveBeforeSend", () => {
 describe("isReadableSpan", () => {
   it("identifies mock span", () => {
     expect(isReadableSpan(mockSpan("n"))).toBe(true);
-    expect(isReadableSpan({ resource: Resource.empty() })).toBe(false);
+    expect(isReadableSpan({ resource: emptyResource() })).toBe(false);
   });
 });

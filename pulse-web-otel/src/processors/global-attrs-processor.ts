@@ -3,7 +3,7 @@
 
 import type { Span, Context, AttributeValue } from "@opentelemetry/api";
 import type { SpanProcessor, ReadableSpan } from "@opentelemetry/sdk-trace-web";
-import type { LogRecord, LogRecordProcessor } from "@opentelemetry/sdk-logs";
+import type { LogRecordProcessor, SdkLogRecord } from "@opentelemetry/sdk-logs";
 import type { SessionProvider } from "../session";
 import {
   getOrCreateInstallationId,
@@ -244,7 +244,7 @@ export class PulseGlobalAttributesProcessor
     // No-op: attributes set on start
   }
 
-  onEmit(logRecord: LogRecord): void {
+  onEmit(logRecord: SdkLogRecord): void {
     const attrs = this.getCommonAttrs();
     for (const [key, value] of Object.entries(attrs)) {
       // Do not overwrite session.id if the instrumentation already set it explicitly.

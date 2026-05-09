@@ -1,4 +1,4 @@
-import React, { lazy, Suspense, useEffect, useMemo } from "react";
+import React, { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import {
   BrowserRouter,
   Routes,
@@ -14,6 +14,7 @@ import {
 import { PulseProvider } from "@dreamhorizonorg/pulse-web/react";
 import { PulseRouterEvents } from "@dreamhorizonorg/pulse-web/react/router";
 import { PulseDebugPanel } from "./components/PulseDebugPanel";
+import { EcommerceErrorFallback } from "./components/EcommerceErrorFallback";
 import { CartProvider } from "./hooks/useCart";
 
 /**
@@ -118,6 +119,8 @@ function NavBar() {
 }
 
 export default function App() {
+  const [errorLabKey, setErrorLabKey] = useState(0);
+
   const pulseConfig = useMemo(() => {
     const searchParams = new URLSearchParams(window.location.search);
     const consentParam = searchParams.get("pulse_consent");
@@ -247,7 +250,17 @@ export default function App() {
 
   return (
     <BrowserRouter>
-      <PulseProvider config={pulseConfig} shutdownOnUnmount={false}>
+      <PulseProvider
+        config={pulseConfig}
+        shutdownOnUnmount={false}
+        errorBoundaryFallback={(error, reset) => (
+          <EcommerceErrorFallback
+            error={error}
+            reset={reset}
+            onRecover={() => setErrorLabKey((k) => k + 1)}
+          />
+        )}
+      >
         {/* Expose for E2E shutdown test (m1.spec.ts) */}
         <_PulseExpose />
         <PulseRouterEvents skipInitial={false} />
@@ -278,7 +291,10 @@ export default function App() {
                 <Route path="/cart" element={<Cart />} />
                 <Route path="/checkout" element={<Checkout />} />
                 <Route path="/network-lab" element={<NetworkLab />} />
-                <Route path="/error-demo" element={<ErrorDemo />} />
+                <Route
+                  path="/error-demo"
+                  element={<ErrorDemo key={errorLabKey} />}
+                />
               </Routes>
             </Suspense>
           </main>

@@ -93,8 +93,8 @@ test.describe("@M15 PulseErrorBoundary", () => {
     await page.getByTestId("throw-render-error").click();
 
     // PulseProvider wraps **all** children in PulseErrorBoundary — a route render
-    // error replaces the subtree (including NavBar) with null fallback. The browser
-    // tab stays alive: same URL and SDK remains initialized.
+    // error shows the configured recovery UI (ecommerce demo). Tab stays alive:
+    // same URL and SDK remains initialized.
     await page.waitForTimeout(500);
     await expect(page).toHaveURL(/\/error-demo/);
     const initialized = await page.evaluate(() => {

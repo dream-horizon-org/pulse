@@ -323,7 +323,7 @@ describe("M1 — Config validation", () => {
 
   it("isLocalEnvironment: detects default-project_ prefix", () => {
     expect(isLocalEnvironment("default-project_abc123")).toBe(true);
-    expect(isLocalEnvironment("Test-myapp_abc123")).toBe(true);
+    expect(isLocalEnvironment("Test-myapp_abc123")).toBe(false);
     expect(isLocalEnvironment("myproject-123_prod456")).toBe(false);
   });
 
@@ -367,6 +367,13 @@ describe("M1 — Resource builder", () => {
     const resource = buildResource(makeConfig(), "14");
     expect(resource.attributes[resourceKeys.RUM_SDK_NAME]).toBe(
       fixedValues.RUM_SDK_NAME,
+    );
+  });
+
+  it("includes telemetry.sdk.name=pulse_web_js", () => {
+    const resource = buildResource(makeConfig(), "14");
+    expect(resource.attributes[resourceKeys.TELEMETRY_SDK_NAME]).toBe(
+      fixedValues.TELEMETRY_SDK_NAME,
     );
   });
 
@@ -982,6 +989,7 @@ describe("M1 — Resource Builder (extended)", () => {
   it("service.version defaults to 0.0.0 when not provided", () => {
     const resource = buildResource(makeConfig(), "14");
     expect(resource.attributes[resourceKeys.SERVICE_VERSION]).toBe("0.0.0");
+    expect(resource.attributes[resourceKeys.APP_BUILD_NAME]).toBe("0.0.0");
   });
 
   it("service.version uses config value when provided", () => {
@@ -990,6 +998,14 @@ describe("M1 — Resource Builder (extended)", () => {
       "14",
     );
     expect(resource.attributes[resourceKeys.SERVICE_VERSION]).toBe("2.3.1");
+    expect(resource.attributes[resourceKeys.APP_BUILD_NAME]).toBe("2.3.1");
+  });
+
+  it("app.build_name mirrors service.version (Android AppVersion / backend parity)", () => {
+    const resource = buildResource(makeConfig(), "14");
+    expect(resource.attributes[resourceKeys.APP_BUILD_NAME]).toBe(
+      resource.attributes[resourceKeys.SERVICE_VERSION],
+    );
   });
 
   it("installation.id is present and matches UUID v4 format", () => {

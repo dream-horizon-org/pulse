@@ -7,7 +7,14 @@ export const PulseWebSemconv = {
   ResourceKey: {
     SERVICE_NAME: "service.name",
     SERVICE_VERSION: "service.version",
+    /**
+     * Android {@code RumConstants.Attributes.BUILD_NAME} — Pulse backend maps this to stack trace
+     * {@code AppVersion}. Web mirrors {@code service.version} / {@code PulseWebConfig.serviceVersion}.
+     */
+    APP_BUILD_NAME: "app.build_name",
     PLATFORM: "platform",
+    /** OTel resource key; value matches {@code FixedValue.TELEMETRY_SDK_NAME} — mobile SDK parity. */
+    TELEMETRY_SDK_NAME: "telemetry.sdk.name",
     RUM_SDK_NAME: "rum.sdk.name",
     RUM_SDK_VERSION: "rum.sdk.version",
     INSTALLATION_ID: "installation.id",
@@ -94,8 +101,19 @@ export const PulseWebSemconv = {
   },
   FixedValue: {
     PLATFORM_WEB: "web",
+    /** OTel {@code telemetry.sdk.name} — matches Android/iOS/RN Pulse SDK naming. */
+    TELEMETRY_SDK_NAME: "pulse_web_js",
     RUM_SDK_NAME: "pulse_web_js",
     EVENT_NAME_CUSTOM_EVENT: "pulse.custom_event",
+  },
+  /**
+   * OTLP / Android parity strings for log {@code event_name} (protobuf) and {@link Logger.emit} {@code eventName}.
+   * We also set {@link AttributeKey.EVENT_NAME} (`event.name`) for collectors that index attributes.
+   * See {@code src/__tests__/otlp-log-event-name.test.ts} for sdk-logs wiring.
+   */
+  LogEventName: {
+    DEVICE_CRASH: "device.crash",
+    CUSTOM_NON_FATAL: "pulse.custom_non_fatal",
   },
   ClickTypeValue: {
     GOOD: "good",

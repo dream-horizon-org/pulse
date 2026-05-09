@@ -107,8 +107,8 @@ export interface PulseWebConfig {
 
   /**
    * Extra OTEL resource attributes (e.g. {@code deployment.environment}). Merged under the
-   * built-in resource; **Pulse keys win on conflict** ({@code project.id}, {@code rum.sdk.name},
-   * {@code platform}, etc.).
+   * built-in resource; **Pulse keys win on conflict** ({@code project.id},
+   * {@code telemetry.sdk.name}, {@code rum.sdk.name}, {@code platform}, etc.).
    */
   resourceAttributes?: PulseAttributes;
 
