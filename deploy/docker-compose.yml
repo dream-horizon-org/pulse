@@ -90,7 +90,7 @@ services:
 
   # ClickHouse Database (OTEL data only - traces, logs, metrics)
   clickhouse:
-    image: clickhouse/clickhouse-server:25.3.9
+    image: clickhouse/clickhouse-server:25.4
     container_name: pulse-clickhouse
     ports:
       - "8123:8123"  # HTTP interface
@@ -115,7 +115,7 @@ services:
 
   # ClickHouse Table Initializer (runs once to ensure tables exist)
   clickhouse-init:
-    image: clickhouse/clickhouse-server:25.3.9
+    image: clickhouse/clickhouse-server:25.4
     container_name: pulse-clickhouse-init
     command: /bin/bash /scripts/init-clickhouse.sh
     volumes:
@@ -190,7 +190,7 @@ services:
       retries: 5
       start_period: 10s
 
-  # MinIO bucket initializer (session replay + heatmap assets)
+  # MinIO bucket initializer (session replay + heatmap + symbol files)
   minio-init:
     image: minio/mc:latest
     container_name: pulse-minio-init
@@ -199,10 +199,12 @@ services:
       mc alias set local http://minio:9000 pulse_minio pulse_minio_secret;
       mc mb --ignore-existing local/session-recordings;
       mc mb --ignore-existing local/$${HEATMAP_S3_BUCKET};
-      echo 'MinIO buckets session-recordings and heatmap assets ready';
+      mc mb --ignore-existing local/$${SYMBOL_FILES_S3_BUCKET_NAME};
+      echo 'MinIO buckets session-recordings, heatmap assets, and symbol files ready';
       "
     environment:
       - HEATMAP_S3_BUCKET=${HEATMAP_S3_BUCKET:-heatmap-assets}
+      - SYMBOL_FILES_S3_BUCKET_NAME=${SYMBOL_FILES_S3_BUCKET_NAME:-pulse-symbol-files}
     networks:
       - pulse-network
     depends_on:

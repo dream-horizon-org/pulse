@@ -34,17 +34,18 @@ public class ClickhouseConstants {
       "ifNull(SpanAttributes['graphql.operation.type'], '')";
 
   /**
-   * Prefer {@code http.request.method}, fall back to {@code http.method} (legacy / alternate
-   * exporters).
+   * Prefer {@code http.method}, fall back to {@code http.request.method} (OTel semconv naming).
+   * Uses {@code coalesce}/{@code nullIf} so missing map keys (default {@code ''}) still fall through.
    */
   public final String CH_SPAN_HTTP_METHOD_EXPR =
-      "ifNull(SpanAttributes['http.request.method'], ifNull(SpanAttributes['http.method'], ''))";
+      "coalesce(nullIf(SpanAttributes['http.method'], ''), nullIf(SpanAttributes['http.request.method'], ''), '')";
 
   /**
-   * Prefer {@code http.response.status_code}, fall back to {@code http.status_code}.
+   * Prefer {@code http.status_code}, fall back to {@code http.response.status_code}. Matches
+   * materialized {@code HttpStatusCode}; string expression for drills (not {@code UInt16}).
    */
   public final String CH_SPAN_HTTP_STATUS_CODE_EXPR =
-      "ifNull(SpanAttributes['http.response.status_code'], ifNull(SpanAttributes['http.status_code'], ''))";
+      "coalesce(nullIf(SpanAttributes['http.status_code'], ''), nullIf(SpanAttributes['http.response.status_code'], ''), '')";
 
   /** {@code otel_traces.PulseType} filter for network spans (error-attribution API drill). */
   public final String CH_PULSE_TYPE_NETWORK_LIKE_PREDICATE = "PulseType LIKE 'network.%'";
