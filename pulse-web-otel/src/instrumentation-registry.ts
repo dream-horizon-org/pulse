@@ -51,8 +51,10 @@ export class InstrumentationRegistry {
     const gateEnabled = this.gate.isEnabled(featureName);
     const configEnabled = this.instrConfig?.[key]?.enabled;
 
-    // false/undefined → remote config is source of truth; true → force on
-    return configEnabled || gateEnabled;
+    // false → kill switch, remote config cannot override
+    // true/undefined → remote config is source of truth
+    if (configEnabled === false) return false;
+    return gateEnabled;
   }
 
   registerAndInstall(
