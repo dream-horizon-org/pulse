@@ -98,6 +98,15 @@ export const PulseWebSemconv = {
     GRAPHQL_OPERATION_NAME: "graphql.operation.name",
     GRAPHQL_OPERATION_TYPE: "graphql.operation.type",
     ERROR_TYPE: "error.type",
+    /** Screen navigation attributes */
+    LAST_SCREEN_NAME: "last.screen.name",
+    START_TYPE: "start.type",
+    PAGE_LOAD_TIME: "page.load_time",
+    TTFB: "ttfb",
+    DNS_TIME: "dns.time",
+    TCP_TIME: "tcp.time",
+    DOM_PROCESSING_TIME: "dom.processing_time",
+    TTI: "tti",
   },
   FixedValue: {
     PLATFORM_WEB: "web",
@@ -132,6 +141,9 @@ export const PulseWebSemconv = {
     /** Same value as Android `PulseAttributes.PulseTypeValues.TOUCH` (`app.click`). */
     APP_CLICK: "app.click",
     WEB_VITAL: "web_vital",
+    SCREEN_LOAD: "screen_load",
+    SCREEN_INTERACTIVE: "screen_interactive",
+    SCREEN_SESSION: "screen_session",
   },
   LogBody: {
     SESSION_START: "session.start",
@@ -142,6 +154,9 @@ export const PulseWebSemconv = {
     /** OTLP log body; matches Android log event name `app.widget.click`. */
     APP_WIDGET_CLICK: "app.widget.click",
     WEB_VITAL: "web_vital",
+    SCREEN_LOAD: "screen_load",
+    SCREEN_INTERACTIVE: "screen_interactive",
+    SCREEN_SESSION: "screen_session",
   },
   /**
    * Init milestones as OTLP **logs** (Android `SdkInitializationEvents` / `RumConstants.Events`).

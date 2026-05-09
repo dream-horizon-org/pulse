@@ -8,6 +8,7 @@ export const PulseOtelLoggerScope = {
   PULSE_WEB: "pulse-web",
   PULSE_WEB_SESSION: "pulse-web-session",
   PULSE_WEB_VITALS: "pulse-web-vitals",
+  PULSE_WEB_NAVIGATION: "pulse-web-navigation",
   /** Android SdkInitializationEvents parity — {@code sdk.ts} init logs. */
   INITIALIZATION_EVENTS: "otel.initialization.events",
 } as const;
@@ -20,6 +21,7 @@ export const PulseInstrumentationName = {
   SESSION: "session",
   WEB_VITALS: "web-vitals",
   INTERACTIONS: "interactions",
+  NAVIGATION: "navigation",
 } as const;
 
 /** {@code addEventListener} / {@code removeEventListener} / {@code Event} type strings. */

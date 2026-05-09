@@ -11,6 +11,7 @@ import { ClicksInstrumentation } from "./instrumentations/clicks";
 import { WebVitalsInstrumentation } from "./instrumentations/web-vitals";
 import { NetworkInstrumentation } from "./instrumentations/network";
 import { ErrorInstrumentation } from "./instrumentations/errors";
+import { NavigationInstrumentation } from "./instrumentations/navigation";
 import { InstrumentationKeys } from "./config";
 import { PulseFeature } from "./remote-config";
 import type { PulseFeatureName } from "./remote-config";
@@ -100,6 +101,10 @@ export class InstrumentationRegistry {
     this.registerAndInstall(
       new NetworkInstrumentation(),
       InstrumentationKeys.NETWORK,
+    );
+    this.registerAndInstall(
+      new NavigationInstrumentation(),
+      InstrumentationKeys.NAVIGATION,
     );
     this.registerAndInstall(
       new ErrorInstrumentation(),
