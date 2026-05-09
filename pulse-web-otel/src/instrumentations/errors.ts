@@ -48,6 +48,7 @@ export class ErrorInstrumentation implements PulseInstrumentation {
       if (this.isDuplicate(fingerprint)) return;
 
       logger.emit({
+        eventName: eventNames.DEVICE_CRASH,
         body: error.message,
         timestamp: Date.now(),
         severityNumber: SeverityNumber.FATAL,
@@ -85,6 +86,7 @@ export class ErrorInstrumentation implements PulseInstrumentation {
       if (this.isDuplicate(fingerprint)) return;
 
       logger.emit({
+        eventName: eventNames.CUSTOM_NON_FATAL,
         body: error.message,
         timestamp: Date.now(),
         severityNumber: SeverityNumber.WARN,

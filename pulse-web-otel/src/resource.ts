@@ -2,7 +2,10 @@
 // (platform, browser.name, screen.resolution, timezone, etc.).
 // See: web-sdk-plan/v1/01-foundation/resource.md
 
-import { Resource } from "@opentelemetry/resources";
+import {
+  resourceFromAttributes,
+  type Resource,
+} from "@opentelemetry/resources";
 import type { PulseWebConfig } from "./config";
 import { getOrCreateInstallationId } from "./session";
 import { SDK_VERSION } from "./version";
@@ -50,9 +53,12 @@ export function buildResource(
       ? window.location.hostname || "web-app"
       : "web-app");
 
+  const serviceVersion = config.serviceVersion ?? "0.0.0";
+
   const attrs: Record<string, PulseAttributePrimitive> = {
     [resourceKeys.SERVICE_NAME]: serviceName,
-    [resourceKeys.SERVICE_VERSION]: config.serviceVersion ?? "0.0.0",
+    [resourceKeys.SERVICE_VERSION]: serviceVersion,
+    [resourceKeys.APP_BUILD_NAME]: serviceVersion,
     [resourceKeys.PLATFORM]: fixedValues.PLATFORM_WEB,
     [resourceKeys.TELEMETRY_SDK_NAME]: fixedValues.TELEMETRY_SDK_NAME,
     [resourceKeys.RUM_SDK_NAME]: fixedValues.RUM_SDK_NAME,
@@ -88,20 +94,21 @@ export function buildResource(
     }
   }
 
-  return new Resource(attrs);
+  return resourceFromAttributes(attrs);
 }
 
 /**
  * Merges optional user {@link PulseWebConfig.resourceAttributes} with {@link buildResource}.
  * In OTel JS, {@code left.merge(right)} keeps {@code right} on attribute key conflicts — so
  * **Pulse-built attributes win** over user-supplied duplicates (e.g. {@code project.id},
- * {@code telemetry.sdk.name}, {@code rum.sdk.name}, {@code platform}).
+ * {@code telemetry.sdk.name}, {@code rum.sdk.name}, {@code platform}, {@code app.build_name},
+ * {@code service.version}).
  */
 export function buildMergedResource(
   config: PulseWebConfig,
   osVersion: string,
 ): Resource {
-  const userLayer = new Resource(config.resourceAttributes ?? {});
+  const userLayer = resourceFromAttributes(config.resourceAttributes ?? {});
   const pulseLayer = buildResource(config, osVersion);
   return userLayer.merge(pulseLayer);
 }

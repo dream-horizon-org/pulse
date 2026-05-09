@@ -583,6 +583,7 @@ class PulseSDK implements SdkContext {
     if (!this._initialized) return;
     const err = error instanceof Error ? error : new Error(String(error));
     this.logger.emit({
+      eventName: PulseWebSemconv.LogEventName.CUSTOM_NON_FATAL,
       body: err.message,
       timestamp: Date.now(),
       severityNumber: SeverityNumber.WARN,
@@ -612,6 +613,7 @@ class PulseSDK implements SdkContext {
     const err = error instanceof Error ? error : new Error(String(error));
     const stack = err.stack ?? "";
     this.logger.emit({
+      eventName: PulseWebSemconv.LogEventName.DEVICE_CRASH,
       body: err.message,
       timestamp: Date.now(),
       severityNumber: SeverityNumber.FATAL,
@@ -636,6 +638,7 @@ class PulseSDK implements SdkContext {
   trackNonFatal(name: string, attrs?: PulseAttributes): void {
     if (!this._initialized) return;
     this.logger.emit({
+      eventName: PulseWebSemconv.LogEventName.CUSTOM_NON_FATAL,
       body: name,
       attributes: {
         [PulseWebSemconv.AttributeKey.EVENT_NAME]:

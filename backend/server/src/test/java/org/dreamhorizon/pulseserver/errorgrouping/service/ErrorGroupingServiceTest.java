@@ -1037,58 +1037,6 @@ class ErrorGroupingServiceTest {
       assertEquals("Android", event.getPlatform());
     }
 
-    @Test
-    void shouldPreferPulseTypeAttributeOverEventName() {
-      LogRecord logRecord = LogRecord.newBuilder()
-          .setObservedTimeUnixNano(System.currentTimeMillis() * 1_000_000)
-          .setEventName("pulse.custom_non_fatal")
-          .addAttributes(KeyValue.newBuilder()
-              .setKey("exception.stacktrace")
-              .setValue(AnyValue.newBuilder().setStringValue("Error: Test\n    at func@file.js:1:1").build())
-              .build())
-          .addAttributes(KeyValue.newBuilder()
-              .setKey("pulse.type")
-              .setValue(AnyValue.newBuilder().setStringValue("device.crash").build())
-              .build())
-          .build();
-
-      Resource resource = Resource.newBuilder()
-          .addAttributes(KeyValue.newBuilder()
-              .setKey("os.name")
-              .setValue(AnyValue.newBuilder().setStringValue("android").build())
-              .build())
-          .build();
-
-      StackTraceEvent event = errorGroupingService.process(buildExportRequest(resource, logRecord))
-          .blockingGet()
-          .get(0);
-      assertEquals("device.crash", event.getPulseType());
-    }
-
-    @Test
-    void shouldFallBackToEventNameWhenPulseTypeMissing() {
-      LogRecord logRecord = LogRecord.newBuilder()
-          .setObservedTimeUnixNano(System.currentTimeMillis() * 1_000_000)
-          .setEventName("device.crash")
-          .addAttributes(KeyValue.newBuilder()
-              .setKey("exception.stacktrace")
-              .setValue(AnyValue.newBuilder().setStringValue("Error: Test\n    at func@file.js:1:1").build())
-              .build())
-          .build();
-
-      Resource resource = Resource.newBuilder()
-          .addAttributes(KeyValue.newBuilder()
-              .setKey("os.name")
-              .setValue(AnyValue.newBuilder().setStringValue("android").build())
-              .build())
-          .build();
-
-      StackTraceEvent event = errorGroupingService.process(buildExportRequest(resource, logRecord))
-          .blockingGet()
-          .get(0);
-      assertEquals("device.crash", event.getPulseType());
-    }
-
     private LogRecord buildMinimalJsLogRecord() {
       return LogRecord.newBuilder()
           .setObservedTimeUnixNano(System.currentTimeMillis() * 1_000_000)

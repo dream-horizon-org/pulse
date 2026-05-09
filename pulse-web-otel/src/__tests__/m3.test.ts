@@ -20,7 +20,9 @@ if (typeof PromiseRejectionEvent === "undefined") {
 // Mock @opentelemetry/api-logs before importing the instrumentation
 const mockEmit = vi.fn();
 vi.mock("@opentelemetry/api-logs", () => ({
-  logs: { getLogger: () => ({ emit: mockEmit }) },
+  logs: {
+    getLogger: () => ({ emit: mockEmit, enabled: () => true }),
+  },
   // Real SeverityNumber values: WARN=13, FATAL=21
   SeverityNumber: {
     UNSPECIFIED: 0,
@@ -80,6 +82,7 @@ describe("ErrorInstrumentation — M3 Error Instrumentation Unit Tests", () => {
 
       expect(mockEmit).toHaveBeenCalledOnce();
       const call = mockEmit.mock.calls[0]![0] as Record<string, unknown>;
+      expect(call.eventName).toBe(PulseWebSemconv.LogEventName.DEVICE_CRASH);
       expect(call.severityNumber).toBe(SeverityNumber.FATAL);
       expect(call.severityText).toBe("FATAL");
       const attrs = call.attributes as Record<string, unknown>;
@@ -115,6 +118,9 @@ describe("ErrorInstrumentation — M3 Error Instrumentation Unit Tests", () => {
 
       expect(mockEmit).toHaveBeenCalledOnce();
       const call = mockEmit.mock.calls[0]![0] as Record<string, unknown>;
+      expect(call.eventName).toBe(
+        PulseWebSemconv.LogEventName.CUSTOM_NON_FATAL,
+      );
       expect(call.severityNumber).toBe(SeverityNumber.WARN);
       expect(call.severityText).toBe("WARN");
       const attrs = call.attributes as Record<string, unknown>;
@@ -567,6 +573,7 @@ describe("PulseWebSDK error reporting methods — TC3 / TC4 / TC14", () => {
 
       // Simulate what Pulse.reportException does internally
       logger.emit({
+        eventName: PulseWebSemconv.LogEventName.CUSTOM_NON_FATAL,
         body: err.message,
         timestamp: Date.now(),
         severityNumber: SeverityNumber.WARN,
@@ -584,6 +591,9 @@ describe("PulseWebSDK error reporting methods — TC3 / TC4 / TC14", () => {
 
       expect(sdkMockEmit).toHaveBeenCalledOnce();
       const call = sdkMockEmit.mock.calls[0]![0] as Record<string, unknown>;
+      expect(call.eventName).toBe(
+        PulseWebSemconv.LogEventName.CUSTOM_NON_FATAL,
+      );
       expect(call.severityNumber).toBe(SeverityNumber.WARN);
       const attrs = call.attributes as Record<string, unknown>;
       expect(attrs["pulse.type"]).toBe("non_fatal");
@@ -599,6 +609,7 @@ describe("PulseWebSDK error reporting methods — TC3 / TC4 / TC14", () => {
 
       // Simulate what Pulse.reportDeviceCrash does internally
       logger.emit({
+        eventName: PulseWebSemconv.LogEventName.DEVICE_CRASH,
         body: err.message,
         timestamp: Date.now(),
         severityNumber: SeverityNumber.FATAL,
@@ -616,6 +627,7 @@ describe("PulseWebSDK error reporting methods — TC3 / TC4 / TC14", () => {
 
       expect(sdkMockEmit).toHaveBeenCalledOnce();
       const call = sdkMockEmit.mock.calls[0]![0] as Record<string, unknown>;
+      expect(call.eventName).toBe(PulseWebSemconv.LogEventName.DEVICE_CRASH);
       expect(call.severityNumber).toBe(SeverityNumber.FATAL);
       const attrs = call.attributes as Record<string, unknown>;
       expect(attrs["pulse.type"]).toBe("device.crash");

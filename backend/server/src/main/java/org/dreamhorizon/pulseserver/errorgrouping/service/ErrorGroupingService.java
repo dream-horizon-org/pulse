@@ -275,10 +275,6 @@ public class ErrorGroupingService {
 
           String stackTrace = getResourceAttribute(logAttrMap, "exception.stacktrace").orElse(null);
 
-          String resolvedPulseType = Optional.ofNullable(logAttrMap.get("pulse.type"))
-              .filter(s -> !s.isBlank())
-              .orElseGet(logRecord::getEventName);
-
           EventMeta eventMeta = EventMeta.builder()
               .appVersion(appVersion)
               .appVersionCode(appVersionCode)
@@ -295,7 +291,7 @@ public class ErrorGroupingService {
 
                 return StackTraceEvent.builder()
                     .timestamp(formatTs9(logRecord.getObservedTimeUnixNano()))
-                    .pulseType(resolvedPulseType)
+                    .pulseType(logRecord.getEventName())
                     .exceptionStackTraceRaw(stackTrace)  // Raw original stack trace
                     .exceptionStackTrace(symbolicatedStackTrace)  // Complete symbolicated stack trace
                     .exceptionMessage(getResourceAttribute(logAttrMap, "exception.message").orElse(null))

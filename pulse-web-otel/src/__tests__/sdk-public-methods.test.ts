@@ -16,7 +16,10 @@ const { emitFn } = vi.hoisted(() => ({ emitFn: vi.fn() }));
 
 vi.mock("@opentelemetry/api-logs", () => ({
   logs: {
-    getLogger: vi.fn(() => ({ emit: emitFn })),
+    getLogger: vi.fn(() => ({
+      emit: emitFn,
+      enabled: () => true,
+    })),
     setGlobalLoggerProvider: vi.fn(),
   },
   SeverityNumber: {
@@ -45,7 +48,10 @@ vi.mock("../exporters", () => ({
     },
     loggerProvider: {
       addLogRecordProcessor: vi.fn(),
-      getLogger: vi.fn(() => ({ emit: emitFn })),
+      getLogger: vi.fn(() => ({
+        emit: emitFn,
+        enabled: () => true,
+      })),
       forceFlush: vi.fn().mockResolvedValue(undefined),
       shutdown: vi.fn().mockResolvedValue(undefined),
     },
@@ -176,6 +182,9 @@ describe("Pulse public SDK methods", () => {
       Pulse.reportException(new Error("network timeout"));
 
       const call = emittedCall();
+      expect(call.eventName).toBe(
+        PulseWebSemconv.LogEventName.CUSTOM_NON_FATAL,
+      );
       const attrs = emittedAttrs();
       expect(attrs[PulseWebSemconv.AttributeKey.EVENT_NAME]).toBe(
         PulseWebSemconv.LogEventName.CUSTOM_NON_FATAL,
@@ -263,10 +272,8 @@ describe("Pulse public SDK methods", () => {
       Pulse.reportDeviceCrash(new Error("render crash"));
 
       const call = emittedCall();
+      expect(call.eventName).toBe(PulseWebSemconv.LogEventName.DEVICE_CRASH);
       const attrs = emittedAttrs();
-      expect(attrs[PulseWebSemconv.AttributeKey.EVENT_NAME]).toBe(
-        PulseWebSemconv.LogEventName.DEVICE_CRASH,
-      );
       expect(attrs[PulseWebSemconv.AttributeKey.PULSE_TYPE]).toBe(
         PulseWebSemconv.PulseType.DEVICE_CRASH,
       );
@@ -336,6 +343,9 @@ describe("Pulse public SDK methods", () => {
 
       Pulse.trackNonFatal("api_timeout");
 
+      expect(emittedCall().eventName).toBe(
+        PulseWebSemconv.LogEventName.CUSTOM_NON_FATAL,
+      );
       expect(emittedAttrs()[PulseWebSemconv.AttributeKey.EVENT_NAME]).toBe(
         PulseWebSemconv.LogEventName.CUSTOM_NON_FATAL,
       );

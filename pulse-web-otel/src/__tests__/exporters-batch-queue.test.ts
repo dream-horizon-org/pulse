@@ -25,7 +25,6 @@ vi.mock("@opentelemetry/sdk-trace-web", () => {
     }
   }
   class WebTracerProvider {
-    addSpanProcessor = vi.fn();
     constructor(_opts: unknown) {}
   }
   return { BatchSpanProcessor, WebTracerProvider };
@@ -38,7 +37,6 @@ vi.mock("@opentelemetry/sdk-logs", () => {
     }
   }
   class LoggerProvider {
-    addLogRecordProcessor = vi.fn();
     constructor(_opts: unknown) {}
   }
   return { BatchLogRecordProcessor, LoggerProvider };
@@ -91,7 +89,7 @@ vi.mock("../persistence/indexed-db", () => {
   return { IdbSignalBuffer };
 });
 
-import { Resource } from "@opentelemetry/resources";
+import { emptyResource } from "@opentelemetry/resources";
 import { createProviders } from "../exporters";
 import { DEFAULT_BATCH_OPTIONS } from "../constants/exporters";
 
@@ -121,7 +119,7 @@ describe("Exporter batching and queue guardrails", () => {
         meteringSessionId: "m1",
         diskBuffering: { enabled: false },
       },
-      Resource.empty(),
+      emptyResource(),
       [],
       [],
     );
@@ -145,7 +143,7 @@ describe("Exporter batching and queue guardrails", () => {
         meteringSessionId: "m2",
         diskBuffering: { enabled: false },
       },
-      Resource.empty(),
+      emptyResource(),
       [],
       [],
     );

@@ -7,6 +7,11 @@ export const PulseWebSemconv = {
   ResourceKey: {
     SERVICE_NAME: "service.name",
     SERVICE_VERSION: "service.version",
+    /**
+     * Android {@code RumConstants.Attributes.BUILD_NAME} — Pulse backend maps this to stack trace
+     * {@code AppVersion}. Web mirrors {@code service.version} / {@code PulseWebConfig.serviceVersion}.
+     */
+    APP_BUILD_NAME: "app.build_name",
     PLATFORM: "platform",
     /** OTel resource key; value matches {@code FixedValue.TELEMETRY_SDK_NAME} — mobile SDK parity. */
     TELEMETRY_SDK_NAME: "telemetry.sdk.name",
@@ -102,9 +107,9 @@ export const PulseWebSemconv = {
     EVENT_NAME_CUSTOM_EVENT: "pulse.custom_event",
   },
   /**
-   * Values for log attribute {@link AttributeKey.EVENT_NAME} (`event.name`). {@code @opentelemetry/sdk-logs}
-   * 0.53 does not forward a top-level {@code eventName} on {@code Logger.emit}; use this attribute for
-   * parity with Android/iOS OTLP {@code event_name}. Next.js raw OTLP JSON may still set protobuf {@code eventName}.
+   * OTLP / Android parity strings for log {@code event_name} (protobuf) and {@link Logger.emit} {@code eventName}.
+   * We also set {@link AttributeKey.EVENT_NAME} (`event.name`) for collectors that index attributes.
+   * See {@code src/__tests__/otlp-log-event-name.test.ts} for sdk-logs wiring.
    */
   LogEventName: {
     DEVICE_CRASH: "device.crash",
