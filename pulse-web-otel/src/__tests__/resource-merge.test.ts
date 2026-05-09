@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { Resource } from "@opentelemetry/resources";
+import { resourceFromAttributes } from "@opentelemetry/resources";
 import { buildMergedResource, buildResource } from "../resource";
 import { PulseDataCollectionConsent } from "../config";
 
@@ -27,9 +27,11 @@ describe("buildMergedResource", () => {
     expect(attrs["service.namespace"]).toBe("checkout");
     expect(attrs.platform).toBe("web");
     expect(attrs["rum.sdk.name"]).toBe("pulse_web_js");
+    expect(attrs["service.version"]).toBe("9.9.9");
+    expect(attrs["app.build_name"]).toBe("9.9.9");
   });
 
-  it("Pulse wins on project.id, rum.sdk.name, and platform", () => {
+  it("Pulse wins on project.id, rum.sdk.name, platform, app.build_name", () => {
     const r = buildMergedResource(
       {
         ...base,
@@ -37,6 +39,7 @@ describe("buildMergedResource", () => {
           "project.id": "user-wrong",
           "rum.sdk.name": "fake-sdk",
           platform: "fake-platform",
+          "app.build_name": "user-build",
         },
       },
       "14.0",
@@ -45,6 +48,8 @@ describe("buildMergedResource", () => {
     expect(attrs["project.id"]).toBe("default-project");
     expect(attrs["rum.sdk.name"]).toBe("pulse_web_js");
     expect(attrs.platform).toBe("web");
+    expect(attrs["app.build_name"]).toBe("9.9.9");
+    expect(attrs["service.version"]).toBe("9.9.9");
   });
 
   it("matches userLayer.merge(pulseLayer) manually", () => {
@@ -53,7 +58,7 @@ describe("buildMergedResource", () => {
       resourceAttributes: { "custom.key": 42 },
     };
     const merged = buildMergedResource(cfg, "14.0");
-    const manual = new Resource(cfg.resourceAttributes ?? {}).merge(
+    const manual = resourceFromAttributes(cfg.resourceAttributes ?? {}).merge(
       buildResource(cfg, "14.0"),
     );
     expect(merged.attributes["custom.key"]).toEqual(

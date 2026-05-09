@@ -17,6 +17,9 @@
     "paths": {
       "@/*": ["./*"],
       "@dreamhorizonorg/pulse-web": ["../../dist/index.d.ts"],
+      "@dreamhorizonorg/pulse-web/react/router": [
+        "../../dist/react-router.d.ts"
+      ],
       "@dreamhorizonorg/pulse-web/react": ["../../dist/react.d.ts"],
       "@dreamhorizonorg/pulse-web/next": ["../../dist/next.d.ts"]
     }

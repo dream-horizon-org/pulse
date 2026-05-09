@@ -113,6 +113,30 @@ vi.mock("@dreamhorizonorg/pulse-web/react", () => {
   return { PulseProvider, PulseErrorBoundary, useRouterTracking, usePulse };
 });
 
+vi.mock("@dreamhorizonorg/pulse-web/react/router", () => {
+  const React = require("react");
+  const rrd = require("react-router-dom");
+
+  function PulseRouterEvents({ skipInitial }: { skipInitial?: boolean }) {
+    const loc = rrd.useLocation();
+    const prev = React.useRef(null as string | null);
+    React.useEffect(() => {
+      if (prev.current === null) {
+        prev.current = loc.pathname;
+        if (skipInitial !== false) return;
+      } else if (prev.current === loc.pathname) {
+        return;
+      } else {
+        prev.current = loc.pathname;
+      }
+      mockSetScreenName(loc.pathname);
+    }, [loc.pathname, skipInitial]);
+    return null;
+  }
+
+  return { PulseRouterEvents };
+});
+
 // Mock lazy-loaded routes — Home can throw when `homeThrowsOnRender` is true (error-boundary test).
 let homeThrowsOnRender = false;
 vi.mock("../routes/Home", () => ({
@@ -145,6 +169,10 @@ vi.mock("../components/PulseDebugPanel", () => ({
 }));
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
+
+beforeEach(() => {
+  vi.stubEnv("VITE_PULSE_API_KEY", "vitest-default-pulse-key");
+});
 
 async function renderApp(search = "") {
   const App = (await import("../App")).default;

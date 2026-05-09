@@ -288,6 +288,19 @@ test.describe("@M1 identity persistence", () => {
       localStorage.clear();
       sessionStorage.clear();
     });
+    // Unload / forceFlush on the outgoing document can call getSessionId() while exporting
+    // queued OTLP (global attrs processor), which re-writes pulse_session_* into
+    // localStorage after the clear above. Run an init script on the *next* document so
+    // storage is still empty when SessionProvider runs, otherwise _sessionReused stays
+    // true and emitInitialSession() does not emit session.start.
+    await page.addInitScript(() => {
+      try {
+        localStorage.clear();
+        sessionStorage.clear();
+      } catch {
+        /* ignore */
+      }
+    });
     otlp.reset();
     await page.reload();
     const log2 = await otlp.waitForLog("session.start");

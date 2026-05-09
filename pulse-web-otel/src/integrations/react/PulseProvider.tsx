@@ -29,6 +29,7 @@ export function PulseProvider({
   config,
   children,
   shutdownOnUnmount = false,
+  errorBoundaryFallback,
 }: PulseProviderProps): JSX.Element {
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -57,7 +58,9 @@ export function PulseProvider({
 
   return (
     <PulseContext.Provider value={Pulse}>
-      <PulseErrorBoundary>{children}</PulseErrorBoundary>
+      <PulseErrorBoundary fallback={errorBoundaryFallback}>
+        {children}
+      </PulseErrorBoundary>
     </PulseContext.Provider>
   );
 }

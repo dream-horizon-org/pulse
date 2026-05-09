@@ -3,14 +3,6 @@ receivers:
     protocols:
       http:
         endpoint: 0.0.0.0:4318
-        # Browser SDKs (e.g. Pulse web demo on :3002) send OTLP/HTTP cross-origin; enable CORS on the receiver.
-        # See confighttp server `cors` (do not use allowed_origins: ["*"] — incompatible with credentials).
-        cors:
-          allowed_origins:
-            - "http://*"
-            - "https://*"
-          allowed_headers:
-            - "*"
 
 extensions:
   health_check:
@@ -36,15 +28,15 @@ exporters:
     traces_table_name: otel_traces
     logs_table_name: otel_logs
     metrics_tables:
-      gauge:
+      gauge: 
         name: "otel_metrics_gauge"
-      sum:
+      sum: 
         name: "otel_metrics_sum"
-      summary:
+      summary: 
         name: "otel_metrics_summary"
-      histogram:
+      histogram: 
         name: "otel_metrics_histogram"
-      exponential_histogram:
+      exponential_histogram: 
         name: "otel_metrics_exp_histogram"
     async_insert: false
     timeout: 10s
@@ -71,14 +63,14 @@ exporters:
 
 connectors:
   routing/pulse:
-    default_pipelines: [logs/to-clickhouse]
+    default_pipelines: [ logs/to-clickhouse ]
     table:
       - context: log
         statement: route() where attributes["pulse.type"] != nil and (attributes["pulse.type"] == "device.anr" or attributes["pulse.type"] == "device.crash" or attributes["pulse.type"] == "non_fatal")
-        pipelines: [logs/to-backend]
+        pipelines: [ logs/to-backend ]
 
 service:
-  extensions: [health_check]
+  extensions: [ health_check ]
 
   telemetry:
     logs:
@@ -94,28 +86,28 @@ service:
 
   pipelines:
     traces:
-      receivers: [otlp]
-      processors: [batch]
-      exporters: [clickhouse]
+      receivers: [ otlp ]
+      processors: [ batch ]
+      exporters: [ clickhouse ]
 
     metrics:
-      receivers: [otlp]
-      processors: [batch]
-      exporters: [clickhouse]
+      receivers: [ otlp ]
+      processors: [ batch ]
+      exporters: [ clickhouse ]
 
     # Entry pipeline -> route via connector
     logs/in:
-      receivers: [otlp]
-      exporters: [routing/pulse]
+      receivers: [ otlp ]
+      exporters: [ routing/pulse ]
 
     # Matched pulse.type -> backend
     logs/to-backend:
-      receivers: [routing/pulse]
-      processors: [batch]
-      exporters: [otlphttp/pulse]
+      receivers: [ routing/pulse ]
+      processors: [ batch ]
+      exporters: [ otlphttp/pulse ]
 
     # Everything else -> ClickHouse
     logs/to-clickhouse:
-      receivers: [routing/pulse]
-      processors: [batch]
-      exporters: [clickhouse]
+      receivers: [ routing/pulse ]
+      processors: [ batch ]
+      exporters: [ clickhouse ]

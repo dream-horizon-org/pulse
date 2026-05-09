@@ -6,7 +6,10 @@ if (typeof PromiseRejectionEvent === "undefined") {
     class PromiseRejectionEvent extends Event {
       readonly promise: Promise<unknown>;
       readonly reason: unknown;
-      constructor(type: string, init: { promise: Promise<unknown>; reason?: unknown }) {
+      constructor(
+        type: string,
+        init: { promise: Promise<unknown>; reason?: unknown },
+      ) {
         super(type);
         this.promise = init.promise;
         this.reason = init.reason;
@@ -17,7 +20,9 @@ if (typeof PromiseRejectionEvent === "undefined") {
 // Mock @opentelemetry/api-logs before importing the instrumentation
 const mockEmit = vi.fn();
 vi.mock("@opentelemetry/api-logs", () => ({
-  logs: { getLogger: () => ({ emit: mockEmit }) },
+  logs: {
+    getLogger: () => ({ emit: mockEmit, enabled: () => true }),
+  },
   // Real SeverityNumber values: WARN=13, FATAL=21
   SeverityNumber: {
     UNSPECIFIED: 0,
@@ -38,6 +43,7 @@ vi.mock("@opentelemetry/api", () => ({
 import { SeverityNumber } from "@opentelemetry/api-logs";
 import type { SdkContext } from "../instrumentation-registry";
 import { ErrorInstrumentation } from "../instrumentations/errors";
+import { PulseWebSemconv } from "../semconv";
 
 const mockSdk = {
   logger: { emit: vi.fn() },
@@ -76,12 +82,18 @@ describe("ErrorInstrumentation — M3 Error Instrumentation Unit Tests", () => {
 
       expect(mockEmit).toHaveBeenCalledOnce();
       const call = mockEmit.mock.calls[0]![0] as Record<string, unknown>;
+      expect(call.eventName).toBe(PulseWebSemconv.LogEventName.DEVICE_CRASH);
       expect(call.severityNumber).toBe(SeverityNumber.FATAL);
       expect(call.severityText).toBe("FATAL");
       const attrs = call.attributes as Record<string, unknown>;
+      expect(attrs["event.name"]).toBe(
+        PulseWebSemconv.LogEventName.DEVICE_CRASH,
+      );
       expect(attrs["pulse.type"]).toBe("device.crash");
       expect(attrs["exception.type"]).toBe("Error");
-      expect(attrs["exception.message"]).toBe("Demo uncaught error from ErrorDemo");
+      expect(attrs["exception.message"]).toBe(
+        "Demo uncaught error from ErrorDemo",
+      );
       expect(attrs["exception.stacktrace"]).toBeTruthy();
       expect(Number(attrs["error.lineno"])).toBeGreaterThan(0);
       // non_fatal.is_manual must NOT be present on device.crash
@@ -93,7 +105,9 @@ describe("ErrorInstrumentation — M3 Error Instrumentation Unit Tests", () => {
 
   describe("TC2 — unhandled promise rejection emits non_fatal", () => {
     it("emits non_fatal with WARN severity and is_manual=false", () => {
-      const p = Promise.reject(new Error("Demo unhandled rejection from ErrorDemo"));
+      const p = Promise.reject(
+        new Error("Demo unhandled rejection from ErrorDemo"),
+      );
       p.catch(() => undefined);
       window.dispatchEvent(
         new PromiseRejectionEvent("unhandledrejection", {
@@ -104,11 +118,19 @@ describe("ErrorInstrumentation — M3 Error Instrumentation Unit Tests", () => {
 
       expect(mockEmit).toHaveBeenCalledOnce();
       const call = mockEmit.mock.calls[0]![0] as Record<string, unknown>;
+      expect(call.eventName).toBe(
+        PulseWebSemconv.LogEventName.CUSTOM_NON_FATAL,
+      );
       expect(call.severityNumber).toBe(SeverityNumber.WARN);
       expect(call.severityText).toBe("WARN");
       const attrs = call.attributes as Record<string, unknown>;
+      expect(attrs["event.name"]).toBe(
+        PulseWebSemconv.LogEventName.CUSTOM_NON_FATAL,
+      );
       expect(attrs["pulse.type"]).toBe("non_fatal");
-      expect(attrs["exception.message"]).toBe("Demo unhandled rejection from ErrorDemo");
+      expect(attrs["exception.message"]).toBe(
+        "Demo unhandled rejection from ErrorDemo",
+      );
       expect(attrs["non_fatal.is_manual"]).toBe(false);
     });
   });
@@ -212,7 +234,13 @@ describe("ErrorInstrumentation — M3 Error Instrumentation Unit Tests", () => {
       );
       expect(mockEmit).toHaveBeenCalledTimes(2);
       const msgs = mockEmit.mock.calls.map(
-        (c) => ((c[0] as Record<string, unknown>).attributes as Record<string, unknown>)["exception.message"],
+        (c) =>
+          (
+            (c[0] as Record<string, unknown>).attributes as Record<
+              string,
+              unknown
+            >
+          )["exception.message"],
       );
       expect(msgs).toContain("err-a");
       expect(msgs).toContain("err-b");
@@ -254,7 +282,8 @@ describe("ErrorInstrumentation — M3 Error Instrumentation Unit Tests", () => {
       );
 
       expect(mockEmit).toHaveBeenCalledOnce();
-      const attrs = (mockEmit.mock.calls[0]![0] as Record<string, unknown>).attributes as Record<string, unknown>;
+      const attrs = (mockEmit.mock.calls[0]![0] as Record<string, unknown>)
+        .attributes as Record<string, unknown>;
       expect(attrs["battery.percent"]).toBe(75); // Math.round(0.75 * 100)
 
       instr2.uninstall();
@@ -317,7 +346,9 @@ describe("ErrorInstrumentation — M3 Error Instrumentation Unit Tests", () => {
 
       // Mock navigator.storage.estimate (available in all modern browsers)
       const mockStorage = {
-        estimate: vi.fn().mockResolvedValue({ quota: 100_000_000, usage: 10_000_000 }),
+        estimate: vi
+          .fn()
+          .mockResolvedValue({ quota: 100_000_000, usage: 10_000_000 }),
       };
       Object.defineProperty(navigator, "storage", {
         value: mockStorage,
@@ -341,7 +372,8 @@ describe("ErrorInstrumentation — M3 Error Instrumentation Unit Tests", () => {
       );
 
       expect(mockEmit).toHaveBeenCalledOnce();
-      const attrs = (mockEmit.mock.calls[0]![0] as Record<string, unknown>).attributes as Record<string, unknown>;
+      const attrs = (mockEmit.mock.calls[0]![0] as Record<string, unknown>)
+        .attributes as Record<string, unknown>;
       expect(Number(attrs["storage.free"])).toBeGreaterThan(0);
       // storage.free = quota - usage = 90_000_000
       expect(attrs["storage.free"]).toBe(90_000_000);
@@ -411,7 +443,8 @@ describe("ErrorInstrumentation — M3 Error Instrumentation Unit Tests", () => {
         }),
       );
       expect(mockEmit).toHaveBeenCalledOnce();
-      const attrs = (mockEmit.mock.calls[0]![0] as Record<string, unknown>).attributes as Record<string, unknown>;
+      const attrs = (mockEmit.mock.calls[0]![0] as Record<string, unknown>)
+        .attributes as Record<string, unknown>;
       expect(attrs["exception.type"]).toBe("Error");
       expect(attrs["exception.message"]).toBe("something went wrong");
     });
@@ -430,7 +463,8 @@ describe("ErrorInstrumentation — M3 Error Instrumentation Unit Tests", () => {
         }),
       );
       expect(mockEmit).toHaveBeenCalledOnce();
-      const attrs = (mockEmit.mock.calls[0]![0] as Record<string, unknown>).attributes as Record<string, unknown>;
+      const attrs = (mockEmit.mock.calls[0]![0] as Record<string, unknown>)
+        .attributes as Record<string, unknown>;
       expect(attrs["exception.message"]).toBe("Unknown rejection");
     });
   });
@@ -539,11 +573,13 @@ describe("PulseWebSDK error reporting methods — TC3 / TC4 / TC14", () => {
 
       // Simulate what Pulse.reportException does internally
       logger.emit({
+        eventName: PulseWebSemconv.LogEventName.CUSTOM_NON_FATAL,
         body: err.message,
         timestamp: Date.now(),
         severityNumber: SeverityNumber.WARN,
         severityText: "WARN",
         attributes: {
+          "event.name": PulseWebSemconv.LogEventName.CUSTOM_NON_FATAL,
           "pulse.type": "non_fatal",
           "exception.type": err.name,
           "exception.message": err.message,
@@ -555,6 +591,9 @@ describe("PulseWebSDK error reporting methods — TC3 / TC4 / TC14", () => {
 
       expect(sdkMockEmit).toHaveBeenCalledOnce();
       const call = sdkMockEmit.mock.calls[0]![0] as Record<string, unknown>;
+      expect(call.eventName).toBe(
+        PulseWebSemconv.LogEventName.CUSTOM_NON_FATAL,
+      );
       expect(call.severityNumber).toBe(SeverityNumber.WARN);
       const attrs = call.attributes as Record<string, unknown>;
       expect(attrs["pulse.type"]).toBe("non_fatal");
@@ -570,11 +609,13 @@ describe("PulseWebSDK error reporting methods — TC3 / TC4 / TC14", () => {
 
       // Simulate what Pulse.reportDeviceCrash does internally
       logger.emit({
+        eventName: PulseWebSemconv.LogEventName.DEVICE_CRASH,
         body: err.message,
         timestamp: Date.now(),
         severityNumber: SeverityNumber.FATAL,
         severityText: "FATAL",
         attributes: {
+          "event.name": PulseWebSemconv.LogEventName.DEVICE_CRASH,
           "pulse.type": "device.crash",
           "exception.type": err.name,
           "exception.message": err.message,
@@ -586,10 +627,13 @@ describe("PulseWebSDK error reporting methods — TC3 / TC4 / TC14", () => {
 
       expect(sdkMockEmit).toHaveBeenCalledOnce();
       const call = sdkMockEmit.mock.calls[0]![0] as Record<string, unknown>;
+      expect(call.eventName).toBe(PulseWebSemconv.LogEventName.DEVICE_CRASH);
       expect(call.severityNumber).toBe(SeverityNumber.FATAL);
       const attrs = call.attributes as Record<string, unknown>;
       expect(attrs["pulse.type"]).toBe("device.crash");
-      expect(attrs["exception.message"]).toBe("Intentional render error from ErrorDemo");
+      expect(attrs["exception.message"]).toBe(
+        "Intentional render error from ErrorDemo",
+      );
     });
   });
 

@@ -62,6 +62,7 @@ import { Pulse } from "../sdk";
 import { PulseDataCollectionConsent } from "../types/config";
 import type { PulseExportSignal } from "../types/before-send";
 import {
+  PULSE_PROD_ENDPOINT_URL,
   resolveEndpointBaseUrl,
   isLocalEnvironment,
   PulseLogLevel,
@@ -180,7 +181,7 @@ describe("Config surface — matches Android minimal API", () => {
   // TC-C6
   it("TC-C6: isLocalEnvironment detects dev keys correctly", () => {
     expect(isLocalEnvironment("default-project_abc")).toBe(true);
-    expect(isLocalEnvironment("Test-myapp_abc")).toBe(true);
+    expect(isLocalEnvironment("Test-myapp_abc")).toBe(false);
     expect(isLocalEnvironment("myapp-prod_key123")).toBe(false);
   });
 
@@ -250,7 +251,7 @@ describe("Config surface — matches Android minimal API", () => {
       "http://localhost:4318",
     );
     expect(resolveEndpointBaseUrl("Test-myapp_abc123")).toBe(
-      "http://localhost:4318",
+      PULSE_PROD_ENDPOINT_URL,
     );
     expect(resolveEndpointBaseUrl("ecommerce-app_prod123")).toBe(
       "https://pulse-otel-collector.pulse-ux.com",

@@ -18,7 +18,10 @@ vi.mock("web-vitals", () => ({
 
 vi.mock("@opentelemetry/api-logs", () => ({
   logs: {
-    getLogger: vi.fn().mockReturnValue({ emit: vi.fn() }),
+    getLogger: vi.fn().mockReturnValue({
+      emit: vi.fn(),
+      enabled: vi.fn().mockReturnValue(true),
+    }),
     setGlobalLoggerProvider: vi.fn(),
   },
 }));
@@ -53,7 +56,10 @@ function makeMinimalSdk(
     forceFlush,
     shutdown: vi.fn(),
     addLogRecordProcessor: vi.fn(),
-    getLogger: vi.fn().mockReturnValue({ emit: vi.fn() }),
+    getLogger: vi.fn().mockReturnValue({
+      emit: vi.fn(),
+      enabled: vi.fn().mockReturnValue(true),
+    }),
   } as unknown as LoggerProvider;
 
   const sessionProvider = new SessionProvider();
@@ -67,7 +73,10 @@ function makeMinimalSdk(
     endpointBaseUrl: "https://x.example",
     gate: new FeatureGate(DEFAULT_SDK_CONFIG),
     sessionProvider,
-    logger: { emit: vi.fn() } as unknown as Logger,
+    logger: {
+      emit: vi.fn(),
+      enabled: vi.fn().mockReturnValue(true),
+    } as unknown as Logger,
     tracer: {} as Tracer,
     config,
     globalAttrsProcessor,
@@ -85,7 +94,10 @@ describe("WebVitalsInstrumentation", () => {
     wvMocks.onFCP.mockClear();
     wvMocks.onTTFB.mockClear();
     vi.mocked(logs.getLogger).mockClear();
-    vi.mocked(logs.getLogger).mockReturnValue({ emit: vi.fn() });
+    vi.mocked(logs.getLogger).mockReturnValue({
+      emit: vi.fn(),
+      enabled: vi.fn().mockReturnValue(true),
+    });
   });
 
   afterEach(() => {
@@ -108,7 +120,10 @@ describe("WebVitalsInstrumentation", () => {
 
   it("emits log with pulse.type, body, name, value, rating; omits navigation_type when callback has none", () => {
     const emit = vi.fn();
-    vi.mocked(logs.getLogger).mockReturnValue({ emit });
+    vi.mocked(logs.getLogger).mockReturnValue({
+      emit,
+      enabled: vi.fn().mockReturnValue(true),
+    });
 
     const instr = new WebVitalsInstrumentation();
     instr.install(makeMinimalSdk());

@@ -14,9 +14,17 @@ const CONFIG = {
   serviceName: "test-service",
 };
 
-const ERROR = { message: "Server exploded", name: "Error", stack: "Error: Server exploded\n  at foo" };
+const ERROR = {
+  message: "Server exploded",
+  name: "Error",
+  stack: "Error: Server exploded\n  at foo",
+};
 const REQUEST = { path: "/api/products", method: "GET" };
-const CONTEXT = { routerKind: "App Router", routePath: "/api/products", routeType: "route" };
+const CONTEXT = {
+  routerKind: "App Router",
+  routePath: "/api/products",
+  routeType: "route",
+};
 
 describe("createPulseInstrumentationHandler", () => {
   beforeEach(() => {
@@ -41,7 +49,9 @@ describe("createPulseInstrumentationHandler", () => {
       "test-api-key",
     );
     // Confirm old Bearer header is gone
-    expect((init.headers as Record<string, string>)["Authorization"]).toBeUndefined();
+    expect(
+      (init.headers as Record<string, string>)["Authorization"],
+    ).toBeUndefined();
   });
 
   it("sends OTLP JSON body with device.crash pulse.type", () => {
@@ -49,13 +59,13 @@ describe("createPulseInstrumentationHandler", () => {
     handler(ERROR, REQUEST, CONTEXT);
     const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     const body = JSON.parse(init.body as string);
-    const logRecord =
-      body.resourceLogs[0].scopeLogs[0].logRecords[0];
+    const logRecord = body.resourceLogs[0].scopeLogs[0].logRecords[0];
     const attrs: Record<string, { stringValue?: string }> = {};
     for (const a of logRecord.attributes) {
       attrs[a.key] = a.value;
     }
     expect(attrs["pulse.type"]?.stringValue).toBe("device.crash");
+    expect(logRecord.eventName).toBe("device.crash");
   });
 
   it("includes exception.message in OTLP attributes", () => {
@@ -146,8 +156,11 @@ describe("createPulseInstrumentationHandler", () => {
     const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     const body = JSON.parse(init.body as string);
     const resAttrs: Record<string, { stringValue?: string }> = {};
-    for (const a of body.resourceLogs[0].resource.attributes) resAttrs[a.key] = a.value;
+    for (const a of body.resourceLogs[0].resource.attributes)
+      resAttrs[a.key] = a.value;
     expect(resAttrs["platform"]?.stringValue).toBe("web");
+    expect(resAttrs["telemetry.sdk.name"]?.stringValue).toBe("pulse_web_js");
+    expect(resAttrs["rum.sdk.name"]?.stringValue).toBe("pulse_web_js");
   });
 
   it("includes server.router_kind from context", () => {
