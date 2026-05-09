@@ -242,7 +242,11 @@ class PulseSDK implements SdkContext {
 
   private initializeSessionContext(): void {
     // Step 2: SessionProvider
-    this.sessionProvider = new SessionProvider();
+    this.sessionProvider = new SessionProvider(
+      undefined,
+      undefined,
+      this.config.pageHiddenTimeoutMs,
+    );
     // Step 2.5: Eagerly resolve installation ID so wasNewInstallation() is accurate.
     getOrCreateInstallationId();
   }

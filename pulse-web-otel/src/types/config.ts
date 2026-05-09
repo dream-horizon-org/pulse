@@ -165,4 +165,12 @@ export interface PulseWebConfig {
    * `apiKey` (local dev → `http://localhost:4318`, prod → Pulse cloud).
    */
   endpoint?: string;
+
+  /**
+   * How long the page can stay hidden (backgrounded) before the session is
+   * considered expired on the next foreground (ms). Default 15 minutes.
+   * Useful in Capacitor/WebView where the JS context may be destroyed while
+   * backgrounded. Lower for testing (e.g. 30_000).
+   */
+  pageHiddenTimeoutMs?: number;
 }
