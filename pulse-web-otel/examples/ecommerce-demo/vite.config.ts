@@ -9,6 +9,13 @@ export default defineConfig({
     // Point directly at SDK source for HMR — changes to SDK src hot-reload in demo
     alias: [
       {
+        find: "@dreamhorizonorg/pulse-web/react/router",
+        replacement: path.resolve(
+          __dirname,
+          "../../src/integrations/react/router.ts",
+        ),
+      },
+      {
         find: "@dreamhorizonorg/pulse-web/react",
         replacement: path.resolve(
           __dirname,

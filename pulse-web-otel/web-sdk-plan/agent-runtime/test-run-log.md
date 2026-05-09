@@ -2,6 +2,12 @@
 
 Append E2E / gate results for Web SDK work (per `pulse-web-sdk-sanity`).
 
+## M1 identity E2E — unload flush vs storage clear — 2026-05-09
+
+| Date | Command | Browser | Result | Notes |
+|------|---------|---------|--------|-------|
+| 2026-05-09 | `yarn e2e --project=chromium --grep "new session.id on each fresh page load"` (cwd `examples/ecommerce-demo`) | Chromium | pass (1/1) | Fix: `page.addInitScript` clears `localStorage`/`sessionStorage` on next document so unload OTLP flush cannot re-persist `pulse_session_*` after test clear (otherwise `_sessionReused` → no `session.start`). |
+
 ## Network review follow-up — 2026-05-06
 
 | Date | Command | Browser | Result | Notes |

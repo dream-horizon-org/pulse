@@ -11,10 +11,8 @@ import {
   PulseDataCollectionConsent,
   PulseLogLevel,
 } from "@dreamhorizonorg/pulse-web";
-import {
-  PulseProvider,
-  PulseRouterEvents,
-} from "@dreamhorizonorg/pulse-web/react";
+import { PulseProvider } from "@dreamhorizonorg/pulse-web/react";
+import { PulseRouterEvents } from "@dreamhorizonorg/pulse-web/react/router";
 import { PulseDebugPanel } from "./components/PulseDebugPanel";
 import { CartProvider } from "./hooks/useCart";
 
