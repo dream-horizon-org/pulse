@@ -51,6 +51,11 @@ export interface PulseProviderProps {
   config: PulseWebConfig;
   children: ReactNode;
   /**
+   * Optional UI when a child throws during render — forwarded to {@link PulseErrorBoundary}.
+   * Use a function form to receive {@code (error, reset) => ...} and call {@code reset()} to retry.
+   */
+  errorBoundaryFallback?: PulseErrorBoundaryProps["fallback"];
+  /**
    * If true, the SDK is shut down when the last `PulseProvider` unmounts.
    * Default `false` — keep the SDK alive for the full page lifetime regardless
    * of provider unmounts (recommended for most apps).
