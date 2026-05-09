@@ -4,7 +4,10 @@
 
 import { logs, SeverityNumber } from "@opentelemetry/api-logs";
 import { context } from "@opentelemetry/api";
-import type { PulseInstrumentation, SdkContext } from "../instrumentation-registry";
+import type {
+  PulseInstrumentation,
+  SdkContext,
+} from "../instrumentation-registry";
 import { PulseWebSemconv } from "../semconv";
 
 export class ErrorInstrumentation implements PulseInstrumentation {
@@ -20,13 +23,16 @@ export class ErrorInstrumentation implements PulseInstrumentation {
   private storageFreeBytes: number | undefined;
   // Retained so it can be detached on uninstall() — avoids leak on SDK restarts
   private batteryLevelChangeHandler?: () => void;
-  private batteryRef?: { removeEventListener(type: string, cb: () => void): void };
+  private batteryRef?: {
+    removeEventListener(type: string, cb: () => void): void;
+  };
 
   install(_sdk: SdkContext): void {
     if (typeof window === "undefined") return;
 
     const K = PulseWebSemconv.AttributeKey;
     const T = PulseWebSemconv.PulseType;
+    const eventNames = PulseWebSemconv.LogEventName;
     const logger = logs.getLogger("pulse-web-errors");
 
     // Prefetch device state in background — available on next crash
@@ -48,6 +54,7 @@ export class ErrorInstrumentation implements PulseInstrumentation {
         severityText: "FATAL",
         context: context.active(),
         attributes: {
+          [K.EVENT_NAME]: eventNames.DEVICE_CRASH,
           [K.PULSE_TYPE]: T.DEVICE_CRASH,
           [K.EXCEPTION_TYPE]: error.name,
           [K.EXCEPTION_MESSAGE]: error.message,
@@ -84,6 +91,7 @@ export class ErrorInstrumentation implements PulseInstrumentation {
         severityText: "WARN",
         context: context.active(),
         attributes: {
+          [K.EVENT_NAME]: eventNames.CUSTOM_NON_FATAL,
           [K.PULSE_TYPE]: T.NON_FATAL,
           [K.EXCEPTION_TYPE]: error.name,
           [K.EXCEPTION_MESSAGE]: error.message,
@@ -106,7 +114,10 @@ export class ErrorInstrumentation implements PulseInstrumentation {
       window.removeEventListener("unhandledrejection", this.onRejectionHandler);
     }
     if (this.batteryRef && this.batteryLevelChangeHandler) {
-      this.batteryRef.removeEventListener("levelchange", this.batteryLevelChangeHandler);
+      this.batteryRef.removeEventListener(
+        "levelchange",
+        this.batteryLevelChangeHandler,
+      );
     }
     this.dedupeCache.clear();
     this.batteryPercent = undefined;
@@ -118,9 +129,15 @@ export class ErrorInstrumentation implements PulseInstrumentation {
   private async prefetchDeviceState(): Promise<void> {
     if ("getBattery" in navigator) {
       try {
-        const battery = await (navigator as Navigator & {
-          getBattery(): Promise<{ level: number; addEventListener(type: string, cb: () => void): void; removeEventListener(type: string, cb: () => void): void }>;
-        }).getBattery();
+        const battery = await (
+          navigator as Navigator & {
+            getBattery(): Promise<{
+              level: number;
+              addEventListener(type: string, cb: () => void): void;
+              removeEventListener(type: string, cb: () => void): void;
+            }>;
+          }
+        ).getBattery();
         this.batteryPercent = Math.round(battery.level * 100);
         this.batteryLevelChangeHandler = () => {
           this.batteryPercent = Math.round(battery.level * 100);
@@ -131,7 +148,11 @@ export class ErrorInstrumentation implements PulseInstrumentation {
         /* not supported */
       }
     }
-    if ("storage" in navigator && navigator.storage != null && "estimate" in navigator.storage) {
+    if (
+      "storage" in navigator &&
+      navigator.storage != null &&
+      "estimate" in navigator.storage
+    ) {
       try {
         const { quota = 0, usage = 0 } = await navigator.storage.estimate();
         this.storageFreeBytes = quota - usage;

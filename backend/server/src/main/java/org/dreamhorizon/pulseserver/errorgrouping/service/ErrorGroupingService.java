@@ -263,7 +263,7 @@ public class ErrorGroupingService {
       Map<String, String> resourceAttrMap = attributesToMap(res.getAttributesList());
       String appVersion = getResourceAttribute(resourceAttrMap, "app.build_name").orElse(null);
       String appVersionCode = getResourceAttribute(resourceAttrMap, "app.build_id").orElse(null);
-      String platform = getResourceAttribute(resourceAttrMap, "os.name").orElse(null);
+      String platform = resolvePlatform(resourceAttrMap);
       String bundleId = getResourceAttribute(resourceAttrMap, "bundle_id").orElse(null);
       String projectId = getResourceAttribute(resourceAttrMap, "project.id").orElse(null);
 
@@ -275,6 +275,9 @@ public class ErrorGroupingService {
 
           String stackTrace = getResourceAttribute(logAttrMap, "exception.stacktrace").orElse(null);
 
+          String resolvedPulseType = Optional.ofNullable(logAttrMap.get("pulse.type"))
+              .filter(s -> !s.isBlank())
+              .orElseGet(logRecord::getEventName);
 
           EventMeta eventMeta = EventMeta.builder()
               .appVersion(appVersion)
@@ -292,7 +295,7 @@ public class ErrorGroupingService {
 
                 return StackTraceEvent.builder()
                     .timestamp(formatTs9(logRecord.getObservedTimeUnixNano()))
-                    .pulseType(logRecord.getEventName())
+                    .pulseType(resolvedPulseType)
                     .exceptionStackTraceRaw(stackTrace)  // Raw original stack trace
                     .exceptionStackTrace(symbolicatedStackTrace)  // Complete symbolicated stack trace
                     .exceptionMessage(getResourceAttribute(logAttrMap, "exception.message").orElse(null))
@@ -328,6 +331,36 @@ public class ErrorGroupingService {
     return Observable.fromIterable(events)              // List<Single<StackTraceEvent>>
         .flatMapMaybe(s -> s.toMaybe().onErrorComplete()) // skip any failing Single
         .toList();
+  }
+
+  /**
+   * Resolves dashboard platform from resource attributes. Prefers SDK identity over raw
+   * {@code os.name} so web sessions are not classified as the user's desktop OS.
+   */
+  private static String resolvePlatform(Map<String, String> resourceAttrs) {
+    String sdkName = resourceAttrs.get("telemetry.sdk.name");
+    if (sdkName == null || sdkName.isBlank()) {
+      sdkName = resourceAttrs.get("rum.sdk.name");
+    }
+    if (sdkName != null && !sdkName.isBlank()) {
+      switch (sdkName) {
+        case "pulse_web_js":
+          return "web";
+        case "pulse_android_java":
+        case "pulse_android_rn":
+          return "Android";
+        case "pulse_ios_swift":
+        case "pulse_ios_rn":
+          return "iOS";
+        default:
+          break;
+      }
+    }
+    String platformAttr = resourceAttrs.get("platform");
+    if (platformAttr != null && !platformAttr.isBlank()) {
+      return platformAttr;
+    }
+    return resourceAttrs.get("os.name");
   }
 
   @SneakyThrows

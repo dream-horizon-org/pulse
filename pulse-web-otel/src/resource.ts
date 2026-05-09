@@ -54,6 +54,7 @@ export function buildResource(
     [resourceKeys.SERVICE_NAME]: serviceName,
     [resourceKeys.SERVICE_VERSION]: config.serviceVersion ?? "0.0.0",
     [resourceKeys.PLATFORM]: fixedValues.PLATFORM_WEB,
+    [resourceKeys.TELEMETRY_SDK_NAME]: fixedValues.TELEMETRY_SDK_NAME,
     [resourceKeys.RUM_SDK_NAME]: fixedValues.RUM_SDK_NAME,
     [resourceKeys.RUM_SDK_VERSION]: SDK_VERSION,
     [resourceKeys.INSTALLATION_ID]: installationId,
@@ -94,7 +95,7 @@ export function buildResource(
  * Merges optional user {@link PulseWebConfig.resourceAttributes} with {@link buildResource}.
  * In OTel JS, {@code left.merge(right)} keeps {@code right} on attribute key conflicts — so
  * **Pulse-built attributes win** over user-supplied duplicates (e.g. {@code project.id},
- * {@code rum.sdk.name}, {@code platform}).
+ * {@code telemetry.sdk.name}, {@code rum.sdk.name}, {@code platform}).
  */
 export function buildMergedResource(
   config: PulseWebConfig,

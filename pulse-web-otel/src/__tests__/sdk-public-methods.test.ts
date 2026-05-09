@@ -177,6 +177,9 @@ describe("Pulse public SDK methods", () => {
 
       const call = emittedCall();
       const attrs = emittedAttrs();
+      expect(attrs[PulseWebSemconv.AttributeKey.EVENT_NAME]).toBe(
+        PulseWebSemconv.LogEventName.CUSTOM_NON_FATAL,
+      );
       expect(attrs[PulseWebSemconv.AttributeKey.PULSE_TYPE]).toBe(
         PulseWebSemconv.PulseType.NON_FATAL,
       );
@@ -261,6 +264,9 @@ describe("Pulse public SDK methods", () => {
 
       const call = emittedCall();
       const attrs = emittedAttrs();
+      expect(attrs[PulseWebSemconv.AttributeKey.EVENT_NAME]).toBe(
+        PulseWebSemconv.LogEventName.DEVICE_CRASH,
+      );
       expect(attrs[PulseWebSemconv.AttributeKey.PULSE_TYPE]).toBe(
         PulseWebSemconv.PulseType.DEVICE_CRASH,
       );
@@ -330,6 +336,9 @@ describe("Pulse public SDK methods", () => {
 
       Pulse.trackNonFatal("api_timeout");
 
+      expect(emittedAttrs()[PulseWebSemconv.AttributeKey.EVENT_NAME]).toBe(
+        PulseWebSemconv.LogEventName.CUSTOM_NON_FATAL,
+      );
       expect(emittedAttrs()[PulseWebSemconv.AttributeKey.PULSE_TYPE]).toBe(
         PulseWebSemconv.PulseType.NON_FATAL,
       );

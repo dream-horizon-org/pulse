@@ -8,6 +8,8 @@ export const PulseWebSemconv = {
     SERVICE_NAME: "service.name",
     SERVICE_VERSION: "service.version",
     PLATFORM: "platform",
+    /** OTel resource key; value matches {@code FixedValue.TELEMETRY_SDK_NAME} — mobile SDK parity. */
+    TELEMETRY_SDK_NAME: "telemetry.sdk.name",
     RUM_SDK_NAME: "rum.sdk.name",
     RUM_SDK_VERSION: "rum.sdk.version",
     INSTALLATION_ID: "installation.id",
@@ -94,8 +96,19 @@ export const PulseWebSemconv = {
   },
   FixedValue: {
     PLATFORM_WEB: "web",
+    /** OTel {@code telemetry.sdk.name} — matches Android/iOS/RN Pulse SDK naming. */
+    TELEMETRY_SDK_NAME: "pulse_web_js",
     RUM_SDK_NAME: "pulse_web_js",
     EVENT_NAME_CUSTOM_EVENT: "pulse.custom_event",
+  },
+  /**
+   * Values for log attribute {@link AttributeKey.EVENT_NAME} (`event.name`). {@code @opentelemetry/sdk-logs}
+   * 0.53 does not forward a top-level {@code eventName} on {@code Logger.emit}; use this attribute for
+   * parity with Android/iOS OTLP {@code event_name}. Next.js raw OTLP JSON may still set protobuf {@code eventName}.
+   */
+  LogEventName: {
+    DEVICE_CRASH: "device.crash",
+    CUSTOM_NON_FATAL: "pulse.custom_non_fatal",
   },
   ClickTypeValue: {
     GOOD: "good",

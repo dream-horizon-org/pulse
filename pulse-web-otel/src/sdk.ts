@@ -1,11 +1,12 @@
 // Polyfill crypto.randomUUID for Android WebView < Chrome 92 and other environments
 // that expose crypto but not randomUUID (e.g. HTTP non-secure contexts).
 if (typeof crypto !== "undefined" && typeof crypto.randomUUID !== "function") {
-  (crypto as Crypto).randomUUID = (): `${string}-${string}-${string}-${string}-${string}` =>
-    "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
-      const r = (Math.random() * 16) | 0;
-      return (c === "x" ? r : (r & 0x3) | 0x8).toString(16);
-    }) as `${string}-${string}-${string}-${string}-${string}`;
+  (crypto as Crypto).randomUUID =
+    (): `${string}-${string}-${string}-${string}-${string}` =>
+      "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+        const r = (Math.random() * 16) | 0;
+        return (c === "x" ? r : (r & 0x3) | 0x8).toString(16);
+      }) as `${string}-${string}-${string}-${string}-${string}`;
 }
 
 // M1: PulseSDK — minimal init sequence matching Android's public API surface.
@@ -587,6 +588,8 @@ class PulseSDK implements SdkContext {
       severityNumber: SeverityNumber.WARN,
       severityText: "WARN",
       attributes: {
+        [PulseWebSemconv.AttributeKey.EVENT_NAME]:
+          PulseWebSemconv.LogEventName.CUSTOM_NON_FATAL,
         [PulseWebSemconv.AttributeKey.PULSE_TYPE]:
           PulseWebSemconv.PulseType.NON_FATAL,
         [PulseWebSemconv.AttributeKey.EXCEPTION_TYPE]: err.name,
@@ -614,6 +617,8 @@ class PulseSDK implements SdkContext {
       severityNumber: SeverityNumber.FATAL,
       severityText: "FATAL",
       attributes: {
+        [PulseWebSemconv.AttributeKey.EVENT_NAME]:
+          PulseWebSemconv.LogEventName.DEVICE_CRASH,
         [PulseWebSemconv.AttributeKey.PULSE_TYPE]:
           PulseWebSemconv.PulseType.DEVICE_CRASH,
         [PulseWebSemconv.AttributeKey.EXCEPTION_TYPE]: err.name,
@@ -633,6 +638,8 @@ class PulseSDK implements SdkContext {
     this.logger.emit({
       body: name,
       attributes: {
+        [PulseWebSemconv.AttributeKey.EVENT_NAME]:
+          PulseWebSemconv.LogEventName.CUSTOM_NON_FATAL,
         [PulseWebSemconv.AttributeKey.PULSE_TYPE]:
           PulseWebSemconv.PulseType.NON_FATAL,
         [PulseWebSemconv.AttributeKey.NON_FATAL_TYPE]: name,

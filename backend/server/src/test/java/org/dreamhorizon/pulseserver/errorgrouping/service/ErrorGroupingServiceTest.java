@@ -951,6 +951,170 @@ class ErrorGroupingServiceTest {
       assertNotNull(event.getExceptionStackTraceRaw());
       assertTrue(event.getGroupId().startsWith("EXC-"));
     }
+
+    @Test
+    void shouldResolvePlatformFromTelemetrySdkNameForWeb() {
+      LogRecord logRecord = buildMinimalJsLogRecord();
+
+      Resource resource = Resource.newBuilder()
+          .addAttributes(KeyValue.newBuilder()
+              .setKey("telemetry.sdk.name")
+              .setValue(AnyValue.newBuilder().setStringValue("pulse_web_js").build())
+              .build())
+          .addAttributes(KeyValue.newBuilder()
+              .setKey("os.name")
+              .setValue(AnyValue.newBuilder().setStringValue("macOS").build())
+              .build())
+          .build();
+
+      Single<List<StackTraceEvent>> result = errorGroupingService.process(
+          buildExportRequest(resource, logRecord));
+
+      StackTraceEvent event = result.blockingGet().get(0);
+      assertEquals("web", event.getPlatform());
+    }
+
+    @Test
+    void shouldResolvePlatformFromRumSdkNameWhenTelemetryMissing() {
+      LogRecord logRecord = buildMinimalJsLogRecord();
+
+      Resource resource = Resource.newBuilder()
+          .addAttributes(KeyValue.newBuilder()
+              .setKey("rum.sdk.name")
+              .setValue(AnyValue.newBuilder().setStringValue("pulse_web_js").build())
+              .build())
+          .addAttributes(KeyValue.newBuilder()
+              .setKey("os.name")
+              .setValue(AnyValue.newBuilder().setStringValue("Windows").build())
+              .build())
+          .build();
+
+      StackTraceEvent event = errorGroupingService.process(buildExportRequest(resource, logRecord))
+          .blockingGet()
+          .get(0);
+      assertEquals("web", event.getPlatform());
+    }
+
+    @Test
+    void shouldResolvePlatformFromPlatformAttrWhenSdkNamesMissing() {
+      LogRecord logRecord = buildMinimalJsLogRecord();
+
+      Resource resource = Resource.newBuilder()
+          .addAttributes(KeyValue.newBuilder()
+              .setKey("platform")
+              .setValue(AnyValue.newBuilder().setStringValue("web").build())
+              .build())
+          .addAttributes(KeyValue.newBuilder()
+              .setKey("os.name")
+              .setValue(AnyValue.newBuilder().setStringValue("Linux").build())
+              .build())
+          .build();
+
+      StackTraceEvent event = errorGroupingService.process(buildExportRequest(resource, logRecord))
+          .blockingGet()
+          .get(0);
+      assertEquals("web", event.getPlatform());
+    }
+
+    @Test
+    void shouldMapAndroidTelemetrySdkNameToAndroidPlatform() {
+      LogRecord logRecord = buildMinimalJsLogRecord();
+
+      Resource resource = Resource.newBuilder()
+          .addAttributes(KeyValue.newBuilder()
+              .setKey("telemetry.sdk.name")
+              .setValue(AnyValue.newBuilder().setStringValue("pulse_android_java").build())
+              .build())
+          .addAttributes(KeyValue.newBuilder()
+              .setKey("os.name")
+              .setValue(AnyValue.newBuilder().setStringValue("linux").build())
+              .build())
+          .build();
+
+      StackTraceEvent event = errorGroupingService.process(buildExportRequest(resource, logRecord))
+          .blockingGet()
+          .get(0);
+      assertEquals("Android", event.getPlatform());
+    }
+
+    @Test
+    void shouldPreferPulseTypeAttributeOverEventName() {
+      LogRecord logRecord = LogRecord.newBuilder()
+          .setObservedTimeUnixNano(System.currentTimeMillis() * 1_000_000)
+          .setEventName("pulse.custom_non_fatal")
+          .addAttributes(KeyValue.newBuilder()
+              .setKey("exception.stacktrace")
+              .setValue(AnyValue.newBuilder().setStringValue("Error: Test\n    at func@file.js:1:1").build())
+              .build())
+          .addAttributes(KeyValue.newBuilder()
+              .setKey("pulse.type")
+              .setValue(AnyValue.newBuilder().setStringValue("device.crash").build())
+              .build())
+          .build();
+
+      Resource resource = Resource.newBuilder()
+          .addAttributes(KeyValue.newBuilder()
+              .setKey("os.name")
+              .setValue(AnyValue.newBuilder().setStringValue("android").build())
+              .build())
+          .build();
+
+      StackTraceEvent event = errorGroupingService.process(buildExportRequest(resource, logRecord))
+          .blockingGet()
+          .get(0);
+      assertEquals("device.crash", event.getPulseType());
+    }
+
+    @Test
+    void shouldFallBackToEventNameWhenPulseTypeMissing() {
+      LogRecord logRecord = LogRecord.newBuilder()
+          .setObservedTimeUnixNano(System.currentTimeMillis() * 1_000_000)
+          .setEventName("device.crash")
+          .addAttributes(KeyValue.newBuilder()
+              .setKey("exception.stacktrace")
+              .setValue(AnyValue.newBuilder().setStringValue("Error: Test\n    at func@file.js:1:1").build())
+              .build())
+          .build();
+
+      Resource resource = Resource.newBuilder()
+          .addAttributes(KeyValue.newBuilder()
+              .setKey("os.name")
+              .setValue(AnyValue.newBuilder().setStringValue("android").build())
+              .build())
+          .build();
+
+      StackTraceEvent event = errorGroupingService.process(buildExportRequest(resource, logRecord))
+          .blockingGet()
+          .get(0);
+      assertEquals("device.crash", event.getPulseType());
+    }
+
+    private LogRecord buildMinimalJsLogRecord() {
+      return LogRecord.newBuilder()
+          .setObservedTimeUnixNano(System.currentTimeMillis() * 1_000_000)
+          .addAttributes(KeyValue.newBuilder()
+              .setKey("exception.stacktrace")
+              .setValue(AnyValue.newBuilder().setStringValue("Error: Test\n    at func@file.js:1:1").build())
+              .build())
+          .build();
+    }
+
+    private ExportLogsServiceRequest buildExportRequest(Resource resource, LogRecord logRecord) {
+      ScopeLogs scopeLogs = ScopeLogs.newBuilder()
+          .addLogRecords(logRecord)
+          .build();
+      ResourceLogs resourceLogs = ResourceLogs.newBuilder()
+          .setResource(resource)
+          .addScopeLogs(scopeLogs)
+          .build();
+      when(symbolicator.symbolicateJsInPlace(anyList(), any()))
+          .thenReturn(Single.just(List.of("func@file.js:1:1")));
+      lenient().when(symbolicator.retrace(anyList(), any()))
+          .thenReturn(Single.just(Collections.emptyList()));
+      return ExportLogsServiceRequest.newBuilder()
+          .addResourceLogs(resourceLogs)
+          .build();
+    }
   }
 
   @Nested

@@ -370,6 +370,13 @@ describe("M1 — Resource builder", () => {
     );
   });
 
+  it("includes telemetry.sdk.name=pulse_web_js", () => {
+    const resource = buildResource(makeConfig(), "14");
+    expect(resource.attributes[resourceKeys.TELEMETRY_SDK_NAME]).toBe(
+      fixedValues.TELEMETRY_SDK_NAME,
+    );
+  });
+
   it("includes service.name from config", () => {
     const resource = buildResource(
       makeConfig({ serviceName: "my-shop" }),

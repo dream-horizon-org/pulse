@@ -14,7 +14,7 @@
 
 ## Expected divergence
 
-1. Browser has no thread id/name parity fields; web uses filename/line/column where available.
+1. Browser has no thread id/name parity fields; web uses filename/line/column where available. We intentionally do **not** emit synthetic `thread.name` / `thread.id` (see backlog in `ralph/sdk-error-platform-parity.md`).
 2. Device-state attrs are browser API-dependent (`getBattery`, `storage.estimate`) and best-effort.
 3. Blocking forceFlush semantics differ on page lifecycle boundaries.
 
