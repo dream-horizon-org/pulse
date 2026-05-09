@@ -1,15 +1,10 @@
 import type { Page } from "@playwright/test";
-import {
-  test,
-  expect,
-  getAttr,
-  findAllLogs,
-  getResourceAttr,
-} from "./fixture";
+import { test, expect, getAttr, findAllLogs, getResourceAttr } from "./fixture";
 import {
   blockActiveConfigFetch,
   seedPulseSdkConfig,
   minimalPulseSdkConfig,
+  waitPastSeededSignalsBatchWindow,
 } from "./test-sdk-config";
 
 /**
@@ -78,9 +73,10 @@ test.describe("@ScreenNav SPA navigation", () => {
     expect(getAttr(session.attributes, "screen.name")).toBeTruthy();
     expect(getAttr(session.attributes, "session.id")).toBeTruthy();
 
-    const duration = getAttr(session.attributes, "session.duration_ms");
-    expect(typeof duration).toBe("number");
-    expect(duration).toBeGreaterThan(0);
+    const durationMs = getAttr(session.attributes, "session.duration_ms");
+    expect(typeof durationMs).toBe("number");
+    expect(durationMs).toBeGreaterThan(0);
+    expect(getAttr(session.attributes, "session.duration")).toEqual(durationMs);
   });
 
   test("emits new screen_load with spa start.type after navigation", async ({
@@ -148,6 +144,29 @@ test.describe("@ScreenNav feature gate", () => {
     await page.goto("/");
     const load = await otlp.waitForLog("screen_load", 8000);
     expect(getAttr(load.attributes, "pulse.type")).toBe("screen_load");
+  });
+
+  test("with screen_navigation disabled in seeded config, no screen_load", async ({
+    page,
+    otlp,
+  }) => {
+    await blockActiveConfigFetch(page);
+    await seedPulseSdkConfig(
+      page,
+      minimalPulseSdkConfig({
+        features: [
+          {
+            featureName: "screen_navigation",
+            sessionSampleRate: 0,
+            sdks: ["pulse_web_js"],
+            config: null,
+          },
+        ],
+      }),
+    );
+    await page.goto("/");
+    await waitPastSeededSignalsBatchWindow(page);
+    expect(findAllLogs(otlp.captured, "screen_load").length).toBe(0);
   });
 });
 
@@ -217,9 +236,10 @@ test.describe("@ScreenNav numeric attributes", () => {
     await page.click('a:has-text("Products")');
     const session = await otlp.waitForLog("screen_session");
 
-    const duration = getAttr(session.attributes, "session.duration_ms");
-    expect(typeof duration).toBe("number");
-    expect(duration).toBeGreaterThan(0);
+    const durationMs = getAttr(session.attributes, "session.duration_ms");
+    expect(typeof durationMs).toBe("number");
+    expect(durationMs).toBeGreaterThan(0);
+    expect(getAttr(session.attributes, "session.duration")).toEqual(durationMs);
   });
 
   test("tti present in screen_interactive when available", async ({

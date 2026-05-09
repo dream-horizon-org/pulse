@@ -11,6 +11,8 @@ export type PulseFeatureName =
   | "click"
   | "web_vitals"
   | "screen_session"
+  /** Web screen navigation spans (`screen_load`, `screen_interactive`, `screen_session`); backend {@code Features.screen_navigation}. */
+  | "screen_navigation"
   | "long_task"
   | "resource_timing"
   | "visibility"
@@ -28,6 +30,7 @@ export const PulseFeature = {
   CLICK: "click",
   WEB_VITALS: "web_vitals",
   SCREEN_SESSION: "screen_session",
+  SCREEN_NAVIGATION: "screen_navigation",
   LONG_TASK: "long_task",
   RESOURCE_TIMING: "resource_timing",
   VISIBILITY: "visibility",

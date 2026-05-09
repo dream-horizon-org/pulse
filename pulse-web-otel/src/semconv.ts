@@ -39,9 +39,15 @@ export const PulseWebSemconv = {
     SESSION_PREVIOUS_ID: "session.previous_id",
     SESSION_START_REASON: "session.start_reason",
     SESSION_DURATION_MS: "session.duration_ms",
+    /** Duplicate of {@link SESSION_DURATION_MS} for FINAL-PLAN / dashboard parity (`session.duration`). */
+    SESSION_DURATION: "session.duration",
     SESSION_END_REASON: "session.end_reason",
     INSTALLATION_ID: "installation.id",
     SCREEN_NAME: "screen.name",
+    /** Document title from `document.title` (screen navigation logs). */
+    PAGE_TITLE: "page.title",
+    /** Browser navigation API type on initial load (`navigate` \| `reload` \| `back_forward`). */
+    NAVIGATION_TYPE: "navigation.type",
     PLATFORM: "platform",
     URL_PATH: "url.path",
     PAGE_URL: "page.url",

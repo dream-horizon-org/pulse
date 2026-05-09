@@ -73,6 +73,10 @@ See [PLAN-A-metrics-histogram.md](./PLAN-A-metrics-histogram.md) — metrics los
 - Route pattern configuration **local** only (via SDK init config)
 - Future: if product wants per-screen sampling, add `screenNavigation.screenSampleRates` to backend config
 
+## Implementation note (v1 web SDK)
+
+Signals are emitted as **OTLP logs** via `Logger.emit()` with `pulse.type` and timing attributes (`page.load_time`, `tti`, etc.). They are **not** separate OpenTelemetry span API objects in the browser exporter path v1; duration semantics are carried as attributes on log records. Future work may map these to trace spans if product requires span timing UI parity.
+
 ## Handoff notes
 
 This ADR + PLAN-B + touchpoints unblock:

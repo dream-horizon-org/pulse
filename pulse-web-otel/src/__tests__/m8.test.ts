@@ -153,10 +153,9 @@ describe("TC 8.1 — pagehide registered once on start()", () => {
     await Promise.resolve();
 
     const pagehideCount = adds.filter((e) => e === "pagehide").length;
-    // sdk.ts adds 1; session.ts adds 1 — total registered is 2 but both are
-    // one-shot registrations on a single start(). The SDK must never register > 2.
+    // sdk.ts + session.ts + navigation.ts each add one pagehide on start().
     expect(pagehideCount).toBeGreaterThanOrEqual(1);
-    expect(pagehideCount).toBeLessThanOrEqual(2);
+    expect(pagehideCount).toBeLessThanOrEqual(3);
 
     addSpy.mockRestore();
   });

@@ -67,7 +67,11 @@ function makeMinimalSdk(
 
 function setPath(path: string) {
   Object.defineProperty(window, "location", {
-    value: { ...window.location, pathname: path, href: `http://localhost${path}` },
+    value: {
+      ...window.location,
+      pathname: path,
+      href: `http://localhost${path}`,
+    },
     configurable: true,
     writable: true,
   });
@@ -114,7 +118,10 @@ describe("NavigationInstrumentation", () => {
       const instr = new NavigationInstrumentation();
       const sdk = makeMinimalSdk();
       const emit = vi.fn();
-      logMocks.getLogger.mockReturnValue({ emit, enabled: vi.fn().mockReturnValue(true) });
+      logMocks.getLogger.mockReturnValue({
+        emit,
+        enabled: vi.fn().mockReturnValue(true),
+      });
 
       setPath("/test1");
       instr.install(sdk);
@@ -133,7 +140,10 @@ describe("NavigationInstrumentation", () => {
       const instr = new NavigationInstrumentation();
       const sdk = makeMinimalSdk();
       const emit = vi.fn();
-      logMocks.getLogger.mockReturnValue({ emit, enabled: vi.fn().mockReturnValue(true) });
+      logMocks.getLogger.mockReturnValue({
+        emit,
+        enabled: vi.fn().mockReturnValue(true),
+      });
 
       setPath("/home");
       instr.install(sdk);
@@ -156,7 +166,10 @@ describe("NavigationInstrumentation", () => {
       const instr = new NavigationInstrumentation();
       const sdk = makeMinimalSdk();
       const emit = vi.fn();
-      logMocks.getLogger.mockReturnValue({ emit, enabled: vi.fn().mockReturnValue(true) });
+      logMocks.getLogger.mockReturnValue({
+        emit,
+        enabled: vi.fn().mockReturnValue(true),
+      });
 
       setPath("/home");
       instr.install(sdk);
@@ -283,7 +296,10 @@ describe("NavigationInstrumentation", () => {
       instr.install(sdk);
 
       const emit = vi.fn();
-      logMocks.getLogger.mockReturnValue({ emit, enabled: vi.fn().mockReturnValue(true) });
+      logMocks.getLogger.mockReturnValue({
+        emit,
+        enabled: vi.fn().mockReturnValue(true),
+      });
 
       // Verify original pushState is called (wrapped)
       expect(() => {
@@ -303,7 +319,10 @@ describe("NavigationInstrumentation", () => {
       instr.install(sdk);
 
       const emit = vi.fn();
-      logMocks.getLogger.mockReturnValue({ emit, enabled: vi.fn().mockReturnValue(true) });
+      logMocks.getLogger.mockReturnValue({
+        emit,
+        enabled: vi.fn().mockReturnValue(true),
+      });
 
       // Verify original replaceState is called (wrapped)
       expect(() => {
@@ -318,7 +337,10 @@ describe("NavigationInstrumentation", () => {
       const instr = new NavigationInstrumentation();
       const sdk = makeMinimalSdk();
       const emit = vi.fn();
-      logMocks.getLogger.mockReturnValue({ emit, enabled: vi.fn().mockReturnValue(true) });
+      logMocks.getLogger.mockReturnValue({
+        emit,
+        enabled: vi.fn().mockReturnValue(true),
+      });
 
       setPath("/home");
       instr.install(sdk);
@@ -345,7 +367,10 @@ describe("NavigationInstrumentation", () => {
       const instr = new NavigationInstrumentation();
       const sdk = makeMinimalSdk();
       const emit = vi.fn();
-      logMocks.getLogger.mockReturnValue({ emit, enabled: vi.fn().mockReturnValue(true) });
+      logMocks.getLogger.mockReturnValue({
+        emit,
+        enabled: vi.fn().mockReturnValue(true),
+      });
 
       setPath("/home");
       instr.install(sdk);
@@ -371,7 +396,10 @@ describe("NavigationInstrumentation", () => {
       const instr = new NavigationInstrumentation();
       const sdk = makeMinimalSdk();
       const emit = vi.fn();
-      logMocks.getLogger.mockReturnValue({ emit, enabled: vi.fn().mockReturnValue(true) });
+      logMocks.getLogger.mockReturnValue({
+        emit,
+        enabled: vi.fn().mockReturnValue(true),
+      });
 
       setPath("/page1");
       instr.install(sdk);
@@ -398,7 +426,10 @@ describe("NavigationInstrumentation", () => {
       const instr = new NavigationInstrumentation();
       const sdk = makeMinimalSdk();
       const emit = vi.fn();
-      logMocks.getLogger.mockReturnValue({ emit, enabled: vi.fn().mockReturnValue(true) });
+      logMocks.getLogger.mockReturnValue({
+        emit,
+        enabled: vi.fn().mockReturnValue(true),
+      });
 
       setPath("/page1");
       instr.install(sdk);
@@ -445,18 +476,26 @@ describe("NavigationInstrumentation", () => {
       const instr = new NavigationInstrumentation();
       const sdk = makeMinimalSdk();
       const emit = vi.fn();
-      logMocks.getLogger.mockReturnValue({ emit, enabled: vi.fn().mockReturnValue(true) });
+      logMocks.getLogger.mockReturnValue({
+        emit,
+        enabled: vi.fn().mockReturnValue(true),
+      });
 
       setPath("/home");
       instr.install(sdk);
 
       // Should emit both screen_load and screen_interactive
       const emittedPulseTypes = emit.mock.calls.map(
-        (call: any) => call[0]?.attributes?.[PulseWebSemconv.AttributeKey.PULSE_TYPE],
+        (call: any) =>
+          call[0]?.attributes?.[PulseWebSemconv.AttributeKey.PULSE_TYPE],
       );
 
-      expect(emittedPulseTypes).toContain(PulseWebSemconv.PulseType.SCREEN_LOAD);
-      expect(emittedPulseTypes).toContain(PulseWebSemconv.PulseType.SCREEN_INTERACTIVE);
+      expect(emittedPulseTypes).toContain(
+        PulseWebSemconv.PulseType.SCREEN_LOAD,
+      );
+      expect(emittedPulseTypes).toContain(
+        PulseWebSemconv.PulseType.SCREEN_INTERACTIVE,
+      );
 
       instr.uninstall();
     });
@@ -465,7 +504,10 @@ describe("NavigationInstrumentation", () => {
       const instr = new NavigationInstrumentation();
       const sdk = makeMinimalSdk();
       const emit = vi.fn();
-      logMocks.getLogger.mockReturnValue({ emit, enabled: vi.fn().mockReturnValue(true) });
+      logMocks.getLogger.mockReturnValue({
+        emit,
+        enabled: vi.fn().mockReturnValue(true),
+      });
 
       setPath("/home");
       instr.install(sdk);
@@ -477,8 +519,11 @@ describe("NavigationInstrumentation", () => {
           PulseWebSemconv.PulseType.SCREEN_LOAD,
       );
 
-      expect(screenLoadCall).toBeTruthy();
-      const startType = screenLoadCall[0]?.attributes?.[PulseWebSemconv.AttributeKey.START_TYPE];
+      expect(screenLoadCall).toBeDefined();
+      const startType =
+        screenLoadCall![0]?.attributes?.[
+          PulseWebSemconv.AttributeKey.START_TYPE
+        ];
       expect(["cold", "reload", "back_forward"]).toContain(startType);
 
       instr.uninstall();
@@ -488,7 +533,10 @@ describe("NavigationInstrumentation", () => {
       const instr = new NavigationInstrumentation();
       const sdk = makeMinimalSdk();
       const emit = vi.fn();
-      logMocks.getLogger.mockReturnValue({ emit, enabled: vi.fn().mockReturnValue(true) });
+      logMocks.getLogger.mockReturnValue({
+        emit,
+        enabled: vi.fn().mockReturnValue(true),
+      });
 
       setPath("/home");
       instr.install(sdk);
@@ -504,10 +552,14 @@ describe("NavigationInstrumentation", () => {
         const attrs = screenLoadCall[0]?.attributes;
         // If timing attrs exist, they should be > 0
         if (attrs[PulseWebSemconv.AttributeKey.TTI] !== undefined) {
-          expect(attrs[PulseWebSemconv.AttributeKey.TTI]).toBeGreaterThanOrEqual(0);
+          expect(
+            attrs[PulseWebSemconv.AttributeKey.TTI],
+          ).toBeGreaterThanOrEqual(0);
         }
         if (attrs[PulseWebSemconv.AttributeKey.PAGE_LOAD_TIME] !== undefined) {
-          expect(attrs[PulseWebSemconv.AttributeKey.PAGE_LOAD_TIME]).toBeGreaterThan(0);
+          expect(
+            attrs[PulseWebSemconv.AttributeKey.PAGE_LOAD_TIME],
+          ).toBeGreaterThan(0);
         }
       }
 
@@ -518,7 +570,10 @@ describe("NavigationInstrumentation", () => {
       const instr = new NavigationInstrumentation();
       const sdk = makeMinimalSdk();
       const emit = vi.fn();
-      logMocks.getLogger.mockReturnValue({ emit, enabled: vi.fn().mockReturnValue(true) });
+      logMocks.getLogger.mockReturnValue({
+        emit,
+        enabled: vi.fn().mockReturnValue(true),
+      });
 
       setPath("/home");
       instr.install(sdk);
@@ -553,7 +608,10 @@ describe("NavigationInstrumentation", () => {
       const instr = new NavigationInstrumentation();
       const sdk = makeMinimalSdk();
       const emit = vi.fn();
-      logMocks.getLogger.mockReturnValue({ emit, enabled: vi.fn().mockReturnValue(true) });
+      logMocks.getLogger.mockReturnValue({
+        emit,
+        enabled: vi.fn().mockReturnValue(true),
+      });
 
       setPath("/home");
       instr.install(sdk);
@@ -573,7 +631,10 @@ describe("NavigationInstrumentation", () => {
       const instr = new NavigationInstrumentation();
       const sdk = makeMinimalSdk();
       const emit = vi.fn();
-      logMocks.getLogger.mockReturnValue({ emit, enabled: vi.fn().mockReturnValue(true) });
+      logMocks.getLogger.mockReturnValue({
+        emit,
+        enabled: vi.fn().mockReturnValue(true),
+      });
 
       setPath("/home");
       instr.install(sdk);
@@ -599,9 +660,124 @@ describe("NavigationInstrumentation", () => {
       expect(screenLoadCalls.length).toBeGreaterThan(0);
 
       // screen_load should have start.type=spa (not cold/reload/back_forward)
-      const lastScreenLoad = screenLoadCalls[screenLoadCalls.length - 1];
-      const startType = lastScreenLoad[0]?.attributes?.[PulseWebSemconv.AttributeKey.START_TYPE];
+      const lastScreenLoad = screenLoadCalls[screenLoadCalls.length - 1]!;
+      const startType =
+        lastScreenLoad[0]?.attributes?.[
+          PulseWebSemconv.AttributeKey.START_TYPE
+        ];
       expect(startType).toBe("spa");
+
+      instr.uninstall();
+    });
+
+    it("initial load emits screen_load before screen_interactive", () => {
+      const instr = new NavigationInstrumentation();
+      const sdk = makeMinimalSdk();
+      const emit = vi.fn();
+      logMocks.getLogger.mockReturnValue({
+        emit,
+        enabled: vi.fn().mockReturnValue(true),
+      });
+
+      setPath("/home");
+      instr.install(sdk);
+
+      const pulseTypeOf = (call: unknown[]) =>
+        (call as { 0?: { attributes?: Record<string, unknown> } })[0]
+          ?.attributes?.[PulseWebSemconv.AttributeKey.PULSE_TYPE];
+      const types = emit.mock.calls.map(pulseTypeOf);
+      const iLoad = types.indexOf(PulseWebSemconv.PulseType.SCREEN_LOAD);
+      const iInt = types.indexOf(PulseWebSemconv.PulseType.SCREEN_INTERACTIVE);
+      expect(iLoad).toBeGreaterThanOrEqual(0);
+      expect(iInt).toBeGreaterThanOrEqual(0);
+      expect(iLoad).toBeLessThan(iInt);
+
+      instr.uninstall();
+    });
+
+    it("popstate triggers SPA navigation emits like pushState", () => {
+      const instr = new NavigationInstrumentation();
+      const sdk = makeMinimalSdk();
+      const emit = vi.fn();
+      logMocks.getLogger.mockReturnValue({
+        emit,
+        enabled: vi.fn().mockReturnValue(true),
+      });
+
+      setPath("/home");
+      instr.install(sdk);
+      emit.mockClear();
+
+      setPath("/cart");
+      window.dispatchEvent(new PopStateEvent("popstate"));
+
+      const screenLoads = emit.mock.calls.filter(
+        (call: any) =>
+          call[0]?.attributes?.[PulseWebSemconv.AttributeKey.PULSE_TYPE] ===
+          PulseWebSemconv.PulseType.SCREEN_LOAD,
+      );
+      expect(screenLoads.length).toBeGreaterThan(0);
+
+      instr.uninstall();
+    });
+
+    it("pagehide emits a screen_session for time on current screen", () => {
+      const instr = new NavigationInstrumentation();
+      const sdk = makeMinimalSdk();
+      const emit = vi.fn();
+      logMocks.getLogger.mockReturnValue({
+        emit,
+        enabled: vi.fn().mockReturnValue(true),
+      });
+
+      setPath("/home");
+      instr.install(sdk);
+      emit.mockClear();
+
+      window.dispatchEvent(new Event("pagehide"));
+
+      const sessions = emit.mock.calls.filter(
+        (call: any) =>
+          call[0]?.attributes?.[PulseWebSemconv.AttributeKey.PULSE_TYPE] ===
+          PulseWebSemconv.PulseType.SCREEN_SESSION,
+      );
+      expect(sessions.length).toBeGreaterThan(0);
+      const firstSession = sessions[0]!;
+      const dur =
+        firstSession[0]?.attributes?.[
+          PulseWebSemconv.AttributeKey.SESSION_DURATION_MS
+        ];
+      expect(typeof dur).toBe("number");
+
+      instr.uninstall();
+    });
+
+    it("screen_session carries session.duration and session.duration_ms", () => {
+      const instr = new NavigationInstrumentation();
+      const sdk = makeMinimalSdk();
+      const emit = vi.fn();
+      logMocks.getLogger.mockReturnValue({
+        emit,
+        enabled: vi.fn().mockReturnValue(true),
+      });
+
+      setPath("/home");
+      instr.install(sdk);
+      emit.mockClear();
+
+      setPath("/cart");
+      history.pushState({}, "", "/cart");
+
+      const sessionCall = emit.mock.calls.find(
+        (call: any) =>
+          call[0]?.attributes?.[PulseWebSemconv.AttributeKey.PULSE_TYPE] ===
+          PulseWebSemconv.PulseType.SCREEN_SESSION,
+      );
+      expect(sessionCall).toBeTruthy();
+      const attrs = sessionCall![0].attributes as Record<string, unknown>;
+      expect(attrs[PulseWebSemconv.AttributeKey.SESSION_DURATION_MS]).toEqual(
+        attrs[PulseWebSemconv.AttributeKey.SESSION_DURATION],
+      );
 
       instr.uninstall();
     });
@@ -619,7 +795,10 @@ describe("NavigationInstrumentation", () => {
 
       setPath("/home");
       const emit = vi.fn();
-      logMocks.getLogger.mockReturnValue({ emit, enabled: vi.fn().mockReturnValue(true) });
+      logMocks.getLogger.mockReturnValue({
+        emit,
+        enabled: vi.fn().mockReturnValue(true),
+      });
 
       instr.install(sdk);
 
@@ -640,7 +819,10 @@ describe("NavigationInstrumentation", () => {
 
       setPath("/home");
       const emit = vi.fn();
-      logMocks.getLogger.mockReturnValue({ emit, enabled: vi.fn().mockReturnValue(true) });
+      logMocks.getLogger.mockReturnValue({
+        emit,
+        enabled: vi.fn().mockReturnValue(true),
+      });
 
       instr.install(sdk);
 
@@ -664,7 +846,10 @@ describe("NavigationInstrumentation", () => {
 
       setPath("/home");
       const emit = vi.fn();
-      logMocks.getLogger.mockReturnValue({ emit, enabled: vi.fn().mockReturnValue(true) });
+      logMocks.getLogger.mockReturnValue({
+        emit,
+        enabled: vi.fn().mockReturnValue(true),
+      });
 
       instr.install(sdk);
 
@@ -703,7 +888,10 @@ describe("NavigationInstrumentation", () => {
 
       setPath("/home");
       const emit = vi.fn();
-      logMocks.getLogger.mockReturnValue({ emit, enabled: vi.fn().mockReturnValue(true) });
+      logMocks.getLogger.mockReturnValue({
+        emit,
+        enabled: vi.fn().mockReturnValue(true),
+      });
 
       instr.install(sdk);
       emit.mockClear();
