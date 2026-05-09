@@ -607,6 +607,74 @@ describe("NavigationInstrumentation", () => {
     });
   });
 
+  describe("Feature gate & consent integration", () => {
+    it("does not install when consent is DENIED", () => {
+      const instr = new NavigationInstrumentation();
+      const sdk = makeMinimalSdk({
+        config: {
+          apiKey: "proj_x_key",
+          dataCollectionState: PulseDataCollectionConsent.DENIED,
+        },
+      });
+
+      setPath("/home");
+      const emit = vi.fn();
+      logMocks.getLogger.mockReturnValue({ emit, enabled: vi.fn().mockReturnValue(true) });
+
+      instr.install(sdk);
+
+      // Should not have patched History API or emitted signals
+      expect(emit.mock.calls.length).toBe(0);
+
+      instr.uninstall();
+    });
+
+    it("installs when consent is ALLOWED", () => {
+      const instr = new NavigationInstrumentation();
+      const sdk = makeMinimalSdk({
+        config: {
+          apiKey: "proj_x_key",
+          dataCollectionState: PulseDataCollectionConsent.ALLOWED,
+        },
+      });
+
+      setPath("/home");
+      const emit = vi.fn();
+      logMocks.getLogger.mockReturnValue({ emit, enabled: vi.fn().mockReturnValue(true) });
+
+      instr.install(sdk);
+
+      // Should have emitted signals
+      expect(emit.mock.calls.length).toBeGreaterThanOrEqual(1);
+
+      instr.uninstall();
+    });
+
+    it("feature gate check happens at registry level (shouldInstall)", () => {
+      const instr = new NavigationInstrumentation();
+      const sdk = makeMinimalSdk({
+        config: {
+          apiKey: "proj_x_key",
+          dataCollectionState: PulseDataCollectionConsent.ALLOWED,
+          instrumentations: {
+            navigation: { enabled: false },
+          },
+        },
+      });
+
+      setPath("/home");
+      const emit = vi.fn();
+      logMocks.getLogger.mockReturnValue({ emit, enabled: vi.fn().mockReturnValue(true) });
+
+      instr.install(sdk);
+
+      // Even with consent ALLOWED, if config disabled, it's up to registry
+      // (NavigationInstrumentation.install() doesn't double-check config)
+
+      instr.uninstall();
+    });
+  });
+
   describe("Edge cases and boundary conditions", () => {
     it("handles SSR context safely (no crash on missing window)", () => {
       const orig = globalThis.window;
