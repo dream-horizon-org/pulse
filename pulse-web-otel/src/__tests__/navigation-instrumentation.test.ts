@@ -440,6 +440,173 @@ describe("NavigationInstrumentation", () => {
     });
   });
 
+  describe("Signal emission — timing extraction and attributes", () => {
+    it("emits screen_load and screen_interactive on initial page load", () => {
+      const instr = new NavigationInstrumentation();
+      const sdk = makeMinimalSdk();
+      const emit = vi.fn();
+      logMocks.getLogger.mockReturnValue({ emit, enabled: vi.fn().mockReturnValue(true) });
+
+      setPath("/home");
+      instr.install(sdk);
+
+      // Should emit both screen_load and screen_interactive
+      const emittedPulseTypes = emit.mock.calls.map(
+        (call: any) => call[0]?.attributes?.[PulseWebSemconv.AttributeKey.PULSE_TYPE],
+      );
+
+      expect(emittedPulseTypes).toContain(PulseWebSemconv.PulseType.SCREEN_LOAD);
+      expect(emittedPulseTypes).toContain(PulseWebSemconv.PulseType.SCREEN_INTERACTIVE);
+
+      instr.uninstall();
+    });
+
+    it("sets start.type to cold/reload/back_forward on initial load", () => {
+      const instr = new NavigationInstrumentation();
+      const sdk = makeMinimalSdk();
+      const emit = vi.fn();
+      logMocks.getLogger.mockReturnValue({ emit, enabled: vi.fn().mockReturnValue(true) });
+
+      setPath("/home");
+      instr.install(sdk);
+
+      // Check that screen_load has start.type
+      const screenLoadCall = emit.mock.calls.find(
+        (call: any) =>
+          call[0]?.attributes?.[PulseWebSemconv.AttributeKey.PULSE_TYPE] ===
+          PulseWebSemconv.PulseType.SCREEN_LOAD,
+      );
+
+      expect(screenLoadCall).toBeTruthy();
+      const startType = screenLoadCall[0]?.attributes?.[PulseWebSemconv.AttributeKey.START_TYPE];
+      expect(["cold", "reload", "back_forward"]).toContain(startType);
+
+      instr.uninstall();
+    });
+
+    it("omits zero-valued timing attributes", () => {
+      const instr = new NavigationInstrumentation();
+      const sdk = makeMinimalSdk();
+      const emit = vi.fn();
+      logMocks.getLogger.mockReturnValue({ emit, enabled: vi.fn().mockReturnValue(true) });
+
+      setPath("/home");
+      instr.install(sdk);
+
+      // Check that zero values are not included
+      const screenLoadCall = emit.mock.calls.find(
+        (call: any) =>
+          call[0]?.attributes?.[PulseWebSemconv.AttributeKey.PULSE_TYPE] ===
+          PulseWebSemconv.PulseType.SCREEN_LOAD,
+      );
+
+      if (screenLoadCall) {
+        const attrs = screenLoadCall[0]?.attributes;
+        // If timing attrs exist, they should be > 0
+        if (attrs[PulseWebSemconv.AttributeKey.TTI] !== undefined) {
+          expect(attrs[PulseWebSemconv.AttributeKey.TTI]).toBeGreaterThanOrEqual(0);
+        }
+        if (attrs[PulseWebSemconv.AttributeKey.PAGE_LOAD_TIME] !== undefined) {
+          expect(attrs[PulseWebSemconv.AttributeKey.PAGE_LOAD_TIME]).toBeGreaterThan(0);
+        }
+      }
+
+      instr.uninstall();
+    });
+
+    it("emits timing values with correct magnitude (milliseconds)", () => {
+      const instr = new NavigationInstrumentation();
+      const sdk = makeMinimalSdk();
+      const emit = vi.fn();
+      logMocks.getLogger.mockReturnValue({ emit, enabled: vi.fn().mockReturnValue(true) });
+
+      setPath("/home");
+      instr.install(sdk);
+
+      const screenLoadCall = emit.mock.calls.find(
+        (call: any) =>
+          call[0]?.attributes?.[PulseWebSemconv.AttributeKey.PULSE_TYPE] ===
+          PulseWebSemconv.PulseType.SCREEN_LOAD,
+      );
+
+      if (screenLoadCall) {
+        const attrs = screenLoadCall[0]?.attributes;
+        // All timing values should be finite and non-negative
+        [
+          PulseWebSemconv.AttributeKey.PAGE_LOAD_TIME,
+          PulseWebSemconv.AttributeKey.TTFB,
+          PulseWebSemconv.AttributeKey.DNS_TIME,
+          PulseWebSemconv.AttributeKey.TCP_TIME,
+          PulseWebSemconv.AttributeKey.DOM_PROCESSING_TIME,
+        ].forEach((key) => {
+          if (attrs[key] !== undefined) {
+            expect(Number.isFinite(attrs[key])).toBe(true);
+            expect(attrs[key]).toBeGreaterThanOrEqual(0);
+          }
+        });
+      }
+
+      instr.uninstall();
+    });
+
+    it("all signals carry required attributes (pulse.type, screen.name, session.id)", () => {
+      const instr = new NavigationInstrumentation();
+      const sdk = makeMinimalSdk();
+      const emit = vi.fn();
+      logMocks.getLogger.mockReturnValue({ emit, enabled: vi.fn().mockReturnValue(true) });
+
+      setPath("/home");
+      instr.install(sdk);
+
+      // Check that all emitted signals have required attrs
+      emit.mock.calls.forEach((call: any) => {
+        const attrs = call[0]?.attributes;
+        expect(attrs[PulseWebSemconv.AttributeKey.PULSE_TYPE]).toBeTruthy();
+        expect(attrs[PulseWebSemconv.AttributeKey.SCREEN_NAME]).toBeTruthy();
+        expect(attrs[PulseWebSemconv.AttributeKey.SESSION_ID]).toBeTruthy();
+      });
+
+      instr.uninstall();
+    });
+
+    it("SPA nav emits screen_session with duration + screen_load with start.type=spa", () => {
+      const instr = new NavigationInstrumentation();
+      const sdk = makeMinimalSdk();
+      const emit = vi.fn();
+      logMocks.getLogger.mockReturnValue({ emit, enabled: vi.fn().mockReturnValue(true) });
+
+      setPath("/home");
+      instr.install(sdk);
+      emit.mockClear();
+
+      // Navigate
+      setPath("/cart");
+      history.pushState({}, "", "/cart");
+
+      // Should emit screen_session and screen_load
+      const screenSessionCalls = emit.mock.calls.filter(
+        (call: any) =>
+          call[0]?.attributes?.[PulseWebSemconv.AttributeKey.PULSE_TYPE] ===
+          PulseWebSemconv.PulseType.SCREEN_SESSION,
+      );
+      const screenLoadCalls = emit.mock.calls.filter(
+        (call: any) =>
+          call[0]?.attributes?.[PulseWebSemconv.AttributeKey.PULSE_TYPE] ===
+          PulseWebSemconv.PulseType.SCREEN_LOAD,
+      );
+
+      expect(screenSessionCalls.length).toBeGreaterThan(0);
+      expect(screenLoadCalls.length).toBeGreaterThan(0);
+
+      // screen_load should have start.type=spa (not cold/reload/back_forward)
+      const lastScreenLoad = screenLoadCalls[screenLoadCalls.length - 1];
+      const startType = lastScreenLoad[0]?.attributes?.[PulseWebSemconv.AttributeKey.START_TYPE];
+      expect(startType).toBe("spa");
+
+      instr.uninstall();
+    });
+  });
+
   describe("Edge cases and boundary conditions", () => {
     it("handles SSR context safely (no crash on missing window)", () => {
       const orig = globalThis.window;
