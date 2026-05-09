@@ -14,6 +14,7 @@ import {
 import { PulseProvider } from "@dreamhorizonorg/pulse-web/react";
 import { PulseRouterEvents } from "@dreamhorizonorg/pulse-web/react/router";
 import { PulseDebugPanel } from "./components/PulseDebugPanel";
+import { ScreenNavigationLogger } from "./components/ScreenNavigationLogger";
 import { EcommerceErrorFallback } from "./components/EcommerceErrorFallback";
 import { CartProvider } from "./hooks/useCart";
 
@@ -264,6 +265,7 @@ export default function App() {
         {/* Expose for E2E shutdown test (m1.spec.ts) */}
         <_PulseExpose />
         <PulseRouterEvents skipInitial={false} />
+        <ScreenNavigationLogger />
         <_PulseDemoUserSetup config={userSetupConfig} />
         <CartProvider>
           <NavBar />

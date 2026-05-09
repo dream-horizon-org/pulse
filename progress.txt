@@ -14,3 +14,6 @@
 2026-05-09T12:27:17Z | 04-tdd-feature-gate-consent.md | 8332f16d3 | OK
 2026-05-09T12:27:25Z | 06-backend-feature-enum.md | 70b607225 | OK
 [2026-05-09T14:07:56Z] ✗ CLI TIMEOUT (30s) | issue=03
+2026-05-09T14:41:56Z | 03-tdd-framework-integrations.md | 6ff695b0f | OK
+[2026-05-09T14:13:50Z] ✓ PASSED (332s) | issue=03 | file=03-tdd-framework-integrations.md
+[2026-05-09T14:13:51Z] ⚠️  hit max iters (2) with 1 issue(s) remaining
