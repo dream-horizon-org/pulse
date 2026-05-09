@@ -28,7 +28,9 @@ public enum Features {
   android_fragment,
   android_slowrendering,
   /** Web Core Web Vitals (LCP, INP, CLS); {@code pulse_web_js} SDK. */
-  web_vitals;
+  web_vitals,
+  /** Web screen navigation tracking (screen_load, screen_interactive, screen_session); {@code pulse_web_js} SDK. */
+  screen_navigation;
 
   public static List<String> getFeatures() {
     return Arrays.stream(Features.values()).map(Enum::name).collect(Collectors.toList());

@@ -11,3 +11,4 @@
 [2026-05-09T12:35:04Z] hit max iters with 6 issues remaining
 2026-05-09T12:46:56Z | 01-tdd-navigation-core.md | bb0a0e9da | OK
 2026-05-09T12:23:27Z | 02-tdd-signal-emission.md | f11edba81 | OK
+2026-05-09T12:27:17Z | 04-tdd-feature-gate-consent.md | 8332f16d3 | OK
