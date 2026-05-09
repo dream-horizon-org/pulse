@@ -49,7 +49,7 @@ When implementing a specific task, read the matching phase doc for the full spec
 - Vitest + JSDOM
 - Mock `window.localStorage`, `navigator`, `crypto.randomUUID` in tests
 - Do not mock the OTLP exporter — use a fake HTTP server (MSW or similar)
-- **E2E gate before PR:** `yarn workspace ecommerce-demo e2e:web-sdk-gates` (Chromium: `e2e/m1.spec.ts` + `e2e/m2-interactions.spec.ts`, including M2 edge cases merged into the latter).
+- **E2E gate (PR + after substantial SDK work):** from `pulse-web-otel/`, `yarn e2e:web-sdk-gates` — full Chromium bundle: M1, M2 interactions, M3 errors, web vitals, clicks, M4 network, **screen navigation** (`e2e:web-sdk-gates` in `examples/ecommerce-demo/package.json`).
 
 **Package-local style, test file layout, and “after every change” checklist:** `.cursor/rules/pulse-web-otel.mdc`.
 

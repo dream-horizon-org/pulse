@@ -37,6 +37,7 @@ Highlights worth restating because they change agent behaviour:
 
 ## Test patterns
 
+- After substantive SDK edits: **`yarn e2e:web-sdk-gates`** from this package (Playwright gate bundle: M1–M4, web vitals, clicks, network, screen navigation; Chromium). Requires demo deps installed.
 - Vitest with `--run` for one-shot. Use file paths to scope: `yarn test:run src/instrumentations/interaction.test.ts`.
 - Mock at the OTLP exporter boundary — never mock OTel SDK internals; they're upstream and the test will silently rot.
 - Use `fake-indexeddb` for IDB persistence tests; never hit real IDB.
