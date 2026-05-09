@@ -57,7 +57,7 @@ export class NavigationInstrumentation implements PulseInstrumentation {
     this.currentScreenName = this.getCurrentScreenName(sdk);
     this.screenStartTime = Date.now();
 
-    // Emit initial screen_load and screen_interactive on page load
+    // Initial page load: single screen_load (timing incl. tti); Web Vitals cover detailed perf.
     this.emitInitialLoadSignals(sdk);
 
     // Patch History API for SPA navigations
@@ -344,7 +344,7 @@ export class NavigationInstrumentation implements PulseInstrumentation {
       const navType = this.getBrowserNavigationType();
       const docAttrs = this.buildDocAttrs();
 
-      // Emit screen_load first, then screen_interactive (FINAL-PLAN initial lifecycle order)
+      // Single screen_load: Navigation Timing on initial load (tti = domInteractive−fetchStart).
       const loadAttrs: Record<string, string | number> = {
         [attributeKeys.PULSE_TYPE]: pulseTypes.SCREEN_LOAD,
         [attributeKeys.SCREEN_NAME]: screenName,
@@ -372,27 +372,13 @@ export class NavigationInstrumentation implements PulseInstrumentation {
       if (timing.domProcessingTime !== undefined) {
         loadAttrs[attributeKeys.DOM_PROCESSING_TIME] = timing.domProcessingTime;
       }
+      if (timing.tti !== undefined) {
+        loadAttrs[attributeKeys.TTI] = timing.tti;
+      }
 
       logger.emit({
         body: logBodies.SCREEN_LOAD,
         attributes: loadAttrs,
-      });
-
-      const interactiveAttrs: Record<string, string | number> = {
-        [attributeKeys.PULSE_TYPE]: pulseTypes.SCREEN_INTERACTIVE,
-        [attributeKeys.SCREEN_NAME]: screenName,
-        [attributeKeys.SESSION_ID]: sessionId ?? "",
-        [attributeKeys.START_TYPE]: navTimingType,
-        ...docAttrs,
-      };
-
-      if (timing.tti !== undefined) {
-        interactiveAttrs[attributeKeys.TTI] = timing.tti;
-      }
-
-      logger.emit({
-        body: logBodies.SCREEN_INTERACTIVE,
-        attributes: interactiveAttrs,
       });
     };
 

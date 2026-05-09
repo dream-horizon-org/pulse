@@ -7,6 +7,14 @@
 
 ---
 
+## Amendment — Web SDK: no separate `screen_interactive` log (2026-05)
+
+The **web** SDK emits **one** initial **`screen_load`** log per load that includes Navigation Timing attributes (**`tti`** when available). It does **not** emit a second log with `pulse.type = screen_interactive`. **Web Vitals** (`pulse.type = web_vital`) remain the primary Core Web Vitals pipeline. **React Native** may still emit **`screen_interactive`** as an OTel **span** tied to **`markContentReady()`** — different semantics; same string name must not be read as identical behavior across SDKs.
+
+Sections below retain the original three-signal design discussion for historical context; treat this amendment as overriding the web emission shape.
+
+---
+
 ## Known Terminology
 
 **Important:** Pulse uses "session" for two distinct concepts:
@@ -273,7 +281,7 @@ ProductDetail (if matched pattern)
 ## Cross-package scope
 
 ### Web SDK (`pulse-web-otel/`)
-- ✅ `src/semconv.ts` — `SCREEN_LOAD`, `SCREEN_INTERACTIVE`, `SCREEN_SESSION` constants
+- ✅ `src/semconv.ts` — `SCREEN_LOAD`, `SCREEN_SESSION` constants (`tti` lives on `screen_load`; no web `screen_interactive` log — see Amendment above)
 - ✅ `src/instrumentations/navigation.ts` — **new** NavigationInstrumentation class
 - ✅ `src/types/config.ts` — route pattern config
 - ✅ `src/instrumentation-registry.ts` — register + install

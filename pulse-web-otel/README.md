@@ -93,7 +93,7 @@ After mount, these signals auto-capture with zero extra work:
 | `http` | Every `fetch` / `XMLHttpRequest` |
 | `app.click` | User clicks anywhere |
 | `web_vital` | LCP, FID, CLS, TTFB, FCP, INP |
-| `screen_load` / `screen_interactive` | Navigation timing |
+| `screen_load` | Navigation timing (incl. `tti` on initial load when available) |
 | `device.crash` | Uncaught JS errors + React render errors (via built-in `PulseErrorBoundary`) |
 
 ### 3. Screen tracking (Next.js App Router only)

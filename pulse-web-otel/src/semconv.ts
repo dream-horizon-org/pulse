@@ -148,7 +148,6 @@ export const PulseWebSemconv = {
     APP_CLICK: "app.click",
     WEB_VITAL: "web_vital",
     SCREEN_LOAD: "screen_load",
-    SCREEN_INTERACTIVE: "screen_interactive",
     SCREEN_SESSION: "screen_session",
   },
   LogBody: {
@@ -161,7 +160,6 @@ export const PulseWebSemconv = {
     APP_WIDGET_CLICK: "app.widget.click",
     WEB_VITAL: "web_vital",
     SCREEN_LOAD: "screen_load",
-    SCREEN_INTERACTIVE: "screen_interactive",
     SCREEN_SESSION: "screen_session",
   },
   /**

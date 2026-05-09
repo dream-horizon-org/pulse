@@ -17,7 +17,7 @@ See `.cursor/rules/web-sdk.mdc` and `.cursor/rules/pulse-web-otel.mdc` for the c
 Highlights worth restating because they change agent behaviour:
 
 - `platform = 'web'` on every signal. Not optional.
-- `pulse.type` enum: `session.start | session.end | device.crash | non_fatal | http | app.click | web_vital | screen_load | screen_interactive | screen_session`. Don't invent new values without an ADR.
+- `pulse.type` enum: `session.start | session.end | device.crash | non_fatal | http | app.click | web_vital | screen_load | screen_session`. Don't invent new values without an ADR.
 - `src/instrumentations/<name>.ts` is the registration surface; never touch `io.opentelemetry.*` namespacing — that's upstream.
 - Public API: only what `src/index.ts` exports. Consumers don't pin internal paths.
 
@@ -45,7 +45,7 @@ Highlights worth restating because they change agent behaviour:
 ## Sharp edges (start short — agent appends here)
 
 - **Don't read `localStorage` synchronously at module init.** Some host apps load us in a Web Worker context where `window.localStorage` is undefined. Use the persistence module which guards.
-- **Screen navigation signals** (`screen_load`, `screen_interactive`, `screen_session`) are emitted from [`src/instrumentations/navigation.ts`](src/instrumentations/navigation.ts) when `PulseFeature.screen_navigation` is enabled (see [`web-sdk-plan/v4-screen-signals/FINAL-PLAN.md`](web-sdk-plan/v4-screen-signals/FINAL-PLAN.md)). Router hooks still call `Pulse.setScreenName` so `screen.name` / `last.screen.name` stay consistent on other telemetry.
+- **Screen navigation signals** (`screen_load`, `screen_session`) are emitted from [`src/instrumentations/navigation.ts`](src/instrumentations/navigation.ts) when `PulseFeature.screen_navigation` is enabled (see [`web-sdk-plan/v4-screen-signals/FINAL-PLAN.md`](web-sdk-plan/v4-screen-signals/FINAL-PLAN.md)). Initial load puts **`tti`** on **`screen_load`**; Web Vitals stay separate. Router hooks still call `Pulse.setScreenName` so `screen.name` / `last.screen.name` stay consistent on other telemetry.
 - **Click heatmap is deferred.** `web-sdk-plan/interactions/INTERACTION-SCENARIO-MATRIX.md` has the full deferred matrix. Don't implement until the UI team picks it up.
 - **Session-storage size limits.** `localStorage` quota = ~5MB on most browsers. The persistence module truncates oldest spans first; don't add unbounded queues.
 

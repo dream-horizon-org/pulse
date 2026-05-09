@@ -2,7 +2,7 @@
 
 | Layer | Files | Details |
 |---|---|---|
-| **Semconv & constants** | `src/semconv.ts` | Add `SCREEN_LOAD`, `SCREEN_INTERACTIVE`, `SCREEN_SESSION` to `PulseWebSemconv` |
+| **Semconv & constants** | `src/semconv.ts` | `SCREEN_LOAD`, `SCREEN_SESSION` on web (`tti` attr on load); RN keeps separate `screen_interactive` span semantics |
 | | `src/instrumentations/navigation.ts` | **New** — navigation instrumentation class (page load + SPA route tracking + signal emission) |
 | **Config & types** | `src/types/config.ts` | Add `PulseWebConfig.instrumentation.screenNavigation?: { routePatterns?: RoutePattern[] }` |
 | | `src/types/instrumentation-registry.ts` | Extend `SdkContext` to include `loggerProvider?: LoggerProvider` |

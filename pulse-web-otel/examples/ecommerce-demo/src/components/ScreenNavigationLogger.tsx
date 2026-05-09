@@ -6,9 +6,8 @@ import { Pulse } from "@dreamhorizonorg/pulse-web";
  * ScreenNavigationLogger — monitors and logs screen navigation signals.
  *
  * When navigating, this component logs to the browser console:
- *   - screen_load: signals page load or SPA navigation
- *   - screen_interactive: signals time-to-interactive milestone
- *   - screen_session: signals time spent on previous screen
+ *   - screen_load: page load / SPA nav (Navigation Timing incl. tti on initial load)
+ *   - screen_session: time spent on previous screen (SDK emits on route change / unload)
  *
  * Developers can open DevTools (F12) to see signals being emitted.
  */
@@ -46,16 +45,16 @@ export function ScreenNavigationLogger(): null {
     console.log(
       "%c📊 Screen Navigation Signals %cLive in DevTools Console",
       "color:#4f46e5;font-weight:bold;font-size:12px",
-      "color:#64748b;font-size:11px"
+      "color:#64748b;font-size:11px",
     );
     console.log(
       "%cOpen DevTools (F12) → Network tab to see OTLP exports %c/v1/traces",
       "color:#64748b;font-size:11px",
-      "color:#a78bfa;font-weight:bold"
+      "color:#a78bfa;font-weight:bold",
     );
     console.log(
       "%cOr toggle Pulse Debug with Shift+P to monitor exports",
-      "color:#64748b;font-size:11px"
+      "color:#64748b;font-size:11px",
     );
   }, []);
 

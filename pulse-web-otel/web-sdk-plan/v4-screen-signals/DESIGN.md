@@ -4,7 +4,7 @@
 
 Emit three Pulse span types to track user navigation and time on screen:
 - **`screen_load`**: page load + SPA route changes with timing data (`page.load_time`, `ttfb`, `tti`, etc.)
-- **`screen_interactive`**: time-to-interactive (DOM interactive milestone)
+- **`tti` attribute on `screen_load`**: Navigation Timing domInteractive−fetchStart (web SDK does **not** emit a separate `screen_interactive` log; RN still uses `pulse.type = screen_interactive` as a span with `markContentReady()`)
 - **`screen_session`**: time spent on screen before navigating away
 
 Unblocks: UI Screens tab + web vitals per screen.

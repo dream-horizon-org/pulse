@@ -472,7 +472,7 @@ describe("NavigationInstrumentation", () => {
   });
 
   describe("Signal emission — timing extraction and attributes", () => {
-    it("emits screen_load and screen_interactive on initial page load", () => {
+    it("emits screen_load on initial page load (tti on same log)", () => {
       const instr = new NavigationInstrumentation();
       const sdk = makeMinimalSdk();
       const emit = vi.fn();
@@ -484,7 +484,6 @@ describe("NavigationInstrumentation", () => {
       setPath("/home");
       instr.install(sdk);
 
-      // Should emit both screen_load and screen_interactive
       const emittedPulseTypes = emit.mock.calls.map(
         (call: any) =>
           call[0]?.attributes?.[PulseWebSemconv.AttributeKey.PULSE_TYPE],
@@ -493,9 +492,7 @@ describe("NavigationInstrumentation", () => {
       expect(emittedPulseTypes).toContain(
         PulseWebSemconv.PulseType.SCREEN_LOAD,
       );
-      expect(emittedPulseTypes).toContain(
-        PulseWebSemconv.PulseType.SCREEN_INTERACTIVE,
-      );
+      expect(emittedPulseTypes).not.toContain("screen_interactive");
 
       instr.uninstall();
     });
@@ -593,6 +590,7 @@ describe("NavigationInstrumentation", () => {
           PulseWebSemconv.AttributeKey.DNS_TIME,
           PulseWebSemconv.AttributeKey.TCP_TIME,
           PulseWebSemconv.AttributeKey.DOM_PROCESSING_TIME,
+          PulseWebSemconv.AttributeKey.TTI,
         ].forEach((key) => {
           if (attrs[key] !== undefined) {
             expect(Number.isFinite(attrs[key])).toBe(true);
@@ -670,7 +668,7 @@ describe("NavigationInstrumentation", () => {
       instr.uninstall();
     });
 
-    it("initial load emits screen_load before screen_interactive", () => {
+    it("initial load emits a single screen_load for navigation timing", () => {
       const instr = new NavigationInstrumentation();
       const sdk = makeMinimalSdk();
       const emit = vi.fn();
@@ -682,15 +680,12 @@ describe("NavigationInstrumentation", () => {
       setPath("/home");
       instr.install(sdk);
 
-      const pulseTypeOf = (call: unknown[]) =>
-        (call as { 0?: { attributes?: Record<string, unknown> } })[0]
-          ?.attributes?.[PulseWebSemconv.AttributeKey.PULSE_TYPE];
-      const types = emit.mock.calls.map(pulseTypeOf);
-      const iLoad = types.indexOf(PulseWebSemconv.PulseType.SCREEN_LOAD);
-      const iInt = types.indexOf(PulseWebSemconv.PulseType.SCREEN_INTERACTIVE);
-      expect(iLoad).toBeGreaterThanOrEqual(0);
-      expect(iInt).toBeGreaterThanOrEqual(0);
-      expect(iLoad).toBeLessThan(iInt);
+      const loads = emit.mock.calls.filter(
+        (call: any) =>
+          call[0]?.attributes?.[PulseWebSemconv.AttributeKey.PULSE_TYPE] ===
+          PulseWebSemconv.PulseType.SCREEN_LOAD,
+      );
+      expect(loads.length).toBeGreaterThanOrEqual(1);
 
       instr.uninstall();
     });

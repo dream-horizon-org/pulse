@@ -10,7 +10,7 @@ import {
 /**
  * Screen Navigation E2E Tests — TDD foundation
  *
- * Tests screen navigation signal emission (screen_load, screen_interactive, screen_session)
+ * Tests screen navigation signal emission (screen_load, screen_session)
  * from the pulse-web-otel SDK integrated with the ecommerce demo.
  *
  * Run: yarn e2e --grep "@ScreenNav" --project=chromium
@@ -36,24 +36,17 @@ test.describe("@ScreenNav initial page load", () => {
     expect(startType).toMatch(/^(cold|reload|back_forward)$/);
   });
 
-  test("screen_interactive emitted on initial load", async ({ page, otlp }) => {
-    await page.goto("/");
-    const tti = await otlp.waitForLog("screen_interactive", 8000);
-
-    expect(getAttr(tti.attributes, "pulse.type")).toBe("screen_interactive");
-    expect(getAttr(tti.attributes, "screen.name")).toBeTruthy();
-  });
-
-  test("screen_load and screen_interactive have consistent session.id", async ({
+  test("tti may be present on screen_load when Navigation Timing is available", async ({
     page,
     otlp,
   }) => {
     await page.goto("/");
-    const load = await otlp.waitForLog("screen_load");
-    const tti = await otlp.waitForLog("screen_interactive");
-
-    const sessionId = getAttr(load.attributes, "session.id");
-    expect(getAttr(tti.attributes, "session.id")).toBe(sessionId);
+    const load = await otlp.waitForLog("screen_load", 8000);
+    const tti = getAttr(load.attributes, "tti");
+    if (tti !== undefined) {
+      expect(typeof tti).toBe("number");
+      expect(tti).toBeGreaterThanOrEqual(0);
+    }
   });
 });
 
@@ -179,12 +172,6 @@ test.describe("@ScreenNav screen name resolution", () => {
     expect(getAttr(load.attributes, "screen.name")).toBeTruthy();
   });
 
-  test("screen.name present on screen_interactive", async ({ page, otlp }) => {
-    await page.goto("/");
-    const tti = await otlp.waitForLog("screen_interactive");
-    expect(getAttr(tti.attributes, "screen.name")).toBeTruthy();
-  });
-
   test("screen.name present on screen_session", async ({ page, otlp }) => {
     await page.goto("/");
     await otlp.waitForLog("screen_load");
@@ -241,21 +228,6 @@ test.describe("@ScreenNav numeric attributes", () => {
     expect(durationMs).toBeGreaterThan(0);
     expect(getAttr(session.attributes, "session.duration")).toEqual(durationMs);
   });
-
-  test("tti present in screen_interactive when available", async ({
-    page,
-    otlp,
-  }) => {
-    await page.goto("/");
-    const tti = await otlp.waitForLog("screen_interactive");
-
-    const ttiValue = getAttr(tti.attributes, "tti");
-    // tti may be undefined in some environments, but if present must be a valid number
-    if (ttiValue !== undefined) {
-      expect(typeof ttiValue).toBe("number");
-      expect(ttiValue).toBeGreaterThanOrEqual(0);
-    }
-  });
 });
 
 // ─── Pulse Type Attributes ───────────────────────────────────────────────────
@@ -265,12 +237,6 @@ test.describe("@ScreenNav pulse.type consistency", () => {
     await page.goto("/");
     const load = await otlp.waitForLog("screen_load");
     expect(getAttr(load.attributes, "pulse.type")).toBe("screen_load");
-  });
-
-  test("screen_interactive has correct pulse.type", async ({ page, otlp }) => {
-    await page.goto("/");
-    const tti = await otlp.waitForLog("screen_interactive");
-    expect(getAttr(tti.attributes, "pulse.type")).toBe("screen_interactive");
   });
 
   test("screen_session has correct pulse.type", async ({ page, otlp }) => {

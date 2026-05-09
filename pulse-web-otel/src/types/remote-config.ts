@@ -11,7 +11,7 @@ export type PulseFeatureName =
   | "click"
   | "web_vitals"
   | "screen_session"
-  /** Web screen navigation spans (`screen_load`, `screen_interactive`, `screen_session`); backend {@code Features.screen_navigation}. */
+  /** Web screen navigation logs (`screen_load`, `screen_session`); backend {@code Features.screen_navigation}. */
   | "screen_navigation"
   | "long_task"
   | "resource_timing"
