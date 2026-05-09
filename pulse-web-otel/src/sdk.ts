@@ -135,8 +135,8 @@ class PulseSDK implements SdkContext {
     // Step 1: Validate config
     validateConfig(config);
     PulseWebLogger.setLevel(config.logLevel ?? PulseLogLevel.NONE);
-    // Step 1.5: Resolve endpointBaseUrl from apiKey (internal — not a public config field)
-    const endpointBaseUrl = resolveEndpointBaseUrl(config.apiKey);
+    // Step 1.5: Resolve endpointBaseUrl from apiKey; config.endpoint overrides for WebView dev
+    const endpointBaseUrl = resolveEndpointBaseUrl(config.apiKey, config.endpoint);
     this.endpointBaseUrl = endpointBaseUrl;
 
     // Consent gate — DENIED or PENDING → no-op, zero signals emitted
@@ -243,7 +243,11 @@ class PulseSDK implements SdkContext {
 
   private initializeSessionContext(): void {
     // Step 2: SessionProvider
-    this.sessionProvider = new SessionProvider();
+    this.sessionProvider = new SessionProvider(
+      undefined,
+      undefined,
+      this.config.pageHiddenTimeoutMs,
+    );
     // Step 2.5: Eagerly resolve installation ID so wasNewInstallation() is accurate.
     getOrCreateInstallationId();
   }
