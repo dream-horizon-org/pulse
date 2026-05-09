@@ -52,10 +52,12 @@ export class InstrumentationRegistry {
     const configEnabled = this.instrConfig?.[key]?.enabled;
 
     // Three-state semantics:
-    //   true  → force on  (install regardless of BE gate)
-    //   false → defer to BE gate (not a hard disable — lets remote config decide)
-    //   undefined → defer to BE gate (same as false, no local override)
-    return configEnabled || gateEnabled;
+    //   false     → kill switch: never install, remote config cannot override
+    //   true      → force on: install regardless of BE gate
+    //   undefined → remote config is source of truth
+    if (configEnabled === false) return false;
+    if (configEnabled === true) return true;
+    return gateEnabled;
   }
 
   registerAndInstall(
