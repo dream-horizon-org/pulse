@@ -18,5 +18,6 @@ export const SCOPE_TYPE_CONFIGS: ScopeTypeConfig[] = [
   { id: AlertScopeType.Screen, label: "Screen", description: "Monitor screen performance", icon: "IconDeviceMobile", color: "#4c6ef5", features: ["Load duration", "Rendering metrics", "UX monitoring"] },
   { id: AlertScopeType.AppVitals, label: "App Vitals", description: "Monitor app health", icon: "IconHeartRateMonitor", color: "#f03e3e", features: ["Crash rate", "ANR detection", "Stability alerts"] },
   { id: AlertScopeType.NetworkAPI, label: "Network API", description: "Monitor API performance", icon: "IconApi", color: "#7950f2", features: ["Response time", "Error tracking", "Throughput alerts"] },
+  { id: AlertScopeType.Funnel, label: "Funnel", description: "Monitor funnel drop-off", icon: "IconFilter", color: "#fab005", features: ["Drop-off alerts", "Conversion alerts", "Per-funnel thresholds"] },
 ];
 
