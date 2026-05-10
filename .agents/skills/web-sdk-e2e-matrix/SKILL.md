@@ -1,5 +1,5 @@
 ---
-name: web-sdk-instrumentation-e2e-from-design
+name: web-sdk-e2e-matrix
 description: Reads pulse-web-otel instrumentation DESIGN.md (and plan folder) to produce a comprehensive E2E test matrix—positive, negative, edge, gate-off, consent—and grill/revalidate coverage gaps; also audits existing Playwright specs and upgrades assertions to the same bar. Use when adding or reviewing E2E for a Web SDK instrumentation, or when the user asks for exhaustive e2e cases from design docs.
 ---
 
@@ -11,13 +11,13 @@ Use for **`pulse-web-otel/`** instrumentations registered via `InstrumentationRe
 
 | Artifact | Role |
 |----------|------|
-| [web-sdk-instrumentation-lifecycle](../web-sdk-instrumentation-lifecycle/SKILL.md) | **Phase 6** mandates this skill before implementing instrumentation E2E; Phase 7 revalidation closes checklist gaps. |
-| [pulse-web-sdk-sanity](../../../pulse-web-otel/.cursor/skills/pulse-web-sdk-sanity/SKILL.md) (repo path: `.cursor/skills/pulse-web-sdk-sanity`) | Test ladder, D2/D2b assertion floor, `test-run-log.md`, Step 5 audit |
+| [web-sdk-instrument](../web-sdk-instrument/SKILL.md) | **Phase 6** mandates this skill before implementing instrumentation E2E; Phase 7 revalidation closes checklist gaps. |
+| [web-sdk-ship](../web-sdk-ship/SKILL.md) | Test ladder, D2/D2b assertion floor, `test-run-log.md`, Step 5 audit |
 | Branch-local plan folder **or** archived docs under `docs/instrumentations/` | `DESIGN.md`, `PLAN-B-*.md`, `ADR-*.md`, `04-contract-parity.md` |
 
 **Plan folder must exist on disk** (`DESIGN.md` + active PLAN at minimum). If the branch only described docs in chat but never committed them, **write or restore the plan folder first**—this skill cannot invent `PulseFeature` names or flush rules without those files.
 
-**Self-heal:** If review finds a **recurring** E2E gap (missing gate-off, wrong flush assert, spec not on `e2e:web-sdk-gates` script), add one line to [web-sdk-instrumentation-lifecycle/reference.md](../web-sdk-instrumentation-lifecycle/reference.md) **section F** per lifecycle **Principle 8** in [web-sdk-instrumentation-lifecycle/SKILL.md](../web-sdk-instrumentation-lifecycle/SKILL.md) so the next matrix pass includes it by default.
+**Self-heal:** If review finds a **recurring** E2E gap (missing gate-off, wrong flush assert, spec not on `e2e:web-sdk-gates` script), add one line to [web-sdk-instrument/reference.md](../web-sdk-instrument/reference.md) **section F** per lifecycle **Principle 8** in [web-sdk-instrument/SKILL.md](../web-sdk-instrument/SKILL.md) so the next matrix pass includes it by default.
 
 ## Inputs (read in order)
 
@@ -38,10 +38,10 @@ Produce a **numbered checklist** grouped by category. Each item is one **atomic*
 
 | Category | Include |
 |----------|---------|
-| **Positive** | Each distinct `pulse.type` / body / metric name; each rating or enum variant; minimal contract per sanity skill (exact `pulse.type`, finite numeric where applicable, truthy `session.id` + `screen.name` on **every** positive-path log assertion unless ADR says otherwise). |
+| **Positive** | Each distinct `pulse.type` / body / metric name; each rating or enum variant; minimal contract per web-sdk-ship Step 5 / D2 (exact `pulse.type`, finite numeric where applicable, truthy `session.id` + `screen.name` on **every** positive-path log assertion unless ADR says otherwise). |
 | **Gate-off (D2b)** | Seed `minimalPulseSdkConfig` so **`features[]` contains the row for this instrumentation’s `featureName`** (matches `PulseFeature` / remote-config string, e.g. `web_vitals`, `network_instrumentation`) with **`sessionSampleRate: 0`** on **that** row—**not** the `session` feature unless the test is explicitly about session sampling. Wrong feature → gate stays on → **vacuous pass**. Then: `blockActiveConfigFetch`; `page.goto` **after** seed; `waitForLog("session.start")`; **`otlp.reset()`**; interaction; assert **zero** matching exports. |
 | **Consent** | `DENIED` / `PENDING` if product requires — reuse patterns from `e2e/m1.spec.ts`. |
-| **Flush / timing** | PLAN-B events (`visibilitychange`, `pagehide`, batch delay); Playwright pitfalls from `pulse-web-sdk-sanity` Phase 8 (getter `visibilityState`, INP spin-loop, Chromium-only skips). **Traces:** use `waitForSpan` / `findAllSpans` + same flush story (e.g. getter `visibilitychange`, `pagehide`)—**not** only `waitForLog`. |
+| **Flush / timing** | PLAN-B events (`visibilitychange`, `pagehide`, batch delay); Playwright pitfalls from **web-sdk-ship** (E2E gate + common timing bugs: getter `visibilityState`, INP spin-loop, Chromium-only skips). **Traces:** use `waitForSpan` / `findAllSpans` + same flush story (e.g. getter `visibilitychange`, `pagehide`)—**not** only `waitForLog`. |
 | **Lifecycle** | No duplicate signals after double `installAll` idempotency if relevant; uninstall/shutdown no leak (often Vitest). |
 | **Edge** | BFCache `persisted=true`, empty capture, protobuf vs JSON misconfig (document in spec comment), optional attrs omitted vs empty string. |
 | **Negative** | Wrong `pulse.type` absent; gate off; filtered/dropped bodies if sampling/filter applies. |
@@ -52,7 +52,7 @@ Answer **yes/no** with **where the test lives** or **explicit deferral in ADR**:
 
 1. Could `getAttr` pass with **string** where we need **number**? → use `typeof === "number"` + `Number.isFinite`.
 2. Gate-off polluted by earlier captures? → `otlp.reset()` after proof-of-life log.
-3. New spec file listed in **`examples/ecommerce-demo/package.json`** → `e2e:web-sdk-gates` script (lifecycle **[reference.md D3](../../web-sdk-instrumentation-lifecycle/reference.md)**).
+3. New spec file listed in **`examples/ecommerce-demo/package.json`** → `e2e:web-sdk-gates` script (lifecycle **[reference.md D3](../../web-sdk-instrument/reference.md)**).
 4. Demo UI actually reaches the code path? (D0a — no vacuous pass.)
 5. E2E asserts attrs from **PerformanceResourceTiming** (or metrics derived from it)? → confirm real timing entries exist for that traffic (see **D0e** / Anti-patterns).
 

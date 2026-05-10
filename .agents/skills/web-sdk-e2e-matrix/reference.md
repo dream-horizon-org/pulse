@@ -24,7 +24,7 @@ Replace `<PulseFeature.name>` with the exact enum string from `remote-config.ts`
 
 ## Positive-path log floor (logs)
 
-Per **pulse-web-sdk-sanity** / lifecycle D2:
+Per **web-sdk-ship** / lifecycle D2:
 
 - Exact `pulse.type` (string match semconv).
 - For numeric attrs: `typeof === "number"` and `Number.isFinite`.

@@ -12,11 +12,11 @@ lib/
 # Claude Code: keep shared project memory; ignore other local-only files under .claude/
 .claude/*
 !.claude/CLAUDE.md
-# Symlink mirrors of .cursor web SDK instrumentation skills/agents (canonical paths stay under .cursor/)
-!.claude/skills/
-!.claude/skills/**
+# Symlink mirrors into shared `.agents/` (web SDK agent + skills)
 !.claude/agents/
 !.claude/agents/**
+!.claude/skills/
+!.claude/skills/**
 .cursor/hooks/state/
 .cursor/plans/
 .terraform/

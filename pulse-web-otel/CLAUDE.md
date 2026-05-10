@@ -13,7 +13,7 @@ Per-package operating manual. Auto-loaded by Claude Code (hierarchical CLAUDE.md
 
 ## Layer rules
 
-See `.cursor/rules/web-sdk.mdc` and `.cursor/rules/pulse-web-otel.mdc` for the canonical layer + naming conventions.
+See **`.agents/rules/pulse-web-otel-contract.mdc`** and **`.agents/rules/pulse-web-otel-conventions.mdc`** (symlinked as `.cursor/rules/web-sdk.mdc` and `.cursor/rules/pulse-web-otel.mdc`) for contract vs conventions.
 Highlights worth restating because they change agent behaviour:
 
 - `platform = 'web'` on every signal. Not optional.
@@ -77,4 +77,4 @@ Highlights worth restating because they change agent behaviour:
 - **`docs/instrumentations/integration/SPEC.md`** — host-app integration entry (exports, init, framework pointers)
 - **`docs/instrumentations/sdk-core/SPEC.md`** — lifecycle, consent, contracts
 - **`docs/instrumentations/`** — per-feature holy-grail SPECs (errors, network, …)
-- `.cursor/rules/web-sdk.mdc` and `.cursor/rules/pulse-web-otel.mdc` — repo-level conventions
+- `.agents/rules/` contract + conventions (same rules via `.cursor/rules/` symlinks)
