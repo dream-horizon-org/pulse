@@ -187,8 +187,8 @@ yarn workspace ecommerce-demo e2e:web-sdk-gates
 
 ## Useful docs
 
-- Web Vitals (planning): `web-sdk-plan/v2-web-vitals/README.md`
-- milestones (index, exit summaries, verification / CH example): `web-sdk-plan/v1/MILESTONES.md`
-- interactions verification: `web-sdk-plan/v1/M2-INTERACTIONS-EXIT-VERIFICATION.md`
-- interactions coverage matrix: `web-sdk-plan/v1/WEB-SDK Interactions test coverage (M2).csv`
-- demo lifecycle notes: `examples/ecommerce-demo/MANUAL-PULSEWEB-LIFECYCLE.md`
+- **PRDs (planning):** [`prd/README.md`](prd/README.md) — feature PRDs under `prd/`; `PRD.md` at package root symlinks to the active Ralph PRD when applicable
+- **Integration entry:** [`docs/instrumentations/integration/SPEC.md`](docs/instrumentations/integration/SPEC.md)
+- **SDK core:** [`docs/instrumentations/sdk-core/SPEC.md`](docs/instrumentations/sdk-core/SPEC.md)
+- **Per-feature specs:** [`docs/instrumentations/`](docs/instrumentations/)
+- **Publishing (maintainers):** [`docs/publishing/SPEC.md`](docs/publishing/SPEC.md) · [`docs/publishing/QUICKSTART.md`](docs/publishing/QUICKSTART.md) · [`docs/publishing/PUBLISHING.md`](docs/publishing/PUBLISHING.md)

@@ -1,44 +1,38 @@
 ---
-description: Pulse Web SDK context. Apply when working in pulse-web-otel/ or web-sdk-plan/.
+description: Pulse Web SDK context. Apply when working in pulse-web-otel/.
 globs: pulse-web-otel/**/*.{ts,tsx,js,json}
 alwaysApply: false
 ---
 
 # Pulse Web SDK
 
-Before writing any code, read these two files — they are your complete context:
+## Canonical docs (post–planning-folder consolidation)
 
-1. `web-sdk-plan/WEB-SDK-AGENT-CONTEXT.md` — stable facts: package identity, file map, data contract, key decisions
-2. `web-sdk-plan/v1/MILESTONES.md` — live state: which milestone is active, exit criteria checkboxes, verification queries
+1. **`pulse-web-otel/docs/instrumentations/integration/SPEC.md`** — how to integrate (exports, init, frameworks).
+2. **`pulse-web-otel/docs/instrumentations/sdk-core/SPEC.md`** — lifecycle, consent, `pulse.type`, shared attributes.
+3. **`pulse-web-otel/docs/instrumentations/<feature>/SPEC.md`** — one file per area (errors, network, web-vitals, screen-signals, …).
 
-Do NOT read `pulse-web-sdk-plan.md` or `PLAN-OVERVIEW.md` — they are human planning docs, not agent context.
+## Non-negotiable rules
 
----
+- Every signal must carry `platform = 'web'`. `pulse.type` and attributes: **`src/semconv.ts`** + **sdk-core SPEC §5** — do not invent values without an ADR.
+- Public API: only `src/index.ts` (and published subpath `exports` in `package.json`).
 
-## Non-Negotiable Rules
+## TypeScript
 
-### Data Contract
-Every signal must carry `platform = 'web'`. The `pulse.type` values and their required attributes are defined in `WEB-SDK-AGENT-CONTEXT.md`. Do not invent new `pulse.type` values — they must match Android/iOS for the dashboard to work.
+- Strict mode; ESM-first; CJS via tsup dual build.
+- No `any` — use `unknown` + type guards.
 
-### File Locations
-Follow the file map in `WEB-SDK-AGENT-CONTEXT.md` exactly. Each task maps to a `primary_file` in `tasks.csv` — put the code there, not elsewhere.
+## Testing
 
-**Interactions (T17–T20):** implementation lives under `pulse-web-otel/src/interactions/`, `instrumentations/interaction.ts`, and `utils/interactions/`. For naming and attribute typing, follow **`.cursor/rules/pulse-web-otel.mdc`** (semconv, `PulseFeature` / `InstrumentationKeys`, `PulseAttributes`).
+- Vitest + JSDOM; mock `localStorage` / `navigator` / `crypto` in unit tests.
+- Do not mock OTel SDK internals at the module level — assert at exporter boundary.
+- **E2E gate:** from `pulse-web-otel/`, `yarn e2e:web-sdk-gates` when touching instrumentations.
 
-### Phase Docs
-When implementing a specific task, read the matching phase doc for the full spec and done criteria:
+## Size budget
 
-| Task range | Phase doc |
-|---|---|
-| T01–T16 | `web-sdk-plan/v1/01-foundation/` |
-| T17–T20 | `web-sdk-plan/v1/03-interactions/` |
-| T21–T24 | `web-sdk-plan/v1/01-foundation/sdk-config.md` |
-| T25–T27 | `web-sdk-plan/v1/04-frameworks/react.md` |
-| T31–T35 | `web-sdk-plan/v1/02-instrumentations/<signal>.md` |
-| T41–T42 | `web-sdk-plan/v1/04-frameworks/nextjs.md` |
-| T43 | `web-sdk-plan/v1/04-frameworks/cdn-vanilla.md` |
-| T44–T50 | `web-sdk-plan/v1/05-build-distribution/` |
+- Do not add heavy dependencies without `yarn size-limit` check.
 
+<<<<<<< HEAD
 ### TypeScript
 - Strict mode (`"strict": true` in tsconfig)
 - ESM-first; CJS via tsup dual build
@@ -69,3 +63,6 @@ When Claude verifies a milestone's exit criteria and they all pass, tick the che
 - `- [ ]` → `- [x]`
 
 Use `/web-sdk verify <phase>` in Claude to trigger a full verification pass against a milestone's done criteria.
+=======
+**Implementation style, layer order, and checklists:** `.cursor/rules/pulse-web-otel.mdc`.
+>>>>>>> f0a1f679d (chore(gitignore): ignore issues queues; version pulse-web-otel docs)

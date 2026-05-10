@@ -69,7 +69,7 @@ Automation cannot rewrite this skill file by itself. **Procedural self-heal:**
    - Update **`pulse-web-otel/examples/ecommerce-demo/DEMO-QA-MAP.md`** (routes, table rows, “not yet shipped” notes).
 2. From **`pulse-web-otel/`**, refresh graph context (per project rules):  
    `graphify update . --no-viz`  
-   For broader merge readiness, optionally sync **`web-sdk-plan/agent-runtime/graph-cache.md`** and **`test-run-log.md`** per [pulse-web-sdk-sanity](../pulse-web-sdk-sanity/SKILL.md).
+   For broader merge readiness, optionally sync **`pulse-web-otel/graphify-out/GRAPH_REPORT.md`** and CI logs per [pulse-web-sdk-sanity](../pulse-web-sdk-sanity/SKILL.md).
 3. Append **one line** to **`pulse-web-otel/examples/ecommerce-demo/QA-CONTEXT-REFRESH-LOG.md`**: ISO date, what changed (demo vs SDK), optional PR/link.
 
 Optional: run **`scripts/refresh-demo-context.sh`** in this skill folder to print a quick inventory (routes + grep anchors); use output to edit `DEMO-QA-MAP.md`.

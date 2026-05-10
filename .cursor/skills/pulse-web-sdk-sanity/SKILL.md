@@ -39,7 +39,7 @@ Keep the web SDK production-safe while moving fast—**one** checklist from firs
 3. Check Android parity for equivalent paths and record suspected mismatches early.
 4. Read graph context:
    - source: `pulse-web-otel/graphify-out/GRAPH_REPORT.md` and `pulse-web-otel/graphify-out/graph.json` (if present)
-   - cache: `pulse-web-otel/web-sdk-plan/agent-runtime/graph-cache.md`
+   - cache: `pulse-web-otel/graphify-out/GRAPH_REPORT.md`
 
 ---
 
@@ -59,7 +59,7 @@ Keep the web SDK production-safe while moving fast—**one** checklist from firs
 3. **Required E2E gate:** `yarn workspace ecommerce-demo e2e:web-sdk-gates` (Chromium: `e2e/m1.spec.ts` + `e2e/m2-interactions.spec.ts` — M2 edge cases live in `m2-interactions.spec.ts`).
 4. Run any extra targeted E2E for behavior not covered by the gate.
 5. If cross-browser binaries are missing, report Chromium result plus explicit gap.
-6. Append run result to `pulse-web-otel/web-sdk-plan/agent-runtime/test-run-log.md`.
+6. Record run result in CI / PR description (optional: `pulse-web-otel/progress.txt` for local Ralph loops).
 
 If Step 5 (audit) or PR review exposes doubt, **re-run** `yarn test:run` and/or `e2e:web-sdk-gates` before merge.
 
@@ -110,7 +110,7 @@ After **Step 3 is green**, walk this list on the **diff** (or touched modules if
 - **Interactions:** focused greps in `src/interactions/` for sequence/timeout/APDEX assumptions.
 - **Graph context:** `pulse-web-otel/graphify-out/GRAPH_REPORT.md` for blast radius.
 
-**Trivial doc-only** edits under `web-sdk-plan/` with no code: Step 5 can be **N/A**—state that in the close-out report.
+**Trivial doc-only** edits under `docs/instrumentations/` with no code: Step 5 can be **N/A**—state that in the close-out report.
 
 ---
 

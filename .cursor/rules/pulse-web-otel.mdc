@@ -6,7 +6,7 @@ alwaysApply: false
 
 # pulse-web-otel — conventions and testing
 
-Applies to the **Web SDK package** (`pulse-web-otel/`). Product contract, milestones, and phase docs live under `web-sdk-plan/` — follow **`.cursor/rules/web-sdk.mdc`** for those. This rule covers **implementation style** in `src/`, **Vitest** unit tests, and **ecommerce-demo** E2E patterns.
+Applies to the **Web SDK package** (`pulse-web-otel/`). Feature **PRDs** live under **`prd/`** ([`prd/README.md`](../../pulse-web-otel/prd/README.md)). Product contracts and holy-grail docs live under **`docs/instrumentations/*/SPEC.md`** — follow **`.cursor/rules/web-sdk.mdc`**. This rule covers **implementation style** in `src/`, **Vitest** unit tests, and **ecommerce-demo** E2E patterns.
 
 ---
 
@@ -36,7 +36,7 @@ Run: `yarn test:run` (CI-style), `yarn test` (watch), `yarn build`, `yarn demo` 
 | `src/exporters/`, `src/processors/`, `src/sampling/` | OTLP pipeline, processors, sampling gates |
 | `src/persistence/` | IndexedDB / drain buffered exports |
 | `src/instrumentations/` | Auto-instrumentation registrations |
-| `src/integrations/react/` | React exports (`PulseErrorBoundary` today; **`PulseProvider` / hooks are M2+** per `web-sdk-plan`) — thin wrappers over core SDK |
+| `src/integrations/react/` | React exports (`PulseProvider`, `PulseErrorBoundary`, hooks, router helpers) — thin wrappers over core SDK |
 | `src/constants/` | Shared constants (disk buffer, exporters, interaction constants) |
 | `src/__tests__/` | All **unit** tests (mirror module name: `interactions-config-fetcher.test.ts`) |
 
@@ -129,9 +129,9 @@ Do **not** rely on a real OTLP server in unit tests — mock transport or route 
 
 1. **Unit:** add or extend **`src/__tests__/<area>.test.ts`** covering happy path + at least one failure/edge path for new logic.
 2. **Run** `yarn lint && yarn test:run` before PR.
-3. **E2E (mandatory for web SDK PRs):** run **`yarn workspace ecommerce-demo e2e:web-sdk-gates`** (`m1` + `m2-interactions`, Chromium). If behavior crosses OTLP export or demo flows, add/update Playwright under **`examples/ecommerce-demo/e2e/`**.
-4. **Traceability (interactions / M2-style work):** update the milestone CSV under **`web-sdk-plan/v1/`** (e.g. `WEB-SDK Interactions test coverage (M2).csv`) — one header row, add a row per case with **Status**, **Comment** (test file path or spec path), **Case type**; keep **Steps** aligned with the demo app.
-5. **Milestones:** when a milestone’s exit criteria are met, tick boxes in **`web-sdk-plan/v1/MILESTONES.md`** (per `web-sdk.mdc`).
+3. **E2E gates (mandatory for web SDK PRs; run after any “big” change touching SDK behavior):** **`yarn e2e:web-sdk-gates`** from **`pulse-web-otel/`** — full Chromium bundle above (not only M1/M2). If behavior crosses OTLP export or demo flows, add/update Playwright under **`examples/ecommerce-demo/e2e/`**.
+4. **Traceability:** update the relevant **`docs/instrumentations/<feature>/SPEC.md`** §6 (test coverage) when adding scenarios.
+5. **Docs:** keep **`pulse-web-otel/CLAUDE.md`** sharp-edge notes accurate when behaviour changes.
 
 ---
 
@@ -143,7 +143,7 @@ Use repo Conventional Commits with scope **`web-sdk`**, e.g. `feat(web-sdk): …
 
 ## Anti-patterns (avoid)
 
-- New `pulse.type` or resource attributes **not** aligned with `WEB-SDK-AGENT-CONTEXT.md` / mobile parity.
+- New `pulse.type` or resource attributes **not** aligned with **`docs/instrumentations/sdk-core/SPEC.md`** / mobile parity.
 - Exporting internals from `index.ts` to “make tests easier” — test via public API or keep tests colocated with `vi.mock` on the module under test.
 - Skipping **`afterEach`** cleanup when using spies, fake timers, or `localStorage`.
 - Large demo-only logic inside **`src/`** — demo stays under **`examples/ecommerce-demo/`**.
@@ -179,8 +179,6 @@ Use repo Conventional Commits with scope **`web-sdk`**, e.g. `feat(web-sdk): …
 - Use generated Graphify artifacts as source context:
   - `pulse-web-otel/graphify-out/GRAPH_REPORT.md`
   - `pulse-web-otel/graphify-out/graph.json`
-- Maintain `pulse-web-otel/web-sdk-plan/agent-runtime/graph-cache.md` as concise cached digest for quick reasoning.
 
-### Append-only test run reporting
-- Always append test run outcomes to `pulse-web-otel/web-sdk-plan/agent-runtime/test-run-log.md`.
-- Keep entry minimal: timestamp, command, files/suites, passed, failed, failed test files/specs.
+### Test run reporting
+- Prefer CI logs + PR description for gate results; optional local notes in `pulse-web-otel/progress.txt` if your team uses Ralph loops.

@@ -1,4 +1,4 @@
-// Web Vitals — OTLP logs (Plan B). See web-sdk-plan/v2-web-vitals/PLAN-B-logs-events.md
+// Web Vitals — OTLP logs (Plan B). See docs/instrumentations/web-vitals/SPEC.md
 
 import { logs } from "@opentelemetry/api-logs";
 import { onCLS, onFCP, onFID, onINP, onLCP, onTTFB } from "web-vitals";

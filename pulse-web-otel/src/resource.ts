@@ -1,6 +1,6 @@
 // M1: Builds the OTEL Resource with 18 static browser attributes
 // (platform, browser.name, screen.resolution, timezone, etc.).
-// See: web-sdk-plan/v1/01-foundation/resource.md
+// See: docs/instrumentations/sdk-core/SPEC.md
 
 import {
   resourceFromAttributes,

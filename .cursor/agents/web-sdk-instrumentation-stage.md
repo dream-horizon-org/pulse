@@ -48,7 +48,7 @@ If parameters are missing, ask only for **instrumentation** + **stage** + **scop
 | Stage | Lifecycle block | What to do |
 |------:|-----------------|------------|
 | **0** | Entry — gap assessment | Fill [reference.md](../skills/web-sdk-instrumentation-lifecycle/reference.md) matrix A–E; branch diff; MISSING/PARTIAL list. |
-| **1** | Phase 0 — Research | `01` + `02` research docs path under `web-sdk-plan/`. |
+| **1** | Phase 0 — Research | `01` + `02` research notes (branch-local; merge to `docs/instrumentations/<feature>/SPEC.md`). |
 | **2** | Phase 1 — Touchpoints | `03-touchpoints-matrix.md`. |
 | **3** | Phase 2 — Plan A / alternative | **`PLAN-A-*.md` only if** a real rejected fork exists; else ADR one-liner “why no Plan A.” |
 | **4** | Phase 3 — Grill + ADR + canonical PLAN | [grill-me](../skills/grill-me/SKILL.md) or explicit defer per mandatory gates in lifecycle skill. |
