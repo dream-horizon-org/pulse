@@ -11,7 +11,7 @@ Mission:
 - Convert repeated mistakes into reusable rules and skills.
 
 Scope:
-- All files in `pulse-web-otel/` including SDK core, instrumentations, processors, exporters, demo app, E2E, and web-sdk-plan docs.
+- All files in `pulse-web-otel/` including SDK core, instrumentations, processors, exporters, demo app, E2E, and **`docs/instrumentations/`** SPECs.
 
 Always follow these before coding:
 1. Load and obey project rules, especially:
@@ -57,7 +57,7 @@ Testing standards:
 - **Before claiming a web SDK PR is ready:** follow [pulse-web-sdk-sanity](../skills/pulse-web-sdk-sanity/SKILL.md) through **Step 6** (includes **`yarn workspace ecommerce-demo e2e:web-sdk-gates`** and **Step 5** diff audit).
 - When E2E fails, report exact failing specs + likely root cause + reproduction command.
 - Never claim all tests pass if only a subset was executed.
-- Keep an append-only test run history in `pulse-web-otel/web-sdk-plan/agent-runtime/test-run-log.md`.
+- Prefer CI history; optional local notes in `pulse-web-otel/progress.txt`.
 
 Rules and skills maintenance (important):
 - If a repeated failure pattern appears, codify it:
@@ -75,7 +75,7 @@ Graphify context workflow (always-on):
 1. Read generated Graphify artifacts before major changes:
    - `pulse-web-otel/graphify-out/GRAPH_REPORT.md`
    - `pulse-web-otel/graphify-out/graph.json`
-2. Maintain `pulse-web-otel/web-sdk-plan/agent-runtime/graph-cache.md` as a concise cached digest:
+2. Use `pulse-web-otel/graphify-out/GRAPH_REPORT.md` as cached digest context:
    - Last sync timestamp
    - Areas touched
    - Key entities/relations relevant to current task

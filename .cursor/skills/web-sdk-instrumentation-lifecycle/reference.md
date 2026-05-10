@@ -6,15 +6,15 @@ Copy into chat or a scratch doc; set each row to **DONE** | **PARTIAL** | **MISS
 
 | # | Artifact | Where to look | Notes |
 |---|----------|---------------|--------|
-| A1 | `01-research-*-ecosystem*.md` | `pulse-web-otel/web-sdk-plan/**/` | Create or **update** if industry/spec assumptions changed. |
-| A2 | `02-research-*-pulse-sdk*.md` | same | Create or **update** if `SdkContext`, exporters, or wiring changed. |
-| A3 | `03-touchpoints-matrix.md` | same | Must list every file you intend to touch; add rows if branch added files not on matrix. |
+| A1 | Research notes | Branch scratch / ADR | Capture industry assumptions; fold into **`docs/instrumentations/<feature>/SPEC.md`** before merge. |
+| A2 | Wiring research | same | Update when `SdkContext`, exporters, or wiring changed. |
+| A3 | Touchpoints matrix | Branch scratch doc | Must list every file you intend to touch. |
 | A4 | Rejected / deferred alternative | **`PLAN-A-*.md` only when** you document a **real rejected fork**; otherwise **ADR section** (“Why no Plan A”) for tiny extensions / single obvious approach. **MISSING** only OK if ADR states “no alternative evaluated” with one-line rationale (see lifecycle Principle 3 / Phase 2). |
 | A5 | ADR | `ADR-*.md` | Must match implemented signal type and flush story. |
 | A6 | Canonical implementation spec | `PLAN-B-*.md` or named plan | Unit matrix + E2E outline; mark deferred items explicitly. |
-| A7 | `DESIGN.md` | plan folder | Router doc; must link active PLAN + ADR. |
+| A7 | `DESIGN.md` | branch-local (optional) | Router doc while iterating; final truth is **`SPEC.md`**. |
 | A8 | Contract parity | `04-contract-parity.md` or section | Web vs Android/RN; web-only attrs. |
-| A9 | Plan `README.md` | plan folder | Reading order + **which plan is active** (e.g. Plan B not A). |
+| A9 | Feature `SPEC.md` index | `docs/instrumentations/<feature>/SPEC.md` §8–§9 | Reading order + absorbed artefacts. |
 
 ## B. Code — SDK
 
@@ -57,7 +57,7 @@ Copy into chat or a scratch doc; set each row to **DONE** | **PARTIAL** | **MISS
 | D2b | E2E: feature gate off → **no** export | `seedPulseSdkConfig` + `blockActiveConfigFetch` **before** `goto`; `await otlp.waitForLog("session.start")`; **`otlp.reset()`** to clear captures; interact + wait batch window; assert **zero** matching logs (e.g. `findAllLogs(otlp.captured, …).length === 0`). |
 | D3 | `ecommerce-demo/package.json` | **Every new** `e2e/*.spec.ts` must appear in the `e2e:web-sdk-gates` script — otherwise the gate **never runs** that file. |
 | D4 | `.env.test` | JSON OTLP for Playwright decode (`VITE_PULSE_FORMAT=json`); see sanity skill. |
-| D5 | `web-sdk-plan/agent-runtime/test-run-log.md` | Append gate command + result; log non-obvious failures. |
+| D5 | Gate log | CI / PR description (optional `pulse-web-otel/progress.txt`) — append command + result. |
 
 ## E. Close-out
 

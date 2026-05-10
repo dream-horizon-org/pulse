@@ -28,11 +28,11 @@ lib/
 terraform.rc
 env.json
 
-docs/
 **/.idea
-docs/api
-docs/architecture
 graphify-out/
+
+# Ralph/local agent issue queues — keep working copies private
+issues/
 /CLAUDE.md
 !.claude/CLAUDE.md
 backend/server/src/test/graphify-out/

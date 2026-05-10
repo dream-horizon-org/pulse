@@ -29,7 +29,7 @@ Re-read the relevant sections when touching a new layer (instrumentation vs expo
 
 ## Related skills — sanity & quality (use together)
 
-For **any** non-trivial `pulse-web-otel/` change (including finishing half-done instrumentations), **read and follow** [pulse-web-sdk-sanity](../pulse-web-sdk-sanity/SKILL.md): contract checklist, test ladder (`yarn test:run`, `e2e:web-sdk-gates`), `test-run-log.md`, regression checklist, **Step 5 pre-merge diff audit**, doc sync, graph hints (`pulse-web-otel/graphify-out/`, `web-sdk-plan/agent-runtime/graph-cache.md`).
+For **any** non-trivial `pulse-web-otel/` change (including finishing half-done instrumentations), **read and follow** [pulse-web-sdk-sanity](../pulse-web-sdk-sanity/SKILL.md): contract checklist, test ladder (`yarn test:run`, `e2e:web-sdk-gates`), `test-run-log.md`, regression checklist, **Step 5 pre-merge diff audit**, doc sync, graph hints (`pulse-web-otel/graphify-out/`, `pulse-web-otel/graphify-out/GRAPH_REPORT.md`).
 
 | Skill | When |
 |-------|------|
@@ -65,7 +65,7 @@ This lifecycle skill owns **phasing and gaps**; **pulse-web-sdk-sanity** owns **
 ### Steps
 
 1. **Read web SDK rules** — [pulse-web-otel.mdc](../../rules/pulse-web-otel.mdc), [pulse-web-otel-structure.mdc](../../rules/pulse-web-otel-structure.mdc), [web-sdk.mdc](../../rules/web-sdk.mdc); load [pulse-web-sdk-sanity](../pulse-web-sdk-sanity/SKILL.md) for the sanity ladder you will run at the end. For delegated work, the [web-sdk-guardian](../../agents/web-sdk-guardian.md) agent should load the same rules + skill map.
-2. **Name the feature** — e.g. `CLICK`, `WEB_VITALS`; locate `InstrumentationKeys` / `PulseFeature` / plan folder under `pulse-web-otel/web-sdk-plan/`.
+2. **Name the feature** — e.g. `CLICK`, `WEB_VITALS`; locate `InstrumentationKeys` / `PulseFeature` / **`docs/instrumentations/<feature>/SPEC.md`** (canonical) plus any branch-local research notes you create under `docs/` or ADRs.
 3. **Inventory the branch** — `git diff main --stat` (or `main...HEAD`) for `pulse-web-otel/`, relevant `backend/server/` paths, demo E2E. Read changed files; note TODOs and commented placeholders.
 4. **Fill the gap matrix** — Use [reference.md](reference.md) (sections **A–E**, including **E5** handoff when applicable). Mark each row **DONE**, **PARTIAL** (with next action), or **MISSING**.
 5. **Reconcile code vs docs** — If code exists but A1–A9 are missing or stale, **create or update docs before adding more code** (prevents orphan implementation). If docs describe behavior the branch does not implement, either implement or amend ADR/PLAN with explicit deferrals.
@@ -108,7 +108,7 @@ These cannot be skipped; if skipped, state **explicit deferral** in ADR or PLAN-
 | `01-research-<topic>-ecosystem-and-industry.md` | External patterns, spec constraints, industry defaults (events vs metrics vs spans). |
 | `02-research-<topic>-otel-js-browser-and-pulse-sdk.md` | Where the signal plugs in: `SdkContext`, exporters, processors, existing semconv, Android parity hints. |
 
-Store under `pulse-web-otel/web-sdk-plan/<milestone>/` (mirror [v2-web-vitals](../../../pulse-web-otel/web-sdk-plan/v2-web-vitals/README.md) layout).
+During greenfield work, store scratch research under a **branch-local** folder or tickets; **merge outcome** must land in **`docs/instrumentations/<feature>/SPEC.md`** (and linked tests).
 
 **Stop condition (three answerable questions — if any answer is guesswork, do more research before Phase 1):**
 
@@ -228,7 +228,7 @@ Add further attrs from PLAN-B / contract parity. See [reference.md](reference.md
 
 **Gate-disabled E2E (assert zero exports after gate off):** `seedPulseSdkConfig` + `blockActiveConfigFetch` **before** `page.goto`; `await otlp.waitForLog("session.start")` to prove SDK is live; **`otlp.reset()`** to drop pre-interaction captures; perform interaction + batch waits; assert **no** matching log records (e.g. `findAllLogs(...).length === 0`). Without `reset`, earlier gated logs pollute the assertion.
 
-**Append-only log:** `pulse-web-otel/web-sdk-plan/agent-runtime/test-run-log.md` — command, browser, pass/fail, **root cause + fix** if anything non-obvious failed.
+**Append-only log:** `CI / PR description (optional local `pulse-web-otel/progress.txt`)` — command, browser, pass/fail, **root cause + fix** if anything non-obvious failed.
 
 ---
 
@@ -238,7 +238,7 @@ Add further attrs from PLAN-B / contract parity. See [reference.md](reference.md
 - [ ] PLAN-B unit matrix rows addressed or explicitly deferred with rationale.
 - [ ] [pulse-web-sdk-sanity](../pulse-web-sdk-sanity/SKILL.md) **Steps 4–6** — regression checklist, **Step 5** pre-merge diff audit, documentation sync (no listener leaks, no contract drift).
 - [ ] Docs index (`README.md` in plan folder) points to active PLAN variant.
-- [ ] **Handoff:** update or create `HANDOFF-NEXT-AGENT.md` in the plan folder when pausing mid-branch or handing off — what’s done, what’s deferred, copy-paste prompt for the next agent (same pattern as [v2-web-vitals HANDOFF](../../../pulse-web-otel/web-sdk-plan/v2-web-vitals/HANDOFF-NEXT-AGENT.md)).
+- [ ] **Handoff:** update branch `HANDOFF*.md` / PR draft when pausing — point readers at **`docs/instrumentations/<feature>/SPEC.md`** for truth.
 - [ ] `graphify update . --no-viz` **from `pulse-web-otel/` only** after substantive code changes. Full-repo `graphify update .` often **OOMs** building HTML viz — **always** pass `--no-viz` when updating from the web SDK package root.
 
 ---
@@ -255,7 +255,7 @@ Add further attrs from PLAN-B / contract parity. See [reference.md](reference.md
 | OPTIONS / active-config weirdness | Overlapping `page.route` vs fixture stub | Prefer fixture’s `attachDefaultSdkConfigStub`; avoid redundant blocks |
 | `forceFlush` runs but logs still not on wire | **`Logger`** has no flush — wrong object | Use **`sdk.loggerProvider?.forceFlush()`** only; **`Logger`** = OTel API (`emit` only); **`LoggerProvider`** = OTel SDK (owns pipeline + `forceFlush`). |
 
-**Narrative examples:** append-only `pulse-web-otel/web-sdk-plan/agent-runtime/test-run-log.md` — e.g. 2026-04-30 (protobuf / `screen.name`), 2026-05-02 (INP / `PerformanceEventTiming`). **Do not treat this skill as the exhaustive list of dates**; new rows document themselves in that file.
+**Narrative examples:** append-only `CI / PR description (optional local `pulse-web-otel/progress.txt`)` — e.g. 2026-04-30 (protobuf / `screen.name`), 2026-05-02 (INP / `PerformanceEventTiming`). **Do not treat this skill as the exhaustive list of dates**; new rows document themselves in that file.
 
 ---
 
@@ -264,7 +264,7 @@ Add further attrs from PLAN-B / contract parity. See [reference.md](reference.md
 Replace `<slug>` with kebab-case topic (e.g. `web-vitals`, `resource-timing`):
 
 ```
-pulse-web-otel/web-sdk-plan/<version>-<slug>/
+(branch-local planning folder OR docs/instrumentations/<slug>/ — consolidate to SPEC.md before merge)
   01-research-<slug>-ecosystem-and-industry.md
   02-research-<slug>-otel-js-browser-and-pulse-sdk.md
   03-touchpoints-matrix.md

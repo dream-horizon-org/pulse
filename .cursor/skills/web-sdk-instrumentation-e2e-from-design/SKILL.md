@@ -13,7 +13,7 @@ Use for **`pulse-web-otel/`** instrumentations registered via `InstrumentationRe
 |----------|------|
 | [web-sdk-instrumentation-lifecycle](../web-sdk-instrumentation-lifecycle/SKILL.md) | **Phase 6** mandates this skill before implementing instrumentation E2E; Phase 7 revalidation closes checklist gaps. |
 | [pulse-web-sdk-sanity](../../../pulse-web-otel/.cursor/skills/pulse-web-sdk-sanity/SKILL.md) (repo path: `.cursor/skills/pulse-web-sdk-sanity`) | Test ladder, D2/D2b assertion floor, `test-run-log.md`, Step 5 audit |
-| Plan folder `pulse-web-otel/web-sdk-plan/<milestone>-<slug>/` | `DESIGN.md`, `PLAN-B-*.md`, `ADR-*.md`, `04-contract-parity.md` |
+| Branch-local plan folder **or** archived docs under `docs/instrumentations/` | `DESIGN.md`, `PLAN-B-*.md`, `ADR-*.md`, `04-contract-parity.md` |
 
 **Plan folder must exist on disk** (`DESIGN.md` + active PLAN at minimum). If the branch only described docs in chat but never committed them, **write or restore the plan folder first**—this skill cannot invent `PulseFeature` names or flush rules without those files.
 
@@ -80,7 +80,7 @@ cd pulse-web-otel && yarn test:run
 cd pulse-web-otel && yarn workspace ecommerce-demo e2e:web-sdk-gates
 ```
 
-Append **`pulse-web-otel/web-sdk-plan/agent-runtime/test-run-log.md`** after green gates.
+Append gate results to **CI / PR description** (optional `pulse-web-otel/progress.txt`) after green gates.
 
 ## Anti-patterns
 

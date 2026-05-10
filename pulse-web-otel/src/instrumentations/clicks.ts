@@ -1,7 +1,7 @@
 /**
  * Click / tap instrumentation — OTLP **logs** (`pulse.type` = app.click, body = app.widget.click).
  * With default config, uses Android-parity {@link ClickEventBuffer} (rage clustering + delayed singleton taps).
- * See `web-sdk-plan/v2-clicks/PLAN-B-clicks-logs.md`.
+ * See docs/instrumentations/clicks/SPEC.md
  */
 
 import { logs } from "@opentelemetry/api-logs";
