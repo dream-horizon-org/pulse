@@ -6,6 +6,7 @@ export const ISSUE_TYPES = {
   CRASHES: "crashes",
   ANRS: "anrs",
   NON_FATALS: "nonFatals",
+  WEB_VITALS: "webVitals",
 } as const;
 
 export type IssueType = (typeof ISSUE_TYPES)[keyof typeof ISSUE_TYPES];

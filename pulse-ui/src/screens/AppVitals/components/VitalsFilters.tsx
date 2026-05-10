@@ -3,6 +3,7 @@ import {
   IconBug,
   IconAlertTriangle,
   IconExclamationCircle,
+  IconActivity,
 } from "@tabler/icons-react";
 import { ISSUE_TYPES } from "../AppVitals.constants";
 import type { VitalsStats } from "../AppVitals.interface";
@@ -89,6 +90,15 @@ export const VitalsFilters: React.FC<VitalsFiltersProps> = ({
               </Group>
             ),
             value: ISSUE_TYPES.NON_FATALS,
+          },
+          {
+            label: (
+              <Group gap={8} wrap="nowrap">
+                <IconActivity size={16} />
+                <span>Web Vitals</span>
+              </Group>
+            ),
+            value: ISSUE_TYPES.WEB_VITALS,
           },
         ]}
       />

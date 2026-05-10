@@ -17,6 +17,7 @@ import {
   ANRMetricsStats,
   AlertStatusStats,
 } from "./components";
+import { WebVitalsPanel } from "../WebVitals/components";
 import DateTimeRangePicker from "../CriticalInteractionDetails/components/DateTimeRangePicker/DateTimeRangePicker";
 import { StartEndDateTimeType } from "../CriticalInteractionDetails/components/DateTimeRangePickerDropDown/DateTimeRangePicker.interface";
 import { 
@@ -226,6 +227,15 @@ export const AppVitals: React.FC = () => {
             }
             state={state !== "all" ? state : undefined}
           />
+        );
+      case ISSUE_TYPES.WEB_VITALS:
+        return (
+          <Box style={{ padding: "1rem 0" }}>
+            <WebVitalsPanel
+              startTime={formattedStartTime}
+              endTime={formattedEndTime}
+            />
+          </Box>
         );
       default:
         return null;
