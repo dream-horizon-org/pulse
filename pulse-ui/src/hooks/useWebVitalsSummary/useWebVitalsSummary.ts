@@ -20,7 +20,9 @@ export const useWebVitalsSummary = ({
     screenName,
   });
 
-  const queryString = new URLSearchParams(queryParams).toString();
+  const queryString = new URLSearchParams(
+    Object.fromEntries(Object.entries(queryParams).map(([k, v]) => [k, String(v)]))
+  ).toString();
   const url = `${API_BASE_URL}${route.apiPath}?${queryString}`;
 
   return useQuery({

@@ -24,6 +24,10 @@ export const GRAPH_CONFIGS = {
     title: "Non-Fatal Issues Trend",
     color: "#3b82f6", // Blue
   },
+  [ISSUE_TYPES.WEB_VITALS]: {
+    title: "Web Vitals Trend",
+    color: "#10b981", // Emerald
+  },
 };
 
 export const APP_VERSIONS = [

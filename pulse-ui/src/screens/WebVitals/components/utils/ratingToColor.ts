@@ -13,7 +13,9 @@ export const ratingToColor = (rating: VitalRating): string => {
   }
 };
 
-export const ratingToColorName = (rating: VitalRating): "green" | "yellow" | "red" => {
+export const ratingToColorName = (
+  rating: VitalRating,
+): "green" | "yellow" | "red" => {
   switch (rating) {
     case "good":
       return "green";
@@ -21,7 +23,5 @@ export const ratingToColorName = (rating: VitalRating): "green" | "yellow" | "re
       return "yellow";
     case "poor":
       return "red";
-    default:
-      return "gray";
   }
 };

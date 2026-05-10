@@ -1,17 +1,22 @@
 import { Stack, SimpleGrid, Box } from "@mantine/core";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { WebVitalsPanelProps } from "./WebVitalsPanel.interface";
 import {
   useWebVitalsSummary,
   useWebVitalsTrend,
   useWebVitalsByScreen,
 } from "../../hooks";
+import { useQueryError } from "../../../../hooks/useQueryError";
+import type {
+  WebVitalsSummaryResponse,
+  WebVitalsTrendResponse,
+  WebVitalsByScreenResponse,
+} from "../../WebVitals.interface";
 import { VitalCard } from "../VitalCard";
 import { VitalTrendChart } from "../VitalTrendChart";
 import { VitalsByScreenTable } from "../VitalsByScreenTable";
 import { CardSkeleton } from "../../../../components/Skeletons/CardSkeleton";
 import { ErrorAndEmptyState } from "../../../../components/ErrorAndEmptyState/ErrorAndEmptyState";
-import { VITAL_NAMES } from "../../../../constants";
 
 export function WebVitalsPanel({
   screenName,
@@ -20,33 +25,52 @@ export function WebVitalsPanel({
 }: WebVitalsPanelProps) {
   const [selectedVital, setSelectedVital] = useState<string>("LCP");
 
-  // Fetch summary data
+  const startMs = useMemo(() => Date.parse(startTime), [startTime]);
+  const endMs = useMemo(() => Date.parse(endTime), [endTime]);
+
+  // Fetch summary data (hooks expect unix ms; parents pass ISO strings)
   const summaryQuery = useWebVitalsSummary({
-    startTime,
-    endTime,
+    startTime: startMs,
+    endTime: endMs,
     screenName,
   });
 
-  // Fetch trend data for selected vital
   const trendQuery = useWebVitalsTrend({
-    startTime,
-    endTime,
+    startTime: startMs,
+    endTime: endMs,
     vitalName: selectedVital,
     screenName,
   });
 
-  // Fetch by-screen data (only when screenName is not provided)
   const byScreenQuery = useWebVitalsByScreen({
-    startTime,
-    endTime,
+    startTime: startMs,
+    endTime: endMs,
     vitalName: selectedVital,
   });
 
-  const isLoading = summaryQuery.isLoading;
-  const error = summaryQuery.error;
+  const summaryState = useQueryError<WebVitalsSummaryResponse>({
+    queryResult: summaryQuery,
+  });
+  const trendState = useQueryError<WebVitalsTrendResponse>({
+    queryResult: trendQuery,
+  });
+  const byScreenState = useQueryError<WebVitalsByScreenResponse>({
+    queryResult: byScreenQuery,
+  });
 
-  if (error) {
-    return <ErrorAndEmptyState message="Error loading Web Vitals" description={error.message} />;
+  const vitals = summaryQuery.data?.data?.vitals;
+
+  const isLoading = summaryState.isLoading;
+
+  if (summaryState.isError) {
+    return (
+      <ErrorAndEmptyState
+        message="Error loading Web Vitals"
+        description={
+          summaryState.errorMessage || "Failed to load Web Vitals summary"
+        }
+      />
+    );
   }
 
   return (
@@ -56,12 +80,17 @@ export function WebVitalsPanel({
         {isLoading ? (
           <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }} spacing="md">
             {Array.from({ length: 6 }).map((_, i) => (
-              <CardSkeleton key={i} height={200} showHeader={false} contentRows={2} />
+              <CardSkeleton
+                key={i}
+                height={200}
+                showHeader={false}
+                contentRows={2}
+              />
             ))}
           </SimpleGrid>
-        ) : summaryQuery.data ? (
+        ) : vitals ? (
           <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }} spacing="md">
-            {summaryQuery.data.vitals.map((vital) => (
+            {vitals.map((vital) => (
               <VitalCard
                 key={vital.name}
                 name={vital.name}
@@ -81,9 +110,13 @@ export function WebVitalsPanel({
       <Box>
         <VitalTrendChart
           vitalName={selectedVital}
-          data={trendQuery.data?.points}
-          isLoading={trendQuery.isLoading}
-          error={trendQuery.error}
+          data={trendQuery.data?.data?.points}
+          isLoading={trendState.isLoading}
+          error={
+            trendState.isError
+              ? new Error(trendState.errorMessage || "Trend request failed")
+              : null
+          }
         />
       </Box>
 
@@ -91,9 +124,15 @@ export function WebVitalsPanel({
       {!screenName && (
         <Box>
           <VitalsByScreenTable
-            data={byScreenQuery.data?.screens}
-            isLoading={byScreenQuery.isLoading}
-            error={byScreenQuery.error}
+            data={byScreenQuery.data?.data?.screens}
+            isLoading={byScreenState.isLoading}
+            error={
+              byScreenState.isError
+                ? new Error(
+                    byScreenState.errorMessage || "By-screen request failed",
+                  )
+                : null
+            }
           />
         </Box>
       )}
