@@ -112,13 +112,15 @@ No new **P0** items filed for the current `network.ts` + `network-http.ts` contr
 
 ## 8. Redundancy & Cleanup Notes
 
-Deleted after triple-eval:
+**Canonical contract:** this SPEC plus `src/instrumentations/network.ts` and `src/utils/network-http.ts`.
 
-| Path |
-|---|
-| `pulse-web-otel/web-sdk-plan/v3-network/` (entire folder) |
-| `pulse-web-otel/web-sdk-plan/v1/02-instrumentations/network.md` |
-| `pulse-web-otel/examples/ecommerce-demo/MANUAL-NETWORK-LAB-SCENARIOS.md` |
+Historical planning and superseded one-pagers remain under the repo for traceability (not deleted):
+
+| Path | Role |
+|---|---|
+| `pulse-web-otel/web-sdk-plan/v3-network/` | Archived network design / amendments |
+| `pulse-web-otel/web-sdk-plan/v1/02-instrumentations/network.md` | Superseded v1 one-pager (still in repo for history) |
+| `pulse-web-otel/examples/ecommerce-demo/MANUAL-NETWORK-LAB-SCENARIOS.md` | Removed manual lab file; scenarios absorbed into §6 |
 
 ---
 

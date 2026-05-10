@@ -56,15 +56,15 @@ Copy into chat or a scratch doc; set each row to **DONE** | **PARTIAL** | **MISS
 | D2 | E2E: `examples/ecommerce-demo/e2e/*.spec.ts` | Assert `pulse.type` **exact string**; numeric value `typeof "number"` and finite (not only `!= null`); enum field in known set (e.g. `web_vital.rating`); `session.id` truthy; `screen.name` truthy; add PLAN-B attrs. **Gate-off negative path:** see **D2b**. |
 | D2b | E2E: feature gate off → **no** export | `seedPulseSdkConfig` + `blockActiveConfigFetch` **before** `goto`; `await otlp.waitForLog("session.start")`; **`otlp.reset()`** to clear captures; interact + wait batch window; assert **zero** matching logs (e.g. `findAllLogs(otlp.captured, …).length === 0`). |
 | D3 | `ecommerce-demo/package.json` | **Every new** `e2e/*.spec.ts` must appear in the `e2e:web-sdk-gates` script — otherwise the gate **never runs** that file. |
-| D4 | `.env.test` | JSON OTLP for Playwright decode (`VITE_PULSE_FORMAT=json`); see sanity skill. |
+| D4 | `.env.test` | JSON OTLP for Playwright decode (`VITE_PULSE_FORMAT=json`); see web-sdk-ship Step 3. |
 | D5 | Gate log | CI / PR description (optional `pulse-web-otel/progress.txt`) — append command + result. |
 
 ## E. Close-out
 
 | # | Item | Verify |
 |---|------|--------|
-| E1 | Cursor rules | Edits match `.cursor/rules/pulse-web-otel.mdc` + `pulse-web-otel-structure.mdc`. |
-| E2 | Sanity skill | [pulse-web-sdk-sanity](../pulse-web-sdk-sanity/SKILL.md) — Steps 1–6 (tests + regression + **Step 5** pre-merge diff audit + docs). |
+| E1 | Cursor rules | Edits match `.cursor/rules/pulse-web-otel.mdc` + `.cursor/rules/web-sdk.mdc`. |
+| E2 | Ship checklist | [web-sdk-ship](../web-sdk-ship/SKILL.md) — Steps 1–6 (tests + regression + **Step 5** pre-merge diff audit + docs). |
 | E3 | Graphify | `graphify update . --no-viz` in `pulse-web-otel/` after substantive TS changes. |
 | E4 | PR review | [pr-review](../pr-review/SKILL.md) before merge. |
 | E5 | Handoff | Plan folder `HANDOFF-NEXT-AGENT.md` if pausing / handoff (done vs deferred + next-agent prompt). |
@@ -80,7 +80,7 @@ Copy into chat or a scratch doc; set each row to **DONE** | **PARTIAL** | **MISS
 | Date (YYYY-MM-DD) | Source (PR / reviewer) | Lesson (imperative, testable) |
 |-------------------|--------------------------|-------------------------------|
 | *example* | *#123* | *Always assert `screen.name` on new log E2E positives.* |
-| 2026-05-04 | web-sdk-instrumentation-e2e-from-design review | D2b gate-off: `features[].featureName` must be **this** instrumentation’s `PulseFeature` (e.g. `web_vitals`), not `session`, or the gate stays on. Resource Timing attrs + `page.route` stubs: probe or defer—avoid vacuous passes. |
+| 2026-05-04 | web-sdk-e2e-matrix review | D2b gate-off: `features[].featureName` must be **this** instrumentation’s `PulseFeature` (e.g. `web_vitals`), not `session`, or the gate stays on. Resource Timing attrs + `page.route` stubs: probe or defer—avoid vacuous passes. |
 
 *(Append new rows at the bottom; do not delete history without archival note.)*
 

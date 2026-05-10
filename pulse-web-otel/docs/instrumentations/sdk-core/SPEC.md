@@ -426,8 +426,6 @@ The following planning documents were absorbed into this SPEC.md and deleted (tr
 
 ---
 
-<!-- eval-anchors: feature.gate|feature gate|PulseFeature remote.config|remote config|RemoteConfig -->
-
 ## 9. Open Questions
 
 1. **`dataCollectionState` deprecation timeline.** P2:12 proposes `consent: string union`. Before 1.0, should we ship a deprecation warning when the enum form is detected and recommend the new shape?

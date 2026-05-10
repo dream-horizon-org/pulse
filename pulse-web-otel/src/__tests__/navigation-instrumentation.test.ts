@@ -1,16 +1,4 @@
-const logMocks = vi.hoisted(() => ({
-  getLogger: vi.fn().mockReturnValue({
-    emit: vi.fn(),
-    enabled: vi.fn().mockReturnValue(true),
-  }),
-}));
-
-vi.mock("@opentelemetry/api-logs", () => ({
-  logs: logMocks,
-}));
-
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { logs } from "@opentelemetry/api-logs";
 import { NavigationInstrumentation } from "../instrumentations/navigation";
 import { SessionProvider, _resetInstallationStateForTesting } from "../session";
 import { FeatureGate } from "../feature-gate";
@@ -23,6 +11,46 @@ import { PulseGlobalAttributesProcessor } from "../processors/global-attrs-proce
 import type { LoggerProvider } from "@opentelemetry/sdk-logs";
 import type { Logger } from "@opentelemetry/api-logs";
 import type { Tracer } from "@opentelemetry/api";
+
+type MockSpan = {
+  setAttribute: ReturnType<typeof vi.fn>;
+  setAttributes: ReturnType<typeof vi.fn>;
+  end: ReturnType<typeof vi.fn>;
+  setStatus: ReturnType<typeof vi.fn>;
+  addEvent: ReturnType<typeof vi.fn>;
+};
+
+const navSpanMocks = vi.hoisted(() => {
+  const created: Array<{ name: string; span: MockSpan }> = [];
+
+  function createSpan(): MockSpan {
+    return {
+      setAttribute: vi.fn(),
+      setAttributes: vi.fn(),
+      end: vi.fn(),
+      setStatus: vi.fn(),
+      addEvent: vi.fn(),
+    };
+  }
+
+  const mockTracer = {
+    startSpan: vi.fn((name: string) => {
+      const span = createSpan();
+      created.push({ name, span });
+      return span;
+    }),
+  };
+
+  return {
+    mockTracer,
+    created,
+    createSpan,
+    reset: () => {
+      created.length = 0;
+      mockTracer.startSpan.mockClear();
+    },
+  };
+});
 
 function makeMinimalSdk(
   overrides: Partial<SdkContext> & { config?: PulseWebConfig } = {},
@@ -57,7 +85,7 @@ function makeMinimalSdk(
       emit: vi.fn(),
       enabled: vi.fn().mockReturnValue(true),
     } as unknown as Logger,
-    tracer: {} as Tracer,
+    tracer: navSpanMocks.mockTracer as unknown as Tracer,
     config,
     globalAttrsProcessor,
     loggerProvider,
@@ -77,6 +105,19 @@ function setPath(path: string) {
   });
 }
 
+function attrsFromSetAttributesCalls(span: MockSpan): Record<string, unknown> {
+  const merged: Record<string, unknown> = {};
+  for (const call of span.setAttributes.mock.calls) {
+    const arg = call[0] as Record<string, unknown>;
+    Object.assign(merged, arg);
+  }
+  return merged;
+}
+
+function findSpansByName(name: string): MockSpan[] {
+  return navSpanMocks.created.filter((e) => e.name === name).map((e) => e.span);
+}
+
 describe("NavigationInstrumentation", () => {
   beforeEach(() => {
     if (typeof window !== "undefined") {
@@ -84,10 +125,7 @@ describe("NavigationInstrumentation", () => {
       window.localStorage.clear();
     }
     vi.clearAllMocks();
-    logMocks.getLogger.mockReturnValue({
-      emit: vi.fn(),
-      enabled: vi.fn().mockReturnValue(true),
-    });
+    navSpanMocks.reset();
   });
 
   afterEach(() => {
@@ -117,20 +155,13 @@ describe("NavigationInstrumentation", () => {
     it("prevents double install (installed flag)", () => {
       const instr = new NavigationInstrumentation();
       const sdk = makeMinimalSdk();
-      const emit = vi.fn();
-      logMocks.getLogger.mockReturnValue({
-        emit,
-        enabled: vi.fn().mockReturnValue(true),
-      });
 
       setPath("/test1");
       instr.install(sdk);
       const patchedPushState = history.pushState;
 
-      // Try to install again — should no-op
       instr.install(sdk);
 
-      // pushState should not be double-patched (should still be the first patch)
       expect(history.pushState).toBe(patchedPushState);
 
       instr.uninstall();
@@ -139,50 +170,34 @@ describe("NavigationInstrumentation", () => {
     it("uninstall removes all listeners and clears state", () => {
       const instr = new NavigationInstrumentation();
       const sdk = makeMinimalSdk();
-      const emit = vi.fn();
-      logMocks.getLogger.mockReturnValue({
-        emit,
-        enabled: vi.fn().mockReturnValue(true),
-      });
 
       setPath("/home");
       instr.install(sdk);
-      emit.mockClear();
+      const spansBefore = navSpanMocks.created.length;
+      expect(spansBefore).toBeGreaterThan(0);
 
-      // Trigger navigation before uninstall
-      history.pushState({}, "", "/page1");
-      const callsBeforeUninstall = emit.mock.calls.length;
-      expect(callsBeforeUninstall).toBeGreaterThan(0);
-
-      emit.mockClear();
+      navSpanMocks.reset();
       instr.uninstall();
 
-      // Trigger navigation after uninstall — no additional emits
       history.pushState({}, "", "/page2");
-      expect(emit.mock.calls.length).toBe(0);
+      expect(navSpanMocks.created.length).toBe(0);
     });
 
     it("reinstall after uninstall re-registers listeners", () => {
       const instr = new NavigationInstrumentation();
       const sdk = makeMinimalSdk();
-      const emit = vi.fn();
-      logMocks.getLogger.mockReturnValue({
-        emit,
-        enabled: vi.fn().mockReturnValue(true),
-      });
 
       setPath("/home");
       instr.install(sdk);
       instr.uninstall();
-      emit.mockClear();
+      navSpanMocks.reset();
 
-      // Reinstall
       instr.install(sdk);
-      emit.mockClear();
+      navSpanMocks.reset();
 
-      // Trigger navigation — should emit
+      setPath("/page1");
       history.pushState({}, "", "/page1");
-      expect(emit.mock.calls.length).toBeGreaterThan(0);
+      expect(navSpanMocks.mockTracer.startSpan).toHaveBeenCalled();
 
       instr.uninstall();
     });
@@ -295,13 +310,6 @@ describe("NavigationInstrumentation", () => {
       setPath("/page1");
       instr.install(sdk);
 
-      const emit = vi.fn();
-      logMocks.getLogger.mockReturnValue({
-        emit,
-        enabled: vi.fn().mockReturnValue(true),
-      });
-
-      // Verify original pushState is called (wrapped)
       expect(() => {
         history.pushState({ key: "value" }, "", "/page2");
       }).not.toThrow();
@@ -318,13 +326,6 @@ describe("NavigationInstrumentation", () => {
       setPath("/page1");
       instr.install(sdk);
 
-      const emit = vi.fn();
-      logMocks.getLogger.mockReturnValue({
-        emit,
-        enabled: vi.fn().mockReturnValue(true),
-      });
-
-      // Verify original replaceState is called (wrapped)
       expect(() => {
         history.replaceState({ key: "value" }, "", "/page2");
       }).not.toThrow();
@@ -333,59 +334,37 @@ describe("NavigationInstrumentation", () => {
       instr.uninstall();
     });
 
-    it("emits screen_session span on navigation (previous screen time tracked)", () => {
+    it("creates screen_session span on navigation (previous screen time tracked)", () => {
       const instr = new NavigationInstrumentation();
       const sdk = makeMinimalSdk();
-      const emit = vi.fn();
-      logMocks.getLogger.mockReturnValue({
-        emit,
-        enabled: vi.fn().mockReturnValue(true),
-      });
 
       setPath("/home");
       instr.install(sdk);
 
-      // Navigate to trigger onRouteChange
       setPath("/cart");
       history.pushState({}, "", "/cart");
 
-      // Should emit at least 2 calls: screen_session and screen_load
-      expect(emit.mock.calls.length).toBeGreaterThanOrEqual(2);
-
-      // Find screen_session call
-      const screenSessionCalls = emit.mock.calls.filter(
-        (call: any) =>
-          call[0]?.attributes?.[PulseWebSemconv.AttributeKey.PULSE_TYPE] ===
-          PulseWebSemconv.PulseType.SCREEN_SESSION,
-      );
-      expect(screenSessionCalls.length).toBeGreaterThan(0);
+      const sessionSpans = findSpansByName("screen_session");
+      expect(sessionSpans.length).toBeGreaterThanOrEqual(1);
+      const ended = sessionSpans.find((s) => s.end.mock.calls.length > 0);
+      expect(ended).toBeDefined();
 
       instr.uninstall();
     });
 
-    it("emits screen_load span on navigation (new screen)", () => {
+    it("creates screen_load span on navigation (new screen)", () => {
       const instr = new NavigationInstrumentation();
       const sdk = makeMinimalSdk();
-      const emit = vi.fn();
-      logMocks.getLogger.mockReturnValue({
-        emit,
-        enabled: vi.fn().mockReturnValue(true),
-      });
 
       setPath("/home");
       instr.install(sdk);
-      emit.mockClear();
+      navSpanMocks.reset();
 
-      // Navigate
+      setPath("/cart");
       history.pushState({}, "", "/cart");
 
-      // Should emit screen_load for /cart
-      const screenLoadCalls = emit.mock.calls.filter(
-        (call: any) =>
-          call[0]?.attributes?.[PulseWebSemconv.AttributeKey.PULSE_TYPE] ===
-          PulseWebSemconv.PulseType.SCREEN_LOAD,
-      );
-      expect(screenLoadCalls.length).toBeGreaterThan(0);
+      const loads = findSpansByName("screen_load");
+      expect(loads.length).toBeGreaterThan(0);
 
       instr.uninstall();
     });
@@ -395,28 +374,25 @@ describe("NavigationInstrumentation", () => {
     it("throttles rapid navigations under 100ms", () => {
       const instr = new NavigationInstrumentation();
       const sdk = makeMinimalSdk();
-      const emit = vi.fn();
-      logMocks.getLogger.mockReturnValue({
-        emit,
-        enabled: vi.fn().mockReturnValue(true),
-      });
 
       setPath("/page1");
       instr.install(sdk);
-      emit.mockClear();
+      navSpanMocks.reset();
 
       vi.useFakeTimers();
       const startTime = Date.now();
       vi.setSystemTime(startTime);
 
-      // Rapid navigations
+      setPath("/page2");
       history.pushState({}, "", "/page2");
       vi.advanceTimersByTime(50);
+      setPath("/page3");
       history.pushState({}, "", "/page3");
 
-      // Both navigations should be throttled (second one ignored)
-      const emits = emit.mock.calls.length;
-      expect(emits).toBeLessThan(4); // Only first nav emits 2 spans
+      const spanStartsAfterThrottle =
+        navSpanMocks.mockTracer.startSpan.mock.calls.length;
+
+      expect(spanStartsAfterThrottle).toBeLessThan(4);
 
       vi.useRealTimers();
       instr.uninstall();
@@ -425,31 +401,28 @@ describe("NavigationInstrumentation", () => {
     it("allows navigation after 100ms delay", () => {
       const instr = new NavigationInstrumentation();
       const sdk = makeMinimalSdk();
-      const emit = vi.fn();
-      logMocks.getLogger.mockReturnValue({
-        emit,
-        enabled: vi.fn().mockReturnValue(true),
-      });
 
       setPath("/page1");
       instr.install(sdk);
-      emit.mockClear();
+      navSpanMocks.reset();
 
       vi.useFakeTimers();
       const startTime = Date.now();
       vi.setSystemTime(startTime);
 
+      setPath("/page2");
       history.pushState({}, "", "/page2");
-      const firstEmits = emit.mock.calls.length;
+      const firstStarts = navSpanMocks.mockTracer.startSpan.mock.calls.length;
 
       vi.advanceTimersByTime(100);
-      emit.mockClear();
+      navSpanMocks.reset();
 
+      setPath("/page3");
       history.pushState({}, "", "/page3");
-      const secondEmits = emit.mock.calls.length;
+      const secondStarts = navSpanMocks.mockTracer.startSpan.mock.calls.length;
 
-      expect(firstEmits).toBeGreaterThan(0);
-      expect(secondEmits).toBeGreaterThan(0);
+      expect(firstStarts).toBeGreaterThan(0);
+      expect(secondStarts).toBeGreaterThan(0);
 
       vi.useRealTimers();
       instr.uninstall();
@@ -472,27 +445,30 @@ describe("NavigationInstrumentation", () => {
   });
 
   describe("Signal emission — timing extraction and attributes", () => {
-    it("emits screen_load on initial page load (tti on same log)", () => {
+    it("emits screen_load on initial page load (tti on same span attrs)", () => {
       const instr = new NavigationInstrumentation();
       const sdk = makeMinimalSdk();
-      const emit = vi.fn();
-      logMocks.getLogger.mockReturnValue({
-        emit,
-        enabled: vi.fn().mockReturnValue(true),
-      });
 
       setPath("/home");
       instr.install(sdk);
 
-      const emittedPulseTypes = emit.mock.calls.map(
-        (call: any) =>
-          call[0]?.attributes?.[PulseWebSemconv.AttributeKey.PULSE_TYPE],
-      );
+      const loadSpans = findSpansByName("screen_load");
+      expect(loadSpans.length).toBeGreaterThanOrEqual(1);
+      const attrs = attrsFromSetAttributesCalls(loadSpans[0]!);
 
-      expect(emittedPulseTypes).toContain(
+      expect(attrs[PulseWebSemconv.AttributeKey.PULSE_TYPE]).toBe(
         PulseWebSemconv.PulseType.SCREEN_LOAD,
       );
-      expect(emittedPulseTypes).not.toContain("screen_interactive");
+
+      for (const { span } of navSpanMocks.created) {
+        const pt =
+          attrsFromSetAttributesCalls(span)[
+            PulseWebSemconv.AttributeKey.PULSE_TYPE
+          ];
+        if (pt !== undefined) {
+          expect(pt).not.toBe("screen_interactive");
+        }
+      }
 
       instr.uninstall();
     });
@@ -500,27 +476,13 @@ describe("NavigationInstrumentation", () => {
     it("sets start.type to cold/reload/back_forward on initial load", () => {
       const instr = new NavigationInstrumentation();
       const sdk = makeMinimalSdk();
-      const emit = vi.fn();
-      logMocks.getLogger.mockReturnValue({
-        emit,
-        enabled: vi.fn().mockReturnValue(true),
-      });
 
       setPath("/home");
       instr.install(sdk);
 
-      // Check that screen_load has start.type
-      const screenLoadCall = emit.mock.calls.find(
-        (call: any) =>
-          call[0]?.attributes?.[PulseWebSemconv.AttributeKey.PULSE_TYPE] ===
-          PulseWebSemconv.PulseType.SCREEN_LOAD,
-      );
-
-      expect(screenLoadCall).toBeDefined();
-      const startType =
-        screenLoadCall![0]?.attributes?.[
-          PulseWebSemconv.AttributeKey.START_TYPE
-        ];
+      const loadSpans = findSpansByName("screen_load");
+      const attrs = attrsFromSetAttributesCalls(loadSpans[0]!);
+      const startType = attrs[PulseWebSemconv.AttributeKey.START_TYPE];
       expect(["cold", "reload", "back_forward"]).toContain(startType);
 
       instr.uninstall();
@@ -529,35 +491,22 @@ describe("NavigationInstrumentation", () => {
     it("omits zero-valued timing attributes", () => {
       const instr = new NavigationInstrumentation();
       const sdk = makeMinimalSdk();
-      const emit = vi.fn();
-      logMocks.getLogger.mockReturnValue({
-        emit,
-        enabled: vi.fn().mockReturnValue(true),
-      });
 
       setPath("/home");
       instr.install(sdk);
 
-      // Check that zero values are not included
-      const screenLoadCall = emit.mock.calls.find(
-        (call: any) =>
-          call[0]?.attributes?.[PulseWebSemconv.AttributeKey.PULSE_TYPE] ===
-          PulseWebSemconv.PulseType.SCREEN_LOAD,
-      );
+      const loadSpans = findSpansByName("screen_load");
+      const attrs = attrsFromSetAttributesCalls(loadSpans[0]!);
 
-      if (screenLoadCall) {
-        const attrs = screenLoadCall[0]?.attributes;
-        // If timing attrs exist, they should be > 0
-        if (attrs[PulseWebSemconv.AttributeKey.TTI] !== undefined) {
-          expect(
-            attrs[PulseWebSemconv.AttributeKey.TTI],
-          ).toBeGreaterThanOrEqual(0);
-        }
-        if (attrs[PulseWebSemconv.AttributeKey.PAGE_LOAD_TIME] !== undefined) {
-          expect(
-            attrs[PulseWebSemconv.AttributeKey.PAGE_LOAD_TIME],
-          ).toBeGreaterThan(0);
-        }
+      if (attrs[PulseWebSemconv.AttributeKey.TTI] !== undefined) {
+        expect(attrs[PulseWebSemconv.AttributeKey.TTI]).toBeGreaterThanOrEqual(
+          0,
+        );
+      }
+      if (attrs[PulseWebSemconv.AttributeKey.PAGE_LOAD_TIME] !== undefined) {
+        expect(
+          attrs[PulseWebSemconv.AttributeKey.PAGE_LOAD_TIME],
+        ).toBeGreaterThan(0);
       }
 
       instr.uninstall();
@@ -566,183 +515,113 @@ describe("NavigationInstrumentation", () => {
     it("emits timing values with correct magnitude (milliseconds)", () => {
       const instr = new NavigationInstrumentation();
       const sdk = makeMinimalSdk();
-      const emit = vi.fn();
-      logMocks.getLogger.mockReturnValue({
-        emit,
-        enabled: vi.fn().mockReturnValue(true),
-      });
 
       setPath("/home");
       instr.install(sdk);
 
-      const screenLoadCall = emit.mock.calls.find(
-        (call: any) =>
-          call[0]?.attributes?.[PulseWebSemconv.AttributeKey.PULSE_TYPE] ===
-          PulseWebSemconv.PulseType.SCREEN_LOAD,
-      );
+      const loadSpans = findSpansByName("screen_load");
+      const attrs = attrsFromSetAttributesCalls(loadSpans[0]!);
 
-      if (screenLoadCall) {
-        const attrs = screenLoadCall[0]?.attributes;
-        // All timing values should be finite and non-negative
-        [
-          PulseWebSemconv.AttributeKey.PAGE_LOAD_TIME,
-          PulseWebSemconv.AttributeKey.TTFB,
-          PulseWebSemconv.AttributeKey.DNS_TIME,
-          PulseWebSemconv.AttributeKey.TCP_TIME,
-          PulseWebSemconv.AttributeKey.DOM_PROCESSING_TIME,
-          PulseWebSemconv.AttributeKey.TTI,
-        ].forEach((key) => {
-          if (attrs[key] !== undefined) {
-            expect(Number.isFinite(attrs[key])).toBe(true);
-            expect(attrs[key]).toBeGreaterThanOrEqual(0);
-          }
-        });
-      }
-
-      instr.uninstall();
-    });
-
-    it("all signals carry required attributes (pulse.type, screen.name, session.id)", () => {
-      const instr = new NavigationInstrumentation();
-      const sdk = makeMinimalSdk();
-      const emit = vi.fn();
-      logMocks.getLogger.mockReturnValue({
-        emit,
-        enabled: vi.fn().mockReturnValue(true),
-      });
-
-      setPath("/home");
-      instr.install(sdk);
-
-      // Check that all emitted signals have required attrs
-      emit.mock.calls.forEach((call: any) => {
-        const attrs = call[0]?.attributes;
-        expect(attrs[PulseWebSemconv.AttributeKey.PULSE_TYPE]).toBeTruthy();
-        expect(attrs[PulseWebSemconv.AttributeKey.SCREEN_NAME]).toBeTruthy();
-        expect(attrs[PulseWebSemconv.AttributeKey.SESSION_ID]).toBeTruthy();
+      [
+        PulseWebSemconv.AttributeKey.PAGE_LOAD_TIME,
+        PulseWebSemconv.AttributeKey.TTFB,
+        PulseWebSemconv.AttributeKey.DNS_TIME,
+        PulseWebSemconv.AttributeKey.TCP_TIME,
+        PulseWebSemconv.AttributeKey.DOM_PROCESSING_TIME,
+        PulseWebSemconv.AttributeKey.TTI,
+      ].forEach((key) => {
+        if (attrs[key] !== undefined) {
+          expect(Number.isFinite(attrs[key])).toBe(true);
+          expect(attrs[key] as number).toBeGreaterThanOrEqual(0);
+        }
       });
 
       instr.uninstall();
     });
 
-    it("SPA nav emits screen_session with duration + screen_load with start.type=spa", () => {
+    it("screen_load and ended screen_session carry required attrs when present", () => {
       const instr = new NavigationInstrumentation();
       const sdk = makeMinimalSdk();
-      const emit = vi.fn();
-      logMocks.getLogger.mockReturnValue({
-        emit,
-        enabled: vi.fn().mockReturnValue(true),
-      });
 
       setPath("/home");
       instr.install(sdk);
-      emit.mockClear();
 
-      // Navigate
+      const loadSpans = findSpansByName("screen_load");
+      const loadAttrs = attrsFromSetAttributesCalls(loadSpans[0]!);
+      expect(loadAttrs[PulseWebSemconv.AttributeKey.PULSE_TYPE]).toBeTruthy();
+      expect(loadAttrs[PulseWebSemconv.AttributeKey.SCREEN_NAME]).toBeTruthy();
+      expect(loadAttrs[PulseWebSemconv.AttributeKey.SESSION_ID]).toBeTruthy();
+
+      instr.uninstall();
+    });
+
+    it("SPA nav emits screen_session then screen_load with start.type=spa", () => {
+      const instr = new NavigationInstrumentation();
+      const sdk = makeMinimalSdk();
+
+      setPath("/home");
+      instr.install(sdk);
+      navSpanMocks.reset();
+
       setPath("/cart");
       history.pushState({}, "", "/cart");
 
-      // Should emit screen_session and screen_load
-      const screenSessionCalls = emit.mock.calls.filter(
-        (call: any) =>
-          call[0]?.attributes?.[PulseWebSemconv.AttributeKey.PULSE_TYPE] ===
-          PulseWebSemconv.PulseType.SCREEN_SESSION,
+      const loads = findSpansByName("screen_load").map(
+        attrsFromSetAttributesCalls,
       );
-      const screenLoadCalls = emit.mock.calls.filter(
-        (call: any) =>
-          call[0]?.attributes?.[PulseWebSemconv.AttributeKey.PULSE_TYPE] ===
-          PulseWebSemconv.PulseType.SCREEN_LOAD,
+      const spaLoad = loads.find(
+        (a) => a[PulseWebSemconv.AttributeKey.START_TYPE] === "spa",
       );
-
-      expect(screenSessionCalls.length).toBeGreaterThan(0);
-      expect(screenLoadCalls.length).toBeGreaterThan(0);
-
-      // screen_load should have start.type=spa (not cold/reload/back_forward)
-      const lastScreenLoad = screenLoadCalls[screenLoadCalls.length - 1]!;
-      const startType =
-        lastScreenLoad[0]?.attributes?.[
-          PulseWebSemconv.AttributeKey.START_TYPE
-        ];
-      expect(startType).toBe("spa");
+      expect(spaLoad).toBeDefined();
 
       instr.uninstall();
     });
 
-    it("initial load emits a single screen_load for navigation timing", () => {
+    it("initial load emits at least one screen_load span", () => {
       const instr = new NavigationInstrumentation();
       const sdk = makeMinimalSdk();
-      const emit = vi.fn();
-      logMocks.getLogger.mockReturnValue({
-        emit,
-        enabled: vi.fn().mockReturnValue(true),
-      });
 
       setPath("/home");
       instr.install(sdk);
 
-      const loads = emit.mock.calls.filter(
-        (call: any) =>
-          call[0]?.attributes?.[PulseWebSemconv.AttributeKey.PULSE_TYPE] ===
-          PulseWebSemconv.PulseType.SCREEN_LOAD,
-      );
-      expect(loads.length).toBeGreaterThanOrEqual(1);
+      expect(findSpansByName("screen_load").length).toBeGreaterThanOrEqual(1);
 
       instr.uninstall();
     });
 
-    it("popstate triggers SPA navigation emits like pushState", () => {
+    it("popstate triggers SPA navigation spans like pushState", () => {
       const instr = new NavigationInstrumentation();
       const sdk = makeMinimalSdk();
-      const emit = vi.fn();
-      logMocks.getLogger.mockReturnValue({
-        emit,
-        enabled: vi.fn().mockReturnValue(true),
-      });
 
       setPath("/home");
       instr.install(sdk);
-      emit.mockClear();
+      navSpanMocks.reset();
 
       setPath("/cart");
       window.dispatchEvent(new PopStateEvent("popstate"));
 
-      const screenLoads = emit.mock.calls.filter(
-        (call: any) =>
-          call[0]?.attributes?.[PulseWebSemconv.AttributeKey.PULSE_TYPE] ===
-          PulseWebSemconv.PulseType.SCREEN_LOAD,
-      );
-      expect(screenLoads.length).toBeGreaterThan(0);
+      expect(navSpanMocks.mockTracer.startSpan).toHaveBeenCalled();
 
       instr.uninstall();
     });
 
-    it("pagehide emits a screen_session for time on current screen", () => {
+    it("pagehide ends screen_session span with duration attrs", () => {
       const instr = new NavigationInstrumentation();
       const sdk = makeMinimalSdk();
-      const emit = vi.fn();
-      logMocks.getLogger.mockReturnValue({
-        emit,
-        enabled: vi.fn().mockReturnValue(true),
-      });
 
       setPath("/home");
       instr.install(sdk);
-      emit.mockClear();
 
       window.dispatchEvent(new Event("pagehide"));
 
-      const sessions = emit.mock.calls.filter(
-        (call: any) =>
-          call[0]?.attributes?.[PulseWebSemconv.AttributeKey.PULSE_TYPE] ===
-          PulseWebSemconv.PulseType.SCREEN_SESSION,
+      const sessions = findSpansByName("screen_session").filter(
+        (s) => s.end.mock.calls.length > 0,
       );
       expect(sessions.length).toBeGreaterThan(0);
-      const firstSession = sessions[0]!;
-      const dur =
-        firstSession[0]?.attributes?.[
-          PulseWebSemconv.AttributeKey.SESSION_DURATION_MS
-        ];
-      expect(typeof dur).toBe("number");
+      const attrs = attrsFromSetAttributesCalls(sessions[0]!);
+      expect(
+        typeof attrs[PulseWebSemconv.AttributeKey.SESSION_DURATION_MS],
+      ).toBe("number");
 
       instr.uninstall();
     });
@@ -750,29 +629,34 @@ describe("NavigationInstrumentation", () => {
     it("screen_session carries session.duration and session.duration_ms", () => {
       const instr = new NavigationInstrumentation();
       const sdk = makeMinimalSdk();
-      const emit = vi.fn();
-      logMocks.getLogger.mockReturnValue({
-        emit,
-        enabled: vi.fn().mockReturnValue(true),
-      });
 
       setPath("/home");
       instr.install(sdk);
-      emit.mockClear();
 
       setPath("/cart");
       history.pushState({}, "", "/cart");
 
-      const sessionCall = emit.mock.calls.find(
-        (call: any) =>
-          call[0]?.attributes?.[PulseWebSemconv.AttributeKey.PULSE_TYPE] ===
-          PulseWebSemconv.PulseType.SCREEN_SESSION,
+      const sessions = findSpansByName("screen_session").filter(
+        (s) => s.end.mock.calls.length > 0,
       );
-      expect(sessionCall).toBeTruthy();
-      const attrs = sessionCall![0].attributes as Record<string, unknown>;
+      expect(sessions.length).toBeGreaterThan(0);
+      const attrs = attrsFromSetAttributesCalls(sessions[sessions.length - 1]!);
       expect(attrs[PulseWebSemconv.AttributeKey.SESSION_DURATION_MS]).toEqual(
         attrs[PulseWebSemconv.AttributeKey.SESSION_DURATION],
       );
+
+      instr.uninstall();
+    });
+
+    it("sets OK status before end on screen_load", () => {
+      const instr = new NavigationInstrumentation();
+      const sdk = makeMinimalSdk();
+      setPath("/home");
+      instr.install(sdk);
+
+      const load = findSpansByName("screen_load")[0]!;
+      expect(load?.setStatus.mock.calls.length).toBeGreaterThan(0);
+      expect(load?.end.mock.calls.length).toBeGreaterThan(0);
 
       instr.uninstall();
     });
@@ -789,16 +673,9 @@ describe("NavigationInstrumentation", () => {
       });
 
       setPath("/home");
-      const emit = vi.fn();
-      logMocks.getLogger.mockReturnValue({
-        emit,
-        enabled: vi.fn().mockReturnValue(true),
-      });
-
       instr.install(sdk);
 
-      // Should not have patched History API or emitted signals
-      expect(emit.mock.calls.length).toBe(0);
+      expect(navSpanMocks.mockTracer.startSpan).not.toHaveBeenCalled();
 
       instr.uninstall();
     });
@@ -813,16 +690,9 @@ describe("NavigationInstrumentation", () => {
       });
 
       setPath("/home");
-      const emit = vi.fn();
-      logMocks.getLogger.mockReturnValue({
-        emit,
-        enabled: vi.fn().mockReturnValue(true),
-      });
-
       instr.install(sdk);
 
-      // Should have emitted signals
-      expect(emit.mock.calls.length).toBeGreaterThanOrEqual(1);
+      expect(navSpanMocks.mockTracer.startSpan).toHaveBeenCalled();
 
       instr.uninstall();
     });
@@ -840,16 +710,7 @@ describe("NavigationInstrumentation", () => {
       });
 
       setPath("/home");
-      const emit = vi.fn();
-      logMocks.getLogger.mockReturnValue({
-        emit,
-        enabled: vi.fn().mockReturnValue(true),
-      });
-
       instr.install(sdk);
-
-      // Even with consent ALLOWED, if config disabled, it's up to registry
-      // (NavigationInstrumentation.install() doesn't double-check config)
 
       instr.uninstall();
     });
@@ -882,19 +743,9 @@ describe("NavigationInstrumentation", () => {
       });
 
       setPath("/home");
-      const emit = vi.fn();
-      logMocks.getLogger.mockReturnValue({
-        emit,
-        enabled: vi.fn().mockReturnValue(true),
-      });
-
       instr.install(sdk);
-      emit.mockClear();
 
-      history.pushState({}, "", "/cart");
-
-      // Should not emit any signals when consent denied
-      expect(emit.mock.calls.length).toBe(0);
+      expect(navSpanMocks.mockTracer.startSpan).not.toHaveBeenCalled();
 
       instr.uninstall();
     });

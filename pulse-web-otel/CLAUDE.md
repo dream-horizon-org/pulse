@@ -13,7 +13,7 @@ Per-package operating manual. Auto-loaded by Claude Code (hierarchical CLAUDE.md
 
 ## Layer rules
 
-See `.cursor/rules/web-sdk.mdc` and `.cursor/rules/pulse-web-otel.mdc` for the canonical layer + naming conventions.
+See **`.agents/rules/pulse-web-otel-contract.mdc`** and **`.agents/rules/pulse-web-otel-conventions.mdc`** (symlinked as `.cursor/rules/web-sdk.mdc` and `.cursor/rules/pulse-web-otel.mdc`) for contract vs conventions.
 Highlights worth restating because they change agent behaviour:
 
 - `platform = 'web'` on every signal. Not optional.
@@ -46,7 +46,7 @@ Highlights worth restating because they change agent behaviour:
 ## Sharp edges (start short — agent appends here)
 
 - **Don't read `localStorage` synchronously at module init.** Some host apps load us in a Web Worker context where `window.localStorage` is undefined. Use the persistence module which guards.
-- **Screen navigation:** `screen_load` + `screen_session` OTLP **logs** emit from [`src/instrumentations/navigation.ts`](src/instrumentations/navigation.ts) when enabled. **Web does not** emit a separate `screen_interactive` log — **`tti`** lives on **`screen_load`**. See **`docs/instrumentations/screen-signals/SPEC.md`**. Router hooks call `Pulse.setScreenName` for `screen.name` on other telemetry.
+- **Screen navigation:** `screen_load` + `screen_session` OTLP **spans** from [`src/instrumentations/navigation.ts`](src/instrumentations/navigation.ts) when enabled. **Web does not** emit a separate `screen_interactive` span — **`tti`** lives on **`screen_load`**. See **`docs/instrumentations/screen-signals/SPEC.md`**. Router hooks call `Pulse.setScreenName` for `screen.name` on other telemetry.
 - **Click heatmap is deferred.** See **`docs/instrumentations/interactions/SPEC.md` §7 / §9**.
 - **Session-storage size limits.** `localStorage` quota = ~5MB on most browsers. The persistence module truncates oldest spans first; don't add unbounded queues.
 
@@ -77,4 +77,4 @@ Highlights worth restating because they change agent behaviour:
 - **`docs/instrumentations/integration/SPEC.md`** — host-app integration entry (exports, init, framework pointers)
 - **`docs/instrumentations/sdk-core/SPEC.md`** — lifecycle, consent, contracts
 - **`docs/instrumentations/`** — per-feature holy-grail SPECs (errors, network, …)
-- `.cursor/rules/web-sdk.mdc` and `.cursor/rules/pulse-web-otel.mdc` — repo-level conventions
+- `.agents/rules/` contract + conventions (same rules via `.cursor/rules/` symlinks)

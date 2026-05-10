@@ -1,1 +1,1 @@
-../../.cursor/agents/web-sdk-instrumentation-stage.md
+../../.agents/agents/pulse-web-sdk.md

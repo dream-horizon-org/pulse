@@ -1,18 +1,18 @@
 ---
-name: pulse-web-sdk-sanity
-description: Single canonical workflow for pulse-web-otel—scope, contract, safe implementation, test ladder, regression checklist, pre-merge diff audit (P0/P1/P2), test-run-log, and doc sync.
+name: web-sdk-ship
+description: Ship-ready workflow for pulse-web-otel — scope, contract, safe implementation, test ladder, regression checklist, pre-merge diff audit (P0/P1/P2), test-run-log, doc sync. (Legacy folder names: pulse-web-sdk-sanity, web-sdk-merge.)
 ---
 
-# Pulse Web SDK Sanity Workflow
+# Web SDK ship checklist (`web-sdk-ship`)
 
-Use this workflow for **any non-trivial change** in `pulse-web-otel/`. It combines the former **test + regression** path and the **pre-merge diff audit** (contract, lifecycle, gates, E2E pitfalls) into **one** procedure.
+Use for **any non-trivial change** in `pulse-web-otel/` before you call the package ready to ship / merge. Formerly **pulse-web-sdk-sanity** → **web-sdk-merge**; same Steps 1–6.
 
 ## Relationship to other tools
 
 | Artifact | Role |
 |----------|------|
-| [web-sdk-guardian](../../agents/web-sdk-guardian.md) | Cursor **agent** — loads this skill + rules for substantive web SDK tasks. |
-| [web-sdk-instrumentation-lifecycle](../web-sdk-instrumentation-lifecycle/SKILL.md) | Instrumentation **projects** — research, ADR/PLAN, gap matrix; **close-out** still runs **this** skill (Steps 3–6). |
+| [pulse-web-sdk](../../agents/pulse-web-sdk.md) | Cursor **agent** — loads this skill + rules for substantive web SDK tasks (includes staged instrumentation entry). |
+| [web-sdk-instrument](../web-sdk-instrument/SKILL.md) | Instrumentation **projects** — research, ADR/PLAN, gap matrix; **close-out** still runs **this** skill (Steps 3–6). |
 
 **Order before merge:** Steps **1 → 2** (while coding) → **3** tests (must be green) → **4** regression bullets → **5** diff audit (P0/P1/P2 or explicit clean) → **6** docs/graph → [pr-review](../pr-review/SKILL.md). Do not skip **Step 3** and claim Step 5 alone is enough.
 
@@ -20,7 +20,6 @@ Use this workflow for **any non-trivial change** in `pulse-web-otel/`. It combin
 
 - [`.cursor/rules/pulse-web-otel.mdc`](../../rules/pulse-web-otel.mdc)
 - [`.cursor/rules/web-sdk.mdc`](../../rules/web-sdk.mdc)
-- [`.cursor/rules/pulse-web-otel-structure.mdc`](../../rules/pulse-web-otel-structure.mdc)
 
 ## Goal
 
@@ -120,11 +119,9 @@ After **Step 3 is green**, walk this list on the **diff** (or touched modules if
 2. Keep descriptions explicit and parse-safe for CSV cells.
 3. Refresh graph cache summary after meaningful code changes.
 4. **Self-heal (instrumentation & web SDK workflow):** If Step 5 or PR review surfaced a **valid, repeatable** gap, **judge** scope:
-   - **Instrumentation projects:** append one atomic row to [web-sdk-instrumentation-lifecycle/reference.md](../web-sdk-instrumentation-lifecycle/reference.md) section **F — Durable learnings** (and tighten A–E matrix rows if the lesson fits a checkbox).
-   - **Repo-wide contract / every PR:** propose an edit to `.cursor/rules/pulse-web-otel.mdc` (or structure/web-sdk) instead of bloating the lifecycle reference.
+   - **Instrumentation projects:** append one atomic row to [web-sdk-instrument/reference.md](../web-sdk-instrument/reference.md) section **F — Durable learnings** (and tighten A–E matrix rows if the lesson fits a checkbox).
+   - **Repo-wide contract / every PR:** propose an edit to `.cursor/rules/pulse-web-otel.mdc` or `web-sdk.mdc` instead of bloating the instrumentation reference.
    - **Skip** one-off nits and subjective style—this log is for **next-run** prevention, not transcripts.
-
----
 
 ---
 
@@ -141,7 +138,7 @@ When finishing work, report:
 For PRs or large diffs, you may paste the structured block:
 
 ```markdown
-## Web SDK sanity — <branch / PR>
+## Web SDK ship — <branch / PR>
 
 ### Findings (Step 5)
 | Sev | Location | Issue | Suggested fix |
