@@ -1,14 +1,20 @@
-import { logs } from "@opentelemetry/api-logs";
+import {
+  ROOT_CONTEXT,
+  SpanKind,
+  SpanStatusCode,
+  type Span,
+} from "@opentelemetry/api";
 import type {
   SdkContext,
   PulseInstrumentation,
 } from "../instrumentation-registry";
-import {
-  PulseOtelLoggerScope,
-  PulseInstrumentationName,
-} from "../constants/pulse-otel-runtime";
+import { PulseInstrumentationName } from "../constants/pulse-otel-runtime";
 import { PulseWebSemconv } from "../semconv";
 import { PulseDataCollectionConsent } from "../config";
+
+/** OTLP span names — fixed literals for ClickHouse `SpanName` queries (not route strings). */
+const SPAN_SCREEN_LOAD = "screen_load";
+const SPAN_SCREEN_SESSION = "screen_session";
 
 type NavigationTimingType = "cold" | "reload" | "back_forward";
 
@@ -28,6 +34,12 @@ export class NavigationInstrumentation implements PulseInstrumentation {
   private navigationRateLimitMs = 100;
   private currentScreenName = "";
   private screenStartTime = 0;
+  /** Screen we navigated from before entering {@link currentScreenName} — maps to `last.screen.name` on exit spans. */
+  private enteredFromScreenName = "";
+  /** Document URL/title snapshot for the screen covered by {@link activeSessionSpan}. */
+  private sessionDocPath = "";
+  private sessionDocTitle = "";
+  private activeSessionSpan: Span | undefined;
 
   private originalPushState?: typeof history.pushState;
   private originalReplaceState?: typeof history.replaceState;
@@ -56,8 +68,9 @@ export class NavigationInstrumentation implements PulseInstrumentation {
     // Initialize current screen
     this.currentScreenName = this.getCurrentScreenName(sdk);
     this.screenStartTime = Date.now();
+    this.enteredFromScreenName = "";
 
-    // Initial page load: single screen_load (timing incl. tti); Web Vitals cover detailed perf.
+    // Initial page load: screen_load span + screen_session span for dwell time
     this.emitInitialLoadSignals(sdk);
 
     // Patch History API for SPA navigations
@@ -77,6 +90,17 @@ export class NavigationInstrumentation implements PulseInstrumentation {
   }
 
   uninstall(): void {
+    if (this.sdkContext && this.activeSessionSpan) {
+      const now = Date.now();
+      this.endActiveSessionSpan(
+        this.sdkContext,
+        now,
+        this.enteredFromScreenName,
+        this.sessionDocPath,
+        this.sessionDocTitle,
+      );
+    }
+
     if (typeof window !== "undefined") {
       if (this.onPopStateBound) {
         window.removeEventListener("popstate", this.onPopStateBound);
@@ -98,6 +122,7 @@ export class NavigationInstrumentation implements PulseInstrumentation {
     this.originalReplaceState = undefined;
     this.installed = false;
     this.sdkContext = null;
+    this.activeSessionSpan = undefined;
   }
 
   private patchHistoryAPI(sdk: SdkContext): void {
@@ -119,44 +144,73 @@ export class NavigationInstrumentation implements PulseInstrumentation {
     };
   }
 
-  /** Document-level attributes for navigation logs (FINAL-PLAN parity). */
-  private buildDocAttrs(): Record<string, string> {
+  private captureDocSnapshot(): { path: string; title: string } {
     if (typeof window === "undefined" || typeof document === "undefined") {
-      return {};
+      return { path: "", title: "" };
     }
-    const k = PulseWebSemconv.AttributeKey;
     return {
-      [k.URL_PATH]: window.location.pathname,
-      [k.PAGE_TITLE]: typeof document.title === "string" ? document.title : "",
+      path: window.location.pathname,
+      title: typeof document.title === "string" ? document.title : "",
     };
   }
 
-  private emitPageHideScreenSession(sdk: SdkContext): void {
+  private buildDocAttrsFromSnapshot(
+    path: string,
+    title: string,
+    lastScreenName: string,
+  ): Record<string, string | number | boolean> {
+    const k = PulseWebSemconv.AttributeKey;
+    const out: Record<string, string | number | boolean> = {
+      [k.URL_PATH]: path,
+      [k.PAGE_TITLE]: title,
+    };
+    if (lastScreenName) {
+      out[k.LAST_SCREEN_NAME] = lastScreenName;
+    }
+    return out;
+  }
+
+  private endActiveSessionSpan(
+    sdk: SdkContext,
+    endMs: number,
+    lastScreenNameAttr: string,
+    docPath: string,
+    docTitle: string,
+  ): void {
+    if (!this.activeSessionSpan || !this.currentScreenName) {
+      this.activeSessionSpan = undefined;
+      return;
+    }
+
+    const span = this.activeSessionSpan;
+    const durationMs = Math.max(0, endMs - this.screenStartTime);
     const attributeKeys = PulseWebSemconv.AttributeKey;
     const pulseTypes = PulseWebSemconv.PulseType;
-    const logBodies = PulseWebSemconv.LogBody;
 
-    const logger = logs.getLogger(PulseOtelLoggerScope.PULSE_WEB_NAVIGATION);
-    if (!logger) return;
+    span.setAttributes({
+      [attributeKeys.PULSE_TYPE]: pulseTypes.SCREEN_SESSION,
+      [attributeKeys.SCREEN_NAME]: this.currentScreenName,
+      [attributeKeys.SESSION_ID]: sdk.sessionProvider.getSessionId() ?? "",
+      [attributeKeys.SESSION_DURATION_MS]: durationMs,
+      [attributeKeys.SESSION_DURATION]: durationMs,
+      ...this.buildDocAttrsFromSnapshot(docPath, docTitle, lastScreenNameAttr),
+    });
+    span.setStatus({ code: SpanStatusCode.OK });
+    span.end(endMs);
+    this.activeSessionSpan = undefined;
+  }
 
+  private emitPageHideScreenSession(sdk: SdkContext): void {
     if (!this.currentScreenName) return;
 
     const now = Date.now();
-    const sessionDurationMs =
-      this.screenStartTime > 0 ? now - this.screenStartTime : 0;
-    const sessionId = sdk.sessionProvider.getSessionId();
-
-    logger.emit({
-      body: logBodies.SCREEN_SESSION,
-      attributes: {
-        [attributeKeys.PULSE_TYPE]: pulseTypes.SCREEN_SESSION,
-        [attributeKeys.SCREEN_NAME]: this.currentScreenName,
-        [attributeKeys.SESSION_ID]: sessionId ?? "",
-        [attributeKeys.SESSION_DURATION_MS]: sessionDurationMs,
-        [attributeKeys.SESSION_DURATION]: sessionDurationMs,
-        ...this.buildDocAttrs(),
-      },
-    });
+    this.endActiveSessionSpan(
+      sdk,
+      now,
+      this.enteredFromScreenName,
+      this.sessionDocPath,
+      this.sessionDocTitle,
+    );
   }
 
   private onRouteChange(sdk: SdkContext): void {
@@ -168,51 +222,66 @@ export class NavigationInstrumentation implements PulseInstrumentation {
 
     const attributeKeys = PulseWebSemconv.AttributeKey;
     const pulseTypes = PulseWebSemconv.PulseType;
-    const logBodies = PulseWebSemconv.LogBody;
-
-    const logger = logs.getLogger(PulseOtelLoggerScope.PULSE_WEB_NAVIGATION);
-    if (!logger) return;
 
     const newScreenName = this.getCurrentScreenName(sdk);
     const sessionId = sdk.sessionProvider.getSessionId();
-    const docAttrs = this.buildDocAttrs();
+    const exitedDocPath = this.sessionDocPath;
+    const exitedDocTitle = this.sessionDocTitle;
+    const exitedScreen = this.currentScreenName;
+    const lastNameForExitedSession = this.enteredFromScreenName;
 
     // Emit screen_session for the previous screen (if it exists and is different)
-    if (this.currentScreenName && this.currentScreenName !== newScreenName) {
-      const sessionDurationMs =
-        this.screenStartTime > 0 ? now - this.screenStartTime : 0;
-      logger.emit({
-        body: logBodies.SCREEN_SESSION,
-        attributes: {
-          [attributeKeys.PULSE_TYPE]: pulseTypes.SCREEN_SESSION,
-          [attributeKeys.SCREEN_NAME]: this.currentScreenName,
-          [attributeKeys.SESSION_ID]: sessionId ?? "",
-          [attributeKeys.SESSION_DURATION_MS]: sessionDurationMs,
-          [attributeKeys.SESSION_DURATION]: sessionDurationMs,
-          ...docAttrs,
-        },
-      });
-    }
+    if (exitedScreen && exitedScreen !== newScreenName) {
+      this.endActiveSessionSpan(
+        sdk,
+        now,
+        lastNameForExitedSession,
+        exitedDocPath,
+        exitedDocTitle,
+      );
 
-    // Emit screen_load for the new screen
-    logger.emit({
-      body: logBodies.SCREEN_LOAD,
-      attributes: {
+      const spaSnapshot = this.captureDocSnapshot();
+      const spaSpan = sdk.tracer.startSpan(
+        SPAN_SCREEN_LOAD,
+        {
+          kind: SpanKind.INTERNAL,
+          startTime: now,
+        },
+        ROOT_CONTEXT,
+      );
+      spaSpan.setAttributes({
         [attributeKeys.PULSE_TYPE]: pulseTypes.SCREEN_LOAD,
         [attributeKeys.SCREEN_NAME]: newScreenName,
         [attributeKeys.START_TYPE]: "spa",
         [attributeKeys.SESSION_ID]: sessionId ?? "",
-        ...docAttrs,
-      },
-    });
+        ...this.buildDocAttrsFromSnapshot(
+          spaSnapshot.path,
+          spaSnapshot.title,
+          exitedScreen,
+        ),
+      });
+      spaSpan.setStatus({ code: SpanStatusCode.OK });
+      spaSpan.end(now);
 
-    // Update current screen tracking
-    this.currentScreenName = newScreenName;
-    this.screenStartTime = now;
+      this.enteredFromScreenName = exitedScreen;
+      this.currentScreenName = newScreenName;
+      this.screenStartTime = now;
+      const dwellSnapshot = this.captureDocSnapshot();
+      this.sessionDocPath = dwellSnapshot.path;
+      this.sessionDocTitle = dwellSnapshot.title;
 
-    // Update current screen in global attributes processor
-    if (typeof sdk.globalAttrsProcessor.setScreenName === "function") {
-      sdk.globalAttrsProcessor.setScreenName(newScreenName);
+      this.activeSessionSpan = sdk.tracer.startSpan(
+        SPAN_SCREEN_SESSION,
+        {
+          kind: SpanKind.INTERNAL,
+          startTime: now,
+        },
+        ROOT_CONTEXT,
+      );
+
+      if (typeof sdk.globalAttrsProcessor.setScreenName === "function") {
+        sdk.globalAttrsProcessor.setScreenName(newScreenName);
+      }
     }
   }
 
@@ -324,6 +393,41 @@ export class NavigationInstrumentation implements PulseInstrumentation {
     return timing;
   }
 
+  /**
+   * Cold load: span times follow Navigation Timing (epoch ms).
+   * Fallback when entry missing: marker span (~0 duration) at emit time.
+   */
+  private resolveColdLoadSpanTimes(): { startMs: number; endMs: number } {
+    const navTiming = performance.getEntriesByType("navigation")[0] as
+      | PerformanceNavigationTiming
+      | undefined;
+
+    const origin = performance.timeOrigin;
+    if (
+      navTiming &&
+      typeof navTiming.loadEventEnd === "number" &&
+      navTiming.loadEventEnd > 0
+    ) {
+      return {
+        startMs: origin,
+        endMs: origin + navTiming.loadEventEnd,
+      };
+    }
+
+    const now = Date.now();
+    if (
+      typeof performance.timeOrigin === "number" &&
+      performance.timeOrigin > 0
+    ) {
+      return {
+        startMs: origin,
+        endMs: Math.max(origin, now),
+      };
+    }
+
+    return { startMs: now, endMs: now };
+  }
+
   private emitInitialLoadSignals(sdk: SdkContext): void {
     if (typeof window === "undefined" || !document.readyState) {
       return;
@@ -332,25 +436,23 @@ export class NavigationInstrumentation implements PulseInstrumentation {
     const emitOnLoad = () => {
       const attributeKeys = PulseWebSemconv.AttributeKey;
       const pulseTypes = PulseWebSemconv.PulseType;
-      const logBodies = PulseWebSemconv.LogBody;
-
-      const logger = logs.getLogger(PulseOtelLoggerScope.PULSE_WEB_NAVIGATION);
-      if (!logger) return;
 
       const screenName = this.getCurrentScreenName(sdk);
       const sessionId = sdk.sessionProvider.getSessionId();
       const navTimingType = this.getNavigationTimingType();
       const timing = this.extractTimingData();
       const navType = this.getBrowserNavigationType();
-      const docAttrs = this.buildDocAttrs();
+      const docSnap = this.captureDocSnapshot();
 
-      // Single screen_load: Navigation Timing on initial load (tti = domInteractive−fetchStart).
-      const loadAttrs: Record<string, string | number> = {
+      const { startMs: loadStartMs, endMs: loadEndMs } =
+        this.resolveColdLoadSpanTimes();
+
+      const loadAttrs: Record<string, string | number | boolean> = {
         [attributeKeys.PULSE_TYPE]: pulseTypes.SCREEN_LOAD,
         [attributeKeys.SCREEN_NAME]: screenName,
         [attributeKeys.SESSION_ID]: sessionId ?? "",
         [attributeKeys.START_TYPE]: navTimingType,
-        ...docAttrs,
+        ...this.buildDocAttrsFromSnapshot(docSnap.path, docSnap.title, ""),
       };
 
       if (navType !== undefined) {
@@ -376,10 +478,32 @@ export class NavigationInstrumentation implements PulseInstrumentation {
         loadAttrs[attributeKeys.TTI] = timing.tti;
       }
 
-      logger.emit({
-        body: logBodies.SCREEN_LOAD,
-        attributes: loadAttrs,
-      });
+      const loadSpan = sdk.tracer.startSpan(
+        SPAN_SCREEN_LOAD,
+        {
+          kind: SpanKind.INTERNAL,
+          startTime: loadStartMs,
+        },
+        ROOT_CONTEXT,
+      );
+      loadSpan.setAttributes(loadAttrs);
+      loadSpan.setStatus({ code: SpanStatusCode.OK });
+      loadSpan.end(loadEndMs);
+
+      const dwellSnapshot = this.captureDocSnapshot();
+      this.sessionDocPath = dwellSnapshot.path;
+      this.sessionDocTitle = dwellSnapshot.title;
+      this.screenStartTime = loadEndMs;
+      this.enteredFromScreenName = "";
+
+      this.activeSessionSpan = sdk.tracer.startSpan(
+        SPAN_SCREEN_SESSION,
+        {
+          kind: SpanKind.INTERNAL,
+          startTime: loadEndMs,
+        },
+        ROOT_CONTEXT,
+      );
     };
 
     // Emit on load event

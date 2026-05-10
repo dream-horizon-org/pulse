@@ -66,7 +66,7 @@ Copy into chat or a scratch doc; set each row to **DONE** | **PARTIAL** | **MISS
 | E1 | Cursor rules | Edits match `.cursor/rules/pulse-web-otel.mdc` + `.cursor/rules/web-sdk.mdc`. |
 | E2 | Ship checklist | [web-sdk-ship](../web-sdk-ship/SKILL.md) — Steps 1–6 (tests + regression + **Step 5** pre-merge diff audit + docs). |
 | E3 | Graphify | `graphify update . --no-viz` in `pulse-web-otel/` after substantive TS changes. |
-| E4 | PR review | [pr-review](../../../.cursor/skills/pr-review/SKILL.md) before merge. |
+| E4 | PR review | [pr-review](../pr-review/SKILL.md) before merge. |
 | E5 | Handoff | Plan folder `HANDOFF-NEXT-AGENT.md` if pausing / handoff (done vs deferred + next-agent prompt). |
 
 ---

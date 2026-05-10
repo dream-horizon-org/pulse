@@ -14,7 +14,7 @@ Use for **any non-trivial change** in `pulse-web-otel/` before you call the pack
 | [pulse-web-sdk](../../agents/pulse-web-sdk.md) | Cursor **agent** — loads this skill + rules for substantive web SDK tasks (includes staged instrumentation entry). |
 | [web-sdk-instrument](../web-sdk-instrument/SKILL.md) | Instrumentation **projects** — research, ADR/PLAN, gap matrix; **close-out** still runs **this** skill (Steps 3–6). |
 
-**Order before merge:** Steps **1 → 2** (while coding) → **3** tests (must be green) → **4** regression bullets → **5** diff audit (P0/P1/P2 or explicit clean) → **6** docs/graph → [pr-review](../../../.cursor/skills/pr-review/SKILL.md). Do not skip **Step 3** and claim Step 5 alone is enough.
+**Order before merge:** Steps **1 → 2** (while coding) → **3** tests (must be green) → **4** regression bullets → **5** diff audit (P0/P1/P2 or explicit clean) → **6** docs/graph → [pr-review](../pr-review/SKILL.md). Do not skip **Step 3** and claim Step 5 alone is enough.
 
 ## Rules (read first)
 
