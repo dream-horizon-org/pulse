@@ -59,21 +59,16 @@ class WebVitalsResourceTest {
       vertx.runOnContext(
           v -> {
             ProjectContext.clear();
-            CompletionStage<Response<WebVitalsSummaryResponseDto>> cs =
-                webVitalsResource.getSummary(START_TIME.toString(), END_TIME.toString(), null);
-            cs.whenComplete(
-                (resp, err) -> {
-                  tc.verify(
-                      () -> {
-                        assertThat(resp).isNull();
-                        assertThat(err).isNotNull();
-                        Throwable e = unwrap(err);
-                        assertThat(e).isInstanceOf(WebApplicationException.class);
-                        assertThat(((WebApplicationException) e).getResponse().getStatus())
-                            .isEqualTo(400);
-                      });
-                  tc.completeNow();
-                });
+            try {
+              webVitalsResource.getSummary(START_TIME.toString(), END_TIME.toString(), null);
+              tc.failNow("Should have thrown WebApplicationException");
+            } catch (WebApplicationException e) {
+              tc.verify(
+                  () -> {
+                    assertThat(e.getResponse().getStatus()).isEqualTo(400);
+                  });
+              tc.completeNow();
+            }
           });
     }
 
@@ -204,22 +199,17 @@ class WebVitalsResourceTest {
       vertx.runOnContext(
           v -> {
             ProjectContext.setProjectId("test-project");
-            CompletionStage<Response<WebVitalsTrendResponseDto>> cs =
-                webVitalsResource.getTrend(
-                    START_TIME.toString(), END_TIME.toString(), "LCP", 4, null);
-            cs.whenComplete(
-                (resp, err) -> {
-                  tc.verify(
-                      () -> {
-                        assertThat(resp).isNull();
-                        assertThat(err).isNotNull();
-                        Throwable e = unwrap(err);
-                        assertThat(e).isInstanceOf(WebApplicationException.class);
-                        assertThat(((WebApplicationException) e).getResponse().getStatus())
-                            .isEqualTo(400);
-                      });
-                  tc.completeNow();
-                });
+            try {
+              webVitalsResource.getTrend(
+                  START_TIME.toString(), END_TIME.toString(), "LCP", 4, null);
+              tc.failNow("Should have thrown WebApplicationException");
+            } catch (WebApplicationException e) {
+              tc.verify(
+                  () -> {
+                    assertThat(e.getResponse().getStatus()).isEqualTo(400);
+                  });
+              tc.completeNow();
+            }
           });
     }
 
@@ -230,22 +220,17 @@ class WebVitalsResourceTest {
       vertx.runOnContext(
           v -> {
             ProjectContext.setProjectId("test-project");
-            CompletionStage<Response<WebVitalsTrendResponseDto>> cs =
-                webVitalsResource.getTrend(
-                    START_TIME.toString(), END_TIME.toString(), "LCP", 1441, null);
-            cs.whenComplete(
-                (resp, err) -> {
-                  tc.verify(
-                      () -> {
-                        assertThat(resp).isNull();
-                        assertThat(err).isNotNull();
-                        Throwable e = unwrap(err);
-                        assertThat(e).isInstanceOf(WebApplicationException.class);
-                        assertThat(((WebApplicationException) e).getResponse().getStatus())
-                            .isEqualTo(400);
-                      });
-                  tc.completeNow();
-                });
+            try {
+              webVitalsResource.getTrend(
+                  START_TIME.toString(), END_TIME.toString(), "LCP", 1441, null);
+              tc.failNow("Should have thrown WebApplicationException");
+            } catch (WebApplicationException e) {
+              tc.verify(
+                  () -> {
+                    assertThat(e.getResponse().getStatus()).isEqualTo(400);
+                  });
+              tc.completeNow();
+            }
           });
     }
 

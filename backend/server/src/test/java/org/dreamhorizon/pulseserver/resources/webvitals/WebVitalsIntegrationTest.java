@@ -307,15 +307,23 @@ class WebVitalsIntegrationTest {
 
     @Test
     @DisplayName("should_handle_invalid_project_id_in_flow")
-    void should_handle_invalid_project_id_in_flow() {
-      ProjectContext.clear();
-      try {
-        webVitalsResource.getSummary(
-            START_TIME.toString(), END_TIME.toString(), null);
-        org.junit.jupiter.api.Assertions.fail("Should have thrown WebApplicationException");
-      } catch (WebApplicationException e) {
-        assertThat(e.getResponse().getStatus()).isEqualTo(400);
-      }
+    void should_handle_invalid_project_id_in_flow(
+        io.vertx.core.Vertx vertx, VertxTestContext tc) {
+      vertx.runOnContext(
+          v -> {
+            ProjectContext.clear();
+            try {
+              webVitalsResource.getSummary(
+                  START_TIME.toString(), END_TIME.toString(), null);
+              tc.failNow("Should have thrown WebApplicationException");
+            } catch (WebApplicationException e) {
+              tc.verify(
+                  () -> {
+                    assertThat(e.getResponse().getStatus()).isEqualTo(400);
+                  });
+              tc.completeNow();
+            }
+          });
     }
   }
 }
