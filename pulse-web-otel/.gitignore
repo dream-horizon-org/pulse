@@ -37,3 +37,7 @@ yarn-error.log*
 
 # Size-limit cache
 .size-limit/
+
+# Unignore instrumentation docs (overrides root .gitignore docs/ rule)
+!docs/
+!docs/**
