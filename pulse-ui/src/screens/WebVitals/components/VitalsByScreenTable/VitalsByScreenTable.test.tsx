@@ -1,13 +1,14 @@
 import { render, screen } from "@testing-library/react";
 import { MantineProvider } from "@mantine/core";
 import { VitalsByScreenTable } from "./VitalsByScreenTable";
+import type { VitalsByScreenTableProps } from "./VitalsByScreenTable.interface";
 
 describe("VitalsByScreenTable", () => {
-  const renderComponent = (props: any) =>
+  const renderComponent = (props: VitalsByScreenTableProps) =>
     render(
       <MantineProvider>
         <VitalsByScreenTable {...props} />
-      </MantineProvider>
+      </MantineProvider>,
     );
 
   const mockData = [

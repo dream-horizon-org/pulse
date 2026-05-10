@@ -1,7 +1,6 @@
 package org.dreamhorizon.pulseserver.resources.webvitals;
 
 import com.google.inject.Inject;
-import io.reactivex.rxjava3.core.Single;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
@@ -30,7 +29,7 @@ public class WebVitalsResource {
 
   /**
    * Get web vitals summary for a time range.
-   * GET /v1/web-vitals/summary?startTime=<ISO>&endTime=<ISO>&screenName=<optional>
+   * GET /v1/web-vitals/summary?startTime=<epochMillis|ISO>&endTime=<epochMillis|ISO>&screenName=<optional>
    */
   @GET
   @Path("/summary")
@@ -45,8 +44,8 @@ public class WebVitalsResource {
       throw ServiceError.INVALID_PROJECT_ID.getException();
     }
 
-    Instant startTime = Instant.parse(startTimeStr);
-    Instant endTime = Instant.parse(endTimeStr);
+    Instant startTime = WebVitalsTimeParser.parseQueryInstant(startTimeStr, "startTime");
+    Instant endTime = WebVitalsTimeParser.parseQueryInstant(endTimeStr, "endTime");
 
     return webVitalsService
         .getSummary(startTime, endTime, screenName)
@@ -55,7 +54,7 @@ public class WebVitalsResource {
 
   /**
    * Get web vitals trend for a time range.
-   * GET /v1/web-vitals/trend?startTime=<ISO>&endTime=<ISO>&vitalName=<name>&bucketMinutes=<optional>&screenName=<optional>
+   * GET /v1/web-vitals/trend?startTime=<epochMillis|ISO>&endTime=<epochMillis|ISO>&vitalName=<name>&bucketMinutes=<optional>&screenName=<optional>
    */
   @GET
   @Path("/trend")
@@ -80,8 +79,8 @@ public class WebVitalsResource {
       throw ServiceError.INVALID_BUCKET_MINUTES.getException();
     }
 
-    Instant startTime = Instant.parse(startTimeStr);
-    Instant endTime = Instant.parse(endTimeStr);
+    Instant startTime = WebVitalsTimeParser.parseQueryInstant(startTimeStr, "startTime");
+    Instant endTime = WebVitalsTimeParser.parseQueryInstant(endTimeStr, "endTime");
 
     return webVitalsService
         .getTrend(startTime, endTime, vitalName, effectiveBucketMinutes, screenName)
@@ -90,7 +89,7 @@ public class WebVitalsResource {
 
   /**
    * Get web vitals breakdown by screen name.
-   * GET /v1/web-vitals/by-screen?startTime=<ISO>&endTime=<ISO>&vitalName=<name>
+   * GET /v1/web-vitals/by-screen?startTime=<epochMillis|ISO>&endTime=<epochMillis|ISO>&vitalName=<name>
    */
   @GET
   @Path("/by-screen")
@@ -105,8 +104,8 @@ public class WebVitalsResource {
       throw ServiceError.INVALID_PROJECT_ID.getException();
     }
 
-    Instant startTime = Instant.parse(startTimeStr);
-    Instant endTime = Instant.parse(endTimeStr);
+    Instant startTime = WebVitalsTimeParser.parseQueryInstant(startTimeStr, "startTime");
+    Instant endTime = WebVitalsTimeParser.parseQueryInstant(endTimeStr, "endTime");
 
     return webVitalsService
         .getByScreen(startTime, endTime, vitalName)

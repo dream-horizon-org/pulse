@@ -2,15 +2,16 @@ import { render, screen } from "@testing-library/react";
 import { MantineProvider } from "@mantine/core";
 import { BrowserRouter } from "react-router-dom";
 import { VitalTrendChart } from "./VitalTrendChart";
+import type { VitalTrendChartProps } from "./VitalTrendChart.interface";
 
 describe("VitalTrendChart", () => {
-  const renderComponent = (props: any) =>
+  const renderComponent = (props: VitalTrendChartProps) =>
     render(
       <BrowserRouter>
         <MantineProvider>
           <VitalTrendChart {...props} />
         </MantineProvider>
-      </BrowserRouter>
+      </BrowserRouter>,
     );
 
   const mockData = [

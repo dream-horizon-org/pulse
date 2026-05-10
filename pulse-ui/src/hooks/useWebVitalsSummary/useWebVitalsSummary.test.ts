@@ -19,16 +19,20 @@ describe("useWebVitalsSummary", () => {
     jest.clearAllMocks();
     (useProjectQueryEnabled as jest.Mock).mockReturnValue(true);
     (makeRequest as jest.Mock).mockResolvedValue({
-      vitals: [
-        {
-          name: "LCP",
-          p75: 2000,
-          goodPct: 80,
-          needsImprovementPct: 15,
-          poorPct: 5,
-          totalCount: 1000,
-        },
-      ],
+      data: {
+        vitals: [
+          {
+            name: "LCP",
+            p75: 2000,
+            goodPct: 80,
+            needsImprovementPct: 15,
+            poorPct: 5,
+            totalCount: 1000,
+          },
+        ],
+      },
+      error: null,
+      status: 200,
     });
   });
 
@@ -36,8 +40,8 @@ describe("useWebVitalsSummary", () => {
     const startTime = 1000;
     const endTime = 2000;
 
-    const { result } = renderHook(() =>
-      useWebVitalsSummary({ startTime, endTime }),
+    const { result } = renderHook(
+      () => useWebVitalsSummary({ startTime, endTime }),
       { wrapper: createWrapper() },
     );
 
@@ -108,8 +112,8 @@ describe("useWebVitalsSummary", () => {
   it("should_disable_query_when_project_unset", () => {
     (useProjectQueryEnabled as jest.Mock).mockReturnValue(false);
 
-    const { result } = renderHook(() =>
-      useWebVitalsSummary({ startTime: 1000, endTime: 2000 }),
+    const { result } = renderHook(
+      () => useWebVitalsSummary({ startTime: 1000, endTime: 2000 }),
       { wrapper: createWrapper() },
     );
 
@@ -119,8 +123,8 @@ describe("useWebVitalsSummary", () => {
   });
 
   it("should_return_useQuery_object_with_data_isLoading_error_fields", () => {
-    const { result } = renderHook(() =>
-      useWebVitalsSummary({ startTime: 1000, endTime: 2000 }),
+    const { result } = renderHook(
+      () => useWebVitalsSummary({ startTime: 1000, endTime: 2000 }),
       { wrapper: createWrapper() },
     );
 

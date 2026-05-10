@@ -7,6 +7,8 @@ interface UseChartOptionsProps {
   withLegend?: boolean;
   zoom?: boolean;
   chartType?: "line" | "area";
+  /** When false, omit brush from merged options (time-axis charts often disable this). */
+  enableBrush?: boolean;
 }
 
 export const useChartOptions = ({
@@ -14,6 +16,7 @@ export const useChartOptions = ({
   withLegend = true,
   zoom = true,
   chartType = "line",
+  enableBrush = true,
 }: UseChartOptionsProps = {}) => {
   const theme = useMantineTheme();
 
@@ -60,8 +63,11 @@ export const useChartOptions = ({
           alignMaxLabel: "right",
           align: "center",
           color: theme.colors.gray[6],
-          formatter: (value: any, index: number) =>
-            index === 0 ? `{minLabel|${value}}` : value,
+          formatter: (value: any, index: number) => {
+            const label =
+              value === undefined || value === null ? "" : String(value);
+            return index === 0 ? `{minLabel|${label}}` : label;
+          },
           rich: {
             minLabel: {
               padding: [0, 0, 0, 20],
@@ -194,14 +200,16 @@ export const useChartOptions = ({
               },
             },
           },
-      brush: {
-        ...defaultOptions.brush,
-        ...option?.brush,
-      },
+      brush: enableBrush
+        ? {
+            ...defaultOptions.brush,
+            ...option?.brush,
+          }
+        : undefined,
       ...(zoom && option?.dataZoom && { dataZoom: option.dataZoom }),
       ...(!zoom && { dataZoom: undefined }),
     }),
-    [defaultOptions, withLegend, zoom],
+    [defaultOptions, withLegend, zoom, enableBrush],
   );
 
   return {

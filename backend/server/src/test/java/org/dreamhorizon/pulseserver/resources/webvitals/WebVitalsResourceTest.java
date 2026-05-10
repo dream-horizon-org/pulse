@@ -11,7 +11,6 @@ import io.vertx.junit5.VertxTestContext;
 import jakarta.ws.rs.WebApplicationException;
 import java.time.Instant;
 import java.util.List;
-import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
 import org.dreamhorizon.pulseserver.context.ProjectContext;
 import org.dreamhorizon.pulseserver.rest.io.Response;
@@ -40,13 +39,6 @@ class WebVitalsResourceTest {
   void setUp() {
     lenient().when(webVitalsService.getSummary(START_TIME, END_TIME, null))
         .thenReturn(Single.just(WebVitalsSummaryResponseDto.builder().vitals(List.of()).build()));
-  }
-
-  private static Throwable unwrap(Throwable err) {
-    if (err instanceof CompletionException && err.getCause() != null) {
-      return err.getCause();
-    }
-    return err;
   }
 
   @Nested
@@ -80,6 +72,29 @@ class WebVitalsResourceTest {
             ProjectContext.setProjectId("test-project");
             CompletionStage<Response<WebVitalsSummaryResponseDto>> cs =
                 webVitalsResource.getSummary(START_TIME.toString(), END_TIME.toString(), null);
+            cs.whenComplete(
+                (resp, err) -> {
+                  tc.verify(
+                      () -> {
+                        assertThat(err).isNull();
+                        assertThat(resp).isNotNull();
+                        verify(webVitalsService).getSummary(START_TIME, END_TIME, null);
+                      });
+                  tc.completeNow();
+                });
+          });
+    }
+
+    @Test
+    @DisplayName("should_accept_epoch_millisecond_strings_for_start_and_end")
+    void shouldAcceptEpochMillisecondStrings(io.vertx.core.Vertx vertx, VertxTestContext tc) {
+      vertx.runOnContext(
+          v -> {
+            ProjectContext.setProjectId("test-project");
+            String startMs = String.valueOf(START_TIME.toEpochMilli());
+            String endMs = String.valueOf(END_TIME.toEpochMilli());
+            CompletionStage<Response<WebVitalsSummaryResponseDto>> cs =
+                webVitalsResource.getSummary(startMs, endMs, null);
             cs.whenComplete(
                 (resp, err) -> {
                   tc.verify(
@@ -179,6 +194,35 @@ class WebVitalsResourceTest {
             CompletionStage<Response<WebVitalsTrendResponseDto>> cs =
                 webVitalsResource.getTrend(
                     START_TIME.toString(), END_TIME.toString(), "LCP", null, null);
+            cs.whenComplete(
+                (resp, err) -> {
+                  tc.verify(
+                      () -> {
+                        assertThat(err).isNull();
+                        assertThat(resp).isNotNull();
+                        verify(webVitalsService).getTrend(START_TIME, END_TIME, "LCP", 30, null);
+                      });
+                  tc.completeNow();
+                });
+          });
+    }
+
+    @Test
+    @DisplayName("should_accept_epoch_millisecond_strings_for_trend_time_range")
+    void shouldAcceptEpochMillisecondStringsForTrend(io.vertx.core.Vertx vertx, VertxTestContext tc) {
+      vertx.runOnContext(
+          v -> {
+            ProjectContext.setProjectId("test-project");
+            WebVitalsTrendResponseDto response =
+                WebVitalsTrendResponseDto.builder().points(List.of()).build();
+
+            when(webVitalsService.getTrend(START_TIME, END_TIME, "LCP", 30, null))
+                .thenReturn(Single.just(response));
+
+            String startMs = String.valueOf(START_TIME.toEpochMilli());
+            String endMs = String.valueOf(END_TIME.toEpochMilli());
+            CompletionStage<Response<WebVitalsTrendResponseDto>> cs =
+                webVitalsResource.getTrend(startMs, endMs, "LCP", null, null);
             cs.whenComplete(
                 (resp, err) -> {
                   tc.verify(
@@ -302,6 +346,36 @@ class WebVitalsResourceTest {
                         assertThat(err).isNull();
                         assertThat(resp).isNotNull();
                         assertThat(resp.getData()).isNotNull();
+                      });
+                  tc.completeNow();
+                });
+          });
+    }
+
+    @Test
+    @DisplayName("should_accept_epoch_millisecond_strings_for_by_screen_time_range")
+    void shouldAcceptEpochMillisecondStringsForByScreen(
+        io.vertx.core.Vertx vertx, VertxTestContext tc) {
+      vertx.runOnContext(
+          v -> {
+            ProjectContext.setProjectId("test-project");
+            WebVitalsByScreenResponseDto response =
+                WebVitalsByScreenResponseDto.builder().screens(List.of()).build();
+
+            when(webVitalsService.getByScreen(START_TIME, END_TIME, "LCP"))
+                .thenReturn(Single.just(response));
+
+            String startMs = String.valueOf(START_TIME.toEpochMilli());
+            String endMs = String.valueOf(END_TIME.toEpochMilli());
+            CompletionStage<Response<WebVitalsByScreenResponseDto>> cs =
+                webVitalsResource.getByScreen(startMs, endMs, "LCP");
+            cs.whenComplete(
+                (resp, err) -> {
+                  tc.verify(
+                      () -> {
+                        assertThat(err).isNull();
+                        assertThat(resp).isNotNull();
+                        verify(webVitalsService).getByScreen(START_TIME, END_TIME, "LCP");
                       });
                   tc.completeNow();
                 });

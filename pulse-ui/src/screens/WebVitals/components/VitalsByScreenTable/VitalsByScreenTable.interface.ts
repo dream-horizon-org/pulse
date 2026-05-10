@@ -1,7 +1,7 @@
-import { ScreenVital } from "../..";
+import type { ScreenVitalWire } from "../../WebVitalsWire.types";
 
 export interface VitalsByScreenTableProps {
-  data: ScreenVital[] | undefined;
+  data: ReadonlyArray<ScreenVitalWire> | undefined;
   isLoading: boolean;
   error: Error | null;
 }

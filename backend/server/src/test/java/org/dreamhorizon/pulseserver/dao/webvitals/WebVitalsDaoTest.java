@@ -67,9 +67,9 @@ class WebVitalsDaoTest {
 
         String query = captor.getValue().getQuery();
         assertThat(query).doesNotContain("${").doesNotContain("}");
-        assertThat(query).contains("AND Platform = 'web'");
         assertThat(query).contains("AND PulseType = 'web_vital'");
-        assertThat(query).contains("quantile(0.75)(toFloat64(Attributes['web_vital.value']))");
+        assertThat(query).contains("pulse_web_js");
+        assertThat(query).contains("quantile(0.75)(toFloat64(LogAttributes['web_vital.value']))");
       }
     }
 
@@ -97,8 +97,8 @@ class WebVitalsDaoTest {
         String query = captor.getValue().getQuery();
         assertThat(query).doesNotContain("${").doesNotContain("}");
         assertThat(query).contains("AND ScreenName = 'HomeScreen'");
-        assertThat(query).contains("AND Platform = 'web'");
         assertThat(query).contains("AND PulseType = 'web_vital'");
+        assertThat(query).contains("pulse_web_js");
       }
     }
 
@@ -180,9 +180,9 @@ class WebVitalsDaoTest {
 
         String query = captor.getValue().getQuery();
         assertThat(query).doesNotContain("${").doesNotContain("}");
-        assertThat(query).contains("AND Platform = 'web'");
         assertThat(query).contains("AND PulseType = 'web_vital'");
-        assertThat(query).contains("AND Attributes['web_vital.name'] = 'LCP'");
+        assertThat(query).contains("pulse_web_js");
+        assertThat(query).contains("AND LogAttributes['web_vital.name'] = 'LCP'");
       }
     }
 
@@ -210,6 +210,7 @@ class WebVitalsDaoTest {
         String query = captor.getValue().getQuery();
         assertThat(query).doesNotContain("${").doesNotContain("}");
         assertThat(query).contains("AND ScreenName = 'HomeScreen'");
+        assertThat(query).contains("pulse_web_js");
       }
     }
 
@@ -265,9 +266,9 @@ class WebVitalsDaoTest {
 
         String query = captor.getValue().getQuery();
         assertThat(query).doesNotContain("${").doesNotContain("}");
-        assertThat(query).contains("AND Platform = 'web'");
         assertThat(query).contains("AND PulseType = 'web_vital'");
-        assertThat(query).contains("AND Attributes['web_vital.name'] = 'FCP'");
+        assertThat(query).contains("pulse_web_js");
+        assertThat(query).contains("AND LogAttributes['web_vital.name'] = 'FCP'");
       }
     }
 

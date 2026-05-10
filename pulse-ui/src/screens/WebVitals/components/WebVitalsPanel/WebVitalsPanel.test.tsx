@@ -1,8 +1,9 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { MantineProvider } from "@mantine/core";
 import { BrowserRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { WebVitalsPanel } from "./WebVitalsPanel";
+import type { WebVitalsPanelProps } from "./WebVitalsPanel.interface";
 import * as hooks from "../../hooks";
 
 jest.mock("../../hooks");
@@ -11,25 +12,67 @@ jest.mock("../../../../components/Charts/LineChart/LineChart", () => ({
 }));
 
 describe("WebVitalsPanel", () => {
-  const mockSummaryData = {
+  const mockSummaryPayload = {
     vitals: [
-      { name: "LCP", p75: 2450, goodPct: 75, needsImprovementPct: 15, poorPct: 10, totalCount: 1000 },
-      { name: "INP", p75: 180, goodPct: 80, needsImprovementPct: 15, poorPct: 5, totalCount: 1000 },
-      { name: "CLS", p75: 0.12, goodPct: 85, needsImprovementPct: 10, poorPct: 5, totalCount: 1000 },
-      { name: "FCP", p75: 1500, goodPct: 90, needsImprovementPct: 5, poorPct: 5, totalCount: 1000 },
-      { name: "FID", p75: 80, goodPct: 88, needsImprovementPct: 10, poorPct: 2, totalCount: 1000 },
-      { name: "TTFB", p75: 600, goodPct: 92, needsImprovementPct: 5, poorPct: 3, totalCount: 1000 },
+      {
+        name: "LCP",
+        p75: 2450,
+        goodPct: 75,
+        needsImprovementPct: 15,
+        poorPct: 10,
+        totalCount: 1000,
+      },
+      {
+        name: "INP",
+        p75: 180,
+        goodPct: 80,
+        needsImprovementPct: 15,
+        poorPct: 5,
+        totalCount: 1000,
+      },
+      {
+        name: "CLS",
+        p75: 0.12,
+        goodPct: 85,
+        needsImprovementPct: 10,
+        poorPct: 5,
+        totalCount: 1000,
+      },
+      {
+        name: "FCP",
+        p75: 1500,
+        goodPct: 90,
+        needsImprovementPct: 5,
+        poorPct: 5,
+        totalCount: 1000,
+      },
+      {
+        name: "FID",
+        p75: 80,
+        goodPct: 88,
+        needsImprovementPct: 10,
+        poorPct: 2,
+        totalCount: 1000,
+      },
+      {
+        name: "TTFB",
+        p75: 600,
+        goodPct: 92,
+        needsImprovementPct: 5,
+        poorPct: 3,
+        totalCount: 1000,
+      },
     ],
   };
 
-  const mockTrendData = {
+  const mockTrendPayload = {
     points: [
       { bucket: "2026-05-01T00:00:00Z", p75: 2300 },
       { bucket: "2026-05-01T01:00:00Z", p75: 2450 },
     ],
   };
 
-  const mockScreenData = {
+  const mockScreenPayload = {
     screens: [
       { screenName: "Home", p75: 2300, totalCount: 1500, goodPct: 85 },
       { screenName: "Product", p75: 3100, totalCount: 1200, goodPct: 60 },
@@ -40,7 +83,7 @@ describe("WebVitalsPanel", () => {
     defaultOptions: { queries: { retry: false } },
   });
 
-  const renderComponent = (props: any) =>
+  const renderComponent = (props: WebVitalsPanelProps) =>
     render(
       <BrowserRouter>
         <QueryClientProvider client={queryClient}>
@@ -48,23 +91,35 @@ describe("WebVitalsPanel", () => {
             <WebVitalsPanel {...props} />
           </MantineProvider>
         </QueryClientProvider>
-      </BrowserRouter>
+      </BrowserRouter>,
     );
 
   beforeEach(() => {
     jest.clearAllMocks();
     (hooks.useWebVitalsSummary as jest.Mock).mockReturnValue({
-      data: mockSummaryData,
+      data: {
+        data: mockSummaryPayload,
+        error: null,
+        status: 200,
+      },
       isLoading: false,
       error: null,
     });
     (hooks.useWebVitalsTrend as jest.Mock).mockReturnValue({
-      data: mockTrendData,
+      data: {
+        data: mockTrendPayload,
+        error: null,
+        status: 200,
+      },
       isLoading: false,
       error: null,
     });
     (hooks.useWebVitalsByScreen as jest.Mock).mockReturnValue({
-      data: mockScreenData,
+      data: {
+        data: mockScreenPayload,
+        error: null,
+        status: 200,
+      },
       isLoading: false,
       error: null,
     });
@@ -77,7 +132,7 @@ describe("WebVitalsPanel", () => {
     });
 
     // All 6 vital names should be rendered
-    mockSummaryData.vitals.forEach((vital) => {
+    mockSummaryPayload.vitals.forEach((vital) => {
       expect(screen.getByText(vital.name)).toBeInTheDocument();
     });
   });
@@ -115,7 +170,7 @@ describe("WebVitalsPanel", () => {
     expect(hooks.useWebVitalsSummary).toHaveBeenCalledWith(
       expect.objectContaining({
         screenName: "Home",
-      })
+      }),
     );
   });
 
@@ -136,10 +191,13 @@ describe("WebVitalsPanel", () => {
       <BrowserRouter>
         <QueryClientProvider client={queryClient}>
           <MantineProvider>
-            <WebVitalsPanel startTime="2026-05-01T00:00:00Z" endTime="2026-05-01T23:00:00Z" />
+            <WebVitalsPanel
+              startTime="2026-05-01T00:00:00Z"
+              endTime="2026-05-01T23:00:00Z"
+            />
           </MantineProvider>
         </QueryClientProvider>
-      </BrowserRouter>
+      </BrowserRouter>,
     );
     expect(container).toBeTruthy();
   });
@@ -148,6 +206,7 @@ describe("WebVitalsPanel", () => {
     (hooks.useWebVitalsSummary as jest.Mock).mockReturnValue({
       data: undefined,
       isLoading: false,
+      isError: true,
       error: new Error("Failed to load"),
     });
 
@@ -169,7 +228,7 @@ describe("WebVitalsPanel", () => {
     expect(hooks.useWebVitalsTrend).toHaveBeenCalledWith(
       expect.objectContaining({
         vitalName: "LCP",
-      })
+      }),
     );
   });
 });

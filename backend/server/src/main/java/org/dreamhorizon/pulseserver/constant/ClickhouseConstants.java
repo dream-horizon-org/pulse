@@ -47,6 +47,20 @@ public class ClickhouseConstants {
   public final String CH_SPAN_HTTP_STATUS_CODE_EXPR =
       "coalesce(nullIf(SpanAttributes['http.status_code'], ''), nullIf(SpanAttributes['http.response.status_code'], ''), '')";
 
+  /**
+   * Pulse Web SDK identity on {@code otel_logs.ResourceAttributes}, aligned with
+   * {@link org.dreamhorizon.pulseserver.errorgrouping.service.ErrorGroupingService#resolvePlatform}:
+   * prefer {@code telemetry.sdk.name} / {@code rum.sdk.name} over raw {@code os.name}. The
+   * ClickHouse {@code Platform} column is materialized from {@code ResourceAttributes['os.name']}
+   * (browser UA, e.g. macOS), so filtering {@code Platform = 'web'} does not identify web sessions.
+   */
+  public final String CH_RESOURCE_IS_PULSE_WEB_PREDICATE =
+      "("
+          + "ResourceAttributes['telemetry.sdk.name'] = 'pulse_web_js' "
+          + "OR ResourceAttributes['rum.sdk.name'] = 'pulse_web_js' "
+          + "OR ifNull(ResourceAttributes['platform'], '') = 'web'"
+          + ")";
+
   /** {@code otel_traces.PulseType} filter for network spans (error-attribution API drill). */
   public final String CH_PULSE_TYPE_NETWORK_LIKE_PREDICATE = "PulseType LIKE 'network.%'";
 

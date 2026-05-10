@@ -19,20 +19,24 @@ describe("useWebVitalsByScreen", () => {
     jest.clearAllMocks();
     (useProjectQueryEnabled as jest.Mock).mockReturnValue(true);
     (makeRequest as jest.Mock).mockResolvedValue({
-      screens: [
-        {
-          screenName: "Home",
-          p75: 2000,
-          totalCount: 500,
-          goodPct: 80,
-        },
-        {
-          screenName: "Profile",
-          p75: 2500,
-          totalCount: 300,
-          goodPct: 70,
-        },
-      ],
+      data: {
+        screens: [
+          {
+            screenName: "Home",
+            p75: 2000,
+            totalCount: 500,
+            goodPct: 80,
+          },
+          {
+            screenName: "Profile",
+            p75: 2500,
+            totalCount: 300,
+            goodPct: 70,
+          },
+        ],
+      },
+      error: null,
+      status: 200,
     });
   });
 
@@ -41,10 +45,9 @@ describe("useWebVitalsByScreen", () => {
     const endTime = 2000;
     const vitalName = "LCP";
 
-    renderHook(() =>
-      useWebVitalsByScreen({ startTime, endTime, vitalName }),
-      { wrapper: createWrapper() },
-    );
+    renderHook(() => useWebVitalsByScreen({ startTime, endTime, vitalName }), {
+      wrapper: createWrapper(),
+    });
 
     await new Promise((resolve) => setTimeout(resolve, 100));
 
@@ -68,10 +71,9 @@ describe("useWebVitalsByScreen", () => {
     const endTime = 2000;
     const vitalName = "LCP";
 
-    renderHook(() =>
-      useWebVitalsByScreen({ startTime, endTime, vitalName }),
-      { wrapper: createWrapper() },
-    );
+    renderHook(() => useWebVitalsByScreen({ startTime, endTime, vitalName }), {
+      wrapper: createWrapper(),
+    });
 
     await new Promise((resolve) => setTimeout(resolve, 100));
 
@@ -101,8 +103,13 @@ describe("useWebVitalsByScreen", () => {
   it("should_disable_query_when_project_unset", () => {
     (useProjectQueryEnabled as jest.Mock).mockReturnValue(false);
 
-    const { result } = renderHook(() =>
-      useWebVitalsByScreen({ startTime: 1000, endTime: 2000, vitalName: "LCP" }),
+    const { result } = renderHook(
+      () =>
+        useWebVitalsByScreen({
+          startTime: 1000,
+          endTime: 2000,
+          vitalName: "LCP",
+        }),
       { wrapper: createWrapper() },
     );
 
@@ -112,8 +119,13 @@ describe("useWebVitalsByScreen", () => {
   });
 
   it("should_return_useQuery_object_with_data_isLoading_error_fields", () => {
-    const { result } = renderHook(() =>
-      useWebVitalsByScreen({ startTime: 1000, endTime: 2000, vitalName: "LCP" }),
+    const { result } = renderHook(
+      () =>
+        useWebVitalsByScreen({
+          startTime: 1000,
+          endTime: 2000,
+          vitalName: "LCP",
+        }),
       { wrapper: createWrapper() },
     );
 

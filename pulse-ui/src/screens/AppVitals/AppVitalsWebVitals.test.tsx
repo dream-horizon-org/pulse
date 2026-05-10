@@ -3,6 +3,7 @@ import { MantineProvider } from "@mantine/core";
 import { BrowserRouter } from "react-router-dom";
 import { AppVitals } from "./AppVitals";
 import { VitalsFilters } from "./components/VitalsFilters";
+import type { VitalsFiltersProps } from "./components/VitalsFilters";
 import { ISSUE_TYPES } from "./AppVitals.constants";
 
 jest.mock("./components", () => ({
@@ -12,7 +13,9 @@ jest.mock("./components", () => ({
   NonFatalList: () => <div data-testid="nonfatal-list">Non-Fatal List</div>,
   CrashTrendGraph: () => <div data-testid="crash-trend">Crash Trend</div>,
   ANRTrendGraph: () => <div data-testid="anr-trend">ANR Trend</div>,
-  NonFatalTrendGraph: () => <div data-testid="nonfatal-trend">Non-Fatal Trend</div>,
+  NonFatalTrendGraph: () => (
+    <div data-testid="nonfatal-trend">Non-Fatal Trend</div>
+  ),
   CrashMetricsStats: () => <div data-testid="crash-stats">Crash Stats</div>,
   ANRMetricsStats: () => <div data-testid="anr-stats">ANR Stats</div>,
   AlertStatusStats: () => <div data-testid="alert-stats">Alert Stats</div>,
@@ -20,18 +23,23 @@ jest.mock("./components", () => ({
 }));
 
 jest.mock("../WebVitals/components", () => ({
-  WebVitalsPanel: ({ startTime, endTime }: any) => (
+  WebVitalsPanel: (
+    props: import("../WebVitals/components/WebVitalsPanel/WebVitalsPanel.interface").WebVitalsPanelProps,
+  ) => (
     <div data-testid="web-vitals-panel">
-      Web Vitals Panel (start: {startTime}, end: {endTime})
+      Web Vitals Panel (start: {props.startTime}, end: {props.endTime})
     </div>
   ),
 }));
 
-jest.mock("../CriticalInteractionDetails/components/DateTimeRangePicker/DateTimeRangePicker", () => {
-  return function MockDateTimeRangePicker() {
-    return <div>Date Time Picker</div>;
-  };
-});
+jest.mock(
+  "../CriticalInteractionDetails/components/DateTimeRangePicker/DateTimeRangePicker",
+  () => {
+    return function MockDateTimeRangePicker() {
+      return <div>Date Time Picker</div>;
+    };
+  },
+);
 
 jest.mock("./components/ExceptionTable/hooks", () => ({
   useExceptionListData: () => ({
@@ -54,11 +62,11 @@ describe("AppVitals - Web Vitals Integration", () => {
   });
 
   describe("VitalsFilters - Web Vitals Segment", () => {
-    const renderVitalsFilters = (props: any) =>
+    const renderVitalsFilters = (props: VitalsFiltersProps) =>
       render(
         <MantineProvider>
           <VitalsFilters {...props} />
-        </MantineProvider>
+        </MantineProvider>,
       );
 
     it("should render Web Vitals segment in SegmentedControl", () => {
@@ -111,7 +119,7 @@ describe("AppVitals - Web Vitals Integration", () => {
           <MantineProvider>
             <AppVitals />
           </MantineProvider>
-        </BrowserRouter>
+        </BrowserRouter>,
       );
 
     it("should_render_WebVitalsPanel_when_webVitals_segment_selected", async () => {

@@ -1,13 +1,14 @@
 import { render, screen, fireEvent } from "@testing-library/react";
 import { MantineProvider } from "@mantine/core";
 import { VitalCard } from "./VitalCard";
+import type { VitalCardProps } from "./VitalCard.interface";
 
 describe("VitalCard", () => {
-  const renderComponent = (props: any) =>
+  const renderComponent = (props: VitalCardProps) =>
     render(
       <MantineProvider>
         <VitalCard {...props} />
-      </MantineProvider>
+      </MantineProvider>,
     );
 
   it("should render vital name, formatted p75, and badge", () => {
@@ -20,7 +21,7 @@ describe("VitalCard", () => {
           needsImprovementPct={15}
           poorPct={10}
         />
-      </MantineProvider>
+      </MantineProvider>,
     );
 
     expect(screen.getByText("LCP")).toBeInTheDocument();
@@ -38,7 +39,7 @@ describe("VitalCard", () => {
           needsImprovementPct={10}
           poorPct={10}
         />
-      </MantineProvider>
+      </MantineProvider>,
     );
 
     expect(container.textContent).toContain("0.12");
@@ -54,7 +55,7 @@ describe("VitalCard", () => {
           needsImprovementPct={25}
           poorPct={15}
         />
-      </MantineProvider>
+      </MantineProvider>,
     );
 
     // Good, NI, and Poor percentages should be rendered
@@ -88,7 +89,7 @@ describe("VitalCard", () => {
           poorPct={10}
           onSelect={onSelect}
         />
-      </MantineProvider>
+      </MantineProvider>,
     );
 
     const card = container.querySelector("[style*='cursor']");

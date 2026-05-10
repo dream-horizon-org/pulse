@@ -17,14 +17,45 @@ export function VitalTrendChart({
   }
 
   if (error) {
-    return <ErrorAndEmptyState message="Error loading trend data" description={error.message} />;
+    return (
+      <ErrorAndEmptyState
+        message="Error loading trend data"
+        description={error.message}
+      />
+    );
   }
 
   if (!data || data.length === 0) {
-    return <ErrorAndEmptyState message="No data available" description="No trend data for this vital" />;
+    return (
+      <ErrorAndEmptyState
+        message="No data available"
+        description="No trend data for this vital"
+      />
+    );
   }
 
   const threshold = WEB_VITAL_THRESHOLDS[vitalName];
+
+  const markLineData = [
+    ...(threshold?.good != null
+      ? [
+          {
+            yAxis: threshold.good,
+            name: "Good",
+            lineStyle: { color: "#12b886" },
+          },
+        ]
+      : []),
+    ...(threshold?.needsImprovement != null
+      ? [
+          {
+            yAxis: threshold.needsImprovement,
+            name: "Needs Improvement",
+            lineStyle: { color: "#fa5252" },
+          },
+        ]
+      : []),
+  ];
 
   const option = {
     xAxis: {
@@ -36,26 +67,16 @@ export function VitalTrendChart({
     },
     series: [
       {
-        data: data.map((point) => [new Date(point.bucket).getTime(), point.p75]),
+        data: data.map((point) => [
+          new Date(point.bucket).getTime(),
+          point.p75,
+        ]),
         type: "line" as const,
         name: `${vitalName} P75`,
         smooth: true,
       },
     ],
-    markLine: {
-      data: [
-        {
-          yAxis: threshold?.good,
-          name: "Good",
-          lineStyle: { color: "#12b886" },
-        },
-        {
-          yAxis: threshold?.needsImprovement,
-          name: "Needs Improvement",
-          lineStyle: { color: "#fa5252" },
-        },
-      ],
-    },
+    ...(markLineData.length > 0 ? { markLine: { data: markLineData } } : {}),
   };
 
   return (
@@ -64,7 +85,13 @@ export function VitalTrendChart({
         {vitalName} Trend
       </Text>
       <Box style={{ height }}>
-        <LineChart option={option} height={height} syncTooltips={false} zoom={true} />
+        <LineChart
+          option={option}
+          height={height}
+          syncTooltips={false}
+          zoom={true}
+          enableBrushSelection={false}
+        />
       </Box>
     </Stack>
   );

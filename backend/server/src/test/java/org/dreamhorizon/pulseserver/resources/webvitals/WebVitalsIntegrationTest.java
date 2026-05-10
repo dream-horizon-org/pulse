@@ -12,7 +12,6 @@ import io.vertx.junit5.VertxTestContext;
 import jakarta.ws.rs.WebApplicationException;
 import java.time.Instant;
 import java.util.List;
-import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
 import org.dreamhorizon.pulseserver.client.chclient.ClickhouseQueryService;
 import org.dreamhorizon.pulseserver.context.ProjectContext;
@@ -52,13 +51,6 @@ class WebVitalsIntegrationTest {
     webVitalsDao = new WebVitalsDao(clickhouseQueryService);
     webVitalsService = new WebVitalsServiceImpl(webVitalsDao);
     webVitalsResource = new WebVitalsResource(webVitalsService);
-  }
-
-  private static Throwable unwrap(Throwable err) {
-    if (err instanceof CompletionException && err.getCause() != null) {
-      return err.getCause();
-    }
-    return err;
   }
 
   @Nested
@@ -112,6 +104,57 @@ class WebVitalsIntegrationTest {
                           assertThat(vital.getNeedsImprovementPct()).isEqualTo(15.0);
                           assertThat(vital.getPoorPct()).isEqualTo(5.0);
                           assertThat(vital.getTotalCount()).isEqualTo(100L);
+                        });
+                    tc.completeNow();
+                  });
+            }
+          });
+    }
+
+    @Test
+    @DisplayName("should_execute_end_to_end_summary_flow_with_epoch_millis_query_strings")
+    void should_execute_end_to_end_summary_flow_with_epoch_millis_query_strings(
+        io.vertx.core.Vertx vertx, VertxTestContext tc) {
+      vertx.runOnContext(
+          v -> {
+            try (MockedStatic<ProjectContext> ctx = mockStatic(ProjectContext.class)) {
+              ctx.when(ProjectContext::requireProjectId).thenReturn(TEST_PROJECT_ID);
+
+              WebVitalSummaryRow row =
+                  WebVitalSummaryRow.builder()
+                      .vitalName("LCP")
+                      .p75("2500.0")
+                      .goodCount("80")
+                      .needsImprovementCount("15")
+                      .poorCount("5")
+                      .totalCount("100")
+                      .build();
+
+              QueryResultResponse<WebVitalSummaryRow> mockResponse =
+                  QueryResultResponse.<WebVitalSummaryRow>builder()
+                      .rows(List.of(row))
+                      .build();
+
+              when(clickhouseQueryService.executeQueryOrCreateJob(
+                      any(QueryConfiguration.class), eq(WebVitalSummaryRow.class)))
+                  .thenReturn(Single.just(mockResponse));
+
+              CompletionStage<Response<WebVitalsSummaryResponseDto>> cs =
+                  webVitalsResource.getSummary(
+                      String.valueOf(START_TIME.toEpochMilli()),
+                      String.valueOf(END_TIME.toEpochMilli()),
+                      null);
+
+              cs.whenComplete(
+                  (resp, err) -> {
+                    tc.verify(
+                        () -> {
+                          assertThat(err).isNull();
+                          assertThat(resp).isNotNull();
+                          assertThat(resp.getData().getVitals()).hasSize(1);
+                          VitalSummaryDto vital = resp.getData().getVitals().get(0);
+                          assertThat(vital.getName()).isEqualTo("LCP");
+                          assertThat(vital.getP75()).isEqualTo(2500.0);
                         });
                     tc.completeNow();
                   });
@@ -231,6 +274,52 @@ class WebVitalsIntegrationTest {
             }
           });
     }
+
+    @Test
+    @DisplayName("should_execute_end_to_end_trend_flow_with_epoch_millis_query_strings")
+    void should_execute_end_to_end_trend_flow_with_epoch_millis_query_strings(
+        io.vertx.core.Vertx vertx, VertxTestContext tc) {
+      vertx.runOnContext(
+          v -> {
+            try (MockedStatic<ProjectContext> ctx = mockStatic(ProjectContext.class)) {
+              ctx.when(ProjectContext::requireProjectId).thenReturn(TEST_PROJECT_ID);
+
+              WebVitalTrendRow row =
+                  WebVitalTrendRow.builder()
+                      .bucket("2026-05-01T00:00:00Z")
+                      .p75("2400.0")
+                      .build();
+
+              QueryResultResponse<WebVitalTrendRow> mockResponse =
+                  QueryResultResponse.<WebVitalTrendRow>builder()
+                      .rows(List.of(row))
+                      .build();
+
+              when(clickhouseQueryService.executeQueryOrCreateJob(
+                      any(QueryConfiguration.class), eq(WebVitalTrendRow.class)))
+                  .thenReturn(Single.just(mockResponse));
+
+              CompletionStage<Response<WebVitalsTrendResponseDto>> cs =
+                  webVitalsResource.getTrend(
+                      String.valueOf(START_TIME.toEpochMilli()),
+                      String.valueOf(END_TIME.toEpochMilli()),
+                      "LCP",
+                      30,
+                      null);
+
+              cs.whenComplete(
+                  (resp, err) -> {
+                    tc.verify(
+                        () -> {
+                          assertThat(err).isNull();
+                          assertThat(resp.getData().getPoints()).hasSize(1);
+                          assertThat(resp.getData().getPoints().get(0).getP75()).isEqualTo(2400.0);
+                        });
+                    tc.completeNow();
+                  });
+            }
+          });
+    }
   }
 
   @Nested
@@ -293,6 +382,53 @@ class WebVitalsIntegrationTest {
                           assertThat(screen1.getP75()).isEqualTo(2500.0);
                           assertThat(screen1.getTotalCount()).isEqualTo(150L);
                           assertThat(screen1.getGoodPct()).isEqualTo(85.0);
+                        });
+                    tc.completeNow();
+                  });
+            }
+          });
+    }
+
+    @Test
+    @DisplayName("should_execute_end_to_end_by_screen_flow_with_epoch_millis_query_strings")
+    void should_execute_end_to_end_by_screen_flow_with_epoch_millis_query_strings(
+        io.vertx.core.Vertx vertx, VertxTestContext tc) {
+      vertx.runOnContext(
+          v -> {
+            try (MockedStatic<ProjectContext> ctx = mockStatic(ProjectContext.class)) {
+              ctx.when(ProjectContext::requireProjectId).thenReturn(TEST_PROJECT_ID);
+
+              WebVitalByScreenRow row =
+                  WebVitalByScreenRow.builder()
+                      .screenName("Home")
+                      .p75("2500.0")
+                      .totalCount("150")
+                      .goodPct("85.0")
+                      .build();
+
+              QueryResultResponse<WebVitalByScreenRow> mockResponse =
+                  QueryResultResponse.<WebVitalByScreenRow>builder()
+                      .rows(List.of(row))
+                      .build();
+
+              when(clickhouseQueryService.executeQueryOrCreateJob(
+                      any(QueryConfiguration.class), eq(WebVitalByScreenRow.class)))
+                  .thenReturn(Single.just(mockResponse));
+
+              CompletionStage<Response<WebVitalsByScreenResponseDto>> cs =
+                  webVitalsResource.getByScreen(
+                      String.valueOf(START_TIME.toEpochMilli()),
+                      String.valueOf(END_TIME.toEpochMilli()),
+                      "INP");
+
+              cs.whenComplete(
+                  (resp, err) -> {
+                    tc.verify(
+                        () -> {
+                          assertThat(err).isNull();
+                          assertThat(resp.getData().getScreens()).hasSize(1);
+                          assertThat(resp.getData().getScreens().get(0).getScreenName())
+                              .isEqualTo("Home");
                         });
                     tc.completeNow();
                   });

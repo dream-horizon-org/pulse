@@ -19,10 +19,14 @@ describe("useWebVitalsTrend", () => {
     jest.clearAllMocks();
     (useProjectQueryEnabled as jest.Mock).mockReturnValue(true);
     (makeRequest as jest.Mock).mockResolvedValue({
-      points: [
-        { bucket: "2026-05-10T00:00:00Z", p75: 2000 },
-        { bucket: "2026-05-10T00:30:00Z", p75: 2100 },
-      ],
+      data: {
+        points: [
+          { bucket: "2026-05-10T00:00:00Z", p75: 2000 },
+          { bucket: "2026-05-10T00:30:00Z", p75: 2100 },
+        ],
+      },
+      error: null,
+      status: 200,
     });
   });
 
@@ -31,10 +35,9 @@ describe("useWebVitalsTrend", () => {
     const endTime = 2000;
     const vitalName = "LCP";
 
-    renderHook(() =>
-      useWebVitalsTrend({ startTime, endTime, vitalName }),
-      { wrapper: createWrapper() },
-    );
+    renderHook(() => useWebVitalsTrend({ startTime, endTime, vitalName }), {
+      wrapper: createWrapper(),
+    });
 
     await new Promise((resolve) => setTimeout(resolve, 100));
 
@@ -58,8 +61,8 @@ describe("useWebVitalsTrend", () => {
     const vitalName = "LCP";
     const bucketMinutes = 60;
 
-    renderHook(() =>
-      useWebVitalsTrend({ startTime, endTime, vitalName, bucketMinutes }),
+    renderHook(
+      () => useWebVitalsTrend({ startTime, endTime, vitalName, bucketMinutes }),
       { wrapper: createWrapper() },
     );
 
@@ -75,8 +78,8 @@ describe("useWebVitalsTrend", () => {
     const vitalName = "LCP";
     const screenName = "Home";
 
-    renderHook(() =>
-      useWebVitalsTrend({ startTime, endTime, vitalName, screenName }),
+    renderHook(
+      () => useWebVitalsTrend({ startTime, endTime, vitalName, screenName }),
       { wrapper: createWrapper() },
     );
 
@@ -91,10 +94,9 @@ describe("useWebVitalsTrend", () => {
     const endTime = 2000;
     const vitalName = "LCP";
 
-    renderHook(() =>
-      useWebVitalsTrend({ startTime, endTime, vitalName }),
-      { wrapper: createWrapper() },
-    );
+    renderHook(() => useWebVitalsTrend({ startTime, endTime, vitalName }), {
+      wrapper: createWrapper(),
+    });
 
     await new Promise((resolve) => setTimeout(resolve, 100));
 
@@ -124,8 +126,9 @@ describe("useWebVitalsTrend", () => {
   it("should_disable_query_when_project_unset", () => {
     (useProjectQueryEnabled as jest.Mock).mockReturnValue(false);
 
-    const { result } = renderHook(() =>
-      useWebVitalsTrend({ startTime: 1000, endTime: 2000, vitalName: "LCP" }),
+    const { result } = renderHook(
+      () =>
+        useWebVitalsTrend({ startTime: 1000, endTime: 2000, vitalName: "LCP" }),
       { wrapper: createWrapper() },
     );
 
@@ -135,8 +138,9 @@ describe("useWebVitalsTrend", () => {
   });
 
   it("should_return_useQuery_object_with_data_isLoading_error_fields", () => {
-    const { result } = renderHook(() =>
-      useWebVitalsTrend({ startTime: 1000, endTime: 2000, vitalName: "LCP" }),
+    const { result } = renderHook(
+      () =>
+        useWebVitalsTrend({ startTime: 1000, endTime: 2000, vitalName: "LCP" }),
       { wrapper: createWrapper() },
     );
 

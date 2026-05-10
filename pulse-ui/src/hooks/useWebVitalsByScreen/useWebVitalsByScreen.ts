@@ -1,6 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { API_BASE_URL, API_ROUTES } from "../../constants";
-import { WebVitalsByScreenResponse } from "../../screens/WebVitals/WebVitals.interface";
+import type { ApiResponse } from "../../helpers/makeRequest/makeRequest.interface";
+import type { WebVitalsByScreenResponse } from "../../screens/WebVitals/WebVitals.interface";
+import type { WebVitalsByScreenWire } from "../../screens/WebVitals/WebVitalsWire.types";
+import { normalizeWebVitalsByScreenResponse } from "../../screens/WebVitals/normalizeWebVitalsApi";
 import { makeRequest } from "../../helpers/makeRequest";
 import { useProjectQueryEnabled } from "../useProjectQueryEnabled";
 import { UseWebVitalsByScreenParams } from "./useWebVitalsByScreen.interface";
@@ -20,19 +23,25 @@ export const useWebVitalsByScreen = ({
   };
 
   const queryString = new URLSearchParams(
-    Object.fromEntries(Object.entries(queryParams).map(([k, v]) => [k, String(v)]))
+    Object.fromEntries(
+      Object.entries(queryParams).map(([k, v]) => [k, String(v)]),
+    ),
   ).toString();
   const url = `${API_BASE_URL}${route.apiPath}?${queryString}`;
 
   return useQuery({
     queryKey: [route.key, startTime, endTime, vitalName],
-    queryFn: async () => {
-      return makeRequest<WebVitalsByScreenResponse>({
+    queryFn: async (): Promise<ApiResponse<WebVitalsByScreenResponse>> => {
+      const res = await makeRequest<WebVitalsByScreenWire>({
         url,
         init: {
           method: route.method,
         },
       });
+      return {
+        ...res,
+        data: normalizeWebVitalsByScreenResponse(res.data ?? null),
+      };
     },
     enabled,
     refetchOnWindowFocus: false,
