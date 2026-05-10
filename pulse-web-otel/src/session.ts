@@ -1,6 +1,6 @@
 // M1: 3-tier identity storage (localStorage → sessionStorage → memory)
 // + 30-minute inactivity session rotation + BFCache guard.
-// See: web-sdk-plan/v1/01-foundation/identity.md
+// See: docs/instrumentations/sdk-core/SPEC.md (session lifecycle)
 
 import type {
   SessionChangeEvent,
@@ -322,8 +322,7 @@ export class SessionProvider {
         const hiddenAt = this._readHiddenAt();
         this._clearHiddenAt();
         const pageHiddenOk =
-          hiddenAt === null ||
-          now - hiddenAt <= this.pageHiddenTimeoutMs;
+          hiddenAt === null || now - hiddenAt <= this.pageHiddenTimeoutMs;
 
         if (inactivityOk && lifetimeOk && pageHiddenOk) {
           // Reuse any unexpired session from localStorage, regardless of how this

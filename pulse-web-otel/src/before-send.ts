@@ -1,7 +1,7 @@
 /**
  * {@code PulseWebConfig.beforeSendData} — Android {@code PulseBeforeSendData} parity (generic → typed; {@code null} = drop).
  * Runs on the **main thread** at OTLP export batch time; see
- * `web-sdk-plan/v1/01-foundation/before-send-web-android-parity.md`.
+ * docs/instrumentations/sdk-core/SPEC.md (beforeSend hooks).
  */
 
 import type { ReadableSpan } from "@opentelemetry/sdk-trace-web";

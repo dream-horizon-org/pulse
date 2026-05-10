@@ -1,6 +1,6 @@
 /**
  * Pulse HTTP client span helpers — stable semconv + product attrs for Fetch / XHR.
- * Spec: web-sdk-plan/v1/02-instrumentations/network.md
+ * Spec: docs/instrumentations/network/SPEC.md
  */
 
 import type { Span } from "@opentelemetry/api";
