@@ -2,7 +2,7 @@
 // Default wire format follows `ExporterConfig.useProtobuf` (JSON vs protobuf). Compression: off.
 // On real document unload, `prepareForDocumentUnload` swaps trace + log browser transports to
 // keepalive `fetch` (same pipeline as normal export); see `buildBrowserExportTransport`.
-// See: web-sdk-plan/v1/01-foundation/pipeline.md
+// See: docs/instrumentations/sdk-core/SPEC.md (OTLP exporters)
 
 import {
   WebTracerProvider,

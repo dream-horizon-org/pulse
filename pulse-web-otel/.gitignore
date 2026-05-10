@@ -37,3 +37,9 @@ yarn-error.log*
 
 # Size-limit cache
 .size-limit/
+
+# Ralph/local agent issue queue (same convention as repo root)
+issues/
+
+# Ralph loop audit trail (same dir as package issues)
+progress.txt

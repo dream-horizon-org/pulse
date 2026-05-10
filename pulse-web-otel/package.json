@@ -97,7 +97,9 @@
     "README.md",
     "CHANGELOG.md",
     "LICENSE",
-    "PUBLISHING.md"
+    "docs/publishing/SPEC.md",
+    "docs/publishing/PUBLISHING.md",
+    "docs/publishing/QUICKSTART.md"
   ],
   "workspaces": [
     "examples/*"
