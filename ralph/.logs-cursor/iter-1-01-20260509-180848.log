@@ -1,3 +1,0 @@
-cursor-agent not found, installing via https://cursor.com/install ...
-[A[KError: Authentication required. Please run 'cursor agent login' first, or set CURSOR_API_KEY environment variable.
-bash: line 2: yarn: command not found
