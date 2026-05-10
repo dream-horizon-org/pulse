@@ -30,9 +30,12 @@ Sections below retain the original three-signal design discussion for historical
 
 ## Executive Summary
 
-Ship three **span-based signals** to track user navigation and screen lifecycle:
+**Web SDK shipping shape:** Follow the **Amendment** block above — **`screen_load`** (includes **`tti`** when Navigation Timing allows) + **`screen_session`** OTLP logs only; **no** separate web log `pulse.type = screen_interactive`.
+
+The bullets below describe the **full three-milestone model** explored for parity (Android may emit more granular milestones; RN may use **`screen_interactive`** as its own signal). On **web**, treat §2 “three signals” as background; the amendment defines the exported contract.
+
 - **`screen_load`** — page load (initial + SPA) with timing data
-- **`screen_interactive`** — time-to-interactive milestone (initial load only)
+- **`screen_interactive`** — time-to-interactive milestone (initial load only); **web:** merged into **`screen_load`** as **`tti`**, not a second log
 - **`screen_session`** — time spent on screen before navigation
 
 **Emits web vitals separately** (LCP, INP, CLS) for both initial load and SPA nav (GA4 model).

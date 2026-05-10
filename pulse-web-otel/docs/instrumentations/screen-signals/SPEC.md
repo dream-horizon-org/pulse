@@ -105,13 +105,15 @@ No **P0** navigation signal gaps confirmed at synthesis.
 
 ## 8. Redundancy & Cleanup Notes
 
-Deleted after triple-eval:
+**Canonical contract:** this SPEC plus `src/instrumentations/navigation.ts`.
 
-| Path |
-|---|
-| `pulse-web-otel/web-sdk-plan/v4-screen-signals/` (entire folder) |
-| `pulse-web-otel/docs/NAVIGATION-INSTRUMENTATION.md` |
-| `pulse-web-otel/web-sdk-plan/v1/02-instrumentations/navigation.md` |
+`web-sdk-plan/v4-screen-signals/` is **retained** as the design archive (`FINAL-PLAN.md`, ADR, touchpoints). The **Amendment** at the top of `FINAL-PLAN.md` overrides older sections that still describe three separate web signals including `screen_interactive` — web implementation follows the amendment (single `screen_load` with `tti`, no separate `screen_interactive` log).
+
+| Path | Role |
+|---|---|
+| `pulse-web-otel/web-sdk-plan/v4-screen-signals/` | Locked plan + ADR + amendment (historical + authoritative amendment) |
+| `pulse-web-otel/docs/NAVIGATION-INSTRUMENTATION.md` | Removed from tree; navigation detail lives in this SPEC |
+| `pulse-web-otel/web-sdk-plan/v1/02-instrumentations/navigation.md` | Superseded v1 one-pager (still in repo for history) |
 
 ---
 
