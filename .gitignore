@@ -10,7 +10,7 @@ lib/
 
 .cursor/.env
 # Claude Code: keep shared project memory; ignore other local-only files under .claude/
-.claude/*
+#.claude/*
 !.claude/CLAUDE.md
 .cursor/hooks/state/
 .cursor/plans/
