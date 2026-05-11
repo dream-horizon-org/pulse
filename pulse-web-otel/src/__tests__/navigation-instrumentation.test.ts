@@ -736,6 +736,108 @@ describe("NavigationInstrumentation", () => {
 
       instr.uninstall();
     });
+
+    it("dwell screen_session gets identity setAttributes at start; final call adds duration only", () => {
+      const instr = new NavigationInstrumentation();
+      const sdk = makeMinimalSdk();
+
+      setPath("/home");
+      instr.install(sdk);
+
+      const dwell = findSpansByName("screen_session").find(
+        (s) => s.end.mock.calls.length === 0,
+      );
+      expect(dwell).toBeDefined();
+      const first = dwell!.setAttributes.mock.calls[0]![0] as Record<
+        string,
+        unknown
+      >;
+      expect(first[PulseWebSemconv.AttributeKey.PULSE_TYPE]).toBe(
+        PulseWebSemconv.PulseType.SCREEN_SESSION,
+      );
+      expect(first[PulseWebSemconv.AttributeKey.SCREEN_NAME]).toBeTruthy();
+      expect(first[PulseWebSemconv.AttributeKey.SESSION_ID]).toBeTruthy();
+
+      window.dispatchEvent(new Event("pagehide"));
+      const lastCall = dwell!.setAttributes.mock.calls[
+        dwell!.setAttributes.mock.calls.length - 1
+      ]![0] as Record<string, unknown>;
+      expect(
+        typeof lastCall[PulseWebSemconv.AttributeKey.SESSION_DURATION_MS],
+      ).toBe("number");
+      expect(lastCall[PulseWebSemconv.AttributeKey.PULSE_TYPE]).toBeUndefined();
+
+      instr.uninstall();
+    });
+  });
+
+  describe("BFCache / pageshow restore", () => {
+    it("pageshow with persisted=true emits screen_load with start.type bfcache and a new dwell screen_session", () => {
+      const instr = new NavigationInstrumentation();
+      const sdk = makeMinimalSdk();
+
+      setPath("/home");
+      instr.install(sdk);
+      navSpanMocks.reset();
+
+      // jsdom-safe — PageTransitionEvent doesn't expose `persisted` as needed
+      window.dispatchEvent(
+        Object.assign(new Event("pageshow"), { persisted: true }),
+      );
+
+      const loads = findSpansByName("screen_load").map(
+        attrsFromSetAttributesCalls,
+      );
+      const bfcacheLoad = loads.find(
+        (a) => a[PulseWebSemconv.AttributeKey.START_TYPE] === "bfcache",
+      );
+      expect(bfcacheLoad).toBeDefined();
+
+      const openSessions = findSpansByName("screen_session").filter(
+        (s) => s.end.mock.calls.length === 0,
+      );
+      expect(openSessions.length).toBeGreaterThanOrEqual(1);
+
+      instr.uninstall();
+    });
+
+    it("pageshow with persisted=false does not emit BFCache restore spans", () => {
+      const instr = new NavigationInstrumentation();
+      const sdk = makeMinimalSdk();
+
+      setPath("/home");
+      instr.install(sdk);
+      navSpanMocks.reset();
+
+      const n = navSpanMocks.mockTracer.startSpan.mock.calls.length;
+      window.dispatchEvent(
+        Object.assign(new Event("pageshow"), { persisted: false }),
+      );
+      expect(navSpanMocks.mockTracer.startSpan.mock.calls.length).toBe(n);
+
+      instr.uninstall();
+    });
+
+    it("pagehide then pageshow(persisted) emits bfcache screen_load synchronously", () => {
+      const instr = new NavigationInstrumentation();
+      const sdk = makeMinimalSdk();
+
+      setPath("/home");
+      instr.install(sdk);
+      navSpanMocks.reset();
+
+      window.dispatchEvent(new Event("pagehide"));
+      window.dispatchEvent(
+        Object.assign(new Event("pageshow"), { persisted: true }),
+      );
+
+      const bfcacheLoad = findSpansByName("screen_load")
+        .map(attrsFromSetAttributesCalls)
+        .find((a) => a[PulseWebSemconv.AttributeKey.START_TYPE] === "bfcache");
+      expect(bfcacheLoad).toBeDefined();
+
+      instr.uninstall();
+    });
   });
 
   describe("Feature gate & consent integration", () => {

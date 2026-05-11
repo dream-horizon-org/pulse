@@ -49,6 +49,8 @@ export class NavigationInstrumentation implements PulseInstrumentation {
   private sdkContext: SdkContext | null = null;
   private onPopStateBound?: () => void;
   private onPageHideBound?: () => void;
+  /** BFCache restore — `persisted` read from `Event` for jsdom-safe tests. */
+  private onPageShowBound?: (event: Event) => void;
   /** Pending `load` listener when `document.readyState === "loading"` — removed on `uninstall`. */
   private onInitialLoadBound?: () => void;
   /** Trailing debounce for SPA History bursts — coalesces to final URL after quiet window. */
@@ -93,6 +95,16 @@ export class NavigationInstrumentation implements PulseInstrumentation {
       if (this.sdkContext) this.emitPageHideScreenSession(this.sdkContext);
     };
     window.addEventListener("pagehide", this.onPageHideBound);
+
+    this.onPageShowBound = (event: Event) => {
+      const persisted =
+        "persisted" in event &&
+        Boolean((event as PageTransitionEvent).persisted);
+      if (persisted && this.sdkContext) {
+        this.onBFCacheRestore(this.sdkContext);
+      }
+    };
+    window.addEventListener("pageshow", this.onPageShowBound);
   }
 
   uninstall(): void {
@@ -123,6 +135,10 @@ export class NavigationInstrumentation implements PulseInstrumentation {
       if (this.onPageHideBound) {
         window.removeEventListener("pagehide", this.onPageHideBound);
         this.onPageHideBound = undefined;
+      }
+      if (this.onPageShowBound) {
+        window.removeEventListener("pageshow", this.onPageShowBound);
+        this.onPageShowBound = undefined;
       }
     }
 
@@ -202,10 +218,8 @@ export class NavigationInstrumentation implements PulseInstrumentation {
     const attributeKeys = PulseWebSemconv.AttributeKey;
     const pulseTypes = PulseWebSemconv.PulseType;
 
+    // Identity (pulse.type, screen.name, session.id) set at span start — only exit attrs here.
     span.setAttributes({
-      [attributeKeys.PULSE_TYPE]: pulseTypes.SCREEN_SESSION,
-      [attributeKeys.SCREEN_NAME]: this.currentScreenName,
-      [attributeKeys.SESSION_ID]: sdk.sessionProvider.getSessionId() ?? "",
       [attributeKeys.SESSION_DURATION_MS]: durationMs,
       [attributeKeys.SESSION_DURATION]: durationMs,
       ...this.buildDocAttrsFromSnapshot(docPath, docTitle, lastScreenNameAttr),
@@ -327,10 +341,87 @@ export class NavigationInstrumentation implements PulseInstrumentation {
         },
         ROOT_CONTEXT,
       );
+      this.activeSessionSpan.setAttributes({
+        [attributeKeys.PULSE_TYPE]: pulseTypes.SCREEN_SESSION,
+        [attributeKeys.SCREEN_NAME]: newScreenName,
+        [attributeKeys.SESSION_ID]: sessionId ?? "",
+      });
 
       if (typeof sdk.globalAttrsProcessor.setScreenName === "function") {
         sdk.globalAttrsProcessor.setScreenName(newScreenName);
       }
+    }
+  }
+
+  /**
+   * BFCache restore: some browsers (notably Safari on iOS) may omit {@code pagehide}, leaving an
+   * open dwell span — {@link endActiveSessionSpan} first if needed. Does not reset
+   * {@link enteredFromScreenName} so {@code last.screen.name} on the restore {@code screen_load} stays correct.
+   */
+  private onBFCacheRestore(sdk: SdkContext): void {
+    if (!this.installed || !this.sdkContext || this.sdkContext !== sdk) {
+      return;
+    }
+
+    const now = Date.now();
+    if (this.activeSessionSpan && this.currentScreenName) {
+      this.endActiveSessionSpan(
+        sdk,
+        now,
+        this.enteredFromScreenName,
+        this.sessionDocPath,
+        this.sessionDocTitle,
+      );
+    }
+
+    const k = PulseWebSemconv.AttributeKey;
+    const pt = PulseWebSemconv.PulseType;
+    const screenName = this.currentScreenName || this.getCurrentScreenName(sdk);
+    const sessionId = sdk.sessionProvider.getSessionId() ?? "";
+    const snap = this.captureDocSnapshot();
+
+    const loadSpan = sdk.tracer.startSpan(
+      SPAN_SCREEN_LOAD,
+      {
+        kind: SpanKind.INTERNAL,
+        startTime: now,
+      },
+      ROOT_CONTEXT,
+    );
+    loadSpan.setAttributes({
+      [k.PULSE_TYPE]: pt.SCREEN_LOAD,
+      [k.SCREEN_NAME]: screenName,
+      [k.SESSION_ID]: sessionId,
+      [k.START_TYPE]: "bfcache",
+      ...this.buildDocAttrsFromSnapshot(
+        snap.path,
+        snap.title,
+        this.enteredFromScreenName,
+      ),
+    });
+    loadSpan.setStatus({ code: SpanStatusCode.OK });
+    loadSpan.end(now);
+
+    this.sessionDocPath = snap.path;
+    this.sessionDocTitle = snap.title;
+    this.screenStartTime = now;
+
+    this.activeSessionSpan = sdk.tracer.startSpan(
+      SPAN_SCREEN_SESSION,
+      {
+        kind: SpanKind.INTERNAL,
+        startTime: now,
+      },
+      ROOT_CONTEXT,
+    );
+    this.activeSessionSpan.setAttributes({
+      [k.PULSE_TYPE]: pt.SCREEN_SESSION,
+      [k.SCREEN_NAME]: screenName,
+      [k.SESSION_ID]: sessionId,
+    });
+
+    if (typeof sdk.globalAttrsProcessor.setScreenName === "function") {
+      sdk.globalAttrsProcessor.setScreenName(screenName);
     }
   }
 
@@ -558,6 +649,11 @@ export class NavigationInstrumentation implements PulseInstrumentation {
         },
         ROOT_CONTEXT,
       );
+      this.activeSessionSpan.setAttributes({
+        [attributeKeys.PULSE_TYPE]: pulseTypes.SCREEN_SESSION,
+        [attributeKeys.SCREEN_NAME]: screenName,
+        [attributeKeys.SESSION_ID]: sessionId ?? "",
+      });
     };
 
     // Emit on load event — keep ref for `removeEventListener` on `uninstall`
