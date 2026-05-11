@@ -63,4 +63,21 @@ public class CreateFunnelDefinitionRequest {
    * Optional; persisted to {@code funnel_journey_tag} after the funnel is created.
    */
   private List<String> tags;
+
+  /**
+   * Optional event-attribute key carrying the numeric order value (e.g. {@code order.value}).
+   * When set, the compute paths populate per-step Revenue / AvgOrderValue / LostRevenue.
+   */
+  private String revenueAttribute;
+
+  /**
+   * 0-based index of the step that carries the order/purchase event. Defaults to the last step
+   * when {@code null} and {@link #revenueAttribute} is set.
+   */
+  private Integer revenueStepIndex;
+
+  /**
+   * Display-only ISO-4217 currency code (e.g. {@code INR}, {@code USD}).
+   */
+  private String currency;
 }

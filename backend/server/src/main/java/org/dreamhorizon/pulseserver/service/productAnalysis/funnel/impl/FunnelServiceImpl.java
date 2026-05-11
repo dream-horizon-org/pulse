@@ -71,6 +71,9 @@ public class FunnelServiceImpl implements FunnelService {
       return Single.error(ServiceError.INVALID_JSON.getCustomException(e.getMessage()));
     }
 
+    validateRevenueConfig(request.getRevenueAttribute(), request.getRevenueStepIndex(),
+        request.getSteps() == null ? 0 : request.getSteps().size());
+
     FunnelDefinitionRow row =
       FunnelDefinitionRow.builder()
         .projectId(projectId)
@@ -86,6 +89,9 @@ public class FunnelServiceImpl implements FunnelService {
         .startTime(request.getStartTime())
         .endTime(request.getEndTime())
         .expiry(request.getExpiryDate())
+        .revenueAttribute(StringUtils.trimToNull(request.getRevenueAttribute()))
+        .revenueStepIndex(request.getRevenueStepIndex())
+        .currency(StringUtils.trimToNull(request.getCurrency()))
         .createdBy(createdBy)
         .build();
 
@@ -127,6 +133,9 @@ public class FunnelServiceImpl implements FunnelService {
       return Completable.error(ServiceError.INVALID_JSON.getCustomException(e.getMessage()));
     }
 
+    validateRevenueConfig(request.getRevenueAttribute(), request.getRevenueStepIndex(),
+        request.getSteps() == null ? 0 : request.getSteps().size());
+
     FunnelDefinitionRow row =
       FunnelDefinitionRow.builder()
         .id(id)
@@ -143,6 +152,9 @@ public class FunnelServiceImpl implements FunnelService {
         .startTime(request.getStartTime())
         .endTime(request.getEndTime())
         .expiry(request.getExpiry())
+        .revenueAttribute(StringUtils.trimToNull(request.getRevenueAttribute()))
+        .revenueStepIndex(request.getRevenueStepIndex())
+        .currency(StringUtils.trimToNull(request.getCurrency()))
         .createdBy(null)
         .createdAt(null)
         .updatedAt(null)
@@ -260,7 +272,7 @@ public class FunnelServiceImpl implements FunnelService {
           Single<FunnelResultsResponse> results =
             funnelResultsDao
               .queryLatest(projectId, id)
-              .map(FunnelResultsMapper::fromRows)
+              .map(rows -> FunnelResultsMapper.fromRows(rows, row.getCurrency()))
               .onErrorResumeNext(
                 err -> {
                   log.warn(
@@ -305,10 +317,10 @@ public class FunnelServiceImpl implements FunnelService {
       .switchIfEmpty(Maybe.error(ServiceError.FUNNEL_NOT_FOUND.getException()))
       .toSingle()
       .flatMap(
-        ignored ->
+        row ->
           funnelResultsDao
             .queryLatest(projectId, id)
-            .map(FunnelResultsMapper::fromRows));
+            .map(rows -> FunnelResultsMapper.fromRows(rows, row.getCurrency())));
   }
 
   @Override
@@ -428,6 +440,21 @@ public class FunnelServiceImpl implements FunnelService {
         ignored ->
           funnelJourneyTagDao.replaceTags(
             projectId, FunnelJourneyTagEntityType.FUNNEL, funnelId, normalized));
+  }
+
+  /**
+   * Validates revenue configuration on create/update. Revenue is fully optional — if
+   * {@code revenueAttribute} is blank/null, any provided {@code revenueStepIndex} is ignored.
+   * When set, the step index must be within bounds of the funnel's step list.
+   */
+  private void validateRevenueConfig(String revenueAttribute, Integer revenueStepIndex, int stepCount) {
+    if (revenueAttribute == null || revenueAttribute.isBlank()) {
+      return;
+    }
+    if (revenueStepIndex != null && (revenueStepIndex < 0 || revenueStepIndex >= stepCount)) {
+      throw ServiceError.INCORRECT_OR_MISSING_BODY_PARAMETERS.getCustomException(
+        "revenueStepIndex must be between 0 and " + (stepCount - 1));
+    }
   }
 
   private void validateCreateOrUpdate(
@@ -577,6 +604,9 @@ public class FunnelServiceImpl implements FunnelService {
         .conversionTrend(conversionTrend)
         .funnelResults(funnelResults)
         .tags(tags)
+        .revenueAttribute(row.getRevenueAttribute())
+        .revenueStepIndex(row.getRevenueStepIndex())
+        .currency(row.getCurrency())
         .build();
     } catch (JsonProcessingException e) {
       log.error("Corrupt funnel JSON for id {}", row.getId(), e);

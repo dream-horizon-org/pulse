@@ -9,6 +9,7 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.List;
+import java.util.Locale;
 import org.dreamhorizon.pulsespark.model.FunnelResult;
 import org.dreamhorizon.pulsespark.model.JourneyTransition;
 import org.slf4j.Logger;
@@ -47,20 +48,34 @@ public class ClickHouseClient {
     }
     var sb = new StringBuilder()
         .append("INSERT INTO ").append(db).append(".funnel_results ")
-        .append("(FunnelId,ProjectId,RunTime,StepIndex,StepName,UserCount,ConversionPct,MedianStepSeconds) VALUES ");
+        .append("(FunnelId,ProjectId,RunTime,StepIndex,StepName,UserCount,ConversionPct,MedianStepSeconds,")
+        .append("OrderCount,Revenue,AvgOrderValue,LostRevenue) VALUES ");
     for (int i = 0; i < rows.size(); i++) {
       var r = rows.get(i);
       if (i > 0) {
         sb.append(',');
       }
       String medianVal = r.medianStepSeconds() == null ? "NULL" : String.valueOf(r.medianStepSeconds());
-      sb.append(String.format("('%d','%s','%s',%d,'%s',%d,%.4f,%s)",
+      String orderCountVal = r.orderCount() == null ? "NULL" : String.valueOf(r.orderCount());
+      String revenueVal = formatDecimal(r.revenue());
+      String aovVal = formatDecimal(r.avgOrderValue());
+      String lostVal = formatDecimal(r.lostRevenue());
+      sb.append(String.format(Locale.ROOT,
+          "('%d','%s','%s',%d,'%s',%d,%.4f,%s,%s,%s,%s,%s)",
           r.funnelId(), esc(r.projectId()), esc(r.runTime()),
-          r.stepIndex(), esc(r.stepName()), r.userCount(), r.conversionPct(), medianVal
+          r.stepIndex(), esc(r.stepName()), r.userCount(), r.conversionPct(),
+          medianVal, orderCountVal, revenueVal, aovVal, lostVal
       ));
     }
     execute("insertFunnelResults", sb.toString());
     log.info("Inserted {} funnel_result rows", rows.size());
+  }
+
+  private static String formatDecimal(Double v) {
+    if (v == null || Double.isNaN(v) || Double.isInfinite(v)) {
+      return "NULL";
+    }
+    return String.format(Locale.ROOT, "%.4f", v);
   }
 
   public void insertJourneyResults(List<JourneyTransition> rows) {

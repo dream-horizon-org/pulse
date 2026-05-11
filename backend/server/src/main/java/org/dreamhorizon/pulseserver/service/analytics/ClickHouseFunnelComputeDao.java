@@ -52,7 +52,35 @@ public final class ClickHouseFunnelComputeDao {
   private static final DateTimeFormatter RUN_TIME_FMT =
     DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS").withZone(ZoneOffset.UTC);
 
+  /**
+   * Trailing four columns for the {@code funnel_results} INSERT when a funnel has no revenue
+   * configuration. Emitted on every step row so all branches stay schema-compatible.
+   */
+  private static final String NULL_REVENUE_COLUMNS =
+      "       CAST(NULL AS Nullable(UInt64)),\n"
+    + "       CAST(NULL AS Nullable(Decimal(18, 4))),\n"
+    + "       CAST(NULL AS Nullable(Decimal(18, 4))),\n"
+    + "       CAST(NULL AS Nullable(Decimal(18, 4)))\n";
+
   private ClickHouseFunnelComputeDao() {
+  }
+
+  /**
+   * Resolves the 0-based step index that carries the order/purchase event. Defaults to the last
+   * step when {@code revenueStepIndex} is unset or out of range; only meaningful when
+   * {@link FunnelDefinitionRow#getRevenueAttribute()} is non-null.
+   */
+  private static int effectiveRevenueStepIndex(FunnelDefinitionRow def, int stepCount) {
+    Integer idx = def.getRevenueStepIndex();
+    if (idx != null && idx >= 0 && idx < stepCount) {
+      return idx;
+    }
+    return stepCount - 1;
+  }
+
+  private static boolean hasRevenueConfig(FunnelDefinitionRow def) {
+    String attr = def.getRevenueAttribute();
+    return attr != null && !attr.isBlank();
   }
 
   /**
@@ -128,9 +156,14 @@ public final class ClickHouseFunnelComputeDao {
       .map(s -> "EventName = '" + escape(s.getEventName()) + "'")
       .collect(Collectors.joining(",\n        "));
 
-    StringBuilder sql = new StringBuilder(1024);
+    boolean hasRev = hasRevenueConfig(def);
+    int revenueStepIdx = hasRev ? effectiveRevenueStepIndex(def, stepCount) : -1;
+    int revThreshold = revenueStepIdx + 1; // winning_depth >= revThreshold means user reached revenue step
+
+    StringBuilder sql = new StringBuilder(2048);
     sql.append("INSERT INTO otel.funnel_results\n")
-      .append("  (FunnelId, ProjectId, RunTime, StepIndex, StepName, UserCount, ConversionPct, MedianStepSeconds)\n")
+      .append("  (FunnelId, ProjectId, RunTime, StepIndex, StepName, UserCount, ConversionPct, MedianStepSeconds, ")
+      .append("OrderCount, Revenue, AvgOrderValue, LostRevenue)\n")
       .append("WITH\n");
 
     sql.append("  step_events AS (\n")
@@ -154,20 +187,77 @@ public final class ClickHouseFunnelComputeDao {
       .append("      ) AS winning_depth\n")
       .append("    FROM (SELECT uid, FunnelTs, EventName FROM step_events ORDER BY uid ASC, FunnelTs ASC)\n")
       .append("    GROUP BY uid\n")
-      .append("  )\n");/**/
+      .append("  )");
+
+    String scoredCte = "funnel";
+    if (hasRev) {
+      String revEventName = escape(steps.get(revenueStepIdx).getEventName());
+      String revKey = escape(def.getRevenueAttribute());
+      sql.append(",\n  revenue_per_uid AS (\n")
+        .append("    SELECT ").append(groupKey).append(" AS uid,\n")
+        .append("           argMin(accurateCastOrNull(LogAttributes['")
+        .append(revKey).append("'], 'Float64'), Timestamp) AS order_value\n")
+        .append("    FROM otel.otel_logs\n")
+        .append("    PREWHERE ProjectId = '").append(projectId).append("'\n")
+        .append("      AND Timestamp BETWEEN ").append(startExpr).append(" AND ").append(endExpr).append("\n")
+        .append("    WHERE PulseType = 'custom_event'\n")
+        .append("      AND EventName = '").append(revEventName).append("'\n");
+      if (!additionalFilters.isBlank()) {
+        sql.append("      ").append(additionalFilters).append("\n");
+      }
+      sql.append("    GROUP BY uid\n")
+        .append("    HAVING order_value IS NOT NULL\n")
+        .append("  ),\n");
+      sql.append("  funnel_rev AS (\n")
+        .append("    SELECT f.uid, f.winning_depth, r.order_value\n")
+        .append("    FROM funnel f LEFT JOIN revenue_per_uid r ON f.uid = r.uid\n")
+        .append("  ),\n");
+      sql.append("  totals AS (\n")
+        .append("    SELECT countIf(winning_depth >= ").append(revThreshold)
+        .append(" AND order_value IS NOT NULL) AS order_count,\n")
+        .append("           sumIf(order_value, winning_depth >= ").append(revThreshold)
+        .append(" AND order_value IS NOT NULL) AS total_revenue,\n")
+        .append("           sumIf(order_value, winning_depth >= ").append(revThreshold)
+        .append(" AND order_value IS NOT NULL)\n")
+        .append("             / nullIf(countIf(winning_depth >= ").append(revThreshold)
+        .append(" AND order_value IS NOT NULL), 0) AS aov\n")
+        .append("    FROM funnel_rev\n")
+        .append("  )\n");
+      scoredCte = "funnel_rev";
+    } else {
+      sql.append("\n");
+    }
 
     for (int k = 1; k <= stepCount; k++) {
       if (k > 1) {
         sql.append("UNION ALL\n");
       }
       String stepName = escape(steps.get(k - 1).getEventName());
+      int stepIdx0 = k - 1;
       sql.append("SELECT toUInt64(").append(funnelId).append("), '").append(projectId)
-        .append("', ").append(runTime).append(", toUInt8(").append(k - 1).append("), '").append(stepName).append("',\n")
+        .append("', ").append(runTime).append(", toUInt8(").append(stepIdx0).append("), '").append(stepName).append("',\n")
         .append("       countIf(winning_depth >= ").append(k).append("),\n")
         .append("       countIf(winning_depth >= ").append(k)
         .append(") * 100.0 / greatest(countIf(winning_depth >= 1), 1),\n")
-        .append("       CAST(NULL AS Nullable(Int64))\n")
-        .append("FROM funnel\n");
+        .append("       CAST(NULL AS Nullable(Int64)),\n");
+
+      if (hasRev) {
+        sql.append("       CAST((SELECT order_count FROM totals) AS Nullable(UInt64)),\n")
+          .append("       accurateCastOrNull((SELECT total_revenue FROM totals), 'Decimal(18, 4)'),\n")
+          .append("       accurateCastOrNull((SELECT aov FROM totals), 'Decimal(18, 4)'),\n");
+        if (stepIdx0 == 0 || stepIdx0 > revenueStepIdx) {
+          sql.append("       accurateCastOrNull(0, 'Decimal(18, 4)')\n");
+        } else {
+          sql.append("       accurateCastOrNull(\n")
+            .append("         (countIf(winning_depth >= ").append(k - 1)
+            .append(") - countIf(winning_depth >= ").append(k).append("))\n")
+            .append("         * (SELECT aov FROM totals),\n")
+            .append("         'Decimal(18, 4)')\n");
+        }
+      } else {
+        sql.append(NULL_REVENUE_COLUMNS);
+      }
+      sql.append("FROM ").append(scoredCte).append("\n");
     }
 
     return sql.toString();
@@ -221,9 +311,14 @@ public final class ClickHouseFunnelComputeDao {
       .map(ClickhouseAnalyticsConstantsMapper::toSqlClause)
       .collect(Collectors.joining("\n      "));
 
+    boolean hasRev = hasRevenueConfig(def);
+    int revenueStepIdx = hasRev ? effectiveRevenueStepIndex(def, stepCount) : -1;
+    int revThreshold = revenueStepIdx + 1;
+
     StringBuilder sql = new StringBuilder(2048);
     sql.append("INSERT INTO otel.funnel_results\n")
-      .append("  (FunnelId, ProjectId, RunTime, StepIndex, StepName, UserCount, ConversionPct, MedianStepSeconds)\n")
+      .append("  (FunnelId, ProjectId, RunTime, StepIndex, StepName, UserCount, ConversionPct, MedianStepSeconds, ")
+      .append("OrderCount, Revenue, AvgOrderValue, LostRevenue)\n")
       .append("WITH\n");
 
     // step_events: shared filtered scan, narrowed to this funnel's step event names.
@@ -314,9 +409,48 @@ public final class ClickHouseFunnelComputeDao {
       .append("      max(depth) AS winning_depth\n")
       .append("    FROM scored\n")
       .append("    GROUP BY uid\n")
-      .append("  )\n");
+      .append("  )");
 
-    // Final SELECT: one UNION ALL branch per step, emitting UserCount + MedianStepSeconds.
+    String scoredCte = "winners";
+    if (hasRev) {
+      String revEventName = escape(steps.get(revenueStepIdx).getEventName());
+      String revKey = escape(def.getRevenueAttribute());
+      sql.append(",\n  revenue_per_uid AS (\n")
+        .append("    SELECT ").append(groupKey).append(" AS uid,\n")
+        .append("           argMin(accurateCastOrNull(LogAttributes['")
+        .append(revKey).append("'], 'Float64'), Timestamp) AS order_value\n")
+        .append("    FROM otel.otel_logs\n")
+        .append("    WHERE ProjectId = '").append(projectId).append("'\n")
+        .append("      AND PulseType = 'custom_event'\n")
+        .append("      AND Timestamp BETWEEN ").append(startExpr).append(" AND ").append(endExpr).append("\n")
+        .append("      AND EventName = '").append(revEventName).append("'\n");
+      if (!additionalFilters.isBlank()) {
+        sql.append("      ").append(additionalFilters).append("\n");
+      }
+      sql.append("    GROUP BY uid\n")
+        .append("    HAVING order_value IS NOT NULL\n")
+        .append("  ),\n");
+      sql.append("  winners_rev AS (\n")
+        .append("    SELECT w.uid, w.chain, w.winning_depth, r.order_value\n")
+        .append("    FROM winners w LEFT JOIN revenue_per_uid r ON w.uid = r.uid\n")
+        .append("  ),\n");
+      sql.append("  totals AS (\n")
+        .append("    SELECT countIf(winning_depth >= ").append(revThreshold)
+        .append(" AND order_value IS NOT NULL) AS order_count,\n")
+        .append("           sumIf(order_value, winning_depth >= ").append(revThreshold)
+        .append(" AND order_value IS NOT NULL) AS total_revenue,\n")
+        .append("           sumIf(order_value, winning_depth >= ").append(revThreshold)
+        .append(" AND order_value IS NOT NULL)\n")
+        .append("             / nullIf(countIf(winning_depth >= ").append(revThreshold)
+        .append(" AND order_value IS NOT NULL), 0) AS aov\n")
+        .append("    FROM winners_rev\n")
+        .append("  )\n");
+      scoredCte = "winners_rev";
+    } else {
+      sql.append("\n");
+    }
+
+    // Final SELECT: one UNION ALL branch per step, emitting UserCount + MedianStepSeconds + revenue cols.
     // Step 1's median is always NULL (no previous step). Steps 2..N compute the median
     // delta from the previous step on the winning chain, only over users who reached the step.
     for (int k = 1; k <= stepCount; k++) {
@@ -324,13 +458,14 @@ public final class ClickHouseFunnelComputeDao {
         sql.append("UNION ALL\n");
       }
       String stepName = escape(steps.get(k - 1).getEventName());
+      int stepIdx0 = k - 1;
       sql.append("SELECT toUInt64(").append(funnelId).append("), '").append(projectId)
-        .append("', ").append(runTime).append(", toUInt8(").append(k - 1).append("), '").append(stepName).append("',\n")
+        .append("', ").append(runTime).append(", toUInt8(").append(stepIdx0).append("), '").append(stepName).append("',\n")
         .append("       countIf(winning_depth >= ").append(k).append("),\n")
         .append("       countIf(winning_depth >= ").append(k)
         .append(") * 100.0 / greatest(count(), 1),\n");
       if (k == 1) {
-        sql.append("       CAST(NULL AS Nullable(Int64))\n");
+        sql.append("       CAST(NULL AS Nullable(Int64)),\n");
       } else {
         String lo = Integer.toString(k - 1);
         String hi = Integer.toString(k);
@@ -355,9 +490,25 @@ public final class ClickHouseFunnelComputeDao {
         sql.append("       accurateCastOrNull(round(quantileExactIf(0.5)(\n")
           .append("         ").append(diff).append(",\n")
           .append("         ").append(cond).append("\n")
-          .append("       )), 'Int64')\n");
+          .append("       )), 'Int64'),\n");
       }
-      sql.append("FROM winners\n");
+      if (hasRev) {
+        sql.append("       CAST((SELECT order_count FROM totals) AS Nullable(UInt64)),\n")
+          .append("       accurateCastOrNull((SELECT total_revenue FROM totals), 'Decimal(18, 4)'),\n")
+          .append("       accurateCastOrNull((SELECT aov FROM totals), 'Decimal(18, 4)'),\n");
+        if (stepIdx0 == 0 || stepIdx0 > revenueStepIdx) {
+          sql.append("       accurateCastOrNull(0, 'Decimal(18, 4)')\n");
+        } else {
+          sql.append("       accurateCastOrNull(\n")
+            .append("         (countIf(winning_depth >= ").append(k - 1)
+            .append(") - countIf(winning_depth >= ").append(k).append("))\n")
+            .append("         * (SELECT aov FROM totals),\n")
+            .append("         'Decimal(18, 4)')\n");
+        }
+      } else {
+        sql.append(NULL_REVENUE_COLUMNS);
+      }
+      sql.append("FROM ").append(scoredCte).append("\n");
     }
 
     return sql.toString();
@@ -396,11 +547,13 @@ public final class ClickHouseFunnelComputeDao {
       .map(ClickhouseAnalyticsConstantsMapper::toSqlClause)
       .collect(Collectors.joining("\n      "));
 
-    String stepRows = buildUnorderedStepRows(steps, funnelId, projectId, runTimeLiteral());
+    boolean hasRev = hasRevenueConfig(def);
+    int revenueStepIdx = hasRev ? effectiveRevenueStepIndex(def, stepCount) : -1;
 
     StringBuilder sql = new StringBuilder(2048);
     sql.append("INSERT INTO otel.funnel_results\n")
-      .append("  (FunnelId, ProjectId, RunTime, StepIndex, StepName, UserCount, ConversionPct, MedianStepSeconds)\n")
+      .append("  (FunnelId, ProjectId, RunTime, StepIndex, StepName, UserCount, ConversionPct, MedianStepSeconds, ")
+      .append("OrderCount, Revenue, AvgOrderValue, LostRevenue)\n")
       .append("WITH\n")
       .append("  step_events AS (\n")
       .append("    SELECT ").append(groupKey).append(" AS uid,\n")
@@ -438,8 +591,39 @@ public final class ClickHouseFunnelComputeDao {
       .append("    SELECT uid, max(steps_in_window) AS max_steps\n")
       .append("    FROM window_scores\n")
       .append("    GROUP BY uid\n")
-      .append("  )\n")
-      .append(stepRows);
+      .append("  )");
+
+    if (hasRev) {
+      String revEventName = escape(steps.get(revenueStepIdx).getEventName());
+      String revKey = escape(def.getRevenueAttribute());
+      sql.append(",\n  revenue_per_uid AS (\n")
+        .append("    SELECT ").append(groupKey).append(" AS uid,\n")
+        .append("           argMin(accurateCastOrNull(LogAttributes['")
+        .append(revKey).append("'], 'Float64'), Timestamp) AS order_value\n")
+        .append("    FROM otel.otel_logs\n")
+        .append("    WHERE ProjectId = '").append(projectId).append("'\n")
+        .append("      AND PulseType = 'custom_event'\n")
+        .append("      AND Timestamp BETWEEN ").append(startExpr).append(" AND ").append(endExpr).append("\n")
+        .append("      AND EventName = '").append(revEventName).append("'\n");
+      if (!additionalFilters.isBlank()) {
+        sql.append("      ").append(additionalFilters).append("\n");
+      }
+      sql.append("    GROUP BY uid\n")
+        .append("    HAVING order_value IS NOT NULL\n")
+        .append("  ),\n");
+      // For unordered v1: totals are computed over identities that actually emitted a revenue
+      // event in the date range (no funnel-window membership check — step order is undefined).
+      sql.append("  totals AS (\n")
+        .append("    SELECT count() AS order_count,\n")
+        .append("           sum(order_value) AS total_revenue,\n")
+        .append("           sum(order_value) / nullIf(count(), 0) AS aov\n")
+        .append("    FROM revenue_per_uid\n")
+        .append("  )\n");
+    } else {
+      sql.append("\n");
+    }
+
+    sql.append(buildUnorderedStepRows(steps, funnelId, projectId, runTimeLiteral(), hasRev));
 
     return sql.toString();
   }
@@ -650,7 +834,7 @@ public final class ClickHouseFunnelComputeDao {
   }
 
   private static String buildUnorderedStepRows(
-    List<FunnelDefinitionStep> steps, long funnelId, String projectId, String runTime) {
+    List<FunnelDefinitionStep> steps, long funnelId, String projectId, String runTime, boolean hasRev) {
     StringBuilder rows = new StringBuilder(1024);
     for (int i = 0; i < steps.size(); i++) {
       if (i > 0) {
@@ -661,8 +845,17 @@ public final class ClickHouseFunnelComputeDao {
         .append("toUInt8(").append(i).append("), '").append(escape(steps.get(i).getEventName())).append("',\n")
         .append("       countIf(max_steps >= ").append(i + 1).append("),\n")
         .append("       countIf(max_steps >= ").append(i + 1).append(") * 100.0 / greatest(count(), 1),\n")
-        .append("       CAST(NULL AS Nullable(Int64))\n")
-        .append("FROM best_per_uid\n");
+        .append("       CAST(NULL AS Nullable(Int64)),\n");
+      if (hasRev) {
+        // Constant totals across step rows; lost-revenue is undefined without step ordering.
+        rows.append("       CAST((SELECT order_count FROM totals) AS Nullable(UInt64)),\n")
+          .append("       accurateCastOrNull((SELECT total_revenue FROM totals), 'Decimal(18, 4)'),\n")
+          .append("       accurateCastOrNull((SELECT aov FROM totals), 'Decimal(18, 4)'),\n")
+          .append("       CAST(NULL AS Nullable(Decimal(18, 4)))\n");
+      } else {
+        rows.append(NULL_REVENUE_COLUMNS);
+      }
+      rows.append("FROM best_per_uid\n");
     }
     return rows.toString();
   }

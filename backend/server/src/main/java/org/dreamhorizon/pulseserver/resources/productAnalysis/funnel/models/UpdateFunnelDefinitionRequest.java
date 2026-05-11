@@ -64,4 +64,15 @@ public class UpdateFunnelDefinitionRequest {
    * are left unchanged.
    */
   private List<String> tags;
+
+  /**
+   * Optional event-attribute key carrying the numeric order value. Null disables revenue computation.
+   */
+  private String revenueAttribute;
+
+  /** 0-based revenue-step index. Defaults to the last step when null and {@link #revenueAttribute} is set. */
+  private Integer revenueStepIndex;
+
+  /** Display-only ISO-4217 currency code. */
+  private String currency;
 }

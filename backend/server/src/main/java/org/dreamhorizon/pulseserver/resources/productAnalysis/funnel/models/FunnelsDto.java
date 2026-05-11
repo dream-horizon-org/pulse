@@ -29,4 +29,7 @@ public class FunnelsDto {
   private String funnelType;
   private Instant startTime;
   private Instant endTime;
+  private String revenueAttribute;
+  private Integer revenueStepIndex;
+  private String currency;
 }

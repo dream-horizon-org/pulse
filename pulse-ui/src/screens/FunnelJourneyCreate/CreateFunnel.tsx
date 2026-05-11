@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
-import { ActionIcon, Box, Button, Divider, Group, Stack, Stepper, Text, Title, useMantineTheme } from "@mantine/core";
-import { IconArrowLeft, IconChartFunnel, IconSquareRoundedX } from "@tabler/icons-react";
+import { ActionIcon, Box, Button, Divider, Group, NumberInput, Select, Stack, Stepper, Text, TextInput, Title, useMantineTheme } from "@mantine/core";
+import { IconArrowLeft, IconChartFunnel, IconCoin, IconSquareRoundedX } from "@tabler/icons-react";
 import { generatePath, useNavigate, useParams } from "react-router-dom";
 import { COMMON_CONSTANTS, ROUTES } from "../../constants";
 import { showNotification } from "../../helpers/showNotification";
@@ -81,6 +81,9 @@ export function CreateFunnel() {
     FunnelMode.UNIQUE_USERS,
   );
   const [conversionWindow, setConversionWindow] = useState("86400");
+  const [revenueAttribute, setRevenueAttribute] = useState("");
+  const [revenueStepIndex, setRevenueStepIndex] = useState<number | "">("");
+  const [currency, setCurrency] = useState<string | null>(null);
 
   const { data: eventsData } = useGetFunnelEvents();
   const { data: filtersData } = useGetFunnelFilters();
@@ -166,6 +169,17 @@ export function CreateFunnel() {
     } else {
       body.dateRangeDays = extractDateRangeDays(dateRange);
       body.expiryDate = expiryDate!.toISOString();
+    }
+
+    const trimmedRevenueAttr = revenueAttribute.trim();
+    if (trimmedRevenueAttr) {
+      body.revenueAttribute = trimmedRevenueAttr;
+      if (revenueStepIndex !== "") {
+        body.revenueStepIndex = revenueStepIndex;
+      }
+      if (currency) {
+        body.currency = currency;
+      }
     }
 
     createFunnel(body, {
@@ -339,6 +353,49 @@ export function CreateFunnel() {
                         onFiltersChange={setFilters}
                         filterOptions={filterOptions}
                       />
+                      <Box>
+                        <Group gap="xs" mb="xs">
+                          <IconCoin size={18} stroke={1.6} color="var(--mantine-color-teal-6)" />
+                          <Text fw={600} c="dark.7">Revenue tracking (optional)</Text>
+                        </Group>
+                        <Text size="xs" c="dimmed" mb="md">
+                          Set an event attribute that carries the order value (e.g. <code>order.value</code>).
+                          When set, the funnel reports per-step Revenue, Average Order Value, and projected
+                          Lost Revenue.
+                        </Text>
+                        <Group gap="md" wrap="wrap" align="flex-start">
+                          <TextInput
+                            label="Revenue attribute"
+                            placeholder="order.value"
+                            value={revenueAttribute}
+                            onChange={(e) => setRevenueAttribute(e.currentTarget.value)}
+                            style={{ minWidth: 220, flex: 1 }}
+                          />
+                          <NumberInput
+                            label="Revenue step (0-based)"
+                            placeholder={`Last step (${Math.max(0, apiSteps.length - 1)})`}
+                            value={revenueStepIndex}
+                            onChange={(v) =>
+                              setRevenueStepIndex(typeof v === "number" ? v : "")
+                            }
+                            min={0}
+                            max={Math.max(0, apiSteps.length - 1)}
+                            allowDecimal={false}
+                            disabled={!revenueAttribute.trim()}
+                            style={{ width: 160 }}
+                          />
+                          <Select
+                            label="Currency"
+                            placeholder="None"
+                            data={["INR", "USD", "EUR", "GBP", "JPY", "AUD", "CAD", "SGD"]}
+                            value={currency}
+                            onChange={setCurrency}
+                            disabled={!revenueAttribute.trim()}
+                            clearable
+                            style={{ width: 140 }}
+                          />
+                        </Group>
+                      </Box>
                       <Box className={createFormClasses.finalStepCard}>
                         <Box
                           style={{

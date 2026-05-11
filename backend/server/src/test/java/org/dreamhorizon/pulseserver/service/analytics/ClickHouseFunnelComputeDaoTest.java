@@ -258,7 +258,8 @@ class ClickHouseFunnelComputeDaoTest {
       String sql = ClickHouseFunnelComputeDao.buildInsertSqlChain(baseRow().build());
       assertThat(sql).contains(
           "INSERT INTO otel.funnel_results\n"
-              + "  (FunnelId, ProjectId, RunTime, StepIndex, StepName, UserCount, ConversionPct, MedianStepSeconds)");
+              + "  (FunnelId, ProjectId, RunTime, StepIndex, StepName, UserCount, ConversionPct, MedianStepSeconds, "
+              + "OrderCount, Revenue, AvgOrderValue, LostRevenue)");
     }
 
     @Test
@@ -519,7 +520,8 @@ class ClickHouseFunnelComputeDaoTest {
       String sql = ClickHouseFunnelComputeDao.buildInsertSqlWindowFunnel(baseRow().build());
       assertThat(sql).contains(
           "INSERT INTO otel.funnel_results\n"
-              + "  (FunnelId, ProjectId, RunTime, StepIndex, StepName, UserCount, ConversionPct, MedianStepSeconds)");
+              + "  (FunnelId, ProjectId, RunTime, StepIndex, StepName, UserCount, ConversionPct, MedianStepSeconds, "
+              + "OrderCount, Revenue, AvgOrderValue, LostRevenue)");
     }
 
     @Test
@@ -701,6 +703,91 @@ class ClickHouseFunnelComputeDaoTest {
           .contains("countIf(max_steps >= 3)")
           .contains("CAST(NULL AS Nullable(Int64))")
           .doesNotContain("quantileExactIf(0.5)");
+    }
+  }
+
+  @Nested
+  class RevenueColumns {
+
+    @Test
+    void shouldEmitNullRevenueColumnsWhenWindowFunnelHasNoRevenueConfig() {
+      String sql = ClickHouseFunnelComputeDao.buildInsertSqlWindowFunnel(baseRow().build());
+      assertThat(sql)
+          .contains("OrderCount, Revenue, AvgOrderValue, LostRevenue")
+          .contains("CAST(NULL AS Nullable(UInt64))")
+          .contains("CAST(NULL AS Nullable(Decimal(18, 4)))")
+          .doesNotContain("revenue_per_uid")
+          .doesNotContain("funnel_rev")
+          .doesNotContain("totals AS (");
+    }
+
+    @Test
+    void shouldEmitRevenueCtesAndTotalsWhenWindowFunnelHasRevenueConfig() {
+      String sql = ClickHouseFunnelComputeDao.buildInsertSqlWindowFunnel(
+          baseRow()
+              .revenueAttribute("order.value")
+              .revenueStepIndex(2)
+              .currency("INR")
+              .build());
+      assertThat(sql)
+          .contains("revenue_per_uid AS (")
+          .contains("argMin(accurateCastOrNull(LogAttributes['order.value'], 'Float64'), Timestamp)")
+          .contains("AND EventName = 'purchase'")
+          .contains("HAVING order_value IS NOT NULL")
+          .contains("funnel_rev AS (")
+          .contains("totals AS (")
+          .contains("countIf(winning_depth >= 3 AND order_value IS NOT NULL)")
+          .contains("sumIf(order_value, winning_depth >= 3 AND order_value IS NOT NULL)")
+          .contains("FROM funnel_rev");
+    }
+
+    @Test
+    void shouldEmitZeroLostRevenueForStepZeroAndStepsBeyondRevenueStep() {
+      String stepsJson = "[{\"eventName\":\"view\"},{\"eventName\":\"add_to_cart\"},"
+          + "{\"eventName\":\"purchase\"},{\"eventName\":\"post_purchase\"}]";
+      String sql = ClickHouseFunnelComputeDao.buildInsertSqlWindowFunnel(
+          baseRow()
+              .stepsJson(stepsJson)
+              .revenueAttribute("order.value")
+              .revenueStepIndex(2)
+              .build());
+      // Step 0 (view) and step 3 (post_purchase) — no lost revenue applies.
+      assertThat(sql).contains("accurateCastOrNull(0, 'Decimal(18, 4)')");
+      // Step 1 and step 2 — drop-off contributes lost revenue.
+      assertThat(sql).contains("(countIf(winning_depth >= 1) - countIf(winning_depth >= 2))");
+      assertThat(sql).contains("(countIf(winning_depth >= 2) - countIf(winning_depth >= 3))");
+    }
+
+    @Test
+    void shouldDefaultRevenueStepIndexToLastStepWhenNotSpecified() {
+      String sql = ClickHouseFunnelComputeDao.buildInsertSqlWindowFunnel(
+          baseRow().revenueAttribute("order.value").build());
+      // baseRow has 3 steps; last is 'purchase' → revenue threshold winning_depth >= 3.
+      assertThat(sql)
+          .contains("AND EventName = 'purchase'")
+          .contains("countIf(winning_depth >= 3 AND order_value IS NOT NULL)");
+    }
+
+    @Test
+    void shouldEmitRevenueColumnsForUnorderedFunnel() {
+      String sql = ClickHouseFunnelComputeDao.buildInsertSqlForDefinition(
+          baseRow()
+              .stepOrderType("UNORDERED")
+              .revenueAttribute("order.value")
+              .build());
+      assertThat(sql)
+          .contains("OrderCount, Revenue, AvgOrderValue, LostRevenue")
+          .contains("revenue_per_uid AS (")
+          .contains("totals AS (")
+          // Unordered v1: lost revenue is undefined; always NULL.
+          .contains("CAST(NULL AS Nullable(Decimal(18, 4)))");
+    }
+
+    @Test
+    void shouldEscapeSingleQuotesInRevenueAttribute() {
+      String sql = ClickHouseFunnelComputeDao.buildInsertSqlWindowFunnel(
+          baseRow().revenueAttribute("o'rder.value").build());
+      assertThat(sql).contains("LogAttributes['o\\'rder.value']");
     }
   }
 }

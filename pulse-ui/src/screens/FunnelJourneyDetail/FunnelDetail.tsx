@@ -252,8 +252,16 @@ function FunnelDetailView({ detail, isEditing, onEdit }: { detail: any; isEditin
   };
 
   const funnelResult = detail.funnelResults as
-    | { steps: any[]; overallConversionRate: number }
+    | {
+        steps: any[];
+        overallConversionRate: number;
+        totalRevenue?: number | null;
+        totalOrderCount?: number | null;
+        overallAvgOrderValue?: number | null;
+        currency?: string | null;
+      }
     | undefined;
+  const revenueCurrency = detail.currency ?? funnelResult?.currency ?? null;
 
   return (
     <>
@@ -373,6 +381,7 @@ function FunnelDetailView({ detail, isEditing, onEdit }: { detail: any; isEditin
                 timeRange={visualizationTimeRange}
                 apiSteps={apiSteps}
                 mode={analysisMode}
+                currency={revenueCurrency}
               />
             </>
           ) : (

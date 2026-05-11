@@ -32,7 +32,8 @@ public class FunnelComputeJob {
     static final String[] READ_COLS = {
             "event_name", "project_id", "session_id", "timestamp",
             "os_name", "os_version", "app_build_name", "device_manufacturer",
-            "device_model_identifier", "network_carrier_icc", "screen_name", "service_name"
+            "device_model_identifier", "network_carrier_icc", "screen_name", "service_name",
+            "props"
     };
 
     public static void runFunnels(SparkSession spark, MysqlRepository mysql, ClickHouseClient ch,
@@ -186,19 +187,46 @@ public class FunnelComputeJob {
         }
 
         long[] medians = computeMedians(stepTs, numSteps, counts);
+
+        // Revenue extraction needs stepTs[revenueStepIdx] still cached — do it before unpersist.
+        boolean hasRev = funnel.hasRevenueConfig();
+        int revenueStepIdx = hasRev ? funnel.effectiveRevenueStepIndex() : -1;
+        RevenueAggregate rev = (hasRev && revenueStepIdx >= 0 && revenueStepIdx < stepTs.size()
+                && counts[revenueStepIdx] > 0)
+                ? aggregateOrderedRevenue(df, funnel, steps.get(revenueStepIdx), identityCol,
+                    stepTs.get(revenueStepIdx), revenueStepIdx)
+                : RevenueAggregate.EMPTY;
+
         current.unpersist();
         stepTs.forEach(Dataset::unpersist);
 
         long step0Count = counts[0];
+        Double globalAov = rev.orderCount > 0 ? rev.totalRevenue / rev.orderCount : null;
         var results = new ArrayList<FunnelResult>(numSteps);
         for (int i = 0; i < numSteps; i++) {
             double pct = step0Count > 0 ? (double) counts[i] / step0Count * 100.0 : 0.0;
+            Long stepOrderCount = null;
+            Double stepRevenue = null;
+            Double stepAov = null;
+            Double stepLost = null;
+            if (hasRev && globalAov != null) {
+                stepOrderCount = rev.orderCount;
+                stepRevenue = rev.totalRevenue;
+                stepAov = globalAov;
+                if (i == 0 || i > revenueStepIdx) {
+                    stepLost = 0.0;
+                } else {
+                    long dropped = Math.max(0L, counts[i - 1] - counts[i]);
+                    stepLost = dropped * globalAov;
+                }
+            }
             results.add(new FunnelResult(
                     funnel.id(), funnel.projectId(), runTime,
                     i, steps.get(i).eventName(),
                     counts[i],
                     Math.round(pct * 10_000.0) / 10_000.0,
-                    i == 0 ? null : (medians[i] >= 0 ? medians[i] : null)
+                    i == 0 ? null : (medians[i] >= 0 ? medians[i] : null),
+                    stepOrderCount, stepRevenue, stepAov, stepLost
             ));
         }
         return results;
@@ -249,16 +277,33 @@ public class FunnelComputeJob {
         bestPerIdentity.unpersist();
         allStepEvents.unpersist();
 
+        boolean hasRev = funnel.hasRevenueConfig();
+        int revenueStepIdx = hasRev ? funnel.effectiveRevenueStepIndex() : -1;
+        RevenueAggregate rev = (hasRev && revenueStepIdx >= 0 && revenueStepIdx < numSteps)
+                ? aggregateUnorderedRevenue(df, steps.get(revenueStepIdx), identityCol, funnel.revenueAttribute())
+                : RevenueAggregate.EMPTY;
+        Double globalAov = rev.orderCount > 0 ? rev.totalRevenue / rev.orderCount : null;
+
         long step0Count = counts[0];
         var results = new ArrayList<FunnelResult>(numSteps);
         for (int i = 0; i < numSteps; i++) {
             double pct = step0Count > 0 ? (double) counts[i] / step0Count * 100.0 : 0.0;
+            Long stepOrderCount = null;
+            Double stepRevenue = null;
+            Double stepAov = null;
+            if (hasRev && globalAov != null) {
+                stepOrderCount = rev.orderCount;
+                stepRevenue = rev.totalRevenue;
+                stepAov = globalAov;
+            }
             results.add(new FunnelResult(
                     funnel.id(), funnel.projectId(), runTime,
                     i, steps.get(i).eventName(),
                     counts[i],
                     Math.round(pct * 10_000.0) / 10_000.0,
-                    null // no step-to-step median for unordered funnels
+                    null, // no step-to-step median for unordered funnels
+                    stepOrderCount, stepRevenue, stepAov,
+                    null // lost-revenue requires step order — not defined for unordered funnels in v1
             ));
         }
         return results;
@@ -336,6 +381,94 @@ public class FunnelComputeJob {
                         unix_timestamp(col("timestamp")).alias("ts")
                 )
                 .filter(col("identity").isNotNull().and(col("identity").notEqual("")));
+    }
+
+    /**
+     * Like {@link #stepEvents} but also extracts a numeric {@code value} column from
+     * {@code props[revenueAttribute]} for revenue/AOV computation. Rows with a null
+     * value pass through and are filtered upstream where needed.
+     */
+    private static Dataset<Row> revenueStepEvents(Dataset<Row> df, FunnelStep step,
+                                                   String identityCol, String revenueAttribute) {
+        // OTel-style attribute keys can contain dots (e.g. "order.value"); use bracket notation
+        // so the whole key is treated as a single map key inside the props JSON.
+        String safeKey = revenueAttribute.replace("'", "\\'");
+        String jsonPath = "$['" + safeKey + "']";
+        Dataset<Row> filtered = df.filter(col("event_name").equalTo(step.eventName()));
+        filtered = applyFilters(filtered, step.stepFilters());
+        return filtered
+                .select(
+                        col(identityCol).alias("identity"),
+                        unix_timestamp(col("timestamp")).alias("ts"),
+                        get_json_object(col("props"), jsonPath).cast(DataTypes.DoubleType).alias("value")
+                )
+                .filter(col("identity").isNotNull().and(col("identity").notEqual("")));
+    }
+
+    /**
+     * Aggregates revenue for an ordered funnel by joining the revenue-step funnel-attempt
+     * timestamps against the actual revenue events to recover {@code order.value} for each
+     * identity's first successful attempt (earliest {@code ts0}).
+     */
+    private static RevenueAggregate aggregateOrderedRevenue(Dataset<Row> df, FunnelDefinition funnel,
+                                                             FunnelStep revStep, String identityCol,
+                                                             Dataset<Row> revStepTs, int revenueStepIdx) {
+        Dataset<Row> revEvts = revenueStepEvents(df, revStep, identityCol, funnel.revenueAttribute());
+
+        // revStepTs columns: (identity, ts0) when idx==0, else (identity, ts0, ts_{idx}).
+        Dataset<Row> revAtStep = (revenueStepIdx == 0)
+                ? revStepTs.withColumn("ts_rev", col("ts0"))
+                : revStepTs.withColumnRenamed("ts_" + revenueStepIdx, "ts_rev");
+
+        Dataset<Row> joined = revAtStep.alias("a")
+                .join(revEvts.alias("e"),
+                        col("a.identity").equalTo(col("e.identity"))
+                                .and(col("a.ts_rev").equalTo(col("e.ts"))),
+                        "inner")
+                .select(col("a.identity").as("identity"),
+                        col("a.ts0").as("ts0"),
+                        col("e.value").as("value"))
+                .filter(col("value").isNotNull());
+
+        // First successful attempt per identity, by earliest ts0.
+        WindowSpec firstWin = Window.partitionBy("identity").orderBy(col("ts0").asc());
+        Dataset<Row> perIdentity = joined
+                .withColumn("_rn", row_number().over(firstWin))
+                .filter(col("_rn").equalTo(1))
+                .select("value");
+
+        return collectRevenueAggregate(perIdentity);
+    }
+
+    /**
+     * Unordered v1: total revenue = sum of first revenue-event value per identity within the
+     * date-range slice; no per-step attribution because steps have no prerequisite order.
+     */
+    private static RevenueAggregate aggregateUnorderedRevenue(Dataset<Row> df, FunnelStep revStep,
+                                                               String identityCol, String revenueAttribute) {
+        Dataset<Row> revEvts = revenueStepEvents(df, revStep, identityCol, revenueAttribute)
+                .filter(col("value").isNotNull());
+        WindowSpec firstWin = Window.partitionBy("identity").orderBy(col("ts").asc());
+        Dataset<Row> perIdentity = revEvts
+                .withColumn("_rn", row_number().over(firstWin))
+                .filter(col("_rn").equalTo(1))
+                .select("value");
+        return collectRevenueAggregate(perIdentity);
+    }
+
+    private static RevenueAggregate collectRevenueAggregate(Dataset<Row> perIdentityValues) {
+        Row agg = perIdentityValues.agg(
+                sum(col("value")).alias("total"),
+                count(lit(1)).alias("cnt")
+        ).first();
+        if (agg == null || agg.isNullAt(0)) {
+            return RevenueAggregate.EMPTY;
+        }
+        return new RevenueAggregate(agg.getDouble(0), agg.getLong(1));
+    }
+
+    private record RevenueAggregate(double totalRevenue, long orderCount) {
+        static final RevenueAggregate EMPTY = new RevenueAggregate(0.0, 0L);
     }
 
     static Dataset<Row> applyFilters(Dataset<Row> df, List<FunnelFilter> filters) {

@@ -22,6 +22,110 @@ const MOCK_FUNNEL_CONVERSION_BY_ID: Record<
   "funnel-completed-001": { overallConversionRate: 36.6, conversionTrend: 0.2 },
 };
 
+/**
+ * Per-funnel mock AOV (in the funnel's currency). Drives per-step Revenue / Lost Revenue
+ * computation in {@link enrichAnalyzeWithRevenue}. Only funnels listed here populate
+ * revenue columns in mock responses; everything else stays revenue-free.
+ */
+const MOCK_FUNNEL_AOV_BY_ID: Record<string, number> = {
+  "fj-1": 42,
+  "funnel-payment-001": 87.4,
+  "funnel-completed-001": 65,
+};
+
+interface MockRevenueConfig {
+  revenueAttribute: string;
+  revenueStepIndex: number;
+  currency: string;
+  /** Mock AOV used to back-fill per-step Revenue / Lost Revenue. */
+  aov: number;
+}
+
+function resolveMockRevenue(row: {
+  id?: string;
+  revenueAttribute?: string;
+  revenueStepIndex?: number;
+  currency?: string;
+  steps?: Array<{ eventName?: string }>;
+}): MockRevenueConfig | null {
+  const attr = row.revenueAttribute;
+  if (!attr) return null;
+  const stepCount = row.steps?.length ?? 0;
+  if (stepCount === 0) return null;
+  const idx =
+    typeof row.revenueStepIndex === "number" &&
+    row.revenueStepIndex >= 0 &&
+    row.revenueStepIndex < stepCount
+      ? row.revenueStepIndex
+      : stepCount - 1;
+  const aov = (row.id && MOCK_FUNNEL_AOV_BY_ID[row.id]) || 50;
+  return {
+    revenueAttribute: attr,
+    revenueStepIndex: idx,
+    currency: row.currency || "USD",
+    aov,
+  };
+}
+
+/**
+ * Decorates an existing analyze response with per-step revenue/AOV/lost-revenue plus
+ * top-level totals. Mirrors the backend mapper: pre-purchase steps share constant
+ * OrderCount/Revenue/AOV; LostRevenue per step = drop * AOV up to and including the
+ * revenue step, 0 for step 0 and steps after the revenue step. For unordered funnels
+ * pass {@code unordered=true} to emit null LostRevenue.
+ */
+function enrichAnalyzeWithRevenue(
+  analyze: {
+    steps: Array<{
+      stepName: string;
+      count: number;
+      conversionRate: number;
+      dropoffRate: number;
+      medianStepSeconds?: number | null;
+      orderCount?: number | null;
+      revenue?: number | null;
+      avgOrderValue?: number | null;
+      lostRevenue?: number | null;
+    }>;
+    totalEnteredUsers: number;
+    overallConversionRate: number;
+    totalRevenue?: number | null;
+    totalOrderCount?: number | null;
+    overallAvgOrderValue?: number | null;
+    currency?: string | null;
+  },
+  config: MockRevenueConfig,
+  unordered = false,
+): void {
+  const steps = analyze.steps;
+  if (steps.length === 0) return;
+  const revIdx = Math.min(config.revenueStepIndex, steps.length - 1);
+  const completers = steps[revIdx]?.count ?? 0;
+  const totalRevenue = Math.round(completers * config.aov * 100) / 100;
+  const aovRounded = Math.round(config.aov * 100) / 100;
+
+  for (let i = 0; i < steps.length; i++) {
+    steps[i].orderCount = completers;
+    steps[i].revenue = totalRevenue;
+    steps[i].avgOrderValue = aovRounded;
+    if (unordered) {
+      steps[i].lostRevenue = null;
+      continue;
+    }
+    if (i === 0 || i > revIdx) {
+      steps[i].lostRevenue = 0;
+    } else {
+      const drop = Math.max(0, steps[i - 1].count - steps[i].count);
+      steps[i].lostRevenue = Math.round(drop * config.aov * 100) / 100;
+    }
+  }
+
+  analyze.totalRevenue = totalRevenue;
+  analyze.totalOrderCount = completers;
+  analyze.overallAvgOrderValue = aovRounded;
+  analyze.currency = config.currency;
+}
+
 const MOCK_PAYMENT_FUNNEL_ANALYZE_RESPONSE = {
   steps: [
     {
@@ -585,6 +689,10 @@ const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
   /** Listing-level conversion summary used by the funnels list view. */
   overallConversionRate?: number;
   conversionTrend?: number;
+  /** Funnel-only revenue configuration (drives per-step Revenue/AOV/LostRevenue in mocks). */
+  revenueAttribute?: string;
+  revenueStepIndex?: number;
+  currency?: string;
   /** Journey-only fields. */
   journeyType?: FunnelType;
   anchorEvent?: string;
@@ -627,6 +735,9 @@ const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
       { eventName: "Tap: Checkout" },
       { eventName: "Tap: Place Order" },
     ],
+    revenueAttribute: "order.value",
+    revenueStepIndex: 4,
+    currency: "USD",
     ...MOCK_FUNNEL_CONVERSION_BY_ID["fj-1"],
   },
   {
@@ -749,6 +860,9 @@ const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
       { eventName: "Tap: Place Order" },
       { eventName: "Screen_View: Order Confirmation" },
     ],
+    revenueAttribute: "order.value",
+    revenueStepIndex: 5,
+    currency: "USD",
     timeRange: {
       start: "2026-03-17T00:00:00Z",
       end: "2026-03-24T23:59:59Z",
@@ -800,6 +914,9 @@ const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
       { eventName: "Tap: Checkout" },
       { eventName: "Tap: Place Order" },
     ],
+    revenueAttribute: "order.value",
+    revenueStepIndex: 4,
+    currency: "USD",
     timeRange: {
       start: "2026-02-01T00:00:00Z",
       end: "2026-02-28T23:59:59Z",
@@ -908,13 +1025,22 @@ function synthesizeCreatedAt(updatedAt: string): string {
 /** Default `funnelResults` payload for funnel detail when no precomputed shape exists. */
 function buildFunnelResultsForRow(row: MockFunnelJourneyRow) {
   if (!row.steps?.length) return undefined;
+  const revenueConfig = resolveMockRevenue(row);
+  const unordered = row.stepOrderType === StepOrderType.UNORDERED;
+
   if (row.id === "funnel-payment-001") {
-    return {
-      steps: MOCK_PAYMENT_FUNNEL_ANALYZE_RESPONSE.steps,
+    // Deep-clone so mutating the result with revenue values doesn't leak into the
+    // module-scoped MOCK_PAYMENT_FUNNEL_ANALYZE_RESPONSE shared by the analyze flow.
+    const analyze = {
+      steps: MOCK_PAYMENT_FUNNEL_ANALYZE_RESPONSE.steps.map((s) => ({ ...s })),
+      totalEnteredUsers: MOCK_PAYMENT_FUNNEL_ANALYZE_RESPONSE.totalEnteredUsers,
       overallConversionRate:
         MOCK_PAYMENT_FUNNEL_ANALYZE_RESPONSE.overallConversionRate,
-    };
+    } as Parameters<typeof enrichAnalyzeWithRevenue>[0];
+    if (revenueConfig) enrichAnalyzeWithRevenue(analyze, revenueConfig, unordered);
+    return analyze;
   }
+
   const built = buildMockFunnelAnalyzeAndTrendFromSteps({ steps: row.steps });
   if (
     row.overallConversionRate != null &&
@@ -925,10 +1051,13 @@ function buildFunnelResultsForRow(row: MockFunnelJourneyRow) {
       row.overallConversionRate;
     built.analyze.overallConversionRate = row.overallConversionRate;
   }
-  return {
+  const result = {
     steps: built.analyze.steps,
+    totalEnteredUsers: built.analyze.totalEnteredUsers,
     overallConversionRate: built.analyze.overallConversionRate,
-  };
+  } as Parameters<typeof enrichAnalyzeWithRevenue>[0];
+  if (revenueConfig) enrichAnalyzeWithRevenue(result, revenueConfig, unordered);
+  return result;
 }
 
 /** Default `journeyResults` payload for journey detail. */
@@ -977,6 +1106,9 @@ function projectFunnelDetail(row: MockFunnelJourneyRow) {
     // page's "+X% from last week" matches the listing's trend chip.
     overallConversionRate: row.overallConversionRate,
     conversionTrend: row.conversionTrend,
+    revenueAttribute: row.revenueAttribute,
+    revenueStepIndex: row.revenueStepIndex,
+    currency: row.currency,
   };
 }
 
@@ -1062,8 +1194,12 @@ function applyListingMetricsToFunnelAnalyzeAndTrend(
 /** Listing metrics + detail analyze/trend share values via `MOCK_FUNNEL_CONVERSION_BY_ID` / row match. */
 function getMockFunnelAnalyzeAndTrendFromBody(body: {
   steps?: Array<{ eventName?: string }>;
+  revenueAttribute?: string;
+  revenueStepIndex?: number;
+  currency?: string;
 }): ReturnType<typeof buildMockFunnelAnalyzeAndTrendFromSteps> {
   const steps = body.steps || [];
+  const matched = findMockFunnelRowBySteps(steps);
   const hasCartStep = steps.some(
     (s: { eventName?: string }) => s.eventName === "Screen_View: Cart",
   );
@@ -1071,25 +1207,48 @@ function getMockFunnelAnalyzeAndTrendFromBody(body: {
     (s: { eventName?: string }) => s.eventName === "Screen_View: Payment",
   );
 
+  let built: ReturnType<typeof buildMockFunnelAnalyzeAndTrendFromSteps>;
   if (hasCartStep && hasPaymentStep) {
-    return {
-      analyze: MOCK_PAYMENT_FUNNEL_ANALYZE_RESPONSE,
-      trend: MOCK_PAYMENT_FUNNEL_CONVERSION_TREND,
+    // Clone the canned response so analyze-flow mutations (revenue enrichment) don't leak
+    // back into the module-scoped constant shared with the detail flow.
+    built = {
+      analyze: {
+        steps: MOCK_PAYMENT_FUNNEL_ANALYZE_RESPONSE.steps.map((s) => ({ ...s })),
+        totalEnteredUsers: MOCK_PAYMENT_FUNNEL_ANALYZE_RESPONSE.totalEnteredUsers,
+        overallConversionRate:
+          MOCK_PAYMENT_FUNNEL_ANALYZE_RESPONSE.overallConversionRate,
+      },
+      trend: { ...MOCK_PAYMENT_FUNNEL_CONVERSION_TREND },
     };
+  } else {
+    built = buildMockFunnelAnalyzeAndTrendFromSteps(body);
+    if (
+      matched &&
+      matched.kind === "FUNNEL" &&
+      matched.overallConversionRate != null &&
+      matched.conversionTrend != null
+    ) {
+      applyListingMetricsToFunnelAnalyzeAndTrend(built.analyze, built.trend, {
+        overallConversionRate: matched.overallConversionRate,
+        conversionTrend: matched.conversionTrend,
+      });
+    }
   }
 
-  const built = buildMockFunnelAnalyzeAndTrendFromSteps(body);
-  const matched = findMockFunnelRowBySteps(steps);
-  if (
-    matched &&
-    matched.kind === "FUNNEL" &&
-    matched.overallConversionRate != null &&
-    matched.conversionTrend != null
-  ) {
-    applyListingMetricsToFunnelAnalyzeAndTrend(built.analyze, built.trend, {
-      overallConversionRate: matched.overallConversionRate,
-      conversionTrend: matched.conversionTrend,
-    });
+  // Resolve revenue from (preferred) the matched saved funnel; fall back to the request
+  // body so ad-hoc /v1/funnel/analyze calls with a revenue attribute still get enriched.
+  const revenueSource =
+    matched && resolveMockRevenue(matched)
+      ? matched
+      : body.revenueAttribute
+      ? { ...body, steps }
+      : null;
+  if (revenueSource) {
+    const config = resolveMockRevenue(revenueSource);
+    if (config) {
+      const unordered = matched?.stepOrderType === StepOrderType.UNORDERED;
+      enrichAnalyzeWithRevenue(built.analyze as Parameters<typeof enrichAnalyzeWithRevenue>[0], config, unordered);
+    }
   }
   return built;
 }
@@ -1385,6 +1544,10 @@ function mockPostCreateFunnelOrJourney(
     anchorEvent: body.anchorEvent,
     direction: body.direction,
     depth: body.depth,
+    revenueAttribute: body.revenueAttribute,
+    revenueStepIndex:
+      typeof body.revenueStepIndex === "number" ? body.revenueStepIndex : undefined,
+    currency: body.currency,
   };
   MOCK_FUNNELS_JOURNEYS_ALL.unshift(newItem);
   // Return the detail shape so the create flow can navigate straight to the detail

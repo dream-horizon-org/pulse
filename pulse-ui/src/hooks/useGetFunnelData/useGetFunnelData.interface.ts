@@ -23,6 +23,31 @@ export interface FunnelStepResult {
   conversionRate: number;
   dropoffRate: number;
   medianStepSeconds?: number | null;
+  /** Completed orders attributable to users who reached this step; null when revenue not configured. */
+  orderCount?: number | null;
+  /** Total revenue attributable to users who reached this step. */
+  revenue?: number | null;
+  /** Avg order value among completers attributable via this step. */
+  avgOrderValue?: number | null;
+  /**
+   * Projected revenue lost from drop-off into this step. 0 for step 0 and steps after the
+   * revenue step. Null for unordered funnels.
+   */
+  lostRevenue?: number | null;
+}
+
+export interface FunnelResultsTotals {
+  steps: FunnelStepResult[];
+  totalEnteredUsers: number;
+  overallConversionRate: number;
+  /** Total revenue across the funnel; null when revenue not configured. */
+  totalRevenue?: number | null;
+  /** Total order count; null when revenue not configured. */
+  totalOrderCount?: number | null;
+  /** Overall AOV = totalRevenue / totalOrderCount; null when revenue not configured. */
+  overallAvgOrderValue?: number | null;
+  /** ISO-4217 currency code; null when revenue not configured. */
+  currency?: string | null;
 }
 
 // Health: crash/ANR/non-fatal per step

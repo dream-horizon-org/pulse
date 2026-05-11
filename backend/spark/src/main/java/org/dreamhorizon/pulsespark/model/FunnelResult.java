@@ -8,5 +8,9 @@ public record FunnelResult(
         String stepName,
         long userCount,
         double conversionPct,
-        Long medianStepSeconds
+        Long medianStepSeconds,
+        Long orderCount,
+        Double revenue,
+        Double avgOrderValue,
+        Double lostRevenue
 ) {}

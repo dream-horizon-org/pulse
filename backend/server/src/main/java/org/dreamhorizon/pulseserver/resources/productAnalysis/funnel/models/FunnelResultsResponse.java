@@ -36,6 +36,21 @@ public class FunnelResultsResponse {
    */
   private double overallConversionRate;
 
+  /**
+   * Total revenue across the funnel (sum of order values from completers). {@code null} when the
+   * funnel has no revenue configuration.
+   */
+  private Double totalRevenue;
+
+  /** Total order count across the funnel. {@code null} when revenue isn't configured. */
+  private Long totalOrderCount;
+
+  /** Overall AOV = totalRevenue / totalOrderCount. {@code null} when revenue isn't configured. */
+  private Double overallAvgOrderValue;
+
+  /** ISO-4217 currency code copied from the funnel definition; {@code null} when not set. */
+  private String currency;
+
   @JsonIgnore
   private Instant lastRunAt;
 }

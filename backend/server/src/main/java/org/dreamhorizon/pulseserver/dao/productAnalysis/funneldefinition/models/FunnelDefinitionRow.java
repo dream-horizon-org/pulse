@@ -39,4 +39,18 @@ public class FunnelDefinitionRow {
    * Total matching rows before pagination (populated from COUNT(*) OVER() in list queries; 0 otherwise).
    */
   long totalCount;
+  /**
+   * Optional key inside {@code LogAttributes} (or {@code props} on the Spark path) holding the order's
+   * numeric value, used to compute revenue / AOV / lost-revenue per step. {@code null} disables revenue.
+   */
+  String revenueAttribute;
+  /**
+   * Optional 0-based index of the step that carries the order/purchase event. Defaults to the last step
+   * when {@code null} and {@link #revenueAttribute} is set.
+   */
+  Integer revenueStepIndex;
+  /**
+   * Display-only ISO-4217 currency code (e.g. {@code INR}, {@code USD}). Has no effect on computation.
+   */
+  String currency;
 }

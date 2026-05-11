@@ -47,6 +47,9 @@ public class FunnelDefinitionDao {
             localDateTimeOrNull(row.getStartTime()),
             localDateTimeOrNull(row.getEndTime()),
             localDateTimeOrNull(row.getExpiry()),
+            row.getRevenueAttribute(),
+            row.getRevenueStepIndex(),
+            row.getCurrency(),
             row.getCreatedBy())))
       .map(r -> r.property(MySQLClient.LAST_INSERTED_ID));
   }
@@ -70,6 +73,9 @@ public class FunnelDefinitionDao {
             localDateTimeOrNull(row.getStartTime()),
             localDateTimeOrNull(row.getEndTime()),
             localDateTimeOrNull(row.getExpiry()),
+            row.getRevenueAttribute(),
+            row.getRevenueStepIndex(),
+            row.getCurrency(),
             projectId,
             id)))
       .map(r -> (int) r.rowCount());
@@ -145,6 +151,7 @@ public class FunnelDefinitionDao {
         "SELECT funnel.id, funnel.project_id, funnel.name, funnel.description, funnel.funnel_type, "
           + "funnel.step_order_type, funnel.steps_json, funnel.window_seconds, funnel.mode, funnel.filters_json, "
           + "funnel.date_range, funnel.start_time, funnel.end_time, funnel.expiry, "
+          + "funnel.revenue_attribute, funnel.revenue_step_index, funnel.currency, "
           + "funnel.created_at, funnel.updated_at, funnel.created_by, ");
     sql.append(FunnelDefinitionQueries.LATEST_FUNNEL_JOB_STATUS).append(" AS latest_job_status, ");
     sql.append("COUNT(*) OVER() AS total_count ");
@@ -236,6 +243,9 @@ public class FunnelDefinitionDao {
       .createdBy(row.getString("created_by"))
       .latestJobStatus(row.getString("latest_job_status"))
       .totalCount(row.getColumnIndex("total_count") >= 0 ? row.getLong("total_count") : 0)
+      .revenueAttribute(row.getColumnIndex("revenue_attribute") >= 0 ? row.getString("revenue_attribute") : null)
+      .revenueStepIndex(row.getColumnIndex("revenue_step_index") >= 0 ? row.getInteger("revenue_step_index") : null)
+      .currency(row.getColumnIndex("currency") >= 0 ? row.getString("currency") : null)
       .build();
   }
 

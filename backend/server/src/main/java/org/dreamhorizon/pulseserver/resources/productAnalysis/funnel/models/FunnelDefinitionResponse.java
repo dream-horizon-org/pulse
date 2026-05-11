@@ -81,4 +81,13 @@ public class FunnelDefinitionResponse {
 
   /** Tags from {@code funnel_journey_tag} for this funnel. */
   private List<String> tags;
+
+  /** Event-attribute key carrying the numeric order value; null when revenue is not configured. */
+  private String revenueAttribute;
+
+  /** 0-based step index of the order/purchase event; null when revenue is not configured. */
+  private Integer revenueStepIndex;
+
+  /** Display-only ISO-4217 currency code; null when revenue is not configured. */
+  private String currency;
 }

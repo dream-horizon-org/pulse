@@ -33,6 +33,18 @@ public class FunnelResultRow {
   @JsonProperty("medianStepSeconds")
   private Long medianStepSeconds;
 
+  @JsonProperty("orderCount")
+  private Long orderCount;
+
+  @JsonProperty("revenue")
+  private Double revenue;
+
+  @JsonProperty("avgOrderValue")
+  private Double avgOrderValue;
+
+  @JsonProperty("lostRevenue")
+  private Double lostRevenue;
+
   @JsonProperty("runTime")
   private Instant runTime;
 }

@@ -21,18 +21,45 @@ interface FunnelDataTableProps {
    * UNIQUE_USERS when omitted.
    */
   mode?: FunnelMode;
+  /** ISO-4217 currency for revenue formatting. When set, revenue columns render. */
+  currency?: string | null;
 }
 
 type SortField = "stepName" | "count" | "conversionRate" | "dropoffRate";
+
+/**
+ * Formats a numeric value using Intl currency style when an ISO-4217 code is
+ * supplied; otherwise falls back to a plain locale-grouped number. Returns "—"
+ * for null/undefined to keep table cells visually quiet.
+ */
+function formatMoney(v: number | null | undefined, currency?: string | null): string {
+  if (v === null || v === undefined || Number.isNaN(v)) return "—";
+  if (currency) {
+    try {
+      return new Intl.NumberFormat(undefined, {
+        style: "currency",
+        currency,
+        maximumFractionDigits: 2,
+      }).format(v);
+    } catch {
+      /* fall through to bare number */
+    }
+  }
+  return v.toLocaleString(undefined, { maximumFractionDigits: 2 });
+}
 
 export function FunnelDataTable({
   steps,
   timeRange,
   apiSteps,
   mode = FunnelMode.UNIQUE_USERS,
+  currency,
 }: FunnelDataTableProps) {
   const [sortField, setSortField] = useState<SortField>("count");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const hasRevenue = steps.some(
+    (s) => s.revenue != null || s.avgOrderValue != null || s.lostRevenue != null,
+  );
   // eslint-disable-next-line
   const [groupBy, setGroupBy] = useState("none");
 
@@ -122,6 +149,13 @@ export function FunnelDataTable({
           </Group>
         </Table.Th>
         <Table.Th style={{ textAlign: "right" }}>Median Time</Table.Th>
+        {hasRevenue && (
+          <>
+            <Table.Th style={{ textAlign: "right" }}>Revenue</Table.Th>
+            <Table.Th style={{ textAlign: "right" }}>AOV</Table.Th>
+            <Table.Th style={{ textAlign: "right" }}>Lost Revenue</Table.Th>
+          </>
+        )}
       </Table.Tr>
     </Table.Thead>
   );
@@ -175,6 +209,27 @@ export function FunnelDataTable({
               : "—"}
           </Text>
         </Table.Td>
+        {hasRevenue && (
+          <>
+            <Table.Td style={{ textAlign: "right" }}>
+              <Text size="sm" fw={500}>
+                {formatMoney(step.revenue, currency)}
+              </Text>
+            </Table.Td>
+            <Table.Td style={{ textAlign: "right" }}>
+              <Text size="sm">{formatMoney(step.avgOrderValue, currency)}</Text>
+            </Table.Td>
+            <Table.Td style={{ textAlign: "right" }}>
+              {step.lostRevenue != null && step.lostRevenue > 0 ? (
+                <Badge variant="light" color="red" size="sm">
+                  {formatMoney(step.lostRevenue, currency)}
+                </Badge>
+              ) : (
+                <Text size="xs" c="dimmed">—</Text>
+              )}
+            </Table.Td>
+          </>
+        )}
       </Table.Tr>
     ));
 

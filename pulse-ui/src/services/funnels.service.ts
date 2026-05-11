@@ -181,6 +181,12 @@ export type FunnelDetail = {
   /** @deprecated Kept for backwards compat; use startTime/endTime or dateRangeDays. */
   timeRange?: TimeRange;
   expiryDate?: string;
+  /** Event-attribute key carrying the numeric order value (e.g. "order.value"). */
+  revenueAttribute?: string;
+  /** 0-based step index of the order/purchase event; defaults to the last step. */
+  revenueStepIndex?: number;
+  /** Display-only ISO-4217 currency code (e.g. "INR", "USD"). */
+  currency?: string;
 };
 
 // ─── Journey detail types ──────────────────────────────────────────────────────
@@ -257,6 +263,15 @@ export interface CreateFunnelRequestBody {
   endTime?: string;
   /** @deprecated Use startTime/endTime (ONCE) or dateRangeDays (AUTO) instead. */
   timeRange?: TimeRange;
+  /**
+   * Optional event-attribute key carrying the numeric order value (e.g. "order.value").
+   * When set, the backend populates per-step Revenue / AvgOrderValue / LostRevenue.
+   */
+  revenueAttribute?: string;
+  /** 0-based step index of the order/purchase event; defaults to the last step. */
+  revenueStepIndex?: number;
+  /** Display-only ISO-4217 currency code (e.g. "INR", "USD"). */
+  currency?: string;
 }
 
 /**

@@ -37,4 +37,29 @@ public class FunnelStepMeasureResult {
    * Median seconds from the previous step to this step; {@code null} for step 0.
    */
   private Long medianStepSeconds;
+
+  /**
+   * Number of completed orders attributable to users who reached this step. {@code null} when the
+   * funnel has no revenue configuration.
+   */
+  private Long orderCount;
+
+  /**
+   * Total revenue (in the funnel's configured currency) attributable to users who reached this step.
+   * {@code null} when the funnel has no revenue configuration.
+   */
+  private Double revenue;
+
+  /**
+   * Average order value among completers attributable via this step.
+   * {@code null} when the funnel has no revenue configuration.
+   */
+  private Double avgOrderValue;
+
+  /**
+   * Projected revenue lost from users who dropped off at this step. Equals 0 for step 0 and for
+   * steps after the revenue step. {@code null} when revenue isn't configured or step order is
+   * undefined (unordered funnels).
+   */
+  private Double lostRevenue;
 }

@@ -5,15 +5,17 @@ public final class FunnelDefinitionQueries {
   public static final String INSERT =
     """
       INSERT INTO funnel (project_id, name, description, funnel_type, step_order_type, steps_json,
-          window_seconds, mode, filters_json, date_range, start_time, end_time, expiry, created_by)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          window_seconds, mode, filters_json, date_range, start_time, end_time, expiry,
+          revenue_attribute, revenue_step_index, currency, created_by)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       """;
 
   public static final String UPDATE =
     """
       UPDATE funnel SET name = ?, description = ?, funnel_type = ?, step_order_type = ?, steps_json = ?,
           window_seconds = ?, mode = ?, filters_json = ?, date_range = ?, start_time = ?, end_time = ?,
-          expiry = ?, updated_at = CURRENT_TIMESTAMP
+          expiry = ?, revenue_attribute = ?, revenue_step_index = ?, currency = ?,
+          updated_at = CURRENT_TIMESTAMP
       WHERE project_id = ? AND id = ?
       """;
 
@@ -53,7 +55,9 @@ public final class FunnelDefinitionQueries {
     """
       SELECT funnel.id, funnel.project_id, funnel.name, funnel.description, funnel.funnel_type, funnel.step_order_type,
           funnel.steps_json, funnel.window_seconds, funnel.mode, funnel.filters_json, funnel.date_range,
-          funnel.start_time, funnel.end_time, funnel.expiry, funnel.created_at, funnel.updated_at,
+          funnel.start_time, funnel.end_time, funnel.expiry,
+          funnel.revenue_attribute, funnel.revenue_step_index, funnel.currency,
+          funnel.created_at, funnel.updated_at,
           funnel.created_by,
       """
       + LATEST_FUNNEL_JOB_STATUS
@@ -69,7 +73,9 @@ public final class FunnelDefinitionQueries {
     """
       SELECT funnel.id, funnel.project_id, funnel.name, funnel.description, funnel.funnel_type, funnel.step_order_type,
           funnel.steps_json, funnel.window_seconds, funnel.mode, funnel.filters_json, funnel.date_range,
-          funnel.start_time, funnel.end_time, funnel.expiry, funnel.created_at, funnel.updated_at,
+          funnel.start_time, funnel.end_time, funnel.expiry,
+          funnel.revenue_attribute, funnel.revenue_step_index, funnel.currency,
+          funnel.created_at, funnel.updated_at,
           funnel.created_by, NULL AS latest_job_status
       FROM funnel
       WHERE funnel.funnel_type = 'AUTO'
@@ -80,7 +86,9 @@ public final class FunnelDefinitionQueries {
     """
       SELECT funnel.id, funnel.project_id, funnel.name, funnel.description, funnel.funnel_type, funnel.step_order_type,
           funnel.steps_json, funnel.window_seconds, funnel.mode, funnel.filters_json, funnel.date_range,
-          funnel.start_time, funnel.end_time, funnel.expiry, funnel.created_at, funnel.updated_at,
+          funnel.start_time, funnel.end_time, funnel.expiry,
+          funnel.revenue_attribute, funnel.revenue_step_index, funnel.currency,
+          funnel.created_at, funnel.updated_at,
           funnel.created_by,
       """
       + LATEST_FUNNEL_JOB_STATUS
