@@ -15,6 +15,11 @@ Set up and start the full Pulse stack for a new developer.
    - pulse-server: `curl http://localhost:<port>/healthcheck` (default 8080)
    - pulse-ui: `curl http://localhost:<port>/healthcheck.txt` (default 3000)
    - pulse-alerts-cron: `curl http://localhost:<port>/healthcheck` (default 4000)
+   - pulse-session-capture: `curl http://localhost:3400/healthcheck`
+   - pulse-session-replay-ingestion / pulse-heatmap-screenshot-ingestion: no HTTP endpoint — verify running with
+     `docker inspect --format='{{.State.Running}}' <container>`
+   - OpenFGA: `curl http://localhost:8180/healthz` (host 8180 → container 8080)
+   - OTEL Collector: `curl http://localhost:13133/`
 8. Report status of all services as a table
 9. Pulse AI: included in deploy stack; set `GOOGLE_API_KEY` in `deploy/.env` for Gemini. Health: `curl -sf http://localhost:8000/health`. Standalone: `cd pulse_ai && ./setup.sh`
 10. Remind user to set API keys in env files if any service failed

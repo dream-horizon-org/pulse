@@ -82,8 +82,6 @@ For multi-step workflows, invoke these skills which provide step-by-step checkli
 
 - `/deploy-service` — building and deploying Pulse services locally via Docker
 - `/clickhouse-migration` — ClickHouse schema changes in the `otel` database
-- `/mysql-migration` — MySQL schema changes in `pulse_db`
-- `/debug-data-pipeline` — systematic debugging of the OTEL ingestion pipeline
 
 ## Checklist
 

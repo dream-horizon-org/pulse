@@ -15,9 +15,14 @@ You are an expert debugger specializing in the Pulse distributed observability p
 ## System Layers (in data flow order)
 
 ```
-Mobile SDKs → OTEL Collector → ClickHouse
-  → pulse-server → pulse-ui
-  → pulse-ai-agent (default deploy stack or standalone `pulse_ai`, port 8000)
+Mobile + Web SDKs → otel-collector (4317/4318) → ClickHouse (otel DB)
+Mobile SDKs       → pulse-session-capture (3400) → Kafka → pulse-session-replay-ingestion → MinIO (S3) + ClickHouse
+                                                          → pulse-heatmap-screenshot-ingestion → MinIO (heatmap-assets)
+Custom Events     → Vector (profile `vector`, 14317/14318) → S3 (Parquet) → Athena
+ClickHouse + MySQL ⇆ pulse-server (8080) ⇆ pulse-ui (3000)
+                                          ⇆ pulse-alerts-cron (4000)
+                                          ⇆ pulse-ai-agent (8000)
+OpenFGA (8180) gates pulse-server authorization decisions.
 ```
 
 Always run `docker ps --format "table {{.Names}}\t{{.Ports}}\t{{.Status}}"` first to discover running services and their actual ports.
@@ -63,7 +68,8 @@ Note: Integrated AI — `cd deploy && ./scripts/logs.sh ai`, health `curl -sf ht
 
 ## Related Skills
 
-- `/debug-data-pipeline` — systematic debugging checklist for the OTEL data pipeline when traces, logs, or metrics are missing
+- `/deploy-service` — building/starting/stopping local services (Docker)
+- `/clickhouse-migration` — schema changes when a column or table is missing
 
 ## Process
 

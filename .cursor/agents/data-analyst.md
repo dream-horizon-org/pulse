@@ -68,11 +68,23 @@ Aggregated monthly usage by `project_id` / `month` / `source`; fed by MVs from l
 ### Definitions live in MySQL; aggregated rows are written by Spark into:
 
 - **`funnel_results`** — pre-computed funnel steps (`FunnelId`, `ProjectId`, `RunTime`, `StepIndex`, `StepName`,
-  `UserCount`, `ConversionPct`, …). Schema: `backend/db/prod/clickhouse/funnel-results.sql`.
+  `UserCount`, `ConversionPct`, …). Schema: `backend/db/prod/clickhouse/otel.funnel_results.sql` (prod is
+  `Replicated*` + `Distributed`; dev uses plain `MergeTree` at `backend/db/dev/clickhouse/04_otel.funnel_results.sql`).
 - **`journey_results`** — path edges (`JourneyId`, `ProjectId`, `RunTime`, `Direction`, `PosFrom`/`PosTo`, `EventFrom`/
-  `EventTo`, `UserCount`, …). Schema: `backend/db/prod/clickhouse/journey-results.sql`.
+  `EventTo`, `UserCount`, …). Schema: `backend/db/prod/clickhouse/otel.journey_results.sql` (dev:
+  `backend/db/dev/clickhouse/05_otel.journey_results.sql`).
 - **`event_catalog_entries`** — distinct filter values per project (`FilterKey` e.g. EVENT, APP_BUILD_NAME, …). Schema:
-  `backend/db/prod/clickhouse/event-catalog-entries.sql`.
+  `backend/db/prod/clickhouse/otel.event_catalog_entries.sql`.
+
+### Session rollup (`backend/db/prod/clickhouse/otel.session_summary.sql`)
+
+- **`session_summary`** — `AggregatingMergeTree` per-session rollup keyed by `(ProjectId, sessionId)`. Columns include
+  `startTime`/`endTime`, `userId`, `platform`, `appVersion`, `osVersion`, `deviceModel`, `networkProvider`,
+  `geoCountry`/`geoRegion`, `apdexSum`/`apdexCount`, `networkErrors`, `interactionErrors`, `slowInteractionCount`,
+  `frozenFrameCount`, `spanCount`, `crashCount`, `anrCount`, `nonFatal`. Fed by three MVs:
+  `session_summary_mv` (over `otel_traces_local`), `session_crash_mv` (over `stack_trace_events_local`), and
+  `session_summary_replay_mv` (over `session_replay_events_local`). Use `final` or `SimpleAggregateFunction` semantics
+  when querying.
 
 ### Heatmap tables (`backend/db/prod/clickhouse/otel.interaction_heatmaps_daily.sql`)
 
@@ -90,19 +102,29 @@ ResourceAttributes/SpanAttributes directly** — they are faster and indexed.
 | `ProjectId`         | `project.id`                                     | all                                         |
 | `PulseType`         | `pulse.type`                                     | all                                         |
 | `SessionId`         | `session.id`                                     | all                                         |
-| `AppVersion`        | `app.build_name`                                 | all                                         |
-| `SDKVersion`        | `rum.sdk.version`                                | all                                         |
+| `AppVersion`        | `app.version` (ResourceAttributes)               | `otel_traces`                               |
+| `AppVersion`        | `app.build_name` (ResourceAttributes)            | `otel_logs`, `stack_trace_events`           |
+| `SDKVersion`        | `telemetry.sdk.version` (ResourceAttributes)     | `otel_traces`                               |
+| `SDKVersion`        | `rum.sdk.version` (ResourceAttributes)           | `otel_logs`                                 |
 | `Platform`          | `os.name`                                        | all                                         |
 | `OsVersion`         | `os.version`                                     | all                                         |
 | `GeoState`          | `geo.region.iso_code`                            | all                                         |
 | `GeoCountry`        | `geo.country.iso_code`                           | all                                         |
-| `DeviceModel`       | `device.model.name`                              | all                                         |
+| `DeviceModel`       | `device.model.identifier` (ResourceAttributes)   | `otel_traces`                               |
+| `DeviceModel`       | `device.model.name` (ResourceAttributes)         | `otel_logs`, `stack_trace_events`           |
 | `NetworkProvider`   | `network.carrier.name`                           | all                                         |
-| `UserId`            | `user.id` with fallback to `app.installation.id` | traces, logs, metrics                       |
+| `UserId`            | `user.id`                                        | traces, logs, metrics                       |
+| `AppInstallationId` | `app.installation.id`                            | traces, logs, stack traces                  |
 | `MeteringSessionId` | `pulse.metering.session.id`                      | traces, logs, metrics, `stack_trace_events` |
+| `HttpUrl`           | `http.url` (fallback `url.full`)                 | `otel_traces`                               |
+| `HttpHost`          | `net.peer.name` (fallback `server.address`)      | `otel_traces`                               |
+| `HttpMethod`        | `http.method` (fallback `http.request.method`)   | `otel_traces`                               |
+| `HttpStatusCode`    | `http.status_code` (fallback `http.response.status_code`, UInt16) | `otel_traces`              |
 
-Core telemetry tables have ORDER BY starting with `ProjectId` for isolation (e.g., `otel_traces`:
-`(ProjectId, ServiceName, PulseType, SpanName, Timestamp)`). `project_monthly_usage` orders by `project_id`;
+Core telemetry tables have ORDER BY starting with `ProjectId` for isolation: `otel_traces` →
+`(ProjectId, PulseType, SpanName, Timestamp)`; `otel_logs` → `(ProjectId, PulseType, EventName, Timestamp)`;
+`stack_trace_events` → `(ProjectId, GroupId, ExceptionType, Timestamp)`; `session_summary` →
+`(ProjectId, sessionId)`. `project_monthly_usage` orders by `project_id`;
 `root_cause_cache` orders by `(ProjectId, interaction_name, date, window_end_utc)`.
 
 ## Pulse-Specific Attributes

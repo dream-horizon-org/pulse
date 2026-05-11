@@ -16,4 +16,6 @@ Start the Pulse Docker services for local development.
     - pulse-ai-agent: `curl -sf http://localhost:8000/health` (included in default deploy stack; standalone:
       `cd pulse_ai && ./setup.sh`)
     - pulse-session-capture: `curl http://localhost:3400/healthcheck` (if running)
+    - pulse-session-replay-ingestion / pulse-heatmap-screenshot-ingestion: no HTTP endpoint — verify with
+      `docker inspect --format='{{.State.Running}}' <container>` (both are Kafka → S3 consumers)
 6. Report which services are healthy and which failed
