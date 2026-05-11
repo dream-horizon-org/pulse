@@ -9,8 +9,8 @@ cd "$HOME"
 
 AWS_REGION="ap-south-1"
 SECRET_NAME="prod/pulse-heatmap-screenshot-ingestion/appenv"
-# Relative to $HOME after cd (same pattern as pulse-server `.pulse-server.env`).
-ENV_FILE=".heatmap-ingestion.env"
+# Under /home/admin only (explicit $HOME like ARTIFACT_ZIP / INSTALL_DIR).
+ENV_FILE="$HOME/.heatmap-ingestion.env"
 
 echo "Fetching secret '$SECRET_NAME' from AWS Secrets Manager..."
 SECRET_JSON=$(aws secretsmanager get-secret-value \
@@ -45,7 +45,9 @@ CODEARTIFACT_DOMAIN="pulse-prod"
 CODEARTIFACT_REPOSITORY="pulse-heatmap-screenshot-ingestion"
 APPLICATION_NAME="pulse-heatmap-screenshot-ingestion"
 VERSION="${artifact_version}"
-INSTALL_DIR="$HOME/pulse-heatmap-screenshot-ingestion"
+# Same pattern as pulse-server: artifact zip under $HOME, unzip creates $HOME/$APPLICATION_NAME/.
+INSTALL_DIR="$HOME/$APPLICATION_NAME"
+ARTIFACT_ZIP="$HOME/${APPLICATION_NAME}.zip"
 
 # Download artifact from CodeArtifact
 aws codeartifact get-package-version-asset \
@@ -57,20 +59,17 @@ aws codeartifact get-package-version-asset \
   --package "$APPLICATION_NAME" \
   --package-version "$VERSION" \
   --asset "$APPLICATION_NAME-$VERSION.zip" \
-  "$APPLICATION_NAME.zip"
+  "$ARTIFACT_ZIP"
 
-# Unzip + validate
-unzip -o "$APPLICATION_NAME.zip"
-if [ ! -f "$APPLICATION_NAME/dist/index.js" ]; then
-  echo "ERROR: dist/index.js not found under $APPLICATION_NAME/"
+unzip -o "$ARTIFACT_ZIP"
+if [ ! -f "$INSTALL_DIR/dist/index.js" ]; then
+  echo "ERROR: dist/index.js not found under $INSTALL_DIR/"
+  rm -f "$ARTIFACT_ZIP"
   exit 1
 fi
 
-# Install under /home/admin only
-sudo rm -rf "$INSTALL_DIR"
-sudo mkdir -p "$INSTALL_DIR"
-sudo cp -a "$APPLICATION_NAME"/. "$INSTALL_DIR"/
 sudo chown -R admin:admin "$INSTALL_DIR"
+rm -f "$ARTIFACT_ZIP"
 
 # Node.js + pm2 (minimal AMIs often lack both). Tarball from nodejs.org with retries;
 # bake Node into AMI or ship via CodeArtifact to avoid boot-time egress to nodejs.org.
