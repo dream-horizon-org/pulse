@@ -14,7 +14,7 @@ from pulse_ai.constants import (
     USER_ID_SESSION_RCA,
 )
 from pulse_ai.schemas import RootCausePayloadSchema
-from pulse_ai.schemas.session_rca_narrative_v1 import SessionRcaNarrativeV1
+from pulse_ai.schemas.session_rca_structured_v1 import SessionRcaStructuredV1
 from pulse_ai.server.schemas import SessionRcaReportPayloadSchema, SessionRcaReportResponse
 
 logger = logging.getLogger(__name__)
@@ -81,29 +81,29 @@ async def generate_session_rca_report(
         session_id=session_id,
     )
 
-    narrative: SessionRcaNarrativeV1 | None = None
+    structured: SessionRcaStructuredV1 | None = None
     if session:
-        raw = session.state.get("session_rca_narrative")
+        raw = session.state.get("session_rca_structured")
         if raw:
             try:
-                narrative = SessionRcaNarrativeV1.model_validate(raw)
+                structured = SessionRcaStructuredV1.model_validate(raw)
             except Exception:
                 logger.warning(
-                    "Failed to validate session RCA narrative from session state",
+                    "Failed to validate session RCA structured report from session state",
                     exc_info=True,
                 )
 
-    if narrative is None:
-        logger.error("Session RCA narrative missing, session_id=%s", session_id)
-        raise SessionRcaRunnerError(500, "Session RCA narrative missing structured payload")
+    if structured is None:
+        logger.error("Session RCA structured report missing, session_id=%s", session_id)
+        raise SessionRcaRunnerError(500, "Session RCA structured report missing")
 
     if example_sessions_by_label:
-        for insight in narrative.segment_insights:
-            ids = example_sessions_by_label.get(insight.label)
+        for seg in structured.segments:
+            ids = example_sessions_by_label.get(seg.title)
             if ids:
-                insight.example_session_ids = ids
+                seg.affected_sessions = ids
 
-    report_payload = SessionRcaReportPayloadSchema(narrative=narrative)
+    report_payload = SessionRcaReportPayloadSchema(structured=structured)
     response = SessionRcaReportResponse(report=report_payload, cached=False)
 
     try:

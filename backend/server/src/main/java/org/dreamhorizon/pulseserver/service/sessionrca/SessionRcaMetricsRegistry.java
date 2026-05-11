@@ -10,6 +10,7 @@ import lombok.experimental.UtilityClass;
 public class SessionRcaMetricsRegistry {
 
   public static final String VOLUME = "volume";
+  public static final String VOLUME_WITH_APDEX = "volume_with_apdex";
   public static final String QUALITY_SCORE = "quality_score";
   public static final String QUALITY_SCORE_MEAN = "quality_score_mean";
   public static final String QUALITY_SCORE_STD = "quality_score_std";
@@ -28,13 +29,6 @@ public class SessionRcaMetricsRegistry {
 
   static final String QUALITY_SCORE_STD_EXPR =
       "stddevPop(if(apdexCount = 0, NULL, apdexSum / apdexCount))";
-
-  /**
-   * Per-row quality score expression (used in countIf for low_quality_count).
-   * Avoids division by zero; rows with apdexCount=0 are excluded from threshold check.
-   */
-  static final String PER_ROW_QUALITY_EXPR =
-      "if(apdexCount = 0, NULL, apdexSum / apdexCount)";
 
   static String lowQualityCountExpr(String thresholdParam) {
     return "countIf(notEmpty(toString(apdexCount)) AND apdexCount > 0"

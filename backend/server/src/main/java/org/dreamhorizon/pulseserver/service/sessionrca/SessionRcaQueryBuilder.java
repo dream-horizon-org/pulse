@@ -35,7 +35,8 @@ public final class SessionRcaQueryBuilder {
     String where = baseWhereSql(acc, projectId, startInclusive, endExclusive);
     String sql = "SELECT"
         + " count() AS " + SessionRcaMetricsRegistry.VOLUME
-        + ", " + SessionRcaMetricsRegistry.QUALITY_SCORE_EXPR + " AS " + SessionRcaMetricsRegistry.QUALITY_SCORE
+        + ", countIf(apdexCount > 0) AS " + SessionRcaMetricsRegistry.VOLUME_WITH_APDEX
+        + ", " + SessionRcaMetricsRegistry.QUALITY_SCORE_MEAN_EXPR + " AS " + SessionRcaMetricsRegistry.QUALITY_SCORE
         + ", " + SessionRcaMetricsRegistry.QUALITY_SCORE_MEAN_EXPR + " AS " + SessionRcaMetricsRegistry.QUALITY_SCORE_MEAN
         + ", " + SessionRcaMetricsRegistry.QUALITY_SCORE_STD_EXPR + " AS " + SessionRcaMetricsRegistry.QUALITY_SCORE_STD
         + " FROM " + SESSION_SUMMARY_TABLE
@@ -82,7 +83,7 @@ public final class SessionRcaQueryBuilder {
     String thresholdParam = acc.nextName();
     acc.add(thresholdParam, criticalThreshold);
     String where = appendDimensionFilters(
-        baseWhereSql(acc, projectId, startInclusive, endExclusive), acc, dimensionFilters);
+        baseWhereSql(acc, projectId, startInclusive, endExclusive), acc, dimensionFilters, p20Ms, p80Ms);
     String dimExpr = dimensionExpression(dimensionColumn, acc, p20Ms, p80Ms);
     String sql = "SELECT"
         + " " + dimExpr + " AS " + dimensionColumn
@@ -113,7 +114,7 @@ public final class SessionRcaQueryBuilder {
     }
     BindAccumulator acc = new BindAccumulator();
     String where = appendDimensionFilters(
-        baseWhereSql(acc, projectId, startInclusive, endExclusive), acc, dimensionFilters);
+        baseWhereSql(acc, projectId, startInclusive, endExclusive), acc, dimensionFilters, p20Ms, p80Ms);
     StringBuilder select = new StringBuilder();
     for (String dim : dimensionColumns) {
       if (select.length() > 0) {
@@ -122,7 +123,7 @@ public final class SessionRcaQueryBuilder {
       select.append(dimensionExpression(dim, acc, p20Ms, p80Ms)).append(" AS ").append(dim);
     }
     select.append(", count() AS ").append(SessionRcaMetricsRegistry.VOLUME);
-    select.append(", ").append(SessionRcaMetricsRegistry.QUALITY_SCORE_EXPR)
+    select.append(", ").append(SessionRcaMetricsRegistry.QUALITY_SCORE_MEAN_EXPR)
         .append(" AS ").append(SessionRcaMetricsRegistry.QUALITY_SCORE);
     String groupBy = dimensionColumns.stream().collect(Collectors.joining(", "));
     String sql = "SELECT " + select
@@ -143,12 +144,14 @@ public final class SessionRcaQueryBuilder {
       Instant endExclusive,
       Map<String, String> dimensionFilters,
       double criticalThreshold,
-      int limit) {
+      int limit,
+      long p20Ms,
+      long p80Ms) {
     BindAccumulator acc = new BindAccumulator();
     String thresholdParam = acc.nextName();
     acc.add(thresholdParam, criticalThreshold);
     String where = appendDimensionFilters(
-        baseWhereSql(acc, projectId, startInclusive, endExclusive), acc, dimensionFilters);
+        baseWhereSql(acc, projectId, startInclusive, endExclusive), acc, dimensionFilters, p20Ms, p80Ms);
     String qualityExpr = "apdexSum / apdexCount";
     String sql = "SELECT sessionId"
         + " FROM " + SESSION_SUMMARY_TABLE
@@ -182,7 +185,7 @@ public final class SessionRcaQueryBuilder {
   }
 
   private static String appendDimensionFilters(
-      String baseWhere, BindAccumulator acc, Map<String, String> filters) {
+      String baseWhere, BindAccumulator acc, Map<String, String> filters, long p20Ms, long p80Ms) {
     if (filters == null || filters.isEmpty()) {
       return baseWhere;
     }
@@ -190,7 +193,7 @@ public final class SessionRcaQueryBuilder {
     for (Map.Entry<String, String> e : filters.entrySet()) {
       String pn = acc.nextName();
       acc.add(pn, e.getValue() == null ? "" : e.getValue());
-      String lhs = "(" + dimensionExpressionRaw(e.getKey()) + ")";
+      String lhs = "(" + dimensionExpression(e.getKey(), acc, p20Ms, p80Ms) + ")";
       sb.append(" AND ").append(lhs).append(" = :").append(pn);
     }
     return sb.toString();

@@ -233,8 +233,12 @@ public class RcaReportEnrichmentService {
                 return new RcaEnrichmentOutcome(fallbackBody, null, anchorDate, windowEndExclusive, false);
               }
             })
-        .onErrorReturnItem(
-            new RcaEnrichmentOutcome(fallbackBody, null, anchorDate, windowEndExclusive, false));
+        .onErrorResumeNext(error -> {
+          log.warn("Session RCA enrichment failed for project={} date={}: {}",
+              projectId, anchorDate, error.getMessage(), error);
+          return Single.just(
+              new RcaEnrichmentOutcome(fallbackBody, null, anchorDate, windowEndExclusive, false));
+        });
   }
 
   /**

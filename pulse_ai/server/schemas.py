@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 
 from pulse_ai.schemas.rca_structured_v1 import RcaStructuredReportV1
 from pulse_ai.schemas.screen_rca_narrative_v1 import ScreenRcaNarrativeV1
-from pulse_ai.schemas.session_rca_narrative_v1 import SessionRcaNarrativeV1
+from pulse_ai.schemas.session_rca_structured_v1 import SessionRcaStructuredV1
 
 
 class RcaReportRequest(BaseModel):
@@ -61,7 +61,7 @@ class SessionRcaReportRequest(BaseModel):
 
 
 class SessionRcaReportPayloadSchema(BaseModel):
-    narrative: SessionRcaNarrativeV1
+    structured: SessionRcaStructuredV1
 
 
 class SessionRcaReportResponse(BaseModel):

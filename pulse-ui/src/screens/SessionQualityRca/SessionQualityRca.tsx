@@ -16,12 +16,15 @@ import dayjs from "dayjs";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ErrorAndEmptyState } from "../../components/ErrorAndEmptyState";
 import { RcaSessionReplayEvidenceCard } from "../CriticalInteractionDetails/components/RootCause/RcaSessionReplayEvidenceCard";
-import { useGetRcaReport } from "../../hooks/useGetRcaReport";
+import {
+  extractStructuredReport,
+  useGetRcaReport,
+} from "../../hooks/useGetRcaReport";
 import type {
-  SessionRcaNarrativeV1,
+  RcaReportPayload,
+  RcaStructuredMetricRowV1,
+  RcaStructuredSegmentV1,
   SessionRcaRootCausePayload,
-  SessionRcaSegment,
-  SessionRcaSegmentInsight,
 } from "../../hooks/useGetRcaReport";
 import {
   RCA_TYPE,
@@ -29,28 +32,10 @@ import {
 } from "../CriticalInteractionDetails/components/RootCause/RootCause.constants";
 import interactionRcaClasses from "../CriticalInteractionDetails/components/RootCause/RootCause.module.css";
 import rcaClasses from "../CriticalInteractionDetails/components/RootCause/RcaReportView.module.css";
-import classes from "./SessionQualityRca.module.css";
 
 const REGENERATE_DEBOUNCE_MS = 500;
 const NARRATIVE_NOTICE_MODAL_DELAY_MS = 2000;
 const SESSION_RCA_ENTITY_KEY = "__session__";
-
-const SESSION_RCA_METRIC_LABELS: Record<string, string> = {
-  volume: "Sessions",
-  quality_score: "Quality score",
-  quality_score_mean: "Quality mean (µ)",
-  quality_score_std: "Quality std (σ)",
-  z_score: "Z-score",
-};
-
-const SEGMENT_METRIC_ORDER = ["volume", "quality_score", "z_score"] as const;
-
-const BASELINE_ORDER = [
-  "volume",
-  "quality_score",
-  "quality_score_mean",
-  "quality_score_std",
-] as const;
 
 export interface SessionQualityRcaProps {
   projectId: string | null | undefined;
@@ -64,85 +49,164 @@ function formatReportAsOf(iso: string | null | undefined): string | null {
   return parsed.isValid() ? parsed.format("MMM D, YYYY [at] h:mm A") : null;
 }
 
-function formatMetricValue(key: string, value: unknown): string {
-  if (value == null) return "—";
-  if (typeof value === "number" && Number.isFinite(value)) {
-    if (key === "volume") return value.toLocaleString();
-    if (key === "z_score") return value.toFixed(2);
-    if (key === "quality_score" || key === "quality_score_mean") {
-      return (value * 100).toFixed(1) + "%";
-    }
-    return value.toLocaleString(undefined, { maximumFractionDigits: 3 });
+
+function getDeltaColor(
+  deltaDisplay: string,
+  metricId: string,
+): "red.7" | "teal.7" | undefined {
+  if (!deltaDisplay || deltaDisplay === "—") return undefined;
+  const isNeg = deltaDisplay.trimStart().startsWith("-");
+  if (metricId === "session_score") return isNeg ? "red.7" : "teal.7";
+  return undefined;
+}
+
+function getValueColor(
+  row: RcaStructuredMetricRowV1,
+): "red.7" | "teal.7" | undefined {
+  if (row.metric_id === "session_score" && row.value_number != null) {
+    if (row.value_number < 0.4) return "red.7";
+    if (row.value_number > 0.8) return "teal.7";
   }
-  return String(value);
+  return undefined;
 }
 
-function formatDelta(value: number): string {
-  const sign = value > 0 ? "+" : "";
-  return `${sign}${value.toFixed(1)}%`;
-}
-
-function ImpactBadge({ impact }: { impact: string }) {
-  const isCritical = impact === "critical";
-  return (
-    <Badge
-      size="sm"
-      variant="filled"
-      color={isCritical ? "red" : "yellow"}
-      className={classes.impactBadge}
-    >
-      {isCritical ? "CRITICAL" : "NORMAL"}
-    </Badge>
-  );
-}
-
-function SegmentInsightRow({
-  insight,
+function SessionSegmentCard({
+  seg,
   projectId,
 }: {
-  insight: SessionRcaSegmentInsight;
+  seg: RcaStructuredSegmentV1;
   projectId?: string | null;
 }) {
-  const evidenceIds = insight.example_session_ids?.filter(Boolean) ?? [];
+  const evidenceIds = (seg.affected_sessions ?? []).filter(Boolean);
+  const insightText = seg.insights?.trim() ?? "";
+  const hasInsight = insightText !== "";
+  const showEvidence = evidenceIds.length > 0;
+  const isCritical = seg.impact === "critical";
+
   return (
-    <Box className={classes.insightRow}>
-      <Group gap="xs" mb={4}>
-        <Text size="sm" fw={600}>{insight.label}</Text>
-        <ImpactBadge impact={insight.impact} />
-        {insight.z_score != null && (
-          <Text size="xs" c="dimmed">z = {insight.z_score.toFixed(2)}</Text>
-        )}
-        {insight.quality_score != null && (
-          <Text size="xs" c="dimmed">
-            quality {(insight.quality_score * 100).toFixed(1)}%
-          </Text>
-        )}
-        {insight.volume_pct != null && (
-          <Text size="xs" c="dimmed">{insight.volume_pct.toFixed(1)}% of sessions</Text>
-        )}
-      </Group>
-      <Text size="sm" c="dimmed" lh={1.5}>{insight.key_finding}</Text>
-      {evidenceIds.length > 0 && (
-        <div className={rcaClasses.evidenceSection}>
+    <Card withBorder padding="lg" radius="md" className={rcaClasses.segmentCard}>
+      {/* Header: rank + label + impact badge */}
+      <div className={rcaClasses.segmentHeader}>
+        <div className={rcaClasses.rankBadge}>{seg.rank}</div>
+        <Text fw={600} size="md" style={{ flex: 1 }}>
+          {seg.title}
+        </Text>
+        <Badge
+          size="sm"
+          variant="light"
+          color={isCritical ? "red" : "gray"}
+        >
+          {seg.impact}
+        </Badge>
+      </div>
+
+      {/* Metrics table */}
+      <div className={rcaClasses.tableWrap}>
+        <Table.ScrollContainer minWidth={400}>
+          <Table
+            className={rcaClasses.metricsTable}
+            layout="fixed"
+            striped
+            highlightOnHover
+            withTableBorder
+            horizontalSpacing="sm"
+            verticalSpacing="xs"
+          >
+            <colgroup>
+              <col className={rcaClasses.metricsTableColMetric} />
+              <col className={rcaClasses.metricsTableColNumeric} />
+              <col className={rcaClasses.metricsTableColNumeric} />
+              <col className={rcaClasses.metricsTableColDelta} />
+            </colgroup>
+            <Table.Thead>
+              <Table.Tr>
+                <Table.Th className={rcaClasses.metricsColMetric}>
+                  <span className={rcaClasses.metricsThLabelMetric}>Metric</span>
+                </Table.Th>
+                <Table.Th className={rcaClasses.metricsColNumeric}>
+                  <span className={rcaClasses.metricsThLabelNumeric}>Value</span>
+                </Table.Th>
+                <Table.Th className={rcaClasses.metricsColNumeric}>
+                  <span className={rcaClasses.metricsThLabelNumeric}>Baseline</span>
+                </Table.Th>
+                <Table.Th className={rcaClasses.metricsColNumericNarrow}>
+                  <span className={rcaClasses.metricsThLabelNumeric}>Delta</span>
+                </Table.Th>
+              </Table.Tr>
+            </Table.Thead>
+            <Table.Tbody>
+              {(seg.metrics ?? []).map((row) => (
+                <Table.Tr key={row.metric_id}>
+                  <Table.Td className={rcaClasses.metricsColMetric}>
+                    <Text size="sm" ta="start">{row.metric_label}</Text>
+                  </Table.Td>
+                  <Table.Td className={rcaClasses.metricsColNumeric}>
+                    <Text size="sm" ta="end" fw={600} c={getValueColor(row)}>
+                      {row.value_display}
+                    </Text>
+                  </Table.Td>
+                  <Table.Td className={rcaClasses.metricsColNumeric}>
+                    <Text size="sm" ta="end" c="dimmed">
+                      {row.baseline_display}
+                    </Text>
+                  </Table.Td>
+                  <Table.Td className={rcaClasses.metricsColNumericNarrow}>
+                    <Text
+                      size="sm"
+                      ta="end"
+                      fw={600}
+                      c={getDeltaColor(row.delta_display, row.metric_id)}
+                    >
+                      {row.delta_display}
+                    </Text>
+                  </Table.Td>
+                </Table.Tr>
+              ))}
+            </Table.Tbody>
+          </Table>
+        </Table.ScrollContainer>
+      </div>
+
+      {/* AI insight */}
+      {hasInsight && (
+        <div className={rcaClasses.insightsCallout}>
+          <Text size="xs" fw={600} c="dimmed" mb={6}>Insights</Text>
+          <Text size="sm" lh={1.6}>{insightText}</Text>
+        </div>
+      )}
+
+      {/* Evidence */}
+      {showEvidence && (
+        <Box className={rcaClasses.evidenceSection}>
           <div className={rcaClasses.evidenceSectionTitleRow}>
-            <Text size="xs" fw={600} tt="uppercase" c="gray.6">Session evidence</Text>
+            <Text
+              className={rcaClasses.evidenceTitle}
+              fw={700}
+              size="sm"
+              tt="uppercase"
+            >
+              Evidence
+            </Text>
+            <Badge size="sm" variant="light" color="teal" circle className={rcaClasses.evidenceCountBadge}>
+              {evidenceIds.length}
+            </Badge>
           </div>
-          <div className={rcaClasses.evidenceCardRow}>
+          <Box className={rcaClasses.evidenceCardRow}>
             {evidenceIds.map((sid, idx) => (
-              <div key={sid} className={rcaClasses.evidenceCardSlot}>
+              <Box key={sid} className={rcaClasses.evidenceCardSlot}>
                 <RcaSessionReplayEvidenceCard
                   sessionId={sid}
-                  segmentTitle={insight.label}
+                  segmentTitle={seg.title}
                   projectId={projectId}
                   evidenceOrdinal={idx + 1}
                   evidenceSessionCount={evidenceIds.length}
                 />
-              </div>
+              </Box>
             ))}
-          </div>
-        </div>
+          </Box>
+        </Box>
       )}
-    </Box>
+    </Card>
   );
 }
 
@@ -180,23 +244,21 @@ export function SessionQualityRca({
 
   const narrativeBusy = narrativeLoading || isRcaQueuePending || isProcessing;
 
-  // Extract session narrative and tabular data from job result
-  const reportPayload = narrativeData?.data?.report;
-  const innerReport = reportPayload?.report ?? reportPayload;
-  const narrative: SessionRcaNarrativeV1 | null =
-    (innerReport?.narrative ?? null) as SessionRcaNarrativeV1 | null;
-  const rcaPayload: SessionRcaRootCausePayload | null =
-    (innerReport?.rootCausePayload ?? null) as SessionRcaRootCausePayload | null;
+  // 200 cache-hit has no job → isCompleted stays false, but data is ready
+  const hasReport = isCompleted || narrativeData?.status === 200;
 
-  const executiveSummaryText = narrative?.executive_summary?.trim() ?? "";
-  const segmentInsights = (narrative?.segment_insights ?? []).filter(
-    (si) => si.label && si.key_finding,
-  );
-  const recommendationLines = (narrative?.recommendations ?? []).filter(
+  const reportPayload = narrativeData?.data?.report as RcaReportPayload | null | undefined;
+  const innerReport = reportPayload?.report ?? reportPayload;
+
+  const structured = extractStructuredReport(innerReport);
+  const rcaPayload = (innerReport?.rootCausePayload ?? null) as SessionRcaRootCausePayload | null;
+
+  const executiveSummaryText = structured?.executive_summary?.trim() ?? "";
+  const structuredSegments = structured?.segments ?? [];
+  const recommendationLines = (structured?.recommendations ?? []).filter(
     (l) => String(l).trim() !== "",
   );
   const hasExecutiveSummary = executiveSummaryText !== "";
-  const hasInsights = segmentInsights.length > 0;
   const hasRecommendations = recommendationLines.length > 0;
 
   const showNarrativeWait = !isProjectIdMissing && narrativeBusy && !narrativeIsError;
@@ -255,7 +317,7 @@ export function SessionQualityRca({
     );
   }
 
-  if (isCompleted && rcaPayload?.noDataAvailable) {
+  if (hasReport && rcaPayload?.noDataAvailable) {
     return (
       <Box className={interactionRcaClasses.container}>
         <Alert color="gray" title="No data in selected period">
@@ -265,9 +327,8 @@ export function SessionQualityRca({
     );
   }
 
-  const baseline = rcaPayload?.baseline ?? {};
-  const segments = rcaPayload?.segments ?? [];
-  const showGoodBanner = isCompleted && rcaPayload?.everythingGood === true;
+  const showGoodBanner = hasReport && rcaPayload?.everythingGood === true;
+  const mode = rcaPayload?.mode;
 
   return (
     <>
@@ -302,16 +363,17 @@ export function SessionQualityRca({
             </Alert>
           )}
 
+          {/* Header row: as-of date + mode + regenerate */}
           <Group justify="space-between" align="flex-start" wrap="wrap" gap="sm">
             {reportAsOf != null ? (
-              <Text className={rcaClasses.reportCachedAt} size="sm" c="dimmed">
+              <Text size="sm" c="dimmed">
                 Report as of {reportAsOf}
               </Text>
             ) : <div />}
             <Group gap="xs">
-              {rcaPayload?.mode != null && (
-                <Badge size="sm" variant="outline" color="gray">
-                  {rcaPayload.mode}
+              {mode != null && (
+                <Badge size="sm" variant="outline" color="gray" tt="uppercase">
+                  {mode}
                 </Badge>
               )}
               <Button
@@ -326,33 +388,16 @@ export function SessionQualityRca({
             </Group>
           </Group>
 
-          {/* Baseline */}
-          <Card padding="lg" radius="md" withBorder>
-            <Text fw={700} size="sm" tt="uppercase" c="gray.7" mb="sm">
-              Baseline
-            </Text>
-            <Group gap="xl" wrap="wrap">
-              {BASELINE_ORDER.map((key) => {
-                const val = baseline[key];
-                if (val == null) return null;
-                return (
-                  <Box key={key}>
-                    <Text size="xs" c="dimmed">{SESSION_RCA_METRIC_LABELS[key] ?? key}</Text>
-                    <Text size="sm" fw={600}>{formatMetricValue(key, val)}</Text>
-                  </Box>
-                );
-              })}
-            </Group>
-          </Card>
 
-          {/* AI narrative loading states */}
+          {/* Loading skeletons */}
           {narrativeBusy ? (
             <Stack gap="sm">
               <Skeleton height={100} radius="md" />
-              <Skeleton height={120} radius="md" />
+              <Skeleton height={200} radius="md" />
             </Stack>
           ) : null}
 
+          {/* Error states */}
           {isFailed && (
             <Alert color="orange" title="AI summary failed">
               {narrativeErrorMsg ?? ROOT_CAUSE_MESSAGES.GENERIC_ERROR}
@@ -369,7 +414,7 @@ export function SessionQualityRca({
           ) : null}
 
           {/* Executive summary */}
-          {isCompleted && !narrativeBusy && hasExecutiveSummary ? (
+          {hasReport && !narrativeBusy && hasExecutiveSummary ? (
             <Card padding="lg" radius="md" withBorder className={rcaClasses.executiveSummaryCard}>
               <div className={rcaClasses.executiveSummaryTitleRow}>
                 <IconSparkles size={18} color="var(--mantine-color-violet-6)" />
@@ -381,23 +426,33 @@ export function SessionQualityRca({
             </Card>
           ) : null}
 
-          {/* Segment insights from AI */}
-          {isCompleted && !narrativeBusy && hasInsights ? (
-            <Card padding="lg" radius="md" withBorder>
-              <Group gap="xs" mb="sm">
-                <Text fw={700} size="sm" tt="uppercase" c="gray.7">Segment insights</Text>
-                <Badge size="sm" variant="light" color="gray">{segmentInsights.length}</Badge>
-              </Group>
-              <Stack gap="sm">
-                {segmentInsights.map((si, i) => (
-                  <SegmentInsightRow key={`${si.label}-${i}`} insight={si} projectId={projectId} />
+          {/* Segment cards */}
+          {hasReport && !narrativeBusy && structuredSegments.length > 0 ? (
+            <Box>
+              <div className={rcaClasses.segmentsSectionTitleRow}>
+                <Text fw={700} size="md" tt="uppercase" c="gray.7">
+                  Top contributing segments
+                </Text>
+                <Badge size="sm" variant="light" color="gray">{structuredSegments.length}</Badge>
+              </div>
+              <Stack gap="md">
+                {structuredSegments.map((seg) => (
+                  <SessionSegmentCard
+                    key={`${seg.title}-${seg.rank}`}
+                    seg={seg}
+                    projectId={projectId}
+                  />
                 ))}
               </Stack>
-            </Card>
+            </Box>
+          ) : hasReport && !narrativeBusy && structuredSegments.length === 0 ? (
+            <Text className={interactionRcaClasses.stateMessage}>
+              No segment breakdown available.
+            </Text>
           ) : null}
 
           {/* Recommendations */}
-          {isCompleted && !narrativeBusy && hasRecommendations ? (
+          {hasReport && !narrativeBusy && hasRecommendations ? (
             <Card padding="lg" radius="md" withBorder className={rcaClasses.recommendationsCard}>
               <Text className={rcaClasses.recommendationsTitle} fw={700} size="sm" c="teal.8">
                 Recommendations
@@ -410,130 +465,6 @@ export function SessionQualityRca({
                 ))}
               </ul>
             </Card>
-          ) : null}
-
-          {/* Tabular segments */}
-          {isCompleted && !narrativeBusy && segments.length === 0 ? (
-            <Text className={interactionRcaClasses.stateMessage}>
-              No segment breakdown available.
-            </Text>
-          ) : isCompleted && !narrativeBusy && segments.length > 0 ? (
-            <Box>
-              <div className={rcaClasses.segmentsSectionTitleRow}>
-                <Text fw={700} size="md" tt="uppercase" c="gray.7">
-                  Top contributing segments
-                </Text>
-                <Badge size="sm" variant="light" color="gray">{segments.length}</Badge>
-              </div>
-              <Stack gap="md">
-                {(segments as SessionRcaSegment[]).map((seg, idx) => {
-                  const impact = seg.metrics?.impact as string | undefined;
-                  return (
-                    <Card
-                      key={`${seg.label}-${idx}`}
-                      padding="lg"
-                      radius="md"
-                      withBorder
-                      className={rcaClasses.segmentCard}
-                    >
-                      <Group gap="sm" mb="xs" align="center">
-                        <Text fw={600} size="md">{seg.label}</Text>
-                        {typeof impact === "string" && (
-                          <ImpactBadge impact={impact} />
-                        )}
-                      </Group>
-                      {seg.dimensions && Object.keys(seg.dimensions).length > 0 && (
-                        <Group gap="xs" mb="sm">
-                          {Object.entries(seg.dimensions).map(([k, v]) => (
-                            <Badge key={k} variant="light" size="sm" className={classes.dimBadge}>
-                              {k}: {v}
-                            </Badge>
-                          ))}
-                        </Group>
-                      )}
-                      <div className={rcaClasses.tableWrap}>
-                        <Table.ScrollContainer minWidth={400}>
-                          <Table
-                            className={rcaClasses.metricsTable}
-                            layout="fixed"
-                            striped
-                            highlightOnHover
-                            withTableBorder
-                            horizontalSpacing="sm"
-                            verticalSpacing="xs"
-                          >
-                            <colgroup>
-                              <col className={rcaClasses.metricsTableColMetric} />
-                              <col className={rcaClasses.metricsTableColNumeric} />
-                              <col className={rcaClasses.metricsTableColNumeric} />
-                              <col className={rcaClasses.metricsTableColDelta} />
-                            </colgroup>
-                            <Table.Thead>
-                              <Table.Tr>
-                                <Table.Th className={rcaClasses.metricsColMetric}>
-                                  <span className={rcaClasses.metricsThLabelMetric}>Metric</span>
-                                </Table.Th>
-                                <Table.Th className={rcaClasses.metricsColNumeric}>
-                                  <span className={rcaClasses.metricsThLabelNumeric}>Segment</span>
-                                </Table.Th>
-                                <Table.Th className={rcaClasses.metricsColNumeric}>
-                                  <span className={rcaClasses.metricsThLabelNumeric}>Baseline</span>
-                                </Table.Th>
-                                <Table.Th className={rcaClasses.metricsColNumericNarrow}>
-                                  <span className={rcaClasses.metricsThLabelNumeric}>Delta</span>
-                                </Table.Th>
-                              </Table.Tr>
-                            </Table.Thead>
-                            <Table.Tbody>
-                              {SEGMENT_METRIC_ORDER.map((metricKey) => {
-                                const segVal = seg.metrics?.[metricKey];
-                                const baseVal = baseline[metricKey];
-                                const d = seg.deltas?.[metricKey];
-                                const label = SESSION_RCA_METRIC_LABELS[metricKey] ?? metricKey;
-                                const deltaStr =
-                                  d != null && Number.isFinite(d) ? formatDelta(d) : "—";
-                                const deltaColor =
-                                  d == null || !Number.isFinite(d)
-                                    ? undefined
-                                    : metricKey === "quality_score"
-                                      ? d < 0
-                                        ? ("red.7" as const)
-                                        : ("teal.7" as const)
-                                      : d < 0
-                                        ? ("teal.7" as const)
-                                        : ("red.7" as const);
-                                return (
-                                  <Table.Tr key={metricKey}>
-                                    <Table.Td className={rcaClasses.metricsColMetric}>
-                                      <Text size="sm" ta="start">{label}</Text>
-                                    </Table.Td>
-                                    <Table.Td className={rcaClasses.metricsColNumeric}>
-                                      <Text size="sm" ta="end" fw={600}>
-                                        {formatMetricValue(metricKey, segVal)}
-                                      </Text>
-                                    </Table.Td>
-                                    <Table.Td className={rcaClasses.metricsColNumeric}>
-                                      <Text size="sm" ta="end" c="dimmed">
-                                        {formatMetricValue(metricKey, baseVal)}
-                                      </Text>
-                                    </Table.Td>
-                                    <Table.Td className={rcaClasses.metricsColNumericNarrow}>
-                                      <Text size="sm" ta="end" fw={600} c={deltaColor}>
-                                        {deltaStr}
-                                      </Text>
-                                    </Table.Td>
-                                  </Table.Tr>
-                                );
-                              })}
-                            </Table.Tbody>
-                          </Table>
-                        </Table.ScrollContainer>
-                      </div>
-                    </Card>
-                  );
-                })}
-              </Stack>
-            </Box>
           ) : null}
         </Stack>
       </Box>

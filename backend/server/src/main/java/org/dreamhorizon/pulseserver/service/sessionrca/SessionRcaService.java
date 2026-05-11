@@ -37,7 +37,7 @@ import org.dreamhorizon.pulseserver.util.serialization.ObjectMapperUtil;
  * Session-scoped RCA over {@code otel.session_summary}. Segmentation algorithm ports
  * {@link RootCauseService} and {@link org.dreamhorizon.pulseserver.service.rootcause.ScreenRcaService}
  * exactly. Selection signal: {@code low_quality_count} (sessions where quality_score < µ − 2σ).
- * Impact flag: z_score < −2.0 → critical. Reuses {@link RootCauseService#hybridDimensionOrderFromPrecomputedMaxes}.
+ * Impact flag: z_score < −2.0 OR quality ≥50% below mean → critical. Reuses {@link RootCauseService#hybridDimensionOrderFromPrecomputedMaxes}.
  */
 @Slf4j
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
@@ -551,8 +551,10 @@ public class SessionRcaService {
       double criticalThreshold,
       long p20Ms,
       long p80Ms) {
-    double baselineVolume = NumberCoercionUtils.toDouble(
-        baseline.get(SessionRcaMetricsRegistry.VOLUME));
+    Object volumeWithApdex = baseline.get(SessionRcaMetricsRegistry.VOLUME_WITH_APDEX);
+    double baselineVolume = volumeWithApdex != null
+        ? NumberCoercionUtils.toDouble(volumeWithApdex)
+        : NumberCoercionUtils.toDouble(baseline.get(SessionRcaMetricsRegistry.VOLUME));
     double minVolumeAbs = baselineVolume * (config.getMinSegmentVolumePct() / 100.0);
 
     var spec = SessionRcaQueryBuilder.buildSegmentQuery(
@@ -574,12 +576,16 @@ public class SessionRcaService {
       double zScore = qualityStd < 0.01 ? 0.0 : (segQuality - qualityMean) / qualityStd;
       String impact;
       if (qualityStd < 0.01) {
-        // σ≈0: no spread to compute z_score against — use same delta rule as criticalThreshold
+        // σ≈0: use relative-delta rule
         impact = segQuality < qualityMean * 0.80
             ? SessionRcaMetricsRegistry.IMPACT_CRITICAL
             : SessionRcaMetricsRegistry.IMPACT_NORMAL;
       } else {
-        impact = zScore < -2.0
+        // Critical if z < -2.0 OR quality is ≥50% worse than the baseline mean.
+        // The second criterion catches high-variance distributions (large σ) where a
+        // severely degraded segment may not reach z = -2.0 even with quality near 0.
+        double qualityDeltaPct = qualityMean > 0 ? (segQuality - qualityMean) / qualityMean : 0.0;
+        impact = (zScore < -2.0 || qualityDeltaPct < -0.50)
             ? SessionRcaMetricsRegistry.IMPACT_CRITICAL
             : SessionRcaMetricsRegistry.IMPACT_NORMAL;
       }
@@ -591,7 +597,7 @@ public class SessionRcaService {
 
       var evidenceSpec = SessionRcaQueryBuilder.buildExampleSessionsQuery(
           projectId, window.startInclusive, window.endExclusive,
-          dimensionFilters, criticalThreshold, EVIDENCE_SESSION_LIMIT);
+          dimensionFilters, criticalThreshold, EVIDENCE_SESSION_LIMIT, p20Ms, p80Ms);
       return executeQuery(projectId, evidenceSpec)
           .map(evidenceRows -> {
             List<String> exampleSessionIds = evidenceRows.stream()
@@ -631,11 +637,12 @@ public class SessionRcaService {
       if (count < threshold) {
         continue;
       }
+      Object val = row.get(dimensionColumn);
+      String valStr = val != null ? val.toString() : "";
       long diff = Math.abs(count - totalLowQuality);
       if (diff < bestDiff) {
         bestDiff = diff;
-        Object val = row.get(dimensionColumn);
-        best = new SegmentPath(dimensionColumn, val != null ? val.toString() : "", false);
+        best = new SegmentPath(dimensionColumn, valStr, false);
       }
     }
     return Optional.ofNullable(best);
@@ -676,6 +683,7 @@ public class SessionRcaService {
     Map<String, Object> m = new LinkedHashMap<>();
     for (String key : List.of(
         SessionRcaMetricsRegistry.VOLUME,
+        SessionRcaMetricsRegistry.VOLUME_WITH_APDEX,
         SessionRcaMetricsRegistry.QUALITY_SCORE,
         SessionRcaMetricsRegistry.QUALITY_SCORE_MEAN,
         SessionRcaMetricsRegistry.QUALITY_SCORE_STD)) {
