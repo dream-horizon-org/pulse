@@ -15,7 +15,7 @@ function safeRegex(pattern: string): RegExp {
     return new RegExp(pattern);
   } catch {
     diag.warn(
-      `[PulseWeb] invalid regex in sampling config; using literal fallback: ${String(pattern).slice(0, 120)}`,
+      `[Pulse] invalid regex in sampling config; using literal fallback: ${String(pattern).slice(0, 120)}`,
     );
     try {
       const escaped = pattern.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");

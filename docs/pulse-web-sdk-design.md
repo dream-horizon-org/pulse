@@ -6,8 +6,10 @@
 |---|---|
 | **Version** | 1.0 |
 | **Date** | April 14, 2026 |
-| **Status** | Proposal |
+| **Status** | Proposal (superseded in part by shipped code — see note below) |
 | **Author** | Shruti |
+
+**Where the Web SDK lives today:** implementation and canonical contracts are in **`pulse-web-otel/`** (package **`@dreamhorizonorg/pulse-web`**). For **screen navigation** specifically, use **`pulse-web-otel/docs/instrumentations/screen-signals/SPEC.md`** and **`sdk-core/SPEC.md`** — not every detail in §5.5 / §4.6 below matches the shipped design.
 
 ---
 
@@ -107,7 +109,7 @@ pulse-web-js/
 │   ├── instrumentation/
 │   │   ├── NetworkInstrumentation.ts    # Patches fetch + XHR, emits network spans
 │   │   ├── ErrorInstrumentation.ts      # window.onerror + unhandledrejection
-│   │   ├── NavigationInstrumentation.ts # History API + popstate + hashchange
+│   │   ├── NavigationInstrumentation.ts # History API (pushState/replaceState) + popstate — no hash-only router hook
 │   │   ├── ClickInstrumentation.ts      # Click capture, rage-click detection
 │   │   ├── WebVitalsInstrumentation.ts  # CLS, LCP, INP, FID, TTFB via web-vitals
 │   │   ├── PageLifecycleInstrumentation.ts  # visibilitychange, beforeunload
@@ -240,24 +242,16 @@ span.end();  // or span.end('ERROR')
 
 ### 4.6 Navigation Tracking
 
+**Shipped (`pulse-web-otel`):** `NavigationInstrumentation` is installed with the SDK when the **`screen_navigation`** remote feature is on. SPA screen signals require **History API** updates (`pushState` / `replaceState` / `popstate`); hash-only URL changes without History do not emit **`screen_load` / `screen_session`**.
+
 ```typescript
-// History API auto-patching (default: on)
-Pulse.useHistoryInstrumentation();
+// React Router v6 — set screen.name for global attrs; NavigationInstrumentation emits spans
+import { PulseRouterEvents } from "@dreamhorizonorg/pulse-web/react/router";
 
-// React Router v6
-import { usePulseNavigation } from '@pulse/web/react';
-usePulseNavigation();
+// Next.js App Router — same pattern from @dreamhorizonorg/pulse-web/next
+// import { PulseRouterEvents } from "@dreamhorizonorg/pulse-web/next";
 
-// Next.js
-import { PulseNextjsProvider } from '@pulse/web/next';
-<PulseNextjsProvider>...</PulseNextjsProvider>
-
-// Vue Router
-import { createPulseRouterPlugin } from '@pulse/web/vue';
-router.use(createPulseRouterPlugin());
-
-// Mark when route is fully interactive (equivalent to markContentReady on mobile)
-Pulse.markPageReady();
+// Proposal-era names below (@pulse/web, usePulseNavigation) are not the shipped public API.
 ```
 
 ### 4.7 Session Replay
@@ -299,9 +293,9 @@ Pulse.addReplayUnmask('.public-username');
 | Performance spans | ✅ | ✅ | ✅ | ✅ | OTLP trace |
 | Network auto-instrumentation | ✅ | ✅ | ✅ | ✅ | `fetch` + `XHR` patch |
 | Session lifecycle | ✅ | ✅ | ✅ | ✅ | `visibilitychange` + idle timeout |
-| Page session spans | ✅ | ✅ | ✅ | ✅ | History API + `popstate` |
-| Page load span | ❌ | ❌ | ✅ | ✅ | Navigation Timing API |
-| Page interactive span | ❌ | ❌ | ✅ | ✅ | `markPageReady()` |
+| Page session spans | ✅ | ✅ | ✅ | ✅ | OTLP **span** → `otel_traces`; History API + `popstate` |
+| Page load span | ❌ | ❌ | ✅ | ✅ | OTLP **span**; Navigation Timing + SPA marker (`start.type=spa`) |
+| Page interactive span | ❌ | ❌ | ✅ | ⚠️ Web | **RN:** `screen_interactive` span. **Web:** no separate span — **`tti`** (when available) on **`screen_load`** span attrs (see screen-signals SPEC). |
 | User identity | ✅ | ✅ | ✅ | ✅ | In-memory + sessionStorage |
 | Global attributes | ✅ | ✅ | ✅ | ✅ | Merged on every signal |
 | Installation ID | ✅ | ✅ | ✅ | ✅ | `localStorage` UUID |
@@ -414,30 +408,26 @@ import { PulseErrorBoundary } from '@pulse/web/react';
 
 ### 5.5 Navigation / Page Tracking
 
-Three tracking modes matching mobile:
+**Shipped web model (`pulse-web-otel`):** two OTLP **client spans** (not log records) exported to **`otel_traces`**, span **names** literals `screen_load` and `screen_session` (not the route string). See **`pulse-web-otel/docs/instrumentations/screen-signals/SPEC.md`**.
 
-**Page Session Span** (`pulse.type = screen_session`)
+**Page Session Span** (`pulse.type = screen_session`, **Span**)
 ```
-starts: on route change or initial page load
-ends:   on next route change, tab close, or session timeout
-attrs:  screen.name (route path), last.screen.name
-```
-
-**Page Load Span** (`pulse.type = screen_load`)
-```
-starts: route change (History API pushState / popstate)
-ends:   requestAnimationFrame after paint
-attrs:  screen.name, navigation.type, performance.ttfb_ms, performance.fcp_ms
+starts: after each screen_load (cold or SPA), for dwell time
+ends:   next route change, pagehide, uninstall, or instrumentation shutdown
+attrs:  applied at span end — screen.name, session.duration_ms, url.path snapshot for exited screen, etc.
 ```
 
-**Page Interactive Span** (`pulse.type = screen_interactive`)
+**Page Load Span** (`pulse.type = screen_load`, **Span**)
 ```
-starts: route change event
-ends:   Pulse.markPageReady()
-attrs:  screen.name
+cold:   Navigation Timing–anchored start/end; attrs include tti, ttfb, start.type (cold|reload|back_forward), navigation.type when available
+spa:    marker span on History transition; start.type = spa; screen.name from URL + routePatterns (resolveScreenNameFromUrl)
 ```
 
-**Initial Page Load** uses `PerformanceNavigationTiming` to produce a full-lifecycle span: DNS → TCP → TLS → Request → Response → DOM Parse → First Contentful Paint.
+**Page Interactive (`pulse.type = screen_interactive`) — web vs mobile**
+- **React Native** may emit a dedicated **`screen_interactive`** span (`markContentReady()`-style lifecycle).
+- **Web:** no separate **`screen_interactive`** span; interactivity signal is **`tti`** (and related timing attrs) on **`screen_load`** when Navigation Timing allows.
+
+**Initial Page Load** uses `PerformanceNavigationTiming` (where available) for cold **`screen_load`** span timing and attributes.
 
 ---
 
@@ -899,7 +889,7 @@ npx @pulse/cli sourcemaps upload \
 
 - [ ] `NetworkInstrumentation`: fetch + XHR patching, span per request, URL filtering, header capture
 - [ ] `ErrorInstrumentation`: `window.onerror`, `unhandledrejection`, stack trace capture
-- [ ] `NavigationInstrumentation`: History API patch, page session + load + interactive spans
+- [ ] `NavigationInstrumentation`: History API patch + `popstate`; **`screen_load` + `screen_session`** OTLP spans only (no web **`screen_interactive`** span)
 - [ ] `ClickInstrumentation`: click capture, rage-click detection, normalized coordinates
 - [ ] `PageLifecycleInstrumentation`: `visibilitychange`, `beforeunload`, `online`/`offline`
 - [ ] `WebVitalsInstrumentation`: LCP, CLS, INP, FCP, TTFB via `web-vitals`
@@ -915,7 +905,7 @@ npx @pulse/cli sourcemaps upload \
 
 ### Phase 5 — Framework Integrations (Weeks 8–9)
 
-- [ ] `@pulse/web/react`: `PulseErrorBoundary`, `withPulseErrorBoundary`, `usePulseNavigation`, `PulseMask`, `PulseUnmask`
+- [ ] `@pulse/web/react` (shipped: `@dreamhorizonorg/pulse-web/react`): `PulseProvider`, `PulseErrorBoundary`, **`PulseRouterEvents` / `useRouterTracking`** (`/react/router`), etc.
 - [ ] `@pulse/web/next`: `PulseNextjsProvider` (App Router + Pages Router)
 - [ ] `@pulse/web/vue`: `createPulsePlugin` with Vue Router integration
 - [ ] `@pulse/web/angular`: `providePulse()`, `PulseService`, Angular `ErrorHandler`
@@ -1036,9 +1026,9 @@ All attribute keys match existing Pulse conventions so the backend and dashboard
 |---|---|---|
 | Current page / route | `screen.name` | `screen.name` |
 | Previous page / route | `last.screen.name` | `last.screen.name` |
-| Page session span | `pulse.type = screen_session` | `pulse.type = screen_session` |
-| Page load span | `pulse.type = screen_load` | `pulse.type = screen_load` (RN) |
-| Page interactive span | `pulse.type = screen_interactive` | `pulse.type = screen_interactive` (RN) |
+| Page session span | `pulse.type = screen_session` (**Span** → traces) | `pulse.type = screen_session` |
+| Page load span | `pulse.type = screen_load` (**Span** → traces) | `pulse.type = screen_load` (RN) |
+| Page interactive span | **Web:** no dedicated span — use **`tti`** on **`screen_load`**. **RN:** `pulse.type = screen_interactive` | `pulse.type = screen_interactive` (RN) |
 | Long task (ANR equiv.) | `pulse.type = device.anr` | `pulse.type = device.anr` |
 | Fatal JS error | `pulse.type = device.crash` | `pulse.type = device.crash` |
 | Non-fatal error | `pulse.type = non_fatal` | `pulse.type = non_fatal` |

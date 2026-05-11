@@ -1,7 +1,7 @@
 /**
  * {@code PulseWebConfig.beforeSendData} — Android {@code PulseBeforeSendData} parity (generic → typed; {@code null} = drop).
  * Runs on the **main thread** at OTLP export batch time; see
- * `web-sdk-plan/v1/01-foundation/before-send-web-android-parity.md`.
+ * docs/instrumentations/sdk-core/SPEC.md (beforeSend hooks).
  */
 
 import type { ReadableSpan } from "@opentelemetry/sdk-trace-web";
@@ -9,12 +9,15 @@ import type { ReadableLogRecord } from "@opentelemetry/sdk-logs";
 import type { ResourceMetrics } from "@opentelemetry/sdk-metrics";
 
 import type {
+  PulseExportSignal,
   PulseWebBeforeSendCallbacks,
   PulseWebBeforeSendConfig,
   ResolvedBeforeSend,
 } from "./types/before-send";
 
 export type {
+  PulseBeforeSendResult,
+  PulseExportSignal,
   PulseWebBeforeSendCallbacks,
   PulseWebBeforeSendConfig,
   ResolvedBeforeSend,
@@ -82,6 +85,26 @@ export function isResourceMetrics(value: unknown): value is ResourceMetrics {
   );
 }
 
+/**
+ * Runs {@link ResolvedBeforeSend.beforeSend} when present and validates the return shape
+ * matches the input signal kind (otherwise drops, matching Android behaviour).
+ */
+export function applyBeforeSendGeneric(
+  hooks: ResolvedBeforeSend | undefined,
+  signal: PulseExportSignal,
+): PulseExportSignal | null {
+  if (!hooks?.beforeSend) return signal;
+  const out = hooks.beforeSend(signal);
+  if (out === null) return null;
+  if (isReadableSpan(signal)) {
+    return isReadableSpan(out) ? out : null;
+  }
+  if (isResourceMetrics(signal)) {
+    return isResourceMetrics(out) ? out : null;
+  }
+  return isReadableLogRecord(out) ? out : null;
+}
+
 export function validateBeforeSendConfig(
   input: PulseWebBeforeSendConfig | undefined,
 ): void {
@@ -89,7 +112,7 @@ export function validateBeforeSendConfig(
   if (typeof input === "function") return;
   if (typeof input !== "object" || input === null) {
     throw new Error(
-      "[PulseWeb] beforeSendData must be a function or a callback object",
+      "[Pulse] beforeSendData must be a function or a callback object",
     );
   }
   const o = input as Record<string, unknown>;
@@ -102,7 +125,7 @@ export function validateBeforeSendConfig(
     const v = o[key];
     if (v !== undefined && typeof v !== "function") {
       throw new Error(
-        `[PulseWeb] beforeSendData.${key} must be a function when provided`,
+        `[Pulse] beforeSendData.${key} must be a function when provided`,
       );
     }
   }

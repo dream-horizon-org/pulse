@@ -12,6 +12,11 @@ lib/
 # Claude Code: keep shared project memory; ignore other local-only files under .claude/
 .claude/*
 !.claude/CLAUDE.md
+# Symlink mirrors into shared `.agents/` (web SDK agent + skills)
+!.claude/agents/
+!.claude/agents/**
+!.claude/skills/
+!.claude/skills/**
 .cursor/hooks/state/
 .cursor/plans/
 .terraform/
@@ -23,11 +28,13 @@ lib/
 terraform.rc
 env.json
 
-docs/
 **/.idea
-docs/api
-docs/architecture
 graphify-out/
+
+# Ralph/local agent issue queues — keep working copies private
+issues/
 /CLAUDE.md
 !.claude/CLAUDE.md
 backend/server/src/test/graphify-out/
+
+ralph/*

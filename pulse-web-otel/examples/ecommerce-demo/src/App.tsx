@@ -1,4 +1,4 @@
-import React, { lazy, Suspense, useEffect, useMemo } from "react";
+import React, { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import {
   BrowserRouter,
   Routes,
@@ -7,16 +7,55 @@ import {
   useLocation,
 } from "react-router-dom";
 import {
-  PulseWeb,
+  Pulse,
   PulseDataCollectionConsent,
   PulseLogLevel,
-} from "@dreamhorizon/pulse-web";
-import {
-  PulseProvider,
-  useRouterTracking,
-} from "@dreamhorizon/pulse-web/react";
+} from "@dreamhorizonorg/pulse-web";
+import { PulseProvider } from "@dreamhorizonorg/pulse-web/react";
+import { PulseRouterEvents } from "@dreamhorizonorg/pulse-web/react/router";
 import { PulseDebugPanel } from "./components/PulseDebugPanel";
+import { ScreenNavigationLogger } from "./components/ScreenNavigationLogger";
+import { EcommerceErrorFallback } from "./components/EcommerceErrorFallback";
 import { CartProvider } from "./hooks/useCart";
+
+/**
+ * Manual Web Vitals QA: optional local disable via env or URL (`pulse_wv_enabled`, `VITE_PULSE_WEB_VITALS_ENABLED`).
+ * FCP/FID/TTFB register with other vitals whenever instrumentation installs — no separate demo knobs.
+ * Remote `web_vitals` gate still comes from SDK config (mock JSON / server), not from here.
+ */
+type ManualWebVitalsInstrumentation = {
+  webVitals: {
+    enabled?: boolean;
+  };
+};
+
+function readManualWebVitalsInstrumentation(
+  searchParams: URLSearchParams,
+): ManualWebVitalsInstrumentation | undefined {
+  const q = (key: string): string | null => searchParams.get(key);
+  const truthy = (v: string | null): boolean =>
+    v === "1" || v === "true" || v === "yes";
+  const falsy = (v: string | null): boolean => v === "0" || v === "false";
+
+  let enabled: boolean | undefined;
+  let touchedEnabled = false;
+  if (falsy(q("pulse_wv_enabled"))) {
+    enabled = false;
+    touchedEnabled = true;
+  } else if (import.meta.env["VITE_PULSE_WEB_VITALS_ENABLED"] === "false") {
+    enabled = false;
+    touchedEnabled = true;
+  } else if (truthy(q("pulse_wv_enabled"))) {
+    enabled = true;
+    touchedEnabled = true;
+  }
+
+  if (!touchedEnabled) {
+    return undefined;
+  }
+
+  return { webVitals: { enabled } };
+}
 
 const Home = lazy(() => import("./routes/Home"));
 const Products = lazy(() => import("./routes/Products"));
@@ -24,6 +63,7 @@ const ProductDetail = lazy(() => import("./routes/ProductDetail"));
 const Cart = lazy(() => import("./routes/Cart"));
 const Checkout = lazy(() => import("./routes/Checkout"));
 const ErrorDemo = lazy(() => import("./routes/ErrorDemo"));
+const NetworkLab = lazy(() => import("./routes/NetworkLab"));
 
 function NavBar() {
   const location = useLocation();
@@ -72,6 +112,7 @@ function NavBar() {
         {link("/products", "Products")}
         {link("/cart", "Cart")}
         {link("/checkout", "Checkout")}
+        {link("/network-lab", "Network Lab")}
         {link("/error-demo", "Error Demo")}
       </nav>
     </header>
@@ -79,12 +120,12 @@ function NavBar() {
 }
 
 export default function App() {
+  const [errorLabKey, setErrorLabKey] = useState(0);
+
   const pulseConfig = useMemo(() => {
     const searchParams = new URLSearchParams(window.location.search);
     const consentParam = searchParams.get("pulse_consent");
     const queryLogLevel = searchParams.get("pulse_log_level");
-    const queryUserEnabled = searchParams.get("pulse_user_enabled");
-    const queryUserId = searchParams.get("pulse_user_id");
 
     // Disk buffering defaults on (Android parity). Opt out with ?pulse_disk=0 or VITE_PULSE_DISK_BUFFER=false.
     const diskOffQuery = searchParams.get("pulse_disk") === "0";
@@ -111,8 +152,6 @@ export default function App() {
       .toString()
       .trim()
       .toLowerCase();
-    const legacyDebugLifecycle =
-      import.meta.env["VITE_PULSE_DEBUG_LOG_LIFECYCLE"] === "true";
     const logLevelMap: Record<string, PulseLogLevel> = {
       verbose: PulseLogLevel.VERBOSE,
       debug: PulseLogLevel.DEBUG,
@@ -121,9 +160,7 @@ export default function App() {
       error: PulseLogLevel.ERROR,
       none: PulseLogLevel.NONE,
     };
-    const logLevel =
-      logLevelMap[logLevelRaw] ??
-      (legacyDebugLifecycle ? PulseLogLevel.DEBUG : undefined);
+    const logLevel = logLevelMap[logLevelRaw];
 
     const serviceVersionRaw = import.meta.env["VITE_PULSE_SERVICE_VERSION"] as
       | string
@@ -133,29 +170,43 @@ export default function App() {
         ? String(serviceVersionRaw).trim()
         : undefined;
 
+    const manualInstrumentations =
+      readManualWebVitalsInstrumentation(searchParams);
+    /** E2E: `?pulse_network_enabled=0` disables network instrumentation while remote gate may stay on. */
+    const pulseNetworkDisabled =
+      searchParams.get("pulse_network_enabled") === "0" ||
+      searchParams.get("pulse_network_enabled") === "false";
+    const instrumentationsPartial =
+      manualInstrumentations !== undefined || pulseNetworkDisabled
+        ? {
+            ...(manualInstrumentations ?? {}),
+            ...(pulseNetworkDisabled
+              ? { network: { enabled: false as const } }
+              : {}),
+          }
+        : undefined;
+
+    const apiKey = import.meta.env["VITE_PULSE_API_KEY"];
+    if (!apiKey) {
+      throw new Error(
+        "Missing VITE_PULSE_API_KEY for ecommerce-demo Pulse integration",
+      );
+    }
+
     return {
-      apiKey:
-        import.meta.env["VITE_PULSE_API_KEY"] ?? "default-project_devkey01",
+      apiKey,
       serviceName:
         import.meta.env["VITE_PULSE_SERVICE_NAME"] ?? "ecommerce-demo",
       ...(serviceVersion !== undefined ? { serviceVersion } : {}),
       dataCollectionState,
       export: {
         format: (formatEnv ?? ("protobuf" as const)) as "json" | "protobuf",
-        compression:
-          (import.meta.env["VITE_PULSE_COMPRESSION"] as
-            | "gzip"
-            | "none"
-            | undefined) ?? "gzip",
-        batch: {
-          scheduledDelayMillis: import.meta.env["VITE_PULSE_BATCH_DELAY_MS"]
-            ? Number(import.meta.env["VITE_PULSE_BATCH_DELAY_MS"])
-            : 5000,
-        },
       },
-      debugLogRecordLifecycle: legacyDebugLifecycle,
       ...(logLevel !== undefined ? { logLevel } : {}),
       ...(diskBuffering !== undefined ? { diskBuffering } : {}),
+      ...(instrumentationsPartial !== undefined
+        ? { instrumentations: instrumentationsPartial }
+        : {}),
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -200,11 +251,22 @@ export default function App() {
 
   return (
     <BrowserRouter>
-      <PulseProvider config={pulseConfig} shutdownOnUnmount={false}>
+      <PulseProvider
+        config={pulseConfig}
+        shutdownOnUnmount={false}
+        errorBoundaryFallback={(error, reset) => (
+          <EcommerceErrorFallback
+            error={error}
+            reset={reset}
+            onRecover={() => setErrorLabKey((k) => k + 1)}
+          />
+        )}
+      >
         {/* Expose for E2E shutdown test (m1.spec.ts) */}
-        <_PulseWebExpose />
-        <_PulseWebRouterTracking />
-        <_PulseWebDemoUserSetup config={userSetupConfig} />
+        <_PulseExpose />
+        <PulseRouterEvents skipInitial={false} />
+        <ScreenNavigationLogger />
+        <_PulseDemoUserSetup config={userSetupConfig} />
         <CartProvider>
           <NavBar />
           <main
@@ -230,7 +292,11 @@ export default function App() {
                 <Route path="/products/:id" element={<ProductDetail />} />
                 <Route path="/cart" element={<Cart />} />
                 <Route path="/checkout" element={<Checkout />} />
-                <Route path="/error-demo" element={<ErrorDemo />} />
+                <Route path="/network-lab" element={<NetworkLab />} />
+                <Route
+                  path="/error-demo"
+                  element={<ErrorDemo key={errorLabKey} />}
+                />
               </Routes>
             </Suspense>
           </main>
@@ -241,17 +307,11 @@ export default function App() {
   );
 }
 
-/** Exposes PulseWeb on window for E2E tests. No UI rendered. */
-function _PulseWebExpose(): null {
+/** Exposes `Pulse` on window for E2E tests. No UI rendered. */
+function _PulseExpose(): null {
   React.useEffect(() => {
-    (window as unknown as Record<string, unknown>)["PulseWeb"] = PulseWeb;
+    (window as unknown as Record<string, unknown>)["Pulse"] = Pulse;
   }, []);
-  return null;
-}
-
-/** Mounts route tracking inside BrowserRouter + PulseProvider tree. */
-function _PulseWebRouterTracking(): null {
-  useRouterTracking({ skipInitial: false });
   return null;
 }
 
@@ -261,17 +321,17 @@ type DemoUserSetupConfig = {
   userProps: Record<string, string | null>;
 };
 
-function _PulseWebDemoUserSetup({
+function _PulseDemoUserSetup({
   config,
 }: {
   config: DemoUserSetupConfig;
 }): null {
   useEffect(() => {
     if (config.enabled) {
-      PulseWeb.setUserId(config.userId);
-      PulseWeb.setUserProperties(config.userProps);
+      Pulse.setUserId(config.userId);
+      Pulse.setUserProperties(config.userProps);
     } else {
-      PulseWeb.setUserId(null);
+      Pulse.setUserId(null);
     }
   }, [config.enabled, config.userId, config.userProps]);
 

@@ -24,7 +24,6 @@ import {
   isCHAvailable,
   waitForCHLog,
   waitForCHStackTrace,
-  waitForCHSpan,
   countCHLogs,
   SERVICE_NAME,
 } from "./ch-fixture";
@@ -71,8 +70,12 @@ test.describe("@M16-CH PulseProvider session lifecycle", () => {
     const row = await waitForCHLog("session.start", "", 25_000);
     expect(row.PulseType).toBe("session.start");
 
-    // Count session.starts in the last 10s — should be 1 (not 2+ from StrictMode)
-    const cnt = await countCHLogs("session.start", "", 10);
+    // Scope to the captured session.id so neighboring tests don't inflate counts.
+    const cnt = await countCHLogs(
+      "session.start",
+      `LogAttributes['session.id'] = '${row.session_id}'`,
+      10,
+    );
     expect(cnt).toBeLessThanOrEqual(1);
   });
 });
@@ -114,20 +117,32 @@ test.describe("@M16-CH PulseErrorBoundary", () => {
 // ─── TC 16.3 / 16.5 — useRouterTracking → screen.name propagation in CH ──────
 
 test.describe("@M16-CH useRouterTracking + screen.name", () => {
-  test("TC 16.3: screen_load span carries screen.name after NavBar route change", async ({
+  test("TC 16.3: custom event carries /products screen.name after route change", async ({
     page,
   }) => {
     await page.goto("/");
     await page.waitForTimeout(2_000);
 
-    // Navigate to /products via NavBar → useRouterTracking fires → next screen_load carries it
+    // Navigate to /products via NavBar → useRouterTracking updates screen.name
     await page.getByRole("link", { name: "Products" }).click();
     await page.waitForURL("**/products");
+    await page.waitForTimeout(500);
+
+    // Emit a deterministic custom event and assert routed screen.name in CH logs.
+    await page.evaluate(() => {
+      const w = window as unknown as {
+        Pulse?: { trackEvent: (n: string) => void };
+      };
+      w.Pulse?.trackEvent("ch_products_screen_name_check");
+    });
     await page.waitForTimeout(INGEST_WAIT);
 
-    const span = await waitForCHSpan("screen_load", "", 25_000);
-    // screen_load spans carry screen.name from globalAttrsProcessor
-    expect(span.screen_name).toBeTruthy();
+    const row = await waitForCHLog(
+      "custom_event",
+      `Body = 'ch_products_screen_name_check'`,
+      25_000,
+    );
+    expect(row.screen_name).toBe("/products");
   });
 
   test("TC 16.5: custom event after route change carries new screen.name in CH", async ({
@@ -143,9 +158,9 @@ test.describe("@M16-CH useRouterTracking + screen.name", () => {
     // Emit custom event — screen.name should be /cart in otel_logs
     await page.evaluate(() => {
       const w = window as unknown as {
-        PulseWeb?: { trackEvent: (n: string) => void };
+        Pulse?: { trackEvent: (n: string) => void };
       };
-      w.PulseWeb?.trackEvent("ch_screen_name_check");
+      w.Pulse?.trackEvent("ch_screen_name_check");
     });
 
     await page.waitForTimeout(INGEST_WAIT);

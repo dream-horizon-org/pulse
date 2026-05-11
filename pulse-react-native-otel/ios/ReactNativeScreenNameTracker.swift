@@ -1,4 +1,5 @@
 import Foundation
+import PulseKit
 
 /**
  * Allows React Native to override iOS ViewController-based screen tracking.
@@ -10,12 +11,22 @@ public class ReactNativeScreenNameTracker: NSObject {
     private static var _previousScreenName: String?
     
     @objc public static func setCurrentScreenName(_ screenName: String?) {
+        let changed: Bool
         lock.lock()
-        defer { lock.unlock() }
-        if let current = _currentScreenName, current != screenName {
-            _previousScreenName = current
+        if _currentScreenName != screenName {
+            if let current = _currentScreenName {
+                _previousScreenName = current
+            }
+            _currentScreenName = screenName
+            changed = true
+        } else {
+            changed = false
         }
-        _currentScreenName = screenName
+        lock.unlock()
+
+        if changed {
+            SessionReplayInstrumentation.getInstance()?.recorderInstance?.notifyScreenChange()
+        }
     }
     
     static func getCurrentScreenName() -> String? {
