@@ -32,9 +32,9 @@ public class BatchProcessorConfig {
   public static class BatchProcessorOption {
 
     @JsonProperty("maxExportBatchSize")
-    private Integer maxExportBatchSize;
+    private int maxExportBatchSize;
 
     @JsonProperty("scheduleDelay")
-    private Integer scheduleDelay; // milliseconds
+    private int scheduleDelay; // milliseconds
   }
 }
