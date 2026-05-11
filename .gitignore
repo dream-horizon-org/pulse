@@ -5,6 +5,7 @@
 **/build/
 .kotlin/
 lib/
+**/.cxx
 
 .env
 

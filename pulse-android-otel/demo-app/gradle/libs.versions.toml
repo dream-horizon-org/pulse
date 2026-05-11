@@ -19,6 +19,7 @@ pulse-instrumentation-fragment = { module = "org.dreamhorizon.instrumentation:fr
 pulse-instrumentation-slowrendering = { module = "org.dreamhorizon.instrumentation:slowrendering", version.ref = "pulse" }
 pulse-instrumentation-sessions = { module = "org.dreamhorizon:session", version.ref = "pulse" }
 pulse-instrumentation-locationLibrary = { module = "org.dreamhorizon.instrumentation:location-location-library", version.ref = "pulse" }
+pulse-instrumentation-cCrash = { module = "org.dreamhorizon.instrumentation:c-crash", version.ref = "pulse" }
 pulse-android-sdk = { module = "org.dreamhorizon:pulse-android-sdk", version.ref = "pulse" }
 okhttp3-library = { module = "org.dreamhorizon.instrumentation:okhttp3-library", version.ref = "pulse" }
 okhttp3-agent = { module = "org.dreamhorizon.instrumentation:okhttp3-agent", version.ref = "pulse" }

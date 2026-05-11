@@ -38,6 +38,8 @@ includeBuild("..") {
             .using(project(":instrumentation:fragment"))
         substitute(module("org.dreamhorizon.instrumentation:slowrendering"))
             .using(project(":instrumentation:slowrendering"))
+        substitute(module("org.dreamhorizon.instrumentation:c-crash"))
+            .using(project(":instrumentation:c-crash"))
         substitute(module("org.dreamhorizon:interaction-interaction-library"))
             .using(project(":instrumentation:interaction:interaction-library"))
         substitute(module("org.dreamhorizon:interaction-interaction-remote"))

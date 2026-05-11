@@ -24,6 +24,7 @@ dependencies {
     api(projects.instrumentation.activity)
     api(projects.instrumentation.anr)
     api(projects.instrumentation.crash)
+    api(projects.instrumentation.cCrash)
     api(projects.instrumentation.fragment)
     api(projects.instrumentation.network)
     api(projects.instrumentation.slowrendering)

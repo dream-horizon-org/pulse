@@ -144,6 +144,25 @@ class MainActivity : ComponentActivity() {
                                 modifier = Modifier.weight(1f),
                             )
                         }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            LauncherButton(
+                                text = "Native abort (C)",
+                                onClick = {
+                                    DemoNativeCrash.abortNow()
+                                },
+                                modifier = Modifier.weight(1f),
+                            )
+                            LauncherButton(
+                                text = "C++ crash (SIGSEGV)",
+                                onClick = {
+                                    DemoNativeCrash.sigsegvNow()
+                                },
+                                modifier = Modifier.weight(1f),
+                            )
+                        }
                         LauncherButton(
                             text = "Network call",
                             onClick = {

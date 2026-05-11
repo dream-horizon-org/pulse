@@ -28,6 +28,18 @@ android {
         vectorDrawables {
             useSupportLibrary = true
         }
+
+        externalNativeBuild {
+            cmake {
+                cppFlags += listOf("-std=c++17")
+            }
+        }
+    }
+
+    externalNativeBuild {
+        cmake {
+            path = file("src/main/cpp/CMakeLists.txt")
+        }
     }
 
     buildTypes {
@@ -91,6 +103,7 @@ dependencies {
     implementation(libs.okhttp3.library)
     byteBuddy(libs.okhttp3.agent)
     implementation(rootLibs.okhttp)
+    implementation(libs.pulse.instrumentation.cCrash)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.runtime.compose)
