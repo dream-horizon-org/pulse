@@ -996,7 +996,7 @@ class ErrorGroupingServiceTest {
     }
 
     @Test
-    void shouldResolvePlatformFromPlatformAttrWhenSdkNamesMissing() {
+    void shouldUseOsNameWhenPulseSdkUnknownEvenIfResourceHasPlatformAttr() {
       LogRecord logRecord = buildMinimalJsLogRecord();
 
       Resource resource = Resource.newBuilder()
@@ -1013,11 +1013,11 @@ class ErrorGroupingServiceTest {
       StackTraceEvent event = errorGroupingService.process(buildExportRequest(resource, logRecord))
           .blockingGet()
           .get(0);
-      assertEquals("web", event.getPlatform());
+      assertEquals("Linux", event.getPlatform());
     }
 
     @Test
-    void shouldResolvePlatformFromLogAttributesWhenAbsentOnResource() {
+    void shouldUseOsNameWhenPulseSdkUnknownEvenIfLogHasPlatformAttr() {
       LogRecord logRecord = LogRecord.newBuilder()
           .setObservedTimeUnixNano(System.currentTimeMillis() * 1_000_000)
           .addAttributes(KeyValue.newBuilder()
@@ -1040,7 +1040,72 @@ class ErrorGroupingServiceTest {
       StackTraceEvent event = errorGroupingService.process(buildExportRequest(resource, logRecord))
           .blockingGet()
           .get(0);
-      assertEquals("web", event.getPlatform());
+      assertEquals("Linux", event.getPlatform());
+    }
+
+    @Test
+    void shouldUseOsNameWhenTelemetrySdkNameIsNotPulseSdkId() {
+      LogRecord logRecord = buildMinimalJsLogRecord();
+
+      Resource resource = Resource.newBuilder()
+          .addAttributes(KeyValue.newBuilder()
+              .setKey("telemetry.sdk.name")
+              .setValue(AnyValue.newBuilder().setStringValue("opentelemetry-java").build())
+              .build())
+          .addAttributes(KeyValue.newBuilder()
+              .setKey("os.name")
+              .setValue(AnyValue.newBuilder().setStringValue("Darwin").build())
+              .build())
+          .build();
+
+      StackTraceEvent event = errorGroupingService.process(buildExportRequest(resource, logRecord))
+          .blockingGet()
+          .get(0);
+      assertEquals("Darwin", event.getPlatform());
+    }
+
+    @Test
+    void shouldReuseResolvedPlatformForAllLogsUnderSameResource() {
+      LogRecord first = buildMinimalJsLogRecord();
+      LogRecord second = LogRecord.newBuilder()
+          .setObservedTimeUnixNano(System.currentTimeMillis() * 1_000_000)
+          .addAttributes(KeyValue.newBuilder()
+              .setKey("exception.stacktrace")
+              .setValue(AnyValue.newBuilder().setStringValue("Error: Two\n    at b@b.js:2:2").build())
+              .build())
+          .build();
+
+      Resource resource = Resource.newBuilder()
+          .addAttributes(KeyValue.newBuilder()
+              .setKey("telemetry.sdk.name")
+              .setValue(AnyValue.newBuilder().setStringValue("pulse_web_js").build())
+              .build())
+          .addAttributes(KeyValue.newBuilder()
+              .setKey("os.name")
+              .setValue(AnyValue.newBuilder().setStringValue("macOS").build())
+              .build())
+          .build();
+
+      ScopeLogs scopeLogs = ScopeLogs.newBuilder()
+          .addLogRecords(first)
+          .addLogRecords(second)
+          .build();
+      ResourceLogs resourceLogs = ResourceLogs.newBuilder()
+          .setResource(resource)
+          .addScopeLogs(scopeLogs)
+          .build();
+      when(symbolicator.symbolicateJsInPlace(anyList(), any()))
+          .thenReturn(Single.just(List.of("func@file.js:1:1")));
+      lenient().when(symbolicator.retrace(anyList(), any()))
+          .thenReturn(Single.just(Collections.emptyList()));
+
+      List<StackTraceEvent> events = errorGroupingService.process(
+              ExportLogsServiceRequest.newBuilder().addResourceLogs(resourceLogs).build())
+          .blockingGet();
+
+      assertEquals(2, events.size());
+      assertEquals("web", events.get(0).getPlatform());
+      assertEquals("web", events.get(1).getPlatform());
     }
 
     @Test
