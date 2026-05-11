@@ -313,7 +313,7 @@ public class PulseSDK: NSObject {
             "rn_screen_interactive",
             "rn_network",
             "custom_events",
-            "js_crash",
+            "js_crash"
         ]
         var result: [String: Bool] = [:]
         for featureName in requiredFeatures {
