@@ -201,7 +201,7 @@ public class PersistingReplayEmitter(
                     if (!shutDown.get()) fileToContent.forEach { (file) -> file.delete() }
                 },
                 onFailure = { t ->
-                    PulseLogger.logWarn(ReplayConstants.REPLAY_LOG_TAG, t) {
+                    PulseLogger.logError(ReplayConstants.REPLAY_LOG_TAG, t) {
                         "[Replay flow] Flush send failed, re-queuing ${fileToContent.size} batch(es) for retry"
                     }
                     logger("Flush send failed: ${t.message.orEmpty()}")
@@ -283,7 +283,7 @@ public class PersistingReplayEmitter(
                     if (!shutDown.get()) fileToContent.forEach { (file) -> file.delete() }
                 },
                 onFailure = { t ->
-                    PulseLogger.logWarn(ReplayConstants.REPLAY_LOG_TAG, t) {
+                    PulseLogger.logError(ReplayConstants.REPLAY_LOG_TAG, t) {
                         "[Replay flow] Cached send failed, remaining batch(es) will be retried on next launch"
                     }
                     logger("Send cached replay failed: ${t.message.orEmpty()}")
