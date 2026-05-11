@@ -20,7 +20,7 @@ Document **Next.js-specific** integration: App Router tracking (`useNextAppRoute
 
 ## 3. Requirements
 
-**R1 — Client screen names:** App Router uses `usePathname` + `useSearchParams`; Pages Router uses `router.events.on('routeChangeComplete')`.
+**R1 — Client screen names:** App Router uses `usePathname` + `useSearchParams`; Pages Router uses `router.events.on('routeChangeComplete')`. SPA **`screen_load` / `screen_session`** in the core SDK require **History API** mutations (`pushState` / `popstate`); align with default Next client navigation — hash-only changes without History do not emit those spans (see **screen-signals** SPEC §7).
 
 **R2 — Build:** `withPulseConfig` enables browser source maps + uploads `.map` files post-webpack emit.
 
@@ -98,6 +98,12 @@ Server (node/edge)
 ### P0:
 
 None filed at synthesis.
+
+### P2: Hash-only navigation — no SPA screen signals
+
+Next.js App Router and Pages Router both use History API by default — this is a non-issue for standard setups. However, if a Next.js app layer introduces hash-only navigation (custom router or legacy `<a href="#section">` SPA patterns) without History API calls, `NavigationInstrumentation` will not see those transitions.
+
+**Fix:** Ensure client navigation flows through `router.push()` / `<Link>` (App Router) or `router.push()` / `<Link>` (Pages Router) — these drive History API mutations. See **screen-signals SPEC §7** for full detail.
 
 ### Other gaps
 

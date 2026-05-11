@@ -5,12 +5,17 @@
 
 package io.opentelemetry.android
 
+import android.app.ActivityManager
 import android.app.Application
+import android.content.Context
 import android.content.pm.ApplicationInfo
+import android.os.BatteryManager
 import android.os.Build
+import com.pulse.semconv.PulseDeviceAttributes
 import io.mockk.MockKAnnotations
 import io.mockk.every
 import io.mockk.impl.annotations.RelaxedMockK
+import io.mockk.mockk
 import io.opentelemetry.android.common.RumConstants
 import io.opentelemetry.sdk.resources.Resource
 import io.opentelemetry.semconv.ServiceAttributes
@@ -23,6 +28,10 @@ import org.junit.jupiter.api.Test
 internal class AndroidResourceTest {
     private val appName: String = "robotron"
     private val rumSdkVersion: String = BuildConfig.OTEL_ANDROID_VERSION
+    private val systemTotalMemoryBytes: Long = 8_589_934_592L
+    private val batteryChargeCounterUah: Long = 2_500L
+    private val batteryCapacityPercent: Int = 50
+    private val expectedBatteryFullCapacityUah: Long = 5_000L
 
     @RelaxedMockK
     private lateinit var app: Application
@@ -30,6 +39,42 @@ internal class AndroidResourceTest {
     @BeforeEach
     fun setUp() {
         MockKAnnotations.init(this)
+        stubSystemServices(
+            totalMem = systemTotalMemoryBytes,
+            chargeCounterUah = batteryChargeCounterUah,
+            capacityPercent = batteryCapacityPercent,
+        )
+    }
+
+    private fun stubSystemServices(
+        totalMem: Long,
+        chargeCounterUah: Long?,
+        capacityPercent: Int?,
+    ) {
+        val activityManager = mockk<ActivityManager>()
+        every { activityManager.getMemoryInfo(any()) } answers {
+            firstArg<ActivityManager.MemoryInfo>().totalMem = totalMem
+        }
+        val batteryManager = mockk<BatteryManager>()
+        if (capacityPercent != null && chargeCounterUah != null) {
+            every { batteryManager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY) } returns capacityPercent
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                every {
+                    batteryManager.getLongProperty(BatteryManager.BATTERY_PROPERTY_CHARGE_COUNTER)
+                } returns chargeCounterUah
+            } else {
+                every {
+                    batteryManager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CHARGE_COUNTER)
+                } returns chargeCounterUah.toInt()
+            }
+        }
+        every { app.getSystemService(any()) } answers {
+            when (firstArg<String>()) {
+                Context.ACTIVITY_SERVICE -> activityManager
+                Context.BATTERY_SERVICE -> batteryManager
+                else -> null
+            }
+        }
     }
 
     @Test
@@ -61,7 +106,11 @@ internal class AndroidResourceTest {
                         .put(RumConstants.Android.OS_API_LEVEL, Build.VERSION.SDK_INT.toString())
                         .put(RumConstants.App.BUILD_ID, "0")
                         .put(RumConstants.App.BUILD_NAME, "_0")
-                        .build(),
+                        .put(PulseDeviceAttributes.PULSE_SYSTEM_MEMORY_SIZE, systemTotalMemoryBytes)
+                        .put(
+                            PulseDeviceAttributes.PULSE_SYSTEM_BATTERY_CAPACITY_UAH,
+                            expectedBatteryFullCapacityUah,
+                        ).build(),
                 )
 
         val result = AndroidResource.createDefault(app)
@@ -98,7 +147,11 @@ internal class AndroidResourceTest {
                         .put(RumConstants.Android.OS_API_LEVEL, Build.VERSION.SDK_INT.toString())
                         .put(RumConstants.App.BUILD_ID, "0")
                         .put(RumConstants.App.BUILD_NAME, "_0")
-                        .build(),
+                        .put(PulseDeviceAttributes.PULSE_SYSTEM_MEMORY_SIZE, systemTotalMemoryBytes)
+                        .put(
+                            PulseDeviceAttributes.PULSE_SYSTEM_BATTERY_CAPACITY_UAH,
+                            expectedBatteryFullCapacityUah,
+                        ).build(),
                 )
 
         val result = AndroidResource.createDefault(app)
@@ -107,6 +160,7 @@ internal class AndroidResourceTest {
 
     @Test
     fun testProblematicContext() {
+        every { app.getSystemService(any()) } returns null
         every { app.applicationContext.applicationInfo } throws SecurityException("cannot do that")
         every { app.applicationContext.resources } throws SecurityException("boom")
 

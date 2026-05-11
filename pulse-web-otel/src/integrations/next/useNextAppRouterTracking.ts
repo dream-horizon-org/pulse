@@ -58,6 +58,8 @@ export function useNextAppRouterTracking(
       : dependency;
 
     Pulse.setScreenName(name);
+    // Intentionally only [dependency]: format/skipInitial are stable for the hook's
+    // lifetime; listing them would re-run every render when callers pass new objects.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dependency]);
 }

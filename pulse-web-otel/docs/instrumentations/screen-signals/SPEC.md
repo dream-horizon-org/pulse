@@ -28,9 +28,11 @@ Track **initial page load** and **SPA route transitions** using OTLP **client sp
 
 **R2 — SPA transitions:** Patch `history.pushState` / `replaceState` + listen to `popstate`; on meaningful route change (rate-limited), end the **`screen_session`** span for the previous screen, emit **`screen_load`** for the new screen with **`start.type` = `spa`**, then start a new **`screen_session`** span for dwell time.
 
-**R3 — Screen naming:** `screen.name` comes from `globalAttrsProcessor.getCurrentScreenName()` / `setScreenName` after transitions.
+**R2a — Rate limit / coalescing:** bursts of History updates **under 100 ms** apart **do not** apply the intermediate URL: the first update in a quiet window runs immediately; subsequent updates in that window **reset a trailing timer** so **one** transition runs after **100 ms** of quiet time, using the **final** `window.location` (avoids losing fast redirects / chained `replaceState`). Changing the threshold: edit `navigationRateLimitMs` in `navigation.ts` and this section.
 
-**R4 — Unload:** `pagehide` ends the active **`screen_session`** span for time-on-screen. **`uninstall`** ends any open **`screen_session`** span.
+**R3 — Screen naming:** Cold load uses `getCurrentScreenName()` (manual override + URL heuristics). **SPA transitions** stamp `screen.name` using **`resolveScreenNameFromUrl(config)`** — same pathname/heuristic/`routePatterns` rules as the processor but **without** a stale manual override, because History runs synchronously while framework integrations often call `setScreenName` in `useEffect`. The instrumentation then calls **`setScreenName`** with that value so clicks/errors align before the next render.
+
+**R4 — Unload and BFCache restore:** `pagehide` ends the active **`screen_session`** span for time-on-screen. **`uninstall`** ends any open **`screen_session`** span. **`pageshow`** with **`event.persisted === true`** (back/forward cache restore) emits a synthetic **`screen_load`** with **`start.type` = `bfcache`** and starts a new **`screen_session`** for dwell from the restore instant. If an open dwell span still exists (some browsers, e.g. Safari on iOS, may omit **`pagehide`** before BFCache), the implementation ends it before emitting restore spans.
 
 ---
 
@@ -64,7 +66,7 @@ Patch History API for SPA parity with Android activity transitions; reuse Naviga
 | `screen.name` | span attr | span attr | Identical |
 | `last.screen.name` | span attr | span attr (SPA transition from prior screen) | Funnel / parity |
 | `session.id` | span attr | span attr | Identical |
-| `start.type` | hot/warm/cold | cold/reload/back_forward/**spa** | Web adds `spa` |
+| `start.type` | hot/warm/cold | cold/reload/back_forward/**spa**/**bfcache** | Web adds `spa` (History) and `bfcache` (BFCache restore via `pageshow`) |
 | Cold duration | span duration | **`performance.timeOrigin` → `timeOrigin + loadEventEnd`** (Navigation Timing) | Matches load interval |
 | SPA duration | — | **~0** (`startTime` ≈ `endTime`, marker span) | Entry marker, not Nav Timing |
 | `platform` | `android` (resource) | `web` (resource) | Same key |
@@ -78,13 +80,13 @@ Patch History API for SPA parity with Android activity transitions; reuse Naviga
 | **OTLP shape** | span → `otel_traces` | span → `otel_traces` | Aligned |
 | **Span `name`** | — | **`screen_session`** (literal) | Not the route string |
 | **`SpanStatus`** | OK | **`OK`** before `end()` | |
-| `pulse.type` | `screen_session` | `screen_session` | Identical |
-| `screen.name` | span attr | span attr (screen being exited) | Identical |
+| `pulse.type` | `screen_session` | `screen_session` at **`startSpan`** (identity) | Web sets identity attrs when the dwell span **starts**, not only at `end()` |
+| `screen.name` | span attr | span attr (same screen for dwell; exit snapshot attrs at **`end`**) | Identical semantics; web splits identity vs exit attrs across two `setAttributes` calls |
 | `last.screen.name` | span attr | span attr (screen before the exited screen) | Parity |
-| `session.id` | span attr | span attr | Identical |
+| `session.id` | span attr | span attr at **`startSpan`** | Same as `pulse.type` / `screen.name` |
 | Duration | `otel_traces.Duration` | dwell span **`startTime`→`endTime`** | Matches time on screen |
-| `session.duration_ms` / `session.duration` | — | span attrs (duplicate ms) | Dashboard convenience |
-| `url.path` / `page.title` | — | snapshot for **exited** screen | Avoid post-navigation URL bleed |
+| `session.duration_ms` / `session.duration` | — | set on span at **`end()`** only (with exit snapshot attrs) | Dashboard convenience |
+| `url.path` / `page.title` | — | snapshot for **exited** screen at **`end()`** | Avoid post-navigation URL bleed |
 
 ### 5.2 `screen_interactive` naming (**web-only** note)
 
@@ -106,7 +108,14 @@ Patch History API for SPA parity with Android activity transitions; reuse Naviga
 ### 5.6 Initial vs SPA
 
 - **Initial:** Navigation Timing on **`screen_load`** span duration and attrs.
-- **SPA:** lighter **`screen_load`** (`start.type: spa`), marker duration (~0).
+- **SPA:** lighter **`screen_load`** (`start.type: spa`), marker span (**`startTime` ≈ `endTime`**, ~0 duration).
+
+### 5.7 BFCache restore (`pageshow`)
+
+- **`pagehide`** ends the prior dwell **`screen_session`** (when the browser fires it).
+- **`pageshow`** with **`persisted === true`:** emit marker **`screen_load`** (`start.type: bfcache`, **`startTime` = `endTime`** = restore instant, same ~0-duration pattern as SPA), then start a new **`screen_session`** with identity attrs at **`startSpan`** time. Call **`PulseGlobalAttributesProcessor.setScreenName`** with the restored screen name (same as SPA path) so post-restore signals are not stale.
+- **`enteredFromScreenName`** is **not** reset on restore so **`last.screen.name`** on the restore **`screen_load`** remains consistent with the funnel prior to BFCache.
+- If a dwell **`screen_session`** is still open when restore runs (missing **`pagehide`**), end it first, then emit restore spans.
 
 ---
 
@@ -118,6 +127,8 @@ Patch History API for SPA parity with Android activity transitions; reuse Naviga
 - **`screen_load`** / **`screen_session`** span names and `pulse.type` attrs.
 - **`screen_interactive`** **not** present on web spans (explicit scan).
 - Consent denied → instrumentation not installed.
+- **BFCache:** `pageshow` with **`persisted: true`** (jsdom: `Object.assign(new Event("pageshow"), { persisted: true })`) → **`screen_load`** with **`start.type === "bfcache"`**; **`persisted: false`** does not trigger restore; **`pagehide`** then **`pageshow(persisted)`** synchronous chain.
+- **In-flight `screen_session`:** first **`setAttributes`** after **`startSpan`** carries **`pulse.type`**, **`screen.name`**, **`session.id`**; final call before **`end()`** adds duration + exit **`url.path`** / **`page.title`** / **`last.screen.name`** only.
 
 ### `src/__tests__/screen-name-resolution.test.ts`
 
@@ -135,9 +146,29 @@ Patch History API for SPA parity with Android activity transitions; reuse Naviga
 
 Previously `navigation.ts` used **`logger.emit()`** → **`otel_logs`**. Web screen rows were invisible to Screens analytics (`otel_traces`-only queries). **Resolved:** spans via **`sdk.tracer`** → **`otel_traces`**.
 
-### P1: Hash-only routers
+### Resolved: Hash-only routers (integration guide gap)
 
-Routers that do not mutate `history` may not trigger patches — document host requirement.
+**History-based routing required.** Instrumentation patches `history.pushState` / `replaceState` and listens to `popstate`. Routers that only mutate `location.hash` without touching the History API emit **no** SPA `screen_load` / `screen_session` signals — the SDK behaves correctly given what it receives; this is user misconfiguration, not a data contract break.
+
+**Resolved:** Note now lives in both framework guides:
+- `docs/instrumentations/react-integration/SPEC.md` §7 (P2: HashRouter gap)
+- `docs/instrumentations/nextjs-integration/SPEC.md` §7 (P2: hash-only navigation gap)
+
+### Resolved: BFCache restore (`pageshow` + `persisted`)
+
+**Was:** No telemetry on BFCache restore after `pagehide` ended the dwell span. **Now:** `pageshow` with **`event.persisted === true`** emits **`screen_load`** (`start.type = bfcache`) and a new **`screen_session`**; see **§3 R4** and **§5.7**.
+
+### P3: 90ms trailing window — clicks/errors carry wrong `screen.name`
+
+**Not a dropped navigation.** `onRouteChange` uses a trailing debounce: when two `pushState` calls arrive < 100ms apart, the second cancels and resets the timer; when it fires it reads `window.location` (the final URL) and calls `applyRouteChange` — no navigation is lost.
+
+The actual risk: during the trailing window `currentScreenName` still holds the first URL’s name. Any click or error fired in that window is tagged with the wrong `screen.name`. For auth redirects (common trigger) this is a non-issue — no user interaction happens during a 90ms redirect chain. A human double-tap could mis-tag one or two events.
+
+**Status:** by-design / known tradeoff, documented in R2a. Revisit if analytics show unexplained `screen.name` mismatches on short-lived screens (< 100ms dwell).
+
+### Resolved: In-flight `screen_session` identity attrs
+
+**Was:** Identity attrs only at **`end()`**, so started spans looked empty to any in-flight reader. **Now:** `pulse.type`, `screen.name`, and `session.id` are set immediately after **`startSpan`**; **`endActiveSessionSpan`** adds **`session.duration_ms`**, **`session.duration`**, and exit snapshot attrs only. See **§5.2** `screen_session` table and **§6** tests.
 
 ---
 

@@ -92,6 +92,20 @@ test.describe("@ScreenNav SPA navigation", () => {
     expect(newLoad.name).toBe("screen_load");
   });
 
+  test("SPA screen_load screen.name matches post-navigation route path", async ({
+    page,
+    otlp,
+  }) => {
+    await page.goto("/");
+    await otlp.waitForSpan("screen_load");
+    otlp.reset();
+
+    await page.click('a:has-text("Products")');
+    await otlp.waitForSpan("screen_session");
+    const spaLoad = await otlp.waitForSpan("screen_load", 8000);
+    expect(getAttr(spaLoad.attributes, "screen.name")).toBe("/products");
+  });
+
   test("navigating multiple times emits screen_session each time", async ({
     page,
     otlp,

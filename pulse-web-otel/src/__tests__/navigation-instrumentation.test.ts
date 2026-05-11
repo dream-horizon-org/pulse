@@ -368,6 +368,54 @@ describe("NavigationInstrumentation", () => {
 
       instr.uninstall();
     });
+
+    it("SPA screen_load screen.name matches URL resolution (not stale manual)", () => {
+      const instr = new NavigationInstrumentation();
+      const sdk = makeMinimalSdk();
+
+      setPath("/home");
+      instr.install(sdk);
+      navSpanMocks.reset();
+
+      // Simulate framework having called setScreenName while still on /home.
+      sdk.globalAttrsProcessor.setScreenName("/home");
+
+      setPath("/cart");
+      history.pushState({}, "", "/cart");
+
+      const loads = findSpansByName("screen_load");
+      expect(loads.length).toBeGreaterThan(0);
+      const spaLoad = loads[loads.length - 1]!;
+      const attrs = attrsFromSetAttributesCalls(spaLoad);
+      expect(attrs[PulseWebSemconv.AttributeKey.SCREEN_NAME]).toBe("/cart");
+
+      instr.uninstall();
+    });
+
+    it("SPA screen_load respects routePatterns for destination screen.name", () => {
+      const instr = new NavigationInstrumentation();
+      const sdk = makeMinimalSdk({
+        config: {
+          apiKey: "proj_x_key",
+          dataCollectionState: PulseDataCollectionConsent.ALLOWED,
+          routePatterns: [{ pattern: "^/cart", name: "CartPage" }],
+        },
+      });
+
+      setPath("/home");
+      instr.install(sdk);
+      navSpanMocks.reset();
+
+      setPath("/cart");
+      history.pushState({}, "", "/cart");
+
+      const loads = findSpansByName("screen_load");
+      const spaLoad = loads[loads.length - 1]!;
+      const attrs = attrsFromSetAttributesCalls(spaLoad);
+      expect(attrs[PulseWebSemconv.AttributeKey.SCREEN_NAME]).toBe("CartPage");
+
+      instr.uninstall();
+    });
   });
 
   describe("Rate limiting", () => {
@@ -423,6 +471,34 @@ describe("NavigationInstrumentation", () => {
 
       expect(firstStarts).toBeGreaterThan(0);
       expect(secondStarts).toBeGreaterThan(0);
+
+      vi.useRealTimers();
+      instr.uninstall();
+    });
+
+    it("rapid SPA navigations coalesce to final URL after debounce window", () => {
+      const instr = new NavigationInstrumentation();
+      const sdk = makeMinimalSdk();
+
+      setPath("/page1");
+      instr.install(sdk);
+      navSpanMocks.reset();
+
+      vi.useFakeTimers();
+      const startTime = Date.now();
+      vi.setSystemTime(startTime);
+
+      setPath("/page2");
+      history.pushState({}, "", "/page2");
+      vi.advanceTimersByTime(30);
+      setPath("/page3");
+      history.pushState({}, "", "/page3");
+      vi.advanceTimersByTime(100);
+
+      const loads = findSpansByName("screen_load");
+      const lastSpaLoad = loads[loads.length - 1]!;
+      const attrs = attrsFromSetAttributesCalls(lastSpaLoad);
+      expect(attrs[PulseWebSemconv.AttributeKey.SCREEN_NAME]).toBe("/page3");
 
       vi.useRealTimers();
       instr.uninstall();
@@ -657,6 +733,108 @@ describe("NavigationInstrumentation", () => {
       const load = findSpansByName("screen_load")[0]!;
       expect(load?.setStatus.mock.calls.length).toBeGreaterThan(0);
       expect(load?.end.mock.calls.length).toBeGreaterThan(0);
+
+      instr.uninstall();
+    });
+
+    it("dwell screen_session gets identity setAttributes at start; final call adds duration only", () => {
+      const instr = new NavigationInstrumentation();
+      const sdk = makeMinimalSdk();
+
+      setPath("/home");
+      instr.install(sdk);
+
+      const dwell = findSpansByName("screen_session").find(
+        (s) => s.end.mock.calls.length === 0,
+      );
+      expect(dwell).toBeDefined();
+      const first = dwell!.setAttributes.mock.calls[0]![0] as Record<
+        string,
+        unknown
+      >;
+      expect(first[PulseWebSemconv.AttributeKey.PULSE_TYPE]).toBe(
+        PulseWebSemconv.PulseType.SCREEN_SESSION,
+      );
+      expect(first[PulseWebSemconv.AttributeKey.SCREEN_NAME]).toBeTruthy();
+      expect(first[PulseWebSemconv.AttributeKey.SESSION_ID]).toBeTruthy();
+
+      window.dispatchEvent(new Event("pagehide"));
+      const lastCall = dwell!.setAttributes.mock.calls[
+        dwell!.setAttributes.mock.calls.length - 1
+      ]![0] as Record<string, unknown>;
+      expect(
+        typeof lastCall[PulseWebSemconv.AttributeKey.SESSION_DURATION_MS],
+      ).toBe("number");
+      expect(lastCall[PulseWebSemconv.AttributeKey.PULSE_TYPE]).toBeUndefined();
+
+      instr.uninstall();
+    });
+  });
+
+  describe("BFCache / pageshow restore", () => {
+    it("pageshow with persisted=true emits screen_load with start.type bfcache and a new dwell screen_session", () => {
+      const instr = new NavigationInstrumentation();
+      const sdk = makeMinimalSdk();
+
+      setPath("/home");
+      instr.install(sdk);
+      navSpanMocks.reset();
+
+      // jsdom-safe — PageTransitionEvent doesn't expose `persisted` as needed
+      window.dispatchEvent(
+        Object.assign(new Event("pageshow"), { persisted: true }),
+      );
+
+      const loads = findSpansByName("screen_load").map(
+        attrsFromSetAttributesCalls,
+      );
+      const bfcacheLoad = loads.find(
+        (a) => a[PulseWebSemconv.AttributeKey.START_TYPE] === "bfcache",
+      );
+      expect(bfcacheLoad).toBeDefined();
+
+      const openSessions = findSpansByName("screen_session").filter(
+        (s) => s.end.mock.calls.length === 0,
+      );
+      expect(openSessions.length).toBeGreaterThanOrEqual(1);
+
+      instr.uninstall();
+    });
+
+    it("pageshow with persisted=false does not emit BFCache restore spans", () => {
+      const instr = new NavigationInstrumentation();
+      const sdk = makeMinimalSdk();
+
+      setPath("/home");
+      instr.install(sdk);
+      navSpanMocks.reset();
+
+      const n = navSpanMocks.mockTracer.startSpan.mock.calls.length;
+      window.dispatchEvent(
+        Object.assign(new Event("pageshow"), { persisted: false }),
+      );
+      expect(navSpanMocks.mockTracer.startSpan.mock.calls.length).toBe(n);
+
+      instr.uninstall();
+    });
+
+    it("pagehide then pageshow(persisted) emits bfcache screen_load synchronously", () => {
+      const instr = new NavigationInstrumentation();
+      const sdk = makeMinimalSdk();
+
+      setPath("/home");
+      instr.install(sdk);
+      navSpanMocks.reset();
+
+      window.dispatchEvent(new Event("pagehide"));
+      window.dispatchEvent(
+        Object.assign(new Event("pageshow"), { persisted: true }),
+      );
+
+      const bfcacheLoad = findSpansByName("screen_load")
+        .map(attrsFromSetAttributesCalls)
+        .find((a) => a[PulseWebSemconv.AttributeKey.START_TYPE] === "bfcache");
+      expect(bfcacheLoad).toBeDefined();
 
       instr.uninstall();
     });

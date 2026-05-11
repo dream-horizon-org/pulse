@@ -11,6 +11,7 @@ import type {
 import { PulseInstrumentationName } from "../constants/pulse-otel-runtime";
 import { PulseWebSemconv } from "../semconv";
 import { PulseDataCollectionConsent } from "../config";
+import { resolveScreenNameFromUrl } from "../processors/global-attrs-processor";
 
 /** OTLP span names — fixed literals for ClickHouse `SpanName` queries (not route strings). */
 const SPAN_SCREEN_LOAD = "screen_load";
@@ -31,6 +32,7 @@ export class NavigationInstrumentation implements PulseInstrumentation {
   readonly name = PulseInstrumentationName.NAVIGATION;
   private installed = false;
   private lastNavigationTime = 0;
+  /** Debounces duplicate History signals — see `docs/instrumentations/screen-signals/SPEC.md` (R2a). */
   private navigationRateLimitMs = 100;
   private currentScreenName = "";
   private screenStartTime = 0;
@@ -47,6 +49,12 @@ export class NavigationInstrumentation implements PulseInstrumentation {
   private sdkContext: SdkContext | null = null;
   private onPopStateBound?: () => void;
   private onPageHideBound?: () => void;
+  /** BFCache restore — `persisted` read from `Event` for jsdom-safe tests. */
+  private onPageShowBound?: (event: Event) => void;
+  /** Pending `load` listener when `document.readyState === "loading"` — removed on `uninstall`. */
+  private onInitialLoadBound?: () => void;
+  /** Trailing debounce for SPA History bursts — coalesces to final URL after quiet window. */
+  private routeTrailingTimer?: number;
 
   install(sdk: SdkContext): void {
     if (typeof window === "undefined") {
@@ -87,6 +95,16 @@ export class NavigationInstrumentation implements PulseInstrumentation {
       if (this.sdkContext) this.emitPageHideScreenSession(this.sdkContext);
     };
     window.addEventListener("pagehide", this.onPageHideBound);
+
+    this.onPageShowBound = (event: Event) => {
+      const persisted =
+        "persisted" in event &&
+        Boolean((event as PageTransitionEvent).persisted);
+      if (persisted && this.sdkContext) {
+        this.onBFCacheRestore(this.sdkContext);
+      }
+    };
+    window.addEventListener("pageshow", this.onPageShowBound);
   }
 
   uninstall(): void {
@@ -102,6 +120,14 @@ export class NavigationInstrumentation implements PulseInstrumentation {
     }
 
     if (typeof window !== "undefined") {
+      if (this.routeTrailingTimer !== undefined) {
+        window.clearTimeout(this.routeTrailingTimer);
+        this.routeTrailingTimer = undefined;
+      }
+      if (this.onInitialLoadBound) {
+        window.removeEventListener("load", this.onInitialLoadBound);
+        this.onInitialLoadBound = undefined;
+      }
       if (this.onPopStateBound) {
         window.removeEventListener("popstate", this.onPopStateBound);
         this.onPopStateBound = undefined;
@@ -109,6 +135,10 @@ export class NavigationInstrumentation implements PulseInstrumentation {
       if (this.onPageHideBound) {
         window.removeEventListener("pagehide", this.onPageHideBound);
         this.onPageHideBound = undefined;
+      }
+      if (this.onPageShowBound) {
+        window.removeEventListener("pageshow", this.onPageShowBound);
+        this.onPageShowBound = undefined;
       }
     }
 
@@ -123,6 +153,7 @@ export class NavigationInstrumentation implements PulseInstrumentation {
     this.installed = false;
     this.sdkContext = null;
     this.activeSessionSpan = undefined;
+    this.lastNavigationTime = 0;
   }
 
   private patchHistoryAPI(sdk: SdkContext): void {
@@ -187,10 +218,8 @@ export class NavigationInstrumentation implements PulseInstrumentation {
     const attributeKeys = PulseWebSemconv.AttributeKey;
     const pulseTypes = PulseWebSemconv.PulseType;
 
+    // Identity (pulse.type, screen.name, session.id) set at span start — only exit attrs here.
     span.setAttributes({
-      [attributeKeys.PULSE_TYPE]: pulseTypes.SCREEN_SESSION,
-      [attributeKeys.SCREEN_NAME]: this.currentScreenName,
-      [attributeKeys.SESSION_ID]: sdk.sessionProvider.getSessionId() ?? "",
       [attributeKeys.SESSION_DURATION_MS]: durationMs,
       [attributeKeys.SESSION_DURATION]: durationMs,
       ...this.buildDocAttrsFromSnapshot(docPath, docTitle, lastScreenNameAttr),
@@ -214,16 +243,50 @@ export class NavigationInstrumentation implements PulseInstrumentation {
   }
 
   private onRouteChange(sdk: SdkContext): void {
-    const now = Date.now();
-    if (now - this.lastNavigationTime < this.navigationRateLimitMs) {
+    if (typeof window === "undefined") {
       return;
     }
-    this.lastNavigationTime = now;
 
+    const now = Date.now();
+    const elapsed = now - this.lastNavigationTime;
+
+    const flush = (): void => {
+      this.routeTrailingTimer = undefined;
+      if (!this.installed || !this.sdkContext || this.sdkContext !== sdk) {
+        return;
+      }
+      const t = Date.now();
+      this.lastNavigationTime = t;
+      this.applyRouteChange(sdk, t);
+    };
+
+    if (elapsed >= this.navigationRateLimitMs) {
+      if (this.routeTrailingTimer !== undefined) {
+        window.clearTimeout(this.routeTrailingTimer);
+        this.routeTrailingTimer = undefined;
+      }
+      this.lastNavigationTime = now;
+      this.applyRouteChange(sdk, now);
+      return;
+    }
+
+    if (this.routeTrailingTimer !== undefined) {
+      window.clearTimeout(this.routeTrailingTimer);
+    }
+    const wait = this.navigationRateLimitMs - elapsed;
+    this.routeTrailingTimer = window.setTimeout(flush, wait);
+  }
+
+  /** Single SPA transition: end prior `screen_session`, emit `screen_load`, start new `screen_session`. */
+  private applyRouteChange(sdk: SdkContext, now: number): void {
     const attributeKeys = PulseWebSemconv.AttributeKey;
     const pulseTypes = PulseWebSemconv.PulseType;
 
-    const newScreenName = this.getCurrentScreenName(sdk);
+    // URL + config only — History fires synchronously here; React Router / Next
+    // typically calls Pulse.setScreenName in useEffect after paint. Using the
+    // processor's full getCurrentScreenName() would keep a stale manual override
+    // until pathname changes (same-pathname query tweaks) or lag frame behind URL.
+    const newScreenName = resolveScreenNameFromUrl(sdk.config);
     const sessionId = sdk.sessionProvider.getSessionId();
     const exitedDocPath = this.sessionDocPath;
     const exitedDocTitle = this.sessionDocTitle;
@@ -278,10 +341,87 @@ export class NavigationInstrumentation implements PulseInstrumentation {
         },
         ROOT_CONTEXT,
       );
+      this.activeSessionSpan.setAttributes({
+        [attributeKeys.PULSE_TYPE]: pulseTypes.SCREEN_SESSION,
+        [attributeKeys.SCREEN_NAME]: newScreenName,
+        [attributeKeys.SESSION_ID]: sessionId ?? "",
+      });
 
       if (typeof sdk.globalAttrsProcessor.setScreenName === "function") {
         sdk.globalAttrsProcessor.setScreenName(newScreenName);
       }
+    }
+  }
+
+  /**
+   * BFCache restore: some browsers (notably Safari on iOS) may omit {@code pagehide}, leaving an
+   * open dwell span — {@link endActiveSessionSpan} first if needed. Does not reset
+   * {@link enteredFromScreenName} so {@code last.screen.name} on the restore {@code screen_load} stays correct.
+   */
+  private onBFCacheRestore(sdk: SdkContext): void {
+    if (!this.installed || !this.sdkContext || this.sdkContext !== sdk) {
+      return;
+    }
+
+    const now = Date.now();
+    if (this.activeSessionSpan && this.currentScreenName) {
+      this.endActiveSessionSpan(
+        sdk,
+        now,
+        this.enteredFromScreenName,
+        this.sessionDocPath,
+        this.sessionDocTitle,
+      );
+    }
+
+    const k = PulseWebSemconv.AttributeKey;
+    const pt = PulseWebSemconv.PulseType;
+    const screenName = this.currentScreenName || this.getCurrentScreenName(sdk);
+    const sessionId = sdk.sessionProvider.getSessionId() ?? "";
+    const snap = this.captureDocSnapshot();
+
+    const loadSpan = sdk.tracer.startSpan(
+      SPAN_SCREEN_LOAD,
+      {
+        kind: SpanKind.INTERNAL,
+        startTime: now,
+      },
+      ROOT_CONTEXT,
+    );
+    loadSpan.setAttributes({
+      [k.PULSE_TYPE]: pt.SCREEN_LOAD,
+      [k.SCREEN_NAME]: screenName,
+      [k.SESSION_ID]: sessionId,
+      [k.START_TYPE]: "bfcache",
+      ...this.buildDocAttrsFromSnapshot(
+        snap.path,
+        snap.title,
+        this.enteredFromScreenName,
+      ),
+    });
+    loadSpan.setStatus({ code: SpanStatusCode.OK });
+    loadSpan.end(now);
+
+    this.sessionDocPath = snap.path;
+    this.sessionDocTitle = snap.title;
+    this.screenStartTime = now;
+
+    this.activeSessionSpan = sdk.tracer.startSpan(
+      SPAN_SCREEN_SESSION,
+      {
+        kind: SpanKind.INTERNAL,
+        startTime: now,
+      },
+      ROOT_CONTEXT,
+    );
+    this.activeSessionSpan.setAttributes({
+      [k.PULSE_TYPE]: pt.SCREEN_SESSION,
+      [k.SCREEN_NAME]: screenName,
+      [k.SESSION_ID]: sessionId,
+    });
+
+    if (typeof sdk.globalAttrsProcessor.setScreenName === "function") {
+      sdk.globalAttrsProcessor.setScreenName(screenName);
     }
   }
 
@@ -433,7 +573,12 @@ export class NavigationInstrumentation implements PulseInstrumentation {
       return;
     }
 
-    const emitOnLoad = () => {
+    const emitOnLoad = (): void => {
+      this.onInitialLoadBound = undefined;
+      if (!this.installed || !this.sdkContext || this.sdkContext !== sdk) {
+        return;
+      }
+
       const attributeKeys = PulseWebSemconv.AttributeKey;
       const pulseTypes = PulseWebSemconv.PulseType;
 
@@ -504,10 +649,16 @@ export class NavigationInstrumentation implements PulseInstrumentation {
         },
         ROOT_CONTEXT,
       );
+      this.activeSessionSpan.setAttributes({
+        [attributeKeys.PULSE_TYPE]: pulseTypes.SCREEN_SESSION,
+        [attributeKeys.SCREEN_NAME]: screenName,
+        [attributeKeys.SESSION_ID]: sessionId ?? "",
+      });
     };
 
-    // Emit on load event
+    // Emit on load event — keep ref for `removeEventListener` on `uninstall`
     if (document.readyState === "loading") {
+      this.onInitialLoadBound = emitOnLoad;
       window.addEventListener("load", emitOnLoad, { once: true });
     } else {
       // If already loaded, emit immediately
