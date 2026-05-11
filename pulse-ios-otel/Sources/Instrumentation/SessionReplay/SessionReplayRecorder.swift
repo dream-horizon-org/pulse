@@ -461,6 +461,7 @@ public class SessionReplayRecorder {
         queue.async { [weak self] in
             guard let self = self else { return }
             self.windowStatusLock.lock()
+            defer { self.windowStatusLock.unlock() }
             for key in self.windowStatuses.keys {
                 self.windowStatuses[key]?.sentFullSnapshot = false
                 self.windowStatuses[key]?.sentMetaEvent = false
@@ -468,7 +469,6 @@ public class SessionReplayRecorder {
                 self.windowStatuses[key]?.lastCompressedData = nil
                 self.windowStatuses[key]?.lastScreenName = nil
             }
-            self.windowStatusLock.unlock()
         }
     }
 

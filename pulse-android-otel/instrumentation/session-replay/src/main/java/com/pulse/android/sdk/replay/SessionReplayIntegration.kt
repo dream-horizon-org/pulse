@@ -241,8 +241,11 @@ public class SessionReplayIntegration(
         val screenWidth = screenSize?.width ?: (displayMetrics.widthPixels / displayMetrics.density).toInt()
         val screenHeight = screenSize?.height ?: (displayMetrics.heightPixels / displayMetrics.density).toInt()
 
-        val currentScreen = (externalScreenNameProvider?.invoke()?.takeIf { it.isNotBlank() }
-        ?: screenNameProvider().takeIf { it.isNotBlank() }) ?: "unknown"
+        val currentScreen =
+            (
+                externalScreenNameProvider?.invoke()?.takeIf { it.isNotBlank() }
+                    ?: screenNameProvider().takeIf { it.isNotBlank() }
+            ) ?: "unknown"
         if (status.lastScreenName != null && status.lastScreenName != currentScreen) {
             status.hasSentFullSnapshot = false
             status.hasSentMetaEvent = false
