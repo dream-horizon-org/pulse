@@ -1,0 +1,125 @@
+.matrix {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin: 18px 0;
+  background: var(--border-default);
+  border: 1px solid var(--border-default);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.headRow,
+.bodyRow {
+  display: grid;
+  grid-template-columns: 130px repeat(3, 1fr);
+  gap: 1px;
+  background: var(--border-default);
+}
+
+.corner {
+  background: var(--bg-subtle);
+}
+
+.headCell {
+  background: var(--bg-subtle);
+  padding: 14px;
+  font-weight: 700;
+  font-size: 13px;
+  text-align: center;
+  color: var(--text-primary);
+}
+
+.rowLabel {
+  background: var(--bg-elevated);
+  padding: 16px 14px;
+  font-weight: 700;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  color: var(--text-primary);
+}
+
+.cell {
+  background: var(--bg-base);
+  padding: 14px;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.cellBuilt {
+  background: linear-gradient(180deg, var(--bg-base) 0%, var(--success-tint) 100%);
+}
+
+.cellWip {
+  background: linear-gradient(180deg, var(--bg-base) 0%, var(--warning-tint) 100%);
+}
+
+.cellNotbuilt {
+  background: var(--bg-elevated);
+  color: var(--text-soft);
+}
+
+.cellContent {
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--text-primary);
+}
+
+.cellContent strong {
+  font-weight: 600;
+}
+
+.cellNotbuilt .cellContent {
+  color: var(--text-soft);
+}
+
+.fallback {
+  /* fallback table styling — picks up DocViewer's table styles by default */
+}
+
+@media (max-width: 768px) {
+  .matrix {
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    gap: 12px;
+  }
+  .headRow {
+    display: none;
+  }
+  .bodyRow {
+    display: block;
+    background: transparent;
+    border: 1px solid var(--border-default);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .rowLabel {
+    background: var(--accent-soft);
+    color: var(--accent-deep);
+    padding: 12px 14px;
+  }
+  .cell {
+    padding: 12px 14px;
+    border-top: 1px solid var(--border-default);
+  }
+  .cell::before {
+    display: block;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-soft);
+    margin-bottom: 6px;
+  }
+  .bodyRow > .cell:nth-child(2)::before {
+    content: 'Tech';
+  }
+  .bodyRow > .cell:nth-child(3)::before {
+    content: 'Product';
+  }
+  .bodyRow > .cell:nth-child(4)::before {
+    content: 'UX';
+  }
+}
