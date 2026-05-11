@@ -1,0 +1,55 @@
+# Prometheus scrape config for the OTel Collector consumer (Kafka -> ClickHouse).
+#
+# The collector exposes its self-telemetry on port 8888 (configured under
+# service.telemetry.metrics in the collector YAML, level: detailed).
+#
+# Drop this snippet under `scrape_configs:` in your prometheus.yml.
+
+scrape_configs:
+  - job_name: otel-collector-consumer
+    scrape_interval: 15s
+    scrape_timeout: 10s
+    metrics_path: /metrics
+    honor_labels: true
+
+    # If you run a single instance, use static_configs.
+    static_configs:
+      - targets:
+          # Replace with the actual host(s) where the consumer collector runs.
+          # If you run it in docker-compose on the kafka host, this is usually
+          # the host's IP/DNS, not the container name.
+          - pulse-otel-consumer-01.pulse.local:8888
+          - pulse-otel-consumer-02.pulse.local:8888
+        labels:
+          service: otel-collector
+          role: kafka-clickhouse-writer
+          tier: consumer
+          cluster: pulse
+
+    # Drop very high-cardinality histograms that aren't useful day-to-day.
+  #    metric_relabel_configs:
+  #      # Keep only the bucketed histogram quantiles we actually graph.
+  #      - source_labels: [ __name__ ]
+  #        regex: 'otelcol_processor_batch_batch_send_size_bytes_bucket'
+  #        action: keep
+  #        # NOTE: this is an example of how to drop. In practice you probably
+  #        # want everything. Comment out if you want to keep all metrics.
+
+  # ---- Alternative: Kubernetes service discovery ------------------------
+  # Uncomment if the consumer runs in K8s and you scrape via the
+  # /metrics port on a Service or Pod.
+  #
+  # - job_name: otel-collector-consumer-k8s
+  #   kubernetes_sd_configs:
+  #     - role: pod
+  #   relabel_configs:
+  #     - source_labels: [__meta_kubernetes_pod_label_app]
+  #       regex: otel-collector-consumer
+  #       action: keep
+  #     - source_labels: [__meta_kubernetes_pod_container_port_number]
+  #       regex: '8888'
+  #       action: keep
+  #     - source_labels: [__meta_kubernetes_pod_name]
+  #       target_label: instance
+  #     - source_labels: [__meta_kubernetes_namespace]
+  #       target_label: namespace

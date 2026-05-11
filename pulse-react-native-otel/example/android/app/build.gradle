@@ -117,10 +117,10 @@ dependencies {
     } else {
         implementation jscFlavor
     }
-    
+
     implementation("com.squareup.okhttp3:okhttp:5.0.0")
-    
+
     implementation("org.dreamhorizon.instrumentation:okhttp3-library:0.0.18-alpha")
     byteBuddy("org.dreamhorizon.instrumentation:okhttp3-agent:0.0.18-alpha")
-    
+
 }

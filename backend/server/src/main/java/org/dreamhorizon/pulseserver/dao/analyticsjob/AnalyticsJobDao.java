@@ -104,6 +104,23 @@ public class AnalyticsJobDao {
    * @param completedAt  time the job completed
    * @return the number of rows updated
    */
+  /**
+   * Hard-deletes every {@code analytics_jobs} row for a given (job_type, reference_id) pair.
+   * Used by the cascading delete path for funnels and journeys so a deleted resource doesn't
+   * leave orphan job rows behind.
+   *
+   * @return number of rows deleted
+   */
+  public Single<Integer> deleteByReference(
+      final AnalyticsJobType jobType, final long referenceId) {
+    String query = "DELETE FROM analytics_jobs WHERE job_type = ? AND reference_id = ?";
+    Tuple params = Tuple.of(jobType.name(), referenceId);
+
+    return mysqlClient.getWriterPool().preparedQuery(query)
+        .rxExecute(params)
+        .map(SqlResult::rowCount);
+  }
+
   public Single<Integer> updateJobStatusByJobId(
       final String jobId,
       final AnalyticsJobStatus status,

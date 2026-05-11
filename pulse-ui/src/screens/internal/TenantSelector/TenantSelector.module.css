@@ -1,0 +1,97 @@
+.container {
+  width: 100%;
+  min-height: 100vh;
+  background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
+}
+
+.content {
+  padding: 0 var(--mantine-spacing-lg) var(--mantine-spacing-lg);
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+/* ── Controls bar ── */
+.controlsBar {
+  display: flex;
+  align-items: center;
+  gap: var(--mantine-spacing-sm);
+  padding: 14px 16px;
+  background: linear-gradient(145deg, #ffffff 0%, #fafbfc 100%);
+  border-radius: 12px;
+  border: 1px solid rgba(14, 201, 194, 0.12);
+  box-shadow: 0 2px 8px rgba(14, 201, 194, 0.06);
+  margin-bottom: var(--mantine-spacing-md);
+}
+
+.searchInput {
+  flex: 1;
+}
+
+/* ── Table ── */
+.tableWrapper {
+  background: #ffffff;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid rgba(14, 201, 194, 0.12);
+  box-shadow: 0 2px 8px rgba(14, 201, 194, 0.06);
+}
+
+.table {
+  border: none !important;
+}
+
+.tableRow {
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+/* ── Empty state ── */
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 64px 40px;
+  text-align: center;
+  background: linear-gradient(145deg, #ffffff 0%, #fafbfc 100%);
+  border-radius: 12px;
+  border: 2px dashed rgba(14, 201, 194, 0.2);
+  min-height: 300px;
+}
+
+.emptyIcon {
+  color: rgba(14, 201, 194, 0.45);
+  margin-bottom: var(--mantine-spacing-md);
+}
+
+.emptyTitle {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--mantine-color-dark-7);
+  margin-bottom: 8px;
+}
+
+.emptyDescription {
+  font-size: 14px;
+  color: var(--mantine-color-gray-6);
+  max-width: 340px;
+}
+
+/* ── Error state ── */
+.stateWrapper {
+  padding: 60px 40px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 300px;
+  background: linear-gradient(145deg, #ffffff 0%, #fafbfc 100%);
+  border-radius: 12px;
+  border: 1px solid rgba(14, 201, 194, 0.12);
+}
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+  .content {
+    padding: 0 var(--mantine-spacing-md) var(--mantine-spacing-md);
+  }
+}

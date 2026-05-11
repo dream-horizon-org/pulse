@@ -83,6 +83,8 @@ internal object PulseFeatureConfigSerializer : KSerializer<PulseFeatureConfig> {
                     PulseFeatureName.ANDROID_ACTIVITY,
                     PulseFeatureName.ANDROID_FRAGMENT,
                     PulseFeatureName.ANDROID_SLOWRENDERING,
+                    PulseFeatureName.MEMORY,
+                    PulseFeatureName.BATTERY,
                     PulseFeatureName.UNKNOWN,
                     -> {
                         PulseFeatureConfigData.Unknown

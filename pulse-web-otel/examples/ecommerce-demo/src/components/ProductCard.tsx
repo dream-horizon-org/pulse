@@ -26,6 +26,7 @@ export function ProductCard({ product, onAddToCart }: Props) {
             product_id: product.id,
             product_name: product.name,
             item_visible: true,
+            source: "product_list",
           });
         }
       },
@@ -122,6 +123,7 @@ export function ProductCard({ product, onAddToCart }: Props) {
                 product_id: product.id,
                 product_name: product.name,
                 price: product.price,
+                source: "product_list",
               });
             }}
             style={{

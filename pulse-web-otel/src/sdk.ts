@@ -18,22 +18,28 @@ import {
   resolveEndpointBaseUrl,
   validateConfig,
   PulseLogLevel,
+  InstrumentationKeys,
 } from "./config";
 import { PulseWebLogger } from "./pulse-web-logger";
 import {
   SessionProvider,
   getOrCreateInstallationId,
+  getPersistedUserId,
+  getPersistedUserProperties,
+  persistUserId,
+  persistUserProperties,
   wasNewInstallation,
 } from "./session";
 import { buildMergedResource } from "./resource";
 import { parseUserAgent, getOsVersionAsync } from "./utils/ua-parser";
-import { SdkConfigFetcher } from "./remote-config";
+import { SdkConfigFetcher, PulseFeature } from "./remote-config";
 import { DEFAULT_SDK_CONFIG } from "./constants/default-sdk-config";
 import { FeatureGate } from "./feature-gate";
 import { PulseGlobalAttributesProcessor } from "./processors/global-attrs-processor";
 import { SignalFilterProcessor } from "./processors/signal-filter-processor";
 import { LogRecordLifecycleDebugProcessor } from "./processors/log-record-lifecycle-debug-processor";
 import { createProviders } from "./exporters";
+import type { ExporterConfig, ProviderBundle } from "./exporters";
 import { InstrumentationRegistry } from "./instrumentation-registry";
 import type { SdkContext } from "./instrumentation-registry";
 import { extractProjectId } from "./resource";
@@ -47,6 +53,8 @@ import {
   resolveDiskBufferMaxCacheSizeBytes,
 } from "./constants/disk-buffer";
 import { resolveBeforeSend } from "./before-send";
+import { InteractionInstrumentation } from "./instrumentations/interaction";
+import type { PulseAttributes } from "./types/attributes";
 
 class PulseWebSDK implements SdkContext {
   private static _instance: PulseWebSDK | null = null;
@@ -54,6 +62,7 @@ class PulseWebSDK implements SdkContext {
   private _shuttingDown = false;
   private _starting = false;
 
+  endpointBaseUrl = "";
   sessionProvider!: SessionProvider;
   logger!: Logger;
   tracer!: Tracer;
@@ -67,8 +76,9 @@ class PulseWebSDK implements SdkContext {
   private _pagehideListener?: (e: PageTransitionEvent) => void;
   private registry?: InstrumentationRegistry;
   private configFetcher: SdkConfigFetcher = new SdkConfigFetcher("", "");
-  private gate: FeatureGate = new FeatureGate(DEFAULT_SDK_CONFIG);
+  gate: FeatureGate = new FeatureGate(DEFAULT_SDK_CONFIG);
   private _providerCleanup: () => void = () => {};
+  private interactionInstrumentation?: InteractionInstrumentation;
 
   static getInstance(): PulseWebSDK {
     if (!PulseWebSDK._instance) {
@@ -84,6 +94,7 @@ class PulseWebSDK implements SdkContext {
     PulseWebLogger.setLevel(config.logLevel ?? PulseLogLevel.NONE);
     // Step 1.5: Resolve endpointBaseUrl from apiKey (internal — not a public config field)
     const endpointBaseUrl = resolveEndpointBaseUrl(config.apiKey);
+    this.endpointBaseUrl = endpointBaseUrl;
 
     // Consent gate — DENIED or PENDING → no-op, zero signals emitted
     if (!isDataCollectionAllowed(config.dataCollectionState)) return;
@@ -102,19 +113,11 @@ class PulseWebSDK implements SdkContext {
     endpointBaseUrl: string,
     meteringSessionId: string,
   ): Promise<void> {
-    if (this._initialized || this._shuttingDown) {
-      this._starting = false;
-      return;
-    }
-    // Step 2: SessionProvider
-    this.sessionProvider = new SessionProvider();
+    if (this.abortStartIfUnavailable()) return;
 
-    // Step 2.5: Eagerly resolve installation ID so wasNewInstallation() is accurate
-    // before any signal is emitted (global-attrs-processor may call it later).
-    getOrCreateInstallationId();
+    this.initializeSessionContext();
 
     // Step 3: Resolve real OS version async (Client Hints, <200ms) then build Resource.
-    // This matches Android which puts os.version in the Resource via Build.VERSION.RELEASE.
     const syncUA = parseUserAgent();
     const resolvedOsVersion = await getOsVersionAsync(syncUA.osVersion);
     if (this._shuttingDown) {
@@ -123,6 +126,57 @@ class PulseWebSDK implements SdkContext {
     }
     const resource = buildMergedResource(config, resolvedOsVersion);
 
+    const { gate, sdkConfig, spanProcessors, logProcessors, samplingGate } =
+      this.buildInitContext(config, endpointBaseUrl, meteringSessionId);
+    const exporterConfig = this.buildExporterConfig(
+      config,
+      endpointBaseUrl,
+      meteringSessionId,
+      sdkConfig.signals.metricsToAdd,
+      samplingGate,
+    );
+    const bundle = createProviders(
+      exporterConfig,
+      resource,
+      spanProcessors,
+      logProcessors,
+    );
+
+    this.drainBufferedExports(bundle, config, endpointBaseUrl, meteringSessionId);
+    this.assignProviders(bundle);
+    this.bindPagehideFlush();
+    this.bindGlobalProviders();
+    this.emitSdkInitializationLogRecords(endpointBaseUrl);
+    this.installInstrumentations(gate, config);
+
+    // Step 10: Fetch fresh config in background.
+    void this.configFetcher.fetchInBackground();
+
+    this._initialized = true;
+    this._starting = false;
+    this.emitInstallationStartIfNeeded();
+  }
+
+  private abortStartIfUnavailable(): boolean {
+    if (this._initialized || this._shuttingDown) {
+      this._starting = false;
+      return true;
+    }
+    return false;
+  }
+
+  private initializeSessionContext(): void {
+    // Step 2: SessionProvider
+    this.sessionProvider = new SessionProvider();
+    // Step 2.5: Eagerly resolve installation ID so wasNewInstallation() is accurate.
+    getOrCreateInstallationId();
+  }
+
+  private buildInitContext(
+    config: PulseWebConfig,
+    endpointBaseUrl: string,
+    meteringSessionId: string,
+  ) {
     // Step 4: Load cached SDK config
     const projectId = extractProjectId(config.apiKey);
     this.configFetcher = new SdkConfigFetcher(
@@ -145,6 +199,10 @@ class PulseWebSDK implements SdkContext {
       config,
       meteringSessionId,
     );
+    this.globalAttrsProcessor.hydrateUserIdentity(
+      getPersistedUserId(),
+      getPersistedUserProperties(),
+    );
 
     const spanProcessors = [this.globalAttrsProcessor, filterProcessor];
 
@@ -162,10 +220,20 @@ class PulseWebSDK implements SdkContext {
       ...(preBatchDebugProc ? [preBatchDebugProc] : []),
     ];
 
+    return { gate, sdkConfig, samplingGate, spanProcessors, logProcessors };
+  }
+
+  private buildExporterConfig(
+    config: PulseWebConfig,
+    endpointBaseUrl: string,
+    meteringSessionId: string,
+    metricsToAdd: ExporterConfig["metricsToAdd"],
+    samplingGate: ExportSamplingGate,
+  ): ExporterConfig {
     const diskOn = config.diskBuffering?.enabled !== false;
     const disk = config.diskBuffering;
     const beforeSendResolved = resolveBeforeSend(config.beforeSendData);
-    const exporterConfig = {
+    return {
       endpointBaseUrl,
       apiKey: config.apiKey,
       meteringSessionId,
@@ -174,7 +242,7 @@ class PulseWebSDK implements SdkContext {
       getMetricGlobalAttrs: () =>
         this.globalAttrsProcessor.getCommonAttrsForMetrics(),
       samplingGate,
-      metricsToAdd: sdkConfig.signals.metricsToAdd,
+      metricsToAdd,
       metricsToAddSdkName: "pulse_web_js" as const,
       diskBuffering: diskOn
         ? {
@@ -187,77 +255,91 @@ class PulseWebSDK implements SdkContext {
         : { enabled: false },
       ...(beforeSendResolved ? { beforeSendData: beforeSendResolved } : {}),
     };
+  }
 
-    const bundle = createProviders(
-      exporterConfig,
-      resource,
-      spanProcessors,
-      logProcessors,
-    );
+  private drainBufferedExports(
+    bundle: ProviderBundle,
+    config: PulseWebConfig,
+    endpointBaseUrl: string,
+    meteringSessionId: string,
+  ): void {
+    if (!bundle.idbSignalBuffer) return;
+    void drainBufferedOtlpExports({
+      buffer: bundle.idbSignalBuffer,
+      apiKey: config.apiKey,
+      meteringSessionId,
+      tracesUrl: `${endpointBaseUrl}/v1/traces`,
+      logsUrl: `${endpointBaseUrl}/v1/logs`,
+      metricsUrl: `${endpointBaseUrl}/v1/metrics`,
+    });
+  }
 
-    if (bundle.idbSignalBuffer) {
-      void drainBufferedOtlpExports({
-        buffer: bundle.idbSignalBuffer,
-        apiKey: config.apiKey,
-        meteringSessionId,
-        tracesUrl: `${endpointBaseUrl}/v1/traces`,
-        logsUrl: `${endpointBaseUrl}/v1/logs`,
-        metricsUrl: `${endpointBaseUrl}/v1/metrics`,
-      });
-    }
-
+  private assignProviders(bundle: ProviderBundle): void {
     this.tracerProvider = bundle.tracerProvider;
     this.loggerProvider = bundle.loggerProvider;
     this.meterProvider = bundle.meterProvider;
     this._prepareForDocumentUnload = bundle.prepareForDocumentUnload;
     this._providerCleanup = bundle.cleanup ?? (() => {});
+  }
 
-    if (typeof window !== "undefined") {
-      this._pagehideListener = (e: PageTransitionEvent) => {
-        if (!e.persisted && this._initialized) {
-          this._prepareForDocumentUnload?.();
-          void Promise.all([
-            this.loggerProvider?.forceFlush(),
-            this.tracerProvider?.forceFlush(),
-            this.meterProvider?.forceFlush(),
-          ]).catch(() => {});
-        }
-      };
-      window.addEventListener("pagehide", this._pagehideListener);
-    }
+  private bindPagehideFlush(): void {
+    if (typeof window === "undefined") return;
+    this._pagehideListener = (e: PageTransitionEvent) => {
+      if (!e.persisted && this._initialized) {
+        this._prepareForDocumentUnload?.();
+        void Promise.all([
+          this.loggerProvider?.forceFlush(),
+          this.tracerProvider?.forceFlush(),
+          this.meterProvider?.forceFlush(),
+        ]).catch(() => {});
+      }
+    };
+    window.addEventListener("pagehide", this._pagehideListener);
+  }
 
-    trace.setGlobalTracerProvider(this.tracerProvider);
-    logs.setGlobalLoggerProvider(this.loggerProvider);
-    metrics.setGlobalMeterProvider(this.meterProvider);
+  private bindGlobalProviders(): void {
+    const tracerProvider = this.tracerProvider;
+    const loggerProvider = this.loggerProvider;
+    const meterProvider = this.meterProvider;
+    if (!tracerProvider || !loggerProvider || !meterProvider) return;
 
-    this.logger = this.loggerProvider.getLogger("pulse-web");
-    this.tracer = this.tracerProvider.getTracer("pulse-web");
+    trace.setGlobalTracerProvider(tracerProvider);
+    logs.setGlobalLoggerProvider(loggerProvider);
+    metrics.setGlobalMeterProvider(meterProvider);
 
-    this.emitSdkInitializationLogRecords(endpointBaseUrl);
+    this.logger = loggerProvider.getLogger("pulse-web");
+    this.tracer = tracerProvider.getTracer("pulse-web");
+  }
 
+  private installInstrumentations(
+    gate: FeatureGate,
+    config: PulseWebConfig,
+  ): void {
     this.registry = new InstrumentationRegistry(
       this as SdkContext,
       gate,
       config.instrumentations,
     );
+    this.interactionInstrumentation = new InteractionInstrumentation();
     this.registry.installAll();
+    this.registry.registerAndInstall(
+      this.interactionInstrumentation,
+      InstrumentationKeys.INTERACTIONS,
+    );
+  }
 
-    // Step 10: Fetch fresh config in background.
-    void this.configFetcher.fetchInBackground();
-
-    this._initialized = true;
-    this._starting = false;
-
+  private emitInstallationStartIfNeeded(): void {
     // Emit app.installation.start on first-ever install — mirrors Android.
-    if (wasNewInstallation()) {
-      this.logger.emit({
-        body: "pulse.app.installation.start",
-        attributes: {
-          "pulse.type": "pulse.app.installation.start",
-          "installation.id": getOrCreateInstallationId(),
-        },
-      });
-    }
+    if (!wasNewInstallation()) return;
+    this.logger.emit({
+      body: PulseWebSemconv.LogBody.APP_INSTALLATION_START,
+      attributes: {
+        [PulseWebSemconv.AttributeKey.PULSE_TYPE]:
+          PulseWebSemconv.PulseType.INSTALLATION_START,
+        [PulseWebSemconv.AttributeKey.INSTALLATION_ID]:
+          getOrCreateInstallationId(),
+      },
+    });
   }
 
   async shutdown(): Promise<void> {
@@ -272,6 +354,7 @@ class PulseWebSDK implements SdkContext {
 
     this._providerCleanup();
     this.registry?.uninstallAll();
+    this.interactionInstrumentation = undefined;
     this.sessionProvider?.shutdown();
 
     await Promise.all([
@@ -294,22 +377,101 @@ class PulseWebSDK implements SdkContext {
     this.globalAttrsProcessor?.setScreenName(name);
   }
 
-  trackEvent(name: string, attrs?: Record<string, unknown>): void {
-    if (!this._initialized) return;
-    if (!this.gate.isEnabled("custom_events")) return;
+  /**
+   * Android parity: set logged-in user id on all signals (`user.id`). Persists to localStorage.
+   * Emits `pulse.user.session.end` / `pulse.user.session.start` when the id changes.
+   */
+  setUserId(id: string | null): void {
+    if (!this._initialized || !this.globalAttrsProcessor) return;
+    const nextId = id === "" ? null : id;
+    const oldId = this.globalAttrsProcessor.getUserId();
+    if (oldId === nextId) return;
+    this.globalAttrsProcessor.setUserId(nextId);
+    persistUserId(nextId);
+    if (oldId !== null) {
+      this.emitUserSessionEndLog(oldId);
+    }
+    if (nextId !== null) {
+      this.emitUserSessionStartLog(
+        nextId,
+        oldId !== null ? oldId : undefined,
+      );
+    }
+  }
+
+  /** Android parity: custom user fields as `pulse.user.<name>`. Persists JSON to localStorage. */
+  setUserProperty(key: string, value: string | null): void {
+    if (!this._initialized || !this.globalAttrsProcessor) return;
+    this.globalAttrsProcessor.setUserProperty(key, value);
+    persistUserProperties(this.globalAttrsProcessor.getUserPropertiesSnapshot());
+  }
+
+  /** Batch update user properties; `null` removes a key. */
+  setUserProperties(props: Record<string, string | null>): void {
+    if (!this._initialized || !this.globalAttrsProcessor) return;
+    this.globalAttrsProcessor.setUserProperties(props);
+    persistUserProperties(this.globalAttrsProcessor.getUserPropertiesSnapshot());
+  }
+
+  private emitUserSessionEndLog(userId: string): void {
+    const attributeKeys = PulseWebSemconv.AttributeKey;
+    const pulseTypes = PulseWebSemconv.PulseType;
+    const logBodies = PulseWebSemconv.LogBody;
     this.logger.emit({
-      body: name,
+      body: logBodies.USER_SESSION_END,
       attributes: {
-        [PulseWebSemconv.AttributeKey.PULSE_TYPE]:
-          PulseWebSemconv.PulseType.CUSTOM_EVENT,
-        [PulseWebSemconv.AttributeKey.EVENT_NAME]:
-          PulseWebSemconv.FixedValue.EVENT_NAME_CUSTOM_EVENT,
-        ...(attrs as Record<string, string | number | boolean>),
+        [attributeKeys.PULSE_TYPE]: pulseTypes.USER_SESSION_END,
+        [attributeKeys.USER_ID]: userId,
       },
     });
   }
 
-  reportException(error: unknown, attrs?: Record<string, unknown>): void {
+  private emitUserSessionStartLog(
+    userId: string,
+    previousUserId?: string,
+  ): void {
+    const attributeKeys = PulseWebSemconv.AttributeKey;
+    const pulseTypes = PulseWebSemconv.PulseType;
+    const logBodies = PulseWebSemconv.LogBody;
+    const attrs: Record<string, string> = {
+      [attributeKeys.PULSE_TYPE]: pulseTypes.USER_SESSION_START,
+      [attributeKeys.USER_ID]: userId,
+    };
+    if (previousUserId !== undefined) {
+      attrs[attributeKeys.PULSE_USER_PREVIOUS_ID] = previousUserId;
+    }
+    this.logger.emit({
+      body: logBodies.USER_SESSION_START,
+      attributes: attrs,
+    });
+  }
+
+  trackEvent(
+    name: string,
+    attrs?: PulseAttributes,
+    timestampMs: number = Date.now(),
+  ): void {
+    if (!this._initialized) return;
+
+    if (this.gate.isEnabled(PulseFeature.CUSTOM_EVENTS)) {
+      this.logger.emit({
+        body: name,
+        attributes: {
+          [PulseWebSemconv.AttributeKey.PULSE_TYPE]:
+            PulseWebSemconv.PulseType.CUSTOM_EVENT,
+          [PulseWebSemconv.AttributeKey.EVENT_NAME]:
+            PulseWebSemconv.FixedValue.EVENT_NAME_CUSTOM_EVENT,
+          ...(attrs ?? {}),
+        },
+      });
+    }
+
+    if (isDataCollectionAllowed(this.config.dataCollectionState)) {
+      this.interactionInstrumentation?.trackEvent(name, attrs, timestampMs);
+    }
+  }
+
+  reportException(error: unknown, attrs?: PulseAttributes): void {
     if (!this._initialized) return;
     const err = error instanceof Error ? error : new Error(String(error));
     this.logger.emit({
@@ -321,7 +483,7 @@ class PulseWebSDK implements SdkContext {
         [PulseWebSemconv.AttributeKey.EXCEPTION_MESSAGE]: err.message,
         [PulseWebSemconv.AttributeKey.EXCEPTION_STACKTRACE]: err.stack ?? "",
         [PulseWebSemconv.AttributeKey.NON_FATAL_IS_MANUAL]: true,
-        ...(attrs as Record<string, string | number | boolean>),
+        ...(attrs ?? {}),
       },
     });
   }
@@ -329,7 +491,7 @@ class PulseWebSDK implements SdkContext {
   /**
    * React render errors and similar fatals — `pulse.type` = device.crash (dashboard contract).
    */
-  reportDeviceCrash(error: unknown, attrs?: Record<string, unknown>): void {
+  reportDeviceCrash(error: unknown, attrs?: PulseAttributes): void {
     if (!this._initialized) return;
     const err = error instanceof Error ? error : new Error(String(error));
     const stack = err.stack ?? "";
@@ -343,12 +505,12 @@ class PulseWebSDK implements SdkContext {
         [PulseWebSemconv.AttributeKey.EXCEPTION_STACKTRACE]: stack,
         [PulseWebSemconv.AttributeKey.ERROR_FILENAME]:
           errorFilenameFromStack(stack),
-        ...(attrs as Record<string, string | number | boolean>),
+        ...(attrs ?? {}),
       },
     });
   }
 
-  trackNonFatal(name: string, attrs?: Record<string, unknown>): void {
+  trackNonFatal(name: string, attrs?: PulseAttributes): void {
     if (!this._initialized) return;
     this.logger.emit({
       body: name,
@@ -357,7 +519,7 @@ class PulseWebSDK implements SdkContext {
           PulseWebSemconv.PulseType.NON_FATAL,
         [PulseWebSemconv.AttributeKey.NON_FATAL_TYPE]: name,
         [PulseWebSemconv.AttributeKey.NON_FATAL_IS_MANUAL]: true,
-        ...(attrs as Record<string, string | number | boolean>),
+        ...(attrs ?? {}),
       },
     });
   }
@@ -394,7 +556,7 @@ class PulseWebSDK implements SdkContext {
       body: rumSdkInit.SPAN_EXPORTER,
       attributes: {
         [attributeKeys.PULSE_TYPE]: rumSdkInit.SPAN_EXPORTER,
-        "span.exporter": spanExporterHint,
+        [attributeKeys.SPAN_EXPORTER]: spanExporterHint,
       },
     });
   }

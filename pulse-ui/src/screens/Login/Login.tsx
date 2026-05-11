@@ -26,7 +26,7 @@ import { useEffect, useState } from "react";
 import { LoaderWithMessage } from "../../components/LoaderWithMessage";
 import { setCookiesAfterAuthentication } from "../../helpers/setCookiesAfterAuthentication";
 import { showNotification } from "../../helpers/showNotification";
-import { getCookies } from "../../helpers/cookies";
+import { getCookies, removeCookie } from "../../helpers/cookies";
 import { checkRefreshTokenExpiration } from "../../helpers/checkRefreshTokenExpiration";
 import { logEvent } from "../../helpers/googleAnalytics";
 import { useLogin } from "../../hooks";
@@ -56,6 +56,11 @@ export function Login() {
     if (refreshToken && refreshToken !== "undefined") {
       const isRefreshTokenExpired = checkRefreshTokenExpiration(refreshToken);
       if (!isRefreshTokenExpired) {
+        const existingSystemRole = getCookies(COOKIES_KEY.SYSTEM_ROLE);
+        if (existingSystemRole) {
+          navigate(ROUTES.INTERNAL_TENANT_SELECTOR.path);
+          return;
+        }
         const tenantId = getCookies(COOKIES_KEY.TENANT_ID);
         if (tenantId && tenantId !== "undefined") {
           navigate(`/${tenantId}/projects`);
@@ -76,6 +81,7 @@ export function Login() {
 
   const handleLoginSuccess = async (data: any, firebaseToken: string) => {
     if (data.needsOnboarding) {
+      removeCookie(COOKIES_KEY.SYSTEM_ROLE);
       sessionStorage.setItem(
         "onboarding_user",
         JSON.stringify({
@@ -86,6 +92,9 @@ export function Login() {
       );
       sessionStorage.setItem("firebase_token", firebaseToken);
       navigate(ROUTES.ONBOARDING.basePath);
+    } else if (data.systemRole) {
+      await setCookiesAfterAuthentication(data);
+      navigate(ROUTES.INTERNAL_TENANT_SELECTOR.path);
     } else {
       await setCookiesAfterAuthentication(data);
 

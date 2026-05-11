@@ -4,7 +4,6 @@ buildscript {
   }
 
   repositories {
-    mavenLocal()
     google()
     mavenCentral()
   }
@@ -74,7 +73,7 @@ kotlin {
 }
 
 repositories {
-  mavenLocal()
+  mavenCentral()
   google()
   mavenCentral()
 }

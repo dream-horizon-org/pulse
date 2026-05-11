@@ -1,4 +1,5 @@
 import { MantineProvider } from "@mantine/core";
+import { ModalsProvider } from "@mantine/modals";
 import { Notifications } from "@mantine/notifications";
 import {
   BrowserRouter as Router,
@@ -27,6 +28,7 @@ export default function App() {
 
   return (
     <MantineProvider theme={theme}>
+      <ModalsProvider>
       <Notifications position="top-center" />
       <Router basename={process.env.PUBLIC_URL || "/"}>
         <ScrollToTop />
@@ -57,6 +59,7 @@ export default function App() {
           </SessionReplayFilterProvider>
         </QueryClientProvider>
       </Router>
+      </ModalsProvider>
     </MantineProvider>
   );
 }
