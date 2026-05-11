@@ -9,9 +9,11 @@ lib/
 .env
 
 .cursor/.env
-# Claude Code: keep shared project memory; ignore other local-only files under .claude/
+# Claude Code: keep shared project memory and skills; ignore other local-only files under .claude/
 .claude/*
 !.claude/CLAUDE.md
+!.claude/rules/
+!.claude/rules/**
 # Symlink mirrors into shared `.agents/` (web SDK agent + skills)
 !.claude/agents/
 !.claude/agents/**
