@@ -83,7 +83,7 @@ class DefaultSdkConfigTemplateTest {
       assertThat(config.getInteraction()).isNotNull();
       assertThat(config.getInteraction().getCollectorUrl()).isEqualTo(TEST_OTEL_COLLECTOR_URL);
       assertThat(config.getInteraction().getConfigUrl())
-          .isEqualTo(TEST_INTERACTION_CONFIG_BASE + "/projects/" + TEST_PROJECT_ID + "/interaction.json");
+          .isEqualTo(TEST_INTERACTION_CONFIG_BASE + "/projects/" + TEST_PROJECT_ID + "/interaction-config.json");
       assertThat(config.getInteraction().getBeforeInitQueueSize()).isEqualTo(100);
     }
 
@@ -92,7 +92,7 @@ class DefaultSdkConfigTemplateTest {
       appConfig.setInteractionConfigUrl(TEST_INTERACTION_CONFIG_BASE + "/");
       ConfigData config = DefaultSdkConfigTemplate.createDefaultConfig(TEST_PROJECT_ID, "creator", appConfig);
       assertThat(config.getInteraction().getConfigUrl())
-          .isEqualTo(TEST_INTERACTION_CONFIG_BASE + "/projects/" + TEST_PROJECT_ID + "/interaction.json");
+          .isEqualTo(TEST_INTERACTION_CONFIG_BASE + "/projects/" + TEST_PROJECT_ID + "/interaction-config.json");
     }
 
     @Test
@@ -105,7 +105,7 @@ class DefaultSdkConfigTemplateTest {
     @Test
     void shouldIncludeAllExpectedFeatures() {
       ConfigData config = DefaultSdkConfigTemplate.createDefaultConfig(TEST_PROJECT_ID, "creator", appConfig);
-      assertThat(config.getFeatures()).hasSize(22);
+      assertThat(config.getFeatures()).hasSize(24);
 
       assertThat(config.getFeatures()).extracting(FeatureConfig::getFeatureName)
           .containsExactlyInAnyOrder(
@@ -116,6 +116,8 @@ class DefaultSdkConfigTemplateTest {
               Features.java_anr,
               Features.network_change,
               Features.custom_events,
+              Features.memory,
+              Features.battery,
               Features.rn_screen_load,
               Features.rn_screen_interactive,
               Features.rn_screen_session,

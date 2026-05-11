@@ -32,6 +32,12 @@ public enum class PulseFeatureName {
     @SerialName("custom_events")
     CUSTOM_EVENTS,
 
+    @SerialName("memory")
+    MEMORY,
+
+    @SerialName("battery")
+    BATTERY,
+
     @SerialName("rn_screen_load")
     RN_SCREEN_LOAD,
 
