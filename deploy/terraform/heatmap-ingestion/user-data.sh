@@ -64,12 +64,9 @@ aws codeartifact get-package-version-asset \
 unzip -o "$ARTIFACT_ZIP"
 if [ ! -f "$INSTALL_DIR/dist/index.js" ]; then
   echo "ERROR: dist/index.js not found under $INSTALL_DIR/"
-  rm -f "$ARTIFACT_ZIP"
   exit 1
 fi
 
-sudo chown -R admin:admin "$INSTALL_DIR"
-rm -f "$ARTIFACT_ZIP"
 
 # Node.js + pm2 (minimal AMIs often lack both). Tarball from nodejs.org with retries;
 # bake Node into AMI or ship via CodeArtifact to avoid boot-time egress to nodejs.org.
