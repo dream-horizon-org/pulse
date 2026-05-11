@@ -8,16 +8,57 @@ import io.reactivex.rxjava3.core.Observable;
 import io.reactivex.rxjava3.core.Single;
 import io.vertx.rxjava3.sqlclient.Row;
 import java.time.Instant;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.dreamhorizon.pulseserver.config.ApplicationConfig;
 import org.dreamhorizon.pulseserver.config.NotificationConfig;
 import org.dreamhorizon.pulseserver.constant.NotificationConstants;
-import org.dreamhorizon.pulseserver.dao.notification.*;
+import org.dreamhorizon.pulseserver.dao.notification.ChannelEventMappingDao;
+import org.dreamhorizon.pulseserver.dao.notification.EmailSuppressionDao;
+import org.dreamhorizon.pulseserver.dao.notification.NotificationChannelDao;
+import org.dreamhorizon.pulseserver.dao.notification.NotificationLogDao;
+import org.dreamhorizon.pulseserver.dao.notification.NotificationTemplateDao;
 import org.dreamhorizon.pulseserver.error.ServiceError;
-import org.dreamhorizon.pulseserver.resources.notification.models.*;
-import org.dreamhorizon.pulseserver.service.notification.models.*;
+import org.dreamhorizon.pulseserver.resources.notification.models.BatchCreateMappingRequestDto;
+import org.dreamhorizon.pulseserver.resources.notification.models.ChannelEventMappingDto;
+import org.dreamhorizon.pulseserver.resources.notification.models.CreateChannelRequestDto;
+import org.dreamhorizon.pulseserver.resources.notification.models.CreateMappingRequestDto;
+import org.dreamhorizon.pulseserver.resources.notification.models.CreateTemplateRequestDto;
+import org.dreamhorizon.pulseserver.resources.notification.models.NotificationBatchResponseDto;
+import org.dreamhorizon.pulseserver.resources.notification.models.NotificationChannelDto;
+import org.dreamhorizon.pulseserver.resources.notification.models.NotificationLogDto;
+import org.dreamhorizon.pulseserver.resources.notification.models.NotificationLogsResponseDto;
+import org.dreamhorizon.pulseserver.resources.notification.models.NotificationResultDto;
+import org.dreamhorizon.pulseserver.resources.notification.models.NotificationTemplateDto;
+import org.dreamhorizon.pulseserver.resources.notification.models.RecipientsDto;
+import org.dreamhorizon.pulseserver.resources.notification.models.SendNotificationRequestDto;
+import org.dreamhorizon.pulseserver.resources.notification.models.UpdateChannelRequestDto;
+import org.dreamhorizon.pulseserver.resources.notification.models.UpdateMappingRequestDto;
+import org.dreamhorizon.pulseserver.resources.notification.models.UpdateTemplateRequestDto;
+import org.dreamhorizon.pulseserver.service.notification.models.ChannelConfig;
+import org.dreamhorizon.pulseserver.service.notification.models.ChannelEventMapping;
+import org.dreamhorizon.pulseserver.service.notification.models.ChannelType;
+import org.dreamhorizon.pulseserver.service.notification.models.EmailChannelConfig;
+import org.dreamhorizon.pulseserver.service.notification.models.EmailTemplateBody;
+import org.dreamhorizon.pulseserver.service.notification.models.NotificationChannel;
+import org.dreamhorizon.pulseserver.service.notification.models.NotificationLog;
+import org.dreamhorizon.pulseserver.service.notification.models.NotificationMessage;
+import org.dreamhorizon.pulseserver.service.notification.models.NotificationStatus;
+import org.dreamhorizon.pulseserver.service.notification.models.NotificationTemplate;
+import org.dreamhorizon.pulseserver.service.notification.models.SlackTemplateBody;
+import org.dreamhorizon.pulseserver.service.notification.models.TeamsTemplateBody;
+import org.dreamhorizon.pulseserver.service.notification.models.TemplateBody;
 import org.dreamhorizon.pulseserver.service.notification.provider.NotificationProvider;
 import org.dreamhorizon.pulseserver.service.notification.provider.NotificationProviderFactory;
 import org.dreamhorizon.pulseserver.service.notification.queue.SqsNotificationQueue;
@@ -34,6 +75,7 @@ public class NotificationServiceImpl implements NotificationService {
   private final ChannelEventMappingDao mappingDao;
   private final NotificationProviderFactory providerFactory;
   private final SqsNotificationQueue notificationQueue;
+  private final ApplicationConfig applicationConfig;
   private final ObjectMapper objectMapper;
   private final NotificationConfig notificationConfig;
 
@@ -107,10 +149,10 @@ public class NotificationServiceImpl implements NotificationService {
 
     return mappingDao
         .getActiveMappingWithChannelById(request.getMappingId())
-            .switchIfEmpty(
-                    Maybe.defer(() -> Maybe.error(
-                            ServiceError.NOT_FOUND.getCustomException(
-                                    "Mapping not found or inactive for id: " + request.getMappingId()))))
+        .switchIfEmpty(
+            Maybe.defer(() -> Maybe.error(
+                ServiceError.NOT_FOUND.getCustomException(
+                    "Mapping not found or inactive for id: " + request.getMappingId()))))
         .toSingle()
         .flatMap(
             row -> {
@@ -150,24 +192,24 @@ public class NotificationServiceImpl implements NotificationService {
 
               return templateDao
                   .getTemplateByEventNameAndChannel(eventName, channelType)
-                      .switchIfEmpty(
-                              Maybe.defer(() -> Maybe.error(
-                                      ServiceError.INCORRECT_OR_MISSING_BODY_PARAMETERS.getCustomException(
-                                              "No template found for event: "
-                                                      + eventName
-                                                      + " and channel: "
-                                                      + channelType))))
+                  .switchIfEmpty(
+                      Maybe.defer(() -> Maybe.error(
+                          ServiceError.INCORRECT_OR_MISSING_BODY_PARAMETERS.getCustomException(
+                              "No template found for event: "
+                                  + eventName
+                                  + " and channel: "
+                                  + channelType))))
                   .toSingle()
                   .flatMap(
                       template ->
                           dispatchToRecipients(
-                                  async,
-                                  projectId,
-                                  request,
-                                  channel,
-                                  template,
-                                  idempotencyKey,
-                                  new ArrayList<>(allRecipients))
+                              async,
+                              projectId,
+                              request,
+                              channel,
+                              template,
+                              idempotencyKey,
+                              new ArrayList<>(allRecipients))
                               .map(results -> buildBatchResponse(idempotencyKey, results)));
             });
   }
@@ -289,6 +331,22 @@ public class NotificationServiceImpl implements NotificationService {
 
   // ==================== Dispatch / Send / Enqueue ====================
 
+  /**
+   * Ensures {@code {{dashboardUrl}}} is available for all templates. Non-blank explicit
+   * {@code dashboardUrl} in the request wins (callers can override the server default).
+   */
+  private Map<String, Object> mergeDefaultNotificationParams(Map<String, Object> requestParams) {
+    Map<String, Object> merged = new LinkedHashMap<>();
+    if (requestParams != null) {
+      merged.putAll(requestParams);
+    }
+    Object existing = merged.get("dashboardUrl");
+    if (!(existing instanceof String s) || s.isBlank()) {
+      merged.put("dashboardUrl", applicationConfig.resolveDashboardBaseUrlForNotifications());
+    }
+    return merged;
+  }
+
   private Single<List<NotificationResultDto>> dispatchToRecipients(
       boolean async,
       String projectId,
@@ -297,9 +355,12 @@ public class NotificationServiceImpl implements NotificationService {
       NotificationTemplate template,
       String idempotencyKey,
       List<String> recipients) {
+    Map<String, Object> effectiveParams = mergeDefaultNotificationParams(request.getParams());
     return async
-        ? enqueueRecipients(projectId, request, channel, template, idempotencyKey, recipients)
-        : sendToRecipients(projectId, request, channel, template, idempotencyKey, recipients);
+        ? enqueueRecipients(
+        projectId, request, channel, template, idempotencyKey, recipients, effectiveParams)
+        : sendToRecipients(
+        projectId, request, channel, template, idempotencyKey, recipients, effectiveParams);
   }
 
   private Single<List<NotificationResultDto>> sendToRecipients(
@@ -308,7 +369,8 @@ public class NotificationServiceImpl implements NotificationService {
       NotificationChannel channel,
       NotificationTemplate template,
       String idempotencyKey,
-      List<String> recipients) {
+      List<String> recipients,
+      Map<String, Object> effectiveParams) {
 
     ChannelType channelType = channel.getChannelType();
 
@@ -336,7 +398,7 @@ public class NotificationServiceImpl implements NotificationService {
                       template,
                       subject,
                       provider,
-                      request.getParams());
+                      effectiveParams);
 
               return withSuppressionCheck(
                   projectId, recipient, channelType, sendChain);
@@ -399,8 +461,8 @@ public class NotificationServiceImpl implements NotificationService {
                             result.isSuccess()
                                 ? NotificationStatus.SENT
                                 : (result.isPermanentFailure()
-                                    ? NotificationStatus.PERMANENT_FAILURE
-                                    : NotificationStatus.FAILED);
+                                ? NotificationStatus.PERMANENT_FAILURE
+                                : NotificationStatus.FAILED);
 
                         if (result.isSuccess()) {
                           log.info(
@@ -460,7 +522,8 @@ public class NotificationServiceImpl implements NotificationService {
       NotificationChannel channel,
       NotificationTemplate template,
       String idempotencyKey,
-      List<String> recipients) {
+      List<String> recipients,
+      Map<String, Object> effectiveParams) {
 
     ChannelType channelType = channel.getChannelType();
     String subject = extractSubjectFromBody(template.getBody());
@@ -516,7 +579,7 @@ public class NotificationServiceImpl implements NotificationService {
                                                     .templateBody(template.getBody())
                                                     .recipient(recipient)
                                                     .subject(subject)
-                                                    .params(request.getParams())
+                                                    .params(effectiveParams)
                                                     .metadata(request.getMetadata())
                                                     .build();
 
@@ -540,7 +603,7 @@ public class NotificationServiceImpl implements NotificationService {
                                           })));
 
               return withSuppressionCheck(
-                      projectId, recipient, channelType, processingChain)
+                  projectId, recipient, channelType, processingChain)
                   .onErrorReturn(
                       e -> {
                         log.error(
@@ -1128,13 +1191,13 @@ public class NotificationServiceImpl implements NotificationService {
     }
     return (recipients.getEmails() != null && !recipients.getEmails().isEmpty())
         || (recipients.getSlackChannelIds() != null
-            && !recipients.getSlackChannelIds().isEmpty())
+        && !recipients.getSlackChannelIds().isEmpty())
         || (recipients.getSlackUserIds() != null
-            && !recipients.getSlackUserIds().isEmpty())
+        && !recipients.getSlackUserIds().isEmpty())
         || (recipients.getSlackWebhookUrls() != null
-            && !recipients.getSlackWebhookUrls().isEmpty())
+        && !recipients.getSlackWebhookUrls().isEmpty())
         || (recipients.getTeamsWorkflowUrls() != null
-            && !recipients.getTeamsWorkflowUrls().isEmpty());
+        && !recipients.getTeamsWorkflowUrls().isEmpty());
   }
 
   private Set<String> resolveRecipients(
@@ -1156,10 +1219,9 @@ public class NotificationServiceImpl implements NotificationService {
     }
 
     return switch (channelType) {
-      case EMAIL ->
-          recipients.getEmails() != null
-              ? recipients.getEmails()
-              : Collections.emptyList();
+      case EMAIL -> recipients.getEmails() != null
+          ? recipients.getEmails()
+          : Collections.emptyList();
       case SLACK -> {
         List<String> slackRecipients = new ArrayList<>();
         if (recipients.getSlackChannelIds() != null) {
@@ -1170,14 +1232,12 @@ public class NotificationServiceImpl implements NotificationService {
         }
         yield slackRecipients;
       }
-      case SLACK_WEBHOOK ->
-          recipients.getSlackWebhookUrls() != null
-              ? recipients.getSlackWebhookUrls()
-              : Collections.emptyList();
-      case TEAMS ->
-          recipients.getTeamsWorkflowUrls() != null
-              ? recipients.getTeamsWorkflowUrls()
-              : Collections.emptyList();
+      case SLACK_WEBHOOK -> recipients.getSlackWebhookUrls() != null
+          ? recipients.getSlackWebhookUrls()
+          : Collections.emptyList();
+      case TEAMS -> recipients.getTeamsWorkflowUrls() != null
+          ? recipients.getTeamsWorkflowUrls()
+          : Collections.emptyList();
       default -> Collections.emptyList();
     };
   }

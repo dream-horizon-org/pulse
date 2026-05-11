@@ -98,7 +98,7 @@ public class TenantMemberService {
                     return Single.just(ctx);
                 }))
             // Cross-tenant validation: block if user already belongs to a different tenant
-            .flatMap(ctx -> openFgaService.getUserTenants(ctx.newUser.getUserId())
+            .flatMap(ctx -> openFgaService.getUserDirectTenants(ctx.newUser.getUserId())
                 .flatMap(existingTenants -> {
                     if (existingTenants != null && !existingTenants.isEmpty()
                             && !existingTenants.contains(tenantId)) {
@@ -442,7 +442,7 @@ public class TenantMemberService {
             .flatMap(tenant -> userService.getOrCreateUser(email, email)
                 .map(user -> new InternalAddContext(tenant, user)))
             // Cross-tenant validation + same-tenant short-circuit (replaces getUserTenantRole)
-            .flatMap(ctx -> openFgaService.getUserTenants(ctx.user.getUserId())
+            .flatMap(ctx -> openFgaService.getUserDirectTenants(ctx.user.getUserId())
                 .flatMap(existingTenants -> {
                     if (existingTenants != null && !existingTenants.isEmpty()
                             && !existingTenants.contains(tenantId)) {

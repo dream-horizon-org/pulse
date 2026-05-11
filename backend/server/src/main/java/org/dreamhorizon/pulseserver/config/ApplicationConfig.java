@@ -14,6 +14,17 @@ import lombok.extern.slf4j.Slf4j;
 public class ApplicationConfig {
   public String appEnvironment;
   public String cronManagerBaseUrl;
+  /**
+   * Public Pulse UI origin (env {@code CONFIG_SERVICE_APPLICATION_DASHBOARDBASEURL}). Used for
+   * {@code {{dashboardUrl}}} in all notification templates; see {@link
+   * #resolveDashboardBaseUrlForNotifications()}.
+   */
+  public String dashboardBaseUrl;
+
+  /**
+   * Fallback when {@link #dashboardBaseUrl} is unset or blank after normalization.
+   */
+  public static final String DEFAULT_DASHBOARD_BASE_URL = "https://app.pulse-ux.com";
   public String serviceUrl;
   public Integer shutdownGracePeriod;
   public String googleOAuthClientId;
@@ -35,7 +46,6 @@ public class ApplicationConfig {
   public String interactionDetailCloudFrontAssetPath;
   public String encryptionMasterKey;
   public String tncS3BucketName;
-  public String dashboardBaseUrl;
   public String aiServiceUrl;
   public String symbolFilesS3BucketName;
   public String devModeApiKey;
@@ -53,9 +63,13 @@ public class ApplicationConfig {
    */
   public HeatmapS3Config heatmapS3;
 
-  /** Redis host for Kong plugin materialization (API key map, usage credits in Part B). */
+  /**
+   * Redis host for Kong plugin materialization (API key map, usage credits in Part B).
+   */
   public String redisHost;
-  /** Redis port for Kong plugin materialization. */
+  /**
+   * Redis port for Kong plugin materialization.
+   */
   public Integer redisPort;
 
   /**
@@ -74,14 +88,14 @@ public class ApplicationConfig {
    * produce a double slash before {@code /projects/...}.
    *
    * @return {@code null} when the base URL is missing or blank (avoids the literal
-   *     {@code "null/projects/..."} that {@link String#format} would otherwise produce)
+   * {@code "null/projects/..."} that {@link String#format} would otherwise produce)
    */
   public String buildInteractionConfigFileUrl(String projectId) {
     if (interactionConfigUrl == null || interactionConfigUrl.isBlank()) {
       return null;
     }
     String base = stripTrailingSlashes(interactionConfigUrl);
-    return String.format("%s/projects/%s/interaction.json", base, projectId);
+    return String.format("%s/projects/%s/interaction-config.json", base, projectId);
   }
 
   private static String stripTrailingSlashes(String url) {
@@ -93,5 +107,21 @@ public class ApplicationConfig {
       end--;
     }
     return url.substring(0, end);
+  }
+
+  /**
+   * Normalized public UI base for email and other templates ({@code {{dashboardUrl}}}). Trims
+   * {@link #dashboardBaseUrl}, strips trailing slashes, then falls back to {@link
+   * #DEFAULT_DASHBOARD_BASE_URL} when unset or blank.
+   */
+  public String resolveDashboardBaseUrlForNotifications() {
+    if (dashboardBaseUrl == null) {
+      return DEFAULT_DASHBOARD_BASE_URL;
+    }
+    String trimmed = dashboardBaseUrl.trim();
+    if (trimmed.isEmpty()) {
+      return DEFAULT_DASHBOARD_BASE_URL;
+    }
+    return stripTrailingSlashes(trimmed);
   }
 }

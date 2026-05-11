@@ -19,6 +19,7 @@ import io.vertx.rxjava3.sqlclient.Row;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import org.dreamhorizon.pulseserver.config.ApplicationConfig;
 import org.dreamhorizon.pulseserver.constant.NotificationConstants;
 import org.dreamhorizon.pulseserver.dao.notification.ChannelEventMappingDao;
 import org.dreamhorizon.pulseserver.dao.notification.EmailSuppressionDao;
@@ -80,18 +81,28 @@ class NotificationServiceImplTest {
   @Mock NotificationConfig notificationConfig;
 
   ObjectMapper objectMapper = new ObjectMapper();
+  ApplicationConfig applicationConfig = new ApplicationConfig();
 
   NotificationServiceImpl service;
 
   @BeforeEach
   void setUp() {
-    service = new NotificationServiceImpl(
-        channelDao, templateDao, logDao, suppressionDao,
-        mappingDao, providerFactory, notificationQueue, objectMapper, notificationConfig);
-    org.mockito.Mockito.when(notificationConfig.resolveDefaultAlertEmailFromAddress())
+    applicationConfig.setDashboardBaseUrl(null);
+    service =
+        new NotificationServiceImpl(
+            channelDao,
+            templateDao,
+            logDao,
+            suppressionDao,
+            mappingDao,
+            providerFactory,
+            notificationQueue,
+            applicationConfig,
+            objectMapper,
+            notificationConfig);
+    when(notificationConfig.resolveDefaultAlertEmailFromAddress())
         .thenReturn("alerts@pulse-ux.com");
-    org.mockito.Mockito.when(notificationConfig.resolveDefaultAlertEmailFromName())
-        .thenReturn("Pulse Alerts");
+    when(notificationConfig.resolveDefaultAlertEmailFromName()).thenReturn("Pulse Alerts");
   }
 
   private NotificationChannel emailChannel() {

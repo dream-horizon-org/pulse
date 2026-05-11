@@ -102,6 +102,16 @@ export const FEATURE_DISPLAY_INFO: Record<
     description: "User-defined custom events",
     icon: "tag",
   },
+  memory: {
+    label: "RAM / Memory",
+    description: "Sample process memory usage (RAM) metrics",
+    icon: "cpu",
+  },
+  battery: {
+    label: "Battery",
+    description: "Track battery level and charging state",
+    icon: "battery",
+  },
   rn_screen_load: {
     label: "React Native Screen Load",
     description: "Track React Native Screen Loads",

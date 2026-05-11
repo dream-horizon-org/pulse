@@ -115,7 +115,7 @@ class AlertEvaluationServiceTest {
     void shouldReturnScreenNameForScreenScope() throws Exception {
       Method method = AlertEvaluationService.class.getDeclaredMethod("getScopeField", String.class, QueryRequest.DataType.class);
       method.setAccessible(true);
-      assertEquals("SpanAttributes['screen.name']", method.invoke(alertEvaluationService, "SCREEN", QueryRequest.DataType.TRACES));
+      assertEquals("ScreenName", method.invoke(alertEvaluationService, "SCREEN", QueryRequest.DataType.TRACES));
       assertEquals("ScreenName", method.invoke(alertEvaluationService, "SCREEN", QueryRequest.DataType.EXCEPTIONS));
     }
 
@@ -123,7 +123,7 @@ class AlertEvaluationServiceTest {
     void shouldReturnHttpUrlForNetworkApiScope() throws Exception {
       Method method = AlertEvaluationService.class.getDeclaredMethod("getScopeField", String.class, QueryRequest.DataType.class);
       method.setAccessible(true);
-      assertEquals("SpanAttributes['http.url']", method.invoke(alertEvaluationService, "NETWORK_API", QueryRequest.DataType.TRACES));
+      assertEquals("HttpUrl", method.invoke(alertEvaluationService, "NETWORK_API", QueryRequest.DataType.TRACES));
     }
 
     @Test

@@ -8,6 +8,7 @@ import type { SessionProvider } from "../session";
 import { getOrCreateInstallationId } from "../session";
 import type { PulseWebConfig } from "../config";
 import { computeAspectRatio } from "../resource";
+import { PulseWebSemconv } from "../semconv";
 
 type NetworkConnection = {
   type?: string;
@@ -77,6 +78,11 @@ export class PulseGlobalAttributesProcessor
   private manualScreenNamePath: string | null = null;
   private readonly screenAspectRatio: string;
 
+  /** Android `setUserId` parity — stamped as `user.id`. */
+  private _userId: string | null = null;
+  /** Android `setUserProperty` parity — stamped as `pulse.user.<key>`. */
+  private _userProperties: Record<string, string> = {};
+
   constructor(
     private readonly sessionProvider: SessionProvider,
     private readonly config: PulseWebConfig,
@@ -95,6 +101,48 @@ export class PulseGlobalAttributesProcessor
     this.manualScreenName = name;
     this.manualScreenNamePath =
       typeof location !== "undefined" ? location.pathname : null;
+  }
+
+  /**
+   * Restore user id + properties from localStorage at cold start (no lifecycle logs).
+   * Must run before signal emission; called from SDK after construction.
+   */
+  hydrateUserIdentity(
+    userId: string | null,
+    properties: Record<string, string>,
+  ): void {
+    this._userId = userId;
+    this._userProperties = { ...properties };
+  }
+
+  setUserId(id: string | null): void {
+    this._userId = id;
+  }
+
+  getUserId(): string | null {
+    return this._userId;
+  }
+
+  setUserProperty(key: string, value: string | null): void {
+    if (value === null) {
+      delete this._userProperties[key];
+    } else {
+      this._userProperties[key] = value;
+    }
+  }
+
+  setUserProperties(props: Record<string, string | null>): void {
+    for (const [k, v] of Object.entries(props)) {
+      if (v === null) {
+        delete this._userProperties[k];
+      } else {
+        this._userProperties[k] = v;
+      }
+    }
+  }
+
+  getUserPropertiesSnapshot(): Record<string, string> {
+    return { ...this._userProperties };
   }
 
   getCurrentScreenName(): string {
@@ -151,11 +199,25 @@ export class PulseGlobalAttributesProcessor
       attrs["network.downlink"] = network.downlink;
     }
 
-    // Inject global attributes from config
+    // Inject global attributes from config (span attributes: primitives only here)
     if (this.config.globalAttributes) {
       for (const [key, value] of Object.entries(this.config.globalAttributes)) {
-        attrs[key] = value;
+        if (
+          typeof value === "string" ||
+          typeof value === "number" ||
+          typeof value === "boolean"
+        ) {
+          attrs[key] = value;
+        }
       }
+    }
+
+    const attributeKeys = PulseWebSemconv.AttributeKey;
+    if (this._userId !== null && this._userId !== "") {
+      attrs[attributeKeys.USER_ID] = this._userId;
+    }
+    for (const [k, v] of Object.entries(this._userProperties)) {
+      attrs[`pulse.user.${k}`] = v;
     }
 
     return attrs;

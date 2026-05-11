@@ -101,6 +101,8 @@ public class DefaultSdkConfigTemplate {
         features.add(createFeature(Features.ios_lifecycle, 0.0, iosSdk));
         features.add(createFeature(Features.android_activity, 1.0, androidSdk));
         features.add(createFeature(Features.android_fragment, 0.0, androidSdk));
+        features.add(createFeature(Features.memory, 1.0, allSdks));
+        features.add(createFeature(Features.battery, 1.0, allSdks));
 
         // Create ConfigData
         return ConfigData.builder()
@@ -126,8 +128,8 @@ public class DefaultSdkConfigTemplate {
         SessionReplayFeatureConfig config = SessionReplayFeatureConfig.builder()
             .textAndInputPrivacy(TextAndInputPrivacy.MASK_ALL)
             .imagePrivacy(ImagePrivacy.MASK_ALL)
-            .throttleDelayMs(1000L)
-            .screenshotScale(1.0f)
+            .throttleDelayMs(2000L)
+            .screenshotScale(0.3f)
             .screenshotQuality(30)
             .flushIntervalSeconds(60)
             .flushAt(10)

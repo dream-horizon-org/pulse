@@ -6,7 +6,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
 import io.reactivex.rxjava3.core.Single;
-import io.vertx.rxjava3.core.buffer.Buffer;
 import io.vertx.rxjava3.mysqlclient.MySQLPool;
 import io.vertx.rxjava3.sqlclient.PreparedQuery;
 import io.vertx.rxjava3.sqlclient.Row;
@@ -19,9 +18,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
 import org.dreamhorizon.pulseserver.errorgrouping.model.UploadMetadata;
-import jakarta.ws.rs.core.MultivaluedHashMap;
-import jakarta.ws.rs.core.MultivaluedMap;
-import org.jboss.resteasy.plugins.providers.multipart.InputPart;
+import org.dreamhorizon.pulseserver.errorgrouping.service.SymbolFileService.UploadFileData;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -68,19 +65,20 @@ class SymbolFileServiceTest {
   class UploadFilesFromSymbolFileService {
 
     @Test
-    void shouldThrowErrorWhenFilePartsNull() {
-      ConcreteSymbolFileService service = new ConcreteSymbolFileService();
-
-      assertThrows(IllegalArgumentException.class,
-          () -> service.uploadFiles("proj-1", null, List.of()).blockingGet());
-    }
-
-    @Test
-    void shouldThrowErrorWhenFilePartsEmpty() {
+    void shouldThrowErrorWhenParsedFilesEmpty() {
       ConcreteSymbolFileService service = new ConcreteSymbolFileService();
 
       assertThrows(IllegalArgumentException.class,
           () -> service.uploadFiles("proj-1", List.of(), List.of()).blockingGet());
+    }
+
+    @Test
+    void shouldThrowErrorWhenNoMetadataMatchesParsedFiles() {
+      ConcreteSymbolFileService service = new ConcreteSymbolFileService();
+      UploadFileData parsedFile = new UploadFileData("mapping.txt", "content".getBytes(StandardCharsets.UTF_8));
+
+      assertThrows(IllegalArgumentException.class,
+          () -> service.uploadFiles("proj-1", List.of(parsedFile), List.of()).blockingGet());
     }
 
     @Test
@@ -94,21 +92,11 @@ class SymbolFileServiceTest {
           .platform("android")
           .bundleId("com.test")
           .build();
-      InputPart part = createInputPart("mapping.txt", "content");
+      UploadFileData parsedFile = new UploadFileData("mapping.txt", "content".getBytes(StandardCharsets.UTF_8));
 
-      service.uploadFiles("proj-123", List.of(part), List.of(meta)).blockingGet();
+      service.uploadFiles("proj-123", List.of(parsedFile), List.of(meta)).blockingGet();
 
       assertThat(meta.getProjectId()).isEqualTo("proj-123");
-    }
-
-    private InputPart createInputPart(String fileName, String content) throws java.io.IOException {
-      InputPart part = org.mockito.Mockito.mock(InputPart.class);
-      MultivaluedMap<String, String> headers = new MultivaluedHashMap<>();
-      headers.add("Content-Disposition", "form-data; name=\"fileContent\"; filename=\"" + fileName + "\"");
-      when(part.getHeaders()).thenReturn(headers);
-      when(part.getBody(InputStream.class, null))
-          .thenReturn(new ByteArrayInputStream(content.getBytes(StandardCharsets.UTF_8)));
-      return part;
     }
   }
 

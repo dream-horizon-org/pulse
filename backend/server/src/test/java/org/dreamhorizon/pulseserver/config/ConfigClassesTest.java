@@ -289,10 +289,10 @@ class ConfigClassesTest {
     @Test
     void shouldSupportAllArgsConstructor() {
       ApplicationConfig config = new ApplicationConfig(
-          "dev", "cron", "service", 10, "oauth", true, "firebase",
+          "dev", "cron", ApplicationConfig.DEFAULT_DASHBOARD_BASE_URL, "service", 10, "oauth", true, "firebase",
           "jwt", "otel", "config", "logs", "metric", "span", "events",
           "bucket", "configPath", "cfId", "cfPath", "webhook",
-          "interPath", "interCfPath", "encKey", "tncBucket", "http://dashboard.url", "http://ai:8000",
+          "interPath", "interCfPath", "encKey", "tncBucket", "http://ai:8000",
           "symbolFilesBucket", "dev-api-key",
           new SessionReplayS3Config(
               "session-replay-bucket", "http://minio:9000", "us-east-1", "access-key", "secret-key"), "replayBaseUrl",

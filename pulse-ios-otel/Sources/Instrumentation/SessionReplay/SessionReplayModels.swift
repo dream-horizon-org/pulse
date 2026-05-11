@@ -29,7 +29,7 @@ public enum ImagePrivacy {
 }
 
 public struct SessionReplayConfig {
-    public var captureIntervalMs: Int = 1000
+    public var captureIntervalMs: Int = 2000
     public var compressionQuality: CGFloat = 0.3
     public var textAndInputPrivacy: TextAndInputPrivacy = .maskAll
     public var imagePrivacy: ImagePrivacy = .maskAll
@@ -101,11 +101,11 @@ public struct SessionReplayConfig {
     }
 
     public init(
-        captureIntervalMs: Int = 1000,
+        captureIntervalMs: Int = 2000,
         compressionQuality: CGFloat = 0.3,
         textAndInputPrivacy: TextAndInputPrivacy = .maskAll,
         imagePrivacy: ImagePrivacy = .maskAll,
-        screenshotScale: CGFloat = 1.0,
+        screenshotScale: CGFloat = 0.3,
         flushIntervalSeconds: TimeInterval = 60,
         flushAt: Int = 10,
         maxBatchSize: Int = 50,
@@ -128,11 +128,11 @@ public struct SessionReplayConfig {
 
     @available(*, deprecated, message: "Use init with textAndInputPrivacy and imagePrivacy instead")
     public init(
-        captureIntervalMs: Int = 1000,
+        captureIntervalMs: Int = 2000,
         compressionQuality: CGFloat = 0.3,
         maskAllTextInputs: Bool = true,
         maskAllImages: Bool = true,
-        screenshotScale: CGFloat = 1.0,
+        screenshotScale: CGFloat = 0.3,
         flushIntervalSeconds: TimeInterval = 60,
         flushAt: Int = 10,
         maxBatchSize: Int = 50,

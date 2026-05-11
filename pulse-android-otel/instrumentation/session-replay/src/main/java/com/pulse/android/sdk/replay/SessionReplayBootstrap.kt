@@ -23,6 +23,8 @@ public class SessionReplayBootstrap(
      * Defaults to "unknown" if not provided.
      */
     public val screenNameProvider: () -> String = { "unknown" },
+    /** Headers forwarded to the session-replay upload endpoint (e.g. X-API-KEY, X-Pulse-Metering-Session-ID). */
+    public val endpointHeaders: Map<String, String> = emptyMap(),
 ) {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true

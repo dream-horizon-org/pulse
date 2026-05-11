@@ -72,6 +72,7 @@ class ApplicationConfigTest {
     ApplicationConfig config = new ApplicationConfig(
         "dev",
         "cronUrl",
+        ApplicationConfig.DEFAULT_DASHBOARD_BASE_URL,
         "serviceUrl",
         30,
         "clientId",
@@ -93,7 +94,6 @@ class ApplicationConfigTest {
         "interactionAsset",
         "key",
         "tncS3Bucket",
-        "http://dashboard.url",
         "http://ai:8000",
         "symbolFilesS3Bucket",
         "dev-api-key",
@@ -145,7 +145,7 @@ class ApplicationConfigTest {
     ApplicationConfig config = new ApplicationConfig();
     config.setInteractionConfigUrl("http://10.0.2.2:8080/v1/interaction-configs/");
     assertEquals(
-        "http://10.0.2.2:8080/v1/interaction-configs/projects/default-project/interaction.json",
+        "http://10.0.2.2:8080/v1/interaction-configs/projects/default-project/interaction-config.json",
         config.buildInteractionConfigFileUrl("default-project"));
   }
 
@@ -154,7 +154,7 @@ class ApplicationConfigTest {
     ApplicationConfig config = new ApplicationConfig();
     config.setInteractionConfigUrl("https://cdn.example.com/base///");
     assertEquals(
-        "https://cdn.example.com/base/projects/p1/interaction.json",
+        "https://cdn.example.com/base/projects/p1/interaction-config.json",
         config.buildInteractionConfigFileUrl("p1"));
   }
 
@@ -163,7 +163,7 @@ class ApplicationConfigTest {
     ApplicationConfig config = new ApplicationConfig();
     config.setInteractionConfigUrl("https://cdn.example.com");
     assertEquals(
-        "https://cdn.example.com/projects/x/interaction.json",
+        "https://cdn.example.com/projects/x/interaction-config.json",
         config.buildInteractionConfigFileUrl("x"));
   }
 
@@ -178,6 +178,26 @@ class ApplicationConfigTest {
     ApplicationConfig config = new ApplicationConfig();
     config.setInteractionConfigUrl("   ");
     assertNull(config.buildInteractionConfigFileUrl("p1"));
+  }
+
+  @Test
+  void resolveDashboardBaseUrlForNotificationsUsesDefaultWhenUnset() {
+    ApplicationConfig config = new ApplicationConfig();
+    assertEquals(ApplicationConfig.DEFAULT_DASHBOARD_BASE_URL, config.resolveDashboardBaseUrlForNotifications());
+  }
+
+  @Test
+  void resolveDashboardBaseUrlForNotificationsUsesDefaultWhenBlank() {
+    ApplicationConfig config = new ApplicationConfig();
+    config.setDashboardBaseUrl("  ");
+    assertEquals(ApplicationConfig.DEFAULT_DASHBOARD_BASE_URL, config.resolveDashboardBaseUrlForNotifications());
+  }
+
+  @Test
+  void resolveDashboardBaseUrlForNotificationsNormalizesConfiguredValue() {
+    ApplicationConfig config = new ApplicationConfig();
+    config.setDashboardBaseUrl(" https://custom.example.com/// ");
+    assertEquals("https://custom.example.com", config.resolveDashboardBaseUrlForNotifications());
   }
 
   @Test

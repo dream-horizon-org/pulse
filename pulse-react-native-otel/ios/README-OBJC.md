@@ -127,6 +127,24 @@ sessions.shouldPersist = @YES;
 inst.sessions = sessions;
 ```
 
+### UIKit Tap (Interaction)
+```objc
+PulseObjcUIKitTapConfig *tap = [PulseObjcUIKitTapConfig new];
+tap.captureContext = @YES;
+
+inst.uiKitTap = tap;
+```
+
+### Session Replay
+```objc
+PulseObjcSessionReplayConfig *replay = [PulseObjcSessionReplayConfig new];
+// Note: Enabled via backend feature flags (not at initialization time)
+// Code-level config: masking rules only
+replay.maskViewClasses = @[@"SensitiveView"];
+replay.unmaskViewClasses = @[@"PublicBannerView"];
+inst.sessionReplay = replay;
+```
+
 ### App Lifecycle
 ```objc
 inst.appLifecycle = [PulseObjcEnabledConfig enabled];

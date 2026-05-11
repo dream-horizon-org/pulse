@@ -9,7 +9,6 @@ import {
   IconBell,
   IconCalendarEvent,
   IconChartFunnel,
-  IconDatabaseSearch,
   IconDeviceDesktop,
   IconHome,
   IconListDetails,
