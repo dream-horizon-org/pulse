@@ -49,6 +49,10 @@ export class NavigationInstrumentation implements PulseInstrumentation {
   private sdkContext: SdkContext | null = null;
   private onPopStateBound?: () => void;
   private onPageHideBound?: () => void;
+  /** Pending `load` listener when `document.readyState === "loading"` — removed on `uninstall`. */
+  private onInitialLoadBound?: () => void;
+  /** Trailing debounce for SPA History bursts — coalesces to final URL after quiet window. */
+  private routeTrailingTimer?: number;
 
   install(sdk: SdkContext): void {
     if (typeof window === "undefined") {
@@ -104,6 +108,14 @@ export class NavigationInstrumentation implements PulseInstrumentation {
     }
 
     if (typeof window !== "undefined") {
+      if (this.routeTrailingTimer !== undefined) {
+        window.clearTimeout(this.routeTrailingTimer);
+        this.routeTrailingTimer = undefined;
+      }
+      if (this.onInitialLoadBound) {
+        window.removeEventListener("load", this.onInitialLoadBound);
+        this.onInitialLoadBound = undefined;
+      }
       if (this.onPopStateBound) {
         window.removeEventListener("popstate", this.onPopStateBound);
         this.onPopStateBound = undefined;
@@ -125,6 +137,7 @@ export class NavigationInstrumentation implements PulseInstrumentation {
     this.installed = false;
     this.sdkContext = null;
     this.activeSessionSpan = undefined;
+    this.lastNavigationTime = 0;
   }
 
   private patchHistoryAPI(sdk: SdkContext): void {
@@ -216,12 +229,42 @@ export class NavigationInstrumentation implements PulseInstrumentation {
   }
 
   private onRouteChange(sdk: SdkContext): void {
-    const now = Date.now();
-    if (now - this.lastNavigationTime < this.navigationRateLimitMs) {
+    if (typeof window === "undefined") {
       return;
     }
-    this.lastNavigationTime = now;
 
+    const now = Date.now();
+    const elapsed = now - this.lastNavigationTime;
+
+    const flush = (): void => {
+      this.routeTrailingTimer = undefined;
+      if (!this.installed || !this.sdkContext || this.sdkContext !== sdk) {
+        return;
+      }
+      const t = Date.now();
+      this.lastNavigationTime = t;
+      this.applyRouteChange(sdk, t);
+    };
+
+    if (elapsed >= this.navigationRateLimitMs) {
+      if (this.routeTrailingTimer !== undefined) {
+        window.clearTimeout(this.routeTrailingTimer);
+        this.routeTrailingTimer = undefined;
+      }
+      this.lastNavigationTime = now;
+      this.applyRouteChange(sdk, now);
+      return;
+    }
+
+    if (this.routeTrailingTimer !== undefined) {
+      window.clearTimeout(this.routeTrailingTimer);
+    }
+    const wait = this.navigationRateLimitMs - elapsed;
+    this.routeTrailingTimer = window.setTimeout(flush, wait);
+  }
+
+  /** Single SPA transition: end prior `screen_session`, emit `screen_load`, start new `screen_session`. */
+  private applyRouteChange(sdk: SdkContext, now: number): void {
     const attributeKeys = PulseWebSemconv.AttributeKey;
     const pulseTypes = PulseWebSemconv.PulseType;
 
@@ -439,7 +482,12 @@ export class NavigationInstrumentation implements PulseInstrumentation {
       return;
     }
 
-    const emitOnLoad = () => {
+    const emitOnLoad = (): void => {
+      this.onInitialLoadBound = undefined;
+      if (!this.installed || !this.sdkContext || this.sdkContext !== sdk) {
+        return;
+      }
+
       const attributeKeys = PulseWebSemconv.AttributeKey;
       const pulseTypes = PulseWebSemconv.PulseType;
 
@@ -512,8 +560,9 @@ export class NavigationInstrumentation implements PulseInstrumentation {
       );
     };
 
-    // Emit on load event
+    // Emit on load event — keep ref for `removeEventListener` on `uninstall`
     if (document.readyState === "loading") {
+      this.onInitialLoadBound = emitOnLoad;
       window.addEventListener("load", emitOnLoad, { once: true });
     } else {
       // If already loaded, emit immediately

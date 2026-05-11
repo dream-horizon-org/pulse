@@ -20,7 +20,7 @@ Document **Next.js-specific** integration: App Router tracking (`useNextAppRoute
 
 ## 3. Requirements
 
-**R1 — Client screen names:** App Router uses `usePathname` + `useSearchParams`; Pages Router uses `router.events.on('routeChangeComplete')`.
+**R1 — Client screen names:** App Router uses `usePathname` + `useSearchParams`; Pages Router uses `router.events.on('routeChangeComplete')`. SPA **`screen_load` / `screen_session`** in the core SDK require **History API** mutations (`pushState` / `popstate`); align with default Next client navigation — hash-only changes without History do not emit those spans (see **screen-signals** SPEC §7).
 
 **R2 — Build:** `withPulseConfig` enables browser source maps + uploads `.map` files post-webpack emit.
 

@@ -27,7 +27,7 @@ Document the **React adapter** for Pulse Web: `PulseProvider` (init + context), 
 
 **R3 — Error boundary:** Optional `errorBoundaryFallback` wraps children with `PulseErrorBoundary`.
 
-**R4 — Router tracking:** `useRouterTracking` / `PulseRouterEvents` call `Pulse.setScreenName` on pathname changes — **does not** itself emit `screen_load` / `screen_interactive` (see **`screen-signals`** SPEC — `NavigationInstrumentation` owns those).
+**R4 — Router tracking:** `useRouterTracking` / `PulseRouterEvents` call `Pulse.setScreenName` on pathname changes — **does not** itself emit `screen_load` / `screen_session` (see **`screen-signals`** SPEC — `NavigationInstrumentation` emits those as OTLP **spans**). Use **`BrowserRouter`** (History API); hash-only routing does not drive SPA screen signals (see screen-signals SPEC §7).
 
 ---
 

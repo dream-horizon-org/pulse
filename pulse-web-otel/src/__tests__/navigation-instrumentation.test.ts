@@ -475,6 +475,34 @@ describe("NavigationInstrumentation", () => {
       vi.useRealTimers();
       instr.uninstall();
     });
+
+    it("rapid SPA navigations coalesce to final URL after debounce window", () => {
+      const instr = new NavigationInstrumentation();
+      const sdk = makeMinimalSdk();
+
+      setPath("/page1");
+      instr.install(sdk);
+      navSpanMocks.reset();
+
+      vi.useFakeTimers();
+      const startTime = Date.now();
+      vi.setSystemTime(startTime);
+
+      setPath("/page2");
+      history.pushState({}, "", "/page2");
+      vi.advanceTimersByTime(30);
+      setPath("/page3");
+      history.pushState({}, "", "/page3");
+      vi.advanceTimersByTime(100);
+
+      const loads = findSpansByName("screen_load");
+      const lastSpaLoad = loads[loads.length - 1]!;
+      const attrs = attrsFromSetAttributesCalls(lastSpaLoad);
+      expect(attrs[PulseWebSemconv.AttributeKey.SCREEN_NAME]).toBe("/page3");
+
+      vi.useRealTimers();
+      instr.uninstall();
+    });
   });
 
   describe("Global attributes stamping", () => {

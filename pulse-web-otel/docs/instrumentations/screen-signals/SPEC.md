@@ -28,7 +28,7 @@ Track **initial page load** and **SPA route transitions** using OTLP **client sp
 
 **R2 — SPA transitions:** Patch `history.pushState` / `replaceState` + listen to `popstate`; on meaningful route change (rate-limited), end the **`screen_session`** span for the previous screen, emit **`screen_load`** for the new screen with **`start.type` = `spa`**, then start a new **`screen_session`** span for dwell time.
 
-**R2a — Rate limit:** consecutive History updates **under 100 ms** apart may drop the second transition (debounce against router double-fires). Intentional — document here if changing the threshold.
+**R2a — Rate limit / coalescing:** bursts of History updates **under 100 ms** apart **do not** apply the intermediate URL: the first update in a quiet window runs immediately; subsequent updates in that window **reset a trailing timer** so **one** transition runs after **100 ms** of quiet time, using the **final** `window.location` (avoids losing fast redirects / chained `replaceState`). Changing the threshold: edit `navigationRateLimitMs` in `navigation.ts` and this section.
 
 **R3 — Screen naming:** Cold load uses `getCurrentScreenName()` (manual override + URL heuristics). **SPA transitions** stamp `screen.name` using **`resolveScreenNameFromUrl(config)`** — same pathname/heuristic/`routePatterns` rules as the processor but **without** a stale manual override, because History runs synchronously while framework integrations often call `setScreenName` in `useEffect`. The instrumentation then calls **`setScreenName`** with that value so clicks/errors align before the next render.
 
@@ -137,9 +137,34 @@ Patch History API for SPA parity with Android activity transitions; reuse Naviga
 
 Previously `navigation.ts` used **`logger.emit()`** → **`otel_logs`**. Web screen rows were invisible to Screens analytics (`otel_traces`-only queries). **Resolved:** spans via **`sdk.tracer`** → **`otel_traces`**.
 
-### P1: Hash-only routers
+### P2: Hash-only routers (integration guide gap)
 
-Routers that do not mutate `history` may not trigger patches — document host requirement.
+**History-based routing required.** Instrumentation patches `history.pushState` / `replaceState` and listens to `popstate`. Routers that only mutate `location.hash` without touching the History API emit **no** SPA `screen_load` / `screen_session` signals — the SDK behaves correctly given what it receives; this is user misconfiguration, not a data contract break.
+
+**Action:** Carry this note into the React integration and Next.js integration guides (see `docs/instrumentations/react-integration/SPEC.md` §7, `docs/instrumentations/nextjs-integration/SPEC.md` §7) so integrators see the requirement at the framework layer, not just here.
+
+### P2: Back/forward cache (BFCache) — screen signals not re-emitted on restore
+
+`pagehide` ends the active `screen_session` span (correct). When the browser **restores** a page from BFCache (`pageshow` with `event.persisted === true`), the SDK does **not** fire a new `screen_load` or start a new `screen_session`. The user is back on the screen but no telemetry fires — dwell time from the restored visit is invisible.
+
+**What’s missing on restore:** no `screen_load` span, no new `screen_session` span start.
+**Fix path:** listen to `pageshow`; if `event.persisted === true`, emit a synthetic `screen_load` (with `start.type = bfcache`) and restart the session dwell span. Not implemented — treat as known limitation unless product commits to BFCache parity.
+
+### P3: 90ms trailing window — clicks/errors carry wrong `screen.name`
+
+**Not a dropped navigation.** `onRouteChange` uses a trailing debounce: when two `pushState` calls arrive < 100ms apart, the second cancels and resets the timer; when it fires it reads `window.location` (the final URL) and calls `applyRouteChange` — no navigation is lost.
+
+The actual risk: during the trailing window `currentScreenName` still holds the first URL’s name. Any click or error fired in that window is tagged with the wrong `screen.name`. For auth redirects (common trigger) this is a non-issue — no user interaction happens during a 90ms redirect chain. A human double-tap could mis-tag one or two events.
+
+**Status:** by-design / known tradeoff, documented in R2a. Revisit if analytics show unexplained `screen.name` mismatches on short-lived screens (< 100ms dwell).
+
+### P2: In-flight `screen_session` span — identity attrs applied at `end()` not `startSpan()`
+
+The dwell `screen_session` span is started at screen entry with no attributes; `pulse.type`, `screen.name`, `session.id`, duration, and path are all applied in `endActiveSessionSpan` immediately before `span.end()`. Exporters and backends that only process **ended** spans (standard) match the dashboard contract with no issue.
+
+Risk only surfaces if a sampler or processor reads **started-but-not-ended** spans (e.g. a debug exporter, head-based sampler inspecting attributes). In that case the span appears attribute-less mid-flight.
+
+**Fix path (if needed):** apply identity attrs (`pulse.type`, `screen.name`, `session.id`) at `startSpan` time; keep only `session.duration_ms`, `url.path`, `page.title` at `end()`. No change required until a concrete consumer of in-flight spans is added.
 
 ---
 
