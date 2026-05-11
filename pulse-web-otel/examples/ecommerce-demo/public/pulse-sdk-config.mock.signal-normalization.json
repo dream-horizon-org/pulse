@@ -91,7 +91,7 @@
       "config": null
     },
     {
-      "featureName": "screen_session",
+      "featureName": "screen_navigation",
       "sessionSampleRate": 1,
       "sdks": ["pulse_web_js"],
       "config": null
@@ -110,7 +110,7 @@
     },
     {
       "featureName": "interaction",
-      "sessionSampleRate": 1,
+      "sessionSampleRate": 0,
       "sdks": ["pulse_web_js"],
       "config": null
     },

@@ -1,6 +1,6 @@
 // Dev-only: traces each log through the pre-batch processor chain (ingress vs pre-batch).
 
-import type { LogRecord, LogRecordProcessor } from "@opentelemetry/sdk-logs";
+import type { LogRecordProcessor, SdkLogRecord } from "@opentelemetry/sdk-logs";
 import type { LogBody } from "@opentelemetry/api-logs";
 import type { LogRecordLifecyclePhase } from "../types/log-record-lifecycle";
 import { PulseWebLogger } from "../pulse-web-logger";
@@ -21,12 +21,12 @@ function bodyPreview(body: LogBody | undefined): string {
   }
 }
 
-function summarizeLogRecord(logRecord: LogRecord): Record<string, unknown> {
+function summarizeLogRecord(logRecord: SdkLogRecord): Record<string, unknown> {
   const attrs = logRecord.attributes as Record<string, unknown>;
   return {
     body: bodyPreview(logRecord.body),
     pulseType: attrs["pulse.type"],
-    eventName: attrs["event.name"],
+    eventName: logRecord.eventName ?? attrs["event.name"],
   };
 }
 
@@ -37,7 +37,7 @@ function summarizeLogRecord(logRecord: LogRecord): Record<string, unknown> {
 export class LogRecordLifecycleDebugProcessor implements LogRecordProcessor {
   constructor(private readonly phase: LogRecordLifecyclePhase) {}
 
-  onEmit(logRecord: LogRecord): void {
+  onEmit(logRecord: SdkLogRecord): void {
     const n = ++emitSeq;
     PulseWebLogger.debug(
       `[logLifecycle] ${JSON.stringify({

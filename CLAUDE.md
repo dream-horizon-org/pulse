@@ -46,7 +46,8 @@ cd pulse-ui && yarn test --testPathPattern=ComponentName  # single test
 cd pulse-web-otel && yarn install
 cd pulse-web-otel && yarn build
 cd pulse-web-otel && yarn test
-cd pulse-web-otel && yarn workspace ecommerce-demo dev  # demo app :3002
+cd pulse-web-otel && yarn workspace ecommerce-demo dev   # React demo :3002
+cd pulse-web-otel && yarn demo:docs                      # vanilla demo :3003
 
 # AI Agent
 cd pulse_ai && ./setup.sh                     # start Docker on :8000
@@ -136,7 +137,7 @@ Every query must include: time-range on `Timestamp`, `LIMIT`, `ProjectId` filter
 Package `@dreamhorizon/pulse-web`. Data contract — every signal must carry `platform = 'web'`. Key `pulse.type` values: `session.start`, `session.end`, `device.crash`, `non_fatal`, `http`, `app.click`, `web_vital`, `screen_load`, `screen_interactive`, `screen_session`.
 
 Full file map, data contract tables, and phase-by-phase implementation spec: **`pulse-web-otel/web-sdk-plan/WEB-SDK-AGENT-CONTEXT.md`**
-Milestone exit criteria + verification queries: **`pulse-web-otel/web-sdk-plan/v1/MILESTONES.md`**
+Milestone index (exit-criteria summaries, verification commands, ClickHouse example query): **`pulse-web-otel/web-sdk-plan/v1/MILESTONES.md`**
 Use `/web-sdk` skill for context-loaded implementation or verification.
 
 ---

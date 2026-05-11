@@ -81,6 +81,8 @@ public class DefaultSdkConfigTemplate {
         // js_crash is shared by RN (Hermes) and Web; separate rows so defaults and future sample rates stay explicit per surface.
         features.add(createFeature(Features.js_crash, 1.0, rnSdk));
         features.add(createFeature(Features.js_crash, 1.0, webJsSdk));
+        features.add(createFeature(Features.web_vitals, 1.0, webJsSdk));
+        features.add(createFeature(Features.screen_navigation, 1.0, webJsSdk));
         features.add(createFeature(Features.java_anr, 1.0, androidSdk));
         features.add(createFeature(Features.network_change, 1.0, allSdks));
         features.add(createFeature(Features.custom_events, 1.0, allSdks));

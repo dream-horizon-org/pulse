@@ -46,5 +46,8 @@ export function wrapLogExporterLifecycleDebug(
     shutdown(): Promise<void> {
       return inner.shutdown();
     },
+    forceFlush(): Promise<void> {
+      return inner.forceFlush();
+    },
   };
 }

@@ -1,9 +1,13 @@
-import type { PulseInstrumentation, SdkContext } from "../instrumentation-registry";
+import type {
+  PulseInstrumentation,
+  SdkContext,
+} from "../instrumentation-registry";
 import { InteractionFeature } from "../interactions/interaction-feature";
 import type { PulseAttributes } from "../types/attributes";
+import { PulseInstrumentationName } from "../constants/pulse-otel-runtime";
 
 export class InteractionInstrumentation implements PulseInstrumentation {
-  readonly name = "interactions";
+  readonly name = PulseInstrumentationName.INTERACTIONS;
   private feature?: InteractionFeature;
 
   install(sdk: SdkContext): void {

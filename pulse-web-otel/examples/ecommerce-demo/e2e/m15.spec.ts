@@ -13,13 +13,7 @@
  *
  * Run:  yarn e2e --grep "@M15" --project=chromium
  */
-import {
-  test,
-  expect,
-  getAttr,
-  findAllLogs,
-  getResourceAttr,
-} from "./fixture";
+import { test, expect, getAttr, findAllLogs, getResourceAttr } from "./fixture";
 
 // ─── TC 15.1 — PulseProvider starts SDK → session.start ──────────────────────
 
@@ -34,7 +28,8 @@ test.describe("@M15 PulseProvider", () => {
     expect(getAttr(log.attributes, "session.id")).toBeTruthy();
     // service.name from resource attributes
     const svcName = getResourceAttr(otlp.captured, "service.name");
-    expect(svcName).toBe("ecommerce-demo");
+    // Must match `VITE_PULSE_SERVICE_NAME` in `.env.test` (Playwright webServer).
+    expect(svcName).toBe("ecommerce-demo-test");
   });
 
   test("TC 15.6: exactly one session.start emitted (StrictMode no double-init)", async ({
@@ -58,9 +53,9 @@ test.describe("@M15 PulseProvider", () => {
 
     const initialized = await page.evaluate(() => {
       const w = window as unknown as {
-        PulseWeb?: { isInitialized: () => boolean };
+        Pulse?: { isInitialized: () => boolean };
       };
-      return w.PulseWeb?.isInitialized?.() ?? false;
+      return w.Pulse?.isInitialized?.() ?? false;
     });
     expect(initialized).toBe(true);
   });
@@ -97,11 +92,18 @@ test.describe("@M15 PulseErrorBoundary", () => {
 
     await page.getByTestId("throw-render-error").click();
 
-    // PulseProvider's internal PulseErrorBoundary has no fallback — renders null.
-    // The page itself must NOT hard-crash (no browser error page).
+    // PulseProvider wraps **all** children in PulseErrorBoundary — a route render
+    // error shows the configured recovery UI (ecommerce demo). Tab stays alive:
+    // same URL and SDK remains initialized.
     await page.waitForTimeout(500);
-    // Page still has the nav bar (app shell survives)
-    await expect(page.locator("header")).toBeVisible();
+    await expect(page).toHaveURL(/\/error-demo/);
+    const initialized = await page.evaluate(() => {
+      const w = window as unknown as {
+        Pulse?: { isInitialized: () => boolean };
+      };
+      return w.Pulse?.isInitialized?.() ?? false;
+    });
+    expect(initialized).toBe(true);
   });
 });
 
@@ -122,11 +124,11 @@ test.describe("@M15 useRouterTracking", () => {
     // Trigger a signal that carries screen.name — e.g. a click
     await page.waitForTimeout(400);
 
-    // Verify PulseWeb.setScreenName was called by reading globalAttrsProcessor state
+    // Verify Pulse.setScreenName was called by reading globalAttrsProcessor state
     // via a custom event with screen.name attribute
     const screenName = await page.evaluate(async () => {
       const w = window as unknown as {
-        PulseWeb?: { setScreenName: (n: string) => void };
+        Pulse?: { setScreenName: (n: string) => void };
       };
       // App.tsx routerTracking.skipInitial=false, so /products should have been set
       return document.location.pathname;
@@ -164,9 +166,9 @@ test.describe("@M15 useRouterTracking", () => {
     // Emit a trackEvent after route change — should carry screen.name=/cart
     await page.evaluate(() => {
       const w = window as unknown as {
-        PulseWeb?: { trackEvent: (n: string) => void };
+        Pulse?: { trackEvent: (n: string) => void };
       };
-      w.PulseWeb?.trackEvent("after_nav_check");
+      w.Pulse?.trackEvent("after_nav_check");
     });
 
     const eventLog = await otlp.waitForLogByBody("after_nav_check", 5_000);
@@ -195,9 +197,9 @@ test.describe("@M15 useRouterTracking", () => {
       otlp.reset();
       await page.evaluate(() => {
         const w = window as unknown as {
-          PulseWeb?: { trackEvent: (n: string) => void };
+          Pulse?: { trackEvent: (n: string) => void };
         };
-        w.PulseWeb?.trackEvent("nav_check");
+        w.Pulse?.trackEvent("nav_check");
       });
 
       const log = await otlp.waitForLogByBody("nav_check", 5_000);

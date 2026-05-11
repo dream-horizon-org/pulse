@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { PulseWeb } from '@dreamhorizon/pulse-web';
+import { Pulse } from '@dreamhorizonorg/pulse-web';
 
 const STEPS = ['Shipping', 'Payment', 'Review'] as const;
 
@@ -18,12 +18,12 @@ export default function Checkout() {
 
   function advance() {
     const next = step + 1;
-    PulseWeb.trackEvent(`checkout_step_${step + 1}`);
+    Pulse.trackEvent(`checkout_step_${step + 1}`);
 
     if (next < STEPS.length) {
       setStep(next);
     } else {
-      PulseWeb.trackEvent('checkout_complete');
+      Pulse.trackEvent('checkout_complete');
       setDone(true);
     }
   }

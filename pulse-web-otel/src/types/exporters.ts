@@ -40,6 +40,12 @@ export interface ExporterConfig {
 
   /** Resolved Android-style export-time hooks (`PulseWebConfig.beforeSendData`); optional. */
   beforeSendData?: ResolvedBeforeSend;
+
+  /**
+   * Same-origin relay URL for sendBeacon delivery (see `PulseWebConfig.beaconRelayUrl`).
+   * When set, beacons are sent to this URL instead of the collector URL + apiKey query param.
+   */
+  beaconRelayUrl?: string;
 }
 
 export interface ProviderBundle {

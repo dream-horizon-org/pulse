@@ -31,6 +31,15 @@ exclude = [
   "^https://github\\.com/open-telemetry/opentelemetry-android/pulls$",
   # GitHub release pages often return 502 to automated clients
   "^https://github\\.com/open-telemetry/opentelemetry-java-instrumentation/releases/tag/.*$",
+  # npm returns 403 to unauthenticated / bot clients for org creation, package ACL, and token settings
+  "^https://www\\.npmjs\\.com/org/create$",
+  "^https://www\\.npmjs\\.com/package/@dreamhorizonorg/pulse-web/access$",
+  "^https://www\\.npmjs\\.com/package/@dreamhorizonorg/pulse-web$",
+  "^https://www\\.npmjs\\.com/settings/.*$",
+  # Private repo settings URLs return 404 to unauthenticated API clients
+  "^https://github\\.com/dream-horizon-org/pulse/settings/.*$",
+  # Monorepo root URLs: return 404 to unauthenticated lychee (use GITHUB_TOKEN in CI when repo is private)
+  "^https://github\\.com/dream-horizon-org/pulse(/tree/[^?#\\s]*)?$",
 ]
 
 exclude_path = [
