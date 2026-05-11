@@ -47,7 +47,7 @@ APPLICATION_NAME="pulse-heatmap-screenshot-ingestion"
 VERSION="${artifact_version}"
 # Same pattern as pulse-server: artifact zip under $HOME, unzip creates $HOME/$APPLICATION_NAME/.
 INSTALL_DIR="$HOME/$APPLICATION_NAME"
-ARTIFACT_ZIP="$HOME/${APPLICATION_NAME}.zip"
+ARTIFACT_ZIP="$HOME/$APPLICATION_NAME.zip"
 
 # Download artifact from CodeArtifact
 aws codeartifact get-package-version-asset \
