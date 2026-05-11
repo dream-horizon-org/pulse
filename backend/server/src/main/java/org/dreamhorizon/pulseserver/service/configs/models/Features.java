@@ -11,6 +11,8 @@ public enum Features {
   java_anr,
   network_change,
   custom_events,
+  memory,
+  battery,
   rn_screen_load,
   rn_screen_interactive,
   rn_screen_session,

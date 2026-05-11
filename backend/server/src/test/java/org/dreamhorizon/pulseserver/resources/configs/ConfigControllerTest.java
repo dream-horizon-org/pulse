@@ -339,7 +339,7 @@ class ConfigControllerTest {
         pulseConfig.getInteraction().setConfigUrl(null);
 
         when(applicationConfig.buildInteractionConfigFileUrl("test-project"))
-            .thenReturn("http://default-config.example.com/projects/test-project/interaction.json");
+            .thenReturn("http://default-config.example.com/projects/test-project/interaction-config.json");
 
         PulseConfig createdConfig = createPulseConfigWithVersion(pulseConfig, 13L);
 
@@ -353,8 +353,8 @@ class ConfigControllerTest {
         result.whenComplete((resp, err) -> {
           testContext.verify(() -> {
             assertNull(err);
-            // URL should include project path only: base_url/projects/{project_id}/interaction.json
-            assertEquals("http://default-config.example.com/projects/test-project/interaction.json",
+            // URL should include project path only: base_url/projects/{project_id}/interaction-config.json
+            assertEquals("http://default-config.example.com/projects/test-project/interaction-config.json",
                 pulseConfig.getInteraction().getConfigUrl());
             verify(applicationConfig, times(1)).buildInteractionConfigFileUrl("test-project");
           });
@@ -375,7 +375,7 @@ class ConfigControllerTest {
         pulseConfig.getInteraction().setConfigUrl("");
 
         when(applicationConfig.buildInteractionConfigFileUrl("test-project"))
-            .thenReturn("http://default-config.example.com/projects/test-project/interaction.json");
+            .thenReturn("http://default-config.example.com/projects/test-project/interaction-config.json");
 
         PulseConfig createdConfig = createPulseConfigWithVersion(pulseConfig, 14L);
 
@@ -389,8 +389,8 @@ class ConfigControllerTest {
         result.whenComplete((resp, err) -> {
           testContext.verify(() -> {
             assertNull(err);
-            // URL should include project path only: base_url/projects/{project_id}/interaction.json
-            assertEquals("http://default-config.example.com/projects/test-project/interaction.json",
+            // URL should include project path only: base_url/projects/{project_id}/interaction-config.json
+            assertEquals("http://default-config.example.com/projects/test-project/interaction-config.json",
                 pulseConfig.getInteraction().getConfigUrl());
           });
           testContext.completeNow();
@@ -410,7 +410,7 @@ class ConfigControllerTest {
 
         when(applicationConfig.getOtelCollectorUrl()).thenReturn("http://default-collector.example.com");
         when(applicationConfig.buildInteractionConfigFileUrl("test-project"))
-            .thenReturn("http://default-config.example.com/projects/test-project/interaction.json");
+            .thenReturn("http://default-config.example.com/projects/test-project/interaction-config.json");
 
         PulseConfig createdConfig = createPulseConfigWithVersion(pulseConfig, 15L);
 
@@ -425,8 +425,8 @@ class ConfigControllerTest {
           testContext.verify(() -> {
             assertNull(err);
             assertEquals("http://default-collector.example.com", pulseConfig.getInteraction().getCollectorUrl());
-            // URL should include project path only: base_url/projects/{project_id}/interaction.json
-            assertEquals("http://default-config.example.com/projects/test-project/interaction.json",
+            // URL should include project path only: base_url/projects/{project_id}/interaction-config.json
+            assertEquals("http://default-config.example.com/projects/test-project/interaction-config.json",
                 pulseConfig.getInteraction().getConfigUrl());
           });
           testContext.completeNow();
