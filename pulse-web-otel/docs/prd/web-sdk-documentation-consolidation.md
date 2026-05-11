@@ -15,7 +15,7 @@ Create one canonical `SPEC.md` per instrumentation/feature under `docs/instrumen
 3. As a reviewer, I can verify a PR against a single authoritative spec that reflects the current implementation — not outdated planning artefacts.
 4. As a team member maintaining the SDK, I can update one file when an instrumentation changes instead of patching multiple scattered files.
 5. As a developer integrating the SDK with Next.js or React, I can find exact framework-specific behaviour (App Router vs Pages Router, SSR edge cases) in the instrumentation's SPEC.md section 5.
-6. As a developer onboarding a host app, I read **one** [`docs/instrumentations/integration/SPEC.md`](../docs/instrumentations/integration/SPEC.md) for install paths, `Pulse.init`, consent, and framework entrypoints — aligned with current exports — with pointers to sdk-core and framework SPECs for depth.
+6. As a developer onboarding a host app, I read **one** [`docs/instrumentations/integration/SPEC.md`](../instrumentations/integration/SPEC.md) for install paths, `Pulse.init`, consent, and framework entrypoints — aligned with current exports — with pointers to sdk-core and framework SPECs for depth.
 7. As an agent or Cursor skill (`.cursor/rules/`, `.cursor/skills/`, `.cursor/agents/`), I find all instrumentation references point to `docs/instrumentations/` — no stale `web-sdk-plan/` paths.
 
 ## Implementation Decisions
@@ -67,7 +67,7 @@ Create one canonical `SPEC.md` per instrumentation/feature under `docs/instrumen
 - `WEB-SDK-AGENT-CONTEXT.md` — does not exist on disk (CLAUDE.md references it but it is absent); no action needed
 - `graphify-out/GRAPH_REPORT.md` — generated output, kept as-is
 - `CHANGELOG.md`, `README.md` — operational consumer docs; not rewritten by instrumentation consolidation
-- **Issue 12:** [`docs/publishing/SPEC.md`](../docs/publishing/SPEC.md) plus runbooks at [`docs/publishing/PUBLISHING.md`](../docs/publishing/PUBLISHING.md) and [`docs/publishing/QUICKSTART.md`](../docs/publishing/QUICKSTART.md) — no publishing markdown at `pulse-web-otel/` root (see [`issues/12-publishing-docs-spec.md`](../issues/12-publishing-docs-spec.md))
+- **Issue 12:** [`docs/publishing/SPEC.md`](../publishing/SPEC.md) plus runbooks at [`docs/publishing/PUBLISHING.md`](../publishing/PUBLISHING.md) and [`docs/publishing/QUICKSTART.md`](../publishing/QUICKSTART.md) — no publishing markdown at `pulse-web-otel/` root (issue checklist lives alongside those publishing docs in the same folder when filed)
 - `examples/ecommerce-demo/` source code — only its doc files are removed
 - `examples/web-sdk-docs/README.md` — usage guide, not planning doc; untouched
 
@@ -152,7 +152,7 @@ exit $fail
 
 ## Publishing docs (issue 12)
 
-Canonical npm operational spec: [`docs/publishing/SPEC.md`](../docs/publishing/SPEC.md). Long runbook: [`docs/publishing/PUBLISHING.md`](../docs/publishing/PUBLISHING.md). Quickstart: [`docs/publishing/QUICKSTART.md`](../docs/publishing/QUICKSTART.md). Issue checklist + eval: [`issues/12-publishing-docs-spec.md`](../issues/12-publishing-docs-spec.md). Naming: npm package `@dreamhorizonorg/pulse-web`, repo folder `pulse-web-otel/`.
+Canonical npm operational spec: [`docs/publishing/SPEC.md`](../publishing/SPEC.md). Long runbook: [`docs/publishing/PUBLISHING.md`](../publishing/PUBLISHING.md). Quickstart: [`docs/publishing/QUICKSTART.md`](../publishing/QUICKSTART.md). Naming: npm package `@dreamhorizonorg/pulse-web`, repo folder `pulse-web-otel/`.
 
 ## Further Notes
 

@@ -40,6 +40,7 @@ import org.dreamhorizon.pulseserver.errorgrouping.model.Lane;
 import org.dreamhorizon.pulseserver.errorgrouping.model.ParsedFrames;
 import org.dreamhorizon.pulseserver.errorgrouping.model.StackTraceEvent;
 import org.dreamhorizon.pulseserver.errorgrouping.utils.ErrorGroupingUtils;
+import org.dreamhorizon.pulseserver.service.configs.models.Sdk;
 
 
 @Slf4j
@@ -273,6 +274,7 @@ public class ErrorGroupingService {
           // OPTIMIZATION: Convert log record attributes to map once per log
           Map<String, String> logAttrMap = attributesToMap(logRecord.getAttributesList());
 
+
           String stackTrace = getResourceAttribute(logAttrMap, "exception.stacktrace").orElse(null);
 
           EventMeta eventMeta = EventMeta.builder()
@@ -330,8 +332,15 @@ public class ErrorGroupingService {
   }
 
   /**
-   * Resolves dashboard platform from resource attributes. Prefers SDK identity over raw
-   * {@code os.name} so web sessions are not classified as the user's desktop OS.
+   * Resolves dashboard platform once per OTLP resource (shared by all logs under that resource).
+   * Resolution order:
+   * <ol>
+   *   <li>Pulse SDK identity ({@code telemetry.sdk.name} or {@code rum.sdk.name}), parsed as
+   *       {@link Sdk}, mapped to {@code web} / {@code Android} / {@code iOS}. Unknown values fall
+   *       through.</li>
+   *   <li>{@code os.name} from resource.</li>
+   * </ol>
+   * The {@code platform} attribute on resource or log records is not used here.
    */
   private static String resolvePlatform(Map<String, String> resourceAttrs) {
     String sdkName = resourceAttrs.get("telemetry.sdk.name");
@@ -339,22 +348,16 @@ public class ErrorGroupingService {
       sdkName = resourceAttrs.get("rum.sdk.name");
     }
     if (sdkName != null && !sdkName.isBlank()) {
-      switch (sdkName) {
-        case "pulse_web_js":
-          return "web";
-        case "pulse_android_java":
-        case "pulse_android_rn":
-          return "Android";
-        case "pulse_ios_swift":
-        case "pulse_ios_rn":
-          return "iOS";
-        default:
-          break;
+      try {
+        Sdk sdk = Sdk.valueOf(sdkName);
+        return switch (sdk) {
+          case pulse_web_js -> "web";
+          case pulse_android_java, pulse_android_rn -> "Android";
+          case pulse_ios_swift, pulse_ios_rn -> "iOS";
+        };
+      } catch (IllegalArgumentException ignored) {
+        // Not a known Pulse Sdk id — fall through to os.name
       }
-    }
-    String platformAttr = resourceAttrs.get("platform");
-    if (platformAttr != null && !platformAttr.isBlank()) {
-      return platformAttr;
     }
     return resourceAttrs.get("os.name");
   }
