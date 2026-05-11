@@ -11,6 +11,7 @@ import { ClicksInstrumentation } from "./instrumentations/clicks";
 import { WebVitalsInstrumentation } from "./instrumentations/web-vitals";
 import { NetworkInstrumentation } from "./instrumentations/network";
 import { ErrorInstrumentation } from "./instrumentations/errors";
+import { NavigationInstrumentation } from "./instrumentations/navigation";
 import { InstrumentationKeys } from "./config";
 import { PulseFeature } from "./remote-config";
 import type { PulseFeatureName } from "./remote-config";
@@ -41,7 +42,7 @@ export class InstrumentationRegistry {
       [InstrumentationKeys.NETWORK]: PulseFeature.NETWORK_INSTRUMENTATION,
       [InstrumentationKeys.CLICKS]: PulseFeature.CLICK,
       [InstrumentationKeys.WEB_VITALS]: PulseFeature.WEB_VITALS,
-      [InstrumentationKeys.NAVIGATION]: PulseFeature.SCREEN_SESSION,
+      [InstrumentationKeys.NAVIGATION]: PulseFeature.SCREEN_NAVIGATION,
       [InstrumentationKeys.SESSION]: PulseFeature.SESSION,
       [InstrumentationKeys.INTERACTIONS]: PulseFeature.INTERACTION,
       [InstrumentationKeys.SESSION_REPLAY]: PulseFeature.SESSION_REPLAY,
@@ -51,10 +52,11 @@ export class InstrumentationRegistry {
     const gateEnabled = this.gate.isEnabled(featureName);
     const configEnabled = this.instrConfig?.[key]?.enabled;
 
-    // false → kill switch, remote config cannot override
-    // true/undefined → remote config is source of truth
-    if (configEnabled === false) return false;
-    return gateEnabled;
+    // Local `enabled: false` is a kill switch — remote gate cannot turn it back on.
+    // Omitted or `true`: only the FeatureGate decides (`gateEnabled`).
+    // NOTE: `configEnabled && gateEnabled` would be wrong: omitted `enabled` is
+    // `undefined`, and `undefined && gate` is falsy — would never install.
+    return configEnabled !== false && gateEnabled;
   }
 
   registerAndInstall(
@@ -100,6 +102,10 @@ export class InstrumentationRegistry {
     this.registerAndInstall(
       new NetworkInstrumentation(),
       InstrumentationKeys.NETWORK,
+    );
+    this.registerAndInstall(
+      new NavigationInstrumentation(),
+      InstrumentationKeys.NAVIGATION,
     );
     this.registerAndInstall(
       new ErrorInstrumentation(),

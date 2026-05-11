@@ -30,6 +30,9 @@ export function useNextPagesRouterTracking(
   // Tracks whether the first routeChangeComplete has fired — used by skipInitial.
   const isFirstRef = useRef(true);
 
+  // Tracks the last dependency we acted on to avoid duplicate calls
+  const prevDependencyRef = useRef<string | null>(null);
+
   useEffect(() => {
     const handleRouteChangeComplete = (url: string): void => {
       const {
@@ -46,6 +49,13 @@ export function useNextPagesRouterTracking(
 
       const parsed = new URL(url, "http://x");
       const dependency = incSearch ? url : parsed.pathname;
+
+      // Skip if dependency hasn't changed (e.g., query-only change)
+      if (prevDependencyRef.current === dependency) {
+        return;
+      }
+      prevDependencyRef.current = dependency;
+
       const name = fmt
         ? fmt({
             pathname: parsed.pathname,

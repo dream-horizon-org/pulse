@@ -257,9 +257,9 @@ describe("InstrumentationRegistry Web Vitals gate", () => {
     registry.uninstallAll();
   });
 
-  it("installs Web Vitals when local config is false but BE gate is on (false defers to BE)", () => {
-    // enabled: false means "defer to BE gate", not "force off".
-    // Default makeMinimalSdk() has BE gate on for web_vitals → should install.
+  it("does not install Web Vitals when local enabled is false (kill switch; BE gate cannot override)", () => {
+    // Mirrors InstrumentationRegistry.shouldInstall: `enabled: false` opts out locally;
+    // remote feature gate is not consulted for that instrumentation.
     wvMocks.onLCP.mockClear();
     const sdk = makeMinimalSdk({
       config: {
@@ -274,7 +274,7 @@ describe("InstrumentationRegistry Web Vitals gate", () => {
       sdk.config.instrumentations,
     );
     registry.installAll();
-    expect(wvMocks.onLCP).toHaveBeenCalled();
+    expect(wvMocks.onLCP).not.toHaveBeenCalled();
     registry.uninstallAll();
   });
 

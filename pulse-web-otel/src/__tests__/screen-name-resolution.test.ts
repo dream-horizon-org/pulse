@@ -26,8 +26,11 @@ import { PulseGlobalAttributesProcessor } from "../processors/global-attrs-proce
 import { SessionProvider } from "../session";
 import type { PulseWebConfig } from "../config";
 import { _resetInstallationStateForTesting } from "../session";
+import { PulseWebSemconv } from "../semconv";
 
-function makeProcessor(config: Partial<PulseWebConfig> = {}): PulseGlobalAttributesProcessor {
+function makeProcessor(
+  config: Partial<PulseWebConfig> = {},
+): PulseGlobalAttributesProcessor {
   const session = {
     getSessionId: vi.fn().mockReturnValue("s1"),
     getWindowId: vi.fn().mockReturnValue("w1"),
@@ -43,7 +46,11 @@ function makeProcessor(config: Partial<PulseWebConfig> = {}): PulseGlobalAttribu
 
 function setPath(path: string) {
   Object.defineProperty(window, "location", {
-    value: { ...window.location, pathname: path, href: `http://localhost${path}` },
+    value: {
+      ...window.location,
+      pathname: path,
+      href: `http://localhost${path}`,
+    },
     configurable: true,
     writable: true,
   });
@@ -158,10 +165,14 @@ describe("screen name — UUID and numeric segment normalisation", () => {
   });
 
   it("replaces multiple dynamic segments independently", () => {
-    setPath("/org/99/team/abc-123-def/member/550e8400-e29b-41d4-a716-446655440000");
+    setPath(
+      "/org/99/team/abc-123-def/member/550e8400-e29b-41d4-a716-446655440000",
+    );
     const proc = makeProcessor();
     // 99 → :id, abc-123-def kept (slug — not pure-number, not UUID), UUID → :id
-    expect(proc.getCurrentScreenName()).toBe("/org/:id/team/abc-123-def/member/:id");
+    expect(proc.getCurrentScreenName()).toBe(
+      "/org/:id/team/abc-123-def/member/:id",
+    );
   });
 
   it("single UUID-only path becomes /:id", () => {
@@ -249,5 +260,26 @@ describe("screen name — network attrs fallback", () => {
 
     expect("network.rtt" in attrs).toBe(false);
     expect("network.downlink" in attrs).toBe(false);
+  });
+});
+
+describe("last.screen.name", () => {
+  beforeEach(() => {
+    _resetInstallationStateForTesting();
+    window.localStorage.clear();
+  });
+
+  afterEach(() => vi.restoreAllMocks());
+
+  it("stamps last.screen.name with previous resolved screen after pathname changes", () => {
+    setPath("/home");
+    const proc = makeProcessor();
+    proc.getCommonAttrsForMetrics();
+
+    setPath("/products");
+    const attrs = proc.getCommonAttrsForMetrics();
+
+    expect(attrs[PulseWebSemconv.AttributeKey.LAST_SCREEN_NAME]).toBe("/home");
+    expect(attrs["screen.name"]).toBe("/products");
   });
 });

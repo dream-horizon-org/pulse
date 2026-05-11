@@ -12,6 +12,7 @@ import {
 } from "../session";
 import type { PulseWebConfig } from "../config";
 import { computeAspectRatio } from "../resource";
+import { PulseWebSemconv } from "../semconv";
 
 type NetworkConnection = {
   type?: string;
@@ -41,6 +42,10 @@ function isDynamicSegment(seg: string): boolean {
   // ULID (26 Crockford base32 chars): 01ARZ3NDEKTSV4RRFFQ69G5FAV
   if (/^[0-9a-hjkmnp-tv-zA-HJKMNP-TV-Z]{26}$/.test(seg)) return true;
   return false;
+}
+
+export function resolveScreenNameFromUrl(config: PulseWebConfig): string {
+  return resolveScreenName(null, config);
 }
 
 function resolveScreenName(
@@ -92,6 +97,9 @@ export class PulseGlobalAttributesProcessor
   private _userId: string | null = null;
   /** null values mark keys that should be suppressed even if present in localStorage. */
   private _userProperties: Record<string, string | null> = {};
+  /** Last resolved `screen.name` before the current value — drives `last.screen.name`. */
+  private cachedResolvedScreen = "";
+  private lastScreenNameForAttr = "";
 
   constructor(
     private readonly sessionProvider: SessionProvider,
@@ -162,6 +170,19 @@ export class PulseGlobalAttributesProcessor
   }
 
   /**
+   * Updates {@link lastScreenNameForAttr} when the resolved screen identity changes
+   * (manual override, route patterns, pathname heuristic). Call before reading attrs.
+   */
+  private syncResolvedScreenTransition(): string {
+    const resolved = this.getCurrentScreenName();
+    if (resolved !== this.cachedResolvedScreen) {
+      this.lastScreenNameForAttr = this.cachedResolvedScreen;
+      this.cachedResolvedScreen = resolved;
+    }
+    return resolved;
+  }
+
+  /**
    * Public accessor used by the metric exporter wrapper so metric data points
    * receive the same global attributes as spans and logs.
    */
@@ -171,7 +192,7 @@ export class PulseGlobalAttributesProcessor
 
   private getCommonAttrs(): Record<string, AttributeValue> {
     const sessionId = this.sessionProvider.getSessionId();
-    const screenName = this.getCurrentScreenName();
+    const screenName = this.syncResolvedScreenTransition();
     const network = getNetworkConnection();
 
     const installationId = getOrCreateInstallationId();
@@ -181,6 +202,12 @@ export class PulseGlobalAttributesProcessor
       "installation.id": installationId,
       "app.installation.id": installationId,
       "screen.name": screenName,
+      ...(this.lastScreenNameForAttr
+        ? {
+            [PulseWebSemconv.AttributeKey.LAST_SCREEN_NAME]:
+              this.lastScreenNameForAttr,
+          }
+        : {}),
       "device.screen.aspect_ratio": this.screenAspectRatio,
       "pulse.metering.session.id": this.meteringSessionId,
       platform: "web",

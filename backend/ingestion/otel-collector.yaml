@@ -3,6 +3,14 @@ receivers:
     protocols:
       http:
         endpoint: 0.0.0.0:4318
+        # Browser SDKs (pulse-web-otel, demos on :3002/…) send OTLP over fetch;
+        # without CORS, preflight fails. Custom headers (x-api-key, etc.) need allowed_headers.
+        cors:
+          allowed_origins:
+            - "http://*"
+            - "https://*"
+          allowed_headers:
+            - "*"
 
 extensions:
   health_check:

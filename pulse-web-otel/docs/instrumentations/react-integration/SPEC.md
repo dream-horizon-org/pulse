@@ -27,7 +27,7 @@ Document the **React adapter** for Pulse Web: `PulseProvider` (init + context), 
 
 **R3 — Error boundary:** Optional `errorBoundaryFallback` wraps children with `PulseErrorBoundary`.
 
-**R4 — Router tracking:** `useRouterTracking` / `PulseRouterEvents` call `Pulse.setScreenName` on pathname changes — **does not** itself emit `screen_load` / `screen_interactive` (see **`screen-signals`** SPEC — `NavigationInstrumentation` owns those).
+**R4 — Router tracking:** `useRouterTracking` / `PulseRouterEvents` call `Pulse.setScreenName` on pathname changes — **does not** itself emit `screen_load` / `screen_session` (see **`screen-signals`** SPEC — `NavigationInstrumentation` emits those as OTLP **spans**). Use **`BrowserRouter`** (History API); hash-only routing does not drive SPA screen signals (see screen-signals SPEC §7).
 
 ---
 
@@ -102,6 +102,12 @@ Document the **React adapter** for Pulse Web: `PulseProvider` (init + context), 
 ### P0:
 
 None identified for React adapter layer at synthesis.
+
+### P2: Hash-only routing — no SPA screen signals
+
+`NavigationInstrumentation` patches `history.pushState` / `replaceState` and listens to `popstate`. Routers that only mutate `location.hash` (e.g. `HashRouter` from react-router-dom) without touching the History API emit **no** SPA `screen_load` / `screen_session` signals. The SDK behaves correctly given what it receives; this is user misconfiguration.
+
+**Fix:** Use `<BrowserRouter>` (or `createBrowserRouter`) — the default for most React Router v6 apps. See **screen-signals SPEC §7** for full detail.
 
 ### Other gaps
 

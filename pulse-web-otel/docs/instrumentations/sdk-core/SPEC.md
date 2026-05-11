@@ -121,7 +121,7 @@ All `pulse.type` values are defined in `PulseWebSemconv.PulseType` (`src/semconv
 | `app.click` | Span | `ClicksInstrumentation` | DOM click events |
 | `web_vital` | Log | `WebVitalsInstrumentation` | LCP, CLS, FID, INP, FCP, TTFB |
 | `screen_load` | Span | `NavigationInstrumentation` | Route entry; carries `tti` |
-| `screen_session` | Log | `NavigationInstrumentation` | Route exit/session scoped to screen |
+| `screen_session` | Span | `NavigationInstrumentation` | Dwell / exit; OTLP span → `otel_traces` (not `otel_logs`; attrs applied at `span.end()`) |
 | `custom_event` | Log | `Pulse.trackEvent` | Host-app custom events |
 | `app.installation.start` | Log | `PulseSDK.emitInstallationStartIfNeeded` | First-ever install only |
 | `pulse.user.session.start` | Log | `PulseSDK.setUserId` | User identity transition |
