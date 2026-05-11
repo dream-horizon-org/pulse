@@ -40,6 +40,7 @@ import org.dreamhorizon.pulseserver.errorgrouping.model.Lane;
 import org.dreamhorizon.pulseserver.errorgrouping.model.ParsedFrames;
 import org.dreamhorizon.pulseserver.errorgrouping.model.StackTraceEvent;
 import org.dreamhorizon.pulseserver.errorgrouping.utils.ErrorGroupingUtils;
+import org.dreamhorizon.pulseserver.service.configs.models.Sdk;
 
 
 @Slf4j
@@ -263,7 +264,6 @@ public class ErrorGroupingService {
       Map<String, String> resourceAttrMap = attributesToMap(res.getAttributesList());
       String appVersion = getResourceAttribute(resourceAttrMap, "app.build_name").orElse(null);
       String appVersionCode = getResourceAttribute(resourceAttrMap, "app.build_id").orElse(null);
-      String platform = resolvePlatform(resourceAttrMap);
       String bundleId = getResourceAttribute(resourceAttrMap, "bundle_id").orElse(null);
       String projectId = getResourceAttribute(resourceAttrMap, "project.id").orElse(null);
 
@@ -272,6 +272,8 @@ public class ErrorGroupingService {
         for (LogRecord logRecord : scopeLogs.getLogRecordsList()) {
           // OPTIMIZATION: Convert log record attributes to map once per log
           Map<String, String> logAttrMap = attributesToMap(logRecord.getAttributesList());
+
+          String platform = resolvePlatform(resourceAttrMap, logAttrMap);
 
           String stackTrace = getResourceAttribute(logAttrMap, "exception.stacktrace").orElse(null);
 
@@ -330,29 +332,39 @@ public class ErrorGroupingService {
   }
 
   /**
-   * Resolves dashboard platform from resource attributes. Prefers SDK identity over raw
-   * {@code os.name} so web sessions are not classified as the user's desktop OS.
+   * Resolves dashboard platform for error grouping. Resolution order:
+   * <ol>
+   *   <li>Pulse SDK identity from <strong>resource</strong> only ({@code telemetry.sdk.name} or
+   *       {@code rum.sdk.name}), parsed as {@link Sdk} and mapped to canonical labels ({@code web},
+   *       {@code Android}, {@code iOS}). These match what native SDKs already put on {@code os.name}
+   *       for mobile;
+   *       web is special because {@code os.name} there is the browser host OS (e.g. macOS).</li>
+   *   <li>Explicit {@code platform} attribute: <strong>log record first</strong>, then resource
+   *       (some pipelines attach {@code platform} on log attributes only).</li>
+   *   <li>{@code os.name} from resource.</li>
+   * </ol>
    */
-  private static String resolvePlatform(Map<String, String> resourceAttrs) {
+  private static String resolvePlatform(Map<String, String> resourceAttrs, Map<String, String> logAttrs) {
     String sdkName = resourceAttrs.get("telemetry.sdk.name");
     if (sdkName == null || sdkName.isBlank()) {
       sdkName = resourceAttrs.get("rum.sdk.name");
     }
     if (sdkName != null && !sdkName.isBlank()) {
-      switch (sdkName) {
-        case "pulse_web_js":
-          return "web";
-        case "pulse_android_java":
-        case "pulse_android_rn":
-          return "Android";
-        case "pulse_ios_swift":
-        case "pulse_ios_rn":
-          return "iOS";
-        default:
-          break;
+      try {
+        Sdk sdk = Sdk.valueOf(sdkName);
+        return switch (sdk) {
+          case pulse_web_js -> "web";
+          case pulse_android_java, pulse_android_rn -> "Android";
+          case pulse_ios_swift, pulse_ios_rn -> "iOS";
+        };
+      } catch (IllegalArgumentException ignored) {
+        // Not a known Pulse Sdk id — fall through to platform / os.name
       }
     }
-    String platformAttr = resourceAttrs.get("platform");
+    String platformAttr = logAttrs.get("platform");
+    if (platformAttr == null || platformAttr.isBlank()) {
+      platformAttr = resourceAttrs.get("platform");
+    }
     if (platformAttr != null && !platformAttr.isBlank()) {
       return platformAttr;
     }

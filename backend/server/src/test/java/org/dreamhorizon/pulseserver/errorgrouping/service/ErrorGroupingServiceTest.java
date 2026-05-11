@@ -1017,6 +1017,33 @@ class ErrorGroupingServiceTest {
     }
 
     @Test
+    void shouldResolvePlatformFromLogAttributesWhenAbsentOnResource() {
+      LogRecord logRecord = LogRecord.newBuilder()
+          .setObservedTimeUnixNano(System.currentTimeMillis() * 1_000_000)
+          .addAttributes(KeyValue.newBuilder()
+              .setKey("exception.stacktrace")
+              .setValue(AnyValue.newBuilder().setStringValue("Error: Test\n    at func@file.js:1:1").build())
+              .build())
+          .addAttributes(KeyValue.newBuilder()
+              .setKey("platform")
+              .setValue(AnyValue.newBuilder().setStringValue("web").build())
+              .build())
+          .build();
+
+      Resource resource = Resource.newBuilder()
+          .addAttributes(KeyValue.newBuilder()
+              .setKey("os.name")
+              .setValue(AnyValue.newBuilder().setStringValue("Linux").build())
+              .build())
+          .build();
+
+      StackTraceEvent event = errorGroupingService.process(buildExportRequest(resource, logRecord))
+          .blockingGet()
+          .get(0);
+      assertEquals("web", event.getPlatform());
+    }
+
+    @Test
     void shouldMapAndroidTelemetrySdkNameToAndroidPlatform() {
       LogRecord logRecord = buildMinimalJsLogRecord();
 
