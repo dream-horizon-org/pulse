@@ -22,6 +22,7 @@ import { ROOT_CAUSE_MESSAGES } from "../../../CriticalInteractionDetails/compone
 import interactionRcaClasses from "../../../CriticalInteractionDetails/components/RootCause/RootCause.module.css";
 import rcaClasses from "../../../CriticalInteractionDetails/components/RootCause/RcaReportView.module.css";
 import { RcaRelatedHeatmapCard } from "../../../CriticalInteractionDetails/components/RootCause/RcaRelatedHeatmapCard";
+import { RcaSessionReplayEvidenceCard } from "../../../CriticalInteractionDetails/components/RootCause/RcaSessionReplayEvidenceCard";
 import {
   SCREEN_ROOT_CAUSE_MESSAGES,
   SCREEN_RCA_METRIC_LABELS,
@@ -470,200 +471,240 @@ export function ScreenRootCause({
                 </Badge>
               </div>
               <Stack gap="md">
-                {segments.map((seg, idx) => (
-                  <Card
-                    key={`${seg.label}-${idx}`}
-                    padding="lg"
-                    radius="md"
-                    withBorder
-                    className={rcaClasses.segmentCard}
-                  >
-                    <Text fw={600} mb="xs" size="md">
-                      {seg.label}
-                    </Text>
-                    {seg.dimensions &&
-                      Object.keys(seg.dimensions).length > 0 && (
-                        <Group gap="xs" mb="sm">
-                          {Object.entries(seg.dimensions).map(([k, v]) => (
-                            <Badge
-                              key={k}
-                              variant="light"
+                {segments.map((seg, idx) => {
+                  const sessionIds = (seg.affected_sessions ?? []).filter(
+                    (id) => String(id).trim() !== "",
+                  );
+                  const evidenceCount =
+                    trimmedProjectId !== ""
+                      ? sessionIds.length + 1
+                      : sessionIds.length;
+                  const showEvidenceStrip =
+                    trimmedProjectId !== "" && evidenceCount > 0;
+
+                  return (
+                    <Card
+                      key={`${seg.label}-${idx}`}
+                      padding="lg"
+                      radius="md"
+                      withBorder
+                      className={rcaClasses.segmentCard}
+                    >
+                      <Text fw={600} mb="xs" size="md">
+                        {seg.label}
+                      </Text>
+                      {seg.dimensions &&
+                        Object.keys(seg.dimensions).length > 0 && (
+                          <Group gap="xs" mb="sm">
+                            {Object.entries(seg.dimensions).map(([k, v]) => (
+                              <Badge
+                                key={k}
+                                variant="light"
+                                size="sm"
+                                className={classes.dimBadge}
+                              >
+                                {k}: {v}
+                              </Badge>
+                            ))}
+                          </Group>
+                        )}
+                      <div className={rcaClasses.tableWrap}>
+                        <Table.ScrollContainer minWidth={480}>
+                          <Table
+                            className={rcaClasses.metricsTable}
+                            layout="fixed"
+                            striped
+                            highlightOnHover
+                            withTableBorder
+                            horizontalSpacing="sm"
+                            verticalSpacing="xs"
+                          >
+                            <colgroup>
+                              <col
+                                className={rcaClasses.metricsTableColMetric}
+                              />
+                              <col
+                                className={rcaClasses.metricsTableColNumeric}
+                              />
+                              <col
+                                className={rcaClasses.metricsTableColNumeric}
+                              />
+                              <col
+                                className={rcaClasses.metricsTableColDelta}
+                              />
+                            </colgroup>
+                            <Table.Thead>
+                              <Table.Tr>
+                                <Table.Th
+                                  className={rcaClasses.metricsColMetric}
+                                >
+                                  <span
+                                    className={rcaClasses.metricsThLabelMetric}
+                                  >
+                                    Metric
+                                  </span>
+                                </Table.Th>
+                                <Table.Th
+                                  className={rcaClasses.metricsColNumeric}
+                                >
+                                  <span
+                                    className={rcaClasses.metricsThLabelNumeric}
+                                  >
+                                    Value
+                                  </span>
+                                </Table.Th>
+                                <Table.Th
+                                  className={rcaClasses.metricsColNumeric}
+                                >
+                                  <span
+                                    className={rcaClasses.metricsThLabelNumeric}
+                                  >
+                                    Baseline
+                                  </span>
+                                </Table.Th>
+                                <Table.Th
+                                  className={rcaClasses.metricsColNumericNarrow}
+                                >
+                                  <span
+                                    className={rcaClasses.metricsThLabelNumeric}
+                                  >
+                                    Delta
+                                  </span>
+                                </Table.Th>
+                              </Table.Tr>
+                            </Table.Thead>
+                            <Table.Tbody>
+                              {BASELINE_ORDER.map((metricKey) => {
+                                const segmentVal = seg.metrics?.[metricKey];
+                                const baseVal = baseline[metricKey];
+                                const d = seg.deltas?.[metricKey];
+                                const label =
+                                  SCREEN_RCA_METRIC_LABELS[metricKey] ??
+                                  metricKey;
+                                const deltaStr =
+                                  d != null && Number.isFinite(d)
+                                    ? formatDelta(d)
+                                    : "—";
+                                const deltaColor =
+                                  d == null || !Number.isFinite(d)
+                                    ? undefined
+                                    : d < 0
+                                      ? ("teal.7" as const)
+                                      : d > 0
+                                        ? ("red.7" as const)
+                                        : undefined;
+                                return (
+                                  <Table.Tr key={metricKey}>
+                                    <Table.Td
+                                      className={rcaClasses.metricsColMetric}
+                                    >
+                                      <Text size="sm" w="100%" ta="start">
+                                        {label}
+                                      </Text>
+                                    </Table.Td>
+                                    <Table.Td
+                                      className={rcaClasses.metricsColNumeric}
+                                    >
+                                      <Text
+                                        size="sm"
+                                        w="100%"
+                                        ta="end"
+                                        fw={600}
+                                      >
+                                        {formatMetricValue(
+                                          metricKey,
+                                          segmentVal,
+                                        )}
+                                      </Text>
+                                    </Table.Td>
+                                    <Table.Td
+                                      className={rcaClasses.metricsColNumeric}
+                                    >
+                                      <Text
+                                        size="sm"
+                                        w="100%"
+                                        ta="end"
+                                        c="dimmed"
+                                      >
+                                        {formatMetricValue(metricKey, baseVal)}
+                                      </Text>
+                                    </Table.Td>
+                                    <Table.Td
+                                      className={
+                                        rcaClasses.metricsColNumericNarrow
+                                      }
+                                    >
+                                      <Text
+                                        size="sm"
+                                        w="100%"
+                                        ta="end"
+                                        fw={600}
+                                        c={deltaColor}
+                                      >
+                                        {deltaStr}
+                                      </Text>
+                                    </Table.Td>
+                                  </Table.Tr>
+                                );
+                              })}
+                            </Table.Tbody>
+                          </Table>
+                        </Table.ScrollContainer>
+                      </div>
+                      {showEvidenceStrip ? (
+                        <Box className={rcaClasses.evidenceSection} mt="md">
+                          <div className={rcaClasses.evidenceSectionTitleRow}>
+                            <Text
+                              className={rcaClasses.evidenceTitle}
+                              fw={700}
                               size="sm"
-                              className={classes.dimBadge}
+                              tt="uppercase"
                             >
-                              {k}: {v}
+                              Evidence
+                            </Text>
+                            <Badge
+                              size="sm"
+                              variant="light"
+                              color="teal"
+                              circle
+                              className={rcaClasses.evidenceCountBadge}
+                            >
+                              {evidenceCount}
                             </Badge>
-                          ))}
-                        </Group>
-                      )}
-                    <div className={rcaClasses.tableWrap}>
-                      <Table.ScrollContainer minWidth={480}>
-                        <Table
-                          className={rcaClasses.metricsTable}
-                          layout="fixed"
-                          striped
-                          highlightOnHover
-                          withTableBorder
-                          horizontalSpacing="sm"
-                          verticalSpacing="xs"
-                        >
-                          <colgroup>
-                            <col className={rcaClasses.metricsTableColMetric} />
-                            <col
-                              className={rcaClasses.metricsTableColNumeric}
-                            />
-                            <col
-                              className={rcaClasses.metricsTableColNumeric}
-                            />
-                            <col className={rcaClasses.metricsTableColDelta} />
-                          </colgroup>
-                          <Table.Thead>
-                            <Table.Tr>
-                              <Table.Th className={rcaClasses.metricsColMetric}>
-                                <span
-                                  className={rcaClasses.metricsThLabelMetric}
-                                >
-                                  Metric
-                                </span>
-                              </Table.Th>
-                              <Table.Th
-                                className={rcaClasses.metricsColNumeric}
+                          </div>
+                          <Box className={rcaClasses.evidenceCardRow}>
+                            {sessionIds.map((sessionId, sessionIdx) => (
+                              <Box
+                                key={sessionId}
+                                className={rcaClasses.evidenceCardSlot}
                               >
-                                <span
-                                  className={rcaClasses.metricsThLabelNumeric}
-                                >
-                                  Value
-                                </span>
-                              </Table.Th>
-                              <Table.Th
-                                className={rcaClasses.metricsColNumeric}
-                              >
-                                <span
-                                  className={rcaClasses.metricsThLabelNumeric}
-                                >
-                                  Baseline
-                                </span>
-                              </Table.Th>
-                              <Table.Th
-                                className={rcaClasses.metricsColNumericNarrow}
-                              >
-                                <span
-                                  className={rcaClasses.metricsThLabelNumeric}
-                                >
-                                  Delta
-                                </span>
-                              </Table.Th>
-                            </Table.Tr>
-                          </Table.Thead>
-                          <Table.Tbody>
-                            {BASELINE_ORDER.map((metricKey) => {
-                              const segmentVal = seg.metrics?.[metricKey];
-                              const baseVal = baseline[metricKey];
-                              const d = seg.deltas?.[metricKey];
-                              const label =
-                                SCREEN_RCA_METRIC_LABELS[metricKey] ??
-                                metricKey;
-                              const deltaStr =
-                                d != null && Number.isFinite(d)
-                                  ? formatDelta(d)
-                                  : "—";
-                              const deltaColor =
-                                d == null || !Number.isFinite(d)
-                                  ? undefined
-                                  : d < 0
-                                    ? ("teal.7" as const)
-                                    : d > 0
-                                      ? ("red.7" as const)
-                                      : undefined;
-                              return (
-                                <Table.Tr key={metricKey}>
-                                  <Table.Td
-                                    className={rcaClasses.metricsColMetric}
-                                  >
-                                    <Text size="sm" w="100%" ta="start">
-                                      {label}
-                                    </Text>
-                                  </Table.Td>
-                                  <Table.Td
-                                    className={rcaClasses.metricsColNumeric}
-                                  >
-                                    <Text size="sm" w="100%" ta="end" fw={600}>
-                                      {formatMetricValue(metricKey, segmentVal)}
-                                    </Text>
-                                  </Table.Td>
-                                  <Table.Td
-                                    className={rcaClasses.metricsColNumeric}
-                                  >
-                                    <Text
-                                      size="sm"
-                                      w="100%"
-                                      ta="end"
-                                      c="dimmed"
-                                    >
-                                      {formatMetricValue(metricKey, baseVal)}
-                                    </Text>
-                                  </Table.Td>
-                                  <Table.Td
-                                    className={
-                                      rcaClasses.metricsColNumericNarrow
-                                    }
-                                  >
-                                    <Text
-                                      size="sm"
-                                      w="100%"
-                                      ta="end"
-                                      fw={600}
-                                      c={deltaColor}
-                                    >
-                                      {deltaStr}
-                                    </Text>
-                                  </Table.Td>
-                                </Table.Tr>
-                              );
-                            })}
-                          </Table.Tbody>
-                        </Table>
-                      </Table.ScrollContainer>
-                    </div>
-                    {trimmedProjectId !== "" ? (
-                      <Box className={rcaClasses.evidenceSection} mt="md">
-                        <div className={rcaClasses.evidenceSectionTitleRow}>
-                          <Text
-                            className={rcaClasses.evidenceTitle}
-                            fw={700}
-                            size="sm"
-                            tt="uppercase"
-                          >
-                            Evidence
-                          </Text>
-                          <Badge
-                            size="sm"
-                            variant="light"
-                            color="teal"
-                            circle
-                            className={rcaClasses.evidenceCountBadge}
-                          >
-                            1
-                          </Badge>
-                        </div>
-                        <Box className={rcaClasses.evidenceCardRow}>
-                          <Box className={rcaClasses.evidenceCardSlot}>
-                            <RcaRelatedHeatmapCard
-                              projectId={trimmedProjectId}
-                              screenName={screenName}
-                              segmentTitle={seg.label}
-                              heatmapFilters={buildScreenRcaHeatmapFilters(
-                                seg.dimensions ?? undefined,
-                                windowStartIso,
-                                windowEndIso,
-                              )}
-                            />
+                                <RcaSessionReplayEvidenceCard
+                                  sessionId={sessionId}
+                                  segmentTitle={seg.label}
+                                  projectId={trimmedProjectId}
+                                  evidenceOrdinal={sessionIdx + 1}
+                                  evidenceSessionCount={sessionIds.length}
+                                />
+                              </Box>
+                            ))}
+                            <Box className={rcaClasses.evidenceCardSlot}>
+                              <RcaRelatedHeatmapCard
+                                projectId={trimmedProjectId}
+                                screenName={screenName}
+                                segmentTitle={seg.label}
+                                heatmapFilters={buildScreenRcaHeatmapFilters(
+                                  seg.dimensions ?? undefined,
+                                  windowStartIso,
+                                  windowEndIso,
+                                )}
+                              />
+                            </Box>
                           </Box>
                         </Box>
-                      </Box>
-                    ) : null}
-                  </Card>
-                ))}
+                      ) : null}
+                    </Card>
+                  );
+                })}
               </Stack>
             </Box>
           )}

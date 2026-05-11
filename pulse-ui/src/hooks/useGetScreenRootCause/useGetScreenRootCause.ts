@@ -7,6 +7,7 @@ import type {
   ScreenRootCauseData,
   UseGetScreenRootCauseParams,
 } from "./useGetScreenRootCause.interface";
+import { getMockScreenRootCauseApiResponse } from "../../mocks/mockScreenRcaReport";
 
 function buildScreenRootCauseUrl(
   screenName: string,
@@ -49,6 +50,9 @@ export async function fetchScreenRootCause(params: {
       error: { code: "400", message: "Screen name is required", cause: "" },
       status: 400,
     };
+  }
+  if (process.env.REACT_APP_USE_MOCK_SERVER === "true") {
+    return getMockScreenRootCauseApiResponse(name);
   }
   const url = buildScreenRootCauseUrl(name, d || undefined, asOf || undefined, {
     forceRefresh: params.forceRefresh === true,
@@ -97,6 +101,9 @@ export function useGetScreenRootCause({
           },
           status: 400,
         };
+      }
+      if (process.env.REACT_APP_USE_MOCK_SERVER === "true") {
+        return getMockScreenRootCauseApiResponse(trimmedName);
       }
       const url = buildScreenRootCauseUrl(
         trimmedName,

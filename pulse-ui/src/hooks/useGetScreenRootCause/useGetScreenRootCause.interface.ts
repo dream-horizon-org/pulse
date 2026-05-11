@@ -6,6 +6,8 @@ export interface ScreenRootCauseSegment {
   dimensions: Record<string, string>;
   metrics: Record<string, unknown>;
   deltas?: Record<string, number> | null;
+  /** Optional session IDs for session replay evidence (when API provides them). */
+  affected_sessions?: string[] | null;
 }
 
 export interface ScreenRootCauseData {

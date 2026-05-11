@@ -25,6 +25,7 @@ import type {
 } from "../useGetRcaReport/useGetRcaReport.interface";
 import type { ScreenRcaReportApiResponse } from "../useGetScreenRcaNarrative/useGetScreenRcaNarrative.interface";
 import type { UseRegenerateScreenRcaNarrativeParams } from "./useRegenerateScreenRcaNarrative.interface";
+import { getMockScreenRcaNarrativeApiResponse } from "../../mocks/mockScreenRcaReport";
 
 const RCA_HTTP_ACCEPTED = 202;
 const RCA_HTTP_OK = 200;
@@ -109,6 +110,9 @@ export function useRegenerateScreenRcaNarrative() {
     mutationFn: async (
       params: UseRegenerateScreenRcaNarrativeParams,
     ): Promise<ApiResponse<ScreenRcaReportApiResponse>> => {
+      if (process.env.REACT_APP_USE_MOCK_SERVER === "true") {
+        return getMockScreenRcaNarrativeApiResponse(String(params.screenName));
+      }
       const post = await postScreenRcaRegenerateJob(params);
       if (post.status === RCA_HTTP_OK && post.data != null) {
         const d = post.data as RcaReportResponse;

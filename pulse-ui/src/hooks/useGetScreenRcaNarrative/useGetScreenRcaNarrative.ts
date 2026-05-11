@@ -8,6 +8,7 @@ import type {
   UseGetScreenRcaNarrativeParams,
 } from "./useGetScreenRcaNarrative.interface";
 import type { ScreenRootCauseData } from "../useGetScreenRootCause";
+import { getMockScreenRcaNarrativeApiResponse } from "../../mocks/mockScreenRcaReport";
 
 /** Builds JSON body field `rootCausePayload` for pulse_ai `RootCausePayloadSchema`. */
 export function buildScreenRootCausePayloadForAi(
@@ -21,6 +22,7 @@ export function buildScreenRootCausePayloadForAi(
       dimensions: s.dimensions ?? {},
       metrics: s.metrics ?? {},
       deltas: s.deltas ?? {},
+      affected_sessions: s.affected_sessions ?? null,
     })),
     mode: data.mode ?? null,
     cachedAt:
@@ -87,6 +89,9 @@ export function useGetScreenRcaNarrative({
           },
           status: 400,
         };
+      }
+      if (process.env.REACT_APP_USE_MOCK_SERVER === "true") {
+        return getMockScreenRcaNarrativeApiResponse(trimmedName);
       }
       const apiBaseUrl = getApiBaseUrl();
       const url = `${apiBaseUrl}${POST_SCREEN_RCA_NARRATIVE_ROUTE.apiPath}`;
