@@ -1,0 +1,26 @@
+{
+  "name": "nextjs-demo",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --port 3003",
+    "build": "next build",
+    "start": "next start --port 3003",
+    "e2e": "playwright test --config e2e/playwright.config.ts",
+    "e2e:report": "playwright test --config e2e/playwright.config.ts --reporter=html",
+    "e2e:ch": "playwright test --config e2e/playwright.ch.config.ts"
+  },
+  "dependencies": {
+    "@dreamhorizonorg/pulse-web": "workspace:*",
+    "next": "^15.3.1",
+    "react": "^18.3.0",
+    "react-dom": "^18.3.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.48.0",
+    "@types/node": "^22.0.0",
+    "@types/react": "^18.3.0",
+    "@types/react-dom": "^18.3.0",
+    "typescript": "^5.6.0"
+  }
+}

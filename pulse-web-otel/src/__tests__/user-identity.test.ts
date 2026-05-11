@@ -1,5 +1,5 @@
 /**
- * User id / user properties — Android parity (PulseWeb.setUserId, persistence, lifecycle logs).
+ * User id / user properties — Android parity (Pulse.setUserId, persistence, lifecycle logs).
  */
 
 const { emitFn } = vi.hoisted(() => ({
@@ -130,13 +130,13 @@ describe("PulseGlobalAttributesProcessor — user identity attrs", () => {
       "m",
     );
     p.setUserId("from-api");
-    expect(p.getCommonAttrsForMetrics()[PulseWebSemconv.AttributeKey.USER_ID]).toBe(
-      "from-api",
-    );
+    expect(
+      p.getCommonAttrsForMetrics()[PulseWebSemconv.AttributeKey.USER_ID],
+    ).toBe("from-api");
   });
 });
 
-describe("PulseWeb — setUserId lifecycle + persistence", () => {
+describe("Pulse — setUserId lifecycle + persistence", () => {
   beforeEach(() => {
     vi.stubGlobal(
       "fetch",
@@ -162,27 +162,29 @@ describe("PulseWeb — setUserId lifecycle + persistence", () => {
       withCredentials: false,
       upload: { addEventListener: vi.fn() },
     };
-    vi.stubGlobal("XMLHttpRequest", vi.fn(() => mockXHR));
+    const XhrCtor = vi.fn(() => mockXHR);
+    Object.assign(XhrCtor, { DONE: 4 });
+    vi.stubGlobal("XMLHttpRequest", XhrCtor);
     window.localStorage.clear();
     window.sessionStorage.clear();
     emitFn.mockClear();
   });
 
   afterEach(async () => {
-    const { PulseWeb } = await import("../sdk");
-    if (PulseWeb.isInitialized()) {
-      await PulseWeb.shutdown();
+    const { Pulse } = await import("../sdk");
+    if (Pulse.isInitialized()) {
+      await Pulse.shutdown();
     }
     vi.unstubAllGlobals();
   });
 
   it("setUserId emits user session start once for first id", async () => {
-    const { PulseWeb } = await import("../sdk");
-    PulseWeb.start(makeConfig());
+    const { Pulse } = await import("../sdk");
+    Pulse.init(makeConfig());
     await Promise.resolve();
     emitFn.mockClear();
 
-    PulseWeb.setUserId("user-a");
+    Pulse.setUserId("user-a");
     const life = userLifecycleCalls();
     expect(life).toHaveLength(1);
     const arg = life[0]?.[0] as {
@@ -201,22 +203,22 @@ describe("PulseWeb — setUserId lifecycle + persistence", () => {
   });
 
   it("setUserId same value is a no-op for lifecycle", async () => {
-    const { PulseWeb } = await import("../sdk");
-    PulseWeb.start(makeConfig());
+    const { Pulse } = await import("../sdk");
+    Pulse.init(makeConfig());
     await Promise.resolve();
-    PulseWeb.setUserId("same");
+    Pulse.setUserId("same");
     emitFn.mockClear();
-    PulseWeb.setUserId("same");
+    Pulse.setUserId("same");
     expect(userLifecycleCalls()).toHaveLength(0);
   });
 
   it("switching user emits end then start with pulse.user.previous_id", async () => {
-    const { PulseWeb } = await import("../sdk");
-    PulseWeb.start(makeConfig());
+    const { Pulse } = await import("../sdk");
+    Pulse.init(makeConfig());
     await Promise.resolve();
-    PulseWeb.setUserId("old-u");
+    Pulse.setUserId("old-u");
     emitFn.mockClear();
-    PulseWeb.setUserId("new-u");
+    Pulse.setUserId("new-u");
     const life = userLifecycleCalls();
     expect(life).toHaveLength(2);
     const end = life[0]?.[0] as { attributes?: Record<string, string> };
@@ -239,12 +241,12 @@ describe("PulseWeb — setUserId lifecycle + persistence", () => {
   });
 
   it("setUserId(null) emits end only", async () => {
-    const { PulseWeb } = await import("../sdk");
-    PulseWeb.start(makeConfig());
+    const { Pulse } = await import("../sdk");
+    Pulse.init(makeConfig());
     await Promise.resolve();
-    PulseWeb.setUserId("gone");
+    Pulse.setUserId("gone");
     emitFn.mockClear();
-    PulseWeb.setUserId(null);
+    Pulse.setUserId(null);
     const life = userLifecycleCalls();
     expect(life).toHaveLength(1);
     const end = life[0]?.[0] as { attributes?: Record<string, string> };
@@ -257,67 +259,69 @@ describe("PulseWeb — setUserId lifecycle + persistence", () => {
   });
 
   it("persists user id and rehydrates on next start without lifecycle", async () => {
-    const { PulseWeb } = await import("../sdk");
-    PulseWeb.start(makeConfig());
+    const { Pulse } = await import("../sdk");
+    Pulse.init(makeConfig());
     await Promise.resolve();
-    PulseWeb.setUserId("persist-me");
+    Pulse.setUserId("persist-me");
     expect(getPersistedUserId()).toBe("persist-me");
     emitFn.mockClear();
-    await PulseWeb.shutdown();
+    await Pulse.shutdown();
 
-    PulseWeb.start(makeConfig());
+    Pulse.init(makeConfig());
     await Promise.resolve();
     expect(userLifecycleCalls()).toHaveLength(0);
     expect(getPersistedUserId()).toBe("persist-me");
   });
 
   it("setUserProperty persists JSON blob", async () => {
-    const { PulseWeb } = await import("../sdk");
-    PulseWeb.start(makeConfig());
+    const { Pulse } = await import("../sdk");
+    Pulse.init(makeConfig());
     await Promise.resolve();
-    PulseWeb.setUserProperty("plan", "pro");
+    Pulse.setUserProperty("plan", "pro");
     expect(getPersistedUserProperties().plan).toBe("pro");
-    PulseWeb.setUserProperty("plan", null);
+    Pulse.setUserProperty("plan", null);
     expect(getPersistedUserProperties().plan).toBeUndefined();
   });
 
   it("setUserId before start is silent no-op (no logs, no persistence)", async () => {
-    const { PulseWeb } = await import("../sdk");
-    PulseWeb.setUserId("pre-init");
+    const { Pulse } = await import("../sdk");
+    Pulse.setUserId("pre-init");
     expect(userLifecycleCalls()).toHaveLength(0);
     expect(getPersistedUserId()).toBeNull();
   });
 
   it("setUserProperty before start is silent no-op (no persistence)", async () => {
-    const { PulseWeb } = await import("../sdk");
-    PulseWeb.setUserProperty("plan", "starter");
+    const { Pulse } = await import("../sdk");
+    Pulse.setUserProperty("plan", "starter");
     expect(getPersistedUserProperties()).toEqual({});
   });
 
-  it("setUserId(\"\") clears id and emits only session end", async () => {
-    const { PulseWeb } = await import("../sdk");
-    PulseWeb.start(makeConfig());
+  it('setUserId("") clears id and emits only session end', async () => {
+    const { Pulse } = await import("../sdk");
+    Pulse.init(makeConfig());
     await Promise.resolve();
-    PulseWeb.setUserId("u-clear");
+    Pulse.setUserId("u-clear");
     emitFn.mockClear();
 
-    PulseWeb.setUserId("");
+    Pulse.setUserId("");
     const life = userLifecycleCalls();
     expect(life).toHaveLength(1);
     const end = life[0]?.[0] as { attributes?: Record<string, string> };
     expect(end?.attributes?.[PulseWebSemconv.AttributeKey.PULSE_TYPE]).toBe(
       PulseWebSemconv.PulseType.USER_SESSION_END,
     );
-    expect(end?.attributes?.[PulseWebSemconv.AttributeKey.USER_ID]).toBe("u-clear");
+    expect(end?.attributes?.[PulseWebSemconv.AttributeKey.USER_ID]).toBe(
+      "u-clear",
+    );
     expect(getPersistedUserId()).toBeNull();
   });
 
   it("setUserProperties persists full merged snapshot and rehydrates on restart", async () => {
-    const { PulseWeb } = await import("../sdk");
-    PulseWeb.start(makeConfig());
+    const { Pulse } = await import("../sdk");
+    Pulse.init(makeConfig());
     await Promise.resolve();
 
-    PulseWeb.setUserProperties({
+    Pulse.setUserProperties({
       plan: "pro",
       cohort: "beta",
       region: "in",
@@ -328,14 +332,14 @@ describe("PulseWeb — setUserId lifecycle + persistence", () => {
       region: "in",
     });
 
-    PulseWeb.setUserProperties({ cohort: null, plan: "enterprise" });
+    Pulse.setUserProperties({ cohort: null, plan: "enterprise" });
     expect(getPersistedUserProperties()).toEqual({
       plan: "enterprise",
       region: "in",
     });
 
-    await PulseWeb.shutdown();
-    PulseWeb.start(makeConfig());
+    await Pulse.shutdown();
+    Pulse.init(makeConfig());
     await Promise.resolve();
 
     const p = getPersistedUserProperties();
@@ -344,14 +348,14 @@ describe("PulseWeb — setUserId lifecycle + persistence", () => {
   });
 
   it("multiple user switches emit ordered end/start pairs", async () => {
-    const { PulseWeb } = await import("../sdk");
-    PulseWeb.start(makeConfig());
+    const { Pulse } = await import("../sdk");
+    Pulse.init(makeConfig());
     await Promise.resolve();
-    PulseWeb.setUserId("u1");
+    Pulse.setUserId("u1");
     emitFn.mockClear();
 
-    PulseWeb.setUserId("u2");
-    PulseWeb.setUserId("u3");
+    Pulse.setUserId("u2");
+    Pulse.setUserId("u3");
 
     const life = userLifecycleCalls();
     expect(life).toHaveLength(4);
