@@ -1,5 +1,6 @@
 package com.pulsereactnativeotel
 
+import com.pulse.android.sdk.replay.SessionReplayController
 import com.pulse.android.sdk.replay.SessionReplayRegistry
 import java.util.concurrent.atomic.AtomicReference
 
@@ -12,7 +13,8 @@ internal object ReactNativeScreenNameTracker {
     fun setCurrentScreenName(screenName: String?) {
         val previous = currentScreenName.getAndSet(screenName)
         if (previous != screenName) {
-            SessionReplayRegistry.getIntegration()?.notifyScreenChange()
+            val replay: SessionReplayController? = SessionReplayRegistry.getIntegration()
+            replay?.notifyScreenChange()
         }
     }
 

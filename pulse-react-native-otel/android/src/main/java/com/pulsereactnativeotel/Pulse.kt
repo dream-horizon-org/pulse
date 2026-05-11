@@ -6,6 +6,7 @@ import android.app.Application
 import com.pulse.android.api.otel.PulseBeforeSendData
 import com.pulse.android.api.otel.PulseDataCollectionConsent
 import com.pulse.android.sdk.internal.PulseSDKInternal
+import com.pulse.android.sdk.replay.SessionReplayController
 import com.pulse.android.sdk.replay.SessionReplayRegistry
 import com.pulse.semconv.PulseAttributes
 import com.pulse.utils.PulseLogLevel
@@ -67,7 +68,8 @@ public object Pulse {
             instrumentations = instrumentations,
         )
 
-        SessionReplayRegistry.getIntegration()?.externalScreenNameProvider = {
+        val replay: SessionReplayController? = SessionReplayRegistry.getIntegration()
+        replay?.externalScreenNameProvider = {
             ReactNativeScreenNameTracker.getCurrentScreenName()
         }
     }
