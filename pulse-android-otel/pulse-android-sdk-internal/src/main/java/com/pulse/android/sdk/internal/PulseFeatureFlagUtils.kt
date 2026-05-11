@@ -25,6 +25,8 @@ internal object PulseFeatureFlagUtils {
         SLOW_RENDERING("slowrendering"),
         VIEW_CLICK("view.click"),
         COMPOSE_CLICK("compose.click"),
+        MEMORY("memory"),
+        BATTERY("battery"),
     }
 
     /**
@@ -109,6 +111,20 @@ internal object PulseFeatureFlagUtils {
                     config,
                     isEnabled,
                     InstrumentationRegistrationName.SLOW_RENDERING.registrationName,
+                )
+            }
+            PulseFeatureName.MEMORY -> {
+                configureInstrumentation(
+                    config,
+                    isEnabled,
+                    InstrumentationRegistrationName.MEMORY.registrationName,
+                )
+            }
+            PulseFeatureName.BATTERY -> {
+                configureInstrumentation(
+                    config,
+                    isEnabled,
+                    InstrumentationRegistrationName.BATTERY.registrationName,
                 )
             }
             PulseFeatureName.CUSTOM_EVENTS,
