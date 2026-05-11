@@ -524,8 +524,14 @@ public class RootCauseService {
     if (path.size() >= maxSegments) {
       return materializeHierarchicalSegments(projectId, interactionName, window, baseline, path);
     }
-    Map<String, String> currentFilters = path.stream()
-        .collect(Collectors.toMap(s -> s.dimension, s -> s.value, (a, b) -> b));
+    Map<String, String> currentFilters =
+        path.stream()
+            .collect(
+                Collectors.toMap(
+                    SegmentPath::dimension,
+                    SegmentPath::value,
+                    (a, b) -> b,
+                    LinkedHashMap::new));
     int nextDimIndex = hierarchyStartDimIndex + path.size();
     if (nextDimIndex >= dimOrder.size()) {
       return materializeHierarchicalSegments(projectId, interactionName, window, baseline, path);
