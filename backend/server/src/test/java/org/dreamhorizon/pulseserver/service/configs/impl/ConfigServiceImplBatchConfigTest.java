@@ -52,6 +52,14 @@ class ConfigServiceImplBatchConfigTest {
   @Nested
   class BatchConfigValidation {
 
+    @BeforeEach
+    void setUpValidDAOMock() {
+      // Default mock for DAO — validation should throw before this is called
+      PulseConfig mockResponse = PulseConfig.builder().version(1L).build();
+      lenient().when(sdkConfigsDao.createConfig(anyString(), any(ConfigData.class)))
+          .thenReturn(Single.just(mockResponse));
+    }
+
     @Test
     void shouldAcceptValidBatchConfig() {
       // Happy path: valid batch config should not throw
