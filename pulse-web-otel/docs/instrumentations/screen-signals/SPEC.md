@@ -28,7 +28,9 @@ Track **initial page load** and **SPA route transitions** using OTLP **client sp
 
 **R2 — SPA transitions:** Patch `history.pushState` / `replaceState` + listen to `popstate`; on meaningful route change (rate-limited), end the **`screen_session`** span for the previous screen, emit **`screen_load`** for the new screen with **`start.type` = `spa`**, then start a new **`screen_session`** span for dwell time.
 
-**R3 — Screen naming:** `screen.name` comes from `globalAttrsProcessor.getCurrentScreenName()` / `setScreenName` after transitions.
+**R2a — Rate limit:** consecutive History updates **under 100 ms** apart may drop the second transition (debounce against router double-fires). Intentional — document here if changing the threshold.
+
+**R3 — Screen naming:** Cold load uses `getCurrentScreenName()` (manual override + URL heuristics). **SPA transitions** stamp `screen.name` using **`resolveScreenNameFromUrl(config)`** — same pathname/heuristic/`routePatterns` rules as the processor but **without** a stale manual override, because History runs synchronously while framework integrations often call `setScreenName` in `useEffect`. The instrumentation then calls **`setScreenName`** with that value so clicks/errors align before the next render.
 
 **R4 — Unload:** `pagehide` ends the active **`screen_session`** span for time-on-screen. **`uninstall`** ends any open **`screen_session`** span.
 

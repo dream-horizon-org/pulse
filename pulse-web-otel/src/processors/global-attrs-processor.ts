@@ -44,6 +44,10 @@ function isDynamicSegment(seg: string): boolean {
   return false;
 }
 
+export function resolveScreenNameFromUrl(config: PulseWebConfig): string {
+  return resolveScreenName(null, config);
+}
+
 function resolveScreenName(
   manualScreenName: string | null,
   config: PulseWebConfig,

@@ -11,6 +11,7 @@ import type {
 import { PulseInstrumentationName } from "../constants/pulse-otel-runtime";
 import { PulseWebSemconv } from "../semconv";
 import { PulseDataCollectionConsent } from "../config";
+import { resolveScreenNameFromUrl } from "../processors/global-attrs-processor";
 
 /** OTLP span names — fixed literals for ClickHouse `SpanName` queries (not route strings). */
 const SPAN_SCREEN_LOAD = "screen_load";
@@ -31,6 +32,7 @@ export class NavigationInstrumentation implements PulseInstrumentation {
   readonly name = PulseInstrumentationName.NAVIGATION;
   private installed = false;
   private lastNavigationTime = 0;
+  /** Debounces duplicate History signals — see `docs/instrumentations/screen-signals/SPEC.md` (R2a). */
   private navigationRateLimitMs = 100;
   private currentScreenName = "";
   private screenStartTime = 0;
@@ -223,7 +225,11 @@ export class NavigationInstrumentation implements PulseInstrumentation {
     const attributeKeys = PulseWebSemconv.AttributeKey;
     const pulseTypes = PulseWebSemconv.PulseType;
 
-    const newScreenName = this.getCurrentScreenName(sdk);
+    // URL + config only — History fires synchronously here; React Router / Next
+    // typically calls Pulse.setScreenName in useEffect after paint. Using the
+    // processor's full getCurrentScreenName() would keep a stale manual override
+    // until pathname changes (same-pathname query tweaks) or lag frame behind URL.
+    const newScreenName = resolveScreenNameFromUrl(sdk.config);
     const sessionId = sdk.sessionProvider.getSessionId();
     const exitedDocPath = this.sessionDocPath;
     const exitedDocTitle = this.sessionDocTitle;

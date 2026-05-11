@@ -368,6 +368,54 @@ describe("NavigationInstrumentation", () => {
 
       instr.uninstall();
     });
+
+    it("SPA screen_load screen.name matches URL resolution (not stale manual)", () => {
+      const instr = new NavigationInstrumentation();
+      const sdk = makeMinimalSdk();
+
+      setPath("/home");
+      instr.install(sdk);
+      navSpanMocks.reset();
+
+      // Simulate framework having called setScreenName while still on /home.
+      sdk.globalAttrsProcessor.setScreenName("/home");
+
+      setPath("/cart");
+      history.pushState({}, "", "/cart");
+
+      const loads = findSpansByName("screen_load");
+      expect(loads.length).toBeGreaterThan(0);
+      const spaLoad = loads[loads.length - 1]!;
+      const attrs = attrsFromSetAttributesCalls(spaLoad);
+      expect(attrs[PulseWebSemconv.AttributeKey.SCREEN_NAME]).toBe("/cart");
+
+      instr.uninstall();
+    });
+
+    it("SPA screen_load respects routePatterns for destination screen.name", () => {
+      const instr = new NavigationInstrumentation();
+      const sdk = makeMinimalSdk({
+        config: {
+          apiKey: "proj_x_key",
+          dataCollectionState: PulseDataCollectionConsent.ALLOWED,
+          routePatterns: [{ pattern: "^/cart", name: "CartPage" }],
+        },
+      });
+
+      setPath("/home");
+      instr.install(sdk);
+      navSpanMocks.reset();
+
+      setPath("/cart");
+      history.pushState({}, "", "/cart");
+
+      const loads = findSpansByName("screen_load");
+      const spaLoad = loads[loads.length - 1]!;
+      const attrs = attrsFromSetAttributesCalls(spaLoad);
+      expect(attrs[PulseWebSemconv.AttributeKey.SCREEN_NAME]).toBe("CartPage");
+
+      instr.uninstall();
+    });
   });
 
   describe("Rate limiting", () => {

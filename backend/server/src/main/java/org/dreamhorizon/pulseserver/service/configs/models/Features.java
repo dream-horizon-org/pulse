@@ -29,7 +29,10 @@ public enum Features {
   android_slowrendering,
   /** Web Core Web Vitals (LCP, INP, CLS); {@code pulse_web_js} SDK. */
   web_vitals,
-  /** Web screen navigation tracking (screen_load, screen_interactive, screen_session); {@code pulse_web_js} SDK. */
+  /**
+   * Web screen navigation ({@code screen_load}, {@code screen_session}); {@code pulse_web_js} SDK.
+   * Distinct from {@link #rn_screen_interactive} / {@link #rn_screen_load} (React Native).
+   */
   screen_navigation;
 
   public static List<String> getFeatures() {
