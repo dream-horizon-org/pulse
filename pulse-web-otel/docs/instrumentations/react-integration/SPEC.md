@@ -103,6 +103,12 @@ Document the **React adapter** for Pulse Web: `PulseProvider` (init + context), 
 
 None identified for React adapter layer at synthesis.
 
+### P2: Hash-only routing — no SPA screen signals
+
+`NavigationInstrumentation` patches `history.pushState` / `replaceState` and listens to `popstate`. Routers that only mutate `location.hash` (e.g. `HashRouter` from react-router-dom) without touching the History API emit **no** SPA `screen_load` / `screen_session` signals. The SDK behaves correctly given what it receives; this is user misconfiguration.
+
+**Fix:** Use `<BrowserRouter>` (or `createBrowserRouter`) — the default for most React Router v6 apps. See **screen-signals SPEC §7** for full detail.
+
 ### Other gaps
 
 - **SSR hydration:** Provider effect skipped on server — no `window`; align with Next SPEC for hybrid apps.

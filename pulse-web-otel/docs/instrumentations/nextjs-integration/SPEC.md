@@ -99,6 +99,12 @@ Server (node/edge)
 
 None filed at synthesis.
 
+### P2: Hash-only navigation — no SPA screen signals
+
+Next.js App Router and Pages Router both use History API by default — this is a non-issue for standard setups. However, if a Next.js app layer introduces hash-only navigation (custom router or legacy `<a href="#section">` SPA patterns) without History API calls, `NavigationInstrumentation` will not see those transitions.
+
+**Fix:** Ensure client navigation flows through `router.push()` / `<Link>` (App Router) or `router.push()` / `<Link>` (Pages Router) — these drive History API mutations. See **screen-signals SPEC §7** for full detail.
+
 ### Other gaps
 
 - Verify **`create-next-app` ESM resolution** for `@dreamhorizonorg/pulse-web/next` in clean installs (sdk-core critique).

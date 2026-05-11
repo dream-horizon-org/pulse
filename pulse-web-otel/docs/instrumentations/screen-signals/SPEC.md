@@ -146,11 +146,13 @@ Patch History API for SPA parity with Android activity transitions; reuse Naviga
 
 Previously `navigation.ts` used **`logger.emit()`** → **`otel_logs`**. Web screen rows were invisible to Screens analytics (`otel_traces`-only queries). **Resolved:** spans via **`sdk.tracer`** → **`otel_traces`**.
 
-### P2: Hash-only routers (integration guide gap)
+### Resolved: Hash-only routers (integration guide gap)
 
 **History-based routing required.** Instrumentation patches `history.pushState` / `replaceState` and listens to `popstate`. Routers that only mutate `location.hash` without touching the History API emit **no** SPA `screen_load` / `screen_session` signals — the SDK behaves correctly given what it receives; this is user misconfiguration, not a data contract break.
 
-**Action:** Carry this note into the React integration and Next.js integration guides (see `docs/instrumentations/react-integration/SPEC.md` §7, `docs/instrumentations/nextjs-integration/SPEC.md` §7) so integrators see the requirement at the framework layer, not just here.
+**Resolved:** Note now lives in both framework guides:
+- `docs/instrumentations/react-integration/SPEC.md` §7 (P2: HashRouter gap)
+- `docs/instrumentations/nextjs-integration/SPEC.md` §7 (P2: hash-only navigation gap)
 
 ### Resolved: BFCache restore (`pageshow` + `persisted`)
 
