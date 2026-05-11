@@ -6,6 +6,7 @@
 package io.opentelemetry.android.agent
 
 import android.app.Application
+import com.pulse.sampling.models.PulseBatchProcessorConfig
 import io.opentelemetry.android.AndroidResource
 import io.opentelemetry.android.Incubating
 import io.opentelemetry.android.OpenTelemetryRum
@@ -65,6 +66,7 @@ object OpenTelemetryRumInitializer {
      * @param metricExporter To customise [MetricExporter] by default it is [OtlpHttpMetricExporter]
      * @param rumConfig [OtelRumConfig] to customise the sdk behaviour
      * @param shouldIgnoreJavaScriptExceptions When true, native device.crash is not emitted for com.facebook.react.common.JavascriptException
+     * @param batchConfig Optional batch configuration for spans and logs
      */
     @Suppress("LongParameterList")
     @JvmStatic
@@ -116,6 +118,7 @@ object OpenTelemetryRumInitializer {
                 .build(),
         rumConfig: OtelRumConfig = OtelRumConfig(),
         shouldIgnoreJavaScriptExceptions: Boolean = false,
+        batchConfig: PulseBatchProcessorConfig? = null,
     ): OpenTelemetryRum {
         val diskBufferingConfigurationSpec = DiskBufferingConfigurationSpec()
         diskBuffering?.invoke(diskBufferingConfigurationSpec)
@@ -145,6 +148,8 @@ object OpenTelemetryRumInitializer {
                     if (meterProviderCustomizer != null) addMeterProviderCustomizer(meterProviderCustomizer)
                     if (loggerProviderCustomizer != null) addLoggerProviderCustomizer(loggerProviderCustomizer)
                     setShouldIgnoreJavaScriptExceptions(shouldIgnoreJavaScriptExceptions)
+                    batchConfig?.batchSpans?.let { setSpanBatchConfig(it.scheduleDelay.toLong(), it.maxExportBatchSize) }
+                    batchConfig?.batchLogs?.let { setLogBatchConfig(it.scheduleDelay.toLong(), it.maxExportBatchSize) }
                 }
 
         if (shouldStartSendingData) {
@@ -158,21 +163,6 @@ object OpenTelemetryRumInitializer {
             if (::builder.isInitialized && !isSetupExportersDone) {
                 builder.setupExporters()
                 isSetupExportersDone = true
-            }
-        }
-    }
-
-    /**
-     * Apply batch configuration to the builder.
-     * Called by PulseSDKInternal after initialize().
-     */
-    fun applyBatchConfig(batchConfig: com.pulse.sampling.models.PulseBatchProcessorConfig?) {
-        if (::builder.isInitialized && batchConfig != null) {
-            batchConfig.batchSpans?.let {
-                builder.setSpanBatchConfig(it.scheduleDelay.toLong(), it.maxExportBatchSize)
-            }
-            batchConfig.batchLogs?.let {
-                builder.setLogBatchConfig(it.scheduleDelay.toLong(), it.maxExportBatchSize)
             }
         }
     }

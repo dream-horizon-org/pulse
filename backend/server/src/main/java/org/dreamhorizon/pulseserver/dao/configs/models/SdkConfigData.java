@@ -1,6 +1,5 @@
 package org.dreamhorizon.pulseserver.dao.configs.models;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -26,6 +25,5 @@ public class SdkConfigData {
 
   private List<FeatureConfig> features;
 
-  @JsonProperty("batchConfig")
   private BatchProcessorConfig batchConfig;
 }
