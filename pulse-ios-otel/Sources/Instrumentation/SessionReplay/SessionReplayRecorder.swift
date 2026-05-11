@@ -38,6 +38,10 @@ public class SessionReplayRecorder {
     /// After backgrounding or consent `.pending`, resume without resetting wireframe/snapshot state.
     private var needsResumeAfterInactive: Bool = false
 
+    /// Overrides UIViewController-based screen name tracking for non-UIKit navigators (React Native, Flutter).
+    /// When set, takes precedence over `VisibleScreenTracker` for replay metadata and screen-change detection.
+    public var externalScreenNameProvider: (() -> String?)?
+
     public init(
         config: SessionReplayConfig,
         exporter: SessionReplayExporter? = nil,
@@ -470,6 +474,9 @@ public class SessionReplayRecorder {
 
     #if os(iOS) || os(tvOS)
     private func getCurrentScreenName(from window: UIWindow) -> String {
+        if let provider = externalScreenNameProvider, let name = provider(), !name.isEmpty {
+            return name
+        }
         return VisibleScreenTracker.shared.currentlyVisibleScreen
     }
 

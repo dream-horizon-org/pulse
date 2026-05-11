@@ -77,7 +77,7 @@ public class PulseSDK: NSObject {
             logLevel: logLevel
         )
 
-        Pulse.shared.setExternalScreenNameProvider {
+        SessionReplayInstrumentation.getInstance()?.recorderInstance?.externalScreenNameProvider = {
             ReactNativeScreenNameTracker.getCurrentScreenName()
         }
     }
@@ -314,8 +314,6 @@ public class PulseSDK: NSObject {
             "rn_network",
             "custom_events",
             "js_crash",
-            "session_replay",
-            "click",
         ]
         var result: [String: Bool] = [:]
         for featureName in requiredFeatures {
