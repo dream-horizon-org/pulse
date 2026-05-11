@@ -812,54 +812,100 @@ function calculateOverlapOffsets(
  * @param nodes - The nodes to convert
  * @param sessionDuration - Total session duration in ms, used to calculate minimum visible width for point events
  */
+// export function toFlameChartJsFormat(
+//   nodes: FlameChartNode[],
+//   sessionDuration: number = 10000
+// ): ExtendedFlameChartData[] {
+//   const minVisibleDuration = calculateMinVisibleDuration(sessionDuration);
+  
+//   // Convert a list of nodes, handling overlap at this level
+//   const convertNodeList = (nodeList: FlameChartNode[]): ExtendedFlameChartData[] => {
+//     // Calculate offsets for overlapping point-in-time events at this level
+//     const overlapOffsets = calculateOverlapOffsets(nodeList, minVisibleDuration);
+    
+//     return nodeList.map((node) => {
+//       // For point-in-time events (logs, exceptions), use minimum visible duration
+//       // For spans with actual duration, use actual duration (with small minimum for very short spans)
+//       let displayDuration: number;
+//       if (isPointInTimeEvent(node.type) || node.duration === 0) {
+//         displayDuration = minVisibleDuration;
+//       } else {
+//         displayDuration = Math.max(node.duration, 1);
+//       }
+      
+//       // Apply overlap offset if needed
+//       const offset = overlapOffsets.get(node.id) || 0;
+//       const displayStart = node.start + offset;
+      
+//       return {
+//         // Required flame-chart-js fields
+//         name: node.name,
+//         start: displayStart,
+//         duration: displayDuration,
+//         type: node.type,
+//         color: node.color,
+//         children: node.children.length > 0 
+//           ? convertNodeList(node.children)
+//           : undefined,
+//         // Our custom fields - library will pass these back in select event
+//         id: node.id,
+//         traceId: node.traceId,
+//         spanId: node.spanId,
+//         parentSpanId: node.parentSpanId,
+//         metadata: node.metadata,
+//       };
+//     });
+//   };
+  
+//   return convertNodeList(nodes);
+// }
+const POINT_IN_TIME_TYPES = new Set(["log", "exception", "orphan-log"]);
+
 export function toFlameChartJsFormat(
   nodes: FlameChartNode[],
-  sessionDuration: number = 10000
+  sessionDuration: number = 10000,
 ): ExtendedFlameChartData[] {
   const minVisibleDuration = calculateMinVisibleDuration(sessionDuration);
-  
-  // Convert a list of nodes, handling overlap at this level
-  const convertNodeList = (nodeList: FlameChartNode[]): ExtendedFlameChartData[] => {
-    // Calculate offsets for overlapping point-in-time events at this level
+
+  const convertList = (nodeList: FlameChartNode[]): ExtendedFlameChartData[] => {
+    // Only build the offset map if siblings actually overlap.
+    // calculateOverlapOffsets should return null when there's nothing to do.
     const overlapOffsets = calculateOverlapOffsets(nodeList, minVisibleDuration);
-    
-    return nodeList.map((node) => {
-      // For point-in-time events (logs, exceptions), use minimum visible duration
-      // For spans with actual duration, use actual duration (with small minimum for very short spans)
-      let displayDuration: number;
-      if (isPointInTimeEvent(node.type) || node.duration === 0) {
-        displayDuration = minVisibleDuration;
-      } else {
-        displayDuration = Math.max(node.duration, 1);
-      }
-      
-      // Apply overlap offset if needed
-      const offset = overlapOffsets.get(node.id) || 0;
-      const displayStart = node.start + offset;
-      
-      return {
-        // Required flame-chart-js fields
+    const hasOffsets = overlapOffsets !== null && overlapOffsets.size > 0;
+
+    const out: ExtendedFlameChartData[] = new Array(nodeList.length);
+
+    for (let i = 0; i < nodeList.length; i++) {
+      const node = nodeList[i];
+
+      const isPoint = POINT_IN_TIME_TYPES.has(node.type) || node.duration === 0;
+      const displayDuration = isPoint
+        ? minVisibleDuration
+        : node.duration < 1 ? 1 : node.duration;
+
+      const offset = hasOffsets ? (overlapOffsets!.get(node.id) ?? 0) : 0;
+      const displayStart = offset === 0 ? node.start : node.start + offset;
+
+      out[i] = {
         name: node.name,
         start: displayStart,
         duration: displayDuration,
         type: node.type,
         color: node.color,
-        children: node.children.length > 0 
-          ? convertNodeList(node.children)
-          : undefined,
-        // Our custom fields - library will pass these back in select event
+        children: node.children.length > 0 ? convertList(node.children) : undefined,
         id: node.id,
         traceId: node.traceId,
         spanId: node.spanId,
         parentSpanId: node.parentSpanId,
         metadata: node.metadata,
       };
-    });
-  };
-  
-  return convertNodeList(nodes);
-}
+    }
 
+    return out;
+  };
+
+  return convertList(nodes);
+}
 /**
  * Find item by traceId for highlighting
  */

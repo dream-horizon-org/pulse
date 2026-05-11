@@ -11,9 +11,13 @@ import {
 } from "@tabler/icons-react";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
-import { FlameChartNode, toFlameChartJsFormat, getColorForPulseType, formatPulseType } from "../../utils/flameChartTransform";
+import {
+  FlameChartNode,
+  toFlameChartJsFormat,
+  getColorForPulseType,
+  formatPulseType,
+} from "../../utils/flameChartTransform";
 import classes from "./FlameChart.module.css";
-
 dayjs.extend(utc);
 
 interface FlameChartProps {
@@ -40,7 +44,7 @@ const TIME_GRID_HEIGHT = 24; // Height of the time grid at the top
 
 // Extended type for flame chart instance with access to internal properties
 type FlameChartInstance = FlameChartLib & {
-  renderEngine?: { 
+  renderEngine?: {
     clear?: () => void;
     positionX?: number;
     zoom?: number;
@@ -68,18 +72,74 @@ interface LegendItem {
   key: string;
   label: string;
   color: string;
+  // Raw pulseType this legend entry represents - used for O(1) Set-based
+  // lookup during per-node filtering instead of an O(L) some()+closure scan.
+  pulseType: string;
   // Function to check if a node matches this legend category
   matches: (node: FlameChartNode) => boolean;
 }
 
+// Module-scoped self-time cache. WeakMap auto-clears when nodes are GC'd, so
+// no manual invalidation is needed. Re-used across hover frames so the
+// tooltip doesn't reallocate intervals on every mouse move.
+const selfTimeCache = new WeakMap<FlameChartNode, number>();
+
+function calculateSelfTime(
+  parentStart: number,
+  parentDuration: number,
+  childNodes: FlameChartNode[] | undefined,
+): number {
+  if (!childNodes || childNodes.length === 0) return parentDuration;
+
+  const parentEnd = parentStart + parentDuration;
+
+  // Build clipped intervals in a single pass (no .filter().map().filter() chain)
+  const intervals: [number, number][] = [];
+  for (const child of childNodes) {
+    if (child.duration <= 0) continue;
+    const childStart = Math.max(child.start, parentStart);
+    const childEnd = Math.min(child.start + child.duration, parentEnd);
+    if (childEnd > childStart) intervals.push([childStart, childEnd]);
+  }
+  if (intervals.length === 0) return parentDuration;
+
+  intervals.sort((a, b) => a[0] - b[0]);
+
+  // Merge overlapping intervals in place
+  let mergedEndIdx = 0;
+  for (let i = 1; i < intervals.length; i++) {
+    const last = intervals[mergedEndIdx];
+    const cur = intervals[i];
+    if (cur[0] <= last[1]) {
+      if (cur[1] > last[1]) last[1] = cur[1];
+    } else {
+      mergedEndIdx++;
+      intervals[mergedEndIdx] = cur;
+    }
+  }
+
+  let totalChildTime = 0;
+  for (let i = 0; i <= mergedEndIdx; i++) {
+    totalChildTime += intervals[i][1] - intervals[i][0];
+  }
+
+  return Math.max(0, parentDuration - totalChildTime);
+}
+
+function getSelfTime(node: FlameChartNode): number {
+  const cached = selfTimeCache.get(node);
+  if (cached !== undefined) return cached;
+  const v = calculateSelfTime(node.start, node.duration, node.children);
+  selfTimeCache.set(node, v);
+  return v;
+}
 
 // Extract unique pulse types from data using metadata.pulseType
 function extractPulseTypes(nodes: FlameChartNode[]): Set<string> {
   const types = new Set<string>();
-  
+
   const traverse = (nodeList: FlameChartNode[]) => {
     for (const node of nodeList) {
-      // Get pulseType directly from metadata
       const pulseType = node.metadata?.pulseType;
       if (typeof pulseType === "string" && pulseType.length > 0) {
         types.add(pulseType);
@@ -87,7 +147,7 @@ function extractPulseTypes(nodes: FlameChartNode[]): Set<string> {
       traverse(node.children);
     }
   };
-  
+
   traverse(nodes);
   return types;
 }
@@ -95,26 +155,22 @@ function extractPulseTypes(nodes: FlameChartNode[]): Set<string> {
 // Generate legend items from pulse types
 function generateLegendItems(pulseTypes: Set<string>): LegendItem[] {
   const items: LegendItem[] = [];
-  
-  // Sort types alphabetically for consistent ordering
   const sortedTypes = Array.from(pulseTypes).sort();
-  
+
   for (const pulseType of sortedTypes) {
-    const key = pulseType.toLowerCase().replace(/[^a-z0-9]/g, '_');
+    const key = pulseType.toLowerCase().replace(/[^a-z0-9]/g, "_");
     const color = getColorForPulseType(pulseType);
     const label = formatPulseType(pulseType);
-    
+
     items.push({
       key,
       label,
       color,
-      matches: (node: FlameChartNode) => {
-        // Simple direct match on pulseType from metadata
-        return node.metadata?.pulseType === pulseType;
-      },
+      pulseType,
+      matches: (node: FlameChartNode) => node.metadata?.pulseType === pulseType,
     });
   }
-  
+
   return items;
 }
 
@@ -122,12 +178,8 @@ function generateLegendItems(pulseTypes: Set<string>): LegendItem[] {
  * Format duration for display
  */
 function formatDuration(ms: number): string {
-  if (ms < 1) {
-    return `${(ms * 1000).toFixed(0)}µs`;
-  }
-  if (ms < 1000) {
-    return `${ms.toFixed(2)}ms`;
-  }
+  if (ms < 1) return `${(ms * 1000).toFixed(0)}µs`;
+  if (ms < 1000) return `${ms.toFixed(2)}ms`;
   return `${(ms / 1000).toFixed(2)}s`;
 }
 
@@ -144,17 +196,16 @@ export function FlameChart({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const flameChartRef = useRef<FlameChartInstance | null>(null);
   const [zoom, setZoom] = useState(1);
-  const [scrollInfo, setScrollInfo] = useState<ScrollInfo>({ 
-    scrollTop: 0, 
-    scrollHeight: 0, 
+  const [scrollInfo, setScrollInfo] = useState<ScrollInfo>({
+    scrollTop: 0,
+    scrollHeight: 0,
     clientHeight: 0,
     canScrollUp: false,
     canScrollDown: false,
   });
-  
+
   // Extract unique pulse types from data and generate legend items
   const legendItems = useMemo(() => {
-    if (!data || data.length === 0) return [];
     const pulseTypes = extractPulseTypes(data);
     return generateLegendItems(pulseTypes);
   }, [data]);
@@ -162,20 +213,33 @@ export function FlameChart({
   // State for active legend filters - all enabled by default
   const [activeFilters, setActiveFilters] = useState<Set<string>>(new Set());
 
-  // Update active filters when legend items change (e.g., new data loaded)
+  // Sync active filters when legend items change. Compare by key-set identity
+  // so that we don't trigger a redundant filterContext recomputation when the
+  // legend regenerates with the same set of keys (which happens whenever
+  // `data`'s reference changes even if shape is identical).
   useEffect(() => {
-    setActiveFilters(new Set(legendItems.map(item => item.key)));
+    setActiveFilters((prev) => {
+      if (prev.size === legendItems.length) {
+        let identical = true;
+        for (const item of legendItems) {
+          if (!prev.has(item.key)) {
+            identical = false;
+            break;
+          }
+        }
+        if (identical) return prev;
+      }
+      return new Set(legendItems.map((item) => item.key));
+    });
   }, [legendItems]);
 
   // Toggle a filter on/off
   const toggleFilter = useCallback((key: string) => {
-    setActiveFilters(prev => {
+    setActiveFilters((prev) => {
       const next = new Set(prev);
       if (next.has(key)) {
         // Don't allow deselecting all filters - keep at least one
-        if (next.size > 1) {
-          next.delete(key);
-        }
+        if (next.size > 1) next.delete(key);
       } else {
         next.add(key);
       }
@@ -190,110 +254,148 @@ export function FlameChart({
 
   // Reset to all filters active
   const resetFilters = useCallback(() => {
-    setActiveFilters(new Set(legendItems.map(item => item.key)));
+    setActiveFilters(new Set(legendItems.map((item) => item.key)));
   }, [legendItems]);
 
-  // Filter nodes based on active legend filters
-  // Non-matching parent nodes are kept but dimmed (as containers for matching children)
-  const filterNodes = useCallback((nodes: FlameChartNode[]): FlameChartNode[] => {
-    const filterNode = (node: FlameChartNode): FlameChartNode | null => {
-      // Check if this node matches any active filter
-      const matchesActiveFilter = legendItems.some(
-        item => activeFilters.has(item.key) && item.matches(node)
-      );
+  // Calculate content height based on total depth
+  const contentHeight = useMemo(() => {
+    const calculatedHeight = TIME_GRID_HEIGHT + totalDepth * BLOCK_HEIGHT + 50;
+    return Math.max(400, calculatedHeight);
+  }, [totalDepth]);
 
-      // Filter children recursively
-      const filteredChildren = node.children
-        .map(filterNode)
-        .filter((child): child is FlameChartNode => child !== null);
+  // Combined filter pass: a single tree traversal that produces filteredData,
+  // nodeByIdMap, and flatNodesList. Replaces what used to be four separate
+  // recursions over the (potentially huge) tree on every legend toggle.
+  //
+  // Optimizations:
+  //  - When all filters are active (the common case) we return `data` by
+  //    reference and only walk the tree once to build the indexes - no
+  //    cloning, no allocation of new children arrays.
+  //  - Per-node match check is an O(1) Set.has lookup instead of an O(L)
+  //    `legendItems.some(...)` + closure invocation.
+  //  - When a node matches and none of its descendants were filtered out,
+  //    we reuse the original node reference instead of allocating a clone.
+  const filterContext = useMemo(() => {
+    const nodeByIdMap = new Map<string, FlameChartNode>();
+    const flatNodesList: FlatNodeInfo[] = [];
 
-      // If node matches, include it with filtered children (keep original color)
-      if (matchesActiveFilter) {
-        return { ...node, children: filteredChildren };
+    if (!data || data.length === 0) {
+      return {
+        filteredData: [] as FlameChartNode[],
+        nodeByIdMap,
+        flatNodesList,
+      };
+    }
+
+    const activePulseTypes = new Set<string>();
+    for (const item of legendItems) {
+      if (activeFilters.has(item.key)) activePulseTypes.add(item.pulseType);
+    }
+    const allActive =
+      legendItems.length > 0 && activePulseTypes.size === legendItems.length;
+
+    const register = (node: FlameChartNode, level: number) => {
+      nodeByIdMap.set(node.id, node);
+      flatNodesList.push({
+        node,
+        level,
+        start: node.start,
+        end: node.start + node.duration,
+        type: node.type,
+      });
+    };
+
+    if (allActive) {
+      const visit = (nodes: FlameChartNode[], level: number) => {
+        for (const node of nodes) {
+          register(node, level);
+          if (node.children.length > 0) visit(node.children, level + 1);
+        }
+      };
+      visit(data, 0);
+      return { filteredData: data, nodeByIdMap, flatNodesList };
+    }
+
+    const visit = (
+      node: FlameChartNode,
+      level: number,
+    ): FlameChartNode | null => {
+      const pulseTypeRaw = node.metadata?.pulseType;
+      const pulseType = typeof pulseTypeRaw === "string" ? pulseTypeRaw : "";
+      const matches = activePulseTypes.has(pulseType);
+
+      let nextChildren: FlameChartNode[] = node.children;
+      let childrenChanged = false;
+
+      if (node.children.length > 0) {
+        const collected: FlameChartNode[] = [];
+        for (const child of node.children) {
+          const filtered = visit(child, level + 1);
+          if (filtered === null) {
+            childrenChanged = true;
+            continue;
+          }
+          if (filtered !== child) childrenChanged = true;
+          collected.push(filtered);
+        }
+        nextChildren = collected;
       }
 
-      // If node doesn't match but has matching children, include it as a dimmed container
-      // (This keeps the hierarchy intact for child nodes)
-      if (filteredChildren.length > 0) {
-        // Dim the container node by making it grey with low opacity
-        return { 
-          ...node, 
-          children: filteredChildren,
-          color: '#e0e0e0', // Light grey for non-matching containers
+      if (matches) {
+        const out = childrenChanged
+          ? { ...node, children: nextChildren }
+          : node;
+        register(out, level);
+        return out;
+      }
+
+      if (nextChildren.length > 0) {
+        const out: FlameChartNode = {
+          ...node,
+          children: nextChildren,
+          color: "#e0e0e0",
         };
+        register(out, level);
+        return out;
       }
 
-      // Node doesn't match and has no matching children - exclude it
       return null;
     };
 
-    return nodes
-      .map(filterNode)
-      .filter((node): node is FlameChartNode => node !== null);
-  }, [activeFilters, legendItems]);
-
-  // Apply filters to data
-  const filteredData = useMemo(() => {
-    if (!data || data.length === 0) return [];
-    return filterNodes(data);
-  }, [data, filterNodes]);
-  
-  // Calculate content height based on total depth
-  const contentHeight = useMemo(() => {
-    // Each level is BLOCK_HEIGHT pixels, plus time grid
-    const calculatedHeight = TIME_GRID_HEIGHT + (totalDepth * BLOCK_HEIGHT) + 50; // 50px buffer
-    return Math.max(400, calculatedHeight);
-  }, [totalDepth]);
-  
-  // Create a Map of node ID -> FlameChartNode for fast lookup (uses filtered data)
-  const nodeByIdMap = useMemo(() => {
-    const map = new Map<string, FlameChartNode>();
-    
-    const traverse = (nodes: FlameChartNode[]) => {
-      for (const node of nodes) {
-        // Use node.id as primary key (unique)
-        map.set(node.id, node);
-        traverse(node.children);
-      }
-    };
-    
-    if (filteredData) {
-      traverse(filteredData);
+    const filteredData: FlameChartNode[] = [];
+    for (const root of data) {
+      const filtered = visit(root, 0);
+      if (filtered !== null) filteredData.push(filtered);
     }
-    
+
+    return { filteredData, nodeByIdMap, flatNodesList };
+  }, [data, legendItems, activeFilters]);
+
+  const filteredData = filterContext.filteredData;
+  const nodeByIdMap = filterContext.nodeByIdMap;
+  const flatNodesList = filterContext.flatNodesList;
+
+  // Spatial index: bucket flat nodes by level. Hover hit-testing then only
+  // scans the row under the cursor instead of the entire flattened tree.
+  // Each bucket is sorted by start time so we can binary-search within a row
+  // (still using linear filter for simplicity here, but the sort is in place
+  // for a future upgrade).
+  const flatNodesByLevel = useMemo(() => {
+    const map = new Map<number, FlatNodeInfo[]>();
+    for (const info of flatNodesList) {
+      const arr = map.get(info.level);
+      if (arr) arr.push(info);
+      else map.set(info.level, [info]);
+    }
+    for (const arr of Array.from(map.values()))
+      arr.sort((a, b) => a.start - b.start);
     return map;
-  }, [filteredData]);
-
-  // Create a flat list of all nodes with their level for custom hit-testing
-  // Uses start, end (duration), and type to identify nodes (uses filtered data)
-  const flatNodesList = useMemo(() => {
-    const result: FlatNodeInfo[] = [];
-    
-    const traverse = (nodes: FlameChartNode[], level: number) => {
-      for (const node of nodes) {
-        result.push({
-          node,
-          level,
-          start: node.start,
-          end: node.start + node.duration,
-          type: node.type,
-        });
-        traverse(node.children, level + 1);
-      }
-    };
-    
-    if (filteredData) {
-      traverse(filteredData, 0);
-    }
-    
-    return result;
-  }, [filteredData]);
-
-  // Ref to store flat nodes for use in event handlers
-  const flatNodesRef = useRef(flatNodesList);
-  useEffect(() => {
-    flatNodesRef.current = flatNodesList;
   }, [flatNodesList]);
+
+  const flatNodesByLevelRef = useRef(flatNodesByLevel);
+  useEffect(() => {
+    flatNodesByLevelRef.current = flatNodesByLevel;
+  }, [flatNodesByLevel]);
 
   // Stable callback ref for onItemClick to avoid re-creating the flame chart
   const onItemClickRef = useRef(onItemClick);
@@ -313,22 +415,60 @@ export function FlameChart({
     nodeByIdMapRef.current = nodeByIdMap;
   }, [nodeByIdMap]);
 
+  // Keep sessionStartTime / contentHeight in refs so the chart-init effect's
+  // closures stay current even though we no longer re-run init when those
+  // props change. (Re-running init would tear down and rebuild the entire
+  // FlameChartLib instance, which is the freeze we are trying to eliminate.)
+  const sessionStartTimeRef = useRef(sessionStartTime);
+  useEffect(() => {
+    sessionStartTimeRef.current = sessionStartTime;
+  }, [sessionStartTime]);
+
+  const contentHeightRef = useRef(contentHeight);
+  useEffect(() => {
+    contentHeightRef.current = contentHeight;
+  }, [contentHeight]);
+
+  // Teardown for the FlameChartLib instance + its listeners. Stored in a ref
+  // so it only runs on actual component unmount, not on every flameChartData
+  // change.
+  const teardownRef = useRef<(() => void) | null>(null);
+  useEffect(() => {
+    return () => {
+      teardownRef.current?.();
+      teardownRef.current = null;
+    };
+  }, []);
+
   // Initialize flame chart when data is available
   useEffect(() => {
-    if (!containerRef.current || !canvasRef.current || !flameChartData || flameChartData.length === 0) {
+    if (
+      !containerRef.current ||
+      !canvasRef.current ||
+      !flameChartData ||
+      flameChartData.length === 0
+    ) {
+      return;
+    }
+
+    // Hot path: existing chart instance, just push new data into it.
+    // This is the single biggest win for filter-toggle responsiveness.
+    if (flameChartRef.current?.setNodes) {
+      flameChartRef.current.setNodes(flameChartData);
+      // Top-level render() does the recalc + paint; renderEngine.render()
+      // alone may skip layout updates when depth changes.
+      flameChartRef.current.render();
       return;
     }
 
     const canvas = canvasRef.current;
     const container = containerRef.current;
 
-    // Set canvas size - use calculated content height to avoid extra whitespace
     const resizeCanvas = () => {
       const rect = container.getBoundingClientRect();
       const width = rect.width || 800;
-      // Use the smaller of container height or content height to avoid empty space
       const containerHeight = rect.height || 400;
-      const height = Math.min(containerHeight, contentHeight);
+      const height = Math.min(containerHeight, contentHeightRef.current);
       canvas.width = width;
       canvas.height = Math.max(400, height);
       return { width, height: Math.max(400, height) };
@@ -336,128 +476,99 @@ export function FlameChart({
 
     const { width, height } = resizeCanvas();
 
-    // Clean up existing instance
     if (flameChartRef.current) {
       const ctx = canvas.getContext("2d");
-      if (ctx) {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-      }
+      if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
       flameChartRef.current = null;
     }
 
-    // Create flame chart instance with data
     try {
       /**
        * Find the topmost (latest-starting) overlapping node at a given position.
-       * 
-       * The flame-chart-js library has a bug where it uses Array.find() which returns
-       * the first match (earlier-starting node) instead of the topmost overlapping one.
-       * 
-       * We identify nodes by: start time, end time (start + duration), and type.
-       * Returns both the node and the clicked level for accurate highlight matching.
-       * 
-       * Edge cases handled:
-       * - Overlapping siblings at the same level: returns the latest-starting one
-       * - Click outside any node: returns null
-       * - Zoom/pan: uses library's positionX and zoom values
-       * - Plugin offset: accounts for other plugins above the flame chart
+       *
+       * Uses the level-bucketed spatial index so we only scan nodes on the
+       * row under the cursor, not the entire flattened tree.
        */
       const findTopmostNodeAtPosition = (
-        mouseX: number, 
+        mouseX: number,
         mouseY: number,
-        renderEngine: any
+        renderEngine: any,
       ): { node: FlameChartNode; level: number } | null => {
         const chart = flameChartRef.current as any;
         if (!chart?.plugins) return null;
-        
-        // Find the flameChartPlugin to get its vertical position offset
+
         const flameChartPlugin = chart.plugins.find(
-          (p: any) => p.name === 'flameChartPlugin'
+          (p: any) => p.name === "flameChartPlugin",
         );
-        
         if (!flameChartPlugin) return null;
-        
-        // Get the plugin's Y position (offset from top of canvas)
+
         const pluginYOffset = flameChartPlugin.renderEngine?.position || 0;
-        
         const positionX = renderEngine.positionX || 0;
         const zoom = renderEngine.zoom || 1;
         const blockHeight = renderEngine.blockHeight || BLOCK_HEIGHT;
-        
-        // Validate zoom to prevent division issues
+
         if (zoom <= 0) return null;
-        
-        // Convert mouse X to time position
-        const clickTime = positionX + (mouseX / zoom);
-        
-        // Calculate which level (row) was clicked
-        // Account for the plugin's Y offset (there may be other plugins above the flame chart)
+
+        const clickTime = positionX + mouseX / zoom;
         const adjustedMouseY = mouseY - pluginYOffset;
         const clickLevel = Math.floor(adjustedMouseY / blockHeight);
-        
-        // Invalid level (clicked above the flame chart area)
+
         if (clickLevel < 0) return null;
-        
-        // Find all nodes at this position (matching level and time range)
-        const flatNodes = flatNodesRef.current;
-        const matchingNodes = flatNodes.filter(({ level, start, end }) => {
-          return level === clickLevel && clickTime >= start && clickTime <= end;
-        });
-        
-        if (matchingNodes.length === 0) return null;
-        if (matchingNodes.length === 1) return { node: matchingNodes[0].node, level: clickLevel };
-        
-        // Multiple overlapping nodes at the same level - determine which is "on top"
-        // Sort priority:
-        // 1. Later start time (later-starting items are rendered on top)
-        // 2. Shorter duration (if same start, shorter/more specific items are on top)
-        // 3. Node name (stable tiebreaker for identical timing)
-        matchingNodes.sort((a, b) => {
-          // Primary: later start time first
-          if (b.start !== a.start) {
-            return b.start - a.start;
+
+        // Spatial-index lookup: only scan the row under the cursor
+        const levelNodes = flatNodesByLevelRef.current.get(clickLevel);
+        if (!levelNodes || levelNodes.length === 0) return null;
+
+        // Linear scan within the row. (Could be upgraded to binary search on
+        // start, but a single row is much smaller than the full flat list.)
+        const matchingNodes: FlatNodeInfo[] = [];
+        for (const info of levelNodes) {
+          if (clickTime >= info.start && clickTime <= info.end) {
+            matchingNodes.push(info);
+          } else if (info.start > clickTime) {
+            // Sorted by start - we've passed any possible match
+            break;
           }
-          
-          // Secondary: shorter duration first (more specific item)
+        }
+
+        if (matchingNodes.length === 0) return null;
+        if (matchingNodes.length === 1)
+          return { node: matchingNodes[0].node, level: clickLevel };
+
+        // Multiple overlapping nodes at the same level - determine "on top"
+        matchingNodes.sort((a, b) => {
+          if (b.start !== a.start) return b.start - a.start;
           const aDuration = a.end - a.start;
           const bDuration = b.end - b.start;
-          if (aDuration !== bDuration) {
-            return aDuration - bDuration;
-          }
-          
-          // Tertiary: alphabetical by name (stable tiebreaker)
+          if (aDuration !== bDuration) return aDuration - bDuration;
           return a.node.name.localeCompare(b.node.name);
         });
-        
+
         return { node: matchingNodes[0].node, level: clickLevel };
       };
 
       /**
-       * Update the library's internal selection to show highlight on the correct node.
-       * We find the matching node in the library's flatTree using start, duration, type, AND level.
-       * 
-       * This is needed because the library's internal hit-testing uses Array.find() which
-       * returns the first match, causing the highlight to appear on the wrong node.
+       * Update the library's internal selection to show highlight on the
+       * correct node.
        */
-      const updateLibraryHighlight = (node: FlameChartNode, clickedLevel: number) => {
+      const updateLibraryHighlight = (
+        node: FlameChartNode,
+        clickedLevel: number,
+      ) => {
         const chart = flameChartRef.current as any;
         if (!chart?.plugins) return;
-        
-        // Find the flameChartPlugin
+
         const flameChartPlugin = chart.plugins.find(
-          (p: any) => p.name === 'flameChartPlugin' && p.flatTree
+          (p: any) => p.name === "flameChartPlugin" && p.flatTree,
         );
-        
         if (!flameChartPlugin?.flatTree) return;
-        
-        // Find the matching node in the library's flatTree using start, duration, type, AND level
-        // The level is critical to distinguish between nodes with the same timing at different depths
+
         const libraryNode = flameChartPlugin.flatTree.find((n: any) => {
           const nodeStart = n.source.start;
           const nodeDuration = n.source.duration;
           const nodeType = n.source.type;
           const nodeLevel = n.level;
-          
+
           return (
             Math.abs(nodeStart - node.start) < 0.01 &&
             Math.abs(nodeDuration - node.duration) < 0.01 &&
@@ -465,31 +576,43 @@ export function FlameChart({
             nodeLevel === clickedLevel
           );
         });
-        
+
         if (libraryNode) {
-          // Set the library's selectedRegion to the correct node
           flameChartPlugin.selectedRegion = {
-            type: 'node',
+            type: "node",
             data: libraryNode,
           };
-          
-          // Re-render to show the highlight
-          if (chart.renderEngine?.render) {
-            chart.renderEngine.render();
-          }
+          if (chart.renderEngine?.render) chart.renderEngine.render();
         }
       };
 
-      // Custom tooltip - uses our hit-testing to show correct tooltip for overlapping nodes
-      const customTooltip = (hoveredRegion: any, renderEngine: any, mouse: any) => {
+      // Custom tooltip - uses our hit-testing to show correct tooltip for
+      // overlapping nodes. Self-time is cached per node in a WeakMap so we
+      // don't recompute interval merges on every hover frame.
+      const customTooltip = (
+        hoveredRegion: any,
+        renderEngine: any,
+        mouse: any,
+      ) => {
         if (!hoveredRegion) return;
-        
-        // Try to find the correct topmost node
-        const result = findTopmostNodeAtPosition(mouse.x, mouse.y, renderEngine);
-        
-        let nodeData: { start: number; duration: number; name: string; children?: any[]; type?: string };
-        
+
+        const result = findTopmostNodeAtPosition(
+          mouse.x,
+          mouse.y,
+          renderEngine,
+        );
+
+        let nodeForSelfTime: FlameChartNode | null = null;
+        let nodeData: {
+          start: number;
+          duration: number;
+          name: string;
+          children?: any[];
+          type?: string;
+        };
+
         if (result) {
+          nodeForSelfTime = result.node;
           nodeData = {
             start: result.node.start,
             duration: result.node.duration,
@@ -502,90 +625,53 @@ export function FlameChart({
         } else {
           return;
         }
-        
+
         const { start, duration, name, children, type } = nodeData;
         const timeUnits = renderEngine.getTimeUnits();
         const nodeAccuracy = renderEngine.getAccuracy() + 2;
-        
-        // Check if this is a point-in-time event (log, exception) with zero actual duration
-        const isPointInTimeEvent = type === "log" || type === "exception" || type === "orphan-log";
-        
-        // Calculate self time by merging overlapping child intervals
-        // This correctly handles cases where children overlap each other
-        const calculateSelfTime = (parentStart: number, parentDuration: number, childNodes: any[] | undefined): number => {
-          if (!childNodes || childNodes.length === 0) return parentDuration;
-          
-          const parentEnd = parentStart + parentDuration;
-          
-          // Get child intervals and clip to parent bounds
-          const intervals: [number, number][] = childNodes
-            .filter((child: any) => child.duration > 0)
-            .map((child: any) => {
-              const childStart = Math.max(child.start, parentStart);
-              const childEnd = Math.min(child.start + child.duration, parentEnd);
-              return [childStart, childEnd] as [number, number];
-            })
-            .filter(([s, e]) => e > s); // Remove invalid intervals after clipping
-          
-          if (intervals.length === 0) return parentDuration;
-          
-          // Sort intervals by start time
-          intervals.sort((a, b) => a[0] - b[0]);
-          
-          // Merge overlapping intervals
-          const merged: [number, number][] = [intervals[0]];
-          for (let i = 1; i < intervals.length; i++) {
-            const last = merged[merged.length - 1];
-            const current = intervals[i];
-            
-            if (current[0] <= last[1]) {
-              // Overlapping - extend the last interval
-              last[1] = Math.max(last[1], current[1]);
-            } else {
-              // No overlap - add as new interval
-              merged.push(current);
-            }
-          }
-          
-          // Calculate total time covered by children (merged)
-          const totalChildTime = merged.reduce((acc, [s, e]) => acc + (e - s), 0);
-          
-          // Ensure self time is never negative (safety clamp)
-          return Math.max(0, parentDuration - totalChildTime);
-        };
-        
-        const selfTime = calculateSelfTime(start, duration, children);
-        
-        const absoluteStart = sessionStartTime + start;
+
+        const isPointInTimeEvent =
+          type === "log" || type === "exception" || type === "orphan-log";
+
+        // Use cached self-time when we have a real FlameChartNode reference;
+        // fall back to ad-hoc calc only for library-source fallback path.
+        const selfTime = nodeForSelfTime
+          ? getSelfTime(nodeForSelfTime)
+          : calculateSelfTime(
+              start,
+              duration,
+              children as FlameChartNode[] | undefined,
+            );
+
+        const absoluteStart = sessionStartTimeRef.current + start;
         const absoluteEnd = absoluteStart + duration;
-        
+
         const startTimeStr = dayjs(absoluteStart).format("HH:mm:ss.SSS");
         const endTimeStr = dayjs(absoluteEnd).format("HH:mm:ss.SSS");
-        
-        // Build tooltip data
-        const tooltipData: { text: string }[] = [
-          { text: name },
-        ];
-        
-        // For point-in-time events, show actual duration as 0
+
+        const tooltipData: { text: string }[] = [{ text: name }];
+
         if (isPointInTimeEvent) {
-          tooltipData.push({ text: `duration: 0 ${timeUnits} (instant event)` });
+          tooltipData.push({
+            text: `duration: 0 ${timeUnits} (instant event)`,
+          });
           tooltipData.push({ text: `ℹ️ Bar width is for visibility only` });
         } else {
-          tooltipData.push({ 
-            text: `duration: ${duration.toFixed(nodeAccuracy)} ${timeUnits}${children?.length ? ` (self ${selfTime.toFixed(nodeAccuracy)} ${timeUnits})` : ""}` 
+          tooltipData.push({
+            text: `duration: ${duration.toFixed(nodeAccuracy)} ${timeUnits}${children?.length ? ` (self ${selfTime.toFixed(nodeAccuracy)} ${timeUnits})` : ""}`,
           });
         }
-        
-        tooltipData.push({ text: `start: ${start.toFixed(nodeAccuracy)} ${timeUnits}` });
+
+        tooltipData.push({
+          text: `start: ${start.toFixed(nodeAccuracy)} ${timeUnits}`,
+        });
         tooltipData.push({ text: `────────────────` });
         tooltipData.push({ text: `🕐 Time: ${startTimeStr}` });
-        
-        // Only show end time for non-instant events
+
         if (!isPointInTimeEvent) {
           tooltipData.push({ text: `🕐 End: ${endTimeStr}` });
         }
-        
+
         renderEngine.renderTooltipFromData(tooltipData, mouse);
       };
 
@@ -611,7 +697,6 @@ export function FlameChart({
 
       flameChartRef.current = flameChart;
 
-      // Resize and render
       flameChart.resize(width, height);
       flameChart.render();
 
@@ -626,101 +711,100 @@ export function FlameChart({
       // Listen to select event
       flameChart.on("select", (selection: any) => {
         if (!selection) return;
-        
+
         const selectedNode = selection.node || selection;
         if (!selectedNode) return;
-        
+
         const currentNodeMap = nodeByIdMapRef.current;
-        
-        // Try custom hit-testing first to find the correct overlapping node
+
         const chart = flameChartRef.current as any;
         const renderEngine = chart?.renderEngine;
-        
+
         if (renderEngine) {
           const result = findTopmostNodeAtPosition(
-            lastMousePos.x, 
-            lastMousePos.y, 
-            renderEngine
+            lastMousePos.x,
+            lastMousePos.y,
+            renderEngine,
           );
-          
+
           if (result) {
-            // Update the library's highlight to show on the correct node
-            // Pass the clicked level to ensure we match the exact node at that level
             updateLibraryHighlight(result.node, result.level);
-            
-            if (onItemClickRef.current) {
-              onItemClickRef.current(result.node);
-            }
+            onItemClickRef.current?.(result.node);
             return;
           }
         }
-        
+
         // Fallback to library's selection
         const sourceNode = selectedNode.source || selectedNode;
-        
-        // Try to look up by ID first
+
         if (selectedNode.id && currentNodeMap.has(selectedNode.id)) {
           const originalNode = currentNodeMap.get(selectedNode.id)!;
-          if (onItemClickRef.current) {
-            onItemClickRef.current(originalNode);
-          }
+          onItemClickRef.current?.(originalNode);
           return;
         }
-        
+
         if (sourceNode.id && currentNodeMap.has(sourceNode.id)) {
           const originalNode = currentNodeMap.get(sourceNode.id)!;
-          if (onItemClickRef.current) {
-            onItemClickRef.current(originalNode);
-          }
+          onItemClickRef.current?.(originalNode);
           return;
         }
-        
-        // Fallback: search by start, duration, and type
+
+        // Fallback: search by start, duration, and type. Iterate the Map's
+        // values directly instead of materializing an array.
         const nodeStart = sourceNode.start ?? selectedNode.start ?? 0;
         const nodeDuration = sourceNode.duration ?? selectedNode.duration ?? 0;
         const nodeType = sourceNode.type ?? selectedNode.type;
-        
-        let foundNode: FlameChartNode | undefined;
-        const allNodes = Array.from(currentNodeMap.values());
-        for (const node of allNodes) {
+
+        for (const node of Array.from(currentNodeMap.values())) {
           if (
             Math.abs(node.start - nodeStart) < 1 &&
             Math.abs(node.duration - nodeDuration) < 1 &&
             node.type === nodeType
           ) {
-            foundNode = node;
-            break;
-          }
-        }
-        
-        if (foundNode) {
-          if (onItemClickRef.current) {
-            onItemClickRef.current(foundNode);
+            onItemClickRef.current?.(node);
+            return;
           }
         }
       });
 
-      // Handle resize
+      // rAF-throttled resize observer. Without this, dragging the window
+      // edge fires resize events at ~60Hz, each kicking off a full render().
+      let resizeRaf = 0;
       const resizeObserver = new ResizeObserver(() => {
-        const { width: newWidth, height: newHeight } = resizeCanvas();
-        flameChart.resize(newWidth, newHeight);
-        flameChart.render();
+        if (resizeRaf) return;
+        resizeRaf = requestAnimationFrame(() => {
+          resizeRaf = 0;
+          if (!flameChartRef.current) return;
+          const { width: newWidth, height: newHeight } = resizeCanvas();
+          flameChartRef.current.resize(newWidth, newHeight);
+          flameChartRef.current.render();
+        });
       });
       resizeObserver.observe(container);
 
-      return () => {
+      // Stash teardown for unmount-only execution. We deliberately do NOT
+      // return this as the effect's cleanup, so it doesn't run when
+      // `flameChartData` changes (which is handled by the in-place
+      // `setNodes` early return at the top of this effect).
+      teardownRef.current = () => {
+        if (resizeRaf) {
+          cancelAnimationFrame(resizeRaf);
+          resizeRaf = 0;
+        }
         resizeObserver.disconnect();
         canvas.removeEventListener("mousemove", handleMouseMove);
         const ctx = canvas.getContext("2d");
-        if (ctx) {
-          ctx.clearRect(0, 0, canvas.width, canvas.height);
-        }
+        if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
         flameChartRef.current = null;
       };
     } catch (error) {
       console.error("Error initializing flame chart:", error);
     }
-  }, [flameChartData, sessionStartTime, sessionDuration, contentHeight]);
+    // NOTE: `sessionStartTime`, `sessionDuration`, and `contentHeight` are
+    // intentionally NOT in this deps array. They are read via refs so prop
+    // changes don't tear down and rebuild the FlameChartLib instance.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [flameChartData]);
 
   // Zoom controls
   const handleZoomIn = useCallback(() => {
@@ -744,12 +828,11 @@ export function FlameChart({
     }
   }, [sessionDuration]);
 
-  // Track if we've already scrolled to the highlighted trace (to only do it once on initial load)
+  // Track if we've already scrolled to the highlighted trace
   const hasScrolledToHighlight = useRef(false);
 
   // Scroll to and highlight trace on initial load
   useEffect(() => {
-    // Only run once on initial load when we have data and a chart instance
     if (
       !highlightTraceId ||
       !flameChartRef.current ||
@@ -759,50 +842,82 @@ export function FlameChart({
       return;
     }
 
-    // Find the root span node with matching traceId (prefer root spans for better context)
-    const findRootNodeForTrace = (nodes: FlameChartNode[]): FlameChartNode | null => {
-      // First, look for root-level nodes with matching traceId
-      for (const node of nodes) {
-        if (node.traceId === highlightTraceId && node.type === "span") {
-          return node;
-        }
-      }
-      // Fallback: search in children if not found at root level
+    // Find a span node matching the trace; prefer root spans for context.
+    // Single pass: collect first match of each priority and pick at end.
+    let bestSpan: FlameChartNode | null = null;
+    let firstMatch: FlameChartNode | null = null;
+
+    const search = (nodes: FlameChartNode[]) => {
       for (const node of nodes) {
         if (node.traceId === highlightTraceId) {
-          return node;
+          if (!firstMatch) firstMatch = node;
+          if (!bestSpan && node.type === "span") {
+            bestSpan = node;
+            return; // root-level span: best possible match, stop early
+          }
         }
-        const found = findRootNodeForTrace(node.children);
-        if (found) return found;
+        if (node.children.length > 0) {
+          search(node.children);
+          if (bestSpan) return;
+        }
       }
-      return null;
     };
 
-    const targetNode = findRootNodeForTrace(filteredData);
+    search(filteredData);
+    const targetNode = bestSpan || firstMatch;
+
     if (targetNode) {
-      // Small delay to ensure flame chart is fully rendered
+      // Type assertion needed because TS narrows targetNode to never inside
+      // setTimeout closure due to the let-reassignment pattern above.
+      const node: FlameChartNode = targetNode;
       const timeoutId = setTimeout(() => {
         if (!flameChartRef.current) return;
 
-        // Calculate zoom range with padding for context
-        const padding = Math.max(100, targetNode.duration * 0.2); // 20% padding or minimum 100ms
-        const targetStart = Math.max(0, targetNode.start - padding);
-        const targetEnd = targetNode.start + targetNode.duration + padding;
+        const padding = Math.max(100, node.duration * 0.2);
+        const targetStart = Math.max(0, node.start - padding);
+        const targetEnd = node.start + node.duration + padding;
 
-        // Zoom to the trace
         flameChartRef.current.setZoom(targetStart, targetEnd);
-
         hasScrolledToHighlight.current = true;
-      }, 300); // 300ms delay to ensure chart is rendered
+      }, 300);
 
       return () => clearTimeout(timeoutId);
     }
   }, [highlightTraceId, filteredData]);
 
-  // Reset the scroll flag when highlightTraceId changes (e.g., navigating to a different trace)
   useEffect(() => {
     hasScrolledToHighlight.current = false;
   }, [highlightTraceId]);
+
+  // rAF-throttled scroll handler. Without this, every scroll pixel triggers
+  // a setState -> re-render of the entire component (legend, minimap, etc).
+  const scrollRafRef = useRef(0);
+  const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
+    const target = e.currentTarget;
+    if (scrollRafRef.current) return;
+    scrollRafRef.current = requestAnimationFrame(() => {
+      scrollRafRef.current = 0;
+      const scrollTop = target.scrollTop;
+      const scrollHeight = target.scrollHeight;
+      const clientHeight = target.clientHeight;
+      setScrollInfo({
+        scrollTop,
+        scrollHeight,
+        clientHeight,
+        canScrollUp: scrollTop > 0,
+        canScrollDown: scrollTop + clientHeight < scrollHeight - 5,
+      });
+    });
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (scrollRafRef.current) {
+        cancelAnimationFrame(scrollRafRef.current);
+        scrollRafRef.current = 0;
+      }
+    };
+  }, []);
 
   if (isLoading) {
     return (
@@ -879,30 +994,13 @@ export function FlameChart({
 
       {/* Main Content Area with Canvas and Minimap */}
       <Box className={classes.mainContent}>
-        {/* Canvas - no manual click handler, using library's select event */}
         <Box
           ref={containerRef}
           className={classes.canvasContainer}
           style={{ maxHeight: contentHeight }}
-          onScroll={(e) => {
-            const target = e.currentTarget;
-            const scrollTop = target.scrollTop;
-            const scrollHeight = target.scrollHeight;
-            const clientHeight = target.clientHeight;
-            const canScrollUp = scrollTop > 0;
-            const canScrollDown = scrollTop + clientHeight < scrollHeight - 5; // 5px threshold
-            
-            setScrollInfo({
-              scrollTop,
-              scrollHeight,
-              clientHeight,
-              canScrollUp,
-              canScrollDown,
-            });
-          }}
+          onScroll={handleScroll}
         >
           <canvas
-            key={Array.from(activeFilters).sort().join(',')}
             ref={canvasRef}
             className={classes.flameChartCanvas}
             style={{ cursor: "pointer" }}
@@ -913,10 +1011,11 @@ export function FlameChart({
         {totalDepth > 5 && (
           <Box className={classes.minimap}>
             <Box className={classes.minimapHeader}>
-              <Text size="xs" c="dimmed">Depth</Text>
+              <Text size="xs" c="dimmed">
+                Depth
+              </Text>
             </Box>
             <Box className={classes.minimapTrack}>
-              {/* Depth indicator bars */}
               {Array.from({ length: Math.min(totalDepth, 20) }).map((_, i) => (
                 <Box
                   key={i}
@@ -927,7 +1026,6 @@ export function FlameChart({
                   }}
                 />
               ))}
-              {/* Viewport indicator */}
               {scrollInfo.scrollHeight > scrollInfo.clientHeight && (
                 <Box
                   className={classes.minimapViewport}
@@ -939,7 +1037,9 @@ export function FlameChart({
               )}
             </Box>
             <Box className={classes.minimapFooter}>
-              <Text size="xs" c="dimmed">{totalDepth} levels</Text>
+              <Text size="xs" c="dimmed">
+                {totalDepth} levels
+              </Text>
             </Box>
           </Box>
         )}
@@ -964,23 +1064,26 @@ export function FlameChart({
               </Group>
             </Box>
           )}
-          {!scrollInfo.canScrollUp && !scrollInfo.canScrollDown && scrollInfo.scrollHeight > 0 && (
-            <Box className={classes.scrollIndicatorEnd}>
-              <Text size="xs">✓ All content visible</Text>
-            </Box>
-          )}
+          {!scrollInfo.canScrollUp &&
+            !scrollInfo.canScrollDown &&
+            scrollInfo.scrollHeight > 0 && (
+              <Box className={classes.scrollIndicatorEnd}>
+                <Text size="xs">✓ All content visible</Text>
+              </Box>
+            )}
         </Box>
       )}
 
-      {/* Legend - Click to filter, Shift+Click for exclusive selection, Double-click to reset */}
+      {/* Legend - Click to filter, Shift+Click for exclusive selection,
+          Double-click to reset */}
       <Box className={classes.legend}>
         <Tooltip label="Double-click any filter to reset all" position="top">
-          <Text 
-            size="xs" 
-            c="dimmed" 
+          <Text
+            size="xs"
+            c="dimmed"
             className={classes.legendLabel}
             onDoubleClick={resetFilters}
-            style={{ cursor: 'pointer' }}
+            style={{ cursor: "pointer" }}
           >
             Filter:
           </Text>
@@ -988,51 +1091,50 @@ export function FlameChart({
         {legendItems.map((item) => {
           const isActive = activeFilters.has(item.key);
           return (
-            <Tooltip 
-              key={item.key} 
+            <Tooltip
+              key={item.key}
               label={isActive ? "Click to hide" : "Click to show"}
               position="top"
             >
-              <Box 
+              <Box
                 className={`${classes.legendItem} ${isActive ? classes.legendItemActive : classes.legendItemInactive}`}
                 onClick={(e) => {
                   if (e.shiftKey) {
-                    // Shift+click for exclusive selection
                     selectOnlyFilter(item.key);
                   } else {
                     toggleFilter(item.key);
                   }
                 }}
                 onDoubleClick={resetFilters}
-                style={{ cursor: 'pointer' }}
+                style={{ cursor: "pointer" }}
               >
-            <Box
-              className={classes.legendColor}
-                  style={{ 
+                <Box
+                  className={classes.legendColor}
+                  style={{
                     backgroundColor: item.color,
                     opacity: isActive ? 1 : 0.3,
                   }}
                 />
-                <Text 
-                  size="xs" 
-                  style={{ 
+                <Text
+                  size="xs"
+                  style={{
                     opacity: isActive ? 1 : 0.5,
-                    textDecoration: isActive ? 'none' : 'line-through',
+                    textDecoration: isActive ? "none" : "line-through",
                   }}
                 >
                   {item.label}
                 </Text>
-          </Box>
+              </Box>
             </Tooltip>
           );
         })}
         {activeFilters.size < legendItems.length && (
-          <Text 
-            size="xs" 
-            c="teal" 
+          <Text
+            size="xs"
+            c="teal"
             className={classes.legendReset}
             onClick={resetFilters}
-            style={{ cursor: 'pointer', marginLeft: 8 }}
+            style={{ cursor: "pointer", marginLeft: 8 }}
           >
             Reset
           </Text>
