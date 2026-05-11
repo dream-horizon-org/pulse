@@ -2,13 +2,13 @@
 
 import { useEffect, useRef } from "react";
 import { useLocation } from "react-router-dom";
-import { PulseWeb } from "../../sdk";
+import { Pulse } from "../../sdk";
 import type { UseRouterTrackingOptions } from "../../types/react";
 
 export type { UseRouterTrackingOptions } from "../../types/react";
 
 /**
- * React Router v6 integration — calls {@link PulseWeb.setScreenName} on every
+ * React Router v6 integration — calls {@link Pulse.setScreenName} on every
  * route change so subsequent signals (clicks, errors, web vitals, network)
  * carry the new `screen.name`.
  *
@@ -68,7 +68,7 @@ export function useRouterTracking(
         })
       : dependency;
 
-    PulseWeb.setScreenName(name);
+    Pulse.setScreenName(name);
     // `format`/`skipInitial` are stable across renders in practice; we key
     // solely on the derived location string so route-shape changes drive
     // the effect, not identity changes to the options object.

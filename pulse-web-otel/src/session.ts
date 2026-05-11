@@ -1,6 +1,6 @@
 // M1: 3-tier identity storage (localStorage → sessionStorage → memory)
 // + 30-minute inactivity session rotation + BFCache guard.
-// See: web-sdk-plan/v1/01-foundation/identity.md
+// See: docs/instrumentations/sdk-core/SPEC.md (session lifecycle)
 
 import type {
   SessionChangeEvent,
@@ -8,6 +8,7 @@ import type {
   SessionStartReason,
 } from "./types/session";
 import { PulseWebLogger } from "./pulse-web-logger";
+import { DomEventType } from "./constants/pulse-otel-runtime";
 
 /** Storage access can throw (disabled, quota, sandbox). Never break the host app. */
 function swallowStorageError(scope: string, err: unknown): void {
@@ -27,21 +28,23 @@ const INSTALL_KEY = "pulse_installation_id";
 const SESSION_ID_KEY = "pulse_session_id";
 const SESSION_TS_KEY = "pulse_session_ts";
 const SESSION_START_KEY = "pulse_session_start";
+const USER_ID_KEY = "pulse_user_id";
+const USER_PROPS_KEY = "pulse_user_properties";
 
 // Clone detection key (PostHog beforeunload flag pattern)
 // Written to sessionStorage on init; removed on beforeunload so reload sees it gone.
 // If flag is present on init → tab was cloned (duplicated tab) → session reused.
 const SESSION_CLONE_FLAG_KEY = "pulse_session_clone_flag";
 
-/** Android parity: persisted logged-in user id (localStorage). */
-const USER_ID_KEY = "pulse_user_id";
-/** Android parity: JSON map of user properties → `pulse.user.*` attributes. */
-const USER_PROPS_KEY = "pulse_user_properties";
-
 // Tab session key — written to sessionStorage on init and NOT removed on beforeunload.
 // Survives page reload (sessionStorage persists across reload in the same tab).
 // Absent in a brand-new tab (Cmd+T) → session.start must fire.
 const SESSION_TAB_KEY = "pulse_tab_session";
+
+// Written to sessionStorage when the page is hidden (visibilitychange → hidden).
+// Survives Capacitor/WebView full-reload on background+resume so the constructor
+// can apply pageHiddenTimeoutMs even after the in-memory _hiddenAtMs is lost.
+const SESSION_HIDDEN_AT_KEY = "pulse_session_hidden_at";
 
 const DEFAULT_INACTIVITY_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
 const DEFAULT_MAX_SESSION_LIFETIME_MS = 4 * 60 * 60 * 1000; // 4 hours
@@ -139,6 +142,34 @@ export function persistUserProperties(props: Record<string, string>): void {
     }
   } catch (err: unknown) {
     swallowStorageError("userProps:localStorage", err);
+  }
+}
+
+/**
+ * Merge-patch persisted user properties.
+ * Null values remove the corresponding key; all other values are written.
+ */
+export function setPersistedUserProperties(
+  props: Record<string, string | null>,
+): void {
+  const current = getPersistedUserProperties();
+  for (const [k, v] of Object.entries(props)) {
+    if (v === null) {
+      delete current[k];
+    } else {
+      current[k] = v;
+    }
+  }
+  persistUserProperties(current);
+}
+
+/** Clear all persisted user identity (userId + properties). Call on logout. */
+export function clearPersistedUserIdentity(): void {
+  try {
+    localStorage.removeItem(USER_ID_KEY);
+    localStorage.removeItem(USER_PROPS_KEY);
+  } catch (err: unknown) {
+    swallowStorageError("clearUserIdentity", err);
   }
 }
 
@@ -284,12 +315,31 @@ export class SessionProvider {
         const inactivityOk = now - existingTs <= this.inactivityTimeoutMs;
         const lifetimeOk = age <= this.maxSessionLifetimeMs;
 
-        if (inactivityOk && lifetimeOk) {
-          // Reuse session only when: clone (duplicated tab) OR same-tab reload.
-          // A brand-new tab has neither flag → session.start must fire.
-          if (hasCloneFlag || hasTabSession) {
-            this._sessionReused = true;
-          }
+        // Check if page was hidden long enough to expire the session.
+        // The in-memory _hiddenAtMs is lost when Capacitor/WebView destroys the JS
+        // context on background, so we persist the timestamp to sessionStorage on
+        // visibilitychange=hidden and read it back here on cold-start.
+        const hiddenAt = this._readHiddenAt();
+        this._clearHiddenAt();
+        const pageHiddenOk =
+          hiddenAt === null || now - hiddenAt <= this.pageHiddenTimeoutMs;
+
+        if (inactivityOk && lifetimeOk && pageHiddenOk) {
+          // Reuse any unexpired session from localStorage, regardless of how this
+          // page load arrived (same-tab reload, new tab, or cross-origin redirect).
+          //
+          // Previously this was gated on `hasCloneFlag || hasTabSession` (sessionStorage
+          // flags), which correctly distinguished reloads from new tabs but broke payment
+          // flows: a payment gateway redirect clears sessionStorage, so returning users
+          // would get a duplicate session.start for the same session ID.
+          //
+          // Standard web analytics behaviour (PostHog, Sentry, Mixpanel) is: any page
+          // load within the inactivity window continues the existing session regardless
+          // of how the navigation arrived.  The sessionStorage flags are still written so
+          // clone detection works for other purposes.
+          this._sessionReused = true;
+          void hasCloneFlag; // read above, still useful for future clone-specific logic
+          void hasTabSession;
         }
         // If session expired (by inactivity or lifetime), rotation happens lazily in getSessionId()
       }
@@ -306,7 +356,10 @@ export class SessionProvider {
       this.beforeunloadListener = () => {
         this._removeCloneFlag();
       };
-      window.addEventListener("beforeunload", this.beforeunloadListener);
+      window.addEventListener(
+        DomEventType.BEFORE_UNLOAD,
+        this.beforeunloadListener,
+      );
 
       // Set up pagehide listener
       this.pagehideListener = (e: PageTransitionEvent) => {
@@ -328,10 +381,13 @@ export class SessionProvider {
       // Set up visibility change listener for page-hidden timeout
       this.visibilityChangeListener = () => {
         if (document.hidden) {
-          // Page is being hidden — record the timestamp
+          // Page is being hidden — record the timestamp both in memory and
+          // sessionStorage so Capacitor/WebView cold-start can read it back.
           this._hiddenAtMs = Date.now();
+          this._writeHiddenAt(this._hiddenAtMs);
         } else {
           // Page is becoming visible again — check if too much time passed
+          this._clearHiddenAt();
           if (this._hiddenAtMs !== null) {
             const hiddenDuration = Date.now() - this._hiddenAtMs;
             this._hiddenAtMs = null;
@@ -365,10 +421,10 @@ export class SessionProvider {
         }
       };
 
-      window.addEventListener("pagehide", this.pagehideListener);
-      window.addEventListener("pageshow", this.pageshowListener);
+      window.addEventListener(DomEventType.PAGEHIDE, this.pagehideListener);
+      window.addEventListener(DomEventType.PAGESHOW, this.pageshowListener);
       document.addEventListener(
-        "visibilitychange",
+        DomEventType.VISIBILITY_CHANGE,
         this.visibilityChangeListener,
       );
     }
@@ -475,6 +531,34 @@ export class SessionProvider {
       sessionStorage.setItem(SESSION_TAB_KEY, "1");
     } catch (err: unknown) {
       swallowStorageError("writeTabSession", err);
+    }
+  }
+
+  private _readHiddenAt(): number | null {
+    try {
+      const val = sessionStorage.getItem(SESSION_HIDDEN_AT_KEY);
+      if (val === null) return null;
+      const n = Number(val);
+      return isNaN(n) ? null : n;
+    } catch (err: unknown) {
+      swallowStorageError("readHiddenAt", err);
+      return null;
+    }
+  }
+
+  private _writeHiddenAt(ts: number): void {
+    try {
+      sessionStorage.setItem(SESSION_HIDDEN_AT_KEY, String(ts));
+    } catch (err: unknown) {
+      swallowStorageError("writeHiddenAt", err);
+    }
+  }
+
+  private _clearHiddenAt(): void {
+    try {
+      sessionStorage.removeItem(SESSION_HIDDEN_AT_KEY);
+    } catch (err: unknown) {
+      swallowStorageError("clearHiddenAt", err);
     }
   }
 
@@ -705,17 +789,26 @@ export class SessionProvider {
 
     if (typeof window !== "undefined") {
       if (this.pagehideListener) {
-        window.removeEventListener("pagehide", this.pagehideListener);
+        window.removeEventListener(
+          DomEventType.PAGEHIDE,
+          this.pagehideListener,
+        );
       }
       if (this.pageshowListener) {
-        window.removeEventListener("pageshow", this.pageshowListener);
+        window.removeEventListener(
+          DomEventType.PAGESHOW,
+          this.pageshowListener,
+        );
       }
       if (this.beforeunloadListener) {
-        window.removeEventListener("beforeunload", this.beforeunloadListener);
+        window.removeEventListener(
+          DomEventType.BEFORE_UNLOAD,
+          this.beforeunloadListener,
+        );
       }
       if (this.visibilityChangeListener) {
         document.removeEventListener(
-          "visibilitychange",
+          DomEventType.VISIBILITY_CHANGE,
           this.visibilityChangeListener,
         );
       }

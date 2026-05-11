@@ -40,6 +40,7 @@ import org.dreamhorizon.pulseserver.errorgrouping.model.Lane;
 import org.dreamhorizon.pulseserver.errorgrouping.model.ParsedFrames;
 import org.dreamhorizon.pulseserver.errorgrouping.model.StackTraceEvent;
 import org.dreamhorizon.pulseserver.errorgrouping.utils.ErrorGroupingUtils;
+import org.dreamhorizon.pulseserver.service.configs.models.Sdk;
 
 
 @Slf4j
@@ -263,7 +264,7 @@ public class ErrorGroupingService {
       Map<String, String> resourceAttrMap = attributesToMap(res.getAttributesList());
       String appVersion = getResourceAttribute(resourceAttrMap, "app.build_name").orElse(null);
       String appVersionCode = getResourceAttribute(resourceAttrMap, "app.build_id").orElse(null);
-      String platform = getResourceAttribute(resourceAttrMap, "os.name").orElse(null);
+      String platform = resolvePlatform(resourceAttrMap);
       String bundleId = getResourceAttribute(resourceAttrMap, "bundle_id").orElse(null);
       String projectId = getResourceAttribute(resourceAttrMap, "project.id").orElse(null);
 
@@ -273,8 +274,8 @@ public class ErrorGroupingService {
           // OPTIMIZATION: Convert log record attributes to map once per log
           Map<String, String> logAttrMap = attributesToMap(logRecord.getAttributesList());
 
-          String stackTrace = getResourceAttribute(logAttrMap, "exception.stacktrace").orElse(null);
 
+          String stackTrace = getResourceAttribute(logAttrMap, "exception.stacktrace").orElse(null);
 
           EventMeta eventMeta = EventMeta.builder()
               .appVersion(appVersion)
@@ -328,6 +329,37 @@ public class ErrorGroupingService {
     return Observable.fromIterable(events)              // List<Single<StackTraceEvent>>
         .flatMapMaybe(s -> s.toMaybe().onErrorComplete()) // skip any failing Single
         .toList();
+  }
+
+  /**
+   * Resolves dashboard platform once per OTLP resource (shared by all logs under that resource).
+   * Resolution order:
+   * <ol>
+   *   <li>Pulse SDK identity ({@code telemetry.sdk.name} or {@code rum.sdk.name}), parsed as
+   *       {@link Sdk}, mapped to {@code web} / {@code Android} / {@code iOS}. Unknown values fall
+   *       through.</li>
+   *   <li>{@code os.name} from resource.</li>
+   * </ol>
+   * The {@code platform} attribute on resource or log records is not used here.
+   */
+  private static String resolvePlatform(Map<String, String> resourceAttrs) {
+    String sdkName = resourceAttrs.get("telemetry.sdk.name");
+    if (sdkName == null || sdkName.isBlank()) {
+      sdkName = resourceAttrs.get("rum.sdk.name");
+    }
+    if (sdkName != null && !sdkName.isBlank()) {
+      try {
+        Sdk sdk = Sdk.valueOf(sdkName);
+        return switch (sdk) {
+          case pulse_web_js -> "web";
+          case pulse_android_java, pulse_android_rn -> "Android";
+          case pulse_ios_swift, pulse_ios_rn -> "iOS";
+        };
+      } catch (IllegalArgumentException ignored) {
+        // Not a known Pulse Sdk id — fall through to os.name
+      }
+    }
+    return resourceAttrs.get("os.name");
   }
 
   @SneakyThrows
