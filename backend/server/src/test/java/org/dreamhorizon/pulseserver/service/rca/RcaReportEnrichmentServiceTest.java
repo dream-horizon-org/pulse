@@ -28,6 +28,7 @@ import org.dreamhorizon.pulseserver.service.errorattribution.ErrorAttributionWit
 import org.dreamhorizon.pulseserver.service.rootcause.RootCauseService;
 import org.dreamhorizon.pulseserver.service.rootcause.ScreenRcaService;
 import org.dreamhorizon.pulseserver.service.rootcause.SessionEvidenceService;
+import org.dreamhorizon.pulseserver.service.sessionrca.SessionRcaService;
 import org.dreamhorizon.pulseserver.service.rootcause.models.EvidenceSession;
 import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseResult;
 import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseSegment;
@@ -60,6 +61,9 @@ class RcaReportEnrichmentServiceTest {
   @Mock
   private ErrorAttributionService errorAttributionService;
 
+  @Mock
+  private SessionRcaService sessionRcaService;
+
   private RcaReportEnrichmentService service;
 
   private ObjectMapper objectMapper;
@@ -74,7 +78,8 @@ class RcaReportEnrichmentServiceTest {
             screenRcaService,
             sessionEvidenceService,
             errorAttributionService,
-            RootCauseConfig.withDefaults(null));
+            RootCauseConfig.withDefaults(null),
+            sessionRcaService);
     when(errorAttributionService.getErrorAttributionWithOptionalDrillDown(
             any(), any(), any(), any(), any()))
         .thenReturn(Single.just(new ErrorAttributionWithDrillDown(List.of(), 2.0)));
