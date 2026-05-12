@@ -89,6 +89,7 @@ pipeline {
         stage('Wait for Instance Refresh') {
             steps {
                 sh '''
+                    #!/bin/bash
                     set -euo pipefail
                     ASG_NAME=pulse-server-asg
                     REGION=ap-south-1
