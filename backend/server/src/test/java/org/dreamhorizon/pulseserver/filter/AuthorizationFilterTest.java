@@ -569,5 +569,18 @@ class AuthorizationFilterTest {
       assertThat(captureAbortStatus()).isEqualTo(401);
       verify(openFgaService, never()).isSuperAdmin(anyString());
     }
+
+    @Test
+    void shouldSkipAuthorizationWhenInternalAuthPropertyIsSet() throws Exception {
+      setupAnnotatedMethod("superadmin");
+      setupPath("internal/v1/api-keys/sync-to-redis");
+      when(requestContext.getProperty(InternalServiceAuthFilter.PROP_INTERNAL_AUTHENTICATED)).thenReturn(true);
+
+      filter.filter(requestContext);
+
+      verify(requestContext, never()).abortWith(any(Response.class));
+      verify(openFgaService, never()).isSuperAdmin(anyString());
+      verify(openFgaService, never()).checkPermission(anyString(), anyString(), anyString(), anyString());
+    }
   }
 }

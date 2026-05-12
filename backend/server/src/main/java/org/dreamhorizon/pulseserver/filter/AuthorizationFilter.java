@@ -63,6 +63,11 @@ public class AuthorizationFilter implements ContainerRequestFilter {
       return;
     }
 
+    if (Boolean.TRUE.equals(requestContext.getProperty(InternalServiceAuthFilter.PROP_INTERNAL_AUTHENTICATED))) {
+      log.debug("Skipping authorization for internally-authenticated path: {}", path);
+      return;
+    }
+
     RequiresPermission permission = getRequiresPermission();
     if (permission == null) {
       log.debug("No @RequiresPermission annotation for path: {}, skipping authorization", path);

@@ -442,7 +442,8 @@ class AlertCronServiceTest {
               null,
               null,
               "localhost",
-              6379
+              6379,
+              null
       );
 
       assertEquals("dev", config.getAppEnvironment());
@@ -555,7 +556,8 @@ class AlertCronServiceTest {
               null,
               null,
               "localhost",
-              6379
+              6379,
+              null
       );
       String toString = config.toString();
 
@@ -576,7 +578,8 @@ class AlertCronServiceTest {
               null,
               null,
               "localhost",
-              6379
+              6379,
+              null
       );
       ApplicationConfig config2 = new ApplicationConfig(
           "dev", "http://cron.url", "http://service.url", 30, "client-id", true, "project-id", "secret",
@@ -589,7 +592,8 @@ class AlertCronServiceTest {
               null,
               null,
               "localhost",
-              6379
+              6379,
+              null
       );
       ApplicationConfig config3 = new ApplicationConfig(
           "dev", "http://different.url", "http://service.url", 30, "client-id", true, "project-id", "secret",
@@ -602,7 +606,8 @@ class AlertCronServiceTest {
               null,
               null,
               "localhost",
-              6379
+              6379,
+              null
       );
 
       assertEquals(config1, config2);

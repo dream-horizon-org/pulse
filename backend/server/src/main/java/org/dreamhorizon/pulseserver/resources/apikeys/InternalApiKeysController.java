@@ -59,6 +59,7 @@ public class InternalApiKeysController {
    */
   @POST
   @Path("/sync-to-redis")
+  @RequiresPermission(Constants.PERMISSION_SUPERADMIN)
   @Consumes(MediaType.WILDCARD)
   @Produces(MediaType.APPLICATION_JSON)
   public CompletionStage<Response<CronRedisSyncJobAcceptedRestResponse>> syncApiKeysToRedis() {

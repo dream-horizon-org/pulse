@@ -298,7 +298,8 @@ class ConfigClassesTest {
           null,
           null,
           "localhost",
-          6379);
+          6379,
+          null);
 
       assertThat(config.getAppEnvironment()).isEqualTo("dev");
       assertThat(config.getCronManagerBaseUrl()).isEqualTo("cron");

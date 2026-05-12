@@ -106,7 +106,8 @@ class ApplicationConfigTest {
         null,
         null,
         "localhost",
-        6379
+        6379,
+        null
     );
     assertNotNull(config);
     assertEquals("dev", config.getAppEnvironment());
