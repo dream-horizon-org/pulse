@@ -14,6 +14,7 @@ import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.UriInfo;
 import java.io.IOException;
 import org.dreamhorizon.pulseserver.context.ProjectContext;
+import org.dreamhorizon.pulseserver.filter.InternalServiceAuthFilter;
 import org.dreamhorizon.pulseserver.service.JwtService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -186,9 +187,10 @@ class TenantFilterTest {
     }
 
     @Test
-    void shouldSkipFilterForInternalPath() throws IOException {
+    void shouldSkipFilterForInternalPathWhenInternalAuthPropertySet() throws IOException {
       when(requestContext.getUriInfo()).thenReturn(uriInfo);
       when(uriInfo.getPath()).thenReturn("internal/health");
+      when(requestContext.getProperty(InternalServiceAuthFilter.PROP_INTERNAL_AUTHENTICATED)).thenReturn(true);
 
       tenantFilter.filter(requestContext);
 

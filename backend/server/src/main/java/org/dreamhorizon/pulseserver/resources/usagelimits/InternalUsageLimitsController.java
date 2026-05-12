@@ -101,6 +101,7 @@ public class InternalUsageLimitsController {
    */
   @POST
   @Path("/limits/sync-to-redis")
+  @RequiresPermission(Constants.PERMISSION_SUPERADMIN)
   @Consumes(MediaType.WILDCARD)
   @Produces(MediaType.APPLICATION_JSON)
   public CompletionStage<Response<CronRedisSyncJobAcceptedRestResponse>> syncUsageCreditsToRedis() {
@@ -116,6 +117,7 @@ public class InternalUsageLimitsController {
    */
   @POST
   @Path("/limits/process-usage-notifications")
+  @RequiresPermission(Constants.PERMISSION_SUPERADMIN)
   @Consumes(MediaType.WILDCARD)
   @Produces(MediaType.APPLICATION_JSON)
   public CompletionStage<Response<CronRedisSyncJobAcceptedRestResponse>> processUsageLimitNotifications() {

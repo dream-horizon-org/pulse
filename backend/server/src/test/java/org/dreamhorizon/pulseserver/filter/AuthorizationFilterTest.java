@@ -461,4 +461,60 @@ class AuthorizationFilterTest {
       assertThat(captureAbortStatus()).isEqualTo(401);
     }
   }
+  @Nested
+  class InternalApiAuthorization {
+
+    @Test
+    void shouldEnforceAuthorizationForInternalApiKeysPath() throws Exception {
+      setupAnnotatedMethod("superadmin");
+      setupPath("internal/v1/api-keys/valid");
+      setupValidAuth("user1");
+      when(openFgaService.isEnabled()).thenReturn(true);
+      when(openFgaService.isSuperAdmin("user1")).thenReturn(Single.just(true));
+
+      filter.filter(requestContext);
+
+      verify(requestContext, never()).abortWith(any(Response.class));
+      verify(openFgaService).isSuperAdmin("user1");
+    }
+
+    @Test
+    void shouldAbortInternalApiForNonSuperadminUser() throws Exception {
+      setupAnnotatedMethod("superadmin");
+      setupPath("internal/v1/tiers");
+      setupValidAuth("user1");
+      when(openFgaService.isEnabled()).thenReturn(true);
+      when(openFgaService.isSuperAdmin("user1")).thenReturn(Single.just(false));
+
+      filter.filter(requestContext);
+
+      assertThat(captureAbortStatus()).isEqualTo(403);
+      verify(openFgaService).isSuperAdmin("user1");
+    }
+
+    @Test
+    void shouldAbortInternalApiWhenAuthorizationMissing() throws Exception {
+      setupAnnotatedMethod("superadmin");
+      setupPath("internal/v1/projects/limits");
+      when(requestContext.getHeaderString(HttpHeaders.AUTHORIZATION)).thenReturn(null);
+
+      filter.filter(requestContext);
+
+      assertThat(captureAbortStatus()).isEqualTo(401);
+      verify(openFgaService, never()).isSuperAdmin(anyString());
+    }
+
+    @Test
+    void shouldSkipAuthorizationWhenInternalAuthPropertyIsSet() throws Exception {
+      setupAnnotatedMethod("superadmin");
+      setupPath("internal/v1/api-keys/sync-to-redis");
+      when(requestContext.getProperty(InternalServiceAuthFilter.PROP_INTERNAL_AUTHENTICATED)).thenReturn(true);
+
+      filter.filter(requestContext);
+
+      verify(requestContext, never()).abortWith(any(Response.class));
+      verify(openFgaService, never()).isSuperAdmin(anyString());
+      verify(openFgaService, never()).checkPermission(anyString(), anyString(), anyString(), anyString());
+    }
+  }
 }

@@ -14,6 +14,7 @@ import java.io.IOException;
 
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.context.ProjectContext;
+import org.dreamhorizon.pulseserver.filter.InternalServiceAuthFilter;
 import org.dreamhorizon.pulseserver.guice.GuiceInjector;
 import org.dreamhorizon.pulseserver.service.JwtService;
 
@@ -75,6 +76,11 @@ public class TenantFilter implements ContainerRequestFilter, ContainerResponseFi
     // Skip tenant/project resolution for excluded paths
     if (isExcludedPath(path)) {
       log.debug("Skipping tenant resolution for excluded path: {}", path);
+      return;
+    }
+
+    if (Boolean.TRUE.equals(requestContext.getProperty(InternalServiceAuthFilter.PROP_INTERNAL_AUTHENTICATED))) {
+      log.debug("Skipping tenant resolution for internally-authenticated path: {}", path);
       return;
     }
 
