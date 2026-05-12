@@ -19,13 +19,14 @@ import { API_BASE_URL, API_ROUTES, COOKIES_KEY } from "../constants";
 import { getCookies } from "../helpers/cookies";
 import { makeRequest } from "../helpers/makeRequest";
 import { ProjectDetailsResponse } from "../hooks/useGetProject";
+import { SYSTEM_ROLES } from "../constants";
 
 const ProjectContext = createContext<ProjectContextType | undefined>(undefined);
 
 /** Superadmin / internal_viewer: enter workspace directly; skip SDK customer onboarding. */
 function isInternalSystemRoleSession(): boolean {
   const role = getCookies(COOKIES_KEY.SYSTEM_ROLE);
-  return role === "superadmin" || role === "internal_viewer";
+  return role === SYSTEM_ROLES.SUPERADMIN || role === SYSTEM_ROLES.INTERNAL_VIEWER;
 }
 
 const STORAGE_KEY = "pulse_project_context";

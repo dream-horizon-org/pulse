@@ -200,12 +200,128 @@ CREATE TABLE interaction (
 );
 
 -- ============================================================================
--- DEV MODE: Sample Interactions for default-project
--- These interactions match the current production data for testing.
+-- default-project interactions:
+--   1) Web flows (interaction_id 1..5) — contract matches
+--      pulse-web-otel/examples/ecommerce-demo/public/interaction-config.mock.json
+--   2) BasicInteraction + FullShopping — legacy samples for other SDKs (auto ids 6, 7).
+-- Keep in sync with backend/db/dev/mysql/mysql-init.sql interaction block.
 -- ============================================================================
+INSERT INTO interaction (interaction_id, project_id, name, status, details, is_archived, created_by, updated_by)
+VALUES
+(1, 'default-project', 'Checkout Happy Path', 'RUNNING', JSON_OBJECT(
+    'description', 'Checkout Happy Path',
+    'thresholdInMs', 3000,
+    'uptimeLowerLimitInMs', 700,
+    'uptimeMidLimitInMs', 1400,
+    'uptimeUpperLimitInMs', 2500,
+    'events', JSON_ARRAY(
+        JSON_OBJECT('name', 'checkout_step_1', 'props', JSON_ARRAY(), 'isBlacklisted', false),
+        JSON_OBJECT('name', 'checkout_step_2', 'props', JSON_ARRAY(), 'isBlacklisted', false),
+        JSON_OBJECT('name', 'checkout_step_3', 'props', JSON_ARRAY(), 'isBlacklisted', false)
+    ),
+    'globalBlacklistedEvents', JSON_ARRAY(
+        JSON_OBJECT('name', 'ad_impression', 'props', JSON_ARRAY(), 'isBlacklisted', true)
+    )
+), 0, 'system', 'system'),
+
+(2, 'default-project', 'Cart Open To Checkout Click', 'RUNNING', JSON_OBJECT(
+    'description', 'Cart Open To Checkout Click',
+    'thresholdInMs', 2500,
+    'uptimeLowerLimitInMs', 500,
+    'uptimeMidLimitInMs', 1000,
+    'uptimeUpperLimitInMs', 1800,
+    'events', JSON_ARRAY(
+        JSON_OBJECT('name', 'cart_open', 'props', JSON_ARRAY(), 'isBlacklisted', false),
+        JSON_OBJECT(
+            'name', 'cart_checkout_click',
+            'props', JSON_ARRAY(
+                JSON_OBJECT('name', 'item_count', 'value', '0', 'operator', 'NOTEQUALS')
+            ),
+            'isBlacklisted', false
+        )
+    ),
+    'globalBlacklistedEvents', JSON_ARRAY(
+        JSON_OBJECT('name', 'device.crash', 'props', JSON_ARRAY(), 'isBlacklisted', true)
+    )
+), 0, 'system', 'system'),
+
+(3, 'default-project', 'Product List Quick Add', 'RUNNING', JSON_OBJECT(
+    'description', 'Product List Quick Add',
+    'thresholdInMs', 2000,
+    'uptimeLowerLimitInMs', 350,
+    'uptimeMidLimitInMs', 900,
+    'uptimeUpperLimitInMs', 1600,
+    'events', JSON_ARRAY(
+        JSON_OBJECT(
+            'name', 'product_item_visible',
+            'props', JSON_ARRAY(
+                JSON_OBJECT('name', 'source', 'value', 'product_list', 'operator', 'EQUALS')
+            ),
+            'isBlacklisted', false
+        ),
+        JSON_OBJECT(
+            'name', 'add_to_cart',
+            'props', JSON_ARRAY(
+                JSON_OBJECT('name', 'source', 'value', 'product_list', 'operator', 'EQUALS')
+            ),
+            'isBlacklisted', false
+        )
+    ),
+    'globalBlacklistedEvents', JSON_ARRAY(
+        JSON_OBJECT('name', 'error_demo_throw_uncaught', 'props', JSON_ARRAY(), 'isBlacklisted', true)
+    )
+), 0, 'system', 'system'),
+
+(4, 'default-project', 'Product Detail Add To Cart', 'RUNNING', JSON_OBJECT(
+    'description', 'Product Detail Add To Cart',
+    'thresholdInMs', 3500,
+    'uptimeLowerLimitInMs', 800,
+    'uptimeMidLimitInMs', 1500,
+    'uptimeUpperLimitInMs', 2800,
+    'events', JSON_ARRAY(
+        JSON_OBJECT(
+            'name', 'product_detail_open',
+            'props', JSON_ARRAY(
+                JSON_OBJECT('name', 'path', 'value', '/products/', 'operator', 'STARTSWITH')
+            ),
+            'isBlacklisted', false
+        ),
+        JSON_OBJECT(
+            'name', 'add_to_cart',
+            'props', JSON_ARRAY(
+                JSON_OBJECT('name', 'source', 'value', 'product_detail', 'operator', 'EQUALS')
+            ),
+            'isBlacklisted', false
+        )
+    ),
+    'globalBlacklistedEvents', JSON_ARRAY(
+        JSON_OBJECT('name', 'ad_impression', 'props', JSON_ARRAY(), 'isBlacklisted', true)
+    )
+), 0, 'system', 'system'),
+
+(5, 'default-project', 'Cart Remove Item Then Checkout', 'RUNNING', JSON_OBJECT(
+    'description', 'Cart Remove Item Then Checkout',
+    'thresholdInMs', 2600,
+    'uptimeLowerLimitInMs', 600,
+    'uptimeMidLimitInMs', 1200,
+    'uptimeUpperLimitInMs', 2100,
+    'events', JSON_ARRAY(
+        JSON_OBJECT('name', 'cart_remove_item', 'props', JSON_ARRAY(), 'isBlacklisted', false),
+        JSON_OBJECT(
+            'name', 'cart_checkout_click',
+            'props', JSON_ARRAY(
+                JSON_OBJECT('name', 'item_count', 'value', '0', 'operator', 'NOTEQUALS')
+            ),
+            'isBlacklisted', false
+        )
+    ),
+    'globalBlacklistedEvents', JSON_ARRAY(
+        JSON_OBJECT('name', 'device.crash', 'props', JSON_ARRAY(), 'isBlacklisted', true)
+    )
+), 0, 'system', 'system');
+
 INSERT INTO interaction (project_id, name, status, details, is_archived, created_by, updated_by)
 VALUES
--- BasicInteraction
 ('default-project', 'BasicInteraction', 'RUNNING', JSON_OBJECT(
     'description', 'NewInteraction',
     'uptimeLowerLimitInMs', 16,
@@ -219,7 +335,6 @@ VALUES
     'globalBlacklistedEvents', JSON_ARRAY()
 ), 0, 'system', 'system'),
 
--- FullShopping
 ('default-project', 'FullShopping', 'RUNNING', JSON_OBJECT(
     'description', 'FullShopping',
     'uptimeLowerLimitInMs', 16,
@@ -497,7 +612,8 @@ INSERT INTO scope_types (name, label) VALUES
     ('interaction', 'Interactions'),
     ('network_api', 'Network APIs'),
     ('screen', 'Screen'),
-    ('app_vitals', 'App Vitals');
+    ('app_vitals', 'App Vitals'),
+    ('funnel', 'Funnels');
 
 -- Insert interaction scope metrics
 INSERT INTO alert_metrics (name, label, scope) VALUES
@@ -570,6 +686,11 @@ INSERT INTO alert_metrics (name, label, scope) VALUES
     ('DURATION_P50', 'Duration P50 (ms)', 'network_api'),
     ('ERROR_RATE', 'Error Rate (%)', 'network_api'),
     ('NET_COUNT', 'Total Network Requests', 'network_api');
+
+-- Insert funnel scope metrics
+INSERT INTO alert_metrics (name, label, scope) VALUES
+    ('FUNNEL_DROP', 'Funnel Drop-off (%)', 'funnel'),
+    ('FUNNEL_CONVERSION', 'Funnel Conversion (%)', 'funnel');
 
 -- Grant privileges (adjust as needed for your environment)
 -- GRANT ALL PRIVILEGES ON pulse_db.* TO 'pulse_user'@'%' IDENTIFIED BY 'pulse_password';
@@ -765,8 +886,8 @@ INSERT INTO notification_templates (event_name, channel_type, version, body) VAL
 ('project_created', 'EMAIL', 1, JSON_OBJECT(
     'type', 'EMAIL',
     'subject', '[Pulse] Welcome - {{projectName}} is ready!',
-    'html', '<!DOCTYPE html><html><head><meta charset=\"UTF-8\"></head><body style=\"font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f5f5f5;\"><div style=\"background: #1a1a2e; padding: 30px; border-radius: 10px 10px 0 0; text-align: center;\"><h1 style=\"color: #00BFA5; margin: 0; font-size: 28px;\">Welcome to Pulse!</h1></div><div style=\"background: #ffffff; padding: 30px; border-radius: 0 0 10px 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);\"><p style=\"font-size: 16px;\">Hi <strong>{{createdBy}}</strong>,</p><p style=\"font-size: 16px;\">Great news! Your project <strong style=\"color: #00BFA5;\">{{projectName}}</strong> has been successfully created.</p><p style=\"font-size: 16px; margin-top: 25px;\"><strong>Your API Key</strong></p><p style=\"font-size: 14px; color: #666;\">Use this key to integrate the Pulse SDK into your application:</p><div style=\"background: #1a1a2e; color: #00BFA5; padding: 15px 20px; border-radius: 8px; font-family: \'Courier New\', monospace; font-size: 14px; word-break: break-all; margin: 15px 0; border-left: 4px solid #00BFA5;\">{{apiKey}}</div><p style=\"color: #888; font-size: 12px; margin-top: 5px;\">Keep this key secure. Do not share it publicly or commit it to version control.</p><div style=\"text-align: center; margin: 30px 0;\"><a href=\"https://pulse-ux.com\" style=\"display: inline-block; background: #00BFA5; color: #ffffff; padding: 14px 32px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px;\">Go to Dashboard</a></div><hr style=\"border: none; border-top: 1px solid #eee; margin: 25px 0;\"><p style=\"color: #888; font-size: 13px; text-align: center;\">Need help integrating? Check out our <a href=\"https://docs.pulse-ux.com\" style=\"color: #00BFA5; text-decoration: none;\">SDK documentation</a>.</p><p style=\"color: #aaa; font-size: 12px; text-align: center; margin-top: 20px;\">-- The Pulse Team</p></div></body></html>',
-    'text', '[Pulse] Welcome - {{projectName}} is ready!\n\nHi {{createdBy}},\n\nGreat news! Your project {{projectName}} has been successfully created.\n\nYour API Key:\n{{apiKey}}\n\nUse this key to integrate the Pulse SDK into your application.\n\nKeep this key secure. Do not share it publicly or commit it to version control.\n\nGo to Dashboard: https://pulse-ux.com\n\nNeed help integrating? Visit https://docs.pulse-ux.com\n\n-- The Pulse Team'
+    'html', '<!DOCTYPE html><html><head><meta charset=\"UTF-8\"></head><body style=\"font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f5f5f5;\"><div style=\"background: #1a1a2e; padding: 30px; border-radius: 10px 10px 0 0; text-align: center;\"><h1 style=\"color: #00BFA5; margin: 0; font-size: 28px;\">Welcome to Pulse!</h1></div><div style=\"background: #ffffff; padding: 30px; border-radius: 0 0 10px 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);\"><p style=\"font-size: 16px;\">Hi <strong>{{createdBy}}</strong>,</p><p style=\"font-size: 16px;\">Great news! Your project <strong style=\"color: #00BFA5;\">{{projectName}}</strong> has been successfully created.</p><p style=\"font-size: 16px; margin-top: 25px;\"><strong>Your API Key</strong></p><p style=\"font-size: 14px; color: #666;\">Use this key to integrate the Pulse SDK into your application:</p><div style=\"background: #1a1a2e; color: #00BFA5; padding: 15px 20px; border-radius: 8px; font-family: \'Courier New\', monospace; font-size: 14px; word-break: break-all; margin: 15px 0; border-left: 4px solid #00BFA5;\">{{apiKey}}</div><p style=\"color: #888; font-size: 12px; margin-top: 5px;\">Keep this key secure. Do not share it publicly or commit it to version control.</p><div style=\"text-align: center; margin: 30px 0;\"><a href=\"{{dashboardUrl}}\" style=\"display: inline-block; background: #00BFA5; color: #ffffff; padding: 14px 32px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px;\">Go to Dashboard</a></div><hr style=\"border: none; border-top: 1px solid #eee; margin: 25px 0;\"><p style=\"color: #888; font-size: 13px; text-align: center;\">Need help integrating? Check out our <a href=\"https://docs.pulse-ux.com\" style=\"color: #00BFA5; text-decoration: none;\">SDK documentation</a>.</p><p style=\"color: #aaa; font-size: 12px; text-align: center; margin-top: 20px;\">-- The Pulse Team</p></div></body></html>',
+    'text', '[Pulse] Welcome - {{projectName}} is ready!\n\nHi {{createdBy}},\n\nGreat news! Your project {{projectName}} has been successfully created.\n\nYour API Key:\n{{apiKey}}\n\nUse this key to integrate the Pulse SDK into your application.\n\nKeep this key secure. Do not share it publicly or commit it to version control.\n\nGo to Dashboard: {{dashboardUrl}}\n\nNeed help integrating? Visit https://docs.pulse-ux.com\n\n-- The Pulse Team'
 ))
 ON DUPLICATE KEY UPDATE body = body;
 
@@ -775,8 +896,8 @@ INSERT INTO notification_templates (event_name, channel_type, version, body) VAL
 ('collaborator_added', 'EMAIL', 1, JSON_OBJECT(
     'type', 'EMAIL',
     'subject', '[Pulse] You''ve been added to {{projectName}}',
-    'html', '<!DOCTYPE html><html><head><meta charset=\"UTF-8\"></head><body style=\"font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f5f5f5;\"><div style=\"background: #1a1a2e; padding: 30px; border-radius: 10px 10px 0 0; text-align: center;\"><h1 style=\"color: #00BFA5; margin: 0; font-size: 28px;\">You have been added to a new project in Pulse!</h1></div><div style=\"background: #ffffff; padding: 30px; border-radius: 0 0 10px 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);\"><p style=\"font-size: 16px;\">Hi,</p><p style=\"font-size: 16px;\"><strong style=\"color: #00BFA5;\">{{addedBy}}</strong> has added you to <strong style=\"color: #00BFA5;\">{{projectName}}</strong> project with <strong>{{role}}</strong> access.</p><div style=\"text-align: center; margin: 30px 0;\"><a href=\"https://pulse-ux.com/projects/{{projectId}}\" style=\"display: inline-block; background: #00BFA5; color: #ffffff; padding: 14px 32px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px;\">Go to Dashboard</a></div><hr style=\"border: none; border-top: 1px solid #eee; margin: 25px 0;\"><p style=\"color: #888; font-size: 13px; text-align: center;\">Need help getting started? Check out our <a href=\"https://docs.pulse-ux.com\" style=\"color: #00BFA5; text-decoration: none;\">documentation</a>.</p><p style=\"color: #aaa; font-size: 12px; text-align: center; margin-top: 20px;\">-- The Pulse Team</p></div></body></html>',
-    'text', '[Pulse] You''ve been added to {{projectName}}\n\nHi,\n\n{{addedBy}} has added you to {{projectName}} project with {{role}} access.\n\nGo to Dashboard: https://pulse-ux.com/projects/{{projectId}}\n\nNeed help getting started? Visit https://docs.pulse-ux.com\n\n-- The Pulse Team'
+    'html', '<!DOCTYPE html><html><head><meta charset=\"UTF-8\"></head><body style=\"font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f5f5f5;\"><div style=\"background: #1a1a2e; padding: 30px; border-radius: 10px 10px 0 0; text-align: center;\"><h1 style=\"color: #00BFA5; margin: 0; font-size: 28px;\">You have been added to a new project in Pulse!</h1></div><div style=\"background: #ffffff; padding: 30px; border-radius: 0 0 10px 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);\"><p style=\"font-size: 16px;\">Hi,</p><p style=\"font-size: 16px;\"><strong style=\"color: #00BFA5;\">{{addedBy}}</strong> has added you to <strong style=\"color: #00BFA5;\">{{projectName}}</strong> project with <strong>{{role}}</strong> access.</p><div style=\"text-align: center; margin: 30px 0;\"><a href=\"{{dashboardUrl}}/projects/{{projectId}}\" style=\"display: inline-block; background: #00BFA5; color: #ffffff; padding: 14px 32px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px;\">Go to Dashboard</a></div><hr style=\"border: none; border-top: 1px solid #eee; margin: 25px 0;\"><p style=\"color: #888; font-size: 13px; text-align: center;\">Need help getting started? Check out our <a href=\"https://docs.pulse-ux.com\" style=\"color: #00BFA5; text-decoration: none;\">documentation</a>.</p><p style=\"color: #aaa; font-size: 12px; text-align: center; margin-top: 20px;\">-- The Pulse Team</p></div></body></html>',
+    'text', '[Pulse] You''ve been added to {{projectName}}\n\nHi,\n\n{{addedBy}} has added you to {{projectName}} project with {{role}} access.\n\nGo to Dashboard: {{dashboardUrl}}/projects/{{projectId}}\n\nNeed help getting started? Visit https://docs.pulse-ux.com\n\n-- The Pulse Team'
 ))
 ON DUPLICATE KEY UPDATE body = body;
 
@@ -795,8 +916,8 @@ INSERT INTO notification_templates (event_name, channel_type, version, body) VAL
 ('collaborator_role_updated', 'EMAIL', 1, JSON_OBJECT(
     'type', 'EMAIL',
     'subject', '[Pulse] Your role in {{projectName}} has been updated',
-    'html', '<!DOCTYPE html><html><head><meta charset=\"UTF-8\"></head><body style=\"font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f5f5f5;\"><div style=\"background: #1a1a2e; padding: 30px; border-radius: 10px 10px 0 0; text-align: center;\"><h1 style=\"color: #00BFA5; margin: 0; font-size: 28px;\">Your access for a project in Pulse has been updated.</h1></div><div style=\"background: #ffffff; padding: 30px; border-radius: 0 0 10px 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);\"><p style=\"font-size: 16px;\">Hi,</p><p style=\"font-size: 16px;\"><strong style=\"color: #00BFA5;\">{{updatedBy}}</strong> has updated your access to <strong style=\"color: #00BFA5;\">{{projectName}}</strong> project to <strong>{{newRole}}</strong>.</p><div style=\"text-align: center; margin: 30px 0;\"><a href=\"https://pulse-ux.com\" style=\"display: inline-block; background: #00BFA5; color: #ffffff; padding: 14px 32px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px;\">Go to Dashboard</a></div><hr style=\"border: none; border-top: 1px solid #eee; margin: 25px 0;\"><p style=\"color: #aaa; font-size: 12px; text-align: center; margin-top: 20px;\">-- The Pulse Team</p></div></body></html>',
-    'text', '[Pulse] Your role in {{projectName}} has been updated\n\nHi,\n\n{{updatedBy}} has updated your access to {{projectName}} project to {{newRole}}.\n\nGo to Dashboard: https://pulse-ux.com\n\n-- The Pulse Team'
+    'html', '<!DOCTYPE html><html><head><meta charset=\"UTF-8\"></head><body style=\"font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f5f5f5;\"><div style=\"background: #1a1a2e; padding: 30px; border-radius: 10px 10px 0 0; text-align: center;\"><h1 style=\"color: #00BFA5; margin: 0; font-size: 28px;\">Your access for a project in Pulse has been updated.</h1></div><div style=\"background: #ffffff; padding: 30px; border-radius: 0 0 10px 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);\"><p style=\"font-size: 16px;\">Hi,</p><p style=\"font-size: 16px;\"><strong style=\"color: #00BFA5;\">{{updatedBy}}</strong> has updated your access to <strong style=\"color: #00BFA5;\">{{projectName}}</strong> project to <strong>{{newRole}}</strong>.</p><div style=\"text-align: center; margin: 30px 0;\"><a href=\"{{dashboardUrl}}\" style=\"display: inline-block; background: #00BFA5; color: #ffffff; padding: 14px 32px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px;\">Go to Dashboard</a></div><hr style=\"border: none; border-top: 1px solid #eee; margin: 25px 0;\"><p style=\"color: #aaa; font-size: 12px; text-align: center; margin-top: 20px;\">-- The Pulse Team</p></div></body></html>',
+    'text', '[Pulse] Your role in {{projectName}} has been updated\n\nHi,\n\n{{updatedBy}} has updated your access to {{projectName}} project to {{newRole}}.\n\nGo to Dashboard: {{dashboardUrl}}\n\n-- The Pulse Team'
 ))
 ON DUPLICATE KEY UPDATE body = body;
 
@@ -1036,6 +1157,99 @@ CREATE TABLE cron_jobs_history (
   KEY idx_job_type_status_started (job_type, status, started_at)
 );
 
+-- ============================================================================
+-- funnel / journey (align with V11__redesign_funnel_journey_spark_jobs.sql;
+-- no FOREIGN KEY on project_id — local init allows rows before projects exists)
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS funnel (
+    id                BIGINT AUTO_INCREMENT PRIMARY KEY,
+    project_id        VARCHAR(64)  NOT NULL,
+    name              VARCHAR(255) NOT NULL,
+    description       TEXT         NULL,
+    funnel_type       VARCHAR(32)  NOT NULL DEFAULT 'AUTO'     COMMENT 'AUTO | ONCE',
+    step_order_type   VARCHAR(32)  NOT NULL DEFAULT 'ORDERED'  COMMENT 'ORDERED | UNORDERED',
+    steps_json        JSON         NOT NULL                    COMMENT 'Array of { eventName, stepFilters? }',
+    window_seconds    BIGINT       NOT NULL DEFAULT 86400,
+    mode              VARCHAR(32)  NOT NULL DEFAULT 'UNIQUE_USERS' COMMENT 'UNIQUE_USERS | SESSIONS',
+    filters_json      JSON         NULL,
+    date_range        INT          NULL DEFAULT 7          COMMENT 'Lookback days for bulk Spark run',
+    start_time        TIMESTAMP    NULL                        COMMENT 'On-demand: analysis window start',
+    end_time          TIMESTAMP    NULL                        COMMENT 'On-demand: analysis window end',
+    expiry            TIMESTAMP    NULL                        COMMENT 'AUTO funnels skip after this date',
+    created_at        TIMESTAMP    NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at        TIMESTAMP    NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    created_by        VARCHAR(255) NULL,
+
+    INDEX idx_funnel_project (project_id),
+    INDEX idx_funnel_updated (updated_at),
+    INDEX idx_funnel_project_updated (project_id, updated_at),
+    FULLTEXT INDEX idx_funnel_name_fts (name)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+COMMENT='Saved funnel definitions for Spark computation and dashboard';
+
+CREATE TABLE IF NOT EXISTS journey (
+    id                BIGINT AUTO_INCREMENT PRIMARY KEY,
+    project_id        VARCHAR(64)  NOT NULL,
+    name              VARCHAR(255) NOT NULL,
+    description       TEXT         NULL,
+    anchor_event      VARCHAR(255) NOT NULL                    COMMENT 'Anchor event for path traversal',
+    direction         VARCHAR(32)  NOT NULL                    COMMENT 'START | END',
+    depth             INT          NOT NULL DEFAULT 5          COMMENT 'Number of event levels from anchor',
+    mode              VARCHAR(32)  NOT NULL DEFAULT 'UNIQUE_USERS' COMMENT 'UNIQUE_USERS | SESSIONS',
+    filters_json      JSON         NULL,
+    start_time        TIMESTAMP    NULL,
+    end_time          TIMESTAMP    NULL,
+    journey_type      VARCHAR(32)  NOT NULL DEFAULT 'AUTO'     COMMENT 'AUTO | ONCE',
+    expiry            TIMESTAMP    NULL,
+    date_range        INT          NOT NULL DEFAULT 7,
+    created_at        TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at        TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    created_by        VARCHAR(255) NULL,
+
+    INDEX idx_journey_project (project_id),
+    INDEX idx_journey_updated (updated_at),
+    INDEX idx_journey_project_updated (project_id, updated_at),
+    INDEX idx_journey_anchor_event (anchor_event),
+    INDEX idx_journey_direction (direction),
+    FULLTEXT INDEX idx_journey_name_fts (name)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+COMMENT='Saved journey definitions for event path exploration and dashboard';
+
+-- funnel_journey_tag (align with V12__create_funnel_journey_tag.sql; no FK on project_id)
+CREATE TABLE IF NOT EXISTS funnel_journey_tag (
+    id            BIGINT AUTO_INCREMENT PRIMARY KEY,
+    project_id    VARCHAR(64)  NOT NULL,
+    entity_type   VARCHAR(16)  NOT NULL COMMENT 'FUNNEL | JOURNEY',
+    entity_id     BIGINT       NOT NULL COMMENT 'funnel.id or journey.id',
+    tag           VARCHAR(128) NOT NULL,
+    created_at    TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    UNIQUE KEY uk_funnel_journey_tag (project_id, entity_type, entity_id, tag),
+    KEY idx_funnel_journey_tag_entity (project_id, entity_type, entity_id),
+    KEY idx_funnel_journey_tag_tag (project_id, tag)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+COMMENT='Tag mappings for saved funnels and journeys';
+
+-- ============================================================================
+-- analytics_jobs
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS analytics_jobs (
+    id             BIGINT AUTO_INCREMENT PRIMARY KEY,
+    job_type       VARCHAR(32)  NOT NULL COMMENT 'FUNNELS_DAILY | JOURNEYS_DAILY | EVENTS_INCREMENTAL | FUNNEL | JOURNEY',
+    reference_id   BIGINT       NULL     COMMENT 'FUNNEL/JOURNEY on-save: funnel.id or journey.id; NULL for FUNNELS_DAILY, JOURNEYS_DAILY, EVENTS_INCREMENTAL',
+    job_id         VARCHAR(255) NULL     COMMENT 'EMR/Glue job run id',
+    status         VARCHAR(32)  NOT NULL DEFAULT 'PENDING' COMMENT 'PENDING | RUNNING | SUCCEEDED | FAILED',
+    error_message  TEXT         NULL,
+    started_at     TIMESTAMP    NULL,
+    completed_at   TIMESTAMP    NULL,
+    created_at     TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    INDEX idx_analysis_job_entity (job_type, reference_id),
+    INDEX idx_analysis_job_status (status),
+    INDEX idx_analysis_job_created (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+COMMENT='Analytics job status (EMR Spark, ClickHouse compute, etc.)';
+
 -- Display summary
 SELECT 'Database initialization completed successfully (with new RBAC tables)!' AS status;
 SELECT COUNT(*) AS total_tables FROM information_schema.tables WHERE table_schema = 'pulse_db';
@@ -1053,7 +1267,8 @@ INSERT INTO notification_templates (event_name, channel_type, version, body) VAL
             JSON_OBJECT('type', 'mrkdwn', 'text', '*Status:*\n{{status}}'),
             JSON_OBJECT('type', 'mrkdwn', 'text', '*Org:*\n{{orgIdentifier}}'),
             JSON_OBJECT('type', 'mrkdwn', 'text', '*Reporter:*\n{{reporterName}}'),
-            JSON_OBJECT('type', 'mrkdwn', 'text', '*Email:*\n{{reporterEmail}}')
+            JSON_OBJECT('type', 'mrkdwn', 'text', '*Email:*\n{{reporterEmail}}'),
+            JSON_OBJECT('type', 'mrkdwn', 'text', '*On-Call:*\n{{onCall}}')
         )),
         JSON_OBJECT('type', 'section', 'text', JSON_OBJECT('type', 'mrkdwn', 'text', '*Description:*\n{{description}}')),
         JSON_OBJECT('type', 'divider'),
@@ -1077,7 +1292,8 @@ INSERT INTO notification_templates (event_name, channel_type, version, body) VAL
             JSON_OBJECT('type', 'mrkdwn', 'text', '*Status:*\nACKNOWLEDGED'),
             JSON_OBJECT('type', 'mrkdwn', 'text', '*Org:*\n{{orgIdentifier}}'),
             JSON_OBJECT('type', 'mrkdwn', 'text', '*Acknowledged by:*\n{{actionBy}}'),
-            JSON_OBJECT('type', 'mrkdwn', 'text', '*Reporter:*\n{{reporterName}}')
+            JSON_OBJECT('type', 'mrkdwn', 'text', '*Reporter:*\n{{reporterName}}'),
+            JSON_OBJECT('type', 'mrkdwn', 'text', '*On-Call:*\n{{onCall}}')
         )),
         JSON_OBJECT('type', 'section', 'text', JSON_OBJECT('type', 'mrkdwn', 'text', '*Description:*\n{{description}}')),
         JSON_OBJECT('type', 'divider'),
@@ -1101,7 +1317,8 @@ INSERT INTO notification_templates (event_name, channel_type, version, body) VAL
             JSON_OBJECT('type', 'mrkdwn', 'text', '*Status:*\nRECOVERED'),
             JSON_OBJECT('type', 'mrkdwn', 'text', '*Org:*\n{{orgIdentifier}}'),
             JSON_OBJECT('type', 'mrkdwn', 'text', '*Recovered by:*\n{{actionBy}}'),
-            JSON_OBJECT('type', 'mrkdwn', 'text', '*Reporter:*\n{{reporterName}}')
+            JSON_OBJECT('type', 'mrkdwn', 'text', '*Reporter:*\n{{reporterName}}'),
+            JSON_OBJECT('type', 'mrkdwn', 'text', '*On-Call:*\n{{onCall}}')
         )),
         JSON_OBJECT('type', 'section', 'text', JSON_OBJECT('type', 'mrkdwn', 'text', '*Description:*\n{{description}}')),
         JSON_OBJECT('type', 'divider'),
@@ -1125,7 +1342,8 @@ INSERT INTO notification_templates (event_name, channel_type, version, body) VAL
             JSON_OBJECT('type', 'mrkdwn', 'text', '*Status:*\nCLOSED'),
             JSON_OBJECT('type', 'mrkdwn', 'text', '*Org:*\n{{orgIdentifier}}'),
             JSON_OBJECT('type', 'mrkdwn', 'text', '*Closed by:*\n{{actionBy}}'),
-            JSON_OBJECT('type', 'mrkdwn', 'text', '*Reporter:*\n{{reporterName}}')
+            JSON_OBJECT('type', 'mrkdwn', 'text', '*Reporter:*\n{{reporterName}}'),
+            JSON_OBJECT('type', 'mrkdwn', 'text', '*On-Call:*\n{{onCall}}')
         )),
         JSON_OBJECT('type', 'section', 'text', JSON_OBJECT('type', 'mrkdwn', 'text', 'This incident has been resolved and closed. No further action required.'))
     )

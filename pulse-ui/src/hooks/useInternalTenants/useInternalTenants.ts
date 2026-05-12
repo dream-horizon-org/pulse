@@ -1,20 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { makeRequest } from "../../helpers/makeRequest";
 import { API_BASE_URL, API_ROUTES } from "../../constants";
-import { InternalTenant } from "./useInternalTenants.interface";
+import { InternalTenant, TenantListRestEnvelope } from "./useInternalTenants.interface";
 import { TENANT_ROLES, TenantRole } from "../../constants/Roles";
-
-type TenantListRestRow = {
-  tenantId: string;
-  name: string;
-  tier?: string;
-  tenantRole?: string;
-};
-
-type TenantListRestEnvelope = {
-  tenants: TenantListRestRow[];
-  totalCount?: number;
-};
 
 export const useInternalTenants = () =>
   useQuery<InternalTenant[]>({

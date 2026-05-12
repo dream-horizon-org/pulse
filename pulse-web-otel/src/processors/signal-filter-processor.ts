@@ -7,7 +7,7 @@ import type {
   AttributeValue,
 } from "@opentelemetry/api";
 import type { SpanProcessor, ReadableSpan } from "@opentelemetry/sdk-trace-web";
-import type { LogRecord, LogRecordProcessor } from "@opentelemetry/sdk-logs";
+import type { LogRecordProcessor, SdkLogRecord } from "@opentelemetry/sdk-logs";
 import type {
   PulseSdkName,
   PulseSignalConfig,
@@ -119,7 +119,7 @@ export class SignalFilterProcessor
     // Trace drops run in onStart while the Span is still mutable (after global attrs).
   }
 
-  onEmit(logRecord: LogRecord): void {
+  onEmit(logRecord: SdkLogRecord): void {
     const logName = logRecordBodyAsString(logRecord.body);
     const logAttrs = logRecord.attributes as unknown as Attributes;
 

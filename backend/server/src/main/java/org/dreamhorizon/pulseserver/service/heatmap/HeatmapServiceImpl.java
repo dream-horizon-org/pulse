@@ -147,6 +147,7 @@ public class HeatmapServiceImpl implements HeatmapService {
             .timeoutMs(TIMEOUT_MS)
             .tenantId(projectId)
             .projectId(projectId)
+            .useQueryConditionCache(true)
             .build();
 
     Single<List<HeatmapClickHouseRowDto>> heatmapSingle =
@@ -185,6 +186,7 @@ public class HeatmapServiceImpl implements HeatmapService {
                           .timeoutMs(TIMEOUT_MS)
                           .tenantId(projectId)
                           .projectId(projectId)
+                          .useQueryConditionCache(true)
                           .build();
                   return clickhouseQueryService
                       .executeQueryOrCreateJob(

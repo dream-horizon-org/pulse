@@ -140,7 +140,7 @@ internal object ScreenshotCapture {
         val width = layout.widthPx.densityValue(displayMetrics.density)
         val height = layout.heightPx.densityValue(displayMetrics.density)
 
-        val bitmap = createBitmap(layout.widthPx, layout.heightPx, Bitmap.Config.ARGB_8888)
+        val bitmap = createBitmap(layout.widthPx, layout.heightPx, Bitmap.Config.RGB_565)
         val latch = CountDownLatch(1)
         var isSuccess = true
 
@@ -305,7 +305,7 @@ internal object ScreenshotCapture {
         val scale = screenshotScale.coerceIn(0.01f, 1f)
         val quality = screenshotQuality.coerceIn(0, 100)
 
-        val bitmap = createBitmap(layout.widthPx, layout.heightPx, Bitmap.Config.ARGB_8888)
+        val bitmap = createBitmap(layout.widthPx, layout.heightPx, Bitmap.Config.RGB_565)
         return suspendCancellableCoroutine { cont ->
             cont.invokeOnCancellation { if (bitmap.isValid()) bitmap.recycle() }
             try {

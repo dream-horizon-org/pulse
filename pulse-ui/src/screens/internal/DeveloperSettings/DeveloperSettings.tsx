@@ -2,37 +2,27 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Box,
-  Table,
-  Button,
-  Text,
   Badge,
-  TextInput,
-  ActionIcon,
   Tabs,
-  Tooltip,
 } from "@mantine/core";
+import { notifications } from "@mantine/notifications";
 import {
-  IconTrash,
-  IconPlus,
-  IconSearch,
   IconShieldLock,
   IconEye,
 } from "@tabler/icons-react";
 import {
   useInternalRoles,
-  useAssignRole,
   useRevokeRole,
   type InternalRoleMember,
 } from "../../../hooks/useInternalRoles";
-import { getCookies, removeCookie } from "../../../helpers/cookies";
-import { COOKIES_KEY, ROUTES } from "../../../constants";
+import { removeCookie } from "../../../helpers/cookies";
+import { COOKIES_KEY, ROUTES, SYSTEM_ROLES } from "../../../constants";
 import { PageHeader } from "../../../components/PageHeader";
-import { ErrorAndEmptyState } from "../../../components/ErrorAndEmptyState";
-import { TableSkeleton } from "../../../components/Skeletons";
 import { ConfirmationModal } from "../../../components/ConfirmationModal";
+import { RoleTable } from "./components/RoleTable";
 import classes from "./DeveloperSettings.module.css";
 
-type RoleType = "superadmin" | "internal_viewer";
+type RoleType = typeof SYSTEM_ROLES[keyof typeof SYSTEM_ROLES];
 
 interface PendingRevoke {
   userId: string;
@@ -44,16 +34,13 @@ interface PendingRevoke {
 
 export function DeveloperSettings() {
   const navigate = useNavigate();
-  const systemRole = getCookies(COOKIES_KEY.SYSTEM_ROLE);
 
   const { data: roles, isLoading, isError, error } = useInternalRoles();
-  const assignMutation = useAssignRole();
   const revokeMutation = useRevokeRole({
     onLostSuperadminAccess: () =>
       navigate(ROUTES.INTERNAL_TENANT_SELECTOR.path, { replace: true }),
   });
 
-  const [assignInput, setAssignInput] = useState("");
   const [activeTab, setActiveTab] = useState<"superadmins" | "viewers">(
     "superadmins",
   );
@@ -62,25 +49,12 @@ export function DeveloperSettings() {
   );
 
   useEffect(() => {
-    if (systemRole !== "superadmin")
-      navigate(ROUTES.INTERNAL_TENANT_SELECTOR.path, { replace: true });
-  }, [systemRole, navigate]);
-
-  useEffect(() => {
     if (!isError || !error) return;
     const status = (error as Error & { status?: number }).status;
     if (status !== 403) return;
     removeCookie(COOKIES_KEY.SYSTEM_ROLE);
     navigate(ROUTES.INTERNAL_TENANT_SELECTOR.path, { replace: true });
   }, [isError, error, navigate]);
-
-  const handleAssign = (role: RoleType) => {
-    if (!assignInput.trim()) return;
-    assignMutation.mutate(
-      { identifier: assignInput.trim(), role },
-      { onSuccess: () => setAssignInput("") },
-    );
-  };
 
   const handleRevoke = (
     member: InternalRoleMember,
@@ -99,131 +73,17 @@ export function DeveloperSettings() {
     if (!pendingRevoke) return;
     revokeMutation.mutate(
       { userId: pendingRevoke.userId, role: pendingRevoke.role },
-      { onSettled: () => setPendingRevoke(null) },
-    );
-  };
-
-  const renderRoleTable = (
-    members: InternalRoleMember[],
-    role: RoleType,
-    label: string,
-    badgeColor: string,
-  ) => {
-    if (isLoading) {
-      return (
-        <Box className={classes.tableWrapper}>
-          <TableSkeleton columns={3} rows={5} />
-        </Box>
-      );
-    }
-
-    const isForbidden =
-      isError && (error as Error & { status?: number }).status === 403;
-
-    if (isError && !isForbidden) {
-      return (
-        <Box className={classes.stateWrapper}>
-          <ErrorAndEmptyState
-            message="Failed to load roles"
-            description={
-              (error as Error).message || "Something went wrong. Please refresh."
-            }
-          />
-        </Box>
-      );
-    }
-
-    return (
-      <Box className={classes.roleSection}>
-        {/* Table */}
-        {members.length === 0 ? (
-          <Box className={classes.emptyState}>
-            <Text size="sm" c="dimmed">
-              No {label.toLowerCase()}s assigned yet.
-            </Text>
-          </Box>
-        ) : (
-          <Box className={classes.tableWrapper}>
-            <Table
-              striped
-              highlightOnHover
-              withTableBorder
-              className={classes.table}
-            >
-              <Table.Thead>
-                <Table.Tr>
-                  <Table.Th>Email</Table.Th>
-                  <Table.Th>User ID</Table.Th>
-                  <Table.Th style={{ width: 160 }}>Role</Table.Th>
-                  <Table.Th style={{ width: 60 }} />
-                </Table.Tr>
-              </Table.Thead>
-              <Table.Tbody>
-                {members.map((m) => (
-                  <Table.Tr key={m.userId}>
-                    <Table.Td>
-                      <Text size="sm">{m.email ?? "—"}</Text>
-                    </Table.Td>
-                    <Table.Td>
-                      <Text ff="monospace" size="xs" c="dimmed">
-                        {m.userId}
-                      </Text>
-                    </Table.Td>
-                    <Table.Td>
-                      <Badge variant="light" color={badgeColor} size="sm">
-                        {label}
-                      </Badge>
-                    </Table.Td>
-                    <Table.Td>
-                      <Tooltip label={`Remove ${label}`} withArrow>
-                        <ActionIcon
-                          color="red"
-                          variant="subtle"
-                          size="sm"
-                          onClick={() => handleRevoke(m, role, label)}
-                          loading={
-                            revokeMutation.isPending &&
-                            (
-                              revokeMutation.variables as
-                                | { userId: string }
-                                | undefined
-                            )?.userId === m.userId
-                          }
-                        >
-                          <IconTrash size={14} />
-                        </ActionIcon>
-                      </Tooltip>
-                    </Table.Td>
-                  </Table.Tr>
-                ))}
-              </Table.Tbody>
-            </Table>
-          </Box>
-        )}
-
-        {/* Add user row */}
-        <Box className={classes.addUserBar}>
-          <TextInput
-            placeholder={`Email or user id (e.g. user-…) to assign ${label}`}
-            leftSection={<IconSearch size={14} />}
-            value={assignInput}
-            onChange={(e) => setAssignInput(e.currentTarget.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleAssign(role)}
-            size="sm"
-            className={classes.addInput}
-          />
-          <Button
-            leftSection={<IconPlus size={14} />}
-            size="sm"
-            color="teal"
-            onClick={() => handleAssign(role)}
-            loading={assignMutation.isPending}
-            disabled={!assignInput.trim()}
-          >
-            Assign {label}
-          </Button>
-        </Box>
-      </Box>
+      {
+        onSettled: () => setPendingRevoke(null),
+        onError: (e) => {
+          notifications.show({
+            title: "Could not revoke access",
+            message:
+              e instanceof Error ? e.message : "Something went wrong. Try again.",
+            color: "red",
+          });
+        },
+      },
     );
   };
 
@@ -273,21 +133,33 @@ export function DeveloperSettings() {
           </Tabs.List>
 
           <Tabs.Panel value="superadmins" pt="md">
-            {renderRoleTable(
-              roles?.superadminMembers ?? [],
-              "superadmin",
-              "Superadmin",
-              "teal",
-            )}
+            <RoleTable
+              members={roles?.superadminMembers ?? []}
+              role={SYSTEM_ROLES.SUPERADMIN}
+              label="Superadmin"
+              badgeColor="teal"
+              isLoading={isLoading}
+              isError={isError}
+              error={error}
+              onRevoke={handleRevoke}
+              isRevokePending={revokeMutation.isPending}
+              revokingUserId={(revokeMutation.variables as { userId: string } | undefined)?.userId}
+            />
           </Tabs.Panel>
 
           <Tabs.Panel value="viewers" pt="md">
-            {renderRoleTable(
-              roles?.internalViewerMembers ?? [],
-              "internal_viewer",
-              "Internal Viewer",
-              "blue",
-            )}
+            <RoleTable
+              members={roles?.internalViewerMembers ?? []}
+              role={SYSTEM_ROLES.INTERNAL_VIEWER}
+              label="Internal Viewer"
+              badgeColor="blue"
+              isLoading={isLoading}
+              isError={isError}
+              error={error}
+              onRevoke={handleRevoke}
+              isRevokePending={revokeMutation.isPending}
+              revokingUserId={(revokeMutation.variables as { userId: string } | undefined)?.userId}
+            />
           </Tabs.Panel>
         </Tabs>
       </Box>

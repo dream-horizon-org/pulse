@@ -1,7 +1,7 @@
 import { LoginResponse } from "../login";
 import { OnboardingResponse } from "../onboarding";
 import { removeCookie, setCookies } from "../cookies";
-import { COOKIES_KEY } from "../../constants";
+import { COOKIES_KEY, LOGIN_RESPONSE_KEYS } from "../../constants";
 
 export type SetCookiesAfterAuthOptions = {
   // DEPRECATED: projectId and projectName now handled by React Context
@@ -51,7 +51,7 @@ export const setCookiesAfterAuthentication = (
     setCookies(COOKIES_KEY.TIER, loginResponse.tier);
   }
 
-  if ("systemRole" in loginResponse && loginResponse.systemRole) {
+  if (LOGIN_RESPONSE_KEYS.SYSTEM_ROLE in loginResponse && loginResponse.systemRole) {
     setCookies(COOKIES_KEY.SYSTEM_ROLE, loginResponse.systemRole);
   } else {
     removeCookie(COOKIES_KEY.SYSTEM_ROLE);

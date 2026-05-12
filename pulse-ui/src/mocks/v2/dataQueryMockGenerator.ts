@@ -2391,9 +2391,9 @@ export class DataQueryMockGeneratorV2 {
           }
         }
 
-        // Handle uniqCombined64(nullIf(UserId, '')) - total unique users (for crash metrics)
+        // Handle uniq(nullIf(UserId, '')) - total unique users (for crash metrics)
         if (
-          expression.includes(`uniqCombined64(nullIf(${COLUMN_NAME.INSTALLATION_ID}`) &&
+          expression.includes(`uniq(nullIf(${COLUMN_NAME.INSTALLATION_ID}`) &&
           !expression.includes("64If")
         ) {
           // Total unique users: 8000-12000
@@ -2406,9 +2406,9 @@ export class DataQueryMockGeneratorV2 {
           ).toString();
         }
 
-        // Handle uniqCombined64(nullIf(SessionId, '')) - total sessions (for crash metrics)
+        // Handle uniq(nullIf(SessionId, '')) - total sessions (for crash metrics)
         if (
-          expression.includes("uniqCombined64(nullIf(SessionId") &&
+          expression.includes("uniq(nullIf(SessionId") &&
           !expression.includes("64If")
         ) {
           // Total sessions: 25000-50000
@@ -2447,12 +2447,12 @@ export class DataQueryMockGeneratorV2 {
    * Get group values based on groupBy field
    */
   private getGroupValues(groupByField: string, filters?: any[]): string[] {
-    // Handle special field names like SpanAttributes['screen.name']
+    // Handle special field names like COLUMN_NAME.SCREEN_NAME
     let normalizedField = groupByField.toLowerCase();
 
     // Extract actual field name from SpanAttributes notation
     if (
-      normalizedField.includes(`spanattributes['${PulseType.SCREEN_NAME}']`)
+      normalizedField.includes(COLUMN_NAME.SCREEN_NAME)
     ) {
       normalizedField = "screen_name";
     }
@@ -2977,12 +2977,12 @@ export class DataQueryMockGeneratorV2 {
       );
       const graphqlNameFilter = filters?.find(
         (f) =>
-          f.field === "SpanAttributes['graphql.operation.name']" &&
+          f.field === COLUMN_NAME.GRAPHQL_OPERATION_NAME &&
           f.operator === "EQ",
       );
       const graphqlTypeFilter = filters?.find(
         (f) =>
-          f.field === "SpanAttributes['graphql.operation.type']" &&
+          f.field === COLUMN_NAME.GRAPHQL_OPERATION_TYPE &&
           f.operator === "EQ",
       );
 
@@ -3047,7 +3047,7 @@ export class DataQueryMockGeneratorV2 {
     if (!isDetailQuery) {
       const screenNameFilter = filters?.find(
         (f) =>
-          f.field === `SpanAttributes['${PulseType.SCREEN_NAME}']` &&
+          f.field === COLUMN_NAME.SCREEN_NAME &&
           f.operator === "EQ",
       );
       if (screenNameFilter) {
@@ -3055,10 +3055,10 @@ export class DataQueryMockGeneratorV2 {
         // The screen name filter is handled by the backend in real queries
       }
       const graphqlNameFilter = filters?.find(
-        (f) => f.field === "SpanAttributes['graphql.operation.name']",
+        (f) => f.field === COLUMN_NAME.GRAPHQL_OPERATION_NAME,
       );
       const graphqlTypeFilter = filters?.find(
-        (f) => f.field === "SpanAttributes['graphql.operation.type']",
+        (f) => f.field === COLUMN_NAME.GRAPHQL_OPERATION_TYPE,
       );
       const searchName = graphqlNameFilter?.value
         ? Array.isArray(graphqlNameFilter.value)

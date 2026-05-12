@@ -13,18 +13,23 @@ import {
   IconArrowRight,
   IconBuildingSkyscraper,
   IconSettings,
+  IconPlus,
 } from "@tabler/icons-react";
 import { useInternalTenants } from "../../../hooks/useInternalTenants";
 import { InternalTenant } from "../../../hooks/useInternalTenants/useInternalTenants.interface";
+import type { TenantResponse } from "../../../hooks/useCreateTenant";
 import { getCookies, setCookies } from "../../../helpers/cookies";
-import { API_ROUTES, COOKIES_KEY, ROUTES } from "../../../constants";
+import { API_ROUTES, COOKIES_KEY, ROUTES, SYSTEM_ROLES } from "../../../constants";
 import { useTenantContext, useProjectContext } from "../../../contexts";
 import { TIERS } from "../../../constants/Tiers";
 import { TENANT_ROLES } from "../../../constants/Roles";
 import { PageHeader } from "../../../components/PageHeader";
 import { ErrorAndEmptyState } from "../../../components/ErrorAndEmptyState";
 import { TableSkeleton } from "../../../components/Skeletons";
+import { CreateTenantModal } from "./components";
 import classes from "./TenantSelector.module.css";
+
+const SHOW_CREATE_TENANT_ACTION = false;
 
 export function TenantSelector() {
   const navigate = useNavigate();
@@ -34,6 +39,7 @@ export function TenantSelector() {
   const { clearProject } = useProjectContext();
   const systemRole = getCookies(COOKIES_KEY.SYSTEM_ROLE);
   const [search, setSearch] = useState("");
+  const [isCreateTenantOpen, setIsCreateTenantOpen] = useState(false);
 
   useEffect(() => {
     if (!systemRole) navigate(ROUTES.LOGIN.basePath, { replace: true });
@@ -71,6 +77,16 @@ export function TenantSelector() {
     });
 
     navigate(`/${tenant.tenantId}/projects`);
+  };
+
+  const handleEnterWorkspace = (tenant: TenantResponse) => {
+    handleSelectTenant({
+      tenantId: tenant.tenantId,
+      tenantName: tenant.name,
+      userRole: TENANT_ROLES.ADMIN,
+      tier: TIERS.FREE,
+    });
+    setIsCreateTenantOpen(false);
   };
 
   const renderContent = () => {
@@ -172,18 +188,33 @@ export function TenantSelector() {
         count={tenants?.length}
         countLabel={tenants?.length === 1 ? "Tenant" : "Tenants"}
         actions={
-          systemRole === "superadmin" ? (
-            <Button
-              variant="light"
-              color="teal"
-              size="sm"
-              leftSection={<IconSettings size={14} />}
-              onClick={() =>
-                navigate(ROUTES.INTERNAL_DEVELOPER_SETTINGS.path)
-              }
-            >
-              Developer Settings
-            </Button>
+          systemRole === SYSTEM_ROLES.SUPERADMIN || systemRole === SYSTEM_ROLES.INTERNAL_VIEWER ? (
+            <Box style={{ display: "flex", gap: "8px" }}>
+              {SHOW_CREATE_TENANT_ACTION ? (
+                <Button
+                  variant="light"
+                  color="teal"
+                  size="sm"
+                  leftSection={<IconPlus size={14} />}
+                  onClick={() => setIsCreateTenantOpen(true)}
+                >
+                  Create Tenant
+                </Button>
+              ) : null}
+              {systemRole === SYSTEM_ROLES.SUPERADMIN ? (
+                <Button
+                  variant="light"
+                  color="teal"
+                  size="sm"
+                  leftSection={<IconSettings size={14} />}
+                  onClick={() =>
+                    navigate(ROUTES.INTERNAL_DEVELOPER_SETTINGS.path)
+                  }
+                >
+                  Developer Settings
+                </Button>
+              ) : null}
+            </Box>
           ) : undefined
         }
       />
@@ -204,6 +235,12 @@ export function TenantSelector() {
         {/* Table / states */}
         {renderContent()}
       </Box>
+
+      <CreateTenantModal
+        opened={isCreateTenantOpen}
+        onClose={() => setIsCreateTenantOpen(false)}
+        onEnterWorkspace={handleEnterWorkspace}
+      />
     </Box>
   );
 }

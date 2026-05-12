@@ -41,6 +41,12 @@ export interface OtlpLogRecord {
   attributes: OtlpAttr[];
 }
 
+/** OTLP span status — {@code code} matches {@link SpanStatusCode} numeric values (ERROR = 2). */
+export interface OtlpSpanStatus {
+  code?: number;
+  message?: string;
+}
+
 export interface OtlpSpan {
   traceId?: string;
   spanId?: string;
@@ -49,6 +55,13 @@ export interface OtlpSpan {
   startTimeUnixNano?: string;
   endTimeUnixNano?: string;
   attributes: OtlpAttr[];
+  status?: OtlpSpanStatus;
+}
+
+/** Numeric OTLP status code, or undefined if missing / malformed. */
+export function getOtlpSpanStatusCode(span: OtlpSpan): number | undefined {
+  const c = span.status?.code;
+  return typeof c === "number" && Number.isFinite(c) ? c : undefined;
 }
 
 export interface OtlpDataPoint {
@@ -108,9 +121,9 @@ export function findAllLogs(
   const out: OtlpLogRecord[] = [];
   for (const c of captured) {
     if (c.type !== "logs") continue;
-    for (const rl of c.body.resourceLogs) {
-      for (const sl of rl.scopeLogs) {
-        for (const lr of sl.logRecords) {
+    for (const rl of c.body.resourceLogs ?? []) {
+      for (const sl of rl.scopeLogs ?? []) {
+        for (const lr of sl.logRecords ?? []) {
           if (getAttr(lr.attributes, "pulse.type") === pulseType) out.push(lr);
         }
       }
@@ -127,10 +140,33 @@ export function findAllSpans(
   const out: OtlpSpan[] = [];
   for (const c of captured) {
     if (c.type !== "traces") continue;
-    for (const rs of c.body.resourceSpans) {
-      for (const ss of rs.scopeSpans) {
-        for (const sp of ss.spans) {
+    for (const rs of c.body.resourceSpans ?? []) {
+      for (const ss of rs.scopeSpans ?? []) {
+        for (const sp of ss.spans ?? []) {
           if (getAttr(sp.attributes, "pulse.type") === pulseType) out.push(sp);
+        }
+      }
+    }
+  }
+  return out;
+}
+
+/**
+ * HTTP client spans: {@code pulse.type} is {@code network.<statusCode>} (Android parity).
+ * Prefix-matches {@code network.} but excludes {@code network.change}.
+ */
+export function findAllNetworkSpans(captured: CapturedRequest[]): OtlpSpan[] {
+  const out: OtlpSpan[] = [];
+  for (const c of captured) {
+    if (c.type !== "traces") continue;
+    for (const rs of c.body.resourceSpans ?? []) {
+      for (const ss of rs.scopeSpans ?? []) {
+        for (const sp of ss.spans ?? []) {
+          const pt = getAttr(sp.attributes, "pulse.type");
+          const s = typeof pt === "string" ? pt : "";
+          if (s.startsWith("network.") && s !== "network.change") {
+            out.push(sp);
+          }
         }
       }
     }
@@ -146,9 +182,9 @@ export function findAllSpansByName(
   const out: OtlpSpan[] = [];
   for (const c of captured) {
     if (c.type !== "traces") continue;
-    for (const rs of c.body.resourceSpans) {
-      for (const ss of rs.scopeSpans) {
-        for (const sp of ss.spans) {
+    for (const rs of c.body.resourceSpans ?? []) {
+      for (const ss of rs.scopeSpans ?? []) {
+        for (const sp of ss.spans ?? []) {
           if (sp.name === spanName) out.push(sp);
         }
       }
@@ -165,9 +201,9 @@ export function findAllLogsByBody(
   const out: OtlpLogRecord[] = [];
   for (const c of captured) {
     if (c.type !== "logs") continue;
-    for (const rl of c.body.resourceLogs) {
-      for (const sl of rl.scopeLogs) {
-        for (const lr of sl.logRecords) {
+    for (const rl of c.body.resourceLogs ?? []) {
+      for (const sl of rl.scopeLogs ?? []) {
+        for (const lr of sl.logRecords ?? []) {
           if (lr.body?.stringValue === body) out.push(lr);
         }
       }
@@ -184,7 +220,7 @@ export function findAllMetricPoints(
   const out: OtlpDataPoint[] = [];
   for (const c of captured) {
     if (c.type !== "metrics") continue;
-    for (const rm of c.body.resourceMetrics) {
+    for (const rm of c.body.resourceMetrics ?? []) {
       for (const sm of rm.scopeMetrics) {
         for (const m of sm.metrics) {
           if (m.name === metricName) {
@@ -212,10 +248,10 @@ export function getResourceAttr(
   for (const c of captured) {
     const resourceList =
       c.type === "logs"
-        ? c.body.resourceLogs.map((r) => r.resource)
+        ? (c.body.resourceLogs ?? []).map((r) => r.resource)
         : c.type === "traces"
-          ? c.body.resourceSpans.map((r) => r.resource)
-          : c.body.resourceMetrics.map((r) => r.resource);
+          ? (c.body.resourceSpans ?? []).map((r) => r.resource)
+          : (c.body.resourceMetrics ?? []).map((r) => r.resource);
     for (const res of resourceList) {
       const val = getAttr(res?.attributes, key);
       if (val !== undefined) return String(val);
@@ -315,9 +351,48 @@ export async function attachOtlpCapture(
       });
     };
 
-  await target.route("**/v1/logs", intercept("logs"));
-  await target.route("**/v1/traces", intercept("traces"));
-  await target.route("**/v1/metrics", intercept("metrics"));
+  // Use `*` suffix so unload beacon/query-param fallback (e.g. `?apiKey=...`)
+  // is captured by the same OTLP interceptors.
+  await target.route("**/v1/logs*", intercept("logs"));
+  await target.route("**/v1/traces*", intercept("traces"));
+  await target.route("**/v1/metrics*", intercept("metrics"));
+}
+
+/**
+ * In unload flows the SDK may use `navigator.sendBeacon`, which is not reliably
+ * observable by Playwright route interception across engines. For E2E determinism,
+ * remap beacon calls to keepalive fetch so OTLP payloads still flow through
+ * the same OTLP route-capture path (`/v1/logs|traces|metrics`).
+ */
+export async function attachSendBeaconFetchShim(
+  target: Page | BrowserContext,
+): Promise<void> {
+  await target.addInitScript(() => {
+    const nav = navigator as Navigator & {
+      sendBeacon?: (url: string | URL, data?: BodyInit | null) => boolean;
+    };
+    const original =
+      typeof nav.sendBeacon === "function"
+        ? nav.sendBeacon.bind(nav)
+        : undefined;
+
+    Object.defineProperty(nav, "sendBeacon", {
+      configurable: true,
+      writable: true,
+      value: (url: string | URL, data?: BodyInit | null): boolean => {
+        try {
+          void fetch(String(url), {
+            method: "POST",
+            body: data ?? null,
+            keepalive: true,
+          });
+          return true;
+        } catch {
+          return original?.(url, data) ?? false;
+        }
+      },
+    });
+  });
 }
 
 /** Poll `captured` until a log with the given `pulse.type` appears. */
@@ -340,6 +415,8 @@ export type OtlpFixture = {
   captured: CapturedRequest[];
   /** Wait until a log with the given pulse.type arrives. Throws on timeout. */
   waitForLog(pulseType: string, timeoutMs?: number): Promise<OtlpLogRecord>;
+  /** Wait until an `app.click` widget-click log arrives (`pulse.type` + body `app.widget.click`). */
+  waitForClickLog(timeoutMs?: number): Promise<OtlpLogRecord>;
   /** Wait until a span with the given pulse.type arrives (SDK signal types). Throws on timeout. */
   waitForSpan(pulseType: string, timeoutMs?: number): Promise<OtlpSpan>;
   /** Wait until a span with the given span.name arrives (SDK-internal spans only). Throws on timeout. */
@@ -357,6 +434,7 @@ export type OtlpFixture = {
 export const test = base.extend<{ otlp: OtlpFixture }>({
   otlp: async ({ page }, use) => {
     const captured: CapturedRequest[] = [];
+    await attachSendBeaconFetchShim(page);
     await attachDefaultSdkConfigStub(page);
     await attachOtlpCapture(page, captured);
 
@@ -367,6 +445,15 @@ export const test = base.extend<{ otlp: OtlpFixture }>({
           () => findAllLogs(captured, t)[0],
           ms,
           `log(pulse.type="${t}")`,
+        ),
+      waitForClickLog: (ms = 8_000) =>
+        pollUntil(
+          () =>
+            findAllLogs(captured, "app.click").find(
+              (lr) => lr.body?.stringValue === "app.widget.click",
+            ),
+          ms,
+          `log(app.click / app.widget.click)`,
         ),
       waitForSpan: (t, ms = 8_000) =>
         pollUntil(

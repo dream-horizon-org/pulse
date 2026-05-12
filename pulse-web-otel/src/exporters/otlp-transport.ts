@@ -83,9 +83,10 @@ export function createPulseXhrTransport(parameters: {
             error: new Error("XHR request errored"),
           });
         };
-        const contentType =
-          parameters.headers["Content-Type"] ?? "application/json";
-        xhr.send(new Blob([data as BlobPart], { type: contentType }));
+        // Send as Uint8Array (Content-Type already set via setRequestHeader above).
+        // Avoid wrapping in Blob — Playwright webkit cannot read postDataBuffer()
+        // for Blob-bodied XHR requests, breaking E2E test interception.
+        xhr.send(data as XMLHttpRequestBodyInit | null | undefined);
       });
     },
     shutdown() {},
@@ -176,7 +177,8 @@ export function createPulseFetchTransport(parameters: {
       })
         .then((res) => {
           if (res.ok) return { status: "success" as const };
-          if (RETRYABLE.has(res.status)) return { status: "retryable" as const };
+          if (RETRYABLE.has(res.status))
+            return { status: "retryable" as const };
           return {
             status: "failure" as const,
             error: new Error(`Fetch failed: ${res.status}`),
@@ -191,8 +193,110 @@ export function createPulseFetchTransport(parameters: {
   };
 }
 
+/**
+ * Recommended max body size for navigator.sendBeacon.
+ * The spec soft limit is 64 KiB; payloads above this fall back to keepalive fetch.
+ */
+export const BEACON_BODY_LIMIT_BYTES = 64 * 1024;
+
+/**
+ * SendBeacon transport — most reliable for page-unload delivery.
+ *
+ * `navigator.sendBeacon` cannot carry custom request headers, so auth must be
+ * handled out-of-band.  Two modes:
+ *
+ * 1. **Relay URL (preferred)** — set `beaconRelayUrl` to a same-origin endpoint
+ *    (e.g. `/api/pulse-relay`) that forwards the payload with a server-side
+ *    `X-API-KEY` header.  The API key never appears in the URL.
+ *
+ * 2. **Query-param fallback** — when no relay URL is provided the API key is
+ *    appended as `?apiKey=<key>`.  This is visible in server access logs,
+ *    browser DevTools network panel, and reverse-proxy logs.  A one-time
+ *    `console.warn` is emitted to flag the exposure.
+ *
+ * The OTLP Content-Type is conveyed via the Blob type so the collector can
+ * still deserialise the payload correctly.
+ *
+ * Returns `{status:"failure"}` when sendBeacon is unavailable or the browser
+ * rejects the beacon (quota exceeded).
+ */
+
+let _beaconKeyWarnEmitted = false;
+/** Reset warning gate — for unit tests only. */
+export function _resetBeaconKeyWarnForTesting(): void {
+  _beaconKeyWarnEmitted = false;
+}
+
+export function createPulseSendBeaconTransport(params: {
+  url: string;
+  apiKey?: string;
+  /** Same-origin relay URL. When provided the apiKey is NOT appended to the URL. */
+  beaconRelayUrl?: string;
+  contentType: string;
+}): IExporterTransport {
+  return {
+    send(data: Uint8Array, _timeoutMillis: number): Promise<ExportResponse> {
+      if (
+        typeof navigator === "undefined" ||
+        typeof navigator.sendBeacon !== "function"
+      ) {
+        return Promise.resolve({
+          status: "failure",
+          error: new Error("sendBeacon not available in this environment"),
+        });
+      }
+
+      let url: string;
+      if (params.beaconRelayUrl) {
+        // Relay endpoint handles auth server-side — key stays out of the URL.
+        url = params.beaconRelayUrl;
+      } else if (params.apiKey != null && params.apiKey !== "") {
+        // Fallback: embed key in query string. Warn once about exposure risk.
+        if (!_beaconKeyWarnEmitted) {
+          _beaconKeyWarnEmitted = true;
+          console.warn(
+            "[Pulse] sendBeacon: API key sent as URL query parameter — " +
+              "visible in server access logs and browser tooling. " +
+              "Set PulseWebConfig.beaconRelayUrl to route through a same-origin proxy instead.",
+          );
+        }
+        url = `${params.url}${params.url.includes("?") ? "&" : "?"}apiKey=${encodeURIComponent(params.apiKey)}`;
+      } else {
+        url = params.url;
+      }
+      // Cast: TS 5.7+ types Uint8Array as Uint8Array<ArrayBufferLike>; Blob's
+      // BlobPart constraint accepts Uint8Array<ArrayBuffer>. Runtime is fine —
+      // sendBeacon copies the buffer synchronously before resolving.
+      const blob = new Blob([data as BlobPart], { type: params.contentType });
+      const queued = navigator.sendBeacon(url, blob);
+      return Promise.resolve(
+        queued
+          ? ({ status: "success" } as const)
+          : ({
+              status: "failure",
+              error: new Error(
+                "sendBeacon rejected by browser (quota exceeded or unload not in progress)",
+              ),
+            } as const),
+      );
+    },
+    shutdown() {},
+  };
+}
+
 export type BrowserExportTransport = IExporterTransport & {
   switchToKeepalive(): void;
+  /**
+   * Switch the inner transport to an unload-safe mode:
+   * - payloads ≤ {@link BEACON_BODY_LIMIT_BYTES} → sendBeacon (most reliable)
+   * - payloads > limit → keepalive fetch (handles larger batches)
+   * Falls back to keepalive fetch if sendBeacon is not available.
+   */
+  switchToBeacon(params: {
+    apiKey?: string;
+    beaconRelayUrl?: string;
+    contentType: string;
+  }): void;
 };
 
 /**
@@ -214,8 +318,12 @@ export function buildBrowserExportTransport(
   let innerXhr: IExporterTransport = createPulseXhrTransport(xhrParams);
 
   const switcher: IExporterTransport = {
-    send(data, timeout) { return innerXhr.send(data, timeout); },
-    shutdown() { innerXhr.shutdown(); },
+    send(data, timeout) {
+      return innerXhr.send(data, timeout);
+    },
+    shutdown() {
+      innerXhr.shutdown();
+    },
   };
 
   let t: IExporterTransport = switcher;
@@ -233,6 +341,44 @@ export function buildBrowserExportTransport(
         ...xhrParams,
         keepalive: true,
       });
+    },
+    switchToBeacon({
+      apiKey,
+      beaconRelayUrl,
+      contentType,
+    }: {
+      apiKey?: string;
+      beaconRelayUrl?: string;
+      contentType: string;
+    }) {
+      const beacon = createPulseSendBeaconTransport({
+        url: xhrParams.url,
+        apiKey,
+        beaconRelayUrl,
+        contentType,
+      });
+      const keepalive = createPulseFetchTransport({
+        ...xhrParams,
+        keepalive: true,
+      });
+
+      innerXhr = {
+        send(data: Uint8Array, timeout: number): Promise<ExportResponse> {
+          // For small payloads, prefer sendBeacon (survives page close).
+          // For larger payloads that exceed the beacon limit, fall back to keepalive fetch.
+          if (data.byteLength <= BEACON_BODY_LIMIT_BYTES) {
+            return beacon.send(data, timeout).then((res) => {
+              if (res.status === "failure") {
+                // sendBeacon failed (unavailable or quota) → try keepalive fetch
+                return keepalive.send(data, timeout);
+              }
+              return res;
+            });
+          }
+          return keepalive.send(data, timeout);
+        },
+        shutdown() {},
+      };
     },
   };
 }

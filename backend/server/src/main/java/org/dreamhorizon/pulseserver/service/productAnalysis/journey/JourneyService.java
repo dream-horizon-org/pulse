@@ -13,6 +13,13 @@ public interface JourneyService {
 
   Completable delete(String projectId, long id);
 
+  /**
+   * Stops auto-refresh for an AUTO journey by flipping its type to ONCE and freezing the
+   * analysis window. Mirrors {@code FunnelService.stopAuto}: idempotent, the cron's
+   * {@code listAllAuto()} stops picking it up, and the listing renders the row as COMPLETED.
+   */
+  Completable stopAuto(String projectId, long id);
+
   Single<JourneyResponse> get(String projectId, long id);
 
   Single<JourneyListResponse> list(String projectId, JourneyListQueryParams query);

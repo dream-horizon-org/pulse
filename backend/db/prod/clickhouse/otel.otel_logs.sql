@@ -29,7 +29,7 @@ ON CLUSTER 'pulse-ch'
     `DeviceModel`         LowCardinality(String)  MATERIALIZED ifNull(ResourceAttributes['device.model.name'], '')                                                     CODEC(ZSTD(1)),
     `NetworkProvider`     LowCardinality(String)  MATERIALIZED ifNull(LogAttributes['network.carrier.name'], '')                                                       CODEC(ZSTD(1)),
     `UserId`              String                  MATERIALIZED ifNull(LogAttributes['user.id'], '')                                                                    CODEC(ZSTD(1)),
-    `AppInstallationId`  String                  MATERIALIZED ifNull(LogAttributes['app.installation.id'], '')                                                        CODEC(ZSTD(1)),
+    `AppInstallationId`   String                  MATERIALIZED ifNull(LogAttributes['app.installation.id'], '')                                                        CODEC(ZSTD(1)),
     `PulseType`           LowCardinality(String)  MATERIALIZED ifNull(LogAttributes['pulse.type'], 'otel')                                                             CODEC(ZSTD(1)),
     `EventName`           LowCardinality(String)  MATERIALIZED if(ifNull(LogAttributes['pulse.type'], 'otel') = 'custom_event', Body, '')                              CODEC(ZSTD(1)),
     `ScreenName`          LowCardinality(String)  MATERIALIZED ifNull(LogAttributes['screen.name'], '')                                                                CODEC(ZSTD(1)),
@@ -48,8 +48,10 @@ ON CLUSTER 'pulse-ch'
     INDEX idx_trace_id      TraceId        TYPE bloom_filter(0.001) GRANULARITY 1,
     INDEX idx_session_id    SessionId      TYPE bloom_filter(0.001) GRANULARITY 1,
     INDEX idx_user_id       UserId         TYPE bloom_filter(0.001) GRANULARITY 1,
+    INDEX idx_app_installation_id AppInstallationId TYPE bloom_filter(0.01) GRANULARITY 1,
     INDEX idx_span_id       SpanId         TYPE bloom_filter(0.001) GRANULARITY 4,
-    INDEX idx_severity_num  SeverityNumber TYPE set(32)              GRANULARITY 1
+    INDEX idx_severity_num  SeverityNumber TYPE set(32)              GRANULARITY 1,
+    INDEX idx_screen_name   ScreenName     TYPE bloom_filter(0.01)  GRANULARITY 1
 )
 ENGINE = ReplicatedMergeTree('/clickhouse/tables/{shard}/otel/otel_logs_local', '{replica}')
 PARTITION BY toYYYYMMDD(Timestamp)

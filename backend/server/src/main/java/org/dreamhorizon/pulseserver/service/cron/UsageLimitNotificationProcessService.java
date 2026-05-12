@@ -35,7 +35,6 @@ import org.dreamhorizon.pulseserver.service.usagelimit.models.UsageNotificationR
 @RequiredArgsConstructor(onConstructor_ = @Inject)
 public class UsageLimitNotificationProcessService {
 
-  private static final String DEFAULT_DASHBOARD_URL = "https://pulse-ux.com";
   /** Cap combined error text (DB column allows ~8k; dao truncates at 8k). */
   private static final int MAX_ERROR_MESSAGE_TOTAL = 7500;
   /** Per failure line to avoid one huge message eating the budget. */
@@ -196,7 +195,6 @@ public class UsageLimitNotificationProcessService {
     params.put("notifyFor", notification.getNotifyFor());
     params.put("eventsPercentageDisplay", eventsDisplay);
     params.put("sessionsPercentageDisplay", sessionsDisplay);
-    params.put("dashboardUrl", DEFAULT_DASHBOARD_URL);
     if (notification.getTenantId() != null && !notification.getTenantId().isBlank()) {
       params.put("tenantId", notification.getTenantId());
     }

@@ -1,0 +1,311 @@
+# Alert rules for the OTel Collector consumer (Kafka -> ClickHouse).
+#
+# Format: Prometheus / Grafana Mimir-compatible recording & alerting rules.
+# In Grafana 9+ unified alerting, you can import this directly:
+#   Alerting -> Alert rules -> Import (or provision under
+#   /etc/grafana/provisioning/alerting/).
+#
+# All alerts assume scrape job=otel-collector-consumer.
+# Tune thresholds (lag, queue %, memory) to your traffic.
+
+groups:
+  - name: otel-consumer.availability
+    interval: 30s
+    rules:
+
+      - alert: OtelConsumerDown
+        expr: up{job="otel-collector-consumer"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          service: otel-collector
+          tier: consumer
+        annotations:
+          summary: "OTel consumer collector down on {{ $labels.instance }}"
+          description: |
+            The OTel collector consumer at {{ $labels.instance }} has been
+            unreachable from Prometheus for >2m. Kafka -> ClickHouse delivery
+            for traces/metrics/logs is stopped on this instance.
+          runbook_url: "https://wiki.pulse.local/runbooks/otel-consumer#down"
+
+      - alert: OtelConsumerNoData
+        expr: |
+          sum by (instance) (
+            rate(otelcol_kafka_receiver_messages_total{job="otel-collector-consumer"}[5m])
+          ) == 0
+          and on (instance) up{job="otel-collector-consumer"} == 1
+        for: 10m
+        labels:
+          severity: warning
+          service: otel-collector
+          tier: consumer
+        annotations:
+          summary: "OTel consumer reading 0 Kafka messages on {{ $labels.instance }}"
+          description: |
+            {{ $labels.instance }} is up but has consumed zero Kafka messages for 10m.
+            Either the producer stopped, the consumer group is unassigned, or the
+            receiver is stuck. Check `otelcol_kafka_receiver_partition_start`
+            and Kafka consumer group state.
+
+  - name: otel-consumer.kafka-lag
+    interval: 30s
+    rules:
+
+      - alert: KafkaConsumerLagHigh
+        expr: |
+          sum by (topic) (
+            otelcol_kafka_receiver_offset_lag{job="otel-collector-consumer"}
+          ) > 500000
+        for: 10m
+        labels:
+          severity: warning
+          service: otel-collector
+          tier: consumer
+        annotations:
+          summary: "Kafka consumer lag high on topic {{ $labels.topic }}"
+          description: |
+            Total consumer lag for topic `{{ $labels.topic }}` is
+            {{ $value | humanize }} messages (>500k for 10m). Consumer is
+            falling behind producer. Check ClickHouse insert latency and
+            consider scaling the consumer or increasing batch parallelism.
+
+      - alert: KafkaConsumerLagCritical
+        expr: |
+          sum by (topic) (
+            otelcol_kafka_receiver_offset_lag{job="otel-collector-consumer"}
+          ) > 5000000
+        for: 5m
+        labels:
+          severity: critical
+          service: otel-collector
+          tier: consumer
+        annotations:
+          summary: "Kafka consumer lag CRITICAL on topic {{ $labels.topic }}"
+          description: |
+            Total consumer lag for topic `{{ $labels.topic }}` is
+            {{ $value | humanize }} messages (>5M for 5m). Data freshness in
+            ClickHouse is degraded and we may breach Kafka retention soon.
+
+      - alert: KafkaConsumerLagGrowing
+        expr: |
+          deriv(
+            sum by (topic) (otelcol_kafka_receiver_offset_lag{job="otel-collector-consumer"})[10m:1m]
+          ) > 0
+          and
+          sum by (topic) (otelcol_kafka_receiver_offset_lag{job="otel-collector-consumer"}) > 100000
+        for: 15m
+        labels:
+          severity: warning
+          service: otel-collector
+          tier: consumer
+        annotations:
+          summary: "Kafka consumer lag growing on {{ $labels.topic }}"
+          description: |
+            Lag on `{{ $labels.topic }}` has been monotonically growing for 15m
+            and is >100k. Consumer throughput is below producer throughput.
+
+  - name: otel-consumer.unmarshal
+    interval: 30s
+    rules:
+
+      - alert: KafkaUnmarshalFailures
+        expr: |
+          (
+            sum by (topic) (rate(otelcol_kafka_receiver_unmarshal_failed_spans_total{job="otel-collector-consumer"}[5m]))
+            +
+            sum by (topic) (rate(otelcol_kafka_receiver_unmarshal_failed_metric_points_total{job="otel-collector-consumer"}[5m]))
+            +
+            sum by (topic) (rate(otelcol_kafka_receiver_unmarshal_failed_log_records_total{job="otel-collector-consumer"}[5m]))
+          ) > 0
+        for: 5m
+        labels:
+          severity: warning
+          service: otel-collector
+          tier: consumer
+        annotations:
+          summary: "Kafka unmarshal failures on topic {{ $labels.topic }}"
+          description: |
+            The consumer is failing to decode messages on `{{ $labels.topic }}`
+            ({{ $value | humanize }}/s). Likely cause: encoding mismatch
+            between producer and `kafka.{traces,metrics,logs}.encoding` —
+            the consumer expects `otlp_proto`. Investigate the producing
+            collector or producers writing to this topic.
+
+  - name: otel-consumer.exporter
+    interval: 30s
+    rules:
+
+      - alert: ClickhouseExporterFailures
+        expr: |
+          (
+            sum(rate(otelcol_exporter_send_failed_spans_total{job="otel-collector-consumer"}[5m]))
+            +
+            sum(rate(otelcol_exporter_send_failed_metric_points_total{job="otel-collector-consumer"}[5m]))
+            +
+            sum(rate(otelcol_exporter_send_failed_log_records_total{job="otel-collector-consumer"}[5m]))
+          ) > 1
+        for: 5m
+        labels:
+          severity: warning
+          service: otel-collector
+          tier: consumer
+        annotations:
+          summary: "ClickHouse exporter failing inserts"
+          description: |
+            ClickHouse exporter is failing >1 record/s for 5m. Check
+            `pulse-clickhouse-eks.pulse.local:9000` connectivity, schema
+            (otel.otel_traces / otel.otel_logs / otel.otel_metrics_gauge),
+            and ClickHouse server logs for insert errors.
+
+      - alert: ClickhouseExporterFailureRatioHigh
+        expr: |
+          (
+            sum(rate(otelcol_exporter_send_failed_spans_total{job="otel-collector-consumer"}[5m]))
+            +
+            sum(rate(otelcol_exporter_send_failed_metric_points_total{job="otel-collector-consumer"}[5m]))
+            +
+            sum(rate(otelcol_exporter_send_failed_log_records_total{job="otel-collector-consumer"}[5m]))
+          )
+          /
+          clamp_min(
+            (
+              sum(rate(otelcol_exporter_sent_spans_total{job="otel-collector-consumer"}[5m]))
+              +
+              sum(rate(otelcol_exporter_sent_metric_points_total{job="otel-collector-consumer"}[5m]))
+              +
+              sum(rate(otelcol_exporter_sent_log_records_total{job="otel-collector-consumer"}[5m]))
+              +
+              sum(rate(otelcol_exporter_send_failed_spans_total{job="otel-collector-consumer"}[5m]))
+              +
+              sum(rate(otelcol_exporter_send_failed_metric_points_total{job="otel-collector-consumer"}[5m]))
+              +
+              sum(rate(otelcol_exporter_send_failed_log_records_total{job="otel-collector-consumer"}[5m]))
+            ), 1
+          )
+          > 0.05
+        for: 5m
+        labels:
+          severity: critical
+          service: otel-collector
+          tier: consumer
+        annotations:
+          summary: "ClickHouse exporter failure ratio >5%"
+          description: |
+            More than 5% of records are failing to land in ClickHouse for 5m
+            (current: {{ $value | humanizePercentage }}). With
+            retry_on_failure max_elapsed_time=300s, sustained failures will
+            start dropping data soon.
+
+      - alert: ExporterQueueNearCapacity
+        expr: |
+          (
+            otelcol_exporter_queue_size{job="otel-collector-consumer"}
+            /
+            clamp_min(otelcol_exporter_queue_capacity{job="otel-collector-consumer"}, 1)
+          ) > 0.8
+        for: 5m
+        labels:
+          severity: warning
+          service: otel-collector
+          tier: consumer
+        annotations:
+          summary: "Exporter queue >80% full on {{ $labels.instance }}"
+          description: |
+            Exporter `{{ $labels.exporter }}` queue is
+            {{ $value | humanizePercentage }} full on {{ $labels.instance }}.
+            ClickHouse cannot drain as fast as the receiver fills.
+            New records will start being dropped if this hits 100%.
+
+      - alert: ExporterEnqueueFailures
+        expr: |
+          (
+            sum by (instance) (rate(otelcol_exporter_enqueue_failed_spans_total{job="otel-collector-consumer"}[5m]))
+            +
+            sum by (instance) (rate(otelcol_exporter_enqueue_failed_metric_points_total{job="otel-collector-consumer"}[5m]))
+            +
+            sum by (instance) (rate(otelcol_exporter_enqueue_failed_log_records_total{job="otel-collector-consumer"}[5m]))
+          ) > 0
+        for: 2m
+        labels:
+          severity: critical
+          service: otel-collector
+          tier: consumer
+        annotations:
+          summary: "Exporter is DROPPING data on {{ $labels.instance }}"
+          description: |
+            Records are being dropped because the sending queue is full
+            ({{ $value | humanize }}/s on {{ $labels.instance }}). ClickHouse
+            is too slow or unreachable. Data is being LOST.
+
+  - name: otel-consumer.pipeline
+    interval: 30s
+    rules:
+
+      - alert: ReceiverRefusingData
+        expr: |
+          (
+            sum(rate(otelcol_receiver_refused_spans_total{job="otel-collector-consumer"}[5m]))
+            +
+            sum(rate(otelcol_receiver_refused_metric_points_total{job="otel-collector-consumer"}[5m]))
+            +
+            sum(rate(otelcol_receiver_refused_log_records_total{job="otel-collector-consumer"}[5m]))
+          ) > 0
+        for: 5m
+        labels:
+          severity: warning
+          service: otel-collector
+          tier: consumer
+        annotations:
+          summary: "Receiver refusing records (backpressure)"
+          description: |
+            Receiver is refusing {{ $value | humanize }} records/s for 5m.
+            This usually means the pipeline downstream (batch -> ClickHouse)
+            is applying backpressure.
+
+  - name: otel-consumer.resources
+    interval: 30s
+    rules:
+
+      - alert: OtelConsumerHighMemory
+        # Default alert at 2 GiB RSS. Adjust to your container/host limits.
+        expr: otelcol_process_memory_rss{job="otel-collector-consumer"} > 2147483648
+        for: 10m
+        labels:
+          severity: warning
+          service: otel-collector
+          tier: consumer
+        annotations:
+          summary: "OTel consumer memory >2 GiB on {{ $labels.instance }}"
+          description: |
+            RSS = {{ $value | humanize1024 }}B for 10m. Check for batch
+            backlog (queue size growing) or a memory leak. Consider
+            `memory_limiter` processor if not yet enabled.
+
+      - alert: OtelConsumerHighCPU
+        expr: rate(otelcol_process_cpu_seconds_total{job="otel-collector-consumer"}[5m]) > 1.5
+        for: 15m
+        labels:
+          severity: warning
+          service: otel-collector
+          tier: consumer
+        annotations:
+          summary: "OTel consumer using >1.5 cores on {{ $labels.instance }}"
+          description: |
+            Sustained CPU = {{ $value }} cores for 15m. May indicate a hot
+            loop in unmarshalling or that the instance is undersized for the
+            traffic. Cross-reference with messages/s and lag.
+
+      - alert: OtelConsumerRestarted
+        expr: |
+          changes(otelcol_process_uptime_seconds_total{job="otel-collector-consumer"}[10m]) > 0
+          and
+          otelcol_process_uptime_seconds_total{job="otel-collector-consumer"} < 300
+        for: 0m
+        labels:
+          severity: info
+          service: otel-collector
+          tier: consumer
+        annotations:
+          summary: "OTel consumer restarted on {{ $labels.instance }}"
+          description: |
+            Process uptime reset. Check container/pod logs and exit code.

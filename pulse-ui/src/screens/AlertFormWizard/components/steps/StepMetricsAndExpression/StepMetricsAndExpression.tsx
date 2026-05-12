@@ -12,6 +12,7 @@ import { useAlertFormContext } from "../../../context";
 import { useAlertFormValidation } from "../../../hooks";
 import { useGetAlertMetrics } from "../../../../../hooks/useGetAlertMetrics";
 import { useGetDataQuery } from "../../../../../hooks/useGetDataQuery";
+import { useGetFunnelsList } from "../../../../../hooks/useGetFunnelsList";
 import { MetricCondition, MetricOperator, isAppVitalsScope, AlertScopeType } from "../../../types";
 import { UI_CONSTANTS } from "../../../constants";
 import { MetricConditionCard } from "./MetricConditionCard";
@@ -40,10 +41,10 @@ const buildScopeNamesQuery = (scopeType: AlertScopeType | null, searchTerm?: str
     };
   }
   if (scopeType === AlertScopeType.Screen) {
-    if (searchTerm) baseFilters.push({ field: "SpanAttributes['screen.name']", operator: "LIKE", value: [`%${searchTerm}%`] });
+    if (searchTerm) baseFilters.push({ field: COLUMN_NAME.SCREEN_NAME, operator: "LIKE", value: [`%${searchTerm}%`] });
     return {
       dataType: "TRACES" as const, timeRange,
-      select: [{ function: "COL" as const, param: { field: "SpanAttributes['screen.name']" }, alias: "screen_name" }, { function: "CUSTOM" as const, param: { expression: "COUNT()" }, alias: "count" }],
+      select: [{ function: "COL" as const, param: { field: COLUMN_NAME.SCREEN_NAME }, alias: "screen_name" }, { function: "CUSTOM" as const, param: { expression: "COUNT()" }, alias: "count" }],
       groupBy: ["screen_name"], orderBy: [{ field: "count", direction: "DESC" as const }], limit: 20,
       filters: [{ field: "PulseType", operator: "IN" as const, value: ["screen_session", "screen_load"] }, ...baseFilters],
     };
@@ -76,6 +77,7 @@ export const StepMetricsAndExpression: React.FC<StepMetricsAndExpressionProps> =
   const { expression } = formData.conditionExpression;
   const scopeType = formData.scopeType.scopeType;
   const isAppVitals = isAppVitalsScope(scopeType);
+  const isFunnel = scopeType === AlertScopeType.Funnel;
   
   // Collect validation errors for all conditions
   const conditionValidationErrors = useMemo(() => {
@@ -121,7 +123,7 @@ export const StepMetricsAndExpression: React.FC<StepMetricsAndExpressionProps> =
 
   // Fetch available scope names with search filter
   const scopeNamesQuery = useMemo(() => buildScopeNamesQuery(scopeType, debouncedSearch), [scopeType, debouncedSearch]);
-  const shouldFetchScopeNames = !isAppVitals && !!scopeNamesQuery;
+  const shouldFetchScopeNames = !isAppVitals && !isFunnel && !!scopeNamesQuery;
   const fallbackQuery = useMemo(() => ({
     dataType: "TRACES" as const,
     timeRange: { start: dayjs().subtract(7, "day").toISOString(), end: dayjs().toISOString() },
@@ -133,11 +135,32 @@ export const StepMetricsAndExpression: React.FC<StepMetricsAndExpressionProps> =
     enabled: shouldFetchScopeNames,
   });
 
+  // Fetch funnels for funnel scope; debounced search reuses the same input
+  const { data: funnelsResponse, isLoading: isFunnelsLoading, isFetching: isFunnelsFetching } = useGetFunnelsList({
+    queryParams: {
+      search: isFunnel ? (debouncedSearch || null) : null,
+      pageSize: 50,
+      page: 1,
+    },
+  });
+
+  const funnelLabelById = useMemo(() => {
+    const map: Record<string, string> = {};
+    if (!isFunnel) return map;
+    const items = funnelsResponse?.data?.items || [];
+    items.forEach(f => { map[String(f.id)] = f.name; });
+    return map;
+  }, [isFunnel, funnelsResponse]);
+
   const availableScopeNames = useMemo(() => {
     if (isAppVitals) return [];
+    if (isFunnel) {
+      const items = funnelsResponse?.data?.items || [];
+      return items.map(f => String(f.id)).filter(id => id.trim());
+    }
     if (!scopeNamesData?.data?.rows) return [];
     const fields = scopeNamesData.data.fields;
-    
+
     // For network_api scope, combine method and url into {method}_{url} format
     const methodIdx = fields.indexOf("method");
     const urlIdx = fields.indexOf("url");
@@ -149,12 +172,12 @@ export const StepMetricsAndExpression: React.FC<StepMetricsAndExpressionProps> =
         return `${method}_${url}`;
       }).filter((n: string) => n?.trim() && n !== "_");
     }
-    
+
     // For other scopes, use the single field
     const idx = fields.findIndex((f: string) => f === "interaction_name" || f === "screen_name");
     if (idx === -1) return [];
     return scopeNamesData.data.rows.map((row: (string | number)[]) => String(row[idx])).filter((n: string) => n?.trim());
-  }, [isAppVitals, scopeNamesData]);
+  }, [isAppVitals, isFunnel, scopeNamesData, funnelsResponse]);
 
   // Helper to format scope name for display
   const formatScopeNameLabel = useCallback((scopeName: string): string => {
@@ -165,8 +188,11 @@ export const StepMetricsAndExpression: React.FC<StepMetricsAndExpressionProps> =
       const url = scopeName.substring(underscoreIdx + 1);
       return `${method} ${url}`;
     }
+    if (scopeType === AlertScopeType.Funnel) {
+      return funnelLabelById[scopeName] || scopeName;
+    }
     return scopeName;
-  }, [scopeType]);
+  }, [scopeType, funnelLabelById]);
 
   // Combine already selected values with search results
   const multiSelectData = useMemo(() => {
@@ -178,6 +204,9 @@ export const StepMetricsAndExpression: React.FC<StepMetricsAndExpressionProps> =
 
   // Track previous scope names to detect actual changes
   const prevScopeNamesRef = useRef<string[]>([]);
+
+  const isScopeListLoading = isFunnel ? isFunnelsLoading : isScopeNamesLoading;
+  const isScopeListFetching = isFunnel ? isFunnelsFetching : isFetching;
 
   // Sync condition thresholds when global scope names change
   useEffect(() => {
@@ -230,19 +259,21 @@ export const StepMetricsAndExpression: React.FC<StepMetricsAndExpressionProps> =
     updateStepData("conditionExpression", { expression: updated.map(c => c.alias).join(" && ") });
   }, [conditions, updateStepData, globalScopeNames]);
 
-  const isSearching = isFetching && searchValue.length > 0;
+  const isSearching = isScopeListFetching && searchValue.length > 0;
 
   return (
     <Box className={`${classes.container} ${className || ""}`}>
       {/* Global Scope Names Selector with Search */}
       {!isAppVitals && (
         <>
-          <Text className={sharedClasses.stepTitle}>Scope Names to Monitor</Text>
+          <Text className={sharedClasses.stepTitle}>{isFunnel ? "Funnels to Monitor" : "Scope Names to Monitor"}</Text>
           <Text className={sharedClasses.stepDescription}>
-            Search and select scope names. These will apply to all conditions.
+            {isFunnel
+              ? "Search and select funnels. These will apply to all conditions."
+              : "Search and select scope names. These will apply to all conditions."}
           </Text>
           <Divider className={sharedClasses.stepDivider} />
-          {isScopeNamesLoading && !searchValue ? (
+          {isScopeListLoading && !searchValue ? (
             <Loader size="sm" />
           ) : (
             <MultiSelect
@@ -251,7 +282,7 @@ export const StepMetricsAndExpression: React.FC<StepMetricsAndExpressionProps> =
               onChange={handleScopeNamesChange}
               onSearchChange={handleSearchChange}
               searchValue={searchValue}
-              placeholder="Type to search scope names..."
+              placeholder={isFunnel ? "Type to search funnels..." : "Type to search scope names..."}
               searchable
               clearable
               maxDropdownHeight={200}
@@ -283,6 +314,7 @@ export const StepMetricsAndExpression: React.FC<StepMetricsAndExpressionProps> =
             onRemove={() => removeCondition(idx)}
             canRemove={conditions.length > 1}
             validationErrors={conditionValidationErrors}
+            scopeNameLabels={isFunnel ? funnelLabelById : undefined}
           />
         ))}
 

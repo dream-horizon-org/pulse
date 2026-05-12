@@ -51,9 +51,12 @@ import org.dreamhorizon.pulseserver.service.cron.UsageLimitNotificationProcessSe
 import org.dreamhorizon.pulseserver.service.kong.KongApiKeyRedisSyncService;
 import org.dreamhorizon.pulseserver.service.kong.KongUsageCreditsRedisSyncService;
 import org.dreamhorizon.pulseserver.service.notification.webhook.SesWebhookHandler;
+import org.dreamhorizon.pulseserver.dao.userapikey.UserApiKeyDao;
 import org.dreamhorizon.pulseserver.service.session.SessionBlockFetcher;
 import org.dreamhorizon.pulseserver.service.session.SessionReplayService;
 import org.dreamhorizon.pulseserver.service.spark.SparkJobService;
+import org.dreamhorizon.pulseserver.service.userapikey.UserApiKeyService;
+import org.dreamhorizon.pulseserver.service.userapikey.impl.UserApiKeyServiceImpl;
 import org.dreamhorizon.pulseserver.service.spark.impl.SparkJobServiceImpl;
 import org.dreamhorizon.pulseserver.util.ApiKeyGenerator;
 import org.dreamhorizon.pulseserver.util.RxObjectMapper;
@@ -109,6 +112,8 @@ public class MainModule extends VertxAbstractModule {
     bind(UserDao.class).in(Singleton.class);
     bind(TenantDao.class).in(Singleton.class);
     bind(ProjectDao.class).in(Singleton.class);
+    bind(UserApiKeyDao.class).in(Singleton.class);
+    bind(UserApiKeyService.class).to(UserApiKeyServiceImpl.class).in(Singleton.class);
     bind(ClickhouseProjectCredentialsDao.class).in(Singleton.class);
 
     // === NEW: Utilities ===

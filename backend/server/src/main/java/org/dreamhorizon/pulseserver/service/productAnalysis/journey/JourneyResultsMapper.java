@@ -41,7 +41,11 @@ public final class JourneyResultsMapper {
     List<JourneySankeyNode> nodes =
       nodeNames.stream().map(n -> JourneySankeyNode.builder().name(n).build()).toList();
 
-    return JourneyResultsResponse.builder().nodes(nodes).links(links).build();
+    return JourneyResultsResponse.builder()
+      .nodes(nodes)
+      .links(links)
+      .lastRunAt(rows.get(0).getRunTime())
+      .build();
   }
 
   /**

@@ -21,6 +21,7 @@ import { ProjectGuard } from "../ProjectGuard";
 import { ProjectInitializingModal } from "../ProjectInitializingModal";
 import { useTenantContext, useProjectContext } from "../../contexts";
 import { useGetTncStatus } from "../../hooks/useGetTncStatus";
+import { useIsInternalRoute } from "../../hooks/useIsInternalRoute";
 import { TncAcceptance } from "../../screens/TncAcceptance";
 
 export function Layout({ children }: LayoutProps) {
@@ -43,7 +44,7 @@ export function Layout({ children }: LayoutProps) {
   const isLoginPage = pathname === ROUTES.LOGIN.path;
   const isOnboardingPage = pathname === ROUTES.ONBOARDING.basePath;
   const isInitialOnboarding = pathname === ROUTES.ONBOARDING.basePath;
-  const isInternalRoute = pathname.startsWith("/internal");
+  const isInternalRoute = useIsInternalRoute();
   const shouldShowHeader = !isLoginPage && !isInitialOnboarding && !isInternalRoute;
 
   useEffect(() => {

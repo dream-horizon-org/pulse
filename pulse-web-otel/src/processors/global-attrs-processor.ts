@@ -1,13 +1,18 @@
 // M1: Global attributes processor — injects session.id, screen.name, network attrs
 // on every span and log record.
 
-import type { Span, Context } from "@opentelemetry/api";
+import type { Span, Context, AttributeValue } from "@opentelemetry/api";
 import type { SpanProcessor, ReadableSpan } from "@opentelemetry/sdk-trace-web";
-import type { LogRecord, LogRecordProcessor } from "@opentelemetry/sdk-logs";
+import type { LogRecordProcessor, SdkLogRecord } from "@opentelemetry/sdk-logs";
 import type { SessionProvider } from "../session";
-import { getOrCreateInstallationId } from "../session";
+import {
+  getOrCreateInstallationId,
+  getPersistedUserId,
+  getPersistedUserProperties,
+} from "../session";
 import type { PulseWebConfig } from "../config";
 import { computeAspectRatio } from "../resource";
+import { PulseWebSemconv } from "../semconv";
 
 type NetworkConnection = {
   type?: string;
@@ -22,6 +27,27 @@ function getNetworkConnection(): NetworkConnection {
   return nav.connection ?? {};
 }
 
+function isDynamicSegment(seg: string): boolean {
+  // Pure integers: 123, 456789
+  if (/^\d+$/.test(seg)) return true;
+  // Standard UUID v4 (with dashes): 550e8400-e29b-41d4-a716-446655440000
+  if (
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(seg)
+  )
+    return true;
+  // UUID without dashes (32 hex chars): 550e8400e29b41d4a716446655440000
+  if (/^[0-9a-f]{32}$/i.test(seg)) return true;
+  // MongoDB ObjectId (24 hex chars): 507f1f77bcf86cd799439011
+  if (/^[0-9a-f]{24}$/i.test(seg)) return true;
+  // ULID (26 Crockford base32 chars): 01ARZ3NDEKTSV4RRFFQ69G5FAV
+  if (/^[0-9a-hjkmnp-tv-zA-HJKMNP-TV-Z]{26}$/.test(seg)) return true;
+  return false;
+}
+
+export function resolveScreenNameFromUrl(config: PulseWebConfig): string {
+  return resolveScreenName(null, config);
+}
+
 function resolveScreenName(
   manualScreenName: string | null,
   config: PulseWebConfig,
@@ -32,7 +58,7 @@ function resolveScreenName(
 
   const pathname = window.location.pathname;
 
-  // Check route patterns
+  // routePatterns take priority over heuristic
   if (config.routePatterns && config.routePatterns.length > 0) {
     for (const { pattern, name } of config.routePatterns) {
       try {
@@ -44,30 +70,16 @@ function resolveScreenName(
     }
   }
 
-  // Heuristic: strip UUIDs and pure-number segments from path
+  // Heuristic: replace dynamic segments with :id, preserve static segments.
+  // /products/123        → /products/:id   (not /products — preserves route shape)
+  // /users/uuid/settings → /users/:id/settings
+  // /blog/my-post        → /blog/my-post   (unchanged — no dynamic segment detected)
   const segments = pathname.split("/").filter(Boolean);
-  const cleaned = segments.filter((seg) => {
-    // Remove UUID-like segments
-    if (
-      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-        seg,
-      )
-    ) {
-      return false;
-    }
-    // Remove pure number segments
-    if (/^\d+$/.test(seg)) {
-      return false;
-    }
-    return true;
-  });
+  if (segments.length === 0) return pathname || "/";
 
-  if (cleaned.length > 0) {
-    return "/" + cleaned.join("/");
-  }
-
-  // Fall back to raw pathname
-  return pathname || "/";
+  return (
+    "/" + segments.map((seg) => (isDynamicSegment(seg) ? ":id" : seg)).join("/")
+  );
 }
 
 export class PulseGlobalAttributesProcessor
@@ -76,6 +88,18 @@ export class PulseGlobalAttributesProcessor
   private manualScreenName: string | null = null;
   private manualScreenNamePath: string | null = null;
   private readonly screenAspectRatio: string;
+  /**
+   * In-memory user ID. null = read from localStorage (persisted value).
+   * Set explicitly via setUserId() to override the persisted value for
+   * the current page load without writing to localStorage.
+   * Use Pulse.setUserId() to persist across refreshes.
+   */
+  private _userId: string | null = null;
+  /** null values mark keys that should be suppressed even if present in localStorage. */
+  private _userProperties: Record<string, string | null> = {};
+  /** Last resolved `screen.name` before the current value — drives `last.screen.name`. */
+  private cachedResolvedScreen = "";
+  private lastScreenNameForAttr = "";
 
   constructor(
     private readonly sessionProvider: SessionProvider,
@@ -97,6 +121,40 @@ export class PulseGlobalAttributesProcessor
       typeof location !== "undefined" ? location.pathname : null;
   }
 
+  hydrateUserIdentity(
+    userId: string | null,
+    props: Record<string, string>,
+  ): void {
+    this._userId = userId;
+    this._userProperties = { ...props } as Record<string, string | null>;
+  }
+
+  setUserId(id: string | null): void {
+    this._userId = id;
+  }
+
+  getUserId(): string | null {
+    return this._userId;
+  }
+
+  setUserProperty(key: string, value: string | null): void {
+    this._userProperties[key] = value; // null = suppression marker
+  }
+
+  setUserProperties(props: Record<string, string | null>): void {
+    for (const [k, v] of Object.entries(props)) {
+      this.setUserProperty(k, v);
+    }
+  }
+
+  getUserPropertiesSnapshot(): Record<string, string> {
+    const out: Record<string, string> = {};
+    for (const [k, v] of Object.entries(this._userProperties)) {
+      if (v !== null) out[k] = v;
+    }
+    return out;
+  }
+
   getCurrentScreenName(): string {
     // Clear manual override if the URL has changed since it was set (SPA navigation).
     if (
@@ -112,25 +170,44 @@ export class PulseGlobalAttributesProcessor
   }
 
   /**
+   * Updates {@link lastScreenNameForAttr} when the resolved screen identity changes
+   * (manual override, route patterns, pathname heuristic). Call before reading attrs.
+   */
+  private syncResolvedScreenTransition(): string {
+    const resolved = this.getCurrentScreenName();
+    if (resolved !== this.cachedResolvedScreen) {
+      this.lastScreenNameForAttr = this.cachedResolvedScreen;
+      this.cachedResolvedScreen = resolved;
+    }
+    return resolved;
+  }
+
+  /**
    * Public accessor used by the metric exporter wrapper so metric data points
    * receive the same global attributes as spans and logs.
    */
-  getCommonAttrsForMetrics(): Record<string, string | number | boolean> {
+  getCommonAttrsForMetrics(): Record<string, AttributeValue> {
     return this.getCommonAttrs();
   }
 
-  private getCommonAttrs(): Record<string, string | number | boolean> {
+  private getCommonAttrs(): Record<string, AttributeValue> {
     const sessionId = this.sessionProvider.getSessionId();
-    const screenName = this.getCurrentScreenName();
+    const screenName = this.syncResolvedScreenTransition();
     const network = getNetworkConnection();
 
     const installationId = getOrCreateInstallationId();
-    const attrs: Record<string, string | number | boolean> = {
+    const attrs: Record<string, AttributeValue> = {
       "session.id": sessionId,
       "window.id": this.sessionProvider.getWindowId(),
       "installation.id": installationId,
       "app.installation.id": installationId,
       "screen.name": screenName,
+      ...(this.lastScreenNameForAttr
+        ? {
+            [PulseWebSemconv.AttributeKey.LAST_SCREEN_NAME]:
+              this.lastScreenNameForAttr,
+          }
+        : {}),
       "device.screen.aspect_ratio": this.screenAspectRatio,
       "pulse.metering.session.id": this.meteringSessionId,
       platform: "web",
@@ -158,6 +235,27 @@ export class PulseGlobalAttributesProcessor
       }
     }
 
+    // User identity — in-memory takes priority; falls back to localStorage so
+    // userId/properties set via Pulse.setUserId() survive page refresh.
+    const resolvedUserId = this._userId ?? getPersistedUserId();
+    if (resolvedUserId) {
+      attrs["user.id"] = resolvedUserId;
+    }
+
+    // User properties: start from localStorage, apply in-memory overrides (null = suppress).
+    const persistedProps = getPersistedUserProperties();
+    const merged: Record<string, string> = { ...persistedProps };
+    for (const [k, v] of Object.entries(this._userProperties)) {
+      if (v === null) {
+        delete merged[k];
+      } else {
+        merged[k] = v;
+      }
+    }
+    for (const [k, v] of Object.entries(merged)) {
+      attrs[`pulse.user.${k}`] = v;
+    }
+
     return attrs;
   }
 
@@ -173,7 +271,7 @@ export class PulseGlobalAttributesProcessor
     // No-op: attributes set on start
   }
 
-  onEmit(logRecord: LogRecord): void {
+  onEmit(logRecord: SdkLogRecord): void {
     const attrs = this.getCommonAttrs();
     for (const [key, value] of Object.entries(attrs)) {
       // Do not overwrite session.id if the instrumentation already set it explicitly.
