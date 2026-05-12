@@ -106,6 +106,8 @@ if ! command -v pm2 >/dev/null 2>&1; then
 fi
 
 # cloud-init runs as root — pm2 matches. Order: start → save (dump) → startup (systemd + resurrect).
+# PM2_HOME must match `pm2 startup systemd -u root` (uses /root/.pm2). Else HOME=/home/admin makes PM2 use /home/admin/.pm2 and systemd resurrect won't see processes.
+export PM2_HOME=/root/.pm2
 # Some pm2 builds print a line starting with "sudo " — eval it to enable the unit.
 echo "Starting $APPLICATION_NAME via pm2..."
 set -a
@@ -114,7 +116,11 @@ source "$ENV_FILE"
 set +a
 
 pm2 delete "$APPLICATION_NAME" 2>/dev/null || true
-pm2 start "$INSTALL_DIR/dist/index.js" --name "$APPLICATION_NAME" --node-args="--require @opentelemetry/auto-instrumentations-node/register"
+# --cwd: Node resolves --require from cwd; without it preload cannot find node_modules/@opentelemetry/... under INSTALL_DIR.
+pm2 start "$INSTALL_DIR/dist/index.js" \
+  --name "$APPLICATION_NAME" \
+  --cwd "$INSTALL_DIR" \
+  --node-args="--require @opentelemetry/auto-instrumentations-node/register"
 pm2 save
 
 STARTUP_OUTPUT="$(pm2 startup systemd -u root --hp /root 2>&1)" || true
@@ -126,12 +132,12 @@ fi
 
 sleep 5
 
-if pm2 list | grep -q "$APPLICATION_NAME"; then
-  echo "Service started successfully via pm2"
+if pm2 list 2>/dev/null | grep "$APPLICATION_NAME" | grep -q online; then
+  echo "Service started successfully via pm2 (status online)"
 else
-  echo "WARNING: pm2 process may not have started. Checking logs:"
+  echo "WARNING: pm2 process not online. Checking logs:"
   pm2 logs "$APPLICATION_NAME" --lines 30 --nostream || true
 fi
 
 echo "User-data complete at $(date)"
-echo "View logs: pm2 logs $APPLICATION_NAME"
+echo 'View logs: sudo env PM2_HOME=/root/.pm2 PATH=/usr/local/bin:$PATH pm2 logs '"$APPLICATION_NAME"
