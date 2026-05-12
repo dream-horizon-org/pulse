@@ -30,7 +30,7 @@ pipeline {
             steps {
                 checkout([
                         $class           : 'GitSCM',
-                        branches         : [[name: '*/main']],
+                        branches         : [[name: '*/fix/deployment']],
                         userRemoteConfigs: [[url: 'https://github.com/dream-horizon-org/pulse.git', credentialsId: 'd11-horizon-bot']]
                 ])
             }
