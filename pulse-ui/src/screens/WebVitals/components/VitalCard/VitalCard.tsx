@@ -1,15 +1,11 @@
 import { Box, Card, Group, Progress, Stack, Text, Badge } from "@mantine/core";
 import { VitalCardProps } from "./VitalCard.interface";
-import { getVitalRating } from "../../WebVitals.constants";
+import {
+  formatVitalP75Display,
+  getVitalRating,
+} from "../../WebVitals.constants";
 import { ratingToColorName } from "../utils/ratingToColor";
 import classes from "./VitalCard.module.css";
-
-const formatP75 = (p75: number, vitalName: string): string => {
-  if (["CLS"].includes(vitalName)) {
-    return p75.toFixed(2);
-  }
-  return Math.round(p75) + " ms";
-};
 
 export function VitalCard({
   name,
@@ -25,6 +21,9 @@ export function VitalCard({
 
   return (
     <Card
+      withBorder
+      radius="md"
+      shadow="xs"
       className={`${classes.card} ${isSelected ? classes.selected : ""}`}
       onClick={onSelect}
       style={{ cursor: onSelect ? "pointer" : "default" }}
@@ -45,7 +44,7 @@ export function VitalCard({
 
         <Box>
           <Text size="sm" c="dimmed" mb="xs">
-            P75: {formatP75(p75, name)}
+            P75: {formatVitalP75Display(p75, name)}
           </Text>
           <Progress.Root size="md" radius="md">
             {goodPct > 0 && (

@@ -2,7 +2,10 @@ import { Table, Badge, Stack, Text, Box } from "@mantine/core";
 import { VitalsByScreenTableProps } from "./VitalsByScreenTable.interface";
 import { ChartSkeleton } from "../../../../components/Skeletons/ChartSkeleton";
 import { ErrorAndEmptyState } from "../../../../components/ErrorAndEmptyState/ErrorAndEmptyState";
-import { getVitalRating } from "../../WebVitals.constants";
+import {
+  formatVitalP75Display,
+  getVitalRating,
+} from "../../WebVitals.constants";
 import { normalizeScreenVital } from "../../normalizeWebVitalsApi";
 import { ratingToColorName } from "../utils/ratingToColor";
 import classes from "./VitalsByScreenTable.module.css";
@@ -13,12 +16,15 @@ function formatCount(value: number): string {
 }
 
 export function VitalsByScreenTable({
+  vitalName,
   data,
   isLoading,
   error,
 }: VitalsByScreenTableProps) {
   if (isLoading) {
-    return <ChartSkeleton height={300} title="By Screen" />;
+    return (
+      <ChartSkeleton height={300} title={`By Screen (${vitalName})`} />
+    );
   }
 
   if (error) {
@@ -55,14 +61,14 @@ export function VitalsByScreenTable({
     .slice(0, 20);
 
   const rows = sortedData.map((item, index) => {
-    const rating = getVitalRating(item.p75, "LCP");
+    const rating = getVitalRating(item.p75, vitalName);
     const colorName = ratingToColorName(rating);
     const rowKey = item.screenName !== "" ? item.screenName : `row-${index}`;
 
     return (
       <Table.Tr key={rowKey}>
         <Table.Td>{item.screenName}</Table.Td>
-        <Table.Td>{Math.round(item.p75)} ms</Table.Td>
+        <Table.Td>{formatVitalP75Display(item.p75, vitalName)}</Table.Td>
         <Table.Td>{formatCount(item.totalCount)}</Table.Td>
         <Table.Td>
           <Badge color={colorName} variant="light" size="sm">
@@ -75,7 +81,7 @@ export function VitalsByScreenTable({
 
   return (
     <Stack gap="md">
-      <Text fw={600} size="md">
+      <Text fw={700} size="lg">
         By Screen
       </Text>
       <Box className={classes.tableWrapper}>

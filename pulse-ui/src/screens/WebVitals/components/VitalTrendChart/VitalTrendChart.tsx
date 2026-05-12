@@ -1,4 +1,4 @@
-import { Box, Stack, Text } from "@mantine/core";
+import { Box, Stack, Text, useMantineTheme } from "@mantine/core";
 import { VitalTrendChartProps } from "./VitalTrendChart.interface";
 import { LineChart } from "../../../../components/Charts/LineChart/LineChart";
 import { ChartSkeleton } from "../../../../components/Skeletons/ChartSkeleton";
@@ -12,6 +12,8 @@ export function VitalTrendChart({
   error,
   height = 320,
 }: VitalTrendChartProps) {
+  const theme = useMantineTheme();
+
   if (isLoading) {
     return <ChartSkeleton height={height} title={`${vitalName} Trend`} />;
   }
@@ -36,13 +38,16 @@ export function VitalTrendChart({
 
   const threshold = WEB_VITAL_THRESHOLDS[vitalName];
 
+  const goodLineColor = theme.colors.green[6];
+  const poorBoundaryColor = theme.colors.red[6];
+
   const markLineData = [
     ...(threshold?.good != null
       ? [
           {
             yAxis: threshold.good,
             name: "Good",
-            lineStyle: { color: "#12b886" },
+            lineStyle: { color: goodLineColor },
           },
         ]
       : []),
@@ -51,11 +56,13 @@ export function VitalTrendChart({
           {
             yAxis: threshold.needsImprovement,
             name: "Needs Improvement",
-            lineStyle: { color: "#fa5252" },
+            lineStyle: { color: poorBoundaryColor },
           },
         ]
       : []),
   ];
+
+  const seriesColor = theme.colors.primary[6];
 
   const option = {
     xAxis: {
@@ -74,6 +81,8 @@ export function VitalTrendChart({
         type: "line" as const,
         name: `${vitalName} P75`,
         smooth: true,
+        itemStyle: { color: seriesColor },
+        lineStyle: { color: seriesColor },
       },
     ],
     ...(markLineData.length > 0 ? { markLine: { data: markLineData } } : {}),
@@ -81,7 +90,7 @@ export function VitalTrendChart({
 
   return (
     <Stack gap="md">
-      <Text fw={600} size="md">
+      <Text fw={700} size="lg">
         {vitalName} Trend
       </Text>
       <Box style={{ height }}>

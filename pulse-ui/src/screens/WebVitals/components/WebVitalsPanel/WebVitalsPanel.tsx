@@ -1,4 +1,4 @@
-import { Stack, SimpleGrid, Box } from "@mantine/core";
+import { Stack, SimpleGrid, Paper } from "@mantine/core";
 import { useMemo, useState } from "react";
 import { WebVitalsPanelProps } from "./WebVitalsPanel.interface";
 import {
@@ -75,8 +75,7 @@ export function WebVitalsPanel({
 
   return (
     <Stack gap="lg">
-      {/* Vital Cards Grid */}
-      <Box>
+      <Paper withBorder radius="md" p="md">
         {isLoading ? (
           <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }} spacing="md">
             {Array.from({ length: 6 }).map((_, i) => (
@@ -104,10 +103,9 @@ export function WebVitalsPanel({
             ))}
           </SimpleGrid>
         ) : null}
-      </Box>
+      </Paper>
 
-      {/* Trend Chart */}
-      <Box>
+      <Paper withBorder radius="md" p="md">
         <VitalTrendChart
           vitalName={selectedVital}
           data={trendQuery.data?.data?.points}
@@ -118,12 +116,12 @@ export function WebVitalsPanel({
               : null
           }
         />
-      </Box>
+      </Paper>
 
-      {/* By-Screen Table (only when screenName is not provided) */}
       {!screenName && (
-        <Box>
+        <Paper withBorder radius="md" p="md">
           <VitalsByScreenTable
+            vitalName={selectedVital}
             data={byScreenQuery.data?.data?.screens}
             isLoading={byScreenState.isLoading}
             error={
@@ -134,7 +132,7 @@ export function WebVitalsPanel({
                 : null
             }
           />
-        </Box>
+        </Paper>
       )}
     </Stack>
   );

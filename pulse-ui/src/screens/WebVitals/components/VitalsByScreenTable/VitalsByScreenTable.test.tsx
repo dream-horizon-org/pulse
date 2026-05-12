@@ -19,6 +19,7 @@ describe("VitalsByScreenTable", () => {
 
   it("should render table with all columns", () => {
     renderComponent({
+      vitalName: "LCP",
       data: mockData,
       isLoading: false,
       error: null,
@@ -32,6 +33,7 @@ describe("VitalsByScreenTable", () => {
 
   it("should render all data rows", () => {
     renderComponent({
+      vitalName: "LCP",
       data: mockData,
       isLoading: false,
       error: null,
@@ -44,6 +46,7 @@ describe("VitalsByScreenTable", () => {
 
   it("should render loading skeleton when isLoading is true", () => {
     renderComponent({
+      vitalName: "LCP",
       data: undefined,
       isLoading: true,
       error: null,
@@ -55,6 +58,7 @@ describe("VitalsByScreenTable", () => {
 
   it("should render error message when error is present", () => {
     renderComponent({
+      vitalName: "LCP",
       data: undefined,
       isLoading: false,
       error: new Error("Failed to load"),
@@ -63,8 +67,27 @@ describe("VitalsByScreenTable", () => {
     expect(screen.getByText("Error loading table data")).toBeInTheDocument();
   });
 
+  it("should format CLS P75 without ms suffix", () => {
+    renderComponent({
+      vitalName: "CLS",
+      data: [
+        {
+          screenName: "Home",
+          p75: 0.08,
+          totalCount: 500,
+          goodPct: 88,
+        },
+      ],
+      isLoading: false,
+      error: null,
+    });
+
+    expect(screen.getByText("0.08")).toBeInTheDocument();
+  });
+
   it("should sort data by count descending", () => {
     renderComponent({
+      vitalName: "LCP",
       data: mockData,
       isLoading: false,
       error: null,
@@ -85,6 +108,7 @@ describe("VitalsByScreenTable", () => {
     }));
 
     renderComponent({
+      vitalName: "LCP",
       data: largeData,
       isLoading: false,
       error: null,

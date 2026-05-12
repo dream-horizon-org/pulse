@@ -43,3 +43,11 @@ export const getVitalRating = (p75: number, vitalName: string): VitalRating => {
 
   return "poor";
 };
+
+/** Display P75 for labels and tables (CLS is unitless; others ms). */
+export function formatVitalP75Display(p75: number, vitalName: string): string {
+  if (vitalName === "CLS") {
+    return p75.toFixed(2);
+  }
+  return `${Math.round(p75)} ms`;
+}
