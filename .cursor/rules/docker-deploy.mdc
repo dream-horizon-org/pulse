@@ -90,6 +90,7 @@ All services on `pulse-network` (bridge). Internal references use container name
 - `CONFIG_SERVICE_APPLICATION_SPARK_JOB_*` — Spark batch entry classes in compose default to `org.dreamhorizon.pulsespark.SparkJobRunner` for funnels, journeys, and events (override via `.env` if needed).
 - `ANALYTICS_COMPUTE_ENGINE` — Product analytics batch routing: `spark` (EMR) vs `clickhouse` (in-process). Mapped from `backend/server/src/main/resources/conf/analytics-engine-default.conf`. Docker Compose default: `clickhouse` (see `deploy/docker-compose.yml`); `deploy/scripts/common.sh` `load_env` defaults to `spark` for CLI `start.sh` when unset.
 - `ANALYTICS_BATCH_PROJECT_CONCURRENCY` — Max concurrent per-project ClickHouse batch queries when engine is `clickhouse`; required **> 0** in `prod` (`StartupConfigValidator`). Compose default: `1`; `load_env` default: `4`.
+- `CONFIG_SERVICE_APPLICATION_INTERNAL_SERVICE_TOKENS` — Comma-separated opaque bearer tokens for internal service authentication (pulse-alerts-cron).
 
 **Dev Mode Configuration:**
 - `GOOGLE_OAUTH_ENABLED` — Enable/disable Google OAuth login (default: `false` for dev mode)

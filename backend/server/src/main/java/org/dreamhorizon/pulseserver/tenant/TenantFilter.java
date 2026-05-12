@@ -46,7 +46,6 @@ public class TenantFilter implements ContainerRequestFilter, ContainerResponseFi
   private static final String AUTH_PATH_PREFIX = "v1/auth";
   private static final String ONBOARDING_PATH_PREFIX = "v1/onboarding";
   private static final String INVITE_ACCEPT_PATH_PREFIX = "v1/invites/accept";
-  private static final String INTERNAL_PATH_PREFIX = "internal/";
   private static final String BEARER_PREFIX = "Bearer ";
   private static final String CLAIM_TENANT_ID = "tenantId";
   private static final String CLAIM_SYSTEM_ROLE = "systemRole";

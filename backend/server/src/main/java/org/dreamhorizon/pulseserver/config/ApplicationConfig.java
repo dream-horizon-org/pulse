@@ -1,8 +1,8 @@
 package org.dreamhorizon.pulseserver.config;
 
 import com.google.inject.Singleton;
-import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -68,7 +68,10 @@ public class ApplicationConfig {
     if (internalServiceTokens == null || internalServiceTokens.isBlank()) {
       return List.of();
     }
-    return Arrays.asList(internalServiceTokens.split(","));
+    return java.util.Arrays.stream(internalServiceTokens.split(","))
+        .map(String::trim)
+        .filter(s -> !s.isEmpty())
+        .collect(Collectors.toList());
   }
 
   /**
