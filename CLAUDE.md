@@ -6,6 +6,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Real-time mobile + web observability platform on OpenTelemetry. Mobile/web SDKs send OTLP signals → Collector → ClickHouse. A React dashboard lets teams drill into crashes, sessions, network, interactions, and web vitals.
 
+## Hierarchical Docs Router (read this first for depth)
+
+For deep context, follow this routing order — load only what you need, not everything:
+
+1. **`docs/architecture.md`** — platform-wide architecture, data flow, storage split, multi-tenancy, auth, cross-SDK contract.
+2. **`docs/components/MANIFEST.md`** — index of every component brief. Pick the component(s) relevant to the task.
+3. **`docs/components/<component>.md`** — one-page brief: purpose, paths, build commands, key files.
+4. **`docs/plans/<component>/index.md`** — deep-dive handbook table of contents for that component.
+5. **`docs/plans/<component>/<sub-area>/<file>.md`** — sub-component handbook (sections: Purpose, Source location, Public surface, Internal design, Dependencies, Data contracts, Tests, History/decisions, Rebuild recipe). Load only the files relevant to the change.
+
+If `docs/plans/<component>/` is the single source of truth, an engineer (or LLM) can rebuild that component from scratch using its handbook alone.
+
+The rest of this CLAUDE.md (monorepo layout, build commands, conventions, safety) remains the fast-path reference for routine work — use the router above when you need depth, and prefer it over loading large source trees into context.
+
 ## Monorepo Layout
 
 | Directory | Service | Tech | Port |
