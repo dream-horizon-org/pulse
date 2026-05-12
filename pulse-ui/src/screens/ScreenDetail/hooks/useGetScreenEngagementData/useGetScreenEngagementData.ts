@@ -19,6 +19,7 @@ interface UseGetScreenEngagementDataProps {
 interface TransformedData {
   avgTimeSpent: number | null;
   avgLoadTime: number | null;
+  avgTimeToInteractive: number | null;
   totalSessions: number;
   totalUsers: number;
   hasData: boolean;
@@ -26,6 +27,7 @@ interface TransformedData {
     timestamp: number;
     avgTimeSpent: number;
     avgLoadTime: number;
+    avgTimeToInteractive: number;
     sessionCount: number;
   }>;
 }
@@ -62,7 +64,11 @@ export function useGetScreenEngagementData({
       {
         field: COLUMN_NAME.PULSE_TYPE,
         operator: "IN",
-        value: [PulseType.SCREEN_SESSION, PulseType.SCREEN_LOAD],
+        value: [
+          PulseType.SCREEN_SESSION,
+          PulseType.SCREEN_LOAD,
+          PulseType.SCREEN_INTERACTIVE,
+        ],
       },
     ];
 
@@ -165,6 +171,20 @@ export function useGetScreenEngagementData({
         {
           function: "CUSTOM" as const,
           param: {
+            expression: `sumIf(toFloat64OrZero(SpanAttributes['tti']) * 1e6, ${COLUMN_NAME.PULSE_TYPE} = '${PulseType.SCREEN_LOAD}' AND SpanAttributes['tti'] != '') + sumIf(${COLUMN_NAME.DURATION}, ${COLUMN_NAME.PULSE_TYPE} = '${PulseType.SCREEN_INTERACTIVE}')`,
+          },
+          alias: "total_tti",
+        },
+        {
+          function: "CUSTOM" as const,
+          param: {
+            expression: `countIf(${COLUMN_NAME.PULSE_TYPE} = '${PulseType.SCREEN_LOAD}' AND SpanAttributes['tti'] != '') + countIf(${COLUMN_NAME.PULSE_TYPE} = '${PulseType.SCREEN_INTERACTIVE}')`,
+          },
+          alias: "tti_count",
+        },
+        {
+          function: "CUSTOM" as const,
+          param: {
             expression: `uniq(nullIf(${COLUMN_NAME.INSTALLATION_ID}, ''))`,
           },
           alias: "unique_users",
@@ -250,18 +270,23 @@ export function useGetScreenEngagementData({
     const totalLoadTimeIndex = responseData.fields.indexOf("total_load_time");
     const sessionCountIndex = responseData.fields.indexOf("session_count");
     const loadCountIndex = responseData.fields.indexOf("load_count");
+    const totalTtiIndex = responseData.fields.indexOf("total_tti");
+    const ttiCountIndex = responseData.fields.indexOf("tti_count");
 
     const trend: Array<{
       timestamp: number;
       avgTimeSpent: number;
       avgLoadTime: number;
+      avgTimeToInteractive: number;
       sessionCount: number;
     }> = [];
 
     let totalTimeSpentSum = 0;
     let totalLoadTimeSum = 0;
+    let totalTtiSum = 0;
     let totalSessions = 0;
     let totalLoads = 0;
+    let totalTtiCount = 0;
 
     responseData.rows.forEach((row) => {
       const timestamp = dayjs(row[t1Index]).valueOf();
@@ -269,20 +294,27 @@ export function useGetScreenEngagementData({
       const loadTime = parseFloat(row[totalLoadTimeIndex]) || 0;
       const sessions = parseFloat(row[sessionCountIndex]) || 0;
       const loads = parseFloat(row[loadCountIndex]) || 0;
+      const tti = parseFloat(row[totalTtiIndex]) || 0;
+      const ttiCount = parseFloat(row[ttiCountIndex]) || 0;
 
       totalTimeSpentSum += timeSpent;
       totalLoadTimeSum += loadTime;
+      totalTtiSum += tti;
       totalSessions += sessions;
       totalLoads += loads;
+      totalTtiCount += ttiCount;
 
       const avgTimeSpentVal =
         sessions > 0 ? timeSpent / sessions / 1_000_000_000 : 0;
       const avgLoadTimeVal = loads > 0 ? loadTime / loads / 1_000_000_000 : 0;
+      const avgTimeToInteractiveVal =
+        ttiCount > 0 ? tti / ttiCount / 1_000_000_000 : 0;
 
       trend.push({
         timestamp,
         avgTimeSpent: Math.round(avgTimeSpentVal * 100) / 100,
         avgLoadTime: Math.round(avgLoadTimeVal * 100) / 100,
+        avgTimeToInteractive: Math.round(avgTimeToInteractiveVal * 100) / 100,
         sessionCount: Math.round(sessions),
       });
     });
@@ -310,12 +342,21 @@ export function useGetScreenEngagementData({
         ? Math.round((totalLoadTimeSum / totalLoads / 1_000_000_000) * 100) /
           100
         : null;
+    const avgTimeToInteractive =
+      totalTtiCount > 0
+        ? Math.round((totalTtiSum / totalTtiCount / 1_000_000_000) * 100) / 100
+        : null;
 
-    const hasData = totalSessions > 0 || totalLoads > 0 || trend.length > 0;
+    const hasData =
+      totalSessions > 0 ||
+      totalLoads > 0 ||
+      totalTtiCount > 0 ||
+      trend.length > 0;
 
     return {
       avgTimeSpent,
       avgLoadTime,
+      avgTimeToInteractive,
       totalSessions: Math.round(totalUniqueSessions),
       totalUsers: Math.round(totalUniqueUsers),
       hasData,

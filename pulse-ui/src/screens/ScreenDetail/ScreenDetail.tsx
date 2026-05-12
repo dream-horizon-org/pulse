@@ -371,6 +371,27 @@ export function ScreenDetail(_props: ScreenDetailProps) {
                       : "N/A"}
                   </Text>
                 </Box>
+                <Box className={vitalsClasses.statItem}>
+                  <Text className={vitalsClasses.statLabel}>
+                  Time to Interactive
+                  </Text>
+                  <Text
+                    className={vitalsClasses.statValue}
+                    c={
+                      engagementData?.avgTimeToInteractive !== null &&
+                      engagementData?.avgTimeToInteractive !== undefined
+                        ? "teal"
+                        : "dimmed"
+                    }
+                  >
+                    {engagementData?.avgTimeToInteractive !== null &&
+                    engagementData?.avgTimeToInteractive !== undefined
+                      ? engagementData.avgTimeToInteractive >= 1
+                        ? `${engagementData.avgTimeToInteractive.toFixed(1)}s`
+                        : `${(engagementData.avgTimeToInteractive * 1000).toFixed(0)}ms`
+                      : "N/A"}
+                  </Text>
+                </Box>
               </Box>
             </Box>
           </Box>
