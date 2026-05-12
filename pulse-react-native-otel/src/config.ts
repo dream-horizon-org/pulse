@@ -181,6 +181,12 @@ export function shutdown(): void {
   PulseLogger.info('sdk.shutdown graceful=true');
 }
 
+/// Emits a one-shot AppInteractive span spanning OS process-start → now. No-op on repeat calls.
+export function reportFullyDrawn(): void {
+  if (!isSupportedPlatform()) return;
+  PulseReactNativeOtel.reportFullyDrawn();
+}
+
 /**
  * Updates the data collection consent state.
  */

@@ -89,6 +89,13 @@ export interface Spec extends TurboModule {
    */
   setDataCollectionState(state: PulseDataCollectionConsent): void;
 
+  /**
+   * Records how long the app took from OS process-launch to fully-interactive content.
+   * Creates an AppInteractive span retroactively (start = process launch, end = now).
+   * One-shot — safe to call multiple times; only the first call emits a span.
+   */
+  reportFullyDrawn(): void;
+
   /** Shut down the Pulse SDK. After this, re-init is not supported. */
   shutdown(): boolean;
 }

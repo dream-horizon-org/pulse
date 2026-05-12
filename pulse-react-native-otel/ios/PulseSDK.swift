@@ -212,6 +212,11 @@ public class PulseSDK: NSObject {
         )
     }
 
+    @objc(pulseReportFullyDrawn)
+    public static func reportFullyDrawn() {
+        Pulse.shared.reportFullyDrawn()
+    }
+
     @objc public static func shutdown() -> Bool {
         guard Pulse.shared.isSDKInitialized() else { return false }
         let runShutdown = {

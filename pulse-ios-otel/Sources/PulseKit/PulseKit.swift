@@ -923,6 +923,11 @@ public class Pulse {
         return value == PulseAttributes.PulseTypeValues.crash
     }
 
+    /// Emits a one-shot AppInteractive span spanning OS process-start → now. No-op on repeat calls.
+    public func reportFullyDrawn() {
+        AppStartupTimer.shared.reportFullyDrawn()
+    }
+
     public func setUserId(_ id: String?) {
         guard isActive else { return }
         userSessionEmitter.userId = id

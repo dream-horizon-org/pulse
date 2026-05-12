@@ -6,6 +6,7 @@ import {
   shutdown,
   setDataCollectionState,
   createNavigationIntegrationWithConfig,
+  reportFullyDrawn,
 } from './config';
 import { isInitialized } from './initialization';
 import { setGlobalAttribute } from './globalAttributes';
@@ -52,6 +53,7 @@ export const Pulse = {
   setDataCollectionState,
   useNavigationTracking,
   markContentReady,
+  reportFullyDrawn,
   trackEvent,
   reportException,
   trackSpan,

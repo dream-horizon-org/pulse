@@ -68,6 +68,7 @@ public enum PulseAttributes {
         public static let network = "network"
         public static let screenLoad = "screen_load"
         public static let appStart = "app_start"
+        public static let appInteractive = "app_interactive"
         public static let screenSession = "screen_session"
 
         // Log types

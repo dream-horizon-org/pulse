@@ -29,53 +29,30 @@ public class AppStartupTimer {
     // background, in which case the measured startup time is misleading.
     private static final long MAX_TIME_TO_UI_INIT = TimeUnit.MINUTES.toNanos(1);
 
-    // --------------------------------------------------------------------------------------------
-    // Static instance holder (singleton-by-convention).
-    //
-    // Set in start() and cleared in reportFullyDrawn() (one-shot) or discarded if the method
-    // was never called (tiny memory cost, acceptable for a single-use per process lifetime).
-    // --------------------------------------------------------------------------------------------
-
+    /** Set in {@link #start}; cleared in {@link #reportFullyDrawn} so the hook works after {@link #end}. */
     @Nullable private static volatile AppStartupTimer CURRENT_INSTANCE = null;
 
-    /**
-     * Returns the active AppStartupTimer for this process, or {@code null} if
-     * {@link #reportFullyDrawn()} was already called or {@link #start} was never invoked.
-     */
     @Nullable
     public static AppStartupTimer getInstance() {
         return CURRENT_INSTANCE;
     }
 
-    // --------------------------------------------------------------------------------------------
-    // Instance state
-    // --------------------------------------------------------------------------------------------
-
     private final AnchoredClock startupClock = AnchoredClock.create(Clock.getDefault());
 
-    /**
-     * <p>API 24+: derived from {@code Process.getStartUptimeMillis()} (OS process fork time).
-     * API &lt;24, or if conversion is out of range: falls back to SDK-init clock time.
-     */
+    /** OS process-fork epoch-nanos on API 24+; SDK-init time as fallback. */
     private final long firstPossibleTimestamp;
 
-    /**
-     * Tracer stored in {@link #start} so that {@link #reportFullyDrawn()} can create a span
-     * even after {@link #end()} / {@link #clear()} have run.
-     */
+    /** Held across {@link #end}/{@link #clear} so {@link #reportFullyDrawn} can build the span later. */
     @Nullable private volatile Tracer tracer;
 
-    /**
-     * Guards the one-shot {@link #reportFullyDrawn()} so concurrent / repeated calls are safe.
-     * {@code compareAndSet(false, true)} ensures exactly one span is ever emitted.
-     */
     private final AtomicBoolean fullyDrawnReported = new AtomicBoolean(false);
 
     @Nullable private volatile Span overallAppStartSpan = null;
     @Nullable private volatile Runnable completionCallback = null;
-
+    // whether activity has been created
     // accessed only from UI thread
     private boolean uiInitStarted = false;
+    // whether MAX_TIME_TO_UI_INIT has been exceeded
     // accessed only from UI thread
     private boolean uiInitTooLate = false;
     // accessed only from UI thread
@@ -85,94 +62,47 @@ public class AppStartupTimer {
         this.firstPossibleTimestamp = resolveProcessStartTimestamp(startupClock);
     }
 
-    // --------------------------------------------------------------------------------------------
-    // OS-level process-start timestamp resolution
-    // --------------------------------------------------------------------------------------------
-
     /**
-     * Returns the best-available process-start epoch timestamp in nanoseconds.
-     *
-     * <p>API ≥24: reads {@code Process.getStartUptimeMillis()} (OS fork time)
-     * <p>Sanity guard: rejects timestamps that are in the future or more than 10 minutes in the
-     * past (both indicate a clock anomaly on some devices / after suspend/resume).
-     * <p>Fallback: returns {@code clock.now()} — the SDK-init time — which was the original
-     * pre-OS-anchor behaviour.
+     * Resolves the OS process-fork timestamp (API 24+); falls back to {@code clock.now()} on
+     * older OS, conversion failures, or out-of-range deltas (future or >10 min in past).
      */
     private static long resolveProcessStartTimestamp(AnchoredClock clock) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N /* API 24 */) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
             try {
-                long processStartUptimeMs = getProcessStartUptimeMillisApi24();
-                long currentUptimeMs = SystemClock.uptimeMillis();
-                long currentEpochNanos = clock.now();
-
-                long deltaMs = currentUptimeMs - processStartUptimeMs;
-                long deltaNanos = TimeUnit.MILLISECONDS.toNanos(deltaMs);
-
-                long tenMinutesNanos = TimeUnit.MINUTES.toNanos(10);
-                if (deltaNanos < 0 || deltaNanos > tenMinutesNanos) {
-                    Log.d(RumConstants.OTEL_RUM_LOG_TAG,
-                        "[Pulse AppStart] OS process-start delta out of range (" + deltaNanos
-                            + " ns); falling back to SDK-init time");
-                    return clock.now();
+                long deltaNanos = TimeUnit.MILLISECONDS.toNanos(
+                    SystemClock.uptimeMillis() - getProcessStartUptimeMillisApi24());
+                if (deltaNanos >= 0 && deltaNanos <= TimeUnit.MINUTES.toNanos(10)) {
+                    return clock.now() - deltaNanos;
                 }
-
-                long processStartEpochNanos = currentEpochNanos - deltaNanos;
                 Log.d(RumConstants.OTEL_RUM_LOG_TAG,
-                    "[Pulse AppStart] OS process-start resolved: deltaMs=" + deltaMs
-                        + " processStartEpochNanos=" + processStartEpochNanos);
-                return processStartEpochNanos;
-
+                    "[Pulse AppStart] process-start delta out of range; using SDK-init time");
             } catch (Exception e) {
                 Log.d(RumConstants.OTEL_RUM_LOG_TAG,
-                    "[Pulse AppStart] OS process-start unavailable; using SDK-init time. cause=" + e);
+                    "[Pulse AppStart] process-start unavailable; using SDK-init time. cause=" + e);
             }
-        } else {
-            Log.d(RumConstants.OTEL_RUM_LOG_TAG,
-                "[Pulse AppStart] API < 24; Process.getStartUptimeMillis() unavailable; using SDK-init time");
         }
         return clock.now();
     }
 
-    /**
-     * Isolated wrapper for {@code Process.getStartUptimeMillis()} (API 24).
-     *
-     * <p>AnimalSniffer is configured via
-     * {@code animalsniffer { annotation = "androidx.annotation.RequiresApi" }} to skip API
-     * checks on methods carrying this annotation. The runtime guard in
-     * {@link #resolveProcessStartTimestamp} ensures we never reach here below API 24.
-     */
+    /** API 24 call isolated so AnimalSniffer ({@code @RequiresApi}-aware) skips the check. */
     @androidx.annotation.RequiresApi(Build.VERSION_CODES.N)
     private static long getProcessStartUptimeMillisApi24() {
         return Process.getStartUptimeMillis();
     }
 
-    // --------------------------------------------------------------------------------------------
-    // AppStart span lifecycle
-    // --------------------------------------------------------------------------------------------
-
-    /**
-     * Starts the AppStart span and registers this timer as the process-wide current instance.
-     * <p>Idempotent: subsequent calls are ignored if the span is already in flight.
-     */
     public Span start(Tracer tracer) {
+        // guard against a double-start and just return what's already in flight.
         if (overallAppStartSpan != null) {
             return overallAppStartSpan;
         }
-
-        // Store tracer for later use in reportFullyDrawn(), which may be called after end().
         this.tracer = tracer;
-
         final Span appStart =
                 tracer.spanBuilder("AppStart")
                         .setStartTimestamp(firstPossibleTimestamp, TimeUnit.NANOSECONDS)
                         .setAttribute(RumConstants.START_TYPE_KEY, "cold")
                         .startSpan();
         overallAppStartSpan = appStart;
-
-        // Publish so PulseSDKInternal.reportFullyDrawn() can reach this timer without a
-        // direct reference. The instance stays alive until reportFullyDrawn() fires.
         CURRENT_INSTANCE = this;
-
         return appStart;
     }
 
@@ -258,6 +188,7 @@ public class AppStartupTimer {
 
         @Override
         public void run() {
+            // check whether an activity has been created
             if (!startupTimer.uiInitStarted) {
                 Log.d(RumConstants.OTEL_RUM_LOG_TAG, "Detected background app start");
                 startupTimer.isStartedFromBackground = true;
@@ -265,38 +196,20 @@ public class AppStartupTimer {
         }
     }
 
-    // --------------------------------------------------------------------------------------------
-    // reportFullyDrawn — retroactive AppInteractive span
-    // --------------------------------------------------------------------------------------------
+    /** Emits a one-shot AppInteractive span spanning OS process-start → now. */
     public void reportFullyDrawn() {
         if (!fullyDrawnReported.compareAndSet(false, true)) {
-            Log.d(RumConstants.OTEL_RUM_LOG_TAG,
-                "[Pulse AppStart] reportFullyDrawn() already called (no-op)");
             return;
         }
-
         final Tracer t = this.tracer;
         if (t == null) {
-            Log.d(RumConstants.OTEL_RUM_LOG_TAG,
-                "[Pulse AppStart] reportFullyDrawn() called but tracer is null (SDK not yet started)");
             return;
         }
-
-        // Capture end time BEFORE building the span so the measured duration is accurate.
-        final long endNanos = Clock.getDefault().now();
-        final long durationMs = TimeUnit.NANOSECONDS.toMillis(endNanos - firstPossibleTimestamp);
-
-        Log.d(RumConstants.OTEL_RUM_LOG_TAG,
-            "[Pulse AppStart] reportFullyDrawn() creating AppInteractive span: durationMs=" + durationMs);
-
-        // Build the span with the OS-anchor start timestamp and end it immediately.
-        // PulseSdkSignalProcessors.onEnding() will add pulse.type = "app_interactive".
+        final long endNanos = startupClock.now();
         final Span span = t.spanBuilder("AppInteractive")
                 .setStartTimestamp(firstPossibleTimestamp, TimeUnit.NANOSECONDS)
                 .startSpan();
         span.end(endNanos, TimeUnit.NANOSECONDS);
-
-        // Clean up static reference — no more use after one-shot fire.
         CURRENT_INSTANCE = null;
     }
 }

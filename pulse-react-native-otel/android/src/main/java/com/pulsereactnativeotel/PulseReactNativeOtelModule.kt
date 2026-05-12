@@ -99,6 +99,10 @@ class PulseReactNativeOtelModule(reactContext: ReactApplicationContext) :
     Pulse.setDataCollectionState(consent)
   }
 
+  override fun reportFullyDrawn() {
+    Pulse.sdkInternal.reportFullyDrawn()
+  }
+
   override fun shutdown(): Boolean {
     Pulse.sdkInternal.shutdown()
     return true

@@ -53,6 +53,8 @@ internal class PulseSignalProcessor {
                 // Fallback: AppStartupTimer sets pulse.type at span creation,
                 // but if it arrives here without one, tag cold starts.
                 pulseType = PulseAttributes.PulseTypeValues.appStart
+            } else if span.name == "AppInteractive" {
+                pulseType = PulseAttributes.PulseTypeValues.appInteractive
             } else if span.name == "ViewControllerSession" {
                 pulseType = PulseAttributes.PulseTypeValues.screenSession
             } else if span.name == "Created" {

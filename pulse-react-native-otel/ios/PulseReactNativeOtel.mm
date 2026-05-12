@@ -97,6 +97,11 @@ RCT_EXPORT_MODULE()
   return @YES;
 }
 
+- (void)doReportFullyDrawn
+{
+  [PulseSDK pulseReportFullyDrawn];
+}
+
 - (NSNumber *)doShutdown
 {
   return @([PulseSDK shutdown]);
@@ -145,6 +150,8 @@ RCT_EXPORT_MODULE()
 - (void)setDataCollectionState:(NSString *)state { [self doSetDataCollectionState:state]; }
 
 - (void)triggerAnr { }
+
+- (void)reportFullyDrawn { [self doReportFullyDrawn]; }
 
 - (NSNumber *)shutdown { return [self doShutdown]; }
 
@@ -208,6 +215,9 @@ RCT_EXPORT_METHOD(setDataCollectionState:(NSString *)state)
 
 RCT_EXPORT_METHOD(triggerAnr)
 { }
+
+RCT_EXPORT_METHOD(reportFullyDrawn)
+{ [self doReportFullyDrawn]; }
 
 RCT_EXPORT_BLOCKING_SYNCHRONOUS_METHOD(shutdown)
 { return [self doShutdown]; }
