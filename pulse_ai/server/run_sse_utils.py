@@ -161,6 +161,9 @@ async def stream_adk_run_as_sse(
             )
 
             if blocks:
+                tail = tracker.flush()
+                if tail:
+                    yield sse_data_line({"type": "text", "content": tail})
                 tracker.reset()
                 content_blocks.extend(blocks)
 

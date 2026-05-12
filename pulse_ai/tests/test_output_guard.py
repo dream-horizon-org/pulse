@@ -1,8 +1,6 @@
 """Tests for pulse_ai.output_guard (Layer 1 + Layer 3 of LLM leakage defense)."""
 from types import SimpleNamespace
 
-import pytest
-
 from pulse_ai.output_guard import (
     FilteredDeltaTracker,
     em_output_sanitize_callback,
