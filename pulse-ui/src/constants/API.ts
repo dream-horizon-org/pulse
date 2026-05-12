@@ -53,5 +53,3 @@ export const GET_SCREEN_ROOT_CAUSE_ROUTE = {
   apiPathSuffix: "/root-cause",
   method: "GET",
 } as const;
-
-
