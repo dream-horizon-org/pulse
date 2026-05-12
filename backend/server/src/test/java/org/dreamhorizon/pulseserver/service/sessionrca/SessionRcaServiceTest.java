@@ -413,6 +413,43 @@ class SessionRcaServiceTest {
     }
 
     @Test
+    void shouldTreatNullBaselineJsonInCacheAsEmptyMap() {
+      SessionRcaCacheRow row =
+          SessionRcaCacheRow.builder()
+              .baseline("null")
+              .segments("[]")
+              .mode("flat")
+              .windowEndUtc(WINDOW_END_LDT)
+              .cachedAt(LocalDateTime.now(ZoneOffset.UTC))
+              .build();
+      when(sessionRcaCacheDao.findByKey(PROJECT_ID, ANCHOR))
+          .thenReturn(Single.just(Optional.of(row)));
+
+      RootCauseResult result = service.getSessionRca(PROJECT_ID, ANCHOR, WINDOW_END).blockingGet();
+
+      assertThat(result.getBaseline()).isEmpty();
+      assertThat(result.getSegments()).isEmpty();
+    }
+
+    @Test
+    void shouldTreatNullSegmentsJsonInCacheAsEmptyList() {
+      SessionRcaCacheRow row =
+          SessionRcaCacheRow.builder()
+              .baseline("{\"volume\":10}")
+              .segments("null")
+              .mode("flat")
+              .windowEndUtc(WINDOW_END_LDT)
+              .cachedAt(LocalDateTime.now(ZoneOffset.UTC))
+              .build();
+      when(sessionRcaCacheDao.findByKey(PROJECT_ID, ANCHOR))
+          .thenReturn(Single.just(Optional.of(row)));
+
+      RootCauseResult result = service.getSessionRca(PROJECT_ID, ANCHOR, WINDOW_END).blockingGet();
+
+      assertThat(result.getSegments()).isEmpty();
+    }
+
+    @Test
     void shouldRecomputeWhenForceRefreshTrue() {
       when(clickhouseQueryService.executeRootCauseQuery(anyString(), anyString(), anyList(), anyList()))
           .thenAnswer(
@@ -769,6 +806,137 @@ class SessionRcaServiceTest {
                 String sql = inv.getArgument(1, String.class);
                 if (isDegradingInteractionsQuery(sql)) {
                   return Single.error(new RuntimeException("clickhouse unavailable"));
+                }
+                return answerDefaultComputeFlow(baseline, 100L, inv);
+              });
+
+      RootCauseResult result = service.getSessionRca(PROJECT_ID, ANCHOR, WINDOW_END).blockingGet();
+
+      assertThat(result.getSegments()).isNotEmpty();
+      assertThat(result.getSegments().get(0).getDegradingInteractions()).isNull();
+    }
+
+    @Test
+    void shouldUseDefaultPercentilesWhenPercentileQueryReturnsNoRows() {
+      when(sessionRcaCacheDao.findByKey(PROJECT_ID, ANCHOR))
+          .thenReturn(Single.just(Optional.empty()));
+      Map<String, Object> baseline = sessionBaseline(100L, 0.8, 0.05);
+      when(clickhouseQueryService.executeRootCauseQuery(anyString(), anyString(), anyList(), anyList()))
+          .thenAnswer(
+              inv -> {
+                String sql = inv.getArgument(1, String.class);
+                if (isSessionBaselineQuery(sql)) {
+                  return Single.just(singleRowTableResponse(baseline));
+                }
+                if (isAggregateLowQualityCountQuery(sql)) {
+                  return Single.just(
+                      singleRowTableResponse(
+                          Map.of(SessionRcaMetricsRegistry.LOW_QUALITY_COUNT, 10L)));
+                }
+                if (isPercentileQuery(sql)) {
+                  return Single.just(emptyTableResponse());
+                }
+                return Single.just(emptyTableResponse());
+              });
+
+      RootCauseResult result = service.getSessionRca(PROJECT_ID, ANCHOR, WINDOW_END).blockingGet();
+
+      assertThat(result.getMode()).isEqualTo(RootCauseAnalysisMode.FLAT);
+      assertThat(result.getSegments()).isEmpty();
+    }
+
+    @Test
+    void shouldMarkNormalImpactWhenSegmentQualityIsNotCritical() {
+      when(sessionRcaCacheDao.findByKey(PROJECT_ID, ANCHOR))
+          .thenReturn(Single.just(Optional.empty()));
+      Map<String, Object> baseline = sessionBaseline(500L, 0.8, 0.05);
+      when(clickhouseQueryService.executeRootCauseQuery(anyString(), anyString(), anyList(), anyList()))
+          .thenAnswer(
+              inv -> {
+                String sql = inv.getArgument(1, String.class);
+                @SuppressWarnings("unchecked")
+                List<Object> bindValues = inv.getArgument(3, List.class);
+                int bindCount = bindValues.size();
+
+                if (isSessionBaselineQuery(sql)) {
+                  return Single.just(singleRowTableResponse(baseline));
+                }
+                if (isAggregateLowQualityCountQuery(sql)) {
+                  return Single.just(
+                      singleRowTableResponse(
+                          Map.of(SessionRcaMetricsRegistry.LOW_QUALITY_COUNT, 100L)));
+                }
+                if (isPercentileQuery(sql)) {
+                  return Single.just(singleRowTableResponse(Map.of("p20", 1000L, "p80", 5000L)));
+                }
+                if (isExampleSessionsQuery(sql)) {
+                  return Single.just(emptyTableResponse());
+                }
+                if (isSessionSegmentMetricsQuery(sql)
+                    && sql.contains("GROUP BY platform")
+                    && bindCount == 4) {
+                  return Single.just(
+                      singleRowTableResponse(
+                          sessionSegmentMetricRow("platform", "Android", 50L, 0.75)));
+                }
+                if (sql.contains("GROUP BY platform") && bindCount == 4) {
+                  return Single.just(
+                      singleRowTableResponse(
+                          Map.of("platform", "Android", SessionRcaMetricsRegistry.LOW_QUALITY_COUNT, 10L)));
+                }
+                return Single.just(emptyTableResponse());
+              });
+
+      RootCauseResult result = service.getSessionRca(PROJECT_ID, ANCHOR, WINDOW_END).blockingGet();
+
+      assertThat(result.getSegments()).hasSize(1);
+      assertThat(result.getSegments().get(0).getMetrics())
+          .containsEntry(SessionRcaMetricsRegistry.IMPACT, SessionRcaMetricsRegistry.IMPACT_NORMAL);
+    }
+
+    @Test
+    void shouldOmitBlankExampleSessionIds() {
+      when(sessionRcaCacheDao.findByKey(PROJECT_ID, ANCHOR))
+          .thenReturn(Single.just(Optional.empty()));
+      Map<String, Object> baseline = sessionBaseline(500L, 0.8, 0.05);
+      when(clickhouseQueryService.executeRootCauseQuery(anyString(), anyString(), anyList(), anyList()))
+          .thenAnswer(
+              inv -> {
+                String sql = inv.getArgument(1, String.class);
+                if (isExampleSessionsQuery(sql)) {
+                  return Single.just(singleRowTableResponse(Map.of("sessionId", "   ")));
+                }
+                return answerDefaultComputeFlow(baseline, 100L, inv);
+              });
+
+      RootCauseResult result = service.getSessionRca(PROJECT_ID, ANCHOR, WINDOW_END).blockingGet();
+
+      assertThat(result.getSegments()).isNotEmpty();
+      assertThat(result.getSegments().get(0).getExampleSessionIds()).isNull();
+    }
+
+    @Test
+    void shouldSkipDegradingInteractionsWhenSegmentQualityIsNotBelowBaseline() {
+      when(sessionRcaCacheDao.findByKey(PROJECT_ID, ANCHOR))
+          .thenReturn(Single.just(Optional.empty()));
+      Map<String, Object> baseline = sessionBaseline(500L, 0.8, 0.05);
+      when(clickhouseQueryService.executeRootCauseQuery(anyString(), anyString(), anyList(), anyList()))
+          .thenAnswer(
+              inv -> {
+                String sql = inv.getArgument(1, String.class);
+                @SuppressWarnings("unchecked")
+                List<Object> bindValues = inv.getArgument(3, List.class);
+                int bindCount = bindValues.size();
+
+                if (isDegradingInteractionsQuery(sql)) {
+                  return Single.error(new AssertionError("degrading interactions should not run"));
+                }
+                if (isSessionSegmentMetricsQuery(sql)
+                    && sql.contains("GROUP BY platform")
+                    && bindCount == 4) {
+                  return Single.just(
+                      singleRowTableResponse(
+                          sessionSegmentMetricRow("platform", "Android", 50L, 0.9)));
                 }
                 return answerDefaultComputeFlow(baseline, 100L, inv);
               });

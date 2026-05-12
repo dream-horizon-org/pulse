@@ -30,6 +30,7 @@ import org.dreamhorizon.pulseserver.service.rootcause.ScreenRcaService;
 import org.dreamhorizon.pulseserver.service.rootcause.SessionEvidenceService;
 import org.dreamhorizon.pulseserver.service.sessionrca.SessionRcaService;
 import org.dreamhorizon.pulseserver.service.rootcause.models.EvidenceSession;
+import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseAnalysisMode;
 import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseResult;
 import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseSegment;
 import org.dreamhorizon.pulseserver.service.rootcause.models.SessionEvidenceResult;
@@ -447,6 +448,55 @@ class RcaReportEnrichmentServiceTest {
       assertThat(metricsCaptor.getValue())
           .containsEntry("error_rate", 0.15)
           .containsEntry("apdex", 0.8);
+    }
+  }
+
+  @Nested
+  class SessionRcaEnrichment {
+
+    @Test
+    void shouldEnrichSessionRcaPayload()
+        throws ExecutionException, InterruptedException, TimeoutException {
+      RootCauseResult sessionResult =
+          RootCauseResult.builder()
+              .baseline(Map.of("volume", 1000L))
+              .segments(List.of())
+              .mode(RootCauseAnalysisMode.FLAT)
+              .build();
+      when(sessionRcaService.getSessionRca(eq("p1"), eq(DATE), any(), eq(false)))
+          .thenReturn(Single.just(sessionResult));
+
+      ObjectNode body = objectMapper.createObjectNode();
+      body.put("date", "2025-06-01");
+      RcaParsedReportBody parsed =
+          new RcaParsedReportBody(body.toString(), body, "p1", RcaType.SESSION, "", DATE, false);
+
+      RcaEnrichmentOutcome outcome =
+          service.enrichAsync(parsed, false).toCompletableFuture().get(5, TimeUnit.SECONDS);
+
+      assertThat(outcome.enrichmentOk()).isTrue();
+      assertThat(outcome.body()).contains("rootCausePayload");
+      assertThat(outcome.body()).contains("asOf");
+      verifyNoInteractions(rootCauseService);
+      verifyNoInteractions(sessionEvidenceService);
+    }
+
+    @Test
+    void shouldReturnFallbackBodyWhenSessionRcaFails() throws Exception {
+      when(sessionRcaService.getSessionRca(any(), any(), any(), anyBoolean()))
+          .thenReturn(Single.error(new RuntimeException("session rca failed")));
+
+      String rawBody = "{\"date\":\"2025-06-01\"}";
+      ObjectNode body = (ObjectNode) objectMapper.readTree(rawBody);
+      RcaParsedReportBody parsed =
+          new RcaParsedReportBody(rawBody, body, "p1", RcaType.SESSION, "", DATE, false);
+
+      RcaEnrichmentOutcome outcome =
+          service.enrichAsync(parsed, false).toCompletableFuture().get(5, TimeUnit.SECONDS);
+
+      assertThat(outcome.enrichmentOk()).isFalse();
+      assertThat(outcome.body()).isEqualTo(rawBody);
+      assertThat(outcome.rootCause()).isNull();
     }
   }
 }
