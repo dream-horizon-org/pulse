@@ -17,7 +17,7 @@ import com.pulse.sampling.models.PulseFeatureName
 import kotlinx.serialization.json.Json
 
 @ReactModule(name = PulseReactNativeOtelModule.NAME)
-class PulseReactNativeOtelModule(reactContext: ReactApplicationContext) :
+public class PulseReactNativeOtelModule(reactContext: ReactApplicationContext) :
   NativePulseReactNativeOtelSpec(reactContext) {
 
   override fun getName(): String {
@@ -157,7 +157,7 @@ class PulseReactNativeOtelModule(reactContext: ReactApplicationContext) :
     return features
   }
 
-  companion object {
-    const val NAME = "PulseReactNativeOtel"
+  public companion object {
+    public const val NAME: String = "PulseReactNativeOtel"
   }
 }
