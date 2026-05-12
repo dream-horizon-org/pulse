@@ -3,7 +3,7 @@
  * with browser OTLP exporters mocked so no network/IndexedDB side effects.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { Resource } from "@opentelemetry/resources";
+import { emptyResource } from "@opentelemetry/resources";
 import { ExportResultCode } from "@opentelemetry/core";
 import type { ReadableSpan } from "@opentelemetry/sdk-trace-web";
 
@@ -66,7 +66,7 @@ describe("createProviders + beforeSendData", () => {
     const beforeSendSpan = vi.fn((s: ReadableSpan) => s);
     const bundle = createProviders(
       { ...baseExporterConfig, beforeSendData: { beforeSendSpan } },
-      Resource.empty(),
+      emptyResource(),
       [],
       [],
     );
@@ -85,7 +85,7 @@ describe("createProviders + beforeSendData", () => {
     const beforeSendSpan = vi.fn(() => null as unknown as ReadableSpan);
     const bundle = createProviders(
       { ...baseExporterConfig, beforeSendData: { beforeSendSpan } },
-      Resource.empty(),
+      emptyResource(),
       [],
       [],
     );

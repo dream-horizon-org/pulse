@@ -228,6 +228,46 @@ class PulseFeatureFlagUtilsTest {
     }
 
     @Nested
+    inner class `MEMORY feature` {
+        @Test
+        fun `when MEMORY is disabled, memory instrumentation is suppressed`() {
+            val config = OtelRumConfig()
+            PulseFeatureFlagUtils.apply(config, buildProcessors(enabledFeatures = emptyList()))
+            assertThat(config.isSuppressed("memory")).isTrue
+        }
+
+        @Test
+        fun `when MEMORY is enabled, memory instrumentation is not suppressed`() {
+            val config = OtelRumConfig()
+            PulseFeatureFlagUtils.apply(
+                config,
+                buildProcessors(enabledFeatures = listOf(PulseFeatureName.MEMORY)),
+            )
+            assertThat(config.isSuppressed("memory")).isFalse
+        }
+    }
+
+    @Nested
+    inner class `BATTERY feature` {
+        @Test
+        fun `when BATTERY is disabled, battery instrumentation is suppressed`() {
+            val config = OtelRumConfig()
+            PulseFeatureFlagUtils.apply(config, buildProcessors(enabledFeatures = emptyList()))
+            assertThat(config.isSuppressed("battery")).isTrue
+        }
+
+        @Test
+        fun `when BATTERY is enabled, battery instrumentation is not suppressed`() {
+            val config = OtelRumConfig()
+            PulseFeatureFlagUtils.apply(
+                config,
+                buildProcessors(enabledFeatures = listOf(PulseFeatureName.BATTERY)),
+            )
+            assertThat(config.isSuppressed("battery")).isFalse
+        }
+    }
+
+    @Nested
     inner class `CUSTOM_EVENTS feature` {
         @Test
         fun `when CUSTOM_EVENTS is disabled, result marks custom events as disabled`() {
@@ -263,6 +303,8 @@ class PulseFeatureFlagUtilsTest {
         assertThat(config.isSuppressed("fragment")).isFalse
         assertThat(config.isSuppressed("slowrendering")).isFalse
         assertThat(config.shouldIncludeNetworkAttributes()).isTrue
+        assertThat(config.isSuppressed("memory")).isFalse
+        assertThat(config.isSuppressed("battery")).isFalse
         assertThat(result.isCustomEventEnabled).isTrue
     }
 

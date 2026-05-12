@@ -58,9 +58,11 @@ vi.mock("../exporters", () => {
 });
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { PulseWeb } from "../sdk";
+import { Pulse } from "../sdk";
 import { PulseDataCollectionConsent } from "../types/config";
+import type { PulseExportSignal } from "../types/before-send";
 import {
+  PULSE_PROD_ENDPOINT_URL,
   resolveEndpointBaseUrl,
   isLocalEnvironment,
   PulseLogLevel,
@@ -83,65 +85,65 @@ describe("Config surface — matches Android minimal API", () => {
   });
 
   afterEach(async () => {
-    await PulseWeb.shutdown();
+    await Pulse.shutdown();
     vi.unstubAllGlobals();
   });
 
   // TC-C1
   it("TC-C1: start() requires apiKey — throws if missing", () => {
     expect(() =>
-      PulseWeb.start({
+      Pulse.init({
         apiKey: "",
         dataCollectionState: PulseDataCollectionConsent.ALLOWED,
       }),
-    ).toThrow("[PulseWeb] apiKey is required");
+    ).toThrow("[Pulse] apiKey is required");
   });
 
   // TC-C2
   it("TC-C2: dataCollectionState DENIED → SDK does not initialize (matches Android)", () => {
-    PulseWeb.start({
+    Pulse.init({
       apiKey: "default-project_devkey01",
       dataCollectionState: PulseDataCollectionConsent.DENIED,
     });
-    expect(PulseWeb.isInitialized()).toBe(false);
+    expect(Pulse.isInitialized()).toBe(false);
   });
 
   // TC-C3
   it("TC-C3: dataCollectionState PENDING → SDK does not initialize (matches Android)", () => {
-    PulseWeb.start({
+    Pulse.init({
       apiKey: "default-project_devkey01",
       dataCollectionState: PulseDataCollectionConsent.PENDING,
     });
-    expect(PulseWeb.isInitialized()).toBe(false);
+    expect(Pulse.isInitialized()).toBe(false);
   });
 
   // beforeSendData is validated at start; full export wiring is unit-tested in before-send-exporter.test.ts
   // (this suite mocks createProviders so hooks never run here).
   it("TC-C3a: invalid beforeSendData callback object throws at start()", () => {
     expect(() =>
-      PulseWeb.start({
+      Pulse.init({
         apiKey: "default-project_devkey01",
         dataCollectionState: PulseDataCollectionConsent.ALLOWED,
         beforeSendData: { beforeSend: "not-a-fn" } as never,
       }),
     ).toThrow(
-      "[PulseWeb] beforeSendData.beforeSend must be a function when provided",
+      "[Pulse] beforeSendData.beforeSend must be a function when provided",
     );
   });
 
   it("TC-C3b: beforeSendData function and callback object are accepted when valid", async () => {
-    const fn = vi.fn((s: unknown) => s);
+    const fn = vi.fn((s: PulseExportSignal) => s);
     expect(() =>
-      PulseWeb.start({
+      Pulse.init({
         apiKey: "default-project_devkey01",
         dataCollectionState: PulseDataCollectionConsent.ALLOWED,
         beforeSendData: fn,
       }),
     ).not.toThrow();
     await Promise.resolve();
-    await PulseWeb.shutdown();
+    await Pulse.shutdown();
     expect(() =>
-      PulseWeb.start({
+      Pulse.init({
         apiKey: "default-project_devkey01",
         dataCollectionState: PulseDataCollectionConsent.ALLOWED,
         beforeSendData: {
@@ -150,18 +152,18 @@ describe("Config surface — matches Android minimal API", () => {
       }),
     ).not.toThrow();
     await Promise.resolve();
-    expect(PulseWeb.isInitialized()).toBe(true);
+    expect(Pulse.isInitialized()).toBe(true);
   });
 
   // TC-C4
   it("TC-C4: ALLOWED with only apiKey + dataCollectionState → initializes (serviceName auto-derived)", async () => {
-    PulseWeb.start({
+    Pulse.init({
       apiKey: "default-project_devkey01",
       dataCollectionState: PulseDataCollectionConsent.ALLOWED,
     });
     // finishStart is async (awaits OS version resolution); flush microtasks.
     await Promise.resolve();
-    expect(PulseWeb.isInitialized()).toBe(true);
+    expect(Pulse.isInitialized()).toBe(true);
   });
 
   // TC-C5
@@ -179,51 +181,68 @@ describe("Config surface — matches Android minimal API", () => {
   // TC-C6
   it("TC-C6: isLocalEnvironment detects dev keys correctly", () => {
     expect(isLocalEnvironment("default-project_abc")).toBe(true);
-    expect(isLocalEnvironment("Test-myapp_abc")).toBe(true);
+    expect(isLocalEnvironment("Test-myapp_abc")).toBe(false);
     expect(isLocalEnvironment("myapp-prod_key123")).toBe(false);
   });
 
   // TC-C7
   it("TC-C7: serviceName optional — SDK starts without it", async () => {
     expect(() =>
-      PulseWeb.start({
+      Pulse.init({
         apiKey: "default-project_devkey01",
         dataCollectionState: PulseDataCollectionConsent.ALLOWED,
       }),
     ).not.toThrow();
     await Promise.resolve();
-    expect(PulseWeb.isInitialized()).toBe(true);
+    expect(Pulse.isInitialized()).toBe(true);
   });
 
   // TC-C8
   it("TC-C8: globalAttributes passed through to processor", async () => {
-    PulseWeb.start({
+    Pulse.init({
       apiKey: "default-project_devkey01",
       dataCollectionState: PulseDataCollectionConsent.ALLOWED,
       globalAttributes: { "app.env": "test", "tenant.id": "t1" },
     });
     await new Promise((r) => setTimeout(r, 50));
-    const attrs = PulseWeb.globalAttrsProcessor?.getCommonAttrsForMetrics();
+    const attrs = Pulse.globalAttrsProcessor?.getCommonAttrsForMetrics();
     expect(attrs?.["app.env"]).toBe("test");
     expect(attrs?.["tenant.id"]).toBe("t1");
   });
 
+  it("TC-C8b: globalAttributes array values are preserved", async () => {
+    Pulse.init({
+      apiKey: "default-project_devkey01",
+      dataCollectionState: PulseDataCollectionConsent.ALLOWED,
+      globalAttributes: {
+        "flags.enabled": [true, false],
+        "release.channels": ["beta", "stable"],
+        "retry.windows_ms": [100, 300, 500],
+      },
+    });
+    await new Promise((r) => setTimeout(r, 50));
+    const attrs = Pulse.globalAttrsProcessor?.getCommonAttrsForMetrics();
+    expect(attrs?.["flags.enabled"]).toEqual([true, false]);
+    expect(attrs?.["release.channels"]).toEqual(["beta", "stable"]);
+    expect(attrs?.["retry.windows_ms"]).toEqual([100, 300, 500]);
+  });
+
   // TC-C9
   it("TC-C9: second start() is no-op (singleton guard — matches Android)", async () => {
-    PulseWeb.start({
+    Pulse.init({
       apiKey: "default-project_devkey01",
       dataCollectionState: PulseDataCollectionConsent.ALLOWED,
     });
     await Promise.resolve();
-    expect(PulseWeb.isInitialized()).toBe(true);
+    expect(Pulse.isInitialized()).toBe(true);
     // Second call with different key should be ignored
     expect(() =>
-      PulseWeb.start({
+      Pulse.init({
         apiKey: "different_key",
         dataCollectionState: PulseDataCollectionConsent.ALLOWED,
       }),
     ).not.toThrow();
-    expect(PulseWeb.isInitialized()).toBe(true);
+    expect(Pulse.isInitialized()).toBe(true);
   });
 
   // TC-C10
@@ -232,7 +251,7 @@ describe("Config surface — matches Android minimal API", () => {
       "http://localhost:4318",
     );
     expect(resolveEndpointBaseUrl("Test-myapp_abc123")).toBe(
-      "http://localhost:4318",
+      PULSE_PROD_ENDPOINT_URL,
     );
     expect(resolveEndpointBaseUrl("ecommerce-app_prod123")).toBe(
       "https://pulse-otel-collector.pulse-ux.com",
@@ -241,7 +260,7 @@ describe("Config surface — matches Android minimal API", () => {
 
   // TC-C11
   it("TC-C11: explicit diskBuffering tuning is valid public config (Android parity)", async () => {
-    PulseWeb.start({
+    Pulse.init({
       apiKey: "default-project_devkey01",
       dataCollectionState: PulseDataCollectionConsent.ALLOWED,
       diskBuffering: {
@@ -251,22 +270,22 @@ describe("Config surface — matches Android minimal API", () => {
       },
     });
     await Promise.resolve();
-    expect(PulseWeb.isInitialized()).toBe(true);
+    expect(Pulse.isInitialized()).toBe(true);
   });
 
   // TC-C12
   it("TC-C12: diskBuffering invalid maxAgeMs throws at start()", () => {
     expect(() =>
-      PulseWeb.start({
+      Pulse.init({
         apiKey: "default-project_devkey01",
         dataCollectionState: PulseDataCollectionConsent.ALLOWED,
         diskBuffering: { maxAgeMs: 0 },
       }),
-    ).toThrow("[PulseWeb] diskBuffering.maxAgeMs");
+    ).toThrow("[Pulse] diskBuffering.maxAgeMs");
   });
 
   it("TC-C13: logLevel from config is applied to PulseWebLogger", async () => {
-    PulseWeb.start({
+    Pulse.init({
       apiKey: "default-project_devkey01",
       dataCollectionState: PulseDataCollectionConsent.ALLOWED,
       logLevel: PulseLogLevel.INFO,
@@ -276,20 +295,20 @@ describe("Config surface — matches Android minimal API", () => {
   });
 
   it("TC-C14: shutdown resets PulseWebLogger to NONE", async () => {
-    PulseWeb.start({
+    Pulse.init({
       apiKey: "default-project_devkey01",
       dataCollectionState: PulseDataCollectionConsent.ALLOWED,
       logLevel: PulseLogLevel.DEBUG,
     });
     await Promise.resolve();
     expect(PulseWebLogger.getLevel()).toBe(PulseLogLevel.DEBUG);
-    await PulseWeb.shutdown();
+    await Pulse.shutdown();
     expect(PulseWebLogger.getLevel()).toBe(PulseLogLevel.NONE);
   });
 
   it("TC-C15: resourceAttributes accepted at start (merge in finishStart)", async () => {
     expect(() =>
-      PulseWeb.start({
+      Pulse.init({
         apiKey: "default-project_devkey01",
         dataCollectionState: PulseDataCollectionConsent.ALLOWED,
         resourceAttributes: {
@@ -298,6 +317,16 @@ describe("Config surface — matches Android minimal API", () => {
       }),
     ).not.toThrow();
     await Promise.resolve();
-    expect(PulseWeb.isInitialized()).toBe(true);
+    expect(Pulse.isInitialized()).toBe(true);
+  });
+
+  it("TC-C16: start() is a no-op when window is undefined (SSR guard)", async () => {
+    vi.stubGlobal("window", undefined);
+    Pulse.init({
+      apiKey: "default-project_devkey01",
+      dataCollectionState: PulseDataCollectionConsent.ALLOWED,
+    });
+    await Promise.resolve();
+    expect(Pulse.isInitialized()).toBe(false);
   });
 });

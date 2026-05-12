@@ -42,6 +42,8 @@ import {
   IconPlayerPlay,
   IconFlame,
   IconGridDots,
+  IconCpu,
+  IconBattery,
 } from "@tabler/icons-react";
 import {
   FeatureConfig,
@@ -78,6 +80,8 @@ const FEATURE_ICONS: Record<string, React.ReactNode> = {
   java_anr: <IconAlertTriangle size={22} />,
   network_change: <IconWifi size={22} />,
   custom_events: <IconTag size={22} />,
+  memory: <IconCpu size={22} />,
+  battery: <IconBattery size={22} />,
   rn_screen_load: <IconDeviceMobile size={22} />,
   rn_screen_interactive: <IconDeviceMobile size={22} />,
   rn_screen_session: <IconDeviceMobile size={22} />,
@@ -102,6 +106,8 @@ const FEATURE_COLORS: Record<string, string> = {
   java_anr: "#dc2626",
   network_change: "#06b6d4",
   custom_events: "#10b981",
+  memory: "#6366f1",
+  battery: "#22c55e",
   rn_screen_load: "#f59e0b",
   rn_screen_interactive: "#10b981",
   rn_screen_session: "#8b5cf6",

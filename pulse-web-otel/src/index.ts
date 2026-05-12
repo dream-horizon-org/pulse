@@ -1,8 +1,10 @@
-export { PulseWeb } from "./sdk";
+export { Pulse } from "./sdk";
 export type {
   PulseWebConfig,
   PulseWebDiskBufferingConfig,
   InstrumentationConfig,
+  PulseBeforeSendResult,
+  PulseExportSignal,
   PulseWebBeforeSendCallbacks,
   PulseWebBeforeSendConfig,
 } from "./config";

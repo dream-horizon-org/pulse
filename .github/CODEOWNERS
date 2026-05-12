@@ -2,7 +2,7 @@
 # This file controls who is tagged for review for any given pull request.
 
  # For anything not explicitly taken by someone else:
-* @chiragSharmaD11 @atulgpt17 @shubhamguptadream11 @mayankkush1 @yasir6jan @Sarabjyot123
+* @chiragSharmaD11 @atulgpt17 @shubhamguptadream11 @mayankkush1 @yasir6jan @Sarabjyot123 @prathameshy7
 /deploy/ @yasir6jan
 /pulse_ai/ @sarthak-d11
 backend/db/prod/clickhouse/ @mohithemnani11 @Racha2004 @Sarabjyot123

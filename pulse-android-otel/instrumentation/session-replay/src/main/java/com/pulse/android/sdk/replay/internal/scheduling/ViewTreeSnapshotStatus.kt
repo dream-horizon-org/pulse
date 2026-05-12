@@ -16,4 +16,5 @@ internal class ViewTreeSnapshotStatus(
     var hasSentMetaEvent: Boolean = false,
     var isKeyboardVisible: Boolean = false,
     var lastSnapshot: ReplayWireframe? = null,
+    var lastScreenName: String? = null,
 )

@@ -1,6 +1,6 @@
 import { PulseLogLevel } from "./pulse-log-level";
 
-const TAG = "PulseWeb";
+const TAG = "Pulse";
 
 let currentLevel: PulseLogLevel = PulseLogLevel.NONE;
 
