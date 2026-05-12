@@ -25,10 +25,12 @@ interface MetricConditionCardProps {
   onRemove: () => void;
   canRemove: boolean;
   validationErrors?: Record<string, string>;
+  /** Optional id->label map; when provided, scope names render via this map (e.g. funnel id -> name). */
+  scopeNameLabels?: Record<string, string>;
 }
 
 export const MetricConditionCard: React.FC<MetricConditionCardProps> = ({
-  condition, conditionIndex, metrics, globalScopeNames, isAppVitals, isMetricsLoading, onUpdate, onRemove, canRemove, validationErrors = {},
+  condition, conditionIndex, metrics, globalScopeNames, isAppVitals, isMetricsLoading, onUpdate, onRemove, canRemove, validationErrors = {}, scopeNameLabels,
 }) => {
   const metricOptions = metrics.map((m) => ({ value: m.name, label: m.label }));
   
@@ -86,10 +88,13 @@ export const MetricConditionCard: React.FC<MetricConditionCardProps> = ({
           <Box className={classes.thresholdsGrid}>
             {globalScopeNames.map((scopeName) => {
               const thresholdError = getThresholdError(scopeName);
-              // Format network_api scope names for display
-              const displayName = isNetworkApiScopeName(scopeName)
-                ? formatNetworkApiScopeName(scopeName)
-                : scopeName;
+              // Format network_api scope names for display; for funnel scope use the id->name map
+              const labelOverride = scopeNameLabels?.[scopeName];
+              const displayName = labelOverride
+                ? labelOverride
+                : isNetworkApiScopeName(scopeName)
+                  ? formatNetworkApiScopeName(scopeName)
+                  : scopeName;
               const isLongName = displayName.length > 40;
               const truncatedName = isLongName 
                 ? `${displayName.substring(0, 40)}...` 
