@@ -11,7 +11,9 @@ import org.dreamhorizon.pulseserver.service.rootcause.RootCauseQuerySpec;
 /**
  * Per-issue / per-endpoint drill-down for one error-attribution signal: **Mode A** — arms over full
  * universe {@code U}, candidate keys from sessions in {@code U}, gates on {@code n_treated} and
- * optionally {@code n_control}, ranked by finite RR (then infinite RR, then {@code n_treated}).
+ * optionally {@code n_control}, ranked by finite RR (then infinite RR, then {@code n_treated}). SQL
+ * fragments are defined in {@link ErrorAttributionDrillDownSqlTemplates}; this class wires bind
+ * values only.
  */
 public final class ErrorAttributionDrillDownQueryBuilder {
 
@@ -19,22 +21,6 @@ public final class ErrorAttributionDrillDownQueryBuilder {
   static final int DRILL_DOWN_LIMIT = RootCauseConfig.DEFAULT_ISSUE_DRILL_DOWN_LIMIT;
   /** Per-signal SQL cap; aligns with {@link RootCauseConfig#DEFAULT_ISSUE_DRILL_DOWN_CANDIDATE_LIMIT}. */
   static final int DRILL_DOWN_CANDIDATE_LIMIT = RootCauseConfig.DEFAULT_ISSUE_DRILL_DOWN_CANDIDATE_LIMIT;
-
-  /**
-   * ClickHouse {@code ORDER BY} expression for Mode A drill rows: finite RR, then infinite-style
-   * branch, then {@code n_treated}. Shared by {@link #buildStack} and {@link #buildApi}.
-   */
-  private static final String RR_SORT_ORDER_EXPR =
-      "multiIf("
-          + "ks.n_treated = 0, -1e200, "
-          + "(ut.n_u - ks.n_treated) <= 0, 1e300, "
-          + "(pt.n_poor_u - ks.n_treated_low) > 0 AND (ut.n_u - ks.n_treated) > 0, "
-          + "round( "
-          + "(toFloat64(ks.n_treated_low) / toFloat64(ks.n_treated)) "
-          + "/ (toFloat64(pt.n_poor_u - ks.n_treated_low) / toFloat64(ut.n_u - ks.n_treated)), "
-          + "4), "
-          + "ks.n_treated_low > 0, 1e301, "
-          + "-1e200) ";
 
   public record DrillDownQueryParams(
       int minTreatedSessions,
@@ -125,157 +111,24 @@ public final class ErrorAttributionDrillDownQueryBuilder {
     String traces = ClickhouseConstants.OTEL_TRACES_TABLE;
     String stacks = ClickhouseConstants.STACK_TRACE_EVENTS_TABLE;
     String interactionType = InteractionTelemetryConstants.INTERACTION_PULSE_TYPE;
+    String poorExpr = ClickhouseConstants.CH_SPAN_USER_CATEGORY_IS_POOR;
 
-    String withCommon =
-        "WITH "
-            + "u_sessions AS ( "
-            + "SELECT DISTINCT SessionId FROM "
-            + traces
-            + " WHERE ProjectId = :"
-            + p0
-            + " AND PulseType = '"
-            + interactionType
-            + "'"
-            + " AND SpanName = :"
-            + p1
-            + " AND Timestamp >= toDateTime64(:"
-            + p2
-            + ", 9, 'UTC')"
-            + " AND Timestamp < toDateTime64(:"
-            + p3
-            + ", 9, 'UTC')"
-            + " AND SessionId != '' "
-            + "), "
-            + "trace_agg AS ( "
-            + "SELECT "
-            + "SessionId, "
-            + "maxIf(1, PulseType = '"
-            + interactionType
-            + "'"
-            + " AND SpanName = :"
-            + p1
-            + " AND "
-            + ClickhouseConstants.CH_SPAN_USER_CATEGORY_IS_POOR
-            + ") AS is_low, "
-            + "minIf(Timestamp, PulseType = '"
-            + interactionType
-            + "' AND SpanName = :"
-            + p1
-            + " AND "
-            + ClickhouseConstants.CH_SPAN_USER_CATEGORY_IS_POOR
-            + ") AS poor_ts, "
-            + "maxIf(greatest(0, toInt64(ifNull(Duration, 0))), PulseType = '"
-            + interactionType
-            + "' AND SpanName = :"
-            + p1
-            + " AND "
-            + ClickhouseConstants.CH_SPAN_USER_CATEGORY_IS_POOR
-            + ") AS poor_max_duration_ns "
-            + "FROM "
-            + traces
-            + " WHERE ProjectId = :"
-            + p0
-            + " AND SessionId IN (SELECT SessionId FROM u_sessions) "
-            + "AND Timestamp >= toDateTime64(:"
-            + p2
-            + ", 9, 'UTC') "
-            + "AND Timestamp < toDateTime64(:"
-            + p3
-            + ", 9, 'UTC') "
-            + "GROUP BY SessionId "
-            + "), "
-            + "universe AS ( SELECT uniqCombined64(SessionId) AS n_u FROM u_sessions ), "
-            + "poor_tot AS ( SELECT toUInt64(sum(is_low)) AS n_poor_u FROM trace_agg ), ";
-
-    String stackSessionsSelect =
-        tripleKey
-            ? (params.issueMustPrecedePoor()
-                ? "SELECT SessionId, GroupId, Title, ExceptionType, min(Timestamp) AS first_issue_ts FROM "
-                : "SELECT SessionId, GroupId, Title, ExceptionType FROM ")
-            : (params.issueMustPrecedePoor()
-                ? "SELECT SessionId, GroupId, Title, min(Timestamp) AS first_issue_ts FROM "
-                : "SELECT SessionId, GroupId, Title FROM ");
-
-    String stackSessionsGroupBy =
-        tripleKey ? "GROUP BY SessionId, GroupId, Title, ExceptionType " : "GROUP BY SessionId, GroupId, Title ";
-
-    String nTreatedLowAgg =
-        params.issueMustPrecedePoor()
-            ? ("uniqCombined64If(ss.SessionId, ta.is_low = 1 AND ta.poor_ts >= toDateTime64(:"
-                + p2
-                + ", 9, 'UTC') AND ta.poor_ts < toDateTime64(:"
-                + p3
-                + ", 9, 'UTC') AND ss.first_issue_ts < (ta.poor_ts + toIntervalNanosecond(ta.poor_max_duration_ns))) AS n_treated_low ")
-            : "uniqCombined64If(ss.SessionId, ta.is_low = 1) AS n_treated_low ";
-
-    String keyStatsGroupBy =
-        tripleKey ? "GROUP BY ss.GroupId, ss.Title, ss.ExceptionType " : "GROUP BY ss.GroupId, ss.Title ";
-
-    String selectDims =
-        tripleKey
-            ? "ss.GroupId AS group_id, ss.Title AS title, ss.ExceptionType AS exception_type, "
-            : "ss.GroupId AS group_id, ss.Title AS title, ";
-
-    String selectDimsOuter =
-        tripleKey
-            ? "ks.group_id AS group_id, ks.title AS title, ks.exception_type AS exception_type, "
-            : "ks.group_id AS group_id, ks.title AS title, ";
-
-    String sql =
-        withCommon
-            + "stack_sessions AS ( "
-            + stackSessionsSelect
-            + stacks
-            + " WHERE ProjectId = :"
-            + p0
-            + " AND SessionId IN (SELECT SessionId FROM u_sessions) "
-            + "AND Timestamp >= toDateTime64(:"
-            + p2
-            + ", 9, 'UTC') "
-            + "AND Timestamp < toDateTime64(:"
-            + p3
-            + ", 9, 'UTC') "
-            + "AND PulseType = '"
-            + stackPulseType
-            + "' "
-            + stackSessionsGroupBy
-            + "), "
-            + "key_stats AS ( "
-            + "SELECT "
-            + selectDims
-            + "uniqCombined64(ss.SessionId) AS n_treated, "
-            + nTreatedLowAgg
-            + "FROM stack_sessions ss "
-            + "INNER JOIN trace_agg ta ON ss.SessionId = ta.SessionId "
-            + keyStatsGroupBy
-            + ") "
-            + "SELECT "
-            + selectDimsOuter
-            + "ks.n_treated AS n_treated, "
-            + "ks.n_treated_low AS n_treated_low, "
-            + "(ut.n_u - ks.n_treated) AS n_control, "
-            + "(pt.n_poor_u - ks.n_treated_low) AS n_control_low, "
-            + "ut.n_u AS n_u, "
-            + "pt.n_poor_u AS n_poor_u "
-            + "FROM key_stats ks "
-            + "CROSS JOIN universe ut "
-            + "CROSS JOIN poor_tot pt "
-            + "WHERE ks.n_treated >= toInt64(:"
-            + p4
-            + ") "
-            + "AND (toInt64(:"
-            + p5
-            + ") = 0 OR (ut.n_u - ks.n_treated) >= toInt64(:"
-            + p5
-            + ")) "
-            + "ORDER BY "
-            + RR_SORT_ORDER_EXPR
-            + "DESC, ks.n_treated DESC "
-            + "LIMIT toInt64(:"
-            + p6
-            + ")";
-
-    return acc.toSpec(sql);
+    return acc.toSpec(
+        ErrorAttributionDrillDownSqlTemplates.stackOptimizedSql(
+            tripleKey,
+            params,
+            traces,
+            stacks,
+            interactionType,
+            stackPulseType,
+            poorExpr,
+            p0,
+            p1,
+            p2,
+            p3,
+            p4,
+            p5,
+            p6));
   }
 
   private static RootCauseQuerySpec buildApi(
@@ -306,6 +159,7 @@ public final class ErrorAttributionDrillDownQueryBuilder {
 
     String traces = ClickhouseConstants.OTEL_TRACES_TABLE;
     String interactionType = InteractionTelemetryConstants.INTERACTION_PULSE_TYPE;
+    String poorExpr = ClickhouseConstants.CH_SPAN_USER_CATEGORY_IS_POOR;
 
     String urlExpr = ClickhouseConstants.CH_SPAN_HTTP_URL_EXPR;
     String gqlNameExpr = ClickhouseConstants.CH_SPAN_GRAPHQL_OPERATION_NAME_EXPR;
@@ -313,147 +167,23 @@ public final class ErrorAttributionDrillDownQueryBuilder {
     String methodExpr = ClickhouseConstants.CH_SPAN_HTTP_METHOD_EXPR;
     String statusCodeExpr = ClickhouseConstants.CH_SPAN_HTTP_STATUS_CODE_EXPR;
 
-    String sql =
-        "WITH "
-            + "u_sessions AS ( "
-            + "SELECT DISTINCT SessionId FROM "
-            + traces
-            + " WHERE ProjectId = :"
-            + p0
-            + " AND PulseType = '"
-            + interactionType
-            + "'"
-            + " AND SpanName = :"
-            + p1
-            + " AND Timestamp >= toDateTime64(:"
-            + p2
-            + ", 9, 'UTC')"
-            + " AND Timestamp < toDateTime64(:"
-            + p3
-            + ", 9, 'UTC')"
-            + " AND SessionId != '' "
-            + "), "
-            + "trace_agg AS ( "
-            + "SELECT "
-            + "SessionId, "
-            + "maxIf(1, PulseType = '"
-            + interactionType
-            + "'"
-            + " AND SpanName = :"
-            + p1
-            + " AND "
-            + ClickhouseConstants.CH_SPAN_USER_CATEGORY_IS_POOR
-            + ") AS is_low, "
-            + "minIf(Timestamp, PulseType = '"
-            + interactionType
-            + "' AND SpanName = :"
-            + p1
-            + " AND "
-            + ClickhouseConstants.CH_SPAN_USER_CATEGORY_IS_POOR
-            + ") AS poor_ts, "
-            + "maxIf(greatest(0, toInt64(ifNull(Duration, 0))), PulseType = '"
-            + interactionType
-            + "' AND SpanName = :"
-            + p1
-            + " AND "
-            + ClickhouseConstants.CH_SPAN_USER_CATEGORY_IS_POOR
-            + ") AS poor_max_duration_ns "
-            + "FROM "
-            + traces
-            + " WHERE ProjectId = :"
-            + p0
-            + " AND SessionId IN (SELECT SessionId FROM u_sessions) "
-            + "AND Timestamp >= toDateTime64(:"
-            + p2
-            + ", 9, 'UTC') "
-            + "AND Timestamp < toDateTime64(:"
-            + p3
-            + ", 9, 'UTC') "
-            + "GROUP BY SessionId "
-            + "), "
-            + "universe AS ( SELECT uniqCombined64(SessionId) AS n_u FROM u_sessions ), "
-            + "poor_tot AS ( SELECT toUInt64(sum(is_low)) AS n_poor_u FROM trace_agg ), "
-            + "network_sessions AS ( "
-            + "SELECT SessionId, "
-            + urlExpr
-            + " AS drill_url, "
-            + gqlNameExpr
-            + " AS drill_gql_name, "
-            + gqlTypeExpr
-            + " AS drill_gql_type, "
-            + methodExpr
-            + " AS drill_http_method, "
-            + statusCodeExpr
-            + " AS drill_http_status"
-            + (params.issueMustPrecedePoor() ? ", min(Timestamp) AS first_endpoint_error_ts " : " ")
-            + "FROM "
-            + traces
-            + " WHERE ProjectId = :"
-            + p0
-            + " AND SessionId IN (SELECT SessionId FROM u_sessions) "
-            + "AND Timestamp >= toDateTime64(:"
-            + p2
-            + ", 9, 'UTC') "
-            + "AND Timestamp < toDateTime64(:"
-            + p3
-            + ", 9, 'UTC') "
-            + "AND "
-            + ClickhouseConstants.CH_PULSE_TYPE_NETWORK_LIKE_PREDICATE
-            + " "
-            + "AND "
-            + ClickhouseConstants.CH_STATUS_CODE_EQUALS_ERROR
-            + " "
-            + "GROUP BY SessionId, drill_url, drill_gql_name, drill_gql_type, drill_http_method, drill_http_status "
-            + "), "
-            + "key_stats AS ( "
-            + "SELECT "
-            + "ns.drill_url AS url, "
-            + "ns.drill_gql_name AS graphql_operation_name, "
-            + "ns.drill_gql_type AS graphql_operation_type, "
-            + "ns.drill_http_method AS http_method, "
-            + "ns.drill_http_status AS http_status_code, "
-            + "uniqCombined64(ns.SessionId) AS n_treated, "
-            + (params.issueMustPrecedePoor()
-                ? ("uniqCombined64If(ns.SessionId, ta.is_low = 1 AND ta.poor_ts >= toDateTime64(:"
-                    + p2
-                    + ", 9, 'UTC') AND ta.poor_ts < toDateTime64(:"
-                    + p3
-                    + ", 9, 'UTC') AND ns.first_endpoint_error_ts < (ta.poor_ts + toIntervalNanosecond(ta.poor_max_duration_ns))) AS n_treated_low ")
-                : "uniqCombined64If(ns.SessionId, ta.is_low = 1) AS n_treated_low ")
-            + "FROM network_sessions ns "
-            + "INNER JOIN trace_agg ta ON ns.SessionId = ta.SessionId "
-            + "GROUP BY ns.drill_url, ns.drill_gql_name, ns.drill_gql_type, ns.drill_http_method, ns.drill_http_status "
-            + ") "
-            + "SELECT "
-            + "ks.url AS url, "
-            + "ks.graphql_operation_name AS graphql_operation_name, "
-            + "ks.graphql_operation_type AS graphql_operation_type, "
-            + "ks.http_method AS http_method, "
-            + "ks.http_status_code AS http_status_code, "
-            + "ks.n_treated AS n_treated, "
-            + "ks.n_treated_low AS n_treated_low, "
-            + "(ut.n_u - ks.n_treated) AS n_control, "
-            + "(pt.n_poor_u - ks.n_treated_low) AS n_control_low, "
-            + "ut.n_u AS n_u, "
-            + "pt.n_poor_u AS n_poor_u "
-            + "FROM key_stats ks "
-            + "CROSS JOIN universe ut "
-            + "CROSS JOIN poor_tot pt "
-            + "WHERE ks.n_treated >= toInt64(:"
-            + p4
-            + ") "
-            + "AND (toInt64(:"
-            + p5
-            + ") = 0 OR (ut.n_u - ks.n_treated) >= toInt64(:"
-            + p5
-            + ")) "
-            + "ORDER BY "
-            + RR_SORT_ORDER_EXPR
-            + "DESC, ks.n_treated DESC "
-            + "LIMIT toInt64(:"
-            + p6
-            + ")";
-
-    return acc.toSpec(sql);
+    return acc.toSpec(
+        ErrorAttributionDrillDownSqlTemplates.apiOptimizedSql(
+            params,
+            traces,
+            interactionType,
+            poorExpr,
+            urlExpr,
+            gqlNameExpr,
+            gqlTypeExpr,
+            methodExpr,
+            statusCodeExpr,
+            p0,
+            p1,
+            p2,
+            p3,
+            p4,
+            p5,
+            p6));
   }
 }

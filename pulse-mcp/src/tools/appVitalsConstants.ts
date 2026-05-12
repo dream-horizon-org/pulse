@@ -1,0 +1,20 @@
+/**
+ * Column and pulse-type strings for App Vitals distribution queries.
+ * Keep in sync with pulse-ui/src/constants/PulseOtelSemcov.ts
+ */
+export const COLUMN_NAME = {
+  EXCEPTION_TYPE: "ExceptionType",
+  DEVICE_MODEL: "DeviceModel",
+  NETWORK_PROVIDER: "NetworkProvider",
+  OS_VERSION: "OsVersion",
+  PLATFORM: "Platform",
+  STATE: "GeoState",
+  APP_VERSION: "AppVersion",
+  USER_ID: "UserId",
+  TIMESTAMP: "Timestamp",
+  SESSION_ID: "SessionId",
+  PULSE_TYPE: "PulseType",
+} as const;
+
+/** session.start filter value for denominator queries */
+export const PULSE_TYPE_SESSION_START = "session.start";

@@ -3,7 +3,7 @@
  *
  * Unit tests for the ecommerce demo App.tsx refactor:
  * - Verifies PulseProvider / PulseErrorBoundary / useRouterTracking are used
- *   instead of manual PulseWeb.start() wiring.
+ *   instead of manual Pulse.init() wiring.
  * - Tests config derivation from env vars and query params.
  * - Tests error boundary fallback renders on child crash.
  */
@@ -21,11 +21,13 @@ const mockSetScreenName = vi.fn();
 const mockTrackEvent = vi.fn();
 const mockIsInitialized = vi.fn().mockReturnValue(false);
 
-vi.mock("@dreamhorizon/pulse-web", () => ({
-  PulseWeb: {
-    start: mockStart,
+vi.mock("@dreamhorizonorg/pulse-web", () => ({
+  Pulse: {
+    init: mockStart,
     shutdown: mockShutdown,
     setScreenName: mockSetScreenName,
+    setUserId: vi.fn(),
+    setUserProperties: vi.fn(),
     trackEvent: mockTrackEvent,
     isInitialized: mockIsInitialized,
     reportDeviceCrash: vi.fn(),
@@ -37,29 +39,20 @@ vi.mock("@dreamhorizon/pulse-web", () => ({
     DENIED: "DENIED",
     PENDING: "PENDING",
   },
+  PulseLogLevel: {
+    VERBOSE: 0,
+    DEBUG: 1,
+    INFO: 2,
+    WARN: 3,
+    ERROR: 4,
+    NONE: 5,
+  },
 }));
 
-// Mock the React integration — use lightweight stubs so we can assert wiring
-vi.mock("@dreamhorizon/pulse-web/react", () => {
+// Mock the React integration — lightweight stubs; PulseProvider wraps children in
+// PulseErrorBoundary (matches real PulseProvider) so route render errors are contained.
+vi.mock("@dreamhorizonorg/pulse-web/react", () => {
   const React = require("react");
-
-  function PulseProvider({
-    children,
-    config,
-  }: {
-    children: React.ReactNode;
-    config: unknown;
-    shutdownOnUnmount?: boolean;
-  }) {
-    React.useEffect(() => {
-      mockStart(config);
-      mockIsInitialized.mockReturnValue(true);
-      return () => {
-        void mockShutdown();
-      };
-    }, []);
-    return React.createElement(React.Fragment, null, children);
-  }
 
   class PulseErrorBoundary extends React.Component<{
     children: React.ReactNode;
@@ -77,6 +70,24 @@ vi.mock("@dreamhorizon/pulse-web/react", () => {
       }
       return this.props.children;
     }
+  }
+
+  function PulseProvider({
+    children,
+    config,
+  }: {
+    children: React.ReactNode;
+    config: unknown;
+    shutdownOnUnmount?: boolean;
+  }) {
+    React.useEffect(() => {
+      mockStart(config);
+      mockIsInitialized.mockReturnValue(true);
+      return () => {
+        void mockShutdown();
+      };
+    }, []);
+    return React.createElement(PulseErrorBoundary, null, children);
   }
 
   function useRouterTracking(opts?: { skipInitial?: boolean }) {
@@ -102,9 +113,39 @@ vi.mock("@dreamhorizon/pulse-web/react", () => {
   return { PulseProvider, PulseErrorBoundary, useRouterTracking, usePulse };
 });
 
-// Mock lazy-loaded routes
+vi.mock("@dreamhorizonorg/pulse-web/react/router", () => {
+  const React = require("react");
+  const rrd = require("react-router-dom");
+
+  function PulseRouterEvents({ skipInitial }: { skipInitial?: boolean }) {
+    const loc = rrd.useLocation();
+    const prev = React.useRef(null as string | null);
+    React.useEffect(() => {
+      if (prev.current === null) {
+        prev.current = loc.pathname;
+        if (skipInitial !== false) return;
+      } else if (prev.current === loc.pathname) {
+        return;
+      } else {
+        prev.current = loc.pathname;
+      }
+      mockSetScreenName(loc.pathname);
+    }, [loc.pathname, skipInitial]);
+    return null;
+  }
+
+  return { PulseRouterEvents };
+});
+
+// Mock lazy-loaded routes — Home can throw when `homeThrowsOnRender` is true (error-boundary test).
+let homeThrowsOnRender = false;
 vi.mock("../routes/Home", () => ({
-  default: () => React.createElement("div", { "data-testid": "home" }, "Home"),
+  default: () => {
+    if (homeThrowsOnRender) {
+      throw new Error("test render crash");
+    }
+    return React.createElement("div", { "data-testid": "home" }, "Home");
+  },
 }));
 vi.mock("../routes/Products", () => ({
   default: () =>
@@ -129,6 +170,10 @@ vi.mock("../components/PulseDebugPanel", () => ({
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
+beforeEach(() => {
+  vi.stubEnv("VITE_PULSE_API_KEY", "vitest-default-pulse-key");
+});
+
 async function renderApp(search = "") {
   const App = (await import("../App")).default;
   let result: ReturnType<typeof render> | undefined;
@@ -149,7 +194,7 @@ describe("Demo App — PulseProvider wiring", () => {
     vi.resetModules();
   });
 
-  it("calls PulseWeb.start() exactly once on mount via PulseProvider", async () => {
+  it("calls Pulse.init() exactly once on mount via PulseProvider", async () => {
     await renderApp();
     expect(mockStart).toHaveBeenCalledTimes(1);
   });
@@ -180,21 +225,17 @@ describe("Demo App — PulseErrorBoundary wiring", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.resetModules();
+    homeThrowsOnRender = true;
     // Suppress React error boundary console noise
     vi.spyOn(console, "error").mockImplementation(() => {});
   });
 
   afterEach(() => {
+    homeThrowsOnRender = false;
     vi.restoreAllMocks();
   });
 
   it("catches render errors silently via internal PulseErrorBoundary", async () => {
-    // Override Home to throw
-    vi.doMock("../routes/Home", () => ({
-      default: () => {
-        throw new Error("test render crash");
-      },
-    }));
     const App = (await import("../App")).default;
     let result: ReturnType<typeof render> | undefined;
     await act(async () => {

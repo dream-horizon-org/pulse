@@ -2,6 +2,7 @@ package org.dreamhorizon.pulseserver.dao.productAnalysis.journeyresults.models;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import java.time.Instant;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -34,4 +35,7 @@ public class JourneyResultRow {
 
   @JsonProperty("userCount")
   private Long userCount;
+
+  @JsonProperty("runTime")
+  private Instant runTime;
 }

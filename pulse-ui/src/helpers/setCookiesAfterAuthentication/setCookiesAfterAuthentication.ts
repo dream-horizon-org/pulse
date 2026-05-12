@@ -1,7 +1,7 @@
 import { LoginResponse } from "../login";
 import { OnboardingResponse } from "../onboarding";
-import { setCookies } from "../cookies";
-import { COOKIES_KEY } from "../../constants";
+import { removeCookie, setCookies } from "../cookies";
+import { COOKIES_KEY, LOGIN_RESPONSE_KEYS } from "../../constants";
 
 export type SetCookiesAfterAuthOptions = {
   // DEPRECATED: projectId and projectName now handled by React Context
@@ -51,6 +51,9 @@ export const setCookiesAfterAuthentication = (
     setCookies(COOKIES_KEY.TIER, loginResponse.tier);
   }
 
-  // NOTE: PROJECT_ID and PROJECT_NAME are no longer stored in cookies
-  // They are now managed by ProjectContext (React Context API)
+  if (LOGIN_RESPONSE_KEYS.SYSTEM_ROLE in loginResponse && loginResponse.systemRole) {
+    setCookies(COOKIES_KEY.SYSTEM_ROLE, loginResponse.systemRole);
+  } else {
+    removeCookie(COOKIES_KEY.SYSTEM_ROLE);
+  }
 };

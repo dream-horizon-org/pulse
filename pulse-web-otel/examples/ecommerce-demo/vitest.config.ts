@@ -7,14 +7,21 @@ export default defineConfig({
   resolve: {
     alias: [
       {
-        find: "@dreamhorizon/pulse-web/react",
+        find: "@dreamhorizonorg/pulse-web/react/router",
+        replacement: path.resolve(
+          __dirname,
+          "../../src/integrations/react/router.ts",
+        ),
+      },
+      {
+        find: "@dreamhorizonorg/pulse-web/react",
         replacement: path.resolve(
           __dirname,
           "../../src/integrations/react/index.ts",
         ),
       },
       {
-        find: "@dreamhorizon/pulse-web",
+        find: "@dreamhorizonorg/pulse-web",
         replacement: path.resolve(__dirname, "../../src/index.ts"),
       },
     ],

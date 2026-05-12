@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { Resource } from "@opentelemetry/resources";
+import { emptyResource } from "@opentelemetry/resources";
 import {
   AggregationTemporality,
   InMemoryMetricExporter,
@@ -77,7 +77,7 @@ describe("metricsToAdd span export", () => {
       exportIntervalMillis: 600_000,
     });
     const mp = new MeterProvider({
-      resource: Resource.empty(),
+      resource: emptyResource(),
       readers: [reader],
     });
     const meter = mp.getMeter("pulse.web.metrics_derived", "1.0.0");

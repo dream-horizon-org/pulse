@@ -19,7 +19,7 @@ class SessionReplayConfigurationTest {
         assertThat(built!!.textAndInputPrivacy).isEqualTo(TextAndInputPrivacy.MASK_ALL)
         assertThat(built.imagePrivacy).isEqualTo(ImagePrivacy.MASK_ALL)
         assertThat(built.isScreenshot).isTrue()
-        assertThat(built.throttleDelayMs).isEqualTo(1000L)
+        assertThat(built.throttleDelayMs).isEqualTo(2000L)
         assertThat(built.drawableConverter).isNull()
         assertThat(built.maskViewClasses).isEmpty()
         assertThat(built.unmaskViewClasses).isEmpty()

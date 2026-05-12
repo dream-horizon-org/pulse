@@ -48,6 +48,7 @@ public class TenantFilter implements ContainerRequestFilter, ContainerResponseFi
   private static final String INTERNAL_PATH_PREFIX = "internal/";
   private static final String BEARER_PREFIX = "Bearer ";
   private static final String CLAIM_TENANT_ID = "tenantId";
+  private static final String CLAIM_SYSTEM_ROLE = "systemRole";
   private static final String ALERTS_PATH_PREFIX = "alerts";
   private static final String LOGS_INGESTION_PATH = "v1/logs";
   private static final String TNC_DOCUMENTS_PATH = "v1/tnc/documents";
@@ -83,11 +84,7 @@ public class TenantFilter implements ContainerRequestFilter, ContainerResponseFi
       log.debug("Request Project context set to: {} for path: {}", projectId, path);
     }
 
-    String tenantId = extractTenantIdFromToken(requestContext);
-    if (tenantId != null && !tenantId.isBlank()) {
-      log.debug("Tenant ID resolved from JWT token: {}", tenantId);
-      TenantContext.setTenantId(tenantId);
-    }
+    resolveAndSetTenantContext(requestContext);
   }
 
   private boolean isExcludedPath(String path) {
@@ -156,34 +153,48 @@ public class TenantFilter implements ContainerRequestFilter, ContainerResponseFi
   }
 
   /**
-   * Extracts the tenantId claim from the JWT token in the Authorization header.
-   *
-   * @param requestContext the request context
-   * @return the tenantId from the token, or null if not found or invalid
+   * Sets {@link TenantContext} from the JWT {@code tenantId} claim, with an optional
+   * X-Tenant-ID header override for system-role tokens (superadmin / internal_viewer)
+   * so workspace switching from the internal UI works without re-issuing a JWT.
    */
-  private String extractTenantIdFromToken(ContainerRequestContext requestContext) {
+  private void resolveAndSetTenantContext(ContainerRequestContext requestContext) {
     String authHeader = requestContext.getHeaderString(HttpHeaders.AUTHORIZATION);
     if (authHeader == null || !authHeader.startsWith(BEARER_PREFIX)) {
-      return null;
+      return;
     }
 
     String token = authHeader.substring(BEARER_PREFIX.length()).trim();
     if (token.isBlank()) {
-      return null;
+      return;
     }
 
     try {
       JwtService service = getJwtService();
       if (service == null) {
         log.warn("JwtService not available, skipping token-based tenant resolution");
-        return null;
+        return;
       }
 
       Claims claims = service.verifyToken(token);
-      return claims.get(CLAIM_TENANT_ID, String.class);
+      String jwtTenantId = claims.get(CLAIM_TENANT_ID, String.class);
+      String systemRole = claims.get(CLAIM_SYSTEM_ROLE, String.class);
+      String headerTenantId = requestContext.getHeaderString(TENANT_HEADER);
+
+      String effectiveTenantId = jwtTenantId;
+      if (headerTenantId != null && !headerTenantId.isBlank()
+          && ("superadmin".equals(systemRole) || "internal_viewer".equals(systemRole))) {
+        effectiveTenantId = headerTenantId.trim();
+        log.debug("Tenant ID from {} for system-role user (role={}): {}",
+            TENANT_HEADER, systemRole, effectiveTenantId);
+      } else if (jwtTenantId != null && !jwtTenantId.isBlank()) {
+        log.debug("Tenant ID resolved from JWT token: {}", jwtTenantId);
+      }
+
+      if (effectiveTenantId != null && !effectiveTenantId.isBlank()) {
+        TenantContext.setTenantId(effectiveTenantId);
+      }
     } catch (Exception e) {
-      log.debug("Failed to extract tenantId from token: {}", e.getMessage());
-      return null;
+      log.debug("Failed to resolve tenant from token: {}", e.getMessage());
     }
   }
 

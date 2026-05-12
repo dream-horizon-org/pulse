@@ -114,6 +114,8 @@ public object PulseAttributes {
         public const val SESSION_REPLAY: String = "session_replay"
         private const val NETWORK: String = "network"
         public const val NETWORK_CHANGE: String = "network.change"
+        public const val MEMORY: String = "memory"
+        public const val BATTERY: String = "battery"
 
         @JvmField
         public val PULSE_NETWORK: AttributeKeyTemplate<String> = stringKeyTemplate(NETWORK)

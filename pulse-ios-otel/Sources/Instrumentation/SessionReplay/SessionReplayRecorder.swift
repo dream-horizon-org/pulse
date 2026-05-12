@@ -38,6 +38,10 @@ public class SessionReplayRecorder {
     /// After backgrounding or consent `.pending`, resume without resetting wireframe/snapshot state.
     private var needsResumeAfterInactive: Bool = false
 
+    /// Overrides UIViewController-based screen name tracking for non-UIKit navigators (React Native, Flutter).
+    /// When set, takes precedence over `VisibleScreenTracker` for replay metadata and screen-change detection.
+    public var externalScreenNameProvider: (() -> String?)?
+
     public init(
         config: SessionReplayConfig,
         exporter: SessionReplayExporter? = nil,
@@ -283,6 +287,20 @@ public class SessionReplayRecorder {
                     return
                 }
 
+                var dedupStatus = self.getWindowStatus(window: window)
+                if let prev = dedupStatus.lastScreenName, prev != screenName {
+                    dedupStatus.sentFullSnapshot = false
+                    dedupStatus.sentMetaEvent = false
+                    dedupStatus.lastSnapshot = nil
+                    dedupStatus.lastCompressedData = nil
+                }
+                dedupStatus.lastScreenName = screenName
+                if dedupStatus.lastCompressedData == compressed.data {
+                    return
+                }
+                dedupStatus.lastCompressedData = compressed.data
+                self.updateWindowStatus(window: window, status: dedupStatus)
+
                 let imgW = Int(capturedImage.size.width)
                 let imgH = Int(capturedImage.size.height)
 
@@ -437,8 +455,28 @@ public class SessionReplayRecorder {
         }
     }
 
+    /// Called by non-UIKit navigators (React Native, Flutter) when the active screen changes.
+    /// Schedules a full snapshot reset so the next captured frame emits meta + full snapshot.
+    public func notifyScreenChange() {
+        queue.async { [weak self] in
+            guard let self = self else { return }
+            self.windowStatusLock.lock()
+            defer { self.windowStatusLock.unlock() }
+            for key in self.windowStatuses.keys {
+                self.windowStatuses[key]?.sentFullSnapshot = false
+                self.windowStatuses[key]?.sentMetaEvent = false
+                self.windowStatuses[key]?.lastSnapshot = nil
+                self.windowStatuses[key]?.lastCompressedData = nil
+                self.windowStatuses[key]?.lastScreenName = nil
+            }
+        }
+    }
+
     #if os(iOS) || os(tvOS)
     private func getCurrentScreenName(from window: UIWindow) -> String {
+        if let provider = externalScreenNameProvider, let name = provider(), !name.isEmpty {
+            return name
+        }
         return VisibleScreenTracker.shared.currentlyVisibleScreen
     }
 
@@ -591,6 +629,7 @@ public class SessionReplayRecorder {
         drawFlagLock.unlock()
         return flag
     }
+
 }
 #else
 public class SessionReplayRecorder {

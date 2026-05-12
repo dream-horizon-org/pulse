@@ -252,16 +252,19 @@ print_success "$CONTAINER_MINIO container started"
 print_info "Waiting for MinIO..."
 wait_for_healthy "$CONTAINER_MINIO" 60
 
-# Create MinIO bucket
+# Create MinIO buckets
 remove_container "$CONTAINER_MINIO_INIT"
-print_info "Creating MinIO bucket..."
+print_info "Creating MinIO buckets..."
 docker run --rm \
     --name "$CONTAINER_MINIO_INIT" \
     --network "$NETWORK_NAME" \
     "$IMAGE_MINIO_MC" \
-    /bin/sh -c "mc alias set local http://minio:9000 ${MINIO_ROOT_USER} ${MINIO_ROOT_PASSWORD} && mc mb --ignore-existing local/${SESSION_REPLAY_S3_BUCKET} && mc mb --ignore-existing local/${HEATMAP_S3_BUCKET}" > /dev/null 2>&1
+    /bin/sh -c "mc alias set local http://minio:9000 ${MINIO_ROOT_USER} ${MINIO_ROOT_PASSWORD} \
+    && mc mb --ignore-existing local/${SESSION_REPLAY_S3_BUCKET} \
+    && mc mb --ignore-existing local/${HEATMAP_S3_BUCKET} \
+    && mc mb --ignore-existing local/${SYMBOL_FILES_S3_BUCKET_NAME:-pulse-symbol-files}" > /dev/null 2>&1
 
-print_success "MinIO buckets '${SESSION_REPLAY_S3_BUCKET}' and '${HEATMAP_S3_BUCKET}' ready"
+print_success "MinIO buckets '${SESSION_REPLAY_S3_BUCKET}', '${HEATMAP_S3_BUCKET}', and '${SYMBOL_FILES_S3_BUCKET_NAME:-pulse-symbol-files}' ready"
 
 # ── Phase 3: ClickHouse init + OTEL Collector ────────────────────────────
 print_section "Phase 3: Initialising ClickHouse tables & OTEL Collector"
