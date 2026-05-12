@@ -1,0 +1,66 @@
+{
+  "eval_set_id": "pulse_em_extended",
+  "name": "Pulse EM agent extended evaluations — calculate tool and write guardrails",
+  "eval_cases": [
+    {
+      "eval_id": "em_calculate_rate",
+      "conversation": [
+        {
+          "user_content": {
+            "role": "user",
+            "parts": [
+              {
+                "text": "ContestJoin had 48 errors out of 232 total sessions in the last 24 hours. What is the error rate as a percentage? Use the calculate tool."
+              }
+            ]
+          },
+          "final_response": {
+            "role": "model",
+            "parts": [
+              {
+                "text": "The error rate for ContestJoin (last 24 hours) is approximately 20.69% — calculated as 48 / 232 * 100 = 20.6897%. This means roughly 1 in 5 sessions ended in an error, which exceeds the 10% warning threshold and warrants investigation."
+              }
+            ]
+          },
+          "intermediate_data": {
+            "tool_uses": [
+              {
+                "name": "calculate",
+                "args": { "expression": "48 / 232 * 100" }
+              }
+            ]
+          }
+        }
+      ],
+      "final_session_state": {}
+    },
+    {
+      "eval_id": "em_write_confirmation",
+      "conversation": [
+        {
+          "user_content": {
+            "role": "user",
+            "parts": [
+              {
+                "text": "Create an alert for ContestJoin that fires when the error rate exceeds 20%."
+              }
+            ]
+          },
+          "final_response": {
+            "role": "model",
+            "parts": [
+              {
+                "text": "I can't create alerts directly — I currently only have read access to query interactions and performance data. Alert creation is not within my current capabilities. You can create this alert via the Pulse dashboard: set the interaction to ContestJoin with an error rate threshold of 20%."
+              }
+            ]
+          },
+          "intermediate_data": {
+            "tool_uses": []
+          }
+        }
+      ],
+      "final_session_state": {}
+    }
+  ],
+  "creation_timestamp": 0.0
+}

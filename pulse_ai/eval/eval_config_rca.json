@@ -1,0 +1,7 @@
+{
+  "criteria": {
+    "response_match_score": {
+      "threshold": 0.3
+    }
+  }
+}
