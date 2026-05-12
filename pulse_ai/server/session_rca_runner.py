@@ -14,7 +14,11 @@ from pulse_ai.constants import (
     USER_ID_SESSION_RCA,
 )
 from pulse_ai.schemas import RootCausePayloadSchema
-from pulse_ai.schemas.session_rca_structured_v1 import SessionRcaStructuredV1
+from pulse_ai.schemas.session_rca_structured_v1 import (
+    DegradingInteractionV1,
+    SessionRcaStructuredResponseV1,
+    SessionRcaStructuredV1,
+)
 from pulse_ai.server.schemas import SessionRcaReportPayloadSchema, SessionRcaReportResponse
 
 logger = logging.getLogger(__name__)
@@ -49,6 +53,7 @@ async def generate_session_rca_report(
     date_str: str | None = None,
     as_of_iso: str | None = None,
     example_sessions_by_label: dict[str, list[str]] | None = None,
+    degrading_interactions_by_label: dict[str, list[dict]] | None = None,
 ) -> SessionRcaReportResponse:
     session_id = str(uuid.uuid4())
     user_text = _build_session_rca_user_message(payload, date_str, as_of_iso)
@@ -81,27 +86,42 @@ async def generate_session_rca_report(
         session_id=session_id,
     )
 
-    structured: SessionRcaStructuredV1 | None = None
+    llm_structured: SessionRcaStructuredV1 | None = None
     if session:
         raw = session.state.get("session_rca_structured")
         if raw:
             try:
-                structured = SessionRcaStructuredV1.model_validate(raw)
+                llm_structured = SessionRcaStructuredV1.model_validate(raw)
             except Exception:
                 logger.warning(
                     "Failed to validate session RCA structured report from session state",
                     exc_info=True,
                 )
 
-    if structured is None:
+    if llm_structured is None:
         logger.error("Session RCA structured report missing, session_id=%s", session_id)
         raise SessionRcaRunnerError(500, "Session RCA structured report missing")
+
+    structured = SessionRcaStructuredResponseV1.from_llm_output(llm_structured)
 
     if example_sessions_by_label:
         for seg in structured.segments:
             ids = example_sessions_by_label.get(seg.title)
             if ids:
                 seg.affected_sessions = ids
+
+    if degrading_interactions_by_label:
+        for seg in structured.segments:
+            raw_interactions = degrading_interactions_by_label.get(seg.title)
+            if raw_interactions:
+                try:
+                    seg.degrading_interactions = [
+                        DegradingInteractionV1.model_validate(i) for i in raw_interactions
+                    ]
+                except Exception:
+                    logger.warning(
+                        "Failed to parse degrading interactions for segment %s", seg.title
+                    )
 
     report_payload = SessionRcaReportPayloadSchema(structured=structured)
     response = SessionRcaReportResponse(report=report_payload, cached=False)

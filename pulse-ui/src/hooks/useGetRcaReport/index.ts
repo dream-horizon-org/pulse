@@ -4,6 +4,7 @@ export {
   isRcaStructuredReportV1WithContent,
 } from "./useGetRcaReport.interface";
 export type {
+  DegradingInteractionV1,
   RcaJobResponse,
   RcaJobStatus,
   RcaNormalizedJobStatus,

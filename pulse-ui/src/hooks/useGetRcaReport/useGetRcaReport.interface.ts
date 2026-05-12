@@ -33,6 +33,13 @@ export type ErrorAttributionInsightV1 = {
   caveat?: string | null;
 };
 
+export type DegradingInteractionV1 = {
+  interactionName: string;
+  interactionCount: number;
+  avgApdex: number;
+  degradationWeight: number;
+};
+
 export type RcaStructuredSegmentV1 = {
   rank: number;
   title: string;
@@ -42,6 +49,7 @@ export type RcaStructuredSegmentV1 = {
   insights?: string | null;
   affected_sessions?: string[] | null;
   related_heatmaps?: RcaRelatedHeatmapsV1 | null;
+  degrading_interactions?: DegradingInteractionV1[] | null;
 };
 
 export type RcaStructuredReportV1 = {

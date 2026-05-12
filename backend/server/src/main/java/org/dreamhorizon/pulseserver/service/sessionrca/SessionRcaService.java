@@ -26,6 +26,7 @@ import org.dreamhorizon.pulseserver.dao.sessionrca.models.SessionRcaCacheRow;
 import org.dreamhorizon.pulseserver.error.ServiceError;
 import org.dreamhorizon.pulseserver.service.rootcause.RootCauseQueryBuilder;
 import org.dreamhorizon.pulseserver.service.rootcause.RootCauseService;
+import org.dreamhorizon.pulseserver.service.rootcause.models.DegradingInteraction;
 import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseAnalysisMode;
 import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseResult;
 import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseSegment;
@@ -54,6 +55,7 @@ public class SessionRcaService {
   private static final String CACHE_FIELD_SEGMENTS = "segments";
 
   private static final int EVIDENCE_SESSION_LIMIT = 2;
+  private static final int DEGRADING_INTERACTION_LIMIT = 3;
 
   private final RootCauseConfig config;
   private final ClickhouseQueryService clickhouseQueryService;
@@ -595,34 +597,66 @@ public class SessionRcaService {
       metrics.put(SessionRcaMetricsRegistry.IMPACT, impact);
       Map<String, Double> deltas = computeDeltas(baseline, row);
 
+      double baselineQuality = NumberCoercionUtils.toDouble(
+          baseline.get(SessionRcaMetricsRegistry.QUALITY_SCORE));
+      boolean hasDegradation = segQuality < baselineQuality;
+
       var evidenceSpec = SessionRcaQueryBuilder.buildExampleSessionsQuery(
           projectId, window.startInclusive, window.endExclusive,
           dimensionFilters, criticalThreshold, EVIDENCE_SESSION_LIMIT, p20Ms, p80Ms);
-      return executeQuery(projectId, evidenceSpec)
-          .map(evidenceRows -> {
-            List<String> exampleSessionIds = evidenceRows.stream()
-                .map(r -> {
-                  Object sid = r.get("sessionId");
-                  return sid != null ? sid.toString() : null;
-                })
-                .filter(sid -> sid != null && !sid.isBlank())
-                .toList();
-            RootCauseSegment segment = RootCauseSegment.builder()
-                .label(label)
-                .dimensions(new LinkedHashMap<>(dimensionFilters))
-                .metrics(metrics)
-                .deltas(deltas)
-                .exampleSessionIds(exampleSessionIds.isEmpty() ? null : exampleSessionIds)
-                .build();
-            return Optional.of(segment);
-          })
-          .onErrorReturnItem(Optional.of(RootCauseSegment.builder()
+      Single<List<String>> evidenceSingle = executeQuery(projectId, evidenceSpec)
+          .map(evidenceRows -> evidenceRows.stream()
+              .map(r -> r.get("sessionId") != null ? r.get("sessionId").toString() : null)
+              .filter(sid -> sid != null && !sid.isBlank())
+              .toList());
+      Single<List<DegradingInteraction>> interactionsSingle = hasDegradation
+          ? fetchDegradingInteractions(projectId, window, dimensionFilters, criticalThreshold, p20Ms, p80Ms)
+          : Single.just(List.of());
+
+      return Single.zip(evidenceSingle, interactionsSingle, (examples, interactions) ->
+          Optional.of(RootCauseSegment.builder()
               .label(label)
               .dimensions(new LinkedHashMap<>(dimensionFilters))
               .metrics(metrics)
               .deltas(deltas)
-              .build()));
+              .exampleSessionIds(examples.isEmpty() ? null : examples)
+              .degradingInteractions(interactions.isEmpty() ? null : interactions)
+              .build())
+      ).onErrorReturnItem(Optional.of(RootCauseSegment.builder()
+          .label(label)
+          .dimensions(new LinkedHashMap<>(dimensionFilters))
+          .metrics(metrics)
+          .deltas(deltas)
+          .build()));
     });
+  }
+
+  private Single<List<DegradingInteraction>> fetchDegradingInteractions(
+      String projectId,
+      RootCauseQueryBuilder.Window window,
+      Map<String, String> dimensionFilters,
+      double criticalThreshold,
+      long p20Ms,
+      long p80Ms) {
+    var spec = SessionRcaQueryBuilder.buildDegradingInteractionsQuery(
+        projectId, window.startInclusive, window.endExclusive,
+        dimensionFilters, criticalThreshold, p20Ms, p80Ms, DEGRADING_INTERACTION_LIMIT);
+    return executeQuery(projectId, spec)
+        .map(rows -> rows.stream()
+            .map(r -> DegradingInteraction.builder()
+                .interactionName(String.valueOf(r.get(SessionRcaMetricsRegistry.INTERACTION_NAME)))
+                .interactionCount(NumberCoercionUtils.toLong(
+                    r.get(SessionRcaMetricsRegistry.INTERACTION_COUNT)))
+                .avgApdex(NumberCoercionUtils.toDouble(r.get(SessionRcaMetricsRegistry.AVG_APDEX)))
+                .degradationWeight(NumberCoercionUtils.toDouble(
+                    r.get(SessionRcaMetricsRegistry.DEGRADATION_WEIGHT)))
+                .build())
+            .toList())
+        .onErrorReturn(e -> {
+          log.warn("[SESSION-RCA] degrading interactions query failed for project={}: {}",
+              projectId, e.getMessage());
+          return List.of();
+        });
   }
 
   private Optional<SegmentPath> pickClosestToTotal(

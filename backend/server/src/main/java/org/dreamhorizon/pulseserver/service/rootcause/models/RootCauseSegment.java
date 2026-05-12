@@ -28,4 +28,6 @@ public class RootCauseSegment {
   /** Example session IDs demonstrating this segment's issues (2 most relevant). */
   @Default
   private List<String> exampleSessionIds = new ArrayList<>();
+  /** Top interactions contributing most to session score degradation in this segment. */
+  private List<DegradingInteraction> degradingInteractions;
 }

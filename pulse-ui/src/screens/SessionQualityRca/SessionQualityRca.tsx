@@ -1,5 +1,6 @@
 import {
   Alert,
+  Anchor,
   Badge,
   Box,
   Button,
@@ -14,6 +15,7 @@ import {
 import { IconRefresh, IconSparkles } from "@tabler/icons-react";
 import dayjs from "dayjs";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import { ErrorAndEmptyState } from "../../components/ErrorAndEmptyState";
 import { RcaSessionReplayEvidenceCard } from "../CriticalInteractionDetails/components/RootCause/RcaSessionReplayEvidenceCard";
 import {
@@ -21,6 +23,7 @@ import {
   useGetRcaReport,
 } from "../../hooks/useGetRcaReport";
 import type {
+  DegradingInteractionV1,
   RcaReportPayload,
   RcaStructuredMetricRowV1,
   RcaStructuredSegmentV1,
@@ -78,9 +81,11 @@ function SessionSegmentCard({
   projectId?: string | null;
 }) {
   const evidenceIds = (seg.affected_sessions ?? []).filter(Boolean);
+  const degradingInteractions: DegradingInteractionV1[] = (seg.degrading_interactions ?? []).filter(Boolean);
   const insightText = seg.insights?.trim() ?? "";
   const hasInsight = insightText !== "";
   const showEvidence = evidenceIds.length > 0;
+  const showDegradingInteractions = degradingInteractions.length > 0;
   const isCritical = seg.impact === "critical";
 
   return (
@@ -204,6 +209,42 @@ function SessionSegmentCard({
               </Box>
             ))}
           </Box>
+        </Box>
+      )}
+
+      {/* Degrading interactions */}
+      {showDegradingInteractions && (
+        <Box className={rcaClasses.evidenceSection}>
+          <div className={rcaClasses.evidenceSectionTitleRow}>
+            <Text
+              className={rcaClasses.evidenceTitle}
+              fw={700}
+              size="sm"
+              tt="uppercase"
+            >
+              Top degrading interactions
+            </Text>
+            <Badge size="sm" variant="light" color="orange" circle className={rcaClasses.evidenceCountBadge}>
+              {degradingInteractions.length}
+            </Badge>
+          </div>
+          <Stack gap={4}>
+            {degradingInteractions.map((interaction) => (
+              <Group key={interaction.interactionName} justify="space-between" wrap="nowrap" px="xs">
+                <Anchor
+                  component={Link}
+                  to={`/projects/${projectId ?? ""}/interaction-details/${encodeURIComponent(interaction.interactionName)}`}
+                  size="sm"
+                  style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                >
+                  {interaction.interactionName}
+                </Anchor>
+                <Text size="sm" c="dimmed" style={{ flexShrink: 0 }}>
+                  avg {interaction.avgApdex.toFixed(2)}
+                </Text>
+              </Group>
+            ))}
+          </Stack>
         </Box>
       )}
     </Card>

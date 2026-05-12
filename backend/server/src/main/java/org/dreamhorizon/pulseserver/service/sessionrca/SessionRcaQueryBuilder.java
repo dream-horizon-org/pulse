@@ -164,6 +164,61 @@ public final class SessionRcaQueryBuilder {
   }
 
   /**
+   * Returns top {@code limit} interactions ranked by degradation_weight (apdex points lost) from
+   * bad sessions (quality_score below criticalThreshold) that match the given dimension filters.
+   * Queries {@code otel.otel_traces} for interaction spans where PulseType = 'interaction'.
+   */
+  public static RootCauseQuerySpec buildDegradingInteractionsQuery(
+      String projectId,
+      Instant startInclusive,
+      Instant endExclusive,
+      Map<String, String> dimensionFilters,
+      double criticalThreshold,
+      long p20Ms,
+      long p80Ms,
+      int limit) {
+    BindAccumulator acc = new BindAccumulator();
+    String pProject = acc.nextName();
+    String startStr = startInclusive.atOffset(ZoneOffset.UTC)
+        .format(ClickhouseConstants.CLICKHOUSE_TIMESTAMP_LITERAL);
+    String endStr = endExclusive.atOffset(ZoneOffset.UTC)
+        .format(ClickhouseConstants.CLICKHOUSE_TIMESTAMP_LITERAL);
+    String pStart = acc.nextName();
+    String pEnd = acc.nextName();
+    acc.add(pProject, projectId == null ? "" : projectId);
+    acc.add(pStart, startStr);
+    acc.add(pEnd, endStr);
+    String pThreshold = acc.nextName();
+    acc.add(pThreshold, criticalThreshold);
+
+    String subWhere = appendDimensionFilters(
+        "ProjectId = :" + pProject
+            + " AND startTime >= toDateTime64(:" + pStart + ", 9, 'UTC')"
+            + " AND startTime < toDateTime64(:" + pEnd + ", 9, 'UTC')"
+            + " AND apdexCount > 0 AND apdexSum / apdexCount < :" + pThreshold,
+        acc, dimensionFilters, p20Ms, p80Ms);
+
+    String apdexExpr = "toFloat64OrZero(SpanAttributes['pulse.interaction.apdex_score'])";
+    String sql = "SELECT"
+        + " SpanName AS " + SessionRcaMetricsRegistry.INTERACTION_NAME
+        + ", count() AS " + SessionRcaMetricsRegistry.INTERACTION_COUNT
+        + ", avg(" + apdexExpr + ") AS " + SessionRcaMetricsRegistry.AVG_APDEX
+        + ", count() - sum(" + apdexExpr + ") AS " + SessionRcaMetricsRegistry.DEGRADATION_WEIGHT
+        + " FROM otel.otel_traces"
+        + " WHERE ProjectId = :" + pProject
+        + " AND Timestamp >= toDateTime64(:" + pStart + ", 9, 'UTC')"
+        + " AND Timestamp < toDateTime64(:" + pEnd + ", 9, 'UTC')"
+        + " AND PulseType = 'interaction'"
+        + " AND SpanAttributes['pulse.interaction.apdex_score'] != ''"
+        + " AND SessionId IN (SELECT sessionId FROM " + SESSION_SUMMARY_TABLE
+        + " WHERE " + subWhere + ")"
+        + " GROUP BY " + SessionRcaMetricsRegistry.INTERACTION_NAME
+        + " ORDER BY " + SessionRcaMetricsRegistry.DEGRADATION_WEIGHT + " DESC"
+        + " LIMIT " + limit;
+    return acc.toSpec(sql);
+  }
+
+  /**
    * WHERE clause for session_summary: project + time window.
    * Uses bind params prefixed {@code srca_p}.
    */

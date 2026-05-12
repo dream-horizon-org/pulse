@@ -30,6 +30,11 @@ public class SessionRcaMetricsRegistry {
   static final String QUALITY_SCORE_STD_EXPR =
       "stddevPop(if(apdexCount = 0, NULL, apdexSum / apdexCount))";
 
+  public static final String INTERACTION_NAME = "interaction_name";
+  public static final String INTERACTION_COUNT = "interaction_count";
+  public static final String AVG_APDEX = "avg_apdex";
+  public static final String DEGRADATION_WEIGHT = "degradation_weight";
+
   static String lowQualityCountExpr(String thresholdParam) {
     return "countIf(notEmpty(toString(apdexCount)) AND apdexCount > 0"
         + " AND (apdexSum / apdexCount) < :" + thresholdParam + ")";
