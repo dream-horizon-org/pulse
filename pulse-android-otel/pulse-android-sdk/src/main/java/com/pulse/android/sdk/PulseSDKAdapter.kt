@@ -103,6 +103,10 @@ internal class PulseSDKAdapter(
         params: Map<String, Any?>,
     ): () -> Unit = delegate.startSpan(spanName, params)
 
+    override fun reportFullyDrawn() {
+        delegate.reportFullyDrawn()
+    }
+
     override fun shutdown() {
         delegate.shutdown()
     }

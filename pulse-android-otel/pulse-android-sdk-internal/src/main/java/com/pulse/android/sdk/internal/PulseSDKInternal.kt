@@ -737,6 +737,15 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
             span.end()
         }
     }
+    
+    public fun reportFullyDrawn() {
+        val timer = io.opentelemetry.android.instrumentation.activity.startup.AppStartupTimer.getInstance()
+        if (timer != null) {
+            timer.reportFullyDrawn()
+        } else {
+            PulseLogger.logDebug(TAG) { "reportFullyDrawn() called but AppStartupTimer instance not available (already reported or SDK not started)" }
+        }
+    }
 
     public fun shutdown() {
         if (isShutdown) {

@@ -110,6 +110,10 @@ internal class PulseSdkSignalProcessors {
                         ) == "cold" -> {
                             PulseAttributes.PulseTypeValues.APP_START
                         }
+                                             
+                        span.name == "AppInteractive" -> {
+                            PulseAttributes.PulseTypeValues.APP_INTERACTIVE
+                        }
 
                         span.name == "ActivitySession" || span.name == "FragmentSession" -> {
                             PulseAttributes.PulseTypeValues.SCREEN_SESSION

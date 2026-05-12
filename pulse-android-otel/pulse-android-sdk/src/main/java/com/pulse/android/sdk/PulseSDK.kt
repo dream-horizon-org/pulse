@@ -105,6 +105,8 @@ public interface PulseSDK {
 
     public fun getOtelOrThrow(): OpenTelemetryRum
 
+    public fun reportFullyDrawn()
+
     /**
      * Shuts down the Pulse SDK: flushes and releases OpenTelemetry resources and uninstalls
      * instrumentation. After shutdown, the SDK cannot be re-initialized in this process.

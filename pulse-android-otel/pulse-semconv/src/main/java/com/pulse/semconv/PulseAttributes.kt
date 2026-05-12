@@ -102,6 +102,7 @@ public object PulseAttributes {
         public const val CRASH: String = "device.crash"
         public const val TOUCH: String = "app.click"
         public const val APP_START: String = "app_start"
+        public const val APP_INTERACTIVE: String = "app_interactive"
         public const val SCREEN_SESSION: String = "screen_session"
         public const val APP_SESSION_START: String = "session.start"
         public const val APP_SESSION_END: String = "session.end"
