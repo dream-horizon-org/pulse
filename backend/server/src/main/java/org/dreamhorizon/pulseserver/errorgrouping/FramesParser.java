@@ -29,16 +29,13 @@ public final class FramesParser {
 
   // ---------- Config ----------
 
-  // Reduced from 10 to 3 based on Fancode depth-sweep analysis:
-  // - Top-10 buckets cover 91.9% of crashes (vs 88.7% at depth=10).
-  // - P95 crash triage list shrinks from 26 to 17 buckets (-35%).
-  // - #1 priority bug (Vmax Timer, 7,628 events, 58.8%) preserved exactly.
-  // - ANR fragmentation drops 28% as a bonus.
+  // Number of top stack frames hashed into the GroupId signature.
+  // Kept small intentionally: deeper frames are dominated by OS / dispatcher /
+  // framework noise that varies across devices and OS versions, which
+  // over-fragments the same root bug into many GroupIds.
   // Industry baselines (Crashlytics / Sentry / Bugsnag / Datadog) effectively
-  // hash 1-3 in-app frames; without an in-app filter in place yet, depth=3 on
-  // raw frames is the equivalent sweet spot.
-  // See Confluence: "Fancode Depth Sweep — Picking a Frame-Depth for
-  // Quick-Deploy Re-bucketing" (page id 4913659955).
+  // hash 1-3 in-app frames; without an in-app classifier here yet, 3 raw
+  // frames is the equivalent sweet spot.
   public static final int TOP_N_FRAMES = 3;
 
   public static final Set<String> NDK_INAPP_LIBS = Set.of(); // e.g., "libdream11.so"
