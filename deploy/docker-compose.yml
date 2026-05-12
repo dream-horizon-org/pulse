@@ -557,6 +557,9 @@ services:
       - GOALERT_USER_API_KEY=${GOALERT_USER_API_KEY:-}
       - GOALERT_SERVICE_ID=${GOALERT_SERVICE_ID:-}
       - GOALERT_SLACK_BOT_TOKEN=${GOALERT_SLACK_BOT_TOKEN:-}
+      # Grafana alerts Configuration
+      - GRAFANA_SLACK_CHANNEL_ID=${GRAFANA_SLACK_CHANNEL_ID:-}
+      - GRAFANA_FALLBACK_SLACK_CHANNEL_ID=${GRAFANA_FALLBACK_SLACK_CHANNEL_ID:-}
 
       # Notification Service Configuration
       - AWS_REGION=${AWS_REGION:-ap-south-1}

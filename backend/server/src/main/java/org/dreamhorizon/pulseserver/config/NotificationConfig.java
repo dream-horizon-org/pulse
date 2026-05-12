@@ -19,6 +19,7 @@ public class NotificationConfig {
   private WorkerConfig worker;
   private SlackOAuthConfig slackOAuth;
   private IncidentConfig incident;
+  private AlertsConfig alerts;
 
   @Data
   @NoArgsConstructor
@@ -101,6 +102,10 @@ public class NotificationConfig {
     return incident != null ? incident : new IncidentConfig();
   }
 
+  public AlertsConfig getAlertsConfig() {
+    return alerts != null ? alerts : new AlertsConfig();
+  }
+
   @Data
   @NoArgsConstructor
   @AllArgsConstructor
@@ -119,6 +124,37 @@ public class NotificationConfig {
     private String goAlertUserApiKey;
     private String goAlertServiceId;
     private String slackBotToken;
+  }
+
+  /**
+   * Configuration for stateless alert pass-throughs (e.g. Grafana webhook).
+   * Distinct from {@link IncidentConfig} — alerts here do NOT create incidents
+   * or participate in ack/recover/close workflows.
+   */
+  @Data
+  @NoArgsConstructor
+  @AllArgsConstructor
+  public static class AlertsConfig {
+    private GrafanaAlertsConfig grafana;
+  }
+
+  /**
+   * Grafana webhook integration config. The webhook endpoint itself lives at
+   * {@code /v1/alerts/grafana/webhook} (no auth currently — restrict via
+   * network/SG).
+   *
+   * <ul>
+   *   <li>{@code slackChannelId} — primary channel where on-call-tagged messages are posted.
+   *   <li>{@code fallbackSlackChannelId} — where {@code @channel} warnings go if on-call
+   *       lookup fails; if unset, falls back to {@code slackChannelId}.
+   * </ul>
+   */
+  @Data
+  @NoArgsConstructor
+  @AllArgsConstructor
+  public static class GrafanaAlertsConfig {
+    private String slackChannelId;
+    private String fallbackSlackChannelId;
   }
 
   @Data

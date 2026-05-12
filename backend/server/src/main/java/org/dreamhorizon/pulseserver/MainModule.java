@@ -29,6 +29,10 @@ import org.dreamhorizon.pulseserver.module.VertxAbstractModule;
 import org.dreamhorizon.pulseserver.service.OpenFgaService;
 import org.dreamhorizon.pulseserver.service.configs.ICloudFrontClient;
 import org.dreamhorizon.pulseserver.service.configs.IS3BucketClient;
+import org.dreamhorizon.pulseserver.service.alerts.grafana.GrafanaAlertService;
+import org.dreamhorizon.pulseserver.service.alerts.grafana.SlackPoster;
+import org.dreamhorizon.pulseserver.service.alerts.grafana.impl.GrafanaAlertServiceImpl;
+import org.dreamhorizon.pulseserver.service.alerts.grafana.impl.WebClientSlackPoster;
 import org.dreamhorizon.pulseserver.service.incident.IncidentService;
 import org.dreamhorizon.pulseserver.service.incident.IncidentServiceImpl;
 import org.dreamhorizon.pulseserver.service.oncall.GoAlertOnCallProvider;
@@ -225,6 +229,9 @@ public class MainModule extends VertxAbstractModule {
     bind(SesWebhookHandler.class).in(Singleton.class);
 
     bind(SlackOAuthService.class).in(Singleton.class);
+
+    bind(SlackPoster.class).to(WebClientSlackPoster.class).in(Singleton.class);
+    bind(GrafanaAlertService.class).to(GrafanaAlertServiceImpl.class).in(Singleton.class);
   }
 
   private S3AsyncClient loadS3Client() {

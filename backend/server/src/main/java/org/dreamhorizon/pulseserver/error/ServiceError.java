@@ -44,7 +44,11 @@ public enum ServiceError implements RestError {
   /** Pulse AI URL missing — Vert.x SSE proxy and related native routes. */
   AI_SERVICE_NOT_CONFIGURED("BE1010", "Something went wrong", 503),
   /** Pulse AI upstream unreachable, bad URL, or proxy failure — Vert.x SSE proxy. */
-  AI_PROXY_BAD_GATEWAY("BE1011", "Something went wrong", 502);
+  AI_PROXY_BAD_GATEWAY("BE1011", "Something went wrong", 502),
+  /** Grafana webhook body could not be parsed. */
+  GRAFANA_WEBHOOK_INVALID_PAYLOAD("BE1020", "Invalid Grafana webhook payload", 400),
+  /** Grafana alert handler failed during on-call lookup or Slack dispatch. */
+  GRAFANA_ALERT_PROCESSING_FAILED("BE1021", "Failed to process Grafana alert", 500);
 
   private static final Logger log = LoggerFactory.getLogger(ServiceError.class);
   final String errorCode;
