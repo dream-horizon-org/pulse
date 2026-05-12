@@ -1,0 +1,35 @@
+{
+  "eval_set_id": "pulse_em_smoke",
+  "name": "Pulse EM agent smoke evaluations",
+  "eval_cases": [
+    {
+      "eval_id": "calculate_sum",
+      "conversation": [
+        {
+          "user_content": {
+            "role": "user",
+            "parts": [
+              {
+                "text": "Use the calculate tool to compute 19 + 23. Reply with the numeric result."
+              }
+            ]
+          },
+          "final_response": {
+            "role": "model",
+            "parts": [{ "text": "19 + 23 = 42." }]
+          },
+          "intermediate_data": {
+            "tool_uses": [
+              {
+                "name": "calculate",
+                "args": { "expression": "19 + 23" }
+              }
+            ]
+          }
+        }
+      ],
+      "final_session_state": {}
+    }
+  ],
+  "creation_timestamp": 0.0
+}
