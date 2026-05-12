@@ -107,7 +107,7 @@ configurations.configureEach {
 }
 
 // Keep aligned with pulse-android-otel gradle.properties `version` + "-alpha" (with publishToMavenLocal -Pfinal=true).
-def pulse_version = "0.0.18-alpha"
+def pulse_version = "0.0.16-alpha"
 dependencies {
   implementation("com.facebook.react:react-android")
 
