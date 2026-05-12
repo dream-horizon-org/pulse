@@ -100,7 +100,7 @@ pipeline {
             steps {
                 sh '''
                     #!/bin/bash
-                    set -euo pipefail
+                    set -e
                     ASG_NAME=pulse-ui-asg
                     REGION=ap-south-1
                     TIMEOUT=$((45 * 60))
