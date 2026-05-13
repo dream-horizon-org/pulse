@@ -1,8 +1,12 @@
 import com.diffplug.gradle.spotless.SpotlessExtension
+import org.gradle.api.artifacts.VersionCatalogsExtension
 
 plugins {
     id("com.diffplug.spotless")
 }
+
+val ktlintToolVersion =
+        rootProject.extensions.getByType(VersionCatalogsExtension::class.java).named("libs").findVersion("ktlint").get().requiredVersion
 
 spotless {
     java {
@@ -17,7 +21,7 @@ spotless {
         configureKotlin(this@spotless)
     }
     kotlinGradle {
-        ktlint()
+        ktlint(ktlintToolVersion)
     }
     format("misc") {
         // not using "**/..." to help keep spotless fast
@@ -49,10 +53,10 @@ if (project == rootProject) {
             googleJavaFormat()
         }
         kotlin {
-            ktlint()
+            ktlint(ktlintToolVersion)
         }
         kotlinGradle {
-            ktlint()
+            ktlint(ktlintToolVersion)
         }
     }
 }
@@ -61,7 +65,7 @@ fun configureKotlin(
     spotlessExtension: SpotlessExtension,
 ) {
     spotlessExtension.kotlin {
-        ktlint()
+        ktlint(ktlintToolVersion)
         target("src/**/*.kt")
     }
 }

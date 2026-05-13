@@ -11,6 +11,8 @@ retrofit = "2.11.0"
 retrofit-kotlinx-serialisation = "2.11.0"
 gson = "2.13.2"
 spotless = "8.0.0"
+# Pin for Spotless ktlint step: Spotless 8 defaults ktlint 1.7+ (Kotlin 2.x); project Kotlin is 1.9.x.
+ktlint = "1.3.1"
 kotlin = "1.9.25"
 kotlinSerialisation = "1.6.3"
 kotlinCoroutines = "1.8.1"
