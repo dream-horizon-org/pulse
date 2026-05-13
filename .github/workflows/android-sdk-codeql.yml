@@ -65,7 +65,7 @@ jobs:
         # --no-build-cache / --no-daemon: required for CodeQL to observe compilation
         # assembleDebug: skip release variants vs full assemble
         # -x assembleDebugAndroidTest: skip every subproject's instrumented-test APK (heavy; caused long runs)
-        run: ./gradlew assembleDebug -x assembleDebugAndroidTest --no-build-cache --no-daemon
+        run: ./gradlew assembleDebug -x assembleDebugAndroidTest --no-build-cache --no-daemon --no-configuration-cache
 
       - name: Perform CodeQL analysis
         uses: github/codeql-action/analyze@f443b600d91635bebf5b0d9ebc620189c0d6fba5 # v4.30.8

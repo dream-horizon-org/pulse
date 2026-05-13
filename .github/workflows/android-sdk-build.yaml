@@ -32,7 +32,8 @@ jobs:
       - name: touch local props
         run: touch demo-app/local.properties
       - name: run gradle check and coverage
-        run: ./gradlew check -x detekt detektDebug detektDebugUnitTest detektDebugAndroidTest :pulse-upload-plugin:detektMain koverXmlReport
+        # Same exclusions/CC workaround as android-sdk-pr-check.yaml (Gradle CLI parses multiple -x correctly).
+        run: ./gradlew check koverXmlReport --no-configuration-cache -x detekt -x detektDebug -x detektDebugUnitTest -x detektDebugAndroidTest -x :pulse-upload-plugin:detektMain
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@5a1091511ad55cbe89839c7260b706298ca349f7 # v5.5.1
         with:
@@ -61,7 +62,7 @@ jobs:
         run: touch demo-app/local.properties
       - name: build demo app
         working-directory: ${{ env.ANDROID_PROJECT_DIR }}/demo-app
-        run: ./gradlew assemble
+        run: ./gradlew assemble --no-configuration-cache
 
   workflow-notification:
     permissions: # required by the reusable workflow

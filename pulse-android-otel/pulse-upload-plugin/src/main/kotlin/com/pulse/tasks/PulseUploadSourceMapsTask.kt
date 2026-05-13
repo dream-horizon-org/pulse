@@ -86,14 +86,16 @@ abstract class PulseUploadSourceMapsTask : DefaultTask() {
 
         try {
             uploadFile(
-                apiUrl = apiUrlValue,
-                apiKey = apiKeyValue,
-                file = mappingFileObj,
-                appVersion = appVersionValue,
-                versionCode = versionCodeValue,
-                platform = platform,
-                type = type,
-                fileName = fileName
+                SourceMapUploadParams(
+                    apiUrl = apiUrlValue,
+                    apiKey = apiKeyValue,
+                    file = mappingFileObj,
+                    appVersion = appVersionValue,
+                    versionCode = versionCodeValue,
+                    platform = platform,
+                    type = type,
+                    fileName = fileName,
+                ),
             )
             logger.info("✓ Upload successful")
         } catch (e: IllegalArgumentException) {
@@ -161,31 +163,50 @@ abstract class PulseUploadSourceMapsTask : DefaultTask() {
         }
     }
 
-    private fun uploadFile(
-        apiUrl: String,
-        apiKey: String,
-        file: File,
-        appVersion: String,
-        versionCode: Int,
-        platform: String,
-        type: String,
-        fileName: String
-    ) {
-        val metadata = buildMetadata(type, appVersion, versionCode, platform, fileName)
+    private data class SourceMapUploadParams(
+        val apiUrl: String,
+        val apiKey: String,
+        val file: File,
+        val appVersion: String,
+        val versionCode: Int,
+        val platform: String,
+        val type: String,
+        val fileName: String,
+    )
+
+    private fun uploadFile(params: SourceMapUploadParams) {
+        val metadata =
+            buildMetadata(
+                type = params.type,
+                appVersion = params.appVersion,
+                versionCode = params.versionCode,
+                platform = params.platform,
+                fileName = params.fileName,
+            )
         val boundary = "----WebKitFormBoundary${System.currentTimeMillis()}"
 
-        val connection = URI.create(apiUrl).toURL().openConnection() as HttpURLConnection
+        val rawConnection = URI.create(params.apiUrl).toURL().openConnection()
+        require(rawConnection is HttpURLConnection) {
+            "Expected HttpURLConnection for Pulse upload (got ${rawConnection.javaClass.name})"
+        }
+        val connection = rawConnection
 
         try {
             connection.requestMethod = "POST"
             connection.setRequestProperty("Content-Type", "multipart/form-data; boundary=$boundary")
-            connection.setRequestProperty(API_KEY_HEADER, apiKey)
+            connection.setRequestProperty(API_KEY_HEADER, params.apiKey)
             connection.doOutput = true
             connection.connectTimeout = 30000
             connection.readTimeout = 60000
 
             connection.outputStream.use { output ->
-                writeMultipartFormData(output, boundary, metadata, file, fileName)
+                writeMultipartFormData(
+                    output = output,
+                    boundary = boundary,
+                    metadata = metadata,
+                    file = params.file,
+                    fileName = params.fileName,
+                )
             }
 
             val responseCode = connection.responseCode
@@ -196,7 +217,7 @@ abstract class PulseUploadSourceMapsTask : DefaultTask() {
         } catch (e: IOException) {
             val errorMessage = e.message ?: UNKNOWN_ERROR
             logger.debug("HTTP request failed: $errorMessage")
-            logDebugUrl(apiUrl)
+            logDebugUrl(params.apiUrl)
             throw e
         } finally {
             connection.disconnect()

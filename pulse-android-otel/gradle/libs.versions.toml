@@ -4,7 +4,7 @@ opentelemetry-instrumentation-alpha = "2.20.1-alpha"
 opentelemetry-semconv = "1.37.0"
 opentelemetry-semconv-alpha = "1.37.0-alpha"
 opentelemetry-contrib = "1.50.0-alpha"
-junit = "6.0.0"
+junit = "5.11.4"
 byteBuddy = "1.17.8"
 okhttp = "5.0.0-alpha.14"
 retrofit = "2.11.0"
@@ -86,7 +86,7 @@ junit-jupiter-api = { module = "org.junit.jupiter:junit-jupiter-api", version.re
 junit-jupiter-params = { module = "org.junit.jupiter:junit-jupiter-params", version.ref = "junit" }
 junit-jupiter-engine = { module = "org.junit.jupiter:junit-jupiter-engine", version.ref = "junit" }
 junit-vintage-engine = { module = "org.junit.vintage:junit-vintage-engine", version.ref = "junit" }
-junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher", version = "6.0.0" }
+junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher", version = "1.11.4" }
 robolectric = "org.robolectric:robolectric:4.16"
 assertj-core = "org.assertj:assertj-core:3.27.6"
 awaitility = "org.awaitility:awaitility:4.3.0"
