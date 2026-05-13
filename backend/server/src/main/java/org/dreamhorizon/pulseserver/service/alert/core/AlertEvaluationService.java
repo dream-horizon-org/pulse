@@ -81,7 +81,8 @@ public class AlertEvaluationService {
             return Single.just(new ArrayList<>());
           }
 
-          Map<QueryRequest.DataType, List<String>> metricsByDataType = groupMetricsByDataType(scopes, alertDetails.getScope());
+          Map<QueryRequest.DataType, List<String>> metricsByDataType =
+              groupMetricsByDataType(scopes, alertDetails.getScope());
 
           List<Single<PerformanceMetricDistributionRes>> querySingles = new ArrayList<>();
           for (Map.Entry<QueryRequest.DataType, List<String>> entry : metricsByDataType.entrySet()) {
@@ -146,7 +147,13 @@ public class AlertEvaluationService {
         for (Map<String, Object> alert : alerts) {
           String metric = (String) alert.get("metric");
           if (metric != null) {
-            if (MetricToFunctionMapper.isCompositeMetric(metric)) {
+            if (MetricToFunctionMapper.isHeatmapCompositeMetric(metric)) {
+              compositeMetrics.add(metric);
+              List<String> components = MetricToFunctionMapper.getHeatmapScoreComponents();
+              metricsByDataType.computeIfAbsent(QueryRequest.DataType.HEATMAP_DAILY, k -> new ArrayList<>())
+                  .addAll(components);
+              log.debug("Heatmap composite metric {} requires sub-aggregates: {}", metric, components);
+            } else if (MetricToFunctionMapper.isCompositeMetric(metric)) {
               compositeMetrics.add(metric);
               MetricToFunctionMapper.CompositeMetricComponents components =
                   MetricToFunctionMapper.getCompositeMetricComponents(metric, alertScope);
@@ -196,8 +203,9 @@ public class AlertEvaluationService {
 
     List<QueryRequest.SelectItem> selectItems = new ArrayList<>();
     boolean isAppVitals = "APP_VITALS".equalsIgnoreCase(alertDetails.getScope());
+    boolean isHeatmapDaily = dataType == QueryRequest.DataType.HEATMAP_DAILY;
 
-    if (!isAppVitals) {
+    if (!isAppVitals && !isHeatmapDaily) {
       QueryRequest.SelectItem timeBucket = new QueryRequest.SelectItem();
       timeBucket.setFunction(Functions.TIME_BUCKET);
       Map<String, String> timeBucketParams = new HashMap<>();
@@ -221,7 +229,7 @@ public class AlertEvaluationService {
     String scopeField = getScopeField(alertDetails.getScope(), dataType);
     String scopeFieldAlias = getScopeFieldAlias(alertDetails.getScope());
 
-    if (!isAppVitals) {
+    if (!isAppVitals && !isHeatmapDaily) {
       QueryRequest.SelectItem scopeFieldItem = new QueryRequest.SelectItem();
       scopeFieldItem.setFunction(Functions.COL);
       Map<String, String> scopeFieldParams = new HashMap<>();
@@ -239,12 +247,29 @@ public class AlertEvaluationService {
         methodFieldItem.setAlias("method");
         selectItems.add(methodFieldItem);
       }
+    } else if (isHeatmapDaily) {
+      QueryRequest.SelectItem scopeFieldItem = new QueryRequest.SelectItem();
+      scopeFieldItem.setFunction(Functions.COL);
+      Map<String, String> scopeFieldParams = new HashMap<>();
+      scopeFieldParams.put("field", "ScreenName");
+      scopeFieldItem.setParam(scopeFieldParams);
+      scopeFieldItem.setAlias(scopeFieldAlias);
+      selectItems.add(scopeFieldItem);
     }
 
     List<QueryRequest.Filter> filters = new ArrayList<>();
 
     if (!isAppVitals && !scopes.isEmpty()) {
-      if ("NETWORK_API".equalsIgnoreCase(alertDetails.getScope()) && dataType == QueryRequest.DataType.TRACES) {
+      if (isHeatmapDaily) {
+        List<String> scopeNames = extractScopeNames(scopes);
+        if (!scopeNames.isEmpty()) {
+          QueryRequest.Filter scopeNameFilter = new QueryRequest.Filter();
+          scopeNameFilter.setField("ScreenName");
+          scopeNameFilter.setOperator(scopeNames.size() == 1 ? QueryRequest.Operator.EQ : QueryRequest.Operator.IN);
+          scopeNameFilter.setValue(new ArrayList<Object>(scopeNames));
+          filters.add(scopeNameFilter);
+        }
+      } else if ("NETWORK_API".equalsIgnoreCase(alertDetails.getScope()) && dataType == QueryRequest.DataType.TRACES) {
         Set<String> urls = extractUrlsFromScopes(scopes);
         if (!urls.isEmpty()) {
           QueryRequest.Filter scopeNameFilter = new QueryRequest.Filter();
@@ -279,13 +304,15 @@ public class AlertEvaluationService {
     }
 
     List<String> groupBy = new ArrayList<>();
-    if (!isAppVitals) {
+    if (!isAppVitals && !isHeatmapDaily) {
       groupBy.add("t1");
       groupBy.add(getScopeFieldAlias(alertDetails.getScope()));
 
       if ("NETWORK_API".equalsIgnoreCase(alertDetails.getScope()) && dataType == QueryRequest.DataType.TRACES) {
         groupBy.add("method");
       }
+    } else if (isHeatmapDaily) {
+      groupBy.add(getScopeFieldAlias(alertDetails.getScope()));
     }
 
     QueryRequest queryRequest = new QueryRequest();
@@ -328,6 +355,9 @@ public class AlertEvaluationService {
 
   private void addPulseTypeFilter(List<QueryRequest.Filter> filters, QueryRequest.DataType dataType,
                                   boolean isAppVitals, String scope) {
+    if (dataType == QueryRequest.DataType.HEATMAP_DAILY) {
+      return;
+    }
     if (dataType == QueryRequest.DataType.LOGS && isAppVitals) {
       QueryRequest.Filter pulseTypeFilter = new QueryRequest.Filter();
       pulseTypeFilter.setField("PulseType");
@@ -579,6 +609,9 @@ public class AlertEvaluationService {
   private Float getMetricValue(String metric, PerformanceMetricDistributionRes queryResult,
                                Map<String, Integer> fieldIndexMap, String interactionName,
                                String scopeFieldAlias, boolean isAppVitals, String scope) {
+    if (MetricToFunctionMapper.isHeatmapCompositeMetric(metric)) {
+      return calculateHeatmapScore(queryResult, fieldIndexMap, interactionName, scopeFieldAlias);
+    }
     if (MetricToFunctionMapper.isCompositeMetric(metric)) {
       return calculateCompositeMetric(metric, queryResult, fieldIndexMap,
           interactionName, scopeFieldAlias, isAppVitals, scope);
@@ -756,6 +789,53 @@ public class AlertEvaluationService {
         compositeMetric, totalValue, exceptionValue, percentage);
 
     return percentage;
+  }
+
+  private Float calculateHeatmapScore(PerformanceMetricDistributionRes queryResult,
+                                      Map<String, Integer> fieldIndexMap,
+                                      String interactionName,
+                                      String scopeFieldAlias) {
+    Integer sumNormalIdx = fieldIndexMap.get("heatmapsumnormal");
+    Integer maxNormalIdx = fieldIndexMap.get("heatmapmaxnormal");
+    Integer sumRageIdx = fieldIndexMap.get("heatmapsumrage");
+    Integer sumDeadIdx = fieldIndexMap.get("heatmapsumdead");
+
+    if (sumNormalIdx == null || maxNormalIdx == null || sumRageIdx == null || sumDeadIdx == null) {
+      log.warn("Heatmap score sub-aggregates not found in query results. Fields: {}", fieldIndexMap.keySet());
+      return null;
+    }
+
+    Integer scopeFieldIndex = fieldIndexMap.get(scopeFieldAlias);
+    if (scopeFieldIndex == null) {
+      log.warn("Scope field {} not found for heatmap score calculation", scopeFieldAlias);
+      return null;
+    }
+
+    for (List<String> row : queryResult.getRows()) {
+      if (row.size() > scopeFieldIndex && interactionName.equals(row.get(scopeFieldIndex))) {
+        Float sumNormal = parseMetricValue(row.get(sumNormalIdx));
+        Float maxNormal = parseMetricValue(row.get(maxNormalIdx));
+        Float sumRage = parseMetricValue(row.get(sumRageIdx));
+        Float sumDead = parseMetricValue(row.get(sumDeadIdx));
+
+        if (sumNormal == null || maxNormal == null || sumRage == null || sumDead == null) {
+          return null;
+        }
+        if (sumNormal == 0f) {
+          return null;
+        }
+
+        float totalEvents = Math.max(1f, sumNormal);
+        float coverage = Math.min(1f, sumNormal / totalEvents);
+        float dominance = maxNormal / Math.max(1f, sumNormal);
+        float frustrationSum = sumRage + sumDead;
+        float frustrationPressure = frustrationSum / Math.max(1f, totalEvents + frustrationSum);
+        float calm = 1f - 0.55f * frustrationPressure;
+        float score = 0.32f * coverage + 0.53f * dominance + 0.15f * calm;
+        return Math.min(1f, Math.max(0f, score));
+      }
+    }
+    return null;
   }
 
   private List<Map<String, Object>> parseConditionsArray(String json) {
@@ -1182,6 +1262,7 @@ public class AlertEvaluationService {
       case "SCREEN" -> "ScreenName";
       case "NETWORK_API" -> "HttpUrl";
       case "APP_VITALS" -> "GroupId";
+      case "HEATMAP" -> "ScreenName";
       default -> "SpanName";
     };
   }

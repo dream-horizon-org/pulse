@@ -4,5 +4,6 @@ public enum AlertScope {
   interaction,
   network_api,
   screen,
-  app_vitals
+  app_vitals,
+  heatmap
 }

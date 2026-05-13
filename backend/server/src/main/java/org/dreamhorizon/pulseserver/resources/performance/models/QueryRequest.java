@@ -38,7 +38,8 @@ public class QueryRequest {
     TRACES,
     LOGS,
     METRICS,
-    EXCEPTIONS
+    EXCEPTIONS,
+    HEATMAP_DAILY
   }
 
   @Getter

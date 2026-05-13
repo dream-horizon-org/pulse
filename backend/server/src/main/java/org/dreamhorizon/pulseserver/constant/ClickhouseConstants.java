@@ -152,4 +152,20 @@ public class ClickhouseConstants {
       "if(uniqCombined64(nullIf(UserId, '')) = 0, NULL, ((uniqCombined64(nullIf(UserId, '')) - uniqCombined64If(nullIf(UserId, ''), PulseType = 'non_fatal')) / uniqCombined64(nullIf(UserId, ''))) * 100)";
   public final String NON_FATAL_FREE_SESSIONS_PERCENTAGE =
       "if(uniqCombined64(nullIf(SessionId, '')) = 0, NULL, ((uniqCombined64(nullIf(SessionId, '')) - uniqCombined64If(nullIf(SessionId, ''), PulseType = 'non_fatal')) / uniqCombined64(nullIf(SessionId, ''))) * 100)";
+
+  // Heatmap metrics (interaction_heatmaps_daily table)
+  public final String CH_HEATMAP_RAGE_TAP_COUNT = "sum(WeightRage)";
+  public final String CH_HEATMAP_DEAD_TAP_COUNT = "sum(WeightDead)";
+  public final String CH_HEATMAP_TOTAL_CLICK_COUNT = "sum(WeightNormal)";
+  public final String CH_HEATMAP_RAGE_TAP_RATE =
+      "if((sum(WeightNormal) + sum(WeightRage) + sum(WeightDead)) = 0, NULL, "
+      + "(sum(WeightRage) * 100.0 / (sum(WeightNormal) + sum(WeightRage) + sum(WeightDead))))";
+  public final String CH_HEATMAP_DEAD_TAP_RATE =
+      "if((sum(WeightNormal) + sum(WeightRage) + sum(WeightDead)) = 0, NULL, "
+      + "(sum(WeightDead) * 100.0 / (sum(WeightNormal) + sum(WeightRage) + sum(WeightDead))))";
+  // Sub-aggregates for HEATMAP_SCORE composite (fetched raw, computed in Java)
+  public final String CH_HEATMAP_SUM_NORMAL = "sum(WeightNormal)";
+  public final String CH_HEATMAP_MAX_NORMAL = "max(WeightNormal)";
+  public final String CH_HEATMAP_SUM_RAGE = "sum(WeightRage)";
+  public final String CH_HEATMAP_SUM_DEAD = "sum(WeightDead)";
 }

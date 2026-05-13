@@ -62,6 +62,18 @@ const buildScopeNamesQuery = (scopeType: AlertScopeType | null, searchTerm?: str
       filters: [{ field: "PulseType", operator: "LIKE" as const, value: ["network%"] }, ...baseFilters],
     };
   }
+  if (scopeType === AlertScopeType.Heatmap) {
+    if (searchTerm) baseFilters.push({ field: "ScreenName", operator: "LIKE", value: [`%${searchTerm}%`] });
+    return {
+      dataType: "HEATMAP_DAILY" as const, timeRange,
+      select: [
+        { function: "COL" as const, param: { field: "ScreenName" }, alias: "screen_name" },
+        { function: "CUSTOM" as const, param: { expression: "sum(WeightNormal)" }, alias: "count" },
+      ],
+      groupBy: ["screen_name"], orderBy: [{ field: "count", direction: "DESC" as const }], limit: 20,
+      filters: [...baseFilters],
+    };
+  }
   return null;
 };
 

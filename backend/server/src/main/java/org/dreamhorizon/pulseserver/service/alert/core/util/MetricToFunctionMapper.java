@@ -1,5 +1,6 @@
 package org.dreamhorizon.pulseserver.service.alert.core.util;
 
+import java.util.List;
 import java.util.Set;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.resources.performance.models.Functions;
@@ -21,13 +22,19 @@ public class MetricToFunctionMapper {
       "NON_FATAL_SESSIONS"
   );
 
+  private static final Set<String> HEATMAP_METRICS = Set.of(
+      "RAGE_TAP_COUNT", "RAGE_TAP_RATE", "DEAD_TAP_COUNT",
+      "DEAD_TAP_RATE", "TOTAL_CLICK_COUNT"
+  );
+
   private static final Set<String> COMPOSITE_METRICS = Set.of(
       "CRASH_FREE_USERS_PERCENTAGE",
       "CRASH_FREE_SESSIONS_PERCENTAGE",
       "ANR_FREE_USERS_PERCENTAGE",
       "ANR_FREE_SESSIONS_PERCENTAGE",
       "NON_FATAL_FREE_USERS_PERCENTAGE",
-      "NON_FATAL_FREE_SESSIONS_PERCENTAGE"
+      "NON_FATAL_FREE_SESSIONS_PERCENTAGE",
+      "HEATMAP_SCORE"
   );
 
   public static Functions mapMetricToFunction(String metric) {
@@ -69,7 +76,11 @@ public class MetricToFunctionMapper {
       return QueryRequest.DataType.EXCEPTIONS;
     }
 
-    if ("APP_VITALS".equalsIgnoreCase(scope) && 
+    if (HEATMAP_METRICS.contains(upperMetric)) {
+      return QueryRequest.DataType.HEATMAP_DAILY;
+    }
+
+    if ("APP_VITALS".equalsIgnoreCase(scope) &&
         (upperMetric.equals("ALL_USERS") || upperMetric.equals("ALL_SESSIONS"))) {
       return QueryRequest.DataType.LOGS;
     }
@@ -98,9 +109,13 @@ public class MetricToFunctionMapper {
     }
 
     String upperMetric = metric.toUpperCase();
+    if ("HEATMAP_SCORE".equals(upperMetric)) {
+      return null;
+    }
+
     boolean isAppVitals = "APP_VITALS".equalsIgnoreCase(scope);
-    QueryRequest.DataType totalMetricDataType = isAppVitals 
-        ? QueryRequest.DataType.LOGS 
+    QueryRequest.DataType totalMetricDataType = isAppVitals
+        ? QueryRequest.DataType.LOGS
         : QueryRequest.DataType.TRACES;
 
     return switch (upperMetric) {
@@ -112,6 +127,14 @@ public class MetricToFunctionMapper {
       case "NON_FATAL_FREE_SESSIONS_PERCENTAGE" -> new CompositeMetricComponents("ALL_SESSIONS", "NON_FATAL_SESSIONS", totalMetricDataType);
       default -> null;
     };
+  }
+
+  public static boolean isHeatmapCompositeMetric(String metric) {
+    return metric != null && "HEATMAP_SCORE".equals(metric.toUpperCase());
+  }
+
+  public static List<String> getHeatmapScoreComponents() {
+    return List.of("HEATMAP_SUM_NORMAL", "HEATMAP_MAX_NORMAL", "HEATMAP_SUM_RAGE", "HEATMAP_SUM_DEAD");
   }
 
   public static CompositeMetricComponents getCompositeMetricComponents(String metric) {

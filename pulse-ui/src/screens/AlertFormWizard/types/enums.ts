@@ -7,6 +7,7 @@ export enum AlertScopeType {
   Screen = "screen",
   AppVitals = "app_vitals",
   NetworkAPI = "network_api",
+  Heatmap = "heatmap",
 }
 
 export enum MetricOperator {

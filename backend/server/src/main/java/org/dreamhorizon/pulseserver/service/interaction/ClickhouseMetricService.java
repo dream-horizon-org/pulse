@@ -161,6 +161,25 @@ public class ClickhouseMetricService implements PerformanceMetricService {
                   DateTimeUtils.toSeconds(selectItem.getParam().get("bucket")),
                   DateTimeUtils.toSeconds(selectItem.getParam().get("bucket"))),
               Objects.requireNonNullElse(selectItem.getAlias(), Functions.TIME_BUCKET.getDisplayName()));
+          // Heatmap metrics
+          case RAGE_TAP_COUNT -> String.format("%s as %s", Functions.RAGE_TAP_COUNT.getChSelectClause(),
+              Objects.requireNonNullElse(selectItem.getAlias(), Functions.RAGE_TAP_COUNT.getDisplayName()));
+          case RAGE_TAP_RATE -> String.format("%s as %s", Functions.RAGE_TAP_RATE.getChSelectClause(),
+              Objects.requireNonNullElse(selectItem.getAlias(), Functions.RAGE_TAP_RATE.getDisplayName()));
+          case DEAD_TAP_COUNT -> String.format("%s as %s", Functions.DEAD_TAP_COUNT.getChSelectClause(),
+              Objects.requireNonNullElse(selectItem.getAlias(), Functions.DEAD_TAP_COUNT.getDisplayName()));
+          case DEAD_TAP_RATE -> String.format("%s as %s", Functions.DEAD_TAP_RATE.getChSelectClause(),
+              Objects.requireNonNullElse(selectItem.getAlias(), Functions.DEAD_TAP_RATE.getDisplayName()));
+          case TOTAL_CLICK_COUNT -> String.format("%s as %s", Functions.TOTAL_CLICK_COUNT.getChSelectClause(),
+              Objects.requireNonNullElse(selectItem.getAlias(), Functions.TOTAL_CLICK_COUNT.getDisplayName()));
+          case HEATMAP_SUM_NORMAL -> String.format("%s as %s", Functions.HEATMAP_SUM_NORMAL.getChSelectClause(),
+              Objects.requireNonNullElse(selectItem.getAlias(), Functions.HEATMAP_SUM_NORMAL.getDisplayName()));
+          case HEATMAP_MAX_NORMAL -> String.format("%s as %s", Functions.HEATMAP_MAX_NORMAL.getChSelectClause(),
+              Objects.requireNonNullElse(selectItem.getAlias(), Functions.HEATMAP_MAX_NORMAL.getDisplayName()));
+          case HEATMAP_SUM_RAGE -> String.format("%s as %s", Functions.HEATMAP_SUM_RAGE.getChSelectClause(),
+              Objects.requireNonNullElse(selectItem.getAlias(), Functions.HEATMAP_SUM_RAGE.getDisplayName()));
+          case HEATMAP_SUM_DEAD -> String.format("%s as %s", Functions.HEATMAP_SUM_DEAD.getChSelectClause(),
+              Objects.requireNonNullElse(selectItem.getAlias(), Functions.HEATMAP_SUM_DEAD.getDisplayName()));
           case ARR_TO_STR ->
               String.format("%s as %s", String.format(Functions.ARR_TO_STR.getChSelectClause(), selectItem.getParam().get("field")),
                   Objects.requireNonNullElse(selectItem.getAlias(), Functions.ARR_TO_STR.getDisplayName()));
@@ -170,12 +189,20 @@ public class ClickhouseMetricService implements PerformanceMetricService {
       selectClause = String.join(",", clauses);
     }
 
-    // Where Clause toDateTime64('${start_time}', 9, 'UTC')
-    String projectAndTimeFilter = String.format("ProjectId = '%s' AND Timestamp >= toDateTime64('%s',9,'UTC')"
-            + " AND Timestamp <= toDateTime64('%s',9,'UTC')",
-        request.getProjectId(),
-        ZonedDateTime.parse(request.getTimeRange().getStart()).format(output),
-        ZonedDateTime.parse(request.getTimeRange().getEnd()).format(output));
+    // Where Clause
+    String projectAndTimeFilter;
+    if (request.getDataType() == QueryRequest.DataType.HEATMAP_DAILY) {
+      projectAndTimeFilter = String.format("ProjectId = '%s' AND Date >= toDate('%s') AND Date <= toDate('%s')",
+          request.getProjectId(),
+          ZonedDateTime.parse(request.getTimeRange().getStart()).toLocalDate().toString(),
+          ZonedDateTime.parse(request.getTimeRange().getEnd()).toLocalDate().toString());
+    } else {
+      projectAndTimeFilter = String.format("ProjectId = '%s' AND Timestamp >= toDateTime64('%s',9,'UTC')"
+              + " AND Timestamp <= toDateTime64('%s',9,'UTC')",
+          request.getProjectId(),
+          ZonedDateTime.parse(request.getTimeRange().getStart()).format(output),
+          ZonedDateTime.parse(request.getTimeRange().getEnd()).format(output));
+    }
 
     StringBuilder where = new StringBuilder(projectAndTimeFilter);
     if (!CollectionUtils.isEmpty(request.getFilters())) {
@@ -229,6 +256,7 @@ public class ClickhouseMetricService implements PerformanceMetricService {
       case LOGS -> "otel_logs";
       case METRICS -> "otel_metrics";
       case EXCEPTIONS -> "stack_trace_events";
+      case HEATMAP_DAILY -> "interaction_heatmaps_daily";
     };
 
     String finalQuery = String.format(query, selectClause, from, whereClause);

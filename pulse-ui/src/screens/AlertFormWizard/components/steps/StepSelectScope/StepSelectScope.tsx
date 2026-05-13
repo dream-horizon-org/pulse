@@ -20,6 +20,7 @@ const SCOPE_DISPLAY_CONFIG: Record<string, { color: string; features: string[] }
   screen: { color: "#4c6ef5", features: ["Load duration", "Rendering metrics", "UX monitoring"] },
   app_vitals: { color: "#f03e3e", features: ["Crash rate", "ANR detection", "Stability alerts"] },
   network_api: { color: "#7950f2", features: ["Response time", "Error tracking", "Throughput alerts"] },
+  heatmap: { color: "#e8590c", features: ["Heatmap quality score", "Rage tap alerts", "Dead tap detection"] },
 };
 
 export const StepSelectScope: React.FC<StepSelectScopeProps> = ({ className }) => {

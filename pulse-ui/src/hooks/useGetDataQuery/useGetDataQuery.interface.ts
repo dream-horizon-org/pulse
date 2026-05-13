@@ -24,7 +24,7 @@ export type FunctionType =
   | "NET_4XX"
   | "NET_5XX";
 
-export type DataType = "TRACES" | "EVENTS" | "METRICS" | "LOGS" | "EXCEPTIONS";
+export type DataType = "TRACES" | "EVENTS" | "METRICS" | "LOGS" | "EXCEPTIONS" | "HEATMAP_DAILY";
 
 export type OperatorType =
   | "EQ"

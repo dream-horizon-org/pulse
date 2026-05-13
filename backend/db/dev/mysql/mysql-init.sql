@@ -686,6 +686,19 @@ INSERT INTO alert_metrics (name, label, scope) VALUES
     ('ERROR_RATE', 'Error Rate (%)', 'network_api'),
     ('NET_COUNT', 'Total Network Requests', 'network_api');
 
+-- Insert heatmap scope
+INSERT INTO scope_types (name, label) VALUES
+    ('heatmap', 'Heatmap');
+
+-- Insert heatmap scope metrics
+INSERT INTO alert_metrics (name, label, scope) VALUES
+    ('HEATMAP_SCORE', 'Heatmap Score (0 to 1)', 'heatmap'),
+    ('RAGE_TAP_COUNT', 'Rage Tap Count', 'heatmap'),
+    ('RAGE_TAP_RATE', 'Rage Tap Rate (%)', 'heatmap'),
+    ('DEAD_TAP_COUNT', 'Dead Tap Count', 'heatmap'),
+    ('DEAD_TAP_RATE', 'Dead Tap Rate (%)', 'heatmap'),
+    ('TOTAL_CLICK_COUNT', 'Total Click Count', 'heatmap');
+
 -- Grant privileges (adjust as needed for your environment)
 -- GRANT ALL PRIVILEGES ON pulse_db.* TO 'pulse_user'@'%' IDENTIFIED BY 'pulse_password';
 -- FLUSH PRIVILEGES;

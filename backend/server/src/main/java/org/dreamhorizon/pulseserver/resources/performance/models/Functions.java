@@ -65,6 +65,16 @@ public enum Functions {
   NET_4XX_BY_PULSE_TYPE("net4xxByPulseType", ClickhouseConstants.NET_4XX_BY_PULSE_TYPE),
   NET_5XX_BY_PULSE_TYPE("net5xxByPulseType", ClickhouseConstants.NET_5XX_BY_PULSE_TYPE),
   NET_COUNT_BY_PULSE_TYPE("netCountByPulseType", ClickhouseConstants.NET_COUNT_BY_PULSE_TYPE),
+  // Heatmap metrics (interaction_heatmaps_daily)
+  RAGE_TAP_COUNT("rageTapCount", ClickhouseConstants.CH_HEATMAP_RAGE_TAP_COUNT),
+  RAGE_TAP_RATE("rageTapRate", ClickhouseConstants.CH_HEATMAP_RAGE_TAP_RATE),
+  DEAD_TAP_COUNT("deadTapCount", ClickhouseConstants.CH_HEATMAP_DEAD_TAP_COUNT),
+  DEAD_TAP_RATE("deadTapRate", ClickhouseConstants.CH_HEATMAP_DEAD_TAP_RATE),
+  TOTAL_CLICK_COUNT("totalClickCount", ClickhouseConstants.CH_HEATMAP_TOTAL_CLICK_COUNT),
+  HEATMAP_SUM_NORMAL("heatmapSumNormal", ClickhouseConstants.CH_HEATMAP_SUM_NORMAL),
+  HEATMAP_MAX_NORMAL("heatmapMaxNormal", ClickhouseConstants.CH_HEATMAP_MAX_NORMAL),
+  HEATMAP_SUM_RAGE("heatmapSumRage", ClickhouseConstants.CH_HEATMAP_SUM_RAGE),
+  HEATMAP_SUM_DEAD("heatmapSumDead", ClickhouseConstants.CH_HEATMAP_SUM_DEAD),
   ARR_TO_STR("arrToString", ClickhouseConstants.ARR_TO_STR);
 
   private final String displayName;
