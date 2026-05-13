@@ -4,9 +4,13 @@ import { BrowserRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { WebVitalsPanel } from "./WebVitalsPanel";
 import type { WebVitalsPanelProps } from "./WebVitalsPanel.interface";
-import * as hooks from "../../hooks";
+import { useWebVitalsSummary } from "../../../../hooks/useWebVitalsSummary";
+import { useWebVitalsTrend } from "../../../../hooks/useWebVitalsTrend";
+import { useWebVitalsByScreen } from "../../../../hooks/useWebVitalsByScreen";
 
-jest.mock("../../hooks");
+jest.mock("../../../../hooks/useWebVitalsSummary");
+jest.mock("../../../../hooks/useWebVitalsTrend");
+jest.mock("../../../../hooks/useWebVitalsByScreen");
 jest.mock("../../../../components/Charts/LineChart/LineChart", () => ({
   LineChart: () => <div data-testid="line-chart">Chart</div>,
 }));
@@ -96,7 +100,7 @@ describe("WebVitalsPanel", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    (hooks.useWebVitalsSummary as jest.Mock).mockReturnValue({
+    (useWebVitalsSummary as jest.Mock).mockReturnValue({
       data: {
         data: mockSummaryPayload,
         error: null,
@@ -105,7 +109,7 @@ describe("WebVitalsPanel", () => {
       isLoading: false,
       error: null,
     });
-    (hooks.useWebVitalsTrend as jest.Mock).mockReturnValue({
+    (useWebVitalsTrend as jest.Mock).mockReturnValue({
       data: {
         data: mockTrendPayload,
         error: null,
@@ -114,7 +118,7 @@ describe("WebVitalsPanel", () => {
       isLoading: false,
       error: null,
     });
-    (hooks.useWebVitalsByScreen as jest.Mock).mockReturnValue({
+    (useWebVitalsByScreen as jest.Mock).mockReturnValue({
       data: {
         data: mockScreenPayload,
         error: null,
@@ -158,6 +162,11 @@ describe("WebVitalsPanel", () => {
 
     // VitalsByScreenTable should not be rendered (check that "By Screen" heading is not present)
     expect(screen.queryByText("By Screen")).not.toBeInTheDocument();
+    expect(useWebVitalsByScreen).toHaveBeenCalledWith(
+      expect.objectContaining({
+        enabled: false,
+      }),
+    );
   });
 
   it("should pass screenName to hooks when provided", () => {
@@ -167,15 +176,28 @@ describe("WebVitalsPanel", () => {
       endTime: "2026-05-01T23:00:00Z",
     });
 
-    expect(hooks.useWebVitalsSummary).toHaveBeenCalledWith(
+    expect(useWebVitalsSummary).toHaveBeenCalledWith(
       expect.objectContaining({
         screenName: "Home",
       }),
     );
   });
 
+  it("should_fetch_by_screen_only_when_no_screenName", () => {
+    renderComponent({
+      startTime: "2026-05-01T00:00:00Z",
+      endTime: "2026-05-01T23:00:00Z",
+    });
+
+    expect(useWebVitalsByScreen).toHaveBeenCalledWith(
+      expect.objectContaining({
+        enabled: true,
+      }),
+    );
+  });
+
   it("should show CardSkeleton while loading", () => {
-    (hooks.useWebVitalsSummary as jest.Mock).mockReturnValue({
+    (useWebVitalsSummary as jest.Mock).mockReturnValue({
       data: undefined,
       isLoading: true,
       error: null,
@@ -203,7 +225,7 @@ describe("WebVitalsPanel", () => {
   });
 
   it("should show error component on error", () => {
-    (hooks.useWebVitalsSummary as jest.Mock).mockReturnValue({
+    (useWebVitalsSummary as jest.Mock).mockReturnValue({
       data: undefined,
       isLoading: false,
       isError: true,
@@ -225,7 +247,7 @@ describe("WebVitalsPanel", () => {
     });
 
     // Initial render should call useWebVitalsTrend with LCP
-    expect(hooks.useWebVitalsTrend).toHaveBeenCalledWith(
+    expect(useWebVitalsTrend).toHaveBeenCalledWith(
       expect.objectContaining({
         vitalName: "LCP",
       }),

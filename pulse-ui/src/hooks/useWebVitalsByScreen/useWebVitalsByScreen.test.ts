@@ -118,6 +118,22 @@ describe("useWebVitalsByScreen", () => {
     expect(result.current.error).toBeNull();
   });
 
+  it("should_not_call_makeRequest_when_enabled_false", async () => {
+    renderHook(
+      () =>
+        useWebVitalsByScreen({
+          startTime: 1000,
+          endTime: 2000,
+          vitalName: "LCP",
+          enabled: false,
+        }),
+      { wrapper: createWrapper() },
+    );
+
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(makeRequest).not.toHaveBeenCalled();
+  });
+
   it("should_return_useQuery_object_with_data_isLoading_error_fields", () => {
     const { result } = renderHook(
       () =>

@@ -1,11 +1,9 @@
 import { Stack, SimpleGrid, Paper } from "@mantine/core";
 import { useMemo, useState } from "react";
 import { WebVitalsPanelProps } from "./WebVitalsPanel.interface";
-import {
-  useWebVitalsSummary,
-  useWebVitalsTrend,
-  useWebVitalsByScreen,
-} from "../../hooks";
+import { useWebVitalsSummary } from "../../../../hooks/useWebVitalsSummary";
+import { useWebVitalsTrend } from "../../../../hooks/useWebVitalsTrend";
+import { useWebVitalsByScreen } from "../../../../hooks/useWebVitalsByScreen";
 import { useQueryError } from "../../../../hooks/useQueryError";
 import type {
   WebVitalsSummaryResponse,
@@ -46,6 +44,7 @@ export function WebVitalsPanel({
     startTime: startMs,
     endTime: endMs,
     vitalName: selectedVital,
+    enabled: !screenName,
   });
 
   const summaryState = useQueryError<WebVitalsSummaryResponse>({

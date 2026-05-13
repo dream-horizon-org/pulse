@@ -12,8 +12,9 @@ export const useWebVitalsByScreen = ({
   startTime,
   endTime,
   vitalName,
+  enabled: enabledParam = true,
 }: UseWebVitalsByScreenParams) => {
-  const enabled = useProjectQueryEnabled();
+  const enabled = useProjectQueryEnabled() && enabledParam;
   const route = API_ROUTES.GET_WEB_VITALS_BY_SCREEN;
 
   const queryParams = {
@@ -30,7 +31,7 @@ export const useWebVitalsByScreen = ({
   const url = `${API_BASE_URL}${route.apiPath}?${queryString}`;
 
   return useQuery({
-    queryKey: [route.key, startTime, endTime, vitalName],
+    queryKey: [route.key, startTime, endTime, vitalName, enabledParam],
     queryFn: async (): Promise<ApiResponse<WebVitalsByScreenResponse>> => {
       const res = await makeRequest<WebVitalsByScreenWire>({
         url,
