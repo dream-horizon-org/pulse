@@ -79,12 +79,11 @@ tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).all {
 }
 
 repositories {
-  mavenLocal()
   mavenCentral()
   google()
 }
 
-def pulse_version = "0.0.17-LOCAL-alpha-SNAPSHOT"
+def pulse_version = "0.0.16-alpha"
 dependencies {
   implementation("com.facebook.react:react-android")
 
