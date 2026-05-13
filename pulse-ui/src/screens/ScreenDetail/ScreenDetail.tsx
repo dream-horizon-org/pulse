@@ -402,7 +402,7 @@ export function ScreenDetail(_props: ScreenDetailProps) {
                       Time to Interactive
                     </Text>
                     <Tooltip
-                      label="Average time to interactive: mean of web navigation TTI (when present) and React Native screen interactive durations for this screen in the selected range."
+                      label="Average time to interactive: mean of screen interactive durations for this screen in the selected range."
                       withArrow
                       multiline
                       w={260}
