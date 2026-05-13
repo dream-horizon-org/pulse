@@ -13,4 +13,5 @@ physical metric tables `otel.otel_metrics_gauge`, `otel.otel_metrics_sum`, `otel
 `otel.otel_metrics_histogram`, `otel.otel_metrics_exp_histogram`, `otel.stack_trace_events`,
 `otel.interaction_heatmaps_daily` (heatmap DDL: `backend/db/prod/clickhouse/otel.interaction_heatmaps_daily.sql`).
 On `otel.otel_logs` rows with `PulseType = 'web_vital'`, prefer materialized `WebVitalName`, `WebVitalValue`,
-`WebVitalRating` over `LogAttributes['web_vital.*']` (see `backend/db/prod/clickhouse/otel.otel_logs.sql`).
+`WebVitalRating` over `LogAttributes['web_vital.*']` (see `backend/db/prod/clickhouse/otel.otel_logs.sql`). For Pulse
+Web only, also filter **`Platform = 'web'`** (resource `os.name` materialization).

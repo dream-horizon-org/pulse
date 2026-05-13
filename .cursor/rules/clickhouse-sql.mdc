@@ -60,6 +60,9 @@ These columns are extracted from Map attributes at insert time. **Always use the
 | `WebVitalValue` | `web_vital.value` (as `Float64` via `toFloat64OrZero`) | LogAttributes | `otel_logs` only |
 | `WebVitalRating` | `web_vital.rating` | LogAttributes | `otel_logs` only |
 
+**Pulse Web:** `@dreamhorizonorg/pulse-web` sets resource `os.name` to `web`, so **`Platform = 'web'`** matches Pulse
+Web rows at the materialized column (e.g. web vitals backend queries).
+
 `otel_traces` also has a deprecated `SpanType` column (same source as `PulseType`).
 
 ## `root_cause_cache`

@@ -108,6 +108,10 @@ ResourceAttributes/SpanAttributes directly** — they are faster and indexed.
 | `WebVitalValue`     | `web_vital.value` (numeric, `toFloat64OrZero`)   | `otel_logs` only                             |
 | `WebVitalRating`    | `web_vital.rating`                               | `otel_logs` only                             |
 
+**Pulse Web `Platform`:** SDK sets resource `os.name` to `web`, so **`Platform = 'web'`** on `otel_logs` / `otel_traces`
+identifies Pulse Web RUM via the materialized column (backend web vitals queries use this). Browser host OS is not
+lost on other resource keys (e.g. `browser.*`); `Platform` is a coarse RUM label on web, not UA-derived OS.
+
 Core telemetry tables have ORDER BY starting with `ProjectId` for isolation (e.g., `otel_traces`:
 `(ProjectId, ServiceName, PulseType, SpanName, Timestamp)`; `otel_logs`: `(ProjectId, PulseType, EventName, Timestamp)`).
 `project_monthly_usage` orders by `project_id`; `root_cause_cache` orders by `(ProjectId, interaction_name, date, window_end_utc)`.
@@ -176,13 +180,15 @@ Core telemetry tables have ORDER BY starting with `ProjectId` for isolation (e.g
 
 - Time range: `WHERE Timestamp >= toDateTime64('...', 9) AND Timestamp <= toDateTime64('...', 9)`
 - By app version: `WHERE AppVersion = '...'`
-- By platform: `WHERE Platform = 'Android'` or `WHERE Platform = 'iOS'`
+- By platform: `WHERE Platform = 'Android'` or `WHERE Platform = 'iOS'` or **`WHERE Platform = 'web'`** (Pulse Web
+  RUM when SDK sets resource `os.name` to `web`)
 - By OS version: `WHERE OsVersion = '...'`
 - By device: `WHERE DeviceModel = '...'`
 - By network provider: `WHERE NetworkProvider = '...'`
 - By geography: `WHERE GeoCountry = '...'` or `WHERE GeoState = '...'`
 - By span type: `WHERE PulseType = '...'`
-- Web vitals (logs): `WHERE PulseType = 'web_vital' AND WebVitalName = 'LCP'` (prefer `WebVitalName` / `WebVitalValue` / `WebVitalRating` over `LogAttributes['web_vital.*']`)
+- Web vitals (logs): `WHERE PulseType = 'web_vital' AND Platform = 'web' AND WebVitalName = 'LCP'` (use
+  `Platform` for Pulse Web; prefer `WebVitalName` / `WebVitalValue` / `WebVitalRating` over `LogAttributes['web_vital.*']`)
 
 ## Alert Metric Scopes
 
