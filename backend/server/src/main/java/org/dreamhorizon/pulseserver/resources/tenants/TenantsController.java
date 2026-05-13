@@ -144,7 +144,10 @@ public class TenantsController {
                 .gcpTenantId(null)
                 .domainName(null)
                 .build();
-            return tenantService.createTenant(createTenantRequest);
+            return tenantService.createTenant(createTenantRequest)
+                .flatMap(createdTenant -> 
+                    openFgaService.assignTenantRole(userId, createdTenant.getTenantId(), "admin")
+                        .toSingleDefault(createdTenant));
           })
           .map(mapper::toTenantRestResponse);
     }).to(RestResponse.jaxrsRestHandler());
