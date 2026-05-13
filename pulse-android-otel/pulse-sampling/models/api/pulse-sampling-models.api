@@ -39,6 +39,7 @@ public final class com/pulse/sampling/models/PulseAttributeValue$$serializer : k
 	public fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
 	public fun serialize (Lkotlinx/serialization/encoding/Encoder;Lcom/pulse/sampling/models/PulseAttributeValue;)V
 	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+	public fun typeParametersSerializers ()[Lkotlinx/serialization/KSerializer;
 }
 
 public final class com/pulse/sampling/models/PulseAttributeValue$Companion {
@@ -59,6 +60,7 @@ public final class com/pulse/sampling/models/PulseAttributesToAddEntry$$serializ
 	public fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
 	public fun serialize (Lkotlinx/serialization/encoding/Encoder;Lcom/pulse/sampling/models/PulseAttributesToAddEntry;)V
 	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+	public fun typeParametersSerializers ()[Lkotlinx/serialization/KSerializer;
 }
 
 public final class com/pulse/sampling/models/PulseAttributesToAddEntry$Companion {
@@ -80,6 +82,7 @@ public final class com/pulse/sampling/models/PulseAttributesToDropEntry$$seriali
 	public fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
 	public fun serialize (Lkotlinx/serialization/encoding/Encoder;Lcom/pulse/sampling/models/PulseAttributesToDropEntry;)V
 	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+	public fun typeParametersSerializers ()[Lkotlinx/serialization/KSerializer;
 }
 
 public final class com/pulse/sampling/models/PulseAttributesToDropEntry$Companion {
@@ -99,6 +102,7 @@ public final class com/pulse/sampling/models/PulseCriticalEventPolicies$$seriali
 	public fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
 	public fun serialize (Lkotlinx/serialization/encoding/Encoder;Lcom/pulse/sampling/models/PulseCriticalEventPolicies;)V
 	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+	public fun typeParametersSerializers ()[Lkotlinx/serialization/KSerializer;
 }
 
 public final class com/pulse/sampling/models/PulseCriticalEventPolicies$Companion {
@@ -119,6 +123,7 @@ public final class com/pulse/sampling/models/PulseDefaultSamplingConfig$$seriali
 	public fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
 	public fun serialize (Lkotlinx/serialization/encoding/Encoder;Lcom/pulse/sampling/models/PulseDefaultSamplingConfig;)V
 	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+	public fun typeParametersSerializers ()[Lkotlinx/serialization/KSerializer;
 }
 
 public final class com/pulse/sampling/models/PulseDefaultSamplingConfig$Companion {
@@ -176,6 +181,7 @@ public final class com/pulse/sampling/models/PulseFeatureConfigData$ClickInstrum
 	public fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
 	public fun serialize (Lkotlinx/serialization/encoding/Encoder;Lcom/pulse/sampling/models/PulseFeatureConfigData$ClickInstrumentation;)V
 	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+	public fun typeParametersSerializers ()[Lkotlinx/serialization/KSerializer;
 }
 
 public final class com/pulse/sampling/models/PulseFeatureConfigData$ClickInstrumentation$Companion {
@@ -200,6 +206,7 @@ public final class com/pulse/sampling/models/PulseFeatureConfigData$ClickInstrum
 	public fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
 	public fun serialize (Lkotlinx/serialization/encoding/Encoder;Lcom/pulse/sampling/models/PulseFeatureConfigData$ClickInstrumentation$Rage;)V
 	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+	public fun typeParametersSerializers ()[Lkotlinx/serialization/KSerializer;
 }
 
 public final class com/pulse/sampling/models/PulseFeatureConfigData$ClickInstrumentation$Rage$Companion {
@@ -231,6 +238,7 @@ public final class com/pulse/sampling/models/PulseFeatureConfigData$SessionRepla
 	public fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
 	public fun serialize (Lkotlinx/serialization/encoding/Encoder;Lcom/pulse/sampling/models/PulseFeatureConfigData$SessionReplay;)V
 	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+	public fun typeParametersSerializers ()[Lkotlinx/serialization/KSerializer;
 }
 
 public final class com/pulse/sampling/models/PulseFeatureConfigData$SessionReplay$Companion {
@@ -291,6 +299,7 @@ public final class com/pulse/sampling/models/PulseInteractionConfig$$serializer 
 	public fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
 	public fun serialize (Lkotlinx/serialization/encoding/Encoder;Lcom/pulse/sampling/models/PulseInteractionConfig;)V
 	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+	public fun typeParametersSerializers ()[Lkotlinx/serialization/KSerializer;
 }
 
 public final class com/pulse/sampling/models/PulseInteractionConfig$Companion {
@@ -314,6 +323,7 @@ public final class com/pulse/sampling/models/PulseMetricsToAddEntry$$serializer 
 	public fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
 	public fun serialize (Lkotlinx/serialization/encoding/Encoder;Lcom/pulse/sampling/models/PulseMetricsToAddEntry;)V
 	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+	public fun typeParametersSerializers ()[Lkotlinx/serialization/KSerializer;
 }
 
 public final class com/pulse/sampling/models/PulseMetricsToAddEntry$Companion {
@@ -341,6 +351,7 @@ public final class com/pulse/sampling/models/PulseMetricsToAddTarget$Attribute$$
 	public fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
 	public fun serialize (Lkotlinx/serialization/encoding/Encoder;Lcom/pulse/sampling/models/PulseMetricsToAddTarget$Attribute;)V
 	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+	public fun typeParametersSerializers ()[Lkotlinx/serialization/KSerializer;
 }
 
 public final class com/pulse/sampling/models/PulseMetricsToAddTarget$Attribute$Companion {
@@ -365,6 +376,7 @@ public final class com/pulse/sampling/models/PulseMetricsToAddTarget$Name$$seria
 	public fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
 	public fun serialize (Lkotlinx/serialization/encoding/Encoder;Lcom/pulse/sampling/models/PulseMetricsToAddTarget$Name;)V
 	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+	public fun typeParametersSerializers ()[Lkotlinx/serialization/KSerializer;
 }
 
 public final class com/pulse/sampling/models/PulseMetricsToAddTarget$Name$Companion {
@@ -394,6 +406,7 @@ public final class com/pulse/sampling/models/PulseMetricsType$Counter$$serialize
 	public fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
 	public fun serialize (Lkotlinx/serialization/encoding/Encoder;Lcom/pulse/sampling/models/PulseMetricsType$Counter;)V
 	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+	public fun typeParametersSerializers ()[Lkotlinx/serialization/KSerializer;
 }
 
 public final class com/pulse/sampling/models/PulseMetricsType$Counter$Companion {
@@ -414,6 +427,7 @@ public final class com/pulse/sampling/models/PulseMetricsType$Gauge$$serializer 
 	public fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
 	public fun serialize (Lkotlinx/serialization/encoding/Encoder;Lcom/pulse/sampling/models/PulseMetricsType$Gauge;)V
 	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+	public fun typeParametersSerializers ()[Lkotlinx/serialization/KSerializer;
 }
 
 public final class com/pulse/sampling/models/PulseMetricsType$Gauge$Companion {
@@ -435,6 +449,7 @@ public final class com/pulse/sampling/models/PulseMetricsType$Histogram$$seriali
 	public fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
 	public fun serialize (Lkotlinx/serialization/encoding/Encoder;Lcom/pulse/sampling/models/PulseMetricsType$Histogram;)V
 	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+	public fun typeParametersSerializers ()[Lkotlinx/serialization/KSerializer;
 }
 
 public final class com/pulse/sampling/models/PulseMetricsType$Histogram$Companion {
@@ -456,6 +471,7 @@ public final class com/pulse/sampling/models/PulseMetricsType$Sum$$serializer : 
 	public fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
 	public fun serialize (Lkotlinx/serialization/encoding/Encoder;Lcom/pulse/sampling/models/PulseMetricsType$Sum;)V
 	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+	public fun typeParametersSerializers ()[Lkotlinx/serialization/KSerializer;
 }
 
 public final class com/pulse/sampling/models/PulseMetricsType$Sum$Companion {
@@ -477,6 +493,7 @@ public final class com/pulse/sampling/models/PulseProp$$serializer : kotlinx/ser
 	public fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
 	public fun serialize (Lkotlinx/serialization/encoding/Encoder;Lcom/pulse/sampling/models/PulseProp;)V
 	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+	public fun typeParametersSerializers ()[Lkotlinx/serialization/KSerializer;
 }
 
 public final class com/pulse/sampling/models/PulseProp$Companion {
@@ -500,6 +517,7 @@ public final class com/pulse/sampling/models/PulseSamplingConfig$$serializer : k
 	public fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
 	public fun serialize (Lkotlinx/serialization/encoding/Encoder;Lcom/pulse/sampling/models/PulseSamplingConfig;)V
 	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+	public fun typeParametersSerializers ()[Lkotlinx/serialization/KSerializer;
 }
 
 public final class com/pulse/sampling/models/PulseSamplingConfig$Companion {
@@ -525,6 +543,7 @@ public final class com/pulse/sampling/models/PulseSdkConfig$$serializer : kotlin
 	public fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
 	public fun serialize (Lkotlinx/serialization/encoding/Encoder;Lcom/pulse/sampling/models/PulseSdkConfig;)V
 	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+	public fun typeParametersSerializers ()[Lkotlinx/serialization/KSerializer;
 }
 
 public final class com/pulse/sampling/models/PulseSdkConfig$Companion {
@@ -566,6 +585,7 @@ public final class com/pulse/sampling/models/PulseSessionSamplingRule$$serialize
 	public fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
 	public fun serialize (Lkotlinx/serialization/encoding/Encoder;Lcom/pulse/sampling/models/PulseSessionSamplingRule;)V
 	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+	public fun typeParametersSerializers ()[Lkotlinx/serialization/KSerializer;
 }
 
 public final class com/pulse/sampling/models/PulseSessionSamplingRule$Companion {
@@ -593,6 +613,7 @@ public final class com/pulse/sampling/models/PulseSignalConfig$$serializer : kot
 	public fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
 	public fun serialize (Lkotlinx/serialization/encoding/Encoder;Lcom/pulse/sampling/models/PulseSignalConfig;)V
 	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+	public fun typeParametersSerializers ()[Lkotlinx/serialization/KSerializer;
 }
 
 public final class com/pulse/sampling/models/PulseSignalConfig$Companion {
@@ -629,6 +650,7 @@ public final class com/pulse/sampling/models/PulseSignalsToSampleEntry$$serializ
 	public fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
 	public fun serialize (Lkotlinx/serialization/encoding/Encoder;Lcom/pulse/sampling/models/PulseSignalsToSampleEntry;)V
 	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+	public fun typeParametersSerializers ()[Lkotlinx/serialization/KSerializer;
 }
 
 public final class com/pulse/sampling/models/PulseSignalsToSampleEntry$Companion {
@@ -665,6 +687,7 @@ public final class com/pulse/sampling/models/matchers/PulseDeviceMatchCondition$
 	public fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
 	public fun serialize (Lkotlinx/serialization/encoding/Encoder;Lcom/pulse/sampling/models/matchers/PulseDeviceMatchCondition$ValueBasedMatchCondition;)V
 	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+	public fun typeParametersSerializers ()[Lkotlinx/serialization/KSerializer;
 }
 
 public final class com/pulse/sampling/models/matchers/PulseDeviceMatchCondition$ValueBasedMatchCondition$Companion {
@@ -690,6 +713,7 @@ public final class com/pulse/sampling/models/matchers/PulseSignalMatchCondition$
 	public fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
 	public fun serialize (Lkotlinx/serialization/encoding/Encoder;Lcom/pulse/sampling/models/matchers/PulseSignalMatchCondition;)V
 	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+	public fun typeParametersSerializers ()[Lkotlinx/serialization/KSerializer;
 }
 
 public final class com/pulse/sampling/models/matchers/PulseSignalMatchCondition$Companion {
