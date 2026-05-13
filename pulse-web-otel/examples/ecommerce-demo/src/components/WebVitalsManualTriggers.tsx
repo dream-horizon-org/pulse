@@ -56,9 +56,10 @@ export function WebVitalsManualTriggers(): React.ReactElement {
       </h2>
       <p style={{ fontSize: 13, color: "#64748b", marginBottom: 16 }}>
         Buttons below help emit measurable <strong>CLS</strong> and{" "}
-        <strong>INP</strong> during local debugging (see{" "}
-        <code style={{ fontSize: 12 }}>MANUAL-WEB-VITALS-DEMO.md</code>). After
-        interactions, wait for the batch interval or switch tabs to flush logs.
+        <strong>INP</strong> during local debugging (see the demo{" "}
+        <code style={{ fontSize: 12 }}>README.md</code> — section{" "}
+        <strong>Web Vitals stress</strong>). After interactions, wait for the
+        batch interval or switch tabs to flush logs.
       </p>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>

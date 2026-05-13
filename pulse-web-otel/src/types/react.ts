@@ -3,6 +3,13 @@ import type { PulseWebConfig } from "../config";
 
 export interface PulseErrorBoundaryProps {
   children: ReactNode;
+  /**
+   * Optional UI when a child throws during render. Must not rely on React context
+   * that is unavailable once this boundary replaces its children (e.g. hooks that need
+   * an ancestor only present inside the subtree that threw). If the fallback throws,
+   * the SDK logs via {@code PulseWebLogger.alwaysError} and renders nothing so the host
+   * app is not crashed.
+   */
   fallback?: ReactNode | ((error: Error, reset: () => void) => ReactNode);
 }
 
@@ -53,6 +60,9 @@ export interface PulseProviderProps {
   /**
    * Optional UI when a child throws during render — forwarded to {@link PulseErrorBoundary}.
    * Use a function form to receive {@code (error, reset) => ...} and call {@code reset()} to retry.
+   * If this UI throws (e.g. {@code useNavigate} outside a Router), the SDK logs via
+   * {@code PulseWebLogger.alwaysError} and renders nothing so the host app is not crashed;
+   * see {@link PulseErrorBoundaryProps.fallback}.
    */
   errorBoundaryFallback?: PulseErrorBoundaryProps["fallback"];
   /**
