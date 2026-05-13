@@ -11,16 +11,11 @@ if [[ -f "${REPO_ROOT}/pulse_ai/.env" ]]; then
 fi
 cd "${REPO_ROOT}"
 
-echo "=== EM smoke (calculate tool) ==="
-adk eval pulse_ai/adk_eval_app pulse_ai/eval/smoke.evalset.json \
-  --config_file_path pulse_ai/eval/eval_config.json "$@"
+echo "=== EM agent evals ==="
+adk eval pulse_ai/adk_eval_app pulse_ai/eval/em.evalset.json \
+  --config_file_path pulse_ai/eval/eval_config_em.json "$@"
 
 echo ""
-echo "=== EM extended (calculate rate + write confirmation guardrail) ==="
-adk eval pulse_ai/adk_eval_app pulse_ai/eval/em_extended.evalset.json \
-  --config_file_path pulse_ai/eval/eval_config_em_extended.json "$@"
-
-echo ""
-echo "=== RCA (offline — synthetic segment JSON) ==="
+echo "=== RCA agent evals ==="
 adk eval pulse_ai/adk_eval_rca_app pulse_ai/eval/rca.evalset.json \
   --config_file_path pulse_ai/eval/eval_config_rca.json "$@"

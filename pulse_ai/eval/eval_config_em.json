@@ -5,7 +5,7 @@
       "matchType": "ANY_ORDER"
     },
     "response_match_score": {
-      "threshold": 0.15
+      "threshold": 0.2
     }
   }
 }

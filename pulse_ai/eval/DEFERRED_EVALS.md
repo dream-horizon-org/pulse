@@ -24,9 +24,9 @@ These cases are scoped but not yet implemented. Each is blocked by a dependency 
 | `rca_everything_good` | `rca.evalset.json` | `everythingGood: true` → 0 segments, empty recommendations, no fabrication |
 | `rca_no_fabrication_single_segment` | `rca.evalset.json` | 1 input segment → 1 output segment, agent must not hallucinate a 2nd |
 | `rca_rank_three_segments` | `rca.evalset.json` | 3 segments with clear severity gap → worst APDEX must be rank 1 |
-| `em_calculate_rate` (A1) | `em_extended.evalset.json` | Rule 8a — always use calculate tool, never mental math |
-| `em_write_confirmation` | `em_extended.evalset.json` | Rule 12 — no write ops without confirmation; agent correctly reports no write capability |
-| `em_calculate_sum` (smoke) | `smoke.evalset.json` | Baseline calculate tool smoke |
+| `em_calculate_rate` (A1) | `em.evalset.json` | Rule 8a — always use calculate tool, never mental math |
+| `em_write_confirmation` | `em.evalset.json` | Rule 12 — no write ops without confirmation; agent correctly reports no write capability |
+| `calculate_sum` (smoke) | `em.evalset.json` | Baseline calculate tool smoke |
 
 ---
 
