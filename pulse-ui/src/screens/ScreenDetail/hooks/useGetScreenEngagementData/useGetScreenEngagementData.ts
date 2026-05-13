@@ -171,14 +171,14 @@ export function useGetScreenEngagementData({
         {
           function: "CUSTOM" as const,
           param: {
-            expression: `sumIf(toFloat64OrZero(SpanAttributes['tti']) * 1e6, ${COLUMN_NAME.PULSE_TYPE} = '${PulseType.SCREEN_LOAD}' AND SpanAttributes['tti'] != '') + sumIf(${COLUMN_NAME.DURATION}, ${COLUMN_NAME.PULSE_TYPE} = '${PulseType.SCREEN_INTERACTIVE}')`,
+            expression: `sumIf(${COLUMN_NAME.DURATION}, ${COLUMN_NAME.PULSE_TYPE} = '${PulseType.SCREEN_INTERACTIVE}')`,
           },
           alias: "total_tti",
         },
         {
           function: "CUSTOM" as const,
           param: {
-            expression: `countIf(${COLUMN_NAME.PULSE_TYPE} = '${PulseType.SCREEN_LOAD}' AND SpanAttributes['tti'] != '') + countIf(${COLUMN_NAME.PULSE_TYPE} = '${PulseType.SCREEN_INTERACTIVE}')`,
+            expression: `countIf(${COLUMN_NAME.PULSE_TYPE} = '${PulseType.SCREEN_INTERACTIVE}')`,
           },
           alias: "tti_count",
         },
