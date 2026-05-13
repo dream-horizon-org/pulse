@@ -13,6 +13,9 @@ import java.time.Instant;
 import java.util.List;
 import java.util.concurrent.CompletionStage;
 import org.dreamhorizon.pulseserver.context.ProjectContext;
+import org.dreamhorizon.pulseserver.resources.webvitals.models.WebVitalsByScreenQueryParams;
+import org.dreamhorizon.pulseserver.resources.webvitals.models.WebVitalsSummaryQueryParams;
+import org.dreamhorizon.pulseserver.resources.webvitals.models.WebVitalsTrendQueryParams;
 import org.dreamhorizon.pulseserver.rest.io.Response;
 import org.dreamhorizon.pulseserver.service.webvitals.WebVitalsService;
 import org.junit.jupiter.api.BeforeEach;
@@ -35,6 +38,39 @@ class WebVitalsResourceTest {
   private static final Instant START_TIME = Instant.parse("2026-05-01T00:00:00Z");
   private static final Instant END_TIME = Instant.parse("2026-05-02T00:00:00Z");
 
+  private static WebVitalsSummaryQueryParams summaryQuery(
+      String startTime, String endTime, String screenName) {
+    WebVitalsSummaryQueryParams q = new WebVitalsSummaryQueryParams();
+    q.setStartTime(startTime);
+    q.setEndTime(endTime);
+    q.setScreenName(screenName);
+    return q;
+  }
+
+  private static WebVitalsTrendQueryParams trendQuery(
+      String startTime,
+      String endTime,
+      String vitalName,
+      Integer bucketMinutes,
+      String screenName) {
+    WebVitalsTrendQueryParams q = new WebVitalsTrendQueryParams();
+    q.setStartTime(startTime);
+    q.setEndTime(endTime);
+    q.setVitalName(vitalName);
+    q.setBucketMinutes(bucketMinutes);
+    q.setScreenName(screenName);
+    return q;
+  }
+
+  private static WebVitalsByScreenQueryParams byScreenQuery(
+      String startTime, String endTime, String vitalName) {
+    WebVitalsByScreenQueryParams q = new WebVitalsByScreenQueryParams();
+    q.setStartTime(startTime);
+    q.setEndTime(endTime);
+    q.setVitalName(vitalName);
+    return q;
+  }
+
   @BeforeEach
   void setUp() {
     lenient().when(webVitalsService.getSummary(START_TIME, END_TIME, null))
@@ -52,7 +88,8 @@ class WebVitalsResourceTest {
           v -> {
             ProjectContext.clear();
             try {
-              webVitalsResource.getSummary(START_TIME.toString(), END_TIME.toString(), null);
+              webVitalsResource.getSummary(
+                  summaryQuery(START_TIME.toString(), END_TIME.toString(), null));
               tc.failNow("Should have thrown WebApplicationException");
             } catch (WebApplicationException e) {
               tc.verify(
@@ -71,7 +108,8 @@ class WebVitalsResourceTest {
           v -> {
             ProjectContext.setProjectId("test-project");
             CompletionStage<Response<WebVitalsSummaryResponseDto>> cs =
-                webVitalsResource.getSummary(START_TIME.toString(), END_TIME.toString(), null);
+                webVitalsResource.getSummary(
+                    summaryQuery(START_TIME.toString(), END_TIME.toString(), null));
             cs.whenComplete(
                 (resp, err) -> {
                   tc.verify(
@@ -94,7 +132,7 @@ class WebVitalsResourceTest {
             String startMs = String.valueOf(START_TIME.toEpochMilli());
             String endMs = String.valueOf(END_TIME.toEpochMilli());
             CompletionStage<Response<WebVitalsSummaryResponseDto>> cs =
-                webVitalsResource.getSummary(startMs, endMs, null);
+                webVitalsResource.getSummary(summaryQuery(startMs, endMs, null));
             cs.whenComplete(
                 (resp, err) -> {
                   tc.verify(
@@ -120,7 +158,7 @@ class WebVitalsResourceTest {
 
             CompletionStage<Response<WebVitalsSummaryResponseDto>> cs =
                 webVitalsResource.getSummary(
-                    START_TIME.toString(), END_TIME.toString(), "Home");
+                    summaryQuery(START_TIME.toString(), END_TIME.toString(), "Home"));
             cs.whenComplete(
                 (resp, err) -> {
                   tc.verify(
@@ -159,7 +197,7 @@ class WebVitalsResourceTest {
 
             CompletionStage<Response<WebVitalsSummaryResponseDto>> cs =
                 webVitalsResource.getSummary(
-                    START_TIME.toString(), END_TIME.toString(), null);
+                    summaryQuery(START_TIME.toString(), END_TIME.toString(), null));
             cs.whenComplete(
                 (resp, err) -> {
                   tc.verify(
@@ -193,7 +231,7 @@ class WebVitalsResourceTest {
 
             CompletionStage<Response<WebVitalsTrendResponseDto>> cs =
                 webVitalsResource.getTrend(
-                    START_TIME.toString(), END_TIME.toString(), "LCP", null, null);
+                    trendQuery(START_TIME.toString(), END_TIME.toString(), "LCP", null, null));
             cs.whenComplete(
                 (resp, err) -> {
                   tc.verify(
@@ -222,7 +260,7 @@ class WebVitalsResourceTest {
             String startMs = String.valueOf(START_TIME.toEpochMilli());
             String endMs = String.valueOf(END_TIME.toEpochMilli());
             CompletionStage<Response<WebVitalsTrendResponseDto>> cs =
-                webVitalsResource.getTrend(startMs, endMs, "LCP", null, null);
+                webVitalsResource.getTrend(trendQuery(startMs, endMs, "LCP", null, null));
             cs.whenComplete(
                 (resp, err) -> {
                   tc.verify(
@@ -245,7 +283,7 @@ class WebVitalsResourceTest {
             ProjectContext.setProjectId("test-project");
             try {
               webVitalsResource.getTrend(
-                  START_TIME.toString(), END_TIME.toString(), "LCP", 4, null);
+                  trendQuery(START_TIME.toString(), END_TIME.toString(), "LCP", 4, null));
               tc.failNow("Should have thrown WebApplicationException");
             } catch (WebApplicationException e) {
               tc.verify(
@@ -266,7 +304,7 @@ class WebVitalsResourceTest {
             ProjectContext.setProjectId("test-project");
             try {
               webVitalsResource.getTrend(
-                  START_TIME.toString(), END_TIME.toString(), "LCP", 1441, null);
+                  trendQuery(START_TIME.toString(), END_TIME.toString(), "LCP", 1441, null));
               tc.failNow("Should have thrown WebApplicationException");
             } catch (WebApplicationException e) {
               tc.verify(
@@ -296,7 +334,7 @@ class WebVitalsResourceTest {
 
             CompletionStage<Response<WebVitalsTrendResponseDto>> cs =
                 webVitalsResource.getTrend(
-                    START_TIME.toString(), END_TIME.toString(), "LCP", 60, null);
+                    trendQuery(START_TIME.toString(), END_TIME.toString(), "LCP", 60, null));
             cs.whenComplete(
                 (resp, err) -> {
                   tc.verify(
@@ -338,7 +376,7 @@ class WebVitalsResourceTest {
 
             CompletionStage<Response<WebVitalsByScreenResponseDto>> cs =
                 webVitalsResource.getByScreen(
-                    START_TIME.toString(), END_TIME.toString(), "LCP");
+                    byScreenQuery(START_TIME.toString(), END_TIME.toString(), "LCP"));
             cs.whenComplete(
                 (resp, err) -> {
                   tc.verify(
@@ -368,7 +406,7 @@ class WebVitalsResourceTest {
             String startMs = String.valueOf(START_TIME.toEpochMilli());
             String endMs = String.valueOf(END_TIME.toEpochMilli());
             CompletionStage<Response<WebVitalsByScreenResponseDto>> cs =
-                webVitalsResource.getByScreen(startMs, endMs, "LCP");
+                webVitalsResource.getByScreen(byScreenQuery(startMs, endMs, "LCP"));
             cs.whenComplete(
                 (resp, err) -> {
                   tc.verify(

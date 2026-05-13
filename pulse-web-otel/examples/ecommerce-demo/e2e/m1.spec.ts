@@ -1948,7 +1948,7 @@ test.describe("@M1 resource attributes", () => {
   });
 
   // 2.11 — os.name and os.version
-  test("os.name is non-empty in resource attributes", async ({
+  test("os.name is web in resource attributes (CH Platform parity)", async ({
     page,
     otlp,
   }) => {
@@ -1956,9 +1956,7 @@ test.describe("@M1 resource attributes", () => {
     await otlp.waitForLog("session.start");
 
     const osName = getResourceAttr(otlp.captured, "os.name");
-    expect(osName).toBeTruthy();
-    // Must be a recognisable OS name
-    expect(["macOS", "Windows", "Linux", "Android", "iOS"]).toContain(osName);
+    expect(osName).toBe("web");
   });
 
   // 2.12 — device.type

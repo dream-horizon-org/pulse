@@ -20,7 +20,7 @@ import {
 import { WebVitalsPanel } from "../WebVitals/components";
 import DateTimeRangePicker from "../CriticalInteractionDetails/components/DateTimeRangePicker/DateTimeRangePicker";
 import { StartEndDateTimeType } from "../CriticalInteractionDetails/components/DateTimeRangePickerDropDown/DateTimeRangePicker.interface";
-import { 
+import {
   DEFAULT_QUICK_TIME_FILTER,
   DEFAULT_QUICK_TIME_FILTER_INDEX,
 } from "../../constants";
@@ -286,37 +286,38 @@ export const AppVitals: React.FC = () => {
         </Text>
       </Box>
 
-      {/* Stats Cards - 3 Sections */}
-      <Box className={classes.statsContainer}>
-        <CrashMetricsStats
-          startTime={formattedStartTime}
-          endTime={formattedEndTime}
-          appVersion={appVersion}
-          osVersion={osVersion}
-          device="all"
-          platform={platform}
-          networkProvider={networkProvider}
-          state={state}
-          externalTotalUsers={appStats?.totalUsers}
-          externalTotalSessions={appStats?.totalSessions}
-        />
-        <ANRMetricsStats
-          startTime={formattedStartTime}
-          endTime={formattedEndTime}
-          appVersion={appVersion}
-          osVersion={osVersion}
-          device="all"
-          platform={platform}
-          networkProvider={networkProvider}
-          state={state}
-          externalTotalUsers={appStats?.totalUsers}
-          externalTotalSessions={appStats?.totalSessions}
-        />
-        <AlertStatusStats
-          startTime={formattedStartTime}
-          endTime={formattedEndTime}
-        />
-      </Box>
+      {filters.issueType !== ISSUE_TYPES.WEB_VITALS && (
+        <Box className={classes.statsContainer}>
+          <CrashMetricsStats
+            startTime={formattedStartTime}
+            endTime={formattedEndTime}
+            appVersion={appVersion}
+            osVersion={osVersion}
+            device="all"
+            platform={platform}
+            networkProvider={networkProvider}
+            state={state}
+            externalTotalUsers={appStats?.totalUsers}
+            externalTotalSessions={appStats?.totalSessions}
+          />
+          <ANRMetricsStats
+            startTime={formattedStartTime}
+            endTime={formattedEndTime}
+            appVersion={appVersion}
+            osVersion={osVersion}
+            device="all"
+            platform={platform}
+            networkProvider={networkProvider}
+            state={state}
+            externalTotalUsers={appStats?.totalUsers}
+            externalTotalSessions={appStats?.totalSessions}
+          />
+          <AlertStatusStats
+            startTime={formattedStartTime}
+            endTime={formattedEndTime}
+          />
+        </Box>
+      )}
 
       {/* Trend Graph */}
       {filters.issueType === ISSUE_TYPES.CRASHES && (

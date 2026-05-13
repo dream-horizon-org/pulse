@@ -48,18 +48,12 @@ public class ClickhouseConstants {
       "coalesce(nullIf(SpanAttributes['http.status_code'], ''), nullIf(SpanAttributes['http.response.status_code'], ''), '')";
 
   /**
-   * Pulse Web SDK identity on {@code otel_logs.ResourceAttributes}, aligned with
-   * {@link org.dreamhorizon.pulseserver.errorgrouping.service.ErrorGroupingService#resolvePlatform}:
-   * prefer {@code telemetry.sdk.name} / {@code rum.sdk.name} over raw {@code os.name}. The
-   * ClickHouse {@code Platform} column is materialized from {@code ResourceAttributes['os.name']}
-   * (browser UA, e.g. macOS), so filtering {@code Platform = 'web'} does not identify web sessions.
+   * Web vitals on {@code otel_logs}: Pulse Web SDK sends {@code ResourceAttributes['os.name']} =
+   * {@code web}, which materializes the {@code Platform} column (same pattern as Android {@code os.name}
+   * = Android / iOS device OS name).
    */
-  public final String CH_RESOURCE_IS_PULSE_WEB_PREDICATE =
-      "("
-          + "ResourceAttributes['telemetry.sdk.name'] = 'pulse_web_js' "
-          + "OR ResourceAttributes['rum.sdk.name'] = 'pulse_web_js' "
-          + "OR ifNull(ResourceAttributes['platform'], '') = 'web'"
-          + ")";
+  /** Leading space intentional — avoids {@code ANDPlatform} when a text block line ends with {@code AND}. */
+  public final String CH_PLATFORM_IS_WEB = " AND Platform = 'web'";
 
   /** {@code otel_traces.PulseType} filter for network spans (error-attribution API drill). */
   public final String CH_PULSE_TYPE_NETWORK_LIKE_PREDICATE = "PulseType LIKE 'network.%'";
