@@ -445,6 +445,11 @@ public class MainVerticle extends AbstractVerticle {
               "minRiskRatioForIssueAttribution",
               RootCauseConfig.DEFAULT_MIN_RISK_RATIO_FOR_ISSUE_ATTRIBUTION));
     }
+    builder.minTreatedPrevalenceFractionInU(
+        rootCauseDouble(
+            rootCauseJson,
+            "minTreatedPrevalenceFractionInU",
+            -1.0d));
     if (rootCauseJson.containsKey("minCombinedDeltaSignal")) {
       builder.minCombinedDeltaSignal(
           rootCauseDouble(

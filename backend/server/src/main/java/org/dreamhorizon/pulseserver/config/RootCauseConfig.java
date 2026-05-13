@@ -55,6 +55,13 @@ public class RootCauseConfig {
    */
   public static final double DEFAULT_MIN_RISK_RATIO_FOR_ISSUE_ATTRIBUTION = 2.0;
   /**
+   * Minimum {@code n_treated / (n_treated + n_control)} (= share of universe {@code U}) for merged
+   * error-attribution drill rows. Production default aligns with causal doc φ₀ = 0.05%. {@code <= 0}
+   * disables the prevalence gate at runtime. Use {@link #withDefaults(RootCauseConfig)}: raw values
+   * {@code < 0} become this default when unset in partial config builders.
+   */
+  public static final double DEFAULT_MIN_TREATED_PREVALENCE_FRACTION_IN_U = 0.001d;
+  /**
    * When {@code true}, issue drill-down counts a session toward {@code n_treated_low} only if the
    * first issue (or first network error for {@code api}) occurs strictly before the earliest Poor
    * interaction span in the analysis window. Use {@link Boolean} wrapper so JSON can explicitly set
@@ -99,6 +106,12 @@ public class RootCauseConfig {
   @Builder.Default
   private double minRiskRatioForIssueAttribution = -1.0d;
   /**
+   * Track B prevalence floor: minimum {@code n_treated/n_u}; {@code 0} disables. Builder default
+   * {@code -1} = unset before {@link #withDefaults(RootCauseConfig)}.
+   */
+  @Builder.Default
+  private double minTreatedPrevalenceFractionInU = -1.0d;
+  /**
    * Drill-down temporal guard (Variant A): {@code null} in raw config → {@link
    * #DEFAULT_ISSUE_MUST_PRECEDE_POOR} after {@link #withDefaults(RootCauseConfig)}; explicit {@code
    * false} disables; {@code true} enables.
@@ -135,6 +148,7 @@ public class RootCauseConfig {
           .issueDrillDownLimit(DEFAULT_ISSUE_DRILL_DOWN_LIMIT)
           .issueDrillDownCandidateLimit(DEFAULT_ISSUE_DRILL_DOWN_CANDIDATE_LIMIT)
           .minRiskRatioForIssueAttribution(DEFAULT_MIN_RISK_RATIO_FOR_ISSUE_ATTRIBUTION)
+          .minTreatedPrevalenceFractionInU(DEFAULT_MIN_TREATED_PREVALENCE_FRACTION_IN_U)
           .issueMustPrecedePoor(DEFAULT_ISSUE_MUST_PRECEDE_POOR)
           .minCombinedDeltaSignal(DEFAULT_MIN_COMBINED_DELTA_SIGNAL)
           .dimensionOrder(DEFAULT_DIMENSION_ORDER)
@@ -175,6 +189,10 @@ public class RootCauseConfig {
         from.minRiskRatioForIssueAttribution < 0
             ? DEFAULT_MIN_RISK_RATIO_FOR_ISSUE_ATTRIBUTION
             : from.minRiskRatioForIssueAttribution;
+    final double minTreatedPrevalenceFractionInU =
+        from.minTreatedPrevalenceFractionInU < 0
+            ? DEFAULT_MIN_TREATED_PREVALENCE_FRACTION_IN_U
+            : from.minTreatedPrevalenceFractionInU;
     final boolean issueMustPrecedePoor =
         from.getIssueMustPrecedePoor() == null
             ? DEFAULT_ISSUE_MUST_PRECEDE_POOR
@@ -199,6 +217,7 @@ public class RootCauseConfig {
         .issueDrillDownLimit(issueDrillDownLimit)
         .issueDrillDownCandidateLimit(issueDrillDownCandidateLimit)
         .minRiskRatioForIssueAttribution(minRiskRatioForIssueAttribution)
+        .minTreatedPrevalenceFractionInU(minTreatedPrevalenceFractionInU)
         .issueMustPrecedePoor(issueMustPrecedePoor)
         .minCombinedDeltaSignal(minCombinedDeltaSignal)
         .dimensionOrder(dimensionOrder)

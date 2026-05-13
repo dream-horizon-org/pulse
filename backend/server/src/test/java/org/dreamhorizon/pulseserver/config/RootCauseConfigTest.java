@@ -25,6 +25,8 @@ class RootCauseConfigTest {
         .isEqualTo(RootCauseConfig.DEFAULT_ISSUE_DRILL_DOWN_CANDIDATE_LIMIT);
     assertThat(config.getMinRiskRatioForIssueAttribution())
         .isEqualTo(RootCauseConfig.DEFAULT_MIN_RISK_RATIO_FOR_ISSUE_ATTRIBUTION);
+    assertThat(config.getMinTreatedPrevalenceFractionInU())
+        .isEqualTo(RootCauseConfig.DEFAULT_MIN_TREATED_PREVALENCE_FRACTION_IN_U);
     assertThat(config.getIssueMustPrecedePoor()).isTrue();
     assertThat(config.getDimensionOrder()).contains("Platform");
     assertThat(config.isHybridDimensionOrderingEnabled()).isFalse();
@@ -63,6 +65,21 @@ class RootCauseConfigTest {
   void minRiskRatioZeroPreservedAsDisabledAtRuntime() {
     RootCauseConfig raw = RootCauseConfig.builder().minRiskRatioForIssueAttribution(0.0d).build();
     assertThat(RootCauseConfig.withDefaults(raw).getMinRiskRatioForIssueAttribution()).isZero();
+  }
+
+  @Test
+  void minTreatedPrevalenceUnsetNegativeUsesDefaultPhi() {
+    RootCauseConfig raw =
+        RootCauseConfig.builder().minTreatedPrevalenceFractionInU(-1.0d).build();
+    assertThat(RootCauseConfig.withDefaults(raw).getMinTreatedPrevalenceFractionInU())
+        .isEqualTo(RootCauseConfig.DEFAULT_MIN_TREATED_PREVALENCE_FRACTION_IN_U);
+  }
+
+  @Test
+  void minTreatedPrevalenceZeroPreservesDisabledGate() {
+    RootCauseConfig raw =
+        RootCauseConfig.builder().minTreatedPrevalenceFractionInU(0.0d).build();
+    assertThat(RootCauseConfig.withDefaults(raw).getMinTreatedPrevalenceFractionInU()).isZero();
   }
 
   @Test
