@@ -2,6 +2,8 @@ buildscript {
   ext.getExtOrDefault = {name ->
     return rootProject.ext.has(name) ? rootProject.ext.get(name) : project.properties['PulseReactNativeOtel_' + name]
   }
+  ext.kotlin_version = '1.9.25'
+  ext.kotlinVersion = '1.9.25'
 
   repositories {
     google()
@@ -68,12 +70,21 @@ android {
   }
 }
 
+// Add Kotlin compiler options: set Kotlin language version and jvm target to 1.8
+
+tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).all {
+  kotlinOptions {
+    languageVersion = "1.8"
+  }
+}
+
 repositories {
+  mavenLocal()
   mavenCentral()
   google()
 }
 
-def pulse_version = "0.0.16-alpha"
+def pulse_version = "0.0.17-LOCAL-alpha-SNAPSHOT"
 dependencies {
   implementation("com.facebook.react:react-android")
 
@@ -89,5 +100,28 @@ dependencies {
   implementation("org.dreamhorizon:pulse-sampling-models:$pulse_version")
   api("com.squareup.okhttp3:okhttp:5.0.0-alpha.14")
   implementation("io.opentelemetry:opentelemetry-sdk")
-  implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.0")
+  implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
+
+  // Cap Kotlin runtime artifacts below the Kotlin 2.1 metadata boundary so consumers
+  // compiling with Kotlin 1.9.x (which can read metadata up to 2.0.x) can still read them.
+  // Uses an upper-bound range rather than a single version so consumers' own BOM-pinned
+  // Kotlin 2.0.x stdlib / kotlinx-serialization 1.7.x can still satisfy the constraint.
+  // Without this, transitive pulse-* artifacts pull in Kotlin 2.1 stdlib/coroutines/serialization,
+  // whose .kotlin_module metadata is unreadable by a 1.9.x compiler.
+  constraints {
+    def capBelow = { String coord, String range ->
+      api(coord) { version { strictly(range) } }
+    }
+    capBelow("org.jetbrains.kotlin:kotlin-stdlib",                  "[1.9, 2.1)")
+    capBelow("org.jetbrains.kotlin:kotlin-stdlib-jdk7",             "[1.9, 2.1)")
+    capBelow("org.jetbrains.kotlin:kotlin-stdlib-jdk8",             "[1.9, 2.1)")
+    capBelow("org.jetbrains.kotlin:kotlin-stdlib-common",           "[1.9, 2.1)")
+    capBelow("org.jetbrains.kotlinx:kotlinx-coroutines-core",       "[1.8, 1.10)")
+    capBelow("org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm",   "[1.8, 1.10)")
+    capBelow("org.jetbrains.kotlinx:kotlinx-coroutines-android",    "[1.8, 1.10)")
+    capBelow("org.jetbrains.kotlinx:kotlinx-serialization-core",      "[1.6, 1.8)")
+    capBelow("org.jetbrains.kotlinx:kotlinx-serialization-core-jvm",  "[1.6, 1.8)")
+    capBelow("org.jetbrains.kotlinx:kotlinx-serialization-json",      "[1.6, 1.8)")
+    capBelow("org.jetbrains.kotlinx:kotlinx-serialization-json-jvm",  "[1.6, 1.8)")
+  }
 }
