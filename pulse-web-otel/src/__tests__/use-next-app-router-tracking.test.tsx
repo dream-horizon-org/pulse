@@ -10,7 +10,7 @@ import { renderHook } from "@testing-library/react";
 const mockPathname = vi.fn<() => string | null>(() => "/");
 const mockSearchParams = vi.fn(() => new URLSearchParams());
 
-vi.mock("next/navigation", () => ({
+vi.mock("next/navigation.js", () => ({
   usePathname: () => mockPathname(),
   useSearchParams: () => mockSearchParams(),
 }));

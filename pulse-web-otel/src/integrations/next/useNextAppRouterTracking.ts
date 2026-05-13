@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation.js";
 import { Pulse } from "../../sdk";
 import type { UseNextAppRouterTrackingOptions } from "../../types/next";
 

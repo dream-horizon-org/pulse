@@ -14,7 +14,7 @@ const mockOff = vi.fn((event: string) => {
   if (event === "routeChangeComplete") activeHandler = null;
 });
 
-vi.mock("next/router", () => ({
+vi.mock("next/router.js", () => ({
   useRouter: () => ({
     events: { on: mockOn, off: mockOff },
   }),

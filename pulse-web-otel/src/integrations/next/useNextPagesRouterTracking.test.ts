@@ -3,18 +3,19 @@ import { renderHook } from "@testing-library/react";
 import { useNextPagesRouterTracking } from "./useNextPagesRouterTracking";
 import { Pulse } from "../../sdk";
 
-vi.mock("next/router", () => ({
+vi.mock("next/router.js", () => ({
   useRouter: vi.fn(),
 }));
 
 vi.mock("../../sdk", () => ({
   Pulse: {
     setScreenName: vi.fn(),
+    notifySoftNavigation: vi.fn(),
     _triggerNavigationRouteChange: vi.fn(),
   },
 }));
 
-import { useRouter } from "next/router";
+import { useRouter } from "next/router.js";
 
 describe("useNextPagesRouterTracking (Next.js Pages Router)", () => {
   let mockEvents: { [key: string]: ((url: string) => void)[] };
