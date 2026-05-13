@@ -436,7 +436,8 @@ private fun View.isViewStateStableInternal(logger: (String) -> Unit): Boolean =
     try {
         isAttachedToWindow &&
             isLaidOut &&
-            width > 0 && height > 0 &&
+            width > 0 &&
+            height > 0 &&
             !isInLayout &&
             !hasTransientState() &&
             (animation?.hasStarted() != true || animation?.hasEnded() == true) &&
