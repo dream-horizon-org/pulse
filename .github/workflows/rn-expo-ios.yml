@@ -71,6 +71,15 @@ jobs:
           path: pulse-react-native-otel/expo-example/node_modules
           key: ${{ runner.os }}-npm-expo-${{ hashFiles('pulse-react-native-otel/expo-example/package.json') }}
 
+      - id: cocoapods-cache
+        uses: actions/cache/restore@5a3ec84eff668545956fd18022155c47e93e2684  # v4.2.3
+        with:
+          path: ~/.cocoapods
+          key: macos-cocoapods-expo-${{ hashFiles('pulse-react-native-otel/expo-example/package.json') }}
+          restore-keys: |
+            macos-cocoapods-expo-
+            macos-cocoapods-
+
       - name: Expo prebuild (iOS)
         working-directory: pulse-react-native-otel/expo-example
         run: npx expo prebuild --platform ios --clean
@@ -79,7 +88,22 @@ jobs:
         working-directory: pulse-react-native-otel/expo-example/ios
         run: |
           gem install cocoapods --no-document
-          pod install
+          set -euo pipefail
+          for attempt in $(seq 1 6); do
+            if pod install; then
+              exit 0
+            fi
+            echo "::warning::pod install failed (attempt ${attempt}/6); backing off before retry (GitHub CDN 429)..."
+            sleep $((attempt * 25))
+          done
+          exit 1
+
+      - name: Save CocoaPods cache
+        if: success()
+        uses: actions/cache/save@5a3ec84eff668545956fd18022155c47e93e2684  # v4.2.3
+        with:
+          path: ~/.cocoapods
+          key: macos-cocoapods-expo-${{ hashFiles('pulse-react-native-otel/expo-example/package.json') }}
 
       - name: Build iOS (simulator)
         working-directory: pulse-react-native-otel/expo-example/ios

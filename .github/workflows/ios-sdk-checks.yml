@@ -79,7 +79,16 @@ jobs:
       - name: Install CocoaPods
         run: gem install cocoapods
       - name: Pod install
-        run: pod install
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 6); do
+            if pod install; then
+              exit 0
+            fi
+            echo "::warning::pod install failed (attempt ${attempt}/6); backing off before retry (GitHub CDN 429)..."
+            sleep $((attempt * 25))
+          done
+          exit 1
       - name: Build Example App
         run: |
           set -o pipefail
@@ -105,7 +114,16 @@ jobs:
         run: gem install cocoapods
       - name: Pod install
         working-directory: pulse-ios-otel/Examples/PulseIOSExample
-        run: pod install
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 6); do
+            if pod install; then
+              exit 0
+            fi
+            echo "::warning::pod install failed (attempt ${attempt}/6); backing off before retry (GitHub CDN 429)..."
+            sleep $((attempt * 25))
+          done
+          exit 1
       - name: Build XCFramework
         run: |
           chmod +x Scripts/build-xcframework.sh
