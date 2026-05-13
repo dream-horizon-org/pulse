@@ -89,16 +89,17 @@ class PulseFallbackToUnknownEnumSerializerTest {
 
     @Test
     fun `serialize enum values to string`() {
-        val resultSuccess = json.encodeToString(Status.SUCCESS)
+        val resultSuccess = json.encodeToString(serializer<Status>(), Status.SUCCESS)
         assertEquals("\"SUCCESS\"", resultSuccess)
 
-        val resultUnknown = json.encodeToString(Status.UNKNOWN)
+        val resultUnknown = json.encodeToString(serializer<Status>(), Status.UNKNOWN)
         assertEquals("\"UNKNOWN\"", resultUnknown)
     }
 
     @Test
     fun `serialize enum value to string with serial name`() {
-        val result = json.encodeToString(StatusWithSerialName.INTERNAL_SUCCESS)
+        val result =
+            json.encodeToString(serializer<StatusWithSerialName>(), StatusWithSerialName.INTERNAL_SUCCESS)
         assertEquals("\"SUCCESS\"", result)
     }
 
