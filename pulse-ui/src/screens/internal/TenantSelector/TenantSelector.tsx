@@ -14,6 +14,7 @@ import {
   IconBuildingSkyscraper,
   IconSettings,
   IconPlus,
+  IconLogout,
 } from "@tabler/icons-react";
 import { useInternalTenants } from "../../../hooks/useInternalTenants";
 import { InternalTenant } from "../../../hooks/useInternalTenants/useInternalTenants.interface";
@@ -26,6 +27,8 @@ import { TENANT_ROLES } from "../../../constants/Roles";
 import { PageHeader } from "../../../components/PageHeader";
 import { ErrorAndEmptyState } from "../../../components/ErrorAndEmptyState";
 import { TableSkeleton } from "../../../components/Skeletons";
+import { ConfirmationModal } from "../../../components/ConfirmationModal";
+import { performLogout } from "../../../helpers/logout";
 import { CreateTenantModal } from "./components";
 import classes from "./TenantSelector.module.css";
 
@@ -33,11 +36,12 @@ export function TenantSelector() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { data: tenants, isLoading, isError } = useInternalTenants();
-  const { setTenantInfo } = useTenantContext();
+  const { setTenantInfo, clearTenant } = useTenantContext();
   const { clearProject } = useProjectContext();
   const systemRole = getCookies(COOKIES_KEY.SYSTEM_ROLE);
   const [search, setSearch] = useState("");
   const [isCreateTenantOpen, setIsCreateTenantOpen] = useState(false);
+  const [logoutModalOpened, setLogoutModalOpened] = useState(false);
 
   useEffect(() => {
     if (!systemRole) navigate(ROUTES.LOGIN.basePath, { replace: true });
@@ -74,7 +78,7 @@ export function TenantSelector() {
         (tenant.tier as (typeof TIERS)[keyof typeof TIERS]) || TIERS.FREE,
     });
 
-    navigate(`/${tenant.tenantId}/projects`);
+    navigate(`/${tenant.tenantId}`);
   };
 
   const handleEnterWorkspace = (tenant: TenantResponse) => {
@@ -85,6 +89,15 @@ export function TenantSelector() {
       tier: TIERS.FREE,
     });
     setIsCreateTenantOpen(false);
+  };
+
+  const onLogoutClick = async () => {
+    setLogoutModalOpened(false);
+
+    clearTenant();
+    await performLogout();
+
+    navigate(ROUTES.LOGIN.basePath);
   };
 
   const renderContent = () => {
@@ -210,6 +223,15 @@ export function TenantSelector() {
                   Developer Settings
                 </Button>
               ) : null}
+              <Button
+                variant="light"
+                color="red"
+                size="sm"
+                leftSection={<IconLogout size={14} />}
+                onClick={() => setLogoutModalOpened(true)}
+              >
+                Logout
+              </Button>
             </Box>
           ) : undefined
         }
@@ -236,6 +258,16 @@ export function TenantSelector() {
         opened={isCreateTenantOpen}
         onClose={() => setIsCreateTenantOpen(false)}
         onEnterWorkspace={handleEnterWorkspace}
+      />
+
+      <ConfirmationModal
+        opened={logoutModalOpened}
+        onClose={() => setLogoutModalOpened(false)}
+        onConfirm={onLogoutClick}
+        title="Logout"
+        message="Are you sure you want to logout?"
+        confirmLabel="Logout"
+        confirmColor="red"
       />
     </Box>
   );
