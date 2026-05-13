@@ -44,6 +44,36 @@ Server (node/edge)
   instrumentation.ts → createPulseInstrumentationHandler
 ```
 
+### 4.1 HLD — Next runtime vs build vs server (Mermaid)
+
+```mermaid
+flowchart TB
+  NextRT["@dreamhorizonorg/pulse-web/next"]
+  NextCfg["@dreamhorizonorg/pulse-web/next-config"]
+  Inst["instrumentation.ts Node"]
+  Core["Pulse / collectors browser only"]
+  NextRT --> Core
+  NextCfg --> Maps["source maps upload"]
+  Inst -->|"server OTLP logs"| Srv["separate from browser RUM"]
+```
+
+### 4.2 LD — hooks per router (Mermaid)
+
+```mermaid
+flowchart LR
+  App["useNextAppRouterTracking"] --> PN["usePathname / useSearchParams"]
+  Pages["useNextPagesRouterTracking"] --> RE["router.events routeChangeComplete"]
+```
+
+### 4.3 Flows — client-only RUM (Mermaid)
+
+```mermaid
+flowchart TD
+  B[Browser component] --> T[tracking hook runs]
+  S[Server RSC] --> X[no Pulse.init in RSC]
+  InstN["instrumentation.ts"] --> Y[onRequestError logs only]
+```
+
 ---
 
 ## 5. LLD
@@ -87,13 +117,22 @@ Server (node/edge)
 
 ## 6. Test Coverage
 
+### 6.1 Scenario matrix (Given / When / Then)
+
+| ID | Type | Given | When | Then | Tests |
+|----|------|-------|------|------|-------|
+| NX-P1 | positive | App Router client | pathname change | tracking hook updates screen name | `use-next-app-router-tracking.test.tsx` |
+| NX-P2 | positive | build with withPulseConfig | webpack emit | maps uploaded | `with-pulse-config.test.ts` |
+| NX-E1 | edge | `pathname === null` | prerender | hook skips | source comments |
+| NX-E2 | edge | Pages Router | first load | `routeChangeComplete` gap documented | `use-next-pages-router-tracking.test.tsx` |
+
+### Vitest files
+
 - `src/integrations/next/use-next-app-router-tracking.test.tsx`
 - `src/integrations/next/use-next-pages-router-tracking.test.tsx`
 - `src/integrations/next-config/with-pulse-config.test.ts`
 
 ---
-
-## 7. Known Bugs & Gaps
 
 ### P0:
 

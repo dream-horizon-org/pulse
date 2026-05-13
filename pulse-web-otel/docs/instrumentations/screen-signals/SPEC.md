@@ -1,6 +1,6 @@
 # Screen Signals (Navigation) — SPEC.md
 
-Package: `@dreamhorizon/pulse-web`  
+Package: `@dreamhorizonorg/pulse-web`  
 File: `pulse-web-otel/docs/instrumentations/screen-signals/SPEC.md`
 
 ---
@@ -41,6 +41,43 @@ Track **initial page load** and **SPA route transitions** using OTLP **client sp
 ### Navigation spans via History API + Performance
 
 Patch History API for SPA parity with Android activity transitions; reuse Navigation Timing for cold loads. No dual emission: **do not** also emit log records for the same navigation events.
+
+### 4.1 HLD — navigation instrumentation boundary (Mermaid)
+
+```mermaid
+flowchart TB
+  Nav["NavigationInstrumentation"]
+  Hist["History pushState/replaceState"]
+  Perf["Performance / Navigation Timing"]
+  Tracer["TracerProvider → screen_load / screen_session"]
+  Nav --> Hist
+  Nav --> Perf
+  Nav --> Tracer
+```
+
+### 4.2 LD — `navigation.ts` modules (Mermaid)
+
+```mermaid
+flowchart LR
+  Nav["navigation.ts"] --> Rate["navigationRateLimitMs debounce"]
+  Nav --> NT["Navigation Timing readers"]
+  Nav --> SN["setScreenName / resolveScreenNameFromUrl"]
+```
+
+### 4.3 Flows — consent, BFCache, uninstall (Mermaid)
+
+```mermaid
+flowchart TD
+  I[install] --> C{consent ALLOWED?}
+  C -->|no| Z[skip]
+  C -->|yes| L[listen load + history]
+  L --> PH[pagehide]
+  PH --> EndS[end screen_session]
+  L --> BF[pageshow persisted]
+  BF --> SL[emit screen_load bfcache]
+  L --> U[uninstall]
+  U --> E[end open spans + remove hooks]
+```
 
 ---
 
@@ -121,6 +158,17 @@ Patch History API for SPA parity with Android activity transitions; reuse Naviga
 
 ## 6. Test Coverage
 
+### 6.1 Scenario matrix (Given / When / Then)
+
+| ID | Type | Given | When | Then | Tests |
+|----|------|-------|------|------|-------|
+| SS-P1 | positive | consent ALLOWED | cold load | `screen_load` span | `navigation-instrumentation.test.ts` |
+| SS-P2 | positive | SPA History change | route after debounce | `screen_load` + `screen_session` cycle | same |
+| SS-N1 | negative | consent DENIED | install | no navigation hooks | same |
+| SS-E1 | edge | BFCache | pageshow persisted | `start.type=bfcache` | same |
+| SS-E2 | edge | uninstall | open dwell span | ended + hooks removed | same |
+| SS-E3 | edge | rate limit | 2 pushState <100ms | single coalesced transition | R2a |
+
 ### `src/__tests__/navigation-instrumentation.test.ts`
 
 - Hoisted **`mockTracer` / mock span** shape (`startSpan`, `setAttributes`, `setStatus`, `end`).
@@ -158,11 +206,11 @@ Previously `navigation.ts` used **`logger.emit()`** → **`otel_logs`**. Web scr
 
 **Was:** No telemetry on BFCache restore after `pagehide` ended the dwell span. **Now:** `pageshow` with **`event.persisted === true`** emits **`screen_load`** (`start.type = bfcache`) and a new **`screen_session`**; see **§3 R4** and **§5.7**.
 
-### P3: 90ms trailing window — clicks/errors carry wrong `screen.name`
+### P3: 100ms trailing window — clicks/errors may carry stale `screen.name`
 
 **Not a dropped navigation.** `onRouteChange` uses a trailing debounce: when two `pushState` calls arrive < 100ms apart, the second cancels and resets the timer; when it fires it reads `window.location` (the final URL) and calls `applyRouteChange` — no navigation is lost.
 
-The actual risk: during the trailing window `currentScreenName` still holds the first URL’s name. Any click or error fired in that window is tagged with the wrong `screen.name`. For auth redirects (common trigger) this is a non-issue — no user interaction happens during a 90ms redirect chain. A human double-tap could mis-tag one or two events.
+The actual risk: during the trailing window `currentScreenName` still holds the first URL’s name. Any click or error fired in that window is tagged with the wrong `screen.name`. For auth redirects (common trigger) this is often a non-issue — little user interaction happens during a sub-100ms redirect chain. A human double-tap could mis-tag one or two events.
 
 **Status:** by-design / known tradeoff, documented in R2a. Revisit if analytics show unexplained `screen.name` mismatches on short-lived screens (< 100ms dwell).
 

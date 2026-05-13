@@ -1,6 +1,6 @@
 # SDK Core — Data contract — SPEC.md
 
-Package: `@dreamhorizon/pulse-web`  
+Package: `@dreamhorizonorg/pulse-web`  
 File: `pulse-web-otel/docs/sdk-core/data-contract/SPEC.md`
 
 ---
@@ -25,6 +25,36 @@ See [`../assumptions/SPEC.md`](../assumptions/SPEC.md). **R8** (`platform = web`
 
 ## 4. Architectural Design
 
+### 4.1 HLD — resource + processors + signals (Mermaid)
+
+```mermaid
+flowchart TB
+  RES["buildMergedResource os.name=web"]
+  GAP["GlobalAttrsProcessor"]
+  SIG["instrumentations emit"]
+  RES --> GAP
+  SIG --> GAP
+  GAP --> OTLP["OTLP export"]
+```
+
+### 4.2 LD — semconv as single source (Mermaid)
+
+```mermaid
+flowchart LR
+  SC["semconv.ts"] --> INST["instrumentations"]
+  SC --> DOC["this SPEC tables"]
+```
+
+### 4.3 Flows — attribute merge / overwrite rules (Mermaid)
+
+```mermaid
+flowchart TD
+  L[log/span created] --> G[global processor]
+  G --> R{session.id already set?}
+  R -->|special cases| KEEP[keep instrumentation value]
+  R -->|else| INJ[inject session + screen]
+```
+
 Resource + global attribute processors merge host config with Pulse-built resource — see [`../architecture-and-bootstrap/SPEC.md`](../architecture-and-bootstrap/SPEC.md) and `src/resource.ts`, `src/processors/global-attrs-processor.ts`.
 
 ---
@@ -37,6 +67,7 @@ All `pulse.type` values are defined in `PulseWebSemconv.PulseType` (`src/semconv
 
 | pulse.type | Signal | Emitter | Notes |
 |---|---|---|---|
+| `interaction` | Span | `InteractionSpanBuilder` (interactions feature) | OTLP **span** with `pulse.type = interaction` (literal) and **`pulse.interaction.*`** attributes — see [`../../instrumentations/interactions/SPEC.md`](../../instrumentations/interactions/SPEC.md) §5.1 |
 | `session.start` | Log | `SessionInstrumentation` | New `session.id` assigned |
 | `session.end` | Log | `SessionInstrumentation` | Background timeout or explicit shutdown |
 | `device.crash` | Log | `ErrorInstrumentation`, `PulseErrorBoundary` | `severityNumber = FATAL` |
@@ -74,9 +105,31 @@ Every signal emitted by the SDK carries the following attributes. Instrumentatio
 | `service.name` | `string` | OTel Resource / config `serviceName` | Yes | Identifies the app |
 | `project.id` | `string` | OTel Resource / `extractProjectId(apiKey)` | Yes | Extracted from API key prefix |
 
+### 5.3 Resource merge (`buildMergedResource`)
+
+Order of precedence (simplified): Pulse-fixed resource attrs (`os.name = web`, project id, SDK name/version) **merged with** host `resourceAttributes` from config where keys do not violate non-override rules. Host cannot override `os.name` to a non-web value.
+
+### 5.4 Processor chain (logs / spans)
+
+`PulseGlobalAttributesProcessor` runs on export path (see `src/processors/global-attrs-processor.ts`) to inject `session.id`, `screen.name`, metering id, and user props. **`SignalFilterProcessor`** may drop signals per product rules. Instrumentations set signal-specific attrs **before** these processors on emit.
+
+### 5.5 Drift control
+
+Any new `pulse.type` or attribute key requires: **(1)** `semconv.ts` update, **(2)** this table, **(3)** ClickHouse / product dashboard impact — see [`../known-gaps-and-open-questions/SPEC.md`](../known-gaps-and-open-questions/SPEC.md) for API critique items that touch the same surface.
+
 ---
 
 ## 6. Test Coverage
+
+### 6.1 Scenario matrix (contract)
+
+| ID | Type | Given | When | Then | Tests |
+|----|------|-------|------|------|-------|
+| DC-P1 | positive | instrument emits | export | `pulse.type` in semconv set | per-instrumentation SPECs + `m1`/`m3` |
+| DC-N1 | negative | host invents unknown `pulse.type` | — | reject / ADR required | convention |
+| DC-E1 | edge | `interaction` span | complete | `pulse.interaction.*` keys | `interactions-span-builder.test.ts` |
+
+### 6.2 Index
 
 [`../test-coverage/SPEC.md`](../test-coverage/SPEC.md) — `m1.test.ts` (resource / global attrs), per-instrumentation SPECs for emitters.
 

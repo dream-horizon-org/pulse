@@ -1,6 +1,6 @@
 # SDK Core — Configuration and consent — SPEC.md
 
-Package: `@dreamhorizon/pulse-web`  
+Package: `@dreamhorizonorg/pulse-web`  
 File: `pulse-web-otel/docs/sdk-core/config-and-consent/SPEC.md`
 
 ---
@@ -24,6 +24,38 @@ See [`../assumptions/SPEC.md`](../assumptions/SPEC.md).
 ---
 
 ## 4. Architectural Design
+
+### 4.1 HLD — config vs consent gate (Mermaid)
+
+```mermaid
+flowchart TB
+  Host["Host config object"]
+  Val["validateConfig"]
+  Con["isDataCollectionAllowed"]
+  Boot["async bootstrap"]
+  Host --> Val
+  Val --> Con
+  Con -->|true| Boot
+  Con -->|false| Stop[stop — no bootstrap]
+```
+
+### 4.2 LD — files (Mermaid)
+
+```mermaid
+flowchart LR
+  CFG["config.ts"] --> CONS["consent.ts"]
+  CONS --> SDK["sdk.ts early gate"]
+```
+
+### 4.3 Flows — runtime consent re-check (Mermaid)
+
+```mermaid
+flowchart TD
+  T[Pulse.trackEvent] --> R{ALLOWED?}
+  R -->|no| Z[no-op]
+  R -->|yes| E[emit path]
+  Flip[Host flips consent] --> Doc[shutdown + re-init required]
+```
 
 `Pulse.init` → `validateConfig` → `isDataCollectionAllowed` before async bootstrap — see [`../architecture-and-bootstrap/SPEC.md`](../architecture-and-bootstrap/SPEC.md).
 
@@ -65,9 +97,38 @@ The consent check runs twice:
 
 If consent changes at runtime the host must unmount and remount `PulseProvider` (or call `shutdown()` then re-`init()`). The SDK does not support live consent flipping.
 
+### 5.3 `InstrumentationConfig` (local kill switches)
+
+Typed under `src/types/config.ts` (and related). Each key maps to `InstrumentationKeys.*` in `instrumentation-registry.ts`. **`enabled: false`** prevents install regardless of remote `FeatureGate` (remote cannot re-enable a locally disabled feature).
+
+### 5.4 `validateConfig` — common failure modes
+
+| Input problem | Stage | Outcome |
+|---------------|-------|---------|
+| Missing / empty `apiKey` | sync | throws before async work |
+| Missing `dataCollectionState` | sync | throws |
+| Malformed `beforeSendData` (neither function nor object with callbacks) | sync | throws |
+| Invalid `diskBuffering` numeric fields (non-positive, non-finite) | sync | throws |
+| `DENIED` / `PENDING` consent | sync after validate | resolves without throwing; no providers |
+
+### 5.5 Types barrel
+
+Public config types re-export from `src/index.ts` as needed for host TS; authoritative shapes live in `src/types/config.ts` and `src/types/attributes.ts` (`PulseAttributes`).
+
 ---
 
 ## 6. Test Coverage
+
+### 6.1 Scenario matrix (config + consent)
+
+| ID | Type | Given | When | Then | Tests |
+|----|------|-------|------|------|-------|
+| CC-P1 | positive | valid `apiKey` + ALLOWED | init | passes validate | `integration-simplified-init` |
+| CC-N1 | negative | missing `apiKey` | init | throws | same |
+| CC-N2 | negative | DENIED / PENDING | init | no init side effects | `sdk-lifecycle` |
+| CC-E1 | edge | invalid `beforeSendData` shape | init | throws validation | `integration-simplified-init` |
+
+### 6.2 Index
 
 [`../test-coverage/SPEC.md`](../test-coverage/SPEC.md) — `sdk-lifecycle.test.ts` (denied/pending), `integration-simplified-init.test.ts`.
 

@@ -1,6 +1,6 @@
 # Session Instrumentation — SPEC.md
 
-Package: `@dreamhorizon/pulse-web`  
+Package: `@dreamhorizonorg/pulse-web`  
 File: `pulse-web-otel/docs/instrumentations/session/SPEC.md`
 
 ---
@@ -34,10 +34,45 @@ Define **browser session lifecycle** (`SessionProvider`), **persistence of insta
 
 ## 4. Architectural Design
 
+### 4.1 HLD — provider vs instrumentation (Mermaid)
+
+```mermaid
+flowchart TB
+  SDK["Pulse.init"]
+  SP["SessionProvider session.ts"]
+  SI["SessionInstrumentation"]
+  Log["LoggerProvider session.start/end"]
+  SDK --> SP
+  SP --> SI
+  SI --> Log
+```
+
+### 4.2 LD — visibility-driven rotation (Mermaid)
+
+```mermaid
+flowchart LR
+  SP["SessionProvider"] --> Vis["visibilitychange"]
+  Vis --> T{hidden duration > timeout?}
+  T -->|yes| Rot["rotate session.id"]
+  T -->|no| Same["same session"]
+```
+
 ```
 Pulse.init → SessionProvider (session.ts)
   └─ SessionInstrumentation.install(sdk)
         └─ sessionProvider.onSessionChange → LoggerProvider.emit(session.start | session.end)
+```
+
+### 4.3 Session lifecycle states (Mermaid)
+
+```mermaid
+stateDiagram-v2
+  direction LR
+  [*] --> Foreground
+  Foreground --> Hidden: document visibility hidden
+  Hidden --> Foreground: visible within pageHiddenTimeoutMs
+  Hidden --> Rotate: visible after timeout exceeded
+  Rotate --> Foreground: new session.id / session.start
 ```
 
 ---
@@ -49,7 +84,7 @@ Pulse.init → SessionProvider (session.ts)
 - `SessionProvider` constructs a `sessionId = crypto.randomUUID()` on creation.
 - `installationId` is read from `localStorage["pulse_installation_id"]`; generated once on first load.
 - `userId` is persisted to `localStorage["pulse_user_id"]`.
-- Session rotation: if the tab is backgrounded for > `pageHiddenTimeoutMs` (default 30 min in older docs; see code `DEFAULT_PAGE_HIDDEN_TIMEOUT_MS`), the next `visibilitychange` to `visible` may rotate the session and drive `session.end` / `session.start`.
+- Session rotation: if the tab is backgrounded for longer than `pageHiddenTimeoutMs`, the next `visibilitychange` to `visible` may rotate the session and drive `session.end` / `session.start`. **Default:** `DEFAULT_PAGE_HIDDEN_TIMEOUT_MS` in `src/session.ts` (**15 minutes**) unless the host passes `pageHiddenTimeoutMs` in `PulseWebConfig`.
 - `wasNewInstallation()` returns `true` on the very first page load (no prior installation ID).
 
 ### 5.2 `SessionInstrumentation` (`src/instrumentations/session.ts`)
@@ -63,6 +98,17 @@ Subscribes to `SessionProvider` events and emits OTLP logs with semconv keys (`P
 ---
 
 ## 6. Test Coverage
+
+### 6.1 Scenario matrix (Given / When / Then)
+
+| ID | Type | Given | When | Then | Tests |
+|----|------|-------|------|------|-------|
+| SE-P1 | positive | SESSION gate on | new install | `session.start` with ids | `m1.test.ts` per sdk-core test-coverage |
+| SE-N1 | negative | feature off | init | no session logs | session instrumentation tests |
+| SE-E1 | edge | long background | visibility visible after timeout | rotation + `session.end`/`session.start` | `session.ts` + persistence tests |
+| SE-E2 | edge | uninstall | provider change | subscription detached | SR3 |
+
+### 6.2 Additional suites
 
 - [`../../sdk-core/test-coverage/SPEC.md`](../../sdk-core/test-coverage/SPEC.md) §5.3 — `m1.test.ts` (`SessionProvider`, `SessionInstrumentation`).
 - `src/__tests__/session-persistence.test.ts`, `src/__tests__/session-sampling-rate.test.ts` — session persistence / sampling behaviour.

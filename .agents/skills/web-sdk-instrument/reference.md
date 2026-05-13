@@ -80,7 +80,8 @@ Copy into chat or a scratch doc; set each row to **DONE** | **PARTIAL** | **MISS
 | Date (YYYY-MM-DD) | Source (PR / reviewer) | Lesson (imperative, testable) |
 |-------------------|--------------------------|-------------------------------|
 | *example* | *#123* | *Always assert `screen.name` on new log E2E positives.* |
-| 2026-05-04 | web-sdk-e2e-matrix review | D2b gate-off: `features[].featureName` must be **this** instrumentation’s `PulseFeature` (e.g. `web_vitals`), not `session`, or the gate stays on. Resource Timing attrs + `page.route` stubs: probe or defer—avoid vacuous passes. |
+| 2026-05-14 | SPEC audit iter1 + interactions SPEC | Document interactions as **`pulse.interaction.*`** span attrs + literal **`pulse.type = interaction`**; **`pulse.interaction.complete_time`** is **nanoseconds** — never `interaction.id` / `duration_ms` shorthand in SPECs or queries. |
+| 2026-05-14 | SPEC audit iter6–7 + `sdk.ts` shutdown | Teardown SPECs and edge-flow Mermaid must follow **`PulseSDK.shutdown()`** order: **uninstall / session shutdown before `forceFlush`**, then clear provider refs and flags; document **`ProviderBundle.cleanup`** even when **`exporters.ts`** implements it as a no-op. |
 
 *(Append new rows at the bottom; do not delete history without archival note.)*
 

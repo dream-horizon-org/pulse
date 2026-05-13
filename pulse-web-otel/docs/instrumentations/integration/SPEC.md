@@ -85,6 +85,42 @@ Next.js (build)
   const { withPulseConfig } = require("@dreamhorizonorg/pulse-web/next-config");
 ```
 
+### 4.1 HLD — package entry vs core SDK (Mermaid)
+
+```mermaid
+flowchart TB
+  Host["Host application"]
+  Pkg["@dreamhorizonorg/pulse-web exports"]
+  Core["Pulse.init / sdk-core"]
+  Inst["InstrumentationRegistry"]
+  Host --> Pkg
+  Pkg --> Core
+  Core --> Inst
+```
+
+### 4.2 LD — export subpaths (Mermaid)
+
+```mermaid
+flowchart LR
+  Root["."] --> Pulse["Pulse"]
+  React["./react"] --> Prov["PulseProvider"]
+  Rtr["./react/router"] --> PRE["PulseRouterEvents"]
+  Nxt["./next"] --> NPE["PulseRouterEvents next"]
+  NCfg["./next-config"] --> WPC["withPulseConfig"]
+```
+
+### 4.3 Flows — consent and double init (Mermaid)
+
+```mermaid
+flowchart TD
+  A[Pulse.init called] --> C{dataCollectionState ALLOWED?}
+  C -->|no| Z[no collectors]
+  C -->|yes| I[initialize SDK]
+  I --> D{already initialized?}
+  D -->|yes| N[no-op idempotent]
+  D -->|no| OK[install instrumentations]
+```
+
 ---
 
 ## 5. LLD
@@ -129,7 +165,7 @@ The SDK fetches remote config from `pulse-otel-config` S3 via CloudFront (`/conf
 
 - Server **`onRequestError`** helper ships logs separately — does **not** replace browser **`Pulse.init`** for RUM.
 
-### 5.7 Developer ergonomics / API critique
+### 5.8 Developer ergonomics / API critique
 
 **Canonical punch list:** [`pulse-web-otel/docs/sdk-core/known-gaps-and-open-questions/SPEC.md`](../../sdk-core/known-gaps-and-open-questions/SPEC.md) (P0/P1/P2 naming and surface-area gaps). This integration guide intentionally **does not** duplicate that list.
 
@@ -137,7 +173,18 @@ The SDK fetches remote config from `pulse-otel-config` S3 via CloudFront (`/conf
 
 ## 6. Test Coverage
 
-Integration is validated indirectly via:
+### 6.1 Scenario matrix (Given / When / Then)
+
+| ID | Type | Given | When | Then | Tests |
+|----|------|-------|------|------|-------|
+| I-P1 | positive | ALLOWED + valid apiKey | `Pulse.init` | SDK ready, exports resolve | integration-simplified / manual |
+| I-N1 | negative | consent not ALLOWED | init | no collectors | sdk-core consent |
+| I-E1 | edge | double `Pulse.init` | second call | no-op | `sdk.ts` behaviour |
+| I-E2 | edge | CORS not allowlisted | remote config fetch | 403 fallback defaults | R5 |
+
+Integration smoke: `src/__tests__/integration-simplified-*.test.ts`, `package-exports.test.ts` (paths per repo).
+
+### Integration is validated indirectly via:
 
 - Core lifecycle tests — **`sdk-core`** [`test-coverage/SPEC.md`](../../sdk-core/test-coverage/SPEC.md).
 - React provider/router tests — **`react-integration`** SPEC §6.

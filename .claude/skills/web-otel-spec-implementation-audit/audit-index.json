@@ -309,13 +309,15 @@
         "pulse-web-otel/src/config.ts",
         "pulse-web-otel/src/consent.ts",
         "pulse-web-otel/src/remote-config.ts",
+        "pulse-web-otel/src/feature-gate.ts",
         "pulse-web-otel/src/instrumentation-registry.ts",
         "pulse-web-otel/src/exporters.ts",
         "pulse-web-otel/src/before-send.ts",
         "pulse-web-otel/src/resource.ts",
         "pulse-web-otel/src/processors/",
         "pulse-web-otel/src/persistence/",
-        "pulse-web-otel/src/sampling/"
+        "pulse-web-otel/src/sampling/",
+        "pulse-web-otel/src/utils/ua-parser.ts"
       ]
     },
     {

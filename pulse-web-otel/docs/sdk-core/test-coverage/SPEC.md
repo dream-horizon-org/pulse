@@ -1,6 +1,6 @@
 # SDK Core — Test coverage — SPEC.md
 
-Package: `@dreamhorizon/pulse-web`  
+Package: `@dreamhorizonorg/pulse-web`  
 File: `pulse-web-otel/docs/sdk-core/test-coverage/SPEC.md`
 
 ---
@@ -25,7 +25,34 @@ Maps to **R1–R10** verification — [`../requirements/SPEC.md`](../requirement
 
 ## 4. Architectural Design
 
-**N/A** — this file is a coverage index only.
+### 4.1 HLD — test layers (Mermaid)
+
+```mermaid
+flowchart TB
+  UT["Vitest unit src/__tests__"]
+  IT["integration-simplified-init"]
+  E2E["ecommerce-demo Playwright"]
+  UT --> IT
+  IT --> E2E
+```
+
+### 4.2 LD — suite → concern map (Mermaid)
+
+```mermaid
+flowchart LR
+  LC["sdk-lifecycle"] --> R1["R1 R2 R5"]
+  M1["m1.test.ts"] --> Core["session resource gates"]
+  M8["m8.test.ts"] --> PH["pagehide flush"]
+```
+
+### 4.3 Flows — CI vs local (Mermaid)
+
+```mermaid
+flowchart TD
+  Dev[local yarn test:run] --> CI[CI mvn/yarn gates]
+  CI -->|fail| Fix[fix + update SPEC matrix]
+  Fix --> Dev
+```
 
 ---
 
@@ -101,11 +128,35 @@ Config surface tests — verifies Web SDK matches Android's minimal public API:
 - `diskBuffering.maxAgeMs` and `maxCacheSizeBytes` positive-finite validation
 - `globalAttributes` and `resourceAttributes` accepted without error
 
+### 5.7 Naming and placement conventions
+
+| Convention | Rule |
+|------------|------|
+| File name | `*.test.ts` or `*.test.tsx` under `src/__tests__/` (or colocated `integrations/**` tests). |
+| Describe blocks | Mirror class/module under test (`describe("PulseSDK", …)`). |
+| OTLP fakes | Prefer mocking exporters / `LoggerProvider` emit spies — see existing `m1` / `m3` patterns. |
+| E2E | Live under `examples/ecommerce-demo/e2e/`; use workspace `fixture.ts` helpers. |
+
+### 5.8 Adding a new suite
+
+1. Add `src/__tests__/<area>.test.ts` with happy path + one failure/edge.  
+2. Register any new gate/feature in `instrumentation-registry` + remote template if needed.  
+3. Extend **this** §5 with a new **§5.x** subsection + link from [`../requirements/SPEC.md`](../requirements/SPEC.md) trace table if a new R* is implied.
+
 ---
 
 ## 6. Test Coverage
 
-This document **is** §6 content for the sdk-core spec set; see subsections in §5.
+### 6.1 Scenario matrix (meta — this file owns the catalogue)
+
+| ID | Type | Given | When | Then | Tests |
+|----|------|-------|------|------|-------|
+| TC-P1 | positive | contributor runs | `yarn test:run` | green on touched suites | local |
+| TC-E1 | edge | PR touches web SDK | `e2e:web-sdk-gates` | Chromium gate green | package script |
+
+### 6.2 Catalogue
+
+This document **is** the detailed §5 catalogue; see subsections **§5.1–§5.6** above for file-level scenarios.
 
 ---
 

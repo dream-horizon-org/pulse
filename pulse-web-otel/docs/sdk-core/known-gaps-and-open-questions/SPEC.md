@@ -1,6 +1,6 @@
 # SDK Core — Known gaps and open questions — SPEC.md
 
-Package: `@dreamhorizon/pulse-web`  
+Package: `@dreamhorizonorg/pulse-web`  
 File: `pulse-web-otel/docs/sdk-core/known-gaps-and-open-questions/SPEC.md`
 
 ---
@@ -25,19 +25,77 @@ None beyond [`../assumptions/SPEC.md`](../assumptions/SPEC.md).
 
 ## 4. Architectural Design
 
-**N/A**.
+### 4.1 HLD — feedback loop (Mermaid)
+
+```mermaid
+flowchart TB
+  Code["pulse-web-otel/src"]
+  Spec["docs/sdk-core + instrumentations"]
+  Ship["web-sdk-ship checklist"]
+  Code --> Spec
+  Spec --> Ship
+  Ship --> Code
+```
+
+### 4.2 LD — P0 / P1 / P2 routing (Mermaid)
+
+```mermaid
+flowchart LR
+  P0["P0 blockers"] --> Hotfix["fix before ship"]
+  P1["P1 post-GA"] --> Roadmap["roadmap"]
+  P2["P2 nice"] --> Backlog["backlog"]
+```
+
+### 4.3 Flows — SPEC audit handoff (Mermaid)
+
+```mermaid
+flowchart TD
+  A[audit finding] --> S{severity}
+  S -->|Critical| SPEC[update SPEC or code immediately]
+  S -->|Major| PLAN[schedule + matrix row]
+  S -->|Minor| TEXT[wording fix]
+```
 
 ---
 
 ## 5. LLD
 
-**N/A**.
+### 5.1 Severity rubric (how to use §7)
+
+| Tag | Ship impact | SPEC / code expectation |
+|-----|--------------|-------------------------|
+| **P0** | Blocks GA / wrong telemetry / broken integration | Must be fixed or explicitly waived with ADR + test proving safe behaviour. |
+| **P1** | Post-GA ergonomics / perf / DX | Track in roadmap; update [`../public-api/SPEC.md`](../public-api/SPEC.md) or config SPEC when closing. |
+| **P2** | Nice-to-have / style | Optional; avoid churn unless bundled with related P0/P1. |
+
+### 5.2 Row schema (each P* item in §7)
+
+Each item should include: **symptom** (user-visible), **root cause** (module), **recommended fix**, **owner** (web-sdk vs backend template). Numbering is stable (`P0:1`, …) — append new IDs; do not renumber without archival note in §8.
+
+### 5.3 Closing a gap (workflow)
+
+1. Implement or document waiver in `src/` + update the relevant SPEC (`sdk-core` topic or `instrumentations/<id>`).  
+2. Add/extend Vitest (see [`../test-coverage/SPEC.md`](../test-coverage/SPEC.md) §5.7–5.8).  
+3. Downgrade or remove the row from §7 only when shipped and reviewed.
+
+### 5.4 Relation to open questions (§9)
+
+Open questions are **unresolved product decisions**; P-items are **known defects or API debt**. If a P-item is “won’t fix”, move rationale to §9 and mark P row as **closed — see §9.x**.
 
 ---
 
 ## 6. Test Coverage
 
-**N/A** — see [`../test-coverage/SPEC.md`](../test-coverage/SPEC.md).
+### 6.1 Scenario matrix (verification of fixes)
+
+| ID | Type | Given | When | Then | Tests |
+|----|------|-------|------|------|-------|
+| KG-P1 | positive | gap closed in code | PR | linked test added | per-area `src/__tests__` |
+| KG-E1 | edge | gap remains documented | release | still listed in §7 with severity | **manual** |
+
+### 6.2 Index
+
+**N/A** as a separate suite — regressions for closed gaps live under [`../test-coverage/SPEC.md`](../test-coverage/SPEC.md) and per-instrumentation SPECs.
 
 ---
 
@@ -63,7 +121,7 @@ Absorbs `docs/API-CRITIQUE.md` as structured P0/P1/P2 items.
 
 **P1:7 — `globalAttributes` vs `resourceAttributes` scope invisible.** Both exist on `PulseWebConfig` but the difference (per-signal vs per-resource) is invisible from the names. Users will put tenant tags in the wrong one. Either auto-merge into one field or rename: `signalAttributes` (attached per-span/log) vs `resourceAttributes` (OTel Resource, once per init).
 
-**P1:8 — `@dreamhorizon/pulse-web/next` ESM resolution not verified in clean `create-next-app`.** The ecommerce demo uses a webpack alias to resolve the workspace package. This may mask an ESM resolution failure for external consumers. Needs verification before GA.
+**P1:8 — `@dreamhorizonorg/pulse-web/next` ESM resolution not verified in clean `create-next-app`.** The ecommerce demo uses a webpack alias to resolve the workspace package. This may mask an ESM resolution failure for external consumers. Needs verification before GA.
 
 **P1:9 — No Vite source-map upload.** `withPulseConfig` is Next-only. Vite, CRA, Webpack5, Rollup, and Rspack users must upload source maps manually. Document the manual path; consider `vite-plugin-pulse` in a future minor.
 

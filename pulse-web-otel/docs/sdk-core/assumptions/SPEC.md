@@ -1,6 +1,6 @@
 # SDK Core — Assumptions — SPEC.md
 
-Package: `@dreamhorizon/pulse-web`  
+Package: `@dreamhorizonorg/pulse-web`  
 File: `pulse-web-otel/docs/sdk-core/assumptions/SPEC.md`
 
 ---
@@ -31,7 +31,40 @@ Numbered requirements **R1–R10** live in [`../requirements/SPEC.md`](../requir
 
 ## 4. Architectural Design
 
-**N/A** — assumptions are preconditions, not a component diagram. Bootstrap shape: [`../architecture-and-bootstrap/SPEC.md`](../architecture-and-bootstrap/SPEC.md).
+### 4.1 HLD — assumption boundaries (Mermaid)
+
+```mermaid
+flowchart TB
+  B["Browser runtime only"]
+  LS["localStorage + quota"]
+  OTel["Bundled OTel SDK"]
+  Parity["pulse.type parity vs mobile"]
+  B --> LS
+  B --> OTel
+  B --> Parity
+```
+
+### 4.2 LD — where assumptions bind in code (Mermaid)
+
+```mermaid
+flowchart LR
+  A["assumptions doc"] --> SDK["sdk.ts guards"]
+  A --> PER["persistence/"]
+  A --> RES["resource.ts"]
+```
+
+### 4.3 Flows — SSR and storage (Mermaid)
+
+```mermaid
+flowchart TD
+  L[SDK load] --> W{typeof window}
+  W -->|undefined| SSR[init aborts / no-op]
+  W -->|defined| LS{localStorage}
+  LS -->|blocked| DEG[installId/session may regenerate]
+  LS -->|ok| NORM[standard persistence]
+```
+
+Bootstrap shape: [`../architecture-and-bootstrap/SPEC.md`](../architecture-and-bootstrap/SPEC.md).
 
 ---
 
@@ -44,9 +77,38 @@ Numbered requirements **R1–R10** live in [`../requirements/SPEC.md`](../requir
 | Requirements index | [`../requirements/SPEC.md`](../requirements/SPEC.md) |
 | Rollup / map | [`../SPEC.md`](../SPEC.md) |
 
+### 5.2 Assumption → enforcement (`src/`)
+
+| §2 assumption | Where it is enforced / observable |
+|----------------|-----------------------------------|
+| Browser-only; SSR no-op | `sdk.ts` — `abortInitIfUnavailable()` when `typeof window === "undefined"`; instrumentations guard `install()`. |
+| `apiKey` + `dataCollectionState` required | `config.ts` — `validateConfig()` throws before consent gate if missing. |
+| Main thread only | No worker entrypoints in package exports; all DOM/OTel on main thread. |
+| `localStorage` + ~5 MB | `session.ts`, `remote-config.ts`, persistence — reads/writes; `persistence/` truncates oldest-first on quota. |
+| Bundled OTel | `package.json` dependencies on `@opentelemetry/*`; `exporters.ts` wires providers. |
+| `pulse.type` parity | `semconv.ts` + per-instrumentation SPECs; changes need cross-SDK review. |
+| Remote config cached then background fetch | `SdkConfigFetcher.loadCached()` sync at init; `fetchInBackground()` after registry install — see [`../remote-config-features-and-sampling/SPEC.md`](../remote-config-features-and-sampling/SPEC.md). |
+
+### 5.3 When an assumption is violated
+
+| Violation | Expected behaviour |
+|-----------|---------------------|
+| `localStorage` throws (Safari private mode quirks) | Session/installation paths degrade where coded; tests cover partial paths — see [`../test-coverage/SPEC.md`](../test-coverage/SPEC.md). |
+| Invalid cached SDK JSON | Treated as missing cache → `DEFAULT_SDK_CONFIG` merge. |
+
 ---
 
 ## 6. Test Coverage
+
+### 6.1 Scenario matrix (Given / When / Then)
+
+| ID | Type | Given | When | Then | Tests |
+|----|------|-------|------|------|-------|
+| AS-P1 | positive | browser + ALLOWED | init | providers wired | `sdk-lifecycle`, `m1` |
+| AS-N1 | negative | no `window` | init | abort / no side effects | `sdk-lifecycle` SSR |
+| AS-E1 | edge | localStorage blocked | persistence paths | graceful behaviour | persistence / session tests |
+
+### 6.2 Indirect validation
 
 Assumptions are validated indirectly via [`../test-coverage/SPEC.md`](../test-coverage/SPEC.md) (SSR abort, consent no-op, `localStorage` usage in integration tests).
 

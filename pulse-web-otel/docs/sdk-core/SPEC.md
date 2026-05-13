@@ -1,6 +1,6 @@
 # SDK Core — SPEC.md
 
-Package: `@dreamhorizon/pulse-web`  
+Package: `@dreamhorizonorg/pulse-web`  
 File: `pulse-web-otel/docs/sdk-core/SPEC.md`
 
 ---
@@ -41,6 +41,43 @@ Pulse.init(config)          ← src/sdk.ts
   └─ fetchInBackground
 ```
 
+### 4.1 HLD — init vs exporters (Mermaid)
+
+```mermaid
+flowchart TB
+  Host["Host app"]
+  Pulse["Pulse.init sdk.ts"]
+  RC["remote-config + FeatureGate"]
+  Reg["instrumentation-registry"]
+  Exp["exporters + processors + persistence"]
+  Host --> Pulse
+  Pulse --> RC
+  Pulse --> Reg
+  Pulse --> Exp
+```
+
+### 4.2 LD — core modules (Mermaid)
+
+```mermaid
+flowchart LR
+  SDK["sdk.ts"] --> CFG["config / consent"]
+  SDK --> RES["resource.ts"]
+  SDK --> REG["instrumentation-registry.ts"]
+  REG --> INST["instrumentations/*"]
+```
+
+### 4.3 Flows — consent and idempotent init (Mermaid)
+
+```mermaid
+flowchart TD
+  A[Pulse.init] --> C{consent ALLOWED?}
+  C -->|no| Z[providers without collectors]
+  C -->|yes| I[full init + registry.installAll]
+  I --> D{second init?}
+  D -->|yes| N[no-op]
+  D -->|no| OK[continue]
+```
+
 Full tree and init step list: [`architecture-and-bootstrap/SPEC.md`](architecture-and-bootstrap/SPEC.md).
 
 ---
@@ -67,11 +104,32 @@ Full tree and init step list: [`architecture-and-bootstrap/SPEC.md`](architectur
 
 `src/sdk.ts`, `src/config.ts`, `src/consent.ts`, `src/remote-config.ts`, `src/feature-gate.ts`, `src/instrumentation-registry.ts`, `src/exporters.ts`, `src/before-send.ts`, `src/resource.ts`, `src/processors/`, `src/persistence/`, `src/sampling/`, `src/utils/ua-parser.ts`. Session: `src/session.ts`, `src/instrumentations/session.ts` → [`../instrumentations/session/SPEC.md`](../instrumentations/session/SPEC.md).
 
+### 5.3 Topic LLD depth (§5 in each sub-SPEC)
+
+Each topic file under `docs/sdk-core/<topic>/SPEC.md` has an expanded **§5 LLD** (not only §4 Mermaid): assumption→code mapping, per-requirement notes, shutdown ordering, config validation tables, processor/export details, registry↔feature map, test conventions, and gap-triage rubric. Start from the topic row in **§5.1** above.
+
 ---
 
 ## 6. Test Coverage
 
-[`test-coverage/SPEC.md`](test-coverage/SPEC.md).
+### 6.1 Requirement → coverage map
+
+| Requirement area | Primary tests / SPEC |
+|-------------------|----------------------|
+| R1–R10 + NFRs | [`test-coverage/SPEC.md`](test-coverage/SPEC.md) §5–§6 |
+| Bootstrap sequence | [`architecture-and-bootstrap/SPEC.md`](architecture-and-bootstrap/SPEC.md) + `sdk-lifecycle.test.ts` (see test-coverage) |
+| Session | [`../instrumentations/session/SPEC.md`](../instrumentations/session/SPEC.md) §6 + `m1.test.ts` |
+
+### 6.2 Scenario matrix (rollup)
+
+| ID | Type | Given | When | Then | Tests |
+|----|------|-------|------|------|-------|
+| SDK-P1 | positive | valid config + ALLOWED | `Pulse.init` | `isInitialized` + registry installed | `sdk-lifecycle` / `m1` per test-coverage |
+| SDK-N1 | negative | DENIED consent | init | no collectors / gated | test-coverage § consent |
+| SDK-E1 | edge | double init | second call | idempotent | `sdk.ts` |
+| SDK-E2 | edge | pagehide | tab background | flush / persist per exporters SPEC | exporters SPEC |
+
+[`test-coverage/SPEC.md`](test-coverage/SPEC.md) is the detailed index of suites.
 
 ---
 

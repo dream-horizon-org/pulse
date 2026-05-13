@@ -1,6 +1,6 @@
 # SDK Core — Remote config, features, and sampling — SPEC.md
 
-Package: `@dreamhorizon/pulse-web`  
+Package: `@dreamhorizonorg/pulse-web`  
 File: `pulse-web-otel/docs/sdk-core/remote-config-features-and-sampling/SPEC.md`
 
 ---
@@ -24,6 +24,39 @@ See [`../assumptions/SPEC.md`](../assumptions/SPEC.md) (background fetch + cache
 ---
 
 ## 4. Architectural Design
+
+### 4.1 HLD — cache + gates + install (Mermaid)
+
+```mermaid
+flowchart TB
+  LS["localStorage pulse_sdk_config"]
+  FG["FeatureGate"]
+  ES["ExportSamplingGate"]
+  REG["InstrumentationRegistry"]
+  LS --> FG
+  FG --> REG
+  ES --> REG
+```
+
+### 4.2 LD — fetcher vs merge (Mermaid)
+
+```mermaid
+flowchart LR
+  F["SdkConfigFetcher"] --> L["loadCached sync"]
+  F --> B["fetchInBackground async"]
+  B --> M["mergePulseSdkConfig"]
+```
+
+### 4.3 Flows — feature off and fetch failure (Mermaid)
+
+```mermaid
+flowchart TD
+  G[FeatureGate.isEnabled] --> Z{sessionSampleRate 0?}
+  Z -->|yes| OFF[feature off]
+  Z -->|no| ON[feature on]
+  F[fetchInBackground] --> E{network error?}
+  E -->|yes| K[keep cached config]
+```
 
 `SdkConfigFetcher.loadCached` runs during init; `fetchInBackground` post-init. `FeatureGate` + `ExportSamplingGate` constructed from merged config — see [`../architecture-and-bootstrap/SPEC.md`](../architecture-and-bootstrap/SPEC.md).
 
@@ -72,9 +105,40 @@ Config URL resolution:
 
 `ExportSamplingGate` evaluates session-level sampling rules at export time (not span-creation time), preserving parent/child span sampling consistency. See `src/sampling/export-sampling-gate.ts`.
 
+### 5.4 `PulseFeature` ↔ `InstrumentationKeys`
+
+Mapping is **authoritative** in `instrumentation-registry.ts` (`featureMap` inside `shouldInstall`):
+
+| `InstrumentationKeys` (config + registry) | `PulseFeature` |
+|---------------------------------------------|----------------|
+| `errors` | `JS_CRASH` |
+| `network` | `NETWORK_INSTRUMENTATION` |
+| `clicks` | `CLICK` |
+| `webVitals` | `WEB_VITALS` |
+| `navigation` | `SCREEN_NAVIGATION` |
+| `session` | `SESSION` |
+| `interactions` | `INTERACTION` |
+| `sessionReplay` | `SESSION_REPLAY` |
+
+Local `instrumentations.<key>.enabled === false` **short-circuits** before gate evaluation (`shouldInstall`).
+
+### 5.5 Merge rules (`mergePulseSdkConfig`)
+
+Remote payload is deep-merged with defaults + cached copy: array fields (e.g. `features`) replace by **id** match where applicable; version monotonicity prevents downgrade attacks from stale CDN responses (see implementation in `remote-config.ts`).
+
 ---
 
 ## 6. Test Coverage
+
+### 6.1 Scenario matrix (remote config + gates)
+
+| ID | Type | Given | When | Then | Tests |
+|----|------|-------|------|------|-------|
+| RC-P1 | positive | cached valid config | init | gates constructed | `m1.test.ts` |
+| RC-N1 | negative | `sessionSampleRate=0` | gate check | feature disabled | `m1.test.ts` |
+| RC-E1 | edge | fetch fails | background | cached config retained | **partial** — see open questions |
+
+### 6.2 Index
 
 [`../test-coverage/SPEC.md`](../test-coverage/SPEC.md) — `m1.test.ts` (`SdkConfigFetcher`, `FeatureGate`).
 
