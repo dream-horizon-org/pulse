@@ -2,7 +2,6 @@
 
 package com.pulse.utils
 
-import io.opentelemetry.api.common.Attributes
 import io.opentelemetry.api.trace.SpanKind
 import io.opentelemetry.sdk.logs.data.LogRecordData
 import io.opentelemetry.sdk.metrics.data.AggregationTemporality
