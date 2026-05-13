@@ -13,6 +13,7 @@ public final class com/pulse/android/sdk/replay/models/PulseReplayCustomEventDat
 	public fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
 	public fun serialize (Lkotlinx/serialization/encoding/Encoder;Lcom/pulse/android/sdk/replay/models/PulseReplayCustomEventData;)V
 	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+	public fun typeParametersSerializers ()[Lkotlinx/serialization/KSerializer;
 }
 
 public final class com/pulse/android/sdk/replay/models/PulseReplayCustomEventData$Companion {
@@ -36,6 +37,7 @@ public final class com/pulse/android/sdk/replay/models/PulseReplayEnvelope$$seri
 	public fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
 	public fun serialize (Lkotlinx/serialization/encoding/Encoder;Lcom/pulse/android/sdk/replay/models/PulseReplayEnvelope;)V
 	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+	public fun typeParametersSerializers ()[Lkotlinx/serialization/KSerializer;
 }
 
 public final class com/pulse/android/sdk/replay/models/PulseReplayEnvelope$Companion {
@@ -60,6 +62,7 @@ public final class com/pulse/android/sdk/replay/models/PulseReplayEnvelopeProper
 	public fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
 	public fun serialize (Lkotlinx/serialization/encoding/Encoder;Lcom/pulse/android/sdk/replay/models/PulseReplayEnvelopeProperties;)V
 	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+	public fun typeParametersSerializers ()[Lkotlinx/serialization/KSerializer;
 }
 
 public final class com/pulse/android/sdk/replay/models/PulseReplayEnvelopeProperties$Companion {
@@ -89,6 +92,7 @@ public final class com/pulse/android/sdk/replay/models/PulseReplayFullSnapshotDa
 	public fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
 	public fun serialize (Lkotlinx/serialization/encoding/Encoder;Lcom/pulse/android/sdk/replay/models/PulseReplayFullSnapshotData;)V
 	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+	public fun typeParametersSerializers ()[Lkotlinx/serialization/KSerializer;
 }
 
 public final class com/pulse/android/sdk/replay/models/PulseReplayFullSnapshotData$Companion {
@@ -113,6 +117,7 @@ public final class com/pulse/android/sdk/replay/models/PulseReplayIncrementalMut
 	public fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
 	public fun serialize (Lkotlinx/serialization/encoding/Encoder;Lcom/pulse/android/sdk/replay/models/PulseReplayIncrementalMutationData;)V
 	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+	public fun typeParametersSerializers ()[Lkotlinx/serialization/KSerializer;
 }
 
 public final class com/pulse/android/sdk/replay/models/PulseReplayIncrementalMutationData$Companion {
@@ -136,6 +141,7 @@ public final class com/pulse/android/sdk/replay/models/PulseReplayMetaData$$seri
 	public fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
 	public fun serialize (Lkotlinx/serialization/encoding/Encoder;Lcom/pulse/android/sdk/replay/models/PulseReplayMetaData;)V
 	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+	public fun typeParametersSerializers ()[Lkotlinx/serialization/KSerializer;
 }
 
 public final class com/pulse/android/sdk/replay/models/PulseReplayMetaData$Companion {
@@ -163,6 +169,7 @@ public final class com/pulse/android/sdk/replay/models/PulseReplayMouseInteracti
 	public fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
 	public fun serialize (Lkotlinx/serialization/encoding/Encoder;Lcom/pulse/android/sdk/replay/models/PulseReplayMouseInteractionData;)V
 	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+	public fun typeParametersSerializers ()[Lkotlinx/serialization/KSerializer;
 }
 
 public final class com/pulse/android/sdk/replay/models/PulseReplayMouseInteractionData$Companion {
@@ -187,6 +194,7 @@ public final class com/pulse/android/sdk/replay/models/PulseReplayMousePosition$
 	public fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
 	public fun serialize (Lkotlinx/serialization/encoding/Encoder;Lcom/pulse/android/sdk/replay/models/PulseReplayMousePosition;)V
 	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+	public fun typeParametersSerializers ()[Lkotlinx/serialization/KSerializer;
 }
 
 public final class com/pulse/android/sdk/replay/models/PulseReplayMousePosition$Companion {
@@ -208,6 +216,7 @@ public final class com/pulse/android/sdk/replay/models/PulseReplayMutatedNode$$s
 	public fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
 	public fun serialize (Lkotlinx/serialization/encoding/Encoder;Lcom/pulse/android/sdk/replay/models/PulseReplayMutatedNode;)V
 	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+	public fun typeParametersSerializers ()[Lkotlinx/serialization/KSerializer;
 }
 
 public final class com/pulse/android/sdk/replay/models/PulseReplayMutatedNode$Companion {
@@ -229,6 +238,7 @@ public final class com/pulse/android/sdk/replay/models/PulseReplayOffset$$serial
 	public fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
 	public fun serialize (Lkotlinx/serialization/encoding/Encoder;Lcom/pulse/android/sdk/replay/models/PulseReplayOffset;)V
 	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+	public fun typeParametersSerializers ()[Lkotlinx/serialization/KSerializer;
 }
 
 public final class com/pulse/android/sdk/replay/models/PulseReplayOffset$Companion {
@@ -251,6 +261,7 @@ public final class com/pulse/android/sdk/replay/models/PulseReplayRemovedNode$$s
 	public fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
 	public fun serialize (Lkotlinx/serialization/encoding/Encoder;Lcom/pulse/android/sdk/replay/models/PulseReplayRemovedNode;)V
 	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+	public fun typeParametersSerializers ()[Lkotlinx/serialization/KSerializer;
 }
 
 public final class com/pulse/android/sdk/replay/models/PulseReplayRemovedNode$Companion {
@@ -274,6 +285,7 @@ public final class com/pulse/android/sdk/replay/models/PulseReplaySnapshotEvent$
 	public fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
 	public fun serialize (Lkotlinx/serialization/encoding/Encoder;Lcom/pulse/android/sdk/replay/models/PulseReplaySnapshotEvent;)V
 	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+	public fun typeParametersSerializers ()[Lkotlinx/serialization/KSerializer;
 }
 
 public final class com/pulse/android/sdk/replay/models/PulseReplaySnapshotEvent$Companion {
@@ -312,6 +324,7 @@ public final class com/pulse/android/sdk/replay/models/PulseReplayStyle$$seriali
 	public fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
 	public fun serialize (Lkotlinx/serialization/encoding/Encoder;Lcom/pulse/android/sdk/replay/models/PulseReplayStyle;)V
 	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+	public fun typeParametersSerializers ()[Lkotlinx/serialization/KSerializer;
 }
 
 public final class com/pulse/android/sdk/replay/models/PulseReplayStyle$Companion {
@@ -350,6 +363,7 @@ public final class com/pulse/android/sdk/replay/models/PulseReplayWireframe$$ser
 	public fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
 	public fun serialize (Lkotlinx/serialization/encoding/Encoder;Lcom/pulse/android/sdk/replay/models/PulseReplayWireframe;)V
 	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+	public fun typeParametersSerializers ()[Lkotlinx/serialization/KSerializer;
 }
 
 public final class com/pulse/android/sdk/replay/models/PulseReplayWireframe$Companion {
