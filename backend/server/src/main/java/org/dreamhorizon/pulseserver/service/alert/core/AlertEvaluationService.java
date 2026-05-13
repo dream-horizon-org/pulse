@@ -28,6 +28,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.config.ApplicationConfig;
 import org.dreamhorizon.pulseserver.constant.Constants;
 import org.dreamhorizon.pulseserver.dao.AlertsDao;
+import org.dreamhorizon.pulseserver.dao.productAnalysis.funnelresults.FunnelResultsDao;
+import org.dreamhorizon.pulseserver.dao.productAnalysis.funnelresults.models.FunnelResultRow;
 import org.dreamhorizon.pulseserver.resources.alert.enums.AlertState;
 import org.dreamhorizon.pulseserver.resources.alert.models.AlertEvaluationResponseDto;
 import org.dreamhorizon.pulseserver.resources.alert.models.EvaluateAlertResponseDto;
@@ -46,12 +48,14 @@ import org.dreamhorizon.pulseserver.util.RxObjectMapper;
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
 public class AlertEvaluationService {
   private static final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+  private static final String FUNNEL_SCOPE = "FUNNEL";
   private final AlertsDao alertsDao;
   private final ClickhouseMetricService clickhouseMetricService;
   private final MetricOperatorFactory metricOperatorFactory;
   private final ObjectMapper objectMapper;
   private final Vertx vertx;
   private final RxObjectMapper rxObjectMapper;
+  private final FunnelResultsDao funnelResultsDao;
   private final ApplicationConfig applicationConfig;
 
   public Single<EvaluateAlertResponseDto> evaluateAlertById(Integer alertId) {
@@ -70,6 +74,11 @@ public class AlertEvaluationService {
   }
 
   private void triggerEvaluation(AlertsDao.AlertDetails alertDetails) {
+    if (FUNNEL_SCOPE.equalsIgnoreCase(alertDetails.getScope())) {
+      triggerFunnelEvaluation(alertDetails);
+      return;
+    }
+
     LocalTime startTime = LocalTime.now();
     ZonedDateTime endTime = ZonedDateTime.now(ZoneId.of("UTC"));
     ZonedDateTime startTimeWindow = endTime.minusSeconds(alertDetails.getEvaluationPeriod());
@@ -135,6 +144,155 @@ public class AlertEvaluationService {
           triggerErrorEvent(responseDto);
         })
         .subscribe();
+  }
+
+  private void triggerFunnelEvaluation(AlertsDao.AlertDetails alertDetails) {
+    LocalTime startTime = LocalTime.now();
+    ZonedDateTime endTime = ZonedDateTime.now(ZoneId.of("UTC"));
+    ZonedDateTime startTimeWindow = endTime.minusSeconds(alertDetails.getEvaluationPeriod());
+    LocalDateTime evaluationWindowStart = startTimeWindow.toLocalDateTime();
+    LocalDateTime evaluationWindowEnd = endTime.toLocalDateTime();
+
+    alertsDao.getAlertScopesForEvaluation(alertDetails.getId())
+        .flatMap(scopes -> {
+          if (scopes.isEmpty()) {
+            log.warn("No scopes found for funnel alert id: {}", alertDetails.getId());
+            return Single.just(new ArrayList<EvaluationResult>());
+          }
+          List<Single<EvaluationResult>> singles = new ArrayList<>();
+          for (AlertsDao.AlertScopeDetails scope : scopes) {
+            singles.add(evaluateFunnelScope(alertDetails, scope));
+          }
+          return Single.zip(singles, results -> {
+            List<EvaluationResult> list = new ArrayList<>();
+            for (Object r : results) {
+              list.add((EvaluationResult) r);
+            }
+            return list;
+          });
+        })
+        .doOnSuccess(results -> {
+          for (EvaluationResult result : results) {
+            AlertEvaluationResponseDto responseDto = AlertEvaluationResponseDto.builder()
+                .alert(alertDetails)
+                .scopeId(result.getScopeId())
+                .evaluationResult(result.getEvaluationResult())
+                .timeTaken(Duration.between(startTime, LocalTime.now()).toSeconds())
+                .evaluationStartTime(DateTimeUtil.utcToIstTime(evaluationWindowStart).format(formatter))
+                .evaluationEndTime(DateTimeUtil.utcToIstTime(evaluationWindowEnd).format(formatter))
+                .status(Constants.QUERY_COMPLETED_STATUS)
+                .state(result.getState())
+                .build();
+            triggerSuccessEvent(responseDto);
+          }
+        })
+        .doOnError(error -> {
+          log.error("Error in funnel alert evaluation for alert id: {}", alertDetails.getId(), error);
+          AlertEvaluationResponseDto responseDto = AlertEvaluationResponseDto.builder()
+              .alert(alertDetails)
+              .timeTaken(Duration.between(startTime, LocalTime.now()).toSeconds())
+              .error(error.getMessage())
+              .build();
+          triggerErrorEvent(responseDto);
+        })
+        .subscribe();
+  }
+
+  private Single<EvaluationResult> evaluateFunnelScope(AlertsDao.AlertDetails alertDetails,
+                                                       AlertsDao.AlertScopeDetails scope) {
+    List<Map<String, Object>> alerts = parseConditionsArray(scope.getConditions());
+    long funnelId;
+    try {
+      funnelId = Long.parseLong(scope.getName());
+    } catch (NumberFormatException e) {
+      log.warn("Funnel alert scope name is not a valid funnel id: {}", scope.getName());
+      return Single.just(buildFunnelNoDataResult(scope.getId(), alerts));
+    }
+
+    return funnelResultsDao.queryLatest(alertDetails.getProjectId(), funnelId)
+        .map(rows -> buildFunnelEvaluationResult(alertDetails, scope, alerts, rows))
+        .onErrorReturn(err -> {
+          log.error("Error querying funnel results for alert {} scope {}: {}",
+              alertDetails.getId(), scope.getId(), err.getMessage());
+          return buildFunnelNoDataResult(scope.getId(), alerts);
+        });
+  }
+
+  private EvaluationResult buildFunnelEvaluationResult(AlertsDao.AlertDetails alertDetails,
+                                                       AlertsDao.AlertScopeDetails scope,
+                                                       List<Map<String, Object>> alerts,
+                                                       List<FunnelResultRow> rows) {
+    if (rows == null || rows.isEmpty() || alerts == null || alerts.isEmpty()) {
+      return buildFunnelNoDataResult(scope.getId(), alerts);
+    }
+    FunnelResultRow lastStep = rows.get(rows.size() - 1);
+    Double conversion = lastStep.getConversionPct();
+    Float conversionVal = conversion == null ? null : conversion.floatValue();
+    Float dropVal = conversionVal == null ? null : 100.0f - conversionVal;
+
+    Map<String, Boolean> variableValues = new HashMap<>();
+    Map<String, Float> metricReadings = new HashMap<>();
+
+    for (Map<String, Object> alert : alerts) {
+      String alias = (String) alert.get("alias");
+      String metric = (String) alert.get("metric");
+      String operator = (String) alert.get("metric_operator");
+      Object thresholdObj = alert.get("threshold");
+      if (alias == null || metric == null || operator == null || thresholdObj == null) {
+        continue;
+      }
+      Float threshold = parseThreshold(thresholdObj);
+      if (threshold == null) {
+        variableValues.put(alias, false);
+        continue;
+      }
+      Float metricValue = resolveFunnelMetricValue(metric, dropVal, conversionVal);
+      boolean isFiring = evaluateMetric(metricValue, threshold, operator);
+      if (metricValue != null) {
+        metricReadings.put(metric, metricValue);
+      }
+      variableValues.put(alias, isFiring);
+    }
+
+    boolean expressionResult =
+        ExpressionEvaluator.evaluate(alertDetails.getConditionExpression(), variableValues);
+    AlertState finalState = metricReadings.isEmpty()
+        ? AlertState.NO_DATA
+        : (expressionResult ? AlertState.FIRING : AlertState.NORMAL);
+    Map<String, Float> resultMap = metricReadings.isEmpty()
+        ? buildNoDataEvaluationResult(alerts)
+        : metricReadings;
+
+    EvaluationResult result = new EvaluationResult();
+    result.setScopeId(scope.getId());
+    result.setState(finalState);
+    result.setFiring(finalState == AlertState.FIRING);
+    result.setEvaluationResult(buildEvaluationResultJson(resultMap, variableValues, expressionResult));
+    return result;
+  }
+
+  private Float resolveFunnelMetricValue(String metric, Float dropVal, Float conversionVal) {
+    if (metric == null) {
+      return null;
+    }
+    return switch (metric.toUpperCase()) {
+      case "FUNNEL_DROP" -> dropVal;
+      case "FUNNEL_CONVERSION" -> conversionVal;
+      default -> {
+        log.warn("Unsupported metric for funnel scope: {}", metric);
+        yield null;
+      }
+    };
+  }
+
+  private EvaluationResult buildFunnelNoDataResult(Integer scopeId, List<Map<String, Object>> alerts) {
+    Map<String, Float> noData = buildNoDataEvaluationResult(alerts != null ? alerts : new ArrayList<>());
+    return EvaluationResult.builder()
+        .scopeId(scopeId)
+        .state(AlertState.NO_DATA)
+        .isFiring(false)
+        .evaluationResult(buildEvaluationResultJson(noData, new HashMap<>(), false))
+        .build();
   }
 
   private Map<QueryRequest.DataType, List<String>> groupMetricsByDataType(
@@ -927,17 +1085,15 @@ public class AlertEvaluationService {
               alertsDao.getScopeState(responseDto.getScopeId()),
               alertsDao.getAlertScopesForEvaluation(responseDto.getAlert().getId()),
               (previousState, scopes) -> {
-                AlertsDao.AlertScopeDetails matchedScope = scopes.stream()
+                String scopeName = scopes.stream()
                     .filter(scope -> scope.getId().equals(responseDto.getScopeId()))
+                    .map(AlertsDao.AlertScopeDetails::getName)
                     .findFirst()
-                    .orElse(null);
-
-                String scopeName = matchedScope != null ? matchedScope.getName() : "Unknown Scope";
-                String scopeConditions = matchedScope != null ? matchedScope.getConditions() : null;
+                    .orElse("Unknown Scope");
 
                 Float metricReading = extractMetricReading(responseDto.getEvaluationResult());
 
-                createIncidentIfRequired(responseDto.getState(), responseDto, metricReading, scopeName, scopeConditions, previousState);
+                createIncidentIfRequired(responseDto.getState(), responseDto, metricReading, scopeName, previousState);
                 return true;
               })
           .flatMap(result -> updateScopeState(responseDto.getScopeId(), responseDto.getState()))

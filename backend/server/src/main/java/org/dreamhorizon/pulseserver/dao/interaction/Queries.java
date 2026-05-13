@@ -49,7 +49,8 @@ public class Queries {
         + " arraySort(arrayFilter(x -> x != '', groupUniqArray(Platform)))         AS platforms\n"
         + " FROM otel.otel_traces\n"
         + " WHERE ProjectId = '" + pid + "'\n"
-        + " AND Timestamp >= now() - INTERVAL 60 DAY";
+        + " AND Timestamp >= now() - INTERVAL 30 DAY" +
+        " SETTINGS use_query_cache = true, query_cache_ttl = 86400, query_cache_nondeterministic_function_handling = 'save';";
   }
 
   static String escapeChStringLiteral(String s) {

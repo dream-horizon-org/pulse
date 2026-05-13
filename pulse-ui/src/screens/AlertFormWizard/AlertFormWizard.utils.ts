@@ -149,6 +149,9 @@ export function transformAlertDetailsToFormData(
     APP_VITALS: AlertScopeType.AppVitals,
     app_vitals: AlertScopeType.AppVitals,
     AppVitals: AlertScopeType.AppVitals,
+    FUNNEL: AlertScopeType.Funnel,
+    funnel: AlertScopeType.Funnel,
+    Funnel: AlertScopeType.Funnel,
   };
 
   const mappedScope = backendToFrontend[alertDetails.scope] || null;

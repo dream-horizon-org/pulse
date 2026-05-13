@@ -647,7 +647,8 @@ INSERT INTO scope_types (name, label) VALUES
     ('interaction', 'Interactions'),
     ('network_api', 'Network APIs'),
     ('screen', 'Screen'),
-    ('app_vitals', 'App Vitals');
+    ('app_vitals', 'App Vitals'),
+    ('funnel', 'Funnels');
 
 -- Insert interaction scope metrics
 INSERT INTO alert_metrics (name, label, scope) VALUES
@@ -720,6 +721,11 @@ INSERT INTO alert_metrics (name, label, scope) VALUES
     ('DURATION_P50', 'Duration P50 (ms)', 'network_api'),
     ('ERROR_RATE', 'Error Rate (%)', 'network_api'),
     ('NET_COUNT', 'Total Network Requests', 'network_api');
+
+-- Insert funnel scope metrics
+INSERT INTO alert_metrics (name, label, scope) VALUES
+  ('FUNNEL_DROP', 'Funnel Drop-off (%)', 'funnel'),
+  ('FUNNEL_CONVERSION', 'Funnel Conversion (%)', 'funnel');
 
 -- Grant privileges (adjust as needed for your environment)
 -- GRANT ALL PRIVILEGES ON pulse_db.* TO 'pulse_user'@'%' IDENTIFIED BY 'pulse_password';
