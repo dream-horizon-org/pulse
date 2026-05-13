@@ -58,10 +58,50 @@ describe("VitalCard", () => {
       </MantineProvider>,
     );
 
-    // Good, NI, and Poor percentages should be rendered
+    // Good, NI, and Poor percentages should be rendered as whole numbers
     expect(container.textContent).toContain("Good: 60%");
     expect(container.textContent).toContain("NI: 25%");
     expect(container.textContent).toContain("Poor: 15%");
+  });
+
+  it("should round percentages to at most 1 decimal place", () => {
+    const { container } = render(
+      <MantineProvider>
+        <VitalCard
+          name="FCP"
+          p75={1500}
+          goodPct={85.71428571428571}
+          needsImprovementPct={0}
+          poorPct={14.285714285714286}
+        />
+      </MantineProvider>,
+    );
+
+    expect(container.textContent).toContain("Good: 85.7%");
+    expect(container.textContent).toContain("NI: 0%");
+    expect(container.textContent).toContain("Poor: 14.3%");
+    expect(container.textContent).not.toContain("85.71428");
+    expect(container.textContent).not.toContain("14.2857");
+    expect(container.textContent).not.toContain("0.0%");
+  });
+
+  it("should render whole-number percentages without a trailing .0", () => {
+    const { container } = render(
+      <MantineProvider>
+        <VitalCard
+          name="CLS"
+          p75={0.05}
+          goodPct={100}
+          needsImprovementPct={0}
+          poorPct={0}
+        />
+      </MantineProvider>,
+    );
+
+    expect(container.textContent).toContain("Good: 100%");
+    expect(container.textContent).toContain("NI: 0%");
+    expect(container.textContent).toContain("Poor: 0%");
+    expect(container.textContent).not.toContain("100.0%");
   });
 
   it("should render green badge for good rating", () => {

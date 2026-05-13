@@ -5,6 +5,7 @@ import {
   getVitalRating,
 } from "../../WebVitals.constants";
 import { ratingToColorName } from "../utils/ratingToColor";
+import { formatPercent } from "../../../../utils";
 import classes from "./VitalCard.module.css";
 
 export function VitalCard({
@@ -63,13 +64,13 @@ export function VitalCard({
           </Progress.Root>
           <Group justify="space-between" mt="xs" gap="xs">
             <Text size="xs" c="green">
-              Good: {goodPct}%
+              Good: {formatPercent(goodPct)}
             </Text>
             <Text size="xs" c="yellow">
-              NI: {needsImprovementPct}%
+              NI: {formatPercent(needsImprovementPct)}
             </Text>
             <Text size="xs" c="red">
-              Poor: {poorPct}%
+              Poor: {formatPercent(poorPct)}
             </Text>
           </Group>
         </Box>
