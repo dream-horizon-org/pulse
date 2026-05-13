@@ -289,12 +289,10 @@ export function ScreenDetail(_props: ScreenDetailProps) {
           <SimpleGrid cols={{ base: 1, lg: 3 }} spacing="md">
             <TimeSpentGraph
               avgTimeSpent={engagementData?.avgTimeSpent ?? null}
-              avgLoadTime={engagementData?.avgLoadTime ?? null}
               trendData={
                 engagementData?.trendData.map((d) => ({
                   timestamp: d.timestamp,
                   avgTimeSpent: d.avgTimeSpent,
-                  avgLoadTime: d.avgLoadTime,
                 })) || []
               }
               isLoading={isLoadingEngagement}
@@ -396,44 +394,52 @@ export function ScreenDetail(_props: ScreenDetailProps) {
                       : "N/A"}
                   </Text>
                 </Box>
-                <Box className={vitalsClasses.statItem}>
-                  <Group gap={4} wrap="nowrap" align="center" justify="center">
-                    <Text className={vitalsClasses.statLabel}>
-                      Time to Interactive
-                    </Text>
-                    <Tooltip
-                      label="Average time to interactive: mean of screen interactive durations for this screen in the selected range."
-                      withArrow
-                      multiline
-                      w={260}
-                    >
-                      <IconInfoCircle
-                        size={13}
-                        style={{
-                          opacity: 0.5,
-                          cursor: "help",
-                          flexShrink: 0,
-                        }}
-                      />
-                    </Tooltip>
-                  </Group>
-                  <Text
-                    className={vitalsClasses.statValue}
-                    c={
-                      engagementData?.avgTimeToInteractive !== null &&
-                      engagementData?.avgTimeToInteractive !== undefined
-                        ? "teal"
-                        : "dimmed"
-                    }
-                  >
-                    {engagementData?.avgTimeToInteractive !== null &&
-                    engagementData?.avgTimeToInteractive !== undefined
-                      ? engagementData.avgTimeToInteractive >= 1
-                        ? `${engagementData.avgTimeToInteractive.toFixed(1)}s`
-                        : `${(engagementData.avgTimeToInteractive * 1000).toFixed(0)}ms`
-                      : "N/A"}
-                  </Text>
-                </Box>
+                {engagementData?.avgTimeToInteractive !== null &&
+                  engagementData?.avgTimeToInteractive !== undefined && (
+                    <Box className={vitalsClasses.statItem}>
+                      <Group
+                        gap={4}
+                        wrap="nowrap"
+                        align="center"
+                        justify="center"
+                      >
+                        <Text className={vitalsClasses.statLabel}>
+                          Time to Interactive
+                        </Text>
+                        <Tooltip
+                          label="Average time to interactive: mean of screen interactive durations for this screen in the selected range."
+                          withArrow
+                          multiline
+                          w={260}
+                        >
+                          <IconInfoCircle
+                            size={13}
+                            style={{
+                              opacity: 0.5,
+                              cursor: "help",
+                              flexShrink: 0,
+                            }}
+                          />
+                        </Tooltip>
+                      </Group>
+                      <Text
+                        className={vitalsClasses.statValue}
+                        c={
+                          engagementData?.avgTimeToInteractive !== null &&
+                          engagementData?.avgTimeToInteractive !== undefined
+                            ? "teal"
+                            : "dimmed"
+                        }
+                      >
+                        {engagementData?.avgTimeToInteractive !== null &&
+                        engagementData?.avgTimeToInteractive !== undefined
+                          ? engagementData.avgTimeToInteractive >= 1
+                            ? `${engagementData.avgTimeToInteractive.toFixed(1)}s`
+                            : `${(engagementData.avgTimeToInteractive * 1000).toFixed(0)}ms`
+                          : "N/A"}
+                      </Text>
+                    </Box>
+                  )}
               </Box>
             </Box>
           </Box>
