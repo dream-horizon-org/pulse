@@ -89,6 +89,8 @@ class TenantMapperTest {
       assertTrue(result.getIsActive());
       assertEquals("gcp-123", result.getGcpTenantId());
       assertEquals("test.example.com", result.getDomainName());
+      // Tier is populated by TenantRestResponseFactory, not MapStruct
+      assertNull(result.getTier());
     }
 
     @Test

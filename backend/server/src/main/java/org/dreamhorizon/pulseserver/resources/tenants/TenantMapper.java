@@ -27,6 +27,7 @@ public abstract class TenantMapper {
   public abstract UpdateTenantRequest toUpdateTenantRequest(String tenantId, UpdateTenantRestRequest request);
 
   @Mapping(target = "tenantRole", ignore = true)
+  @Mapping(target = "tier", ignore = true)
   public abstract TenantRestResponse toTenantRestResponse(Tenant tenant);
 
   public abstract List<TenantRestResponse> toTenantRestResponseList(List<Tenant> tenants);

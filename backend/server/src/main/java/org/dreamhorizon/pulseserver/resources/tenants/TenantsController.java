@@ -3,6 +3,8 @@ package org.dreamhorizon.pulseserver.resources.tenants;
 import com.google.inject.Inject;
 import com.google.inject.Provider;
 import io.jsonwebtoken.Claims;
+import io.reactivex.rxjava3.core.Flowable;
+import io.reactivex.rxjava3.core.Maybe;
 import io.reactivex.rxjava3.core.Single;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
@@ -47,6 +49,7 @@ public class TenantsController {
   private final TenantService tenantService;
   private final JwtService jwtService;
   private final Provider<OpenFgaService> openFgaServiceProvider;
+  private final TenantRestResponseFactory tenantRestResponseFactory;
 
   private String extractUserIdFromAuthorization(String authorization) {
     if (authorization == null || !authorization.startsWith("Bearer ")) {
@@ -99,9 +102,9 @@ public class TenantsController {
       @NotNull @PathParam("tenantId") String tenantId
   ) {
     return tenantService.getTenant(tenantId)
-        .map(mapper::toTenantRestResponse)
-        .switchIfEmpty(io.reactivex.rxjava3.core.Single.error(
-            new RuntimeException("Tenant not found: " + tenantId)))
+        .switchIfEmpty(Maybe.error(new RuntimeException("Tenant not found: " + tenantId)))
+        .toSingle()
+        .flatMap(tenantRestResponseFactory::toResponseWithTier)
         .to(RestResponse.jaxrsRestHandler());
   }
 
@@ -149,7 +152,7 @@ public class TenantsController {
                     openFgaService.assignTenantRole(userId, createdTenant.getTenantId(), "admin")
                         .toSingleDefault(createdTenant));
           })
-          .map(mapper::toTenantRestResponse);
+          .flatMap(tenantRestResponseFactory::toResponseWithTier);
     }).to(RestResponse.jaxrsRestHandler());
   }
 
@@ -167,7 +170,11 @@ public class TenantsController {
 
     return flowable
         .toList()
-        .map(mapper::toTenantRestResponseList)
+        .flatMap(
+            tenants ->
+                Flowable.fromIterable(tenants)
+                    .concatMapSingle(tenantRestResponseFactory::toResponseWithTier)
+                    .toList())
         .flatMap(tenants -> enrichTenantRoles(tenants, callerUserId))
         .map(
             tenants ->
@@ -187,7 +194,7 @@ public class TenantsController {
       @NotNull @Valid UpdateTenantRestRequest request
   ) {
     return tenantService.updateTenant(mapper.toUpdateTenantRequest(tenantId, request))
-        .map(mapper::toTenantRestResponse)
+        .flatMap(tenantRestResponseFactory::toResponseWithTier)
         .to(RestResponse.jaxrsRestHandler());
   }
 

@@ -2,8 +2,7 @@ package org.dreamhorizon.pulseserver.resources.tenants;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -11,6 +10,7 @@ import com.google.inject.Provider;
 import io.jsonwebtoken.Claims;
 import io.reactivex.rxjava3.core.Completable;
 import io.reactivex.rxjava3.core.Single;
+import io.reactivex.rxjava3.core.Maybe;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -22,6 +22,7 @@ import org.dreamhorizon.pulseserver.resources.tenants.models.TenantRestResponse;
 import org.dreamhorizon.pulseserver.service.JwtService;
 import org.dreamhorizon.pulseserver.service.OpenFgaService;
 import org.dreamhorizon.pulseserver.service.tenant.TenantService;
+import org.dreamhorizon.pulseserver.service.tier.TierService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -50,12 +51,21 @@ class TenantsControllerTest {
   @Mock
   private Claims claims;
 
+  @Mock
+  private TierService tierService;
+
+  private TenantRestResponseFactory tenantRestResponseFactory;
+
   private TenantsController controller;
 
   @BeforeEach
   void setUp() {
-    controller = new TenantsController(tenantService, jwtService, openFgaServiceProvider);
+    tenantRestResponseFactory = new TenantRestResponseFactory(tierService);
+    controller =
+        new TenantsController(
+            tenantService, jwtService, openFgaServiceProvider, tenantRestResponseFactory);
     when(openFgaServiceProvider.get()).thenReturn(openFgaService);
+    when(tierService.getTierNameById(any())).thenReturn(Maybe.just("free"));
   }
 
   private <T> Response<T> await(CompletionStage<Response<T>> stage) {
@@ -86,6 +96,7 @@ class TenantsControllerTest {
           .tenantId("tenant-123")
           .name(tenantName)
           .description("Test Description")
+          .tierId(1)
           .isActive(true)
           .build();
 
@@ -104,6 +115,7 @@ class TenantsControllerTest {
       assertThat(response.getData()).isNotNull();
       assertThat(response.getData().getTenantId()).isEqualTo("tenant-123");
       assertThat(response.getData().getName()).isEqualTo(tenantName);
+      assertThat(response.getData().getTier()).isEqualTo("free");
 
       verify(openFgaService).assignTenantRole(userId, "tenant-123", "admin");
     }
