@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Guidance for Claude Code in this repo. This is the **map**; per-area conventions live in `.cursor/rules/*.mdc` (auto-loaded by file type via the `.claude/rules/` symlink).
+Guidance for Claude Code in this repo. This is the **map**; per-area conventions live in `.pulse-ai-shared/rules/*.mdc` (auto-loaded by file type; also reachable as `.cursor/rules/` and `.claude/rules/` via symlinks).
 
 ## What Pulse Is
 
@@ -107,7 +107,7 @@ Map task → skill → relevant rule(s). Run the skill rather than freelancing.
 
 ## Workflows, Skills, Agents, Commands
 
-`.claude/{skills,agents,commands,rules}/` are symlinks into `.cursor/` — single source of truth shared with Cursor.
+`.cursor/{skills,agents,commands,rules}/` and `.claude/{skills,agents,commands,rules}/` symlink to `.pulse-ai-shared/` — single canonical copy for both tools.
 
 - **Skills** (`.cursor/skills/`) — prefer these over freelancing: `add-api-endpoint`, `add-ui-screen`, `add-ui-component`, `add-ai-sub-agent`, `add-alert-metric`, `clickhouse-migration`, `deploy-service`, `pr-review`, `pulse-web-sdk-sanity`.
 - **Sub-agents** (`.cursor/agents/`) — delegate by area: `backend-engineer`, `frontend-engineer`, `ai-agent-engineer`, `mobile-sdk-engineer`, `web-sdk-guardian`, `devops-engineer`, `data-analyst`, `debugger`, `pr-reviewer`, `unit-test-author`, `backend-test-runner`, `mock-server-maintainer`.

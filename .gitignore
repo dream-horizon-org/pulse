@@ -13,6 +13,7 @@ lib/
 #.claude/*
 !.claude/CLAUDE.md
 .cursor/hooks/state/
+.claude/hooks/state/
 .cursor/plans/
 .terraform/
 *.tfstate
