@@ -286,6 +286,15 @@ export class SessionProvider {
   private _memSession: { id: string; tsMs: number; startMs: number } | null =
     null;
 
+  /**
+   * True when the current session keys are confirmed present in localStorage.
+   * When false (zombie: reads ok but writes fail, or SSR), reads bypass localStorage
+   * and use _memSession to prevent stale values from causing repeated re-rotation.
+   * Set true by _writeSession success or constructor reuse; cleared by _clearSession
+   * or any write failure.
+   */
+  private _lsWritable = false;
+
   constructor(
     inactivityTimeoutMs?: number,
     maxSessionLifetimeMs?: number,
@@ -345,10 +354,12 @@ export class SessionProvider {
           // of how the navigation arrived.  The sessionStorage flags are still written so
           // clone detection works for other purposes.
           this._sessionReused = true;
-          // Hydrate _memSession immediately so _readSessionId/Ts/Start return from memory
-          // for the rest of this page load — avoids re-hitting localStorage and prevents
-          // zombie localStorage (reads ok, writes fail) from corrupting a future rotation.
+          // Hydrate _memSession from localStorage values read above. Also mark _lsWritable
+          // true — the session keys ARE in localStorage (we just read them), so subsequent
+          // reads should go to localStorage (allows inactivity-simulation tests to work by
+          // backdating pulse_session_ts directly).
           this._memSession = { id: existingId, tsMs: existingTs, startMs: existingStart };
+          this._lsWritable = true;
           void hasCloneFlag; // read above, still useful for future clone-specific logic
           void hasTabSession;
         }
@@ -444,41 +455,42 @@ export class SessionProvider {
   // ---- Private storage helpers (use localStorage for cross-tab sharing) ----
 
   private _readSessionId(): string | null {
-    // Memory takes priority once set — prevents zombie localStorage (reads ok, writes fail)
-    // from overwriting a freshly rotated session ID that only exists in memory.
-    if (this._memSession) return this._memSession.id;
-    if (typeof window === "undefined") return null;
+    // Use memory when writes have failed (zombie localStorage: reads ok but writes fail).
+    // In that state _lsWritable=false and localStorage has stale keys from the previous
+    // session; reading them would return the old expired ID and trigger re-rotation.
+    if (this._memSession && !this._lsWritable) return this._memSession.id;
+    if (typeof window === "undefined") return this._memSession?.id ?? null;
     try {
       return localStorage.getItem(SESSION_ID_KEY);
     } catch (err: unknown) {
       swallowStorageError("readSessionId", err);
-      return null;
+      return this._memSession?.id ?? null;
     }
   }
 
   private _readSessionTs(): number {
-    if (this._memSession) return this._memSession.tsMs;
-    if (typeof window === "undefined") return 0;
+    if (this._memSession && !this._lsWritable) return this._memSession.tsMs;
+    if (typeof window === "undefined") return this._memSession?.tsMs ?? 0;
     try {
       const ts = localStorage.getItem(SESSION_TS_KEY);
       // Stored as nanoseconds; convert to ms
-      return ts ? Math.floor(parseInt(ts, 10) / 1_000_000) : 0;
+      return ts ? Math.floor(parseInt(ts, 10) / 1_000_000) : (this._memSession?.tsMs ?? 0);
     } catch (err: unknown) {
       swallowStorageError("readSessionTs", err);
-      return 0;
+      return this._memSession?.tsMs ?? 0;
     }
   }
 
   private _readSessionStart(): number {
-    if (this._memSession) return this._memSession.startMs;
-    if (typeof window === "undefined") return 0;
+    if (this._memSession && !this._lsWritable) return this._memSession.startMs;
+    if (typeof window === "undefined") return this._memSession?.startMs ?? 0;
     try {
       const ts = localStorage.getItem(SESSION_START_KEY);
       // Stored as nanoseconds; convert to ms
-      return ts ? Math.floor(parseInt(ts, 10) / 1_000_000) : 0;
+      return ts ? Math.floor(parseInt(ts, 10) / 1_000_000) : (this._memSession?.startMs ?? 0);
     } catch (err: unknown) {
       swallowStorageError("readSessionStart", err);
-      return 0;
+      return this._memSession?.startMs ?? 0;
     }
   }
 
@@ -492,6 +504,7 @@ export class SessionProvider {
       startMs: startTs ? Math.floor(startTs / 1_000_000) : nowMs,
     };
     if (typeof window === "undefined") {
+      this._lsWritable = false;
       this._emittedEndForSession = null;
       return;
     }
@@ -499,7 +512,9 @@ export class SessionProvider {
       localStorage.setItem(SESSION_ID_KEY, id);
       localStorage.setItem(SESSION_TS_KEY, String(nowNs));
       localStorage.setItem(SESSION_START_KEY, String(startTs ?? nowNs));
+      this._lsWritable = true; // confirmed in localStorage — test backdating now works
     } catch (err: unknown) {
+      this._lsWritable = false; // writes failed — reads must use _memSession
       swallowStorageError("writeSession", err);
     }
     this._emittedEndForSession = null;
@@ -507,6 +522,7 @@ export class SessionProvider {
 
   private _clearSession(): void {
     this._memSession = null;
+    this._lsWritable = false;
     if (typeof window === "undefined") {
       this._emittedEndForSession = null;
       return;
@@ -788,6 +804,10 @@ export class SessionProvider {
     try {
       localStorage.setItem(SESSION_TS_KEY, String(nowMs * 1_000_000));
     } catch (err: unknown) {
+      // Activity ts write failed — localStorage may have become unwritable mid-session.
+      // Mark _lsWritable false so subsequent reads use _memSession (prevents false expiry
+      // from a stale ts in localStorage being read on the next getSessionId() call).
+      this._lsWritable = false;
       swallowStorageError("updateActivityTs", err);
     }
   }
