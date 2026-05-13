@@ -346,9 +346,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@dreamhorizonorg/pulse-web@file:../../dreamhorizonorg-pulse-web-0.1.0-alpha.1.tgz::locator=ecommerce-demo%40workspace%3Aexamples%2Fecommerce-demo":
+"@dreamhorizonorg/pulse-web@file:../../dreamhorizonorg-pulse-web-0.1.0-alpha.1.tgz::locator=nextjs-demo%40workspace%3Aexamples%2Fnextjs-demo":
   version: 0.1.0-alpha.1
-  resolution: "@dreamhorizonorg/pulse-web@file:../../dreamhorizonorg-pulse-web-0.1.0-alpha.1.tgz#../../dreamhorizonorg-pulse-web-0.1.0-alpha.1.tgz::hash=2ed021&locator=ecommerce-demo%40workspace%3Aexamples%2Fecommerce-demo"
+  resolution: "@dreamhorizonorg/pulse-web@file:../../dreamhorizonorg-pulse-web-0.1.0-alpha.1.tgz#../../dreamhorizonorg-pulse-web-0.1.0-alpha.1.tgz::hash=10504d&locator=nextjs-demo%40workspace%3Aexamples%2Fnextjs-demo"
   dependencies:
     "@opentelemetry/api": "npm:^1.9.0"
     "@opentelemetry/api-logs": "npm:^0.217.0"
@@ -380,7 +380,7 @@ __metadata:
       optional: true
     react-router-dom:
       optional: true
-  checksum: 10c0/48fa5b06b67eb6bce465e9149a5d8492ed66691a738abb29270dc2cd25ac91e83434aaadf6193d21cd16333b42b95f7e4a3195145567385c21974a7181a4f8ea
+  checksum: 10c0/a5d6b355534ebc7132b969d99f876ebae98681473123cf1977366ff8e35f306d07671304dd21d2f16d7ad7ff947dde6a310514dc68d86d93d37cf8f93f5e6a6e
   languageName: node
   linkType: hard
 
@@ -2721,7 +2721,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "ecommerce-demo@workspace:examples/ecommerce-demo"
   dependencies:
-    "@dreamhorizonorg/pulse-web": "file:../../dreamhorizonorg-pulse-web-0.1.0-alpha.1.tgz"
+    "@dreamhorizonorg/pulse-web": "workspace:*"
     "@playwright/test": "npm:^1.47.0"
     "@types/react": "npm:^18.3.0"
     "@types/react-dom": "npm:^18.3.0"
@@ -4014,7 +4014,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "nextjs-demo@workspace:examples/nextjs-demo"
   dependencies:
-    "@dreamhorizonorg/pulse-web": "workspace:*"
+    "@dreamhorizonorg/pulse-web": "file:../../dreamhorizonorg-pulse-web-0.1.0-alpha.1.tgz"
     "@playwright/test": "npm:^1.48.0"
     "@types/node": "npm:^22.0.0"
     "@types/react": "npm:^18.3.0"
