@@ -16,6 +16,7 @@ import { PulseRouterEvents } from "@dreamhorizonorg/pulse-web/react/router";
 import { PulseDebugPanel } from "./components/PulseDebugPanel";
 import { ScreenNavigationLogger } from "./components/ScreenNavigationLogger";
 import { EcommerceErrorFallback } from "./components/EcommerceErrorFallback";
+import { WebVitalsStressHarness } from "./components/WebVitalsStressHarness";
 import { CartProvider } from "./hooks/useCart";
 
 /**
@@ -277,28 +278,34 @@ export default function App() {
               minHeight: "calc(100vh - 56px)",
             }}
           >
-            <Suspense
-              fallback={
-                <div
-                  style={{ padding: 32, textAlign: "center", color: "#94a3b8" }}
-                >
-                  Loading…
-                </div>
-              }
-            >
-              <Routes>
-                <Route path="/" element={<Home />} />
-                <Route path="/products" element={<Products />} />
-                <Route path="/products/:id" element={<ProductDetail />} />
-                <Route path="/cart" element={<Cart />} />
-                <Route path="/checkout" element={<Checkout />} />
-                <Route path="/network-lab" element={<NetworkLab />} />
-                <Route
-                  path="/error-demo"
-                  element={<ErrorDemo key={errorLabKey} />}
-                />
-              </Routes>
-            </Suspense>
+            <WebVitalsStressHarness>
+              <Suspense
+                fallback={
+                  <div
+                    style={{
+                      padding: 32,
+                      textAlign: "center",
+                      color: "#94a3b8",
+                    }}
+                  >
+                    Loading…
+                  </div>
+                }
+              >
+                <Routes>
+                  <Route path="/" element={<Home />} />
+                  <Route path="/products" element={<Products />} />
+                  <Route path="/products/:id" element={<ProductDetail />} />
+                  <Route path="/cart" element={<Cart />} />
+                  <Route path="/checkout" element={<Checkout />} />
+                  <Route path="/network-lab" element={<NetworkLab />} />
+                  <Route
+                    path="/error-demo"
+                    element={<ErrorDemo key={errorLabKey} />}
+                  />
+                </Routes>
+              </Suspense>
+            </WebVitalsStressHarness>
           </main>
           <PulseDebugPanel />
         </CartProvider>
