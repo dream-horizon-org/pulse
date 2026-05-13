@@ -466,11 +466,12 @@ class AlertControllerTest {
     void shouldHaveAllExpectedValues() {
       AlertScope[] scopes = AlertScope.values();
 
-      assertEquals(4, scopes.length);
+      assertEquals(5, scopes.length);
       assertNotNull(AlertScope.valueOf("interaction"));
       assertNotNull(AlertScope.valueOf("network_api"));
       assertNotNull(AlertScope.valueOf("screen"));
       assertNotNull(AlertScope.valueOf("app_vitals"));
+      assertNotNull(AlertScope.valueOf("funnel"));
     }
   }
 

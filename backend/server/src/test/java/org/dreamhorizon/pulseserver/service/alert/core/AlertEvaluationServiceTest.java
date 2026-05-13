@@ -31,6 +31,7 @@ import java.util.Map;
 import java.util.Set;
 import org.dreamhorizon.pulseserver.constant.Constants;
 import org.dreamhorizon.pulseserver.dao.AlertsDao;
+import org.dreamhorizon.pulseserver.dao.productAnalysis.funnelresults.FunnelResultsDao;
 import org.dreamhorizon.pulseserver.resources.alert.enums.AlertState;
 import org.dreamhorizon.pulseserver.resources.alert.models.AlertEvaluationResponseDto;
 import org.dreamhorizon.pulseserver.resources.alert.models.EvaluateAlertResponseDto;
@@ -76,6 +77,9 @@ class AlertEvaluationServiceTest {
   @Mock
   private MetricOperatorProcessor metricOperatorProcessor;
 
+  @Mock
+  private FunnelResultsDao funnelResultsDao;
+
   // Use real ObjectMapper for coverage
   private ObjectMapper realObjectMapper = new ObjectMapper();
   private AlertEvaluationService alertEvaluationService;
@@ -88,7 +92,8 @@ class AlertEvaluationServiceTest {
         metricOperatorFactory,
         realObjectMapper,
         vertx,
-        null
+        null,
+        funnelResultsDao
     );
   }
 

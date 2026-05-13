@@ -4,7 +4,7 @@
 
 import React from "react";
 import { Box, Text, ThemeIcon } from "@mantine/core";
-import { IconClick, IconDeviceMobile, IconHeartRateMonitor, IconApi } from "@tabler/icons-react";
+import { IconClick, IconDeviceMobile, IconHeartRateMonitor, IconApi, IconFilter } from "@tabler/icons-react";
 import { AlertScopeType } from "../../../types";
 import classes from "./StepSelectScope.module.css";
 
@@ -23,6 +23,7 @@ const ICONS: Record<AlertScopeType, React.ElementType> = {
   [AlertScopeType.Screen]: IconDeviceMobile,
   [AlertScopeType.AppVitals]: IconHeartRateMonitor,
   [AlertScopeType.NetworkAPI]: IconApi,
+  [AlertScopeType.Funnel]: IconFilter,
 };
 
 // Default icon fallback
