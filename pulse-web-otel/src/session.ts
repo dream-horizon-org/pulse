@@ -279,6 +279,13 @@ export class SessionProvider {
   /** Timestamp when page was hidden (ms), or null if not hidden */
   _hiddenAtMs: number | null = null;
 
+  /**
+   * In-memory session fallback for environments where localStorage is blocked (SecurityError).
+   * Mirrors the three localStorage keys so getSessionId() does not loop when writes fail.
+   */
+  private _memSession: { id: string; tsMs: number; startMs: number } | null =
+    null;
+
   constructor(
     inactivityTimeoutMs?: number,
     maxSessionLifetimeMs?: number,
@@ -338,6 +345,10 @@ export class SessionProvider {
           // of how the navigation arrived.  The sessionStorage flags are still written so
           // clone detection works for other purposes.
           this._sessionReused = true;
+          // Hydrate _memSession immediately so _readSessionId/Ts/Start return from memory
+          // for the rest of this page load — avoids re-hitting localStorage and prevents
+          // zombie localStorage (reads ok, writes fail) from corrupting a future rotation.
+          this._memSession = { id: existingId, tsMs: existingTs, startMs: existingStart };
           void hasCloneFlag; // read above, still useful for future clone-specific logic
           void hasTabSession;
         }
@@ -433,6 +444,9 @@ export class SessionProvider {
   // ---- Private storage helpers (use localStorage for cross-tab sharing) ----
 
   private _readSessionId(): string | null {
+    // Memory takes priority once set — prevents zombie localStorage (reads ok, writes fail)
+    // from overwriting a freshly rotated session ID that only exists in memory.
+    if (this._memSession) return this._memSession.id;
     if (typeof window === "undefined") return null;
     try {
       return localStorage.getItem(SESSION_ID_KEY);
@@ -443,6 +457,7 @@ export class SessionProvider {
   }
 
   private _readSessionTs(): number {
+    if (this._memSession) return this._memSession.tsMs;
     if (typeof window === "undefined") return 0;
     try {
       const ts = localStorage.getItem(SESSION_TS_KEY);
@@ -455,6 +470,7 @@ export class SessionProvider {
   }
 
   private _readSessionStart(): number {
+    if (this._memSession) return this._memSession.startMs;
     if (typeof window === "undefined") return 0;
     try {
       const ts = localStorage.getItem(SESSION_START_KEY);
@@ -467,8 +483,18 @@ export class SessionProvider {
   }
 
   private _writeSession(id: string, startTs?: number): void {
-    if (typeof window === "undefined") return;
-    const nowNs = Date.now() * 1_000_000;
+    const nowMs = Date.now();
+    const nowNs = nowMs * 1_000_000;
+    // Always update memory so reads fall back correctly when localStorage is blocked.
+    this._memSession = {
+      id,
+      tsMs: nowMs,
+      startMs: startTs ? Math.floor(startTs / 1_000_000) : nowMs,
+    };
+    if (typeof window === "undefined") {
+      this._emittedEndForSession = null;
+      return;
+    }
     try {
       localStorage.setItem(SESSION_ID_KEY, id);
       localStorage.setItem(SESSION_TS_KEY, String(nowNs));
@@ -480,7 +506,11 @@ export class SessionProvider {
   }
 
   private _clearSession(): void {
-    if (typeof window === "undefined") return;
+    this._memSession = null;
+    if (typeof window === "undefined") {
+      this._emittedEndForSession = null;
+      return;
+    }
     try {
       localStorage.removeItem(SESSION_ID_KEY);
       localStorage.removeItem(SESSION_TS_KEY);
@@ -651,7 +681,11 @@ export class SessionProvider {
       const lifetimeOk = age <= this.maxSessionLifetimeMs;
 
       if (inactivityOk && lifetimeOk) {
-        // Session is valid — update activity timestamp
+        // Ensure _memSession is populated (may not be set if this is first getSessionId()
+        // call and the constructor reused path was not taken).
+        if (!this._memSession) {
+          this._memSession = { id: existingId, tsMs: lastTs, startMs: sessionStartMs };
+        }
         this._updateActivityTs();
         return existingId;
       }
@@ -746,9 +780,13 @@ export class SessionProvider {
   }
 
   private _updateActivityTs(): void {
+    const nowMs = Date.now();
+    if (this._memSession) {
+      this._memSession = { ...this._memSession, tsMs: nowMs };
+    }
     if (typeof window === "undefined") return;
     try {
-      localStorage.setItem(SESSION_TS_KEY, String(Date.now() * 1_000_000));
+      localStorage.setItem(SESSION_TS_KEY, String(nowMs * 1_000_000));
     } catch (err: unknown) {
       swallowStorageError("updateActivityTs", err);
     }

@@ -241,6 +241,11 @@ test.describe("@M1 identity persistence", () => {
     expect(getAttr(log.attributes, "installation.id")).toBeTruthy();
   });
 
+  // TODO(future): session.id should also fall back to sessionStorage (tier 2) before in-memory
+  // so a page reload within the same tab continues the same session even when localStorage is
+  // blocked (WKWebView ITP / sandboxed iframe). sessionStorage survives same-tab reloads but
+  // not new tabs, which matches web session semantics (PostHog/Sentry pattern).
+  // When implemented, add a test here: block localStorage, reload page, assert same session.id.
   test("installation.id falls back to in-memory when both localStorage and sessionStorage are blocked", async ({
     page,
     otlp,

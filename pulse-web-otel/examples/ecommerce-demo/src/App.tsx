@@ -1,21 +1,20 @@
-import React, { lazy, Suspense, useEffect, useMemo, useState } from "react";
-import {
-  BrowserRouter,
-  Routes,
-  Route,
-  Link,
-  useLocation,
-} from "react-router-dom";
+import React, {
+  lazy,
+  Suspense,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useState,
+} from "react";
+import { Routes, Route, Link, useLocation } from "react-router-dom";
 import {
   Pulse,
   PulseDataCollectionConsent,
   PulseLogLevel,
 } from "@dreamhorizonorg/pulse-web";
-import { PulseProvider } from "@dreamhorizonorg/pulse-web/react";
 import { PulseRouterEvents } from "@dreamhorizonorg/pulse-web/react/router";
 import { PulseDebugPanel } from "./components/PulseDebugPanel";
 import { ScreenNavigationLogger } from "./components/ScreenNavigationLogger";
-import { EcommerceErrorFallback } from "./components/EcommerceErrorFallback";
 import { WebVitalsStressHarness } from "./components/WebVitalsStressHarness";
 import { CartProvider } from "./hooks/useCart";
 
@@ -251,59 +250,60 @@ export default function App() {
   }, []);
 
   return (
-    <BrowserRouter>
-        {/* Expose for E2E shutdown test (m1.spec.ts) */}
-        <PulseRouterEvents skipInitial={false} />
-        <ScreenNavigationLogger />
-        <_PulseDemoUserSetup config={userSetupConfig} />
-        <CartProvider>
-          <NavBar />
-          <main
-            style={{
-              maxWidth: 1200,
-              margin: "0 auto",
-              padding: "32px 24px",
-              minHeight: "calc(100vh - 56px)",
-            }}
-          >
-            <WebVitalsStressHarness>
-              <Suspense
-                fallback={
-                  <div
-                    style={{
-                      padding: 32,
-                      textAlign: "center",
-                      color: "#94a3b8",
-                    }}
-                  >
-                    Loading…
-                  </div>
-                }
-              >
-                <Routes>
-                  <Route path="/" element={<Home />} />
-                  <Route path="/products" element={<Products />} />
-                  <Route path="/products/:id" element={<ProductDetail />} />
-                  <Route path="/cart" element={<Cart />} />
-                  <Route path="/checkout" element={<Checkout />} />
-                  <Route path="/network-lab" element={<NetworkLab />} />
-                  <Route
-                    path="/error-demo"
-                    element={<ErrorDemo key={errorLabKey} />}
-                  />
-                </Routes>
-              </Suspense>
-            </WebVitalsStressHarness>
-          </main>
-          <PulseDebugPanel />
-        </CartProvider>
-    </BrowserRouter>
+    <>
+      {/* Expose for E2E shutdown test (m1.spec.ts) */}
+      <_PulseExpose />
+      <PulseRouterEvents skipInitial={false} />
+      <ScreenNavigationLogger />
+      <_PulseDemoUserSetup config={userSetupConfig} />
+      <CartProvider>
+        <NavBar />
+        <main
+          style={{
+            maxWidth: 1200,
+            margin: "0 auto",
+            padding: "32px 24px",
+            minHeight: "calc(100vh - 56px)",
+          }}
+        >
+          <WebVitalsStressHarness>
+            <Suspense
+              fallback={
+                <div
+                  style={{
+                    padding: 32,
+                    textAlign: "center",
+                    color: "#94a3b8",
+                  }}
+                >
+                  Loading…
+                </div>
+              }
+            >
+              <Routes>
+                <Route path="/" element={<Home />} />
+                <Route path="/products" element={<Products />} />
+                <Route path="/products/:id" element={<ProductDetail />} />
+                <Route path="/cart" element={<Cart />} />
+                <Route path="/checkout" element={<Checkout />} />
+                <Route path="/network-lab" element={<NetworkLab />} />
+                <Route
+                  path="/error-demo"
+                  element={<ErrorDemo key={errorLabKey} />}
+                />
+              </Routes>
+            </Suspense>
+          </WebVitalsStressHarness>
+        </main>
+        <PulseDebugPanel />
+      </CartProvider>
+    </>
   );
 }
 
 /** Exposes `Pulse` on window for E2E tests. No UI rendered. */
 function _PulseExpose(): null {
-  React.useEffect(() => {
+  useLayoutEffect(() => {
     (window as unknown as Record<string, unknown>)["Pulse"] = Pulse;
   }, []);
   return null;
