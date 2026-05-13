@@ -159,7 +159,7 @@ Planning docs use **click.target** / **click.label**; shipped OTLP keys follow s
 | C-N1 | negative | CLICK gate off | install | no listener, no emit | `clicks-instrumentation.test.ts` |
 | C-N2 | negative | dead click on `body` | click | `click.type=dead`, no widget attrs | `clicks-instrumentation.test.ts` |
 | C-E1 | edge | rage disabled | singleton taps | immediate emit path | `click-rage-buffer.test.ts`, R5 |
-| C-E2 | edge | SSR / no `window` | install | no-op | assumptions §2 |
+| C-E2 | edge | SSR / no `window` | install | no-op | `clicks-instrumentation-ssr.test.ts` |
 | C-E3 | edge | uninstall | click after dispose | silent | `clicks-instrumentation.test.ts` |
 
 ### `src/__tests__/clicks-instrumentation.test.ts`

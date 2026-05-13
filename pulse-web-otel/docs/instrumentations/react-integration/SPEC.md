@@ -129,7 +129,7 @@ flowchart TD
 | ID | Type | Given | When | Then | Tests |
 |----|------|-------|------|------|-------|
 | RE-P1 | positive | provider mounted | first render | single `Pulse.init` | `pulse-provider.test.tsx` |
-| RE-N1 | negative | no BrowserRouter | `PulseRouterEvents` | runtime guard / doc gap | `pulse-router-events.test.tsx` |
+| RE-N1 | negative | no BrowserRouter | `PulseRouterEvents` | runtime guard / doc gap | `use-router-tracking.test.tsx` (React router); Next-only: `pulse-router-events.test.tsx` |
 | RE-E1 | edge | `shutdownOnUnmount` true | unmount | shutdown microtask | provider tests |
 | RE-E2 | edge | pathname change | navigation | `setScreenName` called | router tests |
 

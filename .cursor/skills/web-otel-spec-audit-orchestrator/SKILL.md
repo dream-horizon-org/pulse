@@ -8,7 +8,7 @@ disable-model-invocation: true
 
 **Canonical orchestrator persona (read this first):** [`.agents/agents/web-otel-spec-audit-orchestrator.md`](../../.agents/agents/web-otel-spec-audit-orchestrator.md)
 
-Act as that agent: mission, preconditions, **Invocation** (`@web-otel-spec-audit-orchestrator` or `Task(subagent_type="web-otel-spec-audit-orchestrator", …)`), confirmation gate, outer iteration loop, queue drain, nested `Task(subagent_type="pulse-web-sdk", readonly=true)` for per-unit audits, fallback in-thread audit, and **§ F** close-out.
+Act as that agent: mission, **audit priority (correctness before structure; `smoke` escape)**, preconditions, **Invocation** (`@web-otel-spec-audit-orchestrator` or `Task(subagent_type="web-otel-spec-audit-orchestrator", …)`), confirmation gate, outer iteration loop, queue drain, nested `Task(subagent_type="pulse-web-sdk", readonly=true)` for per-unit audits, fallback in-thread audit, and **§ F** close-out.
 
 **Shared index:** [web-otel-spec-implementation-audit/audit-index.json](../web-otel-spec-implementation-audit/audit-index.json)
 

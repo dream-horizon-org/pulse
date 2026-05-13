@@ -177,10 +177,10 @@ The SDK fetches remote config from `pulse-otel-config` S3 via CloudFront (`/conf
 
 | ID | Type | Given | When | Then | Tests |
 |----|------|-------|------|------|-------|
-| I-P1 | positive | ALLOWED + valid apiKey | `Pulse.init` | SDK ready, exports resolve | integration-simplified / manual |
-| I-N1 | negative | consent not ALLOWED | init | no collectors | sdk-core consent |
-| I-E1 | edge | double `Pulse.init` | second call | no-op | `sdk.ts` behaviour |
-| I-E2 | edge | CORS not allowlisted | remote config fetch | 403 fallback defaults | R5 |
+| I-P1 | positive | ALLOWED + valid apiKey | `Pulse.init` | SDK ready, exports resolve | `integration-simplified-init.test.ts`, `sdk-lifecycle.test.ts` |
+| I-N1 | negative | consent not ALLOWED | init | no collectors | `sdk-lifecycle.test.ts` |
+| I-E1 | edge | double `Pulse.init` | second call | no-op | `sdk-lifecycle.test.ts` |
+| I-E2 | edge | CORS not allowlisted | remote config fetch | 403 fallback defaults | **gap** — no dedicated Vitest; see `remote-config.ts` / `m1.test.ts` fetch mocks |
 
 Integration smoke: `src/__tests__/integration-simplified-*.test.ts`, `package-exports.test.ts` (paths per repo).
 

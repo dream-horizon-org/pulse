@@ -123,7 +123,7 @@ flowchart TD
 |----|------|-------|------|------|-------|
 | NX-P1 | positive | App Router client | pathname change | tracking hook updates screen name | `use-next-app-router-tracking.test.tsx` |
 | NX-P2 | positive | build with withPulseConfig | webpack emit | maps uploaded | `with-pulse-config.test.ts` |
-| NX-E1 | edge | `pathname === null` | prerender | hook skips | source comments |
+| NX-E1 | edge | `pathname === null` | prerender | hook skips | **gap** — behaviour documented in source (`use-next-app-router-tracking.ts`); add Vitest when prerender path is automated |
 | NX-E2 | edge | Pages Router | first load | `routeChangeComplete` gap documented | `use-next-pages-router-tracking.test.tsx` |
 
 ### Vitest files

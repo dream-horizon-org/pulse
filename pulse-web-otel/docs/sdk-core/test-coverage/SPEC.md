@@ -151,7 +151,7 @@ Config surface tests — verifies Web SDK matches Android's minimal public API:
 
 | ID | Type | Given | When | Then | Tests |
 |----|------|-------|------|------|-------|
-| TC-P1 | positive | contributor runs | `yarn test:run` | green on touched suites | local |
+| TC-P1 | positive | contributor runs | `yarn test:run` | green on touched suites | **Process** — local developer / CI; not a single Vitest file |
 | TC-E1 | edge | PR touches web SDK | `e2e:web-sdk-gates` | Chromium gate green | package script |
 
 ### 6.2 Catalogue

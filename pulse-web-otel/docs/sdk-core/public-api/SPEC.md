@@ -74,7 +74,7 @@ flowchart TD
 | `Pulse.setUserProperty(key, value)` | Set single user property (`pulse.user.<key>`). |
 | `Pulse.setUserProperties(props)` | Batch set user properties. |
 | `Pulse.clearUserIdentity()` | Clear persisted user ID and all properties. |
-| `Pulse.trackEvent(name, attrs?, timestampMs?)` | Custom event signal (`pulse.type = custom_event`). |
+| `Pulse.trackEvent(name, attrs?, timestampMs?)` | Custom event signal (`pulse.type = custom_event`). **Also** requires `FeatureGate.isEnabled(PulseFeature.CUSTOM_EVENTS)` in addition to consent / init guards. |
 | `Pulse.reportException(error, attrs?)` | Manual non-fatal (`pulse.type = non_fatal`, WARN severity). |
 | `Pulse.reportDeviceCrash(error, attrs?)` | Fatal crash signal (`pulse.type = device.crash`, FATAL severity). |
 | `Pulse.trackNonFatal(name, attrs?)` | Named non-fatal event (`pulse.type = non_fatal`). |

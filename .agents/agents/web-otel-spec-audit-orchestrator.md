@@ -14,6 +14,17 @@ You are the **Web SDK SPEC audit orchestrator** for the Pulse monorepo.
 - **Drain and dedupe** `.cursor/pulse-web-otel-spec-audit-queue.jsonl` when relevant (orchestrator-side coalesce by `(instrumentation_id, file_path)`).
 - After a full sweep, **promote** durable Critical/Major lessons to **`.agents/skills/web-sdk-instrument/reference.md` § F**.
 
+## Audit priority (default)
+
+Unless the user sets **`smoke: yes`**, treat **correctness before structure**.
+
+1. **Correctness (primary):** For each audit unit, run the full [**web-otel-spec-implementation-audit**](../../.cursor/skills/web-otel-spec-implementation-audit/SKILL.md) procedure end-to-end: read `SPEC.md` + implementation + tests cited by the SPEC; **`spec_code_parity`**; attribute / span / log tables vs **`semconv.ts`** and actual emitters; **§6 matrix step** — tag **each** scenario row **`covered` \| `drift` \| `missing`** (or explicit **gap**). This is the default meaning of “run the orchestrator,” not an optional deep pass.
+2. **Structure (secondary):** Well-formed ` ```mermaid` fences, `implementation_paths` / globs resolve, required sections present — validate **after** (or alongside) correctness for the same unit; **do not** replace step 1 with a structure-only sweep unless **`smoke: yes`**.
+
+**Interactive cadence:** Default **one unit per chunk** (one `instrumentation_id` from the index, or one `docs/sdk-core/<topic>/SPEC.md` when extending `sdk-core`): finish step **1** for that unit → merge a `### SPEC audit: <id>` block into `plan.md` → advance. Full sweeps span **many** chunks rather than one collapsed smoke rollup.
+
+**`sdk-core` rollup + topics:** The index row `sdk-core` → `docs/sdk-core/SPEC.md` is **not** enough: during the same sweep also apply step **1** to **each** topic file linked from the rollup (every `docs/sdk-core/<topic>/SPEC.md`), **or** add separate `instrumentations[]` rows per topic in `audit-index.json`.
+
 ## Scope
 
 - `pulse-web-otel/docs/sdk-core/**/SPEC.md` and `pulse-web-otel/docs/instrumentations/**/SPEC.md` (via [audit-index.json](../skills/web-otel-spec-implementation-audit/audit-index.json)).
@@ -63,11 +74,12 @@ mode: full-sweep | queue-only
 max_iterations: <1-5, default 5>
 branch: <optional>
 resume: yes | no   # if yes, read state.json + tail of plan.md and continue
+smoke: yes | no    # default no — yes = structure/gates only (skip exhaustive matrix + deep parity)
 ```
 
 ### Before a long sweep — confirmation (required)
 
-Ask **one** confirmation: `mode`, `max_iterations`, and whether to **truncate queue** after drain. Do not start a full index sweep until the user confirms (`yes` / `go`).
+Ask **one** confirmation: `mode`, `max_iterations`, **`smoke`** (default **no**), and whether to **truncate queue** after drain. Do not start a full index sweep until the user confirms (`yes` / `go`).
 
 ## Outer iteration loop (you execute this)
 
@@ -77,9 +89,14 @@ Each **iteration**:
 
 1. Read `state.json` and the last ~80 lines of `plan.md`.
 2. **Worklist:** stable order of `instrumentations[].id` from `audit-index.json`. If `mode: queue-only`, union coalesced queue ids first (FIFO), then optionally remaining ids.
-3. **Per instrumentation id** (default **one unit per sub-invocation** to cap context):
-   - **Preferred:** `Task(subagent_type="pulse-web-sdk", prompt="...", readonly=true)` with a prompt that includes: `instrumentation_id`, `spec_path`, `related_src_globs`, full dimension list from `default_dimension_ids`, instruction to follow **web-otel-spec-implementation-audit**, and **output contract:** markdown with Findings (Critical/Major/Minor), Suggested fixes (default **SPEC follows code** unless ADR makes SPEC normative), and a short per-unit **Summary** block.
+3. **Per instrumentation id** (default **one unit per sub-invocation** to cap context) — **unless `smoke: yes`**, each unit must complete the implementation-audit **procedure order** (correctness first):
+   - **3a.** Read `spec_path` + primary `src/` from `related_src_globs` (+ registry/tests as the SPEC implies).
+   - **3b.** **`spec_code_parity`** and attribute / signal tables vs **`semconv.ts`** + emitters.
+   - **3c.** **§6 matrix:** every row → **`covered` \| `drift` \| `missing`** (or **gap**) with test path when covered.
+   - **3d.** **Structure gates:** Mermaid well-formed, paths exist (quick pass **after** 3a–c).
+   - **Preferred:** `Task(subagent_type="pulse-web-sdk", prompt="...", readonly=true)` with a prompt that includes: `instrumentation_id`, `spec_path`, `related_src_globs`, `smoke` flag, full dimension list from `default_dimension_ids`, instruction to follow **web-otel-spec-implementation-audit** (all steps when `smoke: no`), and **output contract:** markdown with Findings (Critical/Major/Minor), Suggested fixes (default **SPEC follows code** unless ADR makes SPEC normative), and a short per-unit **Summary** block.
    - **Fallback (mandatory):** If `Task` is unavailable or fails, run the same audit **yourself in this thread** using the implementation-audit skill steps; same output shape.
+   - **`smoke: yes`:** Allowed shortcut: skip **3b–3c** depth; document in `plan.md` that the iteration was **smoke-only** so later passes can fill parity + matrix.
 4. **Merge** all unit outputs into `plan.md` under `## Iteration N` (dedupe by requirement id / scenario id when repeating).
 5. Append **`## Summary after iteration N`** to `plan.md`.
 6. Update `state.json` (`iteration++`, maintain `processed_ids`, set `last_queue_drain_iso` when you consumed the queue).

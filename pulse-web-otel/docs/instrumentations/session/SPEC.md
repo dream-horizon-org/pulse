@@ -104,9 +104,9 @@ Subscribes to `SessionProvider` events and emits OTLP logs with semconv keys (`P
 | ID | Type | Given | When | Then | Tests |
 |----|------|-------|------|------|-------|
 | SE-P1 | positive | SESSION gate on | new install | `session.start` with ids | `m1.test.ts` per sdk-core test-coverage |
-| SE-N1 | negative | feature off | init | no session logs | session instrumentation tests |
+| SE-N1 | negative | feature off | init | no session logs | `m1.test.ts` (SessionInstrumentation block / no-install paths); no dedicated registry `SESSION` gate Vitest |
 | SE-E1 | edge | long background | visibility visible after timeout | rotation + `session.end`/`session.start` | `session.ts` + persistence tests |
-| SE-E2 | edge | uninstall | provider change | subscription detached | SR3 |
+| SE-E2 | edge | uninstall | provider change | subscription detached | `m1.test.ts` — uninstall stops session events |
 
 ### 6.2 Additional suites
 

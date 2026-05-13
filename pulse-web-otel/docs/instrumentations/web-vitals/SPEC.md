@@ -101,7 +101,7 @@ flowchart TD
 | `web_vital.navigation_type` | string | `Metric.navigationType` | No | When library provides it |
 | `session.id` | string | global attrs processor | Yes | Inherited on export |
 | `screen.name` | string | global attrs processor | No | Inherited |
-| `platform` | string | Resource `os.name` | Yes | `web` |
+| `platform` | string | Resource (`os.name` and `platform` keys from `buildMergedResource`) | Yes | `web` |
 
 **`navigation_id`:** Not a dedicated attribute on this instrumentation today; navigation context may appear via **`web_vital.navigation_type`** when populated by `web-vitals`. Cross-route correlation uses **`session.id`** + **`screen.name`** + timestamps.
 

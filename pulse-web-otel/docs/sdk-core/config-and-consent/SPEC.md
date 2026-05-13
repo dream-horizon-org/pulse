@@ -57,7 +57,7 @@ flowchart TD
   Flip[Host flips consent] --> Doc[shutdown + re-init required]
 ```
 
-`Pulse.init` → `validateConfig` → `isDataCollectionAllowed` before async bootstrap — see [`../architecture-and-bootstrap/SPEC.md`](../architecture-and-bootstrap/SPEC.md).
+`Pulse.init` → `PulseWebLogger.setLevel` → empty-`apiKey` short-circuit (warn, return) → `validateConfig` (when key present) → `isDataCollectionAllowed` before async bootstrap — see [`../architecture-and-bootstrap/SPEC.md`](../architecture-and-bootstrap/SPEC.md).
 
 ---
 
@@ -105,9 +105,9 @@ Typed under `src/types/config.ts` (and related). Each key maps to `Instrumentati
 
 | Input problem | Stage | Outcome |
 |---------------|-------|---------|
-| Missing / empty `apiKey` | sync | throws before async work |
-| Missing `dataCollectionState` | sync | throws |
-| Malformed `beforeSendData` (neither function nor object with callbacks) | sync | throws |
+| Missing / empty `apiKey` | sync (`Pulse.init`) | **warn** + `Promise.resolve()` — telemetry disabled; **`validateConfig` is not called** |
+| Missing `dataCollectionState` (when `validateConfig` runs) | sync | throws (via `validateConfig`) |
+| Malformed `beforeSendData` (neither function nor object with callbacks) | sync (`validateConfig`, when reached) | throws if caller validates directly; **`Pulse.init`** logs warn + resolves — **TC-C3a** |
 | Invalid `diskBuffering` numeric fields (non-positive, non-finite) | sync | throws |
 | `DENIED` / `PENDING` consent | sync after validate | resolves without throwing; no providers |
 
@@ -124,9 +124,9 @@ Public config types re-export from `src/index.ts` as needed for host TS; authori
 | ID | Type | Given | When | Then | Tests |
 |----|------|-------|------|------|-------|
 | CC-P1 | positive | valid `apiKey` + ALLOWED | init | passes validate | `integration-simplified-init` |
-| CC-N1 | negative | missing `apiKey` | init | throws | same |
+| CC-N1 | negative | missing / empty `apiKey` | `Pulse.init` | warn + resolve; no `validateConfig` | `integration-simplified-init.test.ts` — **TC-C1** |
 | CC-N2 | negative | DENIED / PENDING | init | no init side effects | `sdk-lifecycle` |
-| CC-E1 | edge | invalid `beforeSendData` shape | init | throws validation | `integration-simplified-init` |
+| CC-E1 | edge | invalid `beforeSendData` shape | `Pulse.init` | warn + resolve (init never throws sync) | `integration-simplified-init.test.ts` — **TC-C3a** |
 
 ### 6.2 Index
 

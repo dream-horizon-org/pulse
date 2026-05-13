@@ -72,17 +72,17 @@ All `pulse.type` values are defined in `PulseWebSemconv.PulseType` (`src/semconv
 | `session.end` | Log | `SessionInstrumentation` | Background timeout or explicit shutdown |
 | `device.crash` | Log | `ErrorInstrumentation`, `PulseErrorBoundary` | `severityNumber = FATAL` |
 | `non_fatal` | Log | `ErrorInstrumentation`, `Pulse.reportException`, `Pulse.trackNonFatal` | `severityNumber = WARN` |
-| `http` | Span | `NetworkInstrumentation` | Fetch + XHR |
+| `network.<statusCode>` | Span | `NetworkInstrumentation` | Fetch + XHR; literal from `networkPulseType()` in `src/utils/network-http.ts` (e.g. `network.200`, `network.0` when status unknown) — not a fixed string `http` |
 | `app.click` | Span | `ClicksInstrumentation` | DOM click events |
 | `web_vital` | Log | `WebVitalsInstrumentation` | LCP, CLS, FID, INP, FCP, TTFB |
 | `screen_load` | Span | `NavigationInstrumentation` | Route entry; carries `tti` |
 | `screen_session` | Span | `NavigationInstrumentation` | Dwell / exit; OTLP span → `otel_traces` (not `otel_logs`; attrs applied at `span.end()`) |
 | `custom_event` | Log | `Pulse.trackEvent` | Host-app custom events |
-| `app.installation.start` | Log | `PulseSDK.emitInstallationStartIfNeeded` | First-ever install only |
+| `pulse.app.installation.start` | Log | `PulseSDK.emitInstallationStartIfNeeded` | First-ever install only; value is `PulseWebSemconv.PulseType.INSTALLATION_START` in `semconv.ts` |
 | `pulse.user.session.start` | Log | `PulseSDK.setUserId` | User identity transition |
 | `pulse.user.session.end` | Log | `PulseSDK.setUserId` | User identity transition |
 
-**`platform = 'web'` mandate:** The OTel Resource attribute `os.name` is hard-coded to `'web'` in `buildMergedResource()`. Every signal inherits this via the resource — it is not a per-signal attribute and cannot be overridden by host config.
+**`platform = 'web'` mandate:** The OTel Resource sets **`os.name = 'web'`** and **`platform = 'web'`** in `buildMergedResource()` (`src/resource.ts`). Every signal inherits these via the resource — they are not per-signal overrides and host `resourceAttributes` cannot replace `os.name` with a non-web value.
 
 ### 5.2 Shared attribute table
 

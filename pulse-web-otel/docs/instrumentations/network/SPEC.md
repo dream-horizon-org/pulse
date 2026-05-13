@@ -137,8 +137,8 @@ flowchart TD
 | N-P1 | positive | gate on | same-origin fetch | span with `pulse.type` pattern | `network-instrumentation.test.ts` |
 | N-N1 | negative | URL in ignore list | fetch to collector | no child span / skipped | R3 |
 | N-E1 | edge | CORS opaque | status 0 | `cors_error` classification | `network-http.test.ts`, §5.4 |
-| N-E2 | edge | SSR | install | no-op | §2 |
-| N-E3 | edge | uninstall | new request | not traced | uninstall path |
+| N-E2 | edge | SSR | install | no-op | `network-instrumentation.test.ts` |
+| N-E3 | edge | uninstall | new request | not traced | **gap** — double-uninstall idempotency covered in `network-instrumentation.test.ts`; no assertion yet that a fetch after uninstall stays untraced |
 
 ### `src/__tests__/network-instrumentation.test.ts` / `network-http.test.ts`
 

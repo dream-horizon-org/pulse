@@ -125,29 +125,29 @@ flowchart TD
 | `session.duration_ms` / `session.duration` | — | set on span at **`end()`** only (with exit snapshot attrs) | Dashboard convenience |
 | `url.path` / `page.title` | — | snapshot for **exited** screen at **`end()`** | Avoid post-navigation URL bleed |
 
-### 5.2 `screen_interactive` naming (**web-only** note)
+### 5.3 `screen_interactive` naming (**web-only** note)
 
 - **No standalone web span** with `pulse.type = screen_interactive` — **`tti`** is attached to **`screen_load`** on initial load when Navigation Timing allows.
 - **React Native** retains different semantics for the **same enum string** — do not assume cross-SDK identity of behaviour.
 
-### 5.3 React SPA
+### 5.4 React SPA
 
 - History hook captures React Router / client routers using History API.
 
-### 5.4 Next.js App Router
+### 5.5 Next.js App Router
 
 - Soft navigations use client-side History updates → **`screen_load`**/**`screen_session`** when pathname-backed screen name changes.
 
-### 5.5 Next.js Pages Router
+### 5.6 Next.js Pages Router
 
 - `routeChangeComplete` flows through client History events — same instrumentation once screen name updates.
 
-### 5.6 Initial vs SPA
+### 5.7 Initial vs SPA
 
 - **Initial:** Navigation Timing on **`screen_load`** span duration and attrs.
 - **SPA:** lighter **`screen_load`** (`start.type: spa`), marker span (**`startTime` ≈ `endTime`**, ~0 duration).
 
-### 5.7 BFCache restore (`pageshow`)
+### 5.8 BFCache restore (`pageshow`)
 
 - **`pagehide`** ends the prior dwell **`screen_session`** (when the browser fires it).
 - **`pageshow`** with **`persisted === true`:** emit marker **`screen_load`** (`start.type: bfcache`, **`startTime` = `endTime`** = restore instant, same ~0-duration pattern as SPA), then start a new **`screen_session`** with identity attrs at **`startSpan`** time. Call **`PulseGlobalAttributesProcessor.setScreenName`** with the restored screen name (same as SPA path) so post-restore signals are not stale.

@@ -93,7 +93,7 @@ Bootstrap shape: [`../architecture-and-bootstrap/SPEC.md`](../architecture-and-b
 
 | Violation | Expected behaviour |
 |-----------|---------------------|
-| `localStorage` throws (Safari private mode quirks) | Session/installation paths degrade where coded; tests cover partial paths — see [`../test-coverage/SPEC.md`](../test-coverage/SPEC.md). |
+| `localStorage` throws (Safari private mode quirks) | Session/installation paths degrade where coded; **no automated test** asserts throw handling — matrix **AS-E1** is **missing** until a Vitest names this path. |
 | Invalid cached SDK JSON | Treated as missing cache → `DEFAULT_SDK_CONFIG` merge. |
 
 ---
@@ -106,7 +106,7 @@ Bootstrap shape: [`../architecture-and-bootstrap/SPEC.md`](../architecture-and-b
 |----|------|-------|------|------|-------|
 | AS-P1 | positive | browser + ALLOWED | init | providers wired | `sdk-lifecycle`, `m1` |
 | AS-N1 | negative | no `window` | init | abort / no side effects | `sdk-lifecycle` SSR |
-| AS-E1 | edge | localStorage blocked | persistence paths | graceful behaviour | persistence / session tests |
+| AS-E1 | edge | localStorage blocked | persistence paths | graceful behaviour | **missing** — no Vitest asserts Safari private / `localStorage` throw; treat as **gap** until added (see §5.3) |
 
 ### 6.2 Indirect validation
 

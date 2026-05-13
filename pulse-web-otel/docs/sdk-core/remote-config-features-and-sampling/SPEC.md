@@ -72,6 +72,8 @@ flowchart TD
 - The SDK name `pulse_web_js` is not listed in `sdks`, OR
 - `sessionSampleRate === 1`
 
+When an entry matches the feature and lists `pulse_web_js` under `sdks`, **`sessionSampleRate === 1`** means the feature is fully on for that config row; values **strictly between `0` and `1`** mean probabilistic / partial session sampling (not the same as “always off” or “always on”).
+
 `sessionSampleRate === 0` disables the feature for 100% of sessions.
 
 `InstrumentationRegistry.shouldInstall(key)`:

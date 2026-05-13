@@ -100,13 +100,13 @@ Protobuf default for bandwidth; `export.format: "json"` switches OTLP JSON encod
 
 | ID | Type | Given | When | Then | Tests |
 |----|------|-------|------|------|-------|
-| XP-P1 | positive | disk buffering on | crash last session | drain replays | persistence suites |
-| XP-N1 | negative | beforeSend drops | export batch | signal omitted | exporter / hook tests |
+| XP-P1 | positive | disk buffering on | crash last session | drain replays rows | `drain-buffered-exports.test.ts` |
+| XP-N1 | negative | beforeSend drops | export batch | signal omitted | `before-send-exporter.test.ts` |
 | XP-E1 | edge | pagehide | tab closing | forceFlush | `m8.test.ts` |
 
 ### 6.2 Index
 
-[`../test-coverage/SPEC.md`](../test-coverage/SPEC.md) — `integration-simplified-init.test.ts`, persistence / beacon tests as listed there.
+[`../test-coverage/SPEC.md`](../test-coverage/SPEC.md) — `integration-simplified-init.test.ts`, [`../../../src/__tests__/drain-buffered-exports.test.ts`](../../../src/__tests__/drain-buffered-exports.test.ts), [`../../../src/__tests__/before-send-exporter.test.ts`](../../../src/__tests__/before-send-exporter.test.ts), persistence / beacon tests as listed there.
 
 ---
 

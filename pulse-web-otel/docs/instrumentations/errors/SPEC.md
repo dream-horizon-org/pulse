@@ -155,10 +155,10 @@ Global attributes (`session.id`, `screen.name`, resource) are applied by process
 |----|------|-------|------|------|-------|
 | E-P1 | positive | gate on, uncaught throw | `window` error | `device.crash`, FATAL | `m3.test.ts` TC1 |
 | E-P2 | positive | gate on | unhandled rejection | `non_fatal`, WARN | `m3.test.ts` TC2 |
-| E-N1 | negative | gate off | install | no listeners | error instrumentation tests |
-| E-N2 | negative | cross-origin script | `"Script error."` empty file | skip emit | §2 assumptions |
-| E-E1 | edge | dedupe | duplicate within 5s | suppressed | R5, `m3.test.ts` |
-| E-E2 | edge | SSR | no `window` | install no-op | §2 |
+| E-N1 | negative | gate off | install | no listeners | `errors-instrumentation-gate-and-ssr.test.ts` |
+| E-N2 | negative | cross-origin script | `"Script error."` empty file | skip emit | `m3.test.ts` TC12; §2 assumptions |
+| E-E1 | edge | dedupe | duplicate within 5s | suppressed | R5, `m3.test.ts` TC7 |
+| E-E2 | edge | SSR | no `window` | install no-op | `errors-instrumentation-gate-and-ssr.test.ts` |
 | E-E3 | edge | uninstall | subsequent error | no emit | uninstall tests |
 
 ### `src/__tests__/error-instrumentation-device-state.test.ts`

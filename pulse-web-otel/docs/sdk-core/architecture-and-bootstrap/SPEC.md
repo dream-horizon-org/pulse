@@ -31,11 +31,13 @@ Host App
   ▼
 Pulse.init(config)          ← singleton facade (src/sdk.ts)
   │
+  ├─ PulseWebLogger.setLevel(config.logLevel)
+  ├─ empty apiKey guard → warn + return (no validateConfig)
   ├─ validateConfig()        ← src/config.ts
   ├─ isDataCollectionAllowed()  ← src/consent.ts
   ├─ SessionProvider         ← src/session.ts
   ├─ UA parse + OS version   ← src/utils/ua-parser.ts  (async <200ms)
-  ├─ buildMergedResource()   ← src/resource.ts  (platform=web stamped here)
+  ├─ buildMergedResource()   ← src/resource.ts  (os.name=web, platform=web stamped here)
   │
   ├─ SdkConfigFetcher.loadCached()  ← localStorage → PulseSdkConfig
   ├─ FeatureGate(sdkConfig)         ← src/feature-gate.ts
@@ -119,15 +121,16 @@ Related: [`../config-and-consent/SPEC.md`](../config-and-consent/SPEC.md) · [`.
 Pulse.init(config)
   1. Guard: already initialized or shutting down → return Promise.resolve()
   2. Guard: currently initializing → return this.whenReady()
-  3. validateConfig(config) — throws synchronously on invalid apiKey / beforeSendData shape
-  4. PulseWebLogger.setLevel(config.logLevel)
-  5. resolveEndpointBaseUrl(apiKey, config.endpoint) → endpointBaseUrl
-  6. CONSENT GATE: isDataCollectionAllowed(config.dataCollectionState) → if false, return Promise.resolve() (zero side effects)
-  7. Set _initializing = true; begin finishInit() async chain:
+  3. PulseWebLogger.setLevel(config.logLevel ?? NONE)
+  4. Missing / blank apiKey → warn + return Promise.resolve() (**does not** call validateConfig)
+  5. try { validateConfig(config) } — throws only if reached; init catches and warns + returns Promise.resolve() on failure
+  6. resolveEndpointBaseUrl(apiKey, config.endpoint) → endpointBaseUrl
+  7. CONSENT GATE: isDataCollectionAllowed(config.dataCollectionState) → if false, return Promise.resolve() (zero side effects)
+  8. Set _initializing = true; begin finishInit() async chain:
      a. abortInitIfUnavailable() — SSR guard (window === undefined → abort)
      b. SessionProvider construction + getOrCreateInstallationId()
      c. parseUserAgent() + getOsVersionAsync() — async, <200ms, uses Client Hints if available
-     d. buildMergedResource(config, resolvedOsVersion) — OTel Resource with os.name='web'
+     d. buildMergedResource(config, resolvedOsVersion) — OTel Resource with os.name='web', platform='web'
      e. SdkConfigFetcher.loadCached() — read localStorage["pulse_sdk_config"] → PulseSdkConfig
      f. FeatureGate(sdkConfig), ExportSamplingGate(sdkConfig), PulseGlobalAttributesProcessor
      g. hydrateUserIdentity(persistedUserId, persistedUserProperties)
@@ -140,8 +143,8 @@ Pulse.init(config)
      n. InteractionInstrumentation registration
      o. SdkConfigFetcher.fetchInBackground() — fire-and-forget
      p. _initialized = true; _initializing = false
-     q. emitInstallationStartIfNeeded() — app.installation.start on first install
-  8. Promise returned from step 7 — same as whenReady()
+     q. emitInstallationStartIfNeeded() — `pulse.app.installation.start` on first install
+  9. Promise returned from step 8 — same as whenReady()
 ```
 
 ### 5.2 `Pulse.shutdown()` teardown — `PulseSDK.shutdown()` (`src/sdk.ts`)

@@ -35,7 +35,7 @@ Host App
   ▼
 Pulse.init(config)          ← src/sdk.ts
   │
-  ├─ validateConfig / consent / SessionProvider / UA / resource
+  ├─ setLevel + apiKey guard + validateConfig / consent / SessionProvider / UA / resource
   ├─ remote config cache + FeatureGate + ExportSamplingGate + processors
   ├─ createProviders + drainBufferedOtlpExports + pagehide + registry.installAll
   └─ fetchInBackground
@@ -125,7 +125,7 @@ Each topic file under `docs/sdk-core/<topic>/SPEC.md` has an expanded **§5 LLD*
 | ID | Type | Given | When | Then | Tests |
 |----|------|-------|------|------|-------|
 | SDK-P1 | positive | valid config + ALLOWED | `Pulse.init` | `isInitialized` + registry installed | `sdk-lifecycle` / `m1` per test-coverage |
-| SDK-N1 | negative | DENIED consent | init | no collectors / gated | test-coverage § consent |
+| SDK-N1 | negative | DENIED consent | init | no collectors / gated | `sdk-lifecycle.test.ts` — `shouldNoOpWhenConsentIsDenied` / `shouldNoOpWhenConsentIsPending` |
 | SDK-E1 | edge | double init | second call | idempotent | `sdk.ts` |
 | SDK-E2 | edge | pagehide | tab background | flush / persist per exporters SPEC | exporters SPEC |
 

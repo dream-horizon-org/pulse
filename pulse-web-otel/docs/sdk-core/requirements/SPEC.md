@@ -29,13 +29,13 @@ See [`../assumptions/SPEC.md`](../assumptions/SPEC.md).
 
 **R4 — Remote config:** `SdkConfigFetcher.loadCached()` reads `localStorage["pulse_sdk_config"]` synchronously at init. `fetchInBackground()` fires a `fetch` call post-init and persists a new version only if the remote version number differs.
 
-**R5 — Shutdown:** `Pulse.shutdown()` must uninstall all instrumentations, remove the `pagehide` listener, force-flush all providers, and reset the singleton so a subsequent `Pulse.init()` re-bootstraps cleanly.
+**R5 — Shutdown:** `Pulse.shutdown()` removes the `pagehide` listener (if registered), runs provider cleanup, uninstalls all instrumentations, clears the interaction handle, shuts down the session provider, awaits parallel `forceFlush` on all providers, clears provider references, resets init flags, sets logger level to `NONE`, and leaves the singleton ready so a subsequent `Pulse.init()` can bootstrap again. Exact order: [`architecture-and-bootstrap/SPEC.md`](architecture-and-bootstrap/SPEC.md) §5.2.
 
 **R6 — Session:** `SessionProvider` assigns a `session.id` UUID on construction. It rotates the session after `pageHiddenTimeoutMs` of backgrounding (**default 15 minutes**, `DEFAULT_PAGE_HIDDEN_TIMEOUT_MS` in `src/session.ts`, overridable via config). Sessions persist `installationId` and `userId` to `localStorage`. **LLD:** [`../../instrumentations/session/SPEC.md`](../../instrumentations/session/SPEC.md).
 
 **R7 — Public API:** All methods on `Pulse` must silently no-op when called before `init` completes or after `shutdown`. **Surface table:** [`../public-api/SPEC.md`](../public-api/SPEC.md).
 
-**R8 — platform=web mandate:** Every signal emitted by the SDK must carry `platform = 'web'` as an OTel Resource attribute (`os.name = 'web'`). This is set once in `buildMergedResource()` and is not overridable by the host app.
+**R8 — platform=web mandate:** Every signal must carry **`platform = 'web'`** and **`os.name = 'web'`** on the OTel Resource from `buildMergedResource()`; host config cannot override `os.name` to a non-web value.
 
 **R9 — Export sampling:** `ExportSamplingGate` evaluates session-level sampling rules at export time (not span-creation time), preserving parent/child span sampling consistency.
 
@@ -108,12 +108,12 @@ Requirements trace to modules in [`../architecture-and-bootstrap/SPEC.md`](../ar
 | **R2** | Early return **before** `SessionProvider` or resource construction; no `LoggerProvider` until allowed path. |
 | **R3** | `InstrumentationRegistry.shouldInstall` combines `InstrumentationConfig` + `FeatureGate.isEnabled(PulseFeature.*)`. |
 | **R4** | `localStorage` key `pulse_sdk_config`; merge only bumps when remote `version` increases (see fetcher). |
-| **R5** | Uninstall order: instrumentations → `pagehide` listener → `forceFlush` → reset singleton fields — see `sdk.ts`. |
+| **R5** | Teardown order: remove `pagehide` listener → `_providerCleanup()` → `registry.uninstallAll()` → `interactionInstrumentation = undefined` → `sessionProvider.shutdown()` → `await` parallel `forceFlush` (traces / logs / metrics) → clear provider refs → `_initialized` / flags reset → `PulseWebLogger.setLevel(NONE)` — see `sdk.ts` `shutdown()` and [`../architecture-and-bootstrap/SPEC.md`](../architecture-and-bootstrap/SPEC.md) §5.2. |
 | **R6** | `SessionProvider` visibility + timeout; OTLP emission in `instrumentations/session.ts` — session SPEC. |
 | **R7** | Public methods delegate to `PulseSDK` and guard on `_initialized` / shutdown flags. |
-| **R8** | `buildMergedResource` forces `os.name = web`; processors must not overwrite with host strings. |
+| **R8** | `buildMergedResource` forces `os.name = web` and `platform = web`; processors must not overwrite with host strings. |
 | **R9** | `ExportSamplingGate` on export processors — drops whole batches consistently. |
-| **R10** | `drainBufferedOtlpExports` before `installAll` so replayed payloads hit live exporters. |
+| **R10** | `drainBufferedOtlpExports` before `installAll` so replayed payloads hit live exporters. Unit coverage: [`../../../src/__tests__/drain-buffered-exports.test.ts`](../../../src/__tests__/drain-buffered-exports.test.ts). End-to-end “crash session → next `Pulse.init`” replay is still integration-heavy — optional E2E / `sdk-lifecycle` extension. |
 
 ### 5.3 Non-functional — LLD notes
 
@@ -136,7 +136,7 @@ Requirements trace to modules in [`../architecture-and-bootstrap/SPEC.md`](../ar
 | R3 | edge | feature off in remote | installAll | instrumentation skipped | `m1` FeatureGate |
 | R5 | positive | initialized | shutdown | listeners cleared | `sdk-lifecycle` |
 | R6 | positive | background > timeout | visible | session rotation | `m1`, session SPEC |
-| R10 | positive | IDB batches exist | init | drain replay | persistence tests |
+| R10 | positive | IDB batches exist | init | drain replay | `drain-buffered-exports.test.ts` (drain helper); full init wiring still `sdk.ts` + persistence |
 
 ### 6.2 Index
 
