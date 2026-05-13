@@ -29,8 +29,6 @@ import { TableSkeleton } from "../../../components/Skeletons";
 import { CreateTenantModal } from "./components";
 import classes from "./TenantSelector.module.css";
 
-const SHOW_CREATE_TENANT_ACTION = false;
-
 export function TenantSelector() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -190,17 +188,15 @@ export function TenantSelector() {
         actions={
           systemRole === SYSTEM_ROLES.SUPERADMIN || systemRole === SYSTEM_ROLES.INTERNAL_VIEWER ? (
             <Box style={{ display: "flex", gap: "8px" }}>
-              {SHOW_CREATE_TENANT_ACTION ? (
-                <Button
-                  variant="light"
-                  color="teal"
-                  size="sm"
-                  leftSection={<IconPlus size={14} />}
-                  onClick={() => setIsCreateTenantOpen(true)}
-                >
-                  Create Tenant
-                </Button>
-              ) : null}
+              <Button
+                variant="light"
+                color="teal"
+                size="sm"
+                leftSection={<IconPlus size={14} />}
+                onClick={() => setIsCreateTenantOpen(true)}
+              >
+                Create Tenant
+              </Button>
               {systemRole === SYSTEM_ROLES.SUPERADMIN ? (
                 <Button
                   variant="light"
