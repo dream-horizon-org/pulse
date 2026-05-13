@@ -18,6 +18,8 @@ State plainly:
 
 If the user gave an area, focus the rest of the walkthrough on it. Otherwise cover the four most common (backend, ui, ai, deploy) lightly.
 
+Canonical agents, commands, rules, and skills live under **`.agents/`**; **`.cursor/`** and **`.claude/`** symlink to that tree (same files, two entry points).
+
 For the focused area, surface:
 - The architecture conventions file in `.cursor/rules/` (e.g. `java-backend.mdc` for backend, `react-frontend.mdc` for ui, etc.)
 - The matching engineer subagent (e.g. `backend-engineer.md` in `.cursor/agents/`) — explain it auto-invokes when working in that subtree.
@@ -60,7 +62,7 @@ Highlight only the rules that bite hardest:
 
 Point at:
 - `CLAUDE.md` (root) — the canonical project context.
-- `.cursor/rules/` — conventions per file type.
+- `.agents/rules/` (also visible as `.cursor/rules/` and `.claude/rules/`) — conventions per file type.
 - `pulse-web-otel/web-sdk-plan/WEB-SDK-AGENT-CONTEXT.md` — if they're on web-sdk.
 - The `/review-my-changes` slash command before pushing.
 - The `/find-existing <thing>` slash command before building anything new.

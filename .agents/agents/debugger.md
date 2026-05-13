@@ -62,9 +62,9 @@ Note: Integrated AI — `cd deploy && ./scripts/logs.sh ai`, health `curl -sf ht
 1. Run `docker ps` to find alerts-cron container and port
 2. Check alerts-cron health: `curl http://localhost:<port>/healthcheck`
 3. Verify alert definition in MySQL `alerts` table
-3. Check `alert_evaluation_history` for recent runs
-4. Verify metric query in ClickHouse returns data
-5. Check notification channel configuration
+4. Check `alert_evaluation_history` for recent runs
+5. Verify metric query in ClickHouse returns data
+6. Check notification channel configuration
 
 ## Related Skills
 

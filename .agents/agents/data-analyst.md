@@ -94,7 +94,7 @@ Aggregated monthly usage by `project_id` / `month` / `source`; fed by MVs from l
 
 ### Materialized Columns (all tables)
 
-These columns are extracted from Map attributes at insert time. **Always use these instead of accessing
+These columns are extracted from Map attributes at insert time (or stored as native columns on `stack_trace_events` where noted). **Always use these instead of accessing
 ResourceAttributes/SpanAttributes directly** — they are faster and indexed.
 
 | Column              | Source Key                                       | Available In                                |
@@ -102,20 +102,23 @@ ResourceAttributes/SpanAttributes directly** — they are faster and indexed.
 | `ProjectId`         | `project.id`                                     | all                                         |
 | `PulseType`         | `pulse.type`                                     | all                                         |
 | `SessionId`         | `session.id`                                     | all                                         |
-| `AppVersion`        | `app.version` (ResourceAttributes)               | `otel_traces`                               |
-| `AppVersion`        | `app.build_name` (ResourceAttributes)            | `otel_logs`, `stack_trace_events`           |
+| `AppVersion`        | `app.version` (ResourceAttributes)               | `otel_traces` (materialized)              |
+| `AppVersion`        | `app.build_name` (ResourceAttributes)            | `otel_logs` (materialized)                |
+| `AppVersion`        | *(stored column at ingest)*                      | `stack_trace_events`                      |
 | `SDKVersion`        | `telemetry.sdk.version` (ResourceAttributes)     | `otel_traces`                               |
 | `SDKVersion`        | `rum.sdk.version` (ResourceAttributes)           | `otel_logs`                                 |
 | `Platform`          | `os.name`                                        | all                                         |
 | `OsVersion`         | `os.version`                                     | all                                         |
-| `GeoState`          | `geo.region.iso_code`                            | all                                         |
-| `GeoCountry`        | `geo.country.iso_code`                           | all                                         |
+| `GeoState`          | `geo.region.iso_code`                            | `otel_traces`, `otel_logs`, `otel_metrics_*` (not on `stack_trace_events`) |
+| `GeoCountry`        | `geo.country.iso_code`                           | same as `GeoState`                          |
 | `DeviceModel`       | `device.model.identifier` (ResourceAttributes)   | `otel_traces`                               |
-| `DeviceModel`       | `device.model.name` (ResourceAttributes)         | `otel_logs`, `stack_trace_events`           |
-| `NetworkProvider`   | `network.carrier.name`                           | all                                         |
+| `DeviceModel`       | `device.model.name` (ResourceAttributes)         | `otel_logs`                                 |
+| `DeviceModel`       | *(stored column at ingest)*                      | `stack_trace_events`                      |
+| `NetworkProvider`   | `network.carrier.name`                           | `otel_traces`, `otel_logs`, `otel_metrics_*` (not on `stack_trace_events`) |
 | `UserId`            | `user.id`                                        | traces, logs, metrics                       |
 | `AppInstallationId` | `app.installation.id`                            | traces, logs, stack traces                  |
-| `MeteringSessionId` | `pulse.metering.session.id`                      | traces, logs, metrics, `stack_trace_events` |
+| `MeteringSessionId` | `metering.session.id` (SpanAttributes)           | `otel_traces`                               |
+| `MeteringSessionId` | `pulse.metering.session.id` (LogAttributes / metric `Attributes`) | `otel_logs`, `otel_metrics_*`, `stack_trace_events` |
 | `HttpUrl`           | `http.url` (fallback `url.full`)                 | `otel_traces`                               |
 | `HttpHost`          | `net.peer.name` (fallback `server.address`)      | `otel_traces`                               |
 | `HttpMethod`        | `http.method` (fallback `http.request.method`)   | `otel_traces`                               |

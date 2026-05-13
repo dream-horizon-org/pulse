@@ -70,16 +70,16 @@ Always use materialized columns over map access:
 | Column | Source attribute |
 |---|---|
 | `ProjectId` | `ResourceAttributes['project.id']` |
-| `PulseType` | `SpanAttributes/LogAttributes['pulse.type']` |
+| `PulseType` | `SpanAttributes` / `LogAttributes['pulse.type']` |
 | `Platform` | `ResourceAttributes['os.name']` |
-| `AppVersion` | `ResourceAttributes['app.build_name']` |
-| `SessionId` | `SpanAttributes/LogAttributes['session.id']` |
+| `AppVersion` | Traces: `ResourceAttributes['app.version']`. Logs: `ResourceAttributes['app.build_name']`. `stack_trace_events`: use column `AppVersion`. |
+| `SessionId` | `SpanAttributes` / `LogAttributes['session.id']` |
 
 Every query must include: `Timestamp` range, `LIMIT`, `ProjectId` filter. Use tenant credentials — never admin. Multi-tenant isolation via row policies per project. Detail: `clickhouse-sql.mdc`.
 
 ## Architecture Pointers
 
-Per-area conventions live in `.cursor/rules/*.mdc`. Highlights only:
+Per-area conventions live in `.agents/rules/*.mdc` (the same files appear under `.cursor/rules/` and `.claude/rules/` via symlinks). Highlights only:
 
 - **Backend (`backend/server/`, `backend/pulse-alerts-cron/`)** — Layer order: Controller (`resources/<domain>/`) → Service (`service/<domain>/`, RxJava3) → DAO (`dao/<domain>/` with `Queries.java`) → SQL. Guice DI, Lombok, MapStruct, `ServiceError`-coded errors. Primary CRUD store: **MySQL** (`vertx-mysql-client`); ClickHouse is OTEL/analytics only. Multi-tenancy: `tenant/TenantContext` + `TenantFilter` resolve `projectId`/user from JWT. Authorization: **OpenFGA** (`config/OpenFgaConfig.java`). **JaCoCo: 80% on changed files.** Detail: `java-backend.mdc`, `alerts-cron.mdc`, `java-testing.mdc`.
 - **Frontend (`pulse-ui/`)** — Folder-per-screen/component (`Name.tsx` + `Name.module.css` + `index.ts`). State: TanStack Query (server) + Zustand (client). Routing config in `routes/routes.tsx`; URL constants in `constants/Constants.ts`. **API: always `makeRequest<T>()` from `helpers/makeRequest/`** — never raw fetch. Detail: `react-frontend.mdc`, `react-testing.mdc`.

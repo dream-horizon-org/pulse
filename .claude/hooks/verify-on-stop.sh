@@ -1,6 +1,8 @@
 #!/bin/bash
 # Stop hook. Compiles touched modules and asks Claude to fix any errors before
 # stopping. Honors stop_hook_active to avoid infinite loops.
+# Note: Maven/TypeScript checks can take noticeable time on large trees; failures
+# are summarized here — run full commands locally for full compiler output.
 #
 # Output contract:
 #   {}                                         => allow stop

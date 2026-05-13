@@ -45,7 +45,7 @@ Heatmap DDL lives in `backend/db/prod/clickhouse/otel.interaction_heatmaps_daily
 
 ## Materialized Columns
 
-These columns are extracted from Map attributes at insert time. **Always use these instead of accessing the Map columns directly** — they are faster and indexed.
+These columns are extracted from Map attributes at insert time (exceptions: some dimensions on `stack_trace_events` are native columns filled at ingest — see rows marked *stored column*). **Always use these instead of accessing the Map columns directly** — they are faster and indexed.
 
 | Column | Source Key | Source Map | Available In |
 |--------|-----------|------------|--------------|
@@ -53,19 +53,22 @@ These columns are extracted from Map attributes at insert time. **Always use the
 | `PulseType` | `pulse.type` | SpanAttributes (traces) / LogAttributes (logs, stack traces) | all tables |
 | `SessionId` | `session.id` | SpanAttributes / LogAttributes | all tables |
 | `AppVersion` | `app.version` | ResourceAttributes | `otel_traces` |
-| `AppVersion` | `app.build_name` | ResourceAttributes | `otel_logs`, `stack_trace_events` |
+| `AppVersion` | `app.build_name` | ResourceAttributes | `otel_logs` (materialized) |
+| `AppVersion` | *(stored column)* | populated at ingest | `stack_trace_events` — use column `AppVersion`; DDL does not define a `MATERIALIZED` expression from maps |
 | `SDKVersion` | `telemetry.sdk.version` | ResourceAttributes | `otel_traces` |
 | `SDKVersion` | `rum.sdk.version` | ResourceAttributes | `otel_logs` |
 | `Platform` | `os.name` | ResourceAttributes | all tables |
 | `OsVersion` | `os.version` | ResourceAttributes | all tables |
-| `GeoState` | `geo.region.iso_code` | SpanAttributes / LogAttributes | all tables |
-| `GeoCountry` | `geo.country.iso_code` | SpanAttributes / LogAttributes | all tables |
+| `GeoState` | `geo.region.iso_code` | SpanAttributes (traces) / LogAttributes (logs) / `Attributes` (metrics) | `otel_traces`, `otel_logs`, `otel_metrics_*` — **not** on `stack_trace_events` (no materialized geo columns) |
+| `GeoCountry` | `geo.country.iso_code` | SpanAttributes (traces) / LogAttributes (logs) / `Attributes` (metrics) | same as `GeoState` |
 | `DeviceModel` | `device.model.identifier` | ResourceAttributes | `otel_traces` |
-| `DeviceModel` | `device.model.name` | ResourceAttributes | `otel_logs`, `stack_trace_events` |
-| `NetworkProvider` | `network.carrier.name` | SpanAttributes / LogAttributes | all tables |
+| `DeviceModel` | `device.model.name` | ResourceAttributes | `otel_logs` (materialized) |
+| `DeviceModel` | *(stored column)* | populated at ingest | `stack_trace_events` — use column `DeviceModel` |
+| `NetworkProvider` | `network.carrier.name` | SpanAttributes / LogAttributes / `Attributes` (metrics) | `otel_traces`, `otel_logs`, `otel_metrics_*` — **not** on `stack_trace_events` |
 | `UserId` | `user.id` | SpanAttributes / LogAttributes | traces, logs, metrics |
 | `AppInstallationId` | `app.installation.id` | SpanAttributes / LogAttributes | traces, logs, stack traces |
-| `MeteringSessionId` | `pulse.metering.session.id` | SpanAttributes / LogAttributes | traces, logs, metrics, `stack_trace_events` |
+| `MeteringSessionId` | `metering.session.id` | SpanAttributes | `otel_traces` only |
+| `MeteringSessionId` | `pulse.metering.session.id` | LogAttributes / `Attributes` (metrics) | `otel_logs`, `otel_metrics_*`, `stack_trace_events` |
 | `HttpUrl` | `http.url` (fallback `url.full`) | SpanAttributes | `otel_traces` |
 | `HttpHost` | `net.peer.name` (fallback `server.address`) | SpanAttributes | `otel_traces` |
 | `HttpMethod` | `http.method` (fallback `http.request.method`) | SpanAttributes | `otel_traces` |
@@ -102,13 +105,14 @@ All tables start their ORDER BY with `ProjectId` for multi-tenant isolation:
 
 ## `stack_trace_events` Key Columns
 
-`Timestamp`, `TraceId`, `SpanId`, `GroupId`, `Fingerprint`, `ExceptionType`, `ExceptionMessage`, `ExceptionStackTrace`, `Title`, `ScreenName`, `Interactions`, `Platform`, `AppVersion`, `OsVersion`, `DeviceModel`, `ResourceAttributes`, `LogAttributes`, `ProjectId`, `PulseType`
+`Timestamp`, `TraceId`, `SpanId`, `GroupId`, `Fingerprint`, `ExceptionType`, `ExceptionMessage`, `ExceptionStackTrace`, `Title`, `ScreenName`, `Interactions`, `Platform`, `AppVersion`, `OsVersion`, `DeviceModel`, `SdkVersion` (note casing: **`SdkVersion`**, not `SDKVersion`), `ResourceAttributes`, `LogAttributes`, `ProjectId`, `PulseType`, `MeteringSessionId`, `AppInstallationId`
 
 ## Pulse-Specific Span Attributes
 
 Accessed via `SpanAttributes['key']` (for traces) or `LogAttributes['key']` (for logs):
 - `pulse.type`, `pulse.interaction.name`, `screen.name`
-- `app.build_name` (→ `AppVersion`), `os.name` (→ `Platform`), `device.model.name` (→ `DeviceModel`)
+- **Traces:** `ResourceAttributes['app.version']` (→ materialized `AppVersion`), `ResourceAttributes['os.name']` (→ `Platform`), `ResourceAttributes['device.model.identifier']` (→ `DeviceModel`)
+- **Logs:** `ResourceAttributes['app.build_name']`, `ResourceAttributes['device.model.name']`, etc. (see materialized column table above)
 
 ## Multi-Tenant Data Isolation
 
