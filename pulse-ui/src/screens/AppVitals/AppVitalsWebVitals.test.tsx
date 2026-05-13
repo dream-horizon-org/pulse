@@ -137,6 +137,25 @@ describe("AppVitals - Web Vitals Integration", () => {
       });
     });
 
+    it("should_hide_crash_anr_and_alert_stat_cards_when_web_vitals_tab_selected", async () => {
+      renderAppVitals();
+
+      await waitFor(() => {
+        expect(screen.getByTestId("crash-stats")).toBeInTheDocument();
+      });
+      expect(screen.getByTestId("anr-stats")).toBeInTheDocument();
+      expect(screen.getByTestId("alert-stats")).toBeInTheDocument();
+
+      fireEvent.click(screen.getByText("Web Vitals"));
+
+      await waitFor(() => {
+        expect(screen.getByTestId("web-vitals-panel")).toBeInTheDocument();
+      });
+      expect(screen.queryByTestId("crash-stats")).not.toBeInTheDocument();
+      expect(screen.queryByTestId("anr-stats")).not.toBeInTheDocument();
+      expect(screen.queryByTestId("alert-stats")).not.toBeInTheDocument();
+    });
+
     it("should_not_render_WebVitalsPanel_on_other_segments", async () => {
       renderAppVitals();
 
