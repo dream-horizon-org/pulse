@@ -30,6 +30,6 @@ export default defineConfig({
   },
   optimizeDeps: {
     // Pre-bundle the SDK so Vite doesn't re-analyse it on every request
-    include: ["react", "react-dom", "react-router-dom"],
+    include: ["react", "react-dom", "react-router-dom", "@dreamhorizonorg/pulse-web"],
   },
 });
