@@ -1,6 +1,6 @@
 pipeline {
     agent {
-        // Same fleet as session-replay / pulse-server publish: has Node + npm for npm install/build.
+        // ARM build fleet — no Node/jq; uses sed for JSON manipulation
         node { label 'pulse-artifact-arm-build-ec2-fleet' }
     }
 
@@ -69,7 +69,7 @@ pipeline {
                             git config user.email "${GITBOT_USERNAME}@users.noreply.github.com"
                             git config user.name "${GITBOT_USERNAME}"
 
-                            git add backend/heatmap-screenshot-ingestion/package.json
+                            git add "\$PKG"
                             git commit -m "chore: bump pulse-heatmap-screenshot-ingestion version to ${nextSnapshot}"
 
                             git push https://${GIT_USER}:${GIT_TOKEN}@github.com/dream-horizon-org/pulse.git HEAD:main
@@ -81,22 +81,22 @@ pipeline {
     }
 
     post {
-        success {
-            script {
-                def message = "<!channel> pulse-heatmap-screenshot-ingestion version *${ARTIFACT_VERSION}* published\n" +
-                        "<${env.BUILD_URL}|${env.JOB_NAME} ${env.BUILD_DISPLAY_NAME}>"
-                def channel = "${env.DEPLOYMENT_SLACK_CHANNEL}"
-                slackSend(teamDomain: 'dreamsports.enterprise', channel: channel, color: 'good', message: message, tokenCredentialId: 'slack-creds', botUser: true)
-            }
-        }
-        failure {
-            script {
-                def message = "<!channel> pulse-heatmap-screenshot-ingestion version *${ARTIFACT_VERSION}* publish failed\n" +
-                        "<${env.BUILD_URL}|${env.JOB_NAME} ${env.BUILD_DISPLAY_NAME}>"
-                def channel = "${env.DEPLOYMENT_SLACK_CHANNEL}"
-                slackSend(teamDomain: 'dreamsports.enterprise', channel: channel, color: 'danger', message: message, tokenCredentialId: 'slack-creds', botUser: true)
-            }
-        }
+        // success {
+        //     script {
+        //         def message = "<!channel> pulse-heatmap-screenshot-ingestion version *${ARTIFACT_VERSION}* published\n" +
+        //                 "<${env.BUILD_URL}|${env.JOB_NAME} ${env.BUILD_DISPLAY_NAME}>"
+        //         def channel = "${env.DEPLOYMENT_SLACK_CHANNEL}"
+        //         slackSend(teamDomain: 'dreamsports.enterprise', channel: channel, color: 'good', message: message, tokenCredentialId: 'slack-creds', botUser: true)
+        //     }
+        // }
+        // failure {
+        //     script {
+        //         def message = "<!channel> pulse-heatmap-screenshot-ingestion version *${ARTIFACT_VERSION}* publish failed\n" +
+        //                 "<${env.BUILD_URL}|${env.JOB_NAME} ${env.BUILD_DISPLAY_NAME}>"
+        //         def channel = "${env.DEPLOYMENT_SLACK_CHANNEL}"
+        //         slackSend(teamDomain: 'dreamsports.enterprise', channel: channel, color: 'danger', message: message, tokenCredentialId: 'slack-creds', botUser: true)
+        //     }
+        // }
     }
 }
 
