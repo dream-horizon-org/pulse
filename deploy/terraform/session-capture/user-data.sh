@@ -10,8 +10,16 @@ cd "$HOME" || cd /root
 echo "Installing dependencies..."
 # Disable broken PPA and update
 sudo rm -f /etc/apt/sources.list.d/deadsnakes-ppa-*.list || true
-sudo apt-get update -qq 2>/dev/null || true
-sudo apt-get install -y -qq unzip curl jq 2>/dev/null || true
+
+# apt update + install must succeed — silent failures here previously left
+# instances without jq, breaking the secrets-fetch step below.
+sudo apt-get update -qq
+sudo apt-get install -y -qq unzip curl jq
+
+# Verify required tools are on PATH before continuing.
+for cmd in jq unzip curl aws; do
+  command -v "$cmd" >/dev/null 2>&1 || { echo "ERROR: required tool '$cmd' not found on PATH after install"; exit 1; }
+done
 
 # -------------------------------------------------------------------
 # App environment from AWS Secrets Manager (same contract as pulse-server:

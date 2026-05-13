@@ -1,33 +1,55 @@
 # Pulse session-capture — Prometheus scrape job
 #
-# TWO INSTANCES + ONE NLB + ONE ROUTE53 NAME
-# -----------------------------------------
-# Do NOT scrape only the Route53/NLB hostname for metrics: each request is load-balanced, so each
-# Prometheus scrape hits a random instance — time series flicker and rates/alerts are wrong.
+# Uses AWS EC2 service discovery — Prometheus auto-discovers every running EC2
+# instance tagged `component_name=pulse-session-capture` + `environment_name=production`
+# in ap-south-1 and scrapes each on port 3400. ASG scaling, instance refresh, and
+# IP changes need NO config edits.
 #
-# Instead, scrape EACH EC2 backend directly on the app port (same PORT as Secrets Manager, default 3400):
-#   - Use private IPs from the ASG (Console → EC2 → instances → Private IPv4), or
-#   - Use per-instance DNS (ip-10-x-x-x.region.compute.internal), or
-#   - Use Prometheus AWS EC2 service discovery filtered by ASG/tag (advanced).
+# Do NOT scrape the NLB/Route53 hostname for metrics: each request is load-balanced,
+# so each scrape hits a random instance — time series flicker and rates/alerts break.
 #
-# Paste ONE `- job_name:` block below into your existing `scrape_configs:` list.
+# Prerequisites on the Prometheus host:
+#   1. IAM role with: ec2:DescribeInstances, ec2:DescribeAvailabilityZones
+#   2. Network reachability to session-capture instances on TCP 3400
+#      (session-capture SG must allow inbound 3400 from Prometheus SG/CIDR)
+#
+# Paste this `- job_name:` block into your existing `scrape_configs:` list, then
+# reload Prometheus:
+#   curl -X POST http://localhost:9090/-/reload    # if --web.enable-lifecycle is set
+#   sudo systemctl reload prometheus               # otherwise
+#
+# Verify: Prometheus UI → Status → Targets → both instances UP.
 
 - job_name: pulse_session_capture
   scrape_interval: 15s
   scrape_timeout: 10s
   metrics_path: /metrics
   scheme: http
-  static_configs:
-    - targets:
-        - "10.250.0.112:3400"
-      labels:
-        env: production
-        service: pulse-session-capture
+
+  ec2_sd_configs:
+    - region: ap-south-1
+      port: 3400
+      filters:
+        - name: tag:component_name
+          values: [ pulse-session-capture ]
+        - name: tag:environment_name
+          values: [ production ]
+        - name: instance-state-name
+          values: [ running ]
+
   relabel_configs:
-    - source_labels: [ __address__ ]
-      regex: "([^:]+):.*"
+    # defense in depth — keep only matching instances
+    - source_labels: [ __meta_ec2_tag_component_name ]
+      regex: pulse-session-capture
+      action: keep
+    # private IP → instance label
+    - source_labels: [ __meta_ec2_private_ip ]
       target_label: instance
-      replacement: "${1}"
+    # tags → labels
+    - source_labels: [ __meta_ec2_tag_environment_name ]
+      target_label: env
+    - target_label: service
+      replacement: pulse-session-capture
 
 # Aggregating in Grafana/PromQL across replicas (optional):
 #   sum(rate(http_requests_total{service="pulse-session-capture"}[5m]))
