@@ -31,7 +31,7 @@ Capture JavaScript failures as OTLP **log records** aligned with Pulse mobile se
 
 **R3 — `non_fatal`:** Unhandled promise rejections → `pulse.type = non_fatal`, `severityNumber = WARN`, `non_fatal.is_manual = false`.
 
-**R4 — Manual APIs:** `Pulse.reportException` / `Pulse.trackNonFatal` → `non_fatal`; `Pulse.reportDeviceCrash` → `device.crash` (see `sdk-core` SPEC §5.10).
+**R4 — Manual APIs:** `Pulse.reportException` / `Pulse.trackNonFatal` → `non_fatal`; `Pulse.reportDeviceCrash` → `device.crash` (see **`sdk-core`** [`public-api/SPEC.md`](../../sdk-core/public-api/SPEC.md)).
 
 **R5 — Dedupe:** Fingerprints + 5s sliding window suppress burst duplicates (`DEDUPE_WINDOW_MS = 5000`).
 
@@ -85,7 +85,7 @@ React layer (optional)
 | `storage.free` | number | `navigator.storage.estimate` | No | Bytes free when available |
 | `react.component_stack` | string | React `ErrorInfo` | No | From `PulseErrorBoundary` only |
 
-Global attributes (`session.id`, `screen.name`, resource) are applied by processors — same contract as `sdk-core` SPEC §5.2.
+Global attributes (`session.id`, `screen.name`, resource) are applied by processors — same contract as **`sdk-core`** [`data-contract/SPEC.md`](../../sdk-core/data-contract/SPEC.md) §5.
 
 ### 5.2 React `PulseErrorBoundary`
 

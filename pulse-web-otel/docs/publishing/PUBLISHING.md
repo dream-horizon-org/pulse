@@ -635,7 +635,7 @@ PostHog used exactly this pattern when migrating from `posthog-js/react` to `@po
 - **Minor** — new exported symbol, new optional config, new `pulse.type` value, new subpath export, new instrumentation, lifted peer range upper bound.
 - **Patch** — bug fix, perf, internal refactor, doc update.
 
-The signal contract is the **public API**. A change in `pulse.type`, a span attribute name, or a log body schema is a major. Reference: `pulse-web-otel/src/instrumentations/*` plus [`../instrumentations/sdk-core/SPEC.md`](../instrumentations/sdk-core/SPEC.md) (lifecycle + contract) and the per-instrumentation SPECs under [`../instrumentations/`](../instrumentations/).
+The signal contract is the **public API**. A change in `pulse.type`, a span attribute name, or a log body schema is a major. Reference: `pulse-web-otel/src/instrumentations/*` plus [`../sdk-core/data-contract/SPEC.md`](../sdk-core/data-contract/SPEC.md) (wire contract; [`../sdk-core/SPEC.md`](../sdk-core/SPEC.md) indexes topics) and the per-instrumentation SPECs under [`../instrumentations/`](../instrumentations/).
 
 ### 7.2 Deprecating a bad release
 

@@ -11,7 +11,7 @@ Mission:
 - Route instrumentation work through phased skills; route PR readiness through the **ship checklist** ([web-sdk-ship](../skills/web-sdk-ship/SKILL.md)).
 
 Scope:
-- All of `pulse-web-otel/` — core, instrumentations, exporters, demo, E2E, **`docs/instrumentations/`** SPECs.
+- All of `pulse-web-otel/` — core, instrumentations, exporters, demo, E2E, **`docs/sdk-core/`** + **`docs/instrumentations/`** SPECs.
 
 ## Rules (load before coding)
 
@@ -29,6 +29,8 @@ Scope:
 | Stress-test a plan | [grill-me](../../.cursor/skills/grill-me/SKILL.md) |
 | GitHub-ready review | [pr-review](../../.cursor/skills/pr-review/SKILL.md) |
 | Local stack repro | [deploy-service](../../.cursor/skills/deploy-service/SKILL.md) (optional) |
+| **SPEC vs implementation** — multi-pass sweep, queue drain, plan + §F | **web-otel-spec-audit-orchestrator** (agent) | [Agent](web-otel-spec-audit-orchestrator.md) · [Skill](../../.cursor/skills/web-otel-spec-audit-orchestrator/SKILL.md) |
+| Per-instrumentation SPEC checklist | **web-otel-spec-implementation-audit** | [`SKILL.md`](../../.cursor/skills/web-otel-spec-implementation-audit/SKILL.md) |
 
 **Ship checklist** ([web-sdk-ship](../skills/web-sdk-ship/SKILL.md)) is the **single authoritative PR-close procedure** for substantive edits — Steps 1–6 through merge-ready.
 

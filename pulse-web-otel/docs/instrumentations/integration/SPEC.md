@@ -32,7 +32,7 @@ Single **entry-point guide** for shipping Pulse Web in a browser application: in
 | Next.js client helpers | `@dreamhorizonorg/pulse-web/next` |
 | `next.config` wrapper + maps | `@dreamhorizonorg/pulse-web/next-config` |
 
-**R3 — Minimal config:** Provide **`apiKey`** + **`dataCollectionState`** — see **`sdk-core`** SPEC §5 for full `PulseWebConfig`.
+**R3 — Minimal config:** Provide **`apiKey`** + **`dataCollectionState`** — see **`sdk-core`** [`config-and-consent/SPEC.md`](../../sdk-core/config-and-consent/SPEC.md) and [`public-api/SPEC.md`](../../sdk-core/public-api/SPEC.md) for full `PulseWebConfig` / surface.
 
 **R4 — Shutdown:** Long-lived SPAs usually omit teardown; tests may call **`Pulse.shutdown()`** via provider prop — see **`react-integration`** SPEC.
 
@@ -105,12 +105,12 @@ Published **`types`** + **`import`** / **`require`** pairs resolve to `dist/*`.
 
 - **Required:** `apiKey`, `dataCollectionState`.
 - **Async:** returns **`Promise<void>`** — await before relying on telemetry (`Pulse.whenReady()`).
-- **Singleton:** double init no-op — details in **`sdk-core`** SPEC §5.
+- **Singleton:** double init no-op — details in **`sdk-core`** [`architecture-and-bootstrap/SPEC.md`](../../sdk-core/architecture-and-bootstrap/SPEC.md).
 
 ### 5.3 Consent + gates
 
 - **`dataCollectionState`:** `ALLOWED` \| `DENIED` \| `PENDING` — only **`ALLOWED`** enables collectors.
-- **Remote config / feature gates:** fetched post-init — **`sdk-core`** SPEC §5.6–5.7.
+- **Remote config / feature gates:** fetched post-init — **`sdk-core`** [`remote-config-features-and-sampling/SPEC.md`](../../sdk-core/remote-config-features-and-sampling/SPEC.md).
 
 ### 5.4 React (`PulseProvider`)
 
@@ -131,7 +131,7 @@ The SDK fetches remote config from `pulse-otel-config` S3 via CloudFront (`/conf
 
 ### 5.7 Developer ergonomics / API critique
 
-**Canonical punch list:** **`docs/instrumentations/sdk-core/SPEC.md` §7** (P0/P1/P2 naming and surface-area gaps). This integration guide intentionally **does not** duplicate that list.
+**Canonical punch list:** [`pulse-web-otel/docs/sdk-core/known-gaps-and-open-questions/SPEC.md`](../../sdk-core/known-gaps-and-open-questions/SPEC.md) (P0/P1/P2 naming and surface-area gaps). This integration guide intentionally **does not** duplicate that list.
 
 ---
 
@@ -139,7 +139,7 @@ The SDK fetches remote config from `pulse-otel-config` S3 via CloudFront (`/conf
 
 Integration is validated indirectly via:
 
-- Core lifecycle tests — **`sdk-core`** SPEC §6.
+- Core lifecycle tests — **`sdk-core`** [`test-coverage/SPEC.md`](../../sdk-core/test-coverage/SPEC.md).
 - React provider/router tests — **`react-integration`** SPEC §6.
 - Next hooks/config tests — **`nextjs-integration`** SPEC §6.
 
