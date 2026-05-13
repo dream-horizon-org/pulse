@@ -64,6 +64,7 @@ export function useNextPagesRouterTracking(
           })
         : dependency;
       Pulse.setScreenName(name);
+      Pulse.notifySoftNavigation();
     };
 
     router.events.on("routeChangeComplete", handleRouteChangeComplete);

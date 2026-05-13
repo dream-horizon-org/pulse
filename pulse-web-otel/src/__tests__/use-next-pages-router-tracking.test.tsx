@@ -21,8 +21,12 @@ vi.mock("next/router", () => ({
 }));
 
 const mockSetScreenName = vi.fn();
+const mockNotifySoftNavigation = vi.fn();
 vi.mock("../sdk", () => ({
-  Pulse: { setScreenName: (name: string) => mockSetScreenName(name) },
+  Pulse: {
+    setScreenName: (name: string) => mockSetScreenName(name),
+    notifySoftNavigation: () => mockNotifySoftNavigation(),
+  },
 }));
 
 import { useNextPagesRouterTracking } from "../integrations/next/useNextPagesRouterTracking";
@@ -192,5 +196,34 @@ describe("useNextPagesRouterTracking", () => {
     expect(mockSetScreenName).toHaveBeenCalledTimes(2);
     expect(mockSetScreenName).toHaveBeenNthCalledWith(1, "/first");
     expect(mockSetScreenName).toHaveBeenNthCalledWith(2, "/second");
+  });
+
+  // ─── notifySoftNavigation — flush buffered vitals on SPA route change ─────
+
+  describe("notifySoftNavigation on SPA nav", () => {
+    it("calls notifySoftNavigation once when routeChangeComplete fires", () => {
+      renderHook(() => useNextPagesRouterTracking());
+      activeHandler?.("/products");
+      expect(mockNotifySoftNavigation).toHaveBeenCalledTimes(1);
+    });
+
+    it("skipInitial=true — does NOT call on first event, calls on second", () => {
+      renderHook(() => useNextPagesRouterTracking({ skipInitial: true }));
+      activeHandler?.("/first");
+      expect(mockNotifySoftNavigation).not.toHaveBeenCalled();
+      activeHandler?.("/second");
+      expect(mockNotifySoftNavigation).toHaveBeenCalledTimes(1);
+    });
+
+    it("calls notifySoftNavigation same number of times as setScreenName across multiple navs", () => {
+      renderHook(() => useNextPagesRouterTracking());
+      activeHandler?.("/a");
+      activeHandler?.("/b");
+      activeHandler?.("/c");
+      expect(mockNotifySoftNavigation).toHaveBeenCalledTimes(3);
+      expect(mockNotifySoftNavigation).toHaveBeenCalledTimes(
+        mockSetScreenName.mock.calls.length,
+      );
+    });
   });
 });

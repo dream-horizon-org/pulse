@@ -105,6 +105,17 @@ class PulseSDK implements SdkContext {
   }
 
   /**
+   * Notify the SDK that a soft (SPA) navigation just occurred so any buffered
+   * vitals can be exported with the **departing** route's `screen.name`.
+   *
+   * Wired into the React / Next router-tracking hooks immediately after
+   * {@link setScreenName}. Fire-and-forget — errors are swallowed.
+   */
+  notifySoftNavigation(): void {
+    void this._loggerProvider?.forceFlush().catch(() => {});
+  }
+
+  /**
    * OTel {@link WebTracerProvider} — defined after {@link init}'s async bootstrap completes.
    * Await {@link whenReady} (or the promise returned from {@link init}) before use; until then
    * this getter may be undefined even though {@link init} was called.
@@ -136,7 +147,10 @@ class PulseSDK implements SdkContext {
     validateConfig(config);
     PulseWebLogger.setLevel(config.logLevel ?? PulseLogLevel.NONE);
     // Step 1.5: Resolve endpointBaseUrl from apiKey; config.endpoint overrides for WebView dev
-    const endpointBaseUrl = resolveEndpointBaseUrl(config.apiKey, config.endpoint);
+    const endpointBaseUrl = resolveEndpointBaseUrl(
+      config.apiKey,
+      config.endpoint,
+    );
     this.endpointBaseUrl = endpointBaseUrl;
 
     // Consent gate — DENIED or PENDING → no-op, zero signals emitted
