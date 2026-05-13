@@ -10,6 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       TURBO_CACHE_DIR: .turbo/android
+      JAVA_OPTS: "-XX:MaxHeapSize=6g -Dorg.gradle.configuration-cache=false"
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
 

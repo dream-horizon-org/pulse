@@ -95,6 +95,6 @@ jobs:
 
       - working-directory: pulse-react-native-otel/expo-example/android
         env:
-          JAVA_OPTS: "-XX:MaxHeapSize=6g"
+          JAVA_OPTS: "-XX:MaxHeapSize=6g -Dorg.gradle.configuration-cache=false"
         run: |
-          ./gradlew assembleDebug -x lint -x test --no-daemon --console=plain
+          ./gradlew assembleDebug -x lint -x test --no-daemon --no-configuration-cache --console=plain

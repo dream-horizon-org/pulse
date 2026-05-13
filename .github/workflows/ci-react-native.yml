@@ -258,10 +258,12 @@ jobs:
         if: needs.check-changes.outputs.android-sdk-changed == 'true' || steps.m2-cache.outputs.cache-hit != 'true'
         working-directory: pulse-android-otel
         env:
-          JAVA_OPTS: "-XX:MaxHeapSize=6g"
+          # Belt-and-suspenders: pulse-android-otel enables CC + problems=fail; Kotlin Android plugin
+          # trips CC storage on Gradle 9.1 (unsupported task completion listener). JVM -D matches CLI.
+          JAVA_OPTS: "-XX:MaxHeapSize=6g -Dorg.gradle.configuration-cache=false"
           CI: "false"
         run: |
-          ./gradlew publishToMavenLocal -Pfinal=true --no-daemon
+          ./gradlew publishToMavenLocal -Pfinal=true --no-daemon --no-configuration-cache
 
       - name: Save Maven Local cache
         if: success() && steps.publish-sdk.outcome == 'success'

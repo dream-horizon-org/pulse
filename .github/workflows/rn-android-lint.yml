@@ -68,6 +68,6 @@ jobs:
 
       - working-directory: pulse-react-native-otel/example/android
         env:
-          JAVA_OPTS: "-XX:MaxHeapSize=6g"
+          JAVA_OPTS: "-XX:MaxHeapSize=6g -Dorg.gradle.configuration-cache=false"
         run: |
-          ./gradlew :app:lintDebug :app:testDebugUnitTest --no-daemon --console=plain -PreactNativeArchitectures=arm64-v8a
+          ./gradlew :app:lintDebug :app:testDebugUnitTest --no-daemon --no-configuration-cache --console=plain -PreactNativeArchitectures=arm64-v8a
