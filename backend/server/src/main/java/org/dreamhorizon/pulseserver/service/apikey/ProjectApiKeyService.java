@@ -158,7 +158,7 @@ public class ProjectApiKeyService {
     return projectId + "_" + SecureRandomUtil.generateAlphanumeric(API_KEY_RANDOM_LENGTH);
   }
 
-  private Single<Boolean> validateProjectExists(String projectId) {
+  public Single<Boolean> validateProjectExists(String projectId) {
     return projectDao.projectExists(projectId);
   }
 

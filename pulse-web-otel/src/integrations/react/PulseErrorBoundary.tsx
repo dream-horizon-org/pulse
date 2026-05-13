@@ -1,5 +1,5 @@
 import React, { Component, type ErrorInfo, type ReactNode } from "react";
-import { PulseWeb } from "../../sdk";
+import { Pulse } from "../../sdk";
 import type { PulseErrorBoundaryProps } from "../../types/react";
 
 export type { PulseErrorBoundaryProps } from "../../types/react";
@@ -10,8 +10,8 @@ interface State {
 }
 
 /**
- * Catches React render errors and emits `pulse.type = device.crash` via {@link PulseWeb.reportDeviceCrash}.
- * Requires {@link PulseWeb.start} to have completed (`isInitialized()`).
+ * Catches React render errors and emits `pulse.type = device.crash` via {@link Pulse.reportDeviceCrash}.
+ * Requires {@link Pulse.init} to have completed (`isInitialized()`).
  */
 export class PulseErrorBoundary extends Component<
   PulseErrorBoundaryProps,
@@ -27,7 +27,7 @@ export class PulseErrorBoundary extends Component<
   }
 
   componentDidCatch(error: Error, info: ErrorInfo): void {
-    PulseWeb.reportDeviceCrash(error, {
+    Pulse.reportDeviceCrash(error, {
       "react.component_stack": info.componentStack ?? "",
     });
   }

@@ -9,9 +9,15 @@ lib/
 .env
 
 .cursor/.env
-# Claude Code: keep shared project memory; ignore other local-only files under .claude/
-#.claude/*
+# Claude Code: keep shared project memory and skills; ignore other local-only files under .claude/
+.claude/*
 !.claude/CLAUDE.md
+!.claude/rules
+!.claude/rules/**
+!.claude/agents
+!.claude/agents/**
+!.claude/skills
+!.claude/skills/**
 .cursor/hooks/state/
 .claude/hooks/state/
 .cursor/plans/
@@ -29,6 +35,11 @@ docs/
 docs/api
 docs/architecture
 graphify-out/
+
+# Ralph/local agent issue queues — keep working copies private
+issues/
 /CLAUDE.md
 !.claude/CLAUDE.md
 backend/server/src/test/graphify-out/
+
+ralph/*

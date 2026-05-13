@@ -21,7 +21,7 @@ Real-time mobile + web observability platform on OpenTelemetry. Mobile/web SDKs 
 | `pulse-web-otel/` | Web SDK (alpha) | TypeScript, OTLP | — |
 | `deploy/` | Docker Compose, scripts | — | — |
 
-Auxiliary: `backend/db/` (MySQL migrations), `backend/spark/` (batch jobs), `backend/{heatmap-screenshot,session-capture,session-replay}-*/` (specialty ingestion), `pulse-mcp/`, `pulse-mobile-benchmarks/`, `vector/`, `docs/`, `scripts/`.
+Auxiliary: `backend/db/` (MySQL migrations), `backend/spark/` (batch jobs), `backend/{heatmap-screenshot,session-capture,session-replay}-*/` (specialty ingestion), `pulse-mcp/`, `pulse-mobile-benchmarks/`, `vector/`, `docs/`, `scripts/`, `product/` (PRDs + web panel).
 
 ## Data Flow
 
@@ -42,9 +42,12 @@ cd pulse-ui && yarn install && yarn start    # :3000
 yarn build && yarn lint && yarn test
 yarn test --testPathPattern=ComponentName
 
-# Web SDK
-cd pulse-web-otel && yarn install && yarn build && yarn test
-yarn workspace ecommerce-demo dev      # demo :3002
+# Web SDK (pulse-web-otel)
+cd pulse-web-otel && yarn install
+cd pulse-web-otel && yarn build
+cd pulse-web-otel && yarn test
+cd pulse-web-otel && yarn workspace ecommerce-demo dev   # React demo :3002
+cd pulse-web-otel && yarn demo:docs                      # vanilla demo :3003
 
 # AI Agent
 cd pulse_ai && ./setup.sh              # :8000
@@ -86,8 +89,16 @@ Per-area conventions live in `.agents/rules/*.mdc` (the same files appear under 
 - **Android SDK (`pulse-android-otel/`)** — Kotlin, Gradle multi-module. Two package roots that must never mix: `io.opentelemetry.android.*` (upstream) and `com.pulse.*` (Pulse). Detail: `android-sdk.mdc`.
 - **iOS SDK (`pulse-ios-otel/`)** — Swift, SwiftPM/CocoaPods.
 - **RN SDK (`pulse-react-native-otel/`)** — TS strict. Single `Pulse` facade in `index.tsx`. Detail: `react-native-sdk.mdc`.
-- **Web SDK (`pulse-web-otel/`)** — Package `@dreamhorizon/pulse-web` (alpha). All signals carry `platform = 'web'`. Plan artifacts under `web-sdk-plan/{interactions,agent-runtime}/`. Skill: `pulse-web-sdk-sanity`. Detail: `web-sdk.mdc`, `pulse-web-otel.mdc`, `pulse-web-otel-structure.mdc`.
+- **Web SDK (`pulse-web-otel/`)** — Package `@dreamhorizon/pulse-web` (alpha). All signals carry `platform = 'web'`. Skills: `web-sdk-instrument`, `web-sdk-e2e-matrix`, `web-sdk-ship`. Sub-agent: `pulse-web-sdk`. Detail: `pulse-web-otel-contract.mdc`, `pulse-web-otel-conventions.mdc`, `web-sdk.mdc`.
 - **AI agent (`pulse_ai/`)** — Google ADK + Gemini. `agent.py` defines `root_agent`. Tools are functions returning `{"status": ..., "data": ...}`. Requires `GOOGLE_API_KEY`. Detail: `python-ai-agent.mdc`.
+
+## Web SDK planning
+
+Full file map, data contract tables, and phase-by-phase implementation spec: **`pulse-web-otel/web-sdk-plan/WEB-SDK-AGENT-CONTEXT.md`**
+
+Milestone index (exit-criteria summaries, verification commands, ClickHouse example query): **`pulse-web-otel/web-sdk-plan/v1/MILESTONES.md`**
+
+Use the **`web-sdk-instrument`** skill (or related web-sdk skills) for context-loaded implementation or verification.
 
 ## Common Tasks
 
@@ -101,7 +112,7 @@ Map task → skill → relevant rule(s). Run the skill rather than freelancing.
 | New AI sub-agent / tool | `add-ai-sub-agent` | `python-ai-agent.mdc` |
 | Alert metric (cross-cutting) | `add-alert-metric` | `alerts-cron.mdc`, `clickhouse-sql.mdc`, `java-backend.mdc` |
 | ClickHouse schema change | `clickhouse-migration` | `clickhouse-sql.mdc` |
-| Web SDK sanity / verification | `pulse-web-sdk-sanity` | `web-sdk.mdc`, `pulse-web-otel.mdc` |
+| Web SDK implementation / verification | `web-sdk-instrument`, `web-sdk-e2e-matrix`, `web-sdk-ship` | `pulse-web-otel-contract.mdc`, `pulse-web-otel-conventions.mdc`, `web-sdk.mdc` |
 | Build/run a service locally | `deploy-service` | `docker-deploy.mdc` |
 | PR review | `pr-review` | `pr-workflow.mdc`, `commit-conventions.mdc` |
 
@@ -109,8 +120,8 @@ Map task → skill → relevant rule(s). Run the skill rather than freelancing.
 
 `.cursor/{skills,agents,commands,rules}/` and `.claude/{skills,agents,commands,rules}/` symlink to `.agents/` — single canonical copy for both tools.
 
-- **Skills** (`.cursor/skills/`) — prefer these over freelancing: `add-api-endpoint`, `add-ui-screen`, `add-ui-component`, `add-ai-sub-agent`, `add-alert-metric`, `clickhouse-migration`, `deploy-service`, `pr-review`, `pulse-web-sdk-sanity`.
-- **Sub-agents** (`.cursor/agents/`) — delegate by area: `backend-engineer`, `frontend-engineer`, `ai-agent-engineer`, `mobile-sdk-engineer`, `web-sdk-guardian`, `devops-engineer`, `data-analyst`, `debugger`, `pr-reviewer`, `unit-test-author`, `backend-test-runner`, `mock-server-maintainer`.
+- **Skills** (`.cursor/skills/`) — prefer these over freelancing: `add-api-endpoint`, `add-ui-screen`, `add-ui-component`, `add-ai-sub-agent`, `add-alert-metric`, `clickhouse-migration`, `deploy-service`, `pr-review`, `web-sdk-instrument`, `web-sdk-e2e-matrix`, `web-sdk-ship`, `pulse-prd-author`, `pulse-prd-review`.
+- **Sub-agents** (`.cursor/agents/`) — delegate by area: `backend-engineer`, `frontend-engineer`, `ai-agent-engineer`, `mobile-sdk-engineer`, `pulse-web-sdk`, `devops-engineer`, `data-analyst`, `debugger`, `pr-reviewer`, `unit-test-author`, `backend-test-runner`, `mock-server-maintainer`.
 - **Slash commands** (`.cursor/commands/`) — `quickstart`, `start/stop/check-services`, `view-logs`, `build-{backend,ui,ai}`, `run-{backend,ui}-tests`, `lint-ui`, `query-clickhouse`, `create-pr`, `review-my-changes`, `find-existing`, `onboard`, etc.
 
 ## Commits & PRs

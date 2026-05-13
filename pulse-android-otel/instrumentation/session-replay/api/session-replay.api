@@ -100,7 +100,10 @@ public final class com/pulse/android/sdk/replay/SessionReplayConfiguration {
 }
 
 public abstract interface class com/pulse/android/sdk/replay/SessionReplayController {
+	public abstract fun getExternalScreenNameProvider ()Lkotlin/jvm/functions/Function0;
 	public abstract fun isActive ()Z
+	public abstract fun notifyScreenChange ()V
+	public abstract fun setExternalScreenNameProvider (Lkotlin/jvm/functions/Function0;)V
 	public abstract fun start (Z)V
 	public static synthetic fun start$default (Lcom/pulse/android/sdk/replay/SessionReplayController;ZILjava/lang/Object;)V
 	public abstract fun stop ()V
@@ -121,8 +124,11 @@ public final class com/pulse/android/sdk/replay/SessionReplayInstrumentation$Com
 public final class com/pulse/android/sdk/replay/SessionReplayIntegration : com/pulse/android/sdk/replay/SessionReplayController {
 	public fun <init> (Landroid/content/Context;Lcom/pulse/android/sdk/replay/SessionReplayConfig;Lcom/pulse/android/sdk/replay/ReplayEventEmitter;Lkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function0;)V
 	public final fun flush ()V
+	public fun getExternalScreenNameProvider ()Lkotlin/jvm/functions/Function0;
 	public final fun install ()V
 	public fun isActive ()Z
+	public fun notifyScreenChange ()V
+	public fun setExternalScreenNameProvider (Lkotlin/jvm/functions/Function0;)V
 	public fun start (Z)V
 	public fun stop ()V
 	public final fun uninstall ()V

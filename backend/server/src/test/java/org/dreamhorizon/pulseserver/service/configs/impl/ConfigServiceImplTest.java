@@ -81,7 +81,7 @@ class ConfigServiceImplTest {
     }).when(context).runOnContext(any());
     when(applicationConfig.buildInteractionConfigFileUrl(anyString())).thenAnswer(invocation -> {
       String pid = invocation.getArgument(0);
-      return "https://cdn.example.com/projects/" + pid + "/interaction.json";
+      return "https://cdn.example.com/projects/" + pid + "/interaction-config.json";
     });
     when(applicationConfig.getOtelCollectorUrl()).thenReturn("https://collector.example.com/v1/traces");
     when(applicationConfig.getLogsCollectorUrl()).thenReturn("https://collector.example.com/v1/logs");
@@ -355,7 +355,7 @@ class ConfigServiceImplTest {
       ConfigData captured = captor.getValue();
       assertThat(captured.getInteraction()).isNotNull();
       assertThat(captured.getInteraction().getConfigUrl())
-          .endsWith("/projects/" + TEST_PROJECT_ID + "/interaction.json");
+          .endsWith("/projects/" + TEST_PROJECT_ID + "/interaction-config.json");
       assertThat(captured.getInteraction().getCollectorUrl())
           .isEqualTo("https://collector.example.com/v1/traces");
       assertThat(captured.getSignals()).isNotNull();
@@ -479,7 +479,7 @@ class ConfigServiceImplTest {
       List<String> expectedFeatures = Features.getFeatures();
       assertThat(result.getFeatures()).containsExactlyInAnyOrderElementsOf(expectedFeatures);
       assertThat(result.getFeatures()).contains("interaction", "java_crash", "java_anr", "network_change",
-          "rn_screen_session", "session_replay", "ios_crash", "ios_lifecycle", "android_activity", "android_fragment");
+          "rn_screen_session", "session_replay", "ios_crash", "ios_lifecycle", "android_activity", "android_fragment", "memory", "battery");
     }
   }
 

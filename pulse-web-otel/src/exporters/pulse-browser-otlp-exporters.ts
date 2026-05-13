@@ -1,11 +1,9 @@
 import { diag } from "@opentelemetry/api";
-import { baggageUtils, getEnv } from "@opentelemetry/core";
+import type { ExportResult } from "@opentelemetry/core";
+import { ExportResultCode } from "@opentelemetry/core";
 import {
-  OTLPExporterBase,
   OTLPExporterError,
-  appendResourcePathToUrl,
-  appendRootPathToUrlIfNeeded,
-  parseHeaders,
+  type IOtlpExportDelegate,
   type OTLPExporterConfigBase,
 } from "@opentelemetry/otlp-exporter-base";
 import type { ISerializer } from "@opentelemetry/otlp-transformer";
@@ -17,8 +15,11 @@ import {
   ProtobufLogsSerializer,
   ProtobufMetricsSerializer,
 } from "@opentelemetry/otlp-transformer";
-import type { ReadableSpan } from "@opentelemetry/sdk-trace-web";
-import type { ReadableLogRecord } from "@opentelemetry/sdk-logs";
+import type { ReadableSpan, SpanExporter } from "@opentelemetry/sdk-trace-web";
+import type {
+  ReadableLogRecord,
+  LogRecordExporter,
+} from "@opentelemetry/sdk-logs";
 import type { ResourceMetrics } from "@opentelemetry/sdk-metrics";
 import type { IExportTraceServiceResponse } from "@opentelemetry/otlp-transformer";
 import type { IExportLogsServiceResponse } from "@opentelemetry/otlp-transformer";
@@ -29,69 +30,80 @@ import {
 } from "@opentelemetry/exporter-metrics-otlp-http";
 
 import { isGzipSupported } from "../utils/otlp-gzip";
-import type { IdbSignalBuffer } from "../persistence/indexed-db";
-import { buildBrowserExportTransport, type BrowserExportTransport } from "./otlp-transport";
+import {
+  buildBrowserExportTransport,
+  type BrowserExportTransport,
+} from "./otlp-transport";
 import type { PersistMeta } from "../types/otlp-transport";
 import type { PulseBrowserExporterOptions } from "../types/browser-exporter";
 
 export type { PulseBrowserExporterOptions } from "../types/browser-exporter";
 
-abstract class PulseBrowserOtelExporter<
-  ExportItem,
-  ServiceResponse,
-> extends OTLPExporterBase<OTLPExporterConfigBase, ExportItem> { 
-  private _serializer!: ISerializer<ExportItem[], ServiceResponse>;
-  private _transport?: BrowserExportTransport;
-  /** Set in onInit (runs during super()) before subclass ctor assigns _pulse. */
-  private _otlpExporterConfig?: OTLPExporterConfigBase;
-  private readonly _pulse: PulseBrowserExporterOptions & {
-    contentType: string;
-  };
+function staticHeaders(
+  config: OTLPExporterConfigBase | undefined,
+  contentType: string,
+  useGzip: boolean,
+): Record<string, string> {
+  const headers: Record<string, string> = { "Content-Type": contentType };
+  const ch = config?.headers;
+  if (ch && typeof ch === "object" && !Array.isArray(ch)) {
+    Object.assign(headers, ch as Record<string, string>);
+  }
+  if (useGzip) headers["Content-Encoding"] = "gzip";
+  return headers;
+}
+
+function resolveTimeout(config: OTLPExporterConfigBase | undefined): number {
+  return config?.timeoutMillis ?? 10_000;
+}
+
+abstract class PulseBrowserBatchExporter<BatchT, ServiceResponse> {
+  protected readonly _serializer: ISerializer<BatchT, ServiceResponse>;
+  protected _transport?: BrowserExportTransport;
+  protected _shutdown = false;
+  private readonly _sendingPromises: Promise<unknown>[] = [];
+  protected readonly _pulse: PulseBrowserExporterOptions;
+  protected readonly _contentType: string;
+  protected readonly _config: OTLPExporterConfigBase | undefined;
+  protected abstract defaultUrl(): string;
 
   protected constructor(
     config: OTLPExporterConfigBase | undefined,
-    serializer: ISerializer<ExportItem[], ServiceResponse>,
+    serializer: ISerializer<BatchT, ServiceResponse>,
     contentType: string,
     pulse: PulseBrowserExporterOptions,
   ) {
-    super(config);
+    this._config = config;
     this._serializer = serializer;
-    this._pulse = { ...pulse, contentType };
-  }
-
-  onInit(config: OTLPExporterConfigBase | undefined): void {
-    this._otlpExporterConfig = config;
-  }
-
-  onShutdown(): void {
-    this._transport?.shutdown();
+    this._contentType = contentType;
+    this._pulse = pulse;
   }
 
   switchToKeepalive(): void {
     this._transport?.switchToKeepalive();
   }
 
+  switchToBeacon(apiKey?: string, beaconRelayUrl?: string): void {
+    this._transport?.switchToBeacon({
+      apiKey,
+      beaconRelayUrl,
+      contentType: this._contentType,
+    });
+  }
+
   private ensureTransport(): void {
     if (this._transport) return;
     const pulse = this._pulse;
-    const cfg = this._otlpExporterConfig;
+    const cfg = this._config;
     const useGzip = pulse.useGzip && isGzipSupported();
-    const headers: Record<string, string> = {
-      ...parseHeaders(cfg?.headers),
-      ...baggageUtils.parseKeyPairsIntoRecord(
-        getEnv().OTEL_EXPORTER_OTLP_HEADERS,
-      ),
-      "Content-Type": pulse.contentType,
-    };
-    if (useGzip) {
-      headers["Content-Encoding"] = "gzip";
-    }
+    const headers = staticHeaders(cfg, this._contentType, useGzip);
     const meta: PersistMeta = {
-      contentType: pulse.contentType,
+      contentType: this._contentType,
       ...(useGzip ? { contentEncoding: "gzip" as const } : {}),
     };
+    const url = typeof cfg?.url === "string" ? cfg.url : this.defaultUrl();
     this._transport = buildBrowserExportTransport(
-      { url: this.url, headers },
+      { url, headers },
       {
         useGzip,
         diskPersistence: {
@@ -104,50 +116,78 @@ abstract class PulseBrowserOtelExporter<
     );
   }
 
-  send(
-    objects: ExportItem[],
-    onSuccess: () => void,
-    onError: (error: OTLPExporterError | Error) => void,
+  protected exportBatch(
+    batch: BatchT,
+    resultCallback: (result: ExportResult) => void,
   ): void {
-    if (this._shutdownOnce.isCalled) {
-      diag.debug("Shutdown already started. Cannot send objects");
+    if (this._shutdown) {
+      diag.debug("Exporter shut down; skip export");
+      resultCallback({
+        code: ExportResultCode.FAILED,
+        error: new Error("Exporter shut down"),
+      });
       return;
     }
     this.ensureTransport();
-    const data = this._serializer.serializeRequest(objects);
+    const data = this._serializer.serializeRequest(batch);
     if (data == null) {
-      onError(new OTLPExporterError("Could not serialize message"));
+      resultCallback({
+        code: ExportResultCode.FAILED,
+        error: new OTLPExporterError("Could not serialize message"),
+      });
       return;
     }
-    const promise = this._transport!.send(data, this.timeoutMillis).then(
+    const timeoutMillis = resolveTimeout(this._config);
+    const promise = this._transport!.send(data, timeoutMillis).then(
       (response) => {
         if (response.status === "success") {
-          onSuccess();
+          resultCallback({ code: ExportResultCode.SUCCESS });
         } else if (response.status === "failure" && response.error) {
-          onError(response.error);
+          resultCallback({
+            code: ExportResultCode.FAILED,
+            error: response.error,
+          });
         } else if (response.status === "retryable") {
-          onError(new OTLPExporterError("Export failed with retryable status"));
+          resultCallback({
+            code: ExportResultCode.FAILED,
+            error: new OTLPExporterError("Export failed with retryable status"),
+          });
         } else {
-          onError(new OTLPExporterError("Export failed with unknown status"));
+          resultCallback({
+            code: ExportResultCode.FAILED,
+            error: new OTLPExporterError("Export failed with unknown status"),
+          });
         }
       },
-      onError,
+      (err: unknown) =>
+        resultCallback({
+          code: ExportResultCode.FAILED,
+          error: err instanceof Error ? err : new Error(String(err)),
+        }),
     );
     this._sendingPromises.push(promise);
     const popPromise = () => {
       const i = this._sendingPromises.indexOf(promise);
-      this._sendingPromises.splice(i, 1);
+      if (i >= 0) this._sendingPromises.splice(i, 1);
     };
     promise.then(popPromise, popPromise);
   }
+
+  async shutdown(): Promise<void> {
+    this._shutdown = true;
+    await Promise.all(this._sendingPromises);
+    this._transport?.shutdown();
+  }
+
+  async forceFlush(): Promise<void> {
+    await Promise.all(this._sendingPromises);
+  }
 }
 
-const DEFAULT_TRACES_PATH = "v1/traces";
-
-export class PulseBrowserTraceExporter extends PulseBrowserOtelExporter<
-  ReadableSpan,
-  IExportTraceServiceResponse
-> {
+export class PulseBrowserTraceExporter
+  extends PulseBrowserBatchExporter<ReadableSpan[], IExportTraceServiceResponse>
+  implements SpanExporter
+{
   constructor(
     config: OTLPExporterConfigBase | undefined,
     pulse: PulseBrowserExporterOptions,
@@ -161,16 +201,25 @@ export class PulseBrowserTraceExporter extends PulseBrowserOtelExporter<
     );
   }
 
-  getDefaultUrl(config: OTLPExporterConfigBase): string {
-    if (typeof config.url === "string") return config.url;
-    return `http://localhost:4318/${DEFAULT_TRACES_PATH}`;
+  protected defaultUrl(): string {
+    return "http://localhost:4318/v1/traces";
+  }
+
+  export(
+    spans: ReadableSpan[],
+    resultCallback: (result: ExportResult) => void,
+  ): void {
+    this.exportBatch(spans, resultCallback);
   }
 }
 
-export class PulseBrowserLogExporter extends PulseBrowserOtelExporter<
-  ReadableLogRecord,
-  IExportLogsServiceResponse
-> {
+export class PulseBrowserLogExporter
+  extends PulseBrowserBatchExporter<
+    ReadableLogRecord[],
+    IExportLogsServiceResponse
+  >
+  implements LogRecordExporter
+{
   constructor(
     config: OTLPExporterConfigBase | undefined,
     pulse: PulseBrowserExporterOptions,
@@ -184,26 +233,25 @@ export class PulseBrowserLogExporter extends PulseBrowserOtelExporter<
     );
   }
 
-  getDefaultUrl(config: OTLPExporterConfigBase): string {
-    if (typeof config.url === "string") return config.url;
-    const env = getEnv();
-    if (env.OTEL_EXPORTER_OTLP_LOGS_ENDPOINT.length > 0) {
-      return appendRootPathToUrlIfNeeded(env.OTEL_EXPORTER_OTLP_LOGS_ENDPOINT);
-    }
-    if (env.OTEL_EXPORTER_OTLP_ENDPOINT.length > 0) {
-      return appendResourcePathToUrl(
-        env.OTEL_EXPORTER_OTLP_ENDPOINT,
-        "v1/logs",
-      );
-    }
-    return `http://localhost:4318/v1/logs`;
+  protected defaultUrl(): string {
+    return "http://localhost:4318/v1/logs";
+  }
+
+  export(
+    logs: ReadableLogRecord[],
+    resultCallback: (result: ExportResult) => void,
+  ): void {
+    this.exportBatch(logs, resultCallback);
   }
 }
 
-class PulseMetricsBrowserProxy extends PulseBrowserOtelExporter<
-  ResourceMetrics,
-  IExportMetricsServiceResponse
-> {
+class PulseBrowserMetricExportAdapter
+  extends PulseBrowserBatchExporter<
+    ResourceMetrics,
+    IExportMetricsServiceResponse
+  >
+  implements IOtlpExportDelegate<ResourceMetrics>
+{
   constructor(
     config: OTLPExporterConfigBase | undefined,
     pulse: PulseBrowserExporterOptions,
@@ -217,18 +265,25 @@ class PulseMetricsBrowserProxy extends PulseBrowserOtelExporter<
     );
   }
 
-  getDefaultUrl(config: OTLPExporterConfigBase): string {
-    if (typeof config.url === "string") return config.url;
-    return `http://localhost:4318/v1/metrics`;
+  protected defaultUrl(): string {
+    return "http://localhost:4318/v1/metrics";
+  }
+
+  export(
+    resourceMetrics: ResourceMetrics,
+    resultCallback: (result: ExportResult) => void,
+  ): void {
+    this.exportBatch(resourceMetrics, resultCallback);
   }
 }
 
 export function createPulseBrowserMetricExporter(
   config: OTLPExporterConfigBase | undefined,
   pulse: PulseBrowserExporterOptions,
-): OTLPMetricExporterBase<PulseMetricsBrowserProxy> {
+): OTLPMetricExporterBase {
+  const delegate = new PulseBrowserMetricExportAdapter(config, pulse);
   return new OTLPMetricExporterBase(
-    new PulseMetricsBrowserProxy(config, pulse),
+    delegate,
     config as OTLPMetricExporterOptions,
   );
 }

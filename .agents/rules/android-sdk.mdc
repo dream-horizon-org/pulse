@@ -122,6 +122,21 @@ Use `pulse.*` prefixed attributes for Pulse-specific data:
 - `device.model.name` — device model (materialized as `DeviceModel`)
 - `rum.sdk.version` — SDK version
 
+## Concurrency
+
+**Always prefer Kotlin coroutines over Java executors for new Pulse-owned code.**
+
+| Situation | Use |
+|---|---|
+| Background / periodic work in Pulse-specific modules | `CoroutineScope + launch + delay` |
+| One-shot async in Pulse modules | `scope.launch(ioDispatcher) { ... }` |
+| Existing upstream OTel Android code (`services/`, `core/`) | Keep existing `ThreadPoolExecutor` / `Handler` — do NOT refactor |
+
+- Inject `CoroutineScope` and `CoroutineDispatcher` as constructor parameters so they can be swapped in tests (use `TestCoroutineScheduler` / `UnconfinedTestDispatcher`)
+- **Never** introduce `ScheduledExecutorService` or `Handler.postDelayed` in new Pulse instrumentation code
+- The `services/PeriodicWorkImpl.kt` (`ThreadPoolExecutor` + `Handler`) is upstream OTel Android code — do **not** copy that pattern into new Pulse modules; it exists only for OTel compatibility
+- Coroutine dependency: `kotlinx-coroutines-android` is already in `libs.versions.toml`
+
 ## Best Practices
 
 - No wildcard imports

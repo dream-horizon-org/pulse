@@ -11,6 +11,8 @@ public enum Features {
   java_anr,
   network_change,
   custom_events,
+  memory,
+  battery,
   rn_screen_load,
   rn_screen_interactive,
   rn_screen_session,
@@ -26,7 +28,14 @@ public enum Features {
   ios_lifecycle,
   android_activity,
   android_fragment,
-  android_slowrendering;
+  android_slowrendering,
+  /** Web Core Web Vitals (LCP, INP, CLS); {@code pulse_web_js} SDK. */
+  web_vitals,
+  /**
+   * Web screen navigation ({@code screen_load}, {@code screen_session}); {@code pulse_web_js} SDK.
+   * Distinct from {@link #rn_screen_interactive} / {@link #rn_screen_load} (React Native).
+   */
+  screen_navigation;
 
   public static List<String> getFeatures() {
     return Arrays.stream(Features.values()).map(Enum::name).collect(Collectors.toList());

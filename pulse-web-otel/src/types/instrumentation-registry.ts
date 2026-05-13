@@ -1,5 +1,7 @@
 import type { Logger } from "@opentelemetry/api-logs";
 import type { Tracer } from "@opentelemetry/api";
+import type { LoggerProvider } from "@opentelemetry/sdk-logs";
+import type { WebTracerProvider } from "@opentelemetry/sdk-trace-web";
 
 import type { PulseWebConfig } from "../config";
 import type { FeatureGate } from "../feature-gate";
@@ -14,6 +16,10 @@ export interface SdkContext {
   tracer: Tracer;
   config: PulseWebConfig;
   globalAttrsProcessor: PulseGlobalAttributesProcessor;
+  /** For instrumentations that must flush logs between batches (e.g. Web Vitals). */
+  loggerProvider?: LoggerProvider;
+  /** OTel SDK tracer provider — required for Fetch / XHR auto-instrumentation registration. */
+  tracerProvider?: WebTracerProvider;
 }
 
 export interface PulseInstrumentation {
