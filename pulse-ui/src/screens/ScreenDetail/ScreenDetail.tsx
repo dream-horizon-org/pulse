@@ -1,6 +1,14 @@
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { SimpleGrid, Box, Text, Tabs, Title, Tooltip } from "@mantine/core";
-import { IconArrowNarrowLeft } from "@tabler/icons-react";
+import {
+  SimpleGrid,
+  Box,
+  Group,
+  Text,
+  Tabs,
+  Title,
+  Tooltip,
+} from "@mantine/core";
+import { IconArrowNarrowLeft, IconInfoCircle } from "@tabler/icons-react";
 import { ScreenDetailProps } from "./ScreenDetail.interface";
 import classes from "./ScreenDetail.module.css";
 import vitalsClasses from "../AppVitals/AppVitals.module.css";
@@ -351,9 +359,26 @@ export function ScreenDetail(_props: ScreenDetailProps) {
               <Text className={vitalsClasses.sectionTitle}>Performance</Text>
               <Box className={vitalsClasses.metricsGrid}>
                 <Box className={vitalsClasses.statItem}>
-                  <Text className={vitalsClasses.statLabel}>
-                    Screen Load Time
-                  </Text>
+                  <Group gap={4} wrap="nowrap" align="center" justify="center">
+                    <Text className={vitalsClasses.statLabel}>
+                      Screen Load Time
+                    </Text>
+                    <Tooltip
+                      label="Average screen load time: mean span duration of all screen load events for this screen in the selected range."
+                      withArrow
+                      multiline
+                      w={260}
+                    >
+                      <IconInfoCircle
+                        size={13}
+                        style={{
+                          opacity: 0.5,
+                          cursor: "help",
+                          flexShrink: 0,
+                        }}
+                      />
+                    </Tooltip>
+                  </Group>
                   <Text
                     className={vitalsClasses.statValue}
                     c={
@@ -372,9 +397,26 @@ export function ScreenDetail(_props: ScreenDetailProps) {
                   </Text>
                 </Box>
                 <Box className={vitalsClasses.statItem}>
-                  <Text className={vitalsClasses.statLabel}>
-                  Time to Interactive
-                  </Text>
+                  <Group gap={4} wrap="nowrap" align="center" justify="center">
+                    <Text className={vitalsClasses.statLabel}>
+                      Time to Interactive
+                    </Text>
+                    <Tooltip
+                      label="Average time to interactive: mean of web navigation TTI (when present) and React Native screen interactive durations for this screen in the selected range."
+                      withArrow
+                      multiline
+                      w={260}
+                    >
+                      <IconInfoCircle
+                        size={13}
+                        style={{
+                          opacity: 0.5,
+                          cursor: "help",
+                          flexShrink: 0,
+                        }}
+                      />
+                    </Tooltip>
+                  </Group>
                   <Text
                     className={vitalsClasses.statValue}
                     c={
