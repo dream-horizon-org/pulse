@@ -25,6 +25,10 @@ Key columns: `TraceId`, `Body` (custom event name text for `pulse.type` = `custo
 `SeverityNumber`, `Timestamp`, `LogAttributes` (Map), `ResourceAttributes` (Map). Prefer `Body` for event name in
 queries; `EventName` may exist depending on pipeline but is not guaranteed populated everywhere.
 
+For **`PulseType = 'web_vital'`** (Web SDK Core Web Vitals), prefer materialized **`WebVitalName`**, **`WebVitalValue`**,
+and **`WebVitalRating`** over `LogAttributes['web_vital.*']` — same semantics, better for filters and aggregates (see
+`backend/db/prod/clickhouse/otel.otel_logs.sql`).
+
 ### OTLP metrics (physical tables — collector `INSERT` targets)
 
 All share materialized `ProjectId`, `SessionId`, RUM dimensions (same pattern as below), and
@@ -100,10 +104,13 @@ ResourceAttributes/SpanAttributes directly** — they are faster and indexed.
 | `NetworkProvider`   | `network.carrier.name`                           | all                                         |
 | `UserId`            | `user.id` with fallback to `app.installation.id` | traces, logs, metrics                       |
 | `MeteringSessionId` | `pulse.metering.session.id`                      | traces, logs, metrics, `stack_trace_events` |
+| `WebVitalName`      | `web_vital.name`                                 | `otel_logs` only                             |
+| `WebVitalValue`     | `web_vital.value` (numeric, `toFloat64OrZero`)   | `otel_logs` only                             |
+| `WebVitalRating`    | `web_vital.rating`                               | `otel_logs` only                             |
 
 Core telemetry tables have ORDER BY starting with `ProjectId` for isolation (e.g., `otel_traces`:
-`(ProjectId, ServiceName, PulseType, SpanName, Timestamp)`). `project_monthly_usage` orders by `project_id`;
-`root_cause_cache` orders by `(ProjectId, interaction_name, date, window_end_utc)`.
+`(ProjectId, ServiceName, PulseType, SpanName, Timestamp)`; `otel_logs`: `(ProjectId, PulseType, EventName, Timestamp)`).
+`project_monthly_usage` orders by `project_id`; `root_cause_cache` orders by `(ProjectId, interaction_name, date, window_end_utc)`.
 
 ## Pulse-Specific Attributes
 
@@ -126,6 +133,7 @@ Core telemetry tables have ORDER BY starting with `ProjectId` for isolation (e.g
 | `network.change`                | Network     | Connectivity change                             |
 | `custom_event`                  | Custom      | Developer-defined events                        |
 | `app.click`                     | User action | Touch/click event                               |
+| `web_vital`                     | Web / perf  | Core Web Vitals (use `WebVitalName` / `WebVitalValue` / `WebVitalRating` on `otel_logs`) |
 
 ### Key SpanAttributes by feature
 
@@ -174,6 +182,7 @@ Core telemetry tables have ORDER BY starting with `ProjectId` for isolation (e.g
 - By network provider: `WHERE NetworkProvider = '...'`
 - By geography: `WHERE GeoCountry = '...'` or `WHERE GeoState = '...'`
 - By span type: `WHERE PulseType = '...'`
+- Web vitals (logs): `WHERE PulseType = 'web_vital' AND WebVitalName = 'LCP'` (prefer `WebVitalName` / `WebVitalValue` / `WebVitalRating` over `LogAttributes['web_vital.*']`)
 
 ## Alert Metric Scopes
 

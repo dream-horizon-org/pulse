@@ -3,7 +3,6 @@ package org.dreamhorizon.pulseserver.service.webvitals;
 import com.google.inject.Inject;
 import io.reactivex.rxjava3.core.Single;
 import java.time.Instant;
-import java.util.List;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -11,10 +10,8 @@ import org.dreamhorizon.pulseserver.dao.webvitals.WebVitalsDao;
 import org.dreamhorizon.pulseserver.dao.webvitals.models.WebVitalByScreenRow;
 import org.dreamhorizon.pulseserver.dao.webvitals.models.WebVitalSummaryRow;
 import org.dreamhorizon.pulseserver.dao.webvitals.models.WebVitalTrendRow;
-import org.dreamhorizon.pulseserver.resources.webvitals.ScreenVitalDto;
-import org.dreamhorizon.pulseserver.resources.webvitals.TrendPointDto;
-import org.dreamhorizon.pulseserver.resources.webvitals.VitalSummaryDto;
 import org.dreamhorizon.pulseserver.resources.webvitals.WebVitalsByScreenResponseDto;
+import org.dreamhorizon.pulseserver.resources.webvitals.WebVitalsMapper;
 import org.dreamhorizon.pulseserver.resources.webvitals.WebVitalsSummaryResponseDto;
 import org.dreamhorizon.pulseserver.resources.webvitals.WebVitalsTrendResponseDto;
 
@@ -33,7 +30,7 @@ public class WebVitalsServiceImpl implements WebVitalsService {
             rows ->
                 rows.stream()
                     .filter(this::isValidSummaryRow)
-                    .map(this::toVitalSummaryDto)
+                    .map(WebVitalsMapper::toVitalSummaryDto)
                     .collect(Collectors.toList()))
         .map(vitals -> WebVitalsSummaryResponseDto.builder().vitals(vitals).build());
   }
@@ -47,7 +44,7 @@ public class WebVitalsServiceImpl implements WebVitalsService {
             rows ->
                 rows.stream()
                     .filter(this::isValidTrendRow)
-                    .map(this::toTrendPointDto)
+                    .map(WebVitalsMapper::toTrendPointDto)
                     .collect(Collectors.toList()))
         .map(points -> WebVitalsTrendResponseDto.builder().points(points).build());
   }
@@ -61,7 +58,7 @@ public class WebVitalsServiceImpl implements WebVitalsService {
             rows ->
                 rows.stream()
                     .filter(this::isValidByScreenRow)
-                    .map(this::toScreenVitalDto)
+                    .map(WebVitalsMapper::toScreenVitalDto)
                     .collect(Collectors.toList()))
         .map(screens -> WebVitalsByScreenResponseDto.builder().screens(screens).build());
   }
@@ -80,39 +77,6 @@ public class WebVitalsServiceImpl implements WebVitalsService {
 
   private boolean isValidByScreenRow(WebVitalByScreenRow row) {
     return parseDouble(row.getP75()) != null;
-  }
-
-  private VitalSummaryDto toVitalSummaryDto(WebVitalSummaryRow row) {
-    long totalCount = parseLong(row.getTotalCount());
-    long goodCount = parseLong(row.getGoodCount());
-    long needsImprovementCount = parseLong(row.getNeedsImprovementCount());
-    long poorCount = parseLong(row.getPoorCount());
-
-    double goodPct = (double) (goodCount * 100) / totalCount;
-    double needsImprovementPct = (double) (needsImprovementCount * 100) / totalCount;
-    double poorPct = (double) (poorCount * 100) / totalCount;
-
-    return VitalSummaryDto.builder()
-        .name(row.getVitalName())
-        .p75(parseDouble(row.getP75()))
-        .goodPct(goodPct)
-        .needsImprovementPct(needsImprovementPct)
-        .poorPct(poorPct)
-        .totalCount(totalCount)
-        .build();
-  }
-
-  private TrendPointDto toTrendPointDto(WebVitalTrendRow row) {
-    return TrendPointDto.builder().bucket(row.getBucket()).p75(parseDouble(row.getP75())).build();
-  }
-
-  private ScreenVitalDto toScreenVitalDto(WebVitalByScreenRow row) {
-    return ScreenVitalDto.builder()
-        .screenName(row.getScreenName())
-        .p75(parseDouble(row.getP75()))
-        .totalCount(parseLong(row.getTotalCount()))
-        .goodPct(parseDouble(row.getGoodPct()))
-        .build();
   }
 
   private Double parseDouble(String value) {

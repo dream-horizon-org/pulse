@@ -21,6 +21,10 @@ import org.dreamhorizon.pulseserver.dao.webvitals.models.WebVitalSummaryRow;
 import org.dreamhorizon.pulseserver.dao.webvitals.models.WebVitalTrendRow;
 import org.dreamhorizon.pulseserver.model.QueryConfiguration;
 import org.dreamhorizon.pulseserver.model.QueryResultResponse;
+import org.dreamhorizon.pulseserver.resources.webvitals.models.WebVitalsByScreenQueryParams;
+import org.dreamhorizon.pulseserver.resources.webvitals.models.WebVitalsSummaryQueryParams;
+import org.dreamhorizon.pulseserver.resources.webvitals.models.WebVitalsTrendQueryParams;
+import org.dreamhorizon.pulseserver.model.QueryResultResponse;
 import org.dreamhorizon.pulseserver.rest.io.Response;
 import org.dreamhorizon.pulseserver.service.webvitals.WebVitalsServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
@@ -87,7 +91,7 @@ class WebVitalsIntegrationTest {
 
               CompletionStage<Response<WebVitalsSummaryResponseDto>> cs =
                   webVitalsResource.getSummary(
-                      START_TIME.toString(), END_TIME.toString(), null);
+                      summaryQuery(START_TIME.toString(), END_TIME.toString(), null));
 
               cs.whenComplete(
                   (resp, err) -> {
@@ -141,9 +145,10 @@ class WebVitalsIntegrationTest {
 
               CompletionStage<Response<WebVitalsSummaryResponseDto>> cs =
                   webVitalsResource.getSummary(
-                      String.valueOf(START_TIME.toEpochMilli()),
-                      String.valueOf(END_TIME.toEpochMilli()),
-                      null);
+                      summaryQuery(
+                          String.valueOf(START_TIME.toEpochMilli()),
+                          String.valueOf(END_TIME.toEpochMilli()),
+                          null));
 
               cs.whenComplete(
                   (resp, err) -> {
@@ -192,7 +197,7 @@ class WebVitalsIntegrationTest {
 
               CompletionStage<Response<WebVitalsSummaryResponseDto>> cs =
                   webVitalsResource.getSummary(
-                      START_TIME.toString(), END_TIME.toString(), "Home");
+                      summaryQuery(START_TIME.toString(), END_TIME.toString(), "Home"));
 
               cs.whenComplete(
                   (resp, err) -> {
@@ -253,7 +258,7 @@ class WebVitalsIntegrationTest {
 
               CompletionStage<Response<WebVitalsTrendResponseDto>> cs =
                   webVitalsResource.getTrend(
-                      START_TIME.toString(), END_TIME.toString(), "LCP", 30, null);
+                      trendQuery(START_TIME.toString(), END_TIME.toString(), "LCP", 30, null));
 
               cs.whenComplete(
                   (resp, err) -> {
@@ -301,11 +306,12 @@ class WebVitalsIntegrationTest {
 
               CompletionStage<Response<WebVitalsTrendResponseDto>> cs =
                   webVitalsResource.getTrend(
-                      String.valueOf(START_TIME.toEpochMilli()),
-                      String.valueOf(END_TIME.toEpochMilli()),
-                      "LCP",
-                      30,
-                      null);
+                      trendQuery(
+                          String.valueOf(START_TIME.toEpochMilli()),
+                          String.valueOf(END_TIME.toEpochMilli()),
+                          "LCP",
+                          30,
+                          null));
 
               cs.whenComplete(
                   (resp, err) -> {
@@ -368,7 +374,7 @@ class WebVitalsIntegrationTest {
 
               CompletionStage<Response<WebVitalsByScreenResponseDto>> cs =
                   webVitalsResource.getByScreen(
-                      START_TIME.toString(), END_TIME.toString(), "INP");
+                      byScreenQuery(START_TIME.toString(), END_TIME.toString(), "INP"));
 
               cs.whenComplete(
                   (resp, err) -> {
@@ -417,9 +423,10 @@ class WebVitalsIntegrationTest {
 
               CompletionStage<Response<WebVitalsByScreenResponseDto>> cs =
                   webVitalsResource.getByScreen(
-                      String.valueOf(START_TIME.toEpochMilli()),
-                      String.valueOf(END_TIME.toEpochMilli()),
-                      "INP");
+                      byScreenQuery(
+                          String.valueOf(START_TIME.toEpochMilli()),
+                          String.valueOf(END_TIME.toEpochMilli()),
+                          "INP"));
 
               cs.whenComplete(
                   (resp, err) -> {
@@ -450,7 +457,7 @@ class WebVitalsIntegrationTest {
             ProjectContext.clear();
             try {
               webVitalsResource.getSummary(
-                  START_TIME.toString(), END_TIME.toString(), null);
+                  summaryQuery(START_TIME.toString(), END_TIME.toString(), null));
               tc.failNow("Should have thrown WebApplicationException");
             } catch (WebApplicationException e) {
               tc.verify(
@@ -461,5 +468,38 @@ class WebVitalsIntegrationTest {
             }
           });
     }
+  }
+
+  private static WebVitalsSummaryQueryParams summaryQuery(
+      String startTime, String endTime, String screenName) {
+    WebVitalsSummaryQueryParams q = new WebVitalsSummaryQueryParams();
+    q.setStartTime(startTime);
+    q.setEndTime(endTime);
+    q.setScreenName(screenName);
+    return q;
+  }
+
+  private static WebVitalsTrendQueryParams trendQuery(
+      String startTime,
+      String endTime,
+      String vitalName,
+      Integer bucketMinutes,
+      String screenName) {
+    WebVitalsTrendQueryParams q = new WebVitalsTrendQueryParams();
+    q.setStartTime(startTime);
+    q.setEndTime(endTime);
+    q.setVitalName(vitalName);
+    q.setBucketMinutes(bucketMinutes);
+    q.setScreenName(screenName);
+    return q;
+  }
+
+  private static WebVitalsByScreenQueryParams byScreenQuery(
+      String startTime, String endTime, String vitalName) {
+    WebVitalsByScreenQueryParams q = new WebVitalsByScreenQueryParams();
+    q.setStartTime(startTime);
+    q.setEndTime(endTime);
+    q.setVitalName(vitalName);
+    return q;
   }
 }

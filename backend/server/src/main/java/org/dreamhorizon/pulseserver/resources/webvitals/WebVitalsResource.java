@@ -1,10 +1,10 @@
 package org.dreamhorizon.pulseserver.resources.webvitals;
 
 import com.google.inject.Inject;
+import jakarta.ws.rs.BeanParam;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
-import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
 import java.time.Instant;
 import java.util.concurrent.CompletionStage;
@@ -12,6 +12,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.context.ProjectContext;
 import org.dreamhorizon.pulseserver.error.ServiceError;
+import org.dreamhorizon.pulseserver.resources.webvitals.models.WebVitalsByScreenQueryParams;
+import org.dreamhorizon.pulseserver.resources.webvitals.models.WebVitalsSummaryQueryParams;
+import org.dreamhorizon.pulseserver.resources.webvitals.models.WebVitalsTrendQueryParams;
 import org.dreamhorizon.pulseserver.rest.io.Response;
 import org.dreamhorizon.pulseserver.rest.io.RestResponse;
 import org.dreamhorizon.pulseserver.service.webvitals.WebVitalsService;
@@ -34,9 +37,7 @@ public class WebVitalsResource {
   @GET
   @Path("/summary")
   public CompletionStage<Response<WebVitalsSummaryResponseDto>> getSummary(
-      @QueryParam("startTime") String startTimeStr,
-      @QueryParam("endTime") String endTimeStr,
-      @QueryParam("screenName") String screenName) {
+      @BeanParam WebVitalsSummaryQueryParams query) {
 
     try {
       ProjectContext.requireProjectId();
@@ -44,11 +45,11 @@ public class WebVitalsResource {
       throw ServiceError.INVALID_PROJECT_ID.getException();
     }
 
-    Instant startTime = WebVitalsTimeParser.parseQueryInstant(startTimeStr, "startTime");
-    Instant endTime = WebVitalsTimeParser.parseQueryInstant(endTimeStr, "endTime");
+    Instant startTime = WebVitalsTimeParser.parseQueryInstant(query.getStartTime(), "startTime");
+    Instant endTime = WebVitalsTimeParser.parseQueryInstant(query.getEndTime(), "endTime");
 
     return webVitalsService
-        .getSummary(startTime, endTime, screenName)
+        .getSummary(startTime, endTime, query.getScreenName())
         .to(RestResponse.jaxrsRestHandler());
   }
 
@@ -59,11 +60,7 @@ public class WebVitalsResource {
   @GET
   @Path("/trend")
   public CompletionStage<Response<WebVitalsTrendResponseDto>> getTrend(
-      @QueryParam("startTime") String startTimeStr,
-      @QueryParam("endTime") String endTimeStr,
-      @QueryParam("vitalName") String vitalName,
-      @QueryParam("bucketMinutes") Integer bucketMinutes,
-      @QueryParam("screenName") String screenName) {
+      @BeanParam WebVitalsTrendQueryParams query) {
 
     try {
       ProjectContext.requireProjectId();
@@ -72,18 +69,23 @@ public class WebVitalsResource {
     }
 
     int effectiveBucketMinutes =
-        bucketMinutes != null ? bucketMinutes : DEFAULT_BUCKET_MINUTES;
+        query.getBucketMinutes() != null ? query.getBucketMinutes() : DEFAULT_BUCKET_MINUTES;
 
     if (effectiveBucketMinutes < MIN_BUCKET_MINUTES
         || effectiveBucketMinutes > MAX_BUCKET_MINUTES) {
       throw ServiceError.INVALID_BUCKET_MINUTES.getException();
     }
 
-    Instant startTime = WebVitalsTimeParser.parseQueryInstant(startTimeStr, "startTime");
-    Instant endTime = WebVitalsTimeParser.parseQueryInstant(endTimeStr, "endTime");
+    Instant startTime = WebVitalsTimeParser.parseQueryInstant(query.getStartTime(), "startTime");
+    Instant endTime = WebVitalsTimeParser.parseQueryInstant(query.getEndTime(), "endTime");
 
     return webVitalsService
-        .getTrend(startTime, endTime, vitalName, effectiveBucketMinutes, screenName)
+        .getTrend(
+            startTime,
+            endTime,
+            query.getVitalName(),
+            effectiveBucketMinutes,
+            query.getScreenName())
         .to(RestResponse.jaxrsRestHandler());
   }
 
@@ -94,9 +96,7 @@ public class WebVitalsResource {
   @GET
   @Path("/by-screen")
   public CompletionStage<Response<WebVitalsByScreenResponseDto>> getByScreen(
-      @QueryParam("startTime") String startTimeStr,
-      @QueryParam("endTime") String endTimeStr,
-      @QueryParam("vitalName") String vitalName) {
+      @BeanParam WebVitalsByScreenQueryParams query) {
 
     try {
       ProjectContext.requireProjectId();
@@ -104,11 +104,11 @@ public class WebVitalsResource {
       throw ServiceError.INVALID_PROJECT_ID.getException();
     }
 
-    Instant startTime = WebVitalsTimeParser.parseQueryInstant(startTimeStr, "startTime");
-    Instant endTime = WebVitalsTimeParser.parseQueryInstant(endTimeStr, "endTime");
+    Instant startTime = WebVitalsTimeParser.parseQueryInstant(query.getStartTime(), "startTime");
+    Instant endTime = WebVitalsTimeParser.parseQueryInstant(query.getEndTime(), "endTime");
 
     return webVitalsService
-        .getByScreen(startTime, endTime, vitalName)
+        .getByScreen(startTime, endTime, query.getVitalName())
         .to(RestResponse.jaxrsRestHandler());
   }
 }

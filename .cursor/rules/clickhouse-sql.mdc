@@ -56,6 +56,9 @@ These columns are extracted from Map attributes at insert time. **Always use the
 | `NetworkProvider` | `network.carrier.name` | SpanAttributes/LogAttributes/Attributes | all tables |
 | `UserId` | `user.id` | `app.installation.id` | SpanAttributes/LogAttributes/Attributes | traces, logs, metrics |
 | `MeteringSessionId` | `pulse.metering.session.id` | SpanAttributes/LogAttributes/Attributes | traces, logs, metrics, `stack_trace_events` |
+| `WebVitalName` | `web_vital.name` | LogAttributes | `otel_logs` only |
+| `WebVitalValue` | `web_vital.value` (as `Float64` via `toFloat64OrZero`) | LogAttributes | `otel_logs` only |
+| `WebVitalRating` | `web_vital.rating` | LogAttributes | `otel_logs` only |
 
 `otel_traces` also has a deprecated `SpanType` column (same source as `PulseType`).
 
@@ -74,7 +77,7 @@ All tables start their ORDER BY with `ProjectId` for multi-tenant isolation:
 | Table | ORDER BY |
 |-------|----------|
 | `otel_traces` | `(ProjectId, ServiceName, PulseType, SpanName, Timestamp)` |
-| `otel_logs` | `(ProjectId, ServiceName, PulseType, EventName, SeverityText, toUnixTimestamp(Timestamp), TraceId)` |
+| `otel_logs` | `(ProjectId, PulseType, EventName, Timestamp)` (dev + prod DDL in `backend/db/*/clickhouse/01_otel.otel_logs.sql` / `otel.otel_logs.sql`) |
 | `otel_metrics_gauge` | `(ProjectId, ServiceName, MetricName, Attributes, toUnixTimestamp64Nano(TimeUnix))` |
 | `otel_metrics_sum` | `(ProjectId, ServiceName, MetricName, Attributes, toUnixTimestamp64Nano(TimeUnix))` |
 | `otel_metrics_summary` | `(ProjectId, ServiceName, MetricName, Attributes, toUnixTimestamp64Nano(TimeUnix))` |
@@ -92,6 +95,8 @@ All tables start their ORDER BY with `ProjectId` for multi-tenant isolation:
 Accessed via `SpanAttributes['key']` (for traces) or `LogAttributes['key']` (for logs):
 - `pulse.type`, `pulse.interaction.name`, `screen.name`
 - `app.build_name` (→ `AppVersion`), `os.name` (→ `Platform`), `device.model.name` (→ `DeviceModel`)
+- Web vitals on logs (`pulse.type = 'web_vital'`): prefer **`WebVitalName`**, **`WebVitalValue`**, **`WebVitalRating`**
+  over `LogAttributes['web_vital.name'|'web_vital.value'|'web_vital.rating']`
 
 ## Multi-Tenant Data Isolation
 
