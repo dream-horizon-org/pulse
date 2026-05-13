@@ -1085,15 +1085,17 @@ public class AlertEvaluationService {
               alertsDao.getScopeState(responseDto.getScopeId()),
               alertsDao.getAlertScopesForEvaluation(responseDto.getAlert().getId()),
               (previousState, scopes) -> {
-                String scopeName = scopes.stream()
+                AlertsDao.AlertScopeDetails matchedScope = scopes.stream()
                     .filter(scope -> scope.getId().equals(responseDto.getScopeId()))
-                    .map(AlertsDao.AlertScopeDetails::getName)
                     .findFirst()
-                    .orElse("Unknown Scope");
+                    .orElse(null);
+
+                String scopeName = matchedScope != null ? matchedScope.getName() : "Unknown Scope";
+                String scopeConditions = matchedScope != null ? matchedScope.getConditions() : null;
 
                 Float metricReading = extractMetricReading(responseDto.getEvaluationResult());
 
-                createIncidentIfRequired(responseDto.getState(), responseDto, metricReading, scopeName, previousState);
+                createIncidentIfRequired(responseDto.getState(), responseDto, metricReading, scopeName, scopeConditions, previousState);
                 return true;
               })
           .flatMap(result -> updateScopeState(responseDto.getScopeId(), responseDto.getState()))
@@ -1182,7 +1184,7 @@ public class AlertEvaluationService {
   }
 
   private Map<String, Object> buildNotificationParams(AlertEvaluationResponseDto responseDto, String scopeName,
-                                                       Float metricReading, String scopeConditions) {
+                                                      Float metricReading, String scopeConditions) {
     Map<String, Object> params = new HashMap<>();
     params.put("alertName", responseDto.getAlert().getName());
     params.put("alertId", String.valueOf(responseDto.getAlert().getId()));
@@ -1232,7 +1234,8 @@ public class AlertEvaluationService {
 
     try {
       List<Map<String, Object>> conditions = objectMapper.readValue(
-          scopeConditions, new TypeReference<List<Map<String, Object>>>() {});
+          scopeConditions, new TypeReference<List<Map<String, Object>>>() {
+          });
 
       Map<String, String> aliasToDescription = new HashMap<>();
       for (Map<String, Object> condition : conditions) {
