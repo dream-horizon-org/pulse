@@ -232,11 +232,11 @@ class SlackOAuthServiceTest {
           .isActive(true)
           .build();
 
-      when(channelDao.getChannelByProjectAndType(eq("proj-1"), eq(ChannelType.SLACK)))
+      when(channelDao.getActiveChannelByType(eq("proj-1"), eq(ChannelType.SLACK)))
           .thenReturn(Maybe.just(existingChannel));
       when(channelDao.updateChannel(eq(10L), any(NotificationChannel.class)))
           .thenReturn(Single.just(1));
-      when(mappingDao.updateMappingsActiveByChannelId(eq(10L), eq(true)))
+      when(mappingDao.updateMappingsActiveByChannelId(eq(10L), eq("proj-1"), eq(true)))
           .thenReturn(Single.just(1));
       when(channelDao.getChannelById(eq(10L)))
           .thenReturn(Maybe.just(updatedChannel));
@@ -260,7 +260,7 @@ class SlackOAuthServiceTest {
           .workspaceName("New Workspace")
           .build();
 
-      when(channelDao.getChannelByProjectAndType(eq("proj-2"), eq(ChannelType.SLACK)))
+      when(channelDao.getActiveChannelByType(eq("proj-2"), eq(ChannelType.SLACK)))
           .thenReturn(Maybe.empty());
       when(channelDao.createChannel(any(NotificationChannel.class)))
           .thenReturn(Single.just(20L));
@@ -297,7 +297,7 @@ class SlackOAuthServiceTest {
           .workspaceName(null)
           .build();
 
-      when(channelDao.getChannelByProjectAndType(eq("proj-3"), eq(ChannelType.SLACK)))
+      when(channelDao.getActiveChannelByType(eq("proj-3"), eq(ChannelType.SLACK)))
           .thenReturn(Maybe.empty());
       when(channelDao.createChannel(any(NotificationChannel.class)))
           .thenReturn(Single.just(30L));

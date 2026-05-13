@@ -791,7 +791,8 @@ public class NotificationServiceImpl implements NotificationService {
                     .flatMap(
                         channelCount ->
                             mappingDao
-                                .updateMappingsActiveByChannelId(channelId, false)
+                                .updateMappingsActiveByChannelId(
+                                    channelId, existing.getProjectId(), false)
                                 .map(mappingCount -> channelCount > 0 || mappingCount > 0)));
   }
 
@@ -906,21 +907,8 @@ public class NotificationServiceImpl implements NotificationService {
                             channelDao
                                 .getChannelById(mapping.getChannelId())
                                 .filter(channel -> Boolean.TRUE.equals(channel.getIsActive()))
-                                .map(
-                                    channel ->
-                                        ChannelEventMappingDto.builder()
-                                            .id(mapping.getId())
-                                            .projectId(mapping.getProjectId())
-                                            .channelId(mapping.getChannelId())
-                                            .channelType(channel.getChannelType())
-                                            .channelName(channel.getName())
-                                            .eventName(mapping.getEventName())
-                                            .recipient(mapping.getRecipient())
-                                            .recipientName(mapping.getRecipientName())
-                                            .isActive(mapping.getIsActive())
-                                            .createdAt(mapping.getCreatedAt())
-                                            .updatedAt(mapping.getUpdatedAt())
-                                            .build()))
+                                .flatMapSingle(
+                                    channel -> enrichMappingDto(mapping, channel)))
                     .toList());
   }
 
@@ -1013,6 +1001,11 @@ public class NotificationServiceImpl implements NotificationService {
   }
 
   private Single<ChannelEventMappingDto> enrichMappingDto(ChannelEventMapping mapping) {
+    return enrichMappingDto(mapping, null);
+  }
+
+  private Single<ChannelEventMappingDto> enrichMappingDto(
+      ChannelEventMapping mapping, NotificationChannel resolvedChannel) {
     ChannelEventMappingDto.ChannelEventMappingDtoBuilder base =
         ChannelEventMappingDto.builder()
             .id(mapping.getId())
@@ -1024,6 +1017,13 @@ public class NotificationServiceImpl implements NotificationService {
             .isActive(mapping.getIsActive())
             .createdAt(mapping.getCreatedAt())
             .updatedAt(mapping.getUpdatedAt());
+
+    if (resolvedChannel != null) {
+      return Single.just(
+          base.channelType(resolvedChannel.getChannelType())
+              .channelName(resolvedChannel.getName())
+              .build());
+    }
 
     return channelDao
         .getChannelById(mapping.getChannelId())

@@ -117,10 +117,15 @@ public class ChannelEventMappingDao {
         .map(rows -> rows.rowCount());
   }
 
-  public Single<Integer> updateMappingsActiveByChannelId(Long channelId, boolean isActive) {
+  /**
+   * @param scopeProjectId when non-null, only mappings for that project are updated; when null
+   *     (e.g. shared email channel), all mappings for {@code channelId} are updated.
+   */
+  public Single<Integer> updateMappingsActiveByChannelId(
+      Long channelId, String scopeProjectId, boolean isActive) {
     MySQLPool pool = mysqlClient.getWriterPool();
     return pool.preparedQuery(NotificationQueries.UPDATE_MAPPINGS_ACTIVE_BY_CHANNEL_ID)
-        .rxExecute(Tuple.of(isActive, channelId))
+        .rxExecute(Tuple.of(isActive, channelId, scopeProjectId, scopeProjectId))
         .map(rows -> rows.rowCount());
   }
 

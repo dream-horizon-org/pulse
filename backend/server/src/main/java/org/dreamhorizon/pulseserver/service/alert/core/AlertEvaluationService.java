@@ -1025,14 +1025,6 @@ public class AlertEvaluationService {
     }
   }
 
-  private static final Map<String, String> OPERATOR_SYMBOLS = Map.of(
-      "GREATER_THAN", ">",
-      "LESS_THAN", "<",
-      "GREATER_THAN_EQUAL", ">=",
-      "LESS_THAN_EQUAL", "<=",
-      "EQUAL", "="
-  );
-
   private Map<String, Object> buildNotificationParams(AlertEvaluationResponseDto responseDto, String scopeName,
                                                        Float metricReading, String scopeConditions) {
     Map<String, Object> params = new HashMap<>();
@@ -1097,7 +1089,8 @@ public class AlertEvaluationService {
           continue;
         }
 
-        String symbol = OPERATOR_SYMBOLS.getOrDefault(operator, operator);
+        String symbol =
+            Constants.ALERT_CONDITION_OPERATOR_SYMBOLS.getOrDefault(operator, operator);
         String thresholdStr = resolveThreshold(thresholdObj, scopeName);
         aliasToDescription.put(alias, metric + " " + symbol + " " + thresholdStr);
       }

@@ -134,7 +134,7 @@ public class SlackOAuthService {
         : "Slack";
 
     return channelDao
-        .getChannelByProjectAndType(projectId, ChannelType.SLACK)
+        .getActiveChannelByType(projectId, ChannelType.SLACK)
         .flatMapSingle(existingChannel -> {
           NotificationChannel updated = NotificationChannel.builder()
               .name(channelName)
@@ -146,7 +146,8 @@ public class SlackOAuthService {
               .flatMap(
                   count ->
                       mappingDao
-                          .updateMappingsActiveByChannelId(existingChannel.getId(), true)
+                          .updateMappingsActiveByChannelId(
+                              existingChannel.getId(), projectId, true)
                           .flatMap(
                               mappingCount ->
                                   channelDao.getChannelById(existingChannel.getId()).toSingle()));

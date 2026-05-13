@@ -7,6 +7,7 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -350,7 +351,8 @@ class NotificationServiceImplTest {
       NotificationChannel existing = emailChannel();
       when(channelDao.getChannelById(eq(CHANNEL_ID))).thenReturn(Maybe.just(existing));
       when(channelDao.updateChannel(eq(CHANNEL_ID), any())).thenReturn(Single.just(1));
-      when(mappingDao.updateMappingsActiveByChannelId(eq(CHANNEL_ID), eq(false)))
+      when(mappingDao.updateMappingsActiveByChannelId(
+              eq(CHANNEL_ID), isNull(), eq(false)))
           .thenReturn(Single.just(0));
 
       var result = service.deleteChannel(CHANNEL_ID).blockingGet();
@@ -363,12 +365,27 @@ class NotificationServiceImplTest {
       NotificationChannel existing = emailChannel();
       when(channelDao.getChannelById(eq(CHANNEL_ID))).thenReturn(Maybe.just(existing));
       when(channelDao.updateChannel(eq(CHANNEL_ID), any())).thenReturn(Single.just(0));
-      when(mappingDao.updateMappingsActiveByChannelId(eq(CHANNEL_ID), eq(false)))
+      when(mappingDao.updateMappingsActiveByChannelId(
+              eq(CHANNEL_ID), isNull(), eq(false)))
           .thenReturn(Single.just(0));
 
       var result = service.deleteChannel(CHANNEL_ID).blockingGet();
 
       assertThat(result).isFalse();
+    }
+
+    @Test
+    void shouldDeleteChannelAndScopeMappingUpdateByProjectForSlack() {
+      NotificationChannel existing = slackChannel();
+      when(channelDao.getChannelById(eq(CHANNEL_ID))).thenReturn(Maybe.just(existing));
+      when(channelDao.updateChannel(eq(CHANNEL_ID), any())).thenReturn(Single.just(1));
+      when(mappingDao.updateMappingsActiveByChannelId(
+              eq(CHANNEL_ID), eq(PROJECT_ID), eq(false)))
+          .thenReturn(Single.just(1));
+
+      var result = service.deleteChannel(CHANNEL_ID).blockingGet();
+
+      assertThat(result).isTrue();
     }
   }
 

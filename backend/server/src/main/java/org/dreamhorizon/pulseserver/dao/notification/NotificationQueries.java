@@ -53,14 +53,6 @@ public final class NotificationQueries {
         LIMIT 1
         """;
 
-  public static final String GET_CHANNEL_BY_PROJECT_AND_TYPE =
-      """
-        SELECT * FROM notification_channels
-        WHERE project_id = ? AND channel_type = ?
-        ORDER BY updated_at DESC, created_at DESC
-        LIMIT 1
-        """;
-
   public static final String INSERT_CHANNEL =
       """
         INSERT INTO notification_channels
@@ -184,11 +176,16 @@ public final class NotificationQueries {
         DELETE FROM channel_event_mapping WHERE id = ?
         """;
 
+  /**
+   * When {@code scopeProjectId} bind is NULL, updates all rows for the channel (shared channels).
+   * When non-NULL, only rows for that {@code project_id} are updated.
+   */
   public static final String UPDATE_MAPPINGS_ACTIVE_BY_CHANNEL_ID =
       """
         UPDATE channel_event_mapping
         SET is_active = ?, updated_at = CURRENT_TIMESTAMP
         WHERE channel_id = ?
+          AND (? IS NULL OR project_id = ?)
         """;
 
   // Log queries
