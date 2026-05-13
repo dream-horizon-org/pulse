@@ -5,435 +5,491 @@ File: `pulse-web-otel/docs/instrumentations/sdk-core/SPEC.md`
 
 ---
 
-## 1. Goal
+## What this document covers
 
-Define the non-instrumentation core of the Pulse Web SDK: initialization lifecycle, configuration contract, consent gate, feature gates, remote config fetch/cache, OTLP exporters, export sampling, IndexedDB persistence, session management, and the public API surface exposed via `src/index.ts`.
+**SDK Core** — how the SDK starts up, what it sets up, and how it sends data.
 
-This document is the shared data contract reference for all instrumentation SPEC files (issues 02–07). Every signal emitted by an instrumentation must conform to the attribute table in §5.
+Session lifecycle is covered in its own document: [SESSION-LIFECYCLE.md](./SESSION-LIFECYCLE.md)
 
----
-
-## 2. Assumptions
-
-- The SDK runs in browser environments only. `window` / `globalThis.window` must be defined; SSR / Node environments receive a no-op init.
-- The host app supplies `apiKey` and `dataCollectionState` at init time. Both are required.
-- All instrumentations run on the browser main thread. No Web Worker support in v0.1.
-- `localStorage` is available for session/user persistence and SDK config cache. A quota of ~5 MB is assumed; the persistence module truncates oldest-first on overflow.
-- OTel SDK (traces, logs, metrics) is bundled with the SDK — not expected as a peer dep from the host.
-- Android and React Native SDKs share the same `pulse.type` semantic convention; web must not diverge.
-- Remote config is fetched in the background after init; the locally cached version from the previous session is used immediately to gate instrumentations.
+All instrumentation SPEC files (network, clicks, web vitals, etc.) depend on this document for the shared attribute contract in §5.
 
 ---
 
-## 3. Requirements
+## HLD — High Level Design
 
-### Functional
-
-**R1 — Init:** `Pulse.init(config)` must be idempotent (double-call is a no-op). Returns a `Promise<void>` that resolves when async bootstrap (OS version resolution, provider wiring) completes.
-
-**R2 — Consent gate:** `dataCollectionState !== ALLOWED` → no signals emitted, no listeners installed. The SDK must be callable (`Pulse.init`) even when consent is `PENDING` or `DENIED`; it simply exits early with no side effects.
-
-**R3 — Feature gate:** Every instrumentation checks `FeatureGate.isEnabled(feature)` before installing event listeners. A remote config can reduce `sessionSampleRate` to 0 to disable a feature without re-deploying.
-
-**R4 — Remote config:** `SdkConfigFetcher.loadCached()` reads `localStorage["pulse_sdk_config"]` synchronously at init. `fetchInBackground()` fires a `fetch` call post-init and persists a new version only if the remote version number differs.
-
-**R5 — Shutdown:** `Pulse.shutdown()` must uninstall all instrumentations, remove the `pagehide` listener, force-flush all providers, and reset the singleton so a subsequent `Pulse.init()` re-bootstraps cleanly.
-
-**R6 — Session:** `SessionProvider` assigns a `session.id` UUID on construction. It rotates the session after `pageHiddenTimeoutMs` of backgrounding (default 30 min). Sessions persist `installationId` and `userId` to `localStorage`.
-
-**R7 — Public API:** All methods on `Pulse` must silently no-op when called before `init` completes or after `shutdown`.
-
-**R8 — platform=web mandate:** Every signal emitted by the SDK must carry `platform = 'web'` as an OTel Resource attribute (`os.name = 'web'`). This is set once in `buildMergedResource()` and is not overridable by the host app.
-
-**R9 — Export sampling:** `ExportSamplingGate` evaluates session-level sampling rules at export time (not span-creation time), preserving parent/child span sampling consistency.
-
-**R10 — IndexedDB drain:** On init, if `diskBuffering.enabled !== false`, the SDK replays any buffered OTLP batches from IndexedDB that were written by a previous session that crashed before flushing.
-
-### Non-functional
-
-- **Bundle size:** gated by `size-limit` in CI. No lodash, moment, or Node-only deps.
-- **Logging:** All internal logs route through `PulseWebLogger`; consumers can silence via `logLevel: PulseLogLevel.NONE`.
-- **Thread safety:** Init is re-entrant safe via `_initializing` guard. Concurrent `init()` calls during async bootstrap return the same in-flight promise.
-
----
-
-## 4. Architectural Design
+### System architecture
 
 ```
-Host App
-  │
-  ▼
-Pulse.init(config)          ← singleton facade (src/sdk.ts)
-  │
-  ├─ validateConfig()        ← src/config.ts
-  ├─ isDataCollectionAllowed()  ← src/consent.ts
-  ├─ SessionProvider         ← src/session.ts
-  ├─ UA parse + OS version   ← src/utils/ua-parser.ts  (async <200ms)
-  ├─ buildMergedResource()   ← src/resource.ts  (platform=web stamped here)
-  │
-  ├─ SdkConfigFetcher.loadCached()  ← localStorage → PulseSdkConfig
-  ├─ FeatureGate(sdkConfig)         ← src/feature-gate.ts
-  ├─ ExportSamplingGate(sdkConfig)  ← src/sampling/export-sampling-gate.ts
-  ├─ PulseGlobalAttributesProcessor ← src/processors/global-attrs-processor.ts
-  ├─ SignalFilterProcessor           ← src/processors/signal-filter-processor.ts
-  │
-  ├─ createProviders(exporterConfig, resource, processors)  ← src/exporters.ts
-  │     └─ WebTracerProvider + LoggerProvider + MeterProvider
-  │
-  ├─ drainBufferedOtlpExports()  ← src/persistence/drain-buffered-exports.ts
-  ├─ bindPagehideFlush()         ← pagehide → forceFlush all providers
-  ├─ bindGlobalProviders()       ← OTel global provider registration
-  │
-  ├─ InstrumentationRegistry.installAll()  ← src/instrumentation-registry.ts
-  │     ├─ SessionInstrumentation
-  │     ├─ ClicksInstrumentation
-  │     ├─ WebVitalsInstrumentation
-  │     ├─ NetworkInstrumentation
-  │     ├─ NavigationInstrumentation
-  │     └─ ErrorInstrumentation
-  │
-  ├─ InteractionInstrumentation (registered separately)
-  │
-  └─ SdkConfigFetcher.fetchInBackground()  (async, post-init)
+┌─────────────────────────────────────────────────────────┐
+│                     Host App                            │
+│  Pulse.init(config)    Pulse.setScreenName()            │
+│  Pulse.trackEvent()    Pulse.setUserId()                │
+└────────────────────┬────────────────────────────────────┘
+                     │
+                     ▼
+┌─────────────────────────────────────────────────────────┐
+│                Pulse SDK  (src/sdk.ts)                  │
+│                                                         │
+│  ┌─────────────┐  ┌──────────────┐  ┌───────────────┐  │
+│  │ Consent     │  │ Feature Gate │  │ Remote Config │  │
+│  │ Gate        │  │ + Sampling   │  │ Fetcher       │  │
+│  └─────────────┘  └──────────────┘  └───────────────┘  │
+│                                                         │
+│  ┌──────────────────────────────────────────────────┐   │
+│  │  SessionProvider  (src/session.ts)               │   │
+│  │  session.id · userId · rotation                  │   │
+│  │  clone detection · storage tiers                 │   │
+│  │  installation.id via getOrCreateInstallationId() │   │
+│  └──────────────────────────────────────────────────┘   │
+│                                                         │
+│  ┌──────────────────────────────────────────────────┐   │
+│  │  GlobalAttributesProcessor                       │   │
+│  │  stamps session.id, screen.name, user.id         │   │
+│  │  on every signal at emit time                    │   │
+│  └──────────────────────────────────────────────────┘   │
+│                                                         │
+│  Instrumentations (each gated by FeatureGate):          │
+│  Session · Clicks · Network · Errors · WebVitals        │
+│  ScreenLoad · ScreenSession · Interaction               │
+└────────────────────────────┬────────────────────────────┘
+                             │
+                             ▼
+┌─────────────────────────────────────────────────────────┐
+│                OTel Export Pipeline                     │
+│                                                         │
+│  Traces  → BatchSpanProcessor      → POST /v1/traces    │
+│  Logs    → BatchLogRecordProcessor → POST /v1/logs      │
+│  Metrics → PeriodicExportingReader → POST /v1/metrics   │
+│                                                         │
+│  BrowserExportTransport:                                │
+│    normal:   fetch  |  pagehide: keepalive fetch        │
+│  IDB buffer: replay unsent batches on next init         │
+└────────────────────────────┬────────────────────────────┘
+                             │ OTLP HTTP (protobuf / JSON)
+                             ▼
+                   OTel Collector (:4318)
+                             │
+                             ▼
+                       ClickHouse
+                       otel.otel_logs / otel.otel_traces / otel.otel_metrics_*
 ```
 
-**Singleton pattern:** `PulseSDK._instance` is a module-level singleton. `Pulse` is exported as `PulseSDK.getInstance()`. There is no factory or class constructor exposed publicly.
+### Signal flow — from user action to ClickHouse
 
-**Consent-first design:** The consent check runs before any session or resource construction. GDPR-safe: zero allocations, zero signals when `dataCollectionState !== ALLOWED`.
+```mermaid
+flowchart TD
+    A([User action\nclick · navigation · error · etc]) --> B[Instrumentation\nemits OTel span or log]
+    B --> C[GlobalAttributesProcessor\nstamps session.id · screen.name · user.id]
+    C --> D[SignalFilterProcessor\nfeature gate check]
+    D -->|blocked| DROP1([dropped])
+    D -->|pass| E[BatchProcessor\nbuffers · flushes every 5s or forceFlush]
+    E --> F{ExportSamplingGate\nsession sample check}
+    F -->|outside sample| DROP2([dropped])
+    F -->|in sample| G[BrowserExportTransport]
+    G -->|normal operation| H[fetch POST]
+    G -->|pagehide fired| I[keepalive fetch\nsurvives JS context teardown]
+    H --> J([OTel Collector :4318])
+    I --> J
+    J --> K([ClickHouse\notel_logs · otel_traces · otel_metrics])
+```
+```
 
-**Async init race guard:** `_initializing` is set synchronously before the `finishInit` async chain begins. Any concurrent `init()` call during the 200ms OS-version await returns the same in-flight promise rather than double-constructing providers.
+### Component responsibilities
+
+| Component | File | Responsibility |
+|---|---|---|
+| `PulseSDK` | `src/sdk.ts` | Singleton facade, init/shutdown orchestration |
+| `SessionProvider` | `src/session.ts` | Session ID lifecycle, storage, rotation |
+| `GlobalAttributesProcessor` | `src/processors/global-attrs-processor.ts` | Stamps shared attributes on every signal |
+| `FeatureGate` | `src/feature-gate.ts` | Per-instrumentation on/off from remote config |
+| `ExportSamplingGate` | `src/sampling/export-sampling-gate.ts` | Session-level sampling at export time |
+| `SdkConfigFetcher` | `src/sdk-config/fetcher.ts` | Load/cache/refresh remote config |
+| `InstrumentationRegistry` | `src/instrumentation-registry.ts` | Install/uninstall all instrumentations |
+| `BrowserExportTransport` | `src/exporters/otlp-transport.ts` | HTTP transport with keepalive switching |
+| `IdbSignalBuffer` | `src/persistence/` | IndexedDB buffer for crash recovery |
 
 ---
 
-## 5. LLD
+## LLD — Low Level Design
 
-### 5.1 `pulse.type` Enum
+### `PulseSDK` — init state machine
 
-All `pulse.type` values are defined in `PulseWebSemconv.PulseType` (`src/semconv.ts`). The complete enum:
-
-| pulse.type | Signal | Emitter | Notes |
-|---|---|---|---|
-| `session.start` | Log | `SessionInstrumentation` | New `session.id` assigned |
-| `session.end` | Log | `SessionInstrumentation` | Background timeout or explicit shutdown |
-| `device.crash` | Log | `ErrorInstrumentation`, `PulseErrorBoundary` | `severityNumber = FATAL` |
-| `non_fatal` | Log | `ErrorInstrumentation`, `Pulse.reportException`, `Pulse.trackNonFatal` | `severityNumber = WARN` |
-| `http` | Span | `NetworkInstrumentation` | Fetch + XHR |
-| `app.click` | Span | `ClicksInstrumentation` | DOM click events |
-| `web_vital` | Log | `WebVitalsInstrumentation` | LCP, CLS, FID, INP, FCP, TTFB |
-| `screen_load` | Span | `NavigationInstrumentation` | Route entry; carries `tti` |
-| `screen_session` | Span | `NavigationInstrumentation` | Dwell / exit; OTLP span → `otel_traces` (not `otel_logs`; attrs applied at `span.end()`) |
-| `custom_event` | Log | `Pulse.trackEvent` | Host-app custom events |
-| `app.installation.start` | Log | `PulseSDK.emitInstallationStartIfNeeded` | First-ever install only |
-| `pulse.user.session.start` | Log | `PulseSDK.setUserId` | User identity transition |
-| `pulse.user.session.end` | Log | `PulseSDK.setUserId` | User identity transition |
-
-**`platform = 'web'` mandate:** The OTel Resource attribute `os.name` is hard-coded to `'web'` in `buildMergedResource()`. Every signal inherits this via the resource — it is not a per-signal attribute and cannot be overridden by host config.
-
-### 5.2 Shared Attribute Table
-
-Every signal emitted by the SDK carries the following attributes. Instrumentations may add signal-specific attributes on top; they must not conflict with these reserved keys.
-
-| Attribute key | Type | Source | Required | Notes |
-|---|---|---|---|---|
-| `pulse.type` | `string` | `PulseWebSemconv.AttributeKey.PULSE_TYPE` | Yes | See §5.1 enum |
-| `session.id` | `string` | `PulseGlobalAttributesProcessor` | Yes | UUID per session rotation |
-| `user.id` | `string \| null` | `PulseGlobalAttributesProcessor` | No | Persisted in `localStorage` |
-| `screen.name` | `string` | `PulseGlobalAttributesProcessor` | No | Set via `Pulse.setScreenName()` |
-| `last.screen.name` | `string` | `PulseGlobalAttributesProcessor` | No | Previous screen before transition |
-| `installation.id` | `string` | `SessionProvider` / `getOrCreateInstallationId()` | Yes | Stable UUID per browser install |
-| `metering.session.id` | `string` | `PulseSDK.init()` / `PulseGlobalAttributesProcessor` | Yes | UUID per SDK init; for billing |
-| `pulse.user.<name>` | `string` | `PulseGlobalAttributesProcessor` | No | Custom user properties |
-| `os.name` | `string` | OTel Resource (`buildMergedResource`) | Yes | Always `'web'` |
-| `os.version` | `string` | OTel Resource (`getOsVersionAsync`) | No | Browser UA / Client Hints |
-| `browser.name` | `string` | OTel Resource | No | UA-parsed browser name |
-| `app.build_name` | `string` | OTel Resource / config `serviceVersion` | No | App version string |
-| `service.name` | `string` | OTel Resource / config `serviceName` | Yes | Identifies the app |
-| `project.id` | `string` | OTel Resource / `extractProjectId(apiKey)` | Yes | Extracted from API key prefix |
-
-### 5.3 Config Surface (`PulseWebConfig`)
-
-```ts
-{
-  apiKey: string;                        // required — "projectId_secret"
-  dataCollectionState: PulseDataCollectionConsent; // required — ALLOWED | DENIED | PENDING
-  serviceName?: string;                  // defaults to empty string
-  serviceVersion?: string;              // app build version
-  globalAttributes?: Record<string, string>;
-  resourceAttributes?: Record<string, string>;
-  instrumentations?: InstrumentationConfig;
-  export?: { format: "protobuf" | "json" };
-  logLevel?: PulseLogLevel;
-  diskBuffering?: PulseWebDiskBufferingConfig;
-  beaconRelayUrl?: string;
-  beforeSendData?: PulseWebBeforeSendConfig;
-  endpoint?: string;                    // internal override; not in public docs
-  pageHiddenTimeoutMs?: number;         // session rotation timeout
-}
+```
+         ┌─────────┐
+         │  IDLE   │ ← module load / post-shutdown
+         └────┬────┘
+              │ init() called
+              ▼
+       ┌─────────────┐
+       │ VALIDATING  │  validateConfig() — throws synchronously on bad config
+       └──────┬──────┘
+              │
+       ┌──────▼──────┐
+       │ CONSENT CHK │  dataCollectionState !== ALLOWED → back to IDLE (zero side effects)
+       └──────┬──────┘
+              │ ALLOWED
+       ┌──────▼──────┐
+       │INITIALIZING │  _initializing = true
+       │             │  concurrent init() calls → return same in-flight promise
+       └──────┬──────┘
+              │ finishInit() async chain completes
+       ┌──────▼──────┐
+       │ INITIALIZED │  _initialized = true
+       └──────┬──────┘
+              │ shutdown() called
+       ┌──────▼──────┐
+       │ SHUTTING    │  uninstall all instrumentations
+       │ DOWN        │  forceFlush all providers
+       └──────┬──────┘  reset singleton → _instance = null
+              │
+         ┌────▼────┐
+         │  IDLE   │ ← ready for re-init
+         └─────────┘
 ```
 
-`PulseDataCollectionConsent` enum: `ALLOWED`, `DENIED`, `PENDING`.
+Key fields on `PulseSDK`:
 
-### 5.4 SDK Init Flow (sequence)
+| Field | Type | Purpose |
+|---|---|---|
+| `_instance` | `PulseSDK \| null` | Module-level singleton |
+| `_initialized` | `boolean` | True after `finishInit()` settles |
+| `_initializing` | `boolean` | True during async bootstrap |
+| `_shuttingDown` | `boolean` | Set before async shutdown chain begins |
+| `_initPromise` | `Promise<void> \| null` | Shared across concurrent `init()` calls |
+
+### Processor chain
+
+```
+Instrumentation emits span or log
+        │
+        ▼
+PulseGlobalAttributesProcessor.onEmit(record)
+  ├─ sessionProvider.getSessionId()  → 'session.id'
+  ├─ currentScreenName               → 'screen.name'
+  ├─ userId                          → 'user.id'
+  └─ custom user properties          → 'pulse.user.*'
+        │
+        ▼
+SignalFilterProcessor.onEmit(record)
+  └─ featureGate.isEnabled(pulseType) === false → drop
+        │
+        ▼
+ExportSamplingGate  (at BatchProcessor export time)
+  └─ sessionSampleRate check → outside sample? drop batch entry
+        │
+        ▼
+BatchSpanProcessor / BatchLogRecordProcessor
+  └─ export() → BrowserExportTransport.send()
+```
+
+### `BrowserExportTransport` — transport switching
+
+```
+Normal operation
+  └─ createPulseFetchTransport({ keepalive: false })
+
+pagehide fires → prepareForDocumentUnload()
+  └─ switchToKeepalive()
+       └─ createPulseFetchTransport({ keepalive: true })
+          browser keeps this request alive even after JS context is destroyed
+
+Why not sendBeacon?
+  sendBeacon() must be called synchronously. BatchLogRecordProcessor._flushAll()
+  has multiple await steps before it reaches the transport. If a timer-triggered
+  batch export is already in flight when pagehide fires, the async chain can
+  exceed the browser's teardown window. keepalive fetch has no such constraint.
+```
+
+### `FeatureGate` — decision logic
+
+```
+isEnabled(feature):
+  1. Find entry in sdkConfig.features where sdks includes 'pulse_web_js'
+  2. No matching entry         → ENABLED  (default: all features on)
+  3. sessionSampleRate === 0   → DISABLED
+  4. sessionSampleRate === 1   → ENABLED
+  5. 0 < rate < 1             → enabled if Math.random() < rate (session-stable)
+
+InstrumentationRegistry.shouldInstall(key):
+  configEnabled === false                 → false  (local kill switch; remote cannot re-enable)
+  configEnabled !== false AND gate passes → true
+```
+
+### Remote config fetch sequence
+
+```
+Pulse.init()
+  ├─ SdkConfigFetcher.loadCached()          ← synchronous
+  │     └─ localStorage['pulse_sdk_config']
+  │           ├─ valid JSON + valid shape → mergePulseSdkConfig(parsed)
+  │           └─ missing / invalid        → DEFAULT_SDK_CONFIG (all features on)
+  │
+  └─ [post-init, fire-and-forget] SdkConfigFetcher.fetchInBackground()
+        └─ fetch(configUrl, { 'X-API-KEY': apiKey })
+              ├─ ok + valid + version changed
+              │     → mergePulseSdkConfig(data)
+              │     → localStorage.setItem('pulse_sdk_config', JSON.stringify(merged))
+              └─ any other outcome → no-op
+
+Config URL:
+  localhost / 10.0.2.2 → http://localhost:8080/v1/configs/active/
+  production           → https://pulse-otel-collector.pulse-ux.com/config/projects/{projectId}/pulse-config.json
+```
+
+---
+
+## 1. What the SDK does
+
+When a host app calls `Pulse.init(config)`, the SDK:
+
+1. Checks consent — if the user hasn't allowed data collection, it stops here and does nothing.
+2. Creates a session for this user/tab.
+3. Reads the browser's user-agent to identify the OS and browser.
+4. Sets up three OpenTelemetry signal pipelines: traces, logs, metrics.
+5. Installs all the automatic instrumentations (session events, clicks, network calls, web vitals, errors, screen load times).
+6. Listens for the page being closed (`pagehide`) so it can flush any unsent data.
+7. Fetches an updated remote config in the background (feature flags, sampling rates).
+
+After that, every user action the SDK tracks automatically emits signals that flow:
+
+```
+Browser (SDK) → OTLP HTTP POST → OTel Collector → ClickHouse
+```
+
+---
+
+## 2. Singleton pattern
+
+`Pulse` is a **module-level singleton** — there is exactly one instance per page load. You cannot `new Pulse()`. You call `Pulse.init()` once and then call methods on `Pulse` directly.
+
+Calling `init()` more than once is safe:
+- If init has already completed → returns `Promise.resolve()` immediately.
+- If init is still in progress → returns the same in-flight promise (does not double-construct providers).
+
+Calling any `Pulse.*` method before `init()` completes or after `shutdown()` is also safe — all methods are silent no-ops.
+
+---
+
+## 3. Init lifecycle (step by step)
 
 ```
 Pulse.init(config)
-  1. Guard: already initialized or shutting down → return Promise.resolve()
-  2. Guard: currently initializing → return this.whenReady()
-  3. validateConfig(config) — throws synchronously on invalid apiKey / beforeSendData shape
-  4. PulseWebLogger.setLevel(config.logLevel)
-  5. resolveEndpointBaseUrl(apiKey, config.endpoint) → endpointBaseUrl
-  6. CONSENT GATE: isDataCollectionAllowed(config.dataCollectionState) → if false, return Promise.resolve() (zero side effects)
-  7. Set _initializing = true; begin finishInit() async chain:
-     a. abortInitIfUnavailable() — SSR guard (window === undefined → abort)
-     b. SessionProvider construction + getOrCreateInstallationId()
-     c. parseUserAgent() + getOsVersionAsync() — async, <200ms, uses Client Hints if available
-     d. buildMergedResource(config, resolvedOsVersion) — OTel Resource with os.name='web'
-     e. SdkConfigFetcher.loadCached() — read localStorage["pulse_sdk_config"] → PulseSdkConfig
-     f. FeatureGate(sdkConfig), ExportSamplingGate(sdkConfig), PulseGlobalAttributesProcessor
-     g. hydrateUserIdentity(persistedUserId, persistedUserProperties)
-     h. createProviders(exporterConfig, resource, processors) — builds WebTracerProvider, LoggerProvider, MeterProvider with OTLP exporters
-     i. drainBufferedOtlpExports() — replay any IDB-buffered batches from crashed sessions
-     j. bindPagehideFlush() — window.addEventListener("pagehide", ...)
-     k. bindGlobalProviders() — OTel global trace/logs/metrics registration
-     l. emitSdkInitializationLogRecords() — rum.sdk.init.started, rum.sdk.init.span_exporter
-     m. InstrumentationRegistry.installAll() — per-feature gate checked per instrumentation
-     n. InteractionInstrumentation registration
-     o. SdkConfigFetcher.fetchInBackground() — fire-and-forget
-     p. _initialized = true; _initializing = false
-     q. emitInstallationStartIfNeeded() — app.installation.start on first install
-  8. Promise returned from step 7 — same as whenReady()
+  │
+  ├─ 1. Already initialized? → return immediately (no-op)
+  ├─ 2. Currently initializing? → return the same in-flight promise
+  ├─ 3. Validate config — throw synchronously if apiKey is missing
+  ├─ 4. Consent check — dataCollectionState !== ALLOWED → return (zero side effects)
+  │
+  └─ 5. Begin async bootstrap (finishInit):
+        a. SSR guard — window === undefined → abort (Next.js / server render safe)
+        b. SessionProvider — create or resume session, create installationId
+        c. UA parse + OS version — reads browser/OS info (<200ms, uses Client Hints if available)
+        d. Build OTel Resource — stamps os.name='web', project.id, service.name, app version
+        e. Load remote config from localStorage cache (instant, synchronous)
+        f. Set up FeatureGate, ExportSamplingGate, GlobalAttributesProcessor
+        g. Restore persisted user identity (userId, user properties)
+        h. Create OTel providers — TracerProvider, LoggerProvider, MeterProvider + OTLP exporters
+        i. Drain IndexedDB — replay any unsent signals from a previous crashed session
+        j. Register pagehide listener — flush all providers on tab close
+        k. Register OTel global providers
+        l. Install all instrumentations (each checks its own feature gate first)
+        m. Fetch fresh remote config in background (fire-and-forget)
+        n. Mark _initialized = true
+        o. Emit app.installation.start if this is a brand-new install
 ```
 
-### 5.5 Consent Gate
-
-`src/consent.ts`: `isDataCollectionAllowed(state)` returns `true` only for `PulseDataCollectionConsent.ALLOWED`. `PENDING` and `DENIED` both return `false`.
-
-The consent check runs twice:
-1. In `Pulse.init()` before any async work — prevents session/resource construction.
-2. In `Pulse.trackEvent()` for the interaction path — runtime re-check.
-
-If consent changes at runtime the host must unmount and remount `PulseProvider` (or call `shutdown()` then re-`init()`). The SDK does not support live consent flipping.
-
-### 5.6 Feature Gate
-
-`src/feature-gate.ts`: `FeatureGate.isEnabled(feature: PulseFeatureName)` maps `PulseFeature.*` names (e.g. `PulseFeature.SESSION`, `PulseFeature.WEB_VITALS`) to entries in the remote `PulseSdkConfig.features` array. A feature is enabled when:
-
-- No matching entry in the features array (default: enabled), OR
-- The SDK name `pulse_web_js` is not listed in `sdks`, OR
-- `sessionSampleRate === 1`
-
-`sessionSampleRate === 0` disables the feature for 100% of sessions.
-
-`InstrumentationRegistry.shouldInstall(key)`:
-- `configEnabled === false` → always false (local kill switch; remote cannot re-enable)
-- `configEnabled !== false && gateEnabled` → install
-
-### 5.7 Remote Config Fetch Sequence
-
-```
-init()
-  └─ SdkConfigFetcher.loadCached()
-        └─ localStorage.getItem("pulse_sdk_config")
-              ├─ valid JSON + valid shape → mergePulseSdkConfig(parsed) → use
-              └─ missing / invalid → DEFAULT_SDK_CONFIG
-
-  └─ [post-init] SdkConfigFetcher.fetchInBackground()
-        └─ fetch(configUrl, { "X-API-KEY": apiKey })
-              ├─ response.ok + isValidSdkConfig(data) + data.version !== cached.version
-              │     → mergePulseSdkConfig(data)
-              │     → localStorage.setItem("pulse_sdk_config", JSON.stringify(merged))
-              └─ error / no version change → no-op
+```mermaid
+flowchart TD
+    A([Pulse.init config]) --> B{Already initialized?}
+    B -->|yes| C([return Promise.resolve])
+    B -->|no| D{Currently initializing?}
+    D -->|yes| E([return in-flight promise])
+    D -->|no| F[validateConfig]
+    F -->|invalid| G([throw synchronously])
+    F -->|valid| H{dataCollectionState\nALLOWED?}
+    H -->|no| I([return — zero side effects])
+    H -->|yes| J[set _initializing = true]
+    J --> K{window defined?\nSSR check}
+    K -->|undefined| L([abort])
+    K -->|defined| M[SessionProvider\ngetOrCreateInstallationId]
+    M --> N[UA parse + getOsVersionAsync]
+    N --> O[buildMergedResource\nos.name = web]
+    O --> P[SdkConfigFetcher.loadCached]
+    P --> Q[FeatureGate · ExportSamplingGate\nGlobalAttrsProcessor]
+    Q --> R[createProviders\nTracerProvider · LoggerProvider · MeterProvider]
+    R --> S[drainBufferedOtlpExports\nreplay IDB-buffered batches]
+    S --> T[bindPagehideFlush\npagehide listener]
+    T --> U[InstrumentationRegistry.installAll\neach checks its feature gate]
+    U --> V[fetchInBackground\nfire-and-forget]
+    V --> W[_initialized = true]
+    W --> X{New install?}
+    X -->|yes| Y[emit app.installation.start]
+    X -->|no| Z([done])
+    Y --> Z
 ```
 
-Config URL resolution:
-- `localhost` / `10.0.2.2` → `http://localhost:8080/v1/configs/active/`
-- Production → `https://pulse-otel-collector.pulse-ux.com/config/projects/{projectId}/pulse-config.json`
-
-### 5.8 OTLP Exporters and Providers
-
-`src/exporters.ts`: `createProviders(exporterConfig, resource, spanProcessors, logProcessors)` builds three providers:
-
-- `WebTracerProvider` → `BatchSpanProcessor` → `OtlpHttpExporter` → `/v1/traces`
-- `LoggerProvider` → `BatchLogRecordProcessor` → `OtlpHttpLogExporter` → `/v1/logs`
-- `MeterProvider` → `PeriodicExportingMetricReader` → `OtlpHttpMetricExporter` → `/v1/metrics`
-
-Wire format: `protobuf` (default after `useProtobuf` flag) or `json`. `export.format: "json"` is intended for DevTools-readable debugging.
-
-**IndexedDB disk buffering:** When `diskBuffering.enabled !== false` (on by default), the OTLP exporters write to an IndexedDB signal buffer (`IdbSignalBuffer`) before sending over the network. On the next init, `drainBufferedOtlpExports()` replays any unsent batches. Max age and max size are configurable; defaults enforced in `src/constants/disk-buffer.ts`.
-
-**Beacon relay:** If `beaconRelayUrl` is set, `sendBeacon` calls are routed through a relay to avoid the API-key-in-querystring constraint of the native `sendBeacon` API.
-
-**beforeSendData hooks:** `PulseWebBeforeSendConfig` — either a generic `beforeSend(signal) → signal | null` function or a typed object with `beforeSendSpan`, `beforeSendLog`, `beforeSendMetric`. Returning `null` drops the signal. Runs at export time in the exporter pipeline.
-
-### 5.9 Session Lifecycle
-
-`src/session.ts`:
-
-- `SessionProvider` constructs a `sessionId = crypto.randomUUID()` on creation.
-- `installationId` is read from `localStorage["pulse_installation_id"]`; generated once on first load.
-- `userId` is persisted to `localStorage["pulse_user_id"]`.
-- Session rotation: if the tab is backgrounded for > `pageHiddenTimeoutMs` (default 30 min), the next `visibilitychange` to `visible` rotates the session and emits `session.end` / `session.start`.
-- `wasNewInstallation()` returns `true` on the very first page load (no prior installation ID).
-
-### 5.10 Public API (`Pulse.*`)
-
-| Method | Description |
-|---|---|
-| `Pulse.init(config)` | Bootstrap the SDK. Returns `Promise<void>`. |
-| `Pulse.shutdown()` | Tear down — uninstall instrumentations, flush, reset singleton. |
-| `Pulse.whenReady()` | Resolves when async init finishes, or immediately if already initialized. |
-| `Pulse.isInitialized()` | Sync check for whether init has completed. |
-| `Pulse.setScreenName(name)` | Update `screen.name` on all subsequent signals. |
-| `Pulse.setUserId(id \| null)` | Set / clear user identity. Emits user session transition signals. |
-| `Pulse.setUserProperty(key, value)` | Set single user property (`pulse.user.<key>`). |
-| `Pulse.setUserProperties(props)` | Batch set user properties. |
-| `Pulse.clearUserIdentity()` | Clear persisted user ID and all properties. |
-| `Pulse.trackEvent(name, attrs?, timestampMs?)` | Custom event signal (`pulse.type = custom_event`). |
-| `Pulse.reportException(error, attrs?)` | Manual non-fatal (`pulse.type = non_fatal`, WARN severity). |
-| `Pulse.reportDeviceCrash(error, attrs?)` | Fatal crash signal (`pulse.type = device.crash`, FATAL severity). |
-| `Pulse.trackNonFatal(name, attrs?)` | Named non-fatal event (`pulse.type = non_fatal`). |
+**Key invariant:** Steps a–n run inside one async chain. The `_initializing` flag is set synchronously before the chain begins, so concurrent `init()` calls during those ~200ms return the same promise instead of double-constructing everything.
 
 ---
 
-## 6. Test Coverage
+## 4. Consent gate
 
-### `src/__tests__/sdk-lifecycle.test.ts`
+`dataCollectionState` must be `ALLOWED` for any signal to be emitted.
 
-Tests for SDK singleton lifecycle, shutdown guards, restart cycles, and the race condition between `shutdown()` and `finishInit()`:
 
-- `shouldInitializeSuccessfully` — `Pulse.init()` completes and `isInitialized()` returns true
-- `shouldBeIdempotentOnDoubleInit` — second `init()` call is a no-op
-- `shouldNoOpWhenConsentIsDenied` — `DENIED` state → `isInitialized()` false
-- `shouldNoOpWhenConsentIsPending` — `PENDING` state → `isInitialized()` false
-- `shouldShutdownAndResetState` — after `shutdown()`, `isInitialized()` returns false
-- `shouldAllowReinitAfterShutdown` — shutdown then re-init works cleanly
-- `shouldReturnSamePromiseOnConcurrentInit` — concurrent calls during async bootstrap return same promise
-- `shouldAbortInitInSSR` — no `window` → init aborts without error
-- `shouldHandleShutdownRaceWithFinishInit` — shutdown called before finishInit async chain settles
+| Value     | Behavior                                                   |
+| --------- | ---------------------------------------------------------- |
+| `ALLOWED` | SDK runs normally                                          |
+| `DENIED`  | SDK exits at step 4 — no session, no listeners, no signals |
+| `PENDING` | Same as DENIED                                             |
 
-### `src/__tests__/sdk-public-methods.test.ts`
 
-Unit tests for public SDK methods covering previously-uncovered code paths:
+The consent check happens in `init()` before any async work, so even the session UUID is not generated if consent is missing.
 
-- `trackEvent` — correct `pulse.type = custom_event`, correct attributes emitted
-- `reportException` — correct `pulse.type = non_fatal`, `SeverityNumber.WARN`, non-Error coercion
-- `reportDeviceCrash` — correct `pulse.type = device.crash`, `SeverityNumber.FATAL`, stack trace
-- `trackNonFatal` — correct `pulse.type = non_fatal`, `non_fatal.is_manual = true`
-- `setUserProperties` — merge semantics, null removes key
-- `clearUserIdentity` — clears persisted userId + properties
-- `setScreenName` — no-op before init; updates globalAttrsProcessor after init
-- All methods are no-op before `init()` completes
-
-### `src/__tests__/m1.test.ts`
-
-Foundation tests — validates M1 milestone contracts:
-
-- `getOrCreateInstallationId` — creates UUID on first call, returns same on repeat
-- `wasNewInstallation` — true first time, false thereafter
-- `SessionProvider` — session ID assigned, rotation on backgrounding
-- `validateConfig` — throws on missing `apiKey`, passes on valid config
-- `isLocalEnvironment` / `resolveEndpointBaseUrl` — local dev key detection
-- `buildResource` / `extractProjectId` — resource attribute correctness
-- `SdkConfigFetcher.loadCached` — default config when no cache, parsed config from valid cache
-- `resolveConfigUrl` — local vs prod URL resolution
-- `FeatureGate.isEnabled` — default true when no config, disabled when `sessionSampleRate = 0`
-- `PulseGlobalAttributesProcessor` — session ID, screen name, user ID stamped on all signals
-- `SessionInstrumentation` — `session.start` emitted on install
-
-### `src/__tests__/m3.test.ts`
-
-Error instrumentation / `device.crash` and `non_fatal` contract tests:
-
-- Uncaught errors captured via `window.onerror` → `device.crash` log emitted
-- Unhandled promise rejections → `device.crash` log emitted
-- `ErrorInstrumentation.uninstall()` removes event listeners
-- Error attributes: `exception.type`, `exception.message`, `exception.stacktrace`, `error.filename`
-- SSR guard: instrumentation skips listener install when `window` is undefined
-
-### `src/__tests__/m8.test.ts`
-
-TC 8.x — `pagehide` listener lifecycle:
-
-- Registration count: exactly one `pagehide` listener after init
-- BFCache guard: `event.persisted = true` → no flush called
-- `forceFlush` called on `pagehide` when `persisted = false`
-- `shutdown()` removes the listener
-- Restart (shutdown + re-init) rebalances listener count to one
-- SSR guard: `window` undefined → no listener registration
-- Post-shutdown: pagehide fires after shutdown → no-op (no double flush)
-
-### `src/__tests__/integration-simplified-init.test.ts`
-
-Config surface tests — verifies Web SDK matches Android's minimal public API:
-
-- `apiKey` required — throws without it
-- `dataCollectionState` required at init
-- `diskBuffering.enabled` defaults on (Android parity)
-- `beforeSendData` shape validation (function vs object vs invalid)
-- `diskBuffering.maxAgeMs` and `maxCacheSizeBytes` positive-finite validation
-- `globalAttributes` and `resourceAttributes` accepted without error
+If consent changes at runtime, the host app must call `Pulse.shutdown()` then `Pulse.init()` again. The SDK does not support flipping consent live.
 
 ---
 
-## 7. Known Bugs & Gaps
+## 5. Feature gates and remote config
 
-Absorbs `docs/API-CRITIQUE.md` as structured P0/P1/P2 items.
+After `init()`, the SDK fetches a config JSON from the server in the background. This config controls which features are active and at what sampling rate.
 
-### P0: Before GA / 1.0
+**How it works:**
 
-**P0:1 — Ambiguous entry point.** `Pulse` is a pre-resolved singleton instance, not a class or factory. `Pulse.init()` is unusual — every peer SDK uses either `init()` (free function) or `new SDK().start()` (class). The current shape forces users to import the runtime even when they only want types. Recommendation: export `init` as a named free function alongside `Pulse` for method calls; make `Pulse.init` an alias. This matches `@sentry/browser` ergonomics exactly.
+1. On `init()` — the SDK reads `localStorage["pulse_sdk_config"]` synchronously. If nothing is cached, defaults apply (everything on, 100% sampling).
+2. After `init()` — a background `fetch` checks if the server has a newer version (by comparing `version` numbers). If newer, it overwrites the cache. Takes effect on the next page load.
 
-**P0:2 — Naming drift on capture API.** Four different verbs for "send a signal": `trackEvent`, `trackNonFatal`, `reportException`, `reportDeviceCrash`. Market standard is one verb (Sentry: `capture*`; Datadog: `add*`). Rename to `captureEvent`, `captureException`, `captureCrash`, `captureNonFatal` before 1.0.
-
-**P0:3 — Identity API is split across three setters.** `setUserProperty(key, value)` + `setUserProperties(props)` + `setUserId(id)` + `clearUserIdentity()`. Sentry collapsed this to `setUser({id, ...props})`. Recommend: `setUser({ id, ...props })`, `getUser()`, `clearUser()`. Reduces method count and eliminates the `setUserProperty` / `setUserProperties` redundancy.
-
-**P0:4 — `beforeSendData` naming.** Every peer SDK calls this `beforeSend`. The `Data` suffix adds nothing and breaks Sentry-native muscle memory. Rename to `beforeSend` at config surface.
-
-**P0:5 — Missing `<PulseRouterEvents />` for `/react`.** The Next.js subpath has `<PulseNavigationEvents />`; the React subpath only exports `useRouterTracking` (hook) with no drop-in component equivalent. Forces users to write a null-rendering wrapper component. Add `<PulseRouterEvents />` to `/react` subpath.
-
-**P0:6 — `shutdownOnUnmount` default.** `PulseProvider` defaults `shutdownOnUnmount` to `false` as a documented exception — which means users who accept the default get the wrong behaviour in tests. Default should explicitly be `false` with `true` reserved for test teardown; current code is already `false` but the docs imply it's a caveat rather than an intentional choice.
-
-### P1: First minor after GA
-
-**P1:7 — `globalAttributes` vs `resourceAttributes` scope invisible.** Both exist on `PulseWebConfig` but the difference (per-signal vs per-resource) is invisible from the names. Users will put tenant tags in the wrong one. Either auto-merge into one field or rename: `signalAttributes` (attached per-span/log) vs `resourceAttributes` (OTel Resource, once per init).
-
-**P1:8 — `@dreamhorizon/pulse-web/next` ESM resolution not verified in clean `create-next-app`.** The ecommerce demo uses a webpack alias to resolve the workspace package. This may mask an ESM resolution failure for external consumers. Needs verification before GA.
-
-**P1:9 — No Vite source-map upload.** `withPulseConfig` is Next-only. Vite, CRA, Webpack5, Rollup, and Rspack users must upload source maps manually. Document the manual path; consider `vite-plugin-pulse` in a future minor.
-
-**P1:10 — `reportException` + `reportDeviceCrash` are one-parameter-different.** They differ only in `severityNumber` (WARN vs FATAL) and the `error.filename` attribute on crash. Collapsing to `captureException(err, { level: "fatal" | "warn" })` reduces surface without losing flexibility.
-
-### P2: Nice to have
-
-**P2:11 — Single `<PulseRouter />` for all framework routers.** Auto-detect React Router vs Next.js App Router vs Pages Router and do the right thing. Reduces integration to one component with no subpath import.
-
-**P2:12 — Replace `dataCollectionState` enum with a string union.** `consent: "allowed" | "denied" | "pending"` is half the keystrokes and requires no enum import. The current `PulseDataCollectionConsent` enum is a migration hazard for anyone who tries to tree-shake enum-only imports.
-
-**P2:13 — `PulseAttributes` type drift from OTel `Attributes`.** Currently a Pulse-specific alias. Users copy-pasting OTel snippets hit type mismatches. Align with `@opentelemetry/api` `Attributes` type exactly.
+**Per-instrumentation gate:** before installing any instrumentation (clicks, network, etc.), the SDK checks `FeatureGate.isEnabled(feature)`. If the remote config sets `sessionSampleRate = 0` for that feature, it won't install. Local `configEnabled: false` is a hard kill switch that remote config cannot override.
 
 ---
 
-## 8. Redundancy & Cleanup Notes
+## 6. OTLP export pipeline
 
-The following planning documents were absorbed into this SPEC.md and deleted (triple-eval: pass 1 — all concepts captured; pass 2 — line-by-line scan; pass 3 — final confirm):
+Three pipelines, one per signal type:
 
-| Deleted path | Content absorbed into |
-|---|---|
-| `pulse-web-otel/web-sdk-plan/v1/01-foundation/README.md` | §4 (architecture), §6 (test references), this table |
-| `pulse-web-otel/web-sdk-plan/v1/01-foundation/sdk-lifecycle.md` | §4, §5.4 (SDK init flow), §5.9 (session lifecycle), §5.10 (public API) |
-| `pulse-web-otel/web-sdk-plan/INTEGRATION.md` | §5.3 (config surface), §5.10 (public API table), §7 (P0:5 friction items) |
-| `pulse-web-otel/docs/API-CRITIQUE.md` | §7 (Known Bugs & Gaps — full P0/P1/P2 punch list) |
+```
+Traces  → BatchSpanProcessor      → PulseBrowserOtlpExporter → POST /v1/traces
+Logs    → BatchLogRecordProcessor → PulseBrowserLogExporter  → POST /v1/logs
+Metrics → PeriodicExportingReader → OtlpHttpMetricExporter   → POST /v1/metrics
+```
+
+**Transport switching on page close:** when `pagehide` fires, `prepareForDocumentUnload()` switches both trace and log exporters to `keepalive: true` fetch. This keeps the HTTP request alive even after the browser tears down the JavaScript context, so `session.end` and any buffered signals reliably reach the collector on real tab close (Cmd+W).
+
+> Why not `sendBeacon`? `sendBeacon` must be called synchronously before JS context teardown. The OTel `BatchLogRecordProcessor._flushAll()` has multiple `await` steps before it actually calls the transport. If a timer-triggered batch export is in flight when the page closes, the async chain can exceed the teardown window. `keepalive: true` fetch survives regardless.
+
+**IndexedDB buffer:** signals are written to an IndexedDB buffer before network send. If the page crashes or is force-killed, the next init replays any unsent batches from the IDB. This prevents signal loss on crash.
+
+**Wire format:** JSON by default (`config.useProtobuf ?? false`). Set `config.useProtobuf: true` (or `export.format: "protobuf"` in config) to switch to protobuf. JSON is easier for DevTools inspection; protobuf is smaller on the wire.
 
 ---
 
-## 9. Open Questions
+## 7. Shared attribute contract
 
-1. **`dataCollectionState` deprecation timeline.** P2:12 proposes `consent: string union`. Before 1.0, should we ship a deprecation warning when the enum form is detected and recommend the new shape?
+Every signal the SDK emits carries these attributes. Instrumentations may add their own on top but must not overwrite these keys.
 
-2. **`globalAttributes` vs `resourceAttributes` merge strategy.** If we auto-merge (P1:7), do signal-level attributes overwrite resource attributes of the same key, or vice versa? Need a decision before touching the `PulseGlobalAttributesProcessor` merge logic.
 
-3. **IndexedDB drain on slow networks.** The drain fires immediately at init. On a slow network, this competes with the `session.start` signal for the first-batch slot. Should drain be delayed until after the first flush, or run in a lower-priority microtask queue?
+| Attribute             | Type   | Where it comes from            | Required |
+| --------------------- | ------ | ------------------------------ | -------- |
+| `pulse.type`          | string | Each instrumentation           | Yes      |
+| `session.id`          | string | GlobalAttributesProcessor      | Yes      |
+| `installation.id`     | string | `getOrCreateInstallationId()` (module-level, `src/session.ts`) | Yes      |
+| `project.id`          | string | Extracted from apiKey prefix   | Yes      |
+| `service.name`        | string | Config `serviceName`           | Yes      |
+| `os.name`             | string | OTel Resource — always `'web'` | Yes      |
+| `user.id`             | string | GlobalAttributesProcessor      | No       |
+| `screen.name`         | string | GlobalAttributesProcessor      | No       |
+| `last.screen.name`    | string | GlobalAttributesProcessor      | No       |
+| `metering.session.id` | string | Set once per SDK init          | Yes      |
+| `os.version`          | string | UA / Client Hints parse        | No       |
+| `browser.name`        | string | UA parse                       | No       |
+| `app.build_name`      | string | Config `serviceVersion`        | No       |
 
-4. **`Pulse.whenReady()` — should it reject?** Currently it always resolves (even on consent-blocked init). If a consumer awaits `whenReady()` assuming `isInitialized()` will be true afterwards, they will be surprised. Consider: resolve with a boolean, or reject with a typed `PulseInitError` on `DENIED`/`PENDING`.
 
-5. **React 19 / concurrent mode compatibility.** `PulseProvider` calls `Pulse.init()` in a `useEffect`. Under React 19 Strict Mode, effects fire twice in dev. The `_initializing` guard covers the double-init race, but the double `shutdown()` + re-init cycle during Strict Mode teardown has not been explicitly tested.
+`os.name = 'web'` is stamped in `buildMergedResource()` and cannot be overridden by the host app.
+
+---
+
+## 8. All `pulse.type` values
+
+
+| pulse.type                 | Signal kind | Who emits it                                |
+| -------------------------- | ----------- | ------------------------------------------- |
+| `session.start`            | Log         | SessionInstrumentation                      |
+| `session.end`              | Log         | SessionInstrumentation                      |
+| `device.crash`             | Log         | ErrorInstrumentation, PulseErrorBoundary    |
+| `non_fatal`                | Log         | ErrorInstrumentation, Pulse.reportException |
+| `http`                     | Span        | NetworkInstrumentation                      |
+| `app.click`                | Span        | ClicksInstrumentation                       |
+| `web_vital`                | Log         | WebVitalsInstrumentation                    |
+| `screen_load`              | Span        | NavigationInstrumentation                   |
+| `screen_session`           | Span        | NavigationInstrumentation                   |
+| `custom_event`             | Log         | Pulse.trackEvent                            |
+| `app.installation.start`   | Log         | PulseSDK (first install only)               |
+| `pulse.user.session.start` | Log         | PulseSDK.setUserId                          |
+| `pulse.user.session.end`   | Log         | PulseSDK.setUserId                          |
+
+
+---
+
+## 9. Public API
+
+
+| Method                                   | What it does                                                             |
+| ---------------------------------------- | ------------------------------------------------------------------------ |
+| `Pulse.init(config)`                     | Start the SDK. Returns `Promise<void>`.                                  |
+| `Pulse.shutdown()`                       | Uninstall everything, flush all signals, reset singleton.                |
+| `Pulse.whenReady()`                      | Resolves when init finishes. Safe to await before calling other methods. |
+| `Pulse.isInitialized()`                  | Synchronous check — is init done?                                        |
+| `Pulse.setScreenName(name)`              | Tag subsequent signals with the current screen/route name.               |
+| `Pulse.setUserId(id | null)`             | Set or clear user identity. Emits user session transition signals.       |
+| `Pulse.setUserProperty(key, value)`      | Add one custom user property (`pulse.user.<key>`).                       |
+| `Pulse.setUserProperties(props)`         | Add multiple user properties in one call.                                |
+| `Pulse.clearUserIdentity()`              | Clear persisted userId and all user properties.                          |
+| `Pulse.trackEvent(name, attrs?)`         | Send a custom event signal (`pulse.type = custom_event`).                |
+| `Pulse.reportException(error, attrs?)`   | Manual non-fatal error (`pulse.type = non_fatal`, WARN).                 |
+| `Pulse.reportDeviceCrash(error, attrs?)` | Fatal crash signal (`pulse.type = device.crash`, FATAL).                 |
+| `Pulse.trackNonFatal(name, attrs?)`      | Named non-fatal event (`pulse.type = non_fatal`).                        |
+
+
+All methods are silent no-ops before `init()` completes or after `shutdown()`.
+
+---
+
+## 10. Config reference
+
+```ts
+{
+  apiKey: string;                           // required — "projectId_secret"
+  dataCollectionState: PulseDataCollectionConsent; // required — ALLOWED | DENIED | PENDING
+  serviceName?: string;                     // identifies the app
+  serviceVersion?: string;                 // app build version string
+  globalAttributes?: Record<string, string>;  // attached to every signal
+  resourceAttributes?: Record<string, string>; // attached to the OTel Resource (once per init)
+  instrumentations?: InstrumentationConfig; // per-instrumentation on/off switches
+  export?: { format: "protobuf" | "json" };
+  logLevel?: PulseLogLevel;
+  diskBuffering?: { enabled?: boolean; maxAgeMs?: number; maxCacheSizeBytes?: number };
+  beaconRelayUrl?: string;              // relay for sendBeacon (not used by prepareForDocumentUnload — keepalive fetch is used instead)
+  beforeSendData?: (signal) => signal | null; // drop or mutate signals before export
+  endpoint?: string;                        // override collector URL (dev/testing)
+  pageHiddenTimeoutMs?: number;             // session rotation timeout (default 15 min)
+}
+```
+
+---
+
+---
+
+## 11. Test coverage
+
+
+| Test file                                           | What it covers                                                                                                                          |
+| --------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/__tests__/m1.test.ts`                          | installationId, session rotation, config validation, resource attributes, feature gate, global attrs processor, session instrumentation |
+| `src/__tests__/sdk-lifecycle.test.ts`               | singleton guards, double-init, shutdown, re-init, SSR abort, concurrent init race                                                       |
+| `src/__tests__/sdk-public-methods.test.ts`          | trackEvent, reportException, reportDeviceCrash, setUserProperties, setScreenName — all no-op before init                                |
+| `src/__tests__/m3.test.ts`                          | device.crash, non_fatal from onerror + unhandledrejection                                                                               |
+| `src/__tests__/m8.test.ts`                          | pagehide listener count, BFCache guard, forceFlush on close, shutdown removes listener                                                  |
+| `src/__tests__/integration-simplified-init.test.ts` | config surface validation, diskBuffering defaults, beforeSendData shape                                                                 |
+
+
