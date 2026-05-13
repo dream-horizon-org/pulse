@@ -175,6 +175,74 @@ describe("session continuity: cross-origin redirect (payment gateway flow)", () 
     const provider2 = new SessionProvider();
     expect(provider2.getSessionId()).toBe("session-persist");
   });
+
+  it("concurrent getSessionId() calls on expired session emit exactly ONE session.start", () => {
+    // Regression: unguarded rotation path caused duplicate session.start on re-entrant calls
+    // from GlobalAttrsProcessor.onEmit during event emission.
+    seedExpiredSession("session-expired");
+
+    const provider = new SessionProvider();
+    const events: string[] = [];
+    provider.onSessionChange((e) => events.push(e.type));
+
+    // Simulate multiple concurrent callers (e.g. navigation + click instrumentation)
+    const id1 = provider.getSessionId();
+    const id2 = provider.getSessionId();
+    const id3 = provider.getSessionId();
+
+    // All callers should return the same new session ID
+    expect(id1).toBe(id2);
+    expect(id2).toBe(id3);
+    expect(id1).not.toBe("session-expired");
+
+    // Exactly one session.end + one session.start — no duplicates
+    expect(events.filter((e) => e === "end")).toHaveLength(1);
+    expect(events.filter((e) => e === "start")).toHaveLength(1);
+  });
+
+  it("emitInitialSession() on expired session fires exactly ONE session.start for the new ID", () => {
+    // Regression: emitInitialSession() was reading the old ID directly and emitting
+    // session.start for it — then the first navigation triggered getSessionId() which
+    // rotated again, producing a second session.start for a different new ID.
+    seedExpiredSession("session-expired-init");
+
+    const provider = new SessionProvider();
+    const events: { type: string; sessionId?: string; newSessionId?: string }[] = [];
+    provider.onSessionChange((e) => events.push(e));
+    provider.emitInitialSession();
+
+    const starts = events.filter((e) => e.type === "start");
+    expect(starts).toHaveLength(1);
+    expect(starts[0].newSessionId).not.toBe("session-expired-init");
+
+    // Subsequent getSessionId() calls must NOT rotate again
+    const id1 = provider.getSessionId();
+    const id2 = provider.getSessionId();
+    expect(id1).toBe(id2);
+    expect(events.filter((e) => e.type === "start")).toHaveLength(1);
+  });
+
+  it("zero-ts session (lastTs=0) emits exactly ONE session.start on concurrent calls", () => {
+    // Regression: when pulse_session_ts='0', the code fell through to an unguarded
+    // rotation path — multiple callers each created a new session simultaneously.
+    window.localStorage.setItem("pulse_session_id", "session-zero-ts");
+    window.localStorage.setItem("pulse_session_ts", "0");
+    window.localStorage.setItem("pulse_session_start", "0");
+
+    const provider = new SessionProvider();
+    const events: string[] = [];
+    provider.onSessionChange((e) => events.push(e.type));
+
+    const id1 = provider.getSessionId();
+    const id2 = provider.getSessionId();
+    const id3 = provider.getSessionId();
+
+    expect(id1).toBe(id2);
+    expect(id2).toBe(id3);
+    expect(id1).not.toBe("session-zero-ts");
+
+    expect(events.filter((e) => e === "start")).toHaveLength(1);
+  });
 });
 
 // ─── Part 2: User identity persistence ───────────────────────────────────────
