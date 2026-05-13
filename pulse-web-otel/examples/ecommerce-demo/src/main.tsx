@@ -6,16 +6,24 @@ import {
   PulseLogLevel,
 } from "@dreamhorizonorg/pulse-web";
 import App from "./App";
-import { maybeLoadMockInteractionConfig } from "./maybeLoadMockInteractionConfig";
-import { maybeLoadMockPulseSdkConfig } from "./maybeLoadMockPulseSdkConfig";
+import { PulseProvider } from "@dreamhorizonorg/pulse-web/react";
 
-void Promise.all([
-  maybeLoadMockPulseSdkConfig(),
-  maybeLoadMockInteractionConfig(),
-]).then(() => {
-  ReactDOM.createRoot(document.getElementById("root")!).render(
-    <React.StrictMode>
+ReactDOM.createRoot(document.getElementById("root")!).render(
+  <React.StrictMode>
+    <PulseProvider
+      config={{
+        apiKey: import.meta.env.VITE_PULSE_API_KEY!,
+        serviceName: "my-app",
+        dataCollectionState: PulseDataCollectionConsent.ALLOWED,
+        logLevel: PulseLogLevel.DEBUG,
+        serviceVersion: "1.0.0",
+        export: {
+          format: "protobuf",
+        },
+      }}
+      shutdownOnUnmount={false}
+    >
       <App />
-    </React.StrictMode>,
-  );
-});
+    </PulseProvider>
+  </React.StrictMode>,
+);

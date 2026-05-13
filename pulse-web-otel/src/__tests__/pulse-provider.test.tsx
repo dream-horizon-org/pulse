@@ -433,9 +433,7 @@ describe("PulseProvider — nested provider (-v)", () => {
 });
 
 // ---------------------------------------------------------------------------
-// -v — invalid config: start() validation error leaves SDK uninitialised
-//      (useEffect errors don't propagate to render() synchronously, so we
-//       verify state rather than catching a throw)
+// -v — invalid config: validation error leaves SDK uninitialised (init does not throw)
 // ---------------------------------------------------------------------------
 
 describe("PulseProvider — invalid config (-v)", () => {

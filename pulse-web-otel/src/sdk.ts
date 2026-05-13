@@ -135,44 +135,74 @@ class PulseSDK implements SdkContext {
    * Begins SDK initialization. Returns a promise that settles when async bootstrap
    * ({@code finishInit}) completes — same instant as {@link whenReady}. Safe to ignore
    * the return value unless you need {@link tracerProvider} immediately after.
+   *
+   * Never throws synchronously. Missing or blank {@code apiKey} resolves immediately with
+   * a {@link PulseWebLogger.warn}. Other validation failures and async bootstrap errors are
+   * logged with {@link PulseWebLogger.warn}; the returned promise **always fulfills**
+   * (check {@link isInitialized} for success).
    */
   init(config: PulseWebConfig): Promise<void> {
+    try {
     if (this._initialized || this._shuttingDown) {
       return Promise.resolve();
     }
     if (this._initializing) {
       return this.whenReady();
     }
-    // Step 1: Validate config
-    validateConfig(config);
-    PulseWebLogger.setLevel(config.logLevel ?? PulseLogLevel.NONE);
-    // Step 1.5: Resolve endpointBaseUrl from apiKey; config.endpoint overrides for WebView dev
-    const endpointBaseUrl = resolveEndpointBaseUrl(
-      config.apiKey,
-      config.endpoint,
-    );
-    this.endpointBaseUrl = endpointBaseUrl;
 
-    // Consent gate — DENIED or PENDING → no-op, zero signals emitted
-    if (!isDataCollectionAllowed(config.dataCollectionState)) {
+    PulseWebLogger.setLevel(config.logLevel ?? PulseLogLevel.NONE);
+
+    const rawKey = config.apiKey as string | undefined | null;
+    if (
+      rawKey === undefined ||
+      rawKey === null ||
+      (typeof rawKey === "string" && rawKey.trim() === "")
+    ) {
+      PulseWebLogger.warn(
+        "[Pulse] SDK not initialized — missing or empty apiKey (telemetry disabled).",
+      );
+      return Promise.resolve();
+    }}catch (err: unknown) {
+      PulseWebLogger.warn(`[Pulse] SDK init failed — ${err instanceof Error ? err.message : String(err)}`);
       return Promise.resolve();
     }
-    this.config = config;
 
-    const meteringSessionId = crypto.randomUUID();
+    try {
+      validateConfig(config);
+      const endpointBaseUrl = resolveEndpointBaseUrl(
+        config.apiKey,
+        config.endpoint,
+      );
+      this.endpointBaseUrl = endpointBaseUrl;
 
-    // Set _initializing before the async finishInit so the singleton guard blocks
-    // any duplicate init() calls that arrive during the 200ms OS-version await.
-    this._initializing = true;
-    const done = this.finishInit(
-      config,
-      endpointBaseUrl,
-      meteringSessionId,
-    ).finally(() => {
-      this._initSettled = null;
-    });
-    this._initSettled = done;
-    return done;
+      if (!isDataCollectionAllowed(config.dataCollectionState)) {
+        return Promise.resolve();
+      }
+      this.config = config;
+
+      const meteringSessionId = crypto.randomUUID();
+
+      this._initializing = true;
+      const pipeline = this.finishInit(
+        config,
+        endpointBaseUrl,
+        meteringSessionId,
+      )
+        .catch((err: unknown) => {
+          const detail = err instanceof Error ? err.message : String(err);
+          PulseWebLogger.warn(`[Pulse] SDK init failed — ${detail}`);
+          this._initializing = false;
+        })
+        .finally(() => {
+          this._initSettled = null;
+        });
+      this._initSettled = pipeline;
+      return pipeline;
+    } catch (err: unknown) {
+      const detail = err instanceof Error ? err.message : String(err);
+      PulseWebLogger.warn(`[Pulse] SDK init failed — ${detail}`);
+      return Promise.resolve();
+    }
   }
 
   /**
