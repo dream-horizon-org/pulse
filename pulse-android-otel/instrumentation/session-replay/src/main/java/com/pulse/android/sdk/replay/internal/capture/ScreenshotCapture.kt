@@ -430,7 +430,7 @@ internal object ScreenshotCapture {
             java.util.concurrent.atomic
                 .AtomicReference<Pair<List<android.graphics.Rect>, Boolean>?>(null)
         val latch = CountDownLatch(1)
-        val posted =
+        val isPosted =
             mainHandler.post {
                 try {
                     ref.set(collector())
@@ -440,7 +440,7 @@ internal object ScreenshotCapture {
                     latch.countDown()
                 }
             }
-        if (!posted) return null
+        if (!isPosted) return null
         if (!latch.await(MAIN_COLLECT_TIMEOUT_MS, TimeUnit.MILLISECONDS)) return null
         return ref.get()
     }
