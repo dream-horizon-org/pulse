@@ -29,7 +29,7 @@ See [`../assumptions/SPEC.md`](../assumptions/SPEC.md).
 
 **R4 — Remote config:** `SdkConfigFetcher.loadCached()` reads `localStorage["pulse_sdk_config"]` synchronously at init. `fetchInBackground()` fires a `fetch` call post-init and persists a new version only if the remote version number differs.
 
-**R5 — Shutdown:** `Pulse.shutdown()` removes the `pagehide` listener (if registered), runs provider cleanup, uninstalls all instrumentations, clears the interaction handle, shuts down the session provider, awaits parallel `forceFlush` on all providers, clears provider references, resets init flags, sets logger level to `NONE`, and leaves the singleton ready so a subsequent `Pulse.init()` can bootstrap again. Exact order: [`architecture-and-bootstrap/SPEC.md`](architecture-and-bootstrap/SPEC.md) §5.2.
+**R5 — Shutdown:** `Pulse.shutdown()` removes the `pagehide` listener (if registered), runs provider cleanup, uninstalls all instrumentations, clears the interaction handle, shuts down the session provider, awaits parallel `forceFlush` on all providers, clears provider references, resets init flags, sets logger level to `NONE`, and leaves the singleton ready so a subsequent `Pulse.init()` can bootstrap again. Exact order: [`architecture-and-bootstrap/SPEC.md`](../architecture-and-bootstrap/SPEC.md) §5.2.
 
 **R6 — Session:** `SessionProvider` assigns a `session.id` UUID on construction. It rotates the session after `pageHiddenTimeoutMs` of backgrounding (**default 15 minutes**, `DEFAULT_PAGE_HIDDEN_TIMEOUT_MS` in `src/session.ts`, overridable via config). Sessions persist `installationId` and `userId` to `localStorage`. **LLD:** [`../../instrumentations/session/SPEC.md`](../../instrumentations/session/SPEC.md).
 
