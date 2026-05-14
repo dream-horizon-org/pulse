@@ -233,6 +233,30 @@ test.describe("@WebVitals", () => {
     expect(getAttr(cls!.attributes, "screen.name")).toBeTruthy();
   });
 
+  test("SPA navigation flushes TTFB vital with correct screen.name from initial route", async ({
+    page,
+    otlp,
+  }) => {
+    await page.goto("/");
+    await otlp.waitForLog("session.start");
+    // Let TTFB/FCP fire and buffer; do not trigger tab hide.
+    await page.waitForTimeout(400);
+
+    // SPA navigation — triggers notifySoftNavigation flush in the hook.
+    await page.click('a[href="/products"]');
+    await page.waitForTimeout(600); // batch window 200ms + buffer
+
+    const vitals = findAllLogs(otlp.captured, "web_vital");
+    const ttfb = vitals.find(
+      (lr) => getAttr(lr.attributes, "web_vital.name") === "TTFB",
+    );
+    expect(ttfb).toBeDefined();
+    expect(getAttr(ttfb!.attributes, "pulse.type")).toBe("web_vital");
+    // screen.name must be "/" — TTFB was measured on the home route.
+    expect(getAttr(ttfb!.attributes, "screen.name")).toBe("/");
+    expect(getAttr(ttfb!.attributes, "session.id")).toBeTruthy();
+  });
+
   test("does not emit web_vital logs when web_vitals feature gate is disabled", async ({
     page,
     otlp,

@@ -143,8 +143,10 @@ useRouterTracking() // inside a component rendered within <BrowserRouter>
 ## Interaction config contract
 
 Interaction configs are fetched from:
-- local/dev: `http://localhost:8080/v1/interaction-configs/`
-- prod: Pulse config endpoint
+- **Local/dev** (API keys matching `default-project*_*`): `{collector→8080}/v1/interaction-configs/` with `X-API-KEY`
+- **Prod** (any other API key): `https://pulse-otel-collector.pulse-ux.com/config/projects/{projectId}/interaction-config.json` (no `/v1/interaction-configs/` — search DevTools for `interaction-config.json`)
+
+Remote `pulse-config.json` may set `features[].interaction.sessionSampleRate` < 1 for `pulse_web_js`; interaction **spans** stay gated, but the SDK still loads interaction configs when `instrumentations.interactions` is not `enabled: false`.
 
 Web runtime now uses backend/Android wire shape directly:
 - `id: number`

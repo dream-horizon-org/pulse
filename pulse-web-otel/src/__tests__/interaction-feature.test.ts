@@ -57,9 +57,10 @@ describe("InteractionFeature gating", () => {
     );
   }
 
-  it("feature gate disabled -> init and track are no-op", async () => {
+  it("feature gate disabled -> init skips fetch; trackEvent is no-op", async () => {
     fetcherInit.mockClear();
     coordinatorTrackEvent.mockClear();
+    coordinatorSetConfigs.mockClear();
     const feature = makeFeature(false, true);
 
     await feature.init();
@@ -67,6 +68,7 @@ describe("InteractionFeature gating", () => {
 
     expect(fetcherInit).not.toHaveBeenCalled();
     expect(coordinatorTrackEvent).not.toHaveBeenCalled();
+    expect(coordinatorSetConfigs).not.toHaveBeenCalled();
   });
 
   it("instrumentation disabled by config -> init and track are no-op", async () => {

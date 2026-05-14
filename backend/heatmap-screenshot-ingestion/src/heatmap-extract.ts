@@ -70,38 +70,43 @@ function parseMeta(event: Record<string, unknown>): MetaPayload | null {
 }
 
 /**
- * From one parsed snapshot message, find first META + first screenshot base64 in full snapshot
- * within the same `snapshot_items` list (product rule: one of each).
+ * Walks `snapshot_items` in order. Only a strict META (type 4) then full snapshot (type 2) with
+ * a screenshot wireframe produces a pair. Any other event between META and that FULL drops
+ * pending META (incremental type 3, custom/plugin events, etc.). A new META replaces pending.
+ * A type-2 without a usable screenshot clears pending without pairing.
  */
-export function extractHeatmapScreenshot(
+export function extractHeatmapScreenshots(
   parsed: ParsedMessageData,
-): HeatmapScreenshotPayload | null {
-  let meta: MetaPayload | null = null;
-  let screenshotBase64: string | null = null;
+): HeatmapScreenshotPayload[] {
+  const out: HeatmapScreenshotPayload[] = [];
+  let pendingMeta: MetaPayload | null = null;
 
   for (const ev of parsed.events) {
     if (!isRecord(ev)) continue;
 
-    if (meta === null) {
-      const m = parseMeta(ev);
-      if (m) meta = m;
+    const metaNow = parseMeta(ev);
+    if (metaNow) {
+      pendingMeta = metaNow;
+      continue;
     }
 
-    if (screenshotBase64 === null && ev.type === REPLAY_TYPE_FULL_SNAPSHOT) {
+    const t = ev.type;
+    if (t === REPLAY_TYPE_FULL_SNAPSHOT) {
       const data = ev.data;
-      if (isRecord(data) && data.wireframes !== undefined) {
-        screenshotBase64 = findFirstScreenshotBase64(data.wireframes);
+      if (!isRecord(data) || data.wireframes === undefined) {
+        pendingMeta = null;
+        continue;
       }
+      const screenshotBase64 = findFirstScreenshotBase64(data.wireframes);
+      if (screenshotBase64 && pendingMeta) {
+        out.push({ meta: pendingMeta, base64: screenshotBase64 });
+      }
+      pendingMeta = null;
+      continue;
     }
 
-    if (meta !== null && screenshotBase64 !== null) {
-      break;
-    }
+    pendingMeta = null;
   }
 
-  if (!meta || !screenshotBase64) {
-    return null;
-  }
-
-  return { meta, base64: screenshotBase64 };
+  return out;
 }

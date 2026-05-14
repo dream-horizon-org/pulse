@@ -69,6 +69,7 @@ export function useRouterTracking(
       : dependency;
 
     Pulse.setScreenName(name);
+    Pulse.notifySoftNavigation();
     // `format`/`skipInitial` are stable across renders in practice; we key
     // solely on the derived location string so route-shape changes drive
     // the effect, not identity changes to the options object.

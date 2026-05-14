@@ -49,6 +49,9 @@ public enum ServiceError implements RestError {
   GRAFANA_WEBHOOK_INVALID_PAYLOAD("BE1020", "Invalid Grafana webhook payload", 400),
   /** Grafana alert handler failed during on-call lookup or Slack dispatch. */
   GRAFANA_ALERT_PROCESSING_FAILED("BE1021", "Failed to process Grafana alert", 500);
+  AI_PROXY_BAD_GATEWAY("BE1011", "Something went wrong", 502),
+  INVALID_PROJECT_ID("BE1012", "Invalid or missing project ID", 400),
+  INVALID_BUCKET_MINUTES("BE1013", "bucketMinutes must be between 5 and 1440", 400);
 
   private static final Logger log = LoggerFactory.getLogger(ServiceError.class);
   final String errorCode;
