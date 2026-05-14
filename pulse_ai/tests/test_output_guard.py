@@ -5,6 +5,7 @@ from pulse_ai.output_guard import (
     FilteredDeltaTracker,
     em_output_sanitize_callback,
     sanitize_em_output,
+    sanitize_time_range_ids,
 )
 
 
@@ -234,3 +235,82 @@ class TestFilteredDeltaTrackerSanitization:
         d = t.push(text)
         tail = t.flush()
         assert d + tail == text
+
+
+# ---------------------------------------------------------------------------
+# sanitize_time_range_ids — deterministic time range id → human-readable phrase
+# ---------------------------------------------------------------------------
+
+class TestSanitizeTimeRangeIds:
+
+    def test_last_30d_becomes_last_30_days(self):
+        assert sanitize_time_range_ids("last_30d") == "last 30 days"
+
+    def test_last_7d_becomes_last_7_days(self):
+        assert sanitize_time_range_ids("last_7d") == "last 7 days"
+
+    def test_last_1d_uses_singular_day(self):
+        assert sanitize_time_range_ids("last_1d") == "last 1 day"
+
+    def test_last_24h_becomes_last_24_hours(self):
+        assert sanitize_time_range_ids("last_24h") == "last 24 hours"
+
+    def test_last_1h_uses_singular_hour(self):
+        assert sanitize_time_range_ids("last_1h") == "last 1 hour"
+
+    def test_last_12h_becomes_last_12_hours(self):
+        assert sanitize_time_range_ids("last_12h") == "last 12 hours"
+
+    def test_last_5m_becomes_last_5_minutes(self):
+        assert sanitize_time_range_ids("last_5m") == "last 5 minutes"
+
+    def test_last_1m_uses_singular_minute(self):
+        assert sanitize_time_range_ids("last_1m") == "last 1 minute"
+
+    def test_pattern_embedded_in_sentence(self):
+        result = sanitize_time_range_ids("Try last_30d for more data.")
+        assert "last_30d" not in result
+        assert "last 30 days" in result
+
+    def test_pattern_inside_quotes(self):
+        result = sanitize_time_range_ids('(e.g., "last_30d")')
+        assert "last_30d" not in result
+        assert "last 30 days" in result
+
+    def test_invalid_pattern_unchanged(self):
+        assert sanitize_time_range_ids("last_abc") == "last_abc"
+        assert sanitize_time_range_ids("last_") == "last_"
+
+    def test_multiple_patterns_in_one_string(self):
+        result = sanitize_time_range_ids("Try last_7d or last_30d instead.")
+        assert "last_7d" not in result
+        assert "last_30d" not in result
+        assert "last 7 days" in result
+        assert "last 30 days" in result
+
+    def test_none_returns_empty_string(self):
+        assert sanitize_time_range_ids(None) == ""
+
+    def test_empty_string_returns_empty_string(self):
+        assert sanitize_time_range_ids("") == ""
+
+    def test_clean_text_unchanged(self):
+        text = "Apdex 0.8, P95 450ms for the last 7 days."
+        assert sanitize_time_range_ids(text) == text
+
+
+class TestSanitizeEmOutputTimeRangeIntegration:
+
+    def test_sanitize_em_output_replaces_time_range_id(self):
+        result = sanitize_em_output('Would you like to try "last_30d"?')
+        assert "last_30d" not in result
+        assert "last 30 days" in result
+
+    def test_filtered_delta_tracker_strips_time_range_id(self):
+        t = FilteredDeltaTracker()
+        text = 'Would you like to try a different time range (e.g., "last_30d") or explore other interactions? ' * 3
+        d = t.push(text)
+        tail = t.flush()
+        result = d + tail
+        assert "last_30d" not in result
+        assert "last 30 days" in result

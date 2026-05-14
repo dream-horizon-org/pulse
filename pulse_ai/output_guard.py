@@ -3,6 +3,8 @@ Output guard: sanitizes EM agent output (Layer 1) and filters SSE stream deltas 
 """
 from __future__ import annotations
 
+import re
+
 import ahocorasick
 
 
@@ -109,11 +111,29 @@ _EM_AUTOMATON, _EM_MAX_LEN = _compile(_EM_RULES, case_insensitive=True)
 _HOLD_BACK = max(0, _EM_MAX_LEN - 1)
 
 
+_TIME_RANGE_RE = re.compile(r"last_(\d+)(d|h|m)\b")
+_TIME_UNITS = {"d": ("day", "days"), "h": ("hour", "hours"), "m": ("minute", "minutes")}
+
+
+def sanitize_time_range_ids(text: str) -> str:
+    """Replace internal time range identifiers (e.g. last_30d) with human-readable phrases."""
+    if not text:
+        return ""
+
+    def _replace(m: re.Match) -> str:
+        n, unit = int(m.group(1)), m.group(2)
+        singular, plural = _TIME_UNITS[unit]
+        return f"last {n} {singular if n == 1 else plural}"
+
+    return _TIME_RANGE_RE.sub(_replace, text)
+
+
 def sanitize_em_output(text: str) -> str:
     """Strip implementation details from EM agent output before Report Agent context injection."""
     if not text:
         return ""
-    return _replace_all(text, _EM_AUTOMATON, case_insensitive=True)
+    text = _replace_all(text, _EM_AUTOMATON, case_insensitive=True)
+    return sanitize_time_range_ids(text)
 
 
 # ---------------------------------------------------------------------------
