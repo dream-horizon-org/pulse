@@ -29,7 +29,6 @@ There is **no** `RELEASE.md` or existing `release-web-sdk.yml` in the repo today
 
 Current version: `0.1.0-alpha.1` (`pulse-web-otel/package.json:3`); `CHANGELOG.md` already announces `0.1.0-alpha.2` with breaking renames (`PulseWeb` → `Pulse`, `Pulse.start` → `Pulse.init`, `PulseNavigationEvents` → `PulseRouterEvents`).
 
-
 | Phase                          | Version pattern | dist-tag                 |
 | ------------------------------ | --------------- | ------------------------ |
 | Internal monorepo only (today) | `0.1.0-alpha.x` | `alpha`                  |
@@ -37,7 +36,6 @@ Current version: `0.1.0-alpha.1` (`pulse-web-otel/package.json:3`); `CHANGELOG.m
 | Production-ready               | `1.0.0`         | `latest`                 |
 | Pre-release of next minor      | `1.1.0-next.x`  | `next`                   |
 | Patch on previous major        | `1.x.y`         | `legacy` (or `1-latest`) |
-
 
 Rules during alpha (`0.x`):
 
@@ -184,14 +182,12 @@ Today (`pulse-web-otel/package.json:92-107`):
 
 Verified consumer matrix from `pulse-web-otel/examples/`:
 
-
 | Example          | React     | Next      | react-router-dom |
 | ---------------- | --------- | --------- | ---------------- |
 | `web-sdk-docs`   | —         | —         | —                |
 | `ecommerce-demo` | `^18.3.0` | —         | `^6.26.0`        |
 | `nextjs-demo`    | `^18.3.0` | `^15.3.1` | —                |
 | `lottery-demo`   | `19.2.3`  | `^15.3.1` | —                |
-
 
 `react: >=18` matches all React app usages but **excludes React 19** which the `lottery-demo` already uses. Required fix:
 
@@ -284,11 +280,13 @@ One-time configuration on npmjs.com:
 2. Visit [https://www.npmjs.com/package/@dreamhorizonorg/pulse-web/access](https://www.npmjs.com/package/@dreamhorizonorg/pulse-web/access).
 3. Under **Trusted Publishing**, "Add a trusted publisher" → **GitHub Actions**.
 4. Fill in:
-  - Organization: `dream-horizon-org`
-  - Repository: `pulse`
-  - Workflow filename: `release-web-sdk.yml`
-  - Environment (optional but recommended): `npm-publish`
-5. Save.
+
+- Organization: `dream-horizon-org`
+- Repository: `pulse`
+- Workflow filename: `release-web-sdk.yml`
+- Environment (optional but recommended): `npm-publish`
+
+- **Save** (you are done with npm trusted-publisher setup).
 
 After this, the workflow in [§4](#4-automated-release-pipeline) publishes via OIDC. No `NPM_TOKEN` GitHub secret is needed for the web SDK once trusted publishing is set up.
 
@@ -566,15 +564,12 @@ Full integration recipes live in [`../instrumentations/integration/SPEC.md`](../
 
 ### 6.1 Reference points
 
-
 | SDK               | Package layout                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | Why                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **PostHog** today | `posthog-js` (browser core) + sibling `@posthog/react` (separate package). They explicitly migrated **away** from `posthog-js/react` subpath to `@posthog/react`. ([PostHog/posthog#54643](https://github.com/PostHog/posthog/pull/54643))                                                                                                                                                                                                                                                         | Wanted independent versioning of the React layer (`@posthog/react@1.9.0` vs `posthog-js@1.372.x`), independent peerDeps (`@posthog/react` declares `react ^16.8.0` peer + `posthog-js >=1.257.2` peer), and a clean React-package bundle without dragging the browser core's transitive deps into React-only consumers.                                                                                                                                                                                                                             |
-| **Sentry** today  | `@sentry/core` + `@sentry/browser` + `@sentry/react` + `@sentry/nextjs` + `@sentry/node` + 30+ more, all in a Lerna→Nx monorepo. ([Sentry JavaScript monorepo](https://github.com/getsentry/sentry-javascript/tree/develop/packages), [@sentry/react package.json](https://github.com/getsentry/sentry-javascript/blob/develop/packages/react/package.json), [@sentry/nextjs package.json](https://github.com/getsentry/sentry-javascript/blob/develop/packages/nextjs/package.json)) | Each framework SDK has its own peerDep range (`@sentry/react` peers `react: ^16.14.0 || 17.x || 18.x || 19.x`; `@sentry/nextjs` peers `next: ^13.2.0 || ^14.0 || ^15.0.0-rc.0 || ^16.0.0-0`), its own conditional exports (Next.js needs `edge`, `edge-light`, `worker`, `workerd`, `browser`, `node` conditions — see `@sentry/nextjs` exports map), and its own runtime deps (Next.js pulls in `@rollup/plugin-commonjs`, `@sentry/webpack-plugin`, `@sentry/bundler-plugin-core` — none of which a plain `@sentry/browser` user should pay for). |
-
+| **Sentry** today  | `@sentry/core` + `@sentry/browser` + `@sentry/react` + `@sentry/nextjs` + `@sentry/node` + 30+ more, all in a Lerna→Nx monorepo. ([Sentry JavaScript monorepo](https://github.com/getsentry/sentry-javascript/tree/develop/packages), [@sentry/react package.json](https://github.com/getsentry/sentry-javascript/blob/develop/packages/react/package.json), [@sentry/nextjs package.json](https://github.com/getsentry/sentry-javascript/blob/develop/packages/nextjs/package.json)) | Each framework SDK has its own peerDep range (`@sentry/react` peers `react: ^16.14.0 \|\| 17.x \|\| 18.x \|\| 19.x`;`@sentry/nextjs` peers `next: ^13.2.0 \|\| ^14.0 \|\| ^15.0.0-rc.0 \|\| ^16.0.0-0`), its own conditional exports (Next.js needs`edge`,`edge-light`,`worker`,`workerd`,`browser`,`node` conditions — see `@sentry/nextjs` exports map), and its own runtime deps (Next.js pulls in `@rollup/plugin-commonjs`,`@sentry/webpack-plugin`,`@sentry/bundler-plugin-core` — none of which a plain `@sentry/browser` user should pay for). |
 
 ### 6.2 Decision criteria
-
 
 | Criterion                                                      | Subpath export wins                                                                                      | Sibling package wins                                                  |
 | -------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
@@ -586,7 +581,6 @@ Full integration recipes live in [`../instrumentations/integration/SPEC.md`](../
 | Discovery / docs SEO                                           | tie (`@dreamhorizonorg/pulse-web/react` is searchable)                                                   | ✅ npm has a dedicated page per package                                |
 | Bundle bloat from framework adapters                           | acceptable today (`react` chunk ≈ small)                                                                 | wins once `next` chunk pulls Next-specific runtime deps               |
 | Maintenance overhead                                           | ✅ one CHANGELOG, one CI job, one publish                                                                 | ❌ N CHANGELOGs, N CI jobs, monorepo tooling (Changesets in mono mode) |
-
 
 ### 6.3 Recommendation for Pulse Web SDK
 
@@ -602,7 +596,6 @@ Reasons grounded in the current repo state:
 
 **Graduate to sibling packages when any of these become true:**
 
-
 | Trigger                                                                                                                               | Likely package                        |
 | ------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------- |
 | Next.js needs RSC / edge / workerd `exports` conditions like `@sentry/nextjs`                                                         | `@dreamhorizonorg/pulse-web-next`     |
@@ -610,18 +603,19 @@ Reasons grounded in the current repo state:
 | A framework adapter pulls a non-trivial runtime dep (e.g. a webpack plugin) that we don't want forced on every consumer               | split that adapter                    |
 | Consumers ask for independent versioning of the React/Next layer (e.g. a security fix in core that should not bump the React package) | split                                 |
 
-
 **Migration path (no consumer break) when the time comes:**
 
 1. Cut the new package, e.g. `@dreamhorizonorg/pulse-web-react@1.0.0`, with the same exports as today's `/react` subpath.
-2. In the next minor of `@dreamhorizonorg/pulse-web` (say `1.4.0`), make `./react` a **re-export shim**:
+1. In the next minor of `@dreamhorizonorg/pulse-web` (say `1.4.0`), make `./react` a **re-export shim**:
+
   ```ts
    // pulse-web-otel/src/integrations/react/index.ts (becomes)
    export * from '@dreamhorizonorg/pulse-web-react';
   ```
-3. Add `@dreamhorizonorg/pulse-web-react` as a `dependencies` entry of `@dreamhorizonorg/pulse-web` (so `import …/react` keeps working with no consumer change).
-4. Add a deprecation notice in the `/react` subpath README pointing consumers at the new package over the next major.
-5. In the **next major** (`2.0.0`), remove the `./react` subpath. Consumers who upgraded their import path see no break; the rest get a clear error from the exports map and a one-liner codemod.
+
+1. Add `@dreamhorizonorg/pulse-web-react` as a `dependencies` entry of `@dreamhorizonorg/pulse-web` (so `import …/react` keeps working with no consumer change).
+1. Add a deprecation notice in the `/react` subpath README pointing consumers at the new package over the next major.
+1. In the **next major** (`2.0.0`), remove the `./react` subpath. Consumers who upgraded their import path see no break; the rest get a clear error from the exports map and a one-liner codemod.
 
 PostHog used exactly this pattern when migrating from `posthog-js/react` to `@posthog/react` ([PR #54643](https://github.com/PostHog/posthog/pull/54643)).
 
@@ -635,7 +629,7 @@ PostHog used exactly this pattern when migrating from `posthog-js/react` to `@po
 - **Minor** — new exported symbol, new optional config, new `pulse.type` value, new subpath export, new instrumentation, lifted peer range upper bound.
 - **Patch** — bug fix, perf, internal refactor, doc update.
 
-The signal contract is the **public API**. A change in `pulse.type`, a span attribute name, or a log body schema is a major. Reference: `pulse-web-otel/src/instrumentations/*` plus [`../instrumentations/sdk-core/SPEC.md`](../instrumentations/sdk-core/SPEC.md) (lifecycle + contract) and the per-instrumentation SPECs under [`../instrumentations/`](../instrumentations/).
+The signal contract is the **public API**. A change in `pulse.type`, a span attribute name, or a log body schema is a major. Reference: `pulse-web-otel/src/instrumentations/*` plus [`../sdk-core/data-contract/SPEC.md`](../sdk-core/data-contract/SPEC.md) (wire contract; [`../sdk-core/SPEC.md`](../sdk-core/SPEC.md) indexes topics) and the per-instrumentation SPECs under [`../instrumentations/`](../instrumentations/).
 
 ### 7.2 Deprecating a bad release
 
@@ -662,9 +656,11 @@ npm deprecate @dreamhorizonorg/pulse-web@1.2.3 "..."
 
 - Use case: you accidentally published a `dist/` that contains a credential or PII.
 - Use:
+
   ```bash
   npm unpublish @dreamhorizonorg/pulse-web@1.2.3
   ```
+
 - Then publish a clean replacement with a *new* version (`1.2.4`) — npm will not let you re-use `1.2.3`.
 
 For anything outside the 72 h window or that has dependents, **patch + deprecate** is the only path. Reference: [npm unpublish policy](https://docs.npmjs.com/policies/unpublish).
@@ -726,7 +722,6 @@ Verify exports map renders correctly under the version's "Repository" → "packa
 
 ### 9.1 `npm publish` returns 403
 
-
 | Cause                                                                                                   | Fix                                                                                                                                                                                  |
 | ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Scope mismatch (publishing `@dreamhorizonorg/pulse-web` but logged in as a user without org membership) | `npm whoami`, then `npm org ls dreamhorizon` to confirm membership. Add yourself or change scope.                                                                                    |
@@ -734,9 +729,7 @@ Verify exports map renders correctly under the version's "Repository" → "packa
 | 2FA token missing (`--otp <code>` required)                                                             | Re-run with `npm publish --otp 123456 --access public --tag alpha`.                                                                                                                  |
 | Trusted publishing not configured but workflow has no `NPM_TOKEN`                                       | Either configure trusted publisher on npmjs.com or add `NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}` env to the publish step (mirror `.github/workflows/publish-react-native.yml:67`). |
 
-
 ### 9.2 `publint` errors
-
 
 | Error                                               | Meaning                                                                           | Fix                                                                                                                                                |
 | --------------------------------------------------- | --------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -744,16 +737,13 @@ Verify exports map renders correctly under the version's "Repository" → "packa
 | `pkg.main` does not match exports `.`               | Legacy resolvers and bundler resolvers see different files                        | Make `main` point at the same `.cjs` as `exports["."].require.default`.                                                                            |
 | Dual-package hazard                                 | Two copies of the singleton (`Pulse`) loaded from `.cjs` and `.js` simultaneously | Mark `sideEffects: false`; ensure the singleton lives in a single shared chunk.                                                                    |
 
-
 ### 9.3 `attw` errors
-
 
 | Error                                         | Fix                                                                                                               |
 | --------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
 | `Masquerading as ESM` / `Masquerading as CJS` | Distinguish `.d.ts` and `.d.cts` (see [§1.3.2](#132-entry-points-and-exports--mostly-correct-one-types-map-bug)). |
 | `Resolution Modes: node10` failing            | Acceptable to ignore; we don't support legacy Node resolution. Document in this file.                             |
 | `False ESM`                                   | Your `.d.ts` re-exports from a `.js` file with no top-level `await`. Fixed by the `tsup` `dts: true` output.      |
-
 
 ### 9.4 React peer-dep warnings
 
@@ -787,4 +777,3 @@ If a consumer sees `npm WARN ERESOLVE` for `@types/react`, `react-router-dom`, o
 - `@sentry/react` package.json — [https://github.com/getsentry/sentry-javascript/blob/develop/packages/react/package.json](https://github.com/getsentry/sentry-javascript/blob/develop/packages/react/package.json)
 - `@sentry/browser` package.json — [https://github.com/getsentry/sentry-javascript/blob/develop/packages/browser/package.json](https://github.com/getsentry/sentry-javascript/blob/develop/packages/browser/package.json)
 - `@sentry/nextjs` package.json — [https://github.com/getsentry/sentry-javascript/blob/develop/packages/nextjs/package.json](https://github.com/getsentry/sentry-javascript/blob/develop/packages/nextjs/package.json)
-

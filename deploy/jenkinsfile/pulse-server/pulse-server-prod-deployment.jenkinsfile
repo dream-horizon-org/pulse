@@ -29,8 +29,8 @@ pipeline {
         stage('Checkout') {
             steps {
                 checkout([
-                        $class: 'GitSCM',
-                        branches: [[name: '*/main']],
+                        $class           : 'GitSCM',
+                        branches         : [[name: '*/main']],
                         userRemoteConfigs: [[url: 'https://github.com/dream-horizon-org/pulse.git', credentialsId: 'd11-horizon-bot']]
                 ])
             }
@@ -82,6 +82,57 @@ pipeline {
                     echo "Applying Terraform changes..."
                     cd deploy/terraform/pulse-server
                     terraform apply -input=false tfplan
+                '''
+            }
+        }
+
+        stage('Wait for Instance Refresh') {
+            steps {
+                sh '''
+                    #!/bin/bash
+                    set -e
+                    ASG_NAME=pulse-server-asg
+                    REGION=ap-south-1
+                    TIMEOUT=$((45 * 60))   # 45 min hard cap
+                    SLEEP=20
+                    ELAPSED=0
+        
+                    REFRESH_ID=$(aws autoscaling describe-instance-refreshes \
+                        --auto-scaling-group-name "$ASG_NAME" \
+                        --region "$REGION" \
+                        --query 'InstanceRefreshes[0].InstanceRefreshId' \
+                        --output text)
+        
+                    echo "Tracking instance refresh: $REFRESH_ID"
+        
+                    while true; do
+                        STATUS=$(aws autoscaling describe-instance-refreshes \
+                            --auto-scaling-group-name "$ASG_NAME" \
+                            --region "$REGION" \
+                            --instance-refresh-ids "$REFRESH_ID" \
+                            --query 'InstanceRefreshes[0].Status' --output text)
+                        PCT=$(aws autoscaling describe-instance-refreshes \
+                            --auto-scaling-group-name "$ASG_NAME" \
+                            --region "$REGION" \
+                            --instance-refresh-ids "$REFRESH_ID" \
+                            --query 'InstanceRefreshes[0].PercentageComplete' --output text)
+        
+                        echo "[$ELAPSED s] status=$STATUS pct=${PCT}%"
+        
+                        case "$STATUS" in
+                            Successful)             echo "Refresh complete."; exit 0 ;;
+                            Failed|Cancelled)       echo "Refresh $STATUS"; exit 1 ;;
+                            Pending|InProgress|Cancelling) ;;
+                            *) echo "Unknown status: $STATUS"; exit 1 ;;
+                        esac
+        
+                        if [ "$ELAPSED" -ge "$TIMEOUT" ]; then
+                            echo "Timed out waiting for refresh."
+                            exit 1
+                        fi
+                        sleep $SLEEP
+                        ELAPSED=$((ELAPSED + SLEEP))
+                    done
                 '''
             }
         }

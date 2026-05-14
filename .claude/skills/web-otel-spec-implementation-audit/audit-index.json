@@ -1,0 +1,388 @@
+{
+  "version": 1,
+  "dimensions": [
+    {
+      "id": "spec_structure",
+      "description": "SPEC has goal, assumptions, requirements, non-functional notes, and implementation file index."
+    },
+    {
+      "id": "mermaid_hld",
+      "description": "Mermaid diagram: high-level components, registry, boundaries (no sequence-level logic)."
+    },
+    {
+      "id": "mermaid_ld",
+      "description": "Mermaid diagram: internal modules, key types/functions, data flow between units."
+    },
+    {
+      "id": "mermaid_flows_edge_cases",
+      "description": "Mermaid flowchart or stateDiagram: happy path plus explicit branches for each documented edge (SSR, gates off, consent, uninstall, dedupe, etc.)."
+    },
+    {
+      "id": "requirements_testable",
+      "description": "Numbered requirements are concrete, testable statements."
+    },
+    {
+      "id": "attribute_contract_table",
+      "description": "Canonical attribute / span / log field tables aligned with semconv and code."
+    },
+    {
+      "id": "implementation_paths",
+      "description": "SPEC lists authoritative pulse-web-otel/src paths that exist in the repo."
+    },
+    {
+      "id": "test_matrix_positive_negative_edge",
+      "description": "Dedicated matrix: positive, negative, edge cases with given/when/then and test file or missing."
+    },
+    {
+      "id": "spec_code_parity",
+      "description": "SPEC behavior matches current implementation (default: update SPEC to follow code unless ADR says otherwise)."
+    },
+    {
+      "id": "traceability_req_to_tests",
+      "description": "Each requirement traces to at least one scenario or explicit gap."
+    }
+  ],
+  "default_dimension_ids": [
+    "spec_structure",
+    "mermaid_hld",
+    "mermaid_ld",
+    "mermaid_flows_edge_cases",
+    "requirements_testable",
+    "attribute_contract_table",
+    "implementation_paths",
+    "test_matrix_positive_negative_edge",
+    "spec_code_parity",
+    "traceability_req_to_tests"
+  ],
+  "resolve_file_to_instrumentation": [
+    {
+      "match": "prefix",
+      "value": "pulse-web-otel/src/integrations/next-config/",
+      "id": "nextjs-integration"
+    },
+    {
+      "match": "prefix",
+      "value": "pulse-web-otel/src/integrations/next/",
+      "id": "nextjs-integration"
+    },
+    {
+      "match": "prefix",
+      "value": "pulse-web-otel/src/integrations/react/",
+      "id": "react-integration"
+    },
+    {
+      "match": "prefix",
+      "value": "pulse-web-otel/src/interactions/",
+      "id": "interactions"
+    },
+    {
+      "match": "prefix",
+      "value": "pulse-web-otel/src/instrumentations/interaction.ts",
+      "id": "interactions"
+    },
+    {
+      "match": "prefix",
+      "value": "pulse-web-otel/src/instrumentations/click-rage-buffer.ts",
+      "id": "clicks"
+    },
+    {
+      "match": "prefix",
+      "value": "pulse-web-otel/src/instrumentations/click-target.ts",
+      "id": "clicks"
+    },
+    {
+      "match": "prefix",
+      "value": "pulse-web-otel/src/instrumentations/clicks.ts",
+      "id": "clicks"
+    },
+    {
+      "match": "prefix",
+      "value": "pulse-web-otel/src/instrumentations/errors.ts",
+      "id": "errors"
+    },
+    {
+      "match": "prefix",
+      "value": "pulse-web-otel/src/instrumentations/navigation.ts",
+      "id": "screen-signals"
+    },
+    {
+      "match": "prefix",
+      "value": "pulse-web-otel/src/instrumentations/network.ts",
+      "id": "network"
+    },
+    {
+      "match": "prefix",
+      "value": "pulse-web-otel/src/utils/network-http.ts",
+      "id": "network"
+    },
+    {
+      "match": "prefix",
+      "value": "pulse-web-otel/src/instrumentations/web-vitals.ts",
+      "id": "web-vitals"
+    },
+    {
+      "match": "prefix",
+      "value": "pulse-web-otel/src/instrumentations/session.ts",
+      "id": "session"
+    },
+    {
+      "match": "prefix",
+      "value": "pulse-web-otel/src/session.ts",
+      "id": "session"
+    },
+    {
+      "match": "prefix",
+      "value": "pulse-web-otel/src/index.ts",
+      "id": "integration"
+    },
+    {
+      "match": "prefix",
+      "value": "pulse-web-otel/src/__tests__/use-next-",
+      "id": "nextjs-integration"
+    },
+    {
+      "match": "prefix",
+      "value": "pulse-web-otel/src/__tests__/pulse-router-events",
+      "id": "nextjs-integration"
+    },
+    {
+      "match": "prefix",
+      "value": "pulse-web-otel/src/__tests__/navigation-",
+      "id": "screen-signals"
+    },
+    {
+      "match": "prefix",
+      "value": "pulse-web-otel/src/__tests__/screen-name-",
+      "id": "screen-signals"
+    },
+    {
+      "match": "prefix",
+      "value": "pulse-web-otel/src/__tests__/web-vitals-",
+      "id": "web-vitals"
+    },
+    {
+      "match": "prefix",
+      "value": "pulse-web-otel/src/__tests__/m8.",
+      "id": "web-vitals"
+    },
+    {
+      "match": "prefix",
+      "value": "pulse-web-otel/src/__tests__/network-",
+      "id": "network"
+    },
+    {
+      "match": "prefix",
+      "value": "pulse-web-otel/src/__tests__/send-beacon-",
+      "id": "network"
+    },
+    {
+      "match": "prefix",
+      "value": "pulse-web-otel/src/__tests__/clicks-",
+      "id": "clicks"
+    },
+    {
+      "match": "prefix",
+      "value": "pulse-web-otel/src/__tests__/click-",
+      "id": "clicks"
+    },
+    {
+      "match": "prefix",
+      "value": "pulse-web-otel/src/__tests__/error-",
+      "id": "errors"
+    },
+    {
+      "match": "prefix",
+      "value": "pulse-web-otel/src/__tests__/interactions-",
+      "id": "interactions"
+    },
+    {
+      "match": "prefix",
+      "value": "pulse-web-otel/src/__tests__/interaction-",
+      "id": "interactions"
+    },
+    {
+      "match": "prefix",
+      "value": "pulse-web-otel/src/__tests__/interaction.",
+      "id": "interactions"
+    },
+    {
+      "match": "prefix",
+      "value": "pulse-web-otel/src/__tests__/integration-simplified-",
+      "id": "integration"
+    },
+    {
+      "match": "prefix",
+      "value": "pulse-web-otel/src/__tests__/package-exports",
+      "id": "integration"
+    },
+    {
+      "match": "prefix",
+      "value": "pulse-web-otel/src/__tests__/with-pulse-config",
+      "id": "nextjs-integration"
+    },
+    {
+      "match": "prefix",
+      "value": "pulse-web-otel/src/__tests__/session-persistence",
+      "id": "session"
+    },
+    {
+      "match": "prefix",
+      "value": "pulse-web-otel/src/__tests__/session-sampling",
+      "id": "session"
+    },
+    {
+      "match": "prefix",
+      "value": "pulse-web-otel/src/sampling/",
+      "id": "sdk-core-sampling-and-filtering"
+    },
+    {
+      "match": "prefix",
+      "value": "pulse-web-otel/src/utils/session-sampling-rate.ts",
+      "id": "sdk-core-sampling-and-filtering"
+    },
+    {
+      "match": "prefix",
+      "value": "pulse-web-otel/src/utils/sampling-signal-match.ts",
+      "id": "sdk-core-sampling-and-filtering"
+    },
+    {
+      "match": "prefix",
+      "value": "pulse-web-otel/src/processors/signal-filter-processor.ts",
+      "id": "sdk-core-sampling-and-filtering"
+    },
+    {
+      "match": "prefix",
+      "value": "pulse-web-otel/src/__tests__/export-sampling-gate.test.ts",
+      "id": "sdk-core-sampling-and-filtering"
+    },
+    {
+      "match": "prefix",
+      "value": "pulse-web-otel/src/__tests__/session-sampling-rate.test.ts",
+      "id": "sdk-core-sampling-and-filtering"
+    },
+    {
+      "match": "prefix",
+      "value": "pulse-web-otel/src/__tests__/metrics-to-add.test.ts",
+      "id": "sdk-core-sampling-and-filtering"
+    },
+    { "match": "prefix", "value": "pulse-web-otel/src/", "id": "sdk-core" }
+  ],
+  "instrumentations": [
+    {
+      "id": "clicks",
+      "spec_path": "pulse-web-otel/docs/instrumentations/clicks/SPEC.md",
+      "related_src_globs": [
+        "pulse-web-otel/src/instrumentations/clicks.ts",
+        "pulse-web-otel/src/instrumentations/click-target.ts",
+        "pulse-web-otel/src/instrumentations/click-rage-buffer.ts"
+      ]
+    },
+    {
+      "id": "errors",
+      "spec_path": "pulse-web-otel/docs/instrumentations/errors/SPEC.md",
+      "related_src_globs": [
+        "pulse-web-otel/src/instrumentations/errors.ts",
+        "pulse-web-otel/src/integrations/react/PulseErrorBoundary.tsx"
+      ]
+    },
+    {
+      "id": "integration",
+      "spec_path": "pulse-web-otel/docs/instrumentations/integration/SPEC.md",
+      "related_src_globs": [
+        "pulse-web-otel/src/index.ts",
+        "pulse-web-otel/src/sdk.ts",
+        "pulse-web-otel/src/instrumentation-registry.ts"
+      ]
+    },
+    {
+      "id": "interactions",
+      "spec_path": "pulse-web-otel/docs/instrumentations/interactions/SPEC.md",
+      "related_src_globs": [
+        "pulse-web-otel/src/instrumentations/interaction.ts",
+        "pulse-web-otel/src/interactions/"
+      ]
+    },
+    {
+      "id": "network",
+      "spec_path": "pulse-web-otel/docs/instrumentations/network/SPEC.md",
+      "related_src_globs": [
+        "pulse-web-otel/src/instrumentations/network.ts",
+        "pulse-web-otel/src/utils/network-http.ts"
+      ]
+    },
+    {
+      "id": "nextjs-integration",
+      "spec_path": "pulse-web-otel/docs/instrumentations/nextjs-integration/SPEC.md",
+      "related_src_globs": [
+        "pulse-web-otel/src/integrations/next/",
+        "pulse-web-otel/src/integrations/next-config/"
+      ]
+    },
+    {
+      "id": "react-integration",
+      "spec_path": "pulse-web-otel/docs/instrumentations/react-integration/SPEC.md",
+      "related_src_globs": ["pulse-web-otel/src/integrations/react/"]
+    },
+    {
+      "id": "screen-signals",
+      "spec_path": "pulse-web-otel/docs/instrumentations/screen-signals/SPEC.md",
+      "related_src_globs": ["pulse-web-otel/src/instrumentations/navigation.ts"]
+    },
+    {
+      "id": "session",
+      "spec_path": "pulse-web-otel/docs/instrumentations/session/SPEC.md",
+      "related_src_globs": [
+        "pulse-web-otel/src/session.ts",
+        "pulse-web-otel/src/instrumentations/session.ts"
+      ]
+    },
+    {
+      "id": "sdk-core-config-public-api",
+      "spec_path": "pulse-web-otel/docs/sdk-core/config-and-public-api/SPEC.md",
+      "related_src_globs": [
+        "pulse-web-otel/src/sdk.ts",
+        "pulse-web-otel/src/config.ts",
+        "pulse-web-otel/src/consent.ts"
+      ]
+    },
+    {
+      "id": "sdk-core",
+      "spec_path": "pulse-web-otel/docs/sdk-core/SPEC.md",
+      "related_src_globs": [
+        "pulse-web-otel/src/sdk.ts",
+        "pulse-web-otel/src/config.ts",
+        "pulse-web-otel/src/consent.ts",
+        "pulse-web-otel/src/remote-config.ts",
+        "pulse-web-otel/src/feature-gate.ts",
+        "pulse-web-otel/src/instrumentation-registry.ts",
+        "pulse-web-otel/src/exporters.ts",
+        "pulse-web-otel/src/before-send.ts",
+        "pulse-web-otel/src/resource.ts",
+        "pulse-web-otel/src/processors/",
+        "pulse-web-otel/src/persistence/",
+        "pulse-web-otel/src/utils/ua-parser.ts"
+      ]
+    },
+    {
+      "id": "sdk-core-sampling-and-filtering",
+      "spec_path": "pulse-web-otel/docs/sdk-core/sampling-and-filtering/SPEC.md",
+      "related_src_globs": [
+        "pulse-web-otel/src/sampling/export-sampling-gate.ts",
+        "pulse-web-otel/src/sampling/sampling-exporters.ts",
+        "pulse-web-otel/src/sampling/metrics-to-add-apply.ts",
+        "pulse-web-otel/src/sampling/metrics-to-add-recorder.ts",
+        "pulse-web-otel/src/sampling/sanitize-instrumentation-name.ts",
+        "pulse-web-otel/src/utils/session-sampling-rate.ts",
+        "pulse-web-otel/src/utils/sampling-signal-match.ts",
+        "pulse-web-otel/src/processors/signal-filter-processor.ts",
+        "pulse-web-otel/src/constants/default-sdk-config.ts",
+        "pulse-web-otel/src/types/sampling.ts"
+      ]
+    },
+    {
+      "id": "web-vitals",
+      "spec_path": "pulse-web-otel/docs/instrumentations/web-vitals/SPEC.md",
+      "related_src_globs": ["pulse-web-otel/src/instrumentations/web-vitals.ts"]
+    }
+  ]
+}

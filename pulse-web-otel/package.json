@@ -1,6 +1,6 @@
 {
   "name": "@dreamhorizonorg/pulse-web",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Pulse observability SDK for web — OpenTelemetry-based RUM, sessions, errors, web vitals, network, and click instrumentation",
   "keywords": [
     "opentelemetry",
@@ -106,6 +106,8 @@
     "test": "vitest",
     "test:run": "vitest run",
     "lint": "tsc --noEmit",
+    "markdown:lint": "markdownlint-cli2 \"docs/**/*.md\" \"README.md\" \"CLAUDE.md\" \"prd/**/*.md\"",
+    "markdown:lint:fix": "markdownlint-cli2 --fix \"docs/**/*.md\" \"README.md\" \"CLAUDE.md\" \"prd/**/*.md\"",
     "size-limit": "size-limit",
     "publint": "publint",
     "attw": "attw --pack .",
@@ -118,7 +120,7 @@
     "demo:preview": "yarn demo:build && yarn workspace ecommerce-demo preview",
     "demo:install": "yarn install",
     "demo:test": "yarn workspace ecommerce-demo e2e:report",
-    "e2e:web-sdk-gates": "yarn workspace ecommerce-demo e2e:web-sdk-gates",
+    "e2e:web-sdk-gates": "yarn build && yarn workspace ecommerce-demo e2e:web-sdk-gates",
     "demo:next": "yarn workspace nextjs-demo dev"
   },
   "dependencies": {
@@ -149,6 +151,7 @@
     "@types/react-dom": "^18.3.0",
     "@vitest/coverage-v8": "^2.1.0",
     "jsdom": "^25.0.0",
+    "markdownlint-cli2": "^0.17.2",
     "next": "^15.3.1",
     "publint": "^0.3.0",
     "react": "^18.3.0",

@@ -47,4 +47,22 @@ export const PulseWebLogger = {
       console.error(`${TAG} ${message}`);
     }
   },
+
+  /**
+   * Logs to {@code console.error} regardless of {@link PulseLogLevel}.
+   * Used when the SDK swallows a failure (e.g. broken {@code errorBoundaryFallback})
+   * so hosts are never crashed without an audit trail.
+   */
+  alwaysError(message: string, cause?: unknown): void {
+    if (cause instanceof Error) {
+      console.error(`${TAG} ${message}`, cause);
+      if (cause.stack) {
+        console.error(cause.stack);
+      }
+    } else if (cause !== undefined) {
+      console.error(`${TAG} ${message}`, cause);
+    } else {
+      console.error(`${TAG} ${message}`);
+    }
+  },
 };
