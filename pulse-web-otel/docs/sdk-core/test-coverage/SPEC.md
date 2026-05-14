@@ -409,7 +409,7 @@ Backlog from the data-contract audit (`docs/sdk-core/data-contract/SPEC.md` §6 
 
 ### 6.8 Sampling / export-gate Vitest follow-ups (RF-SF1)
 
-Backlog from [`sampling-and-filtering/SPEC.md`](./sampling-and-filtering/SPEC.md) §6–§7. Tracked in [`../../review-fix.md`](../../review-fix.md) **§3.4**.
+Backlog from [`../sampling-and-filtering/SPEC.md`](../sampling-and-filtering/SPEC.md) §6–§7. Tracked in [`../../review-fix.md`](../../review-fix.md) **§3.4**.
 
 | ID | What to implement | Why it matters |
 |----|-------------------|----------------|

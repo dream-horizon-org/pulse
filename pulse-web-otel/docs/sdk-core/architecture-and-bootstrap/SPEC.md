@@ -243,7 +243,7 @@ Init idempotency, shutdown, pagehide flush, and BFCache behaviour: **`@M1`**, **
 
 ## 7. Known Bugs & Gaps
 
-[`../known-gaps-tradeoffs-and-plan.md`](../known-gaps-tradeoffs-and-plan.md) §1.
+[`../../known-gaps-tradeoffs-and-plan.md`](../../known-gaps-tradeoffs-and-plan.md) §1.
 
 ---
 
@@ -255,4 +255,4 @@ Prior `web-sdk-plan/v1/01-foundation/README.md` content rolled into this documen
 
 ## 9. Open Questions
 
-[`../known-gaps-tradeoffs-and-plan.md`](../known-gaps-tradeoffs-and-plan.md) §3.
+[`../../known-gaps-tradeoffs-and-plan.md`](../../known-gaps-tradeoffs-and-plan.md) §3.

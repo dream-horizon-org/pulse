@@ -179,4 +179,4 @@ Optional span/log attribute **`pulse.sampled`** and other semconv keys are defin
 
 ## 9. Open questions
 
-[`../known-gaps-tradeoffs-and-plan.md`](../known-gaps-tradeoffs-and-plan.md) §3.
+[`../../known-gaps-tradeoffs-and-plan.md`](../../known-gaps-tradeoffs-and-plan.md) §3.

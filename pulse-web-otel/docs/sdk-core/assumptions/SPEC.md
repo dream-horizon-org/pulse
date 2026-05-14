@@ -120,7 +120,7 @@ Browser-facing assumptions (storage, consent, batching, BFCache) are additionall
 
 ## 7. Known Bugs & Gaps
 
-No assumptions-specific P0 items. Product-level gaps: [`../known-gaps-tradeoffs-and-plan.md`](../known-gaps-tradeoffs-and-plan.md) §1.
+No assumptions-specific P0 items. Product-level gaps: [`../../known-gaps-tradeoffs-and-plan.md`](../../known-gaps-tradeoffs-and-plan.md) §1.
 
 ---
 
@@ -132,4 +132,4 @@ None.
 
 ## 9. Open Questions
 
-See [`../known-gaps-tradeoffs-and-plan.md`](../known-gaps-tradeoffs-and-plan.md) §3.
+See [`../../known-gaps-tradeoffs-and-plan.md`](../../known-gaps-tradeoffs-and-plan.md) §3.

@@ -172,7 +172,7 @@ Same rules as §5.2.1 — implementation: `userLayer.merge(pulseLayer)` in `src/
 
 ### 5.5 Drift control
 
-Any new `pulse.type` or attribute key requires: **(1)** `semconv.ts` update, **(2)** the §5.2 tables, **(3)** ClickHouse / product dashboard impact — see `[../known-gaps-tradeoffs-and-plan.md](../known-gaps-tradeoffs-and-plan.md)` for API critique items that touch the same surface.
+Any new `pulse.type` or attribute key requires: **(1)** `semconv.ts` update, **(2)** the §5.2 tables, **(3)** ClickHouse / product dashboard impact — see `[../../known-gaps-tradeoffs-and-plan.md](../../known-gaps-tradeoffs-and-plan.md)` for API critique items that touch the same surface.
 
 ---
 
@@ -228,7 +228,7 @@ Contract attributes on exported OTLP payloads are asserted in Playwright suites 
 
 ## 7. Known Bugs & Gaps
 
-Contract drift vs code (e.g. network `pulse.type` pattern) should be fixed here with code or ADR — track under `[../known-gaps-tradeoffs-and-plan.md](../known-gaps-tradeoffs-and-plan.md)` when product-visible.
+Contract drift vs code (e.g. network `pulse.type` pattern) should be fixed here with code or ADR — track under `[../../known-gaps-tradeoffs-and-plan.md](../../known-gaps-tradeoffs-and-plan.md)` when product-visible.
 
 ---
 
@@ -240,4 +240,4 @@ None.
 
 ## 9. Open Questions
 
-`[../known-gaps-tradeoffs-and-plan.md](../known-gaps-tradeoffs-and-plan.md)` §3.
+`[../../known-gaps-tradeoffs-and-plan.md](../../known-gaps-tradeoffs-and-plan.md)` §3.

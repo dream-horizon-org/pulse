@@ -116,7 +116,7 @@ Batching, `pagehide` flush, `X-Pulse-Metering-Session-ID`, and OTLP wire shape: 
 
 ## 7. Known Bugs & Gaps
 
-[`../known-gaps-tradeoffs-and-plan.md`](../known-gaps-tradeoffs-and-plan.md) §4.1 (retired **P0:4**). Naming: [`../../instrumentations/integration/SPEC.md`](../../instrumentations/integration/SPEC.md) §5.9.
+[`../../known-gaps-tradeoffs-and-plan.md`](../../known-gaps-tradeoffs-and-plan.md) §4.1 (retired **P0:4**). Naming: [`../../instrumentations/integration/SPEC.md`](../../instrumentations/integration/SPEC.md) §5.9.
 
 ---
 
@@ -128,4 +128,4 @@ None.
 
 ## 9. Open Questions
 
-[`../known-gaps-tradeoffs-and-plan.md`](../known-gaps-tradeoffs-and-plan.md) §3 (IDB drain vs first batch).
+[`../../known-gaps-tradeoffs-and-plan.md`](../../known-gaps-tradeoffs-and-plan.md) §3 (IDB drain vs first batch).

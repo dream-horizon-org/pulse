@@ -179,7 +179,7 @@ Seeded / 404 remote config, `pulse_sdk_config` localStorage, `sessionSampleRate`
 
 ## 7. Known Bugs & Gaps
 
-[`../known-gaps-tradeoffs-and-plan.md`](../known-gaps-tradeoffs-and-plan.md) §1.
+[`../../known-gaps-tradeoffs-and-plan.md`](../../known-gaps-tradeoffs-and-plan.md) §1.
 
 ---
 
@@ -191,4 +191,4 @@ None.
 
 ## 9. Open Questions
 
-[`../known-gaps-tradeoffs-and-plan.md`](../known-gaps-tradeoffs-and-plan.md) §3.
+[`../../known-gaps-tradeoffs-and-plan.md`](../../known-gaps-tradeoffs-and-plan.md) §3.
