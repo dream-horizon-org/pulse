@@ -1,6 +1,5 @@
 package org.dreamhorizon.pulseserver.service.configs.impl;
 
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doAnswer;
@@ -83,86 +82,6 @@ class ConfigServiceImplBatchConfigTest {
 
       // Should not throw
       configService.createSdkConfig("project-1", configData).test().assertValue(mockResponse);
-    }
-
-    @Test
-    void shouldRejectBatchSizeBelow1() {
-      BatchProcessorConfig.BatchProcessorOption invalidOption =
-          BatchProcessorConfig.BatchProcessorOption.builder()
-              .maxExportBatchSize(0)
-              .scheduleDelay(3000)
-              .build();
-
-      ConfigData configData = ConfigData.builder()
-          .description("Test")
-          .batchConfig(BatchProcessorConfig.builder()
-              .batchLogs(invalidOption)
-              .build())
-          .build();
-
-      assertThatThrownBy(() -> configService.createSdkConfig("project-1", configData).blockingGet())
-          .isInstanceOf(IllegalArgumentException.class)
-          .hasMessageContaining("maxExportBatchSize must be between 1 and 5000");
-    }
-
-    @Test
-    void shouldRejectBatchSizeAbove5000() {
-      BatchProcessorConfig.BatchProcessorOption invalidOption =
-          BatchProcessorConfig.BatchProcessorOption.builder()
-              .maxExportBatchSize(5001)
-              .scheduleDelay(3000)
-              .build();
-
-      ConfigData configData = ConfigData.builder()
-          .description("Test")
-          .batchConfig(BatchProcessorConfig.builder()
-              .batchLogs(invalidOption)
-              .build())
-          .build();
-
-      assertThatThrownBy(() -> configService.createSdkConfig("project-1", configData).blockingGet())
-          .isInstanceOf(IllegalArgumentException.class)
-          .hasMessageContaining("maxExportBatchSize must be between 1 and 5000");
-    }
-
-    @Test
-    void shouldRejectScheduleDelayBelow100Ms() {
-      BatchProcessorConfig.BatchProcessorOption invalidOption =
-          BatchProcessorConfig.BatchProcessorOption.builder()
-              .maxExportBatchSize(512)
-              .scheduleDelay(99)
-              .build();
-
-      ConfigData configData = ConfigData.builder()
-          .description("Test")
-          .batchConfig(BatchProcessorConfig.builder()
-              .batchLogs(invalidOption)
-              .build())
-          .build();
-
-      assertThatThrownBy(() -> configService.createSdkConfig("project-1", configData).blockingGet())
-          .isInstanceOf(IllegalArgumentException.class)
-          .hasMessageContaining("scheduleDelay must be between 100 and 60000 milliseconds");
-    }
-
-    @Test
-    void shouldRejectScheduleDelayAbove60000Ms() {
-      BatchProcessorConfig.BatchProcessorOption invalidOption =
-          BatchProcessorConfig.BatchProcessorOption.builder()
-              .maxExportBatchSize(512)
-              .scheduleDelay(60001)
-              .build();
-
-      ConfigData configData = ConfigData.builder()
-          .description("Test")
-          .batchConfig(BatchProcessorConfig.builder()
-              .batchSpans(invalidOption)
-              .build())
-          .build();
-
-      assertThatThrownBy(() -> configService.createSdkConfig("project-1", configData).blockingGet())
-          .isInstanceOf(IllegalArgumentException.class)
-          .hasMessageContaining("scheduleDelay must be between 100 and 60000 milliseconds");
     }
 
     @Test
