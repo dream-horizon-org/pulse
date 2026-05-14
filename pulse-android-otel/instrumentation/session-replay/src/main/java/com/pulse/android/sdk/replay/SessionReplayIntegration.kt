@@ -65,6 +65,13 @@ public class SessionReplayIntegration(
     @Volatile
     private var isSessionReplayActive = false
 
+    /**
+     * Overrides Activity/Fragment-based screen name tracking for non-native navigators (React Native, Flutter).
+     * When set, takes precedence over [screenNameProvider] for both meta events and screen-change detection.
+     */
+    @Volatile
+    public override var externalScreenNameProvider: (() -> String?)? = null
+
     private val drawCounter = AtomicLong(0)
 
     private fun onDrawCallback() {
@@ -247,12 +254,24 @@ public class SessionReplayIntegration(
         val screenWidth = screenSize?.width ?: (displayMetrics.widthPixels / displayMetrics.density).toInt()
         val screenHeight = screenSize?.height ?: (displayMetrics.heightPixels / displayMetrics.density).toInt()
 
+        val currentScreen =
+            externalScreenNameProvider?.invoke()?.takeIf { it.isNotBlank() }
+                ?: screenNameProvider().takeIf { it.isNotBlank() }
+                ?: "unknown"
+        if (status.lastScreenName != null && status.lastScreenName != currentScreen) {
+            status.hasSentFullSnapshot = false
+            status.hasSentMetaEvent = false
+            status.lastSnapshot = null
+            status.maskRectCache.clear()
+        }
+        status.lastScreenName = currentScreen
+
         val events =
             SnapshotPipeline.generateEvents(
                 wireframe = wireframeOrNull,
                 status = status,
                 timestamp = timestamp,
-                screenName = screenNameProvider().takeIf { it.isNotBlank() } ?: "unknown",
+                screenName = currentScreen,
                 screenWidth = screenWidth,
                 screenHeight = screenHeight,
             )
@@ -269,6 +288,7 @@ public class SessionReplayIntegration(
         status.hasSentMetaEvent = false
         status.isKeyboardVisible = false
         status.lastSnapshot = null
+        status.lastScreenName = null
         status.maskRectCache.clear()
     }
 
@@ -276,6 +296,14 @@ public class SessionReplayIntegration(
         synchronized(decorViews) {
             decorViews.values.forEach { resetViewSnapshotStates(it) }
         }
+    }
+
+    /**
+     * Called by non-native navigators (React Native, Flutter) when the active screen changes.
+     * Triggers a full snapshot reset so the next captured frame emits meta + full snapshot.
+     */
+    public override fun notifyScreenChange() {
+        clearSnapshotStates()
     }
 
     public fun install() {

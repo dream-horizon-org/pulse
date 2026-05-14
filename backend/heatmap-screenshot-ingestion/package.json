@@ -1,6 +1,6 @@
 {
   "name": "pulse-heatmap-screenshot-ingestion",
-  "version": "0.1.1-SNAPSHOT",
+  "version": "0.2.0-SNAPSHOT",
   "private": true,
   "scripts": {
     "build": "tsc",

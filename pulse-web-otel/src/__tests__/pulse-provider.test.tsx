@@ -55,7 +55,9 @@ import {
   _resetPulseProviderStateForTesting,
 } from "../integrations/react/PulseProvider";
 import { PulseErrorBoundary } from "../integrations/react/PulseErrorBoundary";
-import { PulseWeb } from "../sdk";
+import { PulseWebLogger } from "../pulse-web-logger";
+import { Pulse } from "../sdk";
+import { PulseLogLevel } from "../pulse-log-level";
 
 function makeConfig(overrides: Partial<PulseWebConfig> = {}): PulseWebConfig {
   return {
@@ -102,8 +104,8 @@ beforeEach(() => {
 });
 
 afterEach(async () => {
-  if (PulseWeb.isInitialized()) {
-    await PulseWeb.shutdown();
+  if (Pulse.isInitialized()) {
+    await Pulse.shutdown();
   }
   _resetPulseProviderStateForTesting();
   vi.unstubAllGlobals();
@@ -120,8 +122,8 @@ async function flushMicrotasks(): Promise<void> {
 // ---------------------------------------------------------------------------
 
 describe("PulseProvider — mount / unmount", () => {
-  it("calls PulseWeb.start() exactly once on first mount", async () => {
-    const startSpy = vi.spyOn(PulseWeb, "start");
+  it("calls Pulse.init() exactly once on first mount", async () => {
+    const initSpy = vi.spyOn(Pulse, "init");
     render(
       <PulseProvider config={makeConfig()}>
         <div>child</div>
@@ -131,12 +133,12 @@ describe("PulseProvider — mount / unmount", () => {
       await Promise.resolve();
     });
 
-    expect(startSpy).toHaveBeenCalledTimes(1);
-    expect(PulseWeb.isInitialized()).toBe(true);
-    startSpy.mockRestore();
+    expect(initSpy).toHaveBeenCalledTimes(1);
+    expect(Pulse.isInitialized()).toBe(true);
+    initSpy.mockRestore();
   });
 
-  it("unmount triggers shutdown when shutdownOnUnmount defaults to true", async () => {
+  it("unmount does not shutdown when shutdownOnUnmount defaults to false", async () => {
     const { unmount } = render(
       <PulseProvider config={makeConfig()}>
         <div />
@@ -145,33 +147,33 @@ describe("PulseProvider — mount / unmount", () => {
     await act(async () => {
       await Promise.resolve();
     });
-    expect(PulseWeb.isInitialized()).toBe(true);
+    expect(Pulse.isInitialized()).toBe(true);
 
     unmount();
     await act(async () => {
       await flushMicrotasks();
     });
 
-    expect(PulseWeb.isInitialized()).toBe(false);
+    expect(Pulse.isInitialized()).toBe(true);
   });
 
-  it("unmount does NOT shutdown when shutdownOnUnmount={false}", async () => {
+  it("unmount shuts down when shutdownOnUnmount is true", async () => {
     const { unmount } = render(
-      <PulseProvider config={makeConfig()} shutdownOnUnmount={false}>
+      <PulseProvider config={makeConfig()} shutdownOnUnmount={true}>
         <div />
       </PulseProvider>,
     );
     await act(async () => {
       await Promise.resolve();
     });
-    expect(PulseWeb.isInitialized()).toBe(true);
+    expect(Pulse.isInitialized()).toBe(true);
 
     unmount();
     await act(async () => {
       await flushMicrotasks();
     });
 
-    expect(PulseWeb.isInitialized()).toBe(true);
+    expect(Pulse.isInitialized()).toBe(false);
   });
 });
 
@@ -180,12 +182,12 @@ describe("PulseProvider — mount / unmount", () => {
 // ---------------------------------------------------------------------------
 
 describe("PulseProvider — StrictMode safety", () => {
-  it("StrictMode double-mount calls start() exactly once and stays initialised", async () => {
-    const startSpy = vi.spyOn(PulseWeb, "start");
+  it("StrictMode double-mount calls init() at least once and stays initialised", async () => {
+    const initSpy = vi.spyOn(Pulse, "init");
 
     render(
       <StrictMode>
-        <PulseProvider config={makeConfig()}>
+        <PulseProvider config={makeConfig()} shutdownOnUnmount={true}>
           <div />
         </PulseProvider>
       </StrictMode>,
@@ -195,24 +197,24 @@ describe("PulseProvider — StrictMode safety", () => {
     });
 
     // StrictMode fires effect twice but the second call is a no-op at SDK level
-    // (guard: _initialized || _starting). Provider's isInitialized() check also
-    // skips the second start(). Either way: net effect = one init.
-    expect(PulseWeb.isInitialized()).toBe(true);
+    // (guard: _initialized || _initializing). Provider's isInitialized() check also
+    // skips the second init(). Either way: net effect = one init.
+    expect(Pulse.isInitialized()).toBe(true);
 
-    // start() may be invoked at most twice by React (strict fake-unmount/remount)
+    // init() may be invoked at most twice by React (strict fake-unmount/remount)
     // but the SDK treats the second call as a no-op — what we really care about
     // is that init succeeded and we weren't torn down.
-    expect(startSpy.mock.calls.length).toBeGreaterThanOrEqual(1);
-    expect(startSpy.mock.calls.length).toBeLessThanOrEqual(2);
-    startSpy.mockRestore();
+    expect(initSpy.mock.calls.length).toBeGreaterThanOrEqual(1);
+    expect(initSpy.mock.calls.length).toBeLessThanOrEqual(2);
+    initSpy.mockRestore();
   });
 
   it("StrictMode fake-unmount/remount does NOT trigger shutdown", async () => {
-    const shutdownSpy = vi.spyOn(PulseWeb, "shutdown");
+    const shutdownSpy = vi.spyOn(Pulse, "shutdown");
 
     const { unmount } = render(
       <StrictMode>
-        <PulseProvider config={makeConfig()}>
+        <PulseProvider config={makeConfig()} shutdownOnUnmount={true}>
           <div />
         </PulseProvider>
       </StrictMode>,
@@ -225,7 +227,7 @@ describe("PulseProvider — StrictMode safety", () => {
     // above. After microtasks flush, shutdown should NOT have run because the
     // provider re-mounted inside the same task.
     expect(shutdownSpy).not.toHaveBeenCalled();
-    expect(PulseWeb.isInitialized()).toBe(true);
+    expect(Pulse.isInitialized()).toBe(true);
 
     // Real unmount should still trigger shutdown.
     unmount();
@@ -243,7 +245,7 @@ describe("PulseProvider — StrictMode safety", () => {
 
     render(
       <StrictMode>
-        <PulseProvider config={makeConfig()}>
+        <PulseProvider config={makeConfig()} shutdownOnUnmount={false}>
           <div />
         </PulseProvider>
       </StrictMode>,
@@ -253,11 +255,11 @@ describe("PulseProvider — StrictMode safety", () => {
     });
 
     expect(createSpy).toHaveBeenCalledTimes(1);
-    expect(PulseWeb.isInitialized()).toBe(true);
+    expect(Pulse.isInitialized()).toBe(true);
   });
 
   it("StrictMode fake-unmount does not prematurely shutdown the SDK", async () => {
-    const shutdownSpy = vi.spyOn(PulseWeb, "shutdown");
+    const shutdownSpy = vi.spyOn(Pulse, "shutdown");
 
     render(
       <StrictMode>
@@ -271,7 +273,7 @@ describe("PulseProvider — StrictMode safety", () => {
     });
 
     // After StrictMode fake-unmount/remount the SDK must still be running
-    expect(PulseWeb.isInitialized()).toBe(true);
+    expect(Pulse.isInitialized()).toBe(true);
     expect(shutdownSpy).not.toHaveBeenCalled();
     shutdownSpy.mockRestore();
   });
@@ -282,7 +284,7 @@ describe("PulseProvider — StrictMode safety", () => {
 // ---------------------------------------------------------------------------
 
 describe("usePulse() hook", () => {
-  it("returns the PulseWeb instance when called inside PulseProvider", async () => {
+  it("returns the Pulse singleton when called inside PulseProvider", async () => {
     const wrapper = ({
       children,
     }: {
@@ -297,7 +299,7 @@ describe("usePulse() hook", () => {
       await Promise.resolve();
     });
 
-    expect(result.current).toBe(PulseWeb);
+    expect(result.current).toBe(Pulse);
     expect(typeof result.current.trackEvent).toBe("function");
     expect(typeof result.current.setScreenName).toBe("function");
   });
@@ -319,40 +321,40 @@ describe("usePulse() hook", () => {
 describe("PulseProvider — sequential mount cycles", () => {
   it("unmount → remount re-initialises the SDK", async () => {
     const { unmount } = render(
-      <PulseProvider config={makeConfig()}>
+      <PulseProvider config={makeConfig()} shutdownOnUnmount={true}>
         <div />
       </PulseProvider>,
     );
     await act(async () => {
       await Promise.resolve();
     });
-    expect(PulseWeb.isInitialized()).toBe(true);
+    expect(Pulse.isInitialized()).toBe(true);
 
     unmount();
     await act(async () => {
       await flushMicrotasks();
     });
-    expect(PulseWeb.isInitialized()).toBe(false);
+    expect(Pulse.isInitialized()).toBe(false);
 
     render(
-      <PulseProvider config={makeConfig()}>
+      <PulseProvider config={makeConfig()} shutdownOnUnmount={true}>
         <div />
       </PulseProvider>,
     );
     await act(async () => {
       await Promise.resolve();
     });
-    expect(PulseWeb.isInitialized()).toBe(true);
+    expect(Pulse.isInitialized()).toBe(true);
   });
 });
 
 // ---------------------------------------------------------------------------
-// +v — config forwarded to start() exactly
+// +v — config forwarded to init() exactly
 // ---------------------------------------------------------------------------
 
 describe("PulseProvider — config forwarding (+v)", () => {
-  it("passes the config prop to PulseWeb.start() unchanged", async () => {
-    const startSpy = vi.spyOn(PulseWeb, "start");
+  it("passes the config prop to Pulse.init() unchanged", async () => {
+    const initSpy = vi.spyOn(Pulse, "init");
     const cfg = makeConfig({ serviceName: "my-service" });
 
     render(
@@ -364,8 +366,8 @@ describe("PulseProvider — config forwarding (+v)", () => {
       await Promise.resolve();
     });
 
-    expect(startSpy).toHaveBeenCalledWith(cfg);
-    startSpy.mockRestore();
+    expect(initSpy).toHaveBeenCalledWith(cfg);
+    initSpy.mockRestore();
   });
 
   it("renders children correctly", async () => {
@@ -390,7 +392,7 @@ describe("PulseProvider — SSR guard (+v)", () => {
   it("PulseProvider source contains typeof window guard before calling start()", () => {
     // Verified by code inspection: PulseProvider.tsx useEffect contains
     //   if (typeof window === "undefined") return;
-    // before calling PulseWeb.start(). Tested in Node/SSR environments via
+    // before calling Pulse.init(). Tested in Node/SSR environments via
     // the sdk-lifecycle suite (exporters.ts + session.ts both guard window).
     const src = require("fs").readFileSync(
       require("path").resolve(
@@ -426,16 +428,14 @@ describe("PulseProvider — nested provider (-v)", () => {
       await Promise.resolve();
     });
 
-    expect(PulseWeb.isInitialized()).toBe(true);
+    expect(Pulse.isInitialized()).toBe(true);
     // createProviders is the expensive init step — must fire exactly once
     expect(createSpy).toHaveBeenCalledTimes(1);
   });
 });
 
 // ---------------------------------------------------------------------------
-// -v — invalid config: start() validation error leaves SDK uninitialised
-//      (useEffect errors don't propagate to render() synchronously, so we
-//       verify state rather than catching a throw)
+// -v — invalid config: validation error leaves SDK uninitialised (init does not throw)
 // ---------------------------------------------------------------------------
 
 describe("PulseProvider — invalid config (-v)", () => {
@@ -458,7 +458,7 @@ describe("PulseProvider — invalid config (-v)", () => {
     await act(async () => {
       await flushMicrotasks();
     });
-    expect(PulseWeb.isInitialized()).toBe(false);
+    expect(Pulse.isInitialized()).toBe(false);
     errSpy.mockRestore();
   });
 });
@@ -496,7 +496,7 @@ describe("PulseErrorBoundary (+v)", () => {
 
   it("calls reportDeviceCrash with react.component_stack on render error", () => {
     const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-    const crashSpy = vi.spyOn(PulseWeb, "reportDeviceCrash");
+    const crashSpy = vi.spyOn(Pulse, "reportDeviceCrash");
 
     render(
       <PulseErrorBoundary fallback={<div>err</div>}>
@@ -532,6 +532,54 @@ describe("PulseErrorBoundary (+v)", () => {
     expect(getByTestId("fn-fallback").textContent).toBe("render bomb");
     expect(typeof capturedReset).toBe("function");
     errSpy.mockRestore();
+  });
+
+  it("swallows fallback that throws during render; alwaysError logs even at NONE", () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    PulseWebLogger.setLevel(PulseLogLevel.NONE);
+    const alwaysSpy = vi
+      .spyOn(PulseWebLogger, "alwaysError")
+      .mockImplementation(() => {});
+
+    function BadFallback(): React.ReactElement {
+      throw new Error("fallback render boom");
+    }
+
+    const { container } = render(
+      <PulseErrorBoundary fallback={<BadFallback />}>
+        <Bomb shouldThrow={true} />
+      </PulseErrorBoundary>,
+    );
+
+    expect(alwaysSpy).toHaveBeenCalled();
+    expect(container.textContent).toBe("");
+    alwaysSpy.mockRestore();
+    vi.restoreAllMocks();
+    PulseWebLogger.resetForTesting();
+  });
+
+  it("swallows function fallback that throws before returning UI", () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    PulseWebLogger.setLevel(PulseLogLevel.NONE);
+    const alwaysSpy = vi
+      .spyOn(PulseWebLogger, "alwaysError")
+      .mockImplementation(() => {});
+
+    const { container } = render(
+      <PulseErrorBoundary
+        fallback={() => {
+          throw new Error("sync throw in fallback fn");
+        }}
+      >
+        <Bomb shouldThrow={true} />
+      </PulseErrorBoundary>,
+    );
+
+    expect(alwaysSpy).toHaveBeenCalled();
+    expect(container.textContent).toBe("");
+    alwaysSpy.mockRestore();
+    vi.restoreAllMocks();
+    PulseWebLogger.resetForTesting();
   });
 });
 

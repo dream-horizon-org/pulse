@@ -114,6 +114,7 @@ struct WindowSnapshotStatus {
     var sentMetaEvent: Bool = false
     var lastSnapshot: SessionReplayWireframe?
     var lastCompressedData: Data?
+    var lastScreenName: String?
 }
 
 class SessionReplayEventTransformer {

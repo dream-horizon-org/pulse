@@ -3,7 +3,7 @@ import { context } from "@opentelemetry/api";
 
 import { SignalFilterProcessor } from "../processors/signal-filter-processor";
 import type { Span } from "@opentelemetry/api";
-import type { LogRecord } from "@opentelemetry/sdk-logs";
+import type { SdkLogRecord } from "@opentelemetry/sdk-logs";
 import type { PulseSignalConfig } from "../types/remote-config";
 
 describe("SignalFilterProcessor", () => {
@@ -102,7 +102,7 @@ describe("SignalFilterProcessor", () => {
     const logRecord = {
       body: "session.start",
       attributes: attrs,
-    } as unknown as LogRecord;
+    } as unknown as SdkLogRecord;
 
     const signalConfig: PulseSignalConfig = {
       scheduleDurationMs: 5000,

@@ -147,21 +147,21 @@ beforeEach(() => {
 });
 
 afterEach(async () => {
-  const { PulseWeb } = await import("../sdk");
-  if (PulseWeb.isInitialized()) {
-    await PulseWeb.shutdown();
+  const { Pulse } = await import("../sdk");
+  if (Pulse.isInitialized()) {
+    await Pulse.shutdown();
   }
   vi.unstubAllGlobals();
 });
 
 describe("interactions SDK wiring", () => {
   it("forwards trackEvent(name, attrs, timestamp) into interaction feature", async () => {
-    const { PulseWeb } = await import("../sdk");
+    const { Pulse } = await import("../sdk");
 
-    PulseWeb.start(makeConfig());
+    Pulse.init(makeConfig());
     await Promise.resolve();
 
-    PulseWeb.trackEvent("checkout_click", { channel: "organic" }, 1234);
+    Pulse.trackEvent("checkout_click", { channel: "organic" }, 1234);
 
     expect(interactionTrack).toHaveBeenCalledWith(
       "checkout_click",
@@ -171,30 +171,30 @@ describe("interactions SDK wiring", () => {
   });
 
   it("does not forward interaction events when consent is denied", async () => {
-    const { PulseWeb } = await import("../sdk");
+    const { Pulse } = await import("../sdk");
 
-    PulseWeb.start(
+    Pulse.init(
       makeConfig({ dataCollectionState: PulseDataCollectionConsent.DENIED }),
     );
     await Promise.resolve();
 
-    PulseWeb.trackEvent("checkout_click");
+    Pulse.trackEvent("checkout_click");
 
     expect(interactionTrack).not.toHaveBeenCalled();
   });
 
   it("shuts down interaction feature during sdk shutdown", async () => {
-    const { PulseWeb } = await import("../sdk");
+    const { Pulse } = await import("../sdk");
 
-    PulseWeb.start(makeConfig());
+    Pulse.init(makeConfig());
     await Promise.resolve();
-    await PulseWeb.shutdown();
+    await Pulse.shutdown();
 
     expect(interactionShutdown).toHaveBeenCalled();
   });
 
   it("does not start interaction forwarding when feature gate disables interaction", async () => {
-    const { PulseWeb } = await import("../sdk");
+    const { Pulse } = await import("../sdk");
     loadCachedMock.mockReturnValue({
       ...DEFAULT_SDK_CONFIG,
       features: [
@@ -206,15 +206,15 @@ describe("interactions SDK wiring", () => {
       ],
     });
 
-    PulseWeb.start(makeConfig());
+    Pulse.init(makeConfig());
     await Promise.resolve();
-    PulseWeb.trackEvent("checkout_click");
+    Pulse.trackEvent("checkout_click");
 
     expect(interactionTrack).not.toHaveBeenCalled();
   });
 
   it("wires sampling gate from cached config with zero sample rate", async () => {
-    const { PulseWeb } = await import("../sdk");
+    const { Pulse } = await import("../sdk");
     const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0.99);
     loadCachedMock.mockReturnValue({
       ...DEFAULT_SDK_CONFIG,
@@ -226,7 +226,7 @@ describe("interactions SDK wiring", () => {
       },
     });
 
-    PulseWeb.start(makeConfig());
+    Pulse.init(makeConfig());
     await Promise.resolve();
 
     const exportersConfig = createProvidersMock.mock.calls.at(-1)?.[0] as {

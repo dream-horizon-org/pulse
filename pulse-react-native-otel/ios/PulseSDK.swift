@@ -76,6 +76,10 @@ public class PulseSDK: NSObject {
             loggerProviderCustomizer: mergedLoggerProviderCustomizer,
             logLevel: logLevel
         )
+
+        SessionReplayInstrumentation.getInstance()?.recorderInstance?.externalScreenNameProvider = {
+            ReactNativeScreenNameTracker.getCurrentScreenName()
+        }
     }
   
     public func isSDKInitialized() -> Bool {
