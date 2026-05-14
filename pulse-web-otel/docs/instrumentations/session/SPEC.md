@@ -4,7 +4,7 @@ Package: `@dreamhorizonorg/pulse-web`
 File: `pulse-web-otel/docs/instrumentations/session/SPEC.md`  
 Implementation: `pulse-web-otel/src/session.ts`, `pulse-web-otel/src/instrumentations/session.ts`
 
-See also: [SDK Core SPEC](../sdk-core/SPEC.md) for the shared attribute contract and init flow.
+See also: [SDK Core SPEC](../../sdk-core/SPEC.md) for the shared attribute contract and init flow.
 
 **Section index:** Some indexes still say “§6” for session **test coverage**; in this file that material is under **[§7. Test coverage](#7-test-coverage)** (operational behaviour is §6).
 
@@ -18,14 +18,14 @@ Define **browser session lifecycle** (`SessionProvider`), **persistence of insta
 
 ## 2. Assumptions
 
-- Same assumptions as SDK core — [`../sdk-core/assumptions/SPEC.md`](../sdk-core/assumptions/SPEC.md).
+- Same assumptions as SDK core — [`../../sdk-core/assumptions/SPEC.md`](../../sdk-core/assumptions/SPEC.md).
 - `SessionInstrumentation` runs only after successful `Pulse.init` when the session feature is not locally disabled and remote gate allows it.
 
 ---
 
 ## 3. Requirements
 
-**R6 — Session** (full text): [`../sdk-core/requirements/SPEC.md`](../sdk-core/requirements/SPEC.md).
+**R6 — Session** (full text): [`../../sdk-core/requirements/SPEC.md`](../../sdk-core/requirements/SPEC.md).
 
 ### Functional (instrumentation)
 
@@ -70,7 +70,7 @@ Define **browser session lifecycle** (`SessionProvider`), **persistence of insta
 └──────────────────────────────────────────────────────────┘
 ```
 
-`installation.id` (resource attribute) is **not** owned by `SessionProvider`; it comes from `getOrCreateInstallationId()` in `src/session.ts` (see [`../sdk-core/SPEC.md`](../sdk-core/SPEC.md) and resource construction in `src/resource.ts`).
+`installation.id` (resource attribute) is **not** owned by `SessionProvider`; it comes from `getOrCreateInstallationId()` in `src/session.ts` (see [`../../sdk-core/SPEC.md`](../../sdk-core/SPEC.md) and resource construction in `src/resource.ts`).
 
 ```mermaid
 flowchart TB
@@ -592,7 +592,7 @@ Expected happy path: one `session.start` row followed by one `session.end` row f
 
 ### 7.3 Playwright E2E
 
-Session lifecycle, identity, batching, BFCache, rotation/clone/reload, consent, and metering are covered under **`@M1`** / **`@M8`** tags in [`../sdk-core/test-coverage/SPEC.md`](../sdk-core/test-coverage/SPEC.md) §6.3.
+Session lifecycle, identity, batching, BFCache, rotation/clone/reload, consent, and metering are covered under **`@M1`** / **`@M8`** tags in [`../../sdk-core/test-coverage/SPEC.md`](../../sdk-core/test-coverage/SPEC.md) §6.3.
 
 Next.js demo: `session.start` + stable `session.id` across App Router navigations in `examples/nextjs-demo/e2e/` — see §6.4 parity matrix in the same file.
 
@@ -600,7 +600,7 @@ Next.js demo: `session.start` + stable `session.id` across App Router navigation
 
 ## 8. Known bugs & gaps
 
-See [`../sdk-core/known-gaps-and-open-questions/SPEC.md`](../sdk-core/known-gaps-and-open-questions/SPEC.md) for session/identity gaps.
+See [`../../sdk-core/known-gaps-and-open-questions/SPEC.md`](../../sdk-core/known-gaps-and-open-questions/SPEC.md) for session/identity gaps.
 
 Notable current gaps:
 - Cloned tabs share the same `session.id` and do not emit a distinct `session.start` for the new tab. `_windowId` distinguishes them in memory but there is no `tab_clone` start reason yet.
@@ -610,10 +610,10 @@ Notable current gaps:
 
 ## 9. Redundancy & canonical sources
 
-**Canonical implementation:** `src/session.ts` (lifecycle, storage, rotation) and `src/instrumentations/session.ts` (OTLP log mapping). This SPEC is the instrumentation contract; SDK bootstrap and exporters are in [`../sdk-core/`](../sdk-core/SPEC.md) topic SPECs (especially [`../sdk-core/exporters-and-persistence/SPEC.md`](../sdk-core/exporters-and-persistence/SPEC.md)).
+**Canonical implementation:** `src/session.ts` (lifecycle, storage, rotation) and `src/instrumentations/session.ts` (OTLP log mapping). This SPEC is the instrumentation contract; SDK bootstrap and exporters are in [`../../sdk-core/`](../../sdk-core/SPEC.md) topic SPECs (especially [`../../sdk-core/exporters-and-persistence/SPEC.md`](../../sdk-core/exporters-and-persistence/SPEC.md)).
 
 ---
 
 ## 10. Open questions
 
-See [`../sdk-core/known-gaps-and-open-questions/SPEC.md`](../sdk-core/known-gaps-and-open-questions/SPEC.md) §9.
+See [`../../sdk-core/known-gaps-and-open-questions/SPEC.md`](../../sdk-core/known-gaps-and-open-questions/SPEC.md) §9.
