@@ -1,9 +1,33 @@
 # Code owners file.
 # This file controls who is tagged for review for any given pull request.
 
- # For anything not explicitly taken by someone else:
-* @chiragSharmaD11 @atulgpt17 @shubhamguptadream11 @mayankkush1 @yasir6jan @Sarabjyot123 @prathameshy7
-/deploy/ @yasir6jan
+# Catch-all — anything not explicitly owned
+* @chiragSharmaD11 @atulgpt17 @shubhamguptadream11 @anirudhdream11 @yasir6jan @Sarabjyot123 @prathameshy7
+
+# Android SDK
+/pulse-android-otel/ @atulgpt17 @anirudhdream11 @shubhamguptadream11
+
+# iOS SDK
+/pulse-ios-otel/ @shubhamguptadream11 @anirudhdream11 @chiragSharmaD11
+
+# React Native SDK
+/pulse-react-native-otel/ @shubhamguptadream11 @anirudhdream11 @chiragSharmaD11
+
+# Frontend / Dashboard
+/pulse-ui/ @jatinsd11 @shrutipathak1234
+
+# Web SDK
+/pulse-web-otel/ @jatinsd11 @shrutipathak1234
+
+# Backend (server + alerts cron)
+/backend/ @Sarabjyot123 @chiragSharmaD11
+
+# ClickHouse schema / ingestion
+/backend/db/ @mohithemnani11 @Racha2004 @Sarabjyot123
+/backend/ingestion/ @mohithemnani11 @Racha2004 @Sarabjyot123
+
+# AI agent
 /pulse_ai/ @sarthak-d11
-backend/db/prod/clickhouse/ @mohithemnani11 @Racha2004 @Sarabjyot123
-backend/db/dev/clickhouse/ @mohithemnani11 @Racha2004 @Sarabjyot123
+
+# Deploy / Infra
+/deploy/ @yasir6jan
