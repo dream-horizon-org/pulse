@@ -121,7 +121,7 @@ Built in `buildResource()` then merged in `buildMergedResource()` (`src/resource
 
 #### 5.2.2 Global signal attributes (spans, logs, metric data points)
 
-Injected from `PulseGlobalAttributesProcessor.getCommonAttrs()` (`src/processors/global-attrs-processor.ts`) on **every span** at `onStart`, **every log** at `onEmit`, and **metrics** via `getCommonAttrsForMetrics()` in `src/exporters.ts`. Built-in keys are `string | number | boolean`. `PulseWebConfig.globalAttributes` may also attach `PulseAttributes` values (primitives or homogeneous primitive arrays).
+Injected from `PulseGlobalAttributesProcessor.getCommonAttrs()` (`src/processors/global-attrs-processor.ts`) on **every span** at `onStart`, **every log** at `onEmit`, and **metrics** via `getCommonAttrsForMetrics()` in `src/exporters.ts`. **User id and `pulse.user.*`:** read from storage **once** at init into the processor — see [`../user-identity/SPEC.md`](../user-identity/SPEC.md) **R2–R3**. Built-in keys are `string | number | boolean`. `PulseWebConfig.globalAttributes` may also attach `PulseAttributes` values (primitives or homogeneous primitive arrays).
 
 | Attribute key                | Type     | Source                                          | Required | Notes                                                                                                                                                                      |
 | ---------------------------- | -------- | ----------------------------------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
