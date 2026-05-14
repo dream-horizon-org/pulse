@@ -53,6 +53,14 @@ public final class NotificationQueries {
         LIMIT 1
         """;
 
+  /** One row per (project_id, channel_type) due to unique_project_channel_type; includes inactive. */
+  public static final String GET_CHANNEL_BY_PROJECT_AND_TYPE =
+      """
+        SELECT * FROM notification_channels
+        WHERE project_id = ? AND channel_type = ?
+        LIMIT 1
+        """;
+
   public static final String INSERT_CHANNEL =
       """
         INSERT INTO notification_channels

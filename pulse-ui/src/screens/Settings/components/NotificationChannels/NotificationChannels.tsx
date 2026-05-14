@@ -35,7 +35,6 @@ import {
   NOTIFICATION_EVENT_NAMES,
 } from "../../../../constants";
 import { showNotification } from "../../../../helpers/showNotification";
-import { useCreateNotificationChannel } from "../../../../hooks/useCreateNotificationChannel";
 import { useGetNotificationChannels } from "../../../../hooks/useGetNotificationChannels";
 import { useUpdateNotificationChannel } from "../../../../hooks/useUpdateNotificationChannel";
 import {
@@ -126,7 +125,6 @@ export function NotificationChannels() {
     useGetSlackChannels();
   const slackInstallMutation = useGetSlackInstallUrl();
 
-  const createChannelMutation = useCreateNotificationChannel();
   const updateChannelMutation = useUpdateNotificationChannel();
   const createMappingMutation = useCreateChannelMapping();
   const createMappingsBatchMutation = useCreateChannelMappingsBatch();
@@ -343,11 +341,11 @@ export function NotificationChannels() {
   }, [openForm, slackConnectedChannel]);
 
   useEffect(() => {
-    if (!formOpened || channelType !== "SLACK") {
+    if (!formOpened || channelType !== "SLACK" || !slackConnectedChannel) {
       return;
     }
     void refetchSlackChannels();
-  }, [channelType, formOpened, refetchSlackChannels]);
+  }, [channelType, formOpened, refetchSlackChannels, slackConnectedChannel]);
 
   useEffect(() => {
     if (channelType !== "SLACK" || selectedSlackChannelIds.length === 0) {
@@ -470,33 +468,9 @@ export function NotificationChannels() {
       return;
     }
 
-    const createResponse = await createChannelMutation.mutateAsync({
-      channelType: channelType as ChannelType,
-      name: channelName.trim(),
-      config:
-        channelType === "SLACK_WEBHOOK"
-          ? {
-              type: "SLACK_WEBHOOK",
-            }
-          : {
-              type: "EMAIL",
-            },
-      eventNames: [NOTIFICATION_EVENT_NAMES.PULSE_ALERT_FIRING],
-    });
-
-    if (createResponse.error || createResponse.data == null) {
-      showError(createResponse.error?.message || "Failed to create channel");
-      return;
-    }
-    const createdChannelId = Number(createResponse.data);
-    if (!Number.isFinite(createdChannelId) || createdChannelId <= 0) {
-      showError("Invalid channel id returned from server");
-      return;
-    }
-
     if (channelType === "SLACK_WEBHOOK") {
       const mappingResponse = await createMappingMutation.mutateAsync({
-        channelId: createdChannelId,
+        channelType: "SLACK_WEBHOOK",
         eventName: NOTIFICATION_EVENT_NAMES.PULSE_ALERT_FIRING,
         recipient: webhookUrl.trim(),
         recipientName: channelName.trim(),
@@ -507,7 +481,7 @@ export function NotificationChannels() {
       }
     } else {
       const mappingPayload = emails.map((email) => ({
-        channelId: createdChannelId,
+        channelType: "EMAIL" as ChannelType,
         eventName: NOTIFICATION_EVENT_NAMES.PULSE_ALERT_FIRING,
         recipient: email.trim(),
         recipientName: channelName.trim(),
@@ -572,7 +546,6 @@ export function NotificationChannels() {
 
   const isCreating =
     updateChannelMutation.isPending ||
-    createChannelMutation.isPending ||
     createMappingMutation.isPending ||
     createMappingsBatchMutation.isPending ||
     updateMappingMutation.isPending;

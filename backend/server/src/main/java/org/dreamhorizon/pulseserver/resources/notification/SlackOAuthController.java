@@ -107,6 +107,10 @@ public class SlackOAuthController {
     if (returnPath == null || returnPath.isBlank() || !returnPath.startsWith("/")) {
       return configured;
     }
+    // Reject protocol-relative values so we never build paths like https://host//evil.com/...
+    if (returnPath.startsWith("//")) {
+      return configured;
+    }
     try {
       URI configuredUri = URI.create(configured);
       if (configuredUri.getScheme() == null || configuredUri.getHost() == null) {
@@ -114,12 +118,12 @@ public class SlackOAuthController {
       }
       URI returnUri = new URI(returnPath);
       String path = returnUri.getPath();
-      if (path == null || path.isBlank() || !path.startsWith("/")) {
+      if (path == null || path.isBlank() || !path.startsWith("/") || path.startsWith("//")) {
         return configured;
       }
       return new URI(
               configuredUri.getScheme(),
-              configuredUri.getAuthority(),
+              configuredUri.getRawAuthority(),
               path,
               returnUri.getRawQuery(),
               null)
@@ -130,6 +134,9 @@ public class SlackOAuthController {
   }
 
   private static String encode(String value) {
+    if (value == null) {
+      return "";
+    }
     return URLEncoder.encode(value, StandardCharsets.UTF_8);
   }
 }

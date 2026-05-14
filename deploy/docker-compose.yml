@@ -559,10 +559,6 @@ services:
       - GOALERT_SERVICE_ID=${GOALERT_SERVICE_ID:-}
       - GOALERT_SLACK_BOT_TOKEN=${GOALERT_SLACK_BOT_TOKEN:-}
 
-      # Default SES From for new EMAIL channels (optional; server falls back internally)
-      - DEFAULT_ALERT_EMAIL_FROM_ADDRESS=${DEFAULT_ALERT_EMAIL_FROM_ADDRESS:-}
-      - DEFAULT_ALERT_EMAIL_FROM_NAME=${DEFAULT_ALERT_EMAIL_FROM_NAME:-}
-
       # Notification Service Configuration
       - AWS_REGION=${AWS_REGION:-ap-south-1}
       - NOTIFICATION_QUEUE_URL=${NOTIFICATION_QUEUE_URL:-}

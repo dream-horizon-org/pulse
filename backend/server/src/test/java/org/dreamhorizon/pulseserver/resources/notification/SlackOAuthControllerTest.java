@@ -123,7 +123,7 @@ class SlackOAuthControllerTest {
       vertx.runOnContext(v -> {
         SlackOAuthCallbackRequest request = new SlackOAuthCallbackRequest();
         request.setCode("auth-code");
-        request.setProjectId("proj-1");
+        request.setState("proj-1");
 
         SlackOAuthResult oauthResult = SlackOAuthResult.builder()
             .accessToken("xoxb-token")
@@ -164,7 +164,7 @@ class SlackOAuthControllerTest {
       vertx.runOnContext(v -> {
         SlackOAuthCallbackRequest request = new SlackOAuthCallbackRequest();
         request.setCode("auth-code");
-        request.setProjectId("proj-1");
+        request.setState("proj-1");
 
         SlackOAuthResult oauthResult = SlackOAuthResult.builder()
             .accessToken("xoxb-token")
@@ -204,7 +204,7 @@ class SlackOAuthControllerTest {
       vertx.runOnContext(v -> {
         SlackOAuthCallbackRequest request = new SlackOAuthCallbackRequest();
         request.setCode("bad-code");
-        request.setProjectId("proj-1");
+        request.setState("proj-1");
 
         when(slackOAuthService.exchangeCodeForToken(eq("bad-code")))
             .thenReturn(Single.error(new RuntimeException("Token exchange failed")));
@@ -217,6 +217,31 @@ class SlackOAuthControllerTest {
             URI location = resp.getLocation();
             assertThat(location.toString()).contains("slack=error");
             assertThat(location.toString()).contains("Token+exchange+failed");
+          });
+          testContext.completeNow();
+        });
+      });
+    }
+
+    @Test
+    void shouldRedirectWithErrorWhenOAuthFailureHasNullMessage(
+        Vertx vertx, VertxTestContext testContext) {
+      vertx.runOnContext(v -> {
+        SlackOAuthCallbackRequest request = new SlackOAuthCallbackRequest();
+        request.setCode("bad-code");
+        request.setState("proj-1");
+
+        when(slackOAuthService.exchangeCodeForToken(eq("bad-code")))
+            .thenReturn(Single.error(new RuntimeException()));
+
+        var result = controller.callback(request);
+
+        result.whenComplete((resp, err) -> {
+          testContext.verify(() -> {
+            assertThat(resp.getStatus()).isEqualTo(307);
+            URI location = resp.getLocation();
+            assertThat(location.toString()).contains("slack=error");
+            assertThat(location.toString()).contains("message=");
           });
           testContext.completeNow();
         });

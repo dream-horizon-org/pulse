@@ -10,7 +10,10 @@ public final class NotificationConstants {
     private Platform() {}
 
     public static final Long DEFAULT_CHANNEL_ID = 1L;
+    public static final Long DEFAULT_ALERTS_EMAIL_CHANNEL_ID = 2L;
+    public static final Long DEFAULT_ALERTS_SLACK_WEBHOOK_CHANNEL_ID = 3L;
 
+    public static final String EVENT_PULSE_ALERT_FIRING = "pulse_alert_firing";
     public static final String EVENT_PROJECT_CREATED = "project_created";
     public static final String EVENT_COLLABORATOR_ADDED = "collaborator_added";
     public static final String EVENT_COLLABORATOR_REMOVED = "collaborator_removed";

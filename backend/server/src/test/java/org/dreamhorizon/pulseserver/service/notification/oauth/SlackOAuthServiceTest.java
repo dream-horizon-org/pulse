@@ -3,7 +3,9 @@ package org.dreamhorizon.pulseserver.service.notification.oauth;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -53,6 +55,8 @@ class SlackOAuthServiceTest {
   @BeforeEach
   void setUp() {
     vertx = Vertx.vertx();
+    // SlackOAuthService chains postAbs/getAbs -> timeout -> putHeader -> send
+    when(httpRequest.timeout(anyLong())).thenReturn(httpRequest);
   }
 
   @AfterEach
@@ -232,7 +236,7 @@ class SlackOAuthServiceTest {
           .isActive(true)
           .build();
 
-      when(channelDao.getActiveChannelByType(eq("proj-1"), eq(ChannelType.SLACK)))
+      when(channelDao.getChannelByProjectAndType(eq("proj-1"), eq(ChannelType.SLACK)))
           .thenReturn(Maybe.just(existingChannel));
       when(channelDao.updateChannel(eq(10L), any(NotificationChannel.class)))
           .thenReturn(Single.just(1));
@@ -260,7 +264,7 @@ class SlackOAuthServiceTest {
           .workspaceName("New Workspace")
           .build();
 
-      when(channelDao.getActiveChannelByType(eq("proj-2"), eq(ChannelType.SLACK)))
+      when(channelDao.getChannelByProjectAndType(eq("proj-2"), eq(ChannelType.SLACK)))
           .thenReturn(Maybe.empty());
       when(channelDao.createChannel(any(NotificationChannel.class)))
           .thenReturn(Single.just(20L));
@@ -297,7 +301,7 @@ class SlackOAuthServiceTest {
           .workspaceName(null)
           .build();
 
-      when(channelDao.getActiveChannelByType(eq("proj-3"), eq(ChannelType.SLACK)))
+      when(channelDao.getChannelByProjectAndType(eq("proj-3"), eq(ChannelType.SLACK)))
           .thenReturn(Maybe.empty());
       when(channelDao.createChannel(any(NotificationChannel.class)))
           .thenReturn(Single.just(30L));
@@ -318,6 +322,62 @@ class SlackOAuthServiceTest {
       assertThat(result.getName()).isEqualTo("Slack");
       verify(channelDao).createChannel(org.mockito.ArgumentMatchers.argThat(ch ->
           "Slack".equals(ch.getName())));
+    }
+
+    @Test
+    void shouldUpdateAndReactivateWhenInactiveSlackRowExists() {
+      NotificationConfig config = new NotificationConfig();
+      config.setSlackOAuth(new NotificationConfig.SlackOAuthConfig());
+      SharedDataUtils.put(vertx, config);
+
+      SlackOAuthResult oauthResult = SlackOAuthResult.builder()
+          .accessToken("xoxb-reconnect")
+          .workspaceName("Reconnected")
+          .build();
+
+      SlackChannelConfig newConfig = SlackChannelConfig.builder()
+          .accessToken("xoxb-reconnect")
+          .botName("Pulse")
+          .build();
+
+      NotificationChannel inactiveChannel = NotificationChannel.builder()
+          .id(99L)
+          .projectId("proj-4")
+          .channelType(ChannelType.SLACK)
+          .name("Slack - Old")
+          .config(SlackChannelConfig.builder().accessToken("old").build())
+          .isActive(false)
+          .createdAt(Instant.now())
+          .updatedAt(Instant.now())
+          .build();
+
+      NotificationChannel reactivated = NotificationChannel.builder()
+          .id(99L)
+          .projectId("proj-4")
+          .channelType(ChannelType.SLACK)
+          .name("Slack - Reconnected")
+          .config(newConfig)
+          .isActive(true)
+          .build();
+
+      when(channelDao.getChannelByProjectAndType(eq("proj-4"), eq(ChannelType.SLACK)))
+          .thenReturn(Maybe.just(inactiveChannel));
+      when(channelDao.updateChannel(eq(99L), any(NotificationChannel.class)))
+          .thenReturn(Single.just(1));
+      when(mappingDao.updateMappingsActiveByChannelId(eq(99L), eq("proj-4"), eq(true)))
+          .thenReturn(Single.just(0));
+      when(channelDao.getChannelById(eq(99L))).thenReturn(Maybe.just(reactivated));
+
+      SlackOAuthService service =
+          new SlackOAuthService(vertx, channelDao, mappingDao, webClient, objectMapper);
+
+      NotificationChannel result =
+          service.createOrUpdateSlackChannel("proj-4", oauthResult).blockingGet();
+
+      assertThat(result.getIsActive()).isTrue();
+      assertThat(result.getName()).isEqualTo("Slack - Reconnected");
+      verify(channelDao).updateChannel(eq(99L), any(NotificationChannel.class));
+      verify(channelDao, never()).createChannel(any());
     }
   }
 }

@@ -22,7 +22,6 @@ import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.config.ApplicationConfig;
-import org.dreamhorizon.pulseserver.config.NotificationConfig;
 import org.dreamhorizon.pulseserver.constant.NotificationConstants;
 import org.dreamhorizon.pulseserver.dao.notification.ChannelEventMappingDao;
 import org.dreamhorizon.pulseserver.dao.notification.EmailSuppressionDao;
@@ -49,7 +48,6 @@ import org.dreamhorizon.pulseserver.resources.notification.models.UpdateTemplate
 import org.dreamhorizon.pulseserver.service.notification.models.ChannelConfig;
 import org.dreamhorizon.pulseserver.service.notification.models.ChannelEventMapping;
 import org.dreamhorizon.pulseserver.service.notification.models.ChannelType;
-import org.dreamhorizon.pulseserver.service.notification.models.EmailChannelConfig;
 import org.dreamhorizon.pulseserver.service.notification.models.EmailTemplateBody;
 import org.dreamhorizon.pulseserver.service.notification.models.NotificationChannel;
 import org.dreamhorizon.pulseserver.service.notification.models.NotificationLog;
@@ -77,7 +75,6 @@ public class NotificationServiceImpl implements NotificationService {
   private final SqsNotificationQueue notificationQueue;
   private final ApplicationConfig applicationConfig;
   private final ObjectMapper objectMapper;
-  private final NotificationConfig notificationConfig;
 
   // ==================== Send (mapping-driven) ====================
 
@@ -643,7 +640,6 @@ public class NotificationServiceImpl implements NotificationService {
     validateChannelProjectId(request.getChannelType(), request.getProjectId());
 
     String projectId = request.getProjectId();
-    ChannelConfig configForCreate = normalizeEmailConfigForCreate(request);
 
     return channelDao
         .getActiveChannelByProjectAndType(
@@ -664,7 +660,7 @@ public class NotificationServiceImpl implements NotificationService {
                       .projectId(projectId)
                       .channelType(request.getChannelType())
                       .name(request.getName())
-                      .config(configForCreate)
+                      .config(request.getConfig())
                       .isActive(true)
                       .build();
 
@@ -694,32 +690,11 @@ public class NotificationServiceImpl implements NotificationService {
             });
   }
 
-  private ChannelConfig normalizeEmailConfigForCreate(CreateChannelRequestDto request) {
-    if (request.getChannelType() != ChannelType.EMAIL
-        || !(request.getConfig() instanceof EmailChannelConfig email)) {
-      return request.getConfig();
-    }
-    return applyEmailCreationDefaults(email);
-  }
-
-  private EmailChannelConfig applyEmailCreationDefaults(EmailChannelConfig email) {
-    String from = email.getFromAddress();
-    String name = email.getFromName();
-    if (from == null || from.isBlank()) {
-      from = notificationConfig.resolveDefaultAlertEmailFromAddress();
-    }
-    if (name == null || name.isBlank()) {
-      name = notificationConfig.resolveDefaultAlertEmailFromName();
-    }
-    return EmailChannelConfig.builder()
-        .fromAddress(from)
-        .fromName(name)
-        .replyToAddress(email.getReplyToAddress())
-        .configurationSetName(email.getConfigurationSetName())
-        .build();
-  }
-
   private void validateChannelProjectId(ChannelType channelType, String projectId) {
+    if (channelType == ChannelType.EMAIL) {
+      throw ServiceError.INCORRECT_OR_MISSING_BODY_PARAMETERS.getCustomException(
+          "EMAIL channels are managed by the platform");
+    }
     boolean projectScoped =
         channelType == ChannelType.SLACK
             || channelType == ChannelType.TEAMS;
@@ -727,10 +702,6 @@ public class NotificationServiceImpl implements NotificationService {
     if (projectScoped && (projectId == null || projectId.isBlank())) {
       throw ServiceError.INCORRECT_OR_MISSING_BODY_PARAMETERS.getCustomException(
           channelType + " channels require a projectId");
-    }
-    if (channelType == ChannelType.EMAIL && projectId != null && !projectId.isBlank()) {
-      throw ServiceError.INCORRECT_OR_MISSING_BODY_PARAMETERS.getCustomException(
-          "EMAIL channels must not have a projectId (they are shared)");
     }
   }
 
@@ -915,13 +886,14 @@ public class NotificationServiceImpl implements NotificationService {
   @Override
   public Single<ChannelEventMappingDto> createMapping(
       String projectId, CreateMappingRequestDto request) {
-    return validateMappingEventName(request.getChannelId(), request.getEventName())
+    Long channelId = resolveMappingChannelId(request);
+    return validateMappingEventName(channelId, request.getEventName())
         .flatMap(
             ignored -> {
               ChannelEventMapping mapping =
                   ChannelEventMapping.builder()
                       .projectId(projectId)
-                      .channelId(request.getChannelId())
+                      .channelId(channelId)
                       .eventName(request.getEventName())
                       .recipient(request.getRecipient())
                       .recipientName(request.getRecipientName())
@@ -948,6 +920,29 @@ public class NotificationServiceImpl implements NotificationService {
                         return enrichMappingDto(inserted);
                       });
             });
+  }
+
+  private Long resolveMappingChannelId(CreateMappingRequestDto request) {
+    ChannelType channelType = request.getChannelType();
+    if (channelType != null) {
+      Long defaultId = defaultChannelIdFor(channelType);
+      if (defaultId != null) {
+        return defaultId;
+      }
+    }
+    if (request.getChannelId() == null) {
+      throw ServiceError.INCORRECT_OR_MISSING_BODY_PARAMETERS.getCustomException(
+          "channelId is required when channelType has no platform-managed default channel");
+    }
+    return request.getChannelId();
+  }
+
+  private Long defaultChannelIdFor(ChannelType channelType) {
+    return switch (channelType) {
+      case EMAIL -> NotificationConstants.Platform.DEFAULT_ALERTS_EMAIL_CHANNEL_ID;
+      case SLACK_WEBHOOK -> NotificationConstants.Platform.DEFAULT_ALERTS_SLACK_WEBHOOK_CHANNEL_ID;
+      default -> null;
+    };
   }
 
   @Override

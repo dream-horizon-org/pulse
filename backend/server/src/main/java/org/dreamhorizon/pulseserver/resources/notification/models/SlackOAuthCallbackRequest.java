@@ -69,7 +69,10 @@ public class SlackOAuthCallbackRequest {
     try {
       byte[] decoded = Base64.getUrlDecoder().decode(encodedPath);
       String path = new String(decoded, StandardCharsets.UTF_8);
-      return path.startsWith("/") ? path : null;
+      if (!path.startsWith("/") || path.startsWith("//")) {
+        return null;
+      }
+      return path;
     } catch (IllegalArgumentException ignored) {
       return null;
     }

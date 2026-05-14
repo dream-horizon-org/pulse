@@ -29,7 +29,6 @@ import org.dreamhorizon.pulseserver.resources.notification.models.CreateMappingR
 import org.dreamhorizon.pulseserver.resources.notification.models.RecipientsDto;
 import org.dreamhorizon.pulseserver.resources.notification.models.SendNotificationRequestDto;
 import org.dreamhorizon.pulseserver.resources.notification.models.UpdateMappingRequestDto;
-import org.dreamhorizon.pulseserver.config.NotificationConfig;
 import org.dreamhorizon.pulseserver.dao.notification.NotificationChannelDao;
 import org.dreamhorizon.pulseserver.dao.notification.NotificationLogDao;
 import org.dreamhorizon.pulseserver.dao.notification.NotificationTemplateDao;
@@ -47,6 +46,7 @@ import org.dreamhorizon.pulseserver.service.notification.models.NotificationResu
 import org.dreamhorizon.pulseserver.service.notification.models.NotificationStatus;
 import org.dreamhorizon.pulseserver.service.notification.models.NotificationTemplate;
 import org.dreamhorizon.pulseserver.service.notification.models.SlackChannelConfig;
+import org.dreamhorizon.pulseserver.service.notification.models.SlackWebhookChannelConfig;
 import org.dreamhorizon.pulseserver.service.notification.models.SlackTemplateBody;
 import org.dreamhorizon.pulseserver.service.notification.models.TeamsChannelConfig;
 import org.dreamhorizon.pulseserver.service.notification.models.TeamsTemplateBody;
@@ -79,7 +79,6 @@ class NotificationServiceImplTest {
   @Mock ChannelEventMappingDao mappingDao;
   @Mock NotificationProviderFactory providerFactory;
   @Mock SqsNotificationQueue notificationQueue;
-  @Mock NotificationConfig notificationConfig;
 
   ObjectMapper objectMapper = new ObjectMapper();
   ApplicationConfig applicationConfig = new ApplicationConfig();
@@ -99,11 +98,7 @@ class NotificationServiceImplTest {
             providerFactory,
             notificationQueue,
             applicationConfig,
-            objectMapper,
-            notificationConfig);
-    when(notificationConfig.resolveDefaultAlertEmailFromAddress())
-        .thenReturn("alerts@pulse-ux.com");
-    when(notificationConfig.resolveDefaultAlertEmailFromName()).thenReturn("Pulse Alerts");
+            objectMapper);
   }
 
   private NotificationChannel emailChannel() {
@@ -231,15 +226,16 @@ class NotificationServiceImplTest {
 
     @Test
     void shouldCreateChannelSuccessfully() {
-      EmailChannelConfig config = EmailChannelConfig.builder()
-          .fromAddress("noreply@test.com").build();
+      SlackChannelConfig config = SlackChannelConfig.builder()
+          .accessToken("xoxb-token").build();
       CreateChannelRequestDto request = CreateChannelRequestDto.builder()
-          .channelType(ChannelType.EMAIL)
+          .channelType(ChannelType.SLACK_WEBHOOK)
+          .projectId(PROJECT_ID)
           .name("New Channel")
           .config(config)
           .build();
 
-      when(channelDao.getActiveChannelByProjectAndType(eq(""), eq(ChannelType.EMAIL)))
+      when(channelDao.getActiveChannelByProjectAndType(eq(PROJECT_ID), eq(ChannelType.SLACK_WEBHOOK)))
           .thenReturn(Maybe.empty());
       when(channelDao.createChannel(any())).thenReturn(Single.just(CHANNEL_ID));
 
@@ -250,40 +246,18 @@ class NotificationServiceImplTest {
     }
 
     @Test
-    void shouldFillDefaultFromWhenEmailConfigOmitsAddressAndName() {
-      EmailChannelConfig config = EmailChannelConfig.builder().build();
-      CreateChannelRequestDto request = CreateChannelRequestDto.builder()
-          .channelType(ChannelType.EMAIL)
-          .name("New Channel")
-          .config(config)
-          .build();
-
-      when(channelDao.getActiveChannelByProjectAndType(eq(""), eq(ChannelType.EMAIL)))
-          .thenReturn(Maybe.empty());
-      when(channelDao.createChannel(any())).thenReturn(Single.just(CHANNEL_ID));
-      when(channelDao.getChannelById(eq(CHANNEL_ID))).thenReturn(Maybe.just(emailChannel()));
-
-      service.createChannel(request).blockingGet();
-
-      ArgumentCaptor<NotificationChannel> captor = ArgumentCaptor.forClass(NotificationChannel.class);
-      verify(channelDao).createChannel(captor.capture());
-      EmailChannelConfig stored = (EmailChannelConfig) captor.getValue().getConfig();
-      assertThat(stored.getFromAddress()).isEqualTo("alerts@pulse-ux.com");
-      assertThat(stored.getFromName()).isEqualTo("Pulse Alerts");
-    }
-
-    @Test
     void shouldThrowWhenCreatingDuplicateChannelType() {
-      EmailChannelConfig config = EmailChannelConfig.builder()
-          .fromAddress("x").build();
+      SlackChannelConfig config = SlackChannelConfig.builder()
+          .accessToken("xoxb-token").build();
       CreateChannelRequestDto request = CreateChannelRequestDto.builder()
-          .channelType(ChannelType.EMAIL)
+          .channelType(ChannelType.SLACK_WEBHOOK)
+          .projectId(PROJECT_ID)
           .name("New Channel")
           .config(config)
           .build();
 
-      when(channelDao.getActiveChannelByProjectAndType(eq(""), eq(ChannelType.EMAIL)))
-          .thenReturn(Maybe.just(emailChannel()));
+      when(channelDao.getActiveChannelByProjectAndType(eq(PROJECT_ID), eq(ChannelType.SLACK_WEBHOOK)))
+          .thenReturn(Maybe.just(slackChannel()));
 
       service.createChannel(request)
           .test()
@@ -543,6 +517,99 @@ class NotificationServiceImplTest {
 
       assertThat(result).hasSize(NotificationConstants.Platform.DEFAULT_MAPPINGS.size());
       verify(mappingDao, org.mockito.Mockito.times(NotificationConstants.Platform.DEFAULT_MAPPINGS.size())).createMapping(any(ChannelEventMapping.class));
+    }
+
+    @Test
+    void shouldRouteEmailChannelTypeToDefaultAlertsChannel() {
+      NotificationChannel alertsChannel = emailChannel();
+      alertsChannel.setId(NotificationConstants.Platform.DEFAULT_ALERTS_EMAIL_CHANNEL_ID);
+      alertsChannel.setName("Alert Email Channel");
+
+      NotificationTemplate template = emailTemplate();
+
+      when(channelDao.getChannelById(eq(NotificationConstants.Platform.DEFAULT_ALERTS_EMAIL_CHANNEL_ID)))
+          .thenReturn(Maybe.just(alertsChannel));
+      when(templateDao.getTemplateByEventNameAndChannel(
+              eq(NotificationConstants.Platform.EVENT_PULSE_ALERT_FIRING),
+              eq(ChannelType.EMAIL)))
+          .thenReturn(Maybe.just(template));
+      when(mappingDao.createMapping(any(ChannelEventMapping.class)))
+          .thenReturn(Single.just(42L));
+
+      CreateMappingRequestDto request = CreateMappingRequestDto.builder()
+          .channelType(ChannelType.EMAIL)
+          .eventName(NotificationConstants.Platform.EVENT_PULSE_ALERT_FIRING)
+          .recipient("oncall@example.com")
+          .recipientName("On-call")
+          .build();
+
+      ChannelEventMappingDto result = service.createMapping(PROJECT_ID, request).blockingGet();
+
+      assertThat(result.getChannelId())
+          .isEqualTo(NotificationConstants.Platform.DEFAULT_ALERTS_EMAIL_CHANNEL_ID);
+
+      ArgumentCaptor<ChannelEventMapping> captor =
+          ArgumentCaptor.forClass(ChannelEventMapping.class);
+      verify(mappingDao).createMapping(captor.capture());
+      ChannelEventMapping persisted = captor.getValue();
+      assertThat(persisted.getChannelId())
+          .isEqualTo(NotificationConstants.Platform.DEFAULT_ALERTS_EMAIL_CHANNEL_ID);
+      assertThat(persisted.getEventName())
+          .isEqualTo(NotificationConstants.Platform.EVENT_PULSE_ALERT_FIRING);
+      assertThat(persisted.getProjectId()).isEqualTo(PROJECT_ID);
+      assertThat(persisted.getRecipient()).isEqualTo("oncall@example.com");
+    }
+
+    @Test
+    void shouldRouteSlackWebhookChannelTypeToDefaultAlertsChannel() {
+      NotificationChannel webhookChannel = NotificationChannel.builder()
+          .id(NotificationConstants.Platform.DEFAULT_ALERTS_SLACK_WEBHOOK_CHANNEL_ID)
+          .channelType(ChannelType.SLACK_WEBHOOK)
+          .name("Alert Slack Webhook Channel")
+          .config(SlackWebhookChannelConfig.builder().build())
+          .isActive(true)
+          .build();
+
+      NotificationTemplate template = slackTemplate();
+
+      when(channelDao.getChannelById(
+              eq(NotificationConstants.Platform.DEFAULT_ALERTS_SLACK_WEBHOOK_CHANNEL_ID)))
+          .thenReturn(Maybe.just(webhookChannel));
+      when(templateDao.getTemplateByEventNameAndChannel(
+              eq(NotificationConstants.Platform.EVENT_PULSE_ALERT_FIRING),
+              eq(ChannelType.SLACK_WEBHOOK)))
+          .thenReturn(Maybe.just(template));
+      when(mappingDao.createMapping(any(ChannelEventMapping.class)))
+          .thenReturn(Single.just(99L));
+
+      CreateMappingRequestDto request = CreateMappingRequestDto.builder()
+          .channelType(ChannelType.SLACK_WEBHOOK)
+          .eventName(NotificationConstants.Platform.EVENT_PULSE_ALERT_FIRING)
+          .recipient("https://hooks.slack.com/services/T/B/X")
+          .recipientName("Eng webhook")
+          .build();
+
+      ChannelEventMappingDto result = service.createMapping(PROJECT_ID, request).blockingGet();
+
+      assertThat(result.getChannelId())
+          .isEqualTo(NotificationConstants.Platform.DEFAULT_ALERTS_SLACK_WEBHOOK_CHANNEL_ID);
+      ArgumentCaptor<ChannelEventMapping> captor =
+          ArgumentCaptor.forClass(ChannelEventMapping.class);
+      verify(mappingDao).createMapping(captor.capture());
+      assertThat(captor.getValue().getChannelId())
+          .isEqualTo(NotificationConstants.Platform.DEFAULT_ALERTS_SLACK_WEBHOOK_CHANNEL_ID);
+    }
+
+    @Test
+    void shouldRejectMappingWhenChannelIdMissingAndChannelTypeHasNoDefault() {
+      CreateMappingRequestDto request = CreateMappingRequestDto.builder()
+          .channelType(ChannelType.SLACK)
+          .eventName(NotificationConstants.Platform.EVENT_PULSE_ALERT_FIRING)
+          .recipient("C123")
+          .build();
+
+      assertThatThrownBy(() -> service.createMapping(PROJECT_ID, request).blockingGet())
+          .hasMessageContaining("channelId is required");
     }
   }
 
@@ -842,16 +909,15 @@ class NotificationServiceImplTest {
     }
 
     @Test
-    void shouldThrowWhenEmailChannelHasProjectId() {
+    void shouldRejectCreatingEmailChannel() {
       CreateChannelRequestDto request = CreateChannelRequestDto.builder()
           .channelType(ChannelType.EMAIL)
-          .projectId(PROJECT_ID)
           .name("Email Channel")
           .config(EmailChannelConfig.builder().fromAddress("a@b.com").build())
           .build();
 
       assertThatThrownBy(() -> service.createChannel(request).blockingGet())
-          .hasMessageContaining("EMAIL channels must not have a projectId");
+          .hasMessageContaining("EMAIL channels are managed by the platform");
     }
 
     @Test
