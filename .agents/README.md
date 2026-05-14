@@ -4,8 +4,8 @@ Canonical copies for **`pulse-web-otel/`** live here:
 
 | Path | Contents |
 |------|----------|
-| **`agents/`** | `pulse-web-sdk.md` |
-| **`skills/`** | `web-sdk-ship`, `web-sdk-instrument`, `web-sdk-e2e-matrix` |
+| **`agents/`** | `pulse-web-sdk.md`, `web-otel-spec-audit-orchestrator.md` |
+| **`skills/`** | `web-sdk-ship`, `web-sdk-instrument`, `web-sdk-e2e-matrix` (SPEC audit skills: `web-otel-spec-*` under **`.cursor/skills/`** only) |
 | **`rules/`** | `pulse-web-otel-contract.mdc`, `pulse-web-otel-conventions.mdc` (+ legacy-name symlinks `web-sdk.mdc`, `pulse-web-otel.mdc`) |
 
 **Cursor** loads rules/skills via symlinks under **`.cursor/rules/`**, **`.cursor/skills/`**, **`.cursor/agents/`** → **`.agents/`**.
