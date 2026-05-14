@@ -67,7 +67,8 @@ export function buildResource(
     [resourceKeys.PROJECT_ID]: extractProjectId(config.apiKey),
     [resourceKeys.BROWSER_NAME]: parsedUA.browserName,
     [resourceKeys.BROWSER_VERSION]: parsedUA.browserVersion,
-    [resourceKeys.OS_NAME]: parsedUA.osName,
+    /** Coarse RUM label; materializes ClickHouse {@code Platform} on logs/traces (Android/iOS parity). */
+    [resourceKeys.OS_NAME]: fixedValues.PLATFORM_WEB,
     [resourceKeys.OS_VERSION]: osVersion,
     [resourceKeys.DEVICE_TYPE]: parsedUA.deviceType,
   };

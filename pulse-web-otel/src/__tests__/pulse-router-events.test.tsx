@@ -5,7 +5,7 @@ import { render } from "@testing-library/react";
 
 // ─── Mocks ────────────────────────────────────────────────────────────────────
 
-vi.mock("next/navigation", () => ({
+vi.mock("next/navigation.js", () => ({
   usePathname: vi.fn(() => "/"),
   useSearchParams: vi.fn(() => new URLSearchParams()),
 }));

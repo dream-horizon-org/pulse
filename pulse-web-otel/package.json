@@ -118,7 +118,7 @@
     "demo:preview": "yarn demo:build && yarn workspace ecommerce-demo preview",
     "demo:install": "yarn install",
     "demo:test": "yarn workspace ecommerce-demo e2e:report",
-    "e2e:web-sdk-gates": "yarn workspace ecommerce-demo e2e:web-sdk-gates",
+    "e2e:web-sdk-gates": "yarn build && yarn workspace ecommerce-demo e2e:web-sdk-gates",
     "demo:next": "yarn workspace nextjs-demo dev"
   },
   "dependencies": {

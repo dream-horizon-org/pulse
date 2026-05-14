@@ -9,8 +9,8 @@ cd "$HOME"
 
 AWS_REGION="ap-south-1"
 SECRET_NAME="prod/pulse-heatmap-screenshot-ingestion/appenv"
-# Relative to $HOME after cd (same pattern as pulse-server `.pulse-server.env`).
-ENV_FILE=".heatmap-ingestion.env"
+# Under /home/admin only (explicit $HOME like ARTIFACT_ZIP / INSTALL_DIR).
+ENV_FILE="$HOME/.heatmap-ingestion.env"
 
 echo "Fetching secret '$SECRET_NAME' from AWS Secrets Manager..."
 SECRET_JSON=$(aws secretsmanager get-secret-value \
@@ -45,7 +45,9 @@ CODEARTIFACT_DOMAIN="pulse-prod"
 CODEARTIFACT_REPOSITORY="pulse-heatmap-screenshot-ingestion"
 APPLICATION_NAME="pulse-heatmap-screenshot-ingestion"
 VERSION="${artifact_version}"
-INSTALL_DIR="$HOME/pulse-heatmap-screenshot-ingestion"
+# Same pattern as pulse-server: artifact zip under $HOME, unzip creates $HOME/$APPLICATION_NAME/.
+INSTALL_DIR="$HOME/$APPLICATION_NAME"
+ARTIFACT_ZIP="$HOME/$APPLICATION_NAME.zip"
 
 # Download artifact from CodeArtifact
 aws codeartifact get-package-version-asset \
@@ -57,20 +59,14 @@ aws codeartifact get-package-version-asset \
   --package "$APPLICATION_NAME" \
   --package-version "$VERSION" \
   --asset "$APPLICATION_NAME-$VERSION.zip" \
-  "$APPLICATION_NAME.zip"
+  "$ARTIFACT_ZIP"
 
-# Unzip + validate
-unzip -o "$APPLICATION_NAME.zip"
-if [ ! -f "$APPLICATION_NAME/dist/index.js" ]; then
-  echo "ERROR: dist/index.js not found under $APPLICATION_NAME/"
+unzip -o "$ARTIFACT_ZIP"
+if [ ! -f "$INSTALL_DIR/dist/index.js" ]; then
+  echo "ERROR: dist/index.js not found under $INSTALL_DIR/"
   exit 1
 fi
 
-# Install under /home/admin only
-sudo rm -rf "$INSTALL_DIR"
-sudo mkdir -p "$INSTALL_DIR"
-sudo cp -a "$APPLICATION_NAME"/. "$INSTALL_DIR"/
-sudo chown -R admin:admin "$INSTALL_DIR"
 
 # Node.js + pm2 (minimal AMIs often lack both). Tarball from nodejs.org with retries;
 # bake Node into AMI or ship via CodeArtifact to avoid boot-time egress to nodejs.org.
@@ -110,6 +106,8 @@ if ! command -v pm2 >/dev/null 2>&1; then
 fi
 
 # cloud-init runs as root — pm2 matches. Order: start → save (dump) → startup (systemd + resurrect).
+# PM2_HOME must match `pm2 startup systemd -u root` (uses /root/.pm2). Else HOME=/home/admin makes PM2 use /home/admin/.pm2 and systemd resurrect won't see processes.
+export PM2_HOME=/root/.pm2
 # Some pm2 builds print a line starting with "sudo " — eval it to enable the unit.
 echo "Starting $APPLICATION_NAME via pm2..."
 set -a
@@ -118,7 +116,11 @@ source "$ENV_FILE"
 set +a
 
 pm2 delete "$APPLICATION_NAME" 2>/dev/null || true
-pm2 start "$INSTALL_DIR/dist/index.js" --name "$APPLICATION_NAME" --node-args="--require @opentelemetry/auto-instrumentations-node/register"
+# --cwd: Node resolves --require from cwd; without it preload cannot find node_modules/@opentelemetry/... under INSTALL_DIR.
+pm2 start "$INSTALL_DIR/dist/index.js" \
+  --name "$APPLICATION_NAME" \
+  --cwd "$INSTALL_DIR" \
+  --node-args="--require @opentelemetry/auto-instrumentations-node/register"
 pm2 save
 
 STARTUP_OUTPUT="$(pm2 startup systemd -u root --hp /root 2>&1)" || true
@@ -130,12 +132,12 @@ fi
 
 sleep 5
 
-if pm2 list | grep -q "$APPLICATION_NAME"; then
-  echo "Service started successfully via pm2"
+if pm2 list 2>/dev/null | grep "$APPLICATION_NAME" | grep -q online; then
+  echo "Service started successfully via pm2 (status online)"
 else
-  echo "WARNING: pm2 process may not have started. Checking logs:"
+  echo "WARNING: pm2 process not online. Checking logs:"
   pm2 logs "$APPLICATION_NAME" --lines 30 --nostream || true
 fi
 
 echo "User-data complete at $(date)"
-echo "View logs: pm2 logs $APPLICATION_NAME"
+echo 'View logs: sudo env PM2_HOME=/root/.pm2 PATH=/usr/local/bin:$PATH pm2 logs '"$APPLICATION_NAME"
