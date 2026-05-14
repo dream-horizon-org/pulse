@@ -1,188 +1,248 @@
-# Network Instrumentation — SPEC.md
+# Network Instrumentation — SPEC
 
 Package: `@dreamhorizonorg/pulse-web`  
-File: `pulse-web-otel/docs/instrumentations/network/SPEC.md`
+Files: `src/instrumentations/network.ts`, `src/utils/network-http.ts`
 
 ---
 
-## 1. Goal
+## 1. What this does
 
-Capture **outbound HTTP/HTTPS** calls from the browser as **OTel client spans** using upstream `FetchInstrumentation` and `XMLHttpRequestInstrumentation`, then stamp **Pulse** semconv + `pulse.type` for ClickHouse parity with Android network reporting.
+Every time your app makes an HTTP request — either via `fetch()` or `XMLHttpRequest` — this instrumentation captures it as an OTel **client span** and stamps Pulse-specific metadata onto it (status code, duration, error type, etc.).
 
----
+The data flows like this:
 
-## 2. Assumptions
-
-- **Android parity:** `pulse.type` is derived from HTTP status via `networkPulseType()` → values like `network.200`, `network.0` (unknown), not a free-text `"http"` label — see **AMENDMENT** / `network-http.ts` for the product decision.
-- **Web divergences:** CORS can yield **opaque** responses (`status === 0`); **no** raw TCP/UDP; **no** automatic request **body** capture from `fetch` (async body; optional GraphQL path reserved).
-- **Browser only:** `install()` no-ops when `window` is undefined.
-
----
-
-## 3. Requirements
-
-**R1 — Spans, not logs:** Network uses the **tracer** provider and client span processors.
-
-**R2 — Both mechanisms:** Patch **fetch** and **XMLHttpRequest** (OTel instrumentations).
-
-**R3 — URL ignore list:** Build from **collector** `endpointBaseUrl` + optional `instrumentations.network.blockedUrls` so OTLP self-traffic is not double-traced.
-
-**R4 — Attributes:** `applyPulseHttpClientSpanAttributes` sets URL, method, status, duration (from Resource Timing when available), optional header capture, `pulse.type`, error classification (`cors_error`, `4xx`, `5xx`, `network_error`).
-
-**R5 — Optional trace propagation:** `propagateTraceHeaderCorsUrls` passed through when configured (CORS-safe list).
-
----
-
-## 4. Architectural Design
-
-### Plan B — HTTP client spans (chosen)
-
-**Plan B (chosen):** Reuse OpenTelemetry **Fetch** + **XHR** auto-instrumentations; centralize Pulse attribute mapping in `applyPulseHttpClientSpanAttributes` — one place for semconv and product rules.
-
-**Plan C** (OTel spec-only, no `pulse.type`): rejected — product needs `pulse.type` for dashboards.
-
-**Plan D** (custom fetch patch only): rejected — XHR still required for legacy stacks.
-
-### 4.1 HLD — tracer and ignore list
-
-```mermaid
-flowchart TB
-  Reg["InstrumentationRegistry"]
-  NI["NetworkInstrumentation"]
-  FetchI["OTel FetchInstrumentation"]
-  XHRI["OTel XMLHttpRequestInstrumentation"]
-  Attr["applyPulseHttpClientSpanAttributes"]
-  Tracer["TracerProvider → OTLP"]
-  Reg --> NI
-  NI --> FetchI
-  NI --> XHRI
-  FetchI --> Attr
-  XHRI --> Attr
-  Attr --> Tracer
+```
+App makes fetch() / XHR
+  → OTel FetchInstrumentation / XMLHttpRequestInstrumentation hooks in
+  → our callback (applyCustomAttributesOnSpan) stamps Pulse attributes
+  → span sent to OTLP collector
+  → lands in ClickHouse as a network span
 ```
 
-### 4.2 LD — URL filter + pulse typing
-
-```mermaid
-flowchart LR
-  NI["network.ts"] --> Ign["buildNetworkIgnoreUrls"]
-  NI --> Map["network-http.ts"]
-  Map --> PT["networkPulseType(status)"]
-```
-
-### 4.3 Flows and edge cases
-
-```mermaid
-flowchart TD
-  I[install] --> W{window?}
-  W -->|no| Z[no-op SSR]
-  W -->|yes| G{NETWORK gate?}
-  G -->|off| Z
-  G -->|on| P[patch fetch + XHR]
-  P --> R[request]
-  R --> C{CORS opaque status 0?}
-  C -->|yes| ERR[cors_error on span]
-  C -->|no| OK[status mapped pulse.type]
-  P --> U[uninstall]
-  U --> Q[remove patches]
-```
+The dashboard then groups these spans by `pulse.type` (e.g. `network.200`, `network.404`) for the Network tab.
 
 ---
 
-## 5. LLD
+## 2. Install and uninstall lifecycle
 
-### 5.1 `pulse.type` and `http.*` semconv (implementation truth)
+`NetworkInstrumentation.install(sdk)` runs once. It:
 
-| Attribute key | Type | Source | Required | Notes |
-|---|---|---|---|---|
-| `pulse.type` | string | `networkPulseType(status)` | Yes | Pattern `network.<code>`; e.g. `network.200`. **AMENDMENT:** replaces early `http` token — **the `pulse.type` field is distinct from the `http.*` semconv keys** and must be read together with `http.request.method` / `http.response.status_code` for full HTTP context. |
-| `http.request.method` | string | request / span | Yes | Stable semconv key (**http.method** naming in older docs refers here) |
-| `http.response.status_code` | long | response / XHR | If known | Omitted on some failures |
-| `url.full` | string | sanitized URL | Yes | Query may be stripped per privacy |
-| `http.duration` | long (ms) | Resource Timing | No | **Maps from** RUM `http.request_duration_ms` **concept** in planning docs |
-| `http.request.body.size` | long | content-length | No | When header present |
-| `http.response.body.size` | long | content-length | No | **Planning `http.response_size` →** `http.response.body.size` |
-| `server.address` / `server.port` | string / long | URL parse | Yes | |
-| `session.id` / `screen.name` | string | global processors | Per sdk-core | On span via processor |
-| `platform` | string | Resource | Yes | `web` |
+1. Does nothing (no-op) if `window` is undefined (SSR / Node environment) or if already active.
+2. Does nothing if no `tracerProvider` is set on the SDK context.
+3. Creates one `FetchInstrumentation` and one `XMLHttpRequestInstrumentation` — both from the upstream OTel JS packages.
+4. Hands the `tracerProvider` to both and calls `.enable()` on each.
 
-### 5.2 URL filtering / exclusion
-
-- `buildNetworkIgnoreUrls(endpointBaseUrl, blockedUrls)` always excludes **Pulse collector** traffic to the current **endpoint base** to avoid feedback loops.
-- App-specific **blocked URL** regex list from `instrumentations.network.blockedUrls` extends ignore rules.
-
-### 5.3 Fetch vs XHR
-
-- **Fetch:** `applyCustomAttributesOnSpan` receives `Request` / `RequestInit` + `Response`; method/status from `getOtelHttpRequestMethodFromSpan` + `resolveFetchStatus`; `Response` may lack body for CORS.
-- **XHR:** callback runs at `readyState === DONE` only; `responseURL` and `getResponseHeader` for size and optional response headers; method from span or span name.
-
-### 5.4 CORS and status 0
-
-- **Status 0** → `error_type = cors_error`, span error — common for opaque cross-origin responses.
-
-### 5.5 React SPA / Next.js
-
-- **React SPA:** same-origin and CORS fetches from the client bundle are captured.
-- **Next.js App Router / Pages Router (client):** `fetch` in client components and `getServerSideProps` **network** (server) is **out of scope** for this browser instrumentation — only code running in the **browser** with `window` is instrumented.
-- **SSR:** no `NetworkInstrumentation` on the server in this package.
+`NetworkInstrumentation.uninstall()` calls `.disable()` on both instrumentations and clears the references. It is safe to call twice — the second call is a no-op.
 
 ---
 
-## 6. Test Coverage
+## 3. What gets ignored (URL filter)
 
-### 6.1 Scenario matrix (Given / When / Then)
+`buildNetworkIgnoreUrls(endpointBaseUrl, blockedUrls)` builds a list of URL patterns that are **never** turned into spans:
 
-| ID | Type | Given | When | Then | Tests |
-|----|------|-------|------|------|-------|
-| N-P1 | positive | gate on | same-origin fetch | span with `pulse.type` pattern | `network-instrumentation.test.ts` |
-| N-N1 | negative | URL in ignore list | fetch to collector | no child span / skipped | R3 |
-| N-E1 | edge | CORS opaque | status 0 | `cors_error` classification | `network-http.test.ts`, §5.4 |
-| N-E2 | edge | SSR | install | no-op | `network-instrumentation.test.ts` |
-| N-E3 | edge | uninstall | new request | not traced | **gap** — double-uninstall idempotency covered in `network-instrumentation.test.ts`; no assertion yet that a fetch after uninstall stays untraced |
 
-### 6.2 Playwright E2E (`examples/ecommerce-demo/e2e/`)
+| Pattern                                                             | Why                                                                  |
+| ------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| Anything starting with the OTLP `endpointBaseUrl`                   | Prevents the SDK from tracing its own export calls (feedback loop)   |
+| Pulse REST API at `:8080` (when OTLP is on `:4318`, local dev only) | Same reason — config fetch + interaction config are on the same host |
+| User-supplied `instrumentations.network.blockedUrls` entries        | App-specific URLs to exclude (e.g. analytics pings)                  |
 
-Master index: [`../../sdk-core/test-coverage/SPEC.md`](../../sdk-core/test-coverage/SPEC.md) §6.3 — **`@M4 network e2e`**: Network Lab (GET 200, XHR timeout/abort, 404), contract rows P1–P5, OTLP URL exclusion P5, gate G1, error taxonomy E1–E5, local disable E2, consent C1.
 
-### `src/__tests__/network-instrumentation.test.ts` / `network-http.test.ts`
-
-- Ignore URL builder (collector excluded + custom patterns).
-- `applyPulseHttpClientSpanAttributes` — method, status, `pulse.type`, duration, CORS error, header capture, GraphQL meta when body provided in tests.
-- Uninstall disables both instrumentations.
-
-### Lab scenarios (from `MANUAL-NETWORK-LAB-SCENARIOS.md`)
-
-- CORS / credentialed / API error paths exercised in the ecommerce demo and captured in test matrix (absorbed manual steps into this §6 as **documented** validation paths — file removed in cleanup).
+This list is passed into both `FetchInstrumentation` and `XMLHttpRequestInstrumentation` as `ignoreUrls`.
 
 ---
 
-## 7. Known Bugs & Gaps
+## 4. Config options
 
-### P0 (data contract — none identified at synthesis)
+All options live under `sdkConfig.instrumentations.network`:
 
-No new **P0** items filed for the current `network.ts` + `network-http.ts` contract.
 
-### Other gaps
+| Option                         | Type                                    | Default | What it does                                                                                                                                                                                                                      |
+| ------------------------------ | --------------------------------------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `captureQueryParams`           | boolean                                 | `false` | When `false`, strips the entire query string from `url.full`. When `true`, keeps query params but redacts sensitive ones (see §7).                                                                                                |
+| `blockedUrls`                  | `(string | RegExp)[]`                   | `[]`    | Extra URLs to never trace (merged into the ignore list).                                                                                                                                                                          |
+| `capturedRequestHeaders`       | `string[]`                              | none    | Request headers to copy as `http.request.header.<name>` on spans. **Fetch only** — XHR cannot access sent request headers (browser API limitation). Sensitive header names are always blocked regardless of this config (see §7). |
+| `capturedResponseHeaders`      | `string[]`                              | none    | Response headers to copy as `http.response.header.<name>` on spans. Works for both Fetch and XHR.                                                                                                                                 |
+| `peerServiceMap`               | `Record<string, string>`                | none    | Map of hostname → logical service name. Sets `peer.service` on spans. Example: `{ "api.example.com": "catalogue-service" }`.                                                                                                      |
+| `propagateTraceHeaderCorsUrls` | `string | RegExp | (string | RegExp)[]` | none    | Hosts that should receive W3C `traceparent` / `tracestate` headers on outgoing requests. Passed directly to the OTel instrumentations.                                                                                            |
 
-- Optional **GraphQL** body path not wired from default Fetch (async) — noted in `network-http.ts` comments.
-
----
-
-## 8. Redundancy & Cleanup Notes
-
-**Canonical contract:** this SPEC plus `src/instrumentations/network.ts` and `src/utils/network-http.ts`.
-
-Historical planning and superseded one-pagers remain under the repo for traceability (not deleted):
-
-| Path | Role |
-|---|---|
-| `pulse-web-otel/web-sdk-plan/v3-network/` | Archived network design / amendments |
-| `pulse-web-otel/web-sdk-plan/v1/02-instrumentations/network.md` | Superseded v1 one-pager (still in repo for history) |
-| `pulse-web-otel/examples/ecommerce-demo/MANUAL-NETWORK-LAB-SCENARIOS.md` | Removed manual lab file; scenarios absorbed into §6 |
 
 ---
 
-## 9. Open Questions
+## 5. Attributes set on every span
+
+### 5.1 Always set
+
+
+| Attribute                   | Value                                                                                  | Example                                                |
+| --------------------------- | -------------------------------------------------------------------------------------- | ------------------------------------------------------ |
+| `pulse.type`                | `network.<statusCode>` — the core ClickHouse grouping key                              | `network.200`, `network.404`, `network.0`              |
+| `http.request.method`       | HTTP verb, always uppercased                                                           | `GET`, `POST`                                          |
+| `url.full`                  | Sanitized URL (credentials stripped; query stripped or redacted per config)            | `https://api.example.com/products`                     |
+| `server.address`            | Hostname from the URL                                                                  | `api.example.com`                                      |
+| `server.port`               | Port number. Inferred as `443` for `https:` and `80` for `http:` when no explicit port | `443`                                                  |
+| `platform`                  | `web`                                                                                  | set via Resource by SDK core, not this instrumentation |
+| `session.id`, `screen.name` | Set by global span processors, not this instrumentation                                | —                                                      |
+
+
+### 5.2 Set when available
+
+
+| Attribute                     | Condition                                                                        | Value                                                                                                              |
+| ----------------------------- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `http.response.status_code`   | When the response status is known                                                | `200`, `404`, `0`                                                                                                  |
+| `http.duration`               | When the browser's `PerformanceResourceTiming` API has an entry for this URL     | Duration in ms (integer). **Pulse-custom attribute** — not the same as OTel `http.client.request.duration` metric. |
+| `network.protocol.version`    | When `PerformanceResourceTiming.nextHopProtocol` is available                    | `1.1`, `2`, `3`                                                                                                    |
+| `http.request.body.size`      | When `content-length` request header is accessible (Fetch only)                  | Integer bytes                                                                                                      |
+| `http.response.body.size`     | When `content-length` response header is present                                 | Integer bytes                                                                                                      |
+| `peer.service`                | When the request hostname matches an entry in `peerServiceMap`                   | `catalogue-service`                                                                                                |
+| `http.request.header.<name>`  | When `capturedRequestHeaders` is configured (Fetch only)                         | Header value                                                                                                       |
+| `http.response.header.<name>` | When `capturedResponseHeaders` is configured                                     | Header value                                                                                                       |
+| `graphql.operation.name`      | When `graphqlRequestBody` is passed in (not wired from Fetch/XHR yet — see §6.3) | `GetProducts`                                                                                                      |
+| `graphql.operation.type`      | Same condition                                                                   | `query`, `mutation`, `subscription`                                                                                |
+
+
+### 5.3 Error classification — `error.type`
+
+
+| Status                            | Span status | `error.type` set |
+| --------------------------------- | ----------- | ---------------- |
+| Empty / unparseable URL           | ERROR       | `network_error`  |
+| Status unknown (`undefined`)      | ERROR       | `network_error`  |
+| Status `0` (CORS opaque response) | ERROR       | `cors_error`     |
+| Status `400–499`                  | ERROR       | `4xx`            |
+| Status `500+`                     | ERROR       | `5xx`            |
+| Status `1xx–3xx`                  | OK          | not set          |
+
+
+`pulse.type` is always set regardless — even `network_error` cases get `network.0`.
+
+---
+
+## 6. How Fetch and XHR differ internally
+
+### 6.1 Fetch
+
+The callback receives a `Request` (or `RequestInit`) and a `Response`. URL is resolved by priority:
+
+1. `Response.url` (post-redirect final URL — preferred)
+2. `Request.url`
+3. URL already on the span (set by OTel upstream)
+
+Method comes from the span attribute first, then falls back to `Request.method` / `RequestInit.method`, defaulting to `GET`.
+
+Request headers are accessible via `Request.headers.get()` or from the `RequestInit.headers` object/array.
+
+### 6.2 XHR
+
+The callback receives the raw `XMLHttpRequest` object. The guard `xhr.readyState !== DONE` ensures the callback only runs when the request is fully complete. URL comes from `xhr.responseURL`. Method falls back to parsing the OTel span name (e.g. `"HTTP GET"` → `"GET"`).
+
+**Request headers are not accessible on XHR** — the browser does not expose sent headers after dispatch. `capturedRequestHeaders` is silently ignored for XHR spans.
+
+### 6.3 GraphQL body (not yet wired)
+
+`applyPulseHttpClientSpanAttributes` has a `graphqlRequestBody` parameter that, when provided, calls `extractGraphQlMeta` to parse `operationName` and `operationType` from the JSON body. However, `NetworkInstrumentation` currently **does not pass this** — Fetch body is async and cannot be read synchronously in the callback. This is a known deferred feature.
+
+`extractGraphQlMeta` handles: named queries, mutations, subscriptions, anonymous operations (falls back to `operationName` JSON field), and ignores bodies over 262,144 bytes or invalid JSON.
+
+---
+
+## 7. Privacy and sensitive data
+
+### 7.1 URL query params
+
+By default (`captureQueryParams: false`), the **entire query string is stripped** from `url.full` before storing on the span.
+
+When `captureQueryParams: true`, query params are kept but the following param **names** have their values replaced with `*`**:
+
+`token`, `access_token`, `refresh_token`, `id_token`, `bearer`, `api_key`, `apikey`, `password`, `secret`, `client_secret`, `signature`, `sig`, `auth`
+
+URL credentials (`user:password@host`) are **always stripped** unconditionally.
+
+### 7.2 Captured headers denylist
+
+Even if a header name appears in `capturedRequestHeaders` or `capturedResponseHeaders`, the following are **always blocked** and never written to spans:
+
+`authorization`, `cookie`, `set-cookie`, `proxy-authorization`, `x-api-key`, `x-auth-token`
+
+---
+
+## 8. Web ↔ Android divergences
+
+
+| #   | What                      | Web                                                              | Android                                                                                                                                                       |
+| --- | ------------------------- | ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| D1  | `error.type`              | Set: `network_error`, `cors_error`, `4xx`, `5xx`                 | **Not set** — Android only sets `pulse.type`. Dashboard filters on `error.type` are web-only.                                                                 |
+| D2  | URL path normalization    | **Not done** — raw paths with UUIDs/IDs go into `url.full` as-is | `PulseNetworkingUtils.redactUrl` normalizes UUID, numeric IDs ≥ 3 digits, ULIDs, git hashes → `[redacted]`. High ClickHouse cardinality risk on web at scale. |
+| D3  | Request header capture    | Fetch only (browser limitation)                                  | OkHttp interceptor has full request + response header access                                                                                                  |
+| D4  | Non-standard HTTP methods | Passed through as-is (`PURGE`, `PROPFIND`, etc.)                 | OkHttp maps to `_OTHER` + `http.request.method_original` per OTel semconv. Web fix is deferred (see ISS-N14).                                                 |
+
+
+---
+
+## 9. Test coverage
+
+### 9.1 Unit tests
+
+`src/__tests__/network-instrumentation.test.ts`:
+
+- Install/uninstall lifecycle
+- SSR no-op (`window` undefined)
+- Ignore URL builder (collector + custom patterns)
+- Fetch callback: `pulse.type`, method, status, `peer.service`, header capture, `propagateTraceHeaderCorsUrls` forwarding
+- Double-uninstall is idempotent
+
+`src/__tests__/network-http.test.ts`:
+
+- `applyPulseHttpClientSpanAttributes`: method, status codes, `pulse.type` pattern, CORS error, `4xx`/`5xx` error types, URL sanitization, request body size
+- `sanitizeHttpUrl`: query stripping, sensitive param redaction, credential stripping
+- `buildNetworkIgnoreUrls`: OTLP prefix, local dev REST port, custom blocked URLs
+- `extractGraphQlMeta`: named query, operation type parsing
+
+### 9.2 E2E (Playwright, `@M4 network e2e`)
+
+`examples/ecommerce-demo/e2e/m4-network.spec.ts`:
+
+- P1–P5: GET 200, contract attribute assertions, OTLP URL exclusion
+- G1: gate off → no spans
+- E1–E5: error taxonomy (CORS, 404, abort, timeout)
+- E2: local disable
+- C1: consent off → no spans
+
+### 9.3 Known test gaps (tracked in `REVIEW_Errors-Web-vitals-Network.md`)
+
+
+| ID      | What is missing                                                                                |
+| ------- | ---------------------------------------------------------------------------------------------- |
+| ISS-N03 | No unit test for XHR `applyCustomAttributesOnSpan` callback                                    |
+| ISS-N04 | No unit test for `http.response.body.size` from `Content-Length`                               |
+| ISS-N05 | `extractGraphQlMeta`: mutation, subscription, anonymous, overflow, invalid JSON cases untested |
+| ISS-N06 | No E2E for `captureQueryParams: true` + sensitive param redaction                              |
+| ISS-N07 | No E2E for `blockedUrls` config                                                                |
+| ISS-N08 | No E2E for `peerServiceMap` → `peer.service`                                                   |
+| ISS-N09 | No E2E or unit test for `propagateTraceHeaderCorsUrls` actually injecting `traceparent`        |
+| ISS-N10 | No test that a fetch after `uninstall()` produces zero spans                                   |
+| ISS-N11 | No test for `readyState < DONE` guard on XHR                                                   |
+
+
+---
+
+## 10. Known bugs and deferred work
+
+
+| ID      | Area            | Summary                                                                                                    |
+| ------- | --------------- | ---------------------------------------------------------------------------------------------------------- |
+| ISS-N02 | Bug             | `capturedRequestHeaders` silently no-ops for XHR — no warning emitted                                      |
+| ISS-N14 | Deferred        | Non-standard HTTP methods not mapped to `_OTHER` + `http.request.method_original` (OTel semconv violation) |
+| ISS-N12 | Decision needed | URL path segment normalization for ClickHouse cardinality (Android has it; web does not)                   |
+
+
+---
+
+## 11. Open questions
 
 1. Should `pulse.type` eventually unify to a single `http` token plus attributes (breaking change)?
-2. Should fetch **request** body size be estimated when `Request` has readable stream?
+2. Should fetch request body size be estimated when `Request` has a readable stream?
+3. Should `urlTemplateRules` (path-segment normalization for IDs/UUIDs) be added to control `url.full` cardinality in ClickHouse? (D2 — Android `PulseNetworkingUtils.redactUrl` handles this; web does not.)
+4. Should `error.type` be added to Android network spans for cross-platform dashboard parity? (D1)
+

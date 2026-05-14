@@ -165,6 +165,11 @@ export type NetworkSpanOptionalConfig = {
   capturedResponseHeaders?: string[];
 };
 
+/** RFC 9110 + PATCH (RFC 5789) — methods outside this set use `_OTHER` + `http.request.method_original`. */
+const KNOWN_HTTP_METHODS = new Set([
+  "GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS", "CONNECT", "TRACE",
+]);
+
 /**
  * Android / ClickHouse parity: {@code pulse.type} is {@code network.<statusCode>}
  * (e.g. {@code network.200}, {@code network.404}). Missing or non-finite status → {@code network.0}.
@@ -432,9 +437,13 @@ export function applyPulseHttpClientSpanAttributes(params: {
     return;
   }
 
-  // V2: non-standard HTTP verbs → OTel `_OTHER` + `http.request.method_original` — deferred;
-  // see network.md Done Criteria (mapping not duplicated here).
-  span.setAttribute(ak.HTTP_REQUEST_METHOD, params.method.toUpperCase());
+  const upperMethod = params.method.toUpperCase();
+  if (KNOWN_HTTP_METHODS.has(upperMethod)) {
+    span.setAttribute(ak.HTTP_REQUEST_METHOD, upperMethod);
+  } else {
+    span.setAttribute(ak.HTTP_REQUEST_METHOD, "_OTHER");
+    span.setAttribute(ak.HTTP_REQUEST_METHOD_ORIGINAL, upperMethod);
+  }
   span.setAttribute(ak.URL_FULL, sanitized);
   span.setAttribute(ak.SERVER_ADDRESS, parsed.hostname);
   let serverPort: number | undefined;
