@@ -61,7 +61,7 @@
     "heatmap.js": "2.0.5",
     "html-webpack-plugin": "^5.5.0",
     "identity-obj-proxy": "^3.0.0",
-    "iso-3166-2": "^1.0.0",
+    "iso-3166": "^4.4.0",
     "jest": "^27.4.3",
     "jest-resolve": "^27.4.2",
     "jest-watch-typeahead": "^1.0.0",
