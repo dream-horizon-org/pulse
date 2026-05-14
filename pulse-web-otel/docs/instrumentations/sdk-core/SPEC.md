@@ -233,7 +233,7 @@ Pulse.init()
 
 Config URL:
   localhost / 10.0.2.2 → http://localhost:8080/v1/configs/active/
-  production           → https://pulse-otel-collector.pulse-ux.com/config/projects/{projectId}/pulse-config.json
+  production           → pulse-otel-collector.pulse-ux.com/config/projects/{projectId}/pulse-config.json
 ```
 
 ---
