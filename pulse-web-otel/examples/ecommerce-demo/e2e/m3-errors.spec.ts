@@ -149,7 +149,9 @@ test.describe("@M3-errors lifecycle and edge behavior", () => {
     expect(getAttr(undefinedLog.attributes, "exception.message")).toBe("Unknown rejection");
   });
 
-  test("cross-origin script error signature is ignored", async ({ page, otlp }) => {
+  test("cross-origin script error emits stub device.crash (ISS-010)", async ({ page, otlp }) => {
+    // ISS-010: cross-origin "Script error." with no filename now emits a stub device.crash
+    // (empty stack/filename) instead of being silently dropped — matches Android behaviour.
     await gotoErrorDemo(page, otlp);
     await page.evaluate(() => {
       window.dispatchEvent(
@@ -161,7 +163,14 @@ test.describe("@M3-errors lifecycle and edge behavior", () => {
     });
     await page.waitForTimeout(600);
 
-    expect(findAllLogs(otlp.captured, "device.crash")).toHaveLength(0);
+    const crashes = findAllLogs(otlp.captured, "device.crash");
+    expect(crashes).toHaveLength(1);
+    const stub = crashes[0]!;
+    expect(getAttr(stub.attributes, "exception.message")).toBe("Script error.");
+    expect(getAttr(stub.attributes, "exception.stacktrace")).toBe("");
+    expect(getAttr(stub.attributes, "error.filename")).toBe("");
+    expect(getAttr(stub.attributes, "url.path")).toBeTruthy();
+    // No non_fatal should have been emitted
     expect(findAllLogs(otlp.captured, "non_fatal")).toHaveLength(0);
   });
 

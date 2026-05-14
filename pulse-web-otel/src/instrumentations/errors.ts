@@ -39,12 +39,38 @@ export class ErrorInstrumentation implements PulseInstrumentation {
     void this.prefetchDeviceState();
 
     this.onErrorHandler = (e: ErrorEvent) => {
-      // Skip cross-origin errors — browser blocks stack access for security
-      if (e.message === "Script error." && !e.filename) return;
+      // Cross-origin errors — browser blocks stack/filename for security.
+      // Emit a stub device.crash to preserve crash counts (Android parity: always records a stub).
+      if (e.message === "Script error." && !e.filename) {
+        logger.emit({
+          eventName: eventNames.DEVICE_CRASH,
+          body: "Script error.",
+          timestamp: Date.now(),
+          severityNumber: SeverityNumber.FATAL,
+          severityText: "FATAL",
+          context: context.active(),
+          attributes: {
+            [K.EVENT_NAME]: eventNames.DEVICE_CRASH,
+            [K.PULSE_TYPE]: T.DEVICE_CRASH,
+            [K.EXCEPTION_TYPE]: "Error",
+            [K.EXCEPTION_MESSAGE]: "Script error.",
+            [K.EXCEPTION_STACKTRACE]: "",
+            [K.ERROR_FILENAME]: "",
+            [K.URL_PATH]: window.location.pathname,
+            ...(this.batteryPercent !== undefined && {
+              [K.BATTERY_PERCENT]: this.batteryPercent,
+            }),
+            ...(this.storageFreeBytes !== undefined && {
+              [K.STORAGE_FREE]: this.storageFreeBytes,
+            }),
+          },
+        });
+        return;
+      }
 
       const error = e.error instanceof Error ? e.error : new Error(e.message);
 
-      const fingerprint = `${error.name}:${error.message}:${e.filename}:${e.lineno}`;
+      const fingerprint = `${error.name}:${error.message}:${e.filename}:${e.lineno}:${e.colno}`;
       if (this.isDuplicate(fingerprint)) return;
 
       logger.emit({

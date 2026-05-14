@@ -22,5 +22,11 @@ export default defineConfig({
     url: "http://localhost:3003",
     reuseExistingServer: !process.env["CI"],
     timeout: 60_000,
+    env: {
+      // Speed up log batch flushing in E2E — resolveScheduledDelay() in
+      // src/constants/exporters.ts reads this via process.env (Next.js bakes
+      // NEXT_PUBLIC_* env vars into the client bundle at build time).
+      NEXT_PUBLIC_PULSE_BATCH_DELAY_MS: "500",
+    },
   },
 });

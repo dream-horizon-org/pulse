@@ -29,6 +29,8 @@ export interface OtlpAttr {
 export interface OtlpLogRecord {
   timeUnixNano?: string;
   severityText?: string;
+  severityNumber?: number;
+  eventName?: string;
   body?: { stringValue?: string };
   attributes: OtlpAttr[];
 }

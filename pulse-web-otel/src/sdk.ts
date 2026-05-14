@@ -688,6 +688,9 @@ class PulseSDK implements SdkContext {
     this.logger.emit({
       eventName: PulseWebSemconv.LogEventName.CUSTOM_NON_FATAL,
       body: name,
+      timestamp: Date.now(),
+      severityNumber: SeverityNumber.WARN,
+      severityText: "WARN",
       attributes: {
         [PulseWebSemconv.AttributeKey.EVENT_NAME]:
           PulseWebSemconv.LogEventName.CUSTOM_NON_FATAL,
