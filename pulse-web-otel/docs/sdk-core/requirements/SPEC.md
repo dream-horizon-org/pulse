@@ -33,7 +33,7 @@ See [`../assumptions/SPEC.md`](../assumptions/SPEC.md).
 
 **R6 — Session:** `SessionProvider` assigns a `session.id` UUID on construction. It rotates the session after `pageHiddenTimeoutMs` of backgrounding (**default 15 minutes**, `DEFAULT_PAGE_HIDDEN_TIMEOUT_MS` in `src/session.ts`, overridable via config). Sessions persist `installationId` and `userId` to `localStorage`. **LLD:** [`../../instrumentations/session/SPEC.md`](../../instrumentations/session/SPEC.md).
 
-**R7 — Public API:** All methods on `Pulse` must silently no-op when called before `init` completes or after `shutdown`. **Surface table:** [`../public-api/SPEC.md`](../public-api/SPEC.md).
+**R7 — Public API:** All methods on `Pulse` must silently no-op when called before `init` completes or after `shutdown`. **Surface table:** [`../config-and-public-api/SPEC.md`](../config-and-public-api/SPEC.md) §5.6.
 
 **R8 — platform=web mandate:** Every signal must carry **`platform = 'web'`** and **`os.name = 'web'`** on the OTel Resource from `buildMergedResource()`; host config cannot override `os.name` to a non-web value.
 
@@ -51,7 +51,7 @@ See [`../assumptions/SPEC.md`](../assumptions/SPEC.md).
 
 ## 4. Architectural Design
 
-### 4.1 HLD — requirements vs ship surface (Mermaid)
+### 4.1 HLD — requirements vs ship surface 
 
 ```mermaid
 flowchart TB
@@ -62,7 +62,7 @@ flowchart TB
   SDK --> INST
 ```
 
-### 4.2 LD — requirement to module map (Mermaid)
+### 4.2 LD — requirement to module map 
 
 ```mermaid
 flowchart LR
@@ -72,7 +72,7 @@ flowchart LR
   R6["R6"] --> SESS["session.ts"]
 ```
 
-### 4.3 Flows — consent and idempotent init (Mermaid)
+### 4.3 Flows — consent and idempotent init 
 
 ```mermaid
 flowchart TD
@@ -150,7 +150,7 @@ Requirement-level spot checks for session, errors, gates, and persistence appear
 
 ## 7. Known Bugs & Gaps
 
-[`../known-gaps-and-open-questions/SPEC.md`](../known-gaps-and-open-questions/SPEC.md).
+[`../known-gaps-tradeoffs-and-plan.md`](../known-gaps-tradeoffs-and-plan.md) §1.
 
 ---
 
@@ -162,4 +162,4 @@ None.
 
 ## 9. Open Questions
 
-[`../known-gaps-and-open-questions/SPEC.md`](../known-gaps-and-open-questions/SPEC.md) §9.
+[`../known-gaps-tradeoffs-and-plan.md`](../known-gaps-tradeoffs-and-plan.md) §3.

@@ -25,7 +25,7 @@ See [`../assumptions/SPEC.md`](../assumptions/SPEC.md).
 
 ## 4. Architectural Design
 
-### 4.1 HLD — providers to network (Mermaid)
+### 4.1 HLD — providers to network 
 
 ```mermaid
 flowchart TB
@@ -36,7 +36,7 @@ flowchart TB
   BSP --> EXP
 ```
 
-### 4.2 LD — persistence + hooks in path (Mermaid)
+### 4.2 LD — persistence + hooks in path 
 
 ```mermaid
 flowchart LR
@@ -45,7 +45,7 @@ flowchart LR
   EXP --> NET["HTTP OTLP"]
 ```
 
-### 4.3 Flows — drain, pagehide, drop (Mermaid)
+### 4.3 Flows — drain, pagehide, drop 
 
 ```mermaid
 flowchart TD
@@ -116,7 +116,7 @@ Batching, `pagehide` flush, `X-Pulse-Metering-Session-ID`, and OTLP wire shape: 
 
 ## 7. Known Bugs & Gaps
 
-[`../known-gaps-and-open-questions/SPEC.md`](../known-gaps-and-open-questions/SPEC.md) (beforeSend naming P0:4).
+[`../known-gaps-tradeoffs-and-plan.md`](../known-gaps-tradeoffs-and-plan.md) §4.1 (retired **P0:4**). Naming: [`../../instrumentations/integration/SPEC.md`](../../instrumentations/integration/SPEC.md) §5.9.
 
 ---
 
@@ -128,4 +128,4 @@ None.
 
 ## 9. Open Questions
 
-[`../known-gaps-and-open-questions/SPEC.md`](../known-gaps-and-open-questions/SPEC.md) §9 (IDB drain vs first batch).
+[`../known-gaps-tradeoffs-and-plan.md`](../known-gaps-tradeoffs-and-plan.md) §3 (IDB drain vs first batch).

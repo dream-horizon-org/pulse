@@ -34,7 +34,7 @@ Define **browser session lifecycle** (`SessionProvider`), **persistence of insta
 
 ## 4. Architectural Design
 
-### 4.1 HLD — provider vs instrumentation (Mermaid)
+### 4.1 HLD — provider vs instrumentation 
 
 ```mermaid
 flowchart TB
@@ -47,7 +47,7 @@ flowchart TB
   SI --> Log
 ```
 
-### 4.2 LD — visibility-driven rotation (Mermaid)
+### 4.2 LD — visibility-driven rotation 
 
 ```mermaid
 flowchart LR
@@ -63,7 +63,7 @@ Pulse.init → SessionProvider (session.ts)
         └─ sessionProvider.onSessionChange → LoggerProvider.emit(session.start | session.end)
 ```
 
-### 4.3 Session lifecycle states (Mermaid)
+### 4.3 Session lifecycle states 
 
 ```mermaid
 stateDiagram-v2
@@ -121,7 +121,7 @@ Session lifecycle, identity, batching, BFCache, Area 3 rotation/clone/reload, co
 
 ## 7. Known Bugs & Gaps
 
-[`../../sdk-core/known-gaps-and-open-questions/SPEC.md`](../../sdk-core/known-gaps-and-open-questions/SPEC.md) where they touch identity/session UX.
+[`../../known-gaps-tradeoffs-and-plan.md`](../../known-gaps-tradeoffs-and-plan.md) where they touch identity/session UX.
 
 ---
 
@@ -133,4 +133,4 @@ Prior `sdk-lifecycle.md` session fragments absorbed into this SPEC and [`../../s
 
 ## 9. Open Questions
 
-[`../../sdk-core/known-gaps-and-open-questions/SPEC.md`](../../sdk-core/known-gaps-and-open-questions/SPEC.md) §9.
+[`../../known-gaps-tradeoffs-and-plan.md`](../../known-gaps-tradeoffs-and-plan.md) §3.

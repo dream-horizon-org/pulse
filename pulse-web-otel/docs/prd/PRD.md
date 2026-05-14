@@ -1,5 +1,7 @@
 # Screen Navigation Signals (v4-screen-signals)
 
+> **Web implementation (current):** Ships **`screen_load`** and **`screen_session`** spans only. **TTI** is on the **`screen_load`** span when Navigation Timing allows. Web **does not** emit `pulse.type = screen_interactive` as a separate span. Contract: [`../instrumentations/screen-signals/SPEC.md`](../instrumentations/screen-signals/SPEC.md). The sections below preserve the original three-signal design notes for archive context.
+
 ## Problem Statement
 
 The web SDK currently lacks structured signals for tracking user navigation and screen lifecycle. Teams cannot:

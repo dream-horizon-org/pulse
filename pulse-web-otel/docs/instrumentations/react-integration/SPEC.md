@@ -46,7 +46,7 @@ Document the **React adapter** for Pulse Web: `PulseProvider` (init + context), 
 </BrowserRouter>
 ```
 
-### 4.1 HLD — React adapter vs core SDK (Mermaid)
+### 4.1 HLD — React adapter vs core SDK 
 
 ```mermaid
 flowchart TB
@@ -58,7 +58,7 @@ flowchart TB
   PRE["PulseRouterEvents"] -->|"setScreenName"| Pulse
 ```
 
-### 4.2 LD — provider props and router (Mermaid)
+### 4.2 LD — provider props and router 
 
 ```mermaid
 flowchart LR
@@ -67,7 +67,7 @@ flowchart LR
   PRE["PulseRouterEvents"] --> RT["useLocation react-router-dom"]
 ```
 
-### 4.3 Flows — StrictMode and shutdown (Mermaid)
+### 4.3 Flows — StrictMode and shutdown 
 
 ```mermaid
 flowchart TD

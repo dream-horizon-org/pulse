@@ -41,7 +41,7 @@ Pulse.init(config)          ← src/sdk.ts
   └─ fetchInBackground
 ```
 
-### 4.1 HLD — init vs exporters (Mermaid)
+### 4.1 HLD — init vs exporters 
 
 ```mermaid
 flowchart TB
@@ -56,7 +56,7 @@ flowchart TB
   Pulse --> Exp
 ```
 
-### 4.2 LD — core modules (Mermaid)
+### 4.2 LD — core modules 
 
 ```mermaid
 flowchart LR
@@ -66,7 +66,7 @@ flowchart LR
   REG --> INST["instrumentations/*"]
 ```
 
-### 4.3 Flows — consent and idempotent init (Mermaid)
+### 4.3 Flows — consent and idempotent init 
 
 ```mermaid
 flowchart TD
@@ -92,17 +92,17 @@ Full tree and init step list: [`architecture-and-bootstrap/SPEC.md`](architectur
 | Requirements (R1–R10) | [`requirements/SPEC.md`](requirements/SPEC.md) |
 | Architecture + bootstrap sequence | [`architecture-and-bootstrap/SPEC.md`](architecture-and-bootstrap/SPEC.md) |
 | `pulse.type` + shared attributes | [`data-contract/SPEC.md`](data-contract/SPEC.md) |
-| Config + consent | [`config-and-consent/SPEC.md`](config-and-consent/SPEC.md) |
+| Config, consent, and `Pulse.*` public API | [`config-and-public-api/SPEC.md`](config-and-public-api/SPEC.md) |
 | Remote config, feature gate, sampling | [`remote-config-features-and-sampling/SPEC.md`](remote-config-features-and-sampling/SPEC.md) |
+| Export sampling, `signals.filters`, `SignalFilterProcessor` | [`sampling-and-filtering/SPEC.md`](sampling-and-filtering/SPEC.md) |
 | OTLP exporters + persistence | [`exporters-and-persistence/SPEC.md`](exporters-and-persistence/SPEC.md) |
-| `Pulse.*` public API | [`public-api/SPEC.md`](public-api/SPEC.md) |
 | Session lifecycle + logs | [`../instrumentations/session/SPEC.md`](../instrumentations/session/SPEC.md) |
 | Vitest index | [`test-coverage/SPEC.md`](test-coverage/SPEC.md) |
-| Known gaps + open questions | [`known-gaps-and-open-questions/SPEC.md`](known-gaps-and-open-questions/SPEC.md) |
+| Known gaps, tradeoffs, and plan | [`../known-gaps-tradeoffs-and-plan.md`](../known-gaps-tradeoffs-and-plan.md) |
 
 ### 5.2 Primary `src/` touchpoints
 
-`src/sdk.ts`, `src/config.ts`, `src/consent.ts`, `src/remote-config.ts`, `src/feature-gate.ts`, `src/instrumentation-registry.ts`, `src/exporters.ts`, `src/before-send.ts`, `src/resource.ts`, `src/processors/`, `src/persistence/`, `src/sampling/`, `src/utils/ua-parser.ts`. Session: `src/session.ts`, `src/instrumentations/session.ts` → [`../instrumentations/session/SPEC.md`](../instrumentations/session/SPEC.md).
+`src/sdk.ts`, `src/config.ts`, `src/consent.ts`, `src/remote-config.ts`, `src/feature-gate.ts`, `src/instrumentation-registry.ts`, `src/exporters.ts`, `src/before-send.ts`, `src/resource.ts`, `src/processors/`, `src/persistence/`, `src/sampling/`, `src/utils/ua-parser.ts` — sampling and `signals.filters` detail: [`sampling-and-filtering/SPEC.md`](sampling-and-filtering/SPEC.md). Session: `src/session.ts`, `src/instrumentations/session.ts` → [`../instrumentations/session/SPEC.md`](../instrumentations/session/SPEC.md).
 
 ### 5.3 Topic LLD depth (§5 in each sub-SPEC)
 
@@ -137,16 +137,16 @@ All Playwright scenario titles and the **Next.js vs React parity matrix** live i
 
 ## 7. Known Bugs & Gaps
 
-[`known-gaps-and-open-questions/SPEC.md`](known-gaps-and-open-questions/SPEC.md).
+[`../known-gaps-tradeoffs-and-plan.md`](../known-gaps-tradeoffs-and-plan.md) §1.
 
 ---
 
 ## 8. Redundancy & Cleanup Notes
 
-See [`known-gaps-and-open-questions/SPEC.md`](known-gaps-and-open-questions/SPEC.md) §8.
+Retired stable IDs and absorbed legacy paths: [`../known-gaps-tradeoffs-and-plan.md`](../known-gaps-tradeoffs-and-plan.md) §4.
 
 ---
 
 ## 9. Open Questions
 
-See [`known-gaps-and-open-questions/SPEC.md`](known-gaps-and-open-questions/SPEC.md) §9.
+[`../known-gaps-tradeoffs-and-plan.md`](../known-gaps-tradeoffs-and-plan.md) §3.

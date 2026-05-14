@@ -31,7 +31,7 @@ Numbered requirements **R1–R10** live in [`../requirements/SPEC.md`](../requir
 
 ## 4. Architectural Design
 
-### 4.1 HLD — assumption boundaries (Mermaid)
+### 4.1 HLD — assumption boundaries 
 
 ```mermaid
 flowchart TB
@@ -44,7 +44,7 @@ flowchart TB
   B --> Parity
 ```
 
-### 4.2 LD — where assumptions bind in code (Mermaid)
+### 4.2 LD — where assumptions bind in code 
 
 ```mermaid
 flowchart LR
@@ -53,7 +53,7 @@ flowchart LR
   A --> RES["resource.ts"]
 ```
 
-### 4.3 Flows — SSR and storage (Mermaid)
+### 4.3 Flows — SSR and storage 
 
 ```mermaid
 flowchart TD
@@ -120,7 +120,7 @@ Browser-facing assumptions (storage, consent, batching, BFCache) are additionall
 
 ## 7. Known Bugs & Gaps
 
-No assumptions-specific P0 items. Product-level gaps: [`../known-gaps-and-open-questions/SPEC.md`](../known-gaps-and-open-questions/SPEC.md).
+No assumptions-specific P0 items. Product-level gaps: [`../known-gaps-tradeoffs-and-plan.md`](../known-gaps-tradeoffs-and-plan.md) §1.
 
 ---
 
@@ -132,4 +132,4 @@ None.
 
 ## 9. Open Questions
 
-See [`../known-gaps-and-open-questions/SPEC.md`](../known-gaps-and-open-questions/SPEC.md) §9.
+See [`../known-gaps-tradeoffs-and-plan.md`](../known-gaps-tradeoffs-and-plan.md) §3.

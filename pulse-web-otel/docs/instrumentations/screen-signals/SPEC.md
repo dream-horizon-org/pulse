@@ -42,7 +42,7 @@ Track **initial page load** and **SPA route transitions** using OTLP **client sp
 
 Patch History API for SPA parity with Android activity transitions; reuse Navigation Timing for cold loads. No dual emission: **do not** also emit log records for the same navigation events.
 
-### 4.1 HLD — navigation instrumentation boundary (Mermaid)
+### 4.1 HLD — navigation instrumentation boundary 
 
 ```mermaid
 flowchart TB
@@ -55,7 +55,7 @@ flowchart TB
   Nav --> Tracer
 ```
 
-### 4.2 LD — `navigation.ts` modules (Mermaid)
+### 4.2 LD — `navigation.ts` modules 
 
 ```mermaid
 flowchart LR
@@ -64,7 +64,7 @@ flowchart LR
   Nav --> SN["setScreenName / resolveScreenNameFromUrl"]
 ```
 
-### 4.3 Flows — consent, BFCache, uninstall (Mermaid)
+### 4.3 Flows — consent, BFCache, uninstall 
 
 ```mermaid
 flowchart TD

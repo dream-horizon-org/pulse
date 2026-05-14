@@ -44,7 +44,7 @@ InteractionInstrumentation.install()
         └─ SpanBuilder emits OTel records when a sequence completes
 ```
 
-### 4.1 HLD — feature vs registry (Mermaid)
+### 4.1 HLD — feature vs registry 
 
 ```mermaid
 flowchart TB
@@ -59,7 +59,7 @@ flowchart TB
   Coord --> SB
 ```
 
-### 4.2 LD — data path (Mermaid)
+### 4.2 LD — data path 
 
 ```mermaid
 flowchart LR
@@ -69,7 +69,7 @@ flowchart LR
   SB --> Span["OTLP span interaction"]
 ```
 
-### 4.3 Flows — gate and config failure (Mermaid)
+### 4.3 Flows — gate and config failure 
 
 ```mermaid
 flowchart TD

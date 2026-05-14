@@ -25,7 +25,7 @@ Maps to **R1–R10** verification — [`../requirements/SPEC.md`](../requirement
 
 ## 4. Architectural Design
 
-### 4.1 HLD — test layers (Mermaid)
+### 4.1 HLD — test layers 
 
 ```mermaid
 flowchart TB
@@ -36,7 +36,7 @@ flowchart TB
   IT --> E2E
 ```
 
-### 4.2 LD — suite → concern map (Mermaid)
+### 4.2 LD — suite → concern map 
 
 ```mermaid
 flowchart LR
@@ -45,7 +45,7 @@ flowchart LR
   M8["m8.test.ts"] --> PH["pagehide flush"]
 ```
 
-### 4.3 Flows — CI vs local (Mermaid)
+### 4.3 Flows — CI vs local 
 
 ```mermaid
 flowchart TD
@@ -383,11 +383,43 @@ Below: **Playwright `test()` titles** as registered in the repo (grouped by `tes
 - **ClickHouse specs (`m3-ch`, `m16-ch`, `nextjs-demo.ch`):** optional; require CH URL + credentials in env — not part of default `e2e:web-sdk-gates`.
 - **Residual product gaps (not necessarily test bugs):** (1) Next demo does not exercise `NavigationInstrumentation` spans. (2) No Next E2E for soft-nav web vitals flush (`Pulse.notifySoftNavigation`) as a dedicated assertion. (3) No E2E for `HashRouter` / hash-only navigation (documented as unsupported for SPA screen signals). (4) Interactions SPEC matrix row **INT-E1** (config fetch unavailable) marked **gap** in Vitest — M2 E2E covers “config fetch unavailable” at telemetry level but not every unit edge.
 
+### 6.6 Consumer install smoke — published `@dreamhorizonorg/pulse-web/next` (P1:8)
+
+**Goal:** Prove a clean **`create-next-app`** (or equivalent) can install the **published tarball** (not only workspace `file:`) and compile with documented Next settings.
+
+| Step | Action | Pass criterion |
+|------|--------|----------------|
+| 1 | `cd pulse-web-otel && yarn pack` (or `npm pack`) from the release branch | Produces `.tgz` with expected `package/` layout |
+| 2 | `npx create-next-app@latest pulse-next-smoke --ts --eslint --app --no-src-dir` (or team-standard flags) into a temp dir | App boots `yarn dev` |
+| 3 | Install tarball: `yarn add ../path/to/dreamhorizonorg-pulse-web-*.tgz` (and subpath deps if any) | `yarn build` succeeds |
+| 4 | Apply integration SPEC guidance: `transpilePackages: ['@dreamhorizonorg/pulse-web']`, `serverExternalPackages` / `experimental.serverComponentsExternalPackages` as required by Next version | No “package not transpiled” / ESM resolution errors |
+| 5 | Wire minimal `instrumentation.ts` + `withPulseConfig` per [`../../instrumentations/nextjs-integration/SPEC.md`](../../instrumentations/nextjs-integration/SPEC.md) | `yarn build` + one manual page load without crash |
+
+Record outcome in a **dated bullet under §6.6** below (or in `CHANGELOG.md` when tied to a release). This checklist is **process / release QA**, not a Vitest file.
+
+### 6.7 Data-contract Vitest / Playwright follow-ups (RF-DC2–DC4)
+
+Backlog from the data-contract audit (`docs/sdk-core/data-contract/SPEC.md` §6 matrices). Tracked for implementation in [`../../review-fix.md`](../../review-fix.md) **§3** (code/tests only).
+
+| ID | What to implement | Why it matters |
+|----|-------------------|----------------|
+| **RF-DC2** | Unit test: `PulseGlobalAttributesProcessor.onEmit` when the log already has a **non-empty** `session.id` | Processor must **not** replace that value (session lifecycle logs keep the id attached before rotation). |
+| **RF-DC3** | Optional: `buildMergedResource` + hostile `os.name` in `resourceAttributes` | Locks SPEC guarantee: Pulse resource wins on duplicate keys, **`os.name` = `web`** for ClickHouse `Platform`. |
+| **RF-DC4** | Optional Playwright: assert `pulse.user.session.start` / `end` on exported OTLP | `user-identity.test.ts` covers unit path; E2E locks browser → OTLP for identity transitions. Waivable if team accepts unit-only. |
+
+### 6.8 Sampling / export-gate Vitest follow-ups (RF-SF1)
+
+Backlog from [`sampling-and-filtering/SPEC.md`](./sampling-and-filtering/SPEC.md) §6–§7. Tracked in [`../../review-fix.md`](../../review-fix.md) **§3.4**.
+
+| ID | What to implement | Why it matters |
+|----|-------------------|----------------|
+| **RF-SF1a**–**RF-SF1e** | Span + metric `ExportSamplingGate` coverage, `signalsToSample` probabilistic drop, empty-batch `Sampled*Exporter`, optional metric E2E | Locks R-SF8 and trace parity with log gate tests; see **review-fix** §3.4 table. |
+
 ---
 
 ## 7. Known Bugs & Gaps
 
-[`../known-gaps-and-open-questions/SPEC.md`](../known-gaps-and-open-questions/SPEC.md).
+[`../../known-gaps-tradeoffs-and-plan.md`](../../known-gaps-tradeoffs-and-plan.md) §1.
 
 ---
 
@@ -399,4 +431,4 @@ Prior `web-sdk-plan/v1/01-foundation/README.md` test pointers absorbed here.
 
 ## 9. Open Questions
 
-[`../known-gaps-and-open-questions/SPEC.md`](../known-gaps-and-open-questions/SPEC.md) §9.
+[`../../known-gaps-tradeoffs-and-plan.md`](../../known-gaps-tradeoffs-and-plan.md) §3.
