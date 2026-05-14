@@ -71,19 +71,22 @@ public class ClickHouseComputeService {
   }
 
   /**
-   * Fires the bridge inserts. What fires depends on funnel mode:
+   * Fires the bridge inserts + the precomputed attribution insert. What fires depends on mode:
    * <ul>
-   *   <li>SESSIONS funnels → only {@code funnel_session_state} (per-session windowFunnel chain).
-   *       Drop-off DAO uses this for cohort + correlation.</li>
+   *   <li>SESSIONS funnels → {@code funnel_session_state} (per-session windowFunnel chain) +
+   *       {@code funnel_dropoff_attribution} (cause × step precompute against session_state).
+   *       Drop-off DAO uses the session_state cohort and the attribution rows for the panel.</li>
    *   <li>UNIQUE_USERS funnels → BOTH {@code funnel_session_state} AND
-   *       {@code funnel_user_state}. The user_state table (cross-session windowFunnel chain
-   *       directly on {@code otel_logs}) drives the cohort + lift numbers shown in the panel.
-   *       The session_state table is written purely to power the x-ray drill-in
-   *       ("show all of this user's attempts") and the single-session debug view — its rows
-   *       don't feed the cohort calculation in UNIQUE_USERS mode.</li>
+   *       {@code funnel_user_state} + {@code funnel_dropoff_attribution} (computed against
+   *       user_state, the cross-session view). The user_state table drives cohort + lift
+   *       numbers shown in the panel; session_state powers the x-ray drill-in only.</li>
    * </ul>
-   * The two tables are independent (user_state no longer derives from session_state), so order
-   * doesn't matter. Both inserts are issued; either may no-op for unordered/zero-step funnels.
+   * The three tables are independent (user_state no longer derives from session_state;
+   * attribution reads from whichever bridge matches mode). Inserts are chained so attribution
+   * runs strictly AFTER the bridge tables it scans. Each step is best-effort — if any one
+   * errors, the cascade short-circuits via {@code onErrorReturn} and the primary funnel
+   * compute still succeeds. The drop-off DAO falls back to the live cause-join query when
+   * the attribution table is empty for the current RunTime.
    *
    * <p>Never fails the upstream funnel compute — errors are logged and swallowed.
    */
@@ -91,12 +94,14 @@ public class ClickHouseComputeService {
     String projectId = def.getProjectId();
     String sessionSql = ClickHouseFunnelComputeDao.buildSessionStateInsertSql(def, runTime);
     String userSql = ClickHouseFunnelComputeDao.buildUserStateInsertSql(def, runTime);
+    String attributionSql = ClickHouseFunnelComputeDao.buildAttributionInsertSql(def, runTime);
 
     return executeInsert(projectId, sessionSql)
       .flatMap(ok -> executeInsert(projectId, userSql))
+      .flatMap(ok -> executeInsert(projectId, attributionSql))
       .onErrorReturn(err -> {
         log.warn(
-          "Drop-off bridge emission failed for projectId={}, funnelId={}: {}",
+          "Drop-off bridge / attribution emission failed for projectId={}, funnelId={}: {}",
           projectId, def.getId(), err.getMessage());
         return true;
       });

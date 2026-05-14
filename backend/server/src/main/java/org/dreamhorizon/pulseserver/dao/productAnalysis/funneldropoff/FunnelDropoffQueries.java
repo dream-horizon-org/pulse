@@ -37,7 +37,43 @@ public final class FunnelDropoffQueries {
   private FunnelDropoffQueries() {}
 
   /**
-   * Returns the ranked list of causes for one (funnel × step × run) tuple.
+   * Returns the ranked list of causes for one (funnel × step × run) tuple by reading from
+   * the precomputed {@code otel.funnel_dropoff_attribution} table. Should be tried first;
+   * if it returns an empty list (no precomputed rows for this run — typically because the
+   * funnel compute didn't run after the attribution feature shipped), fall back to
+   * {@link #buildCausesSql} which does the live OTel join.
+   */
+  public static String buildCausesSqlFromAttribution(
+      String projectId, long funnelId, int stepIndex, String runTime) {
+    String pid = esc(projectId);
+    String rtExpr = runTimeExpr(pid, funnelId, runTime);
+    // Bridge cohort step convention: DropoffStep = stepIndex + 1 (drops FROM stepIndex
+    // means failed-to-reach stepIndex+1). Attribution table stores StepIndex with the same
+    // "step the user failed to reach" semantics.
+    int targetStep = stepIndex + 1;
+    return "SELECT "
+        + "  CauseKind AS causeKind, "
+        + "  CauseKey AS causeKey, "
+        + "  CauseLabel AS causeLabel, "
+        + "  DropoffCohort AS dropoffCohort, "
+        + "  DropoffAffected AS dropoffAffected, "
+        + "  ConverterCohort AS converterCohort, "
+        + "  ConverterAffected AS converterAffected, "
+        + "  Lift AS lift, "
+        + "  arrayStringConcat(ExampleSessions, ',') AS exampleSessions "
+        + "FROM otel.funnel_dropoff_attribution "
+        + "WHERE ProjectId = '" + pid + "' "
+        + "  AND FunnelId = " + funnelId + " "
+        + "  AND RunTime = " + rtExpr + " "
+        + "  AND StepIndex = " + targetStep + " "
+        + "ORDER BY lift DESC, dropoffAffected DESC "
+        + "LIMIT 50";
+  }
+
+  /**
+   * Returns the ranked list of causes for one (funnel × step × run) tuple via live join
+   * against the OTel signal tables. Used as a fallback when the precomputed attribution
+   * table has no rows for this run.
    *
    * @param mode {@code UNIQUE_USERS} → anchor on {@code funnel_user_state.CanonicalSessionId};
    *             anything else (SESSIONS / null) → anchor on {@code funnel_session_state.SessionId}.

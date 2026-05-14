@@ -94,4 +94,57 @@ class FunnelDropoffQueriesTest {
       assertThat(sql).contains("bad''id");
     }
   }
+
+  @Nested
+  class BuildCausesSqlFromAttribution {
+
+    @Test
+    void shouldReadFromPrecomputedAttributionTable() {
+      String sql = FunnelDropoffQueries.buildCausesSqlFromAttribution(
+          "p1", 7L, 3, "2026-04-23 10:00:00");
+      assertThat(sql)
+          .contains("FROM otel.funnel_dropoff_attribution")
+          .doesNotContain("INNER JOIN otel.stack_trace_events")
+          .doesNotContain("INNER JOIN otel.otel_traces")
+          .doesNotContain("INNER JOIN otel.session_summary");
+    }
+
+    @Test
+    void shouldFilterByFunnelStepAndRunTime() {
+      String sql = FunnelDropoffQueries.buildCausesSqlFromAttribution(
+          "p1", 7L, 3, "2026-04-23 10:00:00");
+      // stepIndex=3 means "dropped from step 3" → attribution table stores StepIndex = 4
+      // (the step the user failed to reach).
+      assertThat(sql)
+          .contains("ProjectId = 'p1'")
+          .contains("FunnelId = 7")
+          .contains("StepIndex = 4")
+          .contains("toDateTime64('2026-04-23 10:00:00', 3, 'UTC')");
+    }
+
+    @Test
+    void shouldOrderByLiftDescAndCapAt50Rows() {
+      String sql = FunnelDropoffQueries.buildCausesSqlFromAttribution(
+          "p1", 7L, 3, "2026-04-23 10:00:00");
+      assertThat(sql)
+          .contains("ORDER BY lift DESC, dropoffAffected DESC")
+          .contains("LIMIT 50");
+    }
+
+    @Test
+    void shouldConvertExampleSessionsArrayToCsvForDaoMapping() {
+      // CauseRow.exampleSessions is a String (comma-joined). The precomputed table
+      // stores Array(String), so the SELECT must convert via arrayStringConcat.
+      String sql = FunnelDropoffQueries.buildCausesSqlFromAttribution(
+          "p1", 7L, 3, "2026-04-23 10:00:00");
+      assertThat(sql).contains("arrayStringConcat(ExampleSessions, ',') AS exampleSessions");
+    }
+
+    @Test
+    void shouldFallBackToMaxRunTimeWhenRunTimeIsNull() {
+      String sql = FunnelDropoffQueries.buildCausesSqlFromAttribution(
+          "p1", 7L, 3, null);
+      assertThat(sql).contains("SELECT max(RunTime) FROM otel.funnel_results");
+    }
+  }
 }

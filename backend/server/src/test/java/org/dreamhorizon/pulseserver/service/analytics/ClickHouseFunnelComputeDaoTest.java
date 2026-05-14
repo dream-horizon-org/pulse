@@ -945,4 +945,148 @@ class ClickHouseFunnelComputeDaoTest {
       assertThat(sql).contains(RUN_TIME);
     }
   }
+
+  @Nested
+  class BuildAttributionInsertSql {
+
+    private static final String RUN_TIME = "toDateTime64('2026-04-23 10:00:00.000', 3, 'UTC')";
+
+    @Test
+    void shouldReturnEmptyForUnorderedFunnels() {
+      String sql = ClickHouseFunnelComputeDao.buildAttributionInsertSql(
+          baseRow().stepOrderType("UNORDERED").build(), RUN_TIME);
+      assertThat(sql).isEmpty();
+    }
+
+    @Test
+    void shouldReturnEmptyForSingleStepFunnels() {
+      // Single-step funnels have no "drop off from step k to k+1" to attribute.
+      String stepsJson = "[{\"eventName\":\"app_open\"}]";
+      String sql = ClickHouseFunnelComputeDao.buildAttributionInsertSql(
+          baseRow().stepsJson(stepsJson).stepOrderType("ORDERED").build(), RUN_TIME);
+      assertThat(sql).isEmpty();
+    }
+
+    @Test
+    void shouldReturnEmptyForZeroStepFunnels() {
+      String sql = ClickHouseFunnelComputeDao.buildAttributionInsertSql(
+          baseRow().stepsJson("[]").stepOrderType("ORDERED").build(), RUN_TIME);
+      assertThat(sql).isEmpty();
+    }
+
+    @Test
+    void shouldTargetFunnelDropoffAttributionTable() {
+      String sql = ClickHouseFunnelComputeDao.buildAttributionInsertSql(
+          baseRow().mode("SESSIONS").stepOrderType("ORDERED").build(), RUN_TIME);
+      assertThat(sql).contains("INSERT INTO otel.funnel_dropoff_attribution");
+    }
+
+    @Test
+    void shouldReadFromSessionStateBridgeForSessionsMode() {
+      String sql = ClickHouseFunnelComputeDao.buildAttributionInsertSql(
+          baseRow().mode("SESSIONS").stepOrderType("ORDERED").build(), RUN_TIME);
+      assertThat(sql)
+          .contains("FROM otel.funnel_session_state")
+          .contains("SessionId AS SessionId")
+          .contains("LastReachedAt AS LastReachedAt")
+          .doesNotContain("CanonicalSessionId AS SessionId");
+    }
+
+    @Test
+    void shouldReadFromUserStateBridgeForUniqueUsersMode() {
+      String sql = ClickHouseFunnelComputeDao.buildAttributionInsertSql(
+          baseRow().mode("UNIQUE_USERS").stepOrderType("ORDERED").build(), RUN_TIME);
+      assertThat(sql)
+          .contains("FROM otel.funnel_user_state")
+          .contains("CanonicalSessionId AS SessionId")
+          .contains("CanonicalLastReachedAt AS LastReachedAt")
+          .doesNotContain("FROM otel.funnel_session_state");
+    }
+
+    @Test
+    void shouldFilterDroppersByDropoffStepGreaterThanZeroAndConvertersByMinusOne() {
+      String sql = ClickHouseFunnelComputeDao.buildAttributionInsertSql(
+          baseRow().mode("SESSIONS").stepOrderType("ORDERED").build(), RUN_TIME);
+      assertThat(sql)
+          .contains("DropoffStep > 0")
+          .contains("DropoffStep = -1");
+    }
+
+    @Test
+    void shouldUseSharedRunTimeForBridgeReads() {
+      String sql = ClickHouseFunnelComputeDao.buildAttributionInsertSql(
+          baseRow().mode("SESSIONS").stepOrderType("ORDERED").build(), RUN_TIME);
+      assertThat(sql).contains("RunTime = " + RUN_TIME);
+    }
+
+    @Test
+    void shouldJoinStackTraceEventsForCrashAnrNonFatalCauses() {
+      String sql = ClickHouseFunnelComputeDao.buildAttributionInsertSql(
+          baseRow().mode("SESSIONS").stepOrderType("ORDERED").build(), RUN_TIME);
+      assertThat(sql)
+          .contains("INNER JOIN otel.stack_trace_events")
+          .contains("lower(e.PulseType) IN ('crash', 'anr', 'non_fatal')")
+          .contains("concat(e.ExceptionType, '@', e.ScreenName) AS cause_key");
+    }
+
+    @Test
+    void shouldJoinOtelTracesForHttp4xxAnd5xxCauses() {
+      String sql = ClickHouseFunnelComputeDao.buildAttributionInsertSql(
+          baseRow().mode("SESSIONS").stepOrderType("ORDERED").build(), RUN_TIME);
+      assertThat(sql)
+          .contains("FROM otel.otel_traces t")
+          .contains("if(http_status >= 500, 'http_5xx', 'http_4xx') AS cause_kind")
+          .contains("http_status >= 400");
+    }
+
+    @Test
+    void shouldJoinSessionSummaryForFrozenFrameCause() {
+      String sql = ClickHouseFunnelComputeDao.buildAttributionInsertSql(
+          baseRow().mode("SESSIONS").stepOrderType("ORDERED").build(), RUN_TIME);
+      assertThat(sql)
+          .contains("INNER JOIN otel.session_summary")
+          .contains("'frozen_frame' AS cause_kind")
+          .contains("frozenFrameCount > 0");
+    }
+
+    @Test
+    void shouldApplyAttributionWindowAroundLastReachedAt() {
+      String sql = ClickHouseFunnelComputeDao.buildAttributionInsertSql(
+          baseRow().mode("SESSIONS").stepOrderType("ORDERED").build(), RUN_TIME);
+      assertThat(sql)
+          .contains("INTERVAL 30 SECOND")  // before window
+          .contains("INTERVAL 60 SECOND"); // after window
+    }
+
+    @Test
+    void shouldSampleExampleSessionsUpToCapPerCause() {
+      String sql = ClickHouseFunnelComputeDao.buildAttributionInsertSql(
+          baseRow().mode("SESSIONS").stepOrderType("ORDERED").build(), RUN_TIME);
+      assertThat(sql).contains("groupArraySample(50)(d.SessionId) AS examples");
+    }
+
+    @Test
+    void shouldComputeLiftWithSentinelWhenConverterCohortIsZero() {
+      String sql = ClickHouseFunnelComputeDao.buildAttributionInsertSql(
+          baseRow().mode("SESSIONS").stepOrderType("ORDERED").build(), RUN_TIME);
+      // Sentinel 999.0 keeps high-signal causes ranked at the top when there's no
+      // converter baseline (e.g. brand-new funnel with zero converters yet).
+      assertThat(sql).contains("if(d_aff > 0, 999.0, 0.0)");
+    }
+
+    @Test
+    void shouldEmitPValueZeroForNowAsChiSquareIsDeferred() {
+      String sql = ClickHouseFunnelComputeDao.buildAttributionInsertSql(
+          baseRow().mode("SESSIONS").stepOrderType("ORDERED").build(), RUN_TIME);
+      assertThat(sql).contains("toFloat64(0.0)");
+    }
+
+    @Test
+    void shouldUnionAllThreeCauseBranches() {
+      String sql = ClickHouseFunnelComputeDao.buildAttributionInsertSql(
+          baseRow().mode("SESSIONS").stepOrderType("ORDERED").build(), RUN_TIME);
+      // stack / http / frame — exactly two UNION ALLs between three branches.
+      assertThat(sql.split("UNION ALL", -1)).hasSize(3);
+    }
+  }
 }

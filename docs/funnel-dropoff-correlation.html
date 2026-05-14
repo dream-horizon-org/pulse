@@ -681,9 +681,17 @@ PValue = chi-square or Fisher's exact
 <p>Keep only causes with <code>Lift &gt; 1.5</code> and <code>PValue &lt; 0.05</code>.</p>
 <h3 id="step-7-evidence-sampling">Step 7 — Evidence sampling</h3>
 <p>Reservoir-sample top-N (cap ~50) <code>SessionId</code>s per cause, biased toward sessions that have a <code>session_replay_events</code> blob available. In UNIQUE_USERS mode these are canonical session IDs; in SESSIONS mode they're the dropped sessions directly.</p>
-<h3 id="step-8-write">Step 8 — Write</h3>
-<p>Insert rows into <code>funnel_dropoff_attribution_local</code>. Caching pattern mirrors the existing <code>root_cause_cache</code>.</p>
-<p><strong>Shared RunTime contract:</strong> Steps 1, 2 and 8 MUST share the same <code>RunTime</code> literal so the DAO's <code>MAX(RunTime)</code> lookup returns them as one consistent run. The ClickHouse compute path threads this via <code>ClickHouseFunnelComputeDao.newRunTimeLiteral()</code>; Spark passes the same <code>runTime</code> string into <code>emitBridgeAndRollup</code>.</p>
+<h3 id="step-8-write-funnel_dropoff_attribution">Step 8 — Write (<code>funnel_dropoff_attribution</code>)</h3>
+<p>Steps 3–7 above are executed in a single <code>INSERT INTO otel.funnel_dropoff_attribution … WITH …</code> SQL block built by <code>ClickHouseFunnelComputeDao.buildAttributionInsertSql(def, runTime)</code>. One row per <code>(FunnelId, RunTime, StepIndex, CauseKind, CauseKey)</code> with cohort sizes, affected counts, lift, and a capped 50-element <code>ExampleSessions</code> array.</p>
+<ul>
+<li>Bridge table read mode-switches: SESSIONS funnels read <code>funnel_session_state</code>, UNIQUE_USERS funnels read <code>funnel_user_state</code> (with <code>CanonicalSessionId</code> aliased to <code>SessionId</code> and <code>CanonicalLastReachedAt</code> aliased to <code>LastReachedAt</code> so the cause-join SQL is identical for both modes).</li>
+<li>Per-step dropper cohort sizes via a <code>dropper_cohorts</code> CTE keyed on <code>step</code>; scalar converter cohort via <code>converter_cohort</code>.</li>
+<li>Three cause branches UNION ALL'd together: stack_trace_events (<code>crash</code> / <code>anr</code> / <code>non_fatal</code>), otel_traces (<code>http_5xx</code> / <code>http_4xx</code>), session_summary (<code>frozen_frame</code>). <code>groupArraySample(50)</code> per (step × cause) caps example session IDs.</li>
+<li><code>PValue</code> is emitted as <code>0.0</code> in v1 — chi-square / Fisher's exact deferred. Lift filtering does most of the ranking work.</li>
+<li>Skipped for unordered funnels and funnels with fewer than 2 steps (nothing to attribute).</li>
+</ul>
+<p><strong>Read path:</strong> <code>FunnelDropoffQueries.buildCausesSqlFromAttribution</code> does a single indexed lookup against <code>funnel_dropoff_attribution</code> filtered on <code>(ProjectId, FunnelId, RunTime, StepIndex)</code>. The DAO tries this precomputed path first; if it returns zero rows (e.g. for an old run that predates the attribution writer), it falls back to the live <code>buildCausesSql</code> join against the OTel signal tables. UI behavior is identical either way.</p>
+<p><strong>Shared RunTime contract:</strong> All four inserts — <code>funnel_results</code>, <code>funnel_session_state</code>, <code>funnel_user_state</code>, <code>funnel_dropoff_attribution</code> — MUST share one <code>RunTime</code> literal so the drop-off DAO's <code>MAX(RunTime)</code> lookup returns them as one consistent run. The ClickHouse compute path threads this via <code>ClickHouseFunnelComputeDao.newRunTimeLiteral()</code> → <code>buildInsertSqlForDefinition(def, runTime)</code> → <code>buildInsertSqlWindowFunnel(def, runTime)</code>, plus the three bridge/attribution builders. Spark's path is currently out of scope for this alignment.</p>
 <h2 id="7-lift-example-alices-step">7. Lift Example — Alice's Step</h2>
 <p>Aggregating over all 12,000 sessions that dropped at step 3 (SESSIONS mode):</p>
 <table>
@@ -1031,11 +1039,11 @@ GROUP BY retry_bucket;
 <h2 id="12-minimum-viable-slice">12. Minimum Viable Slice</h2>
 <p><strong>Fastest path to ship.</strong> If the roadmap needs a quick win, build in this order:</p>
 <ol>
-<li>Add <code>funnel_session_state_local</code> only (skip the attribution precompute and the user rollup). Supports SESSIONS-mode funnels end-to-end.</li>
-<li>Side-panel runs the cause query on-demand against <code>stack_trace_events</code> + <code>session_summary</code> + <code>otel_traces</code> for the dropped cohort. Sub-second for most projects.</li>
-<li>Add <code>funnel_user_state_local</code> so UNIQUE_USERS funnels get the user-level cohort unit. Thin derived insert from the session bridge — a few hundred lines of SQL, no new Spark logic beyond the rollup.</li>
-<li>Add <code>funnel_dropoff_attribution_local</code> + baseline/lift once UX is validated and query volume justifies precompute.</li>
-<li>Uncomment the HTTP materialized columns in <code>clickhouse_cluster_migration.sql</code> (lines 134–140): <code>HttpUrl</code>, <code>HttpHost</code>, <code>HttpMethod</code>, <code>HttpStatusCode</code> + indexes. Makes the network-cause query an indexed lookup instead of a Map scan.</li>
+<li>✅ Add <code>funnel_session_state_local</code>. Supports SESSIONS-mode funnels end-to-end.</li>
+<li>✅ Side-panel runs the cause query on-demand against <code>stack_trace_events</code> + <code>session_summary</code> + <code>otel_traces</code> for the dropped cohort. Sub-second for most projects. (Retained as the fallback path when precomputed rows are absent.)</li>
+<li>✅ Add <code>funnel_user_state_local</code> so UNIQUE_USERS funnels get the user-level cohort unit. Independently computed cross-session windowFunnel chain (not derived from session_state) so cross-session converters are captured.</li>
+<li>✅ Add <code>funnel_dropoff_attribution_local</code> + baseline/lift. Side-panel reads precomputed rows; falls back to live join when no rows exist for the requested RunTime.</li>
+<li>Uncomment the HTTP materialized columns in <code>clickhouse_cluster_migration.sql</code> (lines 134–140): <code>HttpUrl</code>, <code>HttpHost</code>, <code>HttpMethod</code>, <code>HttpStatusCode</code> + indexes. Makes the network-cause query an indexed lookup instead of a Map scan. <em>(still pending)</em></li>
 </ol>
 <h2 id="13-mental-model">13. Mental Model</h2>
 <p>The funnel chart knows <strong>how many</strong> dropped. The two bridge tables remember <strong>who</strong> dropped, <strong>when</strong>, and (for cross-session chains) <strong>which session held the final step</strong>. Every other OTel table we already have — traces, crashes, session replay, heatmaps — becomes joinable on those rows.</p>

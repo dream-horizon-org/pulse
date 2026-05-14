@@ -901,6 +901,297 @@ public final class ClickHouseFunnelComputeDao {
     return sql.toString();
   }
 
+  /** Window around {@code LastReachedAt} used to attribute OTel signals (matches DAO). */
+  private static final int ATTRIBUTION_WINDOW_BEFORE_SEC = 30;
+  private static final int ATTRIBUTION_WINDOW_AFTER_SEC = 60;
+  /** Cap on the example sessions array stored per (step × cause) row. */
+  private static final int ATTRIBUTION_EXAMPLES_PER_CAUSE = 50;
+
+  /**
+   * Builds the INSERT SQL that populates {@code otel.funnel_dropoff_attribution} — one row
+   * per {@code (FunnelId, RunTime, StepIndex, CauseKind, CauseKey)} with cohort sizes,
+   * affected counts, lift, and a capped array of example session IDs. The side-panel reads
+   * these rows directly via {@code FunnelDropoffQueries.buildCausesSqlFromAttribution}, no
+   * live OTel joins at query time.
+   *
+   * <p>Returns empty for: unordered funnels (no DropoffStep concept), zero-step funnels, or
+   * single-step funnels (only one step, no dropoff cohort to attribute).
+   *
+   * <p>Reads from the bridge table picked by mode — {@code funnel_session_state} for SESSIONS,
+   * {@code funnel_user_state} for UNIQUE_USERS — for the SAME {@code RunTime} as the caller
+   * supplies. Must run AFTER both bridge inserts.
+   *
+   * <p>Cause sources covered:
+   * <ul>
+   *   <li><b>stack_trace_events</b> → {@code crash} / {@code anr} / {@code non_fatal}, keyed
+   *       by {@code ExceptionType@ScreenName}.</li>
+   *   <li><b>otel_traces</b> → {@code http_5xx} / {@code http_4xx}, keyed by
+   *       {@code method host status}.</li>
+   *   <li><b>session_summary</b> → coarse {@code frozen_frame} flag.</li>
+   * </ul>
+   *
+   * <p>{@code PValue} is emitted as {@code 0.0} for v1 — ClickHouse doesn't have a native
+   * chi-square / Fisher's exact, and lift filtering does most of the work. Computing
+   * significance in a follow-up if needed.
+   */
+  public static String buildAttributionInsertSql(FunnelDefinitionRow def, String runTime) {
+    if (isUnorderedFunnel(def)) {
+      return "";
+    }
+    List<FunnelDefinitionStep> steps = deserializeSteps(def.getStepsJson());
+    if (steps.size() < 2) {
+      // Single-step (or zero-step) funnels: no dropoff cohort to attribute against.
+      return "";
+    }
+
+    long funnelId = def.getId();
+    String projectId = def.getProjectId();
+    boolean isUniqueUsers = "UNIQUE_USERS".equalsIgnoreCase(def.getMode());
+    String bridgeTable = isUniqueUsers ? "otel.funnel_user_state" : "otel.funnel_session_state";
+    String sidCol = isUniqueUsers ? "CanonicalSessionId" : "SessionId";
+    String tsCol = isUniqueUsers ? "CanonicalLastReachedAt" : "LastReachedAt";
+
+    int beforeSec = ATTRIBUTION_WINDOW_BEFORE_SEC;
+    int afterSec = ATTRIBUTION_WINDOW_AFTER_SEC;
+    int examplesCap = ATTRIBUTION_EXAMPLES_PER_CAUSE;
+
+    StringBuilder sql = new StringBuilder(8192);
+    sql.append("INSERT INTO otel.funnel_dropoff_attribution\n")
+      .append("  (FunnelId, ProjectId, RunTime, StepIndex, CauseKind, CauseKey, CauseLabel,\n")
+      .append("   DropoffCohort, DropoffAffected, ConverterCohort, ConverterAffected,\n")
+      .append("   Lift, PValue, ExampleSessions)\n")
+      .append("WITH\n");
+
+    // droppers / converters: pull from the mode-appropriate bridge with uniform column names.
+    sql.append("  droppers AS (\n")
+      .append("    SELECT ").append(sidCol).append(" AS SessionId,\n")
+      .append("           ").append(tsCol).append(" AS LastReachedAt,\n")
+      .append("           DropoffStep AS step\n")
+      .append("    FROM ").append(bridgeTable).append("\n")
+      .append("    WHERE ProjectId = '").append(projectId).append("'\n")
+      .append("      AND FunnelId = ").append(funnelId).append("\n")
+      .append("      AND RunTime = ").append(runTime).append("\n")
+      .append("      AND DropoffStep > 0\n")
+      .append("      AND ").append(sidCol).append(" != ''\n")
+      .append("  ),\n");
+
+    sql.append("  converters AS (\n")
+      .append("    SELECT ").append(sidCol).append(" AS SessionId,\n")
+      .append("           ").append(tsCol).append(" AS LastReachedAt\n")
+      .append("    FROM ").append(bridgeTable).append("\n")
+      .append("    WHERE ProjectId = '").append(projectId).append("'\n")
+      .append("      AND FunnelId = ").append(funnelId).append("\n")
+      .append("      AND RunTime = ").append(runTime).append("\n")
+      .append("      AND DropoffStep = -1\n")
+      .append("      AND ").append(sidCol).append(" != ''\n")
+      .append("  ),\n");
+
+    // dropper_cohorts: count per step. converter_cohort: scalar count.
+    sql.append("  dropper_cohorts AS (\n")
+      .append("    SELECT step, count() AS cohort FROM droppers GROUP BY step\n")
+      .append("  ),\n")
+      .append("  converter_cohort AS (\n")
+      .append("    SELECT count() AS cohort FROM converters\n")
+      .append("  ),\n");
+
+    // --- stack_trace_events: crash / anr / non_fatal -----------------------
+    String stackWindow =
+        "e.Timestamp BETWEEN d.LastReachedAt - INTERVAL " + beforeSec + " SECOND "
+            + "AND d.LastReachedAt + INTERVAL " + afterSec + " SECOND";
+
+    sql.append("  stack_d AS (\n")
+      .append("    SELECT d.step AS step,\n")
+      .append("           lower(e.PulseType) AS cause_kind,\n")
+      .append("           concat(e.ExceptionType, '@', e.ScreenName) AS cause_key,\n")
+      .append("           concat(e.ExceptionType, ' @ ', e.ScreenName) AS cause_label,\n")
+      .append("           uniqExact(d.SessionId) AS affected,\n")
+      .append("           groupArraySample(").append(examplesCap).append(")(d.SessionId) AS examples\n")
+      .append("    FROM droppers d\n")
+      .append("    INNER JOIN otel.stack_trace_events e\n")
+      .append("      ON e.ProjectId = '").append(projectId).append("'\n")
+      .append("     AND e.SessionId = d.SessionId\n")
+      .append("     AND ").append(stackWindow).append("\n")
+      .append("    WHERE lower(e.PulseType) IN ('crash', 'anr', 'non_fatal')\n")
+      .append("    GROUP BY step, cause_kind, cause_key, cause_label\n")
+      .append("  ),\n");
+
+    String stackWindowC =
+        "e.Timestamp BETWEEN c.LastReachedAt - INTERVAL " + beforeSec + " SECOND "
+            + "AND c.LastReachedAt + INTERVAL " + afterSec + " SECOND";
+
+    sql.append("  stack_c AS (\n")
+      .append("    SELECT lower(e.PulseType) AS cause_kind,\n")
+      .append("           concat(e.ExceptionType, '@', e.ScreenName) AS cause_key,\n")
+      .append("           uniqExact(c.SessionId) AS affected\n")
+      .append("    FROM converters c\n")
+      .append("    INNER JOIN otel.stack_trace_events e\n")
+      .append("      ON e.ProjectId = '").append(projectId).append("'\n")
+      .append("     AND e.SessionId = c.SessionId\n")
+      .append("     AND ").append(stackWindowC).append("\n")
+      .append("    WHERE lower(e.PulseType) IN ('crash', 'anr', 'non_fatal')\n")
+      .append("    GROUP BY cause_kind, cause_key\n")
+      .append("  ),\n");
+
+    // --- otel_traces: http_5xx / http_4xx ---------------------------------
+    // Common projection helper: extract method/host/status from SpanAttributes once,
+    // then join cohort sides. We inline it in each side rather than introduce another CTE
+    // because the projection is identical on both sides and CH inlines it efficiently.
+    String httpProjection =
+        "      toUInt16OrZero(ifNull(t.SpanAttributes['http.status_code'], "
+            + "ifNull(t.SpanAttributes['http.response.status_code'], '0'))) AS http_status,\n"
+            + "      lowerUTF8(ifNull(t.SpanAttributes['http.method'], "
+            + "ifNull(t.SpanAttributes['http.request.method'], ''))) AS http_method,\n"
+            + "      ifNull(t.SpanAttributes['net.peer.name'], "
+            + "ifNull(t.SpanAttributes['server.address'], '')) AS http_host,\n"
+            + "      t.SessionId AS sid,\n"
+            + "      t.Timestamp AS ts";
+
+    sql.append("  http_d AS (\n")
+      .append("    SELECT d.step AS step,\n")
+      .append("           if(http_status >= 500, 'http_5xx', 'http_4xx') AS cause_kind,\n")
+      .append("           concat(http_method, ' ', http_host, ' ', toString(http_status)) AS cause_key,\n")
+      .append("           concat(http_method, ' ', http_host, ' → ', toString(http_status)) AS cause_label,\n")
+      .append("           uniqExact(d.SessionId) AS affected,\n")
+      .append("           groupArraySample(").append(examplesCap).append(")(d.SessionId) AS examples\n")
+      .append("    FROM droppers d\n")
+      .append("    INNER JOIN (\n")
+      .append("      SELECT\n").append(httpProjection).append("\n")
+      .append("      FROM otel.otel_traces t\n")
+      .append("      WHERE t.ProjectId = '").append(projectId).append("'\n")
+      .append("    ) h\n")
+      .append("      ON h.sid = d.SessionId\n")
+      .append("     AND h.ts BETWEEN d.LastReachedAt - INTERVAL ").append(beforeSec).append(" SECOND\n")
+      .append("                  AND d.LastReachedAt + INTERVAL ").append(afterSec).append(" SECOND\n")
+      .append("    WHERE h.http_status >= 400\n")
+      .append("    GROUP BY step, cause_kind, cause_key, cause_label\n")
+      .append("  ),\n");
+
+    sql.append("  http_c AS (\n")
+      .append("    SELECT if(http_status >= 500, 'http_5xx', 'http_4xx') AS cause_kind,\n")
+      .append("           concat(http_method, ' ', http_host, ' ', toString(http_status)) AS cause_key,\n")
+      .append("           uniqExact(c.SessionId) AS affected\n")
+      .append("    FROM converters c\n")
+      .append("    INNER JOIN (\n")
+      .append("      SELECT\n").append(httpProjection).append("\n")
+      .append("      FROM otel.otel_traces t\n")
+      .append("      WHERE t.ProjectId = '").append(projectId).append("'\n")
+      .append("    ) h\n")
+      .append("      ON h.sid = c.SessionId\n")
+      .append("     AND h.ts BETWEEN c.LastReachedAt - INTERVAL ").append(beforeSec).append(" SECOND\n")
+      .append("                  AND c.LastReachedAt + INTERVAL ").append(afterSec).append(" SECOND\n")
+      .append("    WHERE h.http_status >= 400\n")
+      .append("    GROUP BY cause_kind, cause_key\n")
+      .append("  ),\n");
+
+    // --- session_summary: coarse frozen_frame -----------------------------
+    sql.append("  frame_d AS (\n")
+      .append("    SELECT d.step AS step,\n")
+      .append("           'frozen_frame' AS cause_kind,\n")
+      .append("           'frozen_frames_in_session' AS cause_key,\n")
+      .append("           'Frozen frames detected in session' AS cause_label,\n")
+      .append("           uniqExact(d.SessionId) AS affected,\n")
+      .append("           groupArraySample(").append(examplesCap).append(")(d.SessionId) AS examples\n")
+      .append("    FROM droppers d\n")
+      .append("    INNER JOIN otel.session_summary s\n")
+      .append("      ON s.ProjectId = '").append(projectId).append("'\n")
+      .append("     AND s.sessionId = d.SessionId\n")
+      .append("    WHERE s.frozenFrameCount > 0\n")
+      .append("    GROUP BY step\n")
+      .append("  ),\n");
+
+    sql.append("  frame_c AS (\n")
+      .append("    SELECT uniqExact(c.SessionId) AS affected\n")
+      .append("    FROM converters c\n")
+      .append("    INNER JOIN otel.session_summary s\n")
+      .append("      ON s.ProjectId = '").append(projectId).append("'\n")
+      .append("     AND s.sessionId = c.SessionId\n")
+      .append("    WHERE s.frozenFrameCount > 0\n")
+      .append("  )\n");
+
+    // Final SELECT: three UNION ALL branches (stack / http / frame), each computing lift inline.
+    // Lift = (D_aff/D_cohort) / (C_aff/C_cohort); sentinel 999 when C_cohort or C_aff is 0
+    // and droppers have nonzero affected (so a strong signal without baseline stays at the top).
+    String liftExpr =
+        "if(c_aff = 0 OR (SELECT cohort FROM converter_cohort) = 0,\n"
+            + "             if(d_aff > 0, 999.0, 0.0),\n"
+            + "             round((d_aff / nullIf(d_cohort, 0)) / "
+            + "(c_aff / nullIf((SELECT cohort FROM converter_cohort), 0)), 3))";
+
+    // Branch builder — assembles one UNION ALL leg given the dropper/converter source CTEs.
+    sql.append("SELECT\n")
+      .append("  toUInt64(").append(funnelId).append(") AS FunnelId,\n")
+      .append("  '").append(projectId).append("' AS ProjectId,\n")
+      .append("  ").append(runTime).append(" AS RunTime,\n")
+      .append("  toUInt8(step) AS StepIndex,\n")
+      .append("  cause_kind AS CauseKind,\n")
+      .append("  cause_key AS CauseKey,\n")
+      .append("  cause_label AS CauseLabel,\n")
+      .append("  toUInt64(d_cohort) AS DropoffCohort,\n")
+      .append("  toUInt64(d_aff) AS DropoffAffected,\n")
+      .append("  toUInt64((SELECT cohort FROM converter_cohort)) AS ConverterCohort,\n")
+      .append("  toUInt64(c_aff) AS ConverterAffected,\n")
+      .append("  ").append(liftExpr).append(" AS Lift,\n")
+      .append("  toFloat64(0.0) AS PValue,\n")
+      .append("  examples AS ExampleSessions\n")
+      .append("FROM (\n")
+      .append("  SELECT d.step AS step, d.cause_kind AS cause_kind, d.cause_key AS cause_key,\n")
+      .append("         d.cause_label AS cause_label, d.affected AS d_aff, d.examples AS examples,\n")
+      .append("         ifNull(c.affected, 0) AS c_aff, dc.cohort AS d_cohort\n")
+      .append("  FROM stack_d d\n")
+      .append("  LEFT JOIN stack_c c ON c.cause_kind = d.cause_kind AND c.cause_key = d.cause_key\n")
+      .append("  LEFT JOIN dropper_cohorts dc ON dc.step = d.step\n")
+      .append("  WHERE d.affected > 0\n")
+      .append(")\n")
+
+      .append("UNION ALL\n")
+      .append("SELECT\n")
+      .append("  toUInt64(").append(funnelId).append("),\n")
+      .append("  '").append(projectId).append("',\n")
+      .append("  ").append(runTime).append(",\n")
+      .append("  toUInt8(step),\n")
+      .append("  cause_kind, cause_key, cause_label,\n")
+      .append("  toUInt64(d_cohort), toUInt64(d_aff),\n")
+      .append("  toUInt64((SELECT cohort FROM converter_cohort)), toUInt64(c_aff),\n")
+      .append("  ").append(liftExpr).append(",\n")
+      .append("  toFloat64(0.0),\n")
+      .append("  examples\n")
+      .append("FROM (\n")
+      .append("  SELECT d.step, d.cause_kind, d.cause_key, d.cause_label,\n")
+      .append("         d.affected AS d_aff, d.examples AS examples,\n")
+      .append("         ifNull(c.affected, 0) AS c_aff, dc.cohort AS d_cohort\n")
+      .append("  FROM http_d d\n")
+      .append("  LEFT JOIN http_c c ON c.cause_kind = d.cause_kind AND c.cause_key = d.cause_key\n")
+      .append("  LEFT JOIN dropper_cohorts dc ON dc.step = d.step\n")
+      .append("  WHERE d.affected > 0\n")
+      .append(")\n")
+
+      // frozen_frame: single CauseKey, but per-step cohort. CROSS JOIN frame_c (single-row scalar).
+      .append("UNION ALL\n")
+      .append("SELECT\n")
+      .append("  toUInt64(").append(funnelId).append("),\n")
+      .append("  '").append(projectId).append("',\n")
+      .append("  ").append(runTime).append(",\n")
+      .append("  toUInt8(step),\n")
+      .append("  cause_kind, cause_key, cause_label,\n")
+      .append("  toUInt64(d_cohort), toUInt64(d_aff),\n")
+      .append("  toUInt64((SELECT cohort FROM converter_cohort)), toUInt64(c_aff),\n")
+      .append("  ").append(liftExpr).append(",\n")
+      .append("  toFloat64(0.0),\n")
+      .append("  examples\n")
+      .append("FROM (\n")
+      .append("  SELECT d.step AS step, d.cause_kind AS cause_kind, d.cause_key AS cause_key,\n")
+      .append("         d.cause_label AS cause_label,\n")
+      .append("         d.affected AS d_aff, d.examples AS examples,\n")
+      .append("         ifNull((SELECT affected FROM frame_c), 0) AS c_aff,\n")
+      .append("         dc.cohort AS d_cohort\n")
+      .append("  FROM frame_d d\n")
+      .append("  LEFT JOIN dropper_cohorts dc ON dc.step = d.step\n")
+      .append("  WHERE d.affected > 0\n")
+      .append(")\n");
+
+    return sql.toString();
+  }
+
   // ── Legacy windowFunnel builders (kept as backup) ────────────────────────────
 
   /**

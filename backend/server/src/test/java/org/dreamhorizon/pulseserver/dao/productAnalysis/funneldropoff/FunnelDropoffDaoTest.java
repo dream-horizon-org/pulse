@@ -48,7 +48,8 @@ class FunnelDropoffDaoTest {
   @Nested
   class QueryCauses {
     @Test
-    void shouldReturnMappedRows() {
+    void shouldReturnMappedRowsFromPrecomputedAttribution() {
+      // First call (precomputed) returns a row → no fallback needed.
       FunnelDropoffCauseRow row = FunnelDropoffCauseRow.builder()
           .causeKind("crash").causeKey("NPE@Checkout").causeLabel("NPE @ Checkout")
           .dropoffCohort(100L).dropoffAffected(42L)
@@ -67,6 +68,48 @@ class FunnelDropoffDaoTest {
       assertThat(result).hasSize(1);
       assertThat(result.get(0).getCauseKind()).isEqualTo("crash");
       assertThat(result.get(0).getLift()).isEqualTo(5.6);
+    }
+
+    @Test
+    void shouldFallBackToLiveJoinWhenAttributionTableIsEmpty() {
+      // First call (precomputed) returns empty → DAO falls back to live join, which returns
+      // a row. Both paths share the same row mapper so the result shape is identical.
+      QueryResultResponse<FunnelDropoffCauseRow> empty =
+          QueryResultResponse.<FunnelDropoffCauseRow>builder()
+              .rows(Collections.emptyList()).build();
+      FunnelDropoffCauseRow liveRow = FunnelDropoffCauseRow.builder()
+          .causeKind("http_5xx").causeKey("POST checkout 503")
+          .causeLabel("HTTP 503 · POST checkout")
+          .dropoffCohort(50L).dropoffAffected(20L)
+          .converterCohort(40L).converterAffected(1L)
+          .lift(16.0).exampleSessions("s-9").build();
+      QueryResultResponse<FunnelDropoffCauseRow> liveResp =
+          QueryResultResponse.<FunnelDropoffCauseRow>builder()
+              .rows(List.of(liveRow)).build();
+
+      when(clickhouseQueryService.executeQueryOrCreateJob(
+          any(QueryConfiguration.class), eq(FunnelDropoffCauseRow.class)))
+          .thenReturn(Single.just(empty), Single.just(liveResp));
+
+      List<FunnelDropoffCauseRow> result =
+          dao.queryCauses(PROJECT, 1L, 0, "2026-04-23 10:00:00", "SESSIONS").blockingGet();
+
+      assertThat(result).hasSize(1);
+      assertThat(result.get(0).getCauseKind()).isEqualTo("http_5xx");
+    }
+
+    @Test
+    void shouldReturnEmptyWhenBothPrecomputedAndLiveAreEmpty() {
+      QueryResultResponse<FunnelDropoffCauseRow> empty =
+          QueryResultResponse.<FunnelDropoffCauseRow>builder()
+              .rows(Collections.emptyList()).build();
+      when(clickhouseQueryService.executeQueryOrCreateJob(
+          any(QueryConfiguration.class), eq(FunnelDropoffCauseRow.class)))
+          .thenReturn(Single.just(empty));
+
+      List<FunnelDropoffCauseRow> result =
+          dao.queryCauses(PROJECT, 1L, 0, null, "SESSIONS").blockingGet();
+      assertThat(result).isEmpty();
     }
 
     @Test

@@ -110,6 +110,33 @@ class ClickHouseComputeServiceTest {
   }
 
   @Test
+  void computeFunnel_alsoEmitsAttributionPrecomputeForOrderedFunnels() {
+    // Cascade order is funnel_results → session_state → user_state → attribution. All four
+    // INSERTs must fire for an ORDERED funnel so the side-panel can read precomputed causes.
+    when(funnelDefinitionDao.findById(42L)).thenReturn(Maybe.just(funnelRow()));
+    when(clickhouseWriteClient.executeSql(anyString())).thenReturn(Single.just(true));
+
+    assertThat(service.computeFunnel(42L).blockingGet()).isTrue();
+    verify(clickhouseWriteClient).executeSql(org.mockito.ArgumentMatchers.argThat(
+        s -> s != null && s.contains("INSERT INTO otel.funnel_dropoff_attribution")));
+  }
+
+  @Test
+  void computeFunnel_swallowsAttributionFailureWhenResultsSucceeded() {
+    // Attribution is best-effort. A failure must not surface — funnel_results already
+    // landed, the side-panel can fall back to the live cause-join query.
+    when(funnelDefinitionDao.findById(42L)).thenReturn(Maybe.just(funnelRow()));
+    when(clickhouseWriteClient.executeSql(org.mockito.ArgumentMatchers.argThat(
+        s -> s != null && s.contains("INSERT INTO otel.funnel_dropoff_attribution"))))
+        .thenReturn(Single.error(new RuntimeException("attribution boom")));
+    when(clickhouseWriteClient.executeSql(org.mockito.ArgumentMatchers.argThat(
+        s -> s != null && !s.contains("INSERT INTO otel.funnel_dropoff_attribution"))))
+        .thenReturn(Single.just(true));
+
+    assertThat(service.computeFunnel(42L).blockingGet()).isTrue();
+  }
+
+  @Test
   void computeJourney_failsWhenNotFound() {
     when(journeyDao.findById(1L)).thenReturn(Maybe.empty());
 
