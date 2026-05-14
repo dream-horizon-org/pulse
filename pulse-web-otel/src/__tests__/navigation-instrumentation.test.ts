@@ -301,6 +301,31 @@ describe("NavigationInstrumentation", () => {
     });
   });
 
+  describe("navigation_id", () => {
+    it("calls setNavigationId on cold install and again on SPA history navigation", () => {
+      const instr = new NavigationInstrumentation();
+      const sdk = makeMinimalSdk();
+      const spy = vi.spyOn(sdk.globalAttrsProcessor, "setNavigationId");
+
+      setPath("/home");
+      instr.install(sdk);
+      expect(spy).toHaveBeenCalled();
+      const coldId = spy.mock.calls[0]![0] as string;
+      expect(coldId).toMatch(/^[0-9a-f-]{36}$/i);
+
+      spy.mockClear();
+      setPath("/cart");
+      history.pushState({}, "", "/cart");
+      expect(spy).toHaveBeenCalledTimes(1);
+      const spaId = spy.mock.calls[0]![0] as string;
+      expect(spaId).toMatch(/^[0-9a-f-]{36}$/i);
+      expect(spaId).not.toBe(coldId);
+
+      spy.mockRestore();
+      instr.uninstall();
+    });
+  });
+
   describe("History API patching", () => {
     it("patches history.pushState without breaking original behavior", () => {
       const instr = new NavigationInstrumentation();

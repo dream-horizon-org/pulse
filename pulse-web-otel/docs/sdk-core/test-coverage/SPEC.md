@@ -99,6 +99,7 @@ Foundation tests — validates M1 milestone contracts:
 - `resolveConfigUrl` — local vs prod URL resolution
 - `FeatureGate.isEnabled` — default true when no config, disabled when `sessionSampleRate = 0`
 - `PulseGlobalAttributesProcessor` — session ID, screen name, user ID stamped on all signals
+- `global-attrs-processor.test.ts` — `navigation_id` omitted until `setNavigationId`; merged on spans/logs after set
 - `SessionInstrumentation` — `session.start` emitted on install
 
 ### 5.4 `src/__tests__/m3.test.ts`
@@ -345,7 +346,8 @@ Below: **Playwright `test()` titles** as registered in the repo (grouped by `tes
 #### `@WebVitals`
 
 - TTFB, FCP, LCP, INP (tab hide), FID (Chromium), CLS after layout shift + tab hide
-- SPA navigation flushes TTFB with screen.name from initial route
+- `navigation_id` on vitals; optional `web_vital.context` / `web_vital.delta` when present
+- SPA navigation flushes TTFB with `screen.name` from initial route; SPA `screen_load` span carries `navigation_id`
 - gate off → no web_vital logs
 
 #### `@SyntheticUser`
@@ -358,6 +360,8 @@ Below: **Playwright `test()` titles** as registered in the repo (grouped by `tes
 
 **screen tracking — App Router:** screen.name Home→Products; /cart; multi-hop / → /products → /cart.
 
+**web vitals (mock OTLP):** `e2e/web-vitals.spec.ts` — TTFB + `navigation_id`; client navigation adds a new `screen_load` span with `navigation_id`.
+
 **error tracking:** PulseErrorBoundary device.crash; reportException non_fatal; reportDeviceCrash device.crash; session.id stamped on crash and non_fatal paths.
 
 **`nextjs-demo.ch.spec.ts` (ClickHouse):** session.start in CH; screen.name /products in CH; device.crash / non_fatal / manual device.crash in CH.
@@ -368,7 +372,7 @@ Below: **Playwright `test()` titles** as registered in the repo (grouped by `tes
 |------|-------------------------|-------------|------------|
 | Session lifecycle + BFCache + batching + install persistence | Extensive `@M1`, `@M8` | session.start + stable session id only | **Major gap:** no BFCache, batching, installation persistence, clone/reload, remote config, consent matrix, metering headers in Next E2E |
 | Screen OTLP spans (`screen_load` / `screen_session`) | `screen-navigation.spec.ts` + gate | Not asserted | **Gap:** Next demo asserts `screen.name` on **logs** after navigation, not navigation **spans** — add Playwright waits on spans if product requires parity |
-| Web vitals | `web-vitals.spec.ts` | None | **Gap** |
+| Web vitals | `web-vitals.spec.ts` | `e2e/web-vitals.spec.ts` (TTFB + SPA `screen_load`) | **Partial:** not the full ecommerce vitals matrix on Next |
 | Network client spans | `m4-network.spec.ts` | None | **Gap** |
 | Interactions | `m2-interactions.spec.ts` | None | **Gap** |
 | Clicks | `m3-clicks.spec.ts` | None | **Gap** |

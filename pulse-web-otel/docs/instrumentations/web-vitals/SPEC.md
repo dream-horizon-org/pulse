@@ -25,7 +25,7 @@ Emit **Core Web Vitals** and related paint/timing signals as OTLP **log records*
 
 **R2 — Metrics:** Register handlers for **LCP**, **INP**, **CLS**, **FCP**, **FID**, **TTFB** via `web-vitals` entrypoints.
 
-**R3 — Attributes:** Every log includes `pulse.type`, `web_vital.name`, `web_vital.value`, `web_vital.rating`; optional `web_vital.navigation_type` when `Metric.navigationType` is set.
+**R3 — Attributes:** Every log includes `pulse.type`, `web_vital.name`, `web_vital.value`, `web_vital.rating`; optional `web_vital.navigation_type` when `Metric.navigationType` is set. Optional `web_vital.delta` (CLS/INP with `reportAllChanges: true`) and `web_vital.context` (only when `navigationType` is defined: `soft-navigation` → `navigation`, else `pageload`). `navigation_id` is injected from `PulseGlobalAttributesProcessor` when set by `NavigationInstrumentation` (per-route aggregation).
 
 **R4 — Flush:** On `visibilitychange` → hidden and `pageshow` with `event.persisted` (BFCache restore), call `loggerProvider.forceFlush()` so Buffered batches exit before tab discard.
 
@@ -99,14 +99,12 @@ flowchart TD
 | `web_vital.value` | number | `Metric.value` | Yes | Unit depends on metric (ms, score, …) |
 | `web_vital.rating` | string | `Metric.rating` | Yes | `good` \| `needs-improvement` \| `poor` |
 | `web_vital.navigation_type` | string | `Metric.navigationType` | No | When library provides it |
-| `web_vital.context` | string | derived from `navigationType` | No | `pageload` (all current browsers); `navigation` when Chrome Soft Nav API is GA — Phase 2 |
-| `web_vital.delta` | number | `Metric.delta` | No | Incremental change since last callback; emitted when `reportAllChanges: true` — Phase 2 |
-| `navigation_id` | string (UUID v4) | `GlobalAttributesProcessor` | No | Reset per navigation by `NavigationInstrumentation`; enables per-route CLS/INP aggregation — Phase 2 |
+| `web_vital.context` | string | derived from `navigationType` | No | Only when `Metric.navigationType` is defined: `soft-navigation` → `navigation`; any other defined value → `pageload` |
+| `web_vital.delta` | number | `Metric.delta` | No | CLS/INP incremental emissions when `reportAllChanges: true` on `onCLS` / `onINP` |
+| `navigation_id` | string (UUID v4) | `PulseGlobalAttributesProcessor` (set by `NavigationInstrumentation`) | No | One id per cold/SPA/BFCache navigation; **omitted** until set — enables per-route CLS/INP aggregation |
 | `session.id` | string | global attrs processor | Yes | Inherited on export |
 | `screen.name` | string | global attrs processor | No | Inherited |
 | `platform` | string | Resource (`os.name` and `platform` keys from `buildMergedResource`) | Yes | `web` |
-
-**Phase 2 attributes** (`navigation_id`, `web_vital.delta`, `web_vital.context`) are planned but not yet implemented. See `PLAN-phase2-per-route-vitals.md`.
 
 ### 5.2 Metric coverage
 
@@ -149,14 +147,18 @@ flowchart TD
 
 ### 6.2 Playwright E2E (`examples/ecommerce-demo/e2e/`)
 
-Master index: [`../../sdk-core/test-coverage/SPEC.md`](../../sdk-core/test-coverage/SPEC.md) §6.3 — **`@WebVitals`**: TTFB, FCP, LCP, INP (tab hide), FID (Chromium), CLS; SPA flush + `screen.name`; feature gate off.
+Master index: [`../../sdk-core/test-coverage/SPEC.md`](../../sdk-core/test-coverage/SPEC.md) §6.3 — **`@WebVitals`**: TTFB, FCP, LCP, INP (tab hide), FID (Chromium), CLS; `navigation_id` + optional `web_vital.context` / `web_vital.delta` on vitals; SPA flush + `screen.name`; SPA `screen_load` span `navigation_id`; feature gate off.
 
 ### `src/__tests__/web-vitals-instrumentation.test.ts`
 
-- Registers `onLCP`, `onINP`, `onCLS`, `onFID`, `onFCP`, `onTTFB`.
-- Emitted attributes include `pulse.type`, `web_vital.name`, `web_vital.value`, `web_vital.rating`.
+- Registers `onLCP`, `onINP`, `onCLS`, `onFID`, `onFCP`, `onTTFB`; `onCLS` / `onINP` use `{ reportAllChanges: true }`.
+- Emitted attributes include `pulse.type`, `web_vital.name`, `web_vital.value`, `web_vital.rating`; optional `web_vital.navigation_type`, `web_vital.context`, `web_vital.delta` per contract.
 - `visibilitychange` hidden → `forceFlush`; `pageshow` persisted → flush.
 - Gate-off / uninstall removes listeners.
+
+### `src/__tests__/global-attrs-processor.test.ts`
+
+- `navigation_id` omitted from `getCommonAttrsForMetrics()` until `setNavigationId`; present after set.
 
 ### Manual QA (absorbed from `examples/ecommerce-demo/MANUAL-WEB-VITALS-DEMO.md`)
 
@@ -175,7 +177,7 @@ No confirmed **P0** incorrect vital values attributable to this instrumentation 
 ### Other gaps
 
 - **FID vs INP product messaging:** dashboards should prefer INP where available.
-- **Per-route CLS/INP:** Phase 1 exports cumulative values per route via `notifySoftNavigation()` flush. Phase 2 adds `reportAllChanges: true` on `onCLS`/`onINP` + `web_vital.delta` + `navigation_id` — enabling per-route aggregation in ClickHouse without any experimental browser API. `reportSoftNavs` (Chrome Soft Nav API) is not available in any released web-vitals npm version; `web_vital.context = "navigation"` will fire only when that API reaches GA. See `PLAN-phase2-per-route-vitals.md`.
+- **Per-route CLS/INP:** `onCLS` / `onINP` use `reportAllChanges: true`; logs may include `web_vital.delta`. `navigation_id` (from `NavigationInstrumentation` + global attrs processor) scopes vitals and `screen_load` spans per navigation. `web_vital.context` is emitted only when `Metric.navigationType` is defined (`soft-navigation` → `navigation`, else `pageload`). `reportSoftNavs` (Chrome Soft Nav API) is not in a released `web-vitals` npm build yet. Design reference: `PLAN-phase2-per-route-vitals.md`.
 
 ---
 
@@ -194,4 +196,4 @@ Deleted after triple-eval:
 ## 9. Open Questions
 
 1. Should we drop `onFID` subscription once browser share is negligible?
-2. ~~Should `navigation_id` become a first-class attribute once backend schema supports it?~~ **Resolved:** `navigation_id` uses map access only (`LogAttributes['navigation_id']`); no materialized column needed. Planned for Phase 2.
+2. ~~Should `navigation_id` become a first-class attribute once backend schema supports it?~~ **Resolved:** `navigation_id` uses map access only (`LogAttributes['navigation_id']`); no materialized column needed. **Shipped** in SDK (see §5.1).

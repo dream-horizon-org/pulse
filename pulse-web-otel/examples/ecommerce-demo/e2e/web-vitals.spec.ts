@@ -2,12 +2,36 @@
  * Web Vitals (Plan B) — OTLP logs with pulse.type=web_vital.
  * In `--mode test`, {@code VITE_PULSE_BATCH_DELAY_MS=200} — wait ~1.5s after click for log export.
  */
-import { test, expect, findAllLogs, getAttr } from "./fixture";
+import { test, expect, findAllLogs, findAllSpans, getAttr } from "./fixture";
 import {
   seedPulseSdkConfig,
   minimalPulseSdkConfig,
   blockActiveConfigFetch,
 } from "./test-sdk-config";
+
+function assertNavigationIdAndOptionalVitalContext(
+  attrs: {
+    key: string;
+    value: {
+      stringValue?: string;
+      intValue?: number;
+      doubleValue?: number;
+      boolValue?: boolean;
+    };
+  }[],
+): void {
+  const navigationId = getAttr(attrs, "navigation_id");
+  expect(typeof navigationId).toBe("string");
+  expect((navigationId as string).length).toBeGreaterThan(10);
+  const ctx = getAttr(attrs, "web_vital.context");
+  if (ctx !== undefined) {
+    expect(["pageload", "navigation"]).toContain(ctx);
+  }
+  const delta = getAttr(attrs, "web_vital.delta");
+  if (delta !== undefined) {
+    expect(Number.isFinite(delta as number)).toBe(true);
+  }
+}
 
 test.describe("@WebVitals", () => {
   test("emits TTFB web_vital log after load and batch window", async ({
@@ -31,6 +55,7 @@ test.describe("@WebVitals", () => {
     expect(["good", "needs-improvement", "poor"]).toContain(rating);
     expect(getAttr(ttfb!.attributes, "session.id")).toBeTruthy();
     expect(getAttr(ttfb!.attributes, "screen.name")).toBeTruthy();
+    assertNavigationIdAndOptionalVitalContext(ttfb!.attributes);
   });
 
   test("emits FCP web_vital log after load and batch window", async ({
@@ -54,6 +79,7 @@ test.describe("@WebVitals", () => {
     expect(["good", "needs-improvement", "poor"]).toContain(rating);
     expect(getAttr(fcp!.attributes, "session.id")).toBeTruthy();
     expect(getAttr(fcp!.attributes, "screen.name")).toBeTruthy();
+    assertNavigationIdAndOptionalVitalContext(fcp!.attributes);
   });
 
   test("emits LCP web_vital log after click and batch window", async ({
@@ -83,6 +109,7 @@ test.describe("@WebVitals", () => {
     expect(["good", "needs-improvement", "poor"]).toContain(rating);
     expect(getAttr(lcp!.attributes, "session.id")).toBeTruthy();
     expect(getAttr(lcp!.attributes, "screen.name")).toBeTruthy();
+    assertNavigationIdAndOptionalVitalContext(lcp!.attributes);
   });
 
   test("emits INP web_vital log on tab hide after real interaction", async ({
@@ -141,6 +168,7 @@ test.describe("@WebVitals", () => {
     expect(["good", "needs-improvement", "poor"]).toContain(inpRating);
     expect(getAttr(inp!.attributes, "session.id")).toBeTruthy();
     expect(getAttr(inp!.attributes, "screen.name")).toBeTruthy();
+    assertNavigationIdAndOptionalVitalContext(inp!.attributes);
   });
 
   test("emits FID web_vital log on first interaction (Chromium)", async ({
@@ -183,6 +211,7 @@ test.describe("@WebVitals", () => {
     expect(["good", "needs-improvement", "poor"]).toContain(fidRating);
     expect(getAttr(fid!.attributes, "session.id")).toBeTruthy();
     expect(getAttr(fid!.attributes, "screen.name")).toBeTruthy();
+    assertNavigationIdAndOptionalVitalContext(fid!.attributes);
   });
 
   test("emits CLS web_vital after layout shift and tab hide", async ({
@@ -231,6 +260,7 @@ test.describe("@WebVitals", () => {
     expect(["good", "needs-improvement", "poor"]).toContain(clsRating);
     expect(getAttr(cls!.attributes, "session.id")).toBeTruthy();
     expect(getAttr(cls!.attributes, "screen.name")).toBeTruthy();
+    assertNavigationIdAndOptionalVitalContext(cls!.attributes);
   });
 
   test("SPA navigation flushes TTFB vital with correct screen.name from initial route", async ({
@@ -255,6 +285,27 @@ test.describe("@WebVitals", () => {
     // screen.name must be "/" — TTFB was measured on the home route.
     expect(getAttr(ttfb!.attributes, "screen.name")).toBe("/");
     expect(getAttr(ttfb!.attributes, "session.id")).toBeTruthy();
+    assertNavigationIdAndOptionalVitalContext(ttfb!.attributes);
+  });
+
+  test("SPA screen_load span carries navigation_id after client navigation", async ({
+    page,
+    otlp,
+  }) => {
+    await page.goto("/");
+    await otlp.waitForLog("session.start");
+    await page.waitForTimeout(600);
+    otlp.reset();
+
+    await page.click('a[href="/products"]');
+    await page.waitForTimeout(1500);
+
+    const loads = findAllSpans(otlp.captured, "screen_load");
+    expect(loads.length).toBeGreaterThan(0);
+    const lastLoad = loads[loads.length - 1]!;
+    const spanNavId = getAttr(lastLoad.attributes, "navigation_id");
+    expect(typeof spanNavId).toBe("string");
+    expect((spanNavId as string).length).toBeGreaterThan(10);
   });
 
   test("does not emit web_vital logs when web_vitals feature gate is disabled", async ({

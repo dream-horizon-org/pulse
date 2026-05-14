@@ -16,6 +16,12 @@ import {
 } from "../constants/pulse-otel-runtime";
 import { PulseWebSemconv } from "../semconv";
 
+function webVitalContextFromNavigationType(
+  navigationType: string,
+): "pageload" | "navigation" {
+  return navigationType === "soft-navigation" ? "navigation" : "pageload";
+}
+
 export class WebVitalsInstrumentation implements PulseInstrumentation {
   readonly name = PulseInstrumentationName.WEB_VITALS;
 
@@ -28,16 +34,20 @@ export class WebVitalsInstrumentation implements PulseInstrumentation {
     const logger = logs.getLogger(PulseOtelLoggerScope.PULSE_WEB_VITALS);
 
     const emit = (metric: Metric): void => {
+      const attributeKeys = PulseWebSemconv.AttributeKey;
       const attrs: Record<string, string | number | boolean> = {
-        [PulseWebSemconv.AttributeKey.PULSE_TYPE]:
-          PulseWebSemconv.PulseType.WEB_VITAL,
-        [PulseWebSemconv.AttributeKey.WEB_VITAL_NAME]: metric.name,
-        [PulseWebSemconv.AttributeKey.WEB_VITAL_VALUE]: metric.value,
-        [PulseWebSemconv.AttributeKey.WEB_VITAL_RATING]: metric.rating,
+        [attributeKeys.PULSE_TYPE]: PulseWebSemconv.PulseType.WEB_VITAL,
+        [attributeKeys.WEB_VITAL_NAME]: metric.name,
+        [attributeKeys.WEB_VITAL_VALUE]: metric.value,
+        [attributeKeys.WEB_VITAL_RATING]: metric.rating,
       };
+      if (metric.delta !== undefined) {
+        attrs[attributeKeys.WEB_VITAL_DELTA] = metric.delta;
+      }
       if (metric.navigationType !== undefined) {
-        attrs[PulseWebSemconv.AttributeKey.WEB_VITAL_NAVIGATION_TYPE] =
-          metric.navigationType;
+        attrs[attributeKeys.WEB_VITAL_NAVIGATION_TYPE] = metric.navigationType;
+        attrs[attributeKeys.WEB_VITAL_CONTEXT] =
+          webVitalContextFromNavigationType(metric.navigationType);
       }
       logger.emit({
         body: PulseWebSemconv.LogBody.WEB_VITAL,
@@ -46,8 +56,8 @@ export class WebVitalsInstrumentation implements PulseInstrumentation {
     };
 
     onLCP(emit);
-    onINP(emit);
-    onCLS(emit);
+    onINP(emit, { reportAllChanges: true });
+    onCLS(emit, { reportAllChanges: true });
     onFCP(emit);
     onFID(emit);
     onTTFB(emit);

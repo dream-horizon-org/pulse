@@ -163,6 +163,69 @@ describe("WebVitalsInstrumentation", () => {
       expect.objectContaining({
         attributes: expect.objectContaining({
           [PulseWebSemconv.AttributeKey.WEB_VITAL_NAVIGATION_TYPE]: "reload",
+          [PulseWebSemconv.AttributeKey.WEB_VITAL_CONTEXT]: "pageload",
+        }),
+      }),
+    );
+
+    instr.uninstall();
+  });
+
+  it("registers onCLS and onINP with reportAllChanges true", () => {
+    const instr = new WebVitalsInstrumentation();
+    instr.install(makeMinimalSdk());
+    expect(wvMocks.onCLS).toHaveBeenCalledWith(expect.any(Function), {
+      reportAllChanges: true,
+    });
+    expect(wvMocks.onINP).toHaveBeenCalledWith(expect.any(Function), {
+      reportAllChanges: true,
+    });
+    instr.uninstall();
+  });
+
+  it("emits web_vital.delta when metric.delta is defined; maps web_vital.context for soft-navigation", () => {
+    const emit = vi.fn();
+    vi.mocked(logs.getLogger).mockReturnValue({
+      emit,
+      enabled: vi.fn().mockReturnValue(true),
+    });
+    const instr = new WebVitalsInstrumentation();
+    instr.install(makeMinimalSdk());
+
+    const clsCb = wvMocks.onCLS.mock.calls[0]![0] as (m: {
+      name: "CLS";
+      value: number;
+      rating: "good";
+      delta: number;
+    }) => void;
+    clsCb({ name: "CLS", value: 0.12, rating: "good", delta: 0.05 });
+    expect(emit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        attributes: expect.objectContaining({
+          [PulseWebSemconv.AttributeKey.WEB_VITAL_DELTA]: 0.05,
+        }),
+      }),
+    );
+
+    emit.mockClear();
+    const inpCb = wvMocks.onINP.mock.calls[0]![0] as (m: {
+      name: "INP";
+      value: number;
+      rating: "good";
+      navigationType: string;
+    }) => void;
+    inpCb({
+      name: "INP",
+      value: 42,
+      rating: "good",
+      navigationType: "soft-navigation",
+    });
+    expect(emit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        attributes: expect.objectContaining({
+          [PulseWebSemconv.AttributeKey.WEB_VITAL_NAVIGATION_TYPE]:
+            "soft-navigation",
+          [PulseWebSemconv.AttributeKey.WEB_VITAL_CONTEXT]: "navigation",
         }),
       }),
     );

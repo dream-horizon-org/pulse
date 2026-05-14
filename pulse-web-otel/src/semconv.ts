@@ -88,6 +88,12 @@ export const PulseWebSemconv = {
     WEB_VITAL_VALUE: "web_vital.value",
     WEB_VITAL_RATING: "web_vital.rating",
     WEB_VITAL_NAVIGATION_TYPE: "web_vital.navigation_type",
+    /** UUID per navigation (cold, SPA, BFCache) — join vitals to `screen_load` spans. */
+    NAVIGATION_ID: "navigation_id",
+    /** Derived from {@code Metric.navigationType}: soft-nav vs page load (omitted when undefined). */
+    WEB_VITAL_CONTEXT: "web_vital.context",
+    /** Incremental delta since last callback (CLS/INP with {@code reportAllChanges}). */
+    WEB_VITAL_DELTA: "web_vital.delta",
     /** Stable OTel HTTP semconv keys for CLIENT spans; {@code pulse.type} values are {@code network.<statusCode>} (Android parity). */
     HTTP_REQUEST_METHOD: "http.request.method",
     URL_FULL: "url.full",
