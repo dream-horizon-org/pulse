@@ -89,8 +89,11 @@ internal class ClickEventEmitter {
         if widthPt > 0 && heightPt > 0 {
             attrs[PulseAttributes.deviceScreenWidth] = .int(widthPt)
             attrs[PulseAttributes.deviceScreenHeight] = .int(heightPt)
+            // x and y are already content-relative (screen + scroll offset).
+            // nx/ny > 1.0 means the tap was outside the initial visible viewport.
             attrs[PulseAttributes.appScreenCoordinateNx] = .double(Double(x) / Double(widthPt))
             attrs[PulseAttributes.appScreenCoordinateNy] = .double(Double(y) / Double(heightPt))
+            attrs[PulseAttributes.clickOutOfFold] = .bool(x > Float(widthPt) || y > Float(heightPt))
         }
     }
 }

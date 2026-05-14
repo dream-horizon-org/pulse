@@ -21,6 +21,30 @@ internal struct PendingClick {
     let clickContext: String?
     let viewportWidthPt: Int
     let viewportHeightPt: Int
+
+    init(
+        x: Float,
+        y: Float,
+        timestampMs: Int64,
+        tapEpochMs: Int64,
+        hasTarget: Bool,
+        widgetName: String? = nil,
+        widgetId: String? = nil,
+        clickContext: String? = nil,
+        viewportWidthPt: Int = 0,
+        viewportHeightPt: Int = 0
+    ) {
+        self.x = x
+        self.y = y
+        self.timestampMs = timestampMs
+        self.tapEpochMs = tapEpochMs
+        self.hasTarget = hasTarget
+        self.widgetName = widgetName
+        self.widgetId = widgetId
+        self.clickContext = clickContext
+        self.viewportWidthPt = viewportWidthPt
+        self.viewportHeightPt = viewportHeightPt
+    }
 }
 
 /// Rage event emitted once the rage window closes with full accumulated tap count.
@@ -40,4 +64,28 @@ internal struct RageEvent {
     let clickContext: String?
     let viewportWidthPt: Int
     let viewportHeightPt: Int
+
+    init(
+        count: Int,
+        hasTarget: Bool,
+        x: Float,
+        y: Float,
+        tapEpochMs: Int64,
+        widgetName: String? = nil,
+        widgetId: String? = nil,
+        clickContext: String? = nil,
+        viewportWidthPt: Int = 0,
+        viewportHeightPt: Int = 0
+    ) {
+        self.count = count
+        self.hasTarget = hasTarget
+        self.x = x
+        self.y = y
+        self.tapEpochMs = tapEpochMs
+        self.widgetName = widgetName
+        self.widgetId = widgetId
+        self.clickContext = clickContext
+        self.viewportWidthPt = viewportWidthPt
+        self.viewportHeightPt = viewportHeightPt
+    }
 }

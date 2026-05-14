@@ -17,6 +17,7 @@ import androidx.compose.ui.layout.ModifierInfo
 import androidx.compose.ui.node.LayoutNode
 import androidx.compose.ui.platform.AndroidComposeView
 import androidx.compose.ui.semantics.AccessibilityAction
+import androidx.compose.ui.semantics.CollectionItemInfo
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsConfiguration
 import androidx.compose.ui.semantics.SemanticsModifier
@@ -152,6 +153,78 @@ internal class ComposeTapTargetDetectorTest {
         assertThat(result).isInstanceOf(ComposeFindResult.Found::class.java)
         assertThat((result as ComposeFindResult.Found).target).isNull()
     }
+
+    // region scroll offset tests
+
+    @Test
+    fun `getScrollOffset returns 0,0 when ownerView is not RootForTest`() {
+        val plainView = mockkClass(android.view.View::class)
+        val result = composeTapTargetDetector.getScrollOffset(plainView, 100f, 100f)
+        assertThat(result).isEqualTo(0 to 0)
+    }
+
+    @Test
+    fun `resolveScrollValue returns exact offset when ScrollAxisRange value is positive`() {
+        val scrollNode = mockkClass(androidx.compose.ui.semantics.SemanticsNode::class)
+        val config = mockkClass(SemanticsConfiguration::class)
+        every { scrollNode.config } returns config
+        every { scrollNode.boundsInWindow } returns Rect(0f, 0f, 1000f, 1000f)
+
+        val range = androidx.compose.ui.semantics.ScrollAxisRange(value = { 964f }, maxValue = { 2000f })
+        every { config.contains(SemanticsProperties.VerticalScrollAxisRange) } returns true
+        every { config.getOrNull(SemanticsProperties.VerticalScrollAxisRange) } returns range
+
+        val result = composeTapTargetDetector.resolveScrollValue(
+            allNodes = listOf(scrollNode),
+            point = Offset(100f, 100f),
+            axisProperty = SemanticsProperties.VerticalScrollAxisRange,
+            itemIndexSelector = { it.rowIndex },
+        )
+        assertThat(result).isEqualTo(964)
+    }
+
+    @Test
+    fun `resolveScrollValue returns sentinel 1 when at LazyList item boundary but rowIndex above zero`() {
+        val scrollNode = mockkClass(androidx.compose.ui.semantics.SemanticsNode::class)
+        val scrollConfig = mockkClass(SemanticsConfiguration::class)
+        every { scrollNode.config } returns scrollConfig
+        every { scrollNode.boundsInWindow } returns Rect(0f, 0f, 1000f, 1000f)
+
+        val rangeAtBoundary = androidx.compose.ui.semantics.ScrollAxisRange(value = { 0f }, maxValue = { 2000f })
+        every { scrollConfig.contains(SemanticsProperties.VerticalScrollAxisRange) } returns true
+        every { scrollConfig.getOrNull(SemanticsProperties.VerticalScrollAxisRange) } returns rangeAtBoundary
+
+        // Visible list item with rowIndex = 2 → items above have been scrolled past
+        val itemNode = mockkClass(androidx.compose.ui.semantics.SemanticsNode::class)
+        val itemConfig = mockkClass(SemanticsConfiguration::class)
+        every { itemNode.config } returns itemConfig
+        every { itemNode.boundsInWindow } returns Rect(0f, 100f, 1000f, 200f)
+        // itemNode is a list item, not a scroll container — filter passes it through.
+        every { itemConfig.contains(SemanticsProperties.VerticalScrollAxisRange) } returns false
+        every { itemConfig.getOrNull(SemanticsProperties.CollectionItemInfo) } returns
+            CollectionItemInfo(rowIndex = 2, rowSpan = 1, columnIndex = 0, columnSpan = 1)
+
+        val result = composeTapTargetDetector.resolveScrollValue(
+            allNodes = listOf(scrollNode, itemNode),
+            point = Offset(100f, 100f),
+            axisProperty = SemanticsProperties.VerticalScrollAxisRange,
+            itemIndexSelector = { it.rowIndex },
+        )
+        assertThat(result).isEqualTo(1)
+    }
+
+    @Test
+    fun `resolveScrollValue returns 0 when no scroll container at tap point`() {
+        val result = composeTapTargetDetector.resolveScrollValue(
+            allNodes = emptyList(),
+            point = Offset(100f, 100f),
+            axisProperty = SemanticsProperties.VerticalScrollAxisRange,
+            itemIndexSelector = { it.rowIndex },
+        )
+        assertThat(result).isEqualTo(0)
+    }
+
+    // endregion
 
     private fun createMockLayoutNode(
         targetX: Float = 0f,

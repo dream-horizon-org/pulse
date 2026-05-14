@@ -289,6 +289,159 @@ class ViewClickInstrumentationTest {
         assertThat(openTelemetryRule.logRecords).hasSize(2)
     }
 
+    // region scroll offset tests
+
+    @Test
+    fun `emits vertical scroll offset from ancestor ViewGroup`() {
+        val generator = ViewClickEventGenerator(
+            eventLogger = openTelemetryRule.openTelemetry.logsBridge.loggerBuilder("test").build(),
+            isContextEnrichmentEnabled = false,
+        )
+        every { window.callback } returns callback
+        every { window.callback = any() } returns Unit
+        generator.startTracking(window)
+
+        val tapX = 100f; val tapY = 100f
+        val motionEvent = MotionEvent.obtain(0L, SystemClock.uptimeMillis(), MotionEvent.ACTION_UP, tapX, tapY, 0)
+
+        val clickedView = mockView<View>(1001, motionEvent)
+        val scrollParent = mockView<ViewGroup>(1002, motionEvent, clickable = false) {
+            every { it.scrollX } returns 0
+            every { it.scrollY } returns 500
+            every { it.childCount } returns 1
+            every { it.getChildAt(0) } returns clickedView
+        }
+        val decorView = mockView<ViewGroup>(1003, motionEvent, clickable = false) {
+            every { it.scrollX } returns 0
+            every { it.scrollY } returns 0
+            every { it.childCount } returns 1
+            every { it.getChildAt(0) } returns scrollParent
+        }
+        every { clickedView.parent } returns scrollParent
+        every { scrollParent.parent } returns decorView
+        every { decorView.parent } returns null
+        every { window.decorView } returns decorView
+
+        dispatchDownThenUpOnGenerator(generator, tapX, tapY)
+        generator.stopTracking()
+        motionEvent.recycle()
+
+        // content_y = tapY(100) + scrollY(500) = 600 > decorView.height(100) → out_of_fold
+        val events = openTelemetryRule.logRecords
+        assertThat(events).hasSize(1)
+        assertThat(events[0]).hasAttributesSatisfying(
+            equalTo(PulseAttributes.CLICK_OUT_OF_FOLD, true),
+        )
+    }
+
+    @Test
+    fun `emits horizontal scroll offset from ancestor ViewGroup`() {
+        val generator = ViewClickEventGenerator(
+            eventLogger = openTelemetryRule.openTelemetry.logsBridge.loggerBuilder("test").build(),
+            isContextEnrichmentEnabled = false,
+        )
+        every { window.callback } returns callback
+        every { window.callback = any() } returns Unit
+        generator.startTracking(window)
+
+        val tapX = 100f; val tapY = 100f
+        val motionEvent = MotionEvent.obtain(0L, SystemClock.uptimeMillis(), MotionEvent.ACTION_UP, tapX, tapY, 0)
+
+        val clickedView = mockView<View>(1001, motionEvent)
+        val scrollParent = mockView<ViewGroup>(1002, motionEvent, clickable = false) {
+            every { it.scrollX } returns 300
+            every { it.scrollY } returns 0
+            every { it.childCount } returns 1
+            every { it.getChildAt(0) } returns clickedView
+        }
+        val decorView = mockView<ViewGroup>(1003, motionEvent, clickable = false) {
+            every { it.scrollX } returns 0
+            every { it.scrollY } returns 0
+            every { it.childCount } returns 1
+            every { it.getChildAt(0) } returns scrollParent
+        }
+        every { clickedView.parent } returns scrollParent
+        every { scrollParent.parent } returns decorView
+        every { decorView.parent } returns null
+        every { window.decorView } returns decorView
+
+        dispatchDownThenUpOnGenerator(generator, tapX, tapY)
+        generator.stopTracking()
+        motionEvent.recycle()
+
+        // content_x = tapX(100) + scrollX(300) = 400 > decorView.width(100) → out_of_fold
+        val events = openTelemetryRule.logRecords
+        assertThat(events).hasSize(1)
+        assertThat(events[0]).hasAttributesSatisfying(
+            equalTo(PulseAttributes.CLICK_OUT_OF_FOLD, true),
+        )
+    }
+
+    @Test
+    fun `emits zero scroll when no ancestor is scrolled`() {
+        val generator = ViewClickEventGenerator(
+            eventLogger = openTelemetryRule.openTelemetry.logsBridge.loggerBuilder("test").build(),
+            isContextEnrichmentEnabled = false,
+        )
+        every { window.callback } returns callback
+        every { window.callback = any() } returns Unit
+        generator.startTracking(window)
+
+        val tapX = 100f; val tapY = 100f
+        val motionEvent = MotionEvent.obtain(0L, SystemClock.uptimeMillis(), MotionEvent.ACTION_UP, tapX, tapY, 0)
+        val clickedView = mockView<View>(1001, motionEvent)
+        val decorView = mockView<ViewGroup>(1002, motionEvent, clickable = false) {
+            every { it.scrollX } returns 0
+            every { it.scrollY } returns 0
+            every { it.childCount } returns 1
+            every { it.getChildAt(0) } returns clickedView
+        }
+        every { clickedView.parent } returns decorView
+        every { decorView.parent } returns null
+        every { window.decorView } returns decorView
+
+        dispatchDownThenUpOnGenerator(generator, tapX, tapY)
+        generator.stopTracking()
+        motionEvent.recycle()
+
+        // no scroll → content coords == screen coords → not out of fold
+        val events = openTelemetryRule.logRecords
+        assertThat(events).hasSize(1)
+        assertThat(events[0]).hasAttributesSatisfying(
+            equalTo(PulseAttributes.CLICK_OUT_OF_FOLD, false),
+        )
+    }
+
+    @Test
+    fun `dead tap emits zero scroll offset`() {
+        val (viewClickActivityCallback, wrapperCapturingSlot) = setupInstrumentation()
+
+        // Non-clickable view → dead tap, no target, scroll must be 0
+        val motionEvent = MotionEvent.obtain(0L, SystemClock.uptimeMillis(), MotionEvent.ACTION_UP, 100f, 100f, 0)
+        val nonClickable = mockView<View>(1001, motionEvent, clickable = false)
+        val decorView = mockView<ViewGroup>(1002, motionEvent, clickable = false) {
+            every { it.scrollX } returns 0
+            every { it.scrollY } returns 0
+            every { it.childCount } returns 1
+            every { it.getChildAt(0) } returns nonClickable
+        }
+        every { window.decorView } returns decorView
+
+        val upEvent = dispatchDownThenUp(wrapperCapturingSlot.captured, motionEvent.x, motionEvent.y)
+        motionEvent.recycle()
+        viewClickActivityCallback.onActivityPaused(activity)
+        upEvent.recycle()
+
+        val events = openTelemetryRule.logRecords
+        assertThat(events).hasSize(1)
+        assertThat(events[0]).hasAttributesSatisfying(
+            equalTo(PulseAttributes.CLICK_TYPE, PulseAttributes.ClickTypeValues.DEAD),
+            equalTo(PulseAttributes.CLICK_OUT_OF_FOLD, false),
+        )
+    }
+
+    // endregion
+
     @Test
     fun not_captured_view_click_for_down_event() {
         val (_, wrapperCapturingSlot) = setupInstrumentation()
@@ -392,6 +545,11 @@ class ViewClickInstrumentationTest {
 
         every { mockView.width } returns location[0] + hitOffset[0]
         every { mockView.height } returns location[1] + hitOffset[1]
+        // Default scroll to zero; individual tests override via applyOthers when needed.
+        every { mockView.scrollX } returns 0
+        every { mockView.scrollY } returns 0
+        // Default parent to null so findScrollOffset traversal terminates by default.
+        every { mockView.parent } returns null
         applyOthers.invoke(mockView)
 
         return mockView

@@ -308,6 +308,14 @@ export function heatmapMockPocDense(screenName: string): HeatmapDataResponse {
         ],
       },
       interaction_map: interactionMap,
+      below_fold_metrics: {
+        total_clicks: 342,
+        total_click_bins: 28,
+        rage_taps: 18,
+        rage_bins: 6,
+        dead_taps: 97,
+        dead_bins: 14,
+      },
     },
     interactions_metadata: mockInteractionsMetadataFromMap(interactionMap),
   };
@@ -341,6 +349,14 @@ export function heatmapMockFull(screenName: string): HeatmapDataResponse {
         ],
       },
       interaction_map: interactionMap,
+      below_fold_metrics: {
+        total_clicks: 210,
+        total_click_bins: 19,
+        rage_taps: 12,
+        rage_bins: 4,
+        dead_taps: 55,
+        dead_bins: 9,
+      },
     },
     interactions_metadata: mockInteractionsMetadataFromMap(interactionMap),
   });

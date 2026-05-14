@@ -20,6 +20,9 @@ public class HeatmapClickHouseRowDto {
   @JsonProperty("yBin")
   private Double yBin;
 
+  @JsonProperty("outOfFold")
+  private Boolean outOfFold;
+
   @JsonProperty("weightNormal")
   private Long weightNormal;
 

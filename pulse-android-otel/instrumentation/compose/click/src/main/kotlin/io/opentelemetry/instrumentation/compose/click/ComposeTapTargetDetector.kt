@@ -14,13 +14,18 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.node.LayoutNode
 import androidx.compose.ui.node.Owner
 import androidx.compose.ui.node.RootForTest
+import androidx.compose.ui.semantics.CollectionItemInfo
+import androidx.compose.ui.semantics.ScrollAxisRange
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsConfiguration
 import androidx.compose.ui.semantics.SemanticsModifier
+import androidx.compose.ui.semantics.SemanticsNode
 import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.SemanticsPropertyKey
 import androidx.compose.ui.semantics.getAllSemanticsNodes
 import androidx.compose.ui.semantics.getOrNull
 import java.util.LinkedList
+import kotlin.math.roundToInt
 import kotlin.sequences.generateSequence
 
 /** Result of finding a tap target, includes the LayoutNode and the Owner view for semantics lookup. */
@@ -39,6 +44,7 @@ internal sealed class ComposeFindResult {
     object NotFound : ComposeFindResult()
 
     class Found(
+        val ownerView: View,
         val target: TapTarget?,
     ) : ComposeFindResult()
 }
@@ -83,7 +89,7 @@ internal class ComposeTapTargetDetector(
     ): ComposeFindResult {
         val queue = LinkedList<View>()
         queue.addFirst(decorView)
-        var isTapInCompose = false
+        var ownerView: View? = null
         var target: TapTarget? = null
         while (queue.isNotEmpty()) {
             val view = queue.removeFirst()
@@ -92,7 +98,7 @@ internal class ComposeTapTargetDetector(
                     queue.add(view.getChildAt(index))
                 }
                 if (view is Owner && viewContainsPoint(view, x, y)) {
-                    isTapInCompose = true
+                    ownerView = view
                     try {
                         findTapTargetNode(view as Owner, x, y)?.let { node ->
                             target = TapTarget(node, view)
@@ -104,7 +110,7 @@ internal class ComposeTapTargetDetector(
                 }
             }
         }
-        return if (isTapInCompose) ComposeFindResult.Found(target) else ComposeFindResult.NotFound
+        return if (ownerView != null) ComposeFindResult.Found(ownerView, target) else ComposeFindResult.NotFound
     }
 
     private fun viewContainsPoint(
@@ -279,6 +285,66 @@ internal class ComposeTapTargetDetector(
             } == true
 
         return isBounded && isValidClickTarget(node)
+    }
+
+    /**
+     * Reads Compose-internal scroll offset (LazyColumn, LazyRow, ScrollState, etc.) at the tap
+     * point by querying the semantics tree.
+     *
+     * Two-pass strategy per axis:
+     * 1. [ScrollAxisRange.value] — exact pixel offset for `ScrollState`/`Column+verticalScroll`.
+     *    For [LazyListState] this is only `firstVisibleItemScrollOffset` (intra-item), which is
+     *    0 when the list is snapped to an item boundary even if items above are scrolled away.
+     * 2. If value == 0: scan [SemanticsProperties.CollectionItemInfo] on visible items inside
+     *    the scroll container. If any item has rowIndex > 0 (vertical) or columnIndex > 0
+     *    (horizontal), items above the viewport have been scrolled away — return sentinel 1 so
+     *    the tap is correctly classified as below-the-fold (> 0 check).
+     *
+     * Combined with native ancestor scroll in [ComposeClickEventGenerator].
+     */
+    fun getScrollOffset(
+        ownerView: View,
+        x: Float,
+        y: Float,
+    ): Pair<Int, Int> {
+        return try {
+            val semanticsOwner = (ownerView as? RootForTest)?.semanticsOwner ?: return 0 to 0
+            val allNodes = semanticsOwner.getAllSemanticsNodes(mergingEnabled = false)
+            val point = Offset(x, y)
+            val scrollY = resolveScrollValue(allNodes, point, SemanticsProperties.VerticalScrollAxisRange) { it.rowIndex }
+            val scrollX = resolveScrollValue(allNodes, point, SemanticsProperties.HorizontalScrollAxisRange) { it.columnIndex }
+            scrollX to scrollY
+        } catch (_: Throwable) {
+            0 to 0
+        }
+    }
+
+    internal fun resolveScrollValue(
+        allNodes: List<SemanticsNode>,
+        point: Offset,
+        axisProperty: SemanticsPropertyKey<ScrollAxisRange>,
+        itemIndexSelector: (CollectionItemInfo) -> Int,
+    ): Int {
+        val scrollNode =
+            allNodes
+                .filter { it.config.contains(axisProperty) && it.boundsInWindow.contains(point) }
+                .minByOrNull { it.boundsInWindow.area() } ?: return 0
+
+        val value = scrollNode.config.getOrNull(axisProperty)?.value?.invoke()?.roundToInt() ?: return 0
+
+        // ScrollState / Column+verticalScroll: exact pixel offset — use directly.
+        if (value > 0) return value
+
+        // LazyList: value == 0 at item boundary even when scrolled. Check CollectionItemInfo:
+        // if any visible item inside this scroll container has index > 0, items above exist.
+        val hasScrolledPast =
+            allNodes.any { node ->
+                node !== scrollNode &&
+                    scrollNode.boundsInWindow.contains(node.boundsInWindow.center) &&
+                    node.config.getOrNull(SemanticsProperties.CollectionItemInfo)
+                        ?.let { itemIndexSelector(it) > 0 } == true
+            }
+        return if (hasScrolledPast) 1 else 0
     }
 
     companion object {

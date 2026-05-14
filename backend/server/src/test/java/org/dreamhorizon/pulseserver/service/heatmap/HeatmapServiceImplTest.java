@@ -331,6 +331,121 @@ class HeatmapServiceImplTest {
   }
 
   @Nested
+  class ScrollFoldClassification {
+
+    private PulseConfig enabledConfig() {
+      return PulseConfig.builder()
+          .description("d")
+          .features(
+              List.of(
+                  PulseConfig.FeatureConfig.builder()
+                      .featureName(Features.heatmap)
+                      .sessionSampleRate(1.0)
+                      .sdks(List.of(Sdk.pulse_android_java))
+                      .build()))
+          .build();
+    }
+
+    private void stubRows(List<HeatmapClickHouseRowDto> rows) {
+      when(configService.getActiveSdkConfig(PROJECT)).thenReturn(Single.just(enabledConfig()));
+      when(interactionDao.getAllActiveAndRunningInteractions(PROJECT))
+          .thenReturn(Single.just(Collections.emptyList()));
+      when(clickhouseQueryService.executeQueryOrCreateJob(any(), any()))
+          .thenAnswer(
+              invocation -> {
+                Class<?> rowClass = invocation.getArgument(1);
+                if (rowClass == HeatmapClickHouseRowDto.class) {
+                  return Single.just(
+                      QueryResultResponse.<HeatmapClickHouseRowDto>builder().rows(rows).build());
+                }
+                return Single.just(
+                    QueryResultResponse.builder().rows(Collections.emptyList()).build());
+              });
+    }
+
+    @Test
+    void shouldExcludeBelowFoldFromTotalEventsAndGlowMap() {
+      var above = HeatmapClickHouseRowDto.builder()
+          .xBin(0.1).yBin(0.2).outOfFold(false)
+          .weightNormal(5L).weightRage(0L).weightDead(0L).build();
+      var below = HeatmapClickHouseRowDto.builder()
+          .xBin(0.5).yBin(0.8).outOfFold(true)
+          .weightNormal(3L).weightRage(1L).weightDead(0L).build();
+
+      stubRows(List.of(above, below));
+
+      heatmapService.getHeatmapData("S", "2026-03-01T00:00:00Z", "2026-03-02T00:00:00Z",
+              "1.0", null, null, null)
+          .test().assertComplete()
+          .assertValue(resp -> {
+            assertThat(resp.getMetadata().getTotalEvents()).isEqualTo(5L);
+            assertThat(resp.getLayers().getGlowMap()).hasSize(1);
+            assertThat(resp.getLayers().getBelowFoldMetrics().getTotalClicks()).isEqualTo(3L);
+            assertThat(resp.getLayers().getBelowFoldMetrics().getRageTaps()).isEqualTo(1L);
+            return true;
+          });
+    }
+
+    @Test
+    void shouldReturnZeroTotalEventsWhenAllRowsBelowFold() {
+      var below = HeatmapClickHouseRowDto.builder()
+          .xBin(0.5).yBin(0.9).outOfFold(true)
+          .weightNormal(10L).weightRage(2L).weightDead(1L).build();
+
+      stubRows(List.of(below));
+
+      heatmapService.getHeatmapData("S", "2026-03-01T00:00:00Z", "2026-03-02T00:00:00Z",
+              "1.0", null, null, null)
+          .test().assertComplete()
+          .assertValue(resp -> {
+            assertThat(resp.getMetadata().getTotalEvents()).isEqualTo(0L);
+            assertThat(resp.getLayers().getGlowMap()).isEmpty();
+            assertThat(resp.getLayers().getBelowFoldMetrics().getTotalClicks()).isEqualTo(10L);
+            return true;
+          });
+    }
+
+    @Test
+    void shouldTreatScrolledTapAsAboveFoldWhenContentPositionWithinViewport() {
+      // SDK computed outOfFold=false: (screen_y + scroll_y) ≤ viewportHeight
+      var row = HeatmapClickHouseRowDto.builder()
+          .xBin(0.1).yBin(0.2).outOfFold(false)
+          .weightNormal(8L).weightRage(0L).weightDead(0L).build();
+
+      stubRows(List.of(row));
+
+      heatmapService.getHeatmapData("S", "2026-03-01T00:00:00Z", "2026-03-02T00:00:00Z",
+              "1.0", null, null, null)
+          .test().assertComplete()
+          .assertValue(resp -> {
+            assertThat(resp.getMetadata().getTotalEvents()).isEqualTo(8L);
+            assertThat(resp.getLayers().getGlowMap()).hasSize(1);
+            assertThat(resp.getLayers().getBelowFoldMetrics().getTotalClicks()).isEqualTo(0L);
+            return true;
+          });
+    }
+
+    @Test
+    void shouldTreatNullOutOfFoldAsAboveFold() {
+      var row = HeatmapClickHouseRowDto.builder()
+          .xBin(0.3).yBin(0.4).outOfFold(null)
+          .weightNormal(7L).weightRage(0L).weightDead(0L).build();
+
+      stubRows(List.of(row));
+
+      heatmapService.getHeatmapData("S", "2026-03-01T00:00:00Z", "2026-03-02T00:00:00Z",
+              "1.0", null, null, null)
+          .test().assertComplete()
+          .assertValue(resp -> {
+            assertThat(resp.getMetadata().getTotalEvents()).isEqualTo(7L);
+            assertThat(resp.getLayers().getGlowMap()).hasSize(1);
+            assertThat(resp.getLayers().getBelowFoldMetrics().getTotalClicks()).isEqualTo(0L);
+            return true;
+          });
+    }
+  }
+
+  @Nested
   class SortVersionsLatestFirst {
 
     @Test

@@ -31,7 +31,7 @@ CREATE TABLE IF NOT EXISTS otel.otel_traces
     SessionId          String                 MATERIALIZED ifNull(SpanAttributes['session.id'], '')                  CODEC(ZSTD(1)),
     AppVersion         LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['app.version'], '')             CODEC(ZSTD(1)),
     SDKVersion         LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['telemetry.sdk.version'], '')   CODEC(ZSTD(1)),
-    Platform           LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['os.type'], '')                 CODEC(ZSTD(1)),
+    Platform           LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['os.name'], '')                 CODEC(ZSTD(1)),
     OsVersion          LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['os.version'], '')              CODEC(ZSTD(1)),
     GeoState           LowCardinality(String) MATERIALIZED ifNull(SpanAttributes['geo.region.iso_code'], '')         CODEC(ZSTD(1)),
     GeoCountry         LowCardinality(String) MATERIALIZED ifNull(SpanAttributes['geo.country.iso_code'], '')        CODEC(ZSTD(1)),
@@ -47,7 +47,7 @@ CREATE TABLE IF NOT EXISTS otel.otel_traces
     GraphqlType        LowCardinality(String) MATERIALIZED ifNull(SpanAttributes['graphql.operation.type'], '')      CODEC(ZSTD(1)),
     GraphqlName        LowCardinality(String) MATERIALIZED ifNull(SpanAttributes['graphql.operation.name'], '')      CODEC(ZSTD(1)),
     ScreenName         LowCardinality(String) MATERIALIZED ifNull(SpanAttributes['screen.name'], '')                CODEC(ZSTD(1)),
-
+    
     INDEX idx_trace_id      TraceId           TYPE bloom_filter(0.001) GRANULARITY 1,
     INDEX idx_span_id       SpanId            TYPE bloom_filter(0.01)  GRANULARITY 1,
     INDEX idx_parent_span   ParentSpanId      TYPE bloom_filter(0.01)  GRANULARITY 1,

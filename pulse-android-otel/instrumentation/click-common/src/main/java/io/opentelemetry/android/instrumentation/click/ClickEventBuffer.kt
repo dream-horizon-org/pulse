@@ -17,8 +17,8 @@ import com.pulse.utils.PulseOtelUtils
  * Widget fields are non-null only when the tap landed on a clickable target ([hasTarget] = true).
  * [clickContext] is the pre-computed `app.click.context` label string (avoids re-traversal on flush).
  *
- * @property xPx tap x coordinate in pixels
- * @property yPx tap y coordinate in pixels
+ * @property xPx content-relative tap x coordinate in pixels (screen_x + scroll_x)
+ * @property yPx content-relative tap y coordinate in pixels (screen_y + scroll_y)
  * @property timestampMs monotonic (elapsedRealtime) — used for rage detection timing only
  * @property tapEpochMs used as the OTel event timestamp
  * @property hasTarget true when the tap landed on a clickable target; false for a dead click

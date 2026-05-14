@@ -22,9 +22,8 @@ import org.dreamhorizon.pulseserver.dao.interaction.InteractionDao;
 import org.dreamhorizon.pulseserver.error.ServiceError;
 import org.dreamhorizon.pulseserver.model.QueryConfiguration;
 import org.dreamhorizon.pulseserver.resources.configs.models.PulseConfig;
-import org.dreamhorizon.pulseserver.service.configs.ConfigService;
-import org.dreamhorizon.pulseserver.service.configs.models.Features;
 import org.dreamhorizon.pulseserver.resources.heatmap.models.HeatmapAppVersionRowDto;
+import org.dreamhorizon.pulseserver.resources.heatmap.models.HeatmapBelowFoldMetricsRestDto;
 import org.dreamhorizon.pulseserver.resources.heatmap.models.HeatmapClickHouseRowDto;
 import org.dreamhorizon.pulseserver.resources.heatmap.models.HeatmapDataRestResponse;
 import org.dreamhorizon.pulseserver.resources.heatmap.models.HeatmapEventNameRowDto;
@@ -33,6 +32,8 @@ import org.dreamhorizon.pulseserver.resources.heatmap.models.HeatmapInteractionM
 import org.dreamhorizon.pulseserver.resources.heatmap.models.HeatmapLayersRestDto;
 import org.dreamhorizon.pulseserver.resources.heatmap.models.HeatmapMetadataRestDto;
 import org.dreamhorizon.pulseserver.resources.heatmap.models.HeatmapPointRestDto;
+import org.dreamhorizon.pulseserver.service.configs.ConfigService;
+import org.dreamhorizon.pulseserver.service.configs.models.Features;
 import org.dreamhorizon.pulseserver.service.interaction.models.InteractionDetails;
 
 @Slf4j
@@ -59,7 +60,7 @@ public class HeatmapServiceImpl implements HeatmapService {
       String breakpoint,
       String geographicalRegion) {
 
-    String projectId = ProjectContext.requireProjectId();
+    final String projectId = ProjectContext.requireProjectId();
 
     if (screenName == null || screenName.isBlank()) {
       return Single.error(
@@ -360,14 +361,19 @@ public class HeatmapServiceImpl implements HeatmapService {
       Instant toInstant,
       List<String> screenshotUrls) {
 
-    long totalNormal =
-        rows.stream()
-            .mapToLong(r -> r.getWeightNormal() != null ? r.getWeightNormal() : 0L)
-            .sum();
-
     List<HeatmapPointRestDto> glow = new ArrayList<>();
     List<HeatmapPointRestDto> rage = new ArrayList<>();
     List<HeatmapPointRestDto> dead = new ArrayList<>();
+
+    // Accumulate above-fold and below-fold metrics separately.
+    // totalNormal counts only above-fold clicks so metadata.totalEvents is not inflated.
+    long totalNormal = 0L;
+    long belowFoldNormal = 0L;
+    long belowFoldRage = 0L;
+    long belowFoldDead = 0L;
+    Set<String> belowFoldNormalBins = new HashSet<>();
+    Set<String> belowFoldRageBins = new HashSet<>();
+    Set<String> belowFoldDeadBins = new HashSet<>();
 
     for (HeatmapClickHouseRowDto row : rows) {
       if (row.getXBin() == null || row.getYBin() == null) {
@@ -379,14 +385,37 @@ public class HeatmapServiceImpl implements HeatmapService {
       long wR = row.getWeightRage() != null ? row.getWeightRage() : 0L;
       long wD = row.getWeightDead() != null ? row.getWeightDead() : 0L;
 
-      if (wN > 0) {
-        glow.add(HeatmapPointRestDto.builder().x(x).y(y).weight(wN).build());
-      }
-      if (wR > 0) {
-        rage.add(HeatmapPointRestDto.builder().x(x).y(y).weight(wR).build());
-      }
-      if (wD > 0) {
-        dead.add(HeatmapPointRestDto.builder().x(x).y(y).weight(wD).build());
+      // SDK sets click.out_of_fold = true when (screen_x + scroll_x) > viewportWidth
+      // or (screen_y + scroll_y) > viewportHeight. Use directly — no scroll math needed.
+      boolean isBelowFold = Boolean.TRUE.equals(row.getOutOfFold());
+
+      if (isBelowFold) {
+        // Accumulate below-fold totals and distinct bin counts
+        String binKey = x + "," + y;
+        belowFoldNormal += wN;
+        belowFoldRage += wR;
+        belowFoldDead += wD;
+        if (wN > 0) {
+          belowFoldNormalBins.add(binKey);
+        }
+        if (wR > 0) {
+          belowFoldRageBins.add(binKey);
+        }
+        if (wD > 0) {
+          belowFoldDeadBins.add(binKey);
+        }
+      } else {
+        // Add above-fold clicks to heatmap visualization and total count
+        totalNormal += wN;
+        if (wN > 0) {
+          glow.add(HeatmapPointRestDto.builder().x(x).y(y).weight(wN).build());
+        }
+        if (wR > 0) {
+          rage.add(HeatmapPointRestDto.builder().x(x).y(y).weight(wR).build());
+        }
+        if (wD > 0) {
+          dead.add(HeatmapPointRestDto.builder().x(x).y(y).weight(wD).build());
+        }
       }
     }
 
@@ -412,6 +441,15 @@ public class HeatmapServiceImpl implements HeatmapService {
             .glowMap(glow)
             .frustrationMap(
                 HeatmapFrustrationRestDto.builder().rageTaps(rage).deadTaps(dead).build())
+            .belowFoldMetrics(
+                HeatmapBelowFoldMetricsRestDto.builder()
+                    .totalClicks(belowFoldNormal)
+                    .totalClickBins((long) belowFoldNormalBins.size())
+                    .rageTaps(belowFoldRage)
+                    .rageBins((long) belowFoldRageBins.size())
+                    .deadTaps(belowFoldDead)
+                    .deadBins((long) belowFoldDeadBins.size())
+                    .build())
             .build();
 
     return HeatmapDataRestResponse.builder()

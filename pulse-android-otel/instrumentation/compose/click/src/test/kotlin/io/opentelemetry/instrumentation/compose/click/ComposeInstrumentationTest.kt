@@ -152,6 +152,9 @@ internal class ComposeInstrumentationTest {
         every { composeView.childCount } returns 0
         every { composeView.width } returns 1000
         every { composeView.height } returns 1000
+        every { composeView.scrollX } returns 0
+        every { composeView.scrollY } returns 0
+        every { composeView.parent } returns null
 
         val mockLayoutNode =
             createMockLayoutNode(

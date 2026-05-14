@@ -113,6 +113,7 @@ class ClickEventEmitter(
                 .logRecordBuilder()
                 .setTimestamp(tapEpochMs, TimeUnit.MILLISECONDS)
                 .setEventName(eventName)
+                .setAttribute(PulseAttributes.PULSE_TYPE, PulseAttributes.PulseTypeValues.TOUCH)
                 .setAttribute(APP_SCREEN_COORDINATE_X, xPx.toLong())
                 .setAttribute(APP_SCREEN_COORDINATE_Y, yPx.toLong())
                 .setAttribute(PulseAttributes.CLICK_TYPE, clickType)
@@ -144,8 +145,11 @@ class ClickEventEmitter(
                 val effectiveDensity = if (densityScale > 0f) densityScale else 1f
                 setAttribute(PulseDeviceAttributes.DEVICE_SCREEN_WIDTH, (vpWidthPx / effectiveDensity).toLong())
                 setAttribute(PulseDeviceAttributes.DEVICE_SCREEN_HEIGHT, (vpHeightPx / effectiveDensity).toLong())
+                // xPx/yPx are content-relative (screen + scroll offset).
+                // nx/ny > 1.0 means the tap was outside the initial visible viewport.
                 setAttribute(PulseAttributes.APP_SCREEN_COORDINATE_NX, xPx.toDouble() / vpWidthPx)
                 setAttribute(PulseAttributes.APP_SCREEN_COORDINATE_NY, yPx.toDouble() / vpHeightPx)
+                setAttribute(PulseAttributes.CLICK_OUT_OF_FOLD, xPx > vpWidthPx || yPx > vpHeightPx)
             }
         }
 }

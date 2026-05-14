@@ -161,6 +161,15 @@ export interface HeatmapDataWireLayers {
   };
   /** Overlay rectangles + per-element Pulse scores; optional on wire. */
   interaction_map?: HeatmapInteractionMapLayer;
+  /** Below-the-fold metrics (clicks with scroll offset > 0). */
+  below_fold_metrics?: {
+    total_clicks: number;
+    total_click_bins: number;
+    rage_taps: number;
+    rage_bins: number;
+    dead_taps: number;
+    dead_bins: number;
+  };
 }
 
 /**
@@ -192,6 +201,15 @@ export interface HeatmapDataResponse {
     };
     /** Optional overlay (from wire `layers.interaction_map`). */
     interaction_map?: HeatmapInteractionMapLayer;
+    /** Below-the-fold metrics for right-side table display. */
+    below_fold_metrics?: {
+      total_clicks: number;
+      total_click_bins: number;
+      rage_taps: number;
+      rage_bins: number;
+      dead_taps: number;
+      dead_bins: number;
+    };
   };
   /** Right-rail Pulse interaction table — not part of `layers`. */
   interactions_metadata?: HeatmapInteractionsMetadataRow[];

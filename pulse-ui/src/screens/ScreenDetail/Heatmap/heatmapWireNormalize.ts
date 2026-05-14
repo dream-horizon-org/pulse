@@ -79,6 +79,9 @@ export function normalizeHeatmapWireResponse(
       ...(wire.layers?.interaction_map != null
         ? { interaction_map: wire.layers.interaction_map }
         : {}),
+      ...(wire.layers?.below_fold_metrics != null
+        ? { below_fold_metrics: wire.layers.below_fold_metrics }
+        : {}),
     },
     ...(metaRows.length > 0 ? { interactions_metadata: metaRows } : {}),
   };

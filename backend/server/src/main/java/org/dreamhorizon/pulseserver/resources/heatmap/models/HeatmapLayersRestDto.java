@@ -18,4 +18,7 @@ public class HeatmapLayersRestDto {
 
   @JsonProperty("frustration_map")
   private HeatmapFrustrationRestDto frustrationMap;
+
+  @JsonProperty("below_fold_metrics")
+  private HeatmapBelowFoldMetricsRestDto belowFoldMetrics;
 }

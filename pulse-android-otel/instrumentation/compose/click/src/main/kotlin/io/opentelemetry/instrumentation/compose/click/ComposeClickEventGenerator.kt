@@ -8,7 +8,9 @@
 package io.opentelemetry.instrumentation.compose.click
 
 import android.view.MotionEvent
+import android.view.View
 import android.view.ViewConfiguration
+import android.view.ViewGroup
 import android.view.Window
 import com.pulse.semconv.PulseAttributes
 import io.opentelemetry.android.instrumentation.WindowCallbackUnwrap
@@ -68,6 +70,20 @@ internal class ComposeClickEventGenerator(
                 // Build PendingClick — widgetName/widgetId/clickContext only populated on a hit.
                 val vpWidthPx = decorView.width
                 val vpHeightPx = decorView.height
+                // Combine two sources of scroll offset:
+                // 1. Native ancestor scroll: ComposeView inside NestedScrollView/ScrollView etc.
+                // 2. Compose-internal scroll: LazyColumn, LazyRow, ScrollState etc. — read from
+                //    the semantics tree via VerticalScrollAxisRange / HorizontalScrollAxisRange.
+                val (nativeScrollX, nativeScrollY) = findScrollOffset(findResult.ownerView)
+                val (composeScrollX, composeScrollY) = composeTapTargetDetector.getScrollOffset(findResult.ownerView, windowX, windowY)
+                val scrollXPx = nativeScrollX + composeScrollX
+                val scrollYPx = nativeScrollY + composeScrollY
+
+                // Shift to content-relative coordinates so nx/ny represent position in the full
+                // scrollable content, not just the current visible viewport slice.
+                val contentXPx = windowX + scrollXPx
+                val contentYPx = windowY + scrollYPx
+
                 val pending =
                     tapTarget?.let { target ->
                         val node = target.node
@@ -84,8 +100,8 @@ internal class ComposeClickEventGenerator(
                                 null
                             }
                         PendingClick(
-                            xPx = windowX,
-                            yPx = windowY,
+                            xPx = contentXPx,
+                            yPx = contentYPx,
                             timestampMs = clickEmitter.currentMonotonicTimeMs(),
                             tapEpochMs = tapEpochMs,
                             hasTarget = true,
@@ -96,8 +112,8 @@ internal class ComposeClickEventGenerator(
                             viewportHeightPx = vpHeightPx,
                         )
                     } ?: PendingClick(
-                        xPx = windowX,
-                        yPx = windowY,
+                        xPx = contentXPx,
+                        yPx = contentYPx,
                         timestampMs = clickEmitter.currentMonotonicTimeMs(),
                         tapEpochMs = tapEpochMs,
                         hasTarget = false,
@@ -120,5 +136,19 @@ internal class ComposeClickEventGenerator(
             callback = WindowCallbackUnwrap.fullyUnwrap(callback)
         }
         windowRef = null
+    }
+
+    private fun findScrollOffset(view: View): Pair<Int, Int> {
+        var scrollXPx = 0
+        var scrollYPx = 0
+        var current: View? = view
+        while (current != null) {
+            if (current is ViewGroup) {
+                scrollXPx += current.scrollX
+                scrollYPx += current.scrollY
+            }
+            current = current.parent as? View
+        }
+        return scrollXPx to scrollYPx
     }
 }

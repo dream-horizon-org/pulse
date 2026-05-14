@@ -85,12 +85,12 @@ internal class UIWindowSwizzler {
                 return
             }
 
-            let clickTarget: (view: UIView?, location: CGPoint)? = {
+            let clickTarget: (view: UIView?, hitView: UIView, location: CGPoint)? = {
                 guard let touch = touches.first(where: { $0.phase == .ended }) else { return nil }
                 guard let hitView = touch.view else { return nil }
                 let endLocation = touch.location(in: window)
                 let target = findClickTarget(in: window, at: endLocation, for: hitView)
-                return (target, endLocation)
+                return (target, hitView, endLocation)
             }()
 
             if let imp = originalIMP {
@@ -98,8 +98,8 @@ internal class UIWindowSwizzler {
                 fn(window, #selector(UIWindow.sendEvent(_:)), event)
             }
 
-            if let (target, location) = clickTarget {
-                emitClickEvent(target: target, at: location, in: window)
+            if let (target, hitView, location) = clickTarget {
+                emitClickEvent(target: target, hitView: hitView, at: location, in: window)
             }
         }
 
@@ -119,16 +119,25 @@ internal class UIWindowSwizzler {
 
     // MARK: - Click Event Emission
 
-    private static func emitClickEvent(target: UIView?, at point: CGPoint, in window: UIWindow) {
+    private static func emitClickEvent(target: UIView?, hitView: UIView, at point: CGPoint, in window: UIWindow) {
         let widgetName = target.map { String(describing: type(of: $0)) } ?? ""
         let widgetId = target?.accessibilityIdentifier ?? ""
 
         let label: String? = captureContext && target != nil ? extractLabel(from: target!) : nil
         let context = label.flatMap(PulseAttributes.AppClickContext.buildContext)
 
+        // Always traverse from hitView — it's the actual view under the finger,
+        // so its superview chain reliably contains any ancestor UIScrollView.
+        let (scrollXPt, scrollYPt) = findScrollOffset(from: hitView)
+
+        // Shift to content-relative coordinates so nx/ny represent position in the full
+        // scrollable content, not just the current visible viewport slice.
+        let contentX = Float(point.x) + Float(scrollXPt)
+        let contentY = Float(point.y) + Float(scrollYPt)
+
         let pending = PendingClick(
-            x: Float(point.x),
-            y: Float(point.y),
+            x: contentX,
+            y: contentY,
             timestampMs: Int64(CACurrentMediaTime() * 1000), // monotonic clock for buffer timing
             tapEpochMs: Int64(Date().timeIntervalSince1970 * 1000),
             hasTarget: target != nil,
@@ -254,6 +263,21 @@ internal class UIWindowSwizzler {
         }
         return segments
     }
+
+    internal static func findScrollOffset(from view: UIView) -> (x: Int, y: Int) {
+        var scrollXPt = 0
+        var scrollYPt = 0
+        var current: UIView? = view
+        while let v = current {
+            if let scrollView = v as? UIScrollView {
+                scrollXPt += Int(scrollView.contentOffset.x.rounded())
+                scrollYPt += Int(scrollView.contentOffset.y.rounded())
+            }
+            current = v.superview
+        }
+        return (scrollXPt, scrollYPt)
+    }
+
     static func uninstall() {
         swizzleLock.lock()
         defer { swizzleLock.unlock() }

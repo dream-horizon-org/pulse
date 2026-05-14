@@ -146,6 +146,15 @@ export function HeatmapAggregatesHeatmapLensPanel({
     },
   ];
 
+  const belowFoldMetrics = payload.layers.below_fold_metrics ?? {
+    total_clicks: 0,
+    total_click_bins: 0,
+    rage_taps: 0,
+    rage_bins: 0,
+    dead_taps: 0,
+    dead_bins: 0,
+  };
+
   const showTapVersusNote =
     signal !== "tap" &&
     signal !== "rage" &&
@@ -229,6 +238,9 @@ export function HeatmapAggregatesHeatmapLensPanel({
             </div>
           </Group>
           <LayerBreakdownTable rows={layerTableRows} />
+          <Text size="xs" c="dimmed" mt={6} lh={1.4}>
+            Visible heatmap only — excludes below-the-fold clicks.
+          </Text>
         </Paper>
 
         <HeatmapPulseInteractionsAggregatesSection payload={payload} />
@@ -241,6 +253,40 @@ export function HeatmapAggregatesHeatmapLensPanel({
             <AggregateRows rows={tapVersusRows} />
           </AggregatesCard>
         )}
+
+        <AggregatesCard title="Below the fold">
+          <Table
+            className={classes.aggregatesLayerTable}
+            verticalSpacing={0}
+            horizontalSpacing="xs"
+            layout="fixed"
+          >
+            <Table.Thead>
+              <Table.Tr>
+                <Table.Th style={{ width: "50%" }}>View</Table.Th>
+                <Table.Th style={{ width: "25%", textAlign: "right" }}>Total spots</Table.Th>
+                <Table.Th style={{ width: "25%", textAlign: "right" }}>Total events</Table.Th>
+              </Table.Tr>
+            </Table.Thead>
+            <Table.Tbody>
+              <Table.Tr>
+                <Table.Td>Taps & movement</Table.Td>
+                <Table.Td style={{ textAlign: "right" }}>{formatInt(belowFoldMetrics.total_click_bins)}</Table.Td>
+                <Table.Td style={{ textAlign: "right" }}>{formatWeight(belowFoldMetrics.total_clicks)}</Table.Td>
+              </Table.Tr>
+              <Table.Tr>
+                <Table.Td>Rage</Table.Td>
+                <Table.Td style={{ textAlign: "right" }}>{formatInt(belowFoldMetrics.rage_bins)}</Table.Td>
+                <Table.Td style={{ textAlign: "right" }}>{formatWeight(belowFoldMetrics.rage_taps)}</Table.Td>
+              </Table.Tr>
+              <Table.Tr>
+                <Table.Td>Unresponsive areas</Table.Td>
+                <Table.Td style={{ textAlign: "right" }}>{formatInt(belowFoldMetrics.dead_bins)}</Table.Td>
+                <Table.Td style={{ textAlign: "right" }}>{formatWeight(belowFoldMetrics.dead_taps)}</Table.Td>
+              </Table.Tr>
+            </Table.Tbody>
+          </Table>
+        </AggregatesCard>
       </div>
 
       <Text size="sm" c="dimmed" lh={1.5} px={2}>

@@ -93,6 +93,10 @@ internal class ComposeClickEventGeneratorTest {
         // isPointInComposeView calls getLocationInWindow (relaxed → {0,0}) and width/height.
         every { composeView.width } returns 1000
         every { composeView.height } returns 1000
+        // findScrollOffset traverses the parent chain; stub defaults so it terminates cleanly.
+        every { composeView.scrollX } returns 0
+        every { composeView.scrollY } returns 0
+        every { composeView.parent } returns null
 
         composeClickEventGenerator.startTracking(window)
     }

@@ -664,5 +664,77 @@ final class UIKitTapInstrumentationTests: XCTestCase {
         XCTAssertEqual(config.rage.rageThreshold, 4)
         XCTAssertEqual(config.rage.radiusPt, 50.0)
     }
+
+    // MARK: - Scroll offset capture
+
+    func testFindScrollOffsetVertical() {
+        let scrollView = UIScrollView()
+        scrollView.contentSize = CGSize(width: 390, height: 2000)
+        scrollView.contentOffset = CGPoint(x: 0, y: 500)
+
+        let childView = UIView()
+        scrollView.addSubview(childView)
+
+        let (x, y) = UIWindowSwizzler.findScrollOffset(from: childView)
+        XCTAssertEqual(x, 0)
+        XCTAssertEqual(y, 500)
+    }
+
+    func testFindScrollOffsetHorizontal() {
+        let scrollView = UIScrollView()
+        scrollView.contentSize = CGSize(width: 2000, height: 390)
+        scrollView.contentOffset = CGPoint(x: 300, y: 0)
+
+        let childView = UIView()
+        scrollView.addSubview(childView)
+
+        let (x, y) = UIWindowSwizzler.findScrollOffset(from: childView)
+        XCTAssertEqual(x, 300)
+        XCTAssertEqual(y, 0)
+    }
+
+    func testFindScrollOffsetZeroWhenNoScrollAncestor() {
+        let plainParent = UIView()
+        let childView = UIView()
+        plainParent.addSubview(childView)
+
+        let (x, y) = UIWindowSwizzler.findScrollOffset(from: childView)
+        XCTAssertEqual(x, 0)
+        XCTAssertEqual(y, 0)
+    }
+
+    func testOutOfFoldEmittedInLogRecord() {
+        let emitter = ClickEventEmitter(logger: logger)
+        // x=100, y=924 on a 390×844 viewport: content_y(924) > viewportH(844) → out_of_fold=true
+        let click = PendingClick(
+            x: 100, y: 924,
+            timestampMs: 0, tapEpochMs: 0,
+            hasTarget: true,
+            widgetName: "btn",
+            viewportWidthPt: 390,
+            viewportHeightPt: 844
+        )
+        emitter.emitGoodClick(click)
+
+        let record = logExporter.getFinishedLogRecords()[0]
+        XCTAssertEqual(record.attributes[PulseAttributes.clickOutOfFold], .bool(true))
+    }
+
+    func testOutOfFoldFalseWhenTapWithinViewport() {
+        let emitter = ClickEventEmitter(logger: logger)
+        // x=100, y=200 within a 390×844 viewport → out_of_fold=false
+        let click = PendingClick(
+            x: 100, y: 200,
+            timestampMs: 0, tapEpochMs: 0,
+            hasTarget: true,
+            widgetName: "btn",
+            viewportWidthPt: 390,
+            viewportHeightPt: 844
+        )
+        emitter.emitGoodClick(click)
+
+        let record = logExporter.getFinishedLogRecords()[0]
+        XCTAssertEqual(record.attributes[PulseAttributes.clickOutOfFold], .bool(false))
+    }
 }
 #endif

@@ -71,10 +71,19 @@ internal class ViewClickEventGenerator(
                         null
                     }
 
+                // Traverse UP from the clicked view to accumulate ancestor scroll offsets.
+                // Dead clicks (no target) have no view to traverse from → offset is 0.
+                val (scrollXPx, scrollYPx) = if (target != null) findScrollOffset(target) else (0 to 0)
+
+                // Shift to content-relative coordinates so nx/ny represent position in the full
+                // scrollable content, not just the current visible viewport slice.
+                val contentXPx = tapX + scrollXPx
+                val contentYPx = tapY + scrollYPx
+
                 clickEmitter.process(
                     PendingClick(
-                        xPx = tapX,
-                        yPx = tapY,
+                        xPx = contentXPx,
+                        yPx = contentYPx,
                         timestampMs = clickEmitter.currentMonotonicTimeMs(),
                         tapEpochMs = System.currentTimeMillis(),
                         hasTarget = target != null,
@@ -274,7 +283,41 @@ internal class ViewClickEventGenerator(
 
     private val View.isVisible: Boolean get() = visibility == View.VISIBLE
 
+    private fun findScrollOffset(view: View): Pair<Int, Int> {
+        var scrollXPx = 0
+        var scrollYPx = 0
+        var current: View? = view
+        while (current != null) {
+            if (current is ViewGroup) {
+                // RecyclerView manages scroll via LayoutManager; scrollX/Y are always 0.
+                // computeVerticalScrollOffset() delegates to the LayoutManager but is protected
+                // on View — call via reflection to avoid adding a RecyclerView dependency.
+                if (RECYCLER_VIEW_CLASS_NAME == current.javaClass.name) {
+                    scrollXPx += computeScrollOffsetReflective(current, horizontal = true)
+                    scrollYPx += computeScrollOffsetReflective(current, horizontal = false)
+                } else {
+                    scrollXPx += current.scrollX
+                    scrollYPx += current.scrollY
+                }
+            }
+            current = current.parent as? View
+        }
+        return scrollXPx to scrollYPx
+    }
+
+    private fun computeScrollOffsetReflective(
+        view: View,
+        horizontal: Boolean,
+    ): Int =
+        try {
+            val method = view.javaClass.getMethod(if (horizontal) "computeHorizontalScrollOffset" else "computeVerticalScrollOffset")
+            method.invoke(view) as? Int ?: 0
+        } catch (_: Throwable) {
+            0
+        }
+
     private companion object {
+        private const val RECYCLER_VIEW_CLASS_NAME = "androidx.recyclerview.widget.RecyclerView"
         private const val MAX_CARD_LABEL_SEGMENTS = 5
         private const val MAX_CARD_LABEL_CHAR_LENGTH = 200
         private const val CARD_LABEL_DELIMITER = " | "
