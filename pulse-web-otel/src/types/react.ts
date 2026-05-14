@@ -67,8 +67,11 @@ export interface PulseProviderProps {
   errorBoundaryFallback?: PulseErrorBoundaryProps["fallback"];
   /**
    * If true, the SDK is shut down when the last `PulseProvider` unmounts.
-   * Default `false` — keep the SDK alive for the full page lifetime regardless
-   * of provider unmounts (recommended for most apps).
+   * Default **`false`** — keeps {@link Pulse} initialized for the full browser
+   * tab even when React mounts/unmounts providers (SPA subtrees, micro-frontends,
+   * route-level wrappers). Set **`true`** when you want strict teardown or in
+   * tests — see `src/__tests__/pulse-provider.test.tsx` (`shutdownOnUnmount`
+   * cases).
    *
    * StrictMode's synthetic unmount/remount in dev is handled automatically —
    * shutdown is deferred by a microtask and cancelled if the provider

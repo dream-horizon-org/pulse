@@ -60,7 +60,7 @@ Capture JavaScript failures as OTLP **log records** aligned with Pulse mobile se
 
 **R3 — `non_fatal`:** Unhandled promise rejections → `pulse.type = non_fatal`, `severityNumber = WARN`, `non_fatal.is_manual = false`.
 
-**R4 — Manual APIs:** `Pulse.reportException` / `Pulse.trackNonFatal` → `non_fatal`; `Pulse.reportDeviceCrash` → `device.crash` (see [sdk-core public-api/SPEC.md](../../sdk-core/public-api/SPEC.md)). **`trackNonFatal`** is a named non-fatal: log `body` = name, `non_fatal.type` = name; it does **not** populate `exception.*` (see §5.2). All manual APIs require `Pulse.init()` to have completed (`_initialized`); they do **not** consult `PulseFeature.JS_CRASH` or `instrumentations.errors.enabled` — only **automatic** listeners are gated (see R6).
+**R4 — Manual APIs:** `Pulse.reportException` / `Pulse.trackNonFatal` → `non_fatal`; `Pulse.reportDeviceCrash` → `device.crash` (see [sdk-core config-and-public-api/SPEC.md](../../sdk-core/config-and-public-api/SPEC.md) §5.6). **`trackNonFatal`** is a named non-fatal: log `body` = name, `non_fatal.type` = name; it does **not** populate `exception.*` (see §5.2). All manual APIs require `Pulse.init()` to have completed (`_initialized`); they do **not** consult `PulseFeature.JS_CRASH` or `instrumentations.errors.enabled` — only **automatic** listeners are gated (see R6).
 
 **R5 — Dedupe:** Fingerprints + 5s sliding window (`DEDUPE_WINDOW_MS = 5000`) apply **only** to `**ErrorInstrumentation`** listeners (`window` `error` and `unhandledrejection`) in `src/instrumentations/errors.ts`. `**Pulse.reportException`**, `**Pulse.reportDeviceCrash**`, and `**Pulse.trackNonFatal**` do **not** use this dedupe cache; each call emits. `window` `error` fingerprint: ``${error.name}:${error.message}:${e.filename}:${e.lineno}:${e.colno}`` (includes `colno` to avoid collapsing two errors on the same line at different columns). *(ISS-016 fixed.)*
 
@@ -77,7 +77,7 @@ Capture JavaScript failures as OTLP **log records** aligned with Pulse mobile se
 
 ## 4. Architectural Design
 
-```
+```text
 InstrumentationRegistry.installAll()
   └─ ErrorInstrumentation (PulseFeature.JS_CRASH)
         ├─ prefetchDeviceState()  → battery + storage async
@@ -91,7 +91,7 @@ React layer (optional)
 
 **Decision (ADR):** Keep log-based model; harden E2E and lifecycle docs rather than introducing spans/metrics for errors.
 
-### 4.1 HLD — registry and signals (Mermaid)
+### 4.1 HLD — registry and signals
 
 ```mermaid
 flowchart TB
@@ -106,9 +106,7 @@ flowchart TB
   EI --> Log
 ```
 
-
-
-### 4.2 LD — handlers and dedupe (Mermaid)
+### 4.2 LD — handlers and dedupe
 
 ```mermaid
 flowchart LR
@@ -118,9 +116,7 @@ flowchart LR
   DED --> EMIT["emit log"]
 ```
 
-
-
-### 4.3 Flows and edge cases (Mermaid)
+### 4.3 Flows and edge cases
 
 ```mermaid
 flowchart TD

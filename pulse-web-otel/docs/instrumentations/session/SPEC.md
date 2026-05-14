@@ -39,38 +39,7 @@ Define **browser session lifecycle** (`SessionProvider`), **persistence of insta
 
 ## 4. Architectural Design
 
-### 4.1 HLD — component relationships
-
-```
-┌──────────────────────────────────────────────────────────┐
-│                      Pulse SDK                           │
-│                                                          │
-│  ┌────────────────────────────────────────────────────┐  │
-│  │               SessionProvider                      │  │
-│  │                                                    │  │
-│  │  localStorage       sessionStorage    in-memory    │  │
-│  │  ─────────────      ─────────────     ──────────   │  │
-│  │  session_id         tab_session       _memSession  │  │
-│  │  session_ts         clone_flag        _hiddenAtMs  │  │
-│  │  session_start      hidden_at         _rotatingSession │  │
-│  │  _windowId           user_id                         │  │
-│  └────────────────────┬───────────────────────────────┘  │
-│                       │ getSessionId()                   │
-│                       ▼                                  │
-│  ┌────────────────────────────────────────────────────┐  │
-│  │         GlobalAttributesProcessor                  │  │
-│  │         stamps session.id on every signal          │  │
-│  └────────────────────────────────────────────────────┘  │
-│                       │                                  │
-│  ┌────────────────────▼───────────────────────────────┐  │
-│  │         SessionInstrumentation                     │  │
-│  │         listens to onSessionChange()               │  │
-│  │         emits session.start / session.end logs     │  │
-│  └────────────────────────────────────────────────────┘  │
-└──────────────────────────────────────────────────────────┘
-```
-
-`installation.id` (resource attribute) is **not** owned by `SessionProvider`; it comes from `getOrCreateInstallationId()` in `src/session.ts` (see [`../../sdk-core/SPEC.md`](../../sdk-core/SPEC.md) and resource construction in `src/resource.ts`).
+### 4.1 HLD — provider vs instrumentation
 
 ```mermaid
 flowchart TB
@@ -83,7 +52,23 @@ flowchart TB
   SI --> Log
 ```
 
-### 4.2 Session state machine
+### 4.2 LD — visibility-driven rotation
+
+```mermaid
+flowchart LR
+  SP["SessionProvider"] --> Vis["visibilitychange"]
+  Vis --> T{hidden duration > timeout?}
+  T -->|yes| Rot["rotate session.id"]
+  T -->|no| Same["same session"]
+```
+
+```text
+Pulse.init → SessionProvider (session.ts)
+  └─ SessionInstrumentation.install(sdk)
+        └─ sessionProvider.onSessionChange → LoggerProvider.emit(session.start | session.end)
+```
+
+### 4.3 Session lifecycle states
 
 ```mermaid
 stateDiagram-v2
@@ -600,11 +585,7 @@ Next.js demo: `session.start` + stable `session.id` across App Router navigation
 
 ## 8. Known bugs & gaps
 
-See [`../../sdk-core/known-gaps-and-open-questions/SPEC.md`](../../sdk-core/known-gaps-and-open-questions/SPEC.md) for session/identity gaps.
-
-Notable current gaps:
-- Cloned tabs share the same `session.id` and do not emit a distinct `session.start` for the new tab. `_windowId` distinguishes them in memory but there is no `tab_clone` start reason yet.
-- `getPreviousSessionId()` reads `pulse_prev_session_id` from localStorage, which is not currently written by `_writeSession()` — may return empty string.
+[`../../known-gaps-tradeoffs-and-plan.md`](../../known-gaps-tradeoffs-and-plan.md) where they touch identity/session UX.
 
 ---
 
@@ -616,4 +597,4 @@ Notable current gaps:
 
 ## 10. Open questions
 
-See [`../../sdk-core/known-gaps-and-open-questions/SPEC.md`](../../sdk-core/known-gaps-and-open-questions/SPEC.md) §9.
+[`../../known-gaps-tradeoffs-and-plan.md`](../../known-gaps-tradeoffs-and-plan.md) §3.
