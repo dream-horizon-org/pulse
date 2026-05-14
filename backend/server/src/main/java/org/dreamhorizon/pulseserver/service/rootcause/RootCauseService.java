@@ -196,9 +196,14 @@ public class RootCauseService {
             return Single.just(result);
           }
           List<RootCauseSegment> gated =
-              applySignalGate(result.getSegments(), interactionName);
+              applySignalGate(result.getSegments(), result.getBaseline(), interactionName);
           if (gated != result.getSegments()) {
-            result = result.toBuilder().segments(gated).build();
+            result =
+                result
+                    .toBuilder()
+                    .segments(gated)
+                    .mode(RootCauseAnalysisMode.forSegmentShapeAfterGate(gated))
+                    .build();
           }
           String baselineJson = objectMapper.writeValueAsString(result.getBaseline());
           String segmentsJson = objectMapper.writeValueAsString(result.getSegments());
@@ -224,43 +229,45 @@ public class RootCauseService {
   private record SegmentsWithMode(List<RootCauseSegment> segments, RootCauseAnalysisMode mode) {}
 
   /**
-   * Drops pre-LLM segments whose combined absolute delta {@code S = |Δerror_rate| +
-   * |Δpoor_user_pct|} is below {@link RootCauseConfig#getMinCombinedDeltaSignal()}. Returns the
-   * input list unchanged when the gate is disabled ({@code threshold <= 0}) or no segments are
-   * dropped, so callers can detect a no-op via reference equality. Order of kept segments is
-   * preserved.
+   * Drops pre-LLM segments whose summed raw rates {@code error_rate + poor_user_pct} are not
+   * strictly greater than the same sum on {@code baseline}. Always applied when segments are
+   * non-empty. Returns the input list unchanged when no segments are dropped (reference equality).
+   * Order of kept segments is preserved.
    */
   private List<RootCauseSegment> applySignalGate(
-      List<RootCauseSegment> segments, String interactionName) {
+      List<RootCauseSegment> segments,
+      Map<String, Object> baseline,
+      String interactionName) {
     if (segments == null || segments.isEmpty()) {
       return segments;
     }
-    double threshold = config.getMinCombinedDeltaSignal();
-    if (threshold <= 0) {
-      return segments;
-    }
-    List<RootCauseSegment> kept = SegmentSignalGate.filter(segments, threshold);
+    List<RootCauseSegment> kept =
+        SegmentSignalGate.filterInteractionSegmentsRatesAboveBaseline(segments, baseline);
     if (kept.size() == segments.size()) {
       return segments;
     }
+    double baselineSum = SegmentSignalGate.sumErrorRatePlusPoorUserPct(baseline);
     if (log.isDebugEnabled()) {
       for (RootCauseSegment s : segments) {
         if (!kept.contains(s)) {
+          double segSum = SegmentSignalGate.sumErrorRatePlusPoorUserPct(s.getMetrics());
           log.debug(
-              "[RCA-SEGMENT] Drop segment below combined signal: interaction={}, label={}, S={}, threshold={}",
+              "[RCA-SEGMENT] Drop segment at or below baseline error+poor sum: interaction={}, label={}, "
+                  + "segmentSum={}, baselineSum={}",
               interactionName,
               s.getLabel(),
-              SegmentSignalGate.computeSignal(s),
-              threshold);
+              segSum,
+              baselineSum);
         }
       }
     }
     log.info(
-        "[RCA-SEGMENT] Signal gate filtered segments: interaction={}, kept={}/{}, threshold={}",
+        "[RCA-SEGMENT] Signal gate filtered segments (interaction vs baseline rate sum): interaction={}, "
+            + "kept={}/{}, baselineSum={}",
         interactionName,
         kept.size(),
         segments.size(),
-        threshold);
+        baselineSum);
     return kept;
   }
 

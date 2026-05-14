@@ -247,4 +247,121 @@ class SegmentSignalGateTest {
           .isEqualTo(0.0);
     }
   }
+
+  /**
+   * Interaction RCA: gate on raw {@code error_rate + poor_user_pct} vs baseline (not delta sum).
+   */
+  @Nested
+  class InteractionRatesAboveBaseline {
+
+    private static Map<String, Object> metricsRow(Double err, Double poor) {
+      Map<String, Object> m = new LinkedHashMap<>();
+      m.put(ERROR_RATE, err);
+      m.put(POOR_USER_PCT, poor);
+      return m;
+    }
+
+    private static RootCauseSegment segmentWithRates(String label, Double err, Double poor) {
+      return RootCauseSegment.builder().label(label).metrics(metricsRow(err, poor)).build();
+    }
+
+    @Test
+    void shouldSumRawRatesFromMetricsRow() {
+      assertThat(SegmentSignalGate.sumErrorRatePlusPoorUserPct(metricsRow(3.0, 7.0))).isEqualTo(10.0);
+    }
+
+    @Test
+    void shouldTreatNullMetricsAsZeroSum() {
+      assertThat(SegmentSignalGate.sumErrorRatePlusPoorUserPct(null)).isEqualTo(0.0);
+    }
+
+    @Test
+    void shouldKeepWhenSegmentSumStrictlyAboveBaseline() {
+      Map<String, Object> baseline = metricsRow(5.0, 5.0);
+      RootCauseSegment s = segmentWithRates("hot", 6.0, 5.0);
+      assertThat(SegmentSignalGate.isEligibleInteractionRatesAboveBaseline(s, baseline)).isTrue();
+    }
+
+    @Test
+    void shouldDropWhenSegmentSumEqualsBaseline() {
+      Map<String, Object> baseline = metricsRow(5.0, 5.0);
+      RootCauseSegment s = segmentWithRates("same", 3.0, 7.0);
+      assertThat(SegmentSignalGate.isEligibleInteractionRatesAboveBaseline(s, baseline)).isFalse();
+    }
+
+    @Test
+    void shouldDropWhenBelowBaseline() {
+      Map<String, Object> baseline = metricsRow(10.0, 10.0);
+      RootCauseSegment s = segmentWithRates("cold", 5.0, 5.0);
+      assertThat(SegmentSignalGate.isEligibleInteractionRatesAboveBaseline(s, baseline)).isFalse();
+    }
+
+    @Test
+    void shouldRejectWhenBaselineNull() {
+      assertThat(
+              SegmentSignalGate.isEligibleInteractionRatesAboveBaseline(
+                  segmentWithRates("x", 1.0, 1.0), null))
+          .isFalse();
+    }
+
+    @Test
+    void shouldPassThroughAllWhenBaselineMapNullInFilter() {
+      RootCauseSegment a = segmentWithRates("a", 1.0, 1.0);
+      assertThat(SegmentSignalGate.filterInteractionSegmentsRatesAboveBaseline(List.of(a), null))
+          .containsExactly(a);
+    }
+
+    @Test
+    void shouldFilterPreservingOrder() {
+      Map<String, Object> baseline = metricsRow(2.0, 2.0);
+      RootCauseSegment strong = segmentWithRates("strong", 5.0, 5.0);
+      RootCauseSegment weak = segmentWithRates("weak", 1.0, 2.0);
+      List<RootCauseSegment> kept =
+          SegmentSignalGate.filterInteractionSegmentsRatesAboveBaseline(
+              Arrays.asList(strong, weak), baseline);
+      assertThat(kept).containsExactly(strong);
+    }
+  }
+
+  @Nested
+  class ScreenBadFrustrationAboveBaseline {
+
+    private static Map<String, Object> metricsWithBad(long bad) {
+      Map<String, Object> m = new LinkedHashMap<>();
+      m.put(ScreenRcaQueryBuilder.BAD_FRUSTRATION, (double) bad);
+      return m;
+    }
+
+    private static RootCauseSegment screenSegment(String label, long badCount) {
+      return RootCauseSegment.builder().label(label).metrics(metricsWithBad(badCount)).build();
+    }
+
+    @Test
+    void shouldCompareRawBadFrustrationAgainstBaseline() {
+      Map<String, Object> baseline = metricsWithBad(100L);
+      RootCauseSegment s = screenSegment("hot", 101L);
+      assertThat(SegmentSignalGate.isEligibleRawMetricAboveBaseline(s, baseline,
+              ScreenRcaQueryBuilder.BAD_FRUSTRATION))
+          .isTrue();
+    }
+
+    @Test
+    void shouldRejectWhenBadFrustrationDoesNotStrictlyBeatBaseline() {
+      Map<String, Object> baseline = metricsWithBad(99L);
+      RootCauseSegment s = screenSegment("equal", 99L);
+      assertThat(SegmentSignalGate.isEligibleRawMetricAboveBaseline(s, baseline,
+              ScreenRcaQueryBuilder.BAD_FRUSTRATION))
+          .isFalse();
+    }
+
+    @Test
+    void shouldFilterByBadFrustrationPreservingOrder() {
+      Map<String, Object> baseline = metricsWithBad(50L);
+      RootCauseSegment a = screenSegment("a", 60L);
+      RootCauseSegment b = screenSegment("b", 50L);
+      List<RootCauseSegment> kept = SegmentSignalGate.filterSegmentsRawMetricAboveBaseline(
+          Arrays.asList(a, b), baseline, ScreenRcaQueryBuilder.BAD_FRUSTRATION);
+      assertThat(kept).containsExactly(a);
+    }
+  }
 }

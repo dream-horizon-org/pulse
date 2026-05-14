@@ -69,13 +69,6 @@ public class RootCauseConfig {
    * #DEFAULT_ISSUE_MUST_PRECEDE_POOR}.
    */
   public static final boolean DEFAULT_ISSUE_MUST_PRECEDE_POOR = true;
-  /**
-   * Default minimum combined delta signal {@code S = |Δerror_rate| + |Δpoor_user_pct|} a segment
-   * must carry to remain in the cached / returned segment list. Set to {@code 0.0} (or any value
-   * {@code <= 0}) to disable the gate; {@code < 0} in raw input is interpreted as "unset" and
-   * replaced by this default in {@link #withDefaults(RootCauseConfig)}.
-   */
-  public static final double DEFAULT_MIN_COMBINED_DELTA_SIGNAL = 15.0;
   /** Default dimension order for tie-breaking and flat segments. */
   public static final List<String> DEFAULT_DIMENSION_ORDER = List.of(
       "Platform", "OsVersion", "AppVersion", "DeviceModel", "NetworkProvider", "GeoState");
@@ -117,14 +110,6 @@ public class RootCauseConfig {
    * false} disables; {@code true} enables.
    */
   private Boolean issueMustPrecedePoor;
-  /**
-   * Combined delta signal floor: drop pre-LLM segments where {@code |Δerror_rate| + |Δpoor_user_pct|
-   * < minCombinedDeltaSignal}. Builder default {@code -1.0} = unset; {@link
-   * #withDefaults(RootCauseConfig)} replaces values {@code < 0} with {@link
-   * #DEFAULT_MIN_COMBINED_DELTA_SIGNAL}. {@code 0.0} preserved at runtime to disable the gate.
-   */
-  @Builder.Default
-  private double minCombinedDeltaSignal = -1.0d;
   private List<String> dimensionOrder;
 
   /**
@@ -150,7 +135,6 @@ public class RootCauseConfig {
           .minRiskRatioForIssueAttribution(DEFAULT_MIN_RISK_RATIO_FOR_ISSUE_ATTRIBUTION)
           .minTreatedPrevalenceFractionInU(DEFAULT_MIN_TREATED_PREVALENCE_FRACTION_IN_U)
           .issueMustPrecedePoor(DEFAULT_ISSUE_MUST_PRECEDE_POOR)
-          .minCombinedDeltaSignal(DEFAULT_MIN_COMBINED_DELTA_SIGNAL)
           .dimensionOrder(DEFAULT_DIMENSION_ORDER)
           .build();
     }
@@ -197,10 +181,6 @@ public class RootCauseConfig {
         from.getIssueMustPrecedePoor() == null
             ? DEFAULT_ISSUE_MUST_PRECEDE_POOR
             : Boolean.TRUE.equals(from.getIssueMustPrecedePoor());
-    final double minCombinedDeltaSignal =
-        from.minCombinedDeltaSignal < 0
-            ? DEFAULT_MIN_COMBINED_DELTA_SIGNAL
-            : from.minCombinedDeltaSignal;
     final List<String> dimensionOrder = (from.dimensionOrder == null || from.dimensionOrder.isEmpty())
         ? DEFAULT_DIMENSION_ORDER
         : from.dimensionOrder;
@@ -219,7 +199,6 @@ public class RootCauseConfig {
         .minRiskRatioForIssueAttribution(minRiskRatioForIssueAttribution)
         .minTreatedPrevalenceFractionInU(minTreatedPrevalenceFractionInU)
         .issueMustPrecedePoor(issueMustPrecedePoor)
-        .minCombinedDeltaSignal(minCombinedDeltaSignal)
         .dimensionOrder(dimensionOrder)
         .build();
   }

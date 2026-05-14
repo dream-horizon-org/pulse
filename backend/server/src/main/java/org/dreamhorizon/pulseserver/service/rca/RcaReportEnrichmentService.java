@@ -287,14 +287,15 @@ public class RcaReportEnrichmentService {
 
   /**
    * Sanitizes RootCauseResult for AI report by:
-   * 1. Preserving segment order from {@link RootCauseService} (post-merge flat+hierarchy, cap, and
-   *    combined-signal gate — same order as {@code GET /root-cause})
+   * 1. Preserving segment order from {@link RootCauseService} / {@link ScreenRcaService}
+   *    (post-merge flat+hierarchy, cap, baseline **raw-driver slice** gate — same order as {@code GET /root-cause})
    * 2. Assigning {@link RootCauseSegment#getServerRank() serverRank} 1..N in that order (AI payload
    *    only; not persisted on {@code GET /root-cause} cache rows)
    * 3. Removing internal-only fields like problematic_count from baseline and segment metrics
    *
-   * <p>Low-volume segments are <b>not</b> filtered here: {@link RootCauseService} already applies
-   * combined-signal gating before cache, and dropping slices by {@code minSegmentVolumePct} of
+   * <p>Low-volume segments are <b>not</b> filtered here: {@link RootCauseService} /
+   * {@link ScreenRcaService} already applies baseline-vs-slice gates before cache, and dropping
+   * slices by {@code minSegmentVolumePct} of
    * baseline hid high-lift cohorts from the LLM while {@code GET /root-cause} still returned them
    * (HTTP audit Bucket 1). The RCA agent prompt aligns eligibility with this payload ({@code metrics}
    * + {@code deltas}); it does not drop cohorts for missing per-segment historical volume.

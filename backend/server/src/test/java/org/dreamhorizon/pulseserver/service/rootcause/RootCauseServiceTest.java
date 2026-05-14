@@ -1358,7 +1358,6 @@ class RootCauseServiceTest {
 
     @Test
     void shouldDropWeakHierarchicalSegmentAndPreserveMergedOrderForKeptSegments() {
-      when(rootCauseConfig.getMinCombinedDeltaSignal()).thenReturn(10.0);
       when(rootCauseConfig.getMaxSegments()).thenReturn(3);
       when(cacheDao.findByKey(PROJECT_ID, INTERACTION, ANALYSIS_DATE))
           .thenReturn(Single.just(Optional.empty()));
@@ -1408,9 +1407,9 @@ class RootCauseServiceTest {
       RootCauseResult result =
           service.getRootCause(PROJECT_ID, INTERACTION, ANALYSIS_DATE, WINDOW_END).blockingGet();
 
-      // Mode is HYBRID because hierarchical candidate existed before the signal gate ran.
-      assertThat(result.getMode()).isEqualTo(RootCauseAnalysisMode.HYBRID);
-      // Weak 2D hierarchical segment (S=0) was dropped; strong 1D flat segment (S=400) is kept.
+      // Mode is FLAT: the only 2D candidate matched baseline err+poor sum, so baseline gate drops it before merge.
+      assertThat(result.getMode()).isEqualTo(RootCauseAnalysisMode.FLAT);
+      // Weak 2D hierarchical segment (= baseline error+poor sum) was dropped; strong 1D flat kept.
       assertThat(result.getSegments()).hasSize(1);
       assertThat(result.getSegments().get(0).getDimensions()).hasSize(1);
       assertThat(result.getSegments().get(0).getLabel()).isEqualTo("Platform: Android");

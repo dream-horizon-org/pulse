@@ -2,6 +2,7 @@ package org.dreamhorizon.pulseserver.service.rootcause.models;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
+import java.util.List;
 
 /**
  * Layout of root-cause segments: single level vs nested dimensions.
@@ -43,5 +44,35 @@ public enum RootCauseAnalysisMode {
       }
     }
     return FLAT;
+  }
+
+  /**
+   * Recompute mode from segment dimension counts after post-merge filters (e.g. baseline signal gate).
+   * Treats {@code dimensions == null} as empty.
+   */
+  public static RootCauseAnalysisMode forSegmentShapeAfterGate(List<RootCauseSegment> segments) {
+    if (segments == null || segments.isEmpty()) {
+      return FLAT;
+    }
+    boolean anyMulti = false;
+    boolean anySingle = false;
+    for (RootCauseSegment s : segments) {
+      if (s == null) {
+        continue;
+      }
+      int size = s.getDimensions() == null ? 0 : s.getDimensions().size();
+      if (size >= 2) {
+        anyMulti = true;
+      } else if (size == 1) {
+        anySingle = true;
+      }
+    }
+    if (!anyMulti) {
+      return FLAT;
+    }
+    if (!anySingle) {
+      return HIERARCHICAL;
+    }
+    return HYBRID;
   }
 }

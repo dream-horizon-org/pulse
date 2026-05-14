@@ -450,13 +450,6 @@ public class MainVerticle extends AbstractVerticle {
             rootCauseJson,
             "minTreatedPrevalenceFractionInU",
             -1.0d));
-    if (rootCauseJson.containsKey("minCombinedDeltaSignal")) {
-      builder.minCombinedDeltaSignal(
-          rootCauseDouble(
-              rootCauseJson,
-              "minCombinedDeltaSignal",
-              RootCauseConfig.DEFAULT_MIN_COMBINED_DELTA_SIGNAL));
-    }
     builder.issueMustPrecedePoor(rootCauseOptionalBoolean(rootCauseJson, "issueMustPrecedePoor"));
 
     builder.hybridDimensionOrderingEnabled(

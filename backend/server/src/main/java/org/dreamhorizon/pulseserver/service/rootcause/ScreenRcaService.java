@@ -125,9 +125,14 @@ public class ScreenRcaService {
                 return Single.just(result);
               }
               List<RootCauseSegment> gated =
-                  applySignalGate(result.getSegments(), screenName);
+                  applySignalGate(result.getSegments(), result.getBaseline(), screenName);
               if (gated != result.getSegments()) {
-                result = result.toBuilder().segments(gated).build();
+                result =
+                    result
+                        .toBuilder()
+                        .segments(gated)
+                        .mode(RootCauseAnalysisMode.forSegmentShapeAfterGate(gated))
+                        .build();
               }
               String baselineJson = objectMapperUtil.writeValueAsString(result.getBaseline());
               String segmentsJson = objectMapperUtil.writeValueAsString(result.getSegments());
@@ -213,44 +218,43 @@ public class ScreenRcaService {
   }
 
   /**
-   * After merge+cap: drop segments whose combined signal on the screen driver delta is below
-   * {@link RootCauseConfig#getMinCombinedDeltaSignal()}. Uses {@link ScreenRcaQueryBuilder#BAD_FRUSTRATION}
-   * only (not {@link RootCauseMetricsRegistry} interaction metrics). Preserves order of kept segments.
-   * Returns the input list unchanged when the gate is disabled or no rows are dropped (reference equality
-   * check, same pattern as {@link RootCauseService}).
+   * After merge+cap: keep segments whose raw {@link ScreenRcaQueryBuilder#BAD_FRUSTRATION} count
+   * strictly exceeds the screen baseline cohort (aligned with interaction RCA baseline rate-sum gate).
+   * Preserves order of kept segments. Returns the input list unchanged when no rows are dropped.
    */
-  private List<RootCauseSegment> applySignalGate(List<RootCauseSegment> segments, String screenName) {
+  private List<RootCauseSegment> applySignalGate(
+      List<RootCauseSegment> segments, Map<String, Object> baseline, String screenName) {
     if (segments == null || segments.isEmpty()) {
-      return segments;
-    }
-    double threshold = config.getMinCombinedDeltaSignal();
-    if (threshold <= 0) {
       return segments;
     }
     String driverKey = ScreenRcaQueryBuilder.BAD_FRUSTRATION;
     List<RootCauseSegment> kept =
-        SegmentSignalGate.filter(segments, threshold, driverKey);
+        SegmentSignalGate.filterSegmentsRawMetricAboveBaseline(segments, baseline, driverKey);
     if (kept.size() == segments.size()) {
       return segments;
     }
+    double baselineBad = SegmentSignalGate.rawMetricValue(baseline, driverKey);
     if (log.isDebugEnabled()) {
       for (RootCauseSegment s : segments) {
         if (!kept.contains(s)) {
+          double segBad = SegmentSignalGate.rawMetricValue(s.getMetrics(), driverKey);
           log.debug(
-              "[SCREEN-RCA-SEGMENT] Drop segment below combined signal: screen={}, label={}, S={}, threshold={}",
+              "[SCREEN-RCA-SEGMENT] Drop segment at or below baseline bad_frustration: screen={}, label={}, "
+                  + "segmentBad={}, baselineBad={}",
               screenName,
               s.getLabel(),
-              SegmentSignalGate.computeSignal(s, driverKey),
-              threshold);
+              segBad,
+              baselineBad);
         }
       }
     }
     log.info(
-        "[SCREEN-RCA-SEGMENT] Signal gate filtered segments: screen={}, kept={}/{}, threshold={}",
+        "[SCREEN-RCA-SEGMENT] Signal gate filtered segments (slice vs baseline {}): screen={}, kept={}/{}, baselineBad={}",
+        driverKey,
         screenName,
         kept.size(),
         segments.size(),
-        threshold);
+        baselineBad);
     return kept;
   }
 

@@ -154,6 +154,7 @@ class ScreenRcaServiceTest {
 
   private static Map<String, Object> hierarchyTwoDimSegmentMetricRow() {
     Map<String, Object> row = screenSegmentMetricRow();
+    row.put(ScreenRcaQueryBuilder.BAD_FRUSTRATION, 130L);
     row.put("Platform", "Android");
     row.put("OsVersion", "14");
     return row;
@@ -182,6 +183,7 @@ class ScreenRcaServiceTest {
       // One filtered dimension → 4 base binds + 1; single-dim GROUP BY is "GROUP BY Platform" only (no comma).
       if (bn == 5 && q.contains("GROUP BY Platform") && !q.contains("GROUP BY Platform,")) {
         Map<String, Object> row = screenSegmentMetricRow();
+        row.put(ScreenRcaQueryBuilder.BAD_FRUSTRATION, 120L);
         row.put("Platform", "Android");
         return Single.just(singleRowTableResponse(row));
       }
@@ -520,6 +522,7 @@ class ScreenRcaServiceTest {
                 }
                 if (isScreenSegmentMetricsQuery(q)) {
                   Map<String, Object> row = screenSegmentMetricRow();
+                  row.put(ScreenRcaQueryBuilder.BAD_FRUSTRATION, 105L);
                   if (q.contains("GROUP BY Platform") && bn == 5 && !q.contains("GROUP BY Platform,")) {
                     row.put("Platform", "Android");
                     return Single.just(singleRowTableResponse(row));
@@ -560,7 +563,6 @@ class ScreenRcaServiceTest {
 
     @Test
     void shouldDropWeakScreenHierarchySegmentAndPreserveMergedOrderForKeptSegments() {
-      when(rootCauseConfig.getMinCombinedDeltaSignal()).thenReturn(10.0);
       when(rootCauseConfig.getMaxSegments()).thenReturn(3);
       when(screenRootCauseCacheDao.findByKey(PROJECT_ID, SCREEN, ANCHOR))
           .thenReturn(Single.just(Optional.empty()));
@@ -579,7 +581,7 @@ class ScreenRcaServiceTest {
                 }
                 if (isScreenSegmentMetricsQuery(q)) {
                   if (bn == 6) {
-                    // 2D slice: same bad_frustration count as baseline → Δ bad_frustration = 0 → below gate
+                    // 2D slice: same bad_frustration count as baseline → not > baseline → dropped
                     Map<String, Object> row = screenSegmentMetricRow();
                     row.put(ScreenRcaQueryBuilder.BAD_FRUSTRATION, 100L);
                     row.put("Platform", "Android");
@@ -611,7 +613,8 @@ class ScreenRcaServiceTest {
       RootCauseResult result =
           service.getScreenRootCause(PROJECT_ID, SCREEN, ANCHOR, WINDOW_END).blockingGet();
 
-      assertThat(result.getMode()).isEqualTo(RootCauseAnalysisMode.HYBRID);
+      // Mode is FLAT: 2D candidate matched baseline bad_frustration — gate drops it; only flat tier remains.
+      assertThat(result.getMode()).isEqualTo(RootCauseAnalysisMode.FLAT);
       assertThat(result.getSegments()).hasSize(1);
       assertThat(result.getSegments().get(0).getDimensions()).hasSize(1);
       assertThat(result.getSegments().get(0).getLabel()).isEqualTo("Platform: Android");
