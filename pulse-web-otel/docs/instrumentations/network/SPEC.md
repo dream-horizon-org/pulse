@@ -43,7 +43,7 @@ Capture **outbound HTTP/HTTPS** calls from the browser as **OTel client spans** 
 
 **Plan D** (custom fetch patch only): rejected — XHR still required for legacy stacks.
 
-### 4.1 HLD — tracer and ignore list (Mermaid)
+### 4.1 HLD — tracer and ignore list
 
 ```mermaid
 flowchart TB
@@ -61,7 +61,7 @@ flowchart TB
   Attr --> Tracer
 ```
 
-### 4.2 LD — URL filter + pulse typing (Mermaid)
+### 4.2 LD — URL filter + pulse typing
 
 ```mermaid
 flowchart LR
@@ -70,7 +70,7 @@ flowchart LR
   Map --> PT["networkPulseType(status)"]
 ```
 
-### 4.3 Flows and edge cases (Mermaid)
+### 4.3 Flows and edge cases
 
 ```mermaid
 flowchart TD

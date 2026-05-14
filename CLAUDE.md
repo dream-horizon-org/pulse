@@ -134,13 +134,11 @@ Every query must include: time-range on `Timestamp`, `LIMIT`, `ProjectId` filter
 
 ## Web SDK (`pulse-web-otel/`)
 
-Package `@dreamhorizon/pulse-web`. Data contract — every signal must carry `platform = 'web'`. Key `pulse.type` values: `session.start`, `session.end`, `device.crash`, `non_fatal`, `http`, `app.click`, `web_vital`, `screen_load`, `screen_interactive`, `screen_session`.
+Data contract — every signal must carry `platform = 'web'`. Key `pulse.type` values (non-exhaustive): `session.start`, `session.end`, `device.crash`, `non_fatal`, **`network.<HTTP status>`** on outbound fetch/XHR client spans (e.g. `network.200`, `network.0`), `app.click`, `web_vital`, `screen_load`, `screen_session`. Web does **not** emit a separate `screen_interactive` span; time-to-interactive is attached to **`screen_load`** when Navigation Timing allows (`pulse-web-otel/docs/instrumentations/screen-signals/SPEC.md`).
 
-Full file map, data contract tables, and phase-by-phase implementation spec: **`pulse-web-otel/web-sdk-plan/WEB-SDK-AGENT-CONTEXT.md`**
-Milestone index (exit-criteria summaries, verification commands, ClickHouse example query): **`pulse-web-otel/web-sdk-plan/v1/MILESTONES.md`**
-Use `/web-sdk` skill for context-loaded implementation or verification.
+Package manual (commands, test gates, doc index): **`pulse-web-otel/CLAUDE.md`**. SDK-core spec hub: **`pulse-web-otel/docs/sdk-core/SPEC.md`**. Host integration entry: **`pulse-web-otel/docs/instrumentations/integration/SPEC.md`**.
 
----
+Non-trivial `pulse-web-otel/` work: use **`/web-sdk-ship`** (`.claude/skills/web-sdk-ship/SKILL.md`) for the merge-ready checklist (tests, diff audit, doc sync).
 
 ## Android SDK (`pulse-android-otel/`)
 
