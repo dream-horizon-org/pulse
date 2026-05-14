@@ -42,7 +42,7 @@ Track **initial page load** and **SPA route transitions** using OTLP **client sp
 
 Patch History API for SPA parity with Android activity transitions; reuse Navigation Timing for cold loads. No dual emission: **do not** also emit log records for the same navigation events.
 
-### 4.1 HLD — navigation instrumentation boundary 
+### 4.1 HLD — navigation instrumentation boundary
 
 ```mermaid
 flowchart TB
@@ -55,7 +55,7 @@ flowchart TB
   Nav --> Tracer
 ```
 
-### 4.2 LD — `navigation.ts` modules 
+### 4.2 LD — `navigation.ts` modules
 
 ```mermaid
 flowchart LR
@@ -64,7 +64,7 @@ flowchart LR
   Nav --> SN["setScreenName / resolveScreenNameFromUrl"]
 ```
 
-### 4.3 Flows — consent, BFCache, uninstall 
+### 4.3 Flows — consent, BFCache, uninstall
 
 ```mermaid
 flowchart TD
@@ -205,6 +205,7 @@ Previously `navigation.ts` used **`logger.emit()`** → **`otel_logs`**. Web scr
 **History-based routing required.** Instrumentation patches `history.pushState` / `replaceState` and listens to `popstate`. Routers that only mutate `location.hash` without touching the History API emit **no** SPA `screen_load` / `screen_session` signals — the SDK behaves correctly given what it receives; this is user misconfiguration, not a data contract break.
 
 **Resolved:** Note now lives in both framework guides:
+
 - `docs/instrumentations/react-integration/SPEC.md` §7 (P2: HashRouter gap)
 - `docs/instrumentations/nextjs-integration/SPEC.md` §7 (P2: hash-only navigation gap)
 
@@ -228,13 +229,13 @@ The actual risk: during the trailing window `currentScreenName` still holds the 
 
 ## 8. Verification
 
-**Unit**
+### Unit
 
 ```bash
 cd pulse-web-otel && yarn test:run src/__tests__/navigation-instrumentation.test.ts
 ```
 
-**E2E (ecommerce-demo)**
+### E2E (ecommerce-demo)
 
 ```bash
 cd pulse-web-otel/examples/ecommerce-demo && yarn e2e --grep "@ScreenNav" --project=chromium

@@ -25,7 +25,7 @@ Covers **R1** (init completion), **R5** (shutdown teardown of listeners + flush)
 
 ## 4. Architectural Design
 
-```
+```text
 Host App
   │
   ▼
@@ -65,7 +65,7 @@ Pulse.init(config)          ← singleton facade (src/sdk.ts)
   └─ SdkConfigFetcher.fetchInBackground()  (async, post-init)
 ```
 
-### 4.1 HLD — bootstrap boundary 
+### 4.1 HLD — bootstrap boundary
 
 ```mermaid
 flowchart TB
@@ -78,7 +78,7 @@ flowchart TB
   Init --> Reg
 ```
 
-### 4.2 LD — ordered subsystems 
+### 4.2 LD — ordered subsystems
 
 ```mermaid
 flowchart LR
@@ -89,7 +89,7 @@ flowchart LR
   EXP --> REG["installAll + interactions"]
 ```
 
-### 4.3 Flows — consent, SSR, shutdown 
+### 4.3 Flows — consent, SSR, shutdown
 
 ```mermaid
 flowchart TD
@@ -117,7 +117,7 @@ flowchart TD
 
 Related: [`../config-and-public-api/SPEC.md`](../config-and-public-api/SPEC.md) · [`../exporters-and-persistence/SPEC.md`](../exporters-and-persistence/SPEC.md) · [`../remote-config-features-and-sampling/SPEC.md`](../remote-config-features-and-sampling/SPEC.md)
 
-#### 5.1.1 Init sequence 
+#### 5.1.1 Init sequence
 
 Letters **a–q** match the substeps under **step 8** in the listing below.
 
@@ -157,7 +157,7 @@ flowchart TD
   A8q --> DONE([9: same promise as whenReady])
 ```
 
-```
+```text
 Pulse.init(config)
   1. Guard: already initialized or shutting down → return Promise.resolve()
   2. Guard: currently initializing → return this.whenReady()

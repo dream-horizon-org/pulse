@@ -51,7 +51,7 @@ See [`../assumptions/SPEC.md`](../assumptions/SPEC.md).
 
 ## 4. Architectural Design
 
-### 4.1 HLD — requirements vs ship surface 
+### 4.1 HLD — requirements vs ship surface
 
 ```mermaid
 flowchart TB
@@ -62,7 +62,7 @@ flowchart TB
   SDK --> INST
 ```
 
-### 4.2 LD — requirement to module map 
+### 4.2 LD — requirement to module map
 
 ```mermaid
 flowchart LR
@@ -72,7 +72,7 @@ flowchart LR
   R6["R6"] --> SESS["session.ts"]
 ```
 
-### 4.3 Flows — consent and idempotent init 
+### 4.3 Flows — consent and idempotent init
 
 ```mermaid
 flowchart TD

@@ -113,7 +113,7 @@ _(e.g. `0.2.0`, `1.0.0-rc.1`)_
 
 ### 4.3 Out of scope for this batch
 
-_(waived IDs or deferred to post-GA)_
+Note: waived IDs or deferred to post-GA.
 
 ### 4.4 PR checklist (per batch)
 
@@ -151,17 +151,17 @@ _(waived IDs or deferred to post-GA)_
 
 ## 7. P0:1 — Entry point (`Pulse` singleton vs factory / `init`)
 
-### Problem
+### Problem (P0:1)
 
 Exports center on a **pre-built singleton object** `Pulse`: hosts call `Pulse.init(config)` then `Pulse.trackEvent(...)` (see `src/index.ts`, `src/sdk.ts`). That is valid but **atypical** next to common browser RUM patterns where bootstrap is a **top-level `init()`** (e.g. `@sentry/browser`: `Sentry.init({...})` and the module owns the client). New integrators may (a) think they need a `new` constructor, (b) want types-only imports without pulling the runtime object as the primary symbol, or (c) reach for `init` first from muscle memory.
 
-### Reasoning
+### Reasoning (P0:1)
 
 - **DX / teachability:** A named `init()` matches how many teams learn RUM; `Pulse.*` stays the stable method surface after init.  
 - **Risk:** **Low** if `Pulse.init` remains a thin alias — no breaking migration.  
 - **Not** a request for multiple independent SDK instances unless a later ADR adds multi-client support.
 
-### Suggested fix (implementation sketch)
+### Suggested fix (P0:1) (implementation sketch)
 
 1. **`export async function init(config: PulseWebConfig): Promise<void>`** (exact name TBD) — delegates to today’s `Pulse.init` implementation.  
 2. **Optional `export function getPulseClient(): Pulse`** (or `getClient`) — returns the singleton for advanced wiring.  
@@ -188,17 +188,17 @@ Exports center on a **pre-built singleton object** `Pulse`: hosts call `Pulse.in
 
 ## 9. P2:12 — `PulseDataCollectionConsent` enum vs string union
 
-### Problem
+### Problem (P2:12)
 
 Hosts and internal config use **`PulseDataCollectionConsent`** (`ALLOWED` / `DENIED` / `PENDING`). Wire literals are stable, but the **enum-only** surface is awkward in modern TS (string unions, exhaustiveness, tree-shaking expectations).
 
-### Reasoning
+### Reasoning (P2:12)
 
 - **DX:** Accept `type ConsentState = 'ALLOWED' | 'DENIED' | 'PENDING'` (or equivalent) alongside the enum during a deprecation window.  
 - **Risk:** **Low** if validation accepts both shapes and serialization stays literal strings.  
 - **Product tie-in:** Deprecation warnings / timeline belong with [`known-gaps-tradeoffs-and-plan.md`](./known-gaps-tradeoffs-and-plan.md) **§3 Q1**.
 
-### Suggested fix (implementation sketch)
+### Suggested fix (P2:12) (implementation sketch)
 
 1. **`src/types/config.ts`** — introduce string-literal union type; widen `PulseWebConfig` / consent fields to `enum | union` (exact names per code review).  
 2. **`src/consent.ts`** — normalize to one internal representation for processors.  

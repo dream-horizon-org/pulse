@@ -47,7 +47,7 @@ Capture JavaScript failures as OTLP **log records** aligned with Pulse mobile se
 
 ## 4. Architectural Design
 
-```
+```text
 InstrumentationRegistry.installAll()
   └─ ErrorInstrumentation (PulseFeature.JS_CRASH)
         ├─ prefetchDeviceState()  → battery + storage async
@@ -61,7 +61,7 @@ React layer (optional)
 
 **Decision (ADR):** Keep log-based model; harden E2E and lifecycle docs rather than introducing spans/metrics for errors.
 
-### 4.1 HLD — registry and signals 
+### 4.1 HLD — registry and signals
 
 ```mermaid
 flowchart TB
@@ -76,7 +76,7 @@ flowchart TB
   EI --> Log
 ```
 
-### 4.2 LD — handlers and dedupe 
+### 4.2 LD — handlers and dedupe
 
 ```mermaid
 flowchart LR
@@ -86,7 +86,7 @@ flowchart LR
   DED --> EMIT["emit log"]
 ```
 
-### 4.3 Flows and edge cases 
+### 4.3 Flows and edge cases
 
 ```mermaid
 flowchart TD

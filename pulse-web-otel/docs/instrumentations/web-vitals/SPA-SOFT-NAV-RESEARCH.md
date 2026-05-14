@@ -47,12 +47,14 @@ out of the box.
   so each vital is correctly attributed to the route where it was measured
 
 **What this gives you:**
+
 - No data loss from force-closed tabs mid-session
 - TTFB and FCP from the initial load arrive with `screen.name = "/home"` (or
   whatever route was active) — not lost in a buffer
 - LCP from a user interaction correctly attributed to the route they were on
 
 **Implementation files:**
+
 - `src/instrumentations/web-vitals.ts` — registers all 6 metrics, flushes on tab hide / BFCache
 - `src/sdk.ts` — `Pulse.notifySoftNavigation()` calls `loggerProvider.forceFlush()`
 - `src/integrations/react/useRouterTracking.ts` — calls `notifySoftNavigation()` on route change
@@ -86,6 +88,7 @@ out of the box.
 Implement per-route vitals without relying on any browser API that isn't widely available.
 
 **How it works:**
+
 1. On each SPA route change, start a new `PerformancObserver` for
    `largest-contentful-paint` entries using the current timestamp as baseline —
    this gives a fresh "LCP for this route"
@@ -107,6 +110,7 @@ Use the `web-vitals@soft-navs` npm distribution which adds `{ reportSoftNavs: tr
 support on top of Chrome's Soft Navigation API.
 
 **How it works:**
+
 ```ts
 import { onLCP, onCLS, onINP } from "web-vitals/soft-navs";
 

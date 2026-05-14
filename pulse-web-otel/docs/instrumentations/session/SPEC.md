@@ -34,7 +34,7 @@ Define **browser session lifecycle** (`SessionProvider`), **persistence of insta
 
 ## 4. Architectural Design
 
-### 4.1 HLD — provider vs instrumentation 
+### 4.1 HLD — provider vs instrumentation
 
 ```mermaid
 flowchart TB
@@ -47,7 +47,7 @@ flowchart TB
   SI --> Log
 ```
 
-### 4.2 LD — visibility-driven rotation 
+### 4.2 LD — visibility-driven rotation
 
 ```mermaid
 flowchart LR
@@ -57,13 +57,13 @@ flowchart LR
   T -->|no| Same["same session"]
 ```
 
-```
+```text
 Pulse.init → SessionProvider (session.ts)
   └─ SessionInstrumentation.install(sdk)
         └─ sessionProvider.onSessionChange → LoggerProvider.emit(session.start | session.end)
 ```
 
-### 4.3 Session lifecycle states 
+### 4.3 Session lifecycle states
 
 ```mermaid
 stateDiagram-v2

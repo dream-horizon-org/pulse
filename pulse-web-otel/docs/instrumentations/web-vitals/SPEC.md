@@ -43,7 +43,7 @@ Emit **Core Web Vitals** and related paint/timing signals as OTLP **log records*
 
 **Plan C** (UI-only): rejected — no collector telemetry.
 
-### 4.1 HLD — vitals vs export 
+### 4.1 HLD — vitals vs export
 
 ```mermaid
 flowchart TB
@@ -58,7 +58,7 @@ flowchart TB
   Log --> Exp
 ```
 
-### 4.2 LD — handlers and flush hooks 
+### 4.2 LD — handlers and flush hooks
 
 ```mermaid
 flowchart LR
@@ -69,7 +69,7 @@ flowchart LR
   PS --> Flush
 ```
 
-### 4.3 Flows and edge cases 
+### 4.3 Flows and edge cases
 
 ```mermaid
 flowchart TD

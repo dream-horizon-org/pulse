@@ -12,11 +12,14 @@ All **product requirement documents** for `@dreamhorizonorg/pulse-web` live in t
 The harness expects a PRD path at **`$RALPH_WORK_DIR/PRD.md`** by default. Choose one:
 
 1. **Symlink (recommended)** from the package root to the active PRD:
+
    ```bash
    cd pulse-web-otel
    ln -sf prd/your-feature.md PRD.md
    ```
+
 2. **Explicit path** for a single run:
+
    ```bash
    PRD_PATH="$PWD/prd/your-feature.md" RALPH_WORK_DIR="$PWD" ./ralph/loop.sh
    ```

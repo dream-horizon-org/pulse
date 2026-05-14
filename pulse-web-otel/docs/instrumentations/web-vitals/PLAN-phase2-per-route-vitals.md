@@ -66,7 +66,7 @@ Two new attributes added to `src/semconv.ts`:
 
 `navigation.ts` already calls `sdk.globalAttrsProcessor.setScreenName()` — `setNavigationId()` follows the exact same pattern, called before each `startSpan("screen_load")`.
 
-```
+```text
 Cold load:
   uuid = crypto.randomUUID()
   globalAttrsProcessor.setNavigationId(uuid)   ← before startSpan

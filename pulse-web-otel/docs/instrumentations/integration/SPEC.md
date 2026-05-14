@@ -63,7 +63,7 @@ aws s3api put-bucket-cors \
 
 ## 4. Architectural Design
 
-```
+```text
 npm install @dreamhorizonorg/pulse-web
 
 Vanilla
@@ -85,7 +85,7 @@ Next.js (build)
   const { withPulseConfig } = require("@dreamhorizonorg/pulse-web/next-config");
 ```
 
-### 4.1 HLD — package entry vs core SDK 
+### 4.1 HLD — package entry vs core SDK
 
 ```mermaid
 flowchart TB
@@ -98,7 +98,7 @@ flowchart TB
   Core --> Inst
 ```
 
-### 4.2 LD — export subpaths 
+### 4.2 LD — export subpaths
 
 ```mermaid
 flowchart LR
@@ -109,7 +109,7 @@ flowchart LR
   NCfg["./next-config"] --> WPC["withPulseConfig"]
 ```
 
-### 4.3 Flows — consent and double init 
+### 4.3 Flows — consent and double init
 
 ```mermaid
 flowchart TD
@@ -218,7 +218,7 @@ Integration smoke: `src/__tests__/integration-simplified-*.test.ts`, `package-ex
 
 End-to-end catalogue (all Playwright `test()` titles, React + Next demos): [`../../sdk-core/test-coverage/SPEC.md`](../../sdk-core/test-coverage/SPEC.md) §6.3–§6.5. CI gate: `yarn e2e:web-sdk-gates` from `pulse-web-otel/`.
 
-### Integration is validated indirectly via:
+### Integration is validated indirectly via
 
 - Core lifecycle tests — **`sdk-core`** [`test-coverage/SPEC.md`](../../sdk-core/test-coverage/SPEC.md).
 - React provider/router tests — **`react-integration`** SPEC §6.
@@ -228,7 +228,7 @@ End-to-end catalogue (all Playwright `test()` titles, React + Next demos): [`../
 
 ## 7. Known Bugs & Gaps
 
-### P0:
+### P0
 
 Follow **`sdk-core`** SPEC §7 — **P0** items affect emitted telemetry globally.
 

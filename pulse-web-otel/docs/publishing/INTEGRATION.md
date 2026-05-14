@@ -72,6 +72,7 @@ createRoot(document.getElementById("root")!).render(
 ```
 
 **Notes:**
+
 - `PulseProvider` calls `Pulse.init()` once on mount (StrictMode-safe) and wraps children in `PulseErrorBoundary`.
 - **`shutdownOnUnmount`** defaults **`false`** — the SDK stays alive for the full page when the provider unmounts (e.g. route-level wrappers). Set **`true`** only if you intentionally want `Pulse.shutdown()` when the last provider unmounts (common in tests).
 - `PulseRouterEvents` is exported from **`@dreamhorizonorg/pulse-web/react/router`** (and re-exported from **`@dreamhorizonorg/pulse-web/next`** for App Router). It is **not** on the bare **`@dreamhorizonorg/pulse-web/react`** entry so apps without React Router never pull `react-router-dom`.

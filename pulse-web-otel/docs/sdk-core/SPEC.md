@@ -29,7 +29,7 @@ Authoritative list: [`assumptions/SPEC.md`](assumptions/SPEC.md).
 
 ## 4. Architectural Design
 
-```
+```text
 Host App
   │
   ▼
@@ -41,7 +41,7 @@ Pulse.init(config)          ← src/sdk.ts
   └─ fetchInBackground
 ```
 
-### 4.1 HLD — init vs exporters 
+### 4.1 HLD — init vs exporters
 
 ```mermaid
 flowchart TB
@@ -56,7 +56,7 @@ flowchart TB
   Pulse --> Exp
 ```
 
-### 4.2 LD — core modules 
+### 4.2 LD — core modules
 
 ```mermaid
 flowchart LR
@@ -66,7 +66,7 @@ flowchart LR
   REG --> INST["instrumentations/*"]
 ```
 
-### 4.3 Flows — consent and idempotent init 
+### 4.3 Flows — consent and idempotent init
 
 ```mermaid
 flowchart TD

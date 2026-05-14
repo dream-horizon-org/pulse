@@ -37,8 +37,6 @@ flowchart TB
   GAP --> OTLP["OTLP export"]
 ```
 
-
-
 ### 4.2 LD — semconv as single source
 
 ```mermaid
@@ -46,8 +44,6 @@ flowchart LR
   SC["semconv.ts"] --> INST["instrumentations"]
   SC --> DOC["this SPEC tables"]
 ```
-
-
 
 ### 4.3 Flows — attribute merge / overwrite rules
 
@@ -59,8 +55,6 @@ flowchart TD
   R -->|else| INJ[inject session + screen]
 ```
 
-
-
 Resource + global attribute processors merge host config with Pulse-built resource — see `[../architecture-and-bootstrap/SPEC.md](../architecture-and-bootstrap/SPEC.md)` and `src/resource.ts`, `src/processors/global-attrs-processor.ts`.
 
 ---
@@ -70,7 +64,6 @@ Resource + global attribute processors merge host config with Pulse-built resour
 ### 5.1 `pulse.type` enum
 
 **Fixed literals** map to `PulseWebSemconv.PulseType` in `src/semconv.ts`. **Outbound HTTP client spans** use the dynamic pattern **`network.<statusCode>`** from `networkPulseType()` in `src/utils/network-http.ts` (not named entries on `PulseType`). Catalogue:
-
 
 | pulse.type                     | Signal | Emitter                                                                | Notes                                                                                                                                                                                                    |
 | ------------------------------ | ------ | ---------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -89,8 +82,7 @@ Resource + global attribute processors merge host config with Pulse-built resour
 | `pulse.user.session.start`     | Log    | `PulseSDK.setUserId`                                                   | User identity transition                                                                                                                                                                                 |
 | `pulse.user.session.end`       | Log    | `PulseSDK.setUserId`                                                   | User identity transition                                                                                                                                                                                 |
 
-
-`**platform = 'web'` mandate:** The OTel Resource sets `**os.name = 'web'`** and `**platform = 'web'**` in `buildMergedResource()` (`src/resource.ts`). Every signal inherits these via the resource — they are not per-signal overrides and host `resourceAttributes` cannot replace `os.name` with a non-web value.
+`**platform = 'web'` mandate:**The OTel Resource sets `**os.name = 'web'`** and `**platform = 'web'**` in `buildMergedResource()` (`src/resource.ts`). Every signal inherits these via the resource — they are not per-signal overrides and host `resourceAttributes` cannot replace `os.name` with a non-web value.
 
 ### 5.2 Shared attribute catalogue
 
@@ -101,7 +93,6 @@ Instrumentations may add further signal-specific attributes; they must not break
 #### 5.2.1 Resource attributes (OTLP Resource)
 
 Built in `buildResource()` then merged in `buildMergedResource()` (`src/resource.ts`). Declared once on the Resource; spans/logs/metrics reference it.
-
 
 | Attribute key         | Type      | Source                                                           | Required | Notes                                            |
 | --------------------- | --------- | ---------------------------------------------------------------- | -------- | ------------------------------------------------ |
@@ -126,13 +117,11 @@ Built in `buildResource()` then merged in `buildMergedResource()` (`src/resource
 | `network.online`      | `boolean` | `navigator.onLine`                                               | No       |                                                  |
 | `timezone`            | `string`  | `Intl` resolved zone                                             | No       |                                                  |
 
-
 **Override — `PulseWebConfig.resourceAttributes`:** `buildMergedResource()` does `resourceFromAttributes(resourceAttributes).merge(pulseResource)`. In OTel JS merge, **the right-hand (Pulse-built) map wins on duplicate keys**, so the host **cannot** replace `project.id`, `platform`, `rum.sdk.*`, `telemetry.sdk.name`, `app.build_name`, or coerce `os.name` away from web. The host **can** add non-conflicting keys (e.g. `deployment.environment`).
 
 #### 5.2.2 Global signal attributes (spans, logs, metric data points)
 
 Injected from `PulseGlobalAttributesProcessor.getCommonAttrs()` (`src/processors/global-attrs-processor.ts`) on **every span** at `onStart`, **every log** at `onEmit`, and **metrics** via `getCommonAttrsForMetrics()` in `src/exporters.ts`. Only primitive `string | number | boolean` values.
-
 
 | Attribute key                | Type     | Source                                          | Required | Notes                                                                                                                                                                      |
 | ---------------------------- | -------- | ----------------------------------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -153,26 +142,23 @@ Injected from `PulseGlobalAttributesProcessor.getCommonAttrs()` (`src/processors
 | `user.id`                    | `string` | `setUserId` / hydrate                           | No       | After `globalAttributes` merge in `getCommonAttrs`                                                                                                                         |
 | `pulse.user.<name>`          | `string` | `setUserProperty` / `setUserProperties`         | No       | Custom user properties                                                                                                                                                     |
 
-
 **Override — `PulseWebConfig.globalAttributes`:** entries are merged **after** the built-in bucket in `getCommonAttrs()`. That means host `globalAttributes` **can overwrite** keys such as `session.id`, `screen.name`, `pulse.metering.session.id`, or URL/network keys if the same key is supplied — **avoid** reusing those reserved keys for unrelated data. `**user.id` and `pulse.user.*` are applied last**, so the identity API wins over `globalAttributes` for those keys.
 
 **Override — `beforeSendData` / export-time hooks:** `PulseWebConfig.beforeSendData` (generic or typed hooks) may still remove or rewrite attributes before OTLP leaves the browser.
 
 #### 5.2.3 Instrumentation / signal-specific (not from global processor)
 
-
 | Attribute key      | Signals           | Source                                             | Required              | Notes                                           |
 | ------------------ | ----------------- | -------------------------------------------------- | --------------------- | ----------------------------------------------- |
 | `pulse.type`       | Span + log        | Each instrumentation / `PulseWebSemconv.PulseType` | Yes (for that signal) | Enum in §5.1; do not set via `globalAttributes` |
 | `last.screen.name` | Span (navigation) | `NavigationInstrumentation`                        | No                    | Previous screen on route / screen transitions   |
-
 
 Other keys (`pulse.interaction.*`, `http.*`, web vital names, etc.) are defined in the per-instrumentation SPECs.
 
 #### 5.2.4 Precedence summary
 
 1. **Resource:** duplicate key → **Pulse resource wins** over `resourceAttributes`.
-2. **Span / log / metric point global attrs:** built-in processor map → `**globalAttributes` overwrite** on key collision → `**user.id` / `pulse.user.*` win** over both for identity keys.
+2. **Span / log / metric point global attrs:** built-in processor map → `**globalAttributes` overwrite**on key collision → `**user.id` / `pulse.user.*` win** over both for identity keys.
 3. **Logs `session.id`:** instrumentation-set non-empty value **preserved** (processor skip).
 4. `**pulse.type` and instrumentation keys:** owned by the emitter; must match semconv / SPECs; `beforeSendData` hooks may drop or scrub.
 

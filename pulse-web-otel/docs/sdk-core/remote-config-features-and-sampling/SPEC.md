@@ -25,7 +25,7 @@ See [`../assumptions/SPEC.md`](../assumptions/SPEC.md) (background fetch + cache
 
 ## 4. Architectural Design
 
-### 4.1 HLD — cache + gates + install 
+### 4.1 HLD — cache + gates + install
 
 ```mermaid
 flowchart TB
@@ -38,7 +38,7 @@ flowchart TB
   ES --> REG
 ```
 
-### 4.2 LD — fetcher vs merge 
+### 4.2 LD — fetcher vs merge
 
 ```mermaid
 flowchart LR
@@ -47,7 +47,7 @@ flowchart LR
   B --> M["mergePulseSdkConfig"]
 ```
 
-### 4.3 Flows — feature off and fetch failure 
+### 4.3 Flows — feature off and fetch failure
 
 ```mermaid
 flowchart TD
@@ -87,7 +87,7 @@ When an entry matches the feature and lists `pulse_web_js` under `sdks`, **`sess
 
 ### 5.2 Remote config fetch sequence
 
-```
+```text
 init()
   └─ SdkConfigFetcher.loadCached()
         └─ localStorage.getItem("pulse_sdk_config")

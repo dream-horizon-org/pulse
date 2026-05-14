@@ -25,7 +25,7 @@ See [`../assumptions/SPEC.md`](../assumptions/SPEC.md).
 
 ## 4. Architectural Design
 
-### 4.1 HLD — providers to network 
+### 4.1 HLD — providers to network
 
 ```mermaid
 flowchart TB
@@ -36,7 +36,7 @@ flowchart TB
   BSP --> EXP
 ```
 
-### 4.2 LD — persistence + hooks in path 
+### 4.2 LD — persistence + hooks in path
 
 ```mermaid
 flowchart LR
@@ -45,7 +45,7 @@ flowchart LR
   EXP --> NET["HTTP OTLP"]
 ```
 
-### 4.3 Flows — drain, pagehide, drop 
+### 4.3 Flows — drain, pagehide, drop
 
 ```mermaid
 flowchart TD

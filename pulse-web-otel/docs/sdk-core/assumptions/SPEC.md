@@ -31,7 +31,7 @@ Numbered requirements **R1–R10** live in [`../requirements/SPEC.md`](../requir
 
 ## 4. Architectural Design
 
-### 4.1 HLD — assumption boundaries 
+### 4.1 HLD — assumption boundaries
 
 ```mermaid
 flowchart TB
@@ -44,7 +44,7 @@ flowchart TB
   B --> Parity
 ```
 
-### 4.2 LD — where assumptions bind in code 
+### 4.2 LD — where assumptions bind in code
 
 ```mermaid
 flowchart LR
@@ -53,7 +53,7 @@ flowchart LR
   A --> RES["resource.ts"]
 ```
 
-### 4.3 Flows — SSR and storage 
+### 4.3 Flows — SSR and storage
 
 ```mermaid
 flowchart TD

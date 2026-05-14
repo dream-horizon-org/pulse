@@ -44,7 +44,7 @@ Emit **OTLP log records** for user clicks with `pulse.type = app.click` and body
 
 **Plan B** (chosen): mirror Android `ClickEventBuffer` — coalesce rapid taps, detect rage clusters, delay singleton emits until buffer flush / rage completion. Reduces duplicate noise and matches mobile analytics semantics (`ADR-clicks.md`, `PLAN-B-clicks-logs.md`).
 
-### 4.1 HLD — registry and export boundary 
+### 4.1 HLD — registry and export boundary
 
 ```mermaid
 flowchart TB
@@ -63,7 +63,7 @@ flowchart TB
   Buf --> Log
 ```
 
-### 4.2 LD — internal modules 
+### 4.2 LD — internal modules
 
 ```mermaid
 flowchart LR
@@ -73,7 +73,7 @@ flowchart LR
   CRB --> Emit["LoggerProvider.emit"]
 ```
 
-### 4.3 Flows and edge cases 
+### 4.3 Flows and edge cases
 
 ```mermaid
 flowchart TD

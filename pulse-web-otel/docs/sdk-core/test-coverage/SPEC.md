@@ -25,7 +25,7 @@ Maps to **R1–R10** verification — [`../requirements/SPEC.md`](../requirement
 
 ## 4. Architectural Design
 
-### 4.1 HLD — test layers 
+### 4.1 HLD — test layers
 
 ```mermaid
 flowchart TB
@@ -36,7 +36,7 @@ flowchart TB
   IT --> E2E
 ```
 
-### 4.2 LD — suite → concern map 
+### 4.2 LD — suite → concern map
 
 ```mermaid
 flowchart LR
@@ -45,7 +45,7 @@ flowchart LR
   M8["m8.test.ts"] --> PH["pagehide flush"]
 ```
 
-### 4.3 Flows — CI vs local 
+### 4.3 Flows — CI vs local
 
 ```mermaid
 flowchart TD
