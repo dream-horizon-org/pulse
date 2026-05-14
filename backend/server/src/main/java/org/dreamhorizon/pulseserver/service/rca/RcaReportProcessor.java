@@ -160,7 +160,7 @@ public class RcaReportProcessor {
       final RcaEnrichmentOutcome enrichment,
       final RcaReportJob job) {
 
-    String body = result.getBufferedBody();
+    String body = attachRootCausePayloadIfPresent(result.getBufferedBody(), enrichment);
 
     boolean shouldMergeHeatmaps =
         job.entityType() != RcaType.SCREEN
@@ -213,6 +213,28 @@ public class RcaReportProcessor {
               log.warn("Failed to fetch screens for heatmap merging: {}", error.getMessage());
               return persistBufferedRcaReport(body, result, job);
             });
+  }
+
+  /**
+   * Embeds {@code rootCausePayload} next to the AI {@code structured} report so callers using the
+   * async RCA pipeline (peek / job poll) receive the same tabular JSON as {@code GET .../root-cause}
+   * without a second request.
+   */
+  private String attachRootCausePayloadIfPresent(String body, RcaEnrichmentOutcome enrichment) {
+    if (enrichment == null || enrichment.rootCause() == null) {
+      return body;
+    }
+    try {
+      JsonNode tree = objectMapper.readTree(body);
+      if (!(tree instanceof ObjectNode root)) {
+        return body;
+      }
+      root.set("rootCausePayload", objectMapper.valueToTree(enrichment.rootCause()));
+      return objectMapper.writeValueAsString(root);
+    } catch (Exception e) {
+      log.warn("Failed to attach rootCausePayload to RCA report body: {}", e.getMessage());
+      return body;
+    }
   }
 
   private Single<AiProxyUpstreamResult> persistBufferedRcaReport(

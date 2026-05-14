@@ -257,6 +257,8 @@ async def generate_root_cause_report(
     1. **Embedded** – ``rootCausePayload`` in the request body (preferred; avoids callback auth).
     2. **Callback** – omit ``rootCausePayload``; pulse_ai calls pulse-server to fetch it.
        Requires ``Authorization: Bearer <jwt>`` and ``X-Project-ID`` (forwarded by the proxy).
+       Uses the async RCA pipeline (``/v1/ai/rca/report`` + job poll) and reads ``rootCausePayload``
+       from the completed report.
     """
     try:
         if request.rootCausePayload is not None:

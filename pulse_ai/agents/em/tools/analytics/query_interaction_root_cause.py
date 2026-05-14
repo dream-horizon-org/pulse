@@ -1,6 +1,8 @@
 """Tool: query_interaction_root_cause — Tabular root-cause payload for one interaction.
 
-GET /v1/interactions/{name}/root-cause → same validated payload as the RCA pipeline.
+Uses the same async RCA pipeline as the Pulse Interaction RCA tab: peek ``/v1/ai-rca/report``,
+``POST /v1/ai/rca/report`` when needed, poll ``/v1/ai-rca/job/{jobId}`` until ``COMPLETED``,
+then reads ``rootCausePayload`` from the completed report JSON.
 """
 
 from google.adk.tools import ToolContext
@@ -16,9 +18,10 @@ async def query_interaction_root_cause(
 ) -> dict:
     """Load segment-level root-cause tabular data for a named interaction.
 
-    This is the same JSON shape used to build full narrative RCA reports; it is
-    not the long-form report text. Use an explicit calendar date (YYYY-MM-DD) when
-    the user asks for a specific day; otherwise defaults to today (UTC).
+    Same tabular JSON shape as ``rootCausePayload`` on the dashboard RCA report. Pass an
+    explicit calendar date (YYYY-MM-DD) when the user names a day; otherwise defaults to
+    today (UTC). Data comes from the async RCA job completion payload, not a separate
+    tabular GET.
 
     Args:
         interaction_name: Pulse interaction name (must match configuration).

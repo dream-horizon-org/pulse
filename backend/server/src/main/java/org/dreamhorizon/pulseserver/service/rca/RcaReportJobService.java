@@ -4,6 +4,7 @@ import com.google.inject.Inject;
 import com.google.inject.Singleton;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.reactivex.rxjava3.core.Maybe;
 import io.reactivex.rxjava3.core.Single;
 import java.time.Instant;
@@ -28,6 +29,7 @@ import org.dreamhorizon.pulseserver.resources.v1.ai.models.GetRcaJobResponse;
 public class RcaReportJobService {
 
   private static final String POLL_PATH_PREFIX = "/v1/ai-rca/job/";
+  private static final String ROOT_CAUSE_PAYLOAD_FIELD = "rootCausePayload";
 
   private final RcaReportJobDao jobDao;
   private final RcaReportCacheDao cacheDao;
@@ -210,9 +212,28 @@ public class RcaReportJobService {
    * Without this extraction {@code GetRcaJobResponse.report} would contain the full cache body,
    * double-nesting the report under {@code report.report}.
    * Falls back to the full node when no {@code "report"} field is present.
+   *
+   * <p>Tabular data is persisted as a sibling {@link #ROOT_CAUSE_PAYLOAD_FIELD} on the full cache
+   * root (see {@code RcaReportProcessor#attachRootCausePayloadIfPresent}). That field is merged
+   * into the extracted inner report so peek/poll clients receive it with {@code structured}.
    */
   private static JsonNode extractReportField(final JsonNode fullNode) {
     JsonNode inner = fullNode.path("report");
-    return inner.isMissingNode() || inner.isNull() ? fullNode : inner;
+    if (inner.isMissingNode() || inner.isNull()) {
+      return fullNode;
+    }
+    JsonNode tabular = fullNode.get(ROOT_CAUSE_PAYLOAD_FIELD);
+    if (tabular == null || tabular.isNull() || tabular.isMissingNode()) {
+      return inner;
+    }
+    if (!(inner instanceof ObjectNode innerObj)) {
+      return inner;
+    }
+    if (innerObj.hasNonNull(ROOT_CAUSE_PAYLOAD_FIELD)) {
+      return inner;
+    }
+    ObjectNode merged = innerObj.deepCopy();
+    merged.set(ROOT_CAUSE_PAYLOAD_FIELD, tabular.deepCopy());
+    return merged;
   }
 }

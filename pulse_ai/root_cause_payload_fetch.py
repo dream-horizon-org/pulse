@@ -2,18 +2,28 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
+import time
 from datetime import UTC, datetime
-from urllib.parse import quote
+from urllib.parse import quote, urlencode
+
+import httpx
 
 from pulse_ai.client.pulse_client import PulseClient
 from pulse_ai.constants import (
     HTTP_BAD_GATEWAY,
     HTTP_TIMEOUT_GATEWAY,
-    ROOT_CAUSE_FETCH_DATE_QUERY_PARAM,
-    ROOT_CAUSE_FETCH_PATH_TEMPLATE,
+    RCA_ASYNC_RCA_TYPE_INTERACTION,
+    RCA_JOB_GET_PATH_TEMPLATE,
+    RCA_JOB_POLL_INTERVAL_SEC,
+    RCA_PIPELINE_TIMEOUT_SECONDS,
+    RCA_REPORT_PEEK_PATH_PREFIX,
+    RCA_REPORT_POST_PATH,
 )
 from pulse_ai.schemas import RootCausePayloadSchema
+
+HTTP_ACCEPTED = 202
 
 
 class RootCauseFetchError(Exception):
@@ -31,11 +41,58 @@ def _resolve_effective_date(date_value: str | None) -> str:
     return datetime.now(UTC).date().isoformat()
 
 
-def _extract_root_cause_payload(response_json: dict) -> dict:
-    data_value = response_json.get("data")
-    if isinstance(data_value, dict):
-        return data_value
-    return response_json
+def _unwrap_pulse_server_body(top: dict) -> dict:
+    """Unwrap JAX-RS ``Response`` JSON ``{ "data": T }`` (and optional nested ``data``)."""
+    cur: dict = top
+    for _ in range(3):
+        inner = cur.get("data")
+        if isinstance(inner, dict):
+            nested = inner.get("data")
+            if isinstance(nested, dict) and (
+                "jobId" in nested
+                or "status" in nested
+                or "report" in nested
+                or "baseline" in nested
+            ):
+                cur = nested
+                continue
+            cur = inner
+            continue
+        break
+    return cur
+
+
+def _report_dict_candidates(unwrapped: dict) -> list[dict]:
+    """Collect dicts that may hold ``rootCausePayload`` (job/peek/cache shapes)."""
+    out: list[dict] = []
+    report = unwrapped.get("report")
+    if isinstance(report, dict):
+        out.append(report)
+        nested = report.get("report")
+        if isinstance(nested, dict):
+            out.append(nested)
+    out.append(unwrapped)
+    return out
+
+
+def _extract_root_cause_payload_from_rca_report(unwrapped: dict) -> dict | None:
+    """Read tabular ``rootCausePayload`` embedded in a completed async RCA report."""
+    for obj in _report_dict_candidates(unwrapped):
+        rcp = obj.get("rootCausePayload")
+        if isinstance(rcp, dict) and rcp:
+            return rcp
+    return None
+
+
+def _tabular_from_completed_rca_response(unwrapped: dict) -> RootCausePayloadSchema:
+    tabular = _extract_root_cause_payload_from_rca_report(unwrapped)
+    if tabular is None:
+        raise RootCauseFetchError(
+            HTTP_BAD_GATEWAY,
+            "RCA report is missing rootCausePayload. Regenerate the report in Pulse or retry; "
+            "older cached reports may not include tabular data.",
+        )
+    return RootCausePayloadSchema.model_validate(tabular)
 
 
 def _fetch_error_from_pulse_client_dict(error_payload: dict) -> RootCauseFetchError:
@@ -47,6 +104,142 @@ def _fetch_error_from_pulse_client_dict(error_payload: dict) -> RootCauseFetchEr
     return RootCauseFetchError(HTTP_BAD_GATEWAY, "Pulse server unavailable")
 
 
+def _root_cause_fetch_error_from_http_response(raw: httpx.Response) -> RootCauseFetchError:
+    code = raw.status_code or HTTP_BAD_GATEWAY
+    try:
+        body = raw.json()
+    except json.JSONDecodeError:
+        return RootCauseFetchError(code, "Failed to fetch root-cause data")
+    if isinstance(body, dict):
+        unwrapped = _unwrap_pulse_server_body(body)
+        err = unwrapped.get("error")
+        if isinstance(err, dict) and err.get("message"):
+            return RootCauseFetchError(code, str(err.get("message")))
+        msg = unwrapped.get("message")
+        if msg:
+            return RootCauseFetchError(code, str(msg))
+    return RootCauseFetchError(code, "Failed to fetch root-cause data")
+
+
+def _normalize_job_status(status: object) -> str:
+    if status is None:
+        return ""
+    return str(status).strip().upper()
+
+
+async def _peek_rca_report_status(
+    client: PulseClient,
+    interaction_name: str,
+    effective_date: str,
+) -> httpx.Response | dict:
+    query = urlencode(
+        {
+            "rcaType": RCA_ASYNC_RCA_TYPE_INTERACTION,
+            "entityKey": interaction_name,
+            "date": effective_date,
+        }
+    )
+    path = f"{RCA_REPORT_PEEK_PATH_PREFIX}?{query}"
+    return await client.request("GET", path)
+
+
+async def _post_rca_report(
+    client: PulseClient,
+    interaction_name: str,
+    effective_date: str,
+) -> httpx.Response | dict:
+    body = {
+        "rcaType": RCA_ASYNC_RCA_TYPE_INTERACTION,
+        "entityKey": interaction_name,
+        "date": effective_date,
+    }
+    return await client.request("POST", RCA_REPORT_POST_PATH, json=body)
+
+
+async def _get_rca_job(client: PulseClient, job_id: str) -> httpx.Response | dict:
+    encoded = quote(job_id, safe="")
+    path = RCA_JOB_GET_PATH_TEMPLATE.format(job_id=encoded)
+    return await client.request("GET", path)
+
+
+async def _wait_for_rca_job_terminal(
+    client: PulseClient,
+    job_id: str,
+) -> dict:
+    deadline = time.monotonic() + float(RCA_PIPELINE_TIMEOUT_SECONDS)
+    last_payload: dict = {}
+    while time.monotonic() < deadline:
+        raw = await _get_rca_job(client, job_id)
+        if isinstance(raw, dict):
+            raise _fetch_error_from_pulse_client_dict(raw)
+        if raw.status_code != 200:
+            raise _root_cause_fetch_error_from_http_response(raw)
+        last_payload = _unwrap_pulse_server_body(raw.json())
+        status = _normalize_job_status(last_payload.get("status"))
+        if status == "COMPLETED":
+            return last_payload
+        if status == "FAILED":
+            msg = str(last_payload.get("errorMessage") or "RCA report job failed")
+            raise RootCauseFetchError(HTTP_BAD_GATEWAY, msg)
+        if status not in ("PENDING", "PROCESSING", ""):
+            raise RootCauseFetchError(
+                HTTP_BAD_GATEWAY,
+                f"Unexpected RCA job status: {last_payload.get('status')!r}",
+            )
+        await asyncio.sleep(RCA_JOB_POLL_INTERVAL_SEC)
+
+    raise RootCauseFetchError(
+        HTTP_TIMEOUT_GATEWAY,
+        "RCA job polling timed out before completion",
+    )
+
+
+async def _orchestrate_rca_job_then_tabular(
+    client: PulseClient,
+    interaction_name: str,
+    effective_date: str,
+) -> RootCausePayloadSchema:
+    peek = await _peek_rca_report_status(client, interaction_name, effective_date)
+    if isinstance(peek, dict):
+        raise _fetch_error_from_pulse_client_dict(peek)
+
+    if peek.status_code == 200:
+        body = _unwrap_pulse_server_body(peek.json())
+        status = _normalize_job_status(body.get("status"))
+        if status == "COMPLETED":
+            return _tabular_from_completed_rca_response(body)
+        if status == "FAILED":
+            msg = str(body.get("errorMessage") or "RCA report job failed")
+            raise RootCauseFetchError(HTTP_BAD_GATEWAY, msg)
+        if status in ("PENDING", "PROCESSING"):
+            job_id = body.get("jobId")
+            if isinstance(job_id, str) and job_id.strip():
+                terminal = await _wait_for_rca_job_terminal(client, job_id.strip())
+                return _tabular_from_completed_rca_response(terminal)
+    elif peek.status_code != 404:
+        raise _root_cause_fetch_error_from_http_response(peek)
+
+    post = await _post_rca_report(client, interaction_name, effective_date)
+    if isinstance(post, dict):
+        raise _fetch_error_from_pulse_client_dict(post)
+
+    if post.status_code == 200:
+        completed = _unwrap_pulse_server_body(post.json())
+        return _tabular_from_completed_rca_response(completed)
+    if post.status_code == HTTP_ACCEPTED:
+        body_unwrapped = _unwrap_pulse_server_body(post.json())
+        job_id = body_unwrapped.get("jobId")
+        if not isinstance(job_id, str) or not job_id.strip():
+            raise RootCauseFetchError(
+                HTTP_BAD_GATEWAY,
+                "RCA async response missing jobId",
+            )
+        terminal = await _wait_for_rca_job_terminal(client, job_id.strip())
+        return _tabular_from_completed_rca_response(terminal)
+
+    raise _root_cause_fetch_error_from_http_response(post)
+
+
 async def fetch_root_cause_payload(
     interaction_name: str,
     date_value: str | None,
@@ -54,43 +247,21 @@ async def fetch_root_cause_payload(
     project_id: str,
 ) -> RootCausePayloadSchema:
     """
-    Load root-cause tabular payload from pulse-server for an interaction.
+    Load root-cause tabular payload using the same async RCA pipeline as the Pulse dashboard:
+    peek or POST ``/v1/ai/rca/report``, poll ``/v1/ai-rca/job/{jobId}`` when needed, then read
+    ``rootCausePayload`` from the completed report body (no separate tabular GET).
 
     ``authorization`` must be a non-empty ``Authorization`` header value (e.g. ``Bearer <jwt>``).
     ``project_id`` is sent as ``X-Project-ID`` so pulse-server can authorize via OpenFGA.
 
     Uses :class:`~pulse_ai.client.pulse_client.PulseClient` (same stack as EM tools).
     """
-    encoded_interaction = quote(interaction_name, safe="")
-    path = ROOT_CAUSE_FETCH_PATH_TEMPLATE.format(interaction=encoded_interaction)
     effective_date = _resolve_effective_date(date_value)
 
     async with PulseClient(
         authorization_header=authorization,
         project_id=project_id,
     ) as client:
-        raw = await client.request(
-            "GET",
-            path,
-            params={ROOT_CAUSE_FETCH_DATE_QUERY_PARAM: effective_date},
+        return await _orchestrate_rca_job_then_tabular(
+            client, interaction_name, effective_date
         )
-
-    if isinstance(raw, dict):
-        raise _fetch_error_from_pulse_client_dict(raw)
-
-    if raw.status_code != 200:
-        raise RootCauseFetchError(
-            raw.status_code or HTTP_BAD_GATEWAY,
-            "Failed to fetch root-cause data",
-        )
-
-    try:
-        response_json = raw.json()
-    except json.JSONDecodeError as exc:
-        raise RootCauseFetchError(
-            HTTP_BAD_GATEWAY,
-            "Invalid root-cause response payload",
-        ) from exc
-
-    root_cause_json = _extract_root_cause_payload(response_json)
-    return RootCausePayloadSchema.model_validate(root_cause_json)
