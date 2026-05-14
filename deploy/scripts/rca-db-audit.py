@@ -11,9 +11,9 @@ segmentation issues without needing a running server or a JWT token.
 
 What it checks per interaction:
   • Expected bad segments are present in ClickHouse
-  • Their combined signal S = |Δerr| + |Δpoor| meets the same floor pulse-server
-    enforces before persisting to root_cause_cache (default 15; missing delta → 0)
-  • No pure-noise segments are being sent to the LLM unnecessarily
+  • Each cached segment’s raw error_rate+poor_user_pct sum is strictly above the cohort
+    baseline (same rule pulse-server applies before persisting root_cause_cache).
+  • No at-or-below-baseline slices appear in segments JSON (would indicate gate drift).
   • When cache mode is hybrid, segment list order respects merge policy (every 2D+
     segment before any 1D segment)
 
@@ -21,7 +21,6 @@ Usage:
     python3 deploy/scripts/rca-db-audit.py [--project <id>] [--date <YYYY-MM-DD>]
     python3 deploy/scripts/rca-db-audit.py --interaction app_launch
     python3 deploy/scripts/rca-db-audit.py --verbose
-    RCA_MIN_COMBINED_DELTA_SIGNAL=20 python3 deploy/scripts/rca-db-audit.py
     PROJECT_ID=x python3 deploy/scripts/rca-db-audit.py
 """
 
@@ -42,10 +41,19 @@ CH_DB       = os.environ.get("CH_DB",       "otel")
 
 DEFAULT_DATE = str(date.today())
 
-# Combined-signal floor mirrored from pulse-server's RootCauseConfig.minCombinedDeltaSignal
-# (default 15.0). Override with RCA_MIN_COMBINED_DELTA_SIGNAL when staging tunes the server.
-# Formula: S = |Δerror_rate| + |Δpoor_user_pct|; missing delta counts as 0.
-MIN_COMBINED_DELTA_SIGNAL = float(os.environ.get("RCA_MIN_COMBINED_DELTA_SIGNAL", "15"))
+
+def _interaction_rate_sum_from_metrics(metrics):
+    """Raw error_rate + poor_user_pct (interaction RCA); missing → 0."""
+    m = metrics or {}
+    return float(m.get("error_rate") or 0) + float(m.get("poor_user_pct") or 0)
+
+
+def _interaction_segment_passes_cache_gate(segment, baseline):
+    """Mirrors SegmentSignalGate interaction rule: segment sum > baseline sum."""
+    sm = segment.get("metrics") or {}
+    bm = baseline or {}
+    return _interaction_rate_sum_from_metrics(sm) > _interaction_rate_sum_from_metrics(bm)
+
 
 INTERACTIONS = [
     "app_launch", "home_feed_load", "product_search", "product_detail_view",
@@ -82,10 +90,8 @@ INTERACTIONS = [
 #                          ClickHouse stores Java wire values: flat, hierarchical, hybrid
 #                          (RootCauseAnalysisMode). Comparison is case-insensitive.
 #                          Other interactions: mode is informational only.
-#   Noise/weak floor     — single global S threshold from MIN_COMBINED_DELTA_SIGNAL
-#                          (env RCA_MIN_COMBINED_DELTA_SIGNAL); mirrors the server
-#                          gate. Per-interaction overrides intentionally omitted in
-#                          v1 — keep the audit policy aligned with one knob.
+#   Baseline gate        — every cached segment must have
+#                          (error_rate+poor_user_pct)_segment > (same sum)_baseline.
 #
 # rca-audit.py (LLM path) intentionally does NOT carry strict dimensions parity —
 # scenarios doc §G1 locks ownership of strict map equality to this script only.
@@ -225,11 +231,11 @@ def detect_project():
 
 def fetch_segments(project_id, name, audit_date):
     """
-    Returns (segments, mode, computed_at) from the most recent ClickHouse cache row,
-    or (None, None, None) on miss.
+    Returns (segments, baseline, mode, computed_at) from the most recent ClickHouse cache row,
+    or (None, None, None, None) on miss.
     """
     sql = (
-        "SELECT segments, mode, toString(cached_at) AS ts"
+        "SELECT segments, baseline, mode, toString(cached_at) AS ts"
         " FROM otel.root_cause_cache"
         f" WHERE ProjectId = '{_ch_esc(project_id)}'"
         f" AND interaction_name = '{_ch_esc(name)}'"
@@ -239,14 +245,15 @@ def fetch_segments(project_id, name, audit_date):
     )
     raw = ch_query(sql)
     if not raw or not raw.strip():
-        return None, None, None
+        return None, None, None, None
     try:
         row  = json.loads(raw.strip().splitlines()[0])
         segs = json.loads(row["segments"]) if row.get("segments") else []
-        return segs, row.get("mode"), row.get("ts")
+        bl = json.loads(row["baseline"]) if row.get("baseline") else {}
+        return segs, bl, row.get("mode"), row.get("ts")
     except Exception as e:
         print(f"  [parse error] {name}: {e}")
-        return None, None, None
+        return None, None, None, None
 
 
 # ── Verdict helpers ────────────────────────────────────────────────────────────
@@ -325,7 +332,7 @@ def _hybrid_tier_list_order_ok(segments):
 
 # ── Check ──────────────────────────────────────────────────────────────────────
 
-def check_segments(segments, mode, name):
+def check_segments(segments, baseline, mode, name):
     """
     Checks ClickHouse root_cause_cache.segments for one interaction.
 
@@ -388,20 +395,17 @@ def check_segments(segments, mode, name):
         issues.append((FAIL, "No segments in ClickHouse for this interaction/date"))
         return issues
 
-    threshold = MIN_COMBINED_DELTA_SIGNAL
+    bsum = _interaction_rate_sum_from_metrics(baseline)
 
-    # Noise check — combined signal S below the server gate means the segment should
-    # not have been persisted at all (any leak here = backend gate / config drift).
+    # At-or-below-baseline raw rate sum === server should have dropped before cache persist.
     for s in segments:
-        label  = s.get("label", "?")
-        deltas = s.get("deltas", {})
-        derr   = deltas.get("error_rate")
-        dpup   = deltas.get("poor_user_pct")
-        signal = _combined_signal(derr, dpup)
-        if signal < threshold:
-            issues.append((FAIL,
-                f"[NOISE]   [{label}]  Δerr={_fmt_pct(derr)}  Δpoor={_fmt_pct(dpup)}  "
-                f"S={signal:.1f} < {threshold:g}"))
+        label = s.get("label", "?")
+        if _interaction_segment_passes_cache_gate(s, baseline):
+            continue
+        seg_m = s.get("metrics") or {}
+        ssum = _interaction_rate_sum_from_metrics(seg_m)
+        issues.append((FAIL,
+            f"[NOISE]   [{label}]  err+poor={ssum:.2f} ≤ baseline_sum={bsum:.2f} — gate leak"))
 
     # Presence check — every expected bad segment (including borderline) must exist
     for exp_seg in exp.get("expected_segments", []):
@@ -419,24 +423,17 @@ def check_segments(segments, mode, name):
             issues.append((FAIL, f"[MISSING] [{kw_str}] not found in ClickHouse segments"))
             continue
 
-        derr = (matched.get("deltas") or {}).get("error_rate")
-        dpup = (matched.get("deltas") or {}).get("poor_user_pct")
-        signal = _combined_signal(derr, dpup)
-        if signal < threshold:
+        if not _interaction_segment_passes_cache_gate(matched, baseline):
+            sm = matched.get("metrics") or {}
+            ssum = _interaction_rate_sum_from_metrics(sm)
             issues.append((FAIL,
-                f"[WEAK]    [{matched['label']}]  Δerr={_fmt_pct(derr)}  Δpoor={_fmt_pct(dpup)}  "
-                f"S={signal:.1f} < {threshold:g} — below combined-signal floor"))
+                f"[WEAK]    [{matched['label']}]  err+poor={ssum:.2f} vs baseline_sum={bsum:.2f} "
+                "(expected segment should beat baseline gate)"))
         else:
             issues.append((PASS,
-                f"[OK]      [{matched['label']}]  Δerr={_fmt_pct(derr)}  Δpoor={_fmt_pct(dpup)}  "
-                f"S={signal:.1f}"))
+                f"[OK]      [{matched['label']}]  beats baseline raw err+poor (sum>{bsum:.2f})"))
 
     return issues
-
-
-def _combined_signal(derr, dpup):
-    """S = |Δerror_rate| + |Δpoor_user_pct|; treat missing delta as 0 (PRD)."""
-    return (abs(derr) if derr is not None else 0.0) + (abs(dpup) if dpup is not None else 0.0)
 
 
 # ── Per-interaction audit ──────────────────────────────────────────────────────
@@ -446,7 +443,7 @@ def audit_interaction(name, project_id, audit_date, verbose):
     print(f"  {name}")
     print(f"{'─'*72}")
 
-    segments, mode, computed_at = fetch_segments(project_id, name, audit_date)
+    segments, baseline, mode, computed_at = fetch_segments(project_id, name, audit_date)
 
     if segments is None:
         print(f"  {_c(FAIL, 'FAIL')}  No ClickHouse entry for {name} on {audit_date}")
@@ -463,7 +460,7 @@ def audit_interaction(name, project_id, audit_date, verbose):
             print(f"    [{s.get('label','?')}]  "
                   f"Δerr={_fmt_pct(derr)}  Δpoor={_fmt_pct(dpup)}  vol={vol}")
 
-    issues = check_segments(segments, mode, name)
+    issues = check_segments(segments, baseline, mode, name)
     for verdict, msg in issues:
         print(f"    {_c(verdict, verdict)}  {msg}")
 
@@ -492,8 +489,7 @@ def main():
     targets = [args.interaction] if args.interaction else INTERACTIONS
     print(f"RCA ClickHouse Audit  |  project={args.project}  date={args.date}")
     print(f"ClickHouse: {CH_HOST}:{CH_PORT}/{CH_DB}")
-    print(f"Combined-signal floor: S >= {MIN_COMBINED_DELTA_SIGNAL:g}  "
-          f"(env RCA_MIN_COMBINED_DELTA_SIGNAL)\n")
+    print("Segment gate: raw (error_rate + poor_user_pct) segment > baseline (interaction RCA).\n")
 
     results = {}
     for name in targets:

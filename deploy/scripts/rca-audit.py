@@ -30,15 +30,23 @@ DEFAULT_HOST = "http://localhost:8080"
 DEFAULT_PROJECT = "Testing1223-PmnxqFxx"
 DEFAULT_DATE = str(date.today())
 
-# Combined-signal floor S = |Δerror_rate| + |Δpoor_user_pct| (PRD: rca-segment-signal-gate).
-# Mirrors the server gate (RootCauseConfig.minCombinedDeltaSignal) and rca-db-audit.py.
-# Override via env when staging tunes the server.
-MIN_COMBINED_DELTA_SIGNAL = float(os.environ.get("RCA_MIN_COMBINED_DELTA_SIGNAL", "15"))
+def _interaction_input_rate_sum(seg, baseline_metrics):
+    sm = seg.get("metrics") or {}
+    bm = baseline_metrics or {}
+    ssum = float(sm.get("error_rate") or 0) + float(sm.get("poor_user_pct") or 0)
+    bsum = float(bm.get("error_rate") or 0) + float(bm.get("poor_user_pct") or 0)
+    return ssum, bsum
 
 
-def _combined_signal(derr, dpup):
-    """S = |Δerror_rate| + |Δpoor_user_pct|; treat missing delta as 0 (PRD)."""
-    return (abs(derr) if derr is not None else 0.0) + (abs(dpup) if dpup is not None else 0.0)
+def _interaction_output_rates_outrank_baseline(structured_seg):
+    """LLM structured row: value_number sum vs baseline_number sum."""
+    metrics = {m["metric_id"]: m for m in structured_seg.get("metrics", [])}
+    er = metrics.get("error_rate", {})
+    pu = metrics.get("poor_user_pct", {})
+    vs = float(er.get("value_number") or 0) + float(pu.get("value_number") or 0)
+    bs = float(er.get("baseline_number") or 0) + float(pu.get("baseline_number") or 0)
+    return vs > bs
+
 
 # ── Expectations (sourced from docs/rca-expected-outputs.md) ──────────────────
 #
@@ -58,11 +66,8 @@ def _combined_signal(derr, dpup):
 #   direction_filter_note         — description of good cohort that must stay invisible
 #   special_notes                 — list of strings shown in the report
 #
-# Noise / weak-signal floor is global, not per-interaction: combined S =
-# |Δerror_rate| + |Δpoor_user_pct| must be >= MIN_COMBINED_DELTA_SIGNAL (default 15.0,
-# env RCA_MIN_COMBINED_DELTA_SIGNAL). Mirrors the server gate and rca-db-audit.py so
-# HTTP audit, db audit, and pulse-server cache policy stay aligned.
-#
+# Input segment gate mirrors pulse-server interaction RCA: segment raw error_rate+poor_user_pct sum
+# must be strictly greater than the same sum on the interaction baseline payload.
 EXPECTATIONS = {
     "app_launch": {
         "segments_min": 2,
@@ -412,6 +417,7 @@ def check_input_segments(input_data, name):
     """Check for problems in segments sent to the LLM."""
     issues = []
     segments = input_data.get("segments", [])
+    baseline_metrics = input_data.get("baseline") or {}
 
     for s in segments:
         label = s.get("label", "")
@@ -424,14 +430,11 @@ def check_input_segments(input_data, name):
             issues.append((FAIL, f"Empty-dimension segment in input: dims={dims} — seed attribute key bug"))
             continue
 
-        # Noise segment — combined-signal floor (mirrors server gate + rca-db-audit).
-        derr = d.get("error_rate")
-        dpup = d.get("poor_user_pct")
-        signal = _combined_signal(derr, dpup)
-        if signal < MIN_COMBINED_DELTA_SIGNAL:
+        ssum, bsum = _interaction_input_rate_sum(s, baseline_metrics)
+        if ssum <= bsum:
             issues.append((WARN,
-                f"Noise segment in input: [{label}]  Δerr={_fmt_delta(derr)}  Δpoor={_fmt_delta(dpup)}  "
-                f"S={signal:.1f} < {MIN_COMBINED_DELTA_SIGNAL:g} — server gate should have dropped this"))
+                f"Noise segment in input: [{label}]  err+poor={ssum:.2f}% ≤ baseline_sum={bsum:.2f}% "
+                "— server gate should have dropped this"))
 
     return issues
 
@@ -473,19 +476,18 @@ def check_output_segments(structured, name):
     else:
         issues.append((PASS, f"Segment count {seg_count} in expected range [{smin},{smax}]"))
 
-    # Noise segments in output — combined-signal floor (mirrors server gate + rca-db-audit).
+    # Output segments — raw err+poor should beat baseline (same idea as pulse-server gate).
     for s in out_segs:
         title = s.get("title", "")
-        metrics = {m["metric_id"]: m for m in s.get("metrics", [])}
-        err_m = metrics.get("error_rate", {})
-        pup_m = metrics.get("poor_user_pct", {})
-        derr = _delta(err_m.get("value_number"), err_m.get("baseline_number"))
-        dpup = _delta(pup_m.get("value_number"), pup_m.get("baseline_number"))
-        signal = _combined_signal(derr, dpup)
-        if signal < MIN_COMBINED_DELTA_SIGNAL:
+        if not _interaction_output_rates_outrank_baseline(s):
+            metrics = {m["metric_id"]: m for m in s.get("metrics", [])}
+            er_m = metrics.get("error_rate", {})
+            pu_m = metrics.get("poor_user_pct", {})
+            vs = float(er_m.get("value_number") or 0) + float(pu_m.get("value_number") or 0)
+            bs = float(er_m.get("baseline_number") or 0) + float(pu_m.get("baseline_number") or 0)
             issues.append((WARN,
-                f"Noise segment in output: [{title}]  Δerr={_fmt_delta(derr)}  Δpoor={_fmt_delta(dpup)}  "
-                f"S={signal:.1f} < {MIN_COMBINED_DELTA_SIGNAL:g} — below combined-signal floor"))
+                f"Noise segment in output: [{title}]  err+poor={vs:.2f} ≤ baseline_sum={bs:.2f} "
+                "from structured metrics — narrative should not uplift below-baseline slices"))
 
     # Forbidden keywords
     all_text = " ".join([
@@ -736,8 +738,7 @@ def main():
     interactions = [args.interaction] if args.interaction else list(EXPECTATIONS.keys())
 
     print(f"RCA Audit  |  host={args.host}  project={args.project}  date={args.date}")
-    print(f"Combined-signal floor: S >= {MIN_COMBINED_DELTA_SIGNAL:g}  "
-          f"(env RCA_MIN_COMBINED_DELTA_SIGNAL)")
+    print("Input gate mirrors server: (error_rate + poor_user_pct) segment > baseline.\n")
     print(f"Checking {len(interactions)} interaction(s)...\n")
 
     results = []
