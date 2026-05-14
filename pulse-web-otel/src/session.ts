@@ -1,6 +1,6 @@
 // M1: 3-tier identity storage (localStorage → sessionStorage → memory)
 // + 30-minute inactivity session rotation + BFCache guard.
-// See: docs/instrumentations/sdk-core/SPEC.md (session lifecycle)
+// See: docs/instrumentations/session/SPEC.md (session lifecycle)
 
 import type {
   SessionChangeEvent,
@@ -358,7 +358,11 @@ export class SessionProvider {
           // true — the session keys ARE in localStorage (we just read them), so subsequent
           // reads should go to localStorage (allows inactivity-simulation tests to work by
           // backdating pulse_session_ts directly).
-          this._memSession = { id: existingId, tsMs: existingTs, startMs: existingStart };
+          this._memSession = {
+            id: existingId,
+            tsMs: existingTs,
+            startMs: existingStart,
+          };
           this._lsWritable = true;
           void hasCloneFlag; // read above, still useful for future clone-specific logic
           void hasTabSession;
@@ -474,7 +478,9 @@ export class SessionProvider {
     try {
       const ts = localStorage.getItem(SESSION_TS_KEY);
       // Stored as nanoseconds; convert to ms
-      return ts ? Math.floor(parseInt(ts, 10) / 1_000_000) : (this._memSession?.tsMs ?? 0);
+      return ts
+        ? Math.floor(parseInt(ts, 10) / 1_000_000)
+        : (this._memSession?.tsMs ?? 0);
     } catch (err: unknown) {
       swallowStorageError("readSessionTs", err);
       return this._memSession?.tsMs ?? 0;
@@ -487,7 +493,9 @@ export class SessionProvider {
     try {
       const ts = localStorage.getItem(SESSION_START_KEY);
       // Stored as nanoseconds; convert to ms
-      return ts ? Math.floor(parseInt(ts, 10) / 1_000_000) : (this._memSession?.startMs ?? 0);
+      return ts
+        ? Math.floor(parseInt(ts, 10) / 1_000_000)
+        : (this._memSession?.startMs ?? 0);
     } catch (err: unknown) {
       swallowStorageError("readSessionStart", err);
       return this._memSession?.startMs ?? 0;
@@ -700,7 +708,11 @@ export class SessionProvider {
         // Ensure _memSession is populated (may not be set if this is first getSessionId()
         // call and the constructor reused path was not taken).
         if (!this._memSession) {
-          this._memSession = { id: existingId, tsMs: lastTs, startMs: sessionStartMs };
+          this._memSession = {
+            id: existingId,
+            tsMs: lastTs,
+            startMs: sessionStartMs,
+          };
         }
         this._updateActivityTs();
         return existingId;

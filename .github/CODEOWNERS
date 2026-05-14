@@ -1,9 +1,54 @@
-# Code owners file.
-# This file controls who is tagged for review for any given pull request.
+# CODEOWNERS
+# Controls who is auto-requested for review on pull requests.
+# Most-specific path wins — catch-all only applies when no section matches.
 
- # For anything not explicitly taken by someone else:
-* @chiragSharmaD11 @atulgpt17 @shubhamguptadream11 @mayankkush1 @yasir6jan @Sarabjyot123 @prathameshy7
-/deploy/ @yasir6jan
-/pulse_ai/ @sarthak-d11
-backend/db/prod/clickhouse/ @mohithemnani11 @Racha2004 @Sarabjyot123
-backend/db/dev/clickhouse/ @mohithemnani11 @Racha2004 @Sarabjyot123
+# ──────────────────────────────────────────────────────────────────────────────
+# Catch-all (fallback for anything not explicitly listed below)
+# ──────────────────────────────────────────────────────────────────────────────
+* @chiragSharmaD11 @atulgpt17 @shubhamguptadream11 @anirudhdream11 @kunalchavhan @yasir6jan @Sarabjyot123 @prathameshy7 @d11pankaj
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Mobile SDKs
+# ──────────────────────────────────────────────────────────────────────────────
+/pulse-android-otel/          @atulgpt17 @anirudhdream11 @shubhamguptadream11
+/android-agent/               @atulgpt17 @anirudhdream11 @shubhamguptadream11
+/pulse-ios-otel/              @atulgpt17 @shubhamguptadream11 @anirudhdream11 @chiragSharmaD11
+/pulse-react-native-otel/     @atulgpt17 @shubhamguptadream11 @anirudhdream11 @chiragSharmaD11
+/pulse-mobile-benchmarks/     @atulgpt17 @anirudhdream11 @Devanshj11 @shubhamguptadream11
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Web / Frontend
+# ──────────────────────────────────────────────────────────────────────────────
+/pulse-ui/                    @JatinDream11 @shrutipathak1234 @anirudhdream11 @princektripathi
+/pulse-web-otel/              @JatinDream11 @shrutipathak1234 @anirudhdream11 @princektripathi
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Backend
+# ──────────────────────────────────────────────────────────────────────────────
+/backend/                                   @Sarabjyot123 @chiragSharmaD11 @yasir6jan
+/backend/pulse-alerts-cron/                 @princektripathi @yasir6jan
+/backend/session-capture-service/           @abhishek-dream11 @yasir6jan
+/backend/session-replay-ingestion/          @abhishek-dream11 @yasir6jan
+/backend/heatmap-screenshot-ingestion/      @mohithemnani11 @yasir6jan
+/backend/spark/                             @yasir6jan @chiragSharmaD11
+/backend/db/                                @mohithemnani11 @Sarabjyot123
+/backend/ingestion/                         @mohithemnani11 @Sarabjyot123
+/backend/db/prod/clickhouse/                @Racha2004
+/backend/db/dev/clickhouse/                 @Racha2004
+
+# ──────────────────────────────────────────────────────────────────────────────
+# AI / Agent tooling
+# ──────────────────────────────────────────────────────────────────────────────
+/pulse_ai/                    @sarthak-d11 @chiragSharmaD11 @shubhamguptadream11
+/pulse-mcp/                   @sarthak-d11
+/.agents/                     @sarthak-d11 @kunalchavhan @chiragSharmaD11 @anirudhdream11 @shubhamguptadream11
+/.claude/                     @sarthak-d11 @kunalchavhan @chiragSharmaD11 @anirudhdream11 @shubhamguptadream11
+/.cursor/                     @sarthak-d11 @kunalchavhan @chiragSharmaD11 @anirudhdream11 @shubhamguptadream11
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Infrastructure
+# ──────────────────────────────────────────────────────────────────────────────
+/deploy/                      @yasir6jan @chiragSharmaD11 @mohithemnani11
+/vector/                      @chiragSharmaD11 @mohithemnani11 @yasir6jan
+/scripts/                     @yasir6jan @chiragSharmaD11
+/benchmark/                   @atulgpt17 @anirudhdream11 @shubhamguptadream11

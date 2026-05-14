@@ -1,6 +1,6 @@
 # Web Vitals Instrumentation — SPEC.md
 
-Package: `@dreamhorizon/pulse-web`  
+Package: `@dreamhorizonorg/pulse-web`  
 File: `pulse-web-otel/docs/instrumentations/web-vitals/SPEC.md`
 
 ---
@@ -43,6 +43,49 @@ Emit **Core Web Vitals** and related paint/timing signals as OTLP **log records*
 
 **Plan C** (UI-only): rejected — no collector telemetry.
 
+### 4.1 HLD — vitals vs export (Mermaid)
+
+```mermaid
+flowchart TB
+  Reg["InstrumentationRegistry"]
+  WV["WebVitalsInstrumentation"]
+  Lib["web-vitals callbacks"]
+  Log["LoggerProvider"]
+  Exp["OTLP export + flush"]
+  Reg --> WV
+  Lib --> WV
+  WV --> Log
+  Log --> Exp
+```
+
+### 4.2 LD — handlers and flush hooks (Mermaid)
+
+```mermaid
+flowchart LR
+  WV["web-vitals.ts"] --> LCP["onLCP / onINP / …"]
+  WV --> Vis["visibilitychange hidden"]
+  WV --> PS["pageshow persisted"]
+  Vis --> Flush["loggerProvider.forceFlush"]
+  PS --> Flush
+```
+
+### 4.3 Flows and edge cases (Mermaid)
+
+```mermaid
+flowchart TD
+  I[install] --> SSR{window?}
+  SSR -->|no| Z[no-op]
+  SSR -->|yes| G{WEB_VITALS gate?}
+  G -->|off| Z
+  G -->|on| H[register web-vitals]
+  H --> M[metric callback]
+  M --> E[emit log web_vital]
+  H --> BF[BFCache pageshow]
+  BF --> F[forceFlush]
+  H --> U[uninstall]
+  U --> R[remove listeners]
+```
+
 ---
 
 ## 5. LLD
@@ -58,7 +101,7 @@ Emit **Core Web Vitals** and related paint/timing signals as OTLP **log records*
 | `web_vital.navigation_type` | string | `Metric.navigationType` | No | When library provides it |
 | `session.id` | string | global attrs processor | Yes | Inherited on export |
 | `screen.name` | string | global attrs processor | No | Inherited |
-| `platform` | string | Resource `os.name` | Yes | `web` |
+| `platform` | string | Resource (`os.name` and `platform` keys from `buildMergedResource`) | Yes | `web` |
 
 **`navigation_id`:** Not a dedicated attribute on this instrumentation today; navigation context may appear via **`web_vital.navigation_type`** when populated by `web-vitals`. Cross-route correlation uses **`session.id`** + **`screen.name`** + timestamps.
 
@@ -90,6 +133,20 @@ Emit **Core Web Vitals** and related paint/timing signals as OTLP **log records*
 ---
 
 ## 6. Test Coverage
+
+### 6.1 Scenario matrix (Given / When / Then)
+
+| ID | Type | Given | When | Then | Tests |
+|----|------|-------|------|------|-------|
+| W-P1 | positive | gate on | LCP fires | log with `web_vital.*` attrs | `web-vitals-instrumentation.test.ts` |
+| W-N1 | negative | gate off | install | no web-vitals subscription | same |
+| W-E1 | edge | tab hidden | visibilitychange | `forceFlush` called | same |
+| W-E2 | edge | BFCache restore | pageshow persisted | `forceFlush` | R4 |
+| W-E3 | edge | uninstall | metric event | no emit | same |
+
+### 6.2 Playwright E2E (`examples/ecommerce-demo/e2e/`)
+
+Master index: [`../../sdk-core/test-coverage/SPEC.md`](../../sdk-core/test-coverage/SPEC.md) §6.3 — **`@WebVitals`**: TTFB, FCP, LCP, INP (tab hide), FID (Chromium), CLS; SPA flush + `screen.name`; feature gate off.
 
 ### `src/__tests__/web-vitals-instrumentation.test.ts`
 
