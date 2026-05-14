@@ -230,6 +230,41 @@
       "value": "pulse-web-otel/src/__tests__/session-sampling",
       "id": "session"
     },
+    {
+      "match": "prefix",
+      "value": "pulse-web-otel/src/sampling/",
+      "id": "sdk-core-sampling-and-filtering"
+    },
+    {
+      "match": "prefix",
+      "value": "pulse-web-otel/src/utils/session-sampling-rate.ts",
+      "id": "sdk-core-sampling-and-filtering"
+    },
+    {
+      "match": "prefix",
+      "value": "pulse-web-otel/src/utils/sampling-signal-match.ts",
+      "id": "sdk-core-sampling-and-filtering"
+    },
+    {
+      "match": "prefix",
+      "value": "pulse-web-otel/src/processors/signal-filter-processor.ts",
+      "id": "sdk-core-sampling-and-filtering"
+    },
+    {
+      "match": "prefix",
+      "value": "pulse-web-otel/src/__tests__/export-sampling-gate.test.ts",
+      "id": "sdk-core-sampling-and-filtering"
+    },
+    {
+      "match": "prefix",
+      "value": "pulse-web-otel/src/__tests__/session-sampling-rate.test.ts",
+      "id": "sdk-core-sampling-and-filtering"
+    },
+    {
+      "match": "prefix",
+      "value": "pulse-web-otel/src/__tests__/metrics-to-add.test.ts",
+      "id": "sdk-core-sampling-and-filtering"
+    },
     { "match": "prefix", "value": "pulse-web-otel/src/", "id": "sdk-core" }
   ],
   "instrumentations": [
@@ -302,6 +337,15 @@
       ]
     },
     {
+      "id": "sdk-core-config-public-api",
+      "spec_path": "pulse-web-otel/docs/sdk-core/config-and-public-api/SPEC.md",
+      "related_src_globs": [
+        "pulse-web-otel/src/sdk.ts",
+        "pulse-web-otel/src/config.ts",
+        "pulse-web-otel/src/consent.ts"
+      ]
+    },
+    {
       "id": "sdk-core",
       "spec_path": "pulse-web-otel/docs/sdk-core/SPEC.md",
       "related_src_globs": [
@@ -316,8 +360,23 @@
         "pulse-web-otel/src/resource.ts",
         "pulse-web-otel/src/processors/",
         "pulse-web-otel/src/persistence/",
-        "pulse-web-otel/src/sampling/",
         "pulse-web-otel/src/utils/ua-parser.ts"
+      ]
+    },
+    {
+      "id": "sdk-core-sampling-and-filtering",
+      "spec_path": "pulse-web-otel/docs/sdk-core/sampling-and-filtering/SPEC.md",
+      "related_src_globs": [
+        "pulse-web-otel/src/sampling/export-sampling-gate.ts",
+        "pulse-web-otel/src/sampling/sampling-exporters.ts",
+        "pulse-web-otel/src/sampling/metrics-to-add-apply.ts",
+        "pulse-web-otel/src/sampling/metrics-to-add-recorder.ts",
+        "pulse-web-otel/src/sampling/sanitize-instrumentation-name.ts",
+        "pulse-web-otel/src/utils/session-sampling-rate.ts",
+        "pulse-web-otel/src/utils/sampling-signal-match.ts",
+        "pulse-web-otel/src/processors/signal-filter-processor.ts",
+        "pulse-web-otel/src/constants/default-sdk-config.ts",
+        "pulse-web-otel/src/types/sampling.ts"
       ]
     },
     {

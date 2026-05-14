@@ -34,7 +34,7 @@ The **interactions feature** is **distinct from raw click instrumentation** (`ap
 
 ### Coordinator / tracker / matcher / builder pipeline
 
-```
+```text
 InteractionInstrumentation.install()
   └─ InteractionFeature.init()
         ├─ ConfigFetcher → merged definitions
@@ -44,7 +44,7 @@ InteractionInstrumentation.install()
         └─ SpanBuilder emits OTel records when a sequence completes
 ```
 
-### 4.1 HLD — feature vs registry (Mermaid)
+### 4.1 HLD — feature vs registry
 
 ```mermaid
 flowchart TB
@@ -59,7 +59,7 @@ flowchart TB
   Coord --> SB
 ```
 
-### 4.2 LD — data path (Mermaid)
+### 4.2 LD — data path
 
 ```mermaid
 flowchart LR
@@ -69,7 +69,7 @@ flowchart LR
   SB --> Span["OTLP span interaction"]
 ```
 
-### 4.3 Flows — gate and config failure (Mermaid)
+### 4.3 Flows — gate and config failure
 
 ```mermaid
 flowchart TD
@@ -136,7 +136,7 @@ flowchart TD
 
 Master index: [`../../sdk-core/test-coverage/SPEC.md`](../../sdk-core/test-coverage/SPEC.md) §6.3 — **`@M2 interactions e2e`** + **`@M2 interactions edge cases`**: happy paths (1/2/3-event), timeouts, sequence violations, blacklist (global/local), apdex tiers, overlapping configs, out-of-order timestamps, config fetch unavailable (no span, SDK alive), property-operator matrix, user id mid-flow, shared-prefix branching, plus exploratory middle-step behaviour.
 
-### Files (each exercises scenarios described in filename):
+### Files (each exercises scenarios described in filename)
 
 1. `src/__tests__/interaction-feature.test.ts`
 2. `src/__tests__/interaction-instrumentation.test.ts`
@@ -158,7 +158,7 @@ Plus `interaction-feature-integration.test.ts` for cross-module flows.
 
 **Heatmap / rage grid** analytics — **deferred** future work (not a runtime bug).
 
-### P0:
+### P0
 
 No **P0** data-contract defects — **§5.1** matches `semconv.ts` / `InteractionSpanBuilder` (2026-05-14).
 

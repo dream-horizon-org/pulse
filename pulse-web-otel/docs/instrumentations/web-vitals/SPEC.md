@@ -43,7 +43,7 @@ Emit **Core Web Vitals** and related paint/timing signals as OTLP **log records*
 
 **Plan C** (UI-only): rejected — no collector telemetry.
 
-### 4.1 HLD — vitals vs export (Mermaid)
+### 4.1 HLD — vitals vs export
 
 ```mermaid
 flowchart TB
@@ -58,7 +58,7 @@ flowchart TB
   Log --> Exp
 ```
 
-### 4.2 LD — handlers and flush hooks (Mermaid)
+### 4.2 LD — handlers and flush hooks
 
 ```mermaid
 flowchart LR
@@ -69,7 +69,7 @@ flowchart LR
   PS --> Flush
 ```
 
-### 4.3 Flows and edge cases (Mermaid)
+### 4.3 Flows and edge cases
 
 ```mermaid
 flowchart TD
@@ -99,11 +99,14 @@ flowchart TD
 | `web_vital.value` | number | `Metric.value` | Yes | Unit depends on metric (ms, score, …) |
 | `web_vital.rating` | string | `Metric.rating` | Yes | `good` \| `needs-improvement` \| `poor` |
 | `web_vital.navigation_type` | string | `Metric.navigationType` | No | When library provides it |
+| `web_vital.context` | string | derived from `navigationType` | No | `pageload` (all current browsers); `navigation` when Chrome Soft Nav API is GA — Phase 2 |
+| `web_vital.delta` | number | `Metric.delta` | No | Incremental change since last callback; emitted when `reportAllChanges: true` — Phase 2 |
+| `navigation_id` | string (UUID v4) | `GlobalAttributesProcessor` | No | Reset per navigation by `NavigationInstrumentation`; enables per-route CLS/INP aggregation — Phase 2 |
 | `session.id` | string | global attrs processor | Yes | Inherited on export |
 | `screen.name` | string | global attrs processor | No | Inherited |
 | `platform` | string | Resource (`os.name` and `platform` keys from `buildMergedResource`) | Yes | `web` |
 
-**`navigation_id`:** Not a dedicated attribute on this instrumentation today; navigation context may appear via **`web_vital.navigation_type`** when populated by `web-vitals`. Cross-route correlation uses **`session.id`** + **`screen.name`** + timestamps.
+**Phase 2 attributes** (`navigation_id`, `web_vital.delta`, `web_vital.context`) are planned but not yet implemented. See `PLAN-phase2-per-route-vitals.md`.
 
 ### 5.2 Metric coverage
 
@@ -172,7 +175,7 @@ No confirmed **P0** incorrect vital values attributable to this instrumentation 
 ### Other gaps
 
 - **FID vs INP product messaging:** dashboards should prefer INP where available.
-- **Per-route CLS/INP reset on SPA navigations** requires `web-vitals` v5 `reportSoftNavs` (not available in v4.x). Current behavior: flush-on-navigate (via `Pulse.notifySoftNavigation()` wired into the React / Next router-tracking hooks) exports accumulated CLS/INP per route but values are cumulative from page load, not reset per route.
+- **Per-route CLS/INP:** Phase 1 exports cumulative values per route via `notifySoftNavigation()` flush. Phase 2 adds `reportAllChanges: true` on `onCLS`/`onINP` + `web_vital.delta` + `navigation_id` — enabling per-route aggregation in ClickHouse without any experimental browser API. `reportSoftNavs` (Chrome Soft Nav API) is not available in any released web-vitals npm version; `web_vital.context = "navigation"` will fire only when that API reaches GA. See `PLAN-phase2-per-route-vitals.md`.
 
 ---
 
@@ -191,4 +194,4 @@ Deleted after triple-eval:
 ## 9. Open Questions
 
 1. Should we drop `onFID` subscription once browser share is negligible?
-2. Should `navigation_id` become a first-class attribute once backend schema supports it?
+2. ~~Should `navigation_id` become a first-class attribute once backend schema supports it?~~ **Resolved:** `navigation_id` uses map access only (`LogAttributes['navigation_id']`); no materialized column needed. Planned for Phase 2.
