@@ -12,20 +12,20 @@
 # ──────────────────────────────────────────────────────────────────────────────
 /pulse-android-otel/          @atulgpt17 @anirudhdream11 @shubhamguptadream11
 /android-agent/               @atulgpt17 @anirudhdream11 @shubhamguptadream11
-/pulse-ios-otel/              @shubhamguptadream11 @anirudhdream11 @chiragSharmaD11
-/pulse-react-native-otel/     @shubhamguptadream11 @anirudhdream11 @chiragSharmaD11
+/pulse-ios-otel/              @atulgpt17 @shubhamguptadream11 @anirudhdream11 @chiragSharmaD11
+/pulse-react-native-otel/     @atulgpt17 @shubhamguptadream11 @anirudhdream11 @chiragSharmaD11
 /pulse-mobile-benchmarks/     @anirudhdream11 @Devanshj11 @shubhamguptadream11
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Web / Frontend
 # ──────────────────────────────────────────────────────────────────────────────
-/pulse-ui/                    @JatinDream11 @shrutipathak1234 @anirudhdream11
-/pulse-web-otel/              @JatinDream11 @shrutipathak1234 @anirudhdream11
+/pulse-ui/                    @JatinDream11 @shrutipathak1234 @anirudhdream11 @princektripathi
+/pulse-web-otel/              @JatinDream11 @shrutipathak1234 @anirudhdream11 @princektripathi
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Backend
 # ──────────────────────────────────────────────────────────────────────────────
-/backend/                                   @Sarabjyot123 @chiragSharmaD11
+/backend/                                   @Sarabjyot123 @chiragSharmaD11 @yasir6jan
 /backend/pulse-alerts-cron/                 @princektripathi @yasir6jan
 /backend/session-capture-service/           @abhishek-dream11 @yasir6jan
 /backend/session-replay-ingestion/          @abhishek-dream11 @yasir6jan
@@ -49,6 +49,6 @@
 # Infrastructure
 # ──────────────────────────────────────────────────────────────────────────────
 /deploy/                      @yasir6jan @chiragSharmaD11 @mohithemnani11
-/vector/                      @chiragSharmaD11 @mohithemnani11
+/vector/                      @chiragSharmaD11 @mohithemnani11 @yasir6jan
 /scripts/                     @yasir6jan @chiragSharmaD11
-/benchmark/                   @atulgpt17
+/benchmark/                   @atulgpt17 @anirudhdream11 @shubhamguptadream11
