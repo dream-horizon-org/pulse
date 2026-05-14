@@ -9,6 +9,8 @@ lib/
 .env
 
 .cursor/.env
+.cursor/pulse-web-otel-spec-audit-queue.jsonl
+pulse-web-otel/.spec-audit/
 # Claude Code: keep shared project memory and skills; ignore other local-only files under .claude/
 .claude/*
 !.claude/CLAUDE.md
@@ -19,6 +21,7 @@ lib/
 !.claude/agents/**
 !.claude/skills/
 !.claude/skills/**
+.claude/**/.DS_Store
 .cursor/hooks/state/
 .cursor/plans/
 .terraform/

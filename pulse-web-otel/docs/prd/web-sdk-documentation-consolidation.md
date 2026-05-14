@@ -156,7 +156,7 @@ Canonical npm operational spec: [`docs/publishing/SPEC.md`](../publishing/SPEC.m
 
 ## Further Notes
 
-**Issue execution order matters:** sdk-core must complete first (it defines the shared data contract table that all other SPECs reference in §5). Each issue agent should read `docs/instrumentations/sdk-core/SPEC.md` before writing its own §5.
+**Issue execution order matters:** sdk-core must complete first (shared data contract: **`docs/sdk-core/data-contract/SPEC.md`**, linked from **`docs/sdk-core/SPEC.md`**). Each issue agent should read the sdk-core rollup and data contract before writing its own §5.
 
 **SPEC.md §5 attribute table format** (enforce consistency across all 10 docs):
 ```

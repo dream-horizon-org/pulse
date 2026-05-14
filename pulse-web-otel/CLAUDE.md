@@ -17,7 +17,7 @@ See **`.agents/rules/pulse-web-otel-contract.mdc`** and **`.agents/rules/pulse-w
 Highlights worth restating because they change agent behaviour:
 
 - `platform = 'web'` on every signal. Not optional.
-- `pulse.type` enum: see `src/semconv.ts` / **`docs/instrumentations/sdk-core/SPEC.md` §5**. Don't invent new values without an ADR.
+- `pulse.type` enum: see `src/semconv.ts` / **`docs/sdk-core/data-contract/SPEC.md`**. Don't invent new values without an ADR.
 - `src/instrumentations/<name>.ts` is the registration surface; never touch `io.opentelemetry.*` namespacing — that's upstream.
 - Public API: only what `src/index.ts` exports. Consumers don't pin internal paths.
 
@@ -75,6 +75,7 @@ Highlights worth restating because they change agent behaviour:
 
 - **`prd/README.md`** — where PRDs live; symlink `PRD.md` → `prd/<slug>.md` for Ralph (or `PRD_PATH`)
 - **`docs/instrumentations/integration/SPEC.md`** — host-app integration entry (exports, init, framework pointers)
-- **`docs/instrumentations/sdk-core/SPEC.md`** — lifecycle, consent, contracts
+- **`docs/sdk-core/SPEC.md`** — sdk-core index (links to split topics)
+- **`docs/sdk-core/data-contract/SPEC.md`** — `pulse.type` + shared attributes
 - **`docs/instrumentations/`** — per-feature holy-grail SPECs (errors, network, …)
 - `.agents/rules/` contract + conventions (same rules via `.cursor/rules/` symlinks)
