@@ -5,7 +5,7 @@
 # ──────────────────────────────────────────────────────────────────────────────
 # Catch-all (fallback for anything not explicitly listed below)
 # ──────────────────────────────────────────────────────────────────────────────
-* @chiragSharmaD11 @atulgpt17 @shubhamguptadream11 @anirudhdream11 @kunalchavhan @yasir6jan @Sarabjyot123 @prathameshy7
+* @chiragSharmaD11 @atulgpt17 @shubhamguptadream11 @anirudhdream11 @kunalchavhan @yasir6jan @Sarabjyot123 @prathameshy7 @d11pankaj
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Mobile SDKs
@@ -14,7 +14,7 @@
 /android-agent/               @atulgpt17 @anirudhdream11 @shubhamguptadream11
 /pulse-ios-otel/              @atulgpt17 @shubhamguptadream11 @anirudhdream11 @chiragSharmaD11
 /pulse-react-native-otel/     @atulgpt17 @shubhamguptadream11 @anirudhdream11 @chiragSharmaD11
-/pulse-mobile-benchmarks/     @anirudhdream11 @Devanshj11 @shubhamguptadream11
+/pulse-mobile-benchmarks/     @atulgpt17 @anirudhdream11 @Devanshj11 @shubhamguptadream11
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Web / Frontend
