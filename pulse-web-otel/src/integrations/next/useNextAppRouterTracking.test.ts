@@ -3,7 +3,7 @@ import { renderHook } from "@testing-library/react";
 import { useNextAppRouterTracking } from "./useNextAppRouterTracking";
 import { Pulse } from "../../sdk";
 
-vi.mock("next/navigation", () => ({
+vi.mock("next/navigation.js", () => ({
   usePathname: vi.fn(),
   useSearchParams: vi.fn(),
 }));
@@ -11,11 +11,12 @@ vi.mock("next/navigation", () => ({
 vi.mock("../../sdk", () => ({
   Pulse: {
     setScreenName: vi.fn(),
+    notifySoftNavigation: vi.fn(),
     _triggerNavigationRouteChange: vi.fn(),
   },
 }));
 
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation.js";
 
 describe("useNextAppRouterTracking (Next.js App Router)", () => {
   beforeEach(() => {

@@ -127,7 +127,7 @@ export interface PulseWebConfig {
    * "protobuf" → application/x-protobuf (more compact)
    */
   export?: {
-    format?: "json" | "protobuf";
+    format?: "protobuf"| "json";
   };
 
   /**

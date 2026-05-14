@@ -1,0 +1,61 @@
+import { useQuery } from "@tanstack/react-query";
+import { API_BASE_URL, API_ROUTES } from "../../constants";
+import type { ApiResponse } from "../../helpers/makeRequest/makeRequest.interface";
+import type { WebVitalsTrendResponse } from "../../screens/WebVitals/WebVitals.interface";
+import type { WebVitalsTrendWire } from "../../screens/WebVitals/WebVitalsWire.types";
+import { normalizeWebVitalsTrendResponse } from "../../screens/WebVitals/normalizeWebVitalsApi";
+import { makeRequest } from "../../helpers/makeRequest";
+import { useProjectQueryEnabled } from "../useProjectQueryEnabled";
+import { removeUndefinedOrNullValues } from "../../helpers/queryParams";
+import { UseWebVitalsTrendParams } from "./useWebVitalsTrend.interface";
+
+export const useWebVitalsTrend = ({
+  startTime,
+  endTime,
+  vitalName,
+  bucketMinutes = 30,
+  screenName,
+}: UseWebVitalsTrendParams) => {
+  const enabled = useProjectQueryEnabled();
+  const route = API_ROUTES.GET_WEB_VITALS_TREND;
+
+  const queryParams = removeUndefinedOrNullValues({
+    startTime,
+    endTime,
+    vitalName,
+    bucketMinutes,
+    screenName,
+  });
+
+  const queryString = new URLSearchParams(
+    Object.fromEntries(
+      Object.entries(queryParams).map(([k, v]) => [k, String(v)]),
+    ),
+  ).toString();
+  const url = `${API_BASE_URL}${route.apiPath}?${queryString}`;
+
+  return useQuery({
+    queryKey: [
+      route.key,
+      startTime,
+      endTime,
+      vitalName,
+      bucketMinutes,
+      screenName,
+    ],
+    queryFn: async (): Promise<ApiResponse<WebVitalsTrendResponse>> => {
+      const res = await makeRequest<WebVitalsTrendWire>({
+        url,
+        init: {
+          method: route.method,
+        },
+      });
+      return {
+        ...res,
+        data: normalizeWebVitalsTrendResponse(res.data ?? null),
+      };
+    },
+    enabled,
+    refetchOnWindowFocus: false,
+  });
+};

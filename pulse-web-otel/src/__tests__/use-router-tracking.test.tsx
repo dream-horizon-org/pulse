@@ -72,6 +72,7 @@ function getReactRouterDom(): ReactRouterDomExports {
 
 // Stub `setScreenName` — we assert call counts/arguments on this spy.
 let setScreenNameSpy: ReturnType<typeof vi.spyOn>;
+let notifySoftNavigationSpy: ReturnType<typeof vi.spyOn>;
 
 beforeEach(() => {
   window.localStorage.clear();
@@ -79,10 +80,14 @@ beforeEach(() => {
   setScreenNameSpy = vi
     .spyOn(Pulse, "setScreenName")
     .mockImplementation(() => {});
+  notifySoftNavigationSpy = vi
+    .spyOn(Pulse, "notifySoftNavigation")
+    .mockImplementation(() => {});
 });
 
 afterEach(() => {
   setScreenNameSpy.mockRestore();
+  notifySoftNavigationSpy.mockRestore();
   vi.unstubAllGlobals();
 });
 
@@ -388,5 +393,92 @@ describe("useRouterTracking — no-leak after unmount", () => {
     );
     expect(errorCalls).toHaveLength(0);
     consoleSpy.mockRestore();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 9. notifySoftNavigation — flush buffered vitals on SPA route change
+// ---------------------------------------------------------------------------
+
+describe("useRouterTracking — notifySoftNavigation on SPA nav", () => {
+  it("calls notifySoftNavigation once on route change (same count as setScreenName)", async () => {
+    const navigateRef: NavigateRef = { current: null };
+    render(makeHarness({ initial: "/foo", navigateRef }));
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(notifySoftNavigationSpy).not.toHaveBeenCalled();
+
+    await act(async () => {
+      navigateRef.current?.("/bar");
+    });
+
+    expect(notifySoftNavigationSpy).toHaveBeenCalledTimes(1);
+    expect(notifySoftNavigationSpy).toHaveBeenCalledTimes(
+      setScreenNameSpy.mock.calls.length,
+    );
+  });
+
+  it("does NOT call notifySoftNavigation when navigating to the same pathname", async () => {
+    const navigateRef: NavigateRef = { current: null };
+    render(makeHarness({ initial: "/a", navigateRef }));
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    await act(async () => {
+      navigateRef.current?.("/a");
+    });
+
+    expect(notifySoftNavigationSpy).not.toHaveBeenCalled();
+  });
+
+  it("does NOT call notifySoftNavigation on initial mount when skipInitial is true", async () => {
+    const navigateRef: NavigateRef = { current: null };
+    render(makeHarness({ initial: "/foo", navigateRef }));
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(notifySoftNavigationSpy).not.toHaveBeenCalled();
+  });
+
+  it("calls notifySoftNavigation on initial mount when skipInitial is false", async () => {
+    const navigateRef: NavigateRef = { current: null };
+    render(
+      makeHarness({
+        initial: "/foo",
+        navigateRef,
+        hookOptions: { skipInitial: false },
+      }),
+    );
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(notifySoftNavigationSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("calls notifySoftNavigation once per distinct path across multiple navigations", async () => {
+    const navigateRef: NavigateRef = { current: null };
+    render(makeHarness({ initial: "/a", navigateRef }));
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    await act(async () => {
+      navigateRef.current?.("/b");
+    });
+    await act(async () => {
+      navigateRef.current?.("/c");
+    });
+    await act(async () => {
+      navigateRef.current?.("/d");
+    });
+
+    expect(notifySoftNavigationSpy).toHaveBeenCalledTimes(3);
+    expect(notifySoftNavigationSpy).toHaveBeenCalledTimes(
+      setScreenNameSpy.mock.calls.length,
+    );
   });
 });

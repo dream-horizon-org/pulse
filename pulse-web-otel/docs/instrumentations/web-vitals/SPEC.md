@@ -115,6 +115,7 @@ No confirmed **P0** incorrect vital values attributable to this instrumentation 
 ### Other gaps
 
 - **FID vs INP product messaging:** dashboards should prefer INP where available.
+- **Per-route CLS/INP reset on SPA navigations** requires `web-vitals` v5 `reportSoftNavs` (not available in v4.x). Current behavior: flush-on-navigate (via `Pulse.notifySoftNavigation()` wired into the React / Next router-tracking hooks) exports accumulated CLS/INP per route but values are cumulative from page load, not reset per route.
 
 ---
 

@@ -55,7 +55,9 @@ import {
   _resetPulseProviderStateForTesting,
 } from "../integrations/react/PulseProvider";
 import { PulseErrorBoundary } from "../integrations/react/PulseErrorBoundary";
+import { PulseWebLogger } from "../pulse-web-logger";
 import { Pulse } from "../sdk";
+import { PulseLogLevel } from "../pulse-log-level";
 
 function makeConfig(overrides: Partial<PulseWebConfig> = {}): PulseWebConfig {
   return {
@@ -433,9 +435,7 @@ describe("PulseProvider — nested provider (-v)", () => {
 });
 
 // ---------------------------------------------------------------------------
-// -v — invalid config: start() validation error leaves SDK uninitialised
-//      (useEffect errors don't propagate to render() synchronously, so we
-//       verify state rather than catching a throw)
+// -v — invalid config: validation error leaves SDK uninitialised (init does not throw)
 // ---------------------------------------------------------------------------
 
 describe("PulseProvider — invalid config (-v)", () => {
@@ -532,6 +532,54 @@ describe("PulseErrorBoundary (+v)", () => {
     expect(getByTestId("fn-fallback").textContent).toBe("render bomb");
     expect(typeof capturedReset).toBe("function");
     errSpy.mockRestore();
+  });
+
+  it("swallows fallback that throws during render; alwaysError logs even at NONE", () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    PulseWebLogger.setLevel(PulseLogLevel.NONE);
+    const alwaysSpy = vi
+      .spyOn(PulseWebLogger, "alwaysError")
+      .mockImplementation(() => {});
+
+    function BadFallback(): React.ReactElement {
+      throw new Error("fallback render boom");
+    }
+
+    const { container } = render(
+      <PulseErrorBoundary fallback={<BadFallback />}>
+        <Bomb shouldThrow={true} />
+      </PulseErrorBoundary>,
+    );
+
+    expect(alwaysSpy).toHaveBeenCalled();
+    expect(container.textContent).toBe("");
+    alwaysSpy.mockRestore();
+    vi.restoreAllMocks();
+    PulseWebLogger.resetForTesting();
+  });
+
+  it("swallows function fallback that throws before returning UI", () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    PulseWebLogger.setLevel(PulseLogLevel.NONE);
+    const alwaysSpy = vi
+      .spyOn(PulseWebLogger, "alwaysError")
+      .mockImplementation(() => {});
+
+    const { container } = render(
+      <PulseErrorBoundary
+        fallback={() => {
+          throw new Error("sync throw in fallback fn");
+        }}
+      >
+        <Bomb shouldThrow={true} />
+      </PulseErrorBoundary>,
+    );
+
+    expect(alwaysSpy).toHaveBeenCalled();
+    expect(container.textContent).toBe("");
+    alwaysSpy.mockRestore();
+    vi.restoreAllMocks();
+    PulseWebLogger.resetForTesting();
   });
 });
 

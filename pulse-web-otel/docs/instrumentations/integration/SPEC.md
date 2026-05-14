@@ -36,6 +36,29 @@ Single **entry-point guide** for shipping Pulse Web in a browser application: in
 
 **R4 — Shutdown:** Long-lived SPAs usually omit teardown; tests may call **`Pulse.shutdown()`** via provider prop — see **`react-integration`** SPEC.
 
+**R5 — Domain allowlist (ops):** After integrating, the host application's origin must be added to the Pulse S3 CORS allowlist (`pulse-otel-config` bucket) before the SDK can fetch remote config in a browser. Without this, `OPTIONS` preflight to `/config/*` returns 403 and the SDK cannot load feature gates or remote sampling config.
+
+```bash
+# Run once per new customer domain — update existing rule, do not replace
+aws s3api put-bucket-cors \
+  --bucket pulse-otel-config \
+  --cors-configuration '{
+    "CORSRules": [{
+      "AllowedOrigins": [
+        "https://*.pulse-ux.com",
+        "https://*.amplifyapp.com",
+        "https://<customer-domain>",
+        "http://localhost:3000"
+      ],
+      "AllowedMethods": ["GET", "HEAD"],
+      "AllowedHeaders": ["*"],
+      "MaxAgeSeconds": 7200
+    }]
+  }'
+```
+
+> Note: this is a manual step until project registration in the Pulse backend automates it.
+
 ---
 
 ## 4. Architectural Design
@@ -98,7 +121,11 @@ Published **`types`** + **`import`** / **`require`** pairs resolve to `dist/*`.
 - **Runtime:** `@dreamhorizonorg/pulse-web/next` — **`nextjs-integration`** SPEC §5.
 - **Build:** `@dreamhorizonorg/pulse-web/next-config` — source maps §5.3–5.4 there.
 
-### 5.6 SSR / Node `instrumentation.ts`
+### 5.6 Platform CORS configuration
+
+The SDK fetches remote config from `pulse-otel-config` S3 via CloudFront (`/config/*`). The bucket is private (OAC) with `AllowedOrigins` scoped to known domains. A new integration requires the host app origin to be added to the CORS rule — see **R5** above. Failure symptom: `OPTIONS /config/projects/<id>/pulse-config.json` returns 403; SDK falls back to defaults silently.
+
+### 5.7 SSR / Node `instrumentation.ts`
 
 - Server **`onRequestError`** helper ships logs separately — does **not** replace browser **`Pulse.init`** for RUM.
 

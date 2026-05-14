@@ -10,6 +10,7 @@ vi.mock("react-router-dom", () => ({
 vi.mock("../../sdk", () => ({
   Pulse: {
     setScreenName: vi.fn(),
+    notifySoftNavigation: vi.fn(),
     _triggerNavigationRouteChange: vi.fn(),
   },
 }));
@@ -58,7 +59,9 @@ describe("useRouterTracking (React Router v6)", () => {
       hash: "",
     });
 
-    const { rerender } = renderHook(() => useRouterTracking({ skipInitial: false }));
+    const { rerender } = renderHook(() =>
+      useRouterTracking({ skipInitial: false }),
+    );
 
     expect(Pulse.setScreenName).toHaveBeenCalledWith("/products");
     vi.clearAllMocks();
@@ -84,7 +87,9 @@ describe("useRouterTracking (React Router v6)", () => {
       hash: "",
     });
 
-    const { rerender } = renderHook(() => useRouterTracking({ skipInitial: false }));
+    const { rerender } = renderHook(() =>
+      useRouterTracking({ skipInitial: false }),
+    );
 
     expect(Pulse.setScreenName).toHaveBeenCalledWith("/products");
     vi.clearAllMocks();
@@ -211,7 +216,9 @@ describe("useRouterTracking (React Router v6)", () => {
       hash: "",
     });
 
-    const { rerender } = renderHook(() => useRouterTracking({ skipInitial: false }));
+    const { rerender } = renderHook(() =>
+      useRouterTracking({ skipInitial: false }),
+    );
 
     expect(Pulse.setScreenName).toHaveBeenCalledTimes(1);
     vi.clearAllMocks();
