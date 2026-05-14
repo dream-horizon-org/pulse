@@ -32,11 +32,11 @@ echo "node $(node --version) pm2 $(pm2 --version)"
 # App environment from AWS Secrets Manager (same contract as pulse-server /
 # session-capture: { "app_env": [ { "key": "...", "value": "..." }, ... ] })
 # Keys match backend/session-replay-ingestion/src/config.ts (KAFKA_*, S3_*, etc.).
+# Env file is written after artifact install so APP_ROOT can be replaced cleanly.
 # -------------------------------------------------------------------
 SECRET_NAME="prod/pulse-session-replay-ingestion/appenv"
-ENV_FILE="/etc/pulse/ingestion.env"
-
-sudo mkdir -p /etc/pulse
+APP_ROOT="$HOME/pulse-session-replay-ingestion"
+ENV_FILE="$APP_ROOT/ingestion.env"
 
 echo "Fetching secret '$SECRET_NAME' from AWS Secrets Manager..."
 SECRET_JSON=$(aws secretsmanager get-secret-value \
@@ -50,16 +50,11 @@ if [ -z "$SECRET_JSON" ]; then
   exit 1
 fi
 
-echo "$SECRET_JSON" | jq -r '.app_env[] | "\(.key)=\(.value)"' | sudo tee "$ENV_FILE" >/dev/null
-sudo chmod 600 "$ENV_FILE"
-echo "Exported $(wc -l < "$ENV_FILE") environment variables to $ENV_FILE"
-
 AWS_REGION="ap-south-1"
 CODEARTIFACT_DOMAIN="pulse-prod"
 CODEARTIFACT_REPOSITORY="pulse-session-replay-ingestion"
 APPLICATION_NAME="pulse-session-replay-ingestion"
 VERSION="${artifact_version}"
-INSTALL_DIR="/opt/pulse-session-replay-ingestion"
 
 aws codeartifact get-package-version-asset \
   --region "$AWS_REGION" \
@@ -72,38 +67,60 @@ aws codeartifact get-package-version-asset \
   --asset "$APPLICATION_NAME-$VERSION.zip" \
   "$APPLICATION_NAME.zip"
 
-unzip -o "$APPLICATION_NAME.zip"
-if [ ! -f "$APPLICATION_NAME/dist/index.js" ]; then
-  echo "ERROR: dist/index.js not found under $APPLICATION_NAME/"
+UNZIP_TMP=$(mktemp -d)
+unzip -o "$APPLICATION_NAME.zip" -d "$UNZIP_TMP"
+if [ ! -f "$UNZIP_TMP/$APPLICATION_NAME/dist/index.js" ]; then
+  echo "ERROR: dist/index.js not found under $UNZIP_TMP/$APPLICATION_NAME/"
   exit 1
 fi
 
-sudo rm -rf "$INSTALL_DIR"
-sudo mkdir -p "$INSTALL_DIR"
-sudo cp -a "$APPLICATION_NAME"/. "$INSTALL_DIR"/
-sudo chown -R root:root "$INSTALL_DIR"
+sudo rm -rf "$APP_ROOT"
+sudo mv "$UNZIP_TMP/$APPLICATION_NAME" "$APP_ROOT"
+sudo rm -rf "$UNZIP_TMP"
 
-# Ensure nvm node/pm2 are on PATH for this shell (same session as above).
-export NVM_DIR="$HOME/.nvm"
-# shellcheck disable=SC1090
-[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
-nvm use 20
+echo "$SECRET_JSON" | jq -r '.app_env[] | "\(.key)=\(.value)"' | sudo tee "$ENV_FILE" >/dev/null
+sudo chmod 600 "$ENV_FILE"
+echo "Exported $(wc -l < "$ENV_FILE") environment variables to $ENV_FILE"
 
-# cloud-init runs as root — pm2 matches. Order: start → save → startup (systemd + resurrect).
-# Some pm2 builds print a line starting with "sudo " — eval it to enable the unit.
+sudo chown -R admin:admin "$APP_ROOT"
+
+# Run pm2 as admin (not root) so .pm2/ is admin-owned and the admin user can manage the service.
+# cloud-init is root, so we use a temp script + sudo -u admin to switch users cleanly.
 echo "Starting $APPLICATION_NAME via pm2..."
+
+# Remove any stale root-owned .pm2/ dir from previous runs so admin can create it fresh
+rm -rf /home/admin/.pm2 2>/dev/null || true
+
+PM2_START_SCRIPT=$(mktemp)
+cat > "$PM2_START_SCRIPT" << INNERSCRIPT
+#!/bin/bash
+export NVM_DIR="/home/admin/.nvm"
+[ -s "\$NVM_DIR/nvm.sh" ] && . "\$NVM_DIR/nvm.sh"
+nvm use 20
 set -a
-# shellcheck disable=SC1090
-source /etc/pulse/ingestion.env
+source "$${ENV_FILE}"
 set +a
-
-pm2 delete "$APPLICATION_NAME" 2>/dev/null || true
-pm2 start "$INSTALL_DIR/dist/index.js" \
-  --name "$APPLICATION_NAME" \
-  --node-args="--require @opentelemetry/auto-instrumentations-node/register"
+pm2 delete "$${APPLICATION_NAME}" 2>/dev/null || true
+cd "$${APP_ROOT}"
+pm2 start dist/index.js --name "$${APPLICATION_NAME}" --node-args="--require @opentelemetry/auto-instrumentations-node/register"
 pm2 save
+INNERSCRIPT
+chmod 755 "$PM2_START_SCRIPT"
+sudo -u admin bash "$PM2_START_SCRIPT"
+rm -f "$PM2_START_SCRIPT"
 
-STARTUP_OUTPUT="$(pm2 startup systemd -u root --hp /root 2>&1)" || true
+# Enable pm2 auto-restart on reboot for admin user
+PM2_STARTUP_SCRIPT=$(mktemp)
+cat > "$PM2_STARTUP_SCRIPT" << INNERSCRIPT
+#!/bin/bash
+export NVM_DIR="/home/admin/.nvm"
+[ -s "\$NVM_DIR/nvm.sh" ] && . "\$NVM_DIR/nvm.sh"
+nvm use 20
+pm2 startup systemd -u admin --hp /home/admin 2>&1
+INNERSCRIPT
+chmod 755 "$PM2_STARTUP_SCRIPT"
+STARTUP_OUTPUT="$(sudo -u admin bash "$PM2_STARTUP_SCRIPT")" || true
+rm -f "$PM2_STARTUP_SCRIPT"
 echo "$STARTUP_OUTPUT"
 START_CMD="$(echo "$STARTUP_OUTPUT" | grep -E '^sudo ' | tail -n1 || true)"
 if [ -n "$START_CMD" ]; then
@@ -112,11 +129,11 @@ fi
 
 sleep 5
 
-if pm2 list | grep -q "$APPLICATION_NAME"; then
+if sudo -u admin bash -c "export NVM_DIR=/home/admin/.nvm; . \$NVM_DIR/nvm.sh; nvm use 20 >/dev/null; pm2 list" | grep -q "$APPLICATION_NAME"; then
   echo "Service started successfully via pm2"
 else
   echo "WARNING: pm2 process may not have started. Checking logs:"
-  pm2 logs "$APPLICATION_NAME" --lines 30 --nostream || true
+  sudo -u admin bash -c "export NVM_DIR=/home/admin/.nvm; . \$NVM_DIR/nvm.sh; nvm use 20 >/dev/null; pm2 logs $APPLICATION_NAME --lines 30 --nostream" || true
 fi
 
 echo "User-data complete at $(date)"

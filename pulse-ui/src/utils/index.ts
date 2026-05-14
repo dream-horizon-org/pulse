@@ -7,3 +7,4 @@ export {
   formatDurationFromNanoseconds,
   formatDurationFromMilliseconds,
 } from "./DurationUtil";
+export { formatPercent } from "./formatPercent";

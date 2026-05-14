@@ -14,11 +14,11 @@ alwaysApply: false
 | openfga-migrate | alpine:3.19 | — | mysql |
 | openfga | openfga/openfga:v1.5.3 | 8180, 8181, 3001 | mysql, openfga-migrate |
 | openfga-init | alpine:3.19 | — | openfga |
-| clickhouse | clickhouse/clickhouse-server:24.8 | 8123, 9000 | — |
+| clickhouse | clickhouse/clickhouse-server:25.4 | 8123, 9000 | — |
 | kafka | confluentinc/cp-kafka:7.6.0 | 9092 | — |
 | minio | minio/minio:latest | 9100→9000, 9101→9001 (console) | — |
 | minio-init | minio/mc:latest | — | minio |
-| clickhouse-init | clickhouse/clickhouse-server:24.8 | — | clickhouse **and** kafka (healthy) |
+| clickhouse-init | clickhouse/clickhouse-server:25.4 | — | clickhouse **and** kafka (healthy) |
 | pulse-session-capture | `backend/session-capture-service` | 3400 | kafka |
 | pulse-session-replay-ingestion | `backend/session-replay-ingestion` | — | kafka, minio-init |
 | pulse-heatmap-screenshot-ingestion | `backend/heatmap-screenshot-ingestion` | — | kafka, minio-init |
@@ -60,6 +60,7 @@ All services on `pulse-network` (bridge). Internal references use container name
 
 - `APP_ENVIRONMENT` — **Required.** Application environment (`dev`, `stag`, `uat`, `prod`). Validated at startup. Passed to pulse-server in docker-compose (default: `dev`).
 - `CONFIG_SERVICE_APPLICATION_*` — backend app config
+- `CONFIG_SERVICE_APPLICATION_DASHBOARDBASEURL` — Public Pulse UI origin for usage-limit email links (`pulse-server` HOCON `app.dashboardBaseUrl`; compose default `http://localhost:3000` on `pulse-server` in `deploy/docker-compose.yml`).
 - `CONFIG_REPLAY_API_BASE_URL` — session replay API base URL (e.g. `http://localhost:3400`); used in default SDK config
 - `VAULT_SERVICE_*` — secrets (Slack, Grafana, etc.)
 - `OTEL_CLICKHOUSE_*` — OTEL collector ClickHouse connection

@@ -5,12 +5,17 @@
 
 package io.opentelemetry.android
 
+import android.app.ActivityManager
 import android.app.Application
+import android.content.Context
 import android.content.pm.PackageInfo
 import android.os.Build
 import androidx.annotation.RequiresApi
+import com.pulse.semconv.PulseDeviceAttributes
+import com.pulse.utils.PulseOtelUtils
 import io.opentelemetry.android.common.RumConstants
 import io.opentelemetry.android.common.RumConstants.RUM_SDK_VERSION
+import io.opentelemetry.android.internal.features.readBatteryFullCapacityMicroAh
 import io.opentelemetry.sdk.resources.Resource
 import io.opentelemetry.semconv.ServiceAttributes.SERVICE_NAME
 import io.opentelemetry.semconv.ServiceAttributes.SERVICE_VERSION
@@ -40,6 +45,17 @@ object AndroidResource {
             appVersionCode?.toString().orEmpty(),
         )
 
+        readSystemTotalMemoryBytes(application)?.let { totalBytes ->
+            resourceBuilder.put(PulseDeviceAttributes.PULSE_SYSTEM_MEMORY_SIZE, totalBytes)
+        }
+
+        readBatteryFullCapacityMicroAh(application)?.let { capacityUah ->
+            resourceBuilder.put(
+                PulseDeviceAttributes.PULSE_SYSTEM_BATTERY_CAPACITY_UAH,
+                capacityUah,
+            )
+        }
+
         return resourceBuilder
             .put(RUM_SDK_VERSION, BuildConfig.OTEL_ANDROID_VERSION)
             .put(DEVICE_MODEL_NAME, getDeviceModel())
@@ -51,6 +67,17 @@ object AndroidResource {
             .put(OS_DESCRIPTION, Build.DISPLAY)
             .put(RumConstants.Android.OS_API_LEVEL, Build.VERSION.SDK_INT.toString())
             .build()
+    }
+
+    private fun readSystemTotalMemoryBytes(application: Application): Long? {
+        return PulseOtelUtils.runPulseCatching("readSystemTotalMemoryBytes") {
+            val activityManager =
+                application.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager
+                    ?: return null
+            val memInfo = ActivityManager.MemoryInfo()
+            activityManager.getMemoryInfo(memInfo)
+            memInfo.totalMem
+        }
     }
 
     private fun readAppName(application: Application): String =

@@ -1,6 +1,6 @@
 /**
  * Helpers for E2E that need a specific merged {@link PulseSdkConfig} **before**
- * {@code PulseWeb.start()} runs. The SDK reads {@code localStorage.pulse_sdk_config}
+ * {@code Pulse.init()} runs. The SDK reads {@code localStorage.pulse_sdk_config}
  * synchronously in {@code SdkConfigFetcher.loadCached()}; background fetch does not
  * rebuild {@code ExportSamplingGate} / {@code FeatureGate}, so seeding storage is the
  * reliable way to drive export-time sampling and {@code signals.*} in Playwright.

@@ -29,7 +29,14 @@ public final class FramesParser {
 
   // ---------- Config ----------
 
-  public static final int TOP_N_FRAMES = 10;
+  // Number of top stack frames hashed into the GroupId signature.
+  // Kept small intentionally: deeper frames are dominated by OS / dispatcher /
+  // framework noise that varies across devices and OS versions, which
+  // over-fragments the same root bug into many GroupIds.
+  // Industry baselines (Crashlytics / Sentry / Bugsnag / Datadog) effectively
+  // hash 1-3 in-app frames; without an in-app classifier here yet, 3 raw
+  // frames is the equivalent sweet spot.
+  public static final int TOP_N_FRAMES = 3;
 
   public static final Set<String> NDK_INAPP_LIBS = Set.of(); // e.g., "libdream11.so"
 
