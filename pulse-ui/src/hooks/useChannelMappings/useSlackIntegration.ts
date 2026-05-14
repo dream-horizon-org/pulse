@@ -26,9 +26,16 @@ export const useGetSlackInstallUrl = () => {
   });
 };
 
-export const useGetSlackChannels = () => {
+type UseGetSlackChannelsOptions = {
+  /** When false, the workspace list is not fetched (backend returns 404 without an active Slack Connect channel). */
+  slackConnected?: boolean;
+};
+
+export const useGetSlackChannels = (options?: UseGetSlackChannelsOptions) => {
   const apiRoute = API_ROUTES.SLACK_CHANNELS;
-  const enabled = useProjectQueryEnabled();
+  const projectEnabled = useProjectQueryEnabled();
+  const slackConnected = options?.slackConnected ?? false;
+  const enabled = projectEnabled && slackConnected;
 
   return useQuery({
     queryKey: [apiRoute.key],

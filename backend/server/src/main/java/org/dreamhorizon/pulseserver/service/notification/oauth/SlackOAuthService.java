@@ -87,7 +87,6 @@ public class SlackOAuthService {
 
     return webClient
         .postAbs(Slack.OAUTH_ACCESS_URL)
-        .timeout(1000_000L)
         .putHeader("Content-Type", "application/x-www-form-urlencoded")
         .rxSendBuffer(io.vertx.rxjava3.core.buffer.Buffer.buffer(formBody))
         .flatMap(response -> {
@@ -191,7 +190,6 @@ public class SlackOAuthService {
 
               return webClient
                   .getAbs("https://slack.com/api/conversations.list")
-                  .timeout(100_000L)
                   .putHeader(
                       "Authorization", "Bearer " + slackConfig.getAccessToken())
                   .addQueryParam("types", "public_channel")

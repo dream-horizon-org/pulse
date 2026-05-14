@@ -114,6 +114,17 @@ export function NotificationChannels() {
     isLoading: isChannelsLoading,
     refetch: refetchChannels,
   } = useGetNotificationChannels();
+  const channels = useMemo(
+    () => channelsResponse?.data ?? [],
+    [channelsResponse?.data],
+  );
+  const slackConnectedChannel = useMemo(
+    () =>
+      channels.find(
+        (channel) => channel.channelType === "SLACK" && channel.isActive,
+      ) || null,
+    [channels],
+  );
   const {
     data: mappingsResponse,
     isLoading: isMappingsLoading,
@@ -122,7 +133,9 @@ export function NotificationChannels() {
     eventName: NOTIFICATION_EVENT_NAMES.PULSE_ALERT_FIRING,
   });
   const { data: slackChannelsResponse, refetch: refetchSlackChannels } =
-    useGetSlackChannels();
+    useGetSlackChannels({
+      slackConnected: Boolean(slackConnectedChannel),
+    });
   const slackInstallMutation = useGetSlackInstallUrl();
 
   const updateChannelMutation = useUpdateNotificationChannel();
@@ -131,10 +144,6 @@ export function NotificationChannels() {
   const deleteMappingMutation = useDeleteChannelMapping();
   const updateMappingMutation = useUpdateChannelMapping();
 
-  const channels = useMemo(
-    () => channelsResponse?.data ?? [],
-    [channelsResponse?.data],
-  );
   const mappings = useMemo(
     () => mappingsResponse?.data ?? [],
     [mappingsResponse?.data],
@@ -156,11 +165,6 @@ export function NotificationChannels() {
       {},
     );
   }, [mappings]);
-
-  const slackConnectedChannel = useMemo(
-    () => channels.find((channel) => channel.channelType === "SLACK") || null,
-    [channels],
-  );
 
   const mappedSlackChannelIds = useMemo(() => {
     if (!slackConnectedChannel) {

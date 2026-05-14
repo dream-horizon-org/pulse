@@ -530,93 +530,9 @@ CREATE TABLE notification_channels_old
     INDEX idx_notification_channels_project (project_id),
     CONSTRAINT fk_notification_channels_project FOREIGN KEY (project_id) REFERENCES projects(project_id) ON DELETE CASCADE
 );
-CREATE TABLE IF NOT EXISTS notification_channels (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    project_id VARCHAR(64) NULL,
-    channel_type ENUM('SLACK', 'SLACK_WEBHOOK', 'EMAIL', 'TEAMS') NOT NULL,
-    name VARCHAR(255) NOT NULL,
-    config JSON NOT NULL,
-    is_active BOOLEAN DEFAULT TRUE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    CONSTRAINT fk_notification_channel_project FOREIGN KEY (project_id) REFERENCES projects(project_id) ON DELETE CASCADE,
-    UNIQUE KEY unique_project_channel_type (project_id, channel_type),
-    INDEX idx_channel_project_type_active (project_id, channel_type, is_active)
-);
 
-INSERT INTO notification_channels (project_id, channel_type, name, config) VALUES
-('default-project', 'EMAIL', 'Platform Email Channel', JSON_OBJECT(
-    'type', 'EMAIL',
-    'fromAddress', 'noreply@pulse-ux.com',
-    'fromName', 'Pulse Platform'
-))
-ON DUPLICATE KEY UPDATE config = config;
-
-CREATE TABLE IF NOT EXISTS channel_event_mapping (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    project_id VARCHAR(64) NOT NULL,
-    channel_id BIGINT NOT NULL,
-    event_name VARCHAR(255) NOT NULL,
-    recipient VARCHAR(512) NULL,
-    recipient_name VARCHAR(255) NULL,
-    is_active BOOLEAN DEFAULT TRUE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    CONSTRAINT fk_mapping_project FOREIGN KEY (project_id) REFERENCES projects(project_id) ON DELETE CASCADE,
-    CONSTRAINT fk_mapping_channel FOREIGN KEY (channel_id) REFERENCES notification_channels(id) ON DELETE CASCADE,
-    UNIQUE KEY unique_mapping (channel_id, event_name, recipient_name),
-    INDEX idx_mapping_project_event (project_id, event_name, is_active)
-);
-
-CREATE TABLE alerts (
-    id INT PRIMARY KEY AUTO_INCREMENT,
-    project_id VARCHAR(64) NOT NULL,
-    name TEXT NOT NULL,
-    description TEXT NOT NULL,
-    scope VARCHAR(100) NOT NULL,
-    dimension_filter TEXT,
-    condition_expression VARCHAR(255) NOT NULL,
-    severity_id INT NOT NULL,
-    channel_event_mapping_id BIGINT NOT NULL,
-    evaluation_period INT NOT NULL,
-    evaluation_interval INT NOT NULL,
-    last_snoozed_at TIMESTAMP NULL DEFAULT NULL,
-    snoozed_from TIMESTAMP NULL DEFAULT NULL,
-    snoozed_until TIMESTAMP NULL DEFAULT NULL,
-    created_by VARCHAR(255) NOT NULL,
-    updated_by VARCHAR(255),
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    is_active BOOLEAN NOT NULL DEFAULT TRUE,
-
-    INDEX idx_alerts_project (project_id),
-    INDEX idx_alerts_project_active (project_id, is_active),
-
-    CONSTRAINT fk_alerts_project FOREIGN KEY (project_id) REFERENCES projects(project_id) ON DELETE CASCADE,
-    CONSTRAINT fk_alert_severity FOREIGN KEY (severity_id) REFERENCES severity(severity_id),
-    CONSTRAINT fk_alert_channel_event_mapping FOREIGN KEY (channel_event_mapping_id) REFERENCES channel_event_mapping(id)
-);
-
-CREATE TABLE alert_scope (
-    id INT PRIMARY KEY AUTO_INCREMENT,
-    alert_id INT NOT NULL,
-    name VARCHAR(255) NOT NULL,
-    conditions JSON NULL,
-    state VARCHAR(50) NOT NULL DEFAULT 'NORMAL',
-    is_active BOOLEAN NOT NULL DEFAULT TRUE,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    CONSTRAINT fk_subject_alert FOREIGN KEY (alert_id) REFERENCES alerts (id)
-);
-
-CREATE TABLE alert_evaluation_history (
-    evaluation_id INT PRIMARY KEY AUTO_INCREMENT,
-    scope_id INT NOT NULL,
-    evaluation_result JSON NOT NULL,
-    state VARCHAR(50) NOT NULL DEFAULT 'NORMAL',
-    evaluated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT fk_eval_subject FOREIGN KEY (scope_id) REFERENCES alert_scope (id)
-);
+-- alerts / alert_scope / alert_evaluation_history are created after channel_event_mapping
+-- (see below) because alerts.channel_event_mapping_id FK references channel_event_mapping(id).
 
 CREATE TABLE scope_types (
     id INT PRIMARY KEY AUTO_INCREMENT,
@@ -913,14 +829,26 @@ CREATE TABLE IF NOT EXISTS notification_channels (
     INDEX idx_channel_project_type_active (project_id, channel_type, is_active)
 );
 
--- Insert default platform email channel for system notifications (onboarding, etc.)
-INSERT INTO notification_channels (project_id, channel_type, name, config) VALUES
-('default-project', 'EMAIL', 'Platform Email Channel', JSON_OBJECT(
+-- Seed default platform notification channels.
+-- id=1: platform email notifications (onboarding, collaborator, usage-limit, etc.)
+-- id=2: alert email notifications (pulse_alert_firing)
+-- id=3: alert slack-webhook notifications (pulse_alert_firing)
+-- Channel id values are referenced by NotificationConstants.Platform.
+INSERT INTO notification_channels (id, project_id, channel_type, name, config) VALUES
+(1, 'default-project', 'EMAIL', 'Platform Email Channel', JSON_OBJECT(
     'type', 'EMAIL',
     'fromAddress', 'noreply@pulse-ux.com',
     'fromName', 'Pulse Platform'
+)),
+(2, NULL, 'EMAIL', 'Alert Email Channel', JSON_OBJECT(
+    'type', 'EMAIL',
+    'fromAddress', 'alerts@pulse-ux.com',
+    'fromName', 'Pulse Alerts'
+)),
+(3, NULL, 'SLACK_WEBHOOK', 'Alert Slack Webhook Channel', JSON_OBJECT(
+    'type', 'SLACK_WEBHOOK'
 ))
-ON DUPLICATE KEY UPDATE config = config;
+ON DUPLICATE KEY UPDATE config = VALUES(config);
 
 
 CREATE TABLE IF NOT EXISTS notification_templates (
@@ -1050,6 +978,57 @@ INSERT INTO channel_event_mapping (project_id, channel_id, event_name, recipient
 ('default-project', 1, 'contact_us', 'contact@pulse-ux.com', TRUE),
 ('default-project', 1, 'contact_support', 'support@pulse-ux.com', TRUE)
 ON DUPLICATE KEY UPDATE is_active = is_active;
+
+-- Alerts (depends on severity, projects, channel_event_mapping)
+CREATE TABLE alerts (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    project_id VARCHAR(64) NOT NULL,
+    name TEXT NOT NULL,
+    description TEXT NOT NULL,
+    scope VARCHAR(100) NOT NULL,
+    dimension_filter TEXT,
+    condition_expression VARCHAR(255) NOT NULL,
+    severity_id INT NOT NULL,
+    channel_event_mapping_id BIGINT NOT NULL,
+    evaluation_period INT NOT NULL,
+    evaluation_interval INT NOT NULL,
+    last_snoozed_at TIMESTAMP NULL DEFAULT NULL,
+    snoozed_from TIMESTAMP NULL DEFAULT NULL,
+    snoozed_until TIMESTAMP NULL DEFAULT NULL,
+    created_by VARCHAR(255) NOT NULL,
+    updated_by VARCHAR(255),
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+
+    INDEX idx_alerts_project (project_id),
+    INDEX idx_alerts_project_active (project_id, is_active),
+
+    CONSTRAINT fk_alerts_project FOREIGN KEY (project_id) REFERENCES projects(project_id) ON DELETE CASCADE,
+    CONSTRAINT fk_alert_severity FOREIGN KEY (severity_id) REFERENCES severity(severity_id),
+    CONSTRAINT fk_alert_channel_event_mapping FOREIGN KEY (channel_event_mapping_id) REFERENCES channel_event_mapping(id)
+);
+
+CREATE TABLE alert_scope (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    alert_id INT NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    conditions JSON NULL,
+    state VARCHAR(50) NOT NULL DEFAULT 'NORMAL',
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_subject_alert FOREIGN KEY (alert_id) REFERENCES alerts (id)
+);
+
+CREATE TABLE alert_evaluation_history (
+    evaluation_id INT PRIMARY KEY AUTO_INCREMENT,
+    scope_id INT NOT NULL,
+    evaluation_result JSON NOT NULL,
+    state VARCHAR(50) NOT NULL DEFAULT 'NORMAL',
+    evaluated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_eval_subject FOREIGN KEY (scope_id) REFERENCES alert_scope (id)
+);
 
 CREATE TABLE IF NOT EXISTS notification_logs (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
