@@ -362,3 +362,101 @@ test.describe("error signal contract", () => {
     expect(stack.includes("\n")).toBe(true);
   });
 });
+
+// ─── Error gating & rejection dedupe ─────────────────────────────────────────
+
+test.describe("error gating & rejection dedupe", () => {
+  test("E-N3 — errors.enabled: false suppresses automatic window error capture", async ({
+    page,
+    otlp,
+  }) => {
+    // Set flag before page load so PulseProvider reads it at init time.
+    await page.addInitScript(() => {
+      (window as Window & { __TEST_PULSE_ERRORS_DISABLED?: boolean }).__TEST_PULSE_ERRORS_DISABLED =
+        true;
+    });
+    await page.goto("/error-demo");
+    await otlp.waitForLog("session.start"); // SDK initialised; errors kill-switch active
+    otlp.reset();
+
+    await page.evaluate(() => {
+      window.dispatchEvent(
+        new ErrorEvent("error", {
+          message: "should-be-suppressed",
+          error: new Error("should-be-suppressed"),
+          filename: "test.js",
+          lineno: 1,
+          colno: 1,
+        }),
+      );
+    });
+
+    await page.waitForTimeout(700);
+    expect(findAllLogs(otlp.captured, "device.crash")).toHaveLength(0);
+  });
+
+  test("ERR-03 (rejection) — same rejection burst within 5s emits only once", async ({
+    page,
+    otlp,
+  }) => {
+    await page.goto("/error-demo");
+    await otlp.waitForLog("session.start");
+    otlp.reset();
+
+    await page.evaluate(() => {
+      const err = new Error("rejection-dedupe-burst");
+      for (let i = 0; i < 3; i++) {
+        const p = Promise.reject(err);
+        p.catch(() => undefined);
+        window.dispatchEvent(
+          new PromiseRejectionEvent("unhandledrejection", { promise: p, reason: err }),
+        );
+      }
+    });
+
+    await page.waitForTimeout(700);
+    const logs = findAllLogs(otlp.captured, "non_fatal").filter(
+      (l) => getAttr(l.attributes, "exception.message") === "rejection-dedupe-burst",
+    );
+    expect(logs).toHaveLength(1);
+  });
+
+  test("ERR-03 (rejection) — same rejection after 5s window emits again", async ({
+    page,
+    otlp,
+  }) => {
+    await page.goto("/error-demo");
+    await otlp.waitForLog("session.start");
+    otlp.reset();
+
+    // First dispatch — store err on window so same stack is reused in second dispatch.
+    await page.evaluate(() => {
+      const err = new Error("rejection-dedupe-window");
+      (window as Window & { __testRejErr?: Error }).__testRejErr = err;
+      const p = Promise.reject(err);
+      p.catch(() => undefined);
+      window.dispatchEvent(
+        new PromiseRejectionEvent("unhandledrejection", { promise: p, reason: err }),
+      );
+    });
+
+    // Wait for dedupe window (5 s) to expire.
+    await page.waitForTimeout(5_300);
+
+    // Second dispatch using same Error object → same fingerprint → should emit again.
+    await page.evaluate(() => {
+      const err = (window as Window & { __testRejErr?: Error }).__testRejErr!;
+      const p = Promise.reject(err);
+      p.catch(() => undefined);
+      window.dispatchEvent(
+        new PromiseRejectionEvent("unhandledrejection", { promise: p, reason: err }),
+      );
+    });
+
+    await page.waitForTimeout(700);
+    const logs = findAllLogs(otlp.captured, "non_fatal").filter(
+      (l) => getAttr(l.attributes, "exception.message") === "rejection-dedupe-window",
+    );
+    expect(logs).toHaveLength(2);
+  });
+});
