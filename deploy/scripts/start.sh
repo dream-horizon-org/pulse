@@ -106,7 +106,6 @@ if has_compose; then
         run_compose ps
         echo ""
         echo -e "${CYAN}Access points:${NC}"
-        echo -e "  UI:  ${GREEN}http://localhost:3000${NC}"
         echo -e "  API: ${GREEN}http://localhost:8080${NC}"
         echo -e "  Pulse AI: ${GREEN}http://localhost:8000${NC} (health: ${GREEN}http://localhost:8000/health${NC})"
         echo ""
@@ -478,26 +477,8 @@ print_success "$CONTAINER_SERVER container started"
 print_info "Waiting for $CONTAINER_SERVER to become healthy..."
 wait_for_healthy "$CONTAINER_SERVER" 180
 
-# ── Phase 6: Pulse UI & Alerts Cron ──────────────────────────────────────
-print_section "Phase 6: Starting Pulse UI & Alerts Cron"
-
-remove_container "$CONTAINER_UI"
-print_info "Starting $CONTAINER_UI ..."
-
-docker run -d \
-    --name "$CONTAINER_UI" \
-    --network "$NETWORK_NAME" \
-    --restart unless-stopped \
-    -p 3000:8080 \
-    -e NODE_ENV=production \
-    --health-cmd 'wget --spider -q http://127.0.0.1:8080/healthcheck.txt' \
-    --health-interval 30s \
-    --health-timeout 10s \
-    --health-retries 3 \
-    --health-start-period 10s \
-    "$IMAGE_UI" > /dev/null
-
-print_success "$CONTAINER_UI container started"
+# ── Phase 6: Alerts Cron ───────────────────────────────────────────────────
+print_section "Phase 6: Starting Alerts Cron"
 
 remove_container "$CONTAINER_ALERTS_CRON"
 print_info "Starting $CONTAINER_ALERTS_CRON ..."
@@ -536,7 +517,6 @@ if [ "$DETACHED" = "true" ]; then
     docker ps --filter "network=$NETWORK_NAME" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
     echo ""
     echo -e "${CYAN}Access points:${NC}"
-    echo -e "  Frontend (UI):      ${GREEN}http://localhost:3000${NC}"
     echo -e "  Backend API:        ${GREEN}http://localhost:8080${NC}"
     echo -e "  Session Capture:    ${GREEN}http://localhost:3400/s/${NC}"    
     echo -e "  MySQL:              ${GREEN}localhost:3307${NC}"
@@ -550,7 +530,6 @@ else
     print_info "All containers are running. Attaching to logs (Ctrl+C to detach)..."
     echo ""
     docker logs -f "$CONTAINER_SERVER" &
-    docker logs -f "$CONTAINER_UI" &
     docker logs -f "$CONTAINER_ALERTS_CRON" &
     wait
 fi

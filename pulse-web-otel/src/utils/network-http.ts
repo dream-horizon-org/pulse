@@ -275,6 +275,7 @@ export function extractGraphQlMeta(body: string): {
   operationName?: string;
   operationType?: string;
 } {
+  if (body.length > 262_144) return {};
   let parsed: { query?: string; operationName?: string };
   try {
     parsed = JSON.parse(body) as { query?: string; operationName?: string };

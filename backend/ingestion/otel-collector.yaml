@@ -3,6 +3,17 @@ receivers:
     protocols:
       http:
         endpoint: 0.0.0.0:4318
+        cors:
+          allowed_origins:
+            - "http://localhost:3001"
+            - "http://127.0.0.1:3001"
+            - "http://localhost:3002"
+            - "http://localhost:3003"
+          allowed_headers:
+            - "Content-Type"
+            - "Content-Encoding"
+            - "X-API-KEY"
+            - "X-Pulse-Metering-Session-ID"
 
 extensions:
   health_check:

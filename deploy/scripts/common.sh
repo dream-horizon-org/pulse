@@ -23,7 +23,6 @@ CONTAINER_MYSQL="pulse-mysql"
 CONTAINER_CLICKHOUSE="pulse-clickhouse"
 CONTAINER_CLICKHOUSE_INIT="pulse-clickhouse-init"
 CONTAINER_OTEL_COLLECTOR="pulse-otel-collector"
-CONTAINER_UI="pulse-ui"
 CONTAINER_SERVER="pulse-server"
 CONTAINER_AI="pulse-ai-agent"
 CONTAINER_ALERTS_CRON="pulse-alerts-cron"
@@ -48,7 +47,6 @@ ALL_CONTAINERS=(
     "$CONTAINER_HEATMAP_INGESTION"
     "$CONTAINER_SERVER"
     "$CONTAINER_AI"
-    "$CONTAINER_UI"
     "$CONTAINER_ALERTS_CRON"
 )
 
@@ -63,7 +61,6 @@ IMAGE_MINIO="minio/minio:latest"
 IMAGE_MINIO_MC="minio/mc:latest"
 
 # Custom-built images (tagged :local to avoid confusion with registry)
-IMAGE_UI="pulse-ui:local"
 IMAGE_SERVER="pulse-server:local"
 IMAGE_AI="pulse-ai-agent:local"
 IMAGE_ALERTS_CRON="pulse-alerts-cron:local"

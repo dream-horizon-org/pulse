@@ -2,18 +2,17 @@
 
 # ============================================================================
 # Pulse Observability - Build Script
-# Builds Docker images for pulse-ui, pulse-server, pulse-alerts-cron,
+# Builds Docker images for pulse-server, pulse-alerts-cron,
 # pulse-session-capture, pulse-session-replay-ingestion,
 # pulse-heatmap-screenshot-ingestion, and pulse-ai-agent (included in default / "all" build).
 # Uses Docker Compose if available, otherwise falls back to Docker CLI.
 #
 # Usage:
-#   ./build.sh [--no-cache] [ui|server|cron|capture|ingestion|heatmap-ingestion|ai|all]
+#   ./build.sh [--no-cache] [server|cron|capture|ingestion|heatmap-ingestion|ai|all]
 #
 # Examples:
-#   ./build.sh              # ui + server + cron + capture + ingestion + heatmap-ingestion + ai
+#   ./build.sh              # server + cron + capture + ingestion + heatmap-ingestion + ai
 #   ./build.sh ai           # pulse-ai-agent only
-#   ./build.sh ui           # pulse-ui only
 #   ./build.sh --no-cache   # Build all without cache
 # ============================================================================
 
@@ -83,10 +82,6 @@ while [[ $# -gt 0 ]]; do
             NO_CACHE="--no-cache"
             shift
             ;;
-        ui|pulse-ui)
-            SERVICES+=("ui")
-            shift
-            ;;
         server|pulse-server)
             SERVICES+=("server")
             shift
@@ -116,12 +111,12 @@ while [[ $# -gt 0 ]]; do
             shift
             ;;
         -h|--help)
-            echo "Usage: $0 [--no-cache] [ui|server|cron|capture|ingestion|heatmap-ingestion|ai|all]"
+            echo "Usage: $0 [--no-cache] [server|cron|capture|ingestion|heatmap-ingestion|ai|all]"
             exit 0
             ;;
         *)
             print_error "Unknown option: $1"
-            echo "Usage: $0 [--no-cache] [ui|server|cron|capture|ingestion|heatmap-ingestion|ai|all]"
+            echo "Usage: $0 [--no-cache] [server|cron|capture|ingestion|heatmap-ingestion|ai|all]"
             exit 1
             ;;
     esac
@@ -129,7 +124,7 @@ done
 
 # Default: full application stack including pulse-ai-agent
 if [ ${#SERVICES[@]} -eq 0 ]; then
-    SERVICES=("ui" "server" "cron" "capture" "ingestion" "heatmap-ingestion" "ai")
+    SERVICES=("server" "cron" "capture" "ingestion" "heatmap-ingestion" "ai")
 fi
 
 # Validate encryption key when building server or cron (required at runtime)
@@ -150,7 +145,6 @@ if has_compose; then
     COMPOSE_SERVICES=""
     for svc in "${SERVICES[@]}"; do
         case $svc in
-            ui)     COMPOSE_SERVICES="$COMPOSE_SERVICES pulse-ui" ;;
             server) COMPOSE_SERVICES="$COMPOSE_SERVICES pulse-server" ;;
             cron)   COMPOSE_SERVICES="$COMPOSE_SERVICES pulse-alerts-cron" ;;
             ai)     COMPOSE_SERVICES="$COMPOSE_SERVICES pulse-ai-agent" ;;
@@ -181,20 +175,6 @@ fi
 
 # ── Docker CLI path (no compose) ──────────────────────────────────────────
 print_info "Building via Docker CLI..."
-
-build_ui() {
-    print_info "Building pulse-ui image..."
-    docker build \
-        $NO_CACHE \
-        -t "$IMAGE_UI" \
-        --build-arg "REACT_APP_GOOGLE_CLIENT_ID=${REACT_APP_GOOGLE_CLIENT_ID}" \
-        --build-arg "REACT_APP_PULSE_SERVER_URL=${REACT_APP_PULSE_SERVER_URL}" \
-        --build-arg "REACT_APP_GOOGLE_OAUTH_ENABLED=${REACT_APP_GOOGLE_OAUTH_ENABLED}" \
-        --build-arg "REACT_APP_ROOT_CAUSE_ENABLED=${REACT_APP_ROOT_CAUSE_ENABLED:-false}" \
-        -f "$ROOT_DIR/pulse-ui/Dockerfile" \
-        "$ROOT_DIR/pulse-ui"
-    print_success "pulse-ui image built -> $IMAGE_UI"
-}
 
 build_server() {
     print_info "Building pulse-server image..."
@@ -265,7 +245,6 @@ for svc in "${SERVICES[@]}"; do
     if [ ${#SERVICES[@]} -gt 1 ]; then
         local_log="${BUILD_LOG_DIR}/${svc}.log"
         case $svc in
-            ui)     build_ui     > "$local_log" 2>&1 & PIDS+=($!); NAMES+=("ui")     ;;
             server) build_server > "$local_log" 2>&1 & PIDS+=($!); NAMES+=("server") ;;
             cron)   build_cron   > "$local_log" 2>&1 & PIDS+=($!); NAMES+=("cron")   ;;
             ai)     build_ai     > "$local_log" 2>&1 & PIDS+=($!); NAMES+=("ai")     ;;
@@ -275,7 +254,6 @@ for svc in "${SERVICES[@]}"; do
         esac
     else
         case $svc in
-            ui)     build_ui     || FAILED=1 ;;
             server) build_server || FAILED=1 ;;
             cron)   build_cron   || FAILED=1 ;;
             ai)     build_ai     || FAILED=1 ;;

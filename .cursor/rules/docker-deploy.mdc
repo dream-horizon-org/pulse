@@ -26,7 +26,6 @@ alwaysApply: false
 | vector | `650012445044.../pulse-vector:latest` | 8686, 14317, 14318 | — | *(profile `vector`; `VECTOR_ENABLED=true`)* |
 | pulse-ai-agent | `pulse_ai/` | 8000 | — |
 | pulse-server | `backend/server/` | 8080 | mysql, clickhouse, openfga-init, pulse-ai-agent |
-| pulse-ui | `pulse-ui/` | 3000 | pulse-server |
 | pulse-alerts-cron | `backend/pulse-alerts-cron/` | 4000 | mysql, pulse-server, minio-init |
 
 **otel-collector:** healthcheck is disabled in compose (scratch image); use `:13133` from the host for health.
@@ -60,11 +59,11 @@ All services on `pulse-network` (bridge). Internal references use container name
 
 - `APP_ENVIRONMENT` — **Required.** Application environment (`dev`, `stag`, `uat`, `prod`). Validated at startup. Passed to pulse-server in docker-compose (default: `dev`).
 - `CONFIG_SERVICE_APPLICATION_*` — backend app config
-- `CONFIG_SERVICE_APPLICATION_DASHBOARDBASEURL` — Public Pulse UI origin for usage-limit email links (`pulse-server` HOCON `app.dashboardBaseUrl`; compose default `http://localhost:3000` on `pulse-server` in `deploy/docker-compose.yml`).
+- `CONFIG_SERVICE_APPLICATION_DASHBOARDBASEURL` — Public Pulse UI origin for usage-limit email links (`pulse-server` HOCON `app.dashboardBaseUrl`; compose default `https://app.pulse-ux.com`, override e.g. `http://localhost:3000` when running the dashboard locally).
 - `CONFIG_REPLAY_API_BASE_URL` — session replay API base URL (e.g. `http://localhost:3400`); used in default SDK config
 - `VAULT_SERVICE_*` — secrets (Slack, Grafana, etc.)
 - `OTEL_CLICKHOUSE_*` — OTEL collector ClickHouse connection
-- `REACT_APP_*` — frontend build-time config
+- `REACT_APP_*` — `pulse-ui` build-time config when running the dashboard via `yarn start` / production build (not referenced by `deploy/docker-compose.yml`).
 - `NOTIFICATION_*` — notification service (SQS queue URLs, retry, worker tuning)
 - `SES_*` — Amazon SES email config
 - `SLACK_*` — Slack OAuth integration (client ID, secret, scopes, redirect URI, UI redirect URL)
@@ -109,7 +108,7 @@ Credentials (defined in docker-compose, overridable via `.env`):
 
 | Script | Options |
 |--------|---------|
-| `build.sh` | `[--no-cache]` and targets `ui`, `server`, `cron`, `capture`, `ingestion`, `heatmap` \| `heatmap-ingestion`, `ai`, `all` — default (no args) or `all` builds UI, server, cron, capture, session replay ingestion, **heatmap screenshot ingestion**, and AI (`capture` = pulse-session-capture; `ingestion` = pulse-session-replay-ingestion; `heatmap-ingestion` = pulse-heatmap-screenshot-ingestion) |
+| `build.sh` | `[--no-cache]` and targets `server`, `cron`, `capture`, `ingestion`, `heatmap` \| `heatmap-ingestion`, `ai`, `all` — default (no args) or `all` builds server, cron, capture, session replay ingestion, **heatmap screenshot ingestion**, and AI (`capture` = pulse-session-capture; `ingestion` = pulse-session-replay-ingestion; `heatmap-ingestion` = pulse-heatmap-screenshot-ingestion) |
 | `start.sh` | `[-d` or `--detach] [--build] [--no-cache] [--skip-env-check]` |
 | `stop.sh` | `-v` to remove volumes; service aliases include `ai`, `pulse-ai-agent` |
 | `logs.sh` | service name (e.g., `server`, `ai`, `otel-collector`) |
@@ -119,7 +118,7 @@ Credentials (defined in docker-compose, overridable via `.env`):
 
 **Env validation:** `quickstart.sh` and `start.sh` validate `.env` against `docker-compose.yml`: **required** = variables in compose with no default (`${VAR}`); missing in `.env` → error. **Optional** = variables with a default in compose (`${VAR:-...}`); missing in `.env` → warning (compose uses default). No auto-copy from `.env.example`; only required keys must be set. Collector/config URL vars must be valid `http://` or `https://` URLs. Use `--skip-env-check` to skip. The parser in `deploy/scripts/common.sh` retains the last line even when `.env` has no trailing newline (e.g. pasted tokens).
 
-**Required (no default in compose):** `VAULT_ENCRYPTION_MASTER_KEY`, `REACT_APP_GOOGLE_CLIENT_ID`, `REACT_APP_FIREBASE_*`, `CONFIG_SERVICE_APPLICATION_GOOGLEOAUTHCLIENTID`, `CONFIG_SERVICE_APPLICATION_GCP_PROJECT_ID`, `CONFIG_SERVICE_APPLICATION_WEBHOOKURL`, `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` / `AWS_SESSION_TOKEN`. Must be set in `.env`. `SLACK_*` are optional (default empty; needed only for Slack API integration).
+**Required (no default in compose):** `VAULT_ENCRYPTION_MASTER_KEY`, `CONFIG_SERVICE_APPLICATION_GOOGLEOAUTHCLIENTID`, `CONFIG_SERVICE_APPLICATION_GCP_PROJECT_ID`, `CONFIG_SERVICE_APPLICATION_WEBHOOKURL`, `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` / `AWS_SESSION_TOKEN`. Must be set in `.env`. `SLACK_*` are optional (default empty; needed only for Slack API integration).
 
 
 **Cursor config audit:** Service list and env rules match `deploy/docker-compose.yml`. Vector is optional: uncomment its service in compose and set `VECTOR_ENABLED=true` in `.env`. `pulse-server` `depends_on` `pulse-ai-agent` with `condition: service_healthy`. Heatmap ingestion uses external Redis via `REDIS_*` and optional `HEATMAP_*` as above. **`pulse-alerts-cron`** compose env is MySQL + `CONFIG_SERVICE_APPLICATION_*` only (no per-cron ClickHouse/Redis vars); it does not `depends_on` ClickHouse.
