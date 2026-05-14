@@ -202,7 +202,10 @@ export function assertPulsePluginProps(
   parseLogLevel(typed.android?.logLevel, 'android.logLevel');
   parseLogLevel(typed.ios?.logLevel, 'ios.logLevel');
 
-  if (typed.android?.kotlin19Compat !== undefined && typeof typed.android.kotlin19Compat !== 'boolean') {
+  if (
+    typed.android?.kotlin19Compat !== undefined &&
+    typeof typed.android.kotlin19Compat !== 'boolean'
+  ) {
     throw new PluginError(
       'Pulse config plugin: "android.kotlin19Compat" must be a boolean when set.',
       'INVALID_PLUGIN_TYPE'
