@@ -2,6 +2,7 @@ package org.dreamhorizon.pulsespark;
 
 import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.Locale;
 import java.util.Map;
 
 import org.slf4j.Logger;
@@ -23,14 +24,23 @@ public final class FilterFieldMapper {
 
   private FilterFieldMapper() {}
 
+  /** True if the field maps to a materialized Parquet column (not uplifted from {@code props}). */
+  public static boolean isCatalogMapped(String field) {
+    if (field == null || field.isBlank()) {
+      return false;
+    }
+    return CATALOG_KEY_TO_COLUMN.containsKey(field.trim().toUpperCase(Locale.ROOT));
+  }
+
   public static String toParquetColumn(String field) {
     if (field == null || field.isBlank()) {
       return field;
     }
-    if (CATALOG_KEY_TO_COLUMN.containsKey(field)) {
-      return CATALOG_KEY_TO_COLUMN.get(field);
+    String upper = field.trim().toUpperCase(Locale.ROOT);
+    if (CATALOG_KEY_TO_COLUMN.containsKey(upper)) {
+      return CATALOG_KEY_TO_COLUMN.get(upper);
     }
     log.warn("Filter field '{}' not found in mapping; using as column name as-is", field);
-    return field;
+    return field.trim();
   }
 }

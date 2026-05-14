@@ -18,6 +18,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static org.apache.spark.sql.functions.*;
 
@@ -44,7 +45,8 @@ public class JourneyComputeJob {
             var s3Base  = "s3a://" + s3BucketPrefix + journey.projectId() + "/vector-logs/";
 
             log.info("Journey {} window [{} -> {}]", journey.id(), startDt, endDt);
-            Dataset<Row> raw = FunnelComputeJob.readS3ByHours(spark, s3Base, startDt, endDt);
+            Set<String> propKeys = FunnelFilterPropKeys.collectFromJourney(journey);
+            Dataset<Row> raw = FunnelComputeJob.readS3ByHours(spark, s3Base, startDt, endDt, propKeys);
             if (raw == null) {
                 log.warn("No S3 data for journey {}", journey.id());
                 return;
@@ -83,7 +85,8 @@ public class JourneyComputeJob {
         var s3Base    = "s3a://" + s3Prefix + projectId + "/vector-logs/";
 
         log.info("Project {} reading S3 [{} -> {}] for {} journey(s)", projectId, startDate, endDate, journeys.size());
-        Dataset<Row> raw = FunnelComputeJob.readS3ByDateRange(spark, s3Base, startDate, endDate);
+        Set<String> propKeys = FunnelFilterPropKeys.collectFromJourneys(journeys);
+        Dataset<Row> raw = FunnelComputeJob.readS3ByDateRange(spark, s3Base, startDate, endDate, propKeys);
         if (raw == null) {
             log.warn("No S3 data for project {}", projectId);
             return;
@@ -127,7 +130,7 @@ public class JourneyComputeJob {
                             .and(col("timestamp").cast(DataTypes.DateType).leq(lit(endDate.toString())))
             );
         }
-        df = FunnelComputeJob.applyFilters(df, journey.globalFilters());
+        df = FunnelComputeJob.applyGlobalFilters(df, journey.globalFilters());
 
         Dataset<Row> events = df
                 .select(

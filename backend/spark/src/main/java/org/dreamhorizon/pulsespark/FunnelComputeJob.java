@@ -19,6 +19,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 
 import org.apache.spark.sql.expressions.Window;
 import org.apache.spark.sql.expressions.WindowSpec;
@@ -54,7 +56,8 @@ public class FunnelComputeJob {
             var s3Base  = "s3a://" + s3BucketPrefix + funnel.projectId() + "/vector-logs/";
 
             log.info("Funnel {} window [{} -> {}]", funnel.id(), startDt, endDt);
-            Dataset<Row> raw = readS3ByHours(spark, s3Base, startDt, endDt);
+            Set<String> propKeys = FunnelFilterPropKeys.collectFromFunnel(funnel);
+            Dataset<Row> raw = readS3ByHours(spark, s3Base, startDt, endDt, propKeys);
             if (raw == null) {
                 log.warn("No S3 data for funnel {}", funnel.id());
                 return;
@@ -93,7 +96,8 @@ public class FunnelComputeJob {
         var s3Base    = "s3a://" + s3Prefix + projectId + "/vector-logs/";
 
         log.info("Project {} reading S3 [{} -> {}] for {} funnel(s)", projectId, startDate, endDate, funnels.size());
-        Dataset<Row> raw = readS3ByDateRange(spark, s3Base, startDate, endDate);
+        Set<String> propKeys = FunnelFilterPropKeys.collectFromFunnels(funnels);
+        Dataset<Row> raw = readS3ByDateRange(spark, s3Base, startDate, endDate, propKeys);
         if (raw == null) {
             log.warn("No S3 data for project {}", projectId);
             return;
@@ -140,7 +144,8 @@ public class FunnelComputeJob {
                             .and(col("timestamp").cast(DataTypes.DateType).leq(lit(endDate.toString())))
             );
         }
-        df = applyFilters(df, funnel.globalFilters());
+        df = applyGlobalFilters(df, funnel.globalFilters());
+        df = narrowToStepEventUnion(df, funnel);
 
         if (funnel.isUnordered()) {
             return computeUnorderedFunnel(df, funnel, identityCol, runTime);
@@ -327,9 +332,84 @@ public class FunnelComputeJob {
         return medians;
     }
 
+    private static Dataset<Row> narrowToStepEventUnion(Dataset<Row> df, FunnelDefinition funnel) {
+        List<FunnelStep> steps = funnel.steps();
+        if (steps.isEmpty()) {
+            return df;
+        }
+        Column union = null;
+        for (FunnelStep step : steps) {
+            Column branch = col("event_name").equalTo(lit(step.eventName()));
+            for (FunnelFilter sf : step.stepFilters()) {
+                Optional<Column> fc = filterToPredicate(sf, "[funnel-upfront]");
+                if (fc.isPresent()) {
+                    branch = branch.and(fc.get());
+                }
+            }
+            union = (union == null) ? branch : union.or(branch);
+        }
+        return df.filter(union);
+    }
+
+    /**
+     * Applies attribute filters from funnel definitions against parquet columns or uplifted
+     * {@code props} fields (same resolution as read projection).
+     */
+    public static Dataset<Row> applyGlobalFilters(Dataset<Row> df, List<FunnelFilter> filters) {
+        return applyFiltersPhase(df, filters, "[global]");
+    }
+
+    static Dataset<Row> applyStepFilters(Dataset<Row> df, List<FunnelFilter> filters) {
+        return applyFiltersPhase(df, filters, "[step]");
+    }
+
+    private static Dataset<Row> applyFiltersPhase(Dataset<Row> df, List<FunnelFilter> filters, String logCtx) {
+        Dataset<Row> out = df;
+        for (var filter : filters) {
+            Optional<Column> pred = filterToPredicate(filter, logCtx);
+            if (pred.isPresent()) {
+                out = out.filter(pred.get());
+            }
+        }
+        return out;
+    }
+
+    /**
+     * Single-condition predicate for one {@link FunnelFilter}; empty when the filter is skipped (warn logged).
+     */
+    private static Optional<Column> filterToPredicate(FunnelFilter filter, String logCtx) {
+        if (filter.field() == null || filter.field().isBlank()) {
+            log.warn("{} Skipping filter: field is null or blank", logCtx);
+            return Optional.empty();
+        }
+        String parquetField = FilterFieldMapper.toParquetColumn(filter.field());
+        Column fieldCol = col(parquetField);
+        Object[] vals = filter.value().toArray();
+        if (vals.length == 0) {
+            log.warn("{} Skipping filter: empty value list for field '{}' (resolved='{}')",
+                    logCtx, filter.field(), parquetField);
+            return Optional.empty();
+        }
+        String op = FunnelFilterOperators.normalize(filter.operator());
+        Column cond = switch (op) {
+            case "EQ", "=", "IN" -> fieldCol.isin(vals);
+            case "NE", "!=", "NOT_IN" -> not(fieldCol.isin(vals));
+            case "CONTAINS" -> filter.value().stream()
+                    .map(fieldCol::contains)
+                    .reduce(Column::or)
+                    .orElse(lit(true));
+            default -> {
+                log.warn("{} Unknown filter operator '{}' (normalized='{}') for field '{}' — filter skipped",
+                        logCtx, filter.operator(), op, filter.field());
+                yield lit(true);
+            }
+        };
+        return Optional.of(cond);
+    }
+
     private static Dataset<Row> stepEvents(Dataset<Row> df, FunnelStep step, String identityCol) {
         Dataset<Row> filtered = df.filter(col("event_name").equalTo(step.eventName()));
-        filtered = applyFilters(filtered, step.stepFilters());
+        filtered = applyStepFilters(filtered, step.stepFilters());
         return filtered
                 .select(
                         col(identityCol).alias("identity"),
@@ -338,45 +418,14 @@ public class FunnelComputeJob {
                 .filter(col("identity").isNotNull().and(col("identity").notEqual("")));
     }
 
-    static Dataset<Row> applyFilters(Dataset<Row> df, List<FunnelFilter> filters) {
-        for (var filter : filters) {
-            if (filter.field() == null || filter.field().isBlank()) {
-                log.warn("Skipping filter: field is null or blank");
-                continue;
-            }
-            String parquetField = FilterFieldMapper.toParquetColumn(filter.field());
-            var fieldCol = col(parquetField);
-            var vals = filter.value().toArray();
-            if (vals.length == 0) {
-                log.warn("Skipping filter: empty value list for field '{}' (resolved='{}')", filter.field(), parquetField);
-                continue;
-            }
-            String op = FunnelFilterOperators.normalize(filter.operator());
-            Column cond = switch (op) {
-                case "EQ", "=", "IN" -> fieldCol.isin(vals);
-                case "NE", "!=", "NOT_IN" -> not(fieldCol.isin(vals));
-                case "CONTAINS" -> filter.value().stream()
-                        .map(fieldCol::contains)
-                        .reduce(Column::or)
-                        .orElse(lit(true));
-                default -> {
-                    log.warn("Unknown filter operator '{}' (normalized='{}') for field '{}' — filter skipped",
-                            filter.operator(), op, filter.field());
-                    yield lit(true);
-                }
-            };
-            df = df.filter(cond);
-        }
-        return df;
-    }
-
     static Dataset<Row> readS3ByDateRange(SparkSession spark, String s3BasePath,
-                                           LocalDate startDate, LocalDate endDate) {
+                                           LocalDate startDate, LocalDate endDate,
+                                           Set<String> propKeys) {
         Dataset<Row> combined = null;
         int attempted = 0, loaded = 0;
         for (var d = startDate; !d.isAfter(endDate); d = d.plusDays(1)) {
             attempted++;
-            var ds = loadPath(spark, s3BasePath + d + "/");
+            var ds = loadPath(spark, s3BasePath + d + "/", propKeys);
             if (ds != null) {
                 loaded++;
                 combined = combined == null ? ds : combined.union(ds);
@@ -393,7 +442,8 @@ public class FunnelComputeJob {
     }
 
     static Dataset<Row> readS3ByHours(SparkSession spark, String s3BasePath,
-                                       LocalDateTime startDt, LocalDateTime endDt) {
+                                       LocalDateTime startDt, LocalDateTime endDt,
+                                       Set<String> propKeys) {
         var cursor  = startDt.withMinute(0).withSecond(0).withNano(0);
         var endHour = endDt.withMinute(59).withSecond(59).withNano(0);
         Dataset<Row> combined = null;
@@ -401,7 +451,7 @@ public class FunnelComputeJob {
         while (!cursor.isAfter(endHour)) {
             attempted++;
             var path = s3BasePath + cursor.toLocalDate() + "/" + String.format("%02d", cursor.getHour()) + "/";
-            var ds = loadPath(spark, path);
+            var ds = loadPath(spark, path, propKeys);
             if (ds != null) {
                 loaded++;
                 combined = combined == null ? ds : combined.union(ds);
@@ -418,14 +468,14 @@ public class FunnelComputeJob {
         return combined;
     }
 
-    private static Dataset<Row> loadPath(SparkSession spark, String path) {
+    private static Dataset<Row> loadPath(SparkSession spark, String path, Set<String> propKeys) {
         try {
             var ds = spark.read()
                     .format("parquet")
                     .option("recursiveFileLookup", "true")
                     .option("mergeSchema", "true")
                     .load(path);
-            return ds.select(buildReadExprs(ds.columns()));
+            return ds.select(buildReadExprs(ds.columns(), propKeys));
         } catch (Exception e) {
             log.warn("Skipping S3 path {}: {}", path, e.getMessage());
             return null;
@@ -436,16 +486,21 @@ public class FunnelComputeJob {
         return ds.filter(col("project_id").equalTo(projectId));
     }
 
-    static Column[] buildReadExprs(String[] availableColumns) {
+    static Column[] buildReadExprs(String[] availableColumns, Set<String> propKeys) {
         var available = new java.util.HashSet<>(java.util.Arrays.asList(availableColumns));
+        boolean hasProps = available.contains("props");
+        Column propsExpr = hasProps ? col("props") : lit(null).cast(DataTypes.StringType);
         var cols = new ArrayList<Column>();
         for (var c : READ_COLS) {
             cols.add(available.contains(c) ? col(c) : lit(null).cast(DataTypes.StringType).alias(c));
         }
         cols.add(coalesce(
-                get_json_object(col("props"), "$.user_id"),
-                get_json_object(col("props"), "$['app.installation.id']")
+                get_json_object(propsExpr, "$.user_id"),
+                get_json_object(propsExpr, "$['app.installation.id']")
         ).alias("user_id"));
+        for (String key : propKeys) {
+            cols.add(get_json_object(propsExpr, PropsJsonPath.forTopLevelKey(key)).alias(key));
+        }
         return cols.toArray(Column[]::new);
     }
 }

@@ -14,6 +14,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -73,7 +74,8 @@ public class EventCatalogJob {
         }
 
         var s3Base = "s3a://" + s3Prefix + projectId + "/vector-logs/";
-        Dataset<Row> raw = FunnelComputeJob.readS3ByDateRange(spark, s3Base, startDate, endDate);
+        Dataset<Row> raw = FunnelComputeJob.readS3ByDateRange(spark, s3Base, startDate, endDate,
+                Collections.emptySet());
         if (raw == null) {
             log.warn("No S3 data for project {} — skipping", projectId);
             return;

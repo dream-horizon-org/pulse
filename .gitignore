@@ -40,3 +40,5 @@ issues/
 backend/server/src/test/graphify-out/
 
 ralph/*
+
+/docs
