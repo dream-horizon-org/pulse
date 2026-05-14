@@ -139,7 +139,7 @@ public class TenantsController {
               return Single.error(new ForbiddenOperationException("Only superadmin or internal_viewer can create tenants"));
             }
 
-            String tenantId = "tenant-" + UUID.randomUUID().toString().replace("-", "");
+            String tenantId = "tenant-" + UUID.randomUUID().toString();
             CreateTenantRequest createTenantRequest = CreateTenantRequest.builder()
                 .tenantId(tenantId)
                 .name(request.getName())
