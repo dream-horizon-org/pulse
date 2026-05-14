@@ -101,26 +101,34 @@ dependencies {
   implementation("io.opentelemetry:opentelemetry-sdk")
   implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
 
-  // Cap Kotlin runtime artifacts below the Kotlin 2.1 metadata boundary so consumers
-  // compiling with Kotlin 1.9.x (which can read metadata up to 2.0.x) can still read them.
-  // Uses an upper-bound range rather than a single version so consumers' own BOM-pinned
-  // Kotlin 2.0.x stdlib / kotlinx-serialization 1.7.x can still satisfy the constraint.
-  // Without this, transitive pulse-* artifacts pull in Kotlin 2.1 stdlib/coroutines/serialization,
-  // whose .kotlin_module metadata is unreadable by a 1.9.x compiler.
-  constraints {
-    def capBelow = { String coord, String range ->
-      api(coord) { version { strictly(range) } }
+  // Opt-out cap for consumers compiling with Kotlin 1.9.x.
+  //
+  // Default: ON — protects 1.9.x consumers from transitive pulse-* artifacts that pull in
+  // Kotlin 2.1.x stdlib/coroutines/serialization, whose .kotlin_module metadata (version 2.1.0)
+  // is unreadable by a 1.9.x compiler (max readable: 2.0.x). The cap is a *range*, so consumer
+  // BOMs pinned to Kotlin 2.0.x artifacts (e.g., AndroidX 2.9.x) still resolve cleanly.
+  //
+  // Opt out (consumers on Kotlin 2.1+ such as RN 0.81 / AGP 8.7+):
+  //   in gradle.properties: PulseReactNativeOtel_kotlin19Compat=false
+  // Required because Kotlin 2.1.x consumers strictly require stdlib >= 2.1.x, which collides
+  // with the [1.9, 2.1) range.
+  def kotlin19Compat = (project.findProperty("PulseReactNativeOtel_kotlin19Compat") ?: "true").toBoolean()
+  if (kotlin19Compat) {
+    constraints {
+      def capBelow = { String coord, String range ->
+        api(coord) { version { strictly(range) } }
+      }
+      capBelow("org.jetbrains.kotlin:kotlin-stdlib",                  "[1.9, 2.1)")
+      capBelow("org.jetbrains.kotlin:kotlin-stdlib-jdk7",             "[1.9, 2.1)")
+      capBelow("org.jetbrains.kotlin:kotlin-stdlib-jdk8",             "[1.9, 2.1)")
+      capBelow("org.jetbrains.kotlin:kotlin-stdlib-common",           "[1.9, 2.1)")
+      capBelow("org.jetbrains.kotlinx:kotlinx-coroutines-core",       "[1.8, 1.10)")
+      capBelow("org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm",   "[1.8, 1.10)")
+      capBelow("org.jetbrains.kotlinx:kotlinx-coroutines-android",    "[1.8, 1.10)")
+      capBelow("org.jetbrains.kotlinx:kotlinx-serialization-core",      "[1.6, 1.8)")
+      capBelow("org.jetbrains.kotlinx:kotlinx-serialization-core-jvm",  "[1.6, 1.8)")
+      capBelow("org.jetbrains.kotlinx:kotlinx-serialization-json",      "[1.6, 1.8)")
+      capBelow("org.jetbrains.kotlinx:kotlinx-serialization-json-jvm",  "[1.6, 1.8)")
     }
-    capBelow("org.jetbrains.kotlin:kotlin-stdlib",                  "[1.9, 2.1)")
-    capBelow("org.jetbrains.kotlin:kotlin-stdlib-jdk7",             "[1.9, 2.1)")
-    capBelow("org.jetbrains.kotlin:kotlin-stdlib-jdk8",             "[1.9, 2.1)")
-    capBelow("org.jetbrains.kotlin:kotlin-stdlib-common",           "[1.9, 2.1)")
-    capBelow("org.jetbrains.kotlinx:kotlinx-coroutines-core",       "[1.8, 1.10)")
-    capBelow("org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm",   "[1.8, 1.10)")
-    capBelow("org.jetbrains.kotlinx:kotlinx-coroutines-android",    "[1.8, 1.10)")
-    capBelow("org.jetbrains.kotlinx:kotlinx-serialization-core",      "[1.6, 1.8)")
-    capBelow("org.jetbrains.kotlinx:kotlinx-serialization-core-jvm",  "[1.6, 1.8)")
-    capBelow("org.jetbrains.kotlinx:kotlinx-serialization-json",      "[1.6, 1.8)")
-    capBelow("org.jetbrains.kotlinx:kotlinx-serialization-json-jvm",  "[1.6, 1.8)")
   }
 }
