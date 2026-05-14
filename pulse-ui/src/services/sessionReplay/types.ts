@@ -565,7 +565,7 @@ export interface FilterCategoryAPI {
 }
 
 export interface GetFilterSchemaResponse {
-  platform: "web" | "ios" | "android";
+  platform?: "web" | "ios" | "android";
   categories: FilterCategoryAPI[];
   operatorLabels: Record<string, string>;
 }
