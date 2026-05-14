@@ -26,6 +26,8 @@ import io.vertx.rxjava3.ext.web.client.WebClient;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import org.dreamhorizon.pulseserver.config.RootCauseConfig;
@@ -37,6 +39,7 @@ import org.dreamhorizon.pulseserver.dao.rcareport.RcaReportCacheDao;
 import org.dreamhorizon.pulseserver.service.ai.impl.AiUpstreamProxyExecutor;
 import org.dreamhorizon.pulseserver.service.rootcause.RcaRelatedHeatmapsMerger;
 import org.dreamhorizon.pulseserver.service.rootcause.RootCauseService;
+import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseResult;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -136,6 +139,15 @@ class RcaReportProcessorTest {
     return new RcaEnrichmentOutcome(BODY, null, DATE, Instant.now(), false);
   }
 
+  private RcaEnrichmentOutcome outcomeWithRootCause() {
+    RootCauseResult rc =
+        RootCauseResult.builder()
+            .baseline(Map.of("volume", 42L))
+            .segments(List.of())
+            .build();
+    return new RcaEnrichmentOutcome(BODY, rc, DATE, Instant.now(), true);
+  }
+
   @Test
   void shouldDelegateToWorkerPoolOnEnqueue() {
     processor.enqueueProcess(job(), BODY, false, "Bearer t", null);
@@ -179,6 +191,84 @@ class RcaReportProcessorTest {
 
     verify(jobDao).updateStatus(JOB_ID, RcaJobStatus.PROCESSING);
     verify(cacheDao).put(eq("p1"), eq(RcaType.INTERACTION), eq("ix"), eq(DATE), any());
+    verify(jobDao).markCompleted(JOB_ID, "p1", RcaType.INTERACTION, "ix", DATE);
+  }
+
+  @Test
+  void shouldAttachRootCausePayloadToAiJsonWhenEnrichmentHasRootCause() {
+    stubSyncExecution();
+    when(enrichmentService.enrichAsync(any(), anyBoolean()))
+        .thenReturn(CompletableFuture.completedFuture(outcomeWithRootCause()));
+    HttpResponse<Buffer> resp200 = mockHttpResponse(200, "{\"structured\":null}");
+    when(httpRequest.rxSendBuffer(any())).thenReturn(Single.just(resp200));
+
+    processor.enqueueProcess(job(), BODY, false, "Bearer t", null);
+
+    verify(cacheDao)
+        .put(
+            eq("p1"),
+            eq(RcaType.INTERACTION),
+            eq("ix"),
+            eq(DATE),
+            argThat(
+                stored -> {
+                  try {
+                    com.fasterxml.jackson.databind.JsonNode tree =
+                        new ObjectMapper().readTree(stored);
+                    return tree.has("rootCausePayload")
+                        && tree.get("rootCausePayload").path("baseline").path("volume").asInt()
+                            == 42;
+                  } catch (Exception e) {
+                    return false;
+                  }
+                }));
+    verify(jobDao).markCompleted(JOB_ID, "p1", RcaType.INTERACTION, "ix", DATE);
+  }
+
+  @Test
+  void shouldSkipAttachWhenAiBodyIsNotJsonObject() {
+    stubSyncExecution();
+    when(enrichmentService.enrichAsync(any(), anyBoolean()))
+        .thenReturn(CompletableFuture.completedFuture(outcomeWithRootCause()));
+    HttpResponse<Buffer> resp200 = mockHttpResponse(200, "[1,2,3]");
+    when(httpRequest.rxSendBuffer(any())).thenReturn(Single.just(resp200));
+
+    processor.enqueueProcess(job(), BODY, false, "Bearer t", null);
+
+    verify(cacheDao)
+        .put(
+            eq("p1"),
+            eq(RcaType.INTERACTION),
+            eq("ix"),
+            eq(DATE),
+            argThat(
+                stored -> {
+                  try {
+                    return !new ObjectMapper().readTree(stored).has("rootCausePayload");
+                  } catch (Exception e) {
+                    return false;
+                  }
+                }));
+    verify(jobDao).markCompleted(JOB_ID, "p1", RcaType.INTERACTION, "ix", DATE);
+  }
+
+  @Test
+  void shouldReturnOriginalAiBodyWhenAttachCannotParseJson() {
+    stubSyncExecution();
+    when(enrichmentService.enrichAsync(any(), anyBoolean()))
+        .thenReturn(CompletableFuture.completedFuture(outcomeWithRootCause()));
+    HttpResponse<Buffer> resp200 = mockHttpResponse(200, "not-json-at-all");
+    when(httpRequest.rxSendBuffer(any())).thenReturn(Single.just(resp200));
+
+    processor.enqueueProcess(job(), BODY, false, "Bearer t", null);
+
+    verify(cacheDao)
+        .put(
+            eq("p1"),
+            eq(RcaType.INTERACTION),
+            eq("ix"),
+            eq(DATE),
+            argThat(stored -> stored.contains("not-json-at-all")));
     verify(jobDao).markCompleted(JOB_ID, "p1", RcaType.INTERACTION, "ix", DATE);
   }
 

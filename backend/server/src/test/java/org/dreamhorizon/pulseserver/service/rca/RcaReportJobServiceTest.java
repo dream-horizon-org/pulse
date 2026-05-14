@@ -189,6 +189,24 @@ class RcaReportJobServiceTest {
     }
 
     @Test
+    void shouldReturnInnerReportUnmergedWhenInnerIsNotObjectNode() {
+      String cacheBody =
+          "{"
+              + "\"report\":\"scalar-inner\","
+              + "\"rootCausePayload\":{\"baseline\":{},\"segments\":[]}"
+              + "}";
+      Instant cachedAt = Instant.parse("2025-06-01T10:00:00Z");
+      when(cacheDao.get("p1", TYPE, ENTITY_KEY, DATE))
+          .thenReturn(Maybe.just(new RcaReportCacheHit(cacheBody, cachedAt)));
+
+      GetRcaJobResponse response = service.peekStatus("p1", TYPE, ENTITY_KEY, DATE).blockingGet();
+
+      assertThat(response.getReport()).isNotNull();
+      assertThat(response.getReport().isTextual()).isTrue();
+      assertThat(response.getReport().asText()).isEqualTo("scalar-inner");
+    }
+
+    @Test
     void shouldNotOverwriteInnerRootCausePayloadWithTopLevelSibling() {
       String cacheBody =
           "{"
