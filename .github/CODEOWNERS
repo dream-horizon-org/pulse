@@ -2,7 +2,7 @@
 # This file controls who is tagged for review for any given pull request.
 
 # Catch-all — anything not explicitly owned
-* @chiragSharmaD11 @atulgpt17 @shubhamguptadream11 @anirudhdream11 @yasir6jan @Sarabjyot123 @prathameshy7
+* @chiragSharmaD11 @atulgpt17 @shubhamguptadream11 @anirudhdream11 @kunalchavhan @yasir6jan @Sarabjyot123 @prathameshy7
 
 # Android SDK
 /pulse-android-otel/ @atulgpt17 @anirudhdream11 @shubhamguptadream11
@@ -14,20 +14,58 @@
 /pulse-react-native-otel/ @shubhamguptadream11 @anirudhdream11 @chiragSharmaD11
 
 # Frontend / Dashboard
-/pulse-ui/ @jatinsd11 @shrutipathak1234 @anirudhdream11
+/pulse-ui/ @JatinDream11 @shrutipathak1234 @anirudhdream11
 
 # Web SDK
-/pulse-web-otel/ @jatinsd11 @shrutipathak1234 @anirudhdream11
+/pulse-web-otel/ @JatinDream11 @shrutipathak1234 @anirudhdream11
 
 # Backend (server + alerts cron)
 /backend/ @Sarabjyot123 @chiragSharmaD11 @anirudhdream11
 
+# Session services
+/backend/session-capture-service/ @abhishek-dream11 @yasir6jan
+/backend/session-replay-ingestion/ @abhishek-dream11 @yasir6jan
+
+# Spark
+/backend/spark/ @yasir6jan @chiragSharmaD11
+
+# Heatmap
+/backend/heatmap-screenshot-ingestion/ @mohithemnani11 @yasir6jan
+
+# Alerts cron
+/backend/pulse-alerts-cron/ @princektripathi @yasir6jan
+
 # ClickHouse schema / ingestion
-/backend/db/ @mohithemnani11 @Racha2004 @Sarabjyot123
-/backend/ingestion/ @mohithemnani11 @Racha2004 @Sarabjyot123
+/backend/db/ @mohithemnani11 @Sarabjyot123
+/backend/ingestion/ @mohithemnani11 @Sarabjyot123
+/backend/db/prod/clickhouse/ @Racha2004
+/backend/db/dev/clickhouse/ @Racha2004
+
+# Android Agent
+/android-agent/ @atulgpt17 @anirudhdream11 @shubhamguptadream11
+
+# MCP
+/pulse-mcp/ @sarthak-d11
+
+# Vector
+/vector/ @Racha2004 @mohithemnani11
+
+# Benchmark
+/benchmark/ @atulgpt17
+
+# Scripts
+/scripts/ @yasir6jan @chiragSharmaD11
+
+# AI agent configs / IDE configs
+/.agents/ @sarthak-d11 @kunalchavhan @chiragSharmaD11 @anirudhdream11 @shubhamguptadream11
+/.claude/ @sarthak-d11 @kunalchavhan @chiragSharmaD11 @anirudhdream11 @shubhamguptadream11
+/.cursor/ @sarthak-d11 @kunalchavhan @chiragSharmaD11 @anirudhdream11 @shubhamguptadream11
 
 # AI agent
-/pulse_ai/ @sarthak-d11 @chiragSharmaD11
+/pulse_ai/ @sarthak-d11 @chiragSharmaD11 @shubhamguptadream11
+
+# Mobile Benchmarks
+/pulse-mobile-benchmarks/ @anirudhdream11 @abhishek-dream11 @shubhamguptadream11
 
 # Deploy / Infra
-/deploy/ @yasir6jan @chiragSharmaD11
+/deploy/ @yasir6jan @chiragSharmaD11 @mohithemnani11
