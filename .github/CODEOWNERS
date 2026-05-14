@@ -14,20 +14,20 @@
 /pulse-react-native-otel/ @shubhamguptadream11 @anirudhdream11 @chiragSharmaD11
 
 # Frontend / Dashboard
-/pulse-ui/ @jatinsd11 @shrutipathak1234
+/pulse-ui/ @jatinsd11 @shrutipathak1234 @anirudhdream11
 
 # Web SDK
-/pulse-web-otel/ @jatinsd11 @shrutipathak1234
+/pulse-web-otel/ @jatinsd11 @shrutipathak1234 @anirudhdream11
 
 # Backend (server + alerts cron)
-/backend/ @Sarabjyot123 @chiragSharmaD11
+/backend/ @Sarabjyot123 @chiragSharmaD11 @anirudhdream11
 
 # ClickHouse schema / ingestion
 /backend/db/ @mohithemnani11 @Racha2004 @Sarabjyot123
 /backend/ingestion/ @mohithemnani11 @Racha2004 @Sarabjyot123
 
 # AI agent
-/pulse_ai/ @sarthak-d11
+/pulse_ai/ @sarthak-d11 @chiragSharmaD11
 
 # Deploy / Infra
-/deploy/ @yasir6jan
+/deploy/ @yasir6jan @chiragSharmaD11
