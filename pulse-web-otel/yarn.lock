@@ -383,6 +383,7 @@ __metadata:
     size-limit: "npm:^11.1.0"
     tsup: "npm:^8.3.0"
     typescript: "npm:^5.6.0"
+    vite: "npm:5.4.21"
     vitest: "npm:^2.1.0"
     web-vitals: "npm:^4.2.0"
   peerDependencies:
@@ -2819,7 +2820,7 @@ __metadata:
     react-dom: "npm:^18.3.0"
     react-router-dom: "npm:^6.26.0"
     typescript: "npm:^5.6.0"
-    vite: "npm:^5.4.0"
+    vite: "npm:5.4.21"
   languageName: unknown
   linkType: soft
 
@@ -5940,7 +5941,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"vite@npm:^5.0.0, vite@npm:^5.4.0":
+"vite@npm:5.4.21":
   version: 5.4.21
   resolution: "vite@npm:5.4.21"
   dependencies:
