@@ -16,11 +16,13 @@ import androidx.annotation.UiThread
 import androidx.annotation.WorkerThread
 import androidx.core.graphics.createBitmap
 import androidx.core.graphics.scale
+import com.pulse.android.sdk.replay.ReplayConstants
 import com.pulse.android.sdk.replay.events.ReplayStyle
 import com.pulse.android.sdk.replay.events.ReplayWireframe
 import com.pulse.android.sdk.replay.events.WireframeType
 import com.pulse.android.sdk.replay.internal.util.isValid
 import com.pulse.android.sdk.replay.internal.util.webpBase64
+import com.pulse.utils.PulseLogger
 import kotlinx.coroutines.suspendCancellableCoroutine
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
@@ -103,7 +105,7 @@ internal object ScreenshotCapture {
      * only performs PixelCopy + mask drawing + encoding on the background thread.
      * @param window [Window] to capture
      * @param layout [ScreenshotLayoutSnapshot] of the captured view
-     * @param displayMetrics TBA by <anirudh.bharti> for session replay
+     * @param displayMetrics display metrics for density conversion
      * @param maskRects Pre-collected mask rects in window coordinates (from main thread).
      * @param masksValid false if the mask collection was aborted (e.g. screen changed mid-walk).
      * @param drawCountAtCollection monotonic counter value captured when masks were collected.
@@ -293,6 +295,8 @@ internal object ScreenshotCapture {
         logger: (String) -> Unit,
         screenshotScale: Float = 1f,
         screenshotQuality: Int = 30,
+        mainHandler: Handler? = null,
+        maskCollectorOnMain: (() -> Pair<List<android.graphics.Rect>, Boolean>)? = null,
     ): ReplayWireframe? {
         if (isShutDown) return null
 
@@ -325,6 +329,8 @@ internal object ScreenshotCapture {
                             width = width,
                             height = height,
                             logger = logger,
+                            mainHandler = mainHandler,
+                            maskCollectorOnMain = maskCollectorOnMain,
                         ),
                     )
                 }, pixelCopyHandler)
@@ -351,8 +357,10 @@ internal object ScreenshotCapture {
         width: Int,
         height: Int,
         logger: (String) -> Unit,
+        mainHandler: Handler? = null,
+        maskCollectorOnMain: (() -> Pair<List<android.graphics.Rect>, Boolean>)? = null,
     ): ReplayWireframe? {
-        if (isShutDown || copyResult != PixelCopy.SUCCESS || screenChanged() || !masksValid) {
+        if (isShutDown || copyResult != PixelCopy.SUCCESS) {
             bitmap.recycle()
             if (copyResult != PixelCopy.SUCCESS) logger("Session Replay PixelCopy failed: $copyResult")
             return null
@@ -362,9 +370,22 @@ internal object ScreenshotCapture {
             logger("Session Replay Bitmap is invalid")
             return null
         }
+        val (effectiveMasks, effectiveMasksValid) =
+            if (mainHandler != null && maskCollectorOnMain != null) {
+                collectMasksOnMain(mainHandler, maskCollectorOnMain) ?: run {
+                    bitmap.recycle()
+                    return null
+                }
+            } else {
+                maskRects to masksValid
+            }
+        if (!effectiveMasksValid) {
+            bitmap.recycle()
+            return null
+        }
         return try {
             val canvas = Canvas(bitmap)
-            for (rect in maskRects) {
+            for (rect in effectiveMasks) {
                 if (screenChanged()) {
                     bitmap.recycle()
                     return null
@@ -399,6 +420,32 @@ internal object ScreenshotCapture {
             null
         }
     }
+
+    // Worker blocks on latch; main thread is not blocked — it runs collector when free.
+    private fun collectMasksOnMain(
+        mainHandler: Handler,
+        collector: () -> Pair<List<android.graphics.Rect>, Boolean>,
+    ): Pair<List<android.graphics.Rect>, Boolean>? {
+        val ref =
+            java.util.concurrent.atomic
+                .AtomicReference<Pair<List<android.graphics.Rect>, Boolean>?>(null)
+        val latch = CountDownLatch(1)
+        val posted =
+            mainHandler.post {
+                try {
+                    ref.set(collector())
+                } catch (e: Throwable) {
+                    PulseLogger.logWarn(ReplayConstants.REPLAY_LOG_TAG) { "maskCollectorOnMain failed: ${e.javaClass.simpleName}" }
+                } finally {
+                    latch.countDown()
+                }
+            }
+        if (!posted) return null
+        if (!latch.await(MAIN_COLLECT_TIMEOUT_MS, TimeUnit.MILLISECONDS)) return null
+        return ref.get()
+    }
+
+    private const val MAIN_COLLECT_TIMEOUT_MS = 50L // ~3 frame budgets at 60fps; drop if main is jammed longer
 
     internal fun isVisible(
         view: View,
