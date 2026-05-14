@@ -2,8 +2,6 @@ buildscript {
   ext.getExtOrDefault = {name ->
     return rootProject.ext.has(name) ? rootProject.ext.get(name) : project.properties['PulseReactNativeOtel_' + name]
   }
-  ext.kotlin_version = '1.9.25'
-  ext.kotlinVersion = '1.9.25'
 
   repositories {
     google()
