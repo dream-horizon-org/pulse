@@ -39,7 +39,8 @@ pulse-alerts-cron → pulse-server internal JWT routes → Redis materialization
 ## Databases
 
 - **MySQL 8** (`pulse_db`): metadata — interactions, alerts, configs, symbol files, athena jobs, analytics_jobs
-- **ClickHouse 25.3** (`otel`; dev compose image `25.3.9`): analytics — `otel_traces`, `otel_logs`, OTLP metrics (`otel_metrics_gauge`, `otel_metrics_sum`, `otel_metrics_summary`, `otel_metrics_histogram`, `otel_metrics_exp_histogram`, unified read view `otel_metrics`), `stack_trace_events`, `project_monthly_usage` (+ MVs), `root_cause_cache` (RCA cache; column `ProjectId`), `interaction_heatmaps_daily` (heatmap table + MV defined in `backend/db/prod/clickhouse/otel.interaction_heatmaps_daily.sql`)
+- **ClickHouse 25.4** (`otel`; dev compose image `25.4`): analytics — `otel_traces`, `otel_logs`, OTLP metrics (`otel_metrics_gauge`, `otel_metrics_sum`, `otel_metrics_summary`, `otel_metrics_histogram`, `otel_metrics_exp_histogram`, unified read view `otel_metrics`), `stack_trace_events`, `project_monthly_usage` (+ MVs), `root_cause_cache` (RCA cache; column `ProjectId`), `interaction_heatmaps_daily` (heatmap table + MV defined in `backend/db/prod/clickhouse/otel.interaction_heatmaps_daily.sql`)
+- **`otel_logs` web vitals**: materialized `WebVitalName`, `WebVitalValue`, `WebVitalRating` (from `web_vital.*` log attributes) for `PulseType = 'web_vital'`; DDL in `backend/db/prod/clickhouse/otel.otel_logs.sql`
 
 ## Auth
 

@@ -23,6 +23,17 @@
  *   - setUserId("") → removes userId from attrs
  *   - setUserProperties with null value → removes that key
  *   - localStorage unavailable → graceful no-op (no crash)
+ *
+ * TODO(future): session ID sessionStorage tier
+ *   Currently session keys (SESSION_ID_KEY, SESSION_TS_KEY, SESSION_START_KEY) only use
+ *   localStorage; _memSession is the in-memory fallback. Add sessionStorage as tier 2 so
+ *   reloads within the same tab continue the same session when localStorage is blocked
+ *   (WKWebView ITP, sandboxed iframe). Pattern: PostHog uses cookies, Sentry uses
+ *   sessionStorage for session IDs. Same-tab reload = same session; new tab = new session.
+ *   Tests to add when implemented:
+ *     - localStorage blocked, SessionProvider reconstructed → same session.id via sessionStorage
+ *     - localStorage + sessionStorage blocked, reload → new session (memory only)
+ *     - session expiry with sessionStorage tier → rotation still fires once, not multiple times
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import {

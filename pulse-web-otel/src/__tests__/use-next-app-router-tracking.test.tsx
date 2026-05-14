@@ -10,14 +10,18 @@ import { renderHook } from "@testing-library/react";
 const mockPathname = vi.fn<() => string | null>(() => "/");
 const mockSearchParams = vi.fn(() => new URLSearchParams());
 
-vi.mock("next/navigation", () => ({
+vi.mock("next/navigation.js", () => ({
   usePathname: () => mockPathname(),
   useSearchParams: () => mockSearchParams(),
 }));
 
 const mockSetScreenName = vi.fn();
+const mockNotifySoftNavigation = vi.fn();
 vi.mock("../sdk", () => ({
-  Pulse: { setScreenName: (name: string) => mockSetScreenName(name) },
+  Pulse: {
+    setScreenName: (name: string) => mockSetScreenName(name),
+    notifySoftNavigation: () => mockNotifySoftNavigation(),
+  },
 }));
 
 // ─── Import after mocks ───────────────────────────────────────────────────────
@@ -194,7 +198,9 @@ describe("useNextAppRouterTracking", () => {
 
     const hook = renderHook(
       (opts: UseNextAppRouterTrackingOptions) => useNextAppRouterTracking(opts),
-      { initialProps: { skipInitial: false } as UseNextAppRouterTrackingOptions },
+      {
+        initialProps: { skipInitial: false } as UseNextAppRouterTrackingOptions,
+      },
     );
     // First call was a no-op but the hook still called through.
     expect(mockSetScreenName).toHaveBeenCalledTimes(1);
@@ -223,5 +229,50 @@ describe("useNextAppRouterTracking", () => {
     mockPathname.mockReturnValue("/products");
     hook.rerender({ skipInitial: false });
     expect(mockSetScreenName).toHaveBeenCalledWith("/products");
+  });
+
+  // ─── notifySoftNavigation — flush buffered vitals on SPA route change ─────
+
+  describe("notifySoftNavigation on SPA nav", () => {
+    it("calls notifySoftNavigation when pathname changes", () => {
+      const hook = renderHook(
+        (opts: UseNextAppRouterTrackingOptions) =>
+          useNextAppRouterTracking(opts),
+        { initialProps: {} },
+      );
+      expect(mockNotifySoftNavigation).not.toHaveBeenCalled();
+
+      mockPathname.mockReturnValue("/products");
+      hook.rerender({});
+      expect(mockNotifySoftNavigation).toHaveBeenCalledTimes(1);
+    });
+
+    it("does NOT call notifySoftNavigation when same pathname re-renders", () => {
+      const { rerender } = renderHook(
+        (opts: UseNextAppRouterTrackingOptions) =>
+          useNextAppRouterTracking(opts),
+        { initialProps: { skipInitial: false } },
+      );
+      expect(mockNotifySoftNavigation).toHaveBeenCalledTimes(1);
+
+      rerender({ skipInitial: false });
+      expect(mockNotifySoftNavigation).toHaveBeenCalledTimes(1);
+    });
+
+    it("does NOT call notifySoftNavigation when pathname is null (static pre-render)", () => {
+      mockPathname.mockReturnValue(null);
+      renderHook(() => useNextAppRouterTracking({ skipInitial: false }));
+      expect(mockNotifySoftNavigation).not.toHaveBeenCalled();
+    });
+
+    it("does NOT call notifySoftNavigation on initial mount when skipInitial=true", () => {
+      renderHook(() => useNextAppRouterTracking());
+      expect(mockNotifySoftNavigation).not.toHaveBeenCalled();
+    });
+
+    it("calls notifySoftNavigation on initial mount when skipInitial=false", () => {
+      renderHook(() => useNextAppRouterTracking({ skipInitial: false }));
+      expect(mockNotifySoftNavigation).toHaveBeenCalledTimes(1);
+    });
   });
 });

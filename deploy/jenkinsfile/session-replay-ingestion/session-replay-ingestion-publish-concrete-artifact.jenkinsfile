@@ -58,19 +58,16 @@ pipeline {
                         def nextVersion = bumpSemverMinor(ARTIFACT_VERSION)
                         sh """
                             #!/bin/bash -el
-                            PKG="${WORKSPACE}/backend/session-replay-ingestion/package.json"
-                            node -e "
-                              const fs = require('fs');
-                              const p = process.argv[1];
-                              const j = JSON.parse(fs.readFileSync(p, 'utf8'));
-                              j.version = '${nextVersion}';
-                              fs.writeFileSync(p, JSON.stringify(j, null, 2) + '\\n');
-                            " "\$PKG"
+                            PKG="backend/session-replay-ingestion/package.json"
+                            
+                            # Update version in package.json using sed
+                            sed -i.bak 's/"version": "[^"]*"/"version": "${nextVersion}"/' "\$PKG"
+                            rm "\$PKG.bak"
 
                             git config user.email "${GITBOT_USERNAME}@users.noreply.github.com"
                             git config user.name "${GITBOT_USERNAME}"
 
-                            git add backend/session-replay-ingestion/package.json
+                            git add "\$PKG"
                             git commit -m "chore: bump pulse-session-replay-ingestion version to ${nextVersion}"
 
                             git push https://${GIT_USER}:${GIT_TOKEN}@github.com/dream-horizon-org/pulse.git HEAD:main

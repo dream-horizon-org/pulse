@@ -1,6 +1,6 @@
 // M1: Consent guard — returns true if signals should be emitted.
 // PulseDataCollectionConsent.DENIED → always returns false.
-// See: docs/instrumentations/sdk-core/SPEC.md (consent)
+// See: docs/sdk-core/config-and-consent/SPEC.md (consent)
 
 import { PulseDataCollectionConsent } from "./config";
 

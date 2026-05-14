@@ -1,6 +1,6 @@
 {
   "name": "@dreamhorizonorg/pulse-web",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Pulse observability SDK for web — OpenTelemetry-based RUM, sessions, errors, web vitals, network, and click instrumentation",
   "keywords": [
     "opentelemetry",
@@ -118,7 +118,7 @@
     "demo:preview": "yarn demo:build && yarn workspace ecommerce-demo preview",
     "demo:install": "yarn install",
     "demo:test": "yarn workspace ecommerce-demo e2e:report",
-    "e2e:web-sdk-gates": "yarn workspace ecommerce-demo e2e:web-sdk-gates",
+    "e2e:web-sdk-gates": "yarn build && yarn workspace ecommerce-demo e2e:web-sdk-gates",
     "demo:next": "yarn workspace nextjs-demo dev"
   },
   "dependencies": {
