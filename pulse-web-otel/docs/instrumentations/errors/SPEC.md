@@ -161,6 +161,14 @@ Global attributes (`session.id`, `screen.name`, resource) are applied by process
 | E-E2 | edge | SSR | no `window` | install no-op | `errors-instrumentation-gate-and-ssr.test.ts` |
 | E-E3 | edge | uninstall | subsequent error | no emit | uninstall tests |
 
+### 6.2 Playwright E2E (`examples/ecommerce-demo/e2e/`)
+
+Master index: [`../../sdk-core/test-coverage/SPEC.md`](../../sdk-core/test-coverage/SPEC.md) §6.3. **Mock OTLP:** `@M3-errors` (contract, lifecycle, gate/consent). **ClickHouse:** `@M3-CH` TC1–TC6, TC9–TC10, TC12.
+
+- Uncaught error / unhandled rejection / manual `reportException` / boundary `device.crash`
+- Dedupe window, fingerprint separation, rejection normalization, cross-origin silence, timestamp, coexisting `window.onerror`
+- `js_crash` gate off; `DENIED` consent — zero exports
+
 ### `src/__tests__/error-instrumentation-device-state.test.ts`
 
 Scenarios (from file header and bodies):

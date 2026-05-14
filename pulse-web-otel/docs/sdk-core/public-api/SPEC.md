@@ -118,6 +118,10 @@ flowchart TD
 
 [`../test-coverage/SPEC.md`](../test-coverage/SPEC.md) — `sdk-public-methods.test.ts`, `sdk-lifecycle.test.ts`.
 
+### 6.3 Playwright E2E traceability
+
+`trackEvent`, `reportException`, `setScreenName`, shutdown, and consent gates appear under **`@M1`**, **`@M3-errors`**, **`@M15`** in [`../test-coverage/SPEC.md`](../test-coverage/SPEC.md) §6.3.
+
 ---
 
 ## 7. Known Bugs & Gaps

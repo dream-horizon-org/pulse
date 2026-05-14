@@ -162,6 +162,15 @@ Planning docs use **click.target** / **click.label**; shipped OTLP keys follow s
 | C-E2 | edge | SSR / no `window` | install | no-op | `clicks-instrumentation-ssr.test.ts` |
 | C-E3 | edge | uninstall | click after dispose | silent | `clicks-instrumentation.test.ts` |
 
+### 6.2 Playwright E2E (`examples/ecommerce-demo/e2e/`)
+
+Exercised against mock OTLP (see master list: [`../../sdk-core/test-coverage/SPEC.md`](../../sdk-core/test-coverage/SPEC.md) §6.3).
+
+- Shop Now link emits `app.click` with good target and contract attrs
+- Dead click on non-interactive pad — no widget attrs
+- Triple tap rage cluster — single `app.click` with `click.is_rage`
+- Click feature gate disabled — zero `app.click`
+
 ### `src/__tests__/clicks-instrumentation.test.ts`
 
 - Emits `app.widget.click` with **good** click on `<button>` — widget name + coordinates + `pulse.type=app.click`.

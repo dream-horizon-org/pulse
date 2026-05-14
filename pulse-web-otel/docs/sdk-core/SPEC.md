@@ -129,7 +129,9 @@ Each topic file under `docs/sdk-core/<topic>/SPEC.md` has an expanded **§5 LLD*
 | SDK-E1 | edge | double init | second call | idempotent | `sdk.ts` |
 | SDK-E2 | edge | pagehide | tab background | flush / persist per exporters SPEC | exporters SPEC |
 
-[`test-coverage/SPEC.md`](test-coverage/SPEC.md) is the detailed index of suites.
+### 6.3 Playwright E2E index
+
+All Playwright scenario titles and the **Next.js vs React parity matrix** live in [`test-coverage/SPEC.md`](test-coverage/SPEC.md) §6.3–§6.5. Package script: `yarn e2e:web-sdk-gates`.
 
 ---
 

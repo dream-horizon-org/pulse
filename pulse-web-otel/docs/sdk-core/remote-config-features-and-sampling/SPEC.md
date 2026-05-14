@@ -144,6 +144,10 @@ Remote payload is deep-merged with defaults + cached copy: array fields (e.g. `f
 
 [`../test-coverage/SPEC.md`](../test-coverage/SPEC.md) — `m1.test.ts` (`SdkConfigFetcher`, `FeatureGate`).
 
+### 6.3 Playwright E2E traceability
+
+Seeded / 404 remote config, `pulse_sdk_config` localStorage, `sessionSampleRate`, and `signals.filters` BLACKLIST: **`@M1 localStorage state`**, **`@M1 remote config fetch resilience`**, **`@M1 remote config + export gate`** — [`../test-coverage/SPEC.md`](../test-coverage/SPEC.md) §6.3.
+
 ---
 
 ## 7. Known Bugs & Gaps

@@ -184,6 +184,10 @@ The SDK fetches remote config from `pulse-otel-config` S3 via CloudFront (`/conf
 
 Integration smoke: `src/__tests__/integration-simplified-*.test.ts`, `package-exports.test.ts` (paths per repo).
 
+### 6.2 Playwright E2E
+
+End-to-end catalogue (all Playwright `test()` titles, React + Next demos): [`../../sdk-core/test-coverage/SPEC.md`](../../sdk-core/test-coverage/SPEC.md) §6.3–§6.5. CI gate: `yarn e2e:web-sdk-gates` from `pulse-web-otel/`.
+
 ### Integration is validated indirectly via:
 
 - Core lifecycle tests — **`sdk-core`** [`test-coverage/SPEC.md`](../../sdk-core/test-coverage/SPEC.md).

@@ -133,6 +133,10 @@ flowchart TD
 | RE-E1 | edge | `shutdownOnUnmount` true | unmount | shutdown microtask | provider tests |
 | RE-E2 | edge | pathname change | navigation | `setScreenName` called | router tests |
 
+### 6.2 Playwright E2E (`examples/ecommerce-demo/e2e/`)
+
+**`@M15`** PulseProvider / PulseErrorBoundary / `useRouterTracking` / StrictMode / `skipInitial` / `react.component_stack` — full titles in [`../../sdk-core/test-coverage/SPEC.md`](../../sdk-core/test-coverage/SPEC.md) §6.3.
+
 ### Vitest
 - `src/__tests__/use-router-tracking.test.tsx` — pathname transitions → `setScreenName`.
 

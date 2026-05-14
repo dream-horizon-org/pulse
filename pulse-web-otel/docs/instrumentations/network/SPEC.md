@@ -140,6 +140,10 @@ flowchart TD
 | N-E2 | edge | SSR | install | no-op | `network-instrumentation.test.ts` |
 | N-E3 | edge | uninstall | new request | not traced | **gap** — double-uninstall idempotency covered in `network-instrumentation.test.ts`; no assertion yet that a fetch after uninstall stays untraced |
 
+### 6.2 Playwright E2E (`examples/ecommerce-demo/e2e/`)
+
+Master index: [`../../sdk-core/test-coverage/SPEC.md`](../../sdk-core/test-coverage/SPEC.md) §6.3 — **`@M4 network e2e`**: Network Lab (GET 200, XHR timeout/abort, 404), contract rows P1–P5, OTLP URL exclusion P5, gate G1, error taxonomy E1–E5, local disable E2, consent C1.
+
 ### `src/__tests__/network-instrumentation.test.ts` / `network-http.test.ts`
 
 - Ignore URL builder (collector excluded + custom patterns).

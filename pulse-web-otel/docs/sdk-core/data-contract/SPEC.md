@@ -133,6 +133,10 @@ Any new `pulse.type` or attribute key requires: **(1)** `semconv.ts` update, **(
 
 [`../test-coverage/SPEC.md`](../test-coverage/SPEC.md) — `m1.test.ts` (resource / global attrs), per-instrumentation SPECs for emitters.
 
+### 6.3 Playwright E2E traceability
+
+Contract attributes on exported OTLP payloads are asserted across **`@M1`–`@M4`**, **`@M2`**, **`@M3-*`**, **`@ScreenNav`**, **`@WebVitals`**, **`@M15`**, and CH suites — see [`../test-coverage/SPEC.md`](../test-coverage/SPEC.md) §6.3 for the authoritative title list.
+
 ---
 
 ## 7. Known Bugs & Gaps

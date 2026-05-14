@@ -87,6 +87,7 @@ Copy into chat or a scratch doc; set each row to **DONE** | **PARTIAL** | **MISS
 | 2026-05-14 | SPEC audit iter12 sdk-core topics | Do not conflate **`Pulse.init()`** (empty `apiKey` → warn + fulfilled promise, skips `validateConfig`) with **`validateConfig()`** (throws on missing `apiKey`) — matrix rows must name which entrypoint. |
 | 2026-05-14 | SPEC audit iter14 instrumentations | **§6.1 Tests** column: cite concrete **`src/__tests__/*.ts(x)`** paths or mark **`missing`** / **`gap`** — never substitute requirement ids (**SR3**, **R3**), prose-only refs (**assumptions §2**, **source comments**), or vague **“uninstall path”** without a file. |
 | 2026-05-14 | SPEC audit iter14 react-integration | **`pulse-router-events.test.tsx`** exercises **Next** `integrations/next/PulseRouterEvents`; **`react-integration`** SPEC matrix must point **`react/router`** coverage at **`use-router-tracking.test.tsx`** (or a dedicated React test), not the Next file. |
+| 2026-05-14 | E2E catalogue sweep (`docs/sdk-core/test-coverage/SPEC.md` §6.4) | **`examples/nextjs-demo/e2e`** proves App Router + errors + CH subset only — treat **`screen.name` on logs** vs **`screen_load`/`screen_session` spans** as an explicit parity gap until Next Playwright waits on trace spans; port **`@M1`/`@M4`/`@WebVitals`/`@M2`** groups or document **won’t E2E**. |
 
 *(Append new rows at the bottom; do not delete history without archival note.)*
 

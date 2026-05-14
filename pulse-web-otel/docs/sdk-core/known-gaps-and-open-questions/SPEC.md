@@ -97,6 +97,10 @@ Open questions are **unresolved product decisions**; P-items are **known defects
 
 **N/A** as a separate suite — regressions for closed gaps live under [`../test-coverage/SPEC.md`](../test-coverage/SPEC.md) and per-instrumentation SPECs.
 
+### 6.3 Playwright E2E traceability
+
+Closing a gap that affects exported telemetry should add or extend a Playwright title under `examples/ecommerce-demo/e2e/` (and mirror in `nextjs-demo` when framework-specific). Master list: [`../test-coverage/SPEC.md`](../test-coverage/SPEC.md) §6.3–§6.5.
+
 ---
 
 ## 7. Known Bugs & Gaps

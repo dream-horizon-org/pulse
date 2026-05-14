@@ -144,6 +144,10 @@ flowchart TD
 | W-E2 | edge | BFCache restore | pageshow persisted | `forceFlush` | R4 |
 | W-E3 | edge | uninstall | metric event | no emit | same |
 
+### 6.2 Playwright E2E (`examples/ecommerce-demo/e2e/`)
+
+Master index: [`../../sdk-core/test-coverage/SPEC.md`](../../sdk-core/test-coverage/SPEC.md) §6.3 — **`@WebVitals`**: TTFB, FCP, LCP, INP (tab hide), FID (Chromium), CLS; SPA flush + `screen.name`; feature gate off.
+
 ### `src/__tests__/web-vitals-instrumentation.test.ts`
 
 - Registers `onLCP`, `onINP`, `onCLS`, `onFID`, `onFCP`, `onTTFB`.

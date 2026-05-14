@@ -195,6 +195,10 @@ Interactions depend on clicks + navigation being active; `InteractionFeature` is
 
 [`../test-coverage/SPEC.md`](../test-coverage/SPEC.md) — `sdk-lifecycle.test.ts`, `m8.test.ts` (pagehide), `integration-simplified-init.test.ts`.
 
+### 6.3 Playwright E2E traceability
+
+Init idempotency, shutdown, pagehide flush, and BFCache behaviour: **`@M1`**, **`@M8`** in [`../test-coverage/SPEC.md`](../test-coverage/SPEC.md) §6.3.
+
 ---
 
 ## 7. Known Bugs & Gaps

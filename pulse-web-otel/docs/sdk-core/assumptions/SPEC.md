@@ -112,6 +112,10 @@ Bootstrap shape: [`../architecture-and-bootstrap/SPEC.md`](../architecture-and-b
 
 Assumptions are validated indirectly via [`../test-coverage/SPEC.md`](../test-coverage/SPEC.md) (SSR abort, consent no-op, `localStorage` usage in integration tests).
 
+### 6.3 Playwright E2E traceability
+
+Browser-facing assumptions (storage, consent, batching, BFCache) are additionally covered by **`@M1` / `@M8`** and related groups in [`../test-coverage/SPEC.md`](../test-coverage/SPEC.md) §6.3. **Gap:** `AS-E1` (localStorage throws) — still **missing** dedicated Vitest; ecommerce E2E does cover storage fallback paths under `@M1 identity persistence`.
+
 ---
 
 ## 7. Known Bugs & Gaps

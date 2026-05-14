@@ -142,6 +142,10 @@ Requirements trace to modules in [`../architecture-and-bootstrap/SPEC.md`](../ar
 
 See [`../test-coverage/SPEC.md`](../test-coverage/SPEC.md).
 
+### 6.3 Playwright E2E traceability
+
+Requirement-level spot checks for session, errors, gates, and persistence appear under **`@M1`–`@M4`**, **`@M2`**, **`@M3-*`**, **`@M8`** — title catalogue [`../test-coverage/SPEC.md`](../test-coverage/SPEC.md) §6.3.
+
 ---
 
 ## 7. Known Bugs & Gaps

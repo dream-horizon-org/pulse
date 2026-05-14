@@ -132,7 +132,17 @@ flowchart TD
 - `src/integrations/next/use-next-pages-router-tracking.test.tsx`
 - `src/integrations/next-config/with-pulse-config.test.ts`
 
+### 6.2 Playwright E2E (`examples/nextjs-demo/e2e/`)
+
+**Mock OTLP** (`nextjs-demo.spec.ts`): session.start on first load; `platform=web` resource; stable `session.id` across App Router navigations; `screen.name` on logs after `/` → `/products` → `/cart` hops; `PulseErrorBoundary` → `device.crash`; `reportException` → `non_fatal`; `reportDeviceCrash` → `device.crash`; `session.id` on error logs.
+
+**ClickHouse** (`nextjs-demo.ch.spec.ts`): same flows asserted in `otel_logs` / crash tables when CH env is configured.
+
+**Parity vs React ecommerce harness:** Session lifecycle depth (BFCache, batching, consent matrix, metering headers, installation persistence), **navigation spans** (`screen_load` / `screen_session`), web vitals, network, interactions, and clicks are **not** replayed in the Next demo — see [`../../sdk-core/test-coverage/SPEC.md`](../../sdk-core/test-coverage/SPEC.md) §6.4–§6.5 for the explicit gap table and recommended follow-ups.
+
 ---
+
+## 7. Known Bugs & Gaps
 
 ### P0:
 

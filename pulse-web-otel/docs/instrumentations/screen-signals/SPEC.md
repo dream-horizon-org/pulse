@@ -184,7 +184,13 @@ flowchart TD
 
 ### `examples/ecommerce-demo/e2e/screen-navigation.spec.ts`
 
-- Playwright OTLP capture: **`waitForSpan("screen_load" | "screen_session")`**, **`findAllSpans`**, gate-off asserts zero **`screen_load`** spans.
+Playwright OTLP capture: **`waitForSpan("screen_load" | "screen_session")`**, **`findAllSpans`**, gate-off asserts zero **`screen_load`** spans.
+
+### 6.2 Playwright E2E scenario titles (`@ScreenNav`)
+
+Full index: [`../../sdk-core/test-coverage/SPEC.md`](../../sdk-core/test-coverage/SPEC.md) §6.3 — **initial load** (`screen_load`, `start.type`, optional TTI); **SPA** (`screen_session`, post-nav `screen_load` + `spa` start.type, repeated navigations, product detail); **feature gate** on/off; **screen.name** / **url.path** / **session** attrs / **pulse.type** / numeric **session.duration**.
+
+**Next.js demo:** App Router navigations assert **`screen.name` on log records** (not span-level `screen_load`/`screen_session` waits) — parity gap vs this SPEC’s primary ecommerce harness; see [`../nextjs-integration/SPEC.md`](../nextjs-integration/SPEC.md) §6.2.
 
 ---
 

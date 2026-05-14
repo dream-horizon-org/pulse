@@ -108,6 +108,10 @@ Protobuf default for bandwidth; `export.format: "json"` switches OTLP JSON encod
 
 [`../test-coverage/SPEC.md`](../test-coverage/SPEC.md) — `integration-simplified-init.test.ts`, [`../../../src/__tests__/drain-buffered-exports.test.ts`](../../../src/__tests__/drain-buffered-exports.test.ts), [`../../../src/__tests__/before-send-exporter.test.ts`](../../../src/__tests__/before-send-exporter.test.ts), persistence / beacon tests as listed there.
 
+### 6.3 Playwright E2E traceability
+
+Batching, `pagehide` flush, `X-Pulse-Metering-Session-ID`, and OTLP wire shape: **`@M1 batching`**, **`@M1 OTLP pipeline`**, **`@M1 signal headers`**, **`@M8`** — [`../test-coverage/SPEC.md`](../test-coverage/SPEC.md) §6.3.
+
 ---
 
 ## 7. Known Bugs & Gaps

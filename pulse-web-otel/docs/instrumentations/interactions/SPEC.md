@@ -132,6 +132,10 @@ flowchart TD
 | INT-E1 | edge | config fetch fails | runtime | matcher idle / definitions empty | **gap** — document in open questions |
 | INT-E2 | edge | uninstall | pending partial | no leak | coordinator tests |
 
+### 6.2 Playwright E2E (`examples/ecommerce-demo/e2e/`)
+
+Master index: [`../../sdk-core/test-coverage/SPEC.md`](../../sdk-core/test-coverage/SPEC.md) §6.3 — **`@M2 interactions e2e`** + **`@M2 interactions edge cases`**: happy paths (1/2/3-event), timeouts, sequence violations, blacklist (global/local), apdex tiers, overlapping configs, out-of-order timestamps, config fetch unavailable (no span, SDK alive), property-operator matrix, user id mid-flow, shared-prefix branching, plus exploratory middle-step behaviour.
+
 ### Files (each exercises scenarios described in filename):
 
 1. `src/__tests__/interaction-feature.test.ts`

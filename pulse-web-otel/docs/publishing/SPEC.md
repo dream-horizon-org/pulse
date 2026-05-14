@@ -95,6 +95,7 @@ Do not duplicate integration recipes here. Point to [`../instrumentations/integr
 | Local gates | Scripts above; `attw` red on `node10` for subpaths may be acceptable per quickstart — red on `node16`/`bundler` is not. |
 | Tarball | `npm pack --dry-run` matches expected file list. |
 | Post-publish | Optional smoke: temp project `npm install @dreamhorizonorg/pulse-web@<tag>` and `require`/`import` entrypoints (see long guide §8). |
+| Runtime E2E (workspace) | After SDK changes, `pulse-web-otel` Playwright harnesses under `examples/ecommerce-demo/e2e/` and `examples/nextjs-demo/e2e/` — catalogue [`../sdk-core/test-coverage/SPEC.md`](../sdk-core/test-coverage/SPEC.md) §6.3. |
 
 ---
 

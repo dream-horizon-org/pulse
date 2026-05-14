@@ -132,6 +132,10 @@ Public config types re-export from `src/index.ts` as needed for host TS; authori
 
 [`../test-coverage/SPEC.md`](../test-coverage/SPEC.md) — `sdk-lifecycle.test.ts` (denied/pending), `integration-simplified-init.test.ts`.
 
+### 6.3 Playwright E2E traceability
+
+Consent / `PENDING` / `DENIED` OTLP silence: **`@M1 consent`**, **`@M3-errors gate and consent`**, **`@M4` C1**, and related rows in [`../test-coverage/SPEC.md`](../test-coverage/SPEC.md) §6.3.
+
 ---
 
 ## 7. Known Bugs & Gaps

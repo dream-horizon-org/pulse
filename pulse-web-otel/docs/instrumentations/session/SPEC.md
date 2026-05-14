@@ -113,6 +113,10 @@ Subscribes to `SessionProvider` events and emits OTLP logs with semconv keys (`P
 - [`../../sdk-core/test-coverage/SPEC.md`](../../sdk-core/test-coverage/SPEC.md) §5.3 — `m1.test.ts` (`SessionProvider`, `SessionInstrumentation`).
 - `src/__tests__/session-persistence.test.ts`, `src/__tests__/session-sampling-rate.test.ts` — session persistence / sampling behaviour.
 
+### 6.3 Playwright E2E (`examples/ecommerce-demo/e2e/`)
+
+Session lifecycle, identity, batching, BFCache, Area 3 rotation/clone/reload, consent, and metering are covered under **`@M1`** / **`@M8`** in [`../../sdk-core/test-coverage/SPEC.md`](../../sdk-core/test-coverage/SPEC.md) §6.3. **Next.js demo:** session.start + stable `session.id` across App Router navigations only (`examples/nextjs-demo/e2e/`) — see same §6.4 parity matrix.
+
 ---
 
 ## 7. Known Bugs & Gaps
