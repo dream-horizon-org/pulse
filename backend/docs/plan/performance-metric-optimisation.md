@@ -36,11 +36,8 @@ response shape, by:
 - (A) Materialising the hot map / array reads as native columns on
 `otel.otel_traces_local`, so the heavy `Map` and `Array` columns are no
 longer touched by this query.
-- (B) Pushing the order-key predicates into `PREWHERE` so granules are
+- (B) Pushing the order-key predicates into `PREWHERE` so granules are  
 pruned before any wide column is read.
-
-A daily aggregating materialised view is **explicitly out of scope** for
-this round; we will measure (A)+(B) first and decide MV separately.
 
 ---
 
