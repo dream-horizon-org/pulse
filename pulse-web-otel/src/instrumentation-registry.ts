@@ -1,6 +1,6 @@
 // M1: InstrumentationRegistry — holds all Instrumentation instances,
 // calls installAll() during SDK.init() and uninstallAll() during shutdown().
-// See: docs/instrumentations/sdk-core/SPEC.md
+// See: docs/sdk-core/architecture-and-bootstrap/SPEC.md (registry)
 
 import { diag } from "@opentelemetry/api";
 

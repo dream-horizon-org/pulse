@@ -191,6 +191,6 @@ yarn workspace ecommerce-demo e2e:web-sdk-gates
 
 - **PRDs (planning):** [`docs/prd/README.md`](docs/prd/README.md) — feature PRDs under `docs/prd/`; `PRD.md` in that folder symlinks to the active Ralph PRD when applicable
 - **Integration entry:** [`docs/instrumentations/integration/SPEC.md`](docs/instrumentations/integration/SPEC.md)
-- **SDK core:** [`docs/instrumentations/sdk-core/SPEC.md`](docs/instrumentations/sdk-core/SPEC.md)
+- **SDK core:** [`docs/sdk-core/SPEC.md`](docs/sdk-core/SPEC.md) — topic SPECs under `docs/sdk-core/<topic>/SPEC.md` (e.g. [`data-contract/SPEC.md`](docs/sdk-core/data-contract/SPEC.md), [`architecture-and-bootstrap/SPEC.md`](docs/sdk-core/architecture-and-bootstrap/SPEC.md)); **session:** [`docs/instrumentations/session/SPEC.md`](docs/instrumentations/session/SPEC.md)
 - **Per-feature specs:** [`docs/instrumentations/`](docs/instrumentations/)
 - **Publishing (maintainers):** [`docs/publishing/SPEC.md`](docs/publishing/SPEC.md) · [`docs/publishing/QUICKSTART.md`](docs/publishing/QUICKSTART.md) · [`docs/publishing/PUBLISHING.md`](docs/publishing/PUBLISHING.md)
