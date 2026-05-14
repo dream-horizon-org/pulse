@@ -57,4 +57,4 @@ When both match a `.ts`/`.tsx` file, **conventions** win for implementation deta
 
 ## Progress tracking (optional)
 
-- **`pulse-web-otel/web-sdk-plan/v1/MILESTONES.md`**.
+- **`pulse-web-otel/docs/sdk-core/SPEC.md`** (spec index); **`pulse-web-otel/CLAUDE.md`** (package manual).
