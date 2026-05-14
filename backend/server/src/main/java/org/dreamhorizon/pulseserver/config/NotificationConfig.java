@@ -1,6 +1,8 @@
 package org.dreamhorizon.pulseserver.config;
 
 import com.google.inject.Singleton;
+import java.util.List;
+import java.util.Map;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -155,6 +157,16 @@ public class NotificationConfig {
   public static class GrafanaAlertsConfig {
     private String slackChannelId;
     private String fallbackSlackChannelId;
+    private List<GrafanaRouteConfig> routes;
+  }
+
+  @Data
+  @NoArgsConstructor
+  @AllArgsConstructor
+  public static class GrafanaRouteConfig {
+    private String name;
+    private Map<String, String> matchers;
+    private String slackChannelId;
   }
 
   @Data

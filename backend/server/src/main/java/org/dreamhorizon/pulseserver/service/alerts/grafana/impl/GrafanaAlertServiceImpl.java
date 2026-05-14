@@ -69,7 +69,7 @@ public class GrafanaAlertServiceImpl implements GrafanaAlertService {
   }
 
   private Completable sendOneAlert(String mention, GrafanaAlert alert) {
-    String channel = resolveChannel();
+    String channel = resolveChannelForAlert(alert);
     String botToken = resolveBotToken();
     if (channel == null || channel.isBlank() || botToken == null || botToken.isBlank()) {
       log.error("Slack channel or bot token not configured; cannot post alert");
@@ -128,6 +128,33 @@ public class GrafanaAlertServiceImpl implements GrafanaAlertService {
   private NotificationConfig.GrafanaAlertsConfig grafanaConfig() {
     NotificationConfig.AlertsConfig alerts = notificationConfig.getAlertsConfig();
     return alerts != null ? alerts.getGrafana() : null;
+  }
+
+  private String resolveChannelForAlert(GrafanaAlert alert) {
+    NotificationConfig.GrafanaAlertsConfig grafana = grafanaConfig();
+    if (grafana == null) {
+      return null;
+    }
+    List<NotificationConfig.GrafanaRouteConfig> routes = grafana.getRoutes();
+    Map<String, String> labels = alert.getLabels();
+    if (routes != null && !routes.isEmpty() && labels != null) {
+      for (NotificationConfig.GrafanaRouteConfig route : routes) {
+        if (matchesRoute(labels, route.getMatchers())) {
+          log.debug("Alert matched route '{}' -> channel {}", route.getName(),
+              route.getSlackChannelId());
+          return route.getSlackChannelId();
+        }
+      }
+    }
+    return grafana.getSlackChannelId();
+  }
+
+  private boolean matchesRoute(Map<String, String> labels, Map<String, String> matchers) {
+    if (matchers == null || matchers.isEmpty()) {
+      return false;
+    }
+    return matchers.entrySet().stream()
+        .allMatch(entry -> entry.getValue().equals(labels.get(entry.getKey())));
   }
 
   private String resolveChannel() {

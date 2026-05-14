@@ -277,4 +277,109 @@ class GrafanaAlertServiceImplTest {
 
     verify(slackPoster).postMessage(eq(ALERTS_CHANNEL), anyString(), anyString());
   }
+
+  // ---------- label-based routing ----------
+
+  private static final String SPM_CHANNEL = "C_SPM";
+  private static final String OPERATOR_CHANNEL = "C_OPS";
+
+  private void configureRoutes() {
+    NotificationConfig.GrafanaRouteConfig spmRoute = new NotificationConfig.GrafanaRouteConfig();
+    spmRoute.setName("spm-alerts");
+    spmRoute.setMatchers(Map.of("severity", "spm"));
+    spmRoute.setSlackChannelId(SPM_CHANNEL);
+
+    NotificationConfig.GrafanaRouteConfig opsRoute = new NotificationConfig.GrafanaRouteConfig();
+    opsRoute.setName("operator-alerts");
+    opsRoute.setMatchers(Map.of("severity", "operator"));
+    opsRoute.setSlackChannelId(OPERATOR_CHANNEL);
+
+    notificationConfig.getAlerts().getGrafana().setRoutes(List.of(spmRoute, opsRoute));
+  }
+
+  @Test
+  void shouldRouteSpmAlertToSpmChannel() {
+    configureRoutes();
+    GrafanaWebhookRequest req = GrafanaWebhookRequest.builder()
+        .status("firing")
+        .alerts(List.of(GrafanaAlert.builder()
+            .status("firing")
+            .labels(Map.of("alertname", "HighLatency", "severity", "spm"))
+            .annotations(Map.of("summary", "latency high"))
+            .build()))
+        .build();
+
+    service.handleAlert(req).blockingAwait();
+
+    verify(slackPoster).postMessage(eq(SPM_CHANNEL), eq(BOT_TOKEN), anyString());
+  }
+
+  @Test
+  void shouldRouteOperatorAlertToOperatorChannel() {
+    configureRoutes();
+    GrafanaWebhookRequest req = GrafanaWebhookRequest.builder()
+        .status("firing")
+        .alerts(List.of(GrafanaAlert.builder()
+            .status("firing")
+            .labels(Map.of("alertname", "DiskFull", "severity", "operator"))
+            .annotations(Map.of("summary", "disk 95%"))
+            .build()))
+        .build();
+
+    service.handleAlert(req).blockingAwait();
+
+    verify(slackPoster).postMessage(eq(OPERATOR_CHANNEL), eq(BOT_TOKEN), anyString());
+  }
+
+  @Test
+  void shouldFallBackToDefaultChannelWhenNoRouteMatches() {
+    configureRoutes();
+    GrafanaWebhookRequest req = GrafanaWebhookRequest.builder()
+        .status("firing")
+        .alerts(List.of(GrafanaAlert.builder()
+            .status("firing")
+            .labels(Map.of("alertname", "Unknown", "severity", "critical"))
+            .annotations(Map.of("summary", "something"))
+            .build()))
+        .build();
+
+    service.handleAlert(req).blockingAwait();
+
+    verify(slackPoster).postMessage(eq(ALERTS_CHANNEL), eq(BOT_TOKEN), anyString());
+  }
+
+  @Test
+  void shouldFallBackToDefaultChannelWhenLabelsNull() {
+    configureRoutes();
+    GrafanaWebhookRequest req = GrafanaWebhookRequest.builder()
+        .status("firing")
+        .alerts(List.of(GrafanaAlert.builder()
+            .status("firing")
+            .build()))
+        .build();
+
+    service.handleAlert(req).blockingAwait();
+
+    verify(slackPoster).postMessage(eq(ALERTS_CHANNEL), eq(BOT_TOKEN), anyString());
+  }
+
+  @Test
+  void shouldRouteMultipleAlertsToRespectiveChannels() {
+    configureRoutes();
+    GrafanaWebhookRequest req = GrafanaWebhookRequest.builder()
+        .status("firing")
+        .alerts(List.of(
+            GrafanaAlert.builder().status("firing")
+                .labels(Map.of("alertname", "A", "severity", "spm"))
+                .annotations(Map.of("summary", "s")).build(),
+            GrafanaAlert.builder().status("firing")
+                .labels(Map.of("alertname", "B", "severity", "operator"))
+                .annotations(Map.of("summary", "s")).build()))
+        .build();
+
+    service.handleAlert(req).blockingAwait();
+
+    verify(slackPoster).postMessage(eq(SPM_CHANNEL), eq(BOT_TOKEN), anyString());
+    verify(slackPoster).postMessage(eq(OPERATOR_CHANNEL), eq(BOT_TOKEN), anyString());
+  }
 }
