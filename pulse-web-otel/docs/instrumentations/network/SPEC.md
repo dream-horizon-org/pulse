@@ -175,7 +175,7 @@ Even if a header name appears in `capturedRequestHeaders` or `capturedResponseHe
 | D1  | `error.type`              | Set: `network_error`, `cors_error`, `4xx`, `5xx`                 | **Not set** — Android only sets `pulse.type`. Dashboard filters on `error.type` are web-only.                                                                 |
 | D2  | URL path normalization    | **Not done** — raw paths with UUIDs/IDs go into `url.full` as-is | `PulseNetworkingUtils.redactUrl` normalizes UUID, numeric IDs ≥ 3 digits, ULIDs, git hashes → `[redacted]`. High ClickHouse cardinality risk on web at scale. |
 | D3  | Request header capture    | Fetch only (browser limitation)                                  | OkHttp interceptor has full request + response header access                                                                                                  |
-| D4  | Non-standard HTTP methods | Passed through as-is (`PURGE`, `PROPFIND`, etc.)                 | OkHttp maps to `_OTHER` + `http.request.method_original` per OTel semconv. Web fix is deferred (see ISS-N14).                                                 |
+| D4  | Non-standard HTTP methods | ✅ **Fixed** — unknown methods map to `http.request.method = "_OTHER"` + `http.request.method_original = <original>` via `KNOWN_HTTP_METHODS` check in `network-http.ts` | OkHttp maps to `_OTHER` via upstream OTel `HttpConstants.KNOWN_METHODS`. Both platforms now compliant. |
 
 
 ---
@@ -194,9 +194,9 @@ Even if a header name appears in `capturedRequestHeaders` or `capturedResponseHe
 
 `src/__tests__/network-http.test.ts`:
 
-- `applyPulseHttpClientSpanAttributes`: method, status codes, `pulse.type` pattern, CORS error, `4xx`/`5xx` error types, URL sanitization, request body size
+- `applyPulseHttpClientSpanAttributes`: method, status codes, `pulse.type` pattern, CORS error, `4xx`/`5xx` error types, URL sanitization, request body size, non-standard method → `_OTHER`
 - `sanitizeHttpUrl`: query stripping, sensitive param redaction, credential stripping
-- `buildNetworkIgnoreUrls`: OTLP prefix, local dev REST port, custom blocked URLs
+- `buildNetworkIgnoreUrls`: OTLP prefix, local dev REST port, custom blocked URLs — **tests in `network-http.test.ts`**
 - `extractGraphQlMeta`: named query, operation type parsing
 
 ### 9.2 E2E (Playwright, `@M4 network e2e`)
@@ -212,17 +212,17 @@ Even if a header name appears in `capturedRequestHeaders` or `capturedResponseHe
 ### 9.3 Known test gaps (tracked in `REVIEW_Errors-Web-vitals-Network.md`)
 
 
-| ID      | What is missing                                                                                |
-| ------- | ---------------------------------------------------------------------------------------------- |
-| ISS-N03 | No unit test for XHR `applyCustomAttributesOnSpan` callback                                    |
-| ISS-N04 | No unit test for `http.response.body.size` from `Content-Length`                               |
-| ISS-N05 | `extractGraphQlMeta`: mutation, subscription, anonymous, overflow, invalid JSON cases untested |
-| ISS-N06 | No E2E for `captureQueryParams: true` + sensitive param redaction                              |
-| ISS-N07 | No E2E for `blockedUrls` config                                                                |
-| ISS-N08 | No E2E for `peerServiceMap` → `peer.service`                                                   |
-| ISS-N09 | No E2E or unit test for `propagateTraceHeaderCorsUrls` actually injecting `traceparent`        |
-| ISS-N10 | No test that a fetch after `uninstall()` produces zero spans                                   |
-| ISS-N11 | No test for `readyState < DONE` guard on XHR                                                   |
+| ID          | What is missing                                                                                |
+| ----------- | ---------------------------------------------------------------------------------------------- |
+| ~~ISS-N03~~ | ~~No unit test for XHR `applyCustomAttributesOnSpan` callback~~ — **fixed** in `network-instrumentation.test.ts` |
+| ~~ISS-N04~~ | ~~No unit test for `http.response.body.size` from `Content-Length`~~ — **fixed** in `network-http.test.ts` |
+| ~~ISS-N05~~ | ~~`extractGraphQlMeta` missing cases~~ — **fixed**: mutation, subscription, anonymous, overflow, invalid JSON all covered in `network-http.test.ts` |
+| ~~ISS-N06~~ | ~~No E2E for `captureQueryParams: true`~~ — **fixed** in `m4-network.spec.ts` (ISS-N06) |
+| ~~ISS-N07~~ | ~~No E2E for `blockedUrls` config~~ — **fixed** in `m4-network.spec.ts` (ISS-N07) |
+| ~~ISS-N08~~ | ~~No E2E for `peerServiceMap` → `peer.service`~~ — **fixed** in `m4-network.spec.ts` (ISS-N08) |
+| ~~ISS-N09~~ | ~~No E2E for `propagateTraceHeaderCorsUrls`~~ — **fixed** in `m4-network.spec.ts` (ISS-N09); Playwright route intercept asserts `traceparent` header present |
+| ~~ISS-N10~~ | ~~No test that uninstall disables instrumentations~~ — **fixed** in `network-instrumentation.test.ts`; asserts `disable()` called once on both Fetch + XHR |
+| ~~ISS-N11~~ | ~~No test for `readyState < DONE` guard on XHR~~ — **fixed** in `network-instrumentation.test.ts` |
 
 
 ---
@@ -232,9 +232,9 @@ Even if a header name appears in `capturedRequestHeaders` or `capturedResponseHe
 
 | ID      | Area            | Summary                                                                                                    |
 | ------- | --------------- | ---------------------------------------------------------------------------------------------------------- |
-| ISS-N02 | Bug             | `capturedRequestHeaders` silently no-ops for XHR — no warning emitted                                      |
-| ISS-N14 | Deferred        | Non-standard HTTP methods not mapped to `_OTHER` + `http.request.method_original` (OTel semconv violation) |
-| ISS-N12 | Decision needed | URL path segment normalization for ClickHouse cardinality (Android has it; web does not)                   |
+| ISS-N02 | Bug             | `capturedRequestHeaders` silently no-ops for XHR — no warning emitted                                    |
+| ~~ISS-N14~~ | ~~Fixed~~ | ~~Non-standard HTTP methods not mapped to `_OTHER` + `http.request.method_original`~~ — **implemented** in `network-http.ts`; unit test still thin (one `PURGE` case needed) |
+| ISS-N12 | Decision needed | URL path segment normalization for ClickHouse cardinality (Android has it; web does not)                  |
 
 
 ---

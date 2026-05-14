@@ -49,9 +49,34 @@ function useDemoUrlPulseOptions(): Pick<
     const networkOff =
       q.get("pulse_network_enabled") === "0" ||
       q.get("pulse_network_enabled") === "false";
+
+    const captureQueryParams = q.get("pulse_capture_query") === "1";
+    const blockedUrlParam = q.get("pulse_blocked_url");
+    const peerHost = q.get("pulse_peer_host");
+    const peerService = q.get("pulse_peer_service");
+    const propagateCors = q.get("pulse_propagate_cors");
+
     let instrumentations: InstrumentationConfig | undefined;
-    if (networkOff) {
-      instrumentations = { network: { enabled: false } };
+    if (
+      networkOff ||
+      captureQueryParams ||
+      blockedUrlParam ||
+      (peerHost && peerService) ||
+      propagateCors
+    ) {
+      instrumentations = {
+        network: {
+          enabled: !networkOff,
+          ...(captureQueryParams ? { captureQueryParams: true } : {}),
+          ...(blockedUrlParam ? { blockedUrls: [blockedUrlParam] } : {}),
+          ...(peerHost && peerService
+            ? { peerServiceMap: { [peerHost]: peerService } }
+            : {}),
+          ...(propagateCors
+            ? { propagateTraceHeaderCorsUrls: [propagateCors] }
+            : {}),
+        },
+      };
     }
 
     const logLevelRaw = (

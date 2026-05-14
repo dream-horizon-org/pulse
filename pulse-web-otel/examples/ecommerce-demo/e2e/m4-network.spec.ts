@@ -579,6 +579,129 @@ test.describe("@M4 network e2e", () => {
     expect(findAllNetworkSpans(otlp.captured)).toHaveLength(0);
   });
 
+  // ISS-N06: captureQueryParams: true — non-sensitive params kept, sensitive params redacted
+  test("ISS-N06: captureQueryParams=true keeps non-sensitive params, redacts sensitive ones", async ({
+    page,
+    otlp,
+  }) => {
+    await page.route(
+      (url) => url.pathname.includes("/pulse-e2e-network/query-params"),
+      async (route) => {
+        await route.fulfill({ status: 200, body: "{}" });
+      },
+    );
+
+    await page.goto("/?pulse_capture_query=1");
+    await waitForPulseInitialized(page);
+    await otlp.waitForLog("session.start", 15_000);
+    otlp.reset();
+
+    await page.evaluate(async () => {
+      await fetch(
+        "/pulse-e2e-network/query-params?q=hello&token=supersecret",
+      );
+    });
+    await flushTraceExport(page);
+
+    const span = await pollProbeHttpSpan(otlp, "query-params");
+    const full = String(getAttr(span.attributes, "url.full") ?? "");
+
+    expect(full).toContain("q=hello");
+    expect(full).toContain("token=");
+    expect(full).toContain("***");
+    expect(full).not.toContain("supersecret");
+  });
+
+  // ISS-N07: blockedUrls — fetch to blocked URL produces no span
+  test("ISS-N07: blockedUrls config prevents network span for matching URL", async ({
+    page,
+    otlp,
+  }) => {
+    await page.route(
+      (url) => url.pathname.includes("/pulse-e2e-blocked/"),
+      async (route) => {
+        await route.fulfill({ status: 200, body: "{}" });
+      },
+    );
+
+    await page.goto("/?pulse_blocked_url=%2Fpulse-e2e-blocked%2F");
+    await waitForPulseInitialized(page);
+    await otlp.waitForLog("session.start", 15_000);
+    otlp.reset();
+
+    await page.evaluate(async () => {
+      await fetch("/pulse-e2e-blocked/data");
+    });
+    await flushTraceExport(page);
+
+    const blocked = findAllNetworkSpans(otlp.captured).filter((s) =>
+      String(getAttr(s.attributes, "url.full") ?? "").includes(
+        "pulse-e2e-blocked",
+      ),
+    );
+    expect(blocked).toHaveLength(0);
+  });
+
+  // ISS-N08: peerServiceMap — peer.service attribute on matching host span
+  test("ISS-N08: peerServiceMap sets peer.service on spans for matching host", async ({
+    page,
+    otlp,
+  }) => {
+    await page.route(
+      (url) => url.pathname.includes("/pulse-e2e-network/peer-probe"),
+      async (route) => {
+        await route.fulfill({ status: 200, body: "{}" });
+      },
+    );
+
+    await page.goto(
+      "/?pulse_peer_host=localhost&pulse_peer_service=my-catalogue-service",
+    );
+    await waitForPulseInitialized(page);
+    await otlp.waitForLog("session.start", 15_000);
+    otlp.reset();
+
+    await page.evaluate(async () => {
+      await fetch("/pulse-e2e-network/peer-probe");
+    });
+    await flushTraceExport(page);
+
+    const span = await pollProbeHttpSpan(otlp, "peer-probe");
+    expect(getAttr(span.attributes, "peer.service")).toBe(
+      "my-catalogue-service",
+    );
+  });
+
+  // ISS-N09: propagateTraceHeaderCorsUrls — outgoing request carries traceparent header
+  test("ISS-N09: propagateTraceHeaderCorsUrls injects traceparent on matching host", async ({
+    page,
+    otlp,
+  }) => {
+    let capturedTraceparent: string | null = null;
+
+    await page.route(
+      (url) => url.pathname.includes("/pulse-e2e-network/trace-prop"),
+      async (route) => {
+        capturedTraceparent =
+          route.request().headers()["traceparent"] ?? null;
+        await route.fulfill({ status: 200, body: "{}" });
+      },
+    );
+
+    await page.goto("/?pulse_propagate_cors=http%3A%2F%2Flocalhost%3A3099");
+    await waitForPulseInitialized(page);
+    await otlp.waitForLog("session.start", 15_000);
+    otlp.reset();
+
+    await page.evaluate(async () => {
+      await fetch("/pulse-e2e-network/trace-prop");
+    });
+    await flushTraceExport(page);
+
+    expect(capturedTraceparent).toBeTruthy();
+    expect(capturedTraceparent).toMatch(/^00-[0-9a-f]{32}-[0-9a-f]{16}-\d{2}$/);
+  });
+
   test("C1: DENIED consent — no session.start, no network client spans", async ({
     page,
     otlp,

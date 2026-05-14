@@ -167,4 +167,72 @@ describe("NetworkInstrumentation", () => {
     instr.uninstall();
     expect(() => instr.uninstall()).not.toThrow();
   });
+
+  // ISS-N10: uninstall actually disables both instrumentations
+  it("uninstall calls disable on both Fetch and XHR instrumentations", () => {
+    const instr = new NetworkInstrumentation();
+    instr.install(makeSdk());
+    const fetchInstance = vi
+      .mocked(FetchInstrumentation)
+      .mock.results[0]?.value as { disable: ReturnType<typeof vi.fn> };
+    const xhrInstance = vi
+      .mocked(XMLHttpRequestInstrumentation)
+      .mock.results[0]?.value as { disable: ReturnType<typeof vi.fn> };
+
+    instr.uninstall();
+
+    expect(fetchInstance.disable).toHaveBeenCalledTimes(1);
+    expect(xhrInstance.disable).toHaveBeenCalledTimes(1);
+  });
+
+  // ISS-N03: XHR applyCustomAttributesOnSpan callback
+  it("XHR applyCustomAttributesOnSpan stamps pulse.type and method at readyState DONE", () => {
+    const instr = new NetworkInstrumentation();
+    instr.install(
+      makeSdk({
+        config: {
+          apiKey: "k",
+          dataCollectionState: PulseDataCollectionConsent.ALLOWED,
+          instrumentations: { network: { enabled: true } },
+        },
+      }),
+    );
+    const cb = xhrConfigs[0]?.applyCustomAttributesOnSpan;
+    expect(cb).toBeTypeOf("function");
+
+    const attrs: Record<string, unknown> = {};
+    const span = { setAttribute: vi.fn((k: string, v: unknown) => { attrs[k] = v; }), setStatus: vi.fn() };
+    const xhr = {
+      readyState: XMLHttpRequest.DONE,
+      status: 200,
+      responseURL: "https://api.example.com/items",
+      getResponseHeader: () => null,
+    };
+
+    cb!(span as unknown as Parameters<typeof cb>[0], xhr as unknown as Parameters<typeof cb>[1]);
+
+    expect(attrs["pulse.type"]).toBe("network.200");
+    expect(attrs["http.request.method"]).toBeTruthy();
+    expect(String(attrs["url.full"])).toContain("api.example.com");
+  });
+
+  // ISS-N11: readyState < DONE guard
+  it("XHR applyCustomAttributesOnSpan returns early when readyState is not DONE", () => {
+    const instr = new NetworkInstrumentation();
+    instr.install(makeSdk());
+    const cb = xhrConfigs[0]?.applyCustomAttributesOnSpan;
+    expect(cb).toBeTypeOf("function");
+
+    const span = { setAttribute: vi.fn(), setStatus: vi.fn() };
+    const xhr = {
+      readyState: 1,
+      status: 0,
+      responseURL: "",
+      getResponseHeader: () => null,
+    };
+
+    cb!(span as unknown as Parameters<typeof cb>[0], xhr as unknown as Parameters<typeof cb>[1]);
+
+    expect(span.setAttribute).not.toHaveBeenCalled();
+  });
 });

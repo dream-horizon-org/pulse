@@ -254,6 +254,111 @@ describe("network-http helpers", () => {
   });
 });
 
+// ISS-N04: http.response.body.size from Content-Length
+describe("applyPulseHttpClientSpanAttributes — response body size", () => {
+  it("sets http.response.body.size from Content-Length response header", () => {
+    const attrs: Record<string, unknown> = {};
+    const span = {
+      setAttribute: (k: string, v: string | number | boolean) => {
+        attrs[k] = v;
+      },
+      setStatus: vi.fn(),
+    } as unknown as Span;
+
+    applyPulseHttpClientSpanAttributes({
+      span,
+      resolvedUrl: "https://api.example.com/items",
+      method: "GET",
+      statusCode: 200,
+      privacy: { captureQueryParams: false },
+      optional: undefined,
+      responseHeaderGet: (name) =>
+        name.toLowerCase() === "content-length" ? "512" : null,
+    });
+
+    expect(attrs[PulseWebSemconv.AttributeKey.HTTP_RESPONSE_BODY_SIZE]).toBe(
+      512,
+    );
+  });
+
+  it("does not set http.response.body.size when Content-Length absent", () => {
+    const attrs: Record<string, unknown> = {};
+    const span = {
+      setAttribute: (k: string, v: string | number | boolean) => {
+        attrs[k] = v;
+      },
+      setStatus: vi.fn(),
+    } as unknown as Span;
+
+    applyPulseHttpClientSpanAttributes({
+      span,
+      resolvedUrl: "https://api.example.com/items",
+      method: "GET",
+      statusCode: 200,
+      privacy: { captureQueryParams: false },
+      optional: undefined,
+      responseHeaderGet: () => null,
+    });
+
+    expect(
+      attrs[PulseWebSemconv.AttributeKey.HTTP_RESPONSE_BODY_SIZE],
+    ).toBeUndefined();
+  });
+});
+
+// ISS-N05: extractGraphQlMeta missing cases
+describe("extractGraphQlMeta — full coverage", () => {
+  it("mutation with named operation", () => {
+    const m = extractGraphQlMeta(
+      JSON.stringify({ query: "mutation UpdateCart { updateCart { id } }" }),
+    );
+    expect(m.operationType).toBe("mutation");
+    expect(m.operationName).toBe("UpdateCart");
+  });
+
+  it("subscription with named operation", () => {
+    const m = extractGraphQlMeta(
+      JSON.stringify({
+        query: "subscription OnOrderUpdate { orderUpdate { id } }",
+      }),
+    );
+    expect(m.operationType).toBe("subscription");
+    expect(m.operationName).toBe("OnOrderUpdate");
+  });
+
+  it("anonymous query falls back to operationName JSON field", () => {
+    const m = extractGraphQlMeta(
+      JSON.stringify({
+        query: "query { products { id } }",
+        operationName: "MyAnonymousQuery",
+      }),
+    );
+    expect(m.operationType).toBe("query");
+    expect(m.operationName).toBe("MyAnonymousQuery");
+  });
+
+  it("body over 262144 bytes returns empty object", () => {
+    const oversized = JSON.stringify({
+      query: "query A { b }",
+      padding: "x".repeat(262_145),
+    });
+    expect(oversized.length).toBeGreaterThan(262_144);
+    const m = extractGraphQlMeta(oversized);
+    expect(m.operationType).toBeUndefined();
+    expect(m.operationName).toBeUndefined();
+  });
+
+  it("non-JSON string returns empty object", () => {
+    const m = extractGraphQlMeta("not json at all");
+    expect(m).toEqual({});
+  });
+
+  it("JSON without query key returns empty object", () => {
+    const m = extractGraphQlMeta(JSON.stringify({ operationName: "Foo" }));
+    expect(m).toEqual({});
+  });
+});
+
 describe("getOtelHttpUrlFromSpan", () => {
   it("prefers url.full over deprecated http.url when both exist", () => {
     const span = {
