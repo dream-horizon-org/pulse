@@ -21,7 +21,7 @@
     "test": "yarn --cwd ../.. vitest run --config examples/ecommerce-demo/vitest.config.ts examples/ecommerce-demo/src/__tests__"
   },
   "dependencies": {
-    "@dreamhorizonorg/pulse-web": "workspace:*",
+    "@dreamhorizonorg/pulse-web": "0.0.3",
     "react": "^18.3.0",
     "react-dom": "^18.3.0",
     "react-router-dom": "^6.26.0"
@@ -32,6 +32,6 @@
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.3.0",
     "typescript": "^5.6.0",
-    "vite": "^5.4.0"
+    "vite": "5.4.21"
   }
 }
