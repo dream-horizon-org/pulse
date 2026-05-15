@@ -1,6 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook } from "@testing-library/react";
-import { useNextAppRouterTracking } from "./useNextAppRouterTracking";
+import {
+  useNextAppRouterTracking,
+  resetNextAppRouterSkipInitialGateForTests,
+} from "./useNextAppRouterTracking";
 import { Pulse } from "../../sdk";
 
 vi.mock("next/navigation.js", () => ({
@@ -20,6 +23,7 @@ import { usePathname, useSearchParams } from "next/navigation.js";
 
 describe("useNextAppRouterTracking (Next.js App Router)", () => {
   beforeEach(() => {
+    resetNextAppRouterSkipInitialGateForTests();
     vi.clearAllMocks();
   });
 

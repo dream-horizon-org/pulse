@@ -102,7 +102,10 @@ function makeXhrLike(opts?: {
 
 function makeSpan(): {
   attrs: Record<string, unknown>;
-  span: { setAttribute: ReturnType<typeof vi.fn>; setStatus: ReturnType<typeof vi.fn> };
+  span: {
+    setAttribute: ReturnType<typeof vi.fn>;
+    setStatus: ReturnType<typeof vi.fn>;
+  };
 } {
   const attrs: Record<string, unknown> = {};
   const span = {
@@ -149,7 +152,9 @@ describe("XHR request header capture (WeakMap patch)", () => {
     cb!(span, xhr);
 
     expect(attrs["http.request.header.x-request-id"]).toEqual(["req-abc"]);
-    expect(attrs["http.request.header.content-type"]).toEqual(["application/json"]);
+    expect(attrs["http.request.header.content-type"]).toEqual([
+      "application/json",
+    ]);
   });
 
   it("headers NOT in capturedRequestHeaders do not appear on the span", () => {
@@ -300,5 +305,56 @@ describe("XHR request header capture (WeakMap patch)", () => {
     cb!(span, xhr);
 
     expect(attrs["http.request.header.x-request-id"]).toEqual(["casetest"]);
+  });
+
+  it("rolls back WeakMap and rethrows when native setRequestHeader throws (first header)", () => {
+    const base = XMLHttpRequest.prototype.setRequestHeader;
+    XMLHttpRequest.prototype.setRequestHeader = function throwAlways() {
+      throw new Error("native rejected header");
+    };
+
+    try {
+      instr.install(makeSdk(["X-Trace"]));
+      const xhr = new XMLHttpRequest();
+      xhr.open("GET", "https://api.example.com/items");
+      expect(() => xhr.setRequestHeader("X-Trace", "nope")).toThrow(
+        "native rejected header",
+      );
+      expect(xhrHeaderStore.has(xhr)).toBe(false);
+    } finally {
+      instr.uninstall();
+      XMLHttpRequest.prototype.setRequestHeader = base;
+    }
+  });
+
+  it("rolls back only the failed header when a later setRequestHeader throws", () => {
+    const base = XMLHttpRequest.prototype.setRequestHeader;
+    let nativeCalls = 0;
+    XMLHttpRequest.prototype.setRequestHeader = function (
+      this: XMLHttpRequest,
+      name: string,
+      value: string,
+    ) {
+      nativeCalls += 1;
+      if (nativeCalls === 2) {
+        throw new Error("second header invalid");
+      }
+      return base.call(this, name, value);
+    };
+
+    try {
+      instr.install(makeSdk(["X-First", "X-Second"]));
+      const xhr = new XMLHttpRequest();
+      xhr.open("GET", "https://api.example.com/items");
+      xhr.setRequestHeader("X-First", "ok");
+      expect(xhrHeaderStore.get(xhr)).toEqual({ "x-first": "ok" });
+      expect(() => xhr.setRequestHeader("X-Second", "bad")).toThrow(
+        "second header invalid",
+      );
+      expect(xhrHeaderStore.get(xhr)).toEqual({ "x-first": "ok" });
+    } finally {
+      instr.uninstall();
+      XMLHttpRequest.prototype.setRequestHeader = base;
+    }
   });
 });

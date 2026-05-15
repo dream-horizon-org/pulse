@@ -24,8 +24,17 @@ function getNetworkConnection(): NetworkConnection {
   return nav.connection ?? {};
 }
 
+/**
+ * Heuristics for path segments treated as dynamic IDs in **web** URL normalization
+ * (`sanitizeHttpUrl` → `normalizeUrlPath` in `network-http.ts`).
+ *
+ * **Android divergence:** Android `PulseNetworkingUtils.redactUrl` treats numeric
+ * segments as IDs only when they have **at least 3 digits**; web treats **any**
+ * all-digit segment (including `42`, `2024`) as `:id`. Documented in
+ * `docs/instrumentations/network/SPEC.md` §8 (D2, D5).
+ */
 export function isDynamicSegment(seg: string): boolean {
-  // Pure integers: 123, 456789
+  // Pure integers: 1, 42, 123, 2024 — web normalizes all (Android uses ≥3 digits).
   if (/^\d+$/.test(seg)) return true;
   // Standard UUID v4 (with dashes): 550e8400-e29b-41d4-a716-446655440000
   if (
