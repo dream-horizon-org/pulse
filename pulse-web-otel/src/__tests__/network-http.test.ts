@@ -666,9 +666,9 @@ describe("applyPulseHttpClientSpanAttributes", () => {
     });
 
     expect(attrs["http.request.header.authorization"]).toBeUndefined();
-    expect(attrs["http.request.header.x-request-id"]).toBe("req-123");
+    expect(attrs["http.request.header.x-request-id"]).toEqual(["req-123"]);
     expect(attrs["http.response.header.set-cookie"]).toBeUndefined();
-    expect(attrs["http.response.header.content-type"]).toBe("application/json");
+    expect(attrs["http.response.header.content-type"]).toEqual(["application/json"]);
   });
 
   it("status 0 (opaque / CORS) → network.0 and cors_error", () => {

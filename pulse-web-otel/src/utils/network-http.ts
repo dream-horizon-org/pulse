@@ -527,7 +527,7 @@ export function applyPulseHttpClientSpanAttributes(params: {
       }
       const v = g(name) ?? g(name.toLowerCase());
       if (v !== null && v !== undefined && v !== "") {
-        span.setAttribute(`http.request.header.${name.toLowerCase()}`, v);
+        span.setAttribute(`http.request.header.${name.toLowerCase()}`, [v]);
       }
     }
   }
@@ -540,7 +540,7 @@ export function applyPulseHttpClientSpanAttributes(params: {
       }
       const v = g(name) ?? g(name.toLowerCase());
       if (v !== null && v !== undefined && v !== "") {
-        span.setAttribute(`http.response.header.${name.toLowerCase()}`, v);
+        span.setAttribute(`http.response.header.${name.toLowerCase()}`, [v]);
       }
     }
   }

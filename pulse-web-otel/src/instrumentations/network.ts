@@ -50,7 +50,11 @@ function installXhrHeaderPatch(): void {
     const stored = xhrHeaderStore.get(this) ?? {};
     stored[name.toLowerCase()] = value;
     xhrHeaderStore.set(this, stored);
-    return orig.call(this, name, value);
+    try {
+      return orig.call(this, name, value);
+    } catch {
+      // best-effort: don't break XHR if original call throws (e.g. Firefox quirks)
+    }
   };
 }
 

@@ -148,8 +148,8 @@ describe("XHR request header capture (WeakMap patch)", () => {
     const { attrs, span } = makeSpan();
     cb!(span, xhr);
 
-    expect(attrs["http.request.header.x-request-id"]).toBe("req-abc");
-    expect(attrs["http.request.header.content-type"]).toBe("application/json");
+    expect(attrs["http.request.header.x-request-id"]).toEqual(["req-abc"]);
+    expect(attrs["http.request.header.content-type"]).toEqual(["application/json"]);
   });
 
   it("headers NOT in capturedRequestHeaders do not appear on the span", () => {
@@ -166,7 +166,7 @@ describe("XHR request header capture (WeakMap patch)", () => {
     const { attrs, span } = makeSpan();
     cb!(span, xhr);
 
-    expect(attrs["http.request.header.x-request-id"]).toBe("req-123");
+    expect(attrs["http.request.header.x-request-id"]).toEqual(["req-123"]);
     expect(attrs["http.request.header.x-internal-token"]).toBeUndefined();
   });
 
@@ -266,7 +266,7 @@ describe("XHR request header capture (WeakMap patch)", () => {
     const { attrs, span } = makeSpan();
     cb!(span, req, res);
 
-    expect(attrs["http.request.header.x-request-id"]).toBe("fetch-req-1");
+    expect(attrs["http.request.header.x-request-id"]).toEqual(["fetch-req-1"]);
     expect(attrs[PulseWebSemconv.AttributeKey.PULSE_TYPE]).toBe("network.200");
   });
 
@@ -299,6 +299,6 @@ describe("XHR request header capture (WeakMap patch)", () => {
     const { attrs, span } = makeSpan();
     cb!(span, xhr);
 
-    expect(attrs["http.request.header.x-request-id"]).toBe("casetest");
+    expect(attrs["http.request.header.x-request-id"]).toEqual(["casetest"]);
   });
 });
