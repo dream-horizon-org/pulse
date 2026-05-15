@@ -105,7 +105,7 @@ class DefaultSdkConfigTemplateTest {
     @Test
     void shouldIncludeAllExpectedFeatures() {
       ConfigData config = DefaultSdkConfigTemplate.createDefaultConfig(TEST_PROJECT_ID, "creator", appConfig);
-      assertThat(config.getFeatures()).hasSize(24);
+      assertThat(config.getFeatures()).hasSize(26);
 
       assertThat(config.getFeatures()).extracting(FeatureConfig::getFeatureName)
           .containsExactlyInAnyOrder(
@@ -113,6 +113,8 @@ class DefaultSdkConfigTemplateTest {
               Features.java_crash,
               Features.js_crash,
               Features.js_crash,
+              Features.web_vitals,
+              Features.screen_navigation,
               Features.java_anr,
               Features.network_change,
               Features.custom_events,

@@ -145,6 +145,8 @@ export interface RcaJobResponse {
 export type UseGetRcaReportParams = {
   entityKey: string | null;
   date?: string | null;
+  /** Must match POST body and peek GET (e.g. INTERACTION). Defaults to INTERACTION at callsite. */
+  rcaType?: string;
   enabled?: boolean;
   /** Included in query key so requests refetch when project context changes (e.g. synced from URL) */
   projectId?: string | null;

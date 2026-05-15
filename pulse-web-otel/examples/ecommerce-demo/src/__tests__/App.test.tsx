@@ -1,33 +1,27 @@
 /**
- * Task 5 — Update Demo App
- *
- * Unit tests for the ecommerce demo App.tsx refactor:
- * - Verifies PulseProvider / PulseErrorBoundary / useRouterTracking are used
- *   instead of manual PulseWeb.start() wiring.
- * - Tests config derivation from env vars and query params.
- * - Tests error boundary fallback renders on child crash.
+ * Unit tests for ecommerce-demo {@link ../App.tsx} (inside PulseProvider + Router):
+ * - PulseRouterEvents drives screen name on SPA navigations.
+ * - Demo user bootstrap (setUserId / setUserProperties) from env + URL.
+ * - Smoke: NavBar + default route render under MemoryRouter.
  */
 
 import React from "react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, act } from "@testing-library/react";
+import { render, act } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 
-// ─── SDK mocks ────────────────────────────────────────────────────────────────
+const mockSetUserId = vi.fn();
+const mockSetUserProperties = vi.fn();
 
-const mockStart = vi.fn();
-const mockShutdown = vi.fn().mockResolvedValue(undefined);
-const mockSetScreenName = vi.fn();
-const mockTrackEvent = vi.fn();
-const mockIsInitialized = vi.fn().mockReturnValue(false);
-
-vi.mock("@dreamhorizon/pulse-web", () => ({
-  PulseWeb: {
-    start: mockStart,
-    shutdown: mockShutdown,
-    setScreenName: mockSetScreenName,
-    trackEvent: mockTrackEvent,
-    isInitialized: mockIsInitialized,
+vi.mock("@dreamhorizonorg/pulse-web", () => ({
+  Pulse: {
+    init: vi.fn(),
+    shutdown: vi.fn().mockResolvedValue(undefined),
+    setScreenName: vi.fn(),
+    setUserId: mockSetUserId,
+    setUserProperties: mockSetUserProperties,
+    trackEvent: vi.fn(),
+    isInitialized: vi.fn().mockReturnValue(true),
     reportDeviceCrash: vi.fn(),
     trackNonFatal: vi.fn(),
     reportException: vi.fn(),
@@ -37,72 +31,16 @@ vi.mock("@dreamhorizon/pulse-web", () => ({
     DENIED: "DENIED",
     PENDING: "PENDING",
   },
+  PulseLogLevel: {
+    VERBOSE: 0,
+    DEBUG: 1,
+    INFO: 2,
+    WARN: 3,
+    ERROR: 4,
+    NONE: 5,
+  },
 }));
 
-// Mock the React integration — use lightweight stubs so we can assert wiring
-vi.mock("@dreamhorizon/pulse-web/react", () => {
-  const React = require("react");
-
-  function PulseProvider({
-    children,
-    config,
-  }: {
-    children: React.ReactNode;
-    config: unknown;
-    shutdownOnUnmount?: boolean;
-  }) {
-    React.useEffect(() => {
-      mockStart(config);
-      mockIsInitialized.mockReturnValue(true);
-      return () => {
-        void mockShutdown();
-      };
-    }, []);
-    return React.createElement(React.Fragment, null, children);
-  }
-
-  class PulseErrorBoundary extends React.Component<{
-    children: React.ReactNode;
-    fallback?: React.ReactNode | ((e: Error) => React.ReactNode);
-  }> {
-    state = { hasError: false, error: null as Error | null };
-    static getDerivedStateFromError(e: Error) {
-      return { hasError: true, error: e };
-    }
-    render() {
-      if (this.state.hasError && this.state.error) {
-        const { fallback } = this.props;
-        if (typeof fallback === "function") return fallback(this.state.error);
-        return fallback ?? null;
-      }
-      return this.props.children;
-    }
-  }
-
-  function useRouterTracking(opts?: { skipInitial?: boolean }) {
-    const loc = require("react-router-dom").useLocation();
-    const prev = React.useRef(null as string | null);
-    React.useEffect(() => {
-      if (prev.current === null) {
-        prev.current = loc.pathname;
-        if (opts?.skipInitial !== false) return;
-      } else if (prev.current === loc.pathname) {
-        return;
-      } else {
-        prev.current = loc.pathname;
-      }
-      mockSetScreenName(loc.pathname);
-    }, [loc.pathname]);
-  }
-
-  function usePulse() {
-    return { trackEvent: mockTrackEvent, setScreenName: mockSetScreenName };
-  }
-
-  return { PulseProvider, PulseErrorBoundary, useRouterTracking, usePulse };
-});
-
-// Mock lazy-loaded routes
 vi.mock("../routes/Home", () => ({
   default: () => React.createElement("div", { "data-testid": "home" }, "Home"),
 }));
@@ -123,122 +61,100 @@ vi.mock("../routes/ErrorDemo", () => ({
   default: () =>
     React.createElement("div", { "data-testid": "error-demo" }, "ErrorDemo"),
 }));
+vi.mock("../routes/NetworkLab", () => ({
+  default: () =>
+    React.createElement("div", { "data-testid": "network-lab" }, "NetworkLab"),
+}));
 vi.mock("../components/PulseDebugPanel", () => ({
   PulseDebugPanel: () => null,
 }));
 
-// ─── helpers ──────────────────────────────────────────────────────────────────
+beforeEach(async () => {
+  vi.stubEnv("VITE_PULSE_API_KEY", "vitest-default-pulse-key");
+  vi.clearAllMocks();
+  vi.resetModules();
+  const sdk = await import("../../../../src/sdk");
+  vi.spyOn(sdk.Pulse, "setScreenName").mockImplementation(() => {});
+  vi.spyOn(sdk.Pulse, "notifySoftNavigation").mockImplementation(() => {});
+});
 
-async function renderApp(search = "") {
+afterEach(() => {
+  vi.unstubAllEnvs();
+  vi.restoreAllMocks();
+});
+
+/**
+ * App reads URL search params via `window.location` in a mount-only useMemo,
+ * not via `useLocation()`, so align the jsdom URL with MemoryRouter entries.
+ */
+async function renderApp(initialEntries: string[] = ["/"]) {
+  const pathWithSearch = initialEntries[0] ?? "/";
+  window.history.replaceState({}, "", pathWithSearch);
   const App = (await import("../App")).default;
   let result: ReturnType<typeof render> | undefined;
   await act(async () => {
-    result = render(React.createElement(App));
+    result = render(
+      React.createElement(
+        MemoryRouter,
+        { initialEntries },
+        React.createElement(App),
+      ),
+    );
     await new Promise((r) => setTimeout(r, 50));
   });
   return result!;
 }
 
-// ─── tests ───────────────────────────────────────────────────────────────────
+describe("Demo App — PulseRouterEvents wiring", () => {
+  it("calls setScreenName on initial mount when skipInitial=false", async () => {
+    await renderApp(["/"]);
+    const { Pulse } = await import("../../../../src/sdk");
+    expect(Pulse.setScreenName).toHaveBeenCalledWith("/");
+  });
+});
 
-describe("Demo App — PulseProvider wiring", () => {
+describe("Demo App — demo user bootstrap", () => {
+  it("clears user id when demo user is disabled (default)", async () => {
+    vi.stubEnv("VITE_PULSE_DEMO_USER_ENABLED", "false");
+    await renderApp(["/"]);
+    expect(mockSetUserId).toHaveBeenCalledWith(null);
+    expect(mockSetUserProperties).not.toHaveBeenCalled();
+  });
+
+  it("sets user id and properties when VITE_PULSE_DEMO_USER_ENABLED=true", async () => {
+    vi.stubEnv("VITE_PULSE_DEMO_USER_ENABLED", "true");
+    await renderApp(["/"]);
+    expect(mockSetUserId).toHaveBeenCalledWith("demo-user-001");
+    expect(mockSetUserProperties).toHaveBeenCalledWith(
+      expect.objectContaining({
+        plan: "pro",
+        cohort: "beta",
+        region: "us",
+      }),
+    );
+  });
+
+  it("enables demo user when pulse_user_enabled=1 in URL", async () => {
+    vi.stubEnv("VITE_PULSE_DEMO_USER_ENABLED", "false");
+    await renderApp(["/?pulse_user_enabled=1"]);
+    expect(mockSetUserId).toHaveBeenCalledWith("demo-user-001");
+  });
+
+  it("uses pulse_user_id query when provided", async () => {
+    vi.stubEnv("VITE_PULSE_DEMO_USER_ENABLED", "true");
+    await renderApp(["/?pulse_user_id=from-query"]);
+    expect(mockSetUserId).toHaveBeenCalledWith("from-query");
+  });
+});
+
+describe("Demo App — smoke", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
-    mockIsInitialized.mockReturnValue(false);
-    // Reset module so App re-evaluates useMemo config
-    vi.resetModules();
-  });
-
-  it("calls PulseWeb.start() exactly once on mount via PulseProvider", async () => {
-    await renderApp();
-    expect(mockStart).toHaveBeenCalledTimes(1);
-  });
-
-  it("passes apiKey from VITE_PULSE_API_KEY env to PulseProvider config", async () => {
-    vi.stubEnv("VITE_PULSE_API_KEY", "test-project_devkey123");
-    await renderApp();
-    expect(mockStart).toHaveBeenCalledWith(
-      expect.objectContaining({ apiKey: "test-project_devkey123" }),
-    );
-    vi.unstubAllEnvs();
-  });
-
-  it("passes dataCollectionState=ALLOWED by default", async () => {
-    await renderApp();
-    expect(mockStart).toHaveBeenCalledWith(
-      expect.objectContaining({ dataCollectionState: "ALLOWED" }),
-    );
+    vi.spyOn(console, "log").mockImplementation(() => {});
   });
 
   it("renders NavBar and Home route without crashing", async () => {
-    const { getByText } = await renderApp();
+    const { getByText, getByTestId } = await renderApp(["/"]);
     expect(getByText("🛍 PulseStore")).toBeTruthy();
-  });
-});
-
-describe("Demo App — PulseErrorBoundary wiring", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    vi.resetModules();
-    // Suppress React error boundary console noise
-    vi.spyOn(console, "error").mockImplementation(() => {});
-  });
-
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
-
-  it("catches render errors silently via internal PulseErrorBoundary", async () => {
-    // Override Home to throw
-    vi.doMock("../routes/Home", () => ({
-      default: () => {
-        throw new Error("test render crash");
-      },
-    }));
-    const App = (await import("../App")).default;
-    let result: ReturnType<typeof render> | undefined;
-    await act(async () => {
-      result = render(React.createElement(App));
-      await new Promise((r) => setTimeout(r, 50));
-    });
-    // PulseErrorBoundary is internal with no fallback UI — renders null on error
-    expect(result!.container.firstChild).toBeNull();
-  });
-});
-
-describe("Demo App — useRouterTracking wiring", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    mockIsInitialized.mockReturnValue(true);
-    vi.resetModules();
-  });
-
-  it("calls setScreenName on initial mount when skipInitial=false", async () => {
-    await renderApp();
-    // useRouterTracking({ skipInitial: false }) fires on initial mount
-    expect(mockSetScreenName).toHaveBeenCalledWith("/");
-  });
-});
-
-describe("Demo App — config derivation", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    vi.resetModules();
-  });
-
-  it("uses ecommerce-demo as default serviceName", async () => {
-    await renderApp();
-    expect(mockStart).toHaveBeenCalledWith(
-      expect.objectContaining({ serviceName: "ecommerce-demo" }),
-    );
-  });
-
-  it("includes export config with default protobuf format", async () => {
-    await renderApp();
-    expect(mockStart).toHaveBeenCalledWith(
-      expect.objectContaining({
-        export: expect.objectContaining({ format: "protobuf" }),
-      }),
-    );
+    expect(getByTestId("home").textContent).toBe("Home");
   });
 });

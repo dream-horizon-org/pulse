@@ -179,6 +179,7 @@ def main() -> None:
 
     if _dry_run():
         _info("DRY RUN — would delete:")
+        _info(f"  MySQL: tnc_acceptances rows for {tenant_id}")
         _info(f"  MySQL: tenants row for {tenant_id}")
         _info(f"  OpenFGA: all tuples where object = tenant:{tenant_id}")
         print()
@@ -193,6 +194,7 @@ def main() -> None:
     conn2 = _mysql_connect()
     try:
         with conn2.cursor() as cur:
+            cur.execute("DELETE FROM tnc_acceptances WHERE tenant_id = %s", (tenant_id,))
             cur.execute("DELETE FROM tenants WHERE tenant_id = %s", (tenant_id,))
         conn2.commit()
     except Exception:

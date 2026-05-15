@@ -1,6 +1,6 @@
 // M2: FeatureGate — reads remote SDK config to gate per-instrumentation installs.
 // isEnabled(featureName) returns false if the feature is disabled remotely.
-// See: web-sdk-plan/v1/01-foundation/sdk-config.md
+// See: docs/sdk-core/remote-config-features-and-sampling/SPEC.md (feature gate)
 
 import type { PulseSdkConfig, PulseFeatureName } from "./remote-config";
 import { PulseWebSemconv } from "./semconv";

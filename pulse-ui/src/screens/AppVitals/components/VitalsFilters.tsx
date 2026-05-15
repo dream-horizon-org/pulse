@@ -3,12 +3,13 @@ import {
   IconBug,
   IconAlertTriangle,
   IconExclamationCircle,
+  IconActivity,
 } from "@tabler/icons-react";
 import { ISSUE_TYPES } from "../AppVitals.constants";
 import type { VitalsStats } from "../AppVitals.interface";
 import classes from "./VitalsFilters.module.css";
 
-interface VitalsFiltersProps {
+export interface VitalsFiltersProps {
   issueType: string;
   onIssueTypeChange: (value: string) => void;
   stats: VitalsStats;
@@ -17,10 +18,10 @@ interface VitalsFiltersProps {
 // Format large numbers for better display (e.g., 1234 → "1.2K", 12345 → "12K")
 const formatCount = (count: number): string => {
   if (count >= 1000000) {
-    return `${(count / 1000000).toFixed(1).replace(/\.0$/, '')}M`;
+    return `${(count / 1000000).toFixed(1).replace(/\.0$/, "")}M`;
   }
   if (count >= 1000) {
-    return `${(count / 1000).toFixed(1).replace(/\.0$/, '')}K`;
+    return `${(count / 1000).toFixed(1).replace(/\.0$/, "")}K`;
   }
   return count.toString();
 };
@@ -89,6 +90,15 @@ export const VitalsFilters: React.FC<VitalsFiltersProps> = ({
               </Group>
             ),
             value: ISSUE_TYPES.NON_FATALS,
+          },
+          {
+            label: (
+              <Group gap={8} wrap="nowrap">
+                <IconActivity size={16} />
+                <span>Web Vitals</span>
+              </Group>
+            ),
+            value: ISSUE_TYPES.WEB_VITALS,
           },
         ]}
       />
