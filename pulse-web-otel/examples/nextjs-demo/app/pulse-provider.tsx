@@ -33,8 +33,12 @@ function useDemoUrlPulseOptions(): {
     const peerHost = q.get("pulse_peer_host");
     const peerService = q.get("pulse_peer_service");
     const propagateCors = q.get("pulse_propagate_cors");
+    const captureReqHeadersRaw = q.get("pulse_capture_req_headers");
+    const captureReqHeaders = captureReqHeadersRaw
+      ? captureReqHeadersRaw.split(",").map((h) => h.trim().toLowerCase())
+      : undefined;
 
-    if (!networkOff && !captureQueryParams && !blockedUrlParam && !(peerHost && peerService) && !propagateCors) {
+    if (!networkOff && !captureQueryParams && !blockedUrlParam && !(peerHost && peerService) && !propagateCors && !captureReqHeaders) {
       return { dataCollectionState };
     }
 
@@ -45,6 +49,7 @@ function useDemoUrlPulseOptions(): {
         ...(blockedUrlParam ? { blockedUrls: [blockedUrlParam] } : {}),
         ...(peerHost && peerService ? { peerServiceMap: { [peerHost]: peerService } } : {}),
         ...(propagateCors ? { propagateTraceHeaderCorsUrls: [propagateCors] } : {}),
+        ...(captureReqHeaders ? { capturedRequestHeaders: captureReqHeaders } : {}),
       },
     };
     return { dataCollectionState, instrumentations };

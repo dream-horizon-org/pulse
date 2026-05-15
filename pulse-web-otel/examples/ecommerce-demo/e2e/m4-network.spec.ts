@@ -952,6 +952,51 @@ test.describe("@M4 network e2e", () => {
     expect(Number(dur)).toBeGreaterThanOrEqual(DELAY_MS - 50);
   });
 
+  // NET-18: XHR capturedRequestHeaders — headers stored via WeakMap monkey-patch
+  test("NET-18: XHR capturedRequestHeaders captures request headers on XHR spans", async ({
+    page,
+    otlp,
+  }) => {
+    await page.route(
+      (url) => url.pathname.includes("/pulse-e2e-network/xhr-headers-probe"),
+      async (route) => {
+        await route.fulfill({
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+          body: '{"ok":true}',
+        });
+      },
+    );
+
+    await page.goto(
+      `/?pulse_capture_req_headers=${encodeURIComponent("x-request-id,x-custom-header")}`,
+    );
+    await waitForPulseInitialized(page);
+    await otlp.waitForLog("session.start", 15_000);
+    otlp.reset();
+
+    await page.evaluate(() =>
+      new Promise<void>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open("GET", "/pulse-e2e-network/xhr-headers-probe");
+        xhr.setRequestHeader("X-Request-ID", "test-req-abc");
+        xhr.setRequestHeader("X-Custom-Header", "captured-value");
+        xhr.onload = () => resolve();
+        xhr.onerror = () => reject(new Error("xhr failed"));
+        xhr.send();
+      }),
+    );
+    await flushTraceExport(page);
+
+    const span = await pollProbeHttpSpan(otlp, "xhr-headers-probe");
+
+    expect(getOtlpSpanStatusCode(span)).toBe(OTLP_SPAN_STATUS_OK);
+    expect(getAttr(span.attributes, "pulse.type")).toBe("network.200");
+    expect(getAttr(span.attributes, "http.request.header.x-request-id")).toEqual(["test-req-abc"]);
+    expect(getAttr(span.attributes, "http.request.header.x-custom-header")).toEqual(["captured-value"]);
+    expect(getAttr(span.attributes, "session.id")).toBeTruthy();
+  });
+
   // NET-13: Concurrent requests — each produces an independent span
   test("NET-13: three concurrent fetch requests each produce a separate network span", async ({
     page,

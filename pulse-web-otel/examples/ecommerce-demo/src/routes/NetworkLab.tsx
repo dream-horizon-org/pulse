@@ -313,6 +313,23 @@ export default function NetworkLab() {
           });
         },
       },
+      {
+        id: "xhr-with-headers",
+        label: "XHR with custom headers",
+        kind: "xhr",
+        expected:
+          "network.200 + http.request.header.x-request-id=[test-req-abc]",
+        run: async () => {
+          return runXhr({
+            method: "GET",
+            url: "/api/products.json",
+            headers: {
+              "X-Request-ID": "test-req-abc",
+              "X-Custom-Header": "captured-value",
+            },
+          });
+        },
+      },
     ],
     [],
   );

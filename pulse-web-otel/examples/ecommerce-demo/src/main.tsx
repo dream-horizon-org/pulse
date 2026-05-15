@@ -55,6 +55,10 @@ function useDemoUrlPulseOptions(): Pick<
     const peerHost = q.get("pulse_peer_host");
     const peerService = q.get("pulse_peer_service");
     const propagateCors = q.get("pulse_propagate_cors");
+    const captureReqHeadersRaw = q.get("pulse_capture_req_headers");
+    const captureReqHeaders = captureReqHeadersRaw
+      ? captureReqHeadersRaw.split(",").map((h) => h.trim().toLowerCase())
+      : undefined;
 
     let instrumentations: InstrumentationConfig | undefined;
     if (
@@ -62,7 +66,8 @@ function useDemoUrlPulseOptions(): Pick<
       captureQueryParams ||
       blockedUrlParam ||
       (peerHost && peerService) ||
-      propagateCors
+      propagateCors ||
+      captureReqHeaders
     ) {
       instrumentations = {
         network: {
@@ -74,6 +79,9 @@ function useDemoUrlPulseOptions(): Pick<
             : {}),
           ...(propagateCors
             ? { propagateTraceHeaderCorsUrls: [propagateCors] }
+            : {}),
+          ...(captureReqHeaders
+            ? { capturedRequestHeaders: captureReqHeaders }
             : {}),
         },
       };
