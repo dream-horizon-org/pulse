@@ -14,6 +14,12 @@
         "@modelcontextprotocol/server-sequential-thinking"
       ]
     },
+    "github": {
+      "command": "bash",
+      "args": [
+        ".cursor/scripts/github-mcp.sh"
+      ]
+    },
     "mcp-atlassian": {
       "command": "bash",
       "args": [
