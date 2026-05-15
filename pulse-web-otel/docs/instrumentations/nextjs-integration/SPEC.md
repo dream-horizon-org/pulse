@@ -30,7 +30,7 @@ Document **Next.js-specific** integration: App Router tracking (`useNextAppRoute
 
 ## 4. Architectural Design
 
-```
+```text
 Runtime (browser)
   @dreamhorizonorg/pulse-web/next
     ├─ useNextAppRouterTracking / PulseRouterEvents (client components)
@@ -44,7 +44,7 @@ Server (node/edge)
   instrumentation.ts → createPulseInstrumentationHandler
 ```
 
-### 4.1 HLD — Next runtime vs build vs server (Mermaid)
+### 4.1 HLD — Next runtime vs build vs server
 
 ```mermaid
 flowchart TB
@@ -57,7 +57,7 @@ flowchart TB
   Inst -->|"server OTLP logs"| Srv["separate from browser RUM"]
 ```
 
-### 4.2 LD — hooks per router (Mermaid)
+### 4.2 LD — hooks per router
 
 ```mermaid
 flowchart LR
@@ -65,7 +65,7 @@ flowchart LR
   Pages["useNextPagesRouterTracking"] --> RE["router.events routeChangeComplete"]
 ```
 
-### 4.3 Flows — client-only RUM (Mermaid)
+### 4.3 Flows — client-only RUM
 
 ```mermaid
 flowchart TD
@@ -144,7 +144,7 @@ flowchart TD
 
 ## 7. Known Bugs & Gaps
 
-### P0:
+### P0
 
 None filed at synthesis.
 

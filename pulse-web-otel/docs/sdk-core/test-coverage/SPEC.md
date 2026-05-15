@@ -25,7 +25,7 @@ Maps to **R1–R10** verification — [`../requirements/SPEC.md`](../requirement
 
 ## 4. Architectural Design
 
-### 4.1 HLD — test layers (Mermaid)
+### 4.1 HLD — test layers
 
 ```mermaid
 flowchart TB
@@ -36,7 +36,7 @@ flowchart TB
   IT --> E2E
 ```
 
-### 4.2 LD — suite → concern map (Mermaid)
+### 4.2 LD — suite → concern map
 
 ```mermaid
 flowchart LR
@@ -45,7 +45,7 @@ flowchart LR
   M8["m8.test.ts"] --> PH["pagehide flush"]
 ```
 
-### 4.3 Flows — CI vs local (Mermaid)
+### 4.3 Flows — CI vs local
 
 ```mermaid
 flowchart TD
@@ -99,6 +99,7 @@ Foundation tests — validates M1 milestone contracts:
 - `resolveConfigUrl` — local vs prod URL resolution
 - `FeatureGate.isEnabled` — default true when no config, disabled when `sessionSampleRate = 0`
 - `PulseGlobalAttributesProcessor` — session ID, screen name, user ID stamped on all signals
+- `global-attrs-processor.test.ts` — `navigation_id` omitted until `setNavigationId`; merged on spans/logs after set
 - `SessionInstrumentation` — `session.start` emitted on install
 
 ### 5.4 `src/__tests__/m3.test.ts`
@@ -160,7 +161,7 @@ This document **is** the detailed §5 catalogue; see subsections **§5.1–§5.6
 
 ### 6.3 Playwright E2E — master catalogue
 
-**Primary harness (React + Vite SPA):** `pulse-web-otel/examples/ecommerce-demo/e2e/`. **CI Chromium gate** (`cd pulse-web-otel && yarn e2e:web-sdk-gates`): `m1`, `m2-interactions`, `m3-errors`, `web-vitals`, `m3-clicks`, `m4-network`, `screen-navigation` only (**185** tests as of 2026-05-14). **Additional** Playwright files in the same folder (`m8`, `m15`, `m16-ch`, `m3-ch`, `synthetic-user`, …) run via `yarn workspace ecommerce-demo e2e` / per-file greps — they are **catalogued below** but **not** all are in the default gate script.
+**Primary harness (React + Vite SPA):** `pulse-web-otel/examples/ecommerce-demo/e2e/`. **CI Chromium gate** (`cd pulse-web-otel && yarn e2e:web-sdk-gates`): `m1`, `m2-interactions`, `m3-errors`, `web-vitals`, `m3-clicks`, `m4-network`, `screen-navigation` only (**188** tests as of 2026-05-15). **Additional** Playwright files in the same folder (`m8`, `m15`, `m16-ch`, `m3-ch`, `synthetic-user`, …) run via `yarn workspace ecommerce-demo e2e` / per-file greps — they are **catalogued below** but **not** all are in the default gate script.
 
 **Next.js App Router demo:** `pulse-web-otel/examples/nextjs-demo/e2e/` — `yarn workspace nextjs-demo e2e`. Mock OTLP; `nextjs-demo.ch.spec.ts` is the CH mirror subset.
 
@@ -344,9 +345,11 @@ Below: **Playwright `test()` titles** as registered in the repo (grouped by `tes
 
 #### `@WebVitals`
 
-- TTFB, FCP, LCP, INP (tab hide), FID (Chromium), CLS after layout shift + tab hide
-- SPA navigation flushes TTFB with screen.name from initial route
-- gate off → no web_vital logs
+- TTFB, FCP, LCP, INP (tab hide), CLS after layout shift + tab hide; **no `web_vital.name=FID`** (`web-vitals` v5+)
+- Per-metric **G10:** on first captured TTFB / FCP / LCP log, `web_vital.delta` equals `web_vital.value` (not asserted in shared helper — INP/CLS may differ)
+- `assertExportedWebVitalAttrs`: `platform` = `web`; `navigation_id`; **`web_vital.navigation_type`** in `navigate` \| `reload` \| `back-forward` \| `back-forward-cache` \| `prerender` \| `restore` \| `soft-navigation`; **`web_vital.value` ≥ 0**; **`session.id`** UUID shape; `web_vital.context` / `web_vital.delta` when present
+- SPA navigation flushes TTFB with `screen.name` from initial route (`PulseRouterEvents` → `notifySoftNavigation` + batch); SPA `screen_load` span carries `navigation_id`; **second SPA nav** (`/products` → `/cart`) yields a **different** `navigation_id` on the latest `screen_load` than after the first client nav
+- Remote gate off → no web_vital logs; local kill switch `?pulse_wv_enabled=false` → no web_vital logs (remote gate may stay on)
 
 #### `@SyntheticUser`
 
@@ -358,6 +361,8 @@ Below: **Playwright `test()` titles** as registered in the repo (grouped by `tes
 
 **screen tracking — App Router:** screen.name Home→Products; /cart; multi-hop / → /products → /cart.
 
+**web vitals (mock OTLP):** `e2e/web-vitals.spec.ts` — TTFB + `navigation_id`; **TTFB** `web_vital.delta` === `web_vital.value`; client navigation adds a new `screen_load` span with `navigation_id`.
+
 **error tracking:** PulseErrorBoundary device.crash; reportException non_fatal; reportDeviceCrash device.crash; session.id stamped on crash and non_fatal paths.
 
 **`nextjs-demo.ch.spec.ts` (ClickHouse):** session.start in CH; screen.name /products in CH; device.crash / non_fatal / manual device.crash in CH.
@@ -368,7 +373,7 @@ Below: **Playwright `test()` titles** as registered in the repo (grouped by `tes
 |------|-------------------------|-------------|------------|
 | Session lifecycle + BFCache + batching + install persistence | Extensive `@M1`, `@M8` | session.start + stable session id only | **Major gap:** no BFCache, batching, installation persistence, clone/reload, remote config, consent matrix, metering headers in Next E2E |
 | Screen OTLP spans (`screen_load` / `screen_session`) | `screen-navigation.spec.ts` + gate | Not asserted | **Gap:** Next demo asserts `screen.name` on **logs** after navigation, not navigation **spans** — add Playwright waits on spans if product requires parity |
-| Web vitals | `web-vitals.spec.ts` | None | **Gap** |
+| Web vitals | `web-vitals.spec.ts` | `e2e/web-vitals.spec.ts` (TTFB + SPA `screen_load`) | **Partial:** not the full ecommerce vitals matrix on Next |
 | Network client spans | `m4-network.spec.ts` | None | **Gap** |
 | Interactions | `m2-interactions.spec.ts` | None | **Gap** |
 | Clicks | `m3-clicks.spec.ts` | None | **Gap** |
@@ -381,13 +386,45 @@ Below: **Playwright `test()` titles** as registered in the repo (grouped by `tes
 
 - **Aligned with current SDK:** ecommerce `e2e:web-sdk-gates` is the CI contract; scenarios above match grep of live `*.spec.ts` files in-repo.
 - **ClickHouse specs (`m3-ch`, `m16-ch`, `nextjs-demo.ch`):** optional; require CH URL + credentials in env — not part of default `e2e:web-sdk-gates`.
-- **Residual product gaps (not necessarily test bugs):** (1) Next demo does not exercise `NavigationInstrumentation` spans. (2) No Next E2E for soft-nav web vitals flush (`Pulse.notifySoftNavigation`) as a dedicated assertion. (3) No E2E for `HashRouter` / hash-only navigation (documented as unsupported for SPA screen signals). (4) Interactions SPEC matrix row **INT-E1** (config fetch unavailable) marked **gap** in Vitest — M2 E2E covers “config fetch unavailable” at telemetry level but not every unit edge.
+- **Residual product gaps (not necessarily test bugs):** (1) Next demo does not exercise `NavigationInstrumentation` spans. (2) No **Next.js demo** E2E that asserts soft-nav web vitals flush via `Pulse.notifySoftNavigation` end-to-end (ecommerce-demo covers SPA + vitals via `PulseRouterEvents` / `@WebVitals`). (3) No E2E for `HashRouter` / hash-only navigation (documented as unsupported for SPA screen signals). (4) Interactions SPEC matrix row **INT-E1** (config fetch unavailable) marked **gap** in Vitest — M2 E2E covers “config fetch unavailable” at telemetry level but not every unit edge.
+
+### 6.6 Consumer install smoke — published `@dreamhorizonorg/pulse-web/next` (P1:8)
+
+**Goal:** Prove a clean **`create-next-app`** (or equivalent) can install the **published tarball** (not only workspace `file:`) and compile with documented Next settings.
+
+| Step | Action | Pass criterion |
+|------|--------|----------------|
+| 1 | `cd pulse-web-otel && yarn pack` (or `npm pack`) from the release branch | Produces `.tgz` with expected `package/` layout |
+| 2 | `npx create-next-app@latest pulse-next-smoke --ts --eslint --app --no-src-dir` (or team-standard flags) into a temp dir | App boots `yarn dev` |
+| 3 | Install tarball: `yarn add ../path/to/dreamhorizonorg-pulse-web-*.tgz` (and subpath deps if any) | `yarn build` succeeds |
+| 4 | Apply integration SPEC guidance: `transpilePackages: ['@dreamhorizonorg/pulse-web']`, `serverExternalPackages` / `experimental.serverComponentsExternalPackages` as required by Next version | No “package not transpiled” / ESM resolution errors |
+| 5 | Wire minimal `instrumentation.ts` + `withPulseConfig` per [`../../instrumentations/nextjs-integration/SPEC.md`](../../instrumentations/nextjs-integration/SPEC.md) | `yarn build` + one manual page load without crash |
+
+Record outcome in a **dated bullet under §6.6** below (or in `CHANGELOG.md` when tied to a release). This checklist is **process / release QA**, not a Vitest file.
+
+### 6.7 Data-contract Vitest / Playwright follow-ups (RF-DC2–DC4)
+
+Backlog from the data-contract audit (`docs/sdk-core/data-contract/SPEC.md` §6 matrices). Tracked for implementation in [`../../review-fix.md`](../../review-fix.md) **§3** (code/tests only).
+
+| ID | What to implement | Why it matters |
+|----|-------------------|----------------|
+| **RF-DC2** | Unit test: `PulseGlobalAttributesProcessor.onEmit` when the log already has a **non-empty** `session.id` | Processor must **not** replace that value (session lifecycle logs keep the id attached before rotation). |
+| **RF-DC3** | Optional: `buildMergedResource` + hostile `os.name` in `resourceAttributes` | Locks SPEC guarantee: Pulse resource wins on duplicate keys, **`os.name` = `web`** for ClickHouse `Platform`. |
+| **RF-DC4** | Optional Playwright: assert `pulse.user.session.start` / `end` on exported OTLP | `user-identity.test.ts` covers unit path; E2E locks browser → OTLP for identity transitions. Waivable if team accepts unit-only. |
+
+### 6.8 Sampling / export-gate Vitest follow-ups (RF-SF1)
+
+Backlog from [`../sampling-and-filtering/SPEC.md`](../sampling-and-filtering/SPEC.md) §6–§7. Tracked in [`../../review-fix.md`](../../review-fix.md) **§3.4**.
+
+| ID | What to implement | Why it matters |
+|----|-------------------|----------------|
+| **RF-SF1a**–**RF-SF1e** | Span + metric `ExportSamplingGate` coverage, `signalsToSample` probabilistic drop, empty-batch `Sampled*Exporter`, optional metric E2E | Locks R-SF8 and trace parity with log gate tests; see **review-fix** §3.4 table. |
 
 ---
 
 ## 7. Known Bugs & Gaps
 
-[`../known-gaps-and-open-questions/SPEC.md`](../known-gaps-and-open-questions/SPEC.md).
+[`../../known-gaps-tradeoffs-and-plan.md`](../../known-gaps-tradeoffs-and-plan.md) §1.
 
 ---
 
@@ -399,4 +436,4 @@ Prior `web-sdk-plan/v1/01-foundation/README.md` test pointers absorbed here.
 
 ## 9. Open Questions
 
-[`../known-gaps-and-open-questions/SPEC.md`](../known-gaps-and-open-questions/SPEC.md) §9.
+[`../../known-gaps-tradeoffs-and-plan.md`](../../known-gaps-tradeoffs-and-plan.md) §3.

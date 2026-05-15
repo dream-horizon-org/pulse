@@ -3,6 +3,7 @@
 OpenTelemetry-based web SDK for Pulse RUM telemetry.
 
 Captures:
+
 - session lifecycle
 - custom events
 - non-fatal and crash signals
@@ -26,6 +27,7 @@ npm install @dreamhorizonorg/pulse-web
 ### 2. Wrap your app with PulseProvider
 
 `PulseProvider` from `@dreamhorizonorg/pulse-web/react` does everything in one shot:
+
 - calls `Pulse.init` on mount
 - catches React render errors via the built-in `PulseErrorBoundary`
 - exposes the SDK via context
@@ -90,9 +92,9 @@ After mount, these signals auto-capture with zero extra work:
 | Signal | Trigger |
 |---|---|
 | `session.start` / `session.end` | Tab open / close |
-| `http` | Every `fetch` / `XMLHttpRequest` |
+| `network.<status>` (e.g. `network.200`) | Every `fetch` / `XMLHttpRequest` — client span `pulse.type` from HTTP status, not the literal `http` |
 | `app.click` | User clicks anywhere |
-| `web_vital` | LCP, FID, CLS, TTFB, FCP, INP |
+| `web_vital` | LCP, CLS, INP, TTFB, FCP |
 | `screen_load` | Navigation timing (incl. `tti` on initial load when available) |
 | `device.crash` | Uncaught JS errors + React render errors (via built-in `PulseErrorBoundary`) |
 
@@ -122,12 +124,17 @@ export function PulsePageView() {
 </PulseProvider>
 ```
 
-For React Router apps, use the built-in hook instead — no extra component needed:
+For React Router apps, import **`useRouterTracking`** or **`<PulseRouterEvents />`** from **`@dreamhorizonorg/pulse-web/react/router`** (not the bare `/react` entry — that path avoids a hard `react-router-dom` dependency for apps that do not use React Router):
 
 ```tsx
-import { useRouterTracking } from '@dreamhorizonorg/pulse-web/react'
+import { useRouterTracking } from '@dreamhorizonorg/pulse-web/react/router'
 useRouterTracking() // inside a component rendered within <BrowserRouter>
 ```
+
+**Naming note — `beforeSendData`:** RUM docs often say “`beforeSend`”. Pulse
+uses the config key **`beforeSendData`** for parity with Android; inner
+callbacks still use names like **`beforeSend`** / **`beforeSendSpan`**. See
+[`docs/instrumentations/integration/SPEC.md`](docs/instrumentations/integration/SPEC.md) §5.9.
 
 ## Public API
 
@@ -143,12 +150,14 @@ useRouterTracking() // inside a component rendered within <BrowserRouter>
 ## Interaction config contract
 
 Interaction configs are fetched from:
+
 - **Local/dev** (API keys matching `default-project*_*`): `{collector→8080}/v1/interaction-configs/` with `X-API-KEY`
 - **Prod** (any other API key): `https://pulse-otel-collector.pulse-ux.com/config/projects/{projectId}/interaction-config.json` (no `/v1/interaction-configs/` — search DevTools for `interaction-config.json`)
 
 Remote `pulse-config.json` may set `features[].interaction.sessionSampleRate` < 1 for `pulse_web_js`; interaction **spans** stay gated, but the SDK still loads interaction configs when `instrumentations.interactions` is not `enabled: false`.
 
 Web runtime now uses backend/Android wire shape directly:
+
 - `id: number`
 - `description: string`
 - event props use `name` (not `key`)

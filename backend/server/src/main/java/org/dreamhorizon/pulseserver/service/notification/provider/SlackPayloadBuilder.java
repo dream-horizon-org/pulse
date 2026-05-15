@@ -4,6 +4,7 @@ import static org.dreamhorizon.pulseserver.constant.NotificationConstants.*;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.service.notification.TemplateService;
@@ -27,28 +28,52 @@ public final class SlackPayloadBuilder {
     ObjectNode payload = objectMapper.createObjectNode();
 
     if (template.getBody() instanceof SlackTemplateBody slackBody) {
+      String renderedText = null;
+      JsonNode renderedBlocks = null;
+
       if (slackBody.getBlocks() != null) {
         try {
           String blocksRendered = templateService.renderJson(
               objectMapper.writeValueAsString(slackBody.getBlocks()), message.getParams());
-          JsonNode blocks = objectMapper.readTree(blocksRendered);
-          payload.set(KEY_BLOCKS, blocks);
-
-          String text = slackBody.getText() != null
+          renderedBlocks = objectMapper.readTree(blocksRendered);
+          renderedText = slackBody.getText() != null
               ? templateService.renderText(slackBody.getText(), message.getParams())
-              : extractFallbackText(blocks);
-          payload.put(KEY_TEXT, text);
+              : extractFallbackText(renderedBlocks);
         } catch (Exception e) {
           log.warn("Failed to render Slack blocks, falling back to text", e);
-          String fallback = slackBody.getText() != null
+          renderedText = slackBody.getText() != null
               ? templateService.renderText(slackBody.getText(), message.getParams())
               : DEFAULT_SUBJECT;
-          payload.put(KEY_TEXT, fallback);
         }
       } else if (slackBody.getText() != null) {
-        payload.put(KEY_TEXT, templateService.renderText(slackBody.getText(), message.getParams()));
+        renderedText = templateService.renderText(slackBody.getText(), message.getParams());
       } else {
-        payload.put(KEY_TEXT, DEFAULT_SUBJECT);
+        renderedText = DEFAULT_SUBJECT;
+      }
+
+      if (slackBody.getColor() != null && !slackBody.getColor().isBlank()) {
+        ObjectNode attachment = objectMapper.createObjectNode();
+        attachment.put(Slack.KEY_COLOR, slackBody.getColor());
+        if (renderedBlocks != null) {
+          attachment.set(KEY_BLOCKS, renderedBlocks);
+        }
+        if (renderedText != null) {
+          attachment.put(KEY_TEXT, renderedText);
+          attachment.put("fallback", renderedText);
+          ArrayNode mrkdwnIn = objectMapper.createArrayNode();
+          mrkdwnIn.add(KEY_TEXT);
+          attachment.set(Slack.KEY_MRKDWN_IN, mrkdwnIn);
+        }
+        ArrayNode attachments = objectMapper.createArrayNode();
+        attachments.add(attachment);
+        payload.set(Slack.KEY_ATTACHMENTS, attachments);
+      } else {
+        if (renderedBlocks != null) {
+          payload.set(KEY_BLOCKS, renderedBlocks);
+        }
+        if (renderedText != null) {
+          payload.put(KEY_TEXT, renderedText);
+        }
       }
     } else {
       payload.put(KEY_TEXT, DEFAULT_SUBJECT);
