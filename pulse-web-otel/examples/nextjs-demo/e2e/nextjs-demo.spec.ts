@@ -473,6 +473,21 @@ test.describe("error gating & rejection dedupe", () => {
 
 const OTLP_SPAN_STATUS_OK = 1;
 
+async function waitForPulseInitialized(page: Page): Promise<void> {
+  await expect
+    .poll(
+      () =>
+        page.evaluate(() => {
+          const w = window as unknown as {
+            Pulse?: { isInitialized: () => boolean };
+          };
+          return w.Pulse?.isInitialized?.() ?? false;
+        }),
+      { timeout: 15_000 },
+    )
+    .toBe(true);
+}
+
 async function flushTraceExport(page: Page): Promise<void> {
   await page.evaluate(() => {
     window.dispatchEvent(new PageTransitionEvent("pagehide", { persisted: false }));
@@ -563,7 +578,7 @@ test.describe("@M4 network — Next.js demo", () => {
     page,
     otlp,
   }) => {
-    const peerHost = "127.0.0.1:3003";
+    const peerHost = "localhost";
 
     await page.route(
       (url) => url.pathname.includes("/pulse-e2e-network/peer-probe"),
@@ -575,6 +590,7 @@ test.describe("@M4 network — Next.js demo", () => {
     await page.goto(
       `/?pulse_peer_host=${encodeURIComponent(peerHost)}&pulse_peer_service=catalogue-service`,
     );
+    await waitForPulseInitialized(page);
     await otlp.waitForLog("session.start", 15_000);
     otlp.reset();
 
@@ -604,6 +620,7 @@ test.describe("@M4 network — Next.js demo", () => {
     );
 
     await page.goto(`/?pulse_propagate_cors=${encodeURIComponent("localhost:3003")}`);
+    await waitForPulseInitialized(page);
     await otlp.waitForLog("session.start", 15_000);
     otlp.reset();
 
@@ -998,6 +1015,7 @@ test.describe("@M4 network — Next.js demo", () => {
     await page.goto(
       `/?pulse_capture_req_headers=${encodeURIComponent("x-request-id,x-custom-header")}`,
     );
+    await waitForPulseInitialized(page);
     await otlp.waitForLog("session.start", 15_000);
     otlp.reset();
 
