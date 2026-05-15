@@ -346,7 +346,83 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@dreamhorizonorg/pulse-web@npm:0.0.3, @dreamhorizonorg/pulse-web@workspace:*, @dreamhorizonorg/pulse-web@workspace:.":
+"@dreamhorizonorg/pulse-web@file:../../dreamhorizonorg-pulse-web-0.0.3.tgz::locator=ecommerce-demo%40workspace%3Aexamples%2Fecommerce-demo":
+  version: 0.0.3
+  resolution: "@dreamhorizonorg/pulse-web@file:../../dreamhorizonorg-pulse-web-0.0.3.tgz#../../dreamhorizonorg-pulse-web-0.0.3.tgz::hash=1a9419&locator=ecommerce-demo%40workspace%3Aexamples%2Fecommerce-demo"
+  dependencies:
+    "@opentelemetry/api": "npm:^1.9.0"
+    "@opentelemetry/api-logs": "npm:^0.217.0"
+    "@opentelemetry/core": "npm:^2.7.1"
+    "@opentelemetry/exporter-logs-otlp-http": "npm:^0.217.0"
+    "@opentelemetry/exporter-metrics-otlp-http": "npm:^0.217.0"
+    "@opentelemetry/exporter-trace-otlp-http": "npm:^0.217.0"
+    "@opentelemetry/instrumentation": "npm:^0.217.0"
+    "@opentelemetry/instrumentation-fetch": "npm:^0.217.0"
+    "@opentelemetry/instrumentation-xml-http-request": "npm:^0.217.0"
+    "@opentelemetry/otlp-exporter-base": "npm:^0.217.0"
+    "@opentelemetry/otlp-transformer": "npm:^0.217.0"
+    "@opentelemetry/resources": "npm:^2.7.1"
+    "@opentelemetry/sdk-logs": "npm:^0.217.0"
+    "@opentelemetry/sdk-metrics": "npm:^2.7.1"
+    "@opentelemetry/sdk-trace-web": "npm:^2.7.1"
+    web-vitals: "npm:^5.2.0"
+  peerDependencies:
+    "@types/react": ">=18.0.0"
+    next: ">=14.0.0"
+    react: ">=18.0.0"
+    react-router-dom: ">=6.0.0"
+  peerDependenciesMeta:
+    "@types/react":
+      optional: true
+    next:
+      optional: true
+    react:
+      optional: true
+    react-router-dom:
+      optional: true
+  checksum: 10c0/d9ad0e564a60f056c3deb596488bf19c32f18baaeeb82af40e7663fb5ba753cd2e83df45f3ac8f8e596307afaeaccac552c351f418096e36b0ef739230ba65f0
+  languageName: node
+  linkType: hard
+
+"@dreamhorizonorg/pulse-web@file:../../dreamhorizonorg-pulse-web-0.0.3.tgz::locator=nextjs-demo%40workspace%3Aexamples%2Fnextjs-demo":
+  version: 0.0.3
+  resolution: "@dreamhorizonorg/pulse-web@file:../../dreamhorizonorg-pulse-web-0.0.3.tgz#../../dreamhorizonorg-pulse-web-0.0.3.tgz::hash=1a9419&locator=nextjs-demo%40workspace%3Aexamples%2Fnextjs-demo"
+  dependencies:
+    "@opentelemetry/api": "npm:^1.9.0"
+    "@opentelemetry/api-logs": "npm:^0.217.0"
+    "@opentelemetry/core": "npm:^2.7.1"
+    "@opentelemetry/exporter-logs-otlp-http": "npm:^0.217.0"
+    "@opentelemetry/exporter-metrics-otlp-http": "npm:^0.217.0"
+    "@opentelemetry/exporter-trace-otlp-http": "npm:^0.217.0"
+    "@opentelemetry/instrumentation": "npm:^0.217.0"
+    "@opentelemetry/instrumentation-fetch": "npm:^0.217.0"
+    "@opentelemetry/instrumentation-xml-http-request": "npm:^0.217.0"
+    "@opentelemetry/otlp-exporter-base": "npm:^0.217.0"
+    "@opentelemetry/otlp-transformer": "npm:^0.217.0"
+    "@opentelemetry/resources": "npm:^2.7.1"
+    "@opentelemetry/sdk-logs": "npm:^0.217.0"
+    "@opentelemetry/sdk-metrics": "npm:^2.7.1"
+    "@opentelemetry/sdk-trace-web": "npm:^2.7.1"
+    web-vitals: "npm:^5.2.0"
+  peerDependencies:
+    "@types/react": ">=18.0.0"
+    next: ">=14.0.0"
+    react: ">=18.0.0"
+    react-router-dom: ">=6.0.0"
+  peerDependenciesMeta:
+    "@types/react":
+      optional: true
+    next:
+      optional: true
+    react:
+      optional: true
+    react-router-dom:
+      optional: true
+  checksum: 10c0/d9ad0e564a60f056c3deb596488bf19c32f18baaeeb82af40e7663fb5ba753cd2e83df45f3ac8f8e596307afaeaccac552c351f418096e36b0ef739230ba65f0
+  languageName: node
+  linkType: hard
+
+"@dreamhorizonorg/pulse-web@workspace:*, @dreamhorizonorg/pulse-web@workspace:.":
   version: 0.0.0-use.local
   resolution: "@dreamhorizonorg/pulse-web@workspace:."
   dependencies:
@@ -2811,7 +2887,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "ecommerce-demo@workspace:examples/ecommerce-demo"
   dependencies:
-    "@dreamhorizonorg/pulse-web": "npm:0.0.3"
+    "@dreamhorizonorg/pulse-web": "file:../../dreamhorizonorg-pulse-web-0.0.3.tgz"
     "@playwright/test": "npm:^1.47.0"
     "@types/react": "npm:^18.3.0"
     "@types/react-dom": "npm:^18.3.0"
@@ -4672,7 +4748,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "nextjs-demo@workspace:examples/nextjs-demo"
   dependencies:
-    "@dreamhorizonorg/pulse-web": "npm:0.0.3"
+    "@dreamhorizonorg/pulse-web": "file:../../dreamhorizonorg-pulse-web-0.0.3.tgz"
     "@playwright/test": "npm:^1.48.0"
     "@types/node": "npm:^22.0.0"
     "@types/react": "npm:^18.3.0"
