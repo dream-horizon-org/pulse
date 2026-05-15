@@ -44,6 +44,14 @@ sufficient to verify migration.
 
 ### Other changes
 
+- **`web-vitals` ^5.x:** dependency bumped from v4 to **5.2.0+**. Upstream
+  **removed `onFID`** — Pulse no longer emits `web_vital` logs with
+  `web_vital.name = FID` (use **INP** for responsiveness). On v5, `Metric`
+  always includes `navigationType` and `delta`; the SDK always sets
+  `web_vital.navigation_type`, `web_vital.context`, and `web_vital.delta` on
+  each vital log (see `docs/instrumentations/web-vitals/SPEC.md` §5.1).
+  **Size-limit** thresholds raised for traced `dist/index.js` /
+  `dist/next.js` bundles.
 - `InstrumentationRegistry.installAll()` no longer flips its single-owner gate
   before installing. Per-instrumentation `install()` calls are now wrapped in
   try/catch (errors logged via `diag.error`) and the gate flips only after the

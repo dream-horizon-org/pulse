@@ -1,6 +1,6 @@
 {
   "name": "@dreamhorizonorg/pulse-web",
-  "version": "0.0.2",
+  "version": "0.1.0-alpha.2",
   "description": "Pulse observability SDK for web — OpenTelemetry-based RUM, sessions, errors, web vitals, network, and click instrumentation",
   "keywords": [
     "opentelemetry",

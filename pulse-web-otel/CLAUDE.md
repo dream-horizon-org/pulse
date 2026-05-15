@@ -4,7 +4,7 @@ Per-package operating manual. Auto-loaded by Claude Code (hierarchical CLAUDE.md
 
 ## Fast facts
 
-- Package: `@dreamhorizonorg/pulse-web` (`package.json` `name`), `0.1.0-alpha` (pre-release)
+- Package: `@dreamhorizonorg/pulse-web` (`package.json` `name`), `0.1.0-alpha.2` (pre-release)
 - Build: `tsup` → `dist/`
 - Test: `vitest` — `yarn test:run` (CI) or `yarn test` (watch)
 - Typecheck: `yarn lint` (= `tsc --noEmit`, *not* eslint)
