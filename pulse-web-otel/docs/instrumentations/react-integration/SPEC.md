@@ -33,7 +33,7 @@ Document the **React adapter** for Pulse Web: `PulseProvider` (init + context), 
 
 ## 4. Architectural Design
 
-```
+```text
 <PulseProvider config={...}>
   <PulseErrorBoundary>
     {children}
@@ -44,6 +44,39 @@ Document the **React adapter** for Pulse Web: `PulseProvider` (init + context), 
   <PulseRouterEvents />   <!-- or useRouterTracking() -->
   <Routes>...</Routes>
 </BrowserRouter>
+```
+
+### 4.1 HLD — React adapter vs core SDK
+
+```mermaid
+flowchart TB
+  PP["PulseProvider"]
+  Pulse["Pulse singleton"]
+  Nav["NavigationInstrumentation / screen signals"]
+  PP --> Pulse
+  Pulse --> Nav
+  PRE["PulseRouterEvents"] -->|"setScreenName"| Pulse
+```
+
+### 4.2 LD — provider props and router
+
+```mermaid
+flowchart LR
+  PP["PulseProvider.tsx"] --> Init["Pulse.init in useEffect"]
+  PP --> EB["PulseErrorBoundary optional"]
+  PRE["PulseRouterEvents"] --> RT["useLocation react-router-dom"]
+```
+
+### 4.3 Flows — StrictMode and shutdown
+
+```mermaid
+flowchart TD
+  M[mount] --> I{initialized?}
+  I -->|no| INIT[Pulse.init]
+  I -->|yes| skip
+  U[unmount] --> S{shutdownOnUnmount?}
+  S -->|true| SH[Pulse.shutdown microtask]
+  S -->|false| keep
 ```
 
 ---
@@ -91,15 +124,28 @@ Document the **React adapter** for Pulse Web: `PulseProvider` (init + context), 
 
 ## 6. Test Coverage
 
-- `src/__tests__/pulse-provider.test.tsx` — init idempotence, shutdown flag, StrictMode mount patterns.
-- `src/__tests__/pulse-router-events.test.tsx` — router integration smoke.
+### 6.1 Scenario matrix (Given / When / Then)
+
+| ID | Type | Given | When | Then | Tests |
+|----|------|-------|------|------|-------|
+| RE-P1 | positive | provider mounted | first render | single `Pulse.init` | `pulse-provider.test.tsx` |
+| RE-N1 | negative | no BrowserRouter | `PulseRouterEvents` | runtime guard / doc gap | `use-router-tracking.test.tsx` (React router); Next-only: `pulse-router-events.test.tsx` |
+| RE-E1 | edge | `shutdownOnUnmount` true | unmount | shutdown microtask | provider tests |
+| RE-E2 | edge | pathname change | navigation | `setScreenName` called | router tests |
+
+### 6.2 Playwright E2E (`examples/ecommerce-demo/e2e/`)
+
+**`@M15`** PulseProvider / PulseErrorBoundary / `useRouterTracking` / StrictMode / `skipInitial` / `react.component_stack` — full titles in [`../../sdk-core/test-coverage/SPEC.md`](../../sdk-core/test-coverage/SPEC.md) §6.3.
+
+### Vitest
+
 - `src/__tests__/use-router-tracking.test.tsx` — pathname transitions → `setScreenName`.
 
 ---
 
 ## 7. Known Bugs & Gaps
 
-### P0:
+### P0
 
 None identified for React adapter layer at synthesis.
 

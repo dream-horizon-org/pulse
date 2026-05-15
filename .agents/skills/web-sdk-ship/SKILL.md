@@ -108,6 +108,7 @@ After **Step 3 is green**, walk this list on the **diff** (or touched modules if
 
 - **Interactions:** focused greps in `src/interactions/` for sequence/timeout/APDEX assumptions.
 - **Graph context:** `pulse-web-otel/graphify-out/GRAPH_REPORT.md` for blast radius.
+- **IndexedDB / disk-buffer replay:** failed-export + reload E2E with **zero** replayed logs → read `src/persistence/indexed-db.ts` (`write` → `enforceMaxSize`) and `src/constants/disk-buffer.ts` vs **`docs/sdk-core/config-and-public-api/SPEC.md`** (~10 MiB). Durable note: [web-sdk-instrument/reference.md](../web-sdk-instrument/reference.md) **§F** + matrix **D6**.
 
 **Trivial doc-only** edits under `docs/instrumentations/` with no code: Step 5 can be **N/A**—state that in the close-out report.
 

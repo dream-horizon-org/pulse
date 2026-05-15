@@ -1,6 +1,6 @@
 # Errors Instrumentation — SPEC.md
 
-Package: `@dreamhorizon/pulse-web`  
+Package: `@dreamhorizonorg/pulse-web`  
 File: `pulse-web-otel/docs/instrumentations/errors/SPEC.md`
 
 ---
@@ -31,7 +31,7 @@ Capture JavaScript failures as OTLP **log records** aligned with Pulse mobile se
 
 **R3 — `non_fatal`:** Unhandled promise rejections → `pulse.type = non_fatal`, `severityNumber = WARN`, `non_fatal.is_manual = false`.
 
-**R4 — Manual APIs:** `Pulse.reportException` / `Pulse.trackNonFatal` → `non_fatal`; `Pulse.reportDeviceCrash` → `device.crash` (see `sdk-core` SPEC §5.10).
+**R4 — Manual APIs:** `Pulse.reportException` / `Pulse.trackNonFatal` → `non_fatal`; `Pulse.reportDeviceCrash` → `device.crash` (see **`sdk-core`** [`config-and-public-api/SPEC.md`](../../sdk-core/config-and-public-api/SPEC.md) §5.6).
 
 **R5 — Dedupe:** Fingerprints + 5s sliding window suppress burst duplicates (`DEDUPE_WINDOW_MS = 5000`).
 
@@ -47,7 +47,7 @@ Capture JavaScript failures as OTLP **log records** aligned with Pulse mobile se
 
 ## 4. Architectural Design
 
-```
+```text
 InstrumentationRegistry.installAll()
   └─ ErrorInstrumentation (PulseFeature.JS_CRASH)
         ├─ prefetchDeviceState()  → battery + storage async
@@ -60,6 +60,50 @@ React layer (optional)
 ```
 
 **Decision (ADR):** Keep log-based model; harden E2E and lifecycle docs rather than introducing spans/metrics for errors.
+
+### 4.1 HLD — registry and signals
+
+```mermaid
+flowchart TB
+  Reg["InstrumentationRegistry"]
+  EI["ErrorInstrumentation"]
+  Win["window: error / unhandledrejection"]
+  ReactB["PulseErrorBoundary"]
+  Log["LoggerProvider → OTLP"]
+  Reg --> EI
+  Win --> EI
+  ReactB -->|"reportDeviceCrash"| Log
+  EI --> Log
+```
+
+### 4.2 LD — handlers and dedupe
+
+```mermaid
+flowchart LR
+  EI["errors.ts"] --> DED["dedupe window 5s"]
+  EI --> DEV["prefetchDeviceState"]
+  EI --> SEM["semconv / severity"]
+  DED --> EMIT["emit log"]
+```
+
+### 4.3 Flows and edge cases
+
+```mermaid
+flowchart TD
+  I[install] --> SSR{window?}
+  SSR -->|no| Z[no-op]
+  SSR -->|yes| GA{JS_CRASH gate?}
+  GA -->|off| Z
+  GA -->|on| L[register listeners]
+  L --> ERR[window error]
+  ERR --> X{Script error. empty file?}
+  X -->|yes skip| SK[skip emit]
+  X -->|no| FATAL[device.crash FATAL]
+  L --> REJ[unhandledrejection]
+  REJ --> NF[non_fatal WARN]
+  L --> U[uninstall]
+  U --> RM[remove listeners]
+```
 
 ---
 
@@ -85,7 +129,7 @@ React layer (optional)
 | `storage.free` | number | `navigator.storage.estimate` | No | Bytes free when available |
 | `react.component_stack` | string | React `ErrorInfo` | No | From `PulseErrorBoundary` only |
 
-Global attributes (`session.id`, `screen.name`, resource) are applied by processors — same contract as `sdk-core` SPEC §5.2.
+Global attributes (`session.id`, `screen.name`, resource) are applied by processors — same contract as **`sdk-core`** [`data-contract/SPEC.md`](../../sdk-core/data-contract/SPEC.md) §5.
 
 ### 5.2 React `PulseErrorBoundary`
 
@@ -103,10 +147,27 @@ Global attributes (`session.id`, `screen.name`, resource) are applied by process
 - Global handlers attach to `window` after client `Pulse.init`. Same-origin JS errors and promise rejections surface as logs with full attributes.
 - **Next.js App Router / Pages Router (client):** Once hydrated, behaviour matches SPA; route transitions do not re-install instrumentation — listeners remain for the tab lifetime.
 
----
-
-
 ## 6. Test Coverage
+
+### 6.1 Scenario matrix (Given / When / Then)
+
+| ID | Type | Given | When | Then | Tests |
+|----|------|-------|------|------|-------|
+| E-P1 | positive | gate on, uncaught throw | `window` error | `device.crash`, FATAL | `m3.test.ts` TC1 |
+| E-P2 | positive | gate on | unhandled rejection | `non_fatal`, WARN | `m3.test.ts` TC2 |
+| E-N1 | negative | gate off | install | no listeners | `errors-instrumentation-gate-and-ssr.test.ts` |
+| E-N2 | negative | cross-origin script | `"Script error."` empty file | skip emit | `m3.test.ts` TC12; §2 assumptions |
+| E-E1 | edge | dedupe | duplicate within 5s | suppressed | R5, `m3.test.ts` TC7 |
+| E-E2 | edge | SSR | no `window` | install no-op | `errors-instrumentation-gate-and-ssr.test.ts` |
+| E-E3 | edge | uninstall | subsequent error | no emit | uninstall tests |
+
+### 6.2 Playwright E2E (`examples/ecommerce-demo/e2e/`)
+
+Master index: [`../../sdk-core/test-coverage/SPEC.md`](../../sdk-core/test-coverage/SPEC.md) §6.3. **Mock OTLP:** `@M3-errors` (contract, lifecycle, gate/consent). **ClickHouse:** `@M3-CH` TC1–TC6, TC9–TC10, TC12.
+
+- Uncaught error / unhandled rejection / manual `reportException` / boundary `device.crash`
+- Dedupe window, fingerprint separation, rejection normalization, cross-origin silence, timestamp, coexisting `window.onerror`
+- `js_crash` gate off; `DENIED` consent — zero exports
 
 ### `src/__tests__/error-instrumentation-device-state.test.ts`
 

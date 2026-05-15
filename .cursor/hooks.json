@@ -32,6 +32,9 @@
       },
       {
         "command": ".cursor/hooks/audit.sh"
+      },
+      {
+        "command": ".cursor/hooks/queue-web-otel-spec-audit.sh"
       }
     ],
     "afterMCPExecution": [
