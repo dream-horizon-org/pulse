@@ -1,5 +1,5 @@
 /**
- * Web Vitals (Plan B) — OTLP logs with pulse.type=web_vital.
+ * Web Vitals — OTLP logs with pulse.type=web_vital.
  * In `--mode test`, {@code VITE_PULSE_BATCH_DELAY_MS=200} — wait ~1.5s after click for log export.
  */
 import { test, expect, findAllLogs, findAllSpans, getAttr } from "./fixture";
@@ -9,7 +9,7 @@ import {
   blockActiveConfigFetch,
 } from "./test-sdk-config";
 
-function assertNavigationIdAndOptionalVitalContext(
+function assertExportedWebVitalAttrs(
   attrs: {
     key: string;
     value: {
@@ -20,6 +20,7 @@ function assertNavigationIdAndOptionalVitalContext(
     };
   }[],
 ): void {
+  expect(getAttr(attrs, "platform")).toBe("web");
   const navigationId = getAttr(attrs, "navigation_id");
   expect(typeof navigationId).toBe("string");
   expect((navigationId as string).length).toBeGreaterThan(10);
@@ -55,7 +56,7 @@ test.describe("@WebVitals", () => {
     expect(["good", "needs-improvement", "poor"]).toContain(rating);
     expect(getAttr(ttfb!.attributes, "session.id")).toBeTruthy();
     expect(getAttr(ttfb!.attributes, "screen.name")).toBeTruthy();
-    assertNavigationIdAndOptionalVitalContext(ttfb!.attributes);
+    assertExportedWebVitalAttrs(ttfb!.attributes);
   });
 
   test("emits FCP web_vital log after load and batch window", async ({
@@ -79,7 +80,7 @@ test.describe("@WebVitals", () => {
     expect(["good", "needs-improvement", "poor"]).toContain(rating);
     expect(getAttr(fcp!.attributes, "session.id")).toBeTruthy();
     expect(getAttr(fcp!.attributes, "screen.name")).toBeTruthy();
-    assertNavigationIdAndOptionalVitalContext(fcp!.attributes);
+    assertExportedWebVitalAttrs(fcp!.attributes);
   });
 
   test("emits LCP web_vital log after click and batch window", async ({
@@ -109,7 +110,7 @@ test.describe("@WebVitals", () => {
     expect(["good", "needs-improvement", "poor"]).toContain(rating);
     expect(getAttr(lcp!.attributes, "session.id")).toBeTruthy();
     expect(getAttr(lcp!.attributes, "screen.name")).toBeTruthy();
-    assertNavigationIdAndOptionalVitalContext(lcp!.attributes);
+    assertExportedWebVitalAttrs(lcp!.attributes);
   });
 
   test("emits INP web_vital log on tab hide after real interaction", async ({
@@ -168,50 +169,7 @@ test.describe("@WebVitals", () => {
     expect(["good", "needs-improvement", "poor"]).toContain(inpRating);
     expect(getAttr(inp!.attributes, "session.id")).toBeTruthy();
     expect(getAttr(inp!.attributes, "screen.name")).toBeTruthy();
-    assertNavigationIdAndOptionalVitalContext(inp!.attributes);
-  });
-
-  test("emits FID web_vital log on first interaction (Chromium)", async ({
-    page,
-    otlp,
-    browserName,
-  }) => {
-    test.skip(
-      browserName !== "chromium",
-      "First-input / PerformanceEventTiming is Chromium-reliable in Playwright",
-    );
-
-    await page.goto("/");
-    await otlp.waitForLog("session.start");
-
-    await page.waitForSelector('a[href="/products"]');
-    await page.evaluate(() => {
-      document.querySelector('a[href="/products"]')?.addEventListener(
-        "click",
-        () => {
-          const end = Date.now() + 70;
-          while (Date.now() < end) {}
-        },
-        { once: true },
-      );
-    });
-    await page.click('a[href="/products"]');
-    await page.waitForTimeout(1500);
-
-    const vitals = findAllLogs(otlp.captured, "web_vital");
-    const fid = vitals.find(
-      (lr) => getAttr(lr.attributes, "web_vital.name") === "FID",
-    );
-    expect(fid).toBeDefined();
-    expect(getAttr(fid!.attributes, "pulse.type")).toBe("web_vital");
-    const fidValue = getAttr(fid!.attributes, "web_vital.value");
-    expect(typeof fidValue).toBe("number");
-    expect(Number.isFinite(fidValue as number)).toBe(true);
-    const fidRating = getAttr(fid!.attributes, "web_vital.rating");
-    expect(["good", "needs-improvement", "poor"]).toContain(fidRating);
-    expect(getAttr(fid!.attributes, "session.id")).toBeTruthy();
-    expect(getAttr(fid!.attributes, "screen.name")).toBeTruthy();
-    assertNavigationIdAndOptionalVitalContext(fid!.attributes);
+    assertExportedWebVitalAttrs(inp!.attributes);
   });
 
   test("emits CLS web_vital after layout shift and tab hide", async ({
@@ -260,7 +218,7 @@ test.describe("@WebVitals", () => {
     expect(["good", "needs-improvement", "poor"]).toContain(clsRating);
     expect(getAttr(cls!.attributes, "session.id")).toBeTruthy();
     expect(getAttr(cls!.attributes, "screen.name")).toBeTruthy();
-    assertNavigationIdAndOptionalVitalContext(cls!.attributes);
+    assertExportedWebVitalAttrs(cls!.attributes);
   });
 
   test("SPA navigation flushes TTFB vital with correct screen.name from initial route", async ({
@@ -272,7 +230,8 @@ test.describe("@WebVitals", () => {
     // Let TTFB/FCP fire and buffer; do not trigger tab hide.
     await page.waitForTimeout(400);
 
-    // SPA navigation — triggers notifySoftNavigation flush in the hook.
+    // SPA navigation — PulseRouterEvents / useRouterTracking → Pulse.notifySoftNavigation() →
+    // loggerProvider.forceFlush(); plus batch/export timing. TTFB was captured on home before nav.
     await page.click('a[href="/products"]');
     await page.waitForTimeout(600); // batch window 200ms + buffer
 
@@ -285,7 +244,7 @@ test.describe("@WebVitals", () => {
     // screen.name must be "/" — TTFB was measured on the home route.
     expect(getAttr(ttfb!.attributes, "screen.name")).toBe("/");
     expect(getAttr(ttfb!.attributes, "session.id")).toBeTruthy();
-    assertNavigationIdAndOptionalVitalContext(ttfb!.attributes);
+    assertExportedWebVitalAttrs(ttfb!.attributes);
   });
 
   test("SPA screen_load span carries navigation_id after client navigation", async ({
@@ -327,6 +286,21 @@ test.describe("@WebVitals", () => {
     await blockActiveConfigFetch(page);
 
     await page.goto("/");
+    await otlp.waitForLog("session.start");
+    otlp.reset();
+
+    await page.waitForTimeout(500);
+    await page.click("body");
+    await page.waitForTimeout(1500);
+
+    expect(findAllLogs(otlp.captured, "web_vital")).toHaveLength(0);
+  });
+
+  test("does not emit web_vital logs when local web vitals kill switch is on (?pulse_wv_enabled=false)", async ({
+    page,
+    otlp,
+  }) => {
+    await page.goto("/?pulse_wv_enabled=false");
     await otlp.waitForLog("session.start");
     otlp.reset();
 

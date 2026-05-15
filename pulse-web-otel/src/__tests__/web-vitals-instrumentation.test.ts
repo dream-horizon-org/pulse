@@ -2,7 +2,6 @@ const wvMocks = vi.hoisted(() => ({
   onLCP: vi.fn(),
   onINP: vi.fn(),
   onCLS: vi.fn(),
-  onFID: vi.fn(),
   onFCP: vi.fn(),
   onTTFB: vi.fn(),
 }));
@@ -11,7 +10,6 @@ vi.mock("web-vitals", () => ({
   onLCP: wvMocks.onLCP,
   onINP: wvMocks.onINP,
   onCLS: wvMocks.onCLS,
-  onFID: wvMocks.onFID,
   onFCP: wvMocks.onFCP,
   onTTFB: wvMocks.onTTFB,
 }));
@@ -28,6 +26,7 @@ vi.mock("@opentelemetry/api-logs", () => ({
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { logs } from "@opentelemetry/api-logs";
+import type { CLSMetric, INPMetric, LCPMetric } from "web-vitals";
 import { DomEventType } from "../constants/pulse-otel-runtime";
 import { WebVitalsInstrumentation } from "../instrumentations/web-vitals";
 import { FeatureGate } from "../feature-gate";
@@ -85,12 +84,24 @@ function makeMinimalSdk(
   };
 }
 
+function lcpMetric(over: Partial<LCPMetric> = {}): LCPMetric {
+  return {
+    name: "LCP",
+    value: 1200,
+    rating: "good",
+    delta: 1200,
+    id: "lcp-test",
+    entries: [],
+    navigationType: "navigate",
+    ...over,
+  } as LCPMetric;
+}
+
 describe("WebVitalsInstrumentation", () => {
   beforeEach(() => {
     wvMocks.onLCP.mockClear();
     wvMocks.onINP.mockClear();
     wvMocks.onCLS.mockClear();
-    wvMocks.onFID.mockClear();
     wvMocks.onFCP.mockClear();
     wvMocks.onTTFB.mockClear();
     vi.mocked(logs.getLogger).mockClear();
@@ -104,7 +115,7 @@ describe("WebVitalsInstrumentation", () => {
     vi.restoreAllMocks();
   });
 
-  it("registers onLCP, onINP, onCLS, onFCP, onFID, and onTTFB once", () => {
+  it("registers onLCP, onINP, onCLS, onFCP, and onTTFB once", () => {
     const instr = new WebVitalsInstrumentation();
     instr.install(makeMinimalSdk());
 
@@ -112,13 +123,12 @@ describe("WebVitalsInstrumentation", () => {
     expect(wvMocks.onINP).toHaveBeenCalledTimes(1);
     expect(wvMocks.onCLS).toHaveBeenCalledTimes(1);
     expect(wvMocks.onFCP).toHaveBeenCalledTimes(1);
-    expect(wvMocks.onFID).toHaveBeenCalledTimes(1);
     expect(wvMocks.onTTFB).toHaveBeenCalledTimes(1);
 
     instr.uninstall();
   });
 
-  it("emits log with pulse.type, body, name, value, rating; omits navigation_type when callback has none", () => {
+  it("emits log with pulse.type, body, name, value, rating, delta, navigation_type, and context", () => {
     const emit = vi.fn();
     vi.mocked(logs.getLogger).mockReturnValue({
       emit,
@@ -128,12 +138,12 @@ describe("WebVitalsInstrumentation", () => {
     const instr = new WebVitalsInstrumentation();
     instr.install(makeMinimalSdk());
 
-    const lcpCallback = wvMocks.onLCP.mock.calls[0]![0] as (m: {
-      name: "LCP";
-      value: number;
-      rating: "good";
-    }) => void;
-    lcpCallback({ name: "LCP", value: 1200, rating: "good" });
+    const lcpCallback = wvMocks.onLCP.mock.calls[0]![0] as (
+      m: LCPMetric,
+    ) => void;
+    lcpCallback(
+      lcpMetric({ value: 1200, delta: 1200, navigationType: "navigate" }),
+    );
 
     expect(emit).toHaveBeenCalledWith({
       body: PulseWebSemconv.LogBody.WEB_VITAL,
@@ -143,27 +153,26 @@ describe("WebVitalsInstrumentation", () => {
         [PulseWebSemconv.AttributeKey.WEB_VITAL_NAME]: "LCP",
         [PulseWebSemconv.AttributeKey.WEB_VITAL_VALUE]: 1200,
         [PulseWebSemconv.AttributeKey.WEB_VITAL_RATING]: "good",
+        [PulseWebSemconv.AttributeKey.WEB_VITAL_DELTA]: 1200,
+        [PulseWebSemconv.AttributeKey.WEB_VITAL_NAVIGATION_TYPE]: "navigate",
+        [PulseWebSemconv.AttributeKey.WEB_VITAL_CONTEXT]: "pageload",
       },
     });
 
     emit.mockClear();
-    const lcpNav = wvMocks.onLCP.mock.calls[0]![0] as (m: {
-      name: "LCP";
-      value: number;
-      rating: "good";
-      navigationType: "reload";
-    }) => void;
-    lcpNav({
-      name: "LCP",
-      value: 900,
-      rating: "good",
-      navigationType: "reload",
-    });
+    lcpCallback(
+      lcpMetric({
+        value: 900,
+        delta: 50,
+        navigationType: "reload",
+      }),
+    );
     expect(emit).toHaveBeenCalledWith(
       expect.objectContaining({
         attributes: expect.objectContaining({
           [PulseWebSemconv.AttributeKey.WEB_VITAL_NAVIGATION_TYPE]: "reload",
           [PulseWebSemconv.AttributeKey.WEB_VITAL_CONTEXT]: "pageload",
+          [PulseWebSemconv.AttributeKey.WEB_VITAL_DELTA]: 50,
         }),
       }),
     );
@@ -183,7 +192,7 @@ describe("WebVitalsInstrumentation", () => {
     instr.uninstall();
   });
 
-  it("emits web_vital.delta when metric.delta is defined; maps web_vital.context for soft-navigation", () => {
+  it("emits incremental web_vital.delta for CLS; maps soft-navigation to web_vital.context navigation", () => {
     const emit = vi.fn();
     vi.mocked(logs.getLogger).mockReturnValue({
       emit,
@@ -192,13 +201,16 @@ describe("WebVitalsInstrumentation", () => {
     const instr = new WebVitalsInstrumentation();
     instr.install(makeMinimalSdk());
 
-    const clsCb = wvMocks.onCLS.mock.calls[0]![0] as (m: {
-      name: "CLS";
-      value: number;
-      rating: "good";
-      delta: number;
-    }) => void;
-    clsCb({ name: "CLS", value: 0.12, rating: "good", delta: 0.05 });
+    const clsCb = wvMocks.onCLS.mock.calls[0]![0] as (m: CLSMetric) => void;
+    clsCb({
+      name: "CLS",
+      value: 0.12,
+      rating: "good",
+      delta: 0.05,
+      id: "cls-1",
+      entries: [],
+      navigationType: "navigate",
+    } as CLSMetric);
     expect(emit).toHaveBeenCalledWith(
       expect.objectContaining({
         attributes: expect.objectContaining({
@@ -208,18 +220,16 @@ describe("WebVitalsInstrumentation", () => {
     );
 
     emit.mockClear();
-    const inpCb = wvMocks.onINP.mock.calls[0]![0] as (m: {
-      name: "INP";
-      value: number;
-      rating: "good";
-      navigationType: string;
-    }) => void;
+    const inpCb = wvMocks.onINP.mock.calls[0]![0] as (m: INPMetric) => void;
     inpCb({
       name: "INP",
       value: 42,
       rating: "good",
+      delta: 42,
+      id: "inp-1",
+      entries: [],
       navigationType: "soft-navigation",
-    });
+    } as unknown as INPMetric);
     expect(emit).toHaveBeenCalledWith(
       expect.objectContaining({
         attributes: expect.objectContaining({
@@ -263,6 +273,26 @@ describe("WebVitalsInstrumentation", () => {
     expect(sdk.loggerProvider?.forceFlush).toHaveBeenCalled();
 
     instr.uninstall();
+  });
+
+  it("after uninstall, web-vitals metric callback does not call logger.emit", () => {
+    const emit = vi.fn();
+    vi.mocked(logs.getLogger).mockReturnValue({
+      emit,
+      enabled: vi.fn().mockReturnValue(true),
+    });
+    const instr = new WebVitalsInstrumentation();
+    instr.install(makeMinimalSdk());
+
+    const lcpCallback = wvMocks.onLCP.mock.calls[0]![0] as (
+      m: LCPMetric,
+    ) => void;
+    lcpCallback(lcpMetric({ value: 100, delta: 100 }));
+    expect(emit).toHaveBeenCalledTimes(1);
+
+    instr.uninstall();
+    lcpCallback(lcpMetric({ value: 200, delta: 100 }));
+    expect(emit).toHaveBeenCalledTimes(1);
   });
 
   it("double forceFlush does not throw", async () => {

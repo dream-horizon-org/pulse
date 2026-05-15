@@ -36,7 +36,7 @@ Once the SDK starts, these signals fire automatically with no extra code:
 | --- | --- |
 | `session.start` / `session.end` | Session lifecycle |
 | `screen_load` | Page / route load timing |
-| `web_vital` | LCP, CLS, FID, INP, TTFB |
+| `web_vital` | LCP, CLS, INP, TTFB, FCP |
 | `app.click` | Every click + rage click detection |
 | `network.<status>` (e.g. `network.200`) | All `fetch` / XHR — client span `pulse.type` is `network.<HTTP status>` (Android parity), not the literal `http` |
 | `non_fatal` | Unhandled JS errors + promise rejections |

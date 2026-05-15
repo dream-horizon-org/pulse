@@ -161,7 +161,7 @@ This document **is** the detailed §5 catalogue; see subsections **§5.1–§5.6
 
 ### 6.3 Playwright E2E — master catalogue
 
-**Primary harness (React + Vite SPA):** `pulse-web-otel/examples/ecommerce-demo/e2e/`. **CI Chromium gate** (`cd pulse-web-otel && yarn e2e:web-sdk-gates`): `m1`, `m2-interactions`, `m3-errors`, `web-vitals`, `m3-clicks`, `m4-network`, `screen-navigation` only (**185** tests as of 2026-05-14). **Additional** Playwright files in the same folder (`m8`, `m15`, `m16-ch`, `m3-ch`, `synthetic-user`, …) run via `yarn workspace ecommerce-demo e2e` / per-file greps — they are **catalogued below** but **not** all are in the default gate script.
+**Primary harness (React + Vite SPA):** `pulse-web-otel/examples/ecommerce-demo/e2e/`. **CI Chromium gate** (`cd pulse-web-otel && yarn e2e:web-sdk-gates`): `m1`, `m2-interactions`, `m3-errors`, `web-vitals`, `m3-clicks`, `m4-network`, `screen-navigation` only (**186** tests as of 2026-05-15). **Additional** Playwright files in the same folder (`m8`, `m15`, `m16-ch`, `m3-ch`, `synthetic-user`, …) run via `yarn workspace ecommerce-demo e2e` / per-file greps — they are **catalogued below** but **not** all are in the default gate script.
 
 **Next.js App Router demo:** `pulse-web-otel/examples/nextjs-demo/e2e/` — `yarn workspace nextjs-demo e2e`. Mock OTLP; `nextjs-demo.ch.spec.ts` is the CH mirror subset.
 
@@ -345,10 +345,10 @@ Below: **Playwright `test()` titles** as registered in the repo (grouped by `tes
 
 #### `@WebVitals`
 
-- TTFB, FCP, LCP, INP (tab hide), FID (Chromium), CLS after layout shift + tab hide
-- `navigation_id` on vitals; optional `web_vital.context` / `web_vital.delta` when present
-- SPA navigation flushes TTFB with `screen.name` from initial route; SPA `screen_load` span carries `navigation_id`
-- gate off → no web_vital logs
+- TTFB, FCP, LCP, INP (tab hide), CLS after layout shift + tab hide
+- `platform` = `web` on vitals; `navigation_id` on vitals; optional `web_vital.context` / `web_vital.delta` when present
+- SPA navigation flushes TTFB with `screen.name` from initial route (`PulseRouterEvents` → `notifySoftNavigation` + batch); SPA `screen_load` span carries `navigation_id`
+- Remote gate off → no web_vital logs; local kill switch `?pulse_wv_enabled=false` → no web_vital logs (remote gate may stay on)
 
 #### `@SyntheticUser`
 
@@ -385,7 +385,7 @@ Below: **Playwright `test()` titles** as registered in the repo (grouped by `tes
 
 - **Aligned with current SDK:** ecommerce `e2e:web-sdk-gates` is the CI contract; scenarios above match grep of live `*.spec.ts` files in-repo.
 - **ClickHouse specs (`m3-ch`, `m16-ch`, `nextjs-demo.ch`):** optional; require CH URL + credentials in env — not part of default `e2e:web-sdk-gates`.
-- **Residual product gaps (not necessarily test bugs):** (1) Next demo does not exercise `NavigationInstrumentation` spans. (2) No Next E2E for soft-nav web vitals flush (`Pulse.notifySoftNavigation`) as a dedicated assertion. (3) No E2E for `HashRouter` / hash-only navigation (documented as unsupported for SPA screen signals). (4) Interactions SPEC matrix row **INT-E1** (config fetch unavailable) marked **gap** in Vitest — M2 E2E covers “config fetch unavailable” at telemetry level but not every unit edge.
+- **Residual product gaps (not necessarily test bugs):** (1) Next demo does not exercise `NavigationInstrumentation` spans. (2) No **Next.js demo** E2E that asserts soft-nav web vitals flush via `Pulse.notifySoftNavigation` end-to-end (ecommerce-demo covers SPA + vitals via `PulseRouterEvents` / `@WebVitals`). (3) No E2E for `HashRouter` / hash-only navigation (documented as unsupported for SPA screen signals). (4) Interactions SPEC matrix row **INT-E1** (config fetch unavailable) marked **gap** in Vitest — M2 E2E covers “config fetch unavailable” at telemetry level but not every unit edge.
 
 ### 6.6 Consumer install smoke — published `@dreamhorizonorg/pulse-web/next` (P1:8)
 

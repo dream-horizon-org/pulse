@@ -10,6 +10,7 @@ import type {
 import App from "./App";
 import { EcommerceErrorFallback } from "./components/EcommerceErrorFallback";
 import { PulseProvider } from "@dreamhorizonorg/pulse-web/react";
+import { readManualWebVitalsInstrumentation } from "./read-manual-web-vitals-instrumentation";
 
 const otlpExportFormat: "json" | "protobuf" =
   import.meta.env.VITE_PULSE_FORMAT === "json" ? "json" : "protobuf";
@@ -47,9 +48,13 @@ function useDemoUrlPulseOptions(): Pick<
     const networkOff =
       q.get("pulse_network_enabled") === "0" ||
       q.get("pulse_network_enabled") === "false";
+    const manualWebVitals = readManualWebVitalsInstrumentation(q);
     let instrumentations: InstrumentationConfig | undefined;
-    if (networkOff) {
-      instrumentations = { network: { enabled: false } };
+    if (networkOff || manualWebVitals !== undefined) {
+      instrumentations = {
+        ...(networkOff ? { network: { enabled: false as const } } : {}),
+        ...(manualWebVitals ?? {}),
+      };
     }
 
     const logLevelRaw = (

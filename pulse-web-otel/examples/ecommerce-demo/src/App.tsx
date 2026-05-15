@@ -18,45 +18,6 @@ import { ScreenNavigationLogger } from "./components/ScreenNavigationLogger";
 import { WebVitalsStressHarness } from "./components/WebVitalsStressHarness";
 import { CartProvider } from "./hooks/useCart";
 
-/**
- * Manual Web Vitals QA: optional local disable via env or URL (`pulse_wv_enabled`, `VITE_PULSE_WEB_VITALS_ENABLED`).
- * FCP/FID/TTFB register with other vitals whenever instrumentation installs — no separate demo knobs.
- * Remote `web_vitals` gate still comes from SDK config (mock JSON / server), not from here.
- */
-type ManualWebVitalsInstrumentation = {
-  webVitals: {
-    enabled?: boolean;
-  };
-};
-
-function readManualWebVitalsInstrumentation(
-  searchParams: URLSearchParams,
-): ManualWebVitalsInstrumentation | undefined {
-  const q = (key: string): string | null => searchParams.get(key);
-  const truthy = (v: string | null): boolean =>
-    v === "1" || v === "true" || v === "yes";
-  const falsy = (v: string | null): boolean => v === "0" || v === "false";
-
-  let enabled: boolean | undefined;
-  let touchedEnabled = false;
-  if (falsy(q("pulse_wv_enabled"))) {
-    enabled = false;
-    touchedEnabled = true;
-  } else if (import.meta.env["VITE_PULSE_WEB_VITALS_ENABLED"] === "false") {
-    enabled = false;
-    touchedEnabled = true;
-  } else if (truthy(q("pulse_wv_enabled"))) {
-    enabled = true;
-    touchedEnabled = true;
-  }
-
-  if (!touchedEnabled) {
-    return undefined;
-  }
-
-  return { webVitals: { enabled } };
-}
-
 const Home = lazy(() => import("./routes/Home"));
 const Products = lazy(() => import("./routes/Products"));
 const ProductDetail = lazy(() => import("./routes/ProductDetail"));
@@ -122,94 +83,9 @@ function NavBar() {
 export default function App() {
   const [errorLabKey, setErrorLabKey] = useState(0);
 
-  // const pulseConfig = useMemo(() => {
-  //   const searchParams = new URLSearchParams(window.location.search);
-  //   const consentParam = searchParams.get("pulse_consent");
-  //   const queryLogLevel = searchParams.get("pulse_log_level");
+  // Legacy pulseConfig useMemo (superseded): live URL overrides live in Root.tsx
+  // (`useDemoUrlPulseOptions` + read-manual-web-vitals-instrumentation.ts).
 
-  //   // Disk buffering defaults on (Android parity). Opt out with ?pulse_disk=0 or VITE_PULSE_DISK_BUFFER=false.
-  //   const diskOffQuery = searchParams.get("pulse_disk") === "0";
-  //   const diskOffEnv = import.meta.env["VITE_PULSE_DISK_BUFFER"] === "false";
-  //   const diskBuffering =
-  //     diskOffQuery || diskOffEnv ? { enabled: false as const } : undefined;
-
-  //   const dataCollectionState =
-  //     consentParam === "denied"
-  //       ? PulseDataCollectionConsent.DENIED
-  //       : consentParam === "pending"
-  //         ? PulseDataCollectionConsent.PENDING
-  //         : PulseDataCollectionConsent.ALLOWED;
-
-  //   const formatEnv = import.meta.env["VITE_PULSE_FORMAT"] as
-  //     | "json"
-  //     | "protobuf"
-  //     | undefined;
-  //   const logLevelRaw = (
-  //     queryLogLevel ??
-  //     import.meta.env["VITE_PULSE_LOG_LEVEL"] ??
-  //     ""
-  //   )
-  //     .toString()
-  //     .trim()
-  //     .toLowerCase();
-  //   const logLevelMap: Record<string, PulseLogLevel> = {
-  //     verbose: PulseLogLevel.VERBOSE,
-  //     debug: PulseLogLevel.DEBUG,
-  //     info: PulseLogLevel.INFO,
-  //     warn: PulseLogLevel.WARN,
-  //     error: PulseLogLevel.ERROR,
-  //     none: PulseLogLevel.NONE,
-  //   };
-  //   const logLevel = logLevelMap[logLevelRaw];
-
-  //   const serviceVersionRaw = import.meta.env["VITE_PULSE_SERVICE_VERSION"] as
-  //     | string
-  //     | undefined;
-  //   const serviceVersion =
-  //     serviceVersionRaw && String(serviceVersionRaw).trim() !== ""
-  //       ? String(serviceVersionRaw).trim()
-  //       : undefined;
-
-  //   const manualInstrumentations =
-  //     readManualWebVitalsInstrumentation(searchParams);
-  //   /** E2E: `?pulse_network_enabled=0` disables network instrumentation while remote gate may stay on. */
-  //   const pulseNetworkDisabled =
-  //     searchParams.get("pulse_network_enabled") === "0" ||
-  //     searchParams.get("pulse_network_enabled") === "false";
-  //   const instrumentationsPartial =
-  //     manualInstrumentations !== undefined || pulseNetworkDisabled
-  //       ? {
-  //           ...(manualInstrumentations ?? {}),
-  //           ...(pulseNetworkDisabled
-  //             ? { network: { enabled: false as const } }
-  //             : {}),
-  //         }
-  //       : undefined;
-
-  //   const apiKey = import.meta.env["VITE_PULSE_API_KEY"];
-  //   if (!apiKey) {
-  //     throw new Error(
-  //       "Missing VITE_PULSE_API_KEY for ecommerce-demo Pulse integration",
-  //     );
-  //   }
-
-  //   return {
-  //     apiKey,
-  //     serviceName:
-  //       import.meta.env["VITE_PULSE_SERVICE_NAME"] ?? "ecommerce-demo",
-  //     ...(serviceVersion !== undefined ? { serviceVersion } : {}),
-  //     dataCollectionState,
-  //     export: {
-  //       format: (formatEnv ?? ("protobuf" as const)) as "json" | "protobuf",
-  //     },
-  //     ...(logLevel !== undefined ? { logLevel } : {}),
-  //     ...(diskBuffering !== undefined ? { diskBuffering } : {}),
-  //     ...(instrumentationsPartial !== undefined
-  //       ? { instrumentations: instrumentationsPartial }
-  //       : {}),
-  //   };
-  //   // eslint-disable-next-line react-hooks/exhaustive-deps
-  // }, []);
 
   const userSetupConfig = useMemo(() => {
     const searchParams = new URLSearchParams(window.location.search);

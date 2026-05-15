@@ -3,7 +3,7 @@
  */
 import { test, expect, findAllLogs, findAllSpans, getAttr } from "./fixture";
 
-function assertNavigationIdAndOptionalVitalContext(
+function assertExportedWebVitalAttrs(
   attrs: {
     key: string;
     value: {
@@ -14,6 +14,7 @@ function assertNavigationIdAndOptionalVitalContext(
     };
   }[],
 ): void {
+  expect(getAttr(attrs, "platform")).toBe("web");
   const navigationId = getAttr(attrs, "navigation_id");
   expect(typeof navigationId).toBe("string");
   expect((navigationId as string).length).toBeGreaterThan(10);
@@ -42,7 +43,7 @@ test.describe("@WebVitals (Next.js demo)", () => {
     );
     expect(ttfb).toBeDefined();
     expect(getAttr(ttfb!.attributes, "pulse.type")).toBe("web_vital");
-    assertNavigationIdAndOptionalVitalContext(ttfb!.attributes);
+    assertExportedWebVitalAttrs(ttfb!.attributes);
   });
 
   test("SPA screen_load span carries navigation_id after App Router navigation", async ({

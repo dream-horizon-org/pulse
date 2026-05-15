@@ -1,7 +1,7 @@
-// Web Vitals — OTLP logs (Plan B). See docs/instrumentations/web-vitals/SPEC.md
+// Web Vitals — OTLP log records (pulse.type web_vital). See docs/instrumentations/web-vitals/SPEC.md
 
 import { logs } from "@opentelemetry/api-logs";
-import { onCLS, onFCP, onFID, onINP, onLCP, onTTFB } from "web-vitals";
+import { onCLS, onFCP, onINP, onLCP, onTTFB } from "web-vitals";
 import type { Metric } from "web-vitals";
 
 import type {
@@ -28,27 +28,35 @@ export class WebVitalsInstrumentation implements PulseInstrumentation {
   private onVisibilityChange?: () => void;
   private onPageShow?: (e: PageTransitionEvent) => void;
 
+  /**
+   * When false, metric callbacks from `web-vitals` must not call `logger.emit`.
+   * The `web-vitals` library does not expose unsubscribe handles; we guard at the emit boundary.
+   */
+  private reportingEnabled = false;
+
   install(sdk: SdkContext): void {
     if (typeof window === "undefined") return;
+
+    this.reportingEnabled = true;
 
     const logger = logs.getLogger(PulseOtelLoggerScope.PULSE_WEB_VITALS);
 
     const emit = (metric: Metric): void => {
+      if (!this.reportingEnabled) {
+        return;
+      }
       const attributeKeys = PulseWebSemconv.AttributeKey;
       const attrs: Record<string, string | number | boolean> = {
         [attributeKeys.PULSE_TYPE]: PulseWebSemconv.PulseType.WEB_VITAL,
         [attributeKeys.WEB_VITAL_NAME]: metric.name,
         [attributeKeys.WEB_VITAL_VALUE]: metric.value,
         [attributeKeys.WEB_VITAL_RATING]: metric.rating,
+        [attributeKeys.WEB_VITAL_NAVIGATION_TYPE]: metric.navigationType,
+        [attributeKeys.WEB_VITAL_CONTEXT]: webVitalContextFromNavigationType(
+          metric.navigationType,
+        ),
+        [attributeKeys.WEB_VITAL_DELTA]: metric.delta,
       };
-      if (metric.delta !== undefined) {
-        attrs[attributeKeys.WEB_VITAL_DELTA] = metric.delta;
-      }
-      if (metric.navigationType !== undefined) {
-        attrs[attributeKeys.WEB_VITAL_NAVIGATION_TYPE] = metric.navigationType;
-        attrs[attributeKeys.WEB_VITAL_CONTEXT] =
-          webVitalContextFromNavigationType(metric.navigationType);
-      }
       logger.emit({
         body: PulseWebSemconv.LogBody.WEB_VITAL,
         attributes: attrs,
@@ -59,7 +67,6 @@ export class WebVitalsInstrumentation implements PulseInstrumentation {
     onINP(emit, { reportAllChanges: true });
     onCLS(emit, { reportAllChanges: true });
     onFCP(emit);
-    onFID(emit);
     onTTFB(emit);
 
     const flushLogs = (): void => {
@@ -85,6 +92,7 @@ export class WebVitalsInstrumentation implements PulseInstrumentation {
   }
 
   uninstall(): void {
+    this.reportingEnabled = false;
     if (this.onVisibilityChange) {
       document.removeEventListener(
         DomEventType.VISIBILITY_CHANGE,
