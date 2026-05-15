@@ -16,6 +16,7 @@ if (typeof crypto !== "undefined" && typeof crypto.randomUUID !== "function") {
 // `diskBuffering: { enabled: false }` to disable IndexedDB replay.
 
 import type { Tracer } from "@opentelemetry/api";
+import { propagation, trace } from "@opentelemetry/api";
 import { logs, SeverityNumber } from "@opentelemetry/api-logs";
 import type { Logger } from "@opentelemetry/api-logs";
 import { metrics } from "@opentelemetry/api";
@@ -59,6 +60,11 @@ import { InstrumentationRegistry } from "./instrumentation-registry";
 import type { SdkContext } from "./instrumentation-registry";
 import { extractProjectId } from "./resource";
 import { isDataCollectionAllowed } from "./consent";
+import {
+  CompositePropagator,
+  W3CTraceContextPropagator,
+  W3CBaggagePropagator,
+} from "@opentelemetry/core";
 import { PulseWebSemconv } from "./semconv";
 import { errorFilenameFromStack } from "./utils/error-stack";
 import { ExportSamplingGate } from "./sampling/export-sampling-gate";
@@ -432,10 +438,20 @@ class PulseSDK implements SdkContext {
     const meterProvider = this.meterProvider;
     if (!tracerProvider || !loggerProvider || !meterProvider) return;
 
-    // `WebTracerProvider.register()` sets the global tracer **and** the default W3C propagator
-    // (traceparent + baggage). Calling only `trace.setGlobalTracerProvider()` leaves the
-    // global propagator unset, so `propagation.inject` in Fetch/XHR is a no-op.
-    tracerProvider.register({ contextManager: null });
+    // Set the global tracer provider and explicitly install the W3C propagator.
+    // `tracerProvider.register({ contextManager: null })` skips installing a context
+    // manager, which causes `context.active()` to return ROOT_CONTEXT so
+    // `propagation.inject` finds no span and traceparent is never written.
+    // Instead we set global providers individually and install the propagator directly.
+    trace.setGlobalTracerProvider(tracerProvider);
+    propagation.setGlobalPropagator(
+      new CompositePropagator({
+        propagators: [
+          new W3CTraceContextPropagator(),
+          new W3CBaggagePropagator(),
+        ],
+      }),
+    );
     logs.setGlobalLoggerProvider(loggerProvider);
     metrics.setGlobalMeterProvider(meterProvider);
 
