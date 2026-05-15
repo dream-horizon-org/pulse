@@ -32,9 +32,6 @@ class OnboardingServiceTest {
   TenantService tenantService;
 
   @Mock
-  ProjectService projectService;
-
-  @Mock
   OpenFgaService openFgaService;
 
   @Mock
@@ -63,7 +60,6 @@ class OnboardingServiceTest {
   void setUp() {
     onboardingService = new OnboardingService(
         tenantService,
-        projectService,
         openFgaService,
         jwtService,
         userService,

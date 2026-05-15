@@ -1,6 +1,7 @@
 package org.dreamhorizon.pulseserver.resources.v1.admin;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
@@ -8,10 +9,13 @@ import static org.mockito.Mockito.when;
 import com.google.inject.Provider;
 import io.jsonwebtoken.Claims;
 import io.reactivex.rxjava3.core.Single;
+import jakarta.ws.rs.WebApplicationException;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import org.dreamhorizon.pulseserver.rest.exception.ForbiddenOperationException;
 import org.dreamhorizon.pulseserver.dto.request.ReqUserInfo;
 import org.dreamhorizon.pulseserver.model.User;
 import org.dreamhorizon.pulseserver.resources.v1.admin.models.CreateAdminTenantRequest;
@@ -75,6 +79,16 @@ class AdminTenantsControllerTest {
     } catch (InterruptedException | ExecutionException | TimeoutException e) {
       throw new RuntimeException(e);
     }
+  }
+
+  private static Throwable unwrap(Throwable err) {
+    if (err instanceof CompletionException && err.getCause() != null) {
+      return err.getCause();
+    }
+    if (err instanceof ExecutionException && err.getCause() != null) {
+      return err.getCause();
+    }
+    return err;
   }
 
   private CreateAdminTenantRequest validRequest() {
@@ -144,12 +158,14 @@ class AdminTenantsControllerTest {
       when(openFgaService.isSuperAdmin(CALLER_ID)).thenReturn(Single.just(false));
       when(openFgaService.isInternalViewer(CALLER_ID)).thenReturn(Single.just(false));
 
-      Response<CreateAdminTenantResponse> response =
-          await(controller.createTenantWithProject(BEARER_TOKEN, validRequest()));
+      ExecutionException ex = assertThrows(ExecutionException.class, () ->
+          controller.createTenantWithProject(BEARER_TOKEN, validRequest())
+              .toCompletableFuture()
+              .get(5, TimeUnit.SECONDS));
 
-      assertThat(response).isNotNull();
-      assertThat(response.getError()).isNotNull();
-      assertThat(response.getError().getHttpStatusCode()).isEqualTo(403);
+      Throwable cause = unwrap(ex.getCause());
+      assertThat(cause).isInstanceOf(ForbiddenOperationException.class);
+      assertThat(cause.getMessage()).contains("superadmin or internal_viewer");
     }
 
     @Test
@@ -160,11 +176,14 @@ class AdminTenantsControllerTest {
       CreateAdminTenantRequest req = new CreateAdminTenantRequest();
       req.setProjectName("Test Project");
 
-      Response<CreateAdminTenantResponse> response =
-          await(controller.createTenantWithProject(BEARER_TOKEN, req));
+      ExecutionException ex = assertThrows(ExecutionException.class, () ->
+          controller.createTenantWithProject(BEARER_TOKEN, req)
+              .toCompletableFuture()
+              .get(5, TimeUnit.SECONDS));
 
-      assertThat(response).isNotNull();
-      assertThat(response.getError()).isNotNull();
+      Throwable cause = unwrap(ex.getCause());
+      assertThat(cause).isInstanceOf(WebApplicationException.class);
+      assertThat(((WebApplicationException) cause).getResponse().getStatus()).isEqualTo(400);
     }
   }
 }
