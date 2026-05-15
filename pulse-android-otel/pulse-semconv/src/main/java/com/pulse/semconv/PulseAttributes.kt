@@ -62,15 +62,6 @@ public object PulseAttributes {
     public val APP_SCREEN_COORDINATE_NY: AttributeKey<Double> = AttributeKey.doubleKey("app.screen.coordinate.ny")
 
     /**
-     * True when the tap's content-relative position is outside the initial visible viewport.
-     * Computed as: (screen_x + scroll_x) > viewportWidth || (screen_y + scroll_y) > viewportHeight.
-     * Coordinates sent in [APP_SCREEN_COORDINATE_NX]/[APP_SCREEN_COORDINATE_NY] already include
-     * scroll offset (content-relative).
-     */
-    @JvmField
-    public val CLICK_OUT_OF_FOLD: AttributeKey<Boolean> = AttributeKey.booleanKey("click.out_of_fold")
-
-    /**
      * True when the click is part of a rage cluster. Orthogonal to [CLICK_TYPE] —
      * a rage event is still classified as "good" (hit a target) or "dead" (missed),
      * with this flag and [CLICK_RAGE_COUNT] added alongside.

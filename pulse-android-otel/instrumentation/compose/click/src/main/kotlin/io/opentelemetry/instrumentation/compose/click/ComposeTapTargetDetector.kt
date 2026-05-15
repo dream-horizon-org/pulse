@@ -287,21 +287,6 @@ internal class ComposeTapTargetDetector(
         return isBounded && isValidClickTarget(node)
     }
 
-    /**
-     * Reads Compose-internal scroll offset (LazyColumn, LazyRow, ScrollState, etc.) at the tap
-     * point by querying the semantics tree.
-     *
-     * Two-pass strategy per axis:
-     * 1. [ScrollAxisRange.value] — exact pixel offset for `ScrollState`/`Column+verticalScroll`.
-     *    For [LazyListState] this is only `firstVisibleItemScrollOffset` (intra-item), which is
-     *    0 when the list is snapped to an item boundary even if items above are scrolled away.
-     * 2. If value == 0: scan [SemanticsProperties.CollectionItemInfo] on visible items inside
-     *    the scroll container. If any item has rowIndex > 0 (vertical) or columnIndex > 0
-     *    (horizontal), items above the viewport have been scrolled away — return sentinel 1 so
-     *    the tap is correctly classified as below-the-fold (> 0 check).
-     *
-     * Combined with native ancestor scroll in [ComposeClickEventGenerator].
-     */
     fun getScrollOffset(
         ownerView: View,
         x: Float,
@@ -332,11 +317,8 @@ internal class ComposeTapTargetDetector(
 
         val value = scrollNode.config.getOrNull(axisProperty)?.value?.invoke()?.roundToInt() ?: return 0
 
-        // ScrollState / Column+verticalScroll: exact pixel offset — use directly.
         if (value > 0) return value
 
-        // LazyList: value == 0 at item boundary even when scrolled. Check CollectionItemInfo:
-        // if any visible item inside this scroll container has index > 0, items above exist.
         val hasScrolledPast =
             allNodes.any { node ->
                 node !== scrollNode &&

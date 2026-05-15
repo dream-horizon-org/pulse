@@ -326,11 +326,11 @@ class ViewClickInstrumentationTest {
         generator.stopTracking()
         motionEvent.recycle()
 
-        // content_y = tapY(100) + scrollY(500) = 600 > decorView.height(100) → out_of_fold
+        // content_y = tapY(100) + scrollY(500) = 600; ny = 600/vpH(100) = 6.0 → backend detects out-of-fold (ny > 1.0)
         val events = openTelemetryRule.logRecords
         assertThat(events).hasSize(1)
         assertThat(events[0]).hasAttributesSatisfying(
-            equalTo(PulseAttributes.CLICK_OUT_OF_FOLD, true),
+            equalTo(PulseAttributes.APP_SCREEN_COORDINATE_NY, 6.0),
         )
     }
 
@@ -369,11 +369,11 @@ class ViewClickInstrumentationTest {
         generator.stopTracking()
         motionEvent.recycle()
 
-        // content_x = tapX(100) + scrollX(300) = 400 > decorView.width(100) → out_of_fold
+        // content_x = tapX(100) + scrollX(300) = 400; nx = 400/vpW(100) = 4.0 → backend detects out-of-fold (nx > 1.0)
         val events = openTelemetryRule.logRecords
         assertThat(events).hasSize(1)
         assertThat(events[0]).hasAttributesSatisfying(
-            equalTo(PulseAttributes.CLICK_OUT_OF_FOLD, true),
+            equalTo(PulseAttributes.APP_SCREEN_COORDINATE_NX, 4.0),
         )
     }
 
@@ -404,11 +404,12 @@ class ViewClickInstrumentationTest {
         generator.stopTracking()
         motionEvent.recycle()
 
-        // no scroll → content coords == screen coords → not out of fold
+        // no scroll → content coords == screen coords → nx = ny = 1.0, backend treats as in-fold
         val events = openTelemetryRule.logRecords
         assertThat(events).hasSize(1)
         assertThat(events[0]).hasAttributesSatisfying(
-            equalTo(PulseAttributes.CLICK_OUT_OF_FOLD, false),
+            equalTo(PulseAttributes.APP_SCREEN_COORDINATE_NX, 1.0),
+            equalTo(PulseAttributes.APP_SCREEN_COORDINATE_NY, 1.0),
         )
     }
 
@@ -436,7 +437,6 @@ class ViewClickInstrumentationTest {
         assertThat(events).hasSize(1)
         assertThat(events[0]).hasAttributesSatisfying(
             equalTo(PulseAttributes.CLICK_TYPE, PulseAttributes.ClickTypeValues.DEAD),
-            equalTo(PulseAttributes.CLICK_OUT_OF_FOLD, false),
         )
     }
 

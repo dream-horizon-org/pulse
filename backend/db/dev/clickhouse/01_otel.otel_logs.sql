@@ -45,7 +45,6 @@ CREATE TABLE IF NOT EXISTS otel.otel_logs
     `WebVitalName`        LowCardinality(String)  MATERIALIZED ifNull(LogAttributes['web_vital.name'], '')                                                                CODEC(ZSTD(1)),
     `WebVitalValue`       Float64                 MATERIALIZED toFloat64OrZero(LogAttributes['web_vital.value'])                                                         CODEC(ZSTD(1)),
     `WebVitalRating`      LowCardinality(String)  MATERIALIZED ifNull(LogAttributes['web_vital.rating'], '')                                                            CODEC(ZSTD(1)),
-    `OutOfFold`           Bool                    MATERIALIZED (LogAttributes['click.out_of_fold'] = 'true')                                                         CODEC(ZSTD(1)),
 
     INDEX idx_trace_id      TraceId        TYPE bloom_filter(0.001) GRANULARITY 1,
     INDEX idx_session_id    SessionId      TYPE bloom_filter(0.001) GRANULARITY 1,

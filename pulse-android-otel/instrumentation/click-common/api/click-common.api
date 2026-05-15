@@ -45,6 +45,10 @@ public final class io/opentelemetry/android/instrumentation/click/common/PulseCl
 	public final fun setTouchSlopPixels (I)V
 }
 
+public final class io/opentelemetry/android/instrumentation/click/common/ScrollOffsetUtilKt {
+	public static final fun findScrollOffset (Landroid/view/View;)Lkotlin/Pair;
+}
+
 public final class io/opentelemetry/android/instrumentation/click/common/PulseWidgetClickLogHelper {
 	public static final field DEFAULT_LOG_TAG Ljava/lang/String;
 	public static final field INSTANCE Lio/opentelemetry/android/instrumentation/click/common/PulseWidgetClickLogHelper;

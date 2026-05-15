@@ -37,11 +37,7 @@ public enum PulseAttributes {
     public static let deviceScreenAspectRatio = "device.screen.aspect_ratio"
     public static let appScreenCoordinateNx = "app.screen.coordinate.nx"
     public static let appScreenCoordinateNy = "app.screen.coordinate.ny"
-    /// True when the tap's content-relative position is outside the initial visible viewport.
-    /// Computed as: (screen_x + scroll_x) > viewportWidth || (screen_y + scroll_y) > viewportHeight.
-    /// Coordinates sent in nx/ny already include scroll offset (content-relative).
-    public static let clickOutOfFold = "click.out_of_fold"
-
+    
     public static func pulseUserParameter(_ key: String) -> String {
         return "\(pulseUserPrefix).\(key)"
     }

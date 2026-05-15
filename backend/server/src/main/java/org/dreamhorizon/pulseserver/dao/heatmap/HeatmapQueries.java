@@ -8,13 +8,12 @@ public final class HeatmapQueries {
       SELECT
           XBin AS xBin,
           YBin AS yBin,
-          OutOfFold AS outOfFold,
           sum(WeightNormal) AS weightNormal,
           sum(WeightRage) AS weightRage,
           sum(WeightDead) AS weightDead
       FROM otel.interaction_heatmaps_daily
       WHERE %s
-      GROUP BY XBin, YBin, OutOfFold
+      GROUP BY XBin, YBin
       """;
 
   /**

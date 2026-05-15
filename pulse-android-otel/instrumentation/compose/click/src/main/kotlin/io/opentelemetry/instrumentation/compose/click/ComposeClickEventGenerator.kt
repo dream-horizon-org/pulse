@@ -10,7 +10,6 @@ package io.opentelemetry.instrumentation.compose.click
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewConfiguration
-import android.view.ViewGroup
 import android.view.Window
 import com.pulse.semconv.PulseAttributes
 import io.opentelemetry.android.instrumentation.WindowCallbackUnwrap
@@ -18,6 +17,7 @@ import io.opentelemetry.android.instrumentation.click.PendingClick
 import io.opentelemetry.android.instrumentation.click.RageConfig
 import io.opentelemetry.android.instrumentation.click.common.ClickEventEmitter
 import io.opentelemetry.android.instrumentation.click.common.PulseClickGestureTracker
+import io.opentelemetry.android.instrumentation.click.common.findScrollOffset
 import io.opentelemetry.api.logs.Logger
 import io.opentelemetry.sdk.common.Clock
 import java.lang.ref.WeakReference
@@ -53,34 +53,22 @@ internal class ComposeClickEventGenerator(
                 if (!ComposeClasspathProbe.isComposeUiPresent()) return
 
                 val decorView = windowRef?.get()?.decorView ?: return
-                // getX()/getY() from dispatchTouchEvent and boundsInWindow() both use window
-                // coordinates, so no raw→window conversion is needed.
                 val windowX = motionEvent.x
                 val windowY = motionEvent.y
 
-                // Single traversal: owns the tap only when it lands inside a ComposeView.
-                // Returns NotFound for taps outside Compose — ViewClickEventGenerator handles those.
                 val findResult = composeTapTargetDetector.findTapResult(decorView, windowX, windowY)
                 if (findResult !is ComposeFindResult.Found) return
                 val tapTarget = findResult.target
 
-                // Capture wall-clock time once at tap time so all PendingClick paths share it.
                 val tapEpochMs = System.currentTimeMillis()
 
-                // Build PendingClick — widgetName/widgetId/clickContext only populated on a hit.
                 val vpWidthPx = decorView.width
                 val vpHeightPx = decorView.height
-                // Combine two sources of scroll offset:
-                // 1. Native ancestor scroll: ComposeView inside NestedScrollView/ScrollView etc.
-                // 2. Compose-internal scroll: LazyColumn, LazyRow, ScrollState etc. — read from
-                //    the semantics tree via VerticalScrollAxisRange / HorizontalScrollAxisRange.
                 val (nativeScrollX, nativeScrollY) = findScrollOffset(findResult.ownerView)
                 val (composeScrollX, composeScrollY) = composeTapTargetDetector.getScrollOffset(findResult.ownerView, windowX, windowY)
                 val scrollXPx = nativeScrollX + composeScrollX
                 val scrollYPx = nativeScrollY + composeScrollY
 
-                // Shift to content-relative coordinates so nx/ny represent position in the full
-                // scrollable content, not just the current visible viewport slice.
                 val contentXPx = windowX + scrollXPx
                 val contentYPx = windowY + scrollYPx
 
@@ -138,17 +126,4 @@ internal class ComposeClickEventGenerator(
         windowRef = null
     }
 
-    private fun findScrollOffset(view: View): Pair<Int, Int> {
-        var scrollXPx = 0
-        var scrollYPx = 0
-        var current: View? = view
-        while (current != null) {
-            if (current is ViewGroup) {
-                scrollXPx += current.scrollX
-                scrollYPx += current.scrollY
-            }
-            current = current.parent as? View
-        }
-        return scrollXPx to scrollYPx
-    }
 }

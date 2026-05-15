@@ -365,11 +365,13 @@ class HeatmapServiceImplTest {
 
     @Test
     void shouldExcludeBelowFoldFromTotalEventsAndGlowMap() {
+      // above-fold: xBin=0.1, yBin=0.2 — both ≤ 1.0
       var above = HeatmapClickHouseRowDto.builder()
-          .xBin(0.1).yBin(0.2).outOfFold(false)
+          .xBin(0.1).yBin(0.2)
           .weightNormal(5L).weightRage(0L).weightDead(0L).build();
+      // below-fold: yBin=1.2 > 1.0 (scroll offset pushed tap past viewport height)
       var below = HeatmapClickHouseRowDto.builder()
-          .xBin(0.5).yBin(0.8).outOfFold(true)
+          .xBin(0.5).yBin(1.2)
           .weightNormal(3L).weightRage(1L).weightDead(0L).build();
 
       stubRows(List.of(above, below));
@@ -388,8 +390,9 @@ class HeatmapServiceImplTest {
 
     @Test
     void shouldReturnZeroTotalEventsWhenAllRowsBelowFold() {
+      // yBin=1.5 > 1.0 → entire dataset is below-fold
       var below = HeatmapClickHouseRowDto.builder()
-          .xBin(0.5).yBin(0.9).outOfFold(true)
+          .xBin(0.5).yBin(1.5)
           .weightNormal(10L).weightRage(2L).weightDead(1L).build();
 
       stubRows(List.of(below));
@@ -407,9 +410,9 @@ class HeatmapServiceImplTest {
 
     @Test
     void shouldTreatScrolledTapAsAboveFoldWhenContentPositionWithinViewport() {
-      // SDK computed outOfFold=false: (screen_y + scroll_y) ≤ viewportHeight
+      // xBin=0.1, yBin=0.2 — both ≤ 1.0 → treated as above-fold regardless of scroll
       var row = HeatmapClickHouseRowDto.builder()
-          .xBin(0.1).yBin(0.2).outOfFold(false)
+          .xBin(0.1).yBin(0.2)
           .weightNormal(8L).weightRage(0L).weightDead(0L).build();
 
       stubRows(List.of(row));
@@ -426,9 +429,10 @@ class HeatmapServiceImplTest {
     }
 
     @Test
-    void shouldTreatNullOutOfFoldAsAboveFold() {
+    void shouldTreatBinsBelowOneAsAboveFold() {
+      // xBin=0.3, yBin=0.4 — both ≤ 1.0 → above-fold
       var row = HeatmapClickHouseRowDto.builder()
-          .xBin(0.3).yBin(0.4).outOfFold(null)
+          .xBin(0.3).yBin(0.4)
           .weightNormal(7L).weightRage(0L).weightDead(0L).build();
 
       stubRows(List.of(row));

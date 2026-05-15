@@ -10,7 +10,6 @@ CREATE TABLE IF NOT EXISTS otel.interaction_heatmaps_daily_local
   `Breakpoint`         LowCardinality(String)       CODEC(ZSTD(1)),
   `XBin`               Float32                      CODEC(Gorilla, ZSTD(1)),
   `YBin`               Float32                      CODEC(Gorilla, ZSTD(1)),
-  `OutOfFold`          Bool                         CODEC(ZSTD(1)),
   `WeightNormal`       UInt64                       CODEC(T64, ZSTD(1)),
   `WeightRage`         UInt64                       CODEC(T64, ZSTD(1)),
   `WeightDead`         UInt64                       CODEC(T64, ZSTD(1)),
@@ -20,7 +19,7 @@ CREATE TABLE IF NOT EXISTS otel.interaction_heatmaps_daily_local
   ENGINE = ReplicatedSummingMergeTree('/clickhouse/tables/{shard}/otel/interaction_heatmaps_daily_local','{replica}',(WeightNormal, WeightRage, WeightDead))
   PARTITION BY toYYYYMM(Date)
   PRIMARY KEY (Date, ProjectId, ScreenName)
-  ORDER BY (Date, ProjectId, ScreenName, AppVersion, Platform, GeographicalRegion, Breakpoint, XBin, YBin, OutOfFold)
+  ORDER BY (Date, ProjectId, ScreenName, AppVersion, Platform, GeographicalRegion, Breakpoint, XBin, YBin)
   TTL Date + INTERVAL 7 DAY  TO VOLUME 'cold',
   Date + INTERVAL 90 DAY DELETE
 SETTINGS
@@ -50,14 +49,11 @@ SELECT
         ViewportWidth <= 600 AND (ViewportHeight / ViewportWidth) <= 1.5, 'Mobile_Small',
         'Mobile_Medium'
     ) AS Breakpoint,
-    -- NormXPer/NormYPer are now content-relative (SDK includes scroll offset in nx/ny).
-    -- Values > 1.0 indicate a tap that was outside the initial visible viewport.
     round(NormXPer, 2) AS XBin,
     round(NormYPer, 2) AS YBin,
-    OutOfFold,
     count() AS WeightNormal,
     countIf(Rage) AS WeightRage,
     countIf(ClickType = 'dead') AS WeightDead
 FROM otel.otel_logs
 WHERE PulseType = 'app.click'
-GROUP BY Date, ProjectId, ScreenName, AppVersion, Platform, GeoState, Breakpoint, XBin, YBin, OutOfFold;
+GROUP BY Date, ProjectId, ScreenName, AppVersion, Platform, GeoState, Breakpoint, XBin, YBin;

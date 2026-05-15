@@ -136,6 +136,36 @@ internal class ComposeClickEventGeneratorTest {
     }
 
     @Test
+    fun `tap coordinates are shifted by ancestor scroll offset`() {
+        val tapX = 250f
+        val tapY = 50f
+        val scrollX = 100
+        val scrollY = 200
+
+        every { composeView.scrollX } returns scrollX
+        every { composeView.scrollY } returns scrollY
+        every { composeView.childCount } returns 0
+
+        buildMockLayoutNodeTree(
+            targetX = tapX,
+            targetY = tapY,
+            hitIndexes = listOf(2),
+            clickableIndexes = listOf(2),
+        )
+
+        dispatchDownThenUpOnGenerator(composeClickEventGenerator, tapX, tapY)
+        composeClickEventGenerator.stopTracking()
+
+        val events = openTelemetryRule.logRecords
+        assertThat(events).hasSize(1)
+        assertThat(events[0])
+            .hasAttributesSatisfying(
+                equalTo(APP_SCREEN_COORDINATE_X, (tapX + scrollX).toLong()),
+                equalTo(APP_SCREEN_COORDINATE_Y, (tapY + scrollY).toLong()),
+            )
+    }
+
+    @Test
     fun `capture click when there are two valid targets but the top target wins`() {
         val motionEvent =
             MotionEvent.obtain(0L, SystemClock.uptimeMillis(), MotionEvent.ACTION_UP, 250f, 50f, 0)

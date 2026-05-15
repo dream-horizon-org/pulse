@@ -385,9 +385,9 @@ public class HeatmapServiceImpl implements HeatmapService {
       long wR = row.getWeightRage() != null ? row.getWeightRage() : 0L;
       long wD = row.getWeightDead() != null ? row.getWeightDead() : 0L;
 
-      // SDK sets click.out_of_fold = true when (screen_x + scroll_x) > viewportWidth
-      // or (screen_y + scroll_y) > viewportHeight. Use directly — no scroll math needed.
-      boolean isBelowFold = Boolean.TRUE.equals(row.getOutOfFold());
+      // XBin/YBin are round(content_x/viewportWidth, 2) and round(content_y/viewportHeight, 2).
+      // Values > 1.0 mean the tap was outside the visible viewport (below/beyond fold).
+      boolean isBelowFold = x > 1.0 || y > 1.0;
 
       if (isBelowFold) {
         // Accumulate below-fold totals and distinct bin counts

@@ -703,9 +703,9 @@ final class UIKitTapInstrumentationTests: XCTestCase {
         XCTAssertEqual(y, 0)
     }
 
-    func testOutOfFoldEmittedInLogRecord() {
+    func testNyGreaterThanOneWhenTapBelowFold() {
         let emitter = ClickEventEmitter(logger: logger)
-        // x=100, y=924 on a 390×844 viewport: content_y(924) > viewportH(844) → out_of_fold=true
+        // y=924 on a 390×844 viewport: ny = 924/844 ≈ 1.095 > 1.0 → backend detects out-of-fold
         let click = PendingClick(
             x: 100, y: 924,
             timestampMs: 0, tapEpochMs: 0,
@@ -717,12 +717,16 @@ final class UIKitTapInstrumentationTests: XCTestCase {
         emitter.emitGoodClick(click)
 
         let record = logExporter.getFinishedLogRecords()[0]
-        XCTAssertEqual(record.attributes[PulseAttributes.clickOutOfFold], .bool(true))
+        if case .double(let ny) = record.attributes[PulseAttributes.appScreenCoordinateNy] ?? .double(0) {
+            XCTAssertGreaterThan(ny, 1.0)
+        } else {
+            XCTFail("Expected double for ny")
+        }
     }
 
-    func testOutOfFoldFalseWhenTapWithinViewport() {
+    func testNyLessThanOneWhenTapWithinViewport() {
         let emitter = ClickEventEmitter(logger: logger)
-        // x=100, y=200 within a 390×844 viewport → out_of_fold=false
+        // y=200 within a 390×844 viewport: ny = 200/844 ≈ 0.237 ≤ 1.0 → backend treats as in-fold
         let click = PendingClick(
             x: 100, y: 200,
             timestampMs: 0, tapEpochMs: 0,
@@ -734,7 +738,11 @@ final class UIKitTapInstrumentationTests: XCTestCase {
         emitter.emitGoodClick(click)
 
         let record = logExporter.getFinishedLogRecords()[0]
-        XCTAssertEqual(record.attributes[PulseAttributes.clickOutOfFold], .bool(false))
+        if case .double(let ny) = record.attributes[PulseAttributes.appScreenCoordinateNy] ?? .double(0) {
+            XCTAssertLessThanOrEqual(ny, 1.0)
+        } else {
+            XCTFail("Expected double for ny")
+        }
     }
 }
 #endif
