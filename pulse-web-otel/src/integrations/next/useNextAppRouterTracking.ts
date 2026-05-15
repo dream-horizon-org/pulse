@@ -2,7 +2,10 @@
 
 import { useEffect, useRef } from "react";
 import { usePathname, useSearchParams } from "next/navigation.js";
-import { Pulse } from "../../sdk";
+import {
+  applyPulseScreenNavigation,
+  resolvePulseScreenName,
+} from "../react/apply-pulse-screen-navigation";
 import type { UseNextAppRouterTrackingOptions } from "../../types/next";
 
 export type { UseNextAppRouterTrackingOptions } from "../../types/next";
@@ -22,7 +25,7 @@ export function resetNextAppRouterSkipInitialGateForTests(): void {
 }
 
 /**
- * Next.js App Router integration — calls {@link Pulse.setScreenName} on
+ * Next.js App Router integration — calls the Pulse SDK `setScreenName` on
  * every client-side navigation so subsequent signals carry the new screen name.
  *
  * Must be rendered in a Client Component (`"use client"`) inside a
@@ -54,34 +57,30 @@ export function useNextAppRouterTracking(
   useEffect(() => {
     if (dependency === null) return;
 
-    let shouldUpdate = false;
-
     if (prevDependency.current === null) {
       prevDependency.current = dependency;
       if (skipInitial && !skipInitialNextAppRouteConsumed) {
         skipInitialNextAppRouteConsumed = true;
         return;
       }
-      shouldUpdate = true;
     } else if (prevDependency.current === dependency) {
       return;
     } else {
       prevDependency.current = dependency;
-      shouldUpdate = true;
     }
 
-    if (!shouldUpdate) return;
-
-    const name = format
-      ? format({
-          pathname: pathname ?? "",
-          search: searchParams.toString(),
-          hash: "",
-        })
-      : dependency;
-
-    Pulse.setScreenName(name);
-    Pulse.notifySoftNavigation();
+    const name = resolvePulseScreenName(format, dependency, {
+      pathname: pathname ?? "",
+      search: searchParams.toString(),
+      hash: "",
+    });
+    if (name === null) {
+      return;
+    }
+    applyPulseScreenNavigation(
+      name,
+      "Next.js App Router screen tracking (setScreenName / notifySoftNavigation)",
+    );
     // Intentionally only [dependency]: format/skipInitial are stable for the hook's
     // lifetime; listing them would re-run every render when callers pass new objects.
     // eslint-disable-next-line react-hooks/exhaustive-deps

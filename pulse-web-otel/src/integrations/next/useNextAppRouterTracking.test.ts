@@ -4,6 +4,7 @@ import {
   useNextAppRouterTracking,
   resetNextAppRouterSkipInitialGateForTests,
 } from "./useNextAppRouterTracking";
+import { PulseWebLogger } from "../../pulse-web-logger";
 import { Pulse } from "../../sdk";
 
 vi.mock("next/navigation.js", () => ({
@@ -207,5 +208,27 @@ describe("useNextAppRouterTracking (Next.js App Router)", () => {
   it("should be exported from src/index.ts", () => {
     // This is more of an integration test, checking that the hook is properly exported
     expect(typeof useNextAppRouterTracking).toBe("function");
+  });
+
+  it("should log alwaysError when format throws (no setScreenName)", () => {
+    const alwaysError = vi.spyOn(PulseWebLogger, "alwaysError");
+    const mockUsePathname = usePathname as ReturnType<typeof vi.fn>;
+    const mockUseSearchParams = useSearchParams as ReturnType<typeof vi.fn>;
+
+    mockUsePathname.mockReturnValue("/x");
+    mockUseSearchParams.mockReturnValue(new URLSearchParams());
+
+    renderHook(() =>
+      useNextAppRouterTracking({
+        skipInitial: false,
+        format: () => {
+          throw new Error("format boom next");
+        },
+      }),
+    );
+
+    expect(alwaysError).toHaveBeenCalled();
+    expect(String(alwaysError.mock.calls[0]?.[0] ?? "")).toContain("format()");
+    expect(Pulse.setScreenName).not.toHaveBeenCalled();
   });
 });
