@@ -11,6 +11,7 @@ import { SessionPlayerSection } from "./components/SessionPlayerSection";
 import { DEFAULTS } from "./constants/strings";
 import { useSessionDetail } from "./hooks/useSessionDetail";
 import { useSessionReplaySnapshots } from "./hooks/useSessionReplaySnapshots";
+import { toDisplayPlatform } from "../../services/sessionReplay/normalizeSnapshotSource";
 import classes from "./SessionReplayDetail.module.css";
 import { useState, useMemo, useCallback } from "react";
 
@@ -49,6 +50,7 @@ export const SessionReplayDetail: React.FC = () => {
     images: snapshotImages,
     loading: snapshotLoading,
     snapshotDurationMs,
+    snapshotSource,
   } = useSessionReplaySnapshots({
     sessionId: sessionId ?? undefined,
     currentTime,
@@ -60,6 +62,21 @@ export const SessionReplayDetail: React.FC = () => {
 
   const effectiveDuration =
     snapshotDurationMs > 0 ? snapshotDurationMs : sessionData.duration;
+
+  const playerPlatform = useMemo(() => {
+    if (sessionData.platform?.trim()) {
+      return sessionData.platform;
+    }
+    const hasReplay =
+      snapshotDurationMs > 0 || snapshotImages.length > 0;
+    if (!hasReplay) return undefined;
+    return toDisplayPlatform(snapshotSource);
+  }, [
+    sessionData.platform,
+    snapshotDurationMs,
+    snapshotImages.length,
+    snapshotSource,
+  ]);
 
   const handleBack = () => {
     const projectMatch = pathname.match(/^\/projects\/([^/]+)/);
@@ -147,6 +164,7 @@ export const SessionReplayDetail: React.FC = () => {
           <Box className={classes.playerSectionLeft}>
             <SessionPlayerSection
               sessionData={sessionData}
+              playerPlatform={playerPlatform}
               images={replayImages}
               imagesLoading={imagesLoading}
               currentTime={currentTime}

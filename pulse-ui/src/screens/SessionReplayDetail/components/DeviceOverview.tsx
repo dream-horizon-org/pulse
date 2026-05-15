@@ -4,17 +4,19 @@ import classes from "./DeviceOverview.module.css";
 
 interface DeviceOverviewProps {
   sessionData: SessionDetailData;
+  /** Device chrome when session detail platform is missing (e.g. from snapshotSource). */
+  playerPlatform?: SessionDetailData["platform"];
   compact?: boolean;
   children?: React.ReactNode; // The actual replay content
 }
 
 export function DeviceOverview({
   sessionData,
+  playerPlatform,
   compact,
   children,
 }: DeviceOverviewProps) {
-  // Determine device type from platform
-  const platform = (sessionData.platform || "web").toLowerCase();
+  const platform = (playerPlatform || sessionData.platform || "web").toLowerCase();
   const isIOS = platform === "ios";
   const isAndroid = platform === "android";
   const isWeb = !isIOS && !isAndroid;

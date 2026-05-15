@@ -15,6 +15,7 @@ interface PlayerViewportProps {
   isPlaying: boolean;
   playbackSpeed: number;
   sessionData: SessionDetailData;
+  playerPlatform?: SessionDetailData["platform"];
   selectedSpan: FlameChartNode | null;
   compact?: boolean;
   onTimeUpdate?: (time: number) => void;
@@ -27,6 +28,7 @@ export function PlayerViewport({
   isPlaying,
   playbackSpeed,
   sessionData,
+  playerPlatform,
   selectedSpan,
   compact,
   onTimeUpdate,
@@ -47,6 +49,7 @@ export function PlayerViewport({
           isPlaying={isPlaying}
           playbackSpeed={playbackSpeed}
           sessionData={sessionData}
+          playerPlatform={playerPlatform}
           compact={compact}
           onTimeUpdate={onTimeUpdate}
         />
