@@ -20,7 +20,7 @@ import { useInternalTenants } from "../../../hooks/useInternalTenants";
 import { InternalTenant } from "../../../hooks/useInternalTenants/useInternalTenants.interface";
 import type { TenantResponse } from "./TenantSelector.interface";
 import { getCookies, setCookies } from "../../../helpers/cookies";
-import { API_ROUTES, COOKIES_KEY, ROUTES, SYSTEM_ROLES } from "../../../constants";
+import { COOKIES_KEY, ROUTES, SYSTEM_ROLES } from "../../../constants";
 import { useTenantContext, useProjectContext } from "../../../contexts";
 import { TIERS } from "../../../constants/Tiers";
 import { TENANT_ROLES } from "../../../constants/Roles";
@@ -63,7 +63,7 @@ export function TenantSelector() {
 
     clearProject();
     sessionStorage.removeItem("pulse_last_project_id");
-    queryClient.removeQueries({ queryKey: [API_ROUTES.GET_USER_PROJECTS.key] });
+    queryClient.clear();
 
     setCookies(COOKIES_KEY.TENANT_ID, tenant.tenantId);
     setCookies(COOKIES_KEY.TENANT_NAME, tenant.tenantName);
