@@ -749,4 +749,257 @@ test.describe("@M4 network e2e", () => {
     expect(findAllLogs(otlp.captured, "session.start")).toHaveLength(0);
     expect(findAllNetworkSpans(otlp.captured)).toHaveLength(0);
   });
+
+  // ISS-N06: captureQueryParams:true keeps query params on url.full (sensitive values redacted)
+  test("ISS-N06: captureQueryParams:true keeps query params, redacts sensitive token", async ({
+    page,
+    otlp,
+  }) => {
+    await page.route(
+      (url) => url.pathname.includes("/pulse-e2e-network/"),
+      async (route) => {
+        await route.fulfill({
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+          body: "{}",
+        });
+      },
+    );
+
+    await page.goto("/?pulse_capture_query=1");
+    await waitForPulseInitialized(page);
+    await otlp.waitForLog("session.start", 15_000);
+    otlp.reset();
+
+    await page.evaluate(async () => {
+      await fetch("/pulse-e2e-network/query-probe?search=hello&token=supersecret");
+    });
+    await flushTraceExport(page);
+
+    const span = await pollProbeHttpSpan(otlp, "query-probe");
+    const full = String(getAttr(span.attributes, "url.full") ?? "");
+
+    expect(full).toContain("search=hello");
+    expect(full).not.toContain("supersecret");
+    expect(full).toContain("token=*");
+  });
+
+  // ISS-N07: blockedUrls config prevents spans for matched URL patterns
+  test("ISS-N07: blockedUrls config suppresses spans for matched URL", async ({
+    page,
+    otlp,
+  }) => {
+    const blockedPath = "/pulse-e2e-network/blocked-endpoint";
+
+    await page.route(
+      (url) => url.pathname.includes("/pulse-e2e-network/"),
+      async (route) => {
+        await route.fulfill({ status: 200, body: "{}" });
+      },
+    );
+
+    await page.goto(`/?pulse_blocked_url=${encodeURIComponent(blockedPath)}`);
+    await waitForPulseInitialized(page);
+    await otlp.waitForLog("session.start", 15_000);
+    otlp.reset();
+
+    await page.evaluate(async (path) => {
+      await fetch(path);
+    }, blockedPath);
+    await flushTraceExport(page);
+
+    const blocked = findAllNetworkSpans(otlp.captured).filter((s) =>
+      String(getAttr(s.attributes, "url.full") ?? "").includes("blocked-endpoint"),
+    );
+    expect(blocked).toHaveLength(0);
+  });
+
+  // ISS-N08: peerServiceMap sets peer.service attribute for matching hostname
+  test("ISS-N08: peerServiceMap sets peer.service on spans for matched host", async ({
+    page,
+    otlp,
+  }) => {
+    // Dev server is localhost:3099; use the same host as the page origin
+    const peerHost = "localhost:3099";
+
+    await page.route(
+      (url) => url.pathname.includes("/pulse-e2e-network/peer-probe"),
+      async (route) => {
+        await route.fulfill({ status: 200, body: "{}" });
+      },
+    );
+
+    await page.goto(
+      `/?pulse_peer_host=${encodeURIComponent(peerHost)}&pulse_peer_service=catalogue-service`,
+    );
+    await waitForPulseInitialized(page);
+    await otlp.waitForLog("session.start", 15_000);
+    otlp.reset();
+
+    await page.evaluate(async () => {
+      await fetch("/pulse-e2e-network/peer-probe");
+    });
+    await flushTraceExport(page);
+
+    const span = await pollProbeHttpSpan(otlp, "peer-probe");
+    expect(getOtlpSpanStatusCode(span)).toBe(OTLP_SPAN_STATUS_OK);
+    expect(getAttr(span.attributes, "peer.service")).toBe("catalogue-service");
+  });
+
+  // ISS-N09: propagateTraceHeaderCorsUrls injects W3C traceparent on matching outbound requests
+  test("ISS-N09: propagateTraceHeaderCorsUrls injects W3C traceparent header", async ({
+    page,
+    otlp,
+  }) => {
+    let capturedTraceparent: string | null = null;
+
+    await page.route(
+      (url) => url.pathname.includes("/pulse-e2e-network/cors-probe"),
+      async (route) => {
+        capturedTraceparent = route.request().headers()["traceparent"] ?? null;
+        await route.fulfill({ status: 200, body: "{}" });
+      },
+    );
+
+    await page.goto(`/?pulse_propagate_cors=${encodeURIComponent("localhost:3099")}`);
+    await waitForPulseInitialized(page);
+    await otlp.waitForLog("session.start", 15_000);
+    otlp.reset();
+
+    await page.evaluate(async () => {
+      await fetch("/pulse-e2e-network/cors-probe");
+    });
+    await flushTraceExport(page);
+
+    await pollProbeHttpSpan(otlp, "cors-probe");
+    expect(capturedTraceparent).toMatch(/^00-[0-9a-f]{32}-[0-9a-f]{16}-0[01]$/);
+  });
+
+  // NET-02: POST request captured with correct method attribute
+  test("NET-02: POST fetch emits network.200 span with http.request.method=POST", async ({
+    page,
+    otlp,
+  }) => {
+    await page.route(
+      (url) => url.pathname.includes("/pulse-e2e-network/post-probe"),
+      async (route) => {
+        await route.fulfill({
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+          body: '{"ok":true}',
+        });
+      },
+    );
+
+    await page.goto("/");
+    await waitForPulseInitialized(page);
+    await otlp.waitForLog("session.start", 15_000);
+    otlp.reset();
+
+    await page.evaluate(async () => {
+      await fetch("/pulse-e2e-network/post-probe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ item: "test" }),
+      });
+    });
+    await flushTraceExport(page);
+
+    const span = await pollProbeHttpSpan(otlp, "post-probe");
+
+    expect(getOtlpSpanStatusCode(span)).toBe(OTLP_SPAN_STATUS_OK);
+    expect(getAttr(span.attributes, "pulse.type")).toBe("network.200");
+    expect(getAttr(span.attributes, "http.request.method")).toBe("POST");
+    expect(getAttr(span.attributes, "http.response.status_code")).toBe(200);
+  });
+
+  // NET-07: http.duration comes from PerformanceResourceTiming and reflects real elapsed time
+  test("NET-07: http.duration is populated and reflects measured elapsed time", async ({
+    page,
+    otlp,
+  }) => {
+    const DELAY_MS = 300;
+
+    await page.route(
+      (url) => url.pathname.includes("/pulse-e2e-network/slow-probe"),
+      async (route) => {
+        await new Promise((r) => setTimeout(r, DELAY_MS));
+        await route.fulfill({
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+          body: "{}",
+        });
+      },
+    );
+
+    await page.goto("/");
+    await waitForPulseInitialized(page);
+    await otlp.waitForLog("session.start", 15_000);
+    otlp.reset();
+
+    await page.evaluate(async () => {
+      await fetch("/pulse-e2e-network/slow-probe");
+    });
+    await flushTraceExport(page);
+
+    const span = await pollProbeHttpSpan(otlp, "slow-probe");
+    const dur = getAttr(span.attributes, "http.duration");
+
+    // http.duration must be present (PerformanceResourceTiming entry exists for same-origin fetches)
+    // and must reflect the measured delay from PerformanceResourceTiming
+    expect(dur).toBeDefined();
+    expect(typeof dur).toBe("number");
+    expect(Number(dur)).toBeGreaterThanOrEqual(DELAY_MS - 50);
+  });
+
+  // NET-13: Concurrent requests — each produces an independent span
+  test("NET-13: three concurrent fetch requests each produce a separate network span", async ({
+    page,
+    otlp,
+  }) => {
+    for (const id of ["1", "2", "3"]) {
+      await page.route(
+        (url) => url.pathname.includes(`/pulse-e2e-network/concurrent-${id}`),
+        async (route) => {
+          await route.fulfill({ status: 200, body: `{"id":${id}}` });
+        },
+      );
+    }
+
+    await page.goto("/");
+    await waitForPulseInitialized(page);
+    await otlp.waitForLog("session.start", 15_000);
+    otlp.reset();
+
+    await page.evaluate(async () => {
+      await Promise.all([
+        fetch("/pulse-e2e-network/concurrent-1"),
+        fetch("/pulse-e2e-network/concurrent-2"),
+        fetch("/pulse-e2e-network/concurrent-3"),
+      ]);
+    });
+    await flushTraceExport(page);
+
+    await expect
+      .poll(
+        () =>
+          findAllNetworkSpans(otlp.captured).filter((s) =>
+            String(getAttr(s.attributes, "url.full") ?? "").includes(
+              "pulse-e2e-network/concurrent-",
+            ),
+          ).length,
+        { timeout: 15_000 },
+      )
+      .toBe(3);
+
+    const concurrentSpans = findAllNetworkSpans(otlp.captured).filter((s) =>
+      String(getAttr(s.attributes, "url.full") ?? "").includes(
+        "pulse-e2e-network/concurrent-",
+      ),
+    );
+    for (const span of concurrentSpans) {
+      expect(getAttr(span.attributes, "pulse.type")).toBe("network.200");
+      expect(getAttr(span.attributes, "http.request.method")).toBe("GET");
+    }
+  });
 });

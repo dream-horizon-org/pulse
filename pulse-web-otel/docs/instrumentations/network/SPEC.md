@@ -5,7 +5,7 @@ Files: `src/instrumentations/network.ts`, `src/utils/network-http.ts`
 
 ---
 
-## 1. What this does
+## 1. What this does (plain English)
 
 Every time your app makes an HTTP request — either via `fetch()` or `XMLHttpRequest` — this instrumentation captures it as an OTel **client span** and stamps Pulse-specific metadata onto it (status code, duration, error type, etc.).
 
@@ -153,7 +153,7 @@ The callback receives the raw `XMLHttpRequest` object. The guard `xhr.readyState
 
 By default (`captureQueryParams: false`), the **entire query string is stripped** from `url.full` before storing on the span.
 
-When `captureQueryParams: true`, query params are kept but the following param **names** have their values replaced with `*`**:
+When `captureQueryParams: true`, query params are kept but the following param **names** have their values replaced with `***`:
 
 `token`, `access_token`, `refresh_token`, `id_token`, `bearer`, `api_key`, `apikey`, `password`, `secret`, `client_secret`, `signature`, `sig`, `auth`
 
@@ -191,13 +191,16 @@ Even if a header name appears in `capturedRequestHeaders` or `capturedResponseHe
 - Ignore URL builder (collector + custom patterns)
 - Fetch callback: `pulse.type`, method, status, `peer.service`, header capture, `propagateTraceHeaderCorsUrls` forwarding
 - Double-uninstall is idempotent
+- XHR `applyCustomAttributesOnSpan` stamps `pulse.type` + method at `readyState DONE`
+- XHR `applyCustomAttributesOnSpan` returns early when `readyState < DONE`
+- `uninstall()` calls `disable()` on both Fetch and XHR instrumentations
 
 `src/__tests__/network-http.test.ts`:
 
-- `applyPulseHttpClientSpanAttributes`: method, status codes, `pulse.type` pattern, CORS error, `4xx`/`5xx` error types, URL sanitization, request body size, non-standard method → `_OTHER`
+- `applyPulseHttpClientSpanAttributes`: method, status codes, `pulse.type` pattern, CORS error, `4xx`/`5xx` error types, URL sanitization, request/response body size, non-standard method → `_OTHER` + `http.request.method_original`
 - `sanitizeHttpUrl`: query stripping, sensitive param redaction, credential stripping
 - `buildNetworkIgnoreUrls`: OTLP prefix, local dev REST port, custom blocked URLs — **tests in `network-http.test.ts`**
-- `extractGraphQlMeta`: named query, operation type parsing
+- `extractGraphQlMeta`: named query, mutation, subscription, anonymous op, overflow, invalid JSON
 
 ### 9.2 E2E (Playwright, `@M4 network e2e`)
 
@@ -208,6 +211,13 @@ Even if a header name appears in `capturedRequestHeaders` or `capturedResponseHe
 - E1–E5: error taxonomy (CORS, 404, abort, timeout)
 - E2: local disable
 - C1: consent off → no spans
+- ISS-N06: `captureQueryParams: true` keeps params, redacts sensitive values
+- ISS-N07: `blockedUrls` config suppresses spans for matched URL
+- ISS-N08: `peerServiceMap` sets `peer.service` attribute
+- ISS-N09: `propagateTraceHeaderCorsUrls` injects W3C `traceparent` header
+
+`examples/nextjs-demo/e2e/nextjs-demo.spec.ts`:
+- `@M4 network — Next.js demo`: ISS-N06–N09 mirrored for Next.js App Router + Pages Router
 
 ### 9.3 Known test gaps (tracked in `REVIEW_Errors-Web-vitals-Network.md`)
 
@@ -223,6 +233,7 @@ Even if a header name appears in `capturedRequestHeaders` or `capturedResponseHe
 | ~~ISS-N09~~ | ~~No E2E for `propagateTraceHeaderCorsUrls`~~ — **fixed** in `m4-network.spec.ts` (ISS-N09); Playwright route intercept asserts `traceparent` header present |
 | ~~ISS-N10~~ | ~~No test that uninstall disables instrumentations~~ — **fixed** in `network-instrumentation.test.ts`; asserts `disable()` called once on both Fetch + XHR |
 | ~~ISS-N11~~ | ~~No test for `readyState < DONE` guard on XHR~~ — **fixed** in `network-instrumentation.test.ts` |
+| ~~ISS-N14~~ | ~~No unit test for non-standard method → `_OTHER` + `http.request.method_original`~~ — **fixed**: `PURGE` case added in `network-http.test.ts` |
 
 
 ---
@@ -233,7 +244,6 @@ Even if a header name appears in `capturedRequestHeaders` or `capturedResponseHe
 | ID      | Area            | Summary                                                                                                    |
 | ------- | --------------- | ---------------------------------------------------------------------------------------------------------- |
 | ISS-N02 | Bug             | `capturedRequestHeaders` silently no-ops for XHR — no warning emitted                                    |
-| ~~ISS-N14~~ | ~~Fixed~~ | ~~Non-standard HTTP methods not mapped to `_OTHER` + `http.request.method_original`~~ — **implemented** in `network-http.ts`; unit test still thin (one `PURGE` case needed) |
 | ISS-N12 | Decision needed | URL path segment normalization for ClickHouse cardinality (Android has it; web does not)                  |
 
 
@@ -245,4 +255,3 @@ Even if a header name appears in `capturedRequestHeaders` or `capturedResponseHe
 2. Should fetch request body size be estimated when `Request` has a readable stream?
 3. Should `urlTemplateRules` (path-segment normalization for IDs/UUIDs) be added to control `url.full` cardinality in ClickHouse? (D2 — Android `PulseNetworkingUtils.redactUrl` handles this; web does not.)
 4. Should `error.type` be added to Android network spans for cross-platform dashboard parity? (D1)
-

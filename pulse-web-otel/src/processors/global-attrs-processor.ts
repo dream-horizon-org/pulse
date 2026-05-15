@@ -27,7 +27,7 @@ function getNetworkConnection(): NetworkConnection {
   return nav.connection ?? {};
 }
 
-function isDynamicSegment(seg: string): boolean {
+export function isDynamicSegment(seg: string): boolean {
   // Pure integers: 123, 456789
   if (/^\d+$/.test(seg)) return true;
   // Standard UUID v4 (with dashes): 550e8400-e29b-41d4-a716-446655440000

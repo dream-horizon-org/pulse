@@ -17,6 +17,55 @@ import {
   type NetworkSpanOptionalConfig,
 } from "../utils/network-http";
 
+/**
+ * Module-scoped store for XHR request headers captured via the
+ * setRequestHeader monkey-patch. Must outlive individual spans so the
+ * applyCustomAttributesOnSpan callback (fired after send()) can still read
+ * headers that were set before send(). WeakMap prevents leaking XHR
+ * references — entries are deleted after the span callback runs.
+ *
+ * Exported for testing only; not part of the public API.
+ */
+export const xhrHeaderStore = new WeakMap<XMLHttpRequest, Record<string, string>>();
+
+/** Original setRequestHeader kept for call-through and teardown. */
+let _origSetRequestHeader:
+  | ((this: XMLHttpRequest, name: string, value: string) => void)
+  | undefined;
+
+/**
+ * Install the setRequestHeader monkey-patch when capturedRequestHeaders is
+ * non-empty. Idempotent — a second call while already patched is a no-op.
+ */
+function installXhrHeaderPatch(): void {
+  if (_origSetRequestHeader !== undefined) {
+    return;
+  }
+  const orig = XMLHttpRequest.prototype.setRequestHeader;
+  _origSetRequestHeader = orig;
+  XMLHttpRequest.prototype.setRequestHeader = function (
+    name: string,
+    value: string,
+  ): void {
+    const stored = xhrHeaderStore.get(this) ?? {};
+    stored[name.toLowerCase()] = value;
+    xhrHeaderStore.set(this, stored);
+    return orig.call(this, name, value);
+  };
+}
+
+/**
+ * Remove the setRequestHeader monkey-patch and clear the store.
+ * Called from NetworkInstrumentation.uninstall().
+ */
+function uninstallXhrHeaderPatch(): void {
+  if (_origSetRequestHeader === undefined) {
+    return;
+  }
+  XMLHttpRequest.prototype.setRequestHeader = _origSetRequestHeader;
+  _origSetRequestHeader = undefined;
+}
+
 /** Never throws — each upstream {@code disable()} runs even if a sibling fails. */
 function disableInstrumentationBestEffort(
   instr: { disable(): void } | undefined,
@@ -59,6 +108,18 @@ export class NetworkInstrumentation implements PulseInstrumentation {
       : undefined;
 
     const privacy = { captureQueryParams: net?.captureQueryParams === true };
+
+    // Install the setRequestHeader patch only when the caller explicitly wants
+    // request header capture on XHR. Keeps the monkey-patch surface zero when
+    // the feature is unused.
+    const capturedRequestHeaders = net?.capturedRequestHeaders;
+    if (
+      capturedRequestHeaders &&
+      capturedRequestHeaders.length > 0 &&
+      typeof XMLHttpRequest !== "undefined"
+    ) {
+      installXhrHeaderPatch();
+    }
 
     const ignoreUrls = buildNetworkIgnoreUrls(
       sdk.endpointBaseUrl,
@@ -117,6 +178,16 @@ export class NetworkInstrumentation implements PulseInstrumentation {
           methodFromOtelClientSpanName(opaque.name);
         const statusCode = xhr.status;
 
+        // Read headers captured by the setRequestHeader monkey-patch (installed
+        // when capturedRequestHeaders is non-empty). Browser hides sent headers
+        // after send(), so the WeakMap is the only source of truth here.
+        const storedHeaders = xhrHeaderStore.get(xhr) ?? {};
+        const requestHeaderGet =
+          Object.keys(storedHeaders).length > 0
+            ? (name: string): string | undefined =>
+                storedHeaders[name.toLowerCase()]
+            : undefined;
+
         applyPulseHttpClientSpanAttributes({
           span,
           resolvedUrl: url,
@@ -125,9 +196,12 @@ export class NetworkInstrumentation implements PulseInstrumentation {
           privacy,
           optional,
           perfLookupUrl: url || undefined,
-          requestHeaderGet: undefined,
+          requestHeaderGet,
           responseHeaderGet: (name) => xhr.getResponseHeader(name),
         });
+
+        // Cleanup: remove the XHR entry now that the span has been finalized.
+        xhrHeaderStore.delete(xhr);
       },
     });
 
@@ -146,6 +220,7 @@ export class NetworkInstrumentation implements PulseInstrumentation {
     try {
       disableInstrumentationBestEffort(this.fetchInstr);
       disableInstrumentationBestEffort(this.xhrInstr);
+      uninstallXhrHeaderPatch();
     } finally {
       this.fetchInstr = undefined;
       this.xhrInstr = undefined;

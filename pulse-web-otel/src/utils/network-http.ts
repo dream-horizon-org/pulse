@@ -7,6 +7,7 @@ import type { Span } from "@opentelemetry/api";
 import { SpanStatusCode } from "@opentelemetry/api";
 
 import { PulseWebSemconv } from "../semconv";
+import { isDynamicSegment } from "../processors/global-attrs-processor";
 
 /**
  * Reads URL the upstream client span may have set before the custom callback.
@@ -244,6 +245,17 @@ export function buildNetworkIgnoreUrls(
   return patterns;
 }
 
+/**
+ * Replaces dynamic path segments (UUIDs, ObjectIds, ULIDs, numeric IDs) with `:id`
+ * to prevent cardinality explosion in ClickHouse (mirrors screen-name normalization).
+ */
+export function normalizeUrlPath(pathname: string): string {
+  return pathname
+    .split("/")
+    .map((segment) => (segment && isDynamicSegment(segment) ? ":id" : segment))
+    .join("/");
+}
+
 export function sanitizeHttpUrl(
   rawUrl: string,
   privacy: NetworkSpanPrivacy,
@@ -265,6 +277,7 @@ export function sanitizeHttpUrl(
     /** OTel `url.full` MUST NOT contain credentials (user:password@…). */
     u.username = "";
     u.password = "";
+    u.pathname = normalizeUrlPath(u.pathname);
     return u.toString();
   } catch {
     return rawUrl;

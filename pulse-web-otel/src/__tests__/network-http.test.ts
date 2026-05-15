@@ -14,6 +14,7 @@ import {
   methodFromOtelClientSpanName,
   networkProtocolVersionFromNextHop,
   networkPulseType,
+  normalizeUrlPath,
   requestHeaderGetter,
   resolveFetchMethod,
   resolveFetchStatus,
@@ -692,5 +693,93 @@ describe("applyPulseHttpClientSpanAttributes", () => {
     expect(attrs["pulse.type"]).toBe("network.0");
     expect(attrs["http.response.status_code"]).toBe(0);
     expect(attrs["error.type"]).toBe("cors_error");
+  });
+
+  // URL path normalization integration: dynamic segments in url.full must be replaced
+  it("normalizes dynamic path segments in url.full via sanitizeHttpUrl", () => {
+    const attrs: Record<string, unknown> = {};
+    const span = {
+      setAttribute: (k: string, v: string | number | boolean) => {
+        attrs[k] = v;
+      },
+      setStatus: vi.fn(),
+    } as unknown as Span;
+
+    applyPulseHttpClientSpanAttributes({
+      span,
+      resolvedUrl:
+        "https://api.example.com/api/orders/550e8400-e29b-41d4-a716-446655440000/items",
+      method: "GET",
+      statusCode: 200,
+      privacy: { captureQueryParams: false },
+      optional: undefined,
+    });
+
+    expect(attrs["url.full"]).toBe(
+      "https://api.example.com/api/orders/:id/items",
+    );
+  });
+
+  // ISS-N14: non-standard HTTP method → _OTHER + http.request.method_original (OTel semconv)
+  it("non-standard method PURGE → http.request.method _OTHER + http.request.method_original PURGE", () => {
+    const attrs: Record<string, unknown> = {};
+    const span = {
+      setAttribute: (k: string, v: string | number | boolean) => {
+        attrs[k] = v;
+      },
+      setStatus: vi.fn(),
+    } as unknown as Span;
+
+    applyPulseHttpClientSpanAttributes({
+      span,
+      resolvedUrl: "https://cache.example.com/v1/resource",
+      method: "PURGE",
+      statusCode: 200,
+      privacy: { captureQueryParams: false },
+      optional: undefined,
+    });
+
+    expect(attrs["http.request.method"]).toBe("_OTHER");
+    expect(attrs["http.request.method_original"]).toBe("PURGE");
+    expect(attrs["pulse.type"]).toBe("network.200");
+  });
+});
+
+describe("normalizeUrlPath", () => {
+  it("replaces numeric IDs (3+ digits)", () => {
+    expect(normalizeUrlPath("/api/orders/12345")).toBe("/api/orders/:id");
+  });
+
+  it("replaces UUID v4 with dashes", () => {
+    expect(
+      normalizeUrlPath(
+        "/api/orders/550e8400-e29b-41d4-a716-446655440000/items",
+      ),
+    ).toBe("/api/orders/:id/items");
+  });
+
+  it("replaces MongoDB ObjectId (24 hex chars)", () => {
+    expect(
+      normalizeUrlPath("/api/orders/507f1f77bcf86cd799439011/status"),
+    ).toBe("/api/orders/:id/status");
+  });
+
+  it("preserves static-only paths unchanged", () => {
+    expect(normalizeUrlPath("/api/health")).toBe("/api/health");
+  });
+
+  it("does NOT replace short alphanumeric slugs (not dynamic)", () => {
+    // 'abc' is 3 chars but not purely digits, not UUID/ObjectId/ULID — unchanged
+    expect(normalizeUrlPath("/api/users/abc")).toBe("/api/users/abc");
+  });
+
+  it("handles root path", () => {
+    expect(normalizeUrlPath("/")).toBe("/");
+  });
+
+  it("replaces multiple dynamic segments", () => {
+    expect(
+      normalizeUrlPath("/users/12345/orders/507f1f77bcf86cd799439011"),
+    ).toBe("/users/:id/orders/:id");
   });
 });

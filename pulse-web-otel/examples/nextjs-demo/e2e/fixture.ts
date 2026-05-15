@@ -35,9 +35,15 @@ export interface OtlpLogRecord {
   attributes: OtlpAttr[];
 }
 
+export interface OtlpSpanStatus {
+  code?: number;
+  message?: string;
+}
+
 export interface OtlpSpan {
   name: string;
   attributes: OtlpAttr[];
+  status?: OtlpSpanStatus;
 }
 
 type LogsBody = {
@@ -102,6 +108,35 @@ export function getResourceAttr(
     }
   }
   return undefined;
+}
+
+/** Numeric OTLP status code, or undefined if missing / malformed. */
+export function getOtlpSpanStatusCode(span: OtlpSpan): number | undefined {
+  const c = span.status?.code;
+  return typeof c === "number" && Number.isFinite(c) ? c : undefined;
+}
+
+/**
+ * HTTP client spans: `pulse.type` is `network.<statusCode>`.
+ * Prefix-matches `network.` but excludes `network.change`.
+ */
+export function findAllNetworkSpans(captured: CapturedRequest[]): OtlpSpan[] {
+  const out: OtlpSpan[] = [];
+  for (const c of captured) {
+    if (c.type !== "traces") continue;
+    for (const rs of c.body.resourceSpans ?? []) {
+      for (const ss of rs.scopeSpans ?? []) {
+        for (const sp of ss.spans ?? []) {
+          const pt = getAttr(sp.attributes, "pulse.type");
+          const s = typeof pt === "string" ? pt : "";
+          if (s.startsWith("network.") && s !== "network.change") {
+            out.push(sp);
+          }
+        }
+      }
+    }
+  }
+  return out;
 }
 
 // ─── Internal helpers ─────────────────────────────────────────────────────────
