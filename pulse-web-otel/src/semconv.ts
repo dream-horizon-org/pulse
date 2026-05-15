@@ -83,7 +83,7 @@ export const PulseWebSemconv = {
     /** Logical viewport (`window.innerWidth` / `innerHeight`), Android `device.screen.*` parity. */
     DEVICE_SCREEN_WIDTH: "device.screen.width",
     DEVICE_SCREEN_HEIGHT: "device.screen.height",
-    /** Web vital metric name: LCP, INP, CLS, FCP, TTFB (`web-vitals` v5+; not FID). */
+    /** Web vital metric name: LCP, INP, CLS, FCP, TTFB (`web-vitals` v5+; FID removed upstream). */
     WEB_VITAL_NAME: "web_vital.name",
     WEB_VITAL_VALUE: "web_vital.value",
     WEB_VITAL_RATING: "web_vital.rating",

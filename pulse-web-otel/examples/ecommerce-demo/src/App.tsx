@@ -86,7 +86,6 @@ export default function App() {
   // Legacy pulseConfig useMemo (superseded): live URL overrides live in Root.tsx
   // (`useDemoUrlPulseOptions` + read-manual-web-vitals-instrumentation.ts).
 
-
   const userSetupConfig = useMemo(() => {
     const searchParams = new URLSearchParams(window.location.search);
     const queryUserEnabled = searchParams.get("pulse_user_enabled");
