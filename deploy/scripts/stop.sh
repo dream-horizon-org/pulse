@@ -6,7 +6,7 @@
 # Uses Docker Compose if available, otherwise falls back to Docker CLI.
 #
 # Usage:
-#   ./stop.sh [-v|--volumes] [--all] [server|cron|ai|mysql|clickhouse|otel]
+#   ./stop.sh [-v|--volumes] [--all] [ui|server|cron|ai|mysql|clickhouse|otel]
 # ============================================================================
 
 # Source common library
@@ -33,6 +33,10 @@ while [[ $# -gt 0 ]]; do
         --all)
             REMOVE_VOLUMES="true"
             REMOVE_NETWORK="true"
+            shift
+            ;;
+        ui|pulse-ui)
+            SERVICES+=("$CONTAINER_UI")
             shift
             ;;
         server|pulse-server)
@@ -80,12 +84,12 @@ while [[ $# -gt 0 ]]; do
             shift
             ;;
         -h|--help)
-            echo "Usage: $0 [-v|--volumes] [--all] [server|cron|mysql|clickhouse|otel|kafka|minio|ai|capture|ingestion|heatmap]"
+            echo "Usage: $0 [-v|--volumes] [--all] [ui|server|cron|mysql|clickhouse|otel|kafka|minio|ai|capture|ingestion|heatmap]"
             exit 0
             ;;
         *)
             print_error "Unknown option: $1"
-            echo "Usage: $0 [-v|--volumes] [--all] [server|cron|mysql|clickhouse|otel|kafka|minio|ai|capture|ingestion|heatmap]"
+            echo "Usage: $0 [-v|--volumes] [--all] [ui|server|cron|mysql|clickhouse|otel|kafka|minio|ai|capture|ingestion|heatmap]"
             exit 1
             ;;
     esac
@@ -118,6 +122,7 @@ fi
 if [ ${#SERVICES[@]} -eq 0 ]; then
     SERVICES=(
         "$CONTAINER_ALERTS_CRON"
+        "$CONTAINER_UI"
         "$CONTAINER_AI"
         "$CONTAINER_SERVER"
         "$CONTAINER_SESSION_INGESTION"

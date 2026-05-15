@@ -6,7 +6,7 @@
 # Uses Docker Compose if available, otherwise falls back to Docker CLI.
 #
 # Usage:
-#   ./logs.sh [--no-follow] [--tail N] [server|cron|ai|mysql|clickhouse|otel]
+#   ./logs.sh [--no-follow] [--tail N] [ui|server|cron|ai|mysql|clickhouse|otel]
 # ============================================================================
 
 # Source common library
@@ -33,6 +33,10 @@ while [[ $# -gt 0 ]]; do
             TAIL="--tail=$2"
             shift 2
             ;;
+        ui|pulse-ui)
+            SERVICE="$CONTAINER_UI"
+            shift
+            ;;
         server|pulse-server)
             SERVICE="$CONTAINER_SERVER"
             shift
@@ -58,12 +62,12 @@ while [[ $# -gt 0 ]]; do
             shift
             ;;
         -h|--help)
-            echo "Usage: $0 [--no-follow] [--tail N] [server|cron|ai|mysql|clickhouse|otel]"
+            echo "Usage: $0 [--no-follow] [--tail N] [ui|server|cron|ai|mysql|clickhouse|otel]"
             exit 0
             ;;
         *)
             print_error "Unknown option: $1"
-            echo "Usage: $0 [--no-follow] [--tail N] [server|cron|ai|mysql|clickhouse|otel]"
+            echo "Usage: $0 [--no-follow] [--tail N] [ui|server|cron|ai|mysql|clickhouse|otel]"
             exit 1
             ;;
     esac

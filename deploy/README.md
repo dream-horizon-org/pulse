@@ -59,8 +59,8 @@ chmod +x scripts/*.sh
 
 4. **Access the Platform**
 
+- **Frontend**: http://localhost:3000
 - **Backend API**: http://localhost:8080
-- **Dashboard (local)**: from repo root, `cd pulse-ui && yarn install && yarn start` → http://localhost:3000
 - **Health Check**: http://localhost:8080/healthcheck
 - **MySQL**: localhost:3307
 - **ClickHouse HTTP**: http://localhost:8123
@@ -178,33 +178,29 @@ service, and verifies the deployment.
 
 ### `build.sh`
 
-Builds custom Docker images for the stack (`pulse-server`, `pulse-alerts-cron`,
-session replay capture/ingestion, heatmap ingestion, `pulse-ai-agent`, etc.).
-When multiple services are built, they run in parallel.
+Builds the three custom Docker images: `pulse-ui`, `pulse-server`, and
+`pulse-alerts-cron`. When multiple services are built, they run in parallel.
 
 ```
-Usage: ./deploy/scripts/build.sh [--no-cache] [server|cron|capture|ingestion|heatmap-ingestion|ai|all] [-h|--help]
+Usage: ./deploy/scripts/build.sh [--no-cache] [ui|server|cron|all] [-h|--help]
 ```
 
-| Flag / Argument        | Description                                     |
-|------------------------|-------------------------------------------------|
-| _(no args)_            | Build default set (server, cron, capture, ingestion, heatmap-ingestion, ai) |
-| `server`               | Build `pulse-server` only                       |
-| `cron`                 | Build `pulse-alerts-cron` only                  |
-| `capture`              | Build `pulse-session-capture` only              |
-| `ingestion`            | Build `pulse-session-replay-ingestion` only     |
-| `heatmap-ingestion`    | Build `pulse-heatmap-screenshot-ingestion` only |
-| `ai`                   | Build `pulse-ai-agent` only                     |
-| `all`                  | Explicitly build all (same as no args)        |
-| `--no-cache`           | Build from scratch, ignoring Docker layer cache |
-| `-h`, `--help`         | Show usage and exit                             |
+| Flag / Argument | Description                                     |
+|-----------------|-------------------------------------------------|
+| _(no args)_     | Build all three images                          |
+| `ui`            | Build `pulse-ui` only                           |
+| `server`        | Build `pulse-server` only                       |
+| `cron`          | Build `pulse-alerts-cron` only                  |
+| `all`           | Explicitly build all (same as no args)          |
+| `--no-cache`    | Build from scratch, ignoring Docker layer cache |
+| `-h`, `--help`  | Show usage and exit                             |
 
 ```bash
 # Build everything (parallel)
 ./deploy/scripts/build.sh
 
-# Rebuild server from scratch
-./deploy/scripts/build.sh --no-cache server
+# Rebuild UI from scratch
+./deploy/scripts/build.sh --no-cache ui
 
 # Build server and cron only
 ./deploy/scripts/build.sh server cron
@@ -216,7 +212,7 @@ Usage: ./deploy/scripts/build.sh [--no-cache] [server|cron|capture|ingestion|hea
 
 Creates the Docker network and volumes (if needed), then starts all containers
 in the correct dependency order: databases first, then OTEL collector, then
-the backend server, and finally alerts cron.
+the backend server, and finally the UI and alerts cron.
 
 ```
 Usage: ./deploy/scripts/start.sh [-d|--detach] [--build] [-h|--help]
@@ -255,6 +251,7 @@ Usage: ./deploy/scripts/stop.sh [-v|--volumes] [--all] [SERVICE...] [-h|--help]
 | _(no args)_       | Stop and remove all Pulse containers                                            |
 | `-v`, `--volumes` | Also remove database data volumes (`pulse-mysql-data`, `pulse-clickhouse-data`) |
 | `--all`           | Remove containers, volumes, **and** the Docker network                          |
+| `ui`              | Stop `pulse-ui` only                                                            |
 | `server`          | Stop `pulse-server` only                                                        |
 | `cron`            | Stop `pulse-alerts-cron` only                                                   |
 | `mysql`           | Stop `pulse-mysql` only                                                         |
@@ -271,6 +268,9 @@ Usage: ./deploy/scripts/stop.sh [-v|--volumes] [--all] [SERVICE...] [-h|--help]
 
 # Full teardown (containers + volumes + network)
 ./deploy/scripts/stop.sh --all
+
+# Stop only the UI (other services keep running)
+./deploy/scripts/stop.sh ui
 
 # Stop backend server and cron
 ./deploy/scripts/stop.sh server cron
@@ -292,6 +292,7 @@ Usage: ./deploy/scripts/logs.sh [--no-follow] [--tail N] [SERVICE] [-h|--help]
 | _(no args)_     | Follow logs from all running containers  |
 | `--no-follow`   | Print logs and exit (do not stream)      |
 | `--tail N`      | Show only the last N lines per container |
+| `ui`            | Show logs for `pulse-ui`                 |
 | `server`        | Show logs for `pulse-server`             |
 | `cron`          | Show logs for `pulse-alerts-cron`        |
 | `mysql`         | Show logs for `pulse-mysql`              |
@@ -533,19 +534,19 @@ services:
 
 ```bash
 ./deploy/scripts/quickstart.sh
+# UI at http://localhost:3000
 # API at http://localhost:8080
-# Dashboard: cd ../pulse-ui && yarn install && yarn start → http://localhost:3000
 ```
 
 ### Start Individual Services
 
 ```bash
 # Build and start only what you need
-./deploy/scripts/build.sh server
+./deploy/scripts/build.sh ui
 ./deploy/scripts/start.sh -d
 
 # Or with Docker Compose (if available)
-docker compose -f deploy/docker-compose.yml up -d pulse-server
+docker compose -f deploy/docker-compose.yml up pulse-ui
 ```
 
 ## 🚢 Production Considerations

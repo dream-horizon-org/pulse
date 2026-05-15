@@ -278,6 +278,14 @@ else
     exit 1
 fi
 
+print_info "Testing frontend..."
+if curl -sf http://localhost:3000/healthcheck.txt > /dev/null 2>&1; then
+    print_success "Frontend is responding"
+else
+    print_error "Frontend health check failed"
+    exit 1
+fi
+
 print_info "Testing MySQL connection..."
 if docker exec "$CONTAINER_MYSQL" mysql -u "${MYSQL_USER}" -p"${MYSQL_PASSWORD}" "${MYSQL_DATABASE}" -e "SELECT 1" > /dev/null 2>&1; then
     print_success "MySQL is accessible"
@@ -336,8 +344,8 @@ print_section "Deployment Complete!"
 echo -e "${GREEN}Your Pulse Observability platform is now running!${NC}"
 echo ""
 echo -e "${CYAN}Access Points:${NC}"
+echo -e "  ${BLUE}Frontend (UI):${NC}      http://localhost:3000"
 echo -e "  ${BLUE}Backend API:${NC}        http://localhost:8080"
-echo -e "  ${BLUE}Dashboard (local):${NC}  cd pulse-ui && yarn start → http://localhost:3000"
 echo -e "  ${BLUE}Health Check:${NC}       http://localhost:8080/healthcheck"
 echo -e "  ${BLUE}Session Capture:${NC}    http://localhost:3400/s/ (POST)"
 echo -e "  ${BLUE}MySQL:${NC}              localhost:3307"
@@ -358,7 +366,7 @@ echo -e "${CYAN}Test Session Replay Pipeline:${NC}"
 echo -e "  ${BLUE}curl -X POST http://localhost:3400/s/ -H 'Content-Type: application/json' -d '{\"event\":\"\$snapshot\",\"project_id\":\"test-proj\",\"user_id\":\"test-user\",\"properties\":{\"session_id\":\"test-session-001\",\"snapshot_source\":\"mobile\",\"snapshot_data\":[{\"type\":2,\"data\":{\"tag\":\"div\"},\"timestamp\":'$(date +%s)000'}]}}'${NC}"
 echo ""
 echo -e "${CYAN}Next Steps:${NC}"
-echo -e "  1. Start the dashboard: ${BLUE}cd pulse-ui && yarn install && yarn start${NC} (set REACT_APP_* from deploy/.env as needed)"
+echo -e "  1. Open http://localhost:3000 in your browser"
 echo -e "  2. Sign in with Google OAuth (or use dummy login if OAuth is disabled)"
 echo -e "  3. Explore the dashboard and features"
 echo ""
