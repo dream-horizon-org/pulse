@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Button, Group, Modal, Stack, TextInput, Textarea } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { useCreateAdminTenant } from "../../../../hooks";
-import type { TenantResponse } from "../../../../hooks/useCreateTenant";
+import type { TenantResponse } from "../TenantSelector.interface";
 
 interface CreateTenantModalProps {
   opened: boolean;

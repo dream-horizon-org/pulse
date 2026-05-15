@@ -18,7 +18,7 @@ import {
 } from "@tabler/icons-react";
 import { useInternalTenants } from "../../../hooks/useInternalTenants";
 import { InternalTenant } from "../../../hooks/useInternalTenants/useInternalTenants.interface";
-import type { TenantResponse } from "../../../hooks/useCreateTenant";
+import type { TenantResponse } from "./TenantSelector.interface";
 import { getCookies, setCookies } from "../../../helpers/cookies";
 import { API_ROUTES, COOKIES_KEY, ROUTES, SYSTEM_ROLES } from "../../../constants";
 import { useTenantContext, useProjectContext } from "../../../contexts";

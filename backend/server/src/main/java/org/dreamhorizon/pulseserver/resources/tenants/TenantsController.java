@@ -12,7 +12,6 @@ import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.DefaultValue;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.HeaderParam;
-import jakarta.ws.rs.POST;
 import jakarta.ws.rs.PUT;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
@@ -21,23 +20,18 @@ import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.MediaType;
 import java.util.List;
-import java.util.UUID;
 import java.util.concurrent.CompletionStage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.dreamhorizon.pulseserver.error.ServiceError;
-import org.dreamhorizon.pulseserver.resources.tenants.models.CreateInternalTenantRestRequest;
 import org.dreamhorizon.pulseserver.resources.tenants.models.StatusRestResponse;
 import org.dreamhorizon.pulseserver.resources.tenants.models.TenantListRestResponse;
 import org.dreamhorizon.pulseserver.resources.tenants.models.TenantRestResponse;
 import org.dreamhorizon.pulseserver.resources.tenants.models.UpdateTenantRestRequest;
-import org.dreamhorizon.pulseserver.rest.exception.ForbiddenOperationException;
 import org.dreamhorizon.pulseserver.rest.io.Response;
 import org.dreamhorizon.pulseserver.rest.io.RestResponse;
 import org.dreamhorizon.pulseserver.service.JwtService;
 import org.dreamhorizon.pulseserver.service.OpenFgaService;
 import org.dreamhorizon.pulseserver.service.tenant.TenantService;
-import org.dreamhorizon.pulseserver.service.tenant.models.CreateTenantRequest;
 
 @Slf4j
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
@@ -106,54 +100,6 @@ public class TenantsController {
         .toSingle()
         .flatMap(tenantRestResponseFactory::toResponseWithTier)
         .to(RestResponse.jaxrsRestHandler());
-  }
-
-  @POST
-  @Consumes(MediaType.APPLICATION_JSON)
-  @Produces(MediaType.APPLICATION_JSON)
-  public CompletionStage<Response<TenantRestResponse>> createTenant(
-      @HeaderParam(HttpHeaders.AUTHORIZATION) String authorization,
-      @NotNull @Valid CreateInternalTenantRestRequest request
-  ) {
-    return Single.defer(() -> {
-      String userId = extractUserIdFromAuthorization(authorization);
-      if (userId == null || userId.isBlank()) {
-        return Single.error(ServiceError.UNAUTHORISED.getCustomException("Missing or invalid Authorization header"));
-      }
-
-      OpenFgaService openFgaService = openFgaServiceProvider.get();
-      if (openFgaService == null || !openFgaService.isEnabled()) {
-        return Single.error(
-            ServiceError.INTERNAL_SERVER_ERROR.getCustomException(
-                "OpenFGA is not available",
-                "OpenFGA is disabled or not initialized",
-                503));
-      }
-
-      return Single.zip(
-              openFgaService.isSuperAdmin(userId),
-              openFgaService.isInternalViewer(userId),
-              (isSuperadmin, isInternalViewer) -> Boolean.TRUE.equals(isSuperadmin) || Boolean.TRUE.equals(isInternalViewer))
-          .flatMap(isSystemRole -> {
-            if (!Boolean.TRUE.equals(isSystemRole)) {
-              return Single.error(new ForbiddenOperationException("Only superadmin or internal_viewer can create tenants"));
-            }
-
-            String tenantId = "tenant-" + UUID.randomUUID().toString();
-            CreateTenantRequest createTenantRequest = CreateTenantRequest.builder()
-                .tenantId(tenantId)
-                .name(request.getName())
-                .description(request.getDescription())
-                .gcpTenantId(null)
-                .domainName(null)
-                .build();
-            return tenantService.createTenant(createTenantRequest)
-                .flatMap(createdTenant -> 
-                    openFgaService.assignTenantRole(userId, createdTenant.getTenantId(), "admin")
-                        .toSingleDefault(createdTenant));
-          })
-          .flatMap(tenantRestResponseFactory::toResponseWithTier);
-    }).to(RestResponse.jaxrsRestHandler());
   }
 
   @GET

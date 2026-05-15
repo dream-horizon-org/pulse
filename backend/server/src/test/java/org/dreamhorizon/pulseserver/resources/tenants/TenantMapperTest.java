@@ -9,11 +9,9 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import org.dreamhorizon.pulseserver.dao.tenant.models.Tenant;
-import org.dreamhorizon.pulseserver.resources.tenants.models.CreateTenantRestRequest;
 import org.dreamhorizon.pulseserver.resources.tenants.models.TenantListRestResponse;
 import org.dreamhorizon.pulseserver.resources.tenants.models.TenantRestResponse;
 import org.dreamhorizon.pulseserver.resources.tenants.models.UpdateTenantRestRequest;
-import org.dreamhorizon.pulseserver.service.tenant.models.CreateTenantRequest;
 import org.dreamhorizon.pulseserver.service.tenant.models.UpdateTenantRequest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
@@ -30,27 +28,6 @@ class TenantMapperTest {
 
   @Nested
   class TestTenantMappings {
-
-    @Test
-    void shouldMapCreateTenantRestRequestToCreateTenantRequest() {
-      CreateTenantRestRequest restRequest = CreateTenantRestRequest.builder()
-          .tenantId("test_tenant")
-          .name("Test Tenant")
-          .description("Test Description")
-          .gcpTenantId("gcp-123")
-          .domainName("test.example.com")
-          .build();
-
-      CreateTenantRequest result = mapper.toCreateTenantRequest(restRequest);
-
-      assertNotNull(result);
-      assertEquals("test_tenant", result.getTenantId());
-      assertEquals("Test Tenant", result.getName());
-      assertEquals("Test Description", result.getDescription());
-      assertEquals("gcp-123", result.getGcpTenantId());
-      assertEquals("test.example.com", result.getDomainName());
-      assertNull(result.getClickhousePassword()); // Should be ignored
-    }
 
     @Test
     void shouldMapUpdateTenantRestRequestToUpdateTenantRequest() {
