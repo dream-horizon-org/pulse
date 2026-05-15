@@ -83,7 +83,7 @@ stateDiagram-v2
 
 - `SessionProvider` constructs a `sessionId = crypto.randomUUID()` on creation.
 - `installationId` is read from `localStorage["pulse_installation_id"]`; generated once on first load.
-- `userId` is persisted to `localStorage["pulse_user_id"]`.
+- `userId` is persisted to `localStorage["pulse_user_id"]`. Full identity model (hydration, **`Pulse.setUserId`**, lifecycle logs, global attrs stamping): [`../../sdk-core/user-identity/SPEC.md`](../../sdk-core/user-identity/SPEC.md).
 - Session rotation: if the tab is backgrounded for longer than `pageHiddenTimeoutMs`, the next `visibilitychange` to `visible` may rotate the session and drive `session.end` / `session.start`. **Default:** `DEFAULT_PAGE_HIDDEN_TIMEOUT_MS` in `src/session.ts` (**15 minutes**) unless the host passes `pageHiddenTimeoutMs` in `PulseWebConfig`.
 - `wasNewInstallation()` returns `true` on the very first page load (no prior installation ID).
 

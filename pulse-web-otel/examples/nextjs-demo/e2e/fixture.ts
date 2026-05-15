@@ -85,6 +85,25 @@ export function findAllLogs(
   return out;
 }
 
+/** Spans whose {@code pulse.type} equals {@code pulseType} (e.g. {@code screen_load}). */
+export function findAllSpans(
+  captured: CapturedRequest[],
+  pulseType: string,
+): OtlpSpan[] {
+  const out: OtlpSpan[] = [];
+  for (const c of captured) {
+    if (c.type !== "traces") continue;
+    for (const rs of c.body.resourceSpans ?? []) {
+      for (const ss of rs.scopeSpans ?? []) {
+        for (const sp of ss.spans ?? []) {
+          if (getAttr(sp.attributes, "pulse.type") === pulseType) out.push(sp);
+        }
+      }
+    }
+  }
+  return out;
+}
+
 export function getResourceAttr(
   captured: CapturedRequest[],
   key: string,
@@ -106,8 +125,16 @@ export function getResourceAttr(
 
 function decodeBody(buf: Buffer | null): unknown {
   if (!buf) return {};
-  try { return JSON.parse(gunzipSync(buf).toString("utf-8")); } catch { /* not gzip */ }
-  try { return JSON.parse(buf.toString("utf-8")); } catch { return {}; }
+  try {
+    return JSON.parse(gunzipSync(buf).toString("utf-8"));
+  } catch {
+    /* not gzip */
+  }
+  try {
+    return JSON.parse(buf.toString("utf-8"));
+  } catch {
+    return {};
+  }
 }
 
 async function pollUntil<T>(
@@ -134,21 +161,20 @@ export async function attachOtlpCapture(
     "Access-Control-Allow-Headers":
       "Content-Type, Content-Encoding, X-API-KEY, X-Pulse-Metering-Session-ID",
   };
-  const intercept =
-    (type: "logs" | "traces") => async (route: Route) => {
-      if (route.request().method() === "OPTIONS") {
-        await route.fulfill({ status: 204, headers: corsHeaders });
-        return;
-      }
-      const body = decodeBody(route.request().postDataBuffer()) as never;
-      captured.push({ type, body });
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        headers: corsHeaders,
-        body: '{"partialSuccess":{}}',
-      });
-    };
+  const intercept = (type: "logs" | "traces") => async (route: Route) => {
+    if (route.request().method() === "OPTIONS") {
+      await route.fulfill({ status: 204, headers: corsHeaders });
+      return;
+    }
+    const body = decodeBody(route.request().postDataBuffer()) as never;
+    captured.push({ type, body });
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      headers: corsHeaders,
+      body: '{"partialSuccess":{}}',
+    });
+  };
   await target.route("**/v1/logs", intercept("logs"));
   await target.route("**/v1/traces", intercept("traces"));
   await target.route("**/v1/metrics", async (route) => {
@@ -156,7 +182,12 @@ export async function attachOtlpCapture(
       await route.fulfill({ status: 204, headers: corsHeaders });
       return;
     }
-    await route.fulfill({ status: 200, contentType: "application/json", headers: corsHeaders, body: '{"partialSuccess":{}}' });
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      headers: corsHeaders,
+      body: '{"partialSuccess":{}}',
+    });
   });
 }
 
@@ -173,7 +204,11 @@ export async function attachSdkConfigStub(
       await route.fulfill({ status: 204, headers: corsHeaders });
       return;
     }
-    await route.fulfill({ status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" }, body: "{}" });
+    await route.fulfill({
+      status: 404,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      body: "{}",
+    });
   });
 }
 
@@ -194,8 +229,14 @@ export const test = base.extend<{ otlp: OtlpFixture }>({
     await use({
       captured,
       waitForLog: (t, ms = 10_000) =>
-        pollUntil(() => findAllLogs(captured, t)[0], ms, `log(pulse.type="${t}")`),
-      reset: () => { captured.length = 0; },
+        pollUntil(
+          () => findAllLogs(captured, t)[0],
+          ms,
+          `log(pulse.type="${t}")`,
+        ),
+      reset: () => {
+        captured.length = 0;
+      },
     });
   },
 });

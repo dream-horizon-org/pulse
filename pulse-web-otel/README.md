@@ -94,7 +94,7 @@ After mount, these signals auto-capture with zero extra work:
 | `session.start` / `session.end` | Tab open / close |
 | `network.<status>` (e.g. `network.200`) | Every `fetch` / `XMLHttpRequest` — client span `pulse.type` from HTTP status, not the literal `http` |
 | `app.click` | User clicks anywhere |
-| `web_vital` | LCP, FID, CLS, TTFB, FCP, INP |
+| `web_vital` | LCP, CLS, INP, TTFB, FCP |
 | `screen_load` | Navigation timing (incl. `tti` on initial load when available) |
 | `device.crash` | Uncaught JS errors + React render errors (via built-in `PulseErrorBoundary`) |
 
