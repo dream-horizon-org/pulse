@@ -17,6 +17,7 @@ interface SessionReplayPlayerProps {
   isPlaying: boolean;
   playbackSpeed: number;
   sessionData: SessionDetailData;
+  playerPlatform?: SessionDetailData["platform"];
   compact?: boolean;
   onTimeUpdate?: (time: number) => void;
 }
@@ -27,6 +28,7 @@ export function SessionReplayPlayer({
   isPlaying,
   playbackSpeed,
   sessionData,
+  playerPlatform,
   compact,
   onTimeUpdate,
 }: SessionReplayPlayerProps) {
@@ -121,7 +123,11 @@ export function SessionReplayPlayer({
 
   return (
     <Box className={containerClass} ref={containerRef}>
-      <DeviceOverview sessionData={sessionData} compact={compact}>
+      <DeviceOverview
+        sessionData={sessionData}
+        playerPlatform={playerPlatform}
+        compact={compact}
+      >
         {imageToShow && (
           <ReplayImageView
             imageToShow={imageToShow}

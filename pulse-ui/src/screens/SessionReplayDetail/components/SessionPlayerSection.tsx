@@ -9,6 +9,7 @@ import classes from "../SessionReplayDetail.module.css";
 
 interface SessionPlayerSectionProps {
   sessionData: SessionDetailData;
+  playerPlatform?: SessionDetailData["platform"];
   images: SessionReplayImage[];
   imagesLoading: boolean;
   currentTime: number;
@@ -26,6 +27,7 @@ interface SessionPlayerSectionProps {
 
 export function SessionPlayerSection({
   sessionData,
+  playerPlatform,
   images,
   imagesLoading,
   currentTime,
@@ -54,6 +56,7 @@ export function SessionPlayerSection({
           isPlaying={isPlaying}
           playbackSpeed={playbackSpeed}
           sessionData={sessionData}
+          playerPlatform={playerPlatform}
           selectedSpan={selectedSpan}
           compact={compact}
           onTimeUpdate={onTimeUpdate}
