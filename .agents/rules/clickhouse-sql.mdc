@@ -73,6 +73,12 @@ These columns are extracted from Map attributes at insert time (exceptions: some
 | `HttpHost` | `net.peer.name` (fallback `server.address`) | SpanAttributes | `otel_traces` |
 | `HttpMethod` | `http.method` (fallback `http.request.method`) | SpanAttributes | `otel_traces` |
 | `HttpStatusCode` | `http.status_code` (fallback `http.response.status_code`, UInt16) | SpanAttributes | `otel_traces` |
+| `WebVitalName` | `web_vital.name` | LogAttributes | `otel_logs` only |
+| `WebVitalValue` | `web_vital.value` (as `Float64` via `toFloat64OrZero`) | LogAttributes | `otel_logs` only |
+| `WebVitalRating` | `web_vital.rating` | LogAttributes | `otel_logs` only |
+
+**Pulse Web:** `@dreamhorizonorg/pulse-web` sets resource `os.name` to `web`, so **`Platform = 'web'`** matches Pulse
+Web rows at the materialized column (e.g. web vitals backend queries).
 
 `otel_traces` also has a deprecated `SpanType` column (same source as `PulseType`).
 
@@ -90,8 +96,8 @@ All tables start their ORDER BY with `ProjectId` for multi-tenant isolation:
 
 | Table | ORDER BY |
 |-------|----------|
-| `otel_traces` | `(ProjectId, PulseType, SpanName, Timestamp)` |
-| `otel_logs` | `(ProjectId, PulseType, EventName, Timestamp)` |
+| `otel_traces` | `(ProjectId, ServiceName, PulseType, SpanName, Timestamp)` |
+| `otel_logs` | `(ProjectId, PulseType, EventName, Timestamp)` (dev + prod DDL in `backend/db/*/clickhouse/01_otel.otel_logs.sql` / `otel.otel_logs.sql`) |
 | `otel_metrics_gauge` | `(ProjectId, ServiceName, MetricName, Attributes, toUnixTimestamp64Nano(TimeUnix))` |
 | `otel_metrics_sum` | `(ProjectId, ServiceName, MetricName, Attributes, toUnixTimestamp64Nano(TimeUnix))` |
 | `otel_metrics_summary` | `(ProjectId, ServiceName, MetricName, Attributes, toUnixTimestamp64Nano(TimeUnix))` |
@@ -113,6 +119,8 @@ Accessed via `SpanAttributes['key']` (for traces) or `LogAttributes['key']` (for
 - `pulse.type`, `pulse.interaction.name`, `screen.name`
 - **Traces:** `ResourceAttributes['app.version']` (→ materialized `AppVersion`), `ResourceAttributes['os.name']` (→ `Platform`), `ResourceAttributes['device.model.identifier']` (→ `DeviceModel`)
 - **Logs:** `ResourceAttributes['app.build_name']`, `ResourceAttributes['device.model.name']`, etc. (see materialized column table above)
+- Web vitals on logs (`pulse.type = 'web_vital'`): prefer **`WebVitalName`**, **`WebVitalValue`**, **`WebVitalRating`**
+  over `LogAttributes['web_vital.name'|'web_vital.value'|'web_vital.rating']`
 
 ## Multi-Tenant Data Isolation
 

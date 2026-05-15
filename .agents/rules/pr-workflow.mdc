@@ -25,6 +25,7 @@ PRs are auto-labeled by path:
 | `android-sdk` | `pulse-android-otel/**` |
 | `ios-sdk` | `pulse-ios-otel/**` |
 | `rn-sdk` | `pulse-react-native-otel/**` |
+| `web-sdk` | `pulse-web-otel/**` |
 | `deploy` | `deploy/**` |
 | `docs` | `*.md`, `doc/**` |
 | `ci` | `.github/**` |

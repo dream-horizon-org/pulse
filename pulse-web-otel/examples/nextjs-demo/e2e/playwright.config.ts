@@ -8,7 +8,8 @@ export default defineConfig({
   retries: 1,
   reporter: [["html", { outputFolder: "e2e-report", open: "never" }]],
   use: {
-    baseURL: "http://localhost:3003",
+    // Dedicated port so E2E always spawns this demo (avoids clashing with :3003 dev servers).
+    baseURL: "http://localhost:3013",
     trace: "on-first-retry",
   },
   projects: [
@@ -18,8 +19,8 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: "yarn dev",
-    url: "http://localhost:3003",
+    command: "yarn dev:e2e",
+    url: "http://localhost:3013",
     reuseExistingServer: !process.env["CI"],
     timeout: 60_000,
   },

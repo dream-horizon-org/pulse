@@ -10,7 +10,7 @@ import type { AppProps } from "next/app";
 import React from "react";
 import { PulseProvider } from "@dreamhorizonorg/pulse-web/next";
 import { useNextPagesRouterTracking } from "@dreamhorizonorg/pulse-web/next";
-import { PulseDataCollectionConsent } from "@dreamhorizonorg/pulse-web";
+import { PulseDataCollectionConsent, PulseLogLevel } from "@dreamhorizonorg/pulse-web";
 
 /** Thin wrapper so the hook lives inside PulseProvider's React tree. */
 function PulsePageTracker(): null {
@@ -30,6 +30,8 @@ export default function App({
         dataCollectionState: PulseDataCollectionConsent.ALLOWED,
         serviceName:
           process.env["NEXT_PUBLIC_PULSE_SERVICE_NAME"] ?? "nextjs-demo",
+          logLevel: PulseLogLevel.DEBUG,
+          
       }}
     >
       <PulsePageTracker />

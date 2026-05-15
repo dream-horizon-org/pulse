@@ -89,16 +89,15 @@ Per-area conventions live in `.agents/rules/*.mdc` (the same files appear under 
 - **Android SDK (`pulse-android-otel/`)** — Kotlin, Gradle multi-module. Two package roots that must never mix: `io.opentelemetry.android.*` (upstream) and `com.pulse.*` (Pulse). Detail: `android-sdk.mdc`.
 - **iOS SDK (`pulse-ios-otel/`)** — Swift, SwiftPM/CocoaPods.
 - **RN SDK (`pulse-react-native-otel/`)** — TS strict. Single `Pulse` facade in `index.tsx`. Detail: `react-native-sdk.mdc`.
-- **Web SDK (`pulse-web-otel/`)** — Package `@dreamhorizon/pulse-web` (alpha). All signals carry `platform = 'web'`. Skills: `web-sdk-instrument`, `web-sdk-e2e-matrix`, `web-sdk-ship`. Sub-agent: `pulse-web-sdk`. Detail: `pulse-web-otel-contract.mdc`, `pulse-web-otel-conventions.mdc`, `web-sdk.mdc`.
-- **AI agent (`pulse_ai/`)** — Google ADK + Gemini. `agent.py` defines `root_agent`. Tools are functions returning `{"status": ..., "data": ...}`. Requires `GOOGLE_API_KEY`. Detail: `python-ai-agent.mdc`.
+- **Web SDK (`pulse-web-otel/`)** — Package `@dreamhorizon/pulse-web` (alpha). All signals carry `platform = 'web'`. Skills: `web-sdk-instrument`, `web-sdk-e2e-matrix`, `web-sdk-ship`. Sub-agents: `pulse-web-sdk`, `web-otel-spec-audit-orchestrator`. Detail: `pulse-web-otel-contract.mdc`, `pulse-web-otel-conventions.mdc`, `web-sdk.mdc`.
 
-## Web SDK planning
+## Web SDK
 
-Full file map, data contract tables, and phase-by-phase implementation spec: **`pulse-web-otel/web-sdk-plan/WEB-SDK-AGENT-CONTEXT.md`**
+Data contract — every signal must carry `platform = 'web'`. Key `pulse.type` values (non-exhaustive): `session.start`, `session.end`, `device.crash`, `non_fatal`, **`network.<HTTP status>`** on outbound fetch/XHR client spans (e.g. `network.200`, `network.0`), `app.click`, `web_vital`, `screen_load`, `screen_session`. Web does **not** emit a separate `screen_interactive` span; time-to-interactive is attached to **`screen_load`** when Navigation Timing allows (`pulse-web-otel/docs/instrumentations/screen-signals/SPEC.md`).
 
-Milestone index (exit-criteria summaries, verification commands, ClickHouse example query): **`pulse-web-otel/web-sdk-plan/v1/MILESTONES.md`**
+Package manual (commands, test gates, doc index): **`pulse-web-otel/CLAUDE.md`**. SDK-core spec hub: **`pulse-web-otel/docs/sdk-core/SPEC.md`**. Host integration entry: **`pulse-web-otel/docs/instrumentations/integration/SPEC.md`**.
 
-Use the **`web-sdk-instrument`** skill (or related web-sdk skills) for context-loaded implementation or verification.
+Non-trivial `pulse-web-otel/` work: use **`web-sdk-ship`** (`.agents/skills/web-sdk-ship/SKILL.md`) for the merge-ready checklist (tests, diff audit, doc sync).
 
 ## Common Tasks
 
@@ -121,7 +120,7 @@ Map task → skill → relevant rule(s). Run the skill rather than freelancing.
 `.cursor/{skills,agents,commands,rules}/` and `.claude/{skills,agents,commands,rules}/` symlink to `.agents/` — single canonical copy for both tools.
 
 - **Skills** (`.cursor/skills/`) — prefer these over freelancing: `add-api-endpoint`, `add-ui-screen`, `add-ui-component`, `add-ai-sub-agent`, `add-alert-metric`, `clickhouse-migration`, `deploy-service`, `pr-review`, `web-sdk-instrument`, `web-sdk-e2e-matrix`, `web-sdk-ship`, `pulse-prd-author`, `pulse-prd-review`.
-- **Sub-agents** (`.cursor/agents/`) — delegate by area: `backend-engineer`, `frontend-engineer`, `ai-agent-engineer`, `mobile-sdk-engineer`, `pulse-web-sdk`, `devops-engineer`, `data-analyst`, `debugger`, `pr-reviewer`, `unit-test-author`, `backend-test-runner`, `mock-server-maintainer`.
+- **Sub-agents** (`.cursor/agents/`) — delegate by area: `backend-engineer`, `frontend-engineer`, `ai-agent-engineer`, `mobile-sdk-engineer`, `pulse-web-sdk`, `web-otel-spec-audit-orchestrator`, `devops-engineer`, `data-analyst`, `debugger`, `pr-reviewer`, `unit-test-author`, `backend-test-runner`, `mock-server-maintainer`.
 - **Slash commands** (`.cursor/commands/`) — `quickstart`, `start/stop/check-services`, `view-logs`, `build-{backend,ui,ai}`, `run-{backend,ui}-tests`, `lint-ui`, `query-clickhouse`, `create-pr`, `review-my-changes`, `find-existing`, `onboard`, etc.
 
 ## Commits & PRs

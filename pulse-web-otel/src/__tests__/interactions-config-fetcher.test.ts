@@ -94,7 +94,9 @@ describe("InteractionConfigFetcher", () => {
         uptimeLowerLimitInMs: 100,
         uptimeMidLimitInMs: 200,
         uptimeUpperLimitInMs: 300,
-        globalBlacklistedEvents: [{ name: "x", isBlacklisted: true, props: [] }],
+        globalBlacklistedEvents: [
+          { name: "x", isBlacklisted: true, props: [] },
+        ],
       },
     ];
     const fetchFn = vi.fn().mockResolvedValue({

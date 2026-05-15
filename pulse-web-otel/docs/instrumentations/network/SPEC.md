@@ -1,6 +1,6 @@
 # Network Instrumentation — SPEC.md
 
-Package: `@dreamhorizon/pulse-web`  
+Package: `@dreamhorizonorg/pulse-web`  
 File: `pulse-web-otel/docs/instrumentations/network/SPEC.md`
 
 ---
@@ -42,6 +42,50 @@ Capture **outbound HTTP/HTTPS** calls from the browser as **OTel client spans** 
 **Plan C** (OTel spec-only, no `pulse.type`): rejected — product needs `pulse.type` for dashboards.
 
 **Plan D** (custom fetch patch only): rejected — XHR still required for legacy stacks.
+
+### 4.1 HLD — tracer and ignore list
+
+```mermaid
+flowchart TB
+  Reg["InstrumentationRegistry"]
+  NI["NetworkInstrumentation"]
+  FetchI["OTel FetchInstrumentation"]
+  XHRI["OTel XMLHttpRequestInstrumentation"]
+  Attr["applyPulseHttpClientSpanAttributes"]
+  Tracer["TracerProvider → OTLP"]
+  Reg --> NI
+  NI --> FetchI
+  NI --> XHRI
+  FetchI --> Attr
+  XHRI --> Attr
+  Attr --> Tracer
+```
+
+### 4.2 LD — URL filter + pulse typing
+
+```mermaid
+flowchart LR
+  NI["network.ts"] --> Ign["buildNetworkIgnoreUrls"]
+  NI --> Map["network-http.ts"]
+  Map --> PT["networkPulseType(status)"]
+```
+
+### 4.3 Flows and edge cases
+
+```mermaid
+flowchart TD
+  I[install] --> W{window?}
+  W -->|no| Z[no-op SSR]
+  W -->|yes| G{NETWORK gate?}
+  G -->|off| Z
+  G -->|on| P[patch fetch + XHR]
+  P --> R[request]
+  R --> C{CORS opaque status 0?}
+  C -->|yes| ERR[cors_error on span]
+  C -->|no| OK[status mapped pulse.type]
+  P --> U[uninstall]
+  U --> Q[remove patches]
+```
 
 ---
 
@@ -85,6 +129,20 @@ Capture **outbound HTTP/HTTPS** calls from the browser as **OTel client spans** 
 ---
 
 ## 6. Test Coverage
+
+### 6.1 Scenario matrix (Given / When / Then)
+
+| ID | Type | Given | When | Then | Tests |
+|----|------|-------|------|------|-------|
+| N-P1 | positive | gate on | same-origin fetch | span with `pulse.type` pattern | `network-instrumentation.test.ts` |
+| N-N1 | negative | URL in ignore list | fetch to collector | no child span / skipped | R3 |
+| N-E1 | edge | CORS opaque | status 0 | `cors_error` classification | `network-http.test.ts`, §5.4 |
+| N-E2 | edge | SSR | install | no-op | `network-instrumentation.test.ts` |
+| N-E3 | edge | uninstall | new request | not traced | **gap** — double-uninstall idempotency covered in `network-instrumentation.test.ts`; no assertion yet that a fetch after uninstall stays untraced |
+
+### 6.2 Playwright E2E (`examples/ecommerce-demo/e2e/`)
+
+Master index: [`../../sdk-core/test-coverage/SPEC.md`](../../sdk-core/test-coverage/SPEC.md) §6.3 — **`@M4 network e2e`**: Network Lab (GET 200, XHR timeout/abort, 404), contract rows P1–P5, OTLP URL exclusion P5, gate G1, error taxonomy E1–E5, local disable E2, consent C1.
 
 ### `src/__tests__/network-instrumentation.test.ts` / `network-http.test.ts`
 

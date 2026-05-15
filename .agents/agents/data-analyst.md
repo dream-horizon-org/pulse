@@ -25,6 +25,10 @@ Key columns: `TraceId`, `Body` (custom event name text for `pulse.type` = `custo
 `SeverityNumber`, `Timestamp`, `LogAttributes` (Map), `ResourceAttributes` (Map). Prefer `Body` for event name in
 queries; `EventName` may exist depending on pipeline but is not guaranteed populated everywhere.
 
+For **`PulseType = 'web_vital'`** (Web SDK Core Web Vitals), prefer materialized **`WebVitalName`**, **`WebVitalValue`**,
+and **`WebVitalRating`** over `LogAttributes['web_vital.*']` — same semantics, better for filters and aggregates (see
+`backend/db/prod/clickhouse/otel.otel_logs.sql`).
+
 ### OTLP metrics (physical tables — collector `INSERT` targets)
 
 All share materialized `ProjectId`, `SessionId`, RUM dimensions (same pattern as below), and
@@ -123,9 +127,16 @@ ResourceAttributes/SpanAttributes directly** — they are faster and indexed.
 | `HttpHost`          | `net.peer.name` (fallback `server.address`)      | `otel_traces`                               |
 | `HttpMethod`        | `http.method` (fallback `http.request.method`)   | `otel_traces`                               |
 | `HttpStatusCode`    | `http.status_code` (fallback `http.response.status_code`, UInt16) | `otel_traces`              |
+| `WebVitalName`      | `web_vital.name`                                 | `otel_logs` only                             |
+| `WebVitalValue`     | `web_vital.value` (numeric, `toFloat64OrZero`)   | `otel_logs` only                             |
+| `WebVitalRating`    | `web_vital.rating`                               | `otel_logs` only                             |
+
+**Pulse Web `Platform`:** SDK sets resource `os.name` to `web`, so **`Platform = 'web'`** on `otel_logs` / `otel_traces`
+identifies Pulse Web RUM via the materialized column (backend web vitals queries use this). Browser host OS is not
+lost on other resource keys (e.g. `browser.*`); `Platform` is a coarse RUM label on web, not UA-derived OS.
 
 Core telemetry tables have ORDER BY starting with `ProjectId` for isolation: `otel_traces` →
-`(ProjectId, PulseType, SpanName, Timestamp)`; `otel_logs` → `(ProjectId, PulseType, EventName, Timestamp)`;
+`(ProjectId, ServiceName, PulseType, SpanName, Timestamp)`; `otel_logs` → `(ProjectId, PulseType, EventName, Timestamp)`;
 `stack_trace_events` → `(ProjectId, GroupId, ExceptionType, Timestamp)`; `session_summary` →
 `(ProjectId, sessionId)`. `project_monthly_usage` orders by `project_id`;
 `root_cause_cache` orders by `(ProjectId, interaction_name, date, window_end_utc)`.
@@ -151,6 +162,7 @@ Core telemetry tables have ORDER BY starting with `ProjectId` for isolation: `ot
 | `network.change`                | Network     | Connectivity change                             |
 | `custom_event`                  | Custom      | Developer-defined events                        |
 | `app.click`                     | User action | Touch/click event                               |
+| `web_vital`                     | Web / perf  | Core Web Vitals (use `WebVitalName` / `WebVitalValue` / `WebVitalRating` on `otel_logs`) |
 
 ### Key SpanAttributes by feature
 
@@ -193,12 +205,15 @@ Core telemetry tables have ORDER BY starting with `ProjectId` for isolation: `ot
 
 - Time range: `WHERE Timestamp >= toDateTime64('...', 9) AND Timestamp <= toDateTime64('...', 9)`
 - By app version: `WHERE AppVersion = '...'`
-- By platform: `WHERE Platform = 'Android'` or `WHERE Platform = 'iOS'`
+- By platform: `WHERE Platform = 'Android'` or `WHERE Platform = 'iOS'` or **`WHERE Platform = 'web'`** (Pulse Web
+  RUM when SDK sets resource `os.name` to `web`)
 - By OS version: `WHERE OsVersion = '...'`
 - By device: `WHERE DeviceModel = '...'`
 - By network provider: `WHERE NetworkProvider = '...'`
 - By geography: `WHERE GeoCountry = '...'` or `WHERE GeoState = '...'`
 - By span type: `WHERE PulseType = '...'`
+- Web vitals (logs): `WHERE PulseType = 'web_vital' AND Platform = 'web' AND WebVitalName = 'LCP'` (use
+  `Platform` for Pulse Web; prefer `WebVitalName` / `WebVitalValue` / `WebVitalRating` over `LogAttributes['web_vital.*']`)
 
 ## Alert Metric Scopes
 
