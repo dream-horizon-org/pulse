@@ -7,7 +7,7 @@ File: `pulse-web-otel/docs/instrumentations/web-vitals/SPEC.md`
 
 ## 1. Goal
 
-Emit **Core Web Vitals** and related paint/timing signals as OTLP **log records** with `pulse.type = web_vital`, using the browser **`web-vitals`** library callbacks (`onLCP`, `onINP`, `onCLS`, `onFCP`, `onTTFB`). Signals are **logs**, not native OTel metrics histograms and not UI-only aggregates (see §4).
+Emit **Core Web Vitals** and related paint/timing signals as OTLP **log records** with `pulse.type = web_vital`, using the browser **`web-vitals`** library callbacks (`onLCP`, `onINP`, `onCLS`, `onFCP`, `onTTFB`) on **`web-vitals` ^5.x** (`onFID` was removed upstream in v5). Signals are **logs**, not native OTel metrics histograms and not UI-only aggregates (see §4).
 
 ---
 
@@ -23,7 +23,7 @@ Emit **Core Web Vitals** and related paint/timing signals as OTLP **log records*
 
 **R1 — OTLP logs:** Each metric emission uses `LoggerProvider` + body `web_vital` (semconv `LogBody.WEB_VITAL`).
 
-**R2 — Metrics:** Register handlers for **LCP**, **INP**, **CLS**, **FCP**, **TTFB** via `web-vitals` entrypoints.
+**R2 — Metrics:** Register handlers for **LCP**, **INP**, **CLS**, **FCP**, **TTFB** via the main `web-vitals` entrypoint (`onFID` is not available on v5+).
 
 **R3 — Attributes:** Every log includes `pulse.type`, `web_vital.name`, `web_vital.value`, `web_vital.rating`, `web_vital.delta`, `web_vital.navigation_type`, and `web_vital.context` (from `Metric.navigationType` on `web-vitals` ^5.x: `soft-navigation` → `navigation`, else `pageload`). `navigation_id` is injected from `PulseGlobalAttributesProcessor` when set by `NavigationInstrumentation` (per-route aggregation). **Wire shape:** keys in §5.1 sourced from `Metric.*` or derived in the emit callback are set in `web-vitals.ts`. Keys sourced from **global attrs processor** or **Resource** are merged on export (same OTLP log record), not assigned only inside this file.
 
@@ -125,7 +125,7 @@ flowchart TD
 | Attribute key | Type | Source | Required | Notes |
 |---|---|---|---|---|
 | `pulse.type` | string | semconv | Yes | Always `web_vital` |
-| `web_vital.name` | string | `Metric.name` | Yes | `LCP`, `INP`, `CLS`, `FCP`, `TTFB` (`web-vitals` v5+; **not** `FID` — removed upstream) |
+| `web_vital.name` | string | `Metric.name` | Yes | `LCP`, `INP`, `CLS`, `FCP`, `TTFB` (`web-vitals` ^5.x; **not** `FID` — removed upstream) |
 | `web_vital.value` | number | `Metric.value` | Yes | Unit depends on metric (ms, score, …) |
 | `web_vital.rating` | string | `Metric.rating` | Yes | `good` \| `needs-improvement` \| `poor` |
 | `web_vital.navigation_type` | string | `Metric.navigationType` | Yes | Always set on `web-vitals` ^5.x `Metric` |
@@ -148,21 +148,27 @@ flowchart TD
 | **FCP** | First Contentful Paint |
 | **TTFB** | Time to First Byte |
 
-### 5.3 React SPA behaviour
+### 5.3 Upstream rating thresholds (re-exported)
+
+- Each emitted log’s **`web_vital.rating`** comes from **`Metric.rating`** in the `web-vitals` callback (library-computed; aligns with CrUX-style **good / needs-improvement / poor** buckets).
+- **`@dreamhorizonorg/pulse-web`** re-exports **`CLSThresholds`**, **`FCPThresholds`**, **`INPThresholds`**, **`LCPThresholds`**, and **`TTFBThresholds`** from the pinned `web-vitals` major so host apps can build gauges or validate UI **without** a second direct `web-vitals` dependency (avoids version skew with the metrics library).
+- Pulse does **not** re-apply these tuples at emit time; upgrading the SDK’s `web-vitals` dependency is the supported way to pick up upstream threshold changes.
+
+### 5.4 React SPA behaviour
 
 - Vitals run in the **browser** after hydration; React itself does not wrap the handlers — any SPA framework works as long as `window`/`document` exist.
 - **Strict Mode** double-mount in dev may duplicate subscription lifecycle; instrumentation registers once per successful `install()` — rely on registry not calling `install` twice.
 
-### 5.4 Next.js App Router behaviour
+### 5.5 Next.js App Router behaviour
 
 - **Soft navigations** (client-side transitions) cause `web-vitals` to report **new** metric rounds for the active route when the browser schedules fresh paints/interactions — no separate Pulse hook is required inside `web-vitals.ts`.
 - **SSR:** server produces no vitals; first client paint drives LCP/FCP/TTFB for that navigation.
 
-### 5.5 Next.js Pages Router behaviour
+### 5.6 Next.js Pages Router behaviour
 
 - Traditional route changes still run in one long-lived document — `web-vitals` continues across `routeChangeComplete`; BFCache `pageshow` flush covers restore scenarios.
 
-### 5.6 Per-metric behaviour: hard navigation vs SPA (same document)
+### 5.7 Per-metric behaviour: hard navigation vs SPA (same document)
 
 Pulse registers each `web-vitals` callback **once** at install; it does **not** re-subscribe on route change. **Navigation semantics** (what fires on cold load vs client-only transition) come from the browser + `web-vitals` library. Pulse adds **`navigation_id`** (from `NavigationInstrumentation` + global attrs processor) on **exported** OTLP so you can slice CLS/INP by route in ClickHouse, and **`Pulse.notifySoftNavigation()`** (router hooks) to flush buffered logs after SPA transitions — see §6.2.
 
@@ -177,11 +183,17 @@ Pulse registers each `web-vitals` callback **once** at install; it does **not** 
 
 **Tests:** There is **no** per-metric matrix for “SPA vs hard reload” for every vital. Covered today: **cold load** paths for TTFB/FCP/LCP/CLS/INP in `@WebVitals`; **SPA-specific** assertion for **TTFB + `screen.name`** and **`screen_load` + `navigation_id`** after client nav; **two** client navigations assert **distinct** `navigation_id` on successive `screen_load` spans; Vitest covers emit contract + `soft-navigation` → `web_vital.context` mapping in isolation. **Gap:** explicit E2E for “second route LCP/FCP only” (flaky / product-specific); BFCache flush path is Vitest-only (W-E6).
 
-### 5.7 `web-vitals` dependency
+### 5.8 `web-vitals` dependency
 
 - **Declared:** `web-vitals` **^5.x** in [`package.json`](../../../package.json) (resolve with lockfile in CI).
 - **v5 upgrade (shipped):** `onFID` was **removed upstream**; Pulse follows **INP** for responsiveness. See Google’s [Upgrading to v5](https://github.com/GoogleChrome/web-vitals/blob/main/docs/upgrading-to-v5.md) for LCP/INP observer and browser-baseline notes (e.g. LCP finalization tied to trusted user input in newer Chromium).
 - **Soft-navigation** (`reportSoftNavs` / `web-vitals/soft-navs`) remains **experimental** upstream until Chrome Soft Nav API is generally available in the library we depend on — see §7. Optional INP options such as `includeProcessedEventEntries` are available upstream; Pulse does not enable them by default.
+
+### 5.9 `web-vitals/attribution` (upstream; not used by default instrumentation)
+
+- Google ships a separate subpath **`web-vitals/attribution`** (see upstream `package.json` **`exports`**: `./attribution`) with `onINP`, `onLCP`, … variants that attach **interaction attribution** (e.g. input delay breakdown, interaction targets, long animation frames) for DevTools-style INP/LCP debugging.
+- **Pulse `WebVitalsInstrumentation`** imports only the **main** entry (`onLCP`, `onINP`, `onCLS`, `onFCP`, `onTTFB`). It does **not** load `./attribution` and does **not** map attribution-only fields onto OTLP log attributes today.
+- **Future:** adding attribution-backed attributes requires an ADR, **`docs/sdk-core/data-contract/SPEC.md`** updates, and a **privacy** review (selectors / PII).
 
 ---
 
@@ -271,7 +283,7 @@ No confirmed **P0** incorrect vital values attributable to this instrumentation 
 ### Other gaps
 
 - **INP dashboards:** Prefer **INP** for responsiveness (FID is not emitted on `web-vitals` ^5.x).
-- **Per-route CLS/INP:** `onCLS` / `onINP` use `reportAllChanges: true`; logs include `web_vital.delta`. `navigation_id` (from `NavigationInstrumentation` + global attrs processor) scopes vitals and `screen_load` spans per navigation. `web_vital.context` maps from `Metric.navigationType` (`soft-navigation` → `navigation`, else `pageload`). `reportSoftNavs` (Chrome Soft Nav API) is not in the default `web-vitals` npm entry yet. Design reference: `PLAN-phase2-per-route-vitals.md`.
+- **Per-route CLS/INP:** `onCLS` / `onINP` use `reportAllChanges: true`; logs include `web_vital.delta`. `navigation_id` (from `NavigationInstrumentation` + global attrs processor) scopes vitals and `screen_load` spans per navigation. When the browser supplies **`Metric.navigationType`**, Pulse sets **`web_vital.navigation_type`** and derived **`web_vital.context`** (`soft-navigation` → `navigation`, else `pageload`). The published **`web-vitals@5.x`** npm package exposes **`web-vitals/attribution`** for richer debugging callbacks — **Pulse does not import that subpath** (see §5.9). Soft-navigation / experimental browser APIs continue to evolve upstream; track [GoogleChrome/web-vitals](https://github.com/GoogleChrome/web-vitals) releases. Design reference: `PLAN-phase2-per-route-vitals.md`.
 
 ---
 
@@ -289,5 +301,5 @@ Deleted after triple-eval:
 
 ## 9. Open Questions
 
-1. ~~Should we drop `onFID` subscription once browser share is negligible?~~ **Resolved:** `web-vitals` v5+ removed `onFID`; Pulse uses **INP** only for interaction latency in shipped vitals (see §5.2).
+1. ~~Should we drop `onFID` subscription once browser share is negligible?~~ **Resolved:** `web-vitals` **v5+** removed `onFID`; Pulse registers five metrics only (see §1, R2, §5.2).
 2. ~~Should `navigation_id` become a first-class attribute once backend schema supports it?~~ **Resolved:** `navigation_id` uses map access only (`LogAttributes['navigation_id']`); no materialized column needed. **Shipped** in SDK (see §5.1).

@@ -1,5 +1,5 @@
 [
-  { "path": "dist/index.js", "limit": "82 kB" },
+  { "path": "dist/index.js", "limit": "85 kB" },
   { "path": "dist/index.cjs", "limit": "115 kB" },
-  { "path": "dist/next.js", "limit": "85 kB" }
+  { "path": "dist/next.js", "limit": "95 kB" }
 ]

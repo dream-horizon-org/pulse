@@ -57,6 +57,9 @@ sufficient to verify migration.
 
 ### Other changes
 
+- **Size-limit** thresholds raised for `dist/index.js` and `dist/next.js` (traced bundles include `web-vitals` rating tuple re-exports on the package root + Next integration graph).
+- Re-export **`CLSThresholds`**, **`FCPThresholds`**, **`INPThresholds`**, **`LCPThresholds`**, **`TTFBThresholds`** from `web-vitals` on the package root for host UI parity with `Metric.rating`.
+- Web Vitals **SPEC** / test-coverage / data-contract / integration copy: **FID** removed as an emitted metric on v5+; document **`web-vitals/attribution`**, re-exported thresholds, and resolved open questions.
 - `InstrumentationRegistry.installAll()` no longer flips its single-owner gate
   before installing. Per-instrumentation `install()` calls are now wrapped in
   try/catch (errors logged via `diag.error`) and the gate flips only after the

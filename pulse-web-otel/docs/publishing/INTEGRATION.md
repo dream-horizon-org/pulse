@@ -42,6 +42,15 @@ Once the SDK starts, these signals fire automatically with no extra code:
 | `non_fatal` | Unhandled JS errors + promise rejections |
 | `device.crash` | React render errors (React / Next.js only — via `PulseErrorBoundary`) |
 
+### 3.1 Web Vitals rating tuples (optional)
+
+The package root re-exports **`LCPThresholds`**, **`INPThresholds`**, **`CLSThresholds`**, **`FCPThresholds`**, and **`TTFBThresholds`** from the pinned `web-vitals` major (numeric tuples aligned with **`Metric.rating`** / CrUX buckets). Use them for custom gauges without adding a second `web-vitals` dependency:
+
+```ts
+import { LCPThresholds, INPThresholds } from "@dreamhorizonorg/pulse-web";
+// e.g. LCPThresholds → [good vs needs-improvement ms, needs-improvement vs poor ms]
+```
+
 ---
 
 ## 4. React (CSR / Vite / CRA)
