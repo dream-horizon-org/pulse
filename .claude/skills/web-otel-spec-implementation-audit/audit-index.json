@@ -265,6 +265,16 @@
       "value": "pulse-web-otel/src/__tests__/metrics-to-add.test.ts",
       "id": "sdk-core-sampling-and-filtering"
     },
+    {
+      "match": "prefix",
+      "value": "pulse-web-otel/docs/sdk-core/user-identity/",
+      "id": "sdk-core-user-identity"
+    },
+    {
+      "match": "prefix",
+      "value": "pulse-web-otel/src/__tests__/user-identity.test.ts",
+      "id": "sdk-core-user-identity"
+    },
     { "match": "prefix", "value": "pulse-web-otel/src/", "id": "sdk-core" }
   ],
   "instrumentations": [
@@ -346,6 +356,18 @@
       ]
     },
     {
+      "id": "sdk-core-user-identity",
+      "spec_path": "pulse-web-otel/docs/sdk-core/user-identity/SPEC.md",
+      "related_src_globs": [
+        "pulse-web-otel/src/sdk.ts",
+        "pulse-web-otel/src/session.ts",
+        "pulse-web-otel/src/processors/global-attrs-processor.ts",
+        "pulse-web-otel/src/__tests__/user-identity.test.ts",
+        "pulse-web-otel/src/__tests__/session-persistence.test.ts",
+        "pulse-web-otel/src/__tests__/sdk-public-methods.test.ts"
+      ]
+    },
+    {
       "id": "sdk-core",
       "spec_path": "pulse-web-otel/docs/sdk-core/SPEC.md",
       "related_src_globs": [
@@ -382,7 +404,12 @@
     {
       "id": "web-vitals",
       "spec_path": "pulse-web-otel/docs/instrumentations/web-vitals/SPEC.md",
-      "related_src_globs": ["pulse-web-otel/src/instrumentations/web-vitals.ts"]
+      "related_src_globs": [
+        "pulse-web-otel/src/instrumentations/web-vitals.ts",
+        "pulse-web-otel/src/instrumentation-registry.ts",
+        "pulse-web-otel/src/sdk.ts",
+        "pulse-web-otel/src/processors/global-attrs-processor.ts"
+      ]
     }
   ]
 }

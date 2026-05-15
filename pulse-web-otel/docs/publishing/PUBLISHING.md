@@ -7,7 +7,7 @@ Sibling docs:
 - [`../../README.md`](../../README.md) — consumer install + quick wiring
 - [`../instrumentations/integration/SPEC.md`](../instrumentations/integration/SPEC.md) — host-app integration (exports, `Pulse.init`, React / Next.js / vanilla)
 - [`./SPEC.md`](./SPEC.md) — canonical publishing scope + pointers (operational index)
-- [`../../CHANGELOG.md`](../../CHANGELOG.md) — release notes (currently `0.1.0-alpha.x`)
+- [`../../CHANGELOG.md`](../../CHANGELOG.md) — release notes (`0.0.x` patches and `0.1.0-alpha.x` pre-releases)
 - [`../../../.github/workflows/publish-react-native.yml`](../../../.github/workflows/publish-react-native.yml) — sister-SDK publish workflow we should mirror for the web SDK
 
 There is **no** `RELEASE.md` or existing `release-web-sdk.yml` in the repo today, so this document is creating the workflow from scratch and should be wired up before the first publish.
@@ -27,7 +27,7 @@ There is **no** `RELEASE.md` or existing `release-web-sdk.yml` in the repo today
 
 ### 1.1 SemVer and dist-tag policy
 
-Current version: `0.1.0-alpha.1` (`pulse-web-otel/package.json:3`); `CHANGELOG.md` already announces `0.1.0-alpha.2` with breaking renames (`PulseWeb` → `Pulse`, `Pulse.start` → `Pulse.init`, `PulseNavigationEvents` → `PulseRouterEvents`).
+Current version: **`0.0.3`** (`pulse-web-otel/package.json` `version`). `CHANGELOG.md` has a **`0.0.3`** section (e.g. `web-vitals` v5 telemetry) and a separate **`0.1.0-alpha.2`** section for planned breaking renames (`PulseWeb` → `Pulse`, `Pulse.start` → `Pulse.init`, `PulseNavigationEvents` → `PulseRouterEvents`).
 
 | Phase                          | Version pattern | dist-tag                 |
 | ------------------------------ | --------------- | ------------------------ |
