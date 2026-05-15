@@ -515,8 +515,8 @@ async function pollProbeNetworkSpan(
 }
 
 test.describe("@M4 network — Next.js demo", () => {
-  // ISS-N06: captureQueryParams:true keeps query params on url.full (sensitive ones redacted)
-  test("ISS-N06: captureQueryParams:true keeps query params, redacts sensitive token", async ({
+  // NET-10: captureQueryParams:true keeps query params on url.full (sensitive ones redacted)
+  test("NET-10: captureQueryParams:true keeps query params, redacts sensitive token", async ({
     page,
     otlp,
   }) => {
@@ -544,8 +544,8 @@ test.describe("@M4 network — Next.js demo", () => {
     expect(full).toContain("token=*");
   });
 
-  // ISS-N07: blockedUrls prevents spans for matching URLs
-  test("ISS-N07: blockedUrls config suppresses spans for matched URL", async ({
+  // NET-11: blockedUrls prevents spans for matching URLs
+  test("NET-11: blockedUrls config suppresses spans for matched URL", async ({
     page,
     otlp,
   }) => {
@@ -573,8 +573,8 @@ test.describe("@M4 network — Next.js demo", () => {
     expect(blocked).toHaveLength(0);
   });
 
-  // ISS-N08: peerServiceMap sets peer.service on matching spans
-  test("ISS-N08: peerServiceMap sets peer.service attribute on spans", async ({
+  // NET-12: peerServiceMap sets peer.service on matching spans
+  test("NET-12: peerServiceMap sets peer.service attribute on spans", async ({
     page,
     otlp,
   }) => {
@@ -604,8 +604,8 @@ test.describe("@M4 network — Next.js demo", () => {
     expect(getAttr(span.attributes, "peer.service")).toBe("catalogue-service");
   });
 
-  // ISS-N09: propagateTraceHeaderCorsUrls injects traceparent W3C header
-  test("ISS-N09: propagateTraceHeaderCorsUrls injects W3C traceparent header on matching requests", async ({
+  // NET-18: propagateTraceHeaderCorsUrls injects traceparent W3C header
+  test("NET-18: propagateTraceHeaderCorsUrls injects W3C traceparent header on matching requests", async ({
     page,
     otlp,
   }) => {
@@ -996,8 +996,8 @@ test.describe("@M4 network — Next.js demo", () => {
     expect(otlpSpans).toHaveLength(0);
   });
 
-  // NET-18: XHR capturedRequestHeaders — headers stored via WeakMap monkey-patch
-  test("NET-18: XHR capturedRequestHeaders captures request headers on XHR spans", async ({
+  // ISS-N10: XHR capturedRequestHeaders — headers stored via WeakMap monkey-patch
+  test("ISS-N10: XHR capturedRequestHeaders captures request headers on XHR spans", async ({
     page,
     otlp,
   }) => {

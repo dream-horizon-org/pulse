@@ -570,8 +570,8 @@ test.describe("@M4 network e2e", () => {
     expect(findAllNetworkSpans(otlp.captured)).toHaveLength(0);
   });
 
-  // ISS-N06: captureQueryParams: true — non-sensitive params kept, sensitive params redacted
-  test("ISS-N06: captureQueryParams=true keeps non-sensitive params, redacts sensitive ones", async ({
+  // NET-10: captureQueryParams: true — non-sensitive params kept, sensitive params redacted
+  test("NET-10: captureQueryParams=true keeps non-sensitive params, redacts sensitive ones", async ({
     page,
     otlp,
   }) => {
@@ -601,8 +601,8 @@ test.describe("@M4 network e2e", () => {
     expect(full).not.toContain("supersecret");
   });
 
-  // ISS-N07: blockedUrls — fetch to blocked URL produces no span
-  test("ISS-N07: blockedUrls config prevents network span for matching URL", async ({
+  // NET-11: blockedUrls — fetch to blocked URL produces no span
+  test("NET-11: blockedUrls config prevents network span for matching URL", async ({
     page,
     otlp,
   }) => {
@@ -631,8 +631,8 @@ test.describe("@M4 network e2e", () => {
     expect(blocked).toHaveLength(0);
   });
 
-  // ISS-N08: peerServiceMap — peer.service attribute on matching host span
-  test("ISS-N08: peerServiceMap sets peer.service on spans for matching host", async ({
+  // NET-12: peerServiceMap — peer.service attribute on matching host span
+  test("NET-12: peerServiceMap sets peer.service on spans for matching host", async ({
     page,
     otlp,
   }) => {
@@ -661,8 +661,8 @@ test.describe("@M4 network e2e", () => {
     );
   });
 
-  // ISS-N09: propagateTraceHeaderCorsUrls — outgoing request carries traceparent header
-  test("ISS-N09: propagateTraceHeaderCorsUrls injects traceparent on matching host", async ({
+  // NET-18: propagateTraceHeaderCorsUrls — outgoing request carries traceparent header
+  test("NET-18: propagateTraceHeaderCorsUrls injects traceparent on matching host", async ({
     page,
     otlp,
   }) => {
@@ -750,8 +750,8 @@ test.describe("@M4 network e2e", () => {
     expect(findAllNetworkSpans(otlp.captured)).toHaveLength(0);
   });
 
-  // ISS-N06: captureQueryParams:true keeps query params on url.full (sensitive values redacted)
-  test("ISS-N06: captureQueryParams:true keeps query params, redacts sensitive token", async ({
+  // NET-10: captureQueryParams:true keeps query params on url.full (sensitive values redacted)
+  test("NET-10: captureQueryParams:true keeps query params, redacts sensitive token", async ({
     page,
     otlp,
   }) => {
@@ -784,8 +784,8 @@ test.describe("@M4 network e2e", () => {
     expect(full).toContain("token=*");
   });
 
-  // ISS-N07: blockedUrls config prevents spans for matched URL patterns
-  test("ISS-N07: blockedUrls config suppresses spans for matched URL", async ({
+  // NET-11: blockedUrls config prevents spans for matched URL patterns
+  test("NET-11: blockedUrls config suppresses spans for matched URL", async ({
     page,
     otlp,
   }) => {
@@ -814,8 +814,8 @@ test.describe("@M4 network e2e", () => {
     expect(blocked).toHaveLength(0);
   });
 
-  // ISS-N08: peerServiceMap sets peer.service attribute for matching hostname
-  test("ISS-N08: peerServiceMap sets peer.service on spans for matched host", async ({
+  // NET-12: peerServiceMap sets peer.service attribute for matching hostname
+  test("NET-12: peerServiceMap sets peer.service on spans for matched host", async ({
     page,
     otlp,
   }) => {
@@ -846,8 +846,8 @@ test.describe("@M4 network e2e", () => {
     expect(getAttr(span.attributes, "peer.service")).toBe("catalogue-service");
   });
 
-  // ISS-N09: propagateTraceHeaderCorsUrls injects W3C traceparent on matching outbound requests
-  test("ISS-N09: propagateTraceHeaderCorsUrls injects W3C traceparent header", async ({
+  // NET-18: propagateTraceHeaderCorsUrls injects W3C traceparent on matching outbound requests
+  test("NET-18: propagateTraceHeaderCorsUrls injects W3C traceparent header", async ({
     page,
     otlp,
   }) => {
@@ -957,8 +957,8 @@ test.describe("@M4 network e2e", () => {
     }
   });
 
-  // NET-18: XHR capturedRequestHeaders — headers stored via WeakMap monkey-patch
-  test("NET-18: XHR capturedRequestHeaders captures request headers on XHR spans", async ({
+  // ISS-N10: XHR capturedRequestHeaders — headers stored via WeakMap monkey-patch
+  test("ISS-N10: XHR capturedRequestHeaders captures request headers on XHR spans", async ({
     page,
     otlp,
   }) => {
