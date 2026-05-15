@@ -15,7 +15,8 @@ from google.adk.runners import Runner
 from google.genai.types import Content, Part
 
 from pulse_ai.constants import APP_NAME, REPORT_AGENT_NAME
-from pulse_ai.server.serializers import DeltaTracker, extract_content_blocks
+from pulse_ai.output_guard import FilteredDeltaTracker
+from pulse_ai.server.serializers import extract_content_blocks
 
 if TYPE_CHECKING:
     from pulse_ai.server.session_scope_store import SessionScopeStore
@@ -116,7 +117,7 @@ async def stream_adk_run_as_sse(
 ) -> AsyncIterator[str]:
     """Run ADK agent and yield SSE `data:` lines (text, meta, content_blocks, error, [DONE])."""
     content_blocks: list[dict[str, Any]] = []
-    tracker = DeltaTracker()
+    tracker = FilteredDeltaTracker()
     user_meta_sent = False
     last_assistant_meta_id: str | None = None
 
@@ -160,6 +161,9 @@ async def stream_adk_run_as_sse(
             )
 
             if blocks:
+                tail = tracker.flush()
+                if tail:
+                    yield sse_data_line({"type": "text", "content": tail})
                 tracker.reset()
                 content_blocks.extend(blocks)
 
@@ -172,6 +176,9 @@ async def stream_adk_run_as_sse(
         logger.exception("Error during agent execution")
         yield sse_data_line({"type": "error", "message": str(e)})
 
+    tail = tracker.flush()
+    if tail:
+        yield sse_data_line({"type": "text", "content": tail})
     if content_blocks:
         yield sse_data_line({"type": "content_blocks", "blocks": content_blocks})
     yield f"data: [DONE]\n\n"
