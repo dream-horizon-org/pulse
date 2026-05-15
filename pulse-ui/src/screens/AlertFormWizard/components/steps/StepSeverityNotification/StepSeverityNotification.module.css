@@ -18,6 +18,14 @@
   margin-bottom: var(--mantine-spacing-md);
 }
 
+.notificationSectionHeader {
+  margin-bottom: var(--mantine-spacing-md);
+}
+
+.notificationSectionHeader .sectionTitle {
+  margin-bottom: 0;
+}
+
 .severityCard {
   cursor: pointer;
   transition: all 0.2s;

@@ -16,7 +16,7 @@ export type AlertFormData = {
   evaluation_period: number;
   evaluation_interval: number;
   severity_id: number;
-  notification_channel_id: number;
+  channel_event_mapping_id: number;
   created_by?: string;
   updated_by?: string;
 };
@@ -63,7 +63,7 @@ export const alertDefaultValue: AlertFormData = {
   evaluation_period: 300,
   evaluation_interval: 60,
   severity_id: 1,
-  notification_channel_id: 1,
+  channel_event_mapping_id: 1,
   created_by: "",
   updated_by: "",
 };
@@ -83,4 +83,3 @@ export type AlertFormProps = {
   interactionAlertId?: number;
   onBackButtonClick?: () => void;
 };
-

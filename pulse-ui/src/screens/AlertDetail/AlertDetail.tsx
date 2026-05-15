@@ -34,7 +34,11 @@ import {
 } from "@tabler/icons-react";
 import { AlertDetailProps } from "./AlertDetail.interface";
 import classes from "./AlertDetail.module.css";
-import { COMMON_CONSTANTS, ROUTES } from "../../constants";
+import {
+  COMMON_CONSTANTS,
+  NOTIFICATION_EVENT_NAMES,
+  ROUTES,
+} from "../../constants";
 import { useState } from "react";
 import { useGetAlertEvaluationHistory } from "../../hooks/useGetAlertEvaluationHistory";
 import { useGetAlertDetails } from "../../hooks/useGetAlertDetails";
@@ -43,7 +47,7 @@ import { useResumeAlert } from "../../hooks/useResumeAlert";
 import { useGetAlertScopes } from "../../hooks/useGetAlertScopes";
 import { useGetAlertSeverities } from "../../hooks/useGetAlertSeverities";
 import { useGetAlertMetrics } from "../../hooks/useGetAlertMetrics";
-import { useGetNotificationChannelById } from "../../hooks/useGetNotificationChannelById";
+import { useGetChannelMappings } from "../../hooks/useChannelMappings";
 import { showNotification } from "../../helpers/showNotification";
 import {
   formatNetworkApiScopeName,
@@ -148,11 +152,8 @@ export function AlertDetail(_props: AlertDetailProps) {
   const alertScope = alertData?.data?.scope || "";
   const { data: metricsData } = useGetAlertMetrics({ scope: alertScope });
 
-  // Fetch notification channel by ID
-  const notificationChannelId =
-    alertData?.data?.notification_channel_id ?? null;
-  const { data: notificationChannelData } = useGetNotificationChannelById({
-    notificationChannelId,
+  const { data: channelMappingsData } = useGetChannelMappings({
+    eventName: NOTIFICATION_EVENT_NAMES.PULSE_ALERT_FIRING,
   });
 
   const toggleScopeExpanded = (scopeId: number) => {
@@ -210,8 +211,9 @@ export function AlertDetail(_props: AlertDetailProps) {
     metricLabels[m.name] = m.label;
   });
 
-  // Get notification channel from fetched data
-  const notificationChannel = notificationChannelData?.data ?? null;
+  const selectedMapping = channelMappingsData?.data?.find(
+    (mapping) => mapping.id === alertData?.data?.channel_event_mapping_id,
+  );
 
   const snoozeAlertMutation = useSnoozeAlert({
     onSettled: (data, error) => {
@@ -539,10 +541,10 @@ export function AlertDetail(_props: AlertDetailProps) {
               </div>
               <div className={classes.configItem}>
                 <span className={classes.configLabel}>
-                  Notification Channel
+                  Notification Recipient
                 </span>
-                {notificationChannel ? (
-                  <Tooltip label={notificationChannel.config} withArrow>
+                {selectedMapping ? (
+                  <Tooltip label={selectedMapping.recipient || "N/A"} withArrow>
                     <span
                       className={classes.configValue}
                       style={{
@@ -551,14 +553,15 @@ export function AlertDetail(_props: AlertDetailProps) {
                         gap: 6,
                       }}
                     >
-                      {notificationChannel.type === "slack" && (
+                      {selectedMapping.channelType.includes("SLACK") && (
                         <IconBrandSlack
                           size={14}
                           style={{ color: "#4a154b" }}
                         />
                       )}
-                      {notificationChannel.name}
-                      {!notificationChannel.is_active && (
+                      {selectedMapping.recipientName ||
+                        selectedMapping.channelName}
+                      {!selectedMapping.isActive && (
                         <Badge size="xs" color="red" variant="light">
                           Deleted
                         </Badge>
@@ -567,7 +570,7 @@ export function AlertDetail(_props: AlertDetailProps) {
                   </Tooltip>
                 ) : (
                   <span className={classes.configValue}>
-                    Channel #{alert.notification_channel_id}
+                    Mapping #{alert.channel_event_mapping_id}
                   </span>
                 )}
               </div>
