@@ -1,0 +1,21 @@
+<configuration scan="true" scanPeriod="1 seconds">
+    <property scope="context" name="HOSTNAME" value="${HOSTNAME}"/>
+
+    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>
+                %date %highlight(%+5level) %-26thread  %logger{36} %green(%msg) %n
+            </pattern>
+        </encoder>
+    </appender>
+
+    <logger name="org.dreamhorizon" level="info"/>
+    <logger name="io.netty" level="info"/>
+    <logger name="org.apache.parquet" level="warn"/>
+    <logger name="org.apache.hadoop" level="warn"/>
+
+    <root level="info">
+        <appender-ref ref="STDOUT"/>
+    </root>
+
+</configuration>

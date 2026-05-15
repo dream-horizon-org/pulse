@@ -1,0 +1,150 @@
+package org.dreamhorizon.pulses3archiver.verticle;
+
+import com.google.protobuf.InvalidProtocolBufferException;
+import io.opentelemetry.proto.collector.logs.v1.ExportLogsServiceRequest;
+import io.vertx.core.AbstractVerticle;
+import io.vertx.core.Promise;
+import io.vertx.kafka.client.common.TopicPartition;
+import io.vertx.kafka.client.consumer.KafkaConsumer;
+import io.vertx.kafka.client.consumer.OffsetAndMetadata;
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.InetAddress;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.avro.Schema;
+import org.apache.avro.generic.GenericRecord;
+import org.dreamhorizon.pulses3archiver.config.ArchiverConfig;
+import org.dreamhorizon.pulses3archiver.config.KafkaConfig;
+import org.dreamhorizon.pulses3archiver.config.S3Config;
+import org.dreamhorizon.pulses3archiver.config.WriterConfig;
+import org.dreamhorizon.pulses3archiver.constant.Constants;
+import org.dreamhorizon.pulses3archiver.guice.GuiceInjector;
+import org.dreamhorizon.pulses3archiver.mapper.LogsOtlpMapper;
+import org.dreamhorizon.pulses3archiver.service.ParquetBatchWriter;
+import org.dreamhorizon.pulses3archiver.service.S3UploadService;
+import org.dreamhorizon.pulses3archiver.util.SharedDataUtils;
+
+@Slf4j
+public class LogsConsumerVerticle extends AbstractVerticle {
+
+  private KafkaConsumer<String, byte[]> consumer;
+  private ParquetBatchWriter writer;
+  private long flushTimerId = -1;
+
+  @Override
+  public void start(Promise<Void> startPromise) {
+    KafkaConfig kafkaConfig = SharedDataUtils.get(vertx, KafkaConfig.class);
+    WriterConfig writerConfig = SharedDataUtils.get(vertx, WriterConfig.class);
+    S3Config s3Config = SharedDataUtils.get(vertx, S3Config.class);
+    ArchiverConfig archiverConfig = SharedDataUtils.get(vertx, ArchiverConfig.class);
+    S3UploadService s3UploadService = GuiceInjector.getGuiceInjector().getInstance(S3UploadService.class);
+
+    Schema schema = loadSchema("schemas/otel_logs.avsc");
+    String nodeId = resolveNodeId();
+
+    consumer = KafkaConsumer.create(vertx, buildKafkaConfig(kafkaConfig));
+
+    writer = new ParquetBatchWriter(
+        Constants.TABLE_LOGS, schema, writerConfig, s3Config, s3UploadService,
+        archiverConfig.getStagingDir(), nodeId,
+        offsets -> vertx.runOnContext(v -> commitKafkaOffsets(offsets, kafkaConfig.getTopicLogs()))
+    );
+
+    consumer.handler(record -> {
+      byte[] value = record.value();
+      if (value == null || value.length == 0) {
+        return;
+      }
+      try {
+        ExportLogsServiceRequest req = ExportLogsServiceRequest.parseFrom(value);
+        List<GenericRecord> rows = LogsOtlpMapper.map(req, schema);
+        writer.add(rows, record.partition(), record.offset());
+      } catch (InvalidProtocolBufferException e) {
+        log.error("[ARCHIVER-LOGS] OTLP parse error partition={} offset={}: {}",
+            record.partition(), record.offset(), e.getMessage());
+        writer.writeDlq(value, "S3A1002", e.getMessage(),
+            kafkaConfig.getTopicLogs(), record.partition(), record.offset());
+      } catch (IOException e) {
+        log.error("[ARCHIVER-LOGS] Parquet write error partition={} offset={}: {}",
+            record.partition(), record.offset(), e.getMessage());
+      }
+    });
+
+    consumer.subscribe(kafkaConfig.getTopicLogs())
+        .onSuccess(v -> {
+          log.info("[ARCHIVER-LOGS] Subscribed to {} bootstrapServers={}",
+              kafkaConfig.getTopicLogs(), kafkaConfig.getBootstrapServers());
+          flushTimerId = vertx.setPeriodic(archiverConfig.getFlushIntervalMs(),
+              id -> writer.flushIfDue());
+          startPromise.complete();
+        })
+        .onFailure(err -> {
+          log.error("[ARCHIVER-LOGS] Failed to subscribe: {}", err.getMessage());
+          startPromise.fail(err);
+        });
+  }
+
+  @Override
+  public void stop() {
+    if (flushTimerId >= 0) {
+      vertx.cancelTimer(flushTimerId);
+    }
+    try {
+      writer.flush();
+    } catch (IOException e) {
+      log.warn("[ARCHIVER-LOGS] Final flush on stop failed: {}", e.getMessage());
+    }
+    if (consumer != null) {
+      consumer.close();
+    }
+  }
+
+  private void commitKafkaOffsets(Map<Integer, Long> offsets, String topic) {
+    Map<TopicPartition, OffsetAndMetadata> toCommit = new HashMap<>();
+    for (Map.Entry<Integer, Long> e : offsets.entrySet()) {
+      toCommit.put(new TopicPartition(topic, e.getKey()),
+          new OffsetAndMetadata().setOffset(e.getValue() + 1));
+    }
+    consumer.commit(toCommit)
+        .onSuccess(v -> log.debug("[ARCHIVER-LOGS] Committed Kafka offsets: {}", offsets))
+        .onFailure(err -> log.error("[ARCHIVER-LOGS] Kafka commit failed: {}", err.getMessage()));
+  }
+
+  private static Map<String, String> buildKafkaConfig(KafkaConfig cfg) {
+    Map<String, String> map = new HashMap<>();
+    map.put("bootstrap.servers", cfg.getBootstrapServers());
+    map.put("group.id", cfg.getGroupId());
+    map.put("client.id", cfg.getClientId() + "-logs");
+    map.put("key.deserializer", "org.apache.kafka.common.serialization.StringDeserializer");
+    map.put("value.deserializer", "org.apache.kafka.common.serialization.ByteArrayDeserializer");
+    map.put("auto.offset.reset", cfg.getAutoOffsetReset());
+    map.put("enable.auto.commit", "false");
+    map.put("max.poll.records", String.valueOf(cfg.getMaxPollRecords()));
+    map.put("fetch.min.bytes", String.valueOf(cfg.getFetchMinBytes()));
+    map.put("fetch.max.wait.ms", String.valueOf(cfg.getFetchMaxWaitMs()));
+    return map;
+  }
+
+  private static Schema loadSchema(String resourcePath) {
+    try (InputStream is = LogsConsumerVerticle.class.getClassLoader()
+        .getResourceAsStream(resourcePath)) {
+      if (is == null) {
+        throw new IllegalStateException("Schema not found: " + resourcePath);
+      }
+      return new Schema.Parser().parse(is);
+    } catch (IOException e) {
+      throw new IllegalStateException("Failed to load schema: " + resourcePath, e);
+    }
+  }
+
+  private static String resolveNodeId() {
+    try {
+      return InetAddress.getLocalHost().getHostName();
+    } catch (Exception e) {
+      return "unknown";
+    }
+  }
+}
