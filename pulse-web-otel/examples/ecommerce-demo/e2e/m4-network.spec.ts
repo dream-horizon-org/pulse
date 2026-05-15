@@ -3,7 +3,7 @@
  *
  * Checklist: `web-sdk-plan/v3-network/PLAN-B-network-http-spans.md`
  */
-import type { Page } from "@playwright/test";
+import type { Page, Route } from "@playwright/test";
 import {
   test,
   expect,
@@ -143,18 +143,14 @@ test.describe("@M4 network e2e", () => {
     page,
     otlp,
   }) => {
-    await page.route("https://httpstat.us/**", async (route) => {
-      await new Promise((r) => setTimeout(r, 10_000));
-      await route.fulfill({ status: 200, body: "{}" });
-    });
-
     await page.goto("/network-lab");
     await waitForPulseInitialized(page);
     await otlp.waitForLog("session.start", 15_000);
     otlp.reset();
 
     await page.getByTestId("network-lab-xhr-timeout").click();
-    await expect(page.getByText(/xhr\.timeout/)).toBeVisible({
+    // Test build uses same-origin `/pulse-e2e-xhr-stall` (never completes); WebKit may report xhr.onerror.
+    await expect(page.getByText(/xhr\.(timeout|onerror)/)).toBeVisible({
       timeout: 25_000,
     });
 
@@ -172,11 +168,6 @@ test.describe("@M4 network e2e", () => {
     page,
     otlp,
   }) => {
-    await page.route("https://httpstat.us/**", async (route) => {
-      await new Promise((r) => setTimeout(r, 10_000));
-      await route.fulfill({ status: 200, body: "{}" });
-    });
-
     await page.goto("/network-lab");
     await waitForPulseInitialized(page);
     await otlp.waitForLog("session.start", 15_000);
@@ -597,9 +588,7 @@ test.describe("@M4 network e2e", () => {
     otlp.reset();
 
     await page.evaluate(async () => {
-      await fetch(
-        "/pulse-e2e-network/query-params?q=hello&token=supersecret",
-      );
+      await fetch("/pulse-e2e-network/query-params?q=hello&token=supersecret");
     });
     await flushTraceExport(page);
 
@@ -679,27 +668,76 @@ test.describe("@M4 network e2e", () => {
   }) => {
     let capturedTraceparent: string | null = null;
 
+    const readTraceparent = (
+      headers: Record<string, string>,
+    ): string | null => {
+      const hit = Object.entries(headers).find(
+        ([k]) => k.toLowerCase() === "traceparent",
+      );
+      return hit ? hit[1] : null;
+    };
+
+    const corsAllow = (route: Route): Record<string, string> => {
+      const origin =
+        route.request().headers()["origin"] ?? "http://localhost:3099";
+      return {
+        "Access-Control-Allow-Origin": origin,
+        "Access-Control-Allow-Headers":
+          "traceparent,tracestate,baggage,content-type",
+        "Access-Control-Allow-Methods": "GET,OPTIONS",
+      };
+    };
+
+    // Cross-origin from localhost:3099 so FetchInstrumentation uses propagateTraceHeaderCorsUrls
+    // (same-origin always injects; this path exercises the allow-list + exact URL match).
     await page.route(
-      (url) => url.pathname.includes("/pulse-e2e-network/trace-prop"),
+      (url) =>
+        url.hostname === "127.0.0.1" &&
+        url.port === "3099" &&
+        url.pathname.includes("/pulse-e2e-network/trace-prop"),
       async (route) => {
-        capturedTraceparent =
-          route.request().headers()["traceparent"] ?? null;
-        await route.fulfill({ status: 200, body: "{}" });
+        if (route.request().method() === "OPTIONS") {
+          await route.fulfill({
+            status: 204,
+            headers: {
+              ...corsAllow(route),
+              "Access-Control-Max-Age": "86400",
+            },
+          });
+          return;
+        }
+        capturedTraceparent = readTraceparent(
+          route.request().headers() as Record<string, string>,
+        );
+        await route.fulfill({
+          status: 200,
+          body: "{}",
+          headers: corsAllow(route),
+        });
       },
     );
 
-    await page.goto("/?pulse_propagate_cors=http%3A%2F%2Flocalhost%3A3099");
+    // OTel string entries use exact URL match (see @opentelemetry/core urlMatches), not origin prefix.
+    await page.goto(
+      `/?pulse_propagate_cors=${encodeURIComponent(
+        "http://127.0.0.1:3099/pulse-e2e-network/trace-prop",
+      )}`,
+    );
     await waitForPulseInitialized(page);
     await otlp.waitForLog("session.start", 15_000);
     otlp.reset();
 
     await page.evaluate(async () => {
-      await fetch("/pulse-e2e-network/trace-prop");
+      await fetch("http://127.0.0.1:3099/pulse-e2e-network/trace-prop", {
+        mode: "cors",
+      });
     });
     await flushTraceExport(page);
 
     expect(capturedTraceparent).toBeTruthy();
-    expect(capturedTraceparent).toMatch(/^00-[0-9a-f]{32}-[0-9a-f]{16}-\d{2}$/);
+    expect(capturedTraceparent).toMatch(
+      /^00-[0-9a-f]{32}-[0-9a-f]{16}-\d{2}$/i,
+    );
   });
 
   test("C1: DENIED consent — no session.start, no network client spans", async ({

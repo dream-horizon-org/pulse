@@ -61,6 +61,12 @@ function runXhr(request: XhrRequest): Promise<string> {
   });
 }
 
+/** Playwright cannot reliably intercept cross-origin XHR on WebKit; test mode uses same-origin stall. */
+const XHR_LONG_STALL_URL =
+  import.meta.env.MODE === "test"
+    ? "/pulse-e2e-xhr-stall"
+    : "https://httpstat.us/200?sleep=5000";
+
 export default function NetworkLab() {
   const [results, setResults] = useState<Record<string, ScenarioResult>>({});
   const thirdPartyDemoAllowed = import.meta.env.DEV;
@@ -288,7 +294,7 @@ export default function NetworkLab() {
         run: async () => {
           return runXhr({
             method: "GET",
-            url: "https://httpstat.us/200?sleep=5000",
+            url: XHR_LONG_STALL_URL,
             timeoutMs: 700,
           });
         },
@@ -302,7 +308,7 @@ export default function NetworkLab() {
         run: async () => {
           return runXhr({
             method: "GET",
-            url: "https://httpstat.us/200?sleep=5000",
+            url: XHR_LONG_STALL_URL,
             abortAfterMs: 200,
           });
         },
@@ -360,9 +366,9 @@ export default function NetworkLab() {
       </h1>
       <p style={{ color: "#475569", marginTop: 0, marginBottom: 20 }}>
         Trigger {runnableScenarioCount} runnable API-call pattern
-        {runnableScenarioCount === 1 ? "" : "s"} manually (third-party demos only
-        in dev). Open Pulse Debug Panel (Shift+P) to inspect captured spans and
-        verify <code>pulse.type</code>, status, and attrs.
+        {runnableScenarioCount === 1 ? "" : "s"} manually (third-party demos
+        only in dev). Open Pulse Debug Panel (Shift+P) to inspect captured spans
+        and verify <code>pulse.type</code>, status, and attrs.
       </p>
       <div
         style={{
