@@ -1231,6 +1231,22 @@ export const API_ROUTES: StreamverseRoutes = {
     apiPath: `/v1/admin/internal-viewers`,
     method: API_METHODS.GET,
   },
+  // Web Vitals API Routes
+  GET_WEB_VITALS_SUMMARY: {
+    key: "GET_WEB_VITALS_SUMMARY",
+    apiPath: `/v1/web-vitals/summary`,
+    method: API_METHODS.GET,
+  },
+  GET_WEB_VITALS_TREND: {
+    key: "GET_WEB_VITALS_TREND",
+    apiPath: `/v1/web-vitals/trend`,
+    method: API_METHODS.GET,
+  },
+  GET_WEB_VITALS_BY_SCREEN: {
+    key: "GET_WEB_VITALS_BY_SCREEN",
+    apiPath: `/v1/web-vitals/by-screen`,
+    method: API_METHODS.GET,
+  },
 };
 
 export const TOOLTIP_LABLES: Record<string, string> = {
@@ -1359,6 +1375,15 @@ export const COOKIES_KEY: Record<string, string> = {
   TIER: "tier", // Store tier for initial hydration
   SYSTEM_ROLE: "systemRole",
   // REMOVED: PROJECT_ID, PROJECT_NAME - Now handled by React Context
+};
+
+export const VITAL_NAMES: Record<string, string> = {
+  LCP: "LCP",
+  INP: "INP",
+  CLS: "CLS",
+  FCP: "FCP",
+  FID: "FID",
+  TTFB: "TTFB",
 };
 
 export const INTERNAL_ROUTE_PREFIX = "/internal";

@@ -1,8 +1,11 @@
 # Screen Navigation Signals (v4-screen-signals)
 
+> **Web implementation (current):** Ships **`screen_load`** and **`screen_session`** spans only. **TTI** is on the **`screen_load`** span when Navigation Timing allows. Web **does not** emit `pulse.type = screen_interactive` as a separate span. Contract: [`../instrumentations/screen-signals/SPEC.md`](../instrumentations/screen-signals/SPEC.md). The sections below preserve the original three-signal design notes for archive context.
+
 ## Problem Statement
 
 The web SDK currently lacks structured signals for tracking user navigation and screen lifecycle. Teams cannot:
+
 - Correlate user interactions with specific screens or route changes
 - Measure time spent on individual screens
 - Distinguish page load timing from SPA navigation timing
@@ -17,11 +20,11 @@ Emit three span-based signals to track user navigation and screen lifecycle:
 1. **`screen_load`** — page load (initial + SPA) with timing data
    - Initial: startTime → PerformanceNavigationTiming.loadEventEnd + full timing breakdown
    - SPA: route change → small delay, no timing attributes
-   
+
 2. **`screen_interactive`** — time-to-interactive milestone (initial load only)
    - Initial: startTime → PerformanceNavigationTiming.domInteractive
    - SPA: not emitted (no standard interactive milestone for SPA)
-   
+
 3. **`screen_session`** — time spent on screen before navigation
    - Emitted when user navigates away (route change or page close)
    - Duration: time between landing and exiting
@@ -45,32 +48,38 @@ Signals are **span-based** (OTel logs with span semantics), carry `pulse.type` a
 ## Implementation Decisions
 
 ### Signal type: Spans (not metrics)
+
 - Emit as OTel logs with structured attributes (span-like semantics)
 - Matches Android equivalents (ActivityInstrumentation, ScreenAttributesSpanProcessor)
 - Enables per-event context (individual events queryable, not just aggregates)
 - Aligns with Sentry's transaction/span-per-nav model
 
 ### Three signals per lifecycle (not one)
+
 - `screen_load` and `screen_interactive` have different attributes and milestones
 - Android emits both separately
 - No network cost (same OTLP batch)
 
 ### Initial load emits both `screen_load` and `screen_interactive`
+
 - Initial page: both signals emitted
 - SPA navigation: only `screen_load` (no TTI milestone for SPA)
 - Distinction via `start.type` attribute: "cold"/"reload"/"back_forward" vs "spa"
 
 ### Screen name resolution (4-step fallback)
+
 1. Manual override: `pulse.setScreenName('CustomName')`
 2. Route pattern: `{ pattern: '/products/:id', name: 'ProductDetail' }`
 3. Heuristic: strip numeric/UUID segments (`/products/123` → `/products`)
 4. Raw pathname: `window.location.pathname`
 
 ### Framework support
+
 - **Explicit integrations:** React Router v6, Next.js app router (v13+), Next.js pages router
 - **Fallback:** History API patch for Vue Router, Remix, SvelteKit, custom routers
 
 ### Feature gate & consent
+
 - Backend (`Features.java`) controls feature default (default ON); SDK respects remote config override
 - Consent flow: if revoked, instrumentation not installed
 - SSR safe: `typeof window === "undefined"` → no-op
@@ -78,6 +87,7 @@ Signals are **span-based** (OTel logs with span semantics), carry `pulse.type` a
 ## Testing Decisions
 
 ### Unit tests (Vitest)
+
 - Initial page load: `screen_load` + `screen_interactive` with timing data
 - SPA nav: `screen_session` for old screen + `screen_load` for new (SPA variant)
 - Route pattern matching, heuristic stripping, manual override
@@ -86,6 +96,7 @@ Signals are **span-based** (OTel logs with span semantics), carry `pulse.type` a
 - Consent off-path: zero exports
 
 ### E2E (Playwright)
+
 - Positive path: page load → `screen_load` + `screen_interactive` with correct timing
 - SPA path: initial load → nav → `screen_session` + new `screen_load`
 - Page close: visibilitychange hidden flushes pending `screen_session` span
@@ -93,6 +104,7 @@ Signals are **span-based** (OTel logs with span semantics), carry `pulse.type` a
 - Consent off: revoke consent → zero exports
 
 ### Assertion floor
+
 - `pulse.type` exact match
 - Numeric values finite + non-negative
 - `screen.name` truthy + matches expected route
@@ -149,7 +161,7 @@ cd ../backend/server \
 
 - **Design locked:** 2026-05-09. No further design changes without explicit decision.
 - **Reference docs:** See `pulse-web-otel/web-sdk-plan/` for detailed research, ADRs, grill notes, and phase plan.
-- **Key files:** 
+- **Key files:**
   - `FINAL-PLAN.md` — all decisions + strategy
   - `PLAN-B-screen-navigation-spans.md` — lifecycle + attributes + test matrix
   - `ADR-screen-navigation.md` — decision rationale + grill summary

@@ -116,3 +116,8 @@ export { FILTER_MAPPING, EVENT_TYPE } from "./hooks.interface";
 
 // Funnel hooks
 export * from "./useGetFunnelData";
+
+// Web Vitals hooks
+export * from "./useWebVitalsSummary";
+export * from "./useWebVitalsTrend";
+export * from "./useWebVitalsByScreen";

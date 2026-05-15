@@ -3,6 +3,13 @@ import type { PulseWebConfig } from "../config";
 
 export interface PulseErrorBoundaryProps {
   children: ReactNode;
+  /**
+   * Optional UI when a child throws during render. Must not rely on React context
+   * that is unavailable once this boundary replaces its children (e.g. hooks that need
+   * an ancestor only present inside the subtree that threw). If the fallback throws,
+   * the SDK logs via {@code PulseWebLogger.alwaysError} and renders nothing so the host
+   * app is not crashed.
+   */
   fallback?: ReactNode | ((error: Error, reset: () => void) => ReactNode);
 }
 
@@ -53,12 +60,18 @@ export interface PulseProviderProps {
   /**
    * Optional UI when a child throws during render — forwarded to {@link PulseErrorBoundary}.
    * Use a function form to receive {@code (error, reset) => ...} and call {@code reset()} to retry.
+   * If this UI throws (e.g. {@code useNavigate} outside a Router), the SDK logs via
+   * {@code PulseWebLogger.alwaysError} and renders nothing so the host app is not crashed;
+   * see {@link PulseErrorBoundaryProps.fallback}.
    */
   errorBoundaryFallback?: PulseErrorBoundaryProps["fallback"];
   /**
    * If true, the SDK is shut down when the last `PulseProvider` unmounts.
-   * Default `false` — keep the SDK alive for the full page lifetime regardless
-   * of provider unmounts (recommended for most apps).
+   * Default **`false`** — keeps {@link Pulse} initialized for the full browser
+   * tab even when React mounts/unmounts providers (SPA subtrees, micro-frontends,
+   * route-level wrappers). Set **`true`** when you want strict teardown or in
+   * tests — see `src/__tests__/pulse-provider.test.tsx` (`shutdownOnUnmount`
+   * cases).
    *
    * StrictMode's synthetic unmount/remount in dev is handled automatically —
    * shutdown is deferred by a microtask and cancelled if the provider

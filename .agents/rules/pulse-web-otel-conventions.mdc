@@ -1,6 +1,6 @@
 ---
 description: pulse-web-otel — TypeScript/Vitest/E2E conventions, layout, and tooling (pair with pulse-web-otel-contract.mdc for product/SPEC map).
-globs: pulse-web-otel/**/*.{ts,tsx}
+globs: pulse-web-otel/**/*.{ts,tsx},pulse-web-otel/docs/**/*.md
 alwaysApply: false
 ---
 
@@ -139,7 +139,7 @@ Do **not** rely on a real OTLP server in unit tests — mock transport or route 
 1. **Unit:** add or extend **`src/__tests__/<area>.test.ts`** covering happy path + at least one failure/edge path for new logic.
 2. **Run** `yarn lint && yarn test:run` before PR.
 3. **E2E gates (mandatory for web SDK PRs; run after any “big” change touching SDK behavior):** **`yarn e2e:web-sdk-gates`** from **`pulse-web-otel/`** — full Chromium bundle above (not only M1/M2). If behavior crosses OTLP export or demo flows, add/update Playwright under **`examples/ecommerce-demo/e2e/`**.
-4. **Traceability:** update the relevant **`docs/instrumentations/<feature>/SPEC.md`** §6 (test coverage) when adding scenarios.
+4. **Traceability:** update the relevant **`docs/instrumentations/<feature>/SPEC.md`** or **`docs/sdk-core/<topic>/SPEC.md`** §6 (test coverage) when adding scenarios.
 5. **Docs:** keep **`pulse-web-otel/CLAUDE.md`** sharp-edge notes accurate when behaviour changes.
 
 ---
@@ -152,7 +152,7 @@ Use repo Conventional Commits with scope **`web-sdk`**, e.g. `feat(web-sdk): …
 
 ## Anti-patterns (avoid)
 
-- New `pulse.type` or resource attributes **not** aligned with **`docs/instrumentations/sdk-core/SPEC.md`** / mobile parity.
+- New `pulse.type` or resource attributes **not** aligned with **`docs/sdk-core/data-contract/SPEC.md`** / mobile parity.
 - Exporting internals from `index.ts` to “make tests easier” — test via public API or keep tests colocated with `vi.mock` on the module under test.
 - Skipping **`afterEach`** cleanup when using spies, fake timers, or `localStorage`.
 - Large demo-only logic inside **`src/`** — demo stays under **`examples/ecommerce-demo/`**.

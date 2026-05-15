@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { useRouter } from "next/router";
+import { useRouter } from "next/router.js";
 import { Pulse } from "../../sdk";
 import type { UseNextPagesRouterTrackingOptions } from "../../types/next";
 
@@ -64,6 +64,7 @@ export function useNextPagesRouterTracking(
           })
         : dependency;
       Pulse.setScreenName(name);
+      Pulse.notifySoftNavigation();
     };
 
     router.events.on("routeChangeComplete", handleRouteChangeComplete);
