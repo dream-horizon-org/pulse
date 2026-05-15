@@ -481,6 +481,7 @@ class TenantServiceTest {
       assertThat(result.getProjectId()).isEqualTo("my-project-abc12345");
       assertThat(result.getRawApiKey()).isEqualTo("raw-api-key-123");
 
+      verify(openFgaService).linkTenantToSystem(any());
       verify(openFgaService).assignTenantRole(eq("user-1"), any(), eq("admin"));
     }
 

@@ -33,7 +33,7 @@ import org.dreamhorizon.pulseserver.service.tenant.TenantService;
  * Reuses {@code TenantService.createTenantWithProject} — the same shared provisioning path
  * used by the onboarding flow — so both flows stay in parity.
  *
- * <p>Excluded from {@code AuthorizationFilter}; superadmin / internal_viewer check is explicit here.
+ * <p>Not annotated with {@code @RequiresPermission}; superadmin / internal_viewer check is explicit here.
  */
 @Slf4j
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))

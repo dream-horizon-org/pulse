@@ -8,6 +8,7 @@ import static org.mockito.Mockito.when;
 
 import com.google.inject.Provider;
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.ExpiredJwtException;
 import io.reactivex.rxjava3.core.Single;
 import jakarta.ws.rs.WebApplicationException;
 import java.util.concurrent.CompletionException;
@@ -167,6 +168,46 @@ class AdminTenantsControllerTest {
       Throwable cause = unwrap(ex.getCause());
       assertThat(cause).isInstanceOf(ForbiddenOperationException.class);
       assertThat(cause.getMessage()).contains("superadmin or internal_viewer");
+    }
+
+    @Test
+    void shouldReturn401WhenAuthorizationHeaderMissing() {
+      ExecutionException ex = assertThrows(ExecutionException.class, () ->
+          controller.createTenantWithProject(null, validRequest())
+              .toCompletableFuture()
+              .get(5, TimeUnit.SECONDS));
+
+      Throwable cause = unwrap(ex.getCause());
+      assertThat(cause).isInstanceOf(WebApplicationException.class);
+      assertThat(((WebApplicationException) cause).getResponse().getStatus()).isEqualTo(401);
+    }
+
+    @Test
+    void shouldReturn401WhenTokenIsNotAccessType() {
+      when(jwtService.isAccessToken(VALID_TOKEN)).thenReturn(false);
+
+      ExecutionException ex = assertThrows(ExecutionException.class, () ->
+          controller.createTenantWithProject(BEARER_TOKEN, validRequest())
+              .toCompletableFuture()
+              .get(5, TimeUnit.SECONDS));
+
+      Throwable cause = unwrap(ex.getCause());
+      assertThat(cause).isInstanceOf(WebApplicationException.class);
+      assertThat(((WebApplicationException) cause).getResponse().getStatus()).isEqualTo(401);
+    }
+
+    @Test
+    void shouldReturn401WhenTokenIsExpired() {
+      when(jwtService.verifyToken(VALID_TOKEN)).thenThrow(new ExpiredJwtException(null, null, "Token expired"));
+
+      ExecutionException ex = assertThrows(ExecutionException.class, () ->
+          controller.createTenantWithProject(BEARER_TOKEN, validRequest())
+              .toCompletableFuture()
+              .get(5, TimeUnit.SECONDS));
+
+      Throwable cause = unwrap(ex.getCause());
+      assertThat(cause).isInstanceOf(WebApplicationException.class);
+      assertThat(((WebApplicationException) cause).getResponse().getStatus()).isEqualTo(401);
     }
 
     @Test

@@ -50,7 +50,7 @@ export function CreateTenantModal({ opened, onClose, onEnterWorkspace }: CreateT
       {
         tenantName: trimmedTenantName,
         projectName: trimmedProjectName,
-        description: description.trim() || undefined,
+        tenantDescription: description.trim() || undefined,
       },
       {
         onSuccess: (response) => {

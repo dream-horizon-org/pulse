@@ -63,7 +63,7 @@ export function TenantSelector() {
 
     clearProject();
     sessionStorage.removeItem("pulse_last_project_id");
-    queryClient.clear();
+    queryClient.removeQueries({ predicate: () => true });
 
     setCookies(COOKIES_KEY.TENANT_ID, tenant.tenantId);
     setCookies(COOKIES_KEY.TENANT_NAME, tenant.tenantName);
