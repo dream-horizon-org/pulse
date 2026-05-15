@@ -165,7 +165,7 @@ public class DefaultSdkConfigTemplate {
     private static BatchProcessorConfig createDefaultBatchConfig() {
         BatchProcessorConfig.BatchProcessorOption defaultOption = BatchProcessorConfig.BatchProcessorOption.builder()
             .maxExportBatchSize(512)
-            .scheduleDelay(5000) // 5 seconds in milliseconds
+            .scheduleDelay(10000) // 10 seconds in milliseconds
             .build();
 
         return BatchProcessorConfig.builder()

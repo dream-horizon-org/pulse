@@ -1030,7 +1030,7 @@ public class Pulse {
 /// triggers an export. The exportTimeout parameter specifies the maximum duration (in seconds) to wait for an export batch to complete;
 /// if exceeded, the export is abandoned to prevent blocking the application.
 internal enum BatchProcessorDefaults {
-    static let scheduleDelay: TimeInterval = 5
+    static let scheduleDelay: TimeInterval = 10
     static let maxQueueSize: Int = 2048
     static let maxExportBatchSize: Int = 512
     static let exportTimeout: TimeInterval = 30

@@ -53,7 +53,7 @@ public class PulseBatchProcessorOption(
     @SerialName("maxExportBatchSize")
     public val maxExportBatchSize: Int = 512,
     @SerialName("scheduleDelay")
-    public val scheduleDelay: Int = 5000, // milliseconds
+    public val scheduleDelay: Int = 10000, // milliseconds
 ) {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
