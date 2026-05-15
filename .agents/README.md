@@ -1,15 +1,13 @@
-# Shared agent artifacts (Pulse Web SDK)
+# Shared AI harness (`.agents/`)
 
-Canonical copies for **`pulse-web-otel/`** live here:
+Canonical copies for **Cursor** and **Claude Code** live here. **`.cursor/{agents,commands,rules,skills}/`** and **`.claude/{agents,commands,rules,skills}/`** are symlinks into this tree (except local-only files under `.claude/` that stay gitignored).
+
+## Web SDK (`pulse-web-otel/`)
 
 | Path | Contents |
 |------|----------|
-| **`agents/`** | `pulse-web-sdk.md`, `web-otel-spec-audit-orchestrator.md` |
-| **`skills/`** | `web-sdk-ship`, `web-sdk-instrument`, `web-sdk-e2e-matrix` (SPEC audit skills: `web-otel-spec-*` under **`.cursor/skills/`** only) |
+| **`agents/`** | `pulse-web-sdk.md`, `web-otel-spec-audit-orchestrator.md` (plus all other sub-agent profiles in the same folder) |
+| **`skills/`** | `web-sdk-ship`, `web-sdk-instrument`, `web-sdk-e2e-matrix`, `web-otel-spec-*`, `fatal-five`, `pulse-prd-author`, `pulse-prd-review`, and other repo-wide skills |
 | **`rules/`** | `pulse-web-otel-contract.mdc`, `pulse-web-otel-conventions.mdc` (+ legacy-name symlinks `web-sdk.mdc`, `pulse-web-otel.mdc`) |
 
-**Cursor** loads rules/skills via symlinks under **`.cursor/rules/`**, **`.cursor/skills/`**, **`.cursor/agents/`** → **`.agents/`**.
-
-**Claude Code** uses **`.claude/agents/`** and **`.claude/skills/`** → **`.agents/`**.
-
-Other repo skills (e.g. `grill-me`, `pr-review`) remain under **`.cursor/skills/`**; cross-links from `.agents` use relative paths into `.cursor/skills/`.
+Legacy agent names `web-sdk-guardian` / `web-sdk-instrumentation-stage` are superseded by **`pulse-web-sdk`** (see frontmatter in `pulse-web-sdk.md`).
