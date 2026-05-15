@@ -30,6 +30,8 @@ export interface UseSessionReplaySnapshotsResult {
   loading: boolean;
   error: Error | null;
   snapshotDurationMs: number;
+  /** From snapshots-source; used when session detail platform is missing. */
+  snapshotSource: string | null;
 }
 
 export function useSessionReplaySnapshots({
@@ -41,6 +43,7 @@ export function useSessionReplaySnapshots({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const [snapshotDurationMs, setSnapshotDurationMs] = useState(0);
+  const [snapshotSource, setSnapshotSource] = useState<string | null>(null);
 
   const loadedRangesRef = useRef<Set<string>>(new Set());
   const sessionStartMsRef = useRef(0);
@@ -74,6 +77,7 @@ export function useSessionReplaySnapshots({
   useEffect(() => {
     if (!sessionId || !effectiveEnabled) {
       setImages([]);
+      setSnapshotSource(null);
       return;
     }
     let cancelled = false;
@@ -85,6 +89,7 @@ export function useSessionReplaySnapshots({
       if (cancelled) return;
 
       setSnapshotDurationMs(manifest.durationMs);
+      setSnapshotSource(manifest.snapshotSource ?? null);
       sessionStartMsRef.current = manifest.sessionStartMs;
 
       const result = await loadInitialSnapshots(
@@ -135,5 +140,5 @@ export function useSessionReplaySnapshots({
     };
   }, [sessionId, currentTime, effectiveEnabled, loadForTime]);
 
-  return { images, loading, error, snapshotDurationMs };
+  return { images, loading, error, snapshotDurationMs, snapshotSource };
 }

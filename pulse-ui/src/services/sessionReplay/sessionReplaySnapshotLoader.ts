@@ -33,6 +33,7 @@ interface CachedManifest {
   sources: SnapshotsSourceBlob[];
   durationMs: number;
   sessionStartMs: number;
+  snapshotSource?: string;
 }
 
 const manifestCache = new Map<string, CachedManifest>();
@@ -63,7 +64,12 @@ async function getOrFetchManifest(sessionId: string): Promise<CachedManifest> {
     const sessionStartMs =
       sources.length > 0 ? parseTimestamp(sources[0].startTimestamp) : 0;
 
-    const entry: CachedManifest = { sources, durationMs, sessionStartMs };
+    const entry: CachedManifest = {
+      sources,
+      durationMs,
+      sessionStartMs,
+      snapshotSource: response.snapshotSource,
+    };
     manifestCache.set(sessionId, entry);
     inflightManifest.delete(sessionId);
     return entry;
