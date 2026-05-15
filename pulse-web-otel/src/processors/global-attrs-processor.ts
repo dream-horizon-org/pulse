@@ -225,7 +225,7 @@ export class PulseGlobalAttributesProcessor
 
     const installationId = getOrCreateInstallationId();
     const attrs: Record<string, PulseAttributeValue> = {
-      "session.id": sessionId,
+      [PulseWebSemconv.AttributeKey.SESSION_ID]: sessionId,
       "window.id": this.sessionProvider.getWindowId(),
       "installation.id": installationId,
       "app.installation.id": installationId,
@@ -292,14 +292,15 @@ export class PulseGlobalAttributesProcessor
 
   onEmit(logRecord: SdkLogRecord): void {
     const attrs = this.getCommonAttrs();
+    const sessionIdAttr = PulseWebSemconv.AttributeKey.SESSION_ID;
     for (const [key, value] of Object.entries(attrs)) {
       // Do not overwrite session.id if the instrumentation already set it explicitly.
       // session.start / session.end log records set the correct session.id themselves;
       // overwriting them with the post-rotation value from getSessionId() would corrupt
       // the session.end record (it would carry the NEW session.id instead of the old one).
-      if (key === "session.id") {
+      if (key === sessionIdAttr) {
         const existing = logRecord.attributes
-          ? (logRecord.attributes as Record<string, unknown>)["session.id"]
+          ? (logRecord.attributes as Record<string, unknown>)[sessionIdAttr]
           : undefined;
         if (existing !== undefined && existing !== "") continue;
       }

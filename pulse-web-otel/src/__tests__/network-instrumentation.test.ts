@@ -172,12 +172,10 @@ describe("NetworkInstrumentation", () => {
   it("uninstall calls disable on both Fetch and XHR instrumentations", () => {
     const instr = new NetworkInstrumentation();
     instr.install(makeSdk());
-    const fetchInstance = vi
-      .mocked(FetchInstrumentation)
-      .mock.results[0]?.value as { disable: ReturnType<typeof vi.fn> };
-    const xhrInstance = vi
-      .mocked(XMLHttpRequestInstrumentation)
-      .mock.results[0]?.value as { disable: ReturnType<typeof vi.fn> };
+    const fetchInstance = vi.mocked(FetchInstrumentation).mock.results[0]
+      ?.value as { disable: ReturnType<typeof vi.fn> };
+    const xhrInstance = vi.mocked(XMLHttpRequestInstrumentation).mock.results[0]
+      ?.value as { disable: ReturnType<typeof vi.fn> };
 
     instr.uninstall();
 
@@ -201,7 +199,12 @@ describe("NetworkInstrumentation", () => {
     expect(cb).toBeTypeOf("function");
 
     const attrs: Record<string, unknown> = {};
-    const span = { setAttribute: vi.fn((k: string, v: unknown) => { attrs[k] = v; }), setStatus: vi.fn() };
+    const span = {
+      setAttribute: vi.fn((k: string, v: unknown) => {
+        attrs[k] = v;
+      }),
+      setStatus: vi.fn(),
+    };
     const xhr = {
       readyState: XMLHttpRequest.DONE,
       status: 200,
@@ -209,7 +212,11 @@ describe("NetworkInstrumentation", () => {
       getResponseHeader: () => null,
     };
 
-    cb!(span as unknown as Parameters<typeof cb>[0], xhr as unknown as Parameters<typeof cb>[1]);
+    cb!(
+      span as unknown as Parameters<NonNullable<typeof cb>>[0],
+      xhr as unknown as Parameters<NonNullable<typeof cb>>[1],
+      undefined as unknown as Parameters<NonNullable<typeof cb>>[2],
+    );
 
     expect(attrs["pulse.type"]).toBe("network.200");
     expect(attrs["http.request.method"]).toBeTruthy();
@@ -231,7 +238,11 @@ describe("NetworkInstrumentation", () => {
       getResponseHeader: () => null,
     };
 
-    cb!(span as unknown as Parameters<typeof cb>[0], xhr as unknown as Parameters<typeof cb>[1]);
+    cb!(
+      span as unknown as Parameters<NonNullable<typeof cb>>[0],
+      xhr as unknown as Parameters<NonNullable<typeof cb>>[1],
+      undefined as unknown as Parameters<NonNullable<typeof cb>>[2],
+    );
 
     expect(span.setAttribute).not.toHaveBeenCalled();
   });

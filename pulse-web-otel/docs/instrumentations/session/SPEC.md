@@ -2,7 +2,7 @@
 
 Package: `@dreamhorizonorg/pulse-web`  
 File: `pulse-web-otel/docs/instrumentations/session/SPEC.md`  
-Implementation: `pulse-web-otel/src/session.ts`, `pulse-web-otel/src/instrumentations/session.ts`
+Implementation: `src/session.ts`, `src/instrumentations/session.ts` — full touchpoint list: [§9 Canonical sources](#9-redundancy--canonical-sources).
 
 See also: [SDK Core SPEC](../../sdk-core/SPEC.md) for the shared attribute contract and init flow.
 
@@ -18,14 +18,16 @@ Define **browser session lifecycle** (`SessionProvider`), **persistence of insta
 
 ## 2. Assumptions
 
-- Same assumptions as SDK core — [`../../sdk-core/assumptions/SPEC.md`](../../sdk-core/assumptions/SPEC.md).
-- `SessionInstrumentation` runs only after successful `Pulse.init` when the session feature is not locally disabled and remote gate allows it.
+- Same assumptions as SDK core — [SDK core assumptions](../../sdk-core/assumptions/SPEC.md).
+- **`isDataCollectionAllowed` false (consent / data collection off):** `finishInit` never runs. There is **no** `SessionProvider`, **no** registry install sweep, and **no** `session.start` / `session.end` OTLP from this feature.
+- **SESSION feature gate off or local `instrumentations.session.enabled: false`:** `SessionProvider` is still constructed during init (`src/sdk.ts`), but `SessionInstrumentation` is **not** installed — **no** session lifecycle logs. This differs from consent abort, where the provider does not exist.
+- **Successful init with SESSION allowed:** `SessionInstrumentation` runs after providers are bound; it subscribes via `onSessionChange` and calls `emitInitialSession()` once — see §4.5.
 
 ---
 
 ## 3. Requirements
 
-**R6 — Session** (full text): [`../../sdk-core/requirements/SPEC.md`](../../sdk-core/requirements/SPEC.md).
+**R6 — Session** (full text): [SDK core requirements](../../sdk-core/requirements/SPEC.md).
 
 ### Functional (instrumentation)
 
@@ -34,6 +36,15 @@ Define **browser session lifecycle** (`SessionProvider`), **persistence of insta
 **SR2 — session.end:** On rotation or shutdown path, emit `session.end` with duration and end reason attributes.
 
 **SR3 — Uninstall:** `SessionInstrumentation.uninstall()` detaches `SessionProvider` subscription without throwing.
+
+**Traceability:** SR1–SR3 ↔ §7.1 scenario matrix; **R6** ↔ sdk-core requirements + §7 coverage.
+
+### Non-functional notes
+
+- **Privacy / storage:** Session and installation ids persist in `localStorage` / `sessionStorage` (see §6.2). User id and custom user properties: [user identity SPEC](../../sdk-core/user-identity/SPEC.md).
+- **Multi-tab:** Shared `localStorage` keys; `pulse_session_ts` is last-writer-wins — acceptable for coarse inactivity windows (§6.7).
+- **Unload delivery:** `page_unload` path and exporter `keepalive` behaviour: [exporters and persistence](../../sdk-core/exporters-and-persistence/SPEC.md).
+- Broader SDK NFRs: [SDK core SPEC](../../sdk-core/SPEC.md).
 
 ---
 
@@ -52,6 +63,8 @@ flowchart TB
   SI --> Log
 ```
 
+
+
 ### 4.2 LD — visibility-driven rotation
 
 ```mermaid
@@ -61,6 +74,8 @@ flowchart LR
   T -->|yes| Rot["rotate session.id"]
   T -->|no| Same["same session"]
 ```
+
+
 
 ```text
 Pulse.init → SessionProvider (session.ts)
@@ -72,24 +87,26 @@ Pulse.init → SessionProvider (session.ts)
 
 ```mermaid
 stateDiagram-v2
-    [*] --> Active: new session created (sdk_init)
+    [*] --> Active: sdk_init
 
-    Active --> Hidden: visibilitychange hidden
-    Hidden --> Active: return within pageHiddenTimeoutMs\nsession continues same id
-    Hidden --> Rotating: return after pageHiddenTimeoutMs
+    Active --> Hidden: tab hidden
+    Hidden --> Active: visible, within timeout
+    Hidden --> Rotating: visible, past timeout
 
-    Active --> Rotating: maxSessionLifetimeMs exceeded\non next getSessionId() call
+    Active --> Rotating: max lifetime (next getSessionId)
 
-    Rotating --> Active: session.end emitted\nnew session.id assigned\nsession.start emitted
+    Rotating --> Active: rotate: end → start, new id
 
-    Active --> Ended: pagehide persisted=false\nreason = page_unload
-    Active --> Ended: Pulse.shutdown()\nreason = shutdown
-
+    Active --> Ended: unload or shutdown
     Ended --> [*]
-    Ended --> Active: Pulse.init() re-init
+    Ended --> Active: re-init
 ```
 
-### 4.3 Storage tier diagram
+
+
+**Edge notes:** `unload` → `session.end` with `page_unload` when navigation is not BFCache-restored (`persisted=false`); `shutdown` → `Pulse.shutdown()`.
+
+### 4.4 Storage tier diagram
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
@@ -128,6 +145,36 @@ stateDiagram-v2
 └──────────────────────────────────────────────────────────────┘
 ```
 
+### 4.5 Bootstrap and edge routing (integration)
+
+High-level branches for **who gets session OTLP** vs silent paths. Detail: §5–§6.
+
+```mermaid
+flowchart TD
+  INIT[Pulse.init] --> KEY{apiKey valid?}
+  KEY -->|no| A1[abort — no telemetry]
+  KEY -->|yes| CONSENT{isDataCollectionAllowed?}
+  CONSENT -->|no| A2[finishInit never runs — no SessionProvider — no session OTLP]
+  CONSENT -->|yes| WIN{window defined?}
+  WIN -->|no| A3["abortInitIfUnavailable — no SessionProvider — no session OTLP"]
+  WIN -->|yes| FIN[finishInit: new SessionProvider]
+  FIN --> PIPE[providers + InstrumentationRegistry.installAll]
+  PIPE --> GATE{"SESSION gate OK and\nlocal session not disabled?"}
+  GATE -->|no| A4[SessionInstrumentation not installed — no session.start/end]
+  GATE -->|yes| OK[onSessionChange + emitInitialSession]
+  OK --> RUN[session logs per LLD]
+
+  SHUT[Pulse.shutdown → uninstallAll] --> UNSUB[SessionInstrumentation.uninstall — SR3]
+  PH["pagehide persisted=false"] --> PU[session.end page_unload — §6.5]
+  BF["pagehide persisted=true BFCache"] --> NOPU[no session.end — §6.5]
+
+  subgraph Storage["Storage fallback"]
+    LSW["_lsWritable false"] --> MEM["prefer _memSession reads — §5.7"]
+  end
+
+  PIPE -.-> Storage
+```
+
 ---
 
 ## 5. LLD
@@ -136,10 +183,24 @@ stateDiagram-v2
 
 - `SessionProvider` constructs a `sessionId = crypto.randomUUID()` on creation.
 - `installationId` is read from `localStorage["pulse_installation_id"]`; generated once on first load.
-- `userId` is persisted to `localStorage["pulse_user_id"]`. Full identity model (hydration, **`Pulse.setUserId`**, lifecycle logs, global attrs stamping): [`../../sdk-core/user-identity/SPEC.md`](../../sdk-core/user-identity/SPEC.md).
+- `userId` is persisted to `localStorage["pulse_user_id"]`. Full identity model (hydration, **`Pulse.setUserId`**, lifecycle logs, global attrs stamping): [User identity SPEC](../../sdk-core/user-identity/SPEC.md).
 - Session rotation: if the tab is backgrounded for longer than `pageHiddenTimeoutMs`, the next `visibilitychange` to `visible` may rotate the session and drive `session.end` / `session.start`. **Default:** `DEFAULT_PAGE_HIDDEN_TIMEOUT_MS` in `src/session.ts` (**15 minutes**) unless the host passes `pageHiddenTimeoutMs` in `PulseWebConfig`.
 - `wasNewInstallation()` returns `true` on the very first page load (no prior installation ID).
 
+```mermaid
+flowchart LR
+  LS[(localStorage\ninstall · session · user)] <--> SP[SessionProvider]
+  SS[(sessionStorage\ntab · clone · hidden-at)] <--> SP
+  SP <-->|mirror / guards| MEM["_memSession · _rotatingSession · _lsWritable · …"]
+
+  SP --> HOT["getSessionId · updateActivity"]
+  SP --> EVT["onSessionChange · emitInitialSession"]
+  SP --> LIFE["shutdown · getWindowId · wasSessionReused"]
+```
+
+
+
+```text
   // In-memory cache — mirrors localStorage to avoid disk reads
   _memSession: { id: string; tsMs: number; startMs: number } | null
 
@@ -168,10 +229,27 @@ stateDiagram-v2
   wasSessionReused(): boolean     // true if session was continued from previous load
   getWindowId(): string           // returns _windowId
   shutdown(): void                // emit session.end(shutdown), clear storage
-}
 ```
 
 ### 5.2 `getSessionId()` — full decision tree
+
+Overview:
+
+```mermaid
+flowchart TD
+    START([getSessionId]) --> ROT{_rotatingSession?}
+    ROT -->|yes| FAST([return id — no rotation])
+    ROT -->|no| READ[read id · lastTs · startMs]
+    READ --> MISS{id + lastTs valid?}
+    MISS -->|no| NEW[new session: write first · end if old · start]
+    MISS -->|yes| EXP{inactivityOk and lifetimeOk?}
+    EXP -->|yes| BUMP([bump ts · return id])
+    EXP -->|no| ROTATE[rotate: write · session.end · session.start · return new id]
+```
+
+
+
+Detailed:
 
 ```mermaid
 flowchart TD
@@ -190,7 +268,10 @@ flowchart TD
     N --> O([return newId])
 ```
 
+
+
 Text walkthrough:
+
 ```
 getSessionId()
   │
@@ -242,7 +323,10 @@ flowchart TD
     I -->|no — expired| K([call getSessionId\nemits session.end + session.start\nvia rotation path])
 ```
 
+
+
 Text walkthrough:
+
 ```
 emitInitialSession()
   │
@@ -324,6 +408,7 @@ On SessionProvider constructor:
 ```
 
 This covers all navigation patterns:
+
 - **Same-tab reload** — sessionStorage tab key present; session reused if unexpired
 - **New tab (Cmd+T)** — sessionStorage absent; session reused if localStorage has an unexpired one (same tab-group / payment redirect return)
 - **Cross-origin redirect return** — sessionStorage cleared by navigation; session reused from localStorage if unexpired (prevents duplicate session.start on payment flow return)
@@ -399,22 +484,26 @@ Sessions are tracked so teams can answer: "how long was this user active before 
 
 **localStorage** (shared across all tabs, survives browser restart):
 
-| Key | What it stores |
-|---|---|
-| `pulse_installation_id` | Stable UUID for this browser install — never changes |
-| `pulse_session_id` | Current session UUID |
-| `pulse_session_ts` | Last-activity timestamp, stored as **nanoseconds** (`nowMs * 1_000_000`). Readers convert back to ms. |
-| `pulse_session_start` | Session creation timestamp, stored as **nanoseconds**. Used for max-lifetime check. |
-| `pulse_user_id` | Persisted user ID (set via `Pulse.setUserId`) |
-| `pulse_user_properties` | JSON blob of custom user properties |
+
+| Key                     | What it stores                                                                                        |
+| ----------------------- | ----------------------------------------------------------------------------------------------------- |
+| `pulse_installation_id` | Stable UUID for this browser install — never changes                                                  |
+| `pulse_session_id`      | Current session UUID                                                                                  |
+| `pulse_session_ts`      | Last-activity timestamp, stored as **nanoseconds** (`nowMs * 1_000_000`). Readers convert back to ms. |
+| `pulse_session_start`   | Session creation timestamp, stored as **nanoseconds**. Used for max-lifetime check.                   |
+| `pulse_user_id`         | Persisted user ID (set via `Pulse.setUserId`)                                                         |
+| `pulse_user_properties` | JSON blob of custom user properties                                                                   |
+
 
 **sessionStorage** (per-tab — survives reload, NOT new tabs or Cmd+T):
 
-| Key | What it stores |
-|---|---|
-| `pulse_tab_session` | Written on init; used for pattern detection |
+
+| Key                        | What it stores                                                                              |
+| -------------------------- | ------------------------------------------------------------------------------------------- |
+| `pulse_tab_session`        | Written on init; used for pattern detection                                                 |
 | `pulse_session_clone_flag` | Written on init, deleted on `beforeunload`. Copied to cloned tabs → clone detection marker. |
-| `pulse_session_hidden_at` | Timestamp when tab was hidden. Survives Capacitor/WebView full-reload on background+resume. |
+| `pulse_session_hidden_at`  | Timestamp when tab was hidden. Survives Capacitor/WebView full-reload on background+resume. |
+
 
 ### 6.3 Session start — navigation cases
 
@@ -455,6 +544,8 @@ flowchart TD
     F -->|no — expired| I([emitInitialSession:\ngetSessionId rotation\nsession.end + session.start])
 ```
 
+
+
 ### 6.4 Session rotation — triggers
 
 A session **rotates** (current ends, new starts) in two situations:
@@ -466,9 +557,9 @@ A session **rotates** (current ends, new starts) in two situations:
 3. User returns.
 4. `visibilitychange → visible` fires. SDK checks `Date.now() - _hiddenAtMs`.
 5. If elapsed > `pageHiddenTimeoutMs` (default **15 minutes**):
-   - Zero `_memSession.tsMs` and `localStorage["pulse_session_ts"]`.
-   - Call `getSessionId()` → detects expired ts → rotates.
-   - Emits `session.end (inactivity_timeout)` → `session.start (inactivity_timeout)`.
+  - Zero `_memSession.tsMs` and `localStorage["pulse_session_ts"]`.
+  - Call `getSessionId()` → detects expired ts → rotates.
+  - Emits `session.end (inactivity_timeout)` → `session.start (inactivity_timeout)`.
 
 ### Trigger B: Max session lifetime exceeded
 
@@ -479,12 +570,14 @@ Even without backgrounding, any `getSessionId()` call (fired on every signal emi
 
 ### 6.5 Session end — cases
 
-| Trigger | `session.end_reason` |
-|---|---|
-| Tab closed or navigated away (`pagehide` with `persisted=false`) | `page_unload` |
-| Background timeout | `inactivity_timeout` |
-| Max session lifetime exceeded | `max_lifetime` |
-| `Pulse.shutdown()` called | `shutdown` |
+
+| Trigger                                                          | `session.end_reason` |
+| ---------------------------------------------------------------- | -------------------- |
+| Tab closed or navigated away (`pagehide` with `persisted=false`) | `page_unload`        |
+| Background timeout                                               | `inactivity_timeout` |
+| Max session lifetime exceeded                                    | `max_lifetime`       |
+| `Pulse.shutdown()` called                                        | `shutdown`           |
+
 
 **BFCache guard:** `pagehide` with `event.persisted = true` → page entering back-forward cache, not actually closed. SDK skips `session.end`. On BFCache restore (`pageshow` with `persisted=true`), `updateActivity()` is called to keep the session alive.
 
@@ -496,23 +589,27 @@ Even without backgrounding, any `getSessionId()` call (fired on every signal emi
 
 Both signals land in `otel.otel_logs`. `SessionProvider` computes `durationNs` from wall-clock delta; `SessionInstrumentation` emits `session.duration_ms` as `Math.floor(durationNs / 1_000_000)` (integer ms).
 
-**`session.start` attributes:**
+`**session.start` attributes:**
 
-| Attribute | Value |
-|---|---|
-| `pulse.type` | `session.start` |
-| `session.id` | new session UUID |
-| `session.previous_id` | previous session UUID (empty string on first-ever session) |
-| `session.start_reason` | `sdk_init` / `inactivity_timeout` / `max_lifetime` |
 
-**`session.end` attributes:**
+| Attribute              | Value                                                      |
+| ---------------------- | ---------------------------------------------------------- |
+| `pulse.type`           | `session.start`                                            |
+| `session.id`           | new session UUID                                           |
+| `session.previous_id`  | previous session UUID (empty string on first-ever session) |
+| `session.start_reason` | `sdk_init` / `inactivity_timeout` / `max_lifetime`         |
 
-| Attribute | Value |
-|---|---|
-| `pulse.type` | `session.end` |
-| `session.id` | session UUID being ended |
+
+`**session.end` attributes:**
+
+
+| Attribute             | Value                                                                                                                 |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `pulse.type`          | `session.end`                                                                                                         |
+| `session.id`          | session UUID being ended                                                                                              |
 | `session.duration_ms` | `floor(durationNs / 1_000_000)` where `durationNs` is `(now − session_start_ms) * 1e9` when start is known (else `0`) |
-| `session.end_reason` | `page_unload` / `inactivity_timeout` / `max_lifetime` / `shutdown` |
+| `session.end_reason`  | `page_unload` / `inactivity_timeout` / `max_lifetime` / `shutdown`                                                    |
+
 
 **Verification query:**
 
@@ -535,16 +632,18 @@ Expected happy path: one `session.start` row followed by one `session.end` row f
 
 ### 6.7 Edge cases
 
-| Scenario | What happens |
-|---|---|
-| `localStorage` disabled (private browsing, storage quota hit) | All storage ops are wrapped in try/catch. `_lsWritable=false`; SDK falls back to `_memSession`. Session works but won't persist across page reloads. |
-| Device sleeps while tab is in background | `_hiddenAtMs` written to sessionStorage on hide. On resume, even if in-memory state was lost, the stored timestamp is used for the timeout check in the constructor. |
-| Tab duplicated via browser Duplicate | Clone flag copied from original. Session reused if unexpired (same as any other valid-session load). `_windowId` differs per page load to distinguish the two tabs. No `tab_clone` start reason in current implementation. |
-| Back button (BFCache restore) | `event.persisted = true` on `pagehide` → no `session.end`. `pageshow` with `persisted=true` calls `updateActivity()` to keep session alive. |
-| Two tabs open simultaneously | Each tab has its own `SessionProvider` instance and `_windowId`. They share localStorage keys. `pulse_session_ts` is last-writer-wins — acceptable since inactivity timeout is coarse-grained. |
-| Cross-origin redirect return (payment flow) | sessionStorage is cleared by the redirect. localStorage session is valid → `_sessionReused=true` → no duplicate `session.start`. |
-| `Pulse.shutdown()` called during async init | `_shuttingDown` flag checked after async chain settles. If set, providers are torn down immediately even though `_initialized` was just set. |
-| `getSessionId()` called before `install()` | Works; `emitInitialSession()` sees the session already has a fresh ts, emits `session.start(sdk_init)` without double-rotating. |
+
+| Scenario                                                      | What happens                                                                                                                                                                                                               |
+| ------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `localStorage` disabled (private browsing, storage quota hit) | All storage ops are wrapped in try/catch. `_lsWritable=false`; SDK falls back to `_memSession`. Session works but won't persist across page reloads.                                                                       |
+| Device sleeps while tab is in background                      | `_hiddenAtMs` written to sessionStorage on hide. On resume, even if in-memory state was lost, the stored timestamp is used for the timeout check in the constructor.                                                       |
+| Tab duplicated via browser Duplicate                          | Clone flag copied from original. Session reused if unexpired (same as any other valid-session load). `_windowId` differs per page load to distinguish the two tabs. No `tab_clone` start reason in current implementation. |
+| Back button (BFCache restore)                                 | `event.persisted = true` on `pagehide` → no `session.end`. `pageshow` with `persisted=true` calls `updateActivity()` to keep session alive.                                                                                |
+| Two tabs open simultaneously                                  | Each tab has its own `SessionProvider` instance and `_windowId`. They share localStorage keys. `pulse_session_ts` is last-writer-wins — acceptable since inactivity timeout is coarse-grained.                             |
+| Cross-origin redirect return (payment flow)                   | sessionStorage is cleared by the redirect. localStorage session is valid → `_sessionReused=true` → no duplicate `session.start`.                                                                                           |
+| `Pulse.shutdown()` called during async init                   | `_shuttingDown` flag checked after async chain settles. If set, providers are torn down immediately even though `_initialized` was just set.                                                                               |
+| `getSessionId()` called before `install()`                    | Works; `emitInitialSession()` sees the session already has a fresh ts, emits `session.start(sdk_init)` without double-rotating.                                                                                            |
+
 
 ---
 
@@ -552,31 +651,37 @@ Expected happy path: one `session.start` row followed by one `session.end` row f
 
 ### 7.1 Scenario matrix
 
-| ID | Type | Given | When | Then | Test file |
-|----|------|-------|------|------|-----------|
-| SE-P1 | positive | SESSION gate on | new install | `session.start` with correct ids + reason | `m1.test.ts` |
-| SE-P2 | positive | valid session in LS | any page load | `_sessionReused=true`, no duplicate `session.start` | `m1.test.ts` |
-| SE-N1 | negative | feature off | init | no session logs | `m1.test.ts` (no-install paths) |
-| SE-E1 | edge | long background | visibility visible after timeout | rotation + `session.end`/`session.start` | `m1.test.ts`, `session-persistence.test.ts` |
-| SE-E2 | edge | uninstall | provider change | subscription detached | `m1.test.ts` — uninstall stops session events |
-| SE-E3 | edge | `_memSession` cache | localStorage backdated ts | rotation fires correctly | `m1.test.ts` — `_memSession` cache bug regression |
-| SE-E4 | edge | re-entrant rotation | GlobalAttrsProcessor calls getSessionId during emit | `_rotatingSession` prevents duplicate | `m1.test.ts` |
-| SE-E5 | edge | BFCache | pagehide persisted=true | no `session.end` emitted | `m8.test.ts` |
-| SE-E6 | edge | page_unload | pagehide persisted=false | `session.end(page_unload)` with keepalive | `m8.test.ts` |
+
+| ID    | Type     | Given               | When                                                | Then                                                | Test file                                         |
+| ----- | -------- | ------------------- | --------------------------------------------------- | --------------------------------------------------- | ------------------------------------------------- |
+| SE-P1 | positive | SESSION gate on     | new install                                         | `session.start` with correct ids + reason           | `m1.test.ts`                                      |
+| SE-P2 | positive | valid session in LS | any page load                                       | `_sessionReused=true`, no duplicate `session.start` | `m1.test.ts`                                      |
+| SE-N1 | negative | SESSION feature off | init                                                | no session logs (instrumentation not installed)       | `m1.test.ts` (no-install paths)                   |
+| SE-N2 | negative | consent denied      | init                                                | no SessionProvider — no `session.*` OTLP            | `sdk-lifecycle.test.ts`                           |
+| SE-E1 | edge     | long background     | visibility visible after timeout                    | rotation + `session.end`/`session.start`            | `m1.test.ts`, `session-persistence.test.ts`       |
+| SE-E2 | edge     | uninstall           | provider change                                     | subscription detached                               | `m1.test.ts` — uninstall stops session events     |
+| SE-E3 | edge     | `_memSession` cache | localStorage backdated ts                           | rotation fires correctly                            | `m1.test.ts` — `_memSession` cache bug regression |
+| SE-E4 | edge     | re-entrant rotation | GlobalAttrsProcessor calls getSessionId during emit | `_rotatingSession` prevents duplicate               | `m1.test.ts`                                      |
+| SE-E5 | edge     | BFCache             | pagehide persisted=true                             | no `session.end` emitted                            | `m8.test.ts`                                      |
+| SE-E6 | edge     | page_unload         | pagehide persisted=false                            | `session.end(page_unload)` with keepalive           | `m8.test.ts`                                      |
+| SE-E7 | edge     | Pulse lifecycle       | `shutdown()` (incl. during async init / `_shuttingDown`) or re-`init` after shutdown | session teardown + restart behaviour               | `sdk-lifecycle.test.ts`                           |
+
 
 ### 7.2 Test files
 
-| Test file | What it covers |
-|---|---|
-| `src/__tests__/m1.test.ts` | installationId creation/reuse, session rotation on background timeout, session reuse, `emitInitialSession` expiry routing, `_memSession` cache regression, `_rotatingSession` guard |
-| `src/__tests__/sdk-lifecycle.test.ts` | shutdown clears session state, re-init creates fresh session |
-| `src/__tests__/m8.test.ts` | `pagehide` session.end delivery, BFCache guard, `page_unload` reason, keepalive exporter switch |
-| `src/__tests__/session-persistence.test.ts` | session persistence across storage tiers |
-| `src/__tests__/session-sampling-rate.test.ts` | session sampling behaviour |
+
+| Test file                                     | What it covers                                                                                                                                                                      |
+| --------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/__tests__/m1.test.ts`                    | installationId creation/reuse, session rotation on background timeout, session reuse, `emitInitialSession` expiry routing, `_memSession` cache regression, `_rotatingSession` guard |
+| `src/__tests__/sdk-lifecycle.test.ts`         | Consent-aborted init (`whenReady`), shutdown / restart cycles, shutdown-during-async-init (`_shuttingDown`), cleanup                                                      |
+| `src/__tests__/m8.test.ts`                    | `pagehide` session.end delivery, BFCache guard, `page_unload` reason, keepalive exporter switch                                                                                     |
+| `src/__tests__/session-persistence.test.ts`   | session persistence across storage tiers                                                                                                                                            |
+| `src/__tests__/session-sampling-rate.test.ts` | session sampling behaviour                                                                                                                                                          |
+
 
 ### 7.3 Playwright E2E
 
-Session lifecycle, identity, batching, BFCache, rotation/clone/reload, consent, and metering are covered under **`@M1`** / **`@M8`** tags in [`../../sdk-core/test-coverage/SPEC.md`](../../sdk-core/test-coverage/SPEC.md) §6.3.
+Session lifecycle, identity, batching, BFCache, rotation/clone/reload, consent, and metering are covered under **@M1** / **@M8** tags in [sdk-core test coverage](../../sdk-core/test-coverage/SPEC.md) §6.3.
 
 Next.js demo: `session.start` + stable `session.id` across App Router navigations in `examples/nextjs-demo/e2e/` — see §6.4 parity matrix in the same file.
 
@@ -584,16 +689,24 @@ Next.js demo: `session.start` + stable `session.id` across App Router navigation
 
 ## 8. Known bugs & gaps
 
-[`../../known-gaps-tradeoffs-and-plan.md`](../../known-gaps-tradeoffs-and-plan.md) where they touch identity/session UX.
+[Known gaps, tradeoffs, and plan](../../known-gaps-tradeoffs-and-plan.md) where they touch identity/session UX.
 
 ---
 
 ## 9. Redundancy & canonical sources
 
-**Canonical implementation:** `src/session.ts` (lifecycle, storage, rotation) and `src/instrumentations/session.ts` (OTLP log mapping). This SPEC is the instrumentation contract; SDK bootstrap and exporters are in [`../../sdk-core/`](../../sdk-core/SPEC.md) topic SPECs (especially [`../../sdk-core/exporters-and-persistence/SPEC.md`](../../sdk-core/exporters-and-persistence/SPEC.md)).
+**Canonical implementation (touch in this order mentally):**
+
+- `src/sdk.ts` — `Pulse.init` / `finishInit`; consent gate before bootstrap; `_shuttingDown`; constructs `SessionProvider`; calls `InstrumentationRegistry.installAll`.
+- `src/instrumentation-registry.ts` — `registerAndInstall(SessionInstrumentation, SESSION)` gated by remote + local kill-switch.
+- `src/session.ts` — `SessionProvider` lifecycle, storage, rotation, `onSessionChange` events.
+- `src/instrumentations/session.ts` — OTLP log mapping (`session.start` / `session.end`).
+- `src/processors/global-attrs-processor.ts` — may call `getSessionId()` during emit; interacts with `_rotatingSession` (§5.6).
+
+This SPEC is the instrumentation contract; broader bootstrap and exporters: [SDK core SPEC](../../sdk-core/SPEC.md) (especially [exporters and persistence](../../sdk-core/exporters-and-persistence/SPEC.md)).
 
 ---
 
 ## 10. Open questions
 
-[`../../known-gaps-tradeoffs-and-plan.md`](../../known-gaps-tradeoffs-and-plan.md) §3.
+[Known gaps, tradeoffs, and plan](../../known-gaps-tradeoffs-and-plan.md) §3.

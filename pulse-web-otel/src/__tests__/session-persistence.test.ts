@@ -212,13 +212,17 @@ describe("session continuity: localStorage resume and tab/clone reuse", () => {
     seedExpiredSession("session-expired-init");
 
     const provider = new SessionProvider();
-    const events: { type: string; sessionId?: string; newSessionId?: string }[] = [];
+    const events: {
+      type: string;
+      sessionId?: string;
+      newSessionId?: string;
+    }[] = [];
     provider.onSessionChange((e) => events.push(e));
     provider.emitInitialSession();
 
     const starts = events.filter((e) => e.type === "start");
     expect(starts).toHaveLength(1);
-    expect(starts[0].newSessionId).not.toBe("session-expired-init");
+    expect(starts[0]?.newSessionId).not.toBe("session-expired-init");
 
     // Subsequent getSessionId() calls must NOT rotate again
     const id1 = provider.getSessionId();
