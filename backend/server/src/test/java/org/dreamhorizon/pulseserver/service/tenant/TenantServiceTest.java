@@ -473,7 +473,7 @@ class TenantServiceTest {
       when(openFgaService.assignTenantRole(eq("user-1"), any(), eq("admin"))).thenReturn(Completable.complete());
 
       TenantWithProjectResult result = tenantService.createTenantWithProject(
-          ownerInfo(), "My Org", "My Project", "desc").blockingGet();
+          ownerInfo(), "My Org", "My Project", "desc", "project desc").blockingGet();
 
       assertThat(result).isNotNull();
       assertThat(result.getTenantId()).startsWith("tenant-");
@@ -498,7 +498,7 @@ class TenantServiceTest {
       when(projectService.createProject(any(), any(), any(), any()))
           .thenReturn(Single.error(new RuntimeException("Project creation failed")));
 
-      tenantService.createTenantWithProject(ownerInfo(), "My Org", "My Project", null)
+      tenantService.createTenantWithProject(ownerInfo(), "My Org", "My Project", null, null)
           .test()
           .assertError(RuntimeException.class)
           .assertError(e -> e.getMessage().contains("Project creation failed"));
@@ -526,7 +526,7 @@ class TenantServiceTest {
       when(projectService.createProject(any(), any(), any(), any())).thenReturn(Single.just(projectResult));
 
       TenantWithProjectResult result = tenantService.createTenantWithProject(
-          ownerInfo(), "My Org", "My Project", null).blockingGet();
+          ownerInfo(), "My Org", "My Project", null, null).blockingGet();
 
       assertThat(result).isNotNull();
       assertThat(result.getProjectId()).isEqualTo("proj-1");

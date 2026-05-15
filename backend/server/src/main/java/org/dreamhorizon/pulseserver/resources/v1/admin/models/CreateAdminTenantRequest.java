@@ -12,5 +12,7 @@ import lombok.Data;
 public class CreateAdminTenantRequest {
   private String tenantName;
   private String projectName;
-  private String description;
+  private String tenantDescription;
+  private String projectDescription;
 }
+

@@ -106,7 +106,7 @@ class OnboardingServiceTest {
 
       when(userService.getOrCreateUser(EMAIL, NAME, FIREBASE_UID)).thenReturn(Single.just(user));
       when(openFgaService.getUserTenants(USER_ID)).thenReturn(Single.just(Collections.emptyList()));
-      when(tenantService.createTenantWithProject(any(ReqUserInfo.class), eq(ORG_NAME), eq(PROJECT_NAME), any()))
+      when(tenantService.createTenantWithProject(any(ReqUserInfo.class), eq(ORG_NAME), eq(PROJECT_NAME), any(), any()))
           .thenReturn(Single.just(tenantWithProject));
       when(tenantService.getTenant(TENANT_ID)).thenReturn(Maybe.just(tenant));
       when(tierService.getTierNameById(1)).thenReturn(Maybe.just("free"));
@@ -133,7 +133,7 @@ class OnboardingServiceTest {
       assertThat(result.getExpiresIn()).isEqualTo(JwtService.ACCESS_TOKEN_VALIDITY_SECONDS);
       assertThat(result.getRedirectTo()).isEqualTo("/projects/" + PROJECT_ID);
 
-      verify(tenantService).createTenantWithProject(any(ReqUserInfo.class), eq(ORG_NAME), eq(PROJECT_NAME), any());
+      verify(tenantService).createTenantWithProject(any(ReqUserInfo.class), eq(ORG_NAME), eq(PROJECT_NAME), any(), any());
     }
 
     @Test
@@ -149,7 +149,7 @@ class OnboardingServiceTest {
               .blockingGet());
 
       assertThat(ex.getMessage()).contains("already part of an organization");
-      verify(tenantService, never()).createTenantWithProject(any(), any(), any(), any());
+      verify(tenantService, never()).createTenantWithProject(any(), any(), any(), any(), any());
     }
 
     @Test
@@ -158,7 +158,7 @@ class OnboardingServiceTest {
 
       when(userService.getOrCreateUser(EMAIL, NAME, FIREBASE_UID)).thenReturn(Single.just(user));
       when(openFgaService.getUserTenants(USER_ID)).thenReturn(Single.just(Collections.emptyList()));
-      when(tenantService.createTenantWithProject(any(ReqUserInfo.class), any(), any(), any()))
+      when(tenantService.createTenantWithProject(any(ReqUserInfo.class), any(), any(), any(), any()))
           .thenReturn(Single.error(new RuntimeException("Tenant creation failed")));
 
       RuntimeException ex = assertThrows(RuntimeException.class, () ->
@@ -177,7 +177,7 @@ class OnboardingServiceTest {
 
       when(userService.getOrCreateUser(EMAIL, NAME, FIREBASE_UID)).thenReturn(Single.just(user));
       when(openFgaService.getUserTenants(USER_ID)).thenReturn(Single.just(Collections.emptyList()));
-      when(tenantService.createTenantWithProject(any(ReqUserInfo.class), any(), any(), any()))
+      when(tenantService.createTenantWithProject(any(ReqUserInfo.class), any(), any(), any(), any()))
           .thenReturn(Single.just(tenantWithProject));
       when(tenantService.getTenant(TENANT_ID)).thenReturn(Maybe.just(tenant));
       when(tierService.getTierNameById(99)).thenReturn(Maybe.empty());

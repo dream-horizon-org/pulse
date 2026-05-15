@@ -95,7 +95,8 @@ class AdminTenantsControllerTest {
     CreateAdminTenantRequest req = new CreateAdminTenantRequest();
     req.setTenantName("Test Org");
     req.setProjectName("Test Project");
-    req.setDescription("A description");
+    req.setTenantDescription("Tenant description");
+    req.setProjectDescription("Project description");
     return req;
   }
 
@@ -124,7 +125,7 @@ class AdminTenantsControllerTest {
       when(openFgaService.isSuperAdmin(CALLER_ID)).thenReturn(Single.just(true));
       when(openFgaService.isInternalViewer(CALLER_ID)).thenReturn(Single.just(false));
       when(userService.getUserById(CALLER_ID)).thenReturn(Single.just(callerUser()));
-      when(tenantService.createTenantWithProject(any(ReqUserInfo.class), eq("Test Org"), eq("Test Project"), any()))
+      when(tenantService.createTenantWithProject(any(ReqUserInfo.class), eq("Test Org"), eq("Test Project"), any(), any()))
           .thenReturn(Single.just(successResult()));
 
       Response<CreateAdminTenantResponse> response =
@@ -142,7 +143,7 @@ class AdminTenantsControllerTest {
       when(openFgaService.isSuperAdmin(CALLER_ID)).thenReturn(Single.just(false));
       when(openFgaService.isInternalViewer(CALLER_ID)).thenReturn(Single.just(true));
       when(userService.getUserById(CALLER_ID)).thenReturn(Single.just(callerUser()));
-      when(tenantService.createTenantWithProject(any(ReqUserInfo.class), any(), any(), any()))
+      when(tenantService.createTenantWithProject(any(ReqUserInfo.class), any(), any(), any(), any()))
           .thenReturn(Single.just(successResult()));
 
       Response<CreateAdminTenantResponse> response =

@@ -132,7 +132,8 @@ public class AdminTenantsController {
                       ownerInfo,
                       body.getTenantName(),
                       body.getProjectName(),
-                      body.getDescription())
+                      body.getTenantDescription(),
+                      body.getProjectDescription())
                       .map(result -> {
                         CreateAdminTenantResponse response = new CreateAdminTenantResponse();
                         response.setTenantId(result.getTenantId());

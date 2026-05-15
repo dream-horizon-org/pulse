@@ -38,14 +38,16 @@ public class TenantService {
    * @param ownerInfo user info for the caller who becomes tenant admin and project admin
    * @param tenantName display name for the new tenant
    * @param projectName display name for the first project
-   * @param description optional tenant description (may be null)
+   * @param tenantDescription optional tenant description (may be null)
+   * @param projectDescription optional project description (may be null)
    * @return result containing tenantId, projectId, and raw API key
    */
   public Single<TenantWithProjectResult> createTenantWithProject(
       ReqUserInfo ownerInfo,
       String tenantName,
       String projectName,
-      String description) {
+      String tenantDescription,
+      String projectDescription) {
 
     String tenantId = "tenant-" + UUID.randomUUID().toString();
     log.info("Creating tenant with project: ownerId={}, tenantId={}, tenantName={}, projectName={}",
@@ -54,14 +56,14 @@ public class TenantService {
     CreateTenantRequest tenantRequest = CreateTenantRequest.builder()
         .tenantId(tenantId)
         .name(tenantName)
-        .description(description)
+        .description(tenantDescription)
         .gcpTenantId(null)
         .domainName(null)
         .build();
 
     return createTenant(tenantRequest)
         .flatMap(tenant ->
-            projectService.createProject(tenantId, projectName, null, ownerInfo)
+            projectService.createProject(tenantId, projectName, projectDescription, ownerInfo)
                 .flatMap(creationResult -> {
                   if (openFgaService != null && openFgaService.isEnabled()) {
                     return openFgaService.assignTenantRole(ownerInfo.getUserId(), tenantId, "admin")

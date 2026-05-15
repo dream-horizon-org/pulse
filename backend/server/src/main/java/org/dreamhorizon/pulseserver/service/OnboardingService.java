@@ -106,7 +106,7 @@ public class OnboardingService {
         .build();
 
     return tenantService.createTenantWithProject(
-            userInfo, organizationName, projectName, "Organization created during onboarding")
+            userInfo, organizationName, projectName, "Organization created during onboarding", projectDescription)
         .flatMap(tenantWithProject -> {
           String tenantId = tenantWithProject.getTenantId();
           return tenantService.getTenant(tenantId)
