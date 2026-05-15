@@ -23,6 +23,7 @@ export interface OtlpAttr {
     intValue?: number;
     doubleValue?: number;
     boolValue?: boolean;
+    arrayValue?: { values: Array<{ stringValue?: string }> };
   };
 }
 
@@ -68,10 +69,13 @@ export type CapturedRequest =
 export function getAttr(
   attrs: OtlpAttr[] | undefined,
   key: string,
-): string | number | boolean | undefined {
+): string | number | boolean | string[] | undefined {
   const a = (attrs ?? []).find((a) => a.key === key);
   if (!a) return undefined;
   const v = a.value;
+  if (v.arrayValue) {
+    return v.arrayValue.values.map((item) => item.stringValue ?? "");
+  }
   return v.stringValue ?? v.intValue ?? v.doubleValue ?? v.boolValue;
 }
 
