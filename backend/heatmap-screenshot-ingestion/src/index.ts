@@ -4,7 +4,7 @@ import { HeatmapScreenshotConsumer } from "./consumer";
 export * from "./breakpoint-rules";
 export { loadConfig, resolveRedisUrlFromEnv } from "./config";
 export { HeatmapScreenshotConsumer } from "./consumer";
-export { extractHeatmapScreenshot } from "./heatmap-extract";
+export { extractHeatmapScreenshots } from "./heatmap-extract";
 export {
   buildHeatmapS3ObjectKey,
   sanitizePathSegment,

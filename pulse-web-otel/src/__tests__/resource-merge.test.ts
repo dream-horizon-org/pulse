@@ -26,6 +26,7 @@ describe("buildMergedResource", () => {
     expect(attrs["deployment.environment"]).toBe("staging");
     expect(attrs["service.namespace"]).toBe("checkout");
     expect(attrs.platform).toBe("web");
+    expect(attrs["os.name"]).toBe("web");
     expect(attrs["rum.sdk.name"]).toBe("pulse_web_js");
     expect(attrs["service.version"]).toBe("9.9.9");
     expect(attrs["app.build_name"]).toBe("9.9.9");

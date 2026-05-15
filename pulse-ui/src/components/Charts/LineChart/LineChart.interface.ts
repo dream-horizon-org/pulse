@@ -7,6 +7,8 @@ export interface LineChartProps extends EChartsReactProps {
   withLegend?: boolean;
   tooltipValueFormatter?: (value: any) => string;
   syncTooltips?: boolean;
+  /** When false, disables brush selection (recommended for time-axis charts without category `xAxis.data`). */
+  enableBrushSelection?: boolean;
   group?: string;
   onTimeFilterChange?: (value: StartEndDateTimeType) => void;
   mapBrushToTimeFilter?: (

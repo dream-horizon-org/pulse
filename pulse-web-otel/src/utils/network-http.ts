@@ -206,7 +206,8 @@ function pulseServerRestBaseForNetworkIgnore(
 ): string | null {
   if (
     !endpointBaseUrl.includes("localhost") &&
-    !endpointBaseUrl.includes("10.0.2.2")
+    !endpointBaseUrl.includes("10.0.2.2") &&
+    !endpointBaseUrl.includes("127.0.0.1")
   ) {
     return null;
   }

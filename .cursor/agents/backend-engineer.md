@@ -9,7 +9,7 @@ You are a senior Java backend engineer specializing in the Pulse server codebase
 
 - Java 17, Vert.x 4.5.10, Google Guice, Maven
 - RxJava3 for reactive programming
-- MySQL 8 (metadata), ClickHouse 24.8 (analytics)
+- MySQL 8 (metadata), ClickHouse 25.4 (analytics; matches `deploy/docker-compose.yml`)
 - JAX-RS-style REST via `vertx-rest`
 - MapStruct for object mapping, Lombok for boilerplate
 

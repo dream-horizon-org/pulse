@@ -112,7 +112,13 @@ export interface PulseWebConfig {
    */
   resourceAttributes?: PulseAttributes;
 
-  // Optional — privacy (Android `beforeSendData` / PulseBeforeSendData parity — see before-send.ts)
+  /**
+   * Export-time mutate / drop hook — **Android `PulseBeforeSendData` / `beforeSendData` parity**
+   * (`before-send.ts`). Many RUM products document a single **`beforeSend`** callback; on Pulse the
+   * **`PulseWebConfig` key is always `beforeSendData`** (do not rename without a coordinated mobile
+   * major). The value is either one function or an object whose **inner** methods are named
+   * `beforeSend`, `beforeSendSpan`, `beforeSendLog`, and `beforeSendMetric`.
+   */
   beforeSendData?: PulseWebBeforeSendConfig;
 
   // Optional — per-instrumentation toggles
@@ -127,7 +133,7 @@ export interface PulseWebConfig {
    * "protobuf" → application/x-protobuf (more compact)
    */
   export?: {
-    format?: "json" | "protobuf";
+    format?: "protobuf" | "json";
   };
 
   /**

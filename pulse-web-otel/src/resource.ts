@@ -1,6 +1,6 @@
 // M1: Builds the OTEL Resource with 18 static browser attributes
 // (platform, browser.name, screen.resolution, timezone, etc.).
-// See: docs/instrumentations/sdk-core/SPEC.md
+// See: docs/sdk-core/data-contract/SPEC.md (resource / platform)
 
 import {
   resourceFromAttributes,
@@ -67,7 +67,8 @@ export function buildResource(
     [resourceKeys.PROJECT_ID]: extractProjectId(config.apiKey),
     [resourceKeys.BROWSER_NAME]: parsedUA.browserName,
     [resourceKeys.BROWSER_VERSION]: parsedUA.browserVersion,
-    [resourceKeys.OS_NAME]: parsedUA.osName,
+    /** Coarse RUM label; materializes ClickHouse {@code Platform} on logs/traces (Android/iOS parity). */
+    [resourceKeys.OS_NAME]: fixedValues.PLATFORM_WEB,
     [resourceKeys.OS_VERSION]: osVersion,
     [resourceKeys.DEVICE_TYPE]: parsedUA.deviceType,
   };

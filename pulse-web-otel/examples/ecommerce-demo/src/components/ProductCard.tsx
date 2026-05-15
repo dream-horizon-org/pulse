@@ -117,6 +117,8 @@ export function ProductCard({ product, onAddToCart }: Props) {
             ${product.price.toFixed(2)}
           </span>
           <button
+            type="button"
+            data-testid="product-add-to-cart"
             onClick={() => {
               onAddToCart(product);
               Pulse.trackEvent("add_to_cart", {

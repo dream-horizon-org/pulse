@@ -277,35 +277,42 @@ export class SessionReplayService {
    * Returns platform-specific filters based on project
    */
   async getFilterSchema(
-    request: GetFilterSchemaRequest = {},
+    _request: GetFilterSchemaRequest = {},
   ): Promise<GetFilterSchemaResponse> {
-    const url = new URL(`${this.baseURL}/api/v1/session-replay/filters/schema`);
+    const config = await this.getSessionsFilters();
+    return this.toFilterSchemaResponse(config);
+  }
 
-    if (request.projectId) {
-      url.searchParams.append("projectId", request.projectId);
-    }
+  private toFilterSchemaResponse(
+    config: FilterConfigResponse,
+  ): GetFilterSchemaResponse {
+    const operatorLabels: Record<string, string> = {};
+    const categories = config.advanced.map((category) => ({
+      key: category.categoryKey,
+      label: category.displayName,
+      fields: category.fields.map((field) => {
+        for (const operator of field.allowedOperators) {
+          operatorLabels[operator.key] = operator.label;
+        }
 
-    try {
-      const response = await makeRequestToServer({
-        url: url.toString(),
-        init: {
-          method: "GET",
-        },
-      });
+        const dataType = field.dataType;
+        return {
+          key: field.key,
+          label: field.displayName,
+          category: category.categoryKey,
+          type:
+            dataType === "integer" || dataType === "float"
+              ? ("number" as const)
+              : ("string" as const),
+          operators: field.allowedOperators.map((operator) => operator.key),
+        };
+      }),
+    }));
 
-      if (!response.ok) {
-        throw new Error(
-          `Failed to fetch filter schema: ${response.statusText}`,
-        );
-      }
-
-      const json = await response.json();
-      // MockServer wraps responses in {data: ..., error: ...}, unwrap for mock mode
-      return json.data || json;
-    } catch (error) {
-      console.error("Error fetching filter schema:", error);
-      throw error;
-    }
+    return {
+      categories,
+      operatorLabels,
+    };
   }
 
   /**

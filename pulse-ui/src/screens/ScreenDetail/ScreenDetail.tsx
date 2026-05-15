@@ -46,6 +46,7 @@ import { HeatmapPanel } from "./Heatmap/HeatmapPanel";
 import { useHeatmapFromActiveConfig } from "../../hooks";
 import { ScreenRootCause } from "./components/ScreenRootCause";
 import { getRootCauseDateFromEndTime } from "../CriticalInteractionDetails/utils/getRootCauseDateFromEndTime";
+import { WebVitalsPanel } from "../WebVitals/components";
 
 const isRootCauseEnabled = process.env.REACT_APP_ROOT_CAUSE_ENABLED === "true";
 
@@ -213,6 +214,8 @@ export function ScreenDetail(_props: ScreenDetailProps) {
       setActiveTab("heatmap");
     } else if (t === "root-cause" && isRootCauseEnabled) {
       setActiveTab("root-cause");
+    } else if (t === "web-vitals") {
+      setActiveTab("web-vitals");
     }
   }, [searchParams, heatmapEnabledFromActiveConfig]);
 
@@ -223,6 +226,8 @@ export function ScreenDetail(_props: ScreenDetailProps) {
       next.set("tab", "heatmap");
     } else if (value === "root-cause") {
       next.set("tab", "root-cause");
+    } else if (value === "web-vitals") {
+      next.set("tab", "web-vitals");
     } else {
       next.delete("tab");
     }
@@ -275,6 +280,7 @@ export function ScreenDetail(_props: ScreenDetailProps) {
           <Tabs.Tab value="engagement">User Engagement</Tabs.Tab>
           <Tabs.Tab value="performance">Performance & Stability</Tabs.Tab>
           <Tabs.Tab value="network">Network</Tabs.Tab>
+          <Tabs.Tab value="web-vitals">Web Vitals</Tabs.Tab>
           {isRootCauseEnabled && (
             <Tabs.Tab value="root-cause">Root cause</Tabs.Tab>
           )}
@@ -580,6 +586,15 @@ export function ScreenDetail(_props: ScreenDetailProps) {
 
               return filters;
             }, [appVersion, osVersion, device])}
+          />
+        </Tabs.Panel>
+
+        {/* Web Vitals Tab */}
+        <Tabs.Panel value="web-vitals" pt="md">
+          <WebVitalsPanel
+            screenName={decodedScreenName}
+            startTime={formattedStartTime}
+            endTime={formattedEndTime}
           />
         </Tabs.Panel>
 
