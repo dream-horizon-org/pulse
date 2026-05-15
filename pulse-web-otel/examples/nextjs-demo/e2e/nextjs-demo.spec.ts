@@ -473,6 +473,21 @@ test.describe("error gating & rejection dedupe", () => {
 
 const OTLP_SPAN_STATUS_OK = 1;
 
+async function waitForPulseInitialized(page: Page): Promise<void> {
+  await expect
+    .poll(
+      () =>
+        page.evaluate(() => {
+          const w = window as unknown as {
+            Pulse?: { isInitialized: () => boolean };
+          };
+          return w.Pulse?.isInitialized?.() ?? false;
+        }),
+      { timeout: 15_000 },
+    )
+    .toBe(true);
+}
+
 async function flushTraceExport(page: Page): Promise<void> {
   await page.evaluate(() => {
     window.dispatchEvent(new PageTransitionEvent("pagehide", { persisted: false }));
@@ -500,8 +515,8 @@ async function pollProbeNetworkSpan(
 }
 
 test.describe("@M4 network — Next.js demo", () => {
-  // ISS-N06: captureQueryParams:true keeps query params on url.full (sensitive ones redacted)
-  test("ISS-N06: captureQueryParams:true keeps query params, redacts sensitive token", async ({
+  // NET-10: captureQueryParams:true keeps query params on url.full (sensitive ones redacted)
+  test("NET-10: captureQueryParams:true keeps query params, redacts sensitive token", async ({
     page,
     otlp,
   }) => {
@@ -529,8 +544,8 @@ test.describe("@M4 network — Next.js demo", () => {
     expect(full).toContain("token=*");
   });
 
-  // ISS-N07: blockedUrls prevents spans for matching URLs
-  test("ISS-N07: blockedUrls config suppresses spans for matched URL", async ({
+  // NET-11: blockedUrls prevents spans for matching URLs
+  test("NET-11: blockedUrls config suppresses spans for matched URL", async ({
     page,
     otlp,
   }) => {
@@ -558,12 +573,12 @@ test.describe("@M4 network — Next.js demo", () => {
     expect(blocked).toHaveLength(0);
   });
 
-  // ISS-N08: peerServiceMap sets peer.service on matching spans
-  test("ISS-N08: peerServiceMap sets peer.service attribute on spans", async ({
+  // NET-12: peerServiceMap sets peer.service on matching spans
+  test("NET-12: peerServiceMap sets peer.service attribute on spans", async ({
     page,
     otlp,
   }) => {
-    const peerHost = "127.0.0.1:3003";
+    const peerHost = "localhost";
 
     await page.route(
       (url) => url.pathname.includes("/pulse-e2e-network/peer-probe"),
@@ -575,6 +590,7 @@ test.describe("@M4 network — Next.js demo", () => {
     await page.goto(
       `/?pulse_peer_host=${encodeURIComponent(peerHost)}&pulse_peer_service=catalogue-service`,
     );
+    await waitForPulseInitialized(page);
     await otlp.waitForLog("session.start", 15_000);
     otlp.reset();
 
@@ -588,8 +604,8 @@ test.describe("@M4 network — Next.js demo", () => {
     expect(getAttr(span.attributes, "peer.service")).toBe("catalogue-service");
   });
 
-  // ISS-N09: propagateTraceHeaderCorsUrls injects traceparent W3C header
-  test("ISS-N09: propagateTraceHeaderCorsUrls injects W3C traceparent header on matching requests", async ({
+  // NET-18: propagateTraceHeaderCorsUrls injects traceparent W3C header
+  test("NET-18: propagateTraceHeaderCorsUrls injects W3C traceparent header on matching requests", async ({
     page,
     otlp,
   }) => {
@@ -604,6 +620,7 @@ test.describe("@M4 network — Next.js demo", () => {
     );
 
     await page.goto(`/?pulse_propagate_cors=${encodeURIComponent("localhost:3003")}`);
+    await waitForPulseInitialized(page);
     await otlp.waitForLog("session.start", 15_000);
     otlp.reset();
 
@@ -979,8 +996,8 @@ test.describe("@M4 network — Next.js demo", () => {
     expect(otlpSpans).toHaveLength(0);
   });
 
-  // NET-18: XHR capturedRequestHeaders — headers stored via WeakMap monkey-patch
-  test("NET-18: XHR capturedRequestHeaders captures request headers on XHR spans", async ({
+  // ISS-N10: XHR capturedRequestHeaders — headers stored via WeakMap monkey-patch
+  test("ISS-N10: XHR capturedRequestHeaders captures request headers on XHR spans", async ({
     page,
     otlp,
   }) => {
@@ -998,6 +1015,7 @@ test.describe("@M4 network — Next.js demo", () => {
     await page.goto(
       `/?pulse_capture_req_headers=${encodeURIComponent("x-request-id,x-custom-header")}`,
     );
+    await waitForPulseInitialized(page);
     await otlp.waitForLog("session.start", 15_000);
     otlp.reset();
 
