@@ -404,7 +404,12 @@
     {
       "id": "web-vitals",
       "spec_path": "pulse-web-otel/docs/instrumentations/web-vitals/SPEC.md",
-      "related_src_globs": ["pulse-web-otel/src/instrumentations/web-vitals.ts"]
+      "related_src_globs": [
+        "pulse-web-otel/src/instrumentations/web-vitals.ts",
+        "pulse-web-otel/src/instrumentation-registry.ts",
+        "pulse-web-otel/src/sdk.ts",
+        "pulse-web-otel/src/processors/global-attrs-processor.ts"
+      ]
     }
   ]
 }
