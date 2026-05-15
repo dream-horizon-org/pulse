@@ -161,7 +161,7 @@ This document **is** the detailed §5 catalogue; see subsections **§5.1–§5.6
 
 ### 6.3 Playwright E2E — master catalogue
 
-**Primary harness (React + Vite SPA):** `pulse-web-otel/examples/ecommerce-demo/e2e/`. **CI Chromium gate** (`cd pulse-web-otel && yarn e2e:web-sdk-gates`): `m1`, `m2-interactions`, `m3-errors`, `web-vitals`, `m3-clicks`, `m4-network`, `screen-navigation` only (**187** tests as of 2026-05-15). **Additional** Playwright files in the same folder (`m8`, `m15`, `m16-ch`, `m3-ch`, `synthetic-user`, …) run via `yarn workspace ecommerce-demo e2e` / per-file greps — they are **catalogued below** but **not** all are in the default gate script.
+**Primary harness (React + Vite SPA):** `pulse-web-otel/examples/ecommerce-demo/e2e/`. **CI Chromium gate** (`cd pulse-web-otel && yarn e2e:web-sdk-gates`): `m1`, `m2-interactions`, `m3-errors`, `web-vitals`, `m3-clicks`, `m4-network`, `screen-navigation` only (**188** tests as of 2026-05-15). **Additional** Playwright files in the same folder (`m8`, `m15`, `m16-ch`, `m3-ch`, `synthetic-user`, …) run via `yarn workspace ecommerce-demo e2e` / per-file greps — they are **catalogued below** but **not** all are in the default gate script.
 
 **Next.js App Router demo:** `pulse-web-otel/examples/nextjs-demo/e2e/` — `yarn workspace nextjs-demo e2e`. Mock OTLP; `nextjs-demo.ch.spec.ts` is the CH mirror subset.
 
@@ -346,8 +346,9 @@ Below: **Playwright `test()` titles** as registered in the repo (grouped by `tes
 #### `@WebVitals`
 
 - TTFB, FCP, LCP, INP (tab hide), CLS after layout shift + tab hide; **no `web_vital.name=FID`** (`web-vitals` v5+)
+- Per-metric **G10:** on first captured TTFB / FCP / LCP log, `web_vital.delta` equals `web_vital.value` (not asserted in shared helper — INP/CLS may differ)
 - `assertExportedWebVitalAttrs`: `platform` = `web`; `navigation_id`; **`web_vital.navigation_type`** in `navigate` \| `reload` \| `back-forward` \| `back-forward-cache` \| `prerender` \| `restore` \| `soft-navigation`; **`web_vital.value` ≥ 0**; **`session.id`** UUID shape; `web_vital.context` / `web_vital.delta` when present
-- SPA navigation flushes TTFB with `screen.name` from initial route (`PulseRouterEvents` → `notifySoftNavigation` + batch); SPA `screen_load` span carries `navigation_id`
+- SPA navigation flushes TTFB with `screen.name` from initial route (`PulseRouterEvents` → `notifySoftNavigation` + batch); SPA `screen_load` span carries `navigation_id`; **second SPA nav** (`/products` → `/cart`) yields a **different** `navigation_id` on the latest `screen_load` than after the first client nav
 - Remote gate off → no web_vital logs; local kill switch `?pulse_wv_enabled=false` → no web_vital logs (remote gate may stay on)
 
 #### `@SyntheticUser`
@@ -360,7 +361,7 @@ Below: **Playwright `test()` titles** as registered in the repo (grouped by `tes
 
 **screen tracking — App Router:** screen.name Home→Products; /cart; multi-hop / → /products → /cart.
 
-**web vitals (mock OTLP):** `e2e/web-vitals.spec.ts` — TTFB + `navigation_id`; client navigation adds a new `screen_load` span with `navigation_id`.
+**web vitals (mock OTLP):** `e2e/web-vitals.spec.ts` — TTFB + `navigation_id`; **TTFB** `web_vital.delta` === `web_vital.value`; client navigation adds a new `screen_load` span with `navigation_id`.
 
 **error tracking:** PulseErrorBoundary device.crash; reportException non_fatal; reportDeviceCrash device.crash; session.id stamped on crash and non_fatal paths.
 

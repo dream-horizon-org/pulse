@@ -62,6 +62,9 @@ test.describe("@WebVitals (Next.js demo)", () => {
     expect(ttfb).toBeDefined();
     expect(getAttr(ttfb!.attributes, "pulse.type")).toBe("web_vital");
     assertExportedWebVitalAttrs(ttfb!.attributes);
+    expect(getAttr(ttfb!.attributes, "web_vital.delta")).toBe(
+      getAttr(ttfb!.attributes, "web_vital.value"),
+    );
   });
 
   test("never emits web_vital with name FID (web-vitals v5+)", async ({

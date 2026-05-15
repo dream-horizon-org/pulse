@@ -175,7 +175,7 @@ Pulse registers each `web-vitals` callback **once** at install; it does **not** 
 | **INP** | Worst interaction latency (with `reportAllChanges: true`) | Continues; **per-route** worst uses `navigation_id` + latest `value` per id (same plan doc). |
 | **`web_vital.context`** | `pageload` for normal navigations (`navigate`, `reload`, …) | `navigation` when the library reports `navigationType === "soft-navigation"` (requires Chrome Soft Nav API + experimental `web-vitals` build — **not** in the default npm entry we ship today; see §7). |
 
-**Tests:** There is **no** per-metric matrix for “SPA vs hard reload” for every vital. Covered today: **cold load** paths for TTFB/FCP/LCP/CLS/INP in `@WebVitals`; **SPA-specific** assertion for **TTFB + `screen.name`** and **`screen_load` + `navigation_id`** after client nav; Vitest covers emit contract + `soft-navigation` → `web_vital.context` mapping in isolation. **Gap:** explicit E2E for “second route LCP/FCP only” (flaky / product-specific); BFCache flush path is Vitest-only (W-E6).
+**Tests:** There is **no** per-metric matrix for “SPA vs hard reload” for every vital. Covered today: **cold load** paths for TTFB/FCP/LCP/CLS/INP in `@WebVitals`; **SPA-specific** assertion for **TTFB + `screen.name`** and **`screen_load` + `navigation_id`** after client nav; **two** client navigations assert **distinct** `navigation_id` on successive `screen_load` spans; Vitest covers emit contract + `soft-navigation` → `web_vital.context` mapping in isolation. **Gap:** explicit E2E for “second route LCP/FCP only” (flaky / product-specific); BFCache flush path is Vitest-only (W-E6).
 
 ### 5.7 `web-vitals` dependency
 
@@ -196,8 +196,12 @@ Pulse registers each `web-vitals` callback **once** at install; it does **not** 
 | W-N2 | negative | `dataCollectionState` denies collection | `Pulse.init` | SDK does not finish init → `installAll` never runs — no vitals | `integration-simplified-init.test.ts` (TC-C2 / TC-C3); `sdk-lifecycle.test.ts` (`whenReady` + consent denied) |
 | W-N1b | negative | Remote `web_vitals` gate **on**, local `?pulse_wv_enabled=false` (ecommerce demo) | Page load + interaction | No `web_vital` OTLP logs | `@WebVitals` · `e2e/web-vitals.spec.ts` |
 | W-E1 | edge | installed | `visibilitychange` → hidden | `loggerProvider.forceFlush` | `web-vitals-instrumentation.test.ts` |
-| W-E2 | edge | installed | `pageshow` with `persisted` | `forceFlush` | same |
-| W-E3 | edge | installed then `uninstall()` | `web-vitals` invokes metric callback again | **No** `logger.emit` (reporting guard; library has no dispose API) | `web-vitals-instrumentation.test.ts` |
+| W-E1b | negative | installed then `uninstall()` | `visibilitychange` → hidden | **No** `forceFlush` | `web-vitals-instrumentation.test.ts` |
+| W-E2 | edge | installed | `pageshow` with `persisted` true | `forceFlush` | same |
+| W-E2b | negative | installed | `pageshow` with `persisted` false | **No** `forceFlush` | `web-vitals-instrumentation.test.ts` |
+| W-E2c | negative | installed then `uninstall()` | `pageshow` persisted true | **No** `forceFlush` | `web-vitals-instrumentation.test.ts` |
+| W-E3 | edge | installed then `uninstall()` | `web-vitals` invokes metric callback again | **No** `logger.emit` (reporting guard + **install epoch** so stale library callbacks cannot emit after reinstall) | `web-vitals-instrumentation.test.ts` |
+| W-E3b | edge | `install` → `uninstall` → `install` | one LCP callback on the **new** registration | exactly **one** `logger.emit` (old registration’s callback is ignored) | `web-vitals-instrumentation.test.ts` |
 | W-E4 | edge | `navigation_id` set in processor | exported web_vital log | OTLP includes `navigation_id` | `@WebVitals` · `e2e/web-vitals.spec.ts`; `global-attrs-processor.test.ts` (unit attrs map) |
 | W-E5 | edge | Playwright INP path | Chromium only | stable `PerformanceEventTiming` | `@WebVitals` INP test uses `test.skip` when `browserName !== "chromium"` |
 | W-E6 | edge | BFCache restore | `pageshow` persisted | `forceFlush` | Vitest only; E2E **missing** (optional — flaky without flush spy) |
@@ -205,6 +209,12 @@ Pulse registers each `web-vitals` callback **once** at install; it does **not** 
 | W-REG2 | edge | prior `registerAndInstall` throws | `installAll()` | Web Vitals still installs when gated on | `web-vitals-instrumentation.test.ts` |
 | W-SPA-TTFB | positive | home loaded, then SPA nav to `/products` | vitals exported | TTFB log still has `screen.name` `/` (initial route) | `e2e/web-vitals.spec.ts` (SPA TTFB test) |
 | W-SPA-NAV | positive | SPA client navigation | `navigation_id` on `web_vital` + `screen_load` | New id on spans/logs after nav | `e2e/web-vitals.spec.ts`; `global-attrs-processor.test.ts` |
+| W-SPA-NAV2 | positive | two SPA navigations (`/` → `/products` → `/cart`) | latest `screen_load` each time | **Distinct** `navigation_id` vs after first nav | `e2e/web-vitals.spec.ts` |
+| W-G4 | positive | — | — | `webVitalContextFromNavigationType("back-forward" \| "prerender")` → `pageload`; `soft-navigation` → `navigation` | `web-vitals-instrumentation.test.ts` (direct unit tests on exported helper) |
+| W-G5 | positive | installed | `onFCP` / `onTTFB` callbacks fire | `logger.emit` with full `web_vital.*` contract | `web-vitals-instrumentation.test.ts` |
+| W-G6 | positive | installed | two sequential CLS callbacks | second emit reflects cumulative `value` + new `delta` | `web-vitals-instrumentation.test.ts` |
+| W-G7 | edge | `loggerProvider` omitted from `SdkContext` | `visibilitychange` hidden | **No throw** (optional flush is a no-op) | `web-vitals-instrumentation.test.ts` |
+| W-G10 | positive | first exported TTFB / FCP / LCP log (ecommerce E2E) | batch window | `web_vital.delta` === `web_vital.value` | `@WebVitals` · `e2e/web-vitals.spec.ts` (per-test assertions; not in shared helper). Next.js: **TTFB** test only in `nextjs-demo/e2e/web-vitals.spec.ts`. |
 
 ### 6.2 Playwright E2E (`examples/ecommerce-demo/e2e/`)
 
@@ -214,7 +224,8 @@ Pulse registers each `web-vitals` callback **once** at install; it does **not** 
 - **Log attributes:** `navigation_id` on vitals; `web_vital.context` / `web_vital.delta` / `web_vital.navigation_type` from `web-vitals` ^5.x `Metric` (Playwright helper asserts `navigation_type` in the known set, `web_vital.value` ≥ 0, `session.id` UUID shape); `platform` = `web` on vitals; `screen.name` on vitals.
 - **Internal audit IDs:** **VIT-12** name set = **LCP, INP, CLS, FCP, TTFB** only (no FID). **VIT-10** (FID-only) superseded by the “no FID log” test. **VIT-07** (zero `web_vital` before hide) is **not** asserted for INP/CLS — v5 + `reportAllChanges` can emit those metrics before synthetic `visibilitychange` when the OTLP batch fires.
 - **SPA soft navigation:** `PulseRouterEvents` / `useRouterTracking` → `Pulse.notifySoftNavigation()` (`sdk.ts`) → `loggerProvider.forceFlush()` for buffered vitals — **`web-vitals.ts` does not** call `notifySoftNavigation`. Normal batch/export timing still applies.
-- **Spans:** SPA `screen_load` includes `navigation_id` after client navigation.
+- **Spans:** SPA `screen_load` includes `navigation_id` after client navigation; a **second** SPA nav yields a **different** `navigation_id` on the latest `screen_load` than after the first.
+- **Per-metric E2E (G10):** first captured **TTFB**, **FCP**, and **LCP** logs assert `web_vital.delta` === `web_vital.value` (assertions live in each test body, not the shared helper).
 - **Negative paths:** Remote feature gate off (no `web_vital` logs); local kill switch `?pulse_wv_enabled=false` wired from [`Root.tsx`](../../../examples/ecommerce-demo/src/Root.tsx) → `PulseProvider` `instrumentations.webVitals.enabled`.
 - **Browsers:** INP test **skips** non-Chromium (see comments in the spec file).
 - **Next.js demo:** Subset in `examples/nextjs-demo/e2e/web-vitals.spec.ts` — parity vs ecommerce in test-coverage **§6.4**.
@@ -225,9 +236,13 @@ Pulse registers each `web-vitals` callback **once** at install; it does **not** 
 
 ### `src/__tests__/web-vitals-instrumentation.test.ts`
 
+- Exported **`webVitalContextFromNavigationType`** — direct unit tests for `back-forward` / `prerender` → `pageload` and `soft-navigation` → `navigation`.
 - Registers `onLCP`, `onINP`, `onCLS`, `onFCP`, `onTTFB`; `onCLS` / `onINP` use `{ reportAllChanges: true }`.
-- Emitted attributes include `pulse.type`, `web_vital.name`, `web_vital.value`, `web_vital.rating`, `web_vital.delta`, `web_vital.navigation_type`, `web_vital.context` per contract.
-- `visibilitychange` hidden → `forceFlush`; `pageshow` persisted → flush.
+- Emitted attributes include `pulse.type`, `web_vital.name`, `web_vital.value`, `web_vital.rating`, `web_vital.delta`, `web_vital.navigation_type`, `web_vital.context` per contract; **FCP** and **TTFB** callback paths covered explicitly.
+- **CLS:** two sequential callbacks assert cumulative `value` + incremental `delta` on the second emit.
+- `visibilitychange` hidden → `forceFlush`; `pageshow` persisted **true** → flush; `pageshow` persisted **false** → no flush; after **`uninstall()`**, neither `visibilitychange` nor `pageshow` calls `forceFlush`.
+- **Reinstall:** `install` → `uninstall` → `install` + one LCP metric → **one** `logger.emit` (stale `web-vitals` callbacks invalidated via **install epoch** on `WebVitalsInstrumentation`).
+- **No `loggerProvider`:** hidden `visibilitychange` does not throw.
 - Registry gate-off and local `enabled: false` skip installation; `uninstall()` removes flush listeners and **suppresses** further `logger.emit` from metric callbacks.
 
 ### `src/__tests__/global-attrs-processor.test.ts`

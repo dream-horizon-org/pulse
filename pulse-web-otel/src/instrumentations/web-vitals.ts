@@ -16,7 +16,8 @@ import {
 } from "../constants/pulse-otel-runtime";
 import { PulseWebSemconv } from "../semconv";
 
-function webVitalContextFromNavigationType(
+/** Exported for unit tests — maps `Metric.navigationType` to Pulse `web_vital.context`. */
+export function webVitalContextFromNavigationType(
   navigationType: string,
 ): "pageload" | "navigation" {
   return navigationType === "soft-navigation" ? "navigation" : "pageload";
@@ -34,14 +35,24 @@ export class WebVitalsInstrumentation implements PulseInstrumentation {
    */
   private reportingEnabled = false;
 
+  /**
+   * Incremented on each `install` and `uninstall`. Each `install` captures the value in metric
+   * callbacks so stale `web-vitals` registrations from a prior install cannot emit after reinstall.
+   */
+  private callbackEpoch = 0;
+
   install(sdk: SdkContext): void {
     if (typeof window === "undefined") return;
 
+    const myEpoch = ++this.callbackEpoch;
     this.reportingEnabled = true;
 
     const logger = logs.getLogger(PulseOtelLoggerScope.PULSE_WEB_VITALS);
 
     const emit = (metric: Metric): void => {
+      if (this.callbackEpoch !== myEpoch) {
+        return;
+      }
       if (!this.reportingEnabled) {
         return;
       }
@@ -70,10 +81,16 @@ export class WebVitalsInstrumentation implements PulseInstrumentation {
     onTTFB(emit);
 
     const flushLogs = (): void => {
+      if (this.callbackEpoch !== myEpoch) {
+        return;
+      }
       void sdk.loggerProvider?.forceFlush().catch(() => {});
     };
 
     this.onVisibilityChange = (): void => {
+      if (this.callbackEpoch !== myEpoch) {
+        return;
+      }
       if (document.visibilityState === DomVisibilityState.HIDDEN) {
         flushLogs();
       }
@@ -84,6 +101,9 @@ export class WebVitalsInstrumentation implements PulseInstrumentation {
     );
 
     this.onPageShow = (e: PageTransitionEvent): void => {
+      if (this.callbackEpoch !== myEpoch) {
+        return;
+      }
       if (e.persisted) {
         flushLogs();
       }
@@ -93,6 +113,7 @@ export class WebVitalsInstrumentation implements PulseInstrumentation {
 
   uninstall(): void {
     this.reportingEnabled = false;
+    this.callbackEpoch++;
     if (this.onVisibilityChange) {
       document.removeEventListener(
         DomEventType.VISIBILITY_CHANGE,

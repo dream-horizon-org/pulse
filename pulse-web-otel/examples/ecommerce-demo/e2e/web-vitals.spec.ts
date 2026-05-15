@@ -75,6 +75,9 @@ test.describe("@WebVitals", () => {
     expect(["good", "needs-improvement", "poor"]).toContain(rating);
     expect(getAttr(ttfb!.attributes, "screen.name")).toBeTruthy();
     assertExportedWebVitalAttrs(ttfb!.attributes);
+    expect(getAttr(ttfb!.attributes, "web_vital.delta")).toBe(
+      getAttr(ttfb!.attributes, "web_vital.value"),
+    );
   });
 
   test("emits FCP web_vital log after load and batch window", async ({
@@ -98,6 +101,9 @@ test.describe("@WebVitals", () => {
     expect(["good", "needs-improvement", "poor"]).toContain(rating);
     expect(getAttr(fcp!.attributes, "screen.name")).toBeTruthy();
     assertExportedWebVitalAttrs(fcp!.attributes);
+    expect(getAttr(fcp!.attributes, "web_vital.delta")).toBe(
+      getAttr(fcp!.attributes, "web_vital.value"),
+    );
   });
 
   test("emits LCP web_vital log after click and batch window", async ({
@@ -127,6 +133,9 @@ test.describe("@WebVitals", () => {
     expect(["good", "needs-improvement", "poor"]).toContain(rating);
     expect(getAttr(lcp!.attributes, "screen.name")).toBeTruthy();
     assertExportedWebVitalAttrs(lcp!.attributes);
+    expect(getAttr(lcp!.attributes, "web_vital.delta")).toBe(
+      getAttr(lcp!.attributes, "web_vital.value"),
+    );
   });
 
   test("emits INP web_vital log on tab hide after real interaction", async ({
@@ -300,6 +309,50 @@ test.describe("@WebVitals", () => {
     const spanNavId = getAttr(lastLoad.attributes, "navigation_id");
     expect(typeof spanNavId).toBe("string");
     expect((spanNavId as string).length).toBeGreaterThan(10);
+  });
+
+  test("two SPA navigations produce distinct navigation_id on screen_load spans", async ({
+    page,
+    otlp,
+  }) => {
+    await page.goto("/");
+    await otlp.waitForLog("session.start");
+    await page.waitForTimeout(600);
+
+    await page.click('a[href="/products"]');
+    await page.waitForURL("**/products");
+    const deadline1 = Date.now() + 12_000;
+    let loadsAfterProducts = findAllSpans(otlp.captured, "screen_load");
+    while (loadsAfterProducts.length === 0 && Date.now() < deadline1) {
+      await page.waitForTimeout(200);
+      loadsAfterProducts = findAllSpans(otlp.captured, "screen_load");
+    }
+    expect(loadsAfterProducts.length).toBeGreaterThan(0);
+    const navIdProducts = getAttr(
+      loadsAfterProducts[loadsAfterProducts.length - 1]!.attributes,
+      "navigation_id",
+    ) as string;
+
+    await page.click('a[href="/cart"]');
+    await page.waitForURL("**/cart");
+    const countAfterProducts = findAllSpans(
+      otlp.captured,
+      "screen_load",
+    ).length;
+    const deadline2 = Date.now() + 12_000;
+    let loads = findAllSpans(otlp.captured, "screen_load");
+    while (loads.length <= countAfterProducts && Date.now() < deadline2) {
+      await page.waitForTimeout(200);
+      loads = findAllSpans(otlp.captured, "screen_load");
+    }
+    expect(loads.length).toBeGreaterThan(countAfterProducts);
+    const navIdCart = getAttr(
+      loads[loads.length - 1]!.attributes,
+      "navigation_id",
+    ) as string;
+
+    expect(navIdCart.length).toBeGreaterThan(10);
+    expect(navIdProducts).not.toEqual(navIdCart);
   });
 
   test("does not emit web_vital logs when web_vitals feature gate is disabled", async ({
