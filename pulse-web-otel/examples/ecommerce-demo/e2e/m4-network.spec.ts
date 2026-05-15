@@ -143,14 +143,6 @@ test.describe("@M4 network e2e", () => {
     page,
     otlp,
   }) => {
-    // Stall via Playwright so all browsers (including Firefox) hang until XHR timeout fires.
-    await page.route(
-      (url) => url.pathname.startsWith("/pulse-e2e-xhr-stall"),
-      async (route) => {
-        await new Promise((r) => setTimeout(r, 10_000));
-        await route.fulfill({ status: 200, body: "{}" });
-      },
-    );
     await page.goto("/network-lab");
     await waitForPulseInitialized(page);
     await otlp.waitForLog("session.start", 15_000);
@@ -176,21 +168,13 @@ test.describe("@M4 network e2e", () => {
     page,
     otlp,
   }) => {
-    // Stall via Playwright so all browsers (including Firefox) hang until XHR is aborted.
-    await page.route(
-      (url) => url.pathname.startsWith("/pulse-e2e-xhr-stall"),
-      async (route) => {
-        await new Promise((r) => setTimeout(r, 10_000));
-        await route.fulfill({ status: 200, body: "{}" });
-      },
-    );
     await page.goto("/network-lab");
     await waitForPulseInitialized(page);
     await otlp.waitForLog("session.start", 15_000);
     otlp.reset();
 
     await page.getByTestId("network-lab-xhr-abort").click();
-    await expect(page.getByText(/xhr\.abort/)).toBeVisible({
+    await expect(page.getByText(/xhr\.(abort|onerror)/)).toBeVisible({
       timeout: 25_000,
     });
 

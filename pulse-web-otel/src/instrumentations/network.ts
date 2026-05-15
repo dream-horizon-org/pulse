@@ -180,7 +180,11 @@ export class NetworkInstrumentation implements PulseInstrumentation {
         const method =
           getOtelHttpRequestMethodFromSpan(span) ??
           methodFromOtelClientSpanName(opaque.name);
-        const statusCode = xhr.status;
+        // status=0 means no HTTP response (timeout, abort, network error). Treat as
+        // undefined so applyPulseHttpClientSpanAttributes emits network_error.
+        // Firefox populates responseURL even for timed-out XHRs, so we cannot rely
+        // on the empty-URL early-return to catch the status=0 case cross-browser.
+        const statusCode = xhr.status || undefined;
 
         // Read headers captured by the setRequestHeader monkey-patch (installed
         // when capturedRequestHeaders is non-empty). Browser hides sent headers
