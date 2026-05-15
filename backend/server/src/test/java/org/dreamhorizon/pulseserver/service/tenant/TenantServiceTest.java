@@ -532,6 +532,7 @@ class TenantServiceTest {
       assertThat(result).isNotNull();
       assertThat(result.getProjectId()).isEqualTo("proj-1");
       verify(openFgaService, never()).assignTenantRole(any(), any(), any());
+      verify(openFgaService, never()).linkTenantToSystem(any());
     }
   }
 }

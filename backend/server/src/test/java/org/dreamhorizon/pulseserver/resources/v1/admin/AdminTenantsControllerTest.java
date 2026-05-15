@@ -96,7 +96,6 @@ class AdminTenantsControllerTest {
     CreateAdminTenantRequest req = new CreateAdminTenantRequest();
     req.setTenantName("Test Org");
     req.setProjectName("Test Project");
-    req.setTenantDescription("Tenant description");
     req.setProjectDescription("Project description");
     return req;
   }

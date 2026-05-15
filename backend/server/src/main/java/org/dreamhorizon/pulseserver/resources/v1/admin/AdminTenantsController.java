@@ -132,7 +132,7 @@ public class AdminTenantsController {
                       ownerInfo,
                       body.getTenantName(),
                       body.getProjectName(),
-                      body.getTenantDescription(),
+                      null,
                       body.getProjectDescription())
                       .map(result -> {
                         CreateAdminTenantResponse response = new CreateAdminTenantResponse();

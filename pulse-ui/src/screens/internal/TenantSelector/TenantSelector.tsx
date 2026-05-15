@@ -78,7 +78,7 @@ export function TenantSelector() {
         (tenant.tier as (typeof TIERS)[keyof typeof TIERS]) || TIERS.FREE,
     });
 
-    navigate(`/${tenant.tenantId}`);
+    navigate(`/${tenant.tenantId}/projects`);
   };
 
   const handleEnterWorkspace = (tenant: TenantResponse) => {

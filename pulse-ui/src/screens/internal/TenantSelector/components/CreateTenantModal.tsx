@@ -13,7 +13,7 @@ interface CreateTenantModalProps {
 export function CreateTenantModal({ opened, onClose, onEnterWorkspace }: CreateTenantModalProps) {
   const [tenantName, setTenantName] = useState("");
   const [projectName, setProjectName] = useState("");
-  const [description, setDescription] = useState("");
+  const [projectDescription, setProjectDescription] = useState("");
 
   const createMutation = useCreateAdminTenant();
 
@@ -21,7 +21,7 @@ export function CreateTenantModal({ opened, onClose, onEnterWorkspace }: CreateT
     if (!opened) {
       setTenantName("");
       setProjectName("");
-      setDescription("");
+      setProjectDescription("");
     }
   }, [opened]);
 
@@ -50,7 +50,7 @@ export function CreateTenantModal({ opened, onClose, onEnterWorkspace }: CreateT
       {
         tenantName: trimmedTenantName,
         projectName: trimmedProjectName,
-        tenantDescription: description.trim() || undefined,
+        projectDescription: projectDescription.trim() || undefined,
       },
       {
         onSuccess: (response) => {
@@ -105,10 +105,10 @@ export function CreateTenantModal({ opened, onClose, onEnterWorkspace }: CreateT
           required
         />
         <Textarea
-          label="Description (Optional)"
-          placeholder="Add a short description for this tenant"
-          value={description}
-          onChange={(event) => setDescription(event.currentTarget.value)}
+          label="Project Description (Optional)"
+          placeholder="Add a brief description to help your team understand this project"
+          value={projectDescription}
+          onChange={(event) => setProjectDescription(event.currentTarget.value)}
           minRows={3}
         />
         <Group justify="flex-end" mt="sm">

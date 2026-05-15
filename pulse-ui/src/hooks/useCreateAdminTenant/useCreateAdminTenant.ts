@@ -5,7 +5,7 @@ import { API_BASE_URL, API_ROUTES } from "../../constants";
 export interface CreateAdminTenantParams {
   tenantName: string;
   projectName: string;
-  tenantDescription?: string;
+  projectDescription?: string;
 }
 
 export interface CreateAdminTenantResponse {
