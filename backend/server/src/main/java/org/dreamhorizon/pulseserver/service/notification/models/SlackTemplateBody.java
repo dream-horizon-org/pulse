@@ -12,9 +12,11 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 @EqualsAndHashCode(callSuper = true)
-public class  SlackTemplateBody extends TemplateBody {
+public class SlackTemplateBody extends TemplateBody {
 
   private String text;
 
   private JsonNode blocks;
+
+  private String color;
 }
