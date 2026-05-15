@@ -34,4 +34,3 @@ class CCrashInstrumentation : AndroidInstrumentation {
         internal const val TAG = "CCrash"
     }
 }
-

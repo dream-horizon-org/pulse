@@ -14,9 +14,9 @@ internal data class PulseNativeCrashReportFile(
     @SerialName("ts_ms") val tsMs: Long? = null,
     val pid: Int? = null,
     val tid: Long? = null,
+    @SerialName("thread_name") val threadName: String? = null,
     val signal: Int? = null,
     @SerialName("signal_name") val signalName: String? = null,
     @SerialName("fault_addr") val faultAddr: String? = null,
-    val stack: List<String>? = null,
-    @SerialName("thread_name") val threadName: String? = null,
+    @SerialName("stack_frames") val stackFrames: List<PulseNativeStackFrame>? = null,
 )

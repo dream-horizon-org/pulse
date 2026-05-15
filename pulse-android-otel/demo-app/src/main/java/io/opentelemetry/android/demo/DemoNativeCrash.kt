@@ -21,9 +21,24 @@ internal object DemoNativeCrash {
         nativeSigsegv()
     }
 
+    fun chainedReadOnlyCrashFromKotlin() {
+        callMiddleForReadOnlyCrash()
+    }
+
+    private fun callMiddleForReadOnlyCrash() {
+        invokeNativeReadOnlyCrash()
+    }
+
+    private fun invokeNativeReadOnlyCrash() {
+        nativeReadOnlyCrash()
+    }
+
     @PulseJniCall
     private external fun nativeAbort()
 
     @PulseJniCall
     private external fun nativeSigsegv()
+
+    @PulseJniCall
+    private external fun nativeReadOnlyCrash()
 }

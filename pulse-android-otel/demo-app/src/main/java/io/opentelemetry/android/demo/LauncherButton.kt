@@ -34,7 +34,7 @@ fun LauncherButton(
         onClick = onClick,
         border = BorderStroke(1.dp, Color.Gray),
         modifier = modifier
-            .padding(16.dp)
+            .padding(8.dp)
             .height(64.dp),
         enabled = enabled,
         colors =

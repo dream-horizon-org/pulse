@@ -1,3 +1,5 @@
+@file:Suppress("UnstableApiUsage")
+
 plugins {
     id("otel.android-library-conventions")
     id("otel.publish-conventions")
@@ -14,6 +16,11 @@ android {
 
         externalNativeBuild {
             cmake {
+                // Match bugsnag-plugin-android-ndk (ProjectDefaults): unwindstack + EH across DSOs.
+                arguments += listOf(
+                    "-DANDROID_CPP_FEATURES=exceptions",
+                    "-DANDROID_STL=c++_shared",
+                )
                 cppFlags += listOf("-std=c++17")
             }
         }

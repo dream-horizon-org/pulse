@@ -16,7 +16,6 @@ import io.opentelemetry.semconv.ExceptionAttributes.EXCEPTION_TYPE
 import io.opentelemetry.semconv.incubating.ThreadIncubatingAttributes.THREAD_ID
 import io.opentelemetry.semconv.incubating.ThreadIncubatingAttributes.THREAD_NAME
 import java.io.File
-import kotlinx.serialization.decodeFromString
 
 internal object PulseNativeCrashReportDrain {
     fun drainAndEmit(
@@ -30,6 +29,9 @@ internal object PulseNativeCrashReportDrain {
             try {
                 PulseLogger.logDebug(CCrashInstrumentation.TAG) { "drain reading ${file.absolutePath}" }
                 file.readText().fromJson<PulseNativeCrashReportFile>("drainAndEmit")?.let {
+                    PulseLogger.logDebug(CCrashInstrumentation.TAG) {
+                        "PulseNativeCrashReportFile\n$it"
+                    }
                     val attributes = toAttributes(it)
                     openTelemetry
                         .sdkLoggerProvider
@@ -50,11 +52,35 @@ internal object PulseNativeCrashReportDrain {
         }
     }
 
+    /**
+     * Fallback formatter used only when [PulseNativeCrashReportFile.formattedStacktrace] is absent
+     * (reports from older SDK versions). Uses rel_pc (offset within .so) for the pc column to
+     * match the tombstone-style format produced by the C++ format_stacktrace function.
+     */
+    private fun formatStackFrames(frames: List<PulseNativeStackFrame>): String =
+        frames.mapIndexed { index, frame ->
+            buildString {
+                append('#').append(index)
+                frame.relPc?.let { pc ->
+                    append(" pc 0x").append(java.lang.Long.toHexString(pc).padStart(16, '0'))
+                }
+                frame.filename?.takeIf { it.isNotBlank() }?.let { append(" ").append(it) }
+                if (frame.method?.isNotBlank() == true) {
+                    val offset = if (frame.frameAddress != null && frame.symbolAddress != null &&
+                        frame.frameAddress >= frame.symbolAddress && frame.symbolAddress != 0L
+                    ) frame.frameAddress - frame.symbolAddress else 0L
+                    append(" (").append(frame.method)
+                    if (offset > 0) append("+0x").append(java.lang.Long.toHexString(offset))
+                    append(')')
+                }
+            }
+        }.joinToString("\n")
+
     private fun toAttributes(report: PulseNativeCrashReportFile): Attributes {
         val stackStr =
-            report.stack
-                ?.joinToString("\n")
-                ?.takeIf { it.isNotBlank() }
+            report.stackFrames
+                ?.takeIf { it.isNotEmpty() }
+                ?.let { formatStackFrames(it).takeIf { s -> s.isNotBlank() } }
 
         val message =
             buildString {

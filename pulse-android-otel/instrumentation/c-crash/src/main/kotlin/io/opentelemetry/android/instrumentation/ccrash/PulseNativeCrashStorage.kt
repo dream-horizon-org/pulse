@@ -9,10 +9,10 @@ import android.app.Application
 import java.io.File
 
 internal object PulseNativeCrashStorage {
-    private const val DIR_NAME = "pulse-native-crash"
+    private val DIR_NAME = "pulse${File.separatorChar}nativeCrash"
 
     fun reportsDir(app: Application): File {
-        val dir = File(app.noBackupFilesDir, DIR_NAME)
+        val dir = File(app.cacheDir, DIR_NAME)
         dir.mkdirs()
         return dir
     }

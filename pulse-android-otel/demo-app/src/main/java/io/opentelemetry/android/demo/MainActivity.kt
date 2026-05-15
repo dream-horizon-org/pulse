@@ -16,6 +16,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -145,8 +146,8 @@ class MainActivity : ComponentActivity() {
                             )
                         }
                         Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
                         ) {
                             LauncherButton(
                                 text = "Native abort (C)",
@@ -159,6 +160,13 @@ class MainActivity : ComponentActivity() {
                                 text = "C++ crash (SIGSEGV)",
                                 onClick = {
                                     DemoNativeCrash.sigsegvNow()
+                                },
+                                modifier = Modifier.weight(1f),
+                            )
+                            LauncherButton(
+                                text = "Native crash chain",
+                                onClick = {
+                                    DemoNativeCrash.chainedReadOnlyCrashFromKotlin()
                                 },
                                 modifier = Modifier.weight(1f),
                             )
