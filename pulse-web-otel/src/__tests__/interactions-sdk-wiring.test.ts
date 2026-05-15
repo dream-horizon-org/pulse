@@ -11,6 +11,7 @@ const createProvidersMock = vi.fn();
 vi.mock("../exporters", () => {
   const mockTracerProvider = {
     addSpanProcessor: vi.fn(),
+    register: vi.fn(),
     getTracer: vi.fn().mockReturnValue({
       startSpan: vi.fn().mockReturnValue({
         setAttribute: vi.fn(),

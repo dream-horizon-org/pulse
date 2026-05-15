@@ -96,6 +96,7 @@ export const PulseWebSemconv = {
     WEB_VITAL_DELTA: "web_vital.delta",
     /** Stable OTel HTTP semconv keys for CLIENT spans; {@code pulse.type} values are {@code network.<statusCode>} (Android parity). */
     HTTP_REQUEST_METHOD: "http.request.method",
+    HTTP_REQUEST_METHOD_ORIGINAL: "http.request.method_original",
     URL_FULL: "url.full",
     HTTP_RESPONSE_STATUS_CODE: "http.response.status_code",
     HTTP_REQUEST_BODY_SIZE: "http.request.body.size",

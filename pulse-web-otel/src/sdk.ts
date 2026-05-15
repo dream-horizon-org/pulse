@@ -15,7 +15,6 @@ if (typeof crypto !== "undefined" && typeof crypto.randomUUID !== "function") {
 // a disk toggle; OTel `DiskBufferingConfigurationSpec` defaults `isEnabled = true`). Pass
 // `diskBuffering: { enabled: false }` to disable IndexedDB replay.
 
-import { trace } from "@opentelemetry/api";
 import type { Tracer } from "@opentelemetry/api";
 import { logs, SeverityNumber } from "@opentelemetry/api-logs";
 import type { Logger } from "@opentelemetry/api-logs";
@@ -143,27 +142,30 @@ class PulseSDK implements SdkContext {
    */
   init(config: PulseWebConfig): Promise<void> {
     try {
-    if (this._initialized || this._shuttingDown) {
-      return Promise.resolve();
-    }
-    if (this._initializing) {
-      return this.whenReady();
-    }
+      if (this._initialized || this._shuttingDown) {
+        return Promise.resolve();
+      }
+      if (this._initializing) {
+        return this.whenReady();
+      }
 
-    PulseWebLogger.setLevel(config.logLevel ?? PulseLogLevel.NONE);
+      PulseWebLogger.setLevel(config.logLevel ?? PulseLogLevel.NONE);
 
-    const rawKey = config.apiKey as string | undefined | null;
-    if (
-      rawKey === undefined ||
-      rawKey === null ||
-      (typeof rawKey === "string" && rawKey.trim() === "")
-    ) {
+      const rawKey = config.apiKey as string | undefined | null;
+      if (
+        rawKey === undefined ||
+        rawKey === null ||
+        (typeof rawKey === "string" && rawKey.trim() === "")
+      ) {
+        PulseWebLogger.warn(
+          "[Pulse] SDK not initialized — missing or empty apiKey (telemetry disabled).",
+        );
+        return Promise.resolve();
+      }
+    } catch (err: unknown) {
       PulseWebLogger.warn(
-        "[Pulse] SDK not initialized — missing or empty apiKey (telemetry disabled).",
+        `[Pulse] SDK init failed — ${err instanceof Error ? err.message : String(err)}`,
       );
-      return Promise.resolve();
-    }}catch (err: unknown) {
-      PulseWebLogger.warn(`[Pulse] SDK init failed — ${err instanceof Error ? err.message : String(err)}`);
       return Promise.resolve();
     }
 
@@ -430,7 +432,12 @@ class PulseSDK implements SdkContext {
     const meterProvider = this.meterProvider;
     if (!tracerProvider || !loggerProvider || !meterProvider) return;
 
-    trace.setGlobalTracerProvider(tracerProvider);
+    // register() sets the global tracer provider, installs the W3C propagator,
+    // AND installs the default context manager (ZoneContextManager in browsers).
+    // Without a context manager, context.active() always returns ROOT_CONTEXT
+    // inside context.with() callbacks, so propagation.inject finds no span and
+    // traceparent headers are never written.
+    tracerProvider.register();
     logs.setGlobalLoggerProvider(loggerProvider);
     metrics.setGlobalMeterProvider(meterProvider);
 
@@ -688,6 +695,9 @@ class PulseSDK implements SdkContext {
     this.logger.emit({
       eventName: PulseWebSemconv.LogEventName.CUSTOM_NON_FATAL,
       body: name,
+      timestamp: Date.now(),
+      severityNumber: SeverityNumber.WARN,
+      severityText: "WARN",
       attributes: {
         [PulseWebSemconv.AttributeKey.EVENT_NAME]:
           PulseWebSemconv.LogEventName.CUSTOM_NON_FATAL,

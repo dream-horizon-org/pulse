@@ -24,6 +24,32 @@ function getNetworkConnection(): NetworkConnection {
   return nav.connection ?? {};
 }
 
+/**
+ * Heuristics for path segments treated as dynamic IDs in **web** URL normalization
+ * (`sanitizeHttpUrl` → `normalizeUrlPath` in `network-http.ts`).
+ *
+ * **Android divergence:** Android `PulseNetworkingUtils.redactUrl` treats numeric
+ * segments as IDs only when they have **at least 3 digits**; web treats **any**
+ * all-digit segment (including `42`, `2024`) as `:id`. Documented in
+ * `docs/instrumentations/network/SPEC.md` §8 (D2, D5).
+ */
+export function isDynamicSegment(seg: string): boolean {
+  // Pure integers: 1, 42, 123, 2024 — web normalizes all (Android uses ≥3 digits).
+  if (/^\d+$/.test(seg)) return true;
+  // Standard UUID v4 (with dashes): 550e8400-e29b-41d4-a716-446655440000
+  if (
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(seg)
+  )
+    return true;
+  // UUID without dashes (32 hex chars): 550e8400e29b41d4a716446655440000
+  if (/^[0-9a-f]{32}$/i.test(seg)) return true;
+  // MongoDB ObjectId (24 hex chars): 507f1f77bcf86cd799439011
+  if (/^[0-9a-f]{24}$/i.test(seg)) return true;
+  // ULID (26 Crockford base32 chars): 01ARZ3NDEKTSV4RRFFQ69G5FAV
+  if (/^[0-9a-hjkmnp-tv-zA-HJKMNP-TV-Z]{26}$/.test(seg)) return true;
+  return false;
+}
+
 function resolveScreenName(
   manualScreenName: string | null,
   config: PulseWebConfig,
@@ -208,7 +234,7 @@ export class PulseGlobalAttributesProcessor
 
     const installationId = getOrCreateInstallationId();
     const attrs: Record<string, PulseAttributeValue> = {
-      "session.id": sessionId,
+      [PulseWebSemconv.AttributeKey.SESSION_ID]: sessionId,
       "window.id": this.sessionProvider.getWindowId(),
       "installation.id": installationId,
       "app.installation.id": installationId,
@@ -275,14 +301,15 @@ export class PulseGlobalAttributesProcessor
 
   onEmit(logRecord: SdkLogRecord): void {
     const attrs = this.getCommonAttrs();
+    const sessionIdAttr = PulseWebSemconv.AttributeKey.SESSION_ID;
     for (const [key, value] of Object.entries(attrs)) {
       // Do not overwrite session.id if the instrumentation already set it explicitly.
       // session.start / session.end log records set the correct session.id themselves;
       // overwriting them with the post-rotation value from getSessionId() would corrupt
       // the session.end record (it would carry the NEW session.id instead of the old one).
-      if (key === "session.id") {
+      if (key === sessionIdAttr) {
         const existing = logRecord.attributes
-          ? (logRecord.attributes as Record<string, unknown>)["session.id"]
+          ? (logRecord.attributes as Record<string, unknown>)[sessionIdAttr]
           : undefined;
         if (existing !== undefined && existing !== "") continue;
       }

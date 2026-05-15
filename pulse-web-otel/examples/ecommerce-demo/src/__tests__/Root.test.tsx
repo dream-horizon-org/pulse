@@ -185,6 +185,37 @@ describe("Demo Root — PulseProvider wiring", () => {
       }),
     );
   });
+
+  it("passes captureQueryParams when pulse_capture_query=1", async () => {
+    window.history.replaceState({}, "", "/?pulse_capture_query=1");
+    await renderRoot();
+    expect(mockStart).toHaveBeenCalledWith(
+      expect.objectContaining({
+        instrumentations: {
+          network: { enabled: true, captureQueryParams: true },
+        },
+      }),
+    );
+  });
+
+  it("passes capturedRequestHeaders when pulse_capture_req_headers is set", async () => {
+    window.history.replaceState(
+      {},
+      "",
+      "/?pulse_capture_req_headers=x-request-id,x-custom-header",
+    );
+    await renderRoot();
+    expect(mockStart).toHaveBeenCalledWith(
+      expect.objectContaining({
+        instrumentations: {
+          network: {
+            enabled: true,
+            capturedRequestHeaders: ["x-request-id", "x-custom-header"],
+          },
+        },
+      }),
+    );
+  });
 });
 
 describe("Demo Root — PulseErrorBoundary wiring", () => {

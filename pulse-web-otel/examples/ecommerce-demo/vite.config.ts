@@ -1,9 +1,30 @@
-import { defineConfig } from "vite";
+import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "path";
 
+/** Never responds — used by NetworkLab XHR timeout/abort when `import.meta.env.MODE === "test"`. */
+function pulseE2eXhrStallPlugin(): Plugin {
+  return {
+    name: "pulse-e2e-xhr-stall",
+    apply: "serve",
+    configureServer(server) {
+      server.middlewares.use((req, res, next) => {
+        if (
+          req.method === "GET" &&
+          typeof req.url === "string" &&
+          req.url.startsWith("/pulse-e2e-xhr-stall")
+        ) {
+          void res;
+          return;
+        }
+        next();
+      });
+    },
+  };
+}
+
 export default defineConfig(({ mode }) => ({
-  plugins: [react()],
+  plugins: [react(), ...(mode === "test" ? [pulseE2eXhrStallPlugin()] : [])],
   server: {
     port: 3002,
     // Playwright uses `--mode test`. Disable HMR so the Vite client does not touch

@@ -23,19 +23,28 @@ export interface OtlpAttr {
     intValue?: number;
     doubleValue?: number;
     boolValue?: boolean;
+    arrayValue?: { values: Array<{ stringValue?: string }> };
   };
 }
 
 export interface OtlpLogRecord {
   timeUnixNano?: string;
   severityText?: string;
+  severityNumber?: number;
+  eventName?: string;
   body?: { stringValue?: string };
   attributes: OtlpAttr[];
+}
+
+export interface OtlpSpanStatus {
+  code?: number;
+  message?: string;
 }
 
 export interface OtlpSpan {
   name: string;
   attributes: OtlpAttr[];
+  status?: OtlpSpanStatus;
 }
 
 type LogsBody = {
@@ -60,10 +69,13 @@ export type CapturedRequest =
 export function getAttr(
   attrs: OtlpAttr[] | undefined,
   key: string,
-): string | number | boolean | undefined {
+): string | number | boolean | string[] | undefined {
   const a = (attrs ?? []).find((a) => a.key === key);
   if (!a) return undefined;
   const v = a.value;
+  if (v.arrayValue) {
+    return v.arrayValue.values.map((item) => item.stringValue ?? "");
+  }
   return v.stringValue ?? v.intValue ?? v.doubleValue ?? v.boolValue;
 }
 
@@ -104,6 +116,64 @@ export function findAllSpans(
   return out;
 }
 
+const SCREEN_NAME_KEY = "screen.name";
+
+/** Any OTLP log or span whose {@code screen.name} equals {@code name}. */
+export function capturedHasScreenName(
+  captured: CapturedRequest[],
+  name: string,
+): boolean {
+  for (const c of captured) {
+    if (c.type === "logs") {
+      for (const rl of c.body.resourceLogs ?? []) {
+        for (const sl of rl.scopeLogs ?? []) {
+          for (const lr of sl.logRecords ?? []) {
+            if (getAttr(lr.attributes, SCREEN_NAME_KEY) === name) return true;
+          }
+        }
+      }
+    } else if (c.type === "traces") {
+      for (const rs of c.body.resourceSpans ?? []) {
+        for (const ss of rs.scopeSpans ?? []) {
+          for (const sp of ss.spans ?? []) {
+            if (getAttr(sp.attributes, SCREEN_NAME_KEY) === name) return true;
+          }
+        }
+      }
+    }
+  }
+  return false;
+}
+
+/** Non-empty {@code screen.name} values from every log record and span. */
+export function allScreenNamesInCaptured(
+  captured: CapturedRequest[],
+): string[] {
+  const out: string[] = [];
+  for (const c of captured) {
+    if (c.type === "logs") {
+      for (const rl of c.body.resourceLogs ?? []) {
+        for (const sl of rl.scopeLogs ?? []) {
+          for (const lr of sl.logRecords ?? []) {
+            const sn = getAttr(lr.attributes, SCREEN_NAME_KEY);
+            if (typeof sn === "string" && sn) out.push(sn);
+          }
+        }
+      }
+    } else if (c.type === "traces") {
+      for (const rs of c.body.resourceSpans ?? []) {
+        for (const ss of rs.scopeSpans ?? []) {
+          for (const sp of ss.spans ?? []) {
+            const sn = getAttr(sp.attributes, SCREEN_NAME_KEY);
+            if (typeof sn === "string" && sn) out.push(sn);
+          }
+        }
+      }
+    }
+  }
+  return out;
+}
+
 export function getResourceAttr(
   captured: CapturedRequest[],
   key: string,
@@ -119,6 +189,35 @@ export function getResourceAttr(
     }
   }
   return undefined;
+}
+
+/** Numeric OTLP status code, or undefined if missing / malformed. */
+export function getOtlpSpanStatusCode(span: OtlpSpan): number | undefined {
+  const c = span.status?.code;
+  return typeof c === "number" && Number.isFinite(c) ? c : undefined;
+}
+
+/**
+ * HTTP client spans: `pulse.type` is `network.<statusCode>`.
+ * Prefix-matches `network.` but excludes `network.change`.
+ */
+export function findAllNetworkSpans(captured: CapturedRequest[]): OtlpSpan[] {
+  const out: OtlpSpan[] = [];
+  for (const c of captured) {
+    if (c.type !== "traces") continue;
+    for (const rs of c.body.resourceSpans ?? []) {
+      for (const ss of rs.scopeSpans ?? []) {
+        for (const sp of ss.spans ?? []) {
+          const pt = getAttr(sp.attributes, "pulse.type");
+          const s = typeof pt === "string" ? pt : "";
+          if (s.startsWith("network.") && s !== "network.change") {
+            out.push(sp);
+          }
+        }
+      }
+    }
+  }
+  return out;
 }
 
 // ─── Internal helpers ─────────────────────────────────────────────────────────
