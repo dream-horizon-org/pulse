@@ -92,6 +92,7 @@ Full tree and init step list: [`architecture-and-bootstrap/SPEC.md`](architectur
 | Requirements (R1–R10) | [`requirements/SPEC.md`](requirements/SPEC.md) |
 | Architecture + bootstrap sequence | [`architecture-and-bootstrap/SPEC.md`](architecture-and-bootstrap/SPEC.md) |
 | `pulse.type` + shared attributes | [`data-contract/SPEC.md`](data-contract/SPEC.md) |
+| User identity (`setUserId`, persistence, global attrs) | [`user-identity/SPEC.md`](user-identity/SPEC.md) |
 | Config, consent, and `Pulse.*` public API | [`config-and-public-api/SPEC.md`](config-and-public-api/SPEC.md) |
 | Remote config, feature gate, sampling | [`remote-config-features-and-sampling/SPEC.md`](remote-config-features-and-sampling/SPEC.md) |
 | Export sampling, `signals.filters`, `SignalFilterProcessor` | [`sampling-and-filtering/SPEC.md`](sampling-and-filtering/SPEC.md) |
@@ -102,7 +103,7 @@ Full tree and init step list: [`architecture-and-bootstrap/SPEC.md`](architectur
 
 ### 5.2 Primary `src/` touchpoints
 
-`src/sdk.ts`, `src/config.ts`, `src/consent.ts`, `src/remote-config.ts`, `src/feature-gate.ts`, `src/instrumentation-registry.ts`, `src/exporters.ts`, `src/before-send.ts`, `src/resource.ts`, `src/processors/`, `src/persistence/`, `src/sampling/`, `src/utils/ua-parser.ts` — sampling and `signals.filters` detail: [`sampling-and-filtering/SPEC.md`](sampling-and-filtering/SPEC.md). Session: `src/session.ts`, `src/instrumentations/session.ts` → [`../instrumentations/session/SPEC.md`](../instrumentations/session/SPEC.md).
+`src/sdk.ts`, `src/config.ts`, `src/consent.ts`, `src/remote-config.ts`, `src/feature-gate.ts`, `src/instrumentation-registry.ts`, `src/exporters.ts`, `src/before-send.ts`, `src/resource.ts`, `src/processors/`, `src/persistence/`, `src/sampling/`, `src/utils/ua-parser.ts` — sampling and `signals.filters` detail: [`sampling-and-filtering/SPEC.md`](sampling-and-filtering/SPEC.md). User identity: `src/sdk.ts` + `src/session.ts` + `src/processors/global-attrs-processor.ts` → [`user-identity/SPEC.md`](user-identity/SPEC.md). Session: `src/session.ts`, `src/instrumentations/session.ts` → [`../instrumentations/session/SPEC.md`](../instrumentations/session/SPEC.md).
 
 ### 5.3 Topic LLD depth (§5 in each sub-SPEC)
 
@@ -119,6 +120,7 @@ Each topic file under `docs/sdk-core/<topic>/SPEC.md` has an expanded **§5 LLD*
 | R1–R10 + NFRs | [`test-coverage/SPEC.md`](test-coverage/SPEC.md) §5–§6 |
 | Bootstrap sequence | [`architecture-and-bootstrap/SPEC.md`](architecture-and-bootstrap/SPEC.md) + `sdk-lifecycle.test.ts` (see test-coverage) |
 | Session | [`../instrumentations/session/SPEC.md`](../instrumentations/session/SPEC.md) §6 + `m1.test.ts` |
+| User identity | [`user-identity/SPEC.md`](user-identity/SPEC.md) §6 + `user-identity.test.ts` / `session-persistence.test.ts` / `sdk-public-methods.test.ts` |
 
 ### 6.2 Scenario matrix (rollup)
 

@@ -1,16 +1,19 @@
 /**
  * Unit tests for session persistence (localStorage) — two areas:
  *
- * 1. Session continuity after cross-origin redirect
- *    Payment gateway redirect clears sessionStorage. The session ID lives in
- *    localStorage and must be reused without a duplicate session.start.
+ * 1. Session continuity (localStorage + sessionStorage flags)
+ *    `wasSessionReused` is true when an unexpired session is resumed from
+ *    localStorage (same-tab reload, new tab within inactivity window, or
+ *    cross-origin return) — `emitInitialSession` then skips `session.start`.
+ *    Tab / clone sessionStorage flags are still written for clone detection.
  *
  * 2. User identity persistence (setUserId / setUserProperty / clearUserIdentity)
  *    User ID and properties are stored in localStorage so they survive page
  *    refreshes and cross-origin redirects.
  *
  * Positive cases:
- *   - Returning from payment gateway (no sessionStorage flags) → session reused
+ *   - Valid localStorage + empty sessionStorage → same session id, `wasSessionReused` true
+ *   - Tab / clone flags → still `wasSessionReused` true when session valid; `emitInitialSession` skips `session.start`
  *   - New tab with no localStorage → new session
  *   - setUserId persists across "reloads" (new SessionProvider instance)
  *   - setUserProperties merges, preserves existing keys
@@ -79,8 +82,14 @@ function seedSession(id: string, msSinceLastActivity = 1000): void {
   const lastActivityMs = now - msSinceLastActivity;
   const sessionStartMs = now - msSinceLastActivity - 5000; // started a bit before last activity
   window.localStorage.setItem(SESSION_ID_KEY, id);
-  window.localStorage.setItem(SESSION_TS_KEY, String(lastActivityMs * 1_000_000));
-  window.localStorage.setItem(SESSION_START_KEY, String(sessionStartMs * 1_000_000));
+  window.localStorage.setItem(
+    SESSION_TS_KEY,
+    String(lastActivityMs * 1_000_000),
+  );
+  window.localStorage.setItem(
+    SESSION_START_KEY,
+    String(sessionStartMs * 1_000_000),
+  );
 }
 
 /** Write an expired session (past 30 min inactivity timeout) to localStorage. */
@@ -89,14 +98,12 @@ function seedExpiredSession(id: string): void {
   seedSession(id, OVER_TIMEOUT_MS);
 }
 
-// ─── Part 1: Cross-origin redirect session continuity ─────────────────────────
+// ─── Part 1: Session id + wasSessionReused (tab / clone flags vs localStorage only) ─
 
-describe("session continuity: cross-origin redirect (payment gateway flow)", () => {
-
-  it("reuses valid localStorage session even when sessionStorage is empty (no tab/clone flags)", () => {
-    // Simulate: payment gateway redirect cleared sessionStorage
+describe("session continuity: localStorage resume and tab/clone reuse", () => {
+  it("localStorage-only resume: same session id and wasSessionReused true (analytics parity)", () => {
+    // e.g. sessionStorage cleared — no tab or clone markers on first paint
     seedSession("session-abc");
-    // sessionStorage is EMPTY (no SESSION_TAB_KEY, no CLONE_FLAG)
     expect(window.sessionStorage.getItem(SESSION_TAB_KEY)).toBeNull();
     expect(window.sessionStorage.getItem(SESSION_CLONE_FLAG_KEY)).toBeNull();
 
@@ -105,16 +112,14 @@ describe("session continuity: cross-origin redirect (payment gateway flow)", () 
     expect(provider.getSessionId()).toBe("session-abc");
   });
 
-  it("reused session: emitInitialSession() does NOT fire session.start (no duplicate)", () => {
+  it("when wasSessionReused, emitInitialSession does not emit session.start for existing id", () => {
     seedSession("session-abc");
     const provider = new SessionProvider();
     const handler = vi.fn();
     provider.onSessionChange(handler);
     provider.emitInitialSession();
 
-    const startEvents = handler.mock.calls.filter(
-      ([e]) => e.type === "start",
-    );
+    const startEvents = handler.mock.calls.filter(([e]) => e.type === "start");
     expect(startEvents).toHaveLength(0);
   });
 
@@ -158,7 +163,7 @@ describe("session continuity: cross-origin redirect (payment gateway flow)", () 
   it("expired session causes rotation: new session ID differs from expired one", () => {
     seedExpiredSession("session-old");
     const provider = new SessionProvider();
-    // wasSessionReused = false → emitInitialSession creates/starts a new session
+    // wasSessionReused = false after rotation → emitInitialSession may emit session.start
     const newId = provider.getSessionId(); // rotation fires here for expired sessions
     // The new session must be a fresh UUID, not the expired one
     expect(newId).not.toBe("session-old");
@@ -248,7 +253,6 @@ describe("session continuity: cross-origin redirect (payment gateway flow)", () 
 // ─── Part 2: User identity persistence ───────────────────────────────────────
 
 describe("setPersistedUserId / getPersistedUserId", () => {
-
   it("stores user ID in localStorage", () => {
     setPersistedUserId("user-123");
     expect(window.localStorage.getItem(USER_ID_KEY)).toBe("user-123");
@@ -279,7 +283,6 @@ describe("setPersistedUserId / getPersistedUserId", () => {
 });
 
 describe("setPersistedUserProperties / getPersistedUserProperties", () => {
-
   it("stores properties in localStorage", () => {
     setPersistedUserProperties({ plan: "pro", locale: "en-IN" });
     expect(window.localStorage.getItem(USER_PROPS_KEY)).toBeTruthy();
@@ -325,7 +328,6 @@ describe("setPersistedUserProperties / getPersistedUserProperties", () => {
 });
 
 describe("clearPersistedUserIdentity", () => {
-
   it("removes both userId and properties from localStorage", () => {
     setPersistedUserId("user-123");
     setPersistedUserProperties({ plan: "pro" });
@@ -361,20 +363,29 @@ function makeProcessor(): PulseGlobalAttributesProcessor {
     currentSessionId: vi.fn().mockReturnValue("sess-test"),
   } as unknown as InstanceType<typeof SessionProvider>;
 
-  return new PulseGlobalAttributesProcessor(mockSession, {} as PulseWebConfig, "");
+  const proc = new PulseGlobalAttributesProcessor(
+    mockSession,
+    {} as PulseWebConfig,
+    "",
+  );
+  proc.hydrateUserIdentity(getPersistedUserId(), getPersistedUserProperties());
+  return proc;
 }
 
-function getAttrs(proc: PulseGlobalAttributesProcessor): Record<string, unknown> {
+function getAttrs(
+  proc: PulseGlobalAttributesProcessor,
+): Record<string, unknown> {
   const logRecord = {
     attributes: {} as Record<string, unknown>,
-    setAttribute(k: string, v: unknown) { this.attributes[k] = v; },
+    setAttribute(k: string, v: unknown) {
+      this.attributes[k] = v;
+    },
   };
   proc.onEmit(logRecord as Parameters<typeof proc.onEmit>[0]);
   return logRecord.attributes;
 }
 
 describe("PulseGlobalAttributesProcessor user identity injection", () => {
-
   it("injects user.id when setUserId is called", () => {
     setPersistedUserId("user-abc");
     const proc = makeProcessor();

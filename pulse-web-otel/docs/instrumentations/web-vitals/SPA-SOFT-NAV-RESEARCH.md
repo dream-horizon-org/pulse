@@ -39,7 +39,7 @@ out of the box.
 
 **Status: Parity with PostHog and Sentry.**
 
-- All 6 metrics (LCP, INP, CLS, FCP, FID, TTFB) are registered on initial hard page load
+- All five metrics (LCP, INP, CLS, FCP, TTFB) are registered on initial hard page load
 - Every SPA route change triggers `Pulse.notifySoftNavigation()` → `forceFlush()`
 - This sends any buffered vitals to the collector **immediately** at route change,
   instead of waiting for tab hide

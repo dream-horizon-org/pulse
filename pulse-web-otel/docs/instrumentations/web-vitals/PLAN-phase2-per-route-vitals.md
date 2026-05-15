@@ -17,7 +17,7 @@ Researched `getsentry/sentry-javascript` source directly.
 
 Sentry's `startTrackingWebVitals()` is called **once** at SDK init. It is never re-registered after SPA navigations. Source: `packages/browser-utils/src/metrics/browserMetrics.ts`, `lcp.ts`, `cls.ts`.
 
-`reportSoftNavs` **does not exist in any released npm version** of `web-vitals`. It is on an experimental `soft-navs` branch of GoogleChrome/web-vitals only. Chrome Soft Navigations API is still an origin trial (Chrome 139+, not GA). Upgrading to v5 gives nothing here.
+`reportSoftNavs` **does not exist in any released npm version** of `web-vitals`. It is on an experimental `soft-navs` branch of GoogleChrome/web-vitals only. Chrome Soft Navigations API is still an origin trial (Chrome 139+, not GA). Upgrading the **default** `web-vitals` package to v5+ does **not** enable soft-nav callbacks — that remains a separate experimental entry.
 
 **Pulse Phase 1 already matches Sentry** for the flush-on-nav approach.
 
@@ -42,7 +42,7 @@ The `web-vitals` library's `Metric` interface has two value fields:
 
 **TTFB / FCP:** Not meaningful on SPA route changes. Still tracked once on initial load.
 
-No experimental APIs. No `web-vitals` version upgrade required. Works in Chrome, Safari, Firefox.
+No experimental APIs. Phase 2 per-route deltas + `navigation_id` work on **`web-vitals` ^5.x** (the SDK’s current dependency). Historical note: this plan was drafted when the SDK pinned v4; v5 is now the baseline — see `PLAN-web-vitals-v5-upgrade.md`.
 
 ---
 
@@ -107,11 +107,10 @@ onINP(emit, { reportAllChanges: true });   // fires on each new worst interactio
 // unchanged — initial load only, reportAllChanges not meaningful
 onLCP(emit);
 onFCP(emit);
-onFID(emit);
 onTTFB(emit);
 ```
 
-No import change. No version bump. `reportAllChanges` is in web-vitals v4.
+`reportAllChanges` is in `web-vitals` v4+ and v5+. **`onFID` was removed in v5** — the live SDK registers five metrics (`onLCP`, `onINP`, `onCLS`, `onFCP`, `onTTFB`).
 
 ---
 
@@ -176,7 +175,7 @@ No materialized columns needed. Map access only. No backend schema migration.
 | `src/__tests__/navigation-instrumentation.test.ts` | Verify `setNavigationId` called once per navigation type (cold, SPA, BFCache) |
 | `examples/ecommerce-demo/e2e/web-vitals.spec.ts` | Add `navigation_id` truthy + `web_vital.context` ∈ `{pageload,navigation}` + `web_vital.delta` finite assertions on positive paths |
 
-No backend changes. No new `PulseFeature`. No new E2E spec file. No `web-vitals` version bump.
+**Historical:** Phase 2 touchpoints were written before the SDK moved to `web-vitals` ^5.x (`onFID` removed upstream). The ecommerce E2E suite was updated accordingly — see `SPEC.md` §5.7.
 
 ---
 

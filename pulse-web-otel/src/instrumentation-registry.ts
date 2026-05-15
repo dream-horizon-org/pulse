@@ -95,6 +95,13 @@ export class InstrumentationRegistry {
       new ClicksInstrumentation(),
       InstrumentationKeys.CLICKS,
     );
+    // Navigation before Web Vitals: cold `emitInitialLoadSignals` sets
+    // `navigation_id` before `web-vitals` registers metric callbacks (avoids
+    // a theoretical sync emit window without `navigation_id`).
+    this.registerAndInstall(
+      new NavigationInstrumentation(),
+      InstrumentationKeys.NAVIGATION,
+    );
     this.registerAndInstall(
       new WebVitalsInstrumentation(),
       InstrumentationKeys.WEB_VITALS,
@@ -102,10 +109,6 @@ export class InstrumentationRegistry {
     this.registerAndInstall(
       new NetworkInstrumentation(),
       InstrumentationKeys.NETWORK,
-    );
-    this.registerAndInstall(
-      new NavigationInstrumentation(),
-      InstrumentationKeys.NAVIGATION,
     );
     this.registerAndInstall(
       new ErrorInstrumentation(),
