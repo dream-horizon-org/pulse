@@ -5,6 +5,7 @@ from pulse_ai.output_guard import (
     FilteredDeltaTracker,
     em_output_sanitize_callback,
     sanitize_em_output,
+    sanitize_pii,
     sanitize_time_range_ids,
 )
 
@@ -297,6 +298,134 @@ class TestSanitizeTimeRangeIds:
     def test_clean_text_unchanged(self):
         text = "Apdex 0.8, P95 450ms for the last 7 days."
         assert sanitize_time_range_ids(text) == text
+
+
+# ---------------------------------------------------------------------------
+# sanitize_pii — PII redaction (email, JWT, credit card)
+# ---------------------------------------------------------------------------
+
+class TestSanitizePiiEmail:
+
+    def test_plain_email_is_redacted(self):
+        assert sanitize_pii("user@example.com") == "[REDACTED:EMAIL]"
+
+    def test_email_with_plus_tag_is_redacted(self):
+        assert sanitize_pii("user+tag@example.com") == "[REDACTED:EMAIL]"
+
+    def test_email_in_url_query_string_is_redacted(self):
+        result = sanitize_pii("https://api.example.com/v1?email=jane@corp.com&page=1")
+        assert "jane@corp.com" not in result
+        assert "[REDACTED:EMAIL]" in result
+
+    def test_dotted_non_email_string_not_redacted(self):
+        assert sanitize_pii("version.1.2.3") == "version.1.2.3"
+
+    def test_email_in_sentence_is_redacted(self):
+        result = sanitize_pii("Session user jane.doe@example.com hit 3 crashes.")
+        assert "jane.doe@example.com" not in result
+        assert "[REDACTED:EMAIL]" in result
+        assert "Session user" in result
+        assert "hit 3 crashes." in result
+
+
+class TestSanitizePiiJwt:
+
+    _JWT = (
+        "eyJhbGciOiJSUzI1NiJ9"
+        ".eyJzdWIiOiJ1c2VyQGV4YW1wbGUuY29tIiwiaWF0IjoxNjAwMDAwMDAwfQ"
+        ".SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c"
+    )
+
+    def test_jwt_is_redacted(self):
+        assert sanitize_pii(self._JWT) == "[REDACTED:TOKEN]"
+
+    def test_jwt_in_bearer_text_is_redacted(self):
+        text = f"Authorization: Bearer {self._JWT}"
+        result = sanitize_pii(text)
+        assert "[REDACTED:TOKEN]" in result
+        assert "eyJhbGci" not in result
+
+    def test_jwt_runs_before_email_no_partial_match_inside_payload(self):
+        # The JWT payload contains a base64-encoded email; email pattern must not fire
+        # inside the token and produce a corrupted replacement.
+        result = sanitize_pii(self._JWT)
+        assert result == "[REDACTED:TOKEN]"
+        assert "[REDACTED:EMAIL]" not in result
+
+
+class TestSanitizePiiCard:
+
+    def test_visa_16_digit_card_is_redacted(self):
+        assert sanitize_pii("4111111111111111") == "[REDACTED:CARD]"
+
+    def test_amex_15_digit_card_is_redacted(self):
+        assert sanitize_pii("378282246310005") == "[REDACTED:CARD]"
+
+    def test_mastercard_new_bin_range_is_redacted(self):
+        assert sanitize_pii("2221000000000009") == "[REDACTED:CARD]"
+
+    def test_short_status_code_not_redacted(self):
+        assert sanitize_pii("404") == "404"
+
+    def test_card_in_url_query_param_is_redacted(self):
+        result = sanitize_pii("https://pay.example.com/charge?card=4111111111111111&amount=50")
+        assert "4111111111111111" not in result
+        assert "[REDACTED:CARD]" in result
+
+
+class TestSanitizePiiCombined:
+
+    def test_multiple_pii_types_in_one_string_all_redacted(self):
+        jwt = (
+            "eyJhbGciOiJSUzI1NiJ9"
+            ".eyJzdWIiOiJ1c2VyQGV4YW1wbGUuY29tIn0"
+            ".SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c"
+        )
+        text = f"User admin@corp.com used token {jwt} on card 4111111111111111."
+        result = sanitize_pii(text)
+        assert "admin@corp.com" not in result
+        assert "eyJhbGci" not in result
+        assert "4111111111111111" not in result
+
+    def test_clean_analytics_text_unchanged(self):
+        text = "Apdex 0.82, P95 450ms, error rate 1.2% (18 of 1500 requests)."
+        assert sanitize_pii(text) == text
+
+    def test_empty_string_returns_empty_string(self):
+        assert sanitize_pii("") == ""
+
+    def test_none_returns_none(self):
+        assert sanitize_pii(None) is None
+
+
+# ---------------------------------------------------------------------------
+# FilteredDeltaTracker — PII passes through stream and is redacted
+# ---------------------------------------------------------------------------
+
+class TestFilteredDeltaTrackerPii:
+
+    def test_email_in_stream_is_redacted(self):
+        t = FilteredDeltaTracker()
+        text = "Session user jane@example.com had 5 errors. " * 3
+        d = t.push(text)
+        tail = t.flush()
+        result = d + tail
+        assert "jane@example.com" not in result
+        assert "[REDACTED:EMAIL]" in result
+
+    def test_jwt_in_stream_is_redacted(self):
+        jwt = (
+            "eyJhbGciOiJSUzI1NiJ9"
+            ".eyJzdWIiOiJ1c2VyQGV4YW1wbGUuY29tIn0"
+            ".SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c"
+        )
+        t = FilteredDeltaTracker()
+        text = f"Token found: {jwt} in the session attributes. " * 2
+        d = t.push(text)
+        tail = t.flush()
+        result = d + tail
+        assert "eyJhbGci" not in result
+        assert "[REDACTED:TOKEN]" in result
 
 
 class TestSanitizeEmOutputTimeRangeIntegration:
