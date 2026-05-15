@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev --port 3003",
+    "dev:e2e": "next dev --port 3013",
     "build": "next build",
     "start": "next start --port 3003",
     "e2e": "playwright test --config e2e/playwright.config.ts",

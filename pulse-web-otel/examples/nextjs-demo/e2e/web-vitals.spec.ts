@@ -3,6 +3,16 @@
  */
 import { test, expect, findAllLogs, findAllSpans, getAttr } from "./fixture";
 
+const WEB_VITAL_NAVIGATION_TYPES = [
+  "navigate",
+  "reload",
+  "back-forward",
+  "back-forward-cache",
+  "prerender",
+  "restore",
+  "soft-navigation",
+] as const;
+
 function assertExportedWebVitalAttrs(
   attrs: {
     key: string;
@@ -18,14 +28,22 @@ function assertExportedWebVitalAttrs(
   const navigationId = getAttr(attrs, "navigation_id");
   expect(typeof navigationId).toBe("string");
   expect((navigationId as string).length).toBeGreaterThan(10);
+  const navType = getAttr(attrs, "web_vital.navigation_type");
+  expect(typeof navType).toBe("string");
+  expect([...WEB_VITAL_NAVIGATION_TYPES]).toContain(navType as string);
   const ctx = getAttr(attrs, "web_vital.context");
-  if (ctx !== undefined) {
-    expect(["pageload", "navigation"]).toContain(ctx);
-  }
+  expect(["pageload", "navigation"]).toContain(ctx);
+  const value = getAttr(attrs, "web_vital.value");
+  expect(typeof value).toBe("number");
+  expect(Number.isFinite(value as number)).toBe(true);
+  expect(value as number).toBeGreaterThanOrEqual(0);
   const delta = getAttr(attrs, "web_vital.delta");
   if (delta !== undefined) {
     expect(Number.isFinite(delta as number)).toBe(true);
   }
+  const sessionId = getAttr(attrs, "session.id");
+  expect(typeof sessionId).toBe("string");
+  expect(sessionId as string).toMatch(/^[0-9a-f-]{36}$/i);
 }
 
 test.describe("@WebVitals (Next.js demo)", () => {
@@ -44,6 +62,20 @@ test.describe("@WebVitals (Next.js demo)", () => {
     expect(ttfb).toBeDefined();
     expect(getAttr(ttfb!.attributes, "pulse.type")).toBe("web_vital");
     assertExportedWebVitalAttrs(ttfb!.attributes);
+  });
+
+  test("never emits web_vital with name FID (web-vitals v5+)", async ({
+    page,
+    otlp,
+  }) => {
+    await page.goto("/");
+    await otlp.waitForLog("session.start");
+    await page.waitForTimeout(1500);
+
+    const vitals = findAllLogs(otlp.captured, "web_vital");
+    expect(
+      vitals.filter((lr) => getAttr(lr.attributes, "web_vital.name") === "FID"),
+    ).toHaveLength(0);
   });
 
   test("SPA screen_load span carries navigation_id after App Router navigation", async ({

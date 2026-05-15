@@ -210,8 +210,9 @@ Pulse registers each `web-vitals` callback **once** at install; it does **not** 
 
 **Master index:** [`../../sdk-core/test-coverage/SPEC.md`](../../sdk-core/test-coverage/SPEC.md) §6.3 — tag **`@WebVitals`** (`e2e/web-vitals.spec.ts`).
 
-- **Metrics:** TTFB, FCP, LCP, INP (after tab hide + interaction), CLS (layout shift + tab hide).
-- **Log attributes:** `navigation_id` on vitals; `web_vital.context` / `web_vital.delta` / `web_vital.navigation_type` from `web-vitals` ^5.x `Metric`; `platform` = `web` on vitals; `screen.name` on vitals.
+- **Metrics:** TTFB, FCP, LCP, INP (after tab hide + interaction), CLS (layout shift + tab hide); **never** `web_vital.name = FID` (`web-vitals` v5+; dedicated `@WebVitals` test).
+- **Log attributes:** `navigation_id` on vitals; `web_vital.context` / `web_vital.delta` / `web_vital.navigation_type` from `web-vitals` ^5.x `Metric` (Playwright helper asserts `navigation_type` in the known set, `web_vital.value` ≥ 0, `session.id` UUID shape); `platform` = `web` on vitals; `screen.name` on vitals.
+- **Internal audit IDs:** **VIT-12** name set = **LCP, INP, CLS, FCP, TTFB** only (no FID). **VIT-10** (FID-only) superseded by the “no FID log” test. **VIT-07** (zero `web_vital` before hide) is **not** asserted for INP/CLS — v5 + `reportAllChanges` can emit those metrics before synthetic `visibilitychange` when the OTLP batch fires.
 - **SPA soft navigation:** `PulseRouterEvents` / `useRouterTracking` → `Pulse.notifySoftNavigation()` (`sdk.ts`) → `loggerProvider.forceFlush()` for buffered vitals — **`web-vitals.ts` does not** call `notifySoftNavigation`. Normal batch/export timing still applies.
 - **Spans:** SPA `screen_load` includes `navigation_id` after client navigation.
 - **Negative paths:** Remote feature gate off (no `web_vital` logs); local kill switch `?pulse_wv_enabled=false` wired from [`Root.tsx`](../../../examples/ecommerce-demo/src/Root.tsx) → `PulseProvider` `instrumentations.webVitals.enabled`.

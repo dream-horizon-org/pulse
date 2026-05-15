@@ -9,6 +9,17 @@ import {
   blockActiveConfigFetch,
 } from "./test-sdk-config";
 
+/** `Metric.navigationType` values from `web-vitals` ^5.x + forward-compatible `soft-navigation`. */
+const WEB_VITAL_NAVIGATION_TYPES = [
+  "navigate",
+  "reload",
+  "back-forward",
+  "back-forward-cache",
+  "prerender",
+  "restore",
+  "soft-navigation",
+] as const;
+
 function assertExportedWebVitalAttrs(
   attrs: {
     key: string;
@@ -24,14 +35,22 @@ function assertExportedWebVitalAttrs(
   const navigationId = getAttr(attrs, "navigation_id");
   expect(typeof navigationId).toBe("string");
   expect((navigationId as string).length).toBeGreaterThan(10);
+  const navType = getAttr(attrs, "web_vital.navigation_type");
+  expect(typeof navType).toBe("string");
+  expect([...WEB_VITAL_NAVIGATION_TYPES]).toContain(navType as string);
   const ctx = getAttr(attrs, "web_vital.context");
-  if (ctx !== undefined) {
-    expect(["pageload", "navigation"]).toContain(ctx);
-  }
+  expect(["pageload", "navigation"]).toContain(ctx);
+  const value = getAttr(attrs, "web_vital.value");
+  expect(typeof value).toBe("number");
+  expect(Number.isFinite(value as number)).toBe(true);
+  expect(value as number).toBeGreaterThanOrEqual(0);
   const delta = getAttr(attrs, "web_vital.delta");
   if (delta !== undefined) {
     expect(Number.isFinite(delta as number)).toBe(true);
   }
+  const sessionId = getAttr(attrs, "session.id");
+  expect(typeof sessionId).toBe("string");
+  expect(sessionId as string).toMatch(/^[0-9a-f-]{36}$/i);
 }
 
 test.describe("@WebVitals", () => {
@@ -54,7 +73,6 @@ test.describe("@WebVitals", () => {
     expect(Number.isFinite(value as number)).toBe(true);
     const rating = getAttr(ttfb!.attributes, "web_vital.rating");
     expect(["good", "needs-improvement", "poor"]).toContain(rating);
-    expect(getAttr(ttfb!.attributes, "session.id")).toBeTruthy();
     expect(getAttr(ttfb!.attributes, "screen.name")).toBeTruthy();
     assertExportedWebVitalAttrs(ttfb!.attributes);
   });
@@ -78,7 +96,6 @@ test.describe("@WebVitals", () => {
     expect(Number.isFinite(value as number)).toBe(true);
     const rating = getAttr(fcp!.attributes, "web_vital.rating");
     expect(["good", "needs-improvement", "poor"]).toContain(rating);
-    expect(getAttr(fcp!.attributes, "session.id")).toBeTruthy();
     expect(getAttr(fcp!.attributes, "screen.name")).toBeTruthy();
     assertExportedWebVitalAttrs(fcp!.attributes);
   });
@@ -108,7 +125,6 @@ test.describe("@WebVitals", () => {
     expect(Number.isFinite(value as number)).toBe(true);
     const rating = getAttr(lcp!.attributes, "web_vital.rating");
     expect(["good", "needs-improvement", "poor"]).toContain(rating);
-    expect(getAttr(lcp!.attributes, "session.id")).toBeTruthy();
     expect(getAttr(lcp!.attributes, "screen.name")).toBeTruthy();
     assertExportedWebVitalAttrs(lcp!.attributes);
   });
@@ -145,6 +161,9 @@ test.describe("@WebVitals", () => {
     // Let the PerformanceObserver callback process the event entry before simulating hide.
     await page.waitForTimeout(300);
 
+    // VIT-07 (zero INP before hide): not asserted — v5 + `reportAllChanges` may emit INP
+    // after interaction before synthetic `visibilitychange` once the batch window fires.
+
     // Simulate tab hide — triggers web-vitals INP callback and SDK loggerProvider.forceFlush().
     await page.evaluate(() => {
       Object.defineProperty(document, "visibilityState", {
@@ -167,7 +186,6 @@ test.describe("@WebVitals", () => {
     expect(Number.isFinite(inpValue as number)).toBe(true);
     const inpRating = getAttr(inp!.attributes, "web_vital.rating");
     expect(["good", "needs-improvement", "poor"]).toContain(inpRating);
-    expect(getAttr(inp!.attributes, "session.id")).toBeTruthy();
     expect(getAttr(inp!.attributes, "screen.name")).toBeTruthy();
     assertExportedWebVitalAttrs(inp!.attributes);
   });
@@ -195,6 +213,9 @@ test.describe("@WebVitals", () => {
 
     await page.waitForTimeout(300);
 
+    // VIT-07 (zero CLS before hide): not asserted — `reportAllChanges` can emit CLS right
+    // after the layout shift when the batch exporter runs, before synthetic tab hide.
+
     await page.evaluate(() => {
       Object.defineProperty(document, "visibilityState", {
         get: () => "hidden",
@@ -216,7 +237,6 @@ test.describe("@WebVitals", () => {
     expect(Number.isFinite(clsValue as number)).toBe(true);
     const clsRating = getAttr(cls!.attributes, "web_vital.rating");
     expect(["good", "needs-improvement", "poor"]).toContain(clsRating);
-    expect(getAttr(cls!.attributes, "session.id")).toBeTruthy();
     expect(getAttr(cls!.attributes, "screen.name")).toBeTruthy();
     assertExportedWebVitalAttrs(cls!.attributes);
   });
@@ -243,8 +263,23 @@ test.describe("@WebVitals", () => {
     expect(getAttr(ttfb!.attributes, "pulse.type")).toBe("web_vital");
     // screen.name must be "/" — TTFB was measured on the home route.
     expect(getAttr(ttfb!.attributes, "screen.name")).toBe("/");
-    expect(getAttr(ttfb!.attributes, "session.id")).toBeTruthy();
     assertExportedWebVitalAttrs(ttfb!.attributes);
+  });
+
+  test("never emits web_vital with name FID (web-vitals v5+)", async ({
+    page,
+    otlp,
+  }) => {
+    await page.goto("/");
+    await otlp.waitForLog("session.start");
+    await page.waitForTimeout(500);
+    await page.click("body");
+    await page.waitForTimeout(1500);
+
+    const vitals = findAllLogs(otlp.captured, "web_vital");
+    expect(
+      vitals.filter((lr) => getAttr(lr.attributes, "web_vital.name") === "FID"),
+    ).toHaveLength(0);
   });
 
   test("SPA screen_load span carries navigation_id after client navigation", async ({
