@@ -18,9 +18,6 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericRecord;
-import org.apache.parquet.avro.AvroParquetReader;
-import org.apache.parquet.hadoop.ParquetReader;
-import org.dreamhorizon.pulses3archiver.config.S3Config;
 import org.dreamhorizon.pulses3archiver.config.WriterConfig;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -29,12 +26,14 @@ import software.amazon.awssdk.services.s3.model.PutObjectResponse;
 
 class ParquetBatchWriterTest {
 
+  private static final String TEST_BUCKET = "pulse-otel-testproj";
+
   @TempDir
   Path tempDir;
 
   private static Schema schema;
+  private static Schema metricsSchema;
   private static WriterConfig writerConfig;
-  private static S3Config s3Config;
 
   @BeforeAll
   static void setup() throws Exception {
@@ -42,21 +41,24 @@ class ParquetBatchWriterTest {
         .getResourceAsStream("schemas/otel_traces.avsc")) {
       schema = new Schema.Parser().parse(is);
     }
+    try (InputStream is = ParquetBatchWriterTest.class.getClassLoader()
+        .getResourceAsStream("schemas/otel_metrics_sum.avsc")) {
+      metricsSchema = new Schema.Parser().parse(is);
+    }
     writerConfig = new WriterConfig();
     writerConfig.setRowGroupBytes(134217728L);
     writerConfig.setPageBytes(1048576L);
     writerConfig.setFlushSizeBytes(268435456L);
     writerConfig.setFlushAgeMs(300000L);
-
-    s3Config = new S3Config();
-    s3Config.setBucket("test-bucket");
-    s3Config.setRegion("ap-south-1");
   }
 
   private static GenericRecord buildRecord(long timestampMicros) {
-    GenericRecord rec = new GenericData.Record(schema);
-    // Fill all required fields with defaults to avoid NPE in Avro
-    for (Schema.Field f : schema.getFields()) {
+    return buildRecordForSchema(schema, timestampMicros);
+  }
+
+  private static GenericRecord buildRecordForSchema(Schema avroSchema, long timestampMicros) {
+    GenericRecord rec = new GenericData.Record(avroSchema);
+    for (Schema.Field f : avroSchema.getFields()) {
       if (f.defaultVal() != null) {
         rec.put(f.name(), GenericData.get().getDefaultValue(f));
       } else {
@@ -80,8 +82,32 @@ class ParquetBatchWriterTest {
         }
       }
     }
-    rec.put("Timestamp", timestampMicros);
+    if (avroSchema.getField("Timestamp") != null) {
+      rec.put("Timestamp", timestampMicros);
+    }
+    if (avroSchema.getField("TimeUnix") != null) {
+      rec.put("TimeUnix", timestampMicros);
+      if (avroSchema.getField("StartTimeUnix") != null) {
+        rec.put("StartTimeUnix", timestampMicros);
+      }
+    }
     return rec;
+  }
+
+  @Test
+  void shouldWriteMetricsRowsUsingTimeUnixForPartitioning() throws Exception {
+    S3UploadService mockS3 = mock(S3UploadService.class);
+    when(mockS3.upload(anyString(), anyString(), any(File.class)))
+        .thenReturn(CompletableFuture.completedFuture(PutObjectResponse.builder().build()));
+
+    ParquetBatchWriter writer = new ParquetBatchWriter(
+        "otel_metrics_sum", metricsSchema, writerConfig, TEST_BUCKET, mockS3,
+        tempDir.toString(), "test-node", offsets -> {});
+
+    long baseTimeMicros = 1_700_000_000_000_000L;
+    writer.add(List.of(buildRecordForSchema(metricsSchema, baseTimeMicros)), 0, 1L);
+    Map<Integer, Long> offsets = writer.flush();
+    assertThat(offsets).containsEntry(0, 1L);
   }
 
   @Test
@@ -89,16 +115,15 @@ class ParquetBatchWriterTest {
     S3UploadService mockS3 = mock(S3UploadService.class);
     Map<Integer, Long> flushedOffsets = new HashMap<>();
 
-    when(mockS3.upload(anyString(), any(File.class)))
+    when(mockS3.upload(anyString(), anyString(), any(File.class)))
         .thenAnswer(inv -> {
-          File f = inv.getArgument(1);
-          // Copy file path so we can read it after flush
+          File f = inv.getArgument(2);
           flushedOffsets.put(-1, (long) f.getAbsolutePath().hashCode());
           return CompletableFuture.completedFuture(PutObjectResponse.builder().build());
         });
 
     ParquetBatchWriter writer = new ParquetBatchWriter(
-        "otel_traces", schema, writerConfig, s3Config, mockS3,
+        "otel_traces", schema, writerConfig, TEST_BUCKET, mockS3,
         tempDir.toString(), "test-node", offsets -> {});
 
     long baseTimeMicros = 1_700_000_000_000_000L;
@@ -109,7 +134,6 @@ class ParquetBatchWriterTest {
 
     writer.add(batch, 0, 9L);
 
-    // Force flush to trigger Parquet write
     Map<Integer, Long> offsets = writer.flush();
     assertThat(offsets).containsEntry(0, 9L);
   }
@@ -117,11 +141,11 @@ class ParquetBatchWriterTest {
   @Test
   void shouldTrackPendingOffsets() throws Exception {
     S3UploadService mockS3 = mock(S3UploadService.class);
-    when(mockS3.upload(anyString(), any(File.class)))
+    when(mockS3.upload(anyString(), anyString(), any(File.class)))
         .thenReturn(CompletableFuture.completedFuture(PutObjectResponse.builder().build()));
 
     ParquetBatchWriter writer = new ParquetBatchWriter(
-        "otel_traces", schema, writerConfig, s3Config, mockS3,
+        "otel_traces", schema, writerConfig, TEST_BUCKET, mockS3,
         tempDir.toString(), "test-node", offsets -> {});
 
     long ts = 1_700_000_000_000_000L;
@@ -131,7 +155,6 @@ class ParquetBatchWriterTest {
 
     Map<Integer, Long> flushed = writer.flush();
 
-    // flush() should return max offset per partition
     assertThat(flushed).containsEntry(0, 10L);
     assertThat(flushed).containsEntry(1, 3L);
   }
@@ -140,11 +163,11 @@ class ParquetBatchWriterTest {
   void shouldReturnCommittedOffsetsAfterSuccessfulUpload() throws Exception {
     Map<Integer, Long> committed = new HashMap<>();
     S3UploadService mockS3 = mock(S3UploadService.class);
-    when(mockS3.upload(anyString(), any(File.class)))
+    when(mockS3.upload(anyString(), anyString(), any(File.class)))
         .thenReturn(CompletableFuture.completedFuture(PutObjectResponse.builder().build()));
 
     ParquetBatchWriter writer = new ParquetBatchWriter(
-        "otel_traces", schema, writerConfig, s3Config, mockS3,
+        "otel_traces", schema, writerConfig, TEST_BUCKET, mockS3,
         tempDir.toString(), "test-node",
         offsets -> committed.putAll(offsets));
 
@@ -152,7 +175,6 @@ class ParquetBatchWriterTest {
     writer.add(List.of(buildRecord(ts)), 0, 7L);
     writer.flush();
 
-    // Give CompletableFuture time to complete
     Thread.sleep(100);
 
     assertThat(committed).containsEntry(0, 7L);
@@ -165,10 +187,10 @@ class ParquetBatchWriterTest {
     S3UploadService mockS3 = mock(S3UploadService.class);
     CompletableFuture<PutObjectResponse> failedFuture = new CompletableFuture<>();
     failedFuture.completeExceptionally(new RuntimeException("S3 unavailable"));
-    when(mockS3.upload(anyString(), any(File.class))).thenReturn(failedFuture);
+    when(mockS3.upload(anyString(), anyString(), any(File.class))).thenReturn(failedFuture);
 
     ParquetBatchWriter writer = new ParquetBatchWriter(
-        "otel_traces", schema, writerConfig, s3Config, mockS3,
+        "otel_traces", schema, writerConfig, TEST_BUCKET, mockS3,
         tempDir.toString(), "test-node",
         successCalls::add);
 

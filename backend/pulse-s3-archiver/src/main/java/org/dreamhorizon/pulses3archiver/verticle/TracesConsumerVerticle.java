@@ -18,12 +18,12 @@ import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericRecord;
 import org.dreamhorizon.pulses3archiver.config.ArchiverConfig;
 import org.dreamhorizon.pulses3archiver.config.KafkaConfig;
-import org.dreamhorizon.pulses3archiver.config.S3Config;
 import org.dreamhorizon.pulses3archiver.config.WriterConfig;
 import org.dreamhorizon.pulses3archiver.constant.Constants;
 import org.dreamhorizon.pulses3archiver.guice.GuiceInjector;
 import org.dreamhorizon.pulses3archiver.mapper.TracesOtlpMapper;
-import org.dreamhorizon.pulses3archiver.service.ParquetBatchWriter;
+import org.dreamhorizon.pulses3archiver.service.KafkaCommittedOffsetAggregator;
+import org.dreamhorizon.pulses3archiver.service.MultiProjectParquetSink;
 import org.dreamhorizon.pulses3archiver.service.S3UploadService;
 import org.dreamhorizon.pulses3archiver.util.SharedDataUtils;
 
@@ -31,14 +31,13 @@ import org.dreamhorizon.pulses3archiver.util.SharedDataUtils;
 public class TracesConsumerVerticle extends AbstractVerticle {
 
   private KafkaConsumer<String, byte[]> consumer;
-  private ParquetBatchWriter writer;
+  private MultiProjectParquetSink sink;
   private long flushTimerId = -1;
 
   @Override
   public void start(Promise<Void> startPromise) {
     KafkaConfig kafkaConfig = SharedDataUtils.get(vertx, KafkaConfig.class);
     WriterConfig writerConfig = SharedDataUtils.get(vertx, WriterConfig.class);
-    S3Config s3Config = SharedDataUtils.get(vertx, S3Config.class);
     ArchiverConfig archiverConfig = SharedDataUtils.get(vertx, ArchiverConfig.class);
     S3UploadService s3UploadService = GuiceInjector.getGuiceInjector().getInstance(S3UploadService.class);
 
@@ -47,11 +46,10 @@ public class TracesConsumerVerticle extends AbstractVerticle {
 
     consumer = KafkaConsumer.create(vertx, buildKafkaConfig(kafkaConfig));
 
-    writer = new ParquetBatchWriter(
-        Constants.TABLE_TRACES, schema, writerConfig, s3Config, s3UploadService,
+    sink = new MultiProjectParquetSink(
+        Constants.TABLE_TRACES, schema, writerConfig, s3UploadService,
         archiverConfig.getStagingDir(), nodeId,
-        offsets -> vertx.runOnContext(v -> commitKafkaOffsets(offsets, kafkaConfig.getTopicTraces()))
-    );
+        () -> maybeCommitKafkaOffsets(kafkaConfig.getTopicTraces()));
 
     consumer.handler(record -> {
       byte[] value = record.value();
@@ -61,11 +59,11 @@ public class TracesConsumerVerticle extends AbstractVerticle {
       try {
         ExportTraceServiceRequest req = ExportTraceServiceRequest.parseFrom(value);
         List<GenericRecord> rows = TracesOtlpMapper.map(req, schema);
-        writer.add(rows, record.partition(), record.offset());
+        sink.add(rows, record.partition(), record.offset());
       } catch (InvalidProtocolBufferException e) {
         log.error("[ARCHIVER-TRACES] OTLP parse error partition={} offset={}: {}",
             record.partition(), record.offset(), e.getMessage());
-        writer.writeDlq(value, "S3A1002", e.getMessage(),
+        sink.writeDlq(value, "S3A1002", e.getMessage(),
             kafkaConfig.getTopicTraces(), record.partition(), record.offset());
       } catch (IOException e) {
         log.error("[ARCHIVER-TRACES] Parquet write error partition={} offset={}: {}",
@@ -78,7 +76,7 @@ public class TracesConsumerVerticle extends AbstractVerticle {
           log.info("[ARCHIVER-TRACES] Subscribed to {} bootstrapServers={}",
               kafkaConfig.getTopicTraces(), kafkaConfig.getBootstrapServers());
           flushTimerId = vertx.setPeriodic(archiverConfig.getFlushIntervalMs(),
-              id -> writer.flushIfDue());
+              id -> sink.flushIfDue());
           startPromise.complete();
         })
         .onFailure(err -> {
@@ -87,30 +85,35 @@ public class TracesConsumerVerticle extends AbstractVerticle {
         });
   }
 
+  private void maybeCommitKafkaOffsets(String topic) {
+    Map<Integer, Long> minOffsets =
+        KafkaCommittedOffsetAggregator.mergeAcrossWriters(sink.allWriters());
+    if (minOffsets.isEmpty()) {
+      return;
+    }
+    Map<TopicPartition, OffsetAndMetadata> toCommit = new HashMap<>();
+    for (Map.Entry<Integer, Long> e : minOffsets.entrySet()) {
+      toCommit.put(new TopicPartition(topic, e.getKey()),
+          new OffsetAndMetadata().setOffset(e.getValue() + 1));
+    }
+    consumer.commit(toCommit)
+        .onSuccess(v -> log.debug("[ARCHIVER-TRACES] Committed Kafka offsets: {}", minOffsets))
+        .onFailure(err -> log.error("[ARCHIVER-TRACES] Kafka commit failed: {}", err.getMessage()));
+  }
+
   @Override
   public void stop() {
     if (flushTimerId >= 0) {
       vertx.cancelTimer(flushTimerId);
     }
     try {
-      writer.flush();
+      sink.flush();
     } catch (IOException e) {
       log.warn("[ARCHIVER-TRACES] Final flush on stop failed: {}", e.getMessage());
     }
     if (consumer != null) {
       consumer.close();
     }
-  }
-
-  private void commitKafkaOffsets(Map<Integer, Long> offsets, String topic) {
-    Map<TopicPartition, OffsetAndMetadata> toCommit = new HashMap<>();
-    for (Map.Entry<Integer, Long> e : offsets.entrySet()) {
-      toCommit.put(new TopicPartition(topic, e.getKey()),
-          new OffsetAndMetadata().setOffset(e.getValue() + 1));
-    }
-    consumer.commit(toCommit)
-        .onSuccess(v -> log.debug("[ARCHIVER-TRACES] Committed Kafka offsets: {}", offsets))
-        .onFailure(err -> log.error("[ARCHIVER-TRACES] Kafka commit failed: {}", err.getMessage()));
   }
 
   private static Map<String, String> buildKafkaConfig(KafkaConfig cfg) {

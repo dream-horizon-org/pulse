@@ -10,6 +10,7 @@ alwaysApply: true
 ```bash
 cd backend/server && mvn clean install        # build + test
 cd backend/server && mvn verify               # tests + checkstyle
+cd backend/pulse-s3-archiver && mvn verify    # Kafka→Parquet→S3 archiver (optional)
 ```
 
 ## Frontend (React/TypeScript)
@@ -34,7 +35,7 @@ cd pulse_ai && ./setup.sh stop                # stop
 
 ```bash
 cd deploy && ./scripts/quickstart.sh              # build + start all (includes pulse-ai-agent)
-cd deploy && ./scripts/build.sh [ui|server|cron|capture|ingestion|heatmap|heatmap-ingestion|ai|all] [--no-cache]
+cd deploy && ./scripts/build.sh [ui|server|cron|capture|ingestion|heatmap|heatmap-ingestion|s3-archiver|ai|all] [--no-cache]
 cd deploy && ./scripts/start.sh [-d|--detach] [--build] [--no-cache]
 cd deploy && ./scripts/stop.sh [-v] [ai|server|ui|...]
 cd deploy && ./scripts/logs.sh [service]         # e.g. ai, server, mysql
@@ -61,5 +62,6 @@ docker ps --format "table {{.Names}}\t{{.Ports}}\t{{.Status}}"
 | Kafka (session replay) | 9092 | broker (no HTTP health in table) |
 | MinIO (dev S3) | 9100 (API), 9101 (console) | — |
 | pulse-session-capture | 3400 | `/healthcheck` |
+| pulse-s3-archiver | — *(no host port in default compose)* | in-container `http://localhost:5000/healthcheck` (compose; HTTP may be unimplemented) |
 
 ## Never commit `.env` files. Use `.env.example` as template.

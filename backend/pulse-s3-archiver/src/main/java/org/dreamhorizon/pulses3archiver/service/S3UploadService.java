@@ -3,6 +3,7 @@ package org.dreamhorizon.pulses3archiver.service;
 import com.google.inject.Inject;
 import java.io.File;
 import java.net.URI;
+import java.util.Objects;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulses3archiver.config.S3Config;
 import software.amazon.awssdk.core.async.AsyncRequestBody;
@@ -18,25 +19,23 @@ import java.util.concurrent.CompletableFuture;
 public class S3UploadService {
 
   private final S3AsyncClient s3Client;
-  private final String bucket;
 
   @Inject
   public S3UploadService(S3Config config) {
-    this.bucket = config.getBucket();
     S3AsyncClientBuilder builder = S3AsyncClient.builder()
         .region(Region.of(config.getRegion()));
 
-    // Support local S3-compatible (e.g. LocalStack) via S3_ENDPOINT env
     String endpoint = System.getenv("S3_ENDPOINT");
     if (endpoint != null && !endpoint.isEmpty()) {
       builder.endpointOverride(URI.create(endpoint))
-             .forcePathStyle(true);
+          .forcePathStyle(true);
     }
 
     this.s3Client = builder.build();
   }
 
-  public CompletableFuture<PutObjectResponse> upload(String key, File file) {
+  public CompletableFuture<PutObjectResponse> upload(String bucket, String key, File file) {
+    Objects.requireNonNull(bucket, "bucket");
     log.debug("[S3Upload] Uploading s3://{}/{} size={}", bucket, key, file.length());
     PutObjectRequest req = PutObjectRequest.builder()
         .bucket(bucket)

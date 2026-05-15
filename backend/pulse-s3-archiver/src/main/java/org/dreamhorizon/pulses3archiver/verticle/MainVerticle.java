@@ -34,10 +34,11 @@ public class MainVerticle extends AbstractVerticle {
           SharedDataUtils.put(vertx.getDelegate(), s3Config);
           SharedDataUtils.put(vertx.getDelegate(), writerConfig);
 
-          log.info("[MainVerticle] Loaded config: kafka.bootstrapServers={} s3.bucket={} "
-              + "writer.flushSizeBytes={} writer.flushAgeMs={}",
+          log.info("[MainVerticle] Loaded config: kafka.bootstrapServers={} s3.region={} "
+                  + "(Parquet uploads use per-project buckets pulse-otel-<project>) "
+                  + "writer.flushSizeBytes={} writer.flushAgeMs={}",
               kafkaConfig.getBootstrapServers(),
-              s3Config.getBucket(),
+              s3Config.getRegion(),
               writerConfig.getFlushSizeBytes(),
               writerConfig.getFlushAgeMs());
         })

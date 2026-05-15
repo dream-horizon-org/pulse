@@ -2,8 +2,6 @@ package org.dreamhorizon.pulses3archiver.module;
 
 import com.google.inject.AbstractModule;
 import io.vertx.core.Vertx;
-import org.dreamhorizon.pulses3archiver.config.ArchiverConfig;
-import org.dreamhorizon.pulses3archiver.util.SharedDataUtils;
 
 public class ConfigModule extends AbstractModule {
 
@@ -15,7 +13,7 @@ public class ConfigModule extends AbstractModule {
 
   @Override
   protected void configure() {
-    bind(ArchiverConfig.class)
-        .toProvider(() -> SharedDataUtils.get(vertx, ArchiverConfig.class));
+//    bind(ArchiverConfig.class)
+//        .toProvider(() -> SharedDataUtils.get(vertx, ArchiverConfig.class));
   }
 }

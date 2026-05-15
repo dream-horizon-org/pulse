@@ -10,7 +10,10 @@ import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.Schema;
@@ -19,7 +22,6 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.parquet.avro.AvroParquetWriter;
 import org.apache.parquet.hadoop.ParquetWriter;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
-import org.dreamhorizon.pulses3archiver.config.S3Config;
 import org.dreamhorizon.pulses3archiver.config.WriterConfig;
 
 @Slf4j
@@ -33,9 +35,10 @@ public class ParquetBatchWriter {
   private final String tableName;
   private final Schema schema;
   private final WriterConfig writerConfig;
-  private final S3Config s3Config;
+  private final String s3Bucket;
   private final S3UploadService s3UploadService;
-  private final String stagingDir;
+  private final String stagingSegment;
+  private final String stagingRoot;
   private final String nodeId;
   private final Consumer<Map<Integer, Long>> onFlushSuccess;
 
@@ -47,29 +50,82 @@ public class ParquetBatchWriter {
 
   private final Map<Integer, Long> pendingOffsets = new HashMap<>();
   private volatile Map<Integer, Long> committedOffsets = new HashMap<>();
+  private final Set<Integer> partitionsTracked = ConcurrentHashMap.newKeySet();
 
+  /**
+   * @param s3Bucket destination bucket for this sink (typically {@code pulse-otel-*})
+   * @param stagingRoot base staging directory (typically archiver stagingDir)
+   * @param stagingSegment filesystem subdirectory for this bucket (safe segment derived from bucket)
+   */
   public ParquetBatchWriter(
       String tableName,
       Schema schema,
       WriterConfig writerConfig,
-      S3Config s3Config,
+      String s3Bucket,
       S3UploadService s3UploadService,
-      String stagingDir,
+      String stagingRoot,
+      String stagingSegment,
       String nodeId,
       Consumer<Map<Integer, Long>> onFlushSuccess) {
-    this.tableName = tableName;
-    this.schema = schema;
-    this.writerConfig = writerConfig;
-    this.s3Config = s3Config;
-    this.s3UploadService = s3UploadService;
-    this.stagingDir = stagingDir;
-    this.nodeId = nodeId;
+    this.tableName = Objects.requireNonNull(tableName);
+    this.schema = Objects.requireNonNull(schema);
+    this.writerConfig = Objects.requireNonNull(writerConfig);
+    this.s3Bucket = Objects.requireNonNull(s3Bucket, "s3Bucket");
+    this.s3UploadService = Objects.requireNonNull(s3UploadService);
+    this.stagingRoot = Objects.requireNonNull(stagingRoot);
+    this.stagingSegment = Objects.requireNonNull(stagingSegment);
+    this.nodeId = Objects.requireNonNull(nodeId);
     this.onFlushSuccess = onFlushSuccess;
+    Path base = stagingPathBase();
     try {
-      Files.createDirectories(Path.of(stagingDir, tableName));
+      Files.createDirectories(base);
     } catch (IOException e) {
-      throw new IllegalStateException("Cannot create staging dir for " + tableName, e);
+      throw new IllegalStateException("Cannot create staging dir " + base, e);
     }
+  }
+
+  /** Back-compat ctor: derives {@code stagingSegment} from bucket name for local paths. */
+  public ParquetBatchWriter(
+      String tableName,
+      Schema schema,
+      WriterConfig writerConfig,
+      String s3Bucket,
+      S3UploadService s3UploadService,
+      String stagingRoot,
+      String nodeId,
+      Consumer<Map<Integer, Long>> onFlushSuccess) {
+    this(
+        tableName,
+        schema,
+        writerConfig,
+        s3Bucket,
+        s3UploadService,
+        stagingRoot,
+        stagingFilesystemSegment(s3Bucket),
+        nodeId,
+        onFlushSuccess);
+  }
+
+  static String stagingFilesystemSegment(String bucketName) {
+    String b = bucketName == null ? "unknown-bucket" : bucketName.trim();
+    if (b.isEmpty()) {
+      return "unknown-bucket";
+    }
+    StringBuilder sb = new StringBuilder(b.length());
+    for (int i = 0; i < b.length(); i++) {
+      char c = b.charAt(i);
+      if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9')
+          || c == '-' || c == '_') {
+        sb.append(c);
+      } else {
+        sb.append('_');
+      }
+    }
+    return sb.toString();
+  }
+
+  private Path stagingPathBase() {
+    return Path.of(stagingRoot, tableName, stagingSegment);
   }
 
   public synchronized void add(List<GenericRecord> records, int partition, long offset)
@@ -77,6 +133,7 @@ public class ParquetBatchWriter {
     if (records.isEmpty()) {
       return;
     }
+    partitionsTracked.add(partition);
     if (currentWriter == null) {
       openNewFile(records.get(0));
     }
@@ -121,19 +178,19 @@ public class ParquetBatchWriter {
 
     String s3Key = buildS3Key();
     File tmpFile = currentTmpFile.toFile();
-    // Snapshot and clear pending offsets synchronously; new adds start a fresh batch.
     Map<Integer, Long> offsets = new HashMap<>(pendingOffsets);
     pendingOffsets.clear();
     long rowsFlushed = rowsInCurrentFile;
     rowsInCurrentFile = 0;
     currentTmpFile = null;
 
-    s3UploadService.upload(s3Key, tmpFile)
+    s3UploadService.upload(s3Bucket, s3Key, tmpFile)
         .whenComplete((resp, err) -> {
           if (err != null) {
-            log.error("[{}] S3 upload failed for {}: {}", tableName, s3Key, err.getMessage());
+            log.error("[{}] S3 upload failed for s3://{}/{} : {}", tableName, s3Bucket, s3Key,
+                err.getMessage());
           } else {
-            synchronized (this) {
+            synchronized (ParquetBatchWriter.this) {
               committedOffsets = offsets;
             }
             try {
@@ -141,8 +198,7 @@ public class ParquetBatchWriter {
             } catch (IOException ex) {
               log.warn("[{}] Could not delete tmp file {}: {}", tableName, tmpFile, ex.getMessage());
             }
-            log.info("[{}] Flushed {} rows to s3://{}/{}", tableName, rowsFlushed,
-                s3Config.getBucket(), s3Key);
+            log.info("[{}] Flushed {} rows to s3://{}/{}", tableName, rowsFlushed, s3Bucket, s3Key);
             if (onFlushSuccess != null) {
               onFlushSuccess.accept(offsets);
             }
@@ -157,9 +213,8 @@ public class ParquetBatchWriter {
     fileOpenTimeMs = System.currentTimeMillis();
     rowsInCurrentFile = 0;
 
-    Path dir = Path.of(stagingDir, tableName);
+    Path dir = stagingPathBase();
     Files.createDirectories(dir);
-    // createTempFile reserves the name; delete placeholder so Parquet creates the real file.
     currentTmpFile = Files.createTempFile(dir, tableName + "-", ".parquet");
     Files.delete(currentTmpFile);
 
@@ -186,16 +241,37 @@ public class ParquetBatchWriter {
     return String.format("%s/%s/%s_%s_%s.parquet", tableName, partition, isoTs, nodeId, uuid);
   }
 
+  // Traces/logs: Timestamp. Metrics: TimeUnix. Values are micros; return nanos for partitioning.
   private long getTimestampNanos(GenericRecord record) {
-    Object ts = record.get("Timestamp");
-    if (ts instanceof Long l) {
-      return l * 1000L; // stored as micros, convert to nanos for hour-boundary calc
+    Schema s = record.getSchema();
+    Long micros = extractTimestampMicros(s, record, "Timestamp");
+    if (micros == null) {
+      micros = extractTimestampMicros(s, record, "TimeUnix");
+    }
+    if (micros != null) {
+      return micros * 1000L;
     }
     return System.currentTimeMillis() * 1_000_000L;
   }
 
+  private static Long extractTimestampMicros(Schema s, GenericRecord record, String field) {
+    if (s.getField(field) == null) {
+      return null;
+    }
+    Object val = record.get(field);
+    return val instanceof Long l ? l : null;
+  }
+
   public synchronized Map<Integer, Long> getCommittedOffsets() {
     return new HashMap<>(committedOffsets);
+  }
+
+  public Set<Integer> getPartitionsTracked() {
+    return Set.copyOf(partitionsTracked);
+  }
+
+  public boolean tracksPartition(int partition) {
+    return partitionsTracked.contains(partition);
   }
 
   public void writeDlq(byte[] rawBytes, String errorCode, String errorMsg,

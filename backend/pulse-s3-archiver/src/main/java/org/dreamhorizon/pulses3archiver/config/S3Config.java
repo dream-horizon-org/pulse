@@ -8,6 +8,8 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class S3Config {
+  /** @deprecated Archiver uploads to per-project buckets {@code pulse-otel-*}; retained for YAML compatibility. */
+  @Deprecated(forRemoval = false)
   private String bucket;
   private String region = "ap-south-1";
   private long multipartThresholdBytes = 16777216L;

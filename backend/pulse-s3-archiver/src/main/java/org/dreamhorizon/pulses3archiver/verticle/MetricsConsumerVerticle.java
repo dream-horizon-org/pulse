@@ -10,6 +10,7 @@ import io.vertx.kafka.client.consumer.OffsetAndMetadata;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.InetAddress;
+import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.List;
@@ -19,12 +20,13 @@ import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericRecord;
 import org.dreamhorizon.pulses3archiver.config.ArchiverConfig;
 import org.dreamhorizon.pulses3archiver.config.KafkaConfig;
-import org.dreamhorizon.pulses3archiver.config.S3Config;
 import org.dreamhorizon.pulses3archiver.config.WriterConfig;
 import org.dreamhorizon.pulses3archiver.constant.Constants;
 import org.dreamhorizon.pulses3archiver.guice.GuiceInjector;
 import org.dreamhorizon.pulses3archiver.mapper.MetricsOtlpMapper;
 import org.dreamhorizon.pulses3archiver.mapper.MetricsOtlpMapper.MetricTable;
+import org.dreamhorizon.pulses3archiver.service.KafkaCommittedOffsetAggregator;
+import org.dreamhorizon.pulses3archiver.service.MultiProjectParquetSink;
 import org.dreamhorizon.pulses3archiver.service.ParquetBatchWriter;
 import org.dreamhorizon.pulses3archiver.service.S3UploadService;
 import org.dreamhorizon.pulses3archiver.util.SharedDataUtils;
@@ -33,41 +35,39 @@ import org.dreamhorizon.pulses3archiver.util.SharedDataUtils;
 public class MetricsConsumerVerticle extends AbstractVerticle {
 
   private KafkaConsumer<String, byte[]> consumer;
-  private final Map<MetricTable, ParquetBatchWriter> writers = new EnumMap<>(MetricTable.class);
+  private final EnumMap<MetricTable, MultiProjectParquetSink> sinks =
+      new EnumMap<>(MetricTable.class);
+  private String metricsTopic = "";
   private long flushTimerId = -1;
 
   @Override
   public void start(Promise<Void> startPromise) {
     KafkaConfig kafkaConfig = SharedDataUtils.get(vertx, KafkaConfig.class);
     WriterConfig writerConfig = SharedDataUtils.get(vertx, WriterConfig.class);
-    S3Config s3Config = SharedDataUtils.get(vertx, S3Config.class);
     ArchiverConfig archiverConfig = SharedDataUtils.get(vertx, ArchiverConfig.class);
     S3UploadService s3UploadService = GuiceInjector.getGuiceInjector().getInstance(S3UploadService.class);
 
     Map<MetricTable, Schema> schemas = loadSchemas();
     String nodeId = resolveNodeId();
     String stagingDir = archiverConfig.getStagingDir();
-    String topic = kafkaConfig.getTopicMetrics();
+    metricsTopic = kafkaConfig.getTopicMetrics();
+    Runnable onFlushSuccess = () -> maybeCommitKafkaOffsets(metricsTopic);
 
-    writers.put(MetricTable.SUM, new ParquetBatchWriter(
+    sinks.put(MetricTable.SUM, new MultiProjectParquetSink(
         Constants.TABLE_METRICS_SUM, schemas.get(MetricTable.SUM),
-        writerConfig, s3Config, s3UploadService, stagingDir, nodeId,
-        offsets -> vertx.runOnContext(v -> maybeCommitKafkaOffsets(topic))));
+        writerConfig, s3UploadService, stagingDir, nodeId, onFlushSuccess));
 
-    writers.put(MetricTable.HISTOGRAM, new ParquetBatchWriter(
+    sinks.put(MetricTable.HISTOGRAM, new MultiProjectParquetSink(
         Constants.TABLE_METRICS_HISTOGRAM, schemas.get(MetricTable.HISTOGRAM),
-        writerConfig, s3Config, s3UploadService, stagingDir, nodeId,
-        offsets -> vertx.runOnContext(v -> maybeCommitKafkaOffsets(topic))));
+        writerConfig, s3UploadService, stagingDir, nodeId, onFlushSuccess));
 
-    writers.put(MetricTable.EXP_HISTOGRAM, new ParquetBatchWriter(
+    sinks.put(MetricTable.EXP_HISTOGRAM, new MultiProjectParquetSink(
         Constants.TABLE_METRICS_EXP_HISTOGRAM, schemas.get(MetricTable.EXP_HISTOGRAM),
-        writerConfig, s3Config, s3UploadService, stagingDir, nodeId,
-        offsets -> vertx.runOnContext(v -> maybeCommitKafkaOffsets(topic))));
+        writerConfig, s3UploadService, stagingDir, nodeId, onFlushSuccess));
 
-    writers.put(MetricTable.SUMMARY, new ParquetBatchWriter(
+    sinks.put(MetricTable.SUMMARY, new MultiProjectParquetSink(
         Constants.TABLE_METRICS_SUMMARY, schemas.get(MetricTable.SUMMARY),
-        writerConfig, s3Config, s3UploadService, stagingDir, nodeId,
-        offsets -> vertx.runOnContext(v -> maybeCommitKafkaOffsets(topic))));
+        writerConfig, s3UploadService, stagingDir, nodeId, onFlushSuccess));
 
     consumer = KafkaConsumer.create(vertx, buildKafkaConfig(kafkaConfig));
 
@@ -82,7 +82,7 @@ public class MetricsConsumerVerticle extends AbstractVerticle {
         for (MetricTable table : MetricTable.values()) {
           List<GenericRecord> rows = fanout.get(table);
           if (!rows.isEmpty()) {
-            writers.get(table).add(rows, record.partition(), record.offset());
+            sinks.get(table).add(rows, record.partition(), record.offset());
           }
         }
       } catch (InvalidProtocolBufferException e) {
@@ -94,12 +94,12 @@ public class MetricsConsumerVerticle extends AbstractVerticle {
       }
     });
 
-    consumer.subscribe(topic)
+    consumer.subscribe(metricsTopic)
         .onSuccess(v -> {
           log.info("[ARCHIVER-METRICS] Subscribed to {} bootstrapServers={}",
-              topic, kafkaConfig.getBootstrapServers());
+              metricsTopic, kafkaConfig.getBootstrapServers());
           flushTimerId = vertx.setPeriodic(archiverConfig.getFlushIntervalMs(),
-              id -> writers.values().forEach(ParquetBatchWriter::flushIfDue));
+              id -> sinks.values().forEach(MultiProjectParquetSink::flushIfDue));
           startPromise.complete();
         })
         .onFailure(err -> {
@@ -108,30 +108,15 @@ public class MetricsConsumerVerticle extends AbstractVerticle {
         });
   }
 
-  @Override
-  public void stop() {
-    if (flushTimerId >= 0) {
-      vertx.cancelTimer(flushTimerId);
-    }
-    writers.values().forEach(w -> {
-      try {
-        w.flush();
-      } catch (IOException e) {
-        log.warn("[ARCHIVER-METRICS] Final flush on stop failed: {}", e.getMessage());
-      }
-    });
-    if (consumer != null) {
-      consumer.close();
-    }
-  }
-
   /**
-   * Commits Kafka offsets using the minimum committed offset across all metric writers
-   * to ensure at-least-once delivery: an offset is only committed when every writer
-   * has durably stored its data for that offset.
+   * Commits Kafka offsets using conservative merge across every Parquet sink (metric × project bucket).
    */
   private void maybeCommitKafkaOffsets(String topic) {
-    Map<Integer, Long> minOffsets = computeMinCommittedOffsets();
+    List<ParquetBatchWriter> all = new ArrayList<>();
+    for (MultiProjectParquetSink sink : sinks.values()) {
+      all.addAll(sink.allWriters());
+    }
+    Map<Integer, Long> minOffsets = KafkaCommittedOffsetAggregator.mergeAcrossWriters(all);
     if (minOffsets.isEmpty()) {
       return;
     }
@@ -145,21 +130,21 @@ public class MetricsConsumerVerticle extends AbstractVerticle {
         .onFailure(err -> log.error("[ARCHIVER-METRICS] Kafka commit failed: {}", err.getMessage()));
   }
 
-  private Map<Integer, Long> computeMinCommittedOffsets() {
-    Map<Integer, Long> result = new HashMap<>();
-    for (ParquetBatchWriter writer : writers.values()) {
-      Map<Integer, Long> committed = writer.getCommittedOffsets();
-      if (result.isEmpty()) {
-        result.putAll(committed);
-      } else {
-        for (Map.Entry<Integer, Long> e : committed.entrySet()) {
-          result.merge(e.getKey(), e.getValue(), Math::min);
-        }
-        // Remove partitions not present in all writers
-        result.keySet().retainAll(committed.keySet());
+  @Override
+  public void stop() {
+    if (flushTimerId >= 0) {
+      vertx.cancelTimer(flushTimerId);
+    }
+    for (MultiProjectParquetSink s : sinks.values()) {
+      try {
+        s.flush();
+      } catch (IOException e) {
+        log.warn("[ARCHIVER-METRICS] Final flush on stop failed: {}", e.getMessage());
       }
     }
-    return result;
+    if (consumer != null) {
+      consumer.close();
+    }
   }
 
   private static Map<MetricTable, Schema> loadSchemas() {
