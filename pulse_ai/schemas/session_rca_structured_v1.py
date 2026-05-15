@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 SessionRcaMetricIdV1 = Literal["session_score", "volume"]
 
@@ -43,8 +43,17 @@ class SessionRcaStructuredSegmentV1(BaseModel):
     )
     affected_sessions: list[str] | None = Field(
         default=None,
-        description="Up to 2 session IDs with session_score below the critical threshold.",
+        description=(
+            "Omit or null in model output — example session IDs are injected by the runner from "
+            "the Java RootCausePayload, never from the LLM."
+        ),
     )
+
+    @field_validator("affected_sessions", mode="before")
+    @classmethod
+    def reject_llm_affected_sessions(cls, value: object) -> None:
+        """Do not trust LLM-provided session IDs; runner overwrites from backend evidence."""
+        return None
 
 
 class SessionRcaStructuredV1(BaseModel):

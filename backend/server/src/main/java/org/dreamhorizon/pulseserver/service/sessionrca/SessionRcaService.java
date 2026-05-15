@@ -51,9 +51,6 @@ public class SessionRcaService {
       "platform", "osVersion", "appVersion", "startType",
       "SessionLength", "deviceModel", "networkProvider", "geoRegion");
 
-  private static final String CACHE_FIELD_BASELINE = "baseline";
-  private static final String CACHE_FIELD_SEGMENTS = "segments";
-
   private static final int EVIDENCE_SESSION_LIMIT = 2;
   private static final int DEGRADING_INTERACTION_LIMIT = 3;
 
@@ -91,7 +88,7 @@ public class SessionRcaService {
           try {
             return Single.just(fromCacheRow(opt.get()));
           } catch (WebApplicationException e) {
-            log.warn("session_rca_cache invalid row for project={}, date={}: {}",
+            log.warn("session_rca_snapshot invalid row for project={}, date={}: {}",
                 projectId, anchorDateUtc, e.getMessage());
             return computeAndCache(projectId, anchorDateUtc, window);
           }
@@ -604,30 +601,39 @@ public class SessionRcaService {
       var evidenceSpec = SessionRcaQueryBuilder.buildExampleSessionsQuery(
           projectId, window.startInclusive, window.endExclusive,
           dimensionFilters, criticalThreshold, EVIDENCE_SESSION_LIMIT, p20Ms, p80Ms);
-      Single<List<String>> evidenceSingle = executeQuery(projectId, evidenceSpec)
-          .map(evidenceRows -> evidenceRows.stream()
-              .map(r -> r.get("sessionId") != null ? r.get("sessionId").toString() : null)
-              .filter(sid -> sid != null && !sid.isBlank())
-              .toList());
-      Single<List<DegradingInteraction>> interactionsSingle = hasDegradation
-          ? fetchDegradingInteractions(projectId, window, dimensionFilters, criticalThreshold, p20Ms, p80Ms)
-          : Single.just(List.of());
+      Single<List<String>> evidenceSingle =
+          executeQuery(projectId, evidenceSpec)
+              .map(
+                  evidenceRows ->
+                      evidenceRows.stream()
+                          .map(
+                              r ->
+                                  r.get("sessionId") != null
+                                      ? r.get("sessionId").toString()
+                                      : null)
+                          .filter(sid -> sid != null && !sid.isBlank())
+                          .toList())
+              .onErrorReturnItem(List.of());
+      Single<List<DegradingInteraction>> interactionsSingle =
+          hasDegradation
+              ? fetchDegradingInteractions(
+                      projectId, window, dimensionFilters, criticalThreshold, p20Ms, p80Ms)
+                  .onErrorReturnItem(List.of())
+              : Single.just(List.of());
 
-      return Single.zip(evidenceSingle, interactionsSingle, (examples, interactions) ->
-          Optional.of(RootCauseSegment.builder()
-              .label(label)
-              .dimensions(new LinkedHashMap<>(dimensionFilters))
-              .metrics(metrics)
-              .deltas(deltas)
-              .exampleSessionIds(examples.isEmpty() ? null : examples)
-              .degradingInteractions(interactions.isEmpty() ? null : interactions)
-              .build())
-      ).onErrorReturnItem(Optional.of(RootCauseSegment.builder()
-          .label(label)
-          .dimensions(new LinkedHashMap<>(dimensionFilters))
-          .metrics(metrics)
-          .deltas(deltas)
-          .build()));
+      return Single.zip(
+              evidenceSingle,
+              interactionsSingle,
+              (examples, interactions) ->
+                  Optional.of(
+                      RootCauseSegment.builder()
+                          .label(label)
+                          .dimensions(new LinkedHashMap<>(dimensionFilters))
+                          .metrics(metrics)
+                          .deltas(deltas)
+                          .exampleSessionIds(examples.isEmpty() ? null : examples)
+                          .degradingInteractions(interactions.isEmpty() ? null : interactions)
+                          .build()));
     });
   }
 
@@ -748,7 +754,7 @@ public class SessionRcaService {
       Map<String, Object> parsed = objectMapper.readValue(json, Map.class);
       return parsed != null ? parsed : Map.of();
     } catch (Exception e) {
-      log.error("session_rca_cache: failed to parse baseline JSON: {}", e.getMessage());
+      log.error("session_rca_snapshot: failed to parse baseline JSON: {}", e.getMessage());
       throw ServiceError.INTERNAL_SERVER_ERROR.getException();
     }
   }
@@ -766,7 +772,7 @@ public class SessionRcaService {
           .map(m -> objectMapper.convertValue(m, RootCauseSegment.class))
           .toList();
     } catch (Exception e) {
-      log.error("session_rca_cache: failed to parse segments JSON: {}", e.getMessage());
+      log.error("session_rca_snapshot: failed to parse segments JSON: {}", e.getMessage());
       throw ServiceError.INTERNAL_SERVER_ERROR.getException();
     }
   }

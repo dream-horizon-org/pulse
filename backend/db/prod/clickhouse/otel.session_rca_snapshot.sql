@@ -1,4 +1,5 @@
-CREATE TABLE otel.session_rca_cache_local
+-- Precomputed session-quality RCA (ReplacingMergeTree). Prefer name "snapshot" over "cache".
+CREATE TABLE otel.session_rca_snapshot_local
 ON CLUSTER 'pulse-ch'
 (
     ProjectId      LowCardinality(String) CODEC(ZSTD(1)),
@@ -13,7 +14,7 @@ ON CLUSTER 'pulse-ch'
     INDEX idx_cached_at  cached_at      TYPE minmax GRANULARITY 1,
     INDEX idx_mode       mode           TYPE set(4) GRANULARITY 1
 )
-ENGINE = ReplicatedReplacingMergeTree('/clickhouse/tables/{shard}/otel/session_rca_cache', '{replica}', cached_at)
+ENGINE = ReplicatedReplacingMergeTree('/clickhouse/tables/{shard}/otel/session_rca_snapshot', '{replica}', cached_at)
 PARTITION BY toYYYYMM(date)
 ORDER BY (ProjectId, date, mode)
 TTL toDateTime(date) + toIntervalDay(7)  TO VOLUME 'cold',
@@ -21,7 +22,7 @@ TTL toDateTime(date) + toIntervalDay(7)  TO VOLUME 'cold',
 SETTINGS index_granularity = 8192, storage_policy = 'tiered';
 
 
-CREATE TABLE IF NOT EXISTS otel.session_rca_cache
+CREATE TABLE IF NOT EXISTS otel.session_rca_snapshot
 ON CLUSTER 'pulse-ch'
-AS otel.session_rca_cache_local
-    ENGINE = Distributed('pulse-ch', otel, session_rca_cache_local, cityHash64(ProjectId));
+AS otel.session_rca_snapshot_local
+    ENGINE = Distributed('pulse-ch', otel, session_rca_snapshot_local, cityHash64(ProjectId));

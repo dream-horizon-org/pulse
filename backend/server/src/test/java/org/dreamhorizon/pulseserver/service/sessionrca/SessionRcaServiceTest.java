@@ -965,7 +965,7 @@ class SessionRcaServiceTest {
       RootCauseResult result = service.getSessionRca(PROJECT_ID, ANCHOR, WINDOW_END).blockingGet();
 
       assertThat(result.getSegments()).isNotEmpty();
-      assertThat(result.getSegments().get(0).getExampleSessionIds()).isEmpty();
+      assertThat(result.getSegments().get(0).getExampleSessionIds()).isNull();
     }
   }
 }

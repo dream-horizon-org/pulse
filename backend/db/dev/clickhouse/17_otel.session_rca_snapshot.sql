@@ -1,4 +1,5 @@
-CREATE TABLE IF NOT EXISTS otel.session_rca_cache
+-- Precomputed session-quality RCA rows (ReplacingMergeTree by cached_at).
+CREATE TABLE IF NOT EXISTS otel.session_rca_snapshot
 (
     ProjectId      LowCardinality(String) CODEC(ZSTD(1)),
     date           Date                   CODEC(Delta, ZSTD(1)),

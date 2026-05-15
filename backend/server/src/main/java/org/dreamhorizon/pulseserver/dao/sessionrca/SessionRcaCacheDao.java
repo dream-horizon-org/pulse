@@ -16,8 +16,8 @@ import org.dreamhorizon.pulseserver.model.QueryConfiguration;
 import org.dreamhorizon.pulseserver.model.QueryResultResponse;
 
 /**
- * Session RCA cache in ClickHouse. Keyed by {@code (ProjectId, date)} — project-wide, no
- * entity name dimension (unlike interaction/screen RCA caches).
+ * Session RCA snapshot store in ClickHouse. Keyed by {@code (ProjectId, date)} — project-wide, no
+ * entity name dimension (unlike interaction/screen RCA stores).
  */
 @Slf4j
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
@@ -28,15 +28,16 @@ public class SessionRcaCacheDao {
   private final ClickhouseQueryService clickhouseQueryService;
 
   /**
-   * Returns the latest cache row for the project + anchor date. If duplicates exist before
+   * Returns the latest snapshot row for the project + anchor date. If duplicates exist before
    * ReplacingMergeTree merge, returns the row with max {@code cached_at}.
    */
   public Single<Optional<SessionRcaCacheRow>> findByKey(String projectId, LocalDate anchorDateUtc) {
     String dateStr = anchorDateUtc.format(DATE_FMT);
-    String query = SessionRcaCacheQueries.buildSelectByKeyQuery(projectId, dateStr);
-    QueryConfiguration config = QueryConfiguration.newQuery(query).projectId(projectId).build();
+    SessionRcaCacheQueries.BoundStatement bound = SessionRcaCacheQueries.buildSelectByKey(projectId, dateStr);
+    QueryConfiguration config = QueryConfiguration.newQuery(bound.sql()).projectId(projectId).build();
     return clickhouseQueryService
-        .executeGenericQueryWithGlobalPool(config, SessionRcaCacheRow.class)
+        .executeGenericQueryWithGlobalPoolBinds(
+            config, SessionRcaCacheRow.class, bound.bindNames(), bound.bindValues())
         .map(QueryResultResponse::getRows)
         .map(rows -> {
           if (rows.isEmpty()) {
@@ -57,14 +58,15 @@ public class SessionRcaCacheDao {
       String segmentsJson,
       LocalDateTime cachedAt) {
     String dateStr = anchorDateUtc.format(DATE_FMT);
-    String query = SessionRcaCacheQueries.buildInsertQuery(
-        projectId, dateStr, windowEndExclusiveUtc, mode, baselineJson, segmentsJson, cachedAt);
-    QueryConfiguration config = QueryConfiguration.newQuery(query).projectId(projectId).build();
+    SessionRcaCacheQueries.BoundStatement bound =
+        SessionRcaCacheQueries.buildInsert(
+            projectId, dateStr, windowEndExclusiveUtc, mode, baselineJson, segmentsJson, cachedAt);
+    QueryConfiguration config = QueryConfiguration.newQuery(bound.sql()).projectId(projectId).build();
     return clickhouseQueryService
-        .executeQueryWithGlobalPool(config)
+        .executeQueryWithGlobalPoolBinds(config, bound.bindNames(), bound.bindValues())
         .ignoreElement()
         .onErrorResumeNext(e -> {
-          log.error("Session RCA cache upsert failed for project={}: {}", projectId, e.getMessage());
+          log.error("Session RCA snapshot upsert failed for project={}: {}", projectId, e.getMessage());
           return Completable.error(e);
         });
   }

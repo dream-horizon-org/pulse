@@ -8,7 +8,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-/** One row from otel.session_rca_cache. Keyed by (ProjectId, date) — project-wide. */
+/** One row from {@code otel.session_rca_snapshot}. Keyed by (ProjectId, date) — project-wide. */
 @Data
 @Builder
 @NoArgsConstructor
