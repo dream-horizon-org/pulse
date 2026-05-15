@@ -346,7 +346,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@dreamhorizonorg/pulse-web@npm:0.1.0-alpha.2, @dreamhorizonorg/pulse-web@workspace:*, @dreamhorizonorg/pulse-web@workspace:.":
+"@dreamhorizonorg/pulse-web@npm:0.0.3, @dreamhorizonorg/pulse-web@workspace:*, @dreamhorizonorg/pulse-web@workspace:.":
   version: 0.0.0-use.local
   resolution: "@dreamhorizonorg/pulse-web@workspace:."
   dependencies:
@@ -2811,7 +2811,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "ecommerce-demo@workspace:examples/ecommerce-demo"
   dependencies:
-    "@dreamhorizonorg/pulse-web": "npm:0.1.0-alpha.2"
+    "@dreamhorizonorg/pulse-web": "npm:0.0.3"
     "@playwright/test": "npm:^1.47.0"
     "@types/react": "npm:^18.3.0"
     "@types/react-dom": "npm:^18.3.0"
@@ -4672,7 +4672,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "nextjs-demo@workspace:examples/nextjs-demo"
   dependencies:
-    "@dreamhorizonorg/pulse-web": "npm:0.1.0-alpha.2"
+    "@dreamhorizonorg/pulse-web": "npm:0.0.3"
     "@playwright/test": "npm:^1.48.0"
     "@types/node": "npm:^22.0.0"
     "@types/react": "npm:^18.3.0"
