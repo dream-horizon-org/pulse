@@ -1,14 +1,14 @@
 import { ApiResponse } from "../../helpers/makeRequest";
-import { NotificationChannelType } from "../useGetAlertNotificationChannels/useGetAlertNotificationChannels.interface";
+import { ChannelConfig, NotificationChannel } from "../../types";
 
 export type UpdateNotificationChannelRequest = {
-  notification_channel_id: number;
-  name: string;
-  type: NotificationChannelType;
-  config: string;
+  channelId: number;
+  name?: string;
+  config?: ChannelConfig;
+  isActive?: boolean;
 };
 
-export type UpdateNotificationChannelResponse = boolean;
+export type UpdateNotificationChannelResponse = NotificationChannel;
 
 export type UpdateNotificationChannelOnSettled = (
   data: ApiResponse<UpdateNotificationChannelResponse> | undefined,

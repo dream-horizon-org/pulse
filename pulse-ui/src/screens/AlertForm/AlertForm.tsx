@@ -31,6 +31,7 @@ import {
   COMMON_CONSTANTS,
   COOKIES_KEY,
   CRITICAL_INTERACTION_FORM_CONSTANTS,
+  NOTIFICATION_EVENT_NAMES,
   ROUTES,
 } from "../../constants";
 import { showNotification } from "../../helpers/showNotification";
@@ -50,7 +51,7 @@ import { useUpdateAlert } from "../../hooks/useUpdateAlert";
 import { useGetAlertScopes } from "../../hooks/useGetAlertScopes";
 import { useGetAlertMetrics } from "../../hooks/useGetAlertMetrics";
 import { useGetAlertSeverities } from "../../hooks/useGetAlertSeverities";
-import { useGetAlertNotificationChannels } from "../../hooks/useGetAlertNotificationChannels";
+import { useGetChannelMappings } from "../../hooks/useChannelMappings";
 
 export const AlertForm = ({
   isInteractionDetailsFlow,
@@ -101,8 +102,10 @@ export const AlertForm = ({
     useGetAlertSeverities();
 
   // Fetch notification channels
-  const { data: channelsData, isLoading: isChannelsLoading } =
-    useGetAlertNotificationChannels();
+  const { data: channelMappingsData, isLoading: isChannelMappingsLoading } =
+    useGetChannelMappings({
+      eventName: NOTIFICATION_EVENT_NAMES.PULSE_ALERT_FIRING,
+    });
 
   const {
     data: response,
@@ -148,7 +151,7 @@ export const AlertForm = ({
         evaluation_period: data.evaluation_period,
         evaluation_interval: data.evaluation_interval,
         severity_id: data.severity_id,
-        notification_channel_id: data.notification_channel_id,
+        channel_event_mapping_id: data.channel_event_mapping_id,
         created_by: data.created_by,
         updated_by: data.updated_by || undefined,
       };
@@ -369,10 +372,13 @@ export const AlertForm = ({
   };
 
   const getChannelOptions = () => {
-    if (channelsData?.data) {
-      return channelsData.data.map((c) => ({
-        value: c.notification_channel_id.toString(),
-        label: c.name,
+    if (channelMappingsData?.data) {
+      return channelMappingsData.data.map((mapping) => ({
+        value: mapping.id.toString(),
+        label:
+          mapping.recipientName ||
+          mapping.recipient ||
+          `${mapping.channelName} #${mapping.id}`,
       }));
     }
     return [];
@@ -652,7 +658,7 @@ export const AlertForm = ({
                 )}
               />
               <Controller
-                name="notification_channel_id"
+                name="channel_event_mapping_id"
                 control={control}
                 rules={{ required: "Notification channel is required" }}
                 render={({ field, fieldState }) => (
@@ -660,16 +666,16 @@ export const AlertForm = ({
                     {...field}
                     value={field.value?.toString()}
                     onChange={(val) => field.onChange(Number(val))}
-                    label="Notification Channel"
+                    label="Notification Recipient"
                     description="Select the channel for alert notifications"
                     placeholder={
-                      isChannelsLoading
+                      isChannelMappingsLoading
                         ? "Loading channels..."
                         : "Select channel"
                     }
                     data={getChannelOptions()}
                     error={fieldState.error?.message}
-                    disabled={isChannelsLoading}
+                    disabled={isChannelMappingsLoading}
                     required
                   />
                 )}
