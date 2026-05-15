@@ -28,6 +28,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { logs } from "@opentelemetry/api-logs";
 import type { CLSMetric, INPMetric, LCPMetric, Metric } from "web-vitals";
 import { DomEventType } from "../constants/pulse-otel-runtime";
+import { NavigationInstrumentation } from "../instrumentations/navigation";
 import {
   WebVitalsInstrumentation,
   webVitalContextFromNavigationType,
@@ -555,6 +556,49 @@ describe("InstrumentationRegistry Web Vitals gate", () => {
     registry.installAll();
     expect(wvMocks.onLCP).toHaveBeenCalled();
     registry.uninstallAll();
+  });
+
+  it("installAll installs Navigation before Web Vitals", () => {
+    const order: string[] = [];
+    const origNav = NavigationInstrumentation.prototype.install;
+    const origWv = WebVitalsInstrumentation.prototype.install;
+    const navSpy = vi
+      .spyOn(NavigationInstrumentation.prototype, "install")
+      .mockImplementation(function (
+        this: NavigationInstrumentation,
+        sdk: SdkContext,
+      ) {
+        order.push("navigation");
+        return origNav.call(this, sdk);
+      });
+    const wvSpy = vi
+      .spyOn(WebVitalsInstrumentation.prototype, "install")
+      .mockImplementation(function (
+        this: WebVitalsInstrumentation,
+        sdk: SdkContext,
+      ) {
+        order.push("web-vitals");
+        return origWv.call(this, sdk);
+      });
+
+    wvMocks.onLCP.mockClear();
+    const sdk = makeMinimalSdk();
+    const registry = new InstrumentationRegistry(
+      sdk,
+      sdk.gate,
+      sdk.config.instrumentations,
+    );
+    registry.installAll();
+
+    const navIdx = order.indexOf("navigation");
+    const wvIdx = order.indexOf("web-vitals");
+    expect(navIdx).toBeGreaterThanOrEqual(0);
+    expect(wvIdx).toBeGreaterThanOrEqual(0);
+    expect(navIdx).toBeLessThan(wvIdx);
+
+    registry.uninstallAll();
+    navSpy.mockRestore();
+    wvSpy.mockRestore();
   });
 
   it("does not install Web Vitals when local enabled is false (kill switch; BE gate cannot override)", () => {

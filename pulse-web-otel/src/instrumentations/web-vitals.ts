@@ -16,7 +16,12 @@ import {
 } from "../constants/pulse-otel-runtime";
 import { PulseWebSemconv } from "../semconv";
 
-/** Exported for unit tests — maps `Metric.navigationType` to Pulse `web_vital.context`. */
+/**
+ * Maps `Metric.navigationType` to Pulse `web_vital.context`.
+ * Only `soft-navigation` maps to `navigation`; every other value (including
+ * future upstream types) maps to `pageload` — see SPEC.md §5.1 Notes on
+ * `web_vital.context`.
+ */
 export function webVitalContextFromNavigationType(
   navigationType: string,
 ): "pageload" | "navigation" {

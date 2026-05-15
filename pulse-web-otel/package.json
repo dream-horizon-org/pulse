@@ -106,6 +106,7 @@
     "test": "vitest",
     "test:run": "vitest run",
     "lint": "tsc --noEmit",
+    "check:audit-index-sync": "cmp -s ../.claude/skills/web-otel-spec-implementation-audit/audit-index.json ../.cursor/skills/web-otel-spec-implementation-audit/audit-index.json || (echo 'audit-index.json out of sync between .claude and .cursor skills trees' && exit 1)",
     "markdown:lint": "markdownlint-cli2 \"docs/**/*.md\" \"README.md\" \"CLAUDE.md\" \"prd/**/*.md\"",
     "markdown:lint:fix": "markdownlint-cli2 --fix \"docs/**/*.md\" \"README.md\" \"CLAUDE.md\" \"prd/**/*.md\"",
     "size-limit": "size-limit",

@@ -40,7 +40,7 @@ Emit **Core Web Vitals** and related paint/timing signals as OTLP **log records*
 | Path | Role |
 |------|------|
 | `src/instrumentations/web-vitals.ts` | `web-vitals` callbacks, OTLP log emit, post-`uninstall()` emit suppression, `visibilitychange` / `pageshow` flush listeners |
-| `src/instrumentation-registry.ts` | Invokes `WebVitalsInstrumentation.install` only when `shouldInstall(WEB_VITALS)` passes |
+| `src/instrumentation-registry.ts` | Invokes `WebVitalsInstrumentation.install` only when `shouldInstall(WEB_VITALS)` passes; **`installAll` registers `NavigationInstrumentation` before `WebVitalsInstrumentation`** so `navigation_id` exists before metric callbacks attach |
 | `src/sdk.ts` | Consent / collection policy: skips provider setup and `registry.installAll()` when collection is disallowed |
 | `src/processors/global-attrs-processor.ts` | Merges `navigation_id`, `session.id`, `screen.name` (and related common attrs) onto log records at export |
 
@@ -129,7 +129,7 @@ flowchart TD
 | `web_vital.value` | number | `Metric.value` | Yes | Unit depends on metric (ms, score, …) |
 | `web_vital.rating` | string | `Metric.rating` | Yes | `good` \| `needs-improvement` \| `poor` |
 | `web_vital.navigation_type` | string | `Metric.navigationType` | Yes | Always set on `web-vitals` ^5.x `Metric` |
-| `web_vital.context` | string | derived from `navigationType` | Yes | `soft-navigation` → `navigation`; any other `navigationType` → `pageload` |
+| `web_vital.context` | string | derived from `navigationType` | Yes | `soft-navigation` → `navigation`; any other `navigationType` (including future upstream values not yet named in this SPEC) → **`pageload`** until product defines a distinct Pulse mapping |
 | `web_vital.delta` | number | `Metric.delta` | Yes | On `web-vitals` ^5.x every metric includes `delta`; first report often `delta === value`; CLS/INP add incremental emissions when `reportAllChanges: true` on `onCLS` / `onINP` |
 | `navigation_id` | string (UUID v4) | `PulseGlobalAttributesProcessor` (set by `NavigationInstrumentation`) | No | One id per cold/SPA/BFCache navigation; **omitted** until set — enables per-route CLS/INP aggregation |
 | `session.id` | string | global attrs processor | Yes | Inherited on export |
@@ -210,6 +210,7 @@ Pulse registers each `web-vitals` callback **once** at install; it does **not** 
 | W-SPA-TTFB | positive | home loaded, then SPA nav to `/products` | vitals exported | TTFB log still has `screen.name` `/` (initial route) | `e2e/web-vitals.spec.ts` (SPA TTFB test) |
 | W-SPA-NAV | positive | SPA client navigation | `navigation_id` on `web_vital` + `screen_load` | New id on spans/logs after nav | `e2e/web-vitals.spec.ts`; `global-attrs-processor.test.ts` |
 | W-SPA-NAV2 | positive | two SPA navigations (`/` → `/products` → `/cart`) | latest `screen_load` each time | **Distinct** `navigation_id` vs after first nav | `e2e/web-vitals.spec.ts` |
+| W-REG3 | edge | `installAll` with navigation + web vitals gated on | registry init | `NavigationInstrumentation.install` runs **before** `WebVitalsInstrumentation.install` | `web-vitals-instrumentation.test.ts` |
 | W-G4 | positive | — | — | `webVitalContextFromNavigationType("back-forward" \| "prerender")` → `pageload`; `soft-navigation` → `navigation` | `web-vitals-instrumentation.test.ts` (direct unit tests on exported helper) |
 | W-G5 | positive | installed | `onFCP` / `onTTFB` callbacks fire | `logger.emit` with full `web_vital.*` contract | `web-vitals-instrumentation.test.ts` |
 | W-G6 | positive | installed | two sequential CLS callbacks | second emit reflects cumulative `value` + new `delta` | `web-vitals-instrumentation.test.ts` |

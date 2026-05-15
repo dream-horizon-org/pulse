@@ -1,5 +1,7 @@
 ## 0.0.3 (unreleased)
 
+_Previously split between `0.0.3` and `0.1.0-alpha.2` headings in this file; consolidated under the `package.json` version._
+
 ### Changed
 
 - **`web-vitals` ^5.x:** dependency bumped from v4 to **5.2.0+**. Upstream
@@ -11,12 +13,10 @@
   **Size-limit** thresholds raised for traced `dist/index.js` /
   `dist/next.js` bundles.
 
-## 0.1.0-alpha.2 (unreleased)
+### Breaking changes — public API rename (pre-1.0)
 
-### Breaking changes — public API rename (alpha)
-
-The package is **alpha** (`0.1.0-alpha.x`). Per SemVer, breaking changes in
-`0.x` releases are permitted and called out here so the next alpha bump is
+The package is **pre-1.0** (`0.0.3` in `package.json`). Per SemVer, breaking
+changes in `0.x` are permitted and called out here so the next bump stays
 unambiguous.
 
 | Old name (≤ 0.1.0-alpha.1) | New name (this release) | Module |
@@ -62,6 +62,9 @@ sufficient to verify migration.
   try/catch (errors logged via `diag.error`) and the gate flips only after the
   full sweep, so a transient throw in one instrumentation no longer silently
   skips the rest on subsequent installs.
+- **Install order:** `NavigationInstrumentation` runs **before**
+  `WebVitalsInstrumentation` so `navigation_id` is set before `web-vitals`
+  metric callbacks attach (see `instrumentation-registry.ts`).
 - `createPulseSendBeaconTransport`: explicit `BlobPart` cast on the OTLP
   payload to satisfy TS 5.7+ `Uint8Array<ArrayBufferLike>` typing (no runtime
   change).

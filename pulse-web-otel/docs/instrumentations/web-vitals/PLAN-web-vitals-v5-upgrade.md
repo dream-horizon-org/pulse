@@ -59,7 +59,10 @@ Per [web-sdk-ship](../../../../.claude/skills/web-sdk-ship/SKILL.md) / package s
 - `yarn e2e:web-sdk-gates` (includes ecommerce **web vitals** Playwright; must stay green on the PR that removes `onFID` — see §8)
 - `yarn size-limit` ([`.size-limit.json`](../../../.size-limit.json))
 
-FID removal likely shrinks bundle; threshold changes usually unnecessary.
+FID removal can shrink library code, but **this branch raised** `.size-limit.json`
+because **traced** `dist/index.js` / `dist/next.js` bundles include a larger OTel
+graph than the old budget assumed — do not lower limits without re-running
+`yarn size-limit` on a clean build.
 
 ## 7. Out of scope
 
