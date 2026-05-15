@@ -1,7 +1,6 @@
 package org.dreamhorizon.pulseserver.resources.notification;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
@@ -10,7 +9,9 @@ import io.vertx.core.Vertx;
 import io.vertx.junit5.VertxExtension;
 import io.vertx.junit5.VertxTestContext;
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.util.Base64;
 import java.util.List;
 import org.dreamhorizon.pulseserver.config.NotificationConfig;
 import org.dreamhorizon.pulseserver.resources.notification.models.SlackChannelListDto;
@@ -91,11 +92,38 @@ class SlackOAuthControllerTest {
     }
 
     @Test
+    void shouldPreserveReturnPathQueryOnCallbackRedirect(
+        Vertx vertx, VertxTestContext testContext) {
+      vertx.runOnContext(v -> {
+        SlackOAuthCallbackRequest request = new SlackOAuthCallbackRequest();
+        request.setError("access_denied");
+        String returnPath = "/projects/proj-1/settings/notifications?fromAlertWizard=1&openAdd=1";
+        String encodedPath = Base64.getUrlEncoder()
+            .withoutPadding()
+            .encodeToString(returnPath.getBytes(StandardCharsets.UTF_8));
+        request.setState("proj-1::" + encodedPath);
+
+        var result = controller.callback(request);
+
+        result.whenComplete((resp, err) -> {
+          testContext.verify(() -> {
+            assertThat(resp.getStatus()).isEqualTo(307);
+            URI location = resp.getLocation();
+            assertThat(location.toString())
+                .contains("/projects/proj-1/settings/notifications?fromAlertWizard=1&openAdd=1");
+            assertThat(location.toString()).contains("&slack=error");
+          });
+          testContext.completeNow();
+        });
+      });
+    }
+
+    @Test
     void shouldRedirectWithSuccessAfterOAuth(Vertx vertx, VertxTestContext testContext) {
       vertx.runOnContext(v -> {
         SlackOAuthCallbackRequest request = new SlackOAuthCallbackRequest();
         request.setCode("auth-code");
-        request.setProjectId("proj-1");
+        request.setState("proj-1");
 
         SlackOAuthResult oauthResult = SlackOAuthResult.builder()
             .accessToken("xoxb-token")
@@ -136,7 +164,7 @@ class SlackOAuthControllerTest {
       vertx.runOnContext(v -> {
         SlackOAuthCallbackRequest request = new SlackOAuthCallbackRequest();
         request.setCode("auth-code");
-        request.setProjectId("proj-1");
+        request.setState("proj-1");
 
         SlackOAuthResult oauthResult = SlackOAuthResult.builder()
             .accessToken("xoxb-token")
@@ -176,7 +204,7 @@ class SlackOAuthControllerTest {
       vertx.runOnContext(v -> {
         SlackOAuthCallbackRequest request = new SlackOAuthCallbackRequest();
         request.setCode("bad-code");
-        request.setProjectId("proj-1");
+        request.setState("proj-1");
 
         when(slackOAuthService.exchangeCodeForToken(eq("bad-code")))
             .thenReturn(Single.error(new RuntimeException("Token exchange failed")));
@@ -194,6 +222,31 @@ class SlackOAuthControllerTest {
         });
       });
     }
+
+    @Test
+    void shouldRedirectWithErrorWhenOAuthFailureHasNullMessage(
+        Vertx vertx, VertxTestContext testContext) {
+      vertx.runOnContext(v -> {
+        SlackOAuthCallbackRequest request = new SlackOAuthCallbackRequest();
+        request.setCode("bad-code");
+        request.setState("proj-1");
+
+        when(slackOAuthService.exchangeCodeForToken(eq("bad-code")))
+            .thenReturn(Single.error(new RuntimeException()));
+
+        var result = controller.callback(request);
+
+        result.whenComplete((resp, err) -> {
+          testContext.verify(() -> {
+            assertThat(resp.getStatus()).isEqualTo(307);
+            URI location = resp.getLocation();
+            assertThat(location.toString()).contains("slack=error");
+            assertThat(location.toString()).contains("message=");
+          });
+          testContext.completeNow();
+        });
+      });
+    }
   }
 
   @Nested
@@ -202,10 +255,28 @@ class SlackOAuthControllerTest {
     @Test
     void shouldReturnInstallUrl(Vertx vertx, VertxTestContext testContext) {
       vertx.runOnContext(v -> {
-        when(slackOAuthService.generateInstallUrl(eq("proj-1")))
+        when(slackOAuthService.generateInstallUrl(eq("proj-1"), eq(null)))
             .thenReturn(Single.just("https://slack.com/oauth/v2/authorize?client_id=123"));
 
-        var result = controller.install("proj-1");
+        var result = controller.install("proj-1", null);
+
+        result.whenComplete((resp, err) -> {
+          testContext.verify(() -> {
+            assertThat(resp.getData()).contains("slack.com/oauth/v2/authorize");
+          });
+          testContext.completeNow();
+        });
+      });
+    }
+
+    @Test
+    void shouldReturnInstallUrlWithReturnPath(Vertx vertx, VertxTestContext testContext) {
+      vertx.runOnContext(v -> {
+        String returnPath = "/projects/proj-1/settings/notifications?fromAlertWizard=1&openAdd=1";
+        when(slackOAuthService.generateInstallUrl(eq("proj-1"), eq(returnPath)))
+            .thenReturn(Single.just("https://slack.com/oauth/v2/authorize?client_id=123"));
+
+        var result = controller.install("proj-1", returnPath);
 
         result.whenComplete((resp, err) -> {
           testContext.verify(() -> {

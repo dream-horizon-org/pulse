@@ -9,17 +9,20 @@ lib/
 .env
 
 .cursor/.env
+.cursor/pulse-web-otel-spec-audit-queue.jsonl
+pulse-web-otel/.spec-audit/
 # Claude Code: keep shared project memory and skills; ignore other local-only files under .claude/
 .claude/*
 !.claude/CLAUDE.md
-!.claude/rules/
+!.claude/rules
 !.claude/rules/**
-# Symlink mirrors into shared `.agents/` (web SDK agent + skills)
-!.claude/agents/
+!.claude/agents
 !.claude/agents/**
-!.claude/skills/
+!.claude/skills
 !.claude/skills/**
+.claude/**/.DS_Store
 .cursor/hooks/state/
+.claude/hooks/state/
 .cursor/plans/
 .terraform/
 *.tfstate
@@ -30,7 +33,10 @@ lib/
 terraform.rc
 env.json
 
+docs/
 **/.idea
+docs/api
+docs/architecture
 graphify-out/
 
 # Ralph/local agent issue queues — keep working copies private

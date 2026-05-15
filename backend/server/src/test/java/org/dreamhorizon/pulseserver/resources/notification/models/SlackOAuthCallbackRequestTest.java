@@ -41,7 +41,7 @@ class SlackOAuthCallbackRequestTest {
     void shouldReturnTrueWhenCodeAndProjectIdPresent() {
       SlackOAuthCallbackRequest request = new SlackOAuthCallbackRequest();
       request.setCode("auth-code-123");
-      request.setProjectId("proj-1");
+      request.setState("proj-1");
 
       assertThat(request.isValid()).isTrue();
     }
@@ -49,7 +49,7 @@ class SlackOAuthCallbackRequestTest {
     @Test
     void shouldReturnFalseWhenCodeMissing() {
       SlackOAuthCallbackRequest request = new SlackOAuthCallbackRequest();
-      request.setProjectId("proj-1");
+      request.setState("proj-1");
 
       assertThat(request.isValid()).isFalse();
     }
@@ -66,7 +66,7 @@ class SlackOAuthCallbackRequestTest {
     void shouldReturnFalseWhenCodeBlank() {
       SlackOAuthCallbackRequest request = new SlackOAuthCallbackRequest();
       request.setCode("  ");
-      request.setProjectId("proj-1");
+      request.setState("proj-1");
 
       assertThat(request.isValid()).isFalse();
     }
@@ -75,7 +75,7 @@ class SlackOAuthCallbackRequestTest {
     void shouldReturnFalseWhenProjectIdBlank() {
       SlackOAuthCallbackRequest request = new SlackOAuthCallbackRequest();
       request.setCode("auth-code-123");
-      request.setProjectId("  ");
+      request.setState("  ");
 
       assertThat(request.isValid()).isFalse();
     }
@@ -103,7 +103,7 @@ class SlackOAuthCallbackRequestTest {
     @Test
     void shouldReturnErrorWhenCodeMissing() {
       SlackOAuthCallbackRequest request = new SlackOAuthCallbackRequest();
-      request.setProjectId("proj-1");
+      request.setState("proj-1");
 
       assertThat(request.getValidationError())
           .isEqualTo("Authorization code is required");
@@ -122,7 +122,7 @@ class SlackOAuthCallbackRequestTest {
     void shouldReturnNullWhenValid() {
       SlackOAuthCallbackRequest request = new SlackOAuthCallbackRequest();
       request.setCode("auth-code-123");
-      request.setProjectId("proj-1");
+      request.setState("proj-1");
 
       assertThat(request.getValidationError()).isNull();
     }

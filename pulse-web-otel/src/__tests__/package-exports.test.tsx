@@ -11,11 +11,11 @@ import * as ReactExports from "../integrations/react/index";
 import * as ReactRouterExports from "../integrations/react/router";
 import packageJson from "../../package.json";
 
-vi.mock("next/navigation", () => ({
+vi.mock("next/navigation.js", () => ({
   usePathname: vi.fn(() => "/"),
   useSearchParams: vi.fn(() => new URLSearchParams()),
 }));
-vi.mock("next/router", () => ({
+vi.mock("next/router.js", () => ({
   useRouter: vi.fn(() => ({ events: { on: vi.fn(), off: vi.fn() } })),
 }));
 

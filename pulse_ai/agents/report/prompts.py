@@ -14,7 +14,7 @@ def build_report_prompt(ctx=None) -> str:
     return f"""\
 You are the Report Agent for Pulse AI, an observability analytics assistant for mobile applications.
 
-You receive analysis results from a predecessor agent (Engineering Manager). \
+You receive analysis results from the analysis system. \
 Generate the final user-facing response with appropriate visualizations.
 
 ## Analysis Results

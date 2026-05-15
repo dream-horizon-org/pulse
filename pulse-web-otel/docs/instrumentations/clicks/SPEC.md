@@ -1,6 +1,6 @@
 # Clicks Instrumentation — SPEC.md
 
-Package: `@dreamhorizon/pulse-web`  
+Package: `@dreamhorizonorg/pulse-web`  
 File: `pulse-web-otel/docs/instrumentations/clicks/SPEC.md`
 
 ---
@@ -43,6 +43,54 @@ Emit **OTLP log records** for user clicks with `pulse.type = app.click` and body
 **Plan A** (rejected): emit one OTLP log per click synchronously — simplest, but amplifies OTLP traffic on touch-heavy UIs and loses Android parity for rage clustering.
 
 **Plan B** (chosen): mirror Android `ClickEventBuffer` — coalesce rapid taps, detect rage clusters, delay singleton emits until buffer flush / rage completion. Reduces duplicate noise and matches mobile analytics semantics (`ADR-clicks.md`, `PLAN-B-clicks-logs.md`).
+
+### 4.1 HLD — registry and export boundary
+
+```mermaid
+flowchart TB
+  subgraph Host["Host page"]
+    DOM["document click capture"]
+  end
+  subgraph Pulse["pulse-web-otel"]
+    Reg["InstrumentationRegistry"]
+    CI["ClicksInstrumentation"]
+    Buf["ClickEventBuffer"]
+    Log["LoggerProvider → OTLP"]
+  end
+  DOM --> CI
+  Reg --> CI
+  CI --> Buf
+  Buf --> Log
+```
+
+### 4.2 LD — internal modules
+
+```mermaid
+flowchart LR
+  CI["clicks.ts"] --> CT["click-target.ts"]
+  CI --> CRB["click-rage-buffer.ts"]
+  CI --> Sem["semconv / PulseFeature.CLICK"]
+  CRB --> Emit["LoggerProvider.emit"]
+```
+
+### 4.3 Flows and edge cases
+
+```mermaid
+flowchart TD
+  S[install] --> W{typeof window}
+  W -->|undefined SSR| N[no-op return]
+  W -->|defined| G{CLICK gate on?}
+  G -->|off| N
+  G -->|on| L[add capture listener]
+  L --> C[click]
+  C --> R{rage enabled?}
+  R -->|yes| B[buffer / rage cluster]
+  R -->|no| I[emit log immediately]
+  B --> V[visibility hidden]
+  V --> F[flush + forceFlush]
+  L --> U[uninstall]
+  U --> D[dispose timers + flush]
+```
 
 ---
 
@@ -101,6 +149,27 @@ Planning docs use **click.target** / **click.label**; shipped OTLP keys follow s
 ---
 
 ## 6. Test Coverage
+
+### 6.1 Scenario matrix (Given / When / Then)
+
+| ID | Type | Given | When | Then | Tests |
+|----|------|-------|------|------|-------|
+| C-P1 | positive | CLICK on, rage on, `<button>` | user clicks button | `pulse.type=app.click`, good widget attrs | `clicks-instrumentation.test.ts` |
+| C-P2 | positive | rage buffer | 3+ taps in window in radius | `click.is_rage`, `click.rage_count` | `click-rage-buffer.test.ts` |
+| C-N1 | negative | CLICK gate off | install | no listener, no emit | `clicks-instrumentation.test.ts` |
+| C-N2 | negative | dead click on `body` | click | `click.type=dead`, no widget attrs | `clicks-instrumentation.test.ts` |
+| C-E1 | edge | rage disabled | singleton taps | immediate emit path | `click-rage-buffer.test.ts`, R5 |
+| C-E2 | edge | SSR / no `window` | install | no-op | `clicks-instrumentation-ssr.test.ts` |
+| C-E3 | edge | uninstall | click after dispose | silent | `clicks-instrumentation.test.ts` |
+
+### 6.2 Playwright E2E (`examples/ecommerce-demo/e2e/`)
+
+Exercised against mock OTLP (see master list: [`../../sdk-core/test-coverage/SPEC.md`](../../sdk-core/test-coverage/SPEC.md) §6.3).
+
+- Shop Now link emits `app.click` with good target and contract attrs
+- Dead click on non-interactive pad — no widget attrs
+- Triple tap rage cluster — single `app.click` with `click.is_rage`
+- Click feature gate disabled — zero `app.click`
 
 ### `src/__tests__/clicks-instrumentation.test.ts`
 
