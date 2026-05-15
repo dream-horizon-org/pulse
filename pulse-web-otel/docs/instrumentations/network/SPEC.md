@@ -31,8 +31,9 @@ The dashboard then groups these spans by `pulse.type` (e.g. `network.200`, `netw
 2. Does nothing if no `tracerProvider` is set on the SDK context.
 3. Creates one `FetchInstrumentation` and one `XMLHttpRequestInstrumentation` — both from the upstream OTel JS packages.
 4. Hands the `tracerProvider` to both and calls `.enable()` on each.
+5. When `capturedRequestHeaders` is non-empty, installs a one-time `XMLHttpRequest.prototype.setRequestHeader` patch (see §6.2 and ADR `docs/adr/ADR-xhr-request-header-capture.md`).
 
-`NetworkInstrumentation.uninstall()` calls `.disable()` on both instrumentations and clears the references. It is safe to call twice — the second call is a no-op.
+`NetworkInstrumentation.uninstall()` calls `.disable()` on both instrumentations, restores the native `setRequestHeader` if it was patched, and clears the references. It is safe to call twice — the second call is a no-op.
 
 ---
 
@@ -61,7 +62,7 @@ All options live under `sdkConfig.instrumentations.network`:
 | ------------------------------ | --------------------------------------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `captureQueryParams`           | boolean                                 | `false` | When `false`, strips the entire query string from `url.full`. When `true`, keeps query params but redacts sensitive ones (see §7).                                                                                                |
 | `blockedUrls`                  | `(string | RegExp)[]`                   | `[]`    | Extra URLs to never trace (merged into the ignore list).                                                                                                                                                                          |
-| `capturedRequestHeaders`       | `string[]`                              | none    | Request headers to copy as `http.request.header.<name>` on spans. **Fetch only** — XHR cannot access sent request headers (browser API limitation). Sensitive header names are always blocked regardless of this config (see §7). |
+| `capturedRequestHeaders`       | `string[]`                              | none    | Request headers to copy as `http.request.header.<name>` (string array values per OTLP). **Fetch:** read from `Request` / `RequestInit` headers. **XHR:** browsers hide sent headers after `send()`, so the SDK captures them via a scoped `setRequestHeader` patch (ADR `docs/adr/ADR-xhr-request-header-capture.md`). Sensitive header names are always blocked (see §7). |
 | `capturedResponseHeaders`      | `string[]`                              | none    | Response headers to copy as `http.response.header.<name>` on spans. Works for both Fetch and XHR.                                                                                                                                 |
 | `peerServiceMap`               | `Record<string, string>`                | none    | Map of hostname → logical service name. Sets `peer.service` on spans. Example: `{ "api.example.com": "catalogue-service" }`.                                                                                                      |
 | `propagateTraceHeaderCorsUrls` | `string | RegExp | (string | RegExp)[]` | none    | Hosts that should receive W3C `traceparent` / `tracestate` headers on outgoing requests. Passed directly to the OTel instrumentations.                                                                                            |
@@ -96,8 +97,8 @@ All options live under `sdkConfig.instrumentations.network`:
 | `http.request.body.size`      | When `content-length` request header is accessible (Fetch only)                  | Integer bytes                                                                                                      |
 | `http.response.body.size`     | When `content-length` response header is present                                 | Integer bytes                                                                                                      |
 | `peer.service`                | When the request hostname matches an entry in `peerServiceMap`                   | `catalogue-service`                                                                                                |
-| `http.request.header.<name>`  | When `capturedRequestHeaders` is configured (Fetch only)                         | Header value                                                                                                       |
-| `http.response.header.<name>` | When `capturedResponseHeaders` is configured                                     | Header value                                                                                                       |
+| `http.request.header.<name>`  | When `capturedRequestHeaders` is configured                                     | Single-element string array (`[value]`) per stable semconv; **Fetch** from `Request` headers, **XHR** from `setRequestHeader` patch store |
+| `http.response.header.<name>` | When `capturedResponseHeaders` is configured                                     | Single-element string array (`[value]`) when present                                                               |
 | `graphql.operation.name`      | When `graphqlRequestBody` is passed in (not wired from Fetch/XHR yet — see §6.3) | `GetProducts`                                                                                                      |
 | `graphql.operation.type`      | Same condition                                                                   | `query`, `mutation`, `subscription`                                                                                |
 
@@ -137,7 +138,9 @@ Request headers are accessible via `Request.headers.get()` or from the `RequestI
 
 The callback receives the raw `XMLHttpRequest` object. The guard `xhr.readyState !== DONE` ensures the callback only runs when the request is fully complete. URL comes from `xhr.responseURL`. Method falls back to parsing the OTel span name (e.g. `"HTTP GET"` → `"GET"`).
 
-**Request headers are not accessible on XHR** — the browser does not expose sent headers after dispatch. `capturedRequestHeaders` is silently ignored for XHR spans.
+The callback receives the raw `XMLHttpRequest` object. The guard `xhr.readyState !== DONE` ensures the callback only runs when the request is fully complete. URL comes from `xhr.responseURL`. Method falls back to parsing the OTel span name (e.g. `"HTTP GET"` → `"GET"`).
+
+**Request headers:** there is no browser API to read request headers after `send()`. When `capturedRequestHeaders` is configured, the SDK installs a reversible `setRequestHeader` prototype hook that records each `(name, value)` only after a **successful** native `setRequestHeader` call. If the native call throws, the in-memory capture for that attempt is rolled back and the error is re-thrown (so telemetry never claims a header the browser rejected). Only headers set through `setRequestHeader` are captured — not user-agent defaults or other implicit headers. See ADR `docs/adr/ADR-xhr-request-header-capture.md` and §10 (known limitations).
 
 ### 6.3 GraphQL body (not yet wired)
 
@@ -173,9 +176,10 @@ Even if a header name appears in `capturedRequestHeaders` or `capturedResponseHe
 | #   | What                      | Web                                                              | Android                                                                                                                                                       |
 | --- | ------------------------- | ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | D1  | `error.type`              | Set: `network_error`, `cors_error`, `4xx`, `5xx`                 | **Not set** — Android only sets `pulse.type`. Dashboard filters on `error.type` are web-only.                                                                 |
-| D2  | URL path normalization    | **Not done** — raw paths with UUIDs/IDs go into `url.full` as-is | `PulseNetworkingUtils.redactUrl` normalizes UUID, numeric IDs ≥ 3 digits, ULIDs, git hashes → `[redacted]`. High ClickHouse cardinality risk on web at scale. |
-| D3  | Request header capture    | Fetch only (browser limitation)                                  | OkHttp interceptor has full request + response header access                                                                                                  |
-| D4  | Non-standard HTTP methods | ✅ **Fixed** — unknown methods map to `http.request.method = "_OTHER"` + `http.request.method_original = <original>` via `KNOWN_HTTP_METHODS` check in `network-http.ts` | OkHttp maps to `_OTHER` via upstream OTel `HttpConstants.KNOWN_METHODS`. Both platforms now compliant. |
+| D2  | URL path segment normalization | **`sanitizeHttpUrl`** replaces dynamic path segments in `url.full` via `normalizeUrlPath` (`src/utils/network-http.ts`): dotted UUIDs, 32-hex UUIDs, 24-hex ObjectIds, ULIDs, and **any all-numeric segment** → `:id`. Does **not** redact git-style hashes the way Android `redactUrl` can. | `PulseNetworkingUtils.redactUrl` normalizes UUIDs, ULIDs, **numeric IDs with at least 3 digits**, git hashes, etc. → `[redacted]` / template form. |
+| D3  | Request header capture    | **Fetch + XHR** when `capturedRequestHeaders` is set. XHR uses `setRequestHeader` patch (ADR). | OkHttp interceptor has full request + response header access                                                                                                  |
+| D4  | Non-standard HTTP methods | Unknown methods map to `http.request.method = "_OTHER"` + `http.request.method_original = <original>` (`KNOWN_HTTP_METHODS` in `network-http.ts`) | OkHttp maps to `_OTHER` via upstream OTel `HttpConstants.KNOWN_METHODS`. Both platforms compliant. |
+| D5  | Numeric path segments    | **Any** segment matching `/^\d+$/` is treated as an ID (`:id`), including `1`, `42`, `2024`. | Typically **≥ 3 digits** before treating a numeric segment as an ID (see Android `redactUrl`). **Intentional web-only heuristic** — higher cardinality reduction at the cost of possibly redacting year-like or short numeric path parts. |
 
 
 ---
@@ -238,13 +242,15 @@ Even if a header name appears in `capturedRequestHeaders` or `capturedResponseHe
 
 ---
 
-## 10. Known bugs and deferred work
+## 10. Known bugs, limitations, and deferred work
 
 
-| ID      | Area            | Summary                                                                                                    |
-| ------- | --------------- | ---------------------------------------------------------------------------------------------------------- |
-| ISS-N02 | Bug             | `capturedRequestHeaders` silently no-ops for XHR — no warning emitted                                    |
-| ISS-N12 | Decision needed | URL path segment normalization for ClickHouse cardinality (Android has it; web does not)                  |
+| ID       | Area            | Summary                                                                                                    |
+| -------- | --------------- | ---------------------------------------------------------------------------------------------------------- |
+| ISS-NGAP-XHR1 | Network / XHR   | Request headers are only captured when set through `setRequestHeader` before `send()`. Implicit or browser-only headers are not observable and never appear on spans. |
+| ISS-NGAP-XHR2 | Network / XHR   | If multiple values were set for the same header name via repeated `setRequestHeader` calls, telemetry reflects the **last successful** stored value for that name (matches typical browser behavior for the wire). |
+| ~~ISS-N02~~ | ~~Bug~~     | ~~`capturedRequestHeaders` silently no-ops for XHR~~ — **fixed** (WeakMap + `setRequestHeader` patch; ADR `ADR-xhr-request-header-capture.md`). |
+| ~~ISS-N12~~ | ~~Decision~~ | ~~Web had no path normalization~~ — **superseded** by `normalizeUrlPath` + D2/D5; remaining differences (e.g. git hash handling, ≥3-digit rule) tracked as **divergences**, not “web missing feature”. |
 
 
 ---
@@ -253,5 +259,5 @@ Even if a header name appears in `capturedRequestHeaders` or `capturedResponseHe
 
 1. Should `pulse.type` eventually unify to a single `http` token plus attributes (breaking change)?
 2. Should fetch request body size be estimated when `Request` has a readable stream?
-3. Should `urlTemplateRules` (path-segment normalization for IDs/UUIDs) be added to control `url.full` cardinality in ClickHouse? (D2 — Android `PulseNetworkingUtils.redactUrl` handles this; web does not.)
+3. Should **git-hash** / **≥3-digit-only** path rules be aligned with Android for tighter cross-platform cardinality (today web uses D5 heuristic)?
 4. Should `error.type` be added to Android network spans for cross-platform dashboard parity? (D1)

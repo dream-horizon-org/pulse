@@ -11,6 +11,20 @@ import type { UseNextAppRouterTrackingOptions } from "../../types/next";
 export type { UseNextAppRouterTrackingOptions } from "../../types/next";
 
 /**
+ * Survives remounts of the Next.js navigation listener (e.g. `Suspense` boundaries
+ * that drop inner content on route transitions). Per-instance refs reset to null
+ * on remount; `skipInitial` must only suppress the **first** real page of the tab,
+ * not the first run after every remount — otherwise client navigations never call
+ * `Pulse.setScreenName`.
+ */
+let skipInitialNextAppRouteConsumed = false;
+
+/** Reset module gate between Vitest cases (not part of public SDK API). */
+export function resetNextAppRouterSkipInitialGateForTests(): void {
+  skipInitialNextAppRouteConsumed = false;
+}
+
+/**
  * Next.js App Router integration — calls the Pulse SDK `setScreenName` on
  * every client-side navigation so subsequent signals carry the new screen name.
  *
@@ -45,7 +59,10 @@ export function useNextAppRouterTracking(
 
     if (prevDependency.current === null) {
       prevDependency.current = dependency;
-      if (skipInitial) return;
+      if (skipInitial && !skipInitialNextAppRouteConsumed) {
+        skipInitialNextAppRouteConsumed = true;
+        return;
+      }
     } else if (prevDependency.current === dependency) {
       return;
     } else {

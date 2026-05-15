@@ -1,8 +1,8 @@
 "use client";
 
-import React, { type ReactNode, useMemo } from "react";
+import React, { type ReactNode, useMemo, useEffect } from "react";
 import { PulseProvider, PulseRouterEvents } from "@dreamhorizonorg/pulse-web/next";
-import { PulseDataCollectionConsent } from "@dreamhorizonorg/pulse-web";
+import { PulseDataCollectionConsent, Pulse } from "@dreamhorizonorg/pulse-web";
 import type { InstrumentationConfig } from "@dreamhorizonorg/pulse-web";
 
 /**
@@ -64,6 +64,13 @@ const testErrorsDisabled =
   typeof window !== "undefined" &&
   (window as TestWindow).__TEST_PULSE_ERRORS_DISABLED === true;
 
+function PulseExposeOnWindow(): null {
+  useEffect(() => {
+    (window as unknown as Record<string, unknown>)["Pulse"] = Pulse;
+  }, []);
+  return null;
+}
+
 export function PulseClientProvider({
   children,
 }: {
@@ -86,6 +93,7 @@ export function PulseClientProvider({
           : {}),
       }}
     >
+      <PulseExposeOnWindow />
       <PulseRouterEvents />
       {children}
     </PulseProvider>

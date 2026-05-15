@@ -116,6 +116,64 @@ export function findAllSpans(
   return out;
 }
 
+const SCREEN_NAME_KEY = "screen.name";
+
+/** Any OTLP log or span whose {@code screen.name} equals {@code name}. */
+export function capturedHasScreenName(
+  captured: CapturedRequest[],
+  name: string,
+): boolean {
+  for (const c of captured) {
+    if (c.type === "logs") {
+      for (const rl of c.body.resourceLogs ?? []) {
+        for (const sl of rl.scopeLogs ?? []) {
+          for (const lr of sl.logRecords ?? []) {
+            if (getAttr(lr.attributes, SCREEN_NAME_KEY) === name) return true;
+          }
+        }
+      }
+    } else if (c.type === "traces") {
+      for (const rs of c.body.resourceSpans ?? []) {
+        for (const ss of rs.scopeSpans ?? []) {
+          for (const sp of ss.spans ?? []) {
+            if (getAttr(sp.attributes, SCREEN_NAME_KEY) === name) return true;
+          }
+        }
+      }
+    }
+  }
+  return false;
+}
+
+/** Non-empty {@code screen.name} values from every log record and span. */
+export function allScreenNamesInCaptured(
+  captured: CapturedRequest[],
+): string[] {
+  const out: string[] = [];
+  for (const c of captured) {
+    if (c.type === "logs") {
+      for (const rl of c.body.resourceLogs ?? []) {
+        for (const sl of rl.scopeLogs ?? []) {
+          for (const lr of sl.logRecords ?? []) {
+            const sn = getAttr(lr.attributes, SCREEN_NAME_KEY);
+            if (typeof sn === "string" && sn) out.push(sn);
+          }
+        }
+      }
+    } else if (c.type === "traces") {
+      for (const rs of c.body.resourceSpans ?? []) {
+        for (const ss of rs.scopeSpans ?? []) {
+          for (const sp of ss.spans ?? []) {
+            const sn = getAttr(sp.attributes, SCREEN_NAME_KEY);
+            if (typeof sn === "string" && sn) out.push(sn);
+          }
+        }
+      }
+    }
+  }
+  return out;
+}
+
 export function getResourceAttr(
   captured: CapturedRequest[],
   key: string,
