@@ -96,6 +96,14 @@ public object PulseAttributes {
         public const val IOS_RN: String = "pulse_ios_rn"
     }
 
+    @JvmField
+    public val START_ANCHOR: AttributeKey<String> = stringKey("start.anchor")
+
+    public object StartAnchorValues {
+        public const val OS: String = "os"
+        public const val SDK_INIT: String = "sdk_init"
+    }
+
     public object PulseTypeValues {
         public const val CUSTOM_EVENT: String = "custom_event"
         public const val ANR: String = "device.anr"

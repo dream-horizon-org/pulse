@@ -28,6 +28,9 @@ public class AppStartupTimer {
     // create the app start span. Long app startup could indicate that the app was really started in
     // background, in which case the measured startup time is misleading.
     private static final long MAX_TIME_TO_UI_INIT = TimeUnit.MINUTES.toNanos(1);
+    private static final String START_ANCHOR_KEY = "start.anchor";
+    private static final String START_ANCHOR_OS = "os";
+    private static final String START_ANCHOR_SDK_INIT = "sdk_init";
 
     /** Set in {@link #start}; cleared in {@link #reportFullyDrawn} so the hook works after {@link #end}. */
     @Nullable private static volatile AppStartupTimer CURRENT_INSTANCE = null;
@@ -41,6 +44,7 @@ public class AppStartupTimer {
 
     /** OS process-fork epoch-nanos on API 24+; SDK-init time as fallback. */
     private final long firstPossibleTimestamp;
+    private final String startAnchorSource;
 
     /** Held across {@link #end}/{@link #clear} so {@link #reportFullyDrawn} can build the span later. */
     @Nullable private volatile Tracer tracer;
@@ -59,20 +63,31 @@ public class AppStartupTimer {
     private boolean isStartedFromBackground = false;
 
     public AppStartupTimer() {
-        this.firstPossibleTimestamp = resolveProcessStartTimestamp(startupClock);
+        StartAnchor anchor = resolveStartAnchor(startupClock);
+        this.firstPossibleTimestamp = anchor.epochNanos;
+        this.startAnchorSource = anchor.source;
+    }
+
+    private static final class StartAnchor {
+        final long epochNanos;
+        final String source;
+        StartAnchor(long epochNanos, String source) {
+            this.epochNanos = epochNanos;
+            this.source = source;
+        }
     }
 
     /**
      * Resolves the OS process-fork timestamp (API 24+); falls back to {@code clock.now()} on
      * older OS, conversion failures, or out-of-range deltas (future or >10 min in past).
      */
-    private static long resolveProcessStartTimestamp(AnchoredClock clock) {
+    private static StartAnchor resolveStartAnchor(AnchoredClock clock) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
             try {
                 long deltaNanos = TimeUnit.MILLISECONDS.toNanos(
                     SystemClock.uptimeMillis() - getProcessStartUptimeMillisApi24());
                 if (deltaNanos >= 0 && deltaNanos <= TimeUnit.MINUTES.toNanos(10)) {
-                    return clock.now() - deltaNanos;
+                    return new StartAnchor(clock.now() - deltaNanos, START_ANCHOR_OS);
                 }
                 Log.d(RumConstants.OTEL_RUM_LOG_TAG,
                     "[Pulse AppStart] process-start delta out of range; using SDK-init time");
@@ -81,7 +96,7 @@ public class AppStartupTimer {
                     "[Pulse AppStart] process-start unavailable; using SDK-init time. cause=" + e);
             }
         }
-        return clock.now();
+        return new StartAnchor(clock.now(), START_ANCHOR_SDK_INIT);
     }
 
     /** API 24 call isolated so AnimalSniffer ({@code @RequiresApi}-aware) skips the check. */
@@ -100,6 +115,7 @@ public class AppStartupTimer {
                 tracer.spanBuilder("AppStart")
                         .setStartTimestamp(firstPossibleTimestamp, TimeUnit.NANOSECONDS)
                         .setAttribute(RumConstants.START_TYPE_KEY, "cold")
+                        .setAttribute(START_ANCHOR_KEY, startAnchorSource)
                         .startSpan();
         overallAppStartSpan = appStart;
         CURRENT_INSTANCE = this;
@@ -208,6 +224,7 @@ public class AppStartupTimer {
         final long endNanos = startupClock.now();
         final Span span = t.spanBuilder("AppInteractive")
                 .setStartTimestamp(firstPossibleTimestamp, TimeUnit.NANOSECONDS)
+                .setAttribute(START_ANCHOR_KEY, startAnchorSource)
                 .startSpan();
         span.end(endNanos, TimeUnit.NANOSECONDS);
         CURRENT_INSTANCE = null;

@@ -17,6 +17,7 @@ internal class AppStartupTimer {
 
     /// OS process-launch time on supported platforms; SDK-init time as fallback.
     private let firstPossibleTimestamp: Date
+    private let startAnchorSource: String
 
     /// Held across `end()` so `reportFullyDrawn()` can build the span later.
     private var tracer: Tracer?
@@ -28,19 +29,21 @@ internal class AppStartupTimer {
     private var fullyDrawnReported: Bool = false
 
     private init() {
-        self.firstPossibleTimestamp = AppStartupTimer.resolveProcessStartTimestamp()
+        let anchor = AppStartupTimer.resolveStartAnchor()
+        self.firstPossibleTimestamp = anchor.timestamp
+        self.startAnchorSource = anchor.source
     }
 
     /// Reads process-start via `sysctl(KERN_PROC_PID)`; falls back to `Date()` on failure or
     /// out-of-range deltas (future timestamp or more than 10 minutes in the past).
-    private static func resolveProcessStartTimestamp() -> Date {
+    private static func resolveStartAnchor() -> (timestamp: Date, source: String) {
         #if canImport(Darwin)
         var mib: [Int32] = [CTL_KERN, KERN_PROC, KERN_PROC_PID, getpid()]
         var info = kinfo_proc()
         var size = MemoryLayout<kinfo_proc>.stride
         guard sysctl(&mib, UInt32(mib.count), &info, &size, nil, 0) == 0 else {
             print("[Pulse AppStart] sysctl failed (errno=\(errno)); using SDK-init time")
-            return Date()
+            return (Date(), PulseAttributes.StartAnchorValues.sdkInit)
         }
         let tv = info.kp_proc.p_starttime
         let epochSeconds = Double(tv.tv_sec) + Double(tv.tv_usec) / 1_000_000.0
@@ -48,11 +51,11 @@ internal class AppStartupTimer {
         let deltaSec = Date().timeIntervalSince(processStart)
         if deltaSec < 0 || deltaSec > 600 {
             print("[Pulse AppStart] process-start delta out of range (\(deltaSec)s); using SDK-init time")
-            return Date()
+            return (Date(), PulseAttributes.StartAnchorValues.sdkInit)
         }
-        return processStart
+        return (processStart, PulseAttributes.StartAnchorValues.os)
         #else
-        return Date()
+        return (Date(), PulseAttributes.StartAnchorValues.sdkInit)
         #endif
     }
 
@@ -67,6 +70,7 @@ internal class AppStartupTimer {
             .setStartTime(time: firstPossibleTimestamp)
             .setAttribute(key: PulseAttributes.startType, value: "cold")
             .setAttribute(key: PulseAttributes.pulseType, value: PulseAttributes.PulseTypeValues.appStart)
+            .setAttribute(key: PulseAttributes.startAnchor, value: startAnchorSource)
             .startSpan()
     }
 
@@ -103,6 +107,7 @@ internal class AppStartupTimer {
         guard let tracer = tracer else { return }
         let span = tracer.spanBuilder(spanName: "AppInteractive")
             .setStartTime(time: firstPossibleTimestamp)
+            .setAttribute(key: PulseAttributes.startAnchor, value: startAnchorSource)
             .startSpan()
         span.end(time: Date())
     }

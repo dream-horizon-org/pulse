@@ -14,6 +14,7 @@ public enum PulseAttributes {
     public static let pulseUserSessionStartEventName = "pulse.user.session.start"
     public static let pulseUserSessionEndEventName = "pulse.user.session.end"
     public static let startType = "start.type"
+    public static let startAnchor = "start.anchor"
     public static let viewControllerName = "view_controller.name"
 
     public static let exceptionMessage = "exception.message"
@@ -45,6 +46,11 @@ public enum PulseAttributes {
     public enum PulseSdkNames {
         public static let iosSwift = "pulse_ios_swift"
         public static let iosRn = "pulse_ios_rn"
+    }
+
+    public enum StartAnchorValues {
+        public static let os = "os"
+        public static let sdkInit = "sdk_init"
     }
 
     public enum ClickTypeValues {
