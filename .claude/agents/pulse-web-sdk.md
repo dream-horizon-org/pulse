@@ -1,1 +1,0 @@
-../../.agents/agents/pulse-web-sdk.md
