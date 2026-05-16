@@ -29,7 +29,7 @@ public class MainApplication extends Launcher {
   @Override
   public void beforeStartingVertx(VertxOptions vertxOptions) {
     vertxOptions
-      .setEventLoopPoolSize(2)
+      .setEventLoopPoolSize(CpuCoreSensor.availableProcessors())
       .setPreferNativeTransport(true)
       .setFileSystemOptions(new FileSystemOptions().setClassPathResolvingEnabled(true))
       .setWorkerPoolSize(10)
