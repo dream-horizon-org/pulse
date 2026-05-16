@@ -32,7 +32,10 @@ public class AppStartupTimer {
     private static final String START_ANCHOR_OS = "os";
     private static final String START_ANCHOR_SDK_INIT = "sdk_init";
 
-    /** Set in {@link #start}; cleared in {@link #reportFullyDrawn} so the hook works after {@link #end}. */
+    /**
+     * Set in {@link #start}; cleared in {@link #reportFullyDrawn} so the hook works after {@link
+     * #end}.
+     */
     @Nullable private static volatile AppStartupTimer CURRENT_INSTANCE = null;
 
     @Nullable
@@ -44,9 +47,13 @@ public class AppStartupTimer {
 
     /** OS process-fork epoch-nanos on API 24+; SDK-init time as fallback. */
     private final long firstPossibleTimestamp;
+
     private final String startAnchorSource;
 
-    /** Held across {@link #end}/{@link #clear} so {@link #reportFullyDrawn} can build the span later. */
+    /**
+     * Held across {@link #end}/{@link #clear} so {@link #reportFullyDrawn} can build the span
+     * later.
+     */
     @Nullable private volatile Tracer tracer;
 
     private final AtomicBoolean fullyDrawnReported = new AtomicBoolean(false);
@@ -71,6 +78,7 @@ public class AppStartupTimer {
     private static final class StartAnchor {
         final long epochNanos;
         final String source;
+
         StartAnchor(long epochNanos, String source) {
             this.epochNanos = epochNanos;
             this.source = source;
@@ -78,22 +86,26 @@ public class AppStartupTimer {
     }
 
     /**
-     * Resolves the OS process-fork timestamp (API 24+); falls back to {@code clock.now()} on
-     * older OS, conversion failures, or out-of-range deltas (future or >10 min in past).
+     * Resolves the OS process-fork timestamp (API 24+); falls back to {@code clock.now()} on older
+     * OS, conversion failures, or out-of-range deltas (future or >10 min in past).
      */
     private static StartAnchor resolveStartAnchor(AnchoredClock clock) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
             try {
-                long deltaNanos = TimeUnit.MILLISECONDS.toNanos(
-                    SystemClock.uptimeMillis() - getProcessStartUptimeMillisApi24());
+                long deltaNanos =
+                        TimeUnit.MILLISECONDS.toNanos(
+                                SystemClock.uptimeMillis() - getProcessStartUptimeMillisApi24());
                 if (deltaNanos >= 0 && deltaNanos <= TimeUnit.MINUTES.toNanos(10)) {
                     return new StartAnchor(clock.now() - deltaNanos, START_ANCHOR_OS);
                 }
-                Log.d(RumConstants.OTEL_RUM_LOG_TAG,
-                    "[Pulse AppStart] process-start delta out of range; using SDK-init time");
+                Log.d(
+                        RumConstants.OTEL_RUM_LOG_TAG,
+                        "[Pulse AppStart] process-start delta out of range; using SDK-init time");
             } catch (Exception e) {
-                Log.d(RumConstants.OTEL_RUM_LOG_TAG,
-                    "[Pulse AppStart] process-start unavailable; using SDK-init time. cause=" + e);
+                Log.d(
+                        RumConstants.OTEL_RUM_LOG_TAG,
+                        "[Pulse AppStart] process-start unavailable; using SDK-init time. cause="
+                                + e);
             }
         }
         return new StartAnchor(clock.now(), START_ANCHOR_SDK_INIT);
@@ -222,10 +234,11 @@ public class AppStartupTimer {
             return;
         }
         final long endNanos = startupClock.now();
-        final Span span = t.spanBuilder("AppInteractive")
-                .setStartTimestamp(firstPossibleTimestamp, TimeUnit.NANOSECONDS)
-                .setAttribute(START_ANCHOR_KEY, startAnchorSource)
-                .startSpan();
+        final Span span =
+                t.spanBuilder("AppInteractive")
+                        .setStartTimestamp(firstPossibleTimestamp, TimeUnit.NANOSECONDS)
+                        .setAttribute(START_ANCHOR_KEY, startAnchorSource)
+                        .startSpan();
         span.end(endNanos, TimeUnit.NANOSECONDS);
         CURRENT_INSTANCE = null;
     }

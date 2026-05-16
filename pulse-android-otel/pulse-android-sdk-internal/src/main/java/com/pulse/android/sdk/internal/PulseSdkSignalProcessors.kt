@@ -110,7 +110,7 @@ internal class PulseSdkSignalProcessors {
                         ) == "cold" -> {
                             PulseAttributes.PulseTypeValues.APP_START
                         }
-                                             
+
                         span.name == "AppInteractive" -> {
                             PulseAttributes.PulseTypeValues.APP_INTERACTIVE
                         }

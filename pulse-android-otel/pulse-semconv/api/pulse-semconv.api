@@ -10,6 +10,7 @@ public final class com/pulse/semconv/PulseAttributes {
 	public static final field PULSE_NAME Lio/opentelemetry/api/common/AttributeKey;
 	public static final field PULSE_SPAN_ID Lio/opentelemetry/api/common/AttributeKey;
 	public static final field PULSE_TYPE Lio/opentelemetry/api/common/AttributeKey;
+	public static final field START_ANCHOR Lio/opentelemetry/api/common/AttributeKey;
 	public static final field TELEMETRY_SDK_NAME_KEY Lio/opentelemetry/api/common/AttributeKey;
 }
 
@@ -35,6 +36,7 @@ public final class com/pulse/semconv/PulseAttributes$PulseSdkNames {
 public final class com/pulse/semconv/PulseAttributes$PulseTypeValues {
 	public static final field ANR Ljava/lang/String;
 	public static final field APP_INSTALLATION_START Ljava/lang/String;
+	public static final field APP_INTERACTIVE Ljava/lang/String;
 	public static final field APP_SESSION_END Ljava/lang/String;
 	public static final field APP_SESSION_START Ljava/lang/String;
 	public static final field APP_START Ljava/lang/String;
@@ -54,6 +56,12 @@ public final class com/pulse/semconv/PulseAttributes$PulseTypeValues {
 	public static final field SLOW Ljava/lang/String;
 	public static final field TOUCH Ljava/lang/String;
 	public static final fun isNetworkType (Ljava/lang/String;)Z
+}
+
+public final class com/pulse/semconv/PulseAttributes$StartAnchorValues {
+	public static final field INSTANCE Lcom/pulse/semconv/PulseAttributes$StartAnchorValues;
+	public static final field OS Ljava/lang/String;
+	public static final field SDK_INIT Ljava/lang/String;
 }
 
 public final class com/pulse/semconv/PulseDeviceAttributes {

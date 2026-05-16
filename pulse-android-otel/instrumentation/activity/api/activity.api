@@ -36,7 +36,9 @@ public class io/opentelemetry/android/instrumentation/activity/startup/AppStartu
 	public fun createLifecycleCallback ()Landroid/app/Application$ActivityLifecycleCallbacks;
 	public fun detectBackgroundStart (Landroid/os/Handler;)V
 	public fun end ()V
+	public static fun getInstance ()Lio/opentelemetry/android/instrumentation/activity/startup/AppStartupTimer;
 	public fun getStartupSpan ()Lio/opentelemetry/api/trace/Span;
+	public fun reportFullyDrawn ()V
 	public fun runCompletionCallback ()V
 	public fun setCompletionCallback (Ljava/lang/Runnable;)V
 	public fun start (Lio/opentelemetry/api/trace/Tracer;)Lio/opentelemetry/api/trace/Span;
