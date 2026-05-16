@@ -2,7 +2,7 @@
 
 A read-only [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) server for Pulse: it exposes Pulse HTTP APIs as MCP tools so assistants can list projects, inspect metrics, sessions, alerts, heatmaps, funnels, journeys, events, interactions, SDK config, and **App Vitals** (crashes, ANRs, non-fatal issues, issue detail).
 
-Transport: **stdio** (local process). Node **18+** required.
+Transport: **stdio** (local process). Node **`>= 22.22.0`** required ([`package.json` `engines`](package.json)).
 
 ## Prerequisites
 
@@ -22,15 +22,19 @@ On startup, the server calls `POST /v1/auth/api-key/exchange` with body `{ "apiK
 
 ## Install and build
 
+Dependencies are tracked in **`yarn.lock`** — install with **Yarn** (Berry / v4 is what maintainers use; Corepack’s `corepack enable` helps if you want a consistent Yarn on PATH). This package does **not** pin an exact Yarn release in `package.json`; upgrade Yarn when needed as long as `yarn install` stays compatible with the lockfile.
+
+Production bundle: **`yarn build`** runs [**tsup**](https://github.com/egoist/tsup) (esbuild) and writes **`dist/index.js`** (+ source map). **`yarn typecheck`** runs **`tsc --noEmit`** only (no emit).
+
 ```bash
 cd pulse-mcp
-npm install   # or: yarn install (see package.json "packageManager")
-npm run build
+yarn install
+yarn build
 ```
 
-- `npm run dev` — watch mode (`tsc --watch`)
-- `npm start` — run compiled server (`node dist/index.js`)
-- `npm run typecheck` — typecheck only (`tsc --noEmit`)
+- `yarn dev` — watch mode (**tsup** `--watch`)
+- `yarn start` — run compiled server (`node dist/index.js`)
+- `yarn typecheck` — typecheck only (`tsc --noEmit`)
 
 ## Quick smoke test (stdio)
 
@@ -44,6 +48,23 @@ echo '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}' \
 ```
 
 You should see stderr lines such as `Exchanging API key for tokens...`, `Authentication successful.`, `Pulse MCP server running on stdio`, then a JSON `result.tools` array on stdout.
+
+## Eval tooling (optional)
+
+**MCP Inspector — manual lane.** Use it to explore `tools/list`, schemas, and live calls against Pulse while developing the server.
+
+**Promptfoo — LLM eval scaffold.** Config lives under [`evals/promptfoo/`](evals/promptfoo/). It runs a tiny Gemini connectivity check only; natural-language tool-selection cases can be authored later from [`doc/task_3/16-eval-nl-prompts.md`](doc/task_3/16-eval-nl-prompts.md).
+
+- **Install deps with Yarn** (`yarn install`, then `yarn promptfoo:eval`).
+- **Node:** same as [`package.json` `engines`](package.json) — **`promptfoo` enforces this** when you run `yarn promptfoo:eval`.
+- **Secrets:** set `GOOGLE_API_KEY` (Google AI Studio). Never commit keys.
+
+```bash
+cd pulse-mcp
+yarn install
+export GOOGLE_API_KEY="your_gemini_key"
+yarn promptfoo:eval
+```
 
 ## Cursor / Claude Desktop
 
@@ -106,6 +127,7 @@ Successful distribution calls return JSON with **`ok: true`**. When there are no
 
 ## Layout
 
+- `tsup.config.ts` — production bundle (**esbuild** via **tsup**) → **`dist/index.js`**
 - `src/index.ts` — requires env, exchanges API key, saves credentials, registers tools, **StdioServerTransport**
 - `src/client.ts` — Axios client to Pulse API (wrapped `data` envelope; `raw` flag where needed); 401 → re-exchange
 - `src/auth.ts` — load/save credentials file, `exchangeApiKeyForTokens`

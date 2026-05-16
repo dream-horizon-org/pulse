@@ -1,0 +1,14 @@
+# Promptfoo scaffold for pulse-mcp (Gemini). Corpus-backed suites belong under tests/.
+description: pulse-mcp / Promptfoo scaffold (Gemini connectivity only).
+
+providers:
+  - file://providers.yaml
+
+prompts:
+  - "Reply with exactly this token and nothing else: MCP_EVAL_OK"
+
+tests:
+  - description: smoke_gemini_connectivity
+    assert:
+      - type: contains
+        value: MCP_EVAL_OK

@@ -6,11 +6,12 @@
   "main": "dist/index.js",
   "bin": "dist/index.js",
   "scripts": {
-    "prepare": "npm run build",
-    "build": "tsc",
-    "dev": "tsc --watch",
+    "prepare": "tsup",
+    "build": "tsup",
+    "dev": "tsup --watch",
     "start": "node dist/index.js",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "promptfoo:eval": "promptfoo eval -c evals/promptfoo/promptfooconfig.yaml"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.0",
@@ -19,10 +20,12 @@
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
+    "promptfoo": "^0.121.11",
+    "tsup": "^8.4.0",
     "typescript": "^5.4.0"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": "^22.22.0"
   },
   "packageManager": "yarn@4.12.0+sha256.1fe4e1193cbcd13a48d8f436bb17d3c672b049a5e32a758aab9866a073db1702"
 }

@@ -1,6 +1,9 @@
 # Dependencies
 node_modules/
 
+# Yarn Berry (do not commit install state)
+.yarn/
+
 # Build output (tsc → dist/; optional local bin/ scripts)
 dist/
 bin/
@@ -22,6 +25,9 @@ pnpm-debug.log*
 
 # Coverage
 coverage/
+
+# Promptfoo (local cache / outputs)
+.promptfoo/
 
 # OS / editor noise
 .DS_Store

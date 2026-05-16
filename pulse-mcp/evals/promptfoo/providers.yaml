@@ -1,0 +1,4 @@
+# Google Gemini (Promptfoo google provider). API key: GOOGLE_API_KEY env (see Promptfoo docs).
+- id: google:gemini-2.5-flash
+  config:
+    temperature: 0
