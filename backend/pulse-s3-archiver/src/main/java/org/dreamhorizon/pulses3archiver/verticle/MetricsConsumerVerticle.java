@@ -20,6 +20,7 @@ import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericRecord;
 import org.dreamhorizon.pulses3archiver.config.ArchiverConfig;
 import org.dreamhorizon.pulses3archiver.config.KafkaConfig;
+import org.dreamhorizon.pulses3archiver.config.S3Config;
 import org.dreamhorizon.pulses3archiver.config.WriterConfig;
 import org.dreamhorizon.pulses3archiver.constant.Constants;
 import org.dreamhorizon.pulses3archiver.guice.GuiceInjector;
@@ -45,6 +46,8 @@ public class MetricsConsumerVerticle extends AbstractVerticle {
     KafkaConfig kafkaConfig = SharedDataUtils.get(vertx, KafkaConfig.class);
     WriterConfig writerConfig = SharedDataUtils.get(vertx, WriterConfig.class);
     ArchiverConfig archiverConfig = SharedDataUtils.get(vertx, ArchiverConfig.class);
+    S3Config s3Config = SharedDataUtils.get(vertx, S3Config.class);
+    String rootBucket = s3Config.getRootBucket();
     S3UploadService s3UploadService = GuiceInjector.getGuiceInjector().getInstance(S3UploadService.class);
 
     Map<MetricTable, Schema> schemas = loadSchemas();
@@ -55,19 +58,19 @@ public class MetricsConsumerVerticle extends AbstractVerticle {
 
     sinks.put(MetricTable.SUM, new MultiProjectParquetSink(
         Constants.TABLE_METRICS_SUM, schemas.get(MetricTable.SUM),
-        writerConfig, s3UploadService, stagingDir, nodeId, onFlushSuccess));
+        writerConfig, rootBucket, s3UploadService, stagingDir, nodeId, onFlushSuccess));
 
     sinks.put(MetricTable.HISTOGRAM, new MultiProjectParquetSink(
         Constants.TABLE_METRICS_HISTOGRAM, schemas.get(MetricTable.HISTOGRAM),
-        writerConfig, s3UploadService, stagingDir, nodeId, onFlushSuccess));
+        writerConfig, rootBucket, s3UploadService, stagingDir, nodeId, onFlushSuccess));
 
     sinks.put(MetricTable.EXP_HISTOGRAM, new MultiProjectParquetSink(
         Constants.TABLE_METRICS_EXP_HISTOGRAM, schemas.get(MetricTable.EXP_HISTOGRAM),
-        writerConfig, s3UploadService, stagingDir, nodeId, onFlushSuccess));
+        writerConfig, rootBucket, s3UploadService, stagingDir, nodeId, onFlushSuccess));
 
     sinks.put(MetricTable.SUMMARY, new MultiProjectParquetSink(
         Constants.TABLE_METRICS_SUMMARY, schemas.get(MetricTable.SUMMARY),
-        writerConfig, s3UploadService, stagingDir, nodeId, onFlushSuccess));
+        writerConfig, rootBucket, s3UploadService, stagingDir, nodeId, onFlushSuccess));
 
     consumer = KafkaConsumer.create(vertx, buildKafkaConfig(kafkaConfig));
 

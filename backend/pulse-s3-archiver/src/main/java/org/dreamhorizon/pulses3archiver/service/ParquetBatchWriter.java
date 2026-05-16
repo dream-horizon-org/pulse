@@ -36,6 +36,7 @@ public class ParquetBatchWriter {
   private final Schema schema;
   private final WriterConfig writerConfig;
   private final String s3Bucket;
+  private final String keyPrefix;
   private final S3UploadService s3UploadService;
   private final String stagingSegment;
   private final String stagingRoot;
@@ -53,15 +54,19 @@ public class ParquetBatchWriter {
   private final Set<Integer> partitionsTracked = ConcurrentHashMap.newKeySet();
 
   /**
-   * @param s3Bucket destination bucket for this sink (typically {@code pulse-otel-*})
+   * Primary constructor.
+   *
+   * @param s3Bucket destination ingestion bucket (single bucket for all writers, e.g. {@code pulse-otel-ingestion})
+   * @param keyPrefix first path segment inside the bucket (typically a project id slug); empty means no prefix
    * @param stagingRoot base staging directory (typically archiver stagingDir)
-   * @param stagingSegment filesystem subdirectory for this bucket (safe segment derived from bucket)
+   * @param stagingSegment filesystem subdirectory inside {@code stagingRoot/<table>} for isolating this writer
    */
   public ParquetBatchWriter(
       String tableName,
       Schema schema,
       WriterConfig writerConfig,
       String s3Bucket,
+      String keyPrefix,
       S3UploadService s3UploadService,
       String stagingRoot,
       String stagingSegment,
@@ -71,6 +76,7 @@ public class ParquetBatchWriter {
     this.schema = Objects.requireNonNull(schema);
     this.writerConfig = Objects.requireNonNull(writerConfig);
     this.s3Bucket = Objects.requireNonNull(s3Bucket, "s3Bucket");
+    this.keyPrefix = normalizePrefix(keyPrefix);
     this.s3UploadService = Objects.requireNonNull(s3UploadService);
     this.stagingRoot = Objects.requireNonNull(stagingRoot);
     this.stagingSegment = Objects.requireNonNull(stagingSegment);
@@ -84,7 +90,22 @@ public class ParquetBatchWriter {
     }
   }
 
-  /** Back-compat ctor: derives {@code stagingSegment} from bucket name for local paths. */
+  /** Back-compat: no key prefix, staging segment derived from bucket name. */
+  public ParquetBatchWriter(
+      String tableName,
+      Schema schema,
+      WriterConfig writerConfig,
+      String s3Bucket,
+      S3UploadService s3UploadService,
+      String stagingRoot,
+      String stagingSegment,
+      String nodeId,
+      Consumer<Map<Integer, Long>> onFlushSuccess) {
+    this(tableName, schema, writerConfig, s3Bucket, "", s3UploadService,
+        stagingRoot, stagingSegment, nodeId, onFlushSuccess);
+  }
+
+  /** Back-compat: no key prefix, staging segment derived from bucket name. */
   public ParquetBatchWriter(
       String tableName,
       Schema schema,
@@ -94,16 +115,22 @@ public class ParquetBatchWriter {
       String stagingRoot,
       String nodeId,
       Consumer<Map<Integer, Long>> onFlushSuccess) {
-    this(
-        tableName,
-        schema,
-        writerConfig,
-        s3Bucket,
-        s3UploadService,
-        stagingRoot,
-        stagingFilesystemSegment(s3Bucket),
-        nodeId,
-        onFlushSuccess);
+    this(tableName, schema, writerConfig, s3Bucket, "", s3UploadService,
+        stagingRoot, stagingFilesystemSegment(s3Bucket), nodeId, onFlushSuccess);
+  }
+
+  private static String normalizePrefix(String prefix) {
+    if (prefix == null || prefix.isBlank()) {
+      return "";
+    }
+    String p = prefix.trim();
+    while (p.startsWith("/")) {
+      p = p.substring(1);
+    }
+    while (p.endsWith("/")) {
+      p = p.substring(0, p.length() - 1);
+    }
+    return p;
   }
 
   static String stagingFilesystemSegment(String bucketName) {
@@ -191,7 +218,12 @@ public class ParquetBatchWriter {
                 err.getMessage());
           } else {
             synchronized (ParquetBatchWriter.this) {
-              committedOffsets = offsets;
+              // Merge so multi-batch / multi-partition commits accumulate correctly.
+              Map<Integer, Long> updated = new HashMap<>(committedOffsets);
+              for (Map.Entry<Integer, Long> e : offsets.entrySet()) {
+                updated.merge(e.getKey(), e.getValue(), Math::max);
+              }
+              committedOffsets = updated;
             }
             try {
               Files.deleteIfExists(tmpFile.toPath());
@@ -238,7 +270,8 @@ public class ParquetBatchWriter {
     String partition = PART_FMT.format(ts);
     String isoTs = TS_FMT.format(ts);
     String uuid = UUID.randomUUID().toString().replace("-", "");
-    return String.format("%s/%s/%s_%s_%s.parquet", tableName, partition, isoTs, nodeId, uuid);
+    String tail = String.format("%s/%s/%s_%s_%s.parquet", tableName, partition, isoTs, nodeId, uuid);
+    return keyPrefix.isEmpty() ? tail : keyPrefix + "/" + tail;
   }
 
   // Traces/logs: Timestamp. Metrics: TimeUnix. Values are micros; return nanos for partitioning.

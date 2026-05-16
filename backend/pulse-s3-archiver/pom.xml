@@ -16,7 +16,7 @@
         <app.release.artifact>/target/pulse-s3-archiver</app.release.artifact>
         <vertx.version>4.5.10</vertx.version>
         <guice.version>5.1.0</guice.version>
-        <awssdk.version>2.20.8</awssdk.version>
+        <awssdk.version>2.25.69</awssdk.version>
         <parquet.version>1.14.1</parquet.version>
         <hadoop.version>3.3.6</hadoop.version>
         <maven.compiler.plugin.version>3.8.1</maven.compiler.plugin.version>
@@ -241,6 +241,23 @@
         <dependency>
             <groupId>software.amazon.awssdk</groupId>
             <artifactId>netty-nio-client</artifactId>
+            <version>${awssdk.version}</version>
+        </dependency>
+
+        <!-- SSO credential chain — all three required for AWS CLI v2 SSO profiles -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>sso</artifactId>
+            <version>${awssdk.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>ssooidc</artifactId>
+            <version>${awssdk.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>sts</artifactId>
             <version>${awssdk.version}</version>
         </dependency>
 

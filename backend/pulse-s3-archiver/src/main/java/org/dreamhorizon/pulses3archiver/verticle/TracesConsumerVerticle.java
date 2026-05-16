@@ -18,6 +18,7 @@ import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericRecord;
 import org.dreamhorizon.pulses3archiver.config.ArchiverConfig;
 import org.dreamhorizon.pulses3archiver.config.KafkaConfig;
+import org.dreamhorizon.pulses3archiver.config.S3Config;
 import org.dreamhorizon.pulses3archiver.config.WriterConfig;
 import org.dreamhorizon.pulses3archiver.constant.Constants;
 import org.dreamhorizon.pulses3archiver.guice.GuiceInjector;
@@ -39,6 +40,7 @@ public class TracesConsumerVerticle extends AbstractVerticle {
     KafkaConfig kafkaConfig = SharedDataUtils.get(vertx, KafkaConfig.class);
     WriterConfig writerConfig = SharedDataUtils.get(vertx, WriterConfig.class);
     ArchiverConfig archiverConfig = SharedDataUtils.get(vertx, ArchiverConfig.class);
+    S3Config s3Config = SharedDataUtils.get(vertx, S3Config.class);
     S3UploadService s3UploadService = GuiceInjector.getGuiceInjector().getInstance(S3UploadService.class);
 
     Schema schema = loadSchema("schemas/otel_traces.avsc");
@@ -47,7 +49,7 @@ public class TracesConsumerVerticle extends AbstractVerticle {
     consumer = KafkaConsumer.create(vertx, buildKafkaConfig(kafkaConfig));
 
     sink = new MultiProjectParquetSink(
-        Constants.TABLE_TRACES, schema, writerConfig, s3UploadService,
+        Constants.TABLE_TRACES, schema, writerConfig, s3Config.getRootBucket(), s3UploadService,
         archiverConfig.getStagingDir(), nodeId,
         () -> maybeCommitKafkaOffsets(kafkaConfig.getTopicTraces()));
 
