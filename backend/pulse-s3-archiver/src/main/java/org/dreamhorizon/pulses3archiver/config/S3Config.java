@@ -8,9 +8,11 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class S3Config {
-  /** @deprecated Archiver uploads to per-project buckets {@code pulse-otel-*}; retained for YAML compatibility. */
-  @Deprecated(forRemoval = false)
-  private String bucket;
+  /**
+   * Single ingestion bucket — all projects' Parquet files land here, segregated by a
+   * {@code <project-id>/} key prefix (e.g. {@code s3://pulse-otel-ingestion/projx/otel_traces/...}).
+   */
+  private String rootBucket = "pulse-otel-ingestion";
   private String region = "ap-south-1";
   private long multipartThresholdBytes = 16777216L;
   private long multipartPartBytes = 16777216L;
