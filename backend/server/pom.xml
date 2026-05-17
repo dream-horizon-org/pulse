@@ -36,6 +36,13 @@
 
     <dependencies>
 
+        <!-- Pure error-grouping heuristics (no DB, no Guice, no I/O). -->
+        <dependency>
+            <groupId>org.dreamhorizon</groupId>
+            <artifactId>pulse-grouping</artifactId>
+            <version>1.0-SNAPSHOT</version>
+        </dependency>
+
         <dependency>
             <groupId>com.dream11</groupId>
             <artifactId>vertx-rest</artifactId>
