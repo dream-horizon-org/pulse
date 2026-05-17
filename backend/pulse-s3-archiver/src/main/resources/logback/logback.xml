@@ -15,9 +15,16 @@
     <logger name="org.apache.parquet.io" level="warn"/>
     <logger name="org.apache.hadoop" level="warn"/>
     <logger name="org.apache.avro" level="warn"/>
-    <!-- Suppress AWS SDK polling noise — only errors/warnings -->
-    <logger name="software.amazon.awssdk" level="WARN"/>
-    <logger name="software.amazon.awssdk.request" level="WARN"/>
+    <!-- Suppress Kafka client noise -->
+    <logger name="org.apache.kafka" level="warn"/>
+    <!-- Suppress AWS SDK noise -->
+    <logger name="software.amazon.awssdk" level="warn"/>
+    <logger name="software.amazon.awssdk.request" level="warn"/>
+    <logger name="software.amazon.awssdk.requestId" level="warn"/>
+    <!-- Suppress OTel agent instrumentation noise -->
+    <logger name="io.opentelemetry" level="warn"/>
+    <!-- Suppress Vert.x internal noise -->
+    <logger name="io.vertx" level="warn"/>
 
     <root level="warn">
         <appender-ref ref="STDOUT"/>
