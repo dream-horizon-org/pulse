@@ -20,7 +20,7 @@ pipeline {
             steps {
                 checkout([
                         $class           : 'GitSCM',
-                        branches         : [[name: '*/main']],
+                        branches         : [[name: '*/feat/kafka-service']],
                         userRemoteConfigs: [[url: 'https://github.com/dream-horizon-org/pulse.git', credentialsId: 'd11-horizon-bot']]
                 ])
             }
@@ -64,7 +64,7 @@ pipeline {
                             git add pom.xml
                             git commit -m "chore: bump pulse-s3-archiver version to ${nextVersion}-SNAPSHOT"
 
-                            git push https://${GIT_USER}:${GIT_TOKEN}@github.com/dream-horizon-org/pulse.git HEAD:main
+                            git push https://${GIT_USER}:${GIT_TOKEN}@github.com/dream-horizon-org/pulse.git HEAD:feat/kafka-service
                         """
                     }
                 }
@@ -72,24 +72,24 @@ pipeline {
         }
     }
 
-    post {
-        success {
-            script {
-                def message = "<!channel> Pulse S3 Archiver version *${ARTIFACT_VERSION}* published\n" +
-                        "<${env.BUILD_URL}|${env.JOB_NAME} ${env.BUILD_DISPLAY_NAME}>"
-                def channel = "${env.DEPLOYMENT_SLACK_CHANNEL}"
-                slackSend(teamDomain: 'dreamsports.enterprise', channel: channel, color: 'good', message: message, tokenCredentialId: 'slack-creds', botUser: true)
-            }
-        }
-        failure {
-            script {
-                def message = "<!channel> Pulse S3 Archiver version *${ARTIFACT_VERSION}* publish failed\n" +
-                        "<${env.BUILD_URL}|${env.JOB_NAME} ${env.BUILD_DISPLAY_NAME}>"
-                def channel = "${env.DEPLOYMENT_SLACK_CHANNEL}"
-                slackSend(teamDomain: 'dreamsports.enterprise', channel: channel, color: 'danger', message: message, tokenCredentialId: 'slack-creds', botUser: true)
-            }
-        }
-    }
+//    post {
+//        success {
+//            script {
+//                def message = "<!channel> Pulse S3 Archiver version *${ARTIFACT_VERSION}* published\n" +
+//                        "<${env.BUILD_URL}|${env.JOB_NAME} ${env.BUILD_DISPLAY_NAME}>"
+//                def channel = "${env.DEPLOYMENT_SLACK_CHANNEL}"
+//                slackSend(teamDomain: 'dreamsports.enterprise', channel: channel, color: 'good', message: message, tokenCredentialId: 'slack-creds', botUser: true)
+//            }
+//        }
+//        failure {
+//            script {
+//                def message = "<!channel> Pulse S3 Archiver version *${ARTIFACT_VERSION}* publish failed\n" +
+//                        "<${env.BUILD_URL}|${env.JOB_NAME} ${env.BUILD_DISPLAY_NAME}>"
+//                def channel = "${env.DEPLOYMENT_SLACK_CHANNEL}"
+//                slackSend(teamDomain: 'dreamsports.enterprise', channel: channel, color: 'danger', message: message, tokenCredentialId: 'slack-creds', botUser: true)
+//            }
+//        }
+//    }
 }
 
 def getVersionFromPom(String path = 'backend/pulse-s3-archiver/pom.xml') {
