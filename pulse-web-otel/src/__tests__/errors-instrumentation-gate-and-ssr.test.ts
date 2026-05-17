@@ -77,6 +77,20 @@ describe("InstrumentationRegistry + errors (JS_CRASH) gate", () => {
     installSpy.mockRestore();
   });
 
+  it("does not install ErrorInstrumentation when local errors.enabled is false (remote JS_CRASH on)", () => {
+    const installSpy = vi.spyOn(ErrorInstrumentation.prototype, "install");
+    const sdk = makeSdk();
+    const registry = new InstrumentationRegistry(
+      sdk,
+      new FeatureGate(DEFAULT_SDK_CONFIG), // remote JS_CRASH ON
+      { errors: { enabled: false } },       // local kill-switch
+    );
+    registry.installAll();
+    registry.uninstallAll();
+    expect(installSpy).not.toHaveBeenCalled();
+    installSpy.mockRestore();
+  });
+
   it("installs ErrorInstrumentation when JS_CRASH feature is enabled (default config)", () => {
     const installSpy = vi.spyOn(ErrorInstrumentation.prototype, "install");
 

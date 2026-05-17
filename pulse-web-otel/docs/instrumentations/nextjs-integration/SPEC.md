@@ -26,6 +26,8 @@ Document **Next.js-specific** integration: App Router tracking (`useNextAppRoute
 
 **R3 — Server errors:** `createPulseInstrumentationHandler` (from `next` entry) posts OTLP-compatible logs for `onRequestError` when wired in root `instrumentation.ts`.
 
+**R4 — Host non-crash:** `PulseRouterEvents` wraps `useNextAppRouterTracking` in `Suspense` and `PulseIntegrationErrorBoundary` so render failures log with `PulseWebLogger.alwaysError` without unmounting the host (same boundary as the React adapter).
+
 ---
 
 ## 4. Architectural Design

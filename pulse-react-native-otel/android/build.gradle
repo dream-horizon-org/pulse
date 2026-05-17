@@ -68,6 +68,14 @@ android {
   }
 }
 
+// Add Kotlin compiler options: set Kotlin language version and jvm target to 1.8
+
+tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).all {
+  kotlinOptions {
+    languageVersion = "1.8"
+  }
+}
+
 repositories {
   mavenCentral()
   google()
@@ -89,5 +97,38 @@ dependencies {
   implementation("org.dreamhorizon:pulse-sampling-models:$pulse_version")
   api("com.squareup.okhttp3:okhttp:5.0.0-alpha.14")
   implementation("io.opentelemetry:opentelemetry-sdk")
-  implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.0")
+  implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
+
+  // Opt-in cap for consumers compiling with Kotlin 1.9.x.
+  //
+  // Default: OFF — modern consumers (Kotlin 2.0+ / RN 0.81+) require no changes.
+  //
+  // Opt in (consumers on Kotlin 1.9.x, e.g., RN 0.76 sample apps that hit
+  // "Module was compiled with an incompatible version of Kotlin" against
+  // transitive Kotlin 2.1.x stdlib/coroutines/serialization):
+  //   in your app's android/gradle.properties add:
+  //     PulseReactNativeOtel_kotlin19Compat=true
+  //
+  // The cap is a *range*, so consumer BOMs pinned to Kotlin 2.0.x artifacts
+  // (e.g., AndroidX 2.9.x) still resolve cleanly. It cannot coexist with a
+  // strict requirement on Kotlin 2.1.x — those consumers must leave it OFF.
+  def kotlin19Compat = (project.findProperty("PulseReactNativeOtel_kotlin19Compat") ?: "false").toBoolean()
+  if (kotlin19Compat) {
+    constraints {
+      def capBelow = { String coord, String range ->
+        api(coord) { version { strictly(range) } }
+      }
+      capBelow("org.jetbrains.kotlin:kotlin-stdlib",                  "[1.9, 2.1)")
+      capBelow("org.jetbrains.kotlin:kotlin-stdlib-jdk7",             "[1.9, 2.1)")
+      capBelow("org.jetbrains.kotlin:kotlin-stdlib-jdk8",             "[1.9, 2.1)")
+      capBelow("org.jetbrains.kotlin:kotlin-stdlib-common",           "[1.9, 2.1)")
+      capBelow("org.jetbrains.kotlinx:kotlinx-coroutines-core",       "[1.8, 1.10)")
+      capBelow("org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm",   "[1.8, 1.10)")
+      capBelow("org.jetbrains.kotlinx:kotlinx-coroutines-android",    "[1.8, 1.10)")
+      capBelow("org.jetbrains.kotlinx:kotlinx-serialization-core",      "[1.6, 1.8)")
+      capBelow("org.jetbrains.kotlinx:kotlinx-serialization-core-jvm",  "[1.6, 1.8)")
+      capBelow("org.jetbrains.kotlinx:kotlinx-serialization-json",      "[1.6, 1.8)")
+      capBelow("org.jetbrains.kotlinx:kotlinx-serialization-json-jvm",  "[1.6, 1.8)")
+    }
+  }
 }

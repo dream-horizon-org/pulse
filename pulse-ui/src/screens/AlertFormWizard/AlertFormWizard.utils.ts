@@ -2,8 +2,17 @@
  * Alert Form Wizard Utilities
  */
 
-import { AlertFormWizardData, AlertApiPayload, AlertScopeType, MetricOperator, MetricCondition } from "./types";
-import { AlertListItem, AlertCondition } from "../../hooks/useGetAlertList/useGetAlertList.interface";
+import {
+  AlertFormWizardData,
+  AlertApiPayload,
+  AlertScopeType,
+  MetricOperator,
+  MetricCondition,
+} from "./types";
+import {
+  AlertListItem,
+  AlertCondition,
+} from "../../hooks/useGetAlertList/useGetAlertList.interface";
 
 /**
  * Map frontend scope types to backend AlertScope enum values
@@ -21,9 +30,11 @@ const SCOPE_TYPE_TO_BACKEND: Record<string, string> = {
  * Supports complex expressions like:
  * (`AppVersion` = '1.0.1' AND `Platform` = 'ios') OR (`AppVersion` = '1.0.2' AND `Platform` = 'android')
  */
-function buildDimensionFilters(globalFilters: AlertFormWizardData["globalFilters"]): string | undefined {
+function buildDimensionFilters(
+  globalFilters: AlertFormWizardData["globalFilters"],
+): string | undefined {
   const { filterBuilder } = globalFilters;
-  
+
   const groupExpressions = filterBuilder.groups
     .map((group) => {
       const conditions = group.conditions
@@ -41,12 +52,14 @@ function buildDimensionFilters(globalFilters: AlertFormWizardData["globalFilters
 
   if (groupExpressions.length === 0) return undefined;
   if (groupExpressions.length === 1) return groupExpressions[0];
-  return groupExpressions.join(` ${filterBuilder.groupOperator.toLowerCase()} `);
+  return groupExpressions.join(
+    ` ${filterBuilder.groupOperator.toLowerCase()} `,
+  );
 }
 
 export function transformFormDataToPayload(
   formData: AlertFormWizardData,
-  userEmail: string
+  userEmail: string,
 ): AlertApiPayload {
   const {
     nameDescription,
@@ -59,7 +72,10 @@ export function transformFormDataToPayload(
   } = formData;
 
   // Map frontend scope to backend enum
-  const backendScope = SCOPE_TYPE_TO_BACKEND[scopeType.scopeType || ""] || scopeType.scopeType || "";
+  const backendScope =
+    SCOPE_TYPE_TO_BACKEND[scopeType.scopeType || ""] ||
+    scopeType.scopeType ||
+    "";
 
   // Transform conditions - threshold is already a map of scope_name -> value
   const alerts = metricsConditions.conditions.map((condition) => ({
@@ -82,8 +98,9 @@ export function transformFormDataToPayload(
     alerts,
     evaluation_period: evaluationConfig.evaluationPeriod,
     evaluation_interval: evaluationConfig.evaluationInterval,
-    severity_id: severityNotification.severityId || 1,
-    notification_channel_id: severityNotification.notificationChannelId || 1,
+    severity_id: severityNotification.severityId as number,
+    channel_event_mapping_id:
+      severityNotification.channelEventMappingId as number,
     created_by: userEmail,
     updated_by: userEmail,
   };
@@ -92,20 +109,28 @@ export function transformFormDataToPayload(
 /**
  * Transform alert details from API to form data
  */
-export function transformAlertDetailsToFormData(alertDetails: AlertListItem): Partial<AlertFormWizardData> {
+export function transformAlertDetailsToFormData(
+  alertDetails: AlertListItem,
+): Partial<AlertFormWizardData> {
   // Map conditions from API to form format
-  const conditions: MetricCondition[] = (alertDetails.alerts || []).map((alert: AlertCondition, index: number) => ({
-    id: `cond_${Date.now()}_${index}`,
-    alias: alert.alias || String.fromCharCode(65 + index),
-    metric: alert.metric || "",
-    operator: (alert.metric_operator as MetricOperator) || MetricOperator.GREATER_THAN,
-    threshold: alert.threshold || {},
-  }));
+  const conditions: MetricCondition[] = (alertDetails.alerts || []).map(
+    (alert: AlertCondition, index: number) => ({
+      id: `cond_${Date.now()}_${index}`,
+      alias: alert.alias || String.fromCharCode(65 + index),
+      metric: alert.metric || "",
+      operator:
+        (alert.metric_operator as MetricOperator) ||
+        MetricOperator.GREATER_THAN,
+      threshold: alert.threshold || {},
+    }),
+  );
 
   // Extract unique scope names from all conditions' thresholds
   const scopeNamesSet = new Set<string>();
-  conditions.forEach(cond => {
-    Object.keys(cond.threshold || {}).forEach(scopeName => scopeNamesSet.add(scopeName));
+  conditions.forEach((cond) => {
+    Object.keys(cond.threshold || {}).forEach((scopeName) =>
+      scopeNamesSet.add(scopeName),
+    );
   });
   const selectedScopeNames = Array.from(scopeNamesSet);
 
@@ -146,17 +171,22 @@ export function transformAlertDetailsToFormData(alertDetails: AlertListItem): Pa
     },
     severityNotification: {
       severityId: alertDetails.severity_id || null,
-      notificationChannelId: alertDetails.notification_channel_id || null,
+      channelEventMappingId: alertDetails.channel_event_mapping_id || null,
     },
     metricsConditions: {
       selectedScopeNames,
-      conditions: conditions.length > 0 ? conditions : [{
-        id: `cond_${Date.now()}`,
-        alias: "A",
-        metric: "",
-        operator: MetricOperator.GREATER_THAN,
-        threshold: {},
-      }],
+      conditions:
+        conditions.length > 0
+          ? conditions
+          : [
+              {
+                id: `cond_${Date.now()}`,
+                alias: "A",
+                metric: "",
+                operator: MetricOperator.GREATER_THAN,
+                threshold: {},
+              },
+            ],
     },
     conditionExpression: {
       expression: alertDetails.condition_expression || "A",
