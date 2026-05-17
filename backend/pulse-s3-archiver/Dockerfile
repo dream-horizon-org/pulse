@@ -36,10 +36,10 @@ RUN chmod 444 /otel/opentelemetry-javaagent.jar
 COPY docker-entrypoint.sh /app/docker-entrypoint.sh
 RUN chmod 755 /app/docker-entrypoint.sh
 
-EXPOSE 5000
+EXPOSE 8080
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-  CMD curl -f http://localhost:5000/healthcheck || exit 1
+  CMD curl -f http://localhost:8080/healthcheck || exit 1
 
 USER 10001
 

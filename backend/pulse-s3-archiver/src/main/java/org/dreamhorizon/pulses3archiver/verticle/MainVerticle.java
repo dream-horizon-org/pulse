@@ -46,6 +46,12 @@ public class MainVerticle extends AbstractVerticle {
         })
         .ignoreElement()
         .andThen(
+            // Deploy healthcheck FIRST so the ALB target turns healthy as soon as
+            // the JVM is up — independent of Kafka subscribe latency.
+            vertx.rxDeployVerticle(HealthCheckVerticle::new,
+                new DeploymentOptions().setInstances(1)).ignoreElement()
+        )
+        .andThen(
             Completable.mergeArray(
                 vertx.rxDeployVerticle(TracesConsumerVerticle::new,
                     new DeploymentOptions().setInstances(1)).ignoreElement(),
@@ -55,7 +61,7 @@ public class MainVerticle extends AbstractVerticle {
                     new DeploymentOptions().setInstances(1)).ignoreElement()
             )
         )
-        .doOnComplete(() -> log.info("[MainVerticle] All consumer verticles deployed"));
+        .doOnComplete(() -> log.info("[MainVerticle] HealthCheck + 3 consumer verticles deployed"));
   }
 
   @Override
