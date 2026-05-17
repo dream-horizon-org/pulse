@@ -16,7 +16,7 @@
     <logger name="org.apache.hadoop" level="warn"/>
     <logger name="org.apache.avro" level="warn"/>
 
-    <root level="info">
+    <root level="debug">
         <appender-ref ref="STDOUT"/>
     </root>
 
