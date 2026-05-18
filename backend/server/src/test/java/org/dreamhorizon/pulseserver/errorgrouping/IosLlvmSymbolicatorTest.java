@@ -14,8 +14,8 @@ import java.util.List;
 import java.util.Set;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
-import org.dreamhorizon.pulseserver.errorgrouping.model.NdkFrame;
-import org.dreamhorizon.pulseserver.errorgrouping.model.Lane;
+import org.dreamhorizon.pulseserver.grouping.model.NdkFrame;
+import org.dreamhorizon.pulseserver.grouping.model.Lane;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 

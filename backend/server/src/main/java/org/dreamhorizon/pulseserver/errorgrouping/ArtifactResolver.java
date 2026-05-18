@@ -2,7 +2,7 @@ package org.dreamhorizon.pulseserver.errorgrouping;
 
 import java.nio.file.Path;
 import java.util.Optional;
-import org.dreamhorizon.pulseserver.errorgrouping.model.EventMeta;
+import org.dreamhorizon.pulseserver.grouping.model.EventMeta;
 
 public class ArtifactResolver {
   public Optional<Path> findProguardMapping(EventMeta meta) {

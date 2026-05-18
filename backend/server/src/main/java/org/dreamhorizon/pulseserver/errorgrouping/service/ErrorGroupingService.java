@@ -1,7 +1,7 @@
 package org.dreamhorizon.pulseserver.errorgrouping.service;
 
-import static org.dreamhorizon.pulseserver.errorgrouping.FramesParser.TOP_N_FRAMES;
-import static org.dreamhorizon.pulseserver.errorgrouping.FramesParser.parse;
+import static org.dreamhorizon.pulseserver.grouping.parser.FramesParser.TOP_N_FRAMES;
+import static org.dreamhorizon.pulseserver.grouping.parser.FramesParser.parse;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -34,13 +34,14 @@ import org.dreamhorizon.pulseserver.client.chclient.ClickhouseQueryService;
 import org.dreamhorizon.pulseserver.errorgrouping.archive.StackTraceArchiveService;
 import org.dreamhorizon.pulseserver.errorgrouping.Symbolicator;
 import org.dreamhorizon.pulseserver.errorgrouping.model.CompleteSymbolication;
-import org.dreamhorizon.pulseserver.errorgrouping.model.EventMeta;
-import org.dreamhorizon.pulseserver.errorgrouping.model.Frame;
-import org.dreamhorizon.pulseserver.errorgrouping.model.Group;
-import org.dreamhorizon.pulseserver.errorgrouping.model.Lane;
-import org.dreamhorizon.pulseserver.errorgrouping.model.ParsedFrames;
 import org.dreamhorizon.pulseserver.errorgrouping.model.StackTraceEvent;
-import org.dreamhorizon.pulseserver.errorgrouping.utils.ErrorGroupingUtils;
+import org.dreamhorizon.pulseserver.grouping.Grouper;
+import org.dreamhorizon.pulseserver.grouping.model.EventMeta;
+import org.dreamhorizon.pulseserver.grouping.model.Frame;
+import org.dreamhorizon.pulseserver.grouping.model.Group;
+import org.dreamhorizon.pulseserver.grouping.model.Lane;
+import org.dreamhorizon.pulseserver.grouping.model.ParsedFrames;
+import org.dreamhorizon.pulseserver.grouping.util.ErrorGroupingUtils;
 import org.dreamhorizon.pulseserver.service.configs.models.Sdk;
 
 
@@ -48,7 +49,6 @@ import org.dreamhorizon.pulseserver.service.configs.models.Sdk;
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
 public class ErrorGroupingService {
 
-  public static final String SIG_VERSION = "v1";
   private static final char[] HEX = "0123456789abcdef".toCharArray();
   private static final DateTimeFormatter DT64_9 =
       DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSSSSSSSS")
@@ -95,161 +95,6 @@ public class ErrorGroupingService {
     long seconds = Math.floorDiv(epochNanos, 1_000_000_000L);
     int nanos = (int) Math.floorMod(epochNanos, 1_000_000_000L);
     return DT64_9.format(Instant.ofEpochSecond(seconds, nanos));
-  }
-
-  // OPTIMIZATION: Use StringBuilder for better performance than String concatenation
-  public static String buildSignature(String platform, List<String> excTypes, List<String> tokens) {
-    // Pre-allocate capacity to avoid multiple resizes
-    int capacity = 50 + platform.length() + excTypes.size() * 20 + tokens.size() * 30;
-    StringBuilder sb = new StringBuilder(capacity);
-
-    sb.append(SIG_VERSION).append("|platform:").append(platform).append("|exc:");
-
-    // Manual join for exception types
-    for (int i = 0; i < excTypes.size(); i++) {
-      if (i > 0) {
-        sb.append(">");
-      }
-      sb.append(excTypes.get(i));
-    }
-
-    sb.append("|frames:");
-
-    // Manual join for frames
-    for (int i = 0; i < tokens.size(); i++) {
-      if (i > 0) {
-        sb.append(">");
-      }
-      sb.append(tokens.get(i));
-    }
-
-    return sb.toString();
-  }
-
-  public static String buildDisplayName(Lane lane, List<String> excTypes, List<String> frames, String groupId) {
-    String headline;
-    if (excTypes.isEmpty()) {
-      headline = (lane == Lane.NDK || lane == Lane.IOS_NATIVE) ? "NativeError" : "Error";
-    } else if (lane == Lane.JAVA && excTypes.size() >= 2) {
-      headline = excTypes.get(0) + " caused by " + excTypes.get(excTypes.size() - 1);
-    } else {
-      headline = excTypes.get(0);
-    }
-
-    String loc = frames.isEmpty() ? "" : frames.get(0);
-    String locPretty = switch (lane) {
-      case JAVA -> ErrorGroupingUtils.shortenJava(loc);
-      case JS -> ErrorGroupingUtils.shortenJs(loc);
-      default -> loc;
-    };
-
-    String where = locPretty.isEmpty() ? "" :
-        (lane == Lane.JS ? " in " : " at ") + locPretty;
-
-    return headline + where + " [" + groupId + "]";
-  }
-
-  /**
-   * Choose primary lane for error grouping.
-   * Simple rule: Use the topmost exception type, then fallback to total frame count.
-   */
-  public static Lane choosePrimary(ParsedFrames st) {
-    int js = st.getJsFrames().size();
-    int jv = st.getJavaFrames().size();
-    int nk = st.getNdkFrames().size();
-    int io = st.getIosNativeFrames().size();
-
-    if (js == 0 && jv == 0 && nk == 0 && io == 0) {
-      return Lane.UNKNOWN;
-    }
-
-    // Priority 1: Use topmost exception type (most reliable signal)
-    if (st.getPrimaryExceptionLane() != null) {
-      Lane primary = st.getPrimaryExceptionLane();
-      if (primary == Lane.JS && js > 0) {
-        return Lane.JS;
-      }
-      if (primary == Lane.JAVA && jv > 0) {
-        return Lane.JAVA;
-      }
-      if (primary == Lane.NDK && nk > 0) {
-        return Lane.NDK;
-      }
-      if (primary == Lane.IOS_NATIVE && io > 0) {
-        return Lane.IOS_NATIVE;
-      }
-    }
-
-    // Priority 2: Total frame count (tie-breaker: JS > JAVA > IOS_NATIVE > NDK)
-    int max = Math.max(js, Math.max(jv, Math.max(nk, io)));
-    if (js == max) {
-      return Lane.JS;
-    }
-    if (jv == max) {
-      return Lane.JAVA;
-    }
-    if (io == max) {
-      return Lane.IOS_NATIVE;
-    }
-    return Lane.NDK;
-  }
-
-  public static List<String> typesForPrimary(ParsedFrames st, Lane lane) {
-    List<String> types = switch (lane) {
-      case JS -> st.getJsTypes();
-      case JAVA -> st.getJavaTypes();
-      case NDK -> st.getNdkTypes();
-      case IOS_NATIVE -> st.getIosNativeTypes();
-      default -> List.of();
-    };
-    if (types == null || types.isEmpty()) {
-      if (!st.getJsTypes().isEmpty()) {
-        return st.getJsTypes();
-      }
-      if (!st.getJavaTypes().isEmpty()) {
-        return st.getJavaTypes();
-      }
-      if (!st.getIosNativeTypes().isEmpty()) {
-        return st.getIosNativeTypes();
-      }
-      if (!st.getNdkFrames().isEmpty()) {
-        return st.getNdkTypes();
-      }
-      return List.of();
-    }
-    return types;
-  }
-
-  public static List<Frame> selectPrimaryTokens(ParsedFrames st, Lane lane, int topN) {
-    List<? extends Frame> frames = switch (lane) {
-      case JS -> st.getJsFrames();
-      case JAVA -> st.getJavaFrames();
-      case NDK -> st.getNdkFrames();
-      case IOS_NATIVE -> st.getIosNativeFrames();
-      default -> List.of();
-    };
-    if (frames.isEmpty()) {
-      return List.of();
-    }
-
-    List<Frame> chosen = new ArrayList<>(topN);
-    for (Frame f : frames) {
-      if (f.isInApp()) {
-        chosen.add(f);
-        if (chosen.size() == topN) {
-          break;
-        }
-      }
-    }
-    if (chosen.isEmpty()) {
-      for (Frame f : frames) {
-        chosen.add(f);
-        if (chosen.size() == topN) {
-          break;
-        }
-      }
-    }
-    return chosen;
   }
 
   public Single<Long> ingest(ExportLogsServiceRequest exportLogsServiceRequest) {
@@ -465,7 +310,7 @@ public class ErrorGroupingService {
     ParsedFrames parsedFrames = parse(lines);
 
     // Choose primary lane for grouping
-    Lane primary = choosePrimary(parsedFrames);
+    Lane primary = Grouper.choosePrimary(parsedFrames);
     log.info(
         "{} parsed primaryLane={} frameCounts js={} java={} ndk={} iosNative={} projectId={} appVersion={} "
             + "versionCode={} platform={} bundleId={}",
@@ -480,8 +325,8 @@ public class ErrorGroupingService {
         meta.getAppVersionCode(),
         meta.getPlatform(),
         meta.getBundleId());
-    List<String> excTypes = typesForPrimary(parsedFrames, primary);
-    List<Frame> primaryFrames = selectPrimaryTokens(parsedFrames, primary, TOP_N_FRAMES);
+    List<String> excTypes = Grouper.typesForPrimary(parsedFrames, primary);
+    List<Frame> primaryFrames = Grouper.selectPrimaryTokens(parsedFrames, primary, TOP_N_FRAMES);
 
     // Symbolicate all lanes in parallel for complete stack trace
     Single<CompleteSymbolication> completeSymb = symbolicateComplete(parsedFrames, meta, raw);
@@ -492,10 +337,10 @@ public class ErrorGroupingService {
     return Single.zip(primaryTokens, completeSymb, (tokens, complete) -> {
       // Build group from primary lane
       String platformTag = ErrorGroupingUtils.platformTag(primary);
-      String signature = buildSignature(platformTag, excTypes, tokens);
+      String signature = Grouper.buildSignature(platformTag, excTypes, tokens);
       String sha1 = ErrorGroupingUtils.sha1Hex(signature);
-      String groupId = "EXC-" + sha1.substring(0, 10).toUpperCase(Locale.ROOT);
-      String title = buildDisplayName(primary, excTypes, tokens, groupId);
+      String groupId = Grouper.computeGroupId(sha1);
+      String title = Grouper.buildDisplayName(primary, excTypes, tokens, groupId);
       Group group = new Group(platformTag, signature, sha1, groupId, title);
 
       return new ProcessingResult(group, complete);

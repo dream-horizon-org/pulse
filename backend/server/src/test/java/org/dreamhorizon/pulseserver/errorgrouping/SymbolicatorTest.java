@@ -12,11 +12,11 @@ import java.util.Collections;
 import java.util.List;
 import io.vertx.rxjava3.core.Vertx;
 import java.util.Optional;
-import org.dreamhorizon.pulseserver.errorgrouping.model.EventMeta;
-import org.dreamhorizon.pulseserver.errorgrouping.model.Frame;
-import org.dreamhorizon.pulseserver.errorgrouping.model.JsFrame;
-import org.dreamhorizon.pulseserver.errorgrouping.model.NdkFrame;
-import org.dreamhorizon.pulseserver.errorgrouping.model.Lane;
+import org.dreamhorizon.pulseserver.grouping.model.EventMeta;
+import org.dreamhorizon.pulseserver.grouping.model.Frame;
+import org.dreamhorizon.pulseserver.grouping.model.JsFrame;
+import org.dreamhorizon.pulseserver.grouping.model.NdkFrame;
+import org.dreamhorizon.pulseserver.grouping.model.Lane;
 import org.dreamhorizon.pulseserver.errorgrouping.model.UploadMetadata;
 import org.dreamhorizon.pulseserver.errorgrouping.service.DsymCache;
 import org.dreamhorizon.pulseserver.errorgrouping.service.SourceMapCache;
@@ -227,7 +227,7 @@ class SymbolicatorTest {
     @Test
     void shouldReturnTokensWhenProguardMapNotExists() {
       List<Frame> frames = List.of(
-          org.dreamhorizon.pulseserver.errorgrouping.model.JavaFrame.builder()
+          org.dreamhorizon.pulseserver.grouping.model.JavaFrame.builder()
               .javaClass("a.b")
               .javaMethod("c")
               .rawLine("at a.b.c(SourceFile:1)")
@@ -255,7 +255,7 @@ class SymbolicatorTest {
     @Test
     void shouldReturnTokensWhenProguardMapCacheReturnsFalse() {
       List<Frame> frames = List.of(
-          org.dreamhorizon.pulseserver.errorgrouping.model.JavaFrame.builder()
+          org.dreamhorizon.pulseserver.grouping.model.JavaFrame.builder()
               .javaClass("a.b")
               .javaMethod("c")
               .rawLine("at a.b.c(SourceFile:1)")

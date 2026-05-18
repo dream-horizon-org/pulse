@@ -23,9 +23,9 @@ import java.util.zip.ZipInputStream;
 import lombok.Builder;
 import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
-import org.dreamhorizon.pulseserver.errorgrouping.apple.AppleCrashReportParser;
+import org.dreamhorizon.pulseserver.grouping.apple.AppleCrashReportParser;
 import org.dreamhorizon.pulseserver.errorgrouping.apple.IosSymbolicatedFrameFormatter;
-import org.dreamhorizon.pulseserver.errorgrouping.model.NdkFrame;
+import org.dreamhorizon.pulseserver.grouping.model.NdkFrame;
 
 /**
  * Runs {@code llvm-objdump} (Mach-O vmaddr + UUID) and {@code llvm-symbolizer} for iOS dSYM symbolication.

@@ -3,6 +3,11 @@ package org.dreamhorizon.pulseserver.errorgrouping.model;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
+import org.dreamhorizon.pulseserver.grouping.model.JavaFrame;
+import org.dreamhorizon.pulseserver.grouping.model.JsFrame;
+import org.dreamhorizon.pulseserver.grouping.model.Lane;
+import org.dreamhorizon.pulseserver.grouping.model.NdkFrame;
+import org.dreamhorizon.pulseserver.grouping.model.ParsedFrames;
 import org.junit.jupiter.api.Test;
 
 class CompleteSymbolicationTest {

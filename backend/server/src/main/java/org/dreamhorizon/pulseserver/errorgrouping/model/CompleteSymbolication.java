@@ -5,6 +5,11 @@ import java.util.Comparator;
 import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.Data;
+import org.dreamhorizon.pulseserver.grouping.model.JavaFrame;
+import org.dreamhorizon.pulseserver.grouping.model.JsFrame;
+import org.dreamhorizon.pulseserver.grouping.model.Lane;
+import org.dreamhorizon.pulseserver.grouping.model.NdkFrame;
+import org.dreamhorizon.pulseserver.grouping.model.ParsedFrames;
 
 /**
  * Holds the complete symbolication result for all lanes.

@@ -29,14 +29,15 @@ import io.reactivex.rxjava3.core.Completable;
 import org.dreamhorizon.pulseserver.client.chclient.ClickhouseQueryService;
 import org.dreamhorizon.pulseserver.errorgrouping.Symbolicator;
 import org.dreamhorizon.pulseserver.errorgrouping.archive.StackTraceArchiveService;
-import org.dreamhorizon.pulseserver.errorgrouping.model.EventMeta;
-import org.dreamhorizon.pulseserver.errorgrouping.model.Frame;
-import org.dreamhorizon.pulseserver.errorgrouping.model.JavaFrame;
-import org.dreamhorizon.pulseserver.errorgrouping.model.JsFrame;
-import org.dreamhorizon.pulseserver.errorgrouping.model.Lane;
-import org.dreamhorizon.pulseserver.errorgrouping.model.NdkFrame;
-import org.dreamhorizon.pulseserver.errorgrouping.model.ParsedFrames;
 import org.dreamhorizon.pulseserver.errorgrouping.model.StackTraceEvent;
+import org.dreamhorizon.pulseserver.grouping.Grouper;
+import org.dreamhorizon.pulseserver.grouping.model.EventMeta;
+import org.dreamhorizon.pulseserver.grouping.model.Frame;
+import org.dreamhorizon.pulseserver.grouping.model.JavaFrame;
+import org.dreamhorizon.pulseserver.grouping.model.JsFrame;
+import org.dreamhorizon.pulseserver.grouping.model.Lane;
+import org.dreamhorizon.pulseserver.grouping.model.NdkFrame;
+import org.dreamhorizon.pulseserver.grouping.model.ParsedFrames;
 import org.dreamhorizon.pulseserver.util.serialization.ObjectMapperFactory;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
@@ -203,7 +204,7 @@ class ErrorGroupingServiceTest {
           .ndkFrames(Collections.emptyList())
           .build();
 
-      Lane result = ErrorGroupingService.choosePrimary(parsed);
+      Lane result = Grouper.choosePrimary(parsed);
 
       assertEquals(Lane.UNKNOWN, result);
     }
@@ -217,7 +218,7 @@ class ErrorGroupingServiceTest {
           .ndkFrames(Collections.emptyList())
           .build();
 
-      Lane result = ErrorGroupingService.choosePrimary(parsed);
+      Lane result = Grouper.choosePrimary(parsed);
 
       assertEquals(Lane.JS, result);
     }
@@ -231,7 +232,7 @@ class ErrorGroupingServiceTest {
           .ndkFrames(Collections.emptyList())
           .build();
 
-      Lane result = ErrorGroupingService.choosePrimary(parsed);
+      Lane result = Grouper.choosePrimary(parsed);
 
       assertEquals(Lane.JAVA, result);
     }
@@ -245,7 +246,7 @@ class ErrorGroupingServiceTest {
           .ndkFrames(Collections.emptyList())
           .build();
 
-      Lane result = ErrorGroupingService.choosePrimary(parsed);
+      Lane result = Grouper.choosePrimary(parsed);
 
       assertEquals(Lane.JS, result);
     }
@@ -259,7 +260,7 @@ class ErrorGroupingServiceTest {
           .ndkFrames(Collections.emptyList())
           .build();
 
-      Lane result = ErrorGroupingService.choosePrimary(parsed);
+      Lane result = Grouper.choosePrimary(parsed);
 
       assertEquals(Lane.JAVA, result);
     }
@@ -273,7 +274,7 @@ class ErrorGroupingServiceTest {
           .ndkFrames(List.of(createNdkFrame(0)))
           .build();
 
-      Lane result = ErrorGroupingService.choosePrimary(parsed);
+      Lane result = Grouper.choosePrimary(parsed);
 
       assertEquals(Lane.NDK, result);
     }
@@ -287,7 +288,7 @@ class ErrorGroupingServiceTest {
           .ndkFrames(Collections.emptyList())
           .build();
 
-      Lane result = ErrorGroupingService.choosePrimary(parsed);
+      Lane result = Grouper.choosePrimary(parsed);
 
       assertEquals(Lane.JS, result);
     }
@@ -302,7 +303,7 @@ class ErrorGroupingServiceTest {
           .ndkFrames(Collections.emptyList())
           .build();
 
-      Lane result = ErrorGroupingService.choosePrimary(parsed);
+      Lane result = Grouper.choosePrimary(parsed);
 
       assertEquals(Lane.JAVA, result); // Falls back to frame count
     }
@@ -316,7 +317,7 @@ class ErrorGroupingServiceTest {
           .ndkFrames(List.of(createNdkFrame(1)))
           .build();
 
-      Lane result = ErrorGroupingService.choosePrimary(parsed);
+      Lane result = Grouper.choosePrimary(parsed);
 
       assertEquals(Lane.NDK, result);
     }
@@ -330,7 +331,7 @@ class ErrorGroupingServiceTest {
           .ndkFrames(Collections.emptyList())
           .build();
 
-      Lane result = ErrorGroupingService.choosePrimary(parsed);
+      Lane result = Grouper.choosePrimary(parsed);
 
       assertEquals(Lane.JAVA, result); // Falls back to frame count
     }
@@ -344,7 +345,7 @@ class ErrorGroupingServiceTest {
           .ndkFrames(List.of(createNdkFrame(2), createNdkFrame(3)))
           .build();
 
-      Lane result = ErrorGroupingService.choosePrimary(parsed);
+      Lane result = Grouper.choosePrimary(parsed);
 
       assertEquals(Lane.NDK, result);
     }
@@ -359,7 +360,7 @@ class ErrorGroupingServiceTest {
           .ndkFrames(Collections.emptyList())
           .build();
 
-      assertEquals(Lane.IOS_NATIVE, ErrorGroupingService.choosePrimary(parsed));
+      assertEquals(Lane.IOS_NATIVE, Grouper.choosePrimary(parsed));
     }
 
     @Test
@@ -372,7 +373,7 @@ class ErrorGroupingServiceTest {
           .ndkFrames(Collections.emptyList())
           .build();
 
-      assertEquals(Lane.JAVA, ErrorGroupingService.choosePrimary(parsed));
+      assertEquals(Lane.JAVA, Grouper.choosePrimary(parsed));
     }
 
     @Test
@@ -386,7 +387,7 @@ class ErrorGroupingServiceTest {
           .ndkFrames(Collections.emptyList())
           .build();
 
-      assertEquals(Lane.IOS_NATIVE, ErrorGroupingService.choosePrimary(parsed));
+      assertEquals(Lane.IOS_NATIVE, Grouper.choosePrimary(parsed));
     }
   }
 
@@ -401,7 +402,7 @@ class ErrorGroupingServiceTest {
           .ndkTypes(Collections.emptyList())
           .build();
 
-      List<String> result = ErrorGroupingService.typesForPrimary(parsed, Lane.JS);
+      List<String> result = Grouper.typesForPrimary(parsed, Lane.JS);
 
       assertEquals(jsTypes, result);
     }
@@ -415,7 +416,7 @@ class ErrorGroupingServiceTest {
           .ndkTypes(Collections.emptyList())
           .build();
 
-      List<String> result = ErrorGroupingService.typesForPrimary(parsed, Lane.JAVA);
+      List<String> result = Grouper.typesForPrimary(parsed, Lane.JAVA);
 
       assertEquals(javaTypes, result);
     }
@@ -429,7 +430,7 @@ class ErrorGroupingServiceTest {
           .ndkTypes(Collections.emptyList())
           .build();
 
-      List<String> result = ErrorGroupingService.typesForPrimary(parsed, Lane.JAVA);
+      List<String> result = Grouper.typesForPrimary(parsed, Lane.JAVA);
 
       assertEquals(jsTypes, result);
     }
@@ -443,7 +444,7 @@ class ErrorGroupingServiceTest {
           .ndkFrames(Collections.emptyList())
           .build();
 
-      List<String> result = ErrorGroupingService.typesForPrimary(parsed, Lane.UNKNOWN);
+      List<String> result = Grouper.typesForPrimary(parsed, Lane.UNKNOWN);
 
       assertTrue(result.isEmpty());
     }
@@ -457,7 +458,7 @@ class ErrorGroupingServiceTest {
           .ndkTypes(ndkTypes)
           .build();
 
-      List<String> result = ErrorGroupingService.typesForPrimary(parsed, Lane.NDK);
+      List<String> result = Grouper.typesForPrimary(parsed, Lane.NDK);
 
       assertEquals(ndkTypes, result);
     }
@@ -471,7 +472,7 @@ class ErrorGroupingServiceTest {
           .ndkTypes(Collections.emptyList())
           .build();
 
-      List<String> result = ErrorGroupingService.typesForPrimary(parsed, Lane.NDK);
+      List<String> result = Grouper.typesForPrimary(parsed, Lane.NDK);
 
       assertEquals(javaTypes, result);
     }
@@ -486,7 +487,7 @@ class ErrorGroupingServiceTest {
           .ndkFrames(List.of(createNdkFrame(0)))
           .build();
 
-      List<String> result = ErrorGroupingService.typesForPrimary(parsed, Lane.JS);
+      List<String> result = Grouper.typesForPrimary(parsed, Lane.JS);
 
       assertEquals(ndkTypes, result);
     }
@@ -498,7 +499,7 @@ class ErrorGroupingServiceTest {
           .iosNativeTypes(iosTypes)
           .build();
 
-      List<String> result = ErrorGroupingService.typesForPrimary(parsed, Lane.IOS_NATIVE);
+      List<String> result = Grouper.typesForPrimary(parsed, Lane.IOS_NATIVE);
 
       assertEquals(iosTypes, result);
     }
@@ -512,7 +513,7 @@ class ErrorGroupingServiceTest {
           .iosNativeFrames(List.of(createIosNativeFrame(0)))
           .build();
 
-      List<String> result = ErrorGroupingService.typesForPrimary(parsed, Lane.IOS_NATIVE);
+      List<String> result = Grouper.typesForPrimary(parsed, Lane.IOS_NATIVE);
 
       assertEquals(jsTypes, result);
     }
@@ -527,7 +528,7 @@ class ErrorGroupingServiceTest {
           .iosNativeFrames(List.of(createIosNativeFrame(0)))
           .build();
 
-      List<String> result = ErrorGroupingService.typesForPrimary(parsed, Lane.IOS_NATIVE);
+      List<String> result = Grouper.typesForPrimary(parsed, Lane.IOS_NATIVE);
 
       assertEquals(javaTypes, result);
     }
@@ -547,7 +548,7 @@ class ErrorGroupingServiceTest {
           .jsFrames(frames)
           .build();
 
-      List<Frame> result = ErrorGroupingService.selectPrimaryTokens(parsed, Lane.JS, 2);
+      List<Frame> result = Grouper.selectPrimaryTokens(parsed, Lane.JS, 2);
 
       assertEquals(2, result.size());
       assertTrue(result.get(0).isInApp());
@@ -567,7 +568,7 @@ class ErrorGroupingServiceTest {
           .jsFrames(frames)
           .build();
 
-      List<Frame> result = ErrorGroupingService.selectPrimaryTokens(parsed, Lane.JS, 2);
+      List<Frame> result = Grouper.selectPrimaryTokens(parsed, Lane.JS, 2);
 
       assertEquals(2, result.size());
       assertFalse(result.get(0).isInApp());
@@ -580,7 +581,7 @@ class ErrorGroupingServiceTest {
           .jsFrames(List.of(createJsFrame(0)))
           .build();
 
-      List<Frame> result = ErrorGroupingService.selectPrimaryTokens(parsed, Lane.UNKNOWN, 5);
+      List<Frame> result = Grouper.selectPrimaryTokens(parsed, Lane.UNKNOWN, 5);
 
       assertTrue(result.isEmpty());
     }
@@ -598,7 +599,7 @@ class ErrorGroupingServiceTest {
           .jsFrames(frames)
           .build();
 
-      List<Frame> result = ErrorGroupingService.selectPrimaryTokens(parsed, Lane.JS, 3);
+      List<Frame> result = Grouper.selectPrimaryTokens(parsed, Lane.JS, 3);
 
       assertEquals(3, result.size());
     }
@@ -614,7 +615,7 @@ class ErrorGroupingServiceTest {
           .javaFrames(frames)
           .build();
 
-      List<Frame> result = ErrorGroupingService.selectPrimaryTokens(parsed, Lane.JAVA, 2);
+      List<Frame> result = Grouper.selectPrimaryTokens(parsed, Lane.JAVA, 2);
 
       assertEquals(2, result.size());
       assertEquals(0, result.get(0).getOriginalPosition());
@@ -632,7 +633,7 @@ class ErrorGroupingServiceTest {
           .ndkFrames(frames)
           .build();
 
-      List<Frame> result = ErrorGroupingService.selectPrimaryTokens(parsed, Lane.NDK, 2);
+      List<Frame> result = Grouper.selectPrimaryTokens(parsed, Lane.NDK, 2);
 
       assertEquals(2, result.size());
       assertEquals(0, result.get(0).getOriginalPosition());
@@ -645,7 +646,7 @@ class ErrorGroupingServiceTest {
           .jsFrames(Collections.emptyList())
           .build();
 
-      List<Frame> result = ErrorGroupingService.selectPrimaryTokens(parsed, Lane.JS, 5);
+      List<Frame> result = Grouper.selectPrimaryTokens(parsed, Lane.JS, 5);
 
       assertTrue(result.isEmpty());
     }
@@ -656,7 +657,7 @@ class ErrorGroupingServiceTest {
           .iosNativeFrames(List.of(createIosNativeFrame(0), createIosNativeFrame(1)))
           .build();
 
-      List<Frame> result = ErrorGroupingService.selectPrimaryTokens(parsed, Lane.IOS_NATIVE, 2);
+      List<Frame> result = Grouper.selectPrimaryTokens(parsed, Lane.IOS_NATIVE, 2);
 
       assertEquals(2, result.size());
     }
@@ -670,7 +671,7 @@ class ErrorGroupingServiceTest {
       List<String> excTypes = List.of("Error", "TypeError");
       List<String> tokens = List.of("func1@file1:10:5", "func2@file2:20:10");
 
-      String result = ErrorGroupingService.buildSignature(platform, excTypes, tokens);
+      String result = Grouper.buildSignature(platform, excTypes, tokens);
 
       assertEquals("v1|platform:js|exc:Error>TypeError|frames:func1@file1:10:5>func2@file2:20:10", result);
     }
@@ -681,7 +682,7 @@ class ErrorGroupingServiceTest {
       List<String> excTypes = Collections.emptyList();
       List<String> tokens = List.of("Class.method(File.java:10)");
 
-      String result = ErrorGroupingService.buildSignature(platform, excTypes, tokens);
+      String result = Grouper.buildSignature(platform, excTypes, tokens);
 
       assertEquals("v1|platform:java|exc:|frames:Class.method(File.java:10)", result);
     }
@@ -692,7 +693,7 @@ class ErrorGroupingServiceTest {
       List<String> excTypes = List.of("SIGSEGV");
       List<String> tokens = Collections.emptyList();
 
-      String result = ErrorGroupingService.buildSignature(platform, excTypes, tokens);
+      String result = Grouper.buildSignature(platform, excTypes, tokens);
 
       assertEquals("v1|platform:ndk|exc:SIGSEGV|frames:", result);
     }
@@ -703,7 +704,7 @@ class ErrorGroupingServiceTest {
       List<String> excTypes = List.of("Error");
       List<String> tokens = List.of("main@index.js:1:1");
 
-      String result = ErrorGroupingService.buildSignature(platform, excTypes, tokens);
+      String result = Grouper.buildSignature(platform, excTypes, tokens);
 
       assertEquals("v1|platform:js|exc:Error|frames:main@index.js:1:1", result);
     }
@@ -716,7 +717,7 @@ class ErrorGroupingServiceTest {
       List<String> excTypes = List.of("NullPointerException");
       List<String> frames = List.of("at com.example.Class.method(Class.java:10)");
 
-      String result = ErrorGroupingService.buildDisplayName(Lane.JAVA, excTypes, frames, "EXC-123ABC");
+      String result = Grouper.buildDisplayName(Lane.JAVA, excTypes, frames, "EXC-123ABC");
 
       assertEquals("NullPointerException at method(Class.java:10) [EXC-123ABC]", result);
     }
@@ -726,7 +727,7 @@ class ErrorGroupingServiceTest {
       List<String> excTypes = List.of("RuntimeException", "NullPointerException");
       List<String> frames = List.of("com.example.Class.method(Class.java:10)");
 
-      String result = ErrorGroupingService.buildDisplayName(Lane.JAVA, excTypes, frames, "EXC-456DEF");
+      String result = Grouper.buildDisplayName(Lane.JAVA, excTypes, frames, "EXC-456DEF");
 
       assertEquals("RuntimeException caused by NullPointerException at method(Class.java:10) [EXC-456DEF]", result);
     }
@@ -736,7 +737,7 @@ class ErrorGroupingServiceTest {
       List<String> excTypes = List.of("TypeError");
       List<String> frames = List.of("myFunction@app/utils/helper.js:42:15");
 
-      String result = ErrorGroupingService.buildDisplayName(Lane.JS, excTypes, frames, "EXC-789GHI");
+      String result = Grouper.buildDisplayName(Lane.JS, excTypes, frames, "EXC-789GHI");
 
       assertEquals("TypeError in utils/helper.js:42:15 [EXC-789GHI]", result);
     }
@@ -746,7 +747,7 @@ class ErrorGroupingServiceTest {
       List<String> excTypes = Collections.emptyList();
       List<String> frames = List.of("libnative.so+0x1234");
 
-      String result = ErrorGroupingService.buildDisplayName(Lane.NDK, excTypes, frames, "EXC-ABC123");
+      String result = Grouper.buildDisplayName(Lane.NDK, excTypes, frames, "EXC-ABC123");
 
       assertEquals("NativeError at libnative.so+0x1234 [EXC-ABC123]", result);
     }
@@ -756,7 +757,7 @@ class ErrorGroupingServiceTest {
       List<String> excTypes = List.of("Error");
       List<String> frames = Collections.emptyList();
 
-      String result = ErrorGroupingService.buildDisplayName(Lane.JS, excTypes, frames, "EXC-XYZ999");
+      String result = Grouper.buildDisplayName(Lane.JS, excTypes, frames, "EXC-XYZ999");
 
       assertEquals("Error [EXC-XYZ999]", result);
     }
@@ -766,14 +767,14 @@ class ErrorGroupingServiceTest {
       List<String> excTypes = Collections.emptyList();
       List<String> frames = List.of("Class.method(File.java:10)");
 
-      String result = ErrorGroupingService.buildDisplayName(Lane.JAVA, excTypes, frames, "EXC-111222");
+      String result = Grouper.buildDisplayName(Lane.JAVA, excTypes, frames, "EXC-111222");
 
       assertEquals("Error at method(File.java:10) [EXC-111222]", result);
     }
 
     @Test
     void shouldBuildDisplayNameForIosNativeWithoutExceptionType() {
-      String result = ErrorGroupingService.buildDisplayName(
+      String result = Grouper.buildDisplayName(
           Lane.IOS_NATIVE, List.of(), List.of("0  App  0x1 main"), "EXC-IOS1");
       assertEquals("NativeError at 0  App  0x1 main [EXC-IOS1]", result);
     }
@@ -796,7 +797,7 @@ class ErrorGroupingServiceTest {
       ParsedFrames pf = new ParsedFrames();
       pf.getJsTypes().add("ReferenceError");
       pf.getNdkFrames().add(createNdkFrame(0));
-      assertEquals(List.of("ReferenceError"), ErrorGroupingService.typesForPrimary(pf, Lane.NDK));
+      assertEquals(List.of("ReferenceError"), Grouper.typesForPrimary(pf, Lane.NDK));
     }
   }
 

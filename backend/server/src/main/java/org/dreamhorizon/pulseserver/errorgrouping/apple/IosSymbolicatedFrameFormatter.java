@@ -6,7 +6,7 @@ import lombok.experimental.UtilityClass;
 
 /**
  * Reformats llvm-symbolizer output into Apple crash report–style lines (frame #, image, PC, symbol)
- * plus an optional second line for source location. See {@link org.dreamhorizon.pulseserver.errorgrouping.FramesParser}
+ * plus an optional second line for source location. See {@link org.dreamhorizon.pulseserver.grouping.parser.FramesParser}
  * {@code APPLE_CRASH_FRAME} for the raw layout.
  */
 @UtilityClass
