@@ -1,4 +1,8 @@
-import { UseMutationResult, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  UseMutationResult,
+  useMutation,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { ApiResponse, makeRequest } from "../../helpers/makeRequest";
 import { API_BASE_URL, API_ROUTES } from "../../constants";
 import {
@@ -8,7 +12,7 @@ import {
 } from "./useDeleteNotificationChannel.interface";
 
 export const useDeleteNotificationChannel = (
-  options: UseDeleteNotificationChannelOptions = {}
+  options: UseDeleteNotificationChannelOptions = {},
 ): UseMutationResult<
   ApiResponse<DeleteNotificationChannelResponse>,
   unknown,
@@ -16,7 +20,7 @@ export const useDeleteNotificationChannel = (
   unknown
 > => {
   const queryClient = useQueryClient();
-  const deleteNotificationChannel = API_ROUTES.DELETE_NOTIFICATION_CHANNEL;
+  const deleteNotificationChannel = API_ROUTES.DELETE_NOTIFICATION_CHANNEL_V2;
 
   return useMutation<
     ApiResponse<DeleteNotificationChannelResponse>,
@@ -25,17 +29,16 @@ export const useDeleteNotificationChannel = (
   >({
     mutationFn: (params: DeleteNotificationChannelRequest) => {
       return makeRequest<DeleteNotificationChannelResponse>({
-        url: `${API_BASE_URL}${deleteNotificationChannel.apiPath}/${params.notification_channel_id}`,
+        url: `${API_BASE_URL}${deleteNotificationChannel.apiPath.replace("{channelId}", String(params.channelId))}`,
         init: {
           method: deleteNotificationChannel.method,
         },
       });
     },
     onSettled: (data, error, variables, context) => {
-      // Invalidate and refetch notification channels list on success
       if (data?.data && !data?.error) {
-        queryClient.invalidateQueries({ 
-          queryKey: [API_ROUTES.GET_ALERT_NOTIFICATION_CHANNELS.key] 
+        queryClient.invalidateQueries({
+          queryKey: [API_ROUTES.GET_NOTIFICATION_CHANNELS.key],
         });
       }
       options.onSettled?.(data, error, variables, context);

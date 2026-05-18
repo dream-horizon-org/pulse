@@ -18,3 +18,8 @@ export {
   PulseRouterEvents,
   type PulseRouterEventsProps,
 } from "./PulseRouterEvents";
+
+export {
+  PulseIntegrationErrorBoundary,
+  type PulseIntegrationErrorContext,
+} from "./pulse-integration-error-boundary";

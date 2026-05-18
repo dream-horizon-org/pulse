@@ -22,6 +22,8 @@ import {
   findAllSpans,
   getOtlpSpanStatusCode,
   getResourceAttr,
+  capturedHasScreenName,
+  allScreenNamesInCaptured,
   type OtlpSpan,
 } from "./fixture";
 import {
@@ -47,7 +49,10 @@ test.describe("session lifecycle", () => {
     expect(getResourceAttr(otlp.captured, "platform")).toBe("web");
   });
 
-  test("session ID is consistent across navigations", async ({ page, otlp }) => {
+  test("session ID is consistent across navigations", async ({
+    page,
+    otlp,
+  }) => {
     await page.goto("/");
     const sessionStart = await otlp.waitForLog("session.start");
     const sessionId = getAttr(sessionStart.attributes, "session.id") as string;
@@ -82,22 +87,13 @@ test.describe("screen tracking — App Router navigation", () => {
     const deadline = Date.now() + 8_000;
     let found = false;
     while (Date.now() < deadline) {
-      const logs = otlp.captured
-        .filter((c) => c.type === "logs")
-        .flatMap((c) =>
-          c.type === "logs"
-            ? c.body.resourceLogs.flatMap((rl) =>
-                rl.scopeLogs.flatMap((sl) => sl.logRecords),
-              )
-            : [],
-        );
-      if (logs.some((lr) => getAttr(lr.attributes, "screen.name") === "/products")) {
+      if (capturedHasScreenName(otlp.captured, "/products")) {
         found = true;
         break;
       }
       await new Promise((r) => setTimeout(r, 100));
     }
-    expect(found, "Expected a log with screen.name = /products").toBe(true);
+    expect(found, "Expected screen.name /products on a span or log").toBe(true);
   });
 
   test("screen.name reflects /cart after navigating to cart", async ({
@@ -113,42 +109,21 @@ test.describe("screen tracking — App Router navigation", () => {
     const deadline = Date.now() + 8_000;
     let found = false;
     while (Date.now() < deadline) {
-      const logs = otlp.captured
-        .filter((c) => c.type === "logs")
-        .flatMap((c) =>
-          c.type === "logs"
-            ? c.body.resourceLogs.flatMap((rl) =>
-                rl.scopeLogs.flatMap((sl) => sl.logRecords),
-              )
-            : [],
-        );
-      if (logs.some((lr) => getAttr(lr.attributes, "screen.name") === "/cart")) {
+      if (capturedHasScreenName(otlp.captured, "/cart")) {
         found = true;
         break;
       }
       await new Promise((r) => setTimeout(r, 100));
     }
-    expect(found, "Expected a log with screen.name = /cart").toBe(true);
+    expect(found, "Expected screen.name /cart on a span or log").toBe(true);
   });
 
   test("screen.name updates on multi-hop navigation: / → /products → /cart", async ({
     page,
     otlp,
   }) => {
-    const allScreenNames = (): string[] => {
-      const logs = otlp.captured
-        .filter((c) => c.type === "logs")
-        .flatMap((c) =>
-          c.type === "logs"
-            ? c.body.resourceLogs.flatMap((rl) =>
-                rl.scopeLogs.flatMap((sl) => sl.logRecords),
-              )
-            : [],
-        );
-      return logs
-        .map((lr) => getAttr(lr.attributes, "screen.name") as string)
-        .filter(Boolean);
-    };
+    const allScreenNames = (): string[] =>
+      allScreenNamesInCaptured(otlp.captured);
 
     const waitForScreenName = async (name: string): Promise<void> => {
       const deadline = Date.now() + 8_000;
@@ -201,7 +176,10 @@ test.describe("error tracking", () => {
     expect(log.severityNumber).toBe(21);
   });
 
-  test("reportException emits non_fatal with exception.type", async ({ page, otlp }) => {
+  test("reportException emits non_fatal with exception.type", async ({
+    page,
+    otlp,
+  }) => {
     await page.goto("/error-demo");
     await otlp.waitForLog("session.start");
 
@@ -218,10 +196,15 @@ test.describe("error tracking", () => {
     expect(log.severityNumber).toBe(13);
     // ERR-08 / ERR-20: url.path = pathname only, not full URL
     expect(getAttr(log.attributes, "url.path")).toBe("/error-demo");
-    expect(String(getAttr(log.attributes, "url.path") ?? "").startsWith("http")).toBe(false);
+    expect(
+      String(getAttr(log.attributes, "url.path") ?? "").startsWith("http"),
+    ).toBe(false);
   });
 
-  test("reportDeviceCrash emits device.crash with exception.type", async ({ page, otlp }) => {
+  test("reportDeviceCrash emits device.crash with exception.type", async ({
+    page,
+    otlp,
+  }) => {
     await page.goto("/error-demo");
     await otlp.waitForLog("session.start");
 
@@ -235,7 +218,9 @@ test.describe("error tracking", () => {
     expect(getAttr(log.attributes, "exception.type")).toBeTruthy();
     // ERR-08 / ERR-20: url.path = pathname only, not full URL
     expect(getAttr(log.attributes, "url.path")).toBe("/error-demo");
-    expect(String(getAttr(log.attributes, "url.path") ?? "").startsWith("http")).toBe(false);
+    expect(
+      String(getAttr(log.attributes, "url.path") ?? "").startsWith("http"),
+    ).toBe(false);
   });
 
   test("device.crash carries session.id (error is associated to session)", async ({
@@ -252,7 +237,10 @@ test.describe("error tracking", () => {
     expect(getAttr(crash.attributes, "session.id")).toBe(sessionId);
   });
 
-  test("non_fatal carries same session.id as session.start", async ({ page, otlp }) => {
+  test("non_fatal carries same session.id as session.start", async ({
+    page,
+    otlp,
+  }) => {
     await page.goto("/error-demo");
     const sessionStart = await otlp.waitForLog("session.start");
     const sessionId = getAttr(sessionStart.attributes, "session.id") as string;
@@ -263,7 +251,10 @@ test.describe("error tracking", () => {
     expect(getAttr(log.attributes, "session.id")).toBe(sessionId);
   });
 
-  test("manual device.crash carries same session.id as session.start", async ({ page, otlp }) => {
+  test("manual device.crash carries same session.id as session.start", async ({
+    page,
+    otlp,
+  }) => {
     await page.goto("/error-demo");
     const sessionStart = await otlp.waitForLog("session.start");
     const sessionId = getAttr(sessionStart.attributes, "session.id") as string;
@@ -276,7 +267,10 @@ test.describe("error tracking", () => {
 });
 
 test.describe("error signal contract", () => {
-  test("ERR-02 / ERR-31 — unhandled rejection emits non_fatal WARN, is_manual=false (boolean)", async ({ page, otlp }) => {
+  test("ERR-02 / ERR-31 — unhandled rejection emits non_fatal WARN, is_manual=false (boolean)", async ({
+    page,
+    otlp,
+  }) => {
     await page.goto("/error-demo");
     await otlp.waitForLog("session.start");
     otlp.reset();
@@ -302,7 +296,10 @@ test.describe("error signal contract", () => {
     expect(typeof isManual).toBe("boolean");
   });
 
-  test("ERR-05 — handled try/catch does not emit device.crash", async ({ page, otlp }) => {
+  test("ERR-05 — handled try/catch does not emit device.crash", async ({
+    page,
+    otlp,
+  }) => {
     await page.goto("/error-demo");
     await otlp.waitForLog("session.start");
     otlp.reset();
@@ -319,7 +316,10 @@ test.describe("error signal contract", () => {
     expect(findAllLogs(otlp.captured, "device.crash")).toHaveLength(0);
   });
 
-  test("ERR-17 — error.filename is defined (bundle URL or unknown, never absent)", async ({ page, otlp }) => {
+  test("ERR-17 — error.filename is defined (bundle URL or unknown, never absent)", async ({
+    page,
+    otlp,
+  }) => {
     await page.goto("/error-demo");
     await otlp.waitForLog("session.start");
     otlp.reset();
@@ -343,7 +343,10 @@ test.describe("error signal contract", () => {
     }
   });
 
-  test("ERR-03 — same error burst within 5s emits only once (dedup)", async ({ page, otlp }) => {
+  test("ERR-03 — same error burst within 5s emits only once (dedup)", async ({
+    page,
+    otlp,
+  }) => {
     await page.goto("/error-demo");
     await otlp.waitForLog("session.start");
     otlp.reset();
@@ -352,12 +355,16 @@ test.describe("error signal contract", () => {
     await page.waitForTimeout(700);
 
     const crashes = findAllLogs(otlp.captured, "device.crash").filter(
-      (log) => getAttr(log.attributes, "exception.message") === "Burst dedup error",
+      (log) =>
+        getAttr(log.attributes, "exception.message") === "Burst dedup error",
     );
     expect(crashes).toHaveLength(1);
   });
 
-  test("ERR-09 / ERR-14 / ERR-16 — TypeError: class name preserved + stacktrace multi-line", async ({ page, otlp }) => {
+  test("ERR-09 / ERR-14 / ERR-16 — TypeError: class name preserved + stacktrace multi-line", async ({
+    page,
+    otlp,
+  }) => {
     await page.goto("/error-demo");
     await otlp.waitForLog("session.start");
     otlp.reset();
@@ -382,8 +389,9 @@ test.describe("error gating & rejection dedupe", () => {
   }) => {
     // Set flag before page load so PulseProvider reads it at init time.
     await page.addInitScript(() => {
-      (window as Window & { __TEST_PULSE_ERRORS_DISABLED?: boolean }).__TEST_PULSE_ERRORS_DISABLED =
-        true;
+      (
+        window as Window & { __TEST_PULSE_ERRORS_DISABLED?: boolean }
+      ).__TEST_PULSE_ERRORS_DISABLED = true;
     });
     await page.goto("/error-demo");
     await otlp.waitForLog("session.start"); // SDK initialised; errors kill-switch active
@@ -419,14 +427,18 @@ test.describe("error gating & rejection dedupe", () => {
         const p = Promise.reject(err);
         p.catch(() => undefined);
         window.dispatchEvent(
-          new PromiseRejectionEvent("unhandledrejection", { promise: p, reason: err }),
+          new PromiseRejectionEvent("unhandledrejection", {
+            promise: p,
+            reason: err,
+          }),
         );
       }
     });
 
     await page.waitForTimeout(700);
     const logs = findAllLogs(otlp.captured, "non_fatal").filter(
-      (l) => getAttr(l.attributes, "exception.message") === "rejection-dedupe-burst",
+      (l) =>
+        getAttr(l.attributes, "exception.message") === "rejection-dedupe-burst",
     );
     expect(logs).toHaveLength(1);
   });
@@ -446,7 +458,10 @@ test.describe("error gating & rejection dedupe", () => {
       const p = Promise.reject(err);
       p.catch(() => undefined);
       window.dispatchEvent(
-        new PromiseRejectionEvent("unhandledrejection", { promise: p, reason: err }),
+        new PromiseRejectionEvent("unhandledrejection", {
+          promise: p,
+          reason: err,
+        }),
       );
     });
 
@@ -459,13 +474,18 @@ test.describe("error gating & rejection dedupe", () => {
       const p = Promise.reject(err);
       p.catch(() => undefined);
       window.dispatchEvent(
-        new PromiseRejectionEvent("unhandledrejection", { promise: p, reason: err }),
+        new PromiseRejectionEvent("unhandledrejection", {
+          promise: p,
+          reason: err,
+        }),
       );
     });
 
     await page.waitForTimeout(700);
     const logs = findAllLogs(otlp.captured, "non_fatal").filter(
-      (l) => getAttr(l.attributes, "exception.message") === "rejection-dedupe-window",
+      (l) =>
+        getAttr(l.attributes, "exception.message") ===
+        "rejection-dedupe-window",
     );
     expect(logs).toHaveLength(2);
   });
@@ -492,7 +512,9 @@ async function waitForPulseInitialized(page: Page): Promise<void> {
 
 async function flushTraceExport(page: Page): Promise<void> {
   await page.evaluate(() => {
-    window.dispatchEvent(new PageTransitionEvent("pagehide", { persisted: false }));
+    window.dispatchEvent(
+      new PageTransitionEvent("pagehide", { persisted: false }),
+    );
   });
   await page.waitForTimeout(400);
 }
@@ -506,7 +528,9 @@ async function pollProbeNetworkSpan(
     .poll(
       () => {
         found = findAllNetworkSpans(otlp.captured as never[]).find((s) =>
-          String(getAttr(s.attributes, "url.full") ?? "").includes(urlSubstring),
+          String(getAttr(s.attributes, "url.full") ?? "").includes(
+            urlSubstring,
+          ),
         );
         return found;
       },
@@ -525,7 +549,11 @@ test.describe("@M4 network — Next.js demo", () => {
     await page.route(
       (url) => url.pathname.includes("/pulse-e2e-network/"),
       async (route) => {
-        await route.fulfill({ status: 200, headers: { "Content-Type": "application/json" }, body: "{}" });
+        await route.fulfill({
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+          body: "{}",
+        });
       },
     );
 
@@ -534,7 +562,9 @@ test.describe("@M4 network — Next.js demo", () => {
     otlp.reset();
 
     await page.evaluate(async () => {
-      await fetch("/pulse-e2e-network/query-probe?search=hello&token=supersecret");
+      await fetch(
+        "/pulse-e2e-network/query-probe?search=hello&token=supersecret",
+      );
     });
     await flushTraceExport(page);
 
@@ -570,7 +600,9 @@ test.describe("@M4 network — Next.js demo", () => {
     await flushTraceExport(page);
 
     const blocked = findAllNetworkSpans(otlp.captured).filter((s) =>
-      String(getAttr(s.attributes, "url.full") ?? "").includes("blocked-endpoint"),
+      String(getAttr(s.attributes, "url.full") ?? "").includes(
+        "blocked-endpoint",
+      ),
     );
     expect(blocked).toHaveLength(0);
   });
@@ -621,7 +653,9 @@ test.describe("@M4 network — Next.js demo", () => {
       },
     );
 
-    await page.goto(`/?pulse_propagate_cors=${encodeURIComponent("localhost:3003")}`);
+    await page.goto(
+      `/?pulse_propagate_cors=${encodeURIComponent("localhost:3003")}`,
+    );
     await waitForPulseInitialized(page);
     await otlp.waitForLog("session.start", 15_000);
     otlp.reset();
@@ -669,7 +703,9 @@ test.describe("@M4 network — Next.js demo", () => {
     expect(getAttr(span.attributes, "server.address")).toBeTruthy();
     expect(typeof getAttr(span.attributes, "server.port")).toBe("number");
     // query stripped by default
-    expect(String(getAttr(span.attributes, "url.full") ?? "")).not.toContain("?");
+    expect(String(getAttr(span.attributes, "url.full") ?? "")).not.toContain(
+      "?",
+    );
     expect(getAttr(span.attributes, "session.id")).toBeTruthy();
   });
 
@@ -854,14 +890,15 @@ test.describe("@M4 network — Next.js demo", () => {
     await otlp.waitForLog("session.start", 15_000);
     otlp.reset();
 
-    await page.evaluate(() =>
-      new Promise<void>((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        xhr.open("GET", "/pulse-e2e-network/xhr-probe");
-        xhr.onload = () => resolve();
-        xhr.onerror = () => reject(new Error("xhr failed"));
-        xhr.send();
-      }),
+    await page.evaluate(
+      () =>
+        new Promise<void>((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          xhr.open("GET", "/pulse-e2e-network/xhr-probe");
+          xhr.onload = () => resolve();
+          xhr.onerror = () => reject(new Error("xhr failed"));
+          xhr.send();
+        }),
     );
     await flushTraceExport(page);
 
@@ -1021,16 +1058,17 @@ test.describe("@M4 network — Next.js demo", () => {
     await otlp.waitForLog("session.start", 15_000);
     otlp.reset();
 
-    await page.evaluate(() =>
-      new Promise<void>((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        xhr.open("GET", "/pulse-e2e-network/xhr-headers-probe");
-        xhr.setRequestHeader("X-Request-ID", "test-req-abc");
-        xhr.setRequestHeader("X-Custom-Header", "captured-value");
-        xhr.onload = () => resolve();
-        xhr.onerror = () => reject(new Error("xhr failed"));
-        xhr.send();
-      }),
+    await page.evaluate(
+      () =>
+        new Promise<void>((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          xhr.open("GET", "/pulse-e2e-network/xhr-headers-probe");
+          xhr.setRequestHeader("X-Request-ID", "test-req-abc");
+          xhr.setRequestHeader("X-Custom-Header", "captured-value");
+          xhr.onload = () => resolve();
+          xhr.onerror = () => reject(new Error("xhr failed"));
+          xhr.send();
+        }),
     );
     await flushTraceExport(page);
 
@@ -1038,8 +1076,12 @@ test.describe("@M4 network — Next.js demo", () => {
 
     expect(getOtlpSpanStatusCode(span)).toBe(1); // OTLP OK
     expect(getAttr(span.attributes, "pulse.type")).toBe("network.200");
-    expect(getAttr(span.attributes, "http.request.header.x-request-id")).toEqual(["test-req-abc"]);
-    expect(getAttr(span.attributes, "http.request.header.x-custom-header")).toEqual(["captured-value"]);
+    expect(
+      getAttr(span.attributes, "http.request.header.x-request-id"),
+    ).toEqual(["test-req-abc"]);
+    expect(
+      getAttr(span.attributes, "http.request.header.x-custom-header"),
+    ).toEqual(["captured-value"]);
   });
 
   // NET-13: Concurrent requests — each gets its own independent span

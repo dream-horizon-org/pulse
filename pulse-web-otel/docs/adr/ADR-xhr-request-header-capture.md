@@ -61,8 +61,11 @@ This is the same pattern used by Sentry and PostHog for the same problem.
   non-empty array. Zero monkey-patch surface when the feature is unused.
 - **Idempotency:** `installXhrHeaderPatch()` is a no-op if already patched
   (guards on `_origSetRequestHeader !== undefined`).
-- **Call-through:** the patched function always calls through to
-  `_origSetRequestHeader` — the browser still receives every header.
+- **Call-through:** the patched function calls through to
+  `_origSetRequestHeader`. If that throws (invalid state, forbidden header, etc.),
+  the in-flight WeakMap mutation for that call is **rolled back** and the error is
+  **re-thrown** so we never emit `http.request.header.*` values for headers the
+  browser did not accept (see network `SPEC.md` §10 — known limitations).
 - **Cleanup:** `applyCustomAttributesOnSpan` calls `xhrHeaderStore.delete(xhr)`
   after reading headers. WeakMap semantics further prevent reference leaks if
   cleanup is somehow skipped.

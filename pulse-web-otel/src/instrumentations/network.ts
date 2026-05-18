@@ -26,7 +26,10 @@ import {
  *
  * Exported for testing only; not part of the public API.
  */
-export const xhrHeaderStore = new WeakMap<XMLHttpRequest, Record<string, string>>();
+export const xhrHeaderStore = new WeakMap<
+  XMLHttpRequest,
+  Record<string, string>
+>();
 
 /** Original setRequestHeader kept for call-through and teardown. */
 let _origSetRequestHeader:
@@ -47,13 +50,21 @@ function installXhrHeaderPatch(): void {
     name: string,
     value: string,
   ): void {
-    const stored = xhrHeaderStore.get(this) ?? {};
-    stored[name.toLowerCase()] = value;
-    xhrHeaderStore.set(this, stored);
+    const key = name.toLowerCase();
+    const snapshot = xhrHeaderStore.get(this);
+    const next = { ...(snapshot ?? {}), [key]: value };
+    xhrHeaderStore.set(this, next);
     try {
       return orig.call(this, name, value);
-    } catch {
-      // best-effort: don't break XHR if original call throws (e.g. Firefox quirks)
+    } catch (err) {
+      // Native call failed — drop the header from telemetry so we never claim
+      // a header that was not applied. Re-throw so host code sees the error.
+      if (snapshot === undefined) {
+        xhrHeaderStore.delete(this);
+      } else {
+        xhrHeaderStore.set(this, { ...snapshot });
+      }
+      throw err;
     }
   };
 }

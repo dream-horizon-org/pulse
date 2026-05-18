@@ -16,7 +16,7 @@ vi.mock("../sdk", () => ({
   Pulse: { reportDeviceCrash: reportDeviceCrashSpy, isInitialized: () => true },
 }));
 
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import React, { useRef } from "react";
 import { render, screen, act } from "@testing-library/react";
 import { PulseErrorBoundary } from "../integrations/react/PulseErrorBoundary";
@@ -90,7 +90,11 @@ describe("PulseErrorBoundary", () => {
   it("fallback that throws renders null, does not propagate", () => {
     expect(() => {
       render(
-        <PulseErrorBoundary fallback={() => { throw new Error("fallback fail"); }}>
+        <PulseErrorBoundary
+          fallback={() => {
+            throw new Error("fallback fail");
+          }}
+        >
           <ThrowingComponent />
         </PulseErrorBoundary>,
       );
