@@ -35,6 +35,8 @@ class SessionEvidenceQueryBuilderTest {
           .contains("SessionId")
           .contains("error_rate")
           .contains("avg_apdex")
+          .contains("avg(nullIf(ApdexScore, 0)) as avg_apdex")
+          .doesNotContain("toFloat32OrNull(SpanAttributes['pulse.interaction.apdex_score'])")
           .contains("FROM otel.otel_traces")
           .contains("WHERE")
           .contains("ProjectId = 'test-project'")

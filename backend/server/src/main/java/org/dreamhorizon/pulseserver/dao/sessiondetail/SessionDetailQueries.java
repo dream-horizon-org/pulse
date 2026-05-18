@@ -29,13 +29,7 @@ public final class SessionDetailQueries {
         any(AppVersion)                                   AS appVersion,
         any(GeoState)                                     AS geography,
         coalesce(
-          round(
-            avgIf(
-              toFloat64OrNull(SpanAttributes['pulse.interaction.apdex_score']),
-              SpanAttributes['pulse.interaction.apdex_score'] != ''
-            ),
-            2
-          ),
+        round(avg(nullIf(ApdexScore, 0)), 2),
           0
         )                                                 AS qualityScore,
         toJSONString(
@@ -81,12 +75,7 @@ public final class SessionDetailQueries {
           ) / 1e6,
           SpanAttributes['pulse.interaction.complete_time'] != ''
         ), 2)                                             AS avg_duration_ms,
-        round(avgIf(
-          toFloat64OrNull(
-            SpanAttributes['pulse.interaction.apdex_score']
-          ),
-          SpanAttributes['pulse.interaction.apdex_score'] != ''
-        ), 2)                                             AS apdex_score
+        round(avg(nullIf(ApdexScore, 0)), 2)              AS apdex_score
       FROM otel.otel_traces
       WHERE ProjectId = '${project_id}'
         AND SessionId = '${session_id}'

@@ -516,4 +516,150 @@ class ClickhouseMetricServiceTest {
     orderBy.setDirection(direction);
     return orderBy;
   }
+
+  @Nested
+  class MaterializedColumnQueryAssembly {
+
+    private String captureQueryFor(Functions function) {
+      QueryRequest request = createBasicRequest();
+      QueryRequest.SelectItem selectItem = new QueryRequest.SelectItem();
+      selectItem.setFunction(function);
+      request.setSelect(List.of(selectItem));
+
+      when(clickhouseQueryService.executeQueryOrCreateJob(any()))
+          .thenReturn(Single.just(createMockResponse(List.of("v"), List.of(List.of("1")))));
+      clickhouseMetricService.getMetricDistribution(request).blockingGet();
+
+      ArgumentCaptor<org.dreamhorizon.pulseserver.model.QueryConfiguration> captor =
+          ArgumentCaptor.forClass(org.dreamhorizon.pulseserver.model.QueryConfiguration.class);
+      verify(clickhouseQueryService).executeQueryOrCreateJob(captor.capture());
+      return captor.getValue().getQuery();
+    }
+
+    @Test
+    void shouldGenerateNet3xxSelectFromMaterializedColumn() {
+      String query = captureQueryFor(Functions.NET_3XX);
+      assertThat(query).contains("sum(Net3xxCount) as net3XX");
+      assertThat(query).doesNotContain("arrayCount(x -> x LIKE 'network.3%'");
+    }
+
+    @Test
+    void shouldGenerateAllNetworkBucketsFromMaterializedColumns() {
+      QueryRequest request = createBasicRequest();
+      List<QueryRequest.SelectItem> items = new ArrayList<>();
+      for (Functions f : List.of(Functions.NET_0, Functions.NET_2XX, Functions.NET_3XX,
+          Functions.NET_4XX, Functions.NET_5XX)) {
+        QueryRequest.SelectItem item = new QueryRequest.SelectItem();
+        item.setFunction(f);
+        items.add(item);
+      }
+      request.setSelect(items);
+
+      when(clickhouseQueryService.executeQueryOrCreateJob(any()))
+          .thenReturn(Single.just(createMockResponse(List.of("v"), List.of(List.of("1")))));
+      clickhouseMetricService.getMetricDistribution(request).blockingGet();
+
+      ArgumentCaptor<org.dreamhorizon.pulseserver.model.QueryConfiguration> captor =
+          ArgumentCaptor.forClass(org.dreamhorizon.pulseserver.model.QueryConfiguration.class);
+      verify(clickhouseQueryService).executeQueryOrCreateJob(captor.capture());
+      String query = captor.getValue().getQuery();
+
+      assertThat(query)
+          .contains("sum(Net0Count)")
+          .contains("sum(Net2xxCount)")
+          .contains("sum(Net3xxCount)")
+          .contains("sum(Net4xxCount)")
+          .contains("sum(Net5xxCount)");
+      assertThat(query).doesNotContain("arrayCount(x ->");
+    }
+
+    @Test
+    void shouldUseNullIfApdexScoreInsteadOfMapAccess() {
+      String query = captureQueryFor(Functions.APDEX);
+      assertThat(query).contains("avgIf(nullIf(ApdexScore, 0), StatusCode != 'Error')");
+      assertThat(query).doesNotContain("pulse.interaction.apdex_score");
+      assertThat(query).doesNotContain("toFloat64OrNull");
+    }
+
+    @Test
+    void shouldUseMaterializedFrozenFrameRate() {
+      String frozenRate = captureQueryFor(Functions.FROZEN_FRAME_RATE);
+      assertThat(frozenRate)
+          .contains("sum(FrozenFrameCount)")
+          .contains("sum(AnalysedFrameCount)")
+          .contains("sum(UnanalysedFrameCount)");
+      assertThat(frozenRate).doesNotContain("toFloat64OrZero");
+    }
+
+    @Test
+    void shouldUseMaterializedCrashRate() {
+      String crashRate = captureQueryFor(Functions.CRASH_RATE);
+      assertThat(crashRate).contains("sum(HasCrashEvent)");
+      assertThat(crashRate).doesNotContain("has(Events.Name, 'device.crash')");
+    }
+
+    @Test
+    void shouldUseMaterializedAnrRate() {
+      String anrRate = captureQueryFor(Functions.ANR_RATE);
+      assertThat(anrRate).contains("sum(HasAnrEvent)");
+      assertThat(anrRate).doesNotContain("has(Events.Name, 'device.anr')");
+    }
+
+    @Test
+    void shouldUseUserCategoryColumnForCategoryRates() {
+      String poorRate = captureQueryFor(Functions.POOR_USER_RATE);
+      assertThat(poorRate)
+          .contains("countIf(UserCategory = 'Poor')")
+          .contains("countIf(UserCategory != '')");
+      assertThat(poorRate).doesNotContain("ifNull(SpanAttributes['pulse.interaction.user_category']");
+    }
+
+    @Test
+    void shouldUseUserCategoryColumnForBareCategoryCounts() {
+      String poorCount = captureQueryFor(Functions.USER_CATEGORY_POOR);
+      assertThat(poorCount).contains("countIf(UserCategory = 'Poor')");
+      assertThat(poorCount).doesNotContain("ifNull(SpanAttributes['pulse.interaction.user_category']");
+    }
+
+    @Test
+    void shouldKeepWhereSemanticsAfterStringBuilderRewrite() {
+      QueryRequest request = createBasicRequest();
+      QueryRequest.Filter inFilter = new QueryRequest.Filter();
+      inFilter.setField("AppVersion");
+      inFilter.setOperator(QueryRequest.Operator.IN);
+      inFilter.setValue(List.of("1.0", "1.1"));
+      request.setFilters(List.of(inFilter));
+      request.setGroupBy(List.of("ScreenName"));
+      request.setOrderBy(List.of(createOrderBy("ScreenName", QueryRequest.Direction.ASC)));
+      request.setLimit(25);
+      request.setOffset(5);
+
+      when(clickhouseQueryService.executeQueryOrCreateJob(any()))
+          .thenReturn(Single.just(createMockResponse(List.of("v"), List.of(List.of("1")))));
+      clickhouseMetricService.getMetricDistribution(request).blockingGet();
+
+      ArgumentCaptor<org.dreamhorizon.pulseserver.model.QueryConfiguration> captor =
+          ArgumentCaptor.forClass(org.dreamhorizon.pulseserver.model.QueryConfiguration.class);
+      verify(clickhouseQueryService).executeQueryOrCreateJob(captor.capture());
+      String query = captor.getValue().getQuery();
+
+      assertThat(query).doesNotContain("%s");
+      int whereIdx = query.indexOf(" where ");
+      int groupByIdx = query.indexOf(" group by ");
+      int orderByIdx = query.indexOf(" order by ");
+      int limitIdx = query.indexOf(" limit ");
+      int offsetIdx = query.indexOf(" offset ");
+      assertThat(whereIdx).isPositive();
+      assertThat(groupByIdx).isGreaterThan(whereIdx);
+      assertThat(orderByIdx).isGreaterThan(groupByIdx);
+      assertThat(limitIdx).isGreaterThan(orderByIdx);
+      assertThat(offsetIdx).isGreaterThan(limitIdx);
+      assertThat(query).contains("ProjectId = 'proj-123'");
+      assertThat(query).contains("And AppVersion In ('1.0','1.1')");
+      assertThat(query).contains(" group by ScreenName");
+      assertThat(query).contains(" order by ScreenName ASC");
+      assertThat(query).contains(" limit 25");
+      assertThat(query).contains(" offset 5");
+    }
+  }
 }

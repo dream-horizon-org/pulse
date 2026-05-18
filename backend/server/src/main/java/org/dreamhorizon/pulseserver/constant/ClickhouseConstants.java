@@ -18,8 +18,7 @@ public class ClickhouseConstants {
    * Normalized {@code pulse.interaction.user_category} span attribute (empty string if unset).
    * Used by category metrics and error-attribution drill SQL.
    */
-  public final String CH_SPAN_USER_CATEGORY_RAW =
-      "ifNull(SpanAttributes['pulse.interaction.user_category'], '')";
+  public final String CH_SPAN_USER_CATEGORY_RAW = "UserCategory";
 
   /** Predicate: interaction span tagged Poor (Track B / segment selection / drill-down). */
   public final String CH_SPAN_USER_CATEGORY_IS_POOR = CH_SPAN_USER_CATEGORY_RAW + " = 'Poor'";
@@ -60,13 +59,13 @@ public class ClickhouseConstants {
   public final String CH_PULSE_TYPE_NON_FATAL = "non_fatal";
 
   public final String CH_APDEX_SELECT_CLAUSE =
-      "avgIf(toFloat64OrNull(SpanAttributes['pulse.interaction.apdex_score']), StatusCode != 'Error')";
-  public final String CH_ANR_SELECT_CLAUSE = "countIf(has(Events.Name, 'device.anr'))";
-  public final String CH_CRASH_SELECT_CLAUSE = "countIf(has(Events.Name, 'device.crash'))";
-  public final String CH_FROZEN_FRAME_SELECT_CLAUSE = "sum(toFloat64OrZero(SpanAttributes['app.interaction.frozen_frame_count']))";
-  public final String CH_SLOW_FRAME_SELECT_CLAUSE = "sum(toFloat64OrZero(SpanAttributes['app.interaction.slow_frame_count']))";
-  public final String CH_ANALYSED_FRAME_SELECT_CLAUSE = "sum(toFloat64OrZero(SpanAttributes['app.interaction.analysed_frame_count']))";
-  public final String CH_UNANALYSED_FRAME_SELECT_CLAUSE = "sum(toFloat64OrZero(SpanAttributes['app.interaction.unanalysed_frame_count ']))";
+      "avgIf(nullIf(ApdexScore, 0), StatusCode != 'Error')";
+  public final String CH_ANR_SELECT_CLAUSE = "sum(HasAnrEvent)";
+  public final String CH_CRASH_SELECT_CLAUSE = "sum(HasCrashEvent)";
+  public final String CH_FROZEN_FRAME_SELECT_CLAUSE = "sum(FrozenFrameCount)";
+  public final String CH_SLOW_FRAME_SELECT_CLAUSE = "sum(SlowFrameCount)";
+  public final String CH_ANALYSED_FRAME_SELECT_CLAUSE = "sum(AnalysedFrameCount)";
+  public final String CH_UNANALYSED_FRAME_SELECT_CLAUSE = "sum(UnanalysedFrameCount)";
   public final String CH_DURATION_P99_SELECT_CLAUSE = "quantileTDigestIf(0.99)(Duration / 1e6, StatusCode != 'Error')";
   public final String CH_DURATION_P95_SELECT_CLAUSE = "quantileTDigestIf(0.95)(Duration / 1e6, StatusCode != 'Error')";
   public final String CH_DURATION_P50_SELECT_CLAUSE = "quantileTDigestIf(0.50)(Duration / 1e6, StatusCode != 'Error')";
@@ -84,12 +83,12 @@ public class ClickhouseConstants {
   public final String PROBLEMATIC_COUNT =
       "countIf(" + CH_STATUS_CODE_EQUALS_ERROR + " OR " + CH_SPAN_USER_CATEGORY_IS_POOR + ")";
 
-  // Network metrics for interactions flow (uses Events.Name)
-  public final String NET_0 = "sum(arrayCount(x -> x = 'network.0', Events.Name))";
-  public final String NET_2XX = "sum(arrayCount(x -> x LIKE 'network.2%', Events.Name))";
-  public final String NET_3XX = "sum(arrayCount(x -> x LIKE 'network.3%', Events.Name))";
-  public final String NET_4XX = "sum(arrayCount(x -> x LIKE 'network.4%', Events.Name))";
-  public final String NET_5XX = "sum(arrayCount(x -> x LIKE 'network.5%', Events.Name))";
+  // Network metrics for interactions flow (counted from Events.Name into materialized columns at ingest)
+  public final String NET_0 = "sum(Net0Count)";
+  public final String NET_2XX = "sum(Net2xxCount)";
+  public final String NET_3XX = "sum(Net3xxCount)";
+  public final String NET_4XX = "sum(Net4xxCount)";
+  public final String NET_5XX = "sum(Net5xxCount)";
   public final String NET_COUNT = "count()";
 
   // Network metrics for alerts flow (uses PulseType - network traces have status in PulseType)
@@ -100,21 +99,21 @@ public class ClickhouseConstants {
   public final String NET_5XX_BY_PULSE_TYPE = "countIf(PulseType LIKE 'network.5%')";
   public final String NET_COUNT_BY_PULSE_TYPE = "countIf(PulseType LIKE 'network.%')";
 
-  public final String CRASH_RATE = "if(count() = 0, NULL, (countIf(has(Events.Name, 'device.crash'))/count()) * 100)";
-  public final String ANR_RATE = "if(count() = 0, NULL, (countIf(has(Events.Name, 'device.anr'))/count()) * 100)";
+  public final String CRASH_RATE = "if(count() = 0, NULL, (sum(HasCrashEvent)/count()) * 100)";
+  public final String ANR_RATE = "if(count() = 0, NULL, (sum(HasAnrEvent)/count()) * 100)";
   public final String FROZEN_FRAME_RATE =
-      "if((sum(toFloat64OrZero(SpanAttributes['app.interaction.analysed_frame_count'])) + sum(toFloat64OrZero(SpanAttributes['app.interaction.unanalysed_frame_count']))) = 0, NULL, (sum(toFloat64OrZero(SpanAttributes['app.interaction.frozen_frame_count']))/(sum(toFloat64OrZero(SpanAttributes['app.interaction.analysed_frame_count'])) + sum(toFloat64OrZero(SpanAttributes['app.interaction.unanalysed_frame_count'])))) * 100)";
+      "if((sum(AnalysedFrameCount) + sum(UnanalysedFrameCount)) = 0, NULL, (sum(FrozenFrameCount)/(sum(AnalysedFrameCount) + sum(UnanalysedFrameCount))) * 100)";
   public final String SLOW_FRAME_RATE =
-      "if((sum(toFloat64OrZero(SpanAttributes['app.interaction.analysed_frame_count'])) + sum(toFloat64OrZero(SpanAttributes['app.interaction.unanalysed_frame_count']))) = 0, NULL, (sum(toFloat64OrZero(SpanAttributes['app.interaction.slow_frame_count']))/(sum(toFloat64OrZero(SpanAttributes['app.interaction.analysed_frame_count'])) + sum(toFloat64OrZero(SpanAttributes['app.interaction.unanalysed_frame_count'])))) * 100)";
+      "if((sum(AnalysedFrameCount) + sum(UnanalysedFrameCount)) = 0, NULL, (sum(SlowFrameCount)/(sum(AnalysedFrameCount) + sum(UnanalysedFrameCount))) * 100)";
   public final String ERROR_RATE = "if(count() = 0, NULL, (countIf(StatusCode = 'Error')/count()) * 100)";
   public final String POOR_USER_RATE =
-      "if(countIf(ifNull(SpanAttributes['pulse.interaction.user_category'], '') != '') = 0, NULL, (countIf(ifNull(SpanAttributes['pulse.interaction.user_category'], '') = 'Poor')/countIf(ifNull(SpanAttributes['pulse.interaction.user_category'], '') != '')) * 100)";
+      "if(countIf(UserCategory != '') = 0, NULL, (countIf(UserCategory = 'Poor')/countIf(UserCategory != '')) * 100)";
   public final String AVERAGE_USER_RATE =
-      "if(countIf(ifNull(SpanAttributes['pulse.interaction.user_category'], '') != '') = 0, NULL, (countIf(ifNull(SpanAttributes['pulse.interaction.user_category'], '') = 'Average')/countIf(ifNull(SpanAttributes['pulse.interaction.user_category'], '') != '')) * 100)";
+      "if(countIf(UserCategory != '') = 0, NULL, (countIf(UserCategory = 'Average')/countIf(UserCategory != '')) * 100)";
   public final String GOOD_USER_RATE =
-      "if(countIf(ifNull(SpanAttributes['pulse.interaction.user_category'], '') != '') = 0, NULL, (countIf(ifNull(SpanAttributes['pulse.interaction.user_category'], '') = 'Good')/countIf(ifNull(SpanAttributes['pulse.interaction.user_category'], '') != '')) * 100)";
+      "if(countIf(UserCategory != '') = 0, NULL, (countIf(UserCategory = 'Good')/countIf(UserCategory != '')) * 100)";
   public final String EXCELLENT_USER_RATE =
-      "if(countIf(ifNull(SpanAttributes['pulse.interaction.user_category'], '') != '') = 0, NULL, (countIf(ifNull(SpanAttributes['pulse.interaction.user_category'], '') = 'Excellent')/countIf(ifNull(SpanAttributes['pulse.interaction.user_category'], '') != '')) * 100)";
+      "if(countIf(UserCategory != '') = 0, NULL, (countIf(UserCategory = 'Excellent')/countIf(UserCategory != '')) * 100)";
   public final String LOAD_TIME =
       "if(countIf(PulseType = 'screen_load') = 0, NULL, sumIf(Duration / 1e6, PulseType = 'screen_load')/countIf(PulseType = 'screen_load'))";
   public final String SCREEN_TIME =

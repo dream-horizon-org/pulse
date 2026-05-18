@@ -69,7 +69,7 @@ public final class SessionEvidenceQueryBuilder {
         .append("  SessionId,\n")
         .append("  countIf(StatusCode = 'Error') as error_count,\n")
         .append("  count() as total_interactions,\n")
-        .append("  avg(toFloat32OrNull(SpanAttributes['pulse.interaction.apdex_score'])) as avg_apdex,\n")
+        .append("  avg(nullIf(ApdexScore, 0)) as avg_apdex,\n")
         .append("  (error_count / total_interactions) as error_rate\n")
         .append("FROM otel.otel_traces\n")
         .append("WHERE\n")

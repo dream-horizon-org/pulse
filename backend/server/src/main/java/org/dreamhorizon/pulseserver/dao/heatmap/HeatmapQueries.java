@@ -52,10 +52,7 @@ public final class HeatmapQueries {
   public static final String INTERACTIONS_APDEX_FOR_INTERACTION_NAMES = """
       SELECT
           SpanAttributes['pulse.interaction.name'] AS interaction_name,
-          round(avgIf(
-              toFloat64OrNull(SpanAttributes['pulse.interaction.apdex_score']),
-              SpanAttributes['pulse.interaction.apdex_score'] != ''
-          ), 2) AS avg_score
+          round(avg(nullIf(ApdexScore, 0)), 2) AS avg_score
       FROM otel.otel_traces
       WHERE %s
       GROUP BY interaction_name

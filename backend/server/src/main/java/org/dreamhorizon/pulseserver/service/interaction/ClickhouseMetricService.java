@@ -170,17 +170,16 @@ public class ClickhouseMetricService implements PerformanceMetricService {
       selectClause = String.join(",", clauses);
     }
 
-    // Where Clause toDateTime64('${start_time}', 9, 'UTC')
     String projectAndTimeFilter = String.format("ProjectId = '%s' AND Timestamp >= toDateTime64('%s',9,'UTC')"
             + " AND Timestamp <= toDateTime64('%s',9,'UTC')",
         request.getProjectId(),
         ZonedDateTime.parse(request.getTimeRange().getStart()).format(output),
         ZonedDateTime.parse(request.getTimeRange().getEnd()).format(output));
 
-    StringBuilder where = new StringBuilder(projectAndTimeFilter);
+    StringBuilder otherFilters = new StringBuilder();
     if (!CollectionUtils.isEmpty(request.getFilters())) {
       for (QueryRequest.Filter filter : request.getFilters()) {
-        where.append(switch (filter.getOperator()) {
+        otherFilters.append(switch (filter.getOperator()) {
           case LIKE -> String.format(" And %s %s %s", filter.getField(), filter.getOperator().getDisplayName(),
               format(filter.getValue()));
           case IN -> String.format(" And %s %s (%s)", filter.getField(), filter.getOperator().getDisplayName(),
@@ -207,22 +206,6 @@ public class ClickhouseMetricService implements PerformanceMetricService {
           .collect(Collectors.joining(", "));
     }
 
-    // Build the query
-    String query = "Select %s from %s where %s";
-    if (!Strings.isEmpty(groupByClause)) {
-      query += String.format(" group by %s", groupByClause);
-    }
-    if (!Strings.isEmpty(orderByClause)) {
-      query += String.format(" order by %s", orderByClause);
-    }
-    int limit = Objects.requireNonNullElse(request.getLimit(), 100);
-    query += String.format(" limit %d", limit);
-    if (request.getOffset() != null && request.getOffset() > 0) {
-      query += String.format(" offset %d", request.getOffset());
-    }
-
-    String whereClause = where.toString();
-
     // From
     String from = switch (request.getDataType()) {
       case TRACES -> "otel_traces";
@@ -231,7 +214,22 @@ public class ClickhouseMetricService implements PerformanceMetricService {
       case EXCEPTIONS -> "stack_trace_events";
     };
 
-    String finalQuery = String.format(query, selectClause, from, whereClause);
+    StringBuilder query = new StringBuilder("Select ").append(selectClause)
+        .append(" from ").append(from)
+        .append(" where ").append(projectAndTimeFilter).append(otherFilters);
+    if (!Strings.isEmpty(groupByClause)) {
+      query.append(" group by ").append(groupByClause);
+    }
+    if (!Strings.isEmpty(orderByClause)) {
+      query.append(" order by ").append(orderByClause);
+    }
+    int limit = Objects.requireNonNullElse(request.getLimit(), 100);
+    query.append(" limit ").append(limit);
+    if (request.getOffset() != null && request.getOffset() > 0) {
+      query.append(" offset ").append(request.getOffset());
+    }
+
+    String finalQuery = query.toString();
     return clickhouseQueryService.executeQueryOrCreateJob(QueryConfiguration.newQuery(finalQuery)
             .timeoutMs(2000)
             .jobCreationMode(JobCreationMode.JOB_CREATION_OPTIONAL)
