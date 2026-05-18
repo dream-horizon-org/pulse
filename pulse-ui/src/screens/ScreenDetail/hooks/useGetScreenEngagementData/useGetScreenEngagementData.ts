@@ -4,6 +4,8 @@ import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 import { getTimeBucketSize } from "../../../../utils/TimeBucketUtil";
 import { PulseType, COLUMN_NAME } from "../../../../constants/PulseOtelSemcov";
+import { PERCENTILE_VALUE } from "../../../../constants/Constants.interface";
+import { getPercentileExpression } from "../../../../utils/queryUtil";
 
 dayjs.extend(utc);
 
@@ -230,14 +232,22 @@ export function useGetScreenEngagementData({
         {
           function: "CUSTOM" as const,
           param: {
-            expression: `quantileTDigestIf(0.95)(${COLUMN_NAME.DURATION}, ${COLUMN_NAME.PULSE_TYPE} = '${PulseType.SCREEN_INTERACTIVE}')`,
+            expression: getPercentileExpression(
+              PERCENTILE_VALUE.P95,
+              COLUMN_NAME.DURATION,
+              `${COLUMN_NAME.PULSE_TYPE} = '${PulseType.SCREEN_INTERACTIVE}'`,
+            ),
           },
           alias: "tti_p95",
         },
         {
           function: "CUSTOM" as const,
           param: {
-            expression: `quantileTDigestIf(0.50)(${COLUMN_NAME.DURATION}, ${COLUMN_NAME.PULSE_TYPE} = '${PulseType.SCREEN_INTERACTIVE}')`,
+            expression: getPercentileExpression(
+              PERCENTILE_VALUE.P50,
+              COLUMN_NAME.DURATION,
+              `${COLUMN_NAME.PULSE_TYPE} = '${PulseType.SCREEN_INTERACTIVE}'`,
+            ),
           },
           alias: "tti_p50",
         },
