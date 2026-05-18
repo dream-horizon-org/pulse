@@ -17,9 +17,9 @@ import org.dreamhorizon.pulseserver.service.rca.RcaReportProcessor;
  * Returns {@link AiProxyUpstreamResult} (no JAX-RS types); the controller maps to
  * {@link jakarta.ws.rs.core.Response}.
  *
- * <p>POST {@code rca/report} is delegated to {@link RcaReportProxyHandler} when full collaborators
- * are wired; POST {@code rca/screen-report} to {@link ScreenRcaNarrativeProxyHandler}. Otherwise
- * the request is forwarded unchanged (see two-arg constructor).
+ * <p>POST {@code rca/report} is delegated to {@link RcaReportProxyHandler} (handles INTERACTION,
+ * SCREEN, SESSION types via async job pattern). POST {@code rca/screen-report} to
+ * {@link ScreenRcaNarrativeProxyHandler}. Otherwise the request is forwarded unchanged.
  */
 @Slf4j
 public class AiProxyServiceImpl implements AiProxyService {

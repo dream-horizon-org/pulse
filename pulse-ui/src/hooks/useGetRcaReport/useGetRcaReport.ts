@@ -66,14 +66,18 @@ function buildProjectHeaders(projectId: string): Record<string, string> {
 function buildPostBody(
   entityKey: string,
   date: string | null | undefined,
-  rcaType: string,
-): { rcaType: string; entityKey: string; date?: string } {
-  const body: { rcaType: string; entityKey: string; date?: string } = {
+  rcaType: string = RCA_TYPE.INTERACTION,
+  regenerate = false,
+): { rcaType: string; entityKey: string; date?: string; regenerate?: boolean } {
+  const body: { rcaType: string; entityKey: string; date?: string; regenerate?: boolean } = {
     rcaType,
     entityKey,
   };
   if (isValidRcaDateParam(date)) {
     body.date = date;
+  }
+  if (regenerate) {
+    body.regenerate = true;
   }
   return body;
 }
@@ -82,7 +86,8 @@ async function requestRcaReportPost(
   entityKey: string,
   date: string | null | undefined,
   projectId: string,
-  rcaType: string,
+  rcaType: string = RCA_TYPE.INTERACTION,
+  regenerate = false,
 ): Promise<ApiResponse<RcaReportResponse | RcaJobResponse>> {
   const apiBaseUrl = getApiBaseUrl();
   const url = `${apiBaseUrl}${POST_RCA_REPORT_ROUTE.apiPath}`;
@@ -91,7 +96,7 @@ async function requestRcaReportPost(
     url,
     init: {
       method: POST_RCA_REPORT_ROUTE.method,
-      body: JSON.stringify(buildPostBody(entityKey, date, rcaType)),
+      body: JSON.stringify(buildPostBody(entityKey, date, rcaType, regenerate)),
       headers,
     },
     unwrapped: true,
@@ -246,12 +251,7 @@ export function useGetRcaReport({
           status: 400,
         };
       }
-      return requestRcaReportPost(
-        entityKey,
-        date ?? null,
-        trimmedProjectId,
-        rcaType,
-      );
+      return requestRcaReportPost(entityKey, date ?? null, trimmedProjectId, rcaType, requestSession > 0);
     },
     enabled: baseEnabled && pollJobId === null,
     retry: false,

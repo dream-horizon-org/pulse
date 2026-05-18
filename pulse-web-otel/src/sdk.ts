@@ -510,9 +510,10 @@ class PulseSDK implements SdkContext {
     this.interactionContextSpanProcessor.setGetRunning(null);
     this.interactionContextSpanProcessor.setTrackEvent(null);
     this._providerCleanup();
+    // Emit session.end before uninstalling SessionInstrumentation (unsubscribe runs in uninstall).
+    this.sessionProvider?.shutdown();
     this.registry?.uninstallAll();
     this.interactionInstrumentation = undefined;
-    this.sessionProvider?.shutdown();
 
     await Promise.all([
       this._webTracerProvider?.forceFlush(),

@@ -44,3 +44,9 @@ export enum INTERACTION_STATUS {
   STOPPED = "STOPPED",
   RUNNING = "RUNNING",
 }
+export enum PERCENTILE_VALUE {
+  P50 = "0.5",
+  P90 = "0.9",
+  P95 = "0.95",
+  P99 = "0.99",
+} 

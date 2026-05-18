@@ -203,6 +203,14 @@ describe("network-http helpers", () => {
     ).toBe("https://api.example.com/path");
   });
 
+  it("sanitizeHttpUrl strips query on malformed URL when captureQueryParams is false", () => {
+    const out = sanitizeHttpUrl("not-a-valid-url?token=secret", {
+      captureQueryParams: false,
+    });
+    expect(out).not.toContain("?");
+    expect(out).not.toContain("token");
+  });
+
   it("sanitizeHttpUrl redacts sensitive query values when captureQueryParams is true", () => {
     const out = sanitizeHttpUrl(
       "https://api.example.com/search?token=secret&q=ok",
@@ -473,9 +481,36 @@ describe("applyPulseHttpClientSpanAttributes", () => {
     expect(attrs["pulse.type"]).toBe("network.200");
     expect(attrs["http.request.method"]).toBe("GET");
     expect(attrs["url.full"]).toBe("https://api.example.com/items");
+    expect(attrs["http.url"]).toBe("https://api.example.com/items");
     expect(attrs["http.response.status_code"]).toBe(200);
     expect(attrs["server.address"]).toBe("api.example.com");
     expect(attrs["server.port"]).toBe(443);
+  });
+
+  it("overwrites legacy http.url with sanitized url when query params are stripped", () => {
+    const attrs: Record<string, unknown> = {
+      "http.url": "https://api.example.com/items?token=leak",
+    };
+    const span = {
+      setAttribute: (k: string, v: string | number | boolean) => {
+        attrs[k] = v;
+      },
+      setStatus: vi.fn(),
+    } as unknown as Span;
+
+    applyPulseHttpClientSpanAttributes({
+      span,
+      resolvedUrl: "https://api.example.com/items?token=leak",
+      method: "GET",
+      statusCode: 200,
+      privacy: { captureQueryParams: false },
+      optional: undefined,
+      perfLookupUrl: "https://api.example.com/items",
+    });
+
+    expect(attrs["url.full"]).toBe("https://api.example.com/items");
+    expect(attrs["http.url"]).toBe("https://api.example.com/items");
+    expect(String(attrs["http.url"])).not.toContain("?");
   });
 
   it("sets server.port for explicit non-default port", () => {
@@ -668,7 +703,9 @@ describe("applyPulseHttpClientSpanAttributes", () => {
     expect(attrs["http.request.header.authorization"]).toBeUndefined();
     expect(attrs["http.request.header.x-request-id"]).toEqual(["req-123"]);
     expect(attrs["http.response.header.set-cookie"]).toBeUndefined();
-    expect(attrs["http.response.header.content-type"]).toEqual(["application/json"]);
+    expect(attrs["http.response.header.content-type"]).toEqual([
+      "application/json",
+    ]);
   });
 
   it("status 0 (opaque / CORS) → network.0 and cors_error", () => {

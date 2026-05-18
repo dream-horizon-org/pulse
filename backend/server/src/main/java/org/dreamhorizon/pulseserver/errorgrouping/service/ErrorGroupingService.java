@@ -31,6 +31,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.client.chclient.ClickhouseQueryService;
+import org.dreamhorizon.pulseserver.errorgrouping.archive.StackTraceArchiveService;
 import org.dreamhorizon.pulseserver.errorgrouping.Symbolicator;
 import org.dreamhorizon.pulseserver.errorgrouping.model.CompleteSymbolication;
 import org.dreamhorizon.pulseserver.errorgrouping.model.EventMeta;
@@ -53,6 +54,7 @@ public class ErrorGroupingService {
       DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSSSSSSSS")
           .withZone(ZoneOffset.UTC);
   private final ClickhouseQueryService clickhouseQueryService;
+  private final StackTraceArchiveService stackTraceArchiveService;
   private final Symbolicator symbolicator;
   private final ObjectMapper objectMapper;
   public static final String LOG_PREFIX = "[PULSE ERROR GROUPING SERVICE]";
@@ -252,7 +254,11 @@ public class ErrorGroupingService {
 
   public Single<Long> ingest(ExportLogsServiceRequest exportLogsServiceRequest) {
     return process(exportLogsServiceRequest)
-        .flatMap(clickhouseQueryService::insertStackTraces);
+        .flatMap(events ->
+            clickhouseQueryService.insertStackTraces(events)
+                .flatMap(rows -> stackTraceArchiveService.archive(events)
+                    .onErrorComplete()
+                    .andThen(Single.just(rows))));
   }
 
   public Single<List<StackTraceEvent>> process(ExportLogsServiceRequest exportLogsServiceRequest) {
@@ -291,9 +297,11 @@ public class ErrorGroupingService {
                 // Reconstruct complete symbolicated stack trace
                 String symbolicatedStackTrace = result.completeSymbolication().reconstructStackTrace();
 
+                String pulseType = getResourceAttribute(logAttrMap, "pulse.type").orElse("otel");
                 return StackTraceEvent.builder()
                     .timestamp(formatTs9(logRecord.getObservedTimeUnixNano()))
-                    .pulseType(logRecord.getEventName())
+                    .eventName(logRecord.getEventName())
+                    .pulseType(pulseType)
                     .exceptionStackTraceRaw(stackTrace)  // Raw original stack trace
                     .exceptionStackTrace(symbolicatedStackTrace)  // Complete symbolicated stack trace
                     .exceptionMessage(getResourceAttribute(logAttrMap, "exception.message").orElse(null))
