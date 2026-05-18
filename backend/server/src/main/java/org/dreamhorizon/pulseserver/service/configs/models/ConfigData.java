@@ -28,5 +28,8 @@ public class ConfigData {
   @JsonProperty("features")
   private List<FeatureConfig> features;
 
+  @JsonProperty("batchConfig")
+  private BatchProcessorConfig batchConfig;
+
   private String user;
 }

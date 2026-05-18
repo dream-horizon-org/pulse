@@ -28,6 +28,7 @@ vi.mock("../sdk", () => ({
 
 import {
   useNextAppRouterTracking,
+  resetNextAppRouterSkipInitialGateForTests,
   type UseNextAppRouterTrackingOptions,
 } from "../integrations/next/useNextAppRouterTracking";
 
@@ -43,6 +44,7 @@ const TestHook: React.FC<{ options?: UseNextAppRouterTrackingOptions }> = ({
 
 describe("useNextAppRouterTracking", () => {
   beforeEach(() => {
+    resetNextAppRouterSkipInitialGateForTests();
     vi.clearAllMocks();
     mockPathname.mockReturnValue("/");
     mockSearchParams.mockReturnValue(new URLSearchParams());

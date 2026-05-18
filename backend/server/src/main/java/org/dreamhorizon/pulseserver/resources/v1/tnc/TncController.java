@@ -11,10 +11,12 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.MediaType;
+import io.reactivex.rxjava3.core.Single;
 import java.util.List;
 import java.util.concurrent.CompletionStage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.dreamhorizon.pulseserver.error.ServiceError;
 import org.dreamhorizon.pulseserver.resources.v1.tnc.models.AcceptTncRequest;
 import org.dreamhorizon.pulseserver.resources.v1.tnc.models.AcceptTncResponse;
 import org.dreamhorizon.pulseserver.resources.v1.tnc.models.TncHistoryResponse;
@@ -48,6 +50,13 @@ public class TncController {
   @Path("/status")
   public CompletionStage<Response<TncStatusResponse>> getStatus() {
     String tenantId = TenantContext.getTenantId();
+    if (tenantId == null || tenantId.isBlank()) {
+      log.warn("TnC status requested without tenant context");
+      return Single.<TncStatusResponse>error(
+              ServiceError.UNAUTHORISED.getCustomException(
+                  "Missing tenant context", "Tenant ID not found in request"))
+          .to(RestResponse.jaxrsRestHandler());
+    }
     log.info("Getting TnC status for tenant: {}", tenantId);
 
     return tncService.getTncStatus(tenantId)

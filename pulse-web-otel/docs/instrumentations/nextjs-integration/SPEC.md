@@ -26,11 +26,13 @@ Document **Next.js-specific** integration: App Router tracking (`useNextAppRoute
 
 **R3 — Server errors:** `createPulseInstrumentationHandler` (from `next` entry) posts OTLP-compatible logs for `onRequestError` when wired in root `instrumentation.ts`.
 
+**R4 — Host non-crash:** `PulseRouterEvents` wraps `useNextAppRouterTracking` in `Suspense` and `PulseIntegrationErrorBoundary` so render failures log with `PulseWebLogger.alwaysError` without unmounting the host (same boundary as the React adapter).
+
 ---
 
 ## 4. Architectural Design
 
-```
+```text
 Runtime (browser)
   @dreamhorizonorg/pulse-web/next
     ├─ useNextAppRouterTracking / PulseRouterEvents (client components)
@@ -42,6 +44,36 @@ Build (node)
 
 Server (node/edge)
   instrumentation.ts → createPulseInstrumentationHandler
+```
+
+### 4.1 HLD — Next runtime vs build vs server
+
+```mermaid
+flowchart TB
+  NextRT["@dreamhorizonorg/pulse-web/next"]
+  NextCfg["@dreamhorizonorg/pulse-web/next-config"]
+  Inst["instrumentation.ts Node"]
+  Core["Pulse / collectors browser only"]
+  NextRT --> Core
+  NextCfg --> Maps["source maps upload"]
+  Inst -->|"server OTLP logs"| Srv["separate from browser RUM"]
+```
+
+### 4.2 LD — hooks per router
+
+```mermaid
+flowchart LR
+  App["useNextAppRouterTracking"] --> PN["usePathname / useSearchParams"]
+  Pages["useNextPagesRouterTracking"] --> RE["router.events routeChangeComplete"]
+```
+
+### 4.3 Flows — client-only RUM
+
+```mermaid
+flowchart TD
+  B[Browser component] --> T[tracking hook runs]
+  S[Server RSC] --> X[no Pulse.init in RSC]
+  InstN["instrumentation.ts"] --> Y[onRequestError logs only]
 ```
 
 ---
@@ -87,15 +119,34 @@ Server (node/edge)
 
 ## 6. Test Coverage
 
+### 6.1 Scenario matrix (Given / When / Then)
+
+| ID | Type | Given | When | Then | Tests |
+|----|------|-------|------|------|-------|
+| NX-P1 | positive | App Router client | pathname change | tracking hook updates screen name | `use-next-app-router-tracking.test.tsx` |
+| NX-P2 | positive | build with withPulseConfig | webpack emit | maps uploaded | `with-pulse-config.test.ts` |
+| NX-E1 | edge | `pathname === null` | prerender | hook skips | **gap** — behaviour documented in source (`use-next-app-router-tracking.ts`); add Vitest when prerender path is automated |
+| NX-E2 | edge | Pages Router | first load | `routeChangeComplete` gap documented | `use-next-pages-router-tracking.test.tsx` |
+
+### Vitest files
+
 - `src/integrations/next/use-next-app-router-tracking.test.tsx`
 - `src/integrations/next/use-next-pages-router-tracking.test.tsx`
 - `src/integrations/next-config/with-pulse-config.test.ts`
+
+### 6.2 Playwright E2E (`examples/nextjs-demo/e2e/`)
+
+**Mock OTLP** (`nextjs-demo.spec.ts`): session.start on first load; `platform=web` resource; stable `session.id` across App Router navigations; `screen.name` on logs after `/` → `/products` → `/cart` hops; `PulseErrorBoundary` → `device.crash`; `reportException` → `non_fatal`; `reportDeviceCrash` → `device.crash`; `session.id` on error logs.
+
+**ClickHouse** (`nextjs-demo.ch.spec.ts`): same flows asserted in `otel_logs` / crash tables when CH env is configured.
+
+**Parity vs React ecommerce harness:** Session lifecycle depth (BFCache, batching, consent matrix, metering headers, installation persistence), **navigation spans** (`screen_load` / `screen_session`), web vitals, network, interactions, and clicks are **not** replayed in the Next demo — see [`../../sdk-core/test-coverage/SPEC.md`](../../sdk-core/test-coverage/SPEC.md) §6.4–§6.5 for the explicit gap table and recommended follow-ups.
 
 ---
 
 ## 7. Known Bugs & Gaps
 
-### P0:
+### P0
 
 None filed at synthesis.
 

@@ -221,7 +221,7 @@ jobs:
 
       - name: Set Maven Local cache key
         run: |
-          echo "MAVEN_LOCAL_CACHE_KEY=maven-local-pulse-android-${{ hashFiles('pulse-android-otel/**/*.gradle.kts', 'pulse-android-otel/settings.gradle.kts', 'pulse-android-otel/gradle.properties', 'pulse-android-otel/gradle/libs.versions.toml') }}" >> $GITHUB_ENV
+          echo "MAVEN_LOCAL_CACHE_KEY=maven-local-pulse-android-${{ hashFiles('pulse-android-otel/**/*.gradle.kts', 'pulse-android-otel/settings.gradle.kts', 'pulse-android-otel/gradle.properties', 'pulse-android-otel/gradle/libs.versions.toml', 'pulse-android-otel/**/src/main/**/*.kt', 'pulse-android-otel/**/src/main/**/*.java') }}" >> $GITHUB_ENV
 
       - name: Install JDK
         uses: actions/setup-java@c5195efecf7bdfc987ee8bae7a71cb8b11521c00  # v4.7.1

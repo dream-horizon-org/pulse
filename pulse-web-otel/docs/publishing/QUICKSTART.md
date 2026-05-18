@@ -20,7 +20,7 @@ That's it. Everything below is context, options, and troubleshooting.
 
 The npm tarball ships exactly these (verified via `npm pack --dry-run`):
 
-```
+```text
 dist/                  # ESM + CJS + .d.ts + .d.cts for index, react, next, next-config
 README.md
 LICENSE

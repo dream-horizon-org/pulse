@@ -10,38 +10,44 @@ import {
 
 export const validateStepData = (
   step: WizardStep,
-  formData: AlertFormWizardData
+  formData: AlertFormWizardData,
 ): StepValidationResult => {
   const errors: Record<string, string> = {};
 
   switch (step) {
     case WizardStep.NAME_DESCRIPTION: {
       const { name, description } = formData.nameDescription;
-      if (!name || name.trim().length < 4) errors.name = "Name must be at least 4 characters";
+      if (!name || name.trim().length < 4)
+        errors.name = "Name must be at least 4 characters";
       if (!description || description.trim().length < 10)
         errors.description = "Description must be at least 10 characters";
       break;
     }
 
     case WizardStep.SELECT_SCOPE:
-      if (!formData.scopeType.scopeType) errors.scopeType = "Please select a scope type";
+      if (!formData.scopeType.scopeType)
+        errors.scopeType = "Please select a scope type";
       break;
 
     case WizardStep.METRICS_AND_EXPRESSION: {
       const { conditions, selectedScopeNames } = formData.metricsConditions;
       const isAppVitals = formData.scopeType.scopeType === "app_vitals";
-      
+
       // Validate scope names (not required for App Vitals)
-      if (!isAppVitals && (!selectedScopeNames || selectedScopeNames.length === 0)) {
+      if (
+        !isAppVitals &&
+        (!selectedScopeNames || selectedScopeNames.length === 0)
+      ) {
         errors.scopeNames = "Select at least one scope name to monitor";
       }
-      
+
       // Validate conditions
-      if (conditions.length === 0) errors.conditions = "Add at least one condition";
+      if (conditions.length === 0)
+        errors.conditions = "Add at least one condition";
       conditions.forEach((c, i) => {
         if (!c.metric) errors[`condition_${i}_metric`] = "Metric required";
       });
-      
+
       // Validate expression
       const { expression } = formData.conditionExpression;
       if (!expression?.trim()) errors.expression = "Expression required";
@@ -49,7 +55,8 @@ export const validateStepData = (
     }
 
     case WizardStep.EVALUATION_CONFIG: {
-      const { evaluationPeriod, evaluationInterval } = formData.evaluationConfig;
+      const { evaluationPeriod, evaluationInterval } =
+        formData.evaluationConfig;
       if (evaluationPeriod < 30 || evaluationPeriod > 3600)
         errors.evaluationPeriod = "Period must be 30-3600 seconds";
       if (evaluationInterval < 30 || evaluationInterval > 3600)
@@ -60,9 +67,11 @@ export const validateStepData = (
     }
 
     case WizardStep.SEVERITY_NOTIFICATION: {
-      const { severityId, notificationChannelId } = formData.severityNotification;
+      const { severityId, channelEventMappingId } =
+        formData.severityNotification;
       if (severityId === null) errors.severityId = "Select severity";
-      if (notificationChannelId === null) errors.notificationChannelId = "Select channel";
+      if (channelEventMappingId === null)
+        errors.channelEventMappingId = "Select channel";
       break;
     }
 

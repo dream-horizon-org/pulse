@@ -44,9 +44,7 @@ class AlertModelsServiceTest {
           .evaluationPeriod(60)
           .evaluationInterval(300)
           .severityId(1)
-          .notificationChannelId(1)
-          .notificationType("slack")
-          .notificationConfig("http://webhook.url")
+          .channelEventMappingId(1L)
           .createdBy("user")
           .updatedBy("user")
           .createdAt(now)
@@ -67,9 +65,7 @@ class AlertModelsServiceTest {
       assertEquals(60, alert.getEvaluationPeriod());
       assertEquals(300, alert.getEvaluationInterval());
       assertEquals(1, alert.getSeverityId());
-      assertEquals(1, alert.getNotificationChannelId());
-      assertEquals("slack", alert.getNotificationType());
-      assertEquals("http://webhook.url", alert.getNotificationConfig());
+      assertEquals(1L, alert.getChannelEventMappingId());
       assertEquals("user", alert.getCreatedBy());
       assertEquals("user", alert.getUpdatedBy());
       assertEquals(now, alert.getCreatedAt());
@@ -200,7 +196,7 @@ class AlertModelsServiceTest {
           .evaluationPeriod(60)
           .evaluationInterval(300)
           .severity(1)
-          .notificationChannelId(1)
+          .channelEventMappingId(1L)
           .createdBy("creator")
           .updatedBy("updater")
           .scope(AlertScope.interaction)
@@ -214,7 +210,7 @@ class AlertModelsServiceTest {
       assertEquals(60, request.getEvaluationPeriod());
       assertEquals(300, request.getEvaluationInterval());
       assertEquals(1, request.getSeverity());
-      assertEquals(1, request.getNotificationChannelId());
+      assertEquals(1L, request.getChannelEventMappingId());
       assertEquals("creator", request.getCreatedBy());
       assertEquals("updater", request.getUpdatedBy());
       assertEquals(AlertScope.interaction, request.getScope());
@@ -232,7 +228,7 @@ class AlertModelsServiceTest {
       request.setEvaluationPeriod(120);
       request.setEvaluationInterval(600);
       request.setSeverity(2);
-      request.setNotificationChannelId(2);
+      request.setChannelEventMappingId(2L);
       request.setCreatedBy("newCreator");
       request.setUpdatedBy("newUpdater");
       request.setScope(AlertScope.network_api);
@@ -276,7 +272,7 @@ class AlertModelsServiceTest {
           .evaluationPeriod(60)
           .evaluationInterval(300)
           .severity(1)
-          .notificationChannelId(1)
+          .channelEventMappingId(1L)
           .createdBy("creator")
           .updatedBy("updater")
           .scope(AlertScope.interaction)
@@ -291,7 +287,7 @@ class AlertModelsServiceTest {
       assertEquals(60, request.getEvaluationPeriod());
       assertEquals(300, request.getEvaluationInterval());
       assertEquals(1, request.getSeverity());
-      assertEquals(1, request.getNotificationChannelId());
+      assertEquals(1L, request.getChannelEventMappingId());
       assertEquals("creator", request.getCreatedBy());
       assertEquals("updater", request.getUpdatedBy());
       assertEquals(AlertScope.interaction, request.getScope());
