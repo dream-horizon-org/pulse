@@ -174,6 +174,4 @@ export type UseGetRcaReportParams = {
    * Increment when forcing a new POST (e.g. after regenerate returns 200) while entityKey/date/project are unchanged.
    */
   requestSession?: number;
-  /** RCA type to POST (default: "INTERACTION"). Use "SESSION" for session quality RCA. */
-  rcaType?: string;
 };

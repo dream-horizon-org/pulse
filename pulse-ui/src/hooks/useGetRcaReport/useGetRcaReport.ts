@@ -211,7 +211,6 @@ export function useGetRcaReport({
   enabled = true,
   projectId,
   requestSession = 0,
-  rcaType = RCA_TYPE.INTERACTION,
 }: UseGetRcaReportParams) {
   const queryClient = useQueryClient();
   const trimmedProjectId =
