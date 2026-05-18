@@ -46,8 +46,8 @@ public class ClickHouseClient {
       return;
     }
     var sb = new StringBuilder()
-        .append("INSERT INTO ").append(db).append(".funnel_results ")
-        .append("(FunnelId,ProjectId,RunTime,StepIndex,StepName,UserCount,ConversionPct,MedianStepSeconds) VALUES ");
+        .append("INSERT INTO ").append(db).append(".").append(SparkConstants.ClickHouse.TABLE_FUNNEL_RESULTS).append(" ")
+        .append("(").append(SparkConstants.ClickHouse.INSERT_COLUMNS_FUNNEL_RESULTS).append(") VALUES ");
     for (int i = 0; i < rows.size(); i++) {
       var r = rows.get(i);
       if (i > 0) {
@@ -69,8 +69,8 @@ public class ClickHouseClient {
       return;
     }
     var sb = new StringBuilder()
-        .append("INSERT INTO ").append(db).append(".journey_results ")
-        .append("(JourneyId,ProjectId,RunTime,Direction,PosFrom,EventFrom,PosTo,EventTo,UserCount) VALUES ");
+        .append("INSERT INTO ").append(db).append(".").append(SparkConstants.ClickHouse.TABLE_JOURNEY_RESULTS).append(" ")
+        .append("(").append(SparkConstants.ClickHouse.INSERT_COLUMNS_JOURNEY_RESULTS).append(") VALUES ");
     for (int i = 0; i < rows.size(); i++) {
       var r = rows.get(i);
       if (i > 0) {

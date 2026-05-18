@@ -51,7 +51,7 @@ public class JourneyComputeJob {
                 log.warn("No S3 data for journey {}", journey.id());
                 return;
             }
-            raw = raw.filter(col("project_id").equalTo(journey.projectId())).cache();
+            raw = raw.filter(col(SparkConstants.VectorLog.PROJECT_ID).equalTo(journey.projectId())).cache();
             try {
                 long startEpoch = startDt.toEpochSecond(ZoneOffset.UTC);
                 long endEpoch   = endDt.toEpochSecond(ZoneOffset.UTC);
@@ -91,7 +91,7 @@ public class JourneyComputeJob {
             log.warn("No S3 data for project {}", projectId);
             return;
         }
-        raw = raw.filter(col("project_id").equalTo(projectId)).cache();
+        raw = raw.filter(col(SparkConstants.VectorLog.PROJECT_ID).equalTo(projectId)).cache();
         try {
             for (var journey : journeys) {
                 try {
@@ -111,38 +111,42 @@ public class JourneyComputeJob {
     private static List<JourneyTransition> computeJourney(Dataset<Row> raw, JourneyDefinition journey,
                                                             String runTime,
                                                             Long startEpochSeconds, Long endEpochSeconds) {
-        var identityCol = "UNIQUE_USERS".equals(journey.mode()) ? "user_id" : "session_id";
-        boolean isStart = "START".equals(journey.direction());
+        var identityCol = SparkConstants.DefinitionModes.JOURNEY_UNIQUE_USERS.equals(journey.mode())
+                ? SparkConstants.Derived.INSTALLATION_ID
+                : SparkConstants.VectorLog.SESSION_ID;
+        boolean isStart = SparkConstants.DefinitionModes.JOURNEY_DIRECTION_START.equals(journey.direction());
         int depth       = journey.depth();
         String anchor   = journey.anchorEvent();
 
         Dataset<Row> df;
         if (startEpochSeconds != null && endEpochSeconds != null) {
             df = raw.filter(
-                    unix_timestamp(col("timestamp")).geq(lit(startEpochSeconds))
-                            .and(unix_timestamp(col("timestamp")).leq(lit(endEpochSeconds)))
+                    unix_timestamp(col(SparkConstants.VectorLog.TIMESTAMP)).geq(lit(startEpochSeconds))
+                            .and(unix_timestamp(col(SparkConstants.VectorLog.TIMESTAMP)).leq(lit(endEpochSeconds)))
             );
         } else {
             var endDate   = LocalDate.parse(runTime.substring(0, 10));
             var startDate = endDate.minusDays(journey.dateRange() - 1L);
             df = raw.filter(
-                    col("timestamp").cast(DataTypes.DateType).geq(lit(startDate.toString()))
-                            .and(col("timestamp").cast(DataTypes.DateType).leq(lit(endDate.toString())))
+                    col(SparkConstants.VectorLog.TIMESTAMP).cast(DataTypes.DateType).geq(lit(startDate.toString()))
+                            .and(col(SparkConstants.VectorLog.TIMESTAMP).cast(DataTypes.DateType).leq(lit(endDate.toString())))
             );
         }
         df = FunnelComputeJob.applyGlobalFilters(df, journey.globalFilters());
 
         Dataset<Row> events = df
                 .select(
-                        col(identityCol).alias("identity"),
-                        unix_timestamp(col("timestamp")).alias("ts"),
-                        col("event_name")
+                        col(identityCol).alias(SparkConstants.AnalyticsDataset.IDENTITY),
+                        unix_timestamp(col(SparkConstants.VectorLog.TIMESTAMP)).alias(SparkConstants.AnalyticsDataset.TS),
+                        col(SparkConstants.VectorLog.EVENT_NAME)
                 )
-                .filter(col("identity").isNotNull().and(col("identity").notEqual("")));
+                .filter(col(SparkConstants.AnalyticsDataset.IDENTITY).isNotNull()
+                        .and(col(SparkConstants.AnalyticsDataset.IDENTITY).notEqual("")));
 
-        Dataset<Row> anchorTs = events.filter(col("event_name").equalTo(anchor))
-                .groupBy("identity")
-                .agg(isStart ? min("ts").alias("ts_anchor") : max("ts").alias("ts_anchor"));
+        Dataset<Row> anchorTs = events.filter(col(SparkConstants.VectorLog.EVENT_NAME).equalTo(anchor))
+                .groupBy(SparkConstants.AnalyticsDataset.IDENTITY)
+                .agg(isStart ? min(SparkConstants.AnalyticsDataset.TS).alias(SparkConstants.AnalyticsDataset.TS_ANCHOR)
+                        : max(SparkConstants.AnalyticsDataset.TS).alias(SparkConstants.AnalyticsDataset.TS_ANCHOR));
 
         long anchorCount = anchorTs.count();
         if (anchorCount == 0) {
@@ -151,26 +155,34 @@ public class JourneyComputeJob {
         }
 
         Dataset<Row> joined = events
-                .join(anchorTs, "identity")
-                .filter(isStart ? col("ts").gt(col("ts_anchor")) : col("ts").lt(col("ts_anchor")));
+                .join(anchorTs, SparkConstants.AnalyticsDataset.IDENTITY)
+                .filter(isStart
+                        ? col(SparkConstants.AnalyticsDataset.TS).gt(col(SparkConstants.AnalyticsDataset.TS_ANCHOR))
+                        : col(SparkConstants.AnalyticsDataset.TS).lt(col(SparkConstants.AnalyticsDataset.TS_ANCHOR)));
 
         var posWindow = isStart
-                ? Window.partitionBy("identity").orderBy(col("ts").asc())
-                : Window.partitionBy("identity").orderBy(col("ts").desc());
+                ? Window.partitionBy(SparkConstants.AnalyticsDataset.IDENTITY).orderBy(col(SparkConstants.AnalyticsDataset.TS).asc())
+                : Window.partitionBy(SparkConstants.AnalyticsDataset.IDENTITY).orderBy(col(SparkConstants.AnalyticsDataset.TS).desc());
 
         Dataset<Row> positioned = isStart
-                ? joined.withColumn("pos", row_number().over(posWindow)).filter(col("pos").leq(depth))
-                : joined.withColumn("pos", row_number().over(posWindow).multiply(-1)).filter(col("pos").geq(-depth));
+                ? joined.withColumn(SparkConstants.AnalyticsDataset.POS, row_number().over(posWindow))
+                        .filter(col(SparkConstants.AnalyticsDataset.POS).leq(depth))
+                : joined.withColumn(SparkConstants.AnalyticsDataset.POS, row_number().over(posWindow).multiply(-1))
+                        .filter(col(SparkConstants.AnalyticsDataset.POS).geq(-depth));
 
         Dataset<Row> anchorRows = anchorTs.select(
-                col("identity"),
-                col("ts_anchor").alias("ts"),
-                lit(anchor).alias("event_name"),
-                lit(0).alias("pos")
+                col(SparkConstants.AnalyticsDataset.IDENTITY),
+                col(SparkConstants.AnalyticsDataset.TS_ANCHOR).alias(SparkConstants.AnalyticsDataset.TS),
+                lit(anchor).alias(SparkConstants.VectorLog.EVENT_NAME),
+                lit(0).alias(SparkConstants.AnalyticsDataset.POS)
         );
 
         Dataset<Row> allPositioned = positioned
-                .select("identity", "ts", "event_name", "pos")
+                .select(
+                        SparkConstants.AnalyticsDataset.IDENTITY,
+                        SparkConstants.AnalyticsDataset.TS,
+                        SparkConstants.VectorLog.EVENT_NAME,
+                        SparkConstants.AnalyticsDataset.POS)
                 .union(anchorRows)
                 .cache();
 
@@ -180,18 +192,29 @@ public class JourneyComputeJob {
                 -1, "", 0, anchor, anchorCount
         ));
 
-        List<Row> transAgg = allPositioned.alias("curr")
-                .join(allPositioned.alias("nxt"),
-                        col("curr.identity").equalTo(col("nxt.identity"))
-                                .and(col("curr.pos").plus(1).equalTo(col("nxt.pos"))),
+        List<Row> transAgg = allPositioned.alias(SparkConstants.AnalyticsDataset.JOIN_CURR)
+                .join(allPositioned.alias(SparkConstants.AnalyticsDataset.JOIN_NXT),
+                        col(SparkConstants.AnalyticsDataset.JOIN_CURR + "." + SparkConstants.AnalyticsDataset.IDENTITY)
+                                .equalTo(col(SparkConstants.AnalyticsDataset.JOIN_NXT + "."
+                                        + SparkConstants.AnalyticsDataset.IDENTITY))
+                                .and(col(SparkConstants.AnalyticsDataset.JOIN_CURR + "." + SparkConstants.AnalyticsDataset.POS)
+                                        .plus(1)
+                                        .equalTo(col(SparkConstants.AnalyticsDataset.JOIN_NXT + "."
+                                                + SparkConstants.AnalyticsDataset.POS))),
                         "inner")
                 .groupBy(
-                        col("curr.pos").alias("pos_from"),
-                        col("curr.event_name").alias("event_from"),
-                        col("nxt.pos").alias("pos_to"),
-                        col("nxt.event_name").alias("event_to")
+                        col(SparkConstants.AnalyticsDataset.JOIN_CURR + "." + SparkConstants.AnalyticsDataset.POS)
+                                .alias(SparkConstants.AnalyticsDataset.POS_FROM),
+                        col(SparkConstants.AnalyticsDataset.JOIN_CURR + "." + SparkConstants.VectorLog.EVENT_NAME)
+                                .alias(SparkConstants.AnalyticsDataset.EVENT_FROM),
+                        col(SparkConstants.AnalyticsDataset.JOIN_NXT + "." + SparkConstants.AnalyticsDataset.POS)
+                                .alias(SparkConstants.AnalyticsDataset.POS_TO),
+                        col(SparkConstants.AnalyticsDataset.JOIN_NXT + "." + SparkConstants.VectorLog.EVENT_NAME)
+                                .alias(SparkConstants.AnalyticsDataset.EVENT_TO)
                 )
-                .agg(countDistinct("curr.identity").alias("user_count"))
+                .agg(countDistinct(col(SparkConstants.AnalyticsDataset.JOIN_CURR + "."
+                        + SparkConstants.AnalyticsDataset.IDENTITY))
+                        .alias(SparkConstants.AnalyticsDataset.USER_COUNT))
                 .collectAsList();
 
         allPositioned.unpersist();

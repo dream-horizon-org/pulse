@@ -69,14 +69,6 @@ public final class FunnelFilterPropKeys {
   }
 
   private static boolean isReservedColumn(String name) {
-    if (name.equalsIgnoreCase("user_id")) {
-      return true;
-    }
-    for (String c : FunnelComputeJob.READ_COLS) {
-      if (c.equalsIgnoreCase(name)) {
-        return true;
-      }
-    }
-    return false;
+    return SparkConstants.isReservedDerivedColumn(name);
   }
 }

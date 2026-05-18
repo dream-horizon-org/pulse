@@ -31,12 +31,6 @@ public class FunnelComputeJob {
 
     private static final Logger log = LoggerFactory.getLogger(FunnelComputeJob.class);
 
-    static final String[] READ_COLS = {
-            "event_name", "project_id", "session_id", "timestamp",
-            "os_name", "os_version", "app_build_name", "device_manufacturer",
-            "device_model_identifier", "network_carrier_icc", "screen_name", "service_name"
-    };
-
     public static void runFunnels(SparkSession spark, MysqlRepository mysql, ClickHouseClient ch,
                                    Long referenceId, String s3BucketPrefix, String runTime) throws Exception {
         List<FunnelDefinition> funnels = mysql.fetchFunnels(referenceId);
@@ -122,10 +116,11 @@ public class FunnelComputeJob {
     private static List<FunnelResult> computeFunnel(Dataset<Row> raw, FunnelDefinition funnel,
                                                      String runTime,
                                                      Long startEpochSeconds, Long endEpochSeconds) {
-        // Default to UNIQUE_USERS when mode is null/unknown. Matches ClickhouseAnalyticsQueryUtils
-        // and the DB default ('UNIQUE_USERS' NOT NULL) — only switch to session_id for an explicit
-        // "SESSIONS" mode so a stale/missing mode value never silently changes the denominator.
-        var identityCol = "SESSIONS".equalsIgnoreCase(funnel.mode()) ? "session_id" : "user_id";
+        // UNIQUE_USERS groups by props app.installation.id (materialized as INSTALLATION_ID).
+        // SESSIONS uses Parquet session_id only when mode is FUNNEL_MODE_SESSIONS.
+        var identityCol = SparkConstants.DefinitionModes.FUNNEL_SESSIONS.equalsIgnoreCase(funnel.mode())
+                ? SparkConstants.VectorLog.SESSION_ID
+                : SparkConstants.Derived.INSTALLATION_ID;
         long windowSecs = funnel.windowSeconds();
         var steps       = funnel.steps();
         int numSteps    = steps.size();
@@ -133,15 +128,15 @@ public class FunnelComputeJob {
         Dataset<Row> df;
         if (startEpochSeconds != null && endEpochSeconds != null) {
             df = raw.filter(
-                    unix_timestamp(col("timestamp")).geq(lit(startEpochSeconds))
-                            .and(unix_timestamp(col("timestamp")).leq(lit(endEpochSeconds)))
+                    unix_timestamp(col(SparkConstants.VectorLog.TIMESTAMP)).geq(lit(startEpochSeconds))
+                            .and(unix_timestamp(col(SparkConstants.VectorLog.TIMESTAMP)).leq(lit(endEpochSeconds)))
             );
         } else {
             var endDate   = LocalDate.parse(runTime.substring(0, 10));
             var startDate = endDate.minusDays(funnel.dateRange() - 1L);
             df = raw.filter(
-                    col("timestamp").cast(DataTypes.DateType).geq(lit(startDate.toString()))
-                            .and(col("timestamp").cast(DataTypes.DateType).leq(lit(endDate.toString())))
+                    col(SparkConstants.VectorLog.TIMESTAMP).cast(DataTypes.DateType).geq(lit(startDate.toString()))
+                            .and(col(SparkConstants.VectorLog.TIMESTAMP).cast(DataTypes.DateType).leq(lit(endDate.toString())))
             );
         }
         df = applyGlobalFilters(df, funnel.globalFilters());
@@ -154,40 +149,60 @@ public class FunnelComputeJob {
         // Step 0: keep ALL occurrences of step A — each is a separate attempt.
         // No groupBy+min: best-attempt evaluates every attempt individually.
         Dataset<Row> current = stepEvents(df, steps.get(0), identityCol)
-                .select(col("identity"), col("ts").alias("ts0"), col("ts").alias("ts_prev"))
+                .select(
+                        col(SparkConstants.AnalyticsDataset.IDENTITY),
+                        col(SparkConstants.AnalyticsDataset.TS).alias(SparkConstants.AnalyticsDataset.TS0),
+                        col(SparkConstants.AnalyticsDataset.TS).alias(SparkConstants.AnalyticsDataset.TS_PREV))
                 .cache();
 
         long[] counts = new long[numSteps];
-        counts[0] = current.select("identity").distinct().count();
+        counts[0] = current.select(SparkConstants.AnalyticsDataset.IDENTITY).distinct().count();
         log.info("Funnel {} step 0 ({}) -> {} identities", funnel.id(), steps.get(0).eventName(), counts[0]);
 
         // stepTs[i] holds a cached {identity, ts0, ts_i} snapshot for attempts that survived to step i.
         // Each entry is cached independently so it survives after the main alive dataset is unpersisted.
         List<Dataset<Row>> stepTs = new ArrayList<>(numSteps);
-        stepTs.add(current.select(col("identity"), col("ts0")).cache()); // step 0: ts0 itself
+        stepTs.add(current.select(
+                col(SparkConstants.AnalyticsDataset.IDENTITY),
+                col(SparkConstants.AnalyticsDataset.TS0)).cache()); // step 0: ts0 itself
 
         for (int i = 1; i < numSteps; i++) {
             if (counts[i - 1] == 0) break;
 
             Dataset<Row> stepEvts = stepEvents(df, steps.get(i), identityCol)
-                    .select(col("identity").alias("id_i"), col("ts").alias("ts_i"));
+                    .select(
+                            col(identityCol).alias(SparkConstants.AnalyticsDataset.ID_I),
+                            col(SparkConstants.AnalyticsDataset.TS).alias(SparkConstants.AnalyticsDataset.TS_I));
 
-            Column joinCond = col("prev.identity").equalTo(col("next.id_i"))
-                    .and(col("next.ts_i").gt(col("prev.ts_prev")))
-                    .and(col("next.ts_i").leq(col("prev.ts0").plus(windowSecs)));
+            Column joinCond = col(SparkConstants.AnalyticsDataset.JOIN_PREV + "." + SparkConstants.AnalyticsDataset.IDENTITY)
+                    .equalTo(col(SparkConstants.AnalyticsDataset.JOIN_NEXT + "." + SparkConstants.AnalyticsDataset.ID_I))
+                    .and(col(SparkConstants.AnalyticsDataset.JOIN_NEXT + "." + SparkConstants.AnalyticsDataset.TS_I)
+                            .gt(col(SparkConstants.AnalyticsDataset.JOIN_PREV + "." + SparkConstants.AnalyticsDataset.TS_PREV)))
+                    .and(col(SparkConstants.AnalyticsDataset.JOIN_NEXT + "." + SparkConstants.AnalyticsDataset.TS_I)
+                            .leq(col(SparkConstants.AnalyticsDataset.JOIN_PREV + "." + SparkConstants.AnalyticsDataset.TS0)
+                                    .plus(windowSecs)));
 
             Dataset<Row> prevCache = current;
-            current = current.alias("prev")
-                    .join(stepEvts.alias("next"), joinCond, "inner")
-                    .groupBy(col("prev.identity").as("identity"), col("prev.ts0").as("ts0"))
-                    .agg(min(col("next.ts_i")).alias("ts_prev"))
+            current = current.alias(SparkConstants.AnalyticsDataset.JOIN_PREV)
+                    .join(stepEvts.alias(SparkConstants.AnalyticsDataset.JOIN_NEXT), joinCond, "inner")
+                    .groupBy(
+                            col(SparkConstants.AnalyticsDataset.JOIN_PREV + "." + SparkConstants.AnalyticsDataset.IDENTITY)
+                                    .as(SparkConstants.AnalyticsDataset.IDENTITY),
+                            col(SparkConstants.AnalyticsDataset.JOIN_PREV + "." + SparkConstants.AnalyticsDataset.TS0)
+                                    .as(SparkConstants.AnalyticsDataset.TS0))
+                    .agg(min(col(SparkConstants.AnalyticsDataset.JOIN_NEXT + "." + SparkConstants.AnalyticsDataset.TS_I))
+                            .alias(SparkConstants.AnalyticsDataset.TS_PREV))
                     .cache();
             prevCache.unpersist();
 
-            counts[i] = current.select("identity").distinct().count();
+            counts[i] = current.select(SparkConstants.AnalyticsDataset.IDENTITY).distinct().count();
             log.info("Funnel {} step {} ({}) -> {} identities", funnel.id(), i, steps.get(i).eventName(), counts[i]);
 
-            stepTs.add(current.select(col("identity"), col("ts0"), col("ts_prev").alias("ts_" + i)).cache());
+            stepTs.add(current.select(
+                    col(SparkConstants.AnalyticsDataset.IDENTITY),
+                    col(SparkConstants.AnalyticsDataset.TS0),
+                    col(SparkConstants.AnalyticsDataset.TS_PREV).alias(SparkConstants.AnalyticsDataset.TS_STEP_PREFIX + i))
+                    .cache());
         }
 
         long[] medians = computeMedians(stepTs, numSteps, counts);
@@ -224,29 +239,30 @@ public class FunnelComputeJob {
         Dataset<Row> allStepEvents = null;
         for (int i = 0; i < numSteps; i++) {
             Dataset<Row> stepDf = stepEvents(df, steps.get(i), identityCol)
-                    .withColumn("step_idx", lit(i));
+                    .withColumn(SparkConstants.AnalyticsDataset.STEP_IDX, lit(i));
             allStepEvents = (allStepEvents == null) ? stepDf : allStepEvents.union(stepDf);
         }
         allStepEvents = allStepEvents.cache();
 
         // Sliding window: for each event, collect distinct step indices within [ts, ts + windowSecs].
-        WindowSpec rangeWin = Window.partitionBy("identity")
-                .orderBy(col("ts"))
+        WindowSpec rangeWin = Window.partitionBy(SparkConstants.AnalyticsDataset.IDENTITY)
+                .orderBy(col(SparkConstants.AnalyticsDataset.TS))
                 .rangeBetween(0, windowSecs);
 
         Dataset<Row> withWindowSteps = allStepEvents
-                .withColumn("steps_in_window", size(collect_set(col("step_idx")).over(rangeWin)));
+                .withColumn(SparkConstants.AnalyticsDataset.STEPS_IN_WINDOW,
+                        size(collect_set(col(SparkConstants.AnalyticsDataset.STEP_IDX)).over(rangeWin)));
 
         // Per identity, take the best window (max distinct steps achieved).
         Dataset<Row> bestPerIdentity = withWindowSteps
-                .groupBy("identity")
-                .agg(max("steps_in_window").alias("max_steps"))
+                .groupBy(SparkConstants.AnalyticsDataset.IDENTITY)
+                .agg(max(SparkConstants.AnalyticsDataset.STEPS_IN_WINDOW).alias(SparkConstants.AnalyticsDataset.MAX_STEPS))
                 .cache();
 
         // Step i count = identities who completed at least (i+1) distinct steps in their best window.
         long[] counts = new long[numSteps];
         for (int i = 0; i < numSteps; i++) {
-            counts[i] = bestPerIdentity.filter(col("max_steps").geq(lit(i + 1))).count();
+            counts[i] = bestPerIdentity.filter(col(SparkConstants.AnalyticsDataset.MAX_STEPS).geq(lit(i + 1))).count();
             log.info("Funnel {} step {} ({}) -> {} identities (unordered)",
                     funnel.id(), i, steps.get(i).eventName(), counts[i]);
         }
@@ -290,27 +306,30 @@ public class FunnelComputeJob {
         for (int i = 1; i < stepTs.size(); i++) {
             // Alias join-key columns to avoid ambiguity after the join, then drop them.
             Dataset<Row> snap = stepTs.get(i)  // {identity, ts0, ts_i}
-                    .withColumnRenamed("identity", "_j_identity")
-                    .withColumnRenamed("ts0", "_j_ts0");
-            Column joinCond = col("identity").equalTo(snap.col("_j_identity"))
-                    .and(col("ts0").equalTo(snap.col("_j_ts0")));
-            timeline = timeline.join(snap, joinCond, "left").drop("_j_identity", "_j_ts0");
+                    .withColumnRenamed(SparkConstants.AnalyticsDataset.IDENTITY, SparkConstants.AnalyticsDataset.MEDIAN_JOIN_IDENTITY)
+                    .withColumnRenamed(SparkConstants.AnalyticsDataset.TS0, SparkConstants.AnalyticsDataset.MEDIAN_JOIN_TS0);
+            Column joinCond = col(SparkConstants.AnalyticsDataset.IDENTITY)
+                    .equalTo(snap.col(SparkConstants.AnalyticsDataset.MEDIAN_JOIN_IDENTITY))
+                    .and(col(SparkConstants.AnalyticsDataset.TS0).equalTo(snap.col(SparkConstants.AnalyticsDataset.MEDIAN_JOIN_TS0)));
+            timeline = timeline.join(snap, joinCond, "left")
+                    .drop(SparkConstants.AnalyticsDataset.MEDIAN_JOIN_IDENTITY, SparkConstants.AnalyticsDataset.MEDIAN_JOIN_TS0);
         }
 
         // Score each attempt by farthest step reached (count of non-null ts_i for i>=1).
         Column scoreExpr = lit(0);
         for (int i = 1; i < stepTs.size(); i++) {
-            scoreExpr = scoreExpr.plus(when(col("ts_" + i).isNotNull(), lit(1)).otherwise(lit(0)));
+            scoreExpr = scoreExpr.plus(when(
+                    col(SparkConstants.AnalyticsDataset.TS_STEP_PREFIX + i).isNotNull(), lit(1)).otherwise(lit(0)));
         }
-        timeline = timeline.withColumn("_score", scoreExpr);
+        timeline = timeline.withColumn(SparkConstants.AnalyticsDataset.MEDIAN_SCORE, scoreExpr);
 
         // Per-user: pick attempt with highest score, then earliest ts0.
-        WindowSpec userWin = Window.partitionBy("identity")
-                .orderBy(col("_score").desc(), col("ts0").asc());
+        WindowSpec userWin = Window.partitionBy(SparkConstants.AnalyticsDataset.IDENTITY)
+                .orderBy(col(SparkConstants.AnalyticsDataset.MEDIAN_SCORE).desc(), col(SparkConstants.AnalyticsDataset.TS0).asc());
         Dataset<Row> bestAttempt = timeline
-                .withColumn("_rn", row_number().over(userWin))
-                .filter(col("_rn").equalTo(1))
-                .drop("_score", "_rn")
+                .withColumn(SparkConstants.AnalyticsDataset.MEDIAN_RN, row_number().over(userWin))
+                .filter(col(SparkConstants.AnalyticsDataset.MEDIAN_RN).equalTo(1))
+                .drop(SparkConstants.AnalyticsDataset.MEDIAN_SCORE, SparkConstants.AnalyticsDataset.MEDIAN_RN)
                 .cache();
 
         // Compute median for each step transition.
@@ -319,11 +338,14 @@ public class FunnelComputeJob {
                 medians[i] = -1;
                 continue;
             }
-            String tsCol  = "ts_" + i;
-            String prevCol = (i == 1) ? "ts0" : "ts_" + (i - 1);
+            String tsCol = SparkConstants.AnalyticsDataset.TS_STEP_PREFIX + i;
+            String prevCol = (i == 1)
+                    ? SparkConstants.AnalyticsDataset.TS0
+                    : SparkConstants.AnalyticsDataset.TS_STEP_PREFIX + (i - 1);
             Dataset<Row> eligible = bestAttempt.filter(col(tsCol).isNotNull());
             Row r = eligible.agg(
-                    percentile_approx(col(tsCol).minus(col(prevCol)), lit(0.5), lit(10000)).alias("med")
+                    percentile_approx(col(tsCol).minus(col(prevCol)), lit(0.5), lit(10000))
+                            .alias(SparkConstants.AnalyticsDataset.MEDIAN_AGG)
             ).first();
             medians[i] = (r == null || r.isNullAt(0)) ? -1L : r.getLong(0);
         }
@@ -339,7 +361,7 @@ public class FunnelComputeJob {
         }
         Column union = null;
         for (FunnelStep step : steps) {
-            Column branch = col("event_name").equalTo(lit(step.eventName()));
+            Column branch = col(SparkConstants.VectorLog.EVENT_NAME).equalTo(lit(step.eventName()));
             for (FunnelFilter sf : step.stepFilters()) {
                 Optional<Column> fc = filterToPredicate(sf, "[funnel-upfront]");
                 if (fc.isPresent()) {
@@ -408,14 +430,14 @@ public class FunnelComputeJob {
     }
 
     private static Dataset<Row> stepEvents(Dataset<Row> df, FunnelStep step, String identityCol) {
-        Dataset<Row> filtered = df.filter(col("event_name").equalTo(step.eventName()));
+        Dataset<Row> filtered = df.filter(col(SparkConstants.VectorLog.EVENT_NAME).equalTo(step.eventName()));
         filtered = applyStepFilters(filtered, step.stepFilters());
         return filtered
                 .select(
-                        col(identityCol).alias("identity"),
-                        unix_timestamp(col("timestamp")).alias("ts")
+                        col(identityCol).alias(SparkConstants.AnalyticsDataset.IDENTITY),
+                        unix_timestamp(col(SparkConstants.VectorLog.TIMESTAMP)).alias(SparkConstants.AnalyticsDataset.TS)
                 )
-                .filter(col("identity").isNotNull().and(col("identity").notEqual("")));
+                .filter(col(SparkConstants.AnalyticsDataset.IDENTITY).isNotNull().and(col(SparkConstants.AnalyticsDataset.IDENTITY).notEqual("")));
     }
 
     static Dataset<Row> readS3ByDateRange(SparkSession spark, String s3BasePath,
@@ -483,21 +505,23 @@ public class FunnelComputeJob {
     }
 
     private static Dataset<Row> prepareRaw(Dataset<Row> ds, String projectId) {
-        return ds.filter(col("project_id").equalTo(projectId));
+        return ds.filter(col(SparkConstants.VectorLog.PROJECT_ID).equalTo(projectId));
     }
 
     static Column[] buildReadExprs(String[] availableColumns, Set<String> propKeys) {
         var available = new java.util.HashSet<>(java.util.Arrays.asList(availableColumns));
-        boolean hasProps = available.contains("props");
-        Column propsExpr = hasProps ? col("props") : lit(null).cast(DataTypes.StringType);
+        boolean hasProps = available.contains(SparkConstants.VectorLog.PROPS);
+        Column propsExpr = hasProps ? col(SparkConstants.VectorLog.PROPS) : lit(null).cast(DataTypes.StringType);
         var cols = new ArrayList<Column>();
-        for (var c : READ_COLS) {
+        for (var c : SparkConstants.VectorLog.LOG_READ_COLUMNS) {
             cols.add(available.contains(c) ? col(c) : lit(null).cast(DataTypes.StringType).alias(c));
         }
         cols.add(coalesce(
-                get_json_object(propsExpr, "$.user_id"),
-                get_json_object(propsExpr, "$['app.installation.id']")
-        ).alias("user_id"));
+                get_json_object(propsExpr, SparkConstants.PropsJson.PATH_USER_ID),
+                get_json_object(propsExpr, SparkConstants.PropsJson.PATH_APP_INSTALLATION_ID)
+        ).alias(SparkConstants.Derived.USER_ID));
+        cols.add(get_json_object(propsExpr, SparkConstants.PropsJson.PATH_APP_INSTALLATION_ID)
+                .alias(SparkConstants.Derived.INSTALLATION_ID));
         for (String key : propKeys) {
             cols.add(get_json_object(propsExpr, PropsJsonPath.forTopLevelKey(key)).alias(key));
         }

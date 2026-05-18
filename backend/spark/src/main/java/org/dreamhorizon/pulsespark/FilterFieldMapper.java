@@ -16,9 +16,9 @@ public final class FilterFieldMapper {
 
   static {
     var m = new LinkedHashMap<String, String>();
-    m.put("OS_NAME", "os_name");
-    m.put("APP_BUILD_NAME", "app_build_name");
-    m.put("OS_VERSION", "os_version");
+    m.put("OS_NAME", SparkConstants.VectorLog.OS_NAME);
+    m.put("APP_BUILD_NAME", SparkConstants.VectorLog.APP_BUILD_NAME);
+    m.put("OS_VERSION", SparkConstants.VectorLog.OS_VERSION);
     CATALOG_KEY_TO_COLUMN = Collections.unmodifiableMap(m);
   }
 

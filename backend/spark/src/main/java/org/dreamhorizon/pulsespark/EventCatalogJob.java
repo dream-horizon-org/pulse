@@ -24,11 +24,6 @@ public class EventCatalogJob {
 
     private static final Logger log = LoggerFactory.getLogger(EventCatalogJob.class);
 
-    private static final String FILTER_KEY_EVENT           = "EVENT";
-    private static final String FILTER_KEY_APP_BUILD_NAME  = "APP_BUILD_NAME";
-    private static final String FILTER_KEY_OS_VERSION      = "OS_VERSION";
-    private static final String FILTER_KEY_OS_NAME         = "OS_NAME";
-
     private static final int COLD_LOOKBACK_DAYS   = 7;
     private static final int DEFAULT_CHUNK_SIZE   = 5_000;
 
@@ -81,24 +76,24 @@ public class EventCatalogJob {
             return;
         }
 
-        var tsSec = unix_timestamp(col("timestamp"));
+        var tsSec = unix_timestamp(col(SparkConstants.VectorLog.TIMESTAMP));
         var inTimeWindow = priorSucceededStart.isEmpty()
                 ? tsSec.geq(lit(windowStartEpoch)).and(tsSec.leq(lit(windowEndEpoch)))
                 : tsSec.gt(lit(windowStartEpoch)).and(tsSec.leq(lit(windowEndEpoch)));
 
         Dataset<Row> df = raw
                 .select(
-                        col("project_id"),
-                        col("event_name"),
-                        col("timestamp"),
-                        col("app_build_name"),
-                        col("os_version"),
-                        col("os_name")
+                        col(SparkConstants.VectorLog.PROJECT_ID),
+                        col(SparkConstants.VectorLog.EVENT_NAME),
+                        col(SparkConstants.VectorLog.TIMESTAMP),
+                        col(SparkConstants.VectorLog.APP_BUILD_NAME),
+                        col(SparkConstants.VectorLog.OS_VERSION),
+                        col(SparkConstants.VectorLog.OS_NAME)
                 )
                 .filter(
-                        col("project_id").equalTo(projectId)
-                                .and(col("event_name").isNotNull())
-                                .and(col("event_name").notEqual(""))
+                        col(SparkConstants.VectorLog.PROJECT_ID).equalTo(projectId)
+                                .and(col(SparkConstants.VectorLog.EVENT_NAME).isNotNull())
+                                .and(col(SparkConstants.VectorLog.EVENT_NAME).notEqual(""))
                                 .and(inTimeWindow)
                 )
                 .cache();
@@ -106,7 +101,8 @@ public class EventCatalogJob {
         try {
             List<String> valueRows = buildCatalogInsertRows(df);
             if (!valueRows.isEmpty()) {
-                ch.bulkInsert("event_catalog_entries", "ProjectId,FilterKey,FilterValue",
+                ch.bulkInsert(SparkConstants.ClickHouse.TABLE_EVENT_CATALOG_ENTRIES,
+                        SparkConstants.ClickHouse.INSERT_COLUMNS_EVENT_CATALOG_ENTRIES,
                         valueRows, DEFAULT_CHUNK_SIZE);
                 log.info("Project {}: wrote {} event_catalog_entries rows (events + dimensions)", projectId, valueRows.size());
             } else {
@@ -119,18 +115,22 @@ public class EventCatalogJob {
 
     /** Distinct (ProjectId, FilterKey, FilterValue) for EVENT and dimension filters from parquet columns. */
     private static List<String> buildCatalogInsertRows(Dataset<Row> df) {
-        Column nonBlankFv = col("fv").isNotNull().and(length(trim(col("fv"))).gt(0));
+        Column nonBlankFv = col(SparkConstants.EventCatalog.ALIAS_FV).isNotNull()
+                .and(length(trim(col(SparkConstants.EventCatalog.ALIAS_FV))).gt(0));
 
         Dataset<Row> events = df.select(
-                col("project_id").alias("pid"),
-                lit(FILTER_KEY_EVENT).alias("fk"),
-                col("event_name").cast("string").alias("fv")
+                col(SparkConstants.VectorLog.PROJECT_ID).alias(SparkConstants.EventCatalog.ALIAS_PID),
+                lit(SparkConstants.EventCatalog.FILTER_KEY_EVENT).alias(SparkConstants.EventCatalog.ALIAS_FK),
+                col(SparkConstants.VectorLog.EVENT_NAME).cast("string").alias(SparkConstants.EventCatalog.ALIAS_FV)
         ).filter(nonBlankFv);
 
         Dataset<Row> unioned = events
-                .unionByName(dimensionSlice(df, FILTER_KEY_APP_BUILD_NAME, "app_build_name"))
-                .unionByName(dimensionSlice(df, FILTER_KEY_OS_VERSION, "os_version"))
-                .unionByName(dimensionSlice(df, FILTER_KEY_OS_NAME, "os_name"))
+                .unionByName(dimensionSlice(df, SparkConstants.EventCatalog.FILTER_KEY_APP_BUILD_NAME,
+                        SparkConstants.VectorLog.APP_BUILD_NAME))
+                .unionByName(dimensionSlice(df, SparkConstants.EventCatalog.FILTER_KEY_OS_VERSION,
+                        SparkConstants.VectorLog.OS_VERSION))
+                .unionByName(dimensionSlice(df, SparkConstants.EventCatalog.FILTER_KEY_OS_NAME,
+                        SparkConstants.VectorLog.OS_NAME))
                 .distinct();
 
         List<Row> rows = unioned.collectAsList();
@@ -146,11 +146,12 @@ public class EventCatalogJob {
     }
 
     private static Dataset<Row> dimensionSlice(Dataset<Row> df, String filterKey, String valueCol) {
-        Column nonBlankFv = col("fv").isNotNull().and(length(trim(col("fv"))).gt(0));
+        Column nonBlankFv = col(SparkConstants.EventCatalog.ALIAS_FV).isNotNull()
+                .and(length(trim(col(SparkConstants.EventCatalog.ALIAS_FV))).gt(0));
         return df.select(
-                col("project_id").alias("pid"),
-                lit(filterKey).alias("fk"),
-                col(valueCol).cast("string").alias("fv")
+                col(SparkConstants.VectorLog.PROJECT_ID).alias(SparkConstants.EventCatalog.ALIAS_PID),
+                lit(filterKey).alias(SparkConstants.EventCatalog.ALIAS_FK),
+                col(valueCol).cast("string").alias(SparkConstants.EventCatalog.ALIAS_FV)
         ).filter(nonBlankFv);
     }
 
