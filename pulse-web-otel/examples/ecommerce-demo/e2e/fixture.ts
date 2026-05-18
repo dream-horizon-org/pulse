@@ -57,6 +57,12 @@ export interface OtlpSpanStatus {
   message?: string;
 }
 
+export interface OtlpSpanEvent {
+  name: string;
+  timeUnixNano?: string;
+  attributes?: OtlpAttr[];
+}
+
 export interface OtlpSpan {
   traceId?: string;
   spanId?: string;
@@ -66,6 +72,7 @@ export interface OtlpSpan {
   endTimeUnixNano?: string;
   attributes: OtlpAttr[];
   status?: OtlpSpanStatus;
+  events?: OtlpSpanEvent[];
 }
 
 /** Numeric OTLP status code, or undefined if missing / malformed. */

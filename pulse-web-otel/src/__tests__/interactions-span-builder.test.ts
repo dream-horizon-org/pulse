@@ -230,6 +230,109 @@ describe("InteractionSpanBuilder.emitInteraction", () => {
     expect(endTime).toBeGreaterThan(startTime);
   });
 
+  it("adds OTel events for each marker event after local events", () => {
+    const span = makeSpan();
+    const tracer = { startSpan: vi.fn().mockReturnValue(span) };
+    const builder = new InteractionSpanBuilder(tracer as never);
+    const t0 = 2_000_000_000_000;
+
+    builder.emitInteraction(
+      makeInteraction({
+        [INTERACTION_PROP_KEYS.LOCAL_EVENTS]: [
+          { name: "step_a", timeInNano: t0 },
+          { name: "step_b", timeInNano: t0 + 1_000_000_000 },
+        ],
+        [INTERACTION_PROP_KEYS.MARKER_EVENTS]: [
+          { name: "non_fatal", timeInNano: t0 + 500_000_000, props: { "exception.message": "oops" } },
+        ],
+      }),
+    );
+
+    // 2 local + 1 marker = 3 total addEvent calls
+    expect(span.addEvent).toHaveBeenCalledTimes(3);
+    expect(span.addEvent).toHaveBeenNthCalledWith(
+      1, "step_a", undefined, Math.round(t0 / 1_000_000),
+    );
+    expect(span.addEvent).toHaveBeenNthCalledWith(
+      2, "step_b", undefined, Math.round((t0 + 1_000_000_000) / 1_000_000),
+    );
+    expect(span.addEvent).toHaveBeenNthCalledWith(
+      3, "non_fatal", { "exception.message": "oops" }, Math.round((t0 + 500_000_000) / 1_000_000),
+    );
+  });
+
+  it("emits only marker events when local events are empty", () => {
+    const span = makeSpan();
+    const tracer = { startSpan: vi.fn().mockReturnValue(span) };
+    const builder = new InteractionSpanBuilder(tracer as never);
+    const t0 = 1_000_000_000_000;
+
+    builder.emitInteraction(
+      makeInteraction({
+        [INTERACTION_PROP_KEYS.LOCAL_EVENTS]: [],
+        [INTERACTION_PROP_KEYS.MARKER_EVENTS]: [
+          { name: "device.crash", timeInNano: t0 + 100_000_000 },
+        ],
+      }),
+    );
+
+    expect(span.addEvent).toHaveBeenCalledTimes(1);
+    expect(span.addEvent).toHaveBeenCalledWith(
+      "device.crash", undefined, Math.round((t0 + 100_000_000) / 1_000_000),
+    );
+  });
+
+  it("emits no marker events when MARKER_EVENTS is empty", () => {
+    const span = makeSpan();
+    const tracer = { startSpan: vi.fn().mockReturnValue(span) };
+    const builder = new InteractionSpanBuilder(tracer as never);
+
+    builder.emitInteraction(
+      makeInteraction({
+        [INTERACTION_PROP_KEYS.MARKER_EVENTS]: [],
+      }),
+    );
+
+    // only 2 local events
+    expect(span.addEvent).toHaveBeenCalledTimes(2);
+  });
+
+  it("emits no marker events when MARKER_EVENTS is absent from props", () => {
+    const span = makeSpan();
+    const tracer = { startSpan: vi.fn().mockReturnValue(span) };
+    const builder = new InteractionSpanBuilder(tracer as never);
+
+    builder.emitInteraction(makeInteraction());
+
+    // default makeInteraction has 2 local events, no markers
+    expect(span.addEvent).toHaveBeenCalledTimes(2);
+  });
+
+  it("error span with markers still emits all marker events", () => {
+    const span = makeSpan();
+    const tracer = { startSpan: vi.fn().mockReturnValue(span) };
+    const builder = new InteractionSpanBuilder(tracer as never);
+    const t0 = 1_000_000_000_000;
+
+    builder.emitInteraction(
+      makeInteraction({
+        [INTERACTION_PROP_KEYS.IS_ERROR]: true,
+        [INTERACTION_PROP_KEYS.ERROR_TYPE]: "timeout",
+        [INTERACTION_PROP_KEYS.LOCAL_EVENTS]: [
+          { name: "step_a", timeInNano: t0 },
+        ],
+        [INTERACTION_PROP_KEYS.MARKER_EVENTS]: [
+          { name: "non_fatal", timeInNano: t0 + 200_000_000 },
+        ],
+      }),
+    );
+
+    expect(span.addEvent).toHaveBeenCalledTimes(2);
+    const calls = span.addEvent.mock.calls.map((c: unknown[]) => c[0]);
+    expect(calls).toContain("step_a");
+    expect(calls).toContain("non_fatal");
+  });
+
   it("does not export pulse.internal.* attributes", () => {
     const span = makeSpan();
     const tracer = { startSpan: vi.fn().mockReturnValue(span) };

@@ -505,6 +505,105 @@ test.describe("@M2 interactions e2e", () => {
   });
 });
 
+// ─── ISS-I02 / ISS-I03: log-based marker events on interaction span ───────────
+
+test.describe("@M2 interactions marker events (ISS-I02/I03)", () => {
+  test("@marker non_fatal mid-flow appears as span event between steps", async ({
+    page,
+    otlp,
+  }) => {
+    await seedInteractionConfig(page, [
+      makeConfig({
+        id: "marker_non_fatal",
+        name: "Marker Non Fatal Flow",
+        events: [{ name: "step_1" }, { name: "step_2" }],
+        thresholdInMs: 3000,
+      }),
+    ]);
+    await gotoAndWaitInteractionInit(page);
+
+    await emitEvent(page, "step_1");
+    await page.waitForTimeout(50);
+
+    // Fire non_fatal mid-flow via Pulse public API → Branch B → addMarkerToAll.
+    await page.evaluate(() => {
+      const w = window as unknown as { Pulse?: { reportException?: (e: unknown) => void } };
+      w.Pulse?.reportException?.(new Error("mid-flow non_fatal"));
+    });
+    await page.waitForTimeout(50);
+
+    await emitEvent(page, "step_2");
+
+    const span = await otlp.waitForSpan("interaction", 15_000);
+    expect(getAttr(span.attributes, "pulse.interaction.is_error")).toBe(false);
+
+    const events = span.events ?? [];
+    const stepNames = events.map((e) => e.name);
+    expect(stepNames).toContain("step_1");
+    expect(stepNames).toContain("step_2");
+    // Marker event name = log body = error message from reportException
+    const markerEvent = events.find((e) => e.name.includes("mid-flow non_fatal"));
+    expect(markerEvent).toBeDefined();
+  });
+
+  test("@marker device.crash mid-flow appears as span event", async ({
+    page,
+    otlp,
+  }) => {
+    await seedInteractionConfig(page, [
+      makeConfig({
+        id: "marker_device_crash",
+        name: "Marker Device Crash Flow",
+        events: [{ name: "step_1" }, { name: "step_2" }],
+        thresholdInMs: 3000,
+      }),
+    ]);
+    await gotoAndWaitInteractionInit(page);
+
+    await emitEvent(page, "step_1");
+    await page.waitForTimeout(50);
+
+    await page.evaluate(() => {
+      const w = window as unknown as { Pulse?: { reportDeviceCrash?: (e: unknown) => void } };
+      w.Pulse?.reportDeviceCrash?.(new Error("mid-flow crash"));
+    });
+    await page.waitForTimeout(50);
+
+    await emitEvent(page, "step_2");
+
+    const span = await otlp.waitForSpan("interaction", 15_000);
+    const events = span.events ?? [];
+    const markerEvent = events.find((e) => e.name.includes("mid-flow crash"));
+    expect(markerEvent).toBeDefined();
+  });
+
+  test("@marker successful flow without crash has no extra marker events", async ({
+    page,
+    otlp,
+  }) => {
+    await seedInteractionConfig(page, [
+      makeConfig({
+        id: "marker_clean_flow",
+        name: "Marker Clean Flow",
+        events: [{ name: "clean_step_1" }, { name: "clean_step_2" }],
+      }),
+    ]);
+    await gotoAndWaitInteractionInit(page);
+
+    await emitEvent(page, "clean_step_1");
+    await page.waitForTimeout(40);
+    await emitEvent(page, "clean_step_2");
+
+    const span = await otlp.waitForSpan("interaction", 15_000);
+    const events = span.events ?? [];
+    const stepNames = events.map((e) => e.name);
+    // Only step events, no crash/non_fatal markers
+    expect(stepNames).toContain("clean_step_1");
+    expect(stepNames).toContain("clean_step_2");
+    expect(stepNames.some((n) => n.includes("crash") || n.includes("fatal"))).toBe(false);
+  });
+});
+
 test.describe("@M2 interactions edge cases", () => {
   const operatorCases = [
     { operator: "EQUALS", expected: "gold", pass: "gold", fail: "silver" },

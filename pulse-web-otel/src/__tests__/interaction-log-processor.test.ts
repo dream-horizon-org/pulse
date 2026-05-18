@@ -60,17 +60,39 @@ describe("InteractionLogProcessor", () => {
   });
 
   describe("Branch B — marker events (device.crash / non_fatal)", () => {
-    it("does NOT call trackEvent for pulse.type=device.crash", () => {
+    it("calls addMarkerToAll for pulse.type=device.crash", () => {
       processor.setInstrumentation(mockInstr as never);
-      const record = makeLogRecord(PulseWebSemconv.PulseType.DEVICE_CRASH, { stringValue: "fatal error" });
+      const record = makeLogRecord(PulseWebSemconv.PulseType.DEVICE_CRASH, { stringValue: "fatal error" }, 1000, 0);
       processor.onEmit(record, context.active());
 
+      expect(mockInstr.addMarkerToAll).toHaveBeenCalledOnce();
+      const [body, , timeMs] = mockInstr.addMarkerToAll.mock.calls[0];
+      expect(body).toBe("fatal error");
+      expect(timeMs).toBeCloseTo(1000000, -1);
       expect(mockInstr.trackEvent).not.toHaveBeenCalled();
     });
 
-    it("does NOT call trackEvent for pulse.type=non_fatal", () => {
+    it("calls addMarkerToAll for pulse.type=non_fatal", () => {
       processor.setInstrumentation(mockInstr as never);
-      const record = makeLogRecord(PulseWebSemconv.PulseType.NON_FATAL, { stringValue: "soft error" });
+      const record = makeLogRecord(PulseWebSemconv.PulseType.NON_FATAL, { stringValue: "soft error" }, 2000, 0);
+      processor.onEmit(record, context.active());
+
+      expect(mockInstr.addMarkerToAll).toHaveBeenCalledOnce();
+      expect(mockInstr.addMarkerToAll.mock.calls[0][0]).toBe("soft error");
+      expect(mockInstr.trackEvent).not.toHaveBeenCalled();
+    });
+
+    it("does NOT call addMarkerToAll when body is empty on device.crash", () => {
+      processor.setInstrumentation(mockInstr as never);
+      const record = makeLogRecord(PulseWebSemconv.PulseType.DEVICE_CRASH, { stringValue: "" });
+      processor.onEmit(record, context.active());
+
+      expect(mockInstr.addMarkerToAll).not.toHaveBeenCalled();
+    });
+
+    it("does NOT call trackEvent for pulse.type=device.crash (Branch B only)", () => {
+      processor.setInstrumentation(mockInstr as never);
+      const record = makeLogRecord(PulseWebSemconv.PulseType.DEVICE_CRASH, { stringValue: "crash" });
       processor.onEmit(record, context.active());
 
       expect(mockInstr.trackEvent).not.toHaveBeenCalled();

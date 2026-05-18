@@ -49,6 +49,22 @@ export class InteractionCoordinator {
     }
   }
 
+  /**
+   * Ambient marker fan-out — mirrors Android InteractionManager.addMarkerToAll().
+   * Records a mid-flow signal (crash, non_fatal) on every in-flight tracker without
+   * advancing the sequence matcher.
+   */
+  addMarkerToAll(
+    name: string,
+    attrs?: PulseAttributes,
+    timeMs: number = Date.now(),
+  ): void {
+    const ev = toInteractionLocalEvent(name, attrs, timeMs);
+    for (const tracker of this.trackers) {
+      tracker.addMarker(ev);
+    }
+  }
+
   shutdown(): void {
     PulseWebLogger.debug(
       `${LIFECYCLE} shutdown: destroying ${this.trackers.length} tracker(s)`,

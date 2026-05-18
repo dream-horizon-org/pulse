@@ -53,6 +53,34 @@ describe("InteractionCoordinator", () => {
     coord.shutdown();
   });
 
+  it("addMarkerToAll fans out to all trackers", () => {
+    const terminals: Array<{ name: string; props: Record<string, unknown> }> = [];
+    const coord = new InteractionCoordinator({
+      onInteractionTerminal: (i) =>
+        terminals.push({ name: String(i.props[INTERACTION_PROP_KEYS.NAME]), props: i.props }),
+    });
+    coord.setConfigs([flow("F1", 1), flow("F2", 2)]);
+
+    coord.trackEvent("step_a", undefined, 1000);
+    coord.addMarkerToAll("non_fatal", undefined, 1050);
+    coord.trackEvent("step_b", undefined, 1100);
+
+    expect(terminals).toHaveLength(2);
+    for (const t of terminals) {
+      const markers = t.props[INTERACTION_PROP_KEYS.MARKER_EVENTS] as unknown[];
+      expect(Array.isArray(markers)).toBe(true);
+      expect(markers.length).toBeGreaterThan(0);
+      expect((markers[0] as Record<string, unknown>)["name"]).toBe("non_fatal");
+    }
+    coord.shutdown();
+  });
+
+  it("addMarkerToAll is no-op when no trackers configured", () => {
+    const coord = new InteractionCoordinator();
+    expect(() => coord.addMarkerToAll("non_fatal", undefined, 1000)).not.toThrow();
+    coord.shutdown();
+  });
+
   it("handles parallel configs and emits both completions", () => {
     const terminals: Array<{ name: string; isError: boolean }> = [];
     const coord = new InteractionCoordinator({

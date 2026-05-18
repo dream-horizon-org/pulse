@@ -25,6 +25,7 @@ import {
   capturedHasScreenName,
   allScreenNamesInCaptured,
   type OtlpSpan,
+  type OtlpSpanEvent,
 } from "./fixture";
 import {
   seedPulseSdkConfig,
@@ -1244,5 +1245,130 @@ test.describe("@ISS-I12 click-bridge interactions (Next.js App Router)", () => {
     // SDK still runs — click log emitted.
     const clickLogs = findAllLogs(otlp.captured, "app.click");
     expect(clickLogs.length).toBeGreaterThan(0);
+  });
+});
+
+// ─── ISS-I02/I03: marker events as span events (Next.js App Router) ───────────
+
+test.describe("@M2 interactions marker events — Next.js (ISS-I02/I03)", () => {
+  test("@marker non_fatal mid-flow appears as span event between steps", async ({
+    page,
+    otlp,
+  }) => {
+    await seedInteractionConfig(page, [
+      makeInteractionConfig({
+        id: 201,
+        name: "Marker NonFatal Flow",
+        events: [
+          { name: "marker_step_a" },
+          { name: "marker_step_b" },
+        ],
+        thresholdInMs: 800,
+      }),
+    ]);
+    await gotoAndWaitInit(page, otlp);
+
+    // Step A
+    await page.evaluate(() => {
+      const w = window as unknown as { Pulse?: { trackEvent?: (n: string) => void } };
+      w.Pulse?.trackEvent?.("marker_step_a");
+    });
+
+    // non_fatal mid-flow → Branch B → addMarkerToAll
+    await page.evaluate(() => {
+      const w = window as unknown as { Pulse?: { reportException?: (e: unknown) => void } };
+      w.Pulse?.reportException?.(new Error("mid-flow non_fatal"));
+    });
+    await page.waitForTimeout(100);
+
+    // Step B — completes flow
+    await page.evaluate(() => {
+      const w = window as unknown as { Pulse?: { trackEvent?: (n: string) => void } };
+      w.Pulse?.trackEvent?.("marker_step_b");
+    });
+
+    const span = await otlp.waitForSpan("interaction", 15_000);
+    expect(getAttr(span.attributes, "pulse.interaction.config.id")).toBe("201");
+    expect(getAttr(span.attributes, "pulse.interaction.is_error")).toBe(false);
+
+    const events = (span.events ?? []) as OtlpSpanEvent[];
+    expect(events.length).toBeGreaterThan(0);
+    expect(events.some((e) => e.name === "mid-flow non_fatal")).toBe(true);
+  });
+
+  test("@marker device.crash mid-flow appears as span event", async ({
+    page,
+    otlp,
+  }) => {
+    await seedInteractionConfig(page, [
+      makeInteractionConfig({
+        id: 202,
+        name: "Marker Crash Flow",
+        events: [
+          { name: "crash_step_a" },
+          { name: "crash_step_b" },
+        ],
+        thresholdInMs: 800,
+      }),
+    ]);
+    await gotoAndWaitInit(page, otlp);
+
+    await page.evaluate(() => {
+      const w = window as unknown as { Pulse?: { trackEvent?: (n: string) => void } };
+      w.Pulse?.trackEvent?.("crash_step_a");
+    });
+
+    // device.crash mid-flow → Branch B → addMarkerToAll
+    await page.evaluate(() => {
+      const w = window as unknown as { Pulse?: { reportDeviceCrash?: (e: unknown) => void } };
+      w.Pulse?.reportDeviceCrash?.(new Error("mid-flow crash"));
+    });
+    await page.waitForTimeout(100);
+
+    await page.evaluate(() => {
+      const w = window as unknown as { Pulse?: { trackEvent?: (n: string) => void } };
+      w.Pulse?.trackEvent?.("crash_step_b");
+    });
+
+    const span = await otlp.waitForSpan("interaction", 15_000);
+    expect(getAttr(span.attributes, "pulse.interaction.config.id")).toBe("202");
+
+    const events = (span.events ?? []) as OtlpSpanEvent[];
+    expect(events.length).toBeGreaterThan(0);
+    expect(events.some((e) => e.name === "mid-flow crash")).toBe(true);
+  });
+
+  test("@marker successful flow without crash has no extra marker events", async ({
+    page,
+    otlp,
+  }) => {
+    await seedInteractionConfig(page, [
+      makeInteractionConfig({
+        id: 203,
+        name: "Clean Flow",
+        events: [
+          { name: "clean_step_a" },
+          { name: "clean_step_b" },
+        ],
+        thresholdInMs: 800,
+      }),
+    ]);
+    await gotoAndWaitInit(page, otlp);
+
+    await page.evaluate(() => {
+      const w = window as unknown as { Pulse?: { trackEvent?: (n: string) => void } };
+      w.Pulse?.trackEvent?.("clean_step_a");
+      w.Pulse?.trackEvent?.("clean_step_b");
+    });
+
+    const span = await otlp.waitForSpan("interaction", 15_000);
+    expect(getAttr(span.attributes, "pulse.interaction.config.id")).toBe("203");
+
+    // No crash/non_fatal fired — marker events list should be empty or absent
+    const events = span.events ?? [];
+    const markerEvents = events.filter(
+      (e) => e.name !== "clean_step_a" && e.name !== "clean_step_b",
+    );
+    expect(markerEvents).toHaveLength(0);
   });
 });

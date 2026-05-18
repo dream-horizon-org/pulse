@@ -41,10 +41,17 @@ export interface OtlpSpanStatus {
   message?: string;
 }
 
+export interface OtlpSpanEvent {
+  name: string;
+  timeUnixNano?: string;
+  attributes?: OtlpAttr[];
+}
+
 export interface OtlpSpan {
   name: string;
   attributes: OtlpAttr[];
   status?: OtlpSpanStatus;
+  events?: OtlpSpanEvent[];
 }
 
 type LogsBody = {
@@ -195,24 +202,6 @@ export function getResourceAttr(
 export function getOtlpSpanStatusCode(span: OtlpSpan): number | undefined {
   const c = span.status?.code;
   return typeof c === "number" && Number.isFinite(c) ? c : undefined;
-}
-
-export function findAllSpans(
-  captured: CapturedRequest[],
-  pulseType: string,
-): OtlpSpan[] {
-  const out: OtlpSpan[] = [];
-  for (const c of captured) {
-    if (c.type !== "traces") continue;
-    for (const rs of c.body.resourceSpans ?? []) {
-      for (const ss of rs.scopeSpans ?? []) {
-        for (const sp of ss.spans ?? []) {
-          if (getAttr(sp.attributes, "pulse.type") === pulseType) out.push(sp);
-        }
-      }
-    }
-  }
-  return out;
 }
 
 /**

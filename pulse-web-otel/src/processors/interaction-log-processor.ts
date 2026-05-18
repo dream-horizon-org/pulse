@@ -24,13 +24,24 @@ export class InteractionLogProcessor implements LogRecordProcessor {
     const attrs = logRecord.attributes as unknown as PulseAttributes;
     const pulseType = attrs?.[PulseWebSemconv.AttributeKey.PULSE_TYPE];
 
+    const timeMs = hrTimeToMilliseconds(logRecord.hrTime);
+
+    // Branch B — log-based markers (crash / non_fatal → addMarkerToAll).
+    // Evaluated first so crash logs never also hit Branch A.
+    if (
+      pulseType === PulseWebSemconv.PulseType.DEVICE_CRASH ||
+      pulseType === PulseWebSemconv.PulseType.NON_FATAL
+    ) {
+      const body = logRecordBodyAsString(logRecord.body);
+      if (!body) return;
+      instr.addMarkerToAll(body, attrs, timeMs);
+      return;
+    }
+
     // Branch A — click bridge (APP_CLICK only; do not relax to generic string body).
-    // Other pulse.types with string bodies (device.crash, non_fatal, session.start)
-    // must NOT hit this branch — Branch B (ISS-I03) handles markers separately.
     if (pulseType === PulseWebSemconv.PulseType.APP_CLICK) {
       const body = logRecordBodyAsString(logRecord.body);
       if (!body) return;
-      const timeMs = hrTimeToMilliseconds(logRecord.hrTime);
       instr.trackEvent(body, attrs, timeMs);
     }
   }
