@@ -365,6 +365,9 @@ const RcaStructuredReportV1View = ({
                 <Text fw={700} size="md" tt="uppercase" c="gray.7">
                   Top contributing segments
                 </Text>
+                <Badge size="sm" variant="light" color="gray">
+                  {segments.length}
+                </Badge>
               </div>
               <Stack gap="md">
                 {segments.map((segment, index) => {

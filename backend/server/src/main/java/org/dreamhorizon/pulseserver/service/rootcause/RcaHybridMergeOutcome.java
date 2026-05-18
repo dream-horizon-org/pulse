@@ -14,6 +14,12 @@ import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseSegment;
  * <p><b>Not</b> {@link org.dreamhorizon.pulseserver.config.RootCauseConfig#isHybridDimensionOrderingEnabled()}:
  * that flag only affects dimension column order before segmentation. {@link RootCauseAnalysisMode#HYBRID}
  * means the merged output combined hierarchical 2D+ candidates with the flat 1D pass.
+ *
+ * <p>Debug logs here use {@code mergeMode} only — the value from {@link #modeFromHierarchicalTier}.
+ * Interaction and screen pipelines then apply a baseline signal gate; {@link
+ * RootCauseAnalysisMode#forSegmentShapeAfterGate} may change the mode stored on {@link
+ * org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseResult}. Services log {@code finalMode}
+ * after the gate so troubleshooting matches payload/cache.
  */
 @Slf4j
 @UtilityClass
@@ -64,9 +70,8 @@ public class RcaHybridMergeOutcome {
   }
 
   /**
-   * When the hierarchical drill yielded no 2D+ materialized rows, the effective outcome is flat-only
-   * ({@link RootCauseAnalysisMode#FLAT}). Otherwise the pipeline ran hybrid merge
-   * ({@link RootCauseAnalysisMode#HYBRID}); signal gate may still drop segments afterward.
+   * Merge-time mode only (whether the drill produced 2D+ candidates), not necessarily the mode after
+   * the baseline signal gate — see {@link RootCauseAnalysisMode#forSegmentShapeAfterGate}.
    */
   static RootCauseAnalysisMode modeFromHierarchicalTier(List<RootCauseSegment> hierarchicalCandidates) {
     return hierarchicalCandidates.isEmpty()
@@ -81,7 +86,7 @@ public class RcaHybridMergeOutcome {
       List<RootCauseSegment> merged,
       RootCauseAnalysisMode mode) {
     log.debug(
-        "{} Merge result: hierarchicalCandidates={}, flatCandidates={}, merged={}, mode={}",
+        "{} Merge result: hierarchicalCandidates={}, flatCandidates={}, merged={}, mergeMode={}",
         debugLogPrefix,
         hierarchicalCandidates.size(),
         flatCandidates.size(),

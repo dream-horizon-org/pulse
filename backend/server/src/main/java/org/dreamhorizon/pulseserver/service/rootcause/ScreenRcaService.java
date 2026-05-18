@@ -124,6 +124,7 @@ public class ScreenRcaService {
               if (result.getNoDataAvailable() != null && result.getNoDataAvailable()) {
                 return Single.just(result);
               }
+              RootCauseAnalysisMode mergeMode = result.getMode();
               List<RootCauseSegment> gated =
                   applySignalGate(result.getSegments(), result.getBaseline(), screenName);
               if (gated != result.getSegments()) {
@@ -133,6 +134,15 @@ public class ScreenRcaService {
                         .segments(gated)
                         .mode(RootCauseAnalysisMode.forSegmentShapeAfterGate(gated))
                         .build();
+              }
+              if (log.isDebugEnabled()) {
+                log.debug(
+                    "[SCREEN-RCA-SEGMENT] RootCauseAnalysisMode after pipeline: screen={}, mergeMode={}, "
+                        + "finalMode={} (matches payload/cache), segmentCount={}",
+                    screenName,
+                    mergeMode,
+                    result.getMode(),
+                    result.getSegments() == null ? 0 : result.getSegments().size());
               }
               String baselineJson = objectMapperUtil.writeValueAsString(result.getBaseline());
               String segmentsJson = objectMapperUtil.writeValueAsString(result.getSegments());
@@ -218,43 +228,47 @@ public class ScreenRcaService {
   }
 
   /**
-   * After merge+cap: keep segments whose raw {@link ScreenRcaQueryBuilder#BAD_FRUSTRATION} count
-   * strictly exceeds the screen baseline cohort (aligned with interaction RCA baseline rate-sum gate).
-   * Preserves order of kept segments. Returns the input list unchanged when no rows are dropped.
+   * After merge+cap: keep segments whose {@code bad_frustration / click_volume} strictly exceeds the
+   * same ratio on the screen baseline (aligned with interaction RCA’s rate gate). Preserves order of
+   * kept segments. Returns the input list unchanged when no rows are dropped.
    */
   private List<RootCauseSegment> applySignalGate(
       List<RootCauseSegment> segments, Map<String, Object> baseline, String screenName) {
     if (segments == null || segments.isEmpty()) {
       return segments;
     }
-    String driverKey = ScreenRcaQueryBuilder.BAD_FRUSTRATION;
+    String badKey = ScreenRcaQueryBuilder.BAD_FRUSTRATION;
+    String volKey = ScreenRcaQueryBuilder.CLICK_VOLUME;
     List<RootCauseSegment> kept =
-        SegmentSignalGate.filterSegmentsRawMetricAboveBaseline(segments, baseline, driverKey);
+        SegmentSignalGate.filterSegmentsRateAboveBaseline(segments, baseline, badKey, volKey);
     if (kept.size() == segments.size()) {
       return segments;
     }
-    double baselineBad = SegmentSignalGate.rawMetricValue(baseline, driverKey);
+    double baselineRate =
+        SegmentSignalGate.metricRate(baseline, badKey, volKey).orElse(Double.NaN);
     if (log.isDebugEnabled()) {
       for (RootCauseSegment s : segments) {
         if (!kept.contains(s)) {
-          double segBad = SegmentSignalGate.rawMetricValue(s.getMetrics(), driverKey);
+          double segRate =
+              SegmentSignalGate.metricRate(s.getMetrics(), badKey, volKey).orElse(Double.NaN);
           log.debug(
-              "[SCREEN-RCA-SEGMENT] Drop segment at or below baseline bad_frustration: screen={}, label={}, "
-                  + "segmentBad={}, baselineBad={}",
+              "[SCREEN-RCA-SEGMENT] Drop segment at or below baseline bad_frustration rate: screen={}, label={}, "
+                  + "segmentRate={}, baselineRate={}",
               screenName,
               s.getLabel(),
-              segBad,
-              baselineBad);
+              segRate,
+              baselineRate);
         }
       }
     }
     log.info(
-        "[SCREEN-RCA-SEGMENT] Signal gate filtered segments (slice vs baseline {}): screen={}, kept={}/{}, baselineBad={}",
-        driverKey,
+        "[SCREEN-RCA-SEGMENT] Signal gate filtered segments (slice vs baseline {}/{}): screen={}, kept={}/{}, baselineRate={}",
+        badKey,
+        volKey,
         screenName,
         kept.size(),
         segments.size(),
-        baselineBad);
+        baselineRate);
     return kept;
   }
 
@@ -531,8 +545,14 @@ public class ScreenRcaService {
     if (path.size() >= maxSegments) {
       return materializeHierarchicalSegments(projectId, screenName, window, baseline, path);
     }
-    Map<String, String> currentFilters = path.stream()
-        .collect(Collectors.toMap(s -> s.dimension, s -> s.value, (a, b) -> b));
+    Map<String, String> currentFilters =
+        path.stream()
+            .collect(
+                Collectors.toMap(
+                    SegmentPath::dimension,
+                    SegmentPath::value,
+                    (a, b) -> b,
+                    LinkedHashMap::new));
     int nextDimIndex = hierarchyStartDimIndex + path.size();
     if (nextDimIndex >= dimOrder.size()) {
       return materializeHierarchicalSegments(projectId, screenName, window, baseline, path);

@@ -195,6 +195,7 @@ public class RootCauseService {
           if (result.getNoDataAvailable() != null && result.getNoDataAvailable()) {
             return Single.just(result);
           }
+          RootCauseAnalysisMode mergeMode = result.getMode();
           List<RootCauseSegment> gated =
               applySignalGate(result.getSegments(), result.getBaseline(), interactionName);
           if (gated != result.getSegments()) {
@@ -204,6 +205,15 @@ public class RootCauseService {
                     .segments(gated)
                     .mode(RootCauseAnalysisMode.forSegmentShapeAfterGate(gated))
                     .build();
+          }
+          if (log.isDebugEnabled()) {
+            log.debug(
+                "[RCA-SEGMENT] RootCauseAnalysisMode after pipeline: interaction={}, mergeMode={}, "
+                    + "finalMode={} (matches payload/cache), segmentCount={}",
+                interactionName,
+                mergeMode,
+                result.getMode(),
+                result.getSegments() == null ? 0 : result.getSegments().size());
           }
           String baselineJson = objectMapper.writeValueAsString(result.getBaseline());
           String segmentsJson = objectMapper.writeValueAsString(result.getSegments());

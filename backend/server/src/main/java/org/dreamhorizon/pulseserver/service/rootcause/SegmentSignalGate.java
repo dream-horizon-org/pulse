@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.OptionalDouble;
 import lombok.experimental.UtilityClass;
 import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseSegment;
 import org.dreamhorizon.pulseserver.util.NumberCoercionUtils;
@@ -15,83 +16,15 @@ import org.dreamhorizon.pulseserver.util.NumberCoercionUtils;
  * where raw {@code error_rate + poor_user_pct} from the segment slice strictly exceeds the same sum on
  * the interaction baseline row (both from ClickHouse aggregates).
  *
- * <p><b>Screen RCA:</b> after merge, segments must have raw {@code bad_frustration} strictly greater
- * than baseline ({@link #filterSegmentsRawMetricAboveBaseline} with
- * {@link org.dreamhorizon.pulseserver.service.rootcause.ScreenRcaQueryBuilder#BAD_FRUSTRATION}).
- *
- * <p><b>Threshold / delta mode (utilities only):</b> {@code S = sum of |Δm|} retained for callers
- * and tests that explicitly pass metric keys plus a numeric threshold ({@link #filter}). Not used
- * by interaction or screen RCA segment persistence.
+ * <p><b>Screen RCA:</b> after merge, segments must have {@code bad_frustration / click_volume}
+ * strictly greater than the same ratio on the baseline row ({@link
+ * #filterSegmentsRateAboveBaseline} with {@link
+ * org.dreamhorizon.pulseserver.service.rootcause.ScreenRcaQueryBuilder#BAD_FRUSTRATION} and {@link
+ * org.dreamhorizon.pulseserver.service.rootcause.ScreenRcaQueryBuilder#CLICK_VOLUME}), aligned with
+ * interaction RCA’s rate-style gate.
  */
 @UtilityClass
 public class SegmentSignalGate {
-
-  /** Driver metrics for interaction RCA, the canonical PRD pair. */
-  public static final String[] DEFAULT_METRIC_KEYS = {
-      RootCauseMetricsRegistry.ERROR_RATE,
-      RootCauseMetricsRegistry.POOR_USER_PCT
-  };
-
-  public static double computeSignal(RootCauseSegment segment) {
-    return computeSignal(segment, DEFAULT_METRIC_KEYS);
-  }
-
-  public static double computeSignal(RootCauseSegment segment, String... metricKeys) {
-    if (segment == null) {
-      return 0.0;
-    }
-    return computeSignal(segment.getDeltas(), metricKeys);
-  }
-
-  public static double computeSignal(Map<String, Double> deltas) {
-    return computeSignal(deltas, DEFAULT_METRIC_KEYS);
-  }
-
-  public static double computeSignal(Map<String, Double> deltas, String... metricKeys) {
-    if (deltas == null || metricKeys == null || metricKeys.length == 0) {
-      return 0.0;
-    }
-    double sum = 0.0;
-    for (String key : metricKeys) {
-      sum += absOrZero(deltas.get(key));
-    }
-    return sum;
-  }
-
-  public static boolean isEligible(RootCauseSegment segment, double threshold) {
-    return isEligible(segment, threshold, DEFAULT_METRIC_KEYS);
-  }
-
-  public static boolean isEligible(
-      RootCauseSegment segment, double threshold, String... metricKeys) {
-    return computeSignal(segment, metricKeys) >= threshold;
-  }
-
-  /**
-   * Returns segments whose combined signal {@code S >= threshold}, preserving relative order.
-   * Returns an empty list when the input is null.
-   */
-  public static List<RootCauseSegment> filter(List<RootCauseSegment> segments, double threshold) {
-    return filter(segments, threshold, DEFAULT_METRIC_KEYS);
-  }
-
-  public static List<RootCauseSegment> filter(
-      List<RootCauseSegment> segments, double threshold, String... metricKeys) {
-    if (segments == null || segments.isEmpty()) {
-      return Collections.emptyList();
-    }
-    List<RootCauseSegment> kept = new ArrayList<>(segments.size());
-    for (RootCauseSegment s : segments) {
-      if (isEligible(s, threshold, metricKeys)) {
-        kept.add(s);
-      }
-    }
-    return kept;
-  }
-
-  private static double absOrZero(Double d) {
-    return d == null ? 0.0 : Math.abs(d);
-  }
 
   /**
    * Raw {@code error_rate + poor_user_pct} from an RCA metrics row (baseline or segment {@code metrics} map).
@@ -137,6 +70,74 @@ public class SegmentSignalGate {
     List<RootCauseSegment> kept = new ArrayList<>(segments.size());
     for (RootCauseSegment s : segments) {
       if (isEligibleRawMetricAboveBaseline(s, baselineMetrics, metricKey)) {
+        kept.add(s);
+      }
+    }
+    return kept;
+  }
+
+  /**
+   * {@code numeratorKey / denominatorKey} for a metrics row. When {@code denominatorKey} is
+   * non-positive and numerator is positive, returns positive infinity (non-zero bad signal with no
+   * volume). Returns empty when the ratio is undefined (e.g. both zero).
+   */
+  public static OptionalDouble metricRate(
+      Map<String, Object> metrics, String numeratorKey, String denominatorKey) {
+    if (metrics == null
+        || numeratorKey == null
+        || numeratorKey.isEmpty()
+        || denominatorKey == null
+        || denominatorKey.isEmpty()) {
+      return OptionalDouble.empty();
+    }
+    double den = rawMetricValue(metrics, denominatorKey);
+    double num = rawMetricValue(metrics, numeratorKey);
+    if (den <= 0.0d) {
+      if (num > 0.0d) {
+        return OptionalDouble.of(Double.POSITIVE_INFINITY);
+      }
+      return OptionalDouble.empty();
+    }
+    return OptionalDouble.of(num / den);
+  }
+
+  /**
+   * Screen RCA gate: segment bad-frustration rate strictly exceeds baseline rate on the same keys.
+   */
+  public static boolean isEligibleRateAboveBaseline(
+      RootCauseSegment segment,
+      Map<String, Object> baselineMetrics,
+      String numeratorKey,
+      String denominatorKey) {
+    if (segment == null || baselineMetrics == null) {
+      return false;
+    }
+    OptionalDouble seg = metricRate(segment.getMetrics(), numeratorKey, denominatorKey);
+    OptionalDouble base = metricRate(baselineMetrics, numeratorKey, denominatorKey);
+    if (seg.isEmpty() || base.isEmpty()) {
+      return false;
+    }
+    return seg.getAsDouble() > base.getAsDouble();
+  }
+
+  /**
+   * Filters segments whose {@code numeratorKey / denominatorKey} is strictly greater than baseline;
+   * preserves order. When {@code baselineMetrics} is null, returns a copy of the input (no-op).
+   */
+  public static List<RootCauseSegment> filterSegmentsRateAboveBaseline(
+      List<RootCauseSegment> segments,
+      Map<String, Object> baselineMetrics,
+      String numeratorKey,
+      String denominatorKey) {
+    if (segments == null || segments.isEmpty()) {
+      return Collections.emptyList();
+    }
+    if (baselineMetrics == null) {
+      return new ArrayList<>(segments);
+    }
+    List<RootCauseSegment> kept = new ArrayList<>(segments.size());
+    for (RootCauseSegment s : segments) {
+      if (isEligibleRateAboveBaseline(s, baselineMetrics, numeratorKey, denominatorKey)) {
         kept.add(s);
       }
     }

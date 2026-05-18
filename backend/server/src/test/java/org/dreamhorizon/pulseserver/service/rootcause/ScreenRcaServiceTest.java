@@ -581,9 +581,9 @@ class ScreenRcaServiceTest {
                 }
                 if (isScreenSegmentMetricsQuery(q)) {
                   if (bn == 6) {
-                    // 2D slice: same bad_frustration count as baseline → not > baseline → dropped
+                    // 2D slice: same bad_frustration *rate* as baseline (100/500 vs 10/50) → not > → dropped
                     Map<String, Object> row = screenSegmentMetricRow();
-                    row.put(ScreenRcaQueryBuilder.BAD_FRUSTRATION, 100L);
+                    row.put(ScreenRcaQueryBuilder.BAD_FRUSTRATION, 10L);
                     row.put("Platform", "Android");
                     row.put("OsVersion", "14");
                     return Single.just(singleRowTableResponse(row));
@@ -613,7 +613,7 @@ class ScreenRcaServiceTest {
       RootCauseResult result =
           service.getScreenRootCause(PROJECT_ID, SCREEN, ANCHOR, WINDOW_END).blockingGet();
 
-      // Mode is FLAT: 2D candidate matched baseline bad_frustration — gate drops it; only flat tier remains.
+      // Mode is FLAT: 2D candidate matched baseline bad_frustration rate — gate drops it; only flat tier remains.
       assertThat(result.getMode()).isEqualTo(RootCauseAnalysisMode.FLAT);
       assertThat(result.getSegments()).hasSize(1);
       assertThat(result.getSegments().get(0).getDimensions()).hasSize(1);

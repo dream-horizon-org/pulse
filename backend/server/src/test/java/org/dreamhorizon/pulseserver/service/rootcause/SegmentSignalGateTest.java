@@ -5,8 +5,6 @@ import static org.dreamhorizon.pulseserver.service.rootcause.RootCauseMetricsReg
 import static org.dreamhorizon.pulseserver.service.rootcause.RootCauseMetricsRegistry.POOR_USER_PCT;
 
 import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -15,238 +13,6 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 class SegmentSignalGateTest {
-
-  private static final double THRESHOLD = 15.0;
-
-  private static RootCauseSegment segment(String label, Map<String, Double> deltas) {
-    return RootCauseSegment.builder().label(label).deltas(deltas).build();
-  }
-
-  private static Map<String, Double> deltas(Double err, Double poor) {
-    Map<String, Double> m = new LinkedHashMap<>();
-    if (err != null) {
-      m.put(ERROR_RATE, err);
-    }
-    if (poor != null) {
-      m.put(POOR_USER_PCT, poor);
-    }
-    return m;
-  }
-
-  @Nested
-  class ComputeSignal {
-
-    @Test
-    void shouldSumAbsolutesOfBothDeltas() {
-      assertThat(SegmentSignalGate.computeSignal(deltas(10.0, 5.0))).isEqualTo(15.0);
-    }
-
-    @Test
-    void shouldTreatNegativeDeltasAsAbsolute() {
-      assertThat(SegmentSignalGate.computeSignal(deltas(-12.0, -8.0))).isEqualTo(20.0);
-    }
-
-    @Test
-    void shouldTreatMixedSignsAsAbsolute() {
-      assertThat(SegmentSignalGate.computeSignal(deltas(-20.0, 5.0))).isEqualTo(25.0);
-    }
-
-    @Test
-    void shouldTreatMissingErrorDeltaAsZero() {
-      assertThat(SegmentSignalGate.computeSignal(deltas(null, 18.0))).isEqualTo(18.0);
-    }
-
-    @Test
-    void shouldTreatMissingPoorDeltaAsZero() {
-      assertThat(SegmentSignalGate.computeSignal(deltas(22.0, null))).isEqualTo(22.0);
-    }
-
-    @Test
-    void shouldReturnZeroWhenBothDeltasMissing() {
-      assertThat(SegmentSignalGate.computeSignal(deltas(null, null))).isEqualTo(0.0);
-    }
-
-    @Test
-    void shouldReturnZeroForNullDeltasMap() {
-      assertThat(SegmentSignalGate.computeSignal((Map<String, Double>) null)).isEqualTo(0.0);
-    }
-
-    @Test
-    void shouldReturnZeroForNullSegment() {
-      assertThat(SegmentSignalGate.computeSignal((RootCauseSegment) null)).isEqualTo(0.0);
-    }
-
-    @Test
-    void shouldReturnZeroForSegmentWithNullDeltas() {
-      RootCauseSegment s = RootCauseSegment.builder().label("x").build();
-      assertThat(SegmentSignalGate.computeSignal(s)).isEqualTo(0.0);
-    }
-
-    @Test
-    void shouldIgnoreUnrelatedMetricDeltas() {
-      Map<String, Double> d = new HashMap<>();
-      d.put(ERROR_RATE, 10.0);
-      d.put(POOR_USER_PCT, 4.0);
-      d.put("apdex", 99.0);
-      d.put("duration_p95", -50.0);
-      assertThat(SegmentSignalGate.computeSignal(d)).isEqualTo(14.0);
-    }
-  }
-
-  @Nested
-  class IsEligible {
-
-    @Test
-    void shouldDropAtBoundaryBelowThreshold() {
-      RootCauseSegment s = segment("below", deltas(10.0, 4.9));
-      assertThat(SegmentSignalGate.isEligible(s, THRESHOLD)).isFalse();
-    }
-
-    @Test
-    void shouldKeepExactlyAtThreshold() {
-      RootCauseSegment s = segment("equal", deltas(10.0, 5.0));
-      assertThat(SegmentSignalGate.isEligible(s, THRESHOLD)).isTrue();
-    }
-
-    @Test
-    void shouldKeepWhenOneMetricNullAndOtherStrong() {
-      RootCauseSegment s = segment("one-side", deltas(null, 20.0));
-      assertThat(SegmentSignalGate.isEligible(s, THRESHOLD)).isTrue();
-    }
-
-    @Test
-    void shouldDropWhenBothNull() {
-      RootCauseSegment s = segment("none", deltas(null, null));
-      assertThat(SegmentSignalGate.isEligible(s, THRESHOLD)).isFalse();
-    }
-
-    @Test
-    void shouldKeepWhenOneZeroAndOtherAtThreshold() {
-      RootCauseSegment s = segment("zero-and-strong", deltas(0.0, 15.0));
-      assertThat(SegmentSignalGate.isEligible(s, THRESHOLD)).isTrue();
-    }
-
-    @Test
-    void shouldDropWhenOneZeroAndOtherBelowThreshold() {
-      RootCauseSegment s = segment("zero-and-weak", deltas(0.0, 14.9));
-      assertThat(SegmentSignalGate.isEligible(s, THRESHOLD)).isFalse();
-    }
-
-    @Test
-    void shouldKeepWhenStrongNegativeRegression() {
-      RootCauseSegment s = segment("regress", deltas(-30.0, 0.0));
-      assertThat(SegmentSignalGate.isEligible(s, THRESHOLD)).isTrue();
-    }
-  }
-
-  @Nested
-  class Filter {
-
-    @Test
-    void shouldReturnEmptyForNullInput() {
-      assertThat(SegmentSignalGate.filter(null, THRESHOLD)).isEmpty();
-    }
-
-    @Test
-    void shouldReturnEmptyForEmptyInput() {
-      assertThat(SegmentSignalGate.filter(Collections.emptyList(), THRESHOLD)).isEmpty();
-    }
-
-    @Test
-    void shouldDropOnlyWeakSegmentsAndPreserveOrder() {
-      RootCauseSegment a = segment("strong-1", deltas(20.0, 0.0));
-      RootCauseSegment weak = segment("weak", deltas(5.0, 5.0));
-      RootCauseSegment b = segment("strong-2", deltas(null, 16.0));
-      RootCauseSegment boundaryDrop = segment("boundary-drop", deltas(7.0, 7.9));
-
-      List<RootCauseSegment> kept =
-          SegmentSignalGate.filter(Arrays.asList(a, weak, b, boundaryDrop), THRESHOLD);
-
-      assertThat(kept).containsExactly(a, b);
-    }
-
-    @Test
-    void shouldReturnEmptyWhenAllDrop() {
-      RootCauseSegment a = segment("a", deltas(1.0, 2.0));
-      RootCauseSegment b = segment("b", deltas(null, null));
-      assertThat(SegmentSignalGate.filter(Arrays.asList(a, b), THRESHOLD)).isEmpty();
-    }
-  }
-
-  /**
-   * Screen RCA passes a custom driver-metric key ({@code bad_frustration}); the helper must apply
-   * the same null-as-zero / abs / threshold rules to that key set. Asserts no leakage from the
-   * default (error_rate, poor_user_pct) pair.
-   */
-  @Nested
-  class CustomMetricKeys {
-
-    private static final String BAD_FRUSTRATION = "bad_frustration";
-
-    private static Map<String, Double> screenDeltas(Double bad) {
-      Map<String, Double> m = new LinkedHashMap<>();
-      if (bad != null) {
-        m.put(BAD_FRUSTRATION, bad);
-      }
-      return m;
-    }
-
-    @Test
-    void shouldComputeSignalOverProvidedKeyOnly() {
-      assertThat(SegmentSignalGate.computeSignal(screenDeltas(20.0), BAD_FRUSTRATION))
-          .isEqualTo(20.0);
-    }
-
-    @Test
-    void shouldTakeAbsoluteOnNegativeCustomDelta() {
-      assertThat(SegmentSignalGate.computeSignal(screenDeltas(-30.0), BAD_FRUSTRATION))
-          .isEqualTo(30.0);
-    }
-
-    @Test
-    void shouldTreatMissingCustomDeltaAsZero() {
-      assertThat(SegmentSignalGate.computeSignal(screenDeltas(null), BAD_FRUSTRATION))
-          .isEqualTo(0.0);
-    }
-
-    @Test
-    void shouldIgnoreInteractionDeltasWhenScreenKeysProvided() {
-      Map<String, Double> mixed = new HashMap<>();
-      mixed.put(ERROR_RATE, 100.0);
-      mixed.put(POOR_USER_PCT, 100.0);
-      mixed.put(BAD_FRUSTRATION, 5.0);
-      assertThat(SegmentSignalGate.computeSignal(mixed, BAD_FRUSTRATION)).isEqualTo(5.0);
-    }
-
-    @Test
-    void shouldDropScreenSegmentBelowThreshold() {
-      RootCauseSegment s = segment("weak-screen", screenDeltas(14.9));
-      assertThat(SegmentSignalGate.isEligible(s, THRESHOLD, BAD_FRUSTRATION)).isFalse();
-    }
-
-    @Test
-    void shouldKeepScreenSegmentAtThreshold() {
-      RootCauseSegment s = segment("boundary-screen", screenDeltas(15.0));
-      assertThat(SegmentSignalGate.isEligible(s, THRESHOLD, BAD_FRUSTRATION)).isTrue();
-    }
-
-    @Test
-    void shouldFilterScreenSegmentsPreservingOrder() {
-      RootCauseSegment strong = segment("strong-screen", screenDeltas(25.0));
-      RootCauseSegment weak = segment("weak-screen", screenDeltas(5.0));
-      RootCauseSegment regress = segment("regress-screen", screenDeltas(-18.0));
-      List<RootCauseSegment> kept =
-          SegmentSignalGate.filter(
-              Arrays.asList(strong, weak, regress), THRESHOLD, BAD_FRUSTRATION);
-      assertThat(kept).containsExactly(strong, regress);
-    }
-
-    @Test
-    void shouldReturnZeroWhenMetricKeysEmpty() {
-      assertThat(SegmentSignalGate.computeSignal(screenDeltas(99.0), new String[0]))
-          .isEqualTo(0.0);
-    }
-  }
 
   /**
    * Interaction RCA: gate on raw {@code error_rate + poor_user_pct} vs baseline (not delta sum).
@@ -362,6 +128,86 @@ class SegmentSignalGateTest {
       List<RootCauseSegment> kept = SegmentSignalGate.filterSegmentsRawMetricAboveBaseline(
           Arrays.asList(a, b), baseline, ScreenRcaQueryBuilder.BAD_FRUSTRATION);
       assertThat(kept).containsExactly(a);
+    }
+  }
+
+  @Nested
+  class ScreenBadFrustrationRateAboveBaseline {
+
+    private static Map<String, Object> screenMetrics(long vol, long bad) {
+      Map<String, Object> m = new LinkedHashMap<>();
+      m.put(ScreenRcaQueryBuilder.CLICK_VOLUME, vol);
+      m.put(ScreenRcaQueryBuilder.BAD_FRUSTRATION, bad);
+      return m;
+    }
+
+    private static RootCauseSegment screenSegment(String label, long vol, long bad) {
+      return RootCauseSegment.builder().label(label).metrics(screenMetrics(vol, bad)).build();
+    }
+
+    @Test
+    void shouldCompareRatesNotRawCounts_smallCohortHighRatePasses() {
+      Map<String, Object> baseline = screenMetrics(500L, 100L);
+      RootCauseSegment s = screenSegment("hot", 10L, 8L);
+      assertThat(
+              SegmentSignalGate.isEligibleRateAboveBaseline(
+                  s,
+                  baseline,
+                  ScreenRcaQueryBuilder.BAD_FRUSTRATION,
+                  ScreenRcaQueryBuilder.CLICK_VOLUME))
+          .isTrue();
+    }
+
+    @Test
+    void shouldRejectWhenRateDoesNotStrictlyBeatBaseline() {
+      Map<String, Object> baseline = screenMetrics(500L, 100L);
+      RootCauseSegment s = screenSegment("eq", 50L, 10L);
+      assertThat(
+              SegmentSignalGate.isEligibleRateAboveBaseline(
+                  s,
+                  baseline,
+                  ScreenRcaQueryBuilder.BAD_FRUSTRATION,
+                  ScreenRcaQueryBuilder.CLICK_VOLUME))
+          .isFalse();
+    }
+
+    @Test
+    void shouldRejectWhenHigherRawBadButLowerRate() {
+      Map<String, Object> baseline = screenMetrics(500L, 100L);
+      RootCauseSegment s = screenSegment("misleading", 1000L, 150L);
+      assertThat(
+              SegmentSignalGate.isEligibleRateAboveBaseline(
+                  s,
+                  baseline,
+                  ScreenRcaQueryBuilder.BAD_FRUSTRATION,
+                  ScreenRcaQueryBuilder.CLICK_VOLUME))
+          .isFalse();
+    }
+
+    @Test
+    void shouldFilterByRatePreservingOrder() {
+      Map<String, Object> baseline = screenMetrics(100L, 20L);
+      RootCauseSegment strong = screenSegment("strong", 10L, 5L);
+      RootCauseSegment weak = screenSegment("weak", 10L, 2L);
+      List<RootCauseSegment> kept =
+          SegmentSignalGate.filterSegmentsRateAboveBaseline(
+              Arrays.asList(strong, weak),
+              baseline,
+              ScreenRcaQueryBuilder.BAD_FRUSTRATION,
+              ScreenRcaQueryBuilder.CLICK_VOLUME);
+      assertThat(kept).containsExactly(strong);
+    }
+
+    @Test
+    void shouldPassThroughAllWhenBaselineMapNullInFilter() {
+      RootCauseSegment s = screenSegment("a", 10L, 5L);
+      assertThat(
+              SegmentSignalGate.filterSegmentsRateAboveBaseline(
+                  List.of(s),
+                  null,
+                  ScreenRcaQueryBuilder.BAD_FRUSTRATION,
+                  ScreenRcaQueryBuilder.CLICK_VOLUME))
+          .containsExactly(s);
     }
   }
 }
