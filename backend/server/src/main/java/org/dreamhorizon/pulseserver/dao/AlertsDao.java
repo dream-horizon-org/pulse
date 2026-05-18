@@ -206,7 +206,7 @@ public class AlertsDao {
         req.getDimensionFilters(),
         req.getConditionExpression(),
         req.getSeverity(),
-        req.getNotificationChannelId(),
+        req.getChannelEventMappingId(),
         req.getEvaluationPeriod(),
         req.getEvaluationInterval(),
         req.getCreatedBy()
@@ -372,7 +372,7 @@ public class AlertsDao {
         req.getDimensionFilters(),
         req.getConditionExpression(),
         req.getSeverity(),
-        req.getNotificationChannelId(),
+        req.getChannelEventMappingId(),
         req.getEvaluationPeriod(),
         req.getEvaluationInterval(),
         req.getUpdatedBy(),
@@ -525,9 +525,7 @@ public class AlertsDao {
         .evaluationPeriod(row.getInteger("evaluation_period"))
         .evaluationInterval(row.getInteger("evaluation_interval"))
         .severityId(row.getInteger("severity_id"))
-        .notificationChannelId(row.getInteger("notification_channel_id"))
-        .notificationType(row.getString("notification_type"))
-        .notificationConfig(row.getString("notification_config"))
+        .channelEventMappingId(row.getLong("channel_event_mapping_id"))
         .createdBy(row.getString("created_by"))
         .updatedBy(row.getString("updated_by"))
         .createdAt(Timestamp.valueOf(row.getLocalDateTime("alert_created_at")))
@@ -950,7 +948,7 @@ public class AlertsDao {
                 .dimensionFilter(getJsonAsString(row, "dimension_filter"))
                 .conditionExpression(row.getString("condition_expression"))
                 .severityId(row.getInteger("severity_id"))
-                .notificationChannelId(row.getInteger("notification_channel_id"))
+                .channelEventMappingId(row.getLong("channel_event_mapping_id"))
                 .evaluationPeriod(row.getInteger("evaluation_period"))
                 .evaluationInterval(row.getInteger("evaluation_interval"))
                 .createdBy(row.getString("created_by"))
@@ -1130,7 +1128,7 @@ public class AlertsDao {
     private String dimensionFilter;
     private String conditionExpression;
     private Integer severityId;
-    private Integer notificationChannelId;
+    private Long channelEventMappingId;
     private Integer evaluationPeriod;
     private Integer evaluationInterval;
     private String createdBy;

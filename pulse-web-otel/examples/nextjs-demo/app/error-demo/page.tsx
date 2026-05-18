@@ -45,7 +45,7 @@ export default function ErrorDemoPage(): React.JSX.Element {
         </button>
       </section>
 
-      <section>
+      <section style={{ marginBottom: "1rem" }}>
         <h2>Manual reportDeviceCrash</h2>
         <button
           data-testid="manual-crash-btn"
@@ -54,6 +54,48 @@ export default function ErrorDemoPage(): React.JSX.Element {
           }}
         >
           Report device.crash
+        </button>
+      </section>
+
+      <section style={{ marginBottom: "1rem" }}>
+        <h2>Burst error (dedup test)</h2>
+        <button
+          data-testid="throw-burst"
+          onClick={() => {
+            for (let i = 0; i < 3; i++) {
+              window.dispatchEvent(
+                new ErrorEvent("error", {
+                  message: "Burst dedup error",
+                  filename: "error-demo.tsx",
+                  lineno: 1,
+                  colno: 1,
+                  error: new Error("Burst dedup error"),
+                }),
+              );
+            }
+          }}
+        >
+          Throw burst (3×)
+        </button>
+      </section>
+
+      <section>
+        <h2>TypeError (class name test)</h2>
+        <button
+          data-testid="throw-type-error"
+          onClick={() => {
+            window.dispatchEvent(
+              new ErrorEvent("error", {
+                message: "type fail",
+                filename: "error-demo.tsx",
+                lineno: 1,
+                colno: 1,
+                error: new TypeError("type fail"),
+              }),
+            );
+          }}
+        >
+          Throw TypeError
         </button>
       </section>
     </div>

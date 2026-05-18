@@ -17,6 +17,7 @@ import utc from "dayjs/plugin/utc";
 import { ChartSkeleton, TableSkeleton } from "../../../../components/Skeletons";
 import { ErrorAndEmptyStateWithNotification } from "../../../CriticalInteractionDetails/components/InteractionDetailsMainContent/components/ErrorAndEmptyStateWithNotification";
 import { COLUMN_NAME, PulseType } from "../../../../constants/PulseOtelSemcov";
+import { getRegionName } from "../../utils/region";
 
 dayjs.extend(utc);
 
@@ -147,6 +148,13 @@ export function EngagementBreakdown({
           param: { expression: "uniq(nullIf(SessionId, ''))" },
           alias: "session_count",
         },
+        {
+          function: "CUSTOM" as const,
+          param: {
+            expression: `any(nullIf(${COLUMN_NAME.COUNTRY}, ''))`,
+          },
+          alias: "country_code",
+        },
       ],
       filters: [
         {
@@ -236,10 +244,15 @@ export function EngagementBreakdown({
     const segmentNameIndex = mauData.data.fields.indexOf(segmentAlias);
     const userCountIndex = mauData.data.fields.indexOf("user_count");
     const sessionCountIndex = mauData.data.fields.indexOf("session_count");
+    const countryCodeIndex = mauData.data.fields.indexOf("country_code");
+
 
     // Helper to normalize empty segment names to "Unknown"
-    const normalizeSegmentName = (value: unknown): string => {
+    const normalizeSegmentName = (value: unknown, countryCode?: unknown): string => {
       const segment = String(value || "").trim();
+      if (segmentAlias === 'region') {
+        return getRegionName(segment, String(countryCode || ""))
+      }
       return segment === "" ? "Unknown" : segment;
     };
 
@@ -249,7 +262,7 @@ export function EngagementBreakdown({
       const dauSegmentIndex = dauData.data.fields.indexOf(segmentAlias);
       const dauUserIndex = dauData.data.fields.indexOf("user_count");
       dauData.data.rows.forEach((row) => {
-        const segment = normalizeSegmentName(row[dauSegmentIndex]);
+        const segment = normalizeSegmentName(row[dauSegmentIndex],row[countryCodeIndex]);
         const users = parseFloat(row[dauUserIndex]) || 0;
         // Accumulate values for the same segment (e.g., multiple empty values -> "Unknown")
         dauMap.set(segment, (dauMap.get(segment) || 0) + users);
@@ -262,7 +275,7 @@ export function EngagementBreakdown({
       const wauSegmentIndex = wauData.data.fields.indexOf(segmentAlias);
       const wauUserIndex = wauData.data.fields.indexOf("user_count");
       wauData.data.rows.forEach((row) => {
-        const segment = normalizeSegmentName(row[wauSegmentIndex]);
+        const segment = normalizeSegmentName(row[wauSegmentIndex],row[countryCodeIndex]);
         const users = parseFloat(row[wauUserIndex]) || 0;
         wauMap.set(segment, (wauMap.get(segment) || 0) + users);
       });
@@ -283,7 +296,10 @@ export function EngagementBreakdown({
 
     if (mauData.data.rows) {
       mauData.data.rows.forEach((row) => {
-        const segment = normalizeSegmentName(row[segmentNameIndex]);
+        const segment = normalizeSegmentName(
+          row[segmentNameIndex],
+          row[countryCodeIndex],
+        );
         const mau = parseFloat(row[userCountIndex]) || 0;
         const sessions = parseFloat(row[sessionCountIndex]) || 0;
 

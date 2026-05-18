@@ -33,16 +33,20 @@ export const DEFAULT_SCOPE_ITEMS: ScopeItemsData = {
 
 export const DEFAULT_GLOBAL_FILTERS: GlobalFiltersData = {
   filterBuilder: {
-    groups: [{
-      id: "group_default",
-      conditions: [{
-        id: "cond_default",
-        field: "",
-        operator: "=",
-        value: "",
-      }],
-      logicalOperator: "AND",
-    }],
+    groups: [
+      {
+        id: "group_default",
+        conditions: [
+          {
+            id: "cond_default",
+            field: "",
+            operator: "=",
+            value: "",
+          },
+        ],
+        logicalOperator: "AND",
+      },
+    ],
     groupOperator: "AND",
   },
 };
@@ -76,7 +80,7 @@ export const DEFAULT_CONDITION_EXPRESSION: ConditionExpressionData = {
 
 export const DEFAULT_SEVERITY_NOTIFICATION: SeverityNotificationData = {
   severityId: null,
-  notificationChannelId: null,
+  channelEventMappingId: null,
 };
 
 export const DEFAULT_WIZARD_FORM_DATA: AlertFormWizardData = {
@@ -90,4 +94,3 @@ export const DEFAULT_WIZARD_FORM_DATA: AlertFormWizardData = {
   conditionExpression: DEFAULT_CONDITION_EXPRESSION,
   severityNotification: DEFAULT_SEVERITY_NOTIFICATION,
 };
-

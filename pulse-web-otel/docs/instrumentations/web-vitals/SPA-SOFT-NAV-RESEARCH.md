@@ -24,7 +24,7 @@ running from the original page load. This means:
 |---|---|---|---|---|
 | **GA4** | No | No | No | `web-vitals` library, hard load only. Enhanced Measurement fires `page_view` on SPA nav but does not re-measure vitals. |
 | **PostHog** | No | No | No | `web-vitals` v5.2.0. CLS bleeds across all routes. No delta tracking. History API patching for pageview events only. |
-| **Sentry** | No | No | No | `web-vitals` v5.0.2. Creates `navigation` spans per SPA route but [documents explicitly](https://develop.sentry.dev/sdk/telemetry/traces/modules/web-vitals/) that "navigation spans do not contain web vital measurements". Has an open issue to investigate soft nav support. |
+| **Sentry** | No | No | No | Vendors own fork of `web-vitals` (~v3.5.2, no `reportSoftNavs`). `startTrackingWebVitals()` called once at SDK init, never re-registered. LCP + CLS finalized and **stopped** when the first SPA navigation begins (`listenForWebVitalReportEvents` single-fire). INP is continuous per-interaction but not reset per route. Source: `browser-utils/src/metrics/browserMetrics.ts`, `lcp.ts`, `cls.ts`. |
 | **Datadog** | Yes | Yes | Yes | Manual approach — re-registers `LCP` PerformanceObserver per route, tracks delta CLS (difference since last route change), slices INP event-timing entries by route boundary. No browser API dependency. |
 | **Chrome Soft Navigation API** | Yes | Yes | Yes | Browser-native. Chrome 147+ origin trial (not GA as of 2026). Enables `web-vitals` `reportSoftNavs: true`. Not available in Safari or Firefox. |
 
@@ -39,7 +39,7 @@ out of the box.
 
 **Status: Parity with PostHog and Sentry.**
 
-- All 6 metrics (LCP, INP, CLS, FCP, FID, TTFB) are registered on initial hard page load
+- All five metrics (LCP, INP, CLS, FCP, TTFB) are registered on initial hard page load
 - Every SPA route change triggers `Pulse.notifySoftNavigation()` → `forceFlush()`
 - This sends any buffered vitals to the collector **immediately** at route change,
   instead of waiting for tab hide
@@ -47,12 +47,14 @@ out of the box.
   so each vital is correctly attributed to the route where it was measured
 
 **What this gives you:**
+
 - No data loss from force-closed tabs mid-session
 - TTFB and FCP from the initial load arrive with `screen.name = "/home"` (or
   whatever route was active) — not lost in a buffer
 - LCP from a user interaction correctly attributed to the route they were on
 
 **Implementation files:**
+
 - `src/instrumentations/web-vitals.ts` — registers all 6 metrics, flushes on tab hide / BFCache
 - `src/sdk.ts` — `Pulse.notifySoftNavigation()` calls `loggerProvider.forceFlush()`
 - `src/integrations/react/useRouterTracking.ts` — calls `notifySoftNavigation()` on route change
@@ -86,6 +88,7 @@ out of the box.
 Implement per-route vitals without relying on any browser API that isn't widely available.
 
 **How it works:**
+
 1. On each SPA route change, start a new `PerformancObserver` for
    `largest-contentful-paint` entries using the current timestamp as baseline —
    this gives a fresh "LCP for this route"
@@ -107,6 +110,7 @@ Use the `web-vitals@soft-navs` npm distribution which adds `{ reportSoftNavs: tr
 support on top of Chrome's Soft Navigation API.
 
 **How it works:**
+
 ```ts
 import { onLCP, onCLS, onINP } from "web-vitals/soft-navs";
 
@@ -134,9 +138,8 @@ users still get cumulative metrics only. The API may change before GA.
 | Phase | What | When |
 |---|---|---|
 | Phase 1 (done) | Flush on SPA nav, correct `screen.name` | Shipped |
-| Phase 2A | Option C — `web-vitals@soft-navs`, Chrome progressive | Next milestone |
-| Phase 2B | Option B — manual re-observation for Safari/Firefox parity | After Chrome Soft Nav API goes GA |
+| Phase 2 (planned) | `reportAllChanges: true` on CLS/INP + `web_vital.delta` + `navigation_id` — per-route aggregation via ClickHouse, all browsers today | See `PLAN-phase2-per-route-vitals.md` |
+| Phase 3 (future) | Option C — `web-vitals@soft-navs` + `web_vital.context = "navigation"` once Chrome Soft Nav API reaches GA | After GA |
+| Option B (deferred) | Manual re-observation (Datadog-style) for Safari/Firefox true-reset parity | After Phase 3 fails to close cross-browser gap |
 
-Start with Option C. Low effort, Chrome users (majority for most web apps) get
-real per-route vitals immediately. Revisit Option B once the Soft Navigation API
-reaches GA and the cross-browser gap becomes a real complaint.
+**Why Option C is not Phase 2:** `reportSoftNavs` does not exist in any released npm version of `web-vitals` (verified against v5.2.0 changelog and GoogleChrome/web-vitals repo). The `soft-navs` branch is experimental only. Phase 2 delivers per-route CLS/INP aggregation for all browsers using `delta` + `navigation_id` — no browser API dependency.

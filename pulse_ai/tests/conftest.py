@@ -3,6 +3,7 @@
 import json
 import os
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
 import httpx
@@ -57,6 +58,66 @@ def pulse_tool_context():
         "project_id": "test-project-id",
     }
     return ctx
+
+
+# ---------------------------------------------------------------------------
+# Mock httpx responses
+# ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# Session / event construction helpers (shared by compaction tests)
+# These are module-level functions, not fixtures, so they can be called
+# directly from any test without needing to be declared as a parameter.
+# ---------------------------------------------------------------------------
+
+def make_text_part(text: str) -> SimpleNamespace:
+    return SimpleNamespace(text=text, function_call=None, function_response=None)
+
+
+def make_fn_response_part(tool_name: str, response: dict) -> SimpleNamespace:
+    fn_resp = SimpleNamespace(name=tool_name, response=response)
+    return SimpleNamespace(text=None, function_call=None, function_response=fn_resp)
+
+
+def make_fn_call_part(tool_name: str, call_id: str | None = None) -> SimpleNamespace:
+    fn_call = SimpleNamespace(name=tool_name, id=call_id)
+    return SimpleNamespace(text=None, function_call=fn_call, function_response=None)
+
+
+def make_user_event(text: str = "question") -> SimpleNamespace:
+    return SimpleNamespace(
+        author="user",
+        content=SimpleNamespace(parts=[make_text_part(text)]),
+    )
+
+
+def make_agent_tool_event(tool_name: str, response: dict) -> SimpleNamespace:
+    return SimpleNamespace(
+        author="EMAgent",
+        content=SimpleNamespace(parts=[make_fn_response_part(tool_name, response)]),
+    )
+
+
+def make_agent_text_event(text: str = "Here is your analysis.") -> SimpleNamespace:
+    return SimpleNamespace(
+        author="ReportAgent",
+        content=SimpleNamespace(parts=[make_text_part(text)]),
+    )
+
+
+def make_session(events: list) -> SimpleNamespace:
+    return SimpleNamespace(events=list(events))
+
+
+def make_inner_service(session: SimpleNamespace | None = None) -> MagicMock:
+    """Return an async mock ADK SessionService pre-wired to return *session*."""
+    inner = MagicMock()
+    inner.get_session = AsyncMock(return_value=session)
+    inner.create_session = AsyncMock(return_value=session)
+    inner.delete_session = AsyncMock(return_value=None)
+    inner.list_sessions = AsyncMock(return_value=[])
+    inner.append_event = AsyncMock(return_value=None)
+    return inner
 
 
 # ---------------------------------------------------------------------------
