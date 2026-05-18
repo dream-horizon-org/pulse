@@ -102,7 +102,7 @@ Three new tables bridge funnel state to OTel signals:
 2. **`funnel_user_state_local`** — per-user state, computed independently via cross-session `windowFunnel`-equivalent chain on `otel.otel_logs`. Populated only when `mode = UNIQUE_USERS`. Cohort source for UNIQUE_USERS funnels — captures cross-session converters.
 3. **`funnel_dropoff_attribution_local`** — precomputed cause-per-step with lift vs converter baseline.
 
-All three are populated by extending the ClickHouse async funnel compute (`ClickHouseFunnelComputeDao`). The `funnel_results` insert and both bridge inserts share one `RunTime` literal so the drop-off DAO can join them by `MAX(RunTime)` per funnel.
+All three are populated by either the ClickHouse async funnel compute (`ClickHouseFunnelComputeDao`, runs SQL inside ClickHouse against `otel_logs` / `otel_traces` / `session_summary`) or the Spark batch job (`FunnelComputeJob`, runs DataFrame ops on parquet shipped to S3 by the OTel s3-archiver). The dispatcher picks one engine per funnel run; both populate the same downstream tables with the same row shapes and shared `RunTime` stamp so the drop-off DAO is engine-agnostic.
 
 **Why both tables (independent, not derived):** OTel signals (crashes, traces, replay) are inherently per-session in time — a crash happens in one specific session at one specific moment. The per-session table gives every OTel row a concrete session to anchor on. The user-level table mirrors what `windowFunnel` does for the displayed funnel chart: groups events by `AppInstallationId`, tracks chains across sessions, and resolves the canonical session = the one that contained the last matched step. Cohort numbers from `funnel_user_state` therefore match `funnel_results.UserCount` exactly, including cross-session conversions.
 
@@ -402,7 +402,15 @@ Steps 3–7 above are executed in a single `INSERT INTO otel.funnel_dropoff_attr
 
 **Read path:** `FunnelDropoffQueries.buildCausesSqlFromAttribution` does a single indexed lookup against `funnel_dropoff_attribution` filtered on `(ProjectId, FunnelId, RunTime, StepIndex)`. The DAO tries this precomputed path first; if it returns zero rows (e.g. for an old run that predates the attribution writer), it falls back to the live `buildCausesSql` join against the OTel signal tables. UI behavior is identical either way.
 
-**Shared RunTime contract:** All four inserts — `funnel_results`, `funnel_session_state`, `funnel_user_state`, `funnel_dropoff_attribution` — MUST share one `RunTime` literal so the drop-off DAO's `MAX(RunTime)` lookup returns them as one consistent run. The ClickHouse compute path threads this via `ClickHouseFunnelComputeDao.newRunTimeLiteral()` → `buildInsertSqlForDefinition(def, runTime)` → `buildInsertSqlWindowFunnel(def, runTime)`, plus the three bridge/attribution builders. Spark's path is currently out of scope for this alignment.
+**Shared RunTime contract:** All four inserts — `funnel_results`, `funnel_session_state`, `funnel_user_state`, `funnel_dropoff_attribution` — MUST share one `RunTime` literal so the drop-off DAO's `MAX(RunTime)` lookup returns them as one consistent run. The ClickHouse compute path threads this via `ClickHouseFunnelComputeDao.newRunTimeLiteral()` → `buildInsertSqlForDefinition(def, runTime)` → `buildInsertSqlWindowFunnel(def, runTime)`, plus the three bridge/attribution builders. The Spark compute path uses the same contract — `runTime` is a method parameter passed through `FunnelComputeJob.runFunnels` → `computeFunnel` → `emitBridgeAndRollup` → `emitAttribution`, then stamped into every row of all four inserts via `ClickHouseClient`.
+
+**Cause coverage across engines:**
+
+| Cause kind | CH compute path | Spark compute path |
+|---|---|---|
+| `crash` / `anr` / `non_fatal` | ✅ via `stack_trace_events` JOIN | ✅ via `otel_logs` parquet filtered by `pulse_type` |
+| `http_5xx` / `http_4xx` | ✅ via `otel_traces` JOIN | ✅ via `otel_traces` parquet HTTP attributes |
+| `frozen_frame` | ✅ via `session_summary` JOIN | ⚠️ deferred — session_summary is a CH materialized view, not S3-archived. DAO falls back to live join for this one cause when Spark ran the funnel. |
 
 ## 7. Lift Example — Alice's Step
 

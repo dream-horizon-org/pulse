@@ -248,7 +248,7 @@ blockquote{border-left:4px solid #dfe1e6;margin:1em 0;padding:.3em 1em;color:#6b
 <li><strong><code>funnel_user_state_local</code></strong> — per-user state, computed independently via cross-session <code>windowFunnel</code>-equivalent chain on <code>otel.otel_logs</code>. Populated only when <code>mode = UNIQUE_USERS</code>. Cohort source for UNIQUE_USERS funnels — captures cross-session converters.</li>
 <li><strong><code>funnel_dropoff_attribution_local</code></strong> — precomputed cause-per-step with lift vs converter baseline.</li>
 </ol>
-<p>All three are populated by extending the ClickHouse async funnel compute (<code>ClickHouseFunnelComputeDao</code>). The <code>funnel_results</code> insert and both bridge inserts share one <code>RunTime</code> literal so the drop-off DAO can join them by <code>MAX(RunTime)</code> per funnel.</p>
+<p>All three are populated by either the ClickHouse async funnel compute (<code>ClickHouseFunnelComputeDao</code>, runs SQL inside ClickHouse against <code>otel_logs</code> / <code>otel_traces</code> / <code>session_summary</code>) or the Spark batch job (<code>FunnelComputeJob</code>, runs DataFrame ops on parquet shipped to S3 by the OTel s3-archiver). The dispatcher picks one engine per funnel run; both populate the same downstream tables with the same row shapes and shared <code>RunTime</code> stamp so the drop-off DAO is engine-agnostic.</p>
 <p><strong>Why both tables (independent, not derived):</strong> OTel signals (crashes, traces, replay) are inherently per-session in time — a crash happens in one specific session at one specific moment. The per-session table gives every OTel row a concrete session to anchor on. The user-level table mirrors what <code>windowFunnel</code> does for the displayed funnel chart: groups events by <code>AppInstallationId</code>, tracks chains across sessions, and resolves the canonical session = the one that contained the last matched step. Cohort numbers from <code>funnel_user_state</code> therefore match <code>funnel_results.UserCount</code> exactly, including cross-session conversions.</p>
 <h2 id="4-schema-additions">4. Schema Additions</h2>
 <h3 id="41-funnel_session_state_local-the-per-session-bridge-table">4.1 <code>funnel_session_state_local</code> — the per-session bridge table</h3>
@@ -691,7 +691,34 @@ PValue = chi-square or Fisher's exact
 <li>Skipped for unordered funnels and funnels with fewer than 2 steps (nothing to attribute).</li>
 </ul>
 <p><strong>Read path:</strong> <code>FunnelDropoffQueries.buildCausesSqlFromAttribution</code> does a single indexed lookup against <code>funnel_dropoff_attribution</code> filtered on <code>(ProjectId, FunnelId, RunTime, StepIndex)</code>. The DAO tries this precomputed path first; if it returns zero rows (e.g. for an old run that predates the attribution writer), it falls back to the live <code>buildCausesSql</code> join against the OTel signal tables. UI behavior is identical either way.</p>
-<p><strong>Shared RunTime contract:</strong> All four inserts — <code>funnel_results</code>, <code>funnel_session_state</code>, <code>funnel_user_state</code>, <code>funnel_dropoff_attribution</code> — MUST share one <code>RunTime</code> literal so the drop-off DAO's <code>MAX(RunTime)</code> lookup returns them as one consistent run. The ClickHouse compute path threads this via <code>ClickHouseFunnelComputeDao.newRunTimeLiteral()</code> → <code>buildInsertSqlForDefinition(def, runTime)</code> → <code>buildInsertSqlWindowFunnel(def, runTime)</code>, plus the three bridge/attribution builders. Spark's path is currently out of scope for this alignment.</p>
+<p><strong>Shared RunTime contract:</strong> All four inserts — <code>funnel_results</code>, <code>funnel_session_state</code>, <code>funnel_user_state</code>, <code>funnel_dropoff_attribution</code> — MUST share one <code>RunTime</code> literal so the drop-off DAO's <code>MAX(RunTime)</code> lookup returns them as one consistent run. The ClickHouse compute path threads this via <code>ClickHouseFunnelComputeDao.newRunTimeLiteral()</code> → <code>buildInsertSqlForDefinition(def, runTime)</code> → <code>buildInsertSqlWindowFunnel(def, runTime)</code>, plus the three bridge/attribution builders. The Spark compute path uses the same contract — <code>runTime</code> is a method parameter passed through <code>FunnelComputeJob.runFunnels</code> → <code>computeFunnel</code> → <code>emitBridgeAndRollup</code> → <code>emitAttribution</code>, then stamped into every row of all four inserts via <code>ClickHouseClient</code>.</p>
+<p><strong>Cause coverage across engines:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Cause kind</th>
+<th>CH compute path</th>
+<th>Spark compute path</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>crash</code> / <code>anr</code> / <code>non_fatal</code></td>
+<td>✅ via <code>stack_trace_events</code> JOIN</td>
+<td>✅ via <code>otel_logs</code> parquet filtered by <code>pulse_type</code></td>
+</tr>
+<tr>
+<td><code>http_5xx</code> / <code>http_4xx</code></td>
+<td>✅ via <code>otel_traces</code> JOIN</td>
+<td>✅ via <code>otel_traces</code> parquet HTTP attributes</td>
+</tr>
+<tr>
+<td><code>frozen_frame</code></td>
+<td>✅ via <code>session_summary</code> JOIN</td>
+<td>⚠️ deferred — session_summary is a CH materialized view, not S3-archived. DAO falls back to live join for this one cause when Spark ran the funnel.</td>
+</tr>
+</tbody>
+</table>
 <h2 id="7-lift-example-alices-step">7. Lift Example — Alice's Step</h2>
 <p>Aggregating over all 12,000 sessions that dropped at step 3 (SESSIONS mode):</p>
 <table>

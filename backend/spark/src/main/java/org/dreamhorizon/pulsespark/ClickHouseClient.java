@@ -9,6 +9,7 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.List;
+import org.dreamhorizon.pulsespark.model.FunnelAttributionRow;
 import org.dreamhorizon.pulsespark.model.FunnelResult;
 import org.dreamhorizon.pulsespark.model.FunnelSessionState;
 import org.dreamhorizon.pulsespark.model.FunnelUserState;
@@ -155,6 +156,57 @@ public class ClickHouseClient {
     }
     bulkInsert("funnel_user_state", columnList, values, 5000);
     log.info("Inserted {} funnel_user_state rows", rows.size());
+  }
+
+  /**
+   * Chunked insert into {@code otel.funnel_dropoff_attribution} — precomputed (step × cause)
+   * ranking rows. Side-panel reads from this table first; falls back to a live OTel join only
+   * when no rows exist for the requested {@code (FunnelId, RunTime)}.
+   *
+   * <p>{@code PValue} is stubbed to {@code 0.0} (chi-square deferred — same as the CH
+   * compute path).
+   */
+  public void insertFunnelDropoffAttribution(List<FunnelAttributionRow> rows) {
+    if (rows.isEmpty()) {
+      log.warn("insertFunnelDropoffAttribution: no rows to insert");
+      return;
+    }
+    var columnList =
+        "FunnelId,ProjectId,RunTime,StepIndex,CauseKind,CauseKey,CauseLabel,"
+            + "DropoffCohort,DropoffAffected,ConverterCohort,ConverterAffected,"
+            + "Lift,PValue,ExampleSessions";
+    var values = new java.util.ArrayList<String>(rows.size());
+    for (var r : rows) {
+      values.add(String.format(
+          "('%d','%s','%s',%d,'%s','%s','%s',%d,%d,%d,%d,%.4f,%.4f,%s)",
+          r.funnelId(), esc(r.projectId()), esc(r.runTime()),
+          r.stepIndex(), esc(r.causeKind()), esc(r.causeKey()), esc(r.causeLabel()),
+          r.dropoffCohort(), r.dropoffAffected(),
+          r.converterCohort(), r.converterAffected(),
+          r.lift(), r.pValue(),
+          formatStringArray(r.exampleSessions())
+      ));
+    }
+    bulkInsert("funnel_dropoff_attribution", columnList, values, 5000);
+    log.info("Inserted {} funnel_dropoff_attribution rows", rows.size());
+  }
+
+  /**
+   * Formats a list of session IDs as a ClickHouse Array(String) literal, e.g.
+   * {@code ['sess-1','sess-2','sess-3']}. Caps at 50 entries to match the CH writer.
+   */
+  private static String formatStringArray(List<String> values) {
+    if (values == null || values.isEmpty()) {
+      return "[]";
+    }
+    int cap = Math.min(values.size(), 50);
+    var sb = new StringBuilder("[");
+    for (int i = 0; i < cap; i++) {
+      if (i > 0) sb.append(',');
+      sb.append('\'').append(esc(values.get(i))).append('\'');
+    }
+    sb.append(']');
+    return sb.toString();
   }
 
   public void bulkInsert(String table, String columnList, List<String> valueRows, int chunkSize) {

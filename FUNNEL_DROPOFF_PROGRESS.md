@@ -1,14 +1,16 @@
 # Funnel Drop-off Correlation — Implementation Progress
 
-Status: **Phases 1–13 complete + windowFunnel alignment (Phase 14) +
-attribution precompute (Phase 15) shipped on the ClickHouse compute path.**
-Bridge tables now match the `windowFunnel`-based `funnel_results` cohort
-sizes exactly for both `SESSIONS` and `UNIQUE_USERS` modes, and the
-side-panel reads ranked causes from the precomputed
-`funnel_dropoff_attribution` table — no live OTel joins at query time
-unless precomputed rows are absent for a given run. Spark compute path
-retains the original chain-walk semantics and live-join read path;
-aligning Spark is the next phase.
+Status: **Phases 1–13 + windowFunnel alignment (Phase 14) + attribution
+precompute (Phase 15) + Spark parity (Phase 16) shipped.** Bridge tables
+match the `windowFunnel`-based `funnel_results` cohort sizes exactly for
+both `SESSIONS` and `UNIQUE_USERS` modes on **both** the ClickHouse
+compute path (CH SQL) and the Spark compute path (DataFrame ops on S3
+parquet). The side-panel reads ranked causes from the precomputed
+`funnel_dropoff_attribution` table regardless of which engine ran the
+funnel — falls back to a live OTel join only when no precomputed rows
+exist for the requested run. Spark emits 5 of the 6 supported cause
+kinds; `frozen_frame` is deferred on Spark because it derives from CH's
+`session_summary` MV which isn't S3-archived.
 
 ## Goal
 
@@ -72,14 +74,41 @@ frozen frames) and surfacing a ranked cause list with per-session evidence.
   (session_state, user_state, dropoff_attribution) with Replicated + Distributed
   engines, 7d→cold, 90d→DELETE TTL.
 
-### Spark compute path
+### Spark compute path (windowFunnel-aligned + attribution precompute)
 - `backend/spark/src/main/java/org/dreamhorizon/pulsespark/FunnelComputeJob.java`
-  — now emits bridge + user rollup after `insertFunnelResults`.
+  — `emitBridgeAndRollup` rewritten. Per-session bridge now uses a
+  single-anchor chain (`min(t0)` per session) matching windowFunnel —
+  cohort numbers align with `funnel_results.UserCount` exactly. For
+  UNIQUE_USERS funnels, `computeCrossSessionUserState` runs an independent
+  chain on `user_id` grouped across sessions, tracking the session of each
+  matched step via `min_by(sid, ts)`, picking the canonical session = sid
+  of the deepest matched step. Cross-session converters are now captured
+  (matches CH's `buildUserStateInsertSql`). `SessionAttempts` =
+  `countDistinct(session_id)` across funnel events per user. Per-session
+  bridge still written for both modes to power x-ray drill-in.
+  — New `emitAttribution` method joins cohorts against S3-loaded
+  `otel_logs` (crash/anr/non_fatal) and `otel_traces` (http_5xx/http_4xx)
+  via 30s-before/60s-after window around `LastReachedAt`. Computes
+  `(StepIndex, CauseKind, CauseKey)` aggregates with lift, 50-cap
+  example sessions, PValue stub. Best-effort: failure here doesn't fail
+  the bridge work — panel falls back to live join. `frozen_frame` deferred
+  on Spark (derives from CH's session_summary MV which isn't S3-archived).
+  — New `loadOtelSignalParquet` reads
+  `s3a://pulse-otel-ingestion/{projectId}/{tableName}/year=YYYY/month=MM/day=DD/`
+  for the run window. Bucket overridable via `pulse.s3.otelBucket` system
+  property. Per-day failures skipped, not fatal.
 - `backend/spark/src/main/java/org/dreamhorizon/pulsespark/ClickHouseClient.java`
-  — new `insertFunnelSessionState` / `insertFunnelUserState` methods (5k-row
-  chunked inserts).
+  — new `insertFunnelDropoffAttribution(List<FunnelAttributionRow>)`
+  method with 5k-row chunked inserts via `bulkInsert`. Formats
+  `ExampleSessions` as a ClickHouse `Array(String)` literal with 50-cap.
+  Existing `insertFunnelSessionState` / `insertFunnelUserState` unchanged.
+- `backend/spark/src/main/java/org/dreamhorizon/pulsespark/model/FunnelAttributionRow.java`
+  NEW — record matching the CH `funnel_dropoff_attribution` row shape
+  (FunnelId, ProjectId, RunTime, StepIndex, CauseKind, CauseKey,
+  CauseLabel, DropoffCohort, DropoffAffected, ConverterCohort,
+  ConverterAffected, Lift, PValue, ExampleSessions).
 - `backend/spark/src/main/java/org/dreamhorizon/pulsespark/model/FunnelSessionState.java`
-  / `FunnelUserState.java` — records matching the CH row shapes.
+  / `FunnelUserState.java` — unchanged; CH row shapes were already correct.
 
 ### ClickHouse compute path (windowFunnel-aligned)
 - `backend/server/.../service/analytics/ClickHouseFunnelComputeDao.java`
@@ -243,15 +272,18 @@ frozen frames) and surfacing a ranked cause list with per-session evidence.
 
 ## Known follow-ups (not in scope for this PR)
 
-- Align Spark compute path with the CH `windowFunnel` semantics AND the
-  attribution precompute. Spark still uses the multi-attempt chain walker
-  for `funnel_results`, the derived-from-session_state user_state, and has
-  no `funnel_dropoff_attribution` writer. Cohort numbers from
-  Spark-computed funnels won't match CH-computed funnels for the same
-  definition, and Spark-routed runs always fall back to the live cause
-  join. Will be done in the next phase.
+- Add `frozen_frame` cause to the Spark attribution writer. CH derives it
+  from the `session_summary` materialized view which isn't S3-archived,
+  so Spark has no direct source. Options: (a) re-derive on the fly from
+  raw `otel_logs` parquet (frozen-frame events have a known PulseType /
+  attribute pattern), or (b) skip in Spark and rely on the DAO live-join
+  fallback for funnels run by Spark. Currently doing (b).
+- Add Spark integration tests. The Spark module has no test infrastructure
+  in `pom.xml` today. Adding JUnit + Spark-testing-base would let us
+  validate the new bridge/attribution methods against synthetic parquet
+  fixtures.
 - Extend bridge + attribution emission to unordered funnels (currently
-  skipped — "furthest step" is undefined for unordered).
+  skipped in BOTH engines — "furthest step" is undefined for unordered).
 - Wire the x-ray drill-in UI: when a UNIQUE_USERS user is selected from
   the drop-off panel, query `funnel_session_state` filtered by
   `(FunnelId, RunTime, UserId)` to enumerate that user's per-session
