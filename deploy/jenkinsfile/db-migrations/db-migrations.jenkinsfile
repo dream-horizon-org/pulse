@@ -1,0 +1,120 @@
+pipeline {
+    agent {
+        node { label 'ec2-pulse-deployment-fleet' }
+    }
+
+    options {
+        ansiColor('xterm')
+    }
+
+    parameters {
+        choice(
+            name: 'TARGET_DATABASE',
+            choices: ['both', 'mysql', 'clickhouse'],
+            description: 'Which database to target.'
+        )
+        choice(
+            name: 'LIQUIBASE_COMMAND',
+            choices: ['status', 'validate', 'changelogSync'],
+            description: 'status: show pending changesets | validate: check changelog syntax | changelogSync: mark all changesets as applied without executing (use for onboarding existing envs).'
+        )
+    }
+
+    environment {
+        DEPLOYMENT_SLACK_CHANNEL = credentials('DEPLOYMENT_SLACK_CHANNEL')
+    }
+
+    stages {
+
+        stage('Clear Existing Workspace') {
+            steps { cleanWs() }
+        }
+
+        stage('Checkout') {
+            steps {
+                checkout([
+                    $class: 'GitSCM',
+                    branches: [[name: '*/main']],
+                    userRemoteConfigs: [[
+                        url: 'https://github.com/dream-horizon-org/pulse.git',
+                        credentialsId: 'd11-horizon-bot'
+                    ]]
+                ])
+            }
+        }
+
+        stage('Fetch Secrets') {
+            steps {
+                sh '''
+                    APP_ENV_JSON=$(aws secretsmanager get-secret-value \
+                        --region ap-south-1 \
+                        --secret-id prod/pulseserver/appenv \
+                        --query 'SecretString' \
+                        --output text)
+
+                    echo "$APP_ENV_JSON" | \
+                        jq -r '.app_env[] | "\\(.key)=\\(.value)"' > /tmp/db-env.sh
+                    echo "Secrets loaded."
+                '''
+            }
+        }
+
+        stage('Run Command') {
+            steps {
+                sh '''
+                    set -a; source /tmp/db-env.sh; set +a
+                    cd backend/db
+
+                    MYSQL_URL="jdbc:mysql://${MYSQL_WRITER_HOST}:${MYSQL_PORT}/${MYSQL_DATABASE}?useSSL=true&requireSSL=true"
+                    CH_URL="jdbc:clickhouse://${CLICKHOUSE_HOST}:${CLICKHOUSE_PORT}/otel"
+                    GOAL="liquibase:${LIQUIBASE_COMMAND}"
+
+                    if [ "$TARGET_DATABASE" = "both" ] || [ "$TARGET_DATABASE" = "mysql" ]; then
+                        echo "=== MySQL: ${LIQUIBASE_COMMAND} ==="
+                        mvn -B $GOAL -Pmysql \
+                            -Dliquibase.mysql.url="$MYSQL_URL" \
+                            -Dliquibase.mysql.username="$MYSQL_USER" \
+                            -Dliquibase.mysql.password="$MYSQL_PASSWORD" \
+                            -Dliquibase.mysql.schema="$MYSQL_DATABASE"
+                    fi
+
+                    if [ "$TARGET_DATABASE" = "both" ] || [ "$TARGET_DATABASE" = "clickhouse" ]; then
+                        echo "=== ClickHouse: ${LIQUIBASE_COMMAND} ==="
+                        mvn -B $GOAL -Pclickhouse \
+                            -Dliquibase.clickhouse.url="$CH_URL" \
+                            -Dliquibase.clickhouse.username="$CLICKHOUSE_USERNAME" \
+                            -Dliquibase.clickhouse.password="$CLICKHOUSE_PASSWORD"
+                    fi
+                '''
+            }
+        }
+    }
+
+    post {
+        success {
+            script {
+                wrap([$class: 'BuildUser']) {
+                    def message = "<!channel> DB *${params.LIQUIBASE_COMMAND}* succeeded (${params.TARGET_DATABASE}) by ${BUILD_USER_EMAIL}\n" +
+                            "<${env.BUILD_URL}|${env.JOB_NAME} ${env.BUILD_DISPLAY_NAME}>"
+                    slackSend(teamDomain: 'dreamsports.enterprise',
+                              channel: "${env.DEPLOYMENT_SLACK_CHANNEL}",
+                              color: 'good', message: message,
+                              tokenCredentialId: 'slack-creds', botUser: true)
+                }
+            }
+        }
+        failure {
+            script {
+                def message = "<!channel> DB *${params.LIQUIBASE_COMMAND}* FAILED (${params.TARGET_DATABASE})\n" +
+                        "<${env.BUILD_URL}|${env.JOB_NAME} ${env.BUILD_DISPLAY_NAME}>"
+                slackSend(teamDomain: 'dreamsports.enterprise',
+                          channel: "${env.DEPLOYMENT_SLACK_CHANNEL}",
+                          color: 'danger', message: message,
+                          tokenCredentialId: 'slack-creds', botUser: true)
+            }
+        }
+        always {
+            sh 'rm -f /tmp/db-env.sh || true'
+        }
+    }
+}

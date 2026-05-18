@@ -76,6 +76,42 @@ pipeline {
             }
         }
 
+        stage('Run DB Migrations') {
+            steps {
+                sh '''
+                    echo "Fetching app env secrets for DB migration..."
+                    APP_ENV_JSON=$(aws secretsmanager get-secret-value \
+                        --region ap-south-1 \
+                        --secret-id prod/pulseserver/appenv \
+                        --query 'SecretString' \
+                        --output text)
+
+                    eval $(echo "$APP_ENV_JSON" | \
+                        jq -r '.app_env[] | select(.key | test("^(MYSQL|CLICKHOUSE)")) | "export \\(.key)=\\(.value | @sh)"')
+
+                    cd backend/db
+
+                    MYSQL_URL="jdbc:mysql://${MYSQL_WRITER_HOST}:${MYSQL_PORT}/${MYSQL_DATABASE}?useSSL=true&requireSSL=true"
+                    CH_URL="jdbc:clickhouse://${CLICKHOUSE_HOST}:${CLICKHOUSE_PORT}/otel"
+
+                    echo "--- MySQL migrations ---"
+                    mvn -B liquibase:update -Pmysql \
+                        -Dliquibase.mysql.url="$MYSQL_URL" \
+                        -Dliquibase.mysql.username="$MYSQL_USER" \
+                        -Dliquibase.mysql.password="$MYSQL_PASSWORD" \
+                        -Dliquibase.mysql.schema="$MYSQL_DATABASE"
+
+                    echo "--- ClickHouse migrations ---"
+                    mvn -B liquibase:update -Pclickhouse \
+                        -Dliquibase.clickhouse.url="$CH_URL" \
+                        -Dliquibase.clickhouse.username="$CLICKHOUSE_USERNAME" \
+                        -Dliquibase.clickhouse.password="$CLICKHOUSE_PASSWORD"
+
+                    echo "=== Migrations complete ==="
+                '''
+            }
+        }
+
         stage('Terraform Apply') {
             steps {
                 sh '''

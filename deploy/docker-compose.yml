@@ -12,7 +12,7 @@ services:
       - MYSQL_PASSWORD=${MYSQL_PASSWORD:-pulse_password}
     volumes:
       - mysql-data:/var/lib/mysql
-      - ../backend/db/dev/mysql/mysql-init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      # mysql-init.sql removed: schema is now managed by pulse-db-migrate (Liquibase)
     networks:
       - pulse-network
     restart: unless-stopped
@@ -102,7 +102,7 @@ services:
       - CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1
     volumes:
       - clickhouse-data:/var/lib/clickhouse
-      - ../backend/db/dev/clickhouse:/docker-entrypoint-initdb.d/:ro
+      # dev/clickhouse init mount removed — pulse-db-migrate (Liquibase) owns all schema initialization
     networks:
       - pulse-network
     restart: unless-stopped
@@ -113,26 +113,38 @@ services:
       retries: 5
       start_period: 30s
 
-  # ClickHouse Table Initializer (runs once to ensure tables exist)
-  clickhouse-init:
-    image: clickhouse/clickhouse-server:25.4
-    container_name: pulse-clickhouse-init
-    command: /bin/bash /scripts/init-clickhouse.sh
-    volumes:
-      - ./scripts/init-clickhouse.sh:/scripts/init-clickhouse.sh:ro
-      - ../backend/db/dev/clickhouse:/init/clickhouse:ro
+  # pulse-db-migrate: Liquibase-based schema migrations for MySQL and ClickHouse.
+  # Replaces the old clickhouse-init service and mysql-init.sql bootstrap.
+  pulse-db-migrate:
+    image: maven:3.9-eclipse-temurin-17
+    container_name: pulse-db-migrate
+    command: >
+      /bin/bash -c "
+        cd /workspace &&
+        echo '--- MySQL migrations ---' &&
+        mvn -B liquibase:update -Pmysql -Dliquibase.mysql.url=\"jdbc:mysql://mysql:3306/$${MYSQL_DATABASE:-pulse_db}?useSSL=false&allowPublicKeyRetrieval=true\" -Dliquibase.mysql.username=\"root\" -Dliquibase.mysql.password=\"$${MYSQL_ROOT_PASSWORD:-pulse_root_password}\" -Dliquibase.mysql.schema=\"$${MYSQL_DATABASE:-pulse_db}\" &&
+        echo '--- ClickHouse migrations ---' &&
+        mvn -B liquibase:update -Pclickhouse -Dliquibase.clickhouse.url=\"jdbc:clickhouse://clickhouse:8123/$${OTEL_CLICKHOUSE_DATABASE:-otel}\" -Dliquibase.clickhouse.username=\"$${OTEL_CLICKHOUSE_USER:-pulse_user}\" -Dliquibase.clickhouse.password=\"$${OTEL_CLICKHOUSE_PASSWORD:-pulse_password}\" &&
+        echo '=== All migrations complete ==='
+      "
     environment:
-      - CLICKHOUSE_HOST=clickhouse
-      - CLICKHOUSE_USER=${OTEL_CLICKHOUSE_USER:-pulse_user}
-      - CLICKHOUSE_PASSWORD=${OTEL_CLICKHOUSE_PASSWORD:-pulse_password}
-      - CLICKHOUSE_DB=${OTEL_CLICKHOUSE_DATABASE:-otel}
-    networks:
-      - pulse-network
+      - MYSQL_DATABASE=${MYSQL_DATABASE:-pulse_db}
+      - MYSQL_USER=${MYSQL_USER:-pulse_user}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD:-pulse_password}
+      - OTEL_CLICKHOUSE_DATABASE=${OTEL_CLICKHOUSE_DATABASE:-otel}
+      - OTEL_CLICKHOUSE_USER=${OTEL_CLICKHOUSE_USER:-pulse_user}
+      - OTEL_CLICKHOUSE_PASSWORD=${OTEL_CLICKHOUSE_PASSWORD:-pulse_password}
+      - MAVEN_OPTS=-Dmaven.repo.local=/root/.m2/repository
+    volumes:
+      - ../backend/db:/workspace:ro
+      - maven-m2-cache:/root/.m2
     depends_on:
+      mysql:
+        condition: service_healthy
       clickhouse:
         condition: service_healthy
-      kafka:
-        condition: service_healthy
+    networks:
+      - pulse-network
     restart: "no"
 
   # Kafka (KRaft mode, no Zookeeper)
@@ -349,12 +361,6 @@ services:
     networks:
       - pulse-network
     restart: unless-stopped
-    healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:8000/health" ]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 15s
 
   # Pulse UI Service (React Frontend)
   pulse-ui:
@@ -588,8 +594,10 @@ services:
         condition: service_healthy
       openfga-init:
         condition: service_completed_successfully
+      pulse-db-migrate:
+        condition: service_completed_successfully
       pulse-ai-agent:
-        condition: service_healthy
+        condition: service_started
     restart: unless-stopped
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:8080/healthcheck" ]
@@ -677,5 +685,7 @@ volumes:
   kafka-data:
     driver: local
   minio-data:
+    driver: local
+  maven-m2-cache:
     driver: local
 
