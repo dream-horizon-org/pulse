@@ -11,7 +11,7 @@
     "e2e:ch": "playwright test --config e2e/playwright.ch.config.ts"
   },
   "dependencies": {
-    "@dreamhorizonorg/pulse-web": "0.0.2",
+    "@dreamhorizonorg/pulse-web": "workspace:*",
     "next": "^15.3.1",
     "react": "^18.3.0",
     "react-dom": "^18.3.0"

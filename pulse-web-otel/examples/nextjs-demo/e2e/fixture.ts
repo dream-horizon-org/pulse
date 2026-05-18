@@ -120,6 +120,24 @@ export function getOtlpSpanStatusCode(span: OtlpSpan): number | undefined {
   return typeof c === "number" && Number.isFinite(c) ? c : undefined;
 }
 
+export function findAllSpans(
+  captured: CapturedRequest[],
+  pulseType: string,
+): OtlpSpan[] {
+  const out: OtlpSpan[] = [];
+  for (const c of captured) {
+    if (c.type !== "traces") continue;
+    for (const rs of c.body.resourceSpans ?? []) {
+      for (const ss of rs.scopeSpans ?? []) {
+        for (const sp of ss.spans ?? []) {
+          if (getAttr(sp.attributes, "pulse.type") === pulseType) out.push(sp);
+        }
+      }
+    }
+  }
+  return out;
+}
+
 /**
  * HTTP client spans: `pulse.type` is `network.<statusCode>`.
  * Prefix-matches `network.` but excludes `network.change`.
@@ -223,6 +241,7 @@ export async function attachSdkConfigStub(
 export type OtlpFixture = {
   captured: CapturedRequest[];
   waitForLog(pulseType: string, timeoutMs?: number): Promise<OtlpLogRecord>;
+  waitForSpan(pulseType: string, timeoutMs?: number): Promise<OtlpSpan>;
   reset(): void;
 };
 
@@ -236,6 +255,8 @@ export const test = base.extend<{ otlp: OtlpFixture }>({
       captured,
       waitForLog: (t, ms = 10_000) =>
         pollUntil(() => findAllLogs(captured, t)[0], ms, `log(pulse.type="${t}")`),
+      waitForSpan: (t, ms = 10_000) =>
+        pollUntil(() => findAllSpans(captured, t)[0], ms, `span(pulse.type="${t}")`),
       reset: () => { captured.length = 0; },
     });
   },

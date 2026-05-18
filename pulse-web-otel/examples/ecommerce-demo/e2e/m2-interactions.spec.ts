@@ -1,3 +1,4 @@
+import type { Page } from "@playwright/test";
 import {
   test,
   expect,
@@ -14,6 +15,24 @@ import {
   setUserId,
   waitForInteractionCount,
 } from "./interaction-test-helpers";
+
+/** Flush ClickEventBuffer by simulating tab backgrounding (mirrors m3-clicks.spec.ts). */
+async function flushClickBuffer(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    Object.defineProperty(document, "visibilityState", {
+      get: () => "hidden",
+      configurable: true,
+    });
+    document.dispatchEvent(new Event("visibilitychange"));
+  });
+  await page.waitForTimeout(400);
+  await page.evaluate(() => {
+    Object.defineProperty(document, "visibilityState", {
+      get: () => "visible",
+      configurable: true,
+    });
+  });
+}
 
 async function expectNoInteractionSpans(
   captured: unknown[],
@@ -902,6 +921,94 @@ test.describe("@M2 interactions edge cases", () => {
     expect(categories).toContain("Excellent");
     expect(categories).toContain("Good");
     expect(categories).toContain("Poor");
+  });
+
+  test("@click-bridge single DOM click auto-advances interaction without manual trackEvent", async ({
+    page,
+    otlp,
+  }) => {
+    // Seed a single-step interaction whose step name matches the click log body.
+    await seedInteractionConfig(page, [
+      makeConfig({
+        id: "click_bridge_single",
+        name: "Click Bridge Single",
+        events: [{ name: "app.widget.click" }],
+      }),
+    ]);
+    await gotoAndWaitInteractionInit(page);
+
+    // Real DOM click → ClicksInstrumentation buffers an app.click log.
+    await page.getByRole("link", { name: /shop now/i }).click();
+    // Flush buffer so the log record flows through InteractionLogProcessor.
+    await flushClickBuffer(page);
+
+    const span = await otlp.waitForSpan("interaction", 15_000);
+    expect(getAttr(span.attributes, "pulse.interaction.config.id")).toBe(
+      expectedConfigId("click_bridge_single"),
+    );
+    expect(getAttr(span.attributes, "pulse.interaction.is_error")).toBe(false);
+  });
+
+  test("@click-bridge-rage rage DOM clicks emit single app.click that advances interaction", async ({
+    page,
+    otlp,
+  }) => {
+    await seedInteractionConfig(page, [
+      makeConfig({
+        id: "click_bridge_rage",
+        name: "Click Bridge Rage",
+        events: [{ name: "app.widget.click" }],
+      }),
+    ]);
+    await gotoAndWaitInteractionInit(page);
+
+    // Rapid triple-click → rage buffer collapses to one app.click log.
+    const shopLink = page.getByRole("link", { name: /shop now/i });
+    await shopLink.evaluate((el) => {
+      for (let i = 0; i < 3; i += 1) {
+        el.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+      }
+    });
+    await flushClickBuffer(page);
+
+    const span = await otlp.waitForSpan("interaction", 15_000);
+    expect(getAttr(span.attributes, "pulse.interaction.config.id")).toBe(
+      expectedConfigId("click_bridge_rage"),
+    );
+    expect(getAttr(span.attributes, "pulse.interaction.is_error")).toBe(false);
+    // Confirm exactly one interaction span emitted (rage collapse).
+    const spans = findAllSpans(otlp.captured, "interaction").filter(
+      (s) =>
+        getAttr(s.attributes, "pulse.interaction.config.id") ===
+        expectedConfigId("click_bridge_rage"),
+    );
+    expect(spans.length).toBe(1);
+  });
+
+  test("@click-bridge click on unrelated step does not advance interaction", async ({
+    page,
+    otlp,
+  }) => {
+    await seedInteractionConfig(page, [
+      makeConfig({
+        id: "click_bridge_no_match",
+        name: "Click Bridge No Match",
+        events: [{ name: "checkout_step_1" }, { name: "checkout_step_2" }],
+        thresholdInMs: 700,
+      }),
+    ]);
+    await gotoAndWaitInteractionInit(page);
+
+    // Emit first step manually, then DOM click (app.widget.click body — not checkout_step_2).
+    await emitEvent(page, "checkout_step_1");
+    await page.getByRole("link", { name: /shop now/i }).click();
+    await flushClickBuffer(page);
+    await page.waitForTimeout(900);
+
+    // Timeout error span (not a sequence_violation from the click).
+    const span = await otlp.waitForSpan("interaction", 15_000);
+    expect(getAttr(span.attributes, "pulse.interaction.is_error")).toBe(true);
+    expect(getAttr(span.attributes, "pulse.interaction.error.type")).toBe("timeout");
   });
 
   test("shared prefix branching: e1,e2,e4 is non-terminal; e1,e2,e5 and e1,e2,e3 terminal", async ({

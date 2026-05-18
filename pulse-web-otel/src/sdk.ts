@@ -69,6 +69,7 @@ import {
 } from "./constants/disk-buffer";
 import { resolveBeforeSend } from "./before-send";
 import { InteractionInstrumentation } from "./instrumentations/interaction";
+import { InteractionLogProcessor } from "./processors/interaction-log-processor";
 import type { PulseAttributes } from "./types/attributes";
 
 class PulseSDK implements SdkContext {
@@ -94,6 +95,7 @@ class PulseSDK implements SdkContext {
   gate: FeatureGate = new FeatureGate(DEFAULT_SDK_CONFIG);
   private _providerCleanup: () => void = () => {};
   private interactionInstrumentation?: InteractionInstrumentation;
+  private readonly interactionLogProcessor = new InteractionLogProcessor();
 
   /** Promise for in-flight {@link init}; cleared when {@code finishInit} settles. */
   private _initSettled: Promise<void> | null = null;
@@ -342,6 +344,7 @@ class PulseSDK implements SdkContext {
     const logProcessors = [
       ...(ingressDebugProc ? [ingressDebugProc] : []),
       this.globalAttrsProcessor,
+      this.interactionLogProcessor,
       filterProcessor,
       ...(preBatchDebugProc ? [preBatchDebugProc] : []),
     ];
@@ -460,6 +463,9 @@ class PulseSDK implements SdkContext {
       this.interactionInstrumentation,
       InstrumentationKeys.INTERACTIONS,
     );
+    this.interactionLogProcessor.setInstrumentation(
+      this.interactionInstrumentation,
+    );
   }
 
   private emitInstallationStartIfNeeded(): void {
@@ -486,6 +492,7 @@ class PulseSDK implements SdkContext {
       this._pagehideListener = undefined;
     }
 
+    this.interactionLogProcessor.setInstrumentation(null);
     this._providerCleanup();
     this.registry?.uninstallAll();
     this.interactionInstrumentation = undefined;

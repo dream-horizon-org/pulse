@@ -19,12 +19,14 @@ import {
   getAttr,
   findAllLogs,
   findAllNetworkSpans,
+  findAllSpans,
   getOtlpSpanStatusCode,
   getResourceAttr,
   type OtlpSpan,
 } from "./fixture";
 import {
   seedPulseSdkConfig,
+  seedInteractionConfig,
   minimalPulseSdkConfig,
 } from "./test-sdk-config";
 
@@ -1087,5 +1089,118 @@ test.describe("@M4 network — Next.js demo", () => {
     for (const span of spans) {
       expect(getAttr(span.attributes, "pulse.type")).toBe("network.200");
     }
+  });
+});
+
+// ─── ISS-I12: click-bridge interactions in Next.js App Router ─────────────────
+
+/** Flush ClickEventBuffer by simulating tab backgrounding. */
+async function flushClickBuffer(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    Object.defineProperty(document, "visibilityState", {
+      get: () => "hidden",
+      configurable: true,
+    });
+    document.dispatchEvent(new Event("visibilitychange"));
+  });
+  await page.waitForTimeout(400);
+  await page.evaluate(() => {
+    Object.defineProperty(document, "visibilityState", {
+      get: () => "visible",
+      configurable: true,
+    });
+  });
+}
+
+function makeInteractionConfig(opts: {
+  id: number;
+  name: string;
+  events: Array<{ name: string }>;
+  thresholdInMs?: number;
+}) {
+  return {
+    id: opts.id,
+    name: opts.name,
+    description: opts.name,
+    events: opts.events.map((e) => ({ name: e.name, isBlacklisted: false, props: null })),
+    thresholdInMs: opts.thresholdInMs ?? 600,
+    uptimeLowerLimitInMs: 120,
+    uptimeMidLimitInMs: 240,
+    uptimeUpperLimitInMs: 360,
+    globalBlacklistedEvents: [],
+  };
+}
+
+/** Navigate and wait for SDK + interaction feature to initialise. */
+async function gotoAndWaitInit(page: Page, otlp: { waitForLog: (t: string, ms?: number) => Promise<unknown> }): Promise<void> {
+  await page.goto("/");
+  await otlp.waitForLog("session.start", 10_000);
+  // Give InteractionFeature.init() a tick to resolve the config fetch and register trackers.
+  await page.waitForTimeout(300);
+}
+
+test.describe("@ISS-I12 click-bridge interactions (Next.js App Router)", () => {
+  test("@click-bridge DOM click on product card auto-advances single-step interaction", async ({
+    page,
+    otlp,
+  }) => {
+    await seedInteractionConfig(page, [
+      makeInteractionConfig({
+        id: 101,
+        name: "Product Click Flow",
+        events: [{ name: "app.widget.click" }],
+      }),
+    ]);
+    await gotoAndWaitInit(page, otlp);
+
+    // Click a featured product card link (good click target → app.click log emitted).
+    await page.locator("a[href^='/products/']").first().click();
+    await flushClickBuffer(page);
+
+    const span = await otlp.waitForSpan("interaction", 15_000);
+    expect(getAttr(span.attributes, "pulse.interaction.config.id")).toBe("101");
+    expect(getAttr(span.attributes, "pulse.interaction.is_error")).toBe(false);
+  });
+
+  test("@click-bridge manual trackEvent advances interaction in Next.js", async ({
+    page,
+    otlp,
+  }) => {
+    await seedInteractionConfig(page, [
+      makeInteractionConfig({
+        id: 102,
+        name: "Product Viewed Flow",
+        events: [{ name: "product_viewed" }],
+      }),
+    ]);
+    await gotoAndWaitInit(page, otlp);
+
+    // product-card onClick fires Pulse.trackEvent("product_viewed", ...).
+    await page.locator("a[href^='/products/']").first().click();
+
+    const span = await otlp.waitForSpan("interaction", 15_000);
+    expect(getAttr(span.attributes, "pulse.interaction.config.id")).toBe("102");
+    expect(getAttr(span.attributes, "pulse.interaction.is_error")).toBe(false);
+  });
+
+  test("@click-bridge interaction config unavailable → no interaction span, SDK still running", async ({
+    page,
+    otlp,
+  }) => {
+    await page.route("**/v1/interaction-configs/", async (route) => {
+      await route.fulfill({ status: 503, contentType: "application/json", body: "{}" });
+    });
+    await page.goto("/");
+    await otlp.waitForLog("session.start", 10_000);
+    otlp.reset();
+
+    await page.locator("a[href^='/products/']").first().click();
+    await flushClickBuffer(page);
+    await page.waitForTimeout(1500);
+
+    expect(findAllSpans(otlp.captured, "interaction").length).toBe(0);
+    // SDK still runs — click log emitted.
+    const clickLogs = findAllLogs(otlp.captured, "app.click");
+    expect(clickLogs.length).toBeGreaterThan(0);
   });
 });
