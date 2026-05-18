@@ -857,7 +857,7 @@ public class AuthService {
           .getCustomException("Refresh token has expired. Please log in again."));
     }
 
-    return Single.defer(() -> {
+    return Single.<GetAccessTokenFromRefreshTokenResponseDto>defer(() -> {
       Claims claims = jwtService.verifyToken(refreshToken);
       String userId = claims.getSubject();
       String email = claims.get(CLAIM_EMAIL, String.class);
@@ -877,37 +877,54 @@ public class AuthService {
             }
             return Optional.<String>empty();
           })
-      .map(systemRoleOpt -> {
+      .flatMap(systemRoleOpt -> {
           String systemRole = systemRoleOpt.orElse(null);
+          boolean isSystemRole = systemRole != null;
 
           // System-role tenant switching: honour request-body tenantId only when the
           // live OpenFGA check confirms a system role. Regular users cannot use this
           // field to scope their JWT to a tenant they do not belong to.
-          boolean isSystemRole = systemRole != null;
-          String effectiveWorkspaceId = (isSystemRole
+          boolean wantsTenantSwitch = isSystemRole
               && requestedTenantId != null
-              && !requestedTenantId.isBlank())
-              ? requestedTenantId : tokenTenantId;
+              && !requestedTenantId.isBlank();
 
-          String newAccessToken = isSystemRole
-              ? jwtService.generateAccessToken(userId, email, name, effectiveWorkspaceId, systemRole)
-              : jwtService.generateAccessToken(userId, email, name, effectiveWorkspaceId);
+          if (!wantsTenantSwitch) {
+            return buildRefreshResponse(userId, email, name, tokenTenantId, systemRole);
+          }
 
-          String newRefreshToken = jwtService.generateRefreshToken(userId, email, name, effectiveWorkspaceId);
-
-          log.info("Successfully refreshed access token for user: {}, systemRole: {}", userId, systemRole);
-
-          return GetAccessTokenFromRefreshTokenResponseDto.builder()
-              .accessToken(newAccessToken)
-              .refreshToken(newRefreshToken)
-              .tokenType(TOKEN_TYPE_BEARER)
-              .expiresIn(JwtService.ACCESS_TOKEN_VALIDITY_SECONDS)
-              .systemRole(systemRole)
-              .build();
+          // Verify the requested tenant actually exists before baking it into the JWT.
+          // If not found, fall back to the token's original tenantId — refresh still succeeds.
+          return tenantDao.getTenantById(requestedTenantId)
+              .map(tenant -> requestedTenantId)
+              .defaultIfEmpty(tokenTenantId)
+              .flatMap(effectiveWorkspaceId -> {
+                if (!effectiveWorkspaceId.equals(requestedTenantId)) {
+                  log.warn(
+                      "Token refresh: requested tenantId={} not found, falling back to tokenTenantId={}; userId={}",
+                      requestedTenantId, tokenTenantId, userId);
+                }
+                return buildRefreshResponse(userId, email, name, effectiveWorkspaceId, systemRole);
+              });
       });
     });
   }
 
+
+  private Single<GetAccessTokenFromRefreshTokenResponseDto> buildRefreshResponse(
+      String userId, String email, String name, String effectiveWorkspaceId, String systemRole) {
+    String newAccessToken = systemRole != null
+        ? jwtService.generateAccessToken(userId, email, name, effectiveWorkspaceId, systemRole)
+        : jwtService.generateAccessToken(userId, email, name, effectiveWorkspaceId);
+    String newRefreshToken = jwtService.generateRefreshToken(userId, email, name, effectiveWorkspaceId);
+    log.info("Successfully refreshed access token for user: {}, systemRole: {}", userId, systemRole);
+    return Single.just(GetAccessTokenFromRefreshTokenResponseDto.builder()
+        .accessToken(newAccessToken)
+        .refreshToken(newRefreshToken)
+        .tokenType(TOKEN_TYPE_BEARER)
+        .expiresIn(JwtService.ACCESS_TOKEN_VALIDITY_SECONDS)
+        .systemRole(systemRole)
+        .build());
+  }
 
   private String extractTokenFromHeader(String authorization) {
     if (authorization == null || authorization.trim().isEmpty()) {

@@ -6,6 +6,8 @@ import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtException;
 import io.reactivex.rxjava3.core.Single;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotNull;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
@@ -93,19 +95,14 @@ public class AdminTenantsController {
   @Consumes(MediaType.APPLICATION_JSON)
   public CompletionStage<Response<CreateAdminTenantResponse>> createTenantWithProject(
       @HeaderParam(HttpHeaders.AUTHORIZATION) String authorization,
-      CreateAdminTenantRequest body) {
+      @NotNull @Valid CreateAdminTenantRequest body) {
     return Single.defer(() -> {
+      if (body == null || body.getTenantName() == null || body.getTenantName().isBlank()) {
+        return Single.error(ServiceError.INCORRECT_OR_MISSING_BODY_PARAMETERS.getException());
+      }
+
       OpenFgaService fga = requireOpenFga();
       String callerId = verifiedCallerUserId(authorization);
-
-      if (body == null || body.getTenantName() == null || body.getTenantName().isBlank()) {
-        return Single.error(
-            ServiceError.INCORRECT_OR_MISSING_BODY_PARAMETERS.getCustomException("tenantName is required"));
-      }
-      if (body.getProjectName() == null || body.getProjectName().isBlank()) {
-        return Single.error(
-            ServiceError.INCORRECT_OR_MISSING_BODY_PARAMETERS.getCustomException("projectName is required"));
-      }
 
       return Single.zip(
               fga.isSuperAdmin(callerId),

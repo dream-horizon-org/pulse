@@ -1096,6 +1096,8 @@ class AuthServiceTest {
       when(jwtService.isTokenExpired("refresh-sa")).thenReturn(false);
       when(jwtService.verifyToken("refresh-sa")).thenReturn(claims);
       when(openFgaService.isSuperAdmin("user-sa")).thenReturn(Single.just(true));
+      when(tenantDao.getTenantById("tenant-new")).thenReturn(
+          Maybe.just(Tenant.builder().tenantId("tenant-new").name("New Tenant").build()));
       when(jwtService.generateAccessToken(
           eq("user-sa"), eq("sa@example.com"), eq("SA User"), eq("tenant-new"), eq("superadmin")))
           .thenReturn("new-access-sa");
@@ -1121,6 +1123,8 @@ class AuthServiceTest {
       when(jwtService.isTokenExpired("refresh-iv")).thenReturn(false);
       when(jwtService.verifyToken("refresh-iv")).thenReturn(claims);
       when(openFgaService.isInternalViewer("user-iv")).thenReturn(Single.just(true));
+      when(tenantDao.getTenantById("tenant-new")).thenReturn(
+          Maybe.just(Tenant.builder().tenantId("tenant-new").name("New Tenant").build()));
       when(jwtService.generateAccessToken(
           eq("user-iv"), eq("iv@example.com"), eq("IV User"), eq("tenant-new"), eq("internal_viewer")))
           .thenReturn("new-access-iv");
