@@ -1,7 +1,7 @@
 /** Interval for GET /v1/ai-rca/job/{jobId} while job is in flight. */
 export const RCA_JOB_POLL_MS = 3000 as const;
 
-/** Background POST to detect cache changes or async activity while viewing a completed report. */
+/** Background GET /v1/ai-rca/report peek to detect cache changes or async activity while viewing a completed report. */
 export const RCA_STALE_CACHE_POLL_MS = 30_000 as const;
 
 /** RCA report types supported by the async job system. */

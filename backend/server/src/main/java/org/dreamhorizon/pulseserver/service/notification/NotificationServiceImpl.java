@@ -8,16 +8,55 @@ import io.reactivex.rxjava3.core.Observable;
 import io.reactivex.rxjava3.core.Single;
 import io.vertx.rxjava3.sqlclient.Row;
 import java.time.Instant;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.config.ApplicationConfig;
 import org.dreamhorizon.pulseserver.constant.NotificationConstants;
-import org.dreamhorizon.pulseserver.dao.notification.*;
+import org.dreamhorizon.pulseserver.dao.notification.ChannelEventMappingDao;
+import org.dreamhorizon.pulseserver.dao.notification.EmailSuppressionDao;
+import org.dreamhorizon.pulseserver.dao.notification.NotificationChannelDao;
+import org.dreamhorizon.pulseserver.dao.notification.NotificationLogDao;
+import org.dreamhorizon.pulseserver.dao.notification.NotificationTemplateDao;
 import org.dreamhorizon.pulseserver.error.ServiceError;
-import org.dreamhorizon.pulseserver.resources.notification.models.*;
-import org.dreamhorizon.pulseserver.service.notification.models.*;
+import org.dreamhorizon.pulseserver.resources.notification.models.BatchCreateMappingRequestDto;
+import org.dreamhorizon.pulseserver.resources.notification.models.ChannelEventMappingDto;
+import org.dreamhorizon.pulseserver.resources.notification.models.CreateChannelRequestDto;
+import org.dreamhorizon.pulseserver.resources.notification.models.CreateMappingRequestDto;
+import org.dreamhorizon.pulseserver.resources.notification.models.CreateTemplateRequestDto;
+import org.dreamhorizon.pulseserver.resources.notification.models.NotificationBatchResponseDto;
+import org.dreamhorizon.pulseserver.resources.notification.models.NotificationChannelDto;
+import org.dreamhorizon.pulseserver.resources.notification.models.NotificationLogDto;
+import org.dreamhorizon.pulseserver.resources.notification.models.NotificationLogsResponseDto;
+import org.dreamhorizon.pulseserver.resources.notification.models.NotificationResultDto;
+import org.dreamhorizon.pulseserver.resources.notification.models.NotificationTemplateDto;
+import org.dreamhorizon.pulseserver.resources.notification.models.RecipientsDto;
+import org.dreamhorizon.pulseserver.resources.notification.models.SendNotificationRequestDto;
+import org.dreamhorizon.pulseserver.resources.notification.models.UpdateChannelRequestDto;
+import org.dreamhorizon.pulseserver.resources.notification.models.UpdateMappingRequestDto;
+import org.dreamhorizon.pulseserver.resources.notification.models.UpdateTemplateRequestDto;
+import org.dreamhorizon.pulseserver.service.notification.models.ChannelConfig;
+import org.dreamhorizon.pulseserver.service.notification.models.ChannelEventMapping;
+import org.dreamhorizon.pulseserver.service.notification.models.ChannelType;
+import org.dreamhorizon.pulseserver.service.notification.models.EmailTemplateBody;
+import org.dreamhorizon.pulseserver.service.notification.models.NotificationChannel;
+import org.dreamhorizon.pulseserver.service.notification.models.NotificationLog;
+import org.dreamhorizon.pulseserver.service.notification.models.NotificationMessage;
+import org.dreamhorizon.pulseserver.service.notification.models.NotificationStatus;
+import org.dreamhorizon.pulseserver.service.notification.models.NotificationTemplate;
+import org.dreamhorizon.pulseserver.service.notification.models.SlackTemplateBody;
+import org.dreamhorizon.pulseserver.service.notification.models.TeamsTemplateBody;
+import org.dreamhorizon.pulseserver.service.notification.models.TemplateBody;
 import org.dreamhorizon.pulseserver.service.notification.provider.NotificationProvider;
 import org.dreamhorizon.pulseserver.service.notification.provider.NotificationProviderFactory;
 import org.dreamhorizon.pulseserver.service.notification.queue.SqsNotificationQueue;
@@ -107,10 +146,10 @@ public class NotificationServiceImpl implements NotificationService {
 
     return mappingDao
         .getActiveMappingWithChannelById(request.getMappingId())
-            .switchIfEmpty(
-                    Maybe.defer(() -> Maybe.error(
-                            ServiceError.NOT_FOUND.getCustomException(
-                                    "Mapping not found or inactive for id: " + request.getMappingId()))))
+        .switchIfEmpty(
+            Maybe.defer(() -> Maybe.error(
+                ServiceError.NOT_FOUND.getCustomException(
+                    "Mapping not found or inactive for id: " + request.getMappingId()))))
         .toSingle()
         .flatMap(
             row -> {
@@ -150,24 +189,24 @@ public class NotificationServiceImpl implements NotificationService {
 
               return templateDao
                   .getTemplateByEventNameAndChannel(eventName, channelType)
-                      .switchIfEmpty(
-                              Maybe.defer(() -> Maybe.error(
-                                      ServiceError.INCORRECT_OR_MISSING_BODY_PARAMETERS.getCustomException(
-                                              "No template found for event: "
-                                                      + eventName
-                                                      + " and channel: "
-                                                      + channelType))))
+                  .switchIfEmpty(
+                      Maybe.defer(() -> Maybe.error(
+                          ServiceError.INCORRECT_OR_MISSING_BODY_PARAMETERS.getCustomException(
+                              "No template found for event: "
+                                  + eventName
+                                  + " and channel: "
+                                  + channelType))))
                   .toSingle()
                   .flatMap(
                       template ->
                           dispatchToRecipients(
-                                  async,
-                                  projectId,
-                                  request,
-                                  channel,
-                                  template,
-                                  idempotencyKey,
-                                  new ArrayList<>(allRecipients))
+                              async,
+                              projectId,
+                              request,
+                              channel,
+                              template,
+                              idempotencyKey,
+                              new ArrayList<>(allRecipients))
                               .map(results -> buildBatchResponse(idempotencyKey, results)));
             });
   }
@@ -316,9 +355,9 @@ public class NotificationServiceImpl implements NotificationService {
     Map<String, Object> effectiveParams = mergeDefaultNotificationParams(request.getParams());
     return async
         ? enqueueRecipients(
-            projectId, request, channel, template, idempotencyKey, recipients, effectiveParams)
+        projectId, request, channel, template, idempotencyKey, recipients, effectiveParams)
         : sendToRecipients(
-            projectId, request, channel, template, idempotencyKey, recipients, effectiveParams);
+        projectId, request, channel, template, idempotencyKey, recipients, effectiveParams);
   }
 
   private Single<List<NotificationResultDto>> sendToRecipients(
@@ -419,8 +458,8 @@ public class NotificationServiceImpl implements NotificationService {
                             result.isSuccess()
                                 ? NotificationStatus.SENT
                                 : (result.isPermanentFailure()
-                                    ? NotificationStatus.PERMANENT_FAILURE
-                                    : NotificationStatus.FAILED);
+                                ? NotificationStatus.PERMANENT_FAILURE
+                                : NotificationStatus.FAILED);
 
                         if (result.isSuccess()) {
                           log.info(
@@ -561,7 +600,7 @@ public class NotificationServiceImpl implements NotificationService {
                                           })));
 
               return withSuppressionCheck(
-                      projectId, recipient, channelType, processingChain)
+                  projectId, recipient, channelType, processingChain)
                   .onErrorReturn(
                       e -> {
                         log.error(
@@ -652,6 +691,10 @@ public class NotificationServiceImpl implements NotificationService {
   }
 
   private void validateChannelProjectId(ChannelType channelType, String projectId) {
+    if (channelType == ChannelType.EMAIL) {
+      throw ServiceError.INCORRECT_OR_MISSING_BODY_PARAMETERS.getCustomException(
+          "EMAIL channels are managed by the platform");
+    }
     boolean projectScoped =
         channelType == ChannelType.SLACK
             || channelType == ChannelType.TEAMS;
@@ -659,10 +702,6 @@ public class NotificationServiceImpl implements NotificationService {
     if (projectScoped && (projectId == null || projectId.isBlank())) {
       throw ServiceError.INCORRECT_OR_MISSING_BODY_PARAMETERS.getCustomException(
           channelType + " channels require a projectId");
-    }
-    if (channelType == ChannelType.EMAIL && projectId != null && !projectId.isBlank()) {
-      throw ServiceError.INCORRECT_OR_MISSING_BODY_PARAMETERS.getCustomException(
-          "EMAIL channels must not have a projectId (they are shared)");
     }
   }
 
@@ -705,7 +744,27 @@ public class NotificationServiceImpl implements NotificationService {
 
   @Override
   public Single<Boolean> deleteChannel(Long channelId) {
-    return channelDao.deleteChannel(channelId).map(count -> count > 0);
+    return channelDao
+        .getChannelById(channelId)
+        .switchIfEmpty(
+            Maybe.error(ServiceError.NOT_FOUND.getCustomException("Channel not found")))
+        .toSingle()
+        .flatMap(
+            existing ->
+                channelDao
+                    .updateChannel(
+                        channelId,
+                        NotificationChannel.builder()
+                            .name(existing.getName())
+                            .config(existing.getConfig())
+                            .isActive(false)
+                            .build())
+                    .flatMap(
+                        channelCount ->
+                            mappingDao
+                                .updateMappingsActiveByChannelId(
+                                    channelId, existing.getProjectId(), false)
+                                .map(mappingCount -> channelCount > 0 || mappingCount > 0)));
   }
 
   // ==================== Templates (global) ====================
@@ -794,15 +853,15 @@ public class NotificationServiceImpl implements NotificationService {
 
   @Override
   public Single<List<ChannelEventMappingDto>> createDefaultPlatformMappings(String projectId) {
-    BatchCreateMappingRequestDto batchRequest = BatchCreateMappingRequestDto.builder()
-        .mappings(NotificationConstants.Platform.DEFAULT_MAPPINGS.stream()
+    BatchCreateMappingRequestDto batchRequest = new BatchCreateMappingRequestDto();
+    batchRequest.setMappings(
+        NotificationConstants.Platform.DEFAULT_MAPPINGS.stream()
             .map(mapping -> CreateMappingRequestDto.builder()
                 .channelId(NotificationConstants.Platform.DEFAULT_CHANNEL_ID)
                 .eventName(mapping.eventName())
                 .recipient(mapping.recipient())
                 .build())
-            .toList())
-        .build();
+            .toList());
     return createMappingsBatch(projectId, batchRequest);
   }
 
@@ -813,20 +872,28 @@ public class NotificationServiceImpl implements NotificationService {
         .flatMap(
             mappings ->
                 Observable.fromIterable(mappings)
-                    .flatMapSingle(this::enrichMappingDto)
+                    .filter(mapping -> Boolean.TRUE.equals(mapping.getIsActive()))
+                    .flatMapMaybe(
+                        mapping ->
+                            channelDao
+                                .getChannelById(mapping.getChannelId())
+                                .filter(channel -> Boolean.TRUE.equals(channel.getIsActive()))
+                                .flatMapSingle(
+                                    channel -> enrichMappingDto(mapping, channel)))
                     .toList());
   }
 
   @Override
   public Single<ChannelEventMappingDto> createMapping(
       String projectId, CreateMappingRequestDto request) {
-    return validateMappingEventName(request.getChannelId(), request.getEventName())
+    Long channelId = resolveMappingChannelId(request);
+    return validateMappingEventName(channelId, request.getEventName())
         .flatMap(
             ignored -> {
               ChannelEventMapping mapping =
                   ChannelEventMapping.builder()
                       .projectId(projectId)
-                      .channelId(request.getChannelId())
+                      .channelId(channelId)
                       .eventName(request.getEventName())
                       .recipient(request.getRecipient())
                       .recipientName(request.getRecipientName())
@@ -853,6 +920,29 @@ public class NotificationServiceImpl implements NotificationService {
                         return enrichMappingDto(inserted);
                       });
             });
+  }
+
+  private Long resolveMappingChannelId(CreateMappingRequestDto request) {
+    ChannelType channelType = request.getChannelType();
+    if (channelType != null) {
+      Long defaultId = defaultChannelIdFor(channelType);
+      if (defaultId != null) {
+        return defaultId;
+      }
+    }
+    if (request.getChannelId() == null) {
+      throw ServiceError.INCORRECT_OR_MISSING_BODY_PARAMETERS.getCustomException(
+          "channelId is required when channelType has no platform-managed default channel");
+    }
+    return request.getChannelId();
+  }
+
+  private Long defaultChannelIdFor(ChannelType channelType) {
+    return switch (channelType) {
+      case EMAIL -> NotificationConstants.Platform.DEFAULT_ALERTS_EMAIL_CHANNEL_ID;
+      case SLACK_WEBHOOK -> NotificationConstants.Platform.DEFAULT_ALERTS_SLACK_WEBHOOK_CHANNEL_ID;
+      default -> null;
+    };
   }
 
   @Override
@@ -906,6 +996,11 @@ public class NotificationServiceImpl implements NotificationService {
   }
 
   private Single<ChannelEventMappingDto> enrichMappingDto(ChannelEventMapping mapping) {
+    return enrichMappingDto(mapping, null);
+  }
+
+  private Single<ChannelEventMappingDto> enrichMappingDto(
+      ChannelEventMapping mapping, NotificationChannel resolvedChannel) {
     ChannelEventMappingDto.ChannelEventMappingDtoBuilder base =
         ChannelEventMappingDto.builder()
             .id(mapping.getId())
@@ -917,6 +1012,13 @@ public class NotificationServiceImpl implements NotificationService {
             .isActive(mapping.getIsActive())
             .createdAt(mapping.getCreatedAt())
             .updatedAt(mapping.getUpdatedAt());
+
+    if (resolvedChannel != null) {
+      return Single.just(
+          base.channelType(resolvedChannel.getChannelType())
+              .channelName(resolvedChannel.getName())
+              .build());
+    }
 
     return channelDao
         .getChannelById(mapping.getChannelId())
@@ -1084,13 +1186,13 @@ public class NotificationServiceImpl implements NotificationService {
     }
     return (recipients.getEmails() != null && !recipients.getEmails().isEmpty())
         || (recipients.getSlackChannelIds() != null
-            && !recipients.getSlackChannelIds().isEmpty())
+        && !recipients.getSlackChannelIds().isEmpty())
         || (recipients.getSlackUserIds() != null
-            && !recipients.getSlackUserIds().isEmpty())
+        && !recipients.getSlackUserIds().isEmpty())
         || (recipients.getSlackWebhookUrls() != null
-            && !recipients.getSlackWebhookUrls().isEmpty())
+        && !recipients.getSlackWebhookUrls().isEmpty())
         || (recipients.getTeamsWorkflowUrls() != null
-            && !recipients.getTeamsWorkflowUrls().isEmpty());
+        && !recipients.getTeamsWorkflowUrls().isEmpty());
   }
 
   private Set<String> resolveRecipients(
@@ -1112,10 +1214,9 @@ public class NotificationServiceImpl implements NotificationService {
     }
 
     return switch (channelType) {
-      case EMAIL ->
-          recipients.getEmails() != null
-              ? recipients.getEmails()
-              : Collections.emptyList();
+      case EMAIL -> recipients.getEmails() != null
+          ? recipients.getEmails()
+          : Collections.emptyList();
       case SLACK -> {
         List<String> slackRecipients = new ArrayList<>();
         if (recipients.getSlackChannelIds() != null) {
@@ -1126,14 +1227,12 @@ public class NotificationServiceImpl implements NotificationService {
         }
         yield slackRecipients;
       }
-      case SLACK_WEBHOOK ->
-          recipients.getSlackWebhookUrls() != null
-              ? recipients.getSlackWebhookUrls()
-              : Collections.emptyList();
-      case TEAMS ->
-          recipients.getTeamsWorkflowUrls() != null
-              ? recipients.getTeamsWorkflowUrls()
-              : Collections.emptyList();
+      case SLACK_WEBHOOK -> recipients.getSlackWebhookUrls() != null
+          ? recipients.getSlackWebhookUrls()
+          : Collections.emptyList();
+      case TEAMS -> recipients.getTeamsWorkflowUrls() != null
+          ? recipients.getTeamsWorkflowUrls()
+          : Collections.emptyList();
       default -> Collections.emptyList();
     };
   }

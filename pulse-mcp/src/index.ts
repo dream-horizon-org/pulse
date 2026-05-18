@@ -9,9 +9,7 @@ import { registerFunnelTools } from "./tools/funnels.js";
 import { registerJourneyTools } from "./tools/journeys.js";
 import { registerAlertTools } from "./tools/alerts.js";
 import { registerHeatmapTools } from "./tools/heatmap.js";
-import { registerQueryTools } from "./tools/query.js";
 import { registerSdkConfigTools } from "./tools/sdkConfig.js";
-import { registerAnomalyTools } from "./tools/anomaly.js";
 import { registerAppVitalsTools } from "./tools/appVitals.js";
 import { exchangeApiKeyForTokens, saveCredentials } from "./auth.js";
 
@@ -45,9 +43,7 @@ registerFunnelTools(server);
 registerJourneyTools(server);
 registerAlertTools(server);
 registerHeatmapTools(server);
-registerQueryTools(server);
 registerSdkConfigTools(server);
-registerAnomalyTools(server);
 registerAppVitalsTools(server);
 
 const transport = new StdioServerTransport();

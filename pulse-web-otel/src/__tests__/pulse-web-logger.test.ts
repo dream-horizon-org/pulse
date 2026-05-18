@@ -53,4 +53,10 @@ describe("PulseWebLogger", () => {
     PulseWebLogger.verbose("v");
     expect(console.debug).toHaveBeenCalled();
   });
+
+  it("alwaysError bypasses NONE and writes to console.error", () => {
+    PulseWebLogger.setLevel(PulseLogLevel.NONE);
+    PulseWebLogger.alwaysError("safety", new Error("x"));
+    expect(console.error).toHaveBeenCalled();
+  });
 });

@@ -1,15 +1,18 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { useRouter } from "next/router";
-import { Pulse } from "../../sdk";
+import { useRouter } from "next/router.js";
+import {
+  applyPulseScreenNavigation,
+  resolvePulseScreenName,
+} from "../react/apply-pulse-screen-navigation";
 import type { UseNextPagesRouterTrackingOptions } from "../../types/next";
 
 export type { UseNextPagesRouterTrackingOptions } from "../../types/next";
 
 /**
  * Next.js Pages Router integration — listens to `router.events.routeChangeComplete`
- * and calls {@link Pulse.setScreenName} on every client-side navigation.
+ * and calls the Pulse SDK `setScreenName` on every client-side navigation.
  *
  * Note: `routeChangeComplete` does NOT fire on the initial page load — the
  * first screen name is set by the SDK's session.start signal (url.path attribute).
@@ -56,14 +59,18 @@ export function useNextPagesRouterTracking(
       }
       prevDependencyRef.current = dependency;
 
-      const name = fmt
-        ? fmt({
-            pathname: parsed.pathname,
-            search: parsed.search.slice(1),
-            hash: parsed.hash.slice(1),
-          })
-        : dependency;
-      Pulse.setScreenName(name);
+      const name = resolvePulseScreenName(fmt, dependency, {
+        pathname: parsed.pathname,
+        search: parsed.search.slice(1),
+        hash: parsed.hash.slice(1),
+      });
+      if (name === null) {
+        return;
+      }
+      applyPulseScreenNavigation(
+        name,
+        "Next.js Pages Router screen tracking (setScreenName / notifySoftNavigation)",
+      );
     };
 
     router.events.on("routeChangeComplete", handleRouteChangeComplete);

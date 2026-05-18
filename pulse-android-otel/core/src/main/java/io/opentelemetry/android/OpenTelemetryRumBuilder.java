@@ -56,6 +56,7 @@ import io.opentelemetry.sdk.logs.LogRecordProcessor;
 import io.opentelemetry.sdk.logs.SdkLoggerProvider;
 import io.opentelemetry.sdk.logs.SdkLoggerProviderBuilder;
 import io.opentelemetry.sdk.logs.export.BatchLogRecordProcessor;
+import io.opentelemetry.sdk.logs.export.BatchLogRecordProcessorBuilder;
 import io.opentelemetry.sdk.logs.export.LogRecordExporter;
 import io.opentelemetry.sdk.metrics.SdkMeterProvider;
 import io.opentelemetry.sdk.metrics.SdkMeterProviderBuilder;
@@ -67,6 +68,7 @@ import io.opentelemetry.sdk.trace.SdkTracerProvider;
 import io.opentelemetry.sdk.trace.SdkTracerProviderBuilder;
 import io.opentelemetry.sdk.trace.SpanProcessor;
 import io.opentelemetry.sdk.trace.export.BatchSpanProcessor;
+import io.opentelemetry.sdk.trace.export.BatchSpanProcessorBuilder;
 import io.opentelemetry.sdk.trace.export.SpanExporter;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -114,6 +116,11 @@ public final class OpenTelemetryRumBuilder {
     private boolean shouldStartSendingData = true;
     @Nullable private Runnable setupExportersRunnable = null;
     private boolean shouldIgnoreJavaScriptExceptions = false;
+
+    @Nullable private Long spanScheduleDelayMs;
+    @Nullable private Integer spanMaxExportBatchSize;
+    @Nullable private Long logScheduleDelayMs;
+    @Nullable private Integer logMaxExportBatchSize;
 
     private static TextMapPropagator buildDefaultPropagator() {
         return TextMapPropagator.composite(
@@ -549,6 +556,34 @@ public final class OpenTelemetryRumBuilder {
         return this;
     }
 
+    /**
+     * Set span batch configuration (schedule delay in milliseconds and max export batch size).
+     *
+     * @param scheduleDelayMs schedule delay in milliseconds
+     * @param maxExportBatchSize max export batch size
+     * @return this
+     */
+    public OpenTelemetryRumBuilder setSpanBatchConfig(
+            Long scheduleDelayMs, Integer maxExportBatchSize) {
+        this.spanScheduleDelayMs = scheduleDelayMs;
+        this.spanMaxExportBatchSize = maxExportBatchSize;
+        return this;
+    }
+
+    /**
+     * Set log batch configuration (schedule delay in milliseconds and max export batch size).
+     *
+     * @param scheduleDelayMs schedule delay in milliseconds
+     * @param maxExportBatchSize max export batch size
+     * @return this
+     */
+    public OpenTelemetryRumBuilder setLogBatchConfig(
+            Long scheduleDelayMs, Integer maxExportBatchSize) {
+        this.logScheduleDelayMs = scheduleDelayMs;
+        this.logMaxExportBatchSize = maxExportBatchSize;
+        return this;
+    }
+
     /** Leverage the configuration to wire up various instrumentation components. */
     private void applyConfiguration(Services services, InitializationEvents initializationEvents) {
         if (config.shouldGenerateSdkInitializationEvents()) {
@@ -618,10 +653,19 @@ public final class OpenTelemetryRumBuilder {
                         .setResource(resource)
                         .addSpanProcessor(new SessionIdSpanAppender(sessionProvider));
 
-        BatchSpanProcessor batchSpanProcessor =
+        BatchSpanProcessorBuilder spanBatchBuilder =
                 BatchSpanProcessor.builder(spanExporter)
-                        .setScheduleDelay(LOGS_EXPORT_SCHEDULE_IN_SEC, TimeUnit.SECONDS)
-                        .build();
+                        .setScheduleDelay(LOGS_EXPORT_SCHEDULE_IN_SEC, TimeUnit.SECONDS);
+
+        // Apply batch config if provided
+        if (spanScheduleDelayMs != null) {
+            spanBatchBuilder.setScheduleDelay(spanScheduleDelayMs, TimeUnit.MILLISECONDS);
+        }
+        if (spanMaxExportBatchSize != null) {
+            spanBatchBuilder.setMaxExportBatchSize(spanMaxExportBatchSize);
+        }
+
+        BatchSpanProcessor batchSpanProcessor = spanBatchBuilder.build();
         tracerProviderBuilder.addSpanProcessor(batchSpanProcessor);
 
         for (BiFunction<SdkTracerProviderBuilder, Application, SdkTracerProviderBuilder>
@@ -642,10 +686,20 @@ public final class OpenTelemetryRumBuilder {
                         .addLogRecordProcessor(
                                 new GlobalAttributesLogRecordAppender(
                                         config.getGlobalAttributesSupplier()));
-        LogRecordProcessor batchLogsProcessor =
+
+        BatchLogRecordProcessorBuilder logBatchBuilder =
                 BatchLogRecordProcessor.builder(logsExporter)
-                        .setScheduleDelay(LOGS_EXPORT_SCHEDULE_IN_SEC, TimeUnit.SECONDS)
-                        .build();
+                        .setScheduleDelay(LOGS_EXPORT_SCHEDULE_IN_SEC, TimeUnit.SECONDS);
+
+        // Apply batch config if provided
+        if (logScheduleDelayMs != null) {
+            logBatchBuilder.setScheduleDelay(logScheduleDelayMs, TimeUnit.MILLISECONDS);
+        }
+        if (logMaxExportBatchSize != null) {
+            logBatchBuilder.setMaxExportBatchSize(logMaxExportBatchSize);
+        }
+
+        LogRecordProcessor batchLogsProcessor = logBatchBuilder.build();
         loggerProviderBuilder.addLogRecordProcessor(batchLogsProcessor);
         for (BiFunction<SdkLoggerProviderBuilder, Application, SdkLoggerProviderBuilder>
                 customizer : loggerProviderCustomizers) {

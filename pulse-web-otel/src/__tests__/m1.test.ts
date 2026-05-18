@@ -2145,6 +2145,67 @@ describe("M1 — Session Provider: reload and clone detection (beforeunload flag
 
     expect(provider.getSessionId()).toBe(existingId);
   });
+
+  // Regression: _memSession cache bypass bug.
+  // Before the fix, visibilityChangeListener only zeroed localStorage ts but NOT
+  // _memSession.tsMs, so _readSessionTs() still returned the live in-memory value
+  // and getSessionId() skipped rotation entirely, OR a second concurrent call
+  // triggered a duplicate session.start.
+  it("page-hidden timeout: exactly ONE session.end + ONE session.start on visibility return (no duplicate bursts)", () => {
+    const pageHiddenMs = 500;
+    const provider = makeProvider(
+      30 * 60 * 1000,
+      4 * 60 * 60 * 1000,
+      pageHiddenMs,
+    );
+    // getSessionId() populates _memSession with a live tsMs — this is the key
+    // precondition for the bug: _memSession is set when visibilitychange fires.
+    const oldId = provider.getSessionId();
+
+    const events: SessionChangeEvent[] = [];
+    provider.onSessionChange((e) => events.push(e));
+
+    // Hide the page
+    Object.defineProperty(document, "hidden", {
+      value: true,
+      configurable: true,
+    });
+    document.dispatchEvent(new Event("visibilitychange"));
+
+    // Advance mocked Date.now() past the threshold
+    const hiddenAt = (provider as unknown as Record<string, unknown>)[
+      "_hiddenAtMs"
+    ] as number;
+    const nowSpy = vi
+      .spyOn(Date, "now")
+      .mockReturnValue(hiddenAt + pageHiddenMs + 100);
+
+    // Return to visible — this is where the race previously fired
+    Object.defineProperty(document, "hidden", {
+      value: false,
+      configurable: true,
+    });
+    document.dispatchEvent(new Event("visibilitychange"));
+
+    nowSpy.mockRestore();
+
+    const ends = events.filter((e) => e.type === "end");
+    const starts = events.filter((e) => e.type === "start");
+
+    // Must rotate: exactly one end and one start, no duplicates
+    expect(ends).toHaveLength(1);
+    expect(starts).toHaveLength(1);
+    expect(ends[0]?.reason).toBe("inactivity_timeout");
+    expect(starts[0]?.reason).toBe("inactivity_timeout");
+
+    // New session ID must differ from old
+    const newId = provider.getSessionId();
+    expect(newId).not.toBe(oldId);
+
+    // Further getSessionId() calls must NOT trigger additional rotations
+    expect(provider.getSessionId()).toBe(newId);
+    expect(events.filter((e) => e.type === "start")).toHaveLength(1);
+  });
 });
 
 // ---------------------------------------------------------------------------

@@ -151,7 +151,7 @@ class AlertControllerTest {
           60,
           300,
           1,
-          1,
+          1L,
           "user",
           "user",
           AlertScope.interaction,
@@ -165,7 +165,7 @@ class AlertControllerTest {
       assertEquals(60, dto.getEvaluationPeriod());
       assertEquals(300, dto.getEvaluationInterval());
       assertEquals(1, dto.getSeverity());
-      assertEquals(1, dto.getNotificationChannelId());
+      assertEquals(1L, dto.getChannelEventMappingId());
       assertEquals("user", dto.getCreatedBy());
       assertEquals("user", dto.getUpdatedBy());
       assertEquals(AlertScope.interaction, dto.getScope());
@@ -191,7 +191,7 @@ class AlertControllerTest {
       dto.setEvaluationPeriod(120);
       dto.setEvaluationInterval(600);
       dto.setSeverity(2);
-      dto.setNotificationChannelId(2);
+      dto.setChannelEventMappingId(2L);
       dto.setCreatedBy("creator");
       dto.setUpdatedBy("updater");
       dto.setScope(AlertScope.network_api);
@@ -204,7 +204,7 @@ class AlertControllerTest {
       assertEquals(120, dto.getEvaluationPeriod());
       assertEquals(600, dto.getEvaluationInterval());
       assertEquals(2, dto.getSeverity());
-      assertEquals(2, dto.getNotificationChannelId());
+      assertEquals(2L, dto.getChannelEventMappingId());
       assertEquals("creator", dto.getCreatedBy());
       assertEquals("updater", dto.getUpdatedBy());
       assertEquals(AlertScope.network_api, dto.getScope());
@@ -246,7 +246,7 @@ class AlertControllerTest {
           60,
           300,
           1,
-          1,
+          1L,
           "user",
           "user",
           AlertScope.interaction,
@@ -279,7 +279,7 @@ class AlertControllerTest {
       dto.setEvaluationPeriod(120);
       dto.setEvaluationInterval(600);
       dto.setSeverity(2);
-      dto.setNotificationChannelId(2);
+      dto.setChannelEventMappingId(2L);
       dto.setCreatedBy("creator");
       dto.setUpdatedBy("updater");
       dto.setScope(AlertScope.screen);
@@ -466,11 +466,12 @@ class AlertControllerTest {
     void shouldHaveAllExpectedValues() {
       AlertScope[] scopes = AlertScope.values();
 
-      assertEquals(4, scopes.length);
+      assertEquals(5, scopes.length);
       assertNotNull(AlertScope.valueOf("interaction"));
       assertNotNull(AlertScope.valueOf("network_api"));
       assertNotNull(AlertScope.valueOf("screen"));
       assertNotNull(AlertScope.valueOf("app_vitals"));
+      assertNotNull(AlertScope.valueOf("funnel"));
     }
   }
 
@@ -575,7 +576,7 @@ class AlertControllerTest {
         60,
         300,
         1,
-        1,
+        1L,
         "user",
         "user",
         AlertScope.interaction,
@@ -593,7 +594,7 @@ class AlertControllerTest {
         60,
         300,
         1,
-        1,
+        1L,
         "user",
         "user",
         AlertScope.interaction,

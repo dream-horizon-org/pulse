@@ -2,7 +2,7 @@ import { randomUUID } from "crypto";
 
 import Kafka, { CODES as ErrorCodes, Message, TopicPartition } from "node-rdkafka";
 
-import { extractHeatmapScreenshot } from "./heatmap-extract";
+import { extractHeatmapScreenshots } from "./heatmap-extract";
 import {
   buildHeatmapDedupeKey,
   buildHeatmapQuotaKey,
@@ -24,8 +24,8 @@ import { resolveHeatmapBreakpoint } from "./breakpoint-rules";
 
 /**
  * Consumes `session_recording_events` with a dedicated consumer group,
- * uploads heatmap screenshot JSON to S3 when META + full snapshot screenshot
- * exist in the same `snapshot_items` batch.
+ * uploads heatmap screenshot JSON to S3 for each ordered META (type 4) + full snapshot
+ * (type 2) pair in the same `snapshot_items` batch.
  */
 export class HeatmapScreenshotConsumer {
   private consumer: Kafka.KafkaConsumer | null = null;
@@ -174,110 +174,108 @@ export class HeatmapScreenshotConsumer {
             continue;
           }
 
-          const extracted = extractHeatmapScreenshot(parsed);
-          if (!extracted) {
+          const payloads = extractHeatmapScreenshots(parsed);
+          if (payloads.length === 0) {
             offsetManager.trackOffset(m.partition, m.offset);
             await offsetManager.commit();
             continue;
           }
 
           const platform = parsed.snapshot_source ?? "unknown";
-          const breakpoint = resolveHeatmapBreakpoint(
-            platform,
-            extracted.meta.width,
-            extracted.meta.height,
-          );
-
           const appLabel = appVersionForPath(parsed.app_version);
 
-          if (dedupeOn) {
-            const dedupeKey = buildHeatmapDedupeKey({
-              sessionId: parsed.session_id,
-              screenHref: extracted.meta.href,
-              metaTimestamp: extracted.meta.timestamp,
-              base64: extracted.base64,
-            });
-            const first = await this.redis!.tryClaimDedupe(dedupeKey);
-            if (!first) {
-              console.log(
-                `[HeatmapConsumer] Dedupe skip partition=${m.partition} offset=${m.offset}`,
-              );
-              offsetManager.trackOffset(m.partition, m.offset);
-              await offsetManager.commit();
-              continue;
-            }
-          }
+          for (const extracted of payloads) {
+            const breakpoint = resolveHeatmapBreakpoint(
+              platform,
+              extracted.meta.width,
+              extracted.meta.height,
+            );
 
-          let quotaKey: string | null = null;
-          if (quotaOn) {
-            quotaKey = buildHeatmapQuotaKey({
-              metaTimestampMs: extracted.meta.timestamp,
+            if (dedupeOn) {
+              const dedupeKey = buildHeatmapDedupeKey({
+                sessionId: parsed.session_id,
+                screenHref: extracted.meta.href,
+                metaTimestamp: extracted.meta.timestamp,
+                base64: extracted.base64,
+              });
+              const first = await this.redis!.tryClaimDedupe(dedupeKey);
+              if (!first) {
+                console.log(
+                  `[HeatmapConsumer] Dedupe skip href=${extracted.meta.href} partition=${m.partition} offset=${m.offset}`,
+                );
+                continue;
+              }
+            }
+
+            let quotaKey: string | null = null;
+            if (quotaOn) {
+              quotaKey = buildHeatmapQuotaKey({
+                metaTimestampMs: extracted.meta.timestamp,
+                projectId: parsed.project_id,
+                screenHref: extracted.meta.href,
+                platform,
+                appVersionLabel: appLabel,
+                breakpoint,
+              });
+              const { allowed, count } = await this.redis!.reserveQuota(
+                quotaKey,
+                this.config.heatmapQuotaPerDay,
+              );
+              if (!allowed) {
+                console.warn(
+                  `[HeatmapConsumer] Quota exceeded count=${count} href=${extracted.meta.href} partition=${m.partition} offset=${m.offset}`,
+                );
+                continue;
+              }
+            }
+
+            const fileName = `capture-${randomUUID()}.json`;
+            const key = buildHeatmapS3ObjectKey({
+              s3Prefix: this.config.s3Prefix,
               projectId: parsed.project_id,
-              screenHref: extracted.meta.href,
+              metaTimestampMs: extracted.meta.timestamp,
               platform,
               appVersionLabel: appLabel,
+              screenHref: extracted.meta.href,
               breakpoint,
+              objectFileName: fileName,
             });
-            const { allowed, count } = await this.redis!.reserveQuota(
-              quotaKey,
-              this.config.heatmapQuotaPerDay,
-            );
-            if (!allowed) {
-              console.warn(
-                `[HeatmapConsumer] Quota exceeded count=${count} partition=${m.partition} offset=${m.offset}`,
+
+            const body = heatmapJsonBody({
+              schemaVersion: this.config.schemaVersion,
+              projectId: parsed.project_id,
+              sessionId: parsed.session_id,
+              snapshotSource: platform,
+              appVersion: parsed.app_version,
+              screenHref: extracted.meta.href,
+              breakpoint,
+              meta: extracted.meta,
+              base64: extracted.base64,
+            });
+
+            const ok = await putJsonWithRetry(s3, {
+              Bucket: this.config.s3Bucket,
+              Key: key,
+              Body: body,
+              ContentType: "application/json",
+              Tagging: buildIngestionS3ObjectTagging(
+                parsed.project_id,
+                utcDateTagYyyyMmDdFromMillis(extracted.meta.timestamp),
+              ),
+            });
+
+            if (!ok) {
+              console.error(
+                `[HeatmapConsumer] S3 upload failed after retry; skipping object key=${key} offset=${m.offset}`,
               );
-              offsetManager.trackOffset(m.partition, m.offset);
-              await offsetManager.commit();
-              continue;
+              if (quotaKey) {
+                await this.redis!.releaseQuota(quotaKey);
+              }
+            } else {
+              console.log(
+                `[HeatmapConsumer] Uploaded heatmap screenshot key=${key} partition=${m.partition} offset=${m.offset}`,
+              );
             }
-          }
-
-          const fileName = `capture-${randomUUID()}.json`;
-          const key = buildHeatmapS3ObjectKey({
-            s3Prefix: this.config.s3Prefix,
-            projectId: parsed.project_id,
-            metaTimestampMs: extracted.meta.timestamp,
-            platform,
-            appVersionLabel: appLabel,
-            screenHref: extracted.meta.href,
-            breakpoint,
-            objectFileName: fileName,
-          });
-
-          const body = heatmapJsonBody({
-            schemaVersion: this.config.schemaVersion,
-            projectId: parsed.project_id,
-            sessionId: parsed.session_id,
-            snapshotSource: platform,
-            appVersion: parsed.app_version,
-            screenHref: extracted.meta.href,
-            breakpoint,
-            meta: extracted.meta,
-            base64: extracted.base64,
-          });
-
-          const ok = await putJsonWithRetry(s3, {
-            Bucket: this.config.s3Bucket,
-            Key: key,
-            Body: body,
-            ContentType: "application/json",
-            Tagging: buildIngestionS3ObjectTagging(
-              parsed.project_id,
-              utcDateTagYyyyMmDdFromMillis(extracted.meta.timestamp),
-            ),
-          });
-
-          if (!ok) {
-            console.error(
-              `[HeatmapConsumer] S3 upload failed after retry; skipping object key=${key} offset=${m.offset}`,
-            );
-            if (quotaKey) {
-              await this.redis!.releaseQuota(quotaKey);
-            }
-          } else {
-            console.log(
-              `[HeatmapConsumer] Uploaded heatmap screenshot key=${key} partition=${m.partition} offset=${m.offset}`,
-            );
           }
 
           offsetManager.trackOffset(m.partition, m.offset);

@@ -5,7 +5,7 @@ import { render } from "@testing-library/react";
 
 // ─── Mocks ────────────────────────────────────────────────────────────────────
 
-vi.mock("next/navigation", () => ({
+vi.mock("next/navigation.js", () => ({
   usePathname: vi.fn(() => "/"),
   useSearchParams: vi.fn(() => new URLSearchParams()),
 }));
@@ -21,6 +21,7 @@ vi.mock("../integrations/next/useNextAppRouterTracking", () => ({
 }));
 
 import { PulseRouterEvents } from "../integrations/next/PulseRouterEvents";
+import { PulseWebLogger } from "../pulse-web-logger";
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
@@ -50,5 +51,16 @@ describe("PulseRouterEvents (Next.js)", () => {
 
   it("wraps in Suspense — does not throw during render", () => {
     expect(() => render(<PulseRouterEvents />)).not.toThrow();
+  });
+
+  it("error boundary catches render failures from useNextAppRouterTracking", () => {
+    const spy = vi.spyOn(PulseWebLogger, "alwaysError");
+    mockUseNextAppRouterTracking.mockImplementation(() => {
+      throw new Error("simulated tracking render failure");
+    });
+    expect(() => render(<PulseRouterEvents />)).not.toThrow();
+    expect(spy).toHaveBeenCalled();
+    const msg = String(spy.mock.calls[0]?.[0] ?? "");
+    expect(msg).toContain("[pulse:router]");
   });
 });

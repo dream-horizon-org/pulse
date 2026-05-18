@@ -1,6 +1,6 @@
 // M1: 3-tier identity storage (localStorage → sessionStorage → memory)
 // + 30-minute inactivity session rotation + BFCache guard.
-// See: docs/instrumentations/sdk-core/SPEC.md (session lifecycle)
+// See: docs/instrumentations/session/SPEC.md (session lifecycle)
 
 import type {
   SessionChangeEvent,
@@ -279,6 +279,22 @@ export class SessionProvider {
   /** Timestamp when page was hidden (ms), or null if not hidden */
   _hiddenAtMs: number | null = null;
 
+  /**
+   * In-memory session fallback for environments where localStorage is blocked (SecurityError).
+   * Mirrors the three localStorage keys so getSessionId() does not loop when writes fail.
+   */
+  private _memSession: { id: string; tsMs: number; startMs: number } | null =
+    null;
+
+  /**
+   * True when the current session keys are confirmed present in localStorage.
+   * When false (zombie: reads ok but writes fail, or SSR), reads bypass localStorage
+   * and use _memSession to prevent stale values from causing repeated re-rotation.
+   * Set true by _writeSession success or constructor reuse; cleared by _clearSession
+   * or any write failure.
+   */
+  private _lsWritable = false;
+
   constructor(
     inactivityTimeoutMs?: number,
     maxSessionLifetimeMs?: number,
@@ -338,6 +354,16 @@ export class SessionProvider {
           // of how the navigation arrived.  The sessionStorage flags are still written so
           // clone detection works for other purposes.
           this._sessionReused = true;
+          // Hydrate _memSession from localStorage values read above. Also mark _lsWritable
+          // true — the session keys ARE in localStorage (we just read them), so subsequent
+          // reads should go to localStorage (allows inactivity-simulation tests to work by
+          // backdating pulse_session_ts directly).
+          this._memSession = {
+            id: existingId,
+            tsMs: existingTs,
+            startMs: existingStart,
+          };
+          this._lsWritable = true;
           void hasCloneFlag; // read above, still useful for future clone-specific logic
           void hasTabSession;
         }
@@ -393,29 +419,20 @@ export class SessionProvider {
             this._hiddenAtMs = null;
 
             if (hiddenDuration > this.pageHiddenTimeoutMs) {
-              // Rotate session due to page-hidden inactivity
-              const currentId = this._readSessionId();
-              if (currentId) {
-                const startTs = this._readSessionStart();
-                const durationNs =
-                  startTs > 0 ? (Date.now() - startTs) * 1_000_000 : 0;
-                this._emitEvent({
-                  type: "end",
-                  sessionId: currentId,
-                  durationNs,
-                  reason: "inactivity_timeout",
-                });
-                this._clearSession();
-
-                const newId = generateUUID();
-                this._writeSession(newId);
-                this._emitEvent({
-                  type: "start",
-                  newSessionId: newId,
-                  previousSessionId: currentId,
-                  reason: "inactivity_timeout",
-                });
+              // Force expiry by zeroing the activity timestamp in both memory and
+              // localStorage. _readSessionTs() checks _memSession first, so zeroing
+              // only localStorage would not trigger rotation while _memSession is set.
+              if (this._memSession) {
+                this._memSession = { ...this._memSession, tsMs: 0 };
               }
+              try {
+                localStorage.setItem(SESSION_TS_KEY, "0");
+              } catch {
+                // ignore storage errors
+              }
+              // Route through getSessionId() so the _rotatingSession guard prevents
+              // duplicate session.start on re-entrant calls.
+              this.getSessionId();
             }
           }
         }
@@ -433,54 +450,82 @@ export class SessionProvider {
   // ---- Private storage helpers (use localStorage for cross-tab sharing) ----
 
   private _readSessionId(): string | null {
-    if (typeof window === "undefined") return null;
+    // Use memory when writes have failed (zombie localStorage: reads ok but writes fail).
+    // In that state _lsWritable=false and localStorage has stale keys from the previous
+    // session; reading them would return the old expired ID and trigger re-rotation.
+    if (this._memSession && !this._lsWritable) return this._memSession.id;
+    if (typeof window === "undefined") return this._memSession?.id ?? null;
     try {
       return localStorage.getItem(SESSION_ID_KEY);
     } catch (err: unknown) {
       swallowStorageError("readSessionId", err);
-      return null;
+      return this._memSession?.id ?? null;
     }
   }
 
   private _readSessionTs(): number {
-    if (typeof window === "undefined") return 0;
+    if (this._memSession && !this._lsWritable) return this._memSession.tsMs;
+    if (typeof window === "undefined") return this._memSession?.tsMs ?? 0;
     try {
       const ts = localStorage.getItem(SESSION_TS_KEY);
       // Stored as nanoseconds; convert to ms
-      return ts ? Math.floor(parseInt(ts, 10) / 1_000_000) : 0;
+      return ts
+        ? Math.floor(parseInt(ts, 10) / 1_000_000)
+        : (this._memSession?.tsMs ?? 0);
     } catch (err: unknown) {
       swallowStorageError("readSessionTs", err);
-      return 0;
+      return this._memSession?.tsMs ?? 0;
     }
   }
 
   private _readSessionStart(): number {
-    if (typeof window === "undefined") return 0;
+    if (this._memSession && !this._lsWritable) return this._memSession.startMs;
+    if (typeof window === "undefined") return this._memSession?.startMs ?? 0;
     try {
       const ts = localStorage.getItem(SESSION_START_KEY);
       // Stored as nanoseconds; convert to ms
-      return ts ? Math.floor(parseInt(ts, 10) / 1_000_000) : 0;
+      return ts
+        ? Math.floor(parseInt(ts, 10) / 1_000_000)
+        : (this._memSession?.startMs ?? 0);
     } catch (err: unknown) {
       swallowStorageError("readSessionStart", err);
-      return 0;
+      return this._memSession?.startMs ?? 0;
     }
   }
 
   private _writeSession(id: string, startTs?: number): void {
-    if (typeof window === "undefined") return;
-    const nowNs = Date.now() * 1_000_000;
+    const nowMs = Date.now();
+    const nowNs = nowMs * 1_000_000;
+    // Always update memory so reads fall back correctly when localStorage is blocked.
+    this._memSession = {
+      id,
+      tsMs: nowMs,
+      startMs: startTs ? Math.floor(startTs / 1_000_000) : nowMs,
+    };
+    if (typeof window === "undefined") {
+      this._lsWritable = false;
+      this._emittedEndForSession = null;
+      return;
+    }
     try {
       localStorage.setItem(SESSION_ID_KEY, id);
       localStorage.setItem(SESSION_TS_KEY, String(nowNs));
       localStorage.setItem(SESSION_START_KEY, String(startTs ?? nowNs));
+      this._lsWritable = true; // confirmed in localStorage — test backdating now works
     } catch (err: unknown) {
+      this._lsWritable = false; // writes failed — reads must use _memSession
       swallowStorageError("writeSession", err);
     }
     this._emittedEndForSession = null;
   }
 
   private _clearSession(): void {
-    if (typeof window === "undefined") return;
+    this._memSession = null;
+    this._lsWritable = false;
+    if (typeof window === "undefined") {
+      this._emittedEndForSession = null;
+      return;
+    }
     try {
       localStorage.removeItem(SESSION_ID_KEY);
       localStorage.removeItem(SESSION_TS_KEY);
@@ -651,7 +696,15 @@ export class SessionProvider {
       const lifetimeOk = age <= this.maxSessionLifetimeMs;
 
       if (inactivityOk && lifetimeOk) {
-        // Session is valid — update activity timestamp
+        // Ensure _memSession is populated (may not be set if this is first getSessionId()
+        // call and the constructor reused path was not taken).
+        if (!this._memSession) {
+          this._memSession = {
+            id: existingId,
+            tsMs: lastTs,
+            startMs: sessionStartMs,
+          };
+        }
         this._updateActivityTs();
         return existingId;
       }
@@ -669,16 +722,16 @@ export class SessionProvider {
       try {
         const durationNs =
           sessionStartMs > 0 ? (now - sessionStartMs) * 1_000_000 : 0;
+        // Write new session FIRST — re-entrant getSessionId() calls during event
+        // emission will read a fresh timestamp and exit early without rotating again.
+        const newId = generateUUID();
+        this._writeSession(newId);
         this._emitEvent({
           type: "end",
           sessionId: existingId,
           durationNs,
           reason: rotationReason,
         });
-        this._clearSession();
-
-        const newId = generateUUID();
-        this._writeSession(newId);
         this._emitSessionStart(newId, existingId, startReason);
         return newId;
       } finally {
@@ -686,28 +739,32 @@ export class SessionProvider {
       }
     }
 
-    // No valid session — create a fresh one
-    if (existingId) {
-      // Expired session — emit end before creating new
-      const durationNs =
-        sessionStartMs > 0 ? (now - sessionStartMs) * 1_000_000 : 0;
-      this._emitEvent({
-        type: "end",
-        sessionId: existingId,
-        durationNs,
-        reason: "inactivity_timeout",
-      });
-      this._clearSession();
+    // No valid session (lastTs = 0 or no existingId) — also guarded to prevent
+    // duplicate session.start from re-entrant getSessionId() calls during emission.
+    this._rotatingSession = true;
+    try {
+      const newId = generateUUID();
+      // Write new session FIRST so re-entrant calls see a valid session.
+      this._writeSession(newId);
+      if (existingId) {
+        const durationNs =
+          sessionStartMs > 0 ? (now - sessionStartMs) * 1_000_000 : 0;
+        this._emitEvent({
+          type: "end",
+          sessionId: existingId,
+          durationNs,
+          reason: "inactivity_timeout",
+        });
+      }
+      this._emitSessionStart(
+        newId,
+        existingId ?? "",
+        existingId ? "inactivity_timeout" : "sdk_init",
+      );
+      return newId;
+    } finally {
+      this._rotatingSession = false;
     }
-
-    const newId = generateUUID();
-    this._writeSession(newId);
-    this._emitSessionStart(
-      newId,
-      existingId ?? "",
-      existingId ? "inactivity_timeout" : "sdk_init",
-    );
-    return newId;
   }
 
   /**
@@ -746,10 +803,18 @@ export class SessionProvider {
   }
 
   private _updateActivityTs(): void {
+    const nowMs = Date.now();
+    if (this._memSession) {
+      this._memSession = { ...this._memSession, tsMs: nowMs };
+    }
     if (typeof window === "undefined") return;
     try {
-      localStorage.setItem(SESSION_TS_KEY, String(Date.now() * 1_000_000));
+      localStorage.setItem(SESSION_TS_KEY, String(nowMs * 1_000_000));
     } catch (err: unknown) {
+      // Activity ts write failed — localStorage may have become unwritable mid-session.
+      // Mark _lsWritable false so subsequent reads use _memSession (prevents false expiry
+      // from a stale ts in localStorage being read on the next getSessionId() call).
+      this._lsWritable = false;
       swallowStorageError("updateActivityTs", err);
     }
   }
@@ -774,13 +839,30 @@ export class SessionProvider {
 
     const sessionId = this._readSessionId();
     if (!sessionId) {
-      // No session exists yet — create one
+      // First-ever install — no previous session in any storage tier
       const newId = generateUUID();
       this._writeSession(newId);
       this._emitSessionStart(newId, "", "sdk_init");
-    } else {
-      // Session already exists from getSessionId() call — emit start event for it
+      return;
+    }
+
+    // Session exists in storage. Check if it's still valid.
+    const lastTs = this._readSessionTs();
+    const sessionStartMs = this._readSessionStart();
+    const now = Date.now();
+    const inactivityOk = lastTs > 0 && now - lastTs <= this.inactivityTimeoutMs;
+    const age = sessionStartMs > 0 ? now - sessionStartMs : 0;
+    const lifetimeOk = age <= this.maxSessionLifetimeMs;
+
+    if (inactivityOk && lifetimeOk) {
+      // Valid session already present (e.g. getSessionId() called before install).
+      // Emit session.start now that handlers are registered.
       this._emitSessionStart(sessionId, "", "sdk_init");
+    } else {
+      // Expired session (ts=0 or inactivity/lifetime exceeded). Route through
+      // getSessionId() so the _rotatingSession guard prevents duplicate session.start
+      // from re-entrant GlobalAttrsProcessor.onEmit calls during emission.
+      this.getSessionId();
     }
   }
 

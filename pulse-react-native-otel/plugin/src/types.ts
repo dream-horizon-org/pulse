@@ -142,6 +142,14 @@ export interface PulseAndroidSection extends PulseNativeInitFields {
   instrumentation?: PulseAndroidInstrumentationProps;
   coreLibraryDesugaring?: PulseAndroidCoreLibraryDesugaring;
   okHttpInstrumentation?: PulseAndroidOkHttpInstrumentation;
+  /**
+   * Opt-in for consumers compiling with Kotlin 1.9.x (e.g., RN 0.76 default).
+   * When `true`, prebuild adds `PulseReactNativeOtel_kotlin19Compat=true` to `android/gradle.properties`,
+   * which activates a dependency cap inside the SDK's `build.gradle` that holds transitive Kotlin
+   * runtime artifacts below the version a 1.9 compiler cannot read. Default `false` — leave off for
+   * Kotlin 2.0+ consumers; cannot coexist with a consumer-side strict requirement on Kotlin 2.1.x.
+   */
+  kotlin19Compat?: boolean;
 }
 
 export interface PulseIosSection extends PulseNativeInitFields {
@@ -171,6 +179,8 @@ export type ResolvedAndroidPulseProps = PulsePlatformInitProps & {
     /** When `enabled`, default `true`; prebuild may merge `android.jetifier.ignorelist` if `enableJetifier=true` in gradle.properties. */
     ensureJetifierIgnoresByteBuddy: boolean;
   };
+  /** Resolved opt-in for the Kotlin-1.9 transitive cap; default `false`. */
+  kotlin19Compat: boolean;
 };
 
 export type ResolvedIosPulseProps = PulsePlatformInitProps & {

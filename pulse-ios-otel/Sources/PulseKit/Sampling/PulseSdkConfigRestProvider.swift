@@ -109,7 +109,7 @@ public final class PulseSdkConfigRestProvider {
         } catch {
             let errClass = PulseRedaction.classifyError(error)
             PulseLogger.warn(
-                "sdk.config.fetch success=false duration_ms=\(durationMs) http_status=\(httpResponse.statusCode) config_version=none error_class=\(errClass)"
+                "sdk.config.fetch success=false duration_ms=\(durationMs) http_status=\(httpResponse.statusCode) config_version=none error_class=\(errClass), failed with error: \(error)"
             )
             return nil
         }
