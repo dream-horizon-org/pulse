@@ -226,7 +226,8 @@ public class RootCauseService {
    * Segmentation outcome: mode follows the code path (flat vs hierarchy), not display labels — values
    * may contain ":" (e.g. geo names), and single-step hierarchy uses the same "Dim: value" label as flat.
    */
-  private record SegmentsWithMode(List<RootCauseSegment> segments, RootCauseAnalysisMode mode) {}
+  private record SegmentsWithMode(List<RootCauseSegment> segments, RootCauseAnalysisMode mode) {
+  }
 
   /**
    * Drops pre-LLM segments whose summed raw rates {@code error_rate + poor_user_pct} are not
@@ -299,7 +300,7 @@ public class RootCauseService {
     Single<List<String>> dimOrderSingle =
         hybridEnabled
             ? computeHybridDimensionOrder(
-                projectId, interactionName, window, config.getDimensionOrder(), threshold)
+            projectId, interactionName, window, config.getDimensionOrder(), threshold)
             : Single.just(config.getDimensionOrder());
 
     return dimOrderSingle.flatMap(dimOrder -> {
@@ -340,7 +341,7 @@ public class RootCauseService {
    *
    * <p>Package-private for unit tests.
    */
-  static List<String> hybridDimensionOrderFromPrecomputedMaxes(
+  public static List<String> hybridDimensionOrderFromPrecomputedMaxes(
       List<String> baseOrder,
       Map<String, Long> dimMaxProblematicByDimension,
       double strongSignalThreshold) {
@@ -442,7 +443,8 @@ public class RootCauseService {
                 log.debug("[RCA-SEGMENT] pickFirstDimension dim={}: rowsCount={}, evaluating threshold={}", dim, rows.size(), threshold);
                 Optional<SegmentPath> path = pickClosestToTotal(rows, dim, totalProblematic, threshold);
                 if (path.isPresent()) {
-                  log.debug("[RCA-SEGMENT] pickFirstDimension dim={}: PICKED value={}, dimension={}", dim, path.get().value(), path.get().dimension());
+                  log.debug("[RCA-SEGMENT] pickFirstDimension dim={}: PICKED value={}, dimension={}", dim, path.get().value(),
+                      path.get().dimension());
                 } else {
                   log.debug("[RCA-SEGMENT] pickFirstDimension dim={}: NO PICK (no value met threshold)", dim);
                 }
@@ -607,7 +609,7 @@ public class RootCauseService {
           : String.join(" + ", nextAcc.values());
     }
     return fetchSegmentMetrics(
-            projectId, interactionName, window, baseline, label, Map.copyOf(nextAcc))
+        projectId, interactionName, window, baseline, label, Map.copyOf(nextAcc))
         .flatMap(opt -> {
           List<RootCauseSegment> nextSegs = new ArrayList<>(segments);
           opt.ifPresent(nextSegs::add);
@@ -781,7 +783,9 @@ public class RootCauseService {
     return ServiceError.INTERNAL_SERVER_ERROR.getException();
   }
 
-  private record FirstDimensionPick(int dimOrderIndex, SegmentPath path) {}
+  private record FirstDimensionPick(int dimOrderIndex, SegmentPath path) {
+  }
 
-  private record SegmentPath(String dimension, String value, boolean isFlatExtra) {}
+  private record SegmentPath(String dimension, String value, boolean isFlatExtra) {
+  }
 }

@@ -41,6 +41,12 @@ export function insightRowHasDisplayableNarrative(
   const caveat = row.caveat?.trim() ?? "";
   return summary !== "" || caveat !== "";
 }
+export type DegradingInteractionV1 = {
+  interactionName: string;
+  interactionCount: number;
+  avgApdex: number;
+  degradationWeight: number;
+};
 
 export type RcaStructuredSegmentV1 = {
   rank: number;
@@ -51,6 +57,7 @@ export type RcaStructuredSegmentV1 = {
   insights?: string | null;
   affected_sessions?: string[] | null;
   related_heatmaps?: RcaRelatedHeatmapsV1 | null;
+  degrading_interactions?: DegradingInteractionV1[] | null;
 };
 
 /**
@@ -101,12 +108,24 @@ export type RcaStructuredReportV1 = {
   errorAttribution?: ErrorAttributionResponse | null;
 };
 
+export type SessionRcaRootCausePayload = {
+  baseline: Record<string, unknown> | null;
+  segments: unknown[] | null;
+  mode?: string | null;
+  cachedAt?: string | null;
+  everythingGood?: boolean | null;
+  noDataAvailable?: boolean | null;
+  message?: string | null;
+};
+
 export type RcaReportPayload = {
   structured?: RcaStructuredReportV1 | null;
   /** Echoed from pulse-server / pulse_ai; RCA telemetry window in days. */
   analysisLookbackDays?: number | null;
   /** Backend may return double-wrapped report: { report: { structured } } */
   report?: RcaReportPayload | null;
+  /** Session RCA tabular data merged by backend (rcaType=SESSION only). */
+  rootCausePayload?: SessionRcaRootCausePayload | null;
 };
 
 /**

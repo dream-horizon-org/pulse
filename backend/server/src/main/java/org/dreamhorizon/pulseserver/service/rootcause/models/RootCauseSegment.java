@@ -35,4 +35,6 @@ public class RootCauseSegment {
    * on payloads sent to pulse_ai — not used for {@code GET /root-cause} cache rows.
    */
   private Integer serverRank;
+  /** Top interactions contributing most to session score degradation in this segment. */
+  private List<DegradingInteraction> degradingInteractions;
 }
