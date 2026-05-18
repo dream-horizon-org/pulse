@@ -136,31 +136,30 @@ public class SparkJobRunner {
    * Touches updated_at for funnels/journeys based on job type.
    * Called after successful Spark job completion so listing shows latest auto-run.
    */
-  private static void touchUpdatedAtForJobType(MysqlRepository mysql, String jobType, Long referenceId) {
-    try {
-      switch (jobType) {
-        case "FUNNELS_DAILY" -> mysql.touchAllAutoFunnelsUpdatedAt();
-        case "JOURNEYS_DAILY" -> mysql.touchAllAutoJourneysUpdatedAt();
-        case "FUNNEL" -> {
-          if (referenceId != null) {
-            mysql.touchFunnelUpdatedAt(referenceId);
-          }
-        }
-        case "JOURNEY" -> {
-          if (referenceId != null) {
-            mysql.touchJourneyUpdatedAt(referenceId);
-          }
-        }
-        default -> {
-          // EVENTS_INCREMENTAL and others - no touching needed
-        }
-      }
-    } catch (Exception e) {
-      // Log but don't fail the job - this is a best-effort update
-      log.warn("Failed to touch updated_at for job_type={}: {}", jobType, e.getMessage());
-    }
-  }
-
+//  private static void touchUpdatedAtForJobType(MysqlRepository mysql, String jobType, Long referenceId) {
+//    try {
+//      switch (jobType) {
+//        case "FUNNELS_DAILY" -> mysql.touchAllAutoFunnelsUpdatedAt();
+//        case "JOURNEYS_DAILY" -> mysql.touchAllAutoJourneysUpdatedAt();
+//        case "FUNNEL" -> {
+//          if (referenceId != null) {
+//            mysql.touchFunnelUpdatedAt(referenceId);
+//          }
+//        }
+//        case "JOURNEY" -> {
+//          if (referenceId != null) {
+//            mysql.touchJourneyUpdatedAt(referenceId);
+//          }
+//        }
+//        default -> {
+//          // EVENTS_INCREMENTAL and others - no touching needed
+//        }
+//      }
+//    } catch (Exception e) {
+//      // Log but don't fail the job - this is a best-effort update
+//      log.warn("Failed to touch updated_at for job_type={}: {}", jobType, e.getMessage());
+//    }
+//  }
   private static Map<String, String> parseArgs(String[] args) {
     var map = new HashMap<String, String>();
     for (int i = 0; i < args.length - 1; i += 2) {

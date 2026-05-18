@@ -32,10 +32,30 @@ public class FunnelComputeJob {
 
     private static final Logger log = LoggerFactory.getLogger(FunnelComputeJob.class);
 
-    static final String[] READ_COLS = {
-            "event_name", "project_id", "session_id", "timestamp",
-            "os_name", "os_version", "app_build_name", "device_manufacturer",
-            "device_model_identifier", "network_carrier_icc", "screen_name", "service_name"
+    /**
+     * Read projection from the new OTel parquet schema (PascalCase columns shipped by the
+     * pulse-s3-archiver). Each entry is {@code {parquetColumn, projectedAlias}}; aliases use
+     * the lowercase names that downstream funnel / journey / event-catalog logic already
+     * depends on, so flipping the storage layout doesn't ripple through the codebase.
+     *
+     * <p>Layout: {@code s3://pulse-otel-ingestion/<projectId>/otel_logs/year=YYYY/month=MM/day=DD/*.parquet}
+     * (replacing the legacy {@code vector-logs/} sink).
+     *
+     * <p>Schema source: {@code backend/pulse-s3-archiver/src/main/resources/schemas/otel_logs.avsc}.
+     */
+    static final String[][] READ_COL_MAPPING = {
+            {"EventName",     "event_name"},
+            {"ProjectId",     "project_id"},
+            {"SessionId",     "session_id"},
+            {"Timestamp",     "timestamp"},
+            {"Platform",      "os_name"},                  // OTel `Platform` carries the OS name
+            {"OsVersion",     "os_version"},
+            {"AppVersion",    "app_build_name"},           // downstream "app_build_name" alias kept for catalog filters
+            {"Platform",      "device_manufacturer"},      // legacy distinction collapsed in OTel — same source
+            {"DeviceModel",   "device_model_identifier"},
+            {"NetworkProvider", "network_carrier_icc"},
+            {"ScreenName",    "screen_name"},
+            {"ServiceName",   "service_name"}
     };
 
     public static void runFunnels(SparkSession spark, MysqlRepository mysql, ClickHouseClient ch,
@@ -54,7 +74,7 @@ public class FunnelComputeJob {
             }
             var startDt = funnel.startTime().toLocalDateTime();
             var endDt   = funnel.endTime().toLocalDateTime();
-            var s3Base  = "s3a://" + s3BucketPrefix + funnel.projectId() + "/vector-logs/";
+            var s3Base  = "s3a://" + s3BucketPrefix + funnel.projectId() + "/otel_logs/";
 
             log.info("Funnel {} window [{} -> {}]", funnel.id(), startDt, endDt);
             Dataset<Row> raw = readS3ByHours(spark, s3Base, startDt, endDt);
@@ -71,7 +91,7 @@ public class FunnelComputeJob {
                 log.info("Funnel {}: wrote {} result rows", funnel.id(), results.size());
                 // Emit per-session bridge + (optional) per-user rollup so downstream
                 // drop-off attribution has a SessionId anchor into OTel tables.
-                emitBridgeAndRollup(raw, funnel, runTime, startEpoch, endEpoch, ch);
+                emitBridgeAndRollup(raw, funnel, runTime, startEpoch, endEpoch, ch, s3BucketPrefix);
             } finally {
                 raw.unpersist();
             }
@@ -96,7 +116,7 @@ public class FunnelComputeJob {
         int maxDays   = funnels.stream().mapToInt(FunnelDefinition::dateRange).max().orElse(7);
         var endDate   = LocalDate.parse(runTime.substring(0, 10));
         var startDate = endDate.minusDays(maxDays - 1L);
-        var s3Base    = "s3a://" + s3Prefix + projectId + "/vector-logs/";
+        var s3Base    = "s3a://" + s3Prefix + projectId + "/otel_logs/";
 
         log.info("Project {} reading S3 [{} -> {}] for {} funnel(s)", projectId, startDate, endDate, funnels.size());
         Dataset<Row> raw = readS3ByDateRange(spark, s3Base, startDate, endDate);
@@ -111,7 +131,7 @@ public class FunnelComputeJob {
                     var results = computeFunnel(raw, funnel, runTime, null, null);
                     ch.insertFunnelResults(results);
                     log.info("Funnel {}: wrote {} result rows", funnel.id(), results.size());
-                    emitBridgeAndRollup(raw, funnel, runTime, null, null, ch);
+                    emitBridgeAndRollup(raw, funnel, runTime, null, null, ch, s3Prefix);
                 } catch (Exception e) {
                     log.error("Funnel {} failed: {}", funnel.id(), e.getMessage(), e);
                     throw e;
@@ -363,7 +383,7 @@ public class FunnelComputeJob {
     private static void emitBridgeAndRollup(Dataset<Row> raw, FunnelDefinition funnel,
                                             String runTime,
                                             Long startEpochSeconds, Long endEpochSeconds,
-                                            ClickHouseClient ch) {
+                                            ClickHouseClient ch, String s3BucketPrefix) {
         if (funnel.isUnordered()) {
             log.info("Funnel {} is UNORDERED — skipping bridge/rollup/attribution emission", funnel.id());
             return;
@@ -422,7 +442,7 @@ public class FunnelComputeJob {
             // Best-effort: a failure here doesn't fail the funnel compute — side-panel
             // will fall back to live cause-join query.
             try {
-                emitAttribution(df, funnel, runTime, bridgeRows, userRows, ch);
+                emitAttribution(df, funnel, runTime, bridgeRows, userRows, ch, s3BucketPrefix);
             } catch (Exception e) {
                 log.warn("Funnel {}: attribution precompute failed (panel will fall back to live join): {}",
                         funnel.id(), e.getMessage(), e);
@@ -794,13 +814,18 @@ public class FunnelComputeJob {
         return df;
     }
 
+    /**
+     * Reads parquet partitions over an inclusive date range. The new
+     * pulse-s3-archiver layout partitions by {@code year=YYYY/month=MM/day=DD},
+     * not by date-string folders or hour subdirs.
+     */
     static Dataset<Row> readS3ByDateRange(SparkSession spark, String s3BasePath,
                                            LocalDate startDate, LocalDate endDate) {
         Dataset<Row> combined = null;
         int attempted = 0, loaded = 0;
         for (var d = startDate; !d.isAfter(endDate); d = d.plusDays(1)) {
             attempted++;
-            var ds = loadPath(spark, s3BasePath + d + "/");
+            var ds = loadPath(spark, s3BasePath + dayPartition(d));
             if (ds != null) {
                 loaded++;
                 combined = combined == null ? ds : combined.union(ds);
@@ -816,30 +841,20 @@ public class FunnelComputeJob {
         return combined;
     }
 
+    /**
+     * Reads parquet for a sub-day window. The s3-archiver layout doesn't carry an hour
+     * sub-folder (events have an {@code Hour} column instead), so this loads whole-day
+     * partitions covering the window and relies on the downstream {@code Timestamp}
+     * filter to narrow to the exact hour range.
+     */
     static Dataset<Row> readS3ByHours(SparkSession spark, String s3BasePath,
                                        LocalDateTime startDt, LocalDateTime endDt) {
-        var cursor  = startDt.withMinute(0).withSecond(0).withNano(0);
-        var endHour = endDt.withMinute(59).withSecond(59).withNano(0);
-        Dataset<Row> combined = null;
-        int attempted = 0, loaded = 0;
-        while (!cursor.isAfter(endHour)) {
-            attempted++;
-            var path = s3BasePath + cursor.toLocalDate() + "/" + String.format("%02d", cursor.getHour()) + "/";
-            var ds = loadPath(spark, path);
-            if (ds != null) {
-                loaded++;
-                combined = combined == null ? ds : combined.union(ds);
-            }
-            cursor = cursor.plusHours(1);
-        }
-        if (combined == null) {
-            log.warn("No S3 data for hour range {} to {} (attempted={}, loaded={})",
-                    startDt, endDt, attempted, loaded);
-        } else {
-            log.info("Loaded S3 hour range {} to {} (attempted={}, loaded={})",
-                    startDt, endDt, attempted, loaded);
-        }
-        return combined;
+        return readS3ByDateRange(spark, s3BasePath, startDt.toLocalDate(), endDt.toLocalDate());
+    }
+
+    private static String dayPartition(LocalDate d) {
+        return String.format("year=%04d/month=%02d/day=%02d/",
+                d.getYear(), d.getMonthValue(), d.getDayOfMonth());
     }
 
     private static Dataset<Row> loadPath(SparkSession spark, String path) {
@@ -860,16 +875,30 @@ public class FunnelComputeJob {
         return ds.filter(col("project_id").equalTo(projectId));
     }
 
+    /**
+     * Projects the new OTel parquet schema (PascalCase columns) to the lowercase aliases
+     * the funnel / journey / event-catalog logic depends on. Missing columns are filled with
+     * {@code NULL} so partitions with schema drift still load via {@code mergeSchema}.
+     *
+     * <p>{@code user_id} alias coalesces {@code UserId} → {@code AppInstallationId} so
+     * UNIQUE_USERS funnels group on a stable identity even when the SDK doesn't populate
+     * an explicit user id (which matches what CH's {@code resolveMaterializedGroupKey}
+     * does for {@code AppInstallationId}).
+     */
     static Column[] buildReadExprs(String[] availableColumns) {
         var available = new java.util.HashSet<>(java.util.Arrays.asList(availableColumns));
         var cols = new ArrayList<Column>();
-        for (var c : READ_COLS) {
-            cols.add(available.contains(c) ? col(c) : lit(null).cast(DataTypes.StringType).alias(c));
+        for (var mapping : READ_COL_MAPPING) {
+            String parquetCol = mapping[0];
+            String alias = mapping[1];
+            cols.add(available.contains(parquetCol)
+                    ? col(parquetCol).alias(alias)
+                    : lit(null).cast(DataTypes.StringType).alias(alias));
         }
-        cols.add(coalesce(
-                get_json_object(col("props"), "$.user_id"),
-                get_json_object(col("props"), "$['app.installation.id']")
-        ).alias("user_id"));
+        Column userId = available.contains("UserId") ? col("UserId") : lit(null).cast(DataTypes.StringType);
+        Column appInstallationId = available.contains("AppInstallationId")
+                ? col("AppInstallationId") : lit(null).cast(DataTypes.StringType);
+        cols.add(coalesce(userId, appInstallationId).alias("user_id"));
         return cols.toArray(Column[]::new);
     }
 
@@ -901,7 +930,7 @@ public class FunnelComputeJob {
     private static void emitAttribution(
             Dataset<Row> df, FunnelDefinition funnel, String runTime,
             List<FunnelSessionState> bridgeRows, List<FunnelUserState> userRows,
-            ClickHouseClient ch) {
+            ClickHouseClient ch, String s3BucketPrefix) {
         if (funnel.steps().size() < 2) {
             return;
         }
@@ -926,8 +955,8 @@ public class FunnelComputeJob {
 
         // Load OTel signal parquets for the run window. Path layout matches the CH
         // s3-archiver: s3a://pulse-otel-ingestion/{projectId}/{table}/year=YYYY/month=MM/day=DD/.
-        var stackLogs = loadOtelSignalParquet(spark, funnel.projectId(), "otel_logs", runTime, funnel);
-        var traces    = loadOtelSignalParquet(spark, funnel.projectId(), "otel_traces", runTime, funnel);
+        var stackLogs = loadOtelSignalParquet(spark, s3BucketPrefix, funnel.projectId(), "otel_logs", runTime, funnel);
+        var traces    = loadOtelSignalParquet(spark, s3BucketPrefix, funnel.projectId(), "otel_traces", runTime, funnel);
 
         if (stackLogs != null) {
             all.addAll(buildStackCauses(
@@ -1000,8 +1029,19 @@ public class FunnelComputeJob {
      * Path layout: {@code s3a://pulse-otel-ingestion/{projectId}/{tableName}/year=YYYY/month=MM/day=DD/}.
      * Returns {@code null} when no data is found (e.g. project has never emitted crashes).
      */
+    /**
+     * Loads parquet for an OTel signal table from S3 over the funnel's run window. Path
+     * layout matches the pulse-s3-archiver sink:
+     * {@code s3a://<bucketPrefix><projectId>/<tableName>/year=YYYY/month=MM/day=DD/}.
+     *
+     * <p>The bucket prefix is the same one the job already received via
+     * {@code FunnelComputeJob.runFunnels(... String s3BucketPrefix ...)} (typically ends in
+     * a trailing slash, e.g. {@code "pulse-otel-ingestion/"}). Per-day partition failures
+     * are logged and skipped; only when ALL day partitions fail to load does this return
+     * {@code null} and the calling site falls back to the live DAO join.
+     */
     private static Dataset<Row> loadOtelSignalParquet(
-            SparkSession spark, String projectId, String tableName,
+            SparkSession spark, String s3BucketPrefix, String projectId, String tableName,
             String runTime, FunnelDefinition funnel) {
         LocalDate start;
         LocalDate end;
@@ -1012,18 +1052,11 @@ public class FunnelComputeJob {
             end = LocalDate.parse(runTime.substring(0, 10));
             start = end.minusDays(funnel.dateRange() - 1L);
         }
-        // S3 archiver layout: s3a://<bucket>/<projectId>/<table>/year=YYYY/month=MM/day=DD/
-        // We don't know the bucket prefix here directly — read via the standard hadoop-config
-        // path expected by the spark job (matches what FunnelComputeJob assumes for vector-logs).
-        // The job's s3BucketPrefix is folded into funnel.projectId() positioning at the caller.
-        // For attribution we read the SAME bucket the spark job is already configured for.
-        String basePath = System.getProperty("pulse.s3.otelBucket",
-                "s3a://pulse-otel-ingestion/") + projectId + "/" + tableName + "/";
+        String basePath = "s3a://" + s3BucketPrefix + projectId + "/" + tableName + "/";
         Dataset<Row> combined = null;
         int loaded = 0;
         for (var d = start; !d.isAfter(end); d = d.plusDays(1)) {
-            String path = basePath + String.format("year=%04d/month=%02d/day=%02d/",
-                    d.getYear(), d.getMonthValue(), d.getDayOfMonth());
+            String path = basePath + dayPartition(d);
             try {
                 Dataset<Row> ds = spark.read()
                         .format("parquet")
@@ -1049,22 +1082,26 @@ public class FunnelComputeJob {
      * Joins {@code otel_logs}-derived stack-trace events against the cohort within the
      * attribution window. Emits one row per (StepIndex, CauseKind, CauseKey) where
      * CauseKind ∈ (crash, anr, non_fatal) and CauseKey = {@code ExceptionType@ScreenName}.
+     *
+     * <p>Parquet schema is PascalCase per the pulse-s3-archiver avro definition. The
+     * CH-side {@code stack_trace_events} table has an {@code ExceptionType} column populated
+     * by a separate ingester; for Spark we re-derive it from the OTel semantic-convention
+     * attribute {@code exception.type} stored in {@code LogAttributes}.
      */
     private static List<FunnelAttributionRow> buildStackCauses(
             FunnelDefinition funnel, String runTime,
             Dataset<Row> droppers, Dataset<Row> converters,
             Dataset<Row> dropperCohorts, long converterCohortCount,
             Dataset<Row> otelLogs) {
-        // Extract typed columns from otel_logs (raw parquet has nested attributes).
         Dataset<Row> stackEvents = otelLogs
-                .filter(col("project_id").equalTo(funnel.projectId()))
-                .filter(lower(col("pulse_type")).isin("crash", "anr", "non_fatal"))
+                .filter(col("ProjectId").equalTo(funnel.projectId()))
+                .filter(lower(col("PulseType")).isin("crash", "anr", "non_fatal"))
                 .select(
-                        col("session_id").alias("e_sid"),
-                        unix_timestamp(col("timestamp")).alias("e_ts"),
-                        lower(col("pulse_type")).alias("cause_kind"),
-                        coalesce(col("exception_type"), lit("")).alias("e_exc"),
-                        coalesce(col("screen_name"), lit("")).alias("e_screen")
+                        col("SessionId").alias("e_sid"),
+                        unix_timestamp(col("Timestamp")).alias("e_ts"),
+                        lower(col("PulseType")).alias("cause_kind"),
+                        coalesce(col("LogAttributes").getItem("exception.type"), lit("")).alias("e_exc"),
+                        coalesce(col("ScreenName"), lit("")).alias("e_screen")
                 );
         return joinCauseAndAggregate(
                 funnel, runTime, droppers, converters, dropperCohorts, converterCohortCount,
@@ -1080,31 +1117,51 @@ public class FunnelComputeJob {
      * Joins {@code otel_traces} HTTP spans against the cohort within the attribution window.
      * Emits one row per (StepIndex, CauseKind, CauseKey) where CauseKind ∈ (http_5xx, http_4xx)
      * and CauseKey = {@code method host status}.
+     *
+     * <p>Parquet has the HTTP attributes denormalised to top-level columns
+     * ({@code HttpUrl}, {@code HttpHost}, {@code HttpMethod}, {@code HttpStatusCode}) — no
+     * map lookup needed. Falls back to {@code SpanAttributes} keys for older partitions that
+     * still ship the OTel-native attribute form.
      */
     private static List<FunnelAttributionRow> buildHttpCauses(
             FunnelDefinition funnel, String runTime,
             Dataset<Row> droppers, Dataset<Row> converters,
             Dataset<Row> dropperCohorts, long converterCohortCount,
             Dataset<Row> otelTraces) {
-        // Pull HTTP attributes out of SpanAttributes / Attributes map (parquet ships as map).
-        // Fallback both http.* and http.{request,response}.* attribute keys to align with CH.
-        Dataset<Row> httpEvents = otelTraces
-                .filter(col("project_id").equalTo(funnel.projectId()))
-                .withColumn("http_status", coalesce(
-                        col("attributes.http_status_code"),
-                        col("attributes.http_response_status_code"),
+        boolean hasTopLevelHttp = java.util.Arrays.asList(otelTraces.columns()).contains("HttpStatusCode");
+        Column statusCol = hasTopLevelHttp
+                ? col("HttpStatusCode").cast(DataTypes.IntegerType)
+                : coalesce(
+                        col("SpanAttributes").getItem("http.status_code"),
+                        col("SpanAttributes").getItem("http.response.status_code"),
                         lit("0")
-                ).cast(DataTypes.IntegerType))
+                ).cast(DataTypes.IntegerType);
+        Column methodCol = hasTopLevelHttp
+                ? lower(coalesce(col("HttpMethod"), lit("")))
+                : coalesce(
+                        lower(col("SpanAttributes").getItem("http.method")),
+                        lower(col("SpanAttributes").getItem("http.request.method")),
+                        lit("")
+                );
+        Column hostCol = hasTopLevelHttp
+                ? coalesce(col("HttpHost"), lit(""))
+                : coalesce(
+                        col("SpanAttributes").getItem("net.peer.name"),
+                        col("SpanAttributes").getItem("server.address"),
+                        lit("")
+                );
+
+        Dataset<Row> httpEvents = otelTraces
+                .filter(col("ProjectId").equalTo(funnel.projectId()))
+                .withColumn("http_status", statusCol)
                 .filter(col("http_status").geq(400))
                 .select(
-                        col("session_id").alias("e_sid"),
-                        unix_timestamp(col("timestamp")).alias("e_ts"),
+                        col("SessionId").alias("e_sid"),
+                        unix_timestamp(col("Timestamp")).alias("e_ts"),
                         when(col("http_status").geq(500), lit("http_5xx"))
                                 .otherwise(lit("http_4xx")).alias("cause_kind"),
-                        coalesce(lower(col("attributes.http_method")),
-                                 lower(col("attributes.http_request_method")), lit("")).alias("e_method"),
-                        coalesce(col("attributes.net_peer_name"),
-                                 col("attributes.server_address"), lit("")).alias("e_host"),
+                        methodCol.alias("e_method"),
+                        hostCol.alias("e_host"),
                         col("http_status").alias("e_status")
                 );
         return joinCauseAndAggregate(

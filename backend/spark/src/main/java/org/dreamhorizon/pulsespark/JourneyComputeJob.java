@@ -41,7 +41,7 @@ public class JourneyComputeJob {
             }
             var startDt = journey.startTime().toLocalDateTime();
             var endDt   = journey.endTime().toLocalDateTime();
-            var s3Base  = "s3a://" + s3BucketPrefix + journey.projectId() + "/vector-logs/";
+            var s3Base  = "s3a://" + s3BucketPrefix + journey.projectId() + "/otel_logs/";
 
             log.info("Journey {} window [{} -> {}]", journey.id(), startDt, endDt);
             Dataset<Row> raw = FunnelComputeJob.readS3ByHours(spark, s3Base, startDt, endDt);
@@ -80,7 +80,7 @@ public class JourneyComputeJob {
         int maxDays   = journeys.stream().mapToInt(JourneyDefinition::dateRange).max().orElse(7);
         var endDate   = LocalDate.parse(runTime.substring(0, 10));
         var startDate = endDate.minusDays(maxDays - 1L);
-        var s3Base    = "s3a://" + s3Prefix + projectId + "/vector-logs/";
+        var s3Base    = "s3a://" + s3Prefix + projectId + "/otel_logs/";
 
         log.info("Project {} reading S3 [{} -> {}] for {} journey(s)", projectId, startDate, endDate, journeys.size());
         Dataset<Row> raw = FunnelComputeJob.readS3ByDateRange(spark, s3Base, startDate, endDate);

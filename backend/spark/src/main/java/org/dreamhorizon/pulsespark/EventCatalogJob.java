@@ -72,7 +72,7 @@ public class EventCatalogJob {
             log.info("Project {} incremental from {}: S3 [{} -> {}]", projectId, wm, startDate, endDate);
         }
 
-        var s3Base = "s3a://" + s3Prefix + projectId + "/vector-logs/";
+        var s3Base = "s3a://" + s3Prefix + projectId + "/otel_logs/";
         Dataset<Row> raw = FunnelComputeJob.readS3ByDateRange(spark, s3Base, startDate, endDate);
         if (raw == null) {
             log.warn("No S3 data for project {} — skipping", projectId);
