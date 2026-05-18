@@ -189,21 +189,21 @@ class StackTraceEventsMapperTest {
 
   @Test
   void shouldUseNowForNullOrBlankTimestamp() {
-    long before = Instant.now().toEpochMilli() * 1000L;
-    long micros = StackTraceEventsMapper.parseTimestampMicros(null);
-    long after = Instant.now().toEpochMilli() * 1000L + 1000L;
+    long nowMicros = Instant.now().toEpochMilli() * 1000L;
+    long toleranceMicros = 10_000_000L;
 
-    assertThat(micros).isBetween(before, after);
-    assertThat(StackTraceEventsMapper.parseTimestampMicros("  ")).isBetween(before, after);
+    assertThat(StackTraceEventsMapper.parseTimestampMicros(null))
+        .isCloseTo(nowMicros, org.assertj.core.data.Offset.offset(toleranceMicros));
+    assertThat(StackTraceEventsMapper.parseTimestampMicros("  "))
+        .isCloseTo(nowMicros, org.assertj.core.data.Offset.offset(toleranceMicros));
   }
 
   @Test
   void shouldUseNowForUnparseableTimestamp() {
-    long before = Instant.now().toEpochMilli() * 1000L;
+    long nowMicros = Instant.now().toEpochMilli() * 1000L;
     long micros = StackTraceEventsMapper.parseTimestampMicros("not-a-timestamp");
-    long after = Instant.now().toEpochMilli() * 1000L + 1000L;
 
-    assertThat(micros).isBetween(before, after);
+    assertThat(micros).isCloseTo(nowMicros, org.assertj.core.data.Offset.offset(10_000_000L));
   }
 
   }

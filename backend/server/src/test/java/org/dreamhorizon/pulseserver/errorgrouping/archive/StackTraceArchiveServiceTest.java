@@ -19,6 +19,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import org.dreamhorizon.pulseserver.errorgrouping.model.StackTraceEvent;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -38,6 +39,11 @@ class StackTraceArchiveServiceTest {
 
   @TempDir
   java.nio.file.Path tempDir;
+
+  @BeforeAll
+  static void ensureHadoopHome() throws Exception {
+    ParquetTestSupport.ensureHadoopHome();
+  }
 
   private StackTraceEvent sampleEvent() {
     Instant ts = Instant.parse("2026-05-18T12:00:00Z");

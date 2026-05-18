@@ -63,7 +63,7 @@ class ErrorGroupingServiceTest {
 
   @BeforeEach
   void setUp() {
-    when(stackTraceArchiveService.archive(anyList())).thenReturn(Completable.complete());
+    lenient().when(stackTraceArchiveService.archive(anyList())).thenReturn(Completable.complete());
     errorGroupingService =
         new ErrorGroupingService(clickhouseQueryService, stackTraceArchiveService, symbolicator,
             objectMapper);

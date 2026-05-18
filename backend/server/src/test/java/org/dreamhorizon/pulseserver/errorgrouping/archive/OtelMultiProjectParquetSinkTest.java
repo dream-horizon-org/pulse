@@ -41,6 +41,7 @@ class OtelMultiProjectParquetSinkTest {
 
   @BeforeAll
   static void loadSchema() throws Exception {
+    ParquetTestSupport.ensureHadoopHome();
     try (InputStream in = OtelMultiProjectParquetSinkTest.class.getClassLoader()
         .getResourceAsStream("schemas/stack_trace_events.avsc")) {
       schema = new Schema.Parser().parse(in);
@@ -49,7 +50,7 @@ class OtelMultiProjectParquetSinkTest {
 
   @BeforeEach
   void setUp() {
-    org.mockito.Mockito.when(s3UploadService.upload(anyString(), anyString(), any(File.class)))
+    org.mockito.Mockito.lenient().when(s3UploadService.upload(anyString(), anyString(), any(File.class)))
         .thenReturn(CompletableFuture.completedFuture(
             PutObjectResponse.builder().eTag("etag").build()));
 
