@@ -10318,6 +10318,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"iso-3166@npm:^4.4.0":
+  version: 4.4.0
+  resolution: "iso-3166@npm:4.4.0"
+  checksum: 10c0/a025cde7dcf76c079f009004a1408021bd485fa38b3481ae58b001fc151f35f1d2665ab79ebbf05fb5b7721fc4b0ebe9241e75488291b3f24ed3fbb1d5584264
+  languageName: node
+  linkType: hard
+
 "istanbul-lib-coverage@npm:^3.0.0, istanbul-lib-coverage@npm:^3.2.0":
   version: 3.2.2
   resolution: "istanbul-lib-coverage@npm:3.2.2"
@@ -14795,6 +14802,7 @@ __metadata:
     html-webpack-plugin: "npm:^5.5.0"
     husky: "npm:^9.0.11"
     identity-obj-proxy: "npm:^3.0.0"
+    iso-3166: "npm:^4.4.0"
     jest: "npm:^27.4.3"
     jest-resolve: "npm:^27.4.2"
     jest-watch-typeahead: "npm:^1.0.0"

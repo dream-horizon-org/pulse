@@ -24,6 +24,7 @@ class PulseReactNativeOtelPackage : BaseReactPackage() {
         PulseReactNativeOtelModule.NAME,
         canOverrideExistingModule = false,
         needsEagerInit = false,
+        hasConstants = false,
         isCxxModule = false,
         isTurboModule = true,
       )

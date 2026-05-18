@@ -1,6 +1,6 @@
 /**
  * API Interfaces
- * 
+ *
  * Backend expected payload structure:
  * - scope: "INTERACTIONS" | "API" | "SCREEN" | "APP_VITALS"
  * - dimension_filters: SQL-like expression for app version, OS version filters
@@ -29,8 +29,7 @@ export interface AlertApiPayload {
   evaluation_period: number;
   evaluation_interval: number;
   severity_id: number;
-  notification_channel_id: number;
+  channel_event_mapping_id: number;
   created_by: string;
   updated_by?: string;
 }
-

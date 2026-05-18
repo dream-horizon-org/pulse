@@ -112,6 +112,7 @@ public class SdkConfigsDao {
         .interaction(createConfig.getInteraction())
         .sampling(createConfig.getSampling())
         .signals(createConfig.getSignals())
+        .batchConfig(createConfig.getBatchConfig())
         .build();
 
     String configDetailRowStr = objectMapper.writeValueAsString(sdkConfigData);
@@ -203,6 +204,7 @@ public class SdkConfigsDao {
         .interaction(configData.getInteraction())
         .sampling(configData.getSampling())
         .signals(configData.getSignals())
+        .batchConfig(configData.getBatchConfig())
         .build();
 
     String configJson = objectMapper.writeValueAsString(sdkConfigData);

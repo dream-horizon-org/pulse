@@ -30,6 +30,21 @@ npx expo install @dreamhorizonorg/pulse-react-native
 
 `endpointBaseUrl` and `apiKey` are required.
 
+> **Kotlin 1.9.x apps (Expo SDK ≤ 52 / RN ≤ 0.76):** if your app is compiled with Kotlin 1.9.x and you hit a Gradle error like `Module was compiled with an incompatible version of Kotlin`, opt in by adding `android.kotlin19Compat`:
+>
+> ```json
+> [
+>   "@dreamhorizonorg/pulse-react-native",
+>   {
+>     "endpointBaseUrl": "https://otel.example.com",
+>     "apiKey": "your-api-key",
+>     "android": { "kotlin19Compat": true }
+>   }
+> ]
+> ```
+>
+> Leave it off (default) on Expo SDK 53+ / RN 0.77+ / Kotlin 2.0+. See [`android.kotlin19Compat`](#android--androidkotlin19compat-optional) for details.
+
 ### 3. Start Pulse in JavaScript (as early as possible)
 
 Call **`Pulse.start`** once at **module scope** in your root file (e.g. `app/_layout.tsx` or `index.js`) so it runs before the rest of the app:
@@ -89,6 +104,7 @@ Top-level plugin fields apply to both platforms. Override per OS with **`android
     "android": {
       "endpointBaseUrl": "http://10.0.2.2:4318",
       "globalAttributes": { "platform": "android" },
+      "kotlin19Compat": false,
       "instrumentation": {
         "crash": { "enabled": true },
         "network": { "enabled": true },
@@ -173,6 +189,26 @@ Example:
 ```
 
 Omit `version` to use the default `2.1.4`.
+
+### Android — `android.kotlin19Compat` (optional)
+
+| Field            | Type    | Default | Description                                                                                                                                                                                                                                       |
+| ---------------- | ------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `kotlin19Compat` | boolean | `false` | When `true`, prebuild writes `PulseReactNativeOtel_kotlin19Compat=true` into **`android/gradle.properties`**. This caps Pulse's transitive Kotlin runtime artifacts (stdlib, coroutines, serialization) below the version a Kotlin-1.9.x compiler cannot read. |
+
+**When to enable:** consumer apps still compiling with **Kotlin 1.9.x** — broadly **Expo SDK ≤ 52 / RN ≤ 0.76** — that hit `Module was compiled with an incompatible version of Kotlin` against transitive Kotlin 2.1.x artifacts.
+
+**When to leave off:** **Expo SDK 53+ / RN 0.77+** or any app already on **Kotlin 2.0+**. The cap is incompatible with a strict requirement on Kotlin 2.1.x.
+
+Example:
+
+```json
+"android": {
+  "kotlin19Compat": true
+}
+```
+
+After toggling, run `npx expo prebuild --clean` and verify the line exists in `android/gradle.properties`.
 
 ### Android — `android.okHttpInstrumentation` (optional)
 

@@ -13,12 +13,10 @@ dayjs.extend(utc);
 interface TimeSpentTrendData {
   timestamp: number;
   avgTimeSpent: number;
-  avgLoadTime: number;
 }
 
 interface TimeSpentGraphProps {
   avgTimeSpent: number | null;
-  avgLoadTime: number | null;
   trendData: TimeSpentTrendData[];
   isLoading?: boolean;
   error?: Error | null;
@@ -27,7 +25,6 @@ interface TimeSpentGraphProps {
 
 export function TimeSpentGraph({
   avgTimeSpent,
-  avgLoadTime,
   trendData,
   isLoading = false,
   error = null,
@@ -67,12 +64,6 @@ export function TimeSpentGraph({
           <Text className={classes.metricLabel}>Avg Time Spent</Text>
           <Text className={classes.metricValue} style={{ color: avgTimeSpent !== null ? "#0ec9c2" : "var(--mantine-color-dimmed)" }}>
             {avgTimeSpent !== null ? formatDuration(avgTimeSpent) : "N/A"}
-          </Text>
-        </div>
-        <div className={classes.metricCard}>
-          <Text className={classes.metricLabel}>Avg Load Time</Text>
-          <Text className={classes.metricValue} style={{ color: avgLoadTime !== null ? "#0ba09a" : "var(--mantine-color-dimmed)" }}>
-            {avgLoadTime !== null ? formatDuration(avgLoadTime) : "N/A"}
           </Text>
         </div>
       </div>
@@ -138,17 +129,7 @@ export function TimeSpentGraph({
                 lineStyle: { width: 2.5, color: "#0ec9c2" },
                 symbol: "circle",
                 symbolSize: 6,
-              },
-              {
-                name: "Avg Load Time",
-                type: "line",
-                smooth: true,
-                data: trendData.map((d) => [d.timestamp, d.avgLoadTime]),
-                itemStyle: { color: "#0ba09a" },
-                lineStyle: { width: 2.5, color: "#0ba09a" },
-                symbol: "circle",
-                symbolSize: 6,
-              },
+              }
             ],
           }}
         />

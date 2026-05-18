@@ -41,16 +41,29 @@ public class TncService {
         .switchIfEmpty(Single.error(new RuntimeException("No active TnC version configured")))
         .flatMap(version ->
             tncDao.getAcceptance(tenantId, version.getId())
-                .map(acceptance -> TncStatusResult.builder()
-                    .accepted(true)
-                    .version(version)
-                    .acceptedByEmail(acceptance.getAcceptedByEmail())
-                    .acceptedAt(acceptance.getAcceptedAt())
-                    .build())
-                .switchIfEmpty(Single.just(TncStatusResult.builder()
-                    .accepted(false)
-                    .version(version)
-                    .build()))
+                .map(acceptance -> {
+                  log.info("TnC status lookup: tenantId={}, activeVersionId={}, "
+                          + "accepted=true, acceptanceTenantId={}, acceptanceVersionId={}, "
+                          + "acceptedByEmail={}, acceptedAt={}",
+                      tenantId, version.getId(),
+                      acceptance.getTenantId(), acceptance.getTncVersionId(),
+                      acceptance.getAcceptedByEmail(), acceptance.getAcceptedAt());
+                  return TncStatusResult.builder()
+                      .accepted(true)
+                      .version(version)
+                      .acceptedByEmail(acceptance.getAcceptedByEmail())
+                      .acceptedAt(acceptance.getAcceptedAt())
+                      .build();
+                })
+                .switchIfEmpty(Single.fromCallable(() -> {
+                  log.warn("TnC status lookup: tenantId={}, activeVersionId={}, activeVersion={}, "
+                          + "accepted=false (no acceptance row found) — popup will show",
+                      tenantId, version.getId(), version.getVersion());
+                  return TncStatusResult.builder()
+                      .accepted(false)
+                      .version(version)
+                      .build();
+                }))
         );
   }
 
