@@ -1,0 +1,110 @@
+name: Expo Android (RN 0.76) - Build
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  expo:
+    runs-on: ubuntu-latest
+    env:
+      JAVA_OPTS: "-XX:MaxHeapSize=6g"
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+
+      - name: Maven cache key
+        run: |
+          echo "MAVEN_LOCAL_CACHE_KEY=maven-local-pulse-android-${{ hashFiles('pulse-android-otel/**/*.gradle.kts', 'pulse-android-otel/settings.gradle.kts', 'pulse-android-otel/gradle.properties', 'pulse-android-otel/gradle/libs.versions.toml', 'pulse-android-otel/**/src/main/**/*.kt', 'pulse-android-otel/**/src/main/**/*.java') }}" >> $GITHUB_ENV
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
+        with:
+          node-version-file: pulse-react-native-otel/.nvmrc
+
+      - id: yarn-cache
+        uses: actions/cache/restore@5a3ec84eff668545956fd18022155c47e93e2684  # v4.2.3
+        with:
+          path: |
+            pulse-react-native-otel/**/node_modules
+            pulse-react-native-otel/.yarn/install-state.gz
+          key: ${{ runner.os }}-yarn-rn-${{ hashFiles('pulse-react-native-otel/yarn.lock') }}-${{ hashFiles('pulse-react-native-otel/package.json') }}
+          restore-keys: |
+            ${{ runner.os }}-yarn-rn-${{ hashFiles('pulse-react-native-otel/yarn.lock') }}
+            ${{ runner.os }}-yarn-rn-
+
+      - if: steps.yarn-cache.outputs.cache-hit != 'true'
+        working-directory: pulse-react-native-otel
+        run: yarn install --immutable
+
+      - if: steps.yarn-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@5a3ec84eff668545956fd18022155c47e93e2684  # v4.2.3
+        with:
+          path: |
+            pulse-react-native-otel/**/node_modules
+            pulse-react-native-otel/.yarn/install-state.gz
+          key: ${{ runner.os }}-yarn-rn-${{ hashFiles('pulse-react-native-otel/yarn.lock') }}-${{ hashFiles('pulse-react-native-otel/package.json') }}
+
+      - working-directory: pulse-react-native-otel
+        run: yarn build:plugin
+
+      - id: expo-cache
+        uses: actions/cache/restore@5a3ec84eff668545956fd18022155c47e93e2684  # v4.2.3
+        with:
+          path: pulse-react-native-otel/expo-example-rn076/node_modules
+          key: ${{ runner.os }}-npm-expo-rn076-${{ hashFiles('pulse-react-native-otel/expo-example-rn076/package.json') }}
+          restore-keys: |
+            ${{ runner.os }}-npm-expo-rn076-
+
+      - if: steps.expo-cache.outputs.cache-hit != 'true'
+        working-directory: pulse-react-native-otel/expo-example-rn076
+        run: npm install
+
+      - if: steps.expo-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@5a3ec84eff668545956fd18022155c47e93e2684  # v4.2.3
+        with:
+          path: pulse-react-native-otel/expo-example-rn076/node_modules
+          key: ${{ runner.os }}-npm-expo-rn076-${{ hashFiles('pulse-react-native-otel/expo-example-rn076/package.json') }}
+
+      - uses: actions/setup-java@c5195efecf7bdfc987ee8bae7a71cb8b11521c00  # v4.7.1
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - run: |
+          /bin/bash -c "yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses > /dev/null"
+
+      - uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684  # v4.2.3
+        with:
+          path: |
+            ~/.gradle/wrapper
+            ~/.gradle/caches
+          key: ${{ runner.os }}-gradle-expo-rn076-${{ hashFiles('pulse-react-native-otel/expo-example-rn076/package.json') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-expo-rn076-
+            ${{ runner.os }}-gradle-expo-
+            ${{ runner.os }}-gradle-
+
+      - uses: actions/cache/restore@5a3ec84eff668545956fd18022155c47e93e2684  # v4.2.3
+        with:
+          path: ~/.m2/repository
+          key: ${{ env.MAVEN_LOCAL_CACHE_KEY }}
+          restore-keys: |
+            maven-local-pulse-android-
+
+      - working-directory: pulse-react-native-otel/expo-example-rn076
+        run: npx expo prebuild --platform android --clean
+
+      - name: Assert kotlin19Compat flag was written by the config plugin
+        working-directory: pulse-react-native-otel/expo-example-rn076
+        run: |
+          if ! grep -q '^PulseReactNativeOtel_kotlin19Compat=true' android/gradle.properties; then
+            echo "FATAL: kotlin19Compat plugin prop did not write the gradle property." >&2
+            cat android/gradle.properties >&2
+            exit 1
+          fi
+
+      - working-directory: pulse-react-native-otel/expo-example-rn076/android
+        env:
+          JAVA_OPTS: "-XX:MaxHeapSize=6g"
+        run: |
+          ./gradlew assembleDebug -x lint -x test --no-daemon --console=plain

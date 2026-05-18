@@ -12,6 +12,8 @@ on:
       - '.github/workflows/rn-android-lint.yml'
       - '.github/workflows/rn-android-build.yml'
       - '.github/workflows/rn-expo-android.yml'
+      - '.github/workflows/rn-expo-android-rn076.yml'
+      - '.github/workflows/rn-bare-android-rn076.yml'
       - '.github/workflows/rn-expo-ios.yml'
       - '.github/workflows/rn-example-ios.yml'
   pull_request:
@@ -25,6 +27,8 @@ on:
       - '.github/workflows/rn-android-lint.yml'
       - '.github/workflows/rn-android-build.yml'
       - '.github/workflows/rn-expo-android.yml'
+      - '.github/workflows/rn-expo-android-rn076.yml'
+      - '.github/workflows/rn-bare-android-rn076.yml'
       - '.github/workflows/rn-expo-ios.yml'
       - '.github/workflows/rn-example-ios.yml'
 
@@ -313,6 +317,35 @@ jobs:
       - m2-publish
     if: needs.check-changes.outputs.android-sdk-changed == 'true'
     uses: ./.github/workflows/rn-expo-android.yml
+
+  # RN 0.76 / Kotlin 1.9 smoke targets (Expo + bare). See PR #727 for the consumer-compat backstory.
+  rn-expo-rn076:
+    needs: check-changes
+    if: |
+      (needs.check-changes.outputs.react-native-changed == 'true' || needs.check-changes.outputs.android-sdk-changed == 'true') &&
+      needs.check-changes.outputs.android-sdk-changed != 'true'
+    uses: ./.github/workflows/rn-expo-android-rn076.yml
+
+  rn-expo-rn076-sdk:
+    needs:
+      - check-changes
+      - m2-publish
+    if: needs.check-changes.outputs.android-sdk-changed == 'true'
+    uses: ./.github/workflows/rn-expo-android-rn076.yml
+
+  rn-bare-rn076:
+    needs: check-changes
+    if: |
+      (needs.check-changes.outputs.react-native-changed == 'true' || needs.check-changes.outputs.android-sdk-changed == 'true') &&
+      needs.check-changes.outputs.android-sdk-changed != 'true'
+    uses: ./.github/workflows/rn-bare-android-rn076.yml
+
+  rn-bare-rn076-sdk:
+    needs:
+      - check-changes
+      - m2-publish
+    if: needs.check-changes.outputs.android-sdk-changed == 'true'
+    uses: ./.github/workflows/rn-bare-android-rn076.yml
 
   rn-expo-ios:
     needs: check-changes
