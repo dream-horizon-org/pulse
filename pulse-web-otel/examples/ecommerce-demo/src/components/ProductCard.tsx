@@ -40,6 +40,7 @@ export function ProductCard({ product, onAddToCart }: Props) {
     <div
       ref={rootRef}
       data-testid="product-card"
+      data-pulse-click-context="product-listing-card"
       style={{
         background: "#fff",
         borderRadius: 12,
@@ -118,6 +119,7 @@ export function ProductCard({ product, onAddToCart }: Props) {
           </span>
           <button
             type="button"
+            aria-label="Add to cart"
             data-testid="product-add-to-cart"
             onClick={() => {
               onAddToCart(product);

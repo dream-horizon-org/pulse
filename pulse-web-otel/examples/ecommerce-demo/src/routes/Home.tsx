@@ -29,6 +29,7 @@ export default function Home() {
         route change is tracked.
       </p>
       <Link
+        id="buy-now-btn"
         to="/products"
         onClick={() => Pulse.trackEvent("shop_now_click")}
         style={{

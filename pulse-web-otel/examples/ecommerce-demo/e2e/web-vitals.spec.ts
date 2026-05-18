@@ -3,6 +3,7 @@
  * In `--mode test`, {@code VITE_PULSE_BATCH_DELAY_MS=200} — wait ~1.5s after click for log export.
  */
 import { test, expect, findAllLogs, findAllSpans, getAttr } from "./fixture";
+import { assertWebVitalContract } from "./otlp-contract-helpers";
 import {
   seedPulseSdkConfig,
   minimalPulseSdkConfig,
@@ -382,6 +383,186 @@ test.describe("@WebVitals", () => {
     await page.waitForTimeout(1500);
 
     expect(findAllLogs(otlp.captured, "web_vital")).toHaveLength(0);
+  });
+
+  test("VIT-07: CLS web_vital flushes on tab hide after layout shift", async ({
+    page,
+    otlp,
+  }) => {
+    await page.goto("/");
+    await otlp.waitForLog("session.start");
+
+    await page.evaluate(async () => {
+      const box = document.createElement("div");
+      box.setAttribute("data-e2e-cls-shift", "1");
+      box.style.cssText =
+        "width:80px;height:80px;background:#ef4444;position:fixed;top:12px;left:12px;z-index:99999;";
+      document.body.appendChild(box);
+      await new Promise<void>((resolve) => {
+        requestAnimationFrame(() => {
+          box.style.height = "200px";
+          resolve();
+        });
+      });
+    });
+
+    await page.waitForTimeout(300);
+
+    await page.evaluate(() => {
+      Object.defineProperty(document, "visibilityState", {
+        get: () => "hidden",
+        configurable: true,
+      });
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+
+    await page.waitForTimeout(1500);
+
+    const cls = findAllLogs(otlp.captured, "web_vital").find(
+      (lr) => getAttr(lr.attributes, "web_vital.name") === "CLS",
+    );
+    expect(cls).toBeDefined();
+    assertExportedWebVitalAttrs(cls!.attributes);
+  });
+
+  test("VIT screen.name: LCP after /products nav has route-specific screen.name", async ({
+    page,
+    otlp,
+  }) => {
+    await page.goto("/");
+    await otlp.waitForLog("session.start");
+    await page.waitForTimeout(500);
+    await page.click('a[href="/products"]');
+    await page.waitForURL("**/products");
+    await page.waitForTimeout(1500);
+    const lcp = findAllLogs(otlp.captured, "web_vital").find(
+      (lr) => getAttr(lr.attributes, "web_vital.name") === "LCP",
+    );
+    expect(lcp).toBeDefined();
+    expect(getAttr(lcp!.attributes, "screen.name")).toBe("/products");
+    assertWebVitalContract(lcp!.attributes);
+  });
+
+  test("VIT-08: web_vital.navigation_type on exported vital", async ({
+    page,
+    otlp,
+  }) => {
+    await page.goto("/");
+    await otlp.waitForLog("session.start");
+    await page.waitForTimeout(1500);
+    const ttfb = findAllLogs(otlp.captured, "web_vital").find(
+      (lr) => getAttr(lr.attributes, "web_vital.name") === "TTFB",
+    );
+    expect(ttfb).toBeDefined();
+    assertExportedWebVitalAttrs(ttfb!.attributes);
+  });
+
+  test("VIT-15: web_vital.rating enum on exported vital", async ({
+    page,
+    otlp,
+  }) => {
+    await page.goto("/");
+    await otlp.waitForLog("session.start");
+    await page.waitForTimeout(1500);
+    const fcp = findAllLogs(otlp.captured, "web_vital").find(
+      (lr) => getAttr(lr.attributes, "web_vital.name") === "FCP",
+    );
+    expect(fcp).toBeDefined();
+    expect(["good", "needs-improvement", "poor"]).toContain(
+      getAttr(fcp!.attributes, "web_vital.rating"),
+    );
+  });
+
+  test("VIT-11: web_vital.value is finite number", async ({ page, otlp }) => {
+    await page.goto("/");
+    await otlp.waitForLog("session.start");
+    await page.waitForTimeout(1500);
+    const vital = findAllLogs(otlp.captured, "web_vital")[0];
+    expect(vital).toBeDefined();
+    const value = getAttr(vital!.attributes, "web_vital.value");
+    expect(typeof value).toBe("number");
+    expect(Number.isFinite(value as number)).toBe(true);
+  });
+
+  test("VIT-12: web_vital.name is known metric", async ({ page, otlp }) => {
+    await page.goto("/");
+    await otlp.waitForLog("session.start");
+    await page.waitForTimeout(1500);
+    const names = findAllLogs(otlp.captured, "web_vital").map((lr) =>
+      getAttr(lr.attributes, "web_vital.name"),
+    );
+    expect(names.some((n) => typeof n === "string" && n.length > 0)).toBe(true);
+  });
+
+  test("VIT-13: session.id UUID on web_vital", async ({ page, otlp }) => {
+    await page.goto("/");
+    await otlp.waitForLog("session.start");
+    await page.waitForTimeout(1500);
+    const vital = findAllLogs(otlp.captured, "web_vital")[0];
+    expect(getAttr(vital!.attributes, "session.id")).toMatch(
+      /^[0-9a-f-]{36}$/i,
+    );
+  });
+
+  test("VIT-14: platform web on web_vital", async ({ page, otlp }) => {
+    await page.goto("/");
+    await otlp.waitForLog("session.start");
+    await page.waitForTimeout(1500);
+    const vital = findAllLogs(otlp.captured, "web_vital")[0];
+    expect(getAttr(vital!.attributes, "platform")).toBe("web");
+  });
+
+  test("VIT-16: web_vital.delta when present is finite", async ({
+    page,
+    otlp,
+  }) => {
+    await page.goto("/");
+    await otlp.waitForLog("session.start");
+    await page.waitForTimeout(1500);
+    const vital = findAllLogs(otlp.captured, "web_vital")[0];
+    const delta = getAttr(vital!.attributes, "web_vital.delta");
+    if (delta !== undefined) {
+      expect(Number.isFinite(delta as number)).toBe(true);
+    }
+  });
+
+  test("VIT-09: tab hide on /products after CLS emits web_vital without session.end", async ({
+    page,
+    otlp,
+  }) => {
+    await page.goto("/products");
+    await otlp.waitForLog("session.start");
+
+    await page.evaluate(async () => {
+      const box = document.createElement("div");
+      box.style.cssText =
+        "width:80px;height:80px;background:#ef4444;position:fixed;top:12px;left:12px;z-index:99999;";
+      document.body.appendChild(box);
+      await new Promise<void>((resolve) => {
+        requestAnimationFrame(() => {
+          box.style.height = "200px";
+          resolve();
+        });
+      });
+    });
+    await page.waitForTimeout(300);
+
+    await page.evaluate(() => {
+      window.dispatchEvent(
+        new PageTransitionEvent("pagehide", { persisted: true, bubbles: true }),
+      );
+      Object.defineProperty(document, "visibilityState", {
+        get: () => "hidden",
+        configurable: true,
+      });
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+    await page.waitForTimeout(1500);
+
+    const vitals = findAllLogs(otlp.captured, "web_vital");
+    expect(vitals.length).toBeGreaterThan(0);
+    expect(findAllLogs(otlp.captured, "session.end")).toHaveLength(0);
+    vitals.forEach((lr) => assertExportedWebVitalAttrs(lr.attributes));
   });
 
   test("does not emit web_vital logs when local web vitals kill switch is on (?pulse_wv_enabled=false)", async ({

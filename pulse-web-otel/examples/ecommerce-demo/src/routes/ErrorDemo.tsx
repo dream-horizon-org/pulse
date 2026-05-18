@@ -261,6 +261,31 @@ export default function ErrorDemo(): React.ReactElement {
         }}
       >
         <LabCard
+          title="Handled try/catch (no export)"
+          hint={
+            <>
+              Swallowed error — expect <strong>zero</strong>{" "}
+              <code>device.crash</code> (ERR-05).
+            </>
+          }
+        >
+          <button
+            data-testid="throw-handled-catch"
+            style={btn("#64748b")}
+            onClick={() => {
+              Pulse.trackEvent("error_demo_handled_catch");
+              try {
+                throw new Error("Handled error swallowed in ErrorDemo");
+              } catch {
+                /* intentional — must not reach Pulse */
+              }
+            }}
+          >
+            Throw in try/catch
+          </button>
+        </LabCard>
+
+        <LabCard
           title="Unhandled Promise rejection"
           hint={
             <>
@@ -275,11 +300,11 @@ export default function ErrorDemo(): React.ReactElement {
             onClick={() => {
               Pulse.trackEvent("error_demo_throw_promise");
               Promise.reject(
-                new Error("Demo unhandled rejection from ErrorDemo"),
+                new TypeError("Demo TypeError rejection from ErrorDemo"),
               );
             }}
           >
-            Reject unhandled promise
+            Reject unhandled promise (TypeError)
           </button>
         </LabCard>
 
@@ -332,7 +357,7 @@ export default function ErrorDemo(): React.ReactElement {
             style={btn("#f59e0b")}
             onClick={() => {
               Pulse.trackEvent("error_demo_throw_promise_string");
-              Promise.reject("String rejection from ErrorDemo");
+              Promise.reject("string");
             }}
           >
             Reject string
