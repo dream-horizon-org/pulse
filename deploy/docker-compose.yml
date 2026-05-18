@@ -122,7 +122,7 @@ services:
       /bin/bash -c "
         cd /workspace &&
         echo '--- MySQL migrations ---' &&
-        mvn -B liquibase:update -Pmysql -Dliquibase.mysql.url=\"jdbc:mysql://mysql:3306/${MYSQL_DATABASE:-pulse_db}?useSSL=false&allowPublicKeyRetrieval=true\" -Dliquibase.mysql.username=\"${MYSQL_USER:-pulse_user}\" -Dliquibase.mysql.password=\"${MYSQL_PASSWORD:-pulse_password}\" -Dliquibase.mysql.schema=\"${MYSQL_DATABASE:-pulse_db}\" &&
+        mvn -B liquibase:update -Pmysql -Dliquibase.mysql.url=\"jdbc:mysql://mysql:3306/${MYSQL_DATABASE:-pulse_db}?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true\" -Dliquibase.mysql.username=\"${MYSQL_USER:-pulse_user}\" -Dliquibase.mysql.password=\"${MYSQL_PASSWORD:-pulse_password}\" -Dliquibase.mysql.schema=\"${MYSQL_DATABASE:-pulse_db}\" &&
         echo '--- ClickHouse migrations ---' &&
         mvn -B liquibase:update -Pclickhouse -Dliquibase.clickhouse.url=\"jdbc:clickhouse://clickhouse:8123/${OTEL_CLICKHOUSE_DATABASE:-otel}\" -Dliquibase.clickhouse.username=\"${OTEL_CLICKHOUSE_USER:-pulse_user}\" -Dliquibase.clickhouse.password=\"${OTEL_CLICKHOUSE_PASSWORD:-pulse_password}\" &&
         echo '=== All migrations complete ==='
