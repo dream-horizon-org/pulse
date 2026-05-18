@@ -36,11 +36,20 @@ Once the SDK starts, these signals fire automatically with no extra code:
 | --- | --- |
 | `session.start` / `session.end` | Session lifecycle |
 | `screen_load` | Page / route load timing |
-| `web_vital` | LCP, CLS, FID, INP, TTFB |
+| `web_vital` | LCP, CLS, INP, TTFB, FCP |
 | `app.click` | Every click + rage click detection |
-| `http` | All `fetch` / XHR network calls |
+| `network.<status>` (e.g. `network.200`) | All `fetch` / XHR — client span `pulse.type` is `network.<HTTP status>` (Android parity), not the literal `http` |
 | `non_fatal` | Unhandled JS errors + promise rejections |
 | `device.crash` | React render errors (React / Next.js only — via `PulseErrorBoundary`) |
+
+### 3.1 Web Vitals rating tuples (optional)
+
+The package root re-exports **`LCPThresholds`**, **`INPThresholds`**, **`CLSThresholds`**, **`FCPThresholds`**, and **`TTFBThresholds`** from the pinned `web-vitals` major (numeric tuples aligned with **`Metric.rating`** / CrUX buckets). Use them for custom gauges without adding a second `web-vitals` dependency:
+
+```ts
+import { LCPThresholds, INPThresholds } from "@dreamhorizonorg/pulse-web";
+// e.g. LCPThresholds → [good vs needs-improvement ms, needs-improvement vs poor ms]
+```
 
 ---
 
@@ -72,9 +81,11 @@ createRoot(document.getElementById("root")!).render(
 ```
 
 **Notes:**
+
 - `PulseProvider` calls `Pulse.init()` once on mount (StrictMode-safe) and wraps children in `PulseErrorBoundary`.
-- `PulseRouterEvents` is in `/react/router` — **not** `/react` — so apps without React Router don't need `react-router-dom`.
-- If you prefer a hook: `useRouterTracking()` from `@dreamhorizonorg/pulse-web/react/router` is equivalent.
+- **`shutdownOnUnmount`** defaults **`false`** — the SDK stays alive for the full page when the provider unmounts (e.g. route-level wrappers). Set **`true`** only if you intentionally want `Pulse.shutdown()` when the last provider unmounts (common in tests).
+- `PulseRouterEvents` is exported from **`@dreamhorizonorg/pulse-web/react/router`** (and re-exported from **`@dreamhorizonorg/pulse-web/next`** for App Router). It is **not** on the bare **`@dreamhorizonorg/pulse-web/react`** entry so apps without React Router never pull `react-router-dom`.
+- If you prefer a hook: `useRouterTracking()` from `@dreamhorizonorg/pulse-web/react/router` is equivalent to rendering `<PulseRouterEvents />`.
 
 ---
 
@@ -89,6 +100,7 @@ import { PulseProvider, PulseRouterEvents } from "@dreamhorizonorg/pulse-web/nex
 import { PulseDataCollectionConsent } from "@dreamhorizonorg/pulse-web";
 
 export function PulseClientProvider({ children }: { children: React.ReactNode }) {
+  // `shutdownOnUnmount` defaults false — keeps Pulse running for the full page when this client subtree unmounts.
   return (
     <PulseProvider
       config={{

@@ -41,8 +41,8 @@ public class UpdateAlertRequestDto {
   Integer severity;
 
   @NotNull
-  @JsonProperty("notification_channel_id")
-  Integer notificationChannelId;
+  @JsonProperty("channel_event_mapping_id")
+  Long channelEventMappingId;
 
   @NotNull
   @JsonProperty("created_by")

@@ -20,7 +20,10 @@ export const GET_RCA_JOB_ROUTE = {
   method: "GET",
 } as const;
 
-/** Read-only status check: returns cached report or active job without triggering new job creation. */
+/**
+ * Read-only peek: GET /v1/ai-rca/report?rcaType=&entityKey=&date=
+ * Matches backend {@code GetRcaJobStatus.peekRcaStatus}; does not create jobs.
+ */
 export const GET_RCA_STATUS_ROUTE = {
   key: "GET_RCA_STATUS",
   apiPath: (entityKey: string, date?: string | null) => {

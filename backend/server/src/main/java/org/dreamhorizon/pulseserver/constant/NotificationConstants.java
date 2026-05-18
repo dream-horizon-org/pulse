@@ -10,7 +10,10 @@ public final class NotificationConstants {
     private Platform() {}
 
     public static final Long DEFAULT_CHANNEL_ID = 1L;
+    public static final Long DEFAULT_ALERTS_EMAIL_CHANNEL_ID = 2L;
+    public static final Long DEFAULT_ALERTS_SLACK_WEBHOOK_CHANNEL_ID = 3L;
 
+    public static final String EVENT_PULSE_ALERT_FIRING = "pulse_alert_firing";
     public static final String EVENT_PROJECT_CREATED = "project_created";
     public static final String EVENT_COLLABORATOR_ADDED = "collaborator_added";
     public static final String EVENT_COLLABORATOR_REMOVED = "collaborator_removed";
@@ -84,6 +87,10 @@ public final class NotificationConstants {
     public static final String CONTENT_TYPE_JSON = "application/json";
     public static final String KEY_AUTHORIZATION = "Authorization";
     public static final String AUTHORIZATION_BEARER_PREFIX = "Bearer ";
+
+    public static final String KEY_ATTACHMENTS = "attachments";
+    public static final String KEY_COLOR = "color";
+    public static final String KEY_MRKDWN_IN = "mrkdwn_in";
 
     public static final Set<String> PERMANENT_ERROR_CODES =
         Set.of(

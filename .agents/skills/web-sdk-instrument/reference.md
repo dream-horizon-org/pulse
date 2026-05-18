@@ -58,6 +58,7 @@ Copy into chat or a scratch doc; set each row to **DONE** | **PARTIAL** | **MISS
 | D3 | `ecommerce-demo/package.json` | **Every new** `e2e/*.spec.ts` must appear in the `e2e:web-sdk-gates` script — otherwise the gate **never runs** that file. |
 | D4 | `.env.test` | JSON OTLP for Playwright decode (`VITE_PULSE_FORMAT=json`); see web-sdk-ship Step 3. |
 | D5 | Gate log | CI / PR description (optional `pulse-web-otel/progress.txt`) — append command + result. |
+| D6 | IDB disk-buffer replay E2E | After a **non-retryable** failed logs export + `reload`, **`findAllLogs` stays empty** → before debugging routing/`fetch`, verify `IdbSignalBuffer.write` → **`enforceMaxSize`** did not delete the row: default **`DEFAULT_DISK_BUFFER_MAX_CACHE_SIZE_BYTES`** in `src/constants/disk-buffer.ts` must match **`docs/sdk-core/config-and-public-api/SPEC.md`** (~10 MiB, same order as `VITE_PULSE_DISK_BUFFER_MAX_SIZE_BYTES=10485760` in `.env.example`). A single JSON OTLP batch exceeds **10 KiB**; cap below batch size ⇒ **silent no replay**. See **§F** row 2026-05-14. |
 
 ## E. Close-out
 
@@ -88,6 +89,7 @@ Copy into chat or a scratch doc; set each row to **DONE** | **PARTIAL** | **MISS
 | 2026-05-14 | SPEC audit iter14 instrumentations | **§6.1 Tests** column: cite concrete **`src/__tests__/*.ts(x)`** paths or mark **`missing`** / **`gap`** — never substitute requirement ids (**SR3**, **R3**), prose-only refs (**assumptions §2**, **source comments**), or vague **“uninstall path”** without a file. |
 | 2026-05-14 | SPEC audit iter14 react-integration | **`pulse-router-events.test.tsx`** exercises **Next** `integrations/next/PulseRouterEvents`; **`react-integration`** SPEC matrix must point **`react/router`** coverage at **`use-router-tracking.test.tsx`** (or a dedicated React test), not the Next file. |
 | 2026-05-14 | E2E catalogue sweep (`docs/sdk-core/test-coverage/SPEC.md` §6.4) | **`examples/nextjs-demo/e2e`** proves App Router + errors + CH subset only — treat **`screen.name` on logs** vs **`screen_load`/`screen_session` spans** as an explicit parity gap until Next Playwright waits on trace spans; port **`@M1`/`@M4`/`@WebVitals`/`@M2`** groups or document **won’t E2E**. |
+| 2026-05-14 | M1 disk-buffer replay E2E + code review (`m1.spec.ts` / `indexed-db.ts`) | **IDB replay empty after failed export:** `IdbSignalBuffer.write` always runs **`enforceMaxSize`** after `add`; if **`DEFAULT_DISK_BUFFER_MAX_CACHE_SIZE_BYTES`** is below one OTLP JSON batch, the new row is **deleted immediately** — `drainBufferedOtlpExports` then finds nothing. Keep default aligned with SPEC + `.env.example` (**~10 MiB**, `10 * 1024 * 1024`, not `10 * 1024`). |
 
 *(Append new rows at the bottom; do not delete history without archival note.)*
 
