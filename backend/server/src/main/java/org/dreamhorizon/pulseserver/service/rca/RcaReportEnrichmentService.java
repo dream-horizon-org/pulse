@@ -29,6 +29,7 @@ import org.dreamhorizon.pulseserver.service.rootcause.RootCauseQueryBuilder;
 import org.dreamhorizon.pulseserver.service.rootcause.RootCauseService;
 import org.dreamhorizon.pulseserver.service.rootcause.ScreenRcaService;
 import org.dreamhorizon.pulseserver.service.rootcause.SessionEvidenceService;
+import org.dreamhorizon.pulseserver.service.sessionrca.SessionRcaService;
 import org.dreamhorizon.pulseserver.service.rootcause.models.EvidenceSession;
 import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseResult;
 import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseSegment;
@@ -49,6 +50,8 @@ public class RcaReportEnrichmentService {
   private static final String ERROR_ATTRIBUTION_PAYLOAD_FIELD = "errorAttributionPayload";
   private static final String START_FIELD = "start";
   private static final String END_FIELD = "end";
+  private static final String DATE_FIELD = "date";
+  private static final String AS_OF_FIELD = "asOf";
 
   private final ObjectMapper objectMapper;
   private final RootCauseService rootCauseService;
@@ -56,6 +59,7 @@ public class RcaReportEnrichmentService {
   private final SessionEvidenceService sessionEvidenceService;
   private final ErrorAttributionService errorAttributionService;
   private final RootCauseConfig rootCauseConfig;
+  private final SessionRcaService sessionRcaService;
 
   /**
    * Enriches the RCA JSON body with root-cause data and example sessions.
@@ -83,9 +87,10 @@ public class RcaReportEnrichmentService {
       return enrichScreenAsync(parsed, forceRootCauseRefresh);
     }
 
-    // For now, only INTERACTION type is fully supported with enrichment
-    // Other types may have different enrichment paths in the future
-    // TODO: Introduce strategy-style abstraction (interface + implementations) for extensibility
+    if (type == RcaType.SESSION) {
+      return enrichSessionAsync(parsed, forceRootCauseRefresh);
+    }
+
     if (type != RcaType.INTERACTION) {
       return Single.just(
           new RcaEnrichmentOutcome(fallbackBody, null, date, windowEndExclusive, false));
@@ -200,6 +205,40 @@ public class RcaReportEnrichmentService {
             })
         .onErrorReturnItem(
             new RcaEnrichmentOutcome(fallbackBody, null, anchorDate, windowEndExclusive, false));
+  }
+
+  /**
+   * Session RCA async enrichment: fetch tabular session quality data via {@link SessionRcaService}
+   * and build the body for the pulse_ai {@code rca/session-report} endpoint.
+   */
+  private Single<RcaEnrichmentOutcome> enrichSessionAsync(
+      RcaParsedReportBody parsed, boolean forceRootCauseRefresh) {
+    String fallbackBody = parsed.rawBody();
+    String projectId = parsed.projectId();
+    LocalDate anchorDate = parsed.date();
+    Instant windowEndExclusive = Instant.now();
+    return sessionRcaService
+        .getSessionRca(projectId, anchorDate, windowEndExclusive, forceRootCauseRefresh)
+        .map(
+            sessionResult -> {
+              try {
+                ObjectNode aiBody = objectMapper.createObjectNode();
+                aiBody.set(ROOT_CAUSE_PAYLOAD_FIELD, objectMapper.valueToTree(sessionResult));
+                aiBody.put(DATE_FIELD, anchorDate.toString());
+                aiBody.put(AS_OF_FIELD, windowEndExclusive.toString());
+                String body = objectMapper.writeValueAsString(aiBody);
+                return new RcaEnrichmentOutcome(body, sessionResult, anchorDate, windowEndExclusive, true);
+              } catch (Exception e) {
+                log.warn("Session RCA enrichment serialize failed: {}", e.getMessage());
+                return new RcaEnrichmentOutcome(fallbackBody, null, anchorDate, windowEndExclusive, false);
+              }
+            })
+        .onErrorResumeNext(error -> {
+          log.warn("Session RCA enrichment failed for project={} date={}: {}",
+              projectId, anchorDate, error.getMessage(), error);
+          return Single.just(
+              new RcaEnrichmentOutcome(fallbackBody, null, anchorDate, windowEndExclusive, false));
+        });
   }
 
   /**
