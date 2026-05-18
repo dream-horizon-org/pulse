@@ -84,7 +84,7 @@ class ErrorAttributionRiskMathTest {
   @Test
   void passesTreatedPrevalence_phiZeroPointZeroFiveRequiresCeilSessions() {
     double phi = RootCauseConfig.DEFAULT_MIN_TREATED_PREVALENCE_FRACTION_IN_U;
-    assertThat(phi).isEqualTo(5.0e-4);
+    assertThat(phi).isEqualTo(0.001);
     assertThat(ErrorAttributionRiskMath.passesTreatedPrevalenceInUniverse(5L, 99_995L, phi))
         .isFalse();
     assertThat(ErrorAttributionRiskMath.passesTreatedPrevalenceInUniverse(50L, 99_950L, phi))
