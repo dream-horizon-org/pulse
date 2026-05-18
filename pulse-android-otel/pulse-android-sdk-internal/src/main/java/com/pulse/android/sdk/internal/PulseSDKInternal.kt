@@ -7,6 +7,7 @@ import android.app.Application
 import android.content.Context
 import com.pulse.android.api.otel.PulseBeforeSendData
 import com.pulse.android.api.otel.PulseDataCollectionConsent
+import com.pulse.android.core.config.InteractionConfigRestFetcher
 import com.pulse.android.sdk.internal.beforesend.PulseBeforeSendLogExporter
 import com.pulse.android.sdk.internal.beforesend.PulseBeforeSendMetricExporter
 import com.pulse.android.sdk.internal.beforesend.PulseBeforeSendSpanExporter
@@ -15,7 +16,6 @@ import com.pulse.android.sdk.replay.SessionReplayBootstrap
 import com.pulse.android.sdk.replay.SessionReplayConfig
 import com.pulse.android.sdk.replay.SessionReplayRegistry
 import com.pulse.android.sdk.replay.TextAndInputPrivacy
-import com.pulse.android.core.config.InteractionConfigRestFetcher
 import com.pulse.sampling.core.exporters.PulseSamplingSignalProcessors
 import com.pulse.sampling.core.exporters.PulseSignalSelectExporter
 import com.pulse.sampling.models.PulseFeatureConfigData
