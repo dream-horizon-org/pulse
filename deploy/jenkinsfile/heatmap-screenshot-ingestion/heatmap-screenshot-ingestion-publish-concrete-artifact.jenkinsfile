@@ -1,6 +1,6 @@
 pipeline {
     agent {
-        // Same fleet as session-replay / pulse-server publish: has Node + npm for npm install/build.
+        // ARM build fleet — no Node/jq; uses sed for JSON manipulation
         node { label 'pulse-artifact-arm-build-ec2-fleet' }
     }
 
@@ -60,19 +60,16 @@ pipeline {
                         def nextSnapshot = "${nextVersion}-SNAPSHOT"
                         sh """
                             #!/bin/bash -el
-                            PKG="${WORKSPACE}/backend/heatmap-screenshot-ingestion/package.json"
-                            node -e "
-                              const fs = require('fs');
-                              const p = process.argv[1];
-                              const j = JSON.parse(fs.readFileSync(p, 'utf8'));
-                              j.version = '${nextSnapshot}';
-                              fs.writeFileSync(p, JSON.stringify(j, null, 2) + '\\n');
-                            " "\$PKG"
+                            PKG="backend/heatmap-screenshot-ingestion/package.json"
+                            
+                            # Update version in package.json using sed
+                            sed -i.bak 's/"version": "[^"]*"/"version": "${nextSnapshot}"/' "\$PKG"
+                            rm "\$PKG.bak"
 
                             git config user.email "${GITBOT_USERNAME}@users.noreply.github.com"
                             git config user.name "${GITBOT_USERNAME}"
 
-                            git add backend/heatmap-screenshot-ingestion/package.json
+                            git add "\$PKG"
                             git commit -m "chore: bump pulse-heatmap-screenshot-ingestion version to ${nextSnapshot}"
 
                             git push https://${GIT_USER}:${GIT_TOKEN}@github.com/dream-horizon-org/pulse.git HEAD:main

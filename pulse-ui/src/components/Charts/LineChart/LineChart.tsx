@@ -34,6 +34,7 @@ export function LineChart({
   withLegend = true,
   tooltipValueFormatter,
   syncTooltips = true,
+  enableBrushSelection = true,
   group = "defaultChartGroup",
   onTimeFilterChange,
   mapBrushToTimeFilter,
@@ -45,7 +46,7 @@ export function LineChart({
   const { onChartReady } = useChartReady({
     syncTooltips,
     group,
-    enableBrushSelection: true,
+    enableBrushSelection,
     onTimeFilterChange,
     mapBrushToTimeFilter,
     syncDataZoomToTimeFilter,
@@ -58,6 +59,7 @@ export function LineChart({
     withLegend,
     zoom,
     chartType: "line",
+    enableBrush: enableBrushSelection,
   });
 
   useEffect(() => {
@@ -97,7 +99,14 @@ export function LineChart({
     <ReactECharts
       ref={chartRef}
       echarts={echarts}
-      style={{ height, width: "100%", ...style }}
+      style={{
+        height,
+        width: "100%",
+        minHeight: height,
+        minWidth: 1,
+        boxSizing: "border-box",
+        ...style,
+      }}
       option={mergedOptions}
       onChartReady={onChartReady}
       {...props}

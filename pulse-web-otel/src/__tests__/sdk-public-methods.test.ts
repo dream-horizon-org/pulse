@@ -252,6 +252,17 @@ describe("Pulse public SDK methods", () => {
       expect(emittedAttrs()["component"]).toBe("Checkout");
     });
 
+    it("stamps url.path = current window.location.pathname (SPEC §5.2.3)", async () => {
+      const { Pulse } = await import("../sdk");
+      Pulse.init(BASE_CONFIG);
+      await Promise.resolve();
+      emitFn.mockClear();
+      Pulse.reportException(new Error("url test"));
+      expect(emittedAttrs()[PulseWebSemconv.AttributeKey.URL_PATH]).toBe(
+        window.location.pathname,
+      );
+    });
+
     it("is a no-op before SDK is initialized", async () => {
       const { Pulse } = await import("../sdk");
       Pulse.reportException(new Error("early"));
@@ -322,6 +333,30 @@ describe("Pulse public SDK methods", () => {
       });
 
       expect(emittedAttrs()["component_stack"]).toBe("App > Router");
+    });
+
+    it("stamps error.filename from stack and url.path = current pathname", async () => {
+      const { Pulse } = await import("../sdk");
+      Pulse.init(BASE_CONFIG);
+      await Promise.resolve();
+      emitFn.mockClear();
+      Pulse.reportDeviceCrash(new Error("crash with stack"));
+      const attrs = emittedAttrs();
+      // error.filename parsed from stack (may be empty string in jsdom, but must be present)
+      expect(PulseWebSemconv.AttributeKey.ERROR_FILENAME in attrs).toBe(true);
+      // url.path must equal current pathname
+      expect(attrs[PulseWebSemconv.AttributeKey.URL_PATH]).toBe(window.location.pathname);
+    });
+
+    it("omits error.lineno and error.colno (SPEC §5.2.4 — file info via stacktrace, not line attrs)", async () => {
+      const { Pulse } = await import("../sdk");
+      Pulse.init(BASE_CONFIG);
+      await Promise.resolve();
+      emitFn.mockClear();
+      Pulse.reportDeviceCrash(new Error("crash"));
+      const attrs = emittedAttrs();
+      expect(attrs[PulseWebSemconv.AttributeKey.ERROR_LINENO]).toBeUndefined();
+      expect(attrs[PulseWebSemconv.AttributeKey.ERROR_COLNO]).toBeUndefined();
     });
 
     it("is a no-op before SDK is initialized", async () => {
@@ -396,6 +431,41 @@ describe("Pulse public SDK methods", () => {
       const attrs = emittedAttrs();
       expect(attrs["endpoint"]).toBe("/checkout");
       expect(attrs["status"]).toBe("503");
+    });
+
+    it("omits url.path — named non-fatals are not page-specific", async () => {
+      const { Pulse } = await import("../sdk");
+      Pulse.init(BASE_CONFIG);
+      await Promise.resolve();
+      emitFn.mockClear();
+      Pulse.trackNonFatal("checkout_error");
+      expect(emittedAttrs()[PulseWebSemconv.AttributeKey.URL_PATH]).toBeUndefined();
+    });
+
+    it("omits exception.type, exception.message, exception.stacktrace (named event, not a thrown Error)", async () => {
+      const { Pulse } = await import("../sdk");
+      Pulse.init(BASE_CONFIG);
+      await Promise.resolve();
+      emitFn.mockClear();
+      Pulse.trackNonFatal("payment_failed");
+      const attrs = emittedAttrs();
+      expect(attrs[PulseWebSemconv.AttributeKey.EXCEPTION_TYPE]).toBeUndefined();
+      expect(attrs[PulseWebSemconv.AttributeKey.EXCEPTION_MESSAGE]).toBeUndefined();
+      expect(attrs[PulseWebSemconv.AttributeKey.EXCEPTION_STACKTRACE]).toBeUndefined();
+    });
+
+    it("stamps WARN severity and a timestamp (ISS-018 — guards ISS-011 regression)", async () => {
+      const { Pulse } = await import("../sdk");
+      Pulse.init(BASE_CONFIG);
+      await Promise.resolve();
+      emitFn.mockClear();
+      Pulse.trackNonFatal("severity_test");
+      // severityNumber must be WARN (13) — matches SeverityNumber.WARN
+      expect(emittedCall().severityNumber).toBe(13);
+      // severityText must be the canonical OTel label
+      expect(emittedCall().severityText).toBe("WARN");
+      // timestamp must be a positive number (Date.now() at call time)
+      expect(emittedCall().timestamp).toBeGreaterThan(0);
     });
 
     it("is a no-op before SDK is initialized", async () => {
@@ -498,6 +568,48 @@ describe("Pulse public SDK methods", () => {
     it("is safe to call before SDK is initialized (no crash)", async () => {
       const { Pulse } = await import("../sdk");
       expect(() => Pulse.clearUserIdentity()).not.toThrow();
+    });
+  });
+
+  // ─── manual error APIs bypass JS_CRASH gate ──────────────────────────────
+
+  describe("manual error APIs bypass JS_CRASH feature gate (SPEC R4+R6)", () => {
+    it("reportException emits when SDK is initialized (gate irrelevant)", async () => {
+      // Manual APIs only guard on _initialized — never on the feature gate.
+      // ErrorInstrumentation (auto-capture) is what gets gated; these methods are not.
+      const { Pulse } = await import("../sdk");
+      Pulse.init(BASE_CONFIG);
+      await Promise.resolve();
+      emitFn.mockClear();
+      Pulse.reportException(new Error("manual bypass"));
+      expect(emitFn).toHaveBeenCalledOnce();
+      expect(emittedAttrs()[PulseWebSemconv.AttributeKey.PULSE_TYPE]).toBe(
+        PulseWebSemconv.PulseType.NON_FATAL,
+      );
+    });
+
+    it("reportDeviceCrash emits when SDK is initialized (gate irrelevant)", async () => {
+      const { Pulse } = await import("../sdk");
+      Pulse.init(BASE_CONFIG);
+      await Promise.resolve();
+      emitFn.mockClear();
+      Pulse.reportDeviceCrash(new Error("manual crash bypass"));
+      expect(emitFn).toHaveBeenCalledOnce();
+      expect(emittedAttrs()[PulseWebSemconv.AttributeKey.PULSE_TYPE]).toBe(
+        PulseWebSemconv.PulseType.DEVICE_CRASH,
+      );
+    });
+
+    it("trackNonFatal emits when SDK is initialized (gate irrelevant)", async () => {
+      const { Pulse } = await import("../sdk");
+      Pulse.init(BASE_CONFIG);
+      await Promise.resolve();
+      emitFn.mockClear();
+      Pulse.trackNonFatal("bypass_event");
+      expect(emitFn).toHaveBeenCalledOnce();
+      expect(emittedAttrs()[PulseWebSemconv.AttributeKey.PULSE_TYPE]).toBe(
+        PulseWebSemconv.PulseType.NON_FATAL,
+      );
     });
   });
 
