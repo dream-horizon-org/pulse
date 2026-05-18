@@ -6,6 +6,7 @@ WORKDIR /app
 
 # Copy package files
 COPY package.json yarn.lock .yarnrc.yml ./
+COPY patches/ patches/
 
 # Install dependencies using Yarn 4 (Corepack + packageManager in package.json)
 RUN corepack enable && yarn install --immutable

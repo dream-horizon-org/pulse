@@ -795,10 +795,10 @@ public class AlertEvaluationService {
                                       Map<String, Integer> fieldIndexMap,
                                       String interactionName,
                                       String scopeFieldAlias) {
-    Integer sumNormalIdx = fieldIndexMap.get("heatmapsumnormal");
-    Integer maxNormalIdx = fieldIndexMap.get("heatmapmaxnormal");
-    Integer sumRageIdx = fieldIndexMap.get("heatmapsumrage");
-    Integer sumDeadIdx = fieldIndexMap.get("heatmapsumdead");
+    Integer sumNormalIdx = fieldIndexMap.get("heatmap_sum_normal");
+    Integer maxNormalIdx = fieldIndexMap.get("heatmap_max_normal");
+    Integer sumRageIdx = fieldIndexMap.get("heatmap_sum_rage");
+    Integer sumDeadIdx = fieldIndexMap.get("heatmap_sum_dead");
 
     if (sumNormalIdx == null || maxNormalIdx == null || sumRageIdx == null || sumDeadIdx == null) {
       log.warn("Heatmap score sub-aggregates not found in query results. Fields: {}", fieldIndexMap.keySet());
