@@ -66,6 +66,10 @@ public class AuthService {
   private static final String CLAIM_NAME = "name";
   private static final String CLAIM_TENANT_ID = "tenantId";
 
+  // System role constants
+  private static final String SUPERADMIN_ROLE = "superadmin";
+  private static final String INTERNAL_VIEWER_ROLE = "internal_viewer";
+
   public boolean isGoogleSignInEnabled() {
     // Check explicit environment variable first
     Boolean oauthEnabled = applicationConfig.getGoogleOAuthEnabled();
@@ -858,31 +862,44 @@ public class AuthService {
       String userId = claims.getSubject();
       String email = claims.get(CLAIM_EMAIL, String.class);
       String name = claims.get(CLAIM_NAME, String.class);
-      String workspaceId = claims.get(CLAIM_TENANT_ID, String.class);
+      final String tokenTenantId = claims.get(CLAIM_TENANT_ID, String.class);
+      final String requestedTenantId = request.getTenantId();
 
       return Single.zip(
           openFgaService.isSuperAdmin(userId),
           openFgaService.isInternalViewer(userId),
           (sa, iv) -> {
             if (Boolean.TRUE.equals(sa)) {
-              return Optional.of("superadmin");
+              return Optional.of(SUPERADMIN_ROLE);
             }
             if (Boolean.TRUE.equals(iv)) {
-              return Optional.of("internal_viewer");
+              return Optional.of(INTERNAL_VIEWER_ROLE);
             }
             return Optional.<String>empty();
           })
       .map(systemRoleOpt -> {
           String systemRole = systemRoleOpt.orElse(null);
-          String newAccessToken = systemRole != null
-              ? jwtService.generateAccessToken(userId, email, name, workspaceId, systemRole)
-              : jwtService.generateAccessToken(userId, email, name, workspaceId);
+
+          // System-role tenant switching: honour request-body tenantId only when the
+          // live OpenFGA check confirms a system role. Regular users cannot use this
+          // field to scope their JWT to a tenant they do not belong to.
+          boolean isSystemRole = systemRole != null;
+          String effectiveWorkspaceId = (isSystemRole
+              && requestedTenantId != null
+              && !requestedTenantId.isBlank())
+              ? requestedTenantId : tokenTenantId;
+
+          String newAccessToken = isSystemRole
+              ? jwtService.generateAccessToken(userId, email, name, effectiveWorkspaceId, systemRole)
+              : jwtService.generateAccessToken(userId, email, name, effectiveWorkspaceId);
+
+          String newRefreshToken = jwtService.generateRefreshToken(userId, email, name, effectiveWorkspaceId);
 
           log.info("Successfully refreshed access token for user: {}, systemRole: {}", userId, systemRole);
 
           return GetAccessTokenFromRefreshTokenResponseDto.builder()
               .accessToken(newAccessToken)
-              .refreshToken(refreshToken)
+              .refreshToken(newRefreshToken)
               .tokenType(TOKEN_TYPE_BEARER)
               .expiresIn(JwtService.ACCESS_TOKEN_VALIDITY_SECONDS)
               .systemRole(systemRole)

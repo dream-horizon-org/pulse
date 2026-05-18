@@ -3,7 +3,9 @@ package org.dreamhorizon.pulseserver.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -441,6 +443,7 @@ class AuthServiceTest {
       when(claims.get(eq("tenantId"), eq(String.class))).thenReturn("tenant-123");
       when(jwtService.verifyToken("valid-refresh")).thenReturn(claims);
       when(jwtService.generateAccessToken("user1", "e@x.com", "Name", "tenant-123")).thenReturn("new-access");
+      when(jwtService.generateRefreshToken("user1", "e@x.com", "Name", "tenant-123")).thenReturn("new-refresh");
 
       Single<GetAccessTokenFromRefreshTokenResponseDto> single =
           authService.getAccessTokenFromRefreshToken(request);
@@ -448,10 +451,11 @@ class AuthServiceTest {
 
       assertNotNull(result);
       assertEquals("new-access", result.getAccessToken());
-      assertEquals("valid-refresh", result.getRefreshToken());
+      assertEquals("new-refresh", result.getRefreshToken());
       assertEquals("Bearer", result.getTokenType());
       assertEquals(JwtService.ACCESS_TOKEN_VALIDITY_SECONDS, result.getExpiresIn());
       verify(jwtService).generateAccessToken("user1", "e@x.com", "Name", "tenant-123");
+      verify(jwtService).generateRefreshToken("user1", "e@x.com", "Name", "tenant-123");
     }
 
     @Test
@@ -1061,6 +1065,156 @@ class AuthServiceTest {
           authService.verifyGoogleIdToken(token, "tenant-1").blockingGet());
 
       assertTrue(t.getMessage().contains("Firebase") || (t.getCause() != null && t.getCause().getMessage().contains("Firebase")));
+    }
+  }
+
+  @Nested
+  class GetAccessTokenFromRefreshTokenSystemRoleTenantSwitching {
+
+    private GetAccessTokenFromRefreshTokenRequestDto buildRequest(String token, String tenantId) {
+      GetAccessTokenFromRefreshTokenRequestDto req = new GetAccessTokenFromRefreshTokenRequestDto();
+      req.setRefreshToken(token);
+      req.setTenantId(tenantId);
+      return req;
+    }
+
+    // systemRole is NOT read from claims — it is determined by the live OpenFGA check in Single.zip.
+    // Pass the expected systemRole here only to know which openFgaService mock to set up in each test.
+    private Claims buildClaims(String userId, String email, String name, String tenantId) {
+      Claims claims = mock(Claims.class);
+      when(claims.getSubject()).thenReturn(userId);
+      when(claims.get(eq("email"), eq(String.class))).thenReturn(email);
+      when(claims.get(eq("name"), eq(String.class))).thenReturn(name);
+      when(claims.get(eq("tenantId"), eq(String.class))).thenReturn(tenantId);
+      return claims;
+    }
+
+    @Test
+    void shouldRefreshTokenWithNewTenantIdForSuperAdmin() {
+      Claims claims = buildClaims("user-sa", "sa@example.com", "SA User", "tenant-old");
+      when(jwtService.isRefreshToken("refresh-sa")).thenReturn(true);
+      when(jwtService.isTokenExpired("refresh-sa")).thenReturn(false);
+      when(jwtService.verifyToken("refresh-sa")).thenReturn(claims);
+      when(openFgaService.isSuperAdmin("user-sa")).thenReturn(Single.just(true));
+      when(jwtService.generateAccessToken(
+          eq("user-sa"), eq("sa@example.com"), eq("SA User"), eq("tenant-new"), eq("superadmin")))
+          .thenReturn("new-access-sa");
+      when(jwtService.generateRefreshToken(
+          eq("user-sa"), eq("sa@example.com"), eq("SA User"), eq("tenant-new")))
+          .thenReturn("new-refresh-sa");
+
+      GetAccessTokenFromRefreshTokenResponseDto result =
+          authService.getAccessTokenFromRefreshToken(buildRequest("refresh-sa", "tenant-new")).blockingGet();
+
+      assertNotNull(result);
+      assertEquals("new-access-sa", result.getAccessToken());
+      assertEquals("new-refresh-sa", result.getRefreshToken());
+      assertEquals("superadmin", result.getSystemRole());
+      verify(jwtService).generateAccessToken("user-sa", "sa@example.com", "SA User", "tenant-new", "superadmin");
+      verify(jwtService).generateRefreshToken("user-sa", "sa@example.com", "SA User", "tenant-new");
+    }
+
+    @Test
+    void shouldRefreshTokenWithNewTenantIdForInternalViewer() {
+      Claims claims = buildClaims("user-iv", "iv@example.com", "IV User", "tenant-old");
+      when(jwtService.isRefreshToken("refresh-iv")).thenReturn(true);
+      when(jwtService.isTokenExpired("refresh-iv")).thenReturn(false);
+      when(jwtService.verifyToken("refresh-iv")).thenReturn(claims);
+      when(openFgaService.isInternalViewer("user-iv")).thenReturn(Single.just(true));
+      when(jwtService.generateAccessToken(
+          eq("user-iv"), eq("iv@example.com"), eq("IV User"), eq("tenant-new"), eq("internal_viewer")))
+          .thenReturn("new-access-iv");
+      when(jwtService.generateRefreshToken(
+          eq("user-iv"), eq("iv@example.com"), eq("IV User"), eq("tenant-new")))
+          .thenReturn("new-refresh-iv");
+
+      GetAccessTokenFromRefreshTokenResponseDto result =
+          authService.getAccessTokenFromRefreshToken(buildRequest("refresh-iv", "tenant-new")).blockingGet();
+
+      assertNotNull(result);
+      assertEquals("new-access-iv", result.getAccessToken());
+      assertEquals("new-refresh-iv", result.getRefreshToken());
+      assertEquals("internal_viewer", result.getSystemRole());
+      verify(jwtService).generateAccessToken("user-iv", "iv@example.com", "IV User", "tenant-new", "internal_viewer");
+      verify(jwtService).generateRefreshToken("user-iv", "iv@example.com", "IV User", "tenant-new");
+    }
+
+    @Test
+    void shouldIgnoreTenantIdParamForRegularUser() {
+      Claims claims = buildClaims("user-reg", "reg@example.com", "Reg User", "tenant-original");
+      when(jwtService.isRefreshToken("refresh-reg")).thenReturn(true);
+      when(jwtService.isTokenExpired("refresh-reg")).thenReturn(false);
+      when(jwtService.verifyToken("refresh-reg")).thenReturn(claims);
+      when(jwtService.generateAccessToken(
+          eq("user-reg"), eq("reg@example.com"), eq("Reg User"), eq("tenant-original")))
+          .thenReturn("access-original");
+      when(jwtService.generateRefreshToken(
+          eq("user-reg"), eq("reg@example.com"), eq("Reg User"), eq("tenant-original")))
+          .thenReturn("refresh-original");
+
+      GetAccessTokenFromRefreshTokenResponseDto result =
+          authService.getAccessTokenFromRefreshToken(buildRequest("refresh-reg", "tenant-attacker")).blockingGet();
+
+      assertNotNull(result);
+      assertEquals("access-original", result.getAccessToken());
+      assertEquals("refresh-original", result.getRefreshToken());
+      assertNull(result.getSystemRole());
+      // Must use original tenant — not the attacker-supplied one
+      verify(jwtService).generateAccessToken("user-reg", "reg@example.com", "Reg User", "tenant-original");
+      verify(jwtService).generateRefreshToken("user-reg", "reg@example.com", "Reg User", "tenant-original");
+      verify(jwtService, never()).generateAccessToken(
+          anyString(), anyString(), anyString(), eq("tenant-attacker"), anyString());
+      verify(jwtService, never()).generateAccessToken(
+          anyString(), anyString(), anyString(), eq("tenant-attacker"));
+    }
+
+    @Test
+    void shouldRefreshTokenWithSameTenantIdWhenNoTenantIdParamProvided() {
+      Claims claims = buildClaims("user-sa2", "sa2@example.com", "SA2 User", "tenant-A");
+      when(jwtService.isRefreshToken("refresh-sa2")).thenReturn(true);
+      when(jwtService.isTokenExpired("refresh-sa2")).thenReturn(false);
+      when(jwtService.verifyToken("refresh-sa2")).thenReturn(claims);
+      when(openFgaService.isSuperAdmin("user-sa2")).thenReturn(Single.just(true));
+      when(jwtService.generateAccessToken(
+          eq("user-sa2"), eq("sa2@example.com"), eq("SA2 User"), eq("tenant-A"), eq("superadmin")))
+          .thenReturn("access-A");
+      when(jwtService.generateRefreshToken(
+          eq("user-sa2"), eq("sa2@example.com"), eq("SA2 User"), eq("tenant-A")))
+          .thenReturn("new-refresh-A");
+
+      // No tenantId in request body
+      GetAccessTokenFromRefreshTokenResponseDto result =
+          authService.getAccessTokenFromRefreshToken(buildRequest("refresh-sa2", null)).blockingGet();
+
+      assertNotNull(result);
+      assertEquals("access-A", result.getAccessToken());
+      assertEquals("new-refresh-A", result.getRefreshToken());
+      verify(jwtService).generateAccessToken("user-sa2", "sa2@example.com", "SA2 User", "tenant-A", "superadmin");
+      verify(jwtService).generateRefreshToken("user-sa2", "sa2@example.com", "SA2 User", "tenant-A");
+    }
+
+    @Test
+    void shouldGenerateNewRefreshTokenOnRefresh() {
+      Claims claims = buildClaims("user-rt", "rt@example.com", "RT User", "tenant-1");
+      when(jwtService.isRefreshToken("old-refresh-token")).thenReturn(true);
+      when(jwtService.isTokenExpired("old-refresh-token")).thenReturn(false);
+      when(jwtService.verifyToken("old-refresh-token")).thenReturn(claims);
+      when(openFgaService.isSuperAdmin("user-rt")).thenReturn(Single.just(true));
+      when(jwtService.generateAccessToken(
+          eq("user-rt"), eq("rt@example.com"), eq("RT User"), eq("tenant-1"), eq("superadmin")))
+          .thenReturn("access-rt");
+      when(jwtService.generateRefreshToken(
+          eq("user-rt"), eq("rt@example.com"), eq("RT User"), eq("tenant-1")))
+          .thenReturn("brand-new-refresh-token");
+
+      GetAccessTokenFromRefreshTokenResponseDto result =
+          authService.getAccessTokenFromRefreshToken(buildRequest("old-refresh-token", null)).blockingGet();
+
+      assertNotNull(result);
+      // Returned refresh token must be the newly generated one, not the input
+      assertNotEquals("old-refresh-token", result.getRefreshToken());
+      assertEquals("brand-new-refresh-token", result.getRefreshToken());
+      verify(jwtService).generateRefreshToken("user-rt", "rt@example.com", "RT User", "tenant-1");
     }
   }
 }

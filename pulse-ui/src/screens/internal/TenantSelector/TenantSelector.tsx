@@ -20,6 +20,7 @@ import { useInternalTenants } from "../../../hooks/useInternalTenants";
 import { InternalTenant } from "../../../hooks/useInternalTenants/useInternalTenants.interface";
 import type { TenantResponse } from "./TenantSelector.interface";
 import { getCookies, setCookies } from "../../../helpers/cookies";
+import { getAndSetAccessTokenFromRefreshToken } from "../../../helpers/getAccessTokenFromRefreshToken";
 import { COOKIES_KEY, ROUTES, SYSTEM_ROLES } from "../../../constants";
 import { useTenantContext, useProjectContext } from "../../../contexts";
 import { TIERS } from "../../../constants/Tiers";
@@ -58,7 +59,7 @@ export function TenantSelector() {
     );
   }, [tenants, search]);
 
-  const handleSelectTenant = (tenant: InternalTenant) => {
+  const handleSelectTenant = async (tenant: InternalTenant) => {
     const resolvedTenantRole = tenant.userRole || TENANT_ROLES.MEMBER;
 
     clearProject();
@@ -76,6 +77,14 @@ export function TenantSelector() {
       userRole: resolvedTenantRole,
       tier:
         (tenant.tier as (typeof TIERS)[keyof typeof TIERS]) || TIERS.FREE,
+    });
+
+    // Await the token refresh so the new JWT (carrying the selected tenantId)
+    // is in the cookie before navigation — prevents a race where the first
+    // API call on the projects page triggers its own refresh without tenantId
+    // and overwrites the cookie with tenantId:"default".
+    await getAndSetAccessTokenFromRefreshToken(tenant.tenantId).catch(() => {
+      // Non-fatal: stale token will be rotated on the next 401 cycle.
     });
 
     navigate(`/${tenant.tenantId}/projects`);
