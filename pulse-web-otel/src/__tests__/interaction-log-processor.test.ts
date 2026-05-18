@@ -37,7 +37,7 @@ describe("InteractionLogProcessor", () => {
       processor.onEmit(record, context.active());
 
       expect(mockInstr.trackEvent).toHaveBeenCalledOnce();
-      const [body, , timeMs] = mockInstr.trackEvent.mock.calls[0];
+      const [body, , timeMs] = mockInstr.trackEvent.mock.calls[0]!;
       expect(body).toBe("app.widget.click");
       expect(timeMs).toBeCloseTo(1000500, -1);
     });
@@ -66,7 +66,7 @@ describe("InteractionLogProcessor", () => {
       processor.onEmit(record, context.active());
 
       expect(mockInstr.addMarkerToAll).toHaveBeenCalledOnce();
-      const [body, , timeMs] = mockInstr.addMarkerToAll.mock.calls[0];
+      const [body, , timeMs] = mockInstr.addMarkerToAll.mock.calls[0]!;
       expect(body).toBe("fatal error");
       expect(timeMs).toBeCloseTo(1000000, -1);
       expect(mockInstr.trackEvent).not.toHaveBeenCalled();
@@ -78,7 +78,7 @@ describe("InteractionLogProcessor", () => {
       processor.onEmit(record, context.active());
 
       expect(mockInstr.addMarkerToAll).toHaveBeenCalledOnce();
-      expect(mockInstr.addMarkerToAll.mock.calls[0][0]).toBe("soft error");
+      expect(mockInstr.addMarkerToAll.mock.calls[0]![0]).toBe("soft error");
       expect(mockInstr.trackEvent).not.toHaveBeenCalled();
     });
 
