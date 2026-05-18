@@ -333,6 +333,20 @@ describe("InteractionSpanBuilder.emitInteraction", () => {
     expect(calls).toContain("non_fatal");
   });
 
+  it("INT-P42: missing CONFIG_ID in props → span attribute pulse.interaction.config.id === ''", () => {
+    const span = makeSpan();
+    const tracer = { startSpan: vi.fn().mockReturnValue(span) };
+    const builder = new InteractionSpanBuilder(tracer as never);
+
+    const interaction = makeInteraction({
+      [INTERACTION_PROP_KEYS.CONFIG_ID]: undefined,
+    });
+    builder.emitInteraction(interaction);
+
+    const attrs = span.setAttributes.mock.calls[0]?.[0] as Record<string, unknown>;
+    expect(attrs[PulseWebSemconv.InteractionAttributeKey.CONFIG_ID]).toBe("");
+  });
+
   it("does not export pulse.internal.* attributes", () => {
     const span = makeSpan();
     const tracer = { startSpan: vi.fn().mockReturnValue(span) };

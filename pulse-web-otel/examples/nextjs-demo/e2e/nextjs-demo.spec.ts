@@ -1558,3 +1558,929 @@ test.describe("@M2 interaction-context-span — Next.js (ISS-I04)", () => {
     expect(getAttr(span.attributes, "pulse.interaction.config.id")).toBe("304");
   });
 });
+
+// ─── @M2 interactions — Next.js parity (INT-P01/P04–P08/P10–P12/P19/P21/P22/P40) ─
+
+/** Extended makeInteractionConfig that supports props, apdex limits, and global blacklist overrides. */
+function makeParityInteractionConfig(opts: {
+  id: number;
+  name: string;
+  events: Array<{
+    name: string;
+    isBlacklisted?: boolean;
+    props?: Array<{ name: string; value: string; operator: string }> | null;
+  }>;
+  thresholdInMs?: number;
+  uptimeLowerLimitInMs?: number;
+  uptimeMidLimitInMs?: number;
+  uptimeUpperLimitInMs?: number;
+  globalBlacklistedEvents?: string[];
+}) {
+  return {
+    id: opts.id,
+    name: opts.name,
+    description: opts.name,
+    events: opts.events.map((e) => ({
+      name: e.name,
+      isBlacklisted: e.isBlacklisted ?? false,
+      props:
+        e.props == null
+          ? null
+          : e.props.map((p) => ({ name: p.name, value: p.value, operator: p.operator })),
+    })),
+    thresholdInMs: opts.thresholdInMs ?? 600,
+    uptimeLowerLimitInMs: opts.uptimeLowerLimitInMs ?? 120,
+    uptimeMidLimitInMs: opts.uptimeMidLimitInMs ?? 240,
+    uptimeUpperLimitInMs: opts.uptimeUpperLimitInMs ?? 420,
+    globalBlacklistedEvents: (opts.globalBlacklistedEvents ?? []).map((n) => ({
+      name: n,
+      isBlacklisted: true,
+      props: [],
+    })),
+  };
+}
+
+/** Emit a trackEvent with an explicit timestamp (ms since epoch). */
+async function emitEventAt(
+  page: Page,
+  name: string,
+  timestampMs: number,
+  props?: Record<string, string>,
+): Promise<void> {
+  await page.evaluate(
+    ([n, ts, p]: [string, number, Record<string, string> | undefined]) => {
+      const w = window as unknown as { Pulse?: { trackEvent?: (n: string, p?: Record<string, string>, ts?: number) => void } };
+      w.Pulse?.trackEvent?.(n, p ?? {}, ts);
+    },
+    [name, timestampMs, props] as [string, number, Record<string, string> | undefined],
+  );
+}
+
+/** Assert no interaction spans for a brief wait. */
+async function expectNoInteractionSpansNx(
+  otlp: { captured: unknown[] },
+  waitFn: (ms: number) => Promise<void>,
+  waitMs = 800,
+): Promise<void> {
+  await waitFn(waitMs);
+  expect(findAllSpans(otlp.captured as never[], "interaction").length).toBe(0);
+}
+
+/** Set userId via Pulse SDK. */
+async function setUserIdNx(page: Page, uid: string | null): Promise<void> {
+  await page.evaluate((id) => {
+    const w = window as unknown as { Pulse?: { setUserId?: (id: string | null) => void } };
+    w.Pulse?.setUserId?.(id);
+  }, uid);
+}
+
+/** Emit a trackEvent via window.Pulse.trackEvent. */
+async function emitEvent(
+  page: Page,
+  name: string,
+  props?: Record<string, string>,
+): Promise<void> {
+  await page.evaluate(
+    ([n, p]: [string, Record<string, string> | undefined]) => {
+      const w = window as unknown as { Pulse?: { trackEvent?: (n: string, p?: Record<string, string>) => void } };
+      w.Pulse?.trackEvent?.(n, p);
+    },
+    [name, props] as [string, Record<string, string> | undefined],
+  );
+}
+
+/** Poll until at least `count` interaction spans are captured. */
+async function waitForInteractionCount(
+  otlp: { captured: unknown[] },
+  count: number,
+  timeoutMs = 8_000,
+): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (findAllSpans(otlp.captured as never[], "interaction").length >= count) return;
+    await new Promise((r) => setTimeout(r, 100));
+  }
+  throw new Error(`Timeout waiting for ${count} interaction spans`);
+}
+
+test.describe("@M2 interactions — Next.js parity (INT-P01/P04–P08/P10–P12/P19/P21/P22/P40)", () => {
+  // INT-P01 — Single-event flow completes
+  test("INT-P01: single-event flow completes with config.id and is_error=false", async ({
+    page,
+    otlp,
+  }) => {
+    await seedInteractionConfig(page, [
+      makeParityInteractionConfig({
+        id: 301,
+        name: "NX Single Event",
+        events: [{ name: "nx_single" }],
+      }),
+    ]);
+    await gotoAndWaitInit(page, otlp);
+
+    await emitEvent(page, "nx_single");
+
+    const span = await otlp.waitForSpan("interaction", 10_000);
+    expect(getAttr(span.attributes, "pulse.interaction.config.id")).toBe("301");
+    expect(getAttr(span.attributes, "pulse.interaction.is_error")).toBe(false);
+  });
+
+  // INT-P04 — Apdex Excellent
+  test("INT-P04: apdex Excellent — complete_time < lower limit", async ({
+    page,
+    otlp,
+  }) => {
+    await seedInteractionConfig(page, [
+      makeParityInteractionConfig({
+        id: 304,
+        name: "NX Apdex Excellent",
+        events: [{ name: "nx_ax_1" }, { name: "nx_ax_2" }],
+        thresholdInMs: 600,
+        uptimeLowerLimitInMs: 120,
+        uptimeMidLimitInMs: 240,
+        uptimeUpperLimitInMs: 420,
+      }),
+    ]);
+    await gotoAndWaitInit(page, otlp);
+
+    await emitEvent(page, "nx_ax_1");
+    await page.waitForTimeout(40);
+    await emitEvent(page, "nx_ax_2");
+
+    const span = await otlp.waitForSpan("interaction", 10_000);
+    expect(getAttr(span.attributes, "pulse.interaction.user_category")).toBe("Excellent");
+    expect(Number(getAttr(span.attributes, "pulse.interaction.apdex_score"))).toBe(1);
+  });
+
+  // INT-P05 — Apdex Good
+  test("INT-P05: apdex Good — complete_time between lower and mid", async ({
+    page,
+    otlp,
+  }) => {
+    await seedInteractionConfig(page, [
+      makeParityInteractionConfig({
+        id: 305,
+        name: "NX Apdex Good",
+        events: [{ name: "nx_ag_1" }, { name: "nx_ag_2" }],
+        thresholdInMs: 600,
+        uptimeLowerLimitInMs: 120,
+        uptimeMidLimitInMs: 240,
+        uptimeUpperLimitInMs: 420,
+      }),
+    ]);
+    await gotoAndWaitInit(page, otlp);
+
+    await emitEvent(page, "nx_ag_1");
+    await page.waitForTimeout(180); // between lower(120) and mid(240)
+    await emitEvent(page, "nx_ag_2");
+
+    const span = await otlp.waitForSpan("interaction", 10_000);
+    expect(getAttr(span.attributes, "pulse.interaction.user_category")).toBe("Good");
+    const score = Number(getAttr(span.attributes, "pulse.interaction.apdex_score"));
+    expect(score).toBeGreaterThan(0);
+    expect(score).toBeLessThan(1);
+  });
+
+  // INT-P06 — Apdex Average
+  test("INT-P06: apdex Average — complete_time between mid and upper", async ({
+    page,
+    otlp,
+  }) => {
+    await seedInteractionConfig(page, [
+      makeParityInteractionConfig({
+        id: 306,
+        name: "NX Apdex Average",
+        events: [{ name: "nx_aa_1" }, { name: "nx_aa_2" }],
+        thresholdInMs: 1200,
+        uptimeLowerLimitInMs: 120,
+        uptimeMidLimitInMs: 240,
+        uptimeUpperLimitInMs: 420,
+      }),
+    ]);
+    await gotoAndWaitInit(page, otlp);
+
+    await emitEvent(page, "nx_aa_1");
+    await page.waitForTimeout(320); // between mid(240) and upper(420)
+    await emitEvent(page, "nx_aa_2");
+
+    const span = await otlp.waitForSpan("interaction", 10_000);
+    expect(getAttr(span.attributes, "pulse.interaction.user_category")).toBe("Average");
+    const score = Number(getAttr(span.attributes, "pulse.interaction.apdex_score"));
+    expect(score).toBeGreaterThan(0);
+    expect(score).toBeLessThan(1);
+  });
+
+  // INT-P07 — Apdex Poor
+  test("INT-P07: apdex Poor — complete_time beyond upper limit", async ({
+    page,
+    otlp,
+  }) => {
+    await seedInteractionConfig(page, [
+      makeParityInteractionConfig({
+        id: 307,
+        name: "NX Apdex Poor",
+        events: [{ name: "nx_ap_1" }, { name: "nx_ap_2" }],
+        thresholdInMs: 1500,
+        uptimeLowerLimitInMs: 120,
+        uptimeMidLimitInMs: 240,
+        uptimeUpperLimitInMs: 420,
+      }),
+    ]);
+    await gotoAndWaitInit(page, otlp);
+
+    await emitEvent(page, "nx_ap_1");
+    await page.waitForTimeout(520); // beyond upper(420)
+    await emitEvent(page, "nx_ap_2");
+
+    const span = await otlp.waitForSpan("interaction", 10_000);
+    expect(getAttr(span.attributes, "pulse.interaction.user_category")).toBe("Poor");
+    expect(Number(getAttr(span.attributes, "pulse.interaction.apdex_score"))).toBe(0);
+  });
+
+  // INT-P08 — Two independent flows both complete
+  test("INT-P08: two independent single-step flows each emit a span", async ({
+    page,
+    otlp,
+  }) => {
+    await seedInteractionConfig(page, [
+      makeParityInteractionConfig({
+        id: 308,
+        name: "NX Repeatable",
+        events: [{ name: "nx_rep" }],
+      }),
+    ]);
+    await gotoAndWaitInit(page, otlp);
+
+    await emitEvent(page, "nx_rep");
+    await otlp.waitForSpan("interaction", 10_000);
+    await emitEvent(page, "nx_rep");
+    await waitForInteractionCount(otlp, 2, 8_000);
+
+    const spans = findAllSpans(otlp.captured as never[], "interaction");
+    expect(spans.length).toBe(2);
+    expect(
+      spans.every((s) => getAttr(s.attributes, "pulse.interaction.is_error") === false),
+    ).toBe(true);
+  });
+
+  // INT-P10 — EQUALS operator match
+  test("INT-P10: EQUALS operator — matching prop value completes flow", async ({
+    page,
+    otlp,
+  }) => {
+    await seedInteractionConfig(page, [
+      makeParityInteractionConfig({
+        id: 310,
+        name: "NX Equals Match",
+        events: [
+          {
+            name: "nx_eq_event",
+            props: [{ name: "tier", value: "gold", operator: "EQUALS" }],
+          },
+        ],
+      }),
+    ]);
+    await gotoAndWaitInit(page, otlp);
+
+    await emitEvent(page, "nx_eq_event", { tier: "gold" });
+
+    const span = await otlp.waitForSpan("interaction", 10_000);
+    expect(getAttr(span.attributes, "pulse.interaction.is_error")).toBe(false);
+    expect(getAttr(span.attributes, "pulse.interaction.config.id")).toBe("310");
+  });
+
+  // INT-P11 — CONTAINS operator match
+  test("INT-P11: CONTAINS operator — value containing substring completes flow", async ({
+    page,
+    otlp,
+  }) => {
+    await seedInteractionConfig(page, [
+      makeParityInteractionConfig({
+        id: 311,
+        name: "NX Contains Match",
+        events: [
+          {
+            name: "nx_ct_event",
+            props: [{ name: "label", value: "cart", operator: "CONTAINS" }],
+          },
+        ],
+      }),
+    ]);
+    await gotoAndWaitInit(page, otlp);
+
+    await emitEvent(page, "nx_ct_event", { label: "add_to_cart" });
+
+    const span = await otlp.waitForSpan("interaction", 10_000);
+    expect(getAttr(span.attributes, "pulse.interaction.is_error")).toBe(false);
+    expect(getAttr(span.attributes, "pulse.interaction.config.id")).toBe("311");
+  });
+
+  // INT-P12 — STARTS_WITH operator match
+  test("INT-P12: STARTSWITH operator — value starting with prefix completes flow", async ({
+    page,
+    otlp,
+  }) => {
+    await seedInteractionConfig(page, [
+      makeParityInteractionConfig({
+        id: 312,
+        name: "NX StartsWith Match",
+        events: [
+          {
+            name: "nx_sw_event",
+            props: [{ name: "screen", value: "product", operator: "STARTSWITH" }],
+          },
+        ],
+      }),
+    ]);
+    await gotoAndWaitInit(page, otlp);
+
+    await emitEvent(page, "nx_sw_event", { screen: "product_detail" });
+
+    const span = await otlp.waitForSpan("interaction", 10_000);
+    expect(getAttr(span.attributes, "pulse.interaction.is_error")).toBe(false);
+    expect(getAttr(span.attributes, "pulse.interaction.config.id")).toBe("312");
+  });
+
+  // INT-P19 — Sequence violation at stage-1
+  test("INT-P19: sequence violation at stage-1 emits error span with error.type=sequence_violation", async ({
+    page,
+    otlp,
+  }) => {
+    await seedInteractionConfig(page, [
+      makeParityInteractionConfig({
+        id: 319,
+        name: "NX Sequence Violation",
+        events: [{ name: "nx_v1" }, { name: "nx_v2" }, { name: "nx_v3" }],
+        thresholdInMs: 600,
+      }),
+    ]);
+    await gotoAndWaitInit(page, otlp);
+
+    await emitEvent(page, "nx_v1");
+    await emitEvent(page, "nx_v3"); // wrong step at stage 1
+
+    const span = await otlp.waitForSpan("interaction", 10_000);
+    expect(getAttr(span.attributes, "pulse.interaction.is_error")).toBe(true);
+    expect(getAttr(span.attributes, "pulse.interaction.error.type")).toBe("sequence_violation");
+  });
+
+  // INT-P21 — Timeout: second step never comes
+  test("INT-P21: timeout — second step never arrives within threshold", async ({
+    page,
+    otlp,
+  }) => {
+    await seedInteractionConfig(page, [
+      makeParityInteractionConfig({
+        id: 321,
+        name: "NX Timeout",
+        events: [{ name: "nx_t1" }, { name: "nx_t2" }],
+        thresholdInMs: 700,
+      }),
+    ]);
+    await gotoAndWaitInit(page, otlp);
+
+    await emitEvent(page, "nx_t1");
+    await page.waitForTimeout(1200); // beyond threshold
+
+    const span = await otlp.waitForSpan("interaction", 10_000);
+    expect(getAttr(span.attributes, "pulse.interaction.is_error")).toBe(true);
+    expect(getAttr(span.attributes, "pulse.interaction.error.type")).toBe("timeout");
+  });
+
+  // INT-P22 — Global blacklist cancels in-flight flow
+  test("INT-P22: global blacklist event cancels in-flight flow; recovery flow succeeds", async ({
+    page,
+    otlp,
+  }) => {
+    await seedInteractionConfig(page, [
+      makeParityInteractionConfig({
+        id: 322,
+        name: "NX Global Blacklist",
+        events: [{ name: "nx_b1" }, { name: "nx_b2" }, { name: "nx_b3" }],
+        thresholdInMs: 2000,
+        globalBlacklistedEvents: ["nx_noise"],
+      }),
+    ]);
+    await gotoAndWaitInit(page, otlp);
+
+    await emitEvent(page, "nx_b1");
+    await emitEvent(page, "nx_noise"); // triggers global blacklist — cancels flow
+    await page.waitForTimeout(1200);
+
+    // No span emitted after cancellation
+    expect(findAllSpans(otlp.captured as never[], "interaction").length).toBe(0);
+
+    // Recovery: new clean flow should complete
+    await emitEvent(page, "nx_b1");
+    await emitEvent(page, "nx_b2");
+    await emitEvent(page, "nx_b3");
+
+    const span = await otlp.waitForSpan("interaction", 10_000);
+    expect(getAttr(span.attributes, "pulse.interaction.is_error")).toBe(false);
+    expect(getAttr(span.attributes, "pulse.interaction.config.id")).toBe("322");
+  });
+
+  // INT-P40 — complete_time nanos consistent with span start/end
+  test("INT-P40: complete_time nanos is consistent with span startTimeUnixNano/endTimeUnixNano", async ({
+    page,
+    otlp,
+  }) => {
+    await seedInteractionConfig(page, [
+      makeParityInteractionConfig({
+        id: 340,
+        name: "NX Complete Time",
+        events: [{ name: "nx_p40_1" }, { name: "nx_p40_2" }],
+        thresholdInMs: 2000,
+      }),
+    ]);
+    await gotoAndWaitInit(page, otlp);
+
+    await emitEvent(page, "nx_p40_1");
+    await page.waitForTimeout(80);
+    await emitEvent(page, "nx_p40_2");
+
+    await waitForInteractionCount(otlp, 1, 10_000);
+
+    const span = findAllSpans(otlp.captured as never[], "interaction")[0];
+    expect(span).toBeDefined();
+    if (!span) return;
+
+    const completeTimeNs = Number(getAttr(span.attributes, "pulse.interaction.complete_time"));
+    const startNs = Number(span.startTimeUnixNano);
+    const endNs = Number(span.endTimeUnixNano);
+
+    expect(completeTimeNs).toBeGreaterThan(0);
+    expect(endNs).toBeGreaterThan(startNs);
+    expect(endNs - startNs).toBeGreaterThanOrEqual(completeTimeNs);
+  });
+});
+
+// ─── @M2 interactions — Next.js parity batch-2 (INT-P13/14/20/23/27-32/36-39) ─
+
+test.describe("@M2 interactions — Next.js parity batch-2 (INT-P13/14/20/23/27-32/36-39)", () => {
+  // INT-P13 — Shared prefix correct branch
+  test("INT-P13: shared prefix — e1,e2,e5 completes branch_e125; e1,e2,e3 completes branch_e123", async ({
+    page,
+    otlp,
+  }) => {
+    await seedInteractionConfig(page, [
+      makeParityInteractionConfig({
+        id: 413,
+        name: "Branch E123",
+        events: [{ name: "nx_e1" }, { name: "nx_e2" }, { name: "nx_e3" }],
+        thresholdInMs: 5000,
+      }),
+      makeParityInteractionConfig({
+        id: 414,
+        name: "Branch E125",
+        events: [{ name: "nx_e1" }, { name: "nx_e2" }, { name: "nx_e5" }],
+        thresholdInMs: 5000,
+      }),
+    ]);
+    await gotoAndWaitInit(page, otlp);
+
+    // Shared prefix + irrelevant nx_e4 → no terminal
+    await emitEvent(page, "nx_e1");
+    await emitEvent(page, "nx_e2");
+    await emitEvent(page, "nx_e4");
+    await page.waitForTimeout(400);
+    expect(findAllSpans(otlp.captured as never[], "interaction").length).toBe(0);
+
+    // nx_e5 finalises branch_e125
+    await emitEvent(page, "nx_e5");
+    await waitForInteractionCount(otlp, 1, 8_000);
+    const spans1 = findAllSpans(otlp.captured as never[], "interaction");
+    const branch125 = spans1.filter((s) =>
+      getAttr(s.attributes, "pulse.interaction.config.id") === String(414),
+    );
+    expect(branch125.some((s) => getAttr(s.attributes, "pulse.interaction.is_error") === false)).toBe(true);
+
+    // Fresh second run: nx_e1, nx_e2, nx_e3 finalises branch_e123
+    otlp.reset();
+    await emitEvent(page, "nx_e1");
+    await emitEvent(page, "nx_e2");
+    await emitEvent(page, "nx_e3");
+    await waitForInteractionCount(otlp, 1, 8_000);
+    const spans2 = findAllSpans(otlp.captured as never[], "interaction");
+    const branch123 = spans2.filter((s) =>
+      getAttr(s.attributes, "pulse.interaction.config.id") === String(413),
+    );
+    expect(branch123.some((s) => getAttr(s.attributes, "pulse.interaction.is_error") === false)).toBe(true);
+  });
+
+  // INT-P14 — User ID mid-interaction
+  test("INT-P14: user id changed mid-interaction — final span carries new userId", async ({
+    page,
+    otlp,
+  }) => {
+    await seedInteractionConfig(page, [
+      makeParityInteractionConfig({
+        id: 414,
+        name: "NX User Mid Flow",
+        events: [{ name: "nx_user_a" }, { name: "nx_user_b" }],
+      }),
+    ]);
+    await gotoAndWaitInit(page, otlp);
+    await setUserIdNx(page, "user-old");
+    await emitEvent(page, "nx_user_a");
+    await setUserIdNx(page, "user-new");
+    await emitEvent(page, "nx_user_b");
+
+    await waitForInteractionCount(otlp, 1, 10_000);
+    const span = findAllSpans(otlp.captured as never[], "interaction")[0];
+    expect(span).toBeDefined();
+    expect(getAttr(span?.attributes, "user.id")).toBe("user-new");
+  });
+
+  // INT-P20 — Sequence violation at stage 2
+  test("INT-P20: sequence violation at stage-2 emits sequence_violation error span", async ({
+    page,
+    otlp,
+  }) => {
+    await seedInteractionConfig(page, [
+      makeParityInteractionConfig({
+        id: 420,
+        name: "NX Stage2 Violation",
+        events: [{ name: "nx_s1" }, { name: "nx_s2" }, { name: "nx_s3" }],
+        thresholdInMs: 2000,
+      }),
+    ]);
+    await gotoAndWaitInit(page, otlp);
+    await emitEvent(page, "nx_s1");
+    await emitEvent(page, "nx_s2");
+    // Wrong event — expected nx_s3, got nx_s2 again
+    await emitEvent(page, "nx_s2");
+
+    const span = await otlp.waitForSpan("interaction", 10_000);
+    expect(getAttr(span.attributes, "pulse.interaction.is_error")).toBe(true);
+    expect(getAttr(span.attributes, "pulse.interaction.error.type")).toBe("sequence_violation");
+  });
+
+  // INT-P23 — Local blacklist cancels flow
+  test("INT-P23: local blacklisted step resets flow; recovery flow succeeds", async ({
+    page,
+    otlp,
+  }) => {
+    await seedInteractionConfig(page, [
+      makeParityInteractionConfig({
+        id: 423,
+        name: "NX Local Blacklist",
+        events: [
+          { name: "nx_bl_a" },
+          { name: "nx_bl_blocked", isBlacklisted: true },
+          { name: "nx_bl_b" },
+        ],
+        thresholdInMs: 1000,
+      }),
+    ]);
+    await gotoAndWaitInit(page, otlp);
+    await emitEvent(page, "nx_bl_a");
+    await emitEvent(page, "nx_bl_blocked");
+    await emitEvent(page, "nx_bl_b");
+    await expectNoInteractionSpansNx(otlp, page.waitForTimeout.bind(page));
+
+    // Recovery flow
+    await emitEvent(page, "nx_bl_a");
+    await emitEvent(page, "nx_bl_b");
+    const span = await otlp.waitForSpan("interaction", 10_000);
+    expect(getAttr(span.attributes, "pulse.interaction.is_error")).toBe(false);
+  });
+
+  // INT-P27 — EQUALS no match
+  test("INT-P27: EQUALS operator — wrong value yields no span; correct value completes flow", async ({
+    page,
+    otlp,
+  }) => {
+    await seedInteractionConfig(page, [
+      makeParityInteractionConfig({
+        id: 427,
+        name: "NX EQUALS No Match",
+        events: [
+          {
+            name: "nx_props_event",
+            props: [{ name: "plan", value: "pro", operator: "EQUALS" }],
+          },
+        ],
+      }),
+    ]);
+    await gotoAndWaitInit(page, otlp);
+    await emitEvent(page, "nx_props_event", { plan: "basic" });
+    await expectNoInteractionSpansNx(otlp, page.waitForTimeout.bind(page));
+    await emitEvent(page, "nx_props_event", { plan: "pro" });
+    const span = await otlp.waitForSpan("interaction", 10_000);
+    expect(getAttr(span.attributes, "pulse.interaction.is_error")).toBe(false);
+  });
+
+  // INT-P28 — Out-of-order timestamps → timeout
+  test("INT-P28: out-of-order event timestamp causes timeout error", async ({
+    page,
+    otlp,
+  }) => {
+    await seedInteractionConfig(page, [
+      makeParityInteractionConfig({
+        id: 428,
+        name: "NX Timestamp Order",
+        events: [{ name: "nx_ts_a" }, { name: "nx_ts_b" }],
+        thresholdInMs: 700,
+      }),
+    ]);
+    await gotoAndWaitInit(page, otlp);
+    const now = Date.now();
+    await emitEventAt(page, "nx_ts_a", now + 200);
+    await emitEventAt(page, "nx_ts_b", now - 200);
+
+    const span = await otlp.waitForSpan("interaction", 12_000);
+    expect(getAttr(span.attributes, "pulse.interaction.is_error")).toBe(true);
+    expect(getAttr(span.attributes, "pulse.interaction.error.type")).toBe("timeout");
+  });
+
+  // INT-P29 — Overlapping configs
+  test("INT-P29: overlapping configs on same event stream each emit a terminal span", async ({
+    page,
+    otlp,
+  }) => {
+    await seedInteractionConfig(page, [
+      makeParityInteractionConfig({
+        id: 429,
+        name: "NX Overlap A",
+        events: [{ name: "nx_start" }, { name: "nx_finish_a" }],
+      }),
+      makeParityInteractionConfig({
+        id: 430,
+        name: "NX Overlap B",
+        events: [{ name: "nx_start" }, { name: "nx_finish_b" }],
+      }),
+    ]);
+    await gotoAndWaitInit(page, otlp);
+    await emitEvent(page, "nx_start");
+    await emitEvent(page, "nx_finish_a");
+    await emitEvent(page, "nx_finish_b");
+    await waitForInteractionCount(otlp, 2, 10_000);
+
+    const spans = findAllSpans(otlp.captured as never[], "interaction");
+    const configIds = spans.map((s) => String(getAttr(s.attributes, "pulse.interaction.config.id")));
+    expect(configIds).toContain("429");
+    expect(configIds).toContain("430");
+    expect(spans.every((s) => getAttr(s.attributes, "pulse.interaction.is_error") === false)).toBe(true);
+  });
+
+  // INT-P30 — Middle step not skippable
+  test("INT-P30: middle step is not skippable — skipping it causes sequence_violation", async ({
+    page,
+    otlp,
+  }) => {
+    await seedInteractionConfig(page, [
+      makeParityInteractionConfig({
+        id: 430,
+        name: "NX Middle Required",
+        events: [{ name: "nx_mr_start" }, { name: "nx_mr_middle" }, { name: "nx_mr_end" }],
+        thresholdInMs: 1000,
+      }),
+    ]);
+    await gotoAndWaitInit(page, otlp);
+    await emitEvent(page, "nx_mr_start");
+    // Skip nx_mr_middle — emit end directly
+    await emitEvent(page, "nx_mr_end");
+
+    const span = await otlp.waitForSpan("interaction", 10_000);
+    expect(getAttr(span.attributes, "pulse.interaction.is_error")).toBe(true);
+    expect(getAttr(span.attributes, "pulse.interaction.error.type")).toBe("sequence_violation");
+  });
+
+  // INT-P31 — Restart after violation
+  test("INT-P31: restart after sequence violation — error span then success span", async ({
+    page,
+    otlp,
+  }) => {
+    await seedInteractionConfig(page, [
+      makeParityInteractionConfig({
+        id: 431,
+        name: "NX Restart After Violation",
+        events: [{ name: "nx_rv_first" }, { name: "nx_rv_second" }],
+      }),
+    ]);
+    await gotoAndWaitInit(page, otlp);
+    await emitEvent(page, "nx_rv_first");
+    await emitEvent(page, "nx_rv_first"); // violation: re-fires first
+    await emitEvent(page, "nx_rv_second");
+    await waitForInteractionCount(otlp, 2, 12_000);
+
+    const spans = findAllSpans(otlp.captured as never[], "interaction").filter(
+      (s) => getAttr(s.attributes, "pulse.interaction.config.id") === "431",
+    );
+    expect(spans.length).toBe(2);
+    expect(spans.some((s) => getAttr(s.attributes, "pulse.interaction.is_error") === true)).toBe(true);
+    expect(spans.some((s) => getAttr(s.attributes, "pulse.interaction.is_error") === false)).toBe(true);
+  });
+
+  // INT-P32 — Multiple global blacklist hits
+  test("INT-P32: multiple global blacklist hits cancel flow; later clean flow succeeds", async ({
+    page,
+    otlp,
+  }) => {
+    await seedInteractionConfig(page, [
+      makeParityInteractionConfig({
+        id: 432,
+        name: "NX Multi Blacklist",
+        events: [{ name: "nx_mb_1" }, { name: "nx_mb_2" }],
+        globalBlacklistedEvents: ["nx_mb_cancel"],
+      }),
+    ]);
+    await gotoAndWaitInit(page, otlp);
+    await emitEvent(page, "nx_mb_1");
+    await emitEvent(page, "nx_mb_cancel");
+    await emitEvent(page, "nx_mb_1");
+    await emitEvent(page, "nx_mb_cancel");
+    await page.waitForTimeout(600);
+    expect(findAllSpans(otlp.captured as never[], "interaction").length).toBe(0);
+
+    await emitEvent(page, "nx_mb_1");
+    await emitEvent(page, "nx_mb_2");
+    const span = await otlp.waitForSpan("interaction", 8_000);
+    expect(getAttr(span.attributes, "pulse.interaction.is_error")).toBe(false);
+  });
+
+  // INT-P36 — Invalid config payload
+  test("INT-P36: mixed valid + invalid config payload — no interaction span emitted", async ({
+    page,
+    otlp,
+  }) => {
+    await seedInteractionConfig(page, [
+      makeParityInteractionConfig({
+        id: 436,
+        name: "NX Valid Flow",
+        events: [{ name: "nx_valid_a" }, { name: "nx_valid_b" }],
+      }),
+      { id: "invalid_missing_fields", events: [] },
+    ]);
+    await gotoAndWaitInit(page, otlp);
+    otlp.reset();
+    await emitEvent(page, "nx_valid_a");
+    await emitEvent(page, "nx_valid_b");
+    await expectNoInteractionSpansNx(otlp, page.waitForTimeout.bind(page));
+  });
+
+  // INT-P37 — Apdex exact boundary lower → Excellent
+  test("INT-P37: apdex exact lower boundary — complete_time == lower → Excellent", async ({
+    page,
+    otlp,
+  }) => {
+    const lower = 120;
+    await seedInteractionConfig(page, [
+      makeParityInteractionConfig({
+        id: 437,
+        name: "NX Apdex Boundary Lower",
+        events: [{ name: "nx_ab_a" }, { name: "nx_ab_b" }],
+        thresholdInMs: 2000,
+        uptimeLowerLimitInMs: lower,
+        uptimeMidLimitInMs: 300,
+        uptimeUpperLimitInMs: 600,
+      }),
+    ]);
+    await gotoAndWaitInit(page, otlp);
+    const t0 = Date.now();
+    await emitEventAt(page, "nx_ab_a", t0);
+    await emitEventAt(page, "nx_ab_b", t0 + lower);
+    await waitForInteractionCount(otlp, 1, 10_000);
+    const span = findAllSpans(otlp.captured as never[], "interaction").find(
+      (s) => getAttr(s.attributes, "pulse.interaction.config.id") === "437",
+    );
+    expect(span).toBeDefined();
+    expect(getAttr(span?.attributes, "pulse.interaction.user_category")).toBe("Excellent");
+  });
+
+  // INT-P38 — Apdex exact boundary upper → Average
+  test("INT-P38: apdex exact upper boundary — complete_time == upper → Average", async ({
+    page,
+    otlp,
+  }) => {
+    const upper = 600;
+    await seedInteractionConfig(page, [
+      makeParityInteractionConfig({
+        id: 438,
+        name: "NX Apdex Boundary Upper",
+        events: [{ name: "nx_au_a" }, { name: "nx_au_b" }],
+        thresholdInMs: 2000,
+        uptimeLowerLimitInMs: 120,
+        uptimeMidLimitInMs: 300,
+        uptimeUpperLimitInMs: upper,
+      }),
+    ]);
+    await gotoAndWaitInit(page, otlp);
+    const t0 = Date.now();
+    await emitEventAt(page, "nx_au_a", t0);
+    await emitEventAt(page, "nx_au_b", t0 + upper);
+    await waitForInteractionCount(otlp, 1, 10_000);
+    const span = findAllSpans(otlp.captured as never[], "interaction").find(
+      (s) => getAttr(s.attributes, "pulse.interaction.config.id") === "438",
+    );
+    expect(span).toBeDefined();
+    expect(getAttr(span?.attributes, "pulse.interaction.user_category")).toBe("Average");
+  });
+
+  // INT-P39 — Shared prefix: second branch still alive after first terminal
+  test("INT-P39: shared prefix — first branch terminal does not kill second branch", async ({
+    page,
+    otlp,
+  }) => {
+    await seedInteractionConfig(page, [
+      makeParityInteractionConfig({
+        id: 439,
+        name: "NX Branch 39A",
+        events: [{ name: "nx_39_e1" }, { name: "nx_39_e2" }, { name: "nx_39_e3" }],
+        thresholdInMs: 5000,
+      }),
+      makeParityInteractionConfig({
+        id: 440,
+        name: "NX Branch 39B",
+        events: [{ name: "nx_39_e1" }, { name: "nx_39_e2" }, { name: "nx_39_e5" }],
+        thresholdInMs: 5000,
+      }),
+    ]);
+    await gotoAndWaitInit(page, otlp);
+    await emitEvent(page, "nx_39_e1");
+    await emitEvent(page, "nx_39_e2");
+    // e3 completes branch 39A
+    await emitEvent(page, "nx_39_e3");
+    await waitForInteractionCount(otlp, 1, 8_000);
+    // e5 should still complete branch 39B (it was still mid-sequence)
+    await emitEvent(page, "nx_39_e5");
+    await waitForInteractionCount(otlp, 2, 8_000);
+
+    const spans = findAllSpans(otlp.captured as never[], "interaction");
+    const ids = spans.map((s) => String(getAttr(s.attributes, "pulse.interaction.config.id")));
+    expect(ids).toContain("439");
+    expect(ids).toContain("440");
+    expect(spans.every((s) => getAttr(s.attributes, "pulse.interaction.is_error") === false)).toBe(true);
+  });
+});
+
+// ─── @M2 interactions — Next.js unit-parity E2E (INT-P09/P35/P41) ─
+
+test.describe("@M2 interactions — Next.js unit-parity E2E (INT-P09/P35/P41)", () => {
+  // INT-P09 — Step event timestamps on span
+  test("INT-P09: span.events carry timestamps matching emitted event times", async ({
+    page,
+    otlp,
+  }) => {
+    await seedInteractionConfig(page, [
+      makeParityInteractionConfig({
+        id: 509,
+        name: "NX Step Timestamps",
+        events: [{ name: "nx_ts_step1" }, { name: "nx_ts_step2" }],
+        thresholdInMs: 5000,
+      }),
+    ]);
+    await gotoAndWaitInit(page, otlp);
+    const t0 = Date.now();
+    await emitEventAt(page, "nx_ts_step1", t0);
+    await emitEventAt(page, "nx_ts_step2", t0 + 100);
+
+    await waitForInteractionCount(otlp, 1, 10_000);
+    const span = findAllSpans(otlp.captured as never[], "interaction")[0] as import("./fixture").OtlpSpan | undefined;
+    expect(span).toBeDefined();
+    if (!span) return;
+    expect(Array.isArray(span.events)).toBe(true);
+    expect((span.events ?? []).length).toBeGreaterThanOrEqual(2);
+    const eventNames = (span.events ?? []).map((e) => e.name);
+    expect(eventNames).toContain("nx_ts_step1");
+    expect(eventNames).toContain("nx_ts_step2");
+  });
+
+  // INT-P35 — Empty definitions from server
+  test("INT-P35: empty interaction definitions from server — no interaction span emitted", async ({
+    page,
+    otlp,
+  }) => {
+    await seedInteractionConfig(page, []);
+    await gotoAndWaitInit(page, otlp);
+    await emitEvent(page, "any_event_p35");
+    await page.waitForTimeout(800);
+    expect(findAllSpans(otlp.captured as never[], "interaction").length).toBe(0);
+  });
+
+  // INT-P41 — Error span forces poor apdex + apdex_score=0
+  test("INT-P41: error span (timeout) forces user_category=Poor and apdex_score=0", async ({
+    page,
+    otlp,
+  }) => {
+    await seedInteractionConfig(page, [
+      makeParityInteractionConfig({
+        id: 541,
+        name: "NX Error Apdex",
+        events: [{ name: "nx_err_step1" }, { name: "nx_err_step2" }],
+        thresholdInMs: 400,
+        uptimeLowerLimitInMs: 50,
+        uptimeMidLimitInMs: 100,
+        uptimeUpperLimitInMs: 150,
+      }),
+    ]);
+    await gotoAndWaitInit(page, otlp);
+    await emitEvent(page, "nx_err_step1");
+    // Don't emit step2 — wait for timeout
+    const span = await otlp.waitForSpan("interaction", 8_000);
+    expect(getAttr(span.attributes, "pulse.interaction.is_error")).toBe(true);
+    expect(getAttr(span.attributes, "pulse.interaction.user_category")).toBe("Poor");
+    expect(getAttr(span.attributes, "pulse.interaction.apdex_score")).toBe(0);
+  });
+});

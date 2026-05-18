@@ -159,4 +159,23 @@ describe("InteractionCoordinator", () => {
     expect(terminals.every((t) => !t.isError)).toBe(true);
     coord.shutdown();
   });
+
+  it("INT-P34: setConfigs mid-flight (config refresh) destroys in-flight trackers — no spurious terminal", () => {
+    vi.useFakeTimers();
+    const terminals: string[] = [];
+    const coord = new InteractionCoordinator({
+      onInteractionTerminal: (i) =>
+        terminals.push(String(i.props[INTERACTION_PROP_KEYS.NAME])),
+    });
+    coord.setConfigs([flow("OriginalFlow", 10)]);
+    // Start a partial flow (step_a fired, waiting for step_b)
+    coord.trackEvent("step_a", undefined, 1000);
+    // Config refresh arrives mid-flight — replaces configs
+    coord.setConfigs([flow("NewFlow", 11)]);
+    // Old timer must not fire; advance past original threshold
+    vi.advanceTimersByTime(1000);
+    // No terminal from the abandoned OriginalFlow tracker
+    expect(terminals.filter((n) => n === "OriginalFlow")).toHaveLength(0);
+    coord.shutdown();
+  });
 });

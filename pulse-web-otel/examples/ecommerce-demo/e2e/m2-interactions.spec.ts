@@ -1370,3 +1370,73 @@ test.describe("@M2 interaction-context-span (ISS-I04)", () => {
     );
   });
 });
+
+// ─── @M2 interactions — unit-parity E2E (INT-P09/P35/P41) ──────────────────
+
+test.describe("@M2 interactions — unit-parity E2E (INT-P09/P35/P41)", () => {
+  // INT-P09 — Step event timestamps on span
+  test("INT-P09: span.events carry timestamps matching emitted event times", async ({
+    page,
+    otlp,
+  }) => {
+    await seedInteractionConfig(page, [
+      makeConfig({
+        id: "ec_step_timestamps",
+        name: "EC Step Timestamps",
+        events: [{ name: "ec_ts_step1" }, { name: "ec_ts_step2" }],
+        thresholdInMs: 5000,
+      }),
+    ]);
+    await gotoAndWaitInteractionInit(page);
+    const t0 = Date.now();
+    await emitEvent(page, "ec_ts_step1", undefined, t0);
+    await emitEvent(page, "ec_ts_step2", undefined, t0 + 100);
+
+    await waitForInteractionCount(page, otlp, 1, 10_000);
+    const span = findAllSpans(otlp.captured, "interaction")[0] as import("./fixture").OtlpSpan | undefined;
+    expect(span).toBeDefined();
+    if (!span) return;
+    expect(Array.isArray(span.events)).toBe(true);
+    expect((span.events ?? []).length).toBeGreaterThanOrEqual(2);
+    const eventNames = (span.events ?? []).map((e) => e.name);
+    expect(eventNames).toContain("ec_ts_step1");
+    expect(eventNames).toContain("ec_ts_step2");
+  });
+
+  // INT-P35 — Empty definitions from server
+  test("INT-P35: empty interaction definitions — no interaction span emitted", async ({
+    page,
+    otlp,
+  }) => {
+    await seedInteractionConfig(page, []);
+    await gotoAndWaitInteractionInit(page);
+    await emitEvent(page, "any_event_p35");
+    await page.waitForTimeout(800);
+    expect(findAllSpans(otlp.captured, "interaction").length).toBe(0);
+  });
+
+  // INT-P41 — Error span forces poor apdex + apdex_score=0
+  test("INT-P41: error span (timeout) forces user_category=Poor and apdex_score=0", async ({
+    page,
+    otlp,
+  }) => {
+    await seedInteractionConfig(page, [
+      makeConfig({
+        id: "ec_error_apdex",
+        name: "EC Error Apdex",
+        events: [{ name: "ec_err_step1" }, { name: "ec_err_step2" }],
+        thresholdInMs: 400,
+        uptimeLowerLimitInMs: 50,
+        uptimeMidLimitInMs: 100,
+        uptimeUpperLimitInMs: 150,
+      }),
+    ]);
+    await gotoAndWaitInteractionInit(page);
+    await emitEvent(page, "ec_err_step1");
+    // Don't emit step2 — timeout fires the error span
+    const span = await otlp.waitForSpan("interaction", 8_000);
+    expect(getAttr(span.attributes, "pulse.interaction.is_error")).toBe(true);
+    expect(getAttr(span.attributes, "pulse.interaction.user_category")).toBe("Poor");
+    expect(getAttr(span.attributes, "pulse.interaction.apdex_score")).toBe(0);
+  });
+});

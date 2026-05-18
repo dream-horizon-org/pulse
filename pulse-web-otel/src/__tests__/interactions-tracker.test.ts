@@ -81,6 +81,19 @@ describe("InteractionTracker", () => {
   });
 });
 
+describe("InteractionTracker — first step never fired", () => {
+  it("INT-P26: second step fires alone (first never sent) → no terminal emitted", () => {
+    const terminals: unknown[] = [];
+    const tracker = new InteractionTracker(cfg(), {
+      onInteractionTerminal: (i) => terminals.push(i),
+    });
+    // Fire step_b without ever firing step_a
+    tracker.checkAndAdd({ name: "step_b", timeInNano: 1e12 });
+    expect(terminals).toHaveLength(0);
+    tracker.destroy();
+  });
+});
+
 describe("InteractionTracker — marker events", () => {
   it("addMarker mid-flow → MARKER_EVENTS in terminal props", () => {
     const terminals: unknown[] = [];

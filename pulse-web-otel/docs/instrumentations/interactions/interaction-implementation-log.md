@@ -195,6 +195,46 @@ Mirror 4 equivalent tests in `nextjs-demo.spec.ts`.
 
 ---
 
+## Test coverage expansion — INT-P batch (all remaining gaps)
+
+**Status:** ✅ Done
+
+**What was done:**
+
+### E2E — nextjs parity batch-2 (14 cases, INT-P13/14/20/23/27-32/36-39)
+New describe `"@M2 interactions — Next.js parity batch-2"` in `nextjs-demo.spec.ts`. 14/14 passing (chromium).
+- Added `emitEventAt(page, name, ts, props?)` helper for timestamp-override tests (P28, P37, P38)
+- Extended `makeParityInteractionConfig` to support `isBlacklisted` on individual events (P23)
+- Added `expectNoInteractionSpansNx`, `setUserIdNx` helpers
+
+### E2E — unit-parity (INT-P09/P35/P41) in both ecommerce + nextjs
+New describe `"@M2 interactions — unit-parity E2E"` in `m2-interactions.spec.ts` — 3/3 chromium.
+New describe `"@M2 interactions — Next.js unit-parity E2E"` in `nextjs-demo.spec.ts` — 3/3 chromium.
+- INT-P09: span.events carry timestamps matching emitted event times
+- INT-P35: empty definitions → no span
+- INT-P41: error span forces user_category=Poor + apdex_score=0
+- INT-P16 (remote gate OFF) and INT-P17 (local disabled) remain unit-only; E2E infra doesn't expose a gate-disable hook at test time.
+
+### Unit tests — unautomated cases (INT-P24/25/26/33/34/42)
+- **INT-P24** (`interaction-feature.test.ts`): trackEvent before init → no-op
+- **INT-P25** (`interaction-feature.test.ts`): trackEvent after shutdown → no-op
+- **INT-P33** (`interaction-feature.test.ts`): shutdown mid-partial → no throw, fetcher+coordinator torn down, subsequent trackEvent dropped
+- **INT-P26** (`interactions-tracker.test.ts`): second step alone (first never fired) → no terminal
+- **INT-P34** (`interactions-coordinator.test.ts`): setConfigs mid-flight → old trackers destroyed, no spurious terminal
+- **INT-P42** (`interactions-span-builder.test.ts`): missing CONFIG_ID → span attribute is `""`
+
+All 898 unit tests pass (62 files).
+
+**Files changed:**
+- `examples/nextjs-demo/e2e/nextjs-demo.spec.ts` (batch-2 + unit-parity describe + new helpers)
+- `examples/ecommerce-demo/e2e/m2-interactions.spec.ts` (unit-parity describe)
+- `src/__tests__/interaction-feature.test.ts` (INT-P24, P25, P33)
+- `src/__tests__/interactions-tracker.test.ts` (INT-P26)
+- `src/__tests__/interactions-coordinator.test.ts` (INT-P34)
+- `src/__tests__/interactions-span-builder.test.ts` (INT-P42)
+
+---
+
 ## ISS-I08 — Unit test: config fetch failure → idle matcher
 
 **Status:** ✅ Done. Added 1 test `"config fetch returns empty → trackEvent is no-op (INT-E1)"` to `interaction-feature.test.ts`. Verifies: gate-enabled + fetcher returns `[]` → `setConfigs([])` + `trackEvent` still delegates to coordinator.

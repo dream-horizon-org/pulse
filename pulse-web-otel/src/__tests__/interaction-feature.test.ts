@@ -108,6 +108,41 @@ describe("InteractionFeature gating", () => {
     expect(coordinatorShutdown).toHaveBeenCalledTimes(1);
   });
 
+  it("INT-P24: trackEvent before init → no-op (initialized=false)", async () => {
+    coordinatorTrackEvent.mockClear();
+    const feature = makeFeature(true, true);
+    // Never call init()
+    feature.trackEvent("any_event");
+    expect(coordinatorTrackEvent).not.toHaveBeenCalled();
+  });
+
+  it("INT-P25: trackEvent after shutdown → no-op (initialized reset to false)", async () => {
+    coordinatorTrackEvent.mockClear();
+    const feature = makeFeature(true, true);
+    await feature.init();
+    feature.shutdown();
+    feature.trackEvent("any_event");
+    expect(coordinatorTrackEvent).not.toHaveBeenCalled();
+  });
+
+  it("INT-P33: shutdown during pending partial → no throw, fetcher+coordinator torn down", async () => {
+    fetcherDestroy.mockClear();
+    coordinatorShutdown.mockClear();
+    coordinatorTrackEvent.mockClear();
+    const feature = makeFeature(true, true);
+    await feature.init();
+    // Simulate partial flow: fire one step
+    feature.trackEvent("step_1");
+    // Uninstall while flow is mid-sequence
+    expect(() => feature.shutdown()).not.toThrow();
+    expect(fetcherDestroy).toHaveBeenCalledTimes(1);
+    expect(coordinatorShutdown).toHaveBeenCalledTimes(1);
+    // Subsequent trackEvent must be a no-op
+    feature.trackEvent("step_2");
+    // coordinatorTrackEvent: 1 call for step_1 only (step_2 dropped post-shutdown)
+    expect(coordinatorTrackEvent).toHaveBeenCalledTimes(1);
+  });
+
   it("config fetch returns empty → trackEvent is no-op (INT-E1)", async () => {
     fetcherInit.mockClear();
     coordinatorTrackEvent.mockClear();
