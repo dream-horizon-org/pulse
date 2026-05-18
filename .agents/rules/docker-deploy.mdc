@@ -22,12 +22,15 @@ alwaysApply: false
 | pulse-session-capture | `backend/session-capture-service` | 3400 | kafka |
 | pulse-session-replay-ingestion | `backend/session-replay-ingestion` | — | kafka, minio-init |
 | pulse-heatmap-screenshot-ingestion | `backend/heatmap-screenshot-ingestion` | — | kafka, minio-init |
+| pulse-s3-archiver | `backend/pulse-s3-archiver/` | — (compose health: in-container `:5000/healthcheck`) | kafka (healthy) |
 | otel-collector | otel-collector-contrib:0.137.0 | 4317, 4318, 8888, 13133 | clickhouse |
 | vector | `650012445044.../pulse-vector:latest` | 8686, 14317, 14318 | — | *(profile `vector`; `VECTOR_ENABLED=true`)* |
 | pulse-ai-agent | `pulse_ai/` | 8000 | — |
 | pulse-server | `backend/server/` | 8080 | mysql, clickhouse, openfga-init, pulse-ai-agent |
 | pulse-ui | `pulse-ui/` | 3000 | pulse-server |
 | pulse-alerts-cron | `backend/pulse-alerts-cron/` | 4000 | mysql, pulse-server, minio-init |
+
+**pulse-s3-archiver:** Kafka OTLP protobuf topics (`pulse.traces` / `pulse.logs` / `pulse.metrics`) → Parquet → **one S3 bucket per project** (`pulse-otel-{sanitized project.id}` from resource `project.id`; missing id → `pulse-otel-unknown`). No single **`S3_BUCKET`** env — provision buckets / IAM (**`s3:PutObject`**) accordingly. Compose passes **`S3_REGION`**, optional **`S3_ENDPOINT`** (MinIO in stack: internal `http://minio:9000` if you expose it via network), **`AWS_*`**, **`ARCHIVER_FLUSH_INTERVAL_MS`**, **`ARCHIVER_STAGING_DIR`**, optional **`PULSE_BACKEND_OTEL_ENABLED`**. Healthcheck in compose targets `:5000` inside the container; **host port not published** by default.
 
 **otel-collector:** healthcheck is disabled in compose (scratch image); use `:13133` from the host for health.
 
@@ -69,7 +72,7 @@ All services on `pulse-network` (bridge). Internal references use container name
 - `SES_*` — Amazon SES email config
 - `SLACK_*` — Slack OAuth integration (client ID, secret, scopes, redirect URI, UI redirect URL)
 - `OPENFGA_*` — OpenFGA authorization service config
-- `AWS_*` — AWS credentials for Athena/S3
+- `AWS_*` — AWS credentials for Athena/S3 (also **`pulse-s3-archiver`** `PutObject` into per-project `pulse-otel-*` buckets; MinIO compose uses **`MINIO_ROOT_*`** IAM-style keys unless overridden)
 - `COMPOSE_PROFILES` — Optional. Used for Vector (`VECTOR_ENABLED=true` appends `vector`). Plain `docker compose` also reads this env when set manually.
 - `GOOGLE_API_KEY` — Google GenAI / ADK for `pulse-ai-agent` (process starts without it; Gemini calls fail at runtime).
 - `PULSE_BASE_URL` — Base URL for pulse_ai tools → pulse-server (compose default: `http://pulse-server:8080`).
@@ -109,7 +112,7 @@ Credentials (defined in docker-compose, overridable via `.env`):
 
 | Script | Options |
 |--------|---------|
-| `build.sh` | `[--no-cache]` and targets `ui`, `server`, `cron`, `capture`, `ingestion`, `heatmap` \| `heatmap-ingestion`, `ai`, `all` — default (no args) or `all` builds UI, server, cron, capture, session replay ingestion, **heatmap screenshot ingestion**, and AI (`capture` = pulse-session-capture; `ingestion` = pulse-session-replay-ingestion; `heatmap-ingestion` = pulse-heatmap-screenshot-ingestion) |
+| `build.sh` | `[--no-cache]` and targets `ui`, `server`, `cron`, `capture`, `ingestion`, `heatmap` \| `heatmap-ingestion`, `s3-archiver` \| `pulse-s3-archiver`, `ai`, `all` — default (no args) or `all` builds UI, server, cron, capture, session replay ingestion, **heatmap screenshot ingestion**, **pulse-s3-archiver**, and AI (`capture` = pulse-session-capture; `ingestion` = pulse-session-replay-ingestion; `heatmap-ingestion` = pulse-heatmap-screenshot-ingestion; **`s3-archiver`** = `pulse-s3-archiver`) |
 | `start.sh` | `[-d` or `--detach] [--build] [--no-cache] [--skip-env-check]` |
 | `stop.sh` | `-v` to remove volumes; service aliases include `ai`, `pulse-ai-agent` |
 | `logs.sh` | service name (e.g., `server`, `ai`, `otel-collector`) |
