@@ -1,4 +1,3 @@
-META,Coverage sheet — topic sections match success-metric layout. Automation = e2e:web-sdk-gates. Generated 2026-05-18.,,,,,,,,Source: e2e-coverage-decisions.json
 TC,Scenario,How to Trigger,Expected Signal,Status (Android),Status (iOS),Comment (success metric),Coverage,E2E reference,Notes
 Topic 1 — SDK Initialization & Remote Config,,,,,,,,,
 INIT-01,Cold first load — IDs created,Clear localStorage + hard-reload /,"pulse_session_id, pulse_installation_id written to localStorage",,Pass,,Automation,m1.spec.ts: session.start emitted; m1.spec.ts: pulse_installation_id UUID,OTLP + pulse_installation_id; not only raw pulse_session_id key name

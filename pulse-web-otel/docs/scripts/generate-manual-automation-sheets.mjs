@@ -172,22 +172,6 @@ const stats = { automation: 0, manual: 0, unmapped: 0, topics: 0 };
 const out = [];
 let currentTopic = null;
 
-const meta = padRow(
-  [
-    "META",
-    `Coverage sheet — topic sections match success-metric layout. Automation = e2e:web-sdk-gates. Generated ${new Date().toISOString().slice(0, 10)}.`,
-    "",
-    "",
-    "",
-    "",
-    "",
-    "",
-    "",
-    "Source: e2e-coverage-decisions.json",
-  ],
-  COLS,
-);
-out.push(esc(meta));
 out.push(esc(TC_HEADER));
 
 for (const r of manualRows) {
