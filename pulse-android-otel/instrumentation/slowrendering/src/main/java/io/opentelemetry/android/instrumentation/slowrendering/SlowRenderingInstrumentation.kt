@@ -79,14 +79,23 @@ class SlowRenderingInstrumentation : AndroidInstrumentation {
         }
 
         val logger = ctx.openTelemetry.logsBridge.get("app.jank")
+        // Slow: (16, 700] ms. Frozen: >700 ms only — avoids counting one frozen frame as slow + frozen.
         var jankReporter: JankReporter =
-            EventJankReporter(logger, SLOW_THRESHOLD_MS / 1000.0, isDebugVerbose)
+            EventJankReporter(
+                eventLogger = logger,
+                threshold = SLOW_THRESHOLD_MS / 1000.0,
+                minDurationMsExclusive = SLOW_THRESHOLD_MS,
+                maxDurationMsInclusive = FROZEN_THRESHOLD_MS,
+                isDebugVerbose = isDebugVerbose,
+            )
         jankReporter =
             jankReporter.combine(
                 EventJankReporter(
-                    logger,
-                    FROZEN_THRESHOLD_MS / 1000.0,
-                    isDebugVerbose,
+                    eventLogger = logger,
+                    threshold = FROZEN_THRESHOLD_MS / 1000.0,
+                    minDurationMsExclusive = FROZEN_THRESHOLD_MS,
+                    maxDurationMsInclusive = null,
+                    isDebugVerbose = isDebugVerbose,
                 ),
             )
 
