@@ -538,6 +538,218 @@ class ProjectUsageLimitDaoTest {
     }
   }
 
+  // ==================== mapRowToUsageLimit guard-path coverage ====================
+
+  @Nested
+  class MapRowColumnGuards {
+
+    /**
+     * Rows returned by queries that JOIN usage_limit_notifications carry the optional columns.
+     * Rows from simple active-limit queries do NOT include these columns (getColumnIndex returns -1).
+     */
+    @Test
+    void shouldMapRowWithoutOptionalColumnsSuccessfully() {
+      setupReaderPreparedQuery();
+
+      // All optional column checks return -1 (column absent)
+      Row limitRow = mock(Row.class);
+      LocalDateTime now = LocalDateTime.now();
+      when(limitRow.getLong("project_usage_limit_id")).thenReturn(10L);
+      when(limitRow.getString("project_id")).thenReturn("proj-no-extras");
+      when(limitRow.getBoolean("is_active")).thenReturn(true);
+      when(limitRow.getString("created_by")).thenReturn("admin");
+      when(limitRow.getLocalDateTime("created_at")).thenReturn(now);
+      when(limitRow.getLocalDateTime("disabled_at")).thenReturn(null);
+      when(limitRow.getString("disabled_by")).thenReturn(null);
+      when(limitRow.getString("disabled_reason")).thenReturn(null);
+      when(limitRow.getValue("usage_limits")).thenReturn(new JsonObject("{\"events\":500}"));
+      // Optional columns absent
+      when(limitRow.getColumnIndex("thresholds_notified")).thenReturn(-1);
+      when(limitRow.getColumnIndex("project_name")).thenReturn(-1);
+      when(limitRow.getColumnIndex("notification_project_usage_limit_id")).thenReturn(-1);
+      when(limitRow.getColumnIndex("notification_row_active")).thenReturn(-1);
+      when(limitRow.getColumnIndex("notification_created_at")).thenReturn(-1);
+      when(limitRow.getColumnIndex("tenant_id")).thenReturn(-1);
+
+      RowIterator<Row> iterator = createMockRowIterator(Collections.singletonList(limitRow));
+      when(rowSet.size()).thenReturn(1);
+      when(rowSet.iterator()).thenReturn(iterator);
+      when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
+
+      ProjectUsageLimit result = projectUsageLimitDao.getActiveLimitByProjectId("proj-no-extras").blockingGet();
+
+      assertNotNull(result);
+      assertEquals(10L, result.getProjectUsageLimitId());
+      assertNull(result.getThresholdsNotified());
+      assertNull(result.getProjectName());
+      assertNull(result.getNotificationProjectUsageLimitId());
+      assertNull(result.getNotificationRowActive());
+      assertNull(result.getNotificationCreatedAt());
+      assertNull(result.getTenantId());
+    }
+
+    @Test
+    void shouldMapRowWithThresholdsNotifiedAsJsonObject() {
+      setupReaderPreparedQuery();
+
+      Row limitRow = mock(Row.class);
+      LocalDateTime now = LocalDateTime.now();
+      when(limitRow.getLong("project_usage_limit_id")).thenReturn(11L);
+      when(limitRow.getString("project_id")).thenReturn("proj-with-notif");
+      when(limitRow.getBoolean("is_active")).thenReturn(true);
+      when(limitRow.getString("created_by")).thenReturn("admin");
+      when(limitRow.getLocalDateTime("created_at")).thenReturn(now);
+      when(limitRow.getLocalDateTime("disabled_at")).thenReturn(null);
+      when(limitRow.getString("disabled_by")).thenReturn(null);
+      when(limitRow.getString("disabled_reason")).thenReturn(null);
+      when(limitRow.getValue("usage_limits")).thenReturn(new JsonObject("{\"events\":100}"));
+      // thresholds_notified present as JsonObject
+      when(limitRow.getColumnIndex("thresholds_notified")).thenReturn(5);
+      when(limitRow.getValue("thresholds_notified")).thenReturn(new JsonObject("{\"50\":\"2026-05-01T00:00:00Z\"}"));
+      // notification_created_at present with value
+      when(limitRow.getColumnIndex("notification_created_at")).thenReturn(6);
+      when(limitRow.getLocalDateTime("notification_created_at")).thenReturn(now);
+      // project_name present
+      when(limitRow.getColumnIndex("project_name")).thenReturn(7);
+      when(limitRow.getString("project_name")).thenReturn("My Project");
+      // notification_project_usage_limit_id present
+      when(limitRow.getColumnIndex("notification_project_usage_limit_id")).thenReturn(8);
+      when(limitRow.getValue("notification_project_usage_limit_id")).thenReturn(11L);
+      // notification_row_active present
+      when(limitRow.getColumnIndex("notification_row_active")).thenReturn(9);
+      when(limitRow.getBoolean("notification_row_active")).thenReturn(true);
+      // tenant_id present
+      when(limitRow.getColumnIndex("tenant_id")).thenReturn(10);
+      when(limitRow.getString("tenant_id")).thenReturn("tenant-42");
+
+      RowIterator<Row> iterator = createMockRowIterator(Collections.singletonList(limitRow));
+      when(rowSet.size()).thenReturn(1);
+      when(rowSet.iterator()).thenReturn(iterator);
+      when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
+
+      ProjectUsageLimit result = projectUsageLimitDao.getActiveLimitByProjectId("proj-with-notif").blockingGet();
+
+      assertNotNull(result);
+      assertNotNull(result.getThresholdsNotified());
+      assertTrue(result.getThresholdsNotified().has("50"));
+      assertNotNull(result.getNotificationCreatedAt());
+      assertEquals("My Project", result.getProjectName());
+      assertEquals(11L, result.getNotificationProjectUsageLimitId());
+      assertTrue(result.getNotificationRowActive());
+      assertEquals("tenant-42", result.getTenantId());
+    }
+
+    @Test
+    void shouldMapRowWithThresholdsNotifiedAsPlainString() {
+      setupReaderPreparedQuery();
+
+      Row limitRow = mock(Row.class);
+      LocalDateTime now = LocalDateTime.now();
+      when(limitRow.getLong("project_usage_limit_id")).thenReturn(12L);
+      when(limitRow.getString("project_id")).thenReturn("proj-str-notif");
+      when(limitRow.getBoolean("is_active")).thenReturn(true);
+      when(limitRow.getString("created_by")).thenReturn("admin");
+      when(limitRow.getLocalDateTime("created_at")).thenReturn(now);
+      when(limitRow.getLocalDateTime("disabled_at")).thenReturn(null);
+      when(limitRow.getString("disabled_by")).thenReturn(null);
+      when(limitRow.getString("disabled_reason")).thenReturn(null);
+      when(limitRow.getValue("usage_limits")).thenReturn(null);
+      // thresholds_notified present as a plain String
+      when(limitRow.getColumnIndex("thresholds_notified")).thenReturn(5);
+      when(limitRow.getValue("thresholds_notified")).thenReturn("{\"75\":\"2026-05-10T00:00:00Z\"}");
+      when(limitRow.getColumnIndex("notification_created_at")).thenReturn(-1);
+      when(limitRow.getColumnIndex("project_name")).thenReturn(-1);
+      when(limitRow.getColumnIndex("notification_project_usage_limit_id")).thenReturn(-1);
+      when(limitRow.getColumnIndex("notification_row_active")).thenReturn(-1);
+      when(limitRow.getColumnIndex("tenant_id")).thenReturn(-1);
+
+      RowIterator<Row> iterator = createMockRowIterator(Collections.singletonList(limitRow));
+      when(rowSet.size()).thenReturn(1);
+      when(rowSet.iterator()).thenReturn(iterator);
+      when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
+
+      ProjectUsageLimit result = projectUsageLimitDao.getActiveLimitByProjectId("proj-str-notif").blockingGet();
+
+      assertNotNull(result);
+      assertNotNull(result.getThresholdsNotified());
+      assertTrue(result.getThresholdsNotified().has("75"));
+    }
+
+    @Test
+    void shouldFallbackToEmptyObjectWhenThresholdsNotifiedJsonIsInvalid() {
+      setupReaderPreparedQuery();
+
+      Row limitRow = mock(Row.class);
+      LocalDateTime now = LocalDateTime.now();
+      when(limitRow.getLong("project_usage_limit_id")).thenReturn(13L);
+      when(limitRow.getString("project_id")).thenReturn("proj-bad-json");
+      when(limitRow.getBoolean("is_active")).thenReturn(true);
+      when(limitRow.getString("created_by")).thenReturn("admin");
+      when(limitRow.getLocalDateTime("created_at")).thenReturn(now);
+      when(limitRow.getLocalDateTime("disabled_at")).thenReturn(null);
+      when(limitRow.getString("disabled_by")).thenReturn(null);
+      when(limitRow.getString("disabled_reason")).thenReturn(null);
+      when(limitRow.getValue("usage_limits")).thenReturn(null);
+      // thresholds_notified present but invalid JSON
+      when(limitRow.getColumnIndex("thresholds_notified")).thenReturn(5);
+      when(limitRow.getValue("thresholds_notified")).thenReturn("NOT_VALID_JSON{{{");
+      when(limitRow.getColumnIndex("notification_created_at")).thenReturn(-1);
+      when(limitRow.getColumnIndex("project_name")).thenReturn(-1);
+      when(limitRow.getColumnIndex("notification_project_usage_limit_id")).thenReturn(-1);
+      when(limitRow.getColumnIndex("notification_row_active")).thenReturn(-1);
+      when(limitRow.getColumnIndex("tenant_id")).thenReturn(-1);
+
+      RowIterator<Row> iterator = createMockRowIterator(Collections.singletonList(limitRow));
+      when(rowSet.size()).thenReturn(1);
+      when(rowSet.iterator()).thenReturn(iterator);
+      when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
+
+      ProjectUsageLimit result = projectUsageLimitDao.getActiveLimitByProjectId("proj-bad-json").blockingGet();
+
+      // parse error falls back to empty ObjectNode
+      assertNotNull(result);
+      assertNotNull(result.getThresholdsNotified());
+      assertTrue(result.getThresholdsNotified().isObject());
+      assertEquals(0, result.getThresholdsNotified().size());
+    }
+
+    @Test
+    void shouldMapRowWithNullThresholdsNotifiedValue() {
+      setupReaderPreparedQuery();
+
+      Row limitRow = mock(Row.class);
+      LocalDateTime now = LocalDateTime.now();
+      when(limitRow.getLong("project_usage_limit_id")).thenReturn(14L);
+      when(limitRow.getString("project_id")).thenReturn("proj-null-notif");
+      when(limitRow.getBoolean("is_active")).thenReturn(true);
+      when(limitRow.getString("created_by")).thenReturn("admin");
+      when(limitRow.getLocalDateTime("created_at")).thenReturn(now);
+      when(limitRow.getLocalDateTime("disabled_at")).thenReturn(null);
+      when(limitRow.getString("disabled_by")).thenReturn(null);
+      when(limitRow.getString("disabled_reason")).thenReturn(null);
+      when(limitRow.getValue("usage_limits")).thenReturn(null);
+      // Column present but value is null
+      when(limitRow.getColumnIndex("thresholds_notified")).thenReturn(5);
+      when(limitRow.getValue("thresholds_notified")).thenReturn(null);
+      when(limitRow.getColumnIndex("notification_created_at")).thenReturn(-1);
+      when(limitRow.getColumnIndex("project_name")).thenReturn(-1);
+      when(limitRow.getColumnIndex("notification_project_usage_limit_id")).thenReturn(-1);
+      when(limitRow.getColumnIndex("notification_row_active")).thenReturn(-1);
+      when(limitRow.getColumnIndex("tenant_id")).thenReturn(-1);
+
+      RowIterator<Row> iterator = createMockRowIterator(Collections.singletonList(limitRow));
+      when(rowSet.size()).thenReturn(1);
+      when(rowSet.iterator()).thenReturn(iterator);
+      when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
+
+      ProjectUsageLimit result = projectUsageLimitDao.getActiveLimitByProjectId("proj-null-notif").blockingGet();
+
+      assertNotNull(result);
+      // null value → thresholdsNotified stays null
+      assertNull(result.getThresholdsNotified());
+    }
+  }
+
   @Nested
   class UpdateUsageLimits {
 
