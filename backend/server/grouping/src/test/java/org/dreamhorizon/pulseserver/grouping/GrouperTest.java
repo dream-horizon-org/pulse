@@ -38,7 +38,7 @@ class GrouperTest {
         .contains("java.lang.NullPointerException")
         .contains("HomeActivity#onCreate")
         .contains(group.getGroupId());
-    assertThat(group.getSignature()).startsWith("v1|platform:java|exc:");
+    assertThat(group.getSignature()).startsWith("v2|platform:java|exc:");
     assertThat(group.getFingerprint()).hasSize(40);
   }
 
@@ -123,7 +123,7 @@ class GrouperTest {
   void buildSignatureShouldEncodeVersionPlatformExcAndFrames() {
     String sig = Grouper.buildSignature("java", List.of("NPE"), List.of("Foo#bar", "Foo#baz"));
 
-    assertThat(sig).isEqualTo("v1|platform:java|exc:NPE|frames:Foo#bar>Foo#baz");
+    assertThat(sig).isEqualTo("v2|platform:java|exc:NPE|frames:Foo#bar>Foo#baz");
   }
 
   @Test

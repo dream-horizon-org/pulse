@@ -673,7 +673,7 @@ class ErrorGroupingServiceTest {
 
       String result = Grouper.buildSignature(platform, excTypes, tokens);
 
-      assertEquals("v1|platform:js|exc:Error>TypeError|frames:func1@file1:10:5>func2@file2:20:10", result);
+      assertEquals("v2|platform:js|exc:Error>TypeError|frames:func1@file1:10:5>func2@file2:20:10", result);
     }
 
     @Test
@@ -684,7 +684,7 @@ class ErrorGroupingServiceTest {
 
       String result = Grouper.buildSignature(platform, excTypes, tokens);
 
-      assertEquals("v1|platform:java|exc:|frames:Class.method(File.java:10)", result);
+      assertEquals("v2|platform:java|exc:|frames:Class.method(File.java:10)", result);
     }
 
     @Test
@@ -695,7 +695,7 @@ class ErrorGroupingServiceTest {
 
       String result = Grouper.buildSignature(platform, excTypes, tokens);
 
-      assertEquals("v1|platform:ndk|exc:SIGSEGV|frames:", result);
+      assertEquals("v2|platform:ndk|exc:SIGSEGV|frames:", result);
     }
 
     @Test
@@ -706,7 +706,7 @@ class ErrorGroupingServiceTest {
 
       String result = Grouper.buildSignature(platform, excTypes, tokens);
 
-      assertEquals("v1|platform:js|exc:Error|frames:main@index.js:1:1", result);
+      assertEquals("v2|platform:js|exc:Error|frames:main@index.js:1:1", result);
     }
   }
 

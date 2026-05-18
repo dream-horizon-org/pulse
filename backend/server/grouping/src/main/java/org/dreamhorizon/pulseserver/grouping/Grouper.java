@@ -23,7 +23,11 @@ import org.dreamhorizon.pulseserver.grouping.util.ErrorGroupingUtils;
 @UtilityClass
 public class Grouper {
 
-  public static final String SIG_VERSION = "v1";
+  // v1 was the legacy ErrorGroupingService inline algorithm. v2 is the same byte-for-byte
+  // wire format, but cut over to the pulse-grouping module as the authoritative implementation.
+  // Bumping the prefix changes every future SHA-1 fingerprint, so existing EXC- groupIds in
+  // ClickHouse stay frozen and the same root cause re-opens as a fresh group from this point.
+  public static final String SIG_VERSION = "v2";
   private static final String GROUP_ID_PREFIX = "EXC-";
   private static final int GROUP_ID_HASH_LEN = 10;
 
@@ -52,7 +56,7 @@ public class Grouper {
 
   /**
    * Build the canonical signature string fed into the SHA-1 fingerprint.
-   * Format: {@code v1|platform:<tag>|exc:<type>(>type)*|frames:<token>(>token)*}.
+   * Format: {@code v2|platform:<tag>|exc:<type>(>type)*|frames:<token>(>token)*}.
    */
   public static String buildSignature(String platform, List<String> excTypes, List<String> tokens) {
     int capacity = 50 + platform.length() + excTypes.size() * 20 + tokens.size() * 30;
