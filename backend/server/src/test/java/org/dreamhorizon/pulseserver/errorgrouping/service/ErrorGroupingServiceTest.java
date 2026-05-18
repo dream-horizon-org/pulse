@@ -10,6 +10,7 @@ import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -24,8 +25,10 @@ import io.opentelemetry.proto.resource.v1.Resource;
 import io.reactivex.rxjava3.core.Single;
 import java.util.Collections;
 import java.util.List;
+import io.reactivex.rxjava3.core.Completable;
 import org.dreamhorizon.pulseserver.client.chclient.ClickhouseQueryService;
 import org.dreamhorizon.pulseserver.errorgrouping.Symbolicator;
+import org.dreamhorizon.pulseserver.errorgrouping.archive.StackTraceArchiveService;
 import org.dreamhorizon.pulseserver.errorgrouping.model.EventMeta;
 import org.dreamhorizon.pulseserver.errorgrouping.model.Frame;
 import org.dreamhorizon.pulseserver.errorgrouping.model.JavaFrame;
@@ -51,14 +54,19 @@ class ErrorGroupingServiceTest {
   @Mock
   private Symbolicator symbolicator;
 
+  @Mock
+  private StackTraceArchiveService stackTraceArchiveService;
+
   private final ObjectMapper objectMapper = ObjectMapperFactory.get();
 
   private ErrorGroupingService errorGroupingService;
 
   @BeforeEach
   void setUp() {
+    when(stackTraceArchiveService.archive(anyList())).thenReturn(Completable.complete());
     errorGroupingService =
-        new ErrorGroupingService(clickhouseQueryService, symbolicator, objectMapper);
+        new ErrorGroupingService(clickhouseQueryService, stackTraceArchiveService, symbolicator,
+            objectMapper);
     lenient().when(symbolicator.symbolicateIosNative(anyList(), any(EventMeta.class), any(), anyBoolean()))
         .thenAnswer(invocation -> {
           @SuppressWarnings("unchecked")
@@ -1158,6 +1166,127 @@ class ErrorGroupingServiceTest {
   }
 
   @Nested
+  class EventNameAndPulseTypeTests {
+
+    @Test
+    void shouldSetEventNameFromLogRecord() {
+      LogRecord logRecord = LogRecord.newBuilder()
+          .setObservedTimeUnixNano(System.currentTimeMillis() * 1_000_000)
+          .setEventName("device.crash")
+          .addAttributes(KeyValue.newBuilder()
+              .setKey("exception.stacktrace")
+              .setValue(AnyValue.newBuilder().setStringValue("Error: Test\n    at func@file.js:1:1").build())
+              .build())
+          .addAttributes(KeyValue.newBuilder()
+              .setKey("pulse.type")
+              .setValue(AnyValue.newBuilder().setStringValue("device.crash").build())
+              .build())
+          .build();
+
+      Resource resource = Resource.newBuilder()
+          .addAttributes(KeyValue.newBuilder()
+              .setKey("os.name")
+              .setValue(AnyValue.newBuilder().setStringValue("android").build())
+              .build())
+          .build();
+
+      when(symbolicator.symbolicateJsInPlace(anyList(), any()))
+          .thenReturn(Single.just(List.of("func@file.js:1:1")));
+      lenient().when(symbolicator.retrace(anyList(), any()))
+          .thenReturn(Single.just(Collections.emptyList()));
+
+      StackTraceEvent event = errorGroupingService.process(
+              buildExportRequest(resource, logRecord))
+          .blockingGet()
+          .get(0);
+
+      assertEquals("device.crash", event.getEventName());
+      assertEquals("device.crash", event.getPulseType());
+    }
+
+    @Test
+    void shouldDefaultPulseTypeToOtelWhenAttributeMissing() {
+      LogRecord logRecord = LogRecord.newBuilder()
+          .setObservedTimeUnixNano(System.currentTimeMillis() * 1_000_000)
+          .setEventName("generic.error")
+          .addAttributes(KeyValue.newBuilder()
+              .setKey("exception.stacktrace")
+              .setValue(AnyValue.newBuilder().setStringValue("Error: Test\n    at func@file.js:1:1").build())
+              .build())
+          .build();
+
+      Resource resource = Resource.newBuilder()
+          .addAttributes(KeyValue.newBuilder()
+              .setKey("os.name")
+              .setValue(AnyValue.newBuilder().setStringValue("android").build())
+              .build())
+          .build();
+
+      when(symbolicator.symbolicateJsInPlace(anyList(), any()))
+          .thenReturn(Single.just(List.of("func@file.js:1:1")));
+      lenient().when(symbolicator.retrace(anyList(), any()))
+          .thenReturn(Single.just(Collections.emptyList()));
+
+      StackTraceEvent event = errorGroupingService.process(
+              buildExportRequest(resource, logRecord))
+          .blockingGet()
+          .get(0);
+
+      assertEquals("generic.error", event.getEventName());
+      assertEquals("otel", event.getPulseType());
+    }
+
+    @Test
+    void shouldSetAnrPulseTypeFromLogAttributes() {
+      LogRecord logRecord = LogRecord.newBuilder()
+          .setObservedTimeUnixNano(System.currentTimeMillis() * 1_000_000)
+          .setEventName("anr")
+          .addAttributes(KeyValue.newBuilder()
+              .setKey("exception.stacktrace")
+              .setValue(AnyValue.newBuilder().setStringValue("Error: ANR\n    at func@file.js:1:1").build())
+              .build())
+          .addAttributes(KeyValue.newBuilder()
+              .setKey("pulse.type")
+              .setValue(AnyValue.newBuilder().setStringValue("anr").build())
+              .build())
+          .build();
+
+      Resource resource = Resource.newBuilder()
+          .addAttributes(KeyValue.newBuilder()
+              .setKey("os.name")
+              .setValue(AnyValue.newBuilder().setStringValue("android").build())
+              .build())
+          .build();
+
+      when(symbolicator.symbolicateJsInPlace(anyList(), any()))
+          .thenReturn(Single.just(List.of("func@file.js:1:1")));
+      lenient().when(symbolicator.retrace(anyList(), any()))
+          .thenReturn(Single.just(Collections.emptyList()));
+
+      StackTraceEvent event = errorGroupingService.process(
+              buildExportRequest(resource, logRecord))
+          .blockingGet()
+          .get(0);
+
+      assertEquals("anr", event.getEventName());
+      assertEquals("anr", event.getPulseType());
+    }
+
+    private ExportLogsServiceRequest buildExportRequest(Resource resource, LogRecord logRecord) {
+      ScopeLogs scopeLogs = ScopeLogs.newBuilder()
+          .addLogRecords(logRecord)
+          .build();
+      ResourceLogs resourceLogs = ResourceLogs.newBuilder()
+          .setResource(resource)
+          .addScopeLogs(scopeLogs)
+          .build();
+      return ExportLogsServiceRequest.newBuilder()
+          .addResourceLogs(resourceLogs)
+          .build();
+    }
+  }
+
+  @Nested
   class IngestTests {
     @Test
     void shouldIngestAndInsertStackTraces() {
@@ -1205,6 +1334,100 @@ class ErrorGroupingServiceTest {
 
       Long count = result.blockingGet();
       assertEquals(1L, count);
+    }
+
+    @Test
+    void shouldCallArchiveAfterClickHouseInsert() {
+      LogRecord logRecord = LogRecord.newBuilder()
+          .setObservedTimeUnixNano(System.currentTimeMillis() * 1_000_000)
+          .setEventName("device.crash")
+          .addAttributes(KeyValue.newBuilder()
+              .setKey("exception.stacktrace")
+              .setValue(AnyValue.newBuilder().setStringValue("Error: Test\n    at func@file.js:1:1").build())
+              .build())
+          .addAttributes(KeyValue.newBuilder()
+              .setKey("pulse.type")
+              .setValue(AnyValue.newBuilder().setStringValue("device.crash").build())
+              .build())
+          .build();
+
+      Resource resource = Resource.newBuilder()
+          .addAttributes(KeyValue.newBuilder()
+              .setKey("app.build_name")
+              .setValue(AnyValue.newBuilder().setStringValue("1.0.0").build())
+              .build())
+          .addAttributes(KeyValue.newBuilder()
+              .setKey("os.name")
+              .setValue(AnyValue.newBuilder().setStringValue("android").build())
+              .build())
+          .build();
+
+      ScopeLogs scopeLogs = ScopeLogs.newBuilder()
+          .addLogRecords(logRecord)
+          .build();
+
+      ResourceLogs resourceLogs = ResourceLogs.newBuilder()
+          .setResource(resource)
+          .addScopeLogs(scopeLogs)
+          .build();
+
+      ExportLogsServiceRequest request = ExportLogsServiceRequest.newBuilder()
+          .addResourceLogs(resourceLogs)
+          .build();
+
+      when(symbolicator.symbolicateJsInPlace(anyList(), any()))
+          .thenReturn(Single.just(List.of("func@file.js:1:1")));
+      lenient().when(symbolicator.retrace(anyList(), any()))
+          .thenReturn(Single.just(Collections.emptyList()));
+      when(clickhouseQueryService.insertStackTraces(anyList()))
+          .thenReturn(Single.just(1L));
+
+      errorGroupingService.ingest(request).blockingGet();
+
+      verify(stackTraceArchiveService).archive(anyList());
+    }
+
+    @Test
+    void shouldReturnInsertCountWhenArchiveCompletes() {
+      LogRecord logRecord = LogRecord.newBuilder()
+          .setObservedTimeUnixNano(System.currentTimeMillis() * 1_000_000)
+          .addAttributes(KeyValue.newBuilder()
+              .setKey("exception.stacktrace")
+              .setValue(AnyValue.newBuilder().setStringValue("Error: Test\n    at func@file.js:1:1").build())
+              .build())
+          .build();
+
+      Resource resource = Resource.newBuilder()
+          .addAttributes(KeyValue.newBuilder()
+              .setKey("os.name")
+              .setValue(AnyValue.newBuilder().setStringValue("android").build())
+              .build())
+          .build();
+
+      ScopeLogs scopeLogs = ScopeLogs.newBuilder()
+          .addLogRecords(logRecord)
+          .build();
+
+      ResourceLogs resourceLogs = ResourceLogs.newBuilder()
+          .setResource(resource)
+          .addScopeLogs(scopeLogs)
+          .build();
+
+      ExportLogsServiceRequest request = ExportLogsServiceRequest.newBuilder()
+          .addResourceLogs(resourceLogs)
+          .build();
+
+      when(symbolicator.symbolicateJsInPlace(anyList(), any()))
+          .thenReturn(Single.just(List.of("func@file.js:1:1")));
+      lenient().when(symbolicator.retrace(anyList(), any()))
+          .thenReturn(Single.just(Collections.emptyList()));
+      when(clickhouseQueryService.insertStackTraces(anyList()))
+          .thenReturn(Single.just(3L));
+      when(stackTraceArchiveService.archive(anyList())).thenReturn(Completable.complete());
+
+      Long count = errorGroupingService.ingest(request).blockingGet();
+
+      assertEquals(3L, count);
     }
   }
 
