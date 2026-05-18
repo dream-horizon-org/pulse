@@ -107,4 +107,23 @@ describe("InteractionFeature gating", () => {
     expect(fetcherDestroy).toHaveBeenCalledTimes(1);
     expect(coordinatorShutdown).toHaveBeenCalledTimes(1);
   });
+
+  it("config fetch returns empty → trackEvent is no-op (INT-E1)", async () => {
+    fetcherInit.mockClear();
+    coordinatorTrackEvent.mockClear();
+    coordinatorSetConfigs.mockClear();
+    fetcherGetConfigs.mockReturnValue([]);
+
+    const feature = makeFeature(true, true);
+    await feature.init();
+
+    // fetcherGetConfigs returns [] → setConfigs([]) → no trackers → trackEvent no-op
+    feature.trackEvent("any_event");
+
+    expect(fetcherInit).toHaveBeenCalledTimes(1);
+    // setConfigs called with empty array (fetch returned nothing)
+    expect(coordinatorSetConfigs).toHaveBeenCalledWith([]);
+    // coordinator.trackEvent still called — coordinator is the gatekeeper for empty config
+    expect(coordinatorTrackEvent).toHaveBeenCalledTimes(1);
+  });
 });

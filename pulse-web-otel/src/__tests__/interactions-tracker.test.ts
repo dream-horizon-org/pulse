@@ -80,3 +80,69 @@ describe("InteractionTracker", () => {
     expect(terminals).toHaveLength(0);
   });
 });
+
+describe("InteractionTracker — marker events", () => {
+  it("addMarker mid-flow → MARKER_EVENTS in terminal props", () => {
+    const terminals: unknown[] = [];
+    const tracker = new InteractionTracker(cfg(), {
+      onInteractionTerminal: (i) => terminals.push(i),
+    });
+
+    tracker.checkAndAdd({ name: "step_a", timeInNano: 1_000_000_000 });
+    tracker.addMarker({ name: "non_fatal", timeInNano: 1_100_000_000 });
+    tracker.checkAndAdd({ name: "step_b", timeInNano: 2_000_000_000 });
+
+    expect(terminals).toHaveLength(1);
+    const props = (terminals[0] as { props: Record<string, unknown> }).props;
+    const markers = props[INTERACTION_PROP_KEYS.MARKER_EVENTS] as unknown[];
+    expect(Array.isArray(markers)).toBe(true);
+    expect(markers).toHaveLength(1);
+    expect((markers[0] as { name: string }).name).toBe("non_fatal");
+  });
+
+  it("marker before flow start is excluded from MARKER_EVENTS (outside window)", () => {
+    const terminals: unknown[] = [];
+    const tracker = new InteractionTracker(cfg(), {
+      onInteractionTerminal: (i) => terminals.push(i),
+    });
+
+    // marker added BEFORE step_a — should be outside the [step_a, step_b] window
+    tracker.addMarker({ name: "pre_crash", timeInNano: 500_000_000 });
+    tracker.checkAndAdd({ name: "step_a", timeInNano: 1_000_000_000 });
+    tracker.checkAndAdd({ name: "step_b", timeInNano: 2_000_000_000 });
+
+    expect(terminals).toHaveLength(1);
+    const props = (terminals[0] as { props: Record<string, unknown> }).props;
+    const markers = props[INTERACTION_PROP_KEYS.MARKER_EVENTS] as unknown[];
+    expect(markers).toHaveLength(0);
+  });
+
+  it("multiple markers mid-flow all appear in MARKER_EVENTS", () => {
+    const terminals: unknown[] = [];
+    const tracker = new InteractionTracker(cfg(), {
+      onInteractionTerminal: (i) => terminals.push(i),
+    });
+
+    tracker.checkAndAdd({ name: "step_a", timeInNano: 1_000_000_000 });
+    tracker.addMarker({ name: "crash_1", timeInNano: 1_200_000_000 });
+    tracker.addMarker({ name: "crash_2", timeInNano: 1_500_000_000 });
+    tracker.checkAndAdd({ name: "step_b", timeInNano: 2_000_000_000 });
+
+    const props = (terminals[0] as { props: Record<string, unknown> }).props;
+    const markers = props[INTERACTION_PROP_KEYS.MARKER_EVENTS] as Array<{ name: string }>;
+    expect(markers.map((m) => m.name)).toEqual(["crash_1", "crash_2"]);
+  });
+
+  it("no markers → MARKER_EVENTS is empty array", () => {
+    const terminals: unknown[] = [];
+    const tracker = new InteractionTracker(cfg(), {
+      onInteractionTerminal: (i) => terminals.push(i),
+    });
+    tracker.checkAndAdd({ name: "step_a", timeInNano: 1_000_000_000 });
+    tracker.checkAndAdd({ name: "step_b", timeInNano: 2_000_000_000 });
+
+    const props = (terminals[0] as { props: Record<string, unknown> }).props;
+    const markers = props[INTERACTION_PROP_KEYS.MARKER_EVENTS] as unknown[];
+    expect(markers).toHaveLength(0);
+  });
+});

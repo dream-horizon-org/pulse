@@ -197,7 +197,7 @@ Mirror 4 equivalent tests in `nextjs-demo.spec.ts`.
 
 ## ISS-I08 — Unit test: config fetch failure → idle matcher
 
-**Status:** 🔲 Pending
+**Status:** ✅ Done. Added 1 test `"config fetch returns empty → trackEvent is no-op (INT-E1)"` to `interaction-feature.test.ts`. Verifies: gate-enabled + fetcher returns `[]` → `setConfigs([])` + `trackEvent` still delegates to coordinator.
 
 ---
 
@@ -209,7 +209,7 @@ Mirror 4 equivalent tests in `nextjs-demo.spec.ts`.
 
 ## ISS-I10 — Unit tests: marker intake in tracker / matcher
 
-**Status:** 🔲 Pending
+**Status:** ✅ Done. Added 4 tracker tests in new describe `"InteractionTracker — marker events"` in `interactions-tracker.test.ts` (mid-flow marker included, pre-flow marker excluded, multiple markers, no markers); added 5 matcher tests in new describe `"buildPulseInteraction — marker slicing"` in `interactions-sequence-matcher.test.ts` (within window, outside window, boundary inclusion, empty, error-flow). Files changed: `interactions-tracker.test.ts`, `interactions-sequence-matcher.test.ts`, `interaction-feature.test.ts`.
 
 ---
 
