@@ -7,6 +7,10 @@ RUN mkdir -p /app && chown -R 10001:0 /app
 # Set working directory
 WORKDIR /app
 
+# Build the pulse-grouping sibling module first so pulse-server can depend on its JAR.
+COPY grouping ./grouping
+RUN mvn -f ./grouping/pom.xml -DskipTests -Dcheckstyle.skip=true install
+
 # Copy pom.xml and lombok config first for better caching
 COPY pom.xml lombok.config ./
 
