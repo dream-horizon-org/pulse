@@ -1,5 +1,6 @@
-import React, { useMemo } from "react";
+import React, { useLayoutEffect, useMemo, useState } from "react";
 import {
+  Pulse,
   PulseDataCollectionConsent,
   PulseLogLevel,
 } from "@dreamhorizonorg/pulse-web";
@@ -25,7 +26,7 @@ const LOG_LEVEL_MAP: Record<string, PulseLogLevel> = {
 };
 
 /**
- * URL overrides for E2E / manual QA (see e2e/m1.spec.ts, m4-network.spec.ts).
+ * URL overrides for E2E / manual QA (see e2e/m1.spec.ts, m4-network.spec.ts, m2-interactions.spec.ts).
  * Read once per document load — full navigation is required for query changes to apply.
  */
 function useDemoUrlPulseOptions(): Pick<
@@ -48,6 +49,9 @@ function useDemoUrlPulseOptions(): Pick<
     const networkOff =
       q.get("pulse_network_enabled") === "0" ||
       q.get("pulse_network_enabled") === "false";
+    const interactionsOff =
+      q.get("pulse_interactions_enabled") === "0" ||
+      q.get("pulse_interactions_enabled") === "false";
     const captureQueryParams = q.get("pulse_capture_query") === "1";
     const blockedUrlParam = q.get("pulse_blocked_url");
     const peerHost = q.get("pulse_peer_host");
@@ -58,28 +62,40 @@ function useDemoUrlPulseOptions(): Pick<
       ? captureReqHeadersRaw.split(",").map((h) => h.trim().toLowerCase())
       : undefined;
 
+    const defaultPeerHost =
+      typeof window !== "undefined" ? window.location.hostname : "";
+    const defaultPeerServiceMap =
+      defaultPeerHost !== ""
+        ? { [defaultPeerHost]: "pulsestore-catalogue-api" }
+        : {};
+
     const hasNetworkConfig =
       networkOff ||
       captureQueryParams ||
       Boolean(blockedUrlParam) ||
       Boolean(peerHost && peerService) ||
       Boolean(propagateCors) ||
-      Boolean(captureReqHeaders);
+      Boolean(captureReqHeaders) ||
+      Object.keys(defaultPeerServiceMap).length > 0;
 
     const manualWebVitals = readManualWebVitalsInstrumentation(q);
     let instrumentations: InstrumentationConfig | undefined;
-    if (hasNetworkConfig || manualWebVitals !== undefined) {
+    if (hasNetworkConfig || manualWebVitals !== undefined || interactionsOff) {
       instrumentations = {
         ...(manualWebVitals ?? {}),
+        ...(interactionsOff ? { interactions: { enabled: false } } : {}),
         ...(hasNetworkConfig
           ? {
               network: {
                 enabled: !networkOff,
                 ...(captureQueryParams ? { captureQueryParams: true } : {}),
                 ...(blockedUrlParam ? { blockedUrls: [blockedUrlParam] } : {}),
-                ...(peerHost && peerService
-                  ? { peerServiceMap: { [peerHost]: peerService } }
-                  : {}),
+                peerServiceMap: {
+                  ...defaultPeerServiceMap,
+                  ...(peerHost && peerService
+                    ? { [peerHost]: peerService }
+                    : {}),
+                },
                 ...(propagateCors
                   ? { propagateTraceHeaderCorsUrls: [propagateCors] }
                   : {}),
@@ -113,15 +129,35 @@ function useDemoUrlPulseOptions(): Pick<
 
 export function Root(): React.ReactElement {
   const urlOpts = useDemoUrlPulseOptions();
+  const [providerKey, setProviderKey] = useState(0);
+  const [forcedConsent, setForcedConsent] =
+    useState<PulseDataCollectionConsent | null>(null);
+
+  const dataCollectionState = forcedConsent ?? urlOpts.dataCollectionState;
+
+  useLayoutEffect(() => {
+    (
+      window as unknown as {
+        __pulseE2eRemountDenied?: () => Promise<void>;
+      }
+    ).__pulseE2eRemountDenied = async () => {
+      if (Pulse.isInitialized()) {
+        await Pulse.shutdown();
+      }
+      setForcedConsent(PulseDataCollectionConsent.DENIED);
+      setProviderKey((k) => k + 1);
+    };
+  }, []);
 
   return (
     <PulseProvider
+      key={providerKey}
       config={{
         apiKey: import.meta.env.VITE_PULSE_API_KEY!,
         serviceName:
           String(import.meta.env.VITE_PULSE_SERVICE_NAME ?? "").trim() ||
           "my-app",
-        dataCollectionState: urlOpts.dataCollectionState,
+        dataCollectionState,
         logLevel: urlOpts.logLevel ?? PulseLogLevel.DEBUG,
         serviceVersion: "1.0.0",
         export: {
@@ -131,7 +167,7 @@ export function Root(): React.ReactElement {
           ? { instrumentations: urlOpts.instrumentations }
           : {}),
       }}
-      shutdownOnUnmount={false}
+      shutdownOnUnmount
       errorBoundaryFallback={(error, reset) => (
         <EcommerceErrorFallback
           error={error}

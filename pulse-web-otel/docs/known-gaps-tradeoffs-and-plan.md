@@ -5,6 +5,8 @@ Path: `pulse-web-otel/docs/known-gaps-tradeoffs-and-plan.md`
 
 This file is the **product / API gap register** for the Web SDK (not a formal SPEC). Normative behaviour stays in `docs/sdk-core/**/SPEC.md` and `docs/instrumentations/**/SPEC.md`.
 
+**E2E harness (ecommerce vs Next):** [`e2e-harness-parity-ecommerce-vs-nextjs.md`](./e2e-harness-parity-ecommerce-vs-nextjs.md).
+
 **Executable queue** (code + tests only): [`review-fix.md`](./review-fix.md) **§3**. **Implementation sketches:** **§7** (P0:1), **§8** (P2:13 feasibility), **§9** (P2:12). **Batch + changelog:** `review-fix` **§4–§5**.
 
 **Stable IDs** (`P0:n`, `P1:n`, `P2:n`) are append-only. When an id **closes** or is **waived**, add a line under **§4.1 — Retired stable IDs**; do not reuse the id for a different topic without ADR.
@@ -82,3 +84,5 @@ Planning text from these paths was merged into `docs/sdk-core/` topic SPECs and 
 | `web-sdk-plan/v1/01-foundation/sdk-lifecycle.md` | `sdk-core/architecture-and-bootstrap`, `instrumentations/session`, `sdk-core/config-and-public-api` |
 | `web-sdk-plan/INTEGRATION.md` | `sdk-core/config-and-public-api`; router + shutdown notes in `docs/publishing/INTEGRATION.md` + integration SPEC §5.4 |
 | `docs/API-CRITIQUE.md` | This register + retired ids |
+
+**See also:** Playwright harness parity (ecommerce vs Next): [`e2e-harness-parity-ecommerce-vs-nextjs.md`](./e2e-harness-parity-ecommerce-vs-nextjs.md).

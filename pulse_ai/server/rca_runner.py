@@ -14,6 +14,7 @@ from pulse_ai.constants import (
     RCA_PIPELINE_TIMEOUT_SECONDS,
     USER_ID_RCA,
 )
+from pulse_ai.output_guard import sanitize_pii
 from pulse_ai.schemas import RootCausePayloadSchema
 from pulse_ai.schemas.rca_structured_v1 import RcaStructuredReportV1
 from pulse_ai.server.schemas import ReportPayloadSchema, RcaReportResponse
@@ -126,6 +127,52 @@ async def _run_single_attempt(
         return None
 
 
+def _sanitize_rca_report(report: RcaStructuredReportV1) -> RcaStructuredReportV1:
+    """Apply PII redaction to all free-text fields in a structured RCA report."""
+    sanitized_segments = []
+    for seg in report.segments:
+        sanitized_segments.append(
+            seg.model_copy(update={
+                "title": sanitize_pii(seg.title),
+                "insights": sanitize_pii(seg.insights),
+            })
+        )
+
+    sanitized_insights = None
+    if report.error_attribution_insights is not None:
+        sanitized_insights = [
+            ins.model_copy(update={
+                "summary": sanitize_pii(ins.summary),
+                "caveat": sanitize_pii(ins.caveat),
+            })
+            for ins in report.error_attribution_insights
+        ]
+
+    sanitized_attribution = None
+    if report.error_attribution is not None:
+        sanitized_related = None
+        if report.error_attribution.relatedAttributions is not None:
+            sanitized_related = [
+                entry.model_copy(update={
+                    "title": sanitize_pii(entry.title),
+                    "url": sanitize_pii(entry.url),
+                    "rrUndefinedReason": sanitize_pii(entry.rrUndefinedReason),
+                })
+                for entry in report.error_attribution.relatedAttributions
+            ]
+        sanitized_attribution = report.error_attribution.model_copy(
+            update={"relatedAttributions": sanitized_related}
+        )
+
+    return report.model_copy(update={
+        "executive_summary": sanitize_pii(report.executive_summary),
+        "segments": sanitized_segments,
+        "recommendations": [sanitize_pii(r) for r in report.recommendations],
+        "error_attribution_insights": sanitized_insights,
+        "error_attribution": sanitized_attribution,
+    })
+
+
 async def generate_rca_report(
     runner: Any,
     payload: RootCausePayloadSchema,
@@ -196,7 +243,7 @@ async def generate_rca_report(
 
     if structured_report is None:
         raise RcaRunnerError(500, "RCA report generation failed after retries")
-
+    structured_report = _sanitize_rca_report(structured_report)
     report_payload = ReportPayloadSchema(
         structured=structured_report,
         analysisLookbackDays=analysis_lookback_days,

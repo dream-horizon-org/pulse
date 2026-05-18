@@ -25,6 +25,7 @@ const Cart = lazy(() => import("./routes/Cart"));
 const Checkout = lazy(() => import("./routes/Checkout"));
 const ErrorDemo = lazy(() => import("./routes/ErrorDemo"));
 const NetworkLab = lazy(() => import("./routes/NetworkLab"));
+const ConsentLab = lazy(() => import("./routes/ConsentLab"));
 
 function NavBar() {
   const location = useLocation();
@@ -75,6 +76,7 @@ function NavBar() {
         {link("/checkout", "Checkout")}
         {link("/network-lab", "Network Lab")}
         {link("/error-demo", "Error Demo")}
+        {link("/consent-lab", "Consent Lab")}
       </nav>
     </header>
   );
@@ -166,6 +168,7 @@ export default function App() {
                   path="/error-demo"
                   element={<ErrorDemo key={errorLabKey} />}
                 />
+                <Route path="/consent-lab" element={<ConsentLab />} />
               </Routes>
             </Suspense>
           </WebVitalsStressHarness>
