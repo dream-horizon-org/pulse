@@ -6,6 +6,69 @@ from __future__ import annotations
 import re
 
 import ahocorasick
+import phonenumbers
+from phonenumbers import PhoneNumberMatcher, Leniency
+
+# ---------------------------------------------------------------------------
+# PII redaction patterns — applied to all AI-generated text before egress
+# Order matters: JWT before email (JWT payloads contain base64-encoded emails)
+# ---------------------------------------------------------------------------
+
+_PII_PATTERNS: list[tuple[re.Pattern[str], str]] = [
+    (
+        re.compile(
+            r"\beyJ[A-Za-z0-9\-_]{10,500}\.eyJ[A-Za-z0-9\-_]{10,500}\.[A-Za-z0-9\-_]{10,500}\b"
+        ),
+        "[REDACTED:TOKEN]",
+    ),
+    (
+        re.compile(
+            r"\b[A-Za-z0-9._%+\-]{1,64}@[A-Za-z0-9\-]{1,63}"
+            r"(?:\.[A-Za-z0-9\-]{1,63}){0,4}\.[A-Za-z]{2,}\b"
+        ),
+        "[REDACTED:EMAIL]",
+    ),
+    (
+        re.compile(
+            r"\b(?:"
+            r"4[0-9]{12}(?:[0-9]{3,6})?"
+            r"|(?:5[1-5]|2[2-7])[0-9]{14}"
+            r"|3[47][0-9]{13}"
+            r"|3(?:0[0-5]|[68][0-9])[0-9]{11}"
+            r"|6(?:011|5[0-9]{2})[0-9]{12}"
+            r"|(?:2131|1800|35\d{3})\d{11}"
+            r")\b"
+        ),
+        "[REDACTED:CARD]",
+    ),
+]
+
+
+_PHONE_DEFAULT_REGION = "IN"
+
+
+def _redact_phones(text: str) -> str:
+    """Redact phone numbers detected by libphonenumber (default region: IN)."""
+    matches = list(PhoneNumberMatcher(text, _PHONE_DEFAULT_REGION, leniency=Leniency.VALID))
+    if not matches:
+        return text
+    parts: list[str] = []
+    pos = 0
+    for m in matches:
+        parts.append(text[pos:m.start])
+        parts.append("[REDACTED:PHONE]")
+        pos = m.end
+    parts.append(text[pos:])
+    return "".join(parts)
+
+
+def sanitize_pii(text: str | None) -> str | None:
+    """Redact PII (JWTs, emails, card numbers, phone numbers) from a text string."""
+    if not text:
+        return text
+    for pattern, replacement in _PII_PATTERNS:
+        text = pattern.sub(replacement, text)
+    return _redact_phones(text)
 
 
 # ---------------------------------------------------------------------------
@@ -133,6 +196,7 @@ def sanitize_em_output(text: str) -> str:
     if not text:
         return ""
     text = _replace_all(text, _EM_AUTOMATON, case_insensitive=True)
+    text = sanitize_pii(text)
     return sanitize_time_range_ids(text)
 
 

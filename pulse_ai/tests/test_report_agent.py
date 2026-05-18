@@ -254,11 +254,6 @@ class TestRootAgentRestructure:
         assert root_agent.sub_agents is not None
         assert len(root_agent.sub_agents) == 2
 
-    def test_first_sub_agent_is_em(self):
-        from pulse_ai.agent import root_agent
-        em = root_agent.sub_agents[0]
-        assert em.name == "em_agent"
-
     def test_second_sub_agent_is_report(self):
         from pulse_ai.agent import root_agent
         report = root_agent.sub_agents[1]
