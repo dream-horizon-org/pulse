@@ -136,6 +136,26 @@ public class NotificationChannelDao {
             });
   }
 
+  /**
+   * Returns the project's channel row for the given type if present, including when {@code
+   * is_active} is false (e.g. after disconnect). Required for OAuth reconnect under {@code
+   * unique_project_channel_type}.
+   */
+  public Maybe<NotificationChannel> getChannelByProjectAndType(
+      String projectId, ChannelType channelType) {
+    MySQLPool pool = mysqlClient.getReaderPool();
+    return pool.preparedQuery(NotificationQueries.GET_CHANNEL_BY_PROJECT_AND_TYPE)
+        .rxExecute(Tuple.of(projectId, channelType.name()))
+        .flatMapMaybe(
+            rows -> {
+              var iterator = rows.iterator();
+              if (iterator.hasNext()) {
+                return Maybe.just(mapRowToChannel(iterator.next()));
+              }
+              return Maybe.empty();
+            });
+  }
+
   public Single<Long> createChannel(NotificationChannel channel) {
     MySQLPool pool = mysqlClient.getWriterPool();
     return pool.preparedQuery(NotificationQueries.INSERT_CHANNEL)

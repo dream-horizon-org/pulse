@@ -25,8 +25,11 @@ import java.util.Objects;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.dreamhorizon.pulseserver.config.ApplicationConfig;
 import org.dreamhorizon.pulseserver.constant.Constants;
 import org.dreamhorizon.pulseserver.dao.AlertsDao;
+import org.dreamhorizon.pulseserver.dao.productAnalysis.funnelresults.FunnelResultsDao;
+import org.dreamhorizon.pulseserver.dao.productAnalysis.funnelresults.models.FunnelResultRow;
 import org.dreamhorizon.pulseserver.resources.alert.enums.AlertState;
 import org.dreamhorizon.pulseserver.resources.alert.models.AlertEvaluationResponseDto;
 import org.dreamhorizon.pulseserver.resources.alert.models.EvaluateAlertResponseDto;
@@ -45,12 +48,15 @@ import org.dreamhorizon.pulseserver.util.RxObjectMapper;
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
 public class AlertEvaluationService {
   private static final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+  private static final String FUNNEL_SCOPE = "FUNNEL";
   private final AlertsDao alertsDao;
   private final ClickhouseMetricService clickhouseMetricService;
   private final MetricOperatorFactory metricOperatorFactory;
   private final ObjectMapper objectMapper;
   private final Vertx vertx;
   private final RxObjectMapper rxObjectMapper;
+  private final FunnelResultsDao funnelResultsDao;
+  private final ApplicationConfig applicationConfig;
 
   public Single<EvaluateAlertResponseDto> evaluateAlertById(Integer alertId) {
     return alertsDao.getAlertDetailsForEvaluation(alertId)
@@ -68,6 +74,11 @@ public class AlertEvaluationService {
   }
 
   private void triggerEvaluation(AlertsDao.AlertDetails alertDetails) {
+    if (FUNNEL_SCOPE.equalsIgnoreCase(alertDetails.getScope())) {
+      triggerFunnelEvaluation(alertDetails);
+      return;
+    }
+
     LocalTime startTime = LocalTime.now();
     ZonedDateTime endTime = ZonedDateTime.now(ZoneId.of("UTC"));
     ZonedDateTime startTimeWindow = endTime.minusSeconds(alertDetails.getEvaluationPeriod());
@@ -134,6 +145,155 @@ public class AlertEvaluationService {
           triggerErrorEvent(responseDto);
         })
         .subscribe();
+  }
+
+  private void triggerFunnelEvaluation(AlertsDao.AlertDetails alertDetails) {
+    LocalTime startTime = LocalTime.now();
+    ZonedDateTime endTime = ZonedDateTime.now(ZoneId.of("UTC"));
+    ZonedDateTime startTimeWindow = endTime.minusSeconds(alertDetails.getEvaluationPeriod());
+    LocalDateTime evaluationWindowStart = startTimeWindow.toLocalDateTime();
+    LocalDateTime evaluationWindowEnd = endTime.toLocalDateTime();
+
+    alertsDao.getAlertScopesForEvaluation(alertDetails.getId())
+        .flatMap(scopes -> {
+          if (scopes.isEmpty()) {
+            log.warn("No scopes found for funnel alert id: {}", alertDetails.getId());
+            return Single.just(new ArrayList<EvaluationResult>());
+          }
+          List<Single<EvaluationResult>> singles = new ArrayList<>();
+          for (AlertsDao.AlertScopeDetails scope : scopes) {
+            singles.add(evaluateFunnelScope(alertDetails, scope));
+          }
+          return Single.zip(singles, results -> {
+            List<EvaluationResult> list = new ArrayList<>();
+            for (Object r : results) {
+              list.add((EvaluationResult) r);
+            }
+            return list;
+          });
+        })
+        .doOnSuccess(results -> {
+          for (EvaluationResult result : results) {
+            AlertEvaluationResponseDto responseDto = AlertEvaluationResponseDto.builder()
+                .alert(alertDetails)
+                .scopeId(result.getScopeId())
+                .evaluationResult(result.getEvaluationResult())
+                .timeTaken(Duration.between(startTime, LocalTime.now()).toSeconds())
+                .evaluationStartTime(DateTimeUtil.utcToIstTime(evaluationWindowStart).format(formatter))
+                .evaluationEndTime(DateTimeUtil.utcToIstTime(evaluationWindowEnd).format(formatter))
+                .status(Constants.QUERY_COMPLETED_STATUS)
+                .state(result.getState())
+                .build();
+            triggerSuccessEvent(responseDto);
+          }
+        })
+        .doOnError(error -> {
+          log.error("Error in funnel alert evaluation for alert id: {}", alertDetails.getId(), error);
+          AlertEvaluationResponseDto responseDto = AlertEvaluationResponseDto.builder()
+              .alert(alertDetails)
+              .timeTaken(Duration.between(startTime, LocalTime.now()).toSeconds())
+              .error(error.getMessage())
+              .build();
+          triggerErrorEvent(responseDto);
+        })
+        .subscribe();
+  }
+
+  private Single<EvaluationResult> evaluateFunnelScope(AlertsDao.AlertDetails alertDetails,
+                                                       AlertsDao.AlertScopeDetails scope) {
+    List<Map<String, Object>> alerts = parseConditionsArray(scope.getConditions());
+    long funnelId;
+    try {
+      funnelId = Long.parseLong(scope.getName());
+    } catch (NumberFormatException e) {
+      log.warn("Funnel alert scope name is not a valid funnel id: {}", scope.getName());
+      return Single.just(buildFunnelNoDataResult(scope.getId(), alerts));
+    }
+
+    return funnelResultsDao.queryLatest(alertDetails.getProjectId(), funnelId)
+        .map(rows -> buildFunnelEvaluationResult(alertDetails, scope, alerts, rows))
+        .onErrorReturn(err -> {
+          log.error("Error querying funnel results for alert {} scope {}: {}",
+              alertDetails.getId(), scope.getId(), err.getMessage());
+          return buildFunnelNoDataResult(scope.getId(), alerts);
+        });
+  }
+
+  private EvaluationResult buildFunnelEvaluationResult(AlertsDao.AlertDetails alertDetails,
+                                                       AlertsDao.AlertScopeDetails scope,
+                                                       List<Map<String, Object>> alerts,
+                                                       List<FunnelResultRow> rows) {
+    if (rows == null || rows.isEmpty() || alerts == null || alerts.isEmpty()) {
+      return buildFunnelNoDataResult(scope.getId(), alerts);
+    }
+    FunnelResultRow lastStep = rows.get(rows.size() - 1);
+    Double conversion = lastStep.getConversionPct();
+    Float conversionVal = conversion == null ? null : conversion.floatValue();
+    Float dropVal = conversionVal == null ? null : 100.0f - conversionVal;
+
+    Map<String, Boolean> variableValues = new HashMap<>();
+    Map<String, Float> metricReadings = new HashMap<>();
+
+    for (Map<String, Object> alert : alerts) {
+      String alias = (String) alert.get("alias");
+      String metric = (String) alert.get("metric");
+      String operator = (String) alert.get("metric_operator");
+      Object thresholdObj = alert.get("threshold");
+      if (alias == null || metric == null || operator == null || thresholdObj == null) {
+        continue;
+      }
+      Float threshold = parseThreshold(thresholdObj);
+      if (threshold == null) {
+        variableValues.put(alias, false);
+        continue;
+      }
+      Float metricValue = resolveFunnelMetricValue(metric, dropVal, conversionVal);
+      boolean isFiring = evaluateMetric(metricValue, threshold, operator);
+      if (metricValue != null) {
+        metricReadings.put(metric, metricValue);
+      }
+      variableValues.put(alias, isFiring);
+    }
+
+    boolean expressionResult =
+        ExpressionEvaluator.evaluate(alertDetails.getConditionExpression(), variableValues);
+    AlertState finalState = metricReadings.isEmpty()
+        ? AlertState.NO_DATA
+        : (expressionResult ? AlertState.FIRING : AlertState.NORMAL);
+    Map<String, Float> resultMap = metricReadings.isEmpty()
+        ? buildNoDataEvaluationResult(alerts)
+        : metricReadings;
+
+    EvaluationResult result = new EvaluationResult();
+    result.setScopeId(scope.getId());
+    result.setState(finalState);
+    result.setFiring(finalState == AlertState.FIRING);
+    result.setEvaluationResult(buildEvaluationResultJson(resultMap, variableValues, expressionResult));
+    return result;
+  }
+
+  private Float resolveFunnelMetricValue(String metric, Float dropVal, Float conversionVal) {
+    if (metric == null) {
+      return null;
+    }
+    return switch (metric.toUpperCase()) {
+      case "FUNNEL_DROP" -> dropVal;
+      case "FUNNEL_CONVERSION" -> conversionVal;
+      default -> {
+        log.warn("Unsupported metric for funnel scope: {}", metric);
+        yield null;
+      }
+    };
+  }
+
+  private EvaluationResult buildFunnelNoDataResult(Integer scopeId, List<Map<String, Object>> alerts) {
+    Map<String, Float> noData = buildNoDataEvaluationResult(alerts != null ? alerts : new ArrayList<>());
+    return EvaluationResult.builder()
+        .scopeId(scopeId)
+        .state(AlertState.NO_DATA)
+        .isFiring(false)
+        .evaluationResult(buildEvaluationResultJson(noData, new HashMap<>(), false))
+        .build();
   }
 
   private Map<QueryRequest.DataType, List<String>> groupMetricsByDataType(
@@ -1005,15 +1165,17 @@ public class AlertEvaluationService {
               alertsDao.getScopeState(responseDto.getScopeId()),
               alertsDao.getAlertScopesForEvaluation(responseDto.getAlert().getId()),
               (previousState, scopes) -> {
-                String scopeName = scopes.stream()
+                AlertsDao.AlertScopeDetails matchedScope = scopes.stream()
                     .filter(scope -> scope.getId().equals(responseDto.getScopeId()))
-                    .map(AlertsDao.AlertScopeDetails::getName)
                     .findFirst()
-                    .orElse("Unknown Scope");
+                    .orElse(null);
+
+                String scopeName = matchedScope != null ? matchedScope.getName() : "Unknown Scope";
+                String scopeConditions = matchedScope != null ? matchedScope.getConditions() : null;
 
                 Float metricReading = extractMetricReading(responseDto.getEvaluationResult());
 
-                createIncidentIfRequired(responseDto.getState(), responseDto, metricReading, scopeName, previousState);
+                createIncidentIfRequired(responseDto.getState(), responseDto, metricReading, scopeName, scopeConditions, previousState);
                 return true;
               })
           .flatMap(result -> updateScopeState(responseDto.getScopeId(), responseDto.getState()))
@@ -1034,27 +1196,21 @@ public class AlertEvaluationService {
       AlertEvaluationResponseDto responseDto,
       Float metricReading,
       String scopeName,
+      String scopeConditions,
       AlertState currentScopeState
   ) {
     if (!shouldCreateIncident(alertState, responseDto, currentScopeState)) {
       return;
     }
 
-    String message = buildNotificationMessage(responseDto, scopeName, metricReading);
-    Integer notificationChannelId = responseDto.getAlert().getNotificationChannelId();
+    Long mappingId = responseDto.getAlert().getChannelEventMappingId();
+    if (mappingId == null) {
+      log.error("No channel_event_mapping_id configured for alert: {}", responseDto.getAlert().getId());
+      return;
+    }
 
-    alertsDao.getNotificationChannelById(notificationChannelId)
-        .subscribe(
-            channelInfo -> {
-              if (channelInfo != null && Boolean.TRUE.equals(channelInfo.getIsActive())) {
-                sendNotification(message, channelInfo.getType(), channelInfo.getConfig());
-              } else {
-                log.error("Notification channel not found or inactive for channel ID: {}", notificationChannelId);
-              }
-            },
-            error -> log.error("Failed to fetch notification channel: {}", error.getMessage(), error),
-            () -> log.error("Notification channel not found for channel ID: {}", notificationChannelId)
-        );
+    Map<String, Object> params = buildNotificationParams(responseDto, scopeName, metricReading, scopeConditions);
+    sendNotificationViaService(mappingId, params, responseDto.getAlert().getProjectId());
   }
 
   private boolean shouldCreateIncident(AlertState alertState, AlertEvaluationResponseDto responseDto, AlertState currentScopeState) {
@@ -1107,17 +1263,26 @@ public class AlertEvaluationService {
     }
   }
 
-  private String buildNotificationMessage(AlertEvaluationResponseDto responseDto, String scopeName, Float metricReading) {
-    StringBuilder message = new StringBuilder();
-    message.append(String.format("Alert threshold breached for alert '%s' for scope '%s'. ",
-        responseDto.getAlert().getName(), scopeName));
+  private Map<String, Object> buildNotificationParams(AlertEvaluationResponseDto responseDto, String scopeName,
+                                                      Float metricReading, String scopeConditions) {
+    Map<String, Object> params = new HashMap<>();
+    params.put("alertName", responseDto.getAlert().getName());
+    params.put("alertId", String.valueOf(responseDto.getAlert().getId()));
+    params.put("alertDescription", responseDto.getAlert().getDescription() != null
+        ? responseDto.getAlert().getDescription() : "");
+    params.put("scopeName", scopeName);
+    params.put("evaluationStartTime", responseDto.getEvaluationStartTime());
+    params.put("evaluationEndTime", responseDto.getEvaluationEndTime());
+    params.put("projectId", responseDto.getAlert().getProjectId());
 
-    if (metricReading != null) {
-      message.append(String.format("The metric reading is %f. ", metricReading));
+    params.put("alertCondition", buildDescriptiveCondition(
+        responseDto.getAlert().getConditionExpression(), scopeConditions, scopeName));
+
+    if (applicationConfig.getDashboardBaseUrl() != null && !applicationConfig.getDashboardBaseUrl().isBlank()) {
+      String alertLink = String.format("%s/projects/%s/alerts/%s",
+          applicationConfig.getDashboardBaseUrl(), responseDto.getAlert().getProjectId(), responseDto.getAlert().getId());
+      params.put("alertLink", alertLink);
     }
-
-    message.append(String.format("Evaluation Period = %s - %s. ",
-        responseDto.getEvaluationStartTime(), responseDto.getEvaluationEndTime()));
 
     if (responseDto.getEvaluationResult() != null && !responseDto.getEvaluationResult().isEmpty()) {
       try {
@@ -1125,53 +1290,108 @@ public class AlertEvaluationService {
             responseDto.getEvaluationResult(),
             new TypeReference<Map<String, Object>>() {
             });
-        if (!evaluationResult.isEmpty()) {
-          message.append("Metric readings: ");
-          evaluationResult.forEach((metric, value) -> {
-            message.append(String.format("%s = %s, ", metric, value));
-          });
-          if (message.length() > 2) {
-            message.setLength(message.length() - 2);
-          }
-        }
+        StringBuilder readings = new StringBuilder();
+        evaluationResult.forEach((metric, value) -> {
+          String formattedValue = (value instanceof Number)
+              ? String.format("%.2f", ((Number) value).doubleValue())
+              : String.valueOf(value);
+          readings.append(String.format("  • %s = `%s`\n", metric, formattedValue));
+        });
+        params.put("currentReadings", readings.toString());
       } catch (Exception e) {
-        log.warn("Could not parse evaluation result for notification message: {}", e.getMessage());
-        message.append("Evaluation result: ").append(responseDto.getEvaluationResult());
+        log.warn("Could not parse evaluation result for notification params: {}", e.getMessage());
+        params.put("currentReadings", responseDto.getEvaluationResult());
       }
     }
 
-    return message.toString();
+    return params;
   }
 
-  private void sendNotification(String message, String type, String config) {
-    if (config == null || config.isEmpty()) {
-      log.error("Notification config is empty for type: {}", type);
-      return;
+  private String buildDescriptiveCondition(String conditionExpression, String scopeConditions, String scopeName) {
+    if (scopeConditions == null || scopeConditions.isEmpty()) {
+      return conditionExpression;
     }
 
-    if ("slack".equalsIgnoreCase(type)) {
-      JsonObject payload = new JsonObject().put("text", message);
-      WebClient.create(vertx)
-          .postAbs(config)
-          .putHeader("Content-Type", "application/json")
-          .rxSendJsonObject(payload)
-          .doOnError(error -> log.error("Failed to send Slack notification", error))
-          .subscribe(response -> {
-            if (response.statusCode() >= 200 && response.statusCode() < 300) {
-              log.info("Slack notification sent successfully");
-            } else {
-              log.error("Slack notification failed with status: {}", response.statusCode());
-            }
-          }, error -> log.error("Slack notification sending error", error));
+    try {
+      List<Map<String, Object>> conditions = objectMapper.readValue(
+          scopeConditions, new TypeReference<List<Map<String, Object>>>() {
+          });
 
-    } else if ("email".equalsIgnoreCase(type)) {
-      // TODO: Implement email sending logic
-      // For now, log the email notification
-      log.info("Email notification would be sent to {} with message: {}", config, message);
+      Map<String, String> aliasToDescription = new HashMap<>();
+      for (Map<String, Object> condition : conditions) {
+        String alias = (String) condition.get("alias");
+        String metric = (String) condition.get("metric");
+        String operator = (String) condition.get("metric_operator");
+        Object thresholdObj = condition.get("threshold");
 
-    } else {
-      log.error("Unsupported notification type: {}", type);
+        if (alias == null || metric == null || operator == null || thresholdObj == null) {
+          continue;
+        }
+
+        String symbol =
+            Constants.ALERT_CONDITION_OPERATOR_SYMBOLS.getOrDefault(operator, operator);
+        String thresholdStr = resolveThreshold(thresholdObj, scopeName);
+        aliasToDescription.put(alias, metric + " " + symbol + " " + thresholdStr);
+      }
+
+      String descriptive = conditionExpression;
+      for (Map.Entry<String, String> entry : aliasToDescription.entrySet()) {
+        descriptive = descriptive.replace(entry.getKey(), entry.getValue());
+      }
+      return descriptive;
+
+    } catch (Exception e) {
+      log.warn("Could not build descriptive condition, falling back to expression: {}", e.getMessage());
+      return conditionExpression;
     }
+  }
+
+  private String resolveThreshold(Object thresholdObj, String scopeName) {
+    if (thresholdObj instanceof Number) {
+      return String.format("%.2f", ((Number) thresholdObj).doubleValue());
+    }
+    if (thresholdObj instanceof String) {
+      return (String) thresholdObj;
+    }
+    if (thresholdObj instanceof Map) {
+      @SuppressWarnings("unchecked")
+      Map<String, Object> thresholdMap = (Map<String, Object>) thresholdObj;
+      Object scopeThreshold = thresholdMap.get(scopeName);
+      if (scopeThreshold instanceof Number) {
+        return String.format("%.2f", ((Number) scopeThreshold).doubleValue());
+      }
+      if (scopeThreshold != null) {
+        return String.valueOf(scopeThreshold);
+      }
+      return thresholdMap.values().stream()
+          .findFirst()
+          .map(v -> v instanceof Number ? String.format("%.2f", ((Number) v).doubleValue()) : String.valueOf(v))
+          .orElse("?");
+    }
+    return String.valueOf(thresholdObj);
+  }
+
+  private void sendNotificationViaService(Long mappingId, Map<String, Object> params, String projectId) {
+    JsonObject payload = new JsonObject()
+        .put("mappingId", mappingId)
+        .put("params", new JsonObject(params));
+
+    WebClient.create(vertx)
+        .postAbs(applicationConfig.getServiceUrl() + "/v1/notifications/send")
+        .putHeader("Content-Type", "application/json")
+        .putHeader("X-Project-Id", projectId)
+        .rxSendJsonObject(payload)
+        .subscribe(
+            response -> {
+              if (response.statusCode() >= 200 && response.statusCode() < 300) {
+                log.info("Notification sent via service for mapping ID: {}", mappingId);
+              } else {
+                log.error("Notification service returned status {} for mapping ID: {}, body: {}",
+                    response.statusCode(), mappingId, response.bodyAsString());
+              }
+            },
+            error -> log.error("Failed to send notification via service for mapping ID: {}", mappingId, error)
+        );
   }
 
   private void updateEvaluationHistoryEventBusConsumer() {

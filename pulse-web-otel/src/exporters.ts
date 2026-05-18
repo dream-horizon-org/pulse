@@ -2,7 +2,7 @@
 // Default wire format follows `ExporterConfig.useProtobuf` (JSON vs protobuf). Compression: off.
 // On real document unload, `prepareForDocumentUnload` swaps trace + log browser transports to
 // keepalive `fetch` (same pipeline as normal export); see `buildBrowserExportTransport`.
-// See: docs/instrumentations/sdk-core/SPEC.md (OTLP exporters)
+// See: docs/sdk-core/exporters-and-persistence/SPEC.md (OTLP exporters)
 
 import {
   WebTracerProvider,
@@ -263,11 +263,10 @@ export function createProviders(
   }
 
   const prepareForDocumentUnload = (): void => {
-    // Switch to beacon-first unload transport:
-    // - sendBeacon for small payloads (browser-guaranteed delivery even after page close)
-    // - keepalive fetch fallback for payloads > 64 KiB
-    innerTraceExporter.switchToBeacon(config.apiKey, config.beaconRelayUrl);
-    baseLogExporter.switchToBeacon(config.apiKey, config.beaconRelayUrl);
+    // keepalive fetch survives JS context teardown regardless of async depth,
+    // unlike sendBeacon which must be called before the context is destroyed.
+    innerTraceExporter.switchToKeepalive();
+    baseLogExporter.switchToKeepalive();
   };
 
   const cleanup = () => {};

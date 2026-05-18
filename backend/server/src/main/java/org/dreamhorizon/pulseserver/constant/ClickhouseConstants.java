@@ -47,6 +47,14 @@ public class ClickhouseConstants {
   public final String CH_SPAN_HTTP_STATUS_CODE_EXPR =
       "coalesce(nullIf(SpanAttributes['http.status_code'], ''), nullIf(SpanAttributes['http.response.status_code'], ''), '')";
 
+  /**
+   * Web vitals on {@code otel_logs}: Pulse Web SDK sends {@code ResourceAttributes['os.name']} =
+   * {@code web}, which materializes the {@code Platform} column (same pattern as Android {@code os.name}
+   * = Android / iOS device OS name).
+   */
+  /** Leading space intentional — avoids {@code ANDPlatform} when a text block line ends with {@code AND}. */
+  public final String CH_PLATFORM_IS_WEB = " AND Platform = 'web'";
+
   /** {@code otel_traces.PulseType} filter for network spans (error-attribution API drill). */
   public final String CH_PULSE_TYPE_NETWORK_LIKE_PREDICATE = "PulseType LIKE 'network.%'";
 

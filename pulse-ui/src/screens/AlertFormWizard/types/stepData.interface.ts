@@ -90,6 +90,5 @@ export interface ConditionExpressionData {
 
 export interface SeverityNotificationData {
   severityId: number | null;
-  notificationChannelId: number | null;
+  channelEventMappingId: number | null;
 }
-

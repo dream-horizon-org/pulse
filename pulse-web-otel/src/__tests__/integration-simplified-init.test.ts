@@ -4,7 +4,9 @@
  * Android exposes: apiKey (required), dataCollectionState (required),
  * serviceName (optional/auto-derived), serviceVersion (optional),
  * globalAttributes, beforeSendData (validated here; export wiring tested in before-send-exporter.test.ts),
- * instrumentations.
+ * instrumentations. {@link Pulse.init} never throws; invalid config or async bootstrap
+ * failures log {@link PulseWebLogger.warn} and leave the SDK uninitialized (see TC-C1, TC-C3a, TC-C12).
+ * {@link validateConfig} still throws when called directly from tests.
  *
  * Everything else (endpointBaseUrl, export format/compression/batch,
  * configEndpointUrl) is internal-only. `diskBuffering` defaults on (Android parity); optional
@@ -89,14 +91,26 @@ describe("Config surface — matches Android minimal API", () => {
     vi.unstubAllGlobals();
   });
 
-  // TC-C1
-  it("TC-C1: start() requires apiKey — throws if missing", () => {
-    expect(() =>
+  // TC-C1 — invalid config must not throw from init() (host apps / PulseProvider useEffect).
+  it("TC-C1: empty apiKey skips init — resolves, does not throw", async () => {
+    const warnSpy = vi
+      .spyOn(PulseWebLogger, "warn")
+      .mockImplementation(() => {});
+
+    await expect(
       Pulse.init({
         apiKey: "",
         dataCollectionState: PulseDataCollectionConsent.ALLOWED,
+        logLevel: PulseLogLevel.WARN,
       }),
-    ).toThrow("[Pulse] apiKey is required");
+    ).resolves.toBeUndefined();
+
+    expect(Pulse.isInitialized()).toBe(false);
+    expect(warnSpy).toHaveBeenCalled();
+    expect(String(warnSpy.mock.calls[0]?.[0])).toContain(
+      "missing or empty apiKey",
+    );
+    warnSpy.mockRestore();
   });
 
   // TC-C2
@@ -119,16 +133,24 @@ describe("Config surface — matches Android minimal API", () => {
 
   // beforeSendData is validated at start; full export wiring is unit-tested in before-send-exporter.test.ts
   // (this suite mocks createProviders so hooks never run here).
-  it("TC-C3a: invalid beforeSendData callback object throws at start()", () => {
-    expect(() =>
+  it("TC-C3a: invalid beforeSendData skips init — warns, does not throw", async () => {
+    const warnSpy = vi
+      .spyOn(PulseWebLogger, "warn")
+      .mockImplementation(() => {});
+
+    await expect(
       Pulse.init({
         apiKey: "default-project_devkey01",
         dataCollectionState: PulseDataCollectionConsent.ALLOWED,
         beforeSendData: { beforeSend: "not-a-fn" } as never,
+        logLevel: PulseLogLevel.WARN,
       }),
-    ).toThrow(
-      "[Pulse] beforeSendData.beforeSend must be a function when provided",
-    );
+    ).resolves.toBeUndefined();
+
+    expect(Pulse.isInitialized()).toBe(false);
+    expect(warnSpy).toHaveBeenCalled();
+    expect(String(warnSpy.mock.calls[0]?.[0])).toContain("beforeSend");
+    warnSpy.mockRestore();
   });
 
   it("TC-C3b: beforeSendData function and callback object are accepted when valid", async () => {
@@ -274,14 +296,26 @@ describe("Config surface — matches Android minimal API", () => {
   });
 
   // TC-C12
-  it("TC-C12: diskBuffering invalid maxAgeMs throws at start()", () => {
-    expect(() =>
+  it("TC-C12: diskBuffering invalid maxAgeMs skips init — warns, does not throw", async () => {
+    const warnSpy = vi
+      .spyOn(PulseWebLogger, "warn")
+      .mockImplementation(() => {});
+
+    await expect(
       Pulse.init({
         apiKey: "default-project_devkey01",
         dataCollectionState: PulseDataCollectionConsent.ALLOWED,
         diskBuffering: { maxAgeMs: 0 },
+        logLevel: PulseLogLevel.WARN,
       }),
-    ).toThrow("[Pulse] diskBuffering.maxAgeMs");
+    ).resolves.toBeUndefined();
+
+    expect(Pulse.isInitialized()).toBe(false);
+    expect(warnSpy).toHaveBeenCalled();
+    expect(String(warnSpy.mock.calls[0]?.[0])).toContain(
+      "diskBuffering.maxAgeMs",
+    );
+    warnSpy.mockRestore();
   });
 
   it("TC-C13: logLevel from config is applied to PulseWebLogger", async () => {
