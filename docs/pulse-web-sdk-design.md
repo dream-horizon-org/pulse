@@ -9,7 +9,7 @@
 | **Status** | Proposal (superseded in part by shipped code — see note below) |
 | **Author** | Shruti |
 
-**Where the Web SDK lives today:** implementation and canonical contracts are in **`pulse-web-otel/`** (package **`@dreamhorizonorg/pulse-web`**). For **screen navigation** specifically, use **`pulse-web-otel/docs/instrumentations/screen-signals/SPEC.md`** and **`sdk-core/SPEC.md`** — not every detail in §5.5 / §4.6 below matches the shipped design.
+**Where the Web SDK lives today:** implementation and canonical contracts are in **`pulse-web-otel/`** (package **`@dreamhorizonorg/pulse-web`**). For **screen navigation** specifically, use **`pulse-web-otel/docs/instrumentations/screen-signals/SPEC.md`** and **`sdk-core/`** ([`SPEC.md`](../pulse-web-otel/docs/sdk-core/SPEC.md) + [`data-contract/SPEC.md`](../pulse-web-otel/docs/sdk-core/data-contract/SPEC.md)) — not every detail in §5.5 / §4.6 below matches the shipped design.
 
 ---
 

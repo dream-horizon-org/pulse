@@ -6,7 +6,10 @@ import {
   resolveAndroidProps,
   resolveIosProps,
 } from './resolvePluginProps';
-import { withAndroidBuildFeatures } from './withAndroidBuildFeatures';
+import {
+  withAndroidBuildFeatures,
+  withAndroidKotlin19Compat,
+} from './withAndroidBuildFeatures';
 import { withAndroidPhoneStatePermissions } from './withAndroidPhoneStatePermissions';
 import { withAndroidPulse } from './withAndroidPulse';
 import { withIosPulse } from './withIosPulse';
@@ -28,6 +31,9 @@ const withPulsePlugin: ConfigPlugin<PulsePluginProps> = (
 
   // Android only: OkHttp / Byte Buddy Gradle wiring (resolved with android props, same pass as desugaring).
   config = withAndroidBuildFeatures(config, android.okHttpInstrumentation);
+
+  // Android only: opt-in Kotlin-1.9 compat flag injected into android/gradle.properties.
+  config = withAndroidKotlin19Compat(config, android.kotlin19Compat);
 
   return config;
 };

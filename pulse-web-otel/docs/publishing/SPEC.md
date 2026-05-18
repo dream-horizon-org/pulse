@@ -95,6 +95,7 @@ Do not duplicate integration recipes here. Point to [`../instrumentations/integr
 | Local gates | Scripts above; `attw` red on `node10` for subpaths may be acceptable per quickstart — red on `node16`/`bundler` is not. |
 | Tarball | `npm pack --dry-run` matches expected file list. |
 | Post-publish | Optional smoke: temp project `npm install @dreamhorizonorg/pulse-web@<tag>` and `require`/`import` entrypoints (see long guide §8). |
+| Runtime E2E (workspace) | After SDK changes, `pulse-web-otel` Playwright harnesses under `examples/ecommerce-demo/e2e/` and `examples/nextjs-demo/e2e/` — catalogue [`../sdk-core/test-coverage/SPEC.md`](../sdk-core/test-coverage/SPEC.md) §6.3. |
 
 ---
 
@@ -114,7 +115,7 @@ Do not duplicate integration recipes here. Point to [`../instrumentations/integr
 | `docs/publishing/PUBLISHING.md` | Extended procedures; trim only obsolete path references, not the whole narrative. |
 | `docs/publishing/QUICKSTART.md` | Short sheet; must stay consistent with §5.2 gates and tarball description. |
 
-**Absorbed / obsolete paths:** Any reference to `web-sdk-plan/INTEGRATION.md` or versioned `web-sdk-plan/v*/04-contract-parity.md` should be replaced by `docs/instrumentations/integration/SPEC.md` and `docs/instrumentations/sdk-core/SPEC.md` respectively.
+**Absorbed / obsolete paths:** Any reference to `web-sdk-plan/INTEGRATION.md` or versioned `web-sdk-plan/v*/04-contract-parity.md` should be replaced by `docs/instrumentations/integration/SPEC.md` and the **`docs/sdk-core/`** spec set (`SPEC.md` index + topic files) respectively.
 
 ---
 

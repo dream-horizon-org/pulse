@@ -2,6 +2,7 @@ export enum PulseType {
   INTERACTION = "interaction",
   SCREEN_SESSION = "screen_session",
   SCREEN_LOAD = "screen_load",
+  SCREEN_INTERACTIVE = "screen_interactive",
   NAVIGATION = "navigation",
   APP_START = "app_start",
   SCREEN_NAME = "screen.name",

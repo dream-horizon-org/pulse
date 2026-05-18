@@ -17,7 +17,7 @@ import { defineConfig, devices } from "@playwright/test";
  * Headed (debug):    yarn e2e --headed
  *
  * From SDK root:     yarn workspace ecommerce-demo e2e
- * Web SDK PR gate:   yarn workspace ecommerce-demo e2e:web-sdk-gates  (m1 + m2-interactions, Chromium)
+ * Web SDK PR gate:   yarn workspace ecommerce-demo e2e:web-sdk-gates  (listed specs, Chromium, --max-failures=5)
  */
 export default defineConfig({
   testDir: ".", // specs live alongside this config file in e2e/

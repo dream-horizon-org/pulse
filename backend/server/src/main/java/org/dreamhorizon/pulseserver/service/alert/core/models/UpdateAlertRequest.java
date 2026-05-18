@@ -30,7 +30,7 @@ public class UpdateAlertRequest {
   Integer severity;
 
   @NotNull
-  Integer notificationChannelId;
+  Long channelEventMappingId;
 
   @NotNull
   String updatedBy;
