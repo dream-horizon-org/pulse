@@ -113,6 +113,7 @@ public class DefaultSdkConfigTemplate {
             .signals(signals)
             .interaction(interaction)
             .features(features)
+            .batchConfig(createDefaultBatchConfig())
             .user(createdBy)
             .build();
     }
@@ -162,6 +163,18 @@ public class DefaultSdkConfigTemplate {
             .sessionSampleRate(sampleRate)
             .sdks(sdks)
             .config((FeatureConfigProperties) config)
+            .build();
+    }
+
+    private static BatchProcessorConfig createDefaultBatchConfig() {
+        BatchProcessorConfig.BatchProcessorOption defaultOption = BatchProcessorConfig.BatchProcessorOption.builder()
+            .maxExportBatchSize(512)
+            .scheduleDelay(10000) // 10 seconds in milliseconds
+            .build();
+
+        return BatchProcessorConfig.builder()
+            .batchLogs(defaultOption)
+            .batchSpans(defaultOption)
             .build();
     }
 }

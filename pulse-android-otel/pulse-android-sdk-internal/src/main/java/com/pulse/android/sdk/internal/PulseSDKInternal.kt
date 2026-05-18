@@ -7,6 +7,7 @@ import android.app.Application
 import android.content.Context
 import com.pulse.android.api.otel.PulseBeforeSendData
 import com.pulse.android.api.otel.PulseDataCollectionConsent
+import com.pulse.android.core.config.InteractionConfigRestFetcher
 import com.pulse.android.sdk.internal.beforesend.PulseBeforeSendLogExporter
 import com.pulse.android.sdk.internal.beforesend.PulseBeforeSendMetricExporter
 import com.pulse.android.sdk.internal.beforesend.PulseBeforeSendSpanExporter
@@ -341,16 +342,18 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
         val logExporter = logExporterChain
         val metricExporter = metricExporterChain
 
+        val interactionConfigUrlProvider: () -> String = {
+            currentSdkConfig?.run { interaction.configUrl }
+                ?: PulseEndpointUtils.getInteractionConfigUrl(apiKey, projectId)
+        }
+
         var sessionReplayConfig: SessionReplayConfig? = null
         instrumentations?.let { configure ->
             val instrumentationConfig =
                 InstrumentationConfiguration(
                     config,
                     endpointHeaders,
-                    interactionUrlProvider = {
-                        currentSdkConfig?.run { interaction.configUrl }
-                            ?: PulseEndpointUtils.getInteractionConfigUrl(apiKey, projectId)
-                    },
+                    interactionUrlProvider = interactionConfigUrlProvider,
                 )
             instrumentationConfig.configure()
             currentSdkConfig
@@ -397,6 +400,8 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
                 ),
             )
         }
+
+        wireInteractionConfigFetcher(interactionConfigUrlProvider, endpointHeaders)
 
         otelInstance =
             OpenTelemetryRumInitializer.initialize(
@@ -447,6 +452,7 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
                 logRecordExporter = logExporter,
                 metricExporter = metricExporter,
                 shouldIgnoreJavaScriptExceptions = currentSdkName == PulseSdkName.ANDROID_RN,
+                batchConfig = currentSdkConfig?.batchConfig,
             )
 
         // SessionReplayInstrumentation installs from registry during RUM build; get reference for shutdown
@@ -869,6 +875,15 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
     private val userProps = ConcurrentHashMap<String, Any>()
     private var application: Application? = null
     private var oldState: PulseDataCollectionConsent? = null
+
+    private fun wireInteractionConfigFetcher(
+        urlProvider: () -> String,
+        headers: Map<String, String>,
+    ) {
+        AndroidInstrumentationLoader
+            .getInstrumentation(InteractionInstrumentation::class.java)
+            .setConfigFetcher(InteractionConfigRestFetcher(urlProvider, headers))
+    }
 
     internal companion object {
         private const val SDK_INSTRUMENTATION_SCOPE = "com.pulse.android.sdk"

@@ -2335,6 +2335,32 @@ export class DataQueryMockGeneratorV2 {
           ).toString();
         }
 
+        // TTI p50/p95 — Duration in nanoseconds (useGetScreenEngagementData divides by 1e9)
+        if (
+          expression.includes("quantileTDigestIf") &&
+          expression.includes("screen_interactive")
+        ) {
+          return this.mockScreenTtiPercentileNs(
+            expression,
+            filters,
+            interactionName,
+            groupValue,
+          );
+        }
+
+        // Handle countIf(PulseType = 'screen_interactive') - TTI count
+        if (
+          expression.includes("countIf") &&
+          expression.includes("screen_interactive")
+        ) {
+          return this.randomCount(
+            80,
+            120,
+            interactionName,
+            groupValue,
+          ).toString();
+        }
+
         // Handle COUNT() expression
         if (expression.includes("COUNT()")) {
           if (groupValue) {
@@ -2895,6 +2921,34 @@ export class DataQueryMockGeneratorV2 {
     const base = min + (hash % range);
     const variance = Math.floor((Math.random() - 0.5) * range * 0.3);
     return Math.max(min, base + variance);
+  }
+
+  /**
+   * Mock screen TTI percentiles for useGetScreenEngagementData totals query.
+   * Returns Duration in nanoseconds; UI divides by 1e9 for display (seconds).
+   */
+  private mockScreenTtiPercentileNs(
+    expression: string,
+    filters?: Array<{ field?: string; value?: unknown }>,
+    interactionName: string = "default",
+    groupValue?: string,
+  ): string {
+    const screenFilter = filters?.find(
+      (f) => f.field === COLUMN_NAME.SCREEN_NAME || f.field === "ScreenName",
+    );
+    const screenName = Array.isArray(screenFilter?.value)
+      ? String(screenFilter.value[0])
+      : String(
+          (screenFilter?.value as string[] | undefined)?.[0] ?? interactionName,
+        );
+    const seed = `${screenName}:${groupValue ?? ""}`;
+    const isP95 = expression.includes("quantileTDigestIf(0.95)");
+    const hash = this.hashString(`${seed}:${isP95 ? "p95" : "p50"}`);
+    // Target display after /1e9: p50 ~0.4–1.2s, p95 ~0.9–2.8s
+    const minMs = isP95 ? 900 : 400;
+    const spanMs = isP95 ? 1900 : 800;
+    const ms = minMs + (hash % (spanMs + 1));
+    return String(ms * 1_000_000);
   }
 
   /**
