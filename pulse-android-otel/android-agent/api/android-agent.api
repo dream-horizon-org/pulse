@@ -5,8 +5,8 @@ public final class io/opentelemetry/android/agent/OpenTelemetryRumInitializer {
 	public static final field INSTANCE Lio/opentelemetry/android/agent/OpenTelemetryRumInitializer;
 	public static final fun createMeteredSessionManager (Landroid/app/Application;)Lio/opentelemetry/android/session/SessionProvider;
 	public final fun disposeExporters ()V
-	public static final fun initialize (Landroid/app/Application;ZLjava/lang/String;Ljava/util/Map;Lio/opentelemetry/android/agent/connectivity/EndpointConnectivity;Lio/opentelemetry/android/agent/connectivity/EndpointConnectivity;Lio/opentelemetry/android/agent/connectivity/EndpointConnectivity;Lkotlin/jvm/functions/Function1;Lio/opentelemetry/android/agent/session/SessionConfig;Lio/opentelemetry/android/session/SessionProvider;Lkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function1;Ljava/util/function/BiFunction;Ljava/util/function/BiFunction;Ljava/util/function/BiFunction;Lio/opentelemetry/sdk/trace/export/SpanExporter;Lio/opentelemetry/sdk/logs/export/LogRecordExporter;Lio/opentelemetry/sdk/metrics/export/MetricExporter;Lio/opentelemetry/android/config/OtelRumConfig;Z)Lio/opentelemetry/android/OpenTelemetryRum;
-	public static synthetic fun initialize$default (Landroid/app/Application;ZLjava/lang/String;Ljava/util/Map;Lio/opentelemetry/android/agent/connectivity/EndpointConnectivity;Lio/opentelemetry/android/agent/connectivity/EndpointConnectivity;Lio/opentelemetry/android/agent/connectivity/EndpointConnectivity;Lkotlin/jvm/functions/Function1;Lio/opentelemetry/android/agent/session/SessionConfig;Lio/opentelemetry/android/session/SessionProvider;Lkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function1;Ljava/util/function/BiFunction;Ljava/util/function/BiFunction;Ljava/util/function/BiFunction;Lio/opentelemetry/sdk/trace/export/SpanExporter;Lio/opentelemetry/sdk/logs/export/LogRecordExporter;Lio/opentelemetry/sdk/metrics/export/MetricExporter;Lio/opentelemetry/android/config/OtelRumConfig;ZILjava/lang/Object;)Lio/opentelemetry/android/OpenTelemetryRum;
+	public static final fun initialize (Landroid/app/Application;ZLjava/lang/String;Ljava/util/Map;Lio/opentelemetry/android/agent/connectivity/EndpointConnectivity;Lio/opentelemetry/android/agent/connectivity/EndpointConnectivity;Lio/opentelemetry/android/agent/connectivity/EndpointConnectivity;Lkotlin/jvm/functions/Function1;Lio/opentelemetry/android/agent/session/SessionConfig;Lio/opentelemetry/android/session/SessionProvider;Lkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function1;Ljava/util/function/BiFunction;Ljava/util/function/BiFunction;Ljava/util/function/BiFunction;Lio/opentelemetry/sdk/trace/export/SpanExporter;Lio/opentelemetry/sdk/logs/export/LogRecordExporter;Lio/opentelemetry/sdk/metrics/export/MetricExporter;Lio/opentelemetry/android/config/OtelRumConfig;ZLcom/pulse/sampling/models/PulseBatchProcessorConfig;)Lio/opentelemetry/android/OpenTelemetryRum;
+	public static synthetic fun initialize$default (Landroid/app/Application;ZLjava/lang/String;Ljava/util/Map;Lio/opentelemetry/android/agent/connectivity/EndpointConnectivity;Lio/opentelemetry/android/agent/connectivity/EndpointConnectivity;Lio/opentelemetry/android/agent/connectivity/EndpointConnectivity;Lkotlin/jvm/functions/Function1;Lio/opentelemetry/android/agent/session/SessionConfig;Lio/opentelemetry/android/session/SessionProvider;Lkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function1;Ljava/util/function/BiFunction;Ljava/util/function/BiFunction;Ljava/util/function/BiFunction;Lio/opentelemetry/sdk/trace/export/SpanExporter;Lio/opentelemetry/sdk/logs/export/LogRecordExporter;Lio/opentelemetry/sdk/metrics/export/MetricExporter;Lio/opentelemetry/android/config/OtelRumConfig;ZLcom/pulse/sampling/models/PulseBatchProcessorConfig;ILjava/lang/Object;)Lio/opentelemetry/android/OpenTelemetryRum;
 	public final fun setupExporters ()V
 }
 
@@ -46,6 +46,12 @@ public final class io/opentelemetry/android/agent/dsl/instrumentation/AnrReporte
 	public fun enabled (Z)V
 }
 
+public final class io/opentelemetry/android/agent/dsl/instrumentation/BatteryUsageConfiguration : io/opentelemetry/android/agent/dsl/instrumentation/CanBeEnabledAndDisabled {
+	public fun enabled (Z)V
+	public final fun setFlushIntervalMs (J)Lio/opentelemetry/android/agent/dsl/instrumentation/BatteryUsageConfiguration;
+	public final fun setSampleIntervalMs (J)Lio/opentelemetry/android/agent/dsl/instrumentation/BatteryUsageConfiguration;
+}
+
 public final class io/opentelemetry/android/agent/dsl/instrumentation/ComposeClickConfiguration {
 	public final fun captureContext (Z)V
 }
@@ -65,12 +71,14 @@ public final class io/opentelemetry/android/agent/dsl/instrumentation/Instrument
 	public fun <init> (Lio/opentelemetry/android/config/OtelRumConfig;Ljava/util/Map;Lkotlin/jvm/functions/Function0;)V
 	public final fun activity (Lkotlin/jvm/functions/Function1;)V
 	public final fun anrReporter (Lkotlin/jvm/functions/Function1;)V
+	public final fun batteryUsage (Lkotlin/jvm/functions/Function1;)V
 	public final fun composeClick (Lkotlin/jvm/functions/Function1;)V
 	public final fun crashReporter (Lkotlin/jvm/functions/Function1;)V
 	public final fun fragment (Lkotlin/jvm/functions/Function1;)V
 	public final fun getSessionReplayConfig ()Lcom/pulse/android/sdk/replay/SessionReplayConfig;
 	public final fun interaction (Lkotlin/jvm/functions/Function1;)V
 	public final fun networkMonitoring (Lkotlin/jvm/functions/Function1;)V
+	public final fun ramUsage (Lkotlin/jvm/functions/Function1;)V
 	public final fun sessionReplay (Lkotlin/jvm/functions/Function1;)V
 	public final fun slowRenderingReporter (Lkotlin/jvm/functions/Function1;)V
 	public final fun viewClick (Lkotlin/jvm/functions/Function1;)V
@@ -94,6 +102,12 @@ public final class io/opentelemetry/android/agent/dsl/instrumentation/RageConfig
 	public final fun setRadiusDp (F)V
 	public final fun setThreshold (I)V
 	public final fun setTimeWindowMs (J)V
+}
+
+public final class io/opentelemetry/android/agent/dsl/instrumentation/RamUsageConfiguration : io/opentelemetry/android/agent/dsl/instrumentation/CanBeEnabledAndDisabled {
+	public fun enabled (Z)V
+	public final fun setFlushIntervalMs (J)Lio/opentelemetry/android/agent/dsl/instrumentation/RamUsageConfiguration;
+	public final fun setSampleIntervalMs (J)Lio/opentelemetry/android/agent/dsl/instrumentation/RamUsageConfiguration;
 }
 
 public final class io/opentelemetry/android/agent/dsl/instrumentation/SlowRenderingReporterConfiguration : io/opentelemetry/android/agent/dsl/instrumentation/CanBeEnabledAndDisabled {

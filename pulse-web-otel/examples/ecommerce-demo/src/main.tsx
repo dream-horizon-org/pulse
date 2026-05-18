@@ -1,16 +1,12 @@
-import React from "react";
+import { StrictMode } from "react";
 import ReactDOM from "react-dom/client";
-import App from "./App";
-import { maybeLoadMockInteractionConfig } from "./maybeLoadMockInteractionConfig";
-import { maybeLoadMockPulseSdkConfig } from "./maybeLoadMockPulseSdkConfig";
+import { BrowserRouter } from "react-router-dom";
+import { Root } from "./Root";
 
-void Promise.all([
-  maybeLoadMockPulseSdkConfig(),
-  maybeLoadMockInteractionConfig(),
-]).then(() => {
-  ReactDOM.createRoot(document.getElementById("root")!).render(
-    <React.StrictMode>
-      <App />
-    </React.StrictMode>,
-  );
-});
+ReactDOM.createRoot(document.getElementById("root")!).render(
+  <StrictMode>
+    <BrowserRouter>
+      <Root />
+    </BrowserRouter>
+  </StrictMode>,
+);

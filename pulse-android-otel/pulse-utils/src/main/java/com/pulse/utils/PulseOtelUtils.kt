@@ -26,6 +26,14 @@ public object PulseOtelUtils {
 
     public fun isDebug(): Boolean = BuildConfig.DEBUG
 
+    public inline fun <reified M> runPulseCatching(
+        tag: String,
+        block: () -> M,
+    ): M? =
+        runCatching(block)
+            .onFailure { PulseLogger.logError(tag, throwable = it) { "runPulseCatching:$tag failed" } }
+            .getOrNull()
+
     /**
      * Sanitizes the instrumentation name as per the SdkMeter.VALID_INSTRUMENT_NAME_PATTERN.
      */

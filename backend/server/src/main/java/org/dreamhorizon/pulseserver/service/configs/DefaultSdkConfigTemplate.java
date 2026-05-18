@@ -81,6 +81,8 @@ public class DefaultSdkConfigTemplate {
         // js_crash is shared by RN (Hermes) and Web; separate rows so defaults and future sample rates stay explicit per surface.
         features.add(createFeature(Features.js_crash, 1.0, rnSdk));
         features.add(createFeature(Features.js_crash, 1.0, webJsSdk));
+        features.add(createFeature(Features.web_vitals, 1.0, webJsSdk));
+        features.add(createFeature(Features.screen_navigation, 1.0, webJsSdk));
         features.add(createFeature(Features.java_anr, 1.0, androidSdk));
         features.add(createFeature(Features.network_change, 1.0, allSdks));
         features.add(createFeature(Features.custom_events, 1.0, allSdks));
@@ -101,6 +103,8 @@ public class DefaultSdkConfigTemplate {
         features.add(createFeature(Features.ios_lifecycle, 0.0, iosSdk));
         features.add(createFeature(Features.android_activity, 1.0, androidSdk));
         features.add(createFeature(Features.android_fragment, 0.0, androidSdk));
+        features.add(createFeature(Features.memory, 1.0, allSdks));
+        features.add(createFeature(Features.battery, 1.0, allSdks));
 
         // Create ConfigData
         return ConfigData.builder()
@@ -109,6 +113,7 @@ public class DefaultSdkConfigTemplate {
             .signals(signals)
             .interaction(interaction)
             .features(features)
+            .batchConfig(createDefaultBatchConfig())
             .user(createdBy)
             .build();
     }
@@ -158,6 +163,18 @@ public class DefaultSdkConfigTemplate {
             .sessionSampleRate(sampleRate)
             .sdks(sdks)
             .config((FeatureConfigProperties) config)
+            .build();
+    }
+
+    private static BatchProcessorConfig createDefaultBatchConfig() {
+        BatchProcessorConfig.BatchProcessorOption defaultOption = BatchProcessorConfig.BatchProcessorOption.builder()
+            .maxExportBatchSize(512)
+            .scheduleDelay(10000) // 10 seconds in milliseconds
+            .build();
+
+        return BatchProcessorConfig.builder()
+            .batchLogs(defaultOption)
+            .batchSpans(defaultOption)
             .build();
     }
 }

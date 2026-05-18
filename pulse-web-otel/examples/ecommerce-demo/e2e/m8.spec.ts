@@ -73,9 +73,9 @@ test.describe("@M8 pagehide flush", () => {
     // Emit a custom event and immediately trigger pagehide
     await page.evaluate(() => {
       const w = window as unknown as {
-        PulseWeb?: { trackEvent: (n: string) => void };
+        Pulse?: { trackEvent: (n: string) => void };
       };
-      w.PulseWeb?.trackEvent("pre_pagehide_event");
+      w.Pulse?.trackEvent("pre_pagehide_event");
       window.dispatchEvent(
         new PageTransitionEvent("pagehide", {
           persisted: false,
@@ -138,12 +138,12 @@ test.describe("@M8 pagehide post-shutdown no-op", () => {
     await otlp.waitForLog("session.start");
     otlp.reset();
 
-    // Shut down the SDK via window.PulseWeb
+    // Shut down the SDK via window.Pulse
     await page.evaluate(async () => {
       const w = window as unknown as {
-        PulseWeb?: { shutdown?: () => Promise<void> };
+        Pulse?: { shutdown?: () => Promise<void> };
       };
-      await w.PulseWeb?.shutdown?.();
+      await w.Pulse?.shutdown?.();
     });
 
     await page.waitForTimeout(300);

@@ -6,12 +6,16 @@ const {
   metricReaderOptions,
   traceSwitchToKeepalive,
   logSwitchToKeepalive,
+  traceSwitchToBeacon,
+  logSwitchToBeacon,
 } = vi.hoisted(() => ({
   spanBatchOptions: [] as unknown[],
   logBatchOptions: [] as unknown[],
   metricReaderOptions: [] as unknown[],
   traceSwitchToKeepalive: vi.fn(),
   logSwitchToKeepalive: vi.fn(),
+  traceSwitchToBeacon: vi.fn(),
+  logSwitchToBeacon: vi.fn(),
 }));
 
 vi.mock("@opentelemetry/sdk-trace-web", () => {
@@ -21,7 +25,6 @@ vi.mock("@opentelemetry/sdk-trace-web", () => {
     }
   }
   class WebTracerProvider {
-    addSpanProcessor = vi.fn();
     constructor(_opts: unknown) {}
   }
   return { BatchSpanProcessor, WebTracerProvider };
@@ -34,7 +37,6 @@ vi.mock("@opentelemetry/sdk-logs", () => {
     }
   }
   class LoggerProvider {
-    addLogRecordProcessor = vi.fn();
     constructor(_opts: unknown) {}
   }
   return { BatchLogRecordProcessor, LoggerProvider };
@@ -56,10 +58,12 @@ vi.mock("@opentelemetry/sdk-metrics", () => {
 vi.mock("../exporters/pulse-browser-otlp-exporters", () => {
   class PulseBrowserTraceExporter {
     switchToKeepalive = traceSwitchToKeepalive;
+    switchToBeacon = traceSwitchToBeacon;
     constructor(_params: unknown, _opts: unknown) {}
   }
   class PulseBrowserLogExporter {
     switchToKeepalive = logSwitchToKeepalive;
+    switchToBeacon = logSwitchToBeacon;
     constructor(_params: unknown, _opts: unknown) {}
   }
   function createPulseBrowserMetricExporter() {
@@ -85,7 +89,7 @@ vi.mock("../persistence/indexed-db", () => {
   return { IdbSignalBuffer };
 });
 
-import { Resource } from "@opentelemetry/resources";
+import { emptyResource } from "@opentelemetry/resources";
 import { createProviders } from "../exporters";
 import { DEFAULT_BATCH_OPTIONS } from "../constants/exporters";
 
@@ -115,7 +119,7 @@ describe("Exporter batching and queue guardrails", () => {
         meteringSessionId: "m1",
         diskBuffering: { enabled: false },
       },
-      Resource.empty(),
+      emptyResource(),
       [],
       [],
     );
@@ -139,7 +143,7 @@ describe("Exporter batching and queue guardrails", () => {
         meteringSessionId: "m2",
         diskBuffering: { enabled: false },
       },
-      Resource.empty(),
+      emptyResource(),
       [],
       [],
     );

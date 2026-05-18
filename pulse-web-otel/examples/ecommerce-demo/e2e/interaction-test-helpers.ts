@@ -99,7 +99,7 @@ export async function emitEvent(
   await page.evaluate(
     ({ eventName, eventProps, atMs }) => {
       const w = window as unknown as {
-        PulseWeb?: {
+        Pulse?: {
           trackEvent?: (
             eventName: string,
             attrs?: Record<string, unknown>,
@@ -107,7 +107,7 @@ export async function emitEvent(
           ) => void;
         };
       };
-      w.PulseWeb?.trackEvent?.(eventName, eventProps, atMs ?? Date.now());
+      w.Pulse?.trackEvent?.(eventName, eventProps, atMs ?? Date.now());
     },
     { eventName: name, eventProps: props ?? {}, atMs: timestampMs },
   );
@@ -119,9 +119,9 @@ export async function setUserId(
 ): Promise<void> {
   await page.evaluate((nextUserId) => {
     const w = window as unknown as {
-      PulseWeb?: { setUserId?: (id: string | null) => void };
+      Pulse?: { setUserId?: (id: string | null) => void };
     };
-    w.PulseWeb?.setUserId?.(nextUserId);
+    w.Pulse?.setUserId?.(nextUserId);
   }, userId);
 }
 

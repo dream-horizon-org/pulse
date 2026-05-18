@@ -1,4 +1,8 @@
-import { UseMutationResult, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  UseMutationResult,
+  useMutation,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { ApiResponse, makeRequest } from "../../helpers/makeRequest";
 import { API_BASE_URL, API_ROUTES } from "../../constants";
 import {
@@ -8,7 +12,7 @@ import {
 } from "./useCreateNotificationChannel.interface";
 
 export const useCreateNotificationChannel = (
-  options: UseCreateNotificationChannelOptions = {}
+  options: UseCreateNotificationChannelOptions = {},
 ): UseMutationResult<
   ApiResponse<CreateNotificationChannelResponse>,
   unknown,
@@ -16,7 +20,7 @@ export const useCreateNotificationChannel = (
   unknown
 > => {
   const queryClient = useQueryClient();
-  const createNotificationChannel = API_ROUTES.CREATE_NOTIFICATION_CHANNEL;
+  const createNotificationChannel = API_ROUTES.CREATE_NOTIFICATION_CHANNEL_V2;
 
   return useMutation<
     ApiResponse<CreateNotificationChannelResponse>,
@@ -36,10 +40,9 @@ export const useCreateNotificationChannel = (
       });
     },
     onSettled: (data, error, variables, context) => {
-      // Invalidate and refetch notification channels list on success
       if (data?.data && !data?.error) {
-        queryClient.invalidateQueries({ 
-          queryKey: [API_ROUTES.GET_ALERT_NOTIFICATION_CHANNELS.key] 
+        queryClient.invalidateQueries({
+          queryKey: [API_ROUTES.GET_NOTIFICATION_CHANNELS.key],
         });
       }
       options.onSettled?.(data, error, variables, context);

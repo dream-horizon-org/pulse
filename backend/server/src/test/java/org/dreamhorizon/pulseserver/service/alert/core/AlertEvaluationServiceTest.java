@@ -29,8 +29,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.dreamhorizon.pulseserver.config.ApplicationConfig;
 import org.dreamhorizon.pulseserver.constant.Constants;
 import org.dreamhorizon.pulseserver.dao.AlertsDao;
+import org.dreamhorizon.pulseserver.dao.productAnalysis.funnelresults.FunnelResultsDao;
 import org.dreamhorizon.pulseserver.resources.alert.enums.AlertState;
 import org.dreamhorizon.pulseserver.resources.alert.models.AlertEvaluationResponseDto;
 import org.dreamhorizon.pulseserver.resources.alert.models.EvaluateAlertResponseDto;
@@ -76,6 +78,12 @@ class AlertEvaluationServiceTest {
   @Mock
   private MetricOperatorProcessor metricOperatorProcessor;
 
+  @Mock
+  private FunnelResultsDao funnelResultsDao;
+
+  @Mock
+  private ApplicationConfig applicationConfig;
+
   // Use real ObjectMapper for coverage
   private ObjectMapper realObjectMapper = new ObjectMapper();
   private AlertEvaluationService alertEvaluationService;
@@ -88,7 +96,9 @@ class AlertEvaluationServiceTest {
         metricOperatorFactory,
         realObjectMapper,
         vertx,
-        null
+        null,
+        funnelResultsDao,
+        applicationConfig
     );
   }
 
@@ -650,47 +660,67 @@ class AlertEvaluationServiceTest {
     @Test
     void shouldBuildBasicNotificationMessage() throws Exception {
       Method method = AlertEvaluationService.class.getDeclaredMethod(
-          "buildNotificationMessage", AlertEvaluationResponseDto.class, String.class, Float.class);
+          "buildNotificationParams", AlertEvaluationResponseDto.class, String.class, Float.class, String.class);
       method.setAccessible(true);
 
-      AlertsDao.AlertDetails alert = AlertsDao.AlertDetails.builder().name("Test Alert").build();
+      AlertsDao.AlertDetails alert = AlertsDao.AlertDetails.builder()
+          .id(1)
+          .name("Test Alert")
+          .projectId("p1")
+          .conditionExpression("A")
+          .build();
       AlertEvaluationResponseDto dto = AlertEvaluationResponseDto.builder()
           .alert(alert)
           .evaluationStartTime("2023-01-01 00:00:00")
           .evaluationEndTime("2023-01-01 01:00:00")
           .build();
 
-      String result = (String) method.invoke(alertEvaluationService, dto, "TestScope", null);
+      @SuppressWarnings("unchecked")
+      Map<String, Object> result = (Map<String, Object>) method.invoke(
+          alertEvaluationService, dto, "TestScope", null, null);
       assertNotNull(result);
-      assertTrue(result.contains("Test Alert"));
-      assertTrue(result.contains("TestScope"));
+      assertEquals("Test Alert", result.get("alertName"));
+      assertEquals("TestScope", result.get("scopeName"));
     }
 
     @Test
     void shouldIncludeMetricReading() throws Exception {
       Method method = AlertEvaluationService.class.getDeclaredMethod(
-          "buildNotificationMessage", AlertEvaluationResponseDto.class, String.class, Float.class);
+          "buildNotificationParams", AlertEvaluationResponseDto.class, String.class, Float.class, String.class);
       method.setAccessible(true);
 
-      AlertsDao.AlertDetails alert = AlertsDao.AlertDetails.builder().name("Test Alert").build();
+      AlertsDao.AlertDetails alert = AlertsDao.AlertDetails.builder()
+          .id(1)
+          .name("Test Alert")
+          .projectId("p1")
+          .conditionExpression("A")
+          .build();
       AlertEvaluationResponseDto dto = AlertEvaluationResponseDto.builder()
           .alert(alert)
           .evaluationStartTime("2023-01-01 00:00:00")
           .evaluationEndTime("2023-01-01 01:00:00")
+          .evaluationResult("{\"error_rate\":0.5}")
           .build();
 
-      String result = (String) method.invoke(alertEvaluationService, dto, "TestScope", 0.5f);
+      @SuppressWarnings("unchecked")
+      Map<String, Object> result = (Map<String, Object>) method.invoke(
+          alertEvaluationService, dto, "TestScope", 0.5f, null);
       assertNotNull(result);
-      assertTrue(result.contains("0.5"));
+      assertTrue(String.valueOf(result.get("currentReadings")).contains("error_rate"));
     }
 
     @Test
     void shouldIncludeEvaluationResult() throws Exception {
       Method method = AlertEvaluationService.class.getDeclaredMethod(
-          "buildNotificationMessage", AlertEvaluationResponseDto.class, String.class, Float.class);
+          "buildNotificationParams", AlertEvaluationResponseDto.class, String.class, Float.class, String.class);
       method.setAccessible(true);
 
-      AlertsDao.AlertDetails alert = AlertsDao.AlertDetails.builder().name("Test Alert").build();
+      AlertsDao.AlertDetails alert = AlertsDao.AlertDetails.builder()
+          .id(1)
+          .name("Test Alert")
+          .projectId("p1")
+          .conditionExpression("A")
+          .build();
       AlertEvaluationResponseDto dto = AlertEvaluationResponseDto.builder()
           .alert(alert)
           .evaluationStartTime("2023-01-01 00:00:00")
@@ -698,18 +728,25 @@ class AlertEvaluationServiceTest {
           .evaluationResult("{\"error_rate\":0.8,\"latency\":150}")
           .build();
 
-      String result = (String) method.invoke(alertEvaluationService, dto, "TestScope", null);
+      @SuppressWarnings("unchecked")
+      Map<String, Object> result = (Map<String, Object>) method.invoke(
+          alertEvaluationService, dto, "TestScope", null, null);
       assertNotNull(result);
-      assertTrue(result.contains("Metric readings"));
+      assertTrue(result.containsKey("currentReadings"));
     }
 
     @Test
     void shouldHandleEmptyEvaluationResult() throws Exception {
       Method method = AlertEvaluationService.class.getDeclaredMethod(
-          "buildNotificationMessage", AlertEvaluationResponseDto.class, String.class, Float.class);
+          "buildNotificationParams", AlertEvaluationResponseDto.class, String.class, Float.class, String.class);
       method.setAccessible(true);
 
-      AlertsDao.AlertDetails alert = AlertsDao.AlertDetails.builder().name("Test Alert").build();
+      AlertsDao.AlertDetails alert = AlertsDao.AlertDetails.builder()
+          .id(1)
+          .name("Test Alert")
+          .projectId("p1")
+          .conditionExpression("A")
+          .build();
       AlertEvaluationResponseDto dto = AlertEvaluationResponseDto.builder()
           .alert(alert)
           .evaluationStartTime("2023-01-01 00:00:00")
@@ -717,17 +754,25 @@ class AlertEvaluationServiceTest {
           .evaluationResult("")
           .build();
 
-      String result = (String) method.invoke(alertEvaluationService, dto, "TestScope", null);
+      @SuppressWarnings("unchecked")
+      Map<String, Object> result = (Map<String, Object>) method.invoke(
+          alertEvaluationService, dto, "TestScope", null, null);
       assertNotNull(result);
+      assertTrue(!result.containsKey("currentReadings") || result.get("currentReadings") == null);
     }
 
     @Test
     void shouldHandleEmptyJsonEvaluationResult() throws Exception {
       Method method = AlertEvaluationService.class.getDeclaredMethod(
-          "buildNotificationMessage", AlertEvaluationResponseDto.class, String.class, Float.class);
+          "buildNotificationParams", AlertEvaluationResponseDto.class, String.class, Float.class, String.class);
       method.setAccessible(true);
 
-      AlertsDao.AlertDetails alert = AlertsDao.AlertDetails.builder().name("Test Alert").build();
+      AlertsDao.AlertDetails alert = AlertsDao.AlertDetails.builder()
+          .id(1)
+          .name("Test Alert")
+          .projectId("p1")
+          .conditionExpression("A")
+          .build();
       AlertEvaluationResponseDto dto = AlertEvaluationResponseDto.builder()
           .alert(alert)
           .evaluationStartTime("2023-01-01 00:00:00")
@@ -735,17 +780,24 @@ class AlertEvaluationServiceTest {
           .evaluationResult("{}")
           .build();
 
-      String result = (String) method.invoke(alertEvaluationService, dto, "TestScope", null);
+      @SuppressWarnings("unchecked")
+      Map<String, Object> result = (Map<String, Object>) method.invoke(
+          alertEvaluationService, dto, "TestScope", null, null);
       assertNotNull(result);
     }
 
     @Test
     void shouldHandleInvalidJsonEvaluationResult() throws Exception {
       Method method = AlertEvaluationService.class.getDeclaredMethod(
-          "buildNotificationMessage", AlertEvaluationResponseDto.class, String.class, Float.class);
+          "buildNotificationParams", AlertEvaluationResponseDto.class, String.class, Float.class, String.class);
       method.setAccessible(true);
 
-      AlertsDao.AlertDetails alert = AlertsDao.AlertDetails.builder().name("Test Alert").build();
+      AlertsDao.AlertDetails alert = AlertsDao.AlertDetails.builder()
+          .id(1)
+          .name("Test Alert")
+          .projectId("p1")
+          .conditionExpression("A")
+          .build();
       AlertEvaluationResponseDto dto = AlertEvaluationResponseDto.builder()
           .alert(alert)
           .evaluationStartTime("2023-01-01 00:00:00")
@@ -753,9 +805,11 @@ class AlertEvaluationServiceTest {
           .evaluationResult("invalid json")
           .build();
 
-      String result = (String) method.invoke(alertEvaluationService, dto, "TestScope", null);
+      @SuppressWarnings("unchecked")
+      Map<String, Object> result = (Map<String, Object>) method.invoke(
+          alertEvaluationService, dto, "TestScope", null, null);
       assertNotNull(result);
-      assertTrue(result.contains("invalid json"));
+      assertEquals("invalid json", result.get("currentReadings"));
     }
   }
 
@@ -1748,7 +1802,7 @@ class AlertEvaluationServiceTest {
       AlertsDao.AlertDetails alertDetails = AlertsDao.AlertDetails.builder()
           .id(1)
           .name("Test Alert")
-          .notificationChannelId(50)
+          .channelEventMappingId(null)
           .build();
 
       List<AlertsDao.AlertScopeDetails> scopes = List.of(
@@ -1771,9 +1825,6 @@ class AlertEvaluationServiceTest {
 
       when(alertsDao.getScopeState(100)).thenReturn(Single.just(AlertState.NORMAL));
       when(alertsDao.getAlertScopesForEvaluation(1)).thenReturn(Single.just(scopes));
-      when(alertsDao.getNotificationChannelById(50))
-          .thenReturn(Maybe.just(
-              new AlertsDao.NotificationChannelInfo("slack", "http://webhook", true)));
       when(alertsDao.updateScopeState(100, AlertState.FIRING)).thenReturn(Single.just(true));
 
       method.invoke(alertEvaluationService, mockMessage);
@@ -1976,7 +2027,7 @@ class AlertEvaluationServiceTest {
     void shouldNotCreateIncidentWhenSnoozed() throws Exception {
       Method method = AlertEvaluationService.class.getDeclaredMethod(
           "createIncidentIfRequired",
-          AlertState.class, AlertEvaluationResponseDto.class, Float.class, String.class, AlertState.class
+          AlertState.class, AlertEvaluationResponseDto.class, Float.class, String.class, String.class, AlertState.class
       );
       method.setAccessible(true);
 
@@ -1993,14 +2044,14 @@ class AlertEvaluationServiceTest {
           .build();
 
       // Should not throw or call sendNotification since alert is snoozed
-      method.invoke(alertEvaluationService, AlertState.FIRING, responseDto, 1.5f, "TestScope", AlertState.NORMAL);
+      method.invoke(alertEvaluationService, AlertState.FIRING, responseDto, 1.5f, "TestScope", null, AlertState.NORMAL);
     }
 
     @Test
     void shouldNotCreateIncidentForNoDataState() throws Exception {
       Method method = AlertEvaluationService.class.getDeclaredMethod(
           "createIncidentIfRequired",
-          AlertState.class, AlertEvaluationResponseDto.class, Float.class, String.class, AlertState.class
+          AlertState.class, AlertEvaluationResponseDto.class, Float.class, String.class, String.class, AlertState.class
       );
       method.setAccessible(true);
 
@@ -2015,14 +2066,14 @@ class AlertEvaluationServiceTest {
           .build();
 
       // Should not throw or call sendNotification since state is NO_DATA
-      method.invoke(alertEvaluationService, AlertState.NO_DATA, responseDto, 1.5f, "TestScope", AlertState.NORMAL);
+      method.invoke(alertEvaluationService, AlertState.NO_DATA, responseDto, 1.5f, "TestScope", null, AlertState.NORMAL);
     }
 
     @Test
     void shouldNotCreateIncidentWhenAlreadyFiring() throws Exception {
       Method method = AlertEvaluationService.class.getDeclaredMethod(
           "createIncidentIfRequired",
-          AlertState.class, AlertEvaluationResponseDto.class, Float.class, String.class, AlertState.class
+          AlertState.class, AlertEvaluationResponseDto.class, Float.class, String.class, String.class, AlertState.class
       );
       method.setAccessible(true);
 
@@ -2037,7 +2088,7 @@ class AlertEvaluationServiceTest {
           .build();
 
       // Should not create incident when already firing (state == currentScopeState)
-      method.invoke(alertEvaluationService, AlertState.FIRING, responseDto, 1.5f, "TestScope", AlertState.FIRING);
+      method.invoke(alertEvaluationService, AlertState.FIRING, responseDto, 1.5f, "TestScope", null, AlertState.FIRING);
     }
   }
 
@@ -2265,12 +2316,14 @@ class AlertEvaluationServiceTest {
     @Test
     void shouldAttemptToSendSlackNotification() throws Exception {
       Method method = AlertEvaluationService.class.getDeclaredMethod(
-          "sendNotification", String.class, String.class, String.class);
+          "sendNotificationViaService", Long.class, Map.class, String.class);
       method.setAccessible(true);
 
-      // WebClient.create(vertx) may fail with mocked Vertx - test ensures method path is executed
+      when(applicationConfig.getServiceUrl()).thenReturn("http://localhost:8080");
+      Map<String, Object> params = new HashMap<>();
+      params.put("alertName", "Test");
       try {
-        method.invoke(alertEvaluationService, "Test message", "slack", "http://localhost:8080/webhook");
+        method.invoke(alertEvaluationService, 10L, params, "proj-1");
       } catch (Exception e) {
         // Expected when WebClient cannot be created with mocked Vertx
       }
@@ -2279,32 +2332,49 @@ class AlertEvaluationServiceTest {
     @Test
     void shouldLogAndReturnEarlyForEmptyConfig() throws Exception {
       Method method = AlertEvaluationService.class.getDeclaredMethod(
-          "sendNotification", String.class, String.class, String.class);
+          "sendNotificationViaService", Long.class, Map.class, String.class);
       method.setAccessible(true);
 
-      method.invoke(alertEvaluationService, "Test message", "slack", "");
-      method.invoke(alertEvaluationService, "Test message", "slack", null);
-      // No exception - method returns early
+      when(applicationConfig.getServiceUrl()).thenReturn("");
+      Map<String, Object> params = new HashMap<>();
+      params.put("alertName", "Test");
+      try {
+        method.invoke(alertEvaluationService, 10L, params, "proj-1");
+      } catch (Exception e) {
+        // Expected due to invalid URL + mocked vertx context
+      }
     }
 
     @Test
     void shouldHandleEmailNotificationType() throws Exception {
       Method method = AlertEvaluationService.class.getDeclaredMethod(
-          "sendNotification", String.class, String.class, String.class);
+          "sendNotificationViaService", Long.class, Map.class, String.class);
       method.setAccessible(true);
 
-      method.invoke(alertEvaluationService, "Alert fired", "email", "user@example.com");
-      // Email path logs and returns - no exception
+      when(applicationConfig.getServiceUrl()).thenReturn("http://localhost:8080");
+      Map<String, Object> params = new HashMap<>();
+      params.put("alertName", "Alert fired");
+      try {
+        method.invoke(alertEvaluationService, 10L, params, "proj-1");
+      } catch (Exception e) {
+        // Expected when HTTP call cannot be made in unit context
+      }
     }
 
     @Test
     void shouldLogErrorForUnsupportedNotificationType() throws Exception {
       Method method = AlertEvaluationService.class.getDeclaredMethod(
-          "sendNotification", String.class, String.class, String.class);
+          "sendNotificationViaService", Long.class, Map.class, String.class);
       method.setAccessible(true);
 
-      method.invoke(alertEvaluationService, "Test message", "webhook", "http://example.com");
-      // Unsupported type logs error - no exception
+      when(applicationConfig.getServiceUrl()).thenReturn("http://localhost:8080");
+      Map<String, Object> params = new HashMap<>();
+      params.put("alertName", "Test");
+      try {
+        method.invoke(alertEvaluationService, 10L, params, "proj-1");
+      } catch (Exception e) {
+        // Expected when HTTP call cannot be made in unit context
+      }
     }
   }
 

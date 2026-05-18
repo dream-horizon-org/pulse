@@ -21,7 +21,8 @@ interface OtlpCall {
   sizeBytes: number;
 }
 
-type PulseWebInstance = {
+/** Window-exposed SDK shape (see `App.tsx` `_PulseExpose`). */
+type PulseSdkWindow = {
   isInitialized: () => boolean;
 };
 
@@ -180,8 +181,8 @@ export function PulseDebugPanel() {
   const refresh = useCallback(async () => {
     setStorage(readStorage());
     setIdbCount(await countIdbSignals());
-    const pw = (window as unknown as Record<string, unknown>)["PulseWeb"] as
-      | PulseWebInstance
+    const pw = (window as unknown as Record<string, unknown>)["Pulse"] as
+      | PulseSdkWindow
       | undefined;
     setSdkReady(pw?.isInitialized?.() ?? false);
   }, []);
@@ -362,7 +363,7 @@ export function PulseDebugPanel() {
         <button
           onClick={() => {
             const p = (window as unknown as Record<string, unknown>)[
-              "PulseWeb"
+              "Pulse"
             ] as { trackEvent?: (n: string) => void } | undefined;
             p?.trackEvent?.("debug_ping");
           }}

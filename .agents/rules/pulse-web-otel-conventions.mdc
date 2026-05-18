@@ -1,0 +1,193 @@
+---
+description: pulse-web-otel — TypeScript/Vitest/E2E conventions, layout, and tooling (pair with pulse-web-otel-contract.mdc for product/SPEC map).
+globs: pulse-web-otel/**/*.{ts,tsx},pulse-web-otel/docs/**/*.md
+alwaysApply: false
+---
+
+# pulse-web-otel — conventions & testing
+
+Applies to the **Web SDK package** (`pulse-web-otel/`). Feature **PRDs** live under **`prd/`** ([`prd/README.md`](../../pulse-web-otel/prd/README.md)). Product contracts and SPEC paths: **`pulse-web-otel-contract.mdc`** (canonical **`.agents/rules/pulse-web-otel-contract.mdc`**; symlinked as `.cursor/rules/pulse-web-otel-contract.mdc` / `web-sdk.mdc`). This file is **authoritative** for **implementation style** in `src/`, **Vitest** unit tests, and **ecommerce-demo** E2E patterns.
+
+---
+
+## Tooling and build
+
+| Area | Choice |
+|------|--------|
+| Language | TypeScript **strict** + **`noUncheckedIndexedAccess`** (`tsconfig.json`) |
+| Module | **ESM** (`"type": "module"`); dual publish **ESM + CJS** via **tsup** (`tsup.config.ts`) |
+| Entrypoints | `src/index.ts` (core), `src/integrations/react/index.ts` (React) — only these surfaces are built as package exports |
+| Lint | `yarn lint` → `tsc --noEmit` (no separate ESLint in package) |
+| Unit tests | **Vitest** + **jsdom** (`vitest.config.ts`), `globals: true` |
+| Size | Respect **`.size-limit.json`** before adding deps or large code paths |
+
+Run: `yarn test:run` (CI-style), `yarn test` (watch), `yarn build`, `yarn demo` / `yarn demo:test` for demo + Playwright.
+
+---
+
+## Source layout (where code goes)
+
+| Path | Purpose |
+|------|---------|
+| `src/sdk.ts` | **`Pulse`** singleton (`export { Pulse }`) / lifecycle — keep orchestration here; delegate to features |
+| `src/config.ts`, `src/types/` | Config and shared types — **runtime types** near `types/`; interaction DTOs in `types/interactions/` |
+| `src/interactions/` | Interaction config fetch, coordinator, tracker, matcher, span builder, models |
+| `src/utils/` | Pure helpers (e.g. `utils/interactions/*`, `resource-helpers`, `compression`) |
+| `src/exporters/`, `src/processors/`, `src/sampling/` | OTLP pipeline, processors, sampling gates |
+| `src/persistence/` | IndexedDB / drain buffered exports |
+| `src/instrumentations/` | Auto-instrumentation registrations |
+| `src/integrations/react/` | React exports (`PulseProvider`, `PulseErrorBoundary`, hooks, router helpers) — thin wrappers over core SDK |
+| `src/constants/` | Shared constants (disk buffer, exporters, interaction constants) |
+| `src/__tests__/` | All **unit** tests (mirror module name: `interactions-config-fetcher.test.ts`) |
+
+**Public API:** export stable symbols from **`src/index.ts`** (and React barrel) only. Do not export deep internals for convenience.
+
+### Folder placement (`types/`, `utils/`, `constants/`)
+
+- Put reusable types in **`src/types/`** (subfolders per domain, e.g. `src/types/interactions/`).
+- Put reusable helpers in **`src/utils/`** (subfolders per domain).
+- Put constants in **`src/constants/`** (subfolders per domain).
+- Do **not** create ad-hoc `types/`, `utils/`, or `constants/` inside feature folders when a **`src/types|utils|constants`** path exists for that concern.
+- Keep feature orchestrators/state in their feature folder (e.g. **`src/interactions/`**); import shared pieces from the global folders above.
+- Do **not** mix runtime logic with declaration-only types in one file unless tightly coupled and local-only.
+
+---
+
+## TypeScript and module style
+
+- Prefer **`import type`** for type-only imports to keep emit clean and avoid cycles.
+- Avoid **`any`**. Use **`unknown`** + narrowing. For **user-supplied OTEL attribute maps** on public APIs (`trackEvent`, `reportException`, interaction `trackEvent`), use **`PulseAttributes`** from `src/types/attributes.ts` — not `Record<string, unknown>`.
+- **Semconv:** use **`PulseWebSemconv`** (`ResourceKey`, `AttributeKey`, `PulseType`, `LogBody`, `FixedValue`, `InteractionAttributeKey`, `RumSdkInit`) for contract strings — avoid raw `"pulse.type"` / `"session.start"` literals except tests that intentionally assert wire format.
+- **Feature / instrumentation keys:** use **`PulseFeature`** and **`InstrumentationKeys`** from `remote-config` / `config` — avoid string literals like `"custom_events"`, `"interaction"`, `"interactions"` in gate checks and `registerAndInstall`.
+- **Local aliases:** do not shorten semconv namespaces to single-letter names (`K`, `T`, `B`, `V`). Use readable locals: `attributeKeys`, `pulseTypes`, `logBodies`, `resourceKeys`, `fixedValues`, `rumSdkInit`.
+- Use **`readonly`** on arrays/tuples passed into matchers and config when immutability is intended.
+- **`noUncheckedIndexedAccess`:** index results may be `undefined` — handle explicitly.
+- **Strings:** double quotes in TS (matches existing files); avoid unnecessary template literals.
+- **Browser globals:** guard or assume jsdom in tests; use `typeof window !== "undefined"` only when sharing code paths with non-browser contexts.
+
+---
+
+## Logging and lifecycle tags
+
+- Use **`PulseWebLogger`** (`debug`, `info`, `warn`, …) — not raw `console.*` in production paths except where the logger itself writes.
+- Subsystems use a **short bracket tag** in messages, e.g. `` `${LIFECYCLE} setConfigs: ...` `` with `const LIFECYCLE = "[interactions:coordinator]"` — keep **one tag per file** for grepability.
+- In tests: **`PulseWebLogger.resetForTesting()`** in `beforeEach`/`afterEach` when log level or spies matter.
+
+---
+
+## Dependency injection for testability
+
+- Prefer **constructor injection** for `fetch`, time, or callbacks (see **`InteractionConfigFetcher`** + `fetchFn` defaulting to global `fetch`).
+- Heavy OTel wiring: tests **`vi.mock`** entire modules (`../exporters`, `@opentelemetry/api-logs`) following **`sdk-lifecycle.test.ts`** / **`m1.test.ts`** — keep mock factories small and return **`vi.fn()`** for assertions.
+
+---
+
+## Unit tests (`src/__tests__`)
+
+### File naming
+
+- **`*.test.ts`** for almost all suites (current standard in this repo).
+- **`*.test.tsx`** when using **React Testing Library** + JSX; `vitest.config.ts` includes `**/*.test.{ts,tsx}`. Add **`@testing-library/react`** (and peers) as **devDependencies** when introducing the first such suite.
+
+### Structure
+
+```text
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+// vi.mock(...) hoisted — place before imports that use the mock when needed
+
+beforeEach(() => {
+  window.localStorage.clear();
+});
+afterEach(() => {
+  vi.restoreAllMocks();
+});
+
+describe("ClassOrModuleName", () => {
+  it("behavior in plain language", () => { ... });
+});
+```
+
+- **`describe`** = class, function, or feature area under test.
+- **`it`** = one observable behavior; name reads as a spec sentence.
+- **Isolation:** clear **`localStorage`**, restore mocks, reset singletons / logger between tests when touching global state.
+- **Spies:** `vi.spyOn(PulseWebLogger, "warn")` etc.; always restore.
+- **Fake timers:** `vi.useFakeTimers()` + `vi.advanceTimersByTime` + **`vi.useRealTimers()`** in `afterEach` if used.
+
+### What to test
+
+- **Pure logic** (matchers, operators, merge helpers): table-driven `it` cases with `expect` on return values.
+- **Stateful classes** (fetcher, tracker, coordinator): init sequence, error paths, timer behavior.
+- **Span / attribute contract:** assert on objects passed to **`startSpan`** / **`setAttributes`** (see `interactions-span-builder.test.ts`).
+- **SDK wiring:** mock `InteractionFeature` / exporters; assert **call order** and **arguments**, not full OTLP JSON unless necessary.
+
+Do **not** rely on a real OTLP server in unit tests — mock transport or route at HTTP boundary.
+
+---
+
+## E2E tests (`examples/ecommerce-demo/e2e/`)
+
+- Import **`test` and `expect` from `./fixture`**, not from `@playwright/test` directly — fixture attaches OTLP interception and helpers (`waitForSpan`, `getAttr`, …).
+- Prefer **`data-testid`** on demo UI buttons used in specs (see `Checkout.tsx`).
+- New browser-level behavior: add or extend a **`*.spec.ts`** file; run **`yarn demo:test`** from `pulse-web-otel` (workspace script).
+
+**Required gate before PR (any `pulse-web-otel/` change):** from repo root or `pulse-web-otel/`, run **`yarn workspace ecommerce-demo e2e:web-sdk-gates`** (runs **`e2e/m1.spec.ts`** + **`e2e/m2-interactions.spec.ts`** on **Chromium** only — includes merged M2 edge cases in `m2-interactions.spec.ts`). Individual runs: **`e2e:m1`**, **`e2e:m2-interactions`**.
+
+---
+
+## After every development increment
+
+1. **Unit:** add or extend **`src/__tests__/<area>.test.ts`** covering happy path + at least one failure/edge path for new logic.
+2. **Run** `yarn lint && yarn test:run` before PR.
+3. **E2E gates (mandatory for web SDK PRs; run after any “big” change touching SDK behavior):** **`yarn e2e:web-sdk-gates`** from **`pulse-web-otel/`** — full Chromium bundle above (not only M1/M2). If behavior crosses OTLP export or demo flows, add/update Playwright under **`examples/ecommerce-demo/e2e/`**.
+4. **Traceability:** update the relevant **`docs/instrumentations/<feature>/SPEC.md`** or **`docs/sdk-core/<topic>/SPEC.md`** §6 (test coverage) when adding scenarios.
+5. **Docs:** keep **`pulse-web-otel/CLAUDE.md`** sharp-edge notes accurate when behaviour changes.
+
+---
+
+## Commits
+
+Use repo Conventional Commits with scope **`web-sdk`**, e.g. `feat(web-sdk): …`, `fix(web-sdk): …`, `test(web-sdk): …`.
+
+---
+
+## Anti-patterns (avoid)
+
+- New `pulse.type` or resource attributes **not** aligned with **`docs/sdk-core/data-contract/SPEC.md`** / mobile parity.
+- Exporting internals from `index.ts` to “make tests easier” — test via public API or keep tests colocated with `vi.mock` on the module under test.
+- Skipping **`afterEach`** cleanup when using spies, fake timers, or `localStorage`.
+- Large demo-only logic inside **`src/`** — demo stays under **`examples/ecommerce-demo/`**.
+
+---
+
+## Merged Guardrails (authoritative)
+
+### Core safety
+- Preserve public API signatures unless the task explicitly requires a breaking change.
+- Do not change `pulse.type`, semantic attribute keys, or telemetry contract shape without synchronized tests + docs.
+- Keep `platform = web` resource attribute present on exported telemetry.
+
+### Instrumentation lifecycle sanity
+- Use deterministic setup/teardown for instrumentation-like components.
+- Shutdown must clean listeners, timers, and references.
+- Avoid duplicate initialization paths for the same feature.
+
+### Config + gate discipline
+- Respect both local enable flags and remote feature gates.
+- Keep gate checks centralized and test-covered.
+- New gate/config behavior requires explicit on/off tests.
+
+### Demo app + E2E awareness
+- Treat `examples/ecommerce-demo/` as behavior reference and regression detector.
+- If SDK behavior changes, verify selectors/flows in demo E2E before claiming success.
+
+### Android parity guard
+- For equivalent features, keep behavior parity with Android SDK by default.
+- Flag any intentional divergence explicitly in docs/tests.
+
+### Graphify-out + cached graph context
+- Use generated Graphify artifacts as source context:
+  - `pulse-web-otel/graphify-out/GRAPH_REPORT.md`
+  - `pulse-web-otel/graphify-out/graph.json`
+
+### Test run reporting
+- Prefer CI logs + PR description for gate results; optional local notes in `pulse-web-otel/progress.txt` if your team uses Ralph loops.

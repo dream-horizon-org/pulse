@@ -11,6 +11,7 @@ import {
   mergeJetifierIgnorelistForNetByteBuddy,
   type GradlePropertiesItem,
 } from './androidJetifierGradlePropertiesMerge';
+import { mergeKotlin19CompatFlag } from './androidKotlin19CompatGradlePropertiesMerge';
 import {
   mergePulseOkHttpAppGradle,
   mergePulseOkHttpByteBuddyClasspath,
@@ -98,4 +99,22 @@ export const withAndroidBuildFeatures: ConfigPlugin<ResolvedOkHttpGradle> = (
     config = withPulseAppBuildGradle(config, okHttp);
   }
   return config;
+};
+
+/**
+ * Writes `PulseReactNativeOtel_kotlin19Compat=true` into `android/gradle.properties` so the SDK's
+ * Gradle constraints block (which caps transitive Kotlin runtime artifacts to 1.9-compatible
+ * versions) activates without consumers editing the file by hand. Removes the key when off.
+ */
+export const withAndroidKotlin19Compat: ConfigPlugin<boolean> = (
+  config,
+  enabled
+) => {
+  return withGradleProperties(config, (mod) => {
+    mod.modResults = mergeKotlin19CompatFlag(
+      mod.modResults as GradlePropertiesItem[],
+      enabled
+    ) as typeof mod.modResults;
+    return mod;
+  });
 };

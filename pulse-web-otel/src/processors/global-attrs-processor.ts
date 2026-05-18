@@ -3,10 +3,11 @@
 
 import type { Span, Context } from "@opentelemetry/api";
 import type { SpanProcessor, ReadableSpan } from "@opentelemetry/sdk-trace-web";
-import type { LogRecord, LogRecordProcessor } from "@opentelemetry/sdk-logs";
+import type { SdkLogRecord, LogRecordProcessor } from "@opentelemetry/sdk-logs";
 import type { SessionProvider } from "../session";
 import { getOrCreateInstallationId } from "../session";
 import type { PulseWebConfig } from "../config";
+import type { PulseAttributeValue } from "../types/attributes";
 import { computeAspectRatio } from "../resource";
 import { PulseWebSemconv } from "../semconv";
 
@@ -21,6 +22,32 @@ function getNetworkConnection(): NetworkConnection {
   if (typeof navigator === "undefined") return {};
   const nav = navigator as unknown as { connection?: NetworkConnection };
   return nav.connection ?? {};
+}
+
+/**
+ * Heuristics for path segments treated as dynamic IDs in **web** URL normalization
+ * (`sanitizeHttpUrl` → `normalizeUrlPath` in `network-http.ts`).
+ *
+ * **Android divergence:** Android `PulseNetworkingUtils.redactUrl` treats numeric
+ * segments as IDs only when they have **at least 3 digits**; web treats **any**
+ * all-digit segment (including `42`, `2024`) as `:id`. Documented in
+ * `docs/instrumentations/network/SPEC.md` §8 (D2, D5).
+ */
+export function isDynamicSegment(seg: string): boolean {
+  // Pure integers: 1, 42, 123, 2024 — web normalizes all (Android uses ≥3 digits).
+  if (/^\d+$/.test(seg)) return true;
+  // Standard UUID v4 (with dashes): 550e8400-e29b-41d4-a716-446655440000
+  if (
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(seg)
+  )
+    return true;
+  // UUID without dashes (32 hex chars): 550e8400e29b41d4a716446655440000
+  if (/^[0-9a-f]{32}$/i.test(seg)) return true;
+  // MongoDB ObjectId (24 hex chars): 507f1f77bcf86cd799439011
+  if (/^[0-9a-f]{24}$/i.test(seg)) return true;
+  // ULID (26 Crockford base32 chars): 01ARZ3NDEKTSV4RRFFQ69G5FAV
+  if (/^[0-9a-hjkmnp-tv-zA-HJKMNP-TV-Z]{26}$/.test(seg)) return true;
+  return false;
 }
 
 function resolveScreenName(
@@ -45,30 +72,41 @@ function resolveScreenName(
     }
   }
 
-  // Heuristic: strip UUIDs and pure-number segments from path
+  // Heuristic: UUID / ULID / ObjectId / numeric segments → :id
   const segments = pathname.split("/").filter(Boolean);
-  const cleaned = segments.filter((seg) => {
-    // Remove UUID-like segments
+  const isUuidDashed = (seg: string): boolean =>
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(seg);
+  const isNumeric = (seg: string): boolean => /^\d+$/.test(seg);
+  /** MongoDB ObjectId (24 hex) or UUID without dashes (32 hex). */
+  const isHexObjectIdOr32 = (seg: string): boolean =>
+    /^[0-9a-f]{24}$/i.test(seg) || /^[0-9a-f]{32}$/i.test(seg);
+  /** ULID — 26 Crockford base32 characters. */
+  const isUlid = (seg: string): boolean =>
+    /^[0-9A-HJKMNP-TV-Z]{26}$/i.test(seg);
+
+  const mapped = segments.map((seg) => {
     if (
-      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-        seg,
-      )
+      isNumeric(seg) ||
+      isUuidDashed(seg) ||
+      isHexObjectIdOr32(seg) ||
+      isUlid(seg)
     ) {
-      return false;
+      return ":id";
     }
-    // Remove pure number segments
-    if (/^\d+$/.test(seg)) {
-      return false;
-    }
-    return true;
+    return seg;
   });
 
-  if (cleaned.length > 0) {
-    return "/" + cleaned.join("/");
+  if (mapped.length > 0) {
+    return "/" + mapped.join("/");
   }
 
   // Fall back to raw pathname
   return pathname || "/";
+}
+
+/** URL-derived `screen.name` for SPA History — no manual override (see screen-signals SPEC R3). */
+export function resolveScreenNameFromUrl(config: PulseWebConfig): string {
+  return resolveScreenName(null, config);
 }
 
 export class PulseGlobalAttributesProcessor
@@ -82,6 +120,14 @@ export class PulseGlobalAttributesProcessor
   private _userId: string | null = null;
   /** Android `setUserProperty` parity — stamped as `pulse.user.<key>`. */
   private _userProperties: Record<string, string> = {};
+
+  /** Pathname seen on last `getCommonAttrs` — drives `last.screen.name` when URL changes. */
+  private _trackedPathname: string | null = null;
+  /** Resolved `screen.name` for `_trackedPathname` (after that call's `getCurrentScreenName`). */
+  private _resolvedAtTrackedPathname = "";
+
+  /** One UUID per navigation (cold, SPA, BFCache); omitted from attrs when empty. */
+  private _navigationId = "";
 
   constructor(
     private readonly sessionProvider: SessionProvider,
@@ -101,6 +147,10 @@ export class PulseGlobalAttributesProcessor
     this.manualScreenName = name;
     this.manualScreenNamePath =
       typeof location !== "undefined" ? location.pathname : null;
+  }
+
+  setNavigationId(id: string): void {
+    this._navigationId = id;
   }
 
   /**
@@ -163,18 +213,28 @@ export class PulseGlobalAttributesProcessor
    * Public accessor used by the metric exporter wrapper so metric data points
    * receive the same global attributes as spans and logs.
    */
-  getCommonAttrsForMetrics(): Record<string, string | number | boolean> {
+  getCommonAttrsForMetrics(): Record<string, PulseAttributeValue> {
     return this.getCommonAttrs();
   }
 
-  private getCommonAttrs(): Record<string, string | number | boolean> {
+  private getCommonAttrs(): Record<string, PulseAttributeValue> {
     const sessionId = this.sessionProvider.getSessionId();
     const screenName = this.getCurrentScreenName();
+    const pathname =
+      typeof window !== "undefined" ? window.location.pathname : "";
+
+    let lastScreenNameForAttrs: string | undefined;
+    if (this._trackedPathname !== null && this._trackedPathname !== pathname) {
+      lastScreenNameForAttrs = this._resolvedAtTrackedPathname;
+    }
+    this._resolvedAtTrackedPathname = screenName;
+    this._trackedPathname = pathname;
+
     const network = getNetworkConnection();
 
     const installationId = getOrCreateInstallationId();
-    const attrs: Record<string, string | number | boolean> = {
-      "session.id": sessionId,
+    const attrs: Record<string, PulseAttributeValue> = {
+      [PulseWebSemconv.AttributeKey.SESSION_ID]: sessionId,
       "window.id": this.sessionProvider.getWindowId(),
       "installation.id": installationId,
       "app.installation.id": installationId,
@@ -183,6 +243,15 @@ export class PulseGlobalAttributesProcessor
       "pulse.metering.session.id": this.meteringSessionId,
       platform: "web",
     };
+
+    if (this._navigationId !== "") {
+      attrs[PulseWebSemconv.AttributeKey.NAVIGATION_ID] = this._navigationId;
+    }
+
+    if (lastScreenNameForAttrs !== undefined) {
+      attrs[PulseWebSemconv.AttributeKey.LAST_SCREEN_NAME] =
+        lastScreenNameForAttrs;
+    }
 
     if (typeof window !== "undefined") {
       attrs["url.path"] = window.location.pathname;
@@ -199,16 +268,11 @@ export class PulseGlobalAttributesProcessor
       attrs["network.downlink"] = network.downlink;
     }
 
-    // Inject global attributes from config (span attributes: primitives only here)
+    // Inject global attributes from config (span attributes — primitives + homogenous arrays)
     if (this.config.globalAttributes) {
       for (const [key, value] of Object.entries(this.config.globalAttributes)) {
-        if (
-          typeof value === "string" ||
-          typeof value === "number" ||
-          typeof value === "boolean"
-        ) {
-          attrs[key] = value;
-        }
+        if (value === undefined) continue;
+        attrs[key] = value;
       }
     }
 
@@ -235,16 +299,17 @@ export class PulseGlobalAttributesProcessor
     // No-op: attributes set on start
   }
 
-  onEmit(logRecord: LogRecord): void {
+  onEmit(logRecord: SdkLogRecord): void {
     const attrs = this.getCommonAttrs();
+    const sessionIdAttr = PulseWebSemconv.AttributeKey.SESSION_ID;
     for (const [key, value] of Object.entries(attrs)) {
       // Do not overwrite session.id if the instrumentation already set it explicitly.
       // session.start / session.end log records set the correct session.id themselves;
       // overwriting them with the post-rotation value from getSessionId() would corrupt
       // the session.end record (it would carry the NEW session.id instead of the old one).
-      if (key === "session.id") {
+      if (key === sessionIdAttr) {
         const existing = logRecord.attributes
-          ? (logRecord.attributes as Record<string, unknown>)["session.id"]
+          ? (logRecord.attributes as Record<string, unknown>)[sessionIdAttr]
           : undefined;
         if (existing !== undefined && existing !== "") continue;
       }

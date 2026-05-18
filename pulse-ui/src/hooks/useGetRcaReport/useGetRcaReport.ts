@@ -66,9 +66,10 @@ function buildProjectHeaders(projectId: string): Record<string, string> {
 function buildPostBody(
   entityKey: string,
   date: string | null | undefined,
+  rcaType: string,
 ): { rcaType: string; entityKey: string; date?: string } {
   const body: { rcaType: string; entityKey: string; date?: string } = {
-    rcaType: RCA_TYPE.INTERACTION,
+    rcaType,
     entityKey,
   };
   if (isValidRcaDateParam(date)) {
@@ -81,6 +82,7 @@ async function requestRcaReportPost(
   entityKey: string,
   date: string | null | undefined,
   projectId: string,
+  rcaType: string,
 ): Promise<ApiResponse<RcaReportResponse | RcaJobResponse>> {
   const apiBaseUrl = getApiBaseUrl();
   const url = `${apiBaseUrl}${POST_RCA_REPORT_ROUTE.apiPath}`;
@@ -89,7 +91,7 @@ async function requestRcaReportPost(
     url,
     init: {
       method: POST_RCA_REPORT_ROUTE.method,
-      body: JSON.stringify(buildPostBody(entityKey, date)),
+      body: JSON.stringify(buildPostBody(entityKey, date, rcaType)),
       headers,
     },
     unwrapped: true,
@@ -119,9 +121,10 @@ async function requestRcaStatusGet(
   entityKey: string,
   date: string | null | undefined,
   projectId: string,
+  rcaType: string,
 ): Promise<ApiResponse<RcaJobResponse>> {
   const apiBaseUrl = getApiBaseUrl();
-  const url = `${apiBaseUrl}${GET_RCA_STATUS_ROUTE.apiPath(entityKey, date)}`;
+  const url = `${apiBaseUrl}${GET_RCA_STATUS_ROUTE.apiPath(entityKey, rcaType, date)}`;
   const headers = buildProjectHeaders(projectId);
   return makeRequest<RcaJobResponse>({
     url,
@@ -191,6 +194,7 @@ function normalizeJobPayload(
  * Fetches the AI-generated RCA report for an entity.
  * POST /v1/ai/rca/report; on 202 polls GET /v1/ai-rca/job/{jobId} until
  * COMPLETED or FAILED. On 200 returns cached report immediately.
+ * While showing a completed report, polls GET /v1/ai-rca/report (peek: rcaType, entityKey, date).
  *
  * - **`retry`**: Clears the active job poll (if any), resets local job id, and invalidates the
  *   initial POST query so a new RCA flow starts (use after FAILED or to force a fresh POST).
@@ -198,6 +202,7 @@ function normalizeJobPayload(
 export function useGetRcaReport({
   entityKey,
   date,
+  rcaType = RCA_TYPE.INTERACTION,
   enabled = true,
   projectId,
   requestSession = 0,
@@ -215,13 +220,14 @@ export function useGetRcaReport({
   useEffect(() => {
     setPollJobId(null);
     autoRetryCompletedMissRef.current = false;
-  }, [entityKey, date, trimmedProjectId, requestSession]);
+  }, [entityKey, date, rcaType, trimmedProjectId, requestSession]);
 
   const postReportQuery = useQuery({
     queryKey: [
       POST_RCA_REPORT_ROUTE.key,
       entityKey,
       date ?? null,
+      rcaType,
       trimmedProjectId,
       "post",
       requestSession,
@@ -240,7 +246,12 @@ export function useGetRcaReport({
           status: 400,
         };
       }
-      return requestRcaReportPost(entityKey, date ?? null, trimmedProjectId);
+      return requestRcaReportPost(
+        entityKey,
+        date ?? null,
+        trimmedProjectId,
+        rcaType,
+      );
     },
     enabled: baseEnabled && pollJobId === null,
     retry: false,
@@ -369,6 +380,7 @@ export function useGetRcaReport({
       GET_RCA_STATUS_ROUTE.key,
       entityKey,
       date ?? null,
+      rcaType,
       trimmedProjectId,
       "cache-stale-poll",
       requestSession,
@@ -385,7 +397,12 @@ export function useGetRcaReport({
           status: 400,
         };
       }
-      return requestRcaStatusGet(entityKey, date ?? null, trimmedProjectId);
+      return requestRcaStatusGet(
+        entityKey,
+        date ?? null,
+        trimmedProjectId,
+        rcaType,
+      );
     },
     enabled: baseEnabled && !!entityKey && hasDisplayableCompletedReport,
     refetchInterval: RCA_STALE_CACHE_POLL_MS,
@@ -480,6 +497,7 @@ export function useGetRcaReport({
         POST_RCA_REPORT_ROUTE.key,
         entityKey,
         date ?? null,
+        rcaType,
         trimmedProjectId,
         "post",
         requestSession,
@@ -492,6 +510,7 @@ export function useGetRcaReport({
     trimmedProjectId,
     entityKey,
     date,
+    rcaType,
     requestSession,
   ]);
 
@@ -506,6 +525,7 @@ export function useGetRcaReport({
           POST_RCA_REPORT_ROUTE.key,
           entityKey,
           date ?? null,
+          rcaType,
           trimmedProjectId,
           "post",
           requestSession,
@@ -513,7 +533,7 @@ export function useGetRcaReport({
       });
       setPollJobId(id);
     },
-    [queryClient, entityKey, date, trimmedProjectId, requestSession],
+    [queryClient, entityKey, date, rcaType, trimmedProjectId, requestSession],
   );
 
   const normalizedJobStatus =

@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
-import { PulseWeb } from "@dreamhorizon/pulse-web";
+import { Pulse } from "@dreamhorizonorg/pulse-web";
 import type { Product } from "../hooks/useProducts";
 
 interface Props {
@@ -21,8 +21,8 @@ export function ProductCard({ product, onAddToCart }: Props) {
         if (!e?.isIntersecting || visibleLogged.current) return;
         visibleLogged.current = true;
         ob.disconnect();
-        if (PulseWeb.isInitialized()) {
-          PulseWeb.trackEvent("product_item_visible", {
+        if (Pulse.isInitialized()) {
+          Pulse.trackEvent("product_item_visible", {
             product_id: product.id,
             product_name: product.name,
             item_visible: true,
@@ -117,9 +117,11 @@ export function ProductCard({ product, onAddToCart }: Props) {
             ${product.price.toFixed(2)}
           </span>
           <button
+            type="button"
+            data-testid="product-add-to-cart"
             onClick={() => {
               onAddToCart(product);
-              PulseWeb.trackEvent("add_to_cart", {
+              Pulse.trackEvent("add_to_cart", {
                 product_id: product.id,
                 product_name: product.name,
                 price: product.price,

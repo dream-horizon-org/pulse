@@ -2,7 +2,7 @@
 // Default wire format follows `ExporterConfig.useProtobuf` (JSON vs protobuf). Compression: off.
 // On real document unload, `prepareForDocumentUnload` swaps trace + log browser transports to
 // keepalive `fetch` (same pipeline as normal export); see `buildBrowserExportTransport`.
-// See: web-sdk-plan/v1/01-foundation/pipeline.md
+// See: docs/sdk-core/exporters-and-persistence/SPEC.md (OTLP exporters)
 
 import {
   WebTracerProvider,
@@ -168,11 +168,10 @@ export function createProviders(
     batchOptions,
   );
 
-  const tracerProvider = new WebTracerProvider({ resource });
-  for (const processor of spanProcessors) {
-    tracerProvider.addSpanProcessor(processor);
-  }
-  tracerProvider.addSpanProcessor(batchSpanProcessor);
+  const tracerProvider = new WebTracerProvider({
+    resource,
+    spanProcessors: [...spanProcessors, batchSpanProcessor],
+  });
 
   const baseLogExporter = new PulseBrowserLogExporter(
     { url: logsUrl, headers },
@@ -211,11 +210,10 @@ export function createProviders(
     batchOptions,
   );
 
-  const loggerProvider = new LoggerProvider({ resource });
-  for (const processor of logProcessors) {
-    loggerProvider.addLogRecordProcessor(processor);
-  }
-  loggerProvider.addLogRecordProcessor(batchLogProcessor);
+  const loggerProvider = new LoggerProvider({
+    resource,
+    processors: [...logProcessors, batchLogProcessor],
+  });
 
   const rawMetricExporter = createPulseBrowserMetricExporter(
     { url: metricsUrl, headers },
@@ -265,6 +263,8 @@ export function createProviders(
   }
 
   const prepareForDocumentUnload = (): void => {
+    // keepalive fetch survives JS context teardown regardless of async depth,
+    // unlike sendBeacon which must be called before the context is destroyed.
     innerTraceExporter.switchToKeepalive();
     baseLogExporter.switchToKeepalive();
   };

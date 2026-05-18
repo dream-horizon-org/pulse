@@ -1,5 +1,6 @@
 // M1: Session instrumentation — subscribes to SessionProvider events
 // and emits session.start / session.end log records.
+// See: docs/instrumentations/session/SPEC.md
 
 import { logs } from "@opentelemetry/api-logs";
 import type {
@@ -7,10 +8,14 @@ import type {
   PulseInstrumentation,
 } from "../instrumentation-registry";
 import type { SessionChangeEvent } from "../session";
+import {
+  PulseInstrumentationName,
+  PulseOtelLoggerScope,
+} from "../constants/pulse-otel-runtime";
 import { PulseWebSemconv } from "../semconv";
 
 export class SessionInstrumentation implements PulseInstrumentation {
-  readonly name = "session";
+  readonly name = PulseInstrumentationName.SESSION;
   private unsubscribe?: () => void;
 
   install(sdk: SdkContext): void {
@@ -19,14 +24,15 @@ export class SessionInstrumentation implements PulseInstrumentation {
     const logBodies = PulseWebSemconv.LogBody;
     this.unsubscribe = sdk.sessionProvider.onSessionChange(
       (event: SessionChangeEvent) => {
-        const logger = logs.getLogger("pulse-web-session");
+        const logger = logs.getLogger(PulseOtelLoggerScope.PULSE_WEB_SESSION);
         if (event.type === "start") {
           logger.emit({
             body: logBodies.SESSION_START,
             attributes: {
               [attributeKeys.PULSE_TYPE]: pulseTypes.SESSION_START,
               [attributeKeys.SESSION_ID]: event.newSessionId ?? "",
-              [attributeKeys.SESSION_PREVIOUS_ID]: event.previousSessionId ?? "",
+              [attributeKeys.SESSION_PREVIOUS_ID]:
+                event.previousSessionId ?? "",
               [attributeKeys.SESSION_START_REASON]: event.reason,
             },
           });

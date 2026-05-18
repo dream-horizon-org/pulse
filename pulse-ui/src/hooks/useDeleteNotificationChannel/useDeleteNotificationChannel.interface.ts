@@ -1,7 +1,7 @@
 import { ApiResponse } from "../../helpers/makeRequest";
 
 export type DeleteNotificationChannelRequest = {
-  notification_channel_id: number;
+  channelId: number;
 };
 
 export type DeleteNotificationChannelResponse = boolean;

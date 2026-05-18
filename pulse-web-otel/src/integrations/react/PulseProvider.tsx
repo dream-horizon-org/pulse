@@ -1,13 +1,13 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, type JSX } from "react";
-import { PulseWeb } from "../../sdk";
+import { Pulse } from "../../sdk";
 import type { PulseProviderProps } from "../../types/react";
 import { PulseErrorBoundary } from "./PulseErrorBoundary";
 
 export type { PulseProviderProps } from "../../types/react";
 
-export type PulseContextValue = typeof PulseWeb;
+export type PulseContextValue = typeof Pulse;
 
 const PulseContext = createContext<PulseContextValue | null>(null);
 PulseContext.displayName = "PulseContext";
@@ -18,8 +18,13 @@ PulseContext.displayName = "PulseContext";
 let providerMountCount = 0;
 
 /**
- * React bridge that calls {@link PulseWeb.start} exactly once on mount and
+ * React bridge that calls {@link Pulse.init} exactly once on mount and
  * exposes the SDK via context. Safe to render at the app root.
+ *
+ * **`shutdownOnUnmount`** defaults to **`false`** so unmounting a subtree does
+ * not tear down telemetry for the rest of the page; pass **`true`** only when
+ * you intend full SDK shutdown on last provider unmount (see
+ * {@link PulseProviderProps.shutdownOnUnmount}).
  *
  * SSR: the effect is skipped on the server; no browser APIs are touched.
  *
@@ -28,14 +33,15 @@ let providerMountCount = 0;
 export function PulseProvider({
   config,
   children,
-  shutdownOnUnmount = true,
+  shutdownOnUnmount = false,
+  errorBoundaryFallback,
 }: PulseProviderProps): JSX.Element {
   useEffect(() => {
     if (typeof window === "undefined") return;
 
     providerMountCount += 1;
-    if (!PulseWeb.isInitialized()) {
-      PulseWeb.start(config);
+    if (!Pulse.isInitialized()) {
+      Pulse.init(config);
     }
 
     return (): void => {
@@ -44,20 +50,22 @@ export function PulseProvider({
       // Defer: StrictMode re-mounts synchronously after cleanup in dev.
       // Only shutdown if no re-mount landed in the same task.
       queueMicrotask(() => {
-        if (providerMountCount === 0 && PulseWeb.isInitialized()) {
-          void PulseWeb.shutdown();
+        if (providerMountCount === 0 && Pulse.isInitialized()) {
+          void Pulse.shutdown();
         }
       });
     };
-    // config changes after first mount are intentionally ignored — PulseWeb
+    // config changes after first mount are intentionally ignored — Pulse
     // is a process-wide singleton, re-starting with a new config requires a
     // full unmount + remount.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
-    <PulseContext.Provider value={PulseWeb}>
-      <PulseErrorBoundary>{children}</PulseErrorBoundary>
+    <PulseContext.Provider value={Pulse}>
+      <PulseErrorBoundary fallback={errorBoundaryFallback}>
+        {children}
+      </PulseErrorBoundary>
     </PulseContext.Provider>
   );
 }

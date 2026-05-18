@@ -6,6 +6,7 @@ export const ISSUE_TYPES = {
   CRASHES: "crashes",
   ANRS: "anrs",
   NON_FATALS: "nonFatals",
+  WEB_VITALS: "webVitals",
 } as const;
 
 export type IssueType = (typeof ISSUE_TYPES)[keyof typeof ISSUE_TYPES];
@@ -22,6 +23,10 @@ export const GRAPH_CONFIGS = {
   [ISSUE_TYPES.NON_FATALS]: {
     title: "Non-Fatal Issues Trend",
     color: "#3b82f6", // Blue
+  },
+  [ISSUE_TYPES.WEB_VITALS]: {
+    title: "Web Vitals Trend",
+    color: "#10b981", // Emerald
   },
 };
 
