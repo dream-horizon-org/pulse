@@ -1,0 +1,76 @@
+# yaml-language-server: $schema=https://promptfoo.dev/config-schema.json
+# Multi-step agent scenarios (SCN-A to SCN-F)
+# SCN-A–E: tool-call-f1 threshold 1 (exact expected tool set).
+# SCN-F: javascript — duplicate list_session_replays calls (pagination) not expressible as set-F1.
+
+- description: "SCN-A — Explain top crash last week [scenario]"
+  vars:
+    prompt: "Explain our top crash from last week for project fancode."
+  assert:
+    - type: tool-call-f1
+      threshold: 1
+      metric: pulse_tool_calls_f1
+      value:
+        - list_app_vitals_crash_issues
+        - get_app_vitals_issue_summary
+        - get_app_vitals_issue_stack_traces
+
+- description: "SCN-B — Is interaction X regressing latency [scenario P]"
+  vars:
+    prompt: "Is the CheckoutFlow interaction regressing in latency and errors for project fancode? Compare the last 24 hours vs the previous 24 hours."
+  assert:
+    - type: tool-call-f1
+      threshold: 1
+      metric: pulse_tool_calls_f1
+      value:
+        - get_interaction_apdex_score
+        - get_interaction_error_rate
+
+- description: "SCN-C — RCA exists for monitored interaction [scenario P]"
+  vars:
+    prompt: "Does the PaymentFlow interaction have a root cause analysis in project fancode?"
+  assert:
+    - type: tool-call-f1
+      threshold: 1
+      metric: pulse_tool_calls_f1
+      value:
+        - list_interactions
+        - get_interaction_root_cause
+
+- description: "SCN-D — Heatmap zeros feature or permission [scenario P]"
+  vars:
+    prompt: "The heatmap for LoginScreen is showing zeros (or an error) in project fancode. Is this a feature flag issue or a permission problem?"
+  assert:
+    - type: tool-call-f1
+      threshold: 1
+      metric: pulse_tool_calls_f1
+      value:
+        - get_active_sdk_config
+        - get_heatmap_data
+
+- description: "SCN-E — Alert history read-only guardrail [scenario]"
+  vars:
+    prompt: "Check the latency alert for project fancode and tell me when it last fired."
+  assert:
+    - type: tool-call-f1
+      threshold: 1
+      metric: pulse_tool_calls_f1
+      value:
+        - list_alerts
+        - get_alert_evaluation_history
+
+- description: "SCN-F — Cursor pagination across sessions [scenario P]"
+  vars:
+    prompt: "List sessions for project fancode from the last hour in pages of 25. Show me the first two pages."
+  assert:
+    - type: javascript
+      value: |
+        const tc = context.providerResponse?.metadata?.toolCalls ?? [];
+        const called = tc.map(c => c.name ?? c.function?.name ?? '').filter(Boolean);
+        const mustNot = ['list_interactions', 'list_app_vitals_crash_issues'];
+        const violated = mustNot.filter(t => called.includes(t));
+        if (violated.length > 0) return { pass: false, score: 0, reason: 'must_not_pick: ' + violated.join(', ') };
+        const sessionCalls = called.filter(t => t === 'list_session_replays').length;
+        if (sessionCalls === 0) return { pass: false, score: 0, reason: 'list_session_replays never called' };
+        if (sessionCalls === 1) return { pass: false, score: 0.5, reason: 'list_session_replays called once — missing second page cursor call' };
+        return { pass: true, score: 1, reason: 'list_session_replays called ' + sessionCalls + ' times' };

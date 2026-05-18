@@ -1,0 +1,161 @@
+# yaml-language-server: $schema=https://promptfoo.dev/config-schema.json
+# Category 3 — Semantic traps [P] (EVAL-026 to 037, EVAL-056 to 058)
+# tool-call-f1 threshold 1: exact expected tool multiset only.
+
+- description: "EVAL-026 — RCA uses DB entity id (telegraphed) [semantic-trap]"
+  vars:
+    prompt: "Get the root cause analysis for the CheckoutFlow interaction in project fancode. The interaction entity ID is 42."
+  assert:
+    - type: tool-call-f1
+      threshold: 1
+      metric: pulse_tool_calls_f1
+      value:
+        - get_interaction_root_cause
+
+- description: "EVAL-027 — Apdex uses span name (telegraphed) [semantic-trap]"
+  vars:
+    prompt: "What's the Apdex score for the CheckoutFlow span in project fancode over the last 24 hours?"
+  assert:
+    - type: tool-call-f1
+      threshold: 1
+      metric: pulse_tool_calls_f1
+      value:
+        - get_interaction_apdex_score
+
+- description: "EVAL-028 — First/last seen crash requires eventName [semantic-trap]"
+  vars:
+    prompt: "When was crash group G123 first and last seen in project fancode?"
+  assert:
+    - type: tool-call-f1
+      threshold: 1
+      metric: pulse_tool_calls_f1
+      value:
+        - get_app_vitals_exception_first_last_seen
+
+- description: "EVAL-029 — ANR first/last seen requires eventName [semantic-trap]"
+  vars:
+    prompt: "Show me the first and last occurrence timestamps for ANR group A456 in project fancode."
+  assert:
+    - type: tool-call-f1
+      threshold: 1
+      metric: pulse_tool_calls_f1
+      value:
+        - get_app_vitals_exception_first_last_seen
+
+- description: "EVAL-030 — Heatmap 403 is feature flag not auth [semantic-trap]"
+  vars:
+    prompt: "Why is the heatmap for HomeScreen showing an error in project fancode?"
+  assert:
+    - type: tool-call-f1
+      threshold: 1
+      metric: pulse_tool_calls_f1
+      value:
+        - get_active_sdk_config
+        - get_heatmap_data
+
+- description: "EVAL-031 — Session listing both-or-neither time rule [semantic-trap]"
+  vars:
+    prompt: "List sessions from the past week for project fancode."
+  assert:
+    - type: tool-call-f1
+      threshold: 1
+      metric: pulse_tool_calls_f1
+      value:
+        - list_session_replays
+
+- description: "EVAL-032 — RCA must not use span name (telegraphed) [semantic-trap]"
+  vars:
+    prompt: "Run root cause analysis on the PaymentFlow interaction in project fancode. Here are the interactions: [id=7, name=PaymentFlow]."
+  assert:
+    - type: tool-call-f1
+      threshold: 1
+      metric: pulse_tool_calls_f1
+      value:
+        - get_interaction_root_cause
+
+- description: "EVAL-033 — alert_metrics scope required [semantic-trap]"
+  vars:
+    prompt: "List metrics I can use for alert conditions in project fancode."
+  assert:
+    - type: tool-call-f1
+      threshold: 1
+      metric: pulse_tool_calls_f1
+      value:
+        - get_alert_scopes
+        - get_alert_metrics
+
+- description: "EVAL-034 — Journey vs funnel subsystem [semantic-trap]"
+  vars:
+    prompt: "Show me the steps in our onboarding journey in project fancode."
+  assert:
+    - type: tool-call-f1
+      threshold: 1
+      metric: pulse_tool_calls_f1
+      value:
+        - list_journeys
+        - get_journey
+
+- description: "EVAL-035 — Funnel vs interaction subsystem [semantic-trap]"
+  vars:
+    prompt: "Show me the steps in our checkout funnel for project fancode."
+  assert:
+    - type: tool-call-f1
+      threshold: 1
+      metric: pulse_tool_calls_f1
+      value:
+        - list_funnels
+        - get_funnel
+
+- description: "EVAL-036 — Session email from JWT not filter param [semantic-trap]"
+  vars:
+    prompt: "Show me sessions for user alice@example.com in project fancode."
+  assert:
+    - type: tool-call-f1
+      threshold: 1
+      metric: pulse_tool_calls_f1
+      value:
+        - list_session_replays
+
+- description: "EVAL-037 — Non-fatal first/last seen omits eventName correctly [semantic-trap]"
+  vars:
+    prompt: "When were non-fatal issue groups NF1 and NF2 first seen in project fancode?"
+  assert:
+    - type: tool-call-f1
+      threshold: 1
+      metric: pulse_tool_calls_f1
+      value:
+        - get_app_vitals_exception_first_last_seen
+
+# Category 3b — Untelegraphed [P] traps
+
+- description: "EVAL-056 — RCA routing without entity id hint (untelegraphed) [semantic-trap]"
+  vars:
+    prompt: "Get the root cause analysis for the CheckoutFlow interaction in project fancode."
+  assert:
+    - type: tool-call-f1
+      threshold: 1
+      metric: pulse_tool_calls_f1
+      value:
+        - list_interactions
+        - get_interaction_root_cause
+
+- description: "EVAL-057 — Apdex without span cue (untelegraphed) [semantic-trap]"
+  vars:
+    prompt: "What's the Apdex score for CheckoutFlow in project fancode over the last 24 hours?"
+  assert:
+    - type: tool-call-f1
+      threshold: 1
+      metric: pulse_tool_calls_f1
+      value:
+        - get_interaction_apdex_score
+
+- description: "EVAL-058 — RCA without structured hint (untelegraphed) [semantic-trap]"
+  vars:
+    prompt: "Run root cause analysis on the PaymentFlow interaction in project fancode."
+  assert:
+    - type: tool-call-f1
+      threshold: 1
+      metric: pulse_tool_calls_f1
+      value:
+        - list_interactions
+        - get_interaction_root_cause

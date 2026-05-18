@@ -1,0 +1,127 @@
+# yaml-language-server: $schema=https://promptfoo.dev/config-schema.json
+# Category 4 — Distractor traps (EVAL-038 to 047)
+# Default: tool-call-f1 threshold 1 (exact tool set).
+# Exceptions remain javascript:
+#   EVAL-040 — acceptable alternate tools + weighted preference
+#   EVAL-041 — zero tool calls acceptable (clarifying question)
+#   EVAL-042 — optional discovery tool + partial score
+
+- description: "EVAL-038 — Crash trends not interactions [distractor-trap]"
+  vars:
+    prompt: "Show me crash trends for project fancode."
+  assert:
+    - type: tool-call-f1
+      threshold: 1
+      metric: pulse_tool_calls_f1
+      value:
+        - list_app_vitals_crash_issues
+
+- description: "EVAL-039 — List alerts not alert history [distractor-trap]"
+  vars:
+    prompt: "List all alerts configured for project fancode."
+  assert:
+    - type: tool-call-f1
+      threshold: 1
+      metric: pulse_tool_calls_f1
+      value:
+        - list_alerts
+
+- description: "EVAL-040 — Search events vs list definitions [distractor-trap]"
+  vars:
+    prompt: "Search for events with 'purchase' in their name in project fancode."
+  assert:
+    - type: javascript
+      value: |
+        const tc = context.providerResponse?.metadata?.toolCalls ?? [];
+        const called = tc.map(c => c.name ?? c.function?.name ?? '').filter(Boolean);
+        const mustNot = ['get_event_definition'];
+        const violated = mustNot.filter(t => called.includes(t));
+        const hasSearchEvents = called.includes('search_events');
+        const hasListDefs = called.includes('list_event_definitions');
+        if (violated.length > 0) return { pass: false, score: 0, reason: 'must_not_pick: ' + violated.join(', ') };
+        if (!hasSearchEvents && !hasListDefs) return { pass: false, score: 0, reason: 'neither search_events nor list_event_definitions called' };
+        const score = hasSearchEvents ? 1.0 : 0.9;
+        return { pass: true, score, reason: 'called: ' + called.join(', ') };
+
+- description: "EVAL-041 — Error rate needs specific interaction [distractor-trap]"
+  vars:
+    prompt: "What is the overall error rate for project fancode?"
+  assert:
+    - type: javascript
+      value: |
+        const tc = context.providerResponse?.metadata?.toolCalls ?? [];
+        const called = tc.map(c => c.name ?? c.function?.name ?? '').filter(Boolean);
+        const expected = ['get_interaction_error_rate'];
+        const mustNot = ['list_app_vitals_nonfatal_issues', 'list_app_vitals_crash_issues'];
+        if (called.length === 0) return { pass: true, score: 1, reason: 'model asked clarifying question — acceptable for ambiguous prompt' };
+        const missing = expected.filter(t => !called.includes(t));
+        const violated = mustNot.filter(t => called.includes(t));
+        if (violated.length > 0) return { pass: false, score: 0, reason: 'must_not_pick: ' + violated.join(', ') };
+        if (missing.length > 0) return { pass: false, score: 0, reason: 'missing: ' + missing.join(', ') };
+        return { pass: true, score: 1, reason: 'called: ' + called.join(', ') };
+
+- description: "EVAL-042 — Sessions with crashes deliverable is sessions [distractor-trap]"
+  vars:
+    prompt: "Show me sessions from users who had crashes in project fancode."
+  assert:
+    - type: javascript
+      value: |
+        const tc = context.providerResponse?.metadata?.toolCalls ?? [];
+        const called = tc.map(c => c.name ?? c.function?.name ?? '').filter(Boolean);
+        const mustNot = ['list_interactions'];
+        const violated = mustNot.filter(t => called.includes(t));
+        if (violated.length > 0) return { pass: false, score: 0, reason: 'must_not_pick: ' + violated.join(', ') };
+        if (!called.includes('list_session_replays')) return { pass: false, score: 0, reason: 'list_session_replays not called' };
+        const score = called.includes('list_app_vitals_crash_issues') ? 0.9 : 1.0;
+        return { pass: true, score, reason: 'called: ' + called.join(', ') };
+
+- description: "EVAL-043 — User path is journeys not funnels [distractor-trap]"
+  vars:
+    prompt: "Show me the user path through the checkout flow in project fancode."
+  assert:
+    - type: tool-call-f1
+      threshold: 1
+      metric: pulse_tool_calls_f1
+      value:
+        - list_journeys
+        - get_journey
+
+- description: "EVAL-044 — Active SDK config not list [distractor-trap]"
+  vars:
+    prompt: "What is the currently active SDK configuration for project fancode?"
+  assert:
+    - type: tool-call-f1
+      threshold: 1
+      metric: pulse_tool_calls_f1
+      value:
+        - get_active_sdk_config
+
+- description: "EVAL-045 — Non-fatal not crash or ANR [distractor-trap]"
+  vars:
+    prompt: "Show me non-fatal errors in project fancode."
+  assert:
+    - type: tool-call-f1
+      threshold: 1
+      metric: pulse_tool_calls_f1
+      value:
+        - list_app_vitals_nonfatal_issues
+
+- description: "EVAL-046 — Alert history for specific alert [distractor-trap]"
+  vars:
+    prompt: "Show me the evaluation history for alert ID alert-xyz in project fancode."
+  assert:
+    - type: tool-call-f1
+      threshold: 1
+      metric: pulse_tool_calls_f1
+      value:
+        - get_alert_evaluation_history
+
+- description: "EVAL-047 — SDK config version lookup [distractor-trap]"
+  vars:
+    prompt: "Show me SDK config version 3 for project fancode."
+  assert:
+    - type: tool-call-f1
+      threshold: 1
+      metric: pulse_tool_calls_f1
+      value:
+        - get_sdk_config

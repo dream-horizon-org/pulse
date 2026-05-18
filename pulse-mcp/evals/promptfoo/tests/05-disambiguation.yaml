@@ -1,0 +1,83 @@
+# yaml-language-server: $schema=https://promptfoo.dev/config-schema.json
+# Category 5 — Disambiguation (EVAL-048 to 055)
+# tool-call-f1 threshold 1: exact expected tool set only.
+
+- description: "EVAL-048 — Performance = apdex not RCA [disambiguation]"
+  vars:
+    prompt: "Get performance metrics for the HomeScreen span in project fancode."
+  assert:
+    - type: tool-call-f1
+      threshold: 1
+      metric: pulse_tool_calls_f1
+      value:
+        - get_interaction_apdex_score
+
+- description: "EVAL-049 — Crash detail with groupId = summary not list [disambiguation]"
+  vars:
+    prompt: "Show me detailed information about crash group G789 in project fancode."
+  assert:
+    - type: tool-call-f1
+      threshold: 1
+      metric: pulse_tool_calls_f1
+      value:
+        - get_app_vitals_issue_summary
+
+- description: "EVAL-050 — Trend over time not screen breakdown [disambiguation]"
+  vars:
+    prompt: "How has crash group G789 been trending over time in project fancode?"
+  assert:
+    - type: tool-call-f1
+      threshold: 1
+      metric: pulse_tool_calls_f1
+      value:
+        - get_app_vitals_issue_trend
+
+- description: "EVAL-051 — Screen breakdown not trend [disambiguation]"
+  vars:
+    prompt: "Which screens are most affected by crash group G789 in project fancode?"
+  assert:
+    - type: tool-call-f1
+      threshold: 1
+      metric: pulse_tool_calls_f1
+      value:
+        - get_app_vitals_issue_screen_breakdown
+
+- description: "EVAL-052 — List SDK config versions not active [disambiguation]"
+  vars:
+    prompt: "What SDK configuration versions are available for project fancode?"
+  assert:
+    - type: tool-call-f1
+      threshold: 1
+      metric: pulse_tool_calls_f1
+      value:
+        - list_sdk_configs
+
+- description: "EVAL-053 — Filter options vs telemetry filters [disambiguation]"
+  vars:
+    prompt: "What status values can I use to filter the interaction list in project fancode?"
+  assert:
+    - type: tool-call-f1
+      threshold: 1
+      metric: pulse_tool_calls_f1
+      value:
+        - get_interaction_filter_options
+
+- description: "EVAL-054 — List funnels with tag filter not get_funnel_tags [disambiguation]"
+  vars:
+    prompt: "Find funnels tagged with 'checkout' in project fancode."
+  assert:
+    - type: tool-call-f1
+      threshold: 1
+      metric: pulse_tool_calls_f1
+      value:
+        - list_funnels
+
+- description: "EVAL-055 — Monitored interactions vs suggested [disambiguation]"
+  vars:
+    prompt: "List all interactions being monitored for project fancode."
+  assert:
+    - type: tool-call-f1
+      threshold: 1
+      metric: pulse_tool_calls_f1
+      value:
+        - list_interactions

@@ -1,0 +1,115 @@
+# yaml-language-server: $schema=https://promptfoo.dev/config-schema.json
+# Category 2 — Multi-step chain (EVAL-016 to 025)
+# tool-call-f1 threshold 1: exact tool multiset must match (no extras).
+
+- description: "EVAL-016 — Top crash investigation [multi-step]"
+  vars:
+    prompt: "Explain our top crash from last week for project fancode."
+  assert:
+    - type: tool-call-f1
+      threshold: 1
+      metric: pulse_tool_calls_f1
+      value:
+        - list_app_vitals_crash_issues
+        - get_app_vitals_issue_summary
+        - get_app_vitals_issue_stack_traces
+
+- description: "EVAL-017 — Interaction regression check [multi-step]"
+  vars:
+    prompt: "Is the CheckoutFlow interaction regressing in terms of latency and errors for project fancode?"
+  assert:
+    - type: tool-call-f1
+      threshold: 1
+      metric: pulse_tool_calls_f1
+      value:
+        - get_interaction_apdex_score
+        - get_interaction_error_rate
+
+- description: "EVAL-018 — Sessions linked to a crash [multi-step]"
+  vars:
+    prompt: "Show me sessions from users who experienced the top payment crash in project fancode."
+  assert:
+    - type: tool-call-f1
+      threshold: 1
+      metric: pulse_tool_calls_f1
+      value:
+        - list_app_vitals_crash_issues
+        - list_session_replays
+
+- description: "EVAL-019 — Heatmap with feature gate check [multi-step]"
+  vars:
+    prompt: "Show me the heatmap for LoginScreen in project fancode, and tell me if the feature is enabled."
+  assert:
+    - type: tool-call-f1
+      threshold: 1
+      metric: pulse_tool_calls_f1
+      value:
+        - get_active_sdk_config
+        - get_heatmap_data
+
+- description: "EVAL-020 — Funnel conversion details [multi-step]"
+  vars:
+    prompt: "What is the conversion data for our onboarding funnel in project fancode?"
+  assert:
+    - type: tool-call-f1
+      threshold: 1
+      metric: pulse_tool_calls_f1
+      value:
+        - list_funnels
+        - get_funnel
+
+- description: "EVAL-021 — RCA for slowest interaction [multi-step]"
+  vars:
+    prompt: "Show me the root cause analysis for our slowest interaction in project fancode."
+  assert:
+    - type: tool-call-f1
+      threshold: 1
+      metric: pulse_tool_calls_f1
+      value:
+        - list_interactions
+        - get_interaction_root_cause
+
+- description: "EVAL-022 — Alert configuration review [multi-step]"
+  vars:
+    prompt: "Is the latency alert configured correctly for project fancode? Show me its recent evaluation history."
+  assert:
+    - type: tool-call-f1
+      threshold: 1
+      metric: pulse_tool_calls_f1
+      value:
+        - list_alerts
+        - get_alert_evaluation_history
+
+- description: "EVAL-023 — Alert metrics for a scope [multi-step]"
+  vars:
+    prompt: "What metrics can I alert on for interactions in project fancode?"
+  assert:
+    - type: tool-call-f1
+      threshold: 1
+      metric: pulse_tool_calls_f1
+      value:
+        - get_alert_scopes
+        - get_alert_metrics
+
+- description: "EVAL-024 — Crash-free session rate [multi-step]"
+  vars:
+    prompt: "What percentage of sessions were crash-free in project fancode last week?"
+  assert:
+    - type: tool-call-f1
+      threshold: 1
+      metric: pulse_tool_calls_f1
+      value:
+        - list_app_vitals_crash_issues
+        - get_app_vitals_user_session_totals
+
+- description: "EVAL-025 — Deep crash drill-down [multi-step]"
+  vars:
+    prompt: "For crash group G123 in project fancode, give me the summary, trend over time, and stack traces."
+  assert:
+    - type: tool-call-f1
+      threshold: 1
+      metric: pulse_tool_calls_f1
+      value:
+        - get_app_vitals_issue_summary
+        - get_app_vitals_issue_trend
+        - get_app_vitals_issue_stack_traces

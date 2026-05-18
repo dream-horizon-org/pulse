@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=https://promptfoo.dev/config-schema.json
+description: debug provider config shape
+
+providers:
+  - id: file://providers/gemini-adk-agent.mjs
+    config:
+      model: gemini-2.5-flash
+      mcp:
+        servers:
+          - command: node
+            args: ['dist/index.js']
+            name: pulse-mcp
+
+prompts:
+  - "{{prompt}}"
+
+tests:
+  - description: debug
+    vars:
+      prompt: "list projects"

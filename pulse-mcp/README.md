@@ -53,16 +53,21 @@ You should see stderr lines such as `Exchanging API key for tokens...`, `Authent
 
 **MCP Inspector — manual lane.** Use it to explore `tools/list`, schemas, and live calls against Pulse while developing the server.
 
-**Promptfoo — LLM eval scaffold.** Config lives under [`evals/promptfoo/`](evals/promptfoo/). It runs a tiny Gemini connectivity check only; natural-language tool-selection cases can be authored later from [`doc/task_3/16-eval-nl-prompts.md`](doc/task_3/16-eval-nl-prompts.md).
+**Promptfoo — NL tool-selection eval.** Config lives under [`evals/promptfoo/`](evals/promptfoo/). Before each run, **`yarn promptfoo:eval`** builds the server, connects with the official MCP client (`tools/list`), and writes **`evals/promptfoo/tools.generated.yaml`** (gitignored). The Gemini provider loads that file so tool **names / descriptions / schemas** stay aligned with the built server—no hand-maintained `tools.yaml`.
 
-- **Install deps with Yarn** (`yarn install`, then `yarn promptfoo:eval`).
+- **Build + codegen:** `yarn promptfoo:eval` runs `yarn build`, then `yarn generate:promptfoo-tools` (needs a reachable Pulse API for API-key exchange — same as starting MCP normally).
+- **Pulse API:** set `PULSE_BASE_URL` and `PULSE_API_KEY` for the codegen step (and for eval if you later add live tool execution).
+- **Model:** `GOOGLE_API_KEY` (Google AI Studio).
 - **Node:** same as [`package.json` `engines`](package.json) — **`promptfoo` enforces this** when you run `yarn promptfoo:eval`.
-- **Secrets:** set `GOOGLE_API_KEY` (Google AI Studio). Never commit keys.
+
+Additional cases live in tracked YAML under `evals/promptfoo/tests/`; authoring notes in [`doc/task_3/16-eval-nl-prompts.md`](doc/task_3/16-eval-nl-prompts.md).
 
 ```bash
 cd pulse-mcp
 yarn install
 export GOOGLE_API_KEY="your_gemini_key"
+export PULSE_BASE_URL="http://localhost:8080"
+export PULSE_API_KEY="pulse_mcp_your_personal_token"
 yarn promptfoo:eval
 ```
 

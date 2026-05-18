@@ -11,7 +11,8 @@
     "dev": "tsup --watch",
     "start": "node dist/index.js",
     "typecheck": "tsc --noEmit",
-    "promptfoo:eval": "promptfoo eval -c evals/promptfoo/promptfooconfig.yaml"
+    "generate:promptfoo-tools": "node scripts/generate-promptfoo-tools.mjs",
+    "promptfoo:eval": "yarn build && promptfoo eval -c evals/promptfoo/promptfooconfig.yaml"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.0",
@@ -19,10 +20,12 @@
     "zod": "^3.23.0"
   },
   "devDependencies": {
+    "@google/adk": "^1.1.0",
     "@types/node": "^20.0.0",
     "promptfoo": "^0.121.11",
     "tsup": "^8.4.0",
-    "typescript": "^5.4.0"
+    "typescript": "^5.4.0",
+    "yaml": "^2.9.0"
   },
   "engines": {
     "node": "^22.22.0"

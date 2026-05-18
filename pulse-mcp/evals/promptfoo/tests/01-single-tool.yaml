@@ -1,0 +1,154 @@
+# yaml-language-server: $schema=https://promptfoo.dev/config-schema.json
+# Category 1 — Single-tool, unambiguous (EVAL-001 to 015)
+# Grading: tool-call-f1 threshold 1 == multiset of called tools must match expected set
+# exactly (no missing tools, no extras, no distractors from prior rubric).
+
+- description: "EVAL-001 — List all projects [single]"
+  vars:
+    prompt: "List all the projects I have access to."
+  assert:
+    - type: tool-call-f1
+      threshold: 1
+      metric: pulse_tool_calls_f1
+      value:
+        - list_projects
+
+- description: "EVAL-002 — Get a specific project [single]"
+  vars:
+    prompt: "Get the details of project fancode."
+  assert:
+    - type: tool-call-f1
+      threshold: 1
+      metric: pulse_tool_calls_f1
+      value:
+        - get_project
+
+- description: "EVAL-003 — List project members [single]"
+  vars:
+    prompt: "Who are the members of project fancode and what are their roles?"
+  assert:
+    - type: tool-call-f1
+      threshold: 1
+      metric: pulse_tool_calls_f1
+      value:
+        - list_project_members
+
+- description: "EVAL-004 — List suggested interactions [single]"
+  vars:
+    prompt: "What interactions does Pulse AI suggest I should monitor for project fancode?"
+  assert:
+    - type: tool-call-f1
+      threshold: 1
+      metric: pulse_tool_calls_f1
+      value:
+        - list_suggested_interactions
+
+- description: "EVAL-005 — Interaction filter options [single]"
+  vars:
+    prompt: "What filter values are available for the interactions list in project fancode?"
+  assert:
+    - type: tool-call-f1
+      threshold: 1
+      metric: pulse_tool_calls_f1
+      value:
+        - get_interaction_filter_options
+
+- description: "EVAL-006 — Alert severity levels [single]"
+  vars:
+    prompt: "What alert severity levels are supported in project fancode?"
+  assert:
+    - type: tool-call-f1
+      threshold: 1
+      metric: pulse_tool_calls_f1
+      value:
+        - get_alert_severities
+
+- description: "EVAL-007 — Notification channels [single]"
+  vars:
+    prompt: "Show me the notification channels configured for alerts in project fancode."
+  assert:
+    - type: tool-call-f1
+      threshold: 1
+      metric: pulse_tool_calls_f1
+      value:
+        - list_alert_notification_channels
+
+- description: "EVAL-008 — SDK rules and feature flags [single]"
+  vars:
+    prompt: "What SDK rules and feature flags are available for project fancode?"
+  assert:
+    - type: tool-call-f1
+      threshold: 1
+      metric: pulse_tool_calls_f1
+      value:
+        - get_sdk_rules_features
+
+- description: "EVAL-009 — Event categories [single]"
+  vars:
+    prompt: "List all distinct event categories in project fancode."
+  assert:
+    - type: tool-call-f1
+      threshold: 1
+      metric: pulse_tool_calls_f1
+      value:
+        - list_event_categories
+
+- description: "EVAL-010 — Funnel tags [single]"
+  vars:
+    prompt: "What tags are used across funnels and journeys in project fancode?"
+  assert:
+    - type: tool-call-f1
+      threshold: 1
+      metric: pulse_tool_calls_f1
+      value:
+        - get_funnel_tags
+
+- description: "EVAL-011 — Events for funnel steps [single]"
+  vars:
+    prompt: "What events can I use when building funnel steps in project fancode?"
+  assert:
+    - type: tool-call-f1
+      threshold: 1
+      metric: pulse_tool_calls_f1
+      value:
+        - get_funnel_events
+
+- description: "EVAL-012 — Funnel filter fields [single]"
+  vars:
+    prompt: "What filter fields are available for funnel analysis in project fancode?"
+  assert:
+    - type: tool-call-f1
+      threshold: 1
+      metric: pulse_tool_calls_f1
+      value:
+        - get_funnel_filters
+
+- description: "EVAL-013 — Telemetry filter dimensions [single]"
+  vars:
+    prompt: "What telemetry dimensions like platform, app version, and OS version can I use to filter the dashboard in project fancode?"
+  assert:
+    - type: tool-call-f1
+      threshold: 1
+      metric: pulse_tool_calls_f1
+      value:
+        - get_interaction_telemetry_filters
+
+- description: "EVAL-014 — Alert scopes [single]"
+  vars:
+    prompt: "What entity types can I configure alerts on in project fancode?"
+  assert:
+    - type: tool-call-f1
+      threshold: 1
+      metric: pulse_tool_calls_f1
+      value:
+        - get_alert_scopes
+
+- description: "EVAL-015 — ANR list [single]"
+  vars:
+    prompt: "Show me ANR issues for project fancode."
+  assert:
+    - type: tool-call-f1
+      threshold: 1
+      metric: pulse_tool_calls_f1
+      value:
+        - list_app_vitals_anr_issues

@@ -104,7 +104,7 @@ const MetricsParams = {
 
 export function registerMetricsTools(server: McpServer): void {
   server.tool(
-    "get_apdex_score",
+    "get_interaction_apdex_score",
     "APDEX time series for one interaction span (POST performance-metric distribution, TIME_BUCKET + APDEX)",
     MetricsParams,
     async ({ projectId, interactionId, startTime, endTime, ...dims }) => {
@@ -142,7 +142,7 @@ export function registerMetricsTools(server: McpServer): void {
   );
 
   server.tool(
-    "get_error_rate",
+    "get_interaction_error_rate",
     "Error rate time series (TIME_BUCKET + ERROR_RATE) for one interaction span",
     MetricsParams,
     async ({ projectId, interactionId, startTime, endTime, ...dims }) => {
