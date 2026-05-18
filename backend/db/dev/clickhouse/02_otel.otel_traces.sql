@@ -48,6 +48,20 @@ CREATE TABLE IF NOT EXISTS otel.otel_traces
     GraphqlName        LowCardinality(String) MATERIALIZED ifNull(SpanAttributes['graphql.operation.name'], '')      CODEC(ZSTD(1)),
     ScreenName         LowCardinality(String) MATERIALIZED ifNull(SpanAttributes['screen.name'], '')                CODEC(ZSTD(1)),
 
+    ApdexScore           Float32                MATERIALIZED toFloat32OrZero(SpanAttributes['pulse.interaction.apdex_score'])         CODEC(ZSTD(1)),
+    UserCategory         LowCardinality(String) MATERIALIZED ifNull(SpanAttributes['pulse.interaction.user_category'], '')            CODEC(ZSTD(1)),
+    FrozenFrameCount     UInt32                 MATERIALIZED toUInt32OrZero(SpanAttributes['app.interaction.frozen_frame_count'])     CODEC(T64, ZSTD(1)),
+    SlowFrameCount       UInt32                 MATERIALIZED toUInt32OrZero(SpanAttributes['app.interaction.slow_frame_count'])       CODEC(T64, ZSTD(1)),
+    AnalysedFrameCount   UInt32                 MATERIALIZED toUInt32OrZero(SpanAttributes['app.interaction.analysed_frame_count'])   CODEC(T64, ZSTD(1)),
+    UnanalysedFrameCount UInt32                 MATERIALIZED toUInt32OrZero(SpanAttributes['app.interaction.unanalysed_frame_count']) CODEC(T64, ZSTD(1)),
+    HasCrashEvent        UInt8                  MATERIALIZED toUInt8(has(Events.Name, 'device.crash'))                                CODEC(T64, ZSTD(1)),
+    HasAnrEvent          UInt8                  MATERIALIZED toUInt8(has(Events.Name, 'device.anr'))                                  CODEC(T64, ZSTD(1)),
+    Net0Count            UInt16                 MATERIALIZED toUInt16(arrayCount(x -> x = 'network.0',  Events.Name))                 CODEC(T64, ZSTD(1)),
+    Net2xxCount          UInt16                 MATERIALIZED toUInt16(arrayCount(x -> x LIKE 'network.2%', Events.Name))              CODEC(T64, ZSTD(1)),
+    Net3xxCount          UInt16                 MATERIALIZED toUInt16(arrayCount(x -> x LIKE 'network.3%', Events.Name))              CODEC(T64, ZSTD(1)),
+    Net4xxCount          UInt16                 MATERIALIZED toUInt16(arrayCount(x -> x LIKE 'network.4%', Events.Name))              CODEC(T64, ZSTD(1)),
+    Net5xxCount          UInt16                 MATERIALIZED toUInt16(arrayCount(x -> x LIKE 'network.5%', Events.Name))              CODEC(T64, ZSTD(1)),
+
     INDEX idx_trace_id      TraceId           TYPE bloom_filter(0.001) GRANULARITY 1,
     INDEX idx_span_id       SpanId            TYPE bloom_filter(0.01)  GRANULARITY 1,
     INDEX idx_parent_span   ParentSpanId      TYPE bloom_filter(0.01)  GRANULARITY 1,
@@ -65,7 +79,8 @@ CREATE TABLE IF NOT EXISTS otel.otel_traces
     INDEX idx_http_method   HttpMethod        TYPE set(16)             GRANULARITY 1,
     INDEX idx_http_status   HttpStatusCode    TYPE minmax              GRANULARITY 1,
     INDEX idx_graphql_type  GraphqlType       TYPE set(8)              GRANULARITY 4,
-    INDEX idx_graphql_name  GraphqlName       TYPE bloom_filter(0.01)  GRANULARITY 4
+    INDEX idx_graphql_name  GraphqlName       TYPE bloom_filter(0.01)  GRANULARITY 4,
+    INDEX idx_user_category UserCategory      TYPE set(8)              GRANULARITY 4
 )
 ENGINE = MergeTree
 PARTITION BY toYYYYMMDD(Timestamp)
