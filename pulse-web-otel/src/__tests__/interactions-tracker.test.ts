@@ -81,6 +81,34 @@ describe("InteractionTracker", () => {
   });
 });
 
+describe("InteractionTracker — out-of-order timestamps (INT-P28)", () => {
+  it("step_b arrives with earlier timestamp than step_a → sorted before step_a → flow never completes → timeout terminal", () => {
+    // P28: SDK sorts events by timeInNano via sortedInsertLocalEvent.
+    // If step_b fires with a timestamp before step_a, it is inserted before step_a in the
+    // buffer. The sequence matcher then re-anchors on step_a (still waiting for step_b),
+    // but no second step_b arrives → the flow times out instead of completing.
+    vi.useFakeTimers();
+    const terminals: unknown[] = [];
+    const tracker = new InteractionTracker(cfg({ thresholdInMs: 50 }), {
+      onInteractionTerminal: (i) => terminals.push(i),
+    });
+
+    tracker.checkAndAdd({ name: "step_a", timeInNano: 2_000_000_000 }); // fires first (wall-clock)
+    tracker.checkAndAdd({ name: "step_b", timeInNano: 1_000_000_000 }); // earlier timestamp → sorted before step_a
+
+    // No completion terminal yet — matcher re-anchored on step_a, waiting for step_b
+    expect(terminals).toHaveLength(0);
+
+    vi.advanceTimersByTime(61); // past threshold (50ms + 10ms tick)
+
+    expect(terminals).toHaveLength(1);
+    const p = (terminals[0] as { props: Record<string, unknown> }).props;
+    expect(p[INTERACTION_PROP_KEYS.ERROR_TYPE]).toBe("timeout");
+    expect(p[INTERACTION_PROP_KEYS.IS_ERROR]).toBe(true);
+    tracker.destroy();
+  });
+});
+
 describe("InteractionTracker — first step never fired", () => {
   it("INT-P26: second step fires alone (first never sent) → no terminal emitted", () => {
     const terminals: unknown[] = [];
