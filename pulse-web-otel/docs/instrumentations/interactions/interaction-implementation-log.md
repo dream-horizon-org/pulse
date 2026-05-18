@@ -75,7 +75,7 @@ Fix plan reference: `interaction-fix.md` (do not edit).
 - `src/interactions/interaction-coordinator.ts`: Added `getRunningInteractions()` — flat-maps tracker statuses, filters `kind === "ongoing" && interaction === null` (mid-sequence only), maps to `{ id, name }`.
 - `src/interactions/interaction-feature.ts`: Added `getRunningInteractions()` with same gate guards as `addMarkerToAll`.
 - `src/instrumentations/interaction.ts`: Added `getRunningInteractions()` delegating to `feature`.
-- `src/processors/interaction-context-span-processor.ts` (new): `onStart` stamps NAMES/IDS on in-flight spans (skips `pulse.type=interaction`). `onEnd` reverse-feeds `screen_load`, `screen_session`, `network.*` span ends into `trackEvent`. Callbacks injected via `setGetRunning` / `setTrackEvent`; nulled on shutdown.
+- `src/processors/interaction-context-span-processor.ts` (new): `onStart` stamps NAMES/IDS on in-flight spans (skips `pulse.type=interaction`). `onEnd` reverse-feeds `screen_load`, `screen_session`, `network.*` span ends into `trackEvent(pulseType, spanAttrs, timeMs)` — passes **full ended-span attributes** as `PulseAttributes` (not `{}`). Callbacks injected via `setGetRunning` / `setTrackEvent`; nulled on shutdown.
 - `src/sdk.ts`: Added `interactionContextSpanProcessor` field; inserted in `spanProcessors` between `globalAttrsProcessor` and `filterProcessor`; wired callbacks after `registerAndInstall`; cleared in `shutdown`.
 - `src/__tests__/interaction-context-span-processor.test.ts` (new): 13 cases — 5 `onStart`, 6 `onEnd`, 2 lifecycle.
 - `src/__tests__/interactions-coordinator.test.ts`: 4 new `getRunningInteractions()` cases.
