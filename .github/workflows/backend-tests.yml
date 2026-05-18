@@ -46,9 +46,15 @@ jobs:
         uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684  # v4.2.3
         with:
           path: ~/.m2/repository
-          key: ${{ runner.os }}-maven-${{ hashFiles('backend/server/pom.xml') }}
+          key: ${{ runner.os }}-maven-${{ hashFiles('backend/server/pom.xml', 'backend/server/grouping/pom.xml') }}
           restore-keys: |
             ${{ runner.os }}-maven-
+
+      - name: Install pulse-grouping
+        # pulse-server depends on org.dreamhorizon:pulse-grouping:1.0-SNAPSHOT, which lives in
+        # the sibling grouping/ module and is not published to a remote repo. Install it to
+        # the local Maven cache first so the server build can resolve it.
+        run: mvn -f ./grouping/pom.xml -DskipTests -Dcheckstyle.skip=true install
 
       - name: Run tests with coverage
         run: mvn clean verify
