@@ -44,7 +44,5 @@ issues/
 # Ralph loop audit trail (same dir as package issues)
 progress.txt
 
-# Local test-coverage generators and source sheets (keep prd/Test Coverage CSV only)
+# Local test-coverage generator tooling (prd/Test Coverage CSV stays tracked)
 docs/scripts/
-docs/WEB-SDK Automated Test Coverage.csv
-docs/WEB-SDK Ui test List - WEB SDK Sucess metric.csv
