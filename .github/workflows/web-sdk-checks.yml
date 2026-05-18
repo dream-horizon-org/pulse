@@ -53,10 +53,28 @@ jobs:
       - name: Install dependencies
         run: yarn install --immutable
 
+      # Browsers live in ~/.cache/ms-playwright (~400MB). Cached across runs keyed on
+      # yarn.lock so Playwright version bumps invalidate the cache. On cache hit we only
+      # install OS deps (apt); Chromium is restored from cache. Both demos share the
+      # same @playwright/test version from the lockfile — one install is enough.
+      - name: Cache Playwright browsers
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: web-sdk-playwright-${{ runner.os }}-${{ hashFiles('pulse-web-otel/yarn.lock') }}
+          restore-keys: |
+            web-sdk-playwright-${{ runner.os }}-
+
       - name: Install Playwright browsers
         run: |
-          yarn workspace ecommerce-demo exec playwright install chromium --with-deps
-          yarn workspace nextjs-demo exec playwright install chromium --with-deps
+          if [ "${{ steps.playwright-cache.outputs.cache-hit }}" = 'true' ]; then
+            echo "Cache hit — installing OS deps only"
+            yarn workspace ecommerce-demo exec playwright install-deps chromium
+          else
+            echo "Cache miss — downloading Chromium + OS deps"
+            yarn workspace ecommerce-demo exec playwright install chromium --with-deps
+          fi
 
       - name: Run Web SDK PR checks
         run: bash scripts/ci-pr-checks.sh
