@@ -82,12 +82,15 @@ class ErrorAttributionRiskMathTest {
   }
 
   @Test
-  void passesTreatedPrevalence_phiZeroPointZeroFiveRequiresCeilSessions() {
+  void passesTreatedPrevalence_defaultPhiRequiresCeilSessions() {
     double phi = RootCauseConfig.DEFAULT_MIN_TREATED_PREVALENCE_FRACTION_IN_U;
     assertThat(phi).isEqualTo(0.001);
     assertThat(ErrorAttributionRiskMath.passesTreatedPrevalenceInUniverse(5L, 99_995L, phi))
         .isFalse();
-    assertThat(ErrorAttributionRiskMath.passesTreatedPrevalenceInUniverse(50L, 99_950L, phi))
+    // nu=100_000 → min treated = ceil(0.001 * 100_000) = 100
+    assertThat(ErrorAttributionRiskMath.passesTreatedPrevalenceInUniverse(99L, 99_901L, phi))
+        .isFalse();
+    assertThat(ErrorAttributionRiskMath.passesTreatedPrevalenceInUniverse(100L, 99_900L, phi))
         .isTrue();
     assertThat(ErrorAttributionRiskMath.passesTreatedPrevalenceInUniverse(1L, 10L, phi))
         .isTrue();
