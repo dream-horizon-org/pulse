@@ -51,9 +51,8 @@ export function glowBinCenterInOverlayPixels(
 }
 
 /**
- * Map API coordinates onto 0–1. Supports:
- * - Already normalized 0–1
- * - Percentage 0–100 or pixel ranges (any max > 1 → divide by per-axis max)
+ * API coordinates are already normalized (nx/ny). Values > 1 are intentional
+ * below-fold clicks — do not re-scale. clamp01 is applied at render time.
  */
 export function normalizedGlowXY(points: HeatmapGlowPoint[]): Array<{
   x: number;
@@ -61,18 +60,7 @@ export function normalizedGlowXY(points: HeatmapGlowPoint[]): Array<{
   weight: number;
 }> {
   if (!points.length) return [];
-  const maxX = Math.max(...points.map((p) => p.x));
-  const maxY = Math.max(...points.map((p) => p.y));
-  const scaleX = maxX > 1;
-  const scaleY = maxY > 1;
-  const denomX = scaleX ? Math.max(maxX, 1e-9) : 1;
-  const denomY = scaleY ? Math.max(maxY, 1e-9) : 1;
-
-  return points.map((p) => ({
-    x: clamp01(scaleX ? p.x / denomX : p.x),
-    y: clamp01(scaleY ? p.y / denomY : p.y),
-    weight: p.weight,
-  }));
+  return points.map((p) => ({ x: p.x, y: p.y, weight: p.weight }));
 }
 
 /**
