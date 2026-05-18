@@ -8,6 +8,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.dreamhorizon.pulseserver.service.configs.models.*;
+import org.dreamhorizon.pulseserver.service.configs.models.BatchProcessorConfig;
 
 @Data
 @Builder
@@ -37,6 +38,9 @@ public class PulseConfig {
     @NotNull
     @JsonProperty("features")
     private List<FeatureConfig> features;
+
+    @JsonProperty("batchConfig")
+    private BatchProcessorConfig batchConfig;
 
     @Data
     @Builder

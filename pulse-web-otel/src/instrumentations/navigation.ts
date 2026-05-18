@@ -304,6 +304,7 @@ export class NavigationInstrumentation implements PulseInstrumentation {
       );
 
       const spaSnapshot = this.captureDocSnapshot();
+      sdk.globalAttrsProcessor.setNavigationId(crypto.randomUUID());
       const spaSpan = sdk.tracer.startSpan(
         SPAN_SCREEN_LOAD,
         {
@@ -380,6 +381,7 @@ export class NavigationInstrumentation implements PulseInstrumentation {
     const sessionId = sdk.sessionProvider.getSessionId() ?? "";
     const snap = this.captureDocSnapshot();
 
+    sdk.globalAttrsProcessor.setNavigationId(crypto.randomUUID());
     const loadSpan = sdk.tracer.startSpan(
       SPAN_SCREEN_LOAD,
       {
@@ -572,6 +574,10 @@ export class NavigationInstrumentation implements PulseInstrumentation {
     if (typeof window === "undefined" || !document.readyState) {
       return;
     }
+
+    // Cold-route UUID before any deferred `load` callback — Web Vitals installs
+    // before Navigation; early TTFB/FCP must not emit without `navigation_id`.
+    sdk.globalAttrsProcessor.setNavigationId(crypto.randomUUID());
 
     const emitOnLoad = (): void => {
       this.onInitialLoadBound = undefined;

@@ -14,6 +14,11 @@ import {
   setUserId,
   waitForInteractionCount,
 } from "./interaction-test-helpers";
+import {
+  blockActiveConfigFetch,
+  minimalPulseSdkConfig,
+  seedPulseSdkConfig,
+} from "./test-sdk-config";
 
 async function expectNoInteractionSpans(
   captured: unknown[],
@@ -39,17 +44,17 @@ const MANUAL_FLOW = makeConfig({
 });
 
 test.describe("@M2 interactions e2e", () => {
-  test("single-event interaction emits success span", async ({ page, otlp }) => {
-    await seedInteractionConfig(
-      page,
-      [
-        makeConfig({
-          id: "single_event",
-          name: "Single Event",
-          events: [{ name: "single_event" }],
-        }),
-      ],
-    );
+  test("single-event interaction emits success span", async ({
+    page,
+    otlp,
+  }) => {
+    await seedInteractionConfig(page, [
+      makeConfig({
+        id: "single_event",
+        name: "Single Event",
+        events: [{ name: "single_event" }],
+      }),
+    ]);
     await gotoAndWaitInteractionInit(page);
     await emitEvent(page, "single_event");
 
@@ -64,19 +69,13 @@ test.describe("@M2 interactions e2e", () => {
     page,
     otlp,
   }) => {
-    await seedInteractionConfig(
-      page,
-      [
-        makeConfig({
-          id: "two_step",
-          name: "Two Step",
-          events: [
-            { name: "step_one" },
-            { name: "step_two" },
-          ],
-        }),
-      ],
-    );
+    await seedInteractionConfig(page, [
+      makeConfig({
+        id: "two_step",
+        name: "Two Step",
+        events: [{ name: "step_one" }, { name: "step_two" }],
+      }),
+    ]);
     await gotoAndWaitInteractionInit(page);
     await emitEvent(page, "step_one");
     await page.waitForTimeout(80);
@@ -116,6 +115,53 @@ test.describe("@M2 interactions e2e", () => {
       expectedConfigId("manual_checkout_flow"),
     );
     expect(getAttr(span.attributes, "pulse.interaction.is_error")).toBe(false);
+  });
+
+  /** INT-P09 — span events mirror completed steps (OTLP {@code Span.events}). */
+  test("three-step success span includes ordered step events between span start/end", async ({
+    page,
+    otlp,
+  }) => {
+    await seedInteractionConfig(page, [
+      makeConfig({
+        id: "int_p09_span_events",
+        name: "INT-P09 Span Events",
+        events: [
+          { name: "int_p09_a" },
+          { name: "int_p09_b" },
+          { name: "int_p09_c" },
+        ],
+        thresholdInMs: 900,
+      }),
+    ]);
+    await gotoAndWaitInteractionInit(page);
+    await emitEvent(page, "int_p09_a");
+    await page.waitForTimeout(35);
+    await emitEvent(page, "int_p09_b");
+    await page.waitForTimeout(35);
+    await emitEvent(page, "int_p09_c");
+
+    const span = await otlp.waitForSpan("interaction", 15_000);
+    expect(getAttr(span.attributes, "pulse.interaction.is_error")).toBe(false);
+    const rawEvents = span.events ?? [];
+    expect(rawEvents.length).toBeGreaterThanOrEqual(3);
+    const sorted = [...rawEvents].sort(
+      (a, b) => Number(a.timeUnixNano ?? "0") - Number(b.timeUnixNano ?? "0"),
+    );
+    const names = sorted
+      .map((e) => e.name)
+      .filter((n): n is string => typeof n === "string" && n.length > 0);
+    expect(names.slice(0, 3)).toEqual(["int_p09_a", "int_p09_b", "int_p09_c"]);
+
+    const startNs = Number(span.startTimeUnixNano);
+    const endNs = Number(span.endTimeUnixNano);
+    expect(Number.isFinite(startNs)).toBe(true);
+    expect(Number.isFinite(endNs)).toBe(true);
+    for (const ev of sorted.slice(0, 3)) {
+      const t = Number(ev.timeUnixNano);
+      expect(t).toBeGreaterThanOrEqual(startNs);
+      expect(t).toBeLessThanOrEqual(endNs);
+    }
   });
 
   test("ignored event does not break an in-flight interaction", async ({
@@ -169,21 +215,18 @@ test.describe("@M2 interactions e2e", () => {
     page,
     otlp,
   }) => {
-    await seedInteractionConfig(
-      page,
-      [
-        makeConfig({
-          id: "local_blacklisted",
-          name: "Local Blacklisted",
-          events: [
-            { name: "step_a" },
-            { name: "step_block", isBlacklisted: true },
-            { name: "step_b" },
-          ],
-          thresholdInMs: 500,
-        }),
-      ],
-    );
+    await seedInteractionConfig(page, [
+      makeConfig({
+        id: "local_blacklisted",
+        name: "Local Blacklisted",
+        events: [
+          { name: "step_a" },
+          { name: "step_block", isBlacklisted: true },
+          { name: "step_b" },
+        ],
+        thresholdInMs: 500,
+      }),
+    ]);
     await gotoAndWaitInteractionInit(page);
     await emitEvent(page, "step_a");
     await emitEvent(page, "step_block");
@@ -216,6 +259,13 @@ test.describe("@M2 interactions e2e", () => {
     expect(getAttr(span.attributes, "pulse.interaction.is_error")).toBe(true);
     expect(getAttr(span.attributes, "pulse.interaction.error.type")).toBe(
       "timeout",
+    );
+    // INT-P41 — error terminal uses Poor apdex band (parity with Android matcher).
+    expect(
+      Number(getAttr(span.attributes, "pulse.interaction.apdex_score")),
+    ).toBe(0);
+    expect(getAttr(span.attributes, "pulse.interaction.user_category")).toBe(
+      "Poor",
     );
   });
 
@@ -250,6 +300,12 @@ test.describe("@M2 interactions e2e", () => {
     expect(getAttr(span.attributes, "pulse.interaction.is_error")).toBe(true);
     expect(getAttr(span.attributes, "pulse.interaction.error.type")).toBe(
       "sequence_violation",
+    );
+    expect(
+      Number(getAttr(span.attributes, "pulse.interaction.apdex_score")),
+    ).toBe(0);
+    expect(getAttr(span.attributes, "pulse.interaction.user_category")).toBe(
+      "Poor",
     );
   });
 
@@ -299,23 +355,17 @@ test.describe("@M2 interactions e2e", () => {
   });
 
   test("apdex category Excellent", async ({ page, otlp }) => {
-    await seedInteractionConfig(
-      page,
-      [
-        makeConfig({
-          id: "apdex_excellent",
-          name: "Apdex Excellent",
-          events: [
-            { name: "ax_1" },
-            { name: "ax_2" },
-          ],
-          thresholdInMs: 1000,
-          uptimeLowerLimitInMs: 120,
-          uptimeMidLimitInMs: 240,
-          uptimeUpperLimitInMs: 420,
-        }),
-      ],
-    );
+    await seedInteractionConfig(page, [
+      makeConfig({
+        id: "apdex_excellent",
+        name: "Apdex Excellent",
+        events: [{ name: "ax_1" }, { name: "ax_2" }],
+        thresholdInMs: 1000,
+        uptimeLowerLimitInMs: 120,
+        uptimeMidLimitInMs: 240,
+        uptimeUpperLimitInMs: 420,
+      }),
+    ]);
     await gotoAndWaitInteractionInit(page);
     await emitEvent(page, "ax_1");
     await page.waitForTimeout(40);
@@ -325,29 +375,23 @@ test.describe("@M2 interactions e2e", () => {
     expect(getAttr(span.attributes, "pulse.interaction.user_category")).toBe(
       "Excellent",
     );
-    expect(Number(getAttr(span.attributes, "pulse.interaction.apdex_score"))).toBe(
-      1,
-    );
+    expect(
+      Number(getAttr(span.attributes, "pulse.interaction.apdex_score")),
+    ).toBe(1);
   });
 
   test("apdex category Good", async ({ page, otlp }) => {
-    await seedInteractionConfig(
-      page,
-      [
-        makeConfig({
-          id: "apdex_good",
-          name: "Apdex Good",
-          events: [
-            { name: "ag_1" },
-            { name: "ag_2" },
-          ],
-          thresholdInMs: 1000,
-          uptimeLowerLimitInMs: 120,
-          uptimeMidLimitInMs: 240,
-          uptimeUpperLimitInMs: 420,
-        }),
-      ],
-    );
+    await seedInteractionConfig(page, [
+      makeConfig({
+        id: "apdex_good",
+        name: "Apdex Good",
+        events: [{ name: "ag_1" }, { name: "ag_2" }],
+        thresholdInMs: 1000,
+        uptimeLowerLimitInMs: 120,
+        uptimeMidLimitInMs: 240,
+        uptimeUpperLimitInMs: 420,
+      }),
+    ]);
     await gotoAndWaitInteractionInit(page);
     await emitEvent(page, "ag_1");
     await page.waitForTimeout(180);
@@ -357,29 +401,25 @@ test.describe("@M2 interactions e2e", () => {
     expect(getAttr(span.attributes, "pulse.interaction.user_category")).toBe(
       "Good",
     );
-    const score = Number(getAttr(span.attributes, "pulse.interaction.apdex_score"));
+    const score = Number(
+      getAttr(span.attributes, "pulse.interaction.apdex_score"),
+    );
     expect(score).toBeGreaterThan(0);
     expect(score).toBeLessThan(1);
   });
 
   test("apdex category Average", async ({ page, otlp }) => {
-    await seedInteractionConfig(
-      page,
-      [
-        makeConfig({
-          id: "apdex_average",
-          name: "Apdex Average",
-          events: [
-            { name: "aa_1" },
-            { name: "aa_2" },
-          ],
-          thresholdInMs: 1200,
-          uptimeLowerLimitInMs: 120,
-          uptimeMidLimitInMs: 240,
-          uptimeUpperLimitInMs: 420,
-        }),
-      ],
-    );
+    await seedInteractionConfig(page, [
+      makeConfig({
+        id: "apdex_average",
+        name: "Apdex Average",
+        events: [{ name: "aa_1" }, { name: "aa_2" }],
+        thresholdInMs: 1200,
+        uptimeLowerLimitInMs: 120,
+        uptimeMidLimitInMs: 240,
+        uptimeUpperLimitInMs: 420,
+      }),
+    ]);
     await gotoAndWaitInteractionInit(page);
     await emitEvent(page, "aa_1");
     await page.waitForTimeout(320);
@@ -389,29 +429,25 @@ test.describe("@M2 interactions e2e", () => {
     expect(getAttr(span.attributes, "pulse.interaction.user_category")).toBe(
       "Average",
     );
-    const score = Number(getAttr(span.attributes, "pulse.interaction.apdex_score"));
+    const score = Number(
+      getAttr(span.attributes, "pulse.interaction.apdex_score"),
+    );
     expect(score).toBeGreaterThan(0);
     expect(score).toBeLessThan(1);
   });
 
   test("apdex category Poor", async ({ page, otlp }) => {
-    await seedInteractionConfig(
-      page,
-      [
-        makeConfig({
-          id: "apdex_poor",
-          name: "Apdex Poor",
-          events: [
-            { name: "ap_1" },
-            { name: "ap_2" },
-          ],
-          thresholdInMs: 1500,
-          uptimeLowerLimitInMs: 120,
-          uptimeMidLimitInMs: 240,
-          uptimeUpperLimitInMs: 420,
-        }),
-      ],
-    );
+    await seedInteractionConfig(page, [
+      makeConfig({
+        id: "apdex_poor",
+        name: "Apdex Poor",
+        events: [{ name: "ap_1" }, { name: "ap_2" }],
+        thresholdInMs: 1500,
+        uptimeLowerLimitInMs: 120,
+        uptimeMidLimitInMs: 240,
+        uptimeUpperLimitInMs: 420,
+      }),
+    ]);
     await gotoAndWaitInteractionInit(page);
     await emitEvent(page, "ap_1");
     await page.waitForTimeout(520);
@@ -421,9 +457,9 @@ test.describe("@M2 interactions e2e", () => {
     expect(getAttr(span.attributes, "pulse.interaction.user_category")).toBe(
       "Poor",
     );
-    expect(Number(getAttr(span.attributes, "pulse.interaction.apdex_score"))).toBe(
-      0,
-    );
+    expect(
+      Number(getAttr(span.attributes, "pulse.interaction.apdex_score")),
+    ).toBe(0);
   });
 
   test("complete_time nanos is consistent with span start/end nanos", async ({
@@ -484,6 +520,119 @@ test.describe("@M2 interactions e2e", () => {
     // SDK should still emit custom event logs when interaction feature is unavailable.
     await otlp.waitForLogByBody("checkout_step_3", 10_000);
   });
+
+  /** INT-P16 — remote {@code interaction} feature gate off (seeded SDK config). */
+  test("remote interaction feature gate off yields no interaction spans", async ({
+    page,
+    otlp,
+  }) => {
+    await blockActiveConfigFetch(page);
+    await seedPulseSdkConfig(
+      page,
+      minimalPulseSdkConfig({
+        version: 910,
+        features: [
+          {
+            featureName: "interaction",
+            sessionSampleRate: 0,
+            sdks: ["pulse_web_js"],
+            config: null,
+          },
+        ],
+      }),
+    );
+    await page.goto("/");
+    await otlp.waitForLog("session.start", 12_000);
+    await page.waitForTimeout(200);
+    otlp.reset();
+    await emitEvent(page, "checkout_step_1");
+    await emitEvent(page, "checkout_step_2");
+    await emitEvent(page, "checkout_step_3");
+    await expectNoInteractionSpans(
+      otlp.captured,
+      page.waitForTimeout.bind(page),
+    );
+  });
+
+  /** INT-P17 — local {@code instrumentations.interactions.enabled: false}. */
+  test("local interactions instrumentation disabled yields no interaction spans", async ({
+    page,
+    otlp,
+  }) => {
+    await seedInteractionConfig(page, [MANUAL_FLOW]);
+    await page.goto("/?pulse_interactions_enabled=0");
+    await otlp.waitForLog("session.start", 12_000);
+    await page.waitForTimeout(200);
+    otlp.reset();
+    await emitEvent(page, "checkout_step_1");
+    await emitEvent(page, "checkout_step_2");
+    await emitEvent(page, "checkout_step_3");
+    await expectNoInteractionSpans(
+      otlp.captured,
+      page.waitForTimeout.bind(page),
+    );
+  });
+
+  /** INT-P25 — coordinator cleared after shutdown; trackEvent does not revive flows. */
+  test("after Pulse.shutdown trackEvent does not emit interaction spans", async ({
+    page,
+    otlp,
+  }) => {
+    await seedInteractionConfig(page, [MANUAL_FLOW]);
+    await gotoAndWaitInteractionInit(page);
+    await page.evaluate(async () => {
+      const w = window as unknown as {
+        Pulse?: { shutdown?: () => Promise<void> };
+      };
+      await w.Pulse?.shutdown?.();
+    });
+    otlp.reset();
+    await emitEvent(page, "checkout_step_1");
+    await emitEvent(page, "checkout_step_2");
+    await emitEvent(page, "checkout_step_3");
+    await expectNoInteractionSpans(
+      otlp.captured,
+      page.waitForTimeout.bind(page),
+    );
+  });
+
+  /** INT-P26 — orphan terminal step without sequence start. */
+  test("firing only second step of two-step flow emits no interaction span", async ({
+    page,
+    otlp,
+  }) => {
+    await seedInteractionConfig(page, [
+      makeConfig({
+        id: "orphan_second_step",
+        name: "Orphan Second Step",
+        events: [{ name: "orphan_1" }, { name: "orphan_2" }],
+        thresholdInMs: 800,
+      }),
+    ]);
+    await gotoAndWaitInteractionInit(page);
+    await emitEvent(page, "orphan_2");
+    await expectNoInteractionSpans(
+      otlp.captured,
+      page.waitForTimeout.bind(page),
+      1200,
+    );
+  });
+
+  /** INT-P35 — server returns empty definitions array. */
+  test("empty interaction config array yields no interaction spans", async ({
+    page,
+    otlp,
+  }) => {
+    await seedInteractionConfig(page, []);
+    await gotoAndWaitInteractionInit(page);
+    await otlp.waitForLog("session.start", 12_000);
+    otlp.reset();
+    await emitEvent(page, "ghost_flow_step");
+    await expectNoInteractionSpans(
+      otlp.captured,
+      page.waitForTimeout.bind(page),
+    );
+  });
 });
 
 test.describe("@M2 interactions edge cases", () => {
@@ -528,7 +677,9 @@ test.describe("@M2 interactions edge cases", () => {
           events: [
             {
               name: "props_event",
-              props: [{ name: "plan", value: op.expected, operator: op.operator }],
+              props: [
+                { name: "plan", value: op.expected, operator: op.operator },
+              ],
             },
           ],
         }),
@@ -537,7 +688,9 @@ test.describe("@M2 interactions edge cases", () => {
       await emitEvent(page, "props_event", { plan: op.pass });
 
       const span = await otlp.waitForSpan("interaction", 10_000);
-      expect(getAttr(span.attributes, "pulse.interaction.is_error")).toBe(false);
+      expect(getAttr(span.attributes, "pulse.interaction.is_error")).toBe(
+        false,
+      );
       expect(getAttr(span.attributes, "pulse.interaction.config.id")).toBe(
         expectedConfigId(`props_${op.operator.toLowerCase()}_ok`),
       );
@@ -554,7 +707,9 @@ test.describe("@M2 interactions edge cases", () => {
           events: [
             {
               name: "props_event",
-              props: [{ name: "plan", value: op.expected, operator: op.operator }],
+              props: [
+                { name: "plan", value: op.expected, operator: op.operator },
+              ],
             },
           ],
         }),
@@ -562,11 +717,16 @@ test.describe("@M2 interactions edge cases", () => {
       await gotoAndWaitInteractionInit(page);
       await emitEvent(page, "props_event", { plan: op.fail });
 
-      await expectNoInteractionSpans(otlp.captured, page.waitForTimeout.bind(page));
+      await expectNoInteractionSpans(
+        otlp.captured,
+        page.waitForTimeout.bind(page),
+      );
       // Prove the flow is active and matcher can still emit a terminal on valid input.
       await emitEvent(page, "props_event", { plan: op.pass });
       const span = await otlp.waitForSpan("interaction", 10_000);
-      expect(getAttr(span.attributes, "pulse.interaction.is_error")).toBe(false);
+      expect(getAttr(span.attributes, "pulse.interaction.is_error")).toBe(
+        false,
+      );
     });
   }
 
@@ -597,7 +757,10 @@ test.describe("@M2 interactions edge cases", () => {
     );
   });
 
-  test("middle step present in order allows success", async ({ page, otlp }) => {
+  test("middle step present in order allows success", async ({
+    page,
+    otlp,
+  }) => {
     await seedInteractionConfig(page, [
       makeConfig({
         id: "optional_present_success",
@@ -626,18 +789,12 @@ test.describe("@M2 interactions edge cases", () => {
       makeConfig({
         id: "overlap_a",
         name: "Overlap A",
-        events: [
-          { name: "start" },
-          { name: "finish_a" },
-        ],
+        events: [{ name: "start" }, { name: "finish_a" }],
       }),
       makeConfig({
         id: "overlap_b",
         name: "Overlap B",
-        events: [
-          { name: "start" },
-          { name: "finish_b" },
-        ],
+        events: [{ name: "start" }, { name: "finish_b" }],
       }),
     ]);
     await gotoAndWaitInteractionInit(page);
@@ -654,7 +811,8 @@ test.describe("@M2 interactions edge cases", () => {
     expect(configIds).toContain(expectedConfigId("overlap_b"));
     expect(
       spans.every(
-        (span) => getAttr(span.attributes, "pulse.interaction.is_error") === false,
+        (span) =>
+          getAttr(span.attributes, "pulse.interaction.is_error") === false,
       ),
     ).toBe(true);
   });
@@ -667,10 +825,7 @@ test.describe("@M2 interactions edge cases", () => {
       makeConfig({
         id: "timestamp_order",
         name: "Timestamp Order",
-        events: [
-          { name: "ts_a" },
-          { name: "ts_b" },
-        ],
+        events: [{ name: "ts_a" }, { name: "ts_b" }],
         thresholdInMs: 700,
       }),
     ]);
@@ -694,10 +849,7 @@ test.describe("@M2 interactions edge cases", () => {
       makeConfig({
         id: "restart_after_violation",
         name: "Restart After Violation",
-        events: [
-          { name: "first" },
-          { name: "second" },
-        ],
+        events: [{ name: "first" }, { name: "second" }],
       }),
     ]);
     await gotoAndWaitInteractionInit(page);
@@ -737,10 +889,7 @@ test.describe("@M2 interactions edge cases", () => {
       makeConfig({
         id: "multi_blacklist",
         name: "Multi Blacklist",
-        events: [
-          { name: "step_1" },
-          { name: "step_2" },
-        ],
+        events: [{ name: "step_1" }, { name: "step_2" }],
         globalBlacklistedEvents: ["blacklist_event"],
       }),
     ]);
@@ -767,10 +916,7 @@ test.describe("@M2 interactions edge cases", () => {
       makeConfig({
         id: "valid_flow",
         name: "Valid Flow",
-        events: [
-          { name: "valid_a" },
-          { name: "valid_b" },
-        ],
+        events: [{ name: "valid_a" }, { name: "valid_b" }],
       }),
       { id: "invalid_missing_fields", events: [] },
     ]);
@@ -780,7 +926,10 @@ test.describe("@M2 interactions edge cases", () => {
     await emitEvent(page, "valid_a");
     await emitEvent(page, "valid_b");
 
-    await expectNoInteractionSpans(otlp.captured, page.waitForTimeout.bind(page));
+    await expectNoInteractionSpans(
+      otlp.captured,
+      page.waitForTimeout.bind(page),
+    );
     // Guard against false positives: SDK must still emit normal custom events.
     await otlp.waitForLogByBody("valid_b", 10_000);
   });
@@ -793,10 +942,7 @@ test.describe("@M2 interactions edge cases", () => {
       makeConfig({
         id: "user_mid_flow",
         name: "User Mid Flow",
-        events: [
-          { name: "user_a" },
-          { name: "user_b" },
-        ],
+        events: [{ name: "user_a" }, { name: "user_b" }],
       }),
     ]);
     await gotoAndWaitInteractionInit(page);
@@ -817,10 +963,7 @@ test.describe("@M2 interactions edge cases", () => {
       makeConfig({
         id: "apdex_boundaries",
         name: "Apdex Boundaries",
-        events: [
-          { name: "apdex_a" },
-          { name: "apdex_b" },
-        ],
+        events: [{ name: "apdex_a" }, { name: "apdex_b" }],
         thresholdInMs: 1000,
         uptimeLowerLimitInMs: 120,
         uptimeMidLimitInMs: 240,
@@ -862,11 +1005,7 @@ test.describe("@M2 interactions edge cases", () => {
       makeConfig({
         id: "apdex_three_step",
         name: "Apdex Three Step",
-        events: [
-          { name: "a1" },
-          { name: "a2" },
-          { name: "a3" },
-        ],
+        events: [{ name: "a1" }, { name: "a2" }, { name: "a3" }],
         thresholdInMs: 1200,
         uptimeLowerLimitInMs: 150,
         uptimeMidLimitInMs: 300,
@@ -912,21 +1051,13 @@ test.describe("@M2 interactions edge cases", () => {
       makeConfig({
         id: "branch_e123",
         name: "Branch E123",
-        events: [
-          { name: "e1" },
-          { name: "e2" },
-          { name: "e3" },
-        ],
+        events: [{ name: "e1" }, { name: "e2" }, { name: "e3" }],
         thresholdInMs: 5000,
       }),
       makeConfig({
         id: "branch_e125",
         name: "Branch E125",
-        events: [
-          { name: "e1" },
-          { name: "e2" },
-          { name: "e5" },
-        ],
+        events: [{ name: "e1" }, { name: "e2" }, { name: "e5" }],
         thresholdInMs: 5000,
       }),
     ]);

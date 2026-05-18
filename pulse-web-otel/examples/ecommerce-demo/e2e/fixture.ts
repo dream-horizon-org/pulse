@@ -3,14 +3,17 @@
  *
  * Every spec imports `test` and `expect` from here, NOT from @playwright/test directly.
  *
- * How it works:
- *   page.route('**\/v1\/{logs|traces|metrics}') intercepts every OTLP export call the
- *   browser makes, regardless of what endpointBaseUrl is configured. Each call is:
- *     1. Body decoded (gunzip → UTF-8 → JSON, with plain-JSON fallback)
- *     2. Stored in `captured`
- *     3. Responded to with 200 {"partialSuccess":{}} so the SDK doesn't retry
+ * **Default (mock ingest):** `page.route` matches OTLP paths (`/v1/logs`, `/v1/traces`, `/v1/metrics`) and intercepts exports. Each call is decoded, stored in `captured`, and fulfilled with 200 + empty
+ * export. Each call is decoded, stored in `captured`, and fulfilled with 200 + empty
+ * `partialSuccess` so the SDK does not retry. `waitFor*` helpers poll `captured`.
  *
- * The `waitFor*` helpers poll `captured` on a 100ms interval — no external server needed.
+ * **Real ingest (`E2E_REAL_OTLP=1` or `E2E_REAL_OTLP_INGEST=1`):** no OTLP interception —
+ * the browser posts to the configured collector (dev API keys → `http://localhost:4318`).
+ * Use for synthetic runs against a local OTEL collector + ClickHouse. Do **not** set this
+ * when running `e2e:web-sdk-gates` or specs that assert on `otlp.captured`.
+ *
+ * Optional: `E2E_STUB_ACTIVE_CONFIG=1` keeps the active-config 404 stub even in real OTLP
+ * mode (pulse-server down but collector up).
  */
 import {
   test as base,
@@ -20,6 +23,13 @@ import {
   type Route,
 } from "@playwright/test";
 import { gunzipSync } from "zlib";
+
+/** Real collector ingest — skips OTLP `page.route` capture. */
+export const E2E_REAL_OTLP_INGEST =
+  process.env["E2E_REAL_OTLP"] === "1" ||
+  process.env["E2E_REAL_OTLP_INGEST"] === "1";
+
+const E2E_STUB_ACTIVE_CONFIG = process.env["E2E_STUB_ACTIVE_CONFIG"] === "1";
 
 // ─── OTLP JSON types (minimal — add fields as needed) ────────────────────────
 
@@ -37,6 +47,7 @@ export interface OtlpAttr {
 export interface OtlpLogRecord {
   timeUnixNano?: string;
   severityText?: string;
+  severityNumber?: number;
   body?: { stringValue?: string };
   attributes: OtlpAttr[];
 }
@@ -47,6 +58,12 @@ export interface OtlpSpanStatus {
   message?: string;
 }
 
+/** OTLP span event (JSON/protobuf-json export). */
+export interface OtlpSpanEvent {
+  name?: string;
+  timeUnixNano?: string;
+}
+
 export interface OtlpSpan {
   traceId?: string;
   spanId?: string;
@@ -55,6 +72,8 @@ export interface OtlpSpan {
   startTimeUnixNano?: string;
   endTimeUnixNano?: string;
   attributes: OtlpAttr[];
+  /** Step markers etc. — present when SDK calls {@code Span.addEvent}. */
+  events?: OtlpSpanEvent[];
   status?: OtlpSpanStatus;
 }
 
@@ -102,14 +121,17 @@ export type CapturedRequest =
 
 // ─── Attribute helpers ────────────────────────────────────────────────────────
 
-/** Read a scalar attribute value by key. Returns undefined if not found. */
+/** Read an attribute value by key. Returns a string[] for arrayValue attributes, scalar otherwise. */
 export function getAttr(
   attrs: OtlpAttr[] | undefined,
   key: string,
-): string | number | boolean | undefined {
+): string | number | boolean | string[] | undefined {
   const a = (attrs ?? []).find((a) => a.key === key);
   if (!a) return undefined;
   const v = a.value;
+  if (v.arrayValue) {
+    return v.arrayValue.values.map((item) => item.stringValue ?? "");
+  }
   return v.stringValue ?? v.intValue ?? v.doubleValue ?? v.boolValue;
 }
 
@@ -429,12 +451,60 @@ export type OtlpFixture = {
   reset(): void;
 };
 
+function createRealOtlpFixture(page: Page): OtlpFixture {
+  const sleep = async (ms: number): Promise<void> => {
+    const capped = Math.min(Math.max(ms, 1_500), 20_000);
+    await page.waitForTimeout(capped);
+  };
+  const stubLog = { attributes: [] } as OtlpLogRecord;
+  const stubSpan = { name: "", attributes: [] } as OtlpSpan;
+  const stubMetric = { attributes: [] } as OtlpDataPoint;
+
+  return {
+    captured: [],
+    waitForLog: async (_t, ms = 8_000) => {
+      await sleep(ms);
+      return stubLog;
+    },
+    waitForClickLog: async (ms = 8_000) => {
+      await sleep(ms);
+      return stubLog;
+    },
+    waitForSpan: async (_t, ms = 8_000) => {
+      await sleep(ms);
+      return stubSpan;
+    },
+    waitForSpanByName: async (_n, ms = 8_000) => {
+      await sleep(ms);
+      return stubSpan;
+    },
+    waitForLogByBody: async (_b, ms = 8_000) => {
+      await sleep(ms);
+      return stubLog;
+    },
+    waitForMetric: async (_n, ms = 15_000) => {
+      await sleep(ms);
+      return stubMetric;
+    },
+    reset: () => {},
+  };
+}
+
 // ─── Fixture export ────────────────────────────────────────────────────────────
 
 export const test = base.extend<{ otlp: OtlpFixture }>({
   otlp: async ({ page }, use) => {
     const captured: CapturedRequest[] = [];
     await attachSendBeaconFetchShim(page);
+
+    if (E2E_REAL_OTLP_INGEST) {
+      if (E2E_STUB_ACTIVE_CONFIG) {
+        await attachDefaultSdkConfigStub(page);
+      }
+      await use(createRealOtlpFixture(page));
+      return;
+    }
+
     await attachDefaultSdkConfigStub(page);
     await attachOtlpCapture(page, captured);
 

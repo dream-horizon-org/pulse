@@ -67,7 +67,9 @@ public class MainApplication extends Launcher {
       new InteractionModule(),
       new HeatmapModule(),
       new QueryEngineModule(),
-      new EventDefinitionModule()
+      new EventDefinitionModule(),
+      new WebVitalsModule(),
+      new StackTraceArchiveModule()
     };
   }
 }

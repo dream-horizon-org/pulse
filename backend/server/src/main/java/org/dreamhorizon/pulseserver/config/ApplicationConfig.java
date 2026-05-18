@@ -21,7 +21,9 @@ public class ApplicationConfig {
    */
   public String dashboardBaseUrl;
 
-  /** Fallback when {@link #dashboardBaseUrl} is unset or blank after normalization. */
+  /**
+   * Fallback when {@link #dashboardBaseUrl} is unset or blank after normalization.
+   */
   public static final String DEFAULT_DASHBOARD_BASE_URL = "https://app.pulse-ux.com";
   public String serviceUrl;
   public Integer shutdownGracePeriod;
@@ -49,7 +51,9 @@ public class ApplicationConfig {
   public String devModeApiKey;
   public SessionReplayS3Config sessionReplayS3;
   public String replayApiBaseUrl;
-  /** S3 key prefix for heatmap screenshot JSON (ingestion default: heatmap-screenshots). */
+  /**
+   * S3 key prefix for heatmap screenshot JSON (ingestion default: heatmap-screenshots).
+   */
   public String heatmapScreenshotsS3Prefix;
   /**
    * When {@code bucket} is set, heatmap screenshot list/presign uses this bucket; otherwise session
@@ -59,9 +63,13 @@ public class ApplicationConfig {
    */
   public HeatmapS3Config heatmapS3;
 
-  /** Redis host for Kong plugin materialization (API key map, usage credits in Part B). */
+  /**
+   * Redis host for Kong plugin materialization (API key map, usage credits in Part B).
+   */
   public String redisHost;
-  /** Redis port for Kong plugin materialization. */
+  /**
+   * Redis port for Kong plugin materialization.
+   */
   public Integer redisPort;
 
   /**
@@ -69,8 +77,8 @@ public class ApplicationConfig {
    * This key is used when GOOGLE_OAUTH_ENABLED=false.
    */
   public String getDevModeApiKey() {
-    return devModeApiKey != null && !devModeApiKey.isBlank() 
-        ? devModeApiKey 
+    return devModeApiKey != null && !devModeApiKey.isBlank()
+        ? devModeApiKey
         : "default-project_devkey01";
   }
 
@@ -80,7 +88,7 @@ public class ApplicationConfig {
    * produce a double slash before {@code /projects/...}.
    *
    * @return {@code null} when the base URL is missing or blank (avoids the literal
-   *     {@code "null/projects/..."} that {@link String#format} would otherwise produce)
+   * {@code "null/projects/..."} that {@link String#format} would otherwise produce)
    */
   public String buildInteractionConfigFileUrl(String projectId) {
     if (interactionConfigUrl == null || interactionConfigUrl.isBlank()) {

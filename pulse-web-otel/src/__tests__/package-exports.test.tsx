@@ -11,11 +11,11 @@ import * as ReactExports from "../integrations/react/index";
 import * as ReactRouterExports from "../integrations/react/router";
 import packageJson from "../../package.json";
 
-vi.mock("next/navigation", () => ({
+vi.mock("next/navigation.js", () => ({
   usePathname: vi.fn(() => "/"),
   useSearchParams: vi.fn(() => new URLSearchParams()),
 }));
-vi.mock("next/router", () => ({
+vi.mock("next/router.js", () => ({
   useRouter: vi.fn(() => ({ events: { on: vi.fn(), off: vi.fn() } })),
 }));
 
@@ -60,6 +60,12 @@ describe("@dreamhorizonorg/pulse-web/react — export shape", () => {
 
   it("exports PulseRouterEvents from /react/router subpath", () => {
     expect(typeof ReactRouterExports.PulseRouterEvents).toBe("function");
+  });
+
+  it("exports PulseIntegrationErrorBoundary from /react/router subpath", () => {
+    expect(typeof ReactRouterExports.PulseIntegrationErrorBoundary).toBe(
+      "function",
+    );
   });
 
   it("exports PulseErrorBoundary from /react entrypoint", () => {
@@ -163,6 +169,10 @@ describe("@dreamhorizonorg/pulse-web/next — export shape", () => {
 
   it("exports PulseRouterEvents as a function", () => {
     expect(typeof NextExports.PulseRouterEvents).toBe("function");
+  });
+
+  it("re-exports PulseIntegrationErrorBoundary from /next", () => {
+    expect(typeof NextExports.PulseIntegrationErrorBoundary).toBe("function");
   });
 
   it("exports createPulseInstrumentationHandler as a function", () => {

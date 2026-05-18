@@ -42,7 +42,9 @@ CREATE TABLE IF NOT EXISTS otel.otel_logs
     `ViewportWidth`       UInt16                  MATERIALIZED toUInt16OrZero(LogAttributes['device.screen.width'])                                                    CODEC(ZSTD(1)),
     `ViewportHeight`      UInt16                  MATERIALIZED toUInt16OrZero(LogAttributes['device.screen.height'])                                                   CODEC(ZSTD(1)),
     `AspectRatio`         LowCardinality(String)  MATERIALIZED ifNull(LogAttributes['device.screen.aspect_ratio'], '')                                                 CODEC(ZSTD(1)),
-   
+    `WebVitalName`        LowCardinality(String)  MATERIALIZED ifNull(LogAttributes['web_vital.name'], '')                                                                CODEC(ZSTD(1)),
+    `WebVitalValue`       Float64                 MATERIALIZED toFloat64OrZero(LogAttributes['web_vital.value'])                                                         CODEC(ZSTD(1)),
+    `WebVitalRating`      LowCardinality(String)  MATERIALIZED ifNull(LogAttributes['web_vital.rating'], '')                                                            CODEC(ZSTD(1)),
 
     INDEX idx_trace_id      TraceId        TYPE bloom_filter(0.001) GRANULARITY 1,
     INDEX idx_session_id    SessionId      TYPE bloom_filter(0.001) GRANULARITY 1,
@@ -50,7 +52,8 @@ CREATE TABLE IF NOT EXISTS otel.otel_logs
     INDEX idx_app_installation_id AppInstallationId TYPE bloom_filter(0.01) GRANULARITY 1,
     INDEX idx_span_id       SpanId         TYPE bloom_filter(0.001) GRANULARITY 4,
     INDEX idx_severity_num  SeverityNumber TYPE set(32)              GRANULARITY 1,
-    INDEX idx_screen_name   ScreenName     TYPE bloom_filter(0.01)  GRANULARITY 1
+    INDEX idx_screen_name   ScreenName     TYPE bloom_filter(0.01)  GRANULARITY 1,
+    INDEX idx_web_vital_name WebVitalName  TYPE bloom_filter(0.01)  GRANULARITY 1
 )
 ENGINE = MergeTree
 PARTITION BY toYYYYMMDD(Timestamp)

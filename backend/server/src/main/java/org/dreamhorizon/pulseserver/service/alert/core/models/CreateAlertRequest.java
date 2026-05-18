@@ -24,7 +24,7 @@ public class CreateAlertRequest {
   Integer severity;
 
   @NotNull
-  Integer notificationChannelId;
+  Long channelEventMappingId;
 
   @NotNull
   String createdBy;

@@ -25,6 +25,11 @@ public class InteractionConfigRestFetcher(
 
     override suspend fun getConfigs(): List<InteractionConfig> {
         val url = urlProvider()
+        PulseLogger.logInfo(InteractionConstant.LOG_TAG) {
+            "interaction_config_fetch " +
+                "resolved_url=${PulseNetworkingUtils.redactUrl(url)} " +
+                "has_headers=${headers.isNotEmpty()}"
+        }
         return try {
             restClients
                 .getOrPut(url) {

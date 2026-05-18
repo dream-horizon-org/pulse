@@ -217,65 +217,8 @@ internal class SessionReplayMasker {
                 return
             }
 
-            let firstPass = self.computeMaskGeometry(window: window)
-            if firstPass.hasNilWindowFrameAmongTargets {
-                completion(nil)
-                return
-            }
-
-            if firstPass.maskRects.isEmpty && firstPass.viewsNeedingMaskCount == 0 {
-                if self.config.textAndInputPrivacy == .maskAll || self.config.imagePrivacy == .maskAll {
-                    completion(nil)
-                    return
-                }
-                self.enqueueUnmaskedScreenshotExport(window: window, windowBounds: windowBounds, scale: scale, completion: completion)
-                return
-            }
-
-            guard firstPass.masksValid else {
-                completion(nil)
-                return
-            }
-
-            if let drawFlagChecker = self.drawFlagChecker, drawFlagChecker() {
-                completion(nil)
-                return
-            }
-
-            let finalPass = self.computeMaskGeometry(window: window)
-            if finalPass.hasNilWindowFrameAmongTargets {
-                completion(nil)
-                return
-            }
-
-            guard finalPass.masksValid else {
-                completion(nil)
-                return
-            }
-
-            let maskRects = finalPass.maskRects
-
-            if maskRects.isEmpty && finalPass.viewsNeedingMaskCount == 0 {
-                if self.config.textAndInputPrivacy == .maskAll || self.config.imagePrivacy == .maskAll {
-                    completion(nil)
-                    return
-                }
-                self.enqueueUnmaskedScreenshotExport(window: window, windowBounds: windowBounds, scale: scale, completion: completion)
-                return
-            }
-
-            if let drawFlagChecker = self.drawFlagChecker, drawFlagChecker() {
-                completion(nil)
-                return
-            }
-
-            let scrollPositionBeforeCapture: CGFloat
-            if let scrollView = self.findScrollView(in: window) {
-                scrollPositionBeforeCapture = scrollView.contentOffset.y
-            } else {
-                scrollPositionBeforeCapture = 0
-            }
-
+            // Screenshot first, then single mask walk — both on main, same frame.
+            // Eliminates drift from pre-capture mask walks during SwiftUI/scroll animations.
             let screenshot = self.captureScreenshotSync(window: window, bounds: windowBounds)
 
             guard let screenshot = screenshot, screenshot.size.width > 0 && screenshot.size.height > 0 else {
@@ -284,16 +227,25 @@ internal class SessionReplayMasker {
                 return
             }
 
-            let scrollPositionAfterCapture: CGFloat
-            if let scrollView = self.findScrollView(in: window) {
-                scrollPositionAfterCapture = scrollView.contentOffset.y
-            } else {
-                scrollPositionAfterCapture = 0
+            let maskPass = self.computeMaskGeometry(window: window)
+            if maskPass.hasNilWindowFrameAmongTargets {
+                completion(nil)
+                return
             }
 
-            let scrollDelta = scrollPositionAfterCapture - scrollPositionBeforeCapture
-            if abs(scrollDelta) > 5.0 {
+            guard maskPass.masksValid else {
                 completion(nil)
+                return
+            }
+
+            let maskRects = maskPass.maskRects
+
+            if maskRects.isEmpty && maskPass.viewsNeedingMaskCount == 0 {
+                if self.config.textAndInputPrivacy == .maskAll || self.config.imagePrivacy == .maskAll {
+                    completion(nil)
+                    return
+                }
+                self.enqueueUnmaskedScreenshotExport(window: window, windowBounds: windowBounds, scale: scale, completion: completion)
                 return
             }
 

@@ -34,6 +34,8 @@ import org.dreamhorizon.pulseserver.config.OpenFgaConfig;
 import org.dreamhorizon.pulseserver.config.StartupConfigValidator;
 import org.dreamhorizon.pulseserver.config.RootCauseConfig;
 import org.dreamhorizon.pulseserver.constant.Constants;
+import org.dreamhorizon.pulseserver.errorgrouping.archive.StackTraceArchiveConfig;
+import org.dreamhorizon.pulseserver.errorgrouping.archive.StackTraceParquetFlushVerticle;
 import org.dreamhorizon.pulseserver.guice.GuiceInjector;
 import org.dreamhorizon.pulseserver.service.ai.impl.AiProxyServiceImpl;
 import org.dreamhorizon.pulseserver.service.notification.queue.NotificationWorker;
@@ -163,7 +165,8 @@ public class MainVerticle extends AbstractVerticle {
                 new DeploymentOptions().setInstances(getNumOfCores()))
         ).ignoreElement()
         .doOnComplete(this::startNotificationWorker)
-        .doOnComplete(this::initializeDevMode);
+        .doOnComplete(this::initializeDevMode)
+        .andThen(deployStackTraceArchiveFlushVerticle());
 
     if (Objects.equals(System.getenv("KAFKA_ENABLED"), "true")) {
       return completable
@@ -178,6 +181,15 @@ public class MainVerticle extends AbstractVerticle {
 
   private Integer getNumOfCores() {
     return CpuCoreSensor.availableProcessors();
+  }
+
+  private Completable deployStackTraceArchiveFlushVerticle() {
+    if (!StackTraceArchiveConfig.fromEnvironment().isEnabled()) {
+      return Completable.complete();
+    }
+    return vertx.rxDeployVerticle(StackTraceParquetFlushVerticle::new,
+            new DeploymentOptions().setInstances(1))
+        .ignoreElement();
   }
 
   private void startNotificationWorker() {

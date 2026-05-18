@@ -163,9 +163,7 @@ class AlertModelsTest {
           .evaluationPeriod(60)
           .evaluationInterval(300)
           .severityId(1)
-          .notificationChannelId(1)
-          .notificationType("slack")
-          .notificationConfig("http://webhook.url")
+          .channelEventMappingId(1L)
           .createdBy("user")
           .updatedBy("user")
           .createdAt(now)
@@ -186,9 +184,7 @@ class AlertModelsTest {
       assertEquals(60, dto.getEvaluationPeriod());
       assertEquals(300, dto.getEvaluationInterval());
       assertEquals(1, dto.getSeverityId());
-      assertEquals(1, dto.getNotificationChannelId());
-      assertEquals("slack", dto.getNotificationType());
-      assertEquals("http://webhook.url", dto.getNotificationConfig());
+      assertEquals(1L, dto.getChannelEventMappingId());
       assertEquals("user", dto.getCreatedBy());
       assertEquals("user", dto.getUpdatedBy());
       assertTrue(dto.getIsActive());
@@ -210,9 +206,7 @@ class AlertModelsTest {
       dto.setEvaluationPeriod(120);
       dto.setEvaluationInterval(600);
       dto.setSeverityId(2);
-      dto.setNotificationChannelId(2);
-      dto.setNotificationType("email");
-      dto.setNotificationConfig("team@example.com");
+      dto.setChannelEventMappingId(2L);
       dto.setCreatedBy("creator");
       dto.setUpdatedBy("updater");
       dto.setCreatedAt(now);
@@ -998,7 +992,7 @@ class AlertModelsTest {
     void shouldCreateWithAllArgs() {
       List<AlertConditionDto> alerts = new ArrayList<>();
       CreateAlertRequestDto dto = new CreateAlertRequestDto(
-          "Test Alert", "Description", 60, 300, 1, 1, "user", "user",
+          "Test Alert", "Description", 60, 300, 1, 1L, "user", "user",
           org.dreamhorizon.pulseserver.service.alert.core.models.AlertScope.interaction,
           "{}", "A && B", alerts
       );
@@ -1018,7 +1012,7 @@ class AlertModelsTest {
       dto.setEvaluationPeriod(120);
       dto.setEvaluationInterval(600);
       dto.setSeverity(2);
-      dto.setNotificationChannelId(2);
+      dto.setChannelEventMappingId(2L);
       dto.setCreatedBy("creator");
       dto.setUpdatedBy("updater");
       dto.setScope(org.dreamhorizon.pulseserver.service.alert.core.models.AlertScope.network_api);
@@ -1046,7 +1040,7 @@ class AlertModelsTest {
     void shouldCreateWithAllArgs() {
       List<AlertConditionDto> alerts = new ArrayList<>();
       UpdateAlertRequestDto dto = new UpdateAlertRequestDto(
-          1, "Test Alert", "Description", 60, 300, 1, 1, "user", "user",
+          1, "Test Alert", "Description", 60, 300, 1, 1L, "user", "user",
           org.dreamhorizon.pulseserver.service.alert.core.models.AlertScope.interaction,
           "{}", "A && B", alerts
       );
@@ -1065,7 +1059,7 @@ class AlertModelsTest {
       dto.setEvaluationPeriod(180);
       dto.setEvaluationInterval(900);
       dto.setSeverity(3);
-      dto.setNotificationChannelId(3);
+      dto.setChannelEventMappingId(3L);
       dto.setCreatedBy("creator");
       dto.setUpdatedBy("updater");
       dto.setScope(org.dreamhorizon.pulseserver.service.alert.core.models.AlertScope.screen);

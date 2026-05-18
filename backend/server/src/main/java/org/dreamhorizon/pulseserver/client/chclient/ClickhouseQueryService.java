@@ -270,6 +270,25 @@ public class ClickhouseQueryService implements IAnalyticalStoreClient<GetRawUser
   }
 
   /**
+   * Like {@link #executeGenericQueryWithGlobalPool} but binds parameters via {@code :name} placeholders
+   * (clickhouse-r2dbc), avoiding string concatenation for untrusted values.
+   */
+  public <T> Single<QueryResultResponse<T>> executeGenericQueryWithGlobalPoolBinds(
+      QueryConfiguration queryConfig,
+      Class<T> clazz,
+      List<String> bindNames,
+      List<Object> bindValues) {
+    log.debug(
+        "Executing generic ClickHouse query with global pool + binds (projectId={})",
+        queryConfig.getProjectId());
+    String sql =
+        resolveSqlForExecution(
+            queryConfig.getQuery(), queryConfig.isUseQueryConditionCache());
+    return executeTenantGenericQueryWithBinds(
+        clickhouseReadClient.getPool(), sql, clazz, bindNames, bindValues);
+  }
+
+  /**
    * Same as {@link #executeGenericQueryWithGlobalPool} for statements that return the raw row shape (e.g. {@code
    * INSERT} with no row mapper class).
    */
@@ -282,19 +301,45 @@ public class ClickhouseQueryService implements IAnalyticalStoreClient<GetRawUser
     return executeTenantQuery(clickhouseReadClient.getPool(), queryConfig, schemaFields);
   }
 
+  /**
+   * Like {@link #executeQueryWithGlobalPool} but with named binds for values that must not be interpolated
+   * (e.g. JSON blobs).
+   */
+  public Single<GetQueryDataResponseDto<GetRawUserEventsResponseDto>> executeQueryWithGlobalPoolBinds(
+      QueryConfiguration queryConfig, List<String> bindNames, List<Object> bindValues) {
+    log.debug(
+        "Executing ClickHouse query with global pool + binds (projectId={})",
+        queryConfig.getProjectId());
+    String sql =
+        resolveSqlForExecution(
+            queryConfig.getQuery(), queryConfig.isUseQueryConditionCache());
+    List<String> names = bindNames == null ? List.of() : bindNames;
+    List<Object> values = bindValues == null ? List.of() : bindValues;
+    return executeTenantQueryWithNamedParameters(
+        clickhouseReadClient.getPool(), sql, names, values, new ArrayList<>());
+  }
+
   private <T> Single<QueryResultResponse<T>> executeTenantGenericQuery(
       io.r2dbc.pool.ConnectionPool pool, QueryConfiguration queryConfig, Class<T> clazz) {
+    String sql =
+        resolveSqlForExecution(
+            queryConfig.getQuery(), queryConfig.isUseQueryConditionCache());
+    return executeTenantGenericQueryWithBinds(pool, sql, clazz, List.of(), List.of());
+  }
+
+  private <T> Single<QueryResultResponse<T>> executeTenantGenericQueryWithBinds(
+      io.r2dbc.pool.ConnectionPool pool,
+      String sql,
+      Class<T> clazz,
+      List<String> bindNames,
+      List<Object> bindValues) {
+    List<String> names = bindNames == null ? List.of() : bindNames;
+    List<Object> values = bindValues == null ? List.of() : bindValues;
 
     return Single.fromPublisher(pool.create())
         .flatMap(
             conn ->
-                Flowable.fromPublisher(
-                        conn
-                            .createStatement(
-                                resolveSqlForExecution(
-                                    queryConfig.getQuery(),
-                                    queryConfig.isUseQueryConditionCache()))
-                            .execute())
+                Flowable.fromPublisher(bindNamedParameters(conn, sql, names, values).execute())
                     .flatMap(
                         result ->
                             result.map(
@@ -324,9 +369,8 @@ public class ClickhouseQueryService implements IAnalyticalStoreClient<GetRawUser
                     .doFinally(() -> Completable.fromPublisher(conn.close()).subscribe())
         )
         .onErrorResumeNext(
-            err -> {
-              return Single.error(new Exception("Failed to execute tenant generic query", err));
-            });
+            err ->
+                Single.error(new Exception("Failed to execute tenant generic query", err)));
   }
 
   public Single<Long> insertStackTraces(List<StackTraceEvent> events) {

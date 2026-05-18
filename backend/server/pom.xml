@@ -5,7 +5,7 @@
 
     <groupId>org.dreamhorizon</groupId>
     <artifactId>pulse-server</artifactId>
-    <version>1.25-SNAPSHOT</version>
+    <version>1.29-SNAPSHOT</version>
     <packaging>jar</packaging>
     <name>pulse-server</name>
 
@@ -25,6 +25,8 @@
         <vertx-rest.version>1.1.0</vertx-rest.version>
         <guice.version>5.1.0</guice.version>
         <awssdk.version>2.20.8</awssdk.version>
+        <parquet.version>1.14.1</parquet.version>
+        <hadoop.version>3.3.6</hadoop.version>
 
         <!-- Use an older version until https://issues.apache.org/jira/browse/MRESOURCES-237 -->
         <maven.resources.plugin.version>2.7</maven.resources.plugin.version>
@@ -306,6 +308,52 @@
             <groupId>io.opentelemetry.proto</groupId>
             <artifactId>opentelemetry-proto</artifactId>
             <version>1.9.0-alpha</version>
+        </dependency>
+
+        <!-- Parquet archive for stack_trace_events (mirrors pulse-s3-archiver) -->
+        <dependency>
+            <groupId>org.apache.parquet</groupId>
+            <artifactId>parquet-avro</artifactId>
+            <version>${parquet.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.parquet</groupId>
+            <artifactId>parquet-hadoop</artifactId>
+            <version>${parquet.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.hadoop</groupId>
+            <artifactId>hadoop-common</artifactId>
+            <version>${hadoop.version}</version>
+            <exclusions>
+                <exclusion><groupId>org.apache.zookeeper</groupId><artifactId>zookeeper</artifactId></exclusion>
+                <exclusion><groupId>org.apache.kerby</groupId><artifactId>*</artifactId></exclusion>
+                <exclusion><groupId>org.eclipse.jetty</groupId><artifactId>*</artifactId></exclusion>
+                <exclusion><groupId>com.sun.jersey</groupId><artifactId>*</artifactId></exclusion>
+                <exclusion><groupId>javax.servlet.jsp</groupId><artifactId>*</artifactId></exclusion>
+                <exclusion><groupId>org.apache.hadoop</groupId><artifactId>hadoop-hdfs-client</artifactId></exclusion>
+                <exclusion><groupId>com.google.protobuf</groupId><artifactId>protobuf-java</artifactId></exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.hadoop</groupId>
+            <artifactId>hadoop-mapreduce-client-core</artifactId>
+            <version>${hadoop.version}</version>
+            <exclusions>
+                <exclusion><groupId>org.apache.zookeeper</groupId><artifactId>zookeeper</artifactId></exclusion>
+                <exclusion><groupId>org.apache.kerby</groupId><artifactId>*</artifactId></exclusion>
+                <exclusion><groupId>org.eclipse.jetty</groupId><artifactId>*</artifactId></exclusion>
+                <exclusion><groupId>com.sun.jersey</groupId><artifactId>*</artifactId></exclusion>
+                <exclusion><groupId>org.apache.hadoop</groupId><artifactId>hadoop-hdfs-client</artifactId></exclusion>
+                <exclusion><groupId>com.google.protobuf</groupId><artifactId>protobuf-java</artifactId></exclusion>
+                <exclusion><groupId>org.apache.hadoop</groupId><artifactId>hadoop-yarn-common</artifactId></exclusion>
+                <exclusion><groupId>org.apache.hadoop</groupId><artifactId>hadoop-yarn-client</artifactId></exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.avro</groupId>
+            <artifactId>avro</artifactId>
+            <version>1.11.3</version>
         </dependency>
 
         <dependency>

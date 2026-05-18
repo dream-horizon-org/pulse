@@ -2,18 +2,25 @@
 
 import { useEffect, useRef } from "react";
 import { useLocation } from "react-router-dom";
-import { Pulse } from "../../sdk";
 import type { UseRouterTrackingOptions } from "../../types/react";
+import {
+  applyPulseScreenNavigation,
+  resolvePulseScreenName,
+} from "./apply-pulse-screen-navigation";
 
 export type { UseRouterTrackingOptions } from "../../types/react";
 
 /**
- * React Router v6 integration — calls {@link Pulse.setScreenName} on every
+ * React Router v6 integration — calls the Pulse SDK `setScreenName` on every
  * route change so subsequent signals (clicks, errors, web vitals, network)
  * carry the new `screen.name`.
  *
  * Mount this hook once, inside a component that renders underneath your
- * `<BrowserRouter>` / `<MemoryRouter>`:
+ * `<BrowserRouter>` / `<MemoryRouter>`.
+ *
+ * **Crash safety:** Prefer `<PulseRouterEvents />`, which wraps this hook in an
+ * error boundary so a missing Router cannot unmount your app. Calling this hook
+ * directly outside a Router still throws (React Router `useLocation` invariant).
  *
  * ```tsx
  * function AppRoutes() {
@@ -60,15 +67,18 @@ export function useRouterTracking(
       prevDependency.current = dependency;
     }
 
-    const name = format
-      ? format({
-          pathname: location.pathname,
-          search: location.search,
-          hash: location.hash,
-        })
-      : dependency;
-
-    Pulse.setScreenName(name);
+    const name = resolvePulseScreenName(format, dependency, {
+      pathname: location.pathname,
+      search: location.search,
+      hash: location.hash,
+    });
+    if (name === null) {
+      return;
+    }
+    applyPulseScreenNavigation(
+      name,
+      "React Router screen tracking (setScreenName / notifySoftNavigation)",
+    );
     // `format`/`skipInitial` are stable across renders in practice; we key
     // solely on the derived location string so route-shape changes drive
     // the effect, not identity changes to the options object.

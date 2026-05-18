@@ -15,7 +15,6 @@ if (typeof crypto !== "undefined" && typeof crypto.randomUUID !== "function") {
 // a disk toggle; OTel `DiskBufferingConfigurationSpec` defaults `isEnabled = true`). Pass
 // `diskBuffering: { enabled: false }` to disable IndexedDB replay.
 
-import { trace } from "@opentelemetry/api";
 import type { Tracer } from "@opentelemetry/api";
 import { logs, SeverityNumber } from "@opentelemetry/api-logs";
 import type { Logger } from "@opentelemetry/api-logs";
@@ -105,6 +104,17 @@ class PulseSDK implements SdkContext {
   }
 
   /**
+   * Notify the SDK that a soft (SPA) navigation just occurred so any buffered
+   * vitals can be exported with the **departing** route's `screen.name`.
+   *
+   * Wired into the React / Next router-tracking hooks immediately after
+   * {@link setScreenName}. Fire-and-forget — errors are swallowed.
+   */
+  notifySoftNavigation(): void {
+    void this._loggerProvider?.forceFlush().catch(() => {});
+  }
+
+  /**
    * OTel {@link WebTracerProvider} — defined after {@link init}'s async bootstrap completes.
    * Await {@link whenReady} (or the promise returned from {@link init}) before use; until then
    * this getter may be undefined even though {@link init} was called.
@@ -124,41 +134,77 @@ class PulseSDK implements SdkContext {
    * Begins SDK initialization. Returns a promise that settles when async bootstrap
    * ({@code finishInit}) completes — same instant as {@link whenReady}. Safe to ignore
    * the return value unless you need {@link tracerProvider} immediately after.
+   *
+   * Never throws synchronously. Missing or blank {@code apiKey} resolves immediately with
+   * a {@link PulseWebLogger.warn}. Other validation failures and async bootstrap errors are
+   * logged with {@link PulseWebLogger.warn}; the returned promise **always fulfills**
+   * (check {@link isInitialized} for success).
    */
   init(config: PulseWebConfig): Promise<void> {
-    if (this._initialized || this._shuttingDown) {
+    try {
+      if (this._initialized || this._shuttingDown) {
+        return Promise.resolve();
+      }
+      if (this._initializing) {
+        return this.whenReady();
+      }
+
+      PulseWebLogger.setLevel(config.logLevel ?? PulseLogLevel.NONE);
+
+      const rawKey = config.apiKey as string | undefined | null;
+      if (
+        rawKey === undefined ||
+        rawKey === null ||
+        (typeof rawKey === "string" && rawKey.trim() === "")
+      ) {
+        PulseWebLogger.warn(
+          "[Pulse] SDK not initialized — missing or empty apiKey (telemetry disabled).",
+        );
+        return Promise.resolve();
+      }
+    } catch (err: unknown) {
+      PulseWebLogger.warn(
+        `[Pulse] SDK init failed — ${err instanceof Error ? err.message : String(err)}`,
+      );
       return Promise.resolve();
     }
-    if (this._initializing) {
-      return this.whenReady();
-    }
-    // Step 1: Validate config
-    validateConfig(config);
-    PulseWebLogger.setLevel(config.logLevel ?? PulseLogLevel.NONE);
-    // Step 1.5: Resolve endpointBaseUrl from apiKey; config.endpoint overrides for WebView dev
-    const endpointBaseUrl = resolveEndpointBaseUrl(config.apiKey, config.endpoint);
-    this.endpointBaseUrl = endpointBaseUrl;
 
-    // Consent gate — DENIED or PENDING → no-op, zero signals emitted
-    if (!isDataCollectionAllowed(config.dataCollectionState)) {
+    try {
+      validateConfig(config);
+      const endpointBaseUrl = resolveEndpointBaseUrl(
+        config.apiKey,
+        config.endpoint,
+      );
+      this.endpointBaseUrl = endpointBaseUrl;
+
+      if (!isDataCollectionAllowed(config.dataCollectionState)) {
+        return Promise.resolve();
+      }
+      this.config = config;
+
+      const meteringSessionId = crypto.randomUUID();
+
+      this._initializing = true;
+      const pipeline = this.finishInit(
+        config,
+        endpointBaseUrl,
+        meteringSessionId,
+      )
+        .catch((err: unknown) => {
+          const detail = err instanceof Error ? err.message : String(err);
+          PulseWebLogger.warn(`[Pulse] SDK init failed — ${detail}`);
+          this._initializing = false;
+        })
+        .finally(() => {
+          this._initSettled = null;
+        });
+      this._initSettled = pipeline;
+      return pipeline;
+    } catch (err: unknown) {
+      const detail = err instanceof Error ? err.message : String(err);
+      PulseWebLogger.warn(`[Pulse] SDK init failed — ${detail}`);
       return Promise.resolve();
     }
-    this.config = config;
-
-    const meteringSessionId = crypto.randomUUID();
-
-    // Set _initializing before the async finishInit so the singleton guard blocks
-    // any duplicate init() calls that arrive during the 200ms OS-version await.
-    this._initializing = true;
-    const done = this.finishInit(
-      config,
-      endpointBaseUrl,
-      meteringSessionId,
-    ).finally(() => {
-      this._initSettled = null;
-    });
-    this._initSettled = done;
-    return done;
   }
 
   /**
@@ -386,7 +432,12 @@ class PulseSDK implements SdkContext {
     const meterProvider = this.meterProvider;
     if (!tracerProvider || !loggerProvider || !meterProvider) return;
 
-    trace.setGlobalTracerProvider(tracerProvider);
+    // register() sets the global tracer provider, installs the W3C propagator,
+    // AND installs the default context manager (ZoneContextManager in browsers).
+    // Without a context manager, context.active() always returns ROOT_CONTEXT
+    // inside context.with() callbacks, so propagation.inject finds no span and
+    // traceparent headers are never written.
+    tracerProvider.register();
     logs.setGlobalLoggerProvider(loggerProvider);
     metrics.setGlobalMeterProvider(meterProvider);
 
@@ -436,9 +487,10 @@ class PulseSDK implements SdkContext {
     }
 
     this._providerCleanup();
+    // Emit session.end before uninstalling SessionInstrumentation (unsubscribe runs in uninstall).
+    this.sessionProvider?.shutdown();
     this.registry?.uninstallAll();
     this.interactionInstrumentation = undefined;
-    this.sessionProvider?.shutdown();
 
     await Promise.all([
       this._webTracerProvider?.forceFlush(),
@@ -644,6 +696,9 @@ class PulseSDK implements SdkContext {
     this.logger.emit({
       eventName: PulseWebSemconv.LogEventName.CUSTOM_NON_FATAL,
       body: name,
+      timestamp: Date.now(),
+      severityNumber: SeverityNumber.WARN,
+      severityText: "WARN",
       attributes: {
         [PulseWebSemconv.AttributeKey.EVENT_NAME]:
           PulseWebSemconv.LogEventName.CUSTOM_NON_FATAL,

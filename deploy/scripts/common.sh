@@ -33,6 +33,7 @@ CONTAINER_MINIO_INIT="pulse-minio-init"
 CONTAINER_SESSION_CAPTURE="pulse-session-capture"
 CONTAINER_SESSION_INGESTION="pulse-session-replay-ingestion"
 CONTAINER_HEATMAP_INGESTION="pulse-heatmap-screenshot-ingestion"
+CONTAINER_S3_ARCHIVER="pulse-s3-archiver"
 
 # Ordered list (start order)
 ALL_CONTAINERS=(
@@ -43,6 +44,7 @@ ALL_CONTAINERS=(
     "$CONTAINER_CLICKHOUSE_INIT"
     "$CONTAINER_MINIO_INIT"
     "$CONTAINER_OTEL_COLLECTOR"
+    "$CONTAINER_S3_ARCHIVER"
     "$CONTAINER_SESSION_CAPTURE"
     "$CONTAINER_SESSION_INGESTION"
     "$CONTAINER_HEATMAP_INGESTION"
@@ -56,7 +58,7 @@ ALL_CONTAINERS=(
 # Constants -- Image references
 # ---------------------------------------------------------------------------
 IMAGE_MYSQL="mysql:8.0"
-IMAGE_CLICKHOUSE="clickhouse/clickhouse-server:24.8"
+IMAGE_CLICKHOUSE="clickhouse/clickhouse-server:25.4"
 IMAGE_OTEL_COLLECTOR="otel/opentelemetry-collector-contrib:0.137.0"
 IMAGE_KAFKA="confluentinc/cp-kafka:7.6.0"
 IMAGE_MINIO="minio/minio:latest"
@@ -70,6 +72,7 @@ IMAGE_ALERTS_CRON="pulse-alerts-cron:local"
 IMAGE_SESSION_CAPTURE="pulse-session-capture:local"
 IMAGE_SESSION_INGESTION="pulse-session-replay-ingestion:local"
 IMAGE_HEATMAP_INGESTION="pulse-heatmap-screenshot-ingestion:local"
+IMAGE_S3_ARCHIVER="pulse-s3-archiver:local"
 
 # ---------------------------------------------------------------------------
 # Constants -- Network & Volumes
