@@ -17,6 +17,7 @@ import {
   seedPulseSdkConfig,
   minimalPulseSdkConfig,
   blockActiveConfigFetch,
+  waitPastSeededSignalsBatchWindow,
 } from "./test-sdk-config";
 
 /** OTLP JSON span.status.code — matches {@link SpanStatusCode} from `@opentelemetry/api`. */
@@ -256,6 +257,11 @@ test.describe("@M4 network e2e", () => {
     const full = String(getAttr(span.attributes, "url.full") ?? "");
     expect(full).not.toContain("token");
     expect(full).not.toContain("?");
+    const legacyHttpUrl = String(getAttr(span.attributes, "http.url") ?? "");
+    if (legacyHttpUrl.length > 0) {
+      expect(legacyHttpUrl).not.toContain("?");
+      expect(legacyHttpUrl).toBe(full);
+    }
 
     expect(getAttr(span.attributes, "session.id")).toBeTruthy();
     expect(getAttr(span.attributes, "screen.name")).toBeTruthy();
@@ -631,6 +637,54 @@ test.describe("@M4 network e2e", () => {
     expect(blocked).toHaveLength(0);
   });
 
+  test("NET-09: demo /api/products.json strips query from url.full and http.url", async ({
+    page,
+    otlp,
+  }) => {
+    await page.goto("/products");
+    await waitForPulseInitialized(page);
+    await otlp.waitForLog("session.start", 15_000);
+    otlp.reset();
+    await page.waitForTimeout(1500);
+    await flushTraceExport(page);
+
+    const span = findAllNetworkSpans(otlp.captured).find((s) =>
+      String(getAttr(s.attributes, "url.full") ?? "").includes(
+        "/api/products.json",
+      ),
+    );
+    expect(span).toBeDefined();
+    const full = String(getAttr(span!.attributes, "url.full") ?? "");
+    expect(full).not.toContain("?");
+    const httpUrl = String(getAttr(span!.attributes, "http.url") ?? "");
+    if (httpUrl.length > 0) {
+      expect(httpUrl).not.toContain("?");
+      expect(httpUrl).toBe(full);
+    }
+  });
+
+  test("NET-12: default peerServiceMap on real demo products fetch", async ({
+    page,
+    otlp,
+  }) => {
+    await page.goto("/products");
+    await waitForPulseInitialized(page);
+    await otlp.waitForLog("session.start", 15_000);
+    otlp.reset();
+    await page.waitForTimeout(2000);
+    await flushTraceExport(page);
+
+    const span = findAllNetworkSpans(otlp.captured).find((s) =>
+      String(getAttr(s.attributes, "url.full") ?? "").includes(
+        "/api/products.json",
+      ),
+    );
+    expect(span).toBeDefined();
+    expect(getAttr(span!.attributes, "peer.service")).toBe(
+      "pulsestore-catalogue-api",
+    );
+  });
+
   // NET-12: peerServiceMap — peer.service attribute on matching host span
   test("NET-12: peerServiceMap sets peer.service on spans for matching host", async ({
     page,
@@ -772,7 +826,9 @@ test.describe("@M4 network e2e", () => {
     otlp.reset();
 
     await page.evaluate(async () => {
-      await fetch("/pulse-e2e-network/query-probe?search=hello&token=supersecret");
+      await fetch(
+        "/pulse-e2e-network/query-probe?search=hello&token=supersecret",
+      );
     });
     await flushTraceExport(page);
 
@@ -809,7 +865,9 @@ test.describe("@M4 network e2e", () => {
     await flushTraceExport(page);
 
     const blocked = findAllNetworkSpans(otlp.captured).filter((s) =>
-      String(getAttr(s.attributes, "url.full") ?? "").includes("blocked-endpoint"),
+      String(getAttr(s.attributes, "url.full") ?? "").includes(
+        "blocked-endpoint",
+      ),
     );
     expect(blocked).toHaveLength(0);
   });
@@ -861,7 +919,9 @@ test.describe("@M4 network e2e", () => {
       },
     );
 
-    await page.goto(`/?pulse_propagate_cors=${encodeURIComponent("localhost:3099")}`);
+    await page.goto(
+      `/?pulse_propagate_cors=${encodeURIComponent("localhost:3099")}`,
+    );
     await waitForPulseInitialized(page);
     await otlp.waitForLog("session.start", 15_000);
     otlp.reset();
@@ -980,16 +1040,17 @@ test.describe("@M4 network e2e", () => {
     await otlp.waitForLog("session.start", 15_000);
     otlp.reset();
 
-    await page.evaluate(() =>
-      new Promise<void>((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        xhr.open("GET", "/pulse-e2e-network/xhr-headers-probe");
-        xhr.setRequestHeader("X-Request-ID", "test-req-abc");
-        xhr.setRequestHeader("X-Custom-Header", "captured-value");
-        xhr.onload = () => resolve();
-        xhr.onerror = () => reject(new Error("xhr failed"));
-        xhr.send();
-      }),
+    await page.evaluate(
+      () =>
+        new Promise<void>((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          xhr.open("GET", "/pulse-e2e-network/xhr-headers-probe");
+          xhr.setRequestHeader("X-Request-ID", "test-req-abc");
+          xhr.setRequestHeader("X-Custom-Header", "captured-value");
+          xhr.onload = () => resolve();
+          xhr.onerror = () => reject(new Error("xhr failed"));
+          xhr.send();
+        }),
     );
     await flushTraceExport(page);
 
@@ -997,8 +1058,12 @@ test.describe("@M4 network e2e", () => {
 
     expect(getOtlpSpanStatusCode(span)).toBe(OTLP_SPAN_STATUS_OK);
     expect(getAttr(span.attributes, "pulse.type")).toBe("network.200");
-    expect(getAttr(span.attributes, "http.request.header.x-request-id")).toEqual(["test-req-abc"]);
-    expect(getAttr(span.attributes, "http.request.header.x-custom-header")).toEqual(["captured-value"]);
+    expect(
+      getAttr(span.attributes, "http.request.header.x-request-id"),
+    ).toEqual(["test-req-abc"]);
+    expect(
+      getAttr(span.attributes, "http.request.header.x-custom-header"),
+    ).toEqual(["captured-value"]);
     expect(getAttr(span.attributes, "session.id")).toBeTruthy();
   });
 
@@ -1051,5 +1116,48 @@ test.describe("@M4 network e2e", () => {
       expect(getAttr(span.attributes, "pulse.type")).toBe("network.200");
       expect(getAttr(span.attributes, "http.request.method")).toBe("GET");
     }
+  });
+});
+
+test.describe("@M4-network feature gates", () => {
+  test("CON-10: network on + errors off — network span present, errors absent", async ({
+    page,
+    otlp,
+  }) => {
+    await blockActiveConfigFetch(page);
+    await seedPulseSdkConfig(
+      page,
+      minimalPulseSdkConfig({
+        features: [
+          {
+            featureName: "js_crash",
+            sessionSampleRate: 0,
+            sdks: ["pulse_web_js"],
+          },
+          {
+            featureName: "network",
+            sessionSampleRate: 1,
+            sdks: ["pulse_web_js"],
+          },
+        ],
+      }),
+    );
+    await page.route("**/api/products.json", async (route) => {
+      await route.fulfill({
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+        body: "[]",
+      });
+    });
+    await page.goto("/products");
+    await otlp.waitForLog("session.start");
+    otlp.reset();
+    await page.evaluate(() => fetch("/api/products.json"));
+    await page.waitForTimeout(1200);
+    expect(findAllNetworkSpans(otlp.captured).length).toBeGreaterThan(0);
+    await page.goto("/error-demo");
+    await page.getByTestId("throw-uncaught").click();
+    await waitPastSeededSignalsBatchWindow(page);
+    expect(findAllLogs(otlp.captured, "device.crash")).toHaveLength(0);
   });
 });

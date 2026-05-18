@@ -1,0 +1,312 @@
+Topic 0 — Automated E2E Test Coverage (Playwright only),,,,,
+TC,Scenario,How to Trigger,Expected Signal,Status(E2E ecommerce-demo),Status(E2E nextjs-demo),Comment
+META,Inventory totals (270 E2E cases),,,223,47,"Sources: examples/ecommerce-demo/e2e, examples/nextjs-demo/e2e only"
+
+Topic 1 — SDK Initialization & Remote Config,,,,,
+TC,Scenario,How to Trigger,Expected Signal,Status(E2E ecommerce-demo),Status(E2E nextjs-demo),Comment
+AUTO-INIT-001,new session.id on each fresh page load,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m1.spec.ts:286
+AUTO-INIT-002,"x-api-key header sent on every OTLP request (logs, traces, metrics)",Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m1.spec.ts:334
+AUTO-INIT-003,"Content-Type is application/json on logs, traces, and metrics",Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m1.spec.ts:369
+AUTO-INIT-004,"resource attributes present on signal (platform, service.name, rum.sdk.version)",Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m1.spec.ts:393
+AUTO-INIT-005,@M1 SDK shutdown — Pulse.shutdown() force-flushes providers without error,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m1.spec.ts:409
+AUTO-INIT-006,@M1 batching — multiple trackEvent calls coalesced into a single OTLP logs payload,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m1.spec.ts:433
+AUTO-INIT-007,"signals accumulate — first export happens after batch delay, not inline with SDK init",Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m1.spec.ts:477
+AUTO-INIT-008,every signal carries global attributes injected by GlobalAttributesProcessor,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m1.spec.ts:598
+AUTO-INIT-009,"resource carries service.name, platform=web, rum.sdk.version",Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m1.spec.ts:612
+AUTO-INIT-010,rum.sdk.init.* OTLP logs emitted (Android SdkInitializationEvents parity),Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m1.spec.ts:626
+AUTO-INIT-011,no sdk.init span (matches Android — init is not a dedicated trace heartbeat),Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m1.spec.ts:641
+AUTO-INIT-012,pulse_sdk_config in localStorage after background fetch completes,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m1.spec.ts:684
+AUTO-INIT-013,"pulse_sdk_config version: cache + reload, then new version after two reloads",Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m1.spec.ts:710
+AUTO-INIT-014,cached pulse_sdk_config version unchanged when active fetch returns 404 on reload,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m1.spec.ts:838
+AUTO-INIT-015,"X-Pulse-Metering-Session-ID header sent on logs, traces, and metrics OTLP requests",Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m1.spec.ts:941
+AUTO-INIT-016,X-Pulse-Metering-Session-ID is stable across multiple OTLP requests in the same session,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m1.spec.ts:960
+AUTO-INIT-017,@M1 reportException body — reportException uses error message as log body,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m1.spec.ts:1079
+AUTO-INIT-018,@M1 window.id uniqueness — window.id is present on every signal,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m1.spec.ts:1101
+AUTO-INIT-019,"window.id is unique per page load (in-memory, never persisted)",Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m1.spec.ts:1115
+AUTO-INIT-020,window.id same across multiple signals within one page load,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m1.spec.ts:1150
+AUTO-INIT-021,@M1 clone detection — session.id is stored in localStorage (shared across tabs),Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m1.spec.ts:1179
+AUTO-INIT-022,clone flag detects duplicate tab via sessionStorage inheritance,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m1.spec.ts:1205
+AUTO-INIT-023,"reload: beforeunload called (removes clone flag, keeps session intact)",Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m1.spec.ts:1264
+AUTO-INIT-024,@M1 screen.name resolution — screen.name resolves from URL path /products → '/products',Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m1.spec.ts:1300
+AUTO-INIT-025,screen.name normalizes numeric segment: /products/123 → '/products/:id',Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m1.spec.ts:1318
+AUTO-INIT-026,screen.name for root path / resolves to '/',Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m1.spec.ts:1334
+AUTO-INIT-027,screen.name normalizes UUID segment: /products/<uuid> → '/products/:id',Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m1.spec.ts:1352
+AUTO-INIT-028,@M1 screen.name manual override — Pulse.setScreenName() overrides screen.name on next signal,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m1.spec.ts:1372
+AUTO-INIT-029,manual screen.name override persists across multiple events,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m1.spec.ts:1395
+AUTO-INIT-030,screen.name resets to URL path after navigation (override cleared),Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m1.spec.ts:1422
+AUTO-INIT-031,screen.name resets to URL path after SPA navigation (override cleared),Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m1.spec.ts:1451
+AUTO-INIT-032,@M1 url attributes — url.path updates correctly after SPA navigation,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m1.spec.ts:1481
+AUTO-INIT-033,"screen.name is present on log records, not just spans",Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m1.spec.ts:1513
+AUTO-INIT-034,page.url is full URL and url.path is path-only — two separate attributes,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m1.spec.ts:1526
+AUTO-INIT-035,3.6: session rotates after simulated 30-min inactivity,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m1.spec.ts:1573
+AUTO-INIT-036,3.9: duplicate page in same context inherits session.id,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m1.spec.ts:1651
+AUTO-INIT-037,3.10: fresh browser context creates new independent session,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m1.spec.ts:1698
+AUTO-INIT-038,@M1 resource attributes — browser.name and browser.version are non-empty in resource attributes,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m1.spec.ts:1929
+AUTO-INIT-039,os.name is web in resource attributes (CH Platform parity),Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m1.spec.ts:1951
+AUTO-INIT-040,device.type = 'desktop' when running in a desktop browser,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m1.spec.ts:1963
+AUTO-INIT-041,project.id is present and non-empty in resource attributes,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m1.spec.ts:1975
+AUTO-INIT-042,custom_events sessionSampleRate 0 blocks trackEvent from OTLP,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m1.spec.ts:2028
+AUTO-INIT-043,signals.filters BLACKLIST drops matching custom_event logs at export,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m1.spec.ts:2052
+AUTO-INIT-044,WHITELIST filter drops custom trackEvent bodies not in allowlist,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m1.spec.ts:2187
+AUTO-INIT-045,BLACKLIST with multiple filter values drops each matching log body,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m1.spec.ts:2411
+AUTO-INIT-046,signalsToSample: rate 0 for one log body only blocks that body,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m1.spec.ts:2546
+AUTO-INIT-047,combined feature rates: js_crash off + custom_events on in one config,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m1.spec.ts:2597
+AUTO-INIT-048,@M1 disk buffer replay — non-retryable logs export failure buffers payload; reload replays to OTLP,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m1.spec.ts:2692
+
+Topic 2 — Session Lifecycle,,,,,
+TC,Scenario,How to Trigger,Expected Signal,Status(E2E ecommerce-demo),Status(E2E nextjs-demo),Comment
+AUTO-SESS-001,@M1 session lifecycle — session.start emitted on page load,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m1.spec.ts:77
+AUTO-SESS-002,session.end emitted on pagehide (non-BFCache),Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m1.spec.ts:86
+AUTO-SESS-003,pagehide with persisted=true (BFCache) does NOT emit session.end,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m1.spec.ts:108
+AUTO-SESS-004,double Pulse.init() is a no-op — exactly one session.start,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m1.spec.ts:127
+AUTO-SESS-005,pagehide then Pulse.shutdown emits only one session.end,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m1.spec.ts:161
+AUTO-SESS-006,@M1 identity persistence — installation.id survives page reload,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m1.spec.ts:194
+AUTO-SESS-007,installation.id stored in localStorage as pulse_installation_id,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m1.spec.ts:210
+AUTO-SESS-008,installation.id falls back to sessionStorage when localStorage throws,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m1.spec.ts:226
+AUTO-SESS-009,installation.id falls back to in-memory when both localStorage and sessionStorage are blocked,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m1.spec.ts:249
+AUTO-SESS-010,session.end emitted before pagehide batch window when persisted=false,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m1.spec.ts:552
+AUTO-SESS-011,@M1 payload attributes — session.start log carries required data-contract attributes,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m1.spec.ts:580
+AUTO-SESS-012,@M1 localStorage state — pulse_installation_id is a UUID stored in localStorage,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m1.spec.ts:654
+AUTO-SESS-013,installation.id in localStorage matches the value in the session.start signal,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m1.spec.ts:669
+AUTO-SESS-014,"@M1 remote config fetch resilience — active config 404 + empty pulse_sdk_config → defaults, session.start exports",Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m1.spec.ts:811
+AUTO-SESS-015,@M1 app.installation.start — emitted on first visit with empty storage,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m1.spec.ts:1010
+AUTO-SESS-016,NOT emitted on reload when installation ID already in localStorage,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m1.spec.ts:1032
+AUTO-SESS-017,"@M1 reload vs clone detection — reload: same session.id persisted (session reused silently, no new session.start)",Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m1.spec.ts:1237
+AUTO-SESS-018,@M1 Area 3 session lifecycle — 3.2: session.start does NOT fire on SPA navigation,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m1.spec.ts:1551
+AUTO-SESS-019,3.8: session.end fires on pagehide before reload; same session resumes silently,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m1.spec.ts:1613
+AUTO-SESS-020,3.11/3.12: rotation emits session.end then session.start with different session IDs,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m1.spec.ts:1783
+AUTO-SESS-021,3.14: session.end does NOT fire on in-app SPA navigation,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m1.spec.ts:1841
+AUTO-SESS-022,3.13: very short session emits session.end with non-negative duration_ms,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m1.spec.ts:1863
+AUTO-SESS-023,attributesToAdd from remote config appears on session.start at export,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m1.spec.ts:2103
+AUTO-SESS-024,attributesToDrop removes keys matched by rule on session.start at export,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m1.spec.ts:2140
+AUTO-SESS-025,multiple attributesToAdd entries all apply on session.start,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m1.spec.ts:2228
+AUTO-SESS-026,multiple attributesToDrop rules remove different keys on session.start,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m1.spec.ts:2281
+AUTO-SESS-027,explicit empty metricsToAdd attributesToAdd attributesToDrop still exports session.start,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m1.spec.ts:2343
+AUTO-SESS-028,two metricsToAdd counters both increment from session.start log export,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m1.spec.ts:2364
+AUTO-SESS-029,session.start exports when default session rate is 0 and platform web rule sets rate 1,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m1.spec.ts:2470
+AUTO-SESS-030,sampling: platform web rule at sessionSampleRate 0 yields no session.start after batch window,Playwright — examples/ecommerce-demo,Zero matching OTLP exports (see spec assertions),Covered,,examples/ecommerce-demo/e2e/m1.spec.ts:2506
+
+Topic 3 — Network Instrumentation,,,,,
+TC,Scenario,How to Trigger,Expected Signal,Status(E2E ecommerce-demo),Status(E2E nextjs-demo),Comment
+AUTO-NET-001,@M4 network e2e — Network Lab: fetch GET button emits network.200 span,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m4-network.spec.ts:117
+AUTO-NET-002,"Network Lab: XHR timeout emits network.0, network_error, OTLP ERROR",Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m4-network.spec.ts:142
+AUTO-NET-003,"Network Lab: XHR abort emits network.0, network_error, OTLP ERROR",Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m4-network.spec.ts:167
+AUTO-NET-004,Network Lab: fetch 404 button emits network.404 span,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m4-network.spec.ts:191
+AUTO-NET-005,"P1/P2/P4: fetch emits network.* span, strips query, optional http.duration numeric",Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m4-network.spec.ts:224
+AUTO-NET-006,P3: XMLHttpRequest emits network.* span with contract attrs,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m4-network.spec.ts:272
+AUTO-NET-007,P5: OTLP export URLs are not traced as network client spans,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m4-network.spec.ts:321
+AUTO-NET-008,G1: no network.* client spans when network_instrumentation gate is off,Playwright — examples/ecommerce-demo,Zero matching OTLP exports (see spec assertions),Covered,,examples/ecommerce-demo/e2e/m4-network.spec.ts:333
+AUTO-NET-009,E1: 404 fetch sets error.type 4xx and OTLP span ERROR,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m4-network.spec.ts:370
+AUTO-NET-010,E1: 500 fetch sets error.type 5xx and OTLP span ERROR,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m4-network.spec.ts:405
+AUTO-NET-011,"E3: cross-origin no-cors opaque response → cors_error, network.0, OTLP ERROR",Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m4-network.spec.ts:439
+AUTO-NET-012,"E4: route.abort failed fetch → network_error, network.0, OTLP ERROR",Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m4-network.spec.ts:478
+AUTO-NET-013,"E5: aborted fetch → network_error, network.0, OTLP ERROR",Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m4-network.spec.ts:510
+AUTO-NET-014,E2: local instrumentations.network.enabled false yields no network client spans,Playwright — examples/ecommerce-demo,Zero matching OTLP exports (see spec assertions),Covered,,examples/ecommerce-demo/e2e/m4-network.spec.ts:549
+NET-10,"NET-10: captureQueryParams=true keeps non-sensitive params, redacts sensitive ones",Playwright — examples/ecommerce-demo,Automated coverage for manual NET-10 (see spec),Covered,,examples/ecommerce-demo/e2e/m4-network.spec.ts:574
+NET-11,NET-11: blockedUrls config prevents network span for matching URL,Playwright — examples/ecommerce-demo,Automated coverage for manual NET-11 (see spec),Covered,,examples/ecommerce-demo/e2e/m4-network.spec.ts:605
+NET-12,NET-12: peerServiceMap sets peer.service on spans for matching host,Playwright — examples/ecommerce-demo,Automated coverage for manual NET-12 (see spec),Covered,,examples/ecommerce-demo/e2e/m4-network.spec.ts:635
+NET-18,NET-18: propagateTraceHeaderCorsUrls injects traceparent on matching host,Playwright — examples/ecommerce-demo,Automated coverage for manual NET-18 (see spec),Covered,,examples/ecommerce-demo/e2e/m4-network.spec.ts:665
+AUTO-NET-015,"C1: DENIED consent — no session.start, no network client spans",Playwright — examples/ecommerce-demo,Zero matching OTLP exports (see spec assertions),Covered,,examples/ecommerce-demo/e2e/m4-network.spec.ts:743
+NET-10,"NET-10: captureQueryParams:true keeps query params, redacts sensitive token",Playwright — examples/ecommerce-demo,Automated coverage for manual NET-10 (see spec),Covered,,examples/ecommerce-demo/e2e/m4-network.spec.ts:754
+NET-11,NET-11: blockedUrls config suppresses spans for matched URL,Playwright — examples/ecommerce-demo,Automated coverage for manual NET-11 (see spec),Covered,,examples/ecommerce-demo/e2e/m4-network.spec.ts:788
+NET-12,NET-12: peerServiceMap sets peer.service on spans for matched host,Playwright — examples/ecommerce-demo,Automated coverage for manual NET-12 (see spec),Covered,,examples/ecommerce-demo/e2e/m4-network.spec.ts:818
+NET-18,NET-18: propagateTraceHeaderCorsUrls injects W3C traceparent header,Playwright — examples/ecommerce-demo,Automated coverage for manual NET-18 (see spec),Covered,,examples/ecommerce-demo/e2e/m4-network.spec.ts:850
+NET-02,NET-02: POST fetch emits network.200 span with http.request.method=POST,Playwright — examples/ecommerce-demo,Automated coverage for manual NET-02 (see spec),Covered,,examples/ecommerce-demo/e2e/m4-network.spec.ts:879
+NET-07,NET-07: http.duration is populated and reflects measured elapsed time,Playwright — examples/ecommerce-demo,Automated coverage for manual NET-07 (see spec),Covered,,examples/ecommerce-demo/e2e/m4-network.spec.ts:917
+AUTO-NET-016,ISS-N10: XHR capturedRequestHeaders captures request headers on XHR spans,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m4-network.spec.ts:961
+NET-13,NET-13: three concurrent fetch requests each produce a separate network span,Playwright — examples/ecommerce-demo,Automated coverage for manual NET-13 (see spec),Covered,,examples/ecommerce-demo/e2e/m4-network.spec.ts:1006
+NET-01,NET-01: GET fetch emits network.200 span with core contract attributes,Playwright — examples/nextjs-demo,Automated coverage for manual NET-01 (see spec),,Covered,examples/nextjs-demo/e2e/nextjs-demo.spec.ts:668
+NET-02,NET-02: POST fetch emits network.200 span with http.request.method=POST,Playwright — examples/nextjs-demo,Automated coverage for manual NET-02 (see spec),,Covered,examples/nextjs-demo/e2e/nextjs-demo.spec.ts:708
+NET-03,NET-03: fetch 404 emits network.404 span with error.type=4xx,Playwright — examples/nextjs-demo,Automated coverage for manual NET-03 (see spec),,Covered,examples/nextjs-demo/e2e/nextjs-demo.spec.ts:745
+NET-04,NET-04: fetch 500 emits network.500 span with error.type=5xx,Playwright — examples/nextjs-demo,Automated coverage for manual NET-04 (see spec),,Covered,examples/nextjs-demo/e2e/nextjs-demo.spec.ts:778
+NET-05,NET-05: aborted fetch emits network.0 span with error.type=network_error,Playwright — examples/nextjs-demo,Automated coverage for manual NET-05 (see spec),,Covered,examples/nextjs-demo/e2e/nextjs-demo.spec.ts:807
+NET-06,NET-06: XHR GET captured with pulse.type=network.200,Playwright — examples/nextjs-demo,Automated coverage for manual NET-06 (see spec),,Covered,examples/nextjs-demo/e2e/nextjs-demo.spec.ts:869
+NET-08,NET-08: CORS opaque fetch → network.0 and error.type=cors_error,Playwright — examples/nextjs-demo,Automated coverage for manual NET-08 (see spec),,Covered,examples/nextjs-demo/e2e/nextjs-demo.spec.ts:909
+NET-16,"NET-16: network.enabled:false — no network spans, session.start still exported",Playwright — examples/nextjs-demo,Zero matching OTLP exports (see spec assertions),,Covered,examples/nextjs-demo/e2e/nextjs-demo.spec.ts:994
+
+Topic 4 — Error Capture,,,,,
+TC,Scenario,How to Trigger,Expected Signal,Status(E2E ecommerce-demo),Status(E2E nextjs-demo),Comment
+AUTO-ERR-001,@M1 trackNonFatal — trackNonFatal emits non_fatal log with correct attributes,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m1.spec.ts:1055
+AUTO-ERR-002,@M1 error boundary crash capture — PulseErrorBoundary render error emits device.crash log with react.component_stack,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m1.spec.ts:2656
+AUTO-ERR-003,@M15 PulseErrorBoundary — TC 15.2: React render error caught by PulseErrorBoundary → device.crash log,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m15.spec.ts:67
+AUTO-ERR-004,@M15 PulseErrorBoundary attributes — TC 15.2d: device.crash from boundary has react.component_stack,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m15.spec.ts:214
+AUTO-ERR-005,@M3-errors contract floor — uncaught JS error emits device.crash with finite numeric attrs,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m3-errors.spec.ts:28
+AUTO-ERR-006,unhandled rejection emits non_fatal with manual=false,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m3-errors.spec.ts:44
+AUTO-ERR-007,manual reportException emits non_fatal with manual=true,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m3-errors.spec.ts:54
+AUTO-ERR-008,render error boundary emits device.crash with component stack,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m3-errors.spec.ts:64
+AUTO-ERR-009,@M3-errors lifecycle and edge behavior — same error burst within dedupe window exports once,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m3-errors.spec.ts:78
+AUTO-ERR-010,same fingerprint emits again after dedupe window reset,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m3-errors.spec.ts:90
+AUTO-ERR-011,different fingerprints are not deduplicated,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m3-errors.spec.ts:103
+AUTO-ERR-012,string and undefined rejection reasons are normalized,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m3-errors.spec.ts:134
+AUTO-ERR-013,cross-origin script error emits stub device.crash (ISS-010),Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m3-errors.spec.ts:152
+AUTO-ERR-014,error log timestamp is emitted near trigger time,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m3-errors.spec.ts:177
+AUTO-ERR-015,existing window error listener still receives events,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m3-errors.spec.ts:190
+AUTO-ERR-016,@M3-errors gate and consent — js_crash gate off exports zero error logs after reset,Playwright — examples/ecommerce-demo,Zero matching OTLP exports (see spec assertions),Covered,,examples/ecommerce-demo/e2e/m3-errors.spec.ts:214
+AUTO-ERR-017,DENIED consent keeps SDK inactive and exports zero errors,Playwright — examples/ecommerce-demo,Zero matching OTLP exports (see spec assertions),Covered,,examples/ecommerce-demo/e2e/m3-errors.spec.ts:240
+AUTO-ERR-018,error tracking — PulseErrorBoundary emits device.crash when component throws,Playwright — examples/nextjs-demo,Assertions in linked test file,,Covered,examples/nextjs-demo/e2e/nextjs-demo.spec.ts:153
+AUTO-ERR-019,reportException emits non_fatal with exception.type,Playwright — examples/nextjs-demo,Assertions in linked test file,,Covered,examples/nextjs-demo/e2e/nextjs-demo.spec.ts:174
+AUTO-ERR-020,reportDeviceCrash emits device.crash with exception.type,Playwright — examples/nextjs-demo,Assertions in linked test file,,Covered,examples/nextjs-demo/e2e/nextjs-demo.spec.ts:199
+AUTO-ERR-021,device.crash carries session.id (error is associated to session),Playwright — examples/nextjs-demo,Assertions in linked test file,,Covered,examples/nextjs-demo/e2e/nextjs-demo.spec.ts:221
+AUTO-ERR-022,non_fatal carries same session.id as session.start,Playwright — examples/nextjs-demo,Assertions in linked test file,,Covered,examples/nextjs-demo/e2e/nextjs-demo.spec.ts:235
+AUTO-ERR-023,manual device.crash carries same session.id as session.start,Playwright — examples/nextjs-demo,Assertions in linked test file,,Covered,examples/nextjs-demo/e2e/nextjs-demo.spec.ts:249
+ERR-02,"error signal contract — ERR-02 / ERR-31 — unhandled rejection emits non_fatal WARN, is_manual=false (boolean)",Playwright — examples/nextjs-demo,Automated coverage for manual ERR-02 (see spec),,Covered,examples/nextjs-demo/e2e/nextjs-demo.spec.ts:265
+ERR-05,ERR-05 — handled try/catch does not emit device.crash,Playwright — examples/nextjs-demo,Automated coverage for manual ERR-05 (see spec),,Covered,examples/nextjs-demo/e2e/nextjs-demo.spec.ts:294
+
+Topic 5 — Navigation & Screen Tracking,,,,,
+TC,Scenario,How to Trigger,Expected Signal,Status(E2E ecommerce-demo),Status(E2E nextjs-demo),Comment
+AUTO-NAV-001,@ScreenNav initial page load — emits screen_load span on page load,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/screen-navigation.spec.ts:24
+AUTO-NAV-002,screen_load has valid start.type,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/screen-navigation.spec.ts:34
+AUTO-NAV-003,tti may be present on screen_load when Navigation Timing is available,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/screen-navigation.spec.ts:42
+AUTO-NAV-004,@ScreenNav SPA navigation — emits screen_session span on route change,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/screen-navigation.spec.ts:59
+AUTO-NAV-005,emits new screen_load with spa start.type after navigation,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/screen-navigation.spec.ts:78
+AUTO-NAV-006,SPA screen_load screen.name matches post-navigation route path,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/screen-navigation.spec.ts:95
+AUTO-NAV-007,navigating multiple times emits screen_session each time,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/screen-navigation.spec.ts:109
+AUTO-NAV-008,navigating to product detail works,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/screen-navigation.spec.ts:128
+AUTO-NAV-009,"@ScreenNav feature gate — with screenNavigation enabled, screen_load span emitted",Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/screen-navigation.spec.ts:149
+AUTO-NAV-010,"with screen_navigation disabled in seeded config, no screen_load span",Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/screen-navigation.spec.ts:158
+AUTO-NAV-011,@ScreenNav screen name resolution — screen.name present on screen_load span,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/screen-navigation.spec.ts:185
+AUTO-NAV-012,screen.name present on screen_session span,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/screen-navigation.spec.ts:191
+AUTO-NAV-013,url.path matches exited screen snapshot on screen_session,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/screen-navigation.spec.ts:201
+AUTO-NAV-014,@ScreenNav resource attributes — platform attribute is web,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/screen-navigation.spec.ts:218
+AUTO-NAV-015,session.id in span attributes,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/screen-navigation.spec.ts:226
+AUTO-NAV-016,@ScreenNav numeric attributes — session.duration is number in screen_session span,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/screen-navigation.spec.ts:238
+AUTO-NAV-017,@ScreenNav pulse.type consistency — screen_load span has correct pulse.type,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/screen-navigation.spec.ts:259
+AUTO-NAV-018,screen_session span has correct pulse.type,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/screen-navigation.spec.ts:265
+
+Topic 6 — Web Vitals,,,,,
+TC,Scenario,How to Trigger,Expected Signal,Status(E2E ecommerce-demo),Status(E2E nextjs-demo),Comment
+AUTO-VIT-001,@WebVitals — emits TTFB web_vital log after load and batch window,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/web-vitals.spec.ts:57
+AUTO-VIT-002,emits FCP web_vital log after load and batch window,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/web-vitals.spec.ts:83
+AUTO-VIT-003,emits LCP web_vital log after click and batch window,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/web-vitals.spec.ts:109
+AUTO-VIT-004,emits INP web_vital log on tab hide after real interaction,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/web-vitals.spec.ts:141
+AUTO-VIT-005,emits CLS web_vital after layout shift and tab hide,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/web-vitals.spec.ts:202
+AUTO-VIT-006,SPA navigation flushes TTFB vital with correct screen.name from initial route,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/web-vitals.spec.ts:253
+AUTO-VIT-007,never emits web_vital with name FID (web-vitals v5+),Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/web-vitals.spec.ts:278
+AUTO-VIT-008,SPA screen_load span carries navigation_id after client navigation,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/web-vitals.spec.ts:294
+AUTO-VIT-009,two SPA navigations produce distinct navigation_id on screen_load spans,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/web-vitals.spec.ts:314
+AUTO-VIT-010,does not emit web_vital logs when web_vitals feature gate is disabled,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/web-vitals.spec.ts:358
+AUTO-VIT-011,does not emit web_vital logs when local web vitals kill switch is on (?pulse_wv_enabled=false),Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/web-vitals.spec.ts:387
+AUTO-VIT-012,@WebVitals (Next.js demo) — emits TTFB web_vital with navigation_id after load,Playwright — examples/nextjs-demo,Assertions in linked test file,,Covered,examples/nextjs-demo/e2e/web-vitals.spec.ts:50
+AUTO-VIT-013,never emits web_vital with name FID (web-vitals v5+),Playwright — examples/nextjs-demo,Assertions in linked test file,,Covered,examples/nextjs-demo/e2e/web-vitals.spec.ts:70
+AUTO-VIT-014,SPA screen_load span carries navigation_id after App Router navigation,Playwright — examples/nextjs-demo,Assertions in linked test file,,Covered,examples/nextjs-demo/e2e/web-vitals.spec.ts:84
+
+Topic 7 — Click & Rage-Click,,,,,
+TC,Scenario,How to Trigger,Expected Signal,Status(E2E ecommerce-demo),Status(E2E nextjs-demo),Comment
+AUTO-CLK-001,@M3 clicks e2e — Shop Now link emits app.click with good target and contract attrs,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m3-clicks.spec.ts:57
+AUTO-CLK-002,click on non-interactive pad emits dead click without widget attrs,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m3-clicks.spec.ts:85
+AUTO-CLK-003,triple tap on Shop Now yields one rage app.click with click.is_rage,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m3-clicks.spec.ts:118
+AUTO-CLK-004,does not emit app.click when click feature gate is disabled,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m3-clicks.spec.ts:165
+
+Topic 8 — Data Contract & ClickHouse,,,,,
+TC,Scenario,How to Trigger,Expected Signal,Status(E2E ecommerce-demo),Status(E2E nextjs-demo),Comment
+AUTO-CTR-001,@M16-CH PulseProvider session lifecycle — TC 16.1: session.start lands in otel_logs with installation.id,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m16-ch.spec.ts:50
+AUTO-CTR-002,TC 16.4: exactly one session.start per page load (StrictMode no double-init),Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m16-ch.spec.ts:62
+AUTO-CTR-003,@M16-CH PulseErrorBoundary — TC 16.2: React render error via PulseErrorBoundary → device.crash in stack_trace_events,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m16-ch.spec.ts:86
+AUTO-CTR-004,TC 16.2b: device.crash has react.component_stack in CH,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m16-ch.spec.ts:102
+AUTO-CTR-005,@M16-CH useRouterTracking + screen.name — TC 16.3: custom event carries /products screen.name after route change,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m16-ch.spec.ts:120
+AUTO-CTR-006,TC 16.5: custom event after route change carries new screen.name in CH,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m16-ch.spec.ts:148
+AUTO-CTR-007,@M3-CH device.crash basic — TC1: uncaught error → device.crash in CH with stable attrs,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m3-ch.spec.ts:127
+AUTO-CTR-008,TC2: unhandled rejection → non_fatal in CH,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m3-ch.spec.ts:147
+AUTO-CTR-009,@M3-CH React render error — TC3: PulseErrorBoundary → device.crash in CH with render error message,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m3-ch.spec.ts:169
+AUTO-CTR-010,@M3-CH manual reportException — TC4: reportException → non_fatal in CH with is_manual=true,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m3-ch.spec.ts:192
+AUTO-CTR-011,@M3-CH url.path — TC5: url.path = /error-demo on device.crash in CH,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m3-ch.spec.ts:214
+AUTO-CTR-012,@M3-CH deduplication — TC6: same error 5x within 5s → exactly 1 entry in CH,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m3-ch.spec.ts:234
+AUTO-CTR-013,@M3-CH consent / lifecycle — TC9: consent=DENIED → zero error entries in CH,Playwright — examples/ecommerce-demo,Zero matching OTLP exports (see spec assertions),Covered,,examples/ecommerce-demo/e2e/m3-ch.spec.ts:272
+AUTO-CTR-014,TC10: post-shutdown → no error entries in CH after SDK shutdown,Playwright — examples/ecommerce-demo,Zero matching OTLP exports (see spec assertions),Covered,,examples/ecommerce-demo/e2e/m3-ch.spec.ts:301
+AUTO-CTR-015,@M3-CH cross-origin excluded — TC12: cross-origin 'Script error.' → no entry in CH,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m3-ch.spec.ts:355
+AUTO-CTR-016,CH — session lifecycle — session.start lands in CH otel_logs for nextjs-demo,Playwright — examples/nextjs-demo,Assertions in linked test file,,Covered,examples/nextjs-demo/e2e/nextjs-demo.ch.spec.ts:39
+AUTO-CTR-017,CH — screen tracking — screen.name = /products lands in CH after navigating to /products,Playwright — examples/nextjs-demo,Assertions in linked test file,,Covered,examples/nextjs-demo/e2e/nextjs-demo.ch.spec.ts:54
+AUTO-CTR-018,CH — error tracking — device.crash lands in CH after PulseErrorBoundary catch,Playwright — examples/nextjs-demo,Assertions in linked test file,,Covered,examples/nextjs-demo/e2e/nextjs-demo.ch.spec.ts:71
+AUTO-CTR-019,non_fatal lands in CH after reportException,Playwright — examples/nextjs-demo,Assertions in linked test file,,Covered,examples/nextjs-demo/e2e/nextjs-demo.ch.spec.ts:84
+AUTO-CTR-020,device.crash lands in CH after manual reportDeviceCrash,Playwright — examples/nextjs-demo,Assertions in linked test file,,Covered,examples/nextjs-demo/e2e/nextjs-demo.ch.spec.ts:95
+
+Topic 9 — Consent & Feature Gates,,,,,
+TC,Scenario,How to Trigger,Expected Signal,Status(E2E ecommerce-demo),Status(E2E nextjs-demo),Comment
+AUTO-CON-001,3.3: session.end reaches OTLP on document unload (navigate to about:blank),Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m1.spec.ts:143
+AUTO-CON-002,@M1 consent — DENIED consent → Pulse.isInitialized() returns false,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m1.spec.ts:888
+AUTO-CON-003,DENIED consent → zero OTLP calls made,Playwright — examples/ecommerce-demo,Zero matching OTLP exports (see spec assertions),Covered,,examples/ecommerce-demo/e2e/m1.spec.ts:905
+AUTO-CON-004,3.15: consent DENIED — no session.start or session.end emitted,Playwright — examples/ecommerce-demo,Zero matching OTLP exports (see spec assertions),Covered,,examples/ecommerce-demo/e2e/m1.spec.ts:1897
+AUTO-CON-005,@M1 remote config + export gate (seeded localStorage) — metricsToAdd counter appears on /v1/metrics after session.start log export,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m1.spec.ts:1992
+AUTO-CON-006,PENDING consent → SDK does not init and zero OTLP,Playwright — examples/ecommerce-demo,Zero matching OTLP exports (see spec assertions),Covered,,examples/ecommerce-demo/e2e/m1.spec.ts:2086
+NET-18,NET-18: propagateTraceHeaderCorsUrls injects W3C traceparent header on matching requests,Playwright — examples/nextjs-demo,Automated coverage for manual NET-18 (see spec),,Covered,examples/nextjs-demo/e2e/nextjs-demo.spec.ts:637
+NET-14,NET-14: network_instrumentation gate off — no network spans emitted,Playwright — examples/nextjs-demo,Zero matching OTLP exports (see spec assertions),,Covered,examples/nextjs-demo/e2e/nextjs-demo.spec.ts:945
+NET-15,"NET-15: DENIED consent — no session.start, no network spans",Playwright — examples/nextjs-demo,Zero matching OTLP exports (see spec assertions),,Covered,examples/nextjs-demo/e2e/nextjs-demo.spec.ts:982
+
+Topic 10 — Persistence & Reliability,,,,,
+TC,Scenario,How to Trigger,Expected Signal,Status(E2E ecommerce-demo),Status(E2E nextjs-demo),Comment
+AUTO-PER-001,pagehide force-flushes pending signals before batch timer fires,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m1.spec.ts:520
+AUTO-PER-002,@M8 pagehide flush — TC 8.2/8.7: pagehide (persisted=false) flushes pending signals — session.end arrives,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m8.spec.ts:25
+AUTO-PER-003,TC 8.3: BFCache pagehide (persisted=true) does NOT emit session.end,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m8.spec.ts:47
+AUTO-PER-004,TC 8.8: signals emitted just before pagehide are flushed,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m8.spec.ts:65
+AUTO-PER-005,TC 8.8b: real navigation away → session.end reaches OTLP,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m8.spec.ts:91
+AUTO-PER-006,TC 8.2b: only one session.end emitted on pagehide (no duplicates),Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m8.spec.ts:106
+AUTO-PER-007,@M8 pagehide post-shutdown no-op — TC 8.10: pagehide after shutdown emits no new logs,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m8.spec.ts:133
+AUTO-PER-008,@M8 BFCache cycle — TC 8.9b: persisted=true then persisted=false emits exactly one session.end,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m8.spec.ts:170
+
+Topic 11 — Framework Integration,,,,,
+TC,Scenario,How to Trigger,Expected Signal,Status(E2E ecommerce-demo),Status(E2E nextjs-demo),Comment
+AUTO-FW-001,@M15 PulseProvider — TC 15.1: app mount starts SDK — session.start emitted with service.name,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m15.spec.ts:21
+AUTO-FW-002,TC 15.6: exactly one session.start emitted (StrictMode no double-init),Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m15.spec.ts:35
+AUTO-FW-003,TC 15.1b: isInitialized() true after PulseProvider mount,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m15.spec.ts:47
+AUTO-FW-004,TC 15.2b: render error caught by PulseProvider internal boundary — app stays alive,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m15.spec.ts:86
+AUTO-FW-005,@M15 useRouterTracking — TC 15.3: NavBar navigation fires setScreenName with new pathname,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m15.spec.ts:113
+AUTO-FW-006,TC 15.5: skipInitial:false (App config) → session.start carries initial screen.name,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m15.spec.ts:139
+AUTO-FW-007,TC 15.4: signal emitted after route change carries new screen.name,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m15.spec.ts:153
+AUTO-FW-008,TC 15.3b: multiple navigations each update screen.name,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m15.spec.ts:179
+AUTO-FW-009,session lifecycle — session.start emitted on first page load,Playwright — examples/nextjs-demo,Assertions in linked test file,,Covered,examples/nextjs-demo/e2e/nextjs-demo.spec.ts:33
+AUTO-FW-010,platform resource attribute is 'web',Playwright — examples/nextjs-demo,Assertions in linked test file,,Covered,examples/nextjs-demo/e2e/nextjs-demo.spec.ts:40
+AUTO-FW-011,session ID is consistent across navigations,Playwright — examples/nextjs-demo,Assertions in linked test file,,Covered,examples/nextjs-demo/e2e/nextjs-demo.spec.ts:47
+AUTO-FW-012,screen tracking — App Router navigation — screen.name updates when navigating from Home to Products,Playwright — examples/nextjs-demo,Assertions in linked test file,,Covered,examples/nextjs-demo/e2e/nextjs-demo.spec.ts:71
+AUTO-FW-013,screen.name reflects /cart after navigating to cart,Playwright — examples/nextjs-demo,Assertions in linked test file,,Covered,examples/nextjs-demo/e2e/nextjs-demo.spec.ts:94
+AUTO-FW-014,screen.name updates on multi-hop navigation: / → /products → /cart,Playwright — examples/nextjs-demo,Assertions in linked test file,,Covered,examples/nextjs-demo/e2e/nextjs-demo.spec.ts:116
+ERR-17,"ERR-17 — error.filename is defined (bundle URL or unknown, never absent)",Playwright — examples/nextjs-demo,Automated coverage for manual ERR-17 (see spec),,Covered,examples/nextjs-demo/e2e/nextjs-demo.spec.ts:314
+ERR-03,ERR-03 — same error burst within 5s emits only once (dedup),Playwright — examples/nextjs-demo,Automated coverage for manual ERR-03 (see spec),,Covered,examples/nextjs-demo/e2e/nextjs-demo.spec.ts:341
+ERR-09,ERR-09 / ERR-14 / ERR-16 — TypeError: class name preserved + stacktrace multi-line,Playwright — examples/nextjs-demo,Automated coverage for manual ERR-09 (see spec),,Covered,examples/nextjs-demo/e2e/nextjs-demo.spec.ts:359
+AUTO-FW-015,error gating & rejection dedupe — E-N3 — errors.enabled: false suppresses automatic window error capture,Playwright — examples/nextjs-demo,Assertions in linked test file,,Covered,examples/nextjs-demo/e2e/nextjs-demo.spec.ts:381
+ERR-03,ERR-03 (rejection) — same rejection burst within 5s emits only once,Playwright — examples/nextjs-demo,Automated coverage for manual ERR-03 (see spec),,Covered,examples/nextjs-demo/e2e/nextjs-demo.spec.ts:411
+ERR-03,ERR-03 (rejection) — same rejection after 5s window emits again,Playwright — examples/nextjs-demo,Automated coverage for manual ERR-03 (see spec),,Covered,examples/nextjs-demo/e2e/nextjs-demo.spec.ts:441
+NET-10,"@M4 network — Next.js demo — NET-10: captureQueryParams:true keeps query params, redacts sensitive token",Playwright — examples/nextjs-demo,Automated coverage for manual NET-10 (see spec),,Covered,examples/nextjs-demo/e2e/nextjs-demo.spec.ts:540
+NET-11,NET-11: blockedUrls config suppresses spans for matched URL,Playwright — examples/nextjs-demo,Automated coverage for manual NET-11 (see spec),,Covered,examples/nextjs-demo/e2e/nextjs-demo.spec.ts:575
+NET-12,NET-12: peerServiceMap sets peer.service attribute on spans,Playwright — examples/nextjs-demo,Automated coverage for manual NET-12 (see spec),,Covered,examples/nextjs-demo/e2e/nextjs-demo.spec.ts:606
+NET-07,NET-07: http.duration is present and reflects measured elapsed time,Playwright — examples/nextjs-demo,Automated coverage for manual NET-07 (see spec),,Covered,examples/nextjs-demo/e2e/nextjs-demo.spec.ts:837
+NET-17,NET-17: OTLP export URLs are not traced as network client spans,Playwright — examples/nextjs-demo,Automated coverage for manual NET-17 (see spec),,Covered,examples/nextjs-demo/e2e/nextjs-demo.spec.ts:1018
+AUTO-FW-016,ISS-N10: XHR capturedRequestHeaders captures request headers on XHR spans,Playwright — examples/nextjs-demo,Assertions in linked test file,,Covered,examples/nextjs-demo/e2e/nextjs-demo.spec.ts:1034
+NET-13,NET-13: three concurrent requests each produce a separate network span,Playwright — examples/nextjs-demo,Automated coverage for manual NET-13 (see spec),,Covered,examples/nextjs-demo/e2e/nextjs-demo.spec.ts:1083
+AUTO-FW-017,router integration fail-safe — React PulseRouterEvents without BrowserRouter keeps page visible,Playwright — examples/nextjs-demo,Assertions in linked test file,,Covered,examples/nextjs-demo/e2e/router-fail-safe.spec.ts:8
+
+Topic 12 — Performance & Overhead,,,,,
+TC,Scenario,How to Trigger,Expected Signal,Status(E2E ecommerce-demo),Status(E2E nextjs-demo),Comment
+AUTO-PERF-001,@SyntheticUser — full app journey ×${ITERATIONS},Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/synthetic-user.spec.ts:76
+
+Topic 14 — Interactions (M2),,,,,
+TC,Scenario,How to Trigger,Expected Signal,Status(E2E ecommerce-demo),Status(E2E nextjs-demo),Comment
+AUTO-INT-001,@M2 interactions e2e — single-event interaction emits success span,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m2-interactions.spec.ts:42
+AUTO-INT-002,two-event interaction emits success span with contract attrs,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m2-interactions.spec.ts:63
+AUTO-INT-003,multi-event interaction emits success span,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m2-interactions.spec.ts:105
+AUTO-INT-004,ignored event does not break an in-flight interaction,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m2-interactions.spec.ts:121
+AUTO-INT-005,global blacklist cancels in-flight sequence without emitting span,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m2-interactions.spec.ts:138
+AUTO-INT-006,local blacklisted step resets flow without terminal span,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m2-interactions.spec.ts:168
+AUTO-INT-007,timeout at stage-1 (waiting for second event) emits timeout error,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m2-interactions.spec.ts:206
+AUTO-INT-008,timeout at stage-2 (waiting for third event) emits timeout error,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m2-interactions.spec.ts:222
+AUTO-INT-009,sequence violation at stage-1 emits sequence_violation,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m2-interactions.spec.ts:239
+AUTO-INT-010,sequence violation at stage-2 emits sequence_violation,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m2-interactions.spec.ts:256
+AUTO-INT-011,two independent interactions each emit a span,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m2-interactions.spec.ts:274
+AUTO-INT-012,apdex category Excellent,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m2-interactions.spec.ts:301
+AUTO-INT-013,apdex category Good,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m2-interactions.spec.ts:333
+AUTO-INT-014,apdex category Average,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m2-interactions.spec.ts:365
+AUTO-INT-015,apdex category Poor,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m2-interactions.spec.ts:397
+AUTO-INT-016,complete_time nanos is consistent with span start/end nanos,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m2-interactions.spec.ts:429
+AUTO-INT-017,"interaction config fetch unavailable -> no interaction span, sdk still running",Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m2-interactions.spec.ts:464
+AUTO-INT-018,@M2 interactions edge cases — property operator ${op.operator} positive match emits span,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m2-interactions.spec.ts:520
+AUTO-INT-019,"property operator ${op.operator} negative match blocks span, positive still works",Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m2-interactions.spec.ts:546
+AUTO-INT-020,exploratory: middle step is not skippable in current matcher,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m2-interactions.spec.ts:573
+AUTO-INT-021,middle step present in order allows success,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m2-interactions.spec.ts:600
+AUTO-INT-022,overlapping configs on same stream each emit terminal span,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m2-interactions.spec.ts:621
+AUTO-INT-023,out-of-order event timestamp leads to timeout error,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m2-interactions.spec.ts:662
+AUTO-INT-024,restart after sequence violation emits error then new success,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m2-interactions.spec.ts:689
+AUTO-INT-025,multiple global blacklist hits cancel flow and later flow can still succeed,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m2-interactions.spec.ts:732
+AUTO-INT-026,mixed valid + invalid config payload gets rejected as array,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m2-interactions.spec.ts:762
+AUTO-INT-027,user id updated mid-interaction stamps final interaction span,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m2-interactions.spec.ts:788
+AUTO-INT-028,apdex exact boundary lower=>Excellent mid=>Good upper=>Average,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m2-interactions.spec.ts:812
+AUTO-INT-029,apdex scoring works for 3-event interaction durations,Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m2-interactions.spec.ts:857
+AUTO-INT-030,"shared prefix branching: e1,e2,e4 is non-terminal; e1,e2,e5 and e1,e2,e3 terminal",Playwright — examples/ecommerce-demo,Assertions in linked test file,Covered,,examples/ecommerce-demo/e2e/m2-interactions.spec.ts:907

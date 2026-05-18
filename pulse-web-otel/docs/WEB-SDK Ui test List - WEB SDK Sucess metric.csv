@@ -1,0 +1,264 @@
+Topic 1 — SDK Initialization & Remote Config,,,,,,
+TC,Scenario,How to Trigger,Expected Signal,Status(Android) Jatin,Status(iOS) Shruti,Comment
+INIT-01,Cold first load — IDs created,Clear localStorage + hard-reload /,"pulse_session_id, pulse_installation_id written to localStorage",,Pass,
+INIT-02,Installation ID stable across sessions,Note install ID → close tab → reopen,Same install ID in localStorage,,Pass,
+INIT-03,"When session expires and a navigation happens, multiple session.start signals fire at the exact same millisecond with different session IDs but the same previous_id, ideally it should n ot get craeted",Manually expire pulse_session_ts → navigate,no multiple session id should be created,,fixed,
+INIT-03.1,Session ID rotates on timeout,Manually expire pulse_session_ts → navigate,"New session_id, old one in session.previous_id attr",,Pass,
+INIT-04,Remote config fetched on boot,PulseHealthCheck console,HTTP 200 from /v1/configs/active/,,Pass,
+INIT-05,API key injected correctly,Network → /v1/configs/active/ headers,"x-api-key present, matches NEXT_PUBLIC_PULSE_API_KEY",,Pass,
+,,,,,,
+Topic 2 — Session Lifecycle,,,,,,
+TC,Scenario,How to Trigger,Expected Signal,,,
+SESS-01,session.start on fresh load,Clear storage → load /,"pulse.type=session.start, session.id=<uuid>, platform=web, session.start_reason=sdk_init fresh",,Pass,
+SESS-02,session.start carries install ID,Check SESS-01 resource attributes,installation.id present in resource attrs,,Pass,
+SESS-03,session.end on tab close,Open → navigate → close tab,"pulse.type=session.end, session.duration_ms > 0, session.end_reason=page_unload",,Pass,
+SESS-04,Timeout → new session with chain,Background tab past timeout → foreground,"session.end with end_reason=inactivity_timeout, then session.start with session.previous_id previous_session_id",,Pass,
+SESS-05,Session ID consistent within session,5 navigations + purchase → check all logs,All events share same session.id,,Not Picked,
+SESS-07,session.previous_id absent on very first session,Clear all storage → first ever load,session.previous_id absent or empty string — not a stale UUID,,Pass,
+,13E — Log Attributes: session.start,,,,,
+,Attribute,Value Rule,Bad Value,,,
+SESS-08,pulse.type,"""session.start""",,,Pass,
+SESS-09,session.id,UUID v4,empty string,,Pass,
+SESS-10,session.start_reason,"""sdk_init"" / ""inactivity_timeout"" / ""max_lifetime""","""fresh"" / ""new"" / ""init"" wrong enums",,Pass,
+SESS-11,session.previous_id previous_session_id,"UUID of prior session, or empty string on very first",absent (key differs — session.previous_id),,Pass,
+,,,,,Pass,
+,13F — Log Attributes: session.end,,,,Pass,
+,Attribute,Value Rule,Bad Value,,Pass,
+SESS-12,pulse.type,"""session.end""",,,Pass,
+SESS-13,session.id,UUID,null,,Pass,
+SESS-14,session.duration_ms,integer ms > 0,0 / negative,,Pass,
+SESS-15,session.end_reason,"""inactivity_timeout"" / ""shutdown"" / ""page_unload"" / ""max_lifetime""","""tab_close"" doesn't exist / ""timeout""",,Pass,
+,,,,,,
+Topic 3 — Network Instrumentation (Fetch + XHR),,,,,,
+TC,Scenario,How to Trigger,Expected,,,
+NET-01,Happy-path GET captured,Load any page that fires a GET request,"pulse.type=network.200, http.request.method=GET, http.response.status_code=200, server.address set, server.port set (integer), url.full set, session.id set, screen.name set",,Pass,
+NET-02,POST captured,Fire a POST fetch (e.g. form submit / purchase),"pulse.type=network.200, http.request.method=POST, url.full contains endpoint path, http.response.status_code=200",,Pass,
+NET-03,4xx captured,Request a URL that returns 404,"pulse.type=network.404, http.response.status_code=404, error.type=4xx, span status ERROR",,Pass,
+NET-04,5xx captured,Request a URL that returns 500,"pulse.type=network.500, http.response.status_code=500, error.type=5xx, span status ERROR",,Pass,
+NET-05,Abort / timeout → network.0,AbortController.abort() or XHR timeout on in-flight request,"pulse.type=network.0, error.type=network_error, span status ERROR",,Pass,
+NET-06,XHR GET captured,new XMLHttpRequest() open + send (GET),"pulse.type=network.200, http.request.method=GET, http.response.status_code=200, url.full set",,Pass,
+NET-07,http.duration from PerformanceResourceTiming,Fetch with a measurable server delay,"http.duration present, integer (ms), value ≥ delay introduced; sourced from PerformanceResourceTiming.responseEnd − requestStart",,Pass,
+NET-08,CORS opaque response → cors_error,"fetch(crossOriginUrl, { mode: 'no-cors' })","pulse.type=network.0, error.type=cors_error, span status ERROR",,Pass,
+NET-09,Query params stripped by default,GET with ?token=x&id=1 (captureQueryParams default false),"url.full contains no ?, no query key or value leaked; credentials (user:pass@host) also stripped",,Pass,"URLs show ?status=404, ?status=429, ?_rsc=... — query params NOT stripped"
+NET-10,captureQueryParams: true — sensitive values redacted,"Configure captureQueryParams: true, GET with ?search=ok&token=secret",url.full contains search=ok; token=*; raw secret value absent,,Pass,
+NET-11,blockedUrls — matched URL produces no span,"Configure blockedUrls: [""/analytics/""], fire fetch to that path",Zero network.* spans for the blocked URL; other requests still traced,,Pass,
+NET-12,peerServiceMap — peer.service stamped,"Configure peerServiceMap: { ""api.example.com"": ""orders-svc"" }, fetch to that host",peer.service=orders-svc on span,,Pass,peer.service is empty on all 18 spans
+NET-13,Concurrent requests all captured,"Promise.all([fetch(A), fetch(B), fetch(C)]) — 3 parallel calls","3 separate network.* spans, one per URL; no deduplication or merging",,Pass,
+NET-14,Feature gate off → no spans,Remote config: network_instrumentation gate sessionSampleRate=0,"Zero network.* spans; other instrumentation (sessions, errors) unaffected",,Pass,
+NET-15,Consent denied → no spans,dataCollectionState=DENIED,"Zero network.* spans, zero session.start; no OTLP export at all",,Pass,
+NET-16,Local network.enabled: false → no spans,instrumentations.network.enabled: false in SDK config,Zero network.* spans; session and error signals still exported,,Pass,
+NET-17,OTLP self-exclusion,Any page load (SDK exports traces/logs to collector),"No span whose url.full matches /v1/traces, /v1/logs, or /v1/metrics — SDK export calls never traced",,Pass,
+NET-18,propagateTraceHeaderCorsUrls — W3C trace context injected,"Configure propagateTraceHeaderCorsUrls for a host, fire fetch to it",Outbound request carries traceparent header matching 00-<32 hex>-<16 hex>-0[01]; corresponding network.* span exists,,Pass,
+,,,,,,
+Topic 4 — Error Capture (device.crash / non_fatal),,,,,,
+TC,Scenario,How to Trigger,Expected Signal,,,
+ERR-01 Make sure to test manually,Sync throw captured,"SDK Lab → ""Throw JS Error""","pulse.type=device.crash, SeverityText=FATAL, SeverityNumber=21, exception.message + exception.stacktrace present",,fixed,"
+Row 7: stacktrace = '@unknown:138:28' (was '@') — fallback frame with lineno+colno ✅"
+ERR-02,Unhandled promise rejection,"SDK Lab → ""Reject Promise""","pulse.type=non_fatal, SeverityText=WARN, SeverityNumber=13, non_fatal.is_manual=false (boolean not string)",,Pass,
+ERR-03,Dedup — same error within 5s,Same error 3× rapidly (< 5s),Only 1 device.crash in that window,,Pass,
+ERR-04,Different errors within 5s not deduped,Throw Error A then Error B,2 distinct device.crash logs,,Pass,
+ERR-05,Handled (try/catch) NOT captured,try { throw new Error() } catch {},Zero device.crash emitted,,Pass,
+ERR-06,Battery + storage on crash,ERR-01 in browser with Battery API (Chromium/Android WebView),"battery.percent integer 0–100; storage.free integer ≥ 0. Absent if API unavailable — absence acceptable, wrong key is not",,Pass,
+ERR-07 Make sure to test manually,Error location attrs present,Inspect ERR-01,"error.filename non-empty string (bundle URL in browser e.g. https://cdn.app.com/main.js); error.lineno + error.colno positive integers. In jsdom error.filename may be ""unknown"" — acceptable",,fixed,"
+Row 7: stacktrace = '@unknown:138:28' (was '@') — fallback frame with lineno+colno ✅"
+ERR-08,url.path on crash,Inspect ERR-01,url.path = pathname only e.g. /error-demo — not full URL,,Pass,
+ERR-09 Make sure to test manually,Stacktrace is multi-line with file+line,Inspect exception.stacktrace on ERR-01,"Contains \n; each frame has file reference + line number; not ""[object Error]"", not single-line",,fixed,"
+Row 7: stacktrace = '@unknown:138:28' (was '@') — fallback frame with lineno+colno ✅"
+ERR-10,session.id tied to session,Inspect ERR-01,session.id UUID matches session.start of same session,,Pass,
+,Attribute,Value Rule,Bad Value,,,
+ERR-11,pulse.type,"""device.crash""",any other string,,Pass,
+ERR-12,SeverityText,"""FATAL""","""ERROR""",,Pass,
+ERR-13,SeverityNumber,21,outside 17–24,,Pass,
+ERR-14,exception.type,"actual class name — ""TypeError"", ""RangeError"", ""Error""","""Error"" stamped for every class regardless",,Pass,
+ERR-15,exception.message,actual message string,"""[object Object]""",,Pass,
+ERR-16 Make sure to test manually,exception.stacktrace,"multi-line, file + line per frame","single-line / ""null"" / """" for non-cross-origin errors",,fixed,"Multi-line on 7/8 rows ✅,Row 7: filename = 'unknown' (was 'undefined') ✅"
+ERR-17 Make sure to test manually,error.filename,"bundle URL or source path, non-empty; """" only for cross-origin stub",empty string on same-origin errors,,fixed,"
+Row 7: stacktrace = '@unknown:138:28' (was '@') — fallback frame with lineno+colno ✅"
+ERR-18,error.lineno,positive integer,string / 0 / absent,,Pass,
+ERR-19,error.colno,non-negative integer,string / absent,,Pass,
+ERR-20,url.path,pathname e.g. /checkout,full URL e.g. https://app.com/checkout,,Pass,
+ERR-21,battery.percent,key must be battery.percent; integer 0–100; absent if API unavailable,key device.battery_percentage; negative value,,Pass,
+ERR-22,storage.free,key must be storage.free; integer ≥ 0; absent if API unavailable,key storage.free_bytes; negative value,,Pass,
+ERR-23,session.id,UUID string,null / undefined / empty string,,Pass,
+ERR-24,pulse.type,"""non_fatal""","""device.crash""",,Pass,
+ERR-25,SeverityText,"""WARN""","""ERROR"" / ""FATAL""",,Pass,
+ERR-26,SeverityNumber,13,outside WARN range,,Pass,
+ERR-27,exception.type,"actual class — ""TypeError"", ""RangeError""","""Error"" for every rejection regardless",,Pass,
+ERR-28,exception.message unwrapped,"Promise.reject(""string"") → exception.message = ""string""","""[object Promise]""",,Pass,
+ERR-29,exception.stacktrace,"string — populated or """", never absent",null / absent,,Pass,
+ERR-30,url.path,pathname only,full URL,,Pass,
+ERR-31,non_fatal.is_manual,false (boolean) for auto-captured,"string ""false""",,Pass,
+ERR-32,session.id,UUID matching session.start,null / empty,,Pass,
+,,,,,,
+Topic 5 — Navigation & Screen Tracking,,,,,,
+TC,Scenario,How to Trigger,Expected,,,
+NAV-01,Initial load — screen_load emitted,Hard-reload /,"pulse.type=screen_load, start.type=cold load_type, ttfb web.ttfb_ms > 0, page.load_time > 0",,,
+NAV-02,SPA navigation — screen_load per route,Click Lottery → click Orders,"One span per route, start.type=spa",,,
+NAV-03,screen_session dwell time accurate,Spend ~5s on /lottery/[id] → navigate away,"screen_session span, DurationNano ≥ 4,800,000,000",,,
+NAV-04,Screen name resolution,Navigate to /lottery/abc-123,"screen.name = /lottery/:id, not raw UUID",,,
+NAV-05,back_forward navigation,Forward 3 pages → browser back,start.type=back_forward load_type,,,
+NAV-07,Rapid navigation debounced at 100ms 500ms,Click 5 routes in < 100ms,1 screen_load per settled route,,,
+NAV-08,screen_session emitted on last page before close,Visit 2 pages → close tab,screen_session for page 2 in ClickHouse,,,
+NAV-09,PerformanceNavigationTiming attrs,Inspect cold screen_load,"ttfb web.ttfb_ms, dns.time web.dns_ms, tcp.time web.tcp_ms, dom.processing_time web.dom_processing_ms, tti all present",,,
+NAV-10,No LCP on screen_load,Inspect any screen_load span attrs,No web.lcp_ms or lcp attr — LCP lives in web_vital logs only,,,
+NAV-11,url.path + page.title on screen_load,Any screen_load span,"url.path = pathname, page.title = document.title",,,
+,,,,,,
+,,,,,,
+Topic 6 — Web Vitals,,,,,,
+TC,Scenario,How to Trigger,Expected,,,
+VIT-01,LCP captured,Load image-heavy page → switch tab,"web_vital.name=LCP metric.name, value > 0 ms",,Pass,
+VIT-02,CLS captured,Skeleton → content layout shift,"web_vital.name=CLS, value ≥ 0 (unitless)",,Pass,
+VIT-03,INP captured,Click several buttons/cards,"web_vital.name=INP, value > 0 ms",,Pass,
+VIT-04,FCP captured,Load / → switch tab,"web_vital.name=FCP, value > 0 ms",,Pass,
+VIT-05,TTFB captured,Load / → switch tab,"web_vital.name=TTFB, value > 0 ms",,Pass,
+VIT-06,Rating thresholds correct,CPU throttle 6× + Slow 3G → load,web_vital.rating=poor metric.rating for LCP > 4000ms,,Pass,
+VIT-07,"Vitals emitted on tab hide, not before",Load → query ClickHouse immediately,No vitals yet → switch tab → vitals appear,,Pass,
+VIT-08,navigation_type attribute present,Any vitals log,"web_vital.navigation_type navigation.type in (navigate,reload,back_forward,prerender)",,Pass,
+VIT-09,BFCache flush,Browser back (BFCache hit),Vitals from previous page appear,,Pass,
+VIT-10,FID may be absent on modern Chrome,Modern Chrome,Do not fail if FID missing — INP is the replacement,,Pass,
+,Attribute,Value Rule,Bad Value,,Pass,
+VIT-11,pulse.type,"""web_vital""",,,Pass,
+VIT-12,web_vital.name metric.name,"""LCP"" / ""CLS"" / ""INP"" / ""FCP"" / ""FID"" / ""TTFB""",lowercase / metric.name wrong key,,Pass,
+VIT-13,web_vital.value metric.value,float ≥ 0; LCP/FCP/TTFB/INP in ms; CLS unitless,negative / string,,Pass,
+VIT-14,web_vital.rating metric.rating,"""good"" / ""needs-improvement"" / ""poor""","""bad"" / ""ok"" / metric.rating wrong key",,Pass,
+VIT-15,web_vital.navigation_type navigation.type,"""navigate"" / ""reload"" / ""back_forward"" / ""prerender"" or absent",raw integer / navigation.type wrong key,,Pass,
+VIT-16,session.id,UUID,null,,Pass,
+,,,,,,
+Topic 7 — Click & Rage-Click Tracking,,,,,,
+TC,Scenario,How to Trigger,Expected,,,
+CLK-01,Basic click captured,"Click ""Buy Now"" button","pulse.type=app.click, app.screen.coordinate.x click.x, app.screen.coordinate.y click.y, app.widget.name click.widget_name",,,
+CLK-02,Coordinates normalized,Click near top-left corner,"app.screen.coordinate.nx click.normalized_x ≈ 0.0, app.screen.coordinate.ny click.normalized_y ≈ 0.0; both in [0.0, 1.0]",,,
+CLK-03,Widget name resolved,"Click button with id=""buy-now-btn""","app.widget.name = ""buy-now-btn"" or text content; not raw tag",,,
+CLK-04,Widget ID set,"Click <button id=""buy-now-btn"">","app.widget.id click.widget_id = ""buy-now-btn""",,,
+CLK-05,Rage click: correct attrs,"Click disabled ""Buy Now"" 5× rapidly","click.is_rage=true, click.rage_count=5, click.type = ""good"" or ""dead"" — not ""rage"" click.type=rage is wrong",,,
+CLK-08,Viewport dimensions,Any click,device.screen.width viewport.width + device.screen.height viewport.height; match window.innerWidth/innerHeight,,,
+CLK-09,Click context captured,Click inside a card,app.click.context click.context = nearest named ancestor,,,
+CLK-10,Clicks flushed on tab background,Click elements → switch tab,All clicks in ClickHouse after backgrounding,,,
+CLK-11,session.id on click logs,Any click log,session.id = current session,,,
+,Attribute,Value Rule,Bad Value,,,
+CLK-12,pulse.type,"""app.click""",,,,
+CLK-13,app.screen.coordinate.x click.x,integer px = Math.round(event.clientX),negative,,,
+CLK-14,app.screen.coordinate.y click.y,integer px = Math.round(event.clientY),negative,,,
+CLK-15,app.screen.coordinate.nx click.normalized_x,"float = x ÷ viewportWidth, in [0.0, 1.0]",> 1 / negative,,,
+CLK-16,app.screen.coordinate.ny click.normalized_y,"float = y ÷ viewportHeight, in [0.0, 1.0]",> 1,,,
+CLK-17,app.widget.name click.widget_name,"id, aria-label, or text; human-readable","raw tag ""DIV""",,,
+CLK-18,app.widget.id click.widget_id,element id or absent,empty string (should be absent if no id),,,
+CLK-19,app.click.context click.context,nearest named ancestor,"""BODY"" / null",,,
+CLK-20,click.type,"""good"" or ""dead"" only","""rage"" doesn't exist as a click.type value",,,
+CLK-21,click.is_rage,boolean true — only on rage events,absent on non-rage (correct),,,
+CLK-22,click.rage_count,integer ≥ 2 — only on rage events,1,,,
+CLK-23,device.screen.width viewport.width,integer = window.innerWidth,window.screen.width physical px,,,
+CLK-24,device.screen.height viewport.height,integer = window.innerHeight,window.screen.height,,,
+CLK-25,session.id,UUID,null,,,
+,,,,,,
+Topic 8 — Data Contract & ClickHouse Schema Integrity,,,,,,
+TC,What's Checked,Attribute,,,,
+CTR-01,platform=web universal,"722/722 rows = web, 0 non-web",,,Pass,os.name = web (correct for web runtime)
+CTR-02,ProjectId populated,722/722 non-empty,,,Pass,default-project-lottery-gGqK4tv6
+CTR-03,session.id on all logs,722/722 non-empty,,,Pass,Zero missing
+CTR-04,Timestamps valid,"13:34–14:18 UTC, 0 epoch-zero, 0 future",,,Pass,All within session window
+CTR-05,Multi-tenant isolation,Only default-project-lottery-gGqK4tv6 in ProjectId,,,Pass,No cross-project leakage
+CTR-06,installation.id stable,deb21eb6 same across 2 sessions; c1d18ff1 and d0a248b4 have different install IDs (different devices/browsers),,,Pass,Same device = same install ID
+CTR-07,app.build_name matches version,1.0.0 = NEXT_PUBLIC_APP_VERSION,,,Pass,Not 0.0.0 / unknown
+CTR-08,No admin credentials,currentUser() = pulse_user (not default),,,Pass,Tenant user in use
+,,,,,Pass,
+,,,,,,
+Topic 9 — Consent & Feature Gates,,,,,,
+TC,Scenario,How to Trigger,Expected,,,
+CON-01,Consent DENIED → zero signals,dataCollectionState: DENIED → hard-reload,"Zero OTLP calls, no localStorage session keys",,,
+CON-02,Consent ALLOWED → all signals,Default lottery-demo state,session.start within 2s of load,,,
+CON-03,Consent change requires remount revoke mid-session,Remount <PulseProvider> with DENIED config,Signals stop after remount; no mid-session revoke without remount,,,
+CON-04,Gate: errors disabled,instrumentations.errors.enabled=false errorsEnabled → throw JS error,No device.crash,,,
+CON-05,Gate: network disabled,instrumentations.network.enabled=false networkEnabled → make API calls,No network.* spans,,,
+CON-06,Gate: web vitals disabled,instrumentations.webVitals.enabled=false webVitalsEnabled → switch tabs,No web_vital logs,,,
+CON-07,Gate: screen/nav disabled,instrumentations.navigation.enabled=false screenEnabled → navigate 3 routes,No screen_load or screen_session spans,,,
+CON-08,Gate: session disabled,instrumentations.session.enabled=false sessionEnabled → fresh load,No session.start or session.end,,,
+CON-09,Remote feature gate,Disable js_crash in remote config (not errors),ErrorInstrumentation not installed,,,
+CON-10,One gate off doesn't kill others,Disable errors gate only,All other signal types still flow,,,
+,,,,,,
+Topic 10 — Persistence & Reliability,,,,,,
+TC,Scenario,How to Trigger,Expected,,,
+PER-01,Signals survive slow collector,Throttle to Slow 3G → use app 30s,All appear in ClickHouse within 60s,,,
+PER-03,IndexedDB buffer drains on reconnect,Go offline → interact 2 min → go online,Debug panel IndexedDB count > 0 offline; drains to ~0 within 30s,,,
+PER-04,Page refresh doesn't lose buffered data,Go offline → interact → hard-refresh → go online,Pre-refresh signals still appear,,,
+PER-05,No duplicate signals on retry,Collector returns 503 → SDK retries,Count = 1 per unique event,,,
+,,,,,,
+Topic 11 — Framework Integration (Next.js + Capacitor),,,,,,
+TC,Scenario,How to Trigger,Expected,,,
+FW-01,App Router SSR boundary,Check 'use client' on PulseProvider.tsx,"No ""window is not defined"" in server logs",,,
+FW-02,App Router navigations captured,Click 4 routes via Next.js <Link>,"screen_load per route, start.type=spa",,,
+FW-03,Capacitor Android WebView — signals flow,npx cap run android → interact,"session.start, screen_load, clicks present; platform = ""web""",,,
+,,,,,,
+,,,,,,
+Topic 12 — Performance & Overhead,,,,,,
+TC,Scenario,Measurement,Expected,,,
+PERF-01,LCP not degraded,Lighthouse: SDK on vs. off,LCP delta < 100ms (informational),,,
+PERF-02,No memory leak over navigation,50-route navigation → heap snapshot,Heap growth < 5MB; no growing detached nodes,,,
+PERF-03,Click handler doesn't block main thread,CPU throttle 6× → rapid clicks,No long task > 50ms from SDK,,,
+,,,,,,
+,,,,,,
+Topic 13 — Attribute Completeness & Value Assertions,,,,,,
+,,,,,,
+Attribute,Mobile (iOS WKWebView),Desktop (Chrome),,,,
+platform,web,web,,,Pass,
+telemetry.sdk.name,pulse_web_js,pulse_web_js,,,Pass,
+rum.sdk.name,pulse_web_js,pulse_web_js,,,Pass,
+rum.sdk.version,0.0.2,0.0.2,,,Pass,0.0.3
+project.id,default-project-lottery-gGqK4tv6,same,,,Pass,
+app.build_name,1.0.0,1.0.0,,,Pass,
+installation.id,"UUID, stable across sessions","UUID, stable",,,Pass,
+os.name,web,web,,,Pass,Correct for web runtime context
+os.version,18,15,,,Pass,Major version only
+browser.name,Unknown,Google Chrome,,,⚠️ Platform limitation,WKWebView UA not detectable
+browser.version,`` (empty),148,,,⚠️ Platform limitation,Empty on WKWebView; desktop major only
+browser.language,en-IN,en-GB,,,Pass,BCP-47 format
+device.type,mobile,desktop,,,Pass,
+screen.resolution,393x852,1728x1117,,,Pass,
+screen.aspect_ratio,135:44:00,1746:37:00,,,Pass,Reduced to GCD
+screen.color_depth,24,30,,,Pass,
+network.online,TRUE,TRUE,,,Pass,boolean
+timezone,Asia/Calcutta,Asia/Calcutta,,,Pass,"IANA alias, system-returned value"
+service.name,lottery-demo,lottery-demo,,,Pass,
+,,,,,,
+Attribute,Sample Values,,,,,Notes
+pulse.type,"network.200, network.404, network.500, network.0",,,,Pass,Correct network.<statusCode> format
+http.request.method,"GET, POST",,,,Pass,Uppercase
+url.full,http://localhost:3001/api/lotteries,,,,Pass,"No credentials, no sensitive params"
+http.response.status_code,"200, 404, 429, 500, 503, 0",,,,Pass,Integer
+server.address,localhost,,,,Pass,"Hostname only, no path"
+server.port,"3001, 8080",,,,Pass,Integer
+http.duration,"5, 382, 520 ms",,,,Pass,Integer ms ≥ 0
+http.request.body.size,`` (absent on GETs),,,,Pass,Absent when no body — correct
+http.response.body.size,"44, 309 bytes",,,,Pass,Integer ≥ 0
+error.type,"4xx, 5xx, network_error, cors_error",,,,Pass,All valid enums
+network.protocol.version,1.1,,,,Pass,"Clean string, not http/1.1"
+,,,,,,
+,,,,,,
+"13C — Span Attributes: 
+screen_load",,,,,,
+Attribute,Sample Values,,,,,Notes
+pulse.type,screen_load,,,,Pass,
+screen.name,"/, /lottery/diwali-bumper, /orders, /sdk-lab",,,,Pass,"Normalized path pattern, no raw UUIDs"
+start.type,"cold, spa, reload",,,,Pass,Valid enums; back_forward/bfcache would appear on BFCache hit
+navigation.type,"navigate, reload, absent on SPA",,,,Pass,Absent on SPA transitions — correct
+ttfb,"431, 358 ms (absent on SPA)",,,,Pass,Integer ms ≥ 0; absent on SPA — correct
+page.load_time,"973, 828 ms (absent on SPA)",,,,Pass,Integer ms ≥ 0
+dns.time,absent,,,,Pass,Absent when not measurable (localhost) — correct
+tcp.time,absent,,,,Pass,Same — localhost skips TCP handshake
+dom.processing_time,"370, 407 ms",,,,Pass,Integer ms ≥ 0
+tti,"603, 421 ms",,,,Pass,Integer ms ≥ 0
+url.path,"/lottery/diwali-bumper, /orders",,,,Pass,"Pathname only, no host"
+page.title,DreamLotto — Pulse Web SDK Demo,,,,Pass,Non-empty string
+session.id,0c0bbc7a (UUID),,,,Pass,
+,,,,,,
+13D — Span Attributes: screen_session,,,,,,
+Attribute,Sample Values,,,,,Notes
+pulse.type,screen_session,,,,Pass,
+screen.name,"/, /sdk-lab, /orders",,,,Pass,Matches paired screen_load patterns
+session.duration_ms,"236988, 31688, 2277",,,,Pass,Integer ms > 0
+session.duration,"236988, 31688, 2277",,,,Pass,Exactly matches session.duration_ms
+span_duration_ms (Duration/1e6),"236988, 31688, 2277",,,,Pass,session.duration_ms = Duration÷1e6 ✅
+url.path,"/, /sdk-lab, /orders",,,,Pass,Pathname only
+page.title,DreamLotto — Pulse Web SDK Demo,,,,Pass,Non-empty
+last.screen.name,"absent on first load, / → /sdk-lab → /orders chain",,,,Pass,"Absent on first screen (not empty string), UUID present on subsequent"
+session.id,0c0bbc7a (UUID),,,,Pass,
