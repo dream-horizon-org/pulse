@@ -12,7 +12,7 @@
 
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <liquibase.version>4.27.0</liquibase.version>
+    <liquibase.version>4.29.0</liquibase.version>
     <liquibase.clickhouse.version>0.8.0</liquibase.clickhouse.version>
     <mysql.connector.version>8.0.33</mysql.connector.version>
     <clickhouse.jdbc.version>0.6.0</clickhouse.jdbc.version>

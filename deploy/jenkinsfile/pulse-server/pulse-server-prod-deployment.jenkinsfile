@@ -87,7 +87,7 @@ pipeline {
                         --output text)
 
                     eval $(echo "$APP_ENV_JSON" | \
-                        jq -r '.app_env[] | select(.key | test("^(MYSQL|CLICKHOUSE)")) | "export \\(.key)=\\(.value | @sh)"')
+                        jq -r '.app_env[] | select(.key | test("^(MYSQL|CLICKHOUSE)")) | "export \(.key)=\(.value | @sh)"')
 
                     cd backend/db
 
