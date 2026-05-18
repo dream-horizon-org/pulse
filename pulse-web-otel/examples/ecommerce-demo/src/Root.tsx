@@ -26,7 +26,7 @@ const LOG_LEVEL_MAP: Record<string, PulseLogLevel> = {
 };
 
 /**
- * URL overrides for E2E / manual QA (see e2e/m1.spec.ts, m4-network.spec.ts).
+ * URL overrides for E2E / manual QA (see e2e/m1.spec.ts, m4-network.spec.ts, m2-interactions.spec.ts).
  * Read once per document load — full navigation is required for query changes to apply.
  */
 function useDemoUrlPulseOptions(): Pick<
@@ -49,6 +49,9 @@ function useDemoUrlPulseOptions(): Pick<
     const networkOff =
       q.get("pulse_network_enabled") === "0" ||
       q.get("pulse_network_enabled") === "false";
+    const interactionsOff =
+      q.get("pulse_interactions_enabled") === "0" ||
+      q.get("pulse_interactions_enabled") === "false";
     const captureQueryParams = q.get("pulse_capture_query") === "1";
     const blockedUrlParam = q.get("pulse_blocked_url");
     const peerHost = q.get("pulse_peer_host");
@@ -77,9 +80,10 @@ function useDemoUrlPulseOptions(): Pick<
 
     const manualWebVitals = readManualWebVitalsInstrumentation(q);
     let instrumentations: InstrumentationConfig | undefined;
-    if (hasNetworkConfig || manualWebVitals !== undefined) {
+    if (hasNetworkConfig || manualWebVitals !== undefined || interactionsOff) {
       instrumentations = {
         ...(manualWebVitals ?? {}),
+        ...(interactionsOff ? { interactions: { enabled: false } } : {}),
         ...(hasNetworkConfig
           ? {
               network: {

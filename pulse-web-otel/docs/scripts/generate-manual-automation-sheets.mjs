@@ -15,9 +15,18 @@ const successMetricPath = path.join(
   docs,
   "WEB-SDK Ui test List - WEB SDK Sucess metric.csv",
 );
-const outPath = path.join(docs, "WEB-SDK Success Metric — Test Coverage.csv");
+const prdDir = path.join(docs, "prd");
+const outPath = path.join(
+  prdDir,
+  "WEB-SDK Success Metric — Test Coverage.csv",
+);
+const interactionPanelPath = path.join(
+  scriptsDir,
+  "interaction-panel-coverage.json",
+);
 
-const TC_RE = /^[A-Z][A-Z0-9-]*\d+(?:\.\d+)?$/;
+const TC_RE =
+  /^(?:INT-P\d{2}|[A-Z][A-Z0-9-]*\d+(?:\.\d+)?)$/;
 const TOPIC_ROW_RE = /^Topic \d+ —/;
 
 function parseCsv(text) {
@@ -64,6 +73,8 @@ function esc(fields) {
 
 function normalizeTc(raw) {
   const s = (raw || "").trim();
+  const intM = s.match(/^(INT-P\d{2})/);
+  if (intM) return intM[1];
   const m = s.match(/^([A-Z][A-Z0-9]*-\d+(?:\.\d+)?)/);
   return m ? m[1] : s;
 }
@@ -241,6 +252,41 @@ if (topic13Extras.length > 0) {
   }
 }
 
+const interactionPanel = JSON.parse(
+  fs.readFileSync(interactionPanelPath, "utf8"),
+);
+out.push(esc(padRow([], COLS)));
+out.push(esc(topicHeaderRow(interactionPanel.topic)));
+stats.topics++;
+for (const c of interactionPanel.cases) {
+  const tc = normalizeTc(c.tc);
+  if (seen.has(tc)) continue;
+  seen.add(tc);
+  if (c.coverage === "Automation") stats.automation++;
+  else if (c.coverage === "Manual") stats.manual++;
+  else stats.unmapped++;
+  out.push(
+    esc(
+      padRow(
+        [
+          tc,
+          c.scenario,
+          c.trigger,
+          c.expected,
+          "",
+          "",
+          "",
+          c.coverage,
+          c.e2e,
+          c.notes,
+        ],
+        COLS,
+      ),
+    ),
+  );
+}
+
+if (!fs.existsSync(prdDir)) fs.mkdirSync(prdDir, { recursive: true });
 fs.writeFileSync(outPath, out.join("\n") + "\n");
 
 console.log({

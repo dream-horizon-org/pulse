@@ -58,6 +58,12 @@ export interface OtlpSpanStatus {
   message?: string;
 }
 
+/** OTLP span event (JSON/protobuf-json export). */
+export interface OtlpSpanEvent {
+  name?: string;
+  timeUnixNano?: string;
+}
+
 export interface OtlpSpan {
   traceId?: string;
   spanId?: string;
@@ -66,6 +72,8 @@ export interface OtlpSpan {
   startTimeUnixNano?: string;
   endTimeUnixNano?: string;
   attributes: OtlpAttr[];
+  /** Step markers etc. — present when SDK calls {@code Span.addEvent}. */
+  events?: OtlpSpanEvent[];
   status?: OtlpSpanStatus;
 }
 
