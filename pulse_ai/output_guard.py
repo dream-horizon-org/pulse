@@ -6,6 +6,8 @@ from __future__ import annotations
 import re
 
 import ahocorasick
+import phonenumbers
+from phonenumbers import PhoneNumberMatcher, Leniency
 
 # ---------------------------------------------------------------------------
 # PII redaction patterns — applied to all AI-generated text before egress
@@ -42,13 +44,31 @@ _PII_PATTERNS: list[tuple[re.Pattern[str], str]] = [
 ]
 
 
+_PHONE_DEFAULT_REGION = "IN"
+
+
+def _redact_phones(text: str) -> str:
+    """Redact phone numbers detected by libphonenumber (default region: IN)."""
+    matches = list(PhoneNumberMatcher(text, _PHONE_DEFAULT_REGION, leniency=Leniency.VALID))
+    if not matches:
+        return text
+    parts: list[str] = []
+    pos = 0
+    for m in matches:
+        parts.append(text[pos:m.start])
+        parts.append("[REDACTED:PHONE]")
+        pos = m.end
+    parts.append(text[pos:])
+    return "".join(parts)
+
+
 def sanitize_pii(text: str | None) -> str | None:
-    """Redact PII (JWTs, emails, card numbers) from a text string."""
+    """Redact PII (JWTs, emails, card numbers, phone numbers) from a text string."""
     if not text:
         return text
     for pattern, replacement in _PII_PATTERNS:
         text = pattern.sub(replacement, text)
-    return text
+    return _redact_phones(text)
 
 
 # ---------------------------------------------------------------------------

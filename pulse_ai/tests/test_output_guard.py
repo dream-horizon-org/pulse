@@ -428,6 +428,59 @@ class TestFilteredDeltaTrackerPii:
         assert "[REDACTED:TOKEN]" in result
 
 
+# ---------------------------------------------------------------------------
+# sanitize_pii — phone number redaction
+# ---------------------------------------------------------------------------
+
+class TestSanitizePiiPhone:
+
+    def test_e164_indian_number_is_redacted(self):
+        result = sanitize_pii("+919876543210")
+        assert "+919876543210" not in result
+        assert "[REDACTED:PHONE]" in result
+
+    def test_formatted_indian_number_is_redacted(self):
+        result = sanitize_pii("+91 98765 43210")
+        assert "98765 43210" not in result
+        assert "[REDACTED:PHONE]" in result
+
+    def test_national_format_indian_number_is_redacted(self):
+        result = sanitize_pii("98765 43210")
+        assert "98765 43210" not in result
+        assert "[REDACTED:PHONE]" in result
+
+    def test_phone_in_sentence_is_redacted(self):
+        result = sanitize_pii("Contact support at +91 98765 43210 for help.")
+        assert "98765 43210" not in result
+        assert "[REDACTED:PHONE]" in result
+        assert "Contact support at" in result
+        assert "for help." in result
+
+    def test_us_international_number_is_redacted(self):
+        result = sanitize_pii("+1 650 253 0000")
+        assert "650 253 0000" not in result
+        assert "[REDACTED:PHONE]" in result
+
+    def test_uk_international_number_is_redacted(self):
+        result = sanitize_pii("+44 20 7946 0958")
+        assert "7946 0958" not in result
+        assert "[REDACTED:PHONE]" in result
+
+    def test_epoch_timestamp_not_redacted(self):
+        # 10-digit epoch; starts with 1 — not a valid Indian mobile number
+        assert sanitize_pii("1736812345") == "1736812345"
+
+    def test_short_metric_value_not_redacted(self):
+        assert sanitize_pii("404") == "404"
+
+    def test_analytics_text_not_redacted(self):
+        text = "Apdex 0.82, P95 450ms, error rate 1.2% (18 of 1500 requests)."
+        assert sanitize_pii(text) == text
+
+    def test_none_returns_none(self):
+        assert sanitize_pii(None) is None
+
+
 class TestSanitizeEmOutputTimeRangeIntegration:
 
     def test_sanitize_em_output_replaces_time_range_id(self):
