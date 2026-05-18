@@ -4,6 +4,8 @@ _Previously split between `0.0.3` and `0.1.0-alpha.2` headings in this file; con
 
 ### Changed
 
+- **Router integration fail-safe:** `PulseRouterEvents` from `@dreamhorizonorg/pulse-web/react/router` and `@dreamhorizonorg/pulse-web/next` wraps tracking in `PulseIntegrationErrorBoundary` so misconfiguration (e.g. React adapter without `BrowserRouter`) logs with `PulseWebLogger.alwaysError` instead of crashing the host. `format()` throws and `setScreenName` / `notifySoftNavigation` failures are caught and logged. New export: `PulseIntegrationErrorBoundary` (`/react/router` and re-exported from `/next`). **`PulseRouterEvents` return type** is now `JSX.Element` (wrapper boundary) instead of `null`.
+
 - **`web-vitals` ^5.x:** dependency bumped from v4 to **5.2.0+**. Upstream
   **removed `onFID`** — Pulse no longer emits `web_vital` logs with
   `web_vital.name = FID` (use **INP** for responsiveness). On v5, `Metric`

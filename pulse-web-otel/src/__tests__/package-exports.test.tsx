@@ -62,6 +62,12 @@ describe("@dreamhorizonorg/pulse-web/react — export shape", () => {
     expect(typeof ReactRouterExports.PulseRouterEvents).toBe("function");
   });
 
+  it("exports PulseIntegrationErrorBoundary from /react/router subpath", () => {
+    expect(typeof ReactRouterExports.PulseIntegrationErrorBoundary).toBe(
+      "function",
+    );
+  });
+
   it("exports PulseErrorBoundary from /react entrypoint", () => {
     expect(
       typeof (ReactExports as Record<string, unknown>).PulseErrorBoundary,
@@ -163,6 +169,10 @@ describe("@dreamhorizonorg/pulse-web/next — export shape", () => {
 
   it("exports PulseRouterEvents as a function", () => {
     expect(typeof NextExports.PulseRouterEvents).toBe("function");
+  });
+
+  it("re-exports PulseIntegrationErrorBoundary from /next", () => {
+    expect(typeof NextExports.PulseIntegrationErrorBoundary).toBe("function");
   });
 
   it("exports createPulseInstrumentationHandler as a function", () => {

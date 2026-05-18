@@ -1,0 +1,163 @@
+pipeline {
+    agent {
+        node { label 'ec2-pulse-deployment-fleet' }
+    }
+
+    options {
+        ansiColor('xterm')
+    }
+
+    parameters {
+        string(name: 'ARTIFACT_VERSION', description: 'Pulse S3 Archiver artifact version to be deployed')
+    }
+
+    environment {
+        TF_IN_AUTOMATION = 'true'
+        TF_VAR_artifact_version = "${params.ARTIFACT_VERSION}"
+        DEPLOYMENT_SLACK_CHANNEL = credentials('DEPLOYMENT_SLACK_CHANNEL')
+    }
+
+    stages {
+        stage('Clear Existing Workspace') {
+            steps {
+                cleanWs()
+            }
+        }
+
+        stage('Checkout') {
+            steps {
+                checkout([
+                        $class           : 'GitSCM',
+                        branches         : [[name: '*/feat/kafka-service']],
+                        userRemoteConfigs: [[url: 'https://github.com/dream-horizon-org/pulse.git', credentialsId: 'd11-horizon-bot']]
+                ])
+            }
+        }
+
+        stage('Fetch Secrets') {
+            steps {
+                sh '''
+                    cd deploy/terraform/pulse-s3-archiver
+                    echo "Fetching variables from AWS Secrets Manager..."
+                    aws secretsmanager get-secret-value \
+                      --region ap-south-1 \
+                      --secret-id prod/pulses3archiver/terraform \
+                      --query 'SecretString' \
+                      --output text > secrets.auto.tfvars.json
+                '''
+            }
+        }
+
+        stage('Terraform Init') {
+            steps {
+                sh '''
+                    echo "Initializing Terraform..."
+                    cd deploy/terraform/pulse-s3-archiver
+                    terraform init
+                '''
+            }
+        }
+
+        stage('Terraform Plan') {
+            steps {
+                sh '''
+                    echo "Running Terraform Plan..."
+                    cd deploy/terraform/pulse-s3-archiver
+                    terraform plan -out=tfplan
+                '''
+            }
+        }
+
+        stage('Approval') {
+            steps {
+                input message: 'Review the Terraform Plan output above. Do you want to apply these changes to AWS?', ok: 'Yes, Deploy!'
+            }
+        }
+
+        stage('Terraform Apply') {
+            steps {
+                sh '''
+                    echo "Applying Terraform changes..."
+                    cd deploy/terraform/pulse-s3-archiver
+                    terraform apply -input=false tfplan
+                '''
+            }
+        }
+
+        stage('Wait for Instance Refresh') {
+            steps {
+                sh '''
+                    #!/bin/bash
+                    set -e
+                    ASG_NAME=pulse-s3-archiver-asg
+                    REGION=ap-south-1
+                    TIMEOUT=$((45 * 60))   # 45 min hard cap
+                    SLEEP=20
+                    ELAPSED=0
+
+                    REFRESH_ID=$(aws autoscaling describe-instance-refreshes \
+                        --auto-scaling-group-name "$ASG_NAME" \
+                        --region "$REGION" \
+                        --query 'InstanceRefreshes[0].InstanceRefreshId' \
+                        --output text)
+
+                    echo "Tracking instance refresh: $REFRESH_ID"
+
+                    while true; do
+                        STATUS=$(aws autoscaling describe-instance-refreshes \
+                            --auto-scaling-group-name "$ASG_NAME" \
+                            --region "$REGION" \
+                            --instance-refresh-ids "$REFRESH_ID" \
+                            --query 'InstanceRefreshes[0].Status' --output text)
+                        PCT=$(aws autoscaling describe-instance-refreshes \
+                            --auto-scaling-group-name "$ASG_NAME" \
+                            --region "$REGION" \
+                            --instance-refresh-ids "$REFRESH_ID" \
+                            --query 'InstanceRefreshes[0].PercentageComplete' --output text)
+
+                        echo "[$ELAPSED s] status=$STATUS pct=${PCT}%"
+
+                        case "$STATUS" in
+                            Successful)             echo "Refresh complete."; exit 0 ;;
+                            Failed|Cancelled)       echo "Refresh $STATUS"; exit 1 ;;
+                            Pending|InProgress|Cancelling) ;;
+                            *) echo "Unknown status: $STATUS"; exit 1 ;;
+                        esac
+
+                        if [ "$ELAPSED" -ge "$TIMEOUT" ]; then
+                            echo "Timed out waiting for refresh."
+                            exit 1
+                        fi
+                        sleep $SLEEP
+                        ELAPSED=$((ELAPSED + SLEEP))
+                    done
+                '''
+            }
+        }
+    }
+
+    post {
+        always {
+            echo "Cleaning up workspace..."
+            sh 'rm -f deploy/terraform/pulse-s3-archiver/tfplan'
+        }
+//        success {
+//            script {
+//                wrap([$class: 'BuildUser']) {
+//                    def message = "<!channel> Pulse S3 Archiver version *${ARTIFACT_VERSION}* deployed on production by ${BUILD_USER_EMAIL}\n" +
+//                            "<${env.BUILD_URL}|${env.JOB_NAME} ${env.BUILD_DISPLAY_NAME}>"
+//                    def channel = "${env.DEPLOYMENT_SLACK_CHANNEL}"
+//                    slackSend(teamDomain: 'dreamsports.enterprise', channel: channel, color: 'good', message: message, tokenCredentialId: 'slack-creds', botUser: true)
+//                }
+//            }
+//        }
+//        failure {
+//            script {
+//                def message = "<!channel> Pulse S3 Archiver version *${ARTIFACT_VERSION}* deployment failed on production\n" +
+//                        "<${env.BUILD_URL}|${env.JOB_NAME} ${env.BUILD_DISPLAY_NAME}>"
+//                def channel = "${env.DEPLOYMENT_SLACK_CHANNEL}"
+//                slackSend(teamDomain: 'dreamsports.enterprise', channel: channel, color: 'danger', message: message, tokenCredentialId: 'slack-creds', botUser: true)
+//            }
+//        }
+    }
+}

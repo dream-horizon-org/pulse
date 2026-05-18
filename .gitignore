@@ -11,6 +11,7 @@ lib/
 .cursor/.env
 .cursor/pulse-web-otel-spec-audit-queue.jsonl
 pulse-web-otel/.spec-audit/
+pulse-web-otel/dreamhorizonorg-pulse-web-0.0.3.tgz
 # Claude Code: keep shared project memory and skills; ignore other local-only files under .claude/
 .claude/*
 !.claude/CLAUDE.md

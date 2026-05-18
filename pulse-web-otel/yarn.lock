@@ -4680,6 +4680,7 @@ __metadata:
     next: "npm:^15.3.1"
     react: "npm:^18.3.0"
     react-dom: "npm:^18.3.0"
+    react-router-dom: "npm:^6.26.0"
     typescript: "npm:^5.6.0"
   languageName: unknown
   linkType: soft

@@ -29,9 +29,14 @@ cd deploy
 ./scripts/build.sh capture     # pulse-session-capture only
 ./scripts/build.sh ingestion   # pulse-session-replay-ingestion only
 ./scripts/build.sh heatmap-ingestion  # pulse-heatmap-screenshot-ingestion only
+./scripts/build.sh s3-archiver       # pulse-s3-archiver only
 ./scripts/build.sh ai          # pulse-ai-agent only
-./scripts/build.sh all         # same as omitting args: ui + server + cron + capture + ingestion + heatmap-ingestion + ai
+./scripts/build.sh all         # same as omitting args: ui + server + cron + capture + ingestion + heatmap-ingestion + s3-archiver + ai
 ```
+
+## Pulse S3 Archiver (`pulse-s3-archiver`)
+
+Kafka → Avro Parquet → **one S3 bucket per project**: **`pulse-otel-{sanitized project.id}`** from OTLP resource `project.id` (missing → **`pulse-otel-unknown`**). Compose does **not** set **`S3_BUCKET`** for archiver — create buckets / IAM (**`PutObject`**) as needed. Env: **`KAFKA_BOOTSTRAP_SERVERS`**, **`S3_REGION`**, optional **`S3_ENDPOINT`**, **`AWS_*`**, **`ARCHIVER_*`**, optional **`PULSE_BACKEND_OTEL_ENABLED`**.
 
 ## Start/Stop
 
@@ -86,6 +91,7 @@ checks:
 | pulse-alerts-cron     | `curl http://localhost:<port>/healthcheck`     | 4000         |
 | OpenFGA               | `curl http://localhost:8180/healthz`           | 8180         |
 | OTEL Collector        | `curl http://localhost:<port>/`                | 13133        |
+| pulse-s3-archiver     | in-container `curl -f http://localhost:5000/healthcheck` (compose; HTTP may be unimplemented) | —            |
 | pulse-ai-agent        | `curl -sf http://localhost:8000/health`        | 8000         |
 | pulse-session-capture | `curl http://localhost:3400/healthcheck`       | 3400         |
 | MinIO (dev)           | S3 API on host `9100`, console `9101`          | 9100 / 9101  |

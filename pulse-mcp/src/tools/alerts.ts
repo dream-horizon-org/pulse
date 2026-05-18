@@ -14,10 +14,14 @@ export function registerAlertTools(server: McpServer): void {
     },
     async ({ projectId, search, severity, scope }) => {
       const data = await getClient().get<unknown>("/v1/alert", projectId, {
-        search, severity, scope,
+        search,
+        severity,
+        scope,
       });
-      return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
-    }
+      return {
+        content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
+      };
+    },
   );
 
   server.tool(
@@ -28,9 +32,14 @@ export function registerAlertTools(server: McpServer): void {
       alertId: z.string().describe("Alert ID"),
     },
     async ({ projectId, alertId }) => {
-      const data = await getClient().get<unknown>(`/v1/alert/${alertId}/evaluationHistory`, projectId);
-      return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
-    }
+      const data = await getClient().get<unknown>(
+        `/v1/alert/${alertId}/evaluationHistory`,
+        projectId,
+      );
+      return {
+        content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
+      };
+    },
   );
 
   server.tool(
@@ -38,9 +47,14 @@ export function registerAlertTools(server: McpServer): void {
     "Get available filter options for alerts (scopes, metrics, severities)",
     { projectId: z.string().describe("Project ID") },
     async ({ projectId }) => {
-      const data = await getClient().get<unknown>("/v1/alert/filters", projectId);
-      return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
-    }
+      const data = await getClient().get<unknown>(
+        "/v1/alert/filters",
+        projectId,
+      );
+      return {
+        content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
+      };
+    },
   );
 
   server.tool(
@@ -48,19 +62,37 @@ export function registerAlertTools(server: McpServer): void {
     "List available alert scopes (what entity types can be alerted on)",
     { projectId: z.string().describe("Project ID") },
     async ({ projectId }) => {
-      const data = await getClient().get<unknown>("/v1/alert/scopes", projectId);
-      return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
-    }
+      const data = await getClient().get<unknown>(
+        "/v1/alert/scopes",
+        projectId,
+      );
+      return {
+        content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
+      };
+    },
   );
 
   server.tool(
     "get_alert_metrics",
-    "List available metrics that can be used in alert conditions",
-    { projectId: z.string().describe("Project ID") },
-    async ({ projectId }) => {
-      const data = await getClient().get<unknown>("/v1/alert/metrics", projectId);
-      return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
-    }
+    "List metrics usable in alert conditions for a given scope. Call get_alert_scopes first for valid scope values (e.g. interaction).",
+    {
+      projectId: z.string().describe("Project ID"),
+      scope: z
+        .string()
+        .describe("Alert scope — required by pulse-server (e.g. interaction)"),
+    },
+    async ({ projectId, scope }) => {
+      const data = await getClient().get<unknown>(
+        "/v1/alert/metrics",
+        projectId,
+        {
+          scope,
+        },
+      );
+      return {
+        content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
+      };
+    },
   );
 
   server.tool(
@@ -68,9 +100,14 @@ export function registerAlertTools(server: McpServer): void {
     "List available alert severity levels",
     { projectId: z.string().describe("Project ID") },
     async ({ projectId }) => {
-      const data = await getClient().get<unknown>("/v1/alert/severity", projectId);
-      return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
-    }
+      const data = await getClient().get<unknown>(
+        "/v1/alert/severity",
+        projectId,
+      );
+      return {
+        content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
+      };
+    },
   );
 
   server.tool(
@@ -78,8 +115,13 @@ export function registerAlertTools(server: McpServer): void {
     "List notification channels configured for alerts in a project",
     { projectId: z.string().describe("Project ID") },
     async ({ projectId }) => {
-      const data = await getClient().get<unknown>("/v1/alert/notificationChannels", projectId);
-      return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
-    }
+      const data = await getClient().get<unknown>(
+        "/v1/alert/notificationChannels",
+        projectId,
+      );
+      return {
+        content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
+      };
+    },
   );
 }
