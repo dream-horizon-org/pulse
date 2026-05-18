@@ -81,6 +81,46 @@ describe("InteractionCoordinator", () => {
     coord.shutdown();
   });
 
+  it("getRunningInteractions: empty when no configs", () => {
+    const coord = new InteractionCoordinator();
+    expect(coord.getRunningInteractions()).toEqual([]);
+    coord.shutdown();
+  });
+
+  it("getRunningInteractions: returns mid-sequence flow", () => {
+    const coord = new InteractionCoordinator();
+    coord.setConfigs([flow("F1", 1)]);
+    // Fire first step — flow is now mid-sequence (waiting for step_b)
+    coord.trackEvent("step_a", undefined, 1000);
+    const running = coord.getRunningInteractions();
+    expect(running).toHaveLength(1);
+    expect(running[0]!.name).toBe("F1");
+    expect(typeof running[0]!.id).toBe("string");
+    coord.shutdown();
+  });
+
+  it("getRunningInteractions: returns both when 2 concurrent flows are mid-sequence", () => {
+    const coord = new InteractionCoordinator();
+    coord.setConfigs([flow("F1", 1), flow("F2", 2)]);
+    coord.trackEvent("step_a", undefined, 1000);
+    const running = coord.getRunningInteractions();
+    expect(running).toHaveLength(2);
+    const names = running.map((r) => r.name).sort();
+    expect(names).toEqual(["F1", "F2"]);
+    coord.shutdown();
+  });
+
+  it("getRunningInteractions: excludes completed flows (both steps fired)", () => {
+    const coord = new InteractionCoordinator();
+    coord.setConfigs([flow("F1", 1)]);
+    coord.trackEvent("step_a", undefined, 1000);
+    coord.trackEvent("step_b", undefined, 1001);
+    // After terminal, the tracker has interaction != null — not returned
+    const running = coord.getRunningInteractions();
+    expect(running).toHaveLength(0);
+    coord.shutdown();
+  });
+
   it("handles parallel configs and emits both completions", () => {
     const terminals: Array<{ name: string; isError: boolean }> = [];
     const coord = new InteractionCoordinator({

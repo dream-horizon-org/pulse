@@ -3,6 +3,7 @@ import {
   test,
   expect,
   findAllSpans,
+  findAllNetworkSpans,
   getAttr,
   getResourceAttr,
 } from "./fixture";
@@ -1190,5 +1191,182 @@ test.describe("@M2 interactions edge cases", () => {
         (s) => getAttr(s.attributes, "pulse.interaction.is_error") === false,
       ),
     ).toBe(true);
+  });
+});
+
+// ─── ISS-I04: InteractionContextSpanProcessor — forward stamp + reverse feed ──
+
+test.describe("@M2 interaction-context-span (ISS-I04)", () => {
+  test("stamp in-flight: network span during open flow carries pulse.interaction.names/ids", async ({
+    page,
+    otlp,
+  }) => {
+    await seedInteractionConfig(page, [
+      makeConfig({
+        id: "ctx_stamp_flow",
+        name: "Context Stamp Flow",
+        events: [{ name: "ctx_step_1" }, { name: "ctx_step_2" }],
+        thresholdInMs: 5000,
+      }),
+    ]);
+    // Intercept the probe URL so it returns quickly.
+    await page.route("**/pulse-e2e-interactions/probe", async (route) => {
+      await route.fulfill({ status: 200, body: "ok" });
+    });
+
+    await gotoAndWaitInteractionInit(page);
+
+    // Open the flow — step_1 fires, flow is now mid-sequence.
+    await emitEvent(page, "ctx_step_1");
+    await page.waitForTimeout(50);
+
+    // Trigger a network span during the open flow.
+    await page.evaluate(async () => {
+      await fetch("/pulse-e2e-interactions/probe").catch(() => {});
+    });
+    await page.waitForTimeout(200);
+
+    // Flush spans via pagehide (same pattern as other tests).
+    await page.evaluate(() => {
+      window.dispatchEvent(new PageTransitionEvent("pagehide", { persisted: false }));
+    });
+    await page.waitForTimeout(500);
+
+    // Find any network span emitted during the open flow.
+    const networkSpans = findAllNetworkSpans(otlp.captured);
+    const probeSpan = networkSpans.find((s) => {
+      const url = String(getAttr(s.attributes, "url.full") ?? "");
+      return url.includes("pulse-e2e-interactions/probe");
+    });
+    expect(probeSpan, "Expected a network span for the probe fetch").toBeDefined();
+    if (!probeSpan) return;
+
+    const names = getAttr(probeSpan.attributes, "pulse.interaction.names");
+    const ids = getAttr(probeSpan.attributes, "pulse.interaction.ids");
+    expect(Array.isArray(names), "pulse.interaction.names should be a string[]").toBe(true);
+    expect((names as string[]).length).toBeGreaterThan(0);
+    expect(Array.isArray(ids), "pulse.interaction.ids should be a string[]").toBe(true);
+    expect((ids as string[]).length).toBeGreaterThan(0);
+
+    // Close the flow to avoid timeout leak.
+    await emitEvent(page, "ctx_step_2");
+    await otlp.waitForSpan("interaction", 8_000);
+  });
+
+  test("no stamp after complete: network span post-close has no interaction context", async ({
+    page,
+    otlp,
+  }) => {
+    await seedInteractionConfig(page, [
+      makeConfig({
+        id: "ctx_nostamp_flow",
+        name: "Context No-Stamp Flow",
+        events: [{ name: "nostamp_step_1" }, { name: "nostamp_step_2" }],
+        thresholdInMs: 5000,
+      }),
+    ]);
+    await page.route("**/pulse-e2e-interactions/after-complete", async (route) => {
+      await route.fulfill({ status: 200, body: "ok" });
+    });
+
+    await gotoAndWaitInteractionInit(page);
+
+    // Complete the flow.
+    await emitEvent(page, "nostamp_step_1");
+    await page.waitForTimeout(30);
+    await emitEvent(page, "nostamp_step_2");
+    await otlp.waitForSpan("interaction", 8_000);
+    otlp.reset();
+
+    // Fetch after flow is closed.
+    await page.evaluate(async () => {
+      await fetch("/pulse-e2e-interactions/after-complete").catch(() => {});
+    });
+    await page.waitForTimeout(200);
+
+    await page.evaluate(() => {
+      window.dispatchEvent(new PageTransitionEvent("pagehide", { persisted: false }));
+    });
+    await page.waitForTimeout(500);
+
+    const networkSpans = findAllNetworkSpans(otlp.captured);
+    const afterSpan = networkSpans.find((s) => {
+      const url = String(getAttr(s.attributes, "url.full") ?? "");
+      return url.includes("after-complete");
+    });
+    if (afterSpan) {
+      const names = getAttr(afterSpan.attributes, "pulse.interaction.names");
+      // Either absent or empty array.
+      const isEmpty =
+        names === undefined ||
+        (Array.isArray(names) && (names as string[]).length === 0);
+      expect(isEmpty).toBe(true);
+    }
+    // If no span captured yet (beacon timing), that's also valid — no stamp.
+  });
+
+  test("reverse screen_load: navigating during open flow advances and closes flow (is_error=false)", async ({
+    page,
+    otlp,
+  }) => {
+    await seedInteractionConfig(page, [
+      makeConfig({
+        id: "ctx_reverse_screen",
+        name: "Context Reverse Screen",
+        events: [{ name: "checkout_step_1" }, { name: "screen_load" }],
+        thresholdInMs: 5000,
+      }),
+    ]);
+
+    await gotoAndWaitInteractionInit(page);
+
+    // Open the flow.
+    await emitEvent(page, "checkout_step_1");
+    await page.waitForTimeout(50);
+
+    // SPA navigation triggers a screen_load span which the processor reverse-feeds.
+    await page.click("a[href='/products']");
+    await page.waitForURL("**/products");
+
+    const span = await otlp.waitForSpan("interaction", 15_000);
+    expect(getAttr(span.attributes, "pulse.interaction.is_error")).toBe(false);
+    expect(getAttr(span.attributes, "pulse.interaction.config.id")).toBe(
+      expectedConfigId("ctx_reverse_screen"),
+    );
+  });
+
+  test("reverse network.200: successful fetch during open flow advances and closes flow (is_error=false)", async ({
+    page,
+    otlp,
+  }) => {
+    await seedInteractionConfig(page, [
+      makeConfig({
+        id: "ctx_reverse_network",
+        name: "Context Reverse Network",
+        events: [{ name: "net_step_1" }, { name: "network.200" }],
+        thresholdInMs: 5000,
+      }),
+    ]);
+    // Return 200 for the probe.
+    await page.route("**/pulse-e2e-network-probe", async (route) => {
+      await route.fulfill({ status: 200, body: "ok" });
+    });
+
+    await gotoAndWaitInteractionInit(page);
+
+    // Open the flow.
+    await emitEvent(page, "net_step_1");
+    await page.waitForTimeout(50);
+
+    // The 200 fetch end will be reverse-fed as "network.200" trackEvent.
+    await page.evaluate(async () => {
+      await fetch("/pulse-e2e-network-probe").catch(() => {});
+    });
+
+    const span = await otlp.waitForSpan("interaction", 15_000);
+    expect(getAttr(span.attributes, "pulse.interaction.is_error")).toBe(false);
+    expect(getAttr(span.attributes, "pulse.interaction.config.id")).toBe(
+      expectedConfigId("ctx_reverse_network"),
+    );
   });
 });

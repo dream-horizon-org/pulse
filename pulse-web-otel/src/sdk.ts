@@ -70,6 +70,7 @@ import {
 import { resolveBeforeSend } from "./before-send";
 import { InteractionInstrumentation } from "./instrumentations/interaction";
 import { InteractionLogProcessor } from "./processors/interaction-log-processor";
+import { InteractionContextSpanProcessor } from "./processors/interaction-context-span-processor";
 import type { PulseAttributes } from "./types/attributes";
 
 class PulseSDK implements SdkContext {
@@ -96,6 +97,8 @@ class PulseSDK implements SdkContext {
   private _providerCleanup: () => void = () => {};
   private interactionInstrumentation?: InteractionInstrumentation;
   private readonly interactionLogProcessor = new InteractionLogProcessor();
+  private readonly interactionContextSpanProcessor =
+    new InteractionContextSpanProcessor();
 
   /** Promise for in-flight {@link init}; cleared when {@code finishInit} settles. */
   private _initSettled: Promise<void> | null = null;
@@ -332,7 +335,11 @@ class PulseSDK implements SdkContext {
       getPersistedUserProperties(),
     );
 
-    const spanProcessors = [this.globalAttrsProcessor, filterProcessor];
+    const spanProcessors = [
+      this.globalAttrsProcessor,
+      this.interactionContextSpanProcessor,
+      filterProcessor,
+    ];
 
     const lifecycleDebug = PulseWebLogger.getLevel() <= PulseLogLevel.DEBUG;
     const ingressDebugProc = lifecycleDebug
@@ -466,6 +473,13 @@ class PulseSDK implements SdkContext {
     this.interactionLogProcessor.setInstrumentation(
       this.interactionInstrumentation,
     );
+    this.interactionContextSpanProcessor.setGetRunning(() =>
+      this.interactionInstrumentation!.getRunningInteractions(),
+    );
+    this.interactionContextSpanProcessor.setTrackEvent(
+      (name, attrs, timeMs) =>
+        this.interactionInstrumentation!.trackEvent(name, attrs, timeMs),
+    );
   }
 
   private emitInstallationStartIfNeeded(): void {
@@ -493,6 +507,8 @@ class PulseSDK implements SdkContext {
     }
 
     this.interactionLogProcessor.setInstrumentation(null);
+    this.interactionContextSpanProcessor.setGetRunning(null);
+    this.interactionContextSpanProcessor.setTrackEvent(null);
     this._providerCleanup();
     this.registry?.uninstallAll();
     this.interactionInstrumentation = undefined;

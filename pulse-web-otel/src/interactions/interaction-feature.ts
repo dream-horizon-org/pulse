@@ -96,6 +96,13 @@ export class InteractionFeature {
     this.coordinator.trackEvent(name, attrs, timestampMs);
   }
 
+  getRunningInteractions(): Array<{ id: string; name: string }> {
+    if (!this.interactionsEnabledByConfig) return [];
+    if (!this.gate.isEnabled(PulseFeature.INTERACTION)) return [];
+    if (!this.initialized) return [];
+    return this.coordinator.getRunningInteractions();
+  }
+
   addMarkerToAll(
     name: string,
     attrs?: PulseAttributes,

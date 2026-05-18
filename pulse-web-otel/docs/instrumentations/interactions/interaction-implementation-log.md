@@ -66,6 +66,135 @@ Fix plan reference: `interaction-fix.md` (do not edit).
 
 ---
 
+## ISS-I04 — `InteractionContextSpanProcessor`: forward stamp + reverse span→event feed
+
+**Status:** ✅ Done
+
+**What was done:**
+- `src/semconv.ts`: Added `NAMES: "pulse.interaction.names"` and `IDS: "pulse.interaction.ids"` under `InteractionAttributeKey`.
+- `src/interactions/interaction-coordinator.ts`: Added `getRunningInteractions()` — flat-maps tracker statuses, filters `kind === "ongoing" && interaction === null` (mid-sequence only), maps to `{ id, name }`.
+- `src/interactions/interaction-feature.ts`: Added `getRunningInteractions()` with same gate guards as `addMarkerToAll`.
+- `src/instrumentations/interaction.ts`: Added `getRunningInteractions()` delegating to `feature`.
+- `src/processors/interaction-context-span-processor.ts` (new): `onStart` stamps NAMES/IDS on in-flight spans (skips `pulse.type=interaction`). `onEnd` reverse-feeds `screen_load`, `screen_session`, `network.*` span ends into `trackEvent`. Callbacks injected via `setGetRunning` / `setTrackEvent`; nulled on shutdown.
+- `src/sdk.ts`: Added `interactionContextSpanProcessor` field; inserted in `spanProcessors` between `globalAttrsProcessor` and `filterProcessor`; wired callbacks after `registerAndInstall`; cleared in `shutdown`.
+- `src/__tests__/interaction-context-span-processor.test.ts` (new): 13 cases — 5 `onStart`, 6 `onEnd`, 2 lifecycle.
+- `src/__tests__/interactions-coordinator.test.ts`: 4 new `getRunningInteractions()` cases.
+- `src/__tests__/interactions-sdk-wiring.test.ts`: 2 new SDK span pipeline cases.
+- E2E: 4 new `@M2 interaction-context-span` tests in `ecommerce-demo/e2e/m2-interactions.spec.ts` — all pass (chromium/firefox/webkit). 4 matching tests in `nextjs-demo/e2e/nextjs-demo.spec.ts` — all pass (chromium).
+
+**ADR decisions (locked):**
+- `string[]` native — no JSON encoding, no join fallback
+- No cap on array length
+- `app_start` omitted — no Web span equivalent (installation start is a log)
+- Log context stamping deferred
+
+**Files changed:**
+- `src/semconv.ts`
+- `src/interactions/interaction-coordinator.ts`
+- `src/interactions/interaction-feature.ts`
+- `src/instrumentations/interaction.ts`
+- `src/processors/interaction-context-span-processor.ts` (new)
+- `src/sdk.ts`
+- `src/__tests__/interaction-context-span-processor.test.ts` (new)
+- `src/__tests__/interactions-coordinator.test.ts` (updated)
+- `src/__tests__/interactions-sdk-wiring.test.ts` (updated)
+- `examples/ecommerce-demo/e2e/m2-interactions.spec.ts` (updated)
+- `examples/nextjs-demo/e2e/nextjs-demo.spec.ts` (updated)
+
+**Plan reference:** `Interaction-fix-till-bug4.md` Part 2 (Bug 4).
+
+### What to build
+
+#### A — Semconv (`src/semconv.ts`)
+Add under `InteractionAttributeKey`:
+- `NAMES: "pulse.interaction.names"` — `string[]` of mid-sequence flow names
+- `IDS: "pulse.interaction.ids"` — `string[]` of parallel interaction IDs
+
+#### B — `getRunningInteractions()` delegation chain
+**`InteractionCoordinator`**: flat-map `tracker.getStatuses()`, filter `kind === "ongoing" && interaction === null` (mid-sequence only; `interaction !== null` = completed/terminal), map to `{ id: string; name: string }` from `interactionId` + `interactionConfig.name`.
+
+**`InteractionFeature`**: delegate to coordinator with same gate guards as `addMarkerToAll` (`interactionsEnabledByConfig`, `gate.isEnabled(INTERACTION)`, `initialized`). Returns `[]` when gated.
+
+**`InteractionInstrumentation`**: `getRunningInteractions() → this.feature?.getRunningInteractions() ?? []`
+
+#### C — `InteractionContextSpanProcessor` (new: `src/processors/interaction-context-span-processor.ts`)
+Two injected nullable callbacks: `getRunning: (() => { id: string; name: string }[]) | null` and `trackEvent: ((name, attrs, timeMs) => void) | null`. Setters: `setGetRunning` / `setTrackEvent`.
+
+**`onStart`**:
+- If `getRunning == null` or `running.length === 0` → return
+- Skip spans where `pulse.type === "interaction"` (no self-referential stamp)
+- `span.setAttribute(NAMES, running.map(r => r.name))` + `span.setAttribute(IDS, running.map(r => r.id))` — native `string[]`, no encoding, no cap
+
+**`onEnd`**:
+- If `trackEvent == null` → return
+- Read `pulse.type` from ended span attributes
+- Eligible types: `screen_load`, `screen_session`, and any `pulse.type.startsWith("network.")`
+- If eligible: `trackEvent(pulseType, {}, Math.round(span.endTime[0] * 1000 + span.endTime[1] / 1_000_000))`
+- `pulse.type === interaction` and all other types → no-op
+
+**Lifecycle**: `forceFlush()` + `shutdown()` → `Promise.resolve()`.
+
+#### D — SDK wiring (`src/sdk.ts`)
+- New field: `private readonly interactionContextSpanProcessor = new InteractionContextSpanProcessor()`
+- `spanProcessors` array: `[this.globalAttrsProcessor, this.interactionContextSpanProcessor, filterProcessor]`
+- After `registerAndInstall(interactionInstrumentation)`:
+  - `this.interactionContextSpanProcessor.setGetRunning(() => this.interactionInstrumentation!.getRunningInteractions())`
+  - `this.interactionContextSpanProcessor.setTrackEvent((name, attrs, timeMs) => this.interactionInstrumentation!.trackEvent(name, attrs, timeMs))`
+- Shutdown (before `_providerCleanup()`):
+  - `this.interactionContextSpanProcessor.setGetRunning(null)`
+  - `this.interactionContextSpanProcessor.setTrackEvent(null)`
+
+### Unit tests
+
+**`src/__tests__/interaction-context-span-processor.test.ts`** (11 cases):
+
+| Case | Expect |
+|---|---|
+| 0 running flows → `onStart` | no NAMES/IDS attrs |
+| 1 mid-sequence → `onStart` | NAMES/IDS set |
+| 2 concurrent flows → `onStart` | both flows in arrays |
+| Completed flow (interaction ≠ null) | not in running list |
+| `onStart` span is `pulse.type=interaction` | no stamp |
+| `onEnd` `screen_load` | `trackEvent("screen_load", …)` |
+| `onEnd` `network.200` / `network.404` | `trackEvent` called |
+| `onEnd` `interaction` | no `trackEvent` |
+| `onEnd` ineligible (e.g. `session.start`) | no `trackEvent` |
+| `trackEvent` null guard | no throw |
+| `getRunning` null guard | no throw |
+
+**`src/__tests__/interactions-coordinator.test.ts`** — 4 new `getRunningInteractions()` cases: empty, mid-sequence only, concurrent, excludes completed.
+
+### E2E
+
+New `@M2 interaction-context-span` describe in `m2-interactions.spec.ts` (4 tests):
+1. **Stamp in-flight** — step_1 fired; fetch during flow → network span has `pulse.interaction.names`/`ids`
+2. **No stamp after complete** — finish flow; another fetch → network span has no names/ids
+3. **Reverse `screen_load`** — config `[step_1, screen_load]`; navigate → interaction completes `is_error=false`
+4. **Reverse `network.200`** — config `[step_1, network.200]`; fetch → interaction completes `is_error=false`
+
+Mirror 4 equivalent tests in `nextjs-demo.spec.ts`.
+
+### ADR decisions (locked — do not revisit without discussion)
+- `string[]` native — no JSON encoding, no join fallback
+- No cap on array length
+- `app_start` omitted on Web (no span equivalent; installation start is a log)
+- Log context stamping deferred (`log-context-stamp-defer` follow-up)
+
+### Files to change
+- `src/semconv.ts`
+- `src/interactions/interaction-coordinator.ts` (`getRunningInteractions` added)
+- `src/interactions/interaction-feature.ts` (`getRunningInteractions` added)
+- `src/instrumentations/interaction.ts` (`getRunningInteractions` added)
+- `src/processors/interaction-context-span-processor.ts` (new)
+- `src/sdk.ts`
+- `src/__tests__/interaction-context-span-processor.test.ts` (new)
+- `src/__tests__/interactions-coordinator.test.ts` (updated — `getRunningInteractions` cases)
+- `src/__tests__/interactions-sdk-wiring.test.ts` (updated — context processor in span pipeline)
+- `examples/ecommerce-demo/e2e/m2-interactions.spec.ts` (updated — `@M2 interaction-context-span`)
+- `examples/nextjs-demo/e2e/nextjs-demo.spec.ts` (updated — mirror 4 tests)
+
+---
+
 ## ISS-I08 — Unit test: config fetch failure → idle matcher
 
 **Status:** 🔲 Pending

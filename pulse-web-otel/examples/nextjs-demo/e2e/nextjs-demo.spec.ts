@@ -1372,3 +1372,189 @@ test.describe("@M2 interactions marker events — Next.js (ISS-I02/I03)", () => 
     expect(markerEvents).toHaveLength(0);
   });
 });
+
+// ─── ISS-I04: InteractionContextSpanProcessor — Next.js (forward stamp + reverse feed) ──
+
+test.describe("@M2 interaction-context-span — Next.js (ISS-I04)", () => {
+  test("stamp in-flight: network span during open flow carries pulse.interaction.names/ids", async ({
+    page,
+    otlp,
+  }) => {
+    await seedInteractionConfig(page, [
+      makeInteractionConfig({
+        id: 301,
+        name: "NX Context Stamp Flow",
+        events: [{ name: "nx_ctx_step_1" }, { name: "nx_ctx_step_2" }],
+        thresholdInMs: 5000,
+      }),
+    ]);
+    await page.route("**/pulse-e2e-nx-probe", async (route) => {
+      await route.fulfill({ status: 200, body: "ok" });
+    });
+
+    await gotoAndWaitInit(page, otlp);
+
+    // Open flow — step 1.
+    await page.evaluate(() => {
+      const w = window as unknown as { Pulse?: { trackEvent?: (n: string) => void } };
+      w.Pulse?.trackEvent?.("nx_ctx_step_1");
+    });
+    await page.waitForTimeout(50);
+
+    // Trigger a fetch during the open flow.
+    await page.evaluate(async () => {
+      await fetch("/pulse-e2e-nx-probe").catch(() => {});
+    });
+    await page.waitForTimeout(200);
+
+    // Flush spans.
+    await page.evaluate(() => {
+      window.dispatchEvent(new PageTransitionEvent("pagehide", { persisted: false }));
+    });
+    await page.waitForTimeout(500);
+
+    const networkSpans = findAllNetworkSpans(otlp.captured);
+    const probeSpan = networkSpans.find((s) => {
+      const url = String(getAttr(s.attributes, "url.full") ?? "");
+      return url.includes("pulse-e2e-nx-probe");
+    });
+    expect(probeSpan, "Expected network span for probe fetch").toBeDefined();
+    if (!probeSpan) return;
+
+    const names = getAttr(probeSpan.attributes, "pulse.interaction.names");
+    const ids = getAttr(probeSpan.attributes, "pulse.interaction.ids");
+    expect(Array.isArray(names)).toBe(true);
+    expect((names as string[]).length).toBeGreaterThan(0);
+    expect(Array.isArray(ids)).toBe(true);
+    expect((ids as string[]).length).toBeGreaterThan(0);
+
+    // Close the flow.
+    await page.evaluate(() => {
+      const w = window as unknown as { Pulse?: { trackEvent?: (n: string) => void } };
+      w.Pulse?.trackEvent?.("nx_ctx_step_2");
+    });
+    await otlp.waitForSpan("interaction", 8_000);
+  });
+
+  test("no stamp after complete: network span post-close has no interaction context", async ({
+    page,
+    otlp,
+  }) => {
+    await seedInteractionConfig(page, [
+      makeInteractionConfig({
+        id: 302,
+        name: "NX Context No-Stamp Flow",
+        events: [{ name: "nx_nostamp_1" }, { name: "nx_nostamp_2" }],
+        thresholdInMs: 5000,
+      }),
+    ]);
+    await page.route("**/pulse-e2e-nx-after-complete", async (route) => {
+      await route.fulfill({ status: 200, body: "ok" });
+    });
+
+    await gotoAndWaitInit(page, otlp);
+
+    // Complete flow.
+    await page.evaluate(() => {
+      const w = window as unknown as { Pulse?: { trackEvent?: (n: string) => void } };
+      w.Pulse?.trackEvent?.("nx_nostamp_1");
+    });
+    await page.waitForTimeout(30);
+    await page.evaluate(() => {
+      const w = window as unknown as { Pulse?: { trackEvent?: (n: string) => void } };
+      w.Pulse?.trackEvent?.("nx_nostamp_2");
+    });
+    await otlp.waitForSpan("interaction", 8_000);
+    otlp.reset();
+
+    // Fetch after close.
+    await page.evaluate(async () => {
+      await fetch("/pulse-e2e-nx-after-complete").catch(() => {});
+    });
+    await page.waitForTimeout(200);
+
+    await page.evaluate(() => {
+      window.dispatchEvent(new PageTransitionEvent("pagehide", { persisted: false }));
+    });
+    await page.waitForTimeout(500);
+
+    const networkSpans = findAllNetworkSpans(otlp.captured);
+    const afterSpan = networkSpans.find((s) => {
+      const url = String(getAttr(s.attributes, "url.full") ?? "");
+      return url.includes("pulse-e2e-nx-after-complete");
+    });
+    if (afterSpan) {
+      const names = getAttr(afterSpan.attributes, "pulse.interaction.names");
+      const isEmpty =
+        names === undefined ||
+        (Array.isArray(names) && (names as string[]).length === 0);
+      expect(isEmpty).toBe(true);
+    }
+  });
+
+  test("reverse screen_load: SPA nav during open flow closes flow (is_error=false)", async ({
+    page,
+    otlp,
+  }) => {
+    await seedInteractionConfig(page, [
+      makeInteractionConfig({
+        id: 303,
+        name: "NX Reverse Screen Flow",
+        events: [{ name: "nx_checkout_1" }, { name: "screen_load" }],
+        thresholdInMs: 5000,
+      }),
+    ]);
+
+    await gotoAndWaitInit(page, otlp);
+
+    // Open the flow.
+    await page.evaluate(() => {
+      const w = window as unknown as { Pulse?: { trackEvent?: (n: string) => void } };
+      w.Pulse?.trackEvent?.("nx_checkout_1");
+    });
+    await page.waitForTimeout(50);
+
+    // Navigate → screen_load span is reverse-fed.
+    await page.click("a[href='/products']");
+    await page.waitForURL("**/products");
+
+    const span = await otlp.waitForSpan("interaction", 15_000);
+    expect(getAttr(span.attributes, "pulse.interaction.is_error")).toBe(false);
+    expect(getAttr(span.attributes, "pulse.interaction.config.id")).toBe("303");
+  });
+
+  test("reverse network.200: successful fetch during open flow closes flow (is_error=false)", async ({
+    page,
+    otlp,
+  }) => {
+    await seedInteractionConfig(page, [
+      makeInteractionConfig({
+        id: 304,
+        name: "NX Reverse Network Flow",
+        events: [{ name: "nx_net_step_1" }, { name: "network.200" }],
+        thresholdInMs: 5000,
+      }),
+    ]);
+    await page.route("**/pulse-e2e-nx-net-probe", async (route) => {
+      await route.fulfill({ status: 200, body: "ok" });
+    });
+
+    await gotoAndWaitInit(page, otlp);
+
+    // Open the flow.
+    await page.evaluate(() => {
+      const w = window as unknown as { Pulse?: { trackEvent?: (n: string) => void } };
+      w.Pulse?.trackEvent?.("nx_net_step_1");
+    });
+    await page.waitForTimeout(50);
+
+    // The 200 fetch will be reverse-fed.
+    await page.evaluate(async () => {
+      await fetch("/pulse-e2e-nx-net-probe").catch(() => {});
+    });
+
+    const span = await otlp.waitForSpan("interaction", 15_000);
+    expect(getAttr(span.attributes, "pulse.interaction.is_error")).toBe(false);
+    expect(getAttr(span.attributes, "pulse.interaction.config.id")).toBe("304");
+  });
+});
