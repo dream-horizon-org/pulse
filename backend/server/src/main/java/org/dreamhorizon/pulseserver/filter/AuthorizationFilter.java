@@ -46,6 +46,7 @@ public class AuthorizationFilter implements ContainerRequestFilter {
   private static final String ALERTS_PATH_PREFIX = "alerts";
   private static final String SYMBOL_UPLOAD_PREFIX = "v1/symbolicate/file/upload";
   private static final String INCIDENTS_PREFIX = "v1/incidents";
+  private static final String SERVICES_PATH_PREFIX = "v1/services";
 
   @Context
   private ResourceInfo resourceInfo;
@@ -119,6 +120,7 @@ public class AuthorizationFilter implements ContainerRequestFilter {
       || normalizedPath.startsWith(TNC_DOCUMENTS_PATH)
       || normalizedPath.startsWith(CONFIG_PATH)
       || normalizedPath.startsWith(ALERTS_PATH_PREFIX)
+      || normalizedPath.startsWith(SERVICES_PATH_PREFIX)
       || normalizedPath.startsWith(SYMBOL_UPLOAD_PREFIX);
   }
 

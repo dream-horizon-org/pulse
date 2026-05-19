@@ -31,9 +31,13 @@ public class OnCallService {
   }
 
   public Single<String> getOnCallSlackMentions() {
+    return getOnCallSlackMentions(null);
+  }
+
+  public Single<String> getOnCallSlackMentions(String goalertServiceId) {
     String slackBotToken = resolveSlackBotToken();
 
-    return onCallProvider.getOnCallUsers()
+    return onCallProvider.getOnCallUsers(goalertServiceId)
         .flatMap(users -> formatAsSlackMentions(users, slackBotToken))
         .onErrorReturnItem(ON_CALL_FALLBACK);
   }
@@ -72,7 +76,7 @@ public class OnCallService {
         .collect(Collectors.joining(", "));
   }
 
-  private Single<String> lookupSlackUserId(String email, String slackBotToken) {
+  public Single<String> lookupSlackUserId(String email, String slackBotToken) {
     return webClient.getAbs(SLACK_LOOKUP_URL + email)
         .putHeader("Authorization", "Bearer " + slackBotToken)
         .rxSend()

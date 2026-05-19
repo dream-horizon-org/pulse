@@ -54,6 +54,7 @@ public class TenantFilter implements ContainerRequestFilter, ContainerResponseFi
   private static final String TNC_DOCUMENTS_PATH = "v1/tnc/documents";
   private static final String NOTIFICATIONS_PATH_PREFIX = "v1/notifications";
   private static final String INTEGRATIONS_PATH_PREFIX = "v1/integrations";
+  private static final String SERVICES_PATH_PREFIX = "v1/services";
   private static final String SLACK_INTERACTIVE = "v1/incidents/slack/interactive";
   private static final String NOTIFICATIONS_CONTACT_US_PATH = NOTIFICATIONS_PATH_PREFIX + "/contact-us";
 
@@ -100,6 +101,7 @@ public class TenantFilter implements ContainerRequestFilter, ContainerResponseFi
       || normalizedPath.startsWith(INVITE_ACCEPT_PATH_PREFIX)  // Users accepting invites don't have tenant yet
       || normalizedPath.startsWith(INTERNAL_PATH_PREFIX)  // Internal service-to-service endpoints
       || normalizedPath.startsWith(ALERTS_PATH_PREFIX)
+      || normalizedPath.startsWith(SERVICES_PATH_PREFIX)
       || normalizedPath.startsWith(LOGS_INGESTION_PATH)
       || normalizedPath.startsWith(TNC_DOCUMENTS_PATH)
       || normalizedPath.contains(SLACK_INTERACTIVE)

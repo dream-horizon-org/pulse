@@ -173,6 +173,10 @@ public class MainModule extends VertxAbstractModule {
     bind(OnCallService.class).in(Singleton.class);
     bind(IncidentService.class).to(IncidentServiceImpl.class).in(Singleton.class);
 
+    // Service registry (alert routing by service_name label)
+    bind(org.dreamhorizon.pulseserver.dao.service.ServiceDao.class).in(Singleton.class);
+    bind(org.dreamhorizon.pulseserver.service.serviceowner.ServiceOwnerService.class).in(Singleton.class);
+
     // Spark Job Service
     bind(SparkJobService.class).to(SparkJobServiceImpl.class).in(Singleton.class);
 

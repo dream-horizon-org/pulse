@@ -25,23 +25,34 @@ public class GoAlertOnCallProvider implements OnCallProvider {
 
   @Override
   public Single<List<OnCallUser>> getOnCallUsers() {
+    String noServiceId = null;
+    return getOnCallUsers(noServiceId);
+  }
+
+  @Override
+  public Single<List<OnCallUser>> getOnCallUsers(String serviceId) {
     NotificationConfig.GoAlertConfig goAlertConfig =
         notificationConfig.getIncidentConfig().getGoAlert();
 
-    if (goAlertConfig == null
-        || goAlertConfig.getGoAlertUrl() == null
-        || goAlertConfig.getGoAlertServiceId() == null) {
+    if (goAlertConfig == null || goAlertConfig.getGoAlertUrl() == null) {
       log.warn("GoAlert config is missing or incomplete");
+      return Single.just(List.of());
+    }
+
+    String resolvedServiceId = (serviceId != null && !serviceId.isBlank())
+        ? serviceId
+        : goAlertConfig.getGoAlertServiceId();
+
+    if (resolvedServiceId == null || resolvedServiceId.isBlank()) {
+      log.warn("No GoAlert service ID resolved");
       return Single.just(List.of());
     }
 
     String url = goAlertConfig.getGoAlertUrl();
     String apiKey = goAlertConfig.getGoAlertApiKey();
-    String serviceId = goAlertConfig.getGoAlertServiceId();
-
     String userApiKey = goAlertConfig.getGoAlertUserApiKey();
 
-    return fetchOnCallUserIds(url, apiKey, serviceId)
+    return fetchOnCallUserIds(url, apiKey, resolvedServiceId)
         .flatMap(onCallUsers -> resolveUsers(url, userApiKey != null ? userApiKey : apiKey, onCallUsers));
   }
 

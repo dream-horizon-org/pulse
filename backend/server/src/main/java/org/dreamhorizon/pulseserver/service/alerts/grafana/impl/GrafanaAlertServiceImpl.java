@@ -4,33 +4,21 @@ import com.google.inject.Inject;
 import com.google.inject.Singleton;
 import io.reactivex.rxjava3.core.Completable;
 import io.reactivex.rxjava3.core.Flowable;
+import io.reactivex.rxjava3.core.Maybe;
+import io.reactivex.rxjava3.core.Single;
 import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.config.NotificationConfig;
+import org.dreamhorizon.pulseserver.dao.service.ServiceDao;
+import org.dreamhorizon.pulseserver.dao.service.models.ServiceRow;
 import org.dreamhorizon.pulseserver.dto.alerts.grafana.GrafanaWebhookRequest;
 import org.dreamhorizon.pulseserver.dto.alerts.grafana.GrafanaWebhookRequest.GrafanaAlert;
 import org.dreamhorizon.pulseserver.service.alerts.grafana.GrafanaAlertService;
 import org.dreamhorizon.pulseserver.service.alerts.grafana.SlackPoster;
 import org.dreamhorizon.pulseserver.service.oncall.OnCallService;
 
-/**
- * Default implementation. Pipeline per webhook:
- *
- * <ol>
- *   <li>Ask {@link OnCallService#getOnCallSlackMentions()} for the formatted {@code <@U...>}
- *       mention(s). Returns {@code "N/A"} if the lookup fails or no email/Slack match exists —
- *       in that case we fall back to {@code <!channel>} so a human still sees the page.
- *   <li>For each alert in the payload, build a Slack message (mention + status emoji + alertname
- *       + summary + Grafana link) and POST via {@link SlackPoster}.
- *   <li>If any step fails, post a {@code <!channel>} fallback to the Grafana fallback channel
- *       (or default alerts channel) describing the failure. Never throw.
- * </ol>
- *
- * <p>This service is stateless — no DB writes, no incident creation, no acknowledgment.
- * It is purely a notification fan-out enriched with on-call context.
- */
 @Slf4j
 @Singleton
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
@@ -46,6 +34,7 @@ public class GrafanaAlertServiceImpl implements GrafanaAlertService {
   private final OnCallService onCallService;
   private final SlackPoster slackPoster;
   private final NotificationConfig notificationConfig;
+  private final ServiceDao serviceDao;
 
   @Override
   public Completable handleAlert(GrafanaWebhookRequest request) {
@@ -54,37 +43,76 @@ public class GrafanaAlertServiceImpl implements GrafanaAlertService {
       return Completable.complete();
     }
 
-    return onCallService.getOnCallSlackMentions()
-        .map(mention -> ON_CALL_FALLBACK.equals(mention) ? CHANNEL_FALLBACK_MENTION : mention)
-        .flatMapCompletable(mention -> sendAllAlerts(mention, request.getAlerts()))
+    return Flowable.fromIterable(request.getAlerts())
+        .flatMapCompletable(this::processOneAlert)
         .onErrorResumeNext(error -> {
           log.error("Failed to process Grafana webhook", error);
           return sendFallback("alert proxy failed: " + error.getMessage());
         });
   }
 
-  private Completable sendAllAlerts(String mention, List<GrafanaAlert> alerts) {
-    return Flowable.fromIterable(alerts)
-        .flatMapCompletable(alert -> sendOneAlert(mention, alert));
+  private Completable processOneAlert(GrafanaAlert alert) {
+    String serviceName = extractServiceName(alert);
+
+    Single<ServiceRow> serviceLookup = (serviceName != null && !serviceName.isBlank())
+        ? serviceDao.getByServiceName(serviceName)
+            .defaultIfEmpty(ServiceRow.builder().build())
+        : Single.just(ServiceRow.builder().build());
+
+    return serviceLookup.flatMapCompletable(service -> {
+      String goalertServiceId = service.getGoalertServiceId();
+
+      Single<String> onCallMentions = onCallService.getOnCallSlackMentions(goalertServiceId)
+          .map(m -> ON_CALL_FALLBACK.equals(m) ? CHANNEL_FALLBACK_MENTION : m);
+
+      Single<String> ownerMention = resolveOwnerMention(service);
+
+      return Single.zip(onCallMentions, ownerMention, (oncall, owner) ->
+              buildMessage(oncall, owner, alert))
+          .flatMapCompletable(text -> {
+            String channel = resolveChannelForAlert(alert);
+            String botToken = resolveBotToken();
+            if (channel == null || channel.isBlank() || botToken == null || botToken.isBlank()) {
+              log.error("Slack channel or bot token not configured; cannot post alert");
+              return Completable.complete();
+            }
+            return slackPoster.postMessage(channel, botToken, text)
+                .ignoreElement()
+                .onErrorComplete(error -> {
+                  log.error("Slack post failed for alert", error);
+                  return true;
+                });
+          });
+    });
   }
 
-  private Completable sendOneAlert(String mention, GrafanaAlert alert) {
-    String channel = resolveChannelForAlert(alert);
-    String botToken = resolveBotToken();
-    if (channel == null || channel.isBlank() || botToken == null || botToken.isBlank()) {
-      log.error("Slack channel or bot token not configured; cannot post alert");
-      return Completable.complete();
+  private String extractServiceName(GrafanaAlert alert) {
+    Map<String, String> labels = alert.getLabels();
+    return labels != null ? labels.get("service") : null;
+  }
+
+  private Single<String> resolveOwnerMention(ServiceRow service) {
+    if (service.getOwnerEmail() == null || service.getOwnerEmail().isBlank()) {
+      return Single.just("");
     }
-    String text = buildMessage(mention, alert);
-    return slackPoster.postMessage(channel, botToken, text)
-        .ignoreElement()
-        .onErrorComplete(error -> {
-          log.error("Slack post failed for alert", error);
-          return true;
-        });
+
+    if (service.getOwnerSlackId() != null && !service.getOwnerSlackId().isBlank()) {
+      return Single.just(String.format("<@%s>", service.getOwnerSlackId()));
+    }
+
+    String botToken = resolveBotToken();
+    if (botToken == null || botToken.isBlank()) {
+      return Single.just(service.getOwnerEmail());
+    }
+
+    return onCallService.lookupSlackUserId(service.getOwnerEmail(), botToken)
+        .map(id -> (id.startsWith("U") || id.startsWith("W"))
+            ? String.format("<@%s>", id)
+            : service.getOwnerEmail())
+        .onErrorReturnItem(service.getOwnerEmail());
   }
 
-  private String buildMessage(String mention, GrafanaAlert alert) {
+  private String buildMessage(String onCallMention, String ownerMention, GrafanaAlert alert) {
     Map<String, String> labels = alert.getLabels() != null ? alert.getLabels() : Map.of();
     Map<String, String> annotations =
         alert.getAnnotations() != null ? alert.getAnnotations() : Map.of();
@@ -98,15 +126,49 @@ public class GrafanaAlertServiceImpl implements GrafanaAlertService {
     String url = alert.getGeneratorURL();
 
     StringBuilder sb = new StringBuilder();
-    sb.append(mention).append(' ').append(emoji).append(' ')
-        .append(statusLabel).append(": *").append(alertName).append("*\n");
+    sb.append(emoji).append(' ').append(statusLabel).append(": *").append(alertName).append("*\n");
     if (!summary.isEmpty()) {
       sb.append(summary).append('\n');
+    }
+    sb.append(":bell: On-call: ").append(onCallMention).append('\n');
+    if (!ownerMention.isEmpty()) {
+      sb.append(":bust_in_silhouette: Service Owner: ").append(ownerMention).append('\n');
     }
     if (url != null && !url.isBlank()) {
       sb.append('<').append(url).append("|View in Grafana>");
     }
     return sb.toString();
+  }
+
+  private String resolveChannelForAlert(GrafanaAlert alert) {
+    NotificationConfig.GrafanaAlertsConfig grafana = grafanaConfig();
+    if (grafana == null) {
+      return null;
+    }
+
+    // Priority 1: route match from config
+    List<NotificationConfig.GrafanaRouteConfig> routes = grafana.getRoutes();
+    Map<String, String> labels = alert.getLabels();
+    if (routes != null && !routes.isEmpty() && labels != null) {
+      for (NotificationConfig.GrafanaRouteConfig route : routes) {
+        if (matchesRoute(labels, route.getMatchers())) {
+          log.debug("Alert matched route '{}' -> channel {}", route.getName(),
+              route.getSlackChannelId());
+          return route.getSlackChannelId();
+        }
+      }
+    }
+
+    // Priority 2: default
+    return grafana.getSlackChannelId();
+  }
+
+  private boolean matchesRoute(Map<String, String> labels, Map<String, String> matchers) {
+    if (matchers == null || matchers.isEmpty()) {
+      return false;
+    }
+    return matchers.entrySet().stream()
+        .allMatch(entry -> entry.getValue().equals(labels.get(entry.getKey())));
   }
 
   private Completable sendFallback(String reason) {
@@ -130,38 +192,6 @@ public class GrafanaAlertServiceImpl implements GrafanaAlertService {
     return alerts != null ? alerts.getGrafana() : null;
   }
 
-  private String resolveChannelForAlert(GrafanaAlert alert) {
-    NotificationConfig.GrafanaAlertsConfig grafana = grafanaConfig();
-    if (grafana == null) {
-      return null;
-    }
-    List<NotificationConfig.GrafanaRouteConfig> routes = grafana.getRoutes();
-    Map<String, String> labels = alert.getLabels();
-    if (routes != null && !routes.isEmpty() && labels != null) {
-      for (NotificationConfig.GrafanaRouteConfig route : routes) {
-        if (matchesRoute(labels, route.getMatchers())) {
-          log.debug("Alert matched route '{}' -> channel {}", route.getName(),
-              route.getSlackChannelId());
-          return route.getSlackChannelId();
-        }
-      }
-    }
-    return grafana.getSlackChannelId();
-  }
-
-  private boolean matchesRoute(Map<String, String> labels, Map<String, String> matchers) {
-    if (matchers == null || matchers.isEmpty()) {
-      return false;
-    }
-    return matchers.entrySet().stream()
-        .allMatch(entry -> entry.getValue().equals(labels.get(entry.getKey())));
-  }
-
-  private String resolveChannel() {
-    NotificationConfig.GrafanaAlertsConfig grafana = grafanaConfig();
-    return grafana != null ? grafana.getSlackChannelId() : null;
-  }
-
   private String resolveFallbackChannel() {
     NotificationConfig.GrafanaAlertsConfig grafana = grafanaConfig();
     if (grafana == null) {
@@ -175,7 +205,6 @@ public class GrafanaAlertServiceImpl implements GrafanaAlertService {
   }
 
   private String resolveBotToken() {
-    // Reuse the bot token configured for the GoAlert-on-call lookups (same Slack app).
     NotificationConfig.IncidentConfig incident = notificationConfig.getIncidentConfig();
     if (incident == null || incident.getGoAlert() == null) {
       return null;

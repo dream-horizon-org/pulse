@@ -6,4 +6,8 @@ import java.util.List;
 public interface OnCallProvider {
 
   Single<List<OnCallUser>> getOnCallUsers();
+
+  default Single<List<OnCallUser>> getOnCallUsers(String serviceId) {
+    return getOnCallUsers();
+  }
 }

@@ -9,12 +9,15 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import io.reactivex.rxjava3.core.Maybe;
 import io.reactivex.rxjava3.core.Single;
 import io.vertx.core.json.JsonObject;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 import org.dreamhorizon.pulseserver.config.NotificationConfig;
+import org.dreamhorizon.pulseserver.dao.service.ServiceDao;
+import org.dreamhorizon.pulseserver.dao.service.models.ServiceRow;
 import org.dreamhorizon.pulseserver.dto.alerts.grafana.GrafanaWebhookRequest;
 import org.dreamhorizon.pulseserver.dto.alerts.grafana.GrafanaWebhookRequest.GrafanaAlert;
 import org.dreamhorizon.pulseserver.service.alerts.grafana.SlackPoster;
@@ -23,13 +26,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
-/**
- * Service-level tests for the Grafana alert handler.
- *
- * <p>{@link OnCallService} is concrete and can't be mocked by Mockito 4.x on Java 23 without a
- * dynamic-agent flag, so we use a hand-rolled subclass that returns whatever {@code Single} the
- * test needs. {@link SlackPoster} is an interface and works fine with regular mocks.
- */
 class GrafanaAlertServiceImplTest {
 
   private static final String ALERTS_CHANNEL = "C123ALERT";
@@ -40,6 +36,7 @@ class GrafanaAlertServiceImplTest {
   private AtomicReference<Single<String>> mentionReturn;
   private SlackPoster slackPoster;
   private NotificationConfig notificationConfig;
+  private ServiceDao serviceDao;
   private GrafanaAlertServiceImpl service;
 
   @BeforeEach
@@ -66,14 +63,22 @@ class GrafanaAlertServiceImplTest {
     when(slackPoster.postMessage(anyString(), anyString(), anyString()))
         .thenReturn(Single.just(new JsonObject().put("ok", true)));
 
+    serviceDao = mock(ServiceDao.class);
+    when(serviceDao.getByServiceName(anyString())).thenReturn(Maybe.empty());
+
     OnCallService onCallStub = new OnCallService(null, null, notificationConfig) {
       @Override
       public Single<String> getOnCallSlackMentions() {
         return mentionReturn.get();
       }
+
+      @Override
+      public Single<String> getOnCallSlackMentions(String goalertServiceId) {
+        return mentionReturn.get();
+      }
     };
 
-    service = new GrafanaAlertServiceImpl(onCallStub, slackPoster, notificationConfig);
+    service = new GrafanaAlertServiceImpl(onCallStub, slackPoster, notificationConfig, serviceDao);
   }
 
   private GrafanaWebhookRequest buildRequest(String status, String alertName, String summary) {
@@ -249,10 +254,20 @@ class GrafanaAlertServiceImplTest {
   // ---------- failure path ----------
 
   @Test
-  void shouldPostFallbackMessageOnOnCallError() {
-    mentionReturn.set(Single.error(new RuntimeException("goalert down")));
+  void shouldPostFallbackMessageOnProcessingError() {
+    when(serviceDao.getByServiceName(anyString()))
+        .thenReturn(Maybe.error(new RuntimeException("db down")));
 
-    service.handleAlert(buildRequest("firing", "X", "y")).blockingAwait();
+    GrafanaWebhookRequest req = GrafanaWebhookRequest.builder()
+        .status("firing")
+        .alerts(List.of(GrafanaAlert.builder()
+            .status("firing")
+            .labels(Map.of("alertname", "X", "service", "payment-service"))
+            .annotations(Map.of("summary", "y"))
+            .build()))
+        .build();
+
+    service.handleAlert(req).blockingAwait();
 
     ArgumentCaptor<String> textCaptor = ArgumentCaptor.forClass(String.class);
     verify(slackPoster).postMessage(eq(FALLBACK_CHANNEL), anyString(), textCaptor.capture());
@@ -264,16 +279,25 @@ class GrafanaAlertServiceImplTest {
     when(slackPoster.postMessage(anyString(), anyString(), anyString()))
         .thenReturn(Single.error(new RuntimeException("slack 500")));
 
-    // Should not throw
     service.handleAlert(buildRequest("firing", "X", "y")).blockingAwait();
   }
 
   @Test
   void shouldUseDefaultChannelAsFallbackWhenGrafanaFallbackMissing() {
     notificationConfig.getAlerts().getGrafana().setFallbackSlackChannelId(null);
-    mentionReturn.set(Single.error(new RuntimeException("err")));
+    when(serviceDao.getByServiceName(anyString()))
+        .thenReturn(Maybe.error(new RuntimeException("err")));
 
-    service.handleAlert(buildRequest("firing", "X", "y")).blockingAwait();
+    GrafanaWebhookRequest req = GrafanaWebhookRequest.builder()
+        .status("firing")
+        .alerts(List.of(GrafanaAlert.builder()
+            .status("firing")
+            .labels(Map.of("alertname", "X", "service", "svc"))
+            .annotations(Map.of("summary", "y"))
+            .build()))
+        .build();
+
+    service.handleAlert(req).blockingAwait();
 
     verify(slackPoster).postMessage(eq(ALERTS_CHANNEL), anyString(), anyString());
   }
@@ -381,5 +405,92 @@ class GrafanaAlertServiceImplTest {
 
     verify(slackPoster).postMessage(eq(SPM_CHANNEL), eq(BOT_TOKEN), anyString());
     verify(slackPoster).postMessage(eq(OPERATOR_CHANNEL), eq(BOT_TOKEN), anyString());
+  }
+
+  // ---------- service-based routing ----------
+
+  @Test
+  void shouldIncludeServiceOwnerMentionWhenServiceFound() {
+    ServiceRow paymentService = ServiceRow.builder()
+        .serviceName("payment-service")
+        .ownerEmail("owner@example.com")
+        .ownerSlackId("U_OWNER")
+        .goalertServiceId("goalert-payment-uuid")
+        .build();
+    when(serviceDao.getByServiceName("payment-service")).thenReturn(Maybe.just(paymentService));
+
+    GrafanaWebhookRequest req = GrafanaWebhookRequest.builder()
+        .status("firing")
+        .alerts(List.of(GrafanaAlert.builder()
+            .status("firing")
+            .labels(Map.of("alertname", "PaymentTimeout", "service", "payment-service"))
+            .annotations(Map.of("summary", "timeouts increasing"))
+            .build()))
+        .build();
+
+    service.handleAlert(req).blockingAwait();
+
+    ArgumentCaptor<String> textCaptor = ArgumentCaptor.forClass(String.class);
+    verify(slackPoster).postMessage(eq(ALERTS_CHANNEL), eq(BOT_TOKEN), textCaptor.capture());
+    String text = textCaptor.getValue();
+    assertThat(text).contains(":bell: On-call:");
+    assertThat(text).contains(":bust_in_silhouette: Service Owner: <@U_OWNER>");
+  }
+
+  @Test
+  void shouldUseDefaultChannelWhenNoRouteMatch() {
+    ServiceRow authService = ServiceRow.builder()
+        .serviceName("auth-service")
+        .ownerEmail("auth-owner@example.com")
+        .ownerSlackId("U_AUTH")
+        .build();
+    when(serviceDao.getByServiceName("auth-service")).thenReturn(Maybe.just(authService));
+
+    GrafanaWebhookRequest req = GrafanaWebhookRequest.builder()
+        .status("firing")
+        .alerts(List.of(GrafanaAlert.builder()
+            .status("firing")
+            .labels(Map.of("alertname", "AuthFail", "service", "auth-service"))
+            .annotations(Map.of("summary", "auth errors"))
+            .build()))
+        .build();
+
+    service.handleAlert(req).blockingAwait();
+
+    verify(slackPoster).postMessage(eq(ALERTS_CHANNEL), eq(BOT_TOKEN), anyString());
+  }
+
+  @Test
+  void shouldNotIncludeOwnerLineWhenServiceNotInDb() {
+    service.handleAlert(buildRequest("firing", "CpuHigh", "CPU > 80%")).blockingAwait();
+
+    ArgumentCaptor<String> textCaptor = ArgumentCaptor.forClass(String.class);
+    verify(slackPoster).postMessage(anyString(), anyString(), textCaptor.capture());
+    assertThat(textCaptor.getValue()).doesNotContain("Service Owner:");
+  }
+
+  @Test
+  void shouldRouteConfigTakesPriorityOverServiceChannel() {
+    configureRoutes();
+    ServiceRow svc = ServiceRow.builder()
+        .serviceName("spm-svc")
+        .ownerEmail("spm@example.com")
+        .ownerSlackId("U_SPM")
+        .build();
+    when(serviceDao.getByServiceName("spm-svc")).thenReturn(Maybe.just(svc));
+
+    GrafanaWebhookRequest req = GrafanaWebhookRequest.builder()
+        .status("firing")
+        .alerts(List.of(GrafanaAlert.builder()
+            .status("firing")
+            .labels(Map.of("alertname", "X", "severity", "spm", "service", "spm-svc"))
+            .annotations(Map.of("summary", "s"))
+            .build()))
+        .build();
+
+    service.handleAlert(req).blockingAwait();
+
+    // Route match (SPM_CHANNEL) takes priority over default channel
+    verify(slackPoster).postMessage(eq(SPM_CHANNEL), eq(BOT_TOKEN), anyString());
   }
 }

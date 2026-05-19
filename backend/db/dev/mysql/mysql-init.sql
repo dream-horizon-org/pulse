@@ -1460,3 +1460,20 @@ INSERT INTO notification_templates (event_name, channel_type, version, body) VAL
     )
 ))
 ON DUPLICATE KEY UPDATE body = VALUES(body);
+
+-- Service registry for alert routing (maps service_name label to on-call + owner)
+CREATE TABLE IF NOT EXISTS services (
+    id                  BIGINT PRIMARY KEY AUTO_INCREMENT,
+    service_name        VARCHAR(128) NOT NULL UNIQUE,
+    service_group       VARCHAR(128),
+    display_name        VARCHAR(255),
+    owner_email         VARCHAR(255) NOT NULL,
+    owner_slack_id      VARCHAR(32),
+    goalert_service_id  VARCHAR(128),
+    description         TEXT,
+    is_active           BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at          TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at          TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_services_name (service_name),
+    INDEX idx_services_group (service_group)
+);
