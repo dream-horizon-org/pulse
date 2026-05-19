@@ -1411,15 +1411,9 @@ test.describe("@M2 interaction-context-span — Next.js (ISS-I04)", () => {
     await page.evaluate(() => {
       window.dispatchEvent(new PageTransitionEvent("pagehide", { persisted: false }));
     });
-    await page.waitForTimeout(500);
 
-    const networkSpans = findAllNetworkSpans(otlp.captured);
-    const probeSpan = networkSpans.find((s) => {
-      const url = String(getAttr(s.attributes, "url.full") ?? "");
-      return url.includes("pulse-e2e-nx-probe");
-    });
-    expect(probeSpan, "Expected network span for probe fetch").toBeDefined();
-    if (!probeSpan) return;
+    // Poll until the probe span arrives — fixed 500ms sleep was a race under 3-worker CI load.
+    const probeSpan = await pollProbeNetworkSpan(otlp, "pulse-e2e-nx-probe");
 
     const names = getAttr(probeSpan.attributes, "pulse.interaction.names");
     const ids = getAttr(probeSpan.attributes, "pulse.interaction.ids");
