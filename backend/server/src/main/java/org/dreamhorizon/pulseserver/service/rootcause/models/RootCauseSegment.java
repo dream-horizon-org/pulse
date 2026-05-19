@@ -11,7 +11,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 @Data
-@Builder
+@Builder(toBuilder = true)
 @NoArgsConstructor
 @AllArgsConstructor
 @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -28,6 +28,13 @@ public class RootCauseSegment {
   /** Example session IDs demonstrating this segment's issues (2 most relevant). */
   @Default
   private List<String> exampleSessionIds = new ArrayList<>();
+
+  /**
+   * 1-based ordering hint for the RCA LLM: matches merged RCA segment order from the server ({@code GET}
+   * {@code /root-cause} list order: hierarchical 2D+ first, then flat 1D, after cap and gate). Set only
+   * on payloads sent to pulse_ai — not used for {@code GET /root-cause} cache rows.
+   */
+  private Integer serverRank;
   /** Top interactions contributing most to session score degradation in this segment. */
   private List<DegradingInteraction> degradingInteractions;
 }

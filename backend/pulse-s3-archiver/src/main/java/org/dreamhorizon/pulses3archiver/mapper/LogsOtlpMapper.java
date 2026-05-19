@@ -52,7 +52,9 @@ public final class LogsOtlpMapper {
       Map<String, String> la,
       LogRecord lr) {
 
-    long tsNanos = lr.getTimeUnixNano();
+    // time_unix_nano may be 0 when the source doesn't know the timestamp;
+    // fall back to observed_time_unix_nano (always set by the collector).
+    long tsNanos = lr.getTimeUnixNano() != 0L ? lr.getTimeUnixNano() : lr.getObservedTimeUnixNano();
     GenericRecord rec = new GenericData.Record(schema);
 
     rec.put("Timestamp",          AttributeUtils.nanosToMicros(tsNanos));

@@ -1,3 +1,5 @@
+import type { ScreenRootCauseMode } from "../../../../hooks/useGetScreenRootCause";
+
 /** Copy aligned with `RootCause.constants` / interaction RCA tone. */
 export const SCREEN_ROOT_CAUSE_MESSAGES = {
   NO_DATA_IN_PERIOD:
@@ -15,7 +17,8 @@ export const SCREEN_RCA_METRIC_LABELS: Record<string, string> = {
   bad_frustration: "Bad frustration",
 };
 
-export const SCREEN_RCA_MODE_LABELS: Record<string, string> = {
+export const SCREEN_RCA_MODE_LABELS = {
   flat: "Flat",
   hierarchical: "Hierarchical",
-};
+  hybrid: "Hybrid",
+} as const satisfies Record<ScreenRootCauseMode, string>;
