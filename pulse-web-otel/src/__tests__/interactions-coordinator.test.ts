@@ -53,6 +53,74 @@ describe("InteractionCoordinator", () => {
     coord.shutdown();
   });
 
+  it("addMarkerToAll fans out to all trackers", () => {
+    const terminals: Array<{ name: string; props: Record<string, unknown> }> = [];
+    const coord = new InteractionCoordinator({
+      onInteractionTerminal: (i) =>
+        terminals.push({ name: String(i.props[INTERACTION_PROP_KEYS.NAME]), props: i.props }),
+    });
+    coord.setConfigs([flow("F1", 1), flow("F2", 2)]);
+
+    coord.trackEvent("step_a", undefined, 1000);
+    coord.addMarkerToAll("non_fatal", undefined, 1050);
+    coord.trackEvent("step_b", undefined, 1100);
+
+    expect(terminals).toHaveLength(2);
+    for (const t of terminals) {
+      const markers = t.props[INTERACTION_PROP_KEYS.MARKER_EVENTS] as unknown[];
+      expect(Array.isArray(markers)).toBe(true);
+      expect(markers.length).toBeGreaterThan(0);
+      expect((markers[0] as Record<string, unknown>)["name"]).toBe("non_fatal");
+    }
+    coord.shutdown();
+  });
+
+  it("addMarkerToAll is no-op when no trackers configured", () => {
+    const coord = new InteractionCoordinator();
+    expect(() => coord.addMarkerToAll("non_fatal", undefined, 1000)).not.toThrow();
+    coord.shutdown();
+  });
+
+  it("getRunningInteractions: empty when no configs", () => {
+    const coord = new InteractionCoordinator();
+    expect(coord.getRunningInteractions()).toEqual([]);
+    coord.shutdown();
+  });
+
+  it("getRunningInteractions: returns mid-sequence flow", () => {
+    const coord = new InteractionCoordinator();
+    coord.setConfigs([flow("F1", 1)]);
+    // Fire first step — flow is now mid-sequence (waiting for step_b)
+    coord.trackEvent("step_a", undefined, 1000);
+    const running = coord.getRunningInteractions();
+    expect(running).toHaveLength(1);
+    expect(running[0]!.name).toBe("F1");
+    expect(typeof running[0]!.id).toBe("string");
+    coord.shutdown();
+  });
+
+  it("getRunningInteractions: returns both when 2 concurrent flows are mid-sequence", () => {
+    const coord = new InteractionCoordinator();
+    coord.setConfigs([flow("F1", 1), flow("F2", 2)]);
+    coord.trackEvent("step_a", undefined, 1000);
+    const running = coord.getRunningInteractions();
+    expect(running).toHaveLength(2);
+    const names = running.map((r) => r.name).sort();
+    expect(names).toEqual(["F1", "F2"]);
+    coord.shutdown();
+  });
+
+  it("getRunningInteractions: excludes completed flows (both steps fired)", () => {
+    const coord = new InteractionCoordinator();
+    coord.setConfigs([flow("F1", 1)]);
+    coord.trackEvent("step_a", undefined, 1000);
+    coord.trackEvent("step_b", undefined, 1001);
+    // After terminal, the tracker has interaction != null — not returned
+    const running = coord.getRunningInteractions();
+    expect(running).toHaveLength(0);
+    coord.shutdown();
+  });
+
   it("handles parallel configs and emits both completions", () => {
     const terminals: Array<{ name: string; isError: boolean }> = [];
     const coord = new InteractionCoordinator({
@@ -89,6 +157,25 @@ describe("InteractionCoordinator", () => {
       "SignupFlow",
     ]);
     expect(terminals.every((t) => !t.isError)).toBe(true);
+    coord.shutdown();
+  });
+
+  it("INT-P34: setConfigs mid-flight (config refresh) destroys in-flight trackers — no spurious terminal", () => {
+    vi.useFakeTimers();
+    const terminals: string[] = [];
+    const coord = new InteractionCoordinator({
+      onInteractionTerminal: (i) =>
+        terminals.push(String(i.props[INTERACTION_PROP_KEYS.NAME])),
+    });
+    coord.setConfigs([flow("OriginalFlow", 10)]);
+    // Start a partial flow (step_a fired, waiting for step_b)
+    coord.trackEvent("step_a", undefined, 1000);
+    // Config refresh arrives mid-flight — replaces configs
+    coord.setConfigs([flow("NewFlow", 11)]);
+    // Old timer must not fire; advance past original threshold
+    vi.advanceTimersByTime(1000);
+    // No terminal from the abandoned OriginalFlow tracker
+    expect(terminals.filter((n) => n === "OriginalFlow")).toHaveLength(0);
     coord.shutdown();
   });
 });

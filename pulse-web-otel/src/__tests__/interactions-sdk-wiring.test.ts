@@ -155,6 +155,70 @@ afterEach(async () => {
   vi.unstubAllGlobals();
 });
 
+describe("interaction context span processor wiring", () => {
+  it("registers InteractionContextSpanProcessor in span pipeline (createProviders arg[2])", async () => {
+    const { Pulse } = await import("../sdk");
+    Pulse.init(makeConfig());
+    await Promise.resolve();
+
+    const spanProcessors = createProvidersMock.mock.calls.at(-1)?.[2] as unknown[];
+    expect(Array.isArray(spanProcessors)).toBe(true);
+    const names = spanProcessors.map(
+      (p) => (p as { constructor: { name: string } }).constructor.name,
+    );
+    expect(names).toContain("InteractionContextSpanProcessor");
+  });
+
+  it("InteractionContextSpanProcessor is positioned after globalAttrsProcessor and before filterProcessor", async () => {
+    const { Pulse } = await import("../sdk");
+    Pulse.init(makeConfig());
+    await Promise.resolve();
+
+    const spanProcessors = createProvidersMock.mock.calls.at(-1)?.[2] as unknown[];
+    const names = spanProcessors.map(
+      (p) => (p as { constructor: { name: string } }).constructor.name,
+    );
+    const globalIdx = names.findIndex(
+      (n) => n === "PulseGlobalAttributesProcessor",
+    );
+    const contextIdx = names.findIndex(
+      (n) => n === "InteractionContextSpanProcessor",
+    );
+    const filterIdx = names.findIndex((n) => n === "SignalFilterProcessor");
+    expect(globalIdx).toBeGreaterThanOrEqual(0);
+    expect(contextIdx).toBeGreaterThan(globalIdx);
+    expect(filterIdx).toBeGreaterThan(contextIdx);
+  });
+});
+
+describe("interaction log processor wiring", () => {
+  it("registers InteractionLogProcessor in log pipeline (createProviders arg[3])", async () => {
+    const { Pulse } = await import("../sdk");
+    Pulse.init(makeConfig());
+    await Promise.resolve();
+
+    const logProcessors = createProvidersMock.mock.calls.at(-1)?.[3] as unknown[];
+    expect(Array.isArray(logProcessors)).toBe(true);
+    const names = logProcessors.map((p) => (p as { constructor: { name: string } }).constructor.name);
+    expect(names).toContain("InteractionLogProcessor");
+  });
+
+  it("InteractionLogProcessor is positioned after globalAttrsProcessor and before filterProcessor", async () => {
+    const { Pulse } = await import("../sdk");
+    Pulse.init(makeConfig());
+    await Promise.resolve();
+
+    const logProcessors = createProvidersMock.mock.calls.at(-1)?.[3] as unknown[];
+    const names = logProcessors.map((p) => (p as { constructor: { name: string } }).constructor.name);
+    const globalIdx = names.findIndex((n) => n === "PulseGlobalAttributesProcessor");
+    const interactionIdx = names.findIndex((n) => n === "InteractionLogProcessor");
+    const filterIdx = names.findIndex((n) => n === "SignalFilterProcessor");
+    expect(globalIdx).toBeGreaterThanOrEqual(0);
+    expect(interactionIdx).toBeGreaterThan(globalIdx);
+    expect(filterIdx).toBeGreaterThan(interactionIdx);
+  });
+});
+
 describe("interactions SDK wiring", () => {
   it("forwards trackEvent(name, attrs, timestamp) into interaction feature", async () => {
     const { Pulse } = await import("../sdk");
