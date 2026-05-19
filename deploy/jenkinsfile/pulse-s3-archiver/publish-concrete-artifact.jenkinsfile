@@ -72,28 +72,28 @@ pipeline {
         }
     }
 
-    post {
-        success {
-            script {
-                wrap([$class: 'BuildUser']) {
-                    def message = "<!channel> Pulse S3 Archiver version *${ARTIFACT_VERSION}* published by ${BUILD_USER_EMAIL}\n" +
-                            "<${env.BUILD_URL}|${env.JOB_NAME} ${env.BUILD_DISPLAY_NAME}>"
-                    def channel = "${env.DEPLOYMENT_SLACK_CHANNEL}"
-                    slackSend(teamDomain: 'dreamsports.enterprise', channel: channel, color: 'good', message: message, tokenCredentialId: 'slack-creds', botUser: true)
-                }
-            }
-        }
-        failure {
-            script {
-                wrap([$class: 'BuildUser']) {
-                    def message = "<!channel> Pulse S3 Archiver version *${ARTIFACT_VERSION}* publish failed (triggered by ${BUILD_USER_EMAIL})\n" +
-                            "<${env.BUILD_URL}|${env.JOB_NAME} ${env.BUILD_DISPLAY_NAME}>"
-                    def channel = "${env.DEPLOYMENT_SLACK_CHANNEL}"
-                    slackSend(teamDomain: 'dreamsports.enterprise', channel: channel, color: 'danger', message: message, tokenCredentialId: 'slack-creds', botUser: true)
-                }
-            }
-        }
-    }
+   post {
+       success {
+           script {
+               wrap([$class: 'BuildUser']) {
+                   def message = "<!channel> Pulse S3 Archiver version *${ARTIFACT_VERSION}* published by ${BUILD_USER_EMAIL}\n" +
+                           "<${env.BUILD_URL}|${env.JOB_NAME} ${env.BUILD_DISPLAY_NAME}>"
+                   def channel = "${env.DEPLOYMENT_SLACK_CHANNEL}"
+                   slackSend(teamDomain: 'dreamsports.enterprise', channel: channel, color: 'good', message: message, tokenCredentialId: 'slack-creds', botUser: true)
+               }
+           }
+       }
+       failure {
+           script {
+               wrap([$class: 'BuildUser']) {
+                   def message = "<!channel> Pulse S3 Archiver version *${ARTIFACT_VERSION}* publish failed (triggered by ${BUILD_USER_EMAIL})\n" +
+                           "<${env.BUILD_URL}|${env.JOB_NAME} ${env.BUILD_DISPLAY_NAME}>"
+                   def channel = "${env.DEPLOYMENT_SLACK_CHANNEL}"
+                   slackSend(teamDomain: 'dreamsports.enterprise', channel: channel, color: 'danger', message: message, tokenCredentialId: 'slack-creds', botUser: true)
+               }
+           }
+       }
+   }
 }
 
 def getVersionFromPom(String path = 'backend/pulse-s3-archiver/pom.xml') {
