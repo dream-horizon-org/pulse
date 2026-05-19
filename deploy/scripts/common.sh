@@ -234,6 +234,7 @@ load_env() {
     # Apply defaults matching docker-compose.yml
 
     # MySQL
+    export MYSQL_ROOT_USER="${MYSQL_ROOT_USER:-root}"
     export MYSQL_ROOT_PASSWORD="${MYSQL_ROOT_PASSWORD:-pulse_root_password}"
     export MYSQL_DATABASE="${MYSQL_DATABASE:-pulse_db}"
     export MYSQL_USER="${MYSQL_USER:-pulse_user}"

@@ -154,7 +154,6 @@ fall back to pure Docker CLI when Compose is not available.
 | `seed-ecommerce.sh`                     | Seed e-commerce demo data (12 interactions, ClickHouse + MySQL); use `--clear` to wipe and re-seed             |
 | `create-users-table.sh`                 | Create `pulse_db.users` table if missing (fixes login "Table 'pulse_db.users' doesn't exist")                  |
 | `common.sh`                             | Shared library (not run directly)                                                                              |
-| `init-clickhouse.sh`                    | ClickHouse table initialiser (runs inside a container, not run directly)                                       |
 | `sync-default-tenant-ch-credentials.py` | One-time: sync default tenant’s ClickHouse password in MySQL to match `.env` (fixes AI Root Cause auth errors) |
 
 ---
@@ -328,8 +327,8 @@ scratch. Useful when schema changes or you want a clean slate.
 - Prompts for confirmation (you must type `yes`).
 - Stops all services.
 - Deletes `pulse-mysql-data` and `pulse-clickhouse-data` volumes.
-- Restarts all services (MySQL init SQL and ClickHouse schema run automatically on fresh volumes).
-- Verifies tables are created.
+- Restarts all services; `pulse-db-migrate` (Liquibase) applies `backend/db/migrations/` on fresh volumes.
+- Verifies MySQL and ClickHouse tables are created.
 
 ---
 
@@ -347,12 +346,20 @@ Shared library sourced by every other script. Provides:
 
 ---
 
-### `init-clickhouse.sh` _(internal -- not run directly)_
+### `pulse-db-migrate` _(internal -- not run directly)_
 
-Runs inside a ClickHouse container as a one-shot job. Waits for ClickHouse to
-accept connections, then applies `backend/db/dev/clickhouse/*.sql`
-to create the OTEL tables. Called automatically by `start.sh` and
-`docker-compose.yml`; you should never need to run it manually.
+Runs as a one-shot Maven container after MySQL and ClickHouse are healthy.
+Applies all pending Liquibase changesets from `backend/db/migrations/mysql/` and
+`backend/db/migrations/clickhouse/` to both databases. MySQL migrations use
+`MYSQL_ROOT_USER` / `MYSQL_ROOT_PASSWORD` from `deploy/.env` (defaults: `root` /
+`pulse_root_password`). Called automatically by `start.sh` and `docker-compose.yml`;
+you should not need to run it manually.
+
+**Manual re-run (debug):**
+
+```bash
+cd deploy && docker compose run --rm pulse-db-migrate
+```
 
 ---
 

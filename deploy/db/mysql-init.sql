@@ -200,7 +200,7 @@ CREATE TABLE interaction (
 );
 
 -- ============================================================================
--- default-project interactions: keep in sync with backend/db/dev/mysql/mysql-init.sql
+-- default-project interactions: update backend/db/migrations/mysql/V0001__baseline.sql interaction block to match
 --   Web flows interaction_id 1..5 = pulse-web-otel/.../interaction-config.mock.json
 --   BasicInteraction + FullShopping after (auto ids 6, 7).
 -- ============================================================================

@@ -147,7 +147,6 @@ docker run -d \
     -e "MYSQL_USER=${MYSQL_USER}" \
     -e "MYSQL_PASSWORD=${MYSQL_PASSWORD}" \
     -v "${VOLUME_MYSQL}:/var/lib/mysql" \
-    -v "${DEPLOY_DIR}/db/mysql-init.sql:/docker-entrypoint-initdb.d/init.sql:ro" \
     --health-cmd "mysqladmin ping -h localhost -u${MYSQL_USER} -p${MYSQL_PASSWORD}" \
     --health-interval 10s \
     --health-timeout 5s \
@@ -172,7 +171,6 @@ docker run -d \
     -e "CLICKHOUSE_PASSWORD=${OTEL_CLICKHOUSE_PASSWORD}" \
     -e CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1 \
     -v "${VOLUME_CLICKHOUSE}:/var/lib/clickhouse" \
-    -v "${ROOT_DIR}/backend/db/dev/clickhouse:/docker-entrypoint-initdb.d:ro" \
     --health-cmd 'clickhouse-client --query "SELECT 1"' \
     --health-interval 10s \
     --health-timeout 5s \
@@ -185,11 +183,6 @@ print_success "$CONTAINER_CLICKHOUSE container started"
 print_info "Waiting for databases to become healthy..."
 wait_for_healthy "$CONTAINER_MYSQL" 120
 wait_for_healthy "$CONTAINER_CLICKHOUSE" 120
-
-if ! verify_mysql_init; then
-    print_error "MySQL initialization failed. Fix the init script and run: ./reset-databases.sh"
-    exit 1
-fi
 
 # ── Phase 2: MinIO ────────────────────────────────────────────────
 print_section "Phase 2: Starting Kafka & MinIO"
@@ -266,28 +259,57 @@ docker run --rm \
 
 print_success "MinIO buckets '${SESSION_REPLAY_S3_BUCKET}', '${HEATMAP_S3_BUCKET}', and '${SYMBOL_FILES_S3_BUCKET_NAME:-pulse-symbol-files}' ready"
 
-# ── Phase 3: ClickHouse init + OTEL Collector ────────────────────────────
-print_section "Phase 3: Initialising ClickHouse tables & OTEL Collector"
+# ── Phase 3: DB Migrations (Liquibase) + OTEL Collector ─────────────────────
+print_section "Phase 3: Running DB Migrations & Starting OTEL Collector"
 
-remove_container "$CONTAINER_CLICKHOUSE_INIT"
-print_info "Running $CONTAINER_CLICKHOUSE_INIT (one-shot) ..."
+remove_container "pulse-db-migrate"
+print_info "Running pulse-db-migrate (Liquibase) ..."
 
-docker run --rm \
-    --name "$CONTAINER_CLICKHOUSE_INIT" \
+if ! docker run --rm \
+    --name "pulse-db-migrate" \
     --network "$NETWORK_NAME" \
-    -e "CLICKHOUSE_HOST=clickhouse" \
-    -e "CLICKHOUSE_USER=${OTEL_CLICKHOUSE_USER}" \
-    -e "CLICKHOUSE_PASSWORD=${OTEL_CLICKHOUSE_PASSWORD}" \
-    -e "CLICKHOUSE_DB=${OTEL_CLICKHOUSE_DATABASE}" \
-    -v "${SCRIPT_DIR}/init-clickhouse.sh:/scripts/init-clickhouse.sh:ro" \
-    -v "${ROOT_DIR}/backend/db/dev/clickhouse:/init/clickhouse:ro" \
-    "$IMAGE_CLICKHOUSE" \
-    /bin/bash /scripts/init-clickhouse.sh
+    -e "MYSQL_DATABASE=${MYSQL_DATABASE}" \
+    -e "MYSQL_ROOT_USER=${MYSQL_ROOT_USER:-root}" \
+    -e "MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}" \
+    -e "OTEL_CLICKHOUSE_DATABASE=${OTEL_CLICKHOUSE_DATABASE}" \
+    -e "OTEL_CLICKHOUSE_USER=${OTEL_CLICKHOUSE_USER}" \
+    -e "OTEL_CLICKHOUSE_PASSWORD=${OTEL_CLICKHOUSE_PASSWORD}" \
+    -e "MAVEN_OPTS=-Dmaven.repo.local=/root/.m2/repository" \
+    -v "${ROOT_DIR}/backend/db:/workspace:ro" \
+    -v "pulse-maven-m2-cache:/root/.m2" \
+    maven:3.9-eclipse-temurin-17 \
+    /bin/bash -ec "
+        cd /workspace &&
+        echo '--- MySQL migrations ---' &&
+        mvn -B liquibase:update -Pmysql \
+            -Dliquibase.mysql.url=\"jdbc:mysql://mysql:3306/\${MYSQL_DATABASE}?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true\" \
+            -Dliquibase.mysql.username=\"\${MYSQL_ROOT_USER}\" \
+            -Dliquibase.mysql.password=\"\${MYSQL_ROOT_PASSWORD}\" \
+            -Dliquibase.mysql.schema=\"\${MYSQL_DATABASE}\" &&
+        echo '--- ClickHouse migrations ---' &&
+        curl -sf -X POST \"http://clickhouse:8123/\" \
+            -u \"\${OTEL_CLICKHOUSE_USER}:\${OTEL_CLICKHOUSE_PASSWORD}\" \
+            -d \"CREATE DATABASE IF NOT EXISTS \${OTEL_CLICKHOUSE_DATABASE}\" &&
+        mvn -B liquibase:update -Pclickhouse \
+            -Dliquibase.clickhouse.url=\"jdbc:clickhouse://clickhouse:8123/\${OTEL_CLICKHOUSE_DATABASE}\" \
+            -Dliquibase.clickhouse.username=\"\${OTEL_CLICKHOUSE_USER}\" \
+            -Dliquibase.clickhouse.password=\"\${OTEL_CLICKHOUSE_PASSWORD}\" &&
+        echo '=== All migrations complete ==='
+    "; then
+    print_error "pulse-db-migrate failed (Liquibase). See Maven/Liquibase output above."
+    print_info "Checksum mismatch on edited baseline: wipe DBs (cd deploy && docker-compose down -v) or run liquibase clearCheckSums for that changeset."
+    exit 1
+fi
 
-print_success "ClickHouse tables initialised"
+print_success "DB migrations complete"
+
+if ! verify_mysql_init; then
+    print_error "MySQL schema verification failed after migrate (no tables in ${MYSQL_DATABASE}). Try ./reset-databases.sh or docker-compose down -v"
+    exit 1
+fi
 
 if ! verify_clickhouse_init; then
-    print_error "ClickHouse table initialization failed. Check the schema file."
+    print_error "ClickHouse migration failed: no tables found in '${OTEL_CLICKHOUSE_DATABASE}'"
     exit 1
 fi
 

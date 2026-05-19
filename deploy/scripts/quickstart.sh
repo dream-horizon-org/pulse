@@ -192,11 +192,11 @@ if [ ! -f "$ROOT_DIR/backend/ingestion/otel-collector.yaml" ]; then
 fi
 print_success "OTEL collector configuration found"
 
-if [ ! -d "$ROOT_DIR/backend/db/dev/clickhouse" ] || [ -z "$(ls -A "$ROOT_DIR/backend/db/dev/clickhouse"/*.sql 2>/dev/null)" ]; then
-    print_error "ClickHouse schemas not found in backend/db/dev/clickhouse"
+if [ ! -d "$ROOT_DIR/backend/db/migrations" ]; then
+    print_error "DB migrations directory not found at backend/db/migrations"
     exit 1
 fi
-print_success "ClickHouse schemas found"
+print_success "DB migrations directory found"
 
 load_env
 
