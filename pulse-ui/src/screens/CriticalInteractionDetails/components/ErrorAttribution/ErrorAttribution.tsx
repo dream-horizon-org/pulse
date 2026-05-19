@@ -31,37 +31,42 @@ export function UnifiedRelatedAttributionsList({
               row.graphqlOperationName ?? undefined,
               row.graphqlOperationType ?? undefined,
             );
+            const operationName = row.graphqlOperationName?.trim() ?? "";
+            const hasOperationName = operationName !== "";
+            const urlDisplay = row.url?.trim() || "(no URL)";
+            const operationType = row.graphqlOperationType?.trim() ?? "";
             const methodStatus =
               [row.httpMethod, row.httpStatusCode]
                 .filter(Boolean)
                 .join(" · ") || null;
             const to = `/projects/${encodeURIComponent(projectId)}/network-apis/${encodeURIComponent(apiId)}${linkSuffix}`;
             return (
-              <Box
-                key={`api-${row.url}-${row.httpMethod}-${row.httpStatusCode}-${idx}`}
-              >
+              <Box key={`api-${apiId}-${idx}`}>
                 {idx > 0 ? (
                   <Divider size="xs" className={classes.compactDivider} />
                 ) : null}
                 <div className={classes.compactRow}>
                   <div className={classes.compactRankBadge}>{rank}</div>
                   <Stack gap={2} style={{ flex: 1, minWidth: 0 }}>
-                    <Text
-                      component={Link}
-                      to={to}
-                      fw={600}
-                      size="sm"
-                      className={classes.drillDownLink}
-                      lineClamp={2}
-                      lh={1.35}
-                    >
-                      {row.url || "(no URL)"}
-                    </Text>
-                    {methodStatus ? (
-                      <Text size="xs" c="dimmed" lh={1.2}>
-                        {methodStatus}
-                      </Text>
-                    ) : null}
+                    <Link to={to} className={classes.drillDownLink}>
+                      <Stack gap={2}>
+                        <Text fw={600} size="sm" lh={1.35} lineClamp={2}>
+                          {urlDisplay}
+                        </Text>
+                        {hasOperationName ? (
+                          <Text size="xs" c="dimmed" lh={1.2} lineClamp={2}>
+                            {[operationType, operationName]
+                              .filter((part) => part !== "")
+                              .join(" · ")}
+                          </Text>
+                        ) : null}
+                        {methodStatus ? (
+                          <Text size="xs" c="dimmed" lh={1.2}>
+                            {methodStatus}
+                          </Text>
+                        ) : null}
+                      </Stack>
+                    </Link>
                   </Stack>
                   <Text size="xs" c="dimmed" style={{ flexShrink: 0 }} lh={1.2}>
                     {row.occurrences.toLocaleString()}{" "}

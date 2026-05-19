@@ -14,6 +14,7 @@ import java.io.IOException;
 
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.context.ProjectContext;
+import org.dreamhorizon.pulseserver.filter.InternalServiceAuthFilter;
 import org.dreamhorizon.pulseserver.guice.GuiceInjector;
 import org.dreamhorizon.pulseserver.service.JwtService;
 
@@ -45,7 +46,6 @@ public class TenantFilter implements ContainerRequestFilter, ContainerResponseFi
   private static final String AUTH_PATH_PREFIX = "v1/auth";
   private static final String ONBOARDING_PATH_PREFIX = "v1/onboarding";
   private static final String INVITE_ACCEPT_PATH_PREFIX = "v1/invites/accept";
-  private static final String INTERNAL_PATH_PREFIX = "internal/";
   private static final String BEARER_PREFIX = "Bearer ";
   private static final String CLAIM_TENANT_ID = "tenantId";
   private static final String CLAIM_SYSTEM_ROLE = "systemRole";
@@ -78,6 +78,11 @@ public class TenantFilter implements ContainerRequestFilter, ContainerResponseFi
       return;
     }
 
+    if (Boolean.TRUE.equals(requestContext.getProperty(InternalServiceAuthFilter.PROP_INTERNAL_AUTHENTICATED))) {
+      log.debug("Skipping tenant resolution for internally-authenticated path: {}", path);
+      return;
+    }
+
     String projectId = resolveProjectId(requestContext);
     if (projectId != null && !projectId.isBlank()) {
       ProjectContext.setProjectId(projectId.trim());
@@ -98,7 +103,6 @@ public class TenantFilter implements ContainerRequestFilter, ContainerResponseFi
       || normalizedPath.startsWith(AUTH_PATH_PREFIX)
       || normalizedPath.startsWith(ONBOARDING_PATH_PREFIX)
       || normalizedPath.startsWith(INVITE_ACCEPT_PATH_PREFIX)  // Users accepting invites don't have tenant yet
-      || normalizedPath.startsWith(INTERNAL_PATH_PREFIX)  // Internal service-to-service endpoints
       || normalizedPath.startsWith(ALERTS_PATH_PREFIX)
       || normalizedPath.startsWith(LOGS_INGESTION_PATH)
       || normalizedPath.startsWith(TNC_DOCUMENTS_PATH)

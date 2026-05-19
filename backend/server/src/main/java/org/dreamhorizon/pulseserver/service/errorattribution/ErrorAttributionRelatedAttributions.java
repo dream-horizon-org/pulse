@@ -19,6 +19,7 @@ public final class ErrorAttributionRelatedAttributions {
   public static List<ErrorAttributionRelatedAttributionRow> buildMerged(
       Map<String, ErrorAttributionDrillDownResult> bySignal, RootCauseConfig rootCauseConfig) {
     double minRr = rootCauseConfig.getMinRiskRatioForIssueAttribution();
+    double minPrevalence = rootCauseConfig.getMinTreatedPrevalenceFractionInU();
     int globalLimit = rootCauseConfig.getIssueDrillDownLimit();
     List<ErrorAttributionRelatedAttributionRow> rows = new ArrayList<>();
     if (bySignal == null || bySignal.isEmpty()) {
@@ -32,6 +33,10 @@ public final class ErrorAttributionRelatedAttributions {
       }
       if (r.getIssues() != null) {
         for (IssueRow i : r.getIssues()) {
+          if (!ErrorAttributionRiskMath.passesTreatedPrevalenceInUniverse(
+              i.getNTreated(), i.getNControl(), minPrevalence)) {
+            continue;
+          }
           if (ErrorAttributionRiskMath.passesRelatedThreshold(
               i.getRrUndefined(), i.getRrUndefinedReason(), i.getRr(), minRr)) {
             rows.add(fromIssue(signal, i));
@@ -40,6 +45,10 @@ public final class ErrorAttributionRelatedAttributions {
       }
       if (r.getNetworkEndpoints() != null) {
         for (NetworkEndpointRow n : r.getNetworkEndpoints()) {
+          if (!ErrorAttributionRiskMath.passesTreatedPrevalenceInUniverse(
+              n.getNTreated(), n.getNControl(), minPrevalence)) {
+            continue;
+          }
           if (ErrorAttributionRiskMath.passesRelatedThreshold(
               n.getRrUndefined(), n.getRrUndefinedReason(), n.getRr(), minRr)) {
             rows.add(fromEndpoint(signal, n));

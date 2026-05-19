@@ -1,5 +1,5 @@
 /** Mirrors backend `RootCauseRestResponse` for screen-scoped RCA. */
-export type ScreenRootCauseMode = "flat" | "hierarchical";
+export type ScreenRootCauseMode = "flat" | "hierarchical" | "hybrid";
 
 export interface ScreenRootCauseSegment {
   label: string;

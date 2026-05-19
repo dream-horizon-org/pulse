@@ -13,4 +13,7 @@ public class GetAccessTokenFromRefreshTokenRequestDto {
   @JsonProperty("refreshToken")
   @NotNull
   public String refreshToken;
+
+  @JsonProperty("tenantId")
+  private String tenantId;
 }
