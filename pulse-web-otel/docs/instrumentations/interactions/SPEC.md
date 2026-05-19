@@ -7,7 +7,9 @@ File: `pulse-web-otel/docs/instrumentations/interactions/SPEC.md`
 
 ## 1. Goal
 
-The **interactions feature** is **distinct from raw click instrumentation** (`app.click` logs). It consumes internal click + navigation events (via coordinator hooks) to match **named interaction sequences** defined in remote config, then emits **OTel spans** for completed sequences using **`pulse.type = interaction`** and **`pulse.interaction.*`** span attributes (see §5.1). **Click heatmaps** are **deferred** — not part of this subsystem.
+The **interactions feature** is **distinct from raw click instrumentation** (`app.click` logs). It matches **named interaction sequences** defined in remote config by consuming events fed via `Pulse.trackEvent(name, attrs)`, then emits **OTel spans** for completed sequences using **`pulse.type = interaction`** and **`pulse.interaction.*`** span attributes (see §5.1). **Click heatmaps** are **deferred** — not part of this subsystem.
+
+> **Current intake:** events enter the matcher via (a) explicit `Pulse.trackEvent()` calls, (b) `app.click` logs automatically bridged by `InteractionLogProcessor` (ISS-I01 — shipped), and (c) eligible span ends (`screen_load`, `screen_session`, `network.*`) reverse-fed by `InteractionContextSpanProcessor` (ISS-I04 — shipped). `navigation.ts` screen-name steps must still be fed manually until ISS-I13 is resolved.
 
 ---
 
@@ -63,11 +65,13 @@ flowchart TB
 
 ```mermaid
 flowchart LR
-  Clicks["clicks + navigation internal events"] --> Coord["coordinator"]
+  App["Pulse.trackEvent(name, attrs)"] --> Coord["coordinator"]
   Coord --> Match["sequence-matcher"]
   Match --> SB["interaction-span-builder"]
   SB --> Span["OTLP span interaction"]
 ```
+
+> **Note:** `app.click` logs are bridged automatically via `InteractionLogProcessor` (ISS-I01 — shipped). Eligible span ends (`screen_load`, `screen_session`, `network.*`) are reverse-fed via `InteractionContextSpanProcessor` (ISS-I04 — shipped). `navigation.ts` screen-name steps remain manual pending ISS-I13.
 
 ### 4.3 Flows — gate and config failure
 
@@ -106,7 +110,9 @@ flowchart TD
 | `screen.name` | string | global attrs processor | No | Same as `session.id` row — global injection when available. |
 | `platform` | string | resource | Yes | `web` — resource contract; see sdk-core data contract. |
 
-**Span events (not attributes):** each entry in internal `pulse.internal.events` is added via `span.addEvent(name, props, timeMs)` so step-level timing appears on the interaction span.
+**Span events (not attributes):** `InteractionSpanBuilder.emitInteraction()` adds two categories via `span.addEvent(name, props, timeMs)`:
+- **Step events** (`pulse.internal.events` / `LOCAL_EVENTS`) — sequence-advancing steps.
+- **Marker events** (`pulse.internal.marker_events` / `MARKER_EVENTS`) — ambient mid-sequence signals (crash, non_fatal) sliced to the interaction window. Fixed in ISS-I02 (shipped).
 
 ### 5.2 Algorithm (high level)
 
@@ -117,7 +123,13 @@ flowchart TD
 
 ### 5.3 React / Next.js
 
-- Runs in browser after **`Pulse.init`**; relies on clicks + navigation instrumentation being active — see **`clicks`** and **`screen-signals`** SPECs.
+- Runs in browser after **`Pulse.init`**.
+- **Event intake (three paths):**
+  1. Explicit `Pulse.trackEvent(eventName, attrs)` from app code.
+  2. `app.click` logs auto-bridged by `InteractionLogProcessor` — `pulse.type === app.click` → `trackEvent(body, attrs, timeMs)` (ISS-I01, shipped).
+  3. Eligible span ends reverse-fed by `InteractionContextSpanProcessor` — `screen_load`, `screen_session`, `network.*` → `trackEvent(pulseType, spanAttrs, timeMs)` (ISS-I04, shipped).
+  - Screen / route step names via `navigation.ts` must still be fed manually until ISS-I13 is resolved.
+- Requires **`PulseFeature.INTERACTION`** gate on and `instrumentations.interactions.enabled` not `false`.
 
 ---
 
@@ -154,6 +166,12 @@ Plus `interaction-feature-integration.test.ts` for cross-module flows.
 
 ## 7. Known Bugs & Gaps
 
+### ~~P1: Marker events not exported to span timeline (ISS-I02)~~ — Fixed
+
+~~`pulse.internal.marker_events` is built by `interaction-sequence-matcher.ts` and stored in interaction `props`, but `InteractionSpanBuilder.emitInteraction()` only loops `LOCAL_EVENTS` — marker events are never added via `span.addEvent()`. Android adds both step events and marker events to the span. Fix: second loop in `emitInteraction()` over `MARKER_EVENTS`.~~
+
+**Fixed (ISS-I02):** `InteractionSpanBuilder.emitInteraction()` now has a second loop over `MARKER_EVENTS` → `span.addEvent()`. Covered by 5 unit tests in `interactions-span-builder.test.ts` and `@marker` E2E in both ecommerce-demo and nextjs-demo.
+
 ### P2: Heatmap deferred
 
 **Heatmap / rage grid** analytics — **deferred** future work (not a runtime bug).
@@ -176,4 +194,4 @@ Deleted after triple-eval:
 
 ## 9. Open Questions
 
-1. When remote definitions fail to fetch, should sequences silently disable or retry backoff?
+1. ~~When remote definitions fail to fetch, should sequences silently disable or retry backoff?~~ **Resolved (ISS-I05):** No retry. On fetch failure the coordinator runs with empty / stale `localStorage` cache — matches Android behaviour. The 30-min refresh timer continues so the next poll may recover. Exponential retry (1–2 attempts) can be added later if needed.

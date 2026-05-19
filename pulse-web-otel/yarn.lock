@@ -346,7 +346,45 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@dreamhorizonorg/pulse-web@npm:0.0.3, @dreamhorizonorg/pulse-web@workspace:*, @dreamhorizonorg/pulse-web@workspace:.":
+"@dreamhorizonorg/pulse-web@npm:0.0.3":
+  version: 0.0.3
+  resolution: "@dreamhorizonorg/pulse-web@npm:0.0.3"
+  dependencies:
+    "@opentelemetry/api": "npm:^1.9.0"
+    "@opentelemetry/api-logs": "npm:^0.217.0"
+    "@opentelemetry/core": "npm:^2.7.1"
+    "@opentelemetry/exporter-logs-otlp-http": "npm:^0.217.0"
+    "@opentelemetry/exporter-metrics-otlp-http": "npm:^0.217.0"
+    "@opentelemetry/exporter-trace-otlp-http": "npm:^0.217.0"
+    "@opentelemetry/instrumentation": "npm:^0.217.0"
+    "@opentelemetry/instrumentation-fetch": "npm:^0.217.0"
+    "@opentelemetry/instrumentation-xml-http-request": "npm:^0.217.0"
+    "@opentelemetry/otlp-exporter-base": "npm:^0.217.0"
+    "@opentelemetry/otlp-transformer": "npm:^0.217.0"
+    "@opentelemetry/resources": "npm:^2.7.1"
+    "@opentelemetry/sdk-logs": "npm:^0.217.0"
+    "@opentelemetry/sdk-metrics": "npm:^2.7.1"
+    "@opentelemetry/sdk-trace-web": "npm:^2.7.1"
+    web-vitals: "npm:^5.2.0"
+  peerDependencies:
+    "@types/react": ">=18.0.0"
+    next: ">=14.0.0"
+    react: ">=18.0.0"
+    react-router-dom: ">=6.0.0"
+  peerDependenciesMeta:
+    "@types/react":
+      optional: true
+    next:
+      optional: true
+    react:
+      optional: true
+    react-router-dom:
+      optional: true
+  checksum: 10c0/d9ad0e564a60f056c3deb596488bf19c32f18baaeeb82af40e7663fb5ba753cd2e83df45f3ac8f8e596307afaeaccac552c351f418096e36b0ef739230ba65f0
+  languageName: node
+  linkType: hard
+
+"@dreamhorizonorg/pulse-web@workspace:.":
   version: 0.0.0-use.local
   resolution: "@dreamhorizonorg/pulse-web@workspace:."
   dependencies:
@@ -6048,7 +6086,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "web-sdk-docs@workspace:examples/web-sdk-docs"
   dependencies:
-    "@dreamhorizonorg/pulse-web": "workspace:*"
+    "@dreamhorizonorg/pulse-web": "npm:0.0.3"
     typescript: "npm:^5.6.0"
     vite: "npm:^5.4.0"
   languageName: unknown
