@@ -63,6 +63,8 @@ chmod +x scripts/*.sh
 - **Backend API**: http://localhost:8080
 - **Health Check**: http://localhost:8080/healthcheck
 - **MySQL**: localhost:3307
+- **Demo interaction seeds** (`default-project`, from `backend/db/shared/mysql-default-project-interactions.sql`): applied on
+  **first** init of an empty MySQL volume (remove the volume to re-run).
 - **ClickHouse HTTP**: http://localhost:8123
 - **ClickHouse Native**: localhost:9000
 - **OTEL Collector (gRPC)**: localhost:4317

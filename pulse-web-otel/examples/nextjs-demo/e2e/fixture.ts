@@ -41,10 +41,20 @@ export interface OtlpSpanStatus {
   message?: string;
 }
 
+export interface OtlpSpanEvent {
+  name: string;
+  timeUnixNano?: string;
+  attributes?: OtlpAttr[];
+}
+
 export interface OtlpSpan {
   name: string;
   attributes: OtlpAttr[];
   status?: OtlpSpanStatus;
+  events?: OtlpSpanEvent[];
+  /** OTLP JSON export — often string; tests coerce with Number(). */
+  startTimeUnixNano?: string | number;
+  endTimeUnixNano?: string | number;
 }
 
 type LogsBody = {
@@ -316,6 +326,7 @@ export async function attachSdkConfigStub(
 export type OtlpFixture = {
   captured: CapturedRequest[];
   waitForLog(pulseType: string, timeoutMs?: number): Promise<OtlpLogRecord>;
+  waitForSpan(pulseType: string, timeoutMs?: number): Promise<OtlpSpan>;
   reset(): void;
 };
 
@@ -332,6 +343,12 @@ export const test = base.extend<{ otlp: OtlpFixture }>({
           () => findAllLogs(captured, t)[0],
           ms,
           `log(pulse.type="${t}")`,
+        ),
+      waitForSpan: (t, ms = 10_000) =>
+        pollUntil(
+          () => findAllSpans(captured, t)[0],
+          ms,
+          `span(pulse.type="${t}")`,
         ),
       reset: () => {
         captured.length = 0;

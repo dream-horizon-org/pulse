@@ -56,8 +56,9 @@ export class InteractionSpanBuilder {
     const errorType = asString(p[INTERACTION_PROP_KEYS.ERROR_TYPE]) ?? "";
     const errorMessage = asString(p[INTERACTION_PROP_KEYS.ERROR_MESSAGE]) ?? "";
     const localEvents = toLocalEvents(p[INTERACTION_PROP_KEYS.LOCAL_EVENTS]);
+    const markerEvents = toLocalEvents(p[INTERACTION_PROP_KEYS.MARKER_EVENTS]);
     PulseWebLogger.debug(
-      `${LOG} emit spanName=${interaction.name} interactionId=${interaction.id} configId=${configId ?? "—"} isError=${isError} errorType=${isError && errorType ? errorType : "—"} localEventCount=${localEvents.length}`,
+      `${LOG} emit spanName=${interaction.name} interactionId=${interaction.id} configId=${configId ?? "—"} isError=${isError} errorType=${isError && errorType ? errorType : "—"} localEventCount=${localEvents.length} markerEventCount=${markerEvents.length}`,
     );
 
     const safeDurationNs = completeTimeNs ?? 0;
@@ -108,6 +109,10 @@ export class InteractionSpanBuilder {
     });
 
     for (const ev of localEvents) {
+      span.addEvent(ev.name, ev.props, Math.round(ev.timeInNano / 1_000_000));
+    }
+
+    for (const ev of markerEvents) {
       span.addEvent(ev.name, ev.props, Math.round(ev.timeInNano / 1_000_000));
     }
 
