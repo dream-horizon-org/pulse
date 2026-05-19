@@ -1,6 +1,12 @@
 /**
  * Next.js Demo — E2E Tests (mock OTLP, no ClickHouse required)
  *
+ * Interaction seeds use IDs that fit local MySQL together with
+ * backend/db/shared/mysql-default-project-interactions.sql (lottery INT-P 100–116
+ * plus Next.js rows in the same file).
+ * Duplicated mock IDs were disambiguated: 501/502 click-bridge, 551 single-event,
+ * 554 apdex excellent, 544 user mid, 545 middle-required — see that SQL header.
+ *
  * Verifies:
  *   - session.start emitted on first page load
  *   - screen.name updates on App Router navigation
@@ -1165,7 +1171,11 @@ function makeInteractionConfig(opts: {
     id: opts.id,
     name: opts.name,
     description: opts.name,
-    events: opts.events.map((e) => ({ name: e.name, isBlacklisted: false, props: null })),
+    events: opts.events.map((e) => ({
+      name: e.name,
+      isBlacklisted: false,
+      props: null,
+    })),
     thresholdInMs: opts.thresholdInMs ?? 600,
     uptimeLowerLimitInMs: 120,
     uptimeMidLimitInMs: 240,
@@ -1175,7 +1185,10 @@ function makeInteractionConfig(opts: {
 }
 
 /** Navigate and wait for SDK + interaction feature to initialise. */
-async function gotoAndWaitInit(page: Page, otlp: { waitForLog: (t: string, ms?: number) => Promise<unknown> }): Promise<void> {
+async function gotoAndWaitInit(
+  page: Page,
+  otlp: { waitForLog: (t: string, ms?: number) => Promise<unknown> },
+): Promise<void> {
   await page.goto("/");
   await otlp.waitForLog("session.start", 10_000);
   // Give InteractionFeature.init() a tick to resolve the config fetch and register trackers.
@@ -1189,7 +1202,7 @@ test.describe("@ISS-I12 click-bridge interactions (Next.js App Router)", () => {
   }) => {
     await seedInteractionConfig(page, [
       makeInteractionConfig({
-        id: 101,
+        id: 501,
         name: "Product Click Flow",
         events: [{ name: "app.widget.click" }],
       }),
@@ -1201,7 +1214,7 @@ test.describe("@ISS-I12 click-bridge interactions (Next.js App Router)", () => {
     await flushClickBuffer(page);
 
     const span = await otlp.waitForSpan("interaction", 15_000);
-    expect(getAttr(span.attributes, "pulse.interaction.config.id")).toBe("101");
+    expect(getAttr(span.attributes, "pulse.interaction.config.id")).toBe("501");
     expect(getAttr(span.attributes, "pulse.interaction.is_error")).toBe(false);
   });
 
@@ -1211,7 +1224,7 @@ test.describe("@ISS-I12 click-bridge interactions (Next.js App Router)", () => {
   }) => {
     await seedInteractionConfig(page, [
       makeInteractionConfig({
-        id: 102,
+        id: 502,
         name: "Product Viewed Flow",
         events: [{ name: "product_viewed" }],
       }),
@@ -1222,7 +1235,7 @@ test.describe("@ISS-I12 click-bridge interactions (Next.js App Router)", () => {
     await page.locator("a[href^='/products/']").first().click();
 
     const span = await otlp.waitForSpan("interaction", 15_000);
-    expect(getAttr(span.attributes, "pulse.interaction.config.id")).toBe("102");
+    expect(getAttr(span.attributes, "pulse.interaction.config.id")).toBe("502");
     expect(getAttr(span.attributes, "pulse.interaction.is_error")).toBe(false);
   });
 
@@ -1231,7 +1244,11 @@ test.describe("@ISS-I12 click-bridge interactions (Next.js App Router)", () => {
     otlp,
   }) => {
     await page.route("**/v1/interaction-configs/", async (route) => {
-      await route.fulfill({ status: 503, contentType: "application/json", body: "{}" });
+      await route.fulfill({
+        status: 503,
+        contentType: "application/json",
+        body: "{}",
+      });
     });
     await page.goto("/");
     await otlp.waitForLog("session.start", 10_000);
@@ -1259,10 +1276,7 @@ test.describe("@M2 interactions marker events — Next.js (ISS-I02/I03)", () => 
       makeInteractionConfig({
         id: 201,
         name: "Marker NonFatal Flow",
-        events: [
-          { name: "marker_step_a" },
-          { name: "marker_step_b" },
-        ],
+        events: [{ name: "marker_step_a" }, { name: "marker_step_b" }],
         thresholdInMs: 800,
       }),
     ]);
@@ -1270,20 +1284,26 @@ test.describe("@M2 interactions marker events — Next.js (ISS-I02/I03)", () => 
 
     // Step A
     await page.evaluate(() => {
-      const w = window as unknown as { Pulse?: { trackEvent?: (n: string) => void } };
+      const w = window as unknown as {
+        Pulse?: { trackEvent?: (n: string) => void };
+      };
       w.Pulse?.trackEvent?.("marker_step_a");
     });
 
     // non_fatal mid-flow → Branch B → addMarkerToAll
     await page.evaluate(() => {
-      const w = window as unknown as { Pulse?: { reportException?: (e: unknown) => void } };
+      const w = window as unknown as {
+        Pulse?: { reportException?: (e: unknown) => void };
+      };
       w.Pulse?.reportException?.(new Error("mid-flow non_fatal"));
     });
     await page.waitForTimeout(100);
 
     // Step B — completes flow
     await page.evaluate(() => {
-      const w = window as unknown as { Pulse?: { trackEvent?: (n: string) => void } };
+      const w = window as unknown as {
+        Pulse?: { trackEvent?: (n: string) => void };
+      };
       w.Pulse?.trackEvent?.("marker_step_b");
     });
 
@@ -1304,29 +1324,32 @@ test.describe("@M2 interactions marker events — Next.js (ISS-I02/I03)", () => 
       makeInteractionConfig({
         id: 202,
         name: "Marker Crash Flow",
-        events: [
-          { name: "crash_step_a" },
-          { name: "crash_step_b" },
-        ],
+        events: [{ name: "crash_step_a" }, { name: "crash_step_b" }],
         thresholdInMs: 800,
       }),
     ]);
     await gotoAndWaitInit(page, otlp);
 
     await page.evaluate(() => {
-      const w = window as unknown as { Pulse?: { trackEvent?: (n: string) => void } };
+      const w = window as unknown as {
+        Pulse?: { trackEvent?: (n: string) => void };
+      };
       w.Pulse?.trackEvent?.("crash_step_a");
     });
 
     // device.crash mid-flow → Branch B → addMarkerToAll
     await page.evaluate(() => {
-      const w = window as unknown as { Pulse?: { reportDeviceCrash?: (e: unknown) => void } };
+      const w = window as unknown as {
+        Pulse?: { reportDeviceCrash?: (e: unknown) => void };
+      };
       w.Pulse?.reportDeviceCrash?.(new Error("mid-flow crash"));
     });
     await page.waitForTimeout(100);
 
     await page.evaluate(() => {
-      const w = window as unknown as { Pulse?: { trackEvent?: (n: string) => void } };
+      const w = window as unknown as {
+        Pulse?: { trackEvent?: (n: string) => void };
+      };
       w.Pulse?.trackEvent?.("crash_step_b");
     });
 
@@ -1346,17 +1369,16 @@ test.describe("@M2 interactions marker events — Next.js (ISS-I02/I03)", () => 
       makeInteractionConfig({
         id: 203,
         name: "Clean Flow",
-        events: [
-          { name: "clean_step_a" },
-          { name: "clean_step_b" },
-        ],
+        events: [{ name: "clean_step_a" }, { name: "clean_step_b" }],
         thresholdInMs: 800,
       }),
     ]);
     await gotoAndWaitInit(page, otlp);
 
     await page.evaluate(() => {
-      const w = window as unknown as { Pulse?: { trackEvent?: (n: string) => void } };
+      const w = window as unknown as {
+        Pulse?: { trackEvent?: (n: string) => void };
+      };
       w.Pulse?.trackEvent?.("clean_step_a");
       w.Pulse?.trackEvent?.("clean_step_b");
     });
@@ -1396,7 +1418,9 @@ test.describe("@M2 interaction-context-span — Next.js (ISS-I04)", () => {
 
     // Open flow — step 1.
     await page.evaluate(() => {
-      const w = window as unknown as { Pulse?: { trackEvent?: (n: string) => void } };
+      const w = window as unknown as {
+        Pulse?: { trackEvent?: (n: string) => void };
+      };
       w.Pulse?.trackEvent?.("nx_ctx_step_1");
     });
     await page.waitForTimeout(50);
@@ -1409,7 +1433,9 @@ test.describe("@M2 interaction-context-span — Next.js (ISS-I04)", () => {
 
     // Flush spans.
     await page.evaluate(() => {
-      window.dispatchEvent(new PageTransitionEvent("pagehide", { persisted: false }));
+      window.dispatchEvent(
+        new PageTransitionEvent("pagehide", { persisted: false }),
+      );
     });
     await page.waitForTimeout(500);
 
@@ -1430,7 +1456,9 @@ test.describe("@M2 interaction-context-span — Next.js (ISS-I04)", () => {
 
     // Close the flow.
     await page.evaluate(() => {
-      const w = window as unknown as { Pulse?: { trackEvent?: (n: string) => void } };
+      const w = window as unknown as {
+        Pulse?: { trackEvent?: (n: string) => void };
+      };
       w.Pulse?.trackEvent?.("nx_ctx_step_2");
     });
     await otlp.waitForSpan("interaction", 8_000);
@@ -1456,12 +1484,16 @@ test.describe("@M2 interaction-context-span — Next.js (ISS-I04)", () => {
 
     // Complete flow.
     await page.evaluate(() => {
-      const w = window as unknown as { Pulse?: { trackEvent?: (n: string) => void } };
+      const w = window as unknown as {
+        Pulse?: { trackEvent?: (n: string) => void };
+      };
       w.Pulse?.trackEvent?.("nx_nostamp_1");
     });
     await page.waitForTimeout(30);
     await page.evaluate(() => {
-      const w = window as unknown as { Pulse?: { trackEvent?: (n: string) => void } };
+      const w = window as unknown as {
+        Pulse?: { trackEvent?: (n: string) => void };
+      };
       w.Pulse?.trackEvent?.("nx_nostamp_2");
     });
     await otlp.waitForSpan("interaction", 8_000);
@@ -1474,7 +1506,9 @@ test.describe("@M2 interaction-context-span — Next.js (ISS-I04)", () => {
     await page.waitForTimeout(200);
 
     await page.evaluate(() => {
-      window.dispatchEvent(new PageTransitionEvent("pagehide", { persisted: false }));
+      window.dispatchEvent(
+        new PageTransitionEvent("pagehide", { persisted: false }),
+      );
     });
     await page.waitForTimeout(500);
 
@@ -1509,7 +1543,9 @@ test.describe("@M2 interaction-context-span — Next.js (ISS-I04)", () => {
 
     // Open the flow.
     await page.evaluate(() => {
-      const w = window as unknown as { Pulse?: { trackEvent?: (n: string) => void } };
+      const w = window as unknown as {
+        Pulse?: { trackEvent?: (n: string) => void };
+      };
       w.Pulse?.trackEvent?.("nx_checkout_1");
     });
     await page.waitForTimeout(50);
@@ -1543,7 +1579,9 @@ test.describe("@M2 interaction-context-span — Next.js (ISS-I04)", () => {
 
     // Open the flow.
     await page.evaluate(() => {
-      const w = window as unknown as { Pulse?: { trackEvent?: (n: string) => void } };
+      const w = window as unknown as {
+        Pulse?: { trackEvent?: (n: string) => void };
+      };
       w.Pulse?.trackEvent?.("nx_net_step_1");
     });
     await page.waitForTimeout(50);
@@ -1586,7 +1624,11 @@ function makeParityInteractionConfig(opts: {
       props:
         e.props == null
           ? null
-          : e.props.map((p) => ({ name: p.name, value: p.value, operator: p.operator })),
+          : e.props.map((p) => ({
+              name: p.name,
+              value: p.value,
+              operator: p.operator,
+            })),
     })),
     thresholdInMs: opts.thresholdInMs ?? 600,
     uptimeLowerLimitInMs: opts.uptimeLowerLimitInMs ?? 120,
@@ -1609,10 +1651,22 @@ async function emitEventAt(
 ): Promise<void> {
   await page.evaluate(
     ([n, ts, p]: [string, number, Record<string, string> | undefined]) => {
-      const w = window as unknown as { Pulse?: { trackEvent?: (n: string, p?: Record<string, string>, ts?: number) => void } };
+      const w = window as unknown as {
+        Pulse?: {
+          trackEvent?: (
+            n: string,
+            p?: Record<string, string>,
+            ts?: number,
+          ) => void;
+        };
+      };
       w.Pulse?.trackEvent?.(n, p ?? {}, ts);
     },
-    [name, timestampMs, props] as [string, number, Record<string, string> | undefined],
+    [name, timestampMs, props] as [
+      string,
+      number,
+      Record<string, string> | undefined,
+    ],
   );
 }
 
@@ -1629,7 +1683,9 @@ async function expectNoInteractionSpansNx(
 /** Set userId via Pulse SDK. */
 async function setUserIdNx(page: Page, uid: string | null): Promise<void> {
   await page.evaluate((id) => {
-    const w = window as unknown as { Pulse?: { setUserId?: (id: string | null) => void } };
+    const w = window as unknown as {
+      Pulse?: { setUserId?: (id: string | null) => void };
+    };
     w.Pulse?.setUserId?.(id);
   }, uid);
 }
@@ -1642,7 +1698,11 @@ async function emitEvent(
 ): Promise<void> {
   await page.evaluate(
     ([n, p]: [string, Record<string, string> | undefined]) => {
-      const w = window as unknown as { Pulse?: { trackEvent?: (n: string, p?: Record<string, string>) => void } };
+      const w = window as unknown as {
+        Pulse?: {
+          trackEvent?: (n: string, p?: Record<string, string>) => void;
+        };
+      };
       w.Pulse?.trackEvent?.(n, p);
     },
     [name, props] as [string, Record<string, string> | undefined],
@@ -1657,7 +1717,8 @@ async function waitForInteractionCount(
 ): Promise<void> {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
-    if (findAllSpans(otlp.captured as never[], "interaction").length >= count) return;
+    if (findAllSpans(otlp.captured as never[], "interaction").length >= count)
+      return;
     await new Promise((r) => setTimeout(r, 100));
   }
   throw new Error(`Timeout waiting for ${count} interaction spans`);
@@ -1671,7 +1732,7 @@ test.describe("@M2 interactions — Next.js parity (INT-P01/P04–P08/P10–P12/
   }) => {
     await seedInteractionConfig(page, [
       makeParityInteractionConfig({
-        id: 301,
+        id: 551,
         name: "NX Single Event",
         events: [{ name: "nx_single" }],
       }),
@@ -1681,7 +1742,7 @@ test.describe("@M2 interactions — Next.js parity (INT-P01/P04–P08/P10–P12/
     await emitEvent(page, "nx_single");
 
     const span = await otlp.waitForSpan("interaction", 10_000);
-    expect(getAttr(span.attributes, "pulse.interaction.config.id")).toBe("301");
+    expect(getAttr(span.attributes, "pulse.interaction.config.id")).toBe("551");
     expect(getAttr(span.attributes, "pulse.interaction.is_error")).toBe(false);
   });
 
@@ -1692,7 +1753,7 @@ test.describe("@M2 interactions — Next.js parity (INT-P01/P04–P08/P10–P12/
   }) => {
     await seedInteractionConfig(page, [
       makeParityInteractionConfig({
-        id: 304,
+        id: 554,
         name: "NX Apdex Excellent",
         events: [{ name: "nx_ax_1" }, { name: "nx_ax_2" }],
         thresholdInMs: 600,
@@ -1708,8 +1769,12 @@ test.describe("@M2 interactions — Next.js parity (INT-P01/P04–P08/P10–P12/
     await emitEvent(page, "nx_ax_2");
 
     const span = await otlp.waitForSpan("interaction", 10_000);
-    expect(getAttr(span.attributes, "pulse.interaction.user_category")).toBe("Excellent");
-    expect(Number(getAttr(span.attributes, "pulse.interaction.apdex_score"))).toBe(1);
+    expect(getAttr(span.attributes, "pulse.interaction.user_category")).toBe(
+      "Excellent",
+    );
+    expect(
+      Number(getAttr(span.attributes, "pulse.interaction.apdex_score")),
+    ).toBe(1);
   });
 
   // INT-P05 — Apdex Good
@@ -1735,8 +1800,12 @@ test.describe("@M2 interactions — Next.js parity (INT-P01/P04–P08/P10–P12/
     await emitEvent(page, "nx_ag_2");
 
     const span = await otlp.waitForSpan("interaction", 10_000);
-    expect(getAttr(span.attributes, "pulse.interaction.user_category")).toBe("Good");
-    const score = Number(getAttr(span.attributes, "pulse.interaction.apdex_score"));
+    expect(getAttr(span.attributes, "pulse.interaction.user_category")).toBe(
+      "Good",
+    );
+    const score = Number(
+      getAttr(span.attributes, "pulse.interaction.apdex_score"),
+    );
     expect(score).toBeGreaterThan(0);
     expect(score).toBeLessThan(1);
   });
@@ -1764,8 +1833,12 @@ test.describe("@M2 interactions — Next.js parity (INT-P01/P04–P08/P10–P12/
     await emitEvent(page, "nx_aa_2");
 
     const span = await otlp.waitForSpan("interaction", 10_000);
-    expect(getAttr(span.attributes, "pulse.interaction.user_category")).toBe("Average");
-    const score = Number(getAttr(span.attributes, "pulse.interaction.apdex_score"));
+    expect(getAttr(span.attributes, "pulse.interaction.user_category")).toBe(
+      "Average",
+    );
+    const score = Number(
+      getAttr(span.attributes, "pulse.interaction.apdex_score"),
+    );
     expect(score).toBeGreaterThan(0);
     expect(score).toBeLessThan(1);
   });
@@ -1793,8 +1866,12 @@ test.describe("@M2 interactions — Next.js parity (INT-P01/P04–P08/P10–P12/
     await emitEvent(page, "nx_ap_2");
 
     const span = await otlp.waitForSpan("interaction", 10_000);
-    expect(getAttr(span.attributes, "pulse.interaction.user_category")).toBe("Poor");
-    expect(Number(getAttr(span.attributes, "pulse.interaction.apdex_score"))).toBe(0);
+    expect(getAttr(span.attributes, "pulse.interaction.user_category")).toBe(
+      "Poor",
+    );
+    expect(
+      Number(getAttr(span.attributes, "pulse.interaction.apdex_score")),
+    ).toBe(0);
   });
 
   // INT-P08 — Two independent flows both complete
@@ -1819,7 +1896,9 @@ test.describe("@M2 interactions — Next.js parity (INT-P01/P04–P08/P10–P12/
     const spans = findAllSpans(otlp.captured as never[], "interaction");
     expect(spans.length).toBe(2);
     expect(
-      spans.every((s) => getAttr(s.attributes, "pulse.interaction.is_error") === false),
+      spans.every(
+        (s) => getAttr(s.attributes, "pulse.interaction.is_error") === false,
+      ),
     ).toBe(true);
   });
 
@@ -1887,7 +1966,9 @@ test.describe("@M2 interactions — Next.js parity (INT-P01/P04–P08/P10–P12/
         events: [
           {
             name: "nx_sw_event",
-            props: [{ name: "screen", value: "product", operator: "STARTSWITH" }],
+            props: [
+              { name: "screen", value: "product", operator: "STARTSWITH" },
+            ],
           },
         ],
       }),
@@ -1921,7 +2002,9 @@ test.describe("@M2 interactions — Next.js parity (INT-P01/P04–P08/P10–P12/
 
     const span = await otlp.waitForSpan("interaction", 10_000);
     expect(getAttr(span.attributes, "pulse.interaction.is_error")).toBe(true);
-    expect(getAttr(span.attributes, "pulse.interaction.error.type")).toBe("sequence_violation");
+    expect(getAttr(span.attributes, "pulse.interaction.error.type")).toBe(
+      "sequence_violation",
+    );
   });
 
   // INT-P21 — Timeout: second step never comes
@@ -1944,7 +2027,9 @@ test.describe("@M2 interactions — Next.js parity (INT-P01/P04–P08/P10–P12/
 
     const span = await otlp.waitForSpan("interaction", 10_000);
     expect(getAttr(span.attributes, "pulse.interaction.is_error")).toBe(true);
-    expect(getAttr(span.attributes, "pulse.interaction.error.type")).toBe("timeout");
+    expect(getAttr(span.attributes, "pulse.interaction.error.type")).toBe(
+      "timeout",
+    );
   });
 
   // INT-P22 — Global blacklist cancels in-flight flow
@@ -1968,7 +2053,9 @@ test.describe("@M2 interactions — Next.js parity (INT-P01/P04–P08/P10–P12/
     await page.waitForTimeout(1200);
 
     // No span emitted after cancellation
-    expect(findAllSpans(otlp.captured as never[], "interaction").length).toBe(0);
+    expect(findAllSpans(otlp.captured as never[], "interaction").length).toBe(
+      0,
+    );
 
     // Recovery: new clean flow should complete
     await emitEvent(page, "nx_b1");
@@ -2005,7 +2092,9 @@ test.describe("@M2 interactions — Next.js parity (INT-P01/P04–P08/P10–P12/
     expect(span).toBeDefined();
     if (!span) return;
 
-    const completeTimeNs = Number(getAttr(span.attributes, "pulse.interaction.complete_time"));
+    const completeTimeNs = Number(
+      getAttr(span.attributes, "pulse.interaction.complete_time"),
+    );
     const startNs = Number(span.startTimeUnixNano);
     const endNs = Number(span.endTimeUnixNano);
 
@@ -2044,16 +2133,23 @@ test.describe("@M2 interactions — Next.js parity batch-2 (INT-P13/14/20/23/27-
     await emitEvent(page, "nx_e2");
     await emitEvent(page, "nx_e4");
     await page.waitForTimeout(400);
-    expect(findAllSpans(otlp.captured as never[], "interaction").length).toBe(0);
+    expect(findAllSpans(otlp.captured as never[], "interaction").length).toBe(
+      0,
+    );
 
     // nx_e5 finalises branch_e125
     await emitEvent(page, "nx_e5");
     await waitForInteractionCount(otlp, 1, 8_000);
     const spans1 = findAllSpans(otlp.captured as never[], "interaction");
-    const branch125 = spans1.filter((s) =>
-      getAttr(s.attributes, "pulse.interaction.config.id") === String(414),
+    const branch125 = spans1.filter(
+      (s) =>
+        getAttr(s.attributes, "pulse.interaction.config.id") === String(414),
     );
-    expect(branch125.some((s) => getAttr(s.attributes, "pulse.interaction.is_error") === false)).toBe(true);
+    expect(
+      branch125.some(
+        (s) => getAttr(s.attributes, "pulse.interaction.is_error") === false,
+      ),
+    ).toBe(true);
 
     // Fresh second run: nx_e1, nx_e2, nx_e3 finalises branch_e123
     otlp.reset();
@@ -2062,10 +2158,15 @@ test.describe("@M2 interactions — Next.js parity batch-2 (INT-P13/14/20/23/27-
     await emitEvent(page, "nx_e3");
     await waitForInteractionCount(otlp, 1, 8_000);
     const spans2 = findAllSpans(otlp.captured as never[], "interaction");
-    const branch123 = spans2.filter((s) =>
-      getAttr(s.attributes, "pulse.interaction.config.id") === String(413),
+    const branch123 = spans2.filter(
+      (s) =>
+        getAttr(s.attributes, "pulse.interaction.config.id") === String(413),
     );
-    expect(branch123.some((s) => getAttr(s.attributes, "pulse.interaction.is_error") === false)).toBe(true);
+    expect(
+      branch123.some(
+        (s) => getAttr(s.attributes, "pulse.interaction.is_error") === false,
+      ),
+    ).toBe(true);
   });
 
   // INT-P14 — User ID mid-interaction
@@ -2075,7 +2176,7 @@ test.describe("@M2 interactions — Next.js parity batch-2 (INT-P13/14/20/23/27-
   }) => {
     await seedInteractionConfig(page, [
       makeParityInteractionConfig({
-        id: 414,
+        id: 544,
         name: "NX User Mid Flow",
         events: [{ name: "nx_user_a" }, { name: "nx_user_b" }],
       }),
@@ -2113,7 +2214,9 @@ test.describe("@M2 interactions — Next.js parity batch-2 (INT-P13/14/20/23/27-
 
     const span = await otlp.waitForSpan("interaction", 10_000);
     expect(getAttr(span.attributes, "pulse.interaction.is_error")).toBe(true);
-    expect(getAttr(span.attributes, "pulse.interaction.error.type")).toBe("sequence_violation");
+    expect(getAttr(span.attributes, "pulse.interaction.error.type")).toBe(
+      "sequence_violation",
+    );
   });
 
   // INT-P23 — Local blacklist cancels flow
@@ -2191,7 +2294,9 @@ test.describe("@M2 interactions — Next.js parity batch-2 (INT-P13/14/20/23/27-
 
     const span = await otlp.waitForSpan("interaction", 12_000);
     expect(getAttr(span.attributes, "pulse.interaction.is_error")).toBe(true);
-    expect(getAttr(span.attributes, "pulse.interaction.error.type")).toBe("timeout");
+    expect(getAttr(span.attributes, "pulse.interaction.error.type")).toBe(
+      "timeout",
+    );
   });
 
   // INT-P29 — Overlapping configs
@@ -2218,10 +2323,16 @@ test.describe("@M2 interactions — Next.js parity batch-2 (INT-P13/14/20/23/27-
     await waitForInteractionCount(otlp, 2, 10_000);
 
     const spans = findAllSpans(otlp.captured as never[], "interaction");
-    const configIds = spans.map((s) => String(getAttr(s.attributes, "pulse.interaction.config.id")));
+    const configIds = spans.map((s) =>
+      String(getAttr(s.attributes, "pulse.interaction.config.id")),
+    );
     expect(configIds).toContain("429");
     expect(configIds).toContain("430");
-    expect(spans.every((s) => getAttr(s.attributes, "pulse.interaction.is_error") === false)).toBe(true);
+    expect(
+      spans.every(
+        (s) => getAttr(s.attributes, "pulse.interaction.is_error") === false,
+      ),
+    ).toBe(true);
   });
 
   // INT-P30 — Middle step not skippable
@@ -2231,9 +2342,13 @@ test.describe("@M2 interactions — Next.js parity batch-2 (INT-P13/14/20/23/27-
   }) => {
     await seedInteractionConfig(page, [
       makeParityInteractionConfig({
-        id: 430,
+        id: 545,
         name: "NX Middle Required",
-        events: [{ name: "nx_mr_start" }, { name: "nx_mr_middle" }, { name: "nx_mr_end" }],
+        events: [
+          { name: "nx_mr_start" },
+          { name: "nx_mr_middle" },
+          { name: "nx_mr_end" },
+        ],
         thresholdInMs: 1000,
       }),
     ]);
@@ -2244,7 +2359,9 @@ test.describe("@M2 interactions — Next.js parity batch-2 (INT-P13/14/20/23/27-
 
     const span = await otlp.waitForSpan("interaction", 10_000);
     expect(getAttr(span.attributes, "pulse.interaction.is_error")).toBe(true);
-    expect(getAttr(span.attributes, "pulse.interaction.error.type")).toBe("sequence_violation");
+    expect(getAttr(span.attributes, "pulse.interaction.error.type")).toBe(
+      "sequence_violation",
+    );
   });
 
   // INT-P31 — Restart after violation
@@ -2269,8 +2386,16 @@ test.describe("@M2 interactions — Next.js parity batch-2 (INT-P13/14/20/23/27-
       (s) => getAttr(s.attributes, "pulse.interaction.config.id") === "431",
     );
     expect(spans.length).toBe(2);
-    expect(spans.some((s) => getAttr(s.attributes, "pulse.interaction.is_error") === true)).toBe(true);
-    expect(spans.some((s) => getAttr(s.attributes, "pulse.interaction.is_error") === false)).toBe(true);
+    expect(
+      spans.some(
+        (s) => getAttr(s.attributes, "pulse.interaction.is_error") === true,
+      ),
+    ).toBe(true);
+    expect(
+      spans.some(
+        (s) => getAttr(s.attributes, "pulse.interaction.is_error") === false,
+      ),
+    ).toBe(true);
   });
 
   // INT-P32 — Multiple global blacklist hits
@@ -2292,7 +2417,9 @@ test.describe("@M2 interactions — Next.js parity batch-2 (INT-P13/14/20/23/27-
     await emitEvent(page, "nx_mb_1");
     await emitEvent(page, "nx_mb_cancel");
     await page.waitForTimeout(600);
-    expect(findAllSpans(otlp.captured as never[], "interaction").length).toBe(0);
+    expect(findAllSpans(otlp.captured as never[], "interaction").length).toBe(
+      0,
+    );
 
     await emitEvent(page, "nx_mb_1");
     await emitEvent(page, "nx_mb_2");
@@ -2346,7 +2473,9 @@ test.describe("@M2 interactions — Next.js parity batch-2 (INT-P13/14/20/23/27-
       (s) => getAttr(s.attributes, "pulse.interaction.config.id") === "437",
     );
     expect(span).toBeDefined();
-    expect(getAttr(span?.attributes, "pulse.interaction.user_category")).toBe("Excellent");
+    expect(getAttr(span?.attributes, "pulse.interaction.user_category")).toBe(
+      "Excellent",
+    );
   });
 
   // INT-P38 — Apdex exact boundary upper → Average
@@ -2375,7 +2504,9 @@ test.describe("@M2 interactions — Next.js parity batch-2 (INT-P13/14/20/23/27-
       (s) => getAttr(s.attributes, "pulse.interaction.config.id") === "438",
     );
     expect(span).toBeDefined();
-    expect(getAttr(span?.attributes, "pulse.interaction.user_category")).toBe("Average");
+    expect(getAttr(span?.attributes, "pulse.interaction.user_category")).toBe(
+      "Average",
+    );
   });
 
   // INT-P39 — Shared prefix: second branch still alive after first terminal
@@ -2387,13 +2518,21 @@ test.describe("@M2 interactions — Next.js parity batch-2 (INT-P13/14/20/23/27-
       makeParityInteractionConfig({
         id: 439,
         name: "NX Branch 39A",
-        events: [{ name: "nx_39_e1" }, { name: "nx_39_e2" }, { name: "nx_39_e3" }],
+        events: [
+          { name: "nx_39_e1" },
+          { name: "nx_39_e2" },
+          { name: "nx_39_e3" },
+        ],
         thresholdInMs: 5000,
       }),
       makeParityInteractionConfig({
         id: 440,
         name: "NX Branch 39B",
-        events: [{ name: "nx_39_e1" }, { name: "nx_39_e2" }, { name: "nx_39_e5" }],
+        events: [
+          { name: "nx_39_e1" },
+          { name: "nx_39_e2" },
+          { name: "nx_39_e5" },
+        ],
         thresholdInMs: 5000,
       }),
     ]);
@@ -2408,10 +2547,16 @@ test.describe("@M2 interactions — Next.js parity batch-2 (INT-P13/14/20/23/27-
     await waitForInteractionCount(otlp, 2, 8_000);
 
     const spans = findAllSpans(otlp.captured as never[], "interaction");
-    const ids = spans.map((s) => String(getAttr(s.attributes, "pulse.interaction.config.id")));
+    const ids = spans.map((s) =>
+      String(getAttr(s.attributes, "pulse.interaction.config.id")),
+    );
     expect(ids).toContain("439");
     expect(ids).toContain("440");
-    expect(spans.every((s) => getAttr(s.attributes, "pulse.interaction.is_error") === false)).toBe(true);
+    expect(
+      spans.every(
+        (s) => getAttr(s.attributes, "pulse.interaction.is_error") === false,
+      ),
+    ).toBe(true);
   });
 });
 
@@ -2437,7 +2582,9 @@ test.describe("@M2 interactions — Next.js unit-parity E2E (INT-P09/P35/P41)", 
     await emitEventAt(page, "nx_ts_step2", t0 + 100);
 
     await waitForInteractionCount(otlp, 1, 10_000);
-    const span = findAllSpans(otlp.captured as never[], "interaction")[0] as import("./fixture").OtlpSpan | undefined;
+    const span = findAllSpans(otlp.captured as never[], "interaction")[0] as
+      | import("./fixture").OtlpSpan
+      | undefined;
     expect(span).toBeDefined();
     if (!span) return;
     expect(Array.isArray(span.events)).toBe(true);
@@ -2456,7 +2603,9 @@ test.describe("@M2 interactions — Next.js unit-parity E2E (INT-P09/P35/P41)", 
     await gotoAndWaitInit(page, otlp);
     await emitEvent(page, "any_event_p35");
     await page.waitForTimeout(800);
-    expect(findAllSpans(otlp.captured as never[], "interaction").length).toBe(0);
+    expect(findAllSpans(otlp.captured as never[], "interaction").length).toBe(
+      0,
+    );
   });
 
   // INT-P41 — Error span forces poor apdex + apdex_score=0
@@ -2480,7 +2629,9 @@ test.describe("@M2 interactions — Next.js unit-parity E2E (INT-P09/P35/P41)", 
     // Don't emit step2 — wait for timeout
     const span = await otlp.waitForSpan("interaction", 8_000);
     expect(getAttr(span.attributes, "pulse.interaction.is_error")).toBe(true);
-    expect(getAttr(span.attributes, "pulse.interaction.user_category")).toBe("Poor");
+    expect(getAttr(span.attributes, "pulse.interaction.user_category")).toBe(
+      "Poor",
+    );
     expect(getAttr(span.attributes, "pulse.interaction.apdex_score")).toBe(0);
   });
 });

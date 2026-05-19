@@ -69,7 +69,7 @@ Template: `deploy/.env.example` → copy to `deploy/.env`
 
 ## Database Initialization
 
-- MySQL: `deploy/db/mysql-init.sql` mounted to `/docker-entrypoint-initdb.d/`
+- MySQL: `deploy/db/mysql-init.sql` + shared `backend/db/shared/mysql-default-project-interactions.sql` (default-project **demo** interaction seeds via `SOURCE`) for **dev/deploy** only; **`backend/db/prod/mysql/mysql-init.sql` omits that seed** — see `deploy/docker-compose.yml`
 - ClickHouse: `backend/db/dev/clickhouse/*.sql` and related SQL (session replay, session-summary MV,
   funnel/journey results, event catalog mounts) via `clickhouse-init` + `deploy/scripts/init-clickhouse.sh` (uses
   `pulse_user`/`pulse_password`)
