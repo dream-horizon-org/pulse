@@ -5,7 +5,14 @@ import { extractProjectId } from "../resource";
 import type { InteractionConfig, PropertyFilter } from "./interaction-models";
 
 const CACHE_KEY = "pulse_interaction_config";
-const REFRESH_INTERVAL_MS = 30 * 60 * 1000;
+
+/** Bound fetch — bare `fetch` as a default arg loses `this` and throws Illegal invocation. */
+function defaultFetch(
+  input: RequestInfo | URL,
+  init?: RequestInit,
+): ReturnType<typeof fetch> {
+  return globalThis.fetch(input, init);
+}
 
 export interface InteractionConfigRequest {
   enabled: boolean;
@@ -161,12 +168,11 @@ function explainConfigSchemaMismatch(value: unknown): string[] {
 
 export class InteractionConfigFetcher {
   private configs: InteractionConfig[] = [];
-  private refreshTimer?: ReturnType<typeof setTimeout>;
   private listeners: Array<(configs: InteractionConfig[]) => void> = [];
 
   constructor(
     private readonly request: InteractionConfigRequest,
-    private readonly fetchFn: typeof fetch = fetch,
+    private readonly fetchFn: typeof fetch = defaultFetch,
   ) {}
 
   async init(): Promise<void> {
@@ -174,9 +180,13 @@ export class InteractionConfigFetcher {
       this.configs = [];
       return;
     }
+    // Load cached configs immediately so trackers start before the network
+    // round-trip completes (Android parity: configs fetched once at init).
     this.loadFromCache();
     await this.refresh();
-    this.scheduleRefresh();
+    // No periodic refresh — aligns with Android which fetches configs once
+    // per session. Periodic refresh caused in-flight flows to be silently
+    // destroyed on every 30-min boundary (P34 gap).
   }
 
   getConfigs(): InteractionConfig[] {
@@ -188,7 +198,7 @@ export class InteractionConfigFetcher {
   }
 
   destroy(): void {
-    if (this.refreshTimer) clearTimeout(this.refreshTimer);
+    // Nothing to tear down — no periodic refresh timer.
   }
 
   private async refresh(): Promise<void> {
@@ -250,9 +260,4 @@ export class InteractionConfigFetcher {
     }
   }
 
-  private scheduleRefresh(): void {
-    this.refreshTimer = setTimeout(() => {
-      this.refresh().then(() => this.scheduleRefresh());
-    }, REFRESH_INTERVAL_MS);
-  }
 }

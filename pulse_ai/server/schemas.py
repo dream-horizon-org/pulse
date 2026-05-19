@@ -6,12 +6,17 @@ from pydantic import BaseModel, Field
 
 from pulse_ai.schemas.rca_structured_v1 import RcaStructuredReportV1
 from pulse_ai.schemas.screen_rca_narrative_v1 import ScreenRcaNarrativeV1
+from pulse_ai.schemas.session_rca_structured_v1 import SessionRcaStructuredResponseV1
 
 
 class RcaReportRequest(BaseModel):
     entityKey: str
     rcaType: str
     date: str | None = None
+    analysisLookbackDays: int | None = Field(
+        default=None,
+        description="RCA telemetry window in days (pulse-server); echoed on report.",
+    )
     rootCausePayload: dict[str, Any] | None = None
     errorAttributionPayload: dict[str, Any] | None = Field(
         default=None,
@@ -23,6 +28,7 @@ class RcaReportRequest(BaseModel):
 
 class ReportPayloadSchema(BaseModel):
     structured: RcaStructuredReportV1
+    analysisLookbackDays: int | None = None
 
 
 class RcaReportResponse(BaseModel):
@@ -48,4 +54,21 @@ class ScreenRcaReportPayloadSchema(BaseModel):
 
 class ScreenRcaReportResponse(BaseModel):
     report: ScreenRcaReportPayloadSchema
+    cached: bool = False
+
+
+class SessionRcaReportRequest(BaseModel):
+    """Embedded rootCausePayload is required (v1); window fields are echoed into the LLM prompt."""
+
+    rootCausePayload: dict[str, Any]
+    date: str | None = None
+    asOf: str | None = None
+
+
+class SessionRcaReportPayloadSchema(BaseModel):
+    structured: SessionRcaStructuredResponseV1
+
+
+class SessionRcaReportResponse(BaseModel):
+    report: SessionRcaReportPayloadSchema
     cached: bool = False

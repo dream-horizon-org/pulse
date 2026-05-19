@@ -60,13 +60,7 @@ public class Alert {
   Integer severityId;
 
   @NotNull
-  Integer notificationChannelId;
-
-  @NotNull
-  String notificationType;
-
-  @NotNull
-  String notificationConfig;
+  Long channelEventMappingId;
 
   @NotNull
   String createdBy;

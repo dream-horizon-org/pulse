@@ -13,6 +13,7 @@ from pulse_ai.constants import (
     RCA_PIPELINE_TIMEOUT_SECONDS,
     USER_ID_SCREEN_RCA,
 )
+from pulse_ai.output_guard import sanitize_pii
 from pulse_ai.schemas import RootCausePayloadSchema
 from pulse_ai.schemas.screen_rca_narrative_v1 import ScreenRcaNarrativeV1
 from pulse_ai.server.schemas import ScreenRcaReportPayloadSchema, ScreenRcaReportResponse
@@ -47,6 +48,14 @@ def _build_screen_rca_user_message(
         serialized,
     ]
     return "\n".join(lines)
+
+
+def _sanitize_screen_rca_narrative(narrative: ScreenRcaNarrativeV1) -> ScreenRcaNarrativeV1:
+    """Apply PII redaction to all free-text fields in a screen RCA narrative."""
+    return narrative.model_copy(update={
+        "executive_summary": sanitize_pii(narrative.executive_summary),
+        "recommendations": [sanitize_pii(r) for r in narrative.recommendations],
+    })
 
 
 async def generate_screen_rca_report(
@@ -117,6 +126,7 @@ async def generate_screen_rca_report(
         logger.error("Screen RCA narrative missing, session_id=%s", session_id)
         raise ScreenRcaRunnerError(500, "Screen RCA narrative missing structured payload")
 
+    narrative = _sanitize_screen_rca_narrative(narrative)
     report_payload = ScreenRcaReportPayloadSchema(narrative=narrative)
     response = ScreenRcaReportResponse(report=report_payload, cached=False)
 

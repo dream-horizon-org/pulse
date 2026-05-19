@@ -9,6 +9,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
@@ -28,7 +29,9 @@ import org.dreamhorizon.pulseserver.service.errorattribution.ErrorAttributionWit
 import org.dreamhorizon.pulseserver.service.rootcause.RootCauseService;
 import org.dreamhorizon.pulseserver.service.rootcause.ScreenRcaService;
 import org.dreamhorizon.pulseserver.service.rootcause.SessionEvidenceService;
+import org.dreamhorizon.pulseserver.service.sessionrca.SessionRcaService;
 import org.dreamhorizon.pulseserver.service.rootcause.models.EvidenceSession;
+import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseAnalysisMode;
 import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseResult;
 import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseSegment;
 import org.dreamhorizon.pulseserver.service.rootcause.models.SessionEvidenceResult;
@@ -60,6 +63,9 @@ class RcaReportEnrichmentServiceTest {
   @Mock
   private ErrorAttributionService errorAttributionService;
 
+  @Mock
+  private SessionRcaService sessionRcaService;
+
   private RcaReportEnrichmentService service;
 
   private ObjectMapper objectMapper;
@@ -74,16 +80,61 @@ class RcaReportEnrichmentServiceTest {
             screenRcaService,
             sessionEvidenceService,
             errorAttributionService,
-            RootCauseConfig.withDefaults(null));
+            RootCauseConfig.withDefaults(null),
+            sessionRcaService);
     when(errorAttributionService.getErrorAttributionWithOptionalDrillDown(
             any(), any(), any(), any(), any()))
         .thenReturn(Single.just(new ErrorAttributionWithDrillDown(List.of(), 2.0)));
   }
 
   @Test
+  void shouldIncludeLowVolumeSegmentPreviouslyDroppedForAiPayload()
+      throws ExecutionException, InterruptedException, TimeoutException {
+    // Below 5% of baseline 1000 (= 50) — old sanitize filter removed; LLM must still receive this row
+    RootCauseSegment smallVol =
+        RootCauseSegment.builder()
+            .label("OsVersion: 16.0")
+            .dimensions(Map.of("os_version", "16.0"))
+            .metrics(Map.of("error_rate", 0.5, "volume", 10L, "problematic_count", 8L))
+            .build();
+    RootCauseResult rootCause =
+        RootCauseResult.builder()
+            .baseline(Map.of("volume", 1000L))
+            .segments(List.of(smallVol))
+            .build();
+    when(rootCauseService.getRootCause(eq("p1"), eq("ix"), eq(DATE), any(), eq(false)))
+        .thenReturn(Single.just(rootCause));
+    when(sessionEvidenceService.getSessionEvidence(
+            eq("p1"),
+            eq("ix"),
+            any(),
+            any(),
+            eq(smallVol.getDimensions()),
+            any(),
+            eq(2)))
+        .thenReturn(
+            Single.just(
+                SessionEvidenceResult.builder()
+                    .sessions(List.of(EvidenceSession.builder().sessionId("sess-small").build()))
+                    .build()));
+
+    ObjectNode body = objectMapper.createObjectNode();
+    body.put("entityKey", "ix");
+    body.put("date", "2025-06-01");
+    RcaParsedReportBody parsed =
+        new RcaParsedReportBody(body.toString(), body, "p1", RcaType.INTERACTION, "ix", DATE, false);
+
+    RcaEnrichmentOutcome outcome =
+        service.enrichAsync(parsed, false).toCompletableFuture().get(5, TimeUnit.SECONDS);
+
+    assertThat(outcome.enrichmentOk()).isTrue();
+    assertThat(outcome.body()).contains("OsVersion: 16.0").contains("sess-small").contains("\"serverRank\":1");
+  }
+
+  @Test
   void shouldEnrichSuccessfullyForOneSegment()
       throws ExecutionException, InterruptedException, TimeoutException {
-    // Segment with sufficient volume (>5% of baseline 1000 = 50) and problematic_count for sorting
+    // Segment volume and problematic_count used for session evidence; serverRank follows API order
     RootCauseSegment segment =
         RootCauseSegment.builder()
             .label("s1")
@@ -122,6 +173,111 @@ class RcaReportEnrichmentServiceTest {
 
     RcaEnrichmentOutcome outcome = done.get(5, TimeUnit.SECONDS);
     assertThat(outcome.enrichmentOk()).isTrue();
+  }
+
+  @Test
+  void shouldCollectSessionsForAllSegmentsConcurrently()
+      throws Exception {
+    // Order preserved from root-cause API (here: seg1 then seg2)
+    RootCauseSegment seg1 =
+        RootCauseSegment.builder()
+            .label("s1")
+            .dimensions(Map.of("platform", "Android"))
+            .metrics(Map.of("error_rate", 0.2, "volume", 150L, "problematic_count", 20L))
+            .build();
+    RootCauseSegment seg2 =
+        RootCauseSegment.builder()
+            .label("s2")
+            .dimensions(Map.of("platform", "iOS"))
+            .metrics(Map.of("apdex", 0.7, "volume", 100L, "problematic_count", 10L))
+            .build();
+
+    when(rootCauseService.getRootCause(any(), any(), any(), any(), anyBoolean()))
+        .thenReturn(Single.just(
+            RootCauseResult.builder()
+                .baseline(Map.of("volume", 1000L))
+                .segments(List.of(seg1, seg2))
+                .build()));
+    when(sessionEvidenceService.getSessionEvidence(
+            any(), any(), any(), any(), eq(seg1.getDimensions()), any(), anyInt()))
+        .thenReturn(
+            Single.just(
+                SessionEvidenceResult.builder()
+                    .sessions(List.of(EvidenceSession.builder().sessionId("sess-a1").build()))
+                    .build()));
+    when(sessionEvidenceService.getSessionEvidence(
+            any(), any(), any(), any(), eq(seg2.getDimensions()), any(), anyInt()))
+        .thenReturn(
+            Single.just(
+                SessionEvidenceResult.builder()
+                    .sessions(List.of(EvidenceSession.builder().sessionId("sess-b1").build()))
+                    .build()));
+
+    ObjectNode body = objectMapper.createObjectNode();
+    body.put("entityKey", "ix");
+    RcaParsedReportBody parsed =
+        new RcaParsedReportBody(body.toString(), body, "p1", RcaType.INTERACTION, "ix", DATE, false);
+
+    RcaEnrichmentOutcome outcome =
+        service.enrichAsync(parsed, false).toCompletableFuture().get(5, TimeUnit.SECONDS);
+
+    assertThat(outcome.enrichmentOk()).isTrue();
+    assertThat(outcome.body()).contains("sess-a1").contains("sess-b1");
+
+    JsonNode payload = objectMapper.readTree(outcome.body()).get("rootCausePayload");
+    JsonNode segs = payload.get("segments");
+    assertThat(segs).hasSize(2);
+    assertThat(segs.get(0).get("serverRank").asInt()).isEqualTo(1);
+    assertThat(segs.get(0).get("label").asText()).isEqualTo("s1");
+    assertThat(segs.get(1).get("serverRank").asInt()).isEqualTo(2);
+    assertThat(segs.get(1).get("label").asText()).isEqualTo("s2");
+  }
+
+  @Test
+  void shouldAssignServerRankInRootCauseListOrderNotByProblematicCount()
+      throws Exception {
+    RootCauseSegment segLow =
+        RootCauseSegment.builder()
+            .label("low")
+            .dimensions(Map.of("platform", "iOS"))
+            .metrics(Map.of("volume", 100L, "problematic_count", 5L))
+            .build();
+    RootCauseSegment segHigh =
+        RootCauseSegment.builder()
+            .label("high")
+            .dimensions(Map.of("platform", "Android"))
+            .metrics(Map.of("volume", 200L, "problematic_count", 50L))
+            .build();
+
+    when(rootCauseService.getRootCause(any(), any(), any(), any(), anyBoolean()))
+        .thenReturn(
+            Single.just(
+                RootCauseResult.builder()
+                    .baseline(Map.of("volume", 1000L))
+                    .segments(List.of(segLow, segHigh))
+                    .build()));
+    when(sessionEvidenceService.getSessionEvidence(
+            any(), any(), any(), any(), any(), any(), anyInt()))
+        .thenReturn(
+            Single.just(
+                SessionEvidenceResult.builder()
+                    .sessions(List.of(EvidenceSession.builder().sessionId("x").build()))
+                    .build()));
+
+    ObjectNode body = objectMapper.createObjectNode();
+    body.put("entityKey", "ix");
+    RcaParsedReportBody parsed =
+        new RcaParsedReportBody(body.toString(), body, "p1", RcaType.INTERACTION, "ix", DATE, false);
+
+    RcaEnrichmentOutcome outcome =
+        service.enrichAsync(parsed, false).toCompletableFuture().get(5, TimeUnit.SECONDS);
+
+    assertThat(outcome.enrichmentOk()).isTrue();
+    JsonNode segs = objectMapper.readTree(outcome.body()).get("rootCausePayload").get("segments");
+    assertThat(segs.get(0).get("label").asText()).isEqualTo("low");
+    assertThat(segs.get(0).get("serverRank").asInt()).isEqualTo(1);
+    assertThat(segs.get(1).get("label").asText()).isEqualTo("high");
+    assertThat(segs.get(1).get("serverRank").asInt()).isEqualTo(2);
   }
 
   @Nested
@@ -194,60 +350,6 @@ class RcaReportEnrichmentServiceTest {
 
       assertThat(outcome.enrichmentOk()).isTrue();
       assertThat(outcome.body()).contains("s-new");
-    }
-  }
-
-  @Nested
-  class MultipleSegments {
-
-    @Test
-    void shouldCollectSessionsForAllSegmentsConcurrently()
-        throws ExecutionException, InterruptedException, TimeoutException {
-      // seg1 has higher problematic_count, so it should come first after sorting
-      RootCauseSegment seg1 =
-          RootCauseSegment.builder()
-              .label("s1")
-              .dimensions(Map.of("platform", "Android"))
-              .metrics(Map.of("error_rate", 0.2, "volume", 150L, "problematic_count", 20L))
-              .build();
-      RootCauseSegment seg2 =
-          RootCauseSegment.builder()
-              .label("s2")
-              .dimensions(Map.of("platform", "iOS"))
-              .metrics(Map.of("apdex", 0.7, "volume", 100L, "problematic_count", 10L))
-              .build();
-
-      when(rootCauseService.getRootCause(any(), any(), any(), any(), anyBoolean()))
-          .thenReturn(Single.just(
-              RootCauseResult.builder()
-                  .baseline(Map.of("volume", 1000L))
-                  .segments(List.of(seg1, seg2))
-                  .build()));
-      when(sessionEvidenceService.getSessionEvidence(
-              any(), any(), any(), any(), eq(seg1.getDimensions()), any(), anyInt()))
-          .thenReturn(
-              Single.just(
-                  SessionEvidenceResult.builder()
-                      .sessions(List.of(EvidenceSession.builder().sessionId("sess-a1").build()))
-                      .build()));
-      when(sessionEvidenceService.getSessionEvidence(
-              any(), any(), any(), any(), eq(seg2.getDimensions()), any(), anyInt()))
-          .thenReturn(
-              Single.just(
-                  SessionEvidenceResult.builder()
-                      .sessions(List.of(EvidenceSession.builder().sessionId("sess-b1").build()))
-                      .build()));
-
-      ObjectNode body = objectMapper.createObjectNode();
-      body.put("entityKey", "ix");
-      RcaParsedReportBody parsed =
-          new RcaParsedReportBody(body.toString(), body, "p1", RcaType.INTERACTION, "ix", DATE, false);
-
-      RcaEnrichmentOutcome outcome =
-          service.enrichAsync(parsed, false).toCompletableFuture().get(5, TimeUnit.SECONDS);
-
-      assertThat(outcome.enrichmentOk()).isTrue();
-      assertThat(outcome.body()).contains("sess-a1").contains("sess-b1");
     }
   }
 
@@ -442,6 +544,55 @@ class RcaReportEnrichmentServiceTest {
       assertThat(metricsCaptor.getValue())
           .containsEntry("error_rate", 0.15)
           .containsEntry("apdex", 0.8);
+    }
+  }
+
+  @Nested
+  class SessionRcaEnrichment {
+
+    @Test
+    void shouldEnrichSessionRcaPayload()
+        throws ExecutionException, InterruptedException, TimeoutException {
+      RootCauseResult sessionResult =
+          RootCauseResult.builder()
+              .baseline(Map.of("volume", 1000L))
+              .segments(List.of())
+              .mode(RootCauseAnalysisMode.FLAT)
+              .build();
+      when(sessionRcaService.getSessionRca(eq("p1"), eq(DATE), any(), eq(false)))
+          .thenReturn(Single.just(sessionResult));
+
+      ObjectNode body = objectMapper.createObjectNode();
+      body.put("date", "2025-06-01");
+      RcaParsedReportBody parsed =
+          new RcaParsedReportBody(body.toString(), body, "p1", RcaType.SESSION, "", DATE, false);
+
+      RcaEnrichmentOutcome outcome =
+          service.enrichAsync(parsed, false).toCompletableFuture().get(5, TimeUnit.SECONDS);
+
+      assertThat(outcome.enrichmentOk()).isTrue();
+      assertThat(outcome.body()).contains("rootCausePayload");
+      assertThat(outcome.body()).contains("asOf");
+      verifyNoInteractions(rootCauseService);
+      verifyNoInteractions(sessionEvidenceService);
+    }
+
+    @Test
+    void shouldReturnFallbackBodyWhenSessionRcaFails() throws Exception {
+      when(sessionRcaService.getSessionRca(any(), any(), any(), anyBoolean()))
+          .thenReturn(Single.error(new RuntimeException("session rca failed")));
+
+      String rawBody = "{\"date\":\"2025-06-01\"}";
+      ObjectNode body = (ObjectNode) objectMapper.readTree(rawBody);
+      RcaParsedReportBody parsed =
+          new RcaParsedReportBody(rawBody, body, "p1", RcaType.SESSION, "", DATE, false);
+
+      RcaEnrichmentOutcome outcome =
+          service.enrichAsync(parsed, false).toCompletableFuture().get(5, TimeUnit.SECONDS);
+
+      assertThat(outcome.enrichmentOk()).isFalse();
+      assertThat(outcome.body()).isEqualTo(rawBody);
+      assertThat(outcome.rootCause()).isNull();
     }
   }
 }

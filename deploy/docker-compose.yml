@@ -12,7 +12,8 @@ services:
       - MYSQL_PASSWORD=${MYSQL_PASSWORD:-pulse_password}
     volumes:
       - mysql-data:/var/lib/mysql
-      - ../backend/db/dev/mysql/mysql-init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - ../backend/db/dev/mysql/mysql-init.sql:/docker-entrypoint-initdb.d/mysql-init.sql:ro
+      - ../backend/db/shared/mysql-default-project-interactions.sql:/docker-entrypoint-initdb.d/includes/mysql-default-project-interactions.sql:ro
     networks:
       - pulse-network
     restart: unless-stopped
@@ -369,15 +370,15 @@ services:
         REACT_APP_FIREBASE_API_KEY: ${REACT_APP_FIREBASE_API_KEY}
         REACT_APP_FIREBASE_AUTH_DOMAIN: ${REACT_APP_FIREBASE_AUTH_DOMAIN}
         REACT_APP_FIREBASE_PROJECT_ID: ${CONFIG_SERVICE_APPLICATION_GCP_PROJECT_ID}
-        REACT_APP_FIREBASE_STORAGE_BUCKET: ${REACT_APP_FIREBASE_STORAGE_BUCKET}
-        REACT_APP_FIREBASE_MESSAGING_SENDER_ID: ${REACT_APP_FIREBASE_MESSAGING_SENDER_ID}
+        REACT_APP_FIREBASE_STORAGE_BUCKET: ${REACT_APP_FIREBASE_STORAGE_BUCKET:-dummy-project-id.appspot.com}
+        REACT_APP_FIREBASE_MESSAGING_SENDER_ID: ${REACT_APP_FIREBASE_MESSAGING_SENDER_ID:-123456789012}
         REACT_APP_FIREBASE_APP_ID: ${REACT_APP_FIREBASE_APP_ID}
         REACT_APP_USE_MOCK_SERVER: ${REACT_APP_USE_MOCK_SERVER}
         REACT_APP_MOCK_DELAY: ${REACT_APP_MOCK_DELAY}
         REACT_APP_MOCK_ERROR_RATE: ${REACT_APP_MOCK_ERROR_RATE}
         REACT_APP_MOCK_LOGGING: ${REACT_APP_MOCK_LOGGING}
-        REACT_APP_FIREBASE_AUTH_EMULATOR: ${REACT_APP_FIREBASE_AUTH_EMULATOR}
-        REACT_APP_FIREBASE_AUTH_EMULATOR_URL: ${REACT_APP_FIREBASE_AUTH_EMULATOR_URL}
+        REACT_APP_FIREBASE_AUTH_EMULATOR: ${REACT_APP_FIREBASE_AUTH_EMULATOR:-false}
+        REACT_APP_FIREBASE_AUTH_EMULATOR_URL: ${REACT_APP_FIREBASE_AUTH_EMULATOR_URL:-http://127.0.0.1:9099}
         REACT_APP_GCP_MULTI_TENANT_ENABLED: ${REACT_APP_GCP_MULTI_TENANT_ENABLED:-true}
     container_name: pulse-ui
     ports:
@@ -457,6 +458,7 @@ services:
       - CONFIG_SERVICE_APPLICATION_CRONMANAGERBASEURL=${CONFIG_SERVICE_APPLICATION_CRONMANAGERBASEURL:-http://pulse-alerts-cron:4000/cron}
       - CONFIG_SERVICE_APPLICATION_DASHBOARDBASEURL=${CONFIG_SERVICE_APPLICATION_DASHBOARDBASEURL:-https://app.pulse-ux.com}
       - CONFIG_SERVICE_APPLICATION_SERVICEURL=${CONFIG_SERVICE_APPLICATION_SERVICEURL:-http://pulse-server:8080}
+      - DASHBOARD_BASE_URL=${DASHBOARD_BASE_URL:-http://localhost:3000}
       - CONFIG_SERVICE_APPLICATION_GOOGLEOAUTHCLIENTID=${CONFIG_SERVICE_APPLICATION_GOOGLEOAUTHCLIENTID}
       - CONFIG_SERVICE_APPLICATION_GOOGLEOAUTHENABLED=${GOOGLE_OAUTH_ENABLED:-false}
       - CONFIG_SERVICE_APPLICATION_JWTSECRET=${CONFIG_SERVICE_APPLICATION_JWTSECRET:-dev-secret-key-at-least-32-characters-long-for-local-testing-only}
@@ -490,6 +492,12 @@ services:
 
       # S3 Configuration
       - S3_BUCKET_NAME=${S3_BUCKET_NAME:-pulse-config}
+      - STACK_TRACE_S3_ARCHIVE_ENABLED=${STACK_TRACE_S3_ARCHIVE_ENABLED:-false}
+      - STACK_TRACE_OTEL_S3_BUCKET=${STACK_TRACE_OTEL_S3_BUCKET:-pulse-otel-ingestion}
+      - STACK_TRACE_ARCHIVE_STAGING_DIR=${STACK_TRACE_ARCHIVE_STAGING_DIR:-/tmp/pulse-stack-trace-archive}
+      - STACK_TRACE_ARCHIVE_FLUSH_INTERVAL_MS=${STACK_TRACE_ARCHIVE_FLUSH_INTERVAL_MS:-30000}
+      - S3_REGION=${S3_REGION:-ap-south-1}
+      - S3_ENDPOINT=${S3_ENDPOINT:-}
       - SYMBOL_FILES_S3_BUCKET_NAME=${SYMBOL_FILES_S3_BUCKET_NAME:-pulse-symbol-files}
       - CONFIG_DETAILS_S3_FILE_PATH=${CONFIG_DETAILS_S3_FILE_PATH:-config/pulse-config.json}
       - INTERACTION_DETAILS_S3_FILE_PATH=${INTERACTION_DETAILS_S3_FILE_PATH:-config/interaction-config.json}
@@ -659,6 +667,39 @@ services:
     volumes:
       # Mount config files if needed for runtime configuration
       - ../backend/pulse-alerts-cron/src/main/resources/config:/app/config:ro
+
+  # Pulse S3 Archiver (Kafka → Parquet → S3 mirror of ClickHouse tables)
+  pulse-s3-archiver:
+    build:
+      context: ../backend/pulse-s3-archiver
+      dockerfile: Dockerfile
+    container_name: pulse-s3-archiver
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS=${KAFKA_BOOTSTRAP_SERVERS:-kafka:9092}
+      - S3_BUCKET=${S3_BUCKET:-pulse-otel-ingestion}
+      - S3_REGION=${S3_REGION:-ap-south-1}
+      - S3_ENDPOINT=${S3_ENDPOINT:-}
+      - AWS_PROFILE=${AWS_PROFILE:-}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_SESSION_TOKEN=${AWS_SESSION_TOKEN}
+      - ARCHIVER_FLUSH_INTERVAL_MS=${ARCHIVER_FLUSH_INTERVAL_MS:-30000}
+      - ARCHIVER_STAGING_DIR=/tmp/pulse-archiver
+      - PULSE_BACKEND_OTEL_ENABLED=${PULSE_BACKEND_OTEL_ENABLED:-false}
+    networks:
+      - pulse-network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      kafka:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8080/healthcheck" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
 
 networks:
   pulse-network:

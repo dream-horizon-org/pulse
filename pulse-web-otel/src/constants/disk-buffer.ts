@@ -6,7 +6,8 @@
  */
 
 export const DEFAULT_DISK_BUFFER_MAX_AGE_MS = 24 * 60 * 60 * 1000;
-export const DEFAULT_DISK_BUFFER_MAX_CACHE_SIZE_BYTES = 10 * 1024;
+/** ~10 MiB — matches `docs/sdk-core/config-and-public-api/SPEC.md` and `.env.example` (`10485760`). */
+export const DEFAULT_DISK_BUFFER_MAX_CACHE_SIZE_BYTES = 10 * 1024 * 1024;
 
 function readEnvPositiveInt(key: string): number | undefined {
   try {

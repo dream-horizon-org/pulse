@@ -95,9 +95,44 @@ describe("ErrorInstrumentation — M3 Error Instrumentation Unit Tests", () => {
         "Demo uncaught error from ErrorDemo",
       );
       expect(attrs["exception.stacktrace"]).toBeTruthy();
+      // ERR-09 / ERR-16: stacktrace must be multi-line
+      expect(
+        String(attrs[PulseWebSemconv.AttributeKey.EXCEPTION_STACKTRACE]).includes("\n")
+      ).toBe(true);
       expect(Number(attrs["error.lineno"])).toBeGreaterThan(0);
       // non_fatal.is_manual must NOT be present on device.crash
       expect(attrs["non_fatal.is_manual"]).toBeUndefined();
+    });
+
+    // ERR-05: handled try/catch does NOT emit
+    it("handled try/catch error does not emit device.crash (ERR-05)", () => {
+      // A caught error never reaches window.onerror — confirm no emission
+      try {
+        throw new Error("caught error");
+      } catch {
+        // intentionally swallowed
+      }
+      expect(mockEmit).not.toHaveBeenCalled();
+    });
+  });
+
+  // ─── TC — ERR-14: TypeError class name preserved ─────────────────────────
+
+  describe("TC — exception.type preserves error class (ERR-14)", () => {
+    it("TypeError → exception.type = 'TypeError'", () => {
+      window.dispatchEvent(
+        new ErrorEvent("error", {
+          message: "type failure",
+          filename: "app.js",
+          lineno: 1,
+          colno: 1,
+          error: new TypeError("type failure"),
+        }),
+      );
+      expect(mockEmit).toHaveBeenCalledOnce();
+      const attrs = (mockEmit.mock.calls[0]![0] as Record<string, unknown>)
+        .attributes as Record<string, unknown>;
+      expect(attrs[PulseWebSemconv.AttributeKey.EXCEPTION_TYPE]).toBe("TypeError");
     });
   });
 
@@ -132,6 +167,29 @@ describe("ErrorInstrumentation — M3 Error Instrumentation Unit Tests", () => {
         "Demo unhandled rejection from ErrorDemo",
       );
       expect(attrs["non_fatal.is_manual"]).toBe(false);
+      // SPEC §5.2.2: rejection-based non_fatals do not carry error.filename / lineno / colno
+      expect(attrs["error.filename"]).toBeUndefined();
+      expect(attrs["error.lineno"]).toBeUndefined();
+      expect(attrs["error.colno"]).toBeUndefined();
+    });
+  });
+
+  // ─── TC — ERR-27: RangeError class name preserved on rejection ───────────
+
+  describe("TC — exception.type preserves rejection error class (ERR-27)", () => {
+    it("RangeError rejection → exception.type = 'RangeError'", () => {
+      const p = Promise.reject(new RangeError("out of range"));
+      p.catch(() => undefined);
+      window.dispatchEvent(
+        new PromiseRejectionEvent("unhandledrejection", {
+          promise: p,
+          reason: new RangeError("out of range"),
+        }),
+      );
+      expect(mockEmit).toHaveBeenCalledOnce();
+      const attrs = (mockEmit.mock.calls[0]![0] as Record<string, unknown>)
+        .attributes as Record<string, unknown>;
+      expect(attrs[PulseWebSemconv.AttributeKey.EXCEPTION_TYPE]).toBe("RangeError");
     });
   });
 
@@ -205,6 +263,44 @@ describe("ErrorInstrumentation — M3 Error Instrumentation Unit Tests", () => {
       window.dispatchEvent(errEvent);
       vi.advanceTimersByTime(6_000);
       window.dispatchEvent(errEvent);
+      expect(mockEmit).toHaveBeenCalledTimes(2);
+      vi.useRealTimers();
+    });
+  });
+
+  // ─── TC19: Rejection burst deduped ──────────────────────────────────────
+
+  describe("TC19 — unhandledrejection burst deduped within 5s", () => {
+    it("emits only 1 log when same rejection dispatched 5 times within 5s", () => {
+      const err = new Error("rejection-dup");
+      const p = Promise.reject(err);
+      p.catch(() => undefined);
+      const evt = new PromiseRejectionEvent("unhandledrejection", {
+        promise: p,
+        reason: err,
+      });
+      for (let i = 0; i < 5; i++) {
+        window.dispatchEvent(evt);
+      }
+      expect(mockEmit).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  // ─── TC20: Rejection dedupe window resets after 5s ───────────────────────
+
+  describe("TC20 — unhandledrejection dedupe window resets after 5s", () => {
+    it("emits 2 logs when same rejection dispatched before and after 5s window", () => {
+      vi.useFakeTimers();
+      const err = new Error("rejection-recurring");
+      const p = Promise.reject(err);
+      p.catch(() => undefined);
+      const evt = new PromiseRejectionEvent("unhandledrejection", {
+        promise: p,
+        reason: err,
+      });
+      window.dispatchEvent(evt);
+      vi.advanceTimersByTime(6_000);
+      window.dispatchEvent(evt);
       expect(mockEmit).toHaveBeenCalledTimes(2);
       vi.useRealTimers();
     });
@@ -285,6 +381,9 @@ describe("ErrorInstrumentation — M3 Error Instrumentation Unit Tests", () => {
       const attrs = (mockEmit.mock.calls[0]![0] as Record<string, unknown>)
         .attributes as Record<string, unknown>;
       expect(attrs["battery.percent"]).toBe(75); // Math.round(0.75 * 100)
+      // ERR-21: correct key name — must NOT be "device.battery_percentage"
+      expect("device.battery_percentage" in attrs).toBe(false);
+      expect(PulseWebSemconv.AttributeKey.BATTERY_PERCENT in attrs).toBe(true);
 
       instr2.uninstall();
       // Restore
@@ -377,6 +476,9 @@ describe("ErrorInstrumentation — M3 Error Instrumentation Unit Tests", () => {
       expect(Number(attrs["storage.free"])).toBeGreaterThan(0);
       // storage.free = quota - usage = 90_000_000
       expect(attrs["storage.free"]).toBe(90_000_000);
+      // ERR-22: correct key name — must NOT be "storage.free_bytes"
+      expect("storage.free_bytes" in attrs).toBe(false);
+      expect(PulseWebSemconv.AttributeKey.STORAGE_FREE in attrs).toBe(true);
 
       instr2.uninstall();
       // Remove the mock — let jsdom's original descriptor take over
@@ -391,14 +493,44 @@ describe("ErrorInstrumentation — M3 Error Instrumentation Unit Tests", () => {
     });
   });
 
-  // ─── TC12: Cross-origin script error skipped ─────────────────────────────
+  // ─── TC12: Cross-origin script error emits stub device.crash ───────────────
+  // ISS-010 fix: Android always records a stub crash even without a full stack.
+  // Web now matches: emit stub device.crash with empty stack/filename instead of silent drop.
 
-  describe("TC12 — cross-origin script error silently skipped", () => {
-    it("skips cross-origin script errors (message='Script error.' no filename)", () => {
+  describe("TC12 — cross-origin script error emits stub device.crash", () => {
+    it("emits stub device.crash for cross-origin error (message='Script error.' no filename)", () => {
       window.dispatchEvent(
         new ErrorEvent("error", { message: "Script error." }),
       );
-      expect(mockEmit).not.toHaveBeenCalled();
+      expect(mockEmit).toHaveBeenCalledOnce();
+      const call = mockEmit.mock.calls[0]?.[0] as Record<string, unknown>;
+      expect(call.body).toBe("Script error.");
+      expect(call.severityNumber).toBe(SeverityNumber.FATAL);
+      expect(call.attributes).toMatchObject({
+        [PulseWebSemconv.AttributeKey.PULSE_TYPE]: PulseWebSemconv.PulseType.DEVICE_CRASH,
+        [PulseWebSemconv.AttributeKey.EXCEPTION_MESSAGE]: "Script error.",
+        [PulseWebSemconv.AttributeKey.EXCEPTION_STACKTRACE]: "",
+        [PulseWebSemconv.AttributeKey.ERROR_FILENAME]: "",
+        [PulseWebSemconv.AttributeKey.URL_PATH]: expect.any(String),
+      });
+    });
+
+    it("positive case: 'Script error.' with non-empty filename still emits normal device.crash", () => {
+      window.dispatchEvent(
+        new ErrorEvent("error", {
+          message: "Script error.",
+          filename: "https://cdn.example.com/app.js",
+          error: new Error("Script error."),
+          lineno: 1,
+          colno: 1,
+        }),
+      );
+      expect(mockEmit).toHaveBeenCalledOnce();
+      const call = mockEmit.mock.calls[0]?.[0] as Record<string, unknown>;
+      expect(call.attributes).toMatchObject({
+        [PulseWebSemconv.AttributeKey.PULSE_TYPE]: PulseWebSemconv.PulseType.DEVICE_CRASH,
+        [PulseWebSemconv.AttributeKey.ERROR_FILENAME]: "https://cdn.example.com/app.js",
+      });
     });
   });
 
@@ -554,104 +686,3 @@ describe("ErrorInstrumentation — M3 Error Instrumentation Unit Tests", () => {
   });
 });
 
-// ─── TC3 + TC4 + TC14: SDK.reportDeviceCrash / reportException guard ──────────
-
-describe("PulseWebSDK error reporting methods — TC3 / TC4 / TC14", () => {
-  const sdkMockEmit = vi.fn();
-
-  beforeEach(() => {
-    sdkMockEmit.mockClear();
-    mockEmit.mockClear();
-  });
-
-  describe("TC4 — manual reportException emits non_fatal with is_manual=true", () => {
-    it("emits non_fatal log with is_manual=true via SDK.reportException", () => {
-      // Test the emit shape directly — the SDK calls mockEmit via the mocked api-logs
-      // We verify the shape expected by calling the same logger path manually
-      const logger = { emit: sdkMockEmit };
-      const err = new Error("Manually reported error");
-
-      // Simulate what Pulse.reportException does internally
-      logger.emit({
-        eventName: PulseWebSemconv.LogEventName.CUSTOM_NON_FATAL,
-        body: err.message,
-        timestamp: Date.now(),
-        severityNumber: SeverityNumber.WARN,
-        severityText: "WARN",
-        attributes: {
-          "event.name": PulseWebSemconv.LogEventName.CUSTOM_NON_FATAL,
-          "pulse.type": "non_fatal",
-          "exception.type": err.name,
-          "exception.message": err.message,
-          "exception.stacktrace": err.stack ?? "",
-          "non_fatal.is_manual": true,
-          "url.path": "/error-demo",
-        },
-      });
-
-      expect(sdkMockEmit).toHaveBeenCalledOnce();
-      const call = sdkMockEmit.mock.calls[0]![0] as Record<string, unknown>;
-      expect(call.eventName).toBe(
-        PulseWebSemconv.LogEventName.CUSTOM_NON_FATAL,
-      );
-      expect(call.severityNumber).toBe(SeverityNumber.WARN);
-      const attrs = call.attributes as Record<string, unknown>;
-      expect(attrs["pulse.type"]).toBe("non_fatal");
-      expect(attrs["non_fatal.is_manual"]).toBe(true);
-      expect(attrs["exception.message"]).toBe("Manually reported error");
-    });
-  });
-
-  describe("TC3 — React render error emits device.crash via reportDeviceCrash", () => {
-    it("emits device.crash with FATAL severity for render errors", () => {
-      const logger = { emit: sdkMockEmit };
-      const err = new Error("Intentional render error from ErrorDemo");
-
-      // Simulate what Pulse.reportDeviceCrash does internally
-      logger.emit({
-        eventName: PulseWebSemconv.LogEventName.DEVICE_CRASH,
-        body: err.message,
-        timestamp: Date.now(),
-        severityNumber: SeverityNumber.FATAL,
-        severityText: "FATAL",
-        attributes: {
-          "event.name": PulseWebSemconv.LogEventName.DEVICE_CRASH,
-          "pulse.type": "device.crash",
-          "exception.type": err.name,
-          "exception.message": err.message,
-          "exception.stacktrace": err.stack ?? "",
-          "react.component_stack": "    at RenderBomb",
-          "url.path": "/error-demo",
-        },
-      });
-
-      expect(sdkMockEmit).toHaveBeenCalledOnce();
-      const call = sdkMockEmit.mock.calls[0]![0] as Record<string, unknown>;
-      expect(call.eventName).toBe(PulseWebSemconv.LogEventName.DEVICE_CRASH);
-      expect(call.severityNumber).toBe(SeverityNumber.FATAL);
-      const attrs = call.attributes as Record<string, unknown>;
-      expect(attrs["pulse.type"]).toBe("device.crash");
-      expect(attrs["exception.message"]).toBe(
-        "Intentional render error from ErrorDemo",
-      );
-    });
-  });
-
-  describe("TC14 — reportException before SDK init is a no-op", () => {
-    it("returns without emitting when _initialized is false", () => {
-      // Create a minimal SDK-like object whose reportException respects the _initialized guard
-      const uninitSdk = {
-        _initialized: false,
-        logger: { emit: sdkMockEmit },
-        reportException(error: unknown) {
-          if (!this._initialized) return;
-          const err = error instanceof Error ? error : new Error(String(error));
-          this.logger.emit({ body: err.message });
-        },
-      };
-
-      uninitSdk.reportException(new Error("early call"));
-      expect(sdkMockEmit).not.toHaveBeenCalled();
-    });
-  });
-});

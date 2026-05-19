@@ -1,5 +1,10 @@
 export { normalizeRcaJobStatus, useGetRcaReport } from "./useGetRcaReport";
+export {
+  extractStructuredReport,
+  isRcaStructuredReportV1WithContent,
+} from "./useGetRcaReport.interface";
 export type {
+  DegradingInteractionV1,
   RcaJobResponse,
   RcaJobStatus,
   RcaNormalizedJobStatus,
@@ -8,5 +13,6 @@ export type {
   RcaStructuredMetricRowV1,
   RcaStructuredReportV1,
   RcaStructuredSegmentV1,
+  SessionRcaRootCausePayload,
   UseGetRcaReportParams,
 } from "./useGetRcaReport.interface";

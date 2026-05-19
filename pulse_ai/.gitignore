@@ -29,6 +29,9 @@ build/
 .DS_Store
 Thumbs.db
 
+# ADK eval run artifacts (local history; any eval app package)
+.adk/
+
 # Testing / coverage
 .pytest_cache/
 htmlcov/

@@ -1,6 +1,14 @@
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { SimpleGrid, Box, Text, Tabs, Title, Tooltip } from "@mantine/core";
-import { IconArrowNarrowLeft } from "@tabler/icons-react";
+import {
+  SimpleGrid,
+  Box,
+  Group,
+  Text,
+  Tabs,
+  Title,
+  Tooltip,
+} from "@mantine/core";
+import { IconArrowNarrowLeft, IconInfoCircle } from "@tabler/icons-react";
 import { ScreenDetailProps } from "./ScreenDetail.interface";
 import classes from "./ScreenDetail.module.css";
 import vitalsClasses from "../AppVitals/AppVitals.module.css";
@@ -38,6 +46,7 @@ import { HeatmapPanel } from "./Heatmap/HeatmapPanel";
 import { useHeatmapFromActiveConfig } from "../../hooks";
 import { ScreenRootCause } from "./components/ScreenRootCause";
 import { getRootCauseDateFromEndTime } from "../CriticalInteractionDetails/utils/getRootCauseDateFromEndTime";
+import { WebVitalsPanel } from "../WebVitals/components";
 
 const isRootCauseEnabled = process.env.REACT_APP_ROOT_CAUSE_ENABLED === "true";
 
@@ -205,6 +214,8 @@ export function ScreenDetail(_props: ScreenDetailProps) {
       setActiveTab("heatmap");
     } else if (t === "root-cause" && isRootCauseEnabled) {
       setActiveTab("root-cause");
+    } else if (t === "web-vitals") {
+      setActiveTab("web-vitals");
     }
   }, [searchParams, heatmapEnabledFromActiveConfig]);
 
@@ -215,6 +226,8 @@ export function ScreenDetail(_props: ScreenDetailProps) {
       next.set("tab", "heatmap");
     } else if (value === "root-cause") {
       next.set("tab", "root-cause");
+    } else if (value === "web-vitals") {
+      next.set("tab", "web-vitals");
     } else {
       next.delete("tab");
     }
@@ -267,6 +280,7 @@ export function ScreenDetail(_props: ScreenDetailProps) {
           <Tabs.Tab value="engagement">User Engagement</Tabs.Tab>
           <Tabs.Tab value="performance">Performance & Stability</Tabs.Tab>
           <Tabs.Tab value="network">Network</Tabs.Tab>
+          <Tabs.Tab value="web-vitals">Web Vitals</Tabs.Tab>
           {isRootCauseEnabled && (
             <Tabs.Tab value="root-cause">Root cause</Tabs.Tab>
           )}
@@ -281,12 +295,10 @@ export function ScreenDetail(_props: ScreenDetailProps) {
           <SimpleGrid cols={{ base: 1, lg: 3 }} spacing="md">
             <TimeSpentGraph
               avgTimeSpent={engagementData?.avgTimeSpent ?? null}
-              avgLoadTime={engagementData?.avgLoadTime ?? null}
               trendData={
                 engagementData?.trendData.map((d) => ({
                   timestamp: d.timestamp,
                   avgTimeSpent: d.avgTimeSpent,
-                  avgLoadTime: d.avgLoadTime,
                 })) || []
               }
               isLoading={isLoadingEngagement}
@@ -351,9 +363,26 @@ export function ScreenDetail(_props: ScreenDetailProps) {
               <Text className={vitalsClasses.sectionTitle}>Performance</Text>
               <Box className={vitalsClasses.metricsGrid}>
                 <Box className={vitalsClasses.statItem}>
-                  <Text className={vitalsClasses.statLabel}>
-                    Screen Load Time
-                  </Text>
+                  <Group gap={4} wrap="nowrap" align="center" justify="center">
+                    <Text className={vitalsClasses.statLabel}>
+                      Screen Load Time
+                    </Text>
+                    <Tooltip
+                      label="Average screen load time: mean span duration of all screen load events for this screen in the selected range."
+                      withArrow
+                      multiline
+                      w={260}
+                    >
+                      <IconInfoCircle
+                        size={13}
+                        style={{
+                          opacity: 0.5,
+                          cursor: "help",
+                          flexShrink: 0,
+                        }}
+                      />
+                    </Tooltip>
+                  </Group>
                   <Text
                     className={vitalsClasses.statValue}
                     c={
@@ -371,6 +400,99 @@ export function ScreenDetail(_props: ScreenDetailProps) {
                       : "N/A"}
                   </Text>
                 </Box>
+                {engagementData?.tti_p50 !== null &&
+                  engagementData?.tti_p50 !== undefined && (
+                    <Box className={vitalsClasses.statItem}>
+                      <Group
+                        gap={4}
+                        wrap="nowrap"
+                        align="center"
+                        justify="center"
+                      >
+                        <Text className={vitalsClasses.statLabel}>
+                        TTI P50
+                        </Text>
+                        <Tooltip
+                          label="P50 time to interactive: 50th percentile of screen interactive durations for this screen in the selected range."
+                          withArrow
+                          multiline
+                          w={260}
+                        >
+                          <IconInfoCircle
+                            size={13}
+                            style={{
+                              opacity: 0.5,
+                              cursor: "help",
+                              flexShrink: 0,
+                            }}
+                          />
+                        </Tooltip>
+                      </Group>
+                      <Text
+                        className={vitalsClasses.statValue}
+                        c={
+                          engagementData?.tti_p50 !== null &&
+                          engagementData?.tti_p50 !== undefined
+                            ? "teal"
+                            : "dimmed"
+                        }
+                      >
+                        {engagementData?.tti_p50 !== null &&
+                        engagementData?.tti_p50 !== undefined
+                          ? engagementData.tti_p50 >= 1
+                            ? `${engagementData.tti_p50.toFixed(1)}s`
+                            : `${(engagementData.tti_p50 * 1000).toFixed(0)}ms`
+                          : "N/A"}
+                      </Text>
+                    </Box>
+                  )}
+                {engagementData?.tti_p95 !== null &&
+                  engagementData?.tti_p95 !== undefined && (
+                    <Box className={vitalsClasses.statItem}>
+                      <Group
+                        gap={4}
+                        wrap="nowrap"
+                        align="center"
+                        justify="center"
+                      >
+                        <Text className={vitalsClasses.statLabel}>
+                        TTI P95
+                        </Text>
+                        <Tooltip
+                          label="P95 time to interactive: 95th percentile of screen interactive durations for this screen in the selected range."
+                          withArrow
+                          multiline
+                          w={260}
+                        >
+                          <IconInfoCircle
+                            size={13}
+                            style={{
+                              opacity: 0.5,
+                              cursor: "help",
+                              flexShrink: 0,
+                            }}
+                          />
+                        </Tooltip>
+                      </Group>
+                      <Text
+                        className={vitalsClasses.statValue}
+                        c={
+                          engagementData?.tti_p95 !== null &&
+                          engagementData?.tti_p95 !== undefined
+                            ? "teal"
+                            : "dimmed"
+                        }
+                      >
+                        {engagementData?.tti_p95 !== null &&
+                        engagementData?.tti_p95 !== undefined
+                          ? engagementData.tti_p95 >= 1
+                            ? `${engagementData.tti_p95.toFixed(1)}s`
+                            : `${(engagementData.tti_p95 * 1000).toFixed(0)}ms`
+                          : "N/A"}
+                      </Text>
+                    </Box>
+                  )}
+                  
               </Box>
             </Box>
           </Box>
@@ -511,6 +633,15 @@ export function ScreenDetail(_props: ScreenDetailProps) {
 
               return filters;
             }, [appVersion, osVersion, device])}
+          />
+        </Tabs.Panel>
+
+        {/* Web Vitals Tab */}
+        <Tabs.Panel value="web-vitals" pt="md">
+          <WebVitalsPanel
+            screenName={decodedScreenName}
+            startTime={formattedStartTime}
+            endTime={formattedEndTime}
           />
         </Tabs.Panel>
 

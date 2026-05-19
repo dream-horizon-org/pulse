@@ -18,9 +18,9 @@ public object PulseSessionAttributes {
     public val PULSE_METERING_SESSION_ID: AttributeKey<String> = AttributeKey.stringKey("pulse.metering.session.id")
 
     private val PULSE_SESSION_SLOW_FRAMES_COUNT =
-        AttributeKey.longKey("pulse.session.jank.frozen.count")
-    private val PULSE_SESSION_FROZEN_FRAMES_COUNT =
         AttributeKey.longKey("pulse.session.jank.slow.count")
+    private val PULSE_SESSION_FROZEN_FRAMES_COUNT =
+        AttributeKey.longKey("pulse.session.jank.frozen.count")
 
     public fun createSessionEndAttributes(logEvents: Map<String, Long>): Attributes =
         Attributes

@@ -11,7 +11,6 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeParseException;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -29,10 +28,10 @@ import org.dreamhorizon.pulseserver.service.rootcause.RootCauseQueryBuilder;
 import org.dreamhorizon.pulseserver.service.rootcause.RootCauseService;
 import org.dreamhorizon.pulseserver.service.rootcause.ScreenRcaService;
 import org.dreamhorizon.pulseserver.service.rootcause.SessionEvidenceService;
+import org.dreamhorizon.pulseserver.service.sessionrca.SessionRcaService;
 import org.dreamhorizon.pulseserver.service.rootcause.models.EvidenceSession;
 import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseResult;
 import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseSegment;
-import org.dreamhorizon.pulseserver.util.NumberCoercionUtils;
 
 /**
  * Builds the RCA POST body with {@code rootCausePayload}, optional {@code errorAttributionPayload},
@@ -49,6 +48,8 @@ public class RcaReportEnrichmentService {
   private static final String ERROR_ATTRIBUTION_PAYLOAD_FIELD = "errorAttributionPayload";
   private static final String START_FIELD = "start";
   private static final String END_FIELD = "end";
+  private static final String DATE_FIELD = "date";
+  private static final String AS_OF_FIELD = "asOf";
 
   private final ObjectMapper objectMapper;
   private final RootCauseService rootCauseService;
@@ -56,6 +57,7 @@ public class RcaReportEnrichmentService {
   private final SessionEvidenceService sessionEvidenceService;
   private final ErrorAttributionService errorAttributionService;
   private final RootCauseConfig rootCauseConfig;
+  private final SessionRcaService sessionRcaService;
 
   /**
    * Enriches the RCA JSON body with root-cause data and example sessions.
@@ -83,9 +85,10 @@ public class RcaReportEnrichmentService {
       return enrichScreenAsync(parsed, forceRootCauseRefresh);
     }
 
-    // For now, only INTERACTION type is fully supported with enrichment
-    // Other types may have different enrichment paths in the future
-    // TODO: Introduce strategy-style abstraction (interface + implementations) for extensibility
+    if (type == RcaType.SESSION) {
+      return enrichSessionAsync(parsed, forceRootCauseRefresh);
+    }
+
     if (type != RcaType.INTERACTION) {
       return Single.just(
           new RcaEnrichmentOutcome(fallbackBody, null, date, windowEndExclusive, false));
@@ -203,6 +206,40 @@ public class RcaReportEnrichmentService {
   }
 
   /**
+   * Session RCA async enrichment: fetch tabular session quality data via {@link SessionRcaService}
+   * and build the body for the pulse_ai {@code rca/session-report} endpoint.
+   */
+  private Single<RcaEnrichmentOutcome> enrichSessionAsync(
+      RcaParsedReportBody parsed, boolean forceRootCauseRefresh) {
+    String fallbackBody = parsed.rawBody();
+    String projectId = parsed.projectId();
+    LocalDate anchorDate = parsed.date();
+    Instant windowEndExclusive = Instant.now();
+    return sessionRcaService
+        .getSessionRca(projectId, anchorDate, windowEndExclusive, forceRootCauseRefresh)
+        .map(
+            sessionResult -> {
+              try {
+                ObjectNode aiBody = objectMapper.createObjectNode();
+                aiBody.set(ROOT_CAUSE_PAYLOAD_FIELD, objectMapper.valueToTree(sessionResult));
+                aiBody.put(DATE_FIELD, anchorDate.toString());
+                aiBody.put(AS_OF_FIELD, windowEndExclusive.toString());
+                String body = objectMapper.writeValueAsString(aiBody);
+                return new RcaEnrichmentOutcome(body, sessionResult, anchorDate, windowEndExclusive, true);
+              } catch (Exception e) {
+                log.warn("Session RCA enrichment serialize failed: {}", e.getMessage());
+                return new RcaEnrichmentOutcome(fallbackBody, null, anchorDate, windowEndExclusive, false);
+              }
+            })
+        .onErrorResumeNext(error -> {
+          log.warn("Session RCA enrichment failed for project={} date={}: {}",
+              projectId, anchorDate, error.getMessage(), error);
+          return Single.just(
+              new RcaEnrichmentOutcome(fallbackBody, null, anchorDate, windowEndExclusive, false));
+        });
+  }
+
+  /**
    * Fetches session evidence for all segments in parallel using Single.zip(),
    * then updates each segment with the returned session IDs.
    */
@@ -256,6 +293,7 @@ public class RcaReportEnrichmentService {
                               .metrics(s.getMetrics())
                               .deltas(s.getDeltas())
                               .exampleSessionIds(null)
+                              .serverRank(s.getServerRank())
                               .build())
                   .collect(Collectors.toList());
 
@@ -278,6 +316,7 @@ public class RcaReportEnrichmentService {
       String entityKey) {
     return Single.fromCallable(
             () -> {
+              working.put("analysisLookbackDays", rootCauseConfig.getLookbackDays());
               fetchErrorAttributionForEnrichment(projectId, entityKey, date, windowEnd, working);
               String enrichedBody = objectMapper.writeValueAsString(working);
               return new RcaEnrichmentOutcome(enrichedBody, rootCauseResult, date, windowEnd, true);
@@ -287,50 +326,44 @@ public class RcaReportEnrichmentService {
 
   /**
    * Sanitizes RootCauseResult for AI report by:
-   * 1. Filtering out low-volume segments (< minSegmentVolumePct% of baseline)
-   * 2. Sorting remaining segments by problematic_count descending (most affected first)
-   * 3. Removing internal-only fields like problematic_count from final output
+   * 1. Preserving segment order from {@link RootCauseService} / {@link ScreenRcaService}
+   *    (post-merge flat+hierarchy, cap, baseline **raw-driver slice** gate — same order as {@code GET /root-cause})
+   * 2. Assigning {@link RootCauseSegment#getServerRank() serverRank} 1..N in that order (AI payload
+   *    only; not persisted on {@code GET /root-cause} cache rows)
+   * 3. Removing internal-only fields like problematic_count from baseline and segment metrics
+   *
+   * <p>Low-volume segments are <b>not</b> filtered here: {@link RootCauseService} /
+   * {@link ScreenRcaService} already applies baseline-vs-slice gates before cache, and dropping
+   * slices by {@code minSegmentVolumePct} of
+   * baseline hid high-lift cohorts from the LLM while {@code GET /root-cause} still returned them
+   * (HTTP audit Bucket 1). The RCA agent prompt aligns eligibility with this payload ({@code metrics}
+   * + {@code deltas}); it does not drop cohorts for missing per-segment historical volume.
    */
   private RootCauseResult sanitizeForAiReport(RootCauseResult result) {
     Map<String, Object> sanitizedBaseline = sanitizeMetrics(result.getBaseline());
-    double minVolumePct = rootCauseConfig.getMinSegmentVolumePct();
 
-    // Calculate minimum volume threshold based on baseline
-    long baselineVolume = NumberCoercionUtils.toLong(result.getBaseline().get("volume"));
-    double minVolumeThreshold = baselineVolume * (minVolumePct / 100.0);
-
-    // Filter segments by volume, sort by problematic_count descending, then sanitize
-    List<RootCauseSegment> filteredAndSortedSegments = result.getSegments().stream()
-        .filter(s -> isSegmentVolumeAboveThreshold(s, minVolumeThreshold))
-        .sorted(Comparator.comparingLong(this::getProblematicCount).reversed())
-        .map(s -> RootCauseSegment.builder()
-            .label(s.getLabel())
-            .dimensions(s.getDimensions())
-            .metrics(sanitizeMetrics(s.getMetrics()))
-            .deltas(s.getDeltas())
-            .exampleSessionIds(s.getExampleSessionIds())
-            .build())
-        .toList();
+    final List<RootCauseSegment> incoming =
+        result.getSegments() != null ? result.getSegments() : List.of();
+    List<RootCauseSegment> sortedSegments =
+        IntStream.range(0, incoming.size())
+            .mapToObj(
+                i -> {
+                  RootCauseSegment s = incoming.get(i);
+                  return RootCauseSegment.builder()
+                      .label(s.getLabel())
+                      .dimensions(s.getDimensions())
+                      .metrics(sanitizeMetrics(s.getMetrics()))
+                      .deltas(s.getDeltas())
+                      .exampleSessionIds(s.getExampleSessionIds())
+                      .serverRank(i + 1)
+                      .build();
+                })
+            .toList();
 
     return result.toBuilder()
         .baseline(sanitizedBaseline)
-        .segments(filteredAndSortedSegments)
+        .segments(sortedSegments)
         .build();
-  }
-
-  private static boolean isSegmentVolumeAboveThreshold(RootCauseSegment segment, double threshold) {
-    if (segment.getMetrics() == null) {
-      return false;
-    }
-    long volume = NumberCoercionUtils.toLong(segment.getMetrics().get("volume"));
-    return volume >= threshold;
-  }
-
-  private long getProblematicCount(RootCauseSegment segment) {
-    if (segment.getMetrics() == null) {
-      return 0L;
-    }
-    return NumberCoercionUtils.toLong(segment.getMetrics().get("problematic_count"));
   }
 
   private static Map<String, Object> sanitizeMetrics(Map<String, Object> metrics) {

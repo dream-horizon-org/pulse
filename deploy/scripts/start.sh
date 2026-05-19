@@ -147,7 +147,8 @@ docker run -d \
     -e "MYSQL_USER=${MYSQL_USER}" \
     -e "MYSQL_PASSWORD=${MYSQL_PASSWORD}" \
     -v "${VOLUME_MYSQL}:/var/lib/mysql" \
-    -v "${DEPLOY_DIR}/db/mysql-init.sql:/docker-entrypoint-initdb.d/init.sql:ro" \
+    -v "${DEPLOY_DIR}/db/mysql-init.sql:/docker-entrypoint-initdb.d/mysql-init.sql:ro" \
+    -v "${ROOT_DIR}/backend/db/shared/mysql-default-project-interactions.sql:/docker-entrypoint-initdb.d/includes/mysql-default-project-interactions.sql:ro" \
     --health-cmd "mysqladmin ping -h localhost -u${MYSQL_USER} -p${MYSQL_PASSWORD}" \
     --health-interval 10s \
     --health-timeout 5s \

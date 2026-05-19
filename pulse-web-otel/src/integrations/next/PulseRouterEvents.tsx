@@ -1,6 +1,7 @@
 "use client";
 
 import React, { Suspense, type JSX } from "react";
+import { PulseIntegrationErrorBoundary } from "../react/pulse-integration-error-boundary";
 import { useNextAppRouterTracking } from "./useNextAppRouterTracking";
 import type {
   PulseRouterEventsProps,
@@ -19,9 +20,12 @@ function NavigationEventsInner(
 /**
  * Drop-in component for Next.js App Router screen tracking.
  *
- * Renders nothing — wraps {@link useNextAppRouterTracking} in a `<Suspense>`
+ * Renders nothing — wraps `useNextAppRouterTracking` in a `<Suspense>`
  * boundary so `useSearchParams` does not force the entire page tree into
  * client-side rendering during SSR pre-rendering.
+ *
+ * Wraps tracking in an error boundary so render failures log via
+ * `PulseWebLogger.alwaysError` without crashing the host app.
  *
  * Place it inside your root layout:
  *
@@ -47,8 +51,10 @@ export function PulseRouterEvents({
   ...hookProps
 }: PulseRouterEventsProps): JSX.Element {
   return (
-    <Suspense fallback={null}>
-      <NavigationEventsInner {...hookProps} />
-    </Suspense>
+    <PulseIntegrationErrorBoundary context="next-app">
+      <Suspense fallback={null}>
+        <NavigationEventsInner {...hookProps} />
+      </Suspense>
+    </PulseIntegrationErrorBoundary>
   );
 }

@@ -11,6 +11,7 @@ REPORT_AGENT_NAME = "ReportAgent"
 PIPELINE_AGENT_NAME = "PulseAIPipeline"
 RCA_AGENT_NAME = "RcaAgent"
 SCREEN_RCA_NARRATIVE_AGENT_NAME = "ScreenRcaNarrativeAgent"
+SESSION_RCA_NARRATIVE_AGENT_NAME = "SessionRcaNarrativeAgent"
 
 CORE_ANALYSIS_AGENT_NAME = "CoreAnalysis"
 DEPENDENT_ANALYSIS_AGENT_NAME = "DependentAnalysis"
@@ -70,8 +71,40 @@ SESSION_SCOPE_PROJECT_ID_LEN = 256
 # Keeps ephemeral RCA sessions separate from real chat users in the shared session_service.
 USER_ID_RCA = "rca_report_service"
 USER_ID_SCREEN_RCA = "screen_rca_narrative_service"
+USER_ID_SESSION_RCA = "session_rca_narrative_service"
 # Authentication
 PULSE_ACCESS_TOKEN_ENV_KEY = 'PULSE_ACCESS_TOKEN'
 PULSE_REFRESH_TOKEN_ENV_KEY = 'PULSE_REFRESH_TOKEN'
 
 PULSE_USER_EMAIL_ENV_KEY = "PULSE_USER_EMAIL"
+
+# ── Chat memory / compaction ─────────────────────────────────────────────────
+# Target token budget per LLM request (history only — does not include the
+# incoming user message for the current turn).
+# Derived from: Gemini Flash latency sweet-spot at ~40K tokens.
+TOKEN_BUDGET = 80_000
+
+# Number of chars per token (Gemini heuristic: 1 token ≈ 4 chars for plain text).
+CHARS_PER_TOKEN = 4
+
+# JSON payloads (function_call args, function_response) tokenize more densely
+# than prose — Gemini averages ~3 chars/token on structured JSON.
+CHARS_PER_TOKEN_JSON = 3
+
+# Tool responses older than this many turns are compacted into structured
+# summaries.  The most recent K turns keep raw tool payloads for full fidelity
+# on follow-up questions.
+# Math: 5 raw turns × 3,500 tokens = 17,500; leaves ~16,300 tokens for
+# compacted older turns at ~800 tokens each → supports ~25 total turns.
+TOOL_AGE_THRESHOLD = 5
+
+# Hard safety cap on the number of conversation turns kept in the LLM window.
+# Prevents runaway growth if the token estimator underestimates (e.g., very
+# large tool payloads).
+MAX_WINDOW_SAFETY_CAP = 30
+
+# Cost estimates used for documentation and tuning reference only.
+# Not used at runtime — the token estimator operates on actual event content.
+_FIXED_OVERHEAD_ESTIMATE = 6_200   # System prompts + tool definitions (tokens)
+_RAW_TURN_COST_ESTIMATE = 3_500    # User text + assistant text + 2-3 tool responses
+_COMPACTED_TURN_COST_ESTIMATE = 800  # After tool response compaction

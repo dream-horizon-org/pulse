@@ -1,6 +1,11 @@
 import { AlertState } from "../../screens/AlertListingPage/AlertListingPage.interface";
 
-export type AlertStatusFilter = "FIRING" | "NORMAL" | "SNOOZED" | "NO_DATA" | null;
+export type AlertStatusFilter =
+  | "FIRING"
+  | "NORMAL"
+  | "SNOOZED"
+  | "NO_DATA"
+  | null;
 
 export type GetAlertListQueryParams = {
   queryParams: {
@@ -32,9 +37,7 @@ export type AlertListItem = {
   evaluation_period: number;
   evaluation_interval: number;
   severity_id: number;
-  notification_channel_id: number;
-  notification_type: string;
-  notification_config: string;
+  channel_event_mapping_id: number;
   created_by: string;
   updated_by: string | null;
   created_at: string;
@@ -53,6 +56,3 @@ export type GetAlertListResponse = {
   limit: number;
   offset: number;
 };
-
-
-
