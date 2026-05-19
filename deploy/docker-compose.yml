@@ -42,6 +42,8 @@ services:
     depends_on:
       mysql:
         condition: service_healthy
+      pulse-db-migrate:
+        condition: service_completed_successfully
     networks:
       - pulse-network
     restart: "no"
