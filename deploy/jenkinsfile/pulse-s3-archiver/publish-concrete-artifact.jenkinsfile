@@ -64,7 +64,7 @@ pipeline {
                             git add pom.xml
                             git commit -m "chore: bump pulse-s3-archiver version to ${nextVersion}-SNAPSHOT"
 
-                            git push https://${GIT_USER}:${GIT_TOKEN}@github.com/dream-horizon-org/pulse.git HEAD:feat/kafka-service
+                            git push https://${GIT_USER}:${GIT_TOKEN}@github.com/dream-horizon-org/pulse.git HEAD:main
                         """
                     }
                 }
