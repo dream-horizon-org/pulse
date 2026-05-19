@@ -63,7 +63,7 @@ export function OrganizationProjects() {
         setError("Failed to switch to project");
       }
     },
-    [projects, navigateToProject, organizationId],
+    [projects, navigateToProject],
   );
 
   // Trigger refresh on mount to ensure fresh data
