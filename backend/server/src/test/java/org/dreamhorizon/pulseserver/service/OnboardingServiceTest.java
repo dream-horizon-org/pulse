@@ -8,24 +8,20 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import io.reactivex.rxjava3.core.Completable;
 import io.reactivex.rxjava3.core.Maybe;
 import io.reactivex.rxjava3.core.Single;
 import java.util.Collections;
 import java.util.List;
-import org.dreamhorizon.pulseserver.dao.project.models.Project;
 import org.dreamhorizon.pulseserver.dao.tenant.models.Tenant;
-import org.dreamhorizon.pulseserver.dto.ProjectCreationResult;
 import org.dreamhorizon.pulseserver.dto.request.ReqUserInfo;
 import org.dreamhorizon.pulseserver.model.User;
 import org.dreamhorizon.pulseserver.service.tenant.TenantService;
-import org.dreamhorizon.pulseserver.service.tenant.models.CreateTenantRequest;
+import org.dreamhorizon.pulseserver.service.tenant.dto.TenantWithProjectResult;
 import org.dreamhorizon.pulseserver.service.tier.TierService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -34,9 +30,6 @@ class OnboardingServiceTest {
 
   @Mock
   TenantService tenantService;
-
-  @Mock
-  ProjectService projectService;
 
   @Mock
   OpenFgaService openFgaService;
@@ -67,7 +60,6 @@ class OnboardingServiceTest {
   void setUp() {
     onboardingService = new OnboardingService(
         tenantService,
-        projectService,
         openFgaService,
         jwtService,
         userService,
@@ -93,13 +85,13 @@ class OnboardingServiceTest {
         .build();
   }
 
-  private Project createProject(String projectId, String tenantId, String name) {
-    return Project.builder()
-        .projectId(projectId)
-        .tenantId(tenantId)
-        .name(name)
-        .isActive(true)
-        .build();
+  private TenantWithProjectResult createTenantWithProjectResult(
+      String tenantId, String projectId, String rawApiKey) {
+    TenantWithProjectResult r = new TenantWithProjectResult();
+    r.setTenantId(tenantId);
+    r.setProjectId(projectId);
+    r.setRawApiKey(rawApiKey);
+    return r;
   }
 
   @Nested
@@ -109,19 +101,14 @@ class OnboardingServiceTest {
     void shouldCompleteOnboardingSuccessfully() {
       User user = createUser(USER_ID, EMAIL, NAME, FIREBASE_UID);
       Tenant tenant = createTenant(TENANT_ID, ORG_NAME, 1);
-      Project project = createProject(PROJECT_ID, TENANT_ID, PROJECT_NAME);
-      ProjectCreationResult creationResult = ProjectCreationResult.builder()
-          .project(project)
-          .rawApiKey(API_KEY)
-          .build();
+      TenantWithProjectResult tenantWithProject =
+          createTenantWithProjectResult(TENANT_ID, PROJECT_ID, API_KEY);
 
       when(userService.getOrCreateUser(EMAIL, NAME, FIREBASE_UID)).thenReturn(Single.just(user));
       when(openFgaService.getUserTenants(USER_ID)).thenReturn(Single.just(Collections.emptyList()));
-      when(tenantService.createTenant(any(CreateTenantRequest.class))).thenReturn(Single.just(tenant));
-      when(projectService.createProject(any(String.class), eq(PROJECT_NAME), eq(PROJECT_DESC), any(ReqUserInfo.class)))
-          .thenReturn(Single.just(creationResult));
-      when(openFgaService.assignTenantRole(eq(USER_ID), any(String.class), eq("admin")))
-          .thenReturn(Completable.complete());
+      when(tenantService.createTenantWithProject(any(ReqUserInfo.class), eq(ORG_NAME), eq(PROJECT_NAME), any(), any()))
+          .thenReturn(Single.just(tenantWithProject));
+      when(tenantService.getTenant(TENANT_ID)).thenReturn(Maybe.just(tenant));
       when(tierService.getTierNameById(1)).thenReturn(Maybe.just("free"));
       when(jwtService.generateAccessToken(eq(USER_ID), eq(EMAIL), eq(NAME), any(String.class))).thenReturn("access-token");
       when(jwtService.generateRefreshToken(eq(USER_ID), eq(EMAIL), eq(NAME), any(String.class))).thenReturn("refresh-token");
@@ -134,6 +121,7 @@ class OnboardingServiceTest {
       assertThat(result.getUserId()).isEqualTo(USER_ID);
       assertThat(result.getEmail()).isEqualTo(EMAIL);
       assertThat(result.getName()).isEqualTo(NAME);
+      assertThat(result.getTenantId()).isEqualTo(TENANT_ID);
       assertThat(result.getTenantName()).isEqualTo(ORG_NAME);
       assertThat(result.getTier()).isEqualTo("free");
       assertThat(result.getProjectId()).isEqualTo(PROJECT_ID);
@@ -145,16 +133,7 @@ class OnboardingServiceTest {
       assertThat(result.getExpiresIn()).isEqualTo(JwtService.ACCESS_TOKEN_VALIDITY_SECONDS);
       assertThat(result.getRedirectTo()).isEqualTo("/projects/" + PROJECT_ID);
 
-      ArgumentCaptor<CreateTenantRequest> tenantReqCaptor = ArgumentCaptor.forClass(CreateTenantRequest.class);
-      verify(tenantService).createTenant(tenantReqCaptor.capture());
-      assertThat(tenantReqCaptor.getValue().getName()).isEqualTo(ORG_NAME);
-
-      ArgumentCaptor<ReqUserInfo> userInfoCaptor = ArgumentCaptor.forClass(ReqUserInfo.class);
-      verify(projectService).createProject(
-          any(), eq(PROJECT_NAME), eq(PROJECT_DESC), userInfoCaptor.capture());
-      assertThat(userInfoCaptor.getValue().getUserId()).isEqualTo(USER_ID);
-      assertThat(userInfoCaptor.getValue().getEmail()).isEqualTo(EMAIL);
-      assertThat(userInfoCaptor.getValue().getName()).isEqualTo(NAME);
+      verify(tenantService).createTenantWithProject(any(ReqUserInfo.class), eq(ORG_NAME), eq(PROJECT_NAME), any(), any());
     }
 
     @Test
@@ -170,16 +149,16 @@ class OnboardingServiceTest {
               .blockingGet());
 
       assertThat(ex.getMessage()).contains("already part of an organization");
-      verify(tenantService, never()).createTenant(any(CreateTenantRequest.class));
+      verify(tenantService, never()).createTenantWithProject(any(), any(), any(), any(), any());
     }
 
     @Test
-    void shouldFailWhenTenantCreationFails() {
+    void shouldFailWhenTenantWithProjectCreationFails() {
       User user = createUser(USER_ID, EMAIL, NAME, FIREBASE_UID);
 
       when(userService.getOrCreateUser(EMAIL, NAME, FIREBASE_UID)).thenReturn(Single.just(user));
       when(openFgaService.getUserTenants(USER_ID)).thenReturn(Single.just(Collections.emptyList()));
-      when(tenantService.createTenant(any(CreateTenantRequest.class)))
+      when(tenantService.createTenantWithProject(any(ReqUserInfo.class), any(), any(), any(), any()))
           .thenReturn(Single.error(new RuntimeException("Tenant creation failed")));
 
       RuntimeException ex = assertThrows(RuntimeException.class, () ->
@@ -190,21 +169,17 @@ class OnboardingServiceTest {
     }
 
     @Test
-    void shouldUseFreeAsDefaultTier() {
+    void shouldUseFreeAsDefaultTierWhenTierNotFound() {
       User user = createUser(USER_ID, EMAIL, NAME, FIREBASE_UID);
       Tenant tenant = createTenant(TENANT_ID, ORG_NAME, 99);
-      Project project = createProject(PROJECT_ID, TENANT_ID, PROJECT_NAME);
-      ProjectCreationResult creationResult = ProjectCreationResult.builder()
-          .project(project)
-          .rawApiKey(API_KEY)
-          .build();
+      TenantWithProjectResult tenantWithProject =
+          createTenantWithProjectResult(TENANT_ID, PROJECT_ID, API_KEY);
 
       when(userService.getOrCreateUser(EMAIL, NAME, FIREBASE_UID)).thenReturn(Single.just(user));
       when(openFgaService.getUserTenants(USER_ID)).thenReturn(Single.just(Collections.emptyList()));
-      when(tenantService.createTenant(any(CreateTenantRequest.class))).thenReturn(Single.just(tenant));
-      when(projectService.createProject(any(String.class), eq(PROJECT_NAME), eq(PROJECT_DESC), any(ReqUserInfo.class)))
-          .thenReturn(Single.just(creationResult));
-      when(openFgaService.assignTenantRole(any(), any(), eq("admin"))).thenReturn(Completable.complete());
+      when(tenantService.createTenantWithProject(any(ReqUserInfo.class), any(), any(), any(), any()))
+          .thenReturn(Single.just(tenantWithProject));
+      when(tenantService.getTenant(TENANT_ID)).thenReturn(Maybe.just(tenant));
       when(tierService.getTierNameById(99)).thenReturn(Maybe.empty());
       when(jwtService.generateAccessToken(any(), any(), any(), any())).thenReturn("access-token");
       when(jwtService.generateRefreshToken(any(), any(), any(), any())).thenReturn("refresh-token");
