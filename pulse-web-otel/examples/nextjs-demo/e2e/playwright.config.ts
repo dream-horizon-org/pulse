@@ -9,7 +9,7 @@ export default defineConfig({
   testIgnore: "*.ch.spec.ts",
   timeout: 30_000,
   retries: 1,
-  reporter: [["html", { outputFolder: "e2e-report", open: "never" }]],
+  reporter: [["list"], ["html", { outputFolder: "e2e-report", open: "never" }]],
   use: {
     // Dedicated port so E2E always spawns this demo (avoids clashing with :3003 dev servers).
     baseURL: "http://localhost:3013",
