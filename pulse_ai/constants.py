@@ -11,6 +11,7 @@ REPORT_AGENT_NAME = "ReportAgent"
 PIPELINE_AGENT_NAME = "PulseAIPipeline"
 RCA_AGENT_NAME = "RcaAgent"
 SCREEN_RCA_NARRATIVE_AGENT_NAME = "ScreenRcaNarrativeAgent"
+SESSION_RCA_NARRATIVE_AGENT_NAME = "SessionRcaNarrativeAgent"
 
 CORE_ANALYSIS_AGENT_NAME = "CoreAnalysis"
 DEPENDENT_ANALYSIS_AGENT_NAME = "DependentAnalysis"
@@ -74,6 +75,7 @@ SESSION_SCOPE_PROJECT_ID_LEN = 256
 # Keeps ephemeral RCA sessions separate from real chat users in the shared session_service.
 USER_ID_RCA = "rca_report_service"
 USER_ID_SCREEN_RCA = "screen_rca_narrative_service"
+USER_ID_SESSION_RCA = "session_rca_narrative_service"
 # Authentication
 PULSE_ACCESS_TOKEN_ENV_KEY = 'PULSE_ACCESS_TOKEN'
 PULSE_REFRESH_TOKEN_ENV_KEY = 'PULSE_REFRESH_TOKEN'

@@ -168,7 +168,15 @@ export type NetworkSpanOptionalConfig = {
 
 /** RFC 9110 + PATCH (RFC 5789) — methods outside this set use `_OTHER` + `http.request.method_original`. */
 const KNOWN_HTTP_METHODS = new Set([
-  "GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS", "CONNECT", "TRACE",
+  "GET",
+  "POST",
+  "PUT",
+  "DELETE",
+  "PATCH",
+  "HEAD",
+  "OPTIONS",
+  "CONNECT",
+  "TRACE",
 ]);
 
 /**
@@ -280,6 +288,12 @@ export function sanitizeHttpUrl(
     u.pathname = normalizeUrlPath(u.pathname);
     return u.toString();
   } catch {
+    if (!privacy.captureQueryParams) {
+      const qIdx = rawUrl.indexOf("?");
+      if (qIdx >= 0) {
+        return rawUrl.slice(0, qIdx);
+      }
+    }
     return rawUrl;
   }
 }
@@ -459,6 +473,9 @@ export function applyPulseHttpClientSpanAttributes(params: {
     span.setAttribute(ak.HTTP_REQUEST_METHOD_ORIGINAL, upperMethod);
   }
   span.setAttribute(ak.URL_FULL, sanitized);
+  // Upstream OTel Fetch/XHR instrumentations may set legacy `http.url` with query;
+  // keep it aligned with sanitized `url.full` so CH/manual audits do not see `?` leaks.
+  span.setAttribute("http.url", sanitized);
   span.setAttribute(ak.SERVER_ADDRESS, parsed.hostname);
   let serverPort: number | undefined;
   if (parsed.port !== "") {
