@@ -25,7 +25,6 @@
           "dataCollectionState": "ALLOWED",
           "android": {
             "kotlin19Compat": true,
-            "okHttpInstrumentation": { "enabled": true },
             "instrumentation": {
               "interaction": { "enabled": true },
               "activity": { "enabled": true },

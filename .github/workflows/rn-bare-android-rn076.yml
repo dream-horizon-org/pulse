@@ -86,23 +86,55 @@ jobs:
 
           # Make ~/.m2 visible to the consumer's Gradle build (mavenLocal first so the
           # m2-publish job's Layer 3 artifacts win over any stale Maven Central copies).
+          # RN 0.76's template uses centralized repos in settings.gradle via
+          # dependencyResolutionManagement { ... }. Older templates kept an
+          # allprojects { repositories { } } block in android/build.gradle. Patch
+          # whichever this template happens to ship; fail only if neither is found.
           python3 - <<'PY'
           import re, pathlib
-          p = pathlib.Path("android/build.gradle")
-          src = p.read_text()
-          # Inject mavenLocal() as the first entry in allprojects { repositories { } }.
-          patched, n = re.subn(
-              r"(allprojects\s*\{\s*repositories\s*\{)",
-              r"\1\n    mavenLocal()",
-              src,
-              count=1,
-          )
-          if n == 0:
-              raise SystemExit("Could not find allprojects { repositories { } } in android/build.gradle")
-          p.write_text(patched)
+
+          INJECT = "mavenLocal()"
+          injected = False
+
+          settings = pathlib.Path("android/settings.gradle")
+          if settings.exists():
+              src = settings.read_text()
+              patched, n = re.subn(
+                  r"(dependencyResolutionManagement\s*\{[\s\S]*?repositories\s*\{)",
+                  rf"\1\n        {INJECT}",
+                  src,
+                  count=1,
+              )
+              if n:
+                  settings.write_text(patched)
+                  injected = True
+                  print("Injected mavenLocal() into android/settings.gradle")
+
+          build = pathlib.Path("android/build.gradle")
+          if build.exists():
+              src = build.read_text()
+              patched, n = re.subn(
+                  r"(allprojects\s*\{[\s\S]*?repositories\s*\{)",
+                  rf"\1\n        {INJECT}",
+                  src,
+                  count=1,
+              )
+              if n:
+                  build.write_text(patched)
+                  injected = True
+                  print("Injected mavenLocal() into android/build.gradle")
+
+          if not injected:
+              raise SystemExit(
+                  "Could not locate a repositories { } block to inject mavenLocal() into "
+                  "(checked android/settings.gradle and android/build.gradle)."
+              )
           PY
 
-          grep -A8 "allprojects" android/build.gradle | head -15
+          echo "--- android/settings.gradle (head) ---"
+          head -40 android/settings.gradle || true
+          echo "--- android/build.gradle (allprojects/repositories) ---"
+          grep -nE "allprojects|repositories|mavenLocal" android/build.gradle | head -20 || true
 
       - name: Pull in Pulse's own JS deps via the bare RN app
         working-directory: ${{ runner.temp }}
