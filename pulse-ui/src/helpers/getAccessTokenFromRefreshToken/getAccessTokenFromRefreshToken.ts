@@ -6,7 +6,7 @@ import { makeRequestToServer } from "../makeRequestToServer";
 import { GetAccessTokenFromRefreshTokenSuccessResponse } from "./getAccessTokenFromRefreshToken.interface";
 
 export const getAndSetAccessTokenFromRefreshToken =
-  async (): Promise<boolean> => {
+  async (tenantId?: string): Promise<boolean> => {
     try {
       const refreshToken = getCookies(COOKIES_KEY.REFRESH_TOKEN);
 
@@ -18,11 +18,16 @@ export const getAndSetAccessTokenFromRefreshToken =
         return false;
       }
 
+      const body: Record<string, string> = { refreshToken };
+      if (tenantId) {
+        body.tenantId = tenantId;
+      }
+
       const response = await makeRequestToServer({
         url: `${API_BASE_URL}${API_ROUTES.REFRESH_TOKEN.apiPath}`,
         init: {
           method: API_ROUTES.REFRESH_TOKEN.method,
-          body: JSON.stringify({ refreshToken }),
+          body: JSON.stringify(body),
         },
       });
 
@@ -39,6 +44,9 @@ export const getAndSetAccessTokenFromRefreshToken =
             setCookies(COOKIES_KEY.SYSTEM_ROLE, data.systemRole);
           } else {
             removeCookie(COOKIES_KEY.SYSTEM_ROLE);
+          }
+          if (tenantId) {
+            setCookies(COOKIES_KEY.TENANT_ID, tenantId);
           }
           return true;
         }
