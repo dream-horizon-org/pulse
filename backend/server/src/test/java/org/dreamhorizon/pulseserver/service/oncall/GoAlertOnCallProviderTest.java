@@ -215,6 +215,201 @@ class GoAlertOnCallProviderTest {
   }
 
   @Nested
+  class ServiceIdOverride {
+
+    @Test
+    void shouldUseProvidedServiceIdOverConfigDefault() {
+      setupConfig(URL, API_KEY, USER_API_KEY, SERVICE_ID);
+
+      String customServiceId = "custom-svc-override";
+
+      JsonObject serviceResponse = new JsonObject()
+          .put("data", new JsonObject()
+              .put("service", new JsonObject()
+                  .put("onCallUsers", new JsonArray()
+                      .add(new JsonObject()
+                          .put("userID", USER_ID)
+                          .put("userName", USER_NAME)
+                          .put("stepNumber", 0)))));
+
+      JsonObject userResponse = new JsonObject()
+          .put("data", new JsonObject()
+              .put("user", new JsonObject()
+                  .put("id", USER_ID)
+                  .put("name", USER_NAME)
+                  .put("email", USER_EMAIL)));
+
+      when(webClient.postAbs(anyString())).thenReturn(httpRequest);
+      when(httpRequest.putHeader(anyString(), anyString())).thenReturn(httpRequest);
+      when(httpRequest.rxSendJsonObject(any(JsonObject.class)))
+          .thenReturn(Single.just(httpResponse))
+          .thenReturn(Single.just(httpResponse));
+      when(httpResponse.statusCode()).thenReturn(200);
+      when(httpResponse.bodyAsJsonObject())
+          .thenReturn(serviceResponse)
+          .thenReturn(userResponse);
+
+      List<OnCallUser> result = provider.getOnCallUsers(customServiceId).blockingGet();
+
+      assertThat(result).hasSize(1);
+      assertThat(result.get(0).getEmail()).isEqualTo(USER_EMAIL);
+    }
+
+    @Test
+    void shouldFallbackToConfigServiceIdWhenProvidedIsNull() {
+      setupConfig(URL, API_KEY, USER_API_KEY, SERVICE_ID);
+
+      JsonObject serviceResponse = new JsonObject()
+          .put("data", new JsonObject()
+              .put("service", new JsonObject()
+                  .put("onCallUsers", new JsonArray()
+                      .add(new JsonObject()
+                          .put("userID", USER_ID)
+                          .put("userName", USER_NAME)
+                          .put("stepNumber", 0)))));
+
+      JsonObject userResponse = new JsonObject()
+          .put("data", new JsonObject()
+              .put("user", new JsonObject()
+                  .put("id", USER_ID)
+                  .put("name", USER_NAME)
+                  .put("email", USER_EMAIL)));
+
+      when(webClient.postAbs(anyString())).thenReturn(httpRequest);
+      when(httpRequest.putHeader(anyString(), anyString())).thenReturn(httpRequest);
+      when(httpRequest.rxSendJsonObject(any(JsonObject.class)))
+          .thenReturn(Single.just(httpResponse))
+          .thenReturn(Single.just(httpResponse));
+      when(httpResponse.statusCode()).thenReturn(200);
+      when(httpResponse.bodyAsJsonObject())
+          .thenReturn(serviceResponse)
+          .thenReturn(userResponse);
+
+      List<OnCallUser> result = provider.getOnCallUsers(null).blockingGet();
+
+      assertThat(result).hasSize(1);
+    }
+
+    @Test
+    void shouldFallbackToConfigServiceIdWhenProvidedIsBlank() {
+      setupConfig(URL, API_KEY, USER_API_KEY, SERVICE_ID);
+
+      JsonObject serviceResponse = new JsonObject()
+          .put("data", new JsonObject()
+              .put("service", new JsonObject()
+                  .put("onCallUsers", new JsonArray()
+                      .add(new JsonObject()
+                          .put("userID", USER_ID)
+                          .put("userName", USER_NAME)
+                          .put("stepNumber", 0)))));
+
+      JsonObject userResponse = new JsonObject()
+          .put("data", new JsonObject()
+              .put("user", new JsonObject()
+                  .put("id", USER_ID)
+                  .put("name", USER_NAME)
+                  .put("email", USER_EMAIL)));
+
+      when(webClient.postAbs(anyString())).thenReturn(httpRequest);
+      when(httpRequest.putHeader(anyString(), anyString())).thenReturn(httpRequest);
+      when(httpRequest.rxSendJsonObject(any(JsonObject.class)))
+          .thenReturn(Single.just(httpResponse))
+          .thenReturn(Single.just(httpResponse));
+      when(httpResponse.statusCode()).thenReturn(200);
+      when(httpResponse.bodyAsJsonObject())
+          .thenReturn(serviceResponse)
+          .thenReturn(userResponse);
+
+      List<OnCallUser> result = provider.getOnCallUsers("  ").blockingGet();
+
+      assertThat(result).hasSize(1);
+    }
+
+    @Test
+    void shouldReturnEmptyWhenBothServiceIdsAreNull() {
+      setupConfig(URL, API_KEY, USER_API_KEY, null);
+
+      List<OnCallUser> result = provider.getOnCallUsers(null).blockingGet();
+
+      assertThat(result).isEmpty();
+    }
+
+    @Test
+    void shouldUseServiceApiKeyWhenUserApiKeyIsNull() {
+      setupConfig(URL, API_KEY, null, SERVICE_ID);
+
+      JsonObject serviceResponse = new JsonObject()
+          .put("data", new JsonObject()
+              .put("service", new JsonObject()
+                  .put("onCallUsers", new JsonArray()
+                      .add(new JsonObject()
+                          .put("userID", USER_ID)
+                          .put("userName", USER_NAME)
+                          .put("stepNumber", 0)))));
+
+      JsonObject userResponse = new JsonObject()
+          .put("data", new JsonObject()
+              .put("user", new JsonObject()
+                  .put("id", USER_ID)
+                  .put("name", USER_NAME)
+                  .put("email", USER_EMAIL)));
+
+      when(webClient.postAbs(anyString())).thenReturn(httpRequest);
+      when(httpRequest.putHeader(anyString(), anyString())).thenReturn(httpRequest);
+      when(httpRequest.rxSendJsonObject(any(JsonObject.class)))
+          .thenReturn(Single.just(httpResponse))
+          .thenReturn(Single.just(httpResponse));
+      when(httpResponse.statusCode()).thenReturn(200);
+      when(httpResponse.bodyAsJsonObject())
+          .thenReturn(serviceResponse)
+          .thenReturn(userResponse);
+
+      List<OnCallUser> result = provider.getOnCallUsers().blockingGet();
+
+      assertThat(result).hasSize(1);
+    }
+
+    @Test
+    void shouldHandleNullDataInUserResponse() {
+      setupConfig(URL, API_KEY, USER_API_KEY, SERVICE_ID);
+
+      JsonObject serviceResponse = new JsonObject()
+          .put("data", new JsonObject()
+              .put("service", new JsonObject()
+                  .put("onCallUsers", new JsonArray()
+                      .add(new JsonObject()
+                          .put("userID", USER_ID)
+                          .put("userName", USER_NAME)
+                          .put("stepNumber", 0)))));
+
+      JsonObject userResponse = new JsonObject().putNull("data");
+
+      when(webClient.postAbs(anyString())).thenReturn(httpRequest);
+      when(httpRequest.putHeader(anyString(), anyString())).thenReturn(httpRequest);
+      when(httpRequest.rxSendJsonObject(any(JsonObject.class)))
+          .thenReturn(Single.just(httpResponse))
+          .thenReturn(Single.just(httpResponse));
+      when(httpResponse.statusCode()).thenReturn(200);
+      when(httpResponse.bodyAsJsonObject())
+          .thenReturn(serviceResponse)
+          .thenReturn(userResponse);
+
+      List<OnCallUser> result = provider.getOnCallUsers().blockingGet();
+
+      assertThat(result).isEmpty();
+    }
+
+    @Test
+    void shouldReturnEmptyWhenServiceIdBlankAndConfigBlank() {
+      setupConfig(URL, API_KEY, USER_API_KEY, "  ");
+
+      List<OnCallUser> result = provider.getOnCallUsers("").blockingGet();
+
+      assertThat(result).isEmpty();
+    }
+  }
+
+  @Nested
   class EmailResolution {
 
     @Test
