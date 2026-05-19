@@ -31,6 +31,7 @@ import { checkRefreshTokenExpiration } from "../../helpers/checkRefreshTokenExpi
 import { logEvent } from "../../helpers/googleAnalytics";
 import { useLogin } from "../../hooks";
 import { useTenantContext } from "../../contexts";
+import { trackPulseEvent } from "../../pulse-web-rum/pulseRumAnalytics";
 
 export function Login() {
   const navigate = useNavigate();
@@ -79,7 +80,11 @@ export function Login() {
     );
   };
 
-  const handleLoginSuccess = async (data: any, firebaseToken: string) => {
+  const handleLoginSuccess = async (
+    data: any,
+    firebaseToken: string,
+    loginMethod: "google" | "dev",
+  ) => {
     if (data.needsOnboarding) {
       removeCookie(COOKIES_KEY.SYSTEM_ROLE);
       sessionStorage.setItem(
@@ -111,6 +116,12 @@ export function Login() {
       const redirectPath = data.redirectTo || `/${data.tenantId}/projects`;
       navigate(redirectPath);
     }
+
+    trackPulseEvent("user_logged_in", {
+      method: loginMethod,
+      needs_onboarding: data.needsOnboarding,
+      system_role: data.systemRole,
+    });
   };
 
   const onFirebaseGoogleLogin = async () => {
@@ -126,7 +137,7 @@ export function Login() {
       loginMutation.mutate(firebaseToken, {
         onSuccess: async (response) => {
           if (response?.data) {
-            await handleLoginSuccess(response.data, firebaseToken);
+            await handleLoginSuccess(response.data, firebaseToken, "google");
           }
         },
         onError: (error) => {
@@ -155,7 +166,7 @@ export function Login() {
     loginMutation.mutate(firebaseToken, {
       onSuccess: async (response) => {
         if (response?.data) {
-          await handleLoginSuccess(response.data, firebaseToken);
+          await handleLoginSuccess(response.data, firebaseToken, "dev");
         }
       },
       onError: (error) => {

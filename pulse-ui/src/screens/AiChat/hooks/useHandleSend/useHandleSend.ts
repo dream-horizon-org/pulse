@@ -5,6 +5,7 @@ import { useGetPulseAiResponse } from "../useGetPulseAiResponse";
 import type { AiChartConfig, AiTableConfig } from "../../types/chat";
 import { ChatMessage } from "../../types/chat";
 import { AI_CHAT_TEXTS, AI_CHAT_LIMITS } from "../../AiChat.constants";
+import { trackPulseEvent } from "../../../../pulse-web-rum/pulseRumAnalytics";
 
 /** Characters displayed per animation tick — controls typewriter speed. */
 const TYPEWRITER_CHARS_PER_TICK = 4;
@@ -119,6 +120,11 @@ export const useHandleSend = () => {
         timestamp: Date.now(),
       };
       addMessage(activeSessionId, userMsg);
+
+      trackPulseEvent("ai_chat_message_sent", {
+        session_id: activeSessionId,
+        message_length: text.length,
+      });
 
       if (
         sessions.find((s) => s.id === activeSessionId)?.title ===

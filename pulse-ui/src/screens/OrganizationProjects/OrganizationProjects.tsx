@@ -27,6 +27,7 @@ import { showNotification } from "../../helpers/showNotification";
 import classes from "./OrganizationProjects.module.css";
 import { TIERS } from "../../constants/Tiers";
 import { TENANT_ROLES } from "../../constants/Roles";
+import { trackPulseEvent } from "../../pulse-web-rum/pulseRumAnalytics";
 
 export function OrganizationProjects() {
   const { organizationId } = useParams<{ organizationId: string }>();
@@ -41,7 +42,10 @@ export function OrganizationProjects() {
   const [error, setError] = useState<string | null>(null);
 
   const handleProjectClick = useCallback(
-    async (selectedProjectId: string) => {
+    async (
+      selectedProjectId: string,
+      source: "manual" | "auto_select" = "manual",
+    ) => {
       try {
         const selectedProject = projects.find(
           (p) => p.projectId === selectedProjectId,
@@ -50,12 +54,16 @@ export function OrganizationProjects() {
           setError("Project not found");
           return;
         }
+        trackPulseEvent("project_selected", {
+          project_id: selectedProjectId,
+          source,
+        });
         await navigateToProject(selectedProjectId);
       } catch (err) {
         setError("Failed to switch to project");
       }
     },
-    [projects, navigateToProject],
+    [projects, navigateToProject, organizationId],
   );
 
   // Trigger refresh on mount to ensure fresh data
@@ -93,7 +101,7 @@ export function OrganizationProjects() {
       const lastUsedProjectId = sessionStorage.getItem("pulse_last_project_id");
       const projectToSelect =
         projects.find((p) => p.projectId === lastUsedProjectId) || projects[0];
-      handleProjectClick(projectToSelect.projectId);
+      handleProjectClick(projectToSelect.projectId, "auto_select");
     }
   }, [
     projectId,

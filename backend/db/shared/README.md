@@ -10,8 +10,9 @@ Single canonical seed for **`default-project` critical interactions** (local dev
 | **BasicInteraction** + **FullShopping** | Legacy samples (auto ids **6–7**) |
 | `interaction_id` **100–116** | INT-P / lottery-demo + SDK auto-events |
 | **Next.js demo** (ids **201–554** band + **501–502**, **509**, **541**, **544–545**, **551**, **554**, etc.) | Matches `pulse-web-otel/examples/nextjs-demo/e2e/nextjs-demo.spec.ts` (see file header for ID map) |
+| `interaction_id` **600–610** | **pulse-ui** RUM journeys (`Pulse.trackEvent`); see `pulse-ui/src/pulse-web-rum/PULSE_UI_INTERACTIONS.md` |
 
-Single **`INSERT`** batch for INT-P **100–116** continues with Next.js rows through **541**; ends with **`ON DUPLICATE KEY UPDATE`** and **`ALTER TABLE interaction AUTO_INCREMENT = 600`**.
+Single **`INSERT`** batch for INT-P **100–116** continues with Next.js rows through **541**, then **pulse-ui 600–610**; ends with **`ON DUPLICATE KEY UPDATE`** and **`ALTER TABLE interaction AUTO_INCREMENT = 620`**.
 
 ### Usage
 

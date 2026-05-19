@@ -52,6 +52,7 @@ import {
 import { useGetJobStatus } from "../../hooks/useGetJobStatus";
 import { useGetInteractionDetails } from "../../hooks/useGetInteractionDetails";
 import { logEvent } from "../../helpers/googleAnalytics";
+import { trackPulseEvent } from "../../pulse-web-rum/pulseRumAnalytics";
 
 export function CriticalInteractionForm() {
   const theme = useMantineTheme();
@@ -197,6 +198,9 @@ export function CriticalInteractionForm() {
         <IconCircleCheckFilled />,
         theme.colors.teal[6],
       );
+      trackPulseEvent("interaction_updated", {
+        interaction_name: useCaseName,
+      });
       navigateToCriticalInteractionListingPage();
       setUpdateFlowStarted(false);
     },
@@ -334,6 +338,9 @@ export function CriticalInteractionForm() {
       <IconCircleCheckFilled />,
       theme.colors.teal[6],
     );
+    trackPulseEvent("interaction_created", {
+      interaction_name: formData.name,
+    });
     navigateToCriticalInteractionListingPage();
   };
 

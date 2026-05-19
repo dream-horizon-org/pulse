@@ -1917,9 +1917,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@dreamhorizonorg/pulse-web@npm:0.0.3":
-  version: 0.0.3
-  resolution: "@dreamhorizonorg/pulse-web@npm:0.0.3"
+"@dreamhorizonorg/pulse-web@npm:0.0.4":
+  version: 0.0.4
+  resolution: "@dreamhorizonorg/pulse-web@npm:0.0.4"
   dependencies:
     "@opentelemetry/api": "npm:^1.9.0"
     "@opentelemetry/api-logs": "npm:^0.217.0"
@@ -1951,7 +1951,7 @@ __metadata:
       optional: true
     react-router-dom:
       optional: true
-  checksum: 10c0/d9ad0e564a60f056c3deb596488bf19c32f18baaeeb82af40e7663fb5ba753cd2e83df45f3ac8f8e596307afaeaccac552c351f418096e36b0ef739230ba65f0
+  checksum: 10c0/990953cb212c0c4f6bb466c21cf7c5610108470920ebf0d23c16825d5ae1111d33d43d5e05dbe12424749a0e7d203159a1eb82b3e8069738255461b58dbbf17b
   languageName: node
   linkType: hard
 
@@ -15067,7 +15067,7 @@ __metadata:
   dependencies:
     "@babel/core": "npm:^7.16.0"
     "@dagrejs/dagre": "npm:^3.0.0"
-    "@dreamhorizonorg/pulse-web": "npm:0.0.3"
+    "@dreamhorizonorg/pulse-web": "npm:0.0.4"
     "@hello-pangea/dnd": "npm:^16.6.0"
     "@mantine/core": "npm:^7.11.1"
     "@mantine/dates": "npm:^7.11.1"

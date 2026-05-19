@@ -49,6 +49,10 @@ import { usePermissions } from "../../hooks";
 import { useSessionReplayFromActiveConfig } from "../../hooks/useSessionReplayFromActiveConfig";
 import { performLogout } from "../../helpers/logout";
 import { ConfirmationModal } from "../ConfirmationModal";
+import {
+  trackPulseEvent,
+  trackNavItemClicked,
+} from "../../pulse-web-rum/pulseRumAnalytics";
 
 export function Navbar({
   toggle,
@@ -108,7 +112,8 @@ export function Navbar({
     setPopoverOpened(false);
   };
 
-  function onItemClick(routeTo: string) {
+  function onItemClick(routeTo: string, navLabel?: string) {
+    trackNavItemClicked(routeTo, navLabel);
     // Transform flat routes to project-scoped routes
     if (
       contextProjectId &&
@@ -133,17 +138,14 @@ export function Navbar({
       }
       const afterProjectId = segments.slice(2);
       const projectSubPath =
-        afterProjectId.length === 0
-          ? "/"
-          : `/${afterProjectId.join("/")}`;
+        afterProjectId.length === 0 ? "/" : `/${afterProjectId.join("/")}`;
 
       // Home is "/": every other path also starts with "/", so only match the project root.
       if (navPath === NAVBAR_ROUTES.HOME) {
         return afterProjectId.length === 0;
       }
 
-      const normalizedNav =
-        navPath.startsWith("/") ? navPath : `/${navPath}`;
+      const normalizedNav = navPath.startsWith("/") ? navPath : `/${navPath}`;
       return (
         projectSubPath === normalizedNav ||
         projectSubPath.startsWith(`${normalizedNav}/`)
@@ -176,6 +178,8 @@ export function Navbar({
 
   const onLogoutClick = async () => {
     setLogoutModalOpened(false);
+
+    trackPulseEvent("user_logged_out");
 
     // Clear all React contexts explicitly
     clearProject();
@@ -258,7 +262,7 @@ export function Navbar({
                 <Box
                   key={item.tabName}
                   className={`${classes.navbarItem} ${active ? classes.navbarItemActive : ""}`}
-                  onClick={() => onItemClick(item.routeTo)}
+                  onClick={() => onItemClick(item.routeTo, item.tabName)}
                   style={{
                     justifyContent: opened ? "flex-start" : "center",
                     padding: opened ? "12px" : "12px 8px",

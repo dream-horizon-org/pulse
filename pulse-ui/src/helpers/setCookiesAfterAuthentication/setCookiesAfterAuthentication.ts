@@ -2,6 +2,7 @@ import { LoginResponse } from "../login";
 import { OnboardingResponse } from "../onboarding";
 import { removeCookie, setCookies } from "../cookies";
 import { COOKIES_KEY, LOGIN_RESPONSE_KEYS } from "../../constants";
+import { syncPulseUserIdentity } from "../../pulse-web-rum/pulseRumAnalytics";
 
 export type SetCookiesAfterAuthOptions = {
   // DEPRECATED: projectId and projectName now handled by React Context
@@ -51,9 +52,24 @@ export const setCookiesAfterAuthentication = (
     setCookies(COOKIES_KEY.TIER, loginResponse.tier);
   }
 
-  if (LOGIN_RESPONSE_KEYS.SYSTEM_ROLE in loginResponse && loginResponse.systemRole) {
+  if (
+    LOGIN_RESPONSE_KEYS.SYSTEM_ROLE in loginResponse &&
+    loginResponse.systemRole
+  ) {
     setCookies(COOKIES_KEY.SYSTEM_ROLE, loginResponse.systemRole);
   } else {
     removeCookie(COOKIES_KEY.SYSTEM_ROLE);
   }
+
+  syncPulseUserIdentity({
+    userId: loginResponse.userId,
+    email: loginResponse.email,
+    name: loginResponse.name,
+    tenantId: loginResponse.tenantId,
+    tenantRole: loginResponse.tenantRole,
+    systemRole:
+      LOGIN_RESPONSE_KEYS.SYSTEM_ROLE in loginResponse
+        ? loginResponse.systemRole
+        : undefined,
+  });
 };

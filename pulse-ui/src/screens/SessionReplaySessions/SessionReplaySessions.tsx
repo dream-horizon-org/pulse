@@ -24,6 +24,7 @@ import { SessionListEmptyState } from "./components/SessionListEmptyState";
 import { AdvancedFilterBuilder } from "./components/AdvancedFilterBuilder";
 import { SessionsTableToolbar } from "./components/SessionsTableToolbar";
 import { SessionsVirtualList } from "./components/SessionsVirtualList";
+import { trackPulseEvent } from "../../pulse-web-rum/pulseRumAnalytics";
 
 export function SessionReplaySessions() {
   const { trackClick } = useAnalytics("SessionReplaySessions");
@@ -202,6 +203,9 @@ export function SessionReplaySessions() {
 
   const handleWatchSession = (sessionId: string) => {
     trackClick(`WatchSession_${sessionId}`);
+    trackPulseEvent("session_replay_opened", {
+      session_id: sessionId,
+    });
     navigate(`${sessionReplayBase}/${sessionId}`);
   };
 

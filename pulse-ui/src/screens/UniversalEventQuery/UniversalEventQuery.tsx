@@ -44,6 +44,7 @@ import { CancelQueryResponseType } from "../../hooks/useCancelQuery/useCancelQue
 import { logEvent } from "../../helpers/googleAnalytics";
 import { QueryHistory } from "./components/QueryHistory";
 import { SuggestedQueries } from "./components/SuggestedQueries";
+import { trackPulseEvent } from "../../pulse-web-rum/pulseRumAnalytics";
 
 export const UniversalEventQuery = () => {
   const editorRef = useRef<any>(null);
@@ -221,7 +222,9 @@ export const UniversalEventQuery = () => {
     }
   };
 
-  const handleCancelQueryError = (error: { error: { message: string; cause?: string } }) => {
+  const handleCancelQueryError = (error: {
+    error: { message: string; cause?: string };
+  }) => {
     if (error.error) {
       handleNotification({
         type: NotificationTypes.ERROR,
@@ -311,6 +314,9 @@ export const UniversalEventQuery = () => {
     setIsRunningQuery(true);
     runQuery({ query, emailId: `${getCookies(COOKIES_KEY.USER_EMAIL)}` });
     logEvent(UNIVERSAL_QUERY_TEXTS.EXECUTE_QUERY, UNIVERSAL_QUERY_TEXTS.TITLE);
+    trackPulseEvent("universal_query_executed", {
+      query_length: query.trim().length,
+    });
   };
 
   const fetchMoreData = () => {

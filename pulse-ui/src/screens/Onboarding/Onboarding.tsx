@@ -28,6 +28,7 @@ import { showNotification } from "../../helpers/showNotification";
 import { LoaderWithMessage } from "../../components/LoaderWithMessage";
 import { useMantineTheme } from "@mantine/core";
 import { useTenantContext, useProjectContext } from "../../contexts";
+import { trackPulseEvent } from "../../pulse-web-rum/pulseRumAnalytics";
 
 interface OnboardingUserData {
   userId: string;
@@ -128,6 +129,12 @@ export function Onboarding() {
             // Clear sessionStorage
             sessionStorage.removeItem("onboarding_user");
             sessionStorage.removeItem("firebase_token");
+
+            trackPulseEvent("onboarding_completed", {
+              org_name: data.tenantName,
+              project_id: data.projectId,
+              tenant_id: data.tenantId,
+            });
 
             // Use navigateToProject to fetch full details and navigate
             if (data.projectId) {

@@ -57,6 +57,7 @@ import { PulseType } from "../../constants/PulseOtelSemcov";
 import dayjs from "dayjs";
 import { useAnalytics } from "../../hooks/useAnalytics";
 import { useProjectContext } from "../../contexts";
+import { useTrackScreenLoadedOnce } from "../../pulse-web-rum/useTrackScreenLoadedOnce";
 
 interface InteractionMetrics {
   interactionName: string;
@@ -74,7 +75,8 @@ export function CriticalInteractionList() {
   const { trackClick } = useAnalytics("InteractionList");
   const searchFields = Object.fromEntries(searchParams.entries());
   const [opened, { open, close }] = useDisclosure(false);
-  const [drawerOpened, { open: openDrawer, close: closeDrawer }] = useDisclosure(false);
+  const [drawerOpened, { open: openDrawer, close: closeDrawer }] =
+    useDisclosure(false);
   const [checked, setChecked] = useState(
     searchFields?.userEmail === getCookies(COOKIES_KEY.USER_EMAIL),
   );
@@ -133,6 +135,19 @@ export function CriticalInteractionList() {
       status: filters.status || undefined,
     },
     pageIdentifier: "list",
+  });
+
+  useTrackScreenLoadedOnce({
+    eventName: "interactions_list_loaded",
+    ready:
+      !isLoading &&
+      !isFetching &&
+      Boolean(response?.data) &&
+      pagination.page === 0,
+    resetKey: projectId,
+    attrs: {
+      interaction_count: response?.data?.totalInteractions ?? 0,
+    },
   });
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -252,7 +267,8 @@ export function CriticalInteractionList() {
     setRows({ totalInteractions: 0, interactions: [] });
   };
 
-  const { data: suggestionsResponse, isLoading: isLoadingSuggestions } = useGetSuggestedInteractions();
+  const { data: suggestionsResponse, isLoading: isLoadingSuggestions } =
+    useGetSuggestedInteractions();
   const dismissMutation = useDismissSuggestion();
   const activateMutation = useActivateSuggestion();
   const suggestions = suggestionsResponse?.data?.suggestions ?? [];
@@ -570,9 +586,16 @@ export function CriticalInteractionList() {
         <Box className={classes.drawerHeader}>
           <Box className={classes.drawerTitleRow}>
             <h2 className={classes.suggestionsTitle}>Suggested Interactions</h2>
-            <span className={classes.suggestionsCount}>{suggestions.length}</span>
+            <span className={classes.suggestionsCount}>
+              {suggestions.length}
+            </span>
           </Box>
-          <Button variant="subtle" size="sm" onClick={closeDrawer} className={classes.drawerCloseBtn}>
+          <Button
+            variant="subtle"
+            size="sm"
+            onClick={closeDrawer}
+            className={classes.drawerCloseBtn}
+          >
             &times;
           </Button>
         </Box>
@@ -580,7 +603,12 @@ export function CriticalInteractionList() {
           {isLoadingSuggestions ? (
             <Box className={classes.drawerCardList}>
               {Array.from({ length: 3 }).map((_, index) => (
-                <CardSkeleton key={index} height={180} showHeader contentRows={3} />
+                <CardSkeleton
+                  key={index}
+                  height={180}
+                  showHeader
+                  contentRows={3}
+                />
               ))}
             </Box>
           ) : (

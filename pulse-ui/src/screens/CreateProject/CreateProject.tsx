@@ -17,6 +17,7 @@ import { showNotification } from "../../helpers/showNotification";
 import { ROUTES } from "../../constants";
 import { useCreateProject } from "../../hooks";
 import { PROJECT_ROLES } from "../../constants/Roles";
+import { trackPulseEvent } from "../../pulse-web-rum/pulseRumAnalytics";
 
 export function CreateProject() {
   const navigate = useNavigate();
@@ -73,6 +74,10 @@ export function CreateProject() {
               <IconFolder />,
               "#0ec9c2",
             );
+
+            trackPulseEvent("project_created", {
+              project_id: projectData.projectId,
+            });
 
             // Use navigateToProject to fetch full details and navigate
             await navigateToProject(projectData.projectId);
