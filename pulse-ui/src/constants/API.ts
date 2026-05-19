@@ -26,9 +26,9 @@ export const GET_RCA_JOB_ROUTE = {
  */
 export const GET_RCA_STATUS_ROUTE = {
   key: "GET_RCA_STATUS",
-  apiPath: (entityKey: string, date?: string | null) => {
+  apiPath: (entityKey: string, rcaType: string, date?: string | null) => {
     const params = new URLSearchParams({
-      rcaType: "INTERACTION",
+      rcaType,
       entityKey,
     });
     if (date) {
