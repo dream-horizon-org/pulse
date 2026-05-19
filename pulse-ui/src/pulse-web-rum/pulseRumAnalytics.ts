@@ -34,6 +34,10 @@ export type PulseUserIdentity = {
   systemRole?: string;
 };
 
+/** Last identity passed before {@link Pulse.init} async bootstrap completes. */
+let pendingIdentity: PulseUserIdentity | null = null;
+let identityFlushInFlight: Promise<void> | null = null;
+
 function sanitizeAttributes(
   attrs?: PulseEventAttributes,
 ): Record<string, string | number | boolean> | undefined {
@@ -44,6 +48,62 @@ function sanitizeAttributes(
     out[key] = value;
   }
   return Object.keys(out).length > 0 ? out : undefined;
+}
+
+function applyPulseUserIdentity(identity: PulseUserIdentity): void {
+  Pulse.setUserId(identity.userId);
+  const properties: Record<string, string | null> = {
+    email: identity.email ?? null,
+    name: identity.name ?? null,
+    tenant_id: identity.tenantId ?? null,
+    tenant_role: identity.tenantRole ?? null,
+    system_role: identity.systemRole ?? null,
+  };
+  Pulse.setUserProperties(properties);
+}
+
+function readPulseUserIdentityFromCookies(): PulseUserIdentity | null {
+  const userId = getCookies(PULSE_RUM_COOKIE_KEYS.USER_ID);
+  if (!userId || userId === "undefined") return null;
+
+  return {
+    userId,
+    email: getCookies(PULSE_RUM_COOKIE_KEYS.USER_EMAIL) || undefined,
+    name: getCookies(PULSE_RUM_COOKIE_KEYS.USER_NAME) || undefined,
+    tenantId: getCookies(PULSE_RUM_COOKIE_KEYS.TENANT_ID) || undefined,
+    tenantRole: getCookies(PULSE_RUM_COOKIE_KEYS.TENANT_ROLE) || undefined,
+    systemRole: getCookies(PULSE_RUM_COOKIE_KEYS.SYSTEM_ROLE) || undefined,
+  };
+}
+
+/**
+ * Applies {@link pendingIdentity} (or cookies) after {@link Pulse.whenReady}.
+ * Safe to call from login handlers before the SDK finishes async init.
+ */
+export function flushPulseUserIdentityWhenReady(): Promise<void> {
+  if (!isPulseRumEnabled()) {
+    return Promise.resolve();
+  }
+  if (identityFlushInFlight) {
+    return identityFlushInFlight;
+  }
+
+  identityFlushInFlight = (async () => {
+    try {
+      await Pulse.whenReady();
+      if (!Pulse.isInitialized()) return;
+
+      const identity = pendingIdentity ?? readPulseUserIdentityFromCookies();
+      if (!identity?.userId?.trim()) return;
+
+      applyPulseUserIdentity(identity);
+      pendingIdentity = null;
+    } finally {
+      identityFlushInFlight = null;
+    }
+  })();
+
+  return identityFlushInFlight;
 }
 
 /** No-op when RUM is disabled or Pulse has not finished init. */
@@ -64,36 +124,27 @@ export function trackNavItemClicked(routeTo: string, navLabel?: string): void {
 }
 
 export function syncPulseUserIdentity(identity: PulseUserIdentity): void {
-  if (!isPulseRumEnabled() || !Pulse.isInitialized()) return;
+  if (!isPulseRumEnabled()) return;
   if (!identity.userId?.trim()) return;
 
-  Pulse.setUserId(identity.userId);
+  if (!Pulse.isInitialized()) {
+    pendingIdentity = identity;
+    void flushPulseUserIdentityWhenReady();
+    return;
+  }
 
-  const properties: Record<string, string | null> = {
-    email: identity.email ?? null,
-    name: identity.name ?? null,
-    tenant_id: identity.tenantId ?? null,
-    tenant_role: identity.tenantRole ?? null,
-    system_role: identity.systemRole ?? null,
-  };
-  Pulse.setUserProperties(properties);
+  pendingIdentity = null;
+  applyPulseUserIdentity(identity);
 }
 
 export function syncPulseUserIdentityFromCookies(): void {
-  const userId = getCookies(PULSE_RUM_COOKIE_KEYS.USER_ID);
-  if (!userId || userId === "undefined") return;
-
-  syncPulseUserIdentity({
-    userId,
-    email: getCookies(PULSE_RUM_COOKIE_KEYS.USER_EMAIL) || undefined,
-    name: getCookies(PULSE_RUM_COOKIE_KEYS.USER_NAME) || undefined,
-    tenantId: getCookies(PULSE_RUM_COOKIE_KEYS.TENANT_ID) || undefined,
-    tenantRole: getCookies(PULSE_RUM_COOKIE_KEYS.TENANT_ROLE) || undefined,
-    systemRole: getCookies(PULSE_RUM_COOKIE_KEYS.SYSTEM_ROLE) || undefined,
-  });
+  const identity = readPulseUserIdentityFromCookies();
+  if (!identity) return;
+  syncPulseUserIdentity(identity);
 }
 
 export function clearPulseUserIdentity(): void {
+  pendingIdentity = null;
   if (!isPulseRumEnabled()) return;
   if (Pulse.isInitialized()) {
     Pulse.clearUserIdentity();
