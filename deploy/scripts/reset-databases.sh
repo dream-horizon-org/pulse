@@ -38,7 +38,17 @@ print_section "Stopping all services"
 # ── Step 2: Remove database volumes ──────────────────────────────────────
 print_section "Removing database volumes"
 
-for vol in "$VOLUME_MYSQL" "$VOLUME_CLICKHOUSE"; do
+# Named volumes (compose + CLI). Legacy compose project prefix before explicit `name:` in compose.
+_legacy_mysql_volume() {
+    local project="${COMPOSE_PROJECT_NAME:-deploy}"
+    echo "${project}_mysql-data"
+}
+_legacy_clickhouse_volume() {
+    local project="${COMPOSE_PROJECT_NAME:-deploy}"
+    echo "${project}_clickhouse-data"
+}
+
+for vol in "$VOLUME_MYSQL" "$VOLUME_CLICKHOUSE" "$(_legacy_mysql_volume)" "$(_legacy_clickhouse_volume)"; do
     if docker volume inspect "$vol" > /dev/null 2>&1; then
         docker volume rm "$vol" > /dev/null
         print_success "Removed volume $vol"
@@ -48,7 +58,7 @@ for vol in "$VOLUME_MYSQL" "$VOLUME_CLICKHOUSE"; do
 done
 
 # ── Step 3: Restart services ─────────────────────────────────────────────
-print_section "Starting services (init scripts will run automatically)"
+print_section "Starting services (Liquibase migrations run via pulse-db-migrate)"
 "$SCRIPT_DIR/start.sh" -d
 
 # ── Step 4: Verify ───────────────────────────────────────────────────────
@@ -87,6 +97,6 @@ else
     echo "  MySQL errors:      docker logs $CONTAINER_MYSQL 2>&1 | grep '^ERROR'"
     echo "  ClickHouse logs:   docker logs $CONTAINER_CLICKHOUSE"
     echo ""
-    echo "Fix the init scripts, then re-run this script."
+    echo "Fix migrations under backend/db/migrations/, then re-run this script."
     exit 1
 fi

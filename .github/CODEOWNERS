@@ -38,8 +38,7 @@
 /backend/spark/                             @yasir6jan @chiragSharmaD11 @princektripathi
 /backend/db/                                @mohithemnani11 @Sarabjyot123 @yasir6jan @princektripathi @chiragSharmaD11
 /backend/ingestion/                         @mohithemnani11 @Sarabjyot123 @yasir6jan @princektripathi @chiragSharmaD11
-/backend/db/prod/clickhouse/                @Racha2004 @yasir6jan @princektripathi @chiragSharmaD11
-/backend/db/dev/clickhouse/                 @Racha2004 @yasir6jan @princektripathi @chiragSharmaD11
+/backend/db/migrations/                     @Racha2004 @yasir6jan @princektripathi @chiragSharmaD11
 
 # ──────────────────────────────────────────────────────────────────────────────
 # AI / Agent tooling

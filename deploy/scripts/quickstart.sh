@@ -180,23 +180,17 @@ else
     print_success ".env file already exists"
 fi
 
-if [ ! -d db ]; then
-    print_error "Database initialization directory not found"
+if [ ! -d "$ROOT_DIR/backend/db/migrations" ]; then
+    print_error "Database migrations directory not found at backend/db/migrations"
     exit 1
 fi
-print_success "Database initialization files found"
+print_success "Database migration files found"
 
 if [ ! -f "$ROOT_DIR/backend/ingestion/otel-collector.yaml" ]; then
     print_error "OTEL collector config not found"
     exit 1
 fi
 print_success "OTEL collector configuration found"
-
-if [ ! -d "$ROOT_DIR/backend/db/migrations" ]; then
-    print_error "DB migrations directory not found at backend/db/migrations"
-    exit 1
-fi
-print_success "DB migrations directory found"
 
 load_env
 
@@ -332,7 +326,7 @@ if [ "$INIT_OK" = "false" ]; then
     echo "  MySQL errors:      docker logs $CONTAINER_MYSQL 2>&1 | grep '^ERROR'"
     echo "  ClickHouse logs:   docker logs $CONTAINER_CLICKHOUSE"
     echo ""
-    echo "Fix the init scripts, then run: ./deploy/scripts/reset-databases.sh"
+    echo "Fix backend/db/migrations or re-run: ./deploy/scripts/reset-databases.sh"
     exit 1
 fi
 

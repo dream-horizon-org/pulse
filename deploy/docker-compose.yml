@@ -688,8 +688,10 @@ networks:
 
 volumes:
   mysql-data:
+    name: pulse-mysql-data
     driver: local
   clickhouse-data:
+    name: pulse-clickhouse-data
     driver: local
   vector-data:
     driver: local

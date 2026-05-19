@@ -63,14 +63,10 @@ Template: `deploy/.env.example` → copy to `deploy/.env`
 | `stop.sh`            | Stop services (`-v` removes volumes)                                                                                                            |
 | `logs.sh`            | View logs (optionally filter by service)                                                                                                        |
 | `reset-databases.sh` | Drop volumes and reinitialize DBs                                                                                                               |
-| `init-clickhouse.sh` | Create ClickHouse tables from schema SQL                                                                                                        |
-
 ## Database Initialization
 
-- MySQL: `deploy/db/mysql-init.sql` mounted to `/docker-entrypoint-initdb.d/`
-- ClickHouse: `backend/db/dev/clickhouse/*.sql` and related SQL (session replay, session-summary MV,
-  funnel/journey results, event catalog mounts) via `clickhouse-init` + `deploy/scripts/init-clickhouse.sh` (uses
-  `pulse_user`/`pulse_password`)
+- MySQL + ClickHouse: managed by `pulse-db-migrate` (Liquibase). Migrations live in `backend/db/migrations/mysql/` and
+  `backend/db/migrations/clickhouse/`. The service runs `mvn liquibase:update` for both databases on startup.
 
 ## OTEL Collector Config
 

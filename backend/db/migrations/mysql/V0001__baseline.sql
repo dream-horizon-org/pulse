@@ -211,7 +211,7 @@ CREATE TABLE interaction (
 --   1) Web flows (interaction_id 1..5) — contract matches
 --      pulse-web-otel/examples/ecommerce-demo/public/interaction-config.mock.json
 --   2) BasicInteraction + FullShopping — legacy samples for other SDKs (auto ids 6, 7).
--- Keep in sync with backend/db/dev/mysql/mysql-init.sql interaction block.
+-- Interaction seed data — update this block for new default interactions.
 -- ============================================================================
 INSERT INTO interaction (interaction_id, project_id, name, status, details, is_archived, created_by, updated_by)
 VALUES

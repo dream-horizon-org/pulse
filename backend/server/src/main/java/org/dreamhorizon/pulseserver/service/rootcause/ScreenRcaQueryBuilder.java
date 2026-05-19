@@ -40,9 +40,7 @@ public final class ScreenRcaQueryBuilder {
   /**
    * WHERE: project, time window, {@code PulseType = app.click}, non-empty trimmed {@code ScreenName}.
    *
-   * <p>Requires materialized columns from {@code backend/db/dev/clickhouse/otel.otel_logs.sql}; apply
-   * {@code backend/db/dev/clickhouse/otel.otel_logs_z_alter_screen_rca_columns.sql}
-   * on clusters that predate those columns.
+   * <p>Requires materialized columns from {@code backend/db/migrations/clickhouse/V0001__01_otel_logs.sql}.
    */
   public static String baseWhereSql(
       RootCauseQueryBuilder.BindAccumulator acc,

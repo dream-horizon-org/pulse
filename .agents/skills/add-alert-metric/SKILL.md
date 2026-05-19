@@ -11,7 +11,7 @@ This is a cross-cutting change — a new alert metric touches 5 layers.
 ## Workflow
 
 ```
-- [ ] Step 1: MySQL migration — add metric to alert_metrics table
+- [ ] Step 1: MySQL migration — add row to alert_metrics (Liquibase)
 - [ ] Step 2: Backend — add to MetricType enum and ClickHouse query builder
 - [ ] Step 3: Alerts cron — verify evaluation handles new metric
 - [ ] Step 4: Frontend — add metric option to alert form
@@ -19,15 +19,27 @@ This is a cross-cutting change — a new alert metric touches 5 layers.
 - [ ] Step 6: Test end-to-end
 ```
 
-## Step 1: MySQL Migration
+## Step 1: MySQL Migration (Liquibase)
 
-Create `deploy/db/migration-add-<metric-name>.sql`:
+Add a new changeset under `backend/db/migrations/mysql/`, e.g. `V0002__add_my_new_metric.sql`:
+
 ```sql
-INSERT INTO alert_metrics (scope_type_id, metric_name, display_name, description)
-VALUES (1, 'MY_NEW_METRIC', 'My New Metric', 'Description of what this metric measures');
+--liquibase formatted sql
+
+--changeset db-migrations:V0002__add_my_new_metric runOnChange:false failOnError:true
+--comment Register MY_NEW_METRIC for alerts UI and cron evaluation
+
+INSERT INTO alert_metrics (scope_type_id, metric_name, display_name, 
+description)
+VALUES (1, 'MY_NEW_METRIC', 'My New Metric', 'Description of what this 
+metric measures');
 ```
 
-Update `deploy/db/mysql-init.sql` to include the new metric for fresh installs.
+Register it in `backend/db/migrations/mysql/changelog-root.xml` with a new `<include>`.
+
+**Fresh local installs:** baseline `V0001__baseline.sql` is only for greenfield DBs. Existing envs get the new changeset via `liquibase:update` (local: `pulse-db-migrate`; prod: Jenkins deploy or `db-migrations-sync`).
+
+Do **not** edit `V0001__baseline.sql` after it has been applied anywhere unless you follow the Liquibase checksum / clearCheckSums process.
 
 ## Step 2: Backend
 

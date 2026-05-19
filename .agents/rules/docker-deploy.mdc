@@ -18,7 +18,7 @@ alwaysApply: false
 | kafka | confluentinc/cp-kafka:7.6.0 | 9092 | — |
 | minio | minio/minio:latest | 9100→9000, 9101→9001 (console) | — |
 | minio-init | minio/mc:latest | — | minio |
-| clickhouse-init | clickhouse/clickhouse-server:25.4 | — | clickhouse **and** kafka (healthy) |
+| pulse-db-migrate | maven:3.9-eclipse-temurin-17 | — | mysql, clickhouse (healthy) |
 | pulse-session-capture | `backend/session-capture-service` | 3400 | kafka |
 | pulse-session-replay-ingestion | `backend/session-replay-ingestion` | — | kafka, minio-init |
 | pulse-heatmap-screenshot-ingestion | `backend/heatmap-screenshot-ingestion` | — | kafka, minio-init |
@@ -31,7 +31,7 @@ alwaysApply: false
 
 **otel-collector:** healthcheck is disabled in compose (scratch image); use `:13133` from the host for health.
 
-**clickhouse-init:** mounts `backend/db/dev/clickhouse/*.sql`, session replay + session-summary MV, `event-catalog-entries.sql`, `funnel-results.sql`, `journey-results.sql`; runs `deploy/scripts/init-clickhouse.sh` (applies otel, session replay, session-summary MV, and funnel/journey schemas when present).
+**pulse-db-migrate:** Liquibase-based schema migrations for MySQL and ClickHouse. Runs `liquibase:update` for both databases on startup, applying all pending changesets from `backend/db/migrations/`. Replaces the old `clickhouse-init` service and `mysql-init.sql` bootstrap.
 
 `pulse-server` and `pulse-alerts-cron` include `extra_hosts: host.docker.internal:host-gateway` so containers can reach OTLP on the host (optional JVM OpenTelemetry export; see below).
 
@@ -115,7 +115,7 @@ Credentials (defined in docker-compose, overridable via `.env`):
 | `logs.sh` | service name (e.g., `server`, `ai`, `otel-collector`) |
 | `quickstart.sh` | `[--no-cache] [--skip-env-check]` — builds + starts stack (includes AI) |
 | `reset-databases.sh` | drops volumes and reinitializes |
-| `init-clickhouse.sh` | creates ClickHouse tables from schema SQL + session-summary MV; optional funnel/journey SQL when files are present |
+| `pulse-db-migrate` | one-shot Liquibase container; applies `backend/db/migrations/` (MySQL as `MYSQL_ROOT_USER`, ClickHouse as `OTEL_CLICKHOUSE_USER`) |
 
 **Env validation:** `quickstart.sh` and `start.sh` validate `.env` against `docker-compose.yml`: **required** = variables in compose with no default (`${VAR}`); missing in `.env` → error. **Optional** = variables with a default in compose (`${VAR:-...}`); missing in `.env` → warning (compose uses default). No auto-copy from `.env.example`; only required keys must be set. Collector/config URL vars must be valid `http://` or `https://` URLs. Use `--skip-env-check` to skip. The parser in `deploy/scripts/common.sh` retains the last line even when `.env` has no trailing newline (e.g. pasted tokens).
 

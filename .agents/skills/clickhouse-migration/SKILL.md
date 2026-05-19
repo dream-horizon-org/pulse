@@ -9,64 +9,69 @@ disable-model-invocation: true
 ## Workflow
 
 ```
-- [ ] Step 1: Update the schema file
-- [ ] Step 2: Create migration script
-- [ ] Step 3: Update init script
-- [ ] Step 4: Update affected queries in backend
-- [ ] Step 5: Update AI agent schema registry
-- [ ] Step 6: Apply and verify
+- [ ] Step 1: Add Liquibase migration under backend/db/migrations/clickhouse/
+- [ ] Step 2: Register changeset in changelog-root.xml
+- [ ] Step 3: Update affected queries in backend
+- [ ] Step 4: Update AI agent schema registry
+- [ ] Step 5: Apply and verify
 ```
 
-## Step 1: Update Schema File
+## Step 1: Add Liquibase Migration
 
-Edit `backend/db/prod/clickhouse/*.sql` to reflect the final desired state. This file is used for fresh installs.
+Add a new file under `backend/db/migrations/clickhouse/` (e.g. `V0002__add_my_column.sql`) using Liquibase formatted SQL:
+
+```sql
+--liquibase formatted sql
+
+--changeset db-migrations:V0002__add_my_column runOnChange:false failOnError:true
+--comment Short description of the change
+
+ALTER TABLE otel.otel_traces ADD COLUMN IF NOT EXISTS new_column String DEFAULT '';
+```
+
+## Step 2: Register in Changelog
+
+Add an `<include>` entry to `backend/db/migrations/clickhouse/changelog-root.xml` (never edit existing includes).
 
 When you add or rename tables, materialized columns, or row-policy targets, update `.cursor/` docs to match (at minimum
 `agents/data-analyst.md`, `rules/clickhouse-sql.mdc`, `rules/pulse-architecture.mdc`, `commands/query-clickhouse.md`) or
 run `/audit-cursor-config` to catch drift.
 
-## Step 2: Create Migration Script
-
-Create `deploy/db/migration-clickhouse-<description>.sql`:
-
-```sql
--- Adding a new column
-ALTER TABLE otel.otel_traces ADD COLUMN IF NOT EXISTS new_column String DEFAULT '';
-
--- Adding a new table
-CREATE TABLE IF NOT EXISTS otel.my_new_table (
-    Timestamp DateTime64(9) CODEC(Delta, ZSTD(1)),
-    TraceId String CODEC(ZSTD(1)),
-    -- ... columns ...
-) ENGINE = MergeTree()
-PARTITION BY toDate(Timestamp)
-ORDER BY (TraceId, Timestamp)
-SETTINGS index_granularity = 8192;
-```
-
-## Step 3: Update Init Script
-
-If adding a new table, update `deploy/scripts/init-clickhouse.sh` to include it.
-
-## Step 4: Update Backend Queries
+## Step 3: Update Backend Queries
 
 Search for affected queries in:
 
 - `backend/server/src/main/java/.../service/` — ClickhouseMetricService and related
 - `backend/server/src/main/java/.../dao/` — any DAO querying the changed table
 
-## Step 5: Update AI Agent
+## Step 4: Update AI Agent
 
 **Note:** The AI agent currently has a flat structure (`pulse_ai/agent.py`) with no registries. If the change affects
 queryable tables/columns, update the root agent's instruction in `pulse_ai/agent.py` to reflect the new schema, or
 update registry files at the `pulse_ai/` root when they are added.
 
-## Step 6: Apply and Verify
+## Step 5: Apply and Verify
+
+**Local (Docker Compose):** `pulse-db-migrate` runs automatically after MySQL and ClickHouse are healthy.
 
 ```bash
-# Apply to running ClickHouse
-docker exec -i pulse-clickhouse clickhouse-client < deploy/db/migration-clickhouse-<desc>.sql
+cd deploy && ./scripts/start.sh -d
+# Or re-apply on existing DBs:
+docker logs pulse-db-migrate
+```
 
-# Verify
+**Manual Liquibase (same as the migrate container):**
+
+```bash
+cd backend/db
+mvn -B liquibase:update -Pclickhouse \
+  -Dliquibase.clickhouse.url="jdbc:clickhouse://localhost:8123/otel" \
+  -Dliquibase.clickhouse.username="${OTEL_CLICKHOUSE_USER:-pulse_user}" \
+  -Dliquibase.clickhouse.password="${OTEL_CLICKHOUSE_PASSWORD:-pulse_password}"
+```
+
+**Production:** Jenkins `db-migrations-sync` (status/validate/changelogSync) one time exercise and only `pulse-server-prod-deployment` (`liquibase:update` before Terraform apply) after the first time.
+
+```bash
 docker exec pulse-clickhouse clickhouse-client --query "DESCRIBE otel.otel_traces"
 ```

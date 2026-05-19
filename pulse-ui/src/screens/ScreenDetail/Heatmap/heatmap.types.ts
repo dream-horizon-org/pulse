@@ -10,7 +10,7 @@ export interface HeatmapTimeRange {
 
 /**
  * Sent as query/body `breakpoint`; must match `interaction_heatmaps_daily.Breakpoint`
- * (see `backend/db/prod/clickhouse/otel.interaction_heatmaps_daily.sql` MV).
+ * (see `backend/db/migrations/clickhouse/V0001__14_otel_interaction_heatmaps_daily.sql` MV).
  */
 export const HEATMAP_BREAKPOINT_VALUES = [
   "Mobile_Small",

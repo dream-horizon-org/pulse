@@ -21,10 +21,10 @@ alwaysApply: false
 | `otel_metrics_exp_histogram` | MergeTree | Exponential histogram OTLP metrics |
 | `otel_metrics` | View | Union of all five metric tables — Timestamp, Value, Count, Sum, MetricSource |
 | `stack_trace_events` | MergeTree | Symbolicated + grouped stack traces |
-| `session_summary` | AggregatingMergeTree | Per-session rollup (start/end, apdex, error counters, crash/anr/nonFatal). Fed by three MVs over `otel_traces_local`, `stack_trace_events_local`, `session_replay_events_local`. DDL: `backend/db/prod/clickhouse/otel.session_summary.sql`. |
-| `funnel_results` | MergeTree (prod: Replicated + Distributed) | Pre-computed funnel steps (FunnelId, StepIndex, UserCount, ConversionPct). DDL: `backend/db/prod/clickhouse/otel.funnel_results.sql`. |
-| `journey_results` | MergeTree (prod: Replicated + Distributed) | Path edges (JourneyId, Direction, PosFrom/PosTo, EventFrom/EventTo, UserCount). DDL: `backend/db/prod/clickhouse/otel.journey_results.sql`. |
-| `event_catalog_entries` | — | Distinct filter values per project. DDL: `backend/db/prod/clickhouse/otel.event_catalog_entries.sql`. |
+| `session_summary` | AggregatingMergeTree | Per-session rollup (start/end, apdex, error counters, crash/anr/nonFatal). Fed by three MVs over `otel_traces_local`, `stack_trace_events_local`, `session_replay_events_local`. DDL: `backend/db/migrations/clickhouse/V0001__16_otel_session_summary.sql`. |
+| `funnel_results` | MergeTree (prod: Replicated + Distributed) | Pre-computed funnel steps (FunnelId, StepIndex, UserCount, ConversionPct). DDL: `backend/db/migrations/clickhouse/V0001__04_otel_funnel_results.sql`. |
+| `journey_results` | MergeTree (prod: Replicated + Distributed) | Path edges (JourneyId, Direction, PosFrom/PosTo, EventFrom/EventTo, UserCount). DDL: `backend/db/migrations/clickhouse/V0001__05_otel_journey_results.sql`. |
+| `event_catalog_entries` | — | Distinct filter values per project. DDL: `backend/db/migrations/clickhouse/V0001__15_otel_event_catalog_entries.sql`. |
 | `project_monthly_usage` | AggregatingMergeTree | Monthly aggregates by `project_id`, `month`, `source` |
 | `root_cause_cache` | ReplacingMergeTree(`cached_at`) | RCA cache: `ProjectId`, keys, JSON `baseline` / `segments` |
 
@@ -32,7 +32,7 @@ alwaysApply: false
 
 Materialized views `project_monthly_*_mv` populate `project_monthly_usage` from traces, logs, metrics, and stack traces.
 
-Heatmap DDL lives in `backend/db/prod/clickhouse/otel.interaction_heatmaps_daily.sql`:
+Heatmap DDL lives in `backend/db/migrations/clickhouse/V0001__14_otel_interaction_heatmaps_daily.sql`:
 
 | Table / object | Engine | Purpose |
 |----------------|--------|---------|
@@ -97,7 +97,7 @@ All tables start their ORDER BY with `ProjectId` for multi-tenant isolation:
 | Table | ORDER BY |
 |-------|----------|
 | `otel_traces` | `(ProjectId, ServiceName, PulseType, SpanName, Timestamp)` |
-| `otel_logs` | `(ProjectId, PulseType, EventName, Timestamp)` (dev + prod DDL in `backend/db/*/clickhouse/01_otel.otel_logs.sql` / `otel.otel_logs.sql`) |
+| `otel_logs` | `(ProjectId, PulseType, EventName, Timestamp)` (DDL: `backend/db/migrations/clickhouse/V0001__01_otel_logs.sql`) |
 | `otel_metrics_gauge` | `(ProjectId, ServiceName, MetricName, Attributes, toUnixTimestamp64Nano(TimeUnix))` |
 | `otel_metrics_sum` | `(ProjectId, ServiceName, MetricName, Attributes, toUnixTimestamp64Nano(TimeUnix))` |
 | `otel_metrics_summary` | `(ProjectId, ServiceName, MetricName, Attributes, toUnixTimestamp64Nano(TimeUnix))` |
