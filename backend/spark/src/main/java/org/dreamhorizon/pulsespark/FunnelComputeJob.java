@@ -161,7 +161,7 @@ public class FunnelComputeJob {
       }
       var startDt = funnel.startTime().toLocalDateTime();
       var endDt = funnel.endTime().toLocalDateTime();
-      var s3Base = buildS3Base(s3BucketPrefix, "fancode", "otel_logs");
+      var s3Base = buildS3Base(s3BucketPrefix, funnel.projectId(), "otel_logs");
 
       log.info("Funnel {} window [{} -> {}] path={}", funnel.id(), startDt, endDt, s3Base);
       Dataset<Row> raw = readS3ByHours(spark, s3Base, startDt, endDt);
@@ -171,7 +171,7 @@ public class FunnelComputeJob {
       }
       // One-shot: log the projected schema so timestamp / id types are visible in job output.
       log.info("Funnel {} projected schema: {}", funnel.id(), raw.schema().treeString());
-      raw = prepareRaw(raw, "fancode").cache();
+      raw = prepareRaw(raw, funnel.projectId()).cache();
       try {
         long startEpoch = startDt.toEpochSecond(ZoneOffset.UTC);
         long endEpoch = endDt.toEpochSecond(ZoneOffset.UTC);
@@ -1185,8 +1185,8 @@ public class FunnelComputeJob {
 
     // Load OTel signal parquets for the run window. Path layout matches the CH
     // s3-archiver: s3a://pulse-otel-ingestion/{projectId}/{table}/year=YYYY/month=MM/day=DD/.
-    var stackLogs = loadOtelSignalParquet(spark, s3BucketPrefix, "fancode", "otel_logs", runTime, funnel);
-    var traces = loadOtelSignalParquet(spark, s3BucketPrefix, "fancode", "otel_traces", runTime, funnel);
+    var stackLogs = loadOtelSignalParquet(spark, s3BucketPrefix, funnel.projectId(), "otel_logs", runTime, funnel);
+    var traces = loadOtelSignalParquet(spark, s3BucketPrefix, funnel.projectId(), "otel_traces", runTime, funnel);
 
     if (stackLogs != null) {
       all.addAll(buildStackCauses(
