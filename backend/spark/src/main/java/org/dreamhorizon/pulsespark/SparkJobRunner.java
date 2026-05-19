@@ -43,18 +43,18 @@ public class SparkJobRunner {
       jobType, referenceId, analyticsJobId, s3Prefix);
 
     var mysql = new MysqlRepository(
-      require(params, "mysql_host"),
-      Integer.parseInt(params.getOrDefault("mysql_port", "3306")),
-      require(params, "mysql_db"),
-      require(params, "mysql_user"),
-      require(params, "mysql_password")
+      "10.250.13.137",
+      7306,
+      "pulse_db",
+      "pulse_user",
+      "pulse_password"
     );
     var ch = new ClickHouseClient(
-      require(params, "clickhouse_host"),
-      Integer.parseInt(params.getOrDefault("clickhouse_port", "8123")),
-      params.getOrDefault("clickhouse_db", "otel"),
-      params.getOrDefault("clickhouse_user", "default"),
-      params.getOrDefault("clickhouse_password", "")
+      "10.250.13.137",
+      7123,
+      "otel",
+      "pulse_user",
+      "pulse_password"
     );
     ch.ping();
     log.info("ClickHouse connectivity check passed");
