@@ -16,7 +16,7 @@ else
 fi
 
 exec java ${JAVA_AGENT} \
-  -Dlogback.configurationFile=logback.xml \
+  -Dlogback.configurationFile=logback/logback.xml \
   -Dvertx.disableDnsResolver=true \
   -jar pulse-s3-archiver.jar run \
   org.dreamhorizon.pulses3archiver.verticle.MainVerticle
