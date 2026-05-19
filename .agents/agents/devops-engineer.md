@@ -21,7 +21,9 @@ Services on `pulse-network` bridge:
 healthy)
 **Data Pipeline**: otel-collector (4317/4318 → ClickHouse). Session replay: pulse-session-capture (3400) → kafka →
 pulse-session-replay-ingestion → minio + ClickHouse. Heatmap screenshots: same Kafka topic →
-`pulse-heatmap-screenshot-ingestion` → S3 (`heatmap-assets`). Vector (14317/14318 → S3) is optional; enable via
+`pulse-heatmap-screenshot-ingestion` → S3 (`heatmap-assets`). **pulse-s3-archiver:** Kafka topics
+`pulse.traces` / `pulse.logs` / `pulse.metrics` (OTLP export) → Parquet → per-project S3 buckets **`pulse-otel-*`**
+(no host port; health in-container `:5000` in compose). Vector (14317/14318 → S3) is optional; enable via
 `VECTOR_ENABLED=true` in .env.
 **Application**: pulse-ai-agent (8000), pulse-server (8080), pulse-alerts-cron (4000), pulse-ui (3000)
 
@@ -44,7 +46,7 @@ Always use `docker ps` to verify actual running services and ports.
 - `REACT_APP_*` — frontend build-time args
 - `OPENFGA_*` — OpenFGA authorization service (store ID, model ID)
 - `SLACK_*` — Slack OAuth integration (client ID, secret, scopes, redirect URI)
-- `AWS_*` — AWS credentials for Athena/S3/EMR API
+- `AWS_*` — AWS credentials for Athena/S3/EMR API (also **pulse-s3-archiver** `PutObject` into per-project `pulse-otel-*` buckets)
 - `CONFIG_SERVICE_APPLICATION_EMR_SERVERLESS_*` — four required env vars for pulse-server when EMR is on (`ENABLED`,
   `REGION`, `APPLICATION_ID`, `EXECUTION_ROLE_ARN`); compose + `deploy/scripts/common.sh` default them for local dev; *
   *prod** requires `enabled=true` and non-blank values at startup. `deploy/scripts/start.sh` passes them into the server
@@ -58,7 +60,7 @@ Template: `deploy/.env.example` → copy to `deploy/.env`
 | Script               | Purpose                                                                                                                                         |
 |----------------------|-------------------------------------------------------------------------------------------------------------------------------------------------|
 | `quickstart.sh`      | Prereqs → build → start → health checks                                                                                                         |
-| `build.sh`           | Build images (`ui`, `server`, `cron`, `capture`, `ingestion`, `heatmap-ingestion`, `ai`, `all`, `--no-cache`; default no-args = ui+server+cron+capture+ingestion+heatmap-ingestion+ai) |
+| `build.sh`           | Build images (`ui`, `server`, `cron`, `capture`, `ingestion`, `heatmap-ingestion`, `s3-archiver`, `ai`, `all`, `--no-cache`; default no-args = ui+server+cron+capture+ingestion+heatmap-ingestion+s3-archiver+ai) |
 | `start.sh`           | Start services (`-d`, `--build`, `--no-cache`)                                                                                                  |
 | `stop.sh`            | Stop services (`-v` removes volumes)                                                                                                            |
 | `logs.sh`            | View logs (optionally filter by service)                                                                                                        |

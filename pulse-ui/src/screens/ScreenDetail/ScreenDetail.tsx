@@ -400,8 +400,8 @@ export function ScreenDetail(_props: ScreenDetailProps) {
                       : "N/A"}
                   </Text>
                 </Box>
-                {engagementData?.avgTimeToInteractive !== null &&
-                  engagementData?.avgTimeToInteractive !== undefined && (
+                {engagementData?.tti_p50 !== null &&
+                  engagementData?.tti_p50 !== undefined && (
                     <Box className={vitalsClasses.statItem}>
                       <Group
                         gap={4}
@@ -410,10 +410,10 @@ export function ScreenDetail(_props: ScreenDetailProps) {
                         justify="center"
                       >
                         <Text className={vitalsClasses.statLabel}>
-                          Time to Interactive
+                        TTI P50
                         </Text>
                         <Tooltip
-                          label="Average time to interactive: mean of screen interactive durations for this screen in the selected range."
+                          label="P50 time to interactive: 50th percentile of screen interactive durations for this screen in the selected range."
                           withArrow
                           multiline
                           w={260}
@@ -431,21 +431,68 @@ export function ScreenDetail(_props: ScreenDetailProps) {
                       <Text
                         className={vitalsClasses.statValue}
                         c={
-                          engagementData?.avgTimeToInteractive !== null &&
-                          engagementData?.avgTimeToInteractive !== undefined
+                          engagementData?.tti_p50 !== null &&
+                          engagementData?.tti_p50 !== undefined
                             ? "teal"
                             : "dimmed"
                         }
                       >
-                        {engagementData?.avgTimeToInteractive !== null &&
-                        engagementData?.avgTimeToInteractive !== undefined
-                          ? engagementData.avgTimeToInteractive >= 1
-                            ? `${engagementData.avgTimeToInteractive.toFixed(1)}s`
-                            : `${(engagementData.avgTimeToInteractive * 1000).toFixed(0)}ms`
+                        {engagementData?.tti_p50 !== null &&
+                        engagementData?.tti_p50 !== undefined
+                          ? engagementData.tti_p50 >= 1
+                            ? `${engagementData.tti_p50.toFixed(1)}s`
+                            : `${(engagementData.tti_p50 * 1000).toFixed(0)}ms`
                           : "N/A"}
                       </Text>
                     </Box>
                   )}
+                {engagementData?.tti_p95 !== null &&
+                  engagementData?.tti_p95 !== undefined && (
+                    <Box className={vitalsClasses.statItem}>
+                      <Group
+                        gap={4}
+                        wrap="nowrap"
+                        align="center"
+                        justify="center"
+                      >
+                        <Text className={vitalsClasses.statLabel}>
+                        TTI P95
+                        </Text>
+                        <Tooltip
+                          label="P95 time to interactive: 95th percentile of screen interactive durations for this screen in the selected range."
+                          withArrow
+                          multiline
+                          w={260}
+                        >
+                          <IconInfoCircle
+                            size={13}
+                            style={{
+                              opacity: 0.5,
+                              cursor: "help",
+                              flexShrink: 0,
+                            }}
+                          />
+                        </Tooltip>
+                      </Group>
+                      <Text
+                        className={vitalsClasses.statValue}
+                        c={
+                          engagementData?.tti_p95 !== null &&
+                          engagementData?.tti_p95 !== undefined
+                            ? "teal"
+                            : "dimmed"
+                        }
+                      >
+                        {engagementData?.tti_p95 !== null &&
+                        engagementData?.tti_p95 !== undefined
+                          ? engagementData.tti_p95 >= 1
+                            ? `${engagementData.tti_p95.toFixed(1)}s`
+                            : `${(engagementData.tti_p95 * 1000).toFixed(0)}ms`
+                          : "N/A"}
+                      </Text>
+                    </Box>
+                  )}
+                  
               </Box>
             </Box>
           </Box>

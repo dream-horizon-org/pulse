@@ -216,7 +216,8 @@ public class RootCauseService {
    * Segmentation outcome: mode follows the code path (flat vs hierarchy), not display labels — values
    * may contain ":" (e.g. geo names), and single-step hierarchy uses the same "Dim: value" label as flat.
    */
-  private record SegmentsWithMode(List<RootCauseSegment> segments, RootCauseAnalysisMode mode) {}
+  private record SegmentsWithMode(List<RootCauseSegment> segments, RootCauseAnalysisMode mode) {
+  }
 
   private Single<Optional<Map<String, Object>>> runBaseline(
       String projectId,
@@ -246,7 +247,7 @@ public class RootCauseService {
     Single<List<String>> dimOrderSingle =
         hybridEnabled
             ? computeHybridDimensionOrder(
-                projectId, interactionName, window, config.getDimensionOrder(), threshold)
+            projectId, interactionName, window, config.getDimensionOrder(), threshold)
             : Single.just(config.getDimensionOrder());
 
     return dimOrderSingle.flatMap(
@@ -258,23 +259,23 @@ public class RootCauseService {
                     if (optFirst.isEmpty()) {
                       log.debug("[RCA-SEGMENT] No first dimension picked, falling to flat mode");
                       return buildFlatSegments(
-                              projectId, interactionName, window, baseline, dimOrder, maxSegments)
+                          projectId, interactionName, window, baseline, dimOrder, maxSegments)
                           .map(segments -> new SegmentsWithMode(segments, RootCauseAnalysisMode.FLAT));
                     }
                     FirstDimensionPick first = optFirst.get();
                     log.debug("[RCA-SEGMENT] First dimension picked: index={}, dim={}, value={}",
                         first.dimOrderIndex(), first.path().dimension(), first.path().value());
                     return buildHierarchyThenFlat(
-                            projectId,
-                            interactionName,
-                            window,
-                            baseline,
-                            dimOrder,
-                            maxSegments,
-                            totalProblematic,
-                            threshold,
-                            first.dimOrderIndex(),
-                            List.of(first.path()))
+                        projectId,
+                        interactionName,
+                        window,
+                        baseline,
+                        dimOrder,
+                        maxSegments,
+                        totalProblematic,
+                        threshold,
+                        first.dimOrderIndex(),
+                        List.of(first.path()))
                         .map(
                             segments ->
                                 new SegmentsWithMode(segments, RootCauseAnalysisMode.HIERARCHICAL));
@@ -288,7 +289,7 @@ public class RootCauseService {
    *
    * <p>Package-private for unit tests.
    */
-  static List<String> hybridDimensionOrderFromPrecomputedMaxes(
+  public static List<String> hybridDimensionOrderFromPrecomputedMaxes(
       List<String> baseOrder,
       Map<String, Long> dimMaxProblematicByDimension,
       double strongSignalThreshold) {
@@ -390,7 +391,8 @@ public class RootCauseService {
                 log.debug("[RCA-SEGMENT] pickFirstDimension dim={}: rowsCount={}, evaluating threshold={}", dim, rows.size(), threshold);
                 Optional<SegmentPath> path = pickClosestToTotal(rows, dim, totalProblematic, threshold);
                 if (path.isPresent()) {
-                  log.debug("[RCA-SEGMENT] pickFirstDimension dim={}: PICKED value={}, dimension={}", dim, path.get().value(), path.get().dimension());
+                  log.debug("[RCA-SEGMENT] pickFirstDimension dim={}: PICKED value={}, dimension={}", dim, path.get().value(),
+                      path.get().dimension());
                 } else {
                   log.debug("[RCA-SEGMENT] pickFirstDimension dim={}: NO PICK (no value met threshold)", dim);
                 }
@@ -585,7 +587,7 @@ public class RootCauseService {
           : String.join(" + ", nextAcc.values());
     }
     return fetchSegmentMetrics(
-            projectId, interactionName, window, baseline, label, Map.copyOf(nextAcc))
+        projectId, interactionName, window, baseline, label, Map.copyOf(nextAcc))
         .flatMap(opt -> {
           List<RootCauseSegment> nextSegs = new ArrayList<>(segments);
           opt.ifPresent(nextSegs::add);
@@ -759,7 +761,9 @@ public class RootCauseService {
     return ServiceError.INTERNAL_SERVER_ERROR.getException();
   }
 
-  private record FirstDimensionPick(int dimOrderIndex, SegmentPath path) {}
+  private record FirstDimensionPick(int dimOrderIndex, SegmentPath path) {
+  }
 
-  private record SegmentPath(String dimension, String value, boolean isFlatExtra) {}
+  private record SegmentPath(String dimension, String value, boolean isFlatExtra) {
+  }
 }

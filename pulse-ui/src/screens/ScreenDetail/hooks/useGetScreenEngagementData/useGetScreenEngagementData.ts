@@ -4,6 +4,8 @@ import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 import { getTimeBucketSize } from "../../../../utils/TimeBucketUtil";
 import { PulseType, COLUMN_NAME } from "../../../../constants/PulseOtelSemcov";
+import { PERCENTILE_VALUE } from "../../../../constants/Constants.interface";
+import { getPercentileExpression } from "../../../../utils/queryUtil";
 
 dayjs.extend(utc);
 
@@ -19,7 +21,8 @@ interface UseGetScreenEngagementDataProps {
 interface TransformedData {
   avgTimeSpent: number | null;
   avgLoadTime: number | null;
-  avgTimeToInteractive: number | null;
+  tti_p95: number | null;
+  tti_p50: number | null;
   totalSessions: number;
   totalUsers: number;
   hasData: boolean;
@@ -27,7 +30,6 @@ interface TransformedData {
     timestamp: number;
     avgTimeSpent: number;
     avgLoadTime: number;
-    avgTimeToInteractive: number;
     sessionCount: number;
   }>;
 }
@@ -171,20 +173,6 @@ export function useGetScreenEngagementData({
         {
           function: "CUSTOM" as const,
           param: {
-            expression: `sumIf(${COLUMN_NAME.DURATION}, ${COLUMN_NAME.PULSE_TYPE} = '${PulseType.SCREEN_INTERACTIVE}')`,
-          },
-          alias: "total_tti",
-        },
-        {
-          function: "CUSTOM" as const,
-          param: {
-            expression: `countIf(${COLUMN_NAME.PULSE_TYPE} = '${PulseType.SCREEN_INTERACTIVE}')`,
-          },
-          alias: "tti_count",
-        },
-        {
-          function: "CUSTOM" as const,
-          param: {
             expression: `uniq(nullIf(${COLUMN_NAME.INSTALLATION_ID}, ''))`,
           },
           alias: "unique_users",
@@ -241,6 +229,35 @@ export function useGetScreenEngagementData({
           },
           alias: "unique_sessions",
         },
+        {
+          function: "CUSTOM" as const,
+          param: {
+            expression: getPercentileExpression(
+              PERCENTILE_VALUE.P95,
+              COLUMN_NAME.DURATION,
+              `${COLUMN_NAME.PULSE_TYPE} = '${PulseType.SCREEN_INTERACTIVE}'`,
+            ),
+          },
+          alias: "tti_p95",
+        },
+        {
+          function: "CUSTOM" as const,
+          param: {
+            expression: getPercentileExpression(
+              PERCENTILE_VALUE.P50,
+              COLUMN_NAME.DURATION,
+              `${COLUMN_NAME.PULSE_TYPE} = '${PulseType.SCREEN_INTERACTIVE}'`,
+            ),
+          },
+          alias: "tti_p50",
+        },
+        {
+          function: "CUSTOM" as const,
+          param: {
+            expression: `countIf(${COLUMN_NAME.PULSE_TYPE} = '${PulseType.SCREEN_INTERACTIVE}')`,
+          },
+          alias: "tti_count",
+        },
       ],
       filters,
     }),
@@ -270,23 +287,18 @@ export function useGetScreenEngagementData({
     const totalLoadTimeIndex = responseData.fields.indexOf("total_load_time");
     const sessionCountIndex = responseData.fields.indexOf("session_count");
     const loadCountIndex = responseData.fields.indexOf("load_count");
-    const totalTtiIndex = responseData.fields.indexOf("total_tti");
-    const ttiCountIndex = responseData.fields.indexOf("tti_count");
 
     const trend: Array<{
       timestamp: number;
       avgTimeSpent: number;
       avgLoadTime: number;
-      avgTimeToInteractive: number;
       sessionCount: number;
     }> = [];
 
     let totalTimeSpentSum = 0;
     let totalLoadTimeSum = 0;
-    let totalTtiSum = 0;
     let totalSessions = 0;
     let totalLoads = 0;
-    let totalTtiCount = 0;
 
     responseData.rows.forEach((row) => {
       const timestamp = dayjs(row[t1Index]).valueOf();
@@ -294,41 +306,47 @@ export function useGetScreenEngagementData({
       const loadTime = parseFloat(row[totalLoadTimeIndex]) || 0;
       const sessions = parseFloat(row[sessionCountIndex]) || 0;
       const loads = parseFloat(row[loadCountIndex]) || 0;
-      const tti = parseFloat(row[totalTtiIndex]) || 0;
-      const ttiCount = parseFloat(row[ttiCountIndex]) || 0;
 
       totalTimeSpentSum += timeSpent;
       totalLoadTimeSum += loadTime;
-      totalTtiSum += tti;
       totalSessions += sessions;
       totalLoads += loads;
-      totalTtiCount += ttiCount;
 
       const avgTimeSpentVal =
         sessions > 0 ? timeSpent / sessions / 1_000_000_000 : 0;
       const avgLoadTimeVal = loads > 0 ? loadTime / loads / 1_000_000_000 : 0;
-      const avgTimeToInteractiveVal =
-        ttiCount > 0 ? tti / ttiCount / 1_000_000_000 : 0;
 
       trend.push({
         timestamp,
         avgTimeSpent: Math.round(avgTimeSpentVal * 100) / 100,
         avgLoadTime: Math.round(avgLoadTimeVal * 100) / 100,
-        avgTimeToInteractive: Math.round(avgTimeToInteractiveVal * 100) / 100,
         sessionCount: Math.round(sessions),
       });
     });
 
-    // Accurate unique user/session totals from the non-bucketed query
+    // Accurate unique user/session totals and TTI p95 from the non-bucketed query
     const totalsResponse = totalsData?.data;
     let totalUniqueUsers = 0;
     let totalUniqueSessions = 0;
+    let overallTtiP95: number | null = null;
+    let overallTtiP50: number | null = null;
+    let totalTtiCount = 0;
     if (totalsResponse?.rows && totalsResponse.rows.length > 0) {
       const usersIdx = totalsResponse.fields.indexOf("unique_users");
       const sessionsIdx = totalsResponse.fields.indexOf("unique_sessions");
+      const ttiP95Idx = totalsResponse.fields.indexOf("tti_p95");
+      const ttiP50Idx = totalsResponse.fields.indexOf("tti_p50");
+      const ttiCountIdx = totalsResponse.fields.indexOf("tti_count");
       totalUniqueUsers = parseFloat(totalsResponse.rows[0][usersIdx]) || 0;
       totalUniqueSessions =
         parseFloat(totalsResponse.rows[0][sessionsIdx]) || 0;
+      totalTtiCount = parseFloat(totalsResponse.rows[0][ttiCountIdx]) || 0;
+      if (totalTtiCount > 0) {
+        const p95 = parseFloat(totalsResponse.rows[0][ttiP95Idx]);
+        const p50 = parseFloat(totalsResponse.rows[0][ttiP50Idx]);
+        overallTtiP95 = Number.isFinite(p95) ? p95 : null;
+        overallTtiP50 = Number.isFinite(p50) ? p50 : null;
+      }
     }
 
     const avgTimeSpent =
@@ -342,10 +360,10 @@ export function useGetScreenEngagementData({
         ? Math.round((totalLoadTimeSum / totalLoads / 1_000_000_000) * 100) /
           100
         : null;
-    const avgTimeToInteractive =
-      totalTtiCount > 0
-        ? Math.round((totalTtiSum / totalTtiCount / 1_000_000_000) * 100) / 100
-        : null;
+    const tti_p95 =
+      overallTtiP95 !== null ? Math.round((overallTtiP95 / 1_000_000_000) * 100) / 100 : null;
+    const tti_p50 =
+      overallTtiP50 !== null ? Math.round((overallTtiP50 / 1_000_000_000) * 100) / 100 : null;
 
     const hasData =
       totalSessions > 0 ||
@@ -356,7 +374,8 @@ export function useGetScreenEngagementData({
     return {
       avgTimeSpent,
       avgLoadTime,
-      avgTimeToInteractive,
+      tti_p95,
+      tti_p50,
       totalSessions: Math.round(totalUniqueSessions),
       totalUsers: Math.round(totalUniqueUsers),
       hasData,

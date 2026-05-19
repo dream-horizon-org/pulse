@@ -32,7 +32,7 @@ import { SupportQueries } from "../screens/SupportQueries";
 import { ROUTES as ROUTE_PATHS } from "../constants";
 import { SessionReplay } from "../screens/SessionReplay";
 import { SessionReplayInsights } from "../screens/SessionReplayInsights";
-import { SessionReplaySessions } from "../screens/SessionReplaySessions";
+import { SessionReplayTabbedPage } from "../screens/SessionReplaySessions";
 import { SessionReplayDetail } from "../screens/SessionReplayDetail";
 import { CreateFunnel, CreateJourney } from "../screens/FunnelJourneyCreate";
 import { FunnelsList, JourneysList } from "../screens/FunnelJourneyListing";
@@ -46,7 +46,7 @@ import { InternalRouteGuard } from "../components/InternalRouteGuard";
 function SessionReplaySessionsGuarded() {
   return (
     <SessionReplayRouteGuard>
-      <SessionReplaySessions />
+      <SessionReplayTabbedPage />
     </SessionReplayRouteGuard>
   );
 }
@@ -71,6 +71,14 @@ function SessionReplayInsightsGuarded() {
   return (
     <SessionReplayRouteGuard>
       <SessionReplayInsights />
+    </SessionReplayRouteGuard>
+  );
+}
+
+function SessionQualityRcaGuarded() {
+  return (
+    <SessionReplayRouteGuard>
+      <SessionReplayTabbedPage />
     </SessionReplayRouteGuard>
   );
 }
@@ -234,6 +242,10 @@ export const ROUTES = {
     ...ROUTE_PATHS.PROJECT_SESSION_REPLAY_SESSIONS,
     element: SessionReplaySessionsGuarded,
   },
+  PROJECT_SESSION_QUALITY_RCA: {
+    ...ROUTE_PATHS.PROJECT_SESSION_QUALITY_RCA,
+    element: SessionQualityRcaGuarded,
+  },
   PROJECT_SESSION_REPLAY_DETAIL: {
     ...ROUTE_PATHS.PROJECT_SESSION_REPLAY_DETAIL,
     element: SessionReplayDetailGuarded,
@@ -258,6 +270,10 @@ export const ROUTES = {
   SESSION_REPLAY_DETAIL: {
     ...ROUTE_PATHS.SESSION_REPLAY_DETAIL,
     element: SessionReplayDetailGuarded,
+  },
+  SESSION_QUALITY_RCA: {
+    ...ROUTE_PATHS.SESSION_QUALITY_RCA,
+    element: SessionQualityRcaGuarded,
   },
 
   // AI Chat (only when REACT_APP_ENABLE_AI_CHAT=true)

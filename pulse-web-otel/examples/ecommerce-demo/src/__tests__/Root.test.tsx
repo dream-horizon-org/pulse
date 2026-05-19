@@ -181,7 +181,22 @@ describe("Demo Root — PulseProvider wiring", () => {
     await renderRoot();
     expect(mockStart).toHaveBeenCalledWith(
       expect.objectContaining({
-        instrumentations: { network: { enabled: false } },
+        instrumentations: expect.objectContaining({
+          network: expect.objectContaining({ enabled: false }),
+        }),
+      }),
+    );
+  });
+
+  it("passes interactions instrumentation off when pulse_interactions_enabled=0", async () => {
+    window.history.replaceState({}, "", "/?pulse_interactions_enabled=0");
+    await renderRoot();
+    expect(mockStart).toHaveBeenCalledWith(
+      expect.objectContaining({
+        instrumentations: expect.objectContaining({
+          interactions: { enabled: false },
+          network: expect.objectContaining({ enabled: true }),
+        }),
       }),
     );
   });
@@ -191,9 +206,12 @@ describe("Demo Root — PulseProvider wiring", () => {
     await renderRoot();
     expect(mockStart).toHaveBeenCalledWith(
       expect.objectContaining({
-        instrumentations: {
-          network: { enabled: true, captureQueryParams: true },
-        },
+        instrumentations: expect.objectContaining({
+          network: expect.objectContaining({
+            enabled: true,
+            captureQueryParams: true,
+          }),
+        }),
       }),
     );
   });
@@ -207,12 +225,12 @@ describe("Demo Root — PulseProvider wiring", () => {
     await renderRoot();
     expect(mockStart).toHaveBeenCalledWith(
       expect.objectContaining({
-        instrumentations: {
-          network: {
+        instrumentations: expect.objectContaining({
+          network: expect.objectContaining({
             enabled: true,
             capturedRequestHeaders: ["x-request-id", "x-custom-header"],
-          },
-        },
+          }),
+        }),
       }),
     );
   });
