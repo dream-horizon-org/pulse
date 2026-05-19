@@ -11,6 +11,8 @@ REPORT_AGENT_NAME = "ReportAgent"
 PIPELINE_AGENT_NAME = "PulseAIPipeline"
 RCA_AGENT_NAME = "RcaAgent"
 SCREEN_RCA_NARRATIVE_AGENT_NAME = "ScreenRcaNarrativeAgent"
+ANR_DAY_AGENT_NAME = "AnrDayInsightAgent"
+ANR_MERGE_AGENT_NAME = "AnrMergeInsightAgent"
 
 CORE_ANALYSIS_AGENT_NAME = "CoreAnalysis"
 DEPENDENT_ANALYSIS_AGENT_NAME = "DependentAnalysis"
@@ -19,6 +21,7 @@ EM_AGENT_NAME = "EMAgent"
 # Timeouts are intentionally centralized so request and pipeline limits are visible.
 BACKEND_REQUEST_TIMEOUT_SECONDS = 75  # Must exceed pulse-server RCA timeout (60s) + buffer
 RCA_PIPELINE_TIMEOUT_SECONDS = 300
+ANR_INSIGHT_PIPELINE_TIMEOUT_SECONDS = 120
 
 DEFAULT_CORS_ORIGINS = [
     "http://localhost:3000",
@@ -70,6 +73,7 @@ SESSION_SCOPE_PROJECT_ID_LEN = 256
 # Keeps ephemeral RCA sessions separate from real chat users in the shared session_service.
 USER_ID_RCA = "rca_report_service"
 USER_ID_SCREEN_RCA = "screen_rca_narrative_service"
+USER_ID_ANR_INSIGHT = "anr_insight_service"
 # Authentication
 PULSE_ACCESS_TOKEN_ENV_KEY = 'PULSE_ACCESS_TOKEN'
 PULSE_REFRESH_TOKEN_ENV_KEY = 'PULSE_REFRESH_TOKEN'

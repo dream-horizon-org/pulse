@@ -61,6 +61,7 @@ public class MainApplication extends Launcher {
     return new Module[]{
       new MainModule(vertx),
       new RcaModule(),
+      new InsightModule(),
       new ConfigModule(vertx),
       new ValidationModule(),
       new UploadInteractionDetailModule(vertx),

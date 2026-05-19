@@ -17,6 +17,8 @@ from pulse_ai.constants import APP_NAME
 
 from .app import (
     RunSSERequest,
+    anr_day_runner,
+    anr_merge_runner,
     app,
     rca_runner,
     screen_rca_runner,
@@ -32,7 +34,11 @@ from .run_sse_utils import (
     stream_adk_run_as_sse,
     user_content_from_parts,
 )
+from pydantic import BaseModel
+from typing import Any
+
 from pulse_ai.schemas import RootCausePayloadSchema
+from .anr_insight_runner import AnrInsightRunnerError, generate_anr_day_insight, generate_anr_merge_report
 from .root_cause_fetch import RootCauseFetchError, fetch_root_cause_payload
 from .rca_runner import RcaRunnerError, generate_rca_report
 from .screen_rca_runner import ScreenRcaRunnerError, generate_screen_rca_report
@@ -318,3 +324,66 @@ async def generate_screen_root_cause_narrative(
         )
     except ScreenRcaRunnerError as error:
         raise HTTPException(status_code=error.status_code, detail=error.message) from error
+
+
+# ---------------------------------------------------------------------------
+# ANR Insight endpoints
+# Called by pulse-server InsightProcessor during insight job execution.
+# ---------------------------------------------------------------------------
+
+class _AnrDayRequest(BaseModel):
+    entityKey: str
+    date: str
+    data: dict[str, Any] = {}
+
+
+class _AnrMergeRequest(BaseModel):
+    entityKey: str
+    startDate: str
+    endDate: str
+    dayInsights: list[Any] = []
+
+
+@app.post("/insight/anr/day")
+async def anr_day_insight(request: _AnrDayRequest) -> dict[str, Any]:
+    """Generate a structured daily ANR insight from a single day's snapshot.
+
+    Called per-day by pulse-server InsightProcessor (DATE_RANGE pipeline).
+    Returns AnrDayInsightV1 as JSON. On failure returns an empty object so the
+    merge step can still proceed with available days.
+    """
+    try:
+        result = await generate_anr_day_insight(
+            runner=anr_day_runner,
+            entity_key=request.entityKey,
+            date=request.date,
+            data=request.data,
+        )
+        return result.model_dump()
+    except AnrInsightRunnerError as exc:
+        logger.warning("ANR day insight failed date=%s: %s", request.date, exc.message)
+        raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
+
+
+@app.post("/insight/anr/merge")
+async def anr_merge_insight(request: _AnrMergeRequest) -> dict[str, Any]:
+    """Aggregate daily ANR insights into a final date-range summary report.
+
+    Called once per job by pulse-server InsightProcessor after all day insights
+    are collected. Returns AnrInsightReportV1 as JSON.
+    """
+    try:
+        result = await generate_anr_merge_report(
+            runner=anr_merge_runner,
+            entity_key=request.entityKey,
+            start_date=request.startDate,
+            end_date=request.endDate,
+            day_insights=request.dayInsights,
+        )
+        return result.model_dump()
+    except AnrInsightRunnerError as exc:
+        logger.error(
+            "ANR merge insight failed entity=%s range=%s→%s: %s",
+            request.entityKey, request.startDate, request.endDate, exc.message,
+        )
+        raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc

@@ -1466,3 +1466,63 @@ INSERT INTO notification_templates (event_name, channel_type, version, body) VAL
     )
 ))
 ON DUPLICATE KEY UPDATE body = VALUES(body);
+
+-- ============================================================================
+-- INSIGHT JOBS (generic async insight framework)
+-- execution_mode: DATE_RANGE (day-wise partitioned) or REALTIME (live, no dates)
+-- start_date/end_date are NULL for REALTIME mode
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS insight_jobs (
+    job_id         VARCHAR(64)  NOT NULL,
+    project_id     VARCHAR(64)  NOT NULL,
+    insight_type   VARCHAR(64)  NOT NULL,
+    entity_key     VARCHAR(255) NOT NULL,
+    execution_mode ENUM('DATE_RANGE','REALTIME') NOT NULL DEFAULT 'DATE_RANGE',
+    start_date     DATE         NULL,
+    end_date       DATE         NULL,
+    status         ENUM('PENDING','PROCESSING','COMPLETED','FAILED') NOT NULL DEFAULT 'PENDING',
+    error_message  TEXT         NULL,
+    created_by     VARCHAR(255) NULL,
+    created_at     DATETIME(6)  NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    started_at     DATETIME(6)  NULL,
+    completed_at   DATETIME(6)  NULL,
+    PRIMARY KEY (job_id),
+    UNIQUE KEY uk_active_insight (project_id, insight_type, entity_key, execution_mode,
+                                  (COALESCE(start_date, '1970-01-01')), (COALESCE(end_date, '1970-01-01')), status),
+    INDEX idx_insight_lookup (project_id, insight_type, entity_key),
+    INDEX idx_insight_status_created (status, created_at)
+);
+
+-- ============================================================================
+-- INSIGHT REPORT CACHE (final AI insight output, both modes)
+-- REALTIME entries are stored for audit but never returned as cache
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS insight_report (
+    id             BIGINT       NOT NULL AUTO_INCREMENT,
+    project_id     VARCHAR(64)  NOT NULL,
+    insight_type   VARCHAR(64)  NOT NULL,
+    entity_key     VARCHAR(255) NOT NULL,
+    execution_mode ENUM('DATE_RANGE','REALTIME') NOT NULL DEFAULT 'DATE_RANGE',
+    start_date     DATE         NULL,
+    end_date       DATE         NULL,
+    report_body    LONGTEXT     NOT NULL,
+    cached_at      DATETIME(6)  NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_insight_cache (project_id, insight_type, entity_key, execution_mode,
+                                 (COALESCE(start_date, '1970-01-01')), (COALESCE(end_date, '1970-01-01')))
+);
+
+-- Per-day AI insight cache. Avoids re-running ClickHouse queries and the AI day call
+-- when the same (project, type, entity, date) snapshot was already summarised in a prior job.
+CREATE TABLE IF NOT EXISTS insight_day_report (
+    id            BIGINT       NOT NULL AUTO_INCREMENT,
+    project_id    VARCHAR(64)  NOT NULL,
+    insight_type  VARCHAR(64)  NOT NULL,
+    entity_key    VARCHAR(255) NOT NULL,
+    snapshot_date DATE         NOT NULL,
+    day_body      LONGTEXT     NOT NULL,
+    cached_at     DATETIME(6)  NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_insight_day_cache (project_id, insight_type, entity_key, snapshot_date),
+    INDEX idx_insight_day_lookup (project_id, insight_type, entity_key)
+);
