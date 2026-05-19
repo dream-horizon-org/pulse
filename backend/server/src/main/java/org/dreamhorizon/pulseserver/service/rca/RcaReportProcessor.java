@@ -167,8 +167,8 @@ public class RcaReportProcessor {
       final RcaEnrichmentOutcome enrichment,
       final RcaReportJob job) {
 
-    String body = attachRootCausePayloadIfPresent(result.getBufferedBody(), enrichment);
-    //final String body = result.getBufferedBody();
+    //String body = attachRootCausePayloadIfPresent(result.getBufferedBody(), enrichment);
+    final String body = result.getBufferedBody();
 
     if (job.entityType() == RcaType.SESSION
         && enrichment.enrichmentOk()
