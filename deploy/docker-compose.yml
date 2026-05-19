@@ -12,7 +12,8 @@ services:
       - MYSQL_PASSWORD=${MYSQL_PASSWORD:-pulse_password}
     volumes:
       - mysql-data:/var/lib/mysql
-      - ../backend/db/dev/mysql/mysql-init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - ../backend/db/dev/mysql/mysql-init.sql:/docker-entrypoint-initdb.d/mysql-init.sql:ro
+      - ../backend/db/shared/mysql-default-project-interactions.sql:/docker-entrypoint-initdb.d/includes/mysql-default-project-interactions.sql:ro
     networks:
       - pulse-network
     restart: unless-stopped
@@ -491,6 +492,12 @@ services:
 
       # S3 Configuration
       - S3_BUCKET_NAME=${S3_BUCKET_NAME:-pulse-config}
+      - STACK_TRACE_S3_ARCHIVE_ENABLED=${STACK_TRACE_S3_ARCHIVE_ENABLED:-false}
+      - STACK_TRACE_OTEL_S3_BUCKET=${STACK_TRACE_OTEL_S3_BUCKET:-pulse-otel-ingestion}
+      - STACK_TRACE_ARCHIVE_STAGING_DIR=${STACK_TRACE_ARCHIVE_STAGING_DIR:-/tmp/pulse-stack-trace-archive}
+      - STACK_TRACE_ARCHIVE_FLUSH_INTERVAL_MS=${STACK_TRACE_ARCHIVE_FLUSH_INTERVAL_MS:-30000}
+      - S3_REGION=${S3_REGION:-ap-south-1}
+      - S3_ENDPOINT=${S3_ENDPOINT:-}
       - SYMBOL_FILES_S3_BUCKET_NAME=${SYMBOL_FILES_S3_BUCKET_NAME:-pulse-symbol-files}
       - CONFIG_DETAILS_S3_FILE_PATH=${CONFIG_DETAILS_S3_FILE_PATH:-config/pulse-config.json}
       - INTERACTION_DETAILS_S3_FILE_PATH=${INTERACTION_DETAILS_S3_FILE_PATH:-config/interaction-config.json}

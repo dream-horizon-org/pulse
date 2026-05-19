@@ -69,6 +69,8 @@ import {
 } from "./constants/disk-buffer";
 import { resolveBeforeSend } from "./before-send";
 import { InteractionInstrumentation } from "./instrumentations/interaction";
+import { InteractionLogProcessor } from "./processors/interaction-log-processor";
+import { InteractionContextSpanProcessor } from "./processors/interaction-context-span-processor";
 import type { PulseAttributes } from "./types/attributes";
 
 class PulseSDK implements SdkContext {
@@ -94,6 +96,9 @@ class PulseSDK implements SdkContext {
   gate: FeatureGate = new FeatureGate(DEFAULT_SDK_CONFIG);
   private _providerCleanup: () => void = () => {};
   private interactionInstrumentation?: InteractionInstrumentation;
+  private readonly interactionLogProcessor = new InteractionLogProcessor();
+  private readonly interactionContextSpanProcessor =
+    new InteractionContextSpanProcessor();
 
   /** Promise for in-flight {@link init}; cleared when {@code finishInit} settles. */
   private _initSettled: Promise<void> | null = null;
@@ -330,7 +335,11 @@ class PulseSDK implements SdkContext {
       getPersistedUserProperties(),
     );
 
-    const spanProcessors = [this.globalAttrsProcessor, filterProcessor];
+    const spanProcessors = [
+      this.globalAttrsProcessor,
+      this.interactionContextSpanProcessor,
+      filterProcessor,
+    ];
 
     const lifecycleDebug = PulseWebLogger.getLevel() <= PulseLogLevel.DEBUG;
     const ingressDebugProc = lifecycleDebug
@@ -342,6 +351,7 @@ class PulseSDK implements SdkContext {
     const logProcessors = [
       ...(ingressDebugProc ? [ingressDebugProc] : []),
       this.globalAttrsProcessor,
+      this.interactionLogProcessor,
       filterProcessor,
       ...(preBatchDebugProc ? [preBatchDebugProc] : []),
     ];
@@ -460,6 +470,16 @@ class PulseSDK implements SdkContext {
       this.interactionInstrumentation,
       InstrumentationKeys.INTERACTIONS,
     );
+    this.interactionLogProcessor.setInstrumentation(
+      this.interactionInstrumentation,
+    );
+    this.interactionContextSpanProcessor.setGetRunning(() =>
+      this.interactionInstrumentation!.getRunningInteractions(),
+    );
+    this.interactionContextSpanProcessor.setTrackEvent(
+      (name, attrs, timeMs) =>
+        this.interactionInstrumentation!.trackEvent(name, attrs, timeMs),
+    );
   }
 
   private emitInstallationStartIfNeeded(): void {
@@ -486,10 +506,14 @@ class PulseSDK implements SdkContext {
       this._pagehideListener = undefined;
     }
 
+    this.interactionLogProcessor.setInstrumentation(null);
+    this.interactionContextSpanProcessor.setGetRunning(null);
+    this.interactionContextSpanProcessor.setTrackEvent(null);
     this._providerCleanup();
+    // Emit session.end before uninstalling SessionInstrumentation (unsubscribe runs in uninstall).
+    this.sessionProvider?.shutdown();
     this.registry?.uninstallAll();
     this.interactionInstrumentation = undefined;
-    this.sessionProvider?.shutdown();
 
     await Promise.all([
       this._webTracerProvider?.forceFlush(),

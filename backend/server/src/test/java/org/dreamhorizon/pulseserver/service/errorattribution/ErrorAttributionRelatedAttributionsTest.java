@@ -170,4 +170,39 @@ class ErrorAttributionRelatedAttributionsTest {
     assertThat(out).hasSize(1);
     assertThat(out.get(0).groupId()).isEqualTo("g1");
   }
+
+  @Test
+  void mergeFiltersRowBelowTreatedPrevalenceEvenWhenStrongRr() {
+    IssueRow flashyButRare =
+        IssueRow.builder()
+            .groupId("gRare")
+            .title("Volatile")
+            .occurrences(5L)
+            .nTreated(5L)
+            .nControl(99_995L)
+            .nTreatedLow(3L)
+            .nControlLow(10_000L)
+            .p1(0.6)
+            .p2(0.1)
+            .rr(6.0)
+            .rrUndefined(false)
+            .rrUndefinedReason(null)
+            .build();
+    RootCauseConfig cfg =
+        RootCauseConfig.withDefaults(
+            RootCauseConfig.builder()
+                .issueDrillDownLimit(10)
+                .minRiskRatioForIssueAttribution(2.0d)
+                .minTreatedPrevalenceFractionInU(
+                    RootCauseConfig.DEFAULT_MIN_TREATED_PREVALENCE_FRACTION_IN_U)
+                .build());
+    Map<String, ErrorAttributionDrillDownResult> by = new LinkedHashMap<>();
+    by.put(
+        "non_fatal",
+        ErrorAttributionDrillDownResult.builder()
+            .signal("non_fatal")
+            .issues(List.of(flashyButRare))
+            .build());
+    assertThat(ErrorAttributionRelatedAttributions.buildMerged(by, cfg)).isEmpty();
+  }
 }

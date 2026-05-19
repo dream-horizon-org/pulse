@@ -118,6 +118,30 @@ public final class ErrorAttributionRiskMath {
     return Boolean.FALSE.equals(rrUndefined) && rr != null && rr >= minRr;
   }
 
+  /**
+   * Prevalence in {@code U}: {@code n_treated / (n_treated + n_control) >= minPrevalenceFraction}. {@code
+   * minPrevalenceFraction <= 0} disables the gate ({@code true}). Uses ceiling on the fractional
+   * minimum count so thresholds match “at least φ share”.
+   */
+  public static boolean passesTreatedPrevalenceInUniverse(
+      Long nTreated, Long nControl, double minPrevalenceFraction) {
+    if (minPrevalenceFraction <= 0.0d) {
+      return true;
+    }
+    long treated = nTreated == null ? 0L : nTreated;
+    long control = nControl == null ? 0L : nControl;
+    long nu = treated + control;
+    if (nu <= 0) {
+      return false;
+    }
+    double minSessions = minPrevalenceFraction * (double) nu;
+    long minRequired = (long) Math.ceil(minSessions - 1e-12);
+    if (minRequired < 1) {
+      minRequired = 1;
+    }
+    return treated >= minRequired;
+  }
+
   public static double round4(double v) {
     return BigDecimal.valueOf(v).setScale(RR_SCALE, RoundingMode.HALF_UP).doubleValue();
   }
