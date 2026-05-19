@@ -96,6 +96,32 @@ export class InteractionFeature {
     this.coordinator.trackEvent(name, attrs, timestampMs);
   }
 
+  getRunningInteractions(): Array<{ id: string; name: string }> {
+    if (!this.interactionsEnabledByConfig) return [];
+    if (!this.gate.isEnabled(PulseFeature.INTERACTION)) return [];
+    if (!this.initialized) return [];
+    return this.coordinator.getRunningInteractions();
+  }
+
+  addMarkerToAll(
+    name: string,
+    attrs?: PulseAttributes,
+    timestampMs: number = Date.now(),
+  ): void {
+    if (!this.interactionsEnabledByConfig) return;
+    if (!this.gate.isEnabled(PulseFeature.INTERACTION)) return;
+    if (!this.initialized) {
+      PulseWebLogger.verbose(
+        `${LIFECYCLE} addMarkerToAll dropped: not initialized (name=${name})`,
+      );
+      return;
+    }
+    PulseWebLogger.verbose(
+      `${LIFECYCLE} addMarkerToAll: name=${name} timeMs=${timestampMs}`,
+    );
+    this.coordinator.addMarkerToAll(name, attrs, timestampMs);
+  }
+
   shutdown(): void {
     PulseWebLogger.debug(
       `${LIFECYCLE} shutdown: clearing fetcher and trackers`,

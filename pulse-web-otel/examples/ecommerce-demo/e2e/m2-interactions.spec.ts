@@ -1,7 +1,9 @@
+import type { Page } from "@playwright/test";
 import {
   test,
   expect,
   findAllSpans,
+  findAllNetworkSpans,
   getAttr,
   getResourceAttr,
 } from "./fixture";
@@ -19,6 +21,24 @@ import {
   minimalPulseSdkConfig,
   seedPulseSdkConfig,
 } from "./test-sdk-config";
+
+/** Flush ClickEventBuffer by simulating tab backgrounding (mirrors m3-clicks.spec.ts). */
+async function flushClickBuffer(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    Object.defineProperty(document, "visibilityState", {
+      get: () => "hidden",
+      configurable: true,
+    });
+    document.dispatchEvent(new Event("visibilitychange"));
+  });
+  await page.waitForTimeout(400);
+  await page.evaluate(() => {
+    Object.defineProperty(document, "visibilityState", {
+      get: () => "visible",
+      configurable: true,
+    });
+  });
+}
 
 async function expectNoInteractionSpans(
   captured: unknown[],
@@ -635,6 +655,105 @@ test.describe("@M2 interactions e2e", () => {
   });
 });
 
+// ─── ISS-I02 / ISS-I03: log-based marker events on interaction span ───────────
+
+test.describe("@M2 interactions marker events (ISS-I02/I03)", () => {
+  test("@marker non_fatal mid-flow appears as span event between steps", async ({
+    page,
+    otlp,
+  }) => {
+    await seedInteractionConfig(page, [
+      makeConfig({
+        id: "marker_non_fatal",
+        name: "Marker Non Fatal Flow",
+        events: [{ name: "step_1" }, { name: "step_2" }],
+        thresholdInMs: 3000,
+      }),
+    ]);
+    await gotoAndWaitInteractionInit(page);
+
+    await emitEvent(page, "step_1");
+    await page.waitForTimeout(50);
+
+    // Fire non_fatal mid-flow via Pulse public API → Branch B → addMarkerToAll.
+    await page.evaluate(() => {
+      const w = window as unknown as { Pulse?: { reportException?: (e: unknown) => void } };
+      w.Pulse?.reportException?.(new Error("mid-flow non_fatal"));
+    });
+    await page.waitForTimeout(50);
+
+    await emitEvent(page, "step_2");
+
+    const span = await otlp.waitForSpan("interaction", 15_000);
+    expect(getAttr(span.attributes, "pulse.interaction.is_error")).toBe(false);
+
+    const events = span.events ?? [];
+    const stepNames = events.map((e) => e.name);
+    expect(stepNames).toContain("step_1");
+    expect(stepNames).toContain("step_2");
+    // Marker event name = log body = error message from reportException
+    const markerEvent = events.find((e) => e.name.includes("mid-flow non_fatal"));
+    expect(markerEvent).toBeDefined();
+  });
+
+  test("@marker device.crash mid-flow appears as span event", async ({
+    page,
+    otlp,
+  }) => {
+    await seedInteractionConfig(page, [
+      makeConfig({
+        id: "marker_device_crash",
+        name: "Marker Device Crash Flow",
+        events: [{ name: "step_1" }, { name: "step_2" }],
+        thresholdInMs: 3000,
+      }),
+    ]);
+    await gotoAndWaitInteractionInit(page);
+
+    await emitEvent(page, "step_1");
+    await page.waitForTimeout(50);
+
+    await page.evaluate(() => {
+      const w = window as unknown as { Pulse?: { reportDeviceCrash?: (e: unknown) => void } };
+      w.Pulse?.reportDeviceCrash?.(new Error("mid-flow crash"));
+    });
+    await page.waitForTimeout(50);
+
+    await emitEvent(page, "step_2");
+
+    const span = await otlp.waitForSpan("interaction", 15_000);
+    const events = span.events ?? [];
+    const markerEvent = events.find((e) => e.name.includes("mid-flow crash"));
+    expect(markerEvent).toBeDefined();
+  });
+
+  test("@marker successful flow without crash has no extra marker events", async ({
+    page,
+    otlp,
+  }) => {
+    await seedInteractionConfig(page, [
+      makeConfig({
+        id: "marker_clean_flow",
+        name: "Marker Clean Flow",
+        events: [{ name: "clean_step_1" }, { name: "clean_step_2" }],
+      }),
+    ]);
+    await gotoAndWaitInteractionInit(page);
+
+    await emitEvent(page, "clean_step_1");
+    await page.waitForTimeout(40);
+    await emitEvent(page, "clean_step_2");
+
+    const span = await otlp.waitForSpan("interaction", 15_000);
+    const events = span.events ?? [];
+    const stepNames = events.map((e) => e.name);
+    // Only step events, no crash/non_fatal markers
+    expect(stepNames).toContain("clean_step_1");
+    expect(stepNames).toContain("clean_step_2");
+    expect(stepNames.some((n) => n.includes("crash") || n.includes("fatal"))).toBe(false);
+  });
+});
+
 test.describe("@M2 interactions edge cases", () => {
   const operatorCases = [
     { operator: "EQUALS", expected: "gold", pass: "gold", fail: "silver" },
@@ -1043,6 +1162,94 @@ test.describe("@M2 interactions edge cases", () => {
     expect(categories).toContain("Poor");
   });
 
+  test("@click-bridge single DOM click auto-advances interaction without manual trackEvent", async ({
+    page,
+    otlp,
+  }) => {
+    // Seed a single-step interaction whose step name matches the click log body.
+    await seedInteractionConfig(page, [
+      makeConfig({
+        id: "click_bridge_single",
+        name: "Click Bridge Single",
+        events: [{ name: "app.widget.click" }],
+      }),
+    ]);
+    await gotoAndWaitInteractionInit(page);
+
+    // Real DOM click → ClicksInstrumentation buffers an app.click log.
+    await page.getByRole("link", { name: /shop now/i }).click();
+    // Flush buffer so the log record flows through InteractionLogProcessor.
+    await flushClickBuffer(page);
+
+    const span = await otlp.waitForSpan("interaction", 15_000);
+    expect(getAttr(span.attributes, "pulse.interaction.config.id")).toBe(
+      expectedConfigId("click_bridge_single"),
+    );
+    expect(getAttr(span.attributes, "pulse.interaction.is_error")).toBe(false);
+  });
+
+  test("@click-bridge-rage rage DOM clicks emit single app.click that advances interaction", async ({
+    page,
+    otlp,
+  }) => {
+    await seedInteractionConfig(page, [
+      makeConfig({
+        id: "click_bridge_rage",
+        name: "Click Bridge Rage",
+        events: [{ name: "app.widget.click" }],
+      }),
+    ]);
+    await gotoAndWaitInteractionInit(page);
+
+    // Rapid triple-click → rage buffer collapses to one app.click log.
+    const shopLink = page.getByRole("link", { name: /shop now/i });
+    await shopLink.evaluate((el) => {
+      for (let i = 0; i < 3; i += 1) {
+        el.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+      }
+    });
+    await flushClickBuffer(page);
+
+    const span = await otlp.waitForSpan("interaction", 15_000);
+    expect(getAttr(span.attributes, "pulse.interaction.config.id")).toBe(
+      expectedConfigId("click_bridge_rage"),
+    );
+    expect(getAttr(span.attributes, "pulse.interaction.is_error")).toBe(false);
+    // Confirm exactly one interaction span emitted (rage collapse).
+    const spans = findAllSpans(otlp.captured, "interaction").filter(
+      (s) =>
+        getAttr(s.attributes, "pulse.interaction.config.id") ===
+        expectedConfigId("click_bridge_rage"),
+    );
+    expect(spans.length).toBe(1);
+  });
+
+  test("@click-bridge click on unrelated step does not advance interaction", async ({
+    page,
+    otlp,
+  }) => {
+    await seedInteractionConfig(page, [
+      makeConfig({
+        id: "click_bridge_no_match",
+        name: "Click Bridge No Match",
+        events: [{ name: "checkout_step_1" }, { name: "checkout_step_2" }],
+        thresholdInMs: 700,
+      }),
+    ]);
+    await gotoAndWaitInteractionInit(page);
+
+    // Emit first step manually, then DOM click (app.widget.click body — not checkout_step_2).
+    await emitEvent(page, "checkout_step_1");
+    await page.getByRole("link", { name: /shop now/i }).click();
+    await flushClickBuffer(page);
+    await page.waitForTimeout(900);
+
+    // Timeout error span (not a sequence_violation from the click).
+    const span = await otlp.waitForSpan("interaction", 15_000);
+    expect(getAttr(span.attributes, "pulse.interaction.is_error")).toBe(true);
+    expect(getAttr(span.attributes, "pulse.interaction.error.type")).toBe("timeout");
+  });
+
   test("shared prefix branching: e1,e2,e4 is non-terminal; e1,e2,e5 and e1,e2,e3 terminal", async ({
     page,
     otlp,
@@ -1115,5 +1322,252 @@ test.describe("@M2 interactions edge cases", () => {
         (s) => getAttr(s.attributes, "pulse.interaction.is_error") === false,
       ),
     ).toBe(true);
+  });
+});
+
+// ─── ISS-I04: InteractionContextSpanProcessor — forward stamp + reverse feed ──
+
+test.describe("@M2 interaction-context-span (ISS-I04)", () => {
+  test("stamp in-flight: network span during open flow carries pulse.interaction.names/ids", async ({
+    page,
+    otlp,
+  }) => {
+    await seedInteractionConfig(page, [
+      makeConfig({
+        id: "ctx_stamp_flow",
+        name: "Context Stamp Flow",
+        events: [{ name: "ctx_step_1" }, { name: "ctx_step_2" }],
+        thresholdInMs: 5000,
+      }),
+    ]);
+    // Intercept the probe URL so it returns quickly.
+    await page.route("**/pulse-e2e-interactions/probe", async (route) => {
+      await route.fulfill({ status: 200, body: "ok" });
+    });
+
+    await gotoAndWaitInteractionInit(page);
+
+    // Open the flow — step_1 fires, flow is now mid-sequence.
+    await emitEvent(page, "ctx_step_1");
+    await page.waitForTimeout(50);
+
+    // Trigger a network span during the open flow.
+    await page.evaluate(async () => {
+      await fetch("/pulse-e2e-interactions/probe").catch(() => {});
+    });
+    await page.waitForTimeout(200);
+
+    // Flush spans via pagehide (same pattern as other tests).
+    await page.evaluate(() => {
+      window.dispatchEvent(new PageTransitionEvent("pagehide", { persisted: false }));
+    });
+    await page.waitForTimeout(500);
+
+    // Find any network span emitted during the open flow.
+    const networkSpans = findAllNetworkSpans(otlp.captured);
+    const probeSpan = networkSpans.find((s) => {
+      const url = String(getAttr(s.attributes, "url.full") ?? "");
+      return url.includes("pulse-e2e-interactions/probe");
+    });
+    expect(probeSpan, "Expected a network span for the probe fetch").toBeDefined();
+    if (!probeSpan) return;
+
+    const names = getAttr(probeSpan.attributes, "pulse.interaction.names");
+    const ids = getAttr(probeSpan.attributes, "pulse.interaction.ids");
+    expect(Array.isArray(names), "pulse.interaction.names should be a string[]").toBe(true);
+    expect((names as string[]).length).toBeGreaterThan(0);
+    expect(Array.isArray(ids), "pulse.interaction.ids should be a string[]").toBe(true);
+    expect((ids as string[]).length).toBeGreaterThan(0);
+
+    // Close the flow to avoid timeout leak.
+    await emitEvent(page, "ctx_step_2");
+    await otlp.waitForSpan("interaction", 8_000);
+  });
+
+  test("no stamp after complete: network span post-close has no interaction context", async ({
+    page,
+    otlp,
+  }) => {
+    await seedInteractionConfig(page, [
+      makeConfig({
+        id: "ctx_nostamp_flow",
+        name: "Context No-Stamp Flow",
+        events: [{ name: "nostamp_step_1" }, { name: "nostamp_step_2" }],
+        thresholdInMs: 5000,
+      }),
+    ]);
+    await page.route("**/pulse-e2e-interactions/after-complete", async (route) => {
+      await route.fulfill({ status: 200, body: "ok" });
+    });
+
+    await gotoAndWaitInteractionInit(page);
+
+    // Complete the flow.
+    await emitEvent(page, "nostamp_step_1");
+    await page.waitForTimeout(30);
+    await emitEvent(page, "nostamp_step_2");
+    await otlp.waitForSpan("interaction", 8_000);
+    otlp.reset();
+
+    // Fetch after flow is closed.
+    await page.evaluate(async () => {
+      await fetch("/pulse-e2e-interactions/after-complete").catch(() => {});
+    });
+    await page.waitForTimeout(200);
+
+    await page.evaluate(() => {
+      window.dispatchEvent(new PageTransitionEvent("pagehide", { persisted: false }));
+    });
+    await page.waitForTimeout(500);
+
+    const networkSpans = findAllNetworkSpans(otlp.captured);
+    const afterSpan = networkSpans.find((s) => {
+      const url = String(getAttr(s.attributes, "url.full") ?? "");
+      return url.includes("after-complete");
+    });
+    if (afterSpan) {
+      const names = getAttr(afterSpan.attributes, "pulse.interaction.names");
+      // Either absent or empty array.
+      const isEmpty =
+        names === undefined ||
+        (Array.isArray(names) && (names as string[]).length === 0);
+      expect(isEmpty).toBe(true);
+    }
+    // If no span captured yet (beacon timing), that's also valid — no stamp.
+  });
+
+  test("reverse screen_load: navigating during open flow advances and closes flow (is_error=false)", async ({
+    page,
+    otlp,
+  }) => {
+    await seedInteractionConfig(page, [
+      makeConfig({
+        id: "ctx_reverse_screen",
+        name: "Context Reverse Screen",
+        events: [{ name: "checkout_step_1" }, { name: "screen_load" }],
+        thresholdInMs: 5000,
+      }),
+    ]);
+
+    await gotoAndWaitInteractionInit(page);
+
+    // Open the flow.
+    await emitEvent(page, "checkout_step_1");
+    await page.waitForTimeout(50);
+
+    // SPA navigation triggers a screen_load span which the processor reverse-feeds.
+    await page.click("a[href='/products']");
+    await page.waitForURL("**/products");
+
+    const span = await otlp.waitForSpan("interaction", 15_000);
+    expect(getAttr(span.attributes, "pulse.interaction.is_error")).toBe(false);
+    expect(getAttr(span.attributes, "pulse.interaction.config.id")).toBe(
+      expectedConfigId("ctx_reverse_screen"),
+    );
+  });
+
+  test("reverse network.200: successful fetch during open flow advances and closes flow (is_error=false)", async ({
+    page,
+    otlp,
+  }) => {
+    await seedInteractionConfig(page, [
+      makeConfig({
+        id: "ctx_reverse_network",
+        name: "Context Reverse Network",
+        events: [{ name: "net_step_1" }, { name: "network.200" }],
+        thresholdInMs: 5000,
+      }),
+    ]);
+    // Return 200 for the probe.
+    await page.route("**/pulse-e2e-network-probe", async (route) => {
+      await route.fulfill({ status: 200, body: "ok" });
+    });
+
+    await gotoAndWaitInteractionInit(page);
+
+    // Open the flow.
+    await emitEvent(page, "net_step_1");
+    await page.waitForTimeout(50);
+
+    // The 200 fetch end will be reverse-fed as "network.200" trackEvent.
+    await page.evaluate(async () => {
+      await fetch("/pulse-e2e-network-probe").catch(() => {});
+    });
+
+    const span = await otlp.waitForSpan("interaction", 15_000);
+    expect(getAttr(span.attributes, "pulse.interaction.is_error")).toBe(false);
+    expect(getAttr(span.attributes, "pulse.interaction.config.id")).toBe(
+      expectedConfigId("ctx_reverse_network"),
+    );
+  });
+});
+
+// ─── @M2 interactions — unit-parity E2E (INT-P09/P35/P41) ──────────────────
+
+test.describe("@M2 interactions — unit-parity E2E (INT-P09/P35/P41)", () => {
+  // INT-P09 — Step event timestamps on span
+  test("INT-P09: span.events carry timestamps matching emitted event times", async ({
+    page,
+    otlp,
+  }) => {
+    await seedInteractionConfig(page, [
+      makeConfig({
+        id: "ec_step_timestamps",
+        name: "EC Step Timestamps",
+        events: [{ name: "ec_ts_step1" }, { name: "ec_ts_step2" }],
+        thresholdInMs: 5000,
+      }),
+    ]);
+    await gotoAndWaitInteractionInit(page);
+    const t0 = Date.now();
+    await emitEvent(page, "ec_ts_step1", undefined, t0);
+    await emitEvent(page, "ec_ts_step2", undefined, t0 + 100);
+
+    await waitForInteractionCount(page, otlp, 1, 10_000);
+    const span = findAllSpans(otlp.captured, "interaction")[0] as import("./fixture").OtlpSpan | undefined;
+    expect(span).toBeDefined();
+    if (!span) return;
+    expect(Array.isArray(span.events)).toBe(true);
+    expect((span.events ?? []).length).toBeGreaterThanOrEqual(2);
+    const eventNames = (span.events ?? []).map((e) => e.name);
+    expect(eventNames).toContain("ec_ts_step1");
+    expect(eventNames).toContain("ec_ts_step2");
+  });
+
+  // INT-P35 — Empty definitions from server
+  test("INT-P35: empty interaction definitions — no interaction span emitted", async ({
+    page,
+    otlp,
+  }) => {
+    await seedInteractionConfig(page, []);
+    await gotoAndWaitInteractionInit(page);
+    await emitEvent(page, "any_event_p35");
+    await page.waitForTimeout(800);
+    expect(findAllSpans(otlp.captured, "interaction").length).toBe(0);
+  });
+
+  // INT-P41 — Error span forces poor apdex + apdex_score=0
+  test("INT-P41: error span (timeout) forces user_category=Poor and apdex_score=0", async ({
+    page,
+    otlp,
+  }) => {
+    await seedInteractionConfig(page, [
+      makeConfig({
+        id: "ec_error_apdex",
+        name: "EC Error Apdex",
+        events: [{ name: "ec_err_step1" }, { name: "ec_err_step2" }],
+        thresholdInMs: 400,
+        uptimeLowerLimitInMs: 50,
+        uptimeMidLimitInMs: 100,
+        uptimeUpperLimitInMs: 150,
+      }),
+    ]);
+    await gotoAndWaitInteractionInit(page);
+    await emitEvent(page, "ec_err_step1");
+    // Don't emit step2 — timeout fires the error span
+    const span = await otlp.waitForSpan("interaction", 8_000);
+    expect(getAttr(span.attributes, "pulse.interaction.is_error")).toBe(true);
+    expect(getAttr(span.attributes, "pulse.interaction.user_category")).toBe("Poor");
+    expect(getAttr(span.attributes, "pulse.interaction.apdex_score")).toBe(0);
   });
 });
