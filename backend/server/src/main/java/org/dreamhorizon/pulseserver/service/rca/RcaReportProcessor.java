@@ -167,15 +167,16 @@ public class RcaReportProcessor {
       final RcaEnrichmentOutcome enrichment,
       final RcaReportJob job) {
 
-    //String body = attachRootCausePayloadIfPresent(result.getBufferedBody(), enrichment);
-    final String body = result.getBufferedBody();
+    final String rawBody = result.getBufferedBody();
 
     if (job.entityType() == RcaType.SESSION
         && enrichment.enrichmentOk()
         && enrichment.rootCause() != null) {
-      String sessionBody = mergeSessionRootCausePayload(body, enrichment);
+      String sessionBody = mergeSessionRootCausePayload(rawBody, enrichment);
       return persistBufferedRcaReport(sessionBody, result, job);
     }
+
+    final String body = attachRootCausePayloadIfPresent(rawBody, enrichment);
 
     boolean shouldMergeHeatmaps =
         job.entityType() != RcaType.SCREEN

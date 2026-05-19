@@ -4,11 +4,14 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import time
 from datetime import UTC, datetime
 from urllib.parse import quote, urlencode
 
 import httpx
+
+logger = logging.getLogger(__name__)
 
 from pulse_ai.client.pulse_client import PulseClient
 from pulse_ai.constants import (
@@ -84,15 +87,59 @@ def _extract_root_cause_payload_from_rca_report(unwrapped: dict) -> dict | None:
     return None
 
 
-def _tabular_from_completed_rca_response(unwrapped: dict) -> RootCausePayloadSchema:
-    tabular = _extract_root_cause_payload_from_rca_report(unwrapped)
-    if tabular is None:
+async def _fetch_root_cause_tabular_direct(
+    client: PulseClient,
+    interaction_name: str,
+    effective_date: str,
+) -> RootCausePayloadSchema:
+    """GET ``/v1/interactions/{name}/root-cause`` — ClickHouse-backed tabular JSON.
+
+    Used when async RCA cache (peek/job) returns COMPLETED but has no embedded
+    ``rootCausePayload`` (legacy cache rows, or enrichment skipped). Matches the
+    fallback described on ``InteractionController#getRootCause``.
+    """
+    path = (
+        f"/v1/interactions/{quote(interaction_name, safe='')}/root-cause"
+        f"?date={quote(effective_date, safe='')}"
+    )
+    raw = await client.request("GET", path)
+    if isinstance(raw, dict):
+        raise _fetch_error_from_pulse_client_dict(raw)
+    if raw.status_code != 200:
+        raise _root_cause_fetch_error_from_http_response(raw)
+    try:
+        payload = raw.json()
+    except json.JSONDecodeError as exc:
+        raise RootCauseFetchError(
+            HTTP_BAD_GATEWAY, "Invalid JSON from interactions root-cause endpoint"
+        ) from exc
+    unwrapped = _unwrap_pulse_server_body(payload)
+    try:
+        return RootCausePayloadSchema.model_validate(unwrapped)
+    except Exception as exc:
         raise RootCauseFetchError(
             HTTP_BAD_GATEWAY,
-            "RCA report is missing rootCausePayload. Regenerate the report in Pulse or retry; "
-            "older cached reports may not include tabular data.",
-        )
-    return RootCausePayloadSchema.model_validate(tabular)
+            f"Could not parse interactions root-cause tabular payload: {exc}",
+        ) from exc
+
+
+async def _tabular_from_completed_rca_response(
+    client: PulseClient,
+    unwrapped: dict,
+    interaction_name: str,
+    effective_date: str,
+) -> RootCausePayloadSchema:
+    """Prefer embedded ``rootCausePayload`` on the async RCA body; else direct GET."""
+    tabular = _extract_root_cause_payload_from_rca_report(unwrapped)
+    if tabular is not None:
+        try:
+            return RootCausePayloadSchema.model_validate(tabular)
+        except Exception:
+            logger.warning(
+                "Embedded rootCausePayload failed validation; falling back to GET /root-cause",
+                exc_info=True,
+            )
+    return await _fetch_root_cause_tabular_direct(client, interaction_name, effective_date)
 
 
 def _fetch_error_from_pulse_client_dict(error_payload: dict) -> RootCauseFetchError:
@@ -207,7 +254,9 @@ async def _orchestrate_rca_job_then_tabular(
         body = _unwrap_pulse_server_body(peek.json())
         status = _normalize_job_status(body.get("status"))
         if status == "COMPLETED":
-            return _tabular_from_completed_rca_response(body)
+            return await _tabular_from_completed_rca_response(
+                client, body, interaction_name, effective_date
+            )
         if status == "FAILED":
             msg = str(body.get("errorMessage") or "RCA report job failed")
             raise RootCauseFetchError(HTTP_BAD_GATEWAY, msg)
@@ -215,7 +264,9 @@ async def _orchestrate_rca_job_then_tabular(
             job_id = body.get("jobId")
             if isinstance(job_id, str) and job_id.strip():
                 terminal = await _wait_for_rca_job_terminal(client, job_id.strip())
-                return _tabular_from_completed_rca_response(terminal)
+                return await _tabular_from_completed_rca_response(
+                    client, terminal, interaction_name, effective_date
+                )
     elif peek.status_code != 404:
         raise _root_cause_fetch_error_from_http_response(peek)
 
@@ -225,7 +276,9 @@ async def _orchestrate_rca_job_then_tabular(
 
     if post.status_code == 200:
         completed = _unwrap_pulse_server_body(post.json())
-        return _tabular_from_completed_rca_response(completed)
+        return await _tabular_from_completed_rca_response(
+            client, completed, interaction_name, effective_date
+        )
     if post.status_code == HTTP_ACCEPTED:
         body_unwrapped = _unwrap_pulse_server_body(post.json())
         job_id = body_unwrapped.get("jobId")
@@ -235,7 +288,9 @@ async def _orchestrate_rca_job_then_tabular(
                 "RCA async response missing jobId",
             )
         terminal = await _wait_for_rca_job_terminal(client, job_id.strip())
-        return _tabular_from_completed_rca_response(terminal)
+        return await _tabular_from_completed_rca_response(
+            client, terminal, interaction_name, effective_date
+        )
 
     raise _root_cause_fetch_error_from_http_response(post)
 
@@ -249,7 +304,8 @@ async def fetch_root_cause_payload(
     """
     Load root-cause tabular payload using the same async RCA pipeline as the Pulse dashboard:
     peek or POST ``/v1/ai/rca/report``, poll ``/v1/ai-rca/job/{jobId}`` when needed, then read
-    ``rootCausePayload`` from the completed report body (no separate tabular GET).
+    embedded ``rootCausePayload`` from the completed report body. If missing (e.g. legacy cache),
+    falls back to GET ``/v1/interactions/{name}/root-cause``.
 
     ``authorization`` must be a non-empty ``Authorization`` header value (e.g. ``Bearer <jwt>``).
     ``project_id`` is sent as ``X-Project-ID`` so pulse-server can authorize via OpenFGA.

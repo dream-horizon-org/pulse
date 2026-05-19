@@ -36,6 +36,23 @@ def _completed_peek_json(tabular: dict) -> dict:
     }
 
 
+def _completed_peek_json_without_embedded_tabular() -> dict:
+    """Legacy cache shape: completed narrative without embedded rootCausePayload."""
+    return {
+        "data": {
+            "status": "COMPLETED",
+            "report": {
+                "structured": {
+                    "version": 1,
+                    "executive_summary": "x",
+                    "segments": [],
+                    "recommendations": [],
+                },
+            },
+        },
+    }
+
+
 BASE = "http://localhost:8080"
 PEEK_URL = (
     f"{BASE}/v1/ai-rca/report?"
@@ -43,6 +60,41 @@ PEEK_URL = (
 )
 POST_RCA_URL = f"{BASE}/v1/ai/rca/report"
 JOB_URL = f"{BASE}/v1/ai-rca/job/rca-job-unit"
+ROOT_CAUSE_FALLBACK_URL = (
+    f"{BASE}/v1/interactions/ContestJoin/root-cause?date=2026-03-09"
+)
+
+
+@respx.mock
+@freeze_time("2026-03-09T12:00:00Z")
+@pytest.mark.asyncio
+async def test_root_cause_peek_completed_falls_back_to_interactions_get_when_no_embedded_tabular(
+    pulse_tool_context,
+    monkeypatch,
+):
+    """GET /v1/interactions/.../root-cause when async RCA cache lacks rootCausePayload."""
+    monkeypatch.setattr(
+        "pulse_ai.root_cause_payload_fetch.RCA_JOB_POLL_INTERVAL_SEC",
+        0.01,
+    )
+    from pulse_ai.agents.em.tools.analytics.query_interaction_root_cause import (
+        query_interaction_root_cause,
+    )
+
+    respx.get(PEEK_URL).mock(
+        return_value=httpx.Response(200, json=_completed_peek_json_without_embedded_tabular()),
+    )
+    respx.get(ROOT_CAUSE_FALLBACK_URL).mock(
+        return_value=httpx.Response(200, json={"data": MOCK_TABULAR}),
+    )
+
+    result = await query_interaction_root_cause(
+        interaction_name="ContestJoin",
+        tool_context=pulse_tool_context,
+    )
+
+    assert result["status"] == "success"
+    assert result["data"]["baseline"]["users"] == 100
 
 
 @respx.mock
