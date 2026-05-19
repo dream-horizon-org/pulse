@@ -118,6 +118,10 @@ services:
   pulse-db-migrate:
     image: maven:3.9-eclipse-temurin-17
     container_name: pulse-db-migrate
+    security_opt:
+      - "no-new-privileges:true"
+    cap_drop:
+      - ALL
     command: >
       /bin/bash -c "
         cd /workspace &&
