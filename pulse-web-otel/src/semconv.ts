@@ -188,6 +188,10 @@ export const PulseWebSemconv = {
     IS_ERROR: "pulse.interaction.is_error",
     ERROR_TYPE: "pulse.interaction.error.type",
     ERROR_MESSAGE: "pulse.interaction.error.message",
+    /** String array of in-flight interaction flow names — stamped on concurrent spans. */
+    NAMES: "pulse.interaction.names",
+    /** String array of in-flight interaction IDs — stamped on concurrent spans. */
+    IDS: "pulse.interaction.ids",
   },
   InteractionUserCategory: {
     EXCELLENT: "Excellent",

@@ -29,6 +29,18 @@ export class InteractionInstrumentation implements PulseInstrumentation {
     this.feature?.trackEvent(name, attrs, timestampMs);
   }
 
+  addMarkerToAll(
+    name: string,
+    attrs?: PulseAttributes,
+    timestampMs?: number,
+  ): void {
+    this.feature?.addMarkerToAll(name, attrs, timestampMs);
+  }
+
+  getRunningInteractions(): Array<{ id: string; name: string }> {
+    return this.feature?.getRunningInteractions() ?? [];
+  }
+
   uninstall(): void {
     this.feature?.shutdown();
     this.feature = undefined;
