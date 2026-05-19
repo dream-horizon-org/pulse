@@ -79,7 +79,7 @@ class OnCallServiceTest {
 
     @Test
     void shouldReturnFallbackWhenNoUsers() {
-      when(onCallProvider.getOnCallUsers()).thenReturn(Single.just(List.of()));
+      when(onCallProvider.getOnCallUsers(any())).thenReturn(Single.just(List.of()));
 
       String result = service.getOnCallSlackMentions().blockingGet();
 
@@ -88,7 +88,7 @@ class OnCallServiceTest {
 
     @Test
     void shouldReturnFallbackOnProviderError() {
-      when(onCallProvider.getOnCallUsers())
+      when(onCallProvider.getOnCallUsers(any()))
           .thenReturn(Single.error(new RuntimeException("timeout")));
 
       String result = service.getOnCallSlackMentions().blockingGet();
@@ -99,7 +99,7 @@ class OnCallServiceTest {
     @Test
     void shouldReturnFallbackWhenUsersHaveNoEmail() {
       List<OnCallUser> users = List.of(new OnCallUser("Alice", ""));
-      when(onCallProvider.getOnCallUsers()).thenReturn(Single.just(users));
+      when(onCallProvider.getOnCallUsers(any())).thenReturn(Single.just(users));
 
       String result = service.getOnCallSlackMentions().blockingGet();
 
@@ -115,7 +115,7 @@ class OnCallServiceTest {
       service = new OnCallService(onCallProvider, webClient, notificationConfig);
 
       List<OnCallUser> users = List.of(new OnCallUser("Alice", "alice@test.com"));
-      when(onCallProvider.getOnCallUsers()).thenReturn(Single.just(users));
+      when(onCallProvider.getOnCallUsers(any())).thenReturn(Single.just(users));
 
       String result = service.getOnCallSlackMentions().blockingGet();
 
@@ -129,7 +129,7 @@ class OnCallServiceTest {
       service = new OnCallService(onCallProvider, webClient, notificationConfig);
 
       List<OnCallUser> users = List.of(new OnCallUser("Alice", "alice@test.com"));
-      when(onCallProvider.getOnCallUsers()).thenReturn(Single.just(users));
+      when(onCallProvider.getOnCallUsers(any())).thenReturn(Single.just(users));
 
       String result = service.getOnCallSlackMentions().blockingGet();
 
@@ -139,7 +139,7 @@ class OnCallServiceTest {
     @Test
     void shouldFormatSlackMentionWhenLookupSucceeds() {
       List<OnCallUser> users = List.of(new OnCallUser("Alice", "alice@test.com"));
-      when(onCallProvider.getOnCallUsers()).thenReturn(Single.just(users));
+      when(onCallProvider.getOnCallUsers(any())).thenReturn(Single.just(users));
 
       JsonObject slackResponse = new JsonObject()
           .put("ok", true)
@@ -158,7 +158,7 @@ class OnCallServiceTest {
     @Test
     void shouldFallbackToEmailWhenSlackLookupFails() {
       List<OnCallUser> users = List.of(new OnCallUser("Alice", "alice@test.com"));
-      when(onCallProvider.getOnCallUsers()).thenReturn(Single.just(users));
+      when(onCallProvider.getOnCallUsers(any())).thenReturn(Single.just(users));
 
       JsonObject slackResponse = new JsonObject()
           .put("ok", false)
@@ -179,7 +179,7 @@ class OnCallServiceTest {
       List<OnCallUser> users = List.of(
           new OnCallUser("Alice", "alice@test.com"),
           new OnCallUser("Bob", "bob@test.com"));
-      when(onCallProvider.getOnCallUsers()).thenReturn(Single.just(users));
+      when(onCallProvider.getOnCallUsers(any())).thenReturn(Single.just(users));
 
       JsonObject aliceSlack = new JsonObject()
           .put("ok", true)
@@ -204,7 +204,7 @@ class OnCallServiceTest {
     @Test
     void shouldFallbackToEmailWhenSlackApiThrowsError() {
       List<OnCallUser> users = List.of(new OnCallUser("Alice", "alice@test.com"));
-      when(onCallProvider.getOnCallUsers()).thenReturn(Single.just(users));
+      when(onCallProvider.getOnCallUsers(any())).thenReturn(Single.just(users));
 
       when(webClient.getAbs(anyString())).thenReturn(httpRequest);
       when(httpRequest.putHeader(anyString(), anyString())).thenReturn(httpRequest);
