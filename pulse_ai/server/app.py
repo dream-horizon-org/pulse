@@ -94,14 +94,14 @@ rca_runner = Runner(
 screen_rca_runner = Runner(
     agent=screen_rca_narrative_agent,
     app_name=APP_NAME,
-    session_service=session_service,
+    session_service=_rca_session_service,  # one-shot narrative — no SESSION_DB_URL
     auto_create_session=True,
 )
 
 session_rca_runner = Runner(
     agent=session_rca_narrative_agent,
     app_name=APP_NAME,
-    session_service=session_service,
+    session_service=_rca_session_service,  # one-shot narrative — no SESSION_DB_URL
     auto_create_session=True,
 )
 
