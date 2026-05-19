@@ -350,7 +350,7 @@ Shared library sourced by every other script. Provides:
 
 Runs as a one-shot Maven container after MySQL and ClickHouse are healthy.
 Applies all pending Liquibase changesets from `backend/db/migrations/mysql/` and
-`backend/db/migrations/clickhouse/` to both databases. MySQL migrations use
+`backend/db/migrations/clickhouse/dev/` (local single-node MergeTree DDL) to both databases. Production deploys use `migrations/clickhouse/prod/` (cluster `Replicated*` + `Distributed`). MySQL migrations use
 `MYSQL_ROOT_USER` / `MYSQL_ROOT_PASSWORD` from `deploy/.env` (defaults: `root` /
 `pulse_root_password`). Called automatically by `start.sh` and `docker-compose.yml`;
 you should not need to run it manually.

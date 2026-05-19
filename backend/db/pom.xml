@@ -16,6 +16,8 @@
     <liquibase.clickhouse.version>0.8.0</liquibase.clickhouse.version>
     <mysql.connector.version>8.0.33</mysql.connector.version>
     <clickhouse.jdbc.version>0.6.0</clickhouse.jdbc.version>
+    <!-- Local Docker uses single-node MergeTree DDL; prod Jenkins overrides to prod/ changelog. -->
+    <liquibase.clickhouse.changeLogFile>migrations/clickhouse/dev/changelog-root.xml</liquibase.clickhouse.changeLogFile>
   </properties>
 
   <dependencies>
@@ -79,7 +81,7 @@
             <artifactId>liquibase-maven-plugin</artifactId>
             <version>${liquibase.version}</version>
             <configuration>
-              <changeLogFile>migrations/clickhouse/changelog-root.xml</changeLogFile>
+              <changeLogFile>${liquibase.clickhouse.changeLogFile}</changeLogFile>
               <url>${liquibase.clickhouse.url}</url>
               <username>${liquibase.clickhouse.username}</username>
               <password>${liquibase.clickhouse.password}</password>

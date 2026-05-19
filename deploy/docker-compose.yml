@@ -131,7 +131,7 @@ services:
         mvn -B liquibase:update -Pmysql -Dliquibase.mysql.url=\"jdbc:mysql://mysql:3306/${MYSQL_DATABASE:-pulse_db}?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true\" -Dliquibase.mysql.username=\"${MYSQL_ROOT_USER:-root}\" -Dliquibase.mysql.password=\"${MYSQL_ROOT_PASSWORD:-pulse_root_password}\" -Dliquibase.mysql.schema=\"${MYSQL_DATABASE:-pulse_db}\" &&
         echo '--- ClickHouse migrations ---' &&
         curl -s -X POST \"http://clickhouse:8123/\" -u \"${OTEL_CLICKHOUSE_USER:-pulse_user}:${OTEL_CLICKHOUSE_PASSWORD:-pulse_password}\" -d \"CREATE DATABASE IF NOT EXISTS ${OTEL_CLICKHOUSE_DATABASE:-otel}\" &&
-        mvn -B liquibase:update -Pclickhouse -Dliquibase.clickhouse.url=\"jdbc:clickhouse://clickhouse:8123/${OTEL_CLICKHOUSE_DATABASE:-otel}\" -Dliquibase.clickhouse.username=\"${OTEL_CLICKHOUSE_USER:-pulse_user}\" -Dliquibase.clickhouse.password=\"${OTEL_CLICKHOUSE_PASSWORD:-pulse_password}\" &&
+        mvn -B liquibase:update -Pclickhouse -Dliquibase.clickhouse.changeLogFile=migrations/clickhouse/dev/changelog-root.xml -Dliquibase.clickhouse.url=\"jdbc:clickhouse://clickhouse:8123/${OTEL_CLICKHOUSE_DATABASE:-otel}\" -Dliquibase.clickhouse.username=\"${OTEL_CLICKHOUSE_USER:-pulse_user}\" -Dliquibase.clickhouse.password=\"${OTEL_CLICKHOUSE_PASSWORD:-pulse_password}\" &&
         echo '=== All migrations complete ==='
       "
     environment:

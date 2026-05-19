@@ -27,7 +27,7 @@ queries; `EventName` may exist depending on pipeline but is not guaranteed popul
 
 For **`PulseType = 'web_vital'`** (Web SDK Core Web Vitals), prefer materialized **`WebVitalName`**, **`WebVitalValue`**,
 and **`WebVitalRating`** over `LogAttributes['web_vital.*']` — same semantics, better for filters and aggregates (see
-`backend/db/migrations/clickhouse/V0001__01_otel_logs.sql`).
+`backend/db/migrations/clickhouse/prod/V0001__01_otel_logs.sql`).
 
 ### OTLP metrics (physical tables — collector `INSERT` targets)
 
@@ -72,13 +72,13 @@ Aggregated monthly usage by `project_id` / `month` / `source`; fed by MVs from l
 ### Definitions live in MySQL; aggregated rows are written by Spark into:
 
 - **`funnel_results`** — pre-computed funnel steps (`FunnelId`, `ProjectId`, `RunTime`, `StepIndex`, `StepName`,
-  `UserCount`, `ConversionPct`, …). Schema: `backend/db/migrations/clickhouse/V0001__04_otel_funnel_results.sql`.
+  `UserCount`, `ConversionPct`, …). Schema: `backend/db/migrations/clickhouse/dev/V0001__04_funnel_results.sql` (prod: `backend/db/migrations/clickhouse/prod/V0001__04_funnel_results.sql`).
 - **`journey_results`** — path edges (`JourneyId`, `ProjectId`, `RunTime`, `Direction`, `PosFrom`/`PosTo`, `EventFrom`/
-  `EventTo`, `UserCount`, …). Schema: `backend/db/migrations/clickhouse/V0001__05_otel_journey_results.sql`.
+  `EventTo`, `UserCount`, …). Schema: `backend/db/migrations/clickhouse/dev/V0001__05_journey_results.sql` (prod: `backend/db/migrations/clickhouse/prod/V0001__05_journey_results.sql`).
 - **`event_catalog_entries`** — distinct filter values per project (`FilterKey` e.g. EVENT, APP_BUILD_NAME, …). Schema:
-  `backend/db/migrations/clickhouse/V0001__15_otel_event_catalog_entries.sql`.
+  `backend/db/migrations/clickhouse/prod/V0001__15_event_catalog_entries.sql`.
 
-### Session rollup (`backend/db/migrations/clickhouse/V0001__16_otel_session_summary.sql`)
+### Session rollup (`backend/db/migrations/clickhouse/dev/V0001__16_session_summary.sql`, prod `.../prod/V0001__16_session_summary.sql`)
 
 - **`session_summary`** — `AggregatingMergeTree` per-session rollup keyed by `(ProjectId, sessionId)`. Columns include
   `startTime`/`endTime`, `userId`, `platform`, `appVersion`, `osVersion`, `deviceModel`, `networkProvider`,
@@ -88,7 +88,7 @@ Aggregated monthly usage by `project_id` / `month` / `source`; fed by MVs from l
   `session_summary_replay_mv` (over `session_replay_events_local`). Use `final` or `SimpleAggregateFunction` semantics
   when querying.
 
-### Heatmap tables (`backend/db/migrations/clickhouse/V0001__14_otel_interaction_heatmaps_daily.sql`)
+### Heatmap tables (`backend/db/migrations/clickhouse/prod/V0001__14_interaction_heatmaps_daily.sql`)
 
 - **`interaction_heatmaps_daily`** — SummingMergeTree aggregates (`WeightNormal`, `WeightRage`, `WeightDead`, `XBin`,
   `YBin`, `Breakpoint`, …). Filled by **`interaction_heatmaps_daily_mv`** from **`otel_logs`** where

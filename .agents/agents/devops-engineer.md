@@ -66,7 +66,7 @@ Template: `deploy/.env.example` → copy to `deploy/.env`
 ## Database Initialization
 
 - MySQL + ClickHouse: managed by `pulse-db-migrate` (Liquibase). Migrations live in `backend/db/migrations/mysql/` and
-  `backend/db/migrations/clickhouse/`. The service runs `mvn liquibase:update` for both databases on startup.
+  `backend/db/migrations/clickhouse/dev/` (local) and `backend/db/migrations/clickhouse/prod/` (prod Jenkins). The service runs `mvn liquibase:update` for both databases on startup.
 
 ## OTEL Collector Config
 

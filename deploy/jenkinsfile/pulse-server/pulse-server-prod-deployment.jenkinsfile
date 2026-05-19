@@ -103,6 +103,7 @@ pipeline {
 
                     echo "--- ClickHouse migrations ---"
                     mvn -B liquibase:update -Pclickhouse \
+                        -Dliquibase.clickhouse.changeLogFile=migrations/clickhouse/prod/changelog-root.xml \
                         -Dliquibase.clickhouse.url="$CH_URL" \
                         -Dliquibase.clickhouse.username="$CLICKHOUSE_USERNAME" \
                         -Dliquibase.clickhouse.password="$CLICKHOUSE_PASSWORD"

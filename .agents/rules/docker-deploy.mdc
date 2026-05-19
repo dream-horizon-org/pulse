@@ -31,7 +31,7 @@ alwaysApply: false
 
 **otel-collector:** healthcheck is disabled in compose (scratch image); use `:13133` from the host for health.
 
-**pulse-db-migrate:** Liquibase-based schema migrations for MySQL and ClickHouse. Runs `liquibase:update` for both databases on startup, applying all pending changesets from `backend/db/migrations/`. Replaces the old `clickhouse-init` service and `mysql-init.sql` bootstrap.
+**pulse-db-migrate:** Liquibase-based schema migrations for MySQL and ClickHouse. Runs `liquibase:update` for MySQL and ClickHouse **dev** changelog (`migrations/clickhouse/dev/`). Prod Jenkins uses `migrations/clickhouse/prod/`. Replaces the old `clickhouse-init` service and `mysql-init.sql` bootstrap.
 
 `pulse-server` and `pulse-alerts-cron` include `extra_hosts: host.docker.internal:host-gateway` so containers can reach OTLP on the host (optional JVM OpenTelemetry export; see below).
 

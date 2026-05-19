@@ -11,7 +11,7 @@ Run a ClickHouse query against the local OTEL database.
 Useful reference tables: `otel.otel_traces`, `otel.otel_logs`, `otel.otel_metrics` (view over all OTLP metric types),
 physical metric tables `otel.otel_metrics_gauge`, `otel.otel_metrics_sum`, `otel.otel_metrics_summary`,
 `otel.otel_metrics_histogram`, `otel.otel_metrics_exp_histogram`, `otel.stack_trace_events`,
-`otel.interaction_heatmaps_daily` (heatmap DDL: `backend/db/migrations/clickhouse/V0001__14_otel_interaction_heatmaps_daily.sql`).
+`otel.interaction_heatmaps_daily` (heatmap DDL: `backend/db/migrations/clickhouse/prod/V0001__14_interaction_heatmaps_daily.sql`).
 On `otel.otel_logs` rows with `PulseType = 'web_vital'`, prefer materialized `WebVitalName`, `WebVitalValue`,
-`WebVitalRating` over `LogAttributes['web_vital.*']` (see `backend/db/migrations/clickhouse/V0001__01_otel_logs.sql`). For Pulse
+`WebVitalRating` over `LogAttributes['web_vital.*']` (see `backend/db/migrations/clickhouse/prod/V0001__01_otel_logs.sql`). For Pulse
 Web only, also filter **`Platform = 'web'`** (resource `os.name` materialization).

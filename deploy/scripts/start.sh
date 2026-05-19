@@ -291,6 +291,7 @@ if ! docker run --rm \
             -u \"\${OTEL_CLICKHOUSE_USER}:\${OTEL_CLICKHOUSE_PASSWORD}\" \
             -d \"CREATE DATABASE IF NOT EXISTS \${OTEL_CLICKHOUSE_DATABASE}\" &&
         mvn -B liquibase:update -Pclickhouse \
+            -Dliquibase.clickhouse.changeLogFile=migrations/clickhouse/dev/changelog-root.xml \
             -Dliquibase.clickhouse.url=\"jdbc:clickhouse://clickhouse:8123/\${OTEL_CLICKHOUSE_DATABASE}\" \
             -Dliquibase.clickhouse.username=\"\${OTEL_CLICKHOUSE_USER}\" \
             -Dliquibase.clickhouse.password=\"\${OTEL_CLICKHOUSE_PASSWORD}\" &&

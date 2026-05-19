@@ -28,7 +28,7 @@ Pick the most likely categories. Multiple is fine:
 - Android SDK instrumentation → `pulse-android-otel/`
 - React Native bridge call → `pulse-react-native-otel/`
 - Docker / deploy script → `deploy/scripts/`
-- ClickHouse query/table → `backend/db/migrations/clickhouse/`, `backend/server/.../Queries.java`
+- ClickHouse query/table → `backend/db/migrations/clickhouse/prod/`, `backend/server/.../Queries.java`
 
 ## Step 2 — Search
 

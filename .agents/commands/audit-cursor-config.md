@@ -2,8 +2,13 @@ Audit `.cursor/` configuration files against the codebase source-of-truth files 
 
 1. Read the following source-of-truth files:
     - `deploy/docker-compose.yml` — services, ports, health checks, dependencies
-    - `backend/db/migrations/clickhouse/*.sql` — table schemas, materialized columns, heatmap aggregates (
-      `V0001__14_otel_interaction_heatmaps_daily.sql`), funnel/journey results, session summary MV
+    - `backend/db/migrations/clickhouse/prod/*.sql` — cluster DDL (`Replicated*` + `Distributed`, `ON CLUSTER 'pulse-ch'`): table schemas, materialized columns, heatmap aggregates (`interaction_heatmaps_daily`)
+    - `backend/db/migrations/clickhouse/dev/V0001__04_funnel_results.sql` — single-node `funnel_results` (`MergeTree`)
+    - `backend/db/migrations/clickhouse/dev/V0001__05_journey_results.sql` — single-node `journey_results` (`MergeTree`)
+    - `backend/db/migrations/clickhouse/prod/V0001__04_funnel_results.sql` — cluster `funnel_results_local` + `Distributed` router
+    - `backend/db/migrations/clickhouse/prod/V0001__05_journey_results.sql` — cluster `journey_results_local` + `Distributed` router
+    - `backend/db/migrations/clickhouse/dev/V0001__16_session_summary.sql` — session summary MVs (local); prod: `backend/db/migrations/clickhouse/prod/V0001__16_session_summary.sql`
+    - Liquibase changelogs: `backend/db/migrations/clickhouse/dev/changelog-root.xml`, `.../prod/changelog-root.xml` (local Docker uses **dev**; prod Jenkins uses **prod**)
     - `deploy/.env.example` — environment variable names
     - `deploy/scripts/build.sh` — accepted build targets
     - `deploy/scripts/start.sh` — accepted start targets
@@ -17,7 +22,7 @@ Audit `.cursor/` configuration files against the codebase source-of-truth files 
       `.cursor/commands/`, `.cursor/rules/`, `.cursor/skills/`
     - **Port numbers**: Verify ports in docker-compose.yml match those in rules and commands
     - **ClickHouse schema**: Verify table names, column names, and materialized columns in `data-analyst.md` match
-      `backend/db/migrations/clickhouse/*.sql`
+      `backend/db/migrations/clickhouse/prod/*.sql`
     - **Environment variables**: Check that credential references in commands/skills match what's defined in
       `.env.example`
     - **Script options**: Verify build.sh/start.sh options documented in rules/skills match actual script arguments

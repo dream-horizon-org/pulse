@@ -16,7 +16,7 @@ dayjs.extend(utc);
  *
  * Note: Uses LOGS table with PulseType = 'session.start' filter
  * MATERIALIZED columns: AppVersion, OsVersion, DeviceModel, UserId, SessionId, PulseType
- * See: backend/db/migrations/clickhouse/
+ * See: backend/db/migrations/clickhouse/dev/ (local) and backend/db/migrations/clickhouse/prod/ (cluster)
  */
 export function useGetAppStats({
   startTime,
