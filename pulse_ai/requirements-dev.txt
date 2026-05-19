@@ -1,4 +1,4 @@
-google-adk==1.26.0
+google-adk[eval]==1.26.0
 python-dotenv==1.2.2
 fastapi[standard]==0.135.1
 uvicorn==0.41.0
