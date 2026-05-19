@@ -30,6 +30,7 @@ import {
 import {
   defaultPageSize,
   FiltersType,
+  loadMoreDelayMs,
   PaginationType,
 } from "./CriticalInteractionList.interface";
 import {
@@ -39,7 +40,7 @@ import {
 import { useDebouncedCallback, useDisclosure } from "@mantine/hooks";
 import { useGetInteractionListFilters } from "../../hooks/useGetInteractionListFilters";
 import { Filters } from "./components/Filters";
-import { debounce, size, toNumber } from "lodash";
+import { debounce, toNumber } from "lodash";
 import { getCookies } from "../../helpers/cookies";
 import { getDateFilterDetails } from "./utils";
 import { InteractionCard } from "./components/InteractionCard";
@@ -88,6 +89,10 @@ export function CriticalInteractionList() {
     totalInteractions: 0,
   });
   const [totalRecords, setTotalRecords] = useState<number>(0);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const loadMorePendingRef = useRef(false);
+  const loadMoreTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const wasFetchingRef = useRef(false);
 
   const pgNo = toNumber(searchFields.pageNo) || 0;
   const [pagination, setPagination] = useState<PaginationType>({
@@ -98,12 +103,35 @@ export function CriticalInteractionList() {
     users: searchFields?.userEmail || "",
     status: searchFields?.status || "",
   });
-  const loaderRef = useRef<HTMLDivElement | null>(null);
-  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+  const clearLoadMoreState = useCallback(() => {
+    if (loadMoreTimeoutRef.current) {
+      clearTimeout(loadMoreTimeoutRef.current);
+      loadMoreTimeoutRef.current = null;
+    }
+    loadMorePendingRef.current = false;
+    setIsLoadingMore(false);
+  }, []);
 
-  const { ref, entry } = useIntersection({
-    root: loaderRef.current,
-    threshold: 0.9, // Fires when the loader comes fully into view
+  useEffect(() => {
+    return () => {
+      if (loadMoreTimeoutRef.current) {
+        clearTimeout(loadMoreTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+  const [scrollRoot, setScrollRoot] = useState<HTMLElement | null>(null);
+
+  const scrollViewportRef = useCallback((node: HTMLDivElement | null) => {
+    scrollContainerRef.current = node;
+    setScrollRoot(node);
+  }, []);
+
+  const { ref: loadMoreRef, entry } = useIntersection({
+    root: scrollRoot,
+    threshold: 0.1,
+    rootMargin: "120px",
   });
 
   useEffect(() => {
@@ -136,6 +164,13 @@ export function CriticalInteractionList() {
     },
     pageIdentifier: "list",
   });
+
+  useEffect(() => {
+    if (wasFetchingRef.current && !isFetching && isLoadingMore) {
+      setIsLoadingMore(false);
+    }
+    wasFetchingRef.current = isFetching;
+  }, [isFetching, isLoadingMore]);
 
   useTrackScreenLoadedOnce({
     eventName: "interactions_list_loaded",
@@ -171,13 +206,24 @@ export function CriticalInteractionList() {
 
     if (!(isFetching || isLoading) && data) {
       setTotalRecords(data.totalInteractions);
-      setRows((prev) => ({
-        ...prev,
-        interactions: [
+      setRows((prev) => {
+        const merged = [
           ...(prev.interactions || []),
           ...(data?.interactions || []),
-        ],
-      }));
+        ];
+        const seen = new Set<number>();
+        const interactions = merged.filter((item) => {
+          if (seen.has(item.id)) {
+            return false;
+          }
+          seen.add(item.id);
+          return true;
+        });
+        return {
+          ...prev,
+          interactions,
+        };
+      });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isFetching]);
@@ -194,6 +240,7 @@ export function CriticalInteractionList() {
 
   const handleSearch = useDebouncedCallback(
     (e: ChangeEvent<HTMLInputElement>) => {
+      clearLoadMoreState();
       setPagination({
         page: 0,
         size: defaultPageSize,
@@ -214,6 +261,7 @@ export function CriticalInteractionList() {
       return;
     }
 
+    clearLoadMoreState();
     setPagination({
       page: 0,
       size: defaultPageSize,
@@ -248,6 +296,7 @@ export function CriticalInteractionList() {
     event.preventDefault();
     const updatedChecked = event.currentTarget.checked;
     setChecked(event.currentTarget.checked);
+    clearLoadMoreState();
     setPagination({
       page: 0,
       size: defaultPageSize,
@@ -282,6 +331,7 @@ export function CriticalInteractionList() {
       { id: suggestion.id },
       {
         onSuccess: () => {
+          clearLoadMoreState();
           setRows({ interactions: [], totalInteractions: 0 });
           setPagination({ page: 0, size: defaultPageSize });
         },
@@ -290,8 +340,6 @@ export function CriticalInteractionList() {
   };
 
   const data = useMemo(() => rows?.interactions || [], [rows]);
-
-  const hasMore = data?.length < totalRecords;
 
   const { startTime, endTime } = useMemo(() => getDateFilterDetails(), []);
 
@@ -380,26 +428,38 @@ export function CriticalInteractionList() {
     return map;
   }, [metricsData]);
 
-  const loadMoreItems = () => {
+  const hasMore = data.length < totalRecords;
+  const isLoadMoreActive = isLoadingMore || (isFetching && pagination.page > 0);
+
+  const loadMoreItems = useCallback(() => {
     if (
       !hasMore ||
       isFetching ||
-      pagination.page >= Math.ceil(size(data) / defaultPageSize)
-    )
+      isLoading ||
+      isLoadingMore ||
+      loadMorePendingRef.current
+    ) {
       return;
-    setPagination((prev) => ({
-      ...prev,
-      page: prev.page + 1,
-      size: defaultPageSize,
-    }));
-  };
+    }
+
+    loadMorePendingRef.current = true;
+    setIsLoadingMore(true);
+
+    loadMoreTimeoutRef.current = setTimeout(() => {
+      loadMorePendingRef.current = false;
+      loadMoreTimeoutRef.current = null;
+      setPagination((prev) => ({
+        page: prev.page + 1,
+        size: defaultPageSize,
+      }));
+    }, loadMoreDelayMs);
+  }, [hasMore, isFetching, isLoading, isLoadingMore]);
 
   useEffect(() => {
     if (entry?.isIntersecting) {
       loadMoreItems();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [entry]);
+  }, [entry, loadMoreItems]);
 
   const onInteractionClick = (interaction: {
     id: number;
@@ -443,7 +503,7 @@ export function CriticalInteractionList() {
 
     return (
       <ScrollArea
-        viewportRef={scrollContainerRef}
+        viewportRef={scrollViewportRef}
         className={classes.scrollArea}
       >
         <Box className={classes.criticalInteractionsTableContainer}>
@@ -470,10 +530,25 @@ export function CriticalInteractionList() {
               />
             );
           })}
+          {isLoadMoreActive &&
+            Array.from({ length: 2 }).map((_, index) => (
+              <CardSkeleton
+                key={`load-more-skeleton-${index}`}
+                height={180}
+                showHeader
+                contentRows={3}
+              />
+            ))}
         </Box>
-        {isFetching && hasMore && (
-          <Box ref={ref} className={classes.loadMoreLoader}>
-            <LoaderWithMessage loadingMessage="Loading more interactions..." />
+        {hasMore && (
+          <Box ref={loadMoreRef} className={classes.loadMoreLoader}>
+            {isLoadMoreActive ? (
+              <LoaderWithMessage loadingMessage="Loading more interactions..." />
+            ) : (
+              <Button variant="light" size="sm" onClick={loadMoreItems}>
+                Load more ({data.length} of {totalRecords})
+              </Button>
+            )}
           </Box>
         )}
       </ScrollArea>
