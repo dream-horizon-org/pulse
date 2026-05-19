@@ -58,6 +58,26 @@ export function minimalPulseSdkConfig(
   };
 }
 
+/** Intercept the interaction-config fetch and return a custom payload.
+ *  Routes both the local backend URL (/v1/interaction-configs/) and the
+ *  production CDN URL (/config/projects/*\/interaction-config.json) so the
+ *  same helper works with any apiKey format used in the demo.
+ */
+export async function seedInteractionConfig(
+  page: Page,
+  payload: unknown,
+): Promise<void> {
+  const fulfill = async (route: import("@playwright/test").Route): Promise<void> => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(payload),
+    });
+  };
+  await page.route("**/v1/interaction-configs/", fulfill);
+  await page.route("**/config/projects/*/interaction-config.json", fulfill);
+}
+
 /** Seed localStorage before navigation so loadCached() sees this config. */
 export async function seedPulseSdkConfig(
   page: Page,

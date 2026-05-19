@@ -58,10 +58,10 @@ export interface OtlpSpanStatus {
   message?: string;
 }
 
-/** OTLP span event (JSON/protobuf-json export). */
 export interface OtlpSpanEvent {
-  name?: string;
+  name: string;
   timeUnixNano?: string;
+  attributes?: OtlpAttr[];
 }
 
 export interface OtlpSpan {
