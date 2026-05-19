@@ -1,6 +1,7 @@
 import { PulseWebLogger } from "../../pulse-web-logger";
 import { Pulse } from "../../sdk";
 import type { PulseLocationLike } from "../../types/react";
+import { normalizeScreenPathname } from "../../utils/screen-pathname";
 
 export const PULSE_ROUTER_LOG_PREFIX = "[pulse:router]";
 
@@ -13,7 +14,7 @@ export function resolvePulseScreenName(
   location: PulseLocationLike,
 ): string | null {
   if (!format) {
-    return dependency;
+    return normalizeScreenPathname(location.pathname || dependency);
   }
   try {
     return format(location);
