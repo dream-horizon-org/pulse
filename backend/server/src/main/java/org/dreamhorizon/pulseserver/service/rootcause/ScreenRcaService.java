@@ -8,11 +8,14 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.BiFunction;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import jakarta.ws.rs.WebApplicationException;
 import javax.inject.Inject;
@@ -20,6 +23,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.client.chclient.ClickhouseQueryService;
 import org.dreamhorizon.pulseserver.config.RootCauseConfig;
+import org.dreamhorizon.pulseserver.constant.ClickhouseConstants;
 import org.dreamhorizon.pulseserver.dao.rootcause.ScreenRootCauseCacheDao;
 import org.dreamhorizon.pulseserver.dao.rootcause.models.ScreenRootCauseCacheRow;
 import org.dreamhorizon.pulseserver.dto.response.GetRawUserEventsResponseDto;
@@ -28,6 +32,9 @@ import org.dreamhorizon.pulseserver.error.ServiceError;
 import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseAnalysisMode;
 import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseResult;
 import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseSegment;
+import org.dreamhorizon.pulseserver.service.rootcause.models.ScreenRcaMetrics;
+import org.dreamhorizon.pulseserver.service.rootcause.models.ScreenRcaProblemResult;
+import org.dreamhorizon.pulseserver.service.rootcause.models.ScreenRcaSpecificIssue;
 import org.dreamhorizon.pulseserver.util.NumberCoercionUtils;
 import org.dreamhorizon.pulseserver.util.serialization.ObjectMapperUtil;
 
@@ -41,6 +48,8 @@ import org.dreamhorizon.pulseserver.util.serialization.ObjectMapperUtil;
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
 public class ScreenRcaService {
 
+  private static final ScreenRcaProblemResult SKIP = ScreenRcaProblemResult.builder().build();
+
   private static final String CACHE_FIELD_BASELINE = "baseline";
   private static final String CACHE_FIELD_SEGMENTS = "segments";
   private static final String CACHE_PARSE_FAILED_DETAIL =
@@ -50,6 +59,18 @@ public class ScreenRcaService {
   private final ClickhouseQueryService clickhouseQueryService;
   private final ScreenRootCauseCacheDao screenRootCauseCacheDao;
   private final ObjectMapperUtil objectMapperUtil;
+
+  /**
+   * Screen RCA v2: Returns ranked list of problems across all 9 problem types.
+   * Uses explicit window (Instant-based) for flexible time ranges.
+   */
+  public Single<List<ScreenRcaProblemResult>> getScreenRootCauseV2(
+      String projectId,
+      String screenName,
+      RootCauseQueryBuilder.Window window) {
+    return computeAllProblems(projectId, screenName, window)
+        .map(this::rankProblems);
+  }
 
   /**
    * Screen RCA for the same window as interaction RCA: {@code lookbackDays} ending at {@code windowEndExclusiveUtc}
@@ -689,6 +710,723 @@ public class ScreenRcaService {
     return clickhouseQueryService
         .executeRootCauseQuery(projectId, spec.sql(), spec.bindNames(), spec.bindValues())
         .map(this::rowsToMaps);
+  }
+
+  /**
+   * Fetch total distinct screen_session spans in the window (denominator for crash/ANR rates).
+   */
+  private Single<Long> fetchTotalScreenSessions(
+      String projectId,
+      String screenName,
+      RootCauseQueryBuilder.Window window) {
+    RootCauseQueryBuilder.BindAccumulator acc = new RootCauseQueryBuilder.BindAccumulator();
+    String p0 = acc.nextName();
+    String p1 = acc.nextName();
+    String p2 = acc.nextName();
+    String p3 = acc.nextName();
+    acc.add(p0, projectId);
+    acc.add(p1, screenName);
+    String startStr =
+        window.startInclusive.atOffset(ZoneOffset.UTC)
+            .format(ClickhouseConstants.CLICKHOUSE_TIMESTAMP_LITERAL);
+    String endStr =
+        window.endExclusive.atOffset(ZoneOffset.UTC)
+            .format(ClickhouseConstants.CLICKHOUSE_TIMESTAMP_LITERAL);
+    acc.add(p2, startStr);
+    acc.add(p3, endStr);
+    String sql =
+        "SELECT uniq(SpanId) AS total_screen_sessions FROM "
+            + ClickhouseConstants.OTEL_TRACES_TABLE
+            + " WHERE ProjectId = :" + p0
+            + " AND PulseType = 'screen_session'"
+            + " AND nullIf(trimBoth(ScreenName), '') = :" + p1
+            + " AND Timestamp >= toDateTime64(:" + p2 + ", 9, 'UTC')"
+            + " AND Timestamp < toDateTime64(:" + p3 + ", 9, 'UTC')";
+    RootCauseQuerySpec spec = acc.toSpec(sql);
+    return executeQuery(projectId, spec)
+        .map(
+            rows -> {
+              if (rows.isEmpty()) {
+                return 0L;
+              }
+              Object val = rows.get(0).get("total_screen_sessions");
+              return NumberCoercionUtils.toLong(val);
+            });
+  }
+
+  // ===== Screen RCA v2: Problem computation with hierarchical/flat segmentation =====
+
+  private record ProblemAlgoConfig(
+      Function<Map<String, Object>, Double> metricExtractor,
+      BiFunction<String, Map<String, String>, RootCauseQuerySpec> dimQueryBuilder) {}
+
+  private record TopSegmentV2(
+      String label, Map<String, String> dimensionFilters, long affectedUserCount) {}
+
+  private record DimPickV2(
+      int dimIndex, String dimension, String value, long affectedUserCount) {}
+
+  private record DimTopCandidate(
+      String dim, String value, double metricValue, long affectedUserCount) {}
+
+  private Single<ScreenRcaProblemResult> computeCrashProblem(
+      String projectId, String screenName, RootCauseQueryBuilder.Window window, Long totalSessions) {
+    if (totalSessions == 0) {
+      return Single.just(SKIP);
+    }
+    return executeQuery(projectId, ScreenRcaQueryBuilder.buildCrashBaselineQuery(
+        projectId, screenName, window.startInclusive, window.endExclusive))
+        .flatMap(rows -> {
+          if (rows.isEmpty()) {
+            return Single.just(SKIP);
+          }
+          Map<String, Object> baselineRow = rows.get(0);
+          long affectedUserCount = NumberCoercionUtils.toLong(baselineRow.get("affected_user_count"));
+          if (affectedUserCount == 0) {
+            return Single.just(SKIP);
+          }
+          double crashRate = totalSessions > 0 ? (double) affectedUserCount / totalSessions * 100 : 0;
+          ProblemAlgoConfig algo = new ProblemAlgoConfig(
+              r -> NumberCoercionUtils.toDouble(r.get("affected_user_count")),
+              (dim, filters) -> ScreenRcaQueryBuilder.buildCrashByDimensionQuery(
+                  projectId, screenName, window.startInclusive, window.endExclusive, dim, filters));
+          return findTopSegmentV2(projectId, screenName, window, (double) affectedUserCount, algo)
+              .flatMap(optSeg -> {
+                String topLabel = optSeg.map(TopSegmentV2::label).orElse("overall");
+                long affectedUsers = optSeg.map(TopSegmentV2::affectedUserCount)
+                    .orElse(affectedUserCount);
+                Single<List<ScreenRcaSpecificIssue>> issuesSingle = optSeg
+                    .filter(s -> !s.dimensionFilters().isEmpty())
+                    .map(s -> {
+                      Map.Entry<String, String> e = s.dimensionFilters().entrySet().iterator().next();
+                      return fetchCrashSpecificIssues(
+                          projectId, screenName, window, e.getKey(), e.getValue());
+                    })
+                    .orElse(Single.just(List.of()));
+                return issuesSingle.map(issues -> ScreenRcaProblemResult.builder()
+                    .problemType("crashes")
+                    .topSegment(topLabel)
+                    .metricId(ScreenRcaQueryBuilder.CRASH_RATE)
+                    .metrics(ScreenRcaMetrics.builder()
+                        .affectedVolume(affectedUsers)
+                        .rate(String.format("%.2f%%", crashRate))
+                        .build())
+                    .affectedUserCount(affectedUsers)
+                    .typePriorityOrdinal(getTypePriorityOrdinal("crashes"))
+                    .specificIssues(issues)
+                    .build());
+              });
+        });
+  }
+
+  private Single<ScreenRcaProblemResult> computeAnrProblem(
+      String projectId, String screenName, RootCauseQueryBuilder.Window window, Long totalSessions) {
+    if (totalSessions == 0) {
+      return Single.just(SKIP);
+    }
+    return executeQuery(projectId, ScreenRcaQueryBuilder.buildAnrBaselineQuery(
+        projectId, screenName, window.startInclusive, window.endExclusive))
+        .flatMap(rows -> {
+          if (rows.isEmpty()) {
+            return Single.just(SKIP);
+          }
+          Map<String, Object> baselineRow = rows.get(0);
+          long affectedUserCount = NumberCoercionUtils.toLong(baselineRow.get("affected_user_count"));
+          if (affectedUserCount == 0) {
+            return Single.just(SKIP);
+          }
+          double anrRate = totalSessions > 0 ? (double) affectedUserCount / totalSessions * 100 : 0;
+          ProblemAlgoConfig algo = new ProblemAlgoConfig(
+              r -> NumberCoercionUtils.toDouble(r.get("affected_user_count")),
+              (dim, filters) -> ScreenRcaQueryBuilder.buildAnrByDimensionQuery(
+                  projectId, screenName, window.startInclusive, window.endExclusive, dim, filters));
+          return findTopSegmentV2(projectId, screenName, window, (double) affectedUserCount, algo)
+              .flatMap(optSeg -> {
+                String topLabel = optSeg.map(TopSegmentV2::label).orElse("overall");
+                long affectedUsers = optSeg.map(TopSegmentV2::affectedUserCount)
+                    .orElse(affectedUserCount);
+                Single<List<ScreenRcaSpecificIssue>> issuesSingle = optSeg
+                    .filter(s -> !s.dimensionFilters().isEmpty())
+                    .map(s -> {
+                      Map.Entry<String, String> e = s.dimensionFilters().entrySet().iterator().next();
+                      return fetchAnrSpecificIssues(
+                          projectId, screenName, window, e.getKey(), e.getValue());
+                    })
+                    .orElse(Single.just(List.of()));
+                return issuesSingle.map(issues -> ScreenRcaProblemResult.builder()
+                    .problemType("anr")
+                    .topSegment(topLabel)
+                    .metricId(ScreenRcaQueryBuilder.ANR_RATE)
+                    .metrics(ScreenRcaMetrics.builder()
+                        .affectedVolume(affectedUsers)
+                        .rate(String.format("%.2f%%", anrRate))
+                        .build())
+                    .affectedUserCount(affectedUsers)
+                    .typePriorityOrdinal(getTypePriorityOrdinal("anr"))
+                    .specificIssues(issues)
+                    .build());
+              });
+        });
+  }
+
+  private Single<ScreenRcaProblemResult> computeFrozenFrameProblem(
+      String projectId, String screenName, RootCauseQueryBuilder.Window window, Long totalSessions) {
+    return executeQuery(projectId, ScreenRcaQueryBuilder.buildFrozenFrameBaselineQuery(
+        projectId, screenName, window.startInclusive, window.endExclusive))
+        .flatMap(rows -> {
+          if (rows.isEmpty()) {
+            return Single.just(SKIP);
+          }
+          long affectedUserCount = NumberCoercionUtils.toLong(rows.get(0).get("affected_user_count"));
+          if (affectedUserCount == 0) {
+            return Single.just(SKIP);
+          }
+          double frozenRate = totalSessions > 0 ? (double) affectedUserCount / totalSessions * 100 : 0;
+          ProblemAlgoConfig algo = new ProblemAlgoConfig(
+              r -> NumberCoercionUtils.toDouble(r.get("affected_user_count")),
+              (dim, filters) -> ScreenRcaQueryBuilder.buildFrozenFrameByDimensionQuery(
+                  projectId, screenName, window.startInclusive, window.endExclusive, dim, filters));
+          long frozenAffectedUsers = affectedUserCount;
+          return findTopSegmentV2(projectId, screenName, window, (double) affectedUserCount, algo)
+              .map(optSeg -> {
+                long vol = optSeg.map(TopSegmentV2::affectedUserCount).orElse(frozenAffectedUsers);
+                return ScreenRcaProblemResult.builder()
+                    .problemType("frozen_frames")
+                    .topSegment(optSeg.map(TopSegmentV2::label).orElse("overall"))
+                    .metricId(ScreenRcaQueryBuilder.FROZEN_FRAME_RATE)
+                    .metrics(ScreenRcaMetrics.builder()
+                        .affectedVolume(vol)
+                        .rate(String.format("%.2f%%", frozenRate))
+                        .build())
+                    .affectedUserCount(vol)
+                    .typePriorityOrdinal(getTypePriorityOrdinal("frozen_frames"))
+                    .build();
+              });
+        });
+  }
+
+  private Single<ScreenRcaProblemResult> computeSlowRenderProblem(
+      String projectId, String screenName, RootCauseQueryBuilder.Window window, Long totalSessions) {
+    return executeQuery(projectId, ScreenRcaQueryBuilder.buildSlowRenderingBaselineQuery(
+        projectId, screenName, window.startInclusive, window.endExclusive))
+        .flatMap(rows -> {
+          if (rows.isEmpty()) {
+            return Single.just(SKIP);
+          }
+          long affectedUserCount = NumberCoercionUtils.toLong(rows.get(0).get("affected_user_count"));
+          if (affectedUserCount == 0) {
+            return Single.just(SKIP);
+          }
+          double slowRate = totalSessions > 0 ? (double) affectedUserCount / totalSessions * 100 : 0;
+          ProblemAlgoConfig algo = new ProblemAlgoConfig(
+              r -> NumberCoercionUtils.toDouble(r.get("affected_user_count")),
+              (dim, filters) -> ScreenRcaQueryBuilder.buildSlowRenderingByDimensionQuery(
+                  projectId, screenName, window.startInclusive, window.endExclusive, dim, filters));
+          long slowAffectedUsers = affectedUserCount;
+          return findTopSegmentV2(projectId, screenName, window, (double) affectedUserCount, algo)
+              .map(optSeg -> {
+                long vol = optSeg.map(TopSegmentV2::affectedUserCount).orElse(slowAffectedUsers);
+                return ScreenRcaProblemResult.builder()
+                    .problemType("slow_rendering")
+                    .topSegment(optSeg.map(TopSegmentV2::label).orElse("overall"))
+                    .metricId(ScreenRcaQueryBuilder.SLOW_FRAME_RATE)
+                    .metrics(ScreenRcaMetrics.builder()
+                        .affectedVolume(vol)
+                        .rate(String.format("%.2f%%", slowRate))
+                        .build())
+                    .affectedUserCount(vol)
+                    .typePriorityOrdinal(getTypePriorityOrdinal("slow_rendering"))
+                    .build();
+              });
+        });
+  }
+
+  private Single<ScreenRcaProblemResult> computeNetworkFailureProblem(
+      String projectId, String screenName, RootCauseQueryBuilder.Window window, Long totalSessions) {
+    return executeQuery(projectId, ScreenRcaQueryBuilder.buildNetworkFailureBaselineQuery(
+        projectId, screenName, window.startInclusive, window.endExclusive))
+        .flatMap(rows -> {
+          if (rows.isEmpty()) {
+            return Single.just(SKIP);
+          }
+          long affectedUserCount = NumberCoercionUtils.toLong(rows.get(0).get("affected_user_count"));
+          if (affectedUserCount == 0) {
+            return Single.just(SKIP);
+          }
+          double errorRate = totalSessions > 0 ? (double) affectedUserCount / totalSessions * 100 : 0;
+          ProblemAlgoConfig algo = new ProblemAlgoConfig(
+              r -> NumberCoercionUtils.toDouble(r.get("affected_user_count")),
+              (dim, filters) -> ScreenRcaQueryBuilder.buildNetworkFailureByDimensionQuery(
+                  projectId, screenName, window.startInclusive, window.endExclusive, dim, filters));
+          long netFailAffectedUsers = affectedUserCount;
+          return findTopSegmentV2(projectId, screenName, window, (double) affectedUserCount, algo)
+              .map(optSeg -> {
+                long vol = optSeg.map(TopSegmentV2::affectedUserCount).orElse(netFailAffectedUsers);
+                return ScreenRcaProblemResult.builder()
+                    .problemType("network_failures")
+                    .topSegment(optSeg.map(TopSegmentV2::label).orElse("overall"))
+                    .metricId(ScreenRcaQueryBuilder.NETWORK_ERROR_RATE)
+                    .metrics(ScreenRcaMetrics.builder()
+                        .affectedVolume(vol)
+                        .rate(String.format("%.2f%%", errorRate))
+                        .build())
+                    .affectedUserCount(vol)
+                    .typePriorityOrdinal(getTypePriorityOrdinal("network_failures"))
+                    .build();
+              });
+        });
+  }
+
+  private Single<ScreenRcaProblemResult> computeNetworkLatencyProblem(
+      String projectId, String screenName, RootCauseQueryBuilder.Window window, Long totalSessions) {
+    return executeQuery(projectId, ScreenRcaQueryBuilder.buildNetworkLatencyBaselineQuery(
+        projectId, screenName, window.startInclusive, window.endExclusive))
+        .flatMap(rows -> {
+          if (rows.isEmpty()) {
+            return Single.just(SKIP);
+          }
+          long affectedUserCount = NumberCoercionUtils.toLong(rows.get(0).get("affected_user_count"));
+          if (affectedUserCount == 0) {
+            return Single.just(SKIP);
+          }
+          double badLatencyRate = totalSessions > 0 ? (double) affectedUserCount / totalSessions * 100 : 0;
+          ProblemAlgoConfig algo = new ProblemAlgoConfig(
+              r -> NumberCoercionUtils.toDouble(r.get("affected_user_count")),
+              (dim, filters) -> ScreenRcaQueryBuilder.buildNetworkLatencyByDimensionQuery(
+                  projectId, screenName, window.startInclusive, window.endExclusive, dim, filters));
+          long netLatAffectedUsers = affectedUserCount;
+          Single<Map<String, Object>> percentilesSingle = executeQuery(projectId,
+              ScreenRcaQueryBuilder.buildNetworkLatencyPercentilesQuery(
+                  projectId, screenName, window.startInclusive, window.endExclusive))
+              .map(pctRows -> pctRows.isEmpty() ? Map.of() : pctRows.get(0));
+          return Single.zip(
+              findTopSegmentV2(projectId, screenName, window, (double) netLatAffectedUsers, algo),
+              percentilesSingle,
+              (optSeg, pctRow) -> {
+                long vol = optSeg.map(TopSegmentV2::affectedUserCount).orElse(netLatAffectedUsers);
+                Long p50 = pctRow.isEmpty() ? null
+                    : (long) NumberCoercionUtils.toDouble(pctRow.get(ScreenRcaQueryBuilder.P50_MS));
+                Long p95 = pctRow.isEmpty() ? null
+                    : (long) NumberCoercionUtils.toDouble(pctRow.get(ScreenRcaQueryBuilder.P95_MS));
+                return ScreenRcaProblemResult.builder()
+                    .problemType("network_latency")
+                    .topSegment(optSeg.map(TopSegmentV2::label).orElse("overall"))
+                    .metricId(ScreenRcaQueryBuilder.BAD_NETWORK_LATENCY_RATE)
+                    .metrics(ScreenRcaMetrics.builder()
+                        .affectedVolume(vol)
+                        .rate(String.format("%.2f%%", badLatencyRate))
+                        .p50Ms(p50)
+                        .p95Ms(p95)
+                        .build())
+                    .affectedUserCount(vol)
+                    .typePriorityOrdinal(getTypePriorityOrdinal("network_latency"))
+                    .build();
+              });
+        });
+  }
+
+  private Single<ScreenRcaProblemResult> computeScreenLoadProblem(
+      String projectId, String screenName, RootCauseQueryBuilder.Window window, Long totalSessions) {
+    return executeQuery(projectId, ScreenRcaQueryBuilder.buildScreenLoadBaselineQuery(
+        projectId, screenName, window.startInclusive, window.endExclusive))
+        .flatMap(rows -> {
+          if (rows.isEmpty()) {
+            return Single.just(SKIP);
+          }
+          long affectedUserCount = NumberCoercionUtils.toLong(rows.get(0).get("affected_user_count"));
+          if (affectedUserCount == 0) {
+            return Single.just(SKIP);
+          }
+          double badLoadRate = totalSessions > 0 ? (double) affectedUserCount / totalSessions * 100 : 0;
+          ProblemAlgoConfig algo = new ProblemAlgoConfig(
+              r -> NumberCoercionUtils.toDouble(r.get("affected_user_count")),
+              (dim, filters) -> ScreenRcaQueryBuilder.buildScreenLoadByDimensionQuery(
+                  projectId, screenName, window.startInclusive, window.endExclusive, dim, filters));
+          long loadAffectedUsers = affectedUserCount;
+          Single<Map<String, Object>> loadPctSingle = executeQuery(projectId,
+              ScreenRcaQueryBuilder.buildScreenLoadPercentilesQuery(
+                  projectId, screenName, window.startInclusive, window.endExclusive))
+              .map(pctRows -> pctRows.isEmpty() ? Map.of() : pctRows.get(0));
+          return Single.zip(
+              findTopSegmentV2(projectId, screenName, window, (double) loadAffectedUsers, algo),
+              loadPctSingle,
+              (optSeg, pctRow) -> {
+                long vol = optSeg.map(TopSegmentV2::affectedUserCount).orElse(loadAffectedUsers);
+                Long p50 = pctRow.isEmpty() ? null
+                    : (long) NumberCoercionUtils.toDouble(pctRow.get(ScreenRcaQueryBuilder.P50_MS));
+                Long p95 = pctRow.isEmpty() ? null
+                    : (long) NumberCoercionUtils.toDouble(pctRow.get(ScreenRcaQueryBuilder.P95_MS));
+                return ScreenRcaProblemResult.builder()
+                    .problemType("screen_load_time")
+                    .topSegment(optSeg.map(TopSegmentV2::label).orElse("overall"))
+                    .metricId(ScreenRcaQueryBuilder.BAD_SCREEN_LOAD_RATE)
+                    .metrics(ScreenRcaMetrics.builder()
+                        .affectedVolume(vol)
+                        .rate(String.format("%.2f%%", badLoadRate))
+                        .p50Ms(p50)
+                        .p95Ms(p95)
+                        .build())
+                    .affectedUserCount(vol)
+                    .typePriorityOrdinal(getTypePriorityOrdinal("screen_load_time"))
+                    .build();
+              });
+        });
+  }
+
+  private Single<ScreenRcaProblemResult> computeScreenInteractiveProblem(
+      String projectId, String screenName, RootCauseQueryBuilder.Window window, Long totalSessions) {
+    return executeQuery(projectId, ScreenRcaQueryBuilder.buildScreenInteractiveBaselineQuery(
+        projectId, screenName, window.startInclusive, window.endExclusive))
+        .flatMap(rows -> {
+          if (rows.isEmpty()) {
+            return Single.just(SKIP);
+          }
+          long affectedUserCount = NumberCoercionUtils.toLong(rows.get(0).get("affected_user_count"));
+          if (affectedUserCount == 0) {
+            return Single.just(SKIP);
+          }
+          double badInteractiveRate =
+              totalSessions > 0 ? (double) affectedUserCount / totalSessions * 100 : 0;
+          ProblemAlgoConfig algo = new ProblemAlgoConfig(
+              r -> NumberCoercionUtils.toDouble(r.get("affected_user_count")),
+              (dim, filters) -> ScreenRcaQueryBuilder.buildScreenInteractiveByDimensionQuery(
+                  projectId, screenName, window.startInclusive, window.endExclusive, dim, filters));
+          long interactiveAffectedUsers = affectedUserCount;
+          Single<Map<String, Object>> interactivePctSingle = executeQuery(projectId,
+              ScreenRcaQueryBuilder.buildScreenInteractivePercentilesQuery(
+                  projectId, screenName, window.startInclusive, window.endExclusive))
+              .map(pctRows -> pctRows.isEmpty() ? Map.of() : pctRows.get(0));
+          return Single.zip(
+              findTopSegmentV2(projectId, screenName, window, (double) interactiveAffectedUsers, algo),
+              interactivePctSingle,
+              (optSeg, pctRow) -> {
+                long vol = optSeg.map(TopSegmentV2::affectedUserCount).orElse(interactiveAffectedUsers);
+                Long p50 = pctRow.isEmpty() ? null
+                    : (long) NumberCoercionUtils.toDouble(pctRow.get(ScreenRcaQueryBuilder.P50_MS));
+                Long p95 = pctRow.isEmpty() ? null
+                    : (long) NumberCoercionUtils.toDouble(pctRow.get(ScreenRcaQueryBuilder.P95_MS));
+                return ScreenRcaProblemResult.builder()
+                    .problemType("screen_interactive")
+                    .topSegment(optSeg.map(TopSegmentV2::label).orElse("overall"))
+                    .metricId(ScreenRcaQueryBuilder.BAD_SCREEN_INTERACTIVE_RATE)
+                    .metrics(ScreenRcaMetrics.builder()
+                        .affectedVolume(vol)
+                        .rate(String.format("%.2f%%", badInteractiveRate))
+                        .p50Ms(p50)
+                        .p95Ms(p95)
+                        .build())
+                    .affectedUserCount(vol)
+                    .typePriorityOrdinal(getTypePriorityOrdinal("screen_interactive"))
+                    .build();
+              });
+        });
+  }
+
+  private Single<ScreenRcaProblemResult> computeBadClickProblem(
+      String projectId, String screenName, RootCauseQueryBuilder.Window window) {
+    return executeQuery(projectId, ScreenRcaQueryBuilder.buildBaselineQuery(
+        projectId, screenName, window.startInclusive, window.endExclusive))
+        .flatMap(rows -> {
+          if (rows.isEmpty()) {
+            return Single.just(SKIP);
+          }
+          Map<String, Object> baselineRow = rows.get(0);
+          long clickVolume = NumberCoercionUtils.toLong(baselineRow.get(ScreenRcaQueryBuilder.CLICK_VOLUME));
+          long badFrustration = NumberCoercionUtils.toLong(baselineRow.get(ScreenRcaQueryBuilder.BAD_FRUSTRATION));
+          if (clickVolume == 0 || badFrustration == 0) {
+            return Single.just(SKIP);
+          }
+          double badRate = (double) badFrustration / clickVolume * 100;
+          long affectedUserCount =
+              NumberCoercionUtils.toLong(baselineRow.get("affected_user_count"));
+          ProblemAlgoConfig algo = new ProblemAlgoConfig(
+              r -> NumberCoercionUtils.toDouble(r.get("affected_user_count")),
+              (dim, filters) -> ScreenRcaQueryBuilder.buildBadFrustrationByDimensionQuery(
+                  projectId, screenName, window.startInclusive, window.endExclusive, dim, filters));
+          long clickAffectedUsers = affectedUserCount;
+          return findTopSegmentV2(projectId, screenName, window, (double) clickAffectedUsers, algo)
+              .map(optSeg -> {
+                long vol = optSeg.map(TopSegmentV2::affectedUserCount).orElse(clickAffectedUsers);
+                return ScreenRcaProblemResult.builder()
+                    .problemType("bad_clicks")
+                    .topSegment(optSeg.map(TopSegmentV2::label).orElse("overall"))
+                    .metricId(ScreenRcaQueryBuilder.BAD_CLICKS_RATE)
+                    .metrics(ScreenRcaMetrics.builder()
+                        .affectedVolume(vol)
+                        .rate(String.format("%.2f%%", badRate))
+                        .build())
+                    .affectedUserCount(vol)
+                    .typePriorityOrdinal(getTypePriorityOrdinal("bad_clicks"))
+                    .build();
+              });
+        })
+        .onErrorReturnItem(SKIP);
+  }
+
+  // ===== Screen RCA v2: Orchestration =====
+
+  private Single<List<ScreenRcaProblemResult>> computeAllProblems(
+      String projectId, String screenName, RootCauseQueryBuilder.Window window) {
+    Single<Long> totalSessionsSingle = fetchTotalScreenSessions(projectId, screenName, window);
+    return totalSessionsSingle.flatMap(totalSessions ->
+        Single.zip(
+            computeCrashProblem(projectId, screenName, window, totalSessions),
+            computeAnrProblem(projectId, screenName, window, totalSessions),
+            computeFrozenFrameProblem(projectId, screenName, window, totalSessions),
+            computeSlowRenderProblem(projectId, screenName, window, totalSessions),
+            computeNetworkFailureProblem(projectId, screenName, window, totalSessions),
+            computeNetworkLatencyProblem(projectId, screenName, window, totalSessions),
+            computeScreenLoadProblem(projectId, screenName, window, totalSessions),
+            computeScreenInteractiveProblem(projectId, screenName, window, totalSessions),
+            computeBadClickProblem(projectId, screenName, window),
+            (c, a, ff, sr, nf, nl, sl, si, bc) ->
+                List.of(c, a, ff, sr, nf, nl, sl, si, bc)
+                    .stream().filter(p -> p != null).toList()
+        )
+    );
+  }
+
+  private List<ScreenRcaProblemResult> rankProblems(List<ScreenRcaProblemResult> problems) {
+    List<ScreenRcaProblemResult> sorted = problems.stream()
+        .filter(p -> p.getProblemType() != null)
+        .collect(Collectors.toCollection(ArrayList::new));
+    sorted.sort(java.util.Comparator
+        .comparingInt((ScreenRcaProblemResult p) -> -p.getAffectedUserCount().intValue())
+        .thenComparingInt(ScreenRcaProblemResult::getTypePriorityOrdinal)
+    );
+    for (int i = 0; i < sorted.size(); i++) {
+      sorted.get(i).setRank(i + 1);
+      sorted.get(i).setWeightage(1.0 / sorted.size());
+    }
+    return sorted;
+  }
+
+  private int getTypePriorityOrdinal(String problemType) {
+    return switch (problemType) {
+        case "crashes" -> 0;
+        case "anr" -> 1;
+        case "frozen_frames" -> 2;
+        case "screen_load_time" -> 3;
+        case "screen_interactive" -> 4;
+        case "network_failures" -> 5;
+        case "network_latency" -> 6;
+        case "slow_rendering" -> 7;
+        case "bad_clicks" -> 8;
+        default -> 9;
+    };
+  }
+
+  // ===== Screen RCA v2: Generic hierarchical/flat algorithm =====
+
+  /**
+   * Runs the full hierarchical/flat segmentation algorithm against one problem metric and returns
+   * the index-0 segment as top_segment. Algorithm is identical to interaction RCA; the only
+   * difference is that we stop after the first segment rather than collecting up to maxSegments.
+   *
+   * @param baselineMetricValue overall driver metric value (gate = baseline × threshold%)
+   */
+  private Single<Optional<TopSegmentV2>> findTopSegmentV2(
+      String projectId, String screenName, RootCauseQueryBuilder.Window window,
+      double baselineMetricValue, ProblemAlgoConfig algo) {
+    if (baselineMetricValue <= 0) {
+      return Single.just(Optional.empty());
+    }
+    double threshold = baselineMetricValue * (config.getSimilarityThresholdPct() / 100.0);
+    List<String> baseOrder = config.getDimensionOrder();
+    if (baseOrder.isEmpty()) {
+      return Single.just(Optional.empty());
+    }
+    Single<List<String>> dimOrderSingle = config.isHybridDimensionOrderingEnabled()
+        ? computeHybridDimOrderV2(projectId, screenName, window, baseOrder, threshold, algo)
+        : Single.just(baseOrder);
+    return dimOrderSingle.flatMap(orderedDims ->
+        pickFirstDimensionV2(projectId, screenName, window, orderedDims, threshold, baselineMetricValue, algo)
+            .flatMap(optFirst -> {
+              if (optFirst.isEmpty()) {
+                return flatTopSegmentV2(projectId, screenName, window, orderedDims, algo);
+              }
+              DimPickV2 first = optFirst.get();
+              LinkedHashMap<String, String> filters = new LinkedHashMap<>();
+              filters.put(first.dimension(), first.value());
+              return hierarchicalDrillV2(
+                  projectId, screenName, window, orderedDims,
+                  first.dimIndex() + 1, threshold, baselineMetricValue, filters,
+                  first.affectedUserCount(), algo)
+                  .map(Optional::of);
+            }));
+  }
+
+  private Single<List<String>> computeHybridDimOrderV2(
+      String projectId, String screenName, RootCauseQueryBuilder.Window window,
+      List<String> baseOrder, double threshold, ProblemAlgoConfig algo) {
+    if (baseOrder.isEmpty()) {
+      return Single.just(List.of());
+    }
+    List<Single<Map.Entry<String, Double>>> maxQueries = baseOrder.stream()
+        .map(dim -> {
+          RootCauseQuerySpec q = algo.dimQueryBuilder().apply(dim, null);
+          return executeQuery(projectId, q).map(rows -> {
+            double maxVal = rows.stream()
+                .mapToDouble(r -> algo.metricExtractor().apply(r))
+                .max().orElse(0.0);
+            return (Map.Entry<String, Double>) Map.entry(dim, maxVal);
+          });
+        })
+        .toList();
+    return Single.zip(maxQueries, results -> {
+      Map<String, Long> dimMaxMap = new HashMap<>();
+      for (Object r : results) {
+        @SuppressWarnings("unchecked")
+        Map.Entry<String, Double> e = (Map.Entry<String, Double>) r;
+        dimMaxMap.put(e.getKey(), (long) (e.getValue() * 1000));
+      }
+      return RootCauseService.hybridDimensionOrderFromPrecomputedMaxes(
+          baseOrder, dimMaxMap, threshold * 1000);
+    });
+  }
+
+  private Single<Optional<DimPickV2>> pickFirstDimensionV2(
+      String projectId, String screenName, RootCauseQueryBuilder.Window window,
+      List<String> dimOrder, double threshold, double totalMetric, ProblemAlgoConfig algo) {
+    return Observable.range(0, dimOrder.size())
+        .concatMapMaybe(i -> {
+          String dim = dimOrder.get(i);
+          RootCauseQuerySpec q = algo.dimQueryBuilder().apply(dim, null);
+          return executeQuery(projectId, q).flatMapMaybe(rows -> {
+            Optional<DimPickV2> pick =
+                pickClosestToTotalV2(rows, dim, i, totalMetric, threshold, algo.metricExtractor());
+            return pick.map(Maybe::just).orElseGet(Maybe::empty);
+          });
+        })
+        .firstElement()
+        .map(Optional::of)
+        .defaultIfEmpty(Optional.empty());
+  }
+
+  private Single<TopSegmentV2> hierarchicalDrillV2(
+      String projectId, String screenName, RootCauseQueryBuilder.Window window,
+      List<String> dimOrder, int nextDimIndex, double threshold, double totalMetric,
+      LinkedHashMap<String, String> accumulated, long affectedUserCount, ProblemAlgoConfig algo) {
+    if (nextDimIndex >= dimOrder.size()) {
+      return Single.just(buildTopSegmentLabel(accumulated, affectedUserCount));
+    }
+    String nextDim = dimOrder.get(nextDimIndex);
+    RootCauseQuerySpec q = algo.dimQueryBuilder().apply(nextDim, Map.copyOf(accumulated));
+    return executeQuery(projectId, q).flatMap(rows -> {
+      Optional<DimPickV2> picked =
+          pickClosestToTotalV2(rows, nextDim, nextDimIndex, totalMetric, threshold, algo.metricExtractor());
+      if (picked.isEmpty()) {
+        return Single.just(buildTopSegmentLabel(accumulated, affectedUserCount));
+      }
+      LinkedHashMap<String, String> next = new LinkedHashMap<>(accumulated);
+      next.put(picked.get().dimension(), picked.get().value());
+      return hierarchicalDrillV2(
+          projectId, screenName, window, dimOrder, nextDimIndex + 1,
+          threshold, totalMetric, next, picked.get().affectedUserCount(), algo);
+    });
+  }
+
+  private Single<Optional<TopSegmentV2>> flatTopSegmentV2(
+      String projectId, String screenName, RootCauseQueryBuilder.Window window,
+      List<String> dimOrder, ProblemAlgoConfig algo) {
+    return Observable.fromIterable(dimOrder)
+        .concatMapMaybe(dim -> {
+          RootCauseQuerySpec q = algo.dimQueryBuilder().apply(dim, null);
+          return executeQuery(projectId, q).flatMapMaybe(rows -> {
+            Optional<DimTopCandidate> best = rows.stream()
+                .map(r -> new DimTopCandidate(
+                    dim,
+                    String.valueOf(r.get(dim)),
+                    algo.metricExtractor().apply(r),
+                    NumberCoercionUtils.toLong(r.get("affected_user_count"))))
+                .filter(c -> c.metricValue() > 0)
+                .max(Comparator.comparingDouble(DimTopCandidate::metricValue));
+            return best.map(Maybe::just).orElseGet(Maybe::empty);
+          });
+        })
+        .toList()
+        .map(candidates -> {
+          if (candidates.isEmpty()) {
+            return Optional.<TopSegmentV2>empty();
+          }
+          return candidates.stream()
+              .max(Comparator.comparingDouble(DimTopCandidate::metricValue))
+              .map(best -> new TopSegmentV2(
+                  best.dim() + ": " + best.value(),
+                  Map.of(best.dim(), best.value()),
+                  best.affectedUserCount()));
+        });
+  }
+
+  private Optional<DimPickV2> pickClosestToTotalV2(
+      List<Map<String, Object>> rows, String dimensionColumn, int dimIndex,
+      double totalMetric, double threshold,
+      Function<Map<String, Object>, Double> metricExtractor) {
+    DimPickV2 best = null;
+    double bestDiff = Double.MAX_VALUE;
+    for (Map<String, Object> row : rows) {
+      double metric = metricExtractor.apply(row);
+      if (metric < threshold) {
+        continue;
+      }
+      double diff = Math.abs(metric - totalMetric);
+      if (diff < bestDiff) {
+        bestDiff = diff;
+        Object val = row.get(dimensionColumn);
+        long aff = NumberCoercionUtils.toLong(row.get("affected_user_count"));
+        best = new DimPickV2(dimIndex, dimensionColumn, val != null ? val.toString() : "", aff);
+      }
+    }
+    return Optional.ofNullable(best);
+  }
+
+  private static TopSegmentV2 buildTopSegmentLabel(
+      LinkedHashMap<String, String> filters, long affectedUserCount) {
+    List<String> nonBlank = filters.values().stream()
+        .filter(v -> v != null && !v.isBlank())
+        .collect(Collectors.toList());
+    String label = nonBlank.size() == 1
+        ? filters.entrySet().stream()
+            .filter(e -> e.getValue() != null && !e.getValue().isBlank())
+            .findFirst()
+            .map(e -> e.getKey() + ": " + e.getValue())
+            .orElse("overall")
+        : String.join(" + ", nonBlank);
+    return new TopSegmentV2(label, Map.copyOf(filters), affectedUserCount);
+  }
+
+  // ===== Screen RCA v2: Specific issues =====
+
+  private Single<List<ScreenRcaSpecificIssue>> fetchCrashSpecificIssues(
+      String projectId, String screenName, RootCauseQueryBuilder.Window window,
+      String dimensionColumn, String dimensionValue) {
+    RootCauseQuerySpec spec = ScreenRcaQueryBuilder.buildCrashSpecificIssuesQuery(
+        projectId, screenName, window.startInclusive, window.endExclusive,
+        dimensionColumn, dimensionValue);
+    return executeQuery(projectId, spec)
+        .map(rows -> rows.stream()
+            .map(row -> ScreenRcaSpecificIssue.builder()
+                .groupId(String.valueOf(row.getOrDefault("group_id", "")))
+                .issue(String.valueOf(row.getOrDefault("issue", "")))
+                .count(NumberCoercionUtils.toLong(row.get("cnt")))
+                .build())
+            .toList());
+  }
+
+  private Single<List<ScreenRcaSpecificIssue>> fetchAnrSpecificIssues(
+      String projectId, String screenName, RootCauseQueryBuilder.Window window,
+      String dimensionColumn, String dimensionValue) {
+    RootCauseQuerySpec spec = ScreenRcaQueryBuilder.buildAnrSpecificIssuesQuery(
+        projectId, screenName, window.startInclusive, window.endExclusive,
+        dimensionColumn, dimensionValue);
+    return executeQuery(projectId, spec)
+        .map(rows -> rows.stream()
+            .map(row -> ScreenRcaSpecificIssue.builder()
+                .groupId(String.valueOf(row.getOrDefault("group_id", "")))
+                .threadName(String.valueOf(row.getOrDefault("thread", "")))
+                .count(NumberCoercionUtils.toLong(row.get("cnt")))
+                .build())
+            .toList());
   }
 
   private List<Map<String, Object>> rowsToMaps(GetQueryDataResponseDto<GetRawUserEventsResponseDto> response) {

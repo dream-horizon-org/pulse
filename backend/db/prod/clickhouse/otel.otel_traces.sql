@@ -66,7 +66,8 @@ ON CLUSTER 'pulse-ch'
     INDEX idx_http_method   HttpMethod        TYPE set(16)             GRANULARITY 1,
     INDEX idx_http_status   HttpStatusCode    TYPE minmax              GRANULARITY 1,
     INDEX idx_graphql_type  GraphqlType       TYPE set(8)              GRANULARITY 4,
-    INDEX idx_graphql_name  GraphqlName       TYPE bloom_filter(0.01)  GRANULARITY 4
+    INDEX idx_graphql_name  GraphqlName       TYPE bloom_filter(0.01)  GRANULARITY 4,
+    INDEX idx_screen_name   ScreenName        TYPE bloom_filter(0.01)  GRANULARITY 1
 )
 ENGINE = ReplicatedMergeTree('/clickhouse/tables/{shard}/otel/otel_traces_local', '{replica}')
 PARTITION BY toYYYYMMDD(Timestamp)
@@ -80,6 +81,12 @@ ON CLUSTER 'pulse-ch'
 AS otel.otel_traces_local
 ENGINE = Distributed('pulse-ch', otel, otel_traces_local, cityHash64(TraceId));
 
+
+-- Apply on existing clusters to add ScreenName bloom-filter index:
+ALTER TABLE otel.otel_traces_local ON CLUSTER 'pulse-ch'
+    ADD INDEX idx_screen_name ScreenName TYPE bloom_filter(0.01) GRANULARITY 1;
+ALTER TABLE otel.otel_traces_local ON CLUSTER 'pulse-ch'
+    MATERIALIZE INDEX idx_screen_name;
 
 -- Optional follow-up (NOT applied): network-span hot columns.
 -- Apply separately if you proceed with the network-query optimization:

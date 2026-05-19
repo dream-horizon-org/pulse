@@ -306,5 +306,14 @@ public class RootCauseQueryBuilder {
       this.startInclusive = startInclusiveUtc;
       this.endExclusive = endExclusiveUtc;
     }
+
+    /** Explicit instant-based window — supports sub-day intervals (1h, 6h, custom). */
+    public Window(Instant startInclusive, Instant endExclusive) {
+      if (!endExclusive.isAfter(startInclusive)) {
+        throw new IllegalArgumentException("endExclusive must be after startInclusive");
+      }
+      this.startInclusive = startInclusive;
+      this.endExclusive = endExclusive;
+    }
   }
 }

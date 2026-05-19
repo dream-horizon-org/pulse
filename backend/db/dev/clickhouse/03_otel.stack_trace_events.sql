@@ -42,7 +42,8 @@ CREATE TABLE IF NOT EXISTS otel.stack_trace_events
     INDEX idx_platform         Platform           TYPE set(8)             GRANULARITY 1,
     INDEX idx_os_version       OsVersion          TYPE set(256)           GRANULARITY 1,
     INDEX idx_timestamp        Timestamp          TYPE minmax             GRANULARITY 1,
-    INDEX idx_app_installation_id AppInstallationId TYPE bloom_filter(0.01) GRANULARITY 1
+    INDEX idx_app_installation_id AppInstallationId TYPE bloom_filter(0.01) GRANULARITY 1,
+    INDEX idx_screen_name         ScreenName        TYPE bloom_filter(0.01) GRANULARITY 1
 )
 ENGINE = MergeTree
 PARTITION BY toYYYYMMDD(Timestamp)

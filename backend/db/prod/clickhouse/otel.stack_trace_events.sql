@@ -43,7 +43,8 @@ ON CLUSTER 'pulse-ch'
     INDEX idx_platform         Platform           TYPE set(8)             GRANULARITY 1,
     INDEX idx_os_version       OsVersion          TYPE set(256)           GRANULARITY 1,
     INDEX idx_timestamp        Timestamp          TYPE minmax             GRANULARITY 1,
-    INDEX idx_app_installation_id AppInstallationId TYPE bloom_filter(0.01) GRANULARITY 1
+    INDEX idx_app_installation_id AppInstallationId TYPE bloom_filter(0.01) GRANULARITY 1,
+       INDEX idx_screen_name         ScreenName        TYPE bloom_filter(0.01) GRANULARITY 1
     )
 ENGINE = ReplicatedMergeTree('/clickhouse/tables/{shard}/otel/stack_trace_events_local', '{replica}')
 PARTITION BY toYYYYMMDD(Timestamp)
@@ -57,3 +58,9 @@ CREATE TABLE IF NOT EXISTS otel.stack_trace_events
 ON CLUSTER 'pulse-ch'
 AS otel.stack_trace_events_local
     ENGINE = Distributed('pulse-ch', otel, stack_trace_events_local, cityHash64(TraceId));
+
+-- Apply on existing clusters to add ScreenName bloom-filter index:
+ALTER TABLE otel.stack_trace_events_local ON CLUSTER 'pulse-ch'
+    ADD INDEX idx_screen_name ScreenName TYPE bloom_filter(0.01) GRANULARITY 1;
+ALTER TABLE otel.stack_trace_events_local ON CLUSTER 'pulse-ch'
+    MATERIALIZE INDEX idx_screen_name;

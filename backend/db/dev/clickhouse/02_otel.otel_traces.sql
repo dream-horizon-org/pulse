@@ -65,7 +65,8 @@ CREATE TABLE IF NOT EXISTS otel.otel_traces
     INDEX idx_http_method   HttpMethod        TYPE set(16)             GRANULARITY 1,
     INDEX idx_http_status   HttpStatusCode    TYPE minmax              GRANULARITY 1,
     INDEX idx_graphql_type  GraphqlType       TYPE set(8)              GRANULARITY 4,
-    INDEX idx_graphql_name  GraphqlName       TYPE bloom_filter(0.01)  GRANULARITY 4
+    INDEX idx_graphql_name  GraphqlName       TYPE bloom_filter(0.01)  GRANULARITY 4,
+    INDEX idx_screen_name   ScreenName        TYPE bloom_filter(0.01)  GRANULARITY 1
 )
 ENGINE = MergeTree
 PARTITION BY toYYYYMMDD(Timestamp)

@@ -26,9 +26,11 @@ import org.dreamhorizon.pulseserver.rest.io.Response;
 import org.dreamhorizon.pulseserver.rest.io.RestResponse;
 import org.dreamhorizon.pulseserver.context.ProjectContext;
 import org.dreamhorizon.pulseserver.error.ServiceError;
+import org.dreamhorizon.pulseserver.service.rootcause.RootCauseQueryBuilder;
 import org.dreamhorizon.pulseserver.service.rootcause.ScreenRcaService;
 import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseResult;
 import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseSegment;
+import org.dreamhorizon.pulseserver.service.rootcause.models.ScreenRcaProblemResult;
 
 @Slf4j
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
@@ -63,6 +65,43 @@ public class ScreenRcaController {
         .getScreenRootCause(projectId, screenName, date, windowEndExclusiveUtc, forceRefresh)
         .map(this::toRootCauseRestResponse)
         .to(RestResponse.jaxrsRestHandler());
+  }
+
+  // Default lookback for Screen RCA v2. Future: inject from config.
+  private static final int DEFAULT_LOOKBACK_DAYS = 2;
+
+  /**
+   * Screen RCA v2: UI sends current timestamp as {@code asOf}; Window = [windowEnd − 7d, windowEnd].
+   * Returns list of problems ranked by affected user count and problem type priority.
+   */
+  @GET
+  @Path("/{screenName}/root-cause/v2")
+  @Consumes(MediaType.WILDCARD)
+  @Produces(MediaType.APPLICATION_JSON)
+  // @RequiresPermission("can_view")
+  @Timeout(value = 60000)
+  public CompletionStage<Response<List<ScreenRcaProblemResult>>> getScreenRootCauseV2(
+      @PathParam("screenName") String screenName,
+      @QueryParam("windowEnd") String windowEndParam,
+      @QueryParam("forceRefresh") String forceRefreshParam) {
+    String projectId = ProjectContext.requireProjectId();
+    final RootCauseQueryBuilder.Window window;
+    final boolean forceRefresh = parseForceRefresh(forceRefreshParam);
+    try {
+      window = resolveWindowV2(windowEndParam);
+    } catch (WebApplicationException e) {
+      return CompletableFuture.failedFuture(e);
+    }
+
+    return screenRcaService
+        .getScreenRootCauseV2(projectId, screenName, window)
+        .to(RestResponse.jaxrsRestHandler());
+  }
+
+  private static RootCauseQueryBuilder.Window resolveWindowV2(String windowEndParam) {
+    Instant windowEnd = parseRootCauseAsOf(windowEndParam);
+    Instant windowStart = windowEnd.minus(DEFAULT_LOOKBACK_DAYS, java.time.temporal.ChronoUnit.DAYS);
+    return new RootCauseQueryBuilder.Window(windowStart, windowEnd);
   }
 
   /** When {@code true}, skips ClickHouse read-through and recomputes tabular screen RCA (regenerate parity). */
