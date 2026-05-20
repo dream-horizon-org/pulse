@@ -1,6 +1,5 @@
 package org.dreamhorizon.pulseserver.errorgrouping.service;
 
-import static org.dreamhorizon.pulseserver.grouping.parser.FramesParser.TOP_N_FRAMES;
 import static org.dreamhorizon.pulseserver.grouping.parser.FramesParser.parse;
 
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -39,9 +38,9 @@ import org.dreamhorizon.pulseserver.grouping.Grouper;
 import org.dreamhorizon.pulseserver.grouping.model.EventMeta;
 import org.dreamhorizon.pulseserver.grouping.model.Frame;
 import org.dreamhorizon.pulseserver.grouping.model.Group;
+import org.dreamhorizon.pulseserver.grouping.model.GroupingRules;
 import org.dreamhorizon.pulseserver.grouping.model.Lane;
 import org.dreamhorizon.pulseserver.grouping.model.ParsedFrames;
-import org.dreamhorizon.pulseserver.grouping.util.ErrorGroupingUtils;
 import org.dreamhorizon.pulseserver.service.configs.models.Sdk;
 
 
@@ -57,6 +56,7 @@ public class ErrorGroupingService {
   private final StackTraceArchiveService stackTraceArchiveService;
   private final Symbolicator symbolicator;
   private final ObjectMapper objectMapper;
+  private final GroupingRuleService groupingRuleService;
   public static final String LOG_PREFIX = "[PULSE ERROR GROUPING SERVICE]";
 
   public static String traceIdHex(ByteString bs) {
@@ -309,7 +309,8 @@ public class ErrorGroupingService {
     List<String> lines = Arrays.asList((raw == null ? "" : raw).split("\\R", -1));
     ParsedFrames parsedFrames = parse(lines);
 
-    // Choose primary lane for grouping
+    // Choose primary lane (used only for the structured log line below — the
+    // full grouping pipeline reruns this internally via Grouper.group).
     Lane primary = Grouper.choosePrimary(parsedFrames);
     log.info(
         "{} parsed primaryLane={} frameCounts js={} java={} ndk={} iosNative={} projectId={} appVersion={} "
@@ -325,24 +326,17 @@ public class ErrorGroupingService {
         meta.getAppVersionCode(),
         meta.getPlatform(),
         meta.getBundleId());
-    List<String> excTypes = Grouper.typesForPrimary(parsedFrames, primary);
-    List<Frame> primaryFrames = Grouper.selectPrimaryTokens(parsedFrames, primary, TOP_N_FRAMES);
 
-    // Symbolicate all lanes in parallel for complete stack trace
+    // Symbolicate all lanes in parallel for the full stack-trace reconstruction
+    // (stored on StackTraceEvent.exceptionStackTrace). Grouping itself runs
+    // off the raw, unified, masked, stripped frames produced by Grouper.group —
+    // no symbolicated tokens feed the signature any more.
     Single<CompleteSymbolication> completeSymb = symbolicateComplete(parsedFrames, meta, raw);
 
-    // Symbolicate primary lane for grouping
-    Single<List<String>> primaryTokens = symbolicate(primary, primaryFrames, meta, raw, false);
+    Single<GroupingRules> rulesSingle = groupingRuleService.getRules(meta.getProjectId(), meta.getBundleId());
 
-    return Single.zip(primaryTokens, completeSymb, (tokens, complete) -> {
-      // Build group from primary lane
-      String platformTag = ErrorGroupingUtils.platformTag(primary);
-      String signature = Grouper.buildSignature(platformTag, excTypes, tokens);
-      String sha1 = ErrorGroupingUtils.sha1Hex(signature);
-      String groupId = Grouper.computeGroupId(sha1);
-      String title = Grouper.buildDisplayName(primary, excTypes, tokens, groupId);
-      Group group = new Group(platformTag, signature, sha1, groupId, title);
-
+    return Single.zip(rulesSingle, completeSymb, (rules, complete) -> {
+      Group group = Grouper.group(parsedFrames, meta, rules);
       return new ProcessingResult(group, complete);
     });
   }

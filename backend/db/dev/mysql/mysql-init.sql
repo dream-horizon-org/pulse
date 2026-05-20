@@ -1316,3 +1316,93 @@ INSERT INTO notification_templates (event_name, channel_type, version, body) VAL
     )
 ))
 ON DUPLICATE KEY UPDATE body = VALUES(body);
+
+-- =============================================================================
+-- Error grouping per-project rule catalog
+-- -----------------------------------------------------------------------------
+-- Per-project rules consumed by the pulse-grouping heuristic pipeline:
+--   * IN_APP_PACKAGE / THIRD_PARTY_PACKAGE / FRAMEWORK_PACKAGE - package prefix
+--     allow/deny lists used by FrameClassifier (lower `position` = higher
+--     priority within a kind).
+--   * STRIP_PATTERN - regex applied to frame tokens by FrameStripper to mark
+--     universal noise frames (Looper/Handler/ZygoteInit/etc).
+--   * MASK_REGEX - regex + replacement applied to frame tokens and the
+--     exception header by FrameMasker (line numbers, hex addresses, UUIDs,
+--     Metro bundle URLs, etc).
+--
+-- The replacement column is only meaningful for MASK_REGEX rows. The application
+-- materializes a single GroupingRules bundle per project via GroupingRuleCache
+-- (Caffeine AsyncLoadingCache) at request time.
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS grouping_rule (
+    id          BIGINT AUTO_INCREMENT PRIMARY KEY,
+    project_id  VARCHAR(64)  NOT NULL,
+    rule_kind   ENUM('IN_APP_PACKAGE','THIRD_PARTY_PACKAGE','FRAMEWORK_PACKAGE','STRIP_PATTERN','MASK_REGEX') NOT NULL,
+    pattern     VARCHAR(512) NOT NULL,
+    replacement VARCHAR(512) DEFAULT NULL,
+    position    INT          NOT NULL DEFAULT 0,
+    enabled     BOOLEAN      NOT NULL DEFAULT TRUE,
+    created_at  TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at  TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uniq_grouping_rule (project_id, rule_kind, pattern),
+    KEY idx_grouping_rule_project_kind_pos (project_id, rule_kind, position, enabled)
+);
+
+-- -----------------------------------------------------------------------------
+-- Seed: default-project (dev tenant) - Fancode/Dream11 heuristics from
+-- confluence-pulse/crash-grouping-algorithm-design/heuristics/index.md.
+-- INSERT IGNORE keeps re-runs of this script idempotent.
+-- -----------------------------------------------------------------------------
+
+-- IN_APP_PACKAGE: position 0 = highest priority. The more-specific
+-- `androidx.media3.` rule lives here so it wins over the broader `androidx.`
+-- entry in FRAMEWORK_PACKAGE.
+INSERT IGNORE INTO grouping_rule (project_id, rule_kind, pattern, position) VALUES
+    ('default-project', 'IN_APP_PACKAGE', 'com.dream11sportsguru.',         0),
+    ('default-project', 'IN_APP_PACKAGE', 'com.fancode.',                   1),
+    ('default-project', 'IN_APP_PACKAGE', 'com.dream11.',                   2),
+    ('default-project', 'IN_APP_PACKAGE', 'in.juspay.',                     3),
+    ('default-project', 'IN_APP_PACKAGE', 'com.vmax.',                      4),
+    ('default-project', 'IN_APP_PACKAGE', 'androidx.media3.',               5),
+    ('default-project', 'IN_APP_PACKAGE', 'com.swmansion.',                 6),
+    ('default-project', 'IN_APP_PACKAGE', 'com.facebook.react.',            7),
+    ('default-project', 'IN_APP_PACKAGE', 'io.opentelemetry.android.',      8);
+
+-- FRAMEWORK_PACKAGE: the denylist. FrameClassifier checks IN_APP first, so the
+-- more specific `androidx.media3.` IN_APP rule wins over the broader
+-- `androidx.` here.
+INSERT IGNORE INTO grouping_rule (project_id, rule_kind, pattern, position) VALUES
+    ('default-project', 'FRAMEWORK_PACKAGE', 'android.',                     0),
+    ('default-project', 'FRAMEWORK_PACKAGE', 'androidx.',                    1),
+    ('default-project', 'FRAMEWORK_PACKAGE', 'com.android.',                 2),
+    ('default-project', 'FRAMEWORK_PACKAGE', 'dalvik.',                      3),
+    ('default-project', 'FRAMEWORK_PACKAGE', 'java.',                        4),
+    ('default-project', 'FRAMEWORK_PACKAGE', 'javax.',                       5),
+    ('default-project', 'FRAMEWORK_PACKAGE', 'sun.',                         6),
+    ('default-project', 'FRAMEWORK_PACKAGE', 'kotlin.',                      7),
+    ('default-project', 'FRAMEWORK_PACKAGE', 'kotlinx.coroutines.',          8),
+    ('default-project', 'FRAMEWORK_PACKAGE', 'com.facebook.react.bridge.',   9),
+    ('default-project', 'FRAMEWORK_PACKAGE', 'com.facebook.hermes.',        10),
+    ('default-project', 'FRAMEWORK_PACKAGE', 'okhttp3.internal.',           11),
+    ('default-project', 'FRAMEWORK_PACKAGE', 'retrofit2.internal.',         12),
+    ('default-project', 'FRAMEWORK_PACKAGE', 'com.google.android.gms.internal.', 13);
+
+-- STRIP_PATTERN: universal noise frames removed before signature build. Patterns
+-- are Java regexes (compiled by Pattern.compile). MySQL string literals use
+-- doubled backslashes so the persisted value matches the Java regex source.
+INSERT IGNORE INTO grouping_rule (project_id, rule_kind, pattern, position) VALUES
+    ('default-project', 'STRIP_PATTERN', '^kotlinx\\.coroutines\\.(DispatchedTask|CoroutineScheduler\\$Worker)#run$',                       0),
+    ('default-project', 'STRIP_PATTERN', '^kotlin\\.coroutines\\.jvm\\.internal\\.BaseContinuationImpl#resumeWith$',                        1),
+    ('default-project', 'STRIP_PATTERN', '^android\\.os\\.Handler#(dispatchMessage|handleCallback)$',                                       2),
+    ('default-project', 'STRIP_PATTERN', '^android\\.os\\.Looper#(loop|loopOnce)$',                                                         3),
+    ('default-project', 'STRIP_PATTERN', '^android\\.app\\.ActivityThread#main$',                                                           4),
+    ('default-project', 'STRIP_PATTERN', '^com\\.android\\.internal\\.os\\.(RuntimeInit\\$MethodAndArgsCaller|ZygoteInit)#(run|main)$',     5),
+    ('default-project', 'STRIP_PATTERN', '^java\\.lang\\.reflect\\.Method#invoke$',                                                         6);
+
+-- MASK_REGEX: pattern -> replacement substitutions applied before fingerprint.
+INSERT IGNORE INTO grouping_rule (project_id, rule_kind, pattern, replacement, position) VALUES
+    ('default-project', 'MASK_REGEX', ':\\d+',                                                                  ':N',             0),
+    ('default-project', 'MASK_REGEX', '0x[0-9a-fA-F]+',                                                         '0xADDR',         1),
+    ('default-project', 'MASK_REGEX', '\\b[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}\\b',     '<UUID>',         2),
+    ('default-project', 'MASK_REGEX', '/data/app/[a-z0-9.]+-[\\w]{1,8}/base\\.apk',                             '<apk>',          3),
+    ('default-project', 'MASK_REGEX', 'http://(localhost|10\\.0\\.2\\.2):\\d+/[^\\s)]+',                        '<metro-bundle>', 4);

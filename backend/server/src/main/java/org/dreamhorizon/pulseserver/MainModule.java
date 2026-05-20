@@ -24,6 +24,7 @@ import org.dreamhorizon.pulseserver.guice.OpenFgaServiceProvider;
 import org.dreamhorizon.pulseserver.dao.user.UserDao;
 import org.dreamhorizon.pulseserver.errorgrouping.IosLlvmSymbolicator;
 import org.dreamhorizon.pulseserver.errorgrouping.Symbolicator;
+import org.dreamhorizon.pulseserver.errorgrouping.dao.GroupingRuleDao;
 import org.dreamhorizon.pulseserver.errorgrouping.service.*;
 import org.dreamhorizon.pulseserver.module.VertxAbstractModule;
 import org.dreamhorizon.pulseserver.service.OpenFgaService;
@@ -132,6 +133,9 @@ public class MainModule extends VertxAbstractModule {
     bind(IosLlvmSymbolicator.class).in(Singleton.class);
     bind(ErrorGroupingService.class).in(Singleton.class);
     bind(Symbolicator.class).in(Singleton.class);
+    bind(GroupingRuleDao.class).in(Singleton.class);
+    bind(GroupingRuleCache.class).in(Singleton.class);
+    bind(GroupingRuleService.class).in(Singleton.class);
     bind(S3AsyncClient.class).toProvider(this::loadS3Client).in(Singleton.class);
     bind(S3Presigner.class).toProvider(this::loadS3Presigner).in(Singleton.class);
     bind(CloudFrontAsyncClient.class).toProvider(this::loadCloudFrontClient).in(Singleton.class);

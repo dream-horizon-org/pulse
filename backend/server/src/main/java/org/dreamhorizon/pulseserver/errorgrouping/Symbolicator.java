@@ -109,7 +109,12 @@ public class Symbolicator {
         .map(sourcemap -> {
           List<String> out = new ArrayList<>(jsFrames.size());
           for (Frame f : jsFrames) {
-            out.add(symbolicateNames((JsFrame) f, sourcemap));
+            String symbolicated = symbolicateNames((JsFrame) f, sourcemap);
+            // Update the frame token in-place so the grouping pipeline (Grouper.group)
+            // classifies and signs on deobfuscated names rather than minified ones.
+            // The returned list still drives CompleteSymbolication reconstruction.
+            f.setToken(symbolicated);
+            out.add(symbolicated);
           }
           sourceMapExists.put(cacheKey, Boolean.TRUE);
           log.info("{} JS deobfuscation successful: cacheKey={} outputLines={}", LOG_PREFIX, cacheKey, out.size());
@@ -165,6 +170,13 @@ public class Symbolicator {
                   .setVerbose(true)
                   .setRetracedStackTraceConsumer(out::addAll)
                   .build());
+          // Write back the deobfuscated canonical token onto each input frame
+          // so the grouping pipeline (Grouper.group) sees `com.dream11.Foo#bar`
+          // instead of `a.b.c#d`. Retrace may expand frames due to inlining,
+          // so we walk the output list and update one frame at a time in input
+          // order — extra (inlined) lines are kept in `out` for the full-stack
+          // reconstruction but ignored for token assignment.
+          applyJavaTokens(javaFrames, out);
           sourceMapExists.put(cacheKey, Boolean.TRUE);
           log.info("{} Java deobfuscation successful: cacheKey={}", LOG_PREFIX, cacheKey);
           return out;
@@ -176,6 +188,69 @@ public class Symbolicator {
               eventMeta.getPlatform(), javaFrames.size(), error.getMessage());
           return javaFrames.stream().map(Frame::getToken).toList();
         });
+  }
+
+  /**
+   * Walk the verbose-retrace output and write back the deobfuscated canonical
+   * token ({@code pkg.Class#method}) onto each input frame in input order.
+   * Extra inlined-expansion lines in {@code retracedLines} are kept in the
+   * output (used by {@code CompleteSymbolication}) but ignored here — they
+   * don't have their own input frame to update.
+   */
+  static void applyJavaTokens(List<Frame> javaFrames, List<String> retracedLines) {
+    if (javaFrames == null || retracedLines == null) {
+      return;
+    }
+    int frameIdx = 0;
+    for (String line : retracedLines) {
+      if (frameIdx >= javaFrames.size()) {
+        break;
+      }
+      String canonical = extractJavaCanonical(line);
+      if (canonical != null && !canonical.isEmpty()) {
+        javaFrames.get(frameIdx).setToken(canonical);
+        frameIdx++;
+      }
+    }
+  }
+
+  /**
+   * Pull {@code pkg.Class#method} canonical form out of a single retrace
+   * output line. Handles plain ({@code "at com.foo.Bar.method(File.java:42)"})
+   * and verbose ({@code "void com.foo.Bar.method(File.java:42)"}) shapes.
+   * Returns {@code null} for lines that don't look like frames (e.g.
+   * {@code "# {... inlined ...}"} annotations).
+   */
+  static String extractJavaCanonical(String line) {
+    if (line == null) {
+      return null;
+    }
+    String s = line.trim();
+    if (s.startsWith("at ")) {
+      s = s.substring(3).trim();
+    }
+    int paren = s.indexOf('(');
+    if (paren > 0) {
+      s = s.substring(0, paren).trim();
+    }
+    // Verbose retrace can prefix the FQN with a return type (e.g. "void com.foo.Bar.method").
+    // Take just the trailing FQN.
+    int lastSpace = s.lastIndexOf(' ');
+    if (lastSpace >= 0) {
+      s = s.substring(lastSpace + 1);
+    }
+    int lastDot = s.lastIndexOf('.');
+    if (lastDot <= 0 || lastDot >= s.length() - 1) {
+      return null;
+    }
+    String cls = s.substring(0, lastDot);
+    String method = s.substring(lastDot + 1);
+    // A useful canonical class is package-qualified — bare class names without a dot
+    // (e.g. truly unresolvable obfuscated frames retrace leaves alone) get skipped.
+    if (!cls.contains(".")) {
+      return null;
+    }
+    return cls + "#" + method;
   }
 
   /**
