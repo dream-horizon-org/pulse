@@ -30,6 +30,7 @@ class TestBuildSystemPrompt:
         prompt = build_system_prompt(None)
         assert "interaction" in prompt.lower()
         assert "alert" in prompt.lower()
+        assert "query_interaction_root_cause" in prompt
 
 
 class TestAgentWiring:
@@ -45,9 +46,9 @@ class TestAgentWiring:
 
     def test_em_agent_has_tools(self):
         from pulse_ai.agents.em import em_agent
-        # Should have 7 tools: 2 config + 4 analytics + 1 utility (calculate)
+        # Should have 8 tools: 2 config + 5 analytics + 1 utility (calculate)
         assert em_agent.tools is not None
-        assert len(em_agent.tools) == 7
+        assert len(em_agent.tools) == 8
 
     def test_em_agent_has_callable_instruction(self):
         from pulse_ai.agents.em import em_agent
