@@ -20,6 +20,8 @@ internal val THRESHOLD: AttributeKey<Double> = AttributeKey.doubleKey("app.jank.
 internal class EventJankReporter(
     private val eventLogger: Logger,
     private val threshold: Double,
+    private val minDurationMsExclusive: Int,
+    private val maxDurationMsInclusive: Int? = null,
     private val isDebugVerbose: Boolean = false,
 ) : JankReporter {
     override fun reportSlow(
@@ -27,18 +29,23 @@ internal class EventJankReporter(
         periodSeconds: Double,
         activityName: String,
     ) {
-        var frameCount: Long = 0
-        for (entry in durationToCountHistogram) {
-            val durationMillis = entry.key
-            if (durationMillis / 1000.0 > threshold) {
-                val count = entry.value
-                if (isDebugVerbose) {
+        val frameCount =
+            countFramesInDurationRange(
+                durationToCountHistogram,
+                minDurationMsExclusive,
+                maxDurationMsInclusive,
+            )
+        if (isDebugVerbose && frameCount > 0) {
+            for (entry in durationToCountHistogram) {
+                val durationMillis = entry.key
+                if (durationMillis > minDurationMsExclusive &&
+                    (maxDurationMsInclusive == null || durationMillis <= maxDurationMsInclusive)
+                ) {
                     Log.d(
                         RumConstants.OTEL_RUM_LOG_TAG,
-                        "* Slow render detected: $durationMillis ms. $count times",
+                        "* Jank frame detected: $durationMillis ms. ${entry.value} times",
                     )
                 }
-                frameCount += count
             }
         }
 
@@ -62,3 +69,19 @@ internal class EventJankReporter(
         }
     }
 }
+
+/** Frames in (minExclusive, maxInclusive]; maxInclusive null means no upper bound (frozen only). */
+private fun countFramesInDurationRange(
+    histogram: Map<Int, Int>,
+    minDurationMsExclusive: Int,
+    maxDurationMsInclusive: Int?,
+): Long =
+    histogram.entries.sumOf { (durationMillis, count) ->
+        if (durationMillis > minDurationMsExclusive &&
+            (maxDurationMsInclusive == null || durationMillis <= maxDurationMsInclusive)
+        ) {
+            count.toLong()
+        } else {
+            0L
+        }
+    }

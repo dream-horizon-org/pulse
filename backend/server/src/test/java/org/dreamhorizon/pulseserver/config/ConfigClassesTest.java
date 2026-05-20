@@ -292,13 +292,15 @@ class ConfigClassesTest {
           "dev", "cron", ApplicationConfig.DEFAULT_DASHBOARD_BASE_URL, "service", 10, "oauth", true, "firebase",
           "jwt", "otel", "config", "logs", "metric", "span", "events",
           "bucket", "configPath", "cfId", "cfPath", "webhook",
-          "interPath", "interCfPath", "encKey", "tncBucket", "http://ai:8000", "symbolFilesBucket", "dev-api-key",
+          "interPath", "interCfPath", "encKey", "tncBucket", "http://ai:8000",
+          "symbolFilesBucket", "dev-api-key",
           new SessionReplayS3Config(
               "session-replay-bucket", "http://minio:9000", "us-east-1", "access-key", "secret-key"), "replayBaseUrl",
           null,
           null,
           "localhost",
-          6379);
+          6379,
+          null);
 
       assertThat(config.getAppEnvironment()).isEqualTo("dev");
       assertThat(config.getCronManagerBaseUrl()).isEqualTo("cron");

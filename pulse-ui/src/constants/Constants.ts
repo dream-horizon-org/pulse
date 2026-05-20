@@ -78,6 +78,20 @@ export const ALERTS_SEARCH_PLACEHOLDER: string = "Search your alert here";
 
 export const CREATE_ALERT: string = "Create alert";
 
+export const NOTIFICATION_EVENT_NAMES = {
+  PULSE_ALERT_FIRING: "pulse_alert_firing",
+} as const;
+
+/** postMessage `data.type` when returning from Settings → Notifications (alert wizard flow). */
+export const NOTIFICATION_CHANNELS_UPDATED_MESSAGE =
+  "pulse-notification-channels-updated";
+
+/**
+ * Set when opening notification settings from the alert wizard; cleared after mappings refetch.
+ */
+export const SESSION_STORAGE_ALERT_WIZARD_CHANNEL_REFRESH =
+  "pulse_alert_wizard_channel_refresh";
+
 export const NO_ALERT_CONFIGURED: string = "No alerts have been configured";
 export const IS_UAT: boolean =
   process.env.REACT_APP_PULSE_SERVER_URL?.includes("-uat") ?? false;
@@ -228,6 +242,11 @@ export const ROUTES: Routes = {
     basePath: "/projects/:projectId/session-replay/sessions",
     path: "/projects/:projectId/session-replay/sessions",
   },
+  PROJECT_SESSION_QUALITY_RCA: {
+    key: "PROJECT_SESSION_QUALITY_RCA",
+    basePath: "/projects/:projectId/session-replay/quality-rca",
+    path: "/projects/:projectId/session-replay/quality-rca",
+  },
   PROJECT_SESSION_REPLAY_DETAIL: {
     key: "PROJECT_SESSION_REPLAY_DETAIL",
     basePath: "/projects/:projectId/session-replay",
@@ -347,6 +366,11 @@ export const ROUTES: Routes = {
     key: "SESSION_REPLAY_DETAIL",
     basePath: "/session-replay",
     path: "/session-replay/:sessionId",
+  },
+  SESSION_QUALITY_RCA: {
+    key: "SESSION_QUALITY_RCA",
+    basePath: "/session-replay/quality-rca",
+    path: "/session-replay/quality-rca",
   },
 };
 
@@ -904,6 +928,31 @@ export const API_ROUTES: StreamverseRoutes = {
     apiPath: `/v1/notifications/channels/{channelId}`,
     method: API_METHODS.DELETE,
   },
+  GET_CHANNEL_MAPPINGS: {
+    key: "GET_CHANNEL_MAPPINGS",
+    apiPath: `/v1/notifications/channels/mappings`,
+    method: API_METHODS.GET,
+  },
+  CREATE_CHANNEL_MAPPING: {
+    key: "CREATE_CHANNEL_MAPPING",
+    apiPath: `/v1/notifications/channels/mappings`,
+    method: API_METHODS.POST,
+  },
+  CREATE_CHANNEL_MAPPINGS_BATCH: {
+    key: "CREATE_CHANNEL_MAPPINGS_BATCH",
+    apiPath: `/v1/notifications/channels/mappings/batch`,
+    method: API_METHODS.POST,
+  },
+  UPDATE_CHANNEL_MAPPING: {
+    key: "UPDATE_CHANNEL_MAPPING",
+    apiPath: `/v1/notifications/channels/mappings/{mappingId}`,
+    method: API_METHODS.PUT,
+  },
+  DELETE_CHANNEL_MAPPING: {
+    key: "DELETE_CHANNEL_MAPPING",
+    apiPath: `/v1/notifications/channels/mappings/{mappingId}`,
+    method: API_METHODS.DELETE,
+  },
   // Slack OAuth Integration
   SLACK_INSTALL: {
     key: "SLACK_INSTALL",
@@ -1174,10 +1223,10 @@ export const API_ROUTES: StreamverseRoutes = {
     apiPath: `/v1/tenants`,
     method: API_METHODS.GET,
   },
-  /** System-role tenant creation: superadmin/internal_viewer only. */
-  POST_CREATE_TENANT: {
-    key: "POST_CREATE_TENANT",
-    apiPath: `/v1/tenants`,
+  /** Atomic tenant + project creation for admins (superadmin or internal_viewer). */
+  POST_ADMIN_CREATE_TENANT: {
+    key: "POST_ADMIN_CREATE_TENANT",
+    apiPath: `/v1/admin/tenants`,
     method: API_METHODS.POST,
   },
   /** OpenFGA superadmin tuples on system:pulse (JWT-verified; superadmin-only for mutations). */
@@ -1190,6 +1239,22 @@ export const API_ROUTES: StreamverseRoutes = {
   ADMIN_INTERNAL_VIEWERS: {
     key: "ADMIN_INTERNAL_VIEWERS",
     apiPath: `/v1/admin/internal-viewers`,
+    method: API_METHODS.GET,
+  },
+  // Web Vitals API Routes
+  GET_WEB_VITALS_SUMMARY: {
+    key: "GET_WEB_VITALS_SUMMARY",
+    apiPath: `/v1/web-vitals/summary`,
+    method: API_METHODS.GET,
+  },
+  GET_WEB_VITALS_TREND: {
+    key: "GET_WEB_VITALS_TREND",
+    apiPath: `/v1/web-vitals/trend`,
+    method: API_METHODS.GET,
+  },
+  GET_WEB_VITALS_BY_SCREEN: {
+    key: "GET_WEB_VITALS_BY_SCREEN",
+    apiPath: `/v1/web-vitals/by-screen`,
     method: API_METHODS.GET,
   },
 };
@@ -1320,6 +1385,15 @@ export const COOKIES_KEY: Record<string, string> = {
   TIER: "tier", // Store tier for initial hydration
   SYSTEM_ROLE: "systemRole",
   // REMOVED: PROJECT_ID, PROJECT_NAME - Now handled by React Context
+};
+
+export const VITAL_NAMES: Record<string, string> = {
+  LCP: "LCP",
+  INP: "INP",
+  CLS: "CLS",
+  FCP: "FCP",
+  FID: "FID",
+  TTFB: "TTFB",
 };
 
 export const INTERNAL_ROUTE_PREFIX = "/internal";

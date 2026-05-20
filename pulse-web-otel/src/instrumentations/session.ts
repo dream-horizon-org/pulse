@@ -1,5 +1,6 @@
 // M1: Session instrumentation — subscribes to SessionProvider events
 // and emits session.start / session.end log records.
+// See: docs/instrumentations/session/SPEC.md
 
 import { logs } from "@opentelemetry/api-logs";
 import type {

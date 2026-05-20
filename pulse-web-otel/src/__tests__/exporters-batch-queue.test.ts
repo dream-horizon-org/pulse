@@ -149,7 +149,7 @@ describe("Exporter batching and queue guardrails", () => {
     );
 
     bundle.prepareForDocumentUnload?.();
-    expect(traceSwitchToBeacon).toHaveBeenCalledTimes(1);
-    expect(logSwitchToBeacon).toHaveBeenCalledTimes(1);
+    expect(traceSwitchToKeepalive).toHaveBeenCalledTimes(1);
+    expect(logSwitchToKeepalive).toHaveBeenCalledTimes(1);
   });
 });

@@ -222,7 +222,8 @@ export function resolveConfigUrl(
   // Local dev: rewrite :4318 → :8080, use /v1/configs/active/
   if (
     endpointBaseUrl.includes("localhost") ||
-    endpointBaseUrl.includes("10.0.2.2")
+    endpointBaseUrl.includes("10.0.2.2") ||
+    endpointBaseUrl.includes("127.0.0.1")
   ) {
     return `${endpointBaseUrl.replace(/:4318\b/, ":8080").replace(/\/$/, "")}/v1/configs/active/`;
   }

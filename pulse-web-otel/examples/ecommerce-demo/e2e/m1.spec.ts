@@ -18,10 +18,13 @@ import {
   expect,
   getAttr,
   findAllLogs,
+  findAllSpans,
   findAllSpansByName,
   findAllLogsByBody,
+  findAllNetworkSpans,
   getResourceAttr,
 } from "./fixture";
+import { assertTimestampSanity } from "./otlp-contract-helpers";
 import {
   blockActiveConfigFetch,
   demoE2eWhitelistFilterValues,
@@ -29,6 +32,42 @@ import {
   seedPulseSdkConfig,
   waitPastSeededSignalsBatchWindow,
 } from "./test-sdk-config";
+
+/** Collect unique session.id values across common signal types (journey stability). */
+function collectJourneySessionIds(captured: unknown[]): string[] {
+  const ids = new Set<string>();
+  const add = (sid: unknown) => {
+    if (typeof sid === "string") ids.add(sid);
+  };
+  for (const lr of findAllLogs(captured as never[], "session.start")) {
+    add(getAttr(lr.attributes, "session.id"));
+  }
+  for (const lr of findAllLogs(captured as never[], "session.end")) {
+    add(getAttr(lr.attributes, "session.id"));
+  }
+  for (const lr of findAllLogs(captured as never[], "device.crash")) {
+    add(getAttr(lr.attributes, "session.id"));
+  }
+  for (const lr of findAllLogs(captured as never[], "non_fatal")) {
+    add(getAttr(lr.attributes, "session.id"));
+  }
+  for (const lr of findAllLogs(captured as never[], "web_vital")) {
+    add(getAttr(lr.attributes, "session.id"));
+  }
+  for (const sp of findAllSpans(captured as never[], "screen_load")) {
+    add(getAttr(sp.attributes, "session.id"));
+  }
+  for (const sp of findAllNetworkSpans(captured as never[])) {
+    add(getAttr(sp.attributes, "session.id"));
+  }
+  for (const lr of findAllLogsByBody(
+    captured as never[],
+    "checkout_complete",
+  )) {
+    add(getAttr(lr.attributes, "session.id"));
+  }
+  return [...ids];
+}
 
 /** After reload there is often no second `session.start`; `Pulse` on `window` is the ready signal. */
 async function waitForPulseInitialized(page: Page): Promise<void> {
@@ -157,6 +196,27 @@ test.describe("@M1 session lifecycle", () => {
     expect(findAllLogs(otlp.captured, "session.end").length).toBe(1);
   });
 
+  test("SESS-03: session.end on unload has page_unload, duration_ms > 0", async ({
+    page,
+    otlp,
+  }) => {
+    await page.goto("/");
+    await otlp.waitForLog("session.start");
+    await page.waitForTimeout(400);
+    otlp.reset();
+
+    await page.goto("about:blank");
+    const endLog = await otlp.waitForLog("session.end", 10_000);
+    expect(getAttr(endLog.attributes, "session.end_reason")).toBe(
+      "page_unload",
+    );
+    const durationMs = Number(
+      getAttr(endLog.attributes, "session.duration_ms"),
+    );
+    expect(Number.isFinite(durationMs)).toBe(true);
+    expect(durationMs).toBeGreaterThan(0);
+  });
+
   // Dedupe: pagehide already emitted session.end; shutdown must not export a second one
   test("pagehide then Pulse.shutdown emits only one session.end", async ({
     page,
@@ -241,6 +301,11 @@ test.describe("@M1 identity persistence", () => {
     expect(getAttr(log.attributes, "installation.id")).toBeTruthy();
   });
 
+  // TODO(future): session.id should also fall back to sessionStorage (tier 2) before in-memory
+  // so a page reload within the same tab continues the same session even when localStorage is
+  // blocked (WKWebView ITP / sandboxed iframe). sessionStorage survives same-tab reloads but
+  // not new tabs, which matches web session semantics (PostHog/Sentry pattern).
+  // When implemented, add a test here: block localStorage, reload page, assert same session.id.
   test("installation.id falls back to in-memory when both localStorage and sessionStorage are blocked", async ({
     page,
     otlp,
@@ -395,6 +460,67 @@ test.describe("@M1 OTLP pipeline", () => {
     expect(getResourceAttr(otlp.captured, "platform")).toBe("web");
     expect(getResourceAttr(otlp.captured, "service.name")).toBeTruthy();
     expect(getResourceAttr(otlp.captured, "rum.sdk.version")).toBeTruthy();
+  });
+
+  test("INIT-04: active config fetch returns HTTP 200 on boot", async ({
+    page,
+  }) => {
+    await page.route("**/v1/configs/active**", async (route) => {
+      if (route.request().method() === "OPTIONS") {
+        await route.fulfill({
+          status: 204,
+          headers: {
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, OPTIONS",
+          },
+        });
+        return;
+      }
+      await route.fulfill({
+        status: 200,
+        headers: {
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
+        },
+        body: JSON.stringify({ version: 1, features: [] }),
+      });
+    });
+    const configPromise = page.waitForResponse(
+      (r) =>
+        r.url().includes("/v1/configs/active") &&
+        r.request().method() === "GET",
+    );
+    await page.goto("/");
+    expect((await configPromise).status()).toBe(200);
+  });
+
+  test("CTR-04: exported logs and spans have sane timestamps", async ({
+    page,
+    otlp,
+  }) => {
+    await page.goto("/");
+    await otlp.waitForLog("session.start");
+    await otlp.waitForSpan("screen_load", 8_000);
+    for (const c of otlp.captured) {
+      if (c.type === "logs") {
+        for (const rl of c.body.resourceLogs ?? []) {
+          for (const sl of rl.scopeLogs ?? []) {
+            for (const lr of sl.logRecords ?? []) {
+              assertTimestampSanity(lr);
+            }
+          }
+        }
+      }
+      if (c.type === "traces") {
+        for (const rs of c.body.resourceSpans ?? []) {
+          for (const ss of rs.scopeSpans ?? []) {
+            for (const sp of ss.spans ?? []) {
+              assertTimestampSanity(sp);
+            }
+          }
+        }
+      }
+    }
   });
 });
 
@@ -1915,6 +2041,212 @@ test.describe("@M1 Area 3 session lifecycle", () => {
     expect(findAllLogs(otlp.captured, "session.start").length).toBe(0);
     expect(findAllLogs(otlp.captured, "session.end").length).toBe(0);
   });
+
+  test("SESS-05: session.id stable across multi-nav and checkout journey", async ({
+    page,
+    otlp,
+  }) => {
+    await page.goto("/");
+    const start = await otlp.waitForLog("session.start");
+    const journeySid = getAttr(start.attributes, "session.id") as string;
+    otlp.reset();
+
+    await page.getByRole("link", { name: /products/i }).click();
+    await page.waitForURL("**/products");
+    await page.waitForTimeout(800);
+
+    await page.getByRole("link", { name: /cart/i }).click();
+    await page.waitForURL("**/cart");
+    await page.waitForTimeout(400);
+
+    await page.getByRole("link", { name: /checkout/i }).click();
+    await page.waitForURL("**/checkout");
+    await page.getByTestId("checkout-step-1-next").click();
+    await page.getByTestId("checkout-step-2-next").click();
+    await page.getByTestId("checkout-step-3-confirm").click();
+    await page.waitForTimeout(1200);
+
+    const ids = collectJourneySessionIds(otlp.captured);
+    expect(ids.length).toBe(1);
+    expect(ids[0]).toBe(journeySid);
+  });
+
+  test("INIT-03: no duplicate session.start in same export batch on rotate", async ({
+    page,
+    otlp,
+  }) => {
+    await page.goto("/");
+    await otlp.waitForLog("session.start");
+    otlp.reset();
+    await page.evaluate(() => {
+      const thirtyOneMinutesAgoNs = (Date.now() - 31 * 60 * 1000) * 1_000_000;
+      localStorage.setItem("pulse_session_ts", String(thirtyOneMinutesAgoNs));
+    });
+    await page.evaluate(() => {
+      (
+        window as unknown as { Pulse: { trackEvent: (n: string) => void } }
+      ).Pulse.trackEvent("init03_rotate_probe");
+    });
+    await otlp.waitForLog("session.start", 8_000);
+    const starts = findAllLogs(otlp.captured, "session.start");
+    expect(starts.length).toBe(1);
+  });
+
+  test("SESS-07: first session.start has absent or empty session.previous_id", async ({
+    page,
+    otlp,
+  }) => {
+    await page.addInitScript(() => {
+      try {
+        localStorage.clear();
+        sessionStorage.clear();
+      } catch {
+        /* ignore */
+      }
+    });
+    await page.goto("/");
+    const log = await otlp.waitForLog("session.start");
+    const prev = getAttr(log.attributes, "session.previous_id");
+    expect(prev === undefined || prev === "" || prev === null).toBe(true);
+  });
+
+  test("SESS-15: page_unload end_reason on pagehide", async ({
+    page,
+    otlp,
+  }) => {
+    await page.goto("/");
+    await otlp.waitForLog("session.start");
+    otlp.reset();
+    await page.evaluate(() => {
+      window.dispatchEvent(
+        new PageTransitionEvent("pagehide", {
+          persisted: false,
+          bubbles: true,
+        }),
+      );
+    });
+    const end = await otlp.waitForLog("session.end", 5_000);
+    expect(getAttr(end.attributes, "session.end_reason")).toBe("page_unload");
+  });
+
+  test("SESS-15: shutdown end_reason on Pulse.shutdown without pagehide", async ({
+    page,
+    otlp,
+  }) => {
+    await page.goto("/");
+    await otlp.waitForLog("session.start");
+    otlp.reset();
+    await page.evaluate(async () => {
+      const w = window as unknown as {
+        Pulse?: { shutdown?: () => Promise<void> };
+      };
+      await w.Pulse?.shutdown?.();
+    });
+    const end = await otlp.waitForLog("session.end", 8_000);
+    expect(getAttr(end.attributes, "session.end_reason")).toBe("shutdown");
+  });
+
+  test("SESS-15: max_lifetime end_reason when session age exceeds 4h", async ({
+    page,
+    otlp,
+  }) => {
+    await page.goto("/");
+    const first = await otlp.waitForLog("session.start");
+    const oldSid = getAttr(first.attributes, "session.id") as string;
+    otlp.reset();
+    await page.evaluate(() => {
+      const fiveHoursAgoNs = (Date.now() - 5 * 60 * 60 * 1000) * 1_000_000;
+      localStorage.setItem("pulse_session_start", String(fiveHoursAgoNs));
+      localStorage.setItem("pulse_session_ts", String(Date.now() * 1_000_000));
+    });
+    await page.evaluate(() => {
+      (
+        window as unknown as { Pulse: { trackEvent: (n: string) => void } }
+      ).Pulse.trackEvent("sess15_max_lifetime");
+    });
+    const end = await otlp.waitForLog("session.end", 8_000);
+    expect(getAttr(end.attributes, "session.id")).toBe(oldSid);
+    expect(getAttr(end!.attributes, "session.end_reason")).toBe("max_lifetime");
+    const rotated = await otlp.waitForLog("session.start", 8_000);
+    expect(getAttr(rotated.attributes, "session.start_reason")).toBe(
+      "max_lifetime",
+    );
+  });
+
+  test("SESS-07 chain: rotation session.start carries session.previous_id", async ({
+    page,
+    otlp,
+  }) => {
+    await page.goto("/");
+    const first = await otlp.waitForLog("session.start");
+    const oldSid = getAttr(first.attributes, "session.id") as string;
+    otlp.reset();
+    await page.evaluate(() => {
+      const thirtyOneMinutesAgoNs = (Date.now() - 31 * 60 * 1000) * 1_000_000;
+      localStorage.setItem("pulse_session_ts", String(thirtyOneMinutesAgoNs));
+    });
+    await page.evaluate(() => {
+      (
+        window as unknown as { Pulse: { trackEvent: (n: string) => void } }
+      ).Pulse.trackEvent("sess07_chain");
+    });
+    const rotated = await otlp.waitForLog("session.start", 8_000);
+    expect(getAttr(rotated.attributes, "session.previous_id")).toBe(oldSid);
+  });
+
+  test("CON-02: ALLOWED consent emits session.start within 2s", async ({
+    page,
+    otlp,
+  }) => {
+    const t0 = Date.now();
+    await page.goto("/?pulse_consent=allowed");
+    await otlp.waitForLog("session.start", 2_000);
+    expect(Date.now() - t0).toBeLessThan(2_500);
+  });
+
+  test("CON-03: remount DENIED after session.start exports zero OTLP on interact", async ({
+    page,
+    otlp,
+  }) => {
+    await page.goto("/consent-lab");
+    await otlp.waitForLog("session.start");
+    await page.getByTestId("pulse-remount-denied").click();
+    await page.waitForTimeout(1200);
+    otlp.reset();
+
+    await page.evaluate(() => {
+      (
+        window as unknown as { Pulse?: { trackEvent: (n: string) => void } }
+      ).Pulse?.trackEvent?.("post_denied_probe");
+    });
+    await page.waitForTimeout(800);
+
+    expect(otlp.captured.length).toBe(0);
+  });
+
+  test("CON-08: session feature gate off — no session.start or session.end", async ({
+    page,
+    otlp,
+  }) => {
+    await blockActiveConfigFetch(page);
+    await seedPulseSdkConfig(
+      page,
+      minimalPulseSdkConfig({
+        features: [
+          {
+            featureName: "session",
+            sessionSampleRate: 0,
+            sdks: ["pulse_web_js"],
+            config: null,
+          },
+        ],
+      }),
+    );
+    await page.goto("/");
+    await waitPastSeededSignalsBatchWindow(page);
+    expect(findAllLogs(otlp.captured, "session.start")).toHaveLength(0);
+    expect(findAllLogs(otlp.captured, "session.end")).toHaveLength(0);
+  });
 });
 
 // ─── Area 2: resource attributes ─────────────────────────────────────────────
@@ -1943,7 +2275,7 @@ test.describe("@M1 resource attributes", () => {
   });
 
   // 2.11 — os.name and os.version
-  test("os.name is non-empty in resource attributes", async ({
+  test("os.name is web in resource attributes (CH Platform parity)", async ({
     page,
     otlp,
   }) => {
@@ -1951,9 +2283,7 @@ test.describe("@M1 resource attributes", () => {
     await otlp.waitForLog("session.start");
 
     const osName = getResourceAttr(otlp.captured, "os.name");
-    expect(osName).toBeTruthy();
-    // Must be a recognisable OS name
-    expect(["macOS", "Windows", "Linux", "Android", "iOS"]).toContain(osName);
+    expect(osName).toBe("web");
   });
 
   // 2.12 — device.type

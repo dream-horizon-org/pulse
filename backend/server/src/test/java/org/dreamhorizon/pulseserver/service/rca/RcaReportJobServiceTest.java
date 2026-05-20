@@ -167,6 +167,67 @@ class RcaReportJobServiceTest {
     }
 
     @Test
+    void shouldMergeTopLevelRootCausePayloadIntoExtractedReport() {
+      String cacheBody =
+          "{"
+              + "\"report\":{\"structured\":null},"
+              + "\"rootCausePayload\":{\"baseline\":{},\"segments\":[]},"
+              + "\"cached\":true,"
+              + "\"cachedAt\":\"2025-06-01T10:00:00Z\""
+              + "}";
+      Instant cachedAt = Instant.parse("2025-06-01T10:00:00Z");
+      when(cacheDao.get("p1", TYPE, ENTITY_KEY, DATE))
+          .thenReturn(Maybe.just(new RcaReportCacheHit(cacheBody, cachedAt)));
+
+      GetRcaJobResponse response = service.peekStatus("p1", TYPE, ENTITY_KEY, DATE).blockingGet();
+
+      assertThat(response.getReport()).isNotNull();
+      assertThat(response.getReport().has("structured")).isTrue();
+      assertThat(response.getReport().has("rootCausePayload")).isTrue();
+      assertThat(response.getReport().path("rootCausePayload").path("segments").isArray()).isTrue();
+      assertThat(response.getReport().has("cached")).isFalse();
+    }
+
+    @Test
+    void shouldReturnInnerReportUnmergedWhenInnerIsNotObjectNode() {
+      String cacheBody =
+          "{"
+              + "\"report\":\"scalar-inner\","
+              + "\"rootCausePayload\":{\"baseline\":{},\"segments\":[]}"
+              + "}";
+      Instant cachedAt = Instant.parse("2025-06-01T10:00:00Z");
+      when(cacheDao.get("p1", TYPE, ENTITY_KEY, DATE))
+          .thenReturn(Maybe.just(new RcaReportCacheHit(cacheBody, cachedAt)));
+
+      GetRcaJobResponse response = service.peekStatus("p1", TYPE, ENTITY_KEY, DATE).blockingGet();
+
+      assertThat(response.getReport()).isNotNull();
+      assertThat(response.getReport().isTextual()).isTrue();
+      assertThat(response.getReport().asText()).isEqualTo("scalar-inner");
+    }
+
+    @Test
+    void shouldNotOverwriteInnerRootCausePayloadWithTopLevelSibling() {
+      String cacheBody =
+          "{"
+              + "\"report\":{"
+              + "\"structured\":null,"
+              + "\"rootCausePayload\":{\"baseline\":{\"x\":1},\"segments\":[]}"
+              + "},"
+              + "\"rootCausePayload\":{\"baseline\":{\"y\":2},\"segments\":[]}"
+              + "}";
+      when(cacheDao.get("p1", TYPE, ENTITY_KEY, DATE))
+          .thenReturn(
+              Maybe.just(new RcaReportCacheHit(cacheBody, Instant.parse("2025-06-01T10:00:00Z"))));
+
+      GetRcaJobResponse response = service.peekStatus("p1", TYPE, ENTITY_KEY, DATE).blockingGet();
+
+      assertThat(response.getReport().path("rootCausePayload").path("baseline").path("x").asInt())
+          .isEqualTo(1);
+      assertThat(response.getReport().path("rootCausePayload").path("baseline").has("y")).isFalse();
+    }
+
+    @Test
     void shouldReturnActiveJobWhenCacheEmpty() {
       when(cacheDao.get("p1", TYPE, ENTITY_KEY, DATE)).thenReturn(Maybe.empty());
       when(jobDao.getActiveJobByKey("p1", TYPE, ENTITY_KEY, DATE)).thenReturn(Maybe.just(activeJob("j1")));
@@ -267,6 +328,32 @@ class RcaReportJobServiceTest {
       // report must be the inner object, not the full cache body with cached/cachedAt
       assertThat(response.getReport().has("structured")).isTrue();
       assertThat(response.getReport().has("cached")).isFalse();
+    }
+
+    @Test
+    void shouldMergeTopLevelRootCausePayloadWhenCompletedJobLoadsCache() {
+      RcaReportJob completedJob =
+          new RcaReportJob(
+              "j1", "p1", TYPE, ENTITY_KEY, DATE, RcaJobStatus.COMPLETED,
+              null,
+              Instant.parse("2025-06-01T10:00:00Z"),
+              Instant.parse("2025-06-01T10:00:01Z"),
+              Instant.parse("2025-06-01T10:05:00Z"),
+              null, null);
+      String cacheBody =
+          "{"
+              + "\"report\":{\"structured\":null},"
+              + "\"rootCausePayload\":{\"baseline\":{},\"segments\":[]},"
+              + "\"cached\":true"
+              + "}";
+      when(jobDao.getJobById("j1")).thenReturn(Maybe.just(completedJob));
+      when(cacheDao.getFromWriterPool("p1", TYPE, ENTITY_KEY, DATE))
+          .thenReturn(Maybe.just(new RcaReportCacheHit(cacheBody, Instant.parse("2025-06-01T10:05:00Z"))));
+
+      GetRcaJobResponse response = service.getJobStatus("j1", "p1").blockingGet();
+
+      assertThat(response.getReport()).isNotNull();
+      assertThat(response.getReport().has("rootCausePayload")).isTrue();
     }
 
     @Test

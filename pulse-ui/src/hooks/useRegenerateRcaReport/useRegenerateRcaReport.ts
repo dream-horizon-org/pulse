@@ -61,26 +61,25 @@ export const useRegenerateRcaReport = () => {
       return unwrapRcaReportPostApiBody(raw);
     },
     onSuccess: (data, variables) => {
+      const trimmedProjectId = String(variables.projectId ?? "").trim();
+      const partialPostKey = [
+        POST_RCA_REPORT_ROUTE.key,
+        variables.entityKey,
+        variables.date ?? null,
+        RCA_TYPE.INTERACTION,
+        trimmedProjectId,
+      ];
+
       if (data.status === 200) {
         queryClient.invalidateQueries({
-          queryKey: [
-            POST_RCA_REPORT_ROUTE.key,
-            variables.entityKey,
-            variables.date ?? null,
-            variables.projectId,
-          ],
+          queryKey: [...partialPostKey],
           refetchType: "all",
         });
         return;
       }
       if (data.status === 202 && getJobIdFromRcaPostResponse(data) == null) {
         queryClient.invalidateQueries({
-          queryKey: [
-            POST_RCA_REPORT_ROUTE.key,
-            variables.entityKey,
-            variables.date ?? null,
-            variables.projectId,
-          ],
+          queryKey: [...partialPostKey],
           refetchType: "all",
         });
       }
