@@ -8,11 +8,6 @@ import org.dreamhorizon.pulseserver.grouping.model.Lane;
 @UtilityClass
 public class ErrorGroupingUtils {
 
-  private static final String[] JS_OUT_OF_APP_CONTAINS = {"/node_modules/", "node_modules/"};
-
-  // In-app rules (tweak for Dream11)
-  private static final String[] JAVA_INAPP_PREFIXES = {""};
-
   // OPTIMIZATION: Reuse MessageDigest instances per thread for better performance
   private static final ThreadLocal<MessageDigest> SHA1_DIGEST = ThreadLocal.withInitial(() -> {
     try {
@@ -38,28 +33,6 @@ public class ErrorGroupingUtils {
       case IOS_NATIVE -> "ios-native";
       case UNKNOWN -> "unknown";
     };
-  }
-
-  public static boolean isJavaInApp(String classFqcn) {
-    if (classFqcn == null) {
-      return false;
-    }
-    for (String p : JAVA_INAPP_PREFIXES) {
-      if (classFqcn.startsWith(p)) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  public static boolean isJsInApp(String file) {
-    String f = file.replace('\\', '/');
-    for (String s : JS_OUT_OF_APP_CONTAINS) {
-      if (f.contains(s)) {
-        return false;
-      }
-    }
-    return true;
   }
 
   public static String shortenJava(String token) {

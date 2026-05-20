@@ -3,7 +3,6 @@ package org.dreamhorizon.pulseserver.grouping.model;
 import lombok.Builder;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
-import org.dreamhorizon.pulseserver.grouping.util.ErrorGroupingUtils;
 
 @Data
 @EqualsAndHashCode(callSuper = true)
@@ -23,7 +22,8 @@ public class JsFrame extends Frame {
     super();
     this.lane = Lane.JS;
     this.token = String.join("#", jsFile, jsFunction);
-    this.inApp = ErrorGroupingUtils.isJsInApp(jsFile);
+    // FrameClassifier (Phase 2) sets the real category; legacy inApp defaults to false.
+    this.inApp = false;
     this.rawLine = rawLine;
     this.originalPosition = (originalPosition != null) ? originalPosition : -1;
     this.jsFile = jsFile;
