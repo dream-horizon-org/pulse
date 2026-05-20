@@ -7,47 +7,77 @@ import lombok.experimental.UtilityClass;
 import org.dreamhorizon.pulseserver.grouping.model.EventMeta;
 import org.dreamhorizon.pulseserver.grouping.model.Frame;
 import org.dreamhorizon.pulseserver.grouping.model.Group;
+import org.dreamhorizon.pulseserver.grouping.model.GroupingRules;
 import org.dreamhorizon.pulseserver.grouping.model.Lane;
 import org.dreamhorizon.pulseserver.grouping.model.ParsedFrames;
 import org.dreamhorizon.pulseserver.grouping.parser.FramesParser;
+import org.dreamhorizon.pulseserver.grouping.phase.CausedByWalker;
+import org.dreamhorizon.pulseserver.grouping.phase.FrameClassifier;
+import org.dreamhorizon.pulseserver.grouping.phase.FrameMasker;
+import org.dreamhorizon.pulseserver.grouping.phase.FrameScorer;
+import org.dreamhorizon.pulseserver.grouping.phase.FrameSelector;
+import org.dreamhorizon.pulseserver.grouping.phase.FrameStripper;
+import org.dreamhorizon.pulseserver.grouping.phase.FrameUnifier;
+import org.dreamhorizon.pulseserver.grouping.phase.SignatureBuilder;
 import org.dreamhorizon.pulseserver.grouping.util.ErrorGroupingUtils;
 
 /**
  * Pure heuristic core for crash/error grouping.
  *
- * <p>Given a {@link ParsedFrames} (produced by {@link FramesParser}) and a small
- * {@link EventMeta}, computes a deterministic {@link Group} — signature, fingerprint,
- * groupId, and human-readable display name. No I/O, no symbolication. All inputs
- * fully determine the output.</p>
+ * <p>Given a {@link ParsedFrames} (produced by {@link FramesParser}), an
+ * {@link EventMeta}, and a per-project {@link GroupingRules} bundle, computes a
+ * deterministic {@link Group} — signature, fingerprint, groupId, and
+ * human-readable display name. No I/O, no symbolication, no Guice. Every
+ * input fully determines the output.</p>
  */
 @UtilityClass
 public class Grouper {
 
-  // v1 was the legacy ErrorGroupingService inline algorithm. v2 is the same byte-for-byte
-  // wire format, but cut over to the pulse-grouping module as the authoritative implementation.
-  // Bumping the prefix changes every future SHA-1 fingerprint, so existing EXC- groupIds in
-  // ClickHouse stay frozen and the same root cause re-opens as a fresh group from this point.
-  public static final String SIG_VERSION = "v2";
+  // v1 was the legacy ErrorGroupingService inline algorithm. v2 is the pulse-grouping
+  // module's canonical algorithm; the signature format gained a |msg: segment
+  // when full Phase 4 (masked message context) landed. SIG_VERSION stays "v2"
+  // — existing EXC- groupIds will be invalidated via a separate ClickHouse migration.
+  public static final String SIG_VERSION = SignatureBuilder.SIG_VERSION;
   private static final String GROUP_ID_PREFIX = "EXC-";
   private static final int GROUP_ID_HASH_LEN = 10;
 
   /**
-   * Top-level convenience: parse → choose lane → build signature/groupId/title.
-   *
-   * <p>Tokens for the signature come straight from {@link Frame#getToken()} —
-   * no symbolication is applied here. Callers needing symbolication should
-   * transform frame tokens before invoking the lower-level builders.</p>
+   * Primary entry point — runs every phase, in order, against the supplied
+   * frames and per-project rules.
    */
-  public static Group group(ParsedFrames frames, EventMeta meta) {
+  public static Group group(ParsedFrames frames, EventMeta meta, GroupingRules rules) {
+    GroupingRules effectiveRules = rules == null ? GroupingRules.empty() : rules;
+
     Lane primary = choosePrimary(frames);
-    List<String> excTypes = typesForPrimary(frames, primary);
-    List<Frame> primaryFrames = selectPrimaryTokens(frames, primary, FramesParser.TOP_N_FRAMES);
-    List<String> tokens = new ArrayList<>(primaryFrames.size());
-    for (Frame f : primaryFrames) {
+
+    // Phase 1: clean up
+    FrameUnifier.unifyAll(frames);
+    FrameMasker.maskFrames(frames, effectiveRules);
+    FrameStripper.stripFrames(frames, effectiveRules);
+
+    // Phase 2: classify + select
+    FrameClassifier.classify(frames, effectiveRules);
+    CausedByWalker.RootCauseInfo rootCause = CausedByWalker.walk(frames, primary);
+
+    List<Frame> selected = FrameSelector.select(frames, primary, FramesParser.TOP_N_FRAMES);
+
+    // Phase 3: score + rank
+    List<Frame> ranked = FrameScorer.scoreAndSort(selected);
+
+    // Phase 4: build signature
+    String maskedMsg = FrameMasker.maskMessage(frames.getExceptionHeaderLine(), effectiveRules);
+    String platformTag = ErrorGroupingUtils.platformTag(primary);
+    List<String> tokens = new ArrayList<>(ranked.size());
+    for (Frame f : ranked) {
       tokens.add(f.getToken());
     }
-    String platformTag = ErrorGroupingUtils.platformTag(primary);
-    String signature = buildSignature(platformTag, excTypes, tokens);
+    List<String> excTypes = rootCause.getAllTypesForSignature();
+    if (excTypes.isEmpty()) {
+      // fall back to whatever the parser captured on the primary lane (or any lane)
+      excTypes = typesForPrimary(frames, primary);
+    }
+
+    String signature = SignatureBuilder.build(platformTag, excTypes, tokens, maskedMsg);
     String fingerprint = ErrorGroupingUtils.sha1Hex(signature);
     String groupId = computeGroupId(fingerprint);
     String displayName = buildDisplayName(primary, excTypes, tokens, groupId);
@@ -55,29 +85,23 @@ public class Grouper {
   }
 
   /**
-   * Build the canonical signature string fed into the SHA-1 fingerprint.
-   * Format: {@code v2|platform:<tag>|exc:<type>(>type)*|frames:<token>(>token)*}.
+   * Backwards-compatible convenience: invokes {@link #group(ParsedFrames, EventMeta, GroupingRules)}
+   * with {@link GroupingRules#empty()}. Existing callers / tests that have no
+   * rule bundle yet keep compiling; once they migrate this overload can go
+   * away.
+   */
+  public static Group group(ParsedFrames frames, EventMeta meta) {
+    return group(frames, meta, GroupingRules.empty());
+  }
+
+  /**
+   * Legacy signature builder shape (no message). Delegates to
+   * {@link SignatureBuilder#build(String, List, List, String)} with an empty
+   * message. Kept for backwards compatibility with existing test code; new
+   * code should call {@link SignatureBuilder#build} directly.
    */
   public static String buildSignature(String platform, List<String> excTypes, List<String> tokens) {
-    int capacity = 50 + platform.length() + excTypes.size() * 20 + tokens.size() * 30;
-    StringBuilder sb = new StringBuilder(capacity);
-
-    sb.append(SIG_VERSION).append("|platform:").append(platform).append("|exc:");
-    for (int i = 0; i < excTypes.size(); i++) {
-      if (i > 0) {
-        sb.append(">");
-      }
-      sb.append(excTypes.get(i));
-    }
-
-    sb.append("|frames:");
-    for (int i = 0; i < tokens.size(); i++) {
-      if (i > 0) {
-        sb.append(">");
-      }
-      sb.append(tokens.get(i));
-    }
-    return sb.toString();
+    return SignatureBuilder.build(platform, excTypes, tokens, "");
   }
 
   /**
@@ -193,38 +217,14 @@ public class Grouper {
   }
 
   /**
-   * Pick up to {@code topN} frames from the primary lane, preferring in-app frames.
-   * If no in-app frames exist, falls back to the first {@code topN} of any type.
+   * Legacy frame selector kept for callers that haven't migrated yet. Runs a
+   * one-off classification using empty rules (so every frame defaults to
+   * FRAMEWORK), then delegates to {@link FrameSelector#select} which falls
+   * through to the top-N FRAMEWORK path. New code should call
+   * {@link FrameClassifier} + {@link FrameSelector} directly with real rules.
    */
   public static List<Frame> selectPrimaryTokens(ParsedFrames st, Lane lane, int topN) {
-    List<? extends Frame> frames = switch (lane) {
-      case JS -> st.getJsFrames();
-      case JAVA -> st.getJavaFrames();
-      case NDK -> st.getNdkFrames();
-      case IOS_NATIVE -> st.getIosNativeFrames();
-      default -> List.of();
-    };
-    if (frames.isEmpty()) {
-      return List.of();
-    }
-
-    List<Frame> chosen = new ArrayList<>(topN);
-    for (Frame f : frames) {
-      if (f.isInApp()) {
-        chosen.add(f);
-        if (chosen.size() == topN) {
-          break;
-        }
-      }
-    }
-    if (chosen.isEmpty()) {
-      for (Frame f : frames) {
-        chosen.add(f);
-        if (chosen.size() == topN) {
-          break;
-        }
-      }
-    }
-    return chosen;
+    FrameClassifier.classify(st, GroupingRules.empty());
+    return FrameSelector.select(st, lane, topN);
   }
 }
