@@ -401,8 +401,6 @@ public final class FunnelBridgeJob {
     long lastTs = ((Number) row.getAs("lastReachedAtTs")).longValue();
     int drop = row.getAs("_drop") instanceof Integer i ? i : ((Number) row.getAs("_drop")).intValue();
     String tsLit = esc(CH_DT.format(Instant.ofEpochSecond(lastTs)));
-    // Parenthesize before .formatted(...): "+" binds looser than ".", otherwise only the NULL
-    // tail is formatted and the (%d,'%s',...) prefix is concatenated verbatim.
     return ("(%d,'%s','%s','%s','%s',%d,'%s','%s',%d,"
             + "NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL)")
         .formatted(funnelId, esc(projectId), esc(runTime), sid, uid, lr, stepName, tsLit, drop);
