@@ -20,7 +20,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 
 import org.apache.spark.sql.expressions.Window;
 import org.apache.spark.sql.expressions.WindowSpec;
@@ -31,8 +30,14 @@ public class FunnelComputeJob {
 
     private static final Logger log = LoggerFactory.getLogger(FunnelComputeJob.class);
 
+    /** Shared parquet / Avro type for {@link SparkConstants.OtelLogColumn#LOG_ATTRIBUTES}. */
+    private static final org.apache.spark.sql.types.DataType LOG_ATTRIBUTES_MAP_TYPE =
+        DataTypes.createMapType(DataTypes.StringType, DataTypes.StringType, true);
+
+    /** Top-level OTL field names preserved on read projection; aligns with Pulse OTL parquet schema. */
+
     public static void runFunnels(SparkSession spark, MysqlRepository mysql, ClickHouseClient ch,
-                                   Long referenceId, String s3BucketPrefix, String runTime) throws Exception {
+                                   Long referenceId, String otelLogsBucket, String runTime) throws Exception {
         List<FunnelDefinition> funnels = mysql.fetchFunnels(referenceId);
         if (funnels.isEmpty()) {
             log.info("No funnels to process");
@@ -47,11 +52,10 @@ public class FunnelComputeJob {
             }
             var startDt = funnel.startTime().toLocalDateTime();
             var endDt   = funnel.endTime().toLocalDateTime();
-            var s3Base  = "s3a://" + s3BucketPrefix + funnel.projectId() + "/vector-logs/";
+            var s3Base  = SparkConstants.OtelLogsS3.basePath(otelLogsBucket, funnel.projectId());
 
             log.info("Funnel {} window [{} -> {}]", funnel.id(), startDt, endDt);
-            Set<String> propKeys = FunnelFilterPropKeys.collectFromFunnel(funnel);
-            Dataset<Row> raw = readS3ByHours(spark, s3Base, startDt, endDt, propKeys);
+            Dataset<Row> raw = readS3ByHours(spark, s3Base, startDt, endDt);
             if (raw == null) {
                 log.warn("No S3 data for funnel {}", funnel.id());
                 return;
@@ -72,7 +76,7 @@ public class FunnelComputeJob {
 
             for (var entry : byProject.entrySet()) {
                 try {
-                    processProjectBulk(spark, ch, entry.getKey(), entry.getValue(), s3BucketPrefix, runTime);
+                    processProjectBulk(spark, ch, entry.getKey(), entry.getValue(), otelLogsBucket, runTime);
                 } catch (Exception e) {
                     log.error("Project {} funnels failed: {}", entry.getKey(), e.getMessage(), e);
                     throw e;
@@ -83,15 +87,14 @@ public class FunnelComputeJob {
 
     private static void processProjectBulk(SparkSession spark, ClickHouseClient ch,
                                             String projectId, List<FunnelDefinition> funnels,
-                                            String s3Prefix, String runTime) {
+                                            String otelLogsBucket, String runTime) {
         int maxDays   = funnels.stream().mapToInt(FunnelDefinition::dateRange).max().orElse(7);
         var endDate   = LocalDate.parse(runTime.substring(0, 10));
         var startDate = endDate.minusDays(maxDays - 1L);
-        var s3Base    = "s3a://" + s3Prefix + projectId + "/vector-logs/";
+        var s3Base    = SparkConstants.OtelLogsS3.basePath(otelLogsBucket, projectId);
 
         log.info("Project {} reading S3 [{} -> {}] for {} funnel(s)", projectId, startDate, endDate, funnels.size());
-        Set<String> propKeys = FunnelFilterPropKeys.collectFromFunnels(funnels);
-        Dataset<Row> raw = readS3ByDateRange(spark, s3Base, startDate, endDate, propKeys);
+        Dataset<Row> raw = readS3ByDateRange(spark, s3Base, startDate, endDate);
         if (raw == null) {
             log.warn("No S3 data for project {}", projectId);
             return;
@@ -116,10 +119,9 @@ public class FunnelComputeJob {
     private static List<FunnelResult> computeFunnel(Dataset<Row> raw, FunnelDefinition funnel,
                                                      String runTime,
                                                      Long startEpochSeconds, Long endEpochSeconds) {
-        // UNIQUE_USERS groups by props app.installation.id (materialized as INSTALLATION_ID).
-        // SESSIONS uses Parquet session_id only when mode is FUNNEL_MODE_SESSIONS.
+        // UNIQUE_USERS: AppInstallationId (aliased installation_id); SESSIONS: SessionId.
         var identityCol = SparkConstants.DefinitionModes.FUNNEL_SESSIONS.equalsIgnoreCase(funnel.mode())
-                ? SparkConstants.VectorLog.SESSION_ID
+                ? SparkConstants.OtelLogColumn.SESSION_ID
                 : SparkConstants.Derived.INSTALLATION_ID;
         long windowSecs = funnel.windowSeconds();
         var steps       = funnel.steps();
@@ -128,15 +130,15 @@ public class FunnelComputeJob {
         Dataset<Row> df;
         if (startEpochSeconds != null && endEpochSeconds != null) {
             df = raw.filter(
-                    unix_timestamp(col(SparkConstants.VectorLog.TIMESTAMP)).geq(lit(startEpochSeconds))
-                            .and(unix_timestamp(col(SparkConstants.VectorLog.TIMESTAMP)).leq(lit(endEpochSeconds)))
+                    unix_timestamp(col(SparkConstants.OtelLogColumn.TIMESTAMP)).geq(lit(startEpochSeconds))
+                            .and(unix_timestamp(col(SparkConstants.OtelLogColumn.TIMESTAMP)).leq(lit(endEpochSeconds)))
             );
         } else {
             var endDate   = LocalDate.parse(runTime.substring(0, 10));
             var startDate = endDate.minusDays(funnel.dateRange() - 1L);
             df = raw.filter(
-                    col(SparkConstants.VectorLog.TIMESTAMP).cast(DataTypes.DateType).geq(lit(startDate.toString()))
-                            .and(col(SparkConstants.VectorLog.TIMESTAMP).cast(DataTypes.DateType).leq(lit(endDate.toString())))
+                    col(SparkConstants.OtelLogColumn.TIMESTAMP).cast(DataTypes.DateType).geq(lit(startDate.toString()))
+                            .and(col(SparkConstants.OtelLogColumn.TIMESTAMP).cast(DataTypes.DateType).leq(lit(endDate.toString())))
             );
         }
         df = applyGlobalFilters(df, funnel.globalFilters());
@@ -354,16 +356,16 @@ public class FunnelComputeJob {
         return medians;
     }
 
-    private static Dataset<Row> narrowToStepEventUnion(Dataset<Row> df, FunnelDefinition funnel) {
+    static Dataset<Row> narrowToStepEventUnion(Dataset<Row> df, FunnelDefinition funnel) {
         List<FunnelStep> steps = funnel.steps();
         if (steps.isEmpty()) {
             return df;
         }
         Column union = null;
         for (FunnelStep step : steps) {
-            Column branch = col(SparkConstants.VectorLog.EVENT_NAME).equalTo(lit(step.eventName()));
+            Column branch = col(SparkConstants.OtelLogColumn.EVENT_NAME).equalTo(lit(step.eventName()));
             for (FunnelFilter sf : step.stepFilters()) {
-                Optional<Column> fc = filterToPredicate(sf, "[funnel-upfront]");
+                Optional<Column> fc = stepFilterPredicate(sf, "[funnel-upfront]");
                 if (fc.isPresent()) {
                     branch = branch.and(fc.get());
                 }
@@ -374,21 +376,13 @@ public class FunnelComputeJob {
     }
 
     /**
-     * Applies attribute filters from funnel definitions against parquet columns or uplifted
-     * {@code props} fields (same resolution as read projection).
+     * Applies global funnel filters against materialized otel_logs parquet columns ({@link FilterFieldMapper})
+     * when catalog-mapped; otherwise against {@link SparkConstants.OtelLogColumn#LOG_ATTRIBUTES} (depth-one key/value pairs).
      */
     public static Dataset<Row> applyGlobalFilters(Dataset<Row> df, List<FunnelFilter> filters) {
-        return applyFiltersPhase(df, filters, "[global]");
-    }
-
-    static Dataset<Row> applyStepFilters(Dataset<Row> df, List<FunnelFilter> filters) {
-        return applyFiltersPhase(df, filters, "[step]");
-    }
-
-    private static Dataset<Row> applyFiltersPhase(Dataset<Row> df, List<FunnelFilter> filters, String logCtx) {
         Dataset<Row> out = df;
         for (var filter : filters) {
-            Optional<Column> pred = filterToPredicate(filter, logCtx);
+            Optional<Column> pred = globalFilterPredicate(filter, "[global]");
             if (pred.isPresent()) {
                 out = out.filter(pred.get());
             }
@@ -396,28 +390,60 @@ public class FunnelComputeJob {
         return out;
     }
 
-    /**
-     * Single-condition predicate for one {@link FunnelFilter}; empty when the filter is skipped (warn logged).
-     */
-    private static Optional<Column> filterToPredicate(FunnelFilter filter, String logCtx) {
+    static Dataset<Row> applyStepFilters(Dataset<Row> df, List<FunnelFilter> filters) {
+        Dataset<Row> out = df;
+        for (var filter : filters) {
+            Optional<Column> pred = stepFilterPredicate(filter, "[step]");
+            if (pred.isPresent()) {
+                out = out.filter(pred.get());
+            }
+        }
+        return out;
+    }
+
+    private static Optional<Column> globalFilterPredicate(FunnelFilter filter, String logCtx) {
         if (filter.field() == null || filter.field().isBlank()) {
             log.warn("{} Skipping filter: field is null or blank", logCtx);
             return Optional.empty();
         }
-        String parquetField = FilterFieldMapper.toParquetColumn(filter.field());
-        Column fieldCol = col(parquetField);
         Object[] vals = filter.value().toArray();
         if (vals.length == 0) {
-            log.warn("{} Skipping filter: empty value list for field '{}' (resolved='{}')",
-                    logCtx, filter.field(), parquetField);
+            log.warn("{} Skipping filter: empty value list for field '{}'", logCtx, filter.field());
             return Optional.empty();
         }
+        String fldTrim = filter.field().trim();
+        if (FilterFieldMapper.isCatalogMapped(filter.field())) {
+            String parquetField = FilterFieldMapper.toParquetColumn(filter.field());
+            return Optional.of(catalogScalarPredicate(filter, logCtx, col(parquetField)));
+        }
+        return Optional.of(
+            LogAttributesPredicates.predicate(
+                SparkConstants.OtelLogColumn.LOG_ATTRIBUTES, fldTrim, filter.operator(), filter.value()));
+    }
+
+    private static Optional<Column> stepFilterPredicate(FunnelFilter filter, String logCtx) {
+        if (filter.field() == null || filter.field().isBlank()) {
+            log.warn("{} Skipping filter: field is null or blank", logCtx);
+            return Optional.empty();
+        }
+        Object[] vals = filter.value().toArray();
+        if (vals.length == 0) {
+            log.warn("{} Skipping filter: empty value list for field '{}'", logCtx, filter.field());
+            return Optional.empty();
+        }
+        String fldTrim = filter.field().trim();
+        return Optional.of(LogAttributesPredicates.predicate(
+            SparkConstants.OtelLogColumn.LOG_ATTRIBUTES, fldTrim, filter.operator(), filter.value()));
+    }
+
+    private static Column catalogScalarPredicate(FunnelFilter filter, String logCtx, Column fieldCol) {
+        Object[] vals = filter.value().toArray();
         String op = FunnelFilterOperators.normalize(filter.operator());
-        Column cond = switch (op) {
-            case "EQ", "=", "IN" -> fieldCol.isin(vals);
-            case "NE", "!=", "NOT_IN" -> not(fieldCol.isin(vals));
+        return switch (op) {
+            case "EQ", "=", "IN" -> fieldCol.isin((Object[]) vals);
+            case "NE", "!=", "NOT_IN" -> not(fieldCol.isin((Object[]) vals));
             case "CONTAINS" -> filter.value().stream()
-                    .map(fieldCol::contains)
+                    .map(v -> fieldCol.contains(lit(String.valueOf(v))))
                     .reduce(Column::or)
                     .orElse(lit(true));
             default -> {
@@ -426,28 +452,29 @@ public class FunnelComputeJob {
                 yield lit(true);
             }
         };
-        return Optional.of(cond);
     }
 
     private static Dataset<Row> stepEvents(Dataset<Row> df, FunnelStep step, String identityCol) {
-        Dataset<Row> filtered = df.filter(col(SparkConstants.VectorLog.EVENT_NAME).equalTo(step.eventName()));
+        Dataset<Row> filtered = df.filter(col(SparkConstants.OtelLogColumn.EVENT_NAME).equalTo(step.eventName()));
         filtered = applyStepFilters(filtered, step.stepFilters());
         return filtered
                 .select(
                         col(identityCol).alias(SparkConstants.AnalyticsDataset.IDENTITY),
-                        unix_timestamp(col(SparkConstants.VectorLog.TIMESTAMP)).alias(SparkConstants.AnalyticsDataset.TS)
+                        unix_timestamp(col(SparkConstants.OtelLogColumn.TIMESTAMP))
+                            .alias(SparkConstants.AnalyticsDataset.TS)
                 )
                 .filter(col(SparkConstants.AnalyticsDataset.IDENTITY).isNotNull().and(col(SparkConstants.AnalyticsDataset.IDENTITY).notEqual("")));
     }
 
     static Dataset<Row> readS3ByDateRange(SparkSession spark, String s3BasePath,
-                                           LocalDate startDate, LocalDate endDate,
-                                           Set<String> propKeys) {
+                                           LocalDate startDate, LocalDate endDate) {
         Dataset<Row> combined = null;
         int attempted = 0, loaded = 0;
         for (var d = startDate; !d.isAfter(endDate); d = d.plusDays(1)) {
             attempted++;
-            var ds = loadPath(spark, s3BasePath + d + "/", propKeys);
+            String path = SparkConstants.OtelLogsS3.partitionPrefixForDay(s3BasePath, d);
+            log.info("Loading parquet from S3 path: {}", path);
+            var ds = loadPath(spark, path);
             if (ds != null) {
                 loaded++;
                 combined = combined == null ? ds : combined.union(ds);
@@ -464,67 +491,107 @@ public class FunnelComputeJob {
     }
 
     static Dataset<Row> readS3ByHours(SparkSession spark, String s3BasePath,
-                                       LocalDateTime startDt, LocalDateTime endDt,
-                                       Set<String> propKeys) {
-        var cursor  = startDt.withMinute(0).withSecond(0).withNano(0);
-        var endHour = endDt.withMinute(59).withSecond(59).withNano(0);
+                                       LocalDateTime startDt, LocalDateTime endDt) {
+        long startEpoch = startDt.toEpochSecond(ZoneOffset.UTC);
+        long endEpoch = endDt.toEpochSecond(ZoneOffset.UTC);
+        LocalDate dayStart = startDt.toLocalDate();
+        LocalDate dayEnd = endDt.toLocalDate();
         Dataset<Row> combined = null;
         int attempted = 0, loaded = 0;
-        while (!cursor.isAfter(endHour)) {
+        for (LocalDate d = dayStart; !d.isAfter(dayEnd); d = d.plusDays(1)) {
             attempted++;
-            var path = s3BasePath + cursor.toLocalDate() + "/" + String.format("%02d", cursor.getHour()) + "/";
-            var ds = loadPath(spark, path, propKeys);
+            var path = SparkConstants.OtelLogsS3.partitionPrefixForDay(s3BasePath, d);
+            log.info("Loading parquet from S3 path: {}", path);
+            var ds = loadPath(spark, path);
             if (ds != null) {
                 loaded++;
-                combined = combined == null ? ds : combined.union(ds);
+                var ts = unix_timestamp(col(SparkConstants.OtelLogColumn.TIMESTAMP));
+                Dataset<Row> slice = ds.filter(ts.geq(lit(startEpoch)).and(ts.leq(lit(endEpoch))));
+                combined = combined == null ? slice : combined.union(slice);
             }
-            cursor = cursor.plusHours(1);
         }
         if (combined == null) {
-            log.warn("No S3 data for hour range {} to {} (attempted={}, loaded={})",
+            log.warn("No S3 data for UTC window {} to {} (attempted={}, loaded.partition.days={})",
                     startDt, endDt, attempted, loaded);
         } else {
-            log.info("Loaded S3 hour range {} to {} (attempted={}, loaded={})",
+            log.info("Loaded S3 UTC window {} to {} (attempted.partition.days={}, loaded.days={})",
                     startDt, endDt, attempted, loaded);
         }
         return combined;
     }
 
-    private static Dataset<Row> loadPath(SparkSession spark, String path, Set<String> propKeys) {
+    private static Dataset<Row> loadPath(SparkSession spark, String path) {
         try {
             var ds = spark.read()
                     .format("parquet")
                     .option("recursiveFileLookup", "true")
                     .option("mergeSchema", "true")
                     .load(path);
-            return ds.select(buildReadExprs(ds.columns(), propKeys));
+            return ds.select(buildReadExprs(ds.columns()));
         } catch (Exception e) {
             log.warn("Skipping S3 path {}: {}", path, e.getMessage());
             return null;
         }
     }
 
-    private static Dataset<Row> prepareRaw(Dataset<Row> ds, String projectId) {
-        return ds.filter(col(SparkConstants.VectorLog.PROJECT_ID).equalTo(projectId));
+    static Dataset<Row> prepareRaw(Dataset<Row> ds, String projectId) {
+        return ds.filter(col(SparkConstants.OtelLogColumn.PROJECT_ID).equalTo(projectId));
     }
 
-    static Column[] buildReadExprs(String[] availableColumns, Set<String> propKeys) {
-        var available = new java.util.HashSet<>(java.util.Arrays.asList(availableColumns));
-        boolean hasProps = available.contains(SparkConstants.VectorLog.PROPS);
-        Column propsExpr = hasProps ? col(SparkConstants.VectorLog.PROPS) : lit(null).cast(DataTypes.StringType);
+    /**
+     * Applies global funnel filters and restricts to rows matching any funnel step’s event + step filters
+     * (same narrowing as ordered funnel compute).
+     */
+    static Dataset<Row> funnelFilteredFrame(Dataset<Row> df, FunnelDefinition funnel) {
+        df = applyGlobalFilters(df, funnel.globalFilters());
+        return narrowToStepEventUnion(df, funnel);
+    }
+
+    /**
+     * Step matches with identity, unix timestamp, session id at event, and uplifted {@link SparkConstants.Derived#USER_ID}.
+     */
+    static Dataset<Row> stepEventsWithSession(Dataset<Row> df, FunnelStep step, String identityCol) {
+        Dataset<Row> filtered = df.filter(col(SparkConstants.OtelLogColumn.EVENT_NAME).equalTo(lit(step.eventName())));
+        filtered = applyStepFilters(filtered, step.stepFilters());
+        return filtered
+                .select(
+                        col(identityCol).alias(SparkConstants.AnalyticsDataset.IDENTITY),
+                        unix_timestamp(col(SparkConstants.OtelLogColumn.TIMESTAMP))
+                            .alias(SparkConstants.AnalyticsDataset.TS),
+                        col(SparkConstants.OtelLogColumn.SESSION_ID).alias(SparkConstants.AnalyticsDataset.BRIDGE_EVT_SESSION_ID),
+                        col(SparkConstants.Derived.USER_ID).alias(SparkConstants.AnalyticsDataset.BRIDGE_USER_ID_COL))
+                .filter(col(SparkConstants.AnalyticsDataset.IDENTITY).isNotNull()
+                        .and(col(SparkConstants.AnalyticsDataset.IDENTITY).notEqual("")));
+    }
+
+    private static String findParquetColumnCi(String[] availableColumns, String canonicalName) {
+        for (String raw : availableColumns) {
+            if (raw != null && canonicalName.equalsIgnoreCase(raw)) {
+                return raw;
+            }
+        }
+        return null;
+    }
+
+    /** Projects otel_logs-style parquet ({@link SparkConstants.OtelLogColumn}) onto stable logical names + identity aliases. */
+    static Column[] buildReadExprs(String[] availableColumns) {
+        Column instExpr;
+        String instPhy = findParquetColumnCi(availableColumns, SparkConstants.OtelLogColumn.APP_INSTALLATION_ID);
+        if (instPhy != null) {
+            instExpr = col(instPhy);
+        } else {
+            instExpr = lit(null).cast(DataTypes.StringType);
+        }
         var cols = new ArrayList<Column>();
-        for (var c : SparkConstants.VectorLog.LOG_READ_COLUMNS) {
-            cols.add(available.contains(c) ? col(c) : lit(null).cast(DataTypes.StringType).alias(c));
+        for (String canon : SparkConstants.OtelLogColumn.PARQUET_READ_COLUMNS) {
+            String src = findParquetColumnCi(availableColumns, canon);
+            Column exprCol = SparkConstants.OtelLogColumn.APP_INSTALLATION_ID.equals(canon)
+                ? instExpr
+                : (src != null ? col(src) : lit(null).cast(DataTypes.StringType));
+            cols.add(exprCol.alias(canon));
         }
-        cols.add(coalesce(
-                get_json_object(propsExpr, SparkConstants.PropsJson.PATH_USER_ID),
-                get_json_object(propsExpr, SparkConstants.PropsJson.PATH_APP_INSTALLATION_ID)
-        ).alias(SparkConstants.Derived.USER_ID));
-        cols.add(get_json_object(propsExpr, SparkConstants.PropsJson.PATH_APP_INSTALLATION_ID)
-                .alias(SparkConstants.Derived.INSTALLATION_ID));
-        for (String key : propKeys) {
-            cols.add(get_json_object(propsExpr, PropsJsonPath.forTopLevelKey(key)).alias(key));
-        }
+        cols.add(instExpr.alias(SparkConstants.Derived.INSTALLATION_ID));
+        cols.add(instExpr.alias(SparkConstants.Derived.USER_ID));
         return cols.toArray(Column[]::new);
     }
 }

@@ -16,15 +16,15 @@ public final class FilterFieldMapper {
 
   static {
     var m = new LinkedHashMap<String, String>();
-    m.put("OS_NAME", SparkConstants.VectorLog.OS_NAME);
-    m.put("APP_BUILD_NAME", SparkConstants.VectorLog.APP_BUILD_NAME);
-    m.put("OS_VERSION", SparkConstants.VectorLog.OS_VERSION);
+    m.put("OS_NAME", SparkConstants.OtelLogColumn.PLATFORM);
+    m.put("APP_BUILD_NAME", SparkConstants.OtelLogColumn.APP_VERSION);
+    m.put("OS_VERSION", SparkConstants.OtelLogColumn.OS_VERSION);
     CATALOG_KEY_TO_COLUMN = Collections.unmodifiableMap(m);
   }
 
   private FilterFieldMapper() {}
 
-  /** True if the field maps to a materialized Parquet column (not uplifted from {@code props}). */
+  /** True when field maps to a materialized parquet column backed by otel_logs (not solely LogAttributes). */
   public static boolean isCatalogMapped(String field) {
     if (field == null || field.isBlank()) {
       return false;

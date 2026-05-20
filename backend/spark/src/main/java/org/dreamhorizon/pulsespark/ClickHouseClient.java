@@ -22,18 +22,43 @@ public class ClickHouseClient {
   private final URI baseUri;
   private final String db;
 
+  /**
+   * ClickHouse HTTP interface. {@code host} may be a bare hostname or a full origin
+   * {@code http(s)://host[:port]} (e.g. Cloudflare quick tunnel).
+   */
   public ClickHouseClient(String host, int port, String db, String user, String password) {
     this.db = db;
     this.http = HttpClient.newBuilder()
         .connectTimeout(Duration.ofSeconds(30))
         .build();
-    this.baseUri = URI.create(String.format(
-        "http://%s:%d/?database=%s&user=%s&password=%s",
-        host, port,
+    String origin = host == null ? "" : host.trim();
+    if (origin.startsWith("http://") || origin.startsWith("https://")) {
+      this.baseUri = buildRequestUri(URI.create(origin), db, user, password);
+    } else {
+      this.baseUri = buildRequestUri(URI.create("http://" + origin + ":" + port), db, user, password);
+    }
+  }
+
+  private static URI buildRequestUri(URI origin, String db, String user, String password) {
+    var q = "database=%s&user=%s&password=%s".formatted(
         URLEncoder.encode(db, StandardCharsets.UTF_8),
         URLEncoder.encode(user, StandardCharsets.UTF_8),
-        URLEncoder.encode(password, StandardCharsets.UTF_8)
-    ));
+        URLEncoder.encode(password, StandardCharsets.UTF_8));
+    String scheme = origin.getScheme();
+    String host = origin.getHost();
+    if (scheme == null || host == null) {
+      throw new IllegalArgumentException("Invalid ClickHouse URL (need scheme and host): " + origin);
+    }
+    int port = origin.getPort();
+    String authority = port == -1 ? host : host + ":" + port;
+    String rawPath = origin.getPath();
+    String path;
+    if (rawPath == null || rawPath.isEmpty() || "/".equals(rawPath)) {
+      path = "/";
+    } else {
+      path = rawPath.endsWith("/") ? rawPath : rawPath + "/";
+    }
+    return URI.create("%s://%s%s?%s".formatted(scheme, authority, path, q));
   }
 
   public void ping() {
@@ -84,6 +109,18 @@ public class ClickHouseClient {
     }
     execute("insertJourneyResults", sb.toString());
     log.info("Inserted {} journey_result rows", rows.size());
+  }
+
+  /** Chunked HTTP INSERT into {@link SparkConstants.ClickHouse#TABLE_FUNNEL_SESSION_STATE}. */
+  public void insertFunnelSessionState(List<String> valueTuples, int chunkSize) {
+    bulkInsert(SparkConstants.ClickHouse.TABLE_FUNNEL_SESSION_STATE,
+        SparkConstants.ClickHouse.INSERT_COLUMNS_FUNNEL_SESSION_STATE, valueTuples, chunkSize);
+  }
+
+  /** Chunked HTTP INSERT into {@link SparkConstants.ClickHouse#TABLE_FUNNEL_USER_STATE}. */
+  public void insertFunnelUserState(List<String> valueTuples, int chunkSize) {
+    bulkInsert(SparkConstants.ClickHouse.TABLE_FUNNEL_USER_STATE,
+        SparkConstants.ClickHouse.INSERT_COLUMNS_FUNNEL_USER_STATE, valueTuples, chunkSize);
   }
 
   public void bulkInsert(String table, String columnList, List<String> valueRows, int chunkSize) {

@@ -2,6 +2,7 @@ package org.dreamhorizon.pulsespark;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.net.URI;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Timestamp;
@@ -26,10 +27,46 @@ public class MysqlRepository {
   private final String password;
 
   public MysqlRepository(String host, int port, String db, String user, String password) {
-    this.jdbcUrl = "jdbc:mysql://%s:%d/%s?useSSL=false&allowPublicKeyRetrieval=true"
-        .formatted(host, port, db);
+    this.jdbcUrl = buildJdbcUrl(host, port, db);
     this.user = user;
     this.password = password;
+  }
+
+  /**
+   * {@code host} may be a hostname or {@code https://host[:port]} / {@code http://host[:port]} (e.g. tunnel URL).
+   * For {@code https://} URLs the JDBC port defaults to 443 if omitted; {@code useSSL=true} is set.
+   */
+  private static String buildJdbcUrl(String host, int defaultPort, String db) {
+    if (host == null || host.isBlank()) {
+      throw new IllegalArgumentException("mysql_host is required");
+    }
+    String h = host.trim();
+    if (h.startsWith("https://")) {
+      URI u = URI.create(h);
+      String hostname = u.getHost();
+      if (hostname == null) {
+        throw new IllegalArgumentException("Invalid MySQL URL (missing host): " + h);
+      }
+      int p = u.getPort();
+      if (p == -1) {
+        p = 443;
+      }
+      return "jdbc:mysql://%s:%d/%s?useSSL=true&allowPublicKeyRetrieval=true&verifyServerCertificate=true"
+          .formatted(hostname, p, db);
+    }
+    if (h.startsWith("http://")) {
+      URI u = URI.create(h);
+      String hostname = u.getHost();
+      if (hostname == null) {
+        throw new IllegalArgumentException("Invalid MySQL URL (missing host): " + h);
+      }
+      int p = u.getPort();
+      if (p == -1) {
+        p = 80;
+      }
+      return "jdbc:mysql://%s:%d/%s?useSSL=false&allowPublicKeyRetrieval=true".formatted(hostname, p, db);
+    }
+    return "jdbc:mysql://%s:%d/%s?useSSL=false&allowPublicKeyRetrieval=true".formatted(h, defaultPort, db);
   }
 
   /**
