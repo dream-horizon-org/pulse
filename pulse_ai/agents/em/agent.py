@@ -1,7 +1,7 @@
 """EM Agent — Engineering Manager persona for Pulse observability.
 
 Uses a callable instruction (Mechanism B) to inject the current UTC
-timestamp into the system prompt, and 7 MCP tools for data analysis.
+timestamp into the system prompt, and 8 tools for data analysis.
 """
 
 from dotenv import load_dotenv
@@ -29,6 +29,7 @@ from .tools import (
     query_interaction_health,
     query_interaction_metrics,
     query_interaction_sessions,
+    query_interaction_root_cause,
     breakdown_interaction,
     calculate,
 )
@@ -48,6 +49,7 @@ em_agent = Agent(
         query_interaction_health,
         query_interaction_metrics,
         query_interaction_sessions,
+        query_interaction_root_cause,
         breakdown_interaction,
         calculate,
     ],

@@ -4,14 +4,17 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+# pulse-server uses Map<String, Object>; ClickHouse / JSON can emit nulls for missing metrics.
+RootCauseScalar = int | float | str | None
+
 
 class RootCauseSegmentSchema(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
     label: str
-    dimensions: dict[str, str] | None = None
-    metrics: dict[str, int | float | str]
-    deltas: dict[str, float]
+    dimensions: dict[str, str | None] | None = None
+    metrics: dict[str, RootCauseScalar]
+    deltas: dict[str, float | None]
     exampleSessionIds: list[str] | None = Field(None, alias="exampleSessionIds")
     serverRank: int | None = Field(
         None,
@@ -24,7 +27,7 @@ class RootCauseSegmentSchema(BaseModel):
 
 
 class RootCausePayloadSchema(BaseModel):
-    baseline: dict[str, int | float | str]
+    baseline: dict[str, RootCauseScalar]
     segments: list[RootCauseSegmentSchema]
     mode: Literal["hierarchical", "flat", "hybrid"] | None = None
     cachedAt: str | None = None

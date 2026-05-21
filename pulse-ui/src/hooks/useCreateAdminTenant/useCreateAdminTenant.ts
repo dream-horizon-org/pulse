@@ -1,15 +1,26 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ApiResponse, makeRequest } from "../../helpers/makeRequest";
 import { API_BASE_URL, API_ROUTES } from "../../constants";
-import { CreateTenantParams, TenantResponse } from "./useCreateTenant.interface";
 
-export const useCreateTenant = () => {
+export interface CreateAdminTenantParams {
+  tenantName: string;
+  projectName: string;
+  projectDescription?: string;
+}
+
+export interface CreateAdminTenantResponse {
+  tenantId: string;
+  projectId: string;
+  apiKey: string;
+}
+
+export const useCreateAdminTenant = () => {
   const queryClient = useQueryClient();
-  const route = API_ROUTES.POST_CREATE_TENANT;
+  const route = API_ROUTES.POST_ADMIN_CREATE_TENANT;
 
-  return useMutation<ApiResponse<TenantResponse>, unknown, CreateTenantParams>({
-    mutationFn: (params: CreateTenantParams) =>
-      makeRequest<TenantResponse>({
+  return useMutation<ApiResponse<CreateAdminTenantResponse>, unknown, CreateAdminTenantParams>({
+    mutationFn: (params: CreateAdminTenantParams) =>
+      makeRequest<CreateAdminTenantResponse>({
         url: `${API_BASE_URL}${route.apiPath}`,
         init: {
           method: route.method,

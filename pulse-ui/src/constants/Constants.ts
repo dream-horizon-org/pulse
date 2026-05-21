@@ -1223,10 +1223,10 @@ export const API_ROUTES: StreamverseRoutes = {
     apiPath: `/v1/tenants`,
     method: API_METHODS.GET,
   },
-  /** System-role tenant creation: superadmin/internal_viewer only. */
-  POST_CREATE_TENANT: {
-    key: "POST_CREATE_TENANT",
-    apiPath: `/v1/tenants`,
+  /** Atomic tenant + project creation for admins (superadmin or internal_viewer). */
+  POST_ADMIN_CREATE_TENANT: {
+    key: "POST_ADMIN_CREATE_TENANT",
+    apiPath: `/v1/admin/tenants`,
     method: API_METHODS.POST,
   },
   /** OpenFGA superadmin tuples on system:pulse (JWT-verified; superadmin-only for mutations). */

@@ -19,4 +19,5 @@ public class TenantRestResponse {
   private String updatedAt;
   private String gcpTenantId;
   private String domainName;
+  private String tier;
 }
