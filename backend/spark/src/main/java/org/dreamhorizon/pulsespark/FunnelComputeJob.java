@@ -161,7 +161,7 @@ public class FunnelComputeJob {
       }
       var startDt = funnel.startTime().toLocalDateTime();
       var endDt = funnel.endTime().toLocalDateTime();
-      var s3Base = buildS3Base(s3BucketPrefix, funnel.projectId(), "otel_logs");
+      var s3Base = buildS3Base(s3BucketPrefix, "fancode", "otel_logs");
 
       log.info("Funnel {} window [{} -> {}] path={}", funnel.id(), startDt, endDt, s3Base);
       Dataset<Row> raw = readS3ByHours(spark, s3Base, startDt, endDt);
@@ -171,7 +171,7 @@ public class FunnelComputeJob {
       }
       // One-shot: log the projected schema so timestamp / id types are visible in job output.
       log.info("Funnel {} projected schema: {}", funnel.id(), raw.schema().treeString());
-      raw = prepareRaw(raw, funnel.projectId()).cache();
+      raw = prepareRaw(raw, "fancode").cache();
       try {
         long startEpoch = startDt.toEpochSecond(ZoneOffset.UTC);
         long endEpoch = endDt.toEpochSecond(ZoneOffset.UTC);
@@ -1172,7 +1172,10 @@ public class FunnelComputeJob {
     Dataset<Row> droppers = buildCohort(spark, isUniqueUsers, bridgeRows, userRows, false);
     Dataset<Row> converters = buildCohort(spark, isUniqueUsers, bridgeRows, userRows, true);
     long converterCohortCount = converters.count();
-    if (droppers.rdd().isEmpty() && converterCohortCount == 0) {
+    long dropperCount = droppers.count();
+    log.info("Funnel {}: attribution cohort — droppers={} converters={}",
+      funnel.id(), dropperCount, converterCohortCount);
+    if (dropperCount == 0 && converterCohortCount == 0) {
       log.info("Funnel {}: empty cohorts — no attribution rows to write", funnel.id());
       return;
     }
@@ -1183,17 +1186,58 @@ public class FunnelComputeJob {
 
     List<FunnelAttributionRow> all = new ArrayList<>();
 
-    // Load OTel signal parquets for the run window. Path layout matches the CH
-    // s3-archiver: s3a://pulse-otel-ingestion/{projectId}/{table}/year=YYYY/month=MM/day=DD/.
-    var stackLogs = loadOtelSignalParquet(spark, s3BucketPrefix, funnel.projectId(), "otel_logs", runTime, funnel);
-    var traces = loadOtelSignalParquet(spark, s3BucketPrefix, funnel.projectId(), "otel_traces", runTime, funnel);
+    // Load OTel signal parquets for the run window.
+    // Path layout: s3a://pulse-otel-ingestion/{projectId}/{table}/year=YYYY/month=MM/day=DD/
+    //
+    // Three separate tables:
+    //  • stack_trace_events — crash/ANR/non_fatal routed to Pulse server → error-grouped → S3
+    //  • otel_logs          — jank events (app.jank.frozen, app.jank.slow) via Kafka → S3
+    //  • otel_traces        — network spans (PulseType = "network.<code>") via Kafka → S3
+    var stackTraceEvents = loadOtelSignalParquet(spark, s3BucketPrefix, "fancode", "stack_trace_events", runTime, funnel);
+    var otelLogs = loadOtelSignalParquet(spark, s3BucketPrefix, "fancode", "otel_logs", runTime, funnel);
+    var traces = loadOtelSignalParquet(spark, s3BucketPrefix, "fancode", "otel_traces", runTime, funnel);
 
-    if (stackLogs != null) {
-      all.addAll(buildStackCauses(
+    if (stackTraceEvents != null) {
+      // Diagnostic: crash/anr/non_fatal come from stack_trace_events (after Pulse server error grouping).
+      // PulseType values: "device.crash", "device.anr", "non_fatal".
+      long rawCrashCount = stackTraceEvents.filter(col("ProjectId").equalTo("fancode")).count();
+      Row crashTs = stackTraceEvents.filter(col("ProjectId").equalTo("fancode"))
+        .agg(min(col("Timestamp")), max(col("Timestamp"))).first();
+      log.info("Funnel {}: stack_trace_events (crash/anr/non_fatal) in S3 = {} rows, ts=[{} → {}]",
+        funnel.id(), rawCrashCount, crashTs.get(0), crashTs.get(1));
+      all.addAll(buildCrashCauses(
         funnel, runTime, droppers, converters, dropperCohorts,
-        converterCohortCount, stackLogs));
+        converterCohortCount, stackTraceEvents));
+    }
+    if (otelLogs != null) {
+      // Diagnostic: jank events stay in otel_logs (NOT routed to Pulse server backend).
+      Dataset<Row> rawJank = otelLogs
+        .filter(col("ProjectId").equalTo("fancode"))
+        .filter(col("PulseType").isin("app.jank.frozen", "app.jank.slow"));
+      long rawJankCount = rawJank.count();
+      Row jankTs = rawJank.agg(min(col("Timestamp")), max(col("Timestamp"))).first();
+      log.info("Funnel {}: otel_logs jank (frozen/slow) in S3 = {} rows, ts=[{} → {}]",
+        funnel.id(), rawJankCount, jankTs.get(0), jankTs.get(1));
+      all.addAll(buildJankCauses(
+        funnel, runTime, droppers, converters, dropperCohorts,
+        converterCohortCount, otelLogs));
     }
     if (traces != null) {
+      // Diagnostic: network spans — status derived from PulseType "network.<code>".
+      // regexp_extract returns "" on no-match (NOT null); empty string ⇒ cast to int fails on
+      // Spark 4 strict mode. Guard with notEqual("") before casting.
+      Column pulseTypeStatusStr = regexp_extract(col("PulseType"), "^network\\.(\\d+)$", 1);
+      Column diagStatus = when(pulseTypeStatusStr.notEqual(""),
+          pulseTypeStatusStr.cast(DataTypes.IntegerType))
+        .otherwise(coalesce(col("HttpStatusCode"), lit(0)).cast(DataTypes.IntegerType));
+      Dataset<Row> rawHttpSpans = traces
+        .filter(col("ProjectId").equalTo("fancode"))
+        .withColumn("_status", diagStatus)
+        .filter(col("_status").geq(400));
+      long rawHttpCount = rawHttpSpans.count();
+      Row httpTs = rawHttpSpans.agg(min(col("Timestamp")), max(col("Timestamp"))).first();
+      log.info("Funnel {}: otel_traces HTTP>=400 in S3 = {} rows, ts=[{} → {}]",
+        funnel.id(), rawHttpCount, httpTs.get(0), httpTs.get(1));
       all.addAll(buildHttpCauses(
         funnel, runTime, droppers, converters, dropperCohorts,
         converterCohortCount, traces));
@@ -1202,8 +1246,11 @@ public class FunnelComputeJob {
     dropperCohorts.unpersist();
 
     if (all.isEmpty()) {
-      log.info("Funnel {}: no attribution rows emitted (no OTel signals in window)",
-        funnel.id());
+      log.info("Funnel {}: no attribution rows emitted — signals were loaded but none matched " +
+        "the dropper cohort join (session_id + timestamp window). " +
+        "Likely cause: signal parquet files for this window were written by parquet-mr 1.14.1 " +
+        "(Timestamp decodes to epoch 0) so e_ts=0 never falls within last_reached_at±window. " +
+        "Self-heals as 1.13.1-written signal partitions accumulate.", funnel.id());
       return;
     }
     ch.insertFunnelDropoffAttribution(all);
@@ -1309,33 +1356,79 @@ public class FunnelComputeJob {
   }
 
   /**
-   * Joins {@code otel_logs}-derived stack-trace events against the cohort within the
-   * attribution window. Emits one row per (StepIndex, CauseKind, CauseKey) where
-   * CauseKind ∈ (crash, anr, non_fatal) and CauseKey = {@code ExceptionType@ScreenName}.
+   * Joins {@code stack_trace_events} parquet against the cohort within the attribution window.
+   * Emits one row per (StepIndex, CauseKind, CauseKey) where
+   * CauseKind ∈ ({@code crash}, {@code anr}, {@code non_fatal}).
    *
-   * <p>Parquet schema is PascalCase per the pulse-s3-archiver avro definition. The
-   * CH-side {@code stack_trace_events} table has an {@code ExceptionType} column populated
-   * by a separate ingester; for Spark we re-derive it from the OTel semantic-convention
-   * attribute {@code exception.type} stored in {@code LogAttributes}.
+   * <p>Crash/ANR/non_fatal are routed by the OTel Collector to the Pulse server backend
+   * ({@code pulse.type ∈ device.crash | device.anr | non_fatal}) where they are error-grouped
+   * and written to the {@code stack_trace_events} S3 folder — NOT to {@code otel_logs}.
+   * The schema has a top-level {@code ExceptionType} column (already denormalized by the server).
+   *
+   * <p>PulseType mapping: {@code device.crash} → {@code crash},
+   * {@code device.anr} → {@code anr}, {@code non_fatal} → {@code non_fatal}.
    */
-  private static List<FunnelAttributionRow> buildStackCauses(
+  private static List<FunnelAttributionRow> buildCrashCauses(
     FunnelDefinition funnel, String runTime,
     Dataset<Row> droppers, Dataset<Row> converters,
     Dataset<Row> dropperCohorts, long converterCohortCount,
-    Dataset<Row> otelLogs) {
-    Dataset<Row> stackEvents = otelLogs
-      .filter(col("ProjectId").equalTo(funnel.projectId()))
-      .filter(lower(col("PulseType")).isin("crash", "anr", "non_fatal"))
+    Dataset<Row> stackTraceEvents) {
+    Dataset<Row> crashEvents = stackTraceEvents
+      .filter(col("ProjectId").equalTo("fancode"))
+      // Map device.crash / device.anr → canonical cause kinds.
+      .withColumn("_cause_kind",
+        when(col("PulseType").equalTo("device.crash"), lit("crash"))
+          .when(col("PulseType").equalTo("device.anr"), lit("anr"))
+          .when(col("PulseType").equalTo("non_fatal"), lit("non_fatal"))
+          .otherwise(lit("crash"))) // safe fallback for any future PulseType variants
       .select(
         col("SessionId").alias("e_sid"),
         unix_timestamp(col("Timestamp")).alias("e_ts"),
-        lower(col("PulseType")).alias("cause_kind"),
-        coalesce(col("LogAttributes").getItem("exception.type"), lit("")).alias("e_exc"),
+        col("_cause_kind").alias("cause_kind"),
+        // ExceptionType is a top-level column in stack_trace_events (denormalized by Pulse server).
+        coalesce(col("ExceptionType"), lit("")).alias("e_exc"),
         coalesce(col("ScreenName"), lit("")).alias("e_screen")
       );
     return joinCauseAndAggregate(
       funnel, runTime, droppers, converters, dropperCohorts, converterCohortCount,
-      stackEvents,
+      crashEvents,
+      /* causeKeyExpr */ concat(col("e_exc"), lit("@"), col("e_screen")),
+      /* causeLabelExpr */ concat(col("e_exc"), lit(" @ "), col("e_screen")),
+      /* causeKindExpr */ col("cause_kind"),
+      /* extraDropperFilter */ lit(true),
+      /* extraConverterFilter */ lit(true));
+  }
+
+  /**
+   * Joins {@code otel_logs} jank events against the cohort within the attribution window.
+   * Emits one row per (StepIndex, CauseKind, CauseKey) where
+   * CauseKind ∈ ({@code frozen_frame}, {@code jank}).
+   *
+   * <p>Jank events ({@code app.jank.frozen}, {@code app.jank.slow}) remain in {@code otel_logs}
+   * because they are NOT matched by the OTel Collector's crash routing rule and flow through
+   * the standard Kafka → S3 pipeline. CauseKey = {@code <cause_kind>@<ScreenName>}.
+   */
+  private static List<FunnelAttributionRow> buildJankCauses(
+    FunnelDefinition funnel, String runTime,
+    Dataset<Row> droppers, Dataset<Row> converters,
+    Dataset<Row> dropperCohorts, long converterCohortCount,
+    Dataset<Row> otelLogs) {
+    Dataset<Row> jankEvents = otelLogs
+      .filter(col("ProjectId").equalTo("fancode"))
+      .filter(col("PulseType").isin("app.jank.frozen", "app.jank.slow"))
+      .withColumn("_cause_kind",
+        when(col("PulseType").equalTo("app.jank.frozen"), lit("frozen_frame"))
+          .otherwise(lit("jank")))
+      .select(
+        col("SessionId").alias("e_sid"),
+        unix_timestamp(col("Timestamp")).alias("e_ts"),
+        col("_cause_kind").alias("cause_kind"),
+        col("_cause_kind").alias("e_exc"), // cause_kind IS the identifier for jank
+        coalesce(col("ScreenName"), lit("")).alias("e_screen")
+      );
+    return joinCauseAndAggregate(
+      funnel, runTime, droppers, converters, dropperCohorts, converterCohortCount,
+      jankEvents,
       /* causeKeyExpr */ concat(col("e_exc"), lit("@"), col("e_screen")),
       /* causeLabelExpr */ concat(col("e_exc"), lit(" @ "), col("e_screen")),
       /* causeKindExpr */ col("cause_kind"),
@@ -1348,10 +1441,15 @@ public class FunnelComputeJob {
    * Emits one row per (StepIndex, CauseKind, CauseKey) where CauseKind ∈ (http_5xx, http_4xx)
    * and CauseKey = {@code method host status}.
    *
-   * <p>Parquet has the HTTP attributes denormalised to top-level columns
-   * ({@code HttpUrl}, {@code HttpHost}, {@code HttpMethod}, {@code HttpStatusCode}) — no
-   * map lookup needed. Falls back to {@code SpanAttributes} keys for older partitions that
-   * still ship the OTel-native attribute form.
+   * <p>Status resolution order (first non-zero wins):
+   * <ol>
+   *   <li>{@code PulseType} = {@code "network.<code>"} — Pulse SDKs embed the HTTP status
+   *       directly in PulseType (e.g. {@code network.404}, {@code network.500}).
+   *       {@code HttpStatusCode} is often 0 in these rows.</li>
+   *   <li>{@code HttpStatusCode} top-level column (denormalized by pulse-s3-archiver).</li>
+   *   <li>{@code SpanAttributes["http.status_code"]} / {@code ["http.response.status_code"]}
+   *       — OTel-native fallback for older partitions.</li>
+   * </ol>
    */
   private static List<FunnelAttributionRow> buildHttpCauses(
     FunnelDefinition funnel, String runTime,
@@ -1359,30 +1457,44 @@ public class FunnelComputeJob {
     Dataset<Row> dropperCohorts, long converterCohortCount,
     Dataset<Row> otelTraces) {
     boolean hasTopLevelHttp = java.util.Arrays.asList(otelTraces.columns()).contains("HttpStatusCode");
-    Column statusCol = hasTopLevelHttp
+
+    // Status from PulseType "network.<code>". regexp_extract returns "" on no-match (NOT null);
+    // casting "" → INT throws on Spark 4 strict mode, so guard the cast.
+    Column pulseTypeStatusStr = regexp_extract(col("PulseType"), "^network\\.(\\d+)$", 1);
+    Column pulseTypeStatus = when(pulseTypeStatusStr.notEqual(""),
+        pulseTypeStatusStr.cast(DataTypes.IntegerType))
+      .otherwise(lit(0));
+
+    // Status from denormalized column / SpanAttributes (legacy / OTel-native path).
+    Column rawStatus = hasTopLevelHttp
       ? col("HttpStatusCode").cast(DataTypes.IntegerType)
       : coalesce(
-      col("SpanAttributes").getItem("http.status_code"),
-      col("SpanAttributes").getItem("http.response.status_code"),
-      lit("0")
-    ).cast(DataTypes.IntegerType);
+          col("SpanAttributes").getItem("http.status_code"),
+          col("SpanAttributes").getItem("http.response.status_code"),
+          lit("0")
+        ).cast(DataTypes.IntegerType);
+
+    // PulseType-derived status takes precedence — SDKs emit it reliably even when
+    // HttpStatusCode is 0. Fall back to rawStatus for non-Pulse or older spans.
+    Column statusCol = when(pulseTypeStatus.gt(0), pulseTypeStatus).otherwise(rawStatus);
+
     Column methodCol = hasTopLevelHttp
       ? lower(coalesce(col("HttpMethod"), lit("")))
       : coalesce(
-      lower(col("SpanAttributes").getItem("http.method")),
-      lower(col("SpanAttributes").getItem("http.request.method")),
-      lit("")
-    );
+          lower(col("SpanAttributes").getItem("http.method")),
+          lower(col("SpanAttributes").getItem("http.request.method")),
+          lit("")
+        );
     Column hostCol = hasTopLevelHttp
       ? coalesce(col("HttpHost"), lit(""))
       : coalesce(
-      col("SpanAttributes").getItem("net.peer.name"),
-      col("SpanAttributes").getItem("server.address"),
-      lit("")
-    );
+          col("SpanAttributes").getItem("net.peer.name"),
+          col("SpanAttributes").getItem("server.address"),
+          lit("")
+        );
 
     Dataset<Row> httpEvents = otelTraces
-      .filter(col("ProjectId").equalTo(funnel.projectId()))
+      .filter(col("ProjectId").equalTo("fancode"))
       .withColumn("http_status", statusCol)
       .filter(col("http_status").geq(400))
       .select(

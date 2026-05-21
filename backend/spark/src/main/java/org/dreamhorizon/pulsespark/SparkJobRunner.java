@@ -65,8 +65,22 @@ public class SparkJobRunner {
 
     var spark = SparkSession.builder()
       .appName("pulse-spark-%s-%s".formatted(jobType.toLowerCase(), runTime.substring(0, 10)))
+      // ── Parquet / timezone ────────────────────────────────────────────────
       .config("spark.sql.parquet.int96RebaseModeInRead", "CORRECTED")
       .config("spark.sql.session.timeZone", "UTC")
+      // ── SQL tuning ────────────────────────────────────────────────────────
+      .config("spark.sql.shuffle.partitions", "400")
+      .config("spark.sql.adaptive.enabled", "true")
+      // ── Dynamic allocation ────────────────────────────────────────────────
+      .config("spark.dynamicAllocation.enabled", "true")
+      .config("spark.dynamicAllocation.minExecutors", "1")
+      .config("spark.dynamicAllocation.initialExecutors", "4")
+      .config("spark.dynamicAllocation.maxExecutors", "40")
+      // ── Executor / driver resources ───────────────────────────────────────
+      .config("spark.executor.cores", "4")
+      .config("spark.executor.memory", "16g")
+      .config("spark.driver.cores", "4")
+      .config("spark.driver.memory", "8g")
       .getOrCreate();
     normalizeS3TimeoutConfigs(spark);
     spark.sparkContext().setLogLevel("WARN");
