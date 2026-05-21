@@ -1,16 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { registerProjectTools } from "./tools/projects.js";
-import { registerInteractionTools } from "./tools/interactions.js";
-import { registerEventTools } from "./tools/events.js";
-import { registerMetricsTools } from "./tools/metrics.js";
-import { registerSessionTools } from "./tools/sessions.js";
-import { registerFunnelTools } from "./tools/funnels.js";
-import { registerJourneyTools } from "./tools/journeys.js";
-import { registerAlertTools } from "./tools/alerts.js";
-import { registerHeatmapTools } from "./tools/heatmap.js";
-import { registerSdkConfigTools } from "./tools/sdkConfig.js";
-import { registerAppVitalsTools } from "./tools/appVitals.js";
+import { registerRegisterTool } from "./tools/register.js";
 import { exchangeApiKeyForTokens, saveCredentials } from "./auth.js";
 
 const baseUrl = process.env.PULSE_BASE_URL;
@@ -35,16 +26,7 @@ const server = new McpServer({
 });
 
 registerProjectTools(server);
-registerInteractionTools(server);
-registerEventTools(server);
-registerMetricsTools(server);
-registerSessionTools(server);
-registerFunnelTools(server);
-registerJourneyTools(server);
-registerAlertTools(server);
-registerHeatmapTools(server);
-registerSdkConfigTools(server);
-registerAppVitalsTools(server);
+registerRegisterTool(server);
 
 const transport = new StdioServerTransport();
 await server.connect(transport);

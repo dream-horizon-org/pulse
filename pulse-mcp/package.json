@@ -11,8 +11,8 @@
     "dev": "tsup --watch",
     "start": "node dist/index.js",
     "typecheck": "tsc --noEmit",
-    "generate:promptfoo-tools": "node scripts/generate-promptfoo-tools.mjs",
-    "promptfoo:eval": "yarn build && promptfoo eval -c evals/promptfoo/promptfooconfig.yaml"
+    "promptfoo:eval": "yarn build && PROMPTFOO_DISABLE_TELEMETRY=1 && promptfoo eval -c evals/promptfoo/promptfooconfig.yaml",
+    "promptfoo:view": "promptfoo view"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.0",

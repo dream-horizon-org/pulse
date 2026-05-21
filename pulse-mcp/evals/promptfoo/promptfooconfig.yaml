@@ -6,11 +6,12 @@ description: pulse-mcp tool-selection eval (Gemini 2.5 Flash via Google ADK; ful
 #   - GOOGLE_API_KEY or GEMINI_API_KEY — for Gemini
 #   - PULSE_BASE_URL, PULSE_API_KEY — passed to the MCP server at eval time
 # Run from pulse-mcp/: yarn promptfoo:eval
-
+evaluateOptions:
+  maxConcurrency: 1
 providers:
   - id: file://providers/gemini-adk-agent.mjs
     config:
-      model: gemini-2.5-flash
+      model: gemini-2.0-flash
       instruction: >
         You are an assistant for Pulse, a real-time mobile and web observability
         platform. You have access to Pulse MCP tools via function declarations.

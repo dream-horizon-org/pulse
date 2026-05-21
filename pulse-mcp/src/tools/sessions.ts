@@ -57,13 +57,13 @@ export function registerSessionTools(server: McpServer): void {
         .string()
         .optional()
         .describe(
-          "Range start ISO 8601 (required together with endTime; default last 7 days if either omitted)",
+          "Range start as an absolute ISO 8601 datetime string e.g. '2026-05-20T15:00:00Z'. Must be an absolute timestamp — do NOT use duration format (PT1H, PT-1H etc.). Compute from current wall-clock time. Required together with endTime; omit both for default last-7-days window.",
         ),
       endTime: z
         .string()
         .optional()
         .describe(
-          "Range end ISO 8601 (required together with startTime; default last 7 days if either omitted)",
+          "Range end as an absolute ISO 8601 datetime string e.g. '2026-05-20T16:00:00Z'. Must be an absolute timestamp — do NOT use duration format. Required together with startTime; omit both for default last-7-days window.",
         ),
       pageSize: z.number().int().min(1).max(100).default(20),
       sortBy: z
