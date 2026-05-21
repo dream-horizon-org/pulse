@@ -1042,7 +1042,7 @@ internal class SessionReplayMasker {
                 }
                 return clamped
             }
-        } else if snapshot.isLabel {
+        } else if snapshot.isLabel || snapshot.isRNText {
             let shouldMask = snapshot.hasText && shouldMaskLabelFromSnapshot(snapshot: snapshot)
             if shouldMask {
                 let clamped = clampRectToBounds(rect: windowFrame, bounds: windowBounds)
