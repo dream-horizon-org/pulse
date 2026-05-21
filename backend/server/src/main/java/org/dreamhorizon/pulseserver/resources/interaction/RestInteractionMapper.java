@@ -27,6 +27,7 @@ public abstract class RestInteractionMapper {
 
   @Mapping(target = "name", source = "actualInteractionName")
   @Mapping(target = "user", source = "userEmail")
+  @Mapping(target = "interactionThresholdInMS", source = "request.thresholdInMs")
   public abstract UpdateInteractionRequest toServiceUpdateInteractionRequest(
       RestInteractionDetail request,
       String actualInteractionName,
