@@ -1313,22 +1313,6 @@ export const API_ROUTES: StreamverseRoutes = {
     apiPath: `/internal/v1/tenants/:tenantId/tier`,
     method: API_METHODS.PUT,
   },
-  // Web Vitals API Routes
-  GET_WEB_VITALS_SUMMARY: {
-    key: "GET_WEB_VITALS_SUMMARY",
-    apiPath: `/v1/web-vitals/summary`,
-    method: API_METHODS.GET,
-  },
-  GET_WEB_VITALS_TREND: {
-    key: "GET_WEB_VITALS_TREND",
-    apiPath: `/v1/web-vitals/trend`,
-    method: API_METHODS.GET,
-  },
-  GET_WEB_VITALS_BY_SCREEN: {
-    key: "GET_WEB_VITALS_BY_SCREEN",
-    apiPath: `/v1/web-vitals/by-screen`,
-    method: API_METHODS.GET,
-  },
 };
 
 export const TOOLTIP_LABLES: Record<string, string> = {

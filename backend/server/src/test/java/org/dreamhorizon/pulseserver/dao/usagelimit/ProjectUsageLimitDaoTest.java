@@ -11,6 +11,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.reactivex.rxjava3.core.Single;
 import io.vertx.core.json.JsonObject;
@@ -28,6 +29,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import org.dreamhorizon.pulseserver.dao.usagelimit.ProjectUsageLimitDao.NotificationRecord;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
 import org.dreamhorizon.pulseserver.dao.usagelimit.models.ProjectUsageLimit;
 import org.junit.jupiter.api.BeforeEach;
@@ -769,6 +771,136 @@ class ProjectUsageLimitDaoTest {
       assertNotNull(result);
       assertEquals(2L, result.getProjectUsageLimitId());
       assertEquals("{\"events\":200}", result.getUsageLimits());
+    }
+  }
+
+  @Nested
+  class MarkThresholdsNotified {
+
+    private Row createMockNotificationRow(
+        long id,
+        String projectId,
+        String thresholdsJson,
+        Long projectUsageLimitId,
+        Boolean rowActive) {
+      Row notifRow = mock(Row.class);
+      LocalDateTime created = LocalDateTime.now();
+      when(notifRow.getLong("id")).thenReturn(id);
+      when(notifRow.getString("project_id")).thenReturn(projectId);
+      when(notifRow.getValue("thresholds_notified")).thenReturn(thresholdsJson);
+      when(notifRow.getLocalDateTime("created_at")).thenReturn(created);
+      when(notifRow.getLocalDateTime("updated_at")).thenReturn(created);
+      when(notifRow.getColumnIndex("is_active")).thenReturn(rowActive != null ? 1 : -1);
+      if (rowActive != null) {
+        when(notifRow.getBoolean("is_active")).thenReturn(rowActive);
+      }
+      when(notifRow.getColumnIndex("project_usage_limit_id")).thenReturn(projectUsageLimitId != null ? 2 : -1);
+      if (projectUsageLimitId != null) {
+        when(notifRow.getLong("project_usage_limit_id")).thenReturn(projectUsageLimitId);
+      }
+      return notifRow;
+    }
+
+    @Test
+    void shouldUpdateExistingNotificationWhenRowExistsForCurrentMonth() {
+      setupWriterPreparedQuery();
+      Row existingRow = createMockNotificationRow(
+          5L, "proj-1", "{\"50\":\"2026-01-01T00:00:00Z\"}", 10L, true);
+      RowIterator<Row> existingIterator = createMockRowIterator(Collections.singletonList(existingRow));
+
+      when(rowSet.size()).thenReturn(1);
+      when(rowSet.iterator()).thenReturn(existingIterator);
+      when(preparedQuery.rxExecute(any(Tuple.class)))
+          .thenReturn(Single.just(rowSet))
+          .thenReturn(Single.just(rowSet));
+
+      NotificationRecord result = projectUsageLimitDao.markThresholdsNotified(
+          "proj-1", List.of(50, 75), 10L).blockingGet();
+
+      assertNotNull(result);
+      assertEquals(5L, result.getId());
+      assertEquals("proj-1", result.getProjectId());
+      assertEquals(10L, result.getProjectUsageLimitId());
+      assertTrue(result.getNotificationRowActive());
+      JsonNode thresholds = result.getThresholdsNotified();
+      assertTrue(thresholds.has("50"));
+      assertTrue(thresholds.has("75"));
+    }
+
+    @Test
+    void shouldSkipAlreadyNotifiedThresholdOnUpdate() {
+      setupWriterPreparedQuery();
+      String existingTimestamp = "2026-01-01T00:00:00Z";
+      Row existingRow = createMockNotificationRow(
+          6L, "proj-2", "{\"50\":\"" + existingTimestamp + "\"}", null, null);
+      RowIterator<Row> existingIterator = createMockRowIterator(Collections.singletonList(existingRow));
+
+      when(rowSet.size()).thenReturn(1);
+      when(rowSet.iterator()).thenReturn(existingIterator);
+      when(preparedQuery.rxExecute(any(Tuple.class)))
+          .thenReturn(Single.just(rowSet))
+          .thenReturn(Single.just(rowSet));
+
+      NotificationRecord result = projectUsageLimitDao.markThresholdsNotified(
+          "proj-2", List.of(50), 1L).blockingGet();
+
+      assertNotNull(result);
+      assertEquals(existingTimestamp, result.getThresholdsNotified().get("50").asText());
+    }
+
+    @Test
+    void shouldCreateNewNotificationWhenNoRowForCurrentMonth() {
+      setupWriterPreparedQuery();
+      Row emptyLookup = mock(RowSet.class);
+      when(emptyLookup.size()).thenReturn(0);
+
+      Row insertedRow = createMockNotificationRow(7L, "proj-3", "{}", 20L, true);
+      RowIterator<Row> insertedIterator = createMockRowIterator(Collections.singletonList(insertedRow));
+
+      RowSet<Row> insertResult = mock(RowSet.class);
+      RowSet<Row> fetchResult = mock(RowSet.class);
+      when(fetchResult.iterator()).thenReturn(insertedIterator);
+
+      when(preparedQuery.rxExecute(any(Tuple.class)))
+          .thenReturn(Single.just(emptyLookup))
+          .thenReturn(Single.just(insertResult))
+          .thenReturn(Single.just(fetchResult));
+
+      NotificationRecord result = projectUsageLimitDao.markThresholdsNotified(
+          "proj-3", List.of(90), 20L).blockingGet();
+
+      assertNotNull(result);
+      assertEquals(7L, result.getId());
+      assertEquals("proj-3", result.getProjectId());
+      assertEquals(20L, result.getProjectUsageLimitId());
+      assertTrue(result.getThresholdsNotified().has("90"));
+      assertTrue(result.getNotificationRowActive());
+    }
+
+    @Test
+    void shouldThrowWhenExistingNotificationJsonIsInvalid() {
+      setupWriterPreparedQuery();
+      Row existingRow = createMockNotificationRow(8L, "proj-bad", "NOT_JSON", null, null);
+      RowIterator<Row> existingIterator = createMockRowIterator(Collections.singletonList(existingRow));
+
+      when(rowSet.size()).thenReturn(1);
+      when(rowSet.iterator()).thenReturn(existingIterator);
+      when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
+
+      RuntimeException ex = assertThrows(RuntimeException.class, () ->
+          projectUsageLimitDao.markThresholdsNotified("proj-bad", List.of(50), 1L).blockingGet());
+
+      assertTrue(ex.getMessage().contains("Failed to parse notification JSON"));
+    }
+
+    @Test
+    void shouldThrowOnDatabaseErrorDuringLookup() {
+      setupWriterPreparedQuery();
+      when(preparedQuery.rxExecute(any(Tuple.class)))
+          .thenReturn(Single.error(new MySQLException("DB Error", 500, "SQLSTATE")));
+
+      assertThrows(RuntimeException.class, () ->
+          projectUsageLimitDao.markThresholdsNotified("proj-err", List.of(50), 1L).blockingGet());
     }
   }
 }
