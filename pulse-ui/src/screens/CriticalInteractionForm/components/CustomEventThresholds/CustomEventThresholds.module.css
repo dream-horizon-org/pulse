@@ -1,3 +1,12 @@
+.CustomEventThresholdsMainContainer {
+  display: flex;
+  flex-direction: column;
+}
+
+.ErrorThresholdInputContainer {
+  margin-bottom: var(--mantine-spacing-md);
+}
+
 .CustomEventThresholdsGrid {
   margin-top: var(--mantine-spacing-lg);
 }
