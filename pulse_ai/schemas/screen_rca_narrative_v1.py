@@ -15,7 +15,7 @@ class ScreenRcaNarrativeV1(BaseModel):
     )
     recommendations: list[str] = Field(
         ...,
-        min_length=3,
-        max_length=7,
+        min_length=0,
+        max_length=3,
         description="Short actionable strings derived from the segment data.",
     )
