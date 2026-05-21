@@ -96,7 +96,9 @@ internal class SlowRenderListener(
                         FrameDataHelper.totalUnanalysedDroppedFrames += frameData.unanalysedFrameSinceLastCall
 
                         val currentTimeInMs = System.currentTimeMillis()
-                        if (lastNormalFrameDataTimeInMs == 0L || currentTimeInMs - lastNormalFrameDataTimeInMs >= THRESHOLD_ADD_DATA_IN_MS) {
+                        if (lastNormalFrameDataTimeInMs == 0L ||
+                            currentTimeInMs - lastNormalFrameDataTimeInMs >= THRESHOLD_ADD_DATA_IN_MS
+                        ) {
                             ensureMaxCountNotExceeded()
                             val lastEvent = FrameDataHelper.frameDataEvents.lastOrNull()
                             FrameDataHelper.frameDataEvents.add(
