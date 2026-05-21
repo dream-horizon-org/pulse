@@ -26,6 +26,8 @@ class ScreenRcaQueryBuilderTest {
     @Test
     void shouldExposeDriverMetricKey() {
       assertThat(ScreenRcaQueryBuilder.BAD_FRUSTRATION).isEqualTo("bad_frustration");
+      assertThat(ScreenRcaQueryBuilder.BAD_FRUSTRATION_PERCENTAGE)
+          .isEqualTo("bad_frustration_percentage");
       assertThat(ScreenRcaQueryBuilder.APP_CLICK_PULSE_TYPE).isEqualTo("app.click");
     }
   }
@@ -136,10 +138,23 @@ class ScreenRcaQueryBuilderTest {
 
       assertThat(spec.sql()).contains("GROUP BY AppVersion");
       assertThat(spec.sql()).contains("AS bad_frustration");
+      assertThat(spec.sql()).doesNotContain("bad_frustration_percentage");
       assertThat(spec.sql())
           .contains("(ifNull(nullIf(trimBoth(Platform), ''), 'Unknown')) = :");
       assertThat(spec.bindValues()).hasSize(5);
       assertThat(spec.bindValues().get(4)).isEqualTo("iOS");
+    }
+
+    @Test
+    void shouldNotComputeBadFrustrationPercentageInClickHouseSql() {
+      RootCauseQuerySpec baseline =
+          ScreenRcaQueryBuilder.buildBaselineQuery(PROJECT, SCREEN, START, END);
+      RootCauseQuerySpec segment =
+          ScreenRcaQueryBuilder.buildSegmentQuery(
+              PROJECT, SCREEN, START, END, List.of("Platform"), Map.of());
+      assertThat(baseline.sql()).contains("AS bad_frustration").contains("AS click_volume");
+      assertThat(baseline.sql()).doesNotContain("bad_frustration_percentage");
+      assertThat(segment.sql()).doesNotContain("bad_frustration_percentage");
     }
   }
 }

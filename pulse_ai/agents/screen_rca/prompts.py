@@ -16,7 +16,8 @@ You receive JSON **RootCausePayload** for a single **screen** (a UI surface user
 - **tap_count** — normal taps.
 - **rage_count** — rapid repeated taps (frustration signal).
 - **dead_count** — taps with no navigation/response (frustration signal).
-- **bad_frustration** — composite frustration score for the segment (higher is worse).
+- **bad_frustration** — count of dead clicks ∪ rage taps (higher is worse).
+- **bad_frustration_percentage** — `bad_frustration / click_volume * 100` (0–100; higher is worse).
 
 **deltas** on each segment are percentage changes vs baseline (positive = worse than baseline).
 

@@ -25,6 +25,12 @@ public final class ScreenRcaQueryBuilder {
   /** Segmentation driver: dead ∪ rage (one row can be both; counted once). */
   public static final String BAD_FRUSTRATION = "bad_frustration";
 
+  /**
+   * {@code bad_frustration / click_volume * 100} (0–100 scale). Not selected in ClickHouse — computed in
+   * {@link ScreenRcaService} from {@link #BAD_FRUSTRATION} and {@link #CLICK_VOLUME} on baseline/segment rows.
+   */
+  public static final String BAD_FRUSTRATION_PERCENTAGE = "bad_frustration_percentage";
+
   /** Materialized {@code ClickType} / {@code Rage} on {@code otel.otel_logs} (see dev DDL). */
   private static final String TAP_COUNT_EXPR = "countIf(ClickType = 'good' AND NOT Rage)";
 
