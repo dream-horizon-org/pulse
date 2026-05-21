@@ -81,7 +81,7 @@ repositories {
   google()
 }
 
-def pulse_version = "0.0.17-alpha"
+def pulse_version = "0.0.18-alpha"
 dependencies {
   implementation("com.facebook.react:react-android")
 
