@@ -851,7 +851,7 @@ class ProjectUsageLimitDaoTest {
     @Test
     void shouldCreateNewNotificationWhenNoRowForCurrentMonth() {
       setupWriterPreparedQuery();
-      Row emptyLookup = mock(RowSet.class);
+      RowSet<Row> emptyLookup = mock(RowSet.class);
       when(emptyLookup.size()).thenReturn(0);
 
       Row insertedRow = createMockNotificationRow(7L, "proj-3", "{}", 20L, true);
