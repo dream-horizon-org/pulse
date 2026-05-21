@@ -33,6 +33,7 @@ import org.dreamhorizon.pulseserver.errorgrouping.model.StackTraceEvent;
 import org.dreamhorizon.pulseserver.grouping.Grouper;
 import org.dreamhorizon.pulseserver.grouping.model.EventMeta;
 import org.dreamhorizon.pulseserver.grouping.model.Frame;
+import org.dreamhorizon.pulseserver.grouping.model.GroupingRules;
 import org.dreamhorizon.pulseserver.grouping.model.JavaFrame;
 import org.dreamhorizon.pulseserver.grouping.model.JsFrame;
 import org.dreamhorizon.pulseserver.grouping.model.Lane;
@@ -58,6 +59,9 @@ class ErrorGroupingServiceTest {
   @Mock
   private StackTraceArchiveService stackTraceArchiveService;
 
+  @Mock
+  private GroupingRuleService groupingRuleService;
+
   private final ObjectMapper objectMapper = ObjectMapperFactory.get();
 
   private ErrorGroupingService errorGroupingService;
@@ -65,9 +69,11 @@ class ErrorGroupingServiceTest {
   @BeforeEach
   void setUp() {
     lenient().when(stackTraceArchiveService.archive(anyList())).thenReturn(Completable.complete());
+    lenient().when(groupingRuleService.getRules(any(), any()))
+        .thenReturn(Single.just(GroupingRules.empty()));
     errorGroupingService =
         new ErrorGroupingService(clickhouseQueryService, stackTraceArchiveService, symbolicator,
-            objectMapper);
+            objectMapper, groupingRuleService);
     lenient().when(symbolicator.symbolicateIosNative(anyList(), any(EventMeta.class), any(), anyBoolean()))
         .thenAnswer(invocation -> {
           @SuppressWarnings("unchecked")
