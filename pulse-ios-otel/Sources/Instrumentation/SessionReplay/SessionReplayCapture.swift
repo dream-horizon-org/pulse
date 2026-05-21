@@ -59,6 +59,7 @@ private struct ViewSnapshot {
     let isTextField: Bool
     let isTextView: Bool
     let isLabel: Bool
+    let isRNText: Bool
     let isImageView: Bool
     let isPickerView: Bool
     let isWebView: Bool
@@ -588,6 +589,9 @@ internal class SessionReplayMasker {
         let isTextView = textView != nil
         let isLabel = label != nil
         let isImageView = imageView != nil
+        let isRNText =
+            className == "RCTParagraphComponentView" || // Fabric
+            className == "RCTTextView"                  // Paper
         let isPickerView = view is UIPickerView
         let isWebView = view is WKWebView
 
@@ -617,6 +621,10 @@ internal class SessionReplayMasker {
             textSuggestsPassword = t.contains("password")
         } else if let label = label {
             hasText = !(label.text?.isEmpty ?? true) || !(label.attributedText?.string.isEmpty ?? true)
+            placeholder = nil
+            textSuggestsPassword = false
+        } else if isRNText {
+            hasText = true
             placeholder = nil
             textSuggestsPassword = false
         } else {
@@ -668,6 +676,7 @@ internal class SessionReplayMasker {
             isTextField: isTextField,
             isTextView: isTextView,
             isLabel: isLabel,
+            isRNText: isRNText,
             isImageView: isImageView,
             isPickerView: isPickerView,
             isWebView: isWebView,
@@ -943,7 +952,7 @@ internal class SessionReplayMasker {
                     shouldMask = shouldMaskTextFieldFromSnapshot(snapshot: snapshot)
                 } else if snapshot.isTextView {
                     shouldMask = shouldMaskTextViewFromSnapshot(snapshot: snapshot)
-                } else if snapshot.isLabel {
+                } else if snapshot.isLabel || snapshot.isRNText {
                     shouldMask = snapshot.hasText && shouldMaskLabelFromSnapshot(snapshot: snapshot)
                 } else if snapshot.isPickerView {
                     shouldMask = shouldMaskSpinner()
@@ -1033,7 +1042,7 @@ internal class SessionReplayMasker {
                 }
                 return clamped
             }
-        } else if snapshot.isLabel {
+        } else if snapshot.isLabel || snapshot.isRNText {
             let shouldMask = snapshot.hasText && shouldMaskLabelFromSnapshot(snapshot: snapshot)
             if shouldMask {
                 let clamped = clampRectToBounds(rect: windowFrame, bounds: windowBounds)
