@@ -18,10 +18,10 @@ export const SCREEN_RCA_METRIC_LABELS: Record<string, string> = {
   bad_frustration_percentage: "Bad frustration %",
 };
 
-/** Shown on the metric-row info icon (dead ∪ rage, not dead_count + rage_count). */
+/** Shown on the metric-row info icon (bad_frustration = dead_count + rage_count). */
 export const SCREEN_RCA_BAD_FRUSTRATION_PERCENTAGE_TOOLTIP =
   "Bad frustration % = (bad frustration clicks ÷ total clicks) × 100. " +
-  "Bad frustration counts each click that is a dead click or a rage tap (dead ∪ rage—counted once per click).";
+  "A click is either a dead click or a rage tap (not both). Bad frustration = dead clicks + rage clicks.";
 
 export const SCREEN_RCA_MODE_LABELS = {
   flat: "Flat",

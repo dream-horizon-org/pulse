@@ -22,7 +22,7 @@ public final class ScreenRcaQueryBuilder {
   public static final String TAP_COUNT = "tap_count";
   public static final String RAGE_COUNT = "rage_count";
   public static final String DEAD_COUNT = "dead_count";
-  /** Segmentation driver: dead ∪ rage (one row can be both; counted once). */
+  /** Segmentation driver: dead or rage clicks (mutually exclusive per click; equals dead_count + rage_count). */
   public static final String BAD_FRUSTRATION = "bad_frustration";
 
   /**

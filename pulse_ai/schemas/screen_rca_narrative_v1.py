@@ -11,7 +11,7 @@ class ScreenRcaNarrativeV1(BaseModel):
     version: int = Field(default=1, ge=1, le=1)
     executive_summary: str = Field(
         ...,
-        description="Up to 4 sentences: overall screen health, worst segment, scope.",
+        description="Up to 4 sentences: where frustration concentrates (segment label, bad_frustration_percentage).",
     )
     recommendations: list[str] = Field(
         ...,
