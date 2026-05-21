@@ -502,7 +502,7 @@ public class ScreenRcaService {
       Optional<Map.Entry<String, Long>> top = rows.stream()
           .map(r -> {
             Object raw = r.get(dim);
-            String dimValue = raw != null ? raw.toString() : "";
+            String dimValue = normalizeDimensionValue(raw);
             return Map.entry(dimValue, NumberCoercionUtils.toLong(r.get(ScreenRcaQueryBuilder.BAD_FRUSTRATION)));
           })
           .filter(e -> e.getValue() > 0)
@@ -671,10 +671,18 @@ public class ScreenRcaService {
       if (diff < bestDiff) {
         bestDiff = diff;
         Object val = row.get(dimensionColumn);
-        best = new SegmentPath(dimensionColumn, val != null ? val.toString() : "", false);
+        best = new SegmentPath(dimensionColumn, normalizeDimensionValue(val), false);
       }
     }
     return Optional.ofNullable(best);
+  }
+
+  private static String normalizeDimensionValue(Object raw) {
+    if (raw == null) {
+      return ScreenRcaQueryBuilder.UNKNOWN_DIMENSION;
+    }
+    String s = raw.toString().strip();
+    return s.isEmpty() ? ScreenRcaQueryBuilder.UNKNOWN_DIMENSION : s;
   }
 
   private Map<String, Double> computeScreenDeltas(Map<String, Object> baseline, Map<String, Object> segment) {

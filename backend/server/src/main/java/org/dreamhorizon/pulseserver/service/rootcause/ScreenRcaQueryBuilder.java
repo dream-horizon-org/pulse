@@ -162,7 +162,8 @@ public final class ScreenRcaQueryBuilder {
     String where =
         appendDimensionFilters(
             baseWhereSql(acc, projectId, screenName, startInclusive, endExclusive), acc, dimensionFilters);
-    String groupBy = dimensionColumns.stream().collect(Collectors.joining(", "));
+    // CH 25+: GROUP BY select aliases (Platform, …), not the coalesce expression in SELECT
+    String groupBy = String.join(", ", dimensionColumns);
     String sql =
         "SELECT "
             + metricSelect
@@ -179,9 +180,11 @@ public final class ScreenRcaQueryBuilder {
     return dimensionExpression(dimensionName) + " AS " + dimensionName;
   }
 
+  static final String UNKNOWN_DIMENSION = "Unknown";
+
   /** Materialized dimension columns (same definitions as {@code otel.otel_logs} DDL). */
   public static String dimensionExpression(String dimensionName) {
-    return switch (dimensionName) {
+    String col = switch (dimensionName) {
       case "Platform" -> "Platform";
       case "OsVersion" -> "OsVersion";
       case "AppVersion" -> "AppVersion";
@@ -190,6 +193,7 @@ public final class ScreenRcaQueryBuilder {
       case "GeoState" -> "GeoState";
       default -> throw new IllegalArgumentException("Unknown Screen RCA dimension: " + dimensionName);
     };
+    return "ifNull(nullIf(trimBoth(" + col + "), ''), '" + UNKNOWN_DIMENSION + "')";
   }
 
   private static String dimensionEqualityLhs(String dimensionName) {
