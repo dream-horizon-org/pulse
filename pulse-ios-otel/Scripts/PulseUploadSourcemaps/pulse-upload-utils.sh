@@ -35,7 +35,7 @@ pulseUploadDetectFileType() {
   ext="${base##*.}"
   lower=$(pulseUploadToLower "$base")
   ext_lower=$(pulseUploadToLower "$ext")
-  if [[ "$lower" == *.dsym ]] || [[ "$ext_lower" == "dsym" ]]; then
+  if [[ "$lower" == *.dsym.zip ]] || [[ "$lower" == *.dsym ]] || [[ "$ext_lower" == "dsym" ]]; then
     printf 'dsym'
   else
     printf 'unknown'
@@ -68,7 +68,7 @@ pulseUploadValidateFileType() {
       return 0
     fi
     pulseUploadWarn "File type detected as 'unknown' for: $(basename "$file_path")"
-    pulseUploadWarn "   Expected: dSYM file (.dSYM extension or directory)"
+    pulseUploadWarn "   Expected: .dSYM directory, .dSYM bundle, or pre-zipped .dSYM.zip"
     pulseUploadWarn "   Upload will proceed but may be rejected by backend."
     pulseUploadWarn "   Fix: Use a dSYM file or set --type=dsym if this is a dSYM file."
     printf 'unknown'
