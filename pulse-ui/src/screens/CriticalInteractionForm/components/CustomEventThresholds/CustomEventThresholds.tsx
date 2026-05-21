@@ -1,7 +1,7 @@
-import { Box, Grid, Text, TextInput } from "@mantine/core";
+import { Box, Divider, Grid, NumberInput, Text, TextInput } from "@mantine/core";
 import classes from "./CustomEventThresholds.module.css";
 import { CriticalInteractionFormData } from "../../CriticalInteractionForm.interface";
-import { useFormContext } from "react-hook-form";
+import { Controller, useFormContext } from "react-hook-form";
 import { CRITICAL_INTERACTION_FORM_CONSTANTS } from "../../../../constants";
 
 export function CustomEventThresholds() {
@@ -83,6 +83,30 @@ export function CustomEventThresholds() {
 
   return (
     <Box className={classes.CustomEventThresholdsMainContainer}>
+      <Controller
+        name="thresholdInMs"
+        control={methods.control}
+        rules={{
+          required: CRITICAL_INTERACTION_FORM_CONSTANTS.ERROR_THRESHOLD_ERROR_MESSAGE,
+          validate: (value) =>
+            (Number.isInteger(Number(value)) && Number(value) > 0) ||
+            CRITICAL_INTERACTION_FORM_CONSTANTS.ERROR_THRESHOLD_ERROR_MESSAGE,
+        }}
+        render={({ field, fieldState }) => (
+          <NumberInput
+            {...field}
+            label={CRITICAL_INTERACTION_FORM_CONSTANTS.ERROR_THRESHOLD_LABEL}
+            description={CRITICAL_INTERACTION_FORM_CONSTANTS.ERROR_THRESHOLD_DESCRIPTION}
+            placeholder={CRITICAL_INTERACTION_FORM_CONSTANTS.ERROR_THRESHOLD_PLACEHOLDER}
+            error={fieldState.error?.message}
+            min={1}
+            allowDecimal={false}
+            size="sm"
+            onChange={(val) => field.onChange(val)}
+          />
+        )}
+      />
+      <Divider my="md" />
       <Text>Interaction categorisation</Text>
       <Grid className={classes.CustomEventThresholdsGrid}>
         <Grid.Col span={4}>
