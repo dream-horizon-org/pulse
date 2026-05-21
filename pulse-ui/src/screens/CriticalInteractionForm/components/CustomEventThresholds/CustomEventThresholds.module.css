@@ -4,12 +4,9 @@
 }
 
 .ErrorThresholdInputContainer {
-  margin-bottom: var(--mantine-spacing-md);
+  margin-bottom: var(--mantine-spacing-xl);
 }
 
-.CustomEventThresholdsGrid {
-  margin-top: var(--mantine-spacing-lg);
-}
 
 .ErrorTextThresholds {
   color: var(--mantine-color-red-6);

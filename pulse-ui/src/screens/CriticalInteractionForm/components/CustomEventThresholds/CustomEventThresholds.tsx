@@ -83,6 +83,7 @@ export function CustomEventThresholds() {
 
   return (
     <Box className={classes.CustomEventThresholdsMainContainer}>
+      <Text>{CRITICAL_INTERACTION_FORM_CONSTANTS.ERROR_THRESHOLD_LABEL}</Text>
       <Controller
         name="thresholdInMs"
         control={methods.control}
@@ -96,7 +97,7 @@ export function CustomEventThresholds() {
           <Box className={classes.ErrorThresholdInputContainer}>
             <NumberInput
               {...field}
-              label={CRITICAL_INTERACTION_FORM_CONSTANTS.ERROR_THRESHOLD_LABEL}
+              // label={CRITICAL_INTERACTION_FORM_CONSTANTS.ERROR_THRESHOLD_LABEL}
               description={CRITICAL_INTERACTION_FORM_CONSTANTS.ERROR_THRESHOLD_DESCRIPTION}
               placeholder={CRITICAL_INTERACTION_FORM_CONSTANTS.ERROR_THRESHOLD_PLACEHOLDER}
               error={fieldState.error?.message}
@@ -123,6 +124,7 @@ export function CustomEventThresholds() {
             error={methods.formState.errors?.uptimeLowerLimitInMs?.message}
             onChange={onChangeLowThreshold}
             min={CRITICAL_INTERACTION_FORM_CONSTANTS.LOWER_THRESHOLD_VALUE}
+            className={classes.CustomEventThresholdsInput}
           />
         </Grid.Col>
         <Grid.Col span={4}>
