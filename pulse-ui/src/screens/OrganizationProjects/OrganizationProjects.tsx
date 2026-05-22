@@ -27,7 +27,7 @@ import { showNotification } from "../../helpers/showNotification";
 import classes from "./OrganizationProjects.module.css";
 import { TIERS } from "../../constants/Tiers";
 import { TENANT_ROLES } from "../../constants/Roles";
-import { trackPulseEvent } from "../../pulse-web-rum/pulseRumAnalytics";
+
 
 export function OrganizationProjects() {
   const { organizationId } = useParams<{ organizationId: string }>();
@@ -54,10 +54,7 @@ export function OrganizationProjects() {
           setError("Project not found");
           return;
         }
-        trackPulseEvent("project_selected", {
-          project_id: selectedProjectId,
-          source,
-        });
+
         await navigateToProject(selectedProjectId);
       } catch (err) {
         setError("Failed to switch to project");

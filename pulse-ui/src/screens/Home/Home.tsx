@@ -18,7 +18,7 @@ import { TopInteractionsHealth } from "./components/TopInteractionsHealth";
 import { useAnalytics } from "../../hooks/useAnalytics";
 import { useProjectContext } from "../../contexts";
 import { ROUTES } from "../../constants";
-import { useTrackScreenLoadedOnce } from "../../pulse-web-rum/useTrackScreenLoadedOnce";
+
 
 dayjs.extend(utc);
 
@@ -27,11 +27,6 @@ export function Home(_props: HomeProps) {
   const { trackClick } = useAnalytics("Home");
   const { projectId } = useProjectContext();
 
-  useTrackScreenLoadedOnce({
-    eventName: "dashboard_home_viewed",
-    ready: Boolean(projectId),
-    resetKey: projectId,
-  });
 
   const quickLinks: QuickLink[] = [
     {

@@ -106,21 +106,13 @@ export function flushPulseUserIdentityWhenReady(): Promise<void> {
   return identityFlushInFlight;
 }
 
-/** No-op when RUM is disabled or Pulse has not finished init. */
-export function trackPulseEvent(
-  name: string,
-  attrs?: PulseEventAttributes,
-): void {
-  if (!isPulseRumEnabled() || !Pulse.isInitialized()) return;
-  Pulse.trackEvent(name, sanitizeAttributes(withPulseEventContext(attrs)));
-}
-
 /** Navbar journey step — pair with a matching `*_loaded` event on the destination screen. */
 export function trackNavItemClicked(routeTo: string, navLabel?: string): void {
-  trackPulseEvent("nav_item_clicked", {
+  if (!isPulseRumEnabled() || !Pulse.isInitialized()) return;
+  Pulse.trackEvent("nav_item_clicked", sanitizeAttributes(withPulseEventContext({
     destination: NAV_ROUTE_DESTINATIONS[routeTo] ?? routeTo,
     nav_label: navLabel,
-  });
+  })));
 }
 
 export function syncPulseUserIdentity(identity: PulseUserIdentity): void {

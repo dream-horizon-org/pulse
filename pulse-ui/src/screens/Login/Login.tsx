@@ -31,7 +31,7 @@ import { checkRefreshTokenExpiration } from "../../helpers/checkRefreshTokenExpi
 import { logEvent } from "../../helpers/googleAnalytics";
 import { useLogin } from "../../hooks";
 import { useTenantContext } from "../../contexts";
-import { trackPulseEvent } from "../../pulse-web-rum/pulseRumAnalytics";
+
 
 export function Login() {
   const navigate = useNavigate();
@@ -117,11 +117,7 @@ export function Login() {
       navigate(redirectPath);
     }
 
-    trackPulseEvent("user_logged_in", {
-      method: loginMethod,
-      needs_onboarding: data.needsOnboarding,
-      system_role: data.systemRole,
-    });
+
   };
 
   const onFirebaseGoogleLogin = async () => {

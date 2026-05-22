@@ -41,8 +41,8 @@ import {
   ProjectRole,
 } from "../../constants/Roles";
 import classes from "./OnboardingSuccess.module.css";
-import { trackPulseEvent } from "../../pulse-web-rum/pulseRumAnalytics";
-import { useTrackScreenLoadedOnce } from "../../pulse-web-rum/useTrackScreenLoadedOnce";
+
+
 
 export function OnboardingSuccess() {
   const { projectId: urlProjectId } = useParams<{ projectId: string }>();
@@ -78,11 +78,6 @@ export function OnboardingSuccess() {
 
   const projectApiKey = apiKeyData?.key || locationState.projectApiKey || null;
 
-  useTrackScreenLoadedOnce({
-    eventName: "onboarding_success_viewed",
-    ready: !loading && Boolean(projectId) && Boolean(projectName),
-    resetKey: projectId,
-  });
 
   // React Query hook for inviting members
   const inviteMutation = useInviteProjectMember();
@@ -234,9 +229,7 @@ export function OnboardingSuccess() {
 
   const handleGoToDashboard = () => {
     if (!projectId) return;
-    trackPulseEvent("go_to_dashboard_clicked", {
-      source: "onboarding_success",
-    });
+
     navigate(
       ROUTES.PROJECT_DASHBOARD.basePath.replace(":projectId", projectId),
     );

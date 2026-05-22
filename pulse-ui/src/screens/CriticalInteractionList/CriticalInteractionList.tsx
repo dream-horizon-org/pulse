@@ -58,7 +58,7 @@ import { PulseType } from "../../constants/PulseOtelSemcov";
 import dayjs from "dayjs";
 import { useAnalytics } from "../../hooks/useAnalytics";
 import { useProjectContext } from "../../contexts";
-import { useTrackScreenLoadedOnce } from "../../pulse-web-rum/useTrackScreenLoadedOnce";
+
 
 interface InteractionMetrics {
   interactionName: string;
@@ -172,18 +172,6 @@ export function CriticalInteractionList() {
     wasFetchingRef.current = isFetching;
   }, [isFetching, isLoadingMore]);
 
-  useTrackScreenLoadedOnce({
-    eventName: "interactions_list_loaded",
-    ready:
-      !isLoading &&
-      !isFetching &&
-      Boolean(response?.data) &&
-      pagination.page === 0,
-    resetKey: projectId,
-    attrs: {
-      interaction_count: response?.data?.totalInteractions ?? 0,
-    },
-  });
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const fetchInteractionsList = useCallback(debounce(refetch, 300), []);

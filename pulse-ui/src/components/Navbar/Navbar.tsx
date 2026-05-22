@@ -49,10 +49,7 @@ import { usePermissions } from "../../hooks";
 import { useSessionReplayFromActiveConfig } from "../../hooks/useSessionReplayFromActiveConfig";
 import { performLogout } from "../../helpers/logout";
 import { ConfirmationModal } from "../ConfirmationModal";
-import {
-  trackPulseEvent,
-  trackNavItemClicked,
-} from "../../pulse-web-rum/pulseRumAnalytics";
+import { trackNavItemClicked } from "../../pulse-web-rum/pulseRumAnalytics";
 
 export function Navbar({
   toggle,
@@ -178,8 +175,6 @@ export function Navbar({
 
   const onLogoutClick = async () => {
     setLogoutModalOpened(false);
-
-    trackPulseEvent("user_logged_out");
 
     // Clear all React contexts explicitly
     clearProject();
