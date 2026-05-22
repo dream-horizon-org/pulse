@@ -30,43 +30,31 @@ export function Home(_props: HomeProps) {
     {
       title: "Interactions",
       description: "View and manage all configured user interactions",
-      route: ROUTES.PROJECT_INTERACTIONS.basePath.replace(
-        ":projectId",
-        projectId || "",
-      ),
+      route: ROUTES.PROJECT_INTERACTIONS.basePath.replace(':projectId', projectId || ''),
       icon: IconListDetails,
     },
     {
       title: "App Vitals",
       description: "View and manage all configured app vitals",
-      route: ROUTES.PROJECT_APP_VITALS.basePath.replace(
-        ":projectId",
-        projectId || "",
-      ),
+      route: ROUTES.PROJECT_APP_VITALS.basePath.replace(':projectId', projectId || ''),
       icon: IconActivityHeartbeat,
     },
     {
       title: "Screens",
       description: "View and manage all configured screens",
-      route: ROUTES.PROJECT_SCREENS.basePath.replace(
-        ":projectId",
-        projectId || "",
-      ),
+      route: ROUTES.PROJECT_SCREENS.basePath.replace(':projectId', projectId || ''),
       icon: IconDeviceDesktop,
     },
     {
       title: "Network APIs",
       description: "View and manage all configured network APIs",
-      route: ROUTES.PROJECT_NETWORK_LIST.basePath.replace(
-        ":projectId",
-        projectId || "",
-      ),
+      route: ROUTES.PROJECT_NETWORK_LIST.basePath.replace(':projectId', projectId || ''),
       icon: IconNetwork,
-    },
+    }
   ];
 
   const handleQuickLinkClick = (route: string) => {
-    const linkTitle = quickLinks.find((l) => l.route === route)?.title || route;
+    const linkTitle = quickLinks.find(l => l.route === route)?.title || route;
     trackClick(`QuickLink: ${linkTitle}`);
     navigate(route);
   };
@@ -74,9 +62,7 @@ export function Home(_props: HomeProps) {
   const handleViewAllInteractions = () => {
     trackClick("ViewAllInteractions");
     if (!projectId) return;
-    navigate(
-      ROUTES.PROJECT_INTERACTIONS.basePath.replace(":projectId", projectId),
-    );
+    navigate(ROUTES.PROJECT_INTERACTIONS.basePath.replace(':projectId', projectId));
   };
 
   const handleInteractionCardClick = (interaction: {
@@ -86,21 +72,21 @@ export function Home(_props: HomeProps) {
     trackClick(`InteractionCard: ${interaction.name}`);
     if (!projectId) return;
     navigate(
-      `${ROUTES.PROJECT_INTERACTION_DETAILS.basePath.replace(":projectId", projectId)}/${interaction.name}`,
+      `${ROUTES.PROJECT_INTERACTION_DETAILS.basePath.replace(':projectId', projectId)}/${interaction.name}`,
     );
   };
 
   const handleViewAllScreens = () => {
     trackClick("ViewAllScreens");
     if (!projectId) return;
-    navigate(ROUTES.PROJECT_SCREENS.basePath.replace(":projectId", projectId));
+    navigate(ROUTES.PROJECT_SCREENS.basePath.replace(':projectId', projectId));
   };
 
   const handleScreenCardClick = (screenName: string) => {
     trackClick(`ScreenCard: ${screenName}`);
     if (!projectId) return;
     navigate(
-      `${ROUTES.PROJECT_SCREEN_DETAILS.basePath.replace(":projectId", projectId)}/${encodeURIComponent(screenName)}`,
+      `${ROUTES.PROJECT_SCREEN_DETAILS.basePath.replace(':projectId', projectId)}/${encodeURIComponent(screenName)}`,
     );
   };
 
