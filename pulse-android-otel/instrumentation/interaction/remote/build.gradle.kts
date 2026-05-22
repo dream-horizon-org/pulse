@@ -25,6 +25,9 @@ kotlin {
 
 dependencies {
     implementation(projects.pulseUtils)
+    // Explicit since pulse-utils now declares okhttp as implementation (not api) — its okhttp
+    // types no longer propagate onto this module's compile classpath.
+    implementation(libs.okhttp)
     implementation(libs.retrofit)
     implementation(libs.retrofit.kotlinSerialisation)
     implementation(libs.kotlin.serialisation)

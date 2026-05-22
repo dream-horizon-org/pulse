@@ -1,0 +1,161 @@
+name: Bare RN 0.76 Android - Build
+on:
+  workflow_call:
+
+# Scaffolds a fresh `react-native init` project at RN 0.76.9 on every run (no checked-in
+# template files) and proves the Pulse SDK builds against a vanilla Kotlin-1.9 consumer.
+# Pairs with rn-expo-android-rn076.yml; both protect PR #727's kotlin19Compat path.
+
+permissions:
+  contents: read
+
+jobs:
+  bare:
+    runs-on: ubuntu-latest
+    env:
+      JAVA_OPTS: "-XX:MaxHeapSize=6g"
+      RN_VERSION: "0.76.9"
+      PROJECT_NAME: "PulseBareRn076"
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+
+      # GitHub-hosted runners ship ~14GB free, which Android + Gradle + mavenLocal
+      # + node_modules + RN scaffolding blow past (prior run hit zstd
+      # "No space left on device" on post-job cache save). Reclaim ~40GB by
+      # deleting preinstalled toolchains this job doesn't use.
+      # Ephemeral VM — no cross-job side effects.
+      - name: Free runner disk space
+        run: |
+          set -eu
+          echo "--- before ---"
+          df -h /
+          sudo rm -rf /usr/share/dotnet /opt/ghc /opt/hostedtoolcache/CodeQL /usr/local/share/boost /opt/microsoft /opt/az 2>/dev/null || true
+          echo "--- after ---"
+          df -h /
+
+      - name: Maven cache key
+        run: |
+          echo "MAVEN_LOCAL_CACHE_KEY=maven-local-pulse-android-${{ hashFiles('pulse-android-otel/**/*.gradle.kts', 'pulse-android-otel/settings.gradle.kts', 'pulse-android-otel/gradle.properties', 'pulse-android-otel/gradle/libs.versions.toml', 'pulse-android-otel/**/src/main/**/*.kt', 'pulse-android-otel/**/src/main/**/*.java') }}" >> $GITHUB_ENV
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
+        with:
+          node-version-file: pulse-react-native-otel/.nvmrc
+
+      # Build the SDK's plugin/lib output once so file: install in the new app picks up the published shape.
+      - id: yarn-cache
+        uses: actions/cache/restore@5a3ec84eff668545956fd18022155c47e93e2684  # v4.2.3
+        with:
+          path: |
+            pulse-react-native-otel/**/node_modules
+            pulse-react-native-otel/.yarn/install-state.gz
+          key: ${{ runner.os }}-yarn-rn-${{ hashFiles('pulse-react-native-otel/yarn.lock') }}-${{ hashFiles('pulse-react-native-otel/package.json') }}
+          restore-keys: |
+            ${{ runner.os }}-yarn-rn-${{ hashFiles('pulse-react-native-otel/yarn.lock') }}
+            ${{ runner.os }}-yarn-rn-
+
+      - if: steps.yarn-cache.outputs.cache-hit != 'true'
+        working-directory: pulse-react-native-otel
+        run: yarn install --immutable
+
+      - if: steps.yarn-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@5a3ec84eff668545956fd18022155c47e93e2684  # v4.2.3
+        with:
+          path: |
+            pulse-react-native-otel/**/node_modules
+            pulse-react-native-otel/.yarn/install-state.gz
+          key: ${{ runner.os }}-yarn-rn-${{ hashFiles('pulse-react-native-otel/yarn.lock') }}-${{ hashFiles('pulse-react-native-otel/package.json') }}
+
+      - working-directory: pulse-react-native-otel
+        run: yarn prepare
+
+      # Scaffold a fresh RN 0.76 project alongside the repo (not inside it).
+      - name: Init bare RN 0.76 project
+        working-directory: ${{ runner.temp }}
+        run: |
+          npx --yes @react-native-community/cli@latest init "$PROJECT_NAME" \
+            --version "$RN_VERSION" \
+            --skip-install \
+            --pm npm \
+            --install-pods false
+          ls -la "$PROJECT_NAME"
+
+      - name: "Install Pulse SDK via file: + add kotlin19Compat flag + mavenLocal"
+        working-directory: ${{ runner.temp }}
+        run: |
+          set -euo pipefail
+          cd "$PROJECT_NAME"
+
+          # Point the Pulse package at the in-repo source (resolved via absolute path).
+          SDK_PATH="${GITHUB_WORKSPACE}/pulse-react-native-otel"
+          npm pkg set "dependencies.@dreamhorizonorg/pulse-react-native=file:${SDK_PATH}"
+
+          # Initial install. Bare RN 0.76 ships with React 18.x — no overrides needed.
+          npm install --no-audit --no-fund
+
+          # Drop the kotlin19Compat flag the bare-RN way (no config plugin runs here).
+          if ! grep -q '^PulseReactNativeOtel_kotlin19Compat=' android/gradle.properties; then
+            echo "" >> android/gradle.properties
+            echo "PulseReactNativeOtel_kotlin19Compat=true" >> android/gradle.properties
+          fi
+
+          # Make ~/.m2 visible to the consumer's Gradle build (mavenLocal first so the
+          # m2-publish job's Layer 3 artifacts win over any stale Maven Central copies).
+          # RN 0.76's vanilla template doesn't declare allprojects { repositories { } }
+          # in source — the com.facebook.react.rootproject plugin adds repos
+          # programmatically. Use a Gradle init script: template-agnostic, runs for any
+          # Gradle invocation on this runner, no source patching required.
+          mkdir -p ~/.gradle/init.d
+          cat > ~/.gradle/init.d/00-pulse-mavenlocal.gradle <<'GRADLE'
+          allprojects {
+              repositories {
+                  mavenLocal()
+              }
+          }
+          GRADLE
+          echo "--- ~/.gradle/init.d/00-pulse-mavenlocal.gradle ---"
+          cat ~/.gradle/init.d/00-pulse-mavenlocal.gradle
+
+      - name: Pull in Pulse's own JS deps via the bare RN app
+        working-directory: ${{ runner.temp }}
+        run: |
+          set -euo pipefail
+          cd "$PROJECT_NAME"
+          # Force a fresh resolve: the file: SDK ships its own node_modules during dev; nuke them
+          # so Metro / autolinking dedupe to the bare app's react-native (Gotcha #1 from smoke test).
+          rm -rf "${GITHUB_WORKSPACE}/pulse-react-native-otel/node_modules/react-native" || true
+          rm -rf node_modules/@dreamhorizonorg/pulse-react-native/node_modules/react-native || true
+          ls -la node_modules/@dreamhorizonorg/pulse-react-native | head -10
+
+      - uses: actions/setup-java@c5195efecf7bdfc987ee8bae7a71cb8b11521c00  # v4.7.1
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - run: |
+          /bin/bash -c "yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses > /dev/null"
+
+      - uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684  # v4.2.3
+        with:
+          path: |
+            ~/.gradle/wrapper
+            ~/.gradle/caches
+          key: ${{ runner.os }}-gradle-bare-rn076-${{ env.RN_VERSION }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-bare-rn076-
+            ${{ runner.os }}-gradle-
+
+      - uses: actions/cache/restore@5a3ec84eff668545956fd18022155c47e93e2684  # v4.2.3
+        with:
+          path: ~/.m2/repository
+          key: ${{ env.MAVEN_LOCAL_CACHE_KEY }}
+          restore-keys: |
+            maven-local-pulse-android-
+
+      - name: assembleDebug
+        working-directory: ${{ runner.temp }}
+        env:
+          JAVA_OPTS: "-XX:MaxHeapSize=6g"
+        run: |
+          set -euo pipefail
+          cd "$PROJECT_NAME/android"
+          ./gradlew assembleDebug -x lint -x test --no-daemon --console=plain
