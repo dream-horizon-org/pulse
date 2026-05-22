@@ -80,6 +80,7 @@ public class SessionListingService {
                 .timeRange(request.getTimeRange().getFrom(), request.getTimeRange().getTo())
                 .limit(pageSize + 1);
 
+        builder.filter(SessionListingFilterField.DURATION, SessionListingOperator.GTE, 1000);
         applyFilters(builder, request.getFilters());
         applySorting(builder, request.getSortBy(), request.getSortDirection());
         applySearch(builder, request.getQuery());
