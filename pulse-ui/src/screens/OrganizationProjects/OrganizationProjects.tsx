@@ -41,10 +41,7 @@ export function OrganizationProjects() {
   const [error, setError] = useState<string | null>(null);
 
   const handleProjectClick = useCallback(
-    async (
-      selectedProjectId: string,
-      source: "manual" | "auto_select" = "manual",
-    ) => {
+    async (selectedProjectId: string) => {
       try {
         const selectedProject = projects.find(
           (p) => p.projectId === selectedProjectId,
@@ -96,7 +93,7 @@ export function OrganizationProjects() {
       const lastUsedProjectId = sessionStorage.getItem("pulse_last_project_id");
       const projectToSelect =
         projects.find((p) => p.projectId === lastUsedProjectId) || projects[0];
-      handleProjectClick(projectToSelect.projectId, "auto_select");
+      handleProjectClick(projectToSelect.projectId);
     }
   }, [
     projectId,

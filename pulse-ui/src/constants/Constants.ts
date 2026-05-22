@@ -1496,6 +1496,13 @@ export const LOGIN_PAGE_CONSTANTS: Record<string, string> = {
   SIGNING_IN_MESSAGE: "Authenticating your credentials",
 };
 
+export const LOGIN_METHODS = {
+  GOOGLE: "google",
+  DEV: "dev",
+} as const;
+
+export type LoginMethod = (typeof LOGIN_METHODS)[keyof typeof LOGIN_METHODS];
+
 export const MULTI_TENANT_CONSTANTS = {
   BADGE_LABEL: "Multi-tenant",
   TENANT_LABEL: "Organization",

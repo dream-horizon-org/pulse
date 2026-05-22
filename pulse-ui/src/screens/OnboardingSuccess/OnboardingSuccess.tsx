@@ -362,8 +362,7 @@ export function OnboardingSuccess() {
               </Text>
             </Group>
             <Text size="sm" c="dimmed" mb="md">
-              Follow the documentation to integrate the Pulse SDK with your
-              platform.
+              Follow the documentation to integrate the Pulse SDK with your platform.
             </Text>
             <Button
               component="a"

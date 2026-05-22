@@ -15,8 +15,10 @@ import classes from "./Login.module.css";
 import {
   COMMON_CONSTANTS,
   COOKIES_KEY,
+  LOGIN_METHODS,
   LOGIN_PAGE_CONSTANTS,
   ROUTES,
+  type LoginMethod,
 } from "../../constants";
 import { TENANT_ROLES, TenantRole } from "../../constants/Roles";
 import { TIERS } from "../../constants/Tiers";
@@ -82,7 +84,7 @@ export function Login() {
   const handleLoginSuccess = async (
     data: any,
     firebaseToken: string,
-    loginMethod: "google" | "dev",
+    loginMethod: LoginMethod,
   ) => {
     if (data.needsOnboarding) {
       removeCookie(COOKIES_KEY.SYSTEM_ROLE);
@@ -130,7 +132,11 @@ export function Login() {
       loginMutation.mutate(firebaseToken, {
         onSuccess: async (response) => {
           if (response?.data) {
-            await handleLoginSuccess(response.data, firebaseToken, "google");
+            await handleLoginSuccess(
+              response.data,
+              firebaseToken,
+              LOGIN_METHODS.GOOGLE,
+            );
           }
         },
         onError: (error) => {
@@ -159,7 +165,11 @@ export function Login() {
     loginMutation.mutate(firebaseToken, {
       onSuccess: async (response) => {
         if (response?.data) {
-          await handleLoginSuccess(response.data, firebaseToken, "dev");
+          await handleLoginSuccess(
+            response.data,
+            firebaseToken,
+            LOGIN_METHODS.DEV,
+          );
         }
       },
       onError: (error) => {

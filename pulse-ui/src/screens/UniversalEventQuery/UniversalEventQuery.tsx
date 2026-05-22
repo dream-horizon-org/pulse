@@ -221,9 +221,7 @@ export const UniversalEventQuery = () => {
     }
   };
 
-  const handleCancelQueryError = (error: {
-    error: { message: string; cause?: string };
-  }) => {
+  const handleCancelQueryError = (error: { error: { message: string; cause?: string } }) => {
     if (error.error) {
       handleNotification({
         type: NotificationTypes.ERROR,
