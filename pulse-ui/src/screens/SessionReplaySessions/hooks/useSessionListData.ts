@@ -9,6 +9,7 @@ import type {
 import type { SortField, SortDirection } from "../../../services/sessionReplay";
 import {
   DEFAULT_DATE_PRESET,
+  ONGOING_SESSION_BUFFER_MS,
   SEARCH_DEBOUNCE_MS,
 } from "../constants/sessionList.constants";
 import {
@@ -28,23 +29,25 @@ function buildTimeRangeFromState(
     return { from, to };
   }
 
+  const cutoff = new Date(now.getTime() - ONGOING_SESSION_BUFFER_MS);
+
   const hoursMatch = preset.match(/^(\d+)h$/);
   if (hoursMatch) {
     const hours = parseInt(hoursMatch[1], 10);
     const from = new Date(now.getTime() - hours * 60 * 60 * 1000);
-    return { from: from.toISOString(), to: now.toISOString() };
+    return { from: from.toISOString(), to: cutoff.toISOString() };
   }
 
   const daysMatch = preset.match(/^(\d+)d$/);
   if (daysMatch) {
     const days = parseInt(daysMatch[1], 10);
     const from = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
-    return { from: from.toISOString(), to: now.toISOString() };
+    return { from: from.toISOString(), to: cutoff.toISOString() };
   }
 
   const days = parseInt(preset, 10) || 7;
   const from = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
-  return { from: from.toISOString(), to: now.toISOString() };
+  return { from: from.toISOString(), to: cutoff.toISOString() };
 }
 
 function buildAdvancedGroupFromState(

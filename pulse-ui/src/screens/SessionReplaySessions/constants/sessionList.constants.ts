@@ -17,6 +17,9 @@ export const SESSION_LIST_SORT_FIELD = {
 
 export const DEFAULT_DATE_PRESET = "24h";
 
+/** Sessions started within this window are still ongoing and excluded from preset filters */
+export const ONGOING_SESSION_BUFFER_MS = 5 * 60 * 1000;
+
 export const TIME_RANGE_OPTIONS = [
   { value: "1h", label: "Last hour" },
   { value: "24h", label: "Last 24 hours" },
