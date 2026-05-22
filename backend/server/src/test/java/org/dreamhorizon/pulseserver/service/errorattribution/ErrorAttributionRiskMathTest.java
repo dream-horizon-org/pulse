@@ -2,6 +2,7 @@ package org.dreamhorizon.pulseserver.service.errorattribution;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import org.dreamhorizon.pulseserver.config.RootCauseConfig;
 import org.dreamhorizon.pulseserver.service.errorattribution.ErrorAttributionResult.RiskRatioRow;
 import org.junit.jupiter.api.Test;
 
@@ -70,6 +71,29 @@ class ErrorAttributionRiskMathTest {
   void passesRelatedThreshold_floorOnRequiresMinRr() {
     assertThat(ErrorAttributionRiskMath.passesRelatedThreshold(false, null, 1.5, 2.0)).isFalse();
     assertThat(ErrorAttributionRiskMath.passesRelatedThreshold(false, null, 2.0, 2.0)).isTrue();
+  }
+
+  @Test
+  void passesTreatedPrevalence_floorDisabledReturnsTrueWhenNonPositivePhi() {
+    assertThat(ErrorAttributionRiskMath.passesTreatedPrevalenceInUniverse(5L, 99_995L, 0.0d))
+        .isTrue();
+    assertThat(ErrorAttributionRiskMath.passesTreatedPrevalenceInUniverse(5L, 99_995L, -0.1d))
+        .isTrue();
+  }
+
+  @Test
+  void passesTreatedPrevalence_defaultPhiRequiresCeilSessions() {
+    double phi = RootCauseConfig.DEFAULT_MIN_TREATED_PREVALENCE_FRACTION_IN_U;
+    assertThat(phi).isEqualTo(0.001);
+    assertThat(ErrorAttributionRiskMath.passesTreatedPrevalenceInUniverse(5L, 99_995L, phi))
+        .isFalse();
+    // nu=100_000 → min treated = ceil(0.001 * 100_000) = 100
+    assertThat(ErrorAttributionRiskMath.passesTreatedPrevalenceInUniverse(99L, 99_901L, phi))
+        .isFalse();
+    assertThat(ErrorAttributionRiskMath.passesTreatedPrevalenceInUniverse(100L, 99_900L, phi))
+        .isTrue();
+    assertThat(ErrorAttributionRiskMath.passesTreatedPrevalenceInUniverse(1L, 10L, phi))
+        .isTrue();
   }
 
   @Test

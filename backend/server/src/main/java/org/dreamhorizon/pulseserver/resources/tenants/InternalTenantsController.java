@@ -12,6 +12,8 @@ import jakarta.ws.rs.core.MediaType;
 import java.util.concurrent.CompletionStage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.dreamhorizon.pulseserver.constant.Constants;
+import org.dreamhorizon.pulseserver.filter.RequiresPermission;
 import org.dreamhorizon.pulseserver.resources.tenants.models.StatusRestResponse;
 import org.dreamhorizon.pulseserver.resources.tenants.models.UpdateTenantTierRestRequest;
 import org.dreamhorizon.pulseserver.rest.io.Response;
@@ -37,6 +39,7 @@ public class InternalTenantsController {
    */
   @PUT
   @Path("/{tenantId}/tier")
+  @RequiresPermission(Constants.PERMISSION_SUPERADMIN)
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public CompletionStage<Response<StatusRestResponse>> updateTenantTier(

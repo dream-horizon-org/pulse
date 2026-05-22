@@ -39,6 +39,7 @@ public struct PulseSdkConfig: Codable, Equatable {
     public let signals: PulseSignalConfig
     public let interaction: PulseInteractionConfig
     public let features: [PulseFeatureConfig]
+    public let batchConfig: PulseBatchProcessorConfig?
 
     public init(
         version: Int,
@@ -46,7 +47,8 @@ public struct PulseSdkConfig: Codable, Equatable {
         sampling: PulseSamplingConfig,
         signals: PulseSignalConfig,
         interaction: PulseInteractionConfig,
-        features: [PulseFeatureConfig]
+        features: [PulseFeatureConfig],
+        batchConfig: PulseBatchProcessorConfig? = nil
     ) {
         self.version = version
         self.description = description
@@ -54,6 +56,7 @@ public struct PulseSdkConfig: Codable, Equatable {
         self.signals = signals
         self.interaction = interaction
         self.features = features
+        self.batchConfig = batchConfig
     }
 }
 
@@ -266,6 +269,40 @@ public struct PulseInteractionConfig: Codable, Equatable {
     public let beforeInitQueueSize: Int
 }
 
+// MARK: - Batch Processor Config
+
+/// All spans reported by the SDK are exported every scheduleDelayMillis to the exporter pipeline in batches of maxExportBatchSize.
+
+public struct PulseBatchProcessorConfig: Codable, Equatable {
+    public let batchLogs: PulseBatchProcessorOption?
+    public let batchSpans: PulseBatchProcessorOption?
+
+    enum CodingKeys: String, CodingKey {
+        case batchLogs
+        case batchSpans
+    }
+
+    public init(batchLogs: PulseBatchProcessorOption? = nil, batchSpans: PulseBatchProcessorOption? = nil) {
+        self.batchLogs = batchLogs
+        self.batchSpans = batchSpans
+    }
+}
+
+public struct PulseBatchProcessorOption: Codable, Equatable {
+    public let maxExportBatchSize: Int
+    public let scheduleDelay: Int // milliseconds
+
+    enum CodingKeys: String, CodingKey {
+        case maxExportBatchSize
+        case scheduleDelay
+    }
+
+    public init(maxExportBatchSize: Int, scheduleDelay: Int) {
+        self.maxExportBatchSize = maxExportBatchSize
+        self.scheduleDelay = scheduleDelay
+    }
+}
+
 // MARK: - Features
 
 public struct PulseFeatureConfig: Codable, Equatable {
@@ -312,7 +349,7 @@ public struct PulseFeatureConfig: Codable, Equatable {
 
 // MARK: - Enums (JSON string values match API compatibility)
 
-public enum PulseSignalScope: String, Codable, CaseIterable {
+public enum PulseSignalScope: String, CaseIterable, PulseFallbackDecodable {
     case logs
     case traces
     case metrics
@@ -320,7 +357,7 @@ public enum PulseSignalScope: String, Codable, CaseIterable {
     case unknown
 }
 
-public enum PulseSdkName: String, CaseIterable {
+public enum PulseSdkName: String, CaseIterable, PulseFallbackDecodable {
     case pulse_android_java
     case pulse_android_rn
     case pulse_ios_swift
@@ -338,31 +375,7 @@ public enum PulseSdkName: String, CaseIterable {
     }
 }
 
-extension PulseSdkName: Codable {
-    /// Unknown or future server values decode to `.unknown` (parity with Android `PulseFallbackToUnknownEnumSerializer`).
-    public init(from decoder: Decoder) throws {
-        do {
-            let container = try decoder.singleValueContainer()
-            if try container.decodeNil() {
-                self = .unknown
-                return
-            }
-            let raw = try container.decode(String.self)
-            self = Self(rawValue: raw) ?? .unknown
-        } catch {
-            self = .unknown
-        }
-    }
-
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.singleValueContainer()
-        try container.encode(rawValue)
-    }
-}
-
-/// JSON uses snake_case strings. Unknown or future server values decode to `.unknown` (same idea as Android
-/// `PulseFallbackToUnknownEnumSerializer`).
-public enum PulseFeatureName: String, CaseIterable {
+public enum PulseFeatureName: String, CaseIterable, PulseFallbackDecodable {
     case java_crash
     case js_crash
     case cpp_crash
@@ -386,29 +399,7 @@ public enum PulseFeatureName: String, CaseIterable {
     case unknown
 }
 
-extension PulseFeatureName: Codable {
-    /// Bad types, null, or unexpected payloads map to `.unknown` instead of failing the whole config (parity with Android fallback).
-    public init(from decoder: Decoder) throws {
-        do {
-            let container = try decoder.singleValueContainer()
-            if try container.decodeNil() {
-                self = .unknown
-                return
-            }
-            let raw = try container.decode(String.self)
-            self = Self(rawValue: raw) ?? .unknown
-        } catch {
-            self = .unknown
-        }
-    }
-
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.singleValueContainer()
-        try container.encode(rawValue)
-    }
-}
-
-public enum PulseDeviceAttributeName: String, Codable, CaseIterable {
+public enum PulseDeviceAttributeName: String, CaseIterable, PulseFallbackDecodable {
     case os_version
     case app_version
     case country

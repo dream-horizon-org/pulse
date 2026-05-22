@@ -17,6 +17,9 @@ public class StackTraceEvent {
   @JsonProperty("Timestamp")
   private String timestamp;
 
+  @JsonProperty("EventName")
+  private String eventName;
+
   @JsonProperty("PulseType")
   private String pulseType;
 

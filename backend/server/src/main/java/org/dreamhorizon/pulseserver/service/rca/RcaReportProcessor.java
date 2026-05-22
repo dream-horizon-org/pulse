@@ -36,6 +36,7 @@ public class RcaReportProcessor {
 
   private static final String RCA_REPORT_PATH = "rca/report";
   private static final String RCA_SCREEN_REPORT_PATH = "rca/screen-report";
+  private static final String RCA_SESSION_REPORT_PATH = "rca/session-report";
   private static final int ERR_MSG_MAX = 4000;
   private static final long HEATMAP_FETCH_TIMEOUT_SEC = 30;
 
@@ -91,8 +92,14 @@ public class RcaReportProcessor {
         .flatMap(parsed -> Single.fromCompletionStage(enrichmentService.enrichAsync(parsed, forceRootCauseRefresh)))
         .flatMap(
             enrichment -> {
-              String aiPath =
-                  job.entityType() == RcaType.SCREEN ? RCA_SCREEN_REPORT_PATH : RCA_REPORT_PATH;
+              String aiPath;
+              if (job.entityType() == RcaType.SCREEN) {
+                aiPath = RCA_SCREEN_REPORT_PATH;
+              } else if (job.entityType() == RcaType.SESSION) {
+                aiPath = RCA_SESSION_REPORT_PATH;
+              } else {
+                aiPath = RCA_REPORT_PATH;
+              }
               String targetUrl = upstream.buildTargetUrl(aiPath, rawQuery);
               return Single.fromCompletionStage(
                   upstream.executeProxy(
@@ -160,10 +167,20 @@ public class RcaReportProcessor {
       final RcaEnrichmentOutcome enrichment,
       final RcaReportJob job) {
 
-    String body = result.getBufferedBody();
+    final String rawBody = result.getBufferedBody();
+
+    if (job.entityType() == RcaType.SESSION
+        && enrichment.enrichmentOk()
+        && enrichment.rootCause() != null) {
+      String sessionBody = mergeSessionRootCausePayload(rawBody, enrichment);
+      return persistBufferedRcaReport(sessionBody, result, job);
+    }
+
+    final String body = attachRootCausePayloadIfPresent(rawBody, enrichment);
 
     boolean shouldMergeHeatmaps =
         job.entityType() != RcaType.SCREEN
+            && job.entityType() != RcaType.SESSION
             && enrichment.enrichmentOk()
             && enrichment.rootCause() != null
             && enrichment.rootCause().getSegments() != null
@@ -213,6 +230,45 @@ public class RcaReportProcessor {
               log.warn("Failed to fetch screens for heatmap merging: {}", error.getMessage());
               return persistBufferedRcaReport(body, result, job);
             });
+  }
+
+  /**
+   * Embeds {@code rootCausePayload} next to the AI {@code structured} report so callers using the
+   * async RCA pipeline (peek / job poll) receive the same tabular JSON as {@code GET .../root-cause}
+   * without a second request.
+   */
+  private String attachRootCausePayloadIfPresent(String body, RcaEnrichmentOutcome enrichment) {
+    if (enrichment == null || enrichment.rootCause() == null) {
+      return body;
+    }
+    try {
+      JsonNode tree = objectMapper.readTree(body);
+      if (!(tree instanceof ObjectNode root)) {
+        return body;
+      }
+      root.set("rootCausePayload", objectMapper.valueToTree(enrichment.rootCause()));
+      return objectMapper.writeValueAsString(root);
+    } catch (Exception e) {
+      log.warn("Failed to attach rootCausePayload to RCA report body: {}", e.getMessage());
+      return body;
+    }
+  }
+
+  private String mergeSessionRootCausePayload(
+      final String body, final RcaEnrichmentOutcome enrichment) {
+    try {
+      JsonNode bodyNode = objectMapper.readTree(body);
+      if (bodyNode instanceof ObjectNode bodyObj) {
+        JsonNode reportNode = bodyObj.get("report");
+        if (reportNode instanceof ObjectNode reportObj) {
+          reportObj.set("rootCausePayload", objectMapper.valueToTree(enrichment.rootCause()));
+        }
+        return objectMapper.writeValueAsString(bodyObj);
+      }
+    } catch (Exception e) {
+      log.warn("Session RCA: failed to merge rootCausePayload into response: {}", e.getMessage());
+    }
+    return body;
   }
 
   private Single<AiProxyUpstreamResult> persistBufferedRcaReport(

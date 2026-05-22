@@ -21,6 +21,11 @@ let providerMountCount = 0;
  * React bridge that calls {@link Pulse.init} exactly once on mount and
  * exposes the SDK via context. Safe to render at the app root.
  *
+ * **`shutdownOnUnmount`** defaults to **`false`** so unmounting a subtree does
+ * not tear down telemetry for the rest of the page; pass **`true`** only when
+ * you intend full SDK shutdown on last provider unmount (see
+ * {@link PulseProviderProps.shutdownOnUnmount}).
+ *
  * SSR: the effect is skipped on the server; no browser APIs are touched.
  *
  * StrictMode: safe. Repeated mount/unmount cycles do not re-initialise.

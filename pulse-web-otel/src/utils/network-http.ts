@@ -7,6 +7,7 @@ import type { Span } from "@opentelemetry/api";
 import { SpanStatusCode } from "@opentelemetry/api";
 
 import { PulseWebSemconv } from "../semconv";
+import { isDynamicSegment } from "../processors/global-attrs-processor";
 
 /**
  * Reads URL the upstream client span may have set before the custom callback.
@@ -165,6 +166,19 @@ export type NetworkSpanOptionalConfig = {
   capturedResponseHeaders?: string[];
 };
 
+/** RFC 9110 + PATCH (RFC 5789) — methods outside this set use `_OTHER` + `http.request.method_original`. */
+const KNOWN_HTTP_METHODS = new Set([
+  "GET",
+  "POST",
+  "PUT",
+  "DELETE",
+  "PATCH",
+  "HEAD",
+  "OPTIONS",
+  "CONNECT",
+  "TRACE",
+]);
+
 /**
  * Android / ClickHouse parity: {@code pulse.type} is {@code network.<statusCode>}
  * (e.g. {@code network.200}, {@code network.404}). Missing or non-finite status → {@code network.0}.
@@ -239,6 +253,17 @@ export function buildNetworkIgnoreUrls(
   return patterns;
 }
 
+/**
+ * Replaces dynamic path segments (UUIDs, ObjectIds, ULIDs, numeric IDs) with `:id`
+ * to prevent cardinality explosion in ClickHouse (mirrors screen-name normalization).
+ */
+export function normalizeUrlPath(pathname: string): string {
+  return pathname
+    .split("/")
+    .map((segment) => (segment && isDynamicSegment(segment) ? ":id" : segment))
+    .join("/");
+}
+
 export function sanitizeHttpUrl(
   rawUrl: string,
   privacy: NetworkSpanPrivacy,
@@ -260,8 +285,15 @@ export function sanitizeHttpUrl(
     /** OTel `url.full` MUST NOT contain credentials (user:password@…). */
     u.username = "";
     u.password = "";
+    u.pathname = normalizeUrlPath(u.pathname);
     return u.toString();
   } catch {
+    if (!privacy.captureQueryParams) {
+      const qIdx = rawUrl.indexOf("?");
+      if (qIdx >= 0) {
+        return rawUrl.slice(0, qIdx);
+      }
+    }
     return rawUrl;
   }
 }
@@ -270,6 +302,7 @@ export function extractGraphQlMeta(body: string): {
   operationName?: string;
   operationType?: string;
 } {
+  if (body.length > 262_144) return {};
   let parsed: { query?: string; operationName?: string };
   try {
     parsed = JSON.parse(body) as { query?: string; operationName?: string };
@@ -432,10 +465,17 @@ export function applyPulseHttpClientSpanAttributes(params: {
     return;
   }
 
-  // V2: non-standard HTTP verbs → OTel `_OTHER` + `http.request.method_original` — deferred;
-  // see network.md Done Criteria (mapping not duplicated here).
-  span.setAttribute(ak.HTTP_REQUEST_METHOD, params.method.toUpperCase());
+  const upperMethod = params.method.toUpperCase();
+  if (KNOWN_HTTP_METHODS.has(upperMethod)) {
+    span.setAttribute(ak.HTTP_REQUEST_METHOD, upperMethod);
+  } else {
+    span.setAttribute(ak.HTTP_REQUEST_METHOD, "_OTHER");
+    span.setAttribute(ak.HTTP_REQUEST_METHOD_ORIGINAL, upperMethod);
+  }
   span.setAttribute(ak.URL_FULL, sanitized);
+  // Upstream OTel Fetch/XHR instrumentations may set legacy `http.url` with query;
+  // keep it aligned with sanitized `url.full` so CH/manual audits do not see `?` leaks.
+  span.setAttribute("http.url", sanitized);
   span.setAttribute(ak.SERVER_ADDRESS, parsed.hostname);
   let serverPort: number | undefined;
   if (parsed.port !== "") {
@@ -504,7 +544,7 @@ export function applyPulseHttpClientSpanAttributes(params: {
       }
       const v = g(name) ?? g(name.toLowerCase());
       if (v !== null && v !== undefined && v !== "") {
-        span.setAttribute(`http.request.header.${name.toLowerCase()}`, v);
+        span.setAttribute(`http.request.header.${name.toLowerCase()}`, [v]);
       }
     }
   }
@@ -517,7 +557,7 @@ export function applyPulseHttpClientSpanAttributes(params: {
       }
       const v = g(name) ?? g(name.toLowerCase());
       if (v !== null && v !== undefined && v !== "") {
-        span.setAttribute(`http.response.header.${name.toLowerCase()}`, v);
+        span.setAttribute(`http.response.header.${name.toLowerCase()}`, [v]);
       }
     }
   }

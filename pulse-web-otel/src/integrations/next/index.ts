@@ -26,6 +26,11 @@ export {
   type PulseInstrumentationConfig,
 } from "./instrumentation";
 
+export {
+  PulseIntegrationErrorBoundary,
+  type PulseIntegrationErrorContext,
+} from "../react/pulse-integration-error-boundary";
+
 // Re-export React integration primitives so consumers only need one import.
 export {
   PulseProvider,

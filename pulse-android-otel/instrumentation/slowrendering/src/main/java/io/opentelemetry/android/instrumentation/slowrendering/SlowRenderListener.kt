@@ -70,42 +70,48 @@ internal class SlowRenderListener(
         }
         val listener =
             PerActivityListener(activity) { frameData ->
-                if (frameData.type != PerActivityListener.FrameData.NORMAL) {
-                    ensureMaxCountNotExceeded()
-                    val lastEvent = FrameDataHelper.frameDataEvents.lastOrNull()
-                    FrameDataHelper.frameDataEvents.add(
-                        FrameDataHelper.CumulativeFrameData(
-                            timeInMs = System.currentTimeMillis(),
-                            analysedFrameCount = FrameDataHelper.totalAnalysedFrames,
-                            unanalysedFrameCount = FrameDataHelper.totalUnanalysedDroppedFrames,
-                            slowFrameCount =
-                                (
-                                    lastEvent?.slowFrameCount ?: 0
-                                ) + if (frameData.type == PerActivityListener.FrameData.SLOW) 1 else 0,
-                            frozenFrameCount =
-                                (
-                                    lastEvent?.frozenFrameCount ?: 0
-                                ) + if (frameData.type == PerActivityListener.FrameData.FROZEN) 1 else 0,
-                        ),
-                    )
-                } else {
-                    FrameDataHelper.totalAnalysedFrames += 1
-                    FrameDataHelper.totalUnanalysedDroppedFrames += frameData.unanalysedFrameSinceLastCall
-
-                    val currentTimeInMs = System.currentTimeMillis()
-                    if (lastNormalFrameDataTimeInMs == 0L || currentTimeInMs - lastNormalFrameDataTimeInMs >= THRESHOLD_ADD_DATA_IN_MS) {
+                // Synchronize on FrameDataHelper.lock so concurrent readers (span end
+                // processors on arbitrary threads) iterate a stable snapshot.
+                synchronized(FrameDataHelper.lock) {
+                    if (frameData.type != PerActivityListener.FrameData.NORMAL) {
                         ensureMaxCountNotExceeded()
                         val lastEvent = FrameDataHelper.frameDataEvents.lastOrNull()
                         FrameDataHelper.frameDataEvents.add(
                             FrameDataHelper.CumulativeFrameData(
-                                timeInMs = currentTimeInMs,
+                                timeInMs = System.currentTimeMillis(),
                                 analysedFrameCount = FrameDataHelper.totalAnalysedFrames,
                                 unanalysedFrameCount = FrameDataHelper.totalUnanalysedDroppedFrames,
-                                slowFrameCount = lastEvent?.slowFrameCount ?: 0,
-                                frozenFrameCount = lastEvent?.frozenFrameCount ?: 0,
+                                slowFrameCount =
+                                    (
+                                        lastEvent?.slowFrameCount ?: 0
+                                    ) + if (frameData.type == PerActivityListener.FrameData.SLOW) 1 else 0,
+                                frozenFrameCount =
+                                    (
+                                        lastEvent?.frozenFrameCount ?: 0
+                                    ) + if (frameData.type == PerActivityListener.FrameData.FROZEN) 1 else 0,
                             ),
                         )
-                        lastNormalFrameDataTimeInMs = currentTimeInMs
+                    } else {
+                        FrameDataHelper.totalAnalysedFrames += 1
+                        FrameDataHelper.totalUnanalysedDroppedFrames += frameData.unanalysedFrameSinceLastCall
+
+                        val currentTimeInMs = System.currentTimeMillis()
+                        if (lastNormalFrameDataTimeInMs == 0L ||
+                            currentTimeInMs - lastNormalFrameDataTimeInMs >= THRESHOLD_ADD_DATA_IN_MS
+                        ) {
+                            ensureMaxCountNotExceeded()
+                            val lastEvent = FrameDataHelper.frameDataEvents.lastOrNull()
+                            FrameDataHelper.frameDataEvents.add(
+                                FrameDataHelper.CumulativeFrameData(
+                                    timeInMs = currentTimeInMs,
+                                    analysedFrameCount = FrameDataHelper.totalAnalysedFrames,
+                                    unanalysedFrameCount = FrameDataHelper.totalUnanalysedDroppedFrames,
+                                    slowFrameCount = lastEvent?.slowFrameCount ?: 0,
+                                    frozenFrameCount = lastEvent?.frozenFrameCount ?: 0,
+                                ),
+                            )
+                            lastNormalFrameDataTimeInMs = currentTimeInMs
+                        }
                     }
                 }
             }

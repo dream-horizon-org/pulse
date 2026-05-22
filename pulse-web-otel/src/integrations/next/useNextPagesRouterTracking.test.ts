@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook } from "@testing-library/react";
 import { useNextPagesRouterTracking } from "./useNextPagesRouterTracking";
+import { PulseWebLogger } from "../../pulse-web-logger";
 import { Pulse } from "../../sdk";
 
 vi.mock("next/router.js", () => ({
@@ -285,5 +286,37 @@ describe("useNextPagesRouterTracking (Next.js Pages Router)", () => {
   it("should be exported from src/index.ts", () => {
     // This is more of an integration test, checking that the hook is properly exported
     expect(typeof useNextPagesRouterTracking).toBe("function");
+  });
+
+  it("should log alwaysError when format throws (no setScreenName)", () => {
+    const alwaysError = vi.spyOn(PulseWebLogger, "alwaysError");
+    const mockUseRouter = useRouter as ReturnType<typeof vi.fn>;
+    const mockOn = vi.fn();
+    mockUseRouter.mockReturnValue({
+      pathname: "/products",
+      query: {},
+      asPath: "/products",
+      events: {
+        on: mockOn,
+        off: vi.fn(),
+      },
+    });
+
+    renderHook(() =>
+      useNextPagesRouterTracking({
+        skipInitial: false,
+        format: () => {
+          throw new Error("format boom pages");
+        },
+      }),
+    );
+
+    const handler = mockOn.mock.calls[0]?.[1];
+    expect(handler).toBeDefined();
+    handler?.("/checkout");
+
+    expect(alwaysError).toHaveBeenCalled();
+    expect(String(alwaysError.mock.calls[0]?.[0] ?? "")).toContain("format()");
+    expect(Pulse.setScreenName).not.toHaveBeenCalled();
   });
 });

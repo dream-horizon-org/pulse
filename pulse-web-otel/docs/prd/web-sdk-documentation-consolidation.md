@@ -159,7 +159,8 @@ Canonical npm operational spec: [`docs/publishing/SPEC.md`](../publishing/SPEC.m
 **Issue execution order matters:** sdk-core must complete first (shared data contract: **`docs/sdk-core/data-contract/SPEC.md`**, linked from **`docs/sdk-core/SPEC.md`**). Each issue agent should read the sdk-core rollup and data contract before writing its own §5.
 
 **SPEC.md §5 attribute table format** (enforce consistency across all 10 docs):
-```
+
+```markdown
 | Attribute key | Type | Source | Required | Notes |
 |---|---|---|---|---|
 | pulse.type | string | semconv | yes | always "X" for this instrumentation |
@@ -170,6 +171,7 @@ Canonical npm operational spec: [`docs/publishing/SPEC.md`](../publishing/SPEC.m
 **Issue 10 (cleanup) special rule:** Before deleting any file, log its path and the SPEC.md section where its content was absorbed. The commit message for issue 10 must list every deleted file.
 
 **Issue 10 also covers `.cursor/` + `.claude/` reference hygiene:**
+
 1. Grep every `.cursor/rules/*.mdc`, `.cursor/skills/**/*.md`, `.cursor/agents/**/*.md` for `web-sdk-plan/` occurrences.
 2. For each hit, replace the stale path with the equivalent `docs/instrumentations/<name>/SPEC.md` anchor.
 3. Resolve the unresolved merge conflict in `pulse-web-otel/CLAUDE.md` — take the HEAD version for the `screen_load`/`screen_interactive` note (the newer version references `navigation.ts` which is the current implementation).

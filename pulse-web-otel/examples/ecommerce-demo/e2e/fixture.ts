@@ -47,6 +47,7 @@ export interface OtlpAttr {
 export interface OtlpLogRecord {
   timeUnixNano?: string;
   severityText?: string;
+  severityNumber?: number;
   body?: { stringValue?: string };
   attributes: OtlpAttr[];
 }
@@ -57,6 +58,12 @@ export interface OtlpSpanStatus {
   message?: string;
 }
 
+export interface OtlpSpanEvent {
+  name: string;
+  timeUnixNano?: string;
+  attributes?: OtlpAttr[];
+}
+
 export interface OtlpSpan {
   traceId?: string;
   spanId?: string;
@@ -65,6 +72,8 @@ export interface OtlpSpan {
   startTimeUnixNano?: string;
   endTimeUnixNano?: string;
   attributes: OtlpAttr[];
+  /** Step markers etc. — present when SDK calls {@code Span.addEvent}. */
+  events?: OtlpSpanEvent[];
   status?: OtlpSpanStatus;
 }
 
@@ -112,14 +121,17 @@ export type CapturedRequest =
 
 // ─── Attribute helpers ────────────────────────────────────────────────────────
 
-/** Read a scalar attribute value by key. Returns undefined if not found. */
+/** Read an attribute value by key. Returns a string[] for arrayValue attributes, scalar otherwise. */
 export function getAttr(
   attrs: OtlpAttr[] | undefined,
   key: string,
-): string | number | boolean | undefined {
+): string | number | boolean | string[] | undefined {
   const a = (attrs ?? []).find((a) => a.key === key);
   if (!a) return undefined;
   const v = a.value;
+  if (v.arrayValue) {
+    return v.arrayValue.values.map((item) => item.stringValue ?? "");
+  }
   return v.stringValue ?? v.intValue ?? v.doubleValue ?? v.boolValue;
 }
 

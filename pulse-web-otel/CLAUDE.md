@@ -4,7 +4,7 @@ Per-package operating manual. Auto-loaded by Claude Code (hierarchical CLAUDE.md
 
 ## Fast facts
 
-- Package: `@dreamhorizonorg/pulse-web` (`package.json` `name`), `0.1.0-alpha` (pre-release)
+- Package: `@dreamhorizonorg/pulse-web` (`package.json` `name`), `0.0.3` (pre-release)
 - Build: `tsup` → `dist/`
 - Test: `vitest` — `yarn test:run` (CI) or `yarn test` (watch)
 - Typecheck: `yarn lint` (= `tsc --noEmit`, *not* eslint)
@@ -19,7 +19,7 @@ Highlights worth restating because they change agent behaviour:
 - `platform = 'web'` on every signal. Not optional.
 - `pulse.type` enum: see `src/semconv.ts` / **`docs/sdk-core/data-contract/SPEC.md`**. Don't invent new values without an ADR.
 - `src/instrumentations/<name>.ts` is the registration surface; never touch `io.opentelemetry.*` namespacing — that's upstream.
-- Public API: only what `src/index.ts` exports. Consumers don't pin internal paths.
+- Public API: what **`src/index.ts`** exports (`Pulse`, config types, **`CLSThresholds`**, **`FCPThresholds`**, **`INPThresholds`**, **`LCPThresholds`**, **`TTFBThresholds`**, …). Consumers don't pin internal paths.
 
 ## Where things live
 

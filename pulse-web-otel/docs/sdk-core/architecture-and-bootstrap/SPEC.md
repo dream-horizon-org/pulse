@@ -25,7 +25,7 @@ Covers **R1** (init completion), **R5** (shutdown teardown of listeners + flush)
 
 ## 4. Architectural Design
 
-```
+```text
 Host App
   │
   ▼
@@ -65,7 +65,7 @@ Pulse.init(config)          ← singleton facade (src/sdk.ts)
   └─ SdkConfigFetcher.fetchInBackground()  (async, post-init)
 ```
 
-### 4.1 HLD — bootstrap boundary (Mermaid)
+### 4.1 HLD — bootstrap boundary
 
 ```mermaid
 flowchart TB
@@ -78,7 +78,7 @@ flowchart TB
   Init --> Reg
 ```
 
-### 4.2 LD — ordered subsystems (Mermaid)
+### 4.2 LD — ordered subsystems
 
 ```mermaid
 flowchart LR
@@ -89,7 +89,7 @@ flowchart LR
   EXP --> REG["installAll + interactions"]
 ```
 
-### 4.3 Flows — consent, SSR, shutdown (Mermaid)
+### 4.3 Flows — consent, SSR, shutdown
 
 ```mermaid
 flowchart TD
@@ -115,9 +115,49 @@ flowchart TD
 
 ### 5.1 SDK init flow (sequence)
 
-Related: [`../config-and-consent/SPEC.md`](../config-and-consent/SPEC.md) · [`../exporters-and-persistence/SPEC.md`](../exporters-and-persistence/SPEC.md) · [`../remote-config-features-and-sampling/SPEC.md`](../remote-config-features-and-sampling/SPEC.md)
+Related: [`../config-and-public-api/SPEC.md`](../config-and-public-api/SPEC.md) · [`../exporters-and-persistence/SPEC.md`](../exporters-and-persistence/SPEC.md) · [`../remote-config-features-and-sampling/SPEC.md`](../remote-config-features-and-sampling/SPEC.md)
 
+#### 5.1.1 Init sequence
+
+Letters **a–q** match the substeps under **step 8** in the listing below.
+
+```mermaid
+flowchart TD
+  A([Pulse.init]) --> S1{1: inited or shutting down?}
+  S1 -->|yes| R0([Promise.resolve])
+  S1 -->|no| S2{2: initializing?}
+  S2 -->|yes| RW[return whenReady]
+  S2 -->|no| L3[3: setLevel]
+  L3 --> K4{4: apiKey blank?}
+  K4 -->|yes| W4[warn + resolve — no validateConfig]
+  K4 -->|no| V5[5: validateConfig]
+  V5 -->|throws| W5[warn + resolve]
+  V5 -->|ok| U6[6: resolveEndpointBaseUrl]
+  U6 --> C7{7: consent ALLOWED?}
+  C7 -->|no| R7([Promise.resolve — zero side effects])
+  C7 -->|yes| F8[8: _initializing = true → finishInit]
+  F8 --> A8a[a: abortInitIfUnavailable]
+  A8a -->|SSR / no window| AB([abort chain])
+  A8a -->|ok| A8b[b: SessionProvider + installationId]
+  A8b --> A8c[c: UA parse + getOsVersionAsync]
+  A8c --> A8d[d: buildMergedResource]
+  A8d --> A8e[e: SdkConfigFetcher.loadCached]
+  A8e --> A8f[f: FeatureGate + ExportSamplingGate + GlobalAttrsProcessor]
+  A8f --> A8g[g: hydrateUserIdentity]
+  A8g --> A8h[h: createProviders]
+  A8h --> A8i[i: drainBufferedOtlpExports]
+  A8i --> A8j[j: bindPagehideFlush]
+  A8j --> A8k[k: bindGlobalProviders]
+  A8k --> A8l[l: emitSdkInitializationLogRecords]
+  A8l --> A8m[m: InstrumentationRegistry.installAll]
+  A8m --> A8n[n: InteractionInstrumentation]
+  A8n --> A8o[o: fetchInBackground]
+  A8o --> A8p[p: set _initialized + clear _initializing]
+  A8p --> A8q[q: emitInstallationStartIfNeeded]
+  A8q --> DONE([9: same promise as whenReady])
 ```
+
+```text
 Pulse.init(config)
   1. Guard: already initialized or shutting down → return Promise.resolve()
   2. Guard: currently initializing → return this.whenReady()
@@ -203,7 +243,7 @@ Init idempotency, shutdown, pagehide flush, and BFCache behaviour: **`@M1`**, **
 
 ## 7. Known Bugs & Gaps
 
-[`../known-gaps-and-open-questions/SPEC.md`](../known-gaps-and-open-questions/SPEC.md).
+[`../../known-gaps-tradeoffs-and-plan.md`](../../known-gaps-tradeoffs-and-plan.md) §1.
 
 ---
 
@@ -215,4 +255,4 @@ Prior `web-sdk-plan/v1/01-foundation/README.md` content rolled into this documen
 
 ## 9. Open Questions
 
-[`../known-gaps-and-open-questions/SPEC.md`](../known-gaps-and-open-questions/SPEC.md) §9.
+[`../../known-gaps-tradeoffs-and-plan.md`](../../known-gaps-tradeoffs-and-plan.md) §3.

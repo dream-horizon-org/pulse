@@ -154,6 +154,7 @@ class ScreenRcaServiceTest {
 
   private static Map<String, Object> hierarchyTwoDimSegmentMetricRow() {
     Map<String, Object> row = screenSegmentMetricRow();
+    row.put(ScreenRcaQueryBuilder.BAD_FRUSTRATION, 130L);
     row.put("Platform", "Android");
     row.put("OsVersion", "14");
     return row;
@@ -182,6 +183,7 @@ class ScreenRcaServiceTest {
       // One filtered dimension → 4 base binds + 1; single-dim GROUP BY is "GROUP BY Platform" only (no comma).
       if (bn == 5 && q.contains("GROUP BY Platform") && !q.contains("GROUP BY Platform,")) {
         Map<String, Object> row = screenSegmentMetricRow();
+        row.put(ScreenRcaQueryBuilder.BAD_FRUSTRATION, 120L);
         row.put("Platform", "Android");
         return Single.just(singleRowTableResponse(row));
       }
@@ -258,6 +260,8 @@ class ScreenRcaServiceTest {
 
       assertThat(result.getMode()).isEqualTo(RootCauseAnalysisMode.FLAT);
       assertThat(result.getBaseline()).containsEntry(ScreenRcaQueryBuilder.CLICK_VOLUME, 10);
+      assertThat(result.getBaseline())
+          .containsEntry(ScreenRcaQueryBuilder.BAD_FRUSTRATION_PERCENTAGE, 10.0);
       assertThat(result.getSegments()).isEmpty();
       verify(clickhouseQueryService, never())
           .executeRootCauseQuery(anyString(), anyString(), anyList(), anyList());
@@ -451,9 +455,54 @@ class ScreenRcaServiceTest {
       RootCauseResult result =
           service.getScreenRootCause(PROJECT_ID, SCREEN, ANCHOR, WINDOW_END).blockingGet();
 
-      assertThat(result.getMode()).isEqualTo(RootCauseAnalysisMode.HIERARCHICAL);
+      assertThat(result.getMode()).isEqualTo(RootCauseAnalysisMode.HYBRID);
       assertThat(result.getSegments()).hasSize(2);
+      // hierarchical 2D+ segment must come first
+      assertThat(result.getSegments().get(0).getDimensions()).hasSize(2);
+      assertThat(result.getSegments().get(1).getDimensions()).hasSize(1);
       verify(screenRootCauseCacheDao).upsert(any(), any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void shouldReturnFlatModeWhenScreenHierarchyYieldsOnly1DPath() {
+      when(rootCauseConfig.getMaxSegments()).thenReturn(3);
+      when(screenRootCauseCacheDao.findByKey(PROJECT_ID, SCREEN, ANCHOR))
+          .thenReturn(Single.just(Optional.empty()));
+      Map<String, Object> baseline = screenBaseline(500L, 100L);
+
+      when(clickhouseQueryService.executeRootCauseQuery(anyString(), anyString(), anyList(), anyList()))
+          .thenAnswer(
+              inv -> {
+                String q = inv.getArgument(1, String.class);
+                @SuppressWarnings("unchecked")
+                List<Object> bindValues = inv.getArgument(3, List.class);
+                int bn = bindValues.size();
+                if (!q.contains("GROUP BY")) {
+                  return Single.just(singleRowTableResponse(baseline));
+                }
+                if (isScreenSegmentMetricsQuery(q)) {
+                  Map<String, Object> row = screenSegmentMetricRow();
+                  row.put("Platform", "Android");
+                  return Single.just(singleRowTableResponse(row));
+                }
+                if (q.contains("GROUP BY Platform") && bn == 4) {
+                  return Single.just(singleRowTableResponse(
+                      Map.of("Platform", "Android", ScreenRcaQueryBuilder.BAD_FRUSTRATION, 100L)));
+                }
+                // OsVersion under Platform → below threshold: stops hierarchy at 1D
+                if (q.contains("GROUP BY OsVersion") && bn == 5) {
+                  return Single.just(singleRowTableResponse(
+                      Map.of("OsVersion", "14", ScreenRcaQueryBuilder.BAD_FRUSTRATION, 10L)));
+                }
+                return Single.just(emptyTableResponse());
+              });
+
+      RootCauseResult result =
+          service.getScreenRootCause(PROJECT_ID, SCREEN, ANCHOR, WINDOW_END).blockingGet();
+
+      assertThat(result.getMode()).isEqualTo(RootCauseAnalysisMode.FLAT);
+      assertThat(result.getSegments()).allSatisfy(
+          s -> assertThat(s.getDimensions()).hasSize(1));
     }
 
     @Test
@@ -475,6 +524,7 @@ class ScreenRcaServiceTest {
                 }
                 if (isScreenSegmentMetricsQuery(q)) {
                   Map<String, Object> row = screenSegmentMetricRow();
+                  row.put(ScreenRcaQueryBuilder.BAD_FRUSTRATION, 105L);
                   if (q.contains("GROUP BY Platform") && bn == 5 && !q.contains("GROUP BY Platform,")) {
                     row.put("Platform", "Android");
                     return Single.just(singleRowTableResponse(row));
@@ -511,6 +561,130 @@ class ScreenRcaServiceTest {
       assertThat(result.getSegments().get(0).getLabel()).isEqualTo("Platform: Android");
       assertThat(result.getSegments().get(1).getLabel()).isEqualTo("OsVersion: 14");
       verify(screenRootCauseCacheDao).upsert(any(), any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void shouldDropWeakScreenHierarchySegmentAndPreserveMergedOrderForKeptSegments() {
+      when(rootCauseConfig.getMaxSegments()).thenReturn(3);
+      when(screenRootCauseCacheDao.findByKey(PROJECT_ID, SCREEN, ANCHOR))
+          .thenReturn(Single.just(Optional.empty()));
+
+      Map<String, Object> baseline = screenBaseline(500L, 100L);
+
+      when(clickhouseQueryService.executeRootCauseQuery(anyString(), anyString(), anyList(), anyList()))
+          .thenAnswer(
+              inv -> {
+                String q = inv.getArgument(1, String.class);
+                @SuppressWarnings("unchecked")
+                List<Object> bindValues = inv.getArgument(3, List.class);
+                int bn = bindValues.size();
+                if (!q.contains("GROUP BY")) {
+                  return Single.just(singleRowTableResponse(baseline));
+                }
+                if (isScreenSegmentMetricsQuery(q)) {
+                  if (bn == 6) {
+                    // 2D slice: same bad_frustration *rate* as baseline (100/500 vs 10/50) → not > → dropped
+                    Map<String, Object> row = screenSegmentMetricRow();
+                    row.put(ScreenRcaQueryBuilder.BAD_FRUSTRATION, 10L);
+                    row.put("Platform", "Android");
+                    row.put("OsVersion", "14");
+                    return Single.just(singleRowTableResponse(row));
+                  }
+                  if (bn == 5 && q.contains("GROUP BY Platform") && !q.contains("GROUP BY Platform,")) {
+                    // Strong 1D flat tier: elevated bad_frustration vs baseline
+                    Map<String, Object> row = screenSegmentMetricRow();
+                    row.put(ScreenRcaQueryBuilder.BAD_FRUSTRATION, 200L);
+                    row.put("Platform", "Android");
+                    return Single.just(singleRowTableResponse(row));
+                  }
+                  return Single.just(emptyTableResponse());
+                }
+                if (q.contains("GROUP BY Platform") && bn == 4) {
+                  return Single.just(
+                      singleRowTableResponse(
+                          Map.of("Platform", "Android", ScreenRcaQueryBuilder.BAD_FRUSTRATION, 100L)));
+                }
+                if (q.contains("GROUP BY OsVersion") && bn == 5) {
+                  return Single.just(
+                      singleRowTableResponse(
+                          Map.of("OsVersion", "14", ScreenRcaQueryBuilder.BAD_FRUSTRATION, 100L)));
+                }
+                return Single.just(emptyTableResponse());
+              });
+
+      RootCauseResult result =
+          service.getScreenRootCause(PROJECT_ID, SCREEN, ANCHOR, WINDOW_END).blockingGet();
+
+      // Mode is FLAT: 2D candidate matched baseline bad_frustration rate — gate drops it; only flat tier remains.
+      assertThat(result.getMode()).isEqualTo(RootCauseAnalysisMode.FLAT);
+      assertThat(result.getSegments()).hasSize(1);
+      assertThat(result.getSegments().get(0).getDimensions()).hasSize(1);
+      assertThat(result.getSegments().get(0).getLabel()).isEqualTo("Platform: Android");
+    }
+  }
+
+  @Nested
+  class DerivedMetrics {
+
+    @Test
+    void shouldComputeBadFrustrationPercentageFromClickHouseCounts() {
+      Map<String, Object> metrics = screenBaseline(200, 50);
+      ScreenRcaService.enrichDerivedMetrics(metrics);
+      assertThat(metrics)
+          .containsEntry(ScreenRcaQueryBuilder.BAD_FRUSTRATION_PERCENTAGE, 25.0);
+    }
+
+    @Test
+    void shouldOmitPercentageWhenClickVolumeIsZero() {
+      Map<String, Object> metrics = screenBaseline(0, 0);
+      ScreenRcaService.enrichDerivedMetrics(metrics);
+      assertThat(metrics).doesNotContainKey(ScreenRcaQueryBuilder.BAD_FRUSTRATION_PERCENTAGE);
+    }
+
+    @Test
+    void shouldExposePercentageAndDeltaOnComputedSegment() {
+      Map<String, Object> baseline = screenBaseline(100, 20);
+      when(screenRootCauseCacheDao.findByKey(PROJECT_ID, SCREEN, ANCHOR))
+          .thenReturn(Single.just(Optional.empty()));
+      when(clickhouseQueryService.executeRootCauseQuery(anyString(), anyString(), anyList(), anyList()))
+          .thenAnswer(
+              inv -> {
+                String q = inv.getArgument(1, String.class);
+                @SuppressWarnings("unchecked")
+                List<Object> bindValues = inv.getArgument(3, List.class);
+                int bn = bindValues.size();
+                if (!q.contains("GROUP BY")) {
+                  return Single.just(singleRowTableResponse(baseline));
+                }
+                if (isScreenSegmentMetricsQuery(q) && bn == 5) {
+                  Map<String, Object> row = screenSegmentMetricRow();
+                  row.put("Platform", "Android");
+                  row.put(ScreenRcaQueryBuilder.BAD_FRUSTRATION, 50L);
+                  return Single.just(singleRowTableResponse(row));
+                }
+                if (q.contains("GROUP BY Platform") && bn == 4) {
+                  return Single.just(
+                      singleRowTableResponse(
+                          Map.of(
+                              "Platform",
+                              "Android",
+                              ScreenRcaQueryBuilder.BAD_FRUSTRATION,
+                              50L)));
+                }
+                return Single.just(emptyTableResponse());
+              });
+
+      RootCauseResult result =
+          service.getScreenRootCause(PROJECT_ID, SCREEN, ANCHOR, WINDOW_END).blockingGet();
+
+      assertThat(result.getBaseline())
+          .containsEntry(ScreenRcaQueryBuilder.BAD_FRUSTRATION_PERCENTAGE, 20.0);
+      assertThat(result.getSegments()).isNotEmpty();
+      Map<String, Object> segMetrics = result.getSegments().get(0).getMetrics();
+      assertThat(segMetrics)
+          .containsEntry(ScreenRcaQueryBuilder.BAD_FRUSTRATION_PERCENTAGE, 100.0);
+      assertThat(result.getSegments().get(0).getDeltas())
+          .containsEntry(ScreenRcaQueryBuilder.BAD_FRUSTRATION_PERCENTAGE, 400.0);
     }
   }
 }

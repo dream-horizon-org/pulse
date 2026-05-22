@@ -1,6 +1,8 @@
 package org.dreamhorizon.pulseserver.config;
 
 import com.google.inject.Singleton;
+import java.util.List;
+import java.util.stream.Collectors;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -21,7 +23,9 @@ public class ApplicationConfig {
    */
   public String dashboardBaseUrl;
 
-  /** Fallback when {@link #dashboardBaseUrl} is unset or blank after normalization. */
+  /**
+   * Fallback when {@link #dashboardBaseUrl} is unset or blank after normalization.
+   */
   public static final String DEFAULT_DASHBOARD_BASE_URL = "https://app.pulse-ux.com";
   public String serviceUrl;
   public Integer shutdownGracePeriod;
@@ -49,7 +53,9 @@ public class ApplicationConfig {
   public String devModeApiKey;
   public SessionReplayS3Config sessionReplayS3;
   public String replayApiBaseUrl;
-  /** S3 key prefix for heatmap screenshot JSON (ingestion default: heatmap-screenshots). */
+  /**
+   * S3 key prefix for heatmap screenshot JSON (ingestion default: heatmap-screenshots).
+   */
   public String heatmapScreenshotsS3Prefix;
   /**
    * When {@code bucket} is set, heatmap screenshot list/presign uses this bucket; otherwise session
@@ -59,18 +65,39 @@ public class ApplicationConfig {
    */
   public HeatmapS3Config heatmapS3;
 
-  /** Redis host for Kong plugin materialization (API key map, usage credits in Part B). */
+  /**
+   * Redis host for Kong plugin materialization (API key map, usage credits in Part B).
+   */
   public String redisHost;
-  /** Redis port for Kong plugin materialization. */
+  /**
+   * Redis port for Kong plugin materialization.
+   */
   public Integer redisPort;
+
+  /** Comma-separated opaque tokens accepted by InternalServiceAuthFilter for /internal/* paths. */
+  public String internalServiceTokens;
+
+  /**
+   * Returns the list of valid internal service tokens. Empty list when the config value is absent
+   * or blank (disables token validation in non-dev mode — callers must handle this defensively).
+   */
+  public List<String> getInternalServiceTokenList() {
+    if (internalServiceTokens == null || internalServiceTokens.isBlank()) {
+      return List.of();
+    }
+    return java.util.Arrays.stream(internalServiceTokens.split(","))
+        .map(String::trim)
+        .filter(s -> !s.isEmpty())
+        .collect(Collectors.toList());
+  }
 
   /**
    * Get the dev mode API key with a sensible default.
    * This key is used when GOOGLE_OAUTH_ENABLED=false.
    */
   public String getDevModeApiKey() {
-    return devModeApiKey != null && !devModeApiKey.isBlank() 
-        ? devModeApiKey 
+    return devModeApiKey != null && !devModeApiKey.isBlank()
+        ? devModeApiKey
         : "default-project_devkey01";
   }
 
@@ -80,7 +107,7 @@ public class ApplicationConfig {
    * produce a double slash before {@code /projects/...}.
    *
    * @return {@code null} when the base URL is missing or blank (avoids the literal
-   *     {@code "null/projects/..."} that {@link String#format} would otherwise produce)
+   * {@code "null/projects/..."} that {@link String#format} would otherwise produce)
    */
   public String buildInteractionConfigFileUrl(String projectId) {
     if (interactionConfigUrl == null || interactionConfigUrl.isBlank()) {

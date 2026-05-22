@@ -296,6 +296,45 @@ describe("SDK lifecycle — uninstallAll() called on shutdown", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Test 5b — sessionProvider.shutdown before uninstallAll (session.end OTLP)
+// ---------------------------------------------------------------------------
+
+describe("SDK lifecycle — sessionProvider.shutdown before uninstallAll", () => {
+  it("shutdown() ends session before SessionInstrumentation unsubscribes", async () => {
+    const order: string[] = [];
+    const { SessionProvider } = await import("../session");
+    const origSessionShutdown = SessionProvider.prototype.shutdown;
+    vi.spyOn(SessionProvider.prototype, "shutdown").mockImplementation(
+      function (this: InstanceType<typeof SessionProvider>) {
+        order.push("sessionShutdown");
+        return origSessionShutdown.call(this);
+      },
+    );
+
+    const { InstrumentationRegistry } = await import(
+      "../instrumentation-registry"
+    );
+    const origUninstallAll = InstrumentationRegistry.prototype.uninstallAll;
+    vi.spyOn(
+      InstrumentationRegistry.prototype,
+      "uninstallAll",
+    ).mockImplementation(function (
+      this: InstanceType<typeof InstrumentationRegistry>,
+    ) {
+      order.push("uninstallAll");
+      return origUninstallAll.call(this);
+    });
+
+    const { Pulse } = await import("../sdk");
+    Pulse.init(makeConfig());
+    await Promise.resolve();
+    await Pulse.shutdown();
+
+    expect(order).toEqual(["sessionShutdown", "uninstallAll"]);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Test 7 — all DOM listeners added during start() are removed during shutdown()
 // Part C regression guard: every addEventListener must have a matching
 // removeEventListener on shutdown(), else restart cycles stack listeners.

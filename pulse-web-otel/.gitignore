@@ -43,3 +43,6 @@ issues/
 
 # Ralph loop audit trail (same dir as package issues)
 progress.txt
+
+# Local test-coverage generator tooling (prd/Test Coverage CSV stays tracked)
+docs/scripts/

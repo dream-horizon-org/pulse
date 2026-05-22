@@ -29,11 +29,13 @@ Document the **React adapter** for Pulse Web: `PulseProvider` (init + context), 
 
 **R4 — Router tracking:** `useRouterTracking` / `PulseRouterEvents` call `Pulse.setScreenName` on pathname changes — **does not** itself emit `screen_load` / `screen_session` (see **`screen-signals`** SPEC — `NavigationInstrumentation` emits those as OTLP **spans**). Use **`BrowserRouter`** (History API); hash-only routing does not drive SPA screen signals (see screen-signals SPEC §7).
 
+**R5 — Host non-crash:** `PulseRouterEvents` (React and Next App Router) wraps router tracking in `PulseIntegrationErrorBoundary`. Render-time integration failures (e.g. React `PulseRouterEvents` without a `BrowserRouter`) and thrown `format()` callbacks are logged with `PulseWebLogger.alwaysError` and must not unmount the host app. Direct `useRouterTracking()` outside a Router still follows React Router’s `useLocation` invariant (**throws**); prefer `<PulseRouterEvents />` or wrap with the exported boundary.
+
 ---
 
 ## 4. Architectural Design
 
-```
+```text
 <PulseProvider config={...}>
   <PulseErrorBoundary>
     {children}
@@ -46,7 +48,7 @@ Document the **React adapter** for Pulse Web: `PulseProvider` (init + context), 
 </BrowserRouter>
 ```
 
-### 4.1 HLD — React adapter vs core SDK (Mermaid)
+### 4.1 HLD — React adapter vs core SDK
 
 ```mermaid
 flowchart TB
@@ -58,7 +60,7 @@ flowchart TB
   PRE["PulseRouterEvents"] -->|"setScreenName"| Pulse
 ```
 
-### 4.2 LD — provider props and router (Mermaid)
+### 4.2 LD — provider props and router
 
 ```mermaid
 flowchart LR
@@ -67,7 +69,7 @@ flowchart LR
   PRE["PulseRouterEvents"] --> RT["useLocation react-router-dom"]
 ```
 
-### 4.3 Flows — StrictMode and shutdown (Mermaid)
+### 4.3 Flows — StrictMode and shutdown
 
 ```mermaid
 flowchart TD
@@ -129,7 +131,7 @@ flowchart TD
 | ID | Type | Given | When | Then | Tests |
 |----|------|-------|------|------|-------|
 | RE-P1 | positive | provider mounted | first render | single `Pulse.init` | `pulse-provider.test.tsx` |
-| RE-N1 | negative | no BrowserRouter | `PulseRouterEvents` | runtime guard / doc gap | `use-router-tracking.test.tsx` (React router); Next-only: `pulse-router-events.test.tsx` |
+| RE-N1 | negative | no BrowserRouter | `<PulseRouterEvents />` | logs `alwaysError`, no host crash | `pulse-router-events-fail-safe.test.tsx`; Next.js demo: `e2e/router-fail-safe.spec.ts` |
 | RE-E1 | edge | `shutdownOnUnmount` true | unmount | shutdown microtask | provider tests |
 | RE-E2 | edge | pathname change | navigation | `setScreenName` called | router tests |
 
@@ -138,13 +140,14 @@ flowchart TD
 **`@M15`** PulseProvider / PulseErrorBoundary / `useRouterTracking` / StrictMode / `skipInitial` / `react.component_stack` — full titles in [`../../sdk-core/test-coverage/SPEC.md`](../../sdk-core/test-coverage/SPEC.md) §6.3.
 
 ### Vitest
+
 - `src/__tests__/use-router-tracking.test.tsx` — pathname transitions → `setScreenName`.
 
 ---
 
 ## 7. Known Bugs & Gaps
 
-### P0:
+### P0
 
 None identified for React adapter layer at synthesis.
 

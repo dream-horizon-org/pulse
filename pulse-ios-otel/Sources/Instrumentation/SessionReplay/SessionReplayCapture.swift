@@ -59,6 +59,7 @@ private struct ViewSnapshot {
     let isTextField: Bool
     let isTextView: Bool
     let isLabel: Bool
+    let isRNText: Bool
     let isImageView: Bool
     let isPickerView: Bool
     let isWebView: Bool
@@ -217,65 +218,8 @@ internal class SessionReplayMasker {
                 return
             }
 
-            let firstPass = self.computeMaskGeometry(window: window)
-            if firstPass.hasNilWindowFrameAmongTargets {
-                completion(nil)
-                return
-            }
-
-            if firstPass.maskRects.isEmpty && firstPass.viewsNeedingMaskCount == 0 {
-                if self.config.textAndInputPrivacy == .maskAll || self.config.imagePrivacy == .maskAll {
-                    completion(nil)
-                    return
-                }
-                self.enqueueUnmaskedScreenshotExport(window: window, windowBounds: windowBounds, scale: scale, completion: completion)
-                return
-            }
-
-            guard firstPass.masksValid else {
-                completion(nil)
-                return
-            }
-
-            if let drawFlagChecker = self.drawFlagChecker, drawFlagChecker() {
-                completion(nil)
-                return
-            }
-
-            let finalPass = self.computeMaskGeometry(window: window)
-            if finalPass.hasNilWindowFrameAmongTargets {
-                completion(nil)
-                return
-            }
-
-            guard finalPass.masksValid else {
-                completion(nil)
-                return
-            }
-
-            let maskRects = finalPass.maskRects
-
-            if maskRects.isEmpty && finalPass.viewsNeedingMaskCount == 0 {
-                if self.config.textAndInputPrivacy == .maskAll || self.config.imagePrivacy == .maskAll {
-                    completion(nil)
-                    return
-                }
-                self.enqueueUnmaskedScreenshotExport(window: window, windowBounds: windowBounds, scale: scale, completion: completion)
-                return
-            }
-
-            if let drawFlagChecker = self.drawFlagChecker, drawFlagChecker() {
-                completion(nil)
-                return
-            }
-
-            let scrollPositionBeforeCapture: CGFloat
-            if let scrollView = self.findScrollView(in: window) {
-                scrollPositionBeforeCapture = scrollView.contentOffset.y
-            } else {
-                scrollPositionBeforeCapture = 0
-            }
-
+            // Screenshot first, then single mask walk — both on main, same frame.
+            // Eliminates drift from pre-capture mask walks during SwiftUI/scroll animations.
             let screenshot = self.captureScreenshotSync(window: window, bounds: windowBounds)
 
             guard let screenshot = screenshot, screenshot.size.width > 0 && screenshot.size.height > 0 else {
@@ -284,16 +228,25 @@ internal class SessionReplayMasker {
                 return
             }
 
-            let scrollPositionAfterCapture: CGFloat
-            if let scrollView = self.findScrollView(in: window) {
-                scrollPositionAfterCapture = scrollView.contentOffset.y
-            } else {
-                scrollPositionAfterCapture = 0
+            let maskPass = self.computeMaskGeometry(window: window)
+            if maskPass.hasNilWindowFrameAmongTargets {
+                completion(nil)
+                return
             }
 
-            let scrollDelta = scrollPositionAfterCapture - scrollPositionBeforeCapture
-            if abs(scrollDelta) > 5.0 {
+            guard maskPass.masksValid else {
                 completion(nil)
+                return
+            }
+
+            let maskRects = maskPass.maskRects
+
+            if maskRects.isEmpty && maskPass.viewsNeedingMaskCount == 0 {
+                if self.config.textAndInputPrivacy == .maskAll || self.config.imagePrivacy == .maskAll {
+                    completion(nil)
+                    return
+                }
+                self.enqueueUnmaskedScreenshotExport(window: window, windowBounds: windowBounds, scale: scale, completion: completion)
                 return
             }
 
@@ -636,6 +589,9 @@ internal class SessionReplayMasker {
         let isTextView = textView != nil
         let isLabel = label != nil
         let isImageView = imageView != nil
+        let isRNText =
+            className == "RCTParagraphComponentView" || // Fabric
+            className == "RCTTextView"                  // Paper
         let isPickerView = view is UIPickerView
         let isWebView = view is WKWebView
 
@@ -665,6 +621,10 @@ internal class SessionReplayMasker {
             textSuggestsPassword = t.contains("password")
         } else if let label = label {
             hasText = !(label.text?.isEmpty ?? true) || !(label.attributedText?.string.isEmpty ?? true)
+            placeholder = nil
+            textSuggestsPassword = false
+        } else if isRNText {
+            hasText = true
             placeholder = nil
             textSuggestsPassword = false
         } else {
@@ -716,6 +676,7 @@ internal class SessionReplayMasker {
             isTextField: isTextField,
             isTextView: isTextView,
             isLabel: isLabel,
+            isRNText: isRNText,
             isImageView: isImageView,
             isPickerView: isPickerView,
             isWebView: isWebView,
@@ -991,7 +952,7 @@ internal class SessionReplayMasker {
                     shouldMask = shouldMaskTextFieldFromSnapshot(snapshot: snapshot)
                 } else if snapshot.isTextView {
                     shouldMask = shouldMaskTextViewFromSnapshot(snapshot: snapshot)
-                } else if snapshot.isLabel {
+                } else if snapshot.isLabel || snapshot.isRNText {
                     shouldMask = snapshot.hasText && shouldMaskLabelFromSnapshot(snapshot: snapshot)
                 } else if snapshot.isPickerView {
                     shouldMask = shouldMaskSpinner()
@@ -1081,7 +1042,7 @@ internal class SessionReplayMasker {
                 }
                 return clamped
             }
-        } else if snapshot.isLabel {
+        } else if snapshot.isLabel || snapshot.isRNText {
             let shouldMask = snapshot.hasText && shouldMaskLabelFromSnapshot(snapshot: snapshot)
             if shouldMask {
                 let clamped = clampRectToBounds(rect: windowFrame, bounds: windowBounds)
