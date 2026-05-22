@@ -7,7 +7,9 @@ import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.MediaType;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.dreamhorizon.pulseserver.constant.Constants;
 import org.dreamhorizon.pulseserver.error.ServiceError;
+import org.dreamhorizon.pulseserver.filter.RequiresPermission;
 import org.dreamhorizon.pulseserver.resources.v1.projects.clickhouse.models.AuditHistoryResponse;
 import org.dreamhorizon.pulseserver.resources.v1.projects.clickhouse.models.AuditLogResponse;
 import org.dreamhorizon.pulseserver.resources.v1.projects.clickhouse.models.CredentialsResponse;
@@ -34,6 +36,7 @@ public class ProjectClickhouseResource {
      */
     @POST
     @Path("/setup")
+    @RequiresPermission(Constants.PERMISSION_SUPERADMIN)
     public CompletionStage<Response<CredentialsResponse>> setupCredentials(
             @PathParam("projectId") String projectId,
             @HeaderParam(HttpHeaders.AUTHORIZATION) String authorization) {
@@ -56,6 +59,7 @@ public class ProjectClickhouseResource {
      * DELETE /v1/projects/{projectId}/clickhouse
      */
     @DELETE
+    @RequiresPermission(Constants.PERMISSION_SUPERADMIN)
     public CompletionStage<Response<Void>> removeCredentials(
             @PathParam("projectId") String projectId,
             @HeaderParam(HttpHeaders.AUTHORIZATION) String authorization) {
@@ -74,6 +78,7 @@ public class ProjectClickhouseResource {
      */
     @POST
     @Path("/rotate")
+    @RequiresPermission(Constants.PERMISSION_SUPERADMIN)
     public CompletionStage<Response<CredentialsResponse>> rotatePassword(
             @PathParam("projectId") String projectId,
             @HeaderParam(HttpHeaders.AUTHORIZATION) String authorization) {
@@ -96,6 +101,7 @@ public class ProjectClickhouseResource {
      * GET /v1/projects/{projectId}/clickhouse
      */
     @GET
+    @RequiresPermission(Constants.PERMISSION_SUPERADMIN)
     public CompletionStage<Response<CredentialsResponse>> getCredentials(
             @PathParam("projectId") String projectId) {
         
@@ -120,6 +126,7 @@ public class ProjectClickhouseResource {
      */
     @GET
     @Path("/audit")
+    @RequiresPermission(Constants.PERMISSION_SUPERADMIN)
     public CompletionStage<Response<AuditHistoryResponse>> getAuditHistory(
             @PathParam("projectId") String projectId) {
         
@@ -148,6 +155,7 @@ public class ProjectClickhouseResource {
      */
     @GET
     @Path("/audit/recent")
+    @RequiresPermission(Constants.PERMISSION_SUPERADMIN)
     public CompletionStage<Response<AuditHistoryResponse>> getRecentAuditLogs(
             @QueryParam("limit") @DefaultValue("50") Integer limit) {
         

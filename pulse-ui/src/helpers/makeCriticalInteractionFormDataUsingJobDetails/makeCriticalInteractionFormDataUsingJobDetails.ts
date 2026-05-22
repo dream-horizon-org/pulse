@@ -14,6 +14,7 @@ export const makeCriticalInteractionFormDataUsingJobDetails = (
   formMethods.setValue("uptimeLowerLimitInMs", jobDetailsResponse.uptimeLowerLimitInMs);
   formMethods.setValue("uptimeUpperLimitInMs", jobDetailsResponse.uptimeUpperLimitInMs);
   formMethods.setValue("uptimeMidLimitInMs", jobDetailsResponse.uptimeMidLimitInMs);
+  formMethods.setValue("thresholdInMs", jobDetailsResponse.thresholdInMs);
   formMethods.setValue("description", jobDetailsResponse.description);
 
   const eventsGlobalBlackListingData: CriticalInteractionFormData["globalBlacklistedEvents"] =

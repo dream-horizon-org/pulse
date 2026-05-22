@@ -94,7 +94,9 @@ describe("InteractionConfigFetcher", () => {
         uptimeLowerLimitInMs: 100,
         uptimeMidLimitInMs: 200,
         uptimeUpperLimitInMs: 300,
-        globalBlacklistedEvents: [{ name: "x", isBlacklisted: true, props: [] }],
+        globalBlacklistedEvents: [
+          { name: "x", isBlacklisted: true, props: [] },
+        ],
       },
     ];
     const fetchFn = vi.fn().mockResolvedValue({
@@ -132,7 +134,10 @@ describe("InteractionConfigFetcher", () => {
     expect(f.getConfigs()).toEqual(VALID_CONFIGS);
   });
 
-  it("refresh timer chains at 30-minute intervals", async () => {
+  it("no periodic refresh — fetch called exactly once at init (Android parity)", async () => {
+    // P34 fix: periodic 30-min refresh was dropped to align with Android which
+    // fetches configs once per session. This prevents in-flight flows being
+    // silently destroyed on config refresh boundaries.
     vi.useFakeTimers();
     const fetchFn = vi.fn().mockResolvedValue({
       ok: true,
@@ -147,9 +152,10 @@ describe("InteractionConfigFetcher", () => {
     await f.init();
     expect(fetchFn).toHaveBeenCalledTimes(1);
 
-    vi.advanceTimersByTime(THIRTY_MIN_MS);
+    // Advance well past the old 30-min interval — no additional fetch should fire.
+    vi.advanceTimersByTime(THIRTY_MIN_MS * 3);
     await Promise.resolve();
-    expect(fetchFn).toHaveBeenCalledTimes(2);
+    expect(fetchFn).toHaveBeenCalledTimes(1);
 
     f.destroy();
     vi.useRealTimers();

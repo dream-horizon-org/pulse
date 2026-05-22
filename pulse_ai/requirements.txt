@@ -5,8 +5,10 @@ uvicorn==0.41.0
 aiosqlite==0.22.1
 asyncpg>=0.30.0
 aiomysql==0.3.2
-sqlalchemy[asyncio]>=2.0
+sqlalchemy[asyncio]==2.0.18
 httpx==0.28.1
+pyahocorasick==2.3.1
+phonenumbers==8.13.52
 # Testing
 pytest==8.3.4
 pytest-asyncio==0.25.3

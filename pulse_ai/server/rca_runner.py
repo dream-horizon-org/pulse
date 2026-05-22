@@ -14,6 +14,7 @@ from pulse_ai.constants import (
     RCA_PIPELINE_TIMEOUT_SECONDS,
     USER_ID_RCA,
 )
+from pulse_ai.output_guard import sanitize_pii
 from pulse_ai.schemas import RootCausePayloadSchema
 from pulse_ai.schemas.rca_structured_v1 import RcaStructuredReportV1
 from pulse_ai.server.schemas import ReportPayloadSchema, RcaReportResponse
@@ -36,6 +37,7 @@ def _build_rca_prompt(
     payload: RootCausePayloadSchema,
     example_session_ids: list[str] | None = None,
     error_attribution_payload: dict[str, Any] | None = None,
+    analysis_lookback_days: int | None = None,
 ) -> str:
     serialized_payload = json.dumps(payload.model_dump(), ensure_ascii=True)
 
@@ -54,11 +56,23 @@ def _build_rca_prompt(
             f"Include in 'affected_sessions' field as an array (e.g., {{'affected_sessions': ['{example_session_ids[0]}']}})"
         )
 
+    lookback_block = ""
+    if analysis_lookback_days is not None and analysis_lookback_days > 0:
+        n = analysis_lookback_days
+        lookback_block = (
+            f"\n## Telemetry lookback\n"
+            f"The tabular RootCausePayload was computed over a server-configured rolling window of **{n}** "
+            f"UTC calendar day(s) (Pulse RCA). In `executive_summary`, segment `insights`, and recommendations, "
+            f"describe recency and time span in a way **consistent with this {n}-day horizon** — do not imply a "
+            f"longer or shorter analysis window.\n"
+        )
+
     return (
         "Generate a root cause analysis report for the given interaction.\n"
         f"Interaction: {interaction_name}\n"
         f"RootCausePayload(JSON): {serialized_payload}"
         f"{attribution_block}"
+        f"{lookback_block}"
         f"{sessions_context}"
     )
 
@@ -113,12 +127,59 @@ async def _run_single_attempt(
         return None
 
 
+def _sanitize_rca_report(report: RcaStructuredReportV1) -> RcaStructuredReportV1:
+    """Apply PII redaction to all free-text fields in a structured RCA report."""
+    sanitized_segments = []
+    for seg in report.segments:
+        sanitized_segments.append(
+            seg.model_copy(update={
+                "title": sanitize_pii(seg.title),
+                "insights": sanitize_pii(seg.insights),
+            })
+        )
+
+    sanitized_insights = None
+    if report.error_attribution_insights is not None:
+        sanitized_insights = [
+            ins.model_copy(update={
+                "summary": sanitize_pii(ins.summary),
+                "caveat": sanitize_pii(ins.caveat),
+            })
+            for ins in report.error_attribution_insights
+        ]
+
+    sanitized_attribution = None
+    if report.error_attribution is not None:
+        sanitized_related = None
+        if report.error_attribution.relatedAttributions is not None:
+            sanitized_related = [
+                entry.model_copy(update={
+                    "title": sanitize_pii(entry.title),
+                    "url": sanitize_pii(entry.url),
+                    "rrUndefinedReason": sanitize_pii(entry.rrUndefinedReason),
+                })
+                for entry in report.error_attribution.relatedAttributions
+            ]
+        sanitized_attribution = report.error_attribution.model_copy(
+            update={"relatedAttributions": sanitized_related}
+        )
+
+    return report.model_copy(update={
+        "executive_summary": sanitize_pii(report.executive_summary),
+        "segments": sanitized_segments,
+        "recommendations": [sanitize_pii(r) for r in report.recommendations],
+        "error_attribution_insights": sanitized_insights,
+        "error_attribution": sanitized_attribution,
+    })
+
+
 async def generate_rca_report(
     runner: Any,
     payload: RootCausePayloadSchema,
     interaction_name: str,
     example_session_ids: list[str] | None = None,
     error_attribution_payload: dict[str, Any] | None = None,
+    analysis_lookback_days: int | None = None,
 ) -> RcaReportResponse:
     """
     Runs the RCA pipeline with retries and returns typed report response.
@@ -138,6 +199,7 @@ async def generate_rca_report(
         payload,
         example_session_ids,
         error_attribution_payload,
+        analysis_lookback_days,
     )
     message = Content.model_validate(
         {"role": "user", "parts": [{"text": prompt}]},
@@ -181,8 +243,11 @@ async def generate_rca_report(
 
     if structured_report is None:
         raise RcaRunnerError(500, "RCA report generation failed after retries")
-
-    report_payload = ReportPayloadSchema(structured=structured_report)
+    structured_report = _sanitize_rca_report(structured_report)
+    report_payload = ReportPayloadSchema(
+        structured=structured_report,
+        analysisLookbackDays=analysis_lookback_days,
+    )
     response = RcaReportResponse(report=report_payload, cached=False)
 
     return response

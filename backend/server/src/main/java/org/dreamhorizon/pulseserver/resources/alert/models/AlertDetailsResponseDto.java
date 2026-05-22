@@ -63,16 +63,8 @@ public class AlertDetailsResponseDto {
   Integer severityId;
 
   @NotNull
-  @JsonProperty("notification_channel_id")
-  Integer notificationChannelId;
-
-  @NotNull
-  @JsonProperty("notification_type")
-  String notificationType;
-
-  @NotNull
-  @JsonProperty("notification_config")
-  String notificationConfig;
+  @JsonProperty("channel_event_mapping_id")
+  Long channelEventMappingId;
 
   @NotNull
   @JsonProperty("created_by")

@@ -9,6 +9,7 @@ import {
   RegionalDataPoint,
 } from "./useGetRegionalInsights.interface";
 import { FILTER_MAPPING } from "../../../../../../../../hooks/hooks.interface";
+import { getRegionName } from "../../../../../../../UserEngagement/utils/region";
 
 export const useGetRegionalInsights = ({
   interactionName,
@@ -51,6 +52,7 @@ export const useGetRegionalInsights = ({
         { function: "INTERACTION_ERROR_COUNT" as const, alias: "error_count" },
         { function: "USER_CATEGORY_POOR" as const, alias: "user_poor" },
         { function: "COL" as const, param: { field: COLUMN_NAME.STATE }, alias: "region" },
+        { function: "CUSTOM" as const, param: { expression: `any(nullIf(${COLUMN_NAME.COUNTRY}, ''))` }, alias: "country_code" },
       ],
       groupBy: ["region"],
       filters: requestFilters,
@@ -82,11 +84,12 @@ export const useGetRegionalInsights = ({
     const errorCountIndex = responseData.fields.indexOf("error_count");
     const userPoorIndex = responseData.fields.indexOf("user_poor");
     const regionIndex = responseData.fields.indexOf("region");
+    const countryIndex = responseData.fields.indexOf("country_code");
 
     // Helper to normalize empty region names to "Unknown"
-    const normalizeRegionName = (value: unknown): string => {
+    const normalizeRegionName = (value: unknown, countryCode?: unknown): string => {
       const region = String(value || "").trim();
-      return region === "" ? "Unknown" : region;
+      return region === "" ? "Unknown" : getRegionName(region, String(countryCode || ""));
     };
 
     const errorRateByRegion = responseData.rows.map((row) => {
@@ -98,7 +101,7 @@ export const useGetRegionalInsights = ({
           ? Number(((errorCount / totalCount) * 100).toFixed(1))
           : 0;
       return {
-        name: normalizeRegionName(row[regionIndex]),
+        name: normalizeRegionName(row[regionIndex], row[countryIndex]),
         value: errorRate,
       };
     });
@@ -110,7 +113,7 @@ export const useGetRegionalInsights = ({
       const poorPercentage =
         totalCount > 0 ? Number(((userPoor / totalCount) * 100).toFixed(2)) : 0;
       return {
-        name: normalizeRegionName(row[regionIndex]),
+        name: normalizeRegionName(row[regionIndex], row[countryIndex]),
         value: poorPercentage,
       };
     });

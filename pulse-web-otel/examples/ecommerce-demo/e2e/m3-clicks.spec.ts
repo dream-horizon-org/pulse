@@ -1,5 +1,6 @@
 /**
  * M3 — Auto click instrumentation (`pulse.type` app.click, OTLP log body app.widget.click).
+ * Smoke paths + manual CLK contract tests (gap-close / strengthen).
  * Default rage buffer defers OTLP until tab hide / pagehide flush (Android parity).
  */
 import type { Page } from "@playwright/test";
@@ -103,10 +104,8 @@ test.describe("@M3 clicks e2e", () => {
     expect(getAttr(log.attributes, "click.type")).toBe("dead");
     expect(getAttr(log.attributes, "app.widget.name")).toBeUndefined();
     expect(getAttr(log.attributes, "app.widget.id")).toBeUndefined();
-    // Same contract floor as good-click: session + screen stamped by GlobalAttributesProcessor.
     expect(getAttr(log.attributes, "session.id")).toBeTruthy();
     expect(getAttr(log.attributes, "screen.name")).toBeTruthy();
-    // Dead-click coords follow MouseEvent clientX/Y (often 0,0 when unset); still numeric on wire.
     expectFiniteNumberAttr(log.attributes, "app.screen.coordinate.x");
     expectFiniteNumberAttr(log.attributes, "app.screen.coordinate.y");
     expectFiniteNumberAttr(log.attributes, "device.screen.width");
@@ -189,5 +188,153 @@ test.describe("@M3 clicks e2e", () => {
     await page.waitForTimeout(400);
 
     expect(findAllLogs(otlp.captured, "app.click")).toHaveLength(0);
+  });
+});
+
+test.describe("@M3 clicks contract", () => {
+  test("CLK-04: app.widget.id from element id buy-now-btn", async ({
+    page,
+    otlp,
+  }) => {
+    await page.goto("/");
+    await otlp.waitForLog("session.start");
+    otlp.reset();
+    await page.locator("#buy-now-btn").click();
+    await flushClickBuffer(page);
+    const log = await otlp.waitForClickLog();
+    expect(getAttr(log.attributes, "app.widget.id")).toBe("buy-now-btn");
+  });
+
+  test("CLK-09: app.click.context from aria-label on target", async ({
+    page,
+    otlp,
+  }) => {
+    await page.goto("/products");
+    await otlp.waitForLog("session.start");
+    await page.waitForSelector('[data-testid="product-card"]');
+    otlp.reset();
+    await page.getByTestId("product-add-to-cart").first().click();
+    await flushClickBuffer(page);
+    const log = await otlp.waitForClickLog();
+    const ctx = getAttr(log.attributes, "app.click.context");
+    expect(typeof ctx).toBe("string");
+    expect(String(ctx)).toContain("label=");
+    expect(String(ctx).toLowerCase()).toContain("add");
+  });
+
+  test("CLK-02: top-left corner click has normalized coords in [0, 0.15]", async ({
+    page,
+    otlp,
+  }) => {
+    await page.goto("/");
+    await otlp.waitForLog("session.start");
+    otlp.reset();
+    await page.evaluate(() => {
+      document.dispatchEvent(
+        new MouseEvent("click", {
+          bubbles: true,
+          cancelable: true,
+          clientX: 4,
+          clientY: 4,
+          view: window,
+        }),
+      );
+    });
+    await flushClickBuffer(page);
+    const log = await otlp.waitForClickLog();
+    const nx = Number(getAttr(log.attributes, "app.screen.coordinate.nx"));
+    const ny = Number(getAttr(log.attributes, "app.screen.coordinate.ny"));
+    expect(nx).toBeGreaterThanOrEqual(0);
+    expect(nx).toBeLessThanOrEqual(0.15);
+    expect(ny).toBeGreaterThanOrEqual(0);
+    expect(ny).toBeLessThanOrEqual(0.15);
+  });
+
+  test("CLK-03: app.widget.name from interactive target (button not bare document)", async ({
+    page,
+    otlp,
+  }) => {
+    await page.goto("/products");
+    await otlp.waitForLog("session.start");
+    await page.waitForSelector('[data-testid="product-card"]');
+    otlp.reset();
+    await page.getByTestId("product-add-to-cart").first().click();
+    await flushClickBuffer(page);
+    const log = await otlp.waitForClickLog();
+    expect(getAttr(log.attributes, "app.widget.name")).toBe("BUTTON");
+    expect(getAttr(log.attributes, "click.type")).toBe("good");
+  });
+
+  test("CLK-08/CLK-23-24: device.screen matches innerWidth/innerHeight", async ({
+    page,
+    otlp,
+  }) => {
+    await page.goto("/");
+    await otlp.waitForLog("session.start");
+    const dims = await page.evaluate(() => ({
+      w: window.innerWidth,
+      h: window.innerHeight,
+    }));
+    otlp.reset();
+    await page.getByRole("link", { name: /shop now/i }).click();
+    await flushClickBuffer(page);
+    const log = await otlp.waitForClickLog();
+    expect(getAttr(log.attributes, "device.screen.width")).toBe(dims.w);
+    expect(getAttr(log.attributes, "device.screen.height")).toBe(dims.h);
+  });
+
+  test("CLK-13-14: coordinate x/y match Math.round client position", async ({
+    page,
+    otlp,
+  }) => {
+    await page.goto("/");
+    await otlp.waitForLog("session.start");
+    otlp.reset();
+    const coords = { x: 120, y: 88 };
+    await page.evaluate((c) => {
+      document.dispatchEvent(
+        new MouseEvent("click", {
+          bubbles: true,
+          cancelable: true,
+          clientX: c.x,
+          clientY: c.y,
+          view: window,
+        }),
+      );
+    }, coords);
+    await flushClickBuffer(page);
+    const log = await otlp.waitForClickLog();
+    expect(getAttr(log.attributes, "app.screen.coordinate.x")).toBe(
+      Math.round(coords.x),
+    );
+    expect(getAttr(log.attributes, "app.screen.coordinate.y")).toBe(
+      Math.round(coords.y),
+    );
+  });
+
+  test("CLK-15-16: normalized_x/y within [0, 1]", async ({ page, otlp }) => {
+    await page.goto("/");
+    await otlp.waitForLog("session.start");
+    otlp.reset();
+    await page.getByRole("link", { name: /shop now/i }).click();
+    await flushClickBuffer(page);
+    const log = await otlp.waitForClickLog();
+    const nx = Number(getAttr(log.attributes, "app.screen.coordinate.nx"));
+    const ny = Number(getAttr(log.attributes, "app.screen.coordinate.ny"));
+    expect(nx).toBeGreaterThanOrEqual(0);
+    expect(nx).toBeLessThanOrEqual(1);
+    expect(ny).toBeGreaterThanOrEqual(0);
+    expect(ny).toBeLessThanOrEqual(1);
+  });
+
+  test("CLK-11: session.id is UUID on click log", async ({ page, otlp }) => {
+    await page.goto("/");
+    await otlp.waitForLog("session.start");
+    otlp.reset();
+    await page.getByRole("link", { name: /shop now/i }).click();
+    await flushClickBuffer(page);
+    const log = await otlp.waitForClickLog();
+    const sid = getAttr(log.attributes, "session.id");
+    expect(sid).toMatch(/^[0-9a-f-]{36}$/i);
   });
 });

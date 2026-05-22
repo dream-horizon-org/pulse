@@ -13,11 +13,13 @@ import io.vertx.rxjava3.ext.web.client.WebClient;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.Collections;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.config.NotificationConfig;
 import org.dreamhorizon.pulseserver.config.NotificationConfig.SlackOAuthConfig;
+import org.dreamhorizon.pulseserver.dao.notification.ChannelEventMappingDao;
 import org.dreamhorizon.pulseserver.dao.notification.NotificationChannelDao;
 import org.dreamhorizon.pulseserver.error.ServiceError;
 import org.dreamhorizon.pulseserver.resources.notification.models.SlackChannelListDto;
@@ -31,6 +33,7 @@ import org.dreamhorizon.pulseserver.vertx.SharedDataUtils;
 public class SlackOAuthService {
 
   private final NotificationChannelDao channelDao;
+  private final ChannelEventMappingDao mappingDao;
   private final WebClient webClient;
   private final ObjectMapper objectMapper;
   private final SlackOAuthConfig config;
@@ -39,15 +42,21 @@ public class SlackOAuthService {
   public SlackOAuthService(
       Vertx vertx,
       NotificationChannelDao channelDao,
+      ChannelEventMappingDao mappingDao,
       WebClient webClient,
       ObjectMapper objectMapper) {
     this.channelDao = channelDao;
+    this.mappingDao = mappingDao;
     this.webClient = webClient;
     this.objectMapper = objectMapper;
     this.config = SharedDataUtils.get(vertx, NotificationConfig.class).getSlackOAuthConfig();
   }
 
   public Single<String> generateInstallUrl(String projectId) {
+    return generateInstallUrl(projectId, null);
+  }
+
+  public Single<String> generateInstallUrl(String projectId, String returnPath) {
     if (!config.isEnabled()) {
       throw ServiceError.INVALID_REQUEST_BODY.getCustomException(
           "Slack OAuth is not configured. Set SLACK_CLIENT_ID and SLACK_CLIENT_SECRET.");
@@ -57,7 +66,7 @@ public class SlackOAuthService {
     url.append("?client_id=").append(encode(config.getClientId()));
     url.append("&scope=").append(encode(config.getScopes()));
     url.append("&redirect_uri=").append(encode(config.getRedirectUri()));
-    url.append("&state=").append(encode(projectId));
+    url.append("&state=").append(encode(buildOAuthState(projectId, returnPath)));
 
     return Single.just(url.toString());
   }
@@ -125,7 +134,7 @@ public class SlackOAuthService {
         : "Slack";
 
     return channelDao
-        .getActiveChannelByType(projectId, ChannelType.SLACK)
+        .getChannelByProjectAndType(projectId, ChannelType.SLACK)
         .flatMapSingle(existingChannel -> {
           NotificationChannel updated = NotificationChannel.builder()
               .name(channelName)
@@ -134,7 +143,14 @@ public class SlackOAuthService {
               .build();
           return channelDao
               .updateChannel(existingChannel.getId(), updated)
-              .flatMap(count -> channelDao.getChannelById(existingChannel.getId()).toSingle());
+              .flatMap(
+                  count ->
+                      mappingDao
+                          .updateMappingsActiveByChannelId(
+                              existingChannel.getId(), projectId, true)
+                          .flatMap(
+                              mappingCount ->
+                                  channelDao.getChannelById(existingChannel.getId()).toSingle()));
         })
         .switchIfEmpty(Single.defer(() -> {
           NotificationChannel newChannel = NotificationChannel.builder()
@@ -215,5 +231,15 @@ public class SlackOAuthService {
 
   private String encode(String value) {
     return URLEncoder.encode(value, StandardCharsets.UTF_8);
+  }
+
+  private String buildOAuthState(String projectId, String returnPath) {
+    if (returnPath == null || returnPath.isBlank()) {
+      return projectId;
+    }
+    String encodedPath = Base64.getUrlEncoder()
+        .withoutPadding()
+        .encodeToString(returnPath.getBytes(StandardCharsets.UTF_8));
+    return projectId + "::" + encodedPath;
   }
 }

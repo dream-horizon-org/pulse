@@ -6,13 +6,17 @@ import io.reactivex.rxjava3.core.Completable;
 import io.reactivex.rxjava3.core.Flowable;
 import io.reactivex.rxjava3.core.Maybe;
 import io.reactivex.rxjava3.core.Single;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.client.chclient.ClickhouseProjectConnectionPoolManager;
 import org.dreamhorizon.pulseserver.dao.tenant.TenantDao;
 import org.dreamhorizon.pulseserver.dao.tenant.models.Tenant;
-import org.dreamhorizon.pulseserver.service.tenant.models.CreateTenantRequest;
+import org.dreamhorizon.pulseserver.dto.request.ReqUserInfo;
 import org.dreamhorizon.pulseserver.error.ServiceError;
+import org.dreamhorizon.pulseserver.service.ProjectService;
+import org.dreamhorizon.pulseserver.service.tenant.dto.TenantWithProjectResult;
+import org.dreamhorizon.pulseserver.service.tenant.models.CreateTenantRequest;
 import org.dreamhorizon.pulseserver.service.tenant.models.UpdateTenantRequest;
 import org.dreamhorizon.pulseserver.service.tier.TierService;
 
@@ -25,6 +29,65 @@ public class TenantService {
   private final ClickhouseProjectConnectionPoolManager poolManager;
   private final org.dreamhorizon.pulseserver.service.OpenFgaService openFgaService;
   private final TierService tierService;
+  private final ProjectService projectService;
+
+  /**
+   * Atomically provisions a tenant + first project in one RxJava chain.
+   * Called by both onboarding and the admin dashboard — neither flow can diverge.
+   *
+   * @param ownerInfo user info for the caller who becomes tenant admin and project admin
+   * @param tenantName display name for the new tenant
+   * @param projectName display name for the first project
+   * @param tenantDescription optional tenant description (may be null)
+   * @param projectDescription optional project description (may be null)
+   * @return result containing tenantId, projectId, and raw API key
+   */
+  public Single<TenantWithProjectResult> createTenantWithProject(
+      ReqUserInfo ownerInfo,
+      String tenantName,
+      String projectName,
+      String tenantDescription,
+      String projectDescription) {
+
+    String tenantId = "tenant-" + UUID.randomUUID().toString();
+    log.info("Creating tenant with project: ownerId={}, tenantId={}, tenantName={}, projectName={}",
+        ownerInfo.getUserId(), tenantId, tenantName, projectName);
+
+    CreateTenantRequest tenantRequest = CreateTenantRequest.builder()
+        .tenantId(tenantId)
+        .name(tenantName)
+        .description(tenantDescription)
+        .gcpTenantId(null)
+        .domainName(null)
+        .build();
+
+    return createTenant(tenantRequest)
+        .flatMap(tenant ->
+            projectService.createProject(tenantId, projectName, projectDescription, ownerInfo)
+                .flatMap(creationResult -> {
+                  if (openFgaService != null && openFgaService.isEnabled()) {
+                    return openFgaService.assignTenantRole(ownerInfo.getUserId(), tenantId, "admin")
+                        .andThen(Single.just(creationResult));
+                  }
+                  return Single.just(creationResult);
+                })
+                .map(creationResult -> {
+                  TenantWithProjectResult result = new TenantWithProjectResult();
+                  result.setTenantId(tenantId);
+                  result.setProjectId(creationResult.getProject().getProjectId());
+                  result.setRawApiKey(creationResult.getRawApiKey());
+                  return result;
+                })
+        )
+        .doOnSuccess(result ->
+            log.info("Tenant with project created: tenantId={}, projectId={}",
+                result.getTenantId(), result.getProjectId())
+        )
+        .doOnError(error ->
+            log.error("Failed to create tenant with project: ownerId={}, tenantName={}",
+                ownerInfo.getUserId(), tenantName, error)
+        );
+  }
 
   public Single<Tenant> createTenant(CreateTenantRequest request) {
     log.info("Creating tenant: {}", request.getTenantId());

@@ -3,10 +3,17 @@ package io.opentelemetry.android.instrumentation.slowrendering
 import kotlin.collections.first
 
 internal object FrameDataHelper {
+    // Guards all access to frameDataEvents and the two running totals below.
+    // Writers run on the FrameMetricsCollector HandlerThread; readers run on
+    // whatever thread ends a span (e.g. OkHttp dispatcher), so iteration must
+    // happen on a snapshot taken under this lock to avoid ConcurrentModificationException.
+    internal val lock = Any()
     internal val frameDataEvents = ArrayDeque<CumulativeFrameData>()
     internal var totalAnalysedFrames: Long = 0
     internal var totalUnanalysedDroppedFrames: Long = 0
     internal const val FRAME_EVENTS_MAX_COUNT = 8000
+
+    internal fun snapshotEvents(): List<CumulativeFrameData> = synchronized(lock) { frameDataEvents.toList() }
 
     internal data class CumulativeFrameData(
         val timeInMs: Long,
@@ -110,7 +117,7 @@ internal object FrameDataHelper {
     internal fun createCumulativeFrameMetric(
         startTimeInMs: Long,
         endTimeInMs: Long,
-        events: List<CumulativeFrameData> = frameDataEvents,
+        events: List<CumulativeFrameData> = snapshotEvents(),
     ): CumulativeFrameData? {
         if (startTimeInMs == endTimeInMs) return null
         if (events.isEmpty()) return null

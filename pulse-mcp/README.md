@@ -1,6 +1,6 @@
 # pulse-mcp
 
-A read-only [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) server for Pulse: it exposes Pulse HTTP APIs as MCP tools so assistants can list projects, query metrics, sessions, alerts, heatmaps, funnels, journeys, events, interactions, custom queries, SDK config, anomaly data, and **App Vitals** (crashes, ANRs, non-fatal issues, issue detail).
+A read-only [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) server for Pulse: it exposes Pulse HTTP APIs as MCP tools so assistants can list projects, inspect metrics, sessions, alerts, heatmaps, funnels, journeys, events, interactions, SDK config, and **App Vitals** (crashes, ANRs, non-fatal issues, issue detail).
 
 Transport: **stdio** (local process). Node **18+** required.
 
@@ -16,7 +16,7 @@ Transport: **stdio** (local process). Node **18+** required.
 | `PULSE_BASE_URL` | Yes | API origin without a trailing slash, e.g. `http://localhost:8080` |
 | `PULSE_API_KEY` | Yes | Personal API key; exchanged for JWTs on startup and on 401 |
 
-On startup, the server calls `POST /v1/auth/api-key/exchange` with body `{ "apiKey": "<PULSE_API_KEY>" }` and writes tokens to **`~/.pulse-mcp/credentials.json`** (mode `0600`). The Axios client sends the access token as `Authorization: Bearer …`. If a request returns **401**, the client **re-exchanges** the same `PULSE_API_KEY` (not the refresh token), overwrites the credentials file, and retries the request once.
+On startup, the server calls `POST /v1/auth/api-key/exchange` with body `{ "apiKey": "<PULSE_API_KEY>" }` and writes tokens to **`~/.pulse-mcp/credentials.json`** (mode `0600`). The Axios client sends the access token as `Authorization: Bearer …`. Tools that send **`user-email`** (e.g. session listing when the JWT includes an **`email`** claim) derive it from that token. If a request returns **401**, the client **re-exchanges** the same `PULSE_API_KEY` (not the refresh token), overwrites the credentials file, and retries the request once.
 
 `PULSE_API_KEY` must remain set in the MCP config: the 401 recovery path needs it.
 

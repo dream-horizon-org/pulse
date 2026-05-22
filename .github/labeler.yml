@@ -26,6 +26,10 @@ docs:
   - changed-files:
       - any-glob-to-any-file: '**/*.md'
 
+web-sdk:
+  - changed-files:
+      - any-glob-to-any-file: 'pulse-web-otel/**'
+
 ci:
   - changed-files:
       - any-glob-to-any-file: '.github/**'

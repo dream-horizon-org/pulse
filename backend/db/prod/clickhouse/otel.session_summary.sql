@@ -23,6 +23,7 @@ ON CLUSTER 'pulse-ch'
     slowInteractionCount SimpleAggregateFunction(sum, UInt64) CODEC(T64, ZSTD(1)),
     frozenFrameCount    SimpleAggregateFunction(sum, Float64) CODEC(ZSTD(1)),
     spanCount           SimpleAggregateFunction(sum, UInt64)  CODEC(T64, ZSTD(1)),
+    startType           SimpleAggregateFunction(any, LowCardinality(String)) CODEC(ZSTD(1)),
 
     INDEX idx_user_id     userId      TYPE bloom_filter(0.01) GRANULARITY 1,
     INDEX idx_start_time  startTime   TYPE minmax             GRANULARITY 1,
@@ -53,6 +54,14 @@ CREATE MATERIALIZED VIEW IF NOT EXISTS otel.session_crash_mv
     `sessionId` String,
     `startTime` DateTime64(9, 'UTC'),
     `endTime` DateTime64(9, 'UTC'),
+    `userId` String,
+    `platform` String,
+    `appVersion` String,
+    `osVersion` String,
+    `deviceModel` String,
+    `networkProvider` String,
+    `geoCountry` String,
+    `geoRegion` String,
     `crashCount` UInt64,
     `anrCount` UInt64,
     `nonFatal` UInt64
@@ -62,6 +71,20 @@ AS SELECT
             SessionId AS sessionId,
             min(Timestamp) AS startTime,
             max(Timestamp) AS endTime,
+            any(UserId) AS userId,
+            any(Platform) AS platform,
+            any(AppVersion) AS appVersion,
+            any(OsVersion) AS osVersion,
+            any(DeviceModel) AS deviceModel,
+            any(coalesce(nullIf(trimBoth(LogAttributes['network.carrier.name']), ''),
+                       nullIf(trimBoth(ResourceAttributes['network.carrier.name']), ''),
+                       '')) AS networkProvider,
+            any(coalesce(nullIf(trimBoth(LogAttributes['geo.country.iso_code']), ''),
+                       nullIf(trimBoth(ResourceAttributes['geo.country.iso_code']), ''),
+                       '')) AS geoCountry,
+            any(coalesce(nullIf(trimBoth(LogAttributes['geo.region.iso_code']), ''),
+                       nullIf(trimBoth(ResourceAttributes['geo.region.iso_code']), ''),
+                       '')) AS geoRegion,
             countIf(PulseType = 'device.crash') AS crashCount,
             countIf(PulseType = 'device.anr') AS anrCount,
             countIf(PulseType = 'non_fatal') AS nonFatal
@@ -93,7 +116,8 @@ CREATE MATERIALIZED VIEW IF NOT EXISTS otel.session_summary_mv
     `interactionErrors` UInt64,
     `slowInteractionCount` UInt64,
     `frozenFrameCount` Float64,
-    `spanCount` UInt64
+    `spanCount` UInt64,
+    `startType` String
 )
 AS SELECT
             ProjectId,
@@ -114,7 +138,8 @@ AS SELECT
             countIf(ifNull(SpanAttributes['pulse.interaction.is_error'], '') = 'true') AS interactionErrors,
             countIf(ifNull(SpanAttributes['pulse.interaction.user_category'], '') = 'Poor') AS slowInteractionCount,
             sum(toFloat64OrZero(SpanAttributes['app.interaction.frozen_frame_count'])) AS frozenFrameCount,
-            count() AS spanCount
+            count() AS spanCount,
+            anyIf(SpanAttributes['start.type'], SpanName = 'AppStart') AS startType
    FROM otel.otel_traces_local
    WHERE SessionId != ''
    GROUP BY

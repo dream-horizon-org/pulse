@@ -4,3 +4,13 @@
  */
 
 export type { OnboardingRequest, OnboardingResponse } from "./onboarding.types";
+export type {
+  ChannelType,
+  ChannelConfig,
+  NotificationChannel,
+  ChannelEventMapping,
+  SlackWorkspaceChannel,
+  EmailChannelConfig,
+  SlackWebhookChannelConfig,
+  SlackChannelConfig,
+} from "./notification.types";

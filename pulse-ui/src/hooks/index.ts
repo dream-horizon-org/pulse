@@ -45,7 +45,8 @@ export * from "./useGetInteractionTime";
 export * from "./useGetInteractions";
 export * from "./useGetJobStatus";
 export * from "./useGetProject";
-export * from "./useGetNotificationChannelById";
+export * from "./useGetNotificationChannels";
+export * from "./useChannelMappings";
 export * from "./useGetProblematicInteractions";
 export * from "./useGetProblematicInteractionsStats";
 export * from "./useGetQueryHistory";
@@ -95,8 +96,8 @@ export * from "./useTenantMembers";
 export * from "./useProjectMembers";
 
 // Project management hooks
+export * from "./useCreateAdminTenant";
 export * from "./useCreateProject";
-export * from "./useCreateTenant";
 export * from "./useProjectApiKeys";
 
 // Auth hooks
@@ -115,3 +116,8 @@ export { FILTER_MAPPING, EVENT_TYPE } from "./hooks.interface";
 
 // Funnel hooks
 export * from "./useGetFunnelData";
+
+// Web Vitals hooks
+export * from "./useWebVitalsSummary";
+export * from "./useWebVitalsTrend";
+export * from "./useWebVitalsByScreen";

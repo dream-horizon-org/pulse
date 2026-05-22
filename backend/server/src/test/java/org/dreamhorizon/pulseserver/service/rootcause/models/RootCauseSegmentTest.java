@@ -360,13 +360,16 @@ class RootCauseSegmentTest {
       List<String> sessions = List.of("session-1");
 
       RootCauseSegment segment =
-          new RootCauseSegment("Android", dimensions, metrics, deltas, sessions);
+          new RootCauseSegment(
+              "Android", dimensions, metrics, deltas, sessions, /* serverRank */ null, null);
 
       assertThat(segment.getLabel()).isEqualTo("Android");
       assertThat(segment.getDimensions()).isEqualTo(dimensions);
       assertThat(segment.getMetrics()).isEqualTo(metrics);
       assertThat(segment.getDeltas()).isEqualTo(deltas);
       assertThat(segment.getExampleSessionIds()).isEqualTo(sessions);
+      assertThat(segment.getServerRank()).isNull();
+      assertThat(segment.getDegradingInteractions()).isNull();
     }
   }
 

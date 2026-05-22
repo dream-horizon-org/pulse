@@ -13,9 +13,7 @@ public class AlertsQuery {
           A.evaluation_period,
           A.evaluation_interval,
           A.severity_id,
-          A.notification_channel_id,
-          NC.type AS notification_type,
-          NC.config AS notification_config,
+          A.channel_event_mapping_id,
           A.created_by,
           A.updated_by,
           A.created_at AS alert_created_at,
@@ -26,8 +24,6 @@ public class AlertsQuery {
           A.snoozed_until
       FROM 
           alerts A
-      LEFT JOIN  
-          notification_channels_old NC ON A.notification_channel_id = NC.notification_channel_id 
       WHERE A.id = ? AND A.is_active = TRUE;""";
 
   public static final String GET_ALERT_SCOPES = """
@@ -82,7 +78,7 @@ public class AlertsQuery {
               A.evaluation_period,
               A.evaluation_interval,
               A.severity_id,
-              A.notification_channel_id,
+              A.channel_event_mapping_id,
               A.created_by,
               A.updated_by,
               A.created_at AS alert_created_at,
@@ -147,7 +143,7 @@ public class AlertsQuery {
           FA.evaluation_period, 
           FA.evaluation_interval, 
           FA.severity_id, 
-          FA.notification_channel_id, 
+          FA.channel_event_mapping_id, 
           FA.created_by, 
           FA.updated_by, 
           FA.alert_created_at, 
@@ -156,13 +152,9 @@ public class AlertsQuery {
           FA.last_snoozed_at, 
           FA.snoozed_from, 
           FA.snoozed_until, 
-          NC.type AS notification_type, 
-          NC.config AS notification_config, 
           (SELECT total_count FROM TotalAlertCount) AS total_count 
       FROM 
           AlertFilterWithLimitAndOffset FA
-      LEFT JOIN 
-          notification_channels_old NC ON FA.notification_channel_id = NC.notification_channel_id 
       """;
 
   public static final String GET_ALL_ALERTS = """
@@ -177,9 +169,7 @@ public class AlertsQuery {
           A.evaluation_period,
           A.evaluation_interval,
           A.severity_id,
-          A.notification_channel_id,
-          NC.type AS notification_type,
-          NC.config AS notification_config,
+          A.channel_event_mapping_id,
           A.created_by,
           A.updated_by,
           A.created_at AS alert_created_at,
@@ -190,8 +180,6 @@ public class AlertsQuery {
           A.snoozed_until
       FROM 
           alerts A
-      LEFT JOIN  
-          notification_channels_old NC ON A.notification_channel_id = NC.notification_channel_id 
       WHERE A.is_active = TRUE;""";
 
   public static final String CREATE_ALERT = "INSERT INTO alerts("
@@ -202,7 +190,7 @@ public class AlertsQuery {
       + "dimension_filter, "
       + "condition_expression, "
       + "severity_id, "
-      + "notification_channel_id, "
+      + "channel_event_mapping_id, "
       + "evaluation_period, "
       + "evaluation_interval, "
       + "created_by) "
@@ -225,7 +213,7 @@ public class AlertsQuery {
       + "dimension_filter = ?, "
       + "condition_expression = ?, "
       + "severity_id = ?, "
-      + "notification_channel_id = ?, "
+      + "channel_event_mapping_id = ?, "
       + "evaluation_period = ?, "
       + "evaluation_interval = ?, "
       + "updated_by = ?, "
@@ -280,7 +268,7 @@ public class AlertsQuery {
       + "dimension_filter, "
       + "condition_expression, "
       + "severity_id, "
-      + "notification_channel_id, "
+      + "channel_event_mapping_id, "
       + "evaluation_period, "
       + "evaluation_interval, "
       + "created_by, "

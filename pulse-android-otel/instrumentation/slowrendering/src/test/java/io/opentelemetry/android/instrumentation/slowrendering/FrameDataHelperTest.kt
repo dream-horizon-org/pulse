@@ -2,6 +2,9 @@ package io.opentelemetry.android.instrumentation.slowrendering
 
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicReference
 
 internal class FrameDataHelperTest {
     @Test
@@ -714,5 +717,78 @@ internal class FrameDataHelperTest {
             )
 
         assertThat(result).isNull()
+    }
+
+    @Test
+    fun `concurrent writes and reads do not throw ConcurrentModificationException`() {
+        // Regression: FrameDataHelper.frameDataEvents was iterated by readers on
+        // arbitrary threads (span-end processors) while the FrameMetrics thread
+        // mutated it, throwing CME. Snapshotting under FrameDataHelper.lock fixes it.
+        synchronized(FrameDataHelper.lock) {
+            FrameDataHelper.frameDataEvents.clear()
+            FrameDataHelper.totalAnalysedFrames = 0
+            FrameDataHelper.totalUnanalysedDroppedFrames = 0
+        }
+
+        val durationMs = 750L
+        val deadline = System.currentTimeMillis() + durationMs
+        val failure = AtomicReference<Throwable?>(null)
+        val started = CountDownLatch(2)
+
+        val writer =
+            Thread {
+                started.countDown()
+                var t = 0L
+                while (System.currentTimeMillis() < deadline && failure.get() == null) {
+                    try {
+                        synchronized(FrameDataHelper.lock) {
+                            if (FrameDataHelper.frameDataEvents.size > FrameDataHelper.FRAME_EVENTS_MAX_COUNT) {
+                                FrameDataHelper.frameDataEvents.removeFirst()
+                            }
+                            val last = FrameDataHelper.frameDataEvents.lastOrNull()
+                            FrameDataHelper.frameDataEvents.add(
+                                FrameDataHelper.CumulativeFrameData(
+                                    timeInMs = t++,
+                                    analysedFrameCount = (last?.analysedFrameCount ?: 0) + 1,
+                                    unanalysedFrameCount = last?.unanalysedFrameCount ?: 0,
+                                    slowFrameCount = last?.slowFrameCount ?: 0,
+                                    frozenFrameCount = last?.frozenFrameCount ?: 0,
+                                ),
+                            )
+                        }
+                    } catch (e: Throwable) {
+                        failure.compareAndSet(null, e)
+                    }
+                }
+            }
+
+        val reader =
+            Thread {
+                started.countDown()
+                while (System.currentTimeMillis() < deadline && failure.get() == null) {
+                    try {
+                        FrameDataHelper.createCumulativeFrameMetric(
+                            startTimeInMs = 0,
+                            endTimeInMs = Long.MAX_VALUE,
+                        )
+                    } catch (e: Throwable) {
+                        failure.compareAndSet(null, e)
+                    }
+                }
+            }
+
+        writer.start()
+        reader.start()
+        started.await(2, TimeUnit.SECONDS)
+        writer.join(durationMs + 2000)
+        reader.join(durationMs + 2000)
+
+        synchronized(FrameDataHelper.lock) {
+            FrameDataHelper.frameDataEvents.clear()
+            FrameDataHelper.totalAnalysedFrames = 0
+            FrameDataHelper.totalUnanalysedDroppedFrames = 0
+        }
+
+        assertThat(failure.get()).isNull()
     }
 }
