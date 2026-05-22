@@ -18,8 +18,7 @@ src/pulse-rum/                    # or pulse-web-rum/
 ├── pulseRumProvider.tsx          # PulseProvider + optional user sync
 ├── pulseRumAnalytics.ts          # trackPulseEvent, setUserId wrappers
 ├── pulseEventContext.ts          # auto project_id / tenant_id on events
-├── pulseRumConstants.ts          # cookie keys / nav slugs (avoid circular imports)
-└── PULSE_UI_INTERACTIONS.md      # trackEvent ↔ MySQL seed contract (optional)
+└── pulseRumConstants.ts          # cookie keys / nav slugs (avoid circular imports)
 ```
 
 ## Env var naming by bundler

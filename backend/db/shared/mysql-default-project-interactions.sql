@@ -9,7 +9,7 @@
 --   interaction_id 201..554 etc. — Next.js demo E2E mirrors; matches
 --   pulse-web-otel/examples/nextjs-demo/e2e/nextjs-demo.spec.ts
 --   interaction_id 600..610 — pulse-ui RUM custom events (Pulse.trackEvent);
---   see pulse-ui/src/pulse-web-rum/PULSE_UI_INTERACTIONS.md
+--   see pulse-ui/src/pulse-web-rum/
 -- ============================================================================
 
 INSERT INTO interaction (interaction_id, project_id, name, status, details, is_archived, created_by, updated_by)

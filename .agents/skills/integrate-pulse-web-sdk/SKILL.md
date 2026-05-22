@@ -184,7 +184,7 @@ Pulse.trackEvent("checkout_started", { cart_items: 3 });
 - Avoid importing heavy app `constants` barrels from RUM helpers (circular deps) — use a tiny local constants file.
 - Fire `*_loaded` events once per screen visit for interaction configs.
 
-See `pulse-ui/src/pulse-web-rum/` and `pulse-ui/src/pulse-web-rum/PULSE_UI_INTERACTIONS.md`.
+See `pulse-ui/src/pulse-web-rum/`.
 
 ---
 
