@@ -16,7 +16,6 @@ import org.dreamhorizon.pulseserver.model.QueryConfiguration;
 import org.dreamhorizon.pulseserver.model.QueryResultResponse;
 import org.dreamhorizon.pulseserver.resources.session.models.ImpactedInteractionsRow;
 import org.dreamhorizon.pulseserver.resources.session.models.ImpactedScreensRow;
-import org.dreamhorizon.pulseserver.resources.session.models.JourneyRow;
 import org.dreamhorizon.pulseserver.resources.session.models.AdvancedFilterGroup;
 import org.dreamhorizon.pulseserver.resources.session.models.FilterConditionRequest;
 import org.dreamhorizon.pulseserver.resources.session.models.FiltersRequest;
@@ -130,7 +129,7 @@ class SessionListingServiceTest {
     }
 
     @Test
-    void shouldReturnSessionsWithJourneyScreensAndImpactedInteractions() {
+    void shouldReturnSessionsWithImpactedScreensAndInteractions() {
       SessionListingRequest request = minimalRequest();
 
       SessionRow row1 = SessionRow.builder()
@@ -153,16 +152,6 @@ class SessionListingServiceTest {
       QueryResultResponse<SessionRow> listingResponse =
           QueryResultResponse.<SessionRow>builder()
               .rows(List.of(row1))
-              .jobComplete(true)
-              .build();
-
-      JourneyRow journeyRow = JourneyRow.builder()
-          .sessionId("s1")
-          .journey("ScreenA|||ScreenB|||ScreenC")
-          .build();
-      QueryResultResponse<JourneyRow> journeyResponse =
-          QueryResultResponse.<JourneyRow>builder()
-              .rows(List.of(journeyRow))
               .jobComplete(true)
               .build();
 
@@ -190,8 +179,6 @@ class SessionListingServiceTest {
 
       when(clickhouseQueryService.executeQueryOrCreateJob(any(QueryConfiguration.class), eq(SessionRow.class)))
           .thenReturn(Single.just(listingResponse));
-      when(clickhouseQueryService.executeQueryOrCreateJob(any(QueryConfiguration.class), eq(JourneyRow.class)))
-          .thenReturn(Single.just(journeyResponse));
       when(clickhouseQueryService.executeQueryOrCreateJob(any(QueryConfiguration.class), eq(ImpactedScreensRow.class)))
           .thenReturn(Single.just(screensResponse));
       when(clickhouseQueryService.executeQueryOrCreateJob(any(QueryConfiguration.class), eq(ImpactedInteractionsRow.class)))
@@ -203,7 +190,7 @@ class SessionListingServiceTest {
       assertThat(result.getSessions()).hasSize(1);
       SessionListingResponse.SessionItem item = result.getSessions().get(0);
       assertThat(item.getSessionId()).isEqualTo("s1");
-      assertThat(item.getJourney()).containsExactly("ScreenA", "ScreenB", "ScreenC");
+      assertThat(item.getJourney()).isEmpty();
       assertThat(item.getImpactedScreens()).containsKeys("crashes", "nonFatals");
       assertThat(item.getImpactedScreens().get("crashes")).containsExactly("CrashScreen");
       assertThat(item.getImpactedScreens().get("nonFatals")).containsExactly("NonFatal1", "NonFatal2");
@@ -264,15 +251,8 @@ class SessionListingServiceTest {
               .rows(elevenRows)
               .jobComplete(true)
               .build();
-      List<JourneyRow> journeyRows = new java.util.ArrayList<>();
-      for (int i = 1; i <= 10; i++) {
-        journeyRows.add(JourneyRow.builder().sessionId("s" + i).journey("A").build());
-      }
       when(clickhouseQueryService.executeQueryOrCreateJob(any(QueryConfiguration.class), eq(SessionRow.class)))
           .thenReturn(Single.just(listingResponse));
-      when(clickhouseQueryService.executeQueryOrCreateJob(any(QueryConfiguration.class), eq(JourneyRow.class)))
-          .thenReturn(Single.just(QueryResultResponse.<JourneyRow>builder()
-              .rows(journeyRows).jobComplete(true).build()));
       when(clickhouseQueryService.executeQueryOrCreateJob(any(QueryConfiguration.class), eq(ImpactedScreensRow.class)))
           .thenReturn(Single.just(QueryResultResponse.<ImpactedScreensRow>builder()
               .rows(Collections.emptyList()).jobComplete(true).build()));
@@ -310,9 +290,6 @@ class SessionListingServiceTest {
       when(clickhouseQueryService.executeQueryOrCreateJob(any(QueryConfiguration.class), eq(SessionRow.class)))
           .thenReturn(Single.just(QueryResultResponse.<SessionRow>builder()
               .rows(List.of(row)).jobComplete(true).build()));
-      when(clickhouseQueryService.executeQueryOrCreateJob(any(QueryConfiguration.class), eq(JourneyRow.class)))
-          .thenReturn(Single.just(QueryResultResponse.<JourneyRow>builder()
-              .rows(Collections.emptyList()).jobComplete(true).build()));
       when(clickhouseQueryService.executeQueryOrCreateJob(any(QueryConfiguration.class), eq(ImpactedScreensRow.class)))
           .thenReturn(Single.just(QueryResultResponse.<ImpactedScreensRow>builder()
               .rows(Collections.emptyList()).jobComplete(true).build()));
@@ -417,9 +394,6 @@ class SessionListingServiceTest {
           .build();
       when(clickhouseQueryService.executeQueryOrCreateJob(any(QueryConfiguration.class), eq(SessionRow.class)))
           .thenReturn(Single.just(QueryResultResponse.<SessionRow>builder().rows(List.of(row)).jobComplete(true).build()));
-      when(clickhouseQueryService.executeQueryOrCreateJob(any(QueryConfiguration.class), eq(JourneyRow.class)))
-          .thenReturn(Single.just(QueryResultResponse.<JourneyRow>builder()
-              .rows(List.of(JourneyRow.builder().sessionId("s1").journey("").build())).jobComplete(true).build()));
       when(clickhouseQueryService.executeQueryOrCreateJob(any(QueryConfiguration.class), eq(ImpactedScreensRow.class)))
           .thenReturn(Single.just(QueryResultResponse.<ImpactedScreensRow>builder()
               .rows(List.of(screensRow)).jobComplete(true).build()));
