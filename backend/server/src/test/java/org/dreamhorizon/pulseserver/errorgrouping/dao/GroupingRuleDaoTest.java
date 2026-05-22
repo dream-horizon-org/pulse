@@ -84,8 +84,9 @@ class GroupingRuleDaoTest {
     Row r2 = mockRow(2L, "p1", "MASK_REGEX", "[0-9]+", "<NUM>", 1, true);
     Row r3 = mockRow(3L, "p1", "STRIP_PATTERN", "synthetic", null, 2, true);
     List<Row> rows = List.of(r1, r2, r3);
+    RowIterator<Row> it = rowIterator(rows);
     when(rowSet.size()).thenReturn(rows.size());
-    when(rowSet.iterator()).thenReturn(rowIterator(rows));
+    when(rowSet.iterator()).thenReturn(it);
     // Allow enhanced-for loop iteration via Iterable contract.
     when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
 
@@ -146,8 +147,9 @@ class GroupingRuleDaoTest {
     Row withReplacement = mockRow(10L, "p1", "MASK_REGEX", "0x[a-f0-9]+", "<HEX>", 5, true);
     Row nullReplacement = mockRow(11L, "p1", "IN_APP_PACKAGE", "com.foo.", null, 6, true);
     List<Row> rows = List.of(withReplacement, nullReplacement);
+    RowIterator<Row> it = rowIterator(rows);
     when(rowSet.size()).thenReturn(rows.size());
-    when(rowSet.iterator()).thenReturn(rowIterator(rows));
+    when(rowSet.iterator()).thenReturn(it);
     when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
 
     List<GroupingRuleRow> result = dao.loadRulesForProject("p1").blockingGet();

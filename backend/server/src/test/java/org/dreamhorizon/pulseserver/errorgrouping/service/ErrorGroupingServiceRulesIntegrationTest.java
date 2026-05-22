@@ -61,6 +61,18 @@ class ErrorGroupingServiceRulesIntegrationTest {
           List<Frame> frames = invocation.getArgument(0);
           return Single.just(frames.stream().map(Frame::getToken).toList());
         });
+    lenient().when(symbolicator.symbolicateJsInPlace(anyList(), any(EventMeta.class)))
+        .thenAnswer(invocation -> {
+          @SuppressWarnings("unchecked")
+          List<Frame> frames = invocation.getArgument(0);
+          return Single.just(frames.stream().map(Frame::getToken).toList());
+        });
+    lenient().when(symbolicator.retrace(anyList(), any(EventMeta.class)))
+        .thenAnswer(invocation -> {
+          @SuppressWarnings("unchecked")
+          List<Frame> frames = invocation.getArgument(0);
+          return Single.just(frames.stream().map(Frame::getToken).toList());
+        });
     service = new ErrorGroupingService(
         clickhouseQueryService,
         stackTraceArchiveService,

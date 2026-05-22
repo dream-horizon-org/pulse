@@ -543,12 +543,15 @@ class ErrorGroupingServiceTest {
   @Nested
   class SelectPrimaryTokensTests {
     @Test
-    void shouldSelectTopNInAppFrames() {
+    void shouldSelectTopNFramesInOriginalOrderUnderLegacyFallback() {
+      // Legacy Grouper.selectPrimaryTokens classifies with empty rules, so every
+      // frame becomes FRAMEWORK and the selector falls back to the first topN
+      // by original stack position (the inApp flag no longer influences this).
       List<JsFrame> frames = List.of(
-          createJsFrame(0, true),   // in-app
-          createJsFrame(1, false),  // not in-app
-          createJsFrame(2, true),   // in-app
-          createJsFrame(3, true)    // in-app
+          createJsFrame(0, true),
+          createJsFrame(1, false),
+          createJsFrame(2, true),
+          createJsFrame(3, true)
       );
       ParsedFrames parsed = ParsedFrames.builder()
           .jsFrames(frames)
@@ -557,10 +560,8 @@ class ErrorGroupingServiceTest {
       List<Frame> result = Grouper.selectPrimaryTokens(parsed, Lane.JS, 2);
 
       assertEquals(2, result.size());
-      assertTrue(result.get(0).isInApp());
-      assertTrue(result.get(1).isInApp());
       assertEquals(0, result.get(0).getOriginalPosition());
-      assertEquals(2, result.get(1).getOriginalPosition());
+      assertEquals(1, result.get(1).getOriginalPosition());
     }
 
     @Test
@@ -679,7 +680,7 @@ class ErrorGroupingServiceTest {
 
       String result = Grouper.buildSignature(platform, excTypes, tokens);
 
-      assertEquals("v2|platform:js|exc:Error>TypeError|frames:func1@file1:10:5>func2@file2:20:10", result);
+      assertEquals("v2|platform:js|exc:Error>TypeError|frames:func1@file1:10:5>func2@file2:20:10|msg:", result);
     }
 
     @Test
@@ -690,7 +691,7 @@ class ErrorGroupingServiceTest {
 
       String result = Grouper.buildSignature(platform, excTypes, tokens);
 
-      assertEquals("v2|platform:java|exc:|frames:Class.method(File.java:10)", result);
+      assertEquals("v2|platform:java|exc:|frames:Class.method(File.java:10)|msg:", result);
     }
 
     @Test
@@ -701,7 +702,7 @@ class ErrorGroupingServiceTest {
 
       String result = Grouper.buildSignature(platform, excTypes, tokens);
 
-      assertEquals("v2|platform:ndk|exc:SIGSEGV|frames:", result);
+      assertEquals("v2|platform:ndk|exc:SIGSEGV|frames:|msg:", result);
     }
 
     @Test
@@ -712,7 +713,7 @@ class ErrorGroupingServiceTest {
 
       String result = Grouper.buildSignature(platform, excTypes, tokens);
 
-      assertEquals("v2|platform:js|exc:Error|frames:main@index.js:1:1", result);
+      assertEquals("v2|platform:js|exc:Error|frames:main@index.js:1:1|msg:", result);
     }
   }
 

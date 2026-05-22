@@ -38,21 +38,23 @@ public class GroupingRuleDao {
    * {@code GroupingRules.empty()}.</p>
    */
   public Single<List<GroupingRuleRow>> loadRulesForProject(String projectId) {
-    MySQLPool pool = mysqlClient.getReaderPool();
-    return pool.preparedQuery(GET_RULES_FOR_PROJECT)
-        .rxExecute(Tuple.of(projectId))
-        .map(rowSet -> {
-          if (rowSet.size() == 0) {
-            return Collections.<GroupingRuleRow>emptyList();
-          }
-          List<GroupingRuleRow> rows = new ArrayList<>(rowSet.size());
-          for (Row row : rowSet) {
-            rows.add(toRow(row));
-          }
-          return rows;
-        })
-        .doOnError(error ->
-            log.error("Failed to load grouping rules: projectId={}", projectId, error));
+    return Single.defer(() -> {
+      MySQLPool pool = mysqlClient.getReaderPool();
+      return pool.preparedQuery(GET_RULES_FOR_PROJECT)
+          .rxExecute(Tuple.of(projectId))
+          .map(rowSet -> {
+            if (rowSet.size() == 0) {
+              return Collections.<GroupingRuleRow>emptyList();
+            }
+            List<GroupingRuleRow> rows = new ArrayList<>(rowSet.size());
+            for (Row row : rowSet) {
+              rows.add(toRow(row));
+            }
+            return rows;
+          })
+          .doOnError(error ->
+              log.error("Failed to load grouping rules: projectId={}", projectId, error));
+    });
   }
 
   private GroupingRuleRow toRow(Row row) {
