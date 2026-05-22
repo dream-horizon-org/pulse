@@ -1,4 +1,5 @@
 import { useEffect, type FC } from "react";
+import { flushPendingPulseEvents } from "./pulseRumBridge";
 import {
   flushPulseUserIdentityWhenReady,
   syncPulseUserIdentityFromCookies,
@@ -13,6 +14,7 @@ export const PulseRumUserSync: FC = () => {
   useEffect(() => {
     syncPulseUserIdentityFromCookies();
     void flushPulseUserIdentityWhenReady();
+    void flushPendingPulseEvents();
   }, []);
 
   return null;

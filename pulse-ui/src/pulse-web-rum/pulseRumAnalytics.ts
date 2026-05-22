@@ -1,5 +1,6 @@
 import { Pulse } from "@dreamhorizonorg/pulse-web";
 import { getCookies } from "../helpers/cookies";
+import { forwardPulseCustomEvent } from "./pulseRumBridge";
 import { isPulseRumEnabled } from "./pulseRumConfig";
 import {
   withPulseEventContext,
@@ -8,6 +9,13 @@ import {
 import { PULSE_NAV_ROUTES, PULSE_RUM_COOKIE_KEYS } from "./pulseRumConstants";
 
 export type { PulseEventAttributes } from "./pulseEventContext";
+
+export function trackPulseEvent(
+  name: string,
+  attrs?: PulseEventAttributes,
+): void {
+  forwardPulseCustomEvent(name, attrs);
+}
 
 /** Stable slugs for interaction step configs (nav click → screen loaded). */
 const NAV_ROUTE_DESTINATIONS: Record<string, string> = {
@@ -38,7 +46,7 @@ export type PulseUserIdentity = {
 let pendingIdentity: PulseUserIdentity | null = null;
 let identityFlushInFlight: Promise<void> | null = null;
 
-function sanitizeAttributes(
+function sanitizeNavAttributes(
   attrs?: PulseEventAttributes,
 ): Record<string, string | number | boolean> | undefined {
   if (!attrs) return undefined;
@@ -109,10 +117,15 @@ export function flushPulseUserIdentityWhenReady(): Promise<void> {
 /** Navbar journey step — pair with a matching `*_loaded` event on the destination screen. */
 export function trackNavItemClicked(routeTo: string, navLabel?: string): void {
   if (!isPulseRumEnabled() || !Pulse.isInitialized()) return;
-  Pulse.trackEvent("nav_item_clicked", sanitizeAttributes(withPulseEventContext({
-    destination: NAV_ROUTE_DESTINATIONS[routeTo] ?? routeTo,
-    nav_label: navLabel,
-  })));
+  Pulse.trackEvent(
+    "nav_item_clicked",
+    sanitizeNavAttributes(
+      withPulseEventContext({
+        destination: NAV_ROUTE_DESTINATIONS[routeTo] ?? routeTo,
+        nav_label: navLabel,
+      }),
+    ),
+  );
 }
 
 export function syncPulseUserIdentity(identity: PulseUserIdentity): void {
