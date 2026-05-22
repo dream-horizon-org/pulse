@@ -88,7 +88,7 @@ export function CrashMetricsStats({
           function: "CUSTOM",
           param: {
             expression:
-              `uniqCombined64If(nullIf(${COLUMN_NAME.USER_ID}, ''), PulseType = 'device.crash')`,
+              `uniqCombined64If(nullIf(${COLUMN_NAME.INSTALLATION_ID}, ''), PulseType = 'device.crash')`,
           },
           alias: "crash_users",
         },
