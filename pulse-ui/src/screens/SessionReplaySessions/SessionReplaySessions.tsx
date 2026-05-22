@@ -25,7 +25,6 @@ import { AdvancedFilterBuilder } from "./components/AdvancedFilterBuilder";
 import { SessionsTableToolbar } from "./components/SessionsTableToolbar";
 import { SessionsVirtualList } from "./components/SessionsVirtualList";
 
-
 export function SessionReplaySessions() {
   const { trackClick } = useAnalytics("SessionReplaySessions");
   const navigate = useNavigate();
@@ -203,7 +202,6 @@ export function SessionReplaySessions() {
 
   const handleWatchSession = (sessionId: string) => {
     trackClick(`WatchSession_${sessionId}`);
-
     navigate(`${sessionReplayBase}/${sessionId}`);
   };
 

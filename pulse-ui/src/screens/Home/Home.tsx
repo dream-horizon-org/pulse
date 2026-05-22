@@ -19,14 +19,12 @@ import { useAnalytics } from "../../hooks/useAnalytics";
 import { useProjectContext } from "../../contexts";
 import { ROUTES } from "../../constants";
 
-
 dayjs.extend(utc);
 
 export function Home(_props: HomeProps) {
   const navigate = useNavigate();
   const { trackClick } = useAnalytics("Home");
   const { projectId } = useProjectContext();
-
 
   const quickLinks: QuickLink[] = [
     {

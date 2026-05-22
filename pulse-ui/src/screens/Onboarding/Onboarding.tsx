@@ -29,7 +29,6 @@ import { LoaderWithMessage } from "../../components/LoaderWithMessage";
 import { useMantineTheme } from "@mantine/core";
 import { useTenantContext, useProjectContext } from "../../contexts";
 
-
 interface OnboardingUserData {
   userId: string;
   email: string;
@@ -129,8 +128,6 @@ export function Onboarding() {
             // Clear sessionStorage
             sessionStorage.removeItem("onboarding_user");
             sessionStorage.removeItem("firebase_token");
-
-
 
             // Use navigateToProject to fetch full details and navigate
             if (data.projectId) {

@@ -28,7 +28,6 @@ import classes from "./OrganizationProjects.module.css";
 import { TIERS } from "../../constants/Tiers";
 import { TENANT_ROLES } from "../../constants/Roles";
 
-
 export function OrganizationProjects() {
   const { organizationId } = useParams<{ organizationId: string }>();
   const location = useLocation();
@@ -54,7 +53,6 @@ export function OrganizationProjects() {
           setError("Project not found");
           return;
         }
-
         await navigateToProject(selectedProjectId);
       } catch (err) {
         setError("Failed to switch to project");

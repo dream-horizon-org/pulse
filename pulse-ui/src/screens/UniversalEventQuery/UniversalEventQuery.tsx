@@ -45,7 +45,6 @@ import { logEvent } from "../../helpers/googleAnalytics";
 import { QueryHistory } from "./components/QueryHistory";
 import { SuggestedQueries } from "./components/SuggestedQueries";
 
-
 export const UniversalEventQuery = () => {
   const editorRef = useRef<any>(null);
   const [queryRequestId, setQueryRequestId] = useState<string | null>(null);
@@ -314,7 +313,6 @@ export const UniversalEventQuery = () => {
     setIsRunningQuery(true);
     runQuery({ query, emailId: `${getCookies(COOKIES_KEY.USER_EMAIL)}` });
     logEvent(UNIVERSAL_QUERY_TEXTS.EXECUTE_QUERY, UNIVERSAL_QUERY_TEXTS.TITLE);
-
   };
 
   const fetchMoreData = () => {

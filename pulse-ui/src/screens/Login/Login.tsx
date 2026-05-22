@@ -32,7 +32,6 @@ import { logEvent } from "../../helpers/googleAnalytics";
 import { useLogin } from "../../hooks";
 import { useTenantContext } from "../../contexts";
 
-
 export function Login() {
   const navigate = useNavigate();
   const theme = useMantineTheme();
@@ -116,8 +115,6 @@ export function Login() {
       const redirectPath = data.redirectTo || `/${data.tenantId}/projects`;
       navigate(redirectPath);
     }
-
-
   };
 
   const onFirebaseGoogleLogin = async () => {

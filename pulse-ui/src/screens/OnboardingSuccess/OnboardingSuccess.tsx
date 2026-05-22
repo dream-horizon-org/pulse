@@ -42,8 +42,6 @@ import {
 } from "../../constants/Roles";
 import classes from "./OnboardingSuccess.module.css";
 
-
-
 export function OnboardingSuccess() {
   const { projectId: urlProjectId } = useParams<{ projectId: string }>();
   const location = useLocation();
@@ -77,7 +75,6 @@ export function OnboardingSuccess() {
   );
 
   const projectApiKey = apiKeyData?.key || locationState.projectApiKey || null;
-
 
   // React Query hook for inviting members
   const inviteMutation = useInviteProjectMember();
@@ -229,7 +226,6 @@ export function OnboardingSuccess() {
 
   const handleGoToDashboard = () => {
     if (!projectId) return;
-
     navigate(
       ROUTES.PROJECT_DASHBOARD.basePath.replace(":projectId", projectId),
     );

@@ -59,7 +59,6 @@ import dayjs from "dayjs";
 import { useAnalytics } from "../../hooks/useAnalytics";
 import { useProjectContext } from "../../contexts";
 
-
 interface InteractionMetrics {
   interactionName: string;
   apdex: number;
@@ -171,7 +170,6 @@ export function CriticalInteractionList() {
     }
     wasFetchingRef.current = isFetching;
   }, [isFetching, isLoadingMore]);
-
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const fetchInteractionsList = useCallback(debounce(refetch, 300), []);

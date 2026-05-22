@@ -18,7 +18,6 @@ import { ROUTES } from "../../constants";
 import { useCreateProject } from "../../hooks";
 import { PROJECT_ROLES } from "../../constants/Roles";
 
-
 export function CreateProject() {
   const navigate = useNavigate();
   const { tenantId, addProject } = useTenantContext();
@@ -74,7 +73,6 @@ export function CreateProject() {
               <IconFolder />,
               "#0ec9c2",
             );
-
 
             // Use navigateToProject to fetch full details and navigate
             await navigateToProject(projectData.projectId);

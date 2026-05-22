@@ -6,7 +6,6 @@ import type { AiChartConfig, AiTableConfig } from "../../types/chat";
 import { ChatMessage } from "../../types/chat";
 import { AI_CHAT_TEXTS, AI_CHAT_LIMITS } from "../../AiChat.constants";
 
-
 /** Characters displayed per animation tick — controls typewriter speed. */
 const TYPEWRITER_CHARS_PER_TICK = 4;
 /** Milliseconds between animation ticks — 16ms ≈ 60 fps. */
@@ -120,7 +119,6 @@ export const useHandleSend = () => {
         timestamp: Date.now(),
       };
       addMessage(activeSessionId, userMsg);
-
 
       if (
         sessions.find((s) => s.id === activeSessionId)?.title ===

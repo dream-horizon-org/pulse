@@ -53,7 +53,6 @@ import { useGetJobStatus } from "../../hooks/useGetJobStatus";
 import { useGetInteractionDetails } from "../../hooks/useGetInteractionDetails";
 import { logEvent } from "../../helpers/googleAnalytics";
 
-
 export function CriticalInteractionForm() {
   const theme = useMantineTheme();
   const navigate = useNavigate();
@@ -198,7 +197,6 @@ export function CriticalInteractionForm() {
         <IconCircleCheckFilled />,
         theme.colors.teal[6],
       );
-
       navigateToCriticalInteractionListingPage();
       setUpdateFlowStarted(false);
     },
@@ -336,7 +334,6 @@ export function CriticalInteractionForm() {
       <IconCircleCheckFilled />,
       theme.colors.teal[6],
     );
-
     navigateToCriticalInteractionListingPage();
   };
 
