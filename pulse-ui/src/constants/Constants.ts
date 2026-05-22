@@ -1503,6 +1503,14 @@ export const LOGIN_METHODS = {
 
 export type LoginMethod = (typeof LOGIN_METHODS)[keyof typeof LOGIN_METHODS];
 
+export const PROJECT_SELECT_SOURCES = {
+  MANUAL: "manual",
+  AUTO_SELECT: "auto_select",
+} as const;
+
+export type ProjectSelectSource =
+  (typeof PROJECT_SELECT_SOURCES)[keyof typeof PROJECT_SELECT_SOURCES];
+
 export const MULTI_TENANT_CONSTANTS = {
   BADGE_LABEL: "Multi-tenant",
   TENANT_LABEL: "Organization",
