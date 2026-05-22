@@ -7,6 +7,7 @@ asyncpg>=0.30.0
 aiomysql==0.3.2
 sqlalchemy[asyncio]==2.0.18
 httpx==0.28.1
+clickhouse-connect==0.8.15
 pyahocorasick==2.3.1
 phonenumbers==8.13.52
 # Testing
