@@ -6,7 +6,6 @@ import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SparkSession;
 import org.apache.spark.sql.expressions.Window;
 import org.apache.spark.sql.types.DataTypes;
-import org.dreamhorizon.pulsespark.model.FunnelFilter;
 import org.dreamhorizon.pulsespark.model.JourneyDefinition;
 import org.dreamhorizon.pulsespark.model.JourneyTransition;
 import org.slf4j.Logger;
@@ -18,8 +17,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
-
 import static org.apache.spark.sql.functions.*;
 
 public class JourneyComputeJob {
@@ -27,7 +24,7 @@ public class JourneyComputeJob {
     private static final Logger log = LoggerFactory.getLogger(JourneyComputeJob.class);
 
     public static void runJourneys(SparkSession spark, MysqlRepository mysql, ClickHouseClient ch,
-                                    Long referenceId, String s3BucketPrefix, String runTime) throws Exception {
+                                    Long referenceId, String otelLogsBucket, String runTime) throws Exception {
         List<JourneyDefinition> journeys = mysql.fetchJourneys(referenceId);
         if (journeys.isEmpty()) {
             log.info("No journeys to process");
@@ -42,16 +39,15 @@ public class JourneyComputeJob {
             }
             var startDt = journey.startTime().toLocalDateTime();
             var endDt   = journey.endTime().toLocalDateTime();
-            var s3Base  = "s3a://" + s3BucketPrefix + journey.projectId() + "/vector-logs/";
+            var s3Base  = SparkConstants.OtelLogsS3.basePath(otelLogsBucket, journey.projectId());
 
             log.info("Journey {} window [{} -> {}]", journey.id(), startDt, endDt);
-            Set<String> propKeys = FunnelFilterPropKeys.collectFromJourney(journey);
-            Dataset<Row> raw = FunnelComputeJob.readS3ByHours(spark, s3Base, startDt, endDt, propKeys);
+            Dataset<Row> raw = FunnelComputeJob.readS3ByHours(spark, s3Base, startDt, endDt);
             if (raw == null) {
                 log.warn("No S3 data for journey {}", journey.id());
                 return;
             }
-            raw = raw.filter(col(SparkConstants.VectorLog.PROJECT_ID).equalTo(journey.projectId())).cache();
+            raw = raw.filter(col(SparkConstants.OtelLogColumn.PROJECT_ID).equalTo(journey.projectId())).cache();
             try {
                 long startEpoch = startDt.toEpochSecond(ZoneOffset.UTC);
                 long endEpoch   = endDt.toEpochSecond(ZoneOffset.UTC);
@@ -67,7 +63,7 @@ public class JourneyComputeJob {
 
             for (var entry : byProject.entrySet()) {
                 try {
-                    processProjectBulk(spark, ch, entry.getKey(), entry.getValue(), s3BucketPrefix, runTime);
+                    processProjectBulk(spark, ch, entry.getKey(), entry.getValue(), otelLogsBucket, runTime);
                 } catch (Exception e) {
                     log.error("Project {} journeys failed: {}", entry.getKey(), e.getMessage(), e);
                     throw e;
@@ -78,20 +74,19 @@ public class JourneyComputeJob {
 
     private static void processProjectBulk(SparkSession spark, ClickHouseClient ch,
                                             String projectId, List<JourneyDefinition> journeys,
-                                            String s3Prefix, String runTime) {
+                                            String otelLogsBucket, String runTime) {
         int maxDays   = journeys.stream().mapToInt(JourneyDefinition::dateRange).max().orElse(7);
         var endDate   = LocalDate.parse(runTime.substring(0, 10));
         var startDate = endDate.minusDays(maxDays - 1L);
-        var s3Base    = "s3a://" + s3Prefix + projectId + "/vector-logs/";
+        var s3Base    = SparkConstants.OtelLogsS3.basePath(otelLogsBucket, projectId);
 
         log.info("Project {} reading S3 [{} -> {}] for {} journey(s)", projectId, startDate, endDate, journeys.size());
-        Set<String> propKeys = FunnelFilterPropKeys.collectFromJourneys(journeys);
-        Dataset<Row> raw = FunnelComputeJob.readS3ByDateRange(spark, s3Base, startDate, endDate, propKeys);
+        Dataset<Row> raw = FunnelComputeJob.readS3ByDateRange(spark, s3Base, startDate, endDate);
         if (raw == null) {
             log.warn("No S3 data for project {}", projectId);
             return;
         }
-        raw = raw.filter(col(SparkConstants.VectorLog.PROJECT_ID).equalTo(projectId)).cache();
+        raw = raw.filter(col(SparkConstants.OtelLogColumn.PROJECT_ID).equalTo(projectId)).cache();
         try {
             for (var journey : journeys) {
                 try {
@@ -113,7 +108,7 @@ public class JourneyComputeJob {
                                                             Long startEpochSeconds, Long endEpochSeconds) {
         var identityCol = SparkConstants.DefinitionModes.JOURNEY_UNIQUE_USERS.equals(journey.mode())
                 ? SparkConstants.Derived.INSTALLATION_ID
-                : SparkConstants.VectorLog.SESSION_ID;
+                : SparkConstants.OtelLogColumn.SESSION_ID;
         boolean isStart = SparkConstants.DefinitionModes.JOURNEY_DIRECTION_START.equals(journey.direction());
         int depth       = journey.depth();
         String anchor   = journey.anchorEvent();
@@ -121,15 +116,15 @@ public class JourneyComputeJob {
         Dataset<Row> df;
         if (startEpochSeconds != null && endEpochSeconds != null) {
             df = raw.filter(
-                    unix_timestamp(col(SparkConstants.VectorLog.TIMESTAMP)).geq(lit(startEpochSeconds))
-                            .and(unix_timestamp(col(SparkConstants.VectorLog.TIMESTAMP)).leq(lit(endEpochSeconds)))
+                    unix_timestamp(col(SparkConstants.OtelLogColumn.TIMESTAMP)).geq(lit(startEpochSeconds))
+                            .and(unix_timestamp(col(SparkConstants.OtelLogColumn.TIMESTAMP)).leq(lit(endEpochSeconds)))
             );
         } else {
             var endDate   = LocalDate.parse(runTime.substring(0, 10));
             var startDate = endDate.minusDays(journey.dateRange() - 1L);
             df = raw.filter(
-                    col(SparkConstants.VectorLog.TIMESTAMP).cast(DataTypes.DateType).geq(lit(startDate.toString()))
-                            .and(col(SparkConstants.VectorLog.TIMESTAMP).cast(DataTypes.DateType).leq(lit(endDate.toString())))
+                    col(SparkConstants.OtelLogColumn.TIMESTAMP).cast(DataTypes.DateType).geq(lit(startDate.toString()))
+                            .and(col(SparkConstants.OtelLogColumn.TIMESTAMP).cast(DataTypes.DateType).leq(lit(endDate.toString())))
             );
         }
         df = FunnelComputeJob.applyGlobalFilters(df, journey.globalFilters());
@@ -137,13 +132,13 @@ public class JourneyComputeJob {
         Dataset<Row> events = df
                 .select(
                         col(identityCol).alias(SparkConstants.AnalyticsDataset.IDENTITY),
-                        unix_timestamp(col(SparkConstants.VectorLog.TIMESTAMP)).alias(SparkConstants.AnalyticsDataset.TS),
-                        col(SparkConstants.VectorLog.EVENT_NAME)
+                        unix_timestamp(col(SparkConstants.OtelLogColumn.TIMESTAMP)).alias(SparkConstants.AnalyticsDataset.TS),
+                        col(SparkConstants.OtelLogColumn.EVENT_NAME)
                 )
                 .filter(col(SparkConstants.AnalyticsDataset.IDENTITY).isNotNull()
                         .and(col(SparkConstants.AnalyticsDataset.IDENTITY).notEqual("")));
 
-        Dataset<Row> anchorTs = events.filter(col(SparkConstants.VectorLog.EVENT_NAME).equalTo(anchor))
+        Dataset<Row> anchorTs = events.filter(col(SparkConstants.OtelLogColumn.EVENT_NAME).equalTo(anchor))
                 .groupBy(SparkConstants.AnalyticsDataset.IDENTITY)
                 .agg(isStart ? min(SparkConstants.AnalyticsDataset.TS).alias(SparkConstants.AnalyticsDataset.TS_ANCHOR)
                         : max(SparkConstants.AnalyticsDataset.TS).alias(SparkConstants.AnalyticsDataset.TS_ANCHOR));
@@ -173,7 +168,7 @@ public class JourneyComputeJob {
         Dataset<Row> anchorRows = anchorTs.select(
                 col(SparkConstants.AnalyticsDataset.IDENTITY),
                 col(SparkConstants.AnalyticsDataset.TS_ANCHOR).alias(SparkConstants.AnalyticsDataset.TS),
-                lit(anchor).alias(SparkConstants.VectorLog.EVENT_NAME),
+                lit(anchor).alias(SparkConstants.OtelLogColumn.EVENT_NAME),
                 lit(0).alias(SparkConstants.AnalyticsDataset.POS)
         );
 
@@ -181,7 +176,7 @@ public class JourneyComputeJob {
                 .select(
                         SparkConstants.AnalyticsDataset.IDENTITY,
                         SparkConstants.AnalyticsDataset.TS,
-                        SparkConstants.VectorLog.EVENT_NAME,
+                        SparkConstants.OtelLogColumn.EVENT_NAME,
                         SparkConstants.AnalyticsDataset.POS)
                 .union(anchorRows)
                 .cache();
@@ -205,11 +200,11 @@ public class JourneyComputeJob {
                 .groupBy(
                         col(SparkConstants.AnalyticsDataset.JOIN_CURR + "." + SparkConstants.AnalyticsDataset.POS)
                                 .alias(SparkConstants.AnalyticsDataset.POS_FROM),
-                        col(SparkConstants.AnalyticsDataset.JOIN_CURR + "." + SparkConstants.VectorLog.EVENT_NAME)
+                        col(SparkConstants.AnalyticsDataset.JOIN_CURR + "." + SparkConstants.OtelLogColumn.EVENT_NAME)
                                 .alias(SparkConstants.AnalyticsDataset.EVENT_FROM),
                         col(SparkConstants.AnalyticsDataset.JOIN_NXT + "." + SparkConstants.AnalyticsDataset.POS)
                                 .alias(SparkConstants.AnalyticsDataset.POS_TO),
-                        col(SparkConstants.AnalyticsDataset.JOIN_NXT + "." + SparkConstants.VectorLog.EVENT_NAME)
+                        col(SparkConstants.AnalyticsDataset.JOIN_NXT + "." + SparkConstants.OtelLogColumn.EVENT_NAME)
                                 .alias(SparkConstants.AnalyticsDataset.EVENT_TO)
                 )
                 .agg(countDistinct(col(SparkConstants.AnalyticsDataset.JOIN_CURR + "."

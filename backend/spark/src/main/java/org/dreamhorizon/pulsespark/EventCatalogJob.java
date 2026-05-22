@@ -14,7 +14,6 @@ import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -28,7 +27,7 @@ public class EventCatalogJob {
     private static final int DEFAULT_CHUNK_SIZE   = 5_000;
 
     public static void runCatalog(SparkSession spark, MysqlRepository mysql, ClickHouseClient ch,
-                                   String s3BucketPrefix, String runTime) throws Exception {
+                                   String otelLogsBucket, String runTime) throws Exception {
         List<String> projectIds = mysql.fetchProjectIds();
         if (projectIds.isEmpty()) {
             log.info("No projects to process");
@@ -41,7 +40,7 @@ public class EventCatalogJob {
 
         for (var projectId : projectIds) {
             try {
-                processProject(spark, ch, projectId.strip(), s3BucketPrefix, runEnd, priorSucceededStart);
+                processProject(spark, ch, projectId.strip(), otelLogsBucket, runEnd, priorSucceededStart);
             } catch (Exception e) {
                 log.error("Project {} catalog failed: {}", projectId, e.getMessage(), e);
                 throw e;
@@ -50,7 +49,7 @@ public class EventCatalogJob {
     }
 
     private static void processProject(SparkSession spark, ClickHouseClient ch,
-                                       String projectId, String s3Prefix, Instant runEnd,
+                                       String projectId, String otelLogsBucket, Instant runEnd,
                                        Optional<Timestamp> priorSucceededStart) throws Exception {
         LocalDate endDate = runEnd.atZone(ZoneOffset.UTC).toLocalDate();
         LocalDate startDate;
@@ -68,32 +67,31 @@ public class EventCatalogJob {
             log.info("Project {} incremental from {}: S3 [{} -> {}]", projectId, wm, startDate, endDate);
         }
 
-        var s3Base = "s3a://" + s3Prefix + projectId + "/vector-logs/";
-        Dataset<Row> raw = FunnelComputeJob.readS3ByDateRange(spark, s3Base, startDate, endDate,
-                Collections.emptySet());
+        var s3Base = SparkConstants.OtelLogsS3.basePath(otelLogsBucket, projectId);
+        Dataset<Row> raw = FunnelComputeJob.readS3ByDateRange(spark, s3Base, startDate, endDate);
         if (raw == null) {
             log.warn("No S3 data for project {} — skipping", projectId);
             return;
         }
 
-        var tsSec = unix_timestamp(col(SparkConstants.VectorLog.TIMESTAMP));
+        var tsSec = unix_timestamp(col(SparkConstants.OtelLogColumn.TIMESTAMP));
         var inTimeWindow = priorSucceededStart.isEmpty()
                 ? tsSec.geq(lit(windowStartEpoch)).and(tsSec.leq(lit(windowEndEpoch)))
                 : tsSec.gt(lit(windowStartEpoch)).and(tsSec.leq(lit(windowEndEpoch)));
 
         Dataset<Row> df = raw
                 .select(
-                        col(SparkConstants.VectorLog.PROJECT_ID),
-                        col(SparkConstants.VectorLog.EVENT_NAME),
-                        col(SparkConstants.VectorLog.TIMESTAMP),
-                        col(SparkConstants.VectorLog.APP_BUILD_NAME),
-                        col(SparkConstants.VectorLog.OS_VERSION),
-                        col(SparkConstants.VectorLog.OS_NAME)
+                        col(SparkConstants.OtelLogColumn.PROJECT_ID),
+                        col(SparkConstants.OtelLogColumn.EVENT_NAME),
+                        col(SparkConstants.OtelLogColumn.TIMESTAMP),
+                        col(SparkConstants.OtelLogColumn.APP_VERSION),
+                        col(SparkConstants.OtelLogColumn.OS_VERSION),
+                        col(SparkConstants.OtelLogColumn.PLATFORM)
                 )
                 .filter(
-                        col(SparkConstants.VectorLog.PROJECT_ID).equalTo(projectId)
-                                .and(col(SparkConstants.VectorLog.EVENT_NAME).isNotNull())
-                                .and(col(SparkConstants.VectorLog.EVENT_NAME).notEqual(""))
+                        col(SparkConstants.OtelLogColumn.PROJECT_ID).equalTo(projectId)
+                                .and(col(SparkConstants.OtelLogColumn.EVENT_NAME).isNotNull())
+                                .and(col(SparkConstants.OtelLogColumn.EVENT_NAME).notEqual(""))
                                 .and(inTimeWindow)
                 )
                 .cache();
@@ -119,18 +117,18 @@ public class EventCatalogJob {
                 .and(length(trim(col(SparkConstants.EventCatalog.ALIAS_FV))).gt(0));
 
         Dataset<Row> events = df.select(
-                col(SparkConstants.VectorLog.PROJECT_ID).alias(SparkConstants.EventCatalog.ALIAS_PID),
+                col(SparkConstants.OtelLogColumn.PROJECT_ID).alias(SparkConstants.EventCatalog.ALIAS_PID),
                 lit(SparkConstants.EventCatalog.FILTER_KEY_EVENT).alias(SparkConstants.EventCatalog.ALIAS_FK),
-                col(SparkConstants.VectorLog.EVENT_NAME).cast("string").alias(SparkConstants.EventCatalog.ALIAS_FV)
+                col(SparkConstants.OtelLogColumn.EVENT_NAME).cast("string").alias(SparkConstants.EventCatalog.ALIAS_FV)
         ).filter(nonBlankFv);
 
         Dataset<Row> unioned = events
                 .unionByName(dimensionSlice(df, SparkConstants.EventCatalog.FILTER_KEY_APP_BUILD_NAME,
-                        SparkConstants.VectorLog.APP_BUILD_NAME))
+                        SparkConstants.OtelLogColumn.APP_VERSION))
                 .unionByName(dimensionSlice(df, SparkConstants.EventCatalog.FILTER_KEY_OS_VERSION,
-                        SparkConstants.VectorLog.OS_VERSION))
+                        SparkConstants.OtelLogColumn.OS_VERSION))
                 .unionByName(dimensionSlice(df, SparkConstants.EventCatalog.FILTER_KEY_OS_NAME,
-                        SparkConstants.VectorLog.OS_NAME))
+                        SparkConstants.OtelLogColumn.PLATFORM))
                 .distinct();
 
         List<Row> rows = unioned.collectAsList();
@@ -149,7 +147,7 @@ public class EventCatalogJob {
         Column nonBlankFv = col(SparkConstants.EventCatalog.ALIAS_FV).isNotNull()
                 .and(length(trim(col(SparkConstants.EventCatalog.ALIAS_FV))).gt(0));
         return df.select(
-                col(SparkConstants.VectorLog.PROJECT_ID).alias(SparkConstants.EventCatalog.ALIAS_PID),
+                col(SparkConstants.OtelLogColumn.PROJECT_ID).alias(SparkConstants.EventCatalog.ALIAS_PID),
                 lit(filterKey).alias(SparkConstants.EventCatalog.ALIAS_FK),
                 col(valueCol).cast("string").alias(SparkConstants.EventCatalog.ALIAS_FV)
         ).filter(nonBlankFv);

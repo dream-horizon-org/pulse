@@ -91,10 +91,12 @@
                 Fat JAR — includes mysql-connector-j + jackson; excludes Spark/Hadoop/Scala
                 (those are provided by the cluster).
 
-                spark-submit: spark-submit \
-                  -\-class org.dreamhorizon.pulsespark.FunnelComputeJob \
-                  pulse-spark-jobs-1.0-SNAPSHOT.jar \
-                  -\-mode daily ...
+                Entry point: org.dreamhorizon.pulsespark.SparkJobRunner
+                job_type: FUNNEL | FUNNELS_DAILY | FUNNEL_BRIDGE | FUNNELS_BRIDGE_DAILY | JOURNEY | JOURNEYS_DAILY |
+                          EVENTS_INCREMENTAL
+
+                Example spark-submit: main class org.dreamhorizon.pulsespark.SparkJobRunner,
+                JAR pulse-spark-jobs-1.0-SNAPSHOT.jar, pass job_type and connection args as key/value pairs.
 
                 Java 17 + Spark 3.5 requires driver/executor JVM add-opens flags.
                 Pass via spark-defaults.conf or the conf options on spark-submit.

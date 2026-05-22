@@ -125,6 +125,18 @@ public class ClickHouseClient {
     log.info("Inserted {} journey_result rows", rows.size());
   }
 
+  /** Chunked HTTP INSERT into {@link SparkConstants.ClickHouse#TABLE_FUNNEL_SESSION_STATE}. */
+  public void insertFunnelSessionState(List<String> valueTuples, int chunkSize) {
+    bulkInsert(SparkConstants.ClickHouse.TABLE_FUNNEL_SESSION_STATE,
+        SparkConstants.ClickHouse.INSERT_COLUMNS_FUNNEL_SESSION_STATE, valueTuples, chunkSize);
+  }
+
+  /** Chunked HTTP INSERT into {@link SparkConstants.ClickHouse#TABLE_FUNNEL_USER_STATE}. */
+  public void insertFunnelUserState(List<String> valueTuples, int chunkSize) {
+    bulkInsert(SparkConstants.ClickHouse.TABLE_FUNNEL_USER_STATE,
+        SparkConstants.ClickHouse.INSERT_COLUMNS_FUNNEL_USER_STATE, valueTuples, chunkSize);
+  }
+
   public void bulkInsert(String table, String columnList, List<String> valueRows, int chunkSize) {
     if (valueRows.isEmpty()) {
       log.warn("bulkInsert {}: no rows to insert", table);

@@ -17,12 +17,11 @@ import org.slf4j.LoggerFactory;
  * --job_type        FUNNELS_DAILY | JOURNEYS_DAILY | EVENTS_INCREMENTAL | FUNNEL | JOURNEY
  * --reference_id    Long (required for FUNNEL / JOURNEY)
  * --run_time        optional UTC literal {@code yyyy-MM-dd HH:mm:ss.SSS}; when set, used for all ClickHouse inserts
- * --otel_logs_bucket  OTEL logs bucket for FUNNEL / FUNNELS_DAILY (default {@link SparkConstants.OtelLogsS3#DEFAULT_BUCKET})
+ * --otel_logs_bucket  OTEL logs bucket (default {@link SparkConstants.OtelLogsS3#DEFAULT_BUCKET}); legacy alias
+ *                      {@code --s3_bucket_prefix}
  * --spark_job_id    Long (MySQL analytics_jobs.id row to update; legacy flag name)
  * --secrets_name    optional AWS Secrets Manager name
  * --aws_region      default ap-south-1
- * --s3_bucket_prefix  pooled OTEL-log bucket name ({@link org.dreamhorizon.pulsespark.SparkConstants.OtelLogsS3#DEFAULT_BUCKET})
- *                       layout {@code s3://&lt;bucket&gt;/&lt;projectId&gt;/otel_logs/}
  * --clickhouse_host   hostname or {@code https://host[:port][/path]} (HTTP(S) interface; port optional, default 443 for https)
  * --clickhouse_port   used only when host is not a full URL (default 8123)
  * --mysql_host        hostname or {@code https://host[:port]} for TLS on 443 (tunnel); port arg ignored in URL form
@@ -41,13 +40,14 @@ public class SparkJobRunner {
     String runTime = params.containsKey("run_time")
         ? params.get("run_time")
         : LocalDateTime.now(ZoneOffset.UTC).format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS"));
-    var vectorS3Prefix = params.getOrDefault("s3_bucket_prefix", "pulse-otel-");
-    var otelLogsBucket = params.getOrDefault("otel_logs_bucket", SparkConstants.OtelLogsS3.DEFAULT_BUCKET);
+    var otelLogsBucket = params.containsKey("otel_logs_bucket")
+        ? params.get("otel_logs_bucket")
+        : params.getOrDefault("s3_bucket_prefix", SparkConstants.OtelLogsS3.DEFAULT_BUCKET);
     Long analyticsJobId = params.containsKey("spark_job_id") ? Long.parseLong(params.get("spark_job_id")) : null;
     Long referenceId = params.containsKey("reference_id") ? Long.parseLong(params.get("reference_id")) : null;
     validateJobArguments(jobType, referenceId);
-    log.info("Spark job starting. job_type={}, reference_id={}, analytics_job_id={}, vector_s3_prefix={}, otel_logs_bucket={}, run_time={}",
-        jobType, referenceId, analyticsJobId, vectorS3Prefix, otelLogsBucket, runTime);
+    log.info("Spark job starting. job_type={}, reference_id={}, analytics_job_id={}, otel_logs_bucket={}, run_time={}",
+        jobType, referenceId, analyticsJobId, otelLogsBucket, runTime);
 
     var mysql = new MysqlRepository(
         require(params, "mysql_host"),
@@ -95,11 +95,11 @@ public class SparkJobRunner {
     try {
       try {
         log.info("Dispatching job_type={} (attempt=1)", jobType);
-        dispatch(jobType, spark, mysql, ch, referenceId, vectorS3Prefix, otelLogsBucket, runTime);
+        dispatch(jobType, spark, mysql, ch, referenceId, otelLogsBucket, runTime);
       } catch (Exception firstEx) {
         log.warn("Job {} failed on first attempt: {} — retrying once", jobType, firstEx.getMessage(), firstEx);
         log.info("Dispatching job_type={} (attempt=2)", jobType);
-        dispatch(jobType, spark, mysql, ch, referenceId, vectorS3Prefix, otelLogsBucket, runTime);
+        dispatch(jobType, spark, mysql, ch, referenceId, otelLogsBucket, runTime);
       }
       log.info("Job {} completed successfully", jobType);
 
@@ -128,13 +128,13 @@ public class SparkJobRunner {
 
   private static void dispatch(String jobType, SparkSession spark, MysqlRepository mysql,
                                ClickHouseClient ch, Long referenceId,
-                               String vectorS3Prefix, String otelLogsBucket, String runTime) throws Exception {
+                               String otelLogsBucket, String runTime) throws Exception {
     switch (jobType) {
       case "FUNNEL" -> FunnelComputeJob.runFunnels(spark, mysql, ch, referenceId, otelLogsBucket, runTime);
-      case "JOURNEY" -> JourneyComputeJob.runJourneys(spark, mysql, ch, referenceId, vectorS3Prefix, runTime);
+      case "JOURNEY" -> JourneyComputeJob.runJourneys(spark, mysql, ch, referenceId, otelLogsBucket, runTime);
       case "FUNNELS_DAILY" -> FunnelComputeJob.runFunnels(spark, mysql, ch, null, otelLogsBucket, runTime);
-      case "JOURNEYS_DAILY" -> JourneyComputeJob.runJourneys(spark, mysql, ch, null, vectorS3Prefix, runTime);
-      case "EVENTS_INCREMENTAL" -> EventCatalogJob.runCatalog(spark, mysql, ch, vectorS3Prefix, runTime);
+      case "JOURNEYS_DAILY" -> JourneyComputeJob.runJourneys(spark, mysql, ch, null, otelLogsBucket, runTime);
+      case "EVENTS_INCREMENTAL" -> EventCatalogJob.runCatalog(spark, mysql, ch, otelLogsBucket, runTime);
       default -> throw new IllegalArgumentException("Unknown job_type: " + jobType);
     }
   }

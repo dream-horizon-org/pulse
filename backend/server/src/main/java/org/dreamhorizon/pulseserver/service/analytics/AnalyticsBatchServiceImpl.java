@@ -132,7 +132,7 @@ public final class AnalyticsBatchServiceImpl implements AnalyticsBatchService {
           fullArgs.add(String.valueOf(dbId));
 
           fullArgs.add("--s3_bucket_prefix");
-          fullArgs.add("pulse-otel-");
+          fullArgs.add("pulse-otel-ingestion");
 
           fullArgs.add("--aws_region");
           fullArgs.add("ap-south-1");

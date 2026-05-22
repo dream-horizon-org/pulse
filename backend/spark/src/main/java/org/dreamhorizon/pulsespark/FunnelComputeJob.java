@@ -674,143 +674,16 @@ public class FunnelComputeJob {
         return ds.filter(col(SparkConstants.OtelLogColumn.PROJECT_ID).equalTo(projectId));
     }
 
-    /** Vector-log global filters (journey job; uplifted {@code props} columns). */
+    /**
+     * Global filters for otel_logs (journey + funnel). Catalog-mapped fields use materialized columns;
+     * others use {@link SparkConstants.OtelLogColumn#LOG_ATTRIBUTES}.
+     */
     public static Dataset<Row> applyGlobalFilters(Dataset<Row> df, List<FunnelFilter> filters) {
-        return applyVectorFiltersPhase(df, filters, "[global]");
+        return applyOtelGlobalFilters(df, filters);
     }
 
     static Dataset<Row> applyStepFilters(Dataset<Row> df, List<FunnelFilter> filters) {
-        return applyVectorFiltersPhase(df, filters, "[step]");
-    }
-
-    private static Dataset<Row> applyVectorFiltersPhase(Dataset<Row> df, List<FunnelFilter> filters, String logCtx) {
-        Dataset<Row> out = df;
-        for (var filter : filters) {
-            Optional<Column> pred = vectorFilterToPredicate(filter, logCtx);
-            if (pred.isPresent()) {
-                out = out.filter(pred.get());
-            }
-        }
-        return out;
-    }
-
-    private static Optional<Column> vectorFilterToPredicate(FunnelFilter filter, String logCtx) {
-        if (filter.field() == null || filter.field().isBlank()) {
-            log.warn("{} Skipping filter: field is null or blank", logCtx);
-            return Optional.empty();
-        }
-        String parquetField = FilterFieldMapper.toParquetColumn(filter.field());
-        Column fieldCol = col(parquetField);
-        Object[] vals = filter.value().toArray();
-        if (vals.length == 0) {
-            log.warn("{} Skipping filter: empty value list for field '{}' (resolved='{}')",
-                    logCtx, filter.field(), parquetField);
-            return Optional.empty();
-        }
-        String op = FunnelFilterOperators.normalize(filter.operator());
-        Column cond = switch (op) {
-            case "EQ", "=", "IN" -> fieldCol.isin(vals);
-            case "NE", "!=", "NOT_IN" -> not(fieldCol.isin(vals));
-            case "CONTAINS" -> filter.value().stream()
-                    .map(fieldCol::contains)
-                    .reduce(Column::or)
-                    .orElse(lit(true));
-            default -> {
-                log.warn("{} Unknown filter operator '{}' (normalized='{}') for field '{}' — filter skipped",
-                        logCtx, filter.operator(), op, filter.field());
-                yield lit(true);
-            }
-        };
-        return Optional.of(cond);
-    }
-
-    /** Vector {@code vector-logs/} parquet read (journey + event catalog jobs). */
-    static Dataset<Row> readS3ByDateRange(SparkSession spark, String s3BasePath,
-                                           LocalDate startDate, LocalDate endDate,
-                                           Set<String> propKeys) {
-        Dataset<Row> combined = null;
-        int attempted = 0;
-        int loaded = 0;
-        for (var d = startDate; !d.isAfter(endDate); d = d.plusDays(1)) {
-            attempted++;
-            var ds = loadVectorPath(spark, s3BasePath + d + "/", propKeys);
-            if (ds != null) {
-                loaded++;
-                combined = combined == null ? ds : combined.union(ds);
-            }
-        }
-        if (combined == null) {
-            log.warn("No S3 data for date range {} to {} (attempted={}, loaded={})",
-                    startDate, endDate, attempted, loaded);
-        } else {
-            log.info("Loaded S3 date range {} to {} (attempted={}, loaded={})",
-                    startDate, endDate, attempted, loaded);
-        }
-        return combined;
-    }
-
-    static Dataset<Row> readS3ByHours(SparkSession spark, String s3BasePath,
-                                       LocalDateTime startDt, LocalDateTime endDt,
-                                       Set<String> propKeys) {
-        var cursor = startDt.withMinute(0).withSecond(0).withNano(0);
-        var endHour = endDt.withMinute(59).withSecond(59).withNano(0);
-        Dataset<Row> combined = null;
-        int attempted = 0;
-        int loaded = 0;
-        while (!cursor.isAfter(endHour)) {
-            attempted++;
-            var path = s3BasePath + cursor.toLocalDate() + "/"
-                    + String.format("%02d", cursor.getHour()) + "/";
-            var ds = loadVectorPath(spark, path, propKeys);
-            if (ds != null) {
-                loaded++;
-                combined = combined == null ? ds : combined.union(ds);
-            }
-            cursor = cursor.plusHours(1);
-        }
-        if (combined == null) {
-            log.warn("No S3 data for hour range {} to {} (attempted={}, loaded={})",
-                    startDt, endDt, attempted, loaded);
-        } else {
-            log.info("Loaded S3 hour range {} to {} (attempted={}, loaded={})",
-                    startDt, endDt, attempted, loaded);
-        }
-        return combined;
-    }
-
-    private static Dataset<Row> loadVectorPath(SparkSession spark, String path, Set<String> propKeys) {
-        try {
-            var ds = spark.read()
-                    .format("parquet")
-                    .option("recursiveFileLookup", "true")
-                    .option("pathGlobFilter", "*.parquet")
-                    .option("mergeSchema", "true")
-                    .load(path);
-            return ds.select(buildVectorReadExprs(ds.columns(), propKeys));
-        } catch (Exception e) {
-            log.warn("Skipping S3 path {}: {}", path, e.getMessage());
-            return null;
-        }
-    }
-
-    static Column[] buildVectorReadExprs(String[] availableColumns, Set<String> propKeys) {
-        var available = new java.util.HashSet<>(java.util.Arrays.asList(availableColumns));
-        boolean hasProps = available.contains(SparkConstants.VectorLog.PROPS);
-        Column propsExpr = hasProps ? col(SparkConstants.VectorLog.PROPS) : lit(null).cast(DataTypes.StringType);
-        var cols = new ArrayList<Column>();
-        for (var c : SparkConstants.VectorLog.LOG_READ_COLUMNS) {
-            cols.add(available.contains(c) ? col(c) : lit(null).cast(DataTypes.StringType).alias(c));
-        }
-        cols.add(coalesce(
-                get_json_object(propsExpr, SparkConstants.PropsJson.PATH_USER_ID),
-                get_json_object(propsExpr, SparkConstants.PropsJson.PATH_APP_INSTALLATION_ID)
-        ).alias(SparkConstants.Derived.USER_ID));
-        cols.add(get_json_object(propsExpr, SparkConstants.PropsJson.PATH_APP_INSTALLATION_ID)
-                .alias(SparkConstants.Derived.INSTALLATION_ID));
-        for (String key : propKeys) {
-            cols.add(get_json_object(propsExpr, PropsJsonPath.forTopLevelKey(key)).alias(key));
-        }
-        return cols.toArray(Column[]::new);
+        return applyOtelStepFilters(df, filters);
     }
 
     private static String findParquetColumnCi(String[] availableColumns, String canonicalName) {

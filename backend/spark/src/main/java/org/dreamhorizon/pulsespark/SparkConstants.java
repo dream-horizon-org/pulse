@@ -29,46 +29,7 @@ public final class SparkConstants {
         return true;
       }
     }
-    for (String c : VectorLog.LOG_READ_COLUMNS) {
-      if (c.equalsIgnoreCase(name)) {
-        return true;
-      }
-    }
     return false;
-  }
-
-  /** Vector parquet fields (legacy {@code vector-logs/} layout; used by journey + event catalog jobs). */
-  public static final class VectorLog {
-    private VectorLog() {}
-
-    public static final String EVENT_NAME = "event_name";
-    public static final String PROJECT_ID = "project_id";
-    public static final String SESSION_ID = "session_id";
-    public static final String TIMESTAMP = "timestamp";
-    public static final String OS_NAME = "os_name";
-    public static final String OS_VERSION = "os_version";
-    public static final String APP_BUILD_NAME = "app_build_name";
-    public static final String DEVICE_MANUFACTURER = "device_manufacturer";
-    public static final String DEVICE_MODEL_IDENTIFIER = "device_model_identifier";
-    public static final String NETWORK_CARRIER_ICC = "network_carrier_icc";
-    public static final String SCREEN_NAME = "screen_name";
-    public static final String SERVICE_NAME = "service_name";
-    public static final String PROPS = "props";
-
-    public static final String[] LOG_READ_COLUMNS = {
-        EVENT_NAME,
-        PROJECT_ID,
-        SESSION_ID,
-        TIMESTAMP,
-        OS_NAME,
-        OS_VERSION,
-        APP_BUILD_NAME,
-        DEVICE_MANUFACTURER,
-        DEVICE_MODEL_IDENTIFIER,
-        NETWORK_CARRIER_ICC,
-        SCREEN_NAME,
-        SERVICE_NAME,
-    };
   }
 
   /**
@@ -127,7 +88,7 @@ public final class SparkConstants {
   public static final class OtelLogsS3 {
     private OtelLogsS3() {}
 
-    /** Default when {@code --s3_bucket_prefix} is omitted. */
+    /** Default when {@code --s3_bucket_prefix} / {@code --otel_logs_bucket} is omitted. */
     public static final String DEFAULT_BUCKET = "pulse-otel-ingestion";
 
     /** Key segment under {@code /<projectId>/}. */
@@ -166,14 +127,6 @@ public final class SparkConstants {
 
     /** Same as installation id uplift (see {@link OtelLogColumn#APP_INSTALLATION_ID}). */
     public static final String INSTALLATION_ID = "installation_id";
-  }
-
-  /** {@code props} JSON paths for vector-log parquet (journey / event catalog). */
-  public static final class PropsJson {
-    private PropsJson() {}
-
-    public static final String PATH_USER_ID = "$.user_id";
-    public static final String PATH_APP_INSTALLATION_ID = "$['app.installation.id']";
   }
 
   /** Intermediate Spark dataframe column names (funnel + journey analytics). */
