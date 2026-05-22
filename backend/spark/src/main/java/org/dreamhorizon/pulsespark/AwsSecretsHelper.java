@@ -20,6 +20,8 @@ public class AwsSecretsHelper {
             Map.entry("MYSQL_USER",          "mysql_user"),
             Map.entry("MYSQL_PASSWORD",      "mysql_password"),
             Map.entry("CLICKHOUSE_HOST",     "clickhouse_host"),
+            Map.entry("CLICKHOUSE_DATABASE", "clickhouse_db"),
+            Map.entry("CLICKHOUSE_URL",      "clickhouse_url"),
             Map.entry("CLICKHOUSE_PORT",     "clickhouse_port"),
             Map.entry("CLICKHOUSE_USERNAME", "clickhouse_user"),
             Map.entry("CLICKHOUSE_PASSWORD", "clickhouse_password")

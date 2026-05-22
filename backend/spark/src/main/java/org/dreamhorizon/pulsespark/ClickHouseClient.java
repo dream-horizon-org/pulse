@@ -2,6 +2,7 @@ package org.dreamhorizon.pulsespark;
 
 import java.io.IOException;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -25,18 +26,74 @@ public class ClickHouseClient {
   private final URI baseUri;
   private final String db;
 
+  /**
+   * ClickHouse HTTP interface over HTTPS or HTTP URL (tunnel, Ingress). Credentials are appended as
+   * query params.
+   */
+  public static ClickHouseClient fromHttpEndpoint(String httpEndpoint, String db, String user, String password) {
+    try {
+      return new ClickHouseClient(resolveHttpEndpoint(httpEndpoint.trim(), db, user, password), db);
+    } catch (URISyntaxException e) {
+      throw new IllegalArgumentException("Invalid ClickHouse URL: " + httpEndpoint, e);
+    }
+  }
+
+  /** {@code http://host:port} (typical HTTP port {@code 8123}). */
   public ClickHouseClient(String host, int port, String db, String user, String password) {
+    this(
+        URI.create(
+            String.format(
+                "http://%s:%d/?database=%s&user=%s&password=%s",
+                host,
+                port,
+                URLEncoder.encode(db, StandardCharsets.UTF_8),
+                URLEncoder.encode(user, StandardCharsets.UTF_8),
+                URLEncoder.encode(password, StandardCharsets.UTF_8))),
+        db);
+  }
+
+  private ClickHouseClient(URI baseUri, String db) {
     this.db = db;
     this.http = HttpClient.newBuilder()
         .connectTimeout(Duration.ofSeconds(30))
         .build();
-    this.baseUri = URI.create(String.format(
-        "http://%s:%d/?database=%s&user=%s&password=%s",
-        host, port,
-        URLEncoder.encode(db, StandardCharsets.UTF_8),
-        URLEncoder.encode(user, StandardCharsets.UTF_8),
-        URLEncoder.encode(password, StandardCharsets.UTF_8)
-    ));
+    this.baseUri = baseUri;
+  }
+
+  static boolean looksLikeHttpEndpointUrl(String value) {
+    if (value == null) {
+      return false;
+    }
+    String s = value.trim().toLowerCase();
+    return s.startsWith("https://") || s.startsWith("http://");
+  }
+
+  private static URI resolveHttpEndpoint(String httpEndpoint, String db, String user, String password)
+      throws URISyntaxException {
+    URI in = new URI(httpEndpoint);
+    String scheme = in.getScheme();
+    if (scheme == null || (!scheme.equalsIgnoreCase("http") && !scheme.equalsIgnoreCase("https"))) {
+      throw new URISyntaxException(httpEndpoint, "URL must use http or https");
+    }
+    if (in.getRawAuthority() == null || in.getRawAuthority().isBlank()) {
+      throw new URISyntaxException(httpEndpoint, "URL missing host");
+    }
+    String rawPath = in.getRawPath();
+    if (rawPath == null || rawPath.isEmpty()) {
+      rawPath = "/";
+    }
+    String basePart = scheme + "://" + in.getRawAuthority() + rawPath;
+    String creds =
+        String.format(
+            "database=%s&user=%s&password=%s",
+            URLEncoder.encode(db, StandardCharsets.UTF_8),
+            URLEncoder.encode(user, StandardCharsets.UTF_8),
+            URLEncoder.encode(password, StandardCharsets.UTF_8));
+    String mergedQuery =
+        (in.getRawQuery() != null && !in.getRawQuery().isBlank())
+            ? in.getRawQuery() + "&" + creds
+            : creds;
+    return new URI(basePart + "?" + mergedQuery);
   }
 
   public void ping() {
