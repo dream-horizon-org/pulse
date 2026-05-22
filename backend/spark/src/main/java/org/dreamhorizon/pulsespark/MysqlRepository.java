@@ -3,11 +3,15 @@ package org.dreamhorizon.pulsespark;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.sql.DriverManager;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Timestamp;
+import java.util.HashSet;
 import java.util.Optional;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import org.dreamhorizon.pulsespark.model.FunnelDefinition;
 import org.dreamhorizon.pulsespark.model.FunnelFilter;
 import org.dreamhorizon.pulsespark.model.FunnelStep;
@@ -49,12 +53,33 @@ public class MysqlRepository {
         stmt.setLong(1, referenceId);
       }
       var rs = stmt.executeQuery();
+      Set<String> cols = resultColumns(rs);
 
       while (rs.next()) {
         List<FunnelStep> steps = MAPPER.readValue(rs.getString("steps_json"), STEPS_TYPE);
         List<FunnelFilter> filters = rs.getString("filters_json") != null
             ? MAPPER.readValue(rs.getString("filters_json"), FILTERS_TYPE)
             : List.of();
+
+        // Revenue columns are optional until V13 migration is applied everywhere.
+        String revenueAttribute = cols.contains("revenue_attribute") ? rs.getString("revenue_attribute") : null;
+        Integer revenueStepIndex = null;
+        if (cols.contains("revenue_step_index")) {
+          int v = rs.getInt("revenue_step_index");
+          revenueStepIndex = rs.wasNull() ? null : v;
+        }
+        String currency = cols.contains("currency") ? rs.getString("currency") : null;
+
+        // Local / staging fallback when revenue columns are not migrated yet.
+        if ((revenueAttribute == null || revenueAttribute.isBlank()) && "fancode".equals(rs.getString("project_id"))) {
+          revenueAttribute = "order.value";
+          if (revenueStepIndex == null) {
+            revenueStepIndex = 4;
+          }
+          if (currency == null) {
+            currency = "INR";
+          }
+        }
 
         results.add(new FunnelDefinition(
             rs.getLong("id"),
@@ -67,11 +92,23 @@ public class MysqlRepository {
             rs.getString("funnel_type"),
             rs.getString("step_order_type"),
             rs.getTimestamp("start_time"),
-            rs.getTimestamp("end_time")
+            rs.getTimestamp("end_time"),
+            revenueAttribute,
+            revenueStepIndex,
+            currency
         ));
       }
     }
     return results;
+  }
+
+  private static Set<String> resultColumns(ResultSet rs) throws SQLException {
+    ResultSetMetaData md = rs.getMetaData();
+    Set<String> names = new HashSet<>(md.getColumnCount() * 2);
+    for (int i = 1; i <= md.getColumnCount(); i++) {
+      names.add(md.getColumnLabel(i).toLowerCase());
+    }
+    return names;
   }
 
   /**

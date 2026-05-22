@@ -1,8 +1,11 @@
 package org.dreamhorizon.pulsespark;
 
+import java.time.LocalDate;
+import java.util.Locale;
+
 /**
  * Shared Spark job constants (names, modes, table targets, aggregations, etc.).
- * Group related values in nested {@code public static final} holder classes (e.g. {@link SparkConstants.VectorLog},
+ * Group related values in nested {@code public static final} holder classes (e.g. {@link SparkConstants.OtelLogColumn},
  * {@link SparkConstants.ClickHouse}).
  */
 public final class SparkConstants {
@@ -10,7 +13,7 @@ public final class SparkConstants {
   private SparkConstants() {}
 
   /**
-   * Reserved uplift aliases: never duplicate these via props JSON projection.
+   * Reserved columns: parquet materialized OTL fields + uplift aliases for UNIQUE_USERS identity.
    *
    * @see FunnelComputeJob#buildReadExprs
    */
@@ -21,6 +24,11 @@ public final class SparkConstants {
     if (name.equalsIgnoreCase(Derived.USER_ID) || name.equalsIgnoreCase(Derived.INSTALLATION_ID)) {
       return true;
     }
+    for (String c : OtelLogColumn.PARQUET_READ_COLUMNS) {
+      if (c.equalsIgnoreCase(name)) {
+        return true;
+      }
+    }
     for (String c : VectorLog.LOG_READ_COLUMNS) {
       if (c.equalsIgnoreCase(name)) {
         return true;
@@ -29,7 +37,7 @@ public final class SparkConstants {
     return false;
   }
 
-  /** Top-level Vector parquet fields used after read projection. */
+  /** Vector parquet fields (legacy {@code vector-logs/} layout; used by journey + event catalog jobs). */
   public static final class VectorLog {
     private VectorLog() {}
 
@@ -45,11 +53,8 @@ public final class SparkConstants {
     public static final String NETWORK_CARRIER_ICC = "network_carrier_icc";
     public static final String SCREEN_NAME = "screen_name";
     public static final String SERVICE_NAME = "service_name";
-
-    /** Raw JSON column on Vector parquet before projection. */
     public static final String PROPS = "props";
 
-    /** Columns read from parquet for funnel/journey (order preserved for stable schemas). */
     public static final String[] LOG_READ_COLUMNS = {
         EVENT_NAME,
         PROJECT_ID,
@@ -66,26 +71,109 @@ public final class SparkConstants {
     };
   }
 
+  /**
+   * Parquet column names aligned with ClickHouse {@code otel.otel_logs} (Pulse parquet export contract).
+   */
+  public static final class OtelLogColumn {
+
+    private OtelLogColumn() {}
+
+    public static final String TIMESTAMP = "Timestamp";
+    public static final String PROJECT_ID = "ProjectId";
+    public static final String SESSION_ID = "SessionId";
+    public static final String EVENT_NAME = "EventName";
+    public static final String SCREEN_NAME = "ScreenName";
+    public static final String PULSE_TYPE = "PulseType";
+    /** From {@code ResourceAttributes['os.name']}. */
+    public static final String PLATFORM = "Platform";
+    public static final String OS_VERSION = "OsVersion";
+    /** From {@code ResourceAttributes['app.build_name']}. */
+    public static final String APP_VERSION = "AppVersion";
+    public static final String DEVICE_MODEL = "DeviceModel";
+    public static final String NETWORK_PROVIDER = "NetworkProvider";
+    public static final String SERVICE_NAME = "ServiceName";
+
+    /** OTL {@code LogAttributes}: Avro/Pulse schema {@code map&lt;string,string&gt;}; filters use depth-1 map keys. */
+    public static final String LOG_ATTRIBUTES = "LogAttributes";
+
+    public static final String APP_INSTALLATION_ID = "AppInstallationId";
+
+    public static final String[] PARQUET_READ_COLUMNS = {
+        EVENT_NAME,
+        PROJECT_ID,
+        SESSION_ID,
+        TIMESTAMP,
+        PLATFORM,
+        OS_VERSION,
+        APP_VERSION,
+        DEVICE_MODEL,
+        NETWORK_PROVIDER,
+        SCREEN_NAME,
+        SERVICE_NAME,
+        PULSE_TYPE,
+        LOG_ATTRIBUTES,
+        APP_INSTALLATION_ID,
+    };
+  }
+
+  /**
+   * Pooled OTEL parquet layout under {@link #basePath}: Hive-style folders
+   * {@code year=YYYY/month=MM/day=DD/}, then parquet objects (filenames opaque to readers;
+   * {@code recursiveFileLookup} loads nested files).
+   *
+   * @see FunnelComputeJob#readS3ByDateRange
+   * @see FunnelComputeJob#readS3ByHours
+   */
+  public static final class OtelLogsS3 {
+    private OtelLogsS3() {}
+
+    /** Default when {@code --s3_bucket_prefix} is omitted. */
+    public static final String DEFAULT_BUCKET = "pulse-otel-ingestion";
+
+    /** Key segment under {@code /<projectId>/}. */
+    public static final String KEY_PREFIX_SEGMENT = "otel_logs";
+
+    /**
+     * @param bucket pooled bucket only (no {@code s3://} prefix)
+     * @param projectId {@code ResourceAttributes['project.id']}-style project id string
+     */
+    public static String basePath(String bucket, String projectId) {
+      return "s3a://" + bucket + "/" + projectId + "/" + KEY_PREFIX_SEGMENT + "/";
+    }
+
+    /**
+     * S3 prefix for one calendar day ({@code …/otel_logs/year=…/month=…/day=…/}).
+     *
+     * @param otelLogsBasePath {@link #basePath} output (must end with {@code /})
+     */
+    public static String partitionPrefixForDay(String otelLogsBasePath, LocalDate d) {
+      return String.format(
+          Locale.ROOT,
+          "%syear=%d/month=%02d/day=%02d/",
+          otelLogsBasePath,
+          d.getYear(),
+          d.getMonthValue(),
+          d.getDayOfMonth());
+    }
+  }
+
   /** Columns materialized in {@link FunnelComputeJob#buildReadExprs}. */
   public static final class Derived {
     private Derived() {}
 
-    /** Coalesce: {@code props.user_id} then {@code props['app.installation.id']}. */
+    /** Logical uplift from {@link OtelLogColumn#APP_INSTALLATION_ID}; matches UNIQUE_USERS grain. */
     public static final String USER_ID = "user_id";
 
-    /** UNIQUE_USERS identity: {@code props['app.installation.id']} only. */
+    /** Same as installation id uplift (see {@link OtelLogColumn#APP_INSTALLATION_ID}). */
     public static final String INSTALLATION_ID = "installation_id";
   }
 
-  /** {@code props} JSON paths and logical keys. */
+  /** {@code props} JSON paths for vector-log parquet (journey / event catalog). */
   public static final class PropsJson {
     private PropsJson() {}
 
     public static final String PATH_USER_ID = "$.user_id";
     public static final String PATH_APP_INSTALLATION_ID = "$['app.installation.id']";
-
-    public static final String KEY_USER_ID = "user_id";
-    public static final String KEY_APP_INSTALLATION_ID = "app.installation.id";
   }
 
   /** Intermediate Spark dataframe column names (funnel + journey analytics). */
@@ -125,6 +213,11 @@ public final class SparkConstants {
     public static final String MEDIAN_SCORE = "_score";
     public static final String MEDIAN_RN = "_rn";
     public static final String MEDIAN_AGG = "med";
+
+    /** Revenue value from {@link OtelLogColumn#LOG_ATTRIBUTES} at the configured attribute key. */
+    public static final String VALUE = "value";
+    /** Timestamp at which the identity reached the revenue funnel step. */
+    public static final String TS_REV = "ts_rev";
   }
 
   /** Values from MySQL funnel/journey definitions interpreted by Spark jobs. */
@@ -159,12 +252,31 @@ public final class SparkConstants {
     public static final String TABLE_EVENT_CATALOG_ENTRIES = "event_catalog_entries";
 
     public static final String INSERT_COLUMNS_FUNNEL_RESULTS =
-        "FunnelId,ProjectId,RunTime,StepIndex,StepName,UserCount,ConversionPct,MedianStepSeconds";
+        "FunnelId,ProjectId,RunTime,StepIndex,StepName,UserCount,ConversionPct,MedianStepSeconds,"
+            + "OrderCount,Revenue,AvgOrderValue,LostRevenue";
 
     public static final String INSERT_COLUMNS_JOURNEY_RESULTS =
         "JourneyId,ProjectId,RunTime,Direction,PosFrom,EventFrom,PosTo,EventTo,UserCount";
 
     public static final String INSERT_COLUMNS_EVENT_CATALOG_ENTRIES =
         "ProjectId,FilterKey,FilterValue";
+
+    /** Align name with deployed MergeTree; use {@code *_local} if your cluster uses suffixed tables. */
+    public static final String TABLE_FUNNEL_SESSION_STATE = "funnel_session_state";
+
+    public static final String TABLE_FUNNEL_USER_STATE = "funnel_user_state";
+
+    /**
+     * Nullable tail columns filled with NULL until hydrated from signals / parquet metadata.
+     */
+    public static final String INSERT_COLUMNS_FUNNEL_SESSION_STATE =
+        "FunnelId,ProjectId,RunTime,SessionId,UserId,LastReachedStep,LastReachedStepName,LastReachedAt,DropoffStep,"
+            + "TimeToDropoffSec,ScreenAtDropoff,TraceIdAtDropoff,AppVersion,OsName,OsVersion,Platform,DeviceModel,"
+            + "NetworkProvider,GeoCountry";
+
+    public static final String INSERT_COLUMNS_FUNNEL_USER_STATE =
+        "FunnelId,ProjectId,RunTime,UserId,MaxReachedStep,DropoffStep,CanonicalSessionId,CanonicalLastReachedAt,"
+            + "CanonicalTraceIdAtDropoff,CanonicalScreenAtDropoff,AppVersion,OsName,OsVersion,Platform,DeviceModel,"
+            + "NetworkProvider,GeoCountry,SessionAttempts";
   }
 }

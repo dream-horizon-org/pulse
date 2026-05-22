@@ -9,6 +9,7 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.List;
+import java.util.Locale;
 import org.dreamhorizon.pulsespark.model.FunnelResult;
 import org.dreamhorizon.pulsespark.model.JourneyTransition;
 import org.slf4j.Logger;
@@ -22,18 +23,43 @@ public class ClickHouseClient {
   private final URI baseUri;
   private final String db;
 
+  /**
+   * ClickHouse HTTP interface. {@code host} may be a bare hostname or a full origin
+   * {@code http(s)://host[:port]} (e.g. Cloudflare quick tunnel).
+   */
   public ClickHouseClient(String host, int port, String db, String user, String password) {
     this.db = db;
     this.http = HttpClient.newBuilder()
         .connectTimeout(Duration.ofSeconds(30))
         .build();
-    this.baseUri = URI.create(String.format(
-        "http://%s:%d/?database=%s&user=%s&password=%s",
-        host, port,
+    String origin = host == null ? "" : host.trim();
+    if (origin.startsWith("http://") || origin.startsWith("https://")) {
+      this.baseUri = buildRequestUri(URI.create(origin), db, user, password);
+    } else {
+      this.baseUri = buildRequestUri(URI.create("http://" + origin + ":" + port), db, user, password);
+    }
+  }
+
+  private static URI buildRequestUri(URI origin, String db, String user, String password) {
+    var q = "database=%s&user=%s&password=%s".formatted(
         URLEncoder.encode(db, StandardCharsets.UTF_8),
         URLEncoder.encode(user, StandardCharsets.UTF_8),
-        URLEncoder.encode(password, StandardCharsets.UTF_8)
-    ));
+        URLEncoder.encode(password, StandardCharsets.UTF_8));
+    String scheme = origin.getScheme();
+    String host = origin.getHost();
+    if (scheme == null || host == null) {
+      throw new IllegalArgumentException("Invalid ClickHouse URL (need scheme and host): " + origin);
+    }
+    int port = origin.getPort();
+    String authority = port == -1 ? host : host + ":" + port;
+    String rawPath = origin.getPath();
+    String path;
+    if (rawPath == null || rawPath.isEmpty() || "/".equals(rawPath)) {
+      path = "/";
+    } else {
+      path = rawPath.endsWith("/") ? rawPath : rawPath + "/";
+    }
+    return URI.create("%s://%s%s?%s".formatted(scheme, authority, path, q));
   }
 
   public void ping() {
@@ -54,13 +80,26 @@ public class ClickHouseClient {
         sb.append(',');
       }
       String medianVal = r.medianStepSeconds() == null ? "NULL" : String.valueOf(r.medianStepSeconds());
-      sb.append(String.format("('%d','%s','%s',%d,'%s',%d,%.4f,%s)",
+      String orderCountVal = r.orderCount() == null ? "NULL" : String.valueOf(r.orderCount());
+      String revenueVal = formatDecimal(r.revenue());
+      String aovVal = formatDecimal(r.avgOrderValue());
+      String lostVal = formatDecimal(r.lostRevenue());
+      sb.append(String.format(Locale.ROOT,
+          "('%d','%s','%s',%d,'%s',%d,%.4f,%s,%s,%s,%s,%s)",
           r.funnelId(), esc(r.projectId()), esc(r.runTime()),
-          r.stepIndex(), esc(r.stepName()), r.userCount(), r.conversionPct(), medianVal
+          r.stepIndex(), esc(r.stepName()), r.userCount(), r.conversionPct(),
+          medianVal, orderCountVal, revenueVal, aovVal, lostVal
       ));
     }
     execute("insertFunnelResults", sb.toString());
     log.info("Inserted {} funnel_result rows", rows.size());
+  }
+
+  private static String formatDecimal(Double v) {
+    if (v == null || Double.isNaN(v) || Double.isInfinite(v)) {
+      return "NULL";
+    }
+    return String.format(Locale.ROOT, "%.4f", v);
   }
 
   public void insertJourneyResults(List<JourneyTransition> rows) {

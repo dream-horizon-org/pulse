@@ -9,6 +9,10 @@ ON CLUSTER 'pulse-ch'
     UserCount          UInt64                 COMMENT 'Unique users or sessions reaching this step'          CODEC(T64, ZSTD(1)),
     ConversionPct      Float64                COMMENT 'Conversion % from step 0 to this step'                CODEC(ZSTD(1)),
     MedianStepSeconds  Nullable(Int64)        COMMENT 'Median seconds from previous step; NULL for step 0'   CODEC(T64, ZSTD(1)),
+    OrderCount         Nullable(UInt64)       COMMENT 'Orders at revenue step (Spark AOV)'                   CODEC(T64, ZSTD(1)),
+    Revenue            Nullable(Decimal(18, 4)) COMMENT 'Total revenue at revenue step (Spark AOV)'          CODEC(ZSTD(1)),
+    AvgOrderValue      Nullable(Decimal(18, 4)) COMMENT 'Global average order value for run (Spark AOV)'     CODEC(ZSTD(1)),
+    LostRevenue        Nullable(Decimal(18, 4)) COMMENT 'Drop-off × AOV at step (Spark AOV)'                 CODEC(ZSTD(1)),
     CreatedAt          DateTime64(3, 'UTC')   DEFAULT now64(3) COMMENT 'Row insert time (UTC)'               CODEC(DoubleDelta, ZSTD(1)),
 
     CONSTRAINT chk_StepIndex CHECK StepIndex < 32,
