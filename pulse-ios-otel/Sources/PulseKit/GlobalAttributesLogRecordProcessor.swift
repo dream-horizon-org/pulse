@@ -48,6 +48,13 @@ internal class GlobalAttributesLogRecordProcessor: LogRecordProcessor {
             value: AttributeValue.string(pulse.installationIdManager.installationId)
         )
 
+        if let configVersion = pulse.currentSdkConfig?.version {
+            enhancedRecord.setAttribute(
+                key: PulseAttributes.pulseSdkConfigVersion,
+                value: AttributeValue.int(configVersion)
+            )
+        }
+
         // Add dynamic user properties (can be updated after initialization)
         if let userId = pulse.userSessionEmitter.userId {
             enhancedRecord.setAttribute(key: PulseAttributes.userId, value: AttributeValue.string(userId))
