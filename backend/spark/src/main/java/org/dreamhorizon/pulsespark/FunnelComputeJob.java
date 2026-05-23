@@ -301,7 +301,7 @@ public class FunnelComputeJob {
       long postFilterCount = df.count();
       log.info("Funnel {} rows after time/global filters: {}", funnel.id(), postFilterCount);
     }
-    df = applyFilters(df, funnel.globalFilters());
+    df = preFilterToFunnelSteps(applyFilters(df, funnel.globalFilters()), steps);
 
     if (funnel.isUnordered()) {
       return computeUnorderedFunnel(df, funnel, identityCol, runTime);
@@ -316,31 +316,6 @@ public class FunnelComputeJob {
     long[] counts = new long[numSteps];
     counts[0] = current.select("identity").distinct().count();
     log.info("Funnel {} step 0 ({}) -> {} identities", funnel.id(), steps.get(0).eventName(), counts[0]);
-    if (counts[0] == 0 && log.isInfoEnabled()) {
-      // Diagnostic: show top distinct EventName values present in `raw` (NOT df). Using raw
-      // so we see actual events regardless of whether the time filter broke. A typo or
-      // case-mismatch on the funnel's step-0 event name is immediately visible here; a
-      // genuine "no HomeLoaded ingested" shows up as zero rows for that name in the list.
-      log.warn("Funnel {} step 0 has 0 identities for EventName='{}'. " +
-          "Top distinct event names present in raw custom_event rows for this project " +
-          "(time filter not applied, so this reflects all loaded partitions):",
-        funnel.id(), steps.get(0).eventName());
-      java.util.List<Row> topEvents = raw.groupBy(col("event_name"))
-        .agg(count(lit(1)).alias("c"))
-        .orderBy(col("c").desc())
-        .limit(20)
-        .collectAsList();
-      if (topEvents.isEmpty()) {
-        log.warn("  (no event_name rows in raw — schema projection may be dropping the column)");
-      } else {
-        topEvents.forEach(r -> log.warn("  event_name='{}' count={}",
-          r.<String>getAs("event_name"), r.<Long>getAs("c")));
-      }
-      // Also: directly query for the funnel's step-0 event name to count how many rows match.
-      long stepZeroMatches = raw.filter(col("event_name").equalTo(steps.get(0).eventName())).count();
-      log.warn("Funnel {} direct count of event_name='{}' in raw: {} rows",
-        funnel.id(), steps.get(0).eventName(), stepZeroMatches);
-    }
 
     // stepTs[i] holds a cached {identity, ts0, ts_i} snapshot for attempts that survived to step i.
     // Each entry is cached independently so it survives after the main alive dataset is unpersisted.
@@ -588,7 +563,7 @@ public class FunnelComputeJob {
           .and(col("timestamp").lt(lit(endTs)))
       );
     }
-    df = applyFilters(df, funnel.globalFilters()).cache();
+    df = preFilterToFunnelSteps(applyFilters(df, funnel.globalFilters()), steps).cache();
 
     try {
       // ── Per-session bridge (single-anchor, matches windowFunnel) ────────────────
@@ -639,67 +614,55 @@ public class FunnelComputeJob {
     // attempts: ALL step-0 occurrences as independent anchors — mirrors computeFunnel's
     // multi-anchor chain walk. A session that re-enters the funnel (hits step-0 again
     // after an earlier attempt stalled) gets credit for its best attempt, not just the first.
-    Dataset<Row> attempts = stepEvents(df, steps.get(0), "session_id")
-      .select(col("identity"), col("ts").alias("ts0"), col("ts").alias("ts_prev"))
+    // wide: one row per (identity, ts0) attempt. step_idx and ts_at_step updated in-place
+    // at each left-join step. ts_prev becomes null when a session misses a step — SQL
+    // semantics (null > anything = null/false) block that session from matching any later step.
+    Dataset<Row> wide = stepEvents(df, steps.get(0), "session_id")
+      .select(
+        col("identity"),
+        col("ts").alias("ts0"),
+        col("ts").alias("ts_prev"),
+        lit(0).alias("step_idx"),
+        col("ts").alias("ts_at_step")
+      )
       .cache();
-    if (attempts.rdd().isEmpty()) {
-      attempts.unpersist();
+    if (wide.rdd().isEmpty()) {
+      wide.unpersist();
       return null;
     }
-
-    Dataset<Row> current = attempts;
-    // perStep[i] tracks (session_id, ts0, ts_at_step) for sessions that reached step i.
-    List<Dataset<Row>> perStep = new ArrayList<>(numSteps);
-    perStep.add(current.select(
-      col("identity"),
-      col("ts0"),
-      col("ts0").alias("ts_at_step")
-    ));
 
     for (int i = 1; i < numSteps; i++) {
       Dataset<Row> stepEvts = stepEvents(df, steps.get(i), "session_id")
         .select(col("identity").alias("id_i"), col("ts").alias("ts_i"));
 
-      Column joinCond = col("prev.identity").equalTo(col("next.id_i"))
-        .and(col("next.ts_i").gt(col("prev.ts_prev")))
-        .and(col("next.ts_i").leq(col("prev.ts0").plus(windowSecs)));
+      Column joinCond = col("w.identity").equalTo(col("s.id_i"))
+        .and(col("s.ts_i").gt(col("w.ts_prev")))
+        .and(col("s.ts_i").leq(col("w.ts0").plus(windowSecs)));
 
-      Dataset<Row> prevCache = current;
-      current = current.alias("prev")
-        .join(stepEvts.alias("next"), joinCond, "inner")
-        .groupBy(col("prev.identity").as("identity"), col("prev.ts0").as("ts0"))
-        .agg(min(col("next.ts_i")).alias("ts_prev"))
+      Dataset<Row> prevWide = wide;
+      wide = wide.alias("w")
+        .join(stepEvts.alias("s"), joinCond, "left")
+        .groupBy(col("w.identity"), col("w.ts0"), col("w.step_idx"), col("w.ts_at_step"))
+        .agg(min(col("s.ts_i")).alias("ts_i_min"))
+        .select(
+          col("identity"), col("ts0"),
+          col("ts_i_min").alias("ts_prev"),
+          when(col("ts_i_min").isNotNull(), lit(i)).otherwise(col("step_idx")).alias("step_idx"),
+          when(col("ts_i_min").isNotNull(), col("ts_i_min")).otherwise(col("ts_at_step")).alias("ts_at_step")
+        )
         .cache();
-      prevCache.unpersist();
-
-      perStep.add(current.select(
-        col("identity"),
-        col("ts0"),
-        col("ts_prev").alias("ts_at_step")
-      ));
-
-      if (current.rdd().isEmpty()) {
-        break;
-      }
-    }
-    current.unpersist();
-
-    // Each session is in exactly one attempts row (single-anchor) and walked into perStep[i]
-    // for the deepest i it reached. To pick that "deepest" row per session, label each with
-    // step_idx and take max(step_idx) per identity.
-    Dataset<Row> unionAll = null;
-    for (int i = 0; i < perStep.size(); i++) {
-      Dataset<Row> withIdx = perStep.get(i).withColumn("step_idx", lit(i));
-      unionAll = (unionAll == null) ? withIdx : unionAll.union(withIdx);
+      wide.count();
+      prevWide.unpersist();
     }
 
     WindowSpec bestWin = Window.partitionBy("identity")
       .orderBy(col("step_idx").desc(), col("ts_at_step").desc());
-    Dataset<Row> bestPerSession = unionAll
+    Dataset<Row> bestPerSession = wide
       .withColumn("_rn", row_number().over(bestWin))
       .filter(col("_rn").equalTo(1))
       .drop("_rn")
       .cache();
+    wide.unpersist();
 
     // Hydrate dimension carryover (screen, app version, etc.) by joining back to raw
     // at the exact moment of the furthest-step event, plus user_id.
@@ -730,7 +693,6 @@ public class FunnelComputeJob {
     List<Row> collected = hydrated.collectAsList();
     bestPerSession.unpersist();
     hydrated.unpersist();
-    attempts.unpersist();
 
     List<FunnelSessionState> bridgeRows = new ArrayList<>(collected.size());
     for (Row r : collected) {
@@ -776,7 +738,6 @@ public class FunnelComputeJob {
     long windowSecs, int numSteps, int finalStepIdx) {
     var steps = funnel.steps();
 
-    // attempts: per user, anchor on min(ts0) of step-0 events. Track the sid of that anchor.
     Dataset<Row> step0Events = stepEvents(df, steps.get(0), "user_id")
       .filter(col("identity").isNotNull().and(col("identity").notEqual("")))
       .join(
@@ -788,36 +749,26 @@ public class FunnelComputeJob {
       )
       .select(col("identity"), col("ts"), coalesce(col("session_id"), lit("")).alias("sid"));
 
-    // attempts: ALL step-0 occurrences as independent anchors — mirrors computeFunnel's
-    // multi-anchor chain walk. Each (user_id, ts, session_id) triple is a separate starting
-    // point; cross-session converters whose earliest attempt stalled are no longer missed.
-    Dataset<Row> attempts = step0Events
+    // wide: one row per (identity, t0) attempt. step_idx / ts_at_step / sid_at_step updated
+    // inline at each left-join step. ts_prev becomes null on a miss — propagates through all
+    // subsequent steps, preventing a user from skipping ahead in the ordered funnel.
+    Dataset<Row> wide = step0Events
       .select(
         col("identity"),
         col("ts").alias("t0"),
         col("sid").alias("sid0"),
         col("ts").alias("ts_prev"),
-        col("sid").alias("sid_prev")
+        lit(0).alias("step_idx"),
+        col("ts").alias("ts_at_step"),
+        col("sid").alias("sid_at_step")
       )
       .cache();
-    if (attempts.rdd().isEmpty()) {
-      attempts.unpersist();
+    if (wide.rdd().isEmpty()) {
+      wide.unpersist();
       return new ArrayList<>();
     }
 
-    Dataset<Row> current = attempts;
-    // perStep[i]: (user_id, t0, sid0, ts_at_step, sid_at_step) for users who reached step i.
-    List<Dataset<Row>> perStep = new ArrayList<>(numSteps);
-    perStep.add(current.select(
-      col("identity"),
-      col("t0"),
-      col("sid0"),
-      col("t0").alias("ts_at_step"),
-      col("sid0").alias("sid_at_step")
-    ));
-
     for (int i = 1; i < numSteps; i++) {
-      // Events matching step i, keyed by user_id, carrying session_id and ts.
       Dataset<Row> stepEvts = df.filter(col("event_name").equalTo(steps.get(i).eventName()))
         .filter(col("user_id").isNotNull().and(col("user_id").notEqual("")))
         .select(
@@ -826,51 +777,39 @@ public class FunnelComputeJob {
           coalesce(col("session_id"), lit("")).alias("sid_i")
         );
 
-      Column joinCond = col("prev.identity").equalTo(col("next.id_i"))
-        .and(col("next.ts_i").gt(col("prev.ts_prev")))
-        .and(col("next.ts_i").leq(col("prev.t0").plus(windowSecs)));
+      Column joinCond = col("w.identity").equalTo(col("s.id_i"))
+        .and(col("s.ts_i").gt(col("w.ts_prev")))
+        .and(col("s.ts_i").leq(col("w.t0").plus(windowSecs)));
 
-      Dataset<Row> prevCache = current;
-      current = current.alias("prev")
-        .join(stepEvts.alias("next"), joinCond, "inner")
-        .groupBy(col("prev.identity").as("identity"),
-          col("prev.t0").as("t0"),
-          col("prev.sid0").as("sid0"))
+      Dataset<Row> prevWide = wide;
+      wide = wide.alias("w")
+        .join(stepEvts.alias("s"), joinCond, "left")
+        .groupBy(col("w.identity"), col("w.t0"), col("w.sid0"),
+          col("w.step_idx"), col("w.ts_at_step"), col("w.sid_at_step"))
         .agg(
-          min(col("next.ts_i")).alias("ts_prev"),
-          expr("min_by(`next`.`sid_i`, `next`.`ts_i`)").alias("sid_prev")
+          min(col("s.ts_i")).alias("ts_i_min"),
+          expr("min_by(`s`.`sid_i`, `s`.`ts_i`)").alias("sid_i_min")
+        )
+        .select(
+          col("identity"), col("t0"), col("sid0"),
+          col("ts_i_min").alias("ts_prev"),
+          when(col("ts_i_min").isNotNull(), lit(i)).otherwise(col("step_idx")).alias("step_idx"),
+          when(col("ts_i_min").isNotNull(), col("ts_i_min")).otherwise(col("ts_at_step")).alias("ts_at_step"),
+          when(col("ts_i_min").isNotNull(), col("sid_i_min")).otherwise(col("sid_at_step")).alias("sid_at_step")
         )
         .cache();
-      prevCache.unpersist();
-
-      perStep.add(current.select(
-        col("identity"),
-        col("t0"),
-        col("sid0"),
-        col("ts_prev").alias("ts_at_step"),
-        col("sid_prev").alias("sid_at_step")
-      ));
-
-      if (current.rdd().isEmpty()) {
-        break;
-      }
-    }
-    current.unpersist();
-
-    // Pick the deepest step row per user.
-    Dataset<Row> unionAll = null;
-    for (int i = 0; i < perStep.size(); i++) {
-      Dataset<Row> withIdx = perStep.get(i).withColumn("step_idx", lit(i));
-      unionAll = (unionAll == null) ? withIdx : unionAll.union(withIdx);
+      wide.count();
+      prevWide.unpersist();
     }
 
     WindowSpec bestWin = Window.partitionBy("identity")
       .orderBy(col("step_idx").desc(), col("ts_at_step").desc());
-    Dataset<Row> bestPerUser = unionAll
+    Dataset<Row> bestPerUser = wide
       .withColumn("_rn", row_number().over(bestWin))
       .filter(col("_rn").equalTo(1))
       .drop("_rn")
       .cache();
+    wide.unpersist();
 
     // SessionAttempts: distinct sessions per user across ALL funnel-event types.
     List<String> stepNames = new ArrayList<>(numSteps);
@@ -917,7 +856,6 @@ public class FunnelComputeJob {
     List<Row> collected = hydrated.collectAsList();
     bestPerUser.unpersist();
     hydrated.unpersist();
-    attempts.unpersist();
 
     List<FunnelUserState> userRows = new ArrayList<>(collected.size());
     for (Row r : collected) {
@@ -962,29 +900,60 @@ public class FunnelComputeJob {
         log.warn("Skipping filter: field is null or blank");
         continue;
       }
-      var fieldCol = FilterFieldMapper.toColumn(filter.field());
-      var vals = filter.value().toArray();
-      if (vals.length == 0) {
+      if (filter.value().isEmpty()) {
         log.warn("Skipping filter: empty value list for field '{}'", filter.field());
         continue;
       }
-      String op = FunnelFilterOperators.normalize(filter.operator());
-      Column cond = switch (op) {
-        case "EQ", "=", "IN" -> fieldCol.isin(vals);
-        case "NE", "!=", "NOT_IN" -> not(fieldCol.isin(vals));
-        case "CONTAINS" -> filter.value().stream()
-          .map(fieldCol::contains)
-          .reduce(Column::or)
-          .orElse(lit(true));
-        default -> {
-          log.warn("Unknown filter operator '{}' (normalized='{}') for field '{}' — filter skipped",
-            filter.operator(), op, filter.field());
-          yield lit(true);
-        }
-      };
-      df = df.filter(cond);
+      df = df.filter(buildColumnCondition(filter));
     }
     return df;
+  }
+
+  /**
+   * Builds a Spark {@link Column} expression for a single {@link FunnelFilter}.
+   * Extracted so both {@link #applyFilters} and {@link #preFilterToFunnelSteps} share the
+   * same operator logic without duplication.
+   */
+  private static Column buildColumnCondition(FunnelFilter filter) {
+    var fieldCol = FilterFieldMapper.toColumn(filter.field());
+    var vals = filter.value().toArray();
+    String op = FunnelFilterOperators.normalize(filter.operator());
+    return switch (op) {
+      case "EQ", "=", "IN" -> fieldCol.isin(vals);
+      case "NE", "!=", "NOT_IN" -> not(fieldCol.isin(vals));
+      case "CONTAINS" -> filter.value().stream()
+        .map(fieldCol::contains)
+        .reduce(Column::or)
+        .orElse(lit(true));
+      default -> {
+        log.warn("Unknown filter operator '{}' (normalized='{}') for field '{}' — filter skipped",
+          filter.operator(), op, filter.field());
+        yield lit(true);
+      }
+    };
+  }
+
+  /**
+   * Narrows {@code df} to only rows that can participate in any funnel step, minimising the
+   * dataset that gets cached in {@link #emitBridgeAndRollup}. The predicate is:
+   * <pre>
+   *   (event_name = step0 AND step0_filters) OR (event_name = step1 AND step1_filters) OR …
+   * </pre>
+   * A row that matches no step's event name + filters can never contribute to funnel counting,
+   * session_state, user_state, or attribution, so excluding it from the cache is safe.
+   */
+  private static Dataset<Row> preFilterToFunnelSteps(Dataset<Row> df, List<FunnelStep> steps) {
+    if (steps.isEmpty()) return df;
+    Column condition = null;
+    for (var step : steps) {
+      Column stepCond = col("event_name").equalTo(step.eventName());
+      for (var f : step.stepFilters()) {
+        if (f.field() == null || f.field().isBlank() || f.value().isEmpty()) continue;
+        stepCond = stepCond.and(buildColumnCondition(f));
+      }
+      condition = (condition == null) ? stepCond : condition.or(stepCond);
+    }
+    return condition != null ? df.filter(condition) : df;
   }
 
   /**
