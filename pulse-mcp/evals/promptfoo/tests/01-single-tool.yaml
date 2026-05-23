@@ -41,6 +41,7 @@
       threshold: 1
       metric: pulse_tool_calls_f1
       value:
+        - register_tools
         - list_suggested_interactions
 
 - description: "EVAL-005 — Interaction filter options [single]"
@@ -51,6 +52,7 @@
       threshold: 1
       metric: pulse_tool_calls_f1
       value:
+        - register_tools
         - get_interaction_filter_options
 
 - description: "EVAL-006 — Alert severity levels [single]"
@@ -61,6 +63,7 @@
       threshold: 1
       metric: pulse_tool_calls_f1
       value:
+        - register_tools
         - get_alert_severities
 
 - description: "EVAL-007 — Notification channels [single]"
@@ -71,6 +74,7 @@
       threshold: 1
       metric: pulse_tool_calls_f1
       value:
+        - register_tools
         - list_alert_notification_channels
 
 - description: "EVAL-008 — SDK rules and feature flags [single]"
@@ -81,6 +85,7 @@
       threshold: 1
       metric: pulse_tool_calls_f1
       value:
+        - register_tools
         - get_sdk_rules_features
 
 - description: "EVAL-009 — Event categories [single]"
@@ -91,6 +96,7 @@
       threshold: 1
       metric: pulse_tool_calls_f1
       value:
+        - register_tools
         - list_event_categories
 
 - description: "EVAL-010 — Funnel tags [single]"
@@ -101,6 +107,7 @@
       threshold: 1
       metric: pulse_tool_calls_f1
       value:
+        - register_tools
         - get_funnel_tags
 
 - description: "EVAL-011 — Events for funnel steps [single]"
@@ -111,6 +118,7 @@
       threshold: 1
       metric: pulse_tool_calls_f1
       value:
+        - register_tools
         - get_funnel_events
 
 - description: "EVAL-012 — Funnel filter fields [single]"
@@ -121,6 +129,7 @@
       threshold: 1
       metric: pulse_tool_calls_f1
       value:
+        - register_tools
         - get_funnel_filters
 
 - description: "EVAL-013 — Telemetry filter dimensions [single]"
@@ -131,6 +140,7 @@
       threshold: 1
       metric: pulse_tool_calls_f1
       value:
+        - register_tools
         - get_interaction_telemetry_filters
 
 - description: "EVAL-014 — Alert scopes [single]"
@@ -141,6 +151,7 @@
       threshold: 1
       metric: pulse_tool_calls_f1
       value:
+        - register_tools
         - get_alert_scopes
 
 - description: "EVAL-015 — ANR list [single]"
@@ -151,4 +162,5 @@
       threshold: 1
       metric: pulse_tool_calls_f1
       value:
+        - register_tools
         - list_app_vitals_anr_issues

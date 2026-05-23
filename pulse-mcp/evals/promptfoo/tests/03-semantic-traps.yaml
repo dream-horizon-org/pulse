@@ -10,6 +10,7 @@
       threshold: 1
       metric: pulse_tool_calls_f1
       value:
+        - register_tools
         - get_interaction_root_cause
 
 - description: "EVAL-027 — Apdex uses span name (telegraphed) [semantic-trap]"
@@ -20,6 +21,7 @@
       threshold: 1
       metric: pulse_tool_calls_f1
       value:
+        - register_tools
         - get_interaction_apdex_score
 
 - description: "EVAL-028 — First/last seen crash requires eventName [semantic-trap]"
@@ -30,6 +32,7 @@
       threshold: 1
       metric: pulse_tool_calls_f1
       value:
+        - register_tools
         - get_app_vitals_exception_first_last_seen
 
 - description: "EVAL-029 — ANR first/last seen requires eventName [semantic-trap]"
@@ -40,6 +43,7 @@
       threshold: 1
       metric: pulse_tool_calls_f1
       value:
+        - register_tools
         - get_app_vitals_exception_first_last_seen
 
 - description: "EVAL-030 — Heatmap 403 is feature flag not auth [semantic-trap]"
@@ -50,6 +54,7 @@
       threshold: 1
       metric: pulse_tool_calls_f1
       value:
+        - register_tools
         - get_active_sdk_config
         - get_heatmap_data
 
@@ -61,6 +66,7 @@
       threshold: 1
       metric: pulse_tool_calls_f1
       value:
+        - register_tools
         - list_session_replays
 
 - description: "EVAL-032 — RCA must not use span name (telegraphed) [semantic-trap]"
@@ -71,6 +77,7 @@
       threshold: 1
       metric: pulse_tool_calls_f1
       value:
+        - register_tools
         - get_interaction_root_cause
 
 - description: "EVAL-033 — alert_metrics scope required [semantic-trap]"
@@ -81,6 +88,7 @@
       threshold: 1
       metric: pulse_tool_calls_f1
       value:
+        - register_tools
         - get_alert_scopes
         - get_alert_metrics
 
@@ -92,6 +100,7 @@
       threshold: 1
       metric: pulse_tool_calls_f1
       value:
+        - register_tools
         - list_journeys
         - get_journey
 
@@ -103,6 +112,7 @@
       threshold: 1
       metric: pulse_tool_calls_f1
       value:
+        - register_tools
         - list_funnels
         - get_funnel
 
@@ -114,6 +124,7 @@
       threshold: 1
       metric: pulse_tool_calls_f1
       value:
+        - register_tools
         - list_session_replays
 
 - description: "EVAL-037 — Non-fatal first/last seen omits eventName correctly [semantic-trap]"
@@ -124,6 +135,7 @@
       threshold: 1
       metric: pulse_tool_calls_f1
       value:
+        - register_tools
         - get_app_vitals_exception_first_last_seen
 
 # Category 3b — Untelegraphed [P] traps
@@ -136,6 +148,7 @@
       threshold: 1
       metric: pulse_tool_calls_f1
       value:
+        - register_tools
         - list_interactions
         - get_interaction_root_cause
 
@@ -147,6 +160,7 @@
       threshold: 1
       metric: pulse_tool_calls_f1
       value:
+        - register_tools
         - get_interaction_apdex_score
 
 - description: "EVAL-058 — RCA without structured hint (untelegraphed) [semantic-trap]"
@@ -157,5 +171,6 @@
       threshold: 1
       metric: pulse_tool_calls_f1
       value:
+        - register_tools
         - list_interactions
         - get_interaction_root_cause

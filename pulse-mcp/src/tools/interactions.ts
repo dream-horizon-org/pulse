@@ -54,7 +54,7 @@ export function registerInteractionTools(server: McpServer): void {
 
   server.tool(
     "get_interaction_root_cause",
-    "Get root cause analysis (RCA) for a specific interaction",
+    "Get root cause analysis (RCA) for a specific interaction. Requires interactionId — call list_interactions first to obtain the ID if not already known.",
     {
       projectId: z.string().describe("Project ID"),
       interactionId: z.string().describe("Interaction ID"),

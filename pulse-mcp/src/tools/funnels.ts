@@ -47,7 +47,7 @@ export function registerFunnelTools(server: McpServer): void {
 
   server.tool(
     "get_funnel_events",
-    "List events available for use in funnel steps",
+    "List events supported by the funnel builder for use as funnel steps. Use this (not list_event_definitions) when the user asks what events they can add to a funnel.",
     { projectId: z.string().describe("Project ID") },
     async ({ projectId }) => {
       const data = await getClient().get<unknown>("/v1/funnels/events", projectId);

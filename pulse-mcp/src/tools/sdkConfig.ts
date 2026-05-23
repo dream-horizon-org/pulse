@@ -5,7 +5,7 @@ import { getClient } from "../client.js";
 export function registerSdkConfigTools(server: McpServer): void {
   server.tool(
     "get_active_sdk_config",
-    "Get the currently active SDK configuration for a project",
+    "Get the currently active (deployed) SDK configuration — shows which capture features (heatmap, sessions, interactions, etc.) are enabled or disabled. Use this to diagnose why a feature such as heatmap is not collecting data.",
     { projectId: z.string().describe("Project ID") },
     async ({ projectId }) => {
       const data = await getClient().get<unknown>("/v1/configs/active", projectId, undefined, true);
@@ -38,7 +38,7 @@ export function registerSdkConfigTools(server: McpServer): void {
 
   server.tool(
     "get_sdk_rules_features",
-    "Get available SDK rules and feature flags",
+    "Get the catalog of available SDK rule types and configurable feature definitions (not the active state). Use this when the user asks what rules or feature options are available to configure, not to check whether a feature is currently enabled.",
     { projectId: z.string().describe("Project ID") },
     async ({ projectId }) => {
       const data = await getClient().get<unknown>("/v1/configs/rules-features", projectId);

@@ -14,6 +14,7 @@
       threshold: 1
       metric: pulse_tool_calls_f1
       value:
+        - register_tools
         - list_app_vitals_crash_issues
 
 - description: "EVAL-039 — List alerts not alert history [distractor-trap]"
@@ -24,6 +25,7 @@
       threshold: 1
       metric: pulse_tool_calls_f1
       value:
+        - register_tools
         - list_alerts
 
 - description: "EVAL-040 — Search events vs list definitions [distractor-trap]"
@@ -83,6 +85,7 @@
       threshold: 1
       metric: pulse_tool_calls_f1
       value:
+        - register_tools
         - list_journeys
         - get_journey
 
@@ -94,6 +97,7 @@
       threshold: 1
       metric: pulse_tool_calls_f1
       value:
+        - register_tools
         - get_active_sdk_config
 
 - description: "EVAL-045 — Non-fatal not crash or ANR [distractor-trap]"
@@ -104,6 +108,7 @@
       threshold: 1
       metric: pulse_tool_calls_f1
       value:
+        - register_tools
         - list_app_vitals_nonfatal_issues
 
 - description: "EVAL-046 — Alert history for specific alert [distractor-trap]"
@@ -114,6 +119,7 @@
       threshold: 1
       metric: pulse_tool_calls_f1
       value:
+        - register_tools
         - get_alert_evaluation_history
 
 - description: "EVAL-047 — SDK config version lookup [distractor-trap]"
@@ -124,4 +130,5 @@
       threshold: 1
       metric: pulse_tool_calls_f1
       value:
+        - register_tools
         - get_sdk_config

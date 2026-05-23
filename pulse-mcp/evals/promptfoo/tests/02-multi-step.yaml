@@ -10,6 +10,7 @@
       threshold: 1
       metric: pulse_tool_calls_f1
       value:
+        - register_tools
         - list_app_vitals_crash_issues
         - get_app_vitals_issue_summary
         - get_app_vitals_issue_stack_traces
@@ -22,6 +23,7 @@
       threshold: 1
       metric: pulse_tool_calls_f1
       value:
+        - register_tools
         - get_interaction_apdex_score
         - get_interaction_error_rate
 
@@ -33,6 +35,7 @@
       threshold: 1
       metric: pulse_tool_calls_f1
       value:
+        - register_tools
         - list_app_vitals_crash_issues
         - list_session_replays
 
@@ -44,6 +47,7 @@
       threshold: 1
       metric: pulse_tool_calls_f1
       value:
+        - register_tools
         - get_active_sdk_config
         - get_heatmap_data
 
@@ -55,6 +59,7 @@
       threshold: 1
       metric: pulse_tool_calls_f1
       value:
+        - register_tools
         - list_funnels
         - get_funnel
 
@@ -66,6 +71,7 @@
       threshold: 1
       metric: pulse_tool_calls_f1
       value:
+        - register_tools
         - list_interactions
         - get_interaction_root_cause
 
@@ -77,6 +83,7 @@
       threshold: 1
       metric: pulse_tool_calls_f1
       value:
+        - register_tools
         - list_alerts
         - get_alert_evaluation_history
 
@@ -88,6 +95,7 @@
       threshold: 1
       metric: pulse_tool_calls_f1
       value:
+        - register_tools
         - get_alert_scopes
         - get_alert_metrics
 
@@ -99,6 +107,7 @@
       threshold: 1
       metric: pulse_tool_calls_f1
       value:
+        - register_tools
         - list_app_vitals_crash_issues
         - get_app_vitals_user_session_totals
 
@@ -110,6 +119,7 @@
       threshold: 1
       metric: pulse_tool_calls_f1
       value:
+        - register_tools
         - get_app_vitals_issue_summary
         - get_app_vitals_issue_trend
         - get_app_vitals_issue_stack_traces

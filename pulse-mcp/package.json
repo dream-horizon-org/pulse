@@ -10,8 +10,10 @@
     "build": "tsup",
     "dev": "tsup --watch",
     "start": "node dist/index.js",
+    "start:http": "node dist/index-http.js",
     "typecheck": "tsc --noEmit",
     "promptfoo:eval": "yarn build && PROMPTFOO_DISABLE_TELEMETRY=1 && promptfoo eval -c evals/promptfoo/promptfooconfig.yaml",
+    "promptfoo:eval:http": "yarn build && PROMPTFOO_DISABLE_TELEMETRY=1 && promptfoo eval -c evals/promptfoo/promptfooconfig-http.yaml",
     "promptfoo:view": "promptfoo view"
   },
   "dependencies": {

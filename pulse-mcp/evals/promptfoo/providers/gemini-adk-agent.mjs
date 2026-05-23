@@ -15,8 +15,13 @@ function calculateCost(model, promptTokens, completionTokens) {
 
 const DEFAULT_INSTRUCTION =
   "You are an assistant for Pulse, a real-time mobile and web observability platform. " +
-  "You have access to Pulse MCP tools. When the user makes a request, call the appropriate " +
-  "tool(s) to answer it. Call only the tools that are needed. " +
+  "You have access to Pulse MCP tools. Follow these rules exactly: " +
+  "1. When the user asks for anything, call the appropriate tool(s) immediately. " +
+  "2. If the tool you need is not yet available, call register_tools with the relevant category " +
+  "right away — never ask the user for permission, never say 'would you like me to' before calling it. " +
+  "3. After register_tools succeeds, your very next action MUST be to call the actual domain tool(s) " +
+  "to fetch real data. The register_tools result only means tools are now available — it contains no data itself. " +
+  "4. Never answer from memory or assumptions — always call tools for real data. " +
   'Use projectId "fancode" unless the user specifies otherwise.';
 
 function buildToolsets(servers) {
@@ -48,24 +53,16 @@ export default class GeminiAdkProvider {
     this._model = cfg.model ?? "gemini-2.5-flash";
     this._instruction = cfg.instruction ?? DEFAULT_INSTRUCTION;
     this._maxLlmCalls = cfg.max_turns ?? 10;
+    this._servers = cfg.mcp?.servers ?? [];
+    // Optional: POST to this URL before each test to reset server-side tool state.
+    // Used with the HTTP transport (dist/index-http.js) for eval isolation.
+    this._resetUrl = cfg.reset_url ?? null;
 
-    const servers = cfg.mcp?.servers ?? [];
-    if (servers.length === 0) {
+    if (this._servers.length === 0) {
       throw new Error(
         "GeminiAdkProvider: config.mcp.servers must contain at least one server"
       );
     }
-
-    const agent = new LlmAgent({
-      name: "pulse_eval_agent",
-      model: this._model,
-      instruction: this._instruction,
-      tools: buildToolsets(servers),
-    });
-
-    // Runner is reused across all callApi() invocations — one agent instance
-    // per provider config, not per test case.
-    this._runner = new InMemoryRunner({ agent, appName: "pulse-eval" });
   }
 
   id() {
@@ -73,13 +70,35 @@ export default class GeminiAdkProvider {
   }
 
   async callApi(prompt) {
+    // Reset server-side tool state before each test (HTTP transport only).
+    if (this._resetUrl) {
+      try {
+        await fetch(this._resetUrl, { method: "POST" });
+      } catch (e) {
+        return {
+          output: "",
+          error: `Cannot reach MCP HTTP server at ${this._resetUrl}: ${e.message}. Is 'yarn start:http' running?`,
+        };
+      }
+    }
+
+    // Fresh agent + runner per call so each eval test gets a clean MCP process
+    // and a clean registeredCategories Set in the MCP server.
+    const agent = new LlmAgent({
+      name: "pulse_eval_agent",
+      model: this._model,
+      instruction: this._instruction,
+      tools: buildToolsets(this._servers),
+    });
+    const runner = new InMemoryRunner({ agent, appName: "pulse-eval" });
+
     const toolCalls = [];
     const pendingById = new Map();
     let finalText = "";
     let promptTokens = 0;
     let completionTokens = 0;
 
-    for await (const rawEvent of this._runner.runEphemeral({
+    for await (const rawEvent of runner.runEphemeral({
       userId: `eval-${Date.now()}-${Math.random().toString(36).slice(2)}`,
       newMessage: { role: "user", parts: [{ text: prompt }] },
       runConfig: { maxLlmCalls: this._maxLlmCalls },

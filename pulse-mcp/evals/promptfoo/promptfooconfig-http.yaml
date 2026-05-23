@@ -1,0 +1,55 @@
+# yaml-language-server: $schema=https://promptfoo.dev/config-schema.json
+description: pulse-mcp tool-selection eval — HTTP transport (tests register_tools dynamic flow)
+# Prerequisites:
+#   - yarn build
+#   - Start HTTP server in a separate terminal:
+#       PULSE_BASE_URL=http://localhost:8080 PULSE_API_KEY=<key> yarn start:http
+#   - GOOGLE_API_KEY or GEMINI_API_KEY
+#   - PULSE_BASE_URL, PULSE_API_KEY (for the MCP server process above)
+# Run: yarn promptfoo:eval:http
+evaluateOptions:
+  maxConcurrency: 1   # must be 1 — server state is shared across tests
+telemetry: false
+providers:
+  - id: file://providers/gemini-adk-agent.mjs
+    config:
+      model: gemini-2.0-flash
+      instruction: >
+        You are an assistant for Pulse, a real-time mobile and web observability
+        platform. You have access to Pulse MCP tools via function declarations.
+        Follow these rules exactly:
+        1. When the user asks for anything, call the appropriate tool(s) immediately.
+        2. If the tool you need is not yet available, call register_tools with the
+           relevant category right away — never ask the user for permission first,
+           never say "would you like me to" or "shall I" before calling it.
+        3. After register_tools succeeds, your very next action MUST be to call the
+           actual domain tool(s) to fetch real data. The register_tools result only
+           means tools are now available — it contains no data itself.
+        4. Never answer from memory or assumptions — always call tools for real data.
+        5. Use projectId "fancode" unless the user specifies otherwise.
+      max_turns: 10
+      reset_url: 'http://localhost:3001/reset'
+      mcp:
+        servers:
+          - type: StreamableHTTPConnectionParams
+            url: 'http://localhost:3001/mcp'
+
+prompts:
+  - "{{prompt}}"
+
+tests:
+  # Smoke test
+  - description: smoke_gemini_connectivity
+    vars:
+      prompt: "Reply with exactly this token and nothing else: MCP_EVAL_OK"
+    assert:
+      - type: contains
+        value: MCP_EVAL_OK
+
+  # Tool-selection eval suites (same test cases as promptfooconfig.yaml)
+  - file://tests/01-single-tool.yaml
+  - file://tests/02-multi-step.yaml
+  - file://tests/03-semantic-traps.yaml
+  - file://tests/04-distractor-traps.yaml
+  - file://tests/05-disambiguation.yaml
+  - file://tests/06-scenarios.yaml
