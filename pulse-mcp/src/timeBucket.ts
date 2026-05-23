@@ -47,9 +47,8 @@ export function getTimeBucketSize(
 ): TimeBucketSize {
   if (!startTime || !endTime) return "1m";
 
-  const start = new Date(startTime).getTime();
-  const end = new Date(endTime).getTime();
-  let diffMs = end - start;
+  let diffMs = new Date(endTime).getTime() - new Date(startTime).getTime();
+  if (Number.isNaN(diffMs) || diffMs <= 0) return "1m";
 
   if (diffMs > MAX_TIME_RANGE_MS) {
     diffMs = MAX_TIME_RANGE_MS;

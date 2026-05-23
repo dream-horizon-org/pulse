@@ -1075,7 +1075,6 @@ __metadata:
     promptfoo: "npm:^0.121.11"
     tsup: "npm:^8.4.0"
     typescript: "npm:^5.4.0"
-    yaml: "npm:^2.9.0"
     zod: "npm:^3.23.0"
   bin:
     pulse-mcp: dist/index.js
@@ -10445,7 +10444,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"yaml@npm:^2.3.3, yaml@npm:^2.9.0":
+"yaml@npm:^2.3.3":
   version: 2.9.0
   resolution: "yaml@npm:2.9.0"
   bin:

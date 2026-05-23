@@ -1,8 +1,38 @@
 # pulse-mcp
 
-A read-only [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) server for Pulse: it exposes Pulse HTTP APIs as MCP tools so assistants can list projects, inspect metrics, sessions, alerts, heatmaps, funnels, journeys, events, interactions, SDK config, and **App Vitals** (crashes, ANRs, non-fatal issues, issue detail).
+A read-only [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) server for Pulse (mobile + web observability): it exposes Pulse HTTP APIs as MCP tools so assistants can list projects, inspect metrics, sessions, alerts, heatmaps, funnels, journeys, events, interactions, SDK config, and **App Vitals** (crashes, ANRs, non-fatal issues, issue detail).
 
-Transport: **stdio** (local process). Node **`>= 22.22.0`** required ([`package.json` `engines`](package.json)).
+**Default transport:** **stdio** (local process). An optional **HTTP** entrypoint (`dist/index-http.js`) exists for evals and hosted deployments. Node **`^22.22.0`** required ([`package.json` `engines`](package.json); [`.nvmrc`](.nvmrc) pins `v22.22.0`).
+
+## Dynamic tool loading
+
+Domain tools are **not** all registered at startup. On connect, `tools/list` returns only the **core** tools plus two meta-tools:
+
+| Tool | Purpose |
+|------|---------|
+| `list_projects` | List accessible projects |
+| `get_project` | Project details |
+| `list_project_members` | Project members and roles |
+| `register_tools` | Unlock one or more tool categories for this session |
+| `reset_tools` | Remove dynamically registered categories; keep core tools only |
+
+Call **`register_tools`** with the categories relevant to the user's request, then use the unlocked domain tools. Available categories:
+
+| Category | Unlocks |
+|----------|---------|
+| `crashes` | App Vitals — crash/ANR/non-fatal lists, issue detail, trends, stack traces |
+| `sessions` | Session replay listing |
+| `interactions` | Critical interactions, RCA, APDEX, error rate, response time |
+| `events` | Event catalog, categories, search |
+| `funnels` | Funnel list, detail, tags, builder events |
+| `journeys` | User journey flows |
+| `alerts` | Alert rules, evaluation history, notification channels |
+| `heatmap` | Touch heatmap data |
+| `sdk` | SDK configuration and rules |
+
+Example: before listing crash issues, call `register_tools` with `categories: ["crashes"]`, then call `list_app_vitals_crash_issues`. Use `reset_tools` to drop unlocked categories and start fresh.
+
+Assistants connected via Cursor or Claude Desktop must follow this flow — the tool schema alone does not expose domain tools until `register_tools` runs.
 
 ## Prerequisites
 
@@ -22,9 +52,9 @@ On startup, the server calls `POST /v1/auth/api-key/exchange` with body `{ "apiK
 
 ## Install and build
 
-Dependencies are tracked in **`yarn.lock`** — install with **Yarn** (Berry / v4 is what maintainers use; Corepack’s `corepack enable` helps if you want a consistent Yarn on PATH). This package does **not** pin an exact Yarn release in `package.json`; upgrade Yarn when needed as long as `yarn install` stays compatible with the lockfile.
+Dependencies are tracked in **`yarn.lock`**. Install with **Yarn 4** — [`package.json`](package.json) pins the release via **`packageManager`** (`yarn@4.12.0`). Corepack (`corepack enable`) is the usual way to get that Yarn on PATH.
 
-Production bundle: **`yarn build`** runs [**tsup**](https://github.com/egoist/tsup) (esbuild) and writes **`dist/index.js`** (+ source map). **`yarn typecheck`** runs **`tsc --noEmit`** only (no emit).
+Production bundle: **`yarn build`** runs [**tsup**](https://github.com/egoist/tsup) (esbuild) and writes **`dist/index.js`** and **`dist/index-http.js`** (+ source maps). **`yarn typecheck`** runs **`tsc --noEmit`** only (no emit).
 
 ```bash
 cd pulse-mcp
@@ -32,9 +62,15 @@ yarn install
 yarn build
 ```
 
-- `yarn dev` — watch mode (**tsup** `--watch`)
-- `yarn start` — run compiled server (`node dist/index.js`)
-- `yarn typecheck` — typecheck only (`tsc --noEmit`)
+| Script | Description |
+|--------|-------------|
+| `yarn dev` | Watch mode (**tsup** `--watch`) |
+| `yarn start` | Stdio MCP server (`node dist/index.js`) |
+| `yarn start:http` | HTTP MCP server on `PORT` (default **3001**); endpoints `/mcp` and `/reset` |
+| `yarn typecheck` | Typecheck only (`tsc --noEmit`) |
+| `yarn promptfoo:eval` | Build + Promptfoo eval (stdio MCP via ADK provider) |
+| `yarn promptfoo:eval:http` | Build + Promptfoo eval (HTTP MCP; run `yarn start:http` first) |
+| `yarn promptfoo:view` | Open Promptfoo results UI |
 
 ## Quick smoke test (stdio)
 
@@ -47,20 +83,21 @@ echo '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}' \
     node dist/index.js
 ```
 
-You should see stderr lines such as `Exchanging API key for tokens...`, `Authentication successful.`, `Pulse MCP server running on stdio`, then a JSON `result.tools` array on stdout.
+You should see stderr lines such as `Exchanging API key for tokens...`, `Authentication successful.`, `Pulse MCP server running on stdio`, then a JSON `result.tools` array on stdout with **five** tools (`list_projects`, `get_project`, `list_project_members`, `register_tools`, `reset_tools`). Domain tools appear only after `register_tools` is called in a live session.
 
 ## Eval tooling (optional)
 
 **MCP Inspector — manual lane.** Use it to explore `tools/list`, schemas, and live calls against Pulse while developing the server.
 
-**Promptfoo — NL tool-selection eval.** Config lives under [`evals/promptfoo/`](evals/promptfoo/). Before each run, **`yarn promptfoo:eval`** builds the server, connects with the official MCP client (`tools/list`), and writes **`evals/promptfoo/tools.generated.yaml`** (gitignored). The Gemini provider loads that file so tool **names / descriptions / schemas** stay aligned with the built server—no hand-maintained `tools.yaml`.
+**Promptfoo — NL tool-selection eval.** Config lives under [`evals/promptfoo/`](evals/promptfoo/). **`yarn promptfoo:eval`** builds the server, then runs evals via the Google ADK provider ([`evals/promptfoo/providers/gemini-adk-agent.mjs`](evals/promptfoo/providers/gemini-adk-agent.mjs)), which connects to **`dist/index.js`** over MCP stdio and discovers tools live from `tools/list` — no generated tool schema file.
 
-- **Build + codegen:** `yarn promptfoo:eval` runs `yarn build`, then `yarn generate:promptfoo-tools` (needs a reachable Pulse API for API-key exchange — same as starting MCP normally).
-- **Pulse API:** set `PULSE_BASE_URL` and `PULSE_API_KEY` for the codegen step (and for eval if you later add live tool execution).
-- **Model:** `GOOGLE_API_KEY` (Google AI Studio).
+- **Build:** `yarn promptfoo:eval` runs `yarn build` first (needs a reachable Pulse API for API-key exchange — same as starting MCP normally).
+- **Pulse API:** set `PULSE_BASE_URL` and `PULSE_API_KEY` (passed to the MCP server subprocess).
+- **Model:** `GOOGLE_API_KEY` or `GEMINI_API_KEY` (Google AI Studio).
 - **Node:** same as [`package.json` `engines`](package.json) — **`promptfoo` enforces this** when you run `yarn promptfoo:eval`.
+- **HTTP transport eval** (dynamic `register_tools` flow): start `yarn start:http` in one terminal, then `yarn promptfoo:eval:http`.
 
-Additional cases live in tracked YAML under `evals/promptfoo/tests/`; authoring notes in [`doc/task_3/16-eval-nl-prompts.md`](doc/task_3/16-eval-nl-prompts.md).
+Additional cases live in tracked YAML under `evals/promptfoo/tests/`.
 
 ```bash
 cd pulse-mcp
@@ -73,7 +110,7 @@ yarn promptfoo:eval
 
 ## Cursor / Claude Desktop
 
-Point `command`/`args` at `dist/index.js` and pass env (example for Cursor: `~/.cursor/mcp.json` or project `.cursor/mcp.json`):
+Point `command`/`args` at `dist/index.js` and pass env (example for Cursor: `~/.cursor/mcp.json` or project `.cursor/mcp.json`). The assistant must call **`register_tools`** to unlock domain tools before using them (see [Dynamic tool loading](#dynamic-tool-loading)).
 
 ```json
 {
@@ -90,9 +127,11 @@ Point `command`/`args` at `dist/index.js` and pass env (example for Cursor: `~/.
 }
 ```
 
-For a manual end-to-end check: create a key at **`/account/tokens`**, point this MCP at your `PULSE_BASE_URL`, set `PULSE_API_KEY`, run the smoke command above, then revoke the key in the UI and confirm a new exchange fails until you create a new key.
+For a manual end-to-end check: create a key at **`/account/tokens`**, point this MCP at your `PULSE_BASE_URL`, set `PULSE_API_KEY`, run the smoke command above, then call `register_tools` (e.g. with `categories: ["crashes"]`) before domain tools. Revoke the key in the UI and confirm a new exchange fails until you create a new key.
 
 ## App Vitals tools
+
+These tools are in the **`crashes`** category — call `register_tools` with `categories: ["crashes"]` before using them.
 
 These tools call the same endpoint as the Pulse UI: **`POST /v1/interactions/performance-metric/distribution`**, with request bodies aligned to `pulse-ui` hooks (`useExceptionListData`, `useIssueDetailData`, etc.). Column names are duplicated in [`src/tools/appVitalsConstants.ts`](src/tools/appVitalsConstants.ts); **keep them in sync** with [`pulse-ui/src/constants/PulseOtelSemcov.ts`](../pulse-ui/src/constants/PulseOtelSemcov.ts) when semconv fields change.
 
@@ -132,11 +171,16 @@ Successful distribution calls return JSON with **`ok: true`**. When there are no
 
 ## Layout
 
-- `tsup.config.ts` — production bundle (**esbuild** via **tsup**) → **`dist/index.js`**
-- `src/index.ts` — requires env, exchanges API key, saves credentials, registers tools, **StdioServerTransport**
-- `src/client.ts` — Axios client to Pulse API (wrapped `data` envelope; `raw` flag where needed); 401 → re-exchange
+- `tsup.config.ts` — production bundle (**esbuild** via **tsup**) → **`dist/index.js`**, **`dist/index-http.js`**
+- `src/index.ts` — stdio entry: env + API-key exchange, core tools + `register_tools` / `reset_tools`, **StdioServerTransport**
+- `src/index-http.ts` — HTTP entry: Streamable HTTP on `/mcp`, session state reset on `/reset` (eval isolation)
+- `src/client.ts` — Axios client to Pulse API (wrapped `data` envelope; optional unwrapped **`get`** for `/v1/configs/active`); 401 → re-exchange
 - `src/auth.ts` — load/save credentials file, `exchangeApiKeyForTokens`
+- `src/jwtEmail.ts` — read `email` claim from JWT (session listing `user-email` header)
+- `src/timeBucket.ts` — time-series bucket sizing (mirrors pulse-ui `TimeBucketUtil`)
+- `src/tools/register.ts` — dynamic category registration (`register_tools`, `reset_tools`)
 - `src/tools/*.ts` — one module per domain (including `appVitals.ts`, `appVitalsHelpers.ts`, `appVitalsConstants.ts`)
+- `evals/promptfoo/` — Promptfoo configs, ADK provider, NL tool-selection test suites
 
 ## License
 

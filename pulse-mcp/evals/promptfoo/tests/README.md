@@ -2,9 +2,9 @@
 
 Add YAML suites here (e.g. per-domain files). Entry config: [`../promptfooconfig.yaml`](../promptfooconfig.yaml).
 
-**Tool definitions:** run `yarn generate:promptfoo-tools` (or `yarn promptfoo:eval`, which runs build + codegen first). That script uses the MCP client protocol against **`node dist/index.js`** and writes **`../tools.generated.yaml`** (gitignored). Do not mirror tools by hand.
+**Tool definitions:** the ADK provider ([`../providers/gemini-adk-agent.mjs`](../providers/gemini-adk-agent.mjs)) connects to **`node dist/index.js`** over MCP stdio and discovers tools from `tools/list` at eval time. Run `yarn build` (or `yarn promptfoo:eval`, which builds first). Do not mirror tools by hand.
 
-Natural-language cases for tool-selection grading are listed in [`../../doc/task_3/16-eval-nl-prompts.md`](../../doc/task_3/16-eval-nl-prompts.md).
+Natural-language cases for tool-selection grading live in the YAML suites in this directory.
 
 Run from repo **`pulse-mcp/`** with Yarn:
 

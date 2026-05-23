@@ -96,7 +96,6 @@ export class PulseClient {
     path: string,
     body: unknown,
     projectId?: string,
-    raw?: boolean,
     extraHeaders?: Record<string, string>,
     timeoutMs?: number,
   ): Promise<T> {
@@ -108,10 +107,6 @@ export class PulseClient {
     }
     if (timeoutMs !== undefined) {
       config.timeout = timeoutMs;
-    }
-    if (raw) {
-      const resp = await this.http.post<T>(path, body, config);
-      return resp.data;
     }
     const resp = await this.http.post<{ data: T }>(path, body, config);
     return resp.data.data;

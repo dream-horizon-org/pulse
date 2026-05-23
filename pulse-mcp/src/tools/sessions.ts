@@ -80,14 +80,6 @@ export function registerSessionTools(server: McpServer): void {
         .string()
         .optional()
         .describe("Opaque cursor from previous response page.nextCursor"),
-      device: z
-        .string()
-        .optional()
-        .describe("Reserved — not mapped to listing filters in this tool"),
-      eventTypes: z
-        .array(z.string())
-        .optional()
-        .describe("Reserved — not mapped to listing filters in this tool"),
     },
     async ({
       projectId,
@@ -125,7 +117,6 @@ export function registerSessionTools(server: McpServer): void {
           "/v1/sessions/listing",
           body,
           projectId,
-          false,
           sessionListingExtraHeaders(),
           SESSION_LISTING_TIMEOUT_MS,
         );

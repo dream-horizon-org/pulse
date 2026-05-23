@@ -28,7 +28,6 @@ coverage/
 
 # Promptfoo (local cache / outputs)
 .promptfoo/
-evals/promptfoo/tools.generated.yaml
 
 # OS / editor noise
 .DS_Store

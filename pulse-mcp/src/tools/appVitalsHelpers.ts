@@ -1,6 +1,6 @@
 import axios from "axios";
 import { getClient } from "../client.js";
-import { COLUMN_NAME, PULSE_TYPE_SESSION_START } from "./appVitalsConstants.js";
+import { COLUMN_NAME } from "./appVitalsConstants.js";
 
 export type ExceptionKind = "crash" | "anr" | "nonfatal";
 
@@ -96,13 +96,17 @@ export function buildCommonFilters(
   }
   if (osVersion && osVersion !== "all") {
     filterArray.push({
-      field: "OsVersion",
+      field: COLUMN_NAME.OS_VERSION,
       operator: "EQ",
       value: [osVersion],
     });
   }
   if (device && device !== "all") {
-    filterArray.push({ field: "DeviceModel", operator: "EQ", value: [device] });
+    filterArray.push({
+      field: COLUMN_NAME.DEVICE_MODEL,
+      operator: "EQ",
+      value: [device],
+    });
   }
   if (platform && platform !== "all") {
     filterArray.push({
@@ -297,62 +301,6 @@ export async function runDistribution(
       ],
     };
   }
-}
-
-export type TimeBucketSize =
-  | "1m"
-  | "5m"
-  | "10m"
-  | "30m"
-  | "1h"
-  | "3h"
-  | "6h"
-  | "12h"
-  | "1d";
-
-const BUCKET_SIZES_MS: Record<TimeBucketSize, number> = {
-  "1m": 60_000,
-  "5m": 300_000,
-  "10m": 600_000,
-  "30m": 1_800_000,
-  "1h": 3_600_000,
-  "3h": 10_800_000,
-  "6h": 21_600_000,
-  "12h": 43_200_000,
-  "1d": 86_400_000,
-};
-
-const BUCKET_ORDER: TimeBucketSize[] = [
-  "1m",
-  "5m",
-  "10m",
-  "30m",
-  "1h",
-  "3h",
-  "6h",
-  "12h",
-  "1d",
-];
-
-const MAX_POINTS = 50;
-const MIN_BUCKET_MS = 60_000;
-const MAX_RANGE_MS = 90 * 24 * 60 * 60 * 1000;
-
-/** Same logic as pulse-ui TimeBucketUtil.getTimeBucketSize */
-export function getTimeBucketSize(
-  startTime: string,
-  endTime: string,
-): TimeBucketSize {
-  if (!startTime || !endTime) return "1m";
-  let diffMs = new Date(endTime).getTime() - new Date(startTime).getTime();
-  if (Number.isNaN(diffMs) || diffMs <= 0) return "1m";
-  if (diffMs > MAX_RANGE_MS) diffMs = MAX_RANGE_MS;
-  const ideal = diffMs / MAX_POINTS;
-  const required = Math.max(ideal, MIN_BUCKET_MS);
-  for (const b of BUCKET_ORDER) {
-    if (BUCKET_SIZES_MS[b] >= required) return b;
-  }
-  return "1d";
 }
 
 export { MAX_LIST_LIMIT, DEFAULT_LIST_LIMIT };

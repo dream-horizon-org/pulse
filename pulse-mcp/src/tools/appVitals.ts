@@ -1,11 +1,11 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
+import { getTimeBucketSize } from "../timeBucket.js";
 import {
   buildCommonFilters,
   buildExceptionListBody,
   DEFAULT_LIST_LIMIT,
   formatToolError,
-  getTimeBucketSize,
   MAX_LIST_LIMIT,
   postDistribution,
   resolveTimeRange,
@@ -290,7 +290,7 @@ export function registerAppVitalsTools(server: McpServer): void {
       } else if (args.trendView === "os") {
         baseSelect.push({
           function: "COL",
-          param: { field: "OsVersion" },
+          param: { field: COLUMN_NAME.OS_VERSION },
           alias: "os_version",
         });
       }
@@ -363,8 +363,16 @@ export function registerAppVitalsTools(server: McpServer): void {
         { function: "COL", param: { field: "TraceId" }, alias: "trace_id" },
         { function: "COL", param: { field: "SpanId" }, alias: "span_id" },
         { function: "COL", param: { field: "Timestamp" }, alias: "timestamp" },
-        { function: "COL", param: { field: "DeviceModel" }, alias: "device" },
-        { function: "COL", param: { field: "OsVersion" }, alias: "os_version" },
+        {
+          function: "COL",
+          param: { field: COLUMN_NAME.DEVICE_MODEL },
+          alias: "device",
+        },
+        {
+          function: "COL",
+          param: { field: COLUMN_NAME.OS_VERSION },
+          alias: "os_version",
+        },
         {
           function: "COL",
           param: { field: COLUMN_NAME.APP_VERSION },
@@ -541,14 +549,14 @@ export function registerAppVitalsTools(server: McpServer): void {
       }
       if (args.osVersion && args.osVersion !== "all") {
         filterArray.push({
-          field: "OsVersion",
+          field: COLUMN_NAME.OS_VERSION,
           operator: "EQ",
           value: [args.osVersion],
         });
       }
       if (args.device && args.device !== "all") {
         filterArray.push({
-          field: "DeviceModel",
+          field: COLUMN_NAME.DEVICE_MODEL,
           operator: "EQ",
           value: [args.device],
         });
