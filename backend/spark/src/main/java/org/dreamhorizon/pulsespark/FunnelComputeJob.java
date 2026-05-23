@@ -98,7 +98,13 @@ public class FunnelComputeJob {
       .add("UserId", DataTypes.StringType, true)
       // Read as raw Long micros — DO NOT change to TimestampType, that triggers the
       // parquet-mr 1.14.1 ↔ Spark 3.5 decode-to-zero bug.
-      .add("Timestamp", DataTypes.LongType, true);
+      .add("Timestamp", DataTypes.LongType, true)
+      // Custom event properties for step/global filter evaluation.
+      // Avro map<string> → Parquet MAP → Spark MapType(StringType, StringType).
+      .add("LogAttributes",
+        org.apache.spark.sql.types.DataTypes.createMapType(
+          DataTypes.StringType, DataTypes.StringType, true),
+        true);
 
   /**
    * Sets the Spark session-level configuration needed to correctly read parquet files written
@@ -956,11 +962,10 @@ public class FunnelComputeJob {
         log.warn("Skipping filter: field is null or blank");
         continue;
       }
-      String parquetField = FilterFieldMapper.toParquetColumn(filter.field());
-      var fieldCol = col(parquetField);
+      var fieldCol = FilterFieldMapper.toColumn(filter.field());
       var vals = filter.value().toArray();
       if (vals.length == 0) {
-        log.warn("Skipping filter: empty value list for field '{}' (resolved='{}')", filter.field(), parquetField);
+        log.warn("Skipping filter: empty value list for field '{}'", filter.field());
         continue;
       }
       String op = FunnelFilterOperators.normalize(filter.operator());
@@ -1125,6 +1130,17 @@ public class FunnelComputeJob {
     Column resolved = when(appInstallationId.isNull().or(appInstallationId.equalTo("")),
       lit(null).cast(DataTypes.StringType)).otherwise(appInstallationId);
     cols.add(resolved.alias("user_id"));
+
+    // LogAttributes map — projected for step/global filter evaluation only.
+    // Avro map<string> → Parquet MAP → MapType(StringType, StringType).
+    // Partitions missing the column get NULL; getItem on a null map returns null,
+    // which fails any equality check — correct behaviour for missing properties.
+    var mapType = org.apache.spark.sql.types.DataTypes.createMapType(
+      DataTypes.StringType, DataTypes.StringType, true);
+    cols.add((available.contains("LogAttributes")
+      ? col("LogAttributes")
+      : lit(null).cast(mapType)).alias("log_attributes"));
+
     return cols.toArray(Column[]::new);
   }
 
