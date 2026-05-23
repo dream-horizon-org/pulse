@@ -81,7 +81,7 @@ repositories {
   google()
 }
 
-def pulse_version = "0.0.17-alpha"
+def pulse_version = "0.0.18-alpha"
 dependencies {
   implementation("com.facebook.react:react-android")
 
@@ -95,7 +95,6 @@ dependencies {
   api("org.dreamhorizon:pulse-utils:$pulse_version")
   implementation("org.dreamhorizon:pulse-semconv:$pulse_version")
   implementation("org.dreamhorizon:pulse-sampling-models:$pulse_version")
-  api("com.squareup.okhttp3:okhttp:5.0.0-alpha.14")
   implementation("io.opentelemetry:opentelemetry-sdk")
   implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
 

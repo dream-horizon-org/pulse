@@ -1,10 +1,21 @@
 {
   "name": "@dreamhorizonorg/pulse-mcp",
-  "version": "0.1.0",
+  "version": "0.0.1-beta.1",
   "description": "MCP server for the Pulse mobile observability platform",
   "type": "module",
   "main": "dist/index.js",
-  "bin": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+  "pulse-mcp": "dist/index.js"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
   "scripts": {
     "prepare": "tsup",
     "build": "tsup",

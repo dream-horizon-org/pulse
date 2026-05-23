@@ -260,6 +260,8 @@ class ScreenRcaServiceTest {
 
       assertThat(result.getMode()).isEqualTo(RootCauseAnalysisMode.FLAT);
       assertThat(result.getBaseline()).containsEntry(ScreenRcaQueryBuilder.CLICK_VOLUME, 10);
+      assertThat(result.getBaseline())
+          .containsEntry(ScreenRcaQueryBuilder.BAD_FRUSTRATION_PERCENTAGE, 10.0);
       assertThat(result.getSegments()).isEmpty();
       verify(clickhouseQueryService, never())
           .executeRootCauseQuery(anyString(), anyString(), anyList(), anyList());
@@ -618,6 +620,71 @@ class ScreenRcaServiceTest {
       assertThat(result.getSegments()).hasSize(1);
       assertThat(result.getSegments().get(0).getDimensions()).hasSize(1);
       assertThat(result.getSegments().get(0).getLabel()).isEqualTo("Platform: Android");
+    }
+  }
+
+  @Nested
+  class DerivedMetrics {
+
+    @Test
+    void shouldComputeBadFrustrationPercentageFromClickHouseCounts() {
+      Map<String, Object> metrics = screenBaseline(200, 50);
+      ScreenRcaService.enrichDerivedMetrics(metrics);
+      assertThat(metrics)
+          .containsEntry(ScreenRcaQueryBuilder.BAD_FRUSTRATION_PERCENTAGE, 25.0);
+    }
+
+    @Test
+    void shouldOmitPercentageWhenClickVolumeIsZero() {
+      Map<String, Object> metrics = screenBaseline(0, 0);
+      ScreenRcaService.enrichDerivedMetrics(metrics);
+      assertThat(metrics).doesNotContainKey(ScreenRcaQueryBuilder.BAD_FRUSTRATION_PERCENTAGE);
+    }
+
+    @Test
+    void shouldExposePercentageAndDeltaOnComputedSegment() {
+      Map<String, Object> baseline = screenBaseline(100, 20);
+      when(screenRootCauseCacheDao.findByKey(PROJECT_ID, SCREEN, ANCHOR))
+          .thenReturn(Single.just(Optional.empty()));
+      when(clickhouseQueryService.executeRootCauseQuery(anyString(), anyString(), anyList(), anyList()))
+          .thenAnswer(
+              inv -> {
+                String q = inv.getArgument(1, String.class);
+                @SuppressWarnings("unchecked")
+                List<Object> bindValues = inv.getArgument(3, List.class);
+                int bn = bindValues.size();
+                if (!q.contains("GROUP BY")) {
+                  return Single.just(singleRowTableResponse(baseline));
+                }
+                if (isScreenSegmentMetricsQuery(q) && bn == 5) {
+                  Map<String, Object> row = screenSegmentMetricRow();
+                  row.put("Platform", "Android");
+                  row.put(ScreenRcaQueryBuilder.BAD_FRUSTRATION, 50L);
+                  return Single.just(singleRowTableResponse(row));
+                }
+                if (q.contains("GROUP BY Platform") && bn == 4) {
+                  return Single.just(
+                      singleRowTableResponse(
+                          Map.of(
+                              "Platform",
+                              "Android",
+                              ScreenRcaQueryBuilder.BAD_FRUSTRATION,
+                              50L)));
+                }
+                return Single.just(emptyTableResponse());
+              });
+
+      RootCauseResult result =
+          service.getScreenRootCause(PROJECT_ID, SCREEN, ANCHOR, WINDOW_END).blockingGet();
+
+      assertThat(result.getBaseline())
+          .containsEntry(ScreenRcaQueryBuilder.BAD_FRUSTRATION_PERCENTAGE, 20.0);
+      assertThat(result.getSegments()).isNotEmpty();
+      Map<String, Object> segMetrics = result.getSegments().get(0).getMetrics();
+      assertThat(segMetrics)
+          .containsEntry(ScreenRcaQueryBuilder.BAD_FRUSTRATION_PERCENTAGE, 100.0);
+      assertThat(result.getSegments().get(0).getDeltas())
+          .containsEntry(ScreenRcaQueryBuilder.BAD_FRUSTRATION_PERCENTAGE, 400.0);
     }
   }
 }
