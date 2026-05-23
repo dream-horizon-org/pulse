@@ -119,7 +119,7 @@ Map task → skill → relevant rule(s). Run the skill rather than freelancing.
 
 `.cursor/{skills,agents,commands,rules}/` and `.claude/{skills,agents,commands,rules}/` symlink to `.agents/` — single canonical copy for both tools.
 
-- **Skills** (`.cursor/skills/`) — prefer these over freelancing: `add-api-endpoint`, `add-ui-screen`, `add-ui-component`, `add-ai-sub-agent`, `add-alert-metric`, `clickhouse-migration`, `deploy-service`, `pr-review`, `web-sdk-instrument`, `web-sdk-e2e-matrix`, `web-sdk-ship`, `pulse-prd-author`, `pulse-prd-review`.
+- **Skills** (`.cursor/skills/`) — prefer these over freelancing: `add-api-endpoint`, `add-ui-screen`, `add-ui-component`, `add-ai-sub-agent`, `add-alert-metric`, `clickhouse-migration`, `deploy-service`, `pr-review`, `promptfoo-evals`, `web-sdk-instrument`, `web-sdk-e2e-matrix`, `web-sdk-ship`, `pulse-prd-author`, `pulse-prd-review`.
 - **Sub-agents** (`.cursor/agents/`) — delegate by area: `backend-engineer`, `frontend-engineer`, `ai-agent-engineer`, `mobile-sdk-engineer`, `pulse-web-sdk`, `web-otel-spec-audit-orchestrator`, `devops-engineer`, `data-analyst`, `debugger`, `pr-reviewer`, `unit-test-author`, `backend-test-runner`, `mock-server-maintainer`.
 - **Slash commands** (`.cursor/commands/`) — `quickstart`, `start/stop/check-services`, `view-logs`, `build-{backend,ui,ai}`, `run-{backend,ui}-tests`, `lint-ui`, `query-clickhouse`, `create-pr`, `review-my-changes`, `find-existing`, `onboard`, etc.
 
