@@ -46,28 +46,24 @@ public class FunnelComputeJob {
    * <p>Schema source: {@code backend/pulse-s3-archiver/src/main/resources/schemas/otel_logs.avsc}.
    */
   static final String[][] READ_COL_MAPPING = {
-    {"EventName", "event_name"},
-    {"ProjectId", "project_id"},
-    {"SessionId", "session_id"},
+    {SparkConstants.RawColumns.EVENT_NAME,       SparkConstants.Columns.EVENT_NAME},
+    {SparkConstants.RawColumns.PROJECT_ID,       SparkConstants.Columns.PROJECT_ID},
+    {SparkConstants.RawColumns.SESSION_ID,       SparkConstants.Columns.SESSION_ID},
     // Timestamp is handled separately below — see buildReadExprs. The parquet-mr 1.14.1 writer
     // emits an avro `timestamp-micros` logical type that Spark 3.5.x sometimes decodes to
     // epoch zero (depending on session config). We bypass Spark's logical-type interpretation
     // entirely by reading the column as Long microseconds and rebuilding TimestampType ourselves.
-    {"PulseType", "pulse_type"},               // needed for the custom_event filter
-    {"Platform", "os_name"},                   // OTel `Platform` carries the OS name
-    {"OsVersion", "os_version"},
-    {"AppVersion", "app_build_name"},          // downstream "app_build_name" alias kept for catalog filters
-    {"Platform", "device_manufacturer"},       // legacy distinction collapsed in OTel — same source
-    {"DeviceModel", "device_model_identifier"},
-    {"NetworkProvider", "network_carrier_icc"},
-    {"ScreenName", "screen_name"},
-    {"ServiceName", "service_name"}
+    {SparkConstants.RawColumns.PULSE_TYPE,       SparkConstants.Columns.PULSE_TYPE},            // needed for the custom_event filter
+    {SparkConstants.RawColumns.PLATFORM,         SparkConstants.Columns.OS_NAME},               // OTel `Platform` carries the OS name
+    {SparkConstants.RawColumns.OS_VERSION,       SparkConstants.Columns.OS_VERSION},
+    {SparkConstants.RawColumns.APP_VERSION,      SparkConstants.Columns.APP_BUILD_NAME},        // downstream "app_build_name" alias kept for catalog filters
+    {SparkConstants.RawColumns.PLATFORM,         SparkConstants.Columns.DEVICE_MANUFACTURER},  // legacy distinction collapsed in OTel — same source
+    {SparkConstants.RawColumns.DEVICE_MODEL,     SparkConstants.Columns.DEVICE_MODEL_IDENTIFIER},
+    {SparkConstants.RawColumns.NETWORK_PROVIDER, SparkConstants.Columns.NETWORK_CARRIER_ICC},
+    {SparkConstants.RawColumns.SCREEN_NAME,      SparkConstants.Columns.SCREEN_NAME},
+    {SparkConstants.RawColumns.SERVICE_NAME,     SparkConstants.Columns.SERVICE_NAME},
   };
 
-  /**
-   * PulseType emitted by SDKs for funnel/journey-eligible custom events. Matches the CH compute path.
-   */
-  private static final String CUSTOM_EVENT_PULSE_TYPE = "custom_event";
 
   /**
    * Explicit read schema for the otel_logs parquet partitions. Forces ALL columns to a known
@@ -85,25 +81,25 @@ public class FunnelComputeJob {
    */
   static final org.apache.spark.sql.types.StructType READ_SCHEMA =
     new org.apache.spark.sql.types.StructType()
-      .add("EventName", DataTypes.StringType, true)
-      .add("ProjectId", DataTypes.StringType, true)
-      .add("SessionId", DataTypes.StringType, true)
-      .add("PulseType", DataTypes.StringType, true)
-      .add("Platform", DataTypes.StringType, true)
-      .add("OsVersion", DataTypes.StringType, true)
-      .add("AppVersion", DataTypes.StringType, true)
-      .add("DeviceModel", DataTypes.StringType, true)
-      .add("NetworkProvider", DataTypes.StringType, true)
-      .add("ScreenName", DataTypes.StringType, true)
-      .add("ServiceName", DataTypes.StringType, true)
-      .add("AppInstallationId", DataTypes.StringType, true)
-      .add("UserId", DataTypes.StringType, true)
+      .add(SparkConstants.RawColumns.EVENT_NAME,          DataTypes.StringType, true)
+      .add(SparkConstants.RawColumns.PROJECT_ID,          DataTypes.StringType, true)
+      .add(SparkConstants.RawColumns.SESSION_ID,          DataTypes.StringType, true)
+      .add(SparkConstants.RawColumns.PULSE_TYPE,          DataTypes.StringType, true)
+      .add(SparkConstants.RawColumns.PLATFORM,            DataTypes.StringType, true)
+      .add(SparkConstants.RawColumns.OS_VERSION,          DataTypes.StringType, true)
+      .add(SparkConstants.RawColumns.APP_VERSION,         DataTypes.StringType, true)
+      .add(SparkConstants.RawColumns.DEVICE_MODEL,        DataTypes.StringType, true)
+      .add(SparkConstants.RawColumns.NETWORK_PROVIDER,    DataTypes.StringType, true)
+      .add(SparkConstants.RawColumns.SCREEN_NAME,         DataTypes.StringType, true)
+      .add(SparkConstants.RawColumns.SERVICE_NAME,        DataTypes.StringType, true)
+      .add(SparkConstants.RawColumns.APP_INSTALLATION_ID, DataTypes.StringType, true)
+      .add(SparkConstants.RawColumns.USER_ID,             DataTypes.StringType, true)
       // Read as raw Long micros — DO NOT change to TimestampType, that triggers the
       // parquet-mr 1.14.1 ↔ Spark 3.5 decode-to-zero bug.
-      .add("Timestamp", DataTypes.LongType, true)
+      .add(SparkConstants.RawColumns.TIMESTAMP, DataTypes.LongType, true)
       // Custom event properties for step/global filter evaluation.
       // Avro map<string> → Parquet MAP → Spark MapType(StringType, StringType).
-      .add("LogAttributes",
+      .add(SparkConstants.RawColumns.LOG_ATTRIBUTES,
         org.apache.spark.sql.types.DataTypes.createMapType(
           DataTypes.StringType, DataTypes.StringType, true),
         true);
@@ -133,8 +129,8 @@ public class FunnelComputeJob {
    * zeros for the entire {@code Timestamp} column.
    */
   static void configureSparkForParquetMrTimestamps(SparkSession spark) {
-    spark.conf().set("spark.sql.parquet.enableVectorizedReader", "false");
-    spark.conf().set("spark.sql.session.timeZone", "UTC");
+    spark.conf().set(SparkConstants.SparkConfig.PARQUET_VECTORIZED_READER, "false");
+    spark.conf().set(SparkConstants.SparkConfig.SESSION_TIME_ZONE, SparkConstants.SparkConfig.UTC);
     log.info("Spark parquet read config: vectorizedReader=false, timeZone=UTC " +
       "(workaround for parquet-mr 1.14.1 TIMESTAMP(MICROS) decode-to-zero bug in Spark 3.5.x)");
   }
@@ -149,7 +145,7 @@ public class FunnelComputeJob {
     if (!prefix.isEmpty() && !prefix.endsWith("/")) {
       prefix = prefix + "/";
     }
-    return "s3a://" + prefix + projectId + "/" + tableName + "/";
+    return SparkConstants.SparkConfig.S3A_PREFIX + prefix + projectId + "/" + tableName + "/";
   }
 
   public static void runFunnels(SparkSession spark, MysqlRepository mysql, ClickHouseClient ch,
@@ -169,7 +165,7 @@ public class FunnelComputeJob {
       }
       var startDt = funnel.startTime().toLocalDateTime();
       var endDt = funnel.endTime().toLocalDateTime();
-      var s3Base = buildS3Base(s3BucketPrefix, "fancode", "otel_logs");
+      var s3Base = buildS3Base(s3BucketPrefix, "fancode", SparkConstants.Tables.S3_OTEL_LOGS);
 
       log.info("Funnel {} window [{} -> {}] path={}", funnel.id(), startDt, endDt, s3Base);
       Dataset<Row> raw = readS3ByHours(spark, s3Base, startDt, endDt);
@@ -215,7 +211,7 @@ public class FunnelComputeJob {
     int maxDays = funnels.stream().mapToInt(FunnelDefinition::dateRange).max().orElse(7);
     var endDate = LocalDate.parse(runTime.substring(0, 10));
     var startDate = endDate.minusDays(maxDays - 1L);
-    var s3Base = buildS3Base(s3Prefix, projectId, "otel_logs");
+    var s3Base = buildS3Base(s3Prefix, projectId, SparkConstants.Tables.S3_OTEL_LOGS);
 
     log.info("Project {} reading S3 [{} -> {}] for {} funnel(s) path={}",
       projectId, startDate, endDate, funnels.size(), s3Base);
@@ -250,7 +246,8 @@ public class FunnelComputeJob {
     // Default to UNIQUE_USERS when mode is null/unknown. Matches ClickhouseAnalyticsQueryUtils
     // and the DB default ('UNIQUE_USERS' NOT NULL) — only switch to session_id for an explicit
     // "SESSIONS" mode so a stale/missing mode value never silently changes the denominator.
-    var identityCol = "SESSIONS".equalsIgnoreCase(funnel.mode()) ? "session_id" : "user_id";
+    var identityCol = SparkConstants.Modes.SESSIONS.equalsIgnoreCase(funnel.mode())
+        ? SparkConstants.Columns.SESSION_ID : SparkConstants.Columns.USER_ID;
     long windowSecs = funnel.windowSeconds();
     var steps = funnel.steps();
     int numSteps = steps.size();
@@ -263,8 +260,8 @@ public class FunnelComputeJob {
     // limits reads to the right date range, so the worst case is including a few extra
     // hours at the window boundaries.
     Row tsAgg = raw.agg(
-      min(col("timestamp")).alias("min_ts"),
-      max(col("timestamp")).alias("max_ts")
+      min(col(SparkConstants.Columns.TIMESTAMP)).alias("min_ts"),
+      max(col(SparkConstants.Columns.TIMESTAMP)).alias("max_ts")
     ).first();
     boolean tsAppearsBroken = tsAgg == null
       || tsAgg.get(0) == null
@@ -289,8 +286,8 @@ public class FunnelComputeJob {
       log.info("Funnel {} time filter [{} -> {}] (epochSec [{} -> {}])",
         funnel.id(), startTs, endTs, startEpochSeconds, endEpochSeconds);
       df = raw.filter(
-        col("timestamp").geq(lit(startTs))
-          .and(col("timestamp").leq(lit(endTs)))
+        col(SparkConstants.Columns.TIMESTAMP).geq(lit(startTs))
+          .and(col(SparkConstants.Columns.TIMESTAMP).leq(lit(endTs)))
       );
     } else {
       var endDate = LocalDate.parse(runTime.substring(0, 10));
@@ -299,8 +296,8 @@ public class FunnelComputeJob {
       java.sql.Timestamp endTs = java.sql.Timestamp.valueOf(endDate.plusDays(1L).atStartOfDay());
       log.info("Funnel {} date filter [{} -> {})", funnel.id(), startTs, endTs);
       df = raw.filter(
-        col("timestamp").geq(lit(startTs))
-          .and(col("timestamp").lt(lit(endTs)))
+        col(SparkConstants.Columns.TIMESTAMP).geq(lit(startTs))
+          .and(col(SparkConstants.Columns.TIMESTAMP).lt(lit(endTs)))
       );
     }
     if (log.isInfoEnabled()) {
@@ -536,13 +533,13 @@ public class FunnelComputeJob {
     }
     long windowSecs = funnel.windowSeconds();
     int finalStepIdx = numSteps - 1;
-    boolean isUniqueUsers = !"SESSIONS".equalsIgnoreCase(funnel.mode());
+    boolean isUniqueUsers = !SparkConstants.Modes.SESSIONS.equalsIgnoreCase(funnel.mode());
 
     // Apply the same window/date filter that computeFunnel uses so the bridge cohort matches
     // the aggregate counts in funnel_results exactly. If the parquet's `timestamp` column
     // appears unusable (all zeros — parquet-mr 1.14.1 ↔ Spark 3.5.x decode bug), skip the
     // filter and rely on partition pruning.
-    Row tsAgg = raw.agg(min(col("timestamp")), max(col("timestamp"))).first();
+    Row tsAgg = raw.agg(min(col(SparkConstants.Columns.TIMESTAMP)), max(col(SparkConstants.Columns.TIMESTAMP))).first();
     boolean tsAppearsBroken = tsAgg == null
       || tsAgg.get(0) == null
       || tsAgg.get(1) == null
@@ -556,8 +553,8 @@ public class FunnelComputeJob {
       java.sql.Timestamp startTs = new java.sql.Timestamp(startEpochSeconds * 1000L);
       java.sql.Timestamp endTs = new java.sql.Timestamp(endEpochSeconds * 1000L);
       df = raw.filter(
-        col("timestamp").geq(lit(startTs))
-          .and(col("timestamp").leq(lit(endTs)))
+        col(SparkConstants.Columns.TIMESTAMP).geq(lit(startTs))
+          .and(col(SparkConstants.Columns.TIMESTAMP).leq(lit(endTs)))
       );
     } else {
       var endDate = LocalDate.parse(runTime.substring(0, 10));
@@ -565,8 +562,8 @@ public class FunnelComputeJob {
       java.sql.Timestamp startTs = java.sql.Timestamp.valueOf(startDate.atStartOfDay());
       java.sql.Timestamp endTs = java.sql.Timestamp.valueOf(endDate.plusDays(1L).atStartOfDay());
       df = raw.filter(
-        col("timestamp").geq(lit(startTs))
-          .and(col("timestamp").lt(lit(endTs)))
+        col(SparkConstants.Columns.TIMESTAMP).geq(lit(startTs))
+          .and(col(SparkConstants.Columns.TIMESTAMP).lt(lit(endTs)))
       );
     }
     df = preFilterToFunnelSteps(applyFilters(df, funnel.globalFilters()), steps).cache();
@@ -623,7 +620,7 @@ public class FunnelComputeJob {
     // wide: one row per (identity, ts0) attempt. step_idx and ts_at_step updated in-place
     // at each left-join step. ts_prev becomes null when a session misses a step — SQL
     // semantics (null > anything = null/false) block that session from matching any later step.
-    Dataset<Row> wide = stepEvents(df, steps.get(0), "session_id")
+    Dataset<Row> wide = stepEvents(df, steps.get(0), SparkConstants.Columns.SESSION_ID)
       .select(
         col("identity"),
         col("ts").alias("ts0"),
@@ -638,7 +635,7 @@ public class FunnelComputeJob {
     }
 
     for (int i = 1; i < numSteps; i++) {
-      Dataset<Row> stepEvts = stepEvents(df, steps.get(i), "session_id")
+      Dataset<Row> stepEvts = stepEvents(df, steps.get(i), SparkConstants.Columns.SESSION_ID)
         .select(col("identity").alias("id_i"), col("ts").alias("ts_i"));
 
       Column joinCond = col("w.identity").equalTo(col("s.id_i"))
@@ -675,25 +672,25 @@ public class FunnelComputeJob {
     Dataset<Row> hydrated = bestPerSession.alias("b")
       .join(
         df.alias("d"),
-        col("b.identity").equalTo(col("d.session_id"))
-          .and(unix_timestamp(col("d.timestamp")).equalTo(col("b.ts_at_step"))),
+        col("b.identity").equalTo(col("d." + SparkConstants.Columns.SESSION_ID))
+          .and(unix_timestamp(col("d." + SparkConstants.Columns.TIMESTAMP)).equalTo(col("b.ts_at_step"))),
         "left"
       )
       .select(
-        col("b.identity").alias("session_id"),
+        col("b.identity").alias(SparkConstants.Columns.SESSION_ID),
         col("b.ts0").alias("ts0"),
         col("b.ts_at_step").alias("ts_at_step"),
         col("b.step_idx").alias("step_idx"),
-        coalesce(col("d.user_id"), lit("")).alias("user_id"),
-        coalesce(col("d.screen_name"), lit("")).alias("screen"),
-        coalesce(col("d.app_build_name"), lit("")).alias("app_version"),
-        coalesce(col("d.os_name"), lit("")).alias("os_name"),
-        coalesce(col("d.os_version"), lit("")).alias("os_version"),
-        coalesce(col("d.device_manufacturer"), lit("")).alias("platform"),
-        coalesce(col("d.device_model_identifier"), lit("")).alias("device_model"),
-        coalesce(col("d.network_carrier_icc"), lit("")).alias("network_provider")
+        coalesce(col("d." + SparkConstants.Columns.USER_ID), lit("")).alias(SparkConstants.Columns.USER_ID),
+        coalesce(col("d." + SparkConstants.Columns.SCREEN_NAME), lit("")).alias("screen"),
+        coalesce(col("d." + SparkConstants.Columns.APP_BUILD_NAME), lit("")).alias("app_version"),
+        coalesce(col("d." + SparkConstants.Columns.OS_NAME), lit("")).alias(SparkConstants.Columns.OS_NAME),
+        coalesce(col("d." + SparkConstants.Columns.OS_VERSION), lit("")).alias(SparkConstants.Columns.OS_VERSION),
+        coalesce(col("d." + SparkConstants.Columns.DEVICE_MANUFACTURER), lit("")).alias("platform"),
+        coalesce(col("d." + SparkConstants.Columns.DEVICE_MODEL_IDENTIFIER), lit("")).alias("device_model"),
+        coalesce(col("d." + SparkConstants.Columns.NETWORK_CARRIER_ICC), lit("")).alias("network_provider")
       )
-      .dropDuplicates("session_id")
+      .dropDuplicates(SparkConstants.Columns.SESSION_ID)
       .cache();
 
     List<Row> collected = hydrated.collectAsList();
@@ -744,16 +741,19 @@ public class FunnelComputeJob {
     long windowSecs, int numSteps, int finalStepIdx) {
     var steps = funnel.steps();
 
-    Dataset<Row> step0Events = stepEvents(df, steps.get(0), "user_id")
+    Dataset<Row> step0Events = stepEvents(df, steps.get(0), SparkConstants.Columns.USER_ID)
       .filter(col("identity").isNotNull().and(col("identity").notEqual("")))
       .join(
-        df.select(col("user_id"), col("session_id"), unix_timestamp(col("timestamp")).alias("_ts"))
-          .filter(col("event_name").equalTo(steps.get(0).eventName())),
-        col("identity").equalTo(col("user_id"))
+        df.select(
+              col(SparkConstants.Columns.USER_ID),
+              col(SparkConstants.Columns.SESSION_ID),
+              unix_timestamp(col(SparkConstants.Columns.TIMESTAMP)).alias("_ts"))
+          .filter(col(SparkConstants.Columns.EVENT_NAME).equalTo(steps.get(0).eventName())),
+        col("identity").equalTo(col(SparkConstants.Columns.USER_ID))
           .and(col("ts").equalTo(col("_ts"))),
         "left"
       )
-      .select(col("identity"), col("ts"), coalesce(col("session_id"), lit("")).alias("sid"));
+      .select(col("identity"), col("ts"), coalesce(col(SparkConstants.Columns.SESSION_ID), lit("")).alias("sid"));
 
     // wide: one row per (identity, t0) attempt. step_idx / ts_at_step / sid_at_step updated
     // inline at each left-join step. ts_prev becomes null on a miss — propagates through all
@@ -775,12 +775,12 @@ public class FunnelComputeJob {
     }
 
     for (int i = 1; i < numSteps; i++) {
-      Dataset<Row> stepEvts = df.filter(col("event_name").equalTo(steps.get(i).eventName()))
-        .filter(col("user_id").isNotNull().and(col("user_id").notEqual("")))
+      Dataset<Row> stepEvts = df.filter(col(SparkConstants.Columns.EVENT_NAME).equalTo(steps.get(i).eventName()))
+        .filter(col(SparkConstants.Columns.USER_ID).isNotNull().and(col(SparkConstants.Columns.USER_ID).notEqual("")))
         .select(
-          col("user_id").alias("id_i"),
-          unix_timestamp(col("timestamp")).alias("ts_i"),
-          coalesce(col("session_id"), lit("")).alias("sid_i")
+          col(SparkConstants.Columns.USER_ID).alias("id_i"),
+          unix_timestamp(col(SparkConstants.Columns.TIMESTAMP)).alias("ts_i"),
+          coalesce(col(SparkConstants.Columns.SESSION_ID), lit("")).alias("sid_i")
         );
 
       Column joinCond = col("w.identity").equalTo(col("s.id_i"))
@@ -822,41 +822,41 @@ public class FunnelComputeJob {
     for (var step : steps) {
       stepNames.add(step.eventName());
     }
-    Dataset<Row> attemptCounts = df.filter(col("event_name").isin(stepNames.toArray()))
-      .filter(col("user_id").isNotNull().and(col("user_id").notEqual("")))
-      .groupBy(col("user_id"))
-      .agg(countDistinct(col("session_id")).alias("session_attempts"));
+    Dataset<Row> attemptCounts = df.filter(col(SparkConstants.Columns.EVENT_NAME).isin(stepNames.toArray()))
+      .filter(col(SparkConstants.Columns.USER_ID).isNotNull().and(col(SparkConstants.Columns.USER_ID).notEqual("")))
+      .groupBy(col(SparkConstants.Columns.USER_ID))
+      .agg(countDistinct(col(SparkConstants.Columns.SESSION_ID)).alias("session_attempts"));
 
     // Hydrate dimensions from the canonical session's event row.
     Dataset<Row> hydrated = bestPerUser.alias("b")
       .join(
         df.alias("d"),
-        col("b.sid_at_step").equalTo(col("d.session_id"))
-          .and(unix_timestamp(col("d.timestamp")).equalTo(col("b.ts_at_step")))
-          .and(col("b.identity").equalTo(col("d.user_id"))),
+        col("b.sid_at_step").equalTo(col("d." + SparkConstants.Columns.SESSION_ID))
+          .and(unix_timestamp(col("d." + SparkConstants.Columns.TIMESTAMP)).equalTo(col("b.ts_at_step")))
+          .and(col("b.identity").equalTo(col("d." + SparkConstants.Columns.USER_ID))),
         "left"
       )
       .join(
         attemptCounts.alias("ac"),
-        col("b.identity").equalTo(col("ac.user_id")),
+        col("b.identity").equalTo(col("ac." + SparkConstants.Columns.USER_ID)),
         "left"
       )
       .select(
-        col("b.identity").alias("user_id"),
+        col("b.identity").alias(SparkConstants.Columns.USER_ID),
         col("b.t0").alias("t0"),
         col("b.ts_at_step").alias("ts_at_step"),
         col("b.sid_at_step").alias("canonical_sid"),
         col("b.step_idx").alias("step_idx"),
-        coalesce(col("d.screen_name"), lit("")).alias("screen"),
-        coalesce(col("d.app_build_name"), lit("")).alias("app_version"),
-        coalesce(col("d.os_name"), lit("")).alias("os_name"),
-        coalesce(col("d.os_version"), lit("")).alias("os_version"),
-        coalesce(col("d.device_manufacturer"), lit("")).alias("platform"),
-        coalesce(col("d.device_model_identifier"), lit("")).alias("device_model"),
-        coalesce(col("d.network_carrier_icc"), lit("")).alias("network_provider"),
+        coalesce(col("d." + SparkConstants.Columns.SCREEN_NAME), lit("")).alias("screen"),
+        coalesce(col("d." + SparkConstants.Columns.APP_BUILD_NAME), lit("")).alias("app_version"),
+        coalesce(col("d." + SparkConstants.Columns.OS_NAME), lit("")).alias(SparkConstants.Columns.OS_NAME),
+        coalesce(col("d." + SparkConstants.Columns.OS_VERSION), lit("")).alias(SparkConstants.Columns.OS_VERSION),
+        coalesce(col("d." + SparkConstants.Columns.DEVICE_MANUFACTURER), lit("")).alias("platform"),
+        coalesce(col("d." + SparkConstants.Columns.DEVICE_MODEL_IDENTIFIER), lit("")).alias("device_model"),
+        coalesce(col("d." + SparkConstants.Columns.NETWORK_CARRIER_ICC), lit("")).alias("network_provider"),
         coalesce(col("ac.session_attempts"), lit(1L)).alias("session_attempts")
       )
-      .dropDuplicates("user_id")
+      .dropDuplicates(SparkConstants.Columns.USER_ID)
       .cache();
 
     List<Row> collected = hydrated.collectAsList();
@@ -890,12 +890,12 @@ public class FunnelComputeJob {
   }
 
   private static Dataset<Row> stepEvents(Dataset<Row> df, FunnelStep step, String identityCol) {
-    Dataset<Row> filtered = df.filter(col("event_name").equalTo(step.eventName()));
+    Dataset<Row> filtered = df.filter(col(SparkConstants.Columns.EVENT_NAME).equalTo(step.eventName()));
     filtered = applyFilters(filtered, step.stepFilters());
     return filtered
       .select(
         col(identityCol).alias("identity"),
-        unix_timestamp(col("timestamp")).alias("ts")
+        unix_timestamp(col(SparkConstants.Columns.TIMESTAMP)).alias("ts")
       )
       .filter(col("identity").isNotNull().and(col("identity").notEqual("")));
   }
@@ -966,9 +966,9 @@ public class FunnelComputeJob {
    */
   private static Dataset<Row> upliftAndDrop(Dataset<Row> df, Set<String> fields) {
     for (var field : fields) {
-      df = df.withColumn(field, col("log_attributes").getItem(field));
+      df = df.withColumn(field, col(SparkConstants.Columns.LOG_ATTRIBUTES).getItem(field));
     }
-    return df.drop("log_attributes");
+    return df.drop(SparkConstants.Columns.LOG_ATTRIBUTES);
   }
 
   /**
@@ -985,7 +985,7 @@ public class FunnelComputeJob {
       Column funnelCond = null;
       for (var step : funnel.steps()) {
         if (step.eventName() == null || step.eventName().isBlank()) continue;
-        Column stepCond = col("event_name").equalTo(step.eventName());
+        Column stepCond = col(SparkConstants.Columns.EVENT_NAME).equalTo(step.eventName());
         for (var f : step.stepFilters()) {
           if (f.field() == null || f.field().isBlank() || f.value().isEmpty()) continue;
           stepCond = stepCond.and(buildColumnCondition(f));
@@ -1012,7 +1012,7 @@ public class FunnelComputeJob {
     if (steps.isEmpty()) return df;
     Column condition = null;
     for (var step : steps) {
-      Column stepCond = col("event_name").equalTo(step.eventName());
+      Column stepCond = col(SparkConstants.Columns.EVENT_NAME).equalTo(step.eventName());
       for (var f : step.stepFilters()) {
         if (f.field() == null || f.field().isBlank() || f.value().isEmpty()) continue;
         stepCond = stepCond.and(buildColumnCondition(f));
@@ -1068,12 +1068,12 @@ public class FunnelComputeJob {
   private static Dataset<Row> loadPath(SparkSession spark, String path) {
     try {
       var ds = spark.read()
-        .format("parquet")
+        .format(SparkConstants.SparkConfig.PARQUET_FORMAT)
         // Schema inference is fine once the vectorized reader is disabled via
         // configureSparkForParquetMrTimestamps. mergeSchema=true unions across day
         // partitions so a single missing column on one day doesn't fail the whole load.
-        .option("recursiveFileLookup", "true")
-        .option("mergeSchema", "true")
+        .option(SparkConstants.SparkConfig.PARQUET_RECURSIVE_LOOKUP, "true")
+        .option(SparkConstants.SparkConfig.PARQUET_MERGE_SCHEMA, "true")
         .load(path);
       return ds.select(buildReadExprs(ds));
     } catch (Exception e) {
@@ -1093,18 +1093,18 @@ public class FunnelComputeJob {
    * "0 count for HomeLoaded" symptom even when the events are demonstrably in S3.
    */
   private static Dataset<Row> prepareRaw(Dataset<Row> ds, String projectId) {
-    Dataset<Row> filtered = ds.filter(col("project_id").equalTo(projectId))
-      .filter(col("pulse_type").equalTo(lit(CUSTOM_EVENT_PULSE_TYPE)));
+    Dataset<Row> filtered = ds.filter(col(SparkConstants.Columns.PROJECT_ID).equalTo(projectId))
+      .filter(col(SparkConstants.Columns.PULSE_TYPE).equalTo(lit(SparkConstants.PulseTypes.CUSTOM_EVENT)));
     if (log.isInfoEnabled()) {
       long count = filtered.count();
       log.info("prepareRaw: project={} pulse_type={} → {} rows",
-        projectId, CUSTOM_EVENT_PULSE_TYPE, count);
+        projectId, SparkConstants.PulseTypes.CUSTOM_EVENT, count);
       if (count == 0) {
         log.warn(
           "prepareRaw: 0 rows after pulse_type='{}' filter for project {}. " +
             "Either the SDK isn't emitting custom events with this PulseType, " +
             "or the otel_logs partitions for this window contain only non-custom rows.",
-          CUSTOM_EVENT_PULSE_TYPE, projectId);
+          SparkConstants.PulseTypes.CUSTOM_EVENT, projectId);
       }
     }
     return filtered;
@@ -1142,29 +1142,29 @@ public class FunnelComputeJob {
     //     divide by 1e6 to get seconds, cast to TimestampType.
     //   - Missing: NULL.
     Column timestampExpr;
-    if (available.contains("Timestamp")) {
-      org.apache.spark.sql.types.DataType tsType = schema.apply("Timestamp").dataType();
+    if (available.contains(SparkConstants.RawColumns.TIMESTAMP)) {
+      org.apache.spark.sql.types.DataType tsType = schema.apply(SparkConstants.RawColumns.TIMESTAMP).dataType();
       if (tsType instanceof org.apache.spark.sql.types.TimestampType) {
-        timestampExpr = col("Timestamp");
+        timestampExpr = col(SparkConstants.RawColumns.TIMESTAMP);
       } else if (tsType instanceof org.apache.spark.sql.types.LongType) {
-        timestampExpr = col("Timestamp").divide(lit(1_000_000L)).cast(DataTypes.TimestampType);
+        timestampExpr = col(SparkConstants.RawColumns.TIMESTAMP).divide(lit(1_000_000L)).cast(DataTypes.TimestampType);
       } else {
-        timestampExpr = to_timestamp(col("Timestamp").cast(DataTypes.StringType));
+        timestampExpr = to_timestamp(col(SparkConstants.RawColumns.TIMESTAMP).cast(DataTypes.StringType));
         log.warn("buildReadExprs: unexpected Timestamp column type={} — string-cast fallback",
           tsType.simpleString());
       }
     } else {
       timestampExpr = lit(null).cast(DataTypes.TimestampType);
     }
-    cols.add(timestampExpr.alias("timestamp"));
+    cols.add(timestampExpr.alias(SparkConstants.Columns.TIMESTAMP));
 
     // user_id := AppInstallationId — matches CH. No UserId fallback. Skips empty strings
     // (avro non-null `string` ships empty rather than null) so downstream filters work.
-    Column appInstallationId = available.contains("AppInstallationId")
-      ? col("AppInstallationId") : lit(null).cast(DataTypes.StringType);
+    Column appInstallationId = available.contains(SparkConstants.RawColumns.APP_INSTALLATION_ID)
+      ? col(SparkConstants.RawColumns.APP_INSTALLATION_ID) : lit(null).cast(DataTypes.StringType);
     Column resolved = when(appInstallationId.isNull().or(appInstallationId.equalTo("")),
       lit(null).cast(DataTypes.StringType)).otherwise(appInstallationId);
-    cols.add(resolved.alias("user_id"));
+    cols.add(resolved.alias(SparkConstants.Columns.USER_ID));
 
     // LogAttributes map — projected for step/global filter evaluation only.
     // Avro map<string> → Parquet MAP → MapType(StringType, StringType).
@@ -1172,24 +1172,15 @@ public class FunnelComputeJob {
     // which fails any equality check — correct behaviour for missing properties.
     var mapType = org.apache.spark.sql.types.DataTypes.createMapType(
       DataTypes.StringType, DataTypes.StringType, true);
-    cols.add((available.contains("LogAttributes")
-      ? col("LogAttributes")
-      : lit(null).cast(mapType)).alias("log_attributes"));
+    cols.add((available.contains(SparkConstants.RawColumns.LOG_ATTRIBUTES)
+      ? col(SparkConstants.RawColumns.LOG_ATTRIBUTES)
+      : lit(null).cast(mapType)).alias(SparkConstants.Columns.LOG_ATTRIBUTES));
 
     return cols.toArray(Column[]::new);
   }
 
   // ── Attribution precompute ─────────────────────────────────────────────────────
 
-  /**
-   * Window around {@code LastReachedAt} used to attribute OTel signals (matches CH DAO).
-   */
-  private static final int ATTRIBUTION_WINDOW_BEFORE_SEC = 30;
-  private static final int ATTRIBUTION_WINDOW_AFTER_SEC = 60;
-  /**
-   * Cap on the example sessions array stored per (step × cause) row.
-   */
-  private static final int ATTRIBUTION_EXAMPLES_PER_CAUSE = 50;
 
   /**
    * Emits precomputed {@code funnel_dropoff_attribution} rows by joining the bridge
@@ -1215,7 +1206,7 @@ public class FunnelComputeJob {
     if (funnel.steps().size() < 2) {
       return;
     }
-    boolean isUniqueUsers = !"SESSIONS".equalsIgnoreCase(funnel.mode());
+    boolean isUniqueUsers = !SparkConstants.Modes.SESSIONS.equalsIgnoreCase(funnel.mode());
     SparkSession spark = df.sparkSession();
 
     // Build a cohort DataFrame uniform across modes: (sessionId, lastReachedAt, dropoffStep,
@@ -1244,9 +1235,9 @@ public class FunnelComputeJob {
     //  • stack_trace_events — crash/ANR/non_fatal routed to Pulse server → error-grouped → S3
     //  • otel_logs          — jank events (app.jank.frozen, app.jank.slow) via Kafka → S3
     //  • otel_traces        — network spans (PulseType = "network.<code>") via Kafka → S3
-    var stackTraceEvents = loadOtelSignalParquet(spark, s3BucketPrefix, "fancode", "stack_trace_events", runTime, funnel);
-    var otelLogs = loadOtelSignalParquet(spark, s3BucketPrefix, "fancode", "otel_logs", runTime, funnel);
-    var traces = loadOtelSignalParquet(spark, s3BucketPrefix, "fancode", "otel_traces", runTime, funnel);
+    var stackTraceEvents = loadOtelSignalParquet(spark, s3BucketPrefix, "fancode", SparkConstants.Tables.S3_STACK_TRACE_EVENTS, runTime, funnel);
+    var otelLogs = loadOtelSignalParquet(spark, s3BucketPrefix, "fancode", SparkConstants.Tables.S3_OTEL_LOGS, runTime, funnel);
+    var traces = loadOtelSignalParquet(spark, s3BucketPrefix, "fancode", SparkConstants.Tables.S3_OTEL_TRACES, runTime, funnel);
 
     if (stackTraceEvents != null) {
       // Diagnostic: crash/anr/non_fatal come from stack_trace_events (after Pulse server error grouping).
@@ -1264,7 +1255,7 @@ public class FunnelComputeJob {
       // Diagnostic: jank events stay in otel_logs (NOT routed to Pulse server backend).
       Dataset<Row> rawJank = otelLogs
         .filter(col("ProjectId").equalTo("fancode"))
-        .filter(col("PulseType").isin("app.jank.frozen", "app.jank.slow"));
+        .filter(col(SparkConstants.RawColumns.PULSE_TYPE).isin(SparkConstants.PulseTypes.APP_JANK_FROZEN, SparkConstants.PulseTypes.APP_JANK_SLOW));
       long rawJankCount = rawJank.count();
       Row jankTs = rawJank.agg(min(col("Timestamp")), max(col("Timestamp"))).first();
       log.info("Funnel {}: otel_logs jank (frozen/slow) in S3 = {} rows, ts=[{} → {}]",
@@ -1277,14 +1268,14 @@ public class FunnelComputeJob {
       // Diagnostic: network spans — status derived from PulseType "network.<code>".
       // regexp_extract returns "" on no-match (NOT null); empty string ⇒ cast to int fails on
       // Spark 4 strict mode. Guard with notEqual("") before casting.
-      Column pulseTypeStatusStr = regexp_extract(col("PulseType"), "^network\\.(\\d+)$", 1);
+      Column pulseTypeStatusStr = regexp_extract(col(SparkConstants.RawColumns.PULSE_TYPE), SparkConstants.PulseTypes.NETWORK_PATTERN, 1);
       Column diagStatus = when(pulseTypeStatusStr.notEqual(""),
           pulseTypeStatusStr.cast(DataTypes.IntegerType))
         .otherwise(coalesce(col("HttpStatusCode"), lit(0)).cast(DataTypes.IntegerType));
       Dataset<Row> rawHttpSpans = traces
         .filter(col("ProjectId").equalTo("fancode"))
         .withColumn("_status", diagStatus)
-        .filter(col("_status").geq(400));
+        .filter(col("_status").geq(SparkConstants.HttpAttributes.HTTP_4XX_THRESHOLD));
       long rawHttpCount = rawHttpSpans.count();
       Row httpTs = rawHttpSpans.agg(min(col("Timestamp")), max(col("Timestamp"))).first();
       log.info("Funnel {}: otel_traces HTTP>=400 in S3 = {} rows, ts=[{} → {}]",
@@ -1387,9 +1378,9 @@ public class FunnelComputeJob {
       String path = basePath + dayPartition(d);
       try {
         Dataset<Row> ds = spark.read()
-          .format("parquet")
-          .option("recursiveFileLookup", "true")
-          .option("mergeSchema", "true")
+          .format(SparkConstants.SparkConfig.PARQUET_FORMAT)
+          .option(SparkConstants.SparkConfig.PARQUET_RECURSIVE_LOOKUP, "true")
+          .option(SparkConstants.SparkConfig.PARQUET_MERGE_SCHEMA, "true")
           .load(path);
         combined = (combined == null) ? ds : combined.unionByName(ds, true);
         loaded++;
@@ -1428,9 +1419,9 @@ public class FunnelComputeJob {
       .filter(col("ProjectId").equalTo("fancode"))
       // Map device.crash / device.anr → canonical cause kinds.
       .withColumn("_cause_kind",
-        when(col("PulseType").equalTo("device.crash"), lit("crash"))
-          .when(col("PulseType").equalTo("device.anr"), lit("anr"))
-          .when(col("PulseType").equalTo("non_fatal"), lit("non_fatal"))
+        when(col(SparkConstants.RawColumns.PULSE_TYPE).equalTo(SparkConstants.PulseTypes.DEVICE_CRASH), lit("crash"))
+          .when(col(SparkConstants.RawColumns.PULSE_TYPE).equalTo(SparkConstants.PulseTypes.DEVICE_ANR), lit("anr"))
+          .when(col(SparkConstants.RawColumns.PULSE_TYPE).equalTo(SparkConstants.PulseTypes.NON_FATAL), lit("non_fatal"))
           .otherwise(lit("crash"))) // safe fallback for any future PulseType variants
       .select(
         col("SessionId").alias("e_sid"),
@@ -1466,9 +1457,9 @@ public class FunnelComputeJob {
     Dataset<Row> otelLogs) {
     Dataset<Row> jankEvents = otelLogs
       .filter(col("ProjectId").equalTo("fancode"))
-      .filter(col("PulseType").isin("app.jank.frozen", "app.jank.slow"))
+      .filter(col(SparkConstants.RawColumns.PULSE_TYPE).isin(SparkConstants.PulseTypes.APP_JANK_FROZEN, SparkConstants.PulseTypes.APP_JANK_SLOW))
       .withColumn("_cause_kind",
-        when(col("PulseType").equalTo("app.jank.frozen"), lit("frozen_frame"))
+        when(col(SparkConstants.RawColumns.PULSE_TYPE).equalTo(SparkConstants.PulseTypes.APP_JANK_FROZEN), lit("frozen_frame"))
           .otherwise(lit("jank")))
       .select(
         col("SessionId").alias("e_sid"),
@@ -1511,7 +1502,7 @@ public class FunnelComputeJob {
 
     // Status from PulseType "network.<code>". regexp_extract returns "" on no-match (NOT null);
     // casting "" → INT throws on Spark 4 strict mode, so guard the cast.
-    Column pulseTypeStatusStr = regexp_extract(col("PulseType"), "^network\\.(\\d+)$", 1);
+    Column pulseTypeStatusStr = regexp_extract(col(SparkConstants.RawColumns.PULSE_TYPE), SparkConstants.PulseTypes.NETWORK_PATTERN, 1);
     Column pulseTypeStatus = when(pulseTypeStatusStr.notEqual(""),
         pulseTypeStatusStr.cast(DataTypes.IntegerType))
       .otherwise(lit(0));
@@ -1520,8 +1511,8 @@ public class FunnelComputeJob {
     Column rawStatus = hasTopLevelHttp
       ? col("HttpStatusCode").cast(DataTypes.IntegerType)
       : coalesce(
-          col("SpanAttributes").getItem("http.status_code"),
-          col("SpanAttributes").getItem("http.response.status_code"),
+          col("SpanAttributes").getItem(SparkConstants.HttpAttributes.HTTP_STATUS_CODE),
+          col("SpanAttributes").getItem(SparkConstants.HttpAttributes.HTTP_STATUS_CODE_NEW),
           lit("0")
         ).cast(DataTypes.IntegerType);
 
@@ -1532,26 +1523,26 @@ public class FunnelComputeJob {
     Column methodCol = hasTopLevelHttp
       ? lower(coalesce(col("HttpMethod"), lit("")))
       : coalesce(
-          lower(col("SpanAttributes").getItem("http.method")),
-          lower(col("SpanAttributes").getItem("http.request.method")),
+          lower(col("SpanAttributes").getItem(SparkConstants.HttpAttributes.HTTP_METHOD)),
+          lower(col("SpanAttributes").getItem(SparkConstants.HttpAttributes.HTTP_METHOD_NEW)),
           lit("")
         );
     Column hostCol = hasTopLevelHttp
       ? coalesce(col("HttpHost"), lit(""))
       : coalesce(
-          col("SpanAttributes").getItem("net.peer.name"),
-          col("SpanAttributes").getItem("server.address"),
+          col("SpanAttributes").getItem(SparkConstants.HttpAttributes.NET_PEER_NAME),
+          col("SpanAttributes").getItem(SparkConstants.HttpAttributes.SERVER_ADDRESS),
           lit("")
         );
 
     Dataset<Row> httpEvents = otelTraces
       .filter(col("ProjectId").equalTo("fancode"))
       .withColumn("http_status", statusCol)
-      .filter(col("http_status").geq(400))
+      .filter(col("http_status").geq(SparkConstants.HttpAttributes.HTTP_4XX_THRESHOLD))
       .select(
         col("SessionId").alias("e_sid"),
         unix_timestamp(col("Timestamp")).alias("e_ts"),
-        when(col("http_status").geq(500), lit("http_5xx"))
+        when(col("http_status").geq(SparkConstants.HttpAttributes.HTTP_5XX_THRESHOLD), lit("http_5xx"))
           .otherwise(lit("http_4xx")).alias("cause_kind"),
         methodCol.alias("e_method"),
         hostCol.alias("e_host"),
@@ -1583,8 +1574,8 @@ public class FunnelComputeJob {
     Column extraDropperFilter, Column extraConverterFilter) {
 
     Column dropperJoin = col("c.e_sid").equalTo(col("d.session_id"))
-      .and(col("c.e_ts").geq(col("d.last_reached_at").minus(ATTRIBUTION_WINDOW_BEFORE_SEC)))
-      .and(col("c.e_ts").leq(col("d.last_reached_at").plus(ATTRIBUTION_WINDOW_AFTER_SEC)));
+      .and(col("c.e_ts").geq(col("d.last_reached_at").minus(SparkConstants.Attribution.WINDOW_BEFORE_SEC)))
+      .and(col("c.e_ts").leq(col("d.last_reached_at").plus(SparkConstants.Attribution.WINDOW_AFTER_SEC)));
 
     Dataset<Row> dropperJoined = droppers.alias("d")
       .join(causeEvents.alias("c"), dropperJoin, "inner")
@@ -1605,8 +1596,8 @@ public class FunnelComputeJob {
       );
 
     Column converterJoin = col("c.e_sid").equalTo(col("d.session_id"))
-      .and(col("c.e_ts").geq(col("d.last_reached_at").minus(ATTRIBUTION_WINDOW_BEFORE_SEC)))
-      .and(col("c.e_ts").leq(col("d.last_reached_at").plus(ATTRIBUTION_WINDOW_AFTER_SEC)));
+      .and(col("c.e_ts").geq(col("d.last_reached_at").minus(SparkConstants.Attribution.WINDOW_BEFORE_SEC)))
+      .and(col("c.e_ts").leq(col("d.last_reached_at").plus(SparkConstants.Attribution.WINDOW_AFTER_SEC)));
 
     Dataset<Row> converterAgg = converters.alias("d")
       .join(causeEvents.alias("c"), converterJoin, "inner")
@@ -1641,19 +1632,19 @@ public class FunnelComputeJob {
       long cAff = r.<Long>getAs("c_affected");
       double lift;
       if (cAff == 0 || converterCohortCount == 0) {
-        lift = dAff > 0 ? 999.0 : 0.0;
+        lift = dAff > 0 ? SparkConstants.Attribution.LIFT_CAP : 0.0;
       } else {
         double dRate = (double) dAff / (dCohort == 0 ? 1 : dCohort);
         double cRate = (double) cAff / converterCohortCount;
-        lift = cRate == 0 ? 999.0 : Math.round((dRate / cRate) * 1000.0) / 1000.0;
+        lift = cRate == 0 ? SparkConstants.Attribution.LIFT_CAP : Math.round((dRate / cRate) * 1000.0) / 1000.0;
       }
-      // Cap examples at ATTRIBUTION_EXAMPLES_PER_CAUSE, matching CH's groupArraySample.
+      // Cap examples at SparkConstants.Attribution.EXAMPLES_PER_CAUSE, matching CH's groupArraySample.
       @SuppressWarnings("unchecked")
       var exArr = (scala.collection.Seq<String>) r.getAs("examples");
       var exList = new ArrayList<String>();
       if (exArr != null) {
         var it = exArr.iterator();
-        while (it.hasNext() && exList.size() < ATTRIBUTION_EXAMPLES_PER_CAUSE) {
+        while (it.hasNext() && exList.size() < SparkConstants.Attribution.EXAMPLES_PER_CAUSE) {
           exList.add(it.next());
         }
       }

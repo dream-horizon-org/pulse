@@ -40,8 +40,9 @@ public class MysqlRepository {
    */
   public List<FunnelDefinition> fetchFunnels(Long referenceId) throws Exception {
     var sql = referenceId != null
-      ? "SELECT * FROM funnel WHERE id = ?"
-      : "SELECT * FROM funnel WHERE funnel_type = 'AUTO' AND (end_time IS NULL OR end_time >= NOW())";
+      ? "SELECT * FROM " + SparkConstants.MysqlTables.FUNNEL + " WHERE id = ?"
+      : "SELECT * FROM " + SparkConstants.MysqlTables.FUNNEL + " WHERE funnel_type = '"
+          + SparkConstants.JobStatus.AUTO + "' AND (end_time IS NULL OR end_time >= NOW())";
 
     var results = new ArrayList<FunnelDefinition>();
     try (var conn = DriverManager.getConnection(jdbcUrl, user, password);
@@ -53,23 +54,23 @@ public class MysqlRepository {
       var rs = stmt.executeQuery();
 
       while (rs.next()) {
-        List<FunnelStep> steps = MAPPER.readValue(rs.getString("steps_json"), STEPS_TYPE);
-        List<FunnelFilter> filters = rs.getString("filters_json") != null
-          ? MAPPER.readValue(rs.getString("filters_json"), FILTERS_TYPE)
+        List<FunnelStep> steps = MAPPER.readValue(rs.getString(SparkConstants.MysqlColumns.STEPS_JSON), STEPS_TYPE);
+        List<FunnelFilter> filters = rs.getString(SparkConstants.MysqlColumns.FILTERS_JSON) != null
+          ? MAPPER.readValue(rs.getString(SparkConstants.MysqlColumns.FILTERS_JSON), FILTERS_TYPE)
           : List.of();
 
         results.add(new FunnelDefinition(
-          rs.getLong("id"),
-          rs.getString("project_id"),
+          rs.getLong(SparkConstants.MysqlColumns.ID),
+          rs.getString(SparkConstants.MysqlColumns.PROJECT_ID),
           steps,
-          rs.getLong("window_seconds"),
-          rs.getString("mode"),
-          rs.getInt("date_range"),
+          rs.getLong(SparkConstants.MysqlColumns.WINDOW_SECONDS),
+          rs.getString(SparkConstants.MysqlColumns.MODE),
+          rs.getInt(SparkConstants.MysqlColumns.DATE_RANGE),
           filters,
-          rs.getString("funnel_type"),
-          rs.getString("step_order_type"),
-          rs.getTimestamp("start_time"),
-          rs.getTimestamp("end_time")
+          rs.getString(SparkConstants.MysqlColumns.FUNNEL_TYPE),
+          rs.getString(SparkConstants.MysqlColumns.STEP_ORDER_TYPE),
+          rs.getTimestamp(SparkConstants.MysqlColumns.START_TIME),
+          rs.getTimestamp(SparkConstants.MysqlColumns.END_TIME)
         ));
       }
     }
@@ -82,8 +83,9 @@ public class MysqlRepository {
    */
   public List<JourneyDefinition> fetchJourneys(Long referenceId) throws Exception {
     var sql = referenceId != null
-      ? "SELECT * FROM journey WHERE id = ?"
-      : "SELECT * FROM journey WHERE journey_type = 'AUTO' AND (end_time IS NULL OR end_time >= NOW())";
+      ? "SELECT * FROM " + SparkConstants.MysqlTables.JOURNEY + " WHERE id = ?"
+      : "SELECT * FROM " + SparkConstants.MysqlTables.JOURNEY + " WHERE journey_type = '"
+          + SparkConstants.JobStatus.AUTO + "' AND (end_time IS NULL OR end_time >= NOW())";
 
     var results = new ArrayList<JourneyDefinition>();
     try (var conn = DriverManager.getConnection(jdbcUrl, user, password);
@@ -95,22 +97,22 @@ public class MysqlRepository {
       var rs = stmt.executeQuery();
 
       while (rs.next()) {
-        List<FunnelFilter> filters = rs.getString("filters_json") != null
-          ? MAPPER.readValue(rs.getString("filters_json"), FILTERS_TYPE)
+        List<FunnelFilter> filters = rs.getString(SparkConstants.MysqlColumns.FILTERS_JSON) != null
+          ? MAPPER.readValue(rs.getString(SparkConstants.MysqlColumns.FILTERS_JSON), FILTERS_TYPE)
           : List.of();
 
         results.add(new JourneyDefinition(
-          rs.getLong("id"),
-          rs.getString("project_id"),
-          rs.getString("anchor_event"),
-          rs.getString("direction"),
-          rs.getInt("depth"),
-          rs.getString("mode"),
-          rs.getInt("date_range"),
+          rs.getLong(SparkConstants.MysqlColumns.ID),
+          rs.getString(SparkConstants.MysqlColumns.PROJECT_ID),
+          rs.getString(SparkConstants.MysqlColumns.ANCHOR_EVENT),
+          rs.getString(SparkConstants.MysqlColumns.DIRECTION),
+          rs.getInt(SparkConstants.MysqlColumns.DEPTH),
+          rs.getString(SparkConstants.MysqlColumns.MODE),
+          rs.getInt(SparkConstants.MysqlColumns.DATE_RANGE),
           filters,
-          rs.getString("journey_type"),
-          rs.getTimestamp("start_time"),
-          rs.getTimestamp("end_time")
+          rs.getString(SparkConstants.MysqlColumns.JOURNEY_TYPE),
+          rs.getTimestamp(SparkConstants.MysqlColumns.START_TIME),
+          rs.getTimestamp(SparkConstants.MysqlColumns.END_TIME)
         ));
       }
     }
@@ -125,14 +127,16 @@ public class MysqlRepository {
   public Optional<Timestamp> getLatestSucceededEventCatalogJobStartedAt() throws SQLException {
     try (var conn = DriverManager.getConnection(jdbcUrl, user, password);
          var stmt = conn.prepareStatement(
-           "SELECT MAX(started_at) AS ts FROM analytics_jobs "
-             + "WHERE job_type = 'EVENTS_INCREMENTAL' "
-             + "AND status = 'SUCCEEDED' AND started_at IS NOT NULL")) {
+           "SELECT MAX(" + SparkConstants.MysqlColumns.STARTED_AT + ") AS " + SparkConstants.MysqlColumns.TS
+             + " FROM " + SparkConstants.MysqlTables.ANALYTICS_JOBS
+             + " WHERE " + SparkConstants.MysqlColumns.JOB_TYPE + " = '" + SparkConstants.JobStatus.TYPE_EVENTS_INCREMENTAL + "'"
+             + " AND " + SparkConstants.MysqlColumns.STATUS + " = '" + SparkConstants.JobStatus.SUCCEEDED + "'"
+             + " AND " + SparkConstants.MysqlColumns.STARTED_AT + " IS NOT NULL")) {
       var rs = stmt.executeQuery();
-      if (!rs.next() || rs.getTimestamp("ts") == null) {
+      if (!rs.next() || rs.getTimestamp(SparkConstants.MysqlColumns.TS) == null) {
         return Optional.empty();
       }
-      return Optional.of(rs.getTimestamp("ts"));
+      return Optional.of(rs.getTimestamp(SparkConstants.MysqlColumns.TS));
     }
   }
 
@@ -143,7 +147,8 @@ public class MysqlRepository {
     var ids = new ArrayList<String>();
     try (var conn = DriverManager.getConnection(jdbcUrl, user, password);
          var stmt = conn.createStatement();
-         var rs = stmt.executeQuery("SELECT DISTINCT project_id FROM projects")) {
+         var rs = stmt.executeQuery(
+           "SELECT DISTINCT " + SparkConstants.MysqlColumns.PROJECT_ID + " FROM " + SparkConstants.MysqlTables.PROJECTS)) {
       while (rs.next()) {
         ids.add(rs.getString(1));
       }
@@ -154,7 +159,10 @@ public class MysqlRepository {
   public void updateAnalyticsJobRunning(long analyticsJobId) throws SQLException {
     try (var conn = DriverManager.getConnection(jdbcUrl, user, password);
          var stmt = conn.prepareStatement(
-           "UPDATE analytics_jobs SET status = 'RUNNING', started_at = NOW() WHERE id = ?")) {
+           "UPDATE " + SparkConstants.MysqlTables.ANALYTICS_JOBS
+             + " SET " + SparkConstants.MysqlColumns.STATUS + " = '" + SparkConstants.JobStatus.RUNNING + "'"
+             + ", " + SparkConstants.MysqlColumns.STARTED_AT + " = NOW()"
+             + " WHERE " + SparkConstants.MysqlColumns.ID + " = ?")) {
       stmt.setLong(1, analyticsJobId);
       stmt.executeUpdate();
     }
@@ -163,7 +171,10 @@ public class MysqlRepository {
   public void updateAnalyticsJobSucceeded(long analyticsJobId) throws SQLException {
     try (var conn = DriverManager.getConnection(jdbcUrl, user, password);
          var stmt = conn.prepareStatement(
-           "UPDATE analytics_jobs SET status = 'SUCCEEDED', completed_at = NOW() WHERE id = ?")) {
+           "UPDATE " + SparkConstants.MysqlTables.ANALYTICS_JOBS
+             + " SET " + SparkConstants.MysqlColumns.STATUS + " = '" + SparkConstants.JobStatus.SUCCEEDED + "'"
+             + ", completed_at = NOW()"
+             + " WHERE " + SparkConstants.MysqlColumns.ID + " = ?")) {
       stmt.setLong(1, analyticsJobId);
       stmt.executeUpdate();
     }
@@ -172,7 +183,10 @@ public class MysqlRepository {
   public void updateAnalyticsJobFailed(long analyticsJobId, String errorMessage) throws SQLException {
     try (var conn = DriverManager.getConnection(jdbcUrl, user, password);
          var stmt = conn.prepareStatement(
-           "UPDATE analytics_jobs SET status = 'FAILED', error_message = ?, completed_at = NOW() WHERE id = ?")) {
+           "UPDATE " + SparkConstants.MysqlTables.ANALYTICS_JOBS
+             + " SET " + SparkConstants.MysqlColumns.STATUS + " = '" + SparkConstants.JobStatus.FAILED + "'"
+             + ", error_message = ?, completed_at = NOW()"
+             + " WHERE " + SparkConstants.MysqlColumns.ID + " = ?")) {
       stmt.setString(1, errorMessage != null && errorMessage.length() > 2000
         ? errorMessage.substring(0, 2000) : errorMessage);
       stmt.setLong(2, analyticsJobId);

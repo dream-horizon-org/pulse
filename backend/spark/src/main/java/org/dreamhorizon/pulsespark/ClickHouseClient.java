@@ -106,8 +106,8 @@ public class ClickHouseClient {
       return;
     }
     var sb = new StringBuilder()
-        .append("INSERT INTO ").append(db).append(".funnel_results ")
-        .append("(FunnelId,ProjectId,RunTime,StepIndex,StepName,UserCount,ConversionPct,MedianStepSeconds) VALUES ");
+        .append("INSERT INTO ").append(db).append(".").append(SparkConstants.Tables.CH_FUNNEL_RESULTS).append(" ")
+        .append("(").append(SparkConstants.ChColumns.FUNNEL_RESULTS_COLS).append(") VALUES ");
     for (int i = 0; i < rows.size(); i++) {
       var r = rows.get(i);
       if (i > 0) {
@@ -129,8 +129,8 @@ public class ClickHouseClient {
       return;
     }
     var sb = new StringBuilder()
-        .append("INSERT INTO ").append(db).append(".journey_results ")
-        .append("(JourneyId,ProjectId,RunTime,Direction,PosFrom,EventFrom,PosTo,EventTo,UserCount) VALUES ");
+        .append("INSERT INTO ").append(db).append(".").append(SparkConstants.Tables.CH_JOURNEY_RESULTS).append(" ")
+        .append("(").append(SparkConstants.ChColumns.JOURNEY_RESULTS_COLS).append(") VALUES ");
     for (int i = 0; i < rows.size(); i++) {
       var r = rows.get(i);
       if (i > 0) {
@@ -156,11 +156,7 @@ public class ClickHouseClient {
       log.warn("insertFunnelSessionState: no rows to insert");
       return;
     }
-    var columnList =
-        "FunnelId,ProjectId,RunTime,SessionId,UserId,"
-            + "LastReachedStep,LastReachedStepName,LastReachedAt,"
-            + "DropoffStep,TimeToDropoffSec,ScreenAtDropoff,TraceIdAtDropoff,"
-            + "AppVersion,OsName,OsVersion,Platform,DeviceModel,NetworkProvider,GeoCountry";
+    var columnList = SparkConstants.ChColumns.FUNNEL_SESSION_STATE_COLS;
     var values = new java.util.ArrayList<String>(rows.size());
     for (var r : rows) {
       values.add(String.format(
@@ -177,7 +173,7 @@ public class ClickHouseClient {
           esc(r.networkProvider()), esc(r.geoCountry())
       ));
     }
-    bulkInsert("funnel_session_state", columnList, values, 5000);
+    bulkInsert(SparkConstants.Tables.CH_FUNNEL_SESSION_STATE, columnList, values, SparkConstants.Catalog.DEFAULT_CHUNK_SIZE);
     log.info("Inserted {} funnel_session_state rows", rows.size());
   }
 
@@ -191,11 +187,7 @@ public class ClickHouseClient {
       log.warn("insertFunnelUserState: no rows to insert");
       return;
     }
-    var columnList =
-        "FunnelId,ProjectId,RunTime,UserId,MaxReachedStep,DropoffStep,"
-            + "CanonicalSessionId,CanonicalLastReachedAt,CanonicalTraceIdAtDropoff,"
-            + "CanonicalScreenAtDropoff,AppVersion,OsName,OsVersion,Platform,DeviceModel,"
-            + "NetworkProvider,GeoCountry,SessionAttempts";
+    var columnList = SparkConstants.ChColumns.FUNNEL_USER_STATE_COLS;
     var values = new java.util.ArrayList<String>(rows.size());
     for (var r : rows) {
       values.add(String.format(
@@ -211,7 +203,7 @@ public class ClickHouseClient {
           r.sessionAttempts()
       ));
     }
-    bulkInsert("funnel_user_state", columnList, values, 5000);
+    bulkInsert(SparkConstants.Tables.CH_FUNNEL_USER_STATE, columnList, values, SparkConstants.Catalog.DEFAULT_CHUNK_SIZE);
     log.info("Inserted {} funnel_user_state rows", rows.size());
   }
 
@@ -228,10 +220,7 @@ public class ClickHouseClient {
       log.warn("insertFunnelDropoffAttribution: no rows to insert");
       return;
     }
-    var columnList =
-        "FunnelId,ProjectId,RunTime,StepIndex,CauseKind,CauseKey,CauseLabel,"
-            + "DropoffCohort,DropoffAffected,ConverterCohort,ConverterAffected,"
-            + "Lift,PValue,ExampleSessions";
+    var columnList = SparkConstants.ChColumns.FUNNEL_DROPOFF_ATTRIBUTION_COLS;
     var values = new java.util.ArrayList<String>(rows.size());
     for (var r : rows) {
       values.add(String.format(
@@ -244,7 +233,7 @@ public class ClickHouseClient {
           formatStringArray(r.exampleSessions())
       ));
     }
-    bulkInsert("funnel_dropoff_attribution", columnList, values, 5000);
+    bulkInsert(SparkConstants.Tables.CH_FUNNEL_DROPOFF_ATTRIBUTION, columnList, values, SparkConstants.Catalog.DEFAULT_CHUNK_SIZE);
     log.info("Inserted {} funnel_dropoff_attribution rows", rows.size());
   }
 

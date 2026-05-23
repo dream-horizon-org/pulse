@@ -42,7 +42,7 @@ public class JourneyComputeJob {
             }
             var startDt = journey.startTime().toLocalDateTime();
             var endDt   = journey.endTime().toLocalDateTime();
-            var s3Base  = FunnelComputeJob.buildS3Base(s3BucketPrefix, journey.projectId(), "otel_logs");
+            var s3Base  = FunnelComputeJob.buildS3Base(s3BucketPrefix, journey.projectId(), SparkConstants.Tables.S3_OTEL_LOGS);
 
             log.info("Journey {} window [{} -> {}]", journey.id(), startDt, endDt);
             Dataset<Row> raw = FunnelComputeJob.readS3ByHours(spark, s3Base, startDt, endDt);
@@ -81,7 +81,7 @@ public class JourneyComputeJob {
         int maxDays   = journeys.stream().mapToInt(JourneyDefinition::dateRange).max().orElse(7);
         var endDate   = LocalDate.parse(runTime.substring(0, 10));
         var startDate = endDate.minusDays(maxDays - 1L);
-        var s3Base    = FunnelComputeJob.buildS3Base(s3Prefix, projectId, "otel_logs");
+        var s3Base    = FunnelComputeJob.buildS3Base(s3Prefix, projectId, SparkConstants.Tables.S3_OTEL_LOGS);
 
         log.info("Project {} reading S3 [{} -> {}] for {} journey(s)", projectId, startDate, endDate, journeys.size());
         Dataset<Row> raw = FunnelComputeJob.readS3ByDateRange(spark, s3Base, startDate, endDate);
@@ -109,8 +109,9 @@ public class JourneyComputeJob {
     private static List<JourneyTransition> computeJourney(Dataset<Row> raw, JourneyDefinition journey,
                                                             String runTime,
                                                             Long startEpochSeconds, Long endEpochSeconds) {
-        var identityCol = "UNIQUE_USERS".equals(journey.mode()) ? "user_id" : "session_id";
-        boolean isStart = "START".equals(journey.direction());
+        var identityCol = SparkConstants.Modes.UNIQUE_USERS.equals(journey.mode())
+            ? SparkConstants.Columns.USER_ID : SparkConstants.Columns.SESSION_ID;
+        boolean isStart = SparkConstants.Modes.START.equals(journey.direction());
         int depth       = journey.depth();
         String anchor   = journey.anchorEvent();
 
@@ -133,12 +134,12 @@ public class JourneyComputeJob {
         Dataset<Row> events = df
                 .select(
                         col(identityCol).alias("identity"),
-                        unix_timestamp(col("timestamp")).alias("ts"),
-                        col("event_name")
+                        unix_timestamp(col(SparkConstants.Columns.TIMESTAMP)).alias("ts"),
+                        col(SparkConstants.Columns.EVENT_NAME)
                 )
                 .filter(col("identity").isNotNull().and(col("identity").notEqual("")));
 
-        Dataset<Row> anchorTs = events.filter(col("event_name").equalTo(anchor))
+        Dataset<Row> anchorTs = events.filter(col(SparkConstants.Columns.EVENT_NAME).equalTo(anchor))
                 .groupBy("identity")
                 .agg(isStart ? min("ts").alias("ts_anchor") : max("ts").alias("ts_anchor"));
 
