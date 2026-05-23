@@ -29,8 +29,9 @@ public final class FilterFieldMapper {
   /**
    * Returns a Spark {@link Column} expression for the given filter field.
    * Known catalog keys (OS_NAME, APP_BUILD_NAME, OS_VERSION) resolve to their
-   * projected top-level columns. Any other field is treated as a custom event
-   * property stored in the {@code log_attributes} map column.
+   * projected top-level columns. Any other field resolves to a top-level column
+   * of the same name — custom event properties are uplifted from {@code log_attributes}
+   * before the dataset is cached, so they are always available as direct columns.
    */
   public static Column toColumn(String field) {
     if (field == null || field.isBlank()) {
@@ -40,7 +41,12 @@ public final class FilterFieldMapper {
     if (mapped != null) {
       return col(mapped);
     }
-    return col("log_attributes").getItem(field);
+    return col(field);
+  }
+
+  /** Returns true if {@code field} is a known catalog key that is already a top-level column. */
+  public static boolean isKnownCatalogKey(String field) {
+    return field != null && CATALOG_KEY_TO_COLUMN.containsKey(field.toUpperCase());
   }
 
   /** @deprecated Use {@link #toColumn(String)} instead. */

@@ -20,8 +20,10 @@ import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.apache.spark.sql.expressions.Window;
 import org.apache.spark.sql.expressions.WindowSpec;
@@ -177,18 +179,20 @@ public class FunnelComputeJob {
       }
       // One-shot: log the projected schema so timestamp / id types are visible in job output.
       log.info("Funnel {} projected schema: {}", funnel.id(), raw.schema().treeString());
-      raw = prepareRaw(raw, "fancode").cache();
+      Set<String> lookupFields = collectLookupFields(List.of(funnel));
+      Dataset<Row> leanRaw = upliftAndDrop(prepareRaw(raw, "fancode"), lookupFields);
+      leanRaw = preFilterToFunnelSteps(applyFilters(leanRaw, funnel.globalFilters()), funnel.steps()).cache();
       try {
         long startEpoch = startDt.toEpochSecond(ZoneOffset.UTC);
         long endEpoch = endDt.toEpochSecond(ZoneOffset.UTC);
-        var results = computeFunnel(raw, funnel, runTime, startEpoch, endEpoch);
+        var results = computeFunnel(leanRaw, funnel, runTime, startEpoch, endEpoch);
         ch.insertFunnelResults(results);
         log.info("Funnel {}: wrote {} result rows", funnel.id(), results.size());
         // Emit per-session bridge + (optional) per-user rollup so downstream
         // drop-off attribution has a SessionId anchor into OTel tables.
-        emitBridgeAndRollup(raw, funnel, runTime, startEpoch, endEpoch, ch, s3BucketPrefix);
+        emitBridgeAndRollup(leanRaw, funnel, runTime, startEpoch, endEpoch, ch, s3BucketPrefix);
       } finally {
-        raw.unpersist();
+        leanRaw.unpersist();
       }
     } else {
       Map<String, List<FunnelDefinition>> byProject = new HashMap<>();
@@ -220,21 +224,23 @@ public class FunnelComputeJob {
       log.warn("No S3 data for project {}", projectId);
       return;
     }
-    raw = prepareRaw(raw, projectId).cache();
+    Set<String> lookupFields = collectLookupFields(funnels);
+    Dataset<Row> leanRaw = upliftAndDrop(prepareRaw(raw, projectId), lookupFields);
+    leanRaw = preFilterForFunnels(leanRaw, funnels).cache();
     try {
       for (var funnel : funnels) {
         try {
-          var results = computeFunnel(raw, funnel, runTime, null, null);
+          var results = computeFunnel(leanRaw, funnel, runTime, null, null);
           ch.insertFunnelResults(results);
           log.info("Funnel {}: wrote {} result rows", funnel.id(), results.size());
-          emitBridgeAndRollup(raw, funnel, runTime, null, null, ch, s3Prefix);
+          emitBridgeAndRollup(leanRaw, funnel, runTime, null, null, ch, s3Prefix);
         } catch (Exception e) {
           log.error("Funnel {} failed: {}", funnel.id(), e.getMessage(), e);
           throw e;
         }
       }
     } finally {
-      raw.unpersist();
+      leanRaw.unpersist();
     }
   }
 
@@ -931,6 +937,66 @@ public class FunnelComputeJob {
         yield lit(true);
       }
     };
+  }
+
+  /**
+   * Collects all filter fields across all funnels (global + step) that are custom event
+   * properties — i.e. not already top-level catalog columns. These fields must be uplifted
+   * from {@code log_attributes} before the map is dropped.
+   */
+  private static Set<String> collectLookupFields(List<FunnelDefinition> funnels) {
+    Set<String> fields = new HashSet<>();
+    for (var funnel : funnels) {
+      funnel.globalFilters().stream()
+        .map(FunnelFilter::field)
+        .filter(f -> f != null && !f.isBlank() && !FilterFieldMapper.isKnownCatalogKey(f))
+        .forEach(fields::add);
+      funnel.steps().forEach(step -> step.stepFilters().stream()
+        .map(FunnelFilter::field)
+        .filter(f -> f != null && !f.isBlank() && !FilterFieldMapper.isKnownCatalogKey(f))
+        .forEach(fields::add));
+    }
+    return fields;
+  }
+
+  /**
+   * Uplifts each custom-property field from {@code log_attributes} to a top-level column,
+   * then drops the map entirely. This shrinks the cached dataset significantly when
+   * {@code log_attributes} carries many unused keys.
+   */
+  private static Dataset<Row> upliftAndDrop(Dataset<Row> df, Set<String> fields) {
+    for (var field : fields) {
+      df = df.withColumn(field, col("log_attributes").getItem(field));
+    }
+    return df.drop("log_attributes");
+  }
+
+  /**
+   * Pre-filters {@code df} to only rows that can participate in any step of any funnel.
+   * The predicate is the OR of each funnel's OR-of-steps condition:
+   * <pre>
+   *   (f1_step0_event AND f1_step0_filters) OR … OR (fN_stepM_event AND fN_stepM_filters)
+   * </pre>
+   * Uses {@link #buildColumnCondition} so operator logic is not duplicated.
+   */
+  private static Dataset<Row> preFilterForFunnels(Dataset<Row> df, List<FunnelDefinition> funnels) {
+    Column combined = null;
+    for (var funnel : funnels) {
+      Column funnelCond = null;
+      for (var step : funnel.steps()) {
+        if (step.eventName() == null || step.eventName().isBlank()) continue;
+        Column stepCond = col("event_name").equalTo(step.eventName());
+        for (var f : step.stepFilters()) {
+          if (f.field() == null || f.field().isBlank() || f.value().isEmpty()) continue;
+          stepCond = stepCond.and(buildColumnCondition(f));
+        }
+        funnelCond = (funnelCond == null) ? stepCond : funnelCond.or(stepCond);
+      }
+      if (funnelCond != null) {
+        combined = (combined == null) ? funnelCond : combined.or(funnelCond);
+      }
+    }
+    return combined != null ? df.filter(combined) : df;
   }
 
   /**
