@@ -630,12 +630,11 @@ public class FunnelComputeJob {
     long windowSecs, int numSteps, int finalStepIdx) {
     var steps = funnel.steps();
 
-    // attempts: ONE anchor per session — the earliest step-0 event. This is what
-    // windowFunnel does. Multi-attempt chain-walk was the old broken behaviour.
+    // attempts: ALL step-0 occurrences as independent anchors — mirrors computeFunnel's
+    // multi-anchor chain walk. A session that re-enters the funnel (hits step-0 again
+    // after an earlier attempt stalled) gets credit for its best attempt, not just the first.
     Dataset<Row> attempts = stepEvents(df, steps.get(0), "session_id")
-      .groupBy(col("identity"))
-      .agg(min(col("ts")).alias("ts0"))
-      .withColumn("ts_prev", col("ts0"))
+      .select(col("identity"), col("ts").alias("ts0"), col("ts").alias("ts_prev"))
       .cache();
     if (attempts.rdd().isEmpty()) {
       attempts.unpersist();
@@ -783,16 +782,17 @@ public class FunnelComputeJob {
       )
       .select(col("identity"), col("ts"), coalesce(col("session_id"), lit("")).alias("sid"));
 
+    // attempts: ALL step-0 occurrences as independent anchors — mirrors computeFunnel's
+    // multi-anchor chain walk. Each (user_id, ts, session_id) triple is a separate starting
+    // point; cross-session converters whose earliest attempt stalled are no longer missed.
     Dataset<Row> attempts = step0Events
-      .groupBy(col("identity"))
-      .agg(
-        min(col("ts")).alias("t0"),
-        // sid corresponding to min(ts) — Spark 3+ supports min_by; fall back to
-        // a window-based first() if min_by is unavailable in the runtime.
-        expr("min_by(sid, ts)").alias("sid0")
+      .select(
+        col("identity"),
+        col("ts").alias("t0"),
+        col("sid").alias("sid0"),
+        col("ts").alias("ts_prev"),
+        col("sid").alias("sid_prev")
       )
-      .withColumn("ts_prev", col("t0"))
-      .withColumn("sid_prev", col("sid0"))
       .cache();
     if (attempts.rdd().isEmpty()) {
       attempts.unpersist();
