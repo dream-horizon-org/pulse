@@ -15,6 +15,7 @@ import { getTimeBucketSize } from "../../../../utils/TimeBucketUtil";
 import { StatusCodeTimeSeriesProps } from "./StatusCodeTimeSeries.interface";
 import classes from "./StatusCodeTimeSeries.module.css";
 import { COLUMN_NAME, PulseType } from "../../../../constants/PulseOtelSemcov";
+import { formatTimeToISTFromUTCString } from "../../../../utils/DateUtil";
 
 dayjs.extend(utc);
 
@@ -194,19 +195,6 @@ export const StatusCodeTimeSeries: React.FC<StatusCodeTimeSeriesProps> = ({
       }));
   }, [seriesData]);
 
-  // Format time for display
-  const formatTime = (timestamp: string) => {
-    const date = dayjs.utc(timestamp);
-    if (!date.isValid()) return String(timestamp);
-    if (bucketSize.includes("d")) {
-      return date.format("MMM DD");
-    }
-    if (bucketSize.includes("h")) {
-      return date.format("MMM DD HH:mm");
-    }
-    return date.format("HH:mm");
-  };
-
   if (resolvedError || resolvedData?.error) {
     return (
       <Box className={classes.container}>
@@ -301,7 +289,7 @@ export const StatusCodeTimeSeries: React.FC<StatusCodeTimeSeriesProps> = ({
               formatter: createTooltipFormatter({
                 valueFormatter: (value: number) => `${value.toFixed(1)}%`,
                 customHeaderFormatter: (axisValue: any) =>
-                  axisValue ? formatTime(String(axisValue)) : "",
+                  axisValue ? formatTimeToISTFromUTCString(String(axisValue), bucketSize) : "",
               }),
             },
             legend: {
@@ -317,7 +305,7 @@ export const StatusCodeTimeSeries: React.FC<StatusCodeTimeSeriesProps> = ({
               },
               axisLabel: {
                 fontSize: 10,
-                formatter: (v: string) => formatTime(v),
+                formatter: (v: string) => formatTimeToISTFromUTCString(v, bucketSize),
               },
             },
             yAxis: {

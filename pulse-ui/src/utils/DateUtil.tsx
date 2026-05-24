@@ -350,3 +350,40 @@ export function formatTimeToISO(time: string): string {
   // Parse "YYYY-MM-DD HH:mm:ss" as UTC and convert to ISO format
   return dayjs.utc(time, "YYYY-MM-DD HH:mm:ss").toISOString();
 }
+
+/** India Standard Time offset from UTC (minutes). */
+export const IST_UTC_OFFSET_MINUTES = 330;
+
+  /**
+   * Parse store/URL time strings to UTC ISO for API calls.
+   * Brush selection + formatted axis labels historically produced invalid values;
+   * fall back to defaults instead of calling toISOString on Invalid Date.
+   */
+export const formatToUTC = (time: string, fallback: string): string => {
+    const tryParse = (t: string): dayjs.Dayjs | null => {
+      const s = t?.trim();
+      if (!s || s === "Invalid Date") return null;
+      if (s.includes("T") || s.endsWith("Z")) {
+        const d = dayjs.utc(s);
+        return d.isValid() ? d : null;
+      }
+      const strict = dayjs.utc(s, "YYYY-MM-DD HH:mm:ss", true);
+      if (strict.isValid()) return strict;
+      const loose = dayjs.utc(s);
+      return loose.isValid() ? loose : null;
+    };
+    const parsed = tryParse(time) ?? tryParse(fallback);
+    return parsed ? parsed.toISOString() : "";
+  };
+
+export const formatTimeToISTFromUTCString = (timestamp: string, bucketSize: string) => {
+  const date = dayjs.utc(timestamp).utcOffset(IST_UTC_OFFSET_MINUTES);
+  if (!date.isValid()) return String(timestamp);
+  if (bucketSize.includes("d")) {
+    return date.format("MMM DD");
+  }
+  if (bucketSize.includes("h")) {
+    return date.format("MMM DD HH:mm");
+  }
+  return date.format("HH:mm");
+};

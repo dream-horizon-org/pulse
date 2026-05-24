@@ -22,9 +22,10 @@ import {
   DEFAULT_QUICK_TIME_FILTER,
   DEFAULT_QUICK_TIME_FILTER_INDEX,
 } from "../../constants";
-import { getStartAndEndDateTimeString } from "../../utils/DateUtil";
-import dayjs from "dayjs";
-import utc from "dayjs/plugin/utc";
+import {
+  formatToUTC,
+  getStartAndEndDateTimeString,
+} from "../../utils/DateUtil";
 import { ErrorAndEmptyState } from "../../components/ErrorAndEmptyState";
 import { SkeletonLoader, MetricsGridSkeleton, ChartSkeleton } from "../../components/Skeletons";
 import DateTimeRangePicker from "../CriticalInteractionDetails/components/DateTimeRangePicker/DateTimeRangePicker";
@@ -39,8 +40,6 @@ import { normalizeHeaderKey } from "./components/NetworkFilters/utils";
 import { STATUS_CODE, PulseType, COLUMN_NAME } from "../../constants/PulseOtelSemcov";
 import { useFilterStore } from "../../stores/useFilterStore";
 import { getTimeBucketSize } from "../../utils/TimeBucketUtil";
-
-dayjs.extend(utc);
 
 export function NetworkDetail(_props: NetworkDetailProps) {
   const navigate = useNavigate();
@@ -124,28 +123,6 @@ export function NetworkDetail(_props: NetworkDetailProps) {
 
   const handleRemoveFilter = (id: string) => {
     setAppliedFilters((prev) => prev.filter((f) => f.id !== id));
-  };
-
-  /**
-   * Parse store/URL time strings to UTC ISO for API calls.
-   * Brush selection + formatted axis labels historically produced invalid values;
-   * fall back to defaults instead of calling toISOString on Invalid Date.
-   */
-  const formatToUTC = (time: string, fallback: string): string => {
-    const tryParse = (t: string): dayjs.Dayjs | null => {
-      const s = t?.trim();
-      if (!s || s === "Invalid Date") return null;
-      if (s.includes("T") || s.endsWith("Z")) {
-        const d = dayjs.utc(s);
-        return d.isValid() ? d : null;
-      }
-      const strict = dayjs.utc(s, "YYYY-MM-DD HH:mm:ss", true);
-      if (strict.isValid()) return strict;
-      const loose = dayjs.utc(s);
-      return loose.isValid() ? loose : null;
-    };
-    const parsed = tryParse(time) ?? tryParse(fallback);
-    return parsed ? parsed.toISOString() : "";
   };
 
   const formattedStartTime = formatToUTC(
