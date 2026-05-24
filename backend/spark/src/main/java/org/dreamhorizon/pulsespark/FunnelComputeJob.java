@@ -7,7 +7,6 @@ import org.apache.spark.sql.SparkSession;
 import org.apache.spark.sql.types.DataTypes;
 import org.dreamhorizon.pulsespark.model.FunnelAttributionRow;
 import org.dreamhorizon.pulsespark.model.FunnelDefinition;
-import org.dreamhorizon.pulsespark.model.FunnelFilter;
 import org.dreamhorizon.pulsespark.model.FunnelResult;
 import org.dreamhorizon.pulsespark.model.FunnelSessionState;
 import org.dreamhorizon.pulsespark.model.FunnelStep;
@@ -16,11 +15,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -34,123 +31,9 @@ public class FunnelComputeJob {
 
   private static final Logger log = LoggerFactory.getLogger(FunnelComputeJob.class);
 
-  /**
-   * Read projection from the new OTel parquet schema (PascalCase columns shipped by the
-   * pulse-s3-archiver). Each entry is {@code {parquetColumn, projectedAlias}}; aliases use
-   * the lowercase names that downstream funnel / journey / event-catalog logic already
-   * depends on, so flipping the storage layout doesn't ripple through the codebase.
-   *
-   * <p>Layout: {@code s3://pulse-otel-ingestion/<projectId>/otel_logs/year=YYYY/month=MM/day=DD/*.parquet}
-   * (replacing the legacy {@code vector-logs/} sink).
-   *
-   * <p>Schema source: {@code backend/pulse-s3-archiver/src/main/resources/schemas/otel_logs.avsc}.
-   */
-  static final String[][] READ_COL_MAPPING = {
-    {SparkConstants.RawColumns.EVENT_NAME,       SparkConstants.Columns.EVENT_NAME},
-    {SparkConstants.RawColumns.PROJECT_ID,       SparkConstants.Columns.PROJECT_ID},
-    {SparkConstants.RawColumns.SESSION_ID,       SparkConstants.Columns.SESSION_ID},
-    // Timestamp is handled separately below — see buildReadExprs. The parquet-mr 1.14.1 writer
-    // emits an avro `timestamp-micros` logical type that Spark 3.5.x sometimes decodes to
-    // epoch zero (depending on session config). We bypass Spark's logical-type interpretation
-    // entirely by reading the column as Long microseconds and rebuilding TimestampType ourselves.
-    {SparkConstants.RawColumns.PULSE_TYPE,       SparkConstants.Columns.PULSE_TYPE},            // needed for the custom_event filter
-    {SparkConstants.RawColumns.PLATFORM,         SparkConstants.Columns.OS_NAME},               // OTel `Platform` carries the OS name
-    {SparkConstants.RawColumns.OS_VERSION,       SparkConstants.Columns.OS_VERSION},
-    {SparkConstants.RawColumns.APP_VERSION,      SparkConstants.Columns.APP_BUILD_NAME},        // downstream "app_build_name" alias kept for catalog filters
-    {SparkConstants.RawColumns.PLATFORM,         SparkConstants.Columns.DEVICE_MANUFACTURER},  // legacy distinction collapsed in OTel — same source
-    {SparkConstants.RawColumns.DEVICE_MODEL,     SparkConstants.Columns.DEVICE_MODEL_IDENTIFIER},
-    {SparkConstants.RawColumns.NETWORK_PROVIDER, SparkConstants.Columns.NETWORK_CARRIER_ICC},
-    {SparkConstants.RawColumns.SCREEN_NAME,      SparkConstants.Columns.SCREEN_NAME},
-    {SparkConstants.RawColumns.SERVICE_NAME,     SparkConstants.Columns.SERVICE_NAME},
-  };
-
-
-  /**
-   * Explicit read schema for the otel_logs parquet partitions. Forces ALL columns to a known
-   * type so Spark's parquet reader doesn't apply its own logical-type interpretation — in
-   * particular {@code Timestamp} is read as raw {@link DataTypes#LongType LongType} (the
-   * parquet column's physical type is {@code INT64} with avro logical
-   * {@code timestamp-micros}). The parquet-mr 1.14.1 writer ↔ Spark 3.5.x vectorized reader
-   * combination on EMR Serverless silently decodes the auto-inferred TimestampType to epoch 0
-   * for every row; reading raw int64 and rebuilding the TimestampType in
-   * {@link #buildReadExprs} avoids the bug entirely.
-   *
-   * <p>Columns the existing funnel / journey / event-catalog logic depends on are listed here.
-   * Any partition file missing a column gets {@code NULL} for that column (no schema-merge
-   * gymnastics needed).
-   */
-  static final org.apache.spark.sql.types.StructType READ_SCHEMA =
-    new org.apache.spark.sql.types.StructType()
-      .add(SparkConstants.RawColumns.EVENT_NAME,          DataTypes.StringType, true)
-      .add(SparkConstants.RawColumns.PROJECT_ID,          DataTypes.StringType, true)
-      .add(SparkConstants.RawColumns.SESSION_ID,          DataTypes.StringType, true)
-      .add(SparkConstants.RawColumns.PULSE_TYPE,          DataTypes.StringType, true)
-      .add(SparkConstants.RawColumns.PLATFORM,            DataTypes.StringType, true)
-      .add(SparkConstants.RawColumns.OS_VERSION,          DataTypes.StringType, true)
-      .add(SparkConstants.RawColumns.APP_VERSION,         DataTypes.StringType, true)
-      .add(SparkConstants.RawColumns.DEVICE_MODEL,        DataTypes.StringType, true)
-      .add(SparkConstants.RawColumns.NETWORK_PROVIDER,    DataTypes.StringType, true)
-      .add(SparkConstants.RawColumns.SCREEN_NAME,         DataTypes.StringType, true)
-      .add(SparkConstants.RawColumns.SERVICE_NAME,        DataTypes.StringType, true)
-      .add(SparkConstants.RawColumns.APP_INSTALLATION_ID, DataTypes.StringType, true)
-      .add(SparkConstants.RawColumns.USER_ID,             DataTypes.StringType, true)
-      // Read as raw Long micros — DO NOT change to TimestampType, that triggers the
-      // parquet-mr 1.14.1 ↔ Spark 3.5 decode-to-zero bug.
-      .add(SparkConstants.RawColumns.TIMESTAMP, DataTypes.LongType, true)
-      // Custom event properties for step/global filter evaluation.
-      // Avro map<string> → Parquet MAP → Spark MapType(StringType, StringType).
-      .add(SparkConstants.RawColumns.LOG_ATTRIBUTES,
-        org.apache.spark.sql.types.DataTypes.createMapType(
-          DataTypes.StringType, DataTypes.StringType, true),
-        true);
-
-  /**
-   * Sets the Spark session-level configuration needed to correctly read parquet files written
-   * by parquet-mr 1.14.1 (the pulse-s3-archiver's Java writer).
-   *
-   * <p><b>Background.</b> Spark 3.5.6's <i>vectorized</i> parquet reader has a known
-   * incompatibility with parquet-mr 1.14.1's encoding of
-   * {@code TIMESTAMP(MICROS, isAdjustedToUTC=true)} columns: every value decodes to epoch 0
-   * regardless of whether the caller requests {@link DataTypes#TimestampType TimestampType}
-   * or {@link DataTypes#LongType LongType} via an explicit read schema. The non-vectorized
-   * (row-based) reader handles the logical type correctly. Disabling the vectorized reader
-   * here makes the timestamp filter actually filter on real timestamps instead of all-zeros.
-   *
-   * <p>Pinning the session timezone to UTC is defensive: any {@code unix_timestamp} or
-   * {@code timestamp.cast(date)} call that <i>does</i> involve session TZ will at least be
-   * stable across cluster restarts and JVM defaults.
-   *
-   * <p>Symptom this fixes:
-   * <pre>
-   * raw timestamp range: min=1970-01-01T00:00:00.000+0000 max=1970-01-01T00:00:00.000+0000
-   * Funnel X rows after time/global filters: 0
-   * </pre>
-   * which is the diagnostic the time-filter diag prints when the parquet reader returns
-   * zeros for the entire {@code Timestamp} column.
-   */
-  static void configureSparkForParquetMrTimestamps(SparkSession spark) {
-    spark.conf().set(SparkConstants.SparkConfig.PARQUET_VECTORIZED_READER, "false");
-    spark.conf().set(SparkConstants.SparkConfig.SESSION_TIME_ZONE, SparkConstants.SparkConfig.UTC);
-    log.info("Spark parquet read config: vectorizedReader=false, timeZone=UTC " +
-      "(workaround for parquet-mr 1.14.1 TIMESTAMP(MICROS) decode-to-zero bug in Spark 3.5.x)");
-  }
-
-  /**
-   * Joins an S3 bucket prefix with project + table into a canonical
-   * {@code s3a://<bucket>/<projectId>/<tableName>/} URL, normalising trailing/missing
-   * slashes so it doesn't matter whether {@code s3BucketPrefix} ends with {@code /} or not.
-   */
-  static String buildS3Base(String s3BucketPrefix, String projectId, String tableName) {
-    String prefix = s3BucketPrefix == null ? "" : s3BucketPrefix;
-    if (!prefix.isEmpty() && !prefix.endsWith("/")) {
-      prefix = prefix + "/";
-    }
-    return SparkConstants.SparkConfig.S3A_PREFIX + prefix + projectId + "/" + tableName + "/";
-  }
-
   public static void runFunnels(SparkSession spark, MysqlRepository mysql, ClickHouseClient ch,
                                 Long referenceId, String s3BucketPrefix, String runTime) throws Exception {
-    configureSparkForParquetMrTimestamps(spark);
+    OtelS3Reader.configureSparkForParquetMrTimestamps(spark);
     List<FunnelDefinition> funnels = mysql.fetchFunnels(referenceId);
     if (funnels.isEmpty()) {
       log.info("No funnels to process");
@@ -165,19 +48,19 @@ public class FunnelComputeJob {
       }
       var startDt = funnel.startTime().toLocalDateTime();
       var endDt = funnel.endTime().toLocalDateTime();
-      var s3Base = buildS3Base(s3BucketPrefix, "fancode", SparkConstants.Tables.S3_OTEL_LOGS);
+      var s3Base = OtelS3Reader.buildS3Base(s3BucketPrefix, "fancode", SparkConstants.Tables.S3_OTEL_LOGS);
 
       log.info("Funnel {} window [{} -> {}] path={}", funnel.id(), startDt, endDt, s3Base);
-      Dataset<Row> raw = readS3ByHours(spark, s3Base, startDt, endDt);
+      Dataset<Row> raw = OtelS3Reader.readS3ByHours(spark, s3Base, startDt, endDt);
       if (raw == null) {
         log.warn("No S3 data for funnel {}", funnel.id());
         return;
       }
       // One-shot: log the projected schema so timestamp / id types are visible in job output.
       log.info("Funnel {} projected schema: {}", funnel.id(), raw.schema().treeString());
-      Set<String> lookupFields = collectLookupFields(List.of(funnel));
-      Dataset<Row> leanRaw = upliftAndDrop(prepareRaw(raw, "fancode"), lookupFields);
-      leanRaw = preFilterToFunnelSteps(applyFilters(leanRaw, funnel.globalFilters()), funnel.steps()).cache();
+      Set<String> lookupFields = FunnelFilterUtils.collectLookupFields(List.of(funnel));
+      Dataset<Row> leanRaw = FunnelFilterUtils.upliftAndDrop(FunnelFilterUtils.prepareRaw(raw, "fancode"), lookupFields);
+      leanRaw = FunnelFilterUtils.preFilterToFunnelSteps(FunnelFilterUtils.applyFilters(leanRaw, funnel.globalFilters()), funnel.steps()).cache();
       try {
         long startEpoch = startDt.toEpochSecond(ZoneOffset.UTC);
         long endEpoch = endDt.toEpochSecond(ZoneOffset.UTC);
@@ -211,18 +94,18 @@ public class FunnelComputeJob {
     int maxDays = funnels.stream().mapToInt(FunnelDefinition::dateRange).max().orElse(7);
     var endDate = LocalDate.parse(runTime.substring(0, 10));
     var startDate = endDate.minusDays(maxDays - 1L);
-    var s3Base = buildS3Base(s3Prefix, projectId, SparkConstants.Tables.S3_OTEL_LOGS);
+    var s3Base = OtelS3Reader.buildS3Base(s3Prefix, projectId, SparkConstants.Tables.S3_OTEL_LOGS);
 
     log.info("Project {} reading S3 [{} -> {}] for {} funnel(s) path={}",
       projectId, startDate, endDate, funnels.size(), s3Base);
-    Dataset<Row> raw = readS3ByDateRange(spark, s3Base, startDate, endDate);
+    Dataset<Row> raw = OtelS3Reader.readS3ByDateRange(spark, s3Base, startDate, endDate);
     if (raw == null) {
       log.warn("No S3 data for project {}", projectId);
       return;
     }
-    Set<String> lookupFields = collectLookupFields(funnels);
-    Dataset<Row> leanRaw = upliftAndDrop(prepareRaw(raw, projectId), lookupFields);
-    leanRaw = preFilterForFunnels(leanRaw, funnels).cache();
+    Set<String> lookupFields = FunnelFilterUtils.collectLookupFields(funnels);
+    Dataset<Row> leanRaw = FunnelFilterUtils.upliftAndDrop(FunnelFilterUtils.prepareRaw(raw, projectId), lookupFields);
+    leanRaw = FunnelFilterUtils.preFilterForFunnels(leanRaw, funnels).cache();
     try {
       for (var funnel : funnels) {
         try {
@@ -304,7 +187,7 @@ public class FunnelComputeJob {
       long postFilterCount = df.count();
       log.info("Funnel {} rows after time/global filters: {}", funnel.id(), postFilterCount);
     }
-    df = preFilterToFunnelSteps(applyFilters(df, funnel.globalFilters()), steps);
+    df = FunnelFilterUtils.preFilterToFunnelSteps(FunnelFilterUtils.applyFilters(df, funnel.globalFilters()), steps);
 
     if (funnel.isUnordered()) {
       return computeUnorderedFunnel(df, funnel, identityCol, runTime);
@@ -566,7 +449,7 @@ public class FunnelComputeJob {
           .and(col(SparkConstants.Columns.TIMESTAMP).lt(lit(endTs)))
       );
     }
-    df = preFilterToFunnelSteps(applyFilters(df, funnel.globalFilters()), steps).cache();
+    df = FunnelFilterUtils.preFilterToFunnelSteps(FunnelFilterUtils.applyFilters(df, funnel.globalFilters()), steps).cache();
 
     try {
       // ── Per-session bridge (single-anchor, matches windowFunnel) ────────────────
@@ -891,292 +774,13 @@ public class FunnelComputeJob {
 
   private static Dataset<Row> stepEvents(Dataset<Row> df, FunnelStep step, String identityCol) {
     Dataset<Row> filtered = df.filter(col(SparkConstants.Columns.EVENT_NAME).equalTo(step.eventName()));
-    filtered = applyFilters(filtered, step.stepFilters());
+    filtered = FunnelFilterUtils.applyFilters(filtered, step.stepFilters());
     return filtered
       .select(
         col(identityCol).alias("identity"),
         unix_timestamp(col(SparkConstants.Columns.TIMESTAMP)).alias("ts")
       )
       .filter(col("identity").isNotNull().and(col("identity").notEqual("")));
-  }
-
-  static Dataset<Row> applyFilters(Dataset<Row> df, List<FunnelFilter> filters) {
-    for (var filter : filters) {
-      if (filter.field() == null || filter.field().isBlank()) {
-        log.warn("Skipping filter: field is null or blank");
-        continue;
-      }
-      if (filter.value().isEmpty()) {
-        log.warn("Skipping filter: empty value list for field '{}'", filter.field());
-        continue;
-      }
-      df = df.filter(buildColumnCondition(filter));
-    }
-    return df;
-  }
-
-  /**
-   * Builds a Spark {@link Column} expression for a single {@link FunnelFilter}.
-   * Extracted so both {@link #applyFilters} and {@link #preFilterToFunnelSteps} share the
-   * same operator logic without duplication.
-   */
-  private static Column buildColumnCondition(FunnelFilter filter) {
-    var fieldCol = FilterFieldMapper.toColumn(filter.field());
-    var vals = filter.value().toArray();
-    String op = FunnelFilterOperators.normalize(filter.operator());
-    return switch (op) {
-      case "EQ", "=", "IN" -> fieldCol.isin(vals);
-      case "NE", "!=", "NOT_IN" -> not(fieldCol.isin(vals));
-      case "CONTAINS" -> filter.value().stream()
-        .map(fieldCol::contains)
-        .reduce(Column::or)
-        .orElse(lit(true));
-      default -> {
-        log.warn("Unknown filter operator '{}' (normalized='{}') for field '{}' — filter skipped",
-          filter.operator(), op, filter.field());
-        yield lit(true);
-      }
-    };
-  }
-
-  /**
-   * Collects all filter fields across all funnels (global + step) that are custom event
-   * properties — i.e. not already top-level catalog columns. These fields must be uplifted
-   * from {@code log_attributes} before the map is dropped.
-   */
-  private static Set<String> collectLookupFields(List<FunnelDefinition> funnels) {
-    Set<String> fields = new HashSet<>();
-    for (var funnel : funnels) {
-      funnel.globalFilters().stream()
-        .map(FunnelFilter::field)
-        .filter(f -> f != null && !f.isBlank() && !FilterFieldMapper.isKnownCatalogKey(f))
-        .forEach(fields::add);
-      funnel.steps().forEach(step -> step.stepFilters().stream()
-        .map(FunnelFilter::field)
-        .filter(f -> f != null && !f.isBlank() && !FilterFieldMapper.isKnownCatalogKey(f))
-        .forEach(fields::add));
-    }
-    return fields;
-  }
-
-  /**
-   * Uplifts each custom-property field from {@code log_attributes} to a top-level column,
-   * then drops the map entirely. This shrinks the cached dataset significantly when
-   * {@code log_attributes} carries many unused keys.
-   */
-  private static Dataset<Row> upliftAndDrop(Dataset<Row> df, Set<String> fields) {
-    for (var field : fields) {
-      df = df.withColumn(field, col(SparkConstants.Columns.LOG_ATTRIBUTES).getItem(field));
-    }
-    return df.drop(SparkConstants.Columns.LOG_ATTRIBUTES);
-  }
-
-  /**
-   * Pre-filters {@code df} to only rows that can participate in any step of any funnel.
-   * The predicate is the OR of each funnel's OR-of-steps condition:
-   * <pre>
-   *   (f1_step0_event AND f1_step0_filters) OR … OR (fN_stepM_event AND fN_stepM_filters)
-   * </pre>
-   * Uses {@link #buildColumnCondition} so operator logic is not duplicated.
-   */
-  private static Dataset<Row> preFilterForFunnels(Dataset<Row> df, List<FunnelDefinition> funnels) {
-    Column combined = null;
-    for (var funnel : funnels) {
-      Column funnelCond = null;
-      for (var step : funnel.steps()) {
-        if (step.eventName() == null || step.eventName().isBlank()) continue;
-        Column stepCond = col(SparkConstants.Columns.EVENT_NAME).equalTo(step.eventName());
-        for (var f : step.stepFilters()) {
-          if (f.field() == null || f.field().isBlank() || f.value().isEmpty()) continue;
-          stepCond = stepCond.and(buildColumnCondition(f));
-        }
-        funnelCond = (funnelCond == null) ? stepCond : funnelCond.or(stepCond);
-      }
-      if (funnelCond != null) {
-        combined = (combined == null) ? funnelCond : combined.or(funnelCond);
-      }
-    }
-    return combined != null ? df.filter(combined) : df;
-  }
-
-  /**
-   * Narrows {@code df} to only rows that can participate in any funnel step, minimising the
-   * dataset that gets cached in {@link #emitBridgeAndRollup}. The predicate is:
-   * <pre>
-   *   (event_name = step0 AND step0_filters) OR (event_name = step1 AND step1_filters) OR …
-   * </pre>
-   * A row that matches no step's event name + filters can never contribute to funnel counting,
-   * session_state, user_state, or attribution, so excluding it from the cache is safe.
-   */
-  private static Dataset<Row> preFilterToFunnelSteps(Dataset<Row> df, List<FunnelStep> steps) {
-    if (steps.isEmpty()) return df;
-    Column condition = null;
-    for (var step : steps) {
-      Column stepCond = col(SparkConstants.Columns.EVENT_NAME).equalTo(step.eventName());
-      for (var f : step.stepFilters()) {
-        if (f.field() == null || f.field().isBlank() || f.value().isEmpty()) continue;
-        stepCond = stepCond.and(buildColumnCondition(f));
-      }
-      condition = (condition == null) ? stepCond : condition.or(stepCond);
-    }
-    return condition != null ? df.filter(condition) : df;
-  }
-
-  /**
-   * Reads parquet partitions over an inclusive date range. The new
-   * pulse-s3-archiver layout partitions by {@code year=YYYY/month=MM/day=DD},
-   * not by date-string folders or hour subdirs.
-   */
-  static Dataset<Row> readS3ByDateRange(SparkSession spark, String s3BasePath,
-                                        LocalDate startDate, LocalDate endDate) {
-    Dataset<Row> combined = null;
-    int attempted = 0, loaded = 0;
-    for (var d = startDate; !d.isAfter(endDate); d = d.plusDays(1)) {
-      attempted++;
-      var ds = loadPath(spark, s3BasePath + dayPartition(d));
-      if (ds != null) {
-        loaded++;
-        combined = combined == null ? ds : combined.union(ds);
-      }
-    }
-    if (combined == null) {
-      log.warn("No S3 data for date range {} to {} (attempted={}, loaded={})",
-        startDate, endDate, attempted, loaded);
-    } else {
-      log.info("Loaded S3 date range {} to {} (attempted={}, loaded={})",
-        startDate, endDate, attempted, loaded);
-    }
-    return combined;
-  }
-
-  /**
-   * Reads parquet for a sub-day window. The s3-archiver layout doesn't carry an hour
-   * sub-folder (events have an {@code Hour} column instead), so this loads whole-day
-   * partitions covering the window and relies on the downstream {@code Timestamp}
-   * filter to narrow to the exact hour range.
-   */
-  static Dataset<Row> readS3ByHours(SparkSession spark, String s3BasePath,
-                                    LocalDateTime startDt, LocalDateTime endDt) {
-    return readS3ByDateRange(spark, s3BasePath, startDt.toLocalDate(), endDt.toLocalDate());
-  }
-
-  private static String dayPartition(LocalDate d) {
-    return String.format("year=%04d/month=%02d/day=%02d/",
-      d.getYear(), d.getMonthValue(), d.getDayOfMonth());
-  }
-
-  private static Dataset<Row> loadPath(SparkSession spark, String path) {
-    try {
-      var ds = spark.read()
-        .format(SparkConstants.SparkConfig.PARQUET_FORMAT)
-        // Schema inference is fine once the vectorized reader is disabled via
-        // configureSparkForParquetMrTimestamps. mergeSchema=true unions across day
-        // partitions so a single missing column on one day doesn't fail the whole load.
-        .option(SparkConstants.SparkConfig.PARQUET_RECURSIVE_LOOKUP, "true")
-        .option(SparkConstants.SparkConfig.PARQUET_MERGE_SCHEMA, "true")
-        .load(path);
-      return ds.select(buildReadExprs(ds));
-    } catch (Exception e) {
-      log.warn("Skipping S3 path {}: {}", path, e.getMessage());
-      return null;
-    }
-  }
-
-  /**
-   * Narrows {@code raw} to the project's custom-event rows that funnels and journeys actually
-   * consume. Without the {@code pulse_type = 'custom_event'} filter we'd include
-   * session-lifecycle, jank, web-vital, crash etc. log rows that share the same
-   * {@code otel_logs} parquet — which is what ClickHouse's {@code buildInsertSqlWindowFunnel}
-   * explicitly excludes via {@code WHERE PulseType = 'custom_event'}. Without this filter on
-   * Spark, the chain walker matches non-custom rows that happen to share an EventName, OR
-   * misses rows whose PulseType isn't what the funnel ingester expects — leading to the
-   * "0 count for HomeLoaded" symptom even when the events are demonstrably in S3.
-   */
-  private static Dataset<Row> prepareRaw(Dataset<Row> ds, String projectId) {
-    Dataset<Row> filtered = ds.filter(col(SparkConstants.Columns.PROJECT_ID).equalTo(projectId))
-      .filter(col(SparkConstants.Columns.PULSE_TYPE).equalTo(lit(SparkConstants.PulseTypes.CUSTOM_EVENT)));
-    if (log.isInfoEnabled()) {
-      long count = filtered.count();
-      log.info("prepareRaw: project={} pulse_type={} → {} rows",
-        projectId, SparkConstants.PulseTypes.CUSTOM_EVENT, count);
-      if (count == 0) {
-        log.warn(
-          "prepareRaw: 0 rows after pulse_type='{}' filter for project {}. " +
-            "Either the SDK isn't emitting custom events with this PulseType, " +
-            "or the otel_logs partitions for this window contain only non-custom rows.",
-          SparkConstants.PulseTypes.CUSTOM_EVENT, projectId);
-      }
-    }
-    return filtered;
-  }
-
-  /**
-   * Projects the new OTel parquet schema (PascalCase columns) to the lowercase aliases
-   * the funnel / journey / event-catalog logic depends on. Missing columns are filled with
-   * {@code NULL} so partitions with schema drift still load via {@code mergeSchema}.
-   *
-   * <p><b>{@code user_id} alias = {@code AppInstallationId} directly.</b> Matches CH's
-   * {@code ClickhouseAnalyticsQueryUtils.resolveMaterializedGroupKey} which uses
-   * {@code AppInstallationId} for UNIQUE_USERS mode and explicitly skips {@code UserId}
-   * (doc note: "not reliably populated across all SDK versions"). Early-lifecycle events
-   * like HomeLoaded fire before the user is identified — {@code UserId} is empty for them
-   * but {@code AppInstallationId} is always set by the SDK at init time.
-   */
-  static Column[] buildReadExprs(Dataset<Row> ds) {
-    var schema = ds.schema();
-    var available = new java.util.HashSet<>(java.util.Arrays.asList(ds.columns()));
-    var cols = new ArrayList<Column>();
-    for (var mapping : READ_COL_MAPPING) {
-      String parquetCol = mapping[0];
-      String alias = mapping[1];
-      cols.add(available.contains(parquetCol)
-        ? col(parquetCol).alias(alias)
-        : lit(null).cast(DataTypes.StringType).alias(alias));
-    }
-
-    // Timestamp handling depends on what the parquet reader gave us:
-    //   - TimestampType (most common with non-vectorized reader on parquet-mr 1.14.1 output):
-    //     use as-is. Values are real instants.
-    //   - LongType (would happen if an explicit schema overrode the type): assume the values
-    //     are microseconds since epoch (matches the avro `timestamp-micros` logical type),
-    //     divide by 1e6 to get seconds, cast to TimestampType.
-    //   - Missing: NULL.
-    Column timestampExpr;
-    if (available.contains(SparkConstants.RawColumns.TIMESTAMP)) {
-      org.apache.spark.sql.types.DataType tsType = schema.apply(SparkConstants.RawColumns.TIMESTAMP).dataType();
-      if (tsType instanceof org.apache.spark.sql.types.TimestampType) {
-        timestampExpr = col(SparkConstants.RawColumns.TIMESTAMP);
-      } else if (tsType instanceof org.apache.spark.sql.types.LongType) {
-        timestampExpr = col(SparkConstants.RawColumns.TIMESTAMP).divide(lit(1_000_000L)).cast(DataTypes.TimestampType);
-      } else {
-        timestampExpr = to_timestamp(col(SparkConstants.RawColumns.TIMESTAMP).cast(DataTypes.StringType));
-        log.warn("buildReadExprs: unexpected Timestamp column type={} — string-cast fallback",
-          tsType.simpleString());
-      }
-    } else {
-      timestampExpr = lit(null).cast(DataTypes.TimestampType);
-    }
-    cols.add(timestampExpr.alias(SparkConstants.Columns.TIMESTAMP));
-
-    // user_id := AppInstallationId — matches CH. No UserId fallback. Skips empty strings
-    // (avro non-null `string` ships empty rather than null) so downstream filters work.
-    Column appInstallationId = available.contains(SparkConstants.RawColumns.APP_INSTALLATION_ID)
-      ? col(SparkConstants.RawColumns.APP_INSTALLATION_ID) : lit(null).cast(DataTypes.StringType);
-    Column resolved = when(appInstallationId.isNull().or(appInstallationId.equalTo("")),
-      lit(null).cast(DataTypes.StringType)).otherwise(appInstallationId);
-    cols.add(resolved.alias(SparkConstants.Columns.USER_ID));
-
-    // LogAttributes map — projected for step/global filter evaluation only.
-    // Avro map<string> → Parquet MAP → MapType(StringType, StringType).
-    // Partitions missing the column get NULL; getItem on a null map returns null,
-    // which fails any equality check — correct behaviour for missing properties.
-    var mapType = org.apache.spark.sql.types.DataTypes.createMapType(
-      DataTypes.StringType, DataTypes.StringType, true);
-    cols.add((available.contains(SparkConstants.RawColumns.LOG_ATTRIBUTES)
-      ? col(SparkConstants.RawColumns.LOG_ATTRIBUTES)
-      : lit(null).cast(mapType)).alias(SparkConstants.Columns.LOG_ATTRIBUTES));
-
-    return cols.toArray(Column[]::new);
   }
 
   // ── Attribution precompute ─────────────────────────────────────────────────────
@@ -1235,9 +839,9 @@ public class FunnelComputeJob {
     //  • stack_trace_events — crash/ANR/non_fatal routed to Pulse server → error-grouped → S3
     //  • otel_logs          — jank events (app.jank.frozen, app.jank.slow) via Kafka → S3
     //  • otel_traces        — network spans (PulseType = "network.<code>") via Kafka → S3
-    var stackTraceEvents = loadOtelSignalParquet(spark, s3BucketPrefix, "fancode", SparkConstants.Tables.S3_STACK_TRACE_EVENTS, runTime, funnel);
-    var otelLogs = loadOtelSignalParquet(spark, s3BucketPrefix, "fancode", SparkConstants.Tables.S3_OTEL_LOGS, runTime, funnel);
-    var traces = loadOtelSignalParquet(spark, s3BucketPrefix, "fancode", SparkConstants.Tables.S3_OTEL_TRACES, runTime, funnel);
+    var stackTraceEvents = OtelS3Reader.loadOtelSignalParquet(spark, s3BucketPrefix, "fancode", SparkConstants.Tables.S3_STACK_TRACE_EVENTS, runTime, funnel);
+    var otelLogs = OtelS3Reader.loadOtelSignalParquet(spark, s3BucketPrefix, "fancode", SparkConstants.Tables.S3_OTEL_LOGS, runTime, funnel);
+    var traces = OtelS3Reader.loadOtelSignalParquet(spark, s3BucketPrefix, "fancode", SparkConstants.Tables.S3_OTEL_TRACES, runTime, funnel);
 
     if (stackTraceEvents != null) {
       // Diagnostic: crash/anr/non_fatal come from stack_trace_events (after Pulse server error grouping).
@@ -1341,60 +945,6 @@ public class FunnelComputeJob {
       org.apache.spark.sql.types.DataTypes.createStructField("dropoff_step", DataTypes.IntegerType, false)
     });
     return spark.createDataFrame(rows, schema);
-  }
-
-  /**
-   * Loads parquet for an OTel signal table from S3 over the funnel's run window.
-   * Path layout: {@code s3a://pulse-otel-ingestion/{projectId}/{tableName}/year=YYYY/month=MM/day=DD/}.
-   * Returns {@code null} when no data is found (e.g. project has never emitted crashes).
-   */
-  /**
-   * Loads parquet for an OTel signal table from S3 over the funnel's run window. Path
-   * layout matches the pulse-s3-archiver sink:
-   * {@code s3a://<bucketPrefix><projectId>/<tableName>/year=YYYY/month=MM/day=DD/}.
-   *
-   * <p>The bucket prefix is the same one the job already received via
-   * {@code FunnelComputeJob.runFunnels(... String s3BucketPrefix ...)} (typically ends in
-   * a trailing slash, e.g. {@code "pulse-otel-ingestion/"}). Per-day partition failures
-   * are logged and skipped; only when ALL day partitions fail to load does this return
-   * {@code null} and the calling site falls back to the live DAO join.
-   */
-  private static Dataset<Row> loadOtelSignalParquet(
-    SparkSession spark, String s3BucketPrefix, String projectId, String tableName,
-    String runTime, FunnelDefinition funnel) {
-    LocalDate start;
-    LocalDate end;
-    if (funnel.startTime() != null && funnel.endTime() != null) {
-      start = funnel.startTime().toLocalDateTime().toLocalDate();
-      end = funnel.endTime().toLocalDateTime().toLocalDate();
-    } else {
-      end = LocalDate.parse(runTime.substring(0, 10));
-      start = end.minusDays(funnel.dateRange() - 1L);
-    }
-    String basePath = buildS3Base(s3BucketPrefix, projectId, tableName);
-    Dataset<Row> combined = null;
-    int loaded = 0;
-    for (var d = start; !d.isAfter(end); d = d.plusDays(1)) {
-      String path = basePath + dayPartition(d);
-      try {
-        Dataset<Row> ds = spark.read()
-          .format(SparkConstants.SparkConfig.PARQUET_FORMAT)
-          .option(SparkConstants.SparkConfig.PARQUET_RECURSIVE_LOOKUP, "true")
-          .option(SparkConstants.SparkConfig.PARQUET_MERGE_SCHEMA, "true")
-          .load(path);
-        combined = (combined == null) ? ds : combined.unionByName(ds, true);
-        loaded++;
-      } catch (Exception e) {
-        log.debug("Skipping {} path {}: {}", tableName, path, e.getMessage());
-      }
-    }
-    if (combined == null) {
-      log.info("No {} parquet found for project {} window {}..{}",
-        tableName, projectId, start, end);
-    } else {
-      log.info("Loaded {} for project {}: {} day partition(s)", tableName, projectId, loaded);
-    }
-    return combined;
   }
 
   /**

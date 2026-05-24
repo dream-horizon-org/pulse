@@ -27,7 +27,7 @@ public class JourneyComputeJob {
 
     public static void runJourneys(SparkSession spark, MysqlRepository mysql, ClickHouseClient ch,
                                     Long referenceId, String s3BucketPrefix, String runTime) throws Exception {
-        FunnelComputeJob.configureSparkForParquetMrTimestamps(spark);
+        OtelS3Reader.configureSparkForParquetMrTimestamps(spark);
         List<JourneyDefinition> journeys = mysql.fetchJourneys(referenceId);
         if (journeys.isEmpty()) {
             log.info("No journeys to process");
@@ -42,10 +42,10 @@ public class JourneyComputeJob {
             }
             var startDt = journey.startTime().toLocalDateTime();
             var endDt   = journey.endTime().toLocalDateTime();
-            var s3Base  = FunnelComputeJob.buildS3Base(s3BucketPrefix, journey.projectId(), SparkConstants.Tables.S3_OTEL_LOGS);
+            var s3Base  = OtelS3Reader.buildS3Base(s3BucketPrefix, journey.projectId(), SparkConstants.Tables.S3_OTEL_LOGS);
 
             log.info("Journey {} window [{} -> {}]", journey.id(), startDt, endDt);
-            Dataset<Row> raw = FunnelComputeJob.readS3ByHours(spark, s3Base, startDt, endDt);
+            Dataset<Row> raw = OtelS3Reader.readS3ByHours(spark, s3Base, startDt, endDt);
             if (raw == null) {
                 log.warn("No S3 data for journey {}", journey.id());
                 return;
@@ -81,10 +81,10 @@ public class JourneyComputeJob {
         int maxDays   = journeys.stream().mapToInt(JourneyDefinition::dateRange).max().orElse(7);
         var endDate   = LocalDate.parse(runTime.substring(0, 10));
         var startDate = endDate.minusDays(maxDays - 1L);
-        var s3Base    = FunnelComputeJob.buildS3Base(s3Prefix, projectId, SparkConstants.Tables.S3_OTEL_LOGS);
+        var s3Base    = OtelS3Reader.buildS3Base(s3Prefix, projectId, SparkConstants.Tables.S3_OTEL_LOGS);
 
         log.info("Project {} reading S3 [{} -> {}] for {} journey(s)", projectId, startDate, endDate, journeys.size());
-        Dataset<Row> raw = FunnelComputeJob.readS3ByDateRange(spark, s3Base, startDate, endDate);
+        Dataset<Row> raw = OtelS3Reader.readS3ByDateRange(spark, s3Base, startDate, endDate);
         if (raw == null) {
             log.warn("No S3 data for project {}", projectId);
             return;
@@ -129,7 +129,7 @@ public class JourneyComputeJob {
                             .and(col("timestamp").cast(DataTypes.DateType).leq(lit(endDate.toString())))
             );
         }
-        df = FunnelComputeJob.applyFilters(df, journey.globalFilters());
+        df = FunnelFilterUtils.applyFilters(df, journey.globalFilters());
 
         Dataset<Row> events = df
                 .select(

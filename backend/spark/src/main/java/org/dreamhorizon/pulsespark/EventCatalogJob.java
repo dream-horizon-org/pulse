@@ -26,7 +26,7 @@ public class EventCatalogJob {
 
     public static void runCatalog(SparkSession spark, MysqlRepository mysql, ClickHouseClient ch,
                                    String s3BucketPrefix, String runTime) throws Exception {
-        FunnelComputeJob.configureSparkForParquetMrTimestamps(spark);
+        OtelS3Reader.configureSparkForParquetMrTimestamps(spark);
         List<String> projectIds = mysql.fetchProjectIds();
         if (projectIds.isEmpty()) {
             log.info("No projects to process");
@@ -66,8 +66,8 @@ public class EventCatalogJob {
             log.info("Project {} incremental from {}: S3 [{} -> {}]", projectId, wm, startDate, endDate);
         }
 
-        var s3Base = FunnelComputeJob.buildS3Base(s3Prefix, projectId, SparkConstants.Tables.S3_OTEL_LOGS);
-        Dataset<Row> raw = FunnelComputeJob.readS3ByDateRange(spark, s3Base, startDate, endDate);
+        var s3Base = OtelS3Reader.buildS3Base(s3Prefix, projectId, SparkConstants.Tables.S3_OTEL_LOGS);
+        Dataset<Row> raw = OtelS3Reader.readS3ByDateRange(spark, s3Base, startDate, endDate);
         if (raw == null) {
             log.warn("No S3 data for project {} — skipping", projectId);
             return;
