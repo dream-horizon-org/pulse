@@ -68,6 +68,7 @@ public class SparkJobRunner {
       // ── SQL tuning ────────────────────────────────────────────────────────
       .config("spark.sql.shuffle.partitions", "400")
       .config("spark.sql.adaptive.enabled", "true")
+      .config("spark.sql.adaptive.skewJoin.enabled", "true")
       // ── Dynamic allocation ────────────────────────────────────────────────
       .config("spark.dynamicAllocation.enabled", "true")
       .config("spark.dynamicAllocation.minExecutors", "1")
@@ -76,6 +77,7 @@ public class SparkJobRunner {
       // ── Executor / driver resources ───────────────────────────────────────
       .config("spark.executor.cores", "4")
       .config("spark.executor.memory", "16g")
+      .config("spark.executor.memoryOverhead", "3g")
       .config("spark.driver.cores", "4")
       .config("spark.driver.memory", "8g")
       .getOrCreate();

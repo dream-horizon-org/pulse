@@ -36,13 +36,13 @@ public class MysqlRepository {
 
   /**
    * Fetches funnels. If referenceId is non-null, fetches the single funnel with that id.
-   * Otherwise fetches all AUTO funnels whose end_time is null or in the future.
+   * Otherwise fetches all AUTO funnels whose expiry is null or in the future.
    */
   public List<FunnelDefinition> fetchFunnels(Long referenceId) throws Exception {
     var sql = referenceId != null
       ? "SELECT * FROM " + SparkConstants.MysqlTables.FUNNEL + " WHERE id = ?"
       : "SELECT * FROM " + SparkConstants.MysqlTables.FUNNEL + " WHERE funnel_type = '"
-          + SparkConstants.JobStatus.AUTO + "' AND (end_time IS NULL OR end_time >= NOW())";
+          + SparkConstants.JobStatus.AUTO + "' AND (expiry IS NULL OR expiry >= NOW())";
 
     var results = new ArrayList<FunnelDefinition>();
     try (var conn = DriverManager.getConnection(jdbcUrl, user, password);
@@ -79,13 +79,13 @@ public class MysqlRepository {
 
   /**
    * Fetches journeys. If referenceId is non-null, fetches the single journey with that id.
-   * Otherwise fetches all AUTO journeys whose end_time is null or in the future.
+   * Otherwise fetches all AUTO journeys whose expiry is null or in the future.
    */
   public List<JourneyDefinition> fetchJourneys(Long referenceId) throws Exception {
     var sql = referenceId != null
       ? "SELECT * FROM " + SparkConstants.MysqlTables.JOURNEY + " WHERE id = ?"
       : "SELECT * FROM " + SparkConstants.MysqlTables.JOURNEY + " WHERE journey_type = '"
-          + SparkConstants.JobStatus.AUTO + "' AND (end_time IS NULL OR end_time >= NOW())";
+          + SparkConstants.JobStatus.AUTO + "' AND (expiry IS NULL OR expiry >= NOW())";
 
     var results = new ArrayList<JourneyDefinition>();
     try (var conn = DriverManager.getConnection(jdbcUrl, user, password);
