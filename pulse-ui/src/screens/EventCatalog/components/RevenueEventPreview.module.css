@@ -1,0 +1,264 @@
+.revenuePreview {
+  background: linear-gradient(
+    180deg,
+    rgba(14, 201, 194, 0.05) 0%,
+    rgba(255, 255, 255, 0.6) 100%
+  );
+  border: 1px solid rgba(14, 201, 194, 0.16);
+  border-radius: var(--mantine-radius-md);
+  padding: 16px;
+  height: 100%;
+  min-height: 420px;
+}
+
+.previewPanelHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.previewPanelTitle {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--mantine-color-dark-8);
+  line-height: 1.35;
+  letter-spacing: -0.01em;
+}
+
+.previewPanelSubtitle {
+  font-size: 13px;
+  color: var(--mantine-color-gray-6);
+  margin-top: 4px;
+  line-height: 1.4;
+}
+
+.eventNameDot {
+  color: var(--mantine-color-gray-5);
+}
+
+.eventName {
+  font-weight: 500;
+  color: var(--mantine-color-dark-6);
+  word-break: break-all;
+}
+
+.previewDaysControl {
+  flex-shrink: 0;
+}
+
+.insightSection {
+  margin-bottom: 0;
+}
+
+.insightSectionTitle {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--mantine-color-teal-9);
+  margin-bottom: 10px;
+}
+
+.statGrid {
+  width: 100%;
+}
+
+.statCard {
+  background: #fff;
+  border: 1px solid rgba(14, 201, 194, 0.12);
+  border-radius: 8px;
+  padding: 10px 10px 8px;
+  min-height: 72px;
+  height: 100%;
+}
+
+.statCardTop {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.statInfoBtn {
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.statLabel {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--mantine-color-gray-7);
+  line-height: 1.25;
+  flex: 1;
+  min-width: 0;
+}
+
+.statValue {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--mantine-color-dark-8);
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  word-break: break-word;
+}
+
+.statMetricLabel {
+  display: block;
+  margin-top: 2px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--mantine-color-gray-5);
+  line-height: 1.2;
+}
+
+.chartSection {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(14, 201, 194, 0.14);
+}
+
+.chartTitleRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+.chartTitle {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--mantine-color-dark-7);
+  line-height: 1.3;
+}
+
+.chartModeControl {
+  flex-shrink: 0;
+}
+
+.chartBadge {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--mantine-color-teal-8);
+  background: rgba(14, 201, 194, 0.1);
+  border-radius: 999px;
+  padding: 3px 10px;
+  line-height: 1.4;
+}
+
+.chartEmpty {
+  font-size: 13px;
+  color: var(--mantine-color-gray-6);
+  line-height: 1.5;
+  padding: 20px 12px;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: 8px;
+  margin: 0;
+}
+
+.loadingText {
+  font-size: 13px;
+  color: var(--mantine-color-gray-6);
+  margin-top: 8px;
+}
+
+.emptyPreview {
+  font-size: 13px;
+  color: var(--mantine-color-gray-6);
+  line-height: 1.5;
+  padding: 16px;
+  text-align: center;
+}
+
+.emptyGuide {
+  background: #fff;
+  border: 1px solid rgba(14, 201, 194, 0.18);
+  border-radius: 10px;
+  padding: 20px 18px;
+  margin-top: 8px;
+}
+
+.emptyGuideTitle {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--mantine-color-dark-7);
+  text-align: center;
+  margin-bottom: 16px;
+  line-height: 1.35;
+}
+
+.emptyGuideSteps {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.emptyGuideSteps li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-left: 14px;
+  border-left: 2px solid rgba(14, 201, 194, 0.35);
+}
+
+.stepLead {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--mantine-color-dark-7);
+  line-height: 1.35;
+}
+
+.stepDetail {
+  font-size: 12px;
+  color: var(--mantine-color-gray-6);
+  line-height: 1.45;
+}
+
+.verdictBanner {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 20px 0 0;
+  padding: 11px 13px;
+  border-radius: 8px;
+}
+
+.verdictText {
+  margin: 0;
+  flex: 1;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.verdictInfoBtn {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.verdictGood {
+  background: rgba(14, 201, 194, 0.08);
+  border: 1px solid rgba(14, 201, 194, 0.22);
+  color: var(--mantine-color-dark-7);
+}
+
+.verdictWarn {
+  background: rgba(250, 176, 5, 0.08);
+  border: 1px solid rgba(250, 176, 5, 0.28);
+  color: var(--mantine-color-dark-7);
+}
+
+.verdictMuted {
+  background: rgba(134, 142, 150, 0.06);
+  border: 1px solid rgba(134, 142, 150, 0.16);
+  color: var(--mantine-color-gray-7);
+}

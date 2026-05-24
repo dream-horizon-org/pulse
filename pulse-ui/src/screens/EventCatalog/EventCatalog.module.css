@@ -279,6 +279,85 @@
   border-top: 1px solid rgba(14, 201, 194, 0.12);
 }
 
+.catalogTabs {
+  margin-top: var(--mantine-spacing-xs);
+}
+
+.tabsList {
+  border-bottom: 1px solid rgba(14, 201, 194, 0.15);
+}
+
+.revenueTabHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--mantine-spacing-md);
+  margin-bottom: var(--mantine-spacing-md);
+  flex-wrap: wrap;
+}
+
+.revenueEmptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  max-width: 440px;
+  margin: 32px auto 0;
+  padding: 28px 24px 24px;
+  background: linear-gradient(
+    180deg,
+    rgba(14, 201, 194, 0.05) 0%,
+    #fff 100%
+  );
+  border: 1px solid rgba(14, 201, 194, 0.16);
+  border-radius: 12px;
+}
+
+.revenueEmptyIconWrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(14, 201, 194, 0.12);
+  color: var(--mantine-color-teal-7);
+  margin-bottom: 4px;
+}
+
+.revenueEmptyTitle {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--mantine-color-dark-8);
+  line-height: 1.35;
+}
+
+.revenueEmptyDesc {
+  font-size: 13px;
+  color: var(--mantine-color-gray-6);
+  line-height: 1.5;
+  margin-top: 4px;
+}
+
+.revenueEmptySteps {
+  margin: 12px 0 16px;
+  padding: 0;
+  list-style: none;
+  width: 100%;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.revenueEmptySteps li {
+  font-size: 12px;
+  color: var(--mantine-color-dark-5);
+  line-height: 1.45;
+  padding-left: 12px;
+  border-left: 2px solid rgba(14, 201, 194, 0.35);
+}
+
 @media (max-width: 768px) {
   .headerTop {
     flex-direction: column;

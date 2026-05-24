@@ -1,0 +1,121 @@
+.modalContent {
+  --modal-size: min(1180px, 90vw);
+  flex: 0 0 min(1180px, 90vw) !important;
+  width: min(1180px, 90vw) !important;
+  max-width: min(1180px, 90vw) !important;
+}
+
+.modalTitleBlock {
+  padding-right: var(--mantine-spacing-xl);
+}
+
+.modalTitleRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.modalTitleIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: rgba(14, 201, 194, 0.12);
+  color: var(--mantine-color-teal-7);
+  flex-shrink: 0;
+}
+
+.modalTitleText {
+  min-width: 0;
+}
+
+.modalTitle {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--mantine-color-dark-8);
+  line-height: 1.3;
+  letter-spacing: -0.02em;
+}
+
+.modalSubtitle {
+  margin-top: 4px;
+  font-size: 13px;
+  color: var(--mantine-color-gray-6);
+  line-height: 1.4;
+}
+
+.modalBody {
+  display: grid;
+  grid-template-columns: minmax(380px, 420px) minmax(400px, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+
+.formColumn {
+  padding: 14px;
+  background: #fff;
+  border-radius: 10px;
+  border: 1px solid rgba(14, 201, 194, 0.14);
+}
+
+.previewColumn {
+  min-height: 0;
+  position: sticky;
+  top: 0;
+}
+
+.footerSection {
+  padding-top: var(--mantine-spacing-md);
+  margin-top: var(--mantine-spacing-md);
+  border-top: 1px solid rgba(14, 201, 194, 0.12);
+}
+
+.fieldToggleLink {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--mantine-color-teal-8);
+  text-decoration: none;
+}
+
+.fieldToggleLink:hover:not(:disabled) {
+  text-decoration: underline;
+  color: var(--mantine-color-teal-9);
+}
+
+.fieldToggleLink:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.submitButton {
+  background: linear-gradient(135deg, #0ec9c2 0%, #0ba09a 100%);
+}
+
+.submitButton:disabled {
+  background: var(--mantine-color-gray-3);
+  color: var(--mantine-color-gray-6);
+}
+
+.cancelButton {
+  border-color: rgba(14, 201, 194, 0.35);
+}
+
+.conversionField {
+  max-width: 100%;
+}
+
+.duplicateAlert {
+  margin-top: calc(-1 * var(--mantine-spacing-xs));
+}
+
+@media (max-width: 960px) {
+  .modalBody {
+    grid-template-columns: 1fr;
+  }
+
+  .previewColumn {
+    position: static;
+  }
+}

@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import {
   Alert,
   Box,
@@ -15,6 +15,7 @@ import {
   Modal,
   ScrollArea,
   Stack,
+  Tabs,
 } from "@mantine/core";
 import { useDebouncedCallback } from "@mantine/hooks";
 import {
@@ -26,18 +27,24 @@ import {
   IconEdit,
   IconCalendar,
   IconCategory,
+  IconCoin,
 } from "@tabler/icons-react";
+import { useParams } from "react-router-dom";
 import classes from "./EventCatalog.module.css";
 import { EventDefinitionModal } from "./components/EventDefinitionModal";
 import { CsvUploadModal } from "./components/CsvUploadModal";
+import { RevenueEventsTab } from "./components/RevenueEventsTab";
 import { useEventDefinitions } from "./hooks/useEventDefinitions";
 import { useEventCategories } from "./hooks/useEventCategories";
 import { useDeleteEventDefinition } from "./hooks/useDeleteEventDefinition";
 import { EventDefinition } from "./EventCatalog.types";
 import { ErrorAndEmptyState } from "../../components/ErrorAndEmptyState";
 import { LoaderWithMessage } from "../../components/LoaderWithMessage";
+import { useGetFunnelEvents } from "../../hooks/useGetFunnelData";
 
 export function EventCatalog() {
+  const { projectId = "" } = useParams<{ projectId: string }>();
+  const [activeTab, setActiveTab] = useState<string | null>("definitions");
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("");
@@ -68,6 +75,15 @@ export function EventCatalog() {
   const categories = categoriesData?.data ?? [];
 
   const deleteMutation = useDeleteEventDefinition();
+
+  const { data: funnelEventsData } = useGetFunnelEvents();
+  const { data: catalogueProbe } = useEventDefinitions({ limit: 1, offset: 0 });
+
+  const hasEventCatalogue = useMemo(() => {
+    const observedCount = funnelEventsData?.data?.events?.length ?? 0;
+    const definedCount = catalogueProbe?.data?.totalCount ?? 0;
+    return observedCount > 0 || definedCount > 0;
+  }, [funnelEventsData, catalogueProbe]);
 
   const eventDefinitions = data?.data?.eventDefinitions ?? [];
   const totalCount = data?.data?.totalCount ?? 0;
@@ -264,64 +280,92 @@ export function EventCatalog() {
           <Box className={classes.titleSection}>
             <h1 className={classes.pageTitle}>Event Catalog</h1>
             <span className={classes.eventCount}>
-              {totalCount} {totalCount === 1 ? "Event" : "Events"}
+              {activeTab === "revenue"
+                ? "Revenue"
+                : `${totalCount} ${totalCount === 1 ? "Event" : "Events"}`}
             </span>
-          </Box>
-          <Box className={classes.headerActions}>
-            <Button
-              leftSection={<IconUpload size={16} />}
-              variant="light"
-              size="sm"
-              className={classes.uploadButton}
-              onClick={() => setCsvModalOpen(true)}
-            >
-              Upload CSV
-            </Button>
-            <Button
-              leftSection={<IconPlus size={16} />}
-              size="sm"
-              className={classes.createButton}
-              onClick={() => setCreateModalOpen(true)}
-            >
-              Add Event
-            </Button>
           </Box>
         </Box>
       </Box>
 
-      <Box className={classes.controlsSection}>
-        <Group className={classes.searchBarContainer}>
-          <TextInput
-            className={classes.searchInput}
-            placeholder="Search by event name, category, or description..."
-            leftSection={<IconSearch size={16} />}
-            value={searchInput}
-            onChange={(e) => {
-              const val = e.currentTarget.value;
-              setSearchInput(val);
-              debouncedSetSearch(val);
-            }}
-            size="sm"
-          />
-          <Select
-            className={classes.categoryFilter}
-            placeholder="All categories"
-            data={categories.map((c) => ({ value: c, label: c }))}
-            value={categoryFilter || null}
-            onChange={(val) => {
-              setCategoryFilter(val || "");
-              setPage(1);
-            }}
-            clearable
-            searchable
-            size="sm"
-            leftSection={<IconCategory size={16} />}
-            nothingFoundMessage="No categories found"
-          />
-        </Group>
-      </Box>
+      <Tabs
+        value={activeTab}
+        onChange={setActiveTab}
+        className={classes.catalogTabs}
+        keepMounted={false}
+      >
+        <Tabs.List className={classes.tabsList}>
+          <Tabs.Tab value="definitions">Definitions</Tabs.Tab>
+          {hasEventCatalogue && (
+            <Tabs.Tab value="revenue" leftSection={<IconCoin size={14} />}>
+              Revenue events
+            </Tabs.Tab>
+          )}
+        </Tabs.List>
 
-      {renderContent()}
+        <Tabs.Panel value="definitions" pt="md">
+          <Box className={classes.controlsSection}>
+            <Group className={classes.searchBarContainer} justify="space-between">
+              <Group className={classes.searchBarContainer} style={{ flex: 1 }}>
+                <TextInput
+                  className={classes.searchInput}
+                  placeholder="Search by event name, category, or description..."
+                  leftSection={<IconSearch size={16} />}
+                  value={searchInput}
+                  onChange={(e) => {
+                    const val = e.currentTarget.value;
+                    setSearchInput(val);
+                    debouncedSetSearch(val);
+                  }}
+                  size="sm"
+                />
+                <Select
+                  className={classes.categoryFilter}
+                  placeholder="All categories"
+                  data={categories.map((c) => ({ value: c, label: c }))}
+                  value={categoryFilter || null}
+                  onChange={(val) => {
+                    setCategoryFilter(val || "");
+                    setPage(1);
+                  }}
+                  clearable
+                  searchable
+                  size="sm"
+                  leftSection={<IconCategory size={16} />}
+                  nothingFoundMessage="No categories found"
+                />
+              </Group>
+              <Group gap="sm" wrap="nowrap">
+                <Button
+                  leftSection={<IconUpload size={16} />}
+                  variant="light"
+                  size="sm"
+                  className={classes.uploadButton}
+                  onClick={() => setCsvModalOpen(true)}
+                >
+                  Upload CSV
+                </Button>
+                <Button
+                  leftSection={<IconPlus size={16} />}
+                  size="sm"
+                  className={classes.createButton}
+                  onClick={() => setCreateModalOpen(true)}
+                >
+                  Add Event
+                </Button>
+              </Group>
+            </Group>
+          </Box>
+
+          {renderContent()}
+        </Tabs.Panel>
+
+        {hasEventCatalogue && projectId && (
+          <Tabs.Panel value="revenue" pt="md">
+            <RevenueEventsTab projectId={projectId} />
+          </Tabs.Panel>
+        )}
+      </Tabs>
 
       <EventDefinitionModal
         opened={createModalOpen || editingEvent !== null}

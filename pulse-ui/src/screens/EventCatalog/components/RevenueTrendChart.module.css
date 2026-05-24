@@ -1,0 +1,10 @@
+.chartRoot {
+  width: 100%;
+}
+
+.chartHint {
+  margin: 4px 0 0;
+  font-size: 11px;
+  color: var(--mantine-color-dimmed);
+  text-align: center;
+}
