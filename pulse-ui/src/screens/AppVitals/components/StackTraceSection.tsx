@@ -8,19 +8,18 @@ import {
   ActionIcon,
   Tabs,
   Tooltip,
-  CopyButton,
 } from "@mantine/core";
 import {
   IconChevronLeft,
   IconChevronRight,
   IconCode,
   IconTimeline,
-  IconCopy,
-  IconCheck,
 } from "@tabler/icons-react";
 import { useOccurrenceBreadcrumbLogs } from "../pages/hooks/useOccurrenceBreadcrumbLogs";
 import { BreadcrumbTimeline } from "./BreadcrumbTimeline";
 import classes from "./StackTraceSection.module.css";
+import { generatePath, useNavigate, useParams } from "react-router-dom";
+import { ROUTES } from "../../../constants";
 
 interface StackTrace {
   timestamp: Date;
@@ -92,7 +91,8 @@ export const StackTraceSection: React.FC<StackTraceSectionProps> = ({
       activeTab === "breadcrumbs" &&
       !!currentTrace?.sessionId,
   });
-
+  const navigate = useNavigate();
+  const { projectId } = useParams<{ projectId: string }>();
   const handleTabChange = useCallback((value: string | null) => {
     setActiveTab(value);
     if (value === "breadcrumbs") setHasOpenedBreadcrumbs(true);
@@ -110,6 +110,20 @@ export const StackTraceSection: React.FC<StackTraceSectionProps> = ({
     setCurrentOccurrence((prev) =>
       prev < stackTraces.length - 1 ? prev + 1 : 0,
     );
+  };
+
+  const handleSessionIdClick = (sessionId: string | undefined) => {
+    const id = sessionId?.trim();
+    if (!id) return;
+
+    const href = projectId
+      ? generatePath(ROUTES.PROJECT_SESSION_REPLAY_DETAIL.path, {
+          projectId,
+          sessionId: id,
+        })
+      : generatePath(ROUTES.SESSION_REPLAY_DETAIL.path, { sessionId: id });
+
+    navigate(href);
   };
 
   if (!stackTraces || stackTraces.length === 0) {
@@ -273,28 +287,16 @@ export const StackTraceSection: React.FC<StackTraceSectionProps> = ({
               <Group gap={6}>
                 <Text className={classes.infoLabel}>Session:</Text>
                 <Tooltip label={currentTrace.sessionId} position="top">
-                  <Text className={classes.infoValueMono}>
+                  <Text
+                    component="span"
+                    onClick={() => handleSessionIdClick(currentTrace.sessionId)}
+                    className={`${classes.infoValueMono} ${classes.infoValueMonoClickable}`}
+                  >
                     {currentTrace.sessionId.length > 12
                       ? `${currentTrace.sessionId.slice(0, 12)}…`
                       : currentTrace.sessionId}
                   </Text>
                 </Tooltip>
-                <CopyButton value={currentTrace.sessionId}>
-                  {({ copied, copy }) => (
-                    <ActionIcon
-                      size="xs"
-                      variant="subtle"
-                      color={copied ? "teal" : "gray"}
-                      onClick={copy}
-                    >
-                      {copied ? (
-                        <IconCheck size={12} />
-                      ) : (
-                        <IconCopy size={12} />
-                      )}
-                    </ActionIcon>
-                  )}
-                </CopyButton>
               </Group>
             )}
             {currentTrace.interactions &&

@@ -135,6 +135,14 @@
   color: #0ba09a;
 }
 
+.infoValueMonoClickable {
+  cursor: pointer;
+}
+
+.infoValueMonoClickable:hover {
+  text-decoration: underline;
+}
+
 .errorTypeBadge {
   flex-shrink: 0;
   font-family: source-code-pro, Menlo, Monaco, Consolas, "Courier New",
