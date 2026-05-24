@@ -4,14 +4,14 @@ public final class JourneyQueries {
 
   public static final String INSERT =
     """
-      INSERT INTO journey (project_id, name, description, anchor_event, direction, depth, mode, filters_json,
+      INSERT INTO journey (project_id, name, description, anchor_event, analysis_basis, direction, depth, mode, filters_json,
           start_time, end_time, journey_type, expiry, date_range, created_by)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       """;
 
   public static final String UPDATE =
     """
-      UPDATE journey SET name = ?, description = ?, anchor_event = ?, direction = ?, depth = ?, mode = ?,
+      UPDATE journey SET name = ?, description = ?, anchor_event = ?, analysis_basis = ?, direction = ?, depth = ?, mode = ?,
           filters_json = ?, start_time = ?, end_time = ?, journey_type = ?, expiry = ?, date_range = ?,
           updated_at = CURRENT_TIMESTAMP
       WHERE project_id = ? AND id = ?
@@ -39,7 +39,8 @@ public final class JourneyQueries {
 
   public static final String SELECT_BY_ID =
     """
-      SELECT journey.id, journey.project_id, journey.name, journey.description, journey.anchor_event, journey.direction,
+      SELECT journey.id, journey.project_id, journey.name, journey.description, journey.anchor_event,
+          journey.analysis_basis, journey.direction,
           journey.depth, journey.mode, journey.filters_json, journey.start_time, journey.end_time,
           journey.journey_type, journey.expiry, journey.date_range, journey.created_at, journey.updated_at,
           journey.created_by,
@@ -55,7 +56,8 @@ public final class JourneyQueries {
    */
   public static final String SELECT_ALL_AUTO =
     """
-      SELECT journey.id, journey.project_id, journey.name, journey.description, journey.anchor_event, journey.direction,
+      SELECT journey.id, journey.project_id, journey.name, journey.description, journey.anchor_event,
+          journey.analysis_basis, journey.direction,
           journey.depth, journey.mode, journey.filters_json, journey.start_time, journey.end_time,
           journey.journey_type, journey.expiry, journey.date_range, journey.created_at, journey.updated_at,
           journey.created_by, NULL AS latest_job_status
@@ -66,7 +68,8 @@ public final class JourneyQueries {
 
   public static final String SELECT_BY_PROJECT_AND_ID =
     """
-      SELECT journey.id, journey.project_id, journey.name, journey.description, journey.anchor_event, journey.direction,
+      SELECT journey.id, journey.project_id, journey.name, journey.description, journey.anchor_event,
+          journey.analysis_basis, journey.direction,
           journey.depth, journey.mode, journey.filters_json, journey.start_time, journey.end_time,
           journey.journey_type, journey.expiry, journey.date_range, journey.created_at, journey.updated_at,
           journey.created_by,

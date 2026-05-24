@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -13,12 +14,14 @@ import io.reactivex.rxjava3.core.Single;
 import java.time.Instant;
 import java.util.Collections;
 import java.util.List;
+import org.dreamhorizon.pulseserver.config.AnalyticsEngineConfig;
 import org.dreamhorizon.pulseserver.dao.productAnalysis.funneldefinition.FunnelDefinitionDao;
 import org.dreamhorizon.pulseserver.dao.productAnalysis.funneldefinition.models.FunnelDefinitionRow;
 import org.dreamhorizon.pulseserver.dao.productAnalysis.funneljourneytag.FunnelJourneyTagDao;
 import org.dreamhorizon.pulseserver.dao.productAnalysis.funneljourneytag.FunnelJourneyTagEntityType;
 import org.dreamhorizon.pulseserver.dao.productAnalysis.funnelresults.FunnelResultsDao;
 import org.dreamhorizon.pulseserver.dao.productAnalysis.funnelresults.models.FunnelResultRow;
+import org.dreamhorizon.pulseserver.resources.productAnalysis.funnel.models.AnalysisBasis;
 import org.dreamhorizon.pulseserver.resources.productAnalysis.funnel.models.CreateFunnelDefinitionRequest;
 import org.dreamhorizon.pulseserver.resources.productAnalysis.funnel.models.FunnelDefinitionStep;
 import org.dreamhorizon.pulseserver.resources.productAnalysis.funnel.models.FunnelListQueryParams;
@@ -54,10 +57,14 @@ class FunnelServiceImplTest {
   @Mock
   org.dreamhorizon.pulseserver.service.analytics.ClickHouseComputeService clickHouseComputeService;
 
+  @Mock
+  AnalyticsEngineConfig analyticsEngineConfig;
+
   FunnelServiceImpl service;
 
   @BeforeEach
   void setUp() {
+    lenient().when(analyticsEngineConfig.isClickHouseEngine()).thenReturn(true);
     service =
         new FunnelServiceImpl(
             funnelDefinitionDao,
@@ -65,7 +72,8 @@ class FunnelServiceImplTest {
             funnelResultsDao,
             analyticsBatchService,
             analyticsJobDao,
-            clickHouseComputeService);
+            clickHouseComputeService,
+            analyticsEngineConfig);
   }
 
   private CreateFunnelDefinitionRequest validCreateRequest() {
@@ -115,6 +123,18 @@ class FunnelServiceImplTest {
   void create_rejectsEmptySteps() {
     CreateFunnelDefinitionRequest req =
         CreateFunnelDefinitionRequest.builder().name("x").steps(List.of()).build();
+
+    assertThatThrownBy(() -> service.create(PROJECT, req, "u").blockingGet()).isNotNull();
+  }
+
+  @Test
+  void create_rejectsScreenBasisWhenSparkEngine() {
+    when(analyticsEngineConfig.isClickHouseEngine()).thenReturn(false);
+    CreateFunnelDefinitionRequest req = CreateFunnelDefinitionRequest.builder()
+        .name("My Funnel")
+        .steps(List.of(FunnelDefinitionStep.builder().eventName("Home").build()))
+        .analysisBasis(AnalysisBasis.SCREEN)
+        .build();
 
     assertThatThrownBy(() -> service.create(PROJECT, req, "u").blockingGet()).isNotNull();
   }

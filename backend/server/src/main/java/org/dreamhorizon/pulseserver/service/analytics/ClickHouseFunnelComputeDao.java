@@ -13,6 +13,7 @@ import java.util.stream.Collectors;
 
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.dao.productAnalysis.funneldefinition.models.FunnelDefinitionRow;
+import org.dreamhorizon.pulseserver.resources.productAnalysis.funnel.models.AnalysisBasis;
 import org.dreamhorizon.pulseserver.resources.productAnalysis.funnel.models.FunnelAttributeFilter;
 import org.dreamhorizon.pulseserver.resources.productAnalysis.funnel.models.FunnelDefinitionStep;
 
@@ -110,13 +111,14 @@ public final class ClickHouseFunnelComputeDao {
     long funnelId = def.getId();
     String projectId = def.getProjectId();
     String runTime = runTimeLiteral();
+    AnalyticsSignalSource source = resolveSource(def);
 
     String groupKey = ClickhouseAnalyticsQueryUtils.resolveMaterializedGroupKey(def.getMode());
     String startExpr = ClickhouseAnalyticsQueryUtils.resolveStartExpr(
       def.getFunnelType(), def.getDateRangeDays(), def.getStartTime());
     String endExpr = ClickhouseAnalyticsQueryUtils.resolveEndExpr(def.getFunnelType(), def.getEndTime());
 
-    String eventNameInClause = steps.stream()
+    String stepInClause = steps.stream()
       .map(s -> "'" + escape(s.getEventName()) + "'")
       .collect(Collectors.joining(", "));
 
@@ -124,6 +126,7 @@ public final class ClickHouseFunnelComputeDao {
       .map(ClickhouseAnalyticsConstantsMapper::toSqlClause)
       .collect(Collectors.joining("\n      "));
 
+    // step_events exposes the step column as EventName (ScreenName AS EventName for SCREEN).
     String windowFunnelArgs = steps.stream()
       .map(s -> "EventName = '" + escape(s.getEventName()) + "'")
       .collect(Collectors.joining(",\n        "));
@@ -133,18 +136,7 @@ public final class ClickHouseFunnelComputeDao {
       .append("  (FunnelId, ProjectId, RunTime, StepIndex, StepName, UserCount, ConversionPct, MedianStepSeconds)\n")
       .append("WITH\n");
 
-    sql.append("  step_events AS (\n")
-      .append("    SELECT ").append(groupKey).append(" AS uid,\n")
-      .append("           toDateTime(Timestamp) AS FunnelTs,\n")
-      .append("           EventName\n")
-      .append("    FROM otel.otel_logs\n")
-      .append("    PREWHERE ProjectId = '").append(projectId).append("'\n")
-      .append("      AND Timestamp BETWEEN ").append(startExpr).append(" AND ").append(endExpr).append("\n")
-      .append("    WHERE PulseType = 'custom_event'\n")
-      .append("      AND EventName IN (").append(eventNameInClause).append(")\n");
-    if (!additionalFilters.isBlank()) {
-      sql.append("      ").append(additionalFilters).append("\n");
-    }
+    appendStepEventsCte(sql, source, groupKey, projectId, startExpr, endExpr, stepInClause, additionalFilters, false, null);
     sql.append("  ),\n");
 
     sql.append("  funnel AS (\n")
@@ -388,8 +380,9 @@ public final class ClickHouseFunnelComputeDao {
     String startExpr = ClickhouseAnalyticsQueryUtils.resolveStartExpr(
       def.getFunnelType(), def.getDateRangeDays(), def.getStartTime());
     String endExpr = ClickhouseAnalyticsQueryUtils.resolveEndExpr(def.getFunnelType(), def.getEndTime());
+    AnalyticsSignalSource source = resolveSource(def);
 
-    String eventNameInClause = steps.stream()
+    String stepInClause = steps.stream()
       .map(s -> "'" + escape(s.getEventName()) + "'")
       .collect(Collectors.joining(", "));
     String additionalFilters = filters.stream()
@@ -401,26 +394,8 @@ public final class ClickHouseFunnelComputeDao {
     StringBuilder sql = new StringBuilder(2048);
     sql.append("INSERT INTO otel.funnel_results\n")
       .append("  (FunnelId, ProjectId, RunTime, StepIndex, StepName, UserCount, ConversionPct, MedianStepSeconds)\n")
-      .append("WITH\n")
-      .append("  step_events AS (\n")
-      .append("    SELECT ").append(groupKey).append(" AS uid,\n")
-      .append("           toDateTime(Timestamp) AS FunnelTs,\n")
-      .append("           EventName,\n")
-      .append("           multiIf(\n");
-    for (int i = 0; i < stepCount; i++) {
-      sql.append("             EventName = '").append(escape(steps.get(i).getEventName())).append("', ")
-        .append(i).append(",\n");
-    }
-    sql.append("             -1\n")
-      .append("           ) AS step_idx\n")
-      .append("    FROM otel.otel_logs\n")
-      .append("    WHERE ProjectId = '").append(projectId).append("'\n")
-      .append("      AND PulseType = 'custom_event'\n")
-      .append("      AND Timestamp BETWEEN ").append(startExpr).append(" AND ").append(endExpr).append("\n")
-      .append("      AND EventName IN (").append(eventNameInClause).append(")\n");
-    if (!additionalFilters.isBlank()) {
-      sql.append("      ").append(additionalFilters).append("\n");
-    }
+      .append("WITH\n");
+    appendStepEventsCte(sql, source, groupKey, projectId, startExpr, endExpr, stepInClause, additionalFilters, true, steps);
     sql.append("  ),\n")
       .append("  window_scores AS (\n")
       .append("    SELECT a.uid,\n")
@@ -529,6 +504,17 @@ public final class ClickHouseFunnelComputeDao {
   public static String buildBatchInsertSql(List<FunnelDefinitionRow> defs) {
     if (defs == null || defs.isEmpty()) {
       return "";
+    }
+    boolean anyScreen = defs.stream().anyMatch(ClickHouseFunnelComputeDao::isScreenBasis);
+    if (anyScreen) {
+      StringBuilder fallback = new StringBuilder(2048);
+      for (FunnelDefinitionRow def : defs) {
+        if (fallback.length() > 0) {
+          fallback.append(";\n");
+        }
+        fallback.append(buildInsertSqlForDefinition(def));
+      }
+      return fallback.toString();
     }
 
     String projectId = defs.get(0).getProjectId();
@@ -670,5 +656,58 @@ public final class ClickHouseFunnelComputeDao {
   private static boolean isUnorderedFunnel(FunnelDefinitionRow def) {
     String stepOrderType = def.getStepOrderType();
     return stepOrderType != null && STEP_ORDER_UNORDERED.equalsIgnoreCase(stepOrderType);
+  }
+
+  private static AnalyticsSignalSource resolveSource(FunnelDefinitionRow def) {
+    return AnalyticsSignalSource.forBasis(AnalysisBasis.fromJsonOrDefault(def.getAnalysisBasis()));
+  }
+
+  private static boolean isScreenBasis(FunnelDefinitionRow def) {
+    return AnalysisBasis.SCREEN == AnalysisBasis.fromJsonOrDefault(def.getAnalysisBasis());
+  }
+
+  private static void appendStepEventsCte(
+    StringBuilder sql,
+    AnalyticsSignalSource source,
+    String groupKey,
+    String projectId,
+    String startExpr,
+    String endExpr,
+    String stepInClause,
+    String additionalFilters,
+    boolean includeStepIdx,
+    List<FunnelDefinitionStep> steps) {
+    sql.append("  step_events AS (\n")
+      .append("    SELECT ").append(groupKey).append(" AS uid,\n")
+      .append("           toDateTime(Timestamp) AS FunnelTs,\n");
+    if (includeStepIdx) {
+      sql.append("           ").append(source.stepSelectExpr()).append(",\n")
+        .append("           multiIf(\n");
+      for (int i = 0; i < steps.size(); i++) {
+        sql.append("             ").append(source.getStepColumn()).append(" = '")
+          .append(escape(steps.get(i).getEventName())).append("', ")
+          .append(i).append(",\n");
+      }
+      sql.append("             -1\n")
+        .append("           ) AS step_idx\n");
+    } else {
+      sql.append("           ").append(source.stepSelectExpr()).append("\n");
+    }
+    sql.append("    FROM ").append(source.getTable()).append("\n");
+    if (includeStepIdx) {
+      sql.append("    WHERE ProjectId = '").append(projectId).append("'\n")
+        .append("      AND PulseType = '").append(source.getPulseType()).append("'\n")
+        .append("      AND Timestamp BETWEEN ").append(startExpr).append(" AND ").append(endExpr).append("\n")
+        .append("      AND ").append(source.getStepColumn()).append(" IN (").append(stepInClause).append(")\n");
+    } else {
+      sql.append("    PREWHERE ProjectId = '").append(projectId).append("'\n")
+        .append("      AND Timestamp BETWEEN ").append(startExpr).append(" AND ").append(endExpr).append("\n")
+        .append("    WHERE PulseType = '").append(source.getPulseType()).append("'\n")
+        .append("      AND ").append(source.getStepColumn()).append(" IN (").append(stepInClause).append(")\n");
+    }
+    sql.append(source.nonEmptyStepFilter());
+    if (!additionalFilters.isBlank()) {
+      sql.append("\n      ").append(additionalFilters);
+    }
   }
 }

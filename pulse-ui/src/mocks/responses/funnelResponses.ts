@@ -4,7 +4,7 @@
 
 import { MockRequest, MockResponse } from "../types";
 import { API_ROUTES } from "../../constants";
-import { FunnelMode, FunnelType, StepOrderType } from "../../services/funnels.service";
+import { FunnelMode, FunnelType, StepOrderType, type AnalysisBasis } from "../../services/funnels.service";
 
 /**
  * Single source of truth for funnel conversion KPIs in mocks.
@@ -487,6 +487,21 @@ const MOCK_GROUPED_DATA: Record<string, any> = {
   ],
 };
 
+const MOCK_FUNNEL_SCREENS = [
+  "HomeScreen",
+  "CartScreen",
+  "ProductDetailScreen",
+  "CheckoutScreen",
+  "PaymentScreen",
+  "OrderConfirmationScreen",
+  "ProfileScreen",
+  "SearchScreen",
+  "OnboardingScreen",
+  "SignUpScreen",
+  "SettingsScreen",
+  "WelcomeScreen",
+];
+
 const MOCK_FUNNEL_EVENTS = [
   "Screen_View: Home",
   "Screen_View: Cart",
@@ -590,6 +605,8 @@ const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
   anchorEvent?: string;
   direction?: "START" | "END";
   depth?: number;
+  /** Shared: EVENT (default) or SCREEN path/steps basis. */
+  analysisBasis?: AnalysisBasis;
   /** Shared (detail-shape) fields. */
   mode?: FunnelMode;
   dateRangeDays?: number;
@@ -662,6 +679,7 @@ const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
     expiry: MOCK_EXPIRY_ONE_YEAR_FROM_NOW,
     tags: ["search", "product"],
     stepOrderType: StepOrderType.ORDERED,
+    analysisBasis: "SCREEN",
     funnelType: FunnelType.AUTO,
     windowSeconds: 172800,
     timeRange: {
@@ -669,8 +687,8 @@ const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
       end: "2026-03-14T23:59:59Z",
     },
     steps: [
-      { eventName: "Screen_View: Search" },
-      { eventName: "Screen_View: Product Detail" },
+      { eventName: "SearchScreen" },
+      { eventName: "ProductDetailScreen" },
     ],
     ...MOCK_FUNNEL_CONVERSION_BY_ID["fj-3"],
   },
@@ -685,6 +703,7 @@ const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
     tags: ["auth", "onboarding"],
     filters: [{ field: "OS Name", operator: "EQ", value: "Android" }],
     anchorEvent: "Tap: Sign Up",
+    analysisBasis: "SCREEN",
     direction: "START",
     depth: 5,
   },
@@ -960,6 +979,7 @@ function projectFunnelDetail(row: MockFunnelJourneyRow) {
     status: row.status,
     funnelType: row.funnelType ?? FunnelType.AUTO,
     stepOrderType: row.stepOrderType ?? StepOrderType.ORDERED,
+    analysisBasis: row.analysisBasis ?? "EVENT",
     steps: row.steps ?? [],
     filters: row.filters ?? [],
     windowSeconds: row.windowSeconds ?? 86400,
@@ -997,6 +1017,7 @@ function projectJourneyDetail(row: MockFunnelJourneyRow) {
       "Exploratory journey map for navigation paths after this anchor event. Open the journey explorer to adjust the root event and direction.",
     status: row.status,
     anchorEvent: row.anchorEvent ?? "",
+    analysisBasis: row.analysisBasis ?? "EVENT",
     direction: row.direction ?? "START",
     depth: row.depth ?? 5,
     mode: row.mode ?? FunnelMode.UNIQUE_USERS,
@@ -1380,6 +1401,7 @@ function mockPostCreateFunnelOrJourney(
     funnelType: body.funnelType,
     journeyType: body.journeyType,
     stepOrderType: body.stepOrderType,
+    analysisBasis: body.analysisBasis,
     windowSeconds: body.windowSeconds,
     steps: body.steps,
     anchorEvent: body.anchorEvent,
@@ -1498,6 +1520,10 @@ export function handleFunnelEndpoints(
 
   if (method === "GET" && pathOnly.endsWith("/v1/funnels/events")) {
     return { data: { events: MOCK_FUNNEL_EVENTS }, status: 200 };
+  }
+
+  if (method === "GET" && pathOnly.endsWith("/v1/funnels/screens")) {
+    return { data: { screens: MOCK_FUNNEL_SCREENS }, status: 200 };
   }
 
   // GET /v1/funnels/filters/{filterKey}/values (check before /filters to avoid prefix match)

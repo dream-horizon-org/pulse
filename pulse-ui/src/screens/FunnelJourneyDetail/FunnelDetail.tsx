@@ -17,6 +17,7 @@ import {
   useGetAllFilterValues,
   useGetFunnelEvents,
   useGetFunnelFilters,
+  useGetFunnelScreens,
 } from "../../hooks";
 import { getDateRangeFromPreset } from "../FunnelJourneyCreate/FunnelJourneyCreate.util";
 import { useUpdateFunnel } from "../../hooks/useUpdateFunnel";
@@ -31,6 +32,7 @@ import {
   FunnelMode,
   FunnelType,
   StepOrderType,
+  type AnalysisBasis,
   type UpdateFunnelRequestBody,
 } from "../../services/funnels.service";
 
@@ -95,10 +97,15 @@ function FunnelDetailView({ detail, isEditing, onEdit }: { detail: any; isEditin
   const [conversionWindow, setConversionWindow] = useState(
     detail.windowSeconds ? String(detail.windowSeconds) : "86400",
   );
+  const [analysisBasis, setAnalysisBasis] = useState<AnalysisBasis>(
+    detail.analysisBasis ?? "EVENT",
+  );
   const [, setShouldFetch] = useState(false);
 
   const { data: eventsData } = useGetFunnelEvents();
+  const { data: screensData } = useGetFunnelScreens();
   const availableEvents = eventsData?.data?.events ?? [];
+  const availableScreens = screensData?.data?.screens ?? [];
 
   const { data: filtersData } = useGetFunnelFilters();
   const filterKeys = useMemo(() => filtersData?.data?.filters ?? [], [filtersData?.data?.filters]);
@@ -198,6 +205,8 @@ function FunnelDetailView({ detail, isEditing, onEdit }: { detail: any; isEditin
     if (JSON.stringify(currentSteps) !== JSON.stringify(originalSteps))
       return true;
 
+    if (analysisBasis !== (detail.analysisBasis ?? "EVENT")) return true;
+
     return false;
   }, [
     name,
@@ -213,6 +222,7 @@ function FunnelDetailView({ detail, isEditing, onEdit }: { detail: any; isEditin
     dateRange,
     filters,
     steps,
+    analysisBasis,
     detail,
   ]);
 
@@ -225,6 +235,7 @@ function FunnelDetailView({ detail, isEditing, onEdit }: { detail: any; isEditin
       tags,
       funnelType: rollingType,
       stepOrderType: funnelMode,
+      analysisBasis,
       steps: apiSteps,
       windowSeconds: parseInt(conversionWindow, 10),
       filters: apiFilters,
@@ -326,6 +337,9 @@ function FunnelDetailView({ detail, isEditing, onEdit }: { detail: any; isEditin
               onAnalyze={handleUpdate}
               isCreating={isUpdating}
               availableEvents={availableEvents}
+              availableScreens={availableScreens}
+              analysisBasis={analysisBasis}
+              onAnalysisBasisChange={setAnalysisBasis}
               isUpdateMode={true}
               isValid={isChanged}
             />
@@ -481,6 +495,7 @@ export function FunnelDetail() {
       <FunnelJourneyDetailChrome
         detail={detail}
         kind="FUNNEL"
+        analysisBasis={detail.analysisBasis ?? "EVENT"}
         onBack={goBack}
         onStop={() => stopFunnelMutation(detail.id)}
         isStopping={isStopping}

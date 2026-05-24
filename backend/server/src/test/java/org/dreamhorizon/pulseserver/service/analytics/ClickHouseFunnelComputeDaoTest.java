@@ -703,4 +703,36 @@ class ClickHouseFunnelComputeDaoTest {
           .doesNotContain("quantileExactIf(0.5)");
     }
   }
+
+  @Nested
+  class ScreenBasis {
+
+    @Test
+    void windowFunnel_shouldReadFromOtelTracesWithScreenLoad() {
+      String sql = ClickHouseFunnelComputeDao.buildInsertSqlWindowFunnel(
+          baseRow().analysisBasis("SCREEN")
+              .stepsJson("[{\"eventName\":\"Home\"},{\"eventName\":\"Checkout\"}]")
+              .build());
+      assertThat(sql)
+          .contains("FROM otel.otel_traces")
+          .contains("PulseType = 'screen_load'")
+          .contains("ScreenName != ''")
+          .contains("ScreenName IN ('Home', 'Checkout')")
+          .contains("ScreenName AS EventName")
+          .contains("EventName = 'Home'")
+          .contains("EventName = 'Checkout'")
+          .doesNotContain("windowFunnel(86400)(FunnelTs,\n        ScreenName =")
+          .doesNotContain("FROM otel.otel_logs");
+    }
+
+    @Test
+    void unordered_shouldReadFromOtelTracesWithScreenLoad() {
+      String sql = ClickHouseFunnelComputeDao.buildInsertSqlUnordered(
+          baseRow().analysisBasis("SCREEN").stepOrderType("UNORDERED").build());
+      assertThat(sql)
+          .contains("FROM otel.otel_traces")
+          .contains("PulseType = 'screen_load'")
+          .contains("ScreenName != ''");
+    }
+  }
 }

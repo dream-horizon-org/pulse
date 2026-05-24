@@ -17,7 +17,7 @@ import {
   useGetFunnelEvents,
   useGetFunnelFilters,
 } from "../../hooks";
-import { FunnelType, type CreateJourneyRequestBody } from "../../services/funnels.service";
+import { FunnelType, type AnalysisBasis, type CreateJourneyRequestBody } from "../../services/funnels.service";
 import { useUpdateJourney } from "../../hooks/useUpdateJourney";
 import { useStopJourney } from "../../hooks/useStopJourney";
 import { useDeleteJourney } from "../../hooks/useDeleteJourney";
@@ -116,6 +116,9 @@ function JourneyDetailView({ detail, isEditing, onEdit }: { detail: any; isEditi
   );
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [depth, setDepth] = useState(detail.depth || 5);
+  const [analysisBasis, setAnalysisBasis] = useState<AnalysisBasis>(
+    detail.analysisBasis ?? "EVENT",
+  );
 
   const isChanged = useMemo(() => {
     if (name !== detail.name) return true;
@@ -130,6 +133,7 @@ function JourneyDetailView({ detail, isEditing, onEdit }: { detail: any; isEditi
     if (anchorEvent !== (detail.anchorEvent ?? "")) return true;
     if (direction !== (detail.direction || "START")) return true;
     if (depth !== (detail.depth || 5)) return true;
+    if (analysisBasis !== (detail.analysisBasis ?? "EVENT")) return true;
 
     const toGrouped = (pairs: Array<{ field: string; value: string }>) => {
       const m: Record<string, string[]> = {};
@@ -171,6 +175,7 @@ function JourneyDetailView({ detail, isEditing, onEdit }: { detail: any; isEditi
     anchorEvent,
     direction,
     depth,
+    analysisBasis,
     filters,
     customStartDate,
     customEndDate,
@@ -189,6 +194,7 @@ function JourneyDetailView({ detail, isEditing, onEdit }: { detail: any; isEditi
       direction,
       anchorEvent,
       depth,
+      analysisBasis,
       filters: apiFilters,
       dateRangeDays: parseInt(dateRange, 10) || 7,
     };
@@ -300,6 +306,8 @@ function JourneyDetailView({ detail, isEditing, onEdit }: { detail: any; isEditi
               onDirectionChange={setDirection}
               depth={depth}
               onDepthChange={setDepth}
+              analysisBasis={analysisBasis}
+              onAnalysisBasisChange={setAnalysisBasis}
             />
             </div>
           </div>
@@ -499,6 +507,7 @@ export function JourneyDetail() {
       <FunnelJourneyDetailChrome
         detail={detail}
         kind="JOURNEY"
+        analysisBasis={detail.analysisBasis ?? "EVENT"}
         onBack={goBack}
         onStop={() => stopJourneyMutation(detail.id)}
         isStopping={isStopping}

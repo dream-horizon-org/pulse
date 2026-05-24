@@ -9,6 +9,7 @@ import org.dreamhorizon.pulseserver.filter.RequiresPermission;
 import org.dreamhorizon.pulseserver.resources.productAnalysis.models.FunnelEventsResponse;
 import org.dreamhorizon.pulseserver.resources.productAnalysis.models.FunnelFilterKeysResponse;
 import org.dreamhorizon.pulseserver.resources.productAnalysis.models.FunnelFilterValuesResponse;
+import org.dreamhorizon.pulseserver.resources.productAnalysis.models.FunnelScreensResponse;
 import org.dreamhorizon.pulseserver.rest.io.Response;
 import org.dreamhorizon.pulseserver.rest.io.RestResponse;
 import org.dreamhorizon.pulseserver.service.productAnalysis.eventcatalog.EventCatalogService;
@@ -37,6 +38,18 @@ public class FunnelEventsController {
     @HeaderParam("X-Project-Id") @NotBlank(message = "X-Project-Id header is required")
     String projectId) {
     return eventCatalogService.listEventNames(projectId).to(RestResponse.jaxrsRestHandler());
+  }
+
+  /**
+   * Distinct screen names from {@code otel.otel_traces} ({@code PulseType = screen_load}).
+   */
+  @GET
+  @RequiresPermission("can_view")
+  @Path("/screens")
+  public CompletionStage<Response<FunnelScreensResponse>> listScreenNames(
+    @HeaderParam("X-Project-Id") @NotBlank(message = "X-Project-Id header is required")
+    String projectId) {
+    return eventCatalogService.listScreenNames(projectId).to(RestResponse.jaxrsRestHandler());
   }
 
   /**

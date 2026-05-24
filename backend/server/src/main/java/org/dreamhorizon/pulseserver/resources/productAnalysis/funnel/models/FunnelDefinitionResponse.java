@@ -37,6 +37,9 @@ public class FunnelDefinitionResponse {
 
   private StepOrderType stepOrderType;
 
+  @Builder.Default
+  private AnalysisBasis analysisBasis = AnalysisBasis.EVENT;
+
   private List<FunnelDefinitionStep> steps;
 
   private List<FunnelAttributeFilter> filters;

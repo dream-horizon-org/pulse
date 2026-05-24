@@ -3,6 +3,7 @@ import { modals } from "@mantine/modals";
 import { IconArrowLeft, IconPlayerStopFilled, IconTrash } from "@tabler/icons-react";
 import dayjs from "dayjs";
 import funnelClasses from "../FunnelJourneyCreate/FunnelCreate.module.css";
+import type { AnalysisBasis } from "../../services/funnels.service";
 
 type DetailChrome = {
   name: string;
@@ -24,9 +25,20 @@ function modeLabel(mode: string | undefined): string | null {
   return mode;
 }
 
+function basisBadgeLabel(
+  kind: "FUNNEL" | "JOURNEY",
+  basis: AnalysisBasis,
+): string {
+  if (kind === "FUNNEL") {
+    return basis === "SCREEN" ? "Screen-based steps" : "Event-based steps";
+  }
+  return basis === "SCREEN" ? "Screen path" : "Event path";
+}
+
 export function FunnelJourneyDetailChrome({
   detail,
   kind,
+  analysisBasis = "EVENT",
   onBack,
   onStop,
   isStopping = false,
@@ -35,6 +47,7 @@ export function FunnelJourneyDetailChrome({
 }: {
   detail: DetailChrome;
   kind: "FUNNEL" | "JOURNEY";
+  analysisBasis?: AnalysisBasis;
   onBack: () => void;
   /** Provided when the Stop control should be shown (AUTO non-COMPLETED items). */
   onStop?: () => void;
@@ -130,6 +143,13 @@ export function FunnelJourneyDetailChrome({
                         : detail.status === "FAILED"
                           ? "Failed"
                           : "Pending"}
+              </Badge>
+              <Badge
+                color={analysisBasis === "SCREEN" ? "indigo" : "gray"}
+                variant="light"
+                size="sm"
+              >
+                {basisBadgeLabel(kind, analysisBasis)}
               </Badge>
               <Text size="xs" c="dimmed">
                 {kind === "FUNNEL" ? "Funnel" : "Journey"}

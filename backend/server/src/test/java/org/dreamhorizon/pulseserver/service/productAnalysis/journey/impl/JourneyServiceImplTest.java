@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -13,12 +14,14 @@ import io.reactivex.rxjava3.core.Single;
 import java.time.Instant;
 import java.util.Collections;
 import java.util.List;
+import org.dreamhorizon.pulseserver.config.AnalyticsEngineConfig;
 import org.dreamhorizon.pulseserver.dao.productAnalysis.funneljourneytag.FunnelJourneyTagDao;
 import org.dreamhorizon.pulseserver.dao.productAnalysis.journeyresults.models.JourneyResultRow;
 import org.dreamhorizon.pulseserver.dao.productAnalysis.funneljourneytag.FunnelJourneyTagEntityType;
 import org.dreamhorizon.pulseserver.dao.productAnalysis.journey.JourneyDao;
 import org.dreamhorizon.pulseserver.dao.productAnalysis.journey.models.JourneyRow;
 import org.dreamhorizon.pulseserver.dao.productAnalysis.journeyresults.JourneyResultsDao;
+import org.dreamhorizon.pulseserver.resources.productAnalysis.funnel.models.AnalysisBasis;
 import org.dreamhorizon.pulseserver.resources.productAnalysis.journey.models.CreateJourneyRequest;
 import org.dreamhorizon.pulseserver.resources.productAnalysis.journey.models.JourneyListQueryParams;
 import org.dreamhorizon.pulseserver.service.analytics.AnalyticsBatchService;
@@ -51,10 +54,14 @@ class JourneyServiceImplTest {
   @Mock
   org.dreamhorizon.pulseserver.service.analytics.ClickHouseComputeService clickHouseComputeService;
 
+  @Mock
+  AnalyticsEngineConfig analyticsEngineConfig;
+
   JourneyServiceImpl service;
 
   @BeforeEach
   void setUp() {
+    lenient().when(analyticsEngineConfig.isClickHouseEngine()).thenReturn(true);
     service =
         new JourneyServiceImpl(
             journeyDao,
@@ -62,7 +69,8 @@ class JourneyServiceImplTest {
             journeyResultsDao,
             analyticsBatchService,
             analyticsJobDao,
-            clickHouseComputeService);
+            clickHouseComputeService,
+            analyticsEngineConfig);
   }
 
   private CreateJourneyRequest validCreateRequest() {

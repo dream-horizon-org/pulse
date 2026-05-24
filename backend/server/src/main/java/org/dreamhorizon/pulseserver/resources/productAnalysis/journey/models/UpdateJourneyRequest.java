@@ -13,6 +13,7 @@ import lombok.NoArgsConstructor;
 import org.dreamhorizon.pulseserver.resources.productAnalysis.funnel.models.FunnelAttributeFilter;
 import org.dreamhorizon.pulseserver.resources.productAnalysis.funnel.models.FunnelMode;
 import org.dreamhorizon.pulseserver.resources.productAnalysis.funnel.models.FunnelType;
+import org.dreamhorizon.pulseserver.resources.productAnalysis.funnel.models.AnalysisBasis;
 
 import java.time.Instant;
 import java.util.List;
@@ -32,6 +33,10 @@ public class UpdateJourneyRequest {
 
   @NotBlank
   private String anchorEvent;
+
+  @NotNull
+  @Builder.Default
+  private AnalysisBasis analysisBasis = AnalysisBasis.EVENT;
 
   @NotNull
   private JourneyDirection direction;

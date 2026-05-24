@@ -11,6 +11,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.dreamhorizon.pulseserver.analysis.AnalysisComputedStatus;
+import org.dreamhorizon.pulseserver.resources.productAnalysis.funnel.models.AnalysisBasis;
 import org.dreamhorizon.pulseserver.resources.productAnalysis.funnel.models.FunnelAttributeFilter;
 import org.dreamhorizon.pulseserver.resources.productAnalysis.funnel.models.FunnelMode;
 import org.dreamhorizon.pulseserver.resources.productAnalysis.funnel.models.FunnelType;
@@ -34,6 +35,8 @@ public class JourneyResponse {
   private AnalysisComputedStatus status;
 
   private String anchorEvent;
+
+  private AnalysisBasis analysisBasis;
 
   private JourneyDirection direction;
 

@@ -36,6 +36,15 @@ class EventCatalogServiceImplTest {
   }
 
   @Test
+  void listScreenNames_mapsDaoToResponse() {
+    when(eventCatalogDao.listScreenNames("p1")).thenReturn(Single.just(List.of("Home", "Checkout")));
+
+    var resp = service.listScreenNames("p1").blockingGet();
+    assertThat(resp.getScreens()).containsExactly("Home", "Checkout");
+    verify(eventCatalogDao).listScreenNames("p1");
+  }
+
+  @Test
   void listFilterKeys_mapsDaoToResponse() {
     when(eventCatalogDao.listFilterKeys("p1")).thenReturn(Single.just(List.of("OS_NAME")));
 

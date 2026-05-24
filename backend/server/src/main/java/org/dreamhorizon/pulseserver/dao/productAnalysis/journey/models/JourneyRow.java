@@ -13,6 +13,7 @@ public class JourneyRow {
   String name;
   String description;
   String anchorEvent;
+  String analysisBasis;
   String direction;
   int depth;
   String mode;

@@ -39,6 +39,7 @@ public class FunnelDefinitionDao {
             row.getDescription(),
             row.getFunnelType(),
             row.getStepOrderType(),
+            row.getAnalysisBasis() != null ? row.getAnalysisBasis() : "EVENT",
             row.getStepsJson(),
             row.getWindowSeconds(),
             row.getMode(),
@@ -62,6 +63,7 @@ public class FunnelDefinitionDao {
             row.getDescription(),
             row.getFunnelType(),
             row.getStepOrderType(),
+            row.getAnalysisBasis() != null ? row.getAnalysisBasis() : "EVENT",
             row.getStepsJson(),
             row.getWindowSeconds(),
             row.getMode(),
@@ -143,7 +145,7 @@ public class FunnelDefinitionDao {
     StringBuilder sql =
       new StringBuilder(
         "SELECT funnel.id, funnel.project_id, funnel.name, funnel.description, funnel.funnel_type, "
-          + "funnel.step_order_type, funnel.steps_json, funnel.window_seconds, funnel.mode, funnel.filters_json, "
+          + "funnel.step_order_type, funnel.analysis_basis, funnel.steps_json, funnel.window_seconds, funnel.mode, funnel.filters_json, "
           + "funnel.date_range, funnel.start_time, funnel.end_time, funnel.expiry, "
           + "funnel.created_at, funnel.updated_at, funnel.created_by, ");
     sql.append(FunnelDefinitionQueries.LATEST_FUNNEL_JOB_STATUS).append(" AS latest_job_status, ");
@@ -223,6 +225,7 @@ public class FunnelDefinitionDao {
       .description(row.getString("description"))
       .funnelType(row.getString("funnel_type"))
       .stepOrderType(row.getString("step_order_type"))
+      .analysisBasis(row.getString("analysis_basis"))
       .stepsJson(row.getValue("steps_json") != null ? row.getValue("steps_json").toString() : null)
       .windowSeconds(row.getLong("window_seconds"))
       .mode(row.getString("mode"))

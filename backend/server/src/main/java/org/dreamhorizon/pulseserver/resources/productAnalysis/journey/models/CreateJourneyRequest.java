@@ -17,6 +17,7 @@ import lombok.NoArgsConstructor;
 import org.dreamhorizon.pulseserver.resources.productAnalysis.funnel.models.FunnelAttributeFilter;
 import org.dreamhorizon.pulseserver.resources.productAnalysis.funnel.models.FunnelMode;
 import org.dreamhorizon.pulseserver.resources.productAnalysis.funnel.models.FunnelType;
+import org.dreamhorizon.pulseserver.resources.productAnalysis.funnel.models.AnalysisBasis;
 
 @Data
 @Builder
@@ -33,6 +34,10 @@ public class CreateJourneyRequest {
 
   @NotBlank
   private String anchorEvent;
+
+  @Builder.Default
+  @NotNull
+  private AnalysisBasis analysisBasis = AnalysisBasis.EVENT;
 
   @NotNull
   @Builder.Default

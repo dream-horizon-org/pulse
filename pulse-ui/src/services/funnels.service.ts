@@ -5,6 +5,7 @@ import { makeRequest } from "../helpers/makeRequest";
 import { getQueryParamString } from "../helpers/queryParams";
 import type {
   FunnelEventsResponse,
+  FunnelScreensResponse,
   FunnelFiltersResponse,
   FunnelFilterValuesResponse,
   FunnelGroupedRequestBody,
@@ -60,6 +61,9 @@ export enum FunnelMode {
   UNIQUE_USERS = "UNIQUE_USERS",
   SESSIONS = "SESSIONS",
 }
+
+/** Signal source for funnel steps / journey path (anchor always uses events). */
+export type AnalysisBasis = "EVENT" | "SCREEN";
 
 /** Computed status returned by the server for funnels and journeys. */
 export type AnalysisStatus =
@@ -160,6 +164,8 @@ export type FunnelDetail = {
   status: AnalysisStatus;
   funnelType: FunnelType;
   stepOrderType: StepOrderType;
+  /** EVENT (default) = custom events; SCREEN = screen_load navigation. */
+  analysisBasis?: AnalysisBasis;
   steps: FunnelStep[];
   filters?: FilterField[];
   windowSeconds: number;
@@ -193,6 +199,8 @@ export type JourneyDetail = {
   description: string;
   status: AnalysisStatus;
   anchorEvent: string;
+  /** Path after anchor: EVENT = custom events; SCREEN = screen_load. */
+  analysisBasis?: AnalysisBasis;
   direction: string;
   depth: number;
   mode?: string;
@@ -230,6 +238,8 @@ export interface CreateFunnelRequestBody {
   funnelType: FunnelType;
   /** Whether steps must be completed in strict order or in any order. */
   stepOrderType: StepOrderType;
+  /** EVENT (default) = custom events; SCREEN = screen_load steps. */
+  analysisBasis?: AnalysisBasis;
   /** Ordered list of funnel steps (min 2). */
   steps: FunnelStep[];
   /** Maximum seconds a user has to complete the funnel after entering step 1. */
@@ -282,6 +292,8 @@ export interface CreateJourneyRequestBody {
   journeyType: FunnelType;
   direction: "START" | "END";
   anchorEvent: string;
+  /** Path after anchor: EVENT (default) or SCREEN. Anchor is always a custom event. */
+  analysisBasis?: AnalysisBasis;
   depth: number;
   filters?: FunnelFilter[];
   /** AUTO journeys — rolling window size in days. */
@@ -487,11 +499,19 @@ export async function fetchFunnelGrouped(body: FunnelGroupedRequestBody) {
 
 // ─── Funnel metadata (lookup / options endpoints) ────────────────────────────
 
-/** GET /v1/funnels/eventsList — fetch all available event names for funnel step selection. */
+/** GET /v1/funnels/events — fetch custom event names for funnel/journey pickers. */
 export async function fetchFunnelEvents() {
   return makeRequest<FunnelEventsResponse>({
     url: `${API_BASE_URL}${API_ROUTES.FUNNEL_EVENTS.apiPath}`,
     init: { method: API_ROUTES.FUNNEL_EVENTS.method },
+  });
+}
+
+/** GET /v1/funnels/screens — fetch distinct screen names from screen_load traces. */
+export async function fetchFunnelScreens() {
+  return makeRequest<FunnelScreensResponse>({
+    url: `${API_BASE_URL}${API_ROUTES.FUNNEL_SCREENS.apiPath}`,
+    init: { method: API_ROUTES.FUNNEL_SCREENS.method },
   });
 }
 

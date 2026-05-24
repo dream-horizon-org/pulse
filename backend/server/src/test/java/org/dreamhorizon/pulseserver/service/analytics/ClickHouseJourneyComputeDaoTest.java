@@ -350,4 +350,50 @@ class ClickHouseJourneyComputeDaoTest {
       assertThat(sql).contains("SessionId AS gid");
     }
   }
+
+  @Nested
+  class ScreenHybridBasis {
+
+    @Test
+    void shouldUseAnchorHitsFromOtelLogs() {
+      String sql = ClickHouseJourneyComputeDao.buildInsertSql(
+          baseRow().analysisBasis("SCREEN").build(), "START");
+      assertThat(sql)
+          .contains("anchor_hits AS (")
+          .contains("FROM otel.otel_logs")
+          .contains("EventName = '" + ANCHOR + "'")
+          .contains("PulseType = 'custom_event'");
+    }
+
+    @Test
+    void shouldUsePathScansFromOtelTraces() {
+      String sql = ClickHouseJourneyComputeDao.buildInsertSql(
+          baseRow().analysisBasis("SCREEN").build(), "START");
+      assertThat(sql)
+          .contains("path_scans AS (")
+          .contains("FROM otel.otel_traces")
+          .contains("PulseType = 'screen_load'")
+          .contains("ScreenName != ''");
+    }
+
+    @Test
+    void shouldMergeAnchorIntoScreenTimeline() {
+      String sql = ClickHouseJourneyComputeDao.buildInsertSql(
+          baseRow().analysisBasis("SCREEN").build(), "START");
+      assertThat(sql)
+          .contains("arrayConcat(")
+          .contains("anchor_ts_first")
+          .contains("groupArray(tuple(ts, ScreenName))");
+    }
+
+    @Test
+    void eventBasis_shouldRemainSingleLogsScan() {
+      String sql = ClickHouseJourneyComputeDao.buildInsertSql(baseRow().build(), "START");
+      assertThat(sql)
+          .contains("base AS (")
+          .contains("FROM otel.otel_logs")
+          .doesNotContain("anchor_hits AS (")
+          .doesNotContain("FROM otel.otel_traces");
+    }
+  }
 }

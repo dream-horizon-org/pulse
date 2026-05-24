@@ -36,6 +36,10 @@ public class UpdateFunnelDefinitionRequest {
   @NotNull
   private StepOrderType stepOrderType;
 
+  @NotNull
+  @Builder.Default
+  private AnalysisBasis analysisBasis = AnalysisBasis.EVENT;
+
   @NotEmpty
   @Valid
   private List<FunnelDefinitionStep> steps;

@@ -13,6 +13,7 @@ import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.dreamhorizon.pulseserver.analysis.AnalysisComputedStatus;
 import org.dreamhorizon.pulseserver.analysis.AnalysisComputedStatusResolver;
+import org.dreamhorizon.pulseserver.config.AnalyticsEngineConfig;
 import org.dreamhorizon.pulseserver.dao.productAnalysis.funneljourneytag.FunnelJourneyTagDao;
 import org.dreamhorizon.pulseserver.dao.productAnalysis.funneljourneytag.FunnelJourneyTagEntityType;
 import org.dreamhorizon.pulseserver.dao.productAnalysis.journey.JourneyDao;
@@ -22,6 +23,7 @@ import org.dreamhorizon.pulseserver.dao.productAnalysis.journeyresults.JourneyRe
 import org.dreamhorizon.pulseserver.dao.analyticsjob.AnalyticsJobDao;
 import org.dreamhorizon.pulseserver.dao.analyticsjob.AnalyticsJobType;
 import org.dreamhorizon.pulseserver.error.ServiceError;
+import org.dreamhorizon.pulseserver.resources.productAnalysis.funnel.models.AnalysisBasis;
 import org.dreamhorizon.pulseserver.resources.productAnalysis.funnel.models.FunnelAttributeFilter;
 import org.dreamhorizon.pulseserver.resources.productAnalysis.funnel.models.FunnelMode;
 import org.dreamhorizon.pulseserver.resources.productAnalysis.funnel.models.FunnelType;
@@ -52,12 +54,14 @@ public class JourneyServiceImpl implements JourneyService {
   private final AnalyticsBatchService analyticsBatchService;
   private final AnalyticsJobDao analyticsJobDao;
   private final ClickHouseComputeService clickHouseComputeService;
+  private final AnalyticsEngineConfig analyticsEngineConfig;
   private final ObjectMapper objectMapper = new ObjectMapper();
 
   @Override
   public Single<Long> create(String projectId, CreateJourneyRequest request, String createdBy) {
     validateFilters(request.getFilters());
     validateTimeBounds(request.getStartTime(), request.getEndTime());
+    validateAnalysisBasisForEngine(request.getAnalysisBasis());
 
     String filtersJson;
     try {
@@ -76,6 +80,7 @@ public class JourneyServiceImpl implements JourneyService {
         .name(request.getName().trim())
         .description(StringUtils.trimToNull(request.getDescription()))
         .anchorEvent(request.getAnchorEvent().trim())
+        .analysisBasis(request.getAnalysisBasis().name())
         .direction(request.getDirection().name())
         .depth(request.getDepth())
         .mode(request.getMode().name())
@@ -116,6 +121,7 @@ public class JourneyServiceImpl implements JourneyService {
   public Completable update(String projectId, long id, UpdateJourneyRequest request) {
     validateFilters(request.getFilters());
     validateTimeBounds(request.getStartTime(), request.getEndTime());
+    validateAnalysisBasisForEngine(request.getAnalysisBasis());
 
     String filtersJson;
     try {
@@ -134,6 +140,7 @@ public class JourneyServiceImpl implements JourneyService {
         .name(request.getName().trim())
         .description(StringUtils.trimToNull(request.getDescription()))
         .anchorEvent(request.getAnchorEvent().trim())
+        .analysisBasis(request.getAnalysisBasis().name())
         .direction(request.getDirection().name())
         .depth(request.getDepth())
         .mode(request.getMode().name())
@@ -386,6 +393,13 @@ public class JourneyServiceImpl implements JourneyService {
     }
   }
 
+  private void validateAnalysisBasisForEngine(AnalysisBasis basis) {
+    if (basis == AnalysisBasis.SCREEN && !analyticsEngineConfig.isClickHouseEngine()) {
+      throw ServiceError.INVALID_REQUEST_PARAM.getCustomException(
+        "analysisBasis SCREEN requires ANALYTICS_COMPUTE_ENGINE=clickhouse");
+    }
+  }
+
   private void validateTimeBounds(Instant start, Instant end) {
     if (start != null && end != null && end.isBefore(start)) {
       throw ServiceError.INVALID_REQUEST_PARAM.getCustomException("endTime must be >= startTime");
@@ -463,6 +477,7 @@ public class JourneyServiceImpl implements JourneyService {
         .description(row.getDescription())
         .status(computed)
         .anchorEvent(row.getAnchorEvent())
+        .analysisBasis(AnalysisBasis.fromJsonOrDefault(row.getAnalysisBasis()))
         .direction(JourneyDirection.fromJson(row.getDirection()))
         .depth(row.getDepth())
         .mode(FunnelMode.valueOf(row.getMode()))

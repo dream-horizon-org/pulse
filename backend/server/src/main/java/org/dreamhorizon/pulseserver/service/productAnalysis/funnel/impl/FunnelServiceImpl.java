@@ -13,6 +13,7 @@ import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.dreamhorizon.pulseserver.analysis.AnalysisComputedStatus;
 import org.dreamhorizon.pulseserver.analysis.AnalysisComputedStatusResolver;
+import org.dreamhorizon.pulseserver.config.AnalyticsEngineConfig;
 import org.dreamhorizon.pulseserver.dao.productAnalysis.funneldefinition.FunnelDefinitionDao;
 import org.dreamhorizon.pulseserver.dao.productAnalysis.funneldefinition.FunnelDefinitionListParams;
 import org.dreamhorizon.pulseserver.dao.productAnalysis.funneldefinition.models.FunnelDefinitionRow;
@@ -51,6 +52,7 @@ public class FunnelServiceImpl implements FunnelService {
   private final AnalyticsBatchService analyticsBatchService;
   private final AnalyticsJobDao analyticsJobDao;
   private final ClickHouseComputeService clickHouseComputeService;
+  private final AnalyticsEngineConfig analyticsEngineConfig;
   private final ObjectMapper objectMapper = new ObjectMapper();
 
   @Override
@@ -58,6 +60,7 @@ public class FunnelServiceImpl implements FunnelService {
     String projectId, CreateFunnelDefinitionRequest request, String createdBy) {
     validateCreateOrUpdate(request.getSteps(), request.getFilters());
     validateRangeBounds(request.getStartTime(), request.getEndTime());
+    validateAnalysisBasisForEngine(request.getAnalysisBasis());
 
     String stepsJson;
     String filtersJson;
@@ -78,6 +81,7 @@ public class FunnelServiceImpl implements FunnelService {
         .description(StringUtils.trimToNull(request.getDescription()))
         .funnelType(request.getFunnelType().name())
         .stepOrderType(request.getStepOrderType().name())
+        .analysisBasis(request.getAnalysisBasis().name())
         .stepsJson(stepsJson)
         .windowSeconds(request.getWindowSeconds())
         .mode(request.getMode().name())
@@ -114,6 +118,7 @@ public class FunnelServiceImpl implements FunnelService {
   public Completable update(String projectId, long id, UpdateFunnelDefinitionRequest request) {
     validateCreateOrUpdate(request.getSteps(), request.getFilters());
     validateRangeBounds(request.getStartTime(), request.getEndTime());
+    validateAnalysisBasisForEngine(request.getAnalysisBasis());
 
     String stepsJson;
     String filtersJson;
@@ -135,6 +140,7 @@ public class FunnelServiceImpl implements FunnelService {
         .description(StringUtils.trimToNull(request.getDescription()))
         .funnelType(request.getFunnelType().name())
         .stepOrderType(request.getStepOrderType().name())
+        .analysisBasis(request.getAnalysisBasis().name())
         .stepsJson(stepsJson)
         .windowSeconds(request.getWindowSeconds())
         .mode(request.getMode().name())
@@ -468,6 +474,13 @@ public class FunnelServiceImpl implements FunnelService {
     }
   }
 
+  private void validateAnalysisBasisForEngine(AnalysisBasis basis) {
+    if (basis == AnalysisBasis.SCREEN && !analyticsEngineConfig.isClickHouseEngine()) {
+      throw ServiceError.INVALID_REQUEST_PARAM.getCustomException(
+        "analysisBasis SCREEN requires ANALYTICS_COMPUTE_ENGINE=clickhouse");
+    }
+  }
+
   private void validateRangeBounds(Instant start, Instant end) {
     if (start != null && end != null && end.isBefore(start)) {
       throw ServiceError.INVALID_REQUEST_PARAM.getCustomException("endTime must be >= startTime");
@@ -561,6 +574,7 @@ public class FunnelServiceImpl implements FunnelService {
         .status(computed)
         .funnelType(FunnelType.fromJson(row.getFunnelType()))
         .stepOrderType(StepOrderType.fromJson(row.getStepOrderType()))
+        .analysisBasis(AnalysisBasis.fromJsonOrDefault(row.getAnalysisBasis()))
         .steps(steps)
         .filters(filters)
         .windowSeconds(row.getWindowSeconds())

@@ -1085,6 +1085,11 @@ export const API_ROUTES: StreamverseRoutes = {
     apiPath: `/v1/funnels/events`,
     method: API_METHODS.GET,
   },
+  FUNNEL_SCREENS: {
+    key: "FUNNEL_SCREENS",
+    apiPath: `/v1/funnels/screens`,
+    method: API_METHODS.GET,
+  },
   FUNNEL_FILTERS: {
     key: "FUNNEL_FILTERS",
     apiPath: `/v1/funnels/filters`,

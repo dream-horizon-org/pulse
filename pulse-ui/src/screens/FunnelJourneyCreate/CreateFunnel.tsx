@@ -13,7 +13,8 @@ import {
   FunnelStep,
   useGetAllFilterValues,
   useGetFunnelEvents,
-  useGetFunnelFilters
+  useGetFunnelFilters,
+  useGetFunnelScreens,
 } from "../../hooks/useGetFunnelData";
 import { useCreateFunnel } from "../../hooks/useCreateFunnel";
 import {
@@ -22,6 +23,7 @@ import {
   FunnelMode,
   FunnelType,
   StepOrderType,
+  type AnalysisBasis,
 } from "../../services/funnels.service";
 
 const EMPTY_STEPS: BuilderStep[] = [
@@ -81,11 +83,14 @@ export function CreateFunnel() {
     FunnelMode.UNIQUE_USERS,
   );
   const [conversionWindow, setConversionWindow] = useState("86400");
+  const [analysisBasis, setAnalysisBasis] = useState<AnalysisBasis>("EVENT");
 
   const { data: eventsData } = useGetFunnelEvents();
+  const { data: screensData } = useGetFunnelScreens();
   const { data: filtersData } = useGetFunnelFilters();
 
   const availableEvents = eventsData?.data?.events ?? [];
+  const availableScreens = screensData?.data?.screens ?? [];
 
   // Server returns only the filter key strings; fetch values per-key when reaching step 4
   const filterKeys = useMemo(
@@ -154,6 +159,7 @@ export function CreateFunnel() {
       tags,
       funnelType: rollingType,
       stepOrderType: funnelMode,
+      analysisBasis,
       steps: apiSteps,
       windowSeconds: parseInt(conversionWindow, 10),
       mode: analysisMode,
@@ -311,6 +317,9 @@ export function CreateFunnel() {
                       onAnalyze={handleAnalyze}
                       isCreating={isCreating}
                       availableEvents={availableEvents}
+                      availableScreens={availableScreens}
+                      analysisBasis={analysisBasis}
+                      onAnalysisBasisChange={setAnalysisBasis}
                     />
                   )}
 

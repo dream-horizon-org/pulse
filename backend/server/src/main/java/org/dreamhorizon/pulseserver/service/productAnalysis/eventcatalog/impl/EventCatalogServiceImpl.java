@@ -7,6 +7,7 @@ import org.dreamhorizon.pulseserver.dao.productAnalysis.eventcatalog.EventCatalo
 import org.dreamhorizon.pulseserver.resources.productAnalysis.models.FunnelEventsResponse;
 import org.dreamhorizon.pulseserver.resources.productAnalysis.models.FunnelFilterKeysResponse;
 import org.dreamhorizon.pulseserver.resources.productAnalysis.models.FunnelFilterValuesResponse;
+import org.dreamhorizon.pulseserver.resources.productAnalysis.models.FunnelScreensResponse;
 import org.dreamhorizon.pulseserver.service.productAnalysis.eventcatalog.EventCatalogService;
 
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
@@ -19,6 +20,13 @@ public class EventCatalogServiceImpl implements EventCatalogService {
     return eventCatalogDao
       .listEventNames(projectId)
       .map(events -> FunnelEventsResponse.builder().events(events).build());
+  }
+
+  @Override
+  public Single<FunnelScreensResponse> listScreenNames(String projectId) {
+    return eventCatalogDao
+      .listScreenNames(projectId)
+      .map(screens -> FunnelScreensResponse.builder().screens(screens).build());
   }
 
   @Override

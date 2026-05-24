@@ -41,6 +41,22 @@ public class EventCatalogDao {
   }
 
   /**
+   * Distinct {@code ScreenName} from {@code otel.otel_traces} where {@code PulseType = screen_load}.
+   */
+  public Single<List<String>> listScreenNames(String projectId) {
+    String sql = EventCatalogQueries.buildListScreenNamesSql(projectId);
+    QueryConfiguration config =
+      QueryConfiguration.newQuery(sql)
+        .timeoutMs(TIMEOUT_MS)
+        .tenantId(projectId)
+        .projectId(projectId)
+        .build();
+    return clickhouseQueryService
+      .executeQueryOrCreateJob(config, EventCatalogEventNameRow.class)
+      .map(EventCatalogDao::toNames);
+  }
+
+  /**
    * Distinct {@code FilterKey} values except {@code EVENT}, ordered lexicographically.
    */
   public Single<List<String>> listFilterKeys(String projectId) {

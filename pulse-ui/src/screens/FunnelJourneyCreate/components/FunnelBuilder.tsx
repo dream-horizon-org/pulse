@@ -35,9 +35,11 @@ import {
   FunnelMode,
   FunnelType,
   StepOrderType,
+  type AnalysisBasis,
 } from "../../../services/funnels.service";
 import classes from "../FunnelCreate.module.css";
 import createFormClasses from "../FunnelJourneyCreateForm.module.css";
+import { AnalysisBasisChoice } from "./AnalysisBasisChoice";
 
 export interface BuilderStep {
   id: string;
@@ -73,6 +75,9 @@ interface FunnelBuilderProps {
   onAnalyze: () => void;
   isCreating: boolean;
   availableEvents: string[];
+  availableScreens?: string[];
+  analysisBasis?: AnalysisBasis;
+  onAnalysisBasisChange?: (basis: AnalysisBasis) => void;
   isUpdateMode?: boolean;
   isValid?: boolean;
   /** Create flow: show only one wizard segment (0–2). Omit on funnel detail / full sidebar. */
@@ -107,6 +112,9 @@ export function FunnelBuilder({
   onAnalyze,
   isCreating,
   availableEvents,
+  availableScreens = [],
+  analysisBasis = "EVENT",
+  onAnalysisBasisChange,
   isUpdateMode = false,
   isValid: externalIsValid,
   wizardStep,
@@ -121,10 +129,13 @@ export function FunnelBuilder({
   const fieldRadius = fieldSize;
   const accent: "blue" | "teal" = wiz ? "blue" : "teal";
 
-  /** Include saved step values so detail/edit pre-fill works when API list omits an event. */
-  const eventOptions = useMemo(() => {
+  const isScreenBasis = analysisBasis === "SCREEN";
+  const stepSourceList = isScreenBasis ? availableScreens : availableEvents;
+
+  /** Include saved step values so detail/edit pre-fill works when API list omits a name. */
+  const stepOptions = useMemo(() => {
     const names = new Set<string>();
-    for (const e of availableEvents) {
+    for (const e of stepSourceList) {
       if (e?.trim()) names.add(e.trim());
     }
     for (const s of steps) {
@@ -133,7 +144,17 @@ export function FunnelBuilder({
     return Array.from(names)
       .sort((a, b) => a.localeCompare(b))
       .map((e) => ({ value: e, label: e }));
-  }, [availableEvents, steps]);
+  }, [stepSourceList, steps]);
+
+  const handleAnalysisBasisChange = (next: AnalysisBasis) => {
+    if (next === analysisBasis) return;
+    onAnalysisBasisChange?.(next);
+    if (!isUpdateMode) {
+      onStepsChange(
+        steps.map((s) => ({ ...s, eventName: "" })),
+      );
+    }
+  };
 
   const addStep = () => {
     onStepsChange([...steps, { id: `step-${Date.now()}`, eventName: "" }]);
@@ -314,6 +335,15 @@ export function FunnelBuilder({
         mb="md"
       />
 
+      <AnalysisBasisChoice
+        value={analysisBasis}
+        onChange={handleAnalysisBasisChange}
+        variant="funnel"
+        disabled={isUpdateMode}
+        accent={accent}
+        size={fieldSize}
+      />
+
       <DragDropContext onDragEnd={onDragEnd}>
         <Droppable
           droppableId="funnel-steps"
@@ -377,18 +407,22 @@ export function FunnelBuilder({
                           </Tooltip>
                         </Box>
                         <Select
-                          data={eventOptions}
+                          data={stepOptions}
                           value={step.eventName || null}
                           onChange={(val) => updateStep(index, val || "")}
                           placeholder={
-                            availableEvents.length === 0
-                              ? "No events available"
-                              : "Select event..."
+                            stepSourceList.length === 0
+                              ? isScreenBasis
+                                ? "No screens available"
+                                : "No events available"
+                              : isScreenBasis
+                                ? "Select screen..."
+                                : "Select event..."
                           }
                           size={fieldSize}
                           searchable
                           clearable
-                          disabled={availableEvents.length === 0}
+                          disabled={stepSourceList.length === 0}
                         />
                       </Box>
                     </Box>

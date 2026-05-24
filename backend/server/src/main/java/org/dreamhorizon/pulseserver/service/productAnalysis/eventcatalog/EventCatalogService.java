@@ -4,6 +4,7 @@ import io.reactivex.rxjava3.core.Single;
 import org.dreamhorizon.pulseserver.resources.productAnalysis.models.FunnelEventsResponse;
 import org.dreamhorizon.pulseserver.resources.productAnalysis.models.FunnelFilterKeysResponse;
 import org.dreamhorizon.pulseserver.resources.productAnalysis.models.FunnelFilterValuesResponse;
+import org.dreamhorizon.pulseserver.resources.productAnalysis.models.FunnelScreensResponse;
 
 public interface EventCatalogService {
 
@@ -11,6 +12,11 @@ public interface EventCatalogService {
    * Distinct event names from {@code otel.event_catalog_entries} for {@code FilterKey = EVENT}.
    */
   Single<FunnelEventsResponse> listEventNames(String projectId);
+
+  /**
+   * Distinct screen names from {@code otel.otel_traces} ({@code PulseType = screen_load}).
+   */
+  Single<FunnelScreensResponse> listScreenNames(String projectId);
 
   /**
    * Distinct filter keys from {@code otel.event_catalog_entries}, excluding {@code EVENT}.

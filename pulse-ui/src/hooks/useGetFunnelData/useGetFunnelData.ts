@@ -2,6 +2,7 @@ import { useQueries, useQuery } from "@tanstack/react-query";
 import { GetFunnelGroupedParams } from "./useGetFunnelData.interface";
 import {
   fetchFunnelEvents,
+  fetchFunnelScreens,
   fetchFunnelFilters,
   fetchFunnelFilterValues,
   fetchFunnelGrouped,
@@ -32,6 +33,15 @@ export const useGetFunnelEvents = () => {
   return useQuery({
     queryKey: ["FUNNEL_EVENTS"],
     queryFn: () => fetchFunnelEvents(),
+    refetchOnWindowFocus: false,
+    staleTime: 300000,
+  });
+};
+
+export const useGetFunnelScreens = () => {
+  return useQuery({
+    queryKey: ["FUNNEL_SCREENS"],
+    queryFn: () => fetchFunnelScreens(),
     refetchOnWindowFocus: false,
     staleTime: 300000,
   });

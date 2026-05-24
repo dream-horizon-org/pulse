@@ -86,6 +86,11 @@ export interface FunnelEventsResponse {
   events: string[];
 }
 
+// Funnel screens list (screen_load ScreenName values)
+export interface FunnelScreensResponse {
+  screens: string[];
+}
+
 // Funnel filter options — server returns only the list of filter key strings
 export interface FunnelFiltersResponse {
   filters: string[];

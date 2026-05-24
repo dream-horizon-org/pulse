@@ -19,7 +19,8 @@ import { CRITICAL_INTERACTION_FORM_CONSTANTS } from "../../../constants";
 import { DATE_RANGE_OPTIONS } from "../FunnelJourneyCreate.util";
 import classes from "../FunnelCreate.module.css";
 import createFormClasses from "../FunnelJourneyCreateForm.module.css";
-import { FunnelType } from "../../../services/funnels.service";
+import { AnalysisBasisChoice } from "./AnalysisBasisChoice";
+import { FunnelType, type AnalysisBasis } from "../../../services/funnels.service";
 
 interface JourneyExplorerProps {
   name: string;
@@ -50,6 +51,8 @@ interface JourneyExplorerProps {
   onDirectionChange?: (direction: "START" | "END") => void;
   depth?: number;
   onDepthChange?: (depth: number) => void;
+  analysisBasis?: AnalysisBasis;
+  onAnalysisBasisChange?: (basis: AnalysisBasis) => void;
   /** Create wizard: show one segment only (0–2). Omit on journey detail. */
   wizardStep?: 0 | 1 | 2;
   /**
@@ -88,6 +91,8 @@ export function JourneyExplorer({
   onDirectionChange,
   depth: propDepth,
   onDepthChange,
+  analysisBasis: propAnalysisBasis,
+  onAnalysisBasisChange,
   wizardStep,
   useExternalPathState = false,
 }: JourneyExplorerProps) {
@@ -96,6 +101,8 @@ export function JourneyExplorer({
   );
   const [localAnchorEvent, setLocalAnchorEvent] = useState<string | null>(null);
   const [localDepth, setLocalDepth] = useState(5);
+  const [localAnalysisBasis, setLocalAnalysisBasis] =
+    useState<AnalysisBasis>("EVENT");
 
   const pathFromProps = isUpdateMode || useExternalPathState;
 
@@ -109,6 +116,9 @@ export function JourneyExplorer({
     10,
     Math.max(1, pathFromProps ? (propDepth ?? 5) : localDepth),
   );
+  const analysisBasis = pathFromProps
+    ? propAnalysisBasis ?? "EVENT"
+    : localAnalysisBasis;
 
   const setDirection = (dir: "START" | "END") => {
     if (pathFromProps && onDirectionChange) {
@@ -131,6 +141,14 @@ export function JourneyExplorer({
       onDepthChange(newDepth);
     } else {
       setLocalDepth(newDepth);
+    }
+  };
+
+  const setAnalysisBasis = (basis: AnalysisBasis) => {
+    if (pathFromProps && onAnalysisBasisChange) {
+      onAnalysisBasisChange(basis);
+    } else {
+      setLocalAnalysisBasis(basis);
     }
   };
 
@@ -177,6 +195,7 @@ export function JourneyExplorer({
       direction,
       anchorEvent,
       depth,
+      analysisBasis,
       filters: apiFilters,
     });
   };
@@ -336,8 +355,17 @@ export function JourneyExplorer({
         required
       />
 
+      <AnalysisBasisChoice
+        value={analysisBasis}
+        onChange={setAnalysisBasis}
+        variant="journey"
+        disabled={isUpdateMode}
+        accent={accent}
+        size={fieldSize}
+      />
+
       <Text size="sm" fw={500} mt="md" mb={4}>
-        Direction
+        Show path from anchor
       </Text>
       <SegmentedControl
         value={direction}

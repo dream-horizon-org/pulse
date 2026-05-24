@@ -14,6 +14,7 @@ public class FunnelDefinitionRow {
   String description;
   String funnelType;
   String stepOrderType;
+  String analysisBasis;
   String stepsJson;
   long windowSeconds;
   String mode;

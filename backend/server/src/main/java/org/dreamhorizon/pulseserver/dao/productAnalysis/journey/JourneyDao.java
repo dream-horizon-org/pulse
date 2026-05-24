@@ -39,6 +39,7 @@ public class JourneyDao {
             row.getName(),
             row.getDescription(),
             row.getAnchorEvent(),
+            row.getAnalysisBasis() != null ? row.getAnalysisBasis() : "EVENT",
             row.getDirection(),
             row.getDepth(),
             row.getMode(),
@@ -62,6 +63,7 @@ public class JourneyDao {
             row.getName(),
             row.getDescription(),
             row.getAnchorEvent(),
+            row.getAnalysisBasis() != null ? row.getAnalysisBasis() : "EVENT",
             row.getDirection(),
             row.getDepth(),
             row.getMode(),
@@ -144,7 +146,7 @@ public class JourneyDao {
     StringBuilder sql =
       new StringBuilder(
         "SELECT journey.id, journey.project_id, journey.name, journey.description, journey.anchor_event, "
-          + "journey.direction, journey.depth, journey.mode, journey.filters_json, journey.start_time, "
+          + "journey.analysis_basis, journey.direction, journey.depth, journey.mode, journey.filters_json, journey.start_time, "
           + "journey.end_time, journey.journey_type, journey.expiry, journey.date_range, "
           + "journey.created_at, journey.updated_at, journey.created_by, ");
     sql.append(JourneyQueries.LATEST_JOURNEY_JOB_STATUS).append(" AS latest_job_status, ");
@@ -223,6 +225,7 @@ public class JourneyDao {
       .name(row.getString("name"))
       .description(row.getString("description"))
       .anchorEvent(row.getString("anchor_event"))
+      .analysisBasis(row.getString("analysis_basis"))
       .direction(row.getString("direction"))
       .depth(row.getInteger("depth"))
       .mode(row.getString("mode"))

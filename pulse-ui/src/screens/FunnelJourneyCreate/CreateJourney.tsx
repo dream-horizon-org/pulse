@@ -33,7 +33,7 @@ import {
   useGetFunnelEvents,
   useGetFunnelFilters,
 } from "../../hooks/useGetFunnelData";
-import { FunnelType, type CreateJourneyRequestBody } from "../../services/funnels.service";
+import { FunnelType, type AnalysisBasis, type CreateJourneyRequestBody } from "../../services/funnels.service";
 
 export function CreateJourney() {
   const theme = useMantineTheme();
@@ -55,6 +55,7 @@ export function CreateJourney() {
   const [anchorEvent, setAnchorEvent] = useState("");
   const [direction, setDirection] = useState<"START" | "END">("START");
   const [depth, setDepth] = useState(5);
+  const [analysisBasis, setAnalysisBasis] = useState<AnalysisBasis>("EVENT");
 
   const { data: eventsData } = useGetFunnelEvents();
   const { data: filtersData } = useGetFunnelFilters();
@@ -128,6 +129,7 @@ export function CreateJourney() {
       direction,
       anchorEvent,
       depth,
+      analysisBasis,
       filters: apiFilters,
       dateRangeDays: parseInt(dateRange, 10) || 7,
     };
@@ -283,6 +285,8 @@ export function CreateJourney() {
                       onDirectionChange={setDirection}
                       depth={depth}
                       onDepthChange={setDepth}
+                      analysisBasis={analysisBasis}
+                      onAnalysisBasisChange={setAnalysisBasis}
                     />
                   )}
 

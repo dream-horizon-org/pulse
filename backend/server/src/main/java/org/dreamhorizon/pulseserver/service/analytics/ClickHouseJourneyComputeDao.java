@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.dao.productAnalysis.journey.models.JourneyRow;
+import org.dreamhorizon.pulseserver.resources.productAnalysis.funnel.models.AnalysisBasis;
 import org.dreamhorizon.pulseserver.resources.productAnalysis.funnel.models.FunnelAttributeFilter;
 
 /**
@@ -59,7 +60,95 @@ public final class ClickHouseJourneyComputeDao {
    * for parity verification.
    */
   public static String buildInsertSql(JourneyRow def, String direction) {
+    if (isScreenBasis(def)) {
+      return buildInsertSqlScreenHybrid(def, direction);
+    }
     return buildInsertSqlArrayWalk(def, direction);
+  }
+
+  /**
+   * Hybrid journey compute when {@code analysisBasis = SCREEN}:
+   * anchor cohort from {@code otel_logs} custom events; path from {@code otel_traces} screen_load.
+   * Injects anchor {@code (ts, anchorEvent)} into each gid's sorted screen timeline so the
+   * existing array-slice walk can pivot on the anchor event.
+   */
+  public static String buildInsertSqlScreenHybrid(JourneyRow def, String direction) {
+    List<FunnelAttributeFilter> filters = deserializeFilters(def.getFiltersJson());
+
+    String additionalFilters = filters.stream()
+        .map(ClickhouseAnalyticsConstantsMapper::toSqlClause)
+        .collect(Collectors.joining("\n      "));
+
+    String groupKey = ClickhouseAnalyticsQueryUtils.resolveMaterializedGroupKey(def.getMode());
+    String startExpr = ClickhouseAnalyticsQueryUtils.resolveStartExpr(
+        def.getJourneyType(), def.getDateRangeDays(), def.getStartTime());
+    String endExpr = ClickhouseAnalyticsQueryUtils.resolveEndExpr(def.getJourneyType(), def.getEndTime());
+
+    boolean isEnd = DIR_END.equalsIgnoreCase(direction);
+    String projectId = def.getProjectId();
+    long journeyId = def.getId();
+    int depth = def.getDepth();
+    String anchorEvent = escape(def.getAnchorEvent());
+    String runTime = runTimeLiteral();
+    String anchorTsCol = isEnd ? "anchor_ts_last" : "anchor_ts_first";
+
+    StringBuilder sql = new StringBuilder(3072);
+    sql.append("INSERT INTO otel.journey_results\n")
+        .append("  (JourneyId, ProjectId, RunTime, Direction, PosFrom, EventFrom, PosTo, EventTo, UserCount)\n")
+        .append("WITH\n");
+
+    sql.append("  anchor_hits AS (\n")
+        .append("    SELECT ").append(groupKey).append(" AS gid,\n")
+        .append("           min(toDateTime64(Timestamp, 9)) AS anchor_ts_first,\n")
+        .append("           max(toDateTime64(Timestamp, 9)) AS anchor_ts_last\n")
+        .append("    FROM otel.otel_logs\n")
+        .append("    PREWHERE ProjectId = '").append(projectId).append("'\n")
+        .append("         AND Timestamp BETWEEN ").append(startExpr).append(" AND ").append(endExpr).append("\n")
+        .append("    WHERE PulseType = 'custom_event'\n")
+        .append("      AND EventName = '").append(anchorEvent).append("'\n");
+    if (!additionalFilters.isBlank()) {
+      sql.append("      ").append(additionalFilters).append("\n");
+    }
+    sql.append("    GROUP BY gid\n")
+        .append("  ),\n");
+
+    sql.append("  path_scans AS (\n")
+        .append("    SELECT ").append(groupKey).append(" AS gid,\n")
+        .append("           toDateTime64(Timestamp, 9) AS ts,\n")
+        .append("           ScreenName\n")
+        .append("    FROM otel.otel_traces\n")
+        .append("    PREWHERE ProjectId = '").append(projectId).append("'\n")
+        .append("         AND Timestamp BETWEEN ").append(startExpr).append(" AND ").append(endExpr).append("\n")
+        .append("    WHERE PulseType = 'screen_load'\n")
+        .append("      AND ScreenName != ''\n");
+    if (!additionalFilters.isBlank()) {
+      sql.append("      ").append(additionalFilters).append("\n");
+    }
+    sql.append("      AND ").append(groupKey).append(" IN (SELECT gid FROM anchor_hits)\n")
+        .append("  ),\n");
+
+    sql.append("  per_uid AS (\n")
+        .append("    SELECT ah.gid,\n")
+        .append("           arraySort(\n")
+        .append("             x -> tuple(x.1, x.2),\n")
+        .append("             arrayConcat(\n")
+        .append("               [tuple(ah.").append(anchorTsCol).append(", '").append(anchorEvent).append("')],\n")
+        .append("               ifNull(screens.screen_tuples, CAST([] AS Array(Tuple(DateTime64(9), String))))\n")
+        .append("             )\n")
+        .append("           ) AS ev\n")
+        .append("    FROM anchor_hits ah\n")
+        .append("    LEFT JOIN (\n")
+        .append("      SELECT gid, groupArray(tuple(ts, ScreenName)) AS screen_tuples\n")
+        .append("      FROM path_scans\n")
+        .append("      GROUP BY gid\n")
+        .append("    ) screens ON ah.gid = screens.gid\n")
+        .append("  ),\n");
+
+    appendWalkedCte(sql, anchorEvent, depth, isEnd);
+    sql.append("\n");
+
+    appendEntryAndEdgeSelects(sql, journeyId, projectId, runTime, direction, anchorEvent, isEnd);
+    return sql.toString();
   }
 
   /**
@@ -209,6 +298,18 @@ public final class ClickHouseJourneyComputeDao {
   public static String buildBatchInsertSql(List<JourneyRow> defs, String direction) {
     if (defs == null || defs.isEmpty()) {
       return "";
+    }
+
+    boolean anyScreen = defs.stream().anyMatch(ClickHouseJourneyComputeDao::isScreenBasis);
+    if (anyScreen) {
+      StringBuilder fallback = new StringBuilder(2048);
+      for (JourneyRow def : defs) {
+        if (fallback.length() > 0) {
+          fallback.append(";\n");
+        }
+        fallback.append(buildInsertSql(def, direction));
+      }
+      return fallback.toString();
     }
 
     boolean isEnd = DIR_END.equalsIgnoreCase(direction);
@@ -468,5 +569,9 @@ public final class ClickHouseJourneyComputeDao {
       return "";
     }
     return value.replace("'", "\\'");
+  }
+
+  private static boolean isScreenBasis(JourneyRow def) {
+    return AnalysisBasis.SCREEN == AnalysisBasis.fromJsonOrDefault(def.getAnalysisBasis());
   }
 }
