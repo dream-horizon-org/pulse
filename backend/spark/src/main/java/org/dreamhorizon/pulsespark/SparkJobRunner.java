@@ -46,11 +46,11 @@ public class SparkJobRunner {
       jobType, referenceId, analyticsJobId, s3Prefix);
 
     var mysql = new MysqlRepository(
-      "10.250.13.137",
-      7000,
-      "pulse_db",
-      "pulse_user",
-      "pulse_password"
+      require(params, "mysql_host"),
+      Integer.parseInt(params.getOrDefault("mysql_port", "3306")),
+      require(params, "mysql_db"),
+      require(params, "mysql_user"),
+      require(params, "mysql_password")
     );
     var ch = createClickHouseClient(params);
     ch.ping();
