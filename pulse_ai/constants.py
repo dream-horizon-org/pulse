@@ -16,6 +16,7 @@ SESSION_RCA_NARRATIVE_AGENT_NAME = "SessionRcaNarrativeAgent"
 CORE_ANALYSIS_AGENT_NAME = "CoreAnalysis"
 DEPENDENT_ANALYSIS_AGENT_NAME = "DependentAnalysis"
 EM_AGENT_NAME = "EMAgent"
+INTERACTION_RESEARCH_AGENT_NAME = "InteractionResearchAgent"
 
 # Timeouts are intentionally centralized so request and pipeline limits are visible.
 BACKEND_REQUEST_TIMEOUT_SECONDS = 75  # Must exceed pulse-server RCA timeout (60s) + buffer
