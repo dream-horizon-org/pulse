@@ -134,7 +134,7 @@ export function registerAppVitalsTools(server: McpServer): void {
         {
           function: "CUSTOM",
           param: {
-            expression: `uniqCombined64(nullIf(${COLUMN_NAME.USER_ID}, ''))`,
+            expression: `uniqCombined64(nullIf(${COLUMN_NAME.APP_INSTALLATION_ID}, ''))`,
           },
           alias: "unique_users",
         },
@@ -216,7 +216,7 @@ export function registerAppVitalsTools(server: McpServer): void {
         {
           function: "CUSTOM",
           param: {
-            expression: `uniqCombined64(nullIf(${COLUMN_NAME.USER_ID}, ''))`,
+            expression: `uniqCombined64(nullIf(${COLUMN_NAME.APP_INSTALLATION_ID}, ''))`,
           },
           alias: "affected_users",
         },
@@ -413,7 +413,7 @@ export function registerAppVitalsTools(server: McpServer): void {
           param: { expression: "ResourceAttributes['network.carrier.name']" },
           alias: "network_provider",
         },
-        { function: "COL", param: { field: "UserId" }, alias: "user_id" },
+        { function: "COL", param: { field: "AppInstallationId" }, alias: "app_installation_id" },
         {
           function: "CUSTOM",
           param: { expression: "arrayStringConcat(Interactions, ', ')" },
