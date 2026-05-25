@@ -51,21 +51,19 @@ test.describe("@custom-span", () => {
     await page.goto("/network-lab");
     await page.waitForTimeout(500);
 
-    await page.evaluate(() => {
-      (window as any).Pulse.trackSpan("stalled-fetch", async () => {
-        try {
-          await fetch("/pulse-e2e-xhr-stall?delay=5000");
-        } catch {
-          // expected
-        }
-      }).catch(() => {
-        // noop
-      });
+    await page.evaluate(async () => {
+      try {
+        await (window as any).Pulse.trackSpan("stalled-fetch", async () => {
+          return fetch("/pulse-e2e-xhr-stall?delay=5000");
+        });
+      } catch {
+        // expected — trackSpan rejects on fetch timeout
+      }
     });
 
     await page.waitForTimeout(6000);
 
-    const spans = findAllSpansByName(otlp.captured(), "stalled-fetch");
+    const spans = findAllSpansByName(otlp.captured, "stalled-fetch");
     expect(spans.length).toBeGreaterThan(0);
     const span = spans[0];
     expect(getOtlpSpanStatusCode(span)).toBe(2); // ERROR
@@ -90,7 +88,7 @@ test.describe("@custom-span", () => {
       }
     });
 
-    const spans = findAllSpansByName(otlp.captured(), "fetch-missing");
+    const spans = findAllSpansByName(otlp.captured, "fetch-missing");
     expect(spans.length).toBeGreaterThan(0);
     const span = spans[0];
     expect(getOtlpSpanStatusCode(span)).toBe(2); // ERROR

@@ -32,6 +32,11 @@ Track **initial page load** and **SPA route transitions** using OTLP **client sp
 
 **R3 — Screen naming:** Cold load uses `getCurrentScreenName()` (manual override + URL heuristics). **SPA transitions** stamp `screen.name` using **`resolveScreenNameFromUrl(config)`** — same pathname/heuristic/`routePatterns` rules as the processor but **without** a stale manual override, because History runs synchronously while framework integrations often call `setScreenName` in `useEffect`. The instrumentation then calls **`setScreenName`** with that value so clicks/errors align before the next render.
 
+**R3a — Pathname normalization:** `resolveScreenNameFromUrl()` normalizes the pathname before heuristic matching:
+- **Decode percent-encoded characters:** `%20` → ` `, `%2F` → `/`, etc. (one pass, idempotent).
+- **Unwrap `/screens/<encoded-path>`:** If pathname matches `/screens/(.*)`, extract and decode the captured segment as the route. This pattern handles Pulse UI dashboard URLs where the true route is embedded (e.g., `/screens/%2Fusers%2F123` → `/users/123`). If the segment is a directory `/`, it remains `/`.
+- **Apply `routePatterns` heuristics:** After normalization, apply configured route patterns to derive a friendly `screen.name` (e.g., `/users/123` + pattern `/users/:id` → `/users/:id`). Unmatched routes keep the normalized pathname.
+
 **R4 — Unload and BFCache restore:** `pagehide` ends the active **`screen_session`** span for time-on-screen. **`uninstall`** ends any open **`screen_session`** span. **`pageshow`** with **`event.persisted === true`** (back/forward cache restore) emits a synthetic **`screen_load`** with **`start.type` = `bfcache`** and starts a new **`screen_session`** for dwell from the restore instant. If an open dwell span still exists (some browsers, e.g. Safari on iOS, may omit **`pagehide`** before BFCache), the implementation ends it before emitting restore spans.
 
 ---

@@ -65,6 +65,10 @@ test.describe("@custom-span-next", () => {
     page,
     otlp,
   }) => {
+    // Navigate to home first to initialize session
+    await page.goto("http://localhost:3003");
+    await page.waitForTimeout(500);
+
     const sessionId = await page.evaluate(() => {
       return (window as any).__PULSE_SESSION_ID__;
     });
