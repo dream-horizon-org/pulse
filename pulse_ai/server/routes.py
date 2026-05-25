@@ -38,7 +38,10 @@ from .root_cause_fetch import RootCauseFetchError, fetch_root_cause_payload
 from .rca_runner import RcaRunnerError, generate_rca_report
 from .screen_rca_runner import ScreenRcaRunnerError, generate_screen_rca_report
 from .session_rca_runner import SessionRcaRunnerError, generate_session_rca_report
+from .interaction_report_fixture import build_payment_gateway_fixture_report
 from .schemas import (
+    InteractionReportGenerateRequest,
+    InteractionReportGenerateResponse,
     RcaReportRequest,
     RcaReportResponse,
     ScreenRcaReportRequest,
@@ -247,6 +250,38 @@ def _require_headers_for_rca_callback(
             detail="X-Project-ID header is required when rootCausePayload is omitted",
         )
     return auth_stripped, project_id.strip()
+
+
+@app.post("/interaction-report/generate")
+async def generate_interaction_report_stub(
+    request: InteractionReportGenerateRequest,
+    http_request: Request,
+) -> InteractionReportGenerateResponse:
+    """Return a valid InteractionReportV1 fixture (tracer bullet until issue 04 pipeline)."""
+    project_id = require_x_project_id(http_request)
+    entity_key = (request.entityKey or "").strip()
+    if not entity_key:
+        raise HTTPException(status_code=400, detail="entityKey is required")
+    period_start = None
+    period_end = None
+    if request.periodStart:
+        from datetime import date as date_type
+
+        period_start = date_type.fromisoformat(request.periodStart[:10])
+    if request.periodEnd:
+        from datetime import date as date_type
+
+        period_end = date_type.fromisoformat(request.periodEnd[:10])
+    report = build_payment_gateway_fixture_report(
+        project_id=project_id,
+        interaction_name=entity_key,
+        period_start=period_start,
+        period_end=period_end,
+    )
+    return InteractionReportGenerateResponse(
+        report=report.model_dump(mode="json"),
+        cached=False,
+    )
 
 
 @app.post("/rca/report")

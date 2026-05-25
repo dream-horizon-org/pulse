@@ -10,6 +10,7 @@ import org.dreamhorizon.pulseserver.dao.rcareport.RcaReportCacheDao;
 import org.dreamhorizon.pulseserver.service.ai.AiProxyService;
 import org.dreamhorizon.pulseserver.service.ai.AiProxyUpstreamResult;
 import org.dreamhorizon.pulseserver.service.rca.RcaReportJobService;
+import org.dreamhorizon.pulseserver.service.rca.InteractionReportProcessor;
 import org.dreamhorizon.pulseserver.service.rca.RcaReportProcessor;
 
 /**
@@ -27,6 +28,7 @@ public class AiProxyServiceImpl implements AiProxyService {
   private static final String DEFAULT_AI_SERVICE_URL = "http://localhost:8000";
   private static final String RCA_REPORT_PATH = "rca/report";
   private static final String RCA_SCREEN_REPORT_PATH = "rca/screen-report";
+  private static final String INTERACTION_REPORT_PATH = "interaction-report";
 
   /**
    * Per-request upstream timeout. Aligns with {@link
@@ -36,6 +38,7 @@ public class AiProxyServiceImpl implements AiProxyService {
 
   private final AiUpstreamProxyExecutor upstreamExecutor;
   private final RcaReportProxyHandler rcaReportProxyHandler;
+  private final InteractionReportProxyHandler interactionReportProxyHandler;
   private final ScreenRcaNarrativeProxyHandler screenRcaNarrativeProxyHandler;
 
   @Inject
@@ -45,11 +48,18 @@ public class AiProxyServiceImpl implements AiProxyService {
       RcaReportCacheDao rcaReportCacheDao,
       RcaReportJobService rcaReportJobService,
       RcaReportProcessor rcaReportProcessor,
+      InteractionReportProcessor interactionReportProcessor,
       RootCauseConfig rootCauseConfig) {
     this.upstreamExecutor = upstreamExecutor;
     this.rcaReportProxyHandler =
         new RcaReportProxyHandler(
             objectMapper, rcaReportCacheDao, rcaReportJobService, rcaReportProcessor);
+    this.interactionReportProxyHandler =
+        new InteractionReportProxyHandler(
+            objectMapper,
+            rcaReportCacheDao,
+            rcaReportJobService,
+            interactionReportProcessor);
     this.screenRcaNarrativeProxyHandler =
         new ScreenRcaNarrativeProxyHandler(
             upstreamExecutor, objectMapper, rcaReportCacheDao, rootCauseConfig);
@@ -63,6 +73,7 @@ public class AiProxyServiceImpl implements AiProxyService {
     this.upstreamExecutor =
         new AiUpstreamProxyExecutor(webClient, normalizeAiServiceUrl(aiServiceUrl));
     this.rcaReportProxyHandler = null;
+    this.interactionReportProxyHandler = null;
     this.screenRcaNarrativeProxyHandler = null;
     log.info("AI proxy service initialized → {}", upstreamExecutor.getAiServiceUrl());
   }
@@ -77,6 +88,7 @@ public class AiProxyServiceImpl implements AiProxyService {
       RcaReportCacheDao rcaReportCacheDao,
       RcaReportJobService rcaReportJobService,
       RcaReportProcessor rcaReportProcessor,
+      InteractionReportProcessor interactionReportProcessor,
       RootCauseConfig rootCauseConfig) {
     this(
         new AiUpstreamProxyExecutor(webClient, normalizeAiServiceUrl(aiServiceUrl)),
@@ -84,6 +96,7 @@ public class AiProxyServiceImpl implements AiProxyService {
         rcaReportCacheDao,
         rcaReportJobService,
         rcaReportProcessor,
+        interactionReportProcessor,
         rootCauseConfig);
   }
 
@@ -104,6 +117,12 @@ public class AiProxyServiceImpl implements AiProxyService {
     boolean isRcaReportPost = "POST".equals(method) && RCA_REPORT_PATH.equals(path);
     if (isRcaReportPost && rcaReportProxyHandler != null) {
       return rcaReportProxyHandler.handlePost(
+          rawQuery, body, authorization, projectId, createdByOrNull);
+    }
+    boolean isInteractionReportPost =
+        "POST".equals(method) && INTERACTION_REPORT_PATH.equals(path);
+    if (isInteractionReportPost && interactionReportProxyHandler != null) {
+      return interactionReportProxyHandler.handlePost(
           rawQuery, body, authorization, projectId, createdByOrNull);
     }
     boolean isRcaScreenReportPost = "POST".equals(method) && RCA_SCREEN_REPORT_PATH.equals(path);

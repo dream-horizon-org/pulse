@@ -39,6 +39,7 @@ import org.dreamhorizon.pulseserver.service.ai.AiProxyUpstreamResult;
 import org.dreamhorizon.pulseserver.service.rca.RcaCacheKey;
 import org.dreamhorizon.pulseserver.service.rca.RcaJobDispatch;
 import org.dreamhorizon.pulseserver.service.rca.RcaReportJobService;
+import org.dreamhorizon.pulseserver.service.rca.InteractionReportProcessor;
 import org.dreamhorizon.pulseserver.service.rca.RcaReportProcessor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
@@ -74,6 +75,9 @@ class AiProxyServiceImplTest {
 
   @Mock
   private RcaReportProcessor rcaReportProcessor;
+
+  @Mock
+  private InteractionReportProcessor interactionReportProcessor;
 
   @Mock
   private RootCauseConfig rootCauseConfig;
@@ -135,6 +139,7 @@ class AiProxyServiceImplTest {
         rcaReportCacheDao,
         rcaReportJobService,
         rcaReportProcessor,
+        interactionReportProcessor,
         rootCauseConfig);
   }
 
@@ -518,6 +523,76 @@ class AiProxyServiceImplTest {
                   "reporter@example.com"));
 
       verify(rcaReportJobService).createOrGetJob(any(), eq("reporter@example.com"));
+    }
+  }
+
+  @Nested
+  class InteractionReportPost {
+
+    private String interactionReportBody() throws Exception {
+      return objectMapper.writeValueAsString(
+          java.util.Map.of("entityKey", "PaymentGatewayHandshakeLatency", "date", "2025-03-10"));
+    }
+
+    @Test
+    void shouldReturn200WithCachedMetadataOnCacheHit() throws Exception {
+      when(rcaReportCacheDao.get(
+              eq(PROJECT_ID),
+              eq(RcaType.INTERACTION_REPORT),
+              eq("PaymentGatewayHandshakeLatency"),
+              eq(ANALYSIS_DATE)))
+          .thenReturn(
+              Maybe.just(
+                  new RcaReportCacheHit(
+                      "{\"report\":{\"version\":1}}",
+                      Instant.parse("2025-03-10T12:00:00Z"))));
+
+      AiProxyUpstreamResult result =
+          awaitResult(
+              fullPipelineService()
+                  .proxy(
+                      "POST",
+                      "interaction-report",
+                      null,
+                      interactionReportBody(),
+                      AUTH,
+                      PROJECT_ID));
+
+      assertThat(result.getStatusCode()).isEqualTo(200);
+      JsonNode out = objectMapper.readTree(result.getBufferedBody());
+      assertThat(out.path("cached").asBoolean()).isTrue();
+      assertThat(out.path("cachedAt").asText()).isNotBlank();
+      verify(interactionReportProcessor, never()).enqueueProcess(any(), any(), any(), any());
+    }
+
+    @Test
+    void shouldReturn202AndEnqueueInteractionReportWorkerOnCacheMiss() throws Exception {
+      when(rcaReportCacheDao.get(
+              eq(PROJECT_ID),
+              eq(RcaType.INTERACTION_REPORT),
+              eq("PaymentGatewayHandshakeLatency"),
+              eq(ANALYSIS_DATE)))
+          .thenReturn(Maybe.empty());
+
+      AiProxyUpstreamResult result =
+          awaitResult(
+              fullPipelineService()
+                  .proxy(
+                      "POST",
+                      "interaction-report",
+                      null,
+                      interactionReportBody(),
+                      AUTH,
+                      PROJECT_ID));
+
+      assertThat(result.getStatusCode()).isEqualTo(202);
+      JsonNode out = objectMapper.readTree(result.getBufferedBody());
+      assertThat(out.path("jobId").asText()).isEqualTo("rca-job-unit");
+      assertThat(out.path("pollUrl").asText()).contains("/v1/ai-rca/job/");
+      verify(interactionReportProcessor, times(1))
+          .enqueueProcess(any(), anyString(), eq(AUTH), eq(null));
+      verify(rcaReportProcessor, never())
+          .enqueueProcess(any(), any(), anyBoolean(), any(), any());
     }
   }
 

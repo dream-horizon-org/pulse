@@ -14,6 +14,13 @@ export const POST_RCA_REPORT_ROUTE = {
   method: "POST",
 } as const;
 
+/** POST /v1/ai/interaction-report — per-interaction health report (InteractionReportV1). */
+export const POST_INTERACTION_REPORT_ROUTE = {
+  key: "POST_INTERACTION_REPORT",
+  apiPath: "/v1/ai/interaction-report",
+  method: "POST",
+} as const;
+
 export const GET_RCA_JOB_ROUTE = {
   key: "GET_RCA_JOB",
   apiPath: (jobId: string) => `/v1/ai-rca/job/${encodeURIComponent(jobId)}`,

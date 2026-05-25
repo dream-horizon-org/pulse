@@ -27,10 +27,13 @@ import Analysis from "./components/InteractionDetailsMainContent/components/Anal
 import DateTimeRangePicker from "./components/DateTimeRangePicker/DateTimeRangePicker";
 import ProblematicInteractions from "./components/InteractionDetailsMainContent/components/ProblematicInteractions/ProblematicInteractions";
 import { RootCause } from "./components/RootCause";
+import { InteractionReport } from "./components/InteractionReport/InteractionReport";
 import { GraphCardSkeleton, SkeletonLoader } from "../../components/Skeletons";
 import { getRootCauseDateFromEndTime } from "./utils/getRootCauseDateFromEndTime";
 
 const isRootCauseEnabled = process.env.REACT_APP_ROOT_CAUSE_ENABLED === "true";
+const isInteractionReportEnabled =
+  process.env.REACT_APP_INTERACTION_REPORT_ENABLED === "true";
 
 export function CiritcalInteractionDetails() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -68,11 +71,19 @@ export function CiritcalInteractionDetails() {
     "overview",
     "analysis",
     "sessions",
-    ...(isRootCauseEnabled ? (["root-cause"] as const) : []),
+    ...(isInteractionReportEnabled ? (["report"] as const) : []),
+    ...(isRootCauseEnabled && !isInteractionReportEnabled
+      ? (["root-cause"] as const)
+      : []),
   ];
   const { actions: sessionReplayActions } = useSessionReplayFilters();
-  const initialTab = VALID_TABS.includes(searchParams.get("tab") || "")
-    ? searchParams.get("tab")
+  const tabParam = searchParams.get("tab");
+  const normalizedTab =
+    tabParam === "root-cause" && isInteractionReportEnabled
+      ? "report"
+      : tabParam;
+  const initialTab = VALID_TABS.includes(normalizedTab || "")
+    ? normalizedTab
     : "overview";
   const [activeTab, setActiveTab] = useState<string | null>(initialTab);
 
@@ -269,7 +280,10 @@ export function CiritcalInteractionDetails() {
           <Tabs.Tab value="overview">Overview</Tabs.Tab>
           <Tabs.Tab value="analysis">Analysis</Tabs.Tab>
           <Tabs.Tab value="sessions">Interactions</Tabs.Tab>
-          {isRootCauseEnabled && (
+          {isInteractionReportEnabled && (
+            <Tabs.Tab value="report">Report</Tabs.Tab>
+          )}
+          {isRootCauseEnabled && !isInteractionReportEnabled && (
             <Tabs.Tab value="root-cause">Root Cause</Tabs.Tab>
           )}
         </Tabs.List>
@@ -334,7 +348,18 @@ export function CiritcalInteractionDetails() {
             />
           )}
         </Tabs.Panel>
-        {isRootCauseEnabled && (
+        {isInteractionReportEnabled && (
+          <Tabs.Panel value="report">
+            {activeTab === "report" ? (
+              <InteractionReport
+                entityKey={interactionName ?? null}
+                date={rootCauseDate}
+                projectId={projectId}
+              />
+            ) : null}
+          </Tabs.Panel>
+        )}
+        {isRootCauseEnabled && !isInteractionReportEnabled && (
           <Tabs.Panel value="root-cause">
             {activeTab === "root-cause" ? (
               <RootCause

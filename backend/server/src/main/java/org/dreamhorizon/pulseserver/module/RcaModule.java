@@ -11,6 +11,7 @@ import org.dreamhorizon.pulseserver.dao.rcajob.RcaReportJobDao;
 import org.dreamhorizon.pulseserver.service.ai.impl.AiUpstreamProxyExecutor;
 import org.dreamhorizon.pulseserver.service.rca.RcaReportEnrichmentService;
 import org.dreamhorizon.pulseserver.service.rca.RcaReportJobService;
+import org.dreamhorizon.pulseserver.service.rca.InteractionReportProcessor;
 import org.dreamhorizon.pulseserver.service.rca.RcaReportProcessor;
 import org.dreamhorizon.pulseserver.service.rca.RcaStaleJobCleanup;
 
@@ -25,6 +26,7 @@ public class RcaModule extends AbstractModule {
     bind(RcaReportJobService.class).in(Singleton.class);
     bind(RcaReportEnrichmentService.class).in(Singleton.class);
     bind(RcaReportProcessor.class).in(Singleton.class);
+    bind(InteractionReportProcessor.class).in(Singleton.class);
     bind(RcaStaleJobCleanup.class).in(Singleton.class);
   }
 

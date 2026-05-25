@@ -72,3 +72,18 @@ class SessionRcaReportPayloadSchema(BaseModel):
 class SessionRcaReportResponse(BaseModel):
     report: SessionRcaReportPayloadSchema
     cached: bool = False
+
+
+class InteractionReportGenerateRequest(BaseModel):
+    """Tracer-bullet request for per-interaction health report (issue 02 stub)."""
+
+    entityKey: str
+    date: str | None = None
+    periodStart: str | None = None
+    periodEnd: str | None = None
+    regenerate: bool | None = None
+
+
+class InteractionReportGenerateResponse(BaseModel):
+    report: dict[str, object]
+    cached: bool = False
