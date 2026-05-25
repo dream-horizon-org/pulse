@@ -5,13 +5,14 @@
  */
 
 import { AI_API_PATHS } from "../constants/aiApiPaths";
-import {MockRequest, MockResponse} from "./types";
-import {MockDataStore} from "./MockDataStore";
-import {MockConfigManager} from "./MockConfig";
-import {generateDataQueryMockResponseV2} from "./v2";
-import {mockJobResponses} from "./responses/jobResponses";
-import {handleBreadcrumbsRequest} from "./responses/breadcrumbResponses";
-import {handleFunnelEndpoints} from "./responses/funnelResponses";
+import { MockRequest, MockResponse } from "./types";
+import { MockDataStore } from "./MockDataStore";
+import { MockConfigManager } from "./MockConfig";
+import { generateDataQueryMockResponseV2 } from "./v2";
+import { mockJobResponses } from "./responses/jobResponses";
+import { handleBreadcrumbsRequest } from "./responses/breadcrumbResponses";
+import { handleFunnelEndpoints } from "./responses/funnelResponses";
+import { handleRcaMockEndpoints } from "./responses/rcaResponses";
 import {
   mockAlertFilters,
   mockAlertMetrics,
@@ -30,7 +31,10 @@ import {
   mockTableMetadata,
   shouldReturnImmediate,
 } from "./responses/realtimeQueryResponses";
-import {heatmapMockCompare, resolveHeatmapData,} from "./responses/heatmapMockFixtures";
+import {
+  heatmapMockCompare,
+  resolveHeatmapData,
+} from "./responses/heatmapMockFixtures";
 
 /** In-memory store for AI chat sessions (for mock sharing) */
 const aiChatSessionsStore = new Map<string, Record<string, unknown>>();
@@ -192,9 +196,7 @@ export class MockResponseGenerator {
             }
             controller.close();
           } catch (e) {
-            controller.error(
-              e instanceof Error ? e : new Error(String(e)),
-            );
+            controller.error(e instanceof Error ? e : new Error(String(e)));
           }
         })();
       },
@@ -256,6 +258,12 @@ export class MockResponseGenerator {
     // v1 User endpoints (projects, etc.) - before generic /user/ handler
     if (pathname.includes("/v1/users/")) {
       return this.handleV1UserEndpoints(pathname, method, request);
+    }
+
+    // RCA (interaction async job + tabular GETs + screen narrative) — before /v1/interactions job handler
+    const rcaMock = handleRcaMockEndpoints(pathname, method, request);
+    if (rcaMock != null) {
+      return rcaMock;
     }
 
     // Onboarding endpoints

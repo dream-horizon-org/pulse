@@ -1,6 +1,12 @@
-.CustomEventThresholdsGrid {
-  margin-top: var(--mantine-spacing-lg);
+.CustomEventThresholdsMainContainer {
+  display: flex;
+  flex-direction: column;
 }
+
+.ErrorThresholdInputContainer {
+  margin-bottom: var(--mantine-spacing-xl);
+}
+
 
 .ErrorTextThresholds {
   color: var(--mantine-color-red-6);

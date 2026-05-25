@@ -1,7 +1,7 @@
-import { Box, Grid, Text, TextInput } from "@mantine/core";
+import { Box, Grid, NumberInput, Text, TextInput } from "@mantine/core";
 import classes from "./CustomEventThresholds.module.css";
 import { CriticalInteractionFormData } from "../../CriticalInteractionForm.interface";
-import { useFormContext } from "react-hook-form";
+import { Controller, useFormContext } from "react-hook-form";
 import { CRITICAL_INTERACTION_FORM_CONSTANTS } from "../../../../constants";
 
 export function CustomEventThresholds() {
@@ -83,6 +83,32 @@ export function CustomEventThresholds() {
 
   return (
     <Box className={classes.CustomEventThresholdsMainContainer}>
+      <Text>{CRITICAL_INTERACTION_FORM_CONSTANTS.ERROR_THRESHOLD_LABEL}</Text>
+      <Controller
+        name="thresholdInMs"
+        control={methods.control}
+        rules={{
+          required: CRITICAL_INTERACTION_FORM_CONSTANTS.ERROR_THRESHOLD_ERROR_MESSAGE,
+          validate: (value) =>
+            (Number.isInteger(Number(value)) && Number(value) > 0) ||
+            CRITICAL_INTERACTION_FORM_CONSTANTS.ERROR_THRESHOLD_ERROR_MESSAGE,
+        }}
+        render={({ field, fieldState }) => (
+          <Box className={classes.ErrorThresholdInputContainer}>
+            <NumberInput
+              {...field}
+              // label={CRITICAL_INTERACTION_FORM_CONSTANTS.ERROR_THRESHOLD_LABEL}
+              description={CRITICAL_INTERACTION_FORM_CONSTANTS.ERROR_THRESHOLD_DESCRIPTION}
+              placeholder={CRITICAL_INTERACTION_FORM_CONSTANTS.ERROR_THRESHOLD_PLACEHOLDER}
+              error={fieldState.error?.message}
+              min={1}
+              allowDecimal={false}
+              size="xs"
+              onChange={(val) => field.onChange(val)}
+            />
+          </Box>
+        )}
+      />
       <Text>Interaction categorisation</Text>
       <Grid className={classes.CustomEventThresholdsGrid}>
         <Grid.Col span={4}>
@@ -98,6 +124,7 @@ export function CustomEventThresholds() {
             error={methods.formState.errors?.uptimeLowerLimitInMs?.message}
             onChange={onChangeLowThreshold}
             min={CRITICAL_INTERACTION_FORM_CONSTANTS.LOWER_THRESHOLD_VALUE}
+            className={classes.CustomEventThresholdsInput}
           />
         </Grid.Col>
         <Grid.Col span={4}>
