@@ -35,7 +35,7 @@ test.describe("@custom-span-next", () => {
     page,
     otlp,
   }) => {
-    await page.goto("http://localhost:3003/products");
+    await page.goto("/products");
     await waitForPulseInitialized(page);
     await otlp.waitForLog("session.start", 15_000);
 
@@ -49,7 +49,7 @@ test.describe("@custom-span-next", () => {
   });
 
   test("J9: Product detail trackEvent coexistence", async ({ page, otlp }) => {
-    await page.goto("http://localhost:3003/products");
+    await page.goto("/products");
     await waitForPulseInitialized(page);
     await otlp.waitForLog("session.start", 15_000);
 
@@ -68,7 +68,7 @@ test.describe("@custom-span-next", () => {
   });
 
   test("J10: /search?q=shoes screen.name on span", async ({ page, otlp }) => {
-    await page.goto("http://localhost:3003/products?q=shoes");
+    await page.goto("/products?q=shoes");
     await waitForPulseInitialized(page);
     await otlp.waitForLog("session.start", 15_000);
 
@@ -86,7 +86,7 @@ test.describe("@custom-span-next", () => {
     page,
     otlp,
   }) => {
-    await page.goto("http://localhost:3003");
+    await page.goto("/");
     await waitForPulseInitialized(page);
     const sessionStart = await otlp.waitForLog("session.start", 15_000);
     const sessionId = getAttr(sessionStart.attributes, "session.id") as string;
@@ -96,19 +96,19 @@ test.describe("@custom-span-next", () => {
       (window as any).Pulse.startSpan("home-span").end("OK");
     });
 
-    await page.goto("http://localhost:3003/products");
+    await page.goto("/products");
     await waitForPulseInitialized(page);
     await page.evaluate(() => {
       (window as any).Pulse.startSpan("products-span").end("OK");
     });
 
-    await page.goto("http://localhost:3003/products/1");
+    await page.goto("/products/1");
     await waitForPulseInitialized(page);
     await page.evaluate(() => {
       (window as any).Pulse.startSpan("detail-span").end("OK");
     });
 
-    await page.goto("http://localhost:3003/cart");
+    await page.goto("/cart");
     await waitForPulseInitialized(page);
     await page.evaluate(() => {
       (window as any).Pulse.startSpan("cart-span").end("OK");
@@ -124,7 +124,7 @@ test.describe("@custom-span-next", () => {
 
   test("J12: Pages Router /pages-demo → /shop", async ({ page, otlp }) => {
     try {
-      await page.goto("http://localhost:3003/pages-demo/shop");
+      await page.goto("/pages-demo/shop");
       await waitForPulseInitialized(page);
       await otlp.waitForLog("session.start", 15_000);
 
@@ -144,7 +144,7 @@ test.describe("@custom-span-next", () => {
 
   test("J13: Pages Router [productId] dynamic route", async ({ page, otlp }) => {
     try {
-      await page.goto("http://localhost:3003/pages-demo/shop/123");
+      await page.goto("/pages-demo/shop/123");
       await waitForPulseInitialized(page);
       await otlp.waitForLog("session.start", 15_000);
 
@@ -166,7 +166,7 @@ test.describe("@custom-span-next", () => {
     page,
     otlp,
   }) => {
-    await page.goto("http://localhost:3003");
+    await page.goto("/");
     await waitForPulseInitialized(page);
     await otlp.waitForLog("session.start", 15_000);
 
