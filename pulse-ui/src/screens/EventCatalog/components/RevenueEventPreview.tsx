@@ -174,28 +174,52 @@ function VerdictBanner({ text, tone, info }: Verdict) {
   );
 }
 
+type StatCardAccent = "teal" | "violet" | "cyan";
+
+const STAT_CARD_GRADIENTS: Record<
+  StatCardAccent,
+  { from: string; to: string }
+> = {
+  teal: { from: "#0ec9c2", to: "#0ba09a" },
+  violet: { from: "#9775fa", to: "#7950f2" },
+  cyan: { from: "#22b8cf", to: "#1098ad" },
+};
+
 function StatCard({
   label,
   value,
   metricLabel,
   info,
   icon,
+  accent = "teal",
 }: {
   label: string;
   value: string;
   metricLabel: string;
   info: string;
   icon: ReactNode;
+  accent?: StatCardAccent;
 }) {
   return (
-    <Box className={classes.statCard}>
+    <Box className={classes.statCard} data-accent={accent}>
       <div className={classes.statCardTop}>
-        <ThemeIcon size={20} radius="sm" variant="light" color="teal">
+        <ThemeIcon
+          size={28}
+          radius="md"
+          variant="gradient"
+          gradient={{ ...STAT_CARD_GRADIENTS[accent], deg: 135 }}
+          className={classes.statIcon}
+        >
           {icon}
         </ThemeIcon>
-        <Text component="span" className={classes.statLabel}>
-          {label}
-        </Text>
+        <div className={classes.statCardMeta}>
+          <Text component="span" className={classes.statLabel}>
+            {label}
+          </Text>
+          <Text component="span" className={classes.statMetricLabel}>
+            {metricLabel}
+          </Text>
+        </div>
         <Tooltip label={info} multiline w={260} withArrow position="top">
           <ActionIcon
             variant="subtle"
@@ -210,9 +234,6 @@ function StatCard({
       </div>
       <Text component="p" className={classes.statValue}>
         {value}
-      </Text>
-      <Text component="span" className={classes.statMetricLabel}>
-        {metricLabel}
       </Text>
     </Box>
   );
@@ -387,7 +408,8 @@ export function RevenueEventPreview({
               value={formatCount(preview.eventCount)}
               metricLabel="Count"
               info={purchaseEventsInfo}
-              icon={<IconShoppingCart size={12} />}
+              icon={<IconShoppingCart size={15} stroke={1.75} />}
+              accent="teal"
             />
             {revenueMetricsReady ? (
               <>
@@ -396,14 +418,16 @@ export function RevenueEventPreview({
                   value={formatCount(preview.uniqueInstallations)}
                   metricLabel="Count"
                   info={uniqueInstallationsInfo}
-                  icon={<IconUsers size={12} />}
+                  icon={<IconUsers size={15} stroke={1.75} />}
+                  accent="teal"
                 />
                 <StatCard
                   label="Average order value"
                   value={formatMoney(preview.avgValue, displayCurrency)}
                   metricLabel="Avg"
                   info={aovInfo}
-                  icon={<IconChartLine size={12} />}
+                  icon={<IconChartLine size={15} stroke={1.75} />}
+                  accent="teal"
                 />
               </>
             ) : (
@@ -412,7 +436,8 @@ export function RevenueEventPreview({
                 value={formatCount(preview.uniqueInstallations)}
                 metricLabel="Count"
                 info={uniqueInstallationsInfo}
-                icon={<IconUsers size={12} />}
+                icon={<IconUsers size={15} stroke={1.75} />}
+                accent="teal"
               />
             )}
           </SimpleGrid>

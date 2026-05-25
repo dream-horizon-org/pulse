@@ -66,54 +66,152 @@
 }
 
 .statCard {
-  background: #fff;
-  border: 1px solid rgba(14, 201, 194, 0.12);
-  border-radius: 8px;
-  padding: 10px 10px 8px;
-  min-height: 72px;
+  --accent-from: #0ec9c2;
+  --accent-to: #0ba09a;
+  --accent-glow: rgba(14, 201, 194, 0.18);
+  --accent-border: rgba(14, 201, 194, 0.22);
+  --accent-bg: rgba(14, 201, 194, 0.06);
+
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(
+    145deg,
+    #ffffff 0%,
+    var(--accent-bg) 100%
+  );
+  border: 1px solid var(--accent-border);
+  border-radius: 10px;
+  padding: 12px 12px 14px;
+  min-height: 88px;
   height: 100%;
+  box-shadow: 0 2px 10px rgba(14, 201, 194, 0.06);
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.statCard[data-accent="teal"] {
+  --accent-from: #0ec9c2;
+  --accent-to: #0ba09a;
+  --accent-glow: rgba(14, 201, 194, 0.2);
+  --accent-border: rgba(14, 201, 194, 0.22);
+  --accent-bg: rgba(14, 201, 194, 0.07);
+}
+
+.statCard[data-accent="violet"] {
+  --accent-from: #9775fa;
+  --accent-to: #7950f2;
+  --accent-glow: rgba(121, 80, 242, 0.18);
+  --accent-border: rgba(121, 80, 242, 0.2);
+  --accent-bg: rgba(121, 80, 242, 0.06);
+}
+
+.statCard[data-accent="cyan"] {
+  --accent-from: #22b8cf;
+  --accent-to: #1098ad;
+  --accent-glow: rgba(34, 184, 207, 0.18);
+  --accent-border: rgba(34, 184, 207, 0.2);
+  --accent-bg: rgba(34, 184, 207, 0.06);
+}
+
+.statCard::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--accent-from) 0%, var(--accent-to) 100%);
+}
+
+.statCard::after {
+  content: "";
+  position: absolute;
+  bottom: -24px;
+  right: -24px;
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--accent-glow) 0%, transparent 72%);
+  pointer-events: none;
+}
+
+.statCard:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px var(--accent-glow);
+  border-color: color-mix(in srgb, var(--accent-from) 35%, transparent);
 }
 
 .statCardTop {
   display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-bottom: 8px;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 10px;
+  position: relative;
+  z-index: 1;
+}
+
+.statIcon {
+  flex-shrink: 0;
+  box-shadow: 0 4px 10px var(--accent-glow);
+}
+
+.statCardMeta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+  padding-top: 2px;
 }
 
 .statInfoBtn {
   margin-left: auto;
   flex-shrink: 0;
+  opacity: 0.65;
+  transition: opacity 0.15s ease;
+}
+
+.statCard:hover .statInfoBtn {
+  opacity: 1;
 }
 
 .statLabel {
   font-size: 11px;
-  font-weight: 500;
-  color: var(--mantine-color-gray-7);
+  font-weight: 600;
+  color: var(--mantine-color-dark-6);
   line-height: 1.25;
-  flex: 1;
-  min-width: 0;
 }
 
 .statValue {
   margin: 0;
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--mantine-color-dark-8);
-  line-height: 1.2;
-  letter-spacing: -0.02em;
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
   word-break: break-word;
+  background: linear-gradient(135deg, var(--accent-from) 0%, var(--accent-to) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  position: relative;
+  z-index: 1;
 }
 
 .statMetricLabel {
-  display: block;
-  margin-top: 2px;
-  font-size: 10px;
-  font-weight: 600;
+  display: inline-flex;
+  align-self: flex-start;
+  font-size: 9px;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--mantine-color-gray-5);
+  letter-spacing: 0.06em;
+  color: var(--mantine-color-gray-6);
   line-height: 1.2;
+  background: rgba(255, 255, 255, 0.75);
+  border: 1px solid rgba(134, 142, 150, 0.14);
+  border-radius: 999px;
+  padding: 1px 6px;
 }
 
 .chartSection {
