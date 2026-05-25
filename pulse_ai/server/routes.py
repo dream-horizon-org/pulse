@@ -18,6 +18,8 @@ from pulse_ai.constants import APP_NAME
 from .app import (
     RunSSERequest,
     app,
+    interaction_report_research_runner,
+    interaction_report_schema_runner,
     rca_runner,
     screen_rca_runner,
     session_rca_runner,
@@ -38,7 +40,10 @@ from .root_cause_fetch import RootCauseFetchError, fetch_root_cause_payload
 from .rca_runner import RcaRunnerError, generate_rca_report
 from .screen_rca_runner import ScreenRcaRunnerError, generate_screen_rca_report
 from .session_rca_runner import SessionRcaRunnerError, generate_session_rca_report
-from .interaction_report_fixture import build_payment_gateway_fixture_report
+from .interaction_report_runner import (
+    InteractionReportRunnerError,
+    generate_interaction_report,
+)
 from .schemas import (
     InteractionReportGenerateRequest,
     InteractionReportGenerateResponse,
@@ -253,11 +258,11 @@ def _require_headers_for_rca_callback(
 
 
 @app.post("/interaction-report/generate")
-async def generate_interaction_report_stub(
+async def generate_interaction_report_endpoint(
     request: InteractionReportGenerateRequest,
     http_request: Request,
 ) -> InteractionReportGenerateResponse:
-    """Return a valid InteractionReportV1 fixture (tracer bullet until issue 04 pipeline)."""
+    """Run Research → Schema pipeline and return InteractionReportV1."""
     project_id = require_x_project_id(http_request)
     entity_key = (request.entityKey or "").strip()
     if not entity_key:
@@ -272,12 +277,21 @@ async def generate_interaction_report_stub(
         from datetime import date as date_type
 
         period_end = date_type.fromisoformat(request.periodEnd[:10])
-    report = build_payment_gateway_fixture_report(
-        project_id=project_id,
-        interaction_name=entity_key,
-        period_start=period_start,
-        period_end=period_end,
-    )
+
+    state_delta = request_headers_to_state_delta(http_request)
+    try:
+        report = await generate_interaction_report(
+            interaction_report_research_runner,
+            interaction_report_schema_runner,
+            project_id=project_id,
+            interaction_name=entity_key,
+            period_start=period_start,
+            period_end=period_end,
+            state_delta=state_delta,
+        )
+    except InteractionReportRunnerError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
+
     return InteractionReportGenerateResponse(
         report=report.model_dump(mode="json"),
         cached=False,

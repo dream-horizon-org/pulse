@@ -16,6 +16,9 @@ from google.adk.sessions import InMemorySessionService
 from pydantic import BaseModel
 
 from pulse_ai.agent import root_agent
+from pulse_ai.agents.interaction_research.agent import interaction_research_agent
+from pulse_ai.agents.interaction_report.pipeline import interaction_report_pipeline
+from pulse_ai.agents.interaction_report.schema_agent import interaction_report_schema_agent
 from pulse_ai.agents.rca import rca_agent
 from pulse_ai.agents.screen_rca import screen_rca_narrative_agent
 from pulse_ai.agents.session_rca import session_rca_narrative_agent
@@ -102,6 +105,30 @@ session_rca_runner = Runner(
     agent=session_rca_narrative_agent,
     app_name=APP_NAME,
     session_service=session_service,
+    auto_create_session=True,
+)
+
+_interaction_report_session_service = InMemorySessionService()
+
+interaction_report_research_runner = Runner(
+    agent=interaction_research_agent,
+    app_name=APP_NAME,
+    session_service=_interaction_report_session_service,
+    auto_create_session=True,
+)
+
+interaction_report_schema_runner = Runner(
+    agent=interaction_report_schema_agent,
+    app_name=APP_NAME,
+    session_service=_interaction_report_session_service,
+    auto_create_session=True,
+)
+
+# Registered for acceptance / wiring tests (runner uses sub-agents separately for schema retry).
+interaction_report_pipeline_runner = Runner(
+    agent=interaction_report_pipeline,
+    app_name=APP_NAME,
+    session_service=_interaction_report_session_service,
     auto_create_session=True,
 )
 

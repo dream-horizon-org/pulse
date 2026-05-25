@@ -17,6 +17,10 @@ CORE_ANALYSIS_AGENT_NAME = "CoreAnalysis"
 DEPENDENT_ANALYSIS_AGENT_NAME = "DependentAnalysis"
 EM_AGENT_NAME = "EMAgent"
 INTERACTION_RESEARCH_AGENT_NAME = "InteractionResearchAgent"
+INTERACTION_REPORT_SCHEMA_AGENT_NAME = "InteractionReportSchemaAgent"
+INTERACTION_REPORT_PIPELINE_NAME = "InteractionReportPipeline"
+
+USER_ID_INTERACTION_REPORT = "interaction_report_service"
 
 # Timeouts are intentionally centralized so request and pipeline limits are visible.
 BACKEND_REQUEST_TIMEOUT_SECONDS = 75  # Must exceed pulse-server RCA timeout (60s) + buffer
