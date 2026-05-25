@@ -19,16 +19,20 @@ describe("resolvePulseScreenName", () => {
     ).toBe(expectedEmbedded);
   });
 
-  it("prefers location.pathname over dependency when format is omitted", () => {
+  it("uses dependency which includes search params when format is omitted", () => {
     expect(
-      resolvePulseScreenName(undefined, "/stale", {
-        pathname:
-          "/projects/default-project/interaction-details/UI%20Onboarding%20Success%20to%20Dashboard",
-        search: "",
-        hash: "",
-      }),
+      resolvePulseScreenName(
+        undefined,
+        "/projects/default-project/interaction-details/UI%20Onboarding%20Success?filter=new",
+        {
+          pathname:
+            "/projects/default-project/interaction-details/UI%20Onboarding%20Success",
+          search: "?filter=new",
+          hash: "",
+        },
+      ),
     ).toBe(
-      "/projects/default-project/interaction-details/UI Onboarding Success to Dashboard",
+      "/projects/default-project/interaction-details/UI Onboarding Success?filter=new",
     );
   });
 

@@ -14,7 +14,8 @@ export function resolvePulseScreenName(
   location: PulseLocationLike,
 ): string | null {
   if (!format) {
-    return normalizeScreenPathname(location.pathname || dependency);
+    // dependency includes search params if includeSearch: true, so use it directly
+    return normalizeScreenPathname(dependency);
   }
   try {
     return format(location);
