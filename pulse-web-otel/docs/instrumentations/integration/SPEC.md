@@ -199,6 +199,19 @@ The SDK fetches remote config from `pulse-otel-config` S3 via CloudFront (`/conf
 [`config-and-public-api/SPEC.md`](../../sdk-core/config-and-public-api/SPEC.md)
 §5.6. A single shared JS method name across web and Android would need an ADR.
 
+### 5.11 Custom span API (cross-platform parity)
+
+| Intent | Web (`@dreamhorizonorg/pulse-web`) | Android (`PulseSDK`) | React Native (`Pulse`) |
+| --- | --- | --- | --- |
+| Manual span creation | `Pulse.startSpan(name, options?)` → `PulseSpan` | `startSpan(name, Map)` → `() -> Unit` | `startSpan(name, options?)` → `Span` (rich object) |
+| Auto-wrap function | `Pulse.trackSpan(name, fn, options?)` | `trackSpan(name, params, fn)` | `trackSpan(name, options, fn)` |
+| Span methods | `end(statusCode?)`, `addEvent(name, attrs)`, `setAttributes(attrs)`, `recordException(error, attrs?)` | No span methods; close callback only | Same as Web |
+| Status codes | `SpanStatusCode.OK / ERROR / UNSET` | Not exposed | Same as Web |
+| Attributes on span | Via `SpanOptions.attributes` or `setAttributes()` | Via `Map` positional arg | Via `SpanOptions.attributes` |
+| pulse.type | `custom_span` (web-only) | Not defined (mobile custom spans carry no type) | Not defined |
+
+**Notes:** Web custom span API is **RN-shaped** (rich object, not Android's callback model). `pulse.type = custom_span` is **web-specific** and does not exist on Android/RN mobile SDKs — backend queries for custom span type will match only web signals. Detailed API and cross-platform divergence: **`custom-span`** SPEC + **`sdk-core`** [`config-and-public-api/SPEC.md`](../../sdk-core/config-and-public-api/SPEC.md) §5.6.
+
 ---
 
 ## 6. Test Coverage
