@@ -1,7 +1,10 @@
 import { IconExclamationCircle } from "@tabler/icons-react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { useExceptionListData } from "./ExceptionTable/hooks";
-import { ExceptionTable } from "./ExceptionTable";
+import {
+  useExceptionListInfiniteData,
+  useExceptionListCount,
+} from "./ExceptionTable/hooks";
+import { ExceptionVirtualTable } from "./ExceptionTable/ExceptionVirtualTable";
 import type { ExceptionRow } from "./ExceptionTable/ExceptionTable.interface";
 import type { NonFatalIssue } from "../AppVitals.interface";
 
@@ -31,7 +34,8 @@ export const NonFatalList: React.FC<NonFatalListProps> = ({
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { projectId } = useParams<{ projectId: string }>();
-  const { exceptions, queryState } = useExceptionListData({
+
+  const listParams = {
     startTime,
     endTime,
     appVersion,
@@ -41,8 +45,13 @@ export const NonFatalList: React.FC<NonFatalListProps> = ({
     networkProvider,
     state,
     screenName,
-    exceptionType: "nonfatal",
-  });
+    exceptionType: "nonfatal" as const,
+  };
+
+  const { exceptions, queryState, hasMore, fetchNextPage } =
+    useExceptionListInfiniteData(listParams);
+
+  const { count: totalCount } = useExceptionListCount(listParams);
 
   const handleRowClick = (groupId: string) => {
     const qs = searchParams.toString();
@@ -53,7 +62,6 @@ export const NonFatalList: React.FC<NonFatalListProps> = ({
     );
   };
 
-  // Transform exceptions to ExceptionRow format
   const exceptionRows: ExceptionRow[] = (exceptions as NonFatalIssue[]).map(
     (issue) => ({
       id: issue.id,
@@ -69,19 +77,22 @@ export const NonFatalList: React.FC<NonFatalListProps> = ({
   );
 
   return (
-    <ExceptionTable
+    <ExceptionVirtualTable
       title="Non-Fatal Issues"
       icon={<IconExclamationCircle size={18} color="#3b82f6" />}
-      iconColor="#3b82f6"
       badgeColor="blue"
       emptyIcon="ℹ️"
       emptyMessage="No non-fatal issues reported"
       exceptions={exceptionRows}
+      totalCount={totalCount}
       isLoading={queryState.isLoading}
       isError={queryState.isError}
       errorMessage={queryState.errorMessage}
       onRowClick={handleRowClick}
-      showTypeColumn={true}
+      onLoadMore={fetchNextPage}
+      hasMore={hasMore}
+      isFetchingMore={queryState.isLoadingMore}
+      showTypeColumn
     />
   );
 };

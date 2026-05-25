@@ -24,7 +24,7 @@ import {
   DEFAULT_QUICK_TIME_FILTER,
   DEFAULT_QUICK_TIME_FILTER_INDEX,
 } from "../../constants";
-import { useExceptionListData } from "./components/ExceptionTable/hooks";
+import { useExceptionListCount } from "./components/ExceptionTable/hooks";
 import { useFilterStore } from "../../stores/useFilterStore";
 import dayjs from "dayjs";
 import { useAnalytics, useGetAppStats } from "../../hooks";
@@ -133,51 +133,40 @@ export const AppVitals: React.FC = () => {
     state,
   });
 
-  // Fetch data from API for stats calculation
-  const { exceptions: crashes } = useExceptionListData({
+  const commonCountParams = {
     startTime: formattedStartTime,
     endTime: formattedEndTime,
     appVersion,
     osVersion,
-    device: "all",
+    device: "all" as const,
     platform,
     networkProvider,
     state,
+  };
+
+  const { count: crashCount } = useExceptionListCount({
+    ...commonCountParams,
     exceptionType: "crash",
   });
 
-  const { exceptions: anrs } = useExceptionListData({
-    startTime: formattedStartTime,
-    endTime: formattedEndTime,
-    appVersion,
-    osVersion,
-    device: "all",
-    platform,
-    networkProvider,
-    state,
+  const { count: anrCount } = useExceptionListCount({
+    ...commonCountParams,
     exceptionType: "anr",
   });
 
-  const { exceptions: nonFatals } = useExceptionListData({
-    startTime: formattedStartTime,
-    endTime: formattedEndTime,
-    appVersion,
-    osVersion,
-    device: "all",
-    platform,
-    networkProvider,
-    state,
+  const { count: nonFatalCount } = useExceptionListCount({
+    ...commonCountParams,
     exceptionType: "nonfatal",
   });
 
-  // Calculate stats based on API data (for filters display)
-  const stats = useMemo(() => {
-    return {
-      crashes: crashes.length,
-      anrs: anrs.length,
-      nonFatals: nonFatals.length,
-    };
-  }, [crashes, anrs, nonFatals]);
+  const stats = useMemo(
+    () => ({
+      crashes: crashCount,
+      anrs: anrCount,
+      nonFatals: nonFatalCount,
+    }),
+    [crashCount, anrCount, nonFatalCount],
+  );
 
   // Get graph config based on selected issue type
   const graphConfig = GRAPH_CONFIGS[filters.issueType];

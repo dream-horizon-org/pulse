@@ -1,7 +1,10 @@
 import { IconBug } from "@tabler/icons-react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { useExceptionListData } from "./ExceptionTable/hooks";
-import { ExceptionTable } from "./ExceptionTable";
+import {
+  useExceptionListInfiniteData,
+  useExceptionListCount,
+} from "./ExceptionTable/hooks";
+import { ExceptionVirtualTable } from "./ExceptionTable/ExceptionVirtualTable";
 import type { ExceptionRow } from "./ExceptionTable/ExceptionTable.interface";
 import type { CrashIssue } from "../AppVitals.interface";
 
@@ -31,7 +34,8 @@ export const CrashList: React.FC<CrashListProps> = ({
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { projectId } = useParams<{ projectId: string }>();
-  const { exceptions, queryState } = useExceptionListData({
+
+  const listParams = {
     startTime,
     endTime,
     appVersion,
@@ -41,8 +45,13 @@ export const CrashList: React.FC<CrashListProps> = ({
     networkProvider,
     state,
     screenName,
-    exceptionType: "crash",
-  });
+    exceptionType: "crash" as const,
+  };
+
+  const { exceptions, queryState, hasMore, fetchNextPage } =
+    useExceptionListInfiniteData(listParams);
+
+  const { count: totalCount } = useExceptionListCount(listParams);
 
   const handleRowClick = (groupId: string) => {
     const qs = searchParams.toString();
@@ -53,7 +62,6 @@ export const CrashList: React.FC<CrashListProps> = ({
     );
   };
 
-  // Transform exceptions to ExceptionRow format
   const exceptionRows: ExceptionRow[] = (exceptions as CrashIssue[]).map(
     (crash) => ({
       id: crash.id,
@@ -68,18 +76,21 @@ export const CrashList: React.FC<CrashListProps> = ({
   );
 
   return (
-    <ExceptionTable
+    <ExceptionVirtualTable
       title="Crashes"
       icon={<IconBug size={18} color="#ef4444" />}
-      iconColor="#ef4444"
       badgeColor="red"
       emptyIcon="🐛"
       emptyMessage="No crashes reported"
       exceptions={exceptionRows}
+      totalCount={totalCount}
       isLoading={queryState.isLoading}
       isError={queryState.isError}
       errorMessage={queryState.errorMessage}
       onRowClick={handleRowClick}
+      onLoadMore={fetchNextPage}
+      hasMore={hasMore}
+      isFetchingMore={queryState.isLoadingMore}
     />
   );
 };

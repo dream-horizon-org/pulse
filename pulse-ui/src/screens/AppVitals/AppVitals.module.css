@@ -343,6 +343,23 @@
   white-space: nowrap;
 }
 
+.exceptionVirtualScroll {
+  height: min(600px, calc(100vh - 420px));
+  min-height: 400px;
+  overflow: auto;
+  position: relative;
+}
+
+.exceptionVirtualRow:hover {
+  background: linear-gradient(
+    90deg,
+    rgba(14, 201, 194, 0.04),
+    rgba(14, 201, 194, 0.02),
+    transparent
+  );
+  box-shadow: inset 3px 0 0 rgba(14, 201, 194, 0.5);
+}
+
 .badgeCell {
   display: inline-flex;
   align-items: center;
