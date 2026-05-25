@@ -10,6 +10,7 @@ import type { PulseWebConfig } from "../config";
 import type { PulseAttributeValue } from "../types/attributes";
 import { computeAspectRatio } from "../resource";
 import { PulseWebSemconv } from "../semconv";
+import { normalizeScreenPathname } from "../utils/screen-pathname";
 
 type NetworkConnection = {
   type?: string;
@@ -58,7 +59,7 @@ function resolveScreenName(
 
   if (typeof window === "undefined") return "";
 
-  const pathname = window.location.pathname;
+  const pathname = normalizeScreenPathname(window.location.pathname);
 
   // Check route patterns
   if (config.routePatterns && config.routePatterns.length > 0) {

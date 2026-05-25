@@ -7,6 +7,7 @@ plugins {
     alias(libs.plugins.kotlinAndroid)
     alias(libs.plugins.compose.compiler)
     id("pulse.plugin")
+    alias(rootLibs.plugins.byteBuddyPlugin)
 }
 
 val localProperties = Properties()
@@ -87,6 +88,9 @@ dependencies {
     implementation(libs.pulse.instrumentation.fragment)
     implementation(libs.pulse.instrumentation.slowrendering)
     implementation(libs.pulse.instrumentation.locationLibrary)
+    implementation(libs.okhttp3.library)
+    byteBuddy(libs.okhttp3.agent)
+    implementation(rootLibs.okhttp)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.runtime.compose)

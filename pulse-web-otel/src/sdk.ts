@@ -16,6 +16,11 @@ if (typeof crypto !== "undefined" && typeof crypto.randomUUID !== "function") {
 // `diskBuffering: { enabled: false }` to disable IndexedDB replay.
 
 import type { Tracer } from "@opentelemetry/api";
+import {
+  SpanKind,
+  ROOT_CONTEXT,
+  SpanStatusCode as OtelSpanStatusCode,
+} from "@opentelemetry/api";
 import { logs, SeverityNumber } from "@opentelemetry/api-logs";
 import type { Logger } from "@opentelemetry/api-logs";
 import { metrics } from "@opentelemetry/api";
@@ -72,6 +77,8 @@ import { InteractionInstrumentation } from "./instrumentations/interaction";
 import { InteractionLogProcessor } from "./processors/interaction-log-processor";
 import { InteractionContextSpanProcessor } from "./processors/interaction-context-span-processor";
 import type { PulseAttributes } from "./types/attributes";
+import type { PulseSpan, SpanOptions } from "./types/trace";
+import { SpanStatusCode, noopSpan } from "./types/trace";
 
 class PulseSDK implements SdkContext {
   private static _instance: PulseSDK | null = null;
@@ -769,6 +776,82 @@ class PulseSDK implements SdkContext {
         [attributeKeys.SPAN_EXPORTER]: spanExporterHint,
       },
     });
+  }
+
+  startSpan(name: string, options?: SpanOptions): PulseSpan {
+    if (!this._initialized) return noopSpan;
+
+    const otelSpan = this.tracer.startSpan(
+      name,
+      { kind: SpanKind.INTERNAL, startTime: Date.now() },
+      ROOT_CONTEXT,
+    );
+
+    let ended = false;
+    const mergedAttrs = {
+      ...(options?.attributes ?? {}),
+      [PulseWebSemconv.AttributeKey.PULSE_TYPE]:
+        PulseWebSemconv.PulseType.CUSTOM_SPAN,
+    };
+
+    otelSpan.setAttributes(mergedAttrs);
+
+    return {
+      end: (statusCode?: SpanStatusCode): void => {
+        if (ended) return;
+        ended = true;
+
+        if (statusCode === SpanStatusCode.OK) {
+          otelSpan.setStatus({ code: OtelSpanStatusCode.OK });
+        } else if (statusCode === SpanStatusCode.ERROR) {
+          otelSpan.setStatus({ code: OtelSpanStatusCode.ERROR });
+        }
+
+        otelSpan.end(Date.now());
+      },
+      addEvent: (name: string, attributes?: PulseAttributes): void => {
+        otelSpan.addEvent(name, attributes);
+      },
+      setAttributes: (attributes: PulseAttributes): void => {
+        otelSpan.setAttributes(attributes);
+      },
+      recordException: (error: Error, attributes?: PulseAttributes): void => {
+        const err =
+          error instanceof Error ? error : new Error(String(error));
+        otelSpan.recordException(err);
+      },
+    };
+  }
+
+  trackSpan<T>(
+    name: string,
+    fn: () => T | Promise<T>,
+    options?: SpanOptions,
+  ): T | Promise<T> {
+    if (!this._initialized) return fn();
+
+    const span = this.startSpan(name, options);
+
+    try {
+      const result = fn();
+      if (result instanceof Promise) {
+        return result
+          .then((value) => {
+            span.end(SpanStatusCode.OK);
+            return value;
+          })
+          .catch((error) => {
+            span.end(SpanStatusCode.ERROR);
+            throw error;
+          });
+      } else {
+        span.end(SpanStatusCode.OK);
+        return result;
+      }
+    } catch (error) {
+      span.end(SpanStatusCode.ERROR);
+      throw error;
+    }
   }
 }
 
