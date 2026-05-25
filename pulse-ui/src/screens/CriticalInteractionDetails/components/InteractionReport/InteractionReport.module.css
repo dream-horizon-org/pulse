@@ -1,0 +1,56 @@
+.container {
+  padding: var(--mantine-spacing-sm) 0;
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--mantine-spacing-sm);
+  align-items: center;
+}
+
+.cachedBadge {
+  margin-bottom: var(--mantine-spacing-xs);
+}
+
+.section {
+  margin-bottom: var(--mantine-spacing-md);
+}
+
+.sectionTitle {
+  margin-bottom: var(--mantine-spacing-xs);
+}
+
+.verdictSummary {
+  margin-top: var(--mantine-spacing-xs);
+}
+
+.mixGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(7rem, 1fr));
+  gap: var(--mantine-spacing-xs);
+}
+
+.segmentCard {
+  border: 1px solid var(--mantine-color-gray-3);
+  border-radius: var(--mantine-radius-sm);
+  padding: var(--mantine-spacing-sm);
+}
+
+.actionRow {
+  padding: var(--mantine-spacing-xs) 0;
+  border-bottom: 1px solid var(--mantine-color-gray-2);
+}
+
+.actionRow:last-child {
+  border-bottom: none;
+}
+
+.bulletList {
+  margin: 0;
+  padding-left: 1.25rem;
+}
+
+.emptyHint {
+  font-style: italic;
+}

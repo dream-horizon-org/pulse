@@ -94,6 +94,15 @@ export function CiritcalInteractionDetails() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
+  useEffect(() => {
+    if (tabParam === "root-cause" && isInteractionReportEnabled) {
+      const next = new URLSearchParams(searchParams);
+      next.set("tab", "report");
+      setSearchParams(next, { replace: true });
+      setActiveTab("report");
+    }
+  }, [tabParam, isInteractionReportEnabled, searchParams, setSearchParams]);
+
   // Show skeleton loading state while fetching interaction details
   if (fetchingInteractionDetails) {
     return (
