@@ -1,0 +1,55 @@
+{
+  "case_id": "souled_view_cart_paradox",
+  "interaction_name": "ViewCartInteraction",
+  "project_id": "TheSouledStoreApp-bV5Uk1m7",
+  "mandatory_tool_trace": [
+    "fetch_interaction_config",
+    "fetch_interaction_metrics",
+    "fetch_interaction_root_cause_segments"
+  ],
+  "tool_responses": {
+    "fetch_interaction_config": {
+      "status": "success",
+      "data": { "name": "ViewCartInteraction" }
+    },
+    "fetch_interaction_metrics": {
+      "status": "success",
+      "data": {
+        "data": [
+          {
+            "apdex": 0.78,
+            "success_count": 9400,
+            "error_count": 600,
+            "user_excellent": 2000,
+            "user_good": 3000,
+            "user_avg": 2500,
+            "user_poor": 2500
+          }
+        ]
+      }
+    },
+    "fetch_interaction_root_cause_segments": {
+      "status": "success",
+      "data": {
+        "baseline": {
+          "users": 10000,
+          "poor_user_pct": 25.0,
+          "error_rate": 6.0
+        },
+        "segments": [
+          {
+            "label": "app_version: 5.29.0",
+            "metrics": {
+              "volume": 5100,
+              "poor_user_pct": 42.0,
+              "error_rate": 31.0
+            },
+            "deltas": { "poor_user_pct": 17.0, "error_rate": 25.0 },
+            "serverRank": 1
+          }
+        ],
+        "everythingGood": false
+      }
+    }
+  }
+}
