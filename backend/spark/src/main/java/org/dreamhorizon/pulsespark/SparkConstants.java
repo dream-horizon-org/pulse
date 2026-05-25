@@ -169,6 +169,9 @@ public final class SparkConstants {
     public static final String WINDOW_SECONDS  = "window_seconds";
     public static final String FUNNEL_TYPE     = "funnel_type";
     public static final String STEP_ORDER_TYPE = "step_order_type";
+    public static final String REVENUE_ATTRIBUTE   = "revenue_attribute";
+    public static final String REVENUE_STEP_INDEX  = "revenue_step_index";
+    public static final String CURRENCY            = "currency";
 
     // journey table
     public static final String ANCHOR_EVENT  = "anchor_event";
@@ -201,7 +204,8 @@ public final class SparkConstants {
     private ChColumns() {}
 
     public static final String FUNNEL_RESULTS_COLS =
-        "FunnelId,ProjectId,RunTime,StepIndex,StepName,UserCount,ConversionPct,MedianStepSeconds";
+        "FunnelId,ProjectId,RunTime,StepIndex,StepName,UserCount,ConversionPct,MedianStepSeconds,"
+            + "OrderCount,Revenue,AvgOrderValue,LostRevenue";
 
     public static final String JOURNEY_RESULTS_COLS =
         "JourneyId,ProjectId,RunTime,Direction,PosFrom,EventFrom,PosTo,EventTo,UserCount";

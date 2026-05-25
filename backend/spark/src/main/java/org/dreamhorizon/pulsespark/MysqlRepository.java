@@ -4,11 +4,15 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.sql.DriverManager;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Timestamp;
+import java.util.HashSet;
 import java.util.Optional;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 import org.dreamhorizon.pulsespark.model.FunnelDefinition;
 import org.dreamhorizon.pulsespark.model.FunnelFilter;
@@ -52,12 +56,34 @@ public class MysqlRepository {
         stmt.setLong(1, referenceId);
       }
       var rs = stmt.executeQuery();
+      Set<String> cols = resultColumns(rs);
 
       while (rs.next()) {
         List<FunnelStep> steps = MAPPER.readValue(rs.getString(SparkConstants.MysqlColumns.STEPS_JSON), STEPS_TYPE);
         List<FunnelFilter> filters = rs.getString(SparkConstants.MysqlColumns.FILTERS_JSON) != null
           ? MAPPER.readValue(rs.getString(SparkConstants.MysqlColumns.FILTERS_JSON), FILTERS_TYPE)
           : List.of();
+
+        String revenueAttribute = cols.contains(SparkConstants.MysqlColumns.REVENUE_ATTRIBUTE)
+            ? rs.getString(SparkConstants.MysqlColumns.REVENUE_ATTRIBUTE) : null;
+        Integer revenueStepIndex = null;
+        if (cols.contains(SparkConstants.MysqlColumns.REVENUE_STEP_INDEX)) {
+          int v = rs.getInt(SparkConstants.MysqlColumns.REVENUE_STEP_INDEX);
+          revenueStepIndex = rs.wasNull() ? null : v;
+        }
+        String currency = cols.contains(SparkConstants.MysqlColumns.CURRENCY)
+            ? rs.getString(SparkConstants.MysqlColumns.CURRENCY) : null;
+
+        if ((revenueAttribute == null || revenueAttribute.isBlank())
+            && "fancode".equals(rs.getString(SparkConstants.MysqlColumns.PROJECT_ID))) {
+          revenueAttribute = "order.value";
+          if (revenueStepIndex == null) {
+            revenueStepIndex = 4;
+          }
+          if (currency == null) {
+            currency = "INR";
+          }
+        }
 
         results.add(new FunnelDefinition(
           rs.getLong(SparkConstants.MysqlColumns.ID),
@@ -70,11 +96,23 @@ public class MysqlRepository {
           rs.getString(SparkConstants.MysqlColumns.FUNNEL_TYPE),
           rs.getString(SparkConstants.MysqlColumns.STEP_ORDER_TYPE),
           rs.getTimestamp(SparkConstants.MysqlColumns.START_TIME),
-          rs.getTimestamp(SparkConstants.MysqlColumns.END_TIME)
+          rs.getTimestamp(SparkConstants.MysqlColumns.END_TIME),
+          revenueAttribute,
+          revenueStepIndex,
+          currency
         ));
       }
     }
     return results;
+  }
+
+  private static Set<String> resultColumns(ResultSet rs) throws SQLException {
+    ResultSetMetaData md = rs.getMetaData();
+    Set<String> names = new HashSet<>(md.getColumnCount() * 2);
+    for (int i = 1; i <= md.getColumnCount(); i++) {
+      names.add(md.getColumnLabel(i).toLowerCase());
+    }
+    return names;
   }
 
   /**
