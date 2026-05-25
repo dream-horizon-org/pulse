@@ -981,7 +981,7 @@ VALUES
 ), 0, 'system', 'system'),
 
 (601, 'default-project', 'UI Nav to Interactions Loaded', 'RUNNING', JSON_OBJECT(
-    'description', 'nav_item_clicked[destination=interactions] → interactions_list_loaded. Trigger: sidebar Interactions → list API ready.',
+    'description', 'nav_item_clicked[destination=/interactions] → interactions_list_loaded. Trigger: sidebar Interactions → list API ready.',
     'thresholdInMs', 60000,
     'uptimeLowerLimitInMs', 3000,
     'uptimeMidLimitInMs', 15000,
@@ -990,7 +990,7 @@ VALUES
         JSON_OBJECT(
             'name', 'nav_item_clicked',
             'props', JSON_ARRAY(
-                JSON_OBJECT('name', 'destination', 'value', 'interactions', 'operator', 'EQUALS')
+                JSON_OBJECT('name', 'destination', 'value', '/interactions', 'operator', 'EQUALS')
             ),
             'isBlacklisted', false
         ),
@@ -1026,7 +1026,7 @@ VALUES
 ), 0, 'system', 'system'),
 
 (604, 'default-project', 'UI Nav Home to Dashboard', 'RUNNING', JSON_OBJECT(
-    'description', 'nav_item_clicked[destination=home] → dashboard_home_viewed. Trigger: sidebar Home from any project sub-route.',
+    'description', 'nav_item_clicked[destination=/] → dashboard_home_viewed. Trigger: sidebar Home from any project sub-route.',
     'thresholdInMs', 60000,
     'uptimeLowerLimitInMs', 3000,
     'uptimeMidLimitInMs', 15000,
@@ -1035,7 +1035,7 @@ VALUES
         JSON_OBJECT(
             'name', 'nav_item_clicked',
             'props', JSON_ARRAY(
-                JSON_OBJECT('name', 'destination', 'value', 'home', 'operator', 'EQUALS')
+                JSON_OBJECT('name', 'destination', 'value', '/', 'operator', 'EQUALS')
             ),
             'isBlacklisted', false
         ),
@@ -1045,7 +1045,7 @@ VALUES
 ), 0, 'system', 'system'),
 
 (605, 'default-project', 'UI Session Replay Open', 'RUNNING', JSON_OBJECT(
-    'description', 'nav_item_clicked[destination=session_replay] → session_replay_opened. Requires session replay enabled in SDK config.',
+    'description', 'nav_item_clicked[destination=/session-replay/sessions] → session_replay_opened. Requires session replay enabled in SDK config.',
     'thresholdInMs', 60000,
     'uptimeLowerLimitInMs', 3000,
     'uptimeMidLimitInMs', 15000,
@@ -1054,7 +1054,7 @@ VALUES
         JSON_OBJECT(
             'name', 'nav_item_clicked',
             'props', JSON_ARRAY(
-                JSON_OBJECT('name', 'destination', 'value', 'session_replay', 'operator', 'EQUALS')
+                JSON_OBJECT('name', 'destination', 'value', '/session-replay/sessions', 'operator', 'EQUALS')
             ),
             'isBlacklisted', false
         ),
@@ -1064,7 +1064,7 @@ VALUES
 ), 0, 'system', 'system'),
 
 (606, 'default-project', 'UI Create Interaction', 'RUNNING', JSON_OBJECT(
-    'description', 'nav_item_clicked[destination=interactions] → interaction_created. Trigger: open Interactions, create a new critical interaction.',
+    'description', 'nav_item_clicked[destination=/interactions] → interaction_created. Trigger: open Interactions, create a new critical interaction.',
     'thresholdInMs', 300000,
     'uptimeLowerLimitInMs', 10000,
     'uptimeMidLimitInMs', 60000,
@@ -1073,7 +1073,7 @@ VALUES
         JSON_OBJECT(
             'name', 'nav_item_clicked',
             'props', JSON_ARRAY(
-                JSON_OBJECT('name', 'destination', 'value', 'interactions', 'operator', 'EQUALS')
+                JSON_OBJECT('name', 'destination', 'value', '/interactions', 'operator', 'EQUALS')
             ),
             'isBlacklisted', false
         ),
@@ -1083,7 +1083,7 @@ VALUES
 ), 0, 'system', 'system'),
 
 (607, 'default-project', 'UI AI Chat Message Sent', 'RUNNING', JSON_OBJECT(
-    'description', 'nav_item_clicked[destination=ai_chat] → ai_chat_message_sent. Requires REACT_APP_ENABLE_AI_CHAT=true.',
+    'description', 'nav_item_clicked[destination=/ai-chat] → ai_chat_message_sent. Requires REACT_APP_ENABLE_AI_CHAT=true.',
     'thresholdInMs', 120000,
     'uptimeLowerLimitInMs', 5000,
     'uptimeMidLimitInMs', 30000,
@@ -1092,7 +1092,7 @@ VALUES
         JSON_OBJECT(
             'name', 'nav_item_clicked',
             'props', JSON_ARRAY(
-                JSON_OBJECT('name', 'destination', 'value', 'ai_chat', 'operator', 'EQUALS')
+                JSON_OBJECT('name', 'destination', 'value', '/ai-chat', 'operator', 'EQUALS')
             ),
             'isBlacklisted', false
         ),

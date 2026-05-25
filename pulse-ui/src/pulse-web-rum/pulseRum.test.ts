@@ -173,6 +173,7 @@ describe("trackPulseEvent", () => {
       additionalParams: {
         [AnalyticsParams.PULSE_EVENT]: "nav_item_clicked",
         destination: "/interactions",
+        nav_label: "Interactions",
       },
     });
 
@@ -181,6 +182,7 @@ describe("trackPulseEvent", () => {
       expect.objectContaining({
         destination: "/interactions",
         label: "Interactions",
+        nav_label: "Interactions",
         category: "Navigation",
       }),
     );

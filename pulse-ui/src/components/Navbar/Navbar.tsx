@@ -51,6 +51,7 @@ import {
   EventAction,
   EventCategory,
   logEvent,
+  trackLogin,
 } from "../../helpers/googleAnalytics";
 import { AnalyticsParams } from "../../helpers/googleAnalytics/analyticsConstants";
 import { performLogout } from "../../helpers/logout";
@@ -123,6 +124,7 @@ export function Navbar({
       {
         [AnalyticsParams.PULSE_EVENT]: "nav_item_clicked",
         destination: routeTo,
+        ...(navLabel ? { nav_label: navLabel } : {}),
       },
     );
     // Transform flat routes to project-scoped routes
@@ -193,6 +195,8 @@ export function Navbar({
     // Clear all React contexts explicitly
     clearProject();
     clearTenant();
+
+    trackLogin.logout();
 
     // Perform logout (clears cookies, sessionStorage, and signs out)
     await performLogout();
