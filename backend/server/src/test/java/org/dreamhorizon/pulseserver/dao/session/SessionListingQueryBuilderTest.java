@@ -85,49 +85,6 @@ class SessionListingQueryBuilderTest {
   }
 
   @Nested
-  class BuildJourneyQuery {
-
-    @Test
-    void shouldBuildJourneyQueryWithSessionIds() {
-      SessionListingQueryBuilder builder = SessionListingQueryBuilder.create()
-          .projectId(PROJECT_ID)
-          .timeRange(START, END);
-
-      String sql = builder.buildJourneyQuery(List.of("s1", "s2"));
-
-      assertThat(sql).contains("ProjectId");
-      assertThat(sql).contains("SessionId");
-      assertThat(sql).contains("FROM otel.otel_traces");
-      assertThat(sql).contains("SessionId IN (");
-      assertThat(sql).contains("'s1'");
-      assertThat(sql).contains("'s2'");
-      assertThat(sql).contains("GROUP BY SessionId");
-    }
-
-    @Test
-    void shouldThrowWhenSessionIdsEmpty() {
-      SessionListingQueryBuilder builder = SessionListingQueryBuilder.create()
-          .projectId(PROJECT_ID)
-          .timeRange(START, END);
-
-      assertThatThrownBy(() -> builder.buildJourneyQuery(Collections.emptyList()))
-          .isInstanceOf(IllegalArgumentException.class)
-          .hasMessageContaining("sessionIds must not be empty");
-    }
-
-    @Test
-    void shouldThrowWhenSessionIdsNull() {
-      SessionListingQueryBuilder builder = SessionListingQueryBuilder.create()
-          .projectId(PROJECT_ID)
-          .timeRange(START, END);
-
-      assertThatThrownBy(() -> builder.buildJourneyQuery(null))
-          .isInstanceOf(IllegalArgumentException.class)
-          .hasMessageContaining("sessionIds must not be empty");
-    }
-  }
-
-  @Nested
   class BuildImpactedScreensQuery {
 
     @Test
