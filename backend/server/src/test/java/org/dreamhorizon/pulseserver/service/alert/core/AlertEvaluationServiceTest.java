@@ -1072,7 +1072,7 @@ class AlertEvaluationServiceTest {
     }
 
     @Test
-    void shouldBuildQueryRequestForAppVitalsWithLogsDataType() throws Exception {
+    void shouldBuildQueryRequestForAppVitalsWithTracesDataType() throws Exception {
       Method method = AlertEvaluationService.class.getDeclaredMethod(
           "buildQueryRequest", AlertsDao.AlertDetails.class, List.class, List.class, QueryRequest.DataType.class);
       method.setAccessible(true);
@@ -1092,11 +1092,11 @@ class AlertEvaluationServiceTest {
       );
 
       QueryRequest result =
-          (QueryRequest) method.invoke(alertEvaluationService, alertDetails, scopes, List.of("ALL_USERS"), QueryRequest.DataType.LOGS);
+          (QueryRequest) method.invoke(alertEvaluationService, alertDetails, scopes, List.of("ALL_USERS"), QueryRequest.DataType.TRACES);
       assertNotNull(result);
-      assertEquals(QueryRequest.DataType.LOGS, result.getDataType());
+      assertEquals(QueryRequest.DataType.TRACES, result.getDataType());
       assertTrue(result.getFilters().stream().anyMatch(f ->
-          "PulseType".equals(f.getField()) && f.getValue().contains("session.start")));
+          "PulseType".equals(f.getField()) && f.getValue().contains("app_start")));
     }
 
     @Test
@@ -2450,9 +2450,9 @@ class AlertEvaluationServiceTest {
           method.invoke(alertEvaluationService, scopes, "APP_VITALS");
 
       assertNotNull(result);
-      assertTrue(result.containsKey(QueryRequest.DataType.LOGS));
+      assertTrue(result.containsKey(QueryRequest.DataType.TRACES));
       assertTrue(result.containsKey(QueryRequest.DataType.EXCEPTIONS));
-      assertTrue(result.get(QueryRequest.DataType.LOGS).contains("ALL_USERS"));
+      assertTrue(result.get(QueryRequest.DataType.TRACES).contains("ALL_USERS"));
       assertTrue(result.get(QueryRequest.DataType.EXCEPTIONS).contains("CRASH_USERS"));
     }
   }
@@ -3117,20 +3117,20 @@ class AlertEvaluationServiceTest {
     }
 
     @Test
-    void shouldAddPulseTypeFilterForAppVitalsLogs() throws Exception {
+    void shouldAddPulseTypeFilterForAppVitalsTraces() throws Exception {
       Method method = AlertEvaluationService.class.getDeclaredMethod(
           "addPulseTypeFilter", List.class, QueryRequest.DataType.class, boolean.class, String.class);
       method.setAccessible(true);
 
       List<QueryRequest.Filter> filters = new ArrayList<>();
-      method.invoke(alertEvaluationService, filters, QueryRequest.DataType.LOGS, true, "APP_VITALS");
+      method.invoke(alertEvaluationService, filters, QueryRequest.DataType.TRACES, true, "APP_VITALS");
 
       QueryRequest.Filter filter = filters.stream()
           .filter(f -> "PulseType".equals(f.getField()))
           .findFirst().orElse(null);
       assertNotNull(filter);
       assertEquals(QueryRequest.Operator.EQ, filter.getOperator());
-      assertTrue(filter.getValue().toString().contains("session.start"));
+      assertTrue(filter.getValue().toString().contains("app_start"));
     }
   }
 

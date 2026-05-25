@@ -69,9 +69,9 @@ public class MetricToFunctionMapper {
       return QueryRequest.DataType.EXCEPTIONS;
     }
 
-    if ("APP_VITALS".equalsIgnoreCase(scope) && 
-        (upperMetric.equals("ALL_USERS") || upperMetric.equals("ALL_SESSIONS"))) {
-      return QueryRequest.DataType.LOGS;
+    if ("APP_VITALS".equalsIgnoreCase(scope)
+        && (upperMetric.equals("ALL_USERS") || upperMetric.equals("ALL_SESSIONS"))) {
+      return QueryRequest.DataType.TRACES;
     }
 
     if (COMPOSITE_METRICS.contains(upperMetric)) {
@@ -98,10 +98,7 @@ public class MetricToFunctionMapper {
     }
 
     String upperMetric = metric.toUpperCase();
-    boolean isAppVitals = "APP_VITALS".equalsIgnoreCase(scope);
-    QueryRequest.DataType totalMetricDataType = isAppVitals 
-        ? QueryRequest.DataType.LOGS 
-        : QueryRequest.DataType.TRACES;
+    QueryRequest.DataType totalMetricDataType = QueryRequest.DataType.TRACES;
 
     return switch (upperMetric) {
       case "CRASH_FREE_USERS_PERCENTAGE" -> new CompositeMetricComponents("ALL_USERS", "CRASH_USERS", totalMetricDataType);
