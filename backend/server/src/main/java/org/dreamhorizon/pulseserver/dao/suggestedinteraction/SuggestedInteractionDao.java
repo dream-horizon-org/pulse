@@ -15,6 +15,7 @@ import io.vertx.rxjava3.sqlclient.RowSet;
 import io.vertx.rxjava3.sqlclient.Tuple;
 import java.sql.Timestamp;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -133,7 +134,7 @@ public class SuggestedInteractionDao {
     String edgesJson = item.getEdges() == null || item.getEdges().isEmpty()
         ? null
         : objectMapper.writeValueAsString(item.getEdges());
-    Tuple tuple = Tuple.of(
+    Tuple tuple = Tuple.from(Arrays.asList(
         projectId,
         eventsJson,
         item.getTotalOccurrences(),
@@ -143,7 +144,7 @@ public class SuggestedInteractionDao {
         item.getMedianSpanS(),
         item.getP95SpanS(),
         item.getCv(),
-        edgesJson);
+        edgesJson));
     return conn.preparedQuery(INSERT_SUGGESTION).rxExecute(tuple);
   }
 
