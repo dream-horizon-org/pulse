@@ -63,7 +63,8 @@ function withPulseProjectBuildGradle(
 
 function withPulseAppBuildGradle(
   config: ExpoConfig,
-  okHttp: ResolvedOkHttpGradle
+  okHttp: ResolvedOkHttpGradle,
+  kotlin19Compat: boolean
 ) {
   if (!okHttp.enabled) {
     return config;
@@ -76,7 +77,8 @@ function withPulseAppBuildGradle(
     try {
       mod.modResults.contents = mergePulseOkHttpAppGradle(
         mod.modResults.contents,
-        PULSE_DREAMHORIZON_OKHTTP_INSTR_VERSION
+        PULSE_DREAMHORIZON_OKHTTP_INSTR_VERSION,
+        kotlin19Compat
       );
     } catch (e) {
       console.error(
@@ -88,15 +90,20 @@ function withPulseAppBuildGradle(
   });
 }
 
-/** Android Gradle: Byte Buddy + Dream Horizon OkHttp instrumentation when `okHttpInstrumentation.enabled`. */
-export const withAndroidBuildFeatures: ConfigPlugin<ResolvedOkHttpGradle> = (
-  config,
-  okHttp
-) => {
+/** Args struct for `withAndroidBuildFeatures` — both flags travel together because the okhttp3-library injection at `:app` needs a kotlin-stdlib force when `kotlin19Compat` is also on (otherwise Gradle resolution fails). */
+export type AndroidBuildFeaturesArgs = {
+  okHttp: ResolvedOkHttpGradle;
+  kotlin19Compat: boolean;
+};
+
+/** Android Gradle: Byte Buddy + Dream Horizon OkHttp instrumentation when `okHttpInstrumentation.enabled`. When `kotlin19Compat` is also on, additionally force `kotlin-stdlib` at consumer level so both flags coexist. */
+export const withAndroidBuildFeatures: ConfigPlugin<
+  AndroidBuildFeaturesArgs
+> = (config, { okHttp, kotlin19Compat }) => {
   if (okHttp.enabled) {
     config = withPulseJetifierIgnoreByteBuddy(config, okHttp);
     config = withPulseProjectBuildGradle(config, okHttp);
-    config = withPulseAppBuildGradle(config, okHttp);
+    config = withPulseAppBuildGradle(config, okHttp, kotlin19Compat);
   }
   return config;
 };

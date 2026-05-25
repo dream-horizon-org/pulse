@@ -28,8 +28,8 @@ export const GET_RCA_STATUS_ROUTE = {
   key: "GET_RCA_STATUS",
   apiPath: (entityKey: string, rcaType: string, date?: string | null) => {
     const params = new URLSearchParams({
-      entityKey,
       rcaType,
+      entityKey,
     });
     if (date) {
       params.set("date", date);

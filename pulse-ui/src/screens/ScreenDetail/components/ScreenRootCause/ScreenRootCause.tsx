@@ -1,4 +1,5 @@
 import {
+  ActionIcon,
   Alert,
   Badge,
   Box,
@@ -10,8 +11,9 @@ import {
   Stack,
   Table,
   Text,
+  Tooltip,
 } from "@mantine/core";
-import { IconRefresh, IconSparkles } from "@tabler/icons-react";
+import { IconInfoCircle, IconRefresh, IconSparkles } from "@tabler/icons-react";
 import dayjs from "dayjs";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ErrorAndEmptyState } from "../../../../components/ErrorAndEmptyState";
@@ -24,6 +26,7 @@ import rcaClasses from "../../../CriticalInteractionDetails/components/RootCause
 import { RcaRelatedHeatmapCard } from "../../../CriticalInteractionDetails/components/RootCause/RcaRelatedHeatmapCard";
 import {
   SCREEN_ROOT_CAUSE_MESSAGES,
+  SCREEN_RCA_BAD_FRUSTRATION_PERCENTAGE_TOOLTIP,
   SCREEN_RCA_METRIC_LABELS,
 } from "./ScreenRootCause.constants";
 import {
@@ -54,10 +57,13 @@ function formatReportAsOf(iso: string | null | undefined): string | null {
 function formatMetricValue(key: string, value: unknown): string {
   if (value == null) return "—";
   if (typeof value === "number" && Number.isFinite(value)) {
+    if (key === "bad_frustration_percentage") {
+      return `${value.toFixed(1)}%`;
+    }
     if (
       key === "click_volume" ||
       key.endsWith("_count") ||
-      key.includes("frustration")
+      key === "bad_frustration"
     ) {
       return Number.isInteger(value) ? String(value) : value.toFixed(1);
     }
@@ -71,13 +77,94 @@ function formatDelta(value: number): string {
   return `${sign}${value.toFixed(1)}%`;
 }
 
-const BASELINE_ORDER = [
-  "click_volume",
+const BAD_FRUSTRATION_PERCENTAGE_KEY = "bad_frustration_percentage";
+
+/** Click breakdown rows only — rate is shown in {@link BadFrustrationRateFooter}. */
+const SEGMENT_TABLE_METRICS = [
   "tap_count",
   "rage_count",
   "dead_count",
-  "bad_frustration",
+  "click_volume",
 ] as const;
+
+function BadFrustrationRateFooter({
+  segmentMetrics,
+  baseline,
+  deltas,
+}: {
+  segmentMetrics: Record<string, unknown> | undefined;
+  baseline: Record<string, unknown>;
+  deltas?: Record<string, number> | null;
+}) {
+  const label =
+    SCREEN_RCA_METRIC_LABELS[BAD_FRUSTRATION_PERCENTAGE_KEY] ??
+    BAD_FRUSTRATION_PERCENTAGE_KEY;
+  const segmentVal = segmentMetrics?.[BAD_FRUSTRATION_PERCENTAGE_KEY];
+  const baseVal = baseline[BAD_FRUSTRATION_PERCENTAGE_KEY];
+  const d = deltas?.[BAD_FRUSTRATION_PERCENTAGE_KEY];
+  const deltaStr = d != null && Number.isFinite(d) ? formatDelta(d) : "—";
+  const deltaBadgeColor =
+    d == null || !Number.isFinite(d)
+      ? "gray"
+      : d < 0
+        ? "teal"
+        : d > 0
+          ? "red"
+          : "gray";
+
+  return (
+    <Box className={classes.badFrustrationRateFooter}>
+      <div className={classes.badFrustrationRateFooterInner}>
+        <div className={classes.badFrustrationRateFooterLabel}>
+          <Text size="sm" fw={600} lh={1.4}>
+            {label}
+          </Text>
+          <Tooltip
+            label={SCREEN_RCA_BAD_FRUSTRATION_PERCENTAGE_TOOLTIP}
+            multiline
+            maw={300}
+            withArrow
+            events={{ hover: true, focus: true, touch: true }}
+          >
+            <ActionIcon
+              variant="subtle"
+              color="gray"
+              size="sm"
+              radius="xl"
+              aria-label={`${label}: formula`}
+            >
+              <IconInfoCircle size={15} stroke={1.5} />
+            </ActionIcon>
+          </Tooltip>
+        </div>
+        <div className={classes.badFrustrationRateStat}>
+          <Text size="xs" c="gray.6" mb={4} fw={500}>
+            Segment
+          </Text>
+          <Badge size="lg" variant="light" color="red" fw={600}>
+            {formatMetricValue(BAD_FRUSTRATION_PERCENTAGE_KEY, segmentVal)}
+          </Badge>
+        </div>
+        <div className={classes.badFrustrationRateStat}>
+          <Text size="xs" c="gray.6" mb={4} fw={500}>
+            Last 7 days
+          </Text>
+          <Badge size="lg" variant="light" color="gray" fw={600}>
+            {formatMetricValue(BAD_FRUSTRATION_PERCENTAGE_KEY, baseVal)}
+          </Badge>
+        </div>
+        <div className={classes.badFrustrationRateStat}>
+          <Text size="xs" c="gray.6" mb={4} fw={500}>
+            Delta
+          </Text>
+          <Badge size="lg" variant="light" color={deltaBadgeColor} fw={600}>
+            {deltaStr}
+          </Badge>
+        </div>
+      </div>
+    </Box>
+  );
+}
 
 export function ScreenRootCause({
   screenName,
@@ -515,7 +602,6 @@ export function ScreenRootCause({
                             <col
                               className={rcaClasses.metricsTableColNumeric}
                             />
-                            <col className={rcaClasses.metricsTableColDelta} />
                           </colgroup>
                           <Table.Thead>
                             <Table.Tr>
@@ -523,7 +609,7 @@ export function ScreenRootCause({
                                 <span
                                   className={rcaClasses.metricsThLabelMetric}
                                 >
-                                  Metric
+                                  Click Distribution
                                 </span>
                               </Table.Th>
                               <Table.Th
@@ -532,7 +618,7 @@ export function ScreenRootCause({
                                 <span
                                   className={rcaClasses.metricsThLabelNumeric}
                                 >
-                                  Value
+                                  Current Segment
                                 </span>
                               </Table.Th>
                               <Table.Th
@@ -541,40 +627,18 @@ export function ScreenRootCause({
                                 <span
                                   className={rcaClasses.metricsThLabelNumeric}
                                 >
-                                  Baseline
-                                </span>
-                              </Table.Th>
-                              <Table.Th
-                                className={rcaClasses.metricsColNumericNarrow}
-                              >
-                                <span
-                                  className={rcaClasses.metricsThLabelNumeric}
-                                >
-                                  Delta
+                                  Last 7 Days
                                 </span>
                               </Table.Th>
                             </Table.Tr>
                           </Table.Thead>
                           <Table.Tbody>
-                            {BASELINE_ORDER.map((metricKey) => {
+                            {SEGMENT_TABLE_METRICS.map((metricKey) => {
                               const segmentVal = seg.metrics?.[metricKey];
                               const baseVal = baseline[metricKey];
-                              const d = seg.deltas?.[metricKey];
                               const label =
                                 SCREEN_RCA_METRIC_LABELS[metricKey] ??
                                 metricKey;
-                              const deltaStr =
-                                d != null && Number.isFinite(d)
-                                  ? formatDelta(d)
-                                  : "—";
-                              const deltaColor =
-                                d == null || !Number.isFinite(d)
-                                  ? undefined
-                                  : d < 0
-                                    ? ("teal.7" as const)
-                                    : d > 0
-                                      ? ("red.7" as const)
-                                      : undefined;
                               return (
                                 <Table.Tr key={metricKey}>
                                   <Table.Td
@@ -603,21 +667,6 @@ export function ScreenRootCause({
                                       {formatMetricValue(metricKey, baseVal)}
                                     </Text>
                                   </Table.Td>
-                                  <Table.Td
-                                    className={
-                                      rcaClasses.metricsColNumericNarrow
-                                    }
-                                  >
-                                    <Text
-                                      size="sm"
-                                      w="100%"
-                                      ta="end"
-                                      fw={600}
-                                      c={deltaColor}
-                                    >
-                                      {deltaStr}
-                                    </Text>
-                                  </Table.Td>
                                 </Table.Tr>
                               );
                             })}
@@ -625,6 +674,11 @@ export function ScreenRootCause({
                         </Table>
                       </Table.ScrollContainer>
                     </div>
+                    <BadFrustrationRateFooter
+                      segmentMetrics={seg.metrics}
+                      baseline={baseline}
+                      deltas={seg.deltas}
+                    />
                     {trimmedProjectId !== "" ? (
                       <Box className={rcaClasses.evidenceSection} mt="md">
                         <div className={rcaClasses.evidenceSectionTitleRow}>

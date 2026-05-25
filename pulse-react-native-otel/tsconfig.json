@@ -1,5 +1,5 @@
 {
-  "exclude": ["node_modules", "lib", "example", "expo-example", "plugin/build"],
+  "exclude": ["node_modules", "lib", "example", "expo-example", "expo-example-rn076", "plugin/build"],
   "compilerOptions": {
     "rootDir": ".",
     "paths": {

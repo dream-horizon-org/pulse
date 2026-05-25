@@ -262,9 +262,9 @@ class TestRootAgentRestructure:
     def test_em_agent_has_tools(self):
         from pulse_ai.agent import root_agent
         em = root_agent.sub_agents[0]
-        # EM agent should have 7 tools: 2 config + 4 analytics + 1 utility
+        # EM agent should have 8 tools: 2 config + 5 analytics + 1 utility
         assert em.tools is not None
-        assert len(em.tools) == 7
+        assert len(em.tools) == 8
 
     def test_em_agent_has_callable_instruction(self):
         from pulse_ai.agent import root_agent

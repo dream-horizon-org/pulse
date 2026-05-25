@@ -28,23 +28,6 @@ public final class SessionListingConstants {
 
   public static final String JOURNEY_DELIMITER = "|||";
 
-  public static final String JOURNEY_SELECT = String.join("\n",
-      "SELECT",
-      "  SessionId,",
-      "  arrayStringConcat(arrayFilter(",
-      "    x -> x != '',",
-      "    arrayMap(t -> t.2, arraySort(t -> t.1, groupArray((",
-      "      Timestamp,",
-      "      coalesce(",
-      "        nullIf(trimBoth(SpanAttributes['page.url']), ''),",
-      "        nullIf(trimBoth(ScreenName), ''),",
-      "        SpanName",
-      "      )",
-      "    ))))",
-      "  ), '|||') AS journey",
-      "FROM otel.otel_traces"
-  );
-
   public static final String SEMI_JOIN_SELECT = "SELECT DISTINCT SessionId FROM otel.otel_traces";
 
   public static final String IMPACTED_SCREENS_SELECT = String.join("\n",

@@ -30,8 +30,10 @@ dependencies {
     implementation(libs.kotlin.serialisation)
     implementation(libs.kotlin.coroutines)
     implementation(libs.play.services.tasks)
-    // we are exposing okHttp types and having api enabled clients to use it without declaring okHttp dependency
-    api(libs.okhttp)
+    // okhttp is bundled at runtime but not exposed on consumers' compile classpath.
+    // Consumers bring their own okhttp version (RN: 4.x; direct Android: whatever); Gradle's
+    // "highest wins" means our pinned 4.12.0 only matters if no other contributor exists.
+    implementation(libs.okhttp)
     implementation(libs.retrofit)
     testImplementation(libs.bundles.junit)
     testImplementation(projects.testCommon)

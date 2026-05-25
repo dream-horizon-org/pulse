@@ -1,7 +1,6 @@
 import { UseFormReturn } from "react-hook-form";
 import { CriticalInteractionFormRequestBodyParams } from "../createJob";
 import { CriticalInteractionFormData } from "../../screens/CriticalInteractionForm";
-import { CRITICAL_INTERACTION_FORM_CONSTANTS } from "../../constants";
 
 export const makeCriticalInteractionFormRequestBody = (
   formMethods: UseFormReturn<CriticalInteractionFormData>,
@@ -40,9 +39,7 @@ export const makeCriticalInteractionFormRequestBody = (
     uptimeLowerLimitInMs: parseInt(`${formMethods.getValues("uptimeLowerLimitInMs")}`),
     uptimeMidLimitInMs: parseInt(`${formMethods.getValues("uptimeMidLimitInMs")}`),
     uptimeUpperLimitInMs: parseInt(`${formMethods.getValues("uptimeUpperLimitInMs")}`),
-    thresholdInMs: parseInt(
-      CRITICAL_INTERACTION_FORM_CONSTANTS.DEFAULT_INTERACTION_THRESHOLD,
-    ),
+    thresholdInMs: parseInt(`${formMethods.getValues("thresholdInMs")}`),
     events: newEventSequence,
     globalBlacklistedEvents: newGlobalBlacklistedEvents,
   };
