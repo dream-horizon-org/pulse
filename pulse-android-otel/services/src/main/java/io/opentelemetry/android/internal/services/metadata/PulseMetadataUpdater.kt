@@ -176,7 +176,7 @@ class PulseMetadataUpdater internal constructor(
             }
         }
 
-        private fun getMetadataFile(context: Context): File {
+        fun getMetadataFile(context: Context): File {
             val dir = File(context.cacheDir, METADATA_DIR)
             dir.mkdirs()
             return File(dir, METADATA_FILE)

@@ -19,15 +19,44 @@ internal object PulseNativeJni {
         }
     }
 
-    fun install(reportsDirAbsolutePath: String): Boolean =
+    fun install(
+        reportsDirAbsolutePath: String,
+        metadataSourceAbsolutePath: String,
+        crashFileName: String,
+        metadataFileName: String,
+        sessionId: String,
+    ): Boolean =
         try {
             PulseLogger.logDebug(CCrashInstrumentation.TAG) { "nativeInstall invoking" }
-            nativeInstall(reportsDirAbsolutePath)
+            nativeInstall(
+                reportsDirAbsolutePath,
+                metadataSourceAbsolutePath,
+                crashFileName,
+                metadataFileName,
+                sessionId,
+            )
         } catch (t: Throwable) {
             PulseLogger.logError(CCrashInstrumentation.TAG, t) { "nativeInstall failed" }
             false
         }
 
+    fun updateSessionId(sessionId: String) {
+        try {
+            nativeUpdateSessionId(sessionId)
+        } catch (t: Throwable) {
+            PulseLogger.logError(CCrashInstrumentation.TAG, t) { "nativeUpdateSessionId failed" }
+        }
+    }
+
     @PulseJniCall
-    private external fun nativeInstall(reportsDirAbsolutePath: String): Boolean
+    private external fun nativeInstall(
+        reportsDirAbsolutePath: String,
+        metadataSourceAbsolutePath: String,
+        crashFileName: String,
+        metadataFileName: String,
+        sessionId: String,
+    ): Boolean
+
+    @PulseJniCall
+    private external fun nativeUpdateSessionId(sessionId: String)
 }

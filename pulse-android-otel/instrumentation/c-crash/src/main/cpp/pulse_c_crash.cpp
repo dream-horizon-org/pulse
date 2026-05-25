@@ -25,6 +25,10 @@ namespace {
     struct sigaction g_old_actions[kSignalCount];
 
     char g_reports_dir[512];
+    char g_metadata_source_path[512];
+    char g_crash_file_name[256];
+    char g_metadata_file_name[256];
+    char g_session_id[128];
     volatile sig_atomic_t g_installed = 0;
 
     /** Alternate signal stack for SA_ONSTACK (parity with bugsnag signal_handler.c). */
@@ -41,6 +45,9 @@ namespace {
     alignas(64) char g_write_report_json[kWriteReportJsonCap];
     PulseNativeStackFrame g_write_report_raw_frames[kPulseUnwindFramesMax];
     char g_write_report_thread_name[32]; // /proc/comm is max 15 chars + NUL
+
+    constexpr size_t kCopyBufferSize = 4096;
+    alignas(64) char g_copy_buffer[kCopyBufferSize];
 
     pid_t get_tid() __asyncsafe {
         return static_cast<pid_t>(syscall(SYS_gettid));
@@ -71,6 +78,48 @@ namespace {
             off += static_cast<size_t>(rc);
         }
         pulse_logd(PULSE_LOG_TAG_CCRASH, "safe_write_all: done");
+    }
+
+    void copy_file_asyncsafe(const char *src_path, const char *dest_path) __asyncsafe {
+        if (src_path == nullptr || src_path[0] == '\0') {
+            pulse_loge(PULSE_LOG_TAG_CCRASH, "copy_file_asyncsafe: src path empty");
+            return;
+        }
+        if (dest_path == nullptr || dest_path[0] == '\0') {
+            pulse_loge(PULSE_LOG_TAG_CCRASH, "copy_file_asyncsafe: dest path empty");
+            return;
+        }
+
+        const int src_fd = open(src_path, O_RDONLY | O_CLOEXEC);
+        if (src_fd < 0) {
+            pulse_loge(PULSE_LOG_TAG_CCRASH,
+                    "copy_file_asyncsafe: open src failed path=%s errno=%d", src_path, errno);
+            return;
+        }
+
+        const int dest_fd = open(dest_path, O_CREAT | O_TRUNC | O_WRONLY | O_CLOEXEC, 0600);
+        if (dest_fd < 0) {
+            pulse_loge(PULSE_LOG_TAG_CCRASH,
+                    "copy_file_asyncsafe: open dest failed path=%s errno=%d", dest_path, errno);
+            close(src_fd);
+            return;
+        }
+
+        for (;;) {
+            const ssize_t n = read(src_fd, g_copy_buffer, kCopyBufferSize);
+            if (n < 0) {
+                pulse_loge(PULSE_LOG_TAG_CCRASH,
+                        "copy_file_asyncsafe: read failed src=%s errno=%d", src_path, errno);
+                break;
+            }
+            if (n == 0) {
+                break;
+            }
+            safe_write_all(dest_fd, g_copy_buffer, static_cast<size_t>(n));
+        }
+
+        close(src_fd);
+        close(dest_fd);
     }
 
     /**
@@ -134,23 +183,46 @@ namespace {
         if (n > 0 && buf[n - 1] == '\n') buf[n - 1] = '\0';
     }
 
+    bool ensure_dir(const char *path) __asyncsafe {
+        if (path == nullptr || path[0] == '\0') {
+            pulse_loge(PULSE_LOG_TAG_CCRASH, "ensure_dir: path null or empty");
+            return false;
+        }
+        if (mkdir(path, 0700) == 0) return true;
+        if (errno == EEXIST) return true;
+        pulse_loge(PULSE_LOG_TAG_CCRASH, "ensure_dir: mkdir failed path=%s errno=%d", path, errno);
+        return false;
+    }
+
     void write_report(int sig, siginfo_t *info, void *ucontext) __asyncsafe {
         if (g_reports_dir[0] == '\0') {
             pulse_loge(PULSE_LOG_TAG_CCRASH, "write_report: global reports dir is empty");
             return;
         }
 
+        if (g_crash_file_name[0] == '\0') {
+            pulse_loge(PULSE_LOG_TAG_CCRASH, "write_report: crash file name is empty");
+            return;
+        }
+
         timespec ts{};
         clock_gettime(CLOCK_REALTIME, &ts);
         const long long ts_ms = static_cast<long long>(ts.tv_sec) * 1000LL + ts.tv_nsec / 1000000LL;
+        const char *session_id = g_session_id[0] != '\0' ? g_session_id : "unknown";
 
         char path[768];
         const int pid = static_cast<int>(getpid());
         const pid_t tid_raw = get_tid();
         const int tid = static_cast<int>(tid_raw);
 
-        snprintf(path, sizeof(path), "%s/pulse-native-crash-%lld-%d-%d.json",
-                g_reports_dir, ts_ms, pid, tid);
+        snprintf(path, sizeof(path), "%s/%lld_%s", g_reports_dir, ts_ms, session_id);
+        if (!ensure_dir(path)) {
+            pulse_loge(PULSE_LOG_TAG_CCRASH, "write_report: failed to create crash dir path=%s", path);
+            return;
+        }
+
+        snprintf(path, sizeof(path), "%s/%lld_%s/%s",
+                g_reports_dir, ts_ms, session_id, g_crash_file_name);
 
         read_thread_name(tid_raw, g_write_report_thread_name, sizeof(g_write_report_thread_name));
 
@@ -254,6 +326,20 @@ namespace {
         pulse_logd(PULSE_LOG_TAG_CCRASH, "write_report: before safe_write_all");
         safe_write_all(fd, json, strnlen(json, kWriteReportJsonCap));
         close(fd);
+
+        if (g_metadata_source_path[0] != '\0' && g_metadata_file_name[0] != '\0') {
+            char metadata_dest[768];
+            snprintf(metadata_dest, sizeof(metadata_dest), "%s/%lld_%s/%s",
+                    g_reports_dir, ts_ms, session_id, g_metadata_file_name);
+            pulse_logd(PULSE_LOG_TAG_CCRASH,
+                    "write_report: copying metadata src=%s dest=%s",
+                    g_metadata_source_path, metadata_dest);
+            copy_file_asyncsafe(g_metadata_source_path, metadata_dest);
+        } else if (g_metadata_source_path[0] == '\0') {
+            pulse_loge(PULSE_LOG_TAG_CCRASH, "write_report: metadata source path is empty");
+        } else {
+            pulse_loge(PULSE_LOG_TAG_CCRASH, "write_report: metadata file name is empty");
+        }
     }
 
     size_t signal_index(int sig) __asyncsafe {
@@ -283,17 +369,6 @@ namespace {
         }
 
         raise(sig);
-    }
-
-    bool ensure_dir(const char *path) {
-        if (path == nullptr || path[0] == '\0') {
-            pulse_loge(PULSE_LOG_TAG_CCRASH, "ensure_dir: path null or empty");
-            return false;
-        }
-        if (mkdir(path, 0700) == 0) return true;
-        if (errno == EEXIST) return true;
-        pulse_loge(PULSE_LOG_TAG_CCRASH, "ensure_dir: mkdir failed path=%s errno=%d", path, errno);
-        return false;
     }
 
     /**
@@ -326,7 +401,13 @@ namespace {
 
 extern "C" JNIEXPORT jboolean JNICALL
 Java_io_opentelemetry_android_instrumentation_ccrash_PulseNativeJni_nativeInstall(
-        JNIEnv *env, jobject thiz, jstring reportsDirAbsolutePath) {
+        JNIEnv *env,
+        jobject thiz,
+        jstring reportsDirAbsolutePath,
+        jstring metadataSourceAbsolutePath,
+        jstring crashFileName,
+        jstring metadataFileName,
+        jstring sessionId) {
     (void) thiz;
 
     if (g_installed != 0) {
@@ -336,13 +417,58 @@ Java_io_opentelemetry_android_instrumentation_ccrash_PulseNativeJni_nativeInstal
 
     const char *path = env->GetStringUTFChars(reportsDirAbsolutePath, nullptr);
     if (path == nullptr) {
-        pulse_loge(PULSE_LOG_TAG_CCRASH, "nativeInstall: path null");
+        pulse_loge(PULSE_LOG_TAG_CCRASH, "nativeInstall: reports dir path null");
         return JNI_FALSE;
     }
 
     strncpy(g_reports_dir, path, sizeof(g_reports_dir) - 1);
     g_reports_dir[sizeof(g_reports_dir) - 1] = '\0';
     env->ReleaseStringUTFChars(reportsDirAbsolutePath, path);
+
+    const char *metadata_path = env->GetStringUTFChars(metadataSourceAbsolutePath, nullptr);
+    if (metadata_path == nullptr) {
+        pulse_loge(PULSE_LOG_TAG_CCRASH, "nativeInstall: metadata source path null");
+        return JNI_FALSE;
+    }
+
+    strncpy(g_metadata_source_path, metadata_path, sizeof(g_metadata_source_path) - 1);
+    g_metadata_source_path[sizeof(g_metadata_source_path) - 1] = '\0';
+    env->ReleaseStringUTFChars(metadataSourceAbsolutePath, metadata_path);
+
+    const char *crash_file_name = env->GetStringUTFChars(crashFileName, nullptr);
+    if (crash_file_name == nullptr) {
+        pulse_loge(PULSE_LOG_TAG_CCRASH, "nativeInstall: crash file name null");
+        return JNI_FALSE;
+    }
+
+    strncpy(g_crash_file_name, crash_file_name, sizeof(g_crash_file_name) - 1);
+    g_crash_file_name[sizeof(g_crash_file_name) - 1] = '\0';
+    env->ReleaseStringUTFChars(crashFileName, crash_file_name);
+
+    const char *metadata_file_name = env->GetStringUTFChars(metadataFileName, nullptr);
+    if (metadata_file_name == nullptr) {
+        pulse_loge(PULSE_LOG_TAG_CCRASH, "nativeInstall: metadata file name null");
+        return JNI_FALSE;
+    }
+
+    strncpy(g_metadata_file_name, metadata_file_name, sizeof(g_metadata_file_name) - 1);
+    g_metadata_file_name[sizeof(g_metadata_file_name) - 1] = '\0';
+    env->ReleaseStringUTFChars(metadataFileName, metadata_file_name);
+
+    const char *session_id = env->GetStringUTFChars(sessionId, nullptr);
+    if (session_id == nullptr) {
+        pulse_loge(PULSE_LOG_TAG_CCRASH, "nativeInstall: session id null");
+        return JNI_FALSE;
+    }
+
+    strncpy(g_session_id, session_id, sizeof(g_session_id) - 1);
+    g_session_id[sizeof(g_session_id) - 1] = '\0';
+    env->ReleaseStringUTFChars(sessionId, session_id);
+
+    if (g_crash_file_name[0] == '\0' || g_metadata_file_name[0] == '\0') {
+        pulse_loge(PULSE_LOG_TAG_CCRASH, "nativeInstall: crash or metadata file name empty");
+        return JNI_FALSE;
+    }
 
     if (!ensure_dir(g_reports_dir)) return JNI_FALSE;
 
@@ -376,6 +502,24 @@ Java_io_opentelemetry_android_instrumentation_ccrash_PulseNativeJni_nativeInstal
     g_installed = 1;
     pulse_logd(PULSE_LOG_TAG_CCRASH, "nativeInstall: installed");
     return JNI_TRUE;
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_io_opentelemetry_android_instrumentation_ccrash_PulseNativeJni_nativeUpdateSessionId(
+        JNIEnv *env,
+        jobject thiz,
+        jstring sessionId) {
+    (void) thiz;
+
+    const char *session_id = env->GetStringUTFChars(sessionId, nullptr);
+    if (session_id == nullptr) {
+        pulse_loge(PULSE_LOG_TAG_CCRASH, "nativeUpdateSessionId: session id null");
+        return;
+    }
+
+    strncpy(g_session_id, session_id, sizeof(g_session_id) - 1);
+    g_session_id[sizeof(g_session_id) - 1] = '\0';
+    env->ReleaseStringUTFChars(sessionId, session_id);
 }
 
 jint JNI_OnLoad(JavaVM *vm, void *reserved) {
