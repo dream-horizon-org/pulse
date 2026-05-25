@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 import org.dreamhorizon.pulseserver.resources.performance.models.Functions;
+import org.dreamhorizon.pulseserver.resources.performance.models.QueryRequest;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
@@ -184,6 +185,26 @@ class MetricToFunctionMapperTest {
           MetricToFunctionMapper.mapMetricToFunction("non_fatal_users"));
       assertEquals(Functions.NON_FATAL_SESSIONS, 
           MetricToFunctionMapper.mapMetricToFunction("non_fatal_sessions"));
+    }
+  }
+
+  @Nested
+  class GetDataTypeForMetricTests {
+
+    @Test
+    void shouldUseTracesForAppVitalsAllUsersAndAllSessions() {
+      assertEquals(QueryRequest.DataType.TRACES,
+          MetricToFunctionMapper.getDataTypeForMetric("ALL_USERS", "APP_VITALS"));
+      assertEquals(QueryRequest.DataType.TRACES,
+          MetricToFunctionMapper.getDataTypeForMetric("ALL_SESSIONS", "APP_VITALS"));
+    }
+
+    @Test
+    void shouldUseTracesDenominatorForAppVitalsCompositeMetrics() {
+      MetricToFunctionMapper.CompositeMetricComponents components =
+          MetricToFunctionMapper.getCompositeMetricComponents("CRASH_FREE_USERS_PERCENTAGE", "APP_VITALS");
+      assertNotNull(components);
+      assertEquals(QueryRequest.DataType.TRACES, components.totalMetricDataType);
     }
   }
 
