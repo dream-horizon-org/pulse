@@ -1,8 +1,6 @@
 package org.dreamhorizon.pulsespark.model;
 
 import java.sql.Timestamp;
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 
 public record FunnelDefinition(
@@ -27,9 +25,6 @@ public record FunnelDefinition(
   }
 
   public boolean hasRevenueConfig() {
-    List<Integer> ar = new ArrayList<>();
-    Collections.sort(ar, (a, b) -> b - a);
-
     return revenueAttribute != null && !revenueAttribute.isBlank();
   }
 

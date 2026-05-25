@@ -798,7 +798,7 @@ public class FunnelComputeJob {
   }
 
   private static Column logAttributeNumeric(String attributeKey) {
-    Column raw = element_at(col(SparkConstants.Columns.LOG_ATTRIBUTES), lit(attributeKey.trim()));
+    Column raw = FilterFieldMapper.toColumn(attributeKey.trim());
     return when(raw.isNull().or(trim(raw).equalTo("")), lit(null))
       .otherwise(raw.cast(DataTypes.DoubleType));
   }

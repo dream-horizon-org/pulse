@@ -61,23 +61,47 @@ public final class FunnelFilterUtils {
   }
 
   /**
-   * Collects all filter fields across all funnels (global + step) that are custom event
-   * properties — i.e. not already top-level catalog columns. These fields must be uplifted
-   * from {@code log_attributes} before the map is dropped.
+   * Collects custom log-attribute keys to uplift before {@link #upliftAndDrop} removes the map.
+   * Includes funnel filter properties and configured revenue attributes only — not every key
+   * in {@code log_attributes}, so the cached dataset stays lean.
    */
   static Set<String> collectLookupFields(List<FunnelDefinition> funnels) {
     Set<String> fields = new HashSet<>();
     for (var funnel : funnels) {
+      if (funnel.hasRevenueConfig()) {
+        fields.add(funnel.revenueAttribute().trim());
+      }
       funnel.globalFilters().stream()
         .map(FunnelFilter::field)
-        .filter(f -> f != null && !f.isBlank() && !FilterFieldMapper.isKnownCatalogKey(f))
+        .filter(f -> isCustomLookupField(f, funnels))
         .forEach(fields::add);
       funnel.steps().forEach(step -> step.stepFilters().stream()
         .map(FunnelFilter::field)
-        .filter(f -> f != null && !f.isBlank() && !FilterFieldMapper.isKnownCatalogKey(f))
+        .filter(f -> isCustomLookupField(f, funnels))
         .forEach(fields::add));
     }
     return fields;
+  }
+
+  /** Custom property uplift candidate: not catalog, not a revenue metric (handled above). */
+  private static boolean isCustomLookupField(String field, List<FunnelDefinition> funnels) {
+    if (field == null || field.isBlank() || FilterFieldMapper.isKnownCatalogKey(field)) {
+      return false;
+    }
+    return !isRevenueLookupField(field, funnels);
+  }
+
+  private static boolean isRevenueLookupField(String field, List<FunnelDefinition> funnels) {
+    if (field == null || field.isBlank()) {
+      return false;
+    }
+    String trimmed = field.trim();
+    for (var funnel : funnels) {
+      if (funnel.hasRevenueConfig() && trimmed.equals(funnel.revenueAttribute().trim())) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /**
