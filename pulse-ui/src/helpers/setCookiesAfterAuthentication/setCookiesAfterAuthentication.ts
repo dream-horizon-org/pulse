@@ -2,7 +2,7 @@ import { LoginResponse } from "../login";
 import { OnboardingResponse } from "../onboarding";
 import { removeCookie, setCookies } from "../cookies";
 import { COOKIES_KEY, LOGIN_RESPONSE_KEYS } from "../../constants";
-import { syncPulseUserIdentity } from "../../pulse-web-rum/pulseRumAnalytics";
+import { syncPulseUserIdentity } from "../../pulse-web-rum/pulseRum";
 
 export type SetCookiesAfterAuthOptions = {
   // DEPRECATED: projectId and projectName now handled by React Context

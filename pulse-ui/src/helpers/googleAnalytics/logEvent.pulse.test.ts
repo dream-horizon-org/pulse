@@ -13,9 +13,8 @@ jest.mock("react-ga4", () => ({
   },
 }));
 
-jest.mock("../../pulse-web-rum/pulseRumBridge", () => ({
-  forwardPulseEventFromLogEvent: (...args: unknown[]) =>
-    mockForwardPulse(...args),
+jest.mock("../../pulse-web-rum/pulseRum", () => ({
+  trackPulseEvent: (...args: unknown[]) => mockForwardPulse(...args),
 }));
 
 const ORIGINAL_ENV = process.env;

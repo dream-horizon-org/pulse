@@ -47,9 +47,14 @@ import { isGcpMultiTenantEnabled } from "../../helpers/gcpAuth";
 import { useProjectContext, useTenantContext } from "../../contexts";
 import { usePermissions } from "../../hooks";
 import { useSessionReplayFromActiveConfig } from "../../hooks/useSessionReplayFromActiveConfig";
+import {
+  EventAction,
+  EventCategory,
+  logEvent,
+} from "../../helpers/googleAnalytics";
+import { AnalyticsParams } from "../../helpers/googleAnalytics/analyticsConstants";
 import { performLogout } from "../../helpers/logout";
 import { ConfirmationModal } from "../ConfirmationModal";
-import { trackNavItemClicked } from "../../pulse-web-rum/pulseRumAnalytics";
 
 export function Navbar({
   toggle,
@@ -110,7 +115,16 @@ export function Navbar({
   };
 
   function onItemClick(routeTo: string, navLabel?: string) {
-    trackNavItemClicked(routeTo, navLabel);
+    logEvent(
+      EventAction.MENU_CLICK,
+      navLabel,
+      EventCategory.NAVIGATION,
+      undefined,
+      {
+        [AnalyticsParams.PULSE_EVENT]: "nav_item_clicked",
+        destination: routeTo,
+      },
+    );
     // Transform flat routes to project-scoped routes
     if (
       contextProjectId &&

@@ -11,7 +11,7 @@
  */
 
 import ReactGA from "react-ga4";
-import { forwardPulseEventFromLogEvent } from "../../pulse-web-rum/pulseRumBridge";
+import { trackPulseEvent } from "../../pulse-web-rum/pulseRum";
 import {
   AnalyticsScreen,
   AnalyticsLabels,
@@ -159,7 +159,7 @@ export const logEvent = (
     });
   }
 
-  forwardPulseEventFromLogEvent({
+  trackPulseEvent({
     action,
     label,
     category,

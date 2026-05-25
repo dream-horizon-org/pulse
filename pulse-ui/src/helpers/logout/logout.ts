@@ -1,7 +1,7 @@
 import { removeAllCookies } from "../cookies";
 import { googleLogout } from "@react-oauth/google";
 import { signOutFirebase, isGcpMultiTenantEnabled } from "../gcpAuth";
-import { clearPulseUserIdentity } from "../../pulse-web-rum/pulseRumAnalytics";
+import { clearPulseUserIdentity } from "../../pulse-web-rum/pulseRum";
 
 /**
  * Central logout utility that handles all cleanup
