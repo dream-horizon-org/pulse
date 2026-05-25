@@ -138,7 +138,7 @@ class SuggestedInteractionDaoTest {
       attachRowIterator(rowSet);
       stubReaderQuery(rowSet);
 
-      GetSuggestedInteractionsResponse result = dao.getSuggestedInteractions().blockingGet();
+      GetSuggestedInteractionsResponse result = dao.getSuggestionsByStatus(null).blockingGet();
 
       assertThat(result.getSuggestions()).isEmpty();
       assertThat(result.getTotalSuggestions()).isZero();
@@ -151,7 +151,7 @@ class SuggestedInteractionDaoTest {
       attachRowIterator(rowSet, row);
       stubReaderQuery(rowSet);
 
-      GetSuggestedInteractionsResponse result = dao.getSuggestedInteractions().blockingGet();
+      GetSuggestedInteractionsResponse result = dao.getSuggestionsByStatus(null).blockingGet();
 
       assertThat(result.getTotalSuggestions()).isEqualTo(1);
       SuggestedInteractionDetails d = result.getSuggestions().get(0);
@@ -168,7 +168,7 @@ class SuggestedInteractionDaoTest {
       attachRowIterator(rowSet, row);
       stubReaderQuery(rowSet);
 
-      GetSuggestedInteractionsResponse result = dao.getSuggestedInteractions().blockingGet();
+      GetSuggestedInteractionsResponse result = dao.getSuggestionsByStatus(null).blockingGet();
 
       assertThat(result.getSuggestions().get(0).getEdges()).hasSize(1);
       assertThat(result.getSuggestions().get(0).getEdges().get(0).getFrom()).isEqualTo("StepOne");
@@ -270,7 +270,7 @@ class SuggestedInteractionDaoTest {
     void shouldPropagateErrorOnDatabaseFailure() {
       stubReaderQueryError(new RuntimeException("Connection lost"));
 
-      TestObserver<GetSuggestedInteractionsResponse> observer = dao.getSuggestedInteractions().test();
+      TestObserver<GetSuggestedInteractionsResponse> observer = dao.getSuggestionsByStatus(null).test();
       observer.assertError(RuntimeException.class);
     }
   }
@@ -300,7 +300,7 @@ class SuggestedInteractionDaoTest {
       attachRowIterator(rowSet, row1, row2);
       stubReaderQuery(rowSet);
 
-      GetSuggestedInteractionsResponse result = dao.getSuggestedInteractions().blockingGet();
+      GetSuggestedInteractionsResponse result = dao.getSuggestionsByStatus(null).blockingGet();
 
       assertThat(result.getSuggestions()).hasSize(2);
       assertThat(result.getTotalSuggestions()).isEqualTo(2);

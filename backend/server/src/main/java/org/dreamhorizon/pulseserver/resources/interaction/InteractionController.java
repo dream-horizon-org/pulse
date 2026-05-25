@@ -53,6 +53,8 @@ import org.dreamhorizon.pulseserver.service.rootcause.RootCauseService;
 import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseResult;
 import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseSegment;
 import org.dreamhorizon.pulseserver.service.interaction.models.DeleteInteractionRequest;
+import org.dreamhorizon.pulseserver.service.interaction.models.CreateSuggestedInteractionsRequest;
+import org.dreamhorizon.pulseserver.service.interaction.models.CreateSuggestedInteractionsResponse;
 import org.dreamhorizon.pulseserver.service.interaction.models.GetSuggestedInteractionsResponse;
 import org.dreamhorizon.pulseserver.service.interaction.models.UpdateInteractionRequest;
 
@@ -120,13 +122,30 @@ public class InteractionController {
         .to(RestResponse.jaxrsRestHandler());
   }
 
+  /**
+   * Returns suggested interactions. Default (no {@code status}): PENDING rows excluding
+   * sequences that already exist as active interactions. Use {@code status=ALL} for every
+   * status, or {@code status=DISMISSED} / {@code ACTIVATED} for a single status.
+   */
   @GET
   @Path("/suggestions")
   @Consumes(MediaType.WILDCARD)
   @Produces(MediaType.APPLICATION_JSON)
   @RequiresPermission("can_view")
-  public CompletionStage<Response<GetSuggestedInteractionsResponse>> getSuggestedInteractions() {
-    return interactionService.getSuggestedInteractions()
+  public CompletionStage<Response<GetSuggestedInteractionsResponse>> getSuggestedInteractions(
+      @QueryParam("status") String status) {
+    return interactionService.getSuggestedInteractions(status)
+        .to(RestResponse.jaxrsRestHandler());
+  }
+
+  @POST
+  @Path("/suggestions")
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Produces(MediaType.APPLICATION_JSON)
+  @RequiresPermission("can_edit")
+  public CompletionStage<Response<CreateSuggestedInteractionsResponse>> createSuggestions(
+      @NotNull CreateSuggestedInteractionsRequest request) {
+    return interactionService.createSuggestions(request)
         .to(RestResponse.jaxrsRestHandler());
   }
 

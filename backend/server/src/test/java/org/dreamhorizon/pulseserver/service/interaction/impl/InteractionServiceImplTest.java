@@ -21,6 +21,8 @@ import org.dreamhorizon.pulseserver.resources.interaction.models.TelemetryFilter
 import org.dreamhorizon.pulseserver.service.interaction.UploadInteractionDetailService;
 import org.dreamhorizon.pulseserver.service.interaction.models.CreateInteractionDaoResponse;
 import org.dreamhorizon.pulseserver.service.interaction.models.CreateInteractionRequest;
+import org.dreamhorizon.pulseserver.service.interaction.models.CreateSuggestedInteractionsRequest;
+import org.dreamhorizon.pulseserver.service.interaction.models.CreateSuggestedInteractionsResponse;
 import org.dreamhorizon.pulseserver.service.interaction.models.DeleteInteractionRequest;
 import org.dreamhorizon.pulseserver.service.interaction.models.Event;
 import org.dreamhorizon.pulseserver.service.interaction.models.GetInteractionsRequest;
@@ -1262,12 +1264,13 @@ class InteractionServiceImplTest {
           .totalSuggestions(1)
           .build();
 
-      Mockito.when(suggestedInteractionDao.getSuggestedInteractions())
+      Mockito.when(suggestedInteractionDao.getSuggestionsByStatus(null))
           .thenReturn(Single.just(response));
       Mockito.when(interactionDao.getAllActiveAndRunningInteractions("test"))
           .thenReturn(Single.just(List.of()));
 
-      TestObserver<GetSuggestedInteractionsResponse> actual = interactionService.getSuggestedInteractions().test();
+      TestObserver<GetSuggestedInteractionsResponse> actual =
+          interactionService.getSuggestedInteractions(null).test();
       actual.assertNoErrors()
           .assertValue(resp -> {
             assertThat(resp.getSuggestions()).hasSize(1);
@@ -1276,7 +1279,7 @@ class InteractionServiceImplTest {
             return true;
           });
 
-      Mockito.verify(suggestedInteractionDao, Mockito.times(1)).getSuggestedInteractions();
+      Mockito.verify(suggestedInteractionDao, Mockito.times(1)).getSuggestionsByStatus(null);
       Mockito.verify(interactionDao, Mockito.times(1)).getAllActiveAndRunningInteractions("test");
     }
 
@@ -1297,12 +1300,13 @@ class InteractionServiceImplTest {
           .status(InteractionStatus.RUNNING)
           .build();
 
-      Mockito.when(suggestedInteractionDao.getSuggestedInteractions())
+      Mockito.when(suggestedInteractionDao.getSuggestionsByStatus(null))
           .thenReturn(Single.just(response));
       Mockito.when(interactionDao.getAllActiveAndRunningInteractions("test"))
           .thenReturn(Single.just(List.of(existingInteraction)));
 
-      TestObserver<GetSuggestedInteractionsResponse> actual = interactionService.getSuggestedInteractions().test();
+      TestObserver<GetSuggestedInteractionsResponse> actual =
+          interactionService.getSuggestedInteractions(null).test();
       actual.assertNoErrors()
           .assertValue(resp -> {
             assertThat(resp.getSuggestions()).hasSize(1);
@@ -1331,12 +1335,13 @@ class InteractionServiceImplTest {
           .status(InteractionStatus.RUNNING)
           .build();
 
-      Mockito.when(suggestedInteractionDao.getSuggestedInteractions())
+      Mockito.when(suggestedInteractionDao.getSuggestionsByStatus(null))
           .thenReturn(Single.just(response));
       Mockito.when(interactionDao.getAllActiveAndRunningInteractions("test"))
           .thenReturn(Single.just(List.of(existingInteraction)));
 
-      TestObserver<GetSuggestedInteractionsResponse> actual = interactionService.getSuggestedInteractions().test();
+      TestObserver<GetSuggestedInteractionsResponse> actual =
+          interactionService.getSuggestedInteractions(null).test();
       actual.assertNoErrors()
           .assertValue(resp -> {
             assertThat(resp.getSuggestions()).hasSize(1);
@@ -1372,12 +1377,13 @@ class InteractionServiceImplTest {
           .status(InteractionStatus.RUNNING)
           .build();
 
-      Mockito.when(suggestedInteractionDao.getSuggestedInteractions())
+      Mockito.when(suggestedInteractionDao.getSuggestionsByStatus(null))
           .thenReturn(Single.just(response));
       Mockito.when(interactionDao.getAllActiveAndRunningInteractions("test"))
           .thenReturn(Single.just(List.of(existingInteraction)));
 
-      TestObserver<GetSuggestedInteractionsResponse> actual = interactionService.getSuggestedInteractions().test();
+      TestObserver<GetSuggestedInteractionsResponse> actual =
+          interactionService.getSuggestedInteractions(null).test();
       actual.assertNoErrors()
           .assertValue(resp -> {
             assertThat(resp.getSuggestions()).isEmpty();
@@ -1402,12 +1408,13 @@ class InteractionServiceImplTest {
           .status(InteractionStatus.RUNNING)
           .build();
 
-      Mockito.when(suggestedInteractionDao.getSuggestedInteractions())
+      Mockito.when(suggestedInteractionDao.getSuggestionsByStatus(null))
           .thenReturn(Single.just(response));
       Mockito.when(interactionDao.getAllActiveAndRunningInteractions("test"))
           .thenReturn(Single.just(List.of(existingInteraction)));
 
-      TestObserver<GetSuggestedInteractionsResponse> actual = interactionService.getSuggestedInteractions().test();
+      TestObserver<GetSuggestedInteractionsResponse> actual =
+          interactionService.getSuggestedInteractions(null).test();
       actual.assertNoErrors()
           .assertValue(resp -> {
             assertThat(resp.getSuggestions()).isEmpty();
@@ -1418,15 +1425,70 @@ class InteractionServiceImplTest {
 
     @Test
     void shouldPropagateErrorFromDao() {
-      Mockito.when(suggestedInteractionDao.getSuggestedInteractions())
+      Mockito.when(suggestedInteractionDao.getSuggestionsByStatus(null))
           .thenReturn(Single.error(new RuntimeException("DB error")));
       Mockito.when(interactionDao.getAllActiveAndRunningInteractions("test"))
           .thenReturn(Single.just(List.of()));
 
-      TestObserver<GetSuggestedInteractionsResponse> actual = interactionService.getSuggestedInteractions().test();
+      TestObserver<GetSuggestedInteractionsResponse> actual =
+          interactionService.getSuggestedInteractions(null).test();
       actual.assertError(RuntimeException.class);
 
-      Mockito.verify(suggestedInteractionDao, Mockito.times(1)).getSuggestedInteractions();
+      Mockito.verify(suggestedInteractionDao, Mockito.times(1)).getSuggestionsByStatus(null);
+    }
+  }
+
+  @Nested
+  @ExtendWith(MockitoExtension.class)
+  class TestGetSuggestedInteractionsByStatus {
+
+    @Test
+    void shouldReturnAllStatusesWithoutInteractionFilter() {
+      SuggestedInteractionDetails suggestion = buildSuggestedInteraction(1L, eventsFromNames("EventA"));
+      GetSuggestedInteractionsResponse response = GetSuggestedInteractionsResponse.builder()
+          .suggestions(List.of(suggestion))
+          .totalSuggestions(1)
+          .build();
+
+      Mockito.when(suggestedInteractionDao.getSuggestionsByStatus("ALL"))
+          .thenReturn(Single.just(response));
+
+      TestObserver<GetSuggestedInteractionsResponse> actual =
+          interactionService.getSuggestedInteractions("ALL").test();
+
+      actual.assertNoErrors()
+          .assertValue(resp -> {
+            assertThat(resp.getTotalSuggestions()).isEqualTo(1);
+            return true;
+          });
+      Mockito.verify(suggestedInteractionDao, Mockito.times(1)).getSuggestionsByStatus("ALL");
+      Mockito.verify(interactionDao, Mockito.never()).getAllActiveAndRunningInteractions(any());
+    }
+  }
+
+  @Nested
+  @ExtendWith(MockitoExtension.class)
+  class TestCreateSuggestions {
+
+    @Test
+    void shouldDelegateToDao() {
+      CreateSuggestedInteractionsResponse expected = CreateSuggestedInteractionsResponse.builder()
+          .createdCount(2)
+          .replacedPendingCount(3)
+          .build();
+      CreateSuggestedInteractionsRequest request = CreateSuggestedInteractionsRequest.builder()
+          .replacePending(true)
+          .suggestions(List.of())
+          .build();
+
+      Mockito.when(suggestedInteractionDao.createSuggestions(request))
+          .thenReturn(Single.just(expected));
+
+      TestObserver<CreateSuggestedInteractionsResponse> actual =
+          interactionService.createSuggestions(request).test();
+
+      actual.assertNoErrors().assertValue(expected);
+      Mockito.verify(suggestedInteractionDao, Mockito.times(1)).createSuggestions(request);
     }
   }
 

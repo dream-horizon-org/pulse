@@ -7,6 +7,8 @@ import org.dreamhorizon.pulseserver.dto.response.EmptyResponse;
 import org.dreamhorizon.pulseserver.resources.interaction.models.InteractionFilterOptionsResponse;
 import org.dreamhorizon.pulseserver.resources.interaction.models.TelemetryFilterOptionsResponse;
 import org.dreamhorizon.pulseserver.service.interaction.models.CreateInteractionRequest;
+import org.dreamhorizon.pulseserver.service.interaction.models.CreateSuggestedInteractionsRequest;
+import org.dreamhorizon.pulseserver.service.interaction.models.CreateSuggestedInteractionsResponse;
 import org.dreamhorizon.pulseserver.service.interaction.models.DeleteInteractionRequest;
 import org.dreamhorizon.pulseserver.service.interaction.models.GetInteractionsRequest;
 import org.dreamhorizon.pulseserver.service.interaction.models.GetInteractionsResponse;
@@ -31,7 +33,14 @@ public interface InteractionService {
 
   Single<TelemetryFilterOptionsResponse> getTelemetryFilterOptions();
 
-  Single<GetSuggestedInteractionsResponse> getSuggestedInteractions();
+  /**
+   * @param status optional filter: omit for PENDING (UI default), ALL for every status,
+   *               or PENDING / DISMISSED / ACTIVATED
+   */
+  Single<GetSuggestedInteractionsResponse> getSuggestedInteractions(String status);
+
+  Single<CreateSuggestedInteractionsResponse> createSuggestions(
+      @Valid CreateSuggestedInteractionsRequest request);
 
   Single<EmptyResponse> dismissSuggestion(Long suggestionId, String userEmail);
 

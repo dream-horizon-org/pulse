@@ -20,6 +20,8 @@ import org.dreamhorizon.pulseserver.resources.interaction.models.TelemetryFilter
 import org.dreamhorizon.pulseserver.service.interaction.InteractionService;
 import org.dreamhorizon.pulseserver.service.interaction.UploadInteractionDetailService;
 import org.dreamhorizon.pulseserver.service.interaction.models.CreateInteractionRequest;
+import org.dreamhorizon.pulseserver.service.interaction.models.CreateSuggestedInteractionsRequest;
+import org.dreamhorizon.pulseserver.service.interaction.models.CreateSuggestedInteractionsResponse;
 import org.dreamhorizon.pulseserver.service.interaction.models.DeleteInteractionRequest;
 import org.dreamhorizon.pulseserver.service.interaction.models.Event;
 import org.dreamhorizon.pulseserver.service.interaction.models.GetInteractionsRequest;
@@ -166,23 +168,39 @@ public class InteractionServiceImpl implements InteractionService {
   }
 
   @Override
-  public Single<GetSuggestedInteractionsResponse> getSuggestedInteractions() {
-    String projectId = ProjectContext.getProjectId();
-    return Single.zip(
-        suggestedInteractionDao.getSuggestedInteractions(),
-        interactionDao.getAllActiveAndRunningInteractions(projectId),
-        (suggestionsResponse, existingInteractions) -> {
-          List<SuggestedInteractionDetails> filtered = suggestionsResponse.getSuggestions().stream()
-              .filter(s -> existingInteractions.stream()
-                  .noneMatch(existing -> isSuggestionDuplicate(s, existing)))
-              .toList();
+  public Single<GetSuggestedInteractionsResponse> getSuggestedInteractions(String status) {
+    if (shouldFilterAgainstExistingInteractions(status)) {
+      String projectId = ProjectContext.getProjectId();
+      return Single.zip(
+          suggestedInteractionDao.getSuggestionsByStatus(null),
+          interactionDao.getAllActiveAndRunningInteractions(projectId),
+          (suggestionsResponse, existingInteractions) -> {
+            List<SuggestedInteractionDetails> filtered = suggestionsResponse.getSuggestions().stream()
+                .filter(s -> existingInteractions.stream()
+                    .noneMatch(existing -> isSuggestionDuplicate(s, existing)))
+                .toList();
 
-          return GetSuggestedInteractionsResponse.builder()
-              .suggestions(filtered)
-              .totalSuggestions(filtered.size())
-              .build();
-        }
-    ).doOnError(err -> log.error("error while getting suggested interactions", err));
+            return GetSuggestedInteractionsResponse.builder()
+                .suggestions(filtered)
+                .totalSuggestions(filtered.size())
+                .build();
+          }
+      ).doOnError(err -> log.error("error while getting suggested interactions", err));
+    }
+
+    return suggestedInteractionDao.getSuggestionsByStatus(status)
+        .doOnError(err -> log.error("error while getting suggested interactions", err));
+  }
+
+  private static boolean shouldFilterAgainstExistingInteractions(String status) {
+    return status == null || status.isBlank() || "PENDING".equalsIgnoreCase(status.trim());
+  }
+
+  @Override
+  public Single<CreateSuggestedInteractionsResponse> createSuggestions(
+      CreateSuggestedInteractionsRequest request) {
+    return suggestedInteractionDao.createSuggestions(request)
+        .doOnError(err -> log.error("error while creating suggested interactions", err));
   }
 
   @Override
