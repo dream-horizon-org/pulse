@@ -21,6 +21,7 @@ import {
   RevenueEventConfig,
 } from "../RevenueEvent.types";
 import { useEventDefinitions } from "../hooks/useEventDefinitions";
+import type { SaveRevenueEventInput } from "../hooks/useRevenueEvents";
 import {
   buildCurrencyAttributeOptions,
   buildFixedCurrencyOptions,
@@ -31,9 +32,7 @@ import classes from "./ConfigureRevenueEventModal.module.css";
 type ConfigureRevenueEventModalProps = {
   opened: boolean;
   onClose: () => void;
-  onSave: (
-    config: Omit<RevenueEventConfig, "id" | "configuredAt"> & { id?: string },
-  ) => void;
+  onSave: (config: SaveRevenueEventInput) => Promise<void>;
   editingConfig: RevenueEventConfig | null;
   configuredEventNames: string[];
 };
@@ -72,6 +71,7 @@ export function ConfigureRevenueEventModal({
     DEFAULT_REVENUE_EVENT_PREVIEW_DAYS,
   );
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const { data: funnelEventsData, isLoading: loadingEvents } =
     useGetFunnelEvents();
@@ -235,7 +235,7 @@ export function ConfigureRevenueEventModal({
     }
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     setErrorMessage(null);
     const trimmedEvent = eventName.trim();
     const trimmedAttr = valueAttribute.trim();
@@ -269,15 +269,24 @@ export function ConfigureRevenueEventModal({
       return;
     }
 
-    onSave({
-      id: editingConfig?.id,
-      eventName: trimmedEvent,
-      valueAttribute: trimmedAttr,
-      currency: manualCurrency ? currency : "",
-      currencyAttribute: manualCurrency ? undefined : trimmedCurrencyAttr,
-      conversionWindowHours,
-    });
-    onClose();
+    setIsSubmitting(true);
+    try {
+      await onSave({
+        id: editingConfig?.id,
+        eventName: trimmedEvent,
+        valueAttribute: trimmedAttr,
+        currency: manualCurrency ? currency : "",
+        currencyAttribute: manualCurrency ? undefined : trimmedCurrencyAttr,
+        conversionWindowHours,
+      });
+      onClose();
+    } catch (err) {
+      setErrorMessage(
+        err instanceof Error ? err.message : "Failed to save revenue event",
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const formDisabled = isDuplicateSelection || !eventName.trim();
@@ -514,6 +523,7 @@ export function ConfigureRevenueEventModal({
         <Button
           className={classes.submitButton}
           onClick={handleSubmit}
+          loading={isSubmitting}
           disabled={isDuplicateSelection}
         >
           {editingConfig ? "Save changes" : "Confirm"}

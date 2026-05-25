@@ -5,6 +5,7 @@ import {
   Box,
   Button,
   Group,
+  Loader,
   Modal,
   ScrollArea,
   Stack,
@@ -28,7 +29,13 @@ type RevenueEventsTabProps = {
 };
 
 export function RevenueEventsTab({ projectId }: RevenueEventsTabProps) {
-  const { configs, saveConfig, removeConfig } = useRevenueEventConfig(projectId);
+  const {
+    configs,
+    isLoading,
+    isDeleting,
+    saveConfig,
+    removeConfig,
+  } = useRevenueEventConfig(projectId);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingConfig, setEditingConfig] = useState<RevenueEventConfig | null>(
     null,
@@ -36,6 +43,7 @@ export function RevenueEventsTab({ projectId }: RevenueEventsTabProps) {
   const [deleteTarget, setDeleteTarget] = useState<RevenueEventConfig | null>(
     null,
   );
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const configuredEventNames = useMemo(
     () => configs.map((c) => c.eventName),
@@ -60,6 +68,32 @@ export function RevenueEventsTab({ projectId }: RevenueEventsTabProps) {
     setEditingConfig(config);
     setModalOpen(true);
   };
+
+  const handleDelete = async () => {
+    if (!deleteTarget) {
+      return;
+    }
+    setDeleteError(null);
+    try {
+      await removeConfig(deleteTarget.id);
+      setDeleteTarget(null);
+    } catch (err) {
+      setDeleteError(
+        err instanceof Error ? err.message : "Failed to remove revenue event",
+      );
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <Box className={classes.revenueEmptyState}>
+        <Loader size="sm" color="teal" />
+        <Text size="sm" c="dimmed" mt="sm">
+          Loading revenue events…
+        </Text>
+      </Box>
+    );
+  }
 
   return (
     <>
@@ -167,7 +201,10 @@ export function RevenueEventsTab({ projectId }: RevenueEventsTabProps) {
                             color="red"
                             size="sm"
                             className={classes.deleteButton}
-                            onClick={() => setDeleteTarget(config)}
+                            onClick={() => {
+                              setDeleteError(null);
+                              setDeleteTarget(config);
+                            }}
                           >
                             <IconTrash size={15} />
                           </ActionIcon>
@@ -195,28 +232,38 @@ export function RevenueEventsTab({ projectId }: RevenueEventsTabProps) {
 
       <Modal
         opened={deleteTarget !== null}
-        onClose={() => setDeleteTarget(null)}
+        onClose={() => {
+          setDeleteTarget(null);
+          setDeleteError(null);
+        }}
         title="Remove revenue event?"
         size="sm"
         centered
       >
         <Stack gap="md">
           <Text size="sm" c="dimmed">
-            Remove &quot;{deleteTarget?.eventName}&quot; from this browser&apos;s
-            configuration?
+            Remove &quot;{deleteTarget?.eventName}&quot; from this project&apos;s
+            revenue configuration?
           </Text>
+          {deleteError && (
+            <Text size="sm" c="red">
+              {deleteError}
+            </Text>
+          )}
           <Group justify="flex-end">
-            <Button variant="outline" onClick={() => setDeleteTarget(null)}>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setDeleteTarget(null);
+                setDeleteError(null);
+              }}
+            >
               Cancel
             </Button>
             <Button
               color="red"
-              onClick={() => {
-                if (deleteTarget) {
-                  removeConfig(deleteTarget.id);
-                }
-                setDeleteTarget(null);
-              }}
+              loading={isDeleting}
+              onClick={handleDelete}
             >
               Remove
             </Button>

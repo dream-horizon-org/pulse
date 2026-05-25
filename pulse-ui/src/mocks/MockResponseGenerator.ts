@@ -12,6 +12,7 @@ import { generateDataQueryMockResponseV2 } from "./v2";
 import { mockJobResponses } from "./responses/jobResponses";
 import { handleBreadcrumbsRequest } from "./responses/breadcrumbResponses";
 import { handleFunnelEndpoints } from "./responses/funnelResponses";
+import { handleRevenueEventEndpoints } from "./responses/revenueEventResponses";
 import { handleRcaMockEndpoints } from "./responses/rcaResponses";
 import {
   mockAlertFilters,
@@ -447,6 +448,11 @@ export class MockResponseGenerator {
       pathname.includes("/validateQuery")
     ) {
       return this.handleQueryEndpoints(pathname, method, request);
+    }
+
+    // Revenue events (before funnel/journey catch-all)
+    if (pathname.includes("/v1/revenue-events")) {
+      return handleRevenueEventEndpoints(pathname, method, request);
     }
 
     // Funnel/journey APIs (before /events catch-all). Client uses singular collection

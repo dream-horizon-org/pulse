@@ -46,7 +46,10 @@ public enum ServiceError implements RestError {
   /** Pulse AI upstream unreachable, bad URL, or proxy failure — Vert.x SSE proxy. */
   AI_PROXY_BAD_GATEWAY("BE1011", "Something went wrong", 502),
   INVALID_PROJECT_ID("BE1012", "Invalid or missing project ID", 400),
-  INVALID_BUCKET_MINUTES("BE1013", "bucketMinutes must be between 5 and 1440", 400);
+  INVALID_BUCKET_MINUTES("BE1013", "bucketMinutes must be between 5 and 1440", 400),
+  REVENUE_EVENT_NOT_FOUND("BE1020", "Revenue event not found", 404),
+  REVENUE_EVENT_ALREADY_EXISTS("409", "A revenue event is already configured for this event name", 409),
+  REVENUE_EVENT_CREATION_FAILED("BE1021", "Revenue event creation failed", 400);
 
   private static final Logger log = LoggerFactory.getLogger(ServiceError.class);
   final String errorCode;

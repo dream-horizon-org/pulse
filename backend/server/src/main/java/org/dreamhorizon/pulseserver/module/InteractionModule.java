@@ -8,6 +8,7 @@ import org.dreamhorizon.pulseserver.dao.productAnalysis.funneljourneytag.FunnelJ
 import org.dreamhorizon.pulseserver.dao.productAnalysis.funnelresults.FunnelResultsDao;
 import org.dreamhorizon.pulseserver.dao.productAnalysis.journey.JourneyDao;
 import org.dreamhorizon.pulseserver.dao.productAnalysis.journeyresults.JourneyResultsDao;
+import org.dreamhorizon.pulseserver.dao.productAnalysis.revenueevent.RevenueEventDao;
 import org.dreamhorizon.pulseserver.dao.rootcause.RootCauseCacheDao;
 import org.dreamhorizon.pulseserver.dao.rootcause.ScreenRootCauseCacheDao;
 import org.dreamhorizon.pulseserver.service.configs.ConfigService;
@@ -29,6 +30,8 @@ import org.dreamhorizon.pulseserver.service.rootcause.RootCauseService;
 import org.dreamhorizon.pulseserver.service.rootcause.ScreenRcaService;
 import org.dreamhorizon.pulseserver.service.rootcause.SessionEvidenceService;
 import org.dreamhorizon.pulseserver.service.rootcause.SessionEvidenceServiceImpl;
+import org.dreamhorizon.pulseserver.service.productAnalysis.revenueevent.RevenueEventService;
+import org.dreamhorizon.pulseserver.service.productAnalysis.revenueevent.impl.RevenueEventServiceImpl;
 import org.dreamhorizon.pulseserver.service.sessionrca.SessionRcaService;
 
 public class InteractionModule extends AbstractModule {
@@ -50,6 +53,8 @@ public class InteractionModule extends AbstractModule {
     bind(FunnelService.class).to(FunnelServiceImpl.class).in(Singleton.class);
     bind(JourneyDao.class).in(Singleton.class);
     bind(JourneyService.class).to(JourneyServiceImpl.class).in(Singleton.class);
+    bind(RevenueEventDao.class).in(Singleton.class);
+    bind(RevenueEventService.class).to(RevenueEventServiceImpl.class).in(Singleton.class);
     bind(org.dreamhorizon.pulseserver.service.analytics.AnalyticsBatchServiceImpl.class)
         .in(Singleton.class);
     bind(org.dreamhorizon.pulseserver.service.analytics.ClickHouseBatchServiceImpl.class)

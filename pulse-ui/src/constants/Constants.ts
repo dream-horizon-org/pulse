@@ -1095,6 +1095,26 @@ export const API_ROUTES: StreamverseRoutes = {
     apiPath: `/v1/funnels/tags`,
     method: API_METHODS.GET,
   },
+  REVENUE_EVENT_LIST: {
+    key: "REVENUE_EVENT_LIST",
+    apiPath: `/v1/revenue-events`,
+    method: API_METHODS.GET,
+  },
+  REVENUE_EVENT_CREATE: {
+    key: "REVENUE_EVENT_CREATE",
+    apiPath: `/v1/revenue-events`,
+    method: API_METHODS.POST,
+  },
+  REVENUE_EVENT_UPDATE: {
+    key: "REVENUE_EVENT_UPDATE",
+    apiPath: `/v1/revenue-events`,
+    method: API_METHODS.PUT,
+  },
+  REVENUE_EVENT_DELETE: {
+    key: "REVENUE_EVENT_DELETE",
+    apiPath: `/v1/revenue-events`,
+    method: API_METHODS.DELETE,
+  },
   GET_TNC_STATUS: {
     key: "GET_TNC_STATUS",
     apiPath: `/v1/tnc/status`,

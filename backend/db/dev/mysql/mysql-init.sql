@@ -1103,6 +1103,26 @@ CREATE TABLE IF NOT EXISTS funnel_journey_tag (
 COMMENT='Tag mappings for saved funnels and journeys';
 
 -- ============================================================================
+-- revenue_events (revenue impact — event configuration)
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS revenue_events (
+    id                         VARCHAR(36)  NOT NULL PRIMARY KEY,
+    project_id                 VARCHAR(64)  NOT NULL,
+    event_name                 VARCHAR(255) NOT NULL,
+    value_attribute            VARCHAR(255) NOT NULL,
+    currency                   VARCHAR(8)   NOT NULL DEFAULT '',
+    currency_attribute         VARCHAR(255) NULL,
+    conversion_window_hours    INT          NOT NULL DEFAULT 24,
+    configured_by              VARCHAR(255) NULL,
+    configured_at              TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at                 TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    UNIQUE KEY uk_revenue_events_project_event (project_id, event_name),
+    INDEX idx_revenue_events_project (project_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+COMMENT='Revenue event configuration for revenue impact analysis';
+
+-- ============================================================================
 -- analytics_jobs
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS analytics_jobs (
