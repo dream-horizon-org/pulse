@@ -286,6 +286,15 @@ class MetricToFunctionMapperTest {
       assertNotNull(components);
       assertEquals(QueryRequest.DataType.TRACES, components.totalMetricDataType);
     }
+
+    @Test
+    void shouldConstructCompositeComponentsWithTwoArgConstructor() {
+      MetricToFunctionMapper.CompositeMetricComponents components =
+          new MetricToFunctionMapper.CompositeMetricComponents("ALL_USERS", "CRASH_USERS");
+      assertEquals("ALL_USERS", components.tracesMetric);
+      assertEquals("CRASH_USERS", components.exceptionsMetric);
+      assertEquals(QueryRequest.DataType.TRACES, components.totalMetricDataType);
+    }
   }
 
   @Nested

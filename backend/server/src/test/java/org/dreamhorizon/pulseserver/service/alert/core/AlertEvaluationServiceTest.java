@@ -35,6 +35,7 @@ import org.dreamhorizon.pulseserver.config.ApplicationConfig;
 import org.dreamhorizon.pulseserver.constant.Constants;
 import org.dreamhorizon.pulseserver.dao.AlertsDao;
 import org.dreamhorizon.pulseserver.dao.productAnalysis.funnelresults.FunnelResultsDao;
+import org.dreamhorizon.pulseserver.dao.productAnalysis.funnelresults.models.FunnelResultRow;
 import org.dreamhorizon.pulseserver.resources.alert.enums.AlertState;
 import org.dreamhorizon.pulseserver.resources.alert.models.AlertEvaluationResponseDto;
 import org.dreamhorizon.pulseserver.resources.alert.models.EvaluateAlertResponseDto;
@@ -1829,6 +1830,192 @@ class AlertEvaluationServiceTest {
                   && f.getValue().toString().contains("app_start"))));
       assertTrue(requestCaptor.getAllValues().stream()
           .noneMatch(req -> req.getDataType() == QueryRequest.DataType.LOGS));
+    }
+
+    @Test
+    void shouldReturnEarlyWhenAlertHasNoScopes() {
+      Integer alertId = 3;
+      AlertsDao.AlertDetails alertDetails = AlertsDao.AlertDetails.builder()
+          .id(alertId)
+          .scope("APP_VITALS")
+          .evaluationPeriod(60)
+          .projectId("proj-1")
+          .build();
+
+      when(alertsDao.getAlertDetailsForEvaluation(alertId)).thenReturn(Single.just(alertDetails));
+      when(alertsDao.getAlertScopesForEvaluation(alertId)).thenReturn(Single.just(List.of()));
+      when(vertx.eventBus()).thenReturn(eventBus);
+
+      assertNotNull(alertEvaluationService.evaluateAlertById(alertId).blockingGet());
+      verify(clickhouseMetricService, times(0)).getMetricDistribution(any(QueryRequest.class));
+    }
+
+    @Test
+    void shouldHandleEvaluationErrorWhenScopesQueryFails() {
+      Integer alertId = 4;
+      AlertsDao.AlertDetails alertDetails = AlertsDao.AlertDetails.builder()
+          .id(alertId)
+          .scope("APP_VITALS")
+          .evaluationPeriod(60)
+          .projectId("proj-1")
+          .build();
+
+      when(alertsDao.getAlertDetailsForEvaluation(alertId)).thenReturn(Single.just(alertDetails));
+      when(alertsDao.getAlertScopesForEvaluation(alertId))
+          .thenReturn(Single.error(new RuntimeException("scopes unavailable")));
+      when(vertx.eventBus()).thenReturn(eventBus);
+
+      assertNotNull(alertEvaluationService.evaluateAlertById(alertId).blockingGet());
+    }
+  }
+
+  @Nested
+  class FunnelAlertEvaluationTests {
+
+    @Test
+    void shouldEvaluateFunnelAlertUsingFunnelResults() {
+      Integer alertId = 10;
+      AlertsDao.AlertDetails alertDetails = AlertsDao.AlertDetails.builder()
+          .id(alertId)
+          .scope("FUNNEL")
+          .evaluationPeriod(120)
+          .conditionExpression("A")
+          .projectId("proj-1")
+          .build();
+
+      List<AlertsDao.AlertScopeDetails> scopes = List.of(
+          AlertsDao.AlertScopeDetails.builder()
+              .id(100)
+              .name("42")
+              .conditions("[{\"metric\":\"FUNNEL_CONVERSION\",\"alias\":\"A\",\"metric_operator\":\"LESS_THAN\",\"threshold\":50}]")
+              .build()
+      );
+
+      when(alertsDao.getAlertDetailsForEvaluation(alertId)).thenReturn(Single.just(alertDetails));
+      when(alertsDao.getAlertScopesForEvaluation(alertId)).thenReturn(Single.just(scopes));
+      when(funnelResultsDao.queryLatest(eq("proj-1"), eq(42L)))
+          .thenReturn(Single.just(List.of(
+              FunnelResultRow.builder().stepIndex(1).stepName("Checkout").userCount(80L)
+                  .conversionPct(40.0).build())));
+      when(metricOperatorFactory.getProcessor(MetricOperator.LESS_THAN)).thenReturn(metricOperatorProcessor);
+      when(metricOperatorProcessor.isFiring(any(Float.class), any(Float.class))).thenReturn(true);
+      when(vertx.eventBus()).thenReturn(eventBus);
+
+      assertNotNull(alertEvaluationService.evaluateAlertById(alertId).blockingGet());
+      verify(funnelResultsDao).queryLatest("proj-1", 42L);
+    }
+
+    @Test
+    void shouldEvaluateFunnelDropMetric() {
+      Integer alertId = 11;
+      AlertsDao.AlertDetails alertDetails = AlertsDao.AlertDetails.builder()
+          .id(alertId)
+          .scope("FUNNEL")
+          .evaluationPeriod(120)
+          .conditionExpression("A")
+          .projectId("proj-1")
+          .build();
+
+      List<AlertsDao.AlertScopeDetails> scopes = List.of(
+          AlertsDao.AlertScopeDetails.builder()
+              .id(101)
+              .name("7")
+              .conditions("[{\"metric\":\"FUNNEL_DROP\",\"alias\":\"A\",\"metric_operator\":\"GREATER_THAN\",\"threshold\":50}]")
+              .build()
+      );
+
+      when(alertsDao.getAlertDetailsForEvaluation(alertId)).thenReturn(Single.just(alertDetails));
+      when(alertsDao.getAlertScopesForEvaluation(alertId)).thenReturn(Single.just(scopes));
+      when(funnelResultsDao.queryLatest(eq("proj-1"), eq(7L)))
+          .thenReturn(Single.just(List.of(
+              FunnelResultRow.builder().stepIndex(2).conversionPct(30.0).build())));
+      when(metricOperatorFactory.getProcessor(MetricOperator.GREATER_THAN)).thenReturn(metricOperatorProcessor);
+      when(metricOperatorProcessor.isFiring(any(Float.class), any(Float.class))).thenReturn(false);
+      when(vertx.eventBus()).thenReturn(eventBus);
+
+      assertNotNull(alertEvaluationService.evaluateAlertById(alertId).blockingGet());
+    }
+
+    @Test
+    void shouldHandleInvalidFunnelScopeName() {
+      Integer alertId = 12;
+      AlertsDao.AlertDetails alertDetails = AlertsDao.AlertDetails.builder()
+          .id(alertId)
+          .scope("FUNNEL")
+          .evaluationPeriod(60)
+          .conditionExpression("A")
+          .projectId("proj-1")
+          .build();
+
+      List<AlertsDao.AlertScopeDetails> scopes = List.of(
+          AlertsDao.AlertScopeDetails.builder()
+              .id(102)
+              .name("not-a-number")
+              .conditions("[{\"metric\":\"FUNNEL_CONVERSION\",\"alias\":\"A\",\"metric_operator\":\"GREATER_THAN\",\"threshold\":1}]")
+              .build()
+      );
+
+      when(alertsDao.getAlertDetailsForEvaluation(alertId)).thenReturn(Single.just(alertDetails));
+      when(alertsDao.getAlertScopesForEvaluation(alertId)).thenReturn(Single.just(scopes));
+      when(vertx.eventBus()).thenReturn(eventBus);
+
+      assertNotNull(alertEvaluationService.evaluateAlertById(alertId).blockingGet());
+      verify(funnelResultsDao, times(0)).queryLatest(anyString(), any());
+    }
+
+    @Test
+    void shouldHandleEmptyFunnelResults() {
+      Integer alertId = 13;
+      AlertsDao.AlertDetails alertDetails = AlertsDao.AlertDetails.builder()
+          .id(alertId)
+          .scope("FUNNEL")
+          .evaluationPeriod(60)
+          .conditionExpression("A")
+          .projectId("proj-1")
+          .build();
+
+      List<AlertsDao.AlertScopeDetails> scopes = List.of(
+          AlertsDao.AlertScopeDetails.builder()
+              .id(103)
+              .name("5")
+              .conditions("[{\"metric\":\"FUNNEL_CONVERSION\",\"alias\":\"A\",\"metric_operator\":\"GREATER_THAN\",\"threshold\":10}]")
+              .build()
+      );
+
+      when(alertsDao.getAlertDetailsForEvaluation(alertId)).thenReturn(Single.just(alertDetails));
+      when(alertsDao.getAlertScopesForEvaluation(alertId)).thenReturn(Single.just(scopes));
+      when(funnelResultsDao.queryLatest(eq("proj-1"), eq(5L))).thenReturn(Single.just(List.of()));
+      when(vertx.eventBus()).thenReturn(eventBus);
+
+      assertNotNull(alertEvaluationService.evaluateAlertById(alertId).blockingGet());
+    }
+
+    @Test
+    void shouldHandleFunnelResultsQueryError() {
+      Integer alertId = 14;
+      AlertsDao.AlertDetails alertDetails = AlertsDao.AlertDetails.builder()
+          .id(alertId)
+          .scope("FUNNEL")
+          .evaluationPeriod(60)
+          .conditionExpression("A")
+          .projectId("proj-1")
+          .build();
+
+      List<AlertsDao.AlertScopeDetails> scopes = List.of(
+          AlertsDao.AlertScopeDetails.builder()
+              .id(104)
+              .name("9")
+              .conditions("[{\"metric\":\"FUNNEL_CONVERSION\",\"alias\":\"A\",\"metric_operator\":\"GREATER_THAN\",\"threshold\":10}]")
+              .build()
+      );
+
+      when(alertsDao.getAlertDetailsForEvaluation(alertId)).thenReturn(Single.just(alertDetails));
+      when(alertsDao.getAlertScopesForEvaluation(alertId)).thenReturn(Single.just(scopes));
+      when(funnelResultsDao.queryLatest(eq("proj-1"), eq(9L)))
+          .thenReturn(Single.error(new RuntimeException("clickhouse down")));
+      when(vertx.eventBus()).thenReturn(eventBus);
+
+      assertNotNull(alertEvaluationService.evaluateAlertById(alertId).blockingGet());
     }
   }
 
