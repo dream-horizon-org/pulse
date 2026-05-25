@@ -1,8 +1,10 @@
 package org.dreamhorizon.pulseserver.service.alert.core.util;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.dreamhorizon.pulseserver.resources.performance.models.Functions;
 import org.dreamhorizon.pulseserver.resources.performance.models.QueryRequest;
@@ -197,14 +199,113 @@ class MetricToFunctionMapperTest {
           MetricToFunctionMapper.getDataTypeForMetric("ALL_USERS", "APP_VITALS"));
       assertEquals(QueryRequest.DataType.TRACES,
           MetricToFunctionMapper.getDataTypeForMetric("ALL_SESSIONS", "APP_VITALS"));
+      assertEquals(QueryRequest.DataType.TRACES,
+          MetricToFunctionMapper.getDataTypeForMetric("all_users", "app_vitals"));
     }
+
+    @Test
+    void shouldUseTracesForNullOrEmptyMetric() {
+      assertEquals(QueryRequest.DataType.TRACES, MetricToFunctionMapper.getDataTypeForMetric(null, "SCREEN"));
+      assertEquals(QueryRequest.DataType.TRACES, MetricToFunctionMapper.getDataTypeForMetric("", "SCREEN"));
+      assertEquals(QueryRequest.DataType.TRACES, MetricToFunctionMapper.getDataTypeForMetric("APDEX"));
+    }
+
+    @Test
+    void shouldUseExceptionsForCrashAndAnrMetrics() {
+      assertEquals(QueryRequest.DataType.EXCEPTIONS,
+          MetricToFunctionMapper.getDataTypeForMetric("CRASH_USERS", "APP_VITALS"));
+      assertEquals(QueryRequest.DataType.EXCEPTIONS,
+          MetricToFunctionMapper.getDataTypeForMetric("ANR_SESSIONS", "SCREEN"));
+      assertEquals(QueryRequest.DataType.EXCEPTIONS,
+          MetricToFunctionMapper.getDataTypeForMetric("NON_FATAL_USERS", "APP_VITALS"));
+    }
+
+    @Test
+    void shouldReturnNullDataTypeForCompositeMetrics() {
+      assertNull(MetricToFunctionMapper.getDataTypeForMetric("CRASH_FREE_USERS_PERCENTAGE", "APP_VITALS"));
+      assertNull(MetricToFunctionMapper.getDataTypeForMetric("ANR_FREE_SESSIONS_PERCENTAGE", "SCREEN"));
+    }
+
+    @Test
+    void shouldUseTracesForNonExceptionScreenMetrics() {
+      assertEquals(QueryRequest.DataType.TRACES,
+          MetricToFunctionMapper.getDataTypeForMetric("LOAD_TIME", "SCREEN"));
+    }
+  }
+
+  @Nested
+  class IsCompositeMetricTests {
+
+    @Test
+    void shouldDetectCompositeMetrics() {
+      assertTrue(MetricToFunctionMapper.isCompositeMetric("CRASH_FREE_USERS_PERCENTAGE"));
+      assertTrue(MetricToFunctionMapper.isCompositeMetric("non_fatal_free_sessions_percentage"));
+    }
+
+    @Test
+    void shouldRejectNullEmptyAndSimpleMetrics() {
+      assertFalse(MetricToFunctionMapper.isCompositeMetric(null));
+      assertFalse(MetricToFunctionMapper.isCompositeMetric(""));
+      assertFalse(MetricToFunctionMapper.isCompositeMetric("ALL_USERS"));
+    }
+  }
+
+  @Nested
+  class GetCompositeMetricComponentsTests {
 
     @Test
     void shouldUseTracesDenominatorForAppVitalsCompositeMetrics() {
       MetricToFunctionMapper.CompositeMetricComponents components =
           MetricToFunctionMapper.getCompositeMetricComponents("CRASH_FREE_USERS_PERCENTAGE", "APP_VITALS");
       assertNotNull(components);
+      assertEquals("ALL_USERS", components.tracesMetric);
+      assertEquals("CRASH_USERS", components.exceptionsMetric);
       assertEquals(QueryRequest.DataType.TRACES, components.totalMetricDataType);
+    }
+
+    @Test
+    void shouldMapAllCompositeMetricVariants() {
+      assertNotNull(MetricToFunctionMapper.getCompositeMetricComponents("CRASH_FREE_SESSIONS_PERCENTAGE", "APP_VITALS"));
+      assertNotNull(MetricToFunctionMapper.getCompositeMetricComponents("ANR_FREE_USERS_PERCENTAGE", "APP_VITALS"));
+      assertNotNull(MetricToFunctionMapper.getCompositeMetricComponents("ANR_FREE_SESSIONS_PERCENTAGE", "APP_VITALS"));
+      assertNotNull(MetricToFunctionMapper.getCompositeMetricComponents("NON_FATAL_FREE_USERS_PERCENTAGE", "APP_VITALS"));
+      assertNotNull(MetricToFunctionMapper.getCompositeMetricComponents("NON_FATAL_FREE_SESSIONS_PERCENTAGE", "APP_VITALS"));
+    }
+
+    @Test
+    void shouldReturnNullForUnknownOrEmptyMetric() {
+      assertNull(MetricToFunctionMapper.getCompositeMetricComponents(null, "APP_VITALS"));
+      assertNull(MetricToFunctionMapper.getCompositeMetricComponents("", "APP_VITALS"));
+      assertNull(MetricToFunctionMapper.getCompositeMetricComponents("LOAD_TIME", "SCREEN"));
+    }
+
+    @Test
+    void shouldUseTwoArgConstructorOverload() {
+      MetricToFunctionMapper.CompositeMetricComponents components =
+          MetricToFunctionMapper.getCompositeMetricComponents("CRASH_FREE_USERS_PERCENTAGE");
+      assertNotNull(components);
+      assertEquals(QueryRequest.DataType.TRACES, components.totalMetricDataType);
+    }
+
+    @Test
+    void shouldConstructCompositeComponentsWithTwoArgConstructor() {
+      MetricToFunctionMapper.CompositeMetricComponents components =
+          new MetricToFunctionMapper.CompositeMetricComponents("ALL_USERS", "CRASH_USERS");
+      assertEquals("ALL_USERS", components.tracesMetric);
+      assertEquals("CRASH_USERS", components.exceptionsMetric);
+      assertEquals(QueryRequest.DataType.TRACES, components.totalMetricDataType);
+    }
+  }
+
+  @Nested
+  class MapMetricToFunctionNetworkApiTests {
+
+    @Test
+    void shouldMapNetworkApiMetricsToPulseTypeVariants() {
+      assertEquals(Functions.NET_4XX_BY_PULSE_TYPE,
+          MetricToFunctionMapper.mapMetricToFunction("NET_4XX", "NETWORK_API"));
+      assertEquals(Functions.NET_COUNT_BY_PULSE_TYPE,
+          MetricToFunctionMapper.mapMetricToFunction("net_count", "NETWORK_API"));
     }
   }
 

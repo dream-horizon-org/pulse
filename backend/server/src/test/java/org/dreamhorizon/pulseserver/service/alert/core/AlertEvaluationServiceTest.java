@@ -7,12 +7,15 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import org.mockito.ArgumentCaptor;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.reactivex.rxjava3.core.Maybe;
@@ -33,6 +36,7 @@ import org.dreamhorizon.pulseserver.config.ApplicationConfig;
 import org.dreamhorizon.pulseserver.constant.Constants;
 import org.dreamhorizon.pulseserver.dao.AlertsDao;
 import org.dreamhorizon.pulseserver.dao.productAnalysis.funnelresults.FunnelResultsDao;
+import org.dreamhorizon.pulseserver.dao.productAnalysis.funnelresults.models.FunnelResultRow;
 import org.dreamhorizon.pulseserver.resources.alert.enums.AlertState;
 import org.dreamhorizon.pulseserver.resources.alert.models.AlertEvaluationResponseDto;
 import org.dreamhorizon.pulseserver.resources.alert.models.EvaluateAlertResponseDto;
@@ -1100,6 +1104,34 @@ class AlertEvaluationServiceTest {
     }
 
     @Test
+    void shouldBuildQueryRequestForAppVitalsAllSessionsOnTraces() throws Exception {
+      Method method = AlertEvaluationService.class.getDeclaredMethod(
+          "buildQueryRequest", AlertsDao.AlertDetails.class, List.class, List.class, QueryRequest.DataType.class);
+      method.setAccessible(true);
+
+      AlertsDao.AlertDetails alertDetails = AlertsDao.AlertDetails.builder()
+          .id(1)
+          .scope("APP_VITALS")
+          .evaluationPeriod(60)
+          .projectId("proj-1")
+          .build();
+
+      List<AlertsDao.AlertScopeDetails> scopes = List.of(
+          AlertsDao.AlertScopeDetails.builder()
+              .id(1)
+              .name("VitalsScope")
+              .conditions("[{\"metric\":\"ALL_SESSIONS\",\"alias\":\"A\"}]")
+              .build()
+      );
+
+      QueryRequest result = (QueryRequest) method.invoke(
+          alertEvaluationService, alertDetails, scopes, List.of("ALL_SESSIONS"), QueryRequest.DataType.TRACES);
+      assertEquals(QueryRequest.DataType.TRACES, result.getDataType());
+      assertTrue(result.getFilters().stream().anyMatch(f ->
+          "PulseType".equals(f.getField()) && f.getValue().toString().contains("app_start")));
+    }
+
+    @Test
     void shouldBuildQueryRequestForScreenWithExceptionsDataType() throws Exception {
       Method method = AlertEvaluationService.class.getDeclaredMethod(
           "buildQueryRequest", AlertsDao.AlertDetails.class, List.class, List.class, QueryRequest.DataType.class);
@@ -1252,6 +1284,39 @@ class AlertEvaluationServiceTest {
       @SuppressWarnings("unchecked")
       List<Object> results = (List<Object>) method.invoke(alertEvaluationService, alertDetails, scopes, queryResult);
       assertNotNull(results);
+    }
+
+    @Test
+    void shouldEvaluateAllUsersMetricForAppVitalsFromFirstRow() throws Exception {
+      Method method = AlertEvaluationService.class.getDeclaredMethod(
+          "evaluateMetrics", AlertsDao.AlertDetails.class, List.class, PerformanceMetricDistributionRes.class);
+      method.setAccessible(true);
+
+      AlertsDao.AlertDetails alertDetails = AlertsDao.AlertDetails.builder()
+          .id(1)
+          .scope("APP_VITALS")
+          .conditionExpression("A")
+          .build();
+
+      List<AlertsDao.AlertScopeDetails> scopes = List.of(
+          AlertsDao.AlertScopeDetails.builder()
+              .id(1)
+              .name("VitalsScope")
+              .conditions("[{\"metric\":\"ALL_USERS\",\"alias\":\"A\",\"metric_operator\":\"GREATER_THAN\",\"threshold\":10}]")
+              .build()
+      );
+
+      PerformanceMetricDistributionRes queryResult = new PerformanceMetricDistributionRes();
+      queryResult.setFields(List.of("all_users"));
+      queryResult.setRows(List.of(List.of("42")));
+
+      when(metricOperatorFactory.getProcessor(MetricOperator.GREATER_THAN)).thenReturn(metricOperatorProcessor);
+      when(metricOperatorProcessor.isFiring(any(), any())).thenReturn(true);
+
+      @SuppressWarnings("unchecked")
+      List<Object> results = (List<Object>) method.invoke(alertEvaluationService, alertDetails, scopes, queryResult);
+      assertNotNull(results);
+      assertFalse(results.isEmpty());
     }
 
     @Test
@@ -1719,6 +1784,239 @@ class AlertEvaluationServiceTest {
       assertNotNull(dto);
       assertEquals(String.valueOf(alertId), dto.getAlertId());
       verify(clickhouseMetricService).getMetricDistribution(any(QueryRequest.class));
+    }
+
+    @Test
+    void shouldEvaluateAppVitalsAlertWithTracesAndAppStartFilter() {
+      Integer alertId = 2;
+      AlertsDao.AlertDetails alertDetails = AlertsDao.AlertDetails.builder()
+          .id(alertId)
+          .name("App Vitals Users")
+          .scope("APP_VITALS")
+          .evaluationPeriod(300)
+          .conditionExpression("A")
+          .projectId("proj-1")
+          .build();
+
+      List<AlertsDao.AlertScopeDetails> scopes = List.of(
+          AlertsDao.AlertScopeDetails.builder()
+              .id(20)
+              .name("VitalsScope")
+              .conditions("[{\"metric\":\"ALL_USERS\",\"alias\":\"A\",\"metric_operator\":\"LESS_THAN\",\"threshold\":1000}]")
+              .build()
+      );
+
+      PerformanceMetricDistributionRes queryResult = new PerformanceMetricDistributionRes();
+      queryResult.setFields(List.of("all_users"));
+      queryResult.setRows(List.of(List.of("50")));
+
+      when(alertsDao.getAlertDetailsForEvaluation(alertId)).thenReturn(Single.just(alertDetails));
+      when(alertsDao.getAlertScopesForEvaluation(eq(alertId))).thenReturn(Single.just(scopes));
+      when(clickhouseMetricService.getMetricDistribution(any(QueryRequest.class)))
+          .thenReturn(Single.just(queryResult));
+      when(metricOperatorFactory.getProcessor(any(MetricOperator.class)))
+          .thenReturn(metricOperatorProcessor);
+      when(metricOperatorProcessor.isFiring(any(Float.class), any(Float.class))).thenReturn(false);
+      when(vertx.eventBus()).thenReturn(eventBus);
+
+      EvaluateAlertResponseDto dto = alertEvaluationService.evaluateAlertById(alertId).blockingGet();
+
+      assertNotNull(dto);
+      ArgumentCaptor<QueryRequest> requestCaptor = ArgumentCaptor.forClass(QueryRequest.class);
+      verify(clickhouseMetricService, atLeastOnce()).getMetricDistribution(requestCaptor.capture());
+      assertTrue(requestCaptor.getAllValues().stream().anyMatch(req ->
+          req.getDataType() == QueryRequest.DataType.TRACES
+              && req.getFilters().stream().anyMatch(f ->
+              "PulseType".equals(f.getField())
+                  && f.getValue().toString().contains("app_start"))));
+      assertTrue(requestCaptor.getAllValues().stream()
+          .noneMatch(req -> req.getDataType() == QueryRequest.DataType.LOGS));
+    }
+
+    @Test
+    void shouldReturnEarlyWhenAlertHasNoScopes() {
+      Integer alertId = 3;
+      AlertsDao.AlertDetails alertDetails = AlertsDao.AlertDetails.builder()
+          .id(alertId)
+          .scope("APP_VITALS")
+          .evaluationPeriod(60)
+          .projectId("proj-1")
+          .build();
+
+      when(alertsDao.getAlertDetailsForEvaluation(alertId)).thenReturn(Single.just(alertDetails));
+      when(alertsDao.getAlertScopesForEvaluation(alertId)).thenReturn(Single.just(List.of()));
+      when(vertx.eventBus()).thenReturn(eventBus);
+
+      assertNotNull(alertEvaluationService.evaluateAlertById(alertId).blockingGet());
+      verify(clickhouseMetricService, times(0)).getMetricDistribution(any(QueryRequest.class));
+    }
+
+    @Test
+    void shouldHandleEvaluationErrorWhenScopesQueryFails() {
+      Integer alertId = 4;
+      AlertsDao.AlertDetails alertDetails = AlertsDao.AlertDetails.builder()
+          .id(alertId)
+          .scope("APP_VITALS")
+          .evaluationPeriod(60)
+          .projectId("proj-1")
+          .build();
+
+      when(alertsDao.getAlertDetailsForEvaluation(alertId)).thenReturn(Single.just(alertDetails));
+      when(alertsDao.getAlertScopesForEvaluation(alertId))
+          .thenReturn(Single.error(new RuntimeException("scopes unavailable")));
+      when(vertx.eventBus()).thenReturn(eventBus);
+
+      assertNotNull(alertEvaluationService.evaluateAlertById(alertId).blockingGet());
+    }
+  }
+
+  @Nested
+  class FunnelAlertEvaluationTests {
+
+    @Test
+    void shouldEvaluateFunnelAlertUsingFunnelResults() {
+      Integer alertId = 10;
+      AlertsDao.AlertDetails alertDetails = AlertsDao.AlertDetails.builder()
+          .id(alertId)
+          .scope("FUNNEL")
+          .evaluationPeriod(120)
+          .conditionExpression("A")
+          .projectId("proj-1")
+          .build();
+
+      List<AlertsDao.AlertScopeDetails> scopes = List.of(
+          AlertsDao.AlertScopeDetails.builder()
+              .id(100)
+              .name("42")
+              .conditions("[{\"metric\":\"FUNNEL_CONVERSION\",\"alias\":\"A\",\"metric_operator\":\"LESS_THAN\",\"threshold\":50}]")
+              .build()
+      );
+
+      when(alertsDao.getAlertDetailsForEvaluation(alertId)).thenReturn(Single.just(alertDetails));
+      when(alertsDao.getAlertScopesForEvaluation(alertId)).thenReturn(Single.just(scopes));
+      when(funnelResultsDao.queryLatest(eq("proj-1"), eq(42L)))
+          .thenReturn(Single.just(List.of(
+              FunnelResultRow.builder().stepIndex(1).stepName("Checkout").userCount(80L)
+                  .conversionPct(40.0).build())));
+      when(metricOperatorFactory.getProcessor(MetricOperator.LESS_THAN)).thenReturn(metricOperatorProcessor);
+      when(metricOperatorProcessor.isFiring(any(Float.class), any(Float.class))).thenReturn(true);
+      when(vertx.eventBus()).thenReturn(eventBus);
+
+      assertNotNull(alertEvaluationService.evaluateAlertById(alertId).blockingGet());
+      verify(funnelResultsDao).queryLatest("proj-1", 42L);
+    }
+
+    @Test
+    void shouldEvaluateFunnelDropMetric() {
+      Integer alertId = 11;
+      AlertsDao.AlertDetails alertDetails = AlertsDao.AlertDetails.builder()
+          .id(alertId)
+          .scope("FUNNEL")
+          .evaluationPeriod(120)
+          .conditionExpression("A")
+          .projectId("proj-1")
+          .build();
+
+      List<AlertsDao.AlertScopeDetails> scopes = List.of(
+          AlertsDao.AlertScopeDetails.builder()
+              .id(101)
+              .name("7")
+              .conditions("[{\"metric\":\"FUNNEL_DROP\",\"alias\":\"A\",\"metric_operator\":\"GREATER_THAN\",\"threshold\":50}]")
+              .build()
+      );
+
+      when(alertsDao.getAlertDetailsForEvaluation(alertId)).thenReturn(Single.just(alertDetails));
+      when(alertsDao.getAlertScopesForEvaluation(alertId)).thenReturn(Single.just(scopes));
+      when(funnelResultsDao.queryLatest(eq("proj-1"), eq(7L)))
+          .thenReturn(Single.just(List.of(
+              FunnelResultRow.builder().stepIndex(2).conversionPct(30.0).build())));
+      when(metricOperatorFactory.getProcessor(MetricOperator.GREATER_THAN)).thenReturn(metricOperatorProcessor);
+      when(metricOperatorProcessor.isFiring(any(Float.class), any(Float.class))).thenReturn(false);
+      when(vertx.eventBus()).thenReturn(eventBus);
+
+      assertNotNull(alertEvaluationService.evaluateAlertById(alertId).blockingGet());
+    }
+
+    @Test
+    void shouldHandleInvalidFunnelScopeName() {
+      Integer alertId = 12;
+      AlertsDao.AlertDetails alertDetails = AlertsDao.AlertDetails.builder()
+          .id(alertId)
+          .scope("FUNNEL")
+          .evaluationPeriod(60)
+          .conditionExpression("A")
+          .projectId("proj-1")
+          .build();
+
+      List<AlertsDao.AlertScopeDetails> scopes = List.of(
+          AlertsDao.AlertScopeDetails.builder()
+              .id(102)
+              .name("not-a-number")
+              .conditions("[{\"metric\":\"FUNNEL_CONVERSION\",\"alias\":\"A\",\"metric_operator\":\"GREATER_THAN\",\"threshold\":1}]")
+              .build()
+      );
+
+      when(alertsDao.getAlertDetailsForEvaluation(alertId)).thenReturn(Single.just(alertDetails));
+      when(alertsDao.getAlertScopesForEvaluation(alertId)).thenReturn(Single.just(scopes));
+      when(vertx.eventBus()).thenReturn(eventBus);
+
+      assertNotNull(alertEvaluationService.evaluateAlertById(alertId).blockingGet());
+      verify(funnelResultsDao, times(0)).queryLatest(anyString(), anyLong());
+    }
+
+    @Test
+    void shouldHandleEmptyFunnelResults() {
+      Integer alertId = 13;
+      AlertsDao.AlertDetails alertDetails = AlertsDao.AlertDetails.builder()
+          .id(alertId)
+          .scope("FUNNEL")
+          .evaluationPeriod(60)
+          .conditionExpression("A")
+          .projectId("proj-1")
+          .build();
+
+      List<AlertsDao.AlertScopeDetails> scopes = List.of(
+          AlertsDao.AlertScopeDetails.builder()
+              .id(103)
+              .name("5")
+              .conditions("[{\"metric\":\"FUNNEL_CONVERSION\",\"alias\":\"A\",\"metric_operator\":\"GREATER_THAN\",\"threshold\":10}]")
+              .build()
+      );
+
+      when(alertsDao.getAlertDetailsForEvaluation(alertId)).thenReturn(Single.just(alertDetails));
+      when(alertsDao.getAlertScopesForEvaluation(alertId)).thenReturn(Single.just(scopes));
+      when(funnelResultsDao.queryLatest(eq("proj-1"), eq(5L))).thenReturn(Single.just(List.of()));
+      when(vertx.eventBus()).thenReturn(eventBus);
+
+      assertNotNull(alertEvaluationService.evaluateAlertById(alertId).blockingGet());
+    }
+
+    @Test
+    void shouldHandleFunnelResultsQueryError() {
+      Integer alertId = 14;
+      AlertsDao.AlertDetails alertDetails = AlertsDao.AlertDetails.builder()
+          .id(alertId)
+          .scope("FUNNEL")
+          .evaluationPeriod(60)
+          .conditionExpression("A")
+          .projectId("proj-1")
+          .build();
+
+      List<AlertsDao.AlertScopeDetails> scopes = List.of(
+          AlertsDao.AlertScopeDetails.builder()
+              .id(104)
+              .name("9")
+              .conditions("[{\"metric\":\"FUNNEL_CONVERSION\",\"alias\":\"A\",\"metric_operator\":\"GREATER_THAN\",\"threshold\":10}]")
+              .build()
+      );
+
+      when(alertsDao.getAlertDetailsForEvaluation(alertId)).thenReturn(Single.just(alertDetails));
+      when(alertsDao.getAlertScopesForEvaluation(alertId)).thenReturn(Single.just(scopes));
+      when(funnelResultsDao.queryLatest(eq("proj-1"), eq(9L)))
+          .thenReturn(Single.error(new RuntimeException("clickhouse down")));
+      when(vertx.eventBus()).thenReturn(eventBus);
+
+      assertNotNull(alertEvaluationService.evaluateAlertById(alertId).blockingGet());
     }
   }
 
@@ -2455,6 +2753,50 @@ class AlertEvaluationServiceTest {
       assertTrue(result.get(QueryRequest.DataType.TRACES).contains("ALL_USERS"));
       assertTrue(result.get(QueryRequest.DataType.EXCEPTIONS).contains("CRASH_USERS"));
     }
+
+    @Test
+    void shouldGroupAppVitalsAllSessionsOnTraces() throws Exception {
+      Method method = AlertEvaluationService.class.getDeclaredMethod(
+          "groupMetricsByDataType", List.class, String.class);
+      method.setAccessible(true);
+
+      List<AlertsDao.AlertScopeDetails> scopes = List.of(
+          AlertsDao.AlertScopeDetails.builder()
+              .id(1)
+              .name("VitalsScope")
+              .conditions("[{\"metric\":\"ALL_SESSIONS\",\"alias\":\"A\"}]")
+              .build()
+      );
+
+      @SuppressWarnings("unchecked")
+      Map<QueryRequest.DataType, List<String>> result = (Map<QueryRequest.DataType, List<String>>)
+          method.invoke(alertEvaluationService, scopes, "APP_VITALS");
+
+      assertEquals(List.of("ALL_SESSIONS"), result.get(QueryRequest.DataType.TRACES));
+      assertFalse(result.containsKey(QueryRequest.DataType.LOGS));
+    }
+
+    @Test
+    void shouldGroupAppVitalsCompositeMetricsOnTracesAndExceptions() throws Exception {
+      Method method = AlertEvaluationService.class.getDeclaredMethod(
+          "groupMetricsByDataType", List.class, String.class);
+      method.setAccessible(true);
+
+      List<AlertsDao.AlertScopeDetails> scopes = List.of(
+          AlertsDao.AlertScopeDetails.builder()
+              .id(1)
+              .name("VitalsScope")
+              .conditions("[{\"metric\":\"CRASH_FREE_SESSIONS_PERCENTAGE\",\"alias\":\"A\"}]")
+              .build()
+      );
+
+      @SuppressWarnings("unchecked")
+      Map<QueryRequest.DataType, List<String>> result = (Map<QueryRequest.DataType, List<String>>)
+          method.invoke(alertEvaluationService, scopes, "APP_VITALS");
+
+      assertTrue(result.get(QueryRequest.DataType.TRACES).contains("ALL_SESSIONS"));
+      assertTrue(result.get(QueryRequest.DataType.EXCEPTIONS).contains("CRASH_SESSIONS"));
+    }
   }
 
   @Nested
@@ -3132,6 +3474,18 @@ class AlertEvaluationServiceTest {
       assertEquals(QueryRequest.Operator.EQ, filter.getOperator());
       assertTrue(filter.getValue().toString().contains("app_start"));
     }
+
+    @Test
+    void shouldNotAddPulseTypeFilterForAppVitalsWhenDataTypeIsLogs() throws Exception {
+      Method method = AlertEvaluationService.class.getDeclaredMethod(
+          "addPulseTypeFilter", List.class, QueryRequest.DataType.class, boolean.class, String.class);
+      method.setAccessible(true);
+
+      List<QueryRequest.Filter> filters = new ArrayList<>();
+      method.invoke(alertEvaluationService, filters, QueryRequest.DataType.LOGS, true, "APP_VITALS");
+
+      assertFalse(filters.stream().anyMatch(f -> "PulseType".equals(f.getField())));
+    }
   }
 
   @Nested
@@ -3236,6 +3590,12 @@ class AlertEvaluationServiceTest {
     void shouldGetDataTypeForNullMetric() {
       QueryRequest.DataType result = MetricToFunctionMapper.getDataTypeForMetric(null, "SCREEN");
       assertEquals(QueryRequest.DataType.TRACES, result);
+    }
+
+    @Test
+    void shouldRouteAppVitalsTotalsToTraces() {
+      assertEquals(QueryRequest.DataType.TRACES,
+          MetricToFunctionMapper.getDataTypeForMetric("ALL_SESSIONS", "APP_VITALS"));
     }
 
     @Test
