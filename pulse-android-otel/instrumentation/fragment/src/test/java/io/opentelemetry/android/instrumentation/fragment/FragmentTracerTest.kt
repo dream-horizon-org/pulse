@@ -10,8 +10,10 @@ import io.mockk.every
 import io.mockk.mockk
 import io.opentelemetry.android.common.RumConstants
 import io.opentelemetry.android.instrumentation.common.ActiveSpan
+import io.opentelemetry.android.internal.services.visiblescreen.VisibleScreenState
 import io.opentelemetry.android.internal.services.visiblescreen.VisibleScreenTracker
 import io.opentelemetry.api.trace.Tracer
+import kotlinx.coroutines.flow.MutableStateFlow
 import io.opentelemetry.sdk.testing.junit5.OpenTelemetryExtension
 import io.opentelemetry.sdk.trace.data.SpanData
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -33,8 +35,9 @@ internal class FragmentTracerTest {
     fun setup() {
         tracer = otelTesting.openTelemetry.getTracer("testTracer")
         val visibleScreenTracker = mockk<VisibleScreenTracker>(relaxed = true)
-        every { visibleScreenTracker.previouslyVisibleScreen } returns null
-        activeSpan = ActiveSpan(visibleScreenTracker::previouslyVisibleScreen)
+        every { visibleScreenTracker.visibleScreenState } returns
+            MutableStateFlow(VisibleScreenState("unknown", null, null, null, null, null))
+        activeSpan = ActiveSpan { visibleScreenTracker.visibleScreenState.value.previouslyVisibleScreen }
     }
 
     @Test
@@ -71,7 +74,8 @@ internal class FragmentTracerTest {
     @Test
     fun addPreviousScreen_currentSameAsPrevious() {
         val visibleScreenTracker = mockk<VisibleScreenTracker>(relaxed = true)
-        every { visibleScreenTracker.previouslyVisibleScreen } returns "Fragment"
+        every { visibleScreenTracker.visibleScreenState } returns
+            MutableStateFlow(VisibleScreenState("unknown", null, null, "Fragment", null, null))
 
         val trackableTracer =
             FragmentTracer
@@ -91,8 +95,9 @@ internal class FragmentTracerTest {
     @Test
     fun addPreviousScreen() {
         val visibleScreenTracker = mockk<VisibleScreenTracker>()
-        every { visibleScreenTracker.previouslyVisibleScreen } returns "previousScreen"
-        activeSpan = ActiveSpan(visibleScreenTracker::previouslyVisibleScreen)
+        every { visibleScreenTracker.visibleScreenState } returns
+            MutableStateFlow(VisibleScreenState("unknown", null, null, "previousScreen", null, null))
+        activeSpan = ActiveSpan { visibleScreenTracker.visibleScreenState.value.previouslyVisibleScreen }
 
         val fragmentTracer =
             FragmentTracer

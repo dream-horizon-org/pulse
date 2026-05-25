@@ -5,9 +5,11 @@
 
 package io.opentelemetry.android.internal.features.networkattrs
 
+import com.pulse.utils.setAllAttributesIfAbsent
 import io.opentelemetry.android.common.internal.features.networkattributes.CurrentNetworkAttributesExtractor
 import io.opentelemetry.android.common.internal.features.networkattributes.data.CurrentNetwork
 import io.opentelemetry.android.internal.services.network.CurrentNetworkProvider
+import io.opentelemetry.api.common.Attributes
 import io.opentelemetry.context.Context
 import io.opentelemetry.sdk.trace.ReadWriteSpan
 import io.opentelemetry.sdk.trace.ReadableSpan
@@ -27,7 +29,7 @@ internal class NetworkAttributesSpanAppender(
         span: ReadWriteSpan,
     ) {
         val currentNetwork = currentNetworkProvider.currentNetwork
-        span.setAllAttributes(networkAttributesExtractor.extract(currentNetwork))
+        span.setAllAttributesIfAbsent(networkAttributesExtractor.extract(currentNetwork))
     }
 
     override fun isStartRequired(): Boolean = true

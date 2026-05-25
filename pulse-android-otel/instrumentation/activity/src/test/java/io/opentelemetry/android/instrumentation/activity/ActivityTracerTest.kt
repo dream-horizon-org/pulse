@@ -13,10 +13,12 @@ import io.mockk.mockk
 import io.opentelemetry.android.common.RumConstants
 import io.opentelemetry.android.instrumentation.activity.startup.AppStartupTimer
 import io.opentelemetry.android.instrumentation.common.ActiveSpan
+import io.opentelemetry.android.internal.services.visiblescreen.VisibleScreenState
 import io.opentelemetry.android.internal.services.visiblescreen.VisibleScreenTracker
 import io.opentelemetry.api.trace.Tracer
 import io.opentelemetry.sdk.testing.junit5.OpenTelemetryExtension
 import io.opentelemetry.sdk.trace.data.SpanData
+import kotlinx.coroutines.flow.MutableStateFlow
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.BeforeEach
@@ -41,8 +43,14 @@ class ActivityTracerTest {
     @BeforeEach
     fun setup() {
         tracer = otelTesting.openTelemetry.getTracer("testTracer")
-        activeSpan = ActiveSpan(visibleScreenTracker::previouslyVisibleScreen)
-        every { visibleScreenTracker.previouslyVisibleScreen } returns null
+        every { visibleScreenTracker.visibleScreenState } returns
+            MutableStateFlow(
+                VisibleScreenState(
+                    screenName = "unknown", activityName = null, fragmentName = null,
+                    previouslyVisibleScreen = null, previouslyVisibleActivity = null, previouslyVisibleFragment = null,
+                ),
+            )
+        activeSpan = ActiveSpan { visibleScreenTracker.visibleScreenState.value.previouslyVisibleScreen }
     }
 
     @Test
@@ -176,8 +184,6 @@ class ActivityTracerTest {
 
     @Test
     fun addPreviousScreen_currentSameAsPrevious() {
-        val visibleScreenTracker = mockk<VisibleScreenTracker>(relaxed = true)
-        every { visibleScreenTracker.previouslyVisibleScreen } returns "Activity"
 
         val trackableTracer =
             ActivityTracer
@@ -197,7 +203,13 @@ class ActivityTracerTest {
 
     @Test
     fun addPreviousScreen() {
-        every { visibleScreenTracker.previouslyVisibleScreen } returns "previousScreen"
+        every { visibleScreenTracker.visibleScreenState } returns
+            MutableStateFlow(
+                VisibleScreenState(
+                    screenName = "unknown", activityName = null, fragmentName = null,
+                    previouslyVisibleScreen = "previousScreen", previouslyVisibleActivity = null, previouslyVisibleFragment = null,
+                ),
+            )
 
         val trackableTracer =
             ActivityTracer

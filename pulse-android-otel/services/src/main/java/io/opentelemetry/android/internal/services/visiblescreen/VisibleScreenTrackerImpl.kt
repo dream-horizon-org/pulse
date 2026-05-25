@@ -15,6 +15,9 @@ import io.opentelemetry.android.internal.services.visiblescreen.activities.Pre29
 import io.opentelemetry.android.internal.services.visiblescreen.activities.VisibleScreenLifecycleBinding
 import io.opentelemetry.android.internal.services.visiblescreen.fragments.RumFragmentActivityRegisterer
 import io.opentelemetry.android.internal.services.visiblescreen.fragments.VisibleFragmentTracker
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import java.util.concurrent.atomic.AtomicReference
 
 /**
@@ -36,6 +39,17 @@ internal class VisibleScreenTrackerImpl internal constructor(
     private val previouslyLastResumedActivity = AtomicReference<String>()
     private val lastResumedFragment = AtomicReference<String>()
     private val previouslyLastResumedFragment = AtomicReference<String?>()
+    private val _visibleScreenState =
+        MutableStateFlow(
+            VisibleScreenState(
+                screenName = "unknown",
+                activityName = null,
+                fragmentName = null,
+                previouslyVisibleScreen = null,
+                previouslyVisibleActivity = null,
+                previouslyVisibleFragment = null,
+            ),
+        )
     private val activityLifecycleTracker by lazy { buildActivitiesTracker() }
     private val fragmentLifecycleTrackerRegisterer by lazy { buildFragmentsTrackerRegisterer() }
 
@@ -60,35 +74,18 @@ internal class VisibleScreenTrackerImpl internal constructor(
         }
     }
 
-    override val previouslyVisibleScreen: String?
-        get() {
-            val previouslyLastFragment = previouslyLastResumedFragment.get()
-            if (previouslyLastFragment != null) {
-                return previouslyLastFragment
-            }
-            return previouslyLastResumedActivity.get()
-        }
-
-    override val currentlyVisibleScreen: String
-        get() {
-            val lastFragment = lastResumedFragment.get()
-            if (lastFragment != null) {
-                return lastFragment
-            }
-            val lastActivity = lastResumedActivity.get()
-            if (lastActivity != null) {
-                return lastActivity
-            }
-            return "unknown"
-        }
+    override val visibleScreenState: StateFlow<VisibleScreenState>
+        get() = _visibleScreenState.asStateFlow()
 
     override fun activityResumed(activity: Activity) {
         lastResumedActivity.set(activity.javaClass.simpleName)
+        publishState()
     }
 
     override fun activityPaused(activity: Activity) {
         previouslyLastResumedActivity.set(activity.javaClass.simpleName)
         lastResumedActivity.compareAndSet(activity.javaClass.simpleName, null)
+        publishState()
     }
 
     override fun fragmentResumed(fragment: Fragment) {
@@ -101,6 +98,7 @@ internal class VisibleScreenTrackerImpl internal constructor(
             previouslyLastResumedFragment.set(lastResumedFragment.get())
         }
         lastResumedFragment.set(fragment.javaClass.simpleName)
+        publishState()
     }
 
     override fun fragmentPaused(fragment: Fragment) {
@@ -114,6 +112,23 @@ internal class VisibleScreenTrackerImpl internal constructor(
             lastResumedFragment.compareAndSet(fragment.javaClass.simpleName, null)
         }
         previouslyLastResumedFragment.set(fragment.javaClass.simpleName)
+        publishState()
+    }
+
+    private fun publishState() {
+        val currentFragment = lastResumedFragment.get()
+        val currentActivity = lastResumedActivity.get()
+        val prevFragment = previouslyLastResumedFragment.get()
+        val prevActivity = previouslyLastResumedActivity.get()
+        _visibleScreenState.value =
+            VisibleScreenState(
+                screenName = currentFragment ?: currentActivity ?: "unknown",
+                activityName = currentActivity,
+                fragmentName = currentFragment,
+                previouslyVisibleScreen = prevFragment ?: prevActivity,
+                previouslyVisibleActivity = prevActivity,
+                previouslyVisibleFragment = prevFragment,
+            )
     }
 
     override fun close() {

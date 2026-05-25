@@ -9,9 +9,12 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
 import io.opentelemetry.android.common.RumConstants.SCREEN_NAME_KEY
+import io.opentelemetry.android.internal.services.visiblescreen.VisibleScreenState
 import io.opentelemetry.android.internal.services.visiblescreen.VisibleScreenTracker
 import io.opentelemetry.api.common.AttributeKey
+import io.opentelemetry.api.common.Attributes
 import io.opentelemetry.sdk.logs.ReadWriteLogRecord
+import kotlinx.coroutines.flow.MutableStateFlow
 import org.junit.Test
 
 private const val CURRENT_SCREEN = "party favors"
@@ -21,7 +24,9 @@ class ScreenAttributesLogRecordProcessorTest {
     fun `current screen name is appended`() {
         val visibleScreenTracker: VisibleScreenTracker = mockk()
         val logRecord: ReadWriteLogRecord = mockk()
-        every { visibleScreenTracker.currentlyVisibleScreen }.returns(CURRENT_SCREEN)
+        every { visibleScreenTracker.visibleScreenState } returns
+            MutableStateFlow(VisibleScreenState(CURRENT_SCREEN, null, null, null, null, null))
+        every { logRecord.attributes }.returns(Attributes.empty())
         every { logRecord.setAttribute(any<AttributeKey<String>>(), any<String>()) } returns logRecord
         val testClass = ScreenAttributesLogRecordProcessor(visibleScreenTracker)
         testClass.onEmit(mockk(), logRecord)

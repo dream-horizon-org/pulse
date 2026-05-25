@@ -52,7 +52,7 @@ class FragmentLifecycleInstrumentation : AndroidInstrumentation {
         val fragmentLifecycle =
             RumFragmentLifecycleCallbacks(
                 tracerCustomizer.invoke(delegateTracer),
-                visibleScreenService::previouslyVisibleScreen,
+                { visibleScreenService.visibleScreenState.value.previouslyVisibleScreen },
                 screenNameExtractor,
             )
         return if (Build.VERSION.SDK_INT < 29) {

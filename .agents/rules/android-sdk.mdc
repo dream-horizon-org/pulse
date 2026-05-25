@@ -1,7 +1,7 @@
 ---
 description: Android SDK conventions for pulse-android-otel
 globs: pulse-android-otel/**/*.kt
-alwaysApply: false
+alwaysApply: true
 ---
 
 # Android SDK Conventions
@@ -169,9 +169,192 @@ Use `pulse.*` prefixed attributes for Pulse-specific data:
 - The `services/PeriodicWorkImpl.kt` (`ThreadPoolExecutor` + `Handler`) is upstream OTel Android code — do **not** copy that pattern into new Pulse modules; it exists only for OTel compatibility
 - Coroutine dependency: `kotlinx-coroutines-android` is already in `libs.versions.toml`
 
+## Coroutine: Do not hardcode Dispatchers
+
+Avoid direct usage of `Dispatchers.IO`, `Dispatchers.Default`, `Dispatchers.Main` in production code. So that when testing this class we can replace Dispatchers with StandardTestDispatchers
+
+### Discouraged
+
+```kotlin
+class UtilityClass {
+    withContext(Dispatchers.IO) { }
+    launch(Dispatchers.Default) { }
+}
+```
+
+### Preferred
+```kotlin
+class UtilityClass(
+    val io: CoroutineDispatcher,
+    val default: CoroutineDispatcher,
+    val main: CoroutineDispatcher
+) {
+    withContext(io) { }
+    launch(default) { }
+}
+```
+
+
+## Imports
+
+- **No wildcard imports** — `import foo.*` is forbidden
+- **No fully qualified names (FQN) in code** — add a top-level `import` and use the short name
+
+FQN references in expressions, declarations, or type positions are not allowed. Examples of forbidden patterns:
+
+- `kotlinx.coroutines.flow.MutableStateFlow(...)`
+- `io.opentelemetry.android.internal.services.visiblescreen.VisibleScreenState(...)`
+
+```kotlin
+// ❌ BAD — FQN in code body
+every { tracker.visibleScreenState } returns
+    kotlinx.coroutines.flow.MutableStateFlow(
+        io.opentelemetry.android.internal.services.visiblescreen.VisibleScreenState(
+            screenName = "unknown",
+        ),
+    )
+
+// ✅ GOOD — import + short names
+import kotlinx.coroutines.flow.MutableStateFlow
+import io.opentelemetry.android.internal.services.visiblescreen.VisibleScreenState
+
+every { tracker.visibleScreenState } returns
+    MutableStateFlow(VisibleScreenState(screenName = "unknown"))
+```
+
+**Allowed:** `import` lines, `package` declarations, annotation class literals (e.g. `@AutoService(Foo::class)`).
+
+**Name clashes:** use `import foo.Bar as FooBar` — never fall back to FQN in the body.
+
+## Localize Kotlin suppressions
+
+Avoid applying `@Suppress(...)` to entire functions, classes, files, or large scopes when the warning originates from a single statement.
+
+Prefer the suppression to be placed directly on the minimal expression or statement that requires it.
+
+### Discouraged
+
+```kotlin
+@Suppress("UNCHECKED_CAST")
+private fun ReadWriteLogRecord.setAllAttributesIfAbsent(attributes: Attributes) {
+    attributes.asMap().forEach { (key, value) ->
+        if (this.attributes[key] == null) {
+            setAttribute(key as AttributeKey<Any>, value as Any)
+        }
+    }
+}
+```
+
+### Preferred
+
+```kotlin
+private fun ReadWriteLogRecord.setAllAttributesIfAbsent(attributes: Attributes) {
+    attributes.asMap().forEach { (key, value) ->
+        if (this.attributes[key] == null) {
+            @Suppress("UNCHECKED_CAST")
+            setAttribute(key as AttributeKey<Any>, value as Any)
+        }
+    }
+}
+```
+
+## Public API: avoid data classes
+
+Do not expose `data class` types in public APIs.
+
+### Discouraged
+
+```kotlin
+data class UserResponse(
+    val id: String,
+    val name: String
+)
+```
+
+### Preferred
+
+```kotlin
+interface User {
+    val id: String
+    val name: String
+}
+```
+or
+
+```kotlin
+class User internal constructor(
+    val id: String,
+    val name: String
+)
+```
+
+Below is allowed
+
+```kotlin
+internal data class User(
+    val id: String,
+    val name: String
+)
+```
+
+## Do not hide failures with fallback objects
+
+Avoid returning empty/default objects from parsing, deserialization, mapping, or conversion failures.
+
+Prefer returning `null` (or `Result`) so failure is explicit and callers must handle it.
+
+### Discouraged
+
+```kotlin
+fun fromJsonString(json: String?): PulseAppMetaData {
+    if (json.isNullOrBlank()) {
+        return PulseAppMetaData()
+    }
+
+    return runCatching {
+        json.fromJson<PulseAppMetaData>(TAG) ?: PulseAppMetaData()
+    }.getOrElse { PulseAppMetaData() }
+}
+```
+
+### Preferred
+```kotlin
+fun fromJsonString(json: String?): PulseAppMetaData? {
+    if (json.isNullOrBlank()) return null
+
+    return runCatching {
+        json.fromJson<PulseAppMetaData>(TAG)
+    }.getOrNull()
+}
+```
+
+## Prefer `apply` in builder-style extension functions
+
+ For mutating extension functions that return `this`, prefer expression bodies with `apply`.
+
+### Discouraged
+
+ ```kotlin
+private fun AttributesBuilder.putMetaData(
+    crashMetaData: PulseAppMetaData
+): AttributesBuilder {
+    // mutations
+    return this
+}
+ ```
+
+ ### Preferred
+
+ ```kotlin
+private fun AttributesBuilder.putMetaData(
+    crashMetaData: PulseAppMetaData
+): AttributesBuilder = apply {
+    // mutations
+}
+ ```
+
 ## Best Practices
 
-- No wildcard imports
 - Group imports by source (stdlib, Android, OTel, project)
 - Prefer `internal` for non-API classes
 - Use `@AutoService` for all new instrumentations
@@ -184,3 +367,30 @@ Automated via `.github/workflows/publish-android.yml`
 ## Code Style
 
 Follow Kotlin conventions — `camelCase` for functions/properties, `PascalCase` for classes. Formatting enforced by Spotless (`otel.spotless-conventions`).
+
+## Minimal Diffs — No Cosmetic Changes
+
+When editing any file, **only change what is required by the task**. Never introduce:
+
+- Indentation reformatting on untouched lines
+- Brace-style conversions (e.g. `if (x) { return }` → `if (x) return`)
+- Comment removal or rewording on lines you are not otherwise modifying
+- Blank-line addition or removal outside the changed block
+- Import reordering unrelated to added/removed symbols
+
+If a task requires rewriting a whole function or class, preserve the exact formatting, brace style, blank lines, and comments of every line that is **not** part of the functional change. When in doubt, use a targeted `StrReplace` on the minimal affected lines rather than rewriting the whole block.
+
+## File Headers
+
+**Do NOT add any copyright/license header to new Pulse-authored files.**
+
+Only pre-existing files that were forked or copied from the upstream OpenTelemetry Android project carry the OTel Apache-2.0 header:
+
+```
+/*
+ * Copyright The OpenTelemetry Authors
+ * SPDX-License-Identifier: Apache-2.0
+ */
+```
+
+New files created by the Pulse team — even when placed under `io.opentelemetry.android.*` packages — must have **no header at all**; the package declaration is the first line.

@@ -11,9 +11,11 @@ import io.mockk.mockk
 import io.opentelemetry.android.common.RumConstants
 import io.opentelemetry.android.instrumentation.activity.startup.AppStartupTimer
 import io.opentelemetry.android.instrumentation.common.ScreenNameExtractor
+import io.opentelemetry.android.internal.services.visiblescreen.VisibleScreenState
 import io.opentelemetry.android.internal.services.visiblescreen.VisibleScreenTracker
 import io.opentelemetry.sdk.testing.junit5.OpenTelemetryExtension
 import io.opentelemetry.sdk.trace.data.EventData
+import kotlinx.coroutines.flow.MutableStateFlow
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
@@ -37,7 +39,13 @@ internal class ActivityCallbacksTest {
         val tracer = otelTesting.openTelemetry.getTracer("testTracer")
         val startupTimer = AppStartupTimer()
         visibleScreenTracker = mockk<VisibleScreenTracker>(relaxed = true)
-        every { visibleScreenTracker.previouslyVisibleScreen } returns null
+        every { visibleScreenTracker.visibleScreenState } returns
+            MutableStateFlow(
+                VisibleScreenState(
+                    screenName = "unknown", activityName = null, fragmentName = null,
+                    previouslyVisibleScreen = null, previouslyVisibleActivity = null, previouslyVisibleFragment = null,
+                ),
+            )
         val extractor = mockk<ScreenNameExtractor>(relaxed = true)
         every { extractor.extract(any<Activity>()) } returns "Activity"
         tracers = ActivityTracerCache(tracer, visibleScreenTracker, startupTimer, extractor)
@@ -181,7 +189,13 @@ internal class ActivityCallbacksTest {
 
     @Test
     fun activityResumed() {
-        every { visibleScreenTracker.previouslyVisibleScreen } returns "previousScreen"
+        every { visibleScreenTracker.visibleScreenState } returns
+            MutableStateFlow(
+                VisibleScreenState(
+                    screenName = "unknown", activityName = null, fragmentName = null,
+                    previouslyVisibleScreen = "previousScreen", previouslyVisibleActivity = null, previouslyVisibleFragment = null,
+                ),
+            )
         val activityCallbacks = createActivityCallbacks()
         val testHarness = ActivityCallbackTestHarness(activityCallbacks)
 

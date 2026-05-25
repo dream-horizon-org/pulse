@@ -51,20 +51,20 @@ internal class VisibleScreenTrackerTest {
         val visibleScreenTracker = this.visibleScreenService
         val activity = mockk<Activity>()
 
-        assertEquals("unknown", visibleScreenTracker.currentlyVisibleScreen)
+        assertEquals("unknown", visibleScreenTracker.visibleScreenState.value.screenName)
 
         visibleScreenTracker.activityResumed(activity)
         assertEquals(
             activity.javaClass.simpleName,
-            visibleScreenTracker.currentlyVisibleScreen,
+            visibleScreenTracker.visibleScreenState.value.screenName,
         )
-        assertNull(visibleScreenTracker.previouslyVisibleScreen)
+        assertNull(visibleScreenTracker.visibleScreenState.value.previouslyVisibleScreen)
 
         visibleScreenTracker.activityPaused(activity)
-        assertEquals("unknown", visibleScreenTracker.currentlyVisibleScreen)
+        assertEquals("unknown", visibleScreenTracker.visibleScreenState.value.screenName)
         assertEquals(
             activity.javaClass.simpleName,
-            visibleScreenTracker.previouslyVisibleScreen,
+            visibleScreenTracker.visibleScreenState.value.previouslyVisibleScreen,
         )
     }
 
@@ -73,20 +73,20 @@ internal class VisibleScreenTrackerTest {
         val visibleScreenTracker = this.visibleScreenService
         val fragment = mockk<Fragment>()
 
-        assertEquals("unknown", visibleScreenTracker.currentlyVisibleScreen)
+        assertEquals("unknown", visibleScreenTracker.visibleScreenState.value.screenName)
 
         visibleScreenTracker.fragmentResumed(fragment)
         assertEquals(
             fragment.javaClass.simpleName,
-            visibleScreenTracker.currentlyVisibleScreen,
+            visibleScreenTracker.visibleScreenState.value.screenName,
         )
-        assertNull(visibleScreenTracker.previouslyVisibleScreen)
+        assertNull(visibleScreenTracker.visibleScreenState.value.previouslyVisibleScreen)
 
         visibleScreenTracker.fragmentPaused(fragment)
-        assertEquals("unknown", visibleScreenTracker.currentlyVisibleScreen)
+        assertEquals("unknown", visibleScreenTracker.visibleScreenState.value.screenName)
         assertEquals(
             fragment.javaClass.simpleName,
-            visibleScreenTracker.previouslyVisibleScreen,
+            visibleScreenTracker.visibleScreenState.value.previouslyVisibleScreen,
         )
     }
 
@@ -96,22 +96,22 @@ internal class VisibleScreenTrackerTest {
         val fragment = mockk<Fragment>()
         val navHostFragment = mockk<NavHostFragment>()
 
-        assertEquals("unknown", visibleScreenTracker.currentlyVisibleScreen)
+        assertEquals("unknown", visibleScreenTracker.visibleScreenState.value.screenName)
 
         visibleScreenTracker.fragmentResumed(fragment)
         visibleScreenTracker.fragmentResumed(navHostFragment)
         assertEquals(
             fragment.javaClass.simpleName,
-            visibleScreenTracker.currentlyVisibleScreen,
+            visibleScreenTracker.visibleScreenState.value.screenName,
         )
-        assertNull(visibleScreenTracker.previouslyVisibleScreen)
+        assertNull(visibleScreenTracker.visibleScreenState.value.previouslyVisibleScreen)
 
         visibleScreenTracker.fragmentPaused(navHostFragment)
         visibleScreenTracker.fragmentPaused(fragment)
-        assertEquals("unknown", visibleScreenTracker.currentlyVisibleScreen)
+        assertEquals("unknown", visibleScreenTracker.visibleScreenState.value.screenName)
         assertEquals(
             fragment.javaClass.simpleName,
-            visibleScreenTracker.previouslyVisibleScreen,
+            visibleScreenTracker.visibleScreenState.value.previouslyVisibleScreen,
         )
     }
 
@@ -121,27 +121,27 @@ internal class VisibleScreenTrackerTest {
         val fragment = mockk<Fragment>()
         val dialogFragment = mockk<DialogFragment>()
 
-        assertEquals("unknown", visibleScreenTracker.currentlyVisibleScreen)
+        assertEquals("unknown", visibleScreenTracker.visibleScreenState.value.screenName)
 
         visibleScreenTracker.fragmentResumed(fragment)
         visibleScreenTracker.fragmentResumed(dialogFragment)
         assertEquals(
             dialogFragment.javaClass.simpleName,
-            visibleScreenTracker.currentlyVisibleScreen,
+            visibleScreenTracker.visibleScreenState.value.screenName,
         )
         assertEquals(
             fragment.javaClass.simpleName,
-            visibleScreenTracker.previouslyVisibleScreen,
+            visibleScreenTracker.visibleScreenState.value.previouslyVisibleScreen,
         )
 
         visibleScreenTracker.fragmentPaused(dialogFragment)
         assertEquals(
             fragment.javaClass.simpleName,
-            visibleScreenTracker.currentlyVisibleScreen,
+            visibleScreenTracker.visibleScreenState.value.screenName,
         )
         assertEquals(
             dialogFragment.javaClass.simpleName,
-            visibleScreenTracker.previouslyVisibleScreen,
+            visibleScreenTracker.visibleScreenState.value.previouslyVisibleScreen,
         )
     }
 
@@ -151,24 +151,24 @@ internal class VisibleScreenTrackerTest {
         val activity = mockk<Activity>()
         val fragment = mockk<Fragment>()
 
-        assertEquals("unknown", visibleScreenTracker.currentlyVisibleScreen)
+        assertEquals("unknown", visibleScreenTracker.visibleScreenState.value.screenName)
 
         visibleScreenTracker.activityResumed(activity)
         visibleScreenTracker.fragmentResumed(fragment)
         assertEquals(
             fragment.javaClass.simpleName,
-            visibleScreenTracker.currentlyVisibleScreen,
+            visibleScreenTracker.visibleScreenState.value.screenName,
         )
-        assertNull(visibleScreenTracker.previouslyVisibleScreen)
+        assertNull(visibleScreenTracker.visibleScreenState.value.previouslyVisibleScreen)
 
         visibleScreenTracker.fragmentPaused(fragment)
         assertEquals(
             activity.javaClass.simpleName,
-            visibleScreenTracker.currentlyVisibleScreen,
+            visibleScreenTracker.visibleScreenState.value.screenName,
         )
         assertEquals(
             fragment.javaClass.simpleName,
-            visibleScreenTracker.previouslyVisibleScreen,
+            visibleScreenTracker.visibleScreenState.value.previouslyVisibleScreen,
         )
     }
 

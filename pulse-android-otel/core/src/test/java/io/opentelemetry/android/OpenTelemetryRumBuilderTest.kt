@@ -31,7 +31,9 @@ import io.opentelemetry.android.internal.services.Services
 import io.opentelemetry.android.internal.services.Services.Companion.set
 import io.opentelemetry.android.internal.services.applifecycle.AppLifecycle
 import io.opentelemetry.android.internal.services.storage.CacheStorage
+import io.opentelemetry.android.internal.services.visiblescreen.VisibleScreenState
 import io.opentelemetry.android.internal.services.visiblescreen.VisibleScreenTracker
+import kotlinx.coroutines.flow.MutableStateFlow
 import io.opentelemetry.android.session.SessionProvider
 import io.opentelemetry.api.common.AttributeKey
 import io.opentelemetry.api.common.Attributes
@@ -649,7 +651,8 @@ class OpenTelemetryRumBuilderTest {
                     every { this@apply.cacheDir } returns File("")
                 }
             val screenService = mockk<VisibleScreenTracker>()
-            every { screenService.currentlyVisibleScreen } returns CUR_SCREEN_NAME
+            every { screenService.visibleScreenState } returns
+                MutableStateFlow(VisibleScreenState(CUR_SCREEN_NAME, null, null, null, null, null))
             every { services.visibleScreenTracker } returns screenService
             set(services)
             return services

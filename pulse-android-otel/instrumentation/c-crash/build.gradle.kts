@@ -36,6 +36,8 @@ android {
 dependencies {
     api(projects.instrumentation.androidInstrumentation)
     implementation(projects.common)
+    implementation(projects.services)
+    implementation(projects.session)
     implementation(projects.pulseUtils)
     implementation(libs.kotlin.serialisation)
     implementation(projects.instrumentation.commonApi)

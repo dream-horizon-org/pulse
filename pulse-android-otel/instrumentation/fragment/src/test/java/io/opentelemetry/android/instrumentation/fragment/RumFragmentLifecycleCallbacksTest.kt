@@ -12,8 +12,10 @@ import io.mockk.junit5.MockKExtension
 import io.mockk.mockk
 import io.opentelemetry.android.common.RumConstants
 import io.opentelemetry.android.instrumentation.common.ScreenNameExtractor
+import io.opentelemetry.android.internal.services.visiblescreen.VisibleScreenState
 import io.opentelemetry.android.internal.services.visiblescreen.VisibleScreenTracker
 import io.opentelemetry.api.trace.Tracer
+import kotlinx.coroutines.flow.MutableStateFlow
 import io.opentelemetry.sdk.testing.junit5.OpenTelemetryExtension
 import io.opentelemetry.sdk.trace.data.EventData
 import org.junit.jupiter.api.Assertions
@@ -43,7 +45,8 @@ internal class RumFragmentLifecycleCallbacksTest {
     fun setup() {
         tracer = otelTesting.openTelemetry.getTracer("testTracer")
         every { screenNameExtractor.extract(any()) } returns "Fragment"
-        every { visibleScreenTracker.previouslyVisibleScreen } returns null
+        every { visibleScreenTracker.visibleScreenState } returns
+            MutableStateFlow(VisibleScreenState("unknown", null, null, null, null, null))
     }
 
     @Test
@@ -80,7 +83,8 @@ internal class RumFragmentLifecycleCallbacksTest {
 
     @Test
     fun fragmentRestored() {
-        every { visibleScreenTracker.previouslyVisibleScreen } returns "previousScreen"
+        every { visibleScreenTracker.visibleScreenState } returns
+            MutableStateFlow(VisibleScreenState("unknown", null, null, "previousScreen", null, null))
         val testHarness = fragmentCallbackTestHarness
 
         val fragment = mockk<Fragment>()
@@ -369,7 +373,7 @@ internal class RumFragmentLifecycleCallbacksTest {
             FragmentCallbackTestHarness(
                 RumFragmentLifecycleCallbacks(
                     tracer,
-                    visibleScreenTracker::previouslyVisibleScreen,
+                    { visibleScreenTracker.visibleScreenState.value.previouslyVisibleScreen },
                     screenNameExtractor,
                 ),
             )

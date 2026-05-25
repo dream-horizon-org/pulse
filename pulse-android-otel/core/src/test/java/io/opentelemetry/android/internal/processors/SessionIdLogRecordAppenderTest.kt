@@ -13,6 +13,7 @@ import io.opentelemetry.android.common.RumConstants.Events.EVENT_SESSION_END
 import io.opentelemetry.android.common.RumConstants.Events.EVENT_SESSION_START
 import io.opentelemetry.android.session.SessionProvider
 import io.opentelemetry.api.common.AttributeKey
+import io.opentelemetry.api.common.Attributes
 import io.opentelemetry.context.Context
 import io.opentelemetry.sdk.logs.ReadWriteLogRecord
 import io.opentelemetry.semconv.incubating.SessionIncubatingAttributes
@@ -32,6 +33,7 @@ class SessionIdLogRecordAppenderTest {
     fun setUp() {
         MockKAnnotations.init(this)
         every { sessionProvider.getSessionId() }.returns(SESSION_ID_VALUE)
+        every { log.attributes }.returns(Attributes.empty())
         every { log.setAttribute(any<AttributeKey<String>>(), any<String>()) } returns log
     }
 

@@ -11,6 +11,7 @@ import io.mockk.impl.annotations.MockK
 import io.mockk.verify
 import io.opentelemetry.android.session.SessionProvider
 import io.opentelemetry.api.common.AttributeKey
+import io.opentelemetry.api.common.Attributes
 import io.opentelemetry.context.Context
 import io.opentelemetry.sdk.trace.ReadWriteSpan
 import io.opentelemetry.semconv.incubating.SessionIncubatingAttributes
@@ -30,6 +31,7 @@ internal class SessionIdSpanAppenderTest {
     fun setUp() {
         MockKAnnotations.init(this)
         every { sessionProvider.getSessionId() }.returns("42")
+        every { span.attributes } returns Attributes.empty()
         every { span.setAttribute(any<AttributeKey<String>>(), any<String>()) } returns span
     }
 

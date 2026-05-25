@@ -163,7 +163,7 @@ class ActivityTracer private constructor(
 
         fun setVisibleScreenTracker(visibleScreenTracker: VisibleScreenTracker) =
             apply {
-                this.activeSpan = ActiveSpan(visibleScreenTracker::previouslyVisibleScreen)
+                this.activeSpan = ActiveSpan { visibleScreenTracker.visibleScreenState.value.previouslyVisibleScreen }
             }
 
         fun setInitialAppActivity(activityName: String) =

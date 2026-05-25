@@ -5,6 +5,7 @@
 
 package io.opentelemetry.android.internal.features.networkattrs
 
+import com.pulse.utils.setAllAttributesIfAbsent
 import io.opentelemetry.android.common.internal.features.networkattributes.CurrentNetworkAttributesExtractor
 import io.opentelemetry.android.internal.services.network.CurrentNetworkProvider
 import io.opentelemetry.context.Context
@@ -22,6 +23,6 @@ class NetworkAttributesLogRecordAppender(
         logRecord: ReadWriteLogRecord,
     ) {
         val currentNetwork = currentNetworkProvider.currentNetwork
-        logRecord.setAllAttributes(networkAttributesExtractor.extract(currentNetwork))
+        logRecord.setAllAttributesIfAbsent(networkAttributesExtractor.extract(currentNetwork))
     }
 }

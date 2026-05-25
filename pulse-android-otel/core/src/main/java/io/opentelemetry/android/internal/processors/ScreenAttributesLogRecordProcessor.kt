@@ -18,7 +18,9 @@ class ScreenAttributesLogRecordProcessor(
         context: Context,
         logRecord: ReadWriteLogRecord,
     ) {
-        val currentScreen = visibleScreenTracker.currentlyVisibleScreen
-        logRecord.setAttribute(RumConstants.SCREEN_NAME_KEY, currentScreen)
+        val currentScreen = visibleScreenTracker.visibleScreenState.value.screenName
+        if (logRecord.attributes[RumConstants.SCREEN_NAME_KEY] == null) {
+            logRecord.setAttribute(RumConstants.SCREEN_NAME_KEY, currentScreen)
+        }
     }
 }

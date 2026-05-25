@@ -5,10 +5,14 @@
 
 package io.opentelemetry.android.instrumentation.ccrash
 
+import android.app.Application
 import com.pulse.utils.PulseLogger
-import com.pulse.utils.PulseSerialisationUtils
 import com.pulse.utils.fromJson
+import io.opentelemetry.android.internal.services.metadata.PulseAppMetadata
+import io.opentelemetry.android.internal.services.metadata.PulseMetadataUpdater
+import io.opentelemetry.api.common.AttributeKey
 import io.opentelemetry.api.common.Attributes
+import io.opentelemetry.api.common.AttributesBuilder
 import io.opentelemetry.sdk.OpenTelemetrySdk
 import io.opentelemetry.semconv.ExceptionAttributes.EXCEPTION_MESSAGE
 import io.opentelemetry.semconv.ExceptionAttributes.EXCEPTION_STACKTRACE
@@ -21,9 +25,11 @@ internal object PulseNativeCrashReportDrain {
     fun drainAndEmit(
         openTelemetry: OpenTelemetrySdk,
         reportsDir: File,
+        application: Application,
     ) {
         val reports = reportsDir.listFiles { f -> f.isFile && f.name.endsWith(".json") }?.toList().orEmpty()
         PulseLogger.logDebug(CCrashInstrumentation.TAG) { "drain report files count=${reports.size}" }
+        val crashMetadata = PulseMetadataUpdater.readCached(application)
 
         for (file in reports) {
             try {
@@ -32,7 +38,7 @@ internal object PulseNativeCrashReportDrain {
                     PulseLogger.logDebug(CCrashInstrumentation.TAG) {
                         "PulseNativeCrashReportFile\n$it"
                     }
-                    val attributes = toAttributes(it)
+                    val attributes = toAttributes(it, crashMetadata)
                     openTelemetry
                         .sdkLoggerProvider
                         .loggerBuilder("io.opentelemetry.c-crash")
@@ -45,16 +51,14 @@ internal object PulseNativeCrashReportDrain {
                 } ?: run {
                     PulseLogger.logError(CCrashInstrumentation.TAG) { "drain failed in parsing for ${file.name}" }
                 }
+            } finally {
                 file.delete()
-            } catch (t: Throwable) {
-                PulseLogger.logError(CCrashInstrumentation.TAG, t) { "drain failed for ${file.name}" }
             }
         }
     }
 
     /**
-     * Fallback formatter used only when [PulseNativeCrashReportFile.formattedStacktrace] is absent
-     * (reports from older SDK versions). Uses rel_pc (offset within .so) for the pc column to
+     * Formatter used to represents rel_pc (offset within .so) for the pc column to
      * match the tombstone-style format produced by the C++ format_stacktrace function.
      */
     private fun formatStackFrames(frames: List<PulseNativeStackFrame>): String =
@@ -76,7 +80,10 @@ internal object PulseNativeCrashReportDrain {
             }
         }.joinToString("\n")
 
-    private fun toAttributes(report: PulseNativeCrashReportFile): Attributes {
+    private fun toAttributes(
+        report: PulseNativeCrashReportFile,
+        appMetadataAtCrashTime: PulseAppMetadata?,
+    ): Attributes {
         val stackStr =
             report.stackFrames
                 ?.takeIf { it.isNotEmpty() }
@@ -88,8 +95,10 @@ internal object PulseNativeCrashReportDrain {
                 when {
                     report.signalName != null && report.signal != null ->
                         append(": ").append(report.signalName).append(" (").append(report.signal).append(")")
+
                     report.signalName != null ->
                         append(": ").append(report.signalName)
+
                     report.signal != null ->
                         append(": signal ").append(report.signal)
                 }
@@ -98,17 +107,32 @@ internal object PulseNativeCrashReportDrain {
                 }
             }
 
-        return Attributes
-            .builder()
-            .put(EXCEPTION_TYPE, "NativeCrash")
-            .put(EXCEPTION_MESSAGE, message)
+        return Attributes.builder()
             .apply {
+                put(EXCEPTION_TYPE, "NativeCrash")
+                put(EXCEPTION_MESSAGE, message)
                 report.threadName?.let { put(THREAD_NAME, it) }
                 report.tid?.let { put(THREAD_ID, it) }
                 if (!stackStr.isNullOrBlank()) {
                     put(EXCEPTION_STACKTRACE, stackStr)
                 }
+                appMetadataAtCrashTime?.let { putMetadata(appMetadataAtCrashTime) }
             }.build()
+    }
+
+    private fun AttributesBuilder.putMetadata(crashMetadata: PulseAppMetadata): AttributesBuilder = apply {
+        crashMetadata.stringFields.forEach { (key, value) ->
+            put(AttributeKey.stringKey(key), value)
+        }
+        crashMetadata.longFields.forEach { (key, value) ->
+            put(AttributeKey.longKey(key), value)
+        }
+        crashMetadata.doubleFields.forEach { (key, value) ->
+            put(AttributeKey.doubleKey(key), value)
+        }
+        crashMetadata.booleanFields.forEach { (key, value) ->
+            put(AttributeKey.booleanKey(key), value)
+        }
     }
 }
 

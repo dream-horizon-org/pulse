@@ -22,8 +22,10 @@ internal class ScreenAttributesSpanProcessor(
         parentContext: Context,
         span: ReadWriteSpan,
     ) {
-        val currentScreen = visibleScreenTracker.currentlyVisibleScreen
-        span.setAttribute(RumConstants.SCREEN_NAME_KEY, currentScreen)
+        val currentScreen = visibleScreenTracker.visibleScreenState.value.screenName
+        if (span.attributes[RumConstants.SCREEN_NAME_KEY] == null) {
+            span.setAttribute(RumConstants.SCREEN_NAME_KEY, currentScreen)
+        }
     }
 
     override fun isStartRequired(): Boolean = true

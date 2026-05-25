@@ -3,6 +3,8 @@ package com.pulse.utils
 import io.opentelemetry.api.common.AttributeKey
 import io.opentelemetry.api.common.Attributes
 import io.opentelemetry.api.common.AttributesBuilder
+import io.opentelemetry.sdk.logs.ReadWriteLogRecord
+import io.opentelemetry.sdk.trace.ReadWriteSpan
 import io.opentelemetry.sdk.trace.ReadableSpan
 import io.opentelemetry.semconv.HttpAttributes
 import io.opentelemetry.semconv.incubating.HttpIncubatingAttributes
@@ -113,6 +115,24 @@ public fun Map<String, Any?>.toAttributes(): Attributes = (Attributes.builder() 
 public fun Attributes.filterNot(predicate: (AttributeKey<*>) -> Boolean): Attributes = this.toBuilder().removeIf(predicate).build()
 
 public fun Attributes.filter(predicate: (AttributeKey<*>) -> Boolean): Attributes = this.toBuilder().removeIf { !predicate(it) }.build()
+
+@Suppress("UNCHECKED_CAST")
+public fun ReadWriteLogRecord.setAllAttributesIfAbsent(attributes: Attributes) {
+    attributes.asMap().forEach { (key, value) ->
+        if (this.attributes[key] == null) {
+            setAttribute(key as AttributeKey<Any>, value as Any)
+        }
+    }
+}
+
+@Suppress("UNCHECKED_CAST")
+public fun ReadWriteSpan.setAllAttributesIfAbsent(attributes: Attributes) {
+    attributes.asMap().forEach { (key, value) ->
+        if (this.attributes[key] == null) {
+            setAttribute(key as AttributeKey<Any>, value as Any)
+        }
+    }
+}
 
 internal val regexCache = ConcurrentHashMap<String, ThreadLocal<Matcher>>()
 

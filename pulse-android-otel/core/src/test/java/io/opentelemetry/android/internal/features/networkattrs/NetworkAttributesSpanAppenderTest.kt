@@ -13,6 +13,7 @@ import io.mockk.verify
 import io.opentelemetry.android.common.internal.features.networkattributes.data.CurrentNetwork
 import io.opentelemetry.android.common.internal.features.networkattributes.data.NetworkState
 import io.opentelemetry.android.internal.services.network.CurrentNetworkProvider
+import io.opentelemetry.api.common.AttributeKey
 import io.opentelemetry.api.common.Attributes
 import io.opentelemetry.context.Context
 import io.opentelemetry.sdk.trace.ReadWriteSpan
@@ -34,7 +35,8 @@ internal class NetworkAttributesSpanAppenderTest {
     @BeforeEach
     fun setUp() {
         MockKAnnotations.init(this)
-        every { span.setAllAttributes(any()) } returns span
+        every { span.attributes } returns Attributes.empty()
+        every { span.setAttribute(any<AttributeKey<String>>(), any<String>()) } returns span
     }
 
     @Test
@@ -46,14 +48,8 @@ internal class NetworkAttributesSpanAppenderTest {
         underTest.onStart(Context.current(), span)
 
         verify {
-            span.setAllAttributes(
-                Attributes.of(
-                    NetworkIncubatingAttributes.NETWORK_CONNECTION_TYPE,
-                    "cell",
-                    NetworkIncubatingAttributes.NETWORK_CONNECTION_SUBTYPE,
-                    "LTE",
-                ),
-            )
+            span.setAttribute(NetworkIncubatingAttributes.NETWORK_CONNECTION_TYPE, "cell")
+            span.setAttribute(NetworkIncubatingAttributes.NETWORK_CONNECTION_SUBTYPE, "LTE")
         }
         assertThat(underTest.isEndRequired).isFalse()
     }

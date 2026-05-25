@@ -24,6 +24,8 @@ internal class SessionIdLogRecordAppender(
         if (eventName == EVENT_SESSION_START || eventName == EVENT_SESSION_END) {
             return
         }
-        logRecord.setAttribute(SESSION_ID, sessionProvider.getSessionId())
+        if (logRecord.attributes[SESSION_ID] == null) {
+            logRecord.setAttribute(SESSION_ID, sessionProvider.getSessionId())
+        }
     }
 }

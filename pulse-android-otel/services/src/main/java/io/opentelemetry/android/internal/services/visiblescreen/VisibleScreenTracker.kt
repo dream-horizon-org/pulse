@@ -8,6 +8,7 @@ package io.opentelemetry.android.internal.services.visiblescreen
 import android.app.Activity
 import androidx.fragment.app.Fragment
 import io.opentelemetry.android.internal.services.Service
+import kotlinx.coroutines.flow.StateFlow
 
 /**
  * Wherein we do our best to figure out what "screen" is visible and what was the previously visible
@@ -22,8 +23,7 @@ import io.opentelemetry.android.internal.services.Service
  * screen, and the launching screen never leaves visibility.
  */
 interface VisibleScreenTracker : Service {
-    val previouslyVisibleScreen: String?
-    val currentlyVisibleScreen: String
+    val visibleScreenState: StateFlow<VisibleScreenState>
 
     fun activityResumed(activity: Activity)
 

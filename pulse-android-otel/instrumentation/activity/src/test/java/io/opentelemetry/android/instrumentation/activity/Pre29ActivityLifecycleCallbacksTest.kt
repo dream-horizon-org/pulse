@@ -13,8 +13,10 @@ import io.mockk.mockk
 import io.opentelemetry.android.common.RumConstants
 import io.opentelemetry.android.instrumentation.activity.startup.AppStartupTimer
 import io.opentelemetry.android.instrumentation.common.ScreenNameExtractor
+import io.opentelemetry.android.internal.services.visiblescreen.VisibleScreenState
 import io.opentelemetry.android.internal.services.visiblescreen.VisibleScreenTracker
 import io.opentelemetry.sdk.testing.junit5.OpenTelemetryExtension
+import kotlinx.coroutines.flow.MutableStateFlow
 import io.opentelemetry.sdk.trace.data.EventData
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
@@ -44,7 +46,13 @@ internal class Pre29ActivityLifecycleCallbacksTest {
         val extractor = mockk<ScreenNameExtractor>(relaxed = true)
         every { extractor.extract(any<Activity>()) } returns "Activity"
         tracers = ActivityTracerCache(tracer, visibleScreenTracker, appStartupTimer, extractor)
-        every { visibleScreenTracker.previouslyVisibleScreen } returns null
+        every { visibleScreenTracker.visibleScreenState } returns
+            MutableStateFlow(
+                VisibleScreenState(
+                    screenName = "unknown", activityName = null, fragmentName = null,
+                    previouslyVisibleScreen = null, previouslyVisibleActivity = null, previouslyVisibleFragment = null,
+                ),
+            )
         val logger =
             otelTesting.openTelemetry.logsBridge
                 .loggerBuilder("test")
@@ -163,7 +171,13 @@ internal class Pre29ActivityLifecycleCallbacksTest {
 
     @Test
     fun activityResumed() {
-        every { visibleScreenTracker.previouslyVisibleScreen } returns "previousScreen"
+        every { visibleScreenTracker.visibleScreenState } returns
+            MutableStateFlow(
+                VisibleScreenState(
+                    screenName = "unknown", activityName = null, fragmentName = null,
+                    previouslyVisibleScreen = "previousScreen", previouslyVisibleActivity = null, previouslyVisibleFragment = null,
+                ),
+            )
 
         val rumLifecycleCallbacks = createPre29ActivityCallbacks()
         val testHarness = Pre29ActivityCallbackTestHarness(rumLifecycleCallbacks)
