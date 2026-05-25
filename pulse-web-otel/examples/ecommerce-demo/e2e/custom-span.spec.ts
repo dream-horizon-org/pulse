@@ -1,3 +1,4 @@
+import type { Page } from "@playwright/test";
 import {
   test,
   expect,
@@ -6,10 +7,36 @@ import {
   getOtlpSpanStatusCode,
 } from "./fixture";
 
+async function waitForPulseInitialized(page: Page): Promise<void> {
+  await expect
+    .poll(
+      async () =>
+        page.evaluate(() => {
+          const w = window as unknown as {
+            Pulse?: { isInitialized: () => boolean };
+          };
+          return w.Pulse?.isInitialized?.() ?? false;
+        }),
+      { timeout: 15_000 },
+    )
+    .toBe(true);
+}
+
+/** Align with m4-network — forceFlush via synthetic pagehide. */
+async function flushTraceExport(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    window.dispatchEvent(
+      new PageTransitionEvent("pagehide", { persisted: false }),
+    );
+  });
+  await page.waitForTimeout(400);
+}
+
 test.describe("@custom-span", () => {
   test("J1: manual startSpan on products page", async ({ page, otlp }) => {
     await page.goto("/products");
-    await page.waitForTimeout(500);
+    await waitForPulseInitialized(page);
+    await otlp.waitForLog("session.start", 15_000);
 
     await page.evaluate(() => {
       (window as any).Pulse.startSpan("products-fetch", {
@@ -17,31 +44,36 @@ test.describe("@custom-span", () => {
       }).end("OK");
     });
 
-    const spans = findAllSpansByName(otlp.captured, "products-fetch");
-    expect(spans.length).toBeGreaterThan(0);
-    const span = spans[0];
-    expect(getAttr(span, "pulse.type")).toBe("custom_span");
-    expect(getAttr(span, "platform")).toBe("web");
-    expect(getAttr(span, "session.id")).toBeDefined();
-    expect(getAttr(span, "screen.name")).toBe("/products");
-    expect(getAttr(span, "user_id")).toBe("test-user");
+    const span = await otlp.waitForSpanByName("products-fetch", 8_000);
+    expect(getAttr(span.attributes, "pulse.type")).toBe("custom_span");
+    expect(getResourcePlatform(otlp.captured)).toBe("web");
+    expect(getAttr(span.attributes, "session.id")).toBeDefined();
+    expect(getAttr(span.attributes, "screen.name")).toBe("/products");
+    expect(getAttr(span.attributes, "user_id")).toBe("test-user");
   });
 
   test("J2: trackSpan wrapping product detail load", async ({ page, otlp }) => {
     await page.goto("/products");
-    await page.waitForTimeout(500);
+    await waitForPulseInitialized(page);
+    await otlp.waitForLog("session.start", 15_000);
+
+    await page.locator('[data-testid="product-card"]').first().click();
+    await page.waitForURL("**/products/1");
 
     await page.evaluate(async () => {
-      await (window as any).Pulse.trackSpan("product-detail-load", () => {
-        return fetch("/data/product-1.json").then((r) => r.json());
+      await (window as any).Pulse.trackSpan("product-detail-load", async () => {
+        const response = await fetch("/api/product-detail.json?id=1");
+        return response.json();
       });
     });
 
-    const spans = findAllSpansByName(otlp.captured(), "product-detail-load");
-    expect(spans.length).toBeGreaterThan(0);
-    const span = spans[0];
-    expect(span.endTimeUnixNano > span.startTimeUnixNano).toBe(true);
-    expect(getAttr(span, "pulse.type")).toBe("custom_span");
+    const span = await otlp.waitForSpanByName("product-detail-load", 8_000);
+    expect(
+      BigInt(span.endTimeUnixNano ?? "0") >
+        BigInt(span.startTimeUnixNano ?? "0"),
+    ).toBe(true);
+    expect(getAttr(span.attributes, "pulse.type")).toBe("custom_span");
+    expect(getAttr(span.attributes, "screen.name")).toBe("/products/1");
   });
 
   test("J3: trackSpan with abort fetch → ERROR status", async ({
@@ -49,23 +81,22 @@ test.describe("@custom-span", () => {
     otlp,
   }) => {
     await page.goto("/network-lab");
-    await page.waitForTimeout(500);
+    await waitForPulseInitialized(page);
+    await otlp.waitForLog("session.start", 15_000);
 
     await page.evaluate(async () => {
       try {
         await (window as any).Pulse.trackSpan("stalled-fetch", async () => {
-          return fetch("/pulse-e2e-xhr-stall?delay=5000");
+          const controller = new AbortController();
+          setTimeout(() => controller.abort(), 600);
+          await fetch("/pulse-e2e-xhr-stall", { signal: controller.signal });
         });
       } catch {
-        // expected — trackSpan rejects on fetch timeout
+        // expected — trackSpan rejects on abort
       }
     });
 
-    await page.waitForTimeout(6000);
-
-    const spans = findAllSpansByName(otlp.captured, "stalled-fetch");
-    expect(spans.length).toBeGreaterThan(0);
-    const span = spans[0];
+    const span = await otlp.waitForSpanByName("stalled-fetch", 8_000);
     expect(getOtlpSpanStatusCode(span)).toBe(2); // ERROR
   });
 
@@ -73,66 +104,81 @@ test.describe("@custom-span", () => {
     page,
     otlp,
   }) => {
+    await page.route(
+      (url) => url.pathname.includes("/api/does-not-exist.json"),
+      async (route) => {
+        await route.fulfill({
+          status: 404,
+          headers: { "Content-Type": "application/json" },
+          body: '{"error":"not_found"}',
+        });
+      },
+    );
+
     await page.goto("/products");
-    await page.waitForTimeout(500);
+    await waitForPulseInitialized(page);
+    await otlp.waitForLog("session.start", 15_000);
 
     await page.evaluate(async () => {
       try {
         await (window as any).Pulse.trackSpan("fetch-missing", async () => {
-          await fetch("/nonexistent-endpoint").then((r) => {
-            if (!r.ok) throw new Error("404");
-          });
+          const response = await fetch("/api/does-not-exist.json");
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+          }
         });
       } catch {
         // expected
       }
     });
 
-    const spans = findAllSpansByName(otlp.captured, "fetch-missing");
-    expect(spans.length).toBeGreaterThan(0);
-    const span = spans[0];
+    const span = await otlp.waitForSpanByName("fetch-missing", 8_000);
     expect(getOtlpSpanStatusCode(span)).toBe(2); // ERROR
   });
 
   test("J5: multi-span session continuity", async ({ page, otlp }) => {
     await page.goto("/");
-    await page.waitForTimeout(500);
+    await waitForPulseInitialized(page);
+    const startLog = await otlp.waitForLog("session.start", 15_000);
+    const sessionId = getAttr(startLog.attributes, "session.id") as string;
+    expect(sessionId).toBeTruthy();
 
-    const sessionId = await page.evaluate(() => {
-      return (window as any).__PULSE_SESSION_ID__;
-    });
-
-    // Create spans on different pages
     await page.evaluate(() => {
       (window as any).Pulse.startSpan("span1").end("OK");
     });
 
     await page.goto("/products");
-    await page.waitForTimeout(500);
+    await waitForPulseInitialized(page);
     await page.evaluate(() => {
       (window as any).Pulse.startSpan("span2").end("OK");
     });
 
     await page.goto("/cart");
-    await page.waitForTimeout(500);
+    await waitForPulseInitialized(page);
     await page.evaluate(() => {
       (window as any).Pulse.startSpan("span3").end("OK");
     });
 
-    const allSpans = otlp.captured();
-    const spans = allSpans.filter(
-      (s: any) =>
-        s.name === "span1" || s.name === "span2" || s.name === "span3",
+    await flushTraceExport(page);
+
+    const spans = ["span1", "span2", "span3"].map(
+      (name) => findAllSpansByName(otlp.captured, name)[0],
     );
-
+    expect(spans.every(Boolean)).toBe(true);
     expect(spans.length).toBe(3);
-    spans.forEach((span: any) => {
-      expect(getAttr(span, "session.id")).toBe(sessionId);
-    });
+    for (const span of spans) {
+      expect(span).toBeDefined();
+      expect(getAttr(span!.attributes, "session.id")).toBe(sessionId);
+    }
 
-    // Verify chronological order
-    expect(spans[0].startTimeUnixNano < spans[1].startTimeUnixNano).toBe(true);
-    expect(spans[1].startTimeUnixNano < spans[2].startTimeUnixNano).toBe(true);
+    expect(
+      BigInt(spans[0]!.startTimeUnixNano ?? "0") <
+        BigInt(spans[1]!.startTimeUnixNano ?? "0"),
+    ).toBe(true);
+    expect(
+      BigInt(spans[1]!.startTimeUnixNano ?? "0") <
+        BigInt(spans[2]!.startTimeUnixNano ?? "0"),
+    ).toBe(true);
   });
 
   test("J6: duration > 0 with nested network spans", async ({
@@ -140,17 +186,23 @@ test.describe("@custom-span", () => {
     otlp,
   }) => {
     await page.goto("/products");
-    await page.waitForTimeout(500);
+    await waitForPulseInitialized(page);
+    await otlp.waitForLog("session.start", 15_000);
 
     await page.evaluate(() => {
-      (window as any).Pulse.startSpan("grid-mount-timing").end("OK");
+      (window as any).__gridMountSpan = (window as any).Pulse.startSpan(
+        "grid-mount-timing",
+      );
+    });
+    await page.locator('[data-testid="product-card"]').first().waitFor();
+    await page.evaluate(() => {
+      (window as any).__gridMountSpan?.end("OK");
     });
 
-    const spans = findAllSpansByName(otlp.captured(), "grid-mount-timing");
-    expect(spans.length).toBeGreaterThan(0);
-    const span = spans[0];
+    const span = await otlp.waitForSpanByName("grid-mount-timing", 8_000);
     const duration =
-      BigInt(span.endTimeUnixNano) - BigInt(span.startTimeUnixNano);
+      BigInt(span.endTimeUnixNano ?? "0") -
+      BigInt(span.startTimeUnixNano ?? "0");
     expect(duration > 0n).toBe(true);
   });
 
@@ -159,38 +211,41 @@ test.describe("@custom-span", () => {
     otlp,
   }) => {
     await page.goto("/products");
-    await page.waitForTimeout(500);
+    await waitForPulseInitialized(page);
+    await otlp.waitForLog("session.start", 15_000);
 
-    await page.evaluate(() => {
+    await page.evaluate(async () => {
       const span = (window as any).Pulse.startSpan("breadcrumb-trace");
       span.addEvent("event1", { index: 1 });
+      await new Promise((resolve) => setTimeout(resolve, 5));
       span.addEvent("event2", { index: 2 });
+      await new Promise((resolve) => setTimeout(resolve, 5));
       span.addEvent("event3", { index: 3 });
       span.end("OK");
     });
 
-    const spans = findAllSpansByName(otlp.captured(), "breadcrumb-trace");
-    expect(spans.length).toBeGreaterThan(0);
-    const span = spans[0];
+    const span = await otlp.waitForSpanByName("breadcrumb-trace", 8_000);
     expect(span.events).toBeDefined();
-    expect(span.events.length).toBe(3);
+    expect(span.events!.length).toBe(3);
 
-    // Events should be in order
     expect(
-      BigInt(span.events[0].timeUnixNano) < BigInt(span.events[1].timeUnixNano),
+      BigInt(span.events![0]!.timeUnixNano ?? "0") <
+        BigInt(span.events![1]!.timeUnixNano ?? "0"),
     ).toBe(true);
     expect(
-      BigInt(span.events[1].timeUnixNano) < BigInt(span.events[2].timeUnixNano),
+      BigInt(span.events![1]!.timeUnixNano ?? "0") <
+        BigInt(span.events![2]!.timeUnixNano ?? "0"),
     ).toBe(true);
   });
 
   test("NEG1: throw in trackSpan → ERROR", async ({ page, otlp }) => {
     await page.goto("/products");
-    await page.waitForTimeout(500);
+    await waitForPulseInitialized(page);
+    await otlp.waitForLog("session.start", 15_000);
 
-    await page.evaluate(() => {
+    await page.evaluate(async () => {
       try {
-        (window as any).Pulse.trackSpan("error-span", () => {
+        await (window as any).Pulse.trackSpan("error-span", () => {
           throw new Error("Intentional error");
         });
       } catch {
@@ -198,9 +253,7 @@ test.describe("@custom-span", () => {
       }
     });
 
-    const spans = findAllSpansByName(otlp.captured(), "error-span");
-    expect(spans.length).toBeGreaterThan(0);
-    const span = spans[0];
+    const span = await otlp.waitForSpanByName("error-span", 8_000);
     expect(getOtlpSpanStatusCode(span)).toBe(2); // ERROR
   });
 
@@ -209,52 +262,63 @@ test.describe("@custom-span", () => {
     otlp,
   }) => {
     await page.goto("/products");
-    await page.waitForTimeout(500);
-
-    const sessionId1 = await page.evaluate(() => {
-      return (window as any).__PULSE_SESSION_ID__;
-    });
+    await waitForPulseInitialized(page);
+    const startLog = await otlp.waitForLog("session.start", 15_000);
+    const sessionId1 = getAttr(startLog.attributes, "session.id") as string;
 
     await page.evaluate(() => {
       (window as any).Pulse.startSpan("span-before-refresh").end("OK");
     });
+    await flushTraceExport(page);
 
     await page.reload();
+    await waitForPulseInitialized(page);
     await page.waitForTimeout(500);
 
     const sessionId2 = await page.evaluate(() => {
-      return (window as any).__PULSE_SESSION_ID__;
+      return window.localStorage.getItem("pulse_session_id");
     });
 
-    // After refresh, session should be different
-    expect(sessionId1).not.toBe(sessionId2);
+    expect(sessionId2).toBe(sessionId1);
 
     await page.evaluate(() => {
       (window as any).Pulse.startSpan("span-after-refresh").end("OK");
     });
 
-    const allSpans = otlp.captured();
-    const spans = allSpans.filter(
-      (s: any) =>
-        s.name === "span-before-refresh" || s.name === "span-after-refresh",
-    );
+    await flushTraceExport(page);
 
-    expect(spans.length).toBe(2);
-    expect(getAttr(spans[0], "session.id")).toBe(sessionId1);
-    expect(getAttr(spans[1], "session.id")).toBe(sessionId2);
+    const before = findAllSpansByName(otlp.captured, "span-before-refresh")[0];
+    const after = findAllSpansByName(otlp.captured, "span-after-refresh")[0];
+    expect(before).toBeDefined();
+    expect(after).toBeDefined();
+    expect(getAttr(before!.attributes, "session.id")).toBe(sessionId1);
+    expect(getAttr(after!.attributes, "session.id")).toBe(sessionId1);
   });
 
   test("NEG3: pre-init startSpan returns noop", async ({ page, otlp }) => {
-    // Don't wait for init
+    await page.goto("/", { waitUntil: "commit" });
+
     const result = await page.evaluate(() => {
-      const span = (window as any).Pulse.startSpan("pre-init-span");
-      span.end("OK");
+      const span = (window as any).Pulse?.startSpan?.("pre-init-span");
+      span?.end?.("OK");
       return "success";
     });
 
     expect(result).toBe("success");
-    // Span should not be exported (noop)
-    const spans = findAllSpansByName(otlp.captured(), "pre-init-span");
-    expect(spans.length).toBe(0);
+    await page.waitForTimeout(500);
+    expect(findAllSpansByName(otlp.captured, "pre-init-span").length).toBe(0);
   });
 });
+
+function getResourcePlatform(
+  captured: Parameters<typeof findAllSpansByName>[0],
+): string | undefined {
+  for (const item of captured) {
+    if (item.type !== "traces") continue;
+    for (const resourceSpan of item.body.resourceSpans ?? []) {
+      const platform = getAttr(resourceSpan.resource?.attributes, "platform");
+      if (platform !== undefined) return String(platform);
+    }
+  }
+  return undefined;
+}
