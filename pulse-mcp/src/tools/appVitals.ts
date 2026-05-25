@@ -15,7 +15,7 @@ import {
   type FilterField,
   type SelectField,
 } from "./appVitalsHelpers.js";
-import { COLUMN_NAME, PULSE_TYPE_SESSION_START } from "./appVitalsConstants.js";
+import { COLUMN_NAME, PULSE_TYPE_APP_START } from "./appVitalsConstants.js";
 
 const commonListArgs = {
   projectId: z.string().describe("Project ID"),
@@ -119,7 +119,7 @@ export function registerAppVitalsTools(server: McpServer): void {
         {
           field: COLUMN_NAME.PULSE_TYPE,
           operator: "EQ",
-          value: [PULSE_TYPE_SESSION_START],
+          value: [PULSE_TYPE_APP_START],
         },
         ...buildCommonFilters(
           args.appVersion ?? "all",
@@ -147,7 +147,7 @@ export function registerAppVitalsTools(server: McpServer): void {
         },
       ];
       const body: DistributionRequestBody = {
-        dataType: "LOGS",
+        dataType: "TRACES",
         timeRange: { start, end },
         filters,
         select,
