@@ -55,6 +55,7 @@ export const LatencyAnalysisSection: React.FC<AnalysisSectionProps> = ({
             seriesName: "Latency",
             xAxisName: "Latency (ms)",
             labelFormatter: latencyFormatter,
+            valueAxisScale: "latency",
           },
           {
             title: "Latency by Device Model",
@@ -65,6 +66,7 @@ export const LatencyAnalysisSection: React.FC<AnalysisSectionProps> = ({
             seriesName: "Latency",
             xAxisName: "Latency (ms)",
             labelFormatter: latencyFormatter,
+            valueAxisScale: "latency",
           },
           {
             title: "Latency by OS Version",
@@ -75,6 +77,7 @@ export const LatencyAnalysisSection: React.FC<AnalysisSectionProps> = ({
             seriesName: "Latency",
             xAxisName: "Latency (ms)",
             labelFormatter: latencyFormatter,
+            valueAxisScale: "latency",
           },
         ],
       },

@@ -4,6 +4,12 @@ import {
   CustomToolTip,
 } from "../../../../../../../components/Charts";
 import { MetricChartEmptyState } from "./MetricChartEmptyState";
+import {
+  getCountValueAxisScale,
+  getLatencyValueAxisScale,
+} from "../analysisChart.utils";
+
+export type ValueAxisScaleMode = "count" | "latency";
 
 export interface ChartConfig<T = any> {
   title: string;
@@ -15,6 +21,7 @@ export interface ChartConfig<T = any> {
   xAxisName?: string;
   labelFormatter?: (p: { value: number }) => string;
   emptyMessage?: string | null;
+  valueAxisScale?: ValueAxisScaleMode;
 }
 
 export interface SectionConfig {
@@ -50,20 +57,29 @@ const TopIssuesCharts: React.FC<TopIssuesChartsProps> = ({ sections }) => {
   };
 
   const createChartOption = (chart: ChartConfig) => {
-    const maxValue = Math.max(...chart.data.map((d) => Number(d[chart.valueKey]) || 0));
+    const maxValue = Math.max(
+      ...chart.data.map((d) => Number(d[chart.valueKey]) || 0),
+    );
+    const getAxisScale =
+      chart.valueAxisScale === "latency"
+        ? getLatencyValueAxisScale
+        : getCountValueAxisScale;
+    const { max: xAxisMax, interval: xAxisInterval } = getAxisScale(maxValue);
 
     return {
       grid: { left: 0, right: 16, top: 24, bottom: 40 },
       tooltip: { ...CustomToolTip, axisPointer: { type: "shadow" } },
       xAxis: {
         type: "value",
+        min: 0,
+        max: xAxisMax,
+        ...(xAxisInterval !== undefined && { interval: xAxisInterval }),
         ...(chart.xAxisName && {
           name: chart.xAxisName,
           nameLocation: "middle",
           nameGap: 20,
           nameTextStyle: { fontSize: 14, fontFamily: theme.fontFamily },
         }),
-        max: Math.ceil(maxValue / 500) * 500 || 500,
       },
       yAxis: {
         type: "category",
