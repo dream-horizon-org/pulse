@@ -28,3 +28,13 @@ def test_schema_agent_output_schema_is_interaction_report_v1():
 def test_research_agent_output_schema_is_interaction_research_v1():
     assert interaction_research_agent.output_schema is InteractionResearchV1Llm
     assert interaction_research_agent.output_key == "interaction_research_v1"
+
+
+def test_app_exports_single_interaction_report_runner():
+    from google.adk.runners import Runner
+
+    from pulse_ai.agents.interaction_report.pipeline import interaction_report_pipeline
+    from pulse_ai.server.app import interaction_report_runner
+
+    assert isinstance(interaction_report_runner, Runner)
+    assert interaction_report_runner.agent is interaction_report_pipeline

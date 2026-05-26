@@ -6,14 +6,15 @@ from datetime import UTC, datetime
 
 
 def build_interaction_report_schema_prompt(ctx=None) -> str:
-    """Static Agent 2 instructions; user message carries InteractionResearchV1 JSON."""
+    """Static Agent 2 instructions; research input comes from session state."""
     now = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
     return f"""You are the Pulse Interaction Report Schema agent (Agent 2). You assemble the
 full InteractionReportV1 JSON from Agent 1 research state. Current UTC time: {now}
 
 INPUT:
-- The user message contains InteractionResearchV1 JSON (tool payloads + narrative fields).
-- Read paradox_kpi_hint and health_rating from that JSON — they are deterministic hints.
+- Read InteractionResearchV1 from session state key interaction_research_v1 (Agent 1 output).
+- Tool payloads and narrative fields are in that state object.
+- Read paradox_kpi_hint and health_rating from interaction_research_v1 — deterministic hints.
 
 RULES:
 - Copy Apdex, error rate, volume, experience mix, and threshold numbers from tool payloads

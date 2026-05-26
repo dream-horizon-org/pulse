@@ -18,8 +18,7 @@ from pulse_ai.constants import APP_NAME
 from .app import (
     RunSSERequest,
     app,
-    interaction_report_research_runner,
-    interaction_report_schema_runner,
+    interaction_report_runner,
     rca_runner,
     screen_rca_runner,
     session_rca_runner,
@@ -281,8 +280,7 @@ async def generate_interaction_report_endpoint(
     state_delta = request_headers_to_state_delta(http_request)
     try:
         report = await generate_interaction_report(
-            interaction_report_research_runner,
-            interaction_report_schema_runner,
+            interaction_report_runner,
             project_id=project_id,
             interaction_name=entity_key,
             period_start=period_start,

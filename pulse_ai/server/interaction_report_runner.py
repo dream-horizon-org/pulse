@@ -1,9 +1,8 @@
-"""Per-interaction health report runner (issue 04): Research once, Schema with retries."""
+"""Per-interaction health report runner: one SequentialAgent run per request."""
 
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
 import uuid
 from datetime import date
@@ -19,7 +18,6 @@ from pulse_ai.constants import (
     USER_ID_INTERACTION_REPORT,
 )
 from pulse_ai.output_guard import sanitize_pii
-from pulse_ai.schemas.interaction_report_helpers import ParadoxKpiHint
 from pulse_ai.schemas.interaction_report_v1 import (
     BehavioralSignal,
     BehaviorMetricLink,
@@ -42,7 +40,6 @@ from pulse_ai.schemas.interaction_research_v1 import (
 
 logger = logging.getLogger(__name__)
 
-MAX_SCHEMA_RETRIES = 2
 REPORT_STATE_KEY = "interaction_report_v1"
 RESEARCH_STATE_KEY = "interaction_research_v1"
 
@@ -120,24 +117,6 @@ def _build_research_user_message(
         f"Project: {project_id}\n"
         f"Reporting period: {period_line}\n"
         "Call all mandatory tools before writing conclusions."
-    )
-
-
-def _build_schema_user_message(research: InteractionResearchV1) -> str:
-    payload = research.model_dump(mode="json")
-    serialized = json.dumps(payload, ensure_ascii=True)
-    hint_block = ""
-    if research.paradox_kpi_hint is not None:
-        hint_block = (
-            "\nparadox_kpi_hint is set — primary_kpi must be error_rate, secondary apdex.\n"
-        )
-    rating_block = ""
-    if research.health_rating is not None:
-        rating_block = f"\nhealth_rating from research: {research.health_rating}\n"
-    return (
-        "Assemble InteractionReportV1 from this InteractionResearchV1 JSON.\n"
-        f"{hint_block}{rating_block}\n"
-        f"InteractionResearchV1(JSON): {serialized}"
     )
 
 
@@ -405,9 +384,23 @@ def _parse_report(raw: object) -> InteractionReportV1 | None:
         return None
 
 
+async def _delete_session(runner: Any, session_id: str) -> None:
+    try:
+        await runner.session_service.delete_session(
+            app_name=runner.app_name,
+            user_id=USER_ID_INTERACTION_REPORT,
+            session_id=session_id,
+        )
+    except Exception:
+        logger.warning(
+            "Failed to delete ephemeral interaction report session %s",
+            session_id,
+            exc_info=True,
+        )
+
+
 async def generate_interaction_report(
-    research_runner: Any,
-    schema_runner: Any,
+    runner: Any,
     *,
     project_id: str,
     interaction_name: str,
@@ -416,9 +409,9 @@ async def generate_interaction_report(
     state_delta: dict[str, Any] | None = None,
 ) -> InteractionReportV1:
     """
-    Run Agent 1 once, then Agent 2 up to MAX_SCHEMA_RETRIES times on the same session.
+    Run the SequentialAgent pipeline once (Research → Schema) under one timeout.
 
-    Raises InteractionReportRunnerError on timeout or exhausted schema retries.
+    Raises InteractionReportRunnerError on timeout or invalid agent outputs.
     """
     session_id = str(uuid.uuid4())
     merged_delta: dict[str, Any] = dict(state_delta or {})
@@ -447,95 +440,45 @@ async def generate_interaction_report(
 
     try:
         await _run_agent_once(
-            research_runner,
+            runner,
             session_id=session_id,
             message=research_message,
             state_delta=merged_delta,
         )
     except TimeoutError as error:
+        await _delete_session(runner, session_id)
         raise InteractionReportRunnerError(
             HTTP_TIMEOUT_GATEWAY,
-            "Interaction report research timed out",
+            "Interaction report pipeline timed out",
         ) from error
     except Exception as error:  # noqa: BLE001
-        logger.exception("Interaction research agent failed")
+        await _delete_session(runner, session_id)
+        logger.exception("Interaction report pipeline failed")
         raise InteractionReportRunnerError(
             500,
-            "Interaction report research failed",
+            "Interaction report pipeline failed",
         ) from error
 
-    state = await _load_session_state(research_runner, session_id)
+    state = await _load_session_state(runner, session_id)
     tool_payloads = state.get(INTERACTION_RESEARCH_TOOL_PAYLOADS_KEY)
     research = _parse_research(
         state.get(RESEARCH_STATE_KEY),
         tool_payloads=tool_payloads if isinstance(tool_payloads, dict) else None,
     )
     if research is None:
+        await _delete_session(runner, session_id)
         raise InteractionReportRunnerError(
             500,
             "Interaction research output missing or invalid",
         )
 
-    report: InteractionReportV1 | None = None
-    schema_message = Content.model_validate(
-        {
-            "role": "user",
-            "parts": [{"text": _build_schema_user_message(research)}],
-        },
-    )
-
-    for attempt in range(MAX_SCHEMA_RETRIES):
-        logger.debug(
-            "Interaction report schema attempt %d/%d, session_id=%s",
-            attempt + 1,
-            MAX_SCHEMA_RETRIES,
-            session_id,
-        )
-        try:
-            await _run_agent_once(
-                schema_runner,
-                session_id=session_id,
-                message=schema_message,
-                state_delta=None,
-            )
-        except TimeoutError as error:
-            raise InteractionReportRunnerError(
-                HTTP_TIMEOUT_GATEWAY,
-                "Interaction report schema generation timed out",
-            ) from error
-        except Exception as error:  # noqa: BLE001
-            logger.exception("Interaction report schema agent failed on attempt %d", attempt + 1)
-            if attempt >= MAX_SCHEMA_RETRIES - 1:
-                raise InteractionReportRunnerError(
-                    500,
-                    "Interaction report schema generation failed",
-                ) from error
-            continue
-
-        state = await _load_session_state(schema_runner, session_id)
-        report = _parse_report(state.get(REPORT_STATE_KEY))
-        if report is not None:
-            break
-        if attempt < MAX_SCHEMA_RETRIES - 1:
-            logger.info("Schema validation failed, retrying schema agent only")
-
-    try:
-        await schema_runner.session_service.delete_session(
-            app_name=schema_runner.app_name,
-            user_id=USER_ID_INTERACTION_REPORT,
-            session_id=session_id,
-        )
-    except Exception:
-        logger.warning(
-            "Failed to delete ephemeral interaction report session %s",
-            session_id,
-            exc_info=True,
-        )
+    report = _parse_report(state.get(REPORT_STATE_KEY))
+    await _delete_session(runner, session_id)
 
     if report is None:
         raise InteractionReportRunnerError(
             500,
-            "Interaction report generation failed after schema retries",
+            "Interaction report schema output missing or invalid",
         )
 
     return postprocess_interaction_report(report, research)

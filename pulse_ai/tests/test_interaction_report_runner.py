@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 from datetime import date
+from types import SimpleNamespace
+from typing import Any
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -14,10 +17,13 @@ from pulse_ai.schemas.interaction_report_v1 import (
 )
 from pulse_ai.schemas.interaction_research_v1 import InteractionResearchV1
 from pulse_ai.server.interaction_report_runner import (
-    MAX_SCHEMA_RETRIES,
+    RESEARCH_STATE_KEY,
+    REPORT_STATE_KEY,
+    InteractionReportRunnerError,
     enforce_paradox_primary_kpi,
     enforce_verdict_rating,
     extract_metric_triple,
+    generate_interaction_report,
     postprocess_interaction_report,
     sanitize_interaction_report,
 )
@@ -53,6 +59,66 @@ def _research(
         paradox_kpi_hint=hint,
         health_rating="amber",
     )
+
+
+class _MockSessionStore:
+    def __init__(self) -> None:
+        self.sessions: dict[str, dict[str, Any]] = {}
+
+    async def get_session(
+        self,
+        *,
+        app_name: str,
+        user_id: str,
+        session_id: str,
+    ) -> SimpleNamespace | None:
+        state = self.sessions.get(session_id)
+        if state is None:
+            return None
+        return SimpleNamespace(state=state)
+
+    async def delete_session(self, **kwargs: Any) -> None:
+        session_id = kwargs.get("session_id")
+        if session_id:
+            self.sessions.pop(session_id, None)
+
+
+def _make_pipeline_runner(
+    store: _MockSessionStore,
+    *,
+    research: InteractionResearchV1 | None = None,
+    report: dict[str, Any] | None = None,
+) -> MagicMock:
+    runner = MagicMock()
+    runner.app_name = "interaction-report-test"
+    runner.session_service = store
+    run_call_count = {"n": 0}
+    last_pipeline_state: dict[str, Any] = {}
+
+    async def run_async(
+        *,
+        user_id: str,
+        session_id: str,
+        new_message: Any,
+        state_delta: dict[str, Any] | None = None,
+    ):
+        run_call_count["n"] += 1
+        state = store.sessions.setdefault(session_id, {})
+        if state_delta:
+            state.update(state_delta)
+        if research is not None:
+            state[RESEARCH_STATE_KEY] = research.model_dump(mode="json")
+        if report is not None:
+            state[REPORT_STATE_KEY] = report
+        last_pipeline_state.clear()
+        last_pipeline_state.update(state)
+        if False:  # pragma: no cover — async generator marker
+            yield
+
+    runner.run_async = run_async
+    runner._run_call_count = run_call_count
+    runner._last_pipeline_state = last_pipeline_state
+    return runner
 
 
 def test_extract_metric_triple_from_composite_payload():
@@ -125,5 +191,79 @@ def test_postprocess_applies_paradox_then_rating():
     assert out.verdict.rating in ("red", "amber", "green")
 
 
-def test_max_schema_retries_is_two():
-    assert MAX_SCHEMA_RETRIES == 2
+@pytest.mark.asyncio
+async def test_generate_calls_run_async_once() -> None:
+    store = _MockSessionStore()
+    research = _research()
+    report = _minimal_report()
+    runner = _make_pipeline_runner(
+        store,
+        research=research,
+        report=report.model_dump(mode="json"),
+    )
+
+    await generate_interaction_report(
+        runner,
+        project_id="proj-1",
+        interaction_name="PayFlow",
+        period_start=date(2026, 5, 1),
+        period_end=date(2026, 5, 7),
+    )
+
+    assert runner._run_call_count["n"] == 1
+
+
+@pytest.mark.asyncio
+async def test_generate_session_has_research_and_report_keys() -> None:
+    store = _MockSessionStore()
+    research = _research()
+    report = _minimal_report()
+    runner = _make_pipeline_runner(
+        store,
+        research=research,
+        report=report.model_dump(mode="json"),
+    )
+
+    await generate_interaction_report(
+        runner,
+        project_id="proj-1",
+        interaction_name="PayFlow",
+    )
+
+    state = runner._last_pipeline_state
+    assert RESEARCH_STATE_KEY in state
+    assert REPORT_STATE_KEY in state
+
+
+@pytest.mark.asyncio
+async def test_generate_fails_on_invalid_research() -> None:
+    store = _MockSessionStore()
+    runner = _make_pipeline_runner(
+        store,
+        research=None,
+        report=_minimal_report().model_dump(mode="json"),
+    )
+
+    with pytest.raises(InteractionReportRunnerError, match="research output missing or invalid"):
+        await generate_interaction_report(
+            runner,
+            project_id="proj-1",
+            interaction_name="PayFlow",
+        )
+
+
+@pytest.mark.asyncio
+async def test_generate_fails_on_invalid_schema() -> None:
+    store = _MockSessionStore()
+    runner = _make_pipeline_runner(
+        store,
+        research=_research(),
+        report=None,
+    )
+
+    with pytest.raises(InteractionReportRunnerError, match="schema output missing or invalid"):
+        await generate_interaction_report(
+            runner,
+            project_id="proj-1",
+            interaction_name="PayFlow",
+        )

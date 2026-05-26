@@ -173,31 +173,23 @@ def _schema_report_from_research(research: InteractionResearchV1) -> Interaction
 
 async def _run_recorded_pipeline(case: dict[str, Any]) -> InteractionReportV1:
     research = _research_from_recorded_case(case)
-    schema_attempts = {"count": 0}
 
-    def on_research(**kwargs: Any) -> None:
+    def on_pipeline_run(**kwargs: Any) -> None:
         kwargs["state"][RESEARCH_STATE_KEY] = research.model_dump(mode="json")
-
-    def on_schema(**kwargs: Any) -> None:
-        schema_attempts["count"] += 1
         kwargs["state"][REPORT_STATE_KEY] = _schema_report_from_research(research).model_dump(
             mode="json",
         )
 
     store = _MockSessionStore()
-    research_runner = _make_mock_runner(store, on_research)
-    schema_runner = _make_mock_runner(store, on_schema)
+    pipeline_runner = _make_mock_runner(store, on_pipeline_run)
 
-    report = await generate_interaction_report(
-        research_runner,
-        schema_runner,
+    return await generate_interaction_report(
+        pipeline_runner,
         project_id=case["project_id"],
         interaction_name=case["interaction_name"],
         period_start=date(2026, 5, 1),
         period_end=date(2026, 5, 7),
     )
-    assert schema_attempts["count"] == 1, "schema must pass on first attempt for recorded fixture"
-    return report
 
 
 @pytest.mark.parametrize(

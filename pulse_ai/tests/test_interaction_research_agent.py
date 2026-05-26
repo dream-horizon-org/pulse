@@ -6,7 +6,7 @@ from pulse_ai.agents.interaction_research.agent import (
 )
 from pulse_ai.agents.interaction_research.tools import INTERACTION_RESEARCH_TOOL_NAMES
 from pulse_ai.constants import INTERACTION_RESEARCH_AGENT_NAME
-from pulse_ai.schemas.interaction_research_v1 import InteractionResearchV1
+from pulse_ai.schemas.interaction_research_v1 import InteractionResearchV1Llm
 
 
 def test_agent_registered_with_bounded_tools():
@@ -17,7 +17,7 @@ def test_agent_registered_with_bounded_tools():
 
 
 def test_agent_output_schema_is_interaction_research_v1():
-    assert interaction_research_agent.output_schema is InteractionResearchV1
+    assert interaction_research_agent.output_schema is InteractionResearchV1Llm
     assert interaction_research_agent.output_key == "interaction_research_v1"
 
 
