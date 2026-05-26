@@ -12,12 +12,14 @@ from typing import Any
 from fastapi import HTTPException, Header, Request, Response
 from fastapi.responses import StreamingResponse
 from google.genai.types import Content, Part
+from pydantic import BaseModel
 
 from pulse_ai.constants import APP_NAME
 
 from .app import (
     RunSSERequest,
     app,
+    interactions_overview_runner,
     rca_runner,
     screen_rca_runner,
     session_rca_runner,
@@ -35,10 +37,15 @@ from .run_sse_utils import (
 )
 from pulse_ai.schemas import RootCausePayloadSchema
 from .root_cause_fetch import RootCauseFetchError, fetch_root_cause_payload
+from .interactions_overview_runner import (
+    InteractionsOverviewRunnerError,
+    generate_interactions_overview,
+)
 from .rca_runner import RcaRunnerError, generate_rca_report
 from .screen_rca_runner import ScreenRcaRunnerError, generate_screen_rca_report
 from .session_rca_runner import SessionRcaRunnerError, generate_session_rca_report
 from .schemas import (
+    InteractionsOverviewResponse,
     RcaReportRequest,
     RcaReportResponse,
     ScreenRcaReportRequest,
@@ -371,3 +378,26 @@ async def generate_session_root_cause_narrative(
         )
     except SessionRcaRunnerError as error:
         raise HTTPException(status_code=error.status_code, detail=error.message) from error
+
+
+class _InteractionsOverviewRequest(BaseModel):
+    previousContext: str | None = None
+
+
+@app.post("/interactions/overview")
+async def get_interactions_overview(
+    body: _InteractionsOverviewRequest,
+    authorization: str | None = Header(default=None, alias="Authorization"),
+    project_id: str | None = Header(default=None, alias="X-Project-ID"),
+) -> InteractionsOverviewResponse:
+    """Generate a 2-4 sentence executive summary of all tracked interactions' health."""
+    auth_value, project_value = _require_headers_for_rca_callback(authorization, project_id)
+    try:
+        return await generate_interactions_overview(
+            interactions_overview_runner,
+            bearer_token=auth_value,
+            project_id=project_value,
+            previous_context=body.previousContext,
+        )
+    except InteractionsOverviewRunnerError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message) from e

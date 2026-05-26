@@ -44,6 +44,7 @@ import { getCookies } from "../../helpers/cookies";
 import { getDateFilterDetails } from "./utils";
 import { InteractionCard } from "./components/InteractionCard";
 import { SuggestedInteractionCard } from "./components/SuggestedInteractionCard/SuggestedInteractionCard";
+import { InteractionsOverviewCard } from "./components/InteractionsOverviewCard";
 import { filtersToQueryString } from "../../helpers/filtersToQueryString";
 import { ErrorAndEmptyState } from "../../components/ErrorAndEmptyState";
 import { LoaderWithMessage } from "../../components/LoaderWithMessage";
@@ -538,6 +539,9 @@ export function CriticalInteractionList() {
           </Link>
         </Group>
       </Box>
+
+      {/* AI Overview */}
+      <InteractionsOverviewCard interactionNames={interactionNames} />
 
       {/* Content Section */}
       {renderContent()}

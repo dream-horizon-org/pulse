@@ -19,7 +19,9 @@ import org.dreamhorizon.pulseserver.service.rca.RcaReportProcessor;
  *
  * <p>POST {@code rca/report} is delegated to {@link RcaReportProxyHandler} (handles INTERACTION,
  * SCREEN, SESSION types via async job pattern). POST {@code rca/screen-report} to
- * {@link ScreenRcaNarrativeProxyHandler}. Otherwise the request is forwarded unchanged.
+ * {@link ScreenRcaNarrativeProxyHandler}. POST {@code interactions/overview} to
+ * {@link InteractionsOverviewProxyHandler} (1-hour MySQL cache, context stripping).
+ * Otherwise the request is forwarded unchanged.
  */
 @Slf4j
 public class AiProxyServiceImpl implements AiProxyService {
@@ -27,6 +29,7 @@ public class AiProxyServiceImpl implements AiProxyService {
   private static final String DEFAULT_AI_SERVICE_URL = "http://localhost:8000";
   private static final String RCA_REPORT_PATH = "rca/report";
   private static final String RCA_SCREEN_REPORT_PATH = "rca/screen-report";
+  private static final String INTERACTIONS_OVERVIEW_PATH = "interactions/overview";
 
   /**
    * Per-request upstream timeout. Aligns with {@link
@@ -37,6 +40,7 @@ public class AiProxyServiceImpl implements AiProxyService {
   private final AiUpstreamProxyExecutor upstreamExecutor;
   private final RcaReportProxyHandler rcaReportProxyHandler;
   private final ScreenRcaNarrativeProxyHandler screenRcaNarrativeProxyHandler;
+  private final InteractionsOverviewProxyHandler interactionsOverviewProxyHandler;
 
   @Inject
   public AiProxyServiceImpl(
@@ -53,6 +57,8 @@ public class AiProxyServiceImpl implements AiProxyService {
     this.screenRcaNarrativeProxyHandler =
         new ScreenRcaNarrativeProxyHandler(
             upstreamExecutor, objectMapper, rcaReportCacheDao, rootCauseConfig);
+    this.interactionsOverviewProxyHandler =
+        new InteractionsOverviewProxyHandler(upstreamExecutor, objectMapper, rcaReportCacheDao);
     log.info("AI proxy service initialized → {}", upstreamExecutor.getAiServiceUrl());
   }
 
@@ -64,6 +70,7 @@ public class AiProxyServiceImpl implements AiProxyService {
         new AiUpstreamProxyExecutor(webClient, normalizeAiServiceUrl(aiServiceUrl));
     this.rcaReportProxyHandler = null;
     this.screenRcaNarrativeProxyHandler = null;
+    this.interactionsOverviewProxyHandler = null;
     log.info("AI proxy service initialized → {}", upstreamExecutor.getAiServiceUrl());
   }
 
@@ -110,6 +117,10 @@ public class AiProxyServiceImpl implements AiProxyService {
     if (isRcaScreenReportPost && screenRcaNarrativeProxyHandler != null) {
       return screenRcaNarrativeProxyHandler.handlePost(
           rawQuery, body, authorization, projectId);
+    }
+    boolean isInteractionsOverviewPost = "POST".equals(method) && INTERACTIONS_OVERVIEW_PATH.equals(path);
+    if (isInteractionsOverviewPost && interactionsOverviewProxyHandler != null) {
+      return interactionsOverviewProxyHandler.handlePost(rawQuery, body, authorization, projectId);
     }
     String targetUrl = upstreamExecutor.buildTargetUrl(path, rawQuery);
     return upstreamExecutor.executeProxy(method, targetUrl, body, authorization, projectId);

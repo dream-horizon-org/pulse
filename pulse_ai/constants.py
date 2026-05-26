@@ -76,6 +76,43 @@ SESSION_SCOPE_PROJECT_ID_LEN = 256
 USER_ID_RCA = "rca_report_service"
 USER_ID_SCREEN_RCA = "screen_rca_narrative_service"
 USER_ID_SESSION_RCA = "session_rca_narrative_service"
+USER_ID_INTERACTIONS_OVERVIEW = "interactions-overview-runner"
+
+INTERACTIONS_OVERVIEW_TIMEOUT_SECONDS = 90
+# Caps the previousContext string before it is injected into the prompt.
+# Prevents runaway token growth and prompt injection from a malicious or
+# corrupted prior context stored in the DB.
+INTERACTIONS_OVERVIEW_PREVIOUS_CONTEXT_MAX_LEN = 2000
+# ── Interaction health severity thresholds ───────────────────────────────────
+# Severity is derived from apdex, matching the card UI labels exactly so that
+# AI reports are consistent with what users see on screen.
+# Apdex is per-interaction-config-aware — the SDK computes it using each
+# interaction's uptimeLowerLimitInMs / uptimeMidLimitInMs / uptimeUpperLimitInMs
+# from S3, so no separate global poor_user_rate thresholds are needed.
+#
+# apdex ≥ 0.8  → EXCELLENT
+# apdex ≥ 0.6  → GOOD
+# apdex ≥ 0.4  → FAIR
+# apdex <  0.4 → POOR
+
+# Error rate thresholds — valid regardless of per-interaction config
+ERROR_RATE_ELEVATED_MIN = 10   # error rate > this % → elevated
+ERROR_RATE_CRITICAL_MIN = 25   # error rate > this % → critical
+
+# Minimum span volume for an interaction to be included in health analysis.
+# Interactions below this threshold are excluded — too little data to draw
+# reliable conclusions and they skew severity rankings.
+INTERACTION_HEALTH_MIN_VOLUME = 1000
+
+SEVERITY_THRESHOLD_TEXT = (
+    "  apdex ≥ 0.8  → EXCELLENT\n"
+    "  apdex ≥ 0.6  → GOOD\n"
+    "  apdex ≥ 0.4  → FAIR\n"
+    "  apdex <  0.4 → POOR\n"
+    f"  error rate > {ERROR_RATE_ELEVATED_MIN}% → ELEVATED_ERROR_RATE\n"
+    f"  error rate > {ERROR_RATE_CRITICAL_MIN}% → CRITICAL_ERROR_RATE"
+)
+
 # Authentication
 PULSE_ACCESS_TOKEN_ENV_KEY = 'PULSE_ACCESS_TOKEN'
 PULSE_REFRESH_TOKEN_ENV_KEY = 'PULSE_REFRESH_TOKEN'

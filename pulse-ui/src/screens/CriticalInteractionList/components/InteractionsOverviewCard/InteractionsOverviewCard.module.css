@@ -1,0 +1,34 @@
+.card {
+  margin-bottom: var(--mantine-spacing-md);
+}
+
+.summaryTitleRow {
+  display: flex;
+  align-items: center;
+  gap: var(--mantine-spacing-xs);
+}
+
+.severityBadge {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.5;
+  vertical-align: baseline;
+}
+
+.interactionLink {
+  font-size: inherit;
+  line-height: inherit;
+  text-decoration: underline;
+  text-decoration-style: dashed;
+  text-underline-offset: 3px;
+}
+
+.interactionLink:hover {
+  text-decoration: underline;
+  text-decoration-style: solid;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}

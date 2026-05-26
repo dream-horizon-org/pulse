@@ -46,6 +46,13 @@ export const POST_SCREEN_RCA_NARRATIVE_ROUTE = {
   method: "POST",
 } as const;
 
+/** POST /v1/ai/interactions/overview — AI executive summary for interactions list. */
+export const POST_INTERACTIONS_OVERVIEW_ROUTE = {
+  key: "POST_INTERACTIONS_OVERVIEW",
+  apiPath: "/v1/ai/interactions/overview",
+  method: "POST",
+} as const;
+
 /** GET /v1/screens/{screen}/root-cause — `date` + `asOf` (same as interaction RCA). */
 export const GET_SCREEN_ROOT_CAUSE_ROUTE = {
   key: "GET_SCREEN_ROOT_CAUSE",

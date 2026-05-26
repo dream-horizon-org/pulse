@@ -7,6 +7,11 @@ user says things like "last Tuesday to Wednesday".
 
 from datetime import datetime, timezone
 
+from pulse_ai.constants import (
+    ERROR_RATE_CRITICAL_MIN,
+    ERROR_RATE_ELEVATED_MIN,
+)
+
 
 def build_system_prompt(ctx=None) -> str:
     """Build system prompt with injected current UTC timestamp.
@@ -98,17 +103,22 @@ BEHAVIOR RULES:
         configured limits.
      c) Quote the threshold field names and values from the actual response
         — do NOT assume or hardcode field names.
-  9a. If configured thresholds are NOT available (interaction not found,
-      detail call fails, or no threshold fields in response), fall back
-      to these universal health ranges:
-      - Apdex < 0.5: "⚠️ Critical — Apdex X is unacceptable (< 0.5)"
-      - Apdex 0.5–0.7: "⚠️ Poor — Apdex X needs attention (< 0.7)"
-      - Error rate > 10%: "⚠️ Elevated error rate (X%)"
-      - Error rate > 25%: "⚠️ Critical error rate (X%)"
-      Replace X with actual values. These are industry-standard safety nets.
-  9b. ALWAYS apply error rate thresholds (>10%, >25%) from 9a regardless,
-      since interactions only configure duration-based limits, not error
-      rate limits.
+  9a. The query_interaction_health tool pre-computes severity in Python
+      (not by the LLM) from apdex — identical to the card UI labels.
+      Read the "severity" field directly from the tool response:
+        EXCELLENT → apdex ≥ 0.8
+        GOOD      → apdex ≥ 0.6
+        FAIR      → apdex ≥ 0.4
+        POOR      → apdex <  0.4
+      Also read "error_severity" for error rate classification:
+        CRITICAL_ERROR_RATE  → error rate > {ERROR_RATE_CRITICAL_MIN}%
+        ELEVATED_ERROR_RATE  → error rate > {ERROR_RATE_ELEVATED_MIN}%
+        NORMAL_ERROR_RATE    → error rate ≤ {ERROR_RATE_ELEVATED_MIN}%
+      "poor_user_rate" is additional context — do NOT use it for tier labels.
+  9b. ALWAYS flag elevated error rates using the pre-computed `error_severity`
+      field from 9a (ELEVATED_ERROR_RATE or CRITICAL_ERROR_RATE). Since interactions
+      only configure duration-based limits, not error rate limits, surface these
+      findings regardless of Apdex severity.
 
   CONTEXT & FOLLOW-UPS:
   10. Carry conversation context across turns. If the user first asks about

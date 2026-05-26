@@ -4,6 +4,12 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+
+class InteractionsOverviewResponse(BaseModel):
+    summary: str
+    context: str        # internal — stripped by pulse-server before returning to UI
+    generatedAt: str    # ISO-8601 UTC
+
 from pulse_ai.schemas.rca_structured_v1 import RcaStructuredReportV1
 from pulse_ai.schemas.screen_rca_narrative_v1 import ScreenRcaNarrativeV1
 from pulse_ai.schemas.session_rca_structured_v1 import SessionRcaStructuredResponseV1

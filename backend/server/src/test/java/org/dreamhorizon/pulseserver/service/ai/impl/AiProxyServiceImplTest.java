@@ -225,6 +225,26 @@ class AiProxyServiceImplTest {
       assertThat(urlCaptor.getValue()).isEqualTo(AI_SERVICE_URL + "/rca/screen-report");
       verify(httpRequest).timeout(AiProxyServiceImpl.AI_PROXY_UPSTREAM_TIMEOUT_MS);
     }
+
+    @Test
+    void shouldTreatInteractionsOverviewAsPlainProxyWhenDepsNotInjected() {
+      AiProxyServiceImpl service = new AiProxyServiceImpl(webClient, AI_SERVICE_URL);
+      HttpResponse<Buffer> upstreamResponse =
+          mockBufferedResponse(200, "application/json", "{\"ok\":true}");
+      stubSendReturns(upstreamResponse);
+
+      AiProxyUpstreamResult result =
+          awaitResult(service.proxy("POST", "interactions/overview", null, null, AUTH, PROJECT_ID));
+
+      assertThat(result.getStatusCode()).isEqualTo(200);
+      assertThat(result.getBufferedBody()).contains("ok");
+      verifyNoInteractions(rcaReportCacheDao);
+
+      ArgumentCaptor<String> urlCaptor = ArgumentCaptor.forClass(String.class);
+      verify(webClient).postAbs(urlCaptor.capture());
+      assertThat(urlCaptor.getValue()).isEqualTo(AI_SERVICE_URL + "/interactions/overview");
+      verify(httpRequest).timeout(AiProxyServiceImpl.AI_PROXY_UPSTREAM_TIMEOUT_MS);
+    }
   }
 
   @Nested
@@ -500,6 +520,26 @@ class AiProxyServiceImplTest {
       assertThat(result.getStatusCode()).isEqualTo(202);
       verify(rcaReportProcessor, times(1))
           .enqueueProcess(any(), anyString(), anyBoolean(), eq(AUTH), eq(null));
+    }
+
+    @Test
+    void shouldRouteInteractionsOverviewPostToHandlerWhenDepsInjected() throws Exception {
+      when(rcaReportCacheDao.get(
+              eq(PROJECT_ID), eq(RcaType.INTERACTION_OVERVIEW), eq("all"), any()))
+          .thenReturn(io.reactivex.rxjava3.core.Maybe.empty());
+      HttpResponse<Buffer> upstreamResponse =
+          mockBufferedResponse(200, "application/json", "{\"summary\":\"ok\"}");
+      stubSendReturns(upstreamResponse);
+
+      AiProxyUpstreamResult result =
+          awaitResult(
+              fullPipelineService()
+                  .proxy("POST", "interactions/overview", null, null, AUTH, PROJECT_ID));
+
+      assertThat(result.getStatusCode()).isEqualTo(200);
+      JsonNode node = objectMapper.readTree(result.getBufferedBody());
+      assertThat(node.path("cached").asBoolean()).isFalse();
+      verify(rcaReportCacheDao).put(eq(PROJECT_ID), eq(RcaType.INTERACTION_OVERVIEW), eq("all"), any(), anyString());
     }
 
     @Test

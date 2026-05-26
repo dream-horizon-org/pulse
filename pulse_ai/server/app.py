@@ -16,6 +16,7 @@ from google.adk.sessions import InMemorySessionService
 from pydantic import BaseModel
 
 from pulse_ai.agent import root_agent
+from pulse_ai.agents.interactions_overview import interactions_overview_pipeline
 from pulse_ai.agents.rca import rca_agent
 from pulse_ai.agents.screen_rca import screen_rca_narrative_agent
 from pulse_ai.agents.session_rca import session_rca_narrative_agent
@@ -102,6 +103,15 @@ session_rca_runner = Runner(
     agent=session_rca_narrative_agent,
     app_name=APP_NAME,
     session_service=session_service,
+    auto_create_session=True,
+)
+
+_interactions_overview_session_service = InMemorySessionService()
+
+interactions_overview_runner = Runner(
+    agent=interactions_overview_pipeline,
+    app_name=APP_NAME,
+    session_service=_interactions_overview_session_service,
     auto_create_session=True,
 )
 

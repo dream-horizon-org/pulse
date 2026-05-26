@@ -36,21 +36,27 @@ from .tools import (
 
 load_dotenv()
 
-em_agent = Agent(
-    model=AGENT_MODEL,
-    name=EM_AGENT_NAME,
-    description='Engineering Manager agent for Pulse mobile app observability',
-    instruction=with_privacy(build_system_prompt, _EM_CAPABILITY_INSTRUCTIONS),
-    output_key='engineering_manager_result',
-    after_agent_callback=em_output_sanitize_callback,
-    tools=[
-        query_interactions,
-        query_alerts,
-        query_interaction_health,
-        query_interaction_metrics,
-        query_interaction_sessions,
-        query_interaction_root_cause,
-        breakdown_interaction,
-        calculate,
-    ],
-)
+
+def _build_em_agent() -> Agent:
+    """Create a fresh EM Agent instance. Call once per pipeline to avoid parent conflicts."""
+    return Agent(
+        model=AGENT_MODEL,
+        name=EM_AGENT_NAME,
+        description='Engineering Manager agent for Pulse mobile app observability',
+        instruction=with_privacy(build_system_prompt, _EM_CAPABILITY_INSTRUCTIONS),
+        output_key='engineering_manager_result',
+        after_agent_callback=em_output_sanitize_callback,
+        tools=[
+            query_interactions,
+            query_alerts,
+            query_interaction_health,
+            query_interaction_metrics,
+            query_interaction_sessions,
+            query_interaction_root_cause,
+            breakdown_interaction,
+            calculate,
+        ],
+    )
+
+
+em_agent = _build_em_agent()

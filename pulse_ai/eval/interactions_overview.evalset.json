@@ -1,0 +1,60 @@
+{
+  "eval_set_id": "pulse_interactions_overview",
+  "name": "Pulse Interactions Overview pipeline evaluations",
+  "eval_cases": [
+    {
+      "eval_id": "overview_summary_agent_no_tools",
+      "conversation": [
+        {
+          "user_content": {
+            "role": "user",
+            "parts": [
+              {
+                "text": "Based on the interaction health data gathered in this conversation, produce a structured summary.\n\nInteraction health data:\n- ContestJoin: apdex=0.87, error_rate=0.03, volume=12000 (last 1h)\n- PaymentCheckout: apdex=0.91, error_rate=0.02, volume=8500 (last 1h)\n- UserLogin: apdex=0.95, error_rate=0.01, volume=22000 (last 1h)\n- ProfileUpdate: apdex=0.89, error_rate=0.02, volume=4200 (last 1h)\n\nAll interactions show healthy apdex scores (> 0.85) and low error rates (< 5%)."
+              }
+            ]
+          },
+          "final_response": {
+            "role": "model",
+            "parts": [
+              {
+                "text": "{\"summary\": \"All 4 tracked interactions are in a healthy state with apdex scores above 0.85 and error rates below 3%. UserLogin leads with the highest apdex of 0.95 and the largest volume at 22,000 requests. No critical degradation is detected across the portfolio.\", \"context\": \"Apdex range: 0.87-0.95 across 4 interactions in the last 1 hour. Error rates are consistently below 3%. Total volume of approximately 46,700 requests with no anomalies detected.\"}"
+              }
+            ]
+          },
+          "intermediate_data": {
+            "tool_uses": []
+          }
+        }
+      ],
+      "final_session_state": {}
+    },
+    {
+      "eval_id": "overview_healthy_interactions",
+      "conversation": [
+        {
+          "user_content": {
+            "role": "user",
+            "parts": [
+              {
+                "text": "Based on the interaction health data gathered in this conversation, produce a structured summary.\n\nInteraction health data (last 1h vs last 24h comparison):\n- ContestJoin: apdex=0.92 (24h baseline: 0.90), error_rate=0.02 (24h: 0.03), volume=13500\n- PaymentCheckout: apdex=0.94 (24h baseline: 0.93), error_rate=0.015 (24h: 0.02), volume=9100\n- UserLogin: apdex=0.97 (24h baseline: 0.96), error_rate=0.008 (24h: 0.01), volume=24000\n- ProfileUpdate: apdex=0.91 (24h baseline: 0.89), error_rate=0.018 (24h: 0.025), volume=4500\n- GamePlay: apdex=0.93 (24h baseline: 0.92), error_rate=0.012 (24h: 0.015), volume=31000\n\nAll interactions show improvement or stability compared to the 24h baseline."
+              }
+            ]
+          },
+          "final_response": {
+            "role": "model",
+            "parts": [
+              {
+                "text": "{\"summary\": \"All 5 tracked interactions are healthy, with apdex scores between 0.91 and 0.97 in the last hour. Performance has improved slightly across the board compared to the 24-hour baseline, with error rates declining by 20-30% on average. GamePlay has the highest volume at 31,000 requests and maintains a strong apdex of 0.93.\", \"context\": \"Apdex range 0.91-0.97 (last 1h), up from 0.89-0.96 (last 24h baseline). Error rates 0.8%-2.0% vs 1.0%-3.0% baseline. Total volume ~82,100 requests last 1h. Positive trend across all interactions.\"}"
+              }
+            ]
+          },
+          "intermediate_data": {
+            "tool_uses": []
+          }
+        }
+      ],
+      "final_session_state": {}
+    }
+  ]
+}

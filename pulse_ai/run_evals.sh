@@ -19,3 +19,8 @@ echo ""
 echo "=== RCA agent evals ==="
 adk eval pulse_ai/adk_eval_rca_app pulse_ai/eval/rca.evalset.json \
   --config_file_path pulse_ai/eval/eval_config_rca.json "$@"
+
+echo ""
+echo "=== Interactions overview evals ==="
+adk eval pulse_ai/adk_eval_interactions_overview_app pulse_ai/eval/interactions_overview.evalset.json \
+  --config_file_path pulse_ai/eval/eval_config_interactions_overview.json "$@"
