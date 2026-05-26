@@ -503,11 +503,6 @@ INTERACTIONS = [
                 "match": lambda p, ov, d, n, s, av: d == "SM-A135F",
                 "duration": (2800, 600), "error_rate": 0.45, "crash": 0.03, "anr": 0.04, "frozen": (4, 12, 0.45),
             },
-            # Broad slow-network segment to pull apdex from GOOD into FAIR range
-            {
-                "match": lambda p, ov, d, n, s, av: n in ("Jio", "BSNL") and p == "android",
-                "duration": (1700, 400), "error_rate": 0.20, "crash": 0.01, "anr": 0.02, "frozen": (1, 4, 0.18),
-            },
         ],
         # 4.2.1 is healthy in checkout_start — direction filter must discard it
         "good_segments": [
@@ -530,9 +525,8 @@ INTERACTIONS = [
             {"name": "payment_initiated", "screenName": "PaymentScreen"},
             {"name": "payment_result", "screenName": "PaymentResultScreen"},
         ],
-        # Raised base_duration above mid (2500ms) so most baseline spans are tolerated → POOR apdex
-        "base_duration": (2800, 700),
-        "base_error_rate": 0.08,
+        "base_duration": (2000, 600),
+        "base_error_rate": 0.06,
         "volume": 3500,
         "bad_segments": [
             {
@@ -541,15 +535,11 @@ INTERACTIONS = [
             },
             {
                 "match": lambda p, ov, d, n, s, av: s == "IN-WB",
-                "duration": (4500, 900), "error_rate": 0.60, "crash": 0.03, "anr": 0.04, "frozen": (1, 4, 0.15),
+                "duration": (4000, 800), "error_rate": 0.55, "crash": 0.03, "anr": 0.04, "frozen": (1, 4, 0.15),
             },
             {
                 "match": lambda p, ov, d, n, s, av: av == "4.2.0" and p == "ios",
                 "duration": (3500, 700), "error_rate": 0.45, "crash": 0.07, "anr": 0.0, "frozen": (0, 0, 0.0),
-            },
-            {
-                "match": lambda p, ov, d, n, s, av: n == "BSNL" and p == "android",
-                "duration": (4200, 900), "error_rate": 0.50, "crash": 0.04, "anr": 0.05, "frozen": (2, 5, 0.18),
             },
         ],
     },
@@ -608,9 +598,8 @@ INTERACTIONS = [
             {"name": "category_selected", "screenName": "HomeScreen"},
             {"name": "category_rendered", "screenName": "CategoryScreen"},
         ],
-        # Raised base_duration above mid (1000ms) so most baseline spans are tolerated → POOR apdex
-        "base_duration": (1050, 280),
-        "base_error_rate": 0.05,
+        "base_duration": (800, 250),
+        "base_error_rate": 0.03,
         "volume": 5500,
         "bad_segments": [
             {
