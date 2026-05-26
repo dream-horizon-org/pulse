@@ -16,6 +16,7 @@ on:
 
 permissions:
   contents: read
+  pull-requests: read
 
 concurrency:
   group: mobile-sdk-size-${{ github.event.pull_request.number || github.run_id }}
@@ -28,7 +29,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - uses: actions/setup-python@a26af4be64d490b13fed7f345b31fea2a3ebf24e # v5.6.0
+      - uses: actions/setup-python@423df246fc0337956dbc05cfebafafdabb498698 # v5.4.0
         with:
           python-version: '3.11'
       - name: Install pytest
@@ -394,6 +395,10 @@ jobs:
           HEAD_SHA: ${{ needs.gate.outputs.head_sha }}
         run: |
           set -euo pipefail
+          if [[ "${{ needs.gate.result }}" != "success" ]]; then
+            echo "::error::Gate job failed; cannot evaluate size delta"
+            exit 1
+          fi
           if [[ "${ANY_DEPS}" != "true" ]]; then
             if [[ "${{ needs.auto_pass.result }}" != "success" ]]; then
               echo "::error::auto_pass failed"
