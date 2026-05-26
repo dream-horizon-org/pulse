@@ -237,19 +237,21 @@ public class ProjectUsageLimitDao {
       }
     }
     
-    // Parse notification JSON
+    // Parse notification JSON — only present in queries that join usage_limit_notifications
     JsonNode thresholdsNotified = null;
-    Object thresholdsValue = row.getValue(THRESHOLDS_NOTIFIED);
-    if (thresholdsValue != null) {
-      try {
-        if (thresholdsValue instanceof io.vertx.core.json.JsonObject) {
-          thresholdsNotified = objectMapper.readTree(((io.vertx.core.json.JsonObject) thresholdsValue).encode());
-        } else {
-          thresholdsNotified = objectMapper.readTree(thresholdsValue.toString());
+    if (row.getColumnIndex(THRESHOLDS_NOTIFIED) >= 0) {
+      Object thresholdsValue = row.getValue(THRESHOLDS_NOTIFIED);
+      if (thresholdsValue != null) {
+        try {
+          if (thresholdsValue instanceof io.vertx.core.json.JsonObject) {
+            thresholdsNotified = objectMapper.readTree(((io.vertx.core.json.JsonObject) thresholdsValue).encode());
+          } else {
+            thresholdsNotified = objectMapper.readTree(thresholdsValue.toString());
+          }
+        } catch (JsonProcessingException e) {
+          log.error("Failed to parse {} JSON", THRESHOLDS_NOTIFIED, e);
+          thresholdsNotified = objectMapper.createObjectNode();
         }
-      } catch (JsonProcessingException e) {
-        log.error("Failed to parse {} JSON", THRESHOLDS_NOTIFIED, e);
-        thresholdsNotified = objectMapper.createObjectNode();
       }
     }
     
@@ -285,7 +287,7 @@ public class ProjectUsageLimitDao {
         .thresholdsNotified(thresholdsNotified)
         .notificationProjectUsageLimitId(notificationProjectUsageLimitId)
         .notificationRowActive(notificationRowActive)
-        .notificationCreatedAt(row.getLocalDateTime(NOTIFICATION_CREATED_AT) != null
+        .notificationCreatedAt(row.getColumnIndex(NOTIFICATION_CREATED_AT) >= 0 && row.getLocalDateTime(NOTIFICATION_CREATED_AT) != null
             ? row.getLocalDateTime(NOTIFICATION_CREATED_AT).toInstant(ZoneOffset.UTC)
             : null)
         .tenantId(row.getColumnIndex("tenant_id") >= 0 ? row.getString("tenant_id") : null)
