@@ -31,6 +31,9 @@ public class SessionRow {
     @JsonProperty("s_startTime")
     private String startTime;
 
+    @JsonProperty("s_endTime")
+    private String endTime;
+
     @JsonProperty("s_durationMs")
     private Long durationMs;
 

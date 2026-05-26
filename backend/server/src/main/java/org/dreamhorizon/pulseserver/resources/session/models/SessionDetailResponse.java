@@ -31,7 +31,6 @@ public class SessionDetailResponse {
   private String appVersion;
   private String geography;
   private double quality;
-  private List<String> journey;
 
   // --- Interactions (aggregated by name) ---
   private List<Interaction> interactions;

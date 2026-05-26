@@ -32,6 +32,9 @@ public class SessionListingResponse {
         @JsonProperty("startTime")
         private String startTime;
 
+        @JsonProperty("endTime")
+        private String endTime;
+
         @JsonProperty("durationMs")
         private Long durationMs;
 

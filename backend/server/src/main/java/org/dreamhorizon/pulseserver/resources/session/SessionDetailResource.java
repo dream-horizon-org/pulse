@@ -17,6 +17,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.filter.RequiresPermission;
 import org.dreamhorizon.pulseserver.resources.session.models.SessionDetailResponse;
+import org.dreamhorizon.pulseserver.resources.session.models.SessionJourneyResponse;
 import org.dreamhorizon.pulseserver.rest.io.Response;
 import org.dreamhorizon.pulseserver.rest.io.RestResponse;
 import org.dreamhorizon.pulseserver.service.session.SessionDetailService;
@@ -26,34 +27,52 @@ import org.dreamhorizon.pulseserver.service.session.SessionDetailService;
 @Path("/v1/sessions")
 public class SessionDetailResource {
 
-    private static final Set<String> VALID_INCLUDES = Set.of("events", "exceptions");
+  private static final Set<String> VALID_INCLUDES = Set.of("events", "exceptions");
 
-    private final SessionDetailService sessionDetailService;
+  private final SessionDetailService sessionDetailService;
 
-    @GET
-    @Path("/{sessionId}")
-    @Consumes(MediaType.WILDCARD)
-    @Produces(MediaType.APPLICATION_JSON)
-    @RequiresPermission("can_view")
-    public CompletionStage<Response<SessionDetailResponse>> getSessionDetail(
-            @PathParam("sessionId") String sessionId,
-            @QueryParam("include") String include
-    ) {
-        Set<String> includeSections = parseInclude(include);
-        log.info("Fetching session detail for sessionId={}, include={}", sessionId, includeSections);
+  @GET
+  @Path("/{sessionId}")
+  @Consumes(MediaType.WILDCARD)
+  @Produces(MediaType.APPLICATION_JSON)
+  @RequiresPermission("can_view")
+  public CompletionStage<Response<SessionDetailResponse>> getSessionDetail(
+      @PathParam("sessionId") String sessionId,
+      @QueryParam("include") String include,
+      @QueryParam("startTime") String startTime,
+      @QueryParam("endTime") String endTime,
+      @QueryParam("durationMs") Long durationMs
+  ) {
+    Set<String> includeSections = parseInclude(include);
+    log.info("Fetching session detail for sessionId={}, include={}", sessionId, includeSections);
 
-        return sessionDetailService.getSessionDetail(sessionId, includeSections)
-                .to(RestResponse.jaxrsRestHandler());
+    return sessionDetailService.getSessionDetail(sessionId, includeSections, startTime, endTime, durationMs)
+        .to(RestResponse.jaxrsRestHandler());
+  }
+
+  @GET
+  @Path("/{sessionId}/journey")
+  @Consumes(MediaType.WILDCARD)
+  @Produces(MediaType.APPLICATION_JSON)
+  @RequiresPermission("can_view")
+  public CompletionStage<Response<SessionJourneyResponse>> getSessionJourney(
+      @PathParam("sessionId") String sessionId,
+      @QueryParam("startTime") String startTime,
+      @QueryParam("endTime") String endTime
+  ) {
+    log.info("Fetching session journey for sessionId={}", sessionId);
+    return sessionDetailService.getSessionJourney(sessionId, startTime, endTime)
+        .to(RestResponse.jaxrsRestHandler());
+  }
+
+  private Set<String> parseInclude(String include) {
+    if (include == null || include.isBlank()) {
+      return Collections.emptySet();
     }
-
-    private Set<String> parseInclude(String include) {
-        if (include == null || include.isBlank()) {
-            return Collections.emptySet();
-        }
-        return Stream.of(include.split(","))
-                .map(String::trim)
-                .map(String::toLowerCase)
-                .filter(VALID_INCLUDES::contains)
-                .collect(Collectors.toSet());
-    }
+    return Stream.of(include.split(","))
+        .map(String::trim)
+        .map(String::toLowerCase)
+        .filter(VALID_INCLUDES::contains)
+        .collect(Collectors.toSet());
+  }
 }

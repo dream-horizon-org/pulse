@@ -5,20 +5,6 @@ public final class SessionDetailQueries {
   private SessionDetailQueries() {
   }
 
-  public static final String GET_SESSION_TIMING = """
-      SELECT
-        sessionId                                             AS session_id,
-        toString(min(startTime))                              AS session_start,
-        toString(max(endTime))                                AS session_end,
-        toUInt64(dateDiff('millisecond', min(startTime), max(endTime)))
-                                                              AS durationMs
-      FROM otel.session_summary
-      WHERE ProjectId = '${project_id}'
-        AND sessionId = '${session_id}'
-      GROUP BY sessionId
-      LIMIT 1
-      """;
-
   public static final String GET_SESSION_CORE = """
       SELECT
         any(SessionId)                                    AS session_id,
@@ -37,7 +23,18 @@ public final class SessionDetailQueries {
             2
           ),
           0
-        )                                                 AS qualityScore,
+        )                                                 AS qualityScore
+      FROM otel.otel_traces
+      WHERE ProjectId = '${project_id}'
+        AND SessionId = '${session_id}'
+        AND Timestamp >= parseDateTime64BestEffort('${session_start}', 9, 'UTC') - INTERVAL 10 MINUTE
+        AND Timestamp <= parseDateTime64BestEffort('${session_end}', 9, 'UTC') + INTERVAL 10 MINUTE
+      GROUP BY SessionId
+      LIMIT 1
+      """;
+
+  public static final String GET_SESSION_JOURNEY = """
+      SELECT
         toJSONString(
           arrayDistinct(
             arrayFilter(
@@ -50,7 +47,7 @@ public final class SessionDetailQueries {
                     Timestamp,
                     coalesce(
                       nullIf(trimBoth(SpanAttributes['page.url']), ''),
-                      nullIf(trimBoth(ScreenName), ''),
+                      nullIf(trimBoth(ifNull(SpanAttributes['screen.name'], '')), ''),
                       SpanName
                     )
                   ))
@@ -62,6 +59,8 @@ public final class SessionDetailQueries {
       FROM otel.otel_traces
       WHERE ProjectId = '${project_id}'
         AND SessionId = '${session_id}'
+        AND Timestamp >= parseDateTime64BestEffort('${session_start}', 9, 'UTC') - INTERVAL 10 MINUTE
+        AND Timestamp <= parseDateTime64BestEffort('${session_end}', 9, 'UTC') + INTERVAL 10 MINUTE
       GROUP BY SessionId
       LIMIT 1
       """;
@@ -91,6 +90,8 @@ public final class SessionDetailQueries {
       WHERE ProjectId = '${project_id}'
         AND SessionId = '${session_id}'
         AND PulseType = 'interaction'
+        AND Timestamp >= parseDateTime64BestEffort('${session_start}', 9, 'UTC') - INTERVAL 10 MINUTE
+        AND Timestamp <= parseDateTime64BestEffort('${session_end}', 9, 'UTC') + INTERVAL 10 MINUTE
       GROUP BY interaction_name
       """;
 
@@ -113,6 +114,8 @@ public final class SessionDetailQueries {
       WHERE ProjectId = '${project_id}'
         AND SessionId = '${session_id}'
         AND PulseType LIKE 'network.%'
+        AND Timestamp >= parseDateTime64BestEffort('${session_start}', 9, 'UTC') - INTERVAL 10 MINUTE
+        AND Timestamp <= parseDateTime64BestEffort('${session_end}', 9, 'UTC') + INTERVAL 10 MINUTE
       ORDER BY Timestamp ASC
       """;
 
@@ -128,11 +131,11 @@ public final class SessionDetailQueries {
           PulseType = 'interaction',
             SpanAttributes['pulse.interaction.name'],
           PulseType = 'app_start',
-            ScreenName,
+            ifNull(SpanAttributes['screen.name'], ''),
           concat(
             SpanAttributes['last.screen.name'],
             ' → ',
-            ScreenName
+            ifNull(SpanAttributes['screen.name'], '')
           )
         )                                                 AS description,
         Duration                                          AS duration_ns,
@@ -146,6 +149,8 @@ public final class SessionDetailQueries {
           OR PulseType = 'app_start'
           OR mapContains(SpanAttributes, 'last.screen.name')
         )
+        AND Timestamp >= parseDateTime64BestEffort('${session_start}', 9, 'UTC') - INTERVAL 10 MINUTE
+        AND Timestamp <= parseDateTime64BestEffort('${session_end}', 9, 'UTC') + INTERVAL 10 MINUTE
       ORDER BY Timestamp ASC
       """;
 
@@ -160,6 +165,8 @@ public final class SessionDetailQueries {
       FROM otel.stack_trace_events
       WHERE ProjectId = '${project_id}'
         AND SessionId = '${session_id}'
+        AND Timestamp >= parseDateTime64BestEffort('${session_start}', 9, 'UTC') - INTERVAL 10 MINUTE
+        AND Timestamp <= parseDateTime64BestEffort('${session_end}', 9, 'UTC') + INTERVAL 10 MINUTE
       ORDER BY Timestamp ASC
       """;
 

@@ -305,6 +305,7 @@ public class SessionListingService {
                 .map(row -> SessionItem.builder()
                         .sessionId(row.getSessionId())
                         .startTime(row.getStartTime())
+                        .endTime(row.getEndTime())
                         .durationMs(row.getDurationMs())
                         .user(row.getUser())
                         .qualityScore(row.getQualityScore())

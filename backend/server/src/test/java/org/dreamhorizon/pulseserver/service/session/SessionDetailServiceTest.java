@@ -1,6 +1,7 @@
 package org.dreamhorizon.pulseserver.service.session;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -15,10 +16,11 @@ import org.dreamhorizon.pulseserver.dao.sessiondetail.models.InteractionRow;
 import org.dreamhorizon.pulseserver.dao.sessiondetail.models.NetworkRequestRow;
 import org.dreamhorizon.pulseserver.dao.sessiondetail.models.SessionCoreRow;
 import org.dreamhorizon.pulseserver.dao.sessiondetail.models.SessionExceptionRow;
+import org.dreamhorizon.pulseserver.dao.sessiondetail.models.SessionJourneyRow;
 import org.dreamhorizon.pulseserver.dao.sessiondetail.models.SessionSpanRow;
-import org.dreamhorizon.pulseserver.dao.sessiondetail.models.SessionTimingRow;
 import org.dreamhorizon.pulseserver.model.QueryResultResponse;
 import org.dreamhorizon.pulseserver.resources.session.models.SessionDetailResponse;
+import org.dreamhorizon.pulseserver.resources.session.models.SessionJourneyResponse;
 import org.dreamhorizon.pulseserver.util.serialization.ObjectMapperFactory;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
@@ -31,6 +33,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class SessionDetailServiceTest {
 
   private static final String SESSION_ID = "sess-abc-123";
+  private static final String SESSION_START = "2024-01-15T10:00:00Z";
+  private static final String SESSION_END = "2024-01-15T10:05:00Z";
+  private static final long DURATION_MS = 300_000L;
 
   @Mock
   SessionDetailDao sessionDetailDao;
@@ -46,10 +51,6 @@ class SessionDetailServiceTest {
 
   private static QueryResultResponse<SessionCoreRow> coreResponse(List<SessionCoreRow> rows) {
     return QueryResultResponse.<SessionCoreRow>builder().rows(rows).build();
-  }
-
-  private static QueryResultResponse<SessionTimingRow> timingResponse(List<SessionTimingRow> rows) {
-    return QueryResultResponse.<SessionTimingRow>builder().rows(rows).build();
   }
 
   private static QueryResultResponse<InteractionRow> interactionResponse(List<InteractionRow> rows) {
@@ -68,12 +69,25 @@ class SessionDetailServiceTest {
     return QueryResultResponse.<SessionSpanRow>builder().rows(rows).build();
   }
 
+  private static QueryResultResponse<SessionJourneyRow> journeyResponse(List<SessionJourneyRow> rows) {
+    return QueryResultResponse.<SessionJourneyRow>builder().rows(rows).build();
+  }
+
+  private void stubCoreDefaults() {
+    when(sessionDetailDao.getSessionCore(any(), any(), any()))
+        .thenReturn(Single.just(coreResponse(Collections.emptyList())));
+    when(sessionDetailDao.getInteractions(any(), any(), any()))
+        .thenReturn(Single.just(interactionResponse(Collections.emptyList())));
+    when(sessionDetailDao.getNetworkRequests(any(), any(), any()))
+        .thenReturn(Single.just(networkResponse(Collections.emptyList())));
+  }
+
   @Nested
   class GetSessionDetail {
 
     @Test
     void shouldReturnErrorWhenSessionIdIsNull() {
-      sessionDetailService.getSessionDetail(null, Collections.emptySet())
+      sessionDetailService.getSessionDetail(null, Collections.emptySet(), SESSION_START, SESSION_END, DURATION_MS)
           .test()
           .assertError(throwable ->
               throwable.getMessage() != null && throwable.getMessage().contains("sessionId"));
@@ -81,14 +95,14 @@ class SessionDetailServiceTest {
 
     @Test
     void shouldReturnErrorWhenSessionIdIsBlank() {
-      sessionDetailService.getSessionDetail("  ", Collections.emptySet())
+      sessionDetailService.getSessionDetail("  ", Collections.emptySet(), SESSION_START, SESSION_END, DURATION_MS)
           .test()
           .assertError(throwable ->
               throwable.getMessage() != null && throwable.getMessage().contains("sessionId"));
     }
 
     @Test
-    void shouldReturnSessionDetailWithCoreAndTimingOnly() {
+    void shouldReturnSessionDetailWithCoreAndTimingFromParams() {
       SessionCoreRow core = SessionCoreRow.builder()
           .sessionId(SESSION_ID)
           .userId("user-1")
@@ -98,29 +112,26 @@ class SessionDetailServiceTest {
           .appVersion("1.2.0")
           .geography("US")
           .qualityScore(0.95)
-          .journey(null)
-          .build();
-      SessionTimingRow timing = SessionTimingRow.builder()
-          .sessionId(SESSION_ID)
-          .sessionStart("2024-01-15T10:00:00Z")
-          .sessionEnd("2024-01-15T10:05:00Z")
-          .durationMs(300_000)
           .build();
 
-      when(sessionDetailDao.getSessionCore(eq(SESSION_ID))).thenReturn(Single.just(coreResponse(List.of(core))));
-      when(sessionDetailDao.getSessionTiming(eq(SESSION_ID))).thenReturn(Single.just(timingResponse(List.of(timing))));
-      when(sessionDetailDao.getInteractions(eq(SESSION_ID))).thenReturn(Single.just(interactionResponse(Collections.emptyList())));
-      when(sessionDetailDao.getNetworkRequests(eq(SESSION_ID))).thenReturn(Single.just(networkResponse(Collections.emptyList())));
+      when(sessionDetailDao.getSessionCore(eq(SESSION_ID), any(), any()))
+          .thenReturn(Single.just(coreResponse(List.of(core))));
+      when(sessionDetailDao.getInteractions(eq(SESSION_ID), any(), any()))
+          .thenReturn(Single.just(interactionResponse(Collections.emptyList())));
+      when(sessionDetailDao.getNetworkRequests(eq(SESSION_ID), any(), any()))
+          .thenReturn(Single.just(networkResponse(Collections.emptyList())));
 
-      SessionDetailResponse result = sessionDetailService.getSessionDetail(SESSION_ID, Collections.emptySet()).blockingGet();
+      SessionDetailResponse result = sessionDetailService
+          .getSessionDetail(SESSION_ID, Collections.emptySet(), SESSION_START, SESSION_END, DURATION_MS)
+          .blockingGet();
 
       assertThat(result).isNotNull();
       assertThat(result.getSessionId()).isEqualTo(SESSION_ID);
       assertThat(result.getUserId()).isEqualTo("user-1");
       assertThat(result.isAnonymous()).isFalse();
-      assertThat(result.getStartTime()).isEqualTo("2024-01-15T10:00:00Z");
-      assertThat(result.getEndTime()).isEqualTo("2024-01-15T10:05:00Z");
-      assertThat(result.getDuration()).isEqualTo(300_000);
+      assertThat(result.getStartTime()).isEqualTo(SESSION_START);
+      assertThat(result.getEndTime()).isEqualTo(SESSION_END);
+      assertThat(result.getDuration()).isEqualTo(DURATION_MS);
       assertThat(result.getPlatform()).isEqualTo("android");
       assertThat(result.getDevice()).isEqualTo("Pixel 6");
       assertThat(result.getQuality()).isEqualTo(0.95);
@@ -129,16 +140,14 @@ class SessionDetailServiceTest {
       assertThat(result.getEvents()).isNull();
       assertThat(result.getExceptions()).isNull();
 
-      verify(sessionDetailDao).getSessionCore(SESSION_ID);
-      verify(sessionDetailDao).getSessionTiming(SESSION_ID);
-      verify(sessionDetailDao).getInteractions(SESSION_ID);
-      verify(sessionDetailDao).getNetworkRequests(SESSION_ID);
+      verify(sessionDetailDao).getSessionCore(eq(SESSION_ID), any(), any());
+      verify(sessionDetailDao).getInteractions(eq(SESSION_ID), any(), any());
+      verify(sessionDetailDao).getNetworkRequests(eq(SESSION_ID), any(), any());
     }
 
     @Test
     void shouldIncludeInteractionsAndNetworkInResponse() {
       SessionCoreRow core = SessionCoreRow.builder().sessionId(SESSION_ID).qualityScore(0).build();
-      SessionTimingRow timing = SessionTimingRow.builder().sessionId(SESSION_ID).durationMs(0).build();
       InteractionRow interaction = InteractionRow.builder()
           .interactionName("button_click")
           .successCount(10)
@@ -157,12 +166,16 @@ class SessionDetailServiceTest {
           .spanId("span-1")
           .build();
 
-      when(sessionDetailDao.getSessionCore(eq(SESSION_ID))).thenReturn(Single.just(coreResponse(List.of(core))));
-      when(sessionDetailDao.getSessionTiming(eq(SESSION_ID))).thenReturn(Single.just(timingResponse(List.of(timing))));
-      when(sessionDetailDao.getInteractions(eq(SESSION_ID))).thenReturn(Single.just(interactionResponse(List.of(interaction))));
-      when(sessionDetailDao.getNetworkRequests(eq(SESSION_ID))).thenReturn(Single.just(networkResponse(List.of(network))));
+      when(sessionDetailDao.getSessionCore(eq(SESSION_ID), any(), any()))
+          .thenReturn(Single.just(coreResponse(List.of(core))));
+      when(sessionDetailDao.getInteractions(eq(SESSION_ID), any(), any()))
+          .thenReturn(Single.just(interactionResponse(List.of(interaction))));
+      when(sessionDetailDao.getNetworkRequests(eq(SESSION_ID), any(), any()))
+          .thenReturn(Single.just(networkResponse(List.of(network))));
 
-      SessionDetailResponse result = sessionDetailService.getSessionDetail(SESSION_ID, Set.of()).blockingGet();
+      SessionDetailResponse result = sessionDetailService
+          .getSessionDetail(SESSION_ID, Set.of(), SESSION_START, SESSION_END, DURATION_MS)
+          .blockingGet();
 
       assertThat(result.getInteractions()).hasSize(1);
       assertThat(result.getInteractions().get(0).getInteractionName()).isEqualTo("button_click");
@@ -178,7 +191,6 @@ class SessionDetailServiceTest {
     @Test
     void shouldIncludeExceptionsWhenIncludeSectionsContainsExceptions() {
       SessionCoreRow core = SessionCoreRow.builder().sessionId(SESSION_ID).qualityScore(0).build();
-      SessionTimingRow timing = SessionTimingRow.builder().sessionId(SESSION_ID).durationMs(0).build();
       SessionExceptionRow exception = SessionExceptionRow.builder()
           .timestamp("2024-01-15T10:02:00Z")
           .pulseType("crash")
@@ -188,13 +200,18 @@ class SessionDetailServiceTest {
           .spanId("span-2")
           .build();
 
-      when(sessionDetailDao.getSessionCore(eq(SESSION_ID))).thenReturn(Single.just(coreResponse(List.of(core))));
-      when(sessionDetailDao.getSessionTiming(eq(SESSION_ID))).thenReturn(Single.just(timingResponse(List.of(timing))));
-      when(sessionDetailDao.getInteractions(eq(SESSION_ID))).thenReturn(Single.just(interactionResponse(Collections.emptyList())));
-      when(sessionDetailDao.getNetworkRequests(eq(SESSION_ID))).thenReturn(Single.just(networkResponse(Collections.emptyList())));
-      when(sessionDetailDao.getExceptions(eq(SESSION_ID))).thenReturn(Single.just(exceptionResponse(List.of(exception))));
+      when(sessionDetailDao.getSessionCore(eq(SESSION_ID), any(), any()))
+          .thenReturn(Single.just(coreResponse(List.of(core))));
+      when(sessionDetailDao.getInteractions(eq(SESSION_ID), any(), any()))
+          .thenReturn(Single.just(interactionResponse(Collections.emptyList())));
+      when(sessionDetailDao.getNetworkRequests(eq(SESSION_ID), any(), any()))
+          .thenReturn(Single.just(networkResponse(Collections.emptyList())));
+      when(sessionDetailDao.getExceptions(eq(SESSION_ID), any(), any()))
+          .thenReturn(Single.just(exceptionResponse(List.of(exception))));
 
-      SessionDetailResponse result = sessionDetailService.getSessionDetail(SESSION_ID, Set.of("exceptions")).blockingGet();
+      SessionDetailResponse result = sessionDetailService
+          .getSessionDetail(SESSION_ID, Set.of("exceptions"), SESSION_START, SESSION_END, DURATION_MS)
+          .blockingGet();
 
       assertThat(result.getExceptions()).hasSize(1);
       assertThat(result.getExceptions().get(0).getPulseType()).isEqualTo("crash");
@@ -205,7 +222,6 @@ class SessionDetailServiceTest {
     @Test
     void shouldIncludeEventsWhenIncludeSectionsContainsEvents() {
       SessionCoreRow core = SessionCoreRow.builder().sessionId(SESSION_ID).qualityScore(0).build();
-      SessionTimingRow timing = SessionTimingRow.builder().sessionId(SESSION_ID).durationMs(0).build();
       SessionSpanRow span = SessionSpanRow.builder()
           .timestamp("2024-01-15T10:01:30Z")
           .eventType("navigation")
@@ -215,14 +231,20 @@ class SessionDetailServiceTest {
           .spanId("span-3")
           .build();
 
-      when(sessionDetailDao.getSessionCore(eq(SESSION_ID))).thenReturn(Single.just(coreResponse(List.of(core))));
-      when(sessionDetailDao.getSessionTiming(eq(SESSION_ID))).thenReturn(Single.just(timingResponse(List.of(timing))));
-      when(sessionDetailDao.getInteractions(eq(SESSION_ID))).thenReturn(Single.just(interactionResponse(Collections.emptyList())));
-      when(sessionDetailDao.getNetworkRequests(eq(SESSION_ID))).thenReturn(Single.just(networkResponse(Collections.emptyList())));
-      when(sessionDetailDao.getExceptions(eq(SESSION_ID))).thenReturn(Single.just(exceptionResponse(Collections.emptyList())));
-      when(sessionDetailDao.getEventSpans(eq(SESSION_ID))).thenReturn(Single.just(spanResponse(List.of(span))));
+      when(sessionDetailDao.getSessionCore(eq(SESSION_ID), any(), any()))
+          .thenReturn(Single.just(coreResponse(List.of(core))));
+      when(sessionDetailDao.getInteractions(eq(SESSION_ID), any(), any()))
+          .thenReturn(Single.just(interactionResponse(Collections.emptyList())));
+      when(sessionDetailDao.getNetworkRequests(eq(SESSION_ID), any(), any()))
+          .thenReturn(Single.just(networkResponse(Collections.emptyList())));
+      when(sessionDetailDao.getExceptions(eq(SESSION_ID), any(), any()))
+          .thenReturn(Single.just(exceptionResponse(Collections.emptyList())));
+      when(sessionDetailDao.getEventSpans(eq(SESSION_ID), any(), any()))
+          .thenReturn(Single.just(spanResponse(List.of(span))));
 
-      SessionDetailResponse result = sessionDetailService.getSessionDetail(SESSION_ID, Set.of("events")).blockingGet();
+      SessionDetailResponse result = sessionDetailService
+          .getSessionDetail(SESSION_ID, Set.of("events"), SESSION_START, SESSION_END, DURATION_MS)
+          .blockingGet();
 
       assertThat(result.getEvents()).isNotNull();
       assertThat(result.getEvents()).hasSize(1);
@@ -234,7 +256,6 @@ class SessionDetailServiceTest {
     @Test
     void shouldMapInteractionStatusToPartialWhenBothSuccessAndFailure() {
       SessionCoreRow core = SessionCoreRow.builder().sessionId(SESSION_ID).qualityScore(0).build();
-      SessionTimingRow timing = SessionTimingRow.builder().sessionId(SESSION_ID).durationMs(0).build();
       InteractionRow interaction = InteractionRow.builder()
           .interactionName("api_call")
           .successCount(5)
@@ -243,12 +264,16 @@ class SessionDetailServiceTest {
           .apdexScore(0.8)
           .build();
 
-      when(sessionDetailDao.getSessionCore(eq(SESSION_ID))).thenReturn(Single.just(coreResponse(List.of(core))));
-      when(sessionDetailDao.getSessionTiming(eq(SESSION_ID))).thenReturn(Single.just(timingResponse(List.of(timing))));
-      when(sessionDetailDao.getInteractions(eq(SESSION_ID))).thenReturn(Single.just(interactionResponse(List.of(interaction))));
-      when(sessionDetailDao.getNetworkRequests(eq(SESSION_ID))).thenReturn(Single.just(networkResponse(Collections.emptyList())));
+      when(sessionDetailDao.getSessionCore(eq(SESSION_ID), any(), any()))
+          .thenReturn(Single.just(coreResponse(List.of(core))));
+      when(sessionDetailDao.getInteractions(eq(SESSION_ID), any(), any()))
+          .thenReturn(Single.just(interactionResponse(List.of(interaction))));
+      when(sessionDetailDao.getNetworkRequests(eq(SESSION_ID), any(), any()))
+          .thenReturn(Single.just(networkResponse(Collections.emptyList())));
 
-      SessionDetailResponse result = sessionDetailService.getSessionDetail(SESSION_ID, Set.of()).blockingGet();
+      SessionDetailResponse result = sessionDetailService
+          .getSessionDetail(SESSION_ID, Set.of(), SESSION_START, SESSION_END, DURATION_MS)
+          .blockingGet();
 
       assertThat(result.getInteractions().get(0).getStatus()).isEqualTo("partial");
     }
@@ -256,7 +281,6 @@ class SessionDetailServiceTest {
     @Test
     void shouldMapInteractionStatusToFailedWhenOnlyFailures() {
       SessionCoreRow core = SessionCoreRow.builder().sessionId(SESSION_ID).qualityScore(0).build();
-      SessionTimingRow timing = SessionTimingRow.builder().sessionId(SESSION_ID).durationMs(0).build();
       InteractionRow interaction = InteractionRow.builder()
           .interactionName("login")
           .successCount(0)
@@ -265,82 +289,61 @@ class SessionDetailServiceTest {
           .apdexScore(0)
           .build();
 
-      when(sessionDetailDao.getSessionCore(eq(SESSION_ID))).thenReturn(Single.just(coreResponse(List.of(core))));
-      when(sessionDetailDao.getSessionTiming(eq(SESSION_ID))).thenReturn(Single.just(timingResponse(List.of(timing))));
-      when(sessionDetailDao.getInteractions(eq(SESSION_ID))).thenReturn(Single.just(interactionResponse(List.of(interaction))));
-      when(sessionDetailDao.getNetworkRequests(eq(SESSION_ID))).thenReturn(Single.just(networkResponse(Collections.emptyList())));
+      when(sessionDetailDao.getSessionCore(eq(SESSION_ID), any(), any()))
+          .thenReturn(Single.just(coreResponse(List.of(core))));
+      when(sessionDetailDao.getInteractions(eq(SESSION_ID), any(), any()))
+          .thenReturn(Single.just(interactionResponse(List.of(interaction))));
+      when(sessionDetailDao.getNetworkRequests(eq(SESSION_ID), any(), any()))
+          .thenReturn(Single.just(networkResponse(Collections.emptyList())));
 
-      SessionDetailResponse result = sessionDetailService.getSessionDetail(SESSION_ID, Set.of()).blockingGet();
+      SessionDetailResponse result = sessionDetailService
+          .getSessionDetail(SESSION_ID, Set.of(), SESSION_START, SESSION_END, DURATION_MS)
+          .blockingGet();
 
       assertThat(result.getInteractions().get(0).getStatus()).isEqualTo("failed");
     }
 
     @Test
-    void shouldUseDefaultCoreAndTimingWhenDaoReturnsEmptyRows() {
-      when(sessionDetailDao.getSessionCore(eq(SESSION_ID))).thenReturn(Single.just(coreResponse(Collections.emptyList())));
-      when(sessionDetailDao.getSessionTiming(eq(SESSION_ID))).thenReturn(Single.just(timingResponse(Collections.emptyList())));
-      when(sessionDetailDao.getInteractions(eq(SESSION_ID))).thenReturn(Single.just(interactionResponse(Collections.emptyList())));
-      when(sessionDetailDao.getNetworkRequests(eq(SESSION_ID))).thenReturn(Single.just(networkResponse(Collections.emptyList())));
+    void shouldUseDefaultsWhenDaoReturnsEmptyRows() {
+      stubCoreDefaults();
 
-      SessionDetailResponse result = sessionDetailService.getSessionDetail(SESSION_ID, Set.of()).blockingGet();
+      SessionDetailResponse result = sessionDetailService
+          .getSessionDetail(SESSION_ID, Set.of(), SESSION_START, SESSION_END, DURATION_MS)
+          .blockingGet();
 
       assertThat(result.getSessionId()).isEqualTo(SESSION_ID);
-      assertThat(result.getDuration()).isEqualTo(0);
+      assertThat(result.getDuration()).isEqualTo(DURATION_MS);
       assertThat(result.getQuality()).isEqualTo(0);
       assertThat(result.isAnonymous()).isTrue();
     }
 
     @Test
-    void shouldParseJourneyJsonWhenCoreHasJourney() {
-      SessionCoreRow core = SessionCoreRow.builder()
-          .sessionId(SESSION_ID)
-          .qualityScore(0)
-          .journey("[\"screen_a\",\"screen_b\",\"screen_c\"]")
-          .build();
-      SessionTimingRow timing = SessionTimingRow.builder().sessionId(SESSION_ID).durationMs(0).build();
+    void shouldUseDurationMsZeroWhenNullPassed() {
+      stubCoreDefaults();
 
-      when(sessionDetailDao.getSessionCore(eq(SESSION_ID))).thenReturn(Single.just(coreResponse(List.of(core))));
-      when(sessionDetailDao.getSessionTiming(eq(SESSION_ID))).thenReturn(Single.just(timingResponse(List.of(timing))));
-      when(sessionDetailDao.getInteractions(eq(SESSION_ID))).thenReturn(Single.just(interactionResponse(Collections.emptyList())));
-      when(sessionDetailDao.getNetworkRequests(eq(SESSION_ID))).thenReturn(Single.just(networkResponse(Collections.emptyList())));
+      SessionDetailResponse result = sessionDetailService
+          .getSessionDetail(SESSION_ID, Set.of(), null, null, null)
+          .blockingGet();
 
-      SessionDetailResponse result = sessionDetailService.getSessionDetail(SESSION_ID, Set.of()).blockingGet();
-
-      assertThat(result.getJourney()).containsExactly("screen_a", "screen_b", "screen_c");
-    }
-
-    @Test
-    void shouldReturnEmptyJourneyWhenJourneyJsonInvalid() {
-      SessionCoreRow core = SessionCoreRow.builder()
-          .sessionId(SESSION_ID)
-          .qualityScore(0)
-          .journey("{invalid json not array")
-          .build();
-      SessionTimingRow timing = SessionTimingRow.builder().sessionId(SESSION_ID).durationMs(0).build();
-
-      when(sessionDetailDao.getSessionCore(eq(SESSION_ID))).thenReturn(Single.just(coreResponse(List.of(core))));
-      when(sessionDetailDao.getSessionTiming(eq(SESSION_ID))).thenReturn(Single.just(timingResponse(List.of(timing))));
-      when(sessionDetailDao.getInteractions(eq(SESSION_ID))).thenReturn(Single.just(interactionResponse(Collections.emptyList())));
-      when(sessionDetailDao.getNetworkRequests(eq(SESSION_ID))).thenReturn(Single.just(networkResponse(Collections.emptyList())));
-
-      SessionDetailResponse result = sessionDetailService.getSessionDetail(SESSION_ID, Set.of()).blockingGet();
-
-      assertThat(result.getJourney()).isEmpty();
+      assertThat(result.getDuration()).isEqualTo(0L);
     }
 
     @Test
     void shouldHandleNullRowsFromDao() {
       QueryResultResponse<SessionCoreRow> coreWithNullRows = QueryResultResponse.<SessionCoreRow>builder().build();
-      QueryResultResponse<SessionTimingRow> timingWithNullRows = QueryResultResponse.<SessionTimingRow>builder().build();
       QueryResultResponse<InteractionRow> interactionWithNullRows = QueryResultResponse.<InteractionRow>builder().build();
       QueryResultResponse<NetworkRequestRow> networkWithNullRows = QueryResultResponse.<NetworkRequestRow>builder().build();
 
-      when(sessionDetailDao.getSessionCore(eq(SESSION_ID))).thenReturn(Single.just(coreWithNullRows));
-      when(sessionDetailDao.getSessionTiming(eq(SESSION_ID))).thenReturn(Single.just(timingWithNullRows));
-      when(sessionDetailDao.getInteractions(eq(SESSION_ID))).thenReturn(Single.just(interactionWithNullRows));
-      when(sessionDetailDao.getNetworkRequests(eq(SESSION_ID))).thenReturn(Single.just(networkWithNullRows));
+      when(sessionDetailDao.getSessionCore(eq(SESSION_ID), any(), any()))
+          .thenReturn(Single.just(coreWithNullRows));
+      when(sessionDetailDao.getInteractions(eq(SESSION_ID), any(), any()))
+          .thenReturn(Single.just(interactionWithNullRows));
+      when(sessionDetailDao.getNetworkRequests(eq(SESSION_ID), any(), any()))
+          .thenReturn(Single.just(networkWithNullRows));
 
-      SessionDetailResponse result = sessionDetailService.getSessionDetail(SESSION_ID, Set.of()).blockingGet();
+      SessionDetailResponse result = sessionDetailService
+          .getSessionDetail(SESSION_ID, Set.of(), SESSION_START, SESSION_END, DURATION_MS)
+          .blockingGet();
 
       assertThat(result.getSessionId()).isEqualTo(SESSION_ID);
       assertThat(result.getInteractions()).isEmpty();
@@ -350,7 +353,6 @@ class SessionDetailServiceTest {
     @Test
     void shouldMergeAndSortEventsByTimestampWhenIncludeEvents() {
       SessionCoreRow core = SessionCoreRow.builder().sessionId(SESSION_ID).qualityScore(0).build();
-      SessionTimingRow timing = SessionTimingRow.builder().sessionId(SESSION_ID).durationMs(0).build();
       SessionSpanRow span = SessionSpanRow.builder()
           .timestamp("2024-01-15T10:02:00Z")
           .eventType("navigation")
@@ -374,14 +376,20 @@ class SessionDetailServiceTest {
           .spanId("s3")
           .build();
 
-      when(sessionDetailDao.getSessionCore(eq(SESSION_ID))).thenReturn(Single.just(coreResponse(List.of(core))));
-      when(sessionDetailDao.getSessionTiming(eq(SESSION_ID))).thenReturn(Single.just(timingResponse(List.of(timing))));
-      when(sessionDetailDao.getInteractions(eq(SESSION_ID))).thenReturn(Single.just(interactionResponse(Collections.emptyList())));
-      when(sessionDetailDao.getNetworkRequests(eq(SESSION_ID))).thenReturn(Single.just(networkResponse(List.of(network))));
-      when(sessionDetailDao.getExceptions(eq(SESSION_ID))).thenReturn(Single.just(exceptionResponse(List.of(exception))));
-      when(sessionDetailDao.getEventSpans(eq(SESSION_ID))).thenReturn(Single.just(spanResponse(List.of(span))));
+      when(sessionDetailDao.getSessionCore(eq(SESSION_ID), any(), any()))
+          .thenReturn(Single.just(coreResponse(List.of(core))));
+      when(sessionDetailDao.getInteractions(eq(SESSION_ID), any(), any()))
+          .thenReturn(Single.just(interactionResponse(Collections.emptyList())));
+      when(sessionDetailDao.getNetworkRequests(eq(SESSION_ID), any(), any()))
+          .thenReturn(Single.just(networkResponse(List.of(network))));
+      when(sessionDetailDao.getExceptions(eq(SESSION_ID), any(), any()))
+          .thenReturn(Single.just(exceptionResponse(List.of(exception))));
+      when(sessionDetailDao.getEventSpans(eq(SESSION_ID), any(), any()))
+          .thenReturn(Single.just(spanResponse(List.of(span))));
 
-      SessionDetailResponse result = sessionDetailService.getSessionDetail(SESSION_ID, Set.of("events")).blockingGet();
+      SessionDetailResponse result = sessionDetailService
+          .getSessionDetail(SESSION_ID, Set.of("events"), SESSION_START, SESSION_END, DURATION_MS)
+          .blockingGet();
 
       assertThat(result.getEvents()).hasSize(3);
       assertThat(result.getEvents().get(0).getTimestamp()).isEqualTo("2024-01-15T10:01:00Z");
@@ -395,7 +403,6 @@ class SessionDetailServiceTest {
     @Test
     void shouldIncludeBothEventsAndExceptionsSectionsWhenBothRequested() {
       SessionCoreRow core = SessionCoreRow.builder().sessionId(SESSION_ID).qualityScore(0).build();
-      SessionTimingRow timing = SessionTimingRow.builder().sessionId(SESSION_ID).durationMs(0).build();
       SessionExceptionRow exception = SessionExceptionRow.builder()
           .timestamp("2024-01-15T10:00:00Z")
           .pulseType("anr")
@@ -405,14 +412,20 @@ class SessionDetailServiceTest {
           .spanId("sp")
           .build();
 
-      when(sessionDetailDao.getSessionCore(eq(SESSION_ID))).thenReturn(Single.just(coreResponse(List.of(core))));
-      when(sessionDetailDao.getSessionTiming(eq(SESSION_ID))).thenReturn(Single.just(timingResponse(List.of(timing))));
-      when(sessionDetailDao.getInteractions(eq(SESSION_ID))).thenReturn(Single.just(interactionResponse(Collections.emptyList())));
-      when(sessionDetailDao.getNetworkRequests(eq(SESSION_ID))).thenReturn(Single.just(networkResponse(Collections.emptyList())));
-      when(sessionDetailDao.getExceptions(eq(SESSION_ID))).thenReturn(Single.just(exceptionResponse(List.of(exception))));
-      when(sessionDetailDao.getEventSpans(eq(SESSION_ID))).thenReturn(Single.just(spanResponse(Collections.emptyList())));
+      when(sessionDetailDao.getSessionCore(eq(SESSION_ID), any(), any()))
+          .thenReturn(Single.just(coreResponse(List.of(core))));
+      when(sessionDetailDao.getInteractions(eq(SESSION_ID), any(), any()))
+          .thenReturn(Single.just(interactionResponse(Collections.emptyList())));
+      when(sessionDetailDao.getNetworkRequests(eq(SESSION_ID), any(), any()))
+          .thenReturn(Single.just(networkResponse(Collections.emptyList())));
+      when(sessionDetailDao.getExceptions(eq(SESSION_ID), any(), any()))
+          .thenReturn(Single.just(exceptionResponse(List.of(exception))));
+      when(sessionDetailDao.getEventSpans(eq(SESSION_ID), any(), any()))
+          .thenReturn(Single.just(spanResponse(Collections.emptyList())));
 
-      SessionDetailResponse result = sessionDetailService.getSessionDetail(SESSION_ID, Set.of("events", "exceptions")).blockingGet();
+      SessionDetailResponse result = sessionDetailService
+          .getSessionDetail(SESSION_ID, Set.of("events", "exceptions"), SESSION_START, SESSION_END, DURATION_MS)
+          .blockingGet();
 
       assertThat(result.getExceptions()).hasSize(1);
       assertThat(result.getExceptions().get(0).getPulseType()).isEqualTo("anr");
@@ -425,7 +438,6 @@ class SessionDetailServiceTest {
     @Test
     void shouldMapSpanWithUnknownEventTypeToNullEventType() {
       SessionCoreRow core = SessionCoreRow.builder().sessionId(SESSION_ID).qualityScore(0).build();
-      SessionTimingRow timing = SessionTimingRow.builder().sessionId(SESSION_ID).durationMs(0).build();
       SessionSpanRow span = SessionSpanRow.builder()
           .timestamp("2024-01-15T10:00:00Z")
           .eventType("unknown_type")
@@ -435,18 +447,80 @@ class SessionDetailServiceTest {
           .spanId("s")
           .build();
 
-      when(sessionDetailDao.getSessionCore(eq(SESSION_ID))).thenReturn(Single.just(coreResponse(List.of(core))));
-      when(sessionDetailDao.getSessionTiming(eq(SESSION_ID))).thenReturn(Single.just(timingResponse(List.of(timing))));
-      when(sessionDetailDao.getInteractions(eq(SESSION_ID))).thenReturn(Single.just(interactionResponse(Collections.emptyList())));
-      when(sessionDetailDao.getNetworkRequests(eq(SESSION_ID))).thenReturn(Single.just(networkResponse(Collections.emptyList())));
-      when(sessionDetailDao.getExceptions(eq(SESSION_ID))).thenReturn(Single.just(exceptionResponse(Collections.emptyList())));
-      when(sessionDetailDao.getEventSpans(eq(SESSION_ID))).thenReturn(Single.just(spanResponse(List.of(span))));
+      when(sessionDetailDao.getSessionCore(eq(SESSION_ID), any(), any()))
+          .thenReturn(Single.just(coreResponse(List.of(core))));
+      when(sessionDetailDao.getInteractions(eq(SESSION_ID), any(), any()))
+          .thenReturn(Single.just(interactionResponse(Collections.emptyList())));
+      when(sessionDetailDao.getNetworkRequests(eq(SESSION_ID), any(), any()))
+          .thenReturn(Single.just(networkResponse(Collections.emptyList())));
+      when(sessionDetailDao.getExceptions(eq(SESSION_ID), any(), any()))
+          .thenReturn(Single.just(exceptionResponse(Collections.emptyList())));
+      when(sessionDetailDao.getEventSpans(eq(SESSION_ID), any(), any()))
+          .thenReturn(Single.just(spanResponse(List.of(span))));
 
-      SessionDetailResponse result = sessionDetailService.getSessionDetail(SESSION_ID, Set.of("events")).blockingGet();
+      SessionDetailResponse result = sessionDetailService
+          .getSessionDetail(SESSION_ID, Set.of("events"), SESSION_START, SESSION_END, DURATION_MS)
+          .blockingGet();
 
       assertThat(result.getEvents()).hasSize(1);
       assertThat(result.getEvents().get(0).getEventType()).isNull();
       assertThat(result.getEvents().get(0).getDescription()).isEqualTo("Custom");
+    }
+  }
+
+  @Nested
+  class GetSessionJourney {
+
+    @Test
+    void shouldReturnErrorWhenSessionIdIsNull() {
+      sessionDetailService.getSessionJourney(null, SESSION_START, SESSION_END)
+          .test()
+          .assertError(throwable ->
+              throwable.getMessage() != null && throwable.getMessage().contains("sessionId"));
+    }
+
+    @Test
+    void shouldReturnParsedJourneyWhenDaoReturnsValidJson() {
+      SessionJourneyRow row = SessionJourneyRow.builder()
+          .journey("[\"screen_a\",\"screen_b\",\"screen_c\"]")
+          .build();
+
+      when(sessionDetailDao.getSessionJourney(eq(SESSION_ID), any(), any()))
+          .thenReturn(Single.just(journeyResponse(List.of(row))));
+
+      SessionJourneyResponse result = sessionDetailService
+          .getSessionJourney(SESSION_ID, SESSION_START, SESSION_END)
+          .blockingGet();
+
+      assertThat(result.getJourney()).containsExactly("screen_a", "screen_b", "screen_c");
+    }
+
+    @Test
+    void shouldReturnEmptyJourneyWhenDaoReturnsInvalidJson() {
+      SessionJourneyRow row = SessionJourneyRow.builder()
+          .journey("{invalid json not array")
+          .build();
+
+      when(sessionDetailDao.getSessionJourney(eq(SESSION_ID), any(), any()))
+          .thenReturn(Single.just(journeyResponse(List.of(row))));
+
+      SessionJourneyResponse result = sessionDetailService
+          .getSessionJourney(SESSION_ID, SESSION_START, SESSION_END)
+          .blockingGet();
+
+      assertThat(result.getJourney()).isEmpty();
+    }
+
+    @Test
+    void shouldReturnEmptyJourneyWhenDaoReturnsNoRows() {
+      when(sessionDetailDao.getSessionJourney(eq(SESSION_ID), any(), any()))
+          .thenReturn(Single.just(journeyResponse(Collections.emptyList())));
+
+      SessionJourneyResponse result = sessionDetailService
+          .getSessionJourney(SESSION_ID, SESSION_START, SESSION_END)
+          .blockingGet();
+
+      assertThat(result.getJourney()).isEmpty();
     }
   }
 }
