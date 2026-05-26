@@ -7,6 +7,10 @@ import {
 import { AnalysisSectionProps } from "../Analysis.interface";
 import { useGetOsPerformance } from "../hooks/useGetOsPerformance";
 import { useMemo } from "react";
+import {
+  getEmptyMessageWhenAllZero,
+  topItemsLabel,
+} from "../analysisChart.utils";
 
 export const OsPerformanceSection: React.FC<AnalysisSectionProps> = ({
   dashboardFilters,
@@ -35,6 +39,9 @@ export const OsPerformanceSection: React.FC<AnalysisSectionProps> = ({
       return [];
     }
 
+    const osVersionsLabel = (count: number) =>
+      topItemsLabel(count, "OS version", "OS versions");
+
     return [
       {
         title: "OS Performance Analysis",
@@ -47,6 +54,11 @@ export const OsPerformanceSection: React.FC<AnalysisSectionProps> = ({
             yAxisDataKey: "os",
             valueKey: "crashes",
             seriesName: "Crashes",
+            emptyMessage: getEmptyMessageWhenAllZero(
+              crashesByOS,
+              "crashes",
+              `No crashes reported across the ${osVersionsLabel(crashesByOS.length)}`,
+            ),
           },
           {
             title: "ANR by OS Version",
@@ -55,6 +67,11 @@ export const OsPerformanceSection: React.FC<AnalysisSectionProps> = ({
             yAxisDataKey: "os",
             valueKey: "anr",
             seriesName: "ANR",
+            emptyMessage: getEmptyMessageWhenAllZero(
+              anrByOS,
+              "anr",
+              `No ANRs reported across the ${osVersionsLabel(anrByOS.length)}`,
+            ),
           },
           {
             title: "Frozen Frames by OS Version",
@@ -63,6 +80,11 @@ export const OsPerformanceSection: React.FC<AnalysisSectionProps> = ({
             yAxisDataKey: "os",
             valueKey: "frozenFrames",
             seriesName: "Frozen Frames",
+            emptyMessage: getEmptyMessageWhenAllZero(
+              frozenFramesByOS,
+              "frozenFrames",
+              `No frozen frames reported across the ${osVersionsLabel(frozenFramesByOS.length)}`,
+            ),
           },
         ],
       },

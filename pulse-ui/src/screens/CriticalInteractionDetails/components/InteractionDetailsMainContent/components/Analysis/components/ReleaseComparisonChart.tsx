@@ -5,6 +5,8 @@ import {
   BarChart,
   CustomToolTip,
 } from "../../../../../../../components/Charts";
+import { allValuesZero, itemsLabel } from "../analysisChart.utils";
+import { MetricChartEmptyState } from "./MetricChartEmptyState";
 
 /**
  * Release Comparison Chart
@@ -12,6 +14,7 @@ import {
  */
 const ReleaseComparisonChart = ({ data }) => {
   const theme = useMantineTheme();
+  const releaseCount = data.length;
 
   const createChartOption = ({
     chartData,
@@ -89,21 +92,30 @@ const ReleaseComparisonChart = ({ data }) => {
     yAxisLabelSuffix: "%",
   });
 
+  const releaseLabel = itemsLabel(releaseCount, "release", "releases");
+
   const charts = [
     {
       title: "Apdex Score by Release",
       description: "User satisfaction across versions",
       option: apdexOption,
+      emptyMessage: null,
     },
     {
       title: "Crashes by Release",
       description: "Application crashes per version",
       option: crashesOption,
+      emptyMessage: allValuesZero(data.map((d) => d.crashes))
+        ? `No crashes reported across the last ${releaseLabel}`
+        : null,
     },
     {
       title: "ANR by Release",
       description: "Application Not Responding events",
       option: anrOption,
+      emptyMessage: allValuesZero(data.map((d) => d.anr))
+        ? `No ANRs reported across the last ${releaseLabel}`
+        : null,
     },
   ];
 
@@ -140,7 +152,18 @@ const ReleaseComparisonChart = ({ data }) => {
               {chart.description}
             </Text>
             <Box style={{ height: 240 }}>
-              <BarChart option={chart.option} height={240} withLegend={false} />
+              {chart.emptyMessage ? (
+                <MetricChartEmptyState
+                  message={chart.emptyMessage}
+                  height={240}
+                />
+              ) : (
+                <BarChart
+                  option={chart.option}
+                  height={240}
+                  withLegend={false}
+                />
+              )}
             </Box>
           </Card>
         </Grid.Col>

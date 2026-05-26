@@ -7,6 +7,10 @@ import {
 import { AnalysisSectionProps } from "../Analysis.interface";
 import { useGetDevicePerformance } from "../hooks/useGetDevicePerformance";
 import { useMemo } from "react";
+import {
+  getEmptyMessageWhenAllZero,
+  topItemsLabel,
+} from "../analysisChart.utils";
 
 export const DevicePerformanceSection: React.FC<AnalysisSectionProps> = ({
   dashboardFilters,
@@ -39,6 +43,9 @@ export const DevicePerformanceSection: React.FC<AnalysisSectionProps> = ({
       return [];
     }
 
+    const devicesLabel = (count: number) =>
+      topItemsLabel(count, "device model", "device models");
+
     return [
       {
         title: "Device Performance Analysis",
@@ -51,6 +58,11 @@ export const DevicePerformanceSection: React.FC<AnalysisSectionProps> = ({
             yAxisDataKey: "device",
             valueKey: "crashes",
             seriesName: "Crashes",
+            emptyMessage: getEmptyMessageWhenAllZero(
+              crashesByDevice,
+              "crashes",
+              `No crashes reported across the ${devicesLabel(crashesByDevice.length)}`,
+            ),
           },
           {
             title: "ANR by Device Model",
@@ -59,6 +71,11 @@ export const DevicePerformanceSection: React.FC<AnalysisSectionProps> = ({
             yAxisDataKey: "device",
             valueKey: "anr",
             seriesName: "ANR",
+            emptyMessage: getEmptyMessageWhenAllZero(
+              anrByDevice,
+              "anr",
+              `No ANRs reported across the ${devicesLabel(anrByDevice.length)}`,
+            ),
           },
           {
             title: "Frozen Frames by Device Model",
@@ -67,6 +84,11 @@ export const DevicePerformanceSection: React.FC<AnalysisSectionProps> = ({
             yAxisDataKey: "device",
             valueKey: "frozenFrames",
             seriesName: "Frozen Frames",
+            emptyMessage: getEmptyMessageWhenAllZero(
+              frozenFramesByDevice,
+              "frozenFrames",
+              `No frozen frames reported across the ${devicesLabel(frozenFramesByDevice.length)}`,
+            ),
           },
         ],
       },

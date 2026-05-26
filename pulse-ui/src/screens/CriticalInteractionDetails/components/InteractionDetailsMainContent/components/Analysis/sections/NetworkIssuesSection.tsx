@@ -7,6 +7,10 @@ import {
 import { AnalysisSectionProps } from "../Analysis.interface";
 import { useGetNetworkIssues } from "../hooks/useGetNetworkIssues";
 import { useMemo } from "react";
+import {
+  getEmptyMessageWhenAllZero,
+  topItemsLabel,
+} from "../analysisChart.utils";
 
 export const NetworkIssuesSection: React.FC<AnalysisSectionProps> = ({
   dashboardFilters,
@@ -43,6 +47,9 @@ export const NetworkIssuesSection: React.FC<AnalysisSectionProps> = ({
       return [];
     }
 
+    const providersLabel = (count: number) =>
+      topItemsLabel(count, "network provider", "network providers");
+
     return [
       {
         title: "Network Issues Analysis",
@@ -55,6 +62,11 @@ export const NetworkIssuesSection: React.FC<AnalysisSectionProps> = ({
             yAxisDataKey: "networkProvider",
             valueKey: "errors",
             seriesName: "Connection & Timeout Errors",
+            emptyMessage: getEmptyMessageWhenAllZero(
+              connectionTimeoutErrorsByNetwork,
+              "errors",
+              `No connection or timeout errors across the ${providersLabel(connectionTimeoutErrorsByNetwork.length)}`,
+            ),
           },
           {
             title: "5xx Errors by Network Provider",
@@ -63,6 +75,11 @@ export const NetworkIssuesSection: React.FC<AnalysisSectionProps> = ({
             yAxisDataKey: "networkProvider",
             valueKey: "errors",
             seriesName: "5xx Errors",
+            emptyMessage: getEmptyMessageWhenAllZero(
+              error5xxByNetwork,
+              "errors",
+              `No 5xx errors across the ${providersLabel(error5xxByNetwork.length)}`,
+            ),
           },
           {
             title: "4xx Errors by Network Provider",
@@ -71,6 +88,11 @@ export const NetworkIssuesSection: React.FC<AnalysisSectionProps> = ({
             yAxisDataKey: "networkProvider",
             valueKey: "errors",
             seriesName: "4xx Errors",
+            emptyMessage: getEmptyMessageWhenAllZero(
+              error4xxByNetwork,
+              "errors",
+              `No 4xx errors across the ${providersLabel(error4xxByNetwork.length)}`,
+            ),
           },
         ],
       },

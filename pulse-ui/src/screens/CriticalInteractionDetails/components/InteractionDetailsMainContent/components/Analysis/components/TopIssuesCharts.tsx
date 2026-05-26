@@ -3,6 +3,7 @@ import {
   BarChart,
   CustomToolTip,
 } from "../../../../../../../components/Charts";
+import { MetricChartEmptyState } from "./MetricChartEmptyState";
 
 export interface ChartConfig<T = any> {
   title: string;
@@ -13,6 +14,7 @@ export interface ChartConfig<T = any> {
   seriesName: string;
   xAxisName?: string;
   labelFormatter?: (p: { value: number }) => string;
+  emptyMessage?: string | null;
 }
 
 export interface SectionConfig {
@@ -115,30 +117,42 @@ const TopIssuesCharts: React.FC<TopIssuesChartsProps> = ({ sections }) => {
             {section.charts
               .filter((chart) => chart.data && chart.data.length > 0)
               .map((chart) => (
-              <Grid.Col key={chart.title} span={{ base: 12, md: 4 }}>
-                <Card padding="md" withBorder radius="md" style={cardStyle}>
-                  <Text
-                    size="sm"
-                    fw={700}
-                    c="#0ba09a"
-                    mb={4}
-                    style={{ fontSize: "14px", letterSpacing: "-0.2px" }}
-                  >
-                    {chart.title}
-                  </Text>
-                  <Text c="dimmed" size="xs" mb="sm" style={{ fontSize: "12px" }}>
-                    {chart.description}
-                  </Text>
-                  <Box style={{ height: 360 }}>
-                    <BarChart
-                      option={createChartOption(chart)}
-                      height={360}
-                      withLegend={false}
-                    />
-                  </Box>
-                </Card>
-              </Grid.Col>
-            ))}
+                <Grid.Col key={chart.title} span={{ base: 12, md: 4 }}>
+                  <Card padding="md" withBorder radius="md" style={cardStyle}>
+                    <Text
+                      size="sm"
+                      fw={700}
+                      c="#0ba09a"
+                      mb={4}
+                      style={{ fontSize: "14px", letterSpacing: "-0.2px" }}
+                    >
+                      {chart.title}
+                    </Text>
+                    <Text
+                      c="dimmed"
+                      size="xs"
+                      mb="sm"
+                      style={{ fontSize: "12px" }}
+                    >
+                      {chart.description}
+                    </Text>
+                    <Box style={{ height: 360 }}>
+                      {chart.emptyMessage ? (
+                        <MetricChartEmptyState
+                          message={chart.emptyMessage}
+                          height={360}
+                        />
+                      ) : (
+                        <BarChart
+                          option={createChartOption(chart)}
+                          height={360}
+                          withLegend={false}
+                        />
+                      )}
+                    </Box>
+                  </Card>
+                </Grid.Col>
+              ))}
           </Grid>
         </Box>
       ))}
