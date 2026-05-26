@@ -51,6 +51,9 @@ export const useGetRegionalInsights = ({
         { function: "INTERACTION_SUCCESS_COUNT" as const, alias: "success_count" },
         { function: "INTERACTION_ERROR_COUNT" as const, alias: "error_count" },
         { function: "USER_CATEGORY_POOR" as const, alias: "user_poor" },
+        { function: "USER_CATEGORY_AVERAGE" as const, alias: "user_average" },
+        { function: "USER_CATEGORY_GOOD" as const, alias: "user_good" },
+        { function: "USER_CATEGORY_EXCELLENT" as const, alias: "user_excellent" },
         { function: "COL" as const, param: { field: COLUMN_NAME.STATE }, alias: "region" },
         { function: "CUSTOM" as const, param: { expression: `any(nullIf(${COLUMN_NAME.COUNTRY}, ''))` }, alias: "country_code" },
       ],
@@ -71,18 +74,21 @@ export const useGetRegionalInsights = ({
   });
 
   // Transform regional data
-  const regionalData = useMemo(() => {
+  const regionalData = useMemo<RegionalInsightsData>(() => {
     const responseData = data?.data;
     if (!responseData || !responseData.rows || responseData.rows.length === 0) {
       return {
-        errorRateByRegion: [] as RegionalDataPoint[],
-        poorUsersPercentageByRegion: [] as RegionalDataPoint[],
+        errorRateByRegion: [],
+        poorUsersPercentageByRegion: [],
       };
     }
 
     const successCountIndex = responseData.fields.indexOf("success_count");
     const errorCountIndex = responseData.fields.indexOf("error_count");
     const userPoorIndex = responseData.fields.indexOf("user_poor");
+    const userAverageIndex = responseData.fields.indexOf("user_average");
+    const userGoodIndex = responseData.fields.indexOf("user_good");
+    const userExcellentIndex = responseData.fields.indexOf("user_excellent");
     const regionIndex = responseData.fields.indexOf("region");
     const countryIndex = responseData.fields.indexOf("country_code");
 
@@ -92,38 +98,59 @@ export const useGetRegionalInsights = ({
       return region === "" ? "Unknown" : getRegionName(region, String(countryCode || ""));
     };
 
-    const errorRateByRegion = responseData.rows.map((row) => {
-      const successCount = parseFloat(String(row[successCountIndex])) || 0;
-      const errorCount = parseFloat(String(row[errorCountIndex])) || 0;
-      const totalCount = successCount + errorCount;
-      const errorRate =
-        totalCount > 0
-          ? Number(((errorCount / totalCount) * 100).toFixed(1))
-          : 0;
-      return {
-        name: normalizeRegionName(row[regionIndex], row[countryIndex]),
-        value: errorRate,
-        count: errorCount,
-      };
-    });
+    // Regions with fewer than 5 interactions are pushed to the end of the
+    // list — rate is too noisy at that sample size (a 1-of-1 = 100% should
+    // not lead the ranking).
+    const SAMPLE_FLOOR = 5;
 
-    const poorUsersPercentageByRegion = responseData.rows.map((row) => {
-      const userPoor = parseFloat(String(row[userPoorIndex])) || 0;
-      const successCount = parseFloat(String(row[successCountIndex])) || 0;
-      const totalCount = successCount;
-      const poorPercentage =
-        totalCount > 0 ? Number(((userPoor / totalCount) * 100).toFixed(2)) : 0;
-      return {
-        name: normalizeRegionName(row[regionIndex], row[countryIndex]),
-        value: poorPercentage,
-        count: userPoor,
-      };
-    });
+    // Sufficient-sample regions first, sorted by rate desc; low-sample
+    // regions trail, also rate desc. Total desc breaks rate ties.
+    const byRanking = (a: RegionalDataPoint, b: RegionalDataPoint) => {
+      const aRanked = a.total >= SAMPLE_FLOOR ? 1 : 0;
+      const bRanked = b.total >= SAMPLE_FLOOR ? 1 : 0;
+      if (aRanked !== bRanked) return bRanked - aRanked;
+      if (b.value !== a.value) return b.value - a.value;
+      return b.total - a.total;
+    };
+
+    const errorRateByRegion: RegionalDataPoint[] = responseData.rows
+      .map((row) => {
+        const successCount = parseFloat(String(row[successCountIndex])) || 0;
+        const errorCount = parseFloat(String(row[errorCountIndex])) || 0;
+        const totalCount = successCount + errorCount;
+        const errorRate =
+          totalCount > 0
+            ? Number(((errorCount / totalCount) * 100).toFixed(1))
+            : 0;
+        return {
+          name: normalizeRegionName(row[regionIndex], row[countryIndex]),
+          value: errorRate,
+          total: totalCount,
+        };
+      })
+      .sort(byRanking);
+
+    const poorUsersPercentageByRegion: RegionalDataPoint[] = responseData.rows
+      .map((row) => {
+        const userPoor = parseFloat(String(row[userPoorIndex])) || 0;
+        const userAverage = parseFloat(String(row[userAverageIndex])) || 0;
+        const userGood = parseFloat(String(row[userGoodIndex])) || 0;
+        const userExcellent = parseFloat(String(row[userExcellentIndex])) || 0;
+        const totalUsers = userPoor + userAverage + userGood + userExcellent;
+        const poorPercentage =
+          totalUsers > 0 ? Number(((userPoor / totalUsers) * 100).toFixed(2)) : 0;
+        return {
+          name: normalizeRegionName(row[regionIndex], row[countryIndex]),
+          value: poorPercentage,
+          total: totalUsers,
+        };
+      })
+      .sort(byRanking);
 
     return {
       errorRateByRegion,
       poorUsersPercentageByRegion,
-    } as RegionalInsightsData;
+    };
   }, [data]);
 
   const isError = !!error || !!data?.error;
@@ -135,4 +162,3 @@ export const useGetRegionalInsights = ({
     error: error || null,
   };
 };
-
