@@ -6,6 +6,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.regex.Pattern;
+
 import org.apache.spark.sql.SparkSession;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -39,21 +40,21 @@ public class SparkJobRunner {
     Long referenceId = params.containsKey("reference_id") ? Long.parseLong(params.get("reference_id")) : null;
     validateJobArguments(jobType, referenceId);
     log.info("Spark job starting. job_type={}, reference_id={}, analytics_job_id={}, s3_bucket_prefix={}",
-        jobType, referenceId, analyticsJobId, s3Prefix);
+      jobType, referenceId, analyticsJobId, s3Prefix);
 
     var mysql = new MysqlRepository(
-        require(params, "mysql_host"),
-        Integer.parseInt(params.getOrDefault("mysql_port", "3306")),
-        require(params, "mysql_db"),
-        require(params, "mysql_user"),
-        require(params, "mysql_password")
+      require(params, "mysql_host"),
+      Integer.parseInt(params.getOrDefault("mysql_port", "3306")),
+      require(params, "mysql_db"),
+      require(params, "mysql_user"),
+      require(params, "mysql_password")
     );
     var ch = new ClickHouseClient(
-        require(params, "clickhouse_host"),
-        Integer.parseInt(params.getOrDefault("clickhouse_port", "8123")),
-        params.getOrDefault("clickhouse_db", "otel"),
-        params.getOrDefault("clickhouse_user", "default"),
-        params.getOrDefault("clickhouse_password", "")
+      require(params, "clickhouse_host"),
+      Integer.parseInt(params.getOrDefault("clickhouse_port", "8123")),
+      params.getOrDefault("clickhouse_db", "otel"),
+      params.getOrDefault("clickhouse_user", "default"),
+      params.getOrDefault("clickhouse_password", "")
     );
     ch.ping();
     log.info("ClickHouse connectivity check passed");
@@ -63,19 +64,19 @@ public class SparkJobRunner {
     }
 
     var spark = SparkSession.builder()
-        .appName("pulse-spark-%s-%s".formatted(jobType.toLowerCase(), runTime.substring(0, 10)))
-        .config("spark.sql.parquet.int96RebaseModeInRead", "CORRECTED")
-        .config("spark.sql.session.timeZone", "UTC")
-        .getOrCreate();
+      .appName("pulse-spark-%s-%s".formatted(jobType.toLowerCase(), runTime.substring(0, 10)))
+      .config("spark.sql.parquet.int96RebaseModeInRead", "CORRECTED")
+      .config("spark.sql.session.timeZone", "UTC")
+      .getOrCreate();
     normalizeS3TimeoutConfigs(spark);
     spark.sparkContext().setLogLevel("WARN");
     try {
       var ctx = (org.apache.logging.log4j.core.LoggerContext)
-          org.apache.logging.log4j.LogManager.getContext(false);
+        org.apache.logging.log4j.LogManager.getContext(false);
       var cfg = ctx.getConfiguration();
       var lc = new org.apache.logging.log4j.core.config.LoggerConfig(
-          "org.dreamhorizon.pulsespark",
-          org.apache.logging.log4j.Level.INFO, true);
+        "org.dreamhorizon.pulsespark",
+        org.apache.logging.log4j.Level.INFO, true);
       cfg.addLogger("org.dreamhorizon.pulsespark", lc);
       ctx.updateLoggers();
     } catch (Exception | NoClassDefFoundError ignored) {
@@ -131,6 +132,34 @@ public class SparkJobRunner {
     }
   }
 
+  /**
+   * Touches updated_at for funnels/journeys based on job type.
+   * Called after successful Spark job completion so listing shows latest auto-run.
+   */
+//  private static void touchUpdatedAtForJobType(MysqlRepository mysql, String jobType, Long referenceId) {
+//    try {
+//      switch (jobType) {
+//        case "FUNNELS_DAILY" -> mysql.touchAllAutoFunnelsUpdatedAt();
+//        case "JOURNEYS_DAILY" -> mysql.touchAllAutoJourneysUpdatedAt();
+//        case "FUNNEL" -> {
+//          if (referenceId != null) {
+//            mysql.touchFunnelUpdatedAt(referenceId);
+//          }
+//        }
+//        case "JOURNEY" -> {
+//          if (referenceId != null) {
+//            mysql.touchJourneyUpdatedAt(referenceId);
+//          }
+//        }
+//        default -> {
+//          // EVENTS_INCREMENTAL and others - no touching needed
+//        }
+//      }
+//    } catch (Exception e) {
+//      // Log but don't fail the job - this is a best-effort update
+//      log.warn("Failed to touch updated_at for job_type={}: {}", jobType, e.getMessage());
+//    }
+//  }
   private static Map<String, String> parseArgs(String[] args) {
     var map = new HashMap<String, String>();
     for (int i = 0; i < args.length - 1; i += 2) {
@@ -167,12 +196,12 @@ public class SparkJobRunner {
   private static void normalizeS3TimeoutConfigs(SparkSession spark) {
     var hadoopConf = spark.sparkContext().hadoopConfiguration();
     String[] keys = {
-        "fs.s3a.connection.establish.timeout",
-        "fs.s3a.connection.timeout",
-        "fs.s3a.connection.request.timeout",
-        "fs.s3a.connection.acquisition.timeout",
-        "fs.s3a.socket.timeout",
-        "fs.s3a.attempts.maximum"
+      "fs.s3a.connection.establish.timeout",
+      "fs.s3a.connection.timeout",
+      "fs.s3a.connection.request.timeout",
+      "fs.s3a.connection.acquisition.timeout",
+      "fs.s3a.socket.timeout",
+      "fs.s3a.attempts.maximum"
     };
 
     for (String key : keys) {

@@ -107,7 +107,11 @@ export function FunnelVisualization({
                   </Box>
                   {dropoffPct > 0 && (
                     <Tooltip
-                      label={`${dropoffCount.toLocaleString()} ${subjectPlural} dropped off at Step ${index + 1}`}
+                      label={
+                        onStepDropoffClick
+                          ? `${dropoffCount.toLocaleString()} ${subjectPlural} dropped off — click to see why`
+                          : `${dropoffCount.toLocaleString()} ${subjectPlural} dropped off at Step ${index + 1}`
+                      }
                       position="top"
                       withArrow
                     >

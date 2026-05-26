@@ -13,10 +13,11 @@ import org.dreamhorizon.pulseserver.model.QueryConfiguration;
 import org.dreamhorizon.pulseserver.model.QueryResultResponse;
 
 /**
- * Data access for funnel drop-off attribution reads.
+ * Data access for funnel drop-off attribution reads and evidence drill-in.
  *
- * <p>Cause reads use only {@code otel.funnel_dropoff_attribution} (precomputed at funnel compute).
- * There is no live OTel join fallback.
+ * <p>{@link #queryCauses} tries precomputed {@code funnel_dropoff_attribution} first, then
+ * falls back to live OTel joins when empty. {@link #queryCausesFromAttribution} is
+ * attribution-only (used by funnel RCA).
  */
 @Singleton
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
@@ -27,19 +28,37 @@ public class FunnelDropoffDao {
   private final ClickhouseQueryService clickhouseQueryService;
 
   /**
-   * Ranked drop-off causes from precomputed attribution. {@code mode} is accepted for API
-   * compatibility but does not change the query.
+   * Ranked drop-off causes for the given step of the given funnel run.
+   *
+   * <p>Two-tier read: precomputed attribution first; live join when empty so older runs
+   * and freshly-created funnels still populate the panel.
+   *
+   * @param runTime optional; {@code null} picks the latest run for the funnel.
+   * @param mode either {@code UNIQUE_USERS} or {@code SESSIONS} (case-insensitive).
    */
   public Single<List<FunnelDropoffCauseRow>> queryCauses(
       String projectId, long funnelId, int stepIndex, String runTime, String mode) {
-    return queryCausesFromAttribution(projectId, funnelId, stepIndex, runTime);
+    return queryCausesFromAttribution(projectId, funnelId, stepIndex, runTime)
+        .flatMap(rows -> rows.isEmpty()
+            ? queryCausesLive(projectId, funnelId, stepIndex, runTime, mode)
+            : Single.just(rows));
   }
 
-  /** Attribution-only read used by drop-off panel and funnel RCA. */
+  /** Attribution-only read used by drop-off panel (after precompute) and funnel RCA. */
   public Single<List<FunnelDropoffCauseRow>> queryCausesFromAttribution(
       String projectId, long funnelId, int stepIndex, String runTime) {
-    String sql =
-        FunnelDropoffQueries.buildCausesSqlFromAttribution(projectId, funnelId, stepIndex, runTime);
+    String sql = FunnelDropoffQueries.buildCausesSqlFromAttribution(
+        projectId, funnelId, stepIndex, runTime);
+    return executeCauseQuery(projectId, sql);
+  }
+
+  private Single<List<FunnelDropoffCauseRow>> queryCausesLive(
+      String projectId, long funnelId, int stepIndex, String runTime, String mode) {
+    String sql = FunnelDropoffQueries.buildCausesSql(projectId, funnelId, stepIndex, runTime, mode);
+    return executeCauseQuery(projectId, sql);
+  }
+
+  private Single<List<FunnelDropoffCauseRow>> executeCauseQuery(String projectId, String sql) {
     QueryConfiguration config =
         QueryConfiguration.newQuery(sql)
             .timeoutMs(TIMEOUT_MS)
@@ -47,12 +66,17 @@ public class FunnelDropoffDao {
             .projectId(projectId)
             .build();
     // Server-built SQL already filters ProjectId; global pool avoids per-project CH credentials
-    // (needed for local dev when fancode has MySQL funnel rows but no clickhouse_project_credentials).
+    // (needed for local dev when a project has MySQL funnel rows but no clickhouse_project_credentials).
     return clickhouseQueryService
         .executeGenericQueryWithGlobalPool(config, FunnelDropoffCauseRow.class)
         .map(FunnelDropoffDao::causeRowsOrEmpty);
   }
 
+  /**
+   * Evidence rows for the side-panel's "View examples" drill-in. {@code sessionIds}
+   * is the subset picked from {@link FunnelDropoffCauseRow#getExampleSessions()} —
+   * typically 5 per cause.
+   */
   public Single<List<FunnelDropoffEvidenceRow>> queryEvidence(
       String projectId,
       long funnelId,
@@ -63,9 +87,8 @@ public class FunnelDropoffDao {
     if (sessionIds == null || sessionIds.isEmpty()) {
       return Single.just(Collections.emptyList());
     }
-    String sql =
-        FunnelDropoffQueries.buildEvidenceSql(
-            projectId, funnelId, stepIndex, runTime, mode, sessionIds);
+    String sql = FunnelDropoffQueries.buildEvidenceSql(
+        projectId, funnelId, stepIndex, runTime, mode, sessionIds);
     QueryConfiguration config =
         QueryConfiguration.newQuery(sql)
             .timeoutMs(TIMEOUT_MS)

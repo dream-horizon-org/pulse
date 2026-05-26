@@ -49,7 +49,6 @@ class FunnelDropoffDaoTest {
   class QueryCauses {
     @Test
     void shouldReturnMappedRowsFromPrecomputedAttribution() {
-      // First call (precomputed) returns a row → no fallback needed.
       FunnelDropoffCauseRow row = FunnelDropoffCauseRow.builder()
           .causeKind("crash").causeKey("NPE@Checkout").causeLabel("NPE @ Checkout")
           .dropoffCohort(100L).dropoffAffected(42L)
@@ -71,13 +70,39 @@ class FunnelDropoffDaoTest {
     }
 
     @Test
-    void shouldReturnEmptyWhenAttributionTableHasNoRows() {
+    void shouldFallBackToLiveJoinWhenAttributionTableIsEmpty() {
+      QueryResultResponse<FunnelDropoffCauseRow> empty =
+          QueryResultResponse.<FunnelDropoffCauseRow>builder()
+              .rows(Collections.emptyList()).build();
+      FunnelDropoffCauseRow liveRow = FunnelDropoffCauseRow.builder()
+          .causeKind("http_5xx").causeKey("POST checkout 503")
+          .causeLabel("HTTP 503 · POST checkout")
+          .dropoffCohort(50L).dropoffAffected(20L)
+          .converterCohort(40L).converterAffected(1L)
+          .lift(16.0).exampleSessions("s-9").build();
+      QueryResultResponse<FunnelDropoffCauseRow> liveResp =
+          QueryResultResponse.<FunnelDropoffCauseRow>builder()
+              .rows(List.of(liveRow)).build();
+
+      when(clickhouseQueryService.executeGenericQueryWithGlobalPool(
+          any(QueryConfiguration.class), eq(FunnelDropoffCauseRow.class)))
+          .thenReturn(Single.just(empty), Single.just(liveResp));
+
+      List<FunnelDropoffCauseRow> result =
+          dao.queryCauses(PROJECT, 1L, 0, "2026-04-23 10:00:00", "SESSIONS").blockingGet();
+
+      assertThat(result).hasSize(1);
+      assertThat(result.get(0).getCauseKind()).isEqualTo("http_5xx");
+    }
+
+    @Test
+    void shouldReturnEmptyWhenBothPrecomputedAndLiveAreEmpty() {
       QueryResultResponse<FunnelDropoffCauseRow> empty =
           QueryResultResponse.<FunnelDropoffCauseRow>builder()
               .rows(Collections.emptyList()).build();
       when(clickhouseQueryService.executeGenericQueryWithGlobalPool(
           any(QueryConfiguration.class), eq(FunnelDropoffCauseRow.class)))
-          .thenReturn(Single.just(empty));
+          .thenReturn(Single.just(empty), Single.just(empty));
 
       List<FunnelDropoffCauseRow> result =
           dao.queryCauses(PROJECT, 1L, 0, null, "SESSIONS").blockingGet();
@@ -90,7 +115,7 @@ class FunnelDropoffDaoTest {
           QueryResultResponse.<FunnelDropoffCauseRow>builder().rows(null).build();
       when(clickhouseQueryService.executeGenericQueryWithGlobalPool(
           any(QueryConfiguration.class), eq(FunnelDropoffCauseRow.class)))
-          .thenReturn(Single.just(resp));
+          .thenReturn(Single.just(resp), Single.just(resp));
 
       List<FunnelDropoffCauseRow> result =
           dao.queryCauses(PROJECT, 1L, 0, null, "SESSIONS").blockingGet();

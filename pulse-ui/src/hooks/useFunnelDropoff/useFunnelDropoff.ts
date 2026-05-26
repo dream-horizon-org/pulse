@@ -2,6 +2,10 @@ import { useQuery } from "@tanstack/react-query";
 import { fetchFunnelDropoff } from "../../services/funnels.service";
 import { useProjectQueryEnabled } from "../useProjectQueryEnabled";
 
+/**
+ * Fetches ranked drop-off causes for one funnel step (side-panel payload).
+ * Disabled until both {@code funnelId} and {@code stepIndex} are set.
+ */
 export const useFunnelDropoff = (
   funnelId: string | undefined,
   stepIndex: number | undefined,
@@ -12,7 +16,7 @@ export const useFunnelDropoff = (
   );
 
   return useQuery({
-    queryKey: ["funnelDropoff", funnelId, stepIndex, runTime],
+    queryKey: ["funnelDropoff", funnelId, stepIndex, runTime ?? "latest"],
     queryFn: () =>
       fetchFunnelDropoff(funnelId as string, stepIndex as number, runTime),
     enabled,
