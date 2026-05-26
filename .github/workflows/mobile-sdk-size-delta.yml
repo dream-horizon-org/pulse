@@ -29,13 +29,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - uses: actions/setup-python@423df246fc0337956dbc05cfebafafdabb498698 # v5.4.0
-        with:
-          python-version: '3.11'
       - name: Install pytest
-        run: pip install pytest
+        run: python3 -m pip install pytest
       - name: Pytest
-        run: pytest .github/scripts/tests/test_check_sdk_size_delta.py -q
+        run: python3 -m pytest .github/scripts/tests/test_check_sdk_size_delta.py -q
       - name: Shell tests
         run: bash .github/scripts/tests/run_shell_tests.sh
 
