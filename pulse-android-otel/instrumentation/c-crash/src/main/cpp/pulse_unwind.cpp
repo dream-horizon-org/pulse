@@ -198,8 +198,21 @@ bool pulse_unwind_init() {
     return true;
 }
 
-size_t pulse_unwind_crash_stack(PulseNativeStackFrame *out_frames, size_t max_frames, void *ucontext,
-        PulseUnwindCrashDiag *diag_out) __asyncsafe {
+const char *pulse_binary_arch() __asyncsafe {
+#if defined(__aarch64__)
+    return "arm64-v8a";
+#elif defined(__arm__)
+    return "armeabi-v7a";
+#elif defined(__i386__)
+    return "x86";
+#elif defined(__x86_64__)
+    return "x86_64";
+#else
+    return "unknown";
+#endif
+}
+
+size_t pulse_unwind_crash_stack(PulseNativeStackFrame *out_frames, size_t max_frames, void *ucontext) __asyncsafe {
     if (out_frames == nullptr || max_frames == 0) {
         pulse_loge(PULSE_LOG_TAG_CCRASH,
                 "pulse_unwind_crash_stack: invalid args out_frames=%p max_frames=%zu",
@@ -238,13 +251,6 @@ size_t pulse_unwind_crash_stack(PulseNativeStackFrame *out_frames, size_t max_fr
     // yield ERROR_INVALID_ELF / single-frame stacks.
     local_unwinder->SetRegs(owned_regs.get());
 
-    if (diag_out != nullptr) {
-        std::memset(diag_out, 0, sizeof(*diag_out));
-        diag_out->ucontext_present = ucontext != nullptr ? 1 : 0;
-        diag_out->reg_pc = owned_regs->pc();
-        diag_out->reg_sp = owned_regs->sp();
-    }
-
     {
         // If the fault map lacks PROT_EXEC it is a stale linker reservation that has since been
         // replaced by the real .so segments. Reparse the maps in-place before Unwind() so that
@@ -262,12 +268,6 @@ size_t pulse_unwind_crash_stack(PulseNativeStackFrame *out_frames, size_t max_fr
 
     local_unwinder->Unwind();
 
-    if (diag_out != nullptr) {
-        diag_out->raw_num_frames = local_unwinder->NumFrames();
-        diag_out->warnings = local_unwinder->warnings();
-        diag_out->last_error = static_cast<uint8_t>(local_unwinder->LastErrorCode());
-    }
-
     size_t n = 0;
     for (const auto &frame: local_unwinder->frames()) {
         if (n >= max_frames) {
@@ -281,6 +281,7 @@ size_t pulse_unwind_crash_stack(PulseNativeStackFrame *out_frames, size_t max_fr
 
         dst.frame_address = frame.pc;
         dst.rel_pc = frame.rel_pc;
+        dst.symbol_offset = frame.function_offset;
         dst.symbol_address = frame.pc - frame.function_offset;
 
         const uint64_t offset = frame.map_load_bias + (frame.map_exact_offset - frame.map_elf_start_offset);

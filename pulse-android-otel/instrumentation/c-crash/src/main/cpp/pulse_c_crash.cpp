@@ -166,6 +166,32 @@ namespace {
         if (*pos < buf_cap) buf[(*pos)++] = '"';
     }
 
+    /** Append a JSON hex address string (16-digit, 0x-prefixed). */
+    size_t append_json_hex_u64(char *buf, size_t buf_cap, size_t pos, uint64_t value) __asyncsafe {
+        if (pos + 20 >= buf_cap) {
+            pulse_loge(PULSE_LOG_TAG_CCRASH,
+                    "append_json_hex_u64: buffer exhausted pos=%zu cap=%zu",
+                    pos,
+                    buf_cap);
+            return pos;
+        }
+        pos += static_cast<size_t>(snprintf(buf + pos, buf_cap - pos, "\"0x%016" PRIx64 "\"", value));
+        return pos;
+    }
+
+    /** Append a JSON hex offset string (0x-prefixed, minimal digits). */
+    size_t append_json_hex_offset(char *buf, size_t buf_cap, size_t pos, uint64_t value) __asyncsafe {
+        if (pos + 22 >= buf_cap) {
+            pulse_loge(PULSE_LOG_TAG_CCRASH,
+                    "append_json_hex_offset: buffer exhausted pos=%zu cap=%zu",
+                    pos,
+                    buf_cap);
+            return pos;
+        }
+        pos += static_cast<size_t>(snprintf(buf + pos, buf_cap - pos, "\"0x%" PRIx64 "\"", value));
+        return pos;
+    }
+
     /**
      * Read thread name from /proc/self/task/<tid>/comm into buf.
      * Strips trailing newline. Writes empty string on failure.
@@ -233,9 +259,8 @@ namespace {
             return;
         }
 
-        PulseUnwindCrashDiag unwind_diag{};
         const size_t frame_count = pulse_unwind_crash_stack(
-                g_write_report_raw_frames, kPulseUnwindFramesMax, ucontext, &unwind_diag);
+                g_write_report_raw_frames, kPulseUnwindFramesMax, ucontext);
         if (frame_count == 0) {
             pulse_loge(PULSE_LOG_TAG_CCRASH,
                     "write_report: unwind returned 0 frames sig=%d ucontext=%p",
@@ -257,32 +282,20 @@ namespace {
                 ts_ms, pid, tid));
         append_json_escaped_string(json, kWriteReportJsonCap, &pos, g_write_report_thread_name);
 
-        // Signal info + unwind diagnostics
+        // Signal info + binary ABI (matches AGP obj/<abi> layout used by ndk-stack -sym)
         pos += static_cast<size_t>(snprintf(json + pos, kWriteReportJsonCap - pos,
                 ",\"signal\":%d,"
                 "\"signal_name\":\"%s\","
                 "\"fault_addr\":\"0x%lx\","
-                "\"_pulse_unwind_diag\":{"
-                "\"reg_pc\":\"0x%" PRIx64 "\","
-                "\"reg_sp\":\"0x%" PRIx64 "\","
-                "\"raw_num_frames\":%zu,"
-                "\"last_error\":%u,"
-                "\"warnings\":%" PRIu64 ","
-                "\"ucontext\":%u"
-                "},"
+                "\"binary_arch\":\"%s\","
                 "\"stack_frames\":[",
                 sig, signal_name(sig),
                 static_cast<unsigned long>(fault_addr),
-                static_cast<uint64_t>(unwind_diag.reg_pc),
-                static_cast<uint64_t>(unwind_diag.reg_sp),
-                unwind_diag.raw_num_frames,
-                static_cast<unsigned>(unwind_diag.last_error),
-                static_cast<uint64_t>(unwind_diag.warnings),
-                static_cast<unsigned>(unwind_diag.ucontext_present)));
+                pulse_binary_arch()));
 
         // Raw frame objects (structured data for server-side re-symbolication)
         for (size_t i = 0; i < frame_count; i++) {
-            if (pos + 256 >= kWriteReportJsonCap) {
+            if (pos + 384 >= kWriteReportJsonCap) {
                 pulse_loge(PULSE_LOG_TAG_CCRASH,
                         "write_report: JSON buffer full writing stack_frames[] frame %zu/%zu pos=%zu",
                         i, frame_count, pos);
@@ -290,15 +303,32 @@ namespace {
             }
             if (i > 0 && pos + 2 < kWriteReportJsonCap) json[pos++] = ',';
 
-            pos += static_cast<size_t>(snprintf(
-                    json + pos,
-                    kWriteReportJsonCap - pos,
-                    "{\"frame_address\":%" PRIu64 ",\"rel_pc\":%" PRIu64 ",\"load_address\":%" PRIu64
-                    ",\"symbol_address\":%" PRIu64 ",\"code_identifier\":",
-                    static_cast<uint64_t>(g_write_report_raw_frames[i].frame_address),
-                    static_cast<uint64_t>(g_write_report_raw_frames[i].rel_pc),
-                    static_cast<uint64_t>(g_write_report_raw_frames[i].load_address),
-                    static_cast<uint64_t>(g_write_report_raw_frames[i].symbol_address)));
+            pos += static_cast<size_t>(snprintf(json + pos, kWriteReportJsonCap - pos, "{\"frame_address\":"));
+            pos = append_json_hex_u64(json, kWriteReportJsonCap, pos,
+                    static_cast<uint64_t>(g_write_report_raw_frames[i].frame_address));
+            if (pos + 12 < kWriteReportJsonCap) {
+                pos += static_cast<size_t>(snprintf(json + pos, kWriteReportJsonCap - pos, ",\"rel_pc\":"));
+            }
+            pos = append_json_hex_u64(json, kWriteReportJsonCap, pos,
+                    static_cast<uint64_t>(g_write_report_raw_frames[i].rel_pc));
+            if (pos + 18 < kWriteReportJsonCap) {
+                pos += static_cast<size_t>(snprintf(json + pos, kWriteReportJsonCap - pos, ",\"load_address\":"));
+            }
+            pos = append_json_hex_u64(json, kWriteReportJsonCap, pos,
+                    static_cast<uint64_t>(g_write_report_raw_frames[i].load_address));
+            if (pos + 20 < kWriteReportJsonCap) {
+                pos += static_cast<size_t>(snprintf(json + pos, kWriteReportJsonCap - pos, ",\"symbol_address\":"));
+            }
+            pos = append_json_hex_u64(json, kWriteReportJsonCap, pos,
+                    static_cast<uint64_t>(g_write_report_raw_frames[i].symbol_address));
+            if (pos + 19 < kWriteReportJsonCap) {
+                pos += static_cast<size_t>(snprintf(json + pos, kWriteReportJsonCap - pos, ",\"symbol_offset\":"));
+            }
+            pos = append_json_hex_offset(json, kWriteReportJsonCap, pos,
+                    static_cast<uint64_t>(g_write_report_raw_frames[i].symbol_offset));
+            if (pos + 22 < kWriteReportJsonCap) {
+                pos += static_cast<size_t>(snprintf(json + pos, kWriteReportJsonCap - pos, ",\"code_identifier\":"));
+            }
             append_json_escaped_string(json, kWriteReportJsonCap, &pos,
                     g_write_report_raw_frames[i].code_identifier);
             if (pos + 16 < kWriteReportJsonCap)

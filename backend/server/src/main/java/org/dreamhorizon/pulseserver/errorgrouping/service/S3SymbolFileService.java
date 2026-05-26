@@ -114,7 +114,7 @@ public class S3SymbolFileService {
     return switch (fileType.toLowerCase()) {
       case "js" -> "application/json";
       case "mapping" -> "text/plain";
-      case "dsym" -> "application/zip";
+      case "dsym", "ndk" -> "application/zip";
       default -> "application/octet-stream";
     };
   }

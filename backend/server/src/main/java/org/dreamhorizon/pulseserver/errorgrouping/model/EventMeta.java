@@ -16,4 +16,6 @@ public class EventMeta {
   private String appVersionCode;
   private String bundleId;
   private String projectId;
+  /** ABI from c++/c crash */
+  private String binaryArch;
 }

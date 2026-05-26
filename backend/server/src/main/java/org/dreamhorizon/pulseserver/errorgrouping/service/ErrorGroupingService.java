@@ -282,6 +282,7 @@ public class ErrorGroupingService {
 
 
           String stackTrace = getResourceAttribute(logAttrMap, "exception.stacktrace").orElse(null);
+          String binaryArch = getResourceAttribute(logAttrMap, "pulse.native.binary_arch").orElse(null);
 
           EventMeta eventMeta = EventMeta.builder()
               .appVersion(appVersion)
@@ -289,6 +290,7 @@ public class ErrorGroupingService {
               .platform(platform)
               .bundleId(bundleId)
               .projectId(projectId)
+              .binaryArch(binaryArch)
               .build();
 
           // Use processWithCompleteSymbolication to get both grouping and full symbolication
@@ -441,7 +443,7 @@ public class ErrorGroupingService {
     return switch (lane) {
       case JS -> symbolicator.symbolicateJsInPlace(frames, eventMeta);
       case JAVA -> symbolicator.retrace(frames, eventMeta);
-      case NDK -> Single.just(Collections.emptyList());
+      case NDK -> symbolicator.symbolicateNdkNative(frames, eventMeta, iosStackTraceFormat);
       case IOS_NATIVE -> {
         if (!isIosPlatform(eventMeta)) {
           yield Single.just(frames.stream()

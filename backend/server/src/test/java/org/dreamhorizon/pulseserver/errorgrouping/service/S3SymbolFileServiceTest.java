@@ -188,6 +188,23 @@ class S3SymbolFileServiceTest {
       verify(s3AsyncClient).putObject(requestCaptor.capture(), any(AsyncRequestBody.class));
       assertThat(requestCaptor.getValue().contentType()).isEqualTo("application/zip");
     }
+
+    @Test
+    void shouldSetCorrectContentTypeForNdk() {
+      UploadMetadata metadata = createMetadata();
+      metadata.setType("ndk");
+      InputStream fileInputStream = new ByteArrayInputStream("content".getBytes());
+
+      when(applicationConfig.getSymbolFilesS3BucketName()).thenReturn("pulse-symbol-files");
+      when(s3AsyncClient.putObject(any(PutObjectRequest.class), any(AsyncRequestBody.class)))
+          .thenReturn(CompletableFuture.completedFuture(PutObjectResponse.builder().build()));
+
+      ArgumentCaptor<PutObjectRequest> requestCaptor = ArgumentCaptor.forClass(PutObjectRequest.class);
+      s3SymbolFileService.uploadFile(metadata, fileInputStream).blockingGet();
+
+      verify(s3AsyncClient).putObject(requestCaptor.capture(), any(AsyncRequestBody.class));
+      assertThat(requestCaptor.getValue().contentType()).isEqualTo("application/zip");
+    }
   }
 
   @Nested

@@ -40,6 +40,7 @@ dependencies {
     implementation(projects.services)
     implementation(projects.session)
     implementation(projects.pulseUtils)
+    implementation(projects.pulseSemconv)
     implementation(libs.kotlin.serialisation)
     implementation(projects.instrumentation.commonApi)
     api(platform(libs.opentelemetry.platform.alpha))

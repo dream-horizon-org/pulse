@@ -5,6 +5,7 @@
 
 package io.opentelemetry.android.instrumentation.ccrash
 
+import com.pulse.semconv.PulseAttributes
 import com.pulse.utils.PulseLogger
 import com.pulse.utils.fromJson
 import io.opentelemetry.android.internal.services.metadata.PulseAppMetadata
@@ -116,37 +117,40 @@ internal object PulseNativeCrashReportDrain : CoroutineScope by MainScope() {
     }
 
     /**
-     * Formatter used to represents rel_pc (offset within .so) for the pc column to
-     * match the tombstone-style format produced by the C++ format_stacktrace function.
+     * Tombstone-style stack lines from hex address strings emitted by C++ `write_report`.
      */
     private fun formatStackFrames(frames: List<PulseNativeStackFrame>): String =
         frames
             .mapIndexed { index, frame ->
                 buildString {
                     append('#').append(index)
-                    frame.relPc?.let { pc ->
-                        append(" pc 0x").append(
-                            java.lang.Long
-                                .toHexString(pc)
-                                .padStart(16, '0'),
-                        )
+                    frame.relPc?.takeIf { it.isNotBlank() }?.let { pc ->
+                        append(" pc ").append(formatPcColumn(pc))
                     }
                     frame.filename?.takeIf { it.isNotBlank() }?.let { append(" ").append(it) }
                     if (frame.method?.isNotBlank() == true) {
-                        val offset =
-                            if (frame.frameAddress != null && frame.symbolAddress != null &&
-                                frame.frameAddress >= frame.symbolAddress && frame.symbolAddress != 0L
-                            ) {
-                                frame.frameAddress - frame.symbolAddress
-                            } else {
-                                0L
-                            }
                         append(" (").append(frame.method)
-                        if (offset > 0) append("+0x").append(java.lang.Long.toHexString(offset))
+                        formatSymbolOffsetSuffix(frame.symbolOffset)?.let { append(it) }
                         append(')')
                     }
                 }
             }.joinToString("\n")
+
+    private fun formatPcColumn(hex: String): String {
+        val digits = hex.trim().removePrefix("0x").removePrefix("0X")
+        if (digits.isEmpty()) {
+            return hex
+        }
+        return "0x${digits.lowercase().padStart(16, '0')}"
+    }
+
+    private fun formatSymbolOffsetSuffix(offset: String?): String? {
+        val digits = offset?.trim()?.removePrefix("0x")?.removePrefix("0X")?.lowercase().orEmpty()
+        if (digits.isEmpty() || digits.all { it == '0' }) {
+            return null
+        }
+        return "+0x$digits"
+    }
 
     private fun toAttributes(
         report: PulseNativeCrashReportFile,
@@ -190,6 +194,9 @@ internal object PulseNativeCrashReportDrain : CoroutineScope by MainScope() {
                 put(EXCEPTION_MESSAGE, message)
                 if (report.threadName != null) put(THREAD_NAME, report.threadName)
                 if (report.tid != null) put(THREAD_ID, report.tid)
+                if (!report.binaryArch.isNullOrBlank()) {
+                    put(PulseAttributes.PULSE_NATIVE_BINARY_ARCH, report.binaryArch)
+                }
                 if (!stackStr.isNullOrBlank()) {
                     put(EXCEPTION_STACKTRACE, stackStr)
                 }

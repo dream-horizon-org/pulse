@@ -24,7 +24,7 @@ pulse-android-otel/
 ├── pulse-semconv/           # Pulse semantic conventions (attribute keys)
 ├── pulse-utils/             # Utilities (toAttributes, toMap, etc.)
 ├── pulse-sampling/          # Sampling logic (models/, core/, remote/)
-├── pulse-upload-plugin/     # Gradle plugin for source map uploads
+├── pulse-upload-plugin/     # Gradle plugin for source map + NDK obj uploads
 ├── instrumentation/         # Instrumentation modules (see below)
 ├── demo-app/                # Demo application
 ├── test-common/             # Shared test utilities
@@ -60,6 +60,17 @@ Two package roots — never mix them:
 - All library modules apply `otel.android-library-conventions` and `otel.publish-conventions` from `buildSrc/`
 - `settings.gradle.kts` uses `includeFromDir("instrumentation")` to auto-discover modules up to 3 levels deep
 - Typical module depends on `projects.instrumentation.commonApi`, `projects.instrumentation.androidInstrumentation`, `projects.services`, `projects.session`, `projects.common`
+
+## Pulse upload plugin (`pulse-upload-plugin`)
+
+Apply `id("pulse.plugin")` on app modules. Both tasks use the same `PulseUploadSourceMapsTask` implementation with different `PulseSymbolUploadKind`:
+
+| Task | Upload |
+|---|---|
+| `uploadSourceMaps` | ProGuard/R8 `mapping.txt` (`type=mapping`) |
+| `uploadSymbolFiles` | Unstripped NDK `.so` from `pulse.symbols.objFile` (`type=ndk`; zip also supported) |
+
+Configure via `pulse { sourcemaps { ... } symbols { objFile.set(...) } }`. Symbol upload depends on `externalNativeBuild*` tasks.
 
 ## Use libs.versions.toml for dependencies
 

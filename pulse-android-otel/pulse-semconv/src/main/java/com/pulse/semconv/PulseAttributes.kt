@@ -78,6 +78,10 @@ public object PulseAttributes {
         public const val DEAD: String = "dead"
     }
 
+    /** ABI of the native binary. */
+    @JvmField
+    public val PULSE_NATIVE_BINARY_ARCH: AttributeKey<String> = stringKey("pulse.native.binary_arch")
+
     public object AppClickContext {
         /**
          * Builds `app.click.context` from an optional UI label.

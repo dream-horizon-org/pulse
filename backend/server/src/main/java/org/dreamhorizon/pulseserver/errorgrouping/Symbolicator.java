@@ -23,7 +23,9 @@ import org.dreamhorizon.pulseserver.errorgrouping.model.NdkFrame;
 import org.dreamhorizon.pulseserver.errorgrouping.model.SymbolFileType;
 import org.dreamhorizon.pulseserver.errorgrouping.model.UploadMetadata;
 import org.dreamhorizon.pulseserver.errorgrouping.service.DsymCache;
+import org.dreamhorizon.pulseserver.errorgrouping.service.NdkSymbolsCache;
 import org.dreamhorizon.pulseserver.errorgrouping.service.SourceMapCache;
+import org.jspecify.annotations.NonNull;
 
 @Slf4j
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
@@ -34,7 +36,9 @@ public class Symbolicator {
 
   private final SourceMapCache sourceMapCache;
   private final DsymCache dsymCache;
+  private final NdkSymbolsCache ndkSymbolsCache;
   private final IosLlvmSymbolicator iosLlvmSymbolicator;
+  private final AndroidNdkLlvmSymbolicator androidNdkLlvmSymbolicator;
   private final Vertx vertx;
 
   /**
@@ -179,6 +183,76 @@ public class Symbolicator {
   }
 
   /**
+   * Android NDK ELF symbolication using uploaded unstripped {@code .so} obj zip.
+   * {@code stackTraceFormat}: {@code true} = raw tombstone lines; {@code false} = tokens when unchanged.
+   */
+  public Single<List<String>> symbolicateNdkNative(
+      List<Frame> frames, EventMeta eventMeta, boolean stackTraceFormat) {
+    if (frames.isEmpty()) {
+      return Single.just(List.of());
+    }
+    log.info(
+        "{} ndk_native start frames={} projectId={} appVersion={} versionCode={} platform={} stackTraceFormat={}",
+        LOG_PREFIX,
+        frames.size(),
+        eventMeta.getProjectId(),
+        eventMeta.getAppVersion(),
+        eventMeta.getAppVersionCode(),
+        eventMeta.getPlatform(),
+        stackTraceFormat);
+    List<NdkFrame> ndkFrames = new ArrayList<>(frames.size());
+    for (Frame f : frames) {
+      ndkFrames.add((NdkFrame) f);
+    }
+    UploadMetadata ndkKey = UploadMetadata.builder()
+        .type(SymbolFileType.NDK)
+        .appVersion(eventMeta.getAppVersion())
+        .versionCode(eventMeta.getAppVersionCode())
+        .platform(eventMeta.getPlatform())
+        .projectId(eventMeta.getProjectId())
+        .build();
+
+    return ndkSymbolsCache.getNdkSymbols(ndkKey)
+        .flatMap(opt -> Single.<List<String>>create(emitter -> {
+          int zipLen =
+              opt.filter(b -> b.length > 0).map(b -> b.length).orElse(0);
+          log.info(
+              "{} ndk_native cacheHit={} zipBytes={}",
+              LOG_PREFIX,
+              opt.isPresent() && zipLen > 0,
+              zipLen);
+          vertx.getDelegate().<List<String>>executeBlocking(
+              promise -> {
+                try {
+                  byte[] bytes = opt.filter(b -> b.length > 0).orElse(null);
+                  List<String> lines = androidNdkLlvmSymbolicator.symbolicateFrames(
+                      ndkFrames, bytes, eventMeta.getBinaryArch());
+                  promise.complete(mapNdkNativeOutput(ndkFrames, lines, stackTraceFormat));
+                } catch (Exception e) {
+                  promise.fail(e);
+                }
+              },
+              false,
+              ar -> {
+                if (ar.succeeded()) {
+                  emitter.onSuccess(ar.result());
+                } else {
+                  emitter.onError(ar.cause());
+                }
+              });
+        }))
+        .onErrorReturn(error -> {
+          log.warn(
+              "{} ndk_native failed projectId={} appVersion={}",
+              LOG_PREFIX,
+              eventMeta.getProjectId(),
+              eventMeta.getAppVersion(),
+              error);
+          return fallbackNdkNative(ndkFrames, stackTraceFormat);
+        });
+  }
+
+  /**
    * iOS Mach-O symbolication (crashed thread). {@code stackTraceFormat}: {@code true} = use raw lines
    * when LLVM is skipped; {@code false} = use frame tokens for grouping signatures.
    */
@@ -264,19 +338,35 @@ public class Symbolicator {
 
   private static List<String> mapIosNativeOutput(
       List<NdkFrame> frames, List<String> lines, boolean stackTraceFormat) {
-    List<String> out = new ArrayList<>(frames.size());
-    for (int i = 0; i < frames.size(); i++) {
-      String line = i < lines.size() ? lines.get(i) : frames.get(i).getRawLine();
-      if (!stackTraceFormat && line.equals(frames.get(i).getRawLine())) {
-        out.add(frames.get(i).getToken());
-      } else {
-        out.add(line);
-      }
-    }
-    return out;
+      return getStrings(frames, lines, stackTraceFormat);
   }
 
   private static List<String> fallbackIosNative(List<NdkFrame> frames, boolean stackTraceFormat) {
+    return frames.stream()
+        .map(f -> stackTraceFormat ? f.getRawLine() : f.getToken())
+        .toList();
+  }
+
+  private static List<String> mapNdkNativeOutput(
+      List<NdkFrame> frames, List<String> lines, boolean stackTraceFormat) {
+      return getStrings(frames, lines, stackTraceFormat);
+  }
+
+    @NonNull
+    private static List<String> getStrings(List<NdkFrame> frames, List<String> lines, boolean stackTraceFormat) {
+        List<String> out = new ArrayList<>(frames.size());
+        for (int i = 0; i < frames.size(); i++) {
+          String line = i < lines.size() ? lines.get(i) : frames.get(i).getRawLine();
+          if (!stackTraceFormat && line.equals(frames.get(i).getRawLine())) {
+            out.add(frames.get(i).getToken());
+          } else {
+            out.add(line);
+          }
+        }
+        return out;
+    }
+
+    private static List<String> fallbackNdkNative(List<NdkFrame> frames, boolean stackTraceFormat) {
     return frames.stream()
         .map(f -> stackTraceFormat ? f.getRawLine() : f.getToken())
         .toList();

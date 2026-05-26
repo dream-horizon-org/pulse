@@ -139,10 +139,30 @@ configurations.all {
 pulse {
     sourcemaps {
         apiUrl.set("http://localhost:8080/v1/symbolicate/file/upload")
-        apiKey.set("default-api-key")
+        apiKey.set("default-project_devkey01")
         mappingFile.set(file("/tmp/test-upload/mapping.txt"))
         appVersion.set("0.0.1")
         versionCode.set(123)
+    }
+    symbols {
+        apiUrl.set("http://localhost:8080/v1/symbolicate/file/upload")
+        apiKey.set("default-project_devkey01")
+        appVersion.set("1.0")
+        versionCode.set(1)
+        objFile.fileProvider(
+            provider {
+                layout.buildDirectory.get().asFile.resolve("intermediates/cxx").walkTopDown()
+                    .firstOrNull { file ->
+                        file.isFile &&
+                            file.extension == "so" &&
+                            file.path.replace('\\', '/').contains("/obj/")
+                    }
+                    ?: error(
+                        "No unstripped .so under build/intermediates/cxx/**/obj. " +
+                            "Run externalNativeBuild or assembleDebug first."
+                    )
+            }
+        )
     }
 }
 

@@ -11,7 +11,6 @@ import java.net.URI
 import java.util.Locale
 import org.gradle.api.DefaultTask
 import org.gradle.api.GradleException
-import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.file.RegularFileProperty
 import org.gradle.api.provider.Property
 import org.gradle.api.tasks.Input
@@ -19,8 +18,13 @@ import org.gradle.api.tasks.InputFile
 import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.PathSensitive
 import org.gradle.api.tasks.PathSensitivity
-import org.gradle.api.tasks.options.Option
 import org.gradle.api.tasks.TaskAction
+import org.gradle.api.tasks.options.Option
+
+enum class PulseSymbolUploadKind {
+    MAPPING,
+    NDK,
+}
 
 abstract class PulseUploadSourceMapsTask : DefaultTask() {
 
@@ -31,9 +35,13 @@ abstract class PulseUploadSourceMapsTask : DefaultTask() {
         private const val UNKNOWN_ERROR = "Unknown error"
         private const val API_KEY_HEADER = "X-API-KEY"
         private const val API_KEY_OPTION = "--api-key=<key>"
+        private const val ANDROID_PLATFORM = "android"
     }
 
-    @get:Option(option = "api-url", description = "API URL for uploading source maps")
+    @get:Internal
+    abstract val uploadKind: Property<PulseSymbolUploadKind>
+
+    @get:Option(option = "api-url", description = "API URL for uploading symbol files")
     @get:Input
     abstract val apiUrl: Property<String>
 
@@ -41,6 +49,11 @@ abstract class PulseUploadSourceMapsTask : DefaultTask() {
     @get:InputFile
     @get:PathSensitive(PathSensitivity.NONE)
     abstract val mappingFile: RegularFileProperty
+
+    @get:Option(option = "obj-file", description = "Unstripped NDK .so (or zip) to upload")
+    @get:InputFile
+    @get:PathSensitive(PathSensitivity.NONE)
+    abstract val objFile: RegularFileProperty
 
     @get:Option(option = "app-version", description = "App version (e.g., 1.0.0)")
     @get:Input
@@ -54,59 +67,99 @@ abstract class PulseUploadSourceMapsTask : DefaultTask() {
     @get:Input
     abstract val apiKey: Property<String>
 
-    @get:Internal
-    internal abstract val projectDirectory: DirectoryProperty
-
     init {
-        description = "Upload ProGuard/R8 mapping files to Pulse backend"
+        description = "Upload symbol files (ProGuard mapping or NDK obj) to Pulse backend"
         group = com.pulse.plugins.PulsePlugin.TASK_GROUP
-        projectDirectory.set(project.layout.projectDirectory)
     }
 
     @TaskAction
     fun upload() {
-        val apiUrlValue = validateRequiredString(apiUrl, "API URL", "--api-url=<url>")
-        val apiKeyValue = validateRequiredString(apiKey, API_KEY_HEADER, API_KEY_OPTION)
+        when (requireUploadKind()) {
+            PulseSymbolUploadKind.MAPPING -> uploadMapping()
+            PulseSymbolUploadKind.NDK -> uploadNdk()
+        }
+    }
+
+    private fun uploadMapping() {
         val mappingFileObj = resolveMappingFile()
-        val appVersionValue = validateRequiredString(appVersion, "App version", "--app-version=<version>")
-        val versionCodeValue = validateAndGetVersionCode()
+        upload(
+            UploadParams(
+                extensionHint = "pulse.sourcemaps { ... }",
+                file = mappingFileObj,
+                type = "mapping",
+                contentType = "text/plain",
+            )
+        )
+    }
 
-        val platform = "android"
-        val type = "mapping"
-        val fileName = mappingFileObj.name
+    private fun uploadNdk() {
+        val objFileObj = resolveObjFile()
+        upload(
+            UploadParams(
+                extensionHint = "pulse.symbols { ... }",
+                file = objFileObj,
+                type = "ndk",
+                contentType = contentTypeFor(objFileObj),
+            )
+        )
+    }
 
-        logger.info("\n Uploading to Pulse backend...")
-        logger.info("   File: ${mappingFileObj.name} (${formatFileSize(mappingFileObj.length())})")
+    private fun upload(params: UploadParams) {
+        val apiUrlValue = validateRequiredString(apiUrl, "API URL", "--api-url=<url>", params.extensionHint)
+        val apiKeyValue = validateRequiredString(apiKey, API_KEY_HEADER, API_KEY_OPTION, params.extensionHint)
+        val appVersionValue = validateRequiredString(
+            appVersion,
+            "App version",
+            "--app-version=<version>",
+            params.extensionHint,
+        )
+        val versionCodeValue = validateAndGetVersionCode(params.extensionHint)
+
+        logger.lifecycle("Uploading ${params.type} to Pulse backend...")
+        logger.info("   File: ${params.file.name} (${formatFileSize(params.file.length())})")
         logger.info("   Version: $appVersionValue (code: $versionCodeValue)")
-
-        logger.debug("\n🔍 Debug Info:")
-        logger.debug("   API URL: $apiUrlValue")
-        logger.debug("   File Path: ${mappingFileObj.absolutePath}")
-        logger.debug("   Platform: $platform, Type: $type")
+        logger.info("   API URL: $apiUrlValue")
+        logger.debug("   File Path: ${params.file.absolutePath}")
 
         try {
             uploadFile(
                 apiUrl = apiUrlValue,
                 apiKey = apiKeyValue,
-                file = mappingFileObj,
+                file = params.file,
                 appVersion = appVersionValue,
                 versionCode = versionCodeValue,
-                platform = platform,
-                type = type,
-                fileName = fileName
+                platform = ANDROID_PLATFORM,
+                type = params.type,
+                fileName = params.file.name,
+                contentType = params.contentType,
             )
-            logger.info("✓ Upload successful")
+            logger.lifecycle("Upload successful")
         } catch (e: IllegalArgumentException) {
             handleUploadError("Validation error", e)
         } catch (e: MalformedURLException) {
             handleUploadError("Invalid API URL", e)
         } catch (e: IOException) {
-            val errorMessage = e.message ?: UNKNOWN_ERROR
-            logger.error("✗ Upload failed: $errorMessage")
-            logger.debug("   Exception: ${e.javaClass.simpleName}")
-            throw GradleException("Upload failed: $errorMessage", e)
+            handleUploadError("Upload failed", e)
         }
     }
+
+    private data class UploadParams(
+        val extensionHint: String,
+        val file: File,
+        val type: String,
+        val contentType: String,
+    )
+
+    private fun requireUploadKind(): PulseSymbolUploadKind =
+        uploadKind.orNull
+            ?: throw GradleException("uploadKind is not configured on this task")
+
+    private fun contentTypeFor(file: File): String =
+        when (file.extension.lowercase(Locale.US)) {
+            "zip" -> "application/zip"
+            "so" -> "application/octet-stream"
+            else -> "application/octet-stream"
+        }
 
     private fun handleUploadError(message: String, e: Exception) {
         val errorMessage = e.message ?: UNKNOWN_ERROR
@@ -117,10 +170,11 @@ abstract class PulseUploadSourceMapsTask : DefaultTask() {
     private fun validateRequiredString(
         property: Property<String>,
         fieldName: String,
-        usage: String
+        usage: String,
+        extensionHint: String,
     ): String {
         val value = property.orNull?.trim()
-            ?: throw GradleException("$fieldName is required. Use $usage")
+            ?: throw GradleException("$fieldName is required. Use $usage or $extensionHint")
 
         if (value.isBlank()) {
             throw GradleException("$fieldName cannot be blank")
@@ -129,9 +183,9 @@ abstract class PulseUploadSourceMapsTask : DefaultTask() {
         return value
     }
 
-    private fun validateAndGetVersionCode(): Int {
+    private fun validateAndGetVersionCode(extensionHint: String): Int {
         val code = versionCode.orNull
-            ?: throw GradleException("Version code is required. Use --version-code=<code>")
+            ?: throw GradleException("Version code is required. Use --version-code=<code> or $extensionHint")
 
         if (code <= 0) {
             throw GradleException("Version code must be a positive integer, got: $code")
@@ -141,7 +195,10 @@ abstract class PulseUploadSourceMapsTask : DefaultTask() {
     }
 
     private fun resolveMappingFile(): File {
-        val file = mappingFile.asFile.get()
+        val file = mappingFile.orNull?.asFile
+            ?: throw GradleException(
+                "Mapping file is required. Use --mapping-file=<path> or pulse.sourcemaps { mappingFile.set(...) }"
+            )
 
         if (file.length() == 0L) {
             throw GradleException("Mapping file is empty: ${file.absolutePath}")
@@ -150,6 +207,27 @@ abstract class PulseUploadSourceMapsTask : DefaultTask() {
         return file
     }
 
+    private fun resolveObjFile(): File {
+        val file = objFile.orNull?.asFile
+            ?: throw GradleException(
+                "Obj file is required. Use --obj-file=<path> or pulse.symbols { objFile.set(...) }"
+            )
+
+        if (!file.isFile) {
+            throw GradleException("Obj file not found: ${file.absolutePath}")
+        }
+
+        if (file.length() == 0L) {
+            throw GradleException("Obj file is empty: ${file.absolutePath}")
+        }
+
+        val ext = file.extension.lowercase(Locale.US)
+        if (ext != "so" && ext != "zip") {
+            throw GradleException("Obj file must be a .so or .zip file, got: ${file.name}")
+        }
+
+        return file
+    }
 
     private fun formatFileSize(bytes: Long): String {
         val kb = bytes / 1024.0
@@ -169,7 +247,8 @@ abstract class PulseUploadSourceMapsTask : DefaultTask() {
         versionCode: Int,
         platform: String,
         type: String,
-        fileName: String
+        fileName: String,
+        contentType: String,
     ) {
         val metadata = buildMetadata(type, appVersion, versionCode, platform, fileName)
         val boundary = "----WebKitFormBoundary${System.currentTimeMillis()}"
@@ -185,18 +264,15 @@ abstract class PulseUploadSourceMapsTask : DefaultTask() {
             connection.readTimeout = 60000
 
             connection.outputStream.use { output ->
-                writeMultipartFormData(output, boundary, metadata, file, fileName)
+                writeMultipartFormData(output, boundary, metadata, file, fileName, contentType)
             }
 
             val responseCode = connection.responseCode
             val response = readResponse(connection, responseCode)
-
             validateResponse(responseCode, response)
-
         } catch (e: IOException) {
-            val errorMessage = e.message ?: UNKNOWN_ERROR
-            logger.debug("HTTP request failed: $errorMessage")
-            logDebugUrl(apiUrl)
+            logger.debug("HTTP request failed: ${e.message ?: UNKNOWN_ERROR}")
+            logger.debug("$DEBUG_URL_PREFIX$apiUrl")
             throw e
         } finally {
             connection.disconnect()
@@ -208,7 +284,8 @@ abstract class PulseUploadSourceMapsTask : DefaultTask() {
         boundary: String,
         metadata: String,
         file: File,
-        fileName: String
+        fileName: String,
+        contentType: String,
     ) {
         val boundaryLine = "--$boundary$CRLF"
         output.apply {
@@ -220,10 +297,8 @@ abstract class PulseUploadSourceMapsTask : DefaultTask() {
 
             write(boundaryLine.toByteArray())
             write("""Content-Disposition: form-data; name="fileContent"; filename="$fileName"$CRLF""".toByteArray())
-            write("""Content-Type: text/plain$CRLF$CRLF""".toByteArray())
-            file.inputStream().use { input ->
-                input.copyTo(this)
-            }
+            write("""Content-Type: $contentType$CRLF$CRLF""".toByteArray())
+            file.inputStream().use { input -> input.copyTo(this) }
             write(CRLF.toByteArray())
 
             write("--$boundary--$CRLF".toByteArray())
@@ -233,37 +308,25 @@ abstract class PulseUploadSourceMapsTask : DefaultTask() {
     private fun readResponse(connection: HttpURLConnection, responseCode: Int): String {
         return try {
             if (responseCode in 200..299) {
-                connection.inputStream.use { input ->
-                    input.bufferedReader().readText()
-                }
+                connection.inputStream.use { input -> input.bufferedReader().readText() }
             } else {
-                connection.errorStream?.use { error ->
-                    error.bufferedReader().readText()
-                } ?: "No error message available"
+                connection.errorStream?.use { error -> error.bufferedReader().readText() }
+                    ?: "No error message available"
             }
         } catch (e: IOException) {
-            val errorMessage = e.message ?: UNKNOWN_ERROR
-            "Failed to read response: $errorMessage"
+            "Failed to read response: ${e.message ?: UNKNOWN_ERROR}"
         }
     }
 
     private fun validateResponse(responseCode: Int, response: String) {
         if (responseCode !in 200..299) {
             logger.error("   HTTP Status: $responseCode")
-            logDebugResponse(response)
+            logger.debug("$DEBUG_RESPONSE_PREFIX$response")
             throw GradleException("Upload failed with HTTP $responseCode")
         }
 
         logger.debug("\n📥 Backend Response:")
         logger.debug("   Status: $responseCode")
-        logDebugResponse(response)
-    }
-
-    private fun logDebugUrl(url: String) {
-        logger.debug("$DEBUG_URL_PREFIX$url")
-    }
-
-    private fun logDebugResponse(response: String) {
         logger.debug("$DEBUG_RESPONSE_PREFIX$response")
     }
 
@@ -272,17 +335,16 @@ abstract class PulseUploadSourceMapsTask : DefaultTask() {
         appVersion: String,
         versionCode: Int,
         platform: String,
-        fileName: String
+        fileName: String,
     ): String {
         val metadata = Metadata(
             type = type,
             appVersion = appVersion,
             versionCode = versionCode.toString(),
             platform = platform,
-            fileName = fileName
+            fileName = fileName,
         )
-        val metadataList = listOf(metadata)
-        return Gson().toJson(metadataList)
+        return Gson().toJson(listOf(metadata))
     }
 
     private data class Metadata(
@@ -290,7 +352,6 @@ abstract class PulseUploadSourceMapsTask : DefaultTask() {
         val appVersion: String,
         val versionCode: String,
         val platform: String,
-        val fileName: String
+        val fileName: String,
     )
 }
-
