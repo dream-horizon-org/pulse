@@ -21,12 +21,15 @@ import io.mockk.mockk
 import io.mockk.slot
 import io.mockk.verify
 import io.opentelemetry.api.common.AttributeKey
+import io.opentelemetry.sdk.common.Clock
 import io.opentelemetry.sdk.testing.assertj.OpenTelemetryAssertions
 import io.opentelemetry.sdk.testing.junit4.OpenTelemetryRule
+import io.opentelemetry.sdk.testing.time.TestClock
 import io.opentelemetry.sdk.trace.data.SpanData
 import kotlinx.coroutines.Runnable
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.ThrowingConsumer
+import org.junit.After
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -60,24 +63,48 @@ class SlowRenderListenerTest {
     private lateinit var executorService: ScheduledExecutorService
 
     internal lateinit var activityListenerCaptor: CapturingSlot<PerActivityListener>
+    private lateinit var testClock: TestClock
 
     @Before
     fun setup() {
+        testClock = TestClock.create()
         activityListenerCaptor = slot()
         executorService = Executors.newSingleThreadScheduledExecutor()
         val componentName = ComponentName("io.otel", "Komponent")
         every { activity.componentName } returns componentName
     }
 
+    @After
+    fun tearDown() {
+        clearFrameDataHelperState()
+    }
+
+    private fun clearFrameDataHelperState() {
+        synchronized(FrameDataHelper.lock) {
+            FrameDataHelper.frameDataEvents.clear()
+            FrameDataHelper.totalAnalysedFrames = 0
+            FrameDataHelper.totalUnanalysedDroppedFrames = 0
+        }
+    }
+
+    private fun slowRenderListener(
+        jankReporter: JankReporter = this.jankReporter,
+        executorService: ScheduledExecutorService = this.executorService,
+        frameMetricsHandler: Handler = this.frameMetricsHandler,
+        pollInterval: Duration = Duration.ZERO,
+        clock: Clock = testClock,
+    ): SlowRenderListener =
+        SlowRenderListener(
+            jankReporter,
+            executorService,
+            frameMetricsHandler,
+            pollInterval,
+            clock,
+        )
+
     @Test
     fun add() {
-        val testInstance =
-            SlowRenderListener(
-                jankReporter,
-                executorService,
-                frameMetricsHandler,
-                Duration.ZERO,
-            )
+        val testInstance = slowRenderListener()
 
         testInstance.onActivityResumed(activity)
 
@@ -94,13 +121,7 @@ class SlowRenderListenerTest {
 
     @Test
     fun removeBeforeAddOk() {
-        val testInstance =
-            SlowRenderListener(
-                jankReporter,
-                executorService,
-                frameMetricsHandler,
-                Duration.ZERO,
-            )
+        val testInstance = slowRenderListener()
 
         testInstance.onActivityPaused(activity)
 
@@ -110,13 +131,7 @@ class SlowRenderListenerTest {
 
     @Test
     fun addAndRemove() {
-        val testInstance =
-            SlowRenderListener(
-                jankReporter,
-                executorService,
-                frameMetricsHandler,
-                Duration.ZERO,
-            )
+        val testInstance = slowRenderListener()
 
         testInstance.onActivityResumed(activity)
         testInstance.onActivityPaused(activity)
@@ -136,13 +151,7 @@ class SlowRenderListenerTest {
     fun removeWithMetrics() {
         val tracer = otelTesting.openTelemetry.getTracer("testTracer")
         jankReporter = SpanBasedJankReporter(tracer)
-        val testInstance =
-            SlowRenderListener(
-                jankReporter,
-                executorService,
-                frameMetricsHandler,
-                Duration.ZERO,
-            )
+        val testInstance = slowRenderListener()
 
         testInstance.onActivityResumed(activity)
 
@@ -183,11 +192,9 @@ class SlowRenderListenerTest {
         val tracer = otelTesting.openTelemetry.getTracer("testTracer")
         jankReporter = SpanBasedJankReporter(tracer)
         val testInstance =
-            SlowRenderListener(
-                jankReporter,
-                exec,
-                frameMetricsHandler,
-                Duration.ofMillis(1001),
+            slowRenderListener(
+                pollInterval = Duration.ofMillis(1001),
+                executorService = exec,
             )
 
         testInstance.onActivityResumed(activity)
@@ -208,6 +215,44 @@ class SlowRenderListenerTest {
 
         val spans = otelTesting.spans
         assertSpanContent(spans)
+    }
+
+    @Test
+    fun recordsFrameDataTimestampFromClock() {
+        val testInstance = slowRenderListener()
+        testInstance.onActivityResumed(activity)
+
+        verify {
+            activity.window.addOnFrameMetricsAvailableListener(
+                capture(activityListenerCaptor),
+                eq(frameMetricsHandler),
+            )
+        }
+
+        val listener = activityListenerCaptor.captured
+        every { frameMetrics.getMetric(FrameMetrics.FIRST_DRAW_FRAME) } returns 0L
+        every { frameMetrics.getMetric(FrameMetrics.DRAW_DURATION) } returns
+            TimeUnit.MILLISECONDS.toNanos(101)
+
+        val slowFrameTimeInNano = testClock.now()
+        listener.onFrameMetricsAvailable(null, frameMetrics, 0)
+
+        synchronized(FrameDataHelper.lock) {
+            assertThat(FrameDataHelper.frameDataEvents).hasSize(1)
+            assertThat(FrameDataHelper.frameDataEvents.last().timeInNano).isEqualTo(slowFrameTimeInNano)
+        }
+
+        testClock.advance(2, TimeUnit.SECONDS)
+        every { frameMetrics.getMetric(FrameMetrics.DRAW_DURATION) } returns
+            TimeUnit.MILLISECONDS.toNanos(701)
+
+        val frozenFrameTimeInNano = testClock.now()
+        listener.onFrameMetricsAvailable(null, frameMetrics, 0)
+
+        synchronized(FrameDataHelper.lock) {
+            assertThat(FrameDataHelper.frameDataEvents).hasSize(2)
+            assertThat(FrameDataHelper.frameDataEvents.last().timeInNano).isEqualTo(frozenFrameTimeInNano)
+        }
     }
 
     @Test
