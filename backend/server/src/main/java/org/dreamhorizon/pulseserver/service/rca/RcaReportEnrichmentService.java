@@ -261,9 +261,18 @@ public class RcaReportEnrichmentService {
                     fallbackBody, null, resolvedAnchorDate, windowEndExclusive, false);
               }
             })
-        .onErrorReturnItem(
-            new RcaEnrichmentOutcome(
-                fallbackBody, null, resolvedAnchorDate, windowEndExclusive, false));
+        .onErrorResumeNext(
+            error -> {
+              log.warn(
+                  "Screen RCA v2 enrichment failed for project={}, screen={}: {}",
+                  projectId,
+                  screenName,
+                  error.getMessage(),
+                  error);
+              return Single.just(
+                  new RcaEnrichmentOutcome(
+                      fallbackBody, null, resolvedAnchorDate, windowEndExclusive, false));
+            });
   }
 
   /**

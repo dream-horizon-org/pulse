@@ -38,6 +38,29 @@ import type { ScreenRcaProblemV2, ScreenRcaSpecificIssueV2 } from "../../../../h
 
 dayjs.extend(utc);
 
+const UNKNOWN = "Unknown";
+
+function isNullishDisplayValue(value: unknown): boolean {
+  if (value == null) return true;
+  const str = String(value).trim();
+  return str === "" || str.toLowerCase() === "null";
+}
+
+function displayText(value: string | null | undefined, fallback = UNKNOWN): string {
+  if (isNullishDisplayValue(value)) return fallback;
+  return String(value).trim();
+}
+
+function displayNumber(value: number | null | undefined): string {
+  if (value == null || !Number.isFinite(value)) return UNKNOWN;
+  return value.toLocaleString();
+}
+
+function displayRate(rate: string | null | undefined): string {
+  if (isNullishDisplayValue(rate)) return UNKNOWN;
+  return String(rate).trim();
+}
+
 const REGENERATE_DEBOUNCE_MS = 500;
 const NARRATIVE_NOTICE_MODAL_DELAY_MS = 2000;
 
@@ -129,13 +152,13 @@ export interface ScreenRootCauseV2Props {
 }
 
 function formatMs(ms: number | null | undefined): string {
-  if (ms == null) return "—";
+  if (ms == null || !Number.isFinite(ms)) return UNKNOWN;
   return `${ms.toLocaleString()}ms`;
 }
 
 function parseRate(rateStr: string | null | undefined): number | null {
-  if (!rateStr) return null;
-  const match = rateStr.match(/([\d.]+)/);
+  if (isNullishDisplayValue(rateStr)) return null;
+  const match = rateStr!.match(/([\d.]+)/);
   return match ? parseFloat(match[1]) : null;
 }
 
@@ -200,7 +223,10 @@ function TopIssueCard({
   problemType: string;
   segmentMetadata?: string | null;
 }) {
-  const title = issue.issue ?? issue.thread_name ?? "Unknown issue";
+  const title = displayText(
+    issue.issue ?? issue.thread_name ?? (issue as { threadName?: string | null }).threadName,
+    "Unknown issue",
+  );
   const badgeLabel = issueTypeBadgeLabel(problemType);
   const badgeColor = PROBLEM_TYPE_COLORS[problemType] ?? "gray";
   const metadataLine = formatSegmentMetadata(segmentMetadata);
@@ -209,7 +235,8 @@ function TopIssueCard({
       ? `${issue.count.toLocaleString()} occurrence${issue.count === 1 ? "" : "s"}`
       : null;
   const description = buildIssueDescription(problemType, title, issue.count);
-  const cardClassName = issue.group_id
+  const groupId = issue.group_id ?? (issue as { groupId?: string | null }).groupId;
+  const cardClassName = groupId
     ? `${classes.topIssueCard} ${classes.topIssueCardInteractive}`
     : `${classes.topIssueCard} ${classes.topIssueCardStatic}`;
 
@@ -253,10 +280,10 @@ function TopIssueCard({
     </>
   );
 
-  if (issue.group_id) {
+  if (groupId) {
     return (
       <Link
-        to={`/projects/${encodeURIComponent(projectId)}/app-vitals/${encodeURIComponent(issue.group_id)}`}
+        to={`/projects/${encodeURIComponent(projectId)}/app-vitals/${encodeURIComponent(groupId)}`}
         className={cardClassName}
       >
         {cardContent}
@@ -331,21 +358,23 @@ function MetricInfoPopover({ problems }: { problems: ScreenRcaProblemV2[] }) {
 }
 
 function ProblemCard({ problem, projectId }: { problem: ScreenRcaProblemV2; projectId: string }) {
-  const typeLabel = PROBLEM_TYPE_LABELS[problem.problem_type] ??
-    problem.problem_type?.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()) ??
-    'Unknown';
+  const typeLabel = isNullishDisplayValue(problem.problem_type)
+    ? UNKNOWN
+    : (PROBLEM_TYPE_LABELS[problem.problem_type] ??
+      problem.problem_type.replace(/_/g, " ").replace(/\b\w/g, (l: string) => l.toUpperCase()));
   const color = PROBLEM_TYPE_COLORS[problem.problem_type] ?? "gray";
   const metrics = problem.metrics;
   const segmentMetrics = problem.segment_metrics;
   // NOTE: segment_metrics is populated by backend ScreenRcaService.computeXxxProblem() after
   // segment is identified. Until backend Java changes are complete, segment_metrics will be null,
-  // and VALUE/DELTA columns will show "—" (graceful degradation).
+  // and VALUE/DELTA columns will show "Unknown" (graceful degradation).
   const issues = problem.specific_issues ?? [];
 
   // Determine which metric rows to show based on problem type
-  const showAffectedUsers = ["crashes", "anr"].includes(problem.problem_type);
-  const showRate = true; // all problem types have rate
-  const showLatency = ["network_latency", "screen_load_time", "screen_interactive"].includes(problem.problem_type);
+  const isBadClicks = problem.problem_type === "bad_clicks" || problem.problem_type === "bad_click";
+  const showAffectedUsers = true; // all 9 problem types expose affected_volume
+  const showRate = true; // bad_clicks rate = (rage + dead) / click_volume
+  const showLatency = ["network_latency", "screen_load_time", "screen_interactive", "screen_interactive_time"].includes(problem.problem_type);
 
   return (
     <Card padding="lg" radius="md" withBorder>
@@ -355,9 +384,12 @@ function ProblemCard({ problem, projectId }: { problem: ScreenRcaProblemV2; proj
             <Badge size="sm" variant="filled" color="gray" circle>{problem.rank}</Badge>
             <Badge size="sm" variant="light" color={color}>{typeLabel}</Badge>
           </Group>
-          {problem.most_affected_segment ? (
+          {!isNullishDisplayValue(problem.most_affected_segment) ? (
             <Text size="xs" c="dimmed">
-              Most affected: <Text span fw={500} c="dark">{problem.most_affected_segment}</Text>
+              Most affected:{" "}
+              <Text span fw={500} c="dark">
+                {displayText(problem.most_affected_segment)}
+              </Text>
             </Text>
           ) : null}
         </Group>
@@ -384,21 +416,19 @@ function ProblemCard({ problem, projectId }: { problem: ScreenRcaProblemV2; proj
                   const deltaColor = delta === null
                     ? 'var(--mantine-color-gray-6)'
                     : delta < 0
-                      ? 'var(--mantine-color-green-6)'
-                      : 'var(--mantine-color-red-6)';
+                      ? 'var(--mantine-color-red-6)'
+                      : 'var(--mantine-color-green-6)';
                   return (
                     <tr style={{ borderBottom: '1px solid var(--mantine-color-gray-1)' }}>
                       <td style={{ padding: '8px', fontSize: '13px' }}>Affected users</td>
                       <td style={{ textAlign: 'right', padding: '8px', fontWeight: 500 }}>
-                        {segmentMetrics?.affected_volume != null
-                          ? segmentMetrics.affected_volume.toLocaleString()
-                          : '—'}
+                        {displayNumber(segmentMetrics?.affected_volume)}
                       </td>
                       <td style={{ textAlign: 'right', padding: '8px', color: 'var(--mantine-color-gray-6)', fontSize: '13px' }}>
-                        {metrics.affected_volume != null ? metrics.affected_volume.toLocaleString() : '—'}
+                        {displayNumber(metrics.affected_volume)}
                       </td>
                       <td style={{ textAlign: 'right', padding: '8px', color: deltaColor }}>
-                        {delta == null ? '—' : `${delta > 0 ? '+' : ''}${delta.toFixed(1)}%`}
+                        {delta == null ? UNKNOWN : `${delta > 0 ? '+' : ''}${delta.toFixed(1)}%`}
                       </td>
                     </tr>
                   );
@@ -408,8 +438,8 @@ function ProblemCard({ problem, projectId }: { problem: ScreenRcaProblemV2; proj
                   const deltaColor = delta === null
                     ? 'var(--mantine-color-gray-6)'
                     : delta < 0
-                      ? 'var(--mantine-color-green-6)'
-                      : 'var(--mantine-color-red-6)';
+                      ? 'var(--mantine-color-red-6)'
+                      : 'var(--mantine-color-green-6)';
                   return (
                     <tr style={{ borderBottom: '1px solid var(--mantine-color-gray-1)' }}>
                       <td style={{ padding: '8px', fontSize: '13px' }}>
@@ -434,13 +464,13 @@ function ProblemCard({ problem, projectId }: { problem: ScreenRcaProblemV2; proj
                         </Group>
                       </td>
                       <td style={{ textAlign: 'right', padding: '8px', fontWeight: 500 }}>
-                        {segmentMetrics?.rate ?? '—'}
+                        {displayRate(segmentMetrics?.rate)}
                       </td>
                       <td style={{ textAlign: 'right', padding: '8px', color: 'var(--mantine-color-gray-6)', fontSize: '13px' }}>
-                        {metrics.rate ?? '—'}
+                        {displayRate(metrics.rate)}
                       </td>
                       <td style={{ textAlign: 'right', padding: '8px', color: deltaColor }}>
-                        {delta == null ? '—' : `${delta > 0 ? '+' : ''}${delta.toFixed(1)}%`}
+                        {delta == null ? UNKNOWN : `${delta > 0 ? '+' : ''}${delta.toFixed(1)}%`}
                       </td>
                     </tr>
                   );
@@ -462,7 +492,7 @@ function ProblemCard({ problem, projectId }: { problem: ScreenRcaProblemV2; proj
                         {formatMs(metrics.p50_ms)}
                       </td>
                       <td style={{ textAlign: 'right', padding: '8px', color: deltaColor }}>
-                        {delta == null ? '—' : `${delta > 0 ? '+' : ''}${delta.toFixed(1)}%`}
+                        {delta == null ? UNKNOWN : `${delta > 0 ? '+' : ''}${delta.toFixed(1)}%`}
                       </td>
                     </tr>
                   );
@@ -484,11 +514,38 @@ function ProblemCard({ problem, projectId }: { problem: ScreenRcaProblemV2; proj
                         {formatMs(metrics.p95_ms)}
                       </td>
                       <td style={{ textAlign: 'right', padding: '8px', color: deltaColor }}>
-                        {delta == null ? '—' : `${delta > 0 ? '+' : ''}${delta.toFixed(1)}%`}
+                        {delta == null ? UNKNOWN : `${delta > 0 ? '+' : ''}${delta.toFixed(1)}%`}
                       </td>
                     </tr>
                   );
                 })()}
+                {isBadClicks && ([
+                  { key: "click_volume", label: "Click volume" },
+                  { key: "rage_count",   label: "Rage tap count" },
+                  { key: "dead_count",   label: "Dead click count" },
+                ] as const).map(({ key, label }, idx, arr) => {
+                  const baseVal = typeof (metrics as Record<string, any>)[key] === 'number' ? (metrics as Record<string, any>)[key] : null;
+                  const segVal  = typeof (segmentMetrics as Record<string, any>)?.[key] === 'number' ? (segmentMetrics as Record<string, any>)[key] : null;
+                  const delta   = calcDelta(segVal, baseVal);
+                  const isLast  = idx === arr.length - 1;
+                  const deltaColor = delta === null
+                    ? 'var(--mantine-color-gray-6)'
+                    : delta < 0 ? 'var(--mantine-color-red-6)' : 'var(--mantine-color-green-6)';
+                  return (
+                    <tr key={key} style={isLast ? undefined : { borderBottom: '1px solid var(--mantine-color-gray-1)' }}>
+                      <td style={{ padding: '8px', fontSize: '13px' }}>{label}</td>
+                      <td style={{ textAlign: 'right', padding: '8px', fontWeight: 500 }}>
+                        {displayNumber(segVal)}
+                      </td>
+                      <td style={{ textAlign: 'right', padding: '8px', color: 'var(--mantine-color-gray-6)', fontSize: '13px' }}>
+                        {displayNumber(baseVal)}
+                      </td>
+                      <td style={{ textAlign: 'right', padding: '8px', color: deltaColor }}>
+                        {delta == null ? UNKNOWN : `${delta > 0 ? '+' : ''}${delta.toFixed(1)}%`}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </Box>

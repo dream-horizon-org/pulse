@@ -54,6 +54,10 @@ export function useGetScreenRootCauseV2({
       });
     },
     enabled: enabled && trimmedName !== "" && trimmedProject !== "" && we !== "",
-    retry: false,
+    retry: 3,
+    retryDelay: (attemptIndex) => Math.min(1000 * Math.pow(2, attemptIndex), 10000),
+    refetchInterval: 2000,
+    refetchIntervalInBackground: true,
+    refetchOnWindowFocus: true,
   });
 }

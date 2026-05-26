@@ -26,14 +26,18 @@ class ScreenRcaMetrics(BaseModel):
     rate: Optional[str] = None  # e.g. "31.58%"
     p50_ms: Optional[int] = None  # screen_load, screen_interactive, network_latency only
     p95_ms: Optional[int] = None
+    # bad_clicks only — raw counts from otel_logs
+    click_volume: Optional[int] = None
+    rage_count: Optional[int] = None
+    dead_count: Optional[int] = None
 
 
 class ScreenRcaSpecificIssue(BaseModel):
     """Top-3 crash/ANR issues — pass-through from backend."""
 
     group_id: str  # GroupId from stack_trace_events
-    issue: Optional[str] = None  # ExceptionMessage (crashes)
-    thread_name: Optional[str] = None  # Title (ANR)
+    issue: Optional[str] = None  # ExceptionMessage (crashes + ANR)
+    thread_name: Optional[str] = None  # LogAttributes['thread.name'] (ANR only)
     count: int
 
 

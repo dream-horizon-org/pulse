@@ -9,8 +9,10 @@ import os
 from typing import Any
 
 from dotenv import load_dotenv
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from google.adk.runners import Runner
 from pydantic import BaseModel
 
@@ -30,6 +32,8 @@ logging.basicConfig(
     level=os.getenv("LOG_LEVEL", "INFO").upper(),
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
 )
+
+logger = logging.getLogger(__name__)
 
 
 def _get_cors_origins() -> list[str]:
@@ -54,6 +58,20 @@ def _create_session_service() -> Any:
 # ── App & shared instances ───────────────────────────────────────────────────
 
 app = FastAPI(title="Pulse AI Agent Server")
+
+
+@app.exception_handler(RequestValidationError)
+async def request_validation_exception_handler(
+    request: Request, exc: RequestValidationError,
+) -> JSONResponse:
+    logger.warning(
+        "Request validation failed for %s %s: %s",
+        request.method,
+        request.url.path,
+        exc.errors(),
+    )
+    return JSONResponse(status_code=422, content={"detail": exc.errors()})
+
 
 app.add_middleware(AuthMiddleware)
 app.add_middleware(

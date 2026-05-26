@@ -24,8 +24,9 @@ class ScreenRcaQueryBuilderTest {
   class MetricConstants {
 
     @Test
-    void shouldExposeDriverMetricKey() {
-      assertThat(ScreenRcaQueryBuilder.BAD_FRUSTRATION).isEqualTo("bad_frustration");
+    void shouldExposeBadClickMetricKeys() {
+      assertThat(ScreenRcaQueryBuilder.RAGE_COUNT).isEqualTo("rage_count");
+      assertThat(ScreenRcaQueryBuilder.DEAD_COUNT).isEqualTo("dead_count");
       assertThat(ScreenRcaQueryBuilder.APP_CLICK_PULSE_TYPE).isEqualTo("app.click");
     }
   }
@@ -64,10 +65,12 @@ class ScreenRcaQueryBuilderTest {
       assertThat(spec.sql()).contains("FROM otel.otel_logs");
       assertThat(spec.sql()).contains("PulseType = 'app.click'");
       assertThat(spec.sql()).contains("trimBoth(ScreenName)");
-      assertThat(spec.sql()).contains("ClickType = 'good'");
-      assertThat(spec.sql()).contains("NOT Rage");
+      assertThat(spec.sql()).contains("countIf(Rage)");
       assertThat(spec.sql()).contains("AS " + ScreenRcaQueryBuilder.CLICK_VOLUME);
-      assertThat(spec.sql()).contains("AS " + ScreenRcaQueryBuilder.BAD_FRUSTRATION);
+      assertThat(spec.sql()).contains("AS " + ScreenRcaQueryBuilder.RAGE_COUNT);
+      assertThat(spec.sql()).contains("AS " + ScreenRcaQueryBuilder.DEAD_COUNT);
+      assertThat(spec.sql()).doesNotContain("tap_count");
+      assertThat(spec.sql()).doesNotContain("bad_frustration");
       assertThat(spec.sql()).doesNotContain("GROUP BY");
       assertThat(spec.bindNames()).hasSize(4);
       assertThat(spec.bindValues().get(0)).isEqualTo(PROJECT);
@@ -126,16 +129,33 @@ class ScreenRcaQueryBuilderTest {
     }
 
     @Test
-    void shouldBuildBadFrustrationByDimensionQueryWithOptionalFilters() {
+    void shouldBuildBadClickByDimensionQueryWithOptionalFilters() {
       RootCauseQuerySpec spec =
-          ScreenRcaQueryBuilder.buildBadFrustrationByDimensionQuery(
+          ScreenRcaQueryBuilder.buildBadClickByDimensionQuery(
               PROJECT, SCREEN, START, END, "AppVersion", Map.of("Platform", "iOS"));
 
       assertThat(spec.sql()).contains("GROUP BY AppVersion");
-      assertThat(spec.sql()).contains("AS bad_frustration");
+      assertThat(spec.sql()).contains("affected_user_count");
+      assertThat(spec.sql()).doesNotContain("bad_frustration");
       assertThat(spec.sql()).contains("(Platform) = :");
       assertThat(spec.bindValues()).hasSize(5);
       assertThat(spec.bindValues().get(4)).isEqualTo("iOS");
+    }
+
+    @Test
+    void shouldBuildAnrSpecificIssuesQueryUsingThreadNameFromLogAttributes() {
+      RootCauseQuerySpec spec =
+          ScreenRcaQueryBuilder.buildAnrSpecificIssuesQuery(
+              PROJECT, SCREEN, START, END, "Platform", "Android");
+
+      assertThat(spec.sql()).contains("ExceptionMessage AS issue");
+      assertThat(spec.sql()).contains("LogAttributes['thread.name']");
+      assertThat(spec.sql()).contains("AS thread");
+      assertThat(spec.sql()).doesNotContain("Title AS thread");
+      assertThat(spec.sql()).contains("PulseType = 'device.anr'");
+      assertThat(spec.sql()).contains("GROUP BY group_id, issue, thread");
+      assertThat(spec.bindValues()).hasSize(5);
+      assertThat(spec.bindValues().get(4)).isEqualTo("Android");
     }
   }
 }

@@ -123,33 +123,30 @@ class ScreenRcaServiceTest {
         .build();
   }
 
-  private static Map<String, Object> screenBaseline(long volume, long badFrustration) {
+  private static Map<String, Object> screenBaseline(long volume, long affectedUsers) {
     Map<String, Object> m = new LinkedHashMap<>();
     m.put(ScreenRcaQueryBuilder.CLICK_VOLUME, volume);
-    m.put(ScreenRcaQueryBuilder.TAP_COUNT, Math.max(0, volume - badFrustration));
-    m.put(ScreenRcaQueryBuilder.RAGE_COUNT, badFrustration / 2);
-    m.put(ScreenRcaQueryBuilder.DEAD_COUNT, badFrustration - badFrustration / 2);
-    m.put(ScreenRcaQueryBuilder.BAD_FRUSTRATION, badFrustration);
+    m.put(ScreenRcaQueryBuilder.RAGE_COUNT, affectedUsers / 2);
+    m.put(ScreenRcaQueryBuilder.DEAD_COUNT, affectedUsers - affectedUsers / 2);
+    m.put("affected_user_count", affectedUsers);
     return m;
   }
 
   private static Map<String, Object> screenSegmentMetricRow() {
     Map<String, Object> row = new LinkedHashMap<>();
     row.put(ScreenRcaQueryBuilder.CLICK_VOLUME, 50L);
-    row.put(ScreenRcaQueryBuilder.TAP_COUNT, 40L);
     row.put(ScreenRcaQueryBuilder.RAGE_COUNT, 5L);
     row.put(ScreenRcaQueryBuilder.DEAD_COUNT, 5L);
-    row.put(ScreenRcaQueryBuilder.BAD_FRUSTRATION, 50L);
     return row;
   }
 
   /**
-   * Segment rollup queries ({@link ScreenRcaQueryBuilder#buildSegmentQuery}) include {@code AS tap_count}.
-   * Bad-frustration-only breakdown queries ({@link ScreenRcaQueryBuilder#buildBadFrustrationByDimensionQuery}) do not.
+   * Segment rollup queries ({@link ScreenRcaQueryBuilder#buildSegmentQuery}) include {@code AS rage_count}.
+   * Bad-click breakdown queries ({@link ScreenRcaQueryBuilder#buildBadClickByDimensionQuery}) do not.
    * Dimension filters use {@code (Platform) = :…} (materialized column), not {@code AND Platform =}.
    */
   private static boolean isScreenSegmentMetricsQuery(String sql) {
-    return sql.contains(" AS tap_count");
+    return sql.contains(" AS rage_count") && sql.contains(" AS click_volume");
   }
 
   private static Map<String, Object> hierarchyTwoDimSegmentMetricRow() {
@@ -191,12 +188,12 @@ class ScreenRcaServiceTest {
     if (q.contains("GROUP BY Platform") && bn == 4) {
       return Single.just(
           singleRowTableResponse(
-              Map.of("Platform", "Android", ScreenRcaQueryBuilder.BAD_FRUSTRATION, 100L)));
+              Map.of("Platform", "Android", "affected_user_count", 100L)));
     }
     if (q.contains("GROUP BY OsVersion") && bn == 5) {
       return Single.just(
           singleRowTableResponse(
-              Map.of("OsVersion", "14", ScreenRcaQueryBuilder.BAD_FRUSTRATION, 100L)));
+              Map.of("OsVersion", "14", "affected_user_count", 100L)));
     }
     return Single.just(emptyTableResponse());
   }
@@ -244,7 +241,7 @@ class ScreenRcaServiceTest {
               .projectId(PROJECT_ID)
               .screenName(SCREEN)
               .date(ANCHOR)
-              .baseline("{\"click_volume\":10,\"tap_count\":9,\"rage_count\":0,\"dead_count\":1,\"bad_frustration\":1}")
+              .baseline("{\"click_volume\":10,\"rage_count\":0,\"dead_count\":1}")
               .segments("[]")
               .mode("flat")
               .windowEndUtc(WINDOW_END_LDT)
@@ -394,7 +391,7 @@ class ScreenRcaServiceTest {
     }
 
     @Test
-    void shouldReturnEverythingGoodWhenVolumePositiveAndZeroBadFrustration() {
+    void shouldReturnEverythingGoodWhenVolumePositiveAndZeroBadClicks() {
       when(screenRootCauseCacheDao.findByKey(PROJECT_ID, SCREEN, ANCHOR))
           .thenReturn(Single.just(Optional.empty()));
       when(clickhouseQueryService.executeRootCauseQuery(anyString(), anyString(), anyList(), anyList()))
@@ -416,7 +413,7 @@ class ScreenRcaServiceTest {
     }
 
     @Test
-    void shouldFinishWithFlatModeWhenBadFrustrationButNoSegmentCandidates() {
+    void shouldFinishWithFlatModeWhenBadClicksButNoSegmentCandidates() {
       when(screenRootCauseCacheDao.findByKey(PROJECT_ID, SCREEN, ANCHOR))
           .thenReturn(Single.just(Optional.empty()));
       when(clickhouseQueryService.executeRootCauseQuery(anyString(), anyString(), anyList(), anyList()))
@@ -488,17 +485,17 @@ class ScreenRcaServiceTest {
                 if (q.contains("GROUP BY Platform") && bn == 4) {
                   return Single.just(
                       singleRowTableResponse(
-                          Map.of("Platform", "Android", ScreenRcaQueryBuilder.BAD_FRUSTRATION, 10L)));
+                          Map.of("Platform", "Android", "affected_user_count", 10L)));
                 }
                 if (q.contains("GROUP BY OsVersion") && bn == 4) {
                   return Single.just(
                       singleRowTableResponse(
-                          Map.of("OsVersion", "14", ScreenRcaQueryBuilder.BAD_FRUSTRATION, 10L)));
+                          Map.of("OsVersion", "14", "affected_user_count", 10L)));
                 }
                 if (q.contains("GROUP BY AppVersion") && bn == 4) {
                   return Single.just(
                       singleRowTableResponse(
-                          Map.of("AppVersion", "2.1", ScreenRcaQueryBuilder.BAD_FRUSTRATION, 10L)));
+                          Map.of("AppVersion", "2.1", "affected_user_count", 10L)));
                 }
                 return Single.just(emptyTableResponse());
               });

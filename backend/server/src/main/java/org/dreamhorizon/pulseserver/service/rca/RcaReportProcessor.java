@@ -87,7 +87,8 @@ public class RcaReportProcessor {
     log.info("RCA job {} starting pipeline", job.jobId());
 
     return jobDao
-        .updateStatus(job.jobId(), RcaJobStatus.PROCESSING)
+        .updateStatus(job.jobId(), RcaJobStatus.PROCESSING,
+            job.projectId(), job.entityType(), job.entityKey(), job.date())
         .andThen(Single.fromCallable(() -> parseJobRequest(job, requestBody, forceRootCauseRefresh)))
         .flatMap(parsed -> Single.fromCompletionStage(enrichmentService.enrichAsync(parsed, forceRootCauseRefresh)))
         .flatMap(
@@ -97,6 +98,19 @@ public class RcaReportProcessor {
                       : job.entityType() == RcaType.SCREEN ? RCA_SCREEN_REPORT_PATH
                       : RCA_REPORT_PATH;
               String targetUrl = upstream.buildTargetUrl(aiPath, rawQuery);
+              if (log.isDebugEnabled()) {
+                log.debug(
+                    "RCA job {} POST {} body={}",
+                    job.jobId(),
+                    aiPath,
+                    enrichment.body());
+              }
+              if (job.entityType() == RcaType.SCREEN_V2 && !enrichment.enrichmentOk()) {
+                log.warn(
+                    "RCA job {} sending unenriched SCREEN_V2 body to AI (missing problems/evidences); "
+                        + "upstream will likely reject with 422",
+                    job.jobId());
+              }
               return Single.fromCompletionStage(
                   upstream.executeProxy(
                       "POST", targetUrl, enrichment.body(), authorization, job.projectId()))

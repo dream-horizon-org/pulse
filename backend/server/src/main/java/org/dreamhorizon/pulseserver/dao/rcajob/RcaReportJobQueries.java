@@ -73,6 +73,16 @@ public final class RcaReportJobQueries {
           + " AND status = ? AND job_id != ?";
 
   /**
+   * Deletes any OTHER jobs with the given status for the same logical key (used before
+   * transitioning status to avoid uk_active_job unique-constraint conflicts).
+   * Params: project_id, rca_type, entity_key, date, status, job_id (excluded).
+   */
+  public static final String DELETE_OLD_JOBS_BY_STATUS =
+      "DELETE FROM rca_report_jobs"
+          + " WHERE project_id = ? AND rca_type = ? AND entity_key = ? AND date = ?"
+          + " AND status = ? AND job_id != ?";
+
+  /**
    * Marks stale PENDING/PROCESSING jobs as FAILED.
    * Params: status (new status), status1, status2 (for IN clause), threshold_minutes (INT).
    */

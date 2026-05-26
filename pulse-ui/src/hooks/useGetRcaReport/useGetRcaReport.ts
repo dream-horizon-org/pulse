@@ -246,6 +246,7 @@ export function useGetRcaReport({
     retry: false,
     staleTime: Number.POSITIVE_INFINITY,
   });
+  console.log('*****',postReportQuery);
 
   useEffect(() => {
     if (pollJobId !== null) {
@@ -455,14 +456,14 @@ export function useGetRcaReport({
     pollJobId === null
       ? postReportQuery.isError || postUnexpectedStatus
       : jobStatusQuery.isError;
-
+  console.log('****', isError)
   const errorDetail =
     pollJobId === null
       ? postUnexpectedStatus
         ? UNEXPECTED_RCA_POST_ERROR
         : postReportQuery.error
       : jobStatusQuery.error;
-
+  console.log('****', errorDetail)
   const retry = useCallback(async () => {
     if (pollJobId) {
       queryClient.removeQueries({

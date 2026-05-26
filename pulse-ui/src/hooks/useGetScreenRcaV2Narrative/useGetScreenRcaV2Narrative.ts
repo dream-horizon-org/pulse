@@ -93,6 +93,24 @@ export function useGetScreenRcaV2Narrative({
         if (status === "FAILED" || status === "UNKNOWN") {
           jobIdRef.current = null;
           completedRetryRef.current = false;
+          // Try cached report before surfacing error — a previous successful run may exist
+          try {
+            const apiBaseUrl = getApiBaseUrl();
+            const peekUrl = `${apiBaseUrl}${GET_SCREEN_V2_RCA_STATUS_ROUTE.apiPath(trimmedName, we)}`;
+            const peekResult = await makeRequest<ScreenRcaV2JobResponse>({
+              url: peekUrl,
+              init: { method: GET_SCREEN_V2_RCA_STATUS_ROUTE.method, headers },
+              unwrapped: true,
+            });
+            const peekStructured = extractStructured(peekResult.data);
+            if (peekStructured !== null) {
+              reportCachedAtRef.current =
+                (peekResult.data?.report as ScreenRcaV2ReportApiResponse)?.cachedAt ?? null;
+              return { phase: "done", structured: peekStructured };
+            }
+          } catch (_) {
+            // ignore peek failure, fall through to error
+          }
           return { phase: "error", message: result.data?.errorMessage ?? "Report generation failed" };
         }
 

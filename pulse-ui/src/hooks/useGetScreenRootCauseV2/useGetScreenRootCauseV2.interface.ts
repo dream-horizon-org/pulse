@@ -4,6 +4,10 @@ export interface ScreenRcaMetricsV2 {
   rate?: string | null;
   p50_ms?: number | null;
   p95_ms?: number | null;
+  // bad_clicks only — raw counts from otel_logs
+  click_volume?: number | null;
+  rage_count?: number | null;
+  dead_count?: number | null;
 }
 
 /** Mirrors pulse_ai ScreenRcaSpecificIssue (snake_case). */

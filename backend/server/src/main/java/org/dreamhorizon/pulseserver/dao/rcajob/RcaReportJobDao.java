@@ -108,13 +108,66 @@ public class RcaReportJobDao {
   }
 
   public Completable updateStatus(String jobId, RcaJobStatus status) {
+    return updateStatus(jobId, status, null, null, null, null);
+  }
+
+  public Completable updateStatus(
+      String jobId,
+      RcaJobStatus status,
+      String projectId,
+      RcaType type,
+      String entityKey,
+      LocalDate date) {
     final String processing = RcaJobStatus.PROCESSING.name();
+    boolean needsDedup = status == RcaJobStatus.PROCESSING
+        && projectId != null && type != null && entityKey != null && date != null;
+    if (!needsDedup) {
+      return mysqlClient
+          .getWriterPool()
+          .preparedQuery(RcaReportJobQueries.UPDATE_STATUS)
+          .rxExecute(Tuple.of(status.name(), status.name(), processing, jobId))
+          .ignoreElement()
+          .doOnError(e -> log.warn("RCA report job update status failed: {}", e.getMessage()));
+    }
+    // Delete any zombie PROCESSING rows for the same key before transitioning to PROCESSING.
     return mysqlClient
         .getWriterPool()
-        .preparedQuery(RcaReportJobQueries.UPDATE_STATUS)
-        .rxExecute(Tuple.of(status.name(), status.name(), processing, jobId))
+        .rxGetConnection()
+        .flatMap(
+            conn ->
+                conn.rxBegin()
+                    .flatMap(
+                        tx ->
+                            conn.preparedQuery(RcaReportJobQueries.DELETE_OLD_JOBS_BY_STATUS)
+                                .rxExecute(Tuple.of(
+                                    projectId,
+                                    type.name(),
+                                    entityKey,
+                                    java.sql.Date.valueOf(date),
+                                    processing,
+                                    jobId))
+                                .flatMap(
+                                    deleteResult -> {
+                                      log.debug(
+                                          "RCA delete old processing rows before transition: {}",
+                                          deleteResult.rowCount());
+                                      return conn
+                                          .preparedQuery(RcaReportJobQueries.UPDATE_STATUS)
+                                          .rxExecute(
+                                              Tuple.of(status.name(), status.name(), processing, jobId))
+                                          .flatMap(
+                                              updateResult ->
+                                                  tx.rxCommit()
+                                                      .toSingleDefault(updateResult.rowCount()));
+                                    })
+                                .onErrorResumeNext(
+                                    error ->
+                                        tx.rxRollback()
+                                            .onErrorComplete()
+                                            .andThen(Single.error(error))))
+                    .doFinally(conn::close))
         .ignoreElement()
-        .doOnError(e -> log.warn("RCA report job update status failed: {}", e.getMessage()));
+        .doOnError(e -> log.warn("RCA report job update status (dedup) failed: {}", e.getMessage()));
   }
 
   public Completable markCompleted(

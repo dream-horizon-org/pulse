@@ -68,7 +68,7 @@ export function RcaSessionReplayEvidenceCard({
       ? metaLine
       : segmentTitle.trim() !== ""
         ? segmentTitle.trim()
-        : "—";
+        : "Unknown";
   const titleText = recordedSessionTitle(evidenceSessionCount, evidenceOrdinal);
 
   return (

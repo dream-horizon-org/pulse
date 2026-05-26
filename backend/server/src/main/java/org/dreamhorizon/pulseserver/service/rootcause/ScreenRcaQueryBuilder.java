@@ -19,11 +19,8 @@ public final class ScreenRcaQueryBuilder {
   /** Log rows in the cohort (tap events). */
   public static final String CLICK_VOLUME = "click_volume";
 
-  public static final String TAP_COUNT = "tap_count";
   public static final String RAGE_COUNT = "rage_count";
   public static final String DEAD_COUNT = "dead_count";
-  /** Segmentation driver: dead ∪ rage (one row can be both; counted once). */
-  public static final String BAD_FRUSTRATION = "bad_frustration";
 
   // Metric ID constants for Screen RCA v2 problems
   public static final String CRASH_RATE             = "crash_rate";
@@ -44,14 +41,9 @@ public final class ScreenRcaQueryBuilder {
   public static final long NETWORK_LATENCY_BAD_THRESHOLD_MS    = 1000L;
 
   /** Materialized {@code ClickType} / {@code Rage} on {@code otel.otel_logs} (see dev DDL). */
-  private static final String TAP_COUNT_EXPR = "countIf(ClickType = 'good' AND NOT Rage)";
-
   private static final String RAGE_COUNT_EXPR = "countIf(Rage)";
 
   private static final String DEAD_COUNT_EXPR = "countIf(ClickType = 'dead')";
-
-  private static final String BAD_FRUSTRATION_EXPR =
-      "countIf(ClickType = 'dead' OR Rage)";
 
   private ScreenRcaQueryBuilder() {}
 
@@ -105,10 +97,6 @@ public final class ScreenRcaQueryBuilder {
         "count() AS "
             + CLICK_VOLUME
             + ", "
-            + TAP_COUNT_EXPR
-            + " AS "
-            + TAP_COUNT
-            + ", "
             + RAGE_COUNT_EXPR
             + " AS "
             + RAGE_COUNT
@@ -116,18 +104,14 @@ public final class ScreenRcaQueryBuilder {
             + DEAD_COUNT_EXPR
             + " AS "
             + DEAD_COUNT
-            + ", "
-            + BAD_FRUSTRATION_EXPR
-            + " AS "
-            + BAD_FRUSTRATION
             + ", uniqIf(SessionId, ClickType = 'dead' OR Rage) AS affected_user_count";
     String where = baseWhereSql(acc, projectId, screenName, startInclusive, endExclusive);
     String sql =
-        "SELECT " + metricSelect + " FROM " + ClickhouseConstants.OTEL_TRACES_TABLE + " WHERE " + where;
+        "SELECT " + metricSelect + " FROM " + ClickhouseConstants.OTEL_LOGS_TABLE + " WHERE " + where;
     return acc.toSpec(sql);
   }
 
-  public static RootCauseQuerySpec buildBadFrustrationByDimensionQuery(
+  public static RootCauseQuerySpec buildBadClickByDimensionQuery(
       String projectId,
       String screenName,
       Instant startInclusive,
@@ -136,8 +120,7 @@ public final class ScreenRcaQueryBuilder {
       Map<String, String> dimensionFilters) {
     RootCauseQueryBuilder.BindAccumulator acc = new RootCauseQueryBuilder.BindAccumulator();
     String dimSelect = dimensionSelectAlias(dimensionColumn);
-    String metricSelect = dimSelect + ", " + BAD_FRUSTRATION_EXPR + " AS " + BAD_FRUSTRATION
-        + ", uniqIf(SessionId, ClickType = 'dead' OR Rage) AS affected_user_count";
+    String metricSelect = dimSelect + ", uniqIf(SessionId, ClickType = 'dead' OR Rage) AS affected_user_count";
     String where =
         appendDimensionFilters(
             baseWhereSql(acc, projectId, screenName, startInclusive, endExclusive), acc, dimensionFilters);
@@ -175,10 +158,8 @@ public final class ScreenRcaQueryBuilder {
       metricSelect.append(dimensionSelectAlias(d));
     }
     metricSelect.append(", count() AS ").append(CLICK_VOLUME);
-    metricSelect.append(", ").append(TAP_COUNT_EXPR).append(" AS ").append(TAP_COUNT);
     metricSelect.append(", ").append(RAGE_COUNT_EXPR).append(" AS ").append(RAGE_COUNT);
     metricSelect.append(", ").append(DEAD_COUNT_EXPR).append(" AS ").append(DEAD_COUNT);
-    metricSelect.append(", ").append(BAD_FRUSTRATION_EXPR).append(" AS ").append(BAD_FRUSTRATION);
     String where =
         appendDimensionFilters(
             baseWhereSql(acc, projectId, screenName, startInclusive, endExclusive), acc, dimensionFilters);
@@ -285,7 +266,7 @@ public final class ScreenRcaQueryBuilder {
       Instant endExclusive) {
     RootCauseQueryBuilder.BindAccumulator acc = new RootCauseQueryBuilder.BindAccumulator();
     String metricSelect =
-        "uniq(UserId) AS affected_user_count";
+        "uniq(SessionId) AS affected_user_count";
     String where =
         buildStackTraceBaseWhereSql(acc, projectId, screenName, startInclusive, endExclusive,
             "'device.crash'");
@@ -304,7 +285,7 @@ public final class ScreenRcaQueryBuilder {
     RootCauseQueryBuilder.BindAccumulator acc = new RootCauseQueryBuilder.BindAccumulator();
     String dimSelect = stackTraceDimensionSelectAlias(dimensionColumn);
     String metricSelect =
-        dimSelect + ", uniq(UserId) AS affected_user_count";
+        dimSelect + ", uniq(SessionId) AS affected_user_count";
     String where =
         appendStackTraceDimensionFilters(
             buildStackTraceBaseWhereSql(acc, projectId, screenName, startInclusive, endExclusive,
@@ -331,7 +312,7 @@ public final class ScreenRcaQueryBuilder {
       Instant endExclusive) {
     RootCauseQueryBuilder.BindAccumulator acc = new RootCauseQueryBuilder.BindAccumulator();
     String metricSelect =
-        "uniq(UserId) AS affected_user_count";
+        "uniq(SessionId) AS affected_user_count";
     String where =
         buildStackTraceBaseWhereSql(acc, projectId, screenName, startInclusive, endExclusive,
             "'device.anr'");
@@ -350,7 +331,7 @@ public final class ScreenRcaQueryBuilder {
     RootCauseQueryBuilder.BindAccumulator acc = new RootCauseQueryBuilder.BindAccumulator();
     String dimSelect = stackTraceDimensionSelectAlias(dimensionColumn);
     String metricSelect =
-        dimSelect + ", uniq(UserId) AS affected_user_count";
+        dimSelect + ", uniq(SessionId) AS affected_user_count";
     String where =
         appendStackTraceDimensionFilters(
             buildStackTraceBaseWhereSql(acc, projectId, screenName, startInclusive, endExclusive,
@@ -565,7 +546,7 @@ public final class ScreenRcaQueryBuilder {
         + ", 9, 'UTC')";
   }
 
-  // ===== Screen RCA v2: Frozen Frames (otel_traces) =====
+  // ===== Screen RCA v2: Frozen Frames (otel_logs) =====
 
   public static RootCauseQuerySpec buildFrozenFrameBaselineQuery(
       String projectId,
@@ -574,11 +555,11 @@ public final class ScreenRcaQueryBuilder {
       Instant endExclusive) {
     RootCauseQueryBuilder.BindAccumulator acc = new RootCauseQueryBuilder.BindAccumulator();
     String where =
-        buildTracesBaseWhereSql(acc, projectId, screenName, startInclusive, endExclusive,
+        buildLogsBaseWhereSql(acc, projectId, screenName, startInclusive, endExclusive,
             "'app.jank.frozen'");
     String sql =
         "SELECT uniq(SessionId) AS affected_user_count"
-            + " FROM " + ClickhouseConstants.OTEL_TRACES_TABLE + " WHERE " + where;
+            + " FROM " + ClickhouseConstants.OTEL_LOGS_TABLE + " WHERE " + where;
     return acc.toSpec(sql);
   }
 
@@ -592,19 +573,19 @@ public final class ScreenRcaQueryBuilder {
     RootCauseQueryBuilder.BindAccumulator acc = new RootCauseQueryBuilder.BindAccumulator();
     String where =
         appendDimensionFilters(
-            buildTracesBaseWhereSql(acc, projectId, screenName, startInclusive, endExclusive,
+            buildLogsBaseWhereSql(acc, projectId, screenName, startInclusive, endExclusive,
                 "'app.jank.frozen'"), acc, dimensionFilters);
     String sql =
         "SELECT "
             + dimensionSelectAlias(dimensionColumn)
             + ", uniq(SessionId) AS affected_user_count"
-            + " FROM " + ClickhouseConstants.OTEL_TRACES_TABLE
+            + " FROM " + ClickhouseConstants.OTEL_LOGS_TABLE
             + " WHERE " + where
             + " GROUP BY " + dimensionColumn;
     return acc.toSpec(sql);
   }
 
-  // ===== Screen RCA v2: Slow Rendering (otel_traces) =====
+  // ===== Screen RCA v2: Slow Rendering (otel_logs) =====
 
   public static RootCauseQuerySpec buildSlowRenderingBaselineQuery(
       String projectId,
@@ -613,11 +594,11 @@ public final class ScreenRcaQueryBuilder {
       Instant endExclusive) {
     RootCauseQueryBuilder.BindAccumulator acc = new RootCauseQueryBuilder.BindAccumulator();
     String where =
-        buildTracesBaseWhereSql(acc, projectId, screenName, startInclusive, endExclusive,
+        buildLogsBaseWhereSql(acc, projectId, screenName, startInclusive, endExclusive,
             "'app.jank.slow'");
     String sql =
         "SELECT uniq(SessionId) AS affected_user_count"
-            + " FROM " + ClickhouseConstants.OTEL_TRACES_TABLE + " WHERE " + where;
+            + " FROM " + ClickhouseConstants.OTEL_LOGS_TABLE + " WHERE " + where;
     return acc.toSpec(sql);
   }
 
@@ -631,13 +612,13 @@ public final class ScreenRcaQueryBuilder {
     RootCauseQueryBuilder.BindAccumulator acc = new RootCauseQueryBuilder.BindAccumulator();
     String where =
         appendDimensionFilters(
-            buildTracesBaseWhereSql(acc, projectId, screenName, startInclusive, endExclusive,
+            buildLogsBaseWhereSql(acc, projectId, screenName, startInclusive, endExclusive,
                 "'app.jank.slow'"), acc, dimensionFilters);
     String sql =
         "SELECT "
             + dimensionSelectAlias(dimensionColumn)
             + ", uniq(SessionId) AS affected_user_count"
-            + " FROM " + ClickhouseConstants.OTEL_TRACES_TABLE
+            + " FROM " + ClickhouseConstants.OTEL_LOGS_TABLE
             + " WHERE " + where
             + " GROUP BY " + dimensionColumn;
     return acc.toSpec(sql);
@@ -833,8 +814,12 @@ public final class ScreenRcaQueryBuilder {
     acc.add(p2, startStr);
     acc.add(p3, endStr);
     acc.add(p4, emptyIfNull(dimensionValue));
+    String threadNameExpr =
+        "coalesce(nullIf(LogAttributes['thread.name'], ''), LogAttributes['thread.name '])";
     String sql =
-        "SELECT GroupId AS group_id, Title AS thread, uniq(UserId) AS cnt "
+        "SELECT GroupId AS group_id, ExceptionMessage AS issue, "
+            + threadNameExpr
+            + " AS thread, uniq(UserId) AS cnt "
             + "FROM " + ClickhouseConstants.STACK_TRACE_EVENTS_TABLE + " "
             + "WHERE ProjectId = :" + p0
             + " AND PulseType = 'device.anr'"
@@ -842,7 +827,7 @@ public final class ScreenRcaQueryBuilder {
             + " AND " + stackTraceDimensionEqualityLhs(dimensionColumn) + " = :" + p4
             + " AND Timestamp >= toDateTime64(:" + p2 + ", 9, 'UTC')"
             + " AND Timestamp < toDateTime64(:" + p3 + ", 9, 'UTC')"
-            + " GROUP BY group_id, thread ORDER BY cnt DESC LIMIT 3";
+            + " GROUP BY group_id, issue, thread ORDER BY cnt DESC LIMIT 3";
     return acc.toSpec(sql);
   }
 
@@ -880,6 +865,250 @@ public final class ScreenRcaQueryBuilder {
     RootCauseQueryBuilder.BindAccumulator acc = new RootCauseQueryBuilder.BindAccumulator();
     String where = buildTracesBaseWhereSql(acc, projectId, screenName, startInclusive, endExclusive,
         pulseTypeEq);
+    String sql = "SELECT quantile(0.5)(toFloat64(Duration) / 1e6) AS " + P50_MS
+        + ", quantile(0.95)(toFloat64(Duration) / 1e6) AS " + P95_MS
+        + " FROM " + ClickhouseConstants.OTEL_TRACES_TABLE + " WHERE " + where;
+    return acc.toSpec(sql);
+  }
+
+  // ===== Screen RCA v2: Segment-scoped metrics (filtered baseline, no GROUP BY) =====
+
+  public static RootCauseQuerySpec buildCrashSegmentMetricsQuery(
+      String projectId,
+      String screenName,
+      Instant startInclusive,
+      Instant endExclusive,
+      Map<String, String> dimensionFilters) {
+    RootCauseQueryBuilder.BindAccumulator acc = new RootCauseQueryBuilder.BindAccumulator();
+    String where =
+        appendStackTraceDimensionFilters(
+            buildStackTraceBaseWhereSql(acc, projectId, screenName, startInclusive, endExclusive,
+                "'device.crash'"),
+            acc, dimensionFilters);
+    String sql =
+        "SELECT uniq(SessionId) AS affected_user_count FROM "
+            + ClickhouseConstants.STACK_TRACE_EVENTS_TABLE
+            + " WHERE "
+            + where;
+    return acc.toSpec(sql);
+  }
+
+  public static RootCauseQuerySpec buildAnrSegmentMetricsQuery(
+      String projectId,
+      String screenName,
+      Instant startInclusive,
+      Instant endExclusive,
+      Map<String, String> dimensionFilters) {
+    RootCauseQueryBuilder.BindAccumulator acc = new RootCauseQueryBuilder.BindAccumulator();
+    String where =
+        appendStackTraceDimensionFilters(
+            buildStackTraceBaseWhereSql(acc, projectId, screenName, startInclusive, endExclusive,
+                "'device.anr'"),
+            acc, dimensionFilters);
+    String sql =
+        "SELECT uniq(SessionId) AS affected_user_count FROM "
+            + ClickhouseConstants.STACK_TRACE_EVENTS_TABLE
+            + " WHERE "
+            + where;
+    return acc.toSpec(sql);
+  }
+
+  public static RootCauseQuerySpec buildFrozenFrameSegmentMetricsQuery(
+      String projectId,
+      String screenName,
+      Instant startInclusive,
+      Instant endExclusive,
+      Map<String, String> dimensionFilters) {
+    RootCauseQueryBuilder.BindAccumulator acc = new RootCauseQueryBuilder.BindAccumulator();
+    String where =
+        appendDimensionFilters(
+            buildLogsBaseWhereSql(acc, projectId, screenName, startInclusive, endExclusive,
+                "'app.jank.frozen'"),
+            acc, dimensionFilters);
+    String sql =
+        "SELECT uniq(SessionId) AS affected_user_count FROM "
+            + ClickhouseConstants.OTEL_LOGS_TABLE
+            + " WHERE "
+            + where;
+    return acc.toSpec(sql);
+  }
+
+  public static RootCauseQuerySpec buildSlowRenderingSegmentMetricsQuery(
+      String projectId,
+      String screenName,
+      Instant startInclusive,
+      Instant endExclusive,
+      Map<String, String> dimensionFilters) {
+    RootCauseQueryBuilder.BindAccumulator acc = new RootCauseQueryBuilder.BindAccumulator();
+    String where =
+        appendDimensionFilters(
+            buildLogsBaseWhereSql(acc, projectId, screenName, startInclusive, endExclusive,
+                "'app.jank.slow'"),
+            acc, dimensionFilters);
+    String sql =
+        "SELECT uniq(SessionId) AS affected_user_count FROM "
+            + ClickhouseConstants.OTEL_LOGS_TABLE
+            + " WHERE "
+            + where;
+    return acc.toSpec(sql);
+  }
+
+  public static RootCauseQuerySpec buildNetworkFailureSegmentMetricsQuery(
+      String projectId,
+      String screenName,
+      Instant startInclusive,
+      Instant endExclusive,
+      Map<String, String> dimensionFilters) {
+    RootCauseQueryBuilder.BindAccumulator acc = new RootCauseQueryBuilder.BindAccumulator();
+    String metricSelect =
+        "uniqIf(SessionId, PulseType LIKE 'network.4%' OR PulseType LIKE 'network.5%') AS affected_user_count";
+    String where =
+        appendDimensionFilters(
+            buildLogsBaseWhereSqlWithPulseTypeLike(acc, projectId, screenName, startInclusive,
+                endExclusive, "'network.%'"),
+            acc, dimensionFilters);
+    String sql =
+        "SELECT " + metricSelect + " FROM " + ClickhouseConstants.OTEL_TRACES_TABLE + " WHERE " + where;
+    return acc.toSpec(sql);
+  }
+
+  public static RootCauseQuerySpec buildNetworkLatencySegmentMetricsQuery(
+      String projectId,
+      String screenName,
+      Instant startInclusive,
+      Instant endExclusive,
+      Map<String, String> dimensionFilters) {
+    RootCauseQueryBuilder.BindAccumulator acc = new RootCauseQueryBuilder.BindAccumulator();
+    String metricSelect =
+        "uniqIf(SessionId, toFloat64(Duration) / 1e6 > " + NETWORK_LATENCY_BAD_THRESHOLD_MS
+            + ") AS affected_user_count";
+    String where =
+        appendDimensionFilters(
+            buildLogsBaseWhereSqlWithPulseTypeLike(acc, projectId, screenName, startInclusive,
+                endExclusive, "'network.%'"),
+            acc, dimensionFilters);
+    String sql =
+        "SELECT " + metricSelect + " FROM " + ClickhouseConstants.OTEL_TRACES_TABLE + " WHERE " + where;
+    return acc.toSpec(sql);
+  }
+
+  public static RootCauseQuerySpec buildNetworkLatencySegmentPercentilesQuery(
+      String projectId,
+      String screenName,
+      Instant startInclusive,
+      Instant endExclusive,
+      Map<String, String> dimensionFilters) {
+    RootCauseQueryBuilder.BindAccumulator acc = new RootCauseQueryBuilder.BindAccumulator();
+    String where =
+        appendDimensionFilters(
+            buildLogsBaseWhereSqlWithPulseTypeLike(acc, projectId, screenName, startInclusive,
+                endExclusive, "'network.%'"),
+            acc, dimensionFilters);
+    String sql = "SELECT quantile(0.5)(toFloat64(Duration) / 1e6) AS " + P50_MS
+        + ", quantile(0.95)(toFloat64(Duration) / 1e6) AS " + P95_MS
+        + " FROM " + ClickhouseConstants.OTEL_TRACES_TABLE + " WHERE " + where;
+    return acc.toSpec(sql);
+  }
+
+  public static RootCauseQuerySpec buildScreenLoadSegmentMetricsQuery(
+      String projectId,
+      String screenName,
+      Instant startInclusive,
+      Instant endExclusive,
+      Map<String, String> dimensionFilters) {
+    RootCauseQueryBuilder.BindAccumulator acc = new RootCauseQueryBuilder.BindAccumulator();
+    String metricSelect =
+        "uniqIf(SessionId, toFloat64(Duration) / 1e6 > " + SCREEN_LOAD_BAD_THRESHOLD_MS
+            + ") AS affected_user_count";
+    String where =
+        appendDimensionFilters(
+            buildTracesBaseWhereSql(acc, projectId, screenName, startInclusive, endExclusive,
+                "'screen_load'"),
+            acc, dimensionFilters);
+    String sql =
+        "SELECT " + metricSelect + " FROM " + ClickhouseConstants.OTEL_TRACES_TABLE + " WHERE " + where;
+    return acc.toSpec(sql);
+  }
+
+  public static RootCauseQuerySpec buildScreenLoadSegmentPercentilesQuery(
+      String projectId,
+      String screenName,
+      Instant startInclusive,
+      Instant endExclusive,
+      Map<String, String> dimensionFilters) {
+    return buildTracesSegmentPercentilesQuery(
+        projectId, screenName, startInclusive, endExclusive, "'screen_load'", dimensionFilters);
+  }
+
+  public static RootCauseQuerySpec buildScreenInteractiveSegmentMetricsQuery(
+      String projectId,
+      String screenName,
+      Instant startInclusive,
+      Instant endExclusive,
+      Map<String, String> dimensionFilters) {
+    RootCauseQueryBuilder.BindAccumulator acc = new RootCauseQueryBuilder.BindAccumulator();
+    String metricSelect =
+        "uniqIf(SessionId, toFloat64(Duration) / 1e6 > " + SCREEN_INTERACTIVE_BAD_THRESHOLD_MS
+            + ") AS affected_user_count";
+    String where =
+        appendDimensionFilters(
+            buildTracesBaseWhereSql(acc, projectId, screenName, startInclusive, endExclusive,
+                "'screen_interactive'"),
+            acc, dimensionFilters);
+    String sql =
+        "SELECT " + metricSelect + " FROM " + ClickhouseConstants.OTEL_TRACES_TABLE + " WHERE " + where;
+    return acc.toSpec(sql);
+  }
+
+  public static RootCauseQuerySpec buildScreenInteractiveSegmentPercentilesQuery(
+      String projectId,
+      String screenName,
+      Instant startInclusive,
+      Instant endExclusive,
+      Map<String, String> dimensionFilters) {
+    return buildTracesSegmentPercentilesQuery(
+        projectId, screenName, startInclusive, endExclusive, "'screen_interactive'", dimensionFilters);
+  }
+
+  public static RootCauseQuerySpec buildBadClickSegmentMetricsQuery(
+      String projectId,
+      String screenName,
+      Instant startInclusive,
+      Instant endExclusive,
+      Map<String, String> dimensionFilters) {
+    RootCauseQueryBuilder.BindAccumulator acc = new RootCauseQueryBuilder.BindAccumulator();
+    String metricSelect =
+        "count() AS "
+            + CLICK_VOLUME
+            + ", "
+            + RAGE_COUNT_EXPR
+            + " AS "
+            + RAGE_COUNT
+            + ", "
+            + DEAD_COUNT_EXPR
+            + " AS "
+            + DEAD_COUNT
+            + ", uniqIf(SessionId, ClickType = 'dead' OR Rage) AS affected_user_count";
+    String where =
+        appendDimensionFilters(
+            baseWhereSql(acc, projectId, screenName, startInclusive, endExclusive), acc, dimensionFilters);
+    String sql =
+        "SELECT " + metricSelect + " FROM " + ClickhouseConstants.OTEL_LOGS_TABLE + " WHERE " + where;
+    return acc.toSpec(sql);
+  }
+
+  private static RootCauseQuerySpec buildTracesSegmentPercentilesQuery(
+      String projectId,
+      String screenName,
+      Instant startInclusive,
+      Instant endExclusive,
+      String pulseTypeEq,
+      Map<String, String> dimensionFilters) {
+    RootCauseQueryBuilder.BindAccumulator acc = new RootCauseQueryBuilder.BindAccumulator();
+    String where =
+        appendDimensionFilters(
+            buildTracesBaseWhereSql(acc, projectId, screenName, startInclusive, endExclusive, pulseTypeEq),
+            acc, dimensionFilters);
     String sql = "SELECT quantile(0.5)(toFloat64(Duration) / 1e6) AS " + P50_MS
         + ", quantile(0.95)(toFloat64(Duration) / 1e6) AS " + P95_MS
         + " FROM " + ClickhouseConstants.OTEL_TRACES_TABLE + " WHERE " + where;
