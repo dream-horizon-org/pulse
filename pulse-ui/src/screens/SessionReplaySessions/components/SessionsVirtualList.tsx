@@ -27,7 +27,7 @@ export interface SessionsVirtualListProps {
   sortBy: SortField;
   sortDirection: SortDirection;
   onSort: (field: SortField) => void;
-  onSessionClick: (sessionId: string) => void;
+  onSessionClick: (session: SessionItem) => void;
   onLoadMore: () => void;
   isLoading: boolean;
   isFetching: boolean;

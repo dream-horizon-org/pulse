@@ -21,6 +21,10 @@ import classes from "../SessionReplayDetail.module.css";
 interface SessionTabsProps {
   activeTab: string;
   sessionData: SessionDetailData;
+  journey: string[];
+  journeyLoading: boolean;
+  journeyError: boolean;
+  onJourneyRetry?: () => void;
   currentTime: number;
   scrollToTimestamp: { t0: number; t1: number } | null;
   onEventClick: (item: FlameChartNode) => void;
@@ -33,6 +37,10 @@ interface SessionTabsProps {
 export function SessionTabs({
   activeTab,
   sessionData,
+  journey,
+  journeyLoading,
+  journeyError,
+  onJourneyRetry,
   currentTime,
   scrollToTimestamp,
   onEventClick,
@@ -114,7 +122,12 @@ export function SessionTabs({
           </Tabs.Panel>
 
           <Tabs.Panel value={TABS.USER_JOURNEY}>
-            <UserJourneyTab sessionData={sessionData} />
+            <UserJourneyTab
+              journey={journey}
+              isLoading={journeyLoading}
+              isError={journeyError}
+              onRetry={onJourneyRetry}
+            />
           </Tabs.Panel>
 
           <Tabs.Panel value={TABS.CONSOLE}>

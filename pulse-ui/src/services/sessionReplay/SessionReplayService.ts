@@ -2,7 +2,9 @@ import {
   GetSessionsRequest,
   GetSessionsResponse,
   GetSessionDetailRequest,
+  GetSessionJourneyRequest,
   SessionDetailApiResponse,
+  SessionJourneyApiResponse,
   BulkTagRequest,
   BulkDeleteRequest,
   ExportSessionsRequest,
@@ -95,11 +97,25 @@ export class SessionReplayService {
     request: GetSessionDetailRequest,
   ): Promise<SessionDetailApiResponse> {
     const path = `/v1/sessions/${encodeURIComponent(request.sessionId)}`;
+    const params = new URLSearchParams();
+    if (request.startTime) {
+      params.set("startTime", request.startTime);
+    }
+    if (request.endTime) {
+      params.set("endTime", request.endTime);
+    }
+    if (request.durationMs != null && Number.isFinite(request.durationMs)) {
+      params.set("durationMs", String(request.durationMs));
+    }
     const includeParam = request.include?.length
       ? request.include.join(",")
       : undefined;
-    const url = includeParam
-      ? `${this.baseURL}${path}?include=${encodeURIComponent(includeParam)}`
+    if (includeParam) {
+      params.set("include", includeParam);
+    }
+    const query = params.toString();
+    const url = query
+      ? `${this.baseURL}${path}?${query}`
       : `${this.baseURL}${path}`;
 
     try {
@@ -122,6 +138,45 @@ export class SessionReplayService {
       return json.data || json;
     } catch (error) {
       console.error("Error fetching session detail:", error);
+      throw error;
+    }
+  }
+
+  async getSessionJourney(
+    request: GetSessionJourneyRequest,
+  ): Promise<SessionJourneyApiResponse> {
+    const path = `/v1/sessions/${encodeURIComponent(request.sessionId)}/journey`;
+    const params = new URLSearchParams();
+    if (request.startTime) {
+      params.set("startTime", request.startTime);
+    }
+    if (request.endTime) {
+      params.set("endTime", request.endTime);
+    }
+    const query = params.toString();
+    const url = query
+      ? `${this.baseURL}${path}?${query}`
+      : `${this.baseURL}${path}`;
+
+    try {
+      const response = await makeRequestToServer({
+        url,
+        init: {
+          method: "GET",
+          headers: this.sessionListingHeaders(),
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(
+          `Failed to fetch session journey: ${response.statusText}`,
+        );
+      }
+
+      const json = await response.json();
+      return json.data || json;
+    } catch (error) {
+      console.error("Error fetching session journey:", error);
       throw error;
     }
   }

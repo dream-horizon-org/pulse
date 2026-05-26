@@ -228,7 +228,7 @@ export function sessionDetailApiToData(
     sessionType: "exploration",
     detectedIssues: [],
     criticalInteractions,
-    journey: api.journey ?? [],
+    journey: [],
     traces,
     logs,
     exceptions,

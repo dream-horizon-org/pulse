@@ -1,4 +1,9 @@
-import { useParams, useNavigate, useLocation } from "react-router-dom";
+import {
+  useParams,
+  useNavigate,
+  useLocation,
+  useSearchParams,
+} from "react-router-dom";
 import { Box, Stack, Loader, Text, Center } from "@mantine/core";
 import { DetailsSidebar } from "../SessionTimeline/components/DetailsSidebar";
 import { FlameChartNode } from "../SessionTimeline/utils/flameChartTransform";
@@ -8,17 +13,27 @@ import { SessionHeader } from "./components/SessionHeader";
 import { SessionSummary } from "./components/SessionSummary";
 import { SessionTabs } from "./components/SessionTabs";
 import { SessionPlayerSection } from "./components/SessionPlayerSection";
-import { DEFAULTS } from "./constants/strings";
+import { DEFAULTS, TABS } from "./constants/strings";
 import { useSessionDetail } from "./hooks/useSessionDetail";
+import { useSessionJourney } from "./hooks/useSessionJourney";
 import { useSessionReplaySnapshots } from "./hooks/useSessionReplaySnapshots";
 import classes from "./SessionReplayDetail.module.css";
 import { useState, useMemo, useCallback } from "react";
 
 export const SessionReplayDetail: React.FC = () => {
   const { sessionId } = useParams<{ sessionId: string }>();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const [activeTab, setActiveTab] = useState<string>("all");
+
+  const urlStartTime = searchParams.get("startTime") ?? undefined;
+  const urlEndTime = searchParams.get("endTime") ?? undefined;
+  const urlDurationMsRaw = searchParams.get("durationMs");
+  const urlDurationMs =
+    urlDurationMsRaw != null && urlDurationMsRaw !== ""
+      ? Number(urlDurationMsRaw)
+      : undefined;
   const [selectedSpan, setSelectedSpan] = useState<FlameChartNode | null>(null);
   const [scrollToTimestamp, setScrollToTimestamp] = useState<{
     t0: number;
@@ -35,6 +50,12 @@ export const SessionReplayDetail: React.FC = () => {
 
   const { data: apiSessionData, isLoading: sessionLoading } = useSessionDetail({
     sessionId: sessionId ?? undefined,
+    startTime: urlStartTime,
+    endTime: urlEndTime,
+    durationMs:
+      urlDurationMs != null && Number.isFinite(urlDurationMs)
+        ? urlDurationMs
+        : undefined,
     includeEvents: true,
     enabled: !!sessionId,
   });
@@ -44,6 +65,21 @@ export const SessionReplayDetail: React.FC = () => {
     const id = sessionId || DEFAULTS.SESSION_ID_UNKNOWN;
     return getEmptySessionDetail(id);
   }, [apiSessionData, sessionId]);
+
+  const journeyStartTime = urlStartTime ?? sessionData.startTime;
+  const journeyEndTime = urlEndTime ?? sessionData.endTime;
+
+  const {
+    journey,
+    isLoading: journeyLoading,
+    isError: journeyError,
+    refetch: refetchJourney,
+  } = useSessionJourney({
+    sessionId: sessionId ?? undefined,
+    startTime: journeyStartTime,
+    endTime: journeyEndTime,
+    enabled: activeTab === TABS.USER_JOURNEY && !!sessionId,
+  });
 
   const {
     images: snapshotImages,
@@ -165,6 +201,12 @@ export const SessionReplayDetail: React.FC = () => {
             <SessionTabs
               activeTab={activeTab}
               sessionData={sessionData}
+              journey={journey}
+              journeyLoading={journeyLoading}
+              journeyError={journeyError}
+              onJourneyRetry={() => {
+                void refetchJourney();
+              }}
               currentTime={currentTime}
               scrollToTimestamp={scrollToTimestamp}
               onEventClick={handleSpanClick}

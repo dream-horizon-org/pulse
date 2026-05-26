@@ -1214,6 +1214,20 @@ export class MockResponseGenerator {
       };
     }
 
+    const journeyMatch = pathname.match(
+      /^\/v1\/sessions\/([^/]+)\/journey\/?$/,
+    );
+    if (journeyMatch && method === "GET") {
+      const sessionId = decodeURIComponent(journeyMatch[1]);
+      const {
+        getMockSessionJourneyResponse,
+      } = require("../screens/SessionReplayDetail/mock/sessionReplayMock");
+      return {
+        data: getMockSessionJourneyResponse(sessionId),
+        status: 200,
+      };
+    }
+
     const detailMatch = pathname.match(/^\/v1\/sessions\/([^/]+)\/?$/);
     if (detailMatch && method === "GET") {
       const sessionId = decodeURIComponent(detailMatch[1]);

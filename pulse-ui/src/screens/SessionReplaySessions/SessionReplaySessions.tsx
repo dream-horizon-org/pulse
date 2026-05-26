@@ -16,7 +16,11 @@ import {
 import { useSessionsFilters } from "./hooks/useSessionsFilters";
 import { useSessionListData } from "./hooks/useSessionListData";
 import { getInteractionFilterFieldFromConfig } from "./utils/getInteractionFilterField";
-import type { SortField } from "../../services/sessionReplay";
+import type { SessionItem, SortField } from "../../services/sessionReplay";
+import {
+  buildSessionDetailSearchParams,
+  sessionTimeBoundsFromListing,
+} from "../SessionReplayDetail/utils/sessionTimeBounds";
 import classes from "./SessionReplaySessions.module.css";
 import { SessionListHeader } from "./components/SessionListHeader";
 import { SessionListLoadingState } from "./components/SessionListLoadingState";
@@ -200,9 +204,12 @@ export function SessionReplaySessions() {
     ? `/projects/${projectId}/session-replay`
     : "/session-replay";
 
-  const handleWatchSession = (sessionId: string) => {
-    trackClick(`WatchSession_${sessionId}`);
-    navigate(`${sessionReplayBase}/${sessionId}`);
+  const handleWatchSession = (session: SessionItem) => {
+    trackClick(`WatchSession_${session.sessionId}`);
+    const params = buildSessionDetailSearchParams(
+      sessionTimeBoundsFromListing(session),
+    );
+    navigate(`${sessionReplayBase}/${session.sessionId}?${params.toString()}`);
   };
 
   const isInitialLoading = isLoading && sessions.length === 0;

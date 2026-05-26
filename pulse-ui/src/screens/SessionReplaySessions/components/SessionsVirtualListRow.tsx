@@ -82,7 +82,7 @@ export function SortIcon({
 
 interface VirtualRowProps {
   session: SessionItem;
-  onSessionClick: (sessionId: string) => void;
+  onSessionClick: (session: SessionItem) => void;
 }
 
 function issueBadgeLabel(issue: SessionItem["issues"][number]): string {
@@ -116,11 +116,11 @@ export function VirtualRow({ session, onSessionClick }: VirtualRowProps) {
 
   return (
     <div
-      onClick={() => onSessionClick(session.sessionId)}
+      onClick={() => onSessionClick(session)}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
-          onSessionClick(session.sessionId);
+          onSessionClick(session);
         }
       }}
       role="link"

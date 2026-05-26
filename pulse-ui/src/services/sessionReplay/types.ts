@@ -427,8 +427,24 @@ export interface ComparisonMetrics {
 
 export interface GetSessionDetailRequest {
   sessionId: string;
+  /** Session start from listing — enables ClickHouse partition pruning. */
+  startTime?: string;
+  /** Session end from listing — enables ClickHouse partition pruning. */
+  endTime?: string;
+  /** Session duration from listing (ms). */
+  durationMs?: number;
   /** Optional. Comma-separated: traces, logs, exceptions, events. If omitted, returns core only. */
   include?: Array<"traces" | "logs" | "exceptions" | "events">;
+}
+
+export interface GetSessionJourneyRequest {
+  sessionId: string;
+  startTime?: string;
+  endTime?: string;
+}
+
+export interface SessionJourneyApiResponse {
+  journey: string[];
 }
 
 export interface GetSessionDetailResponse {
@@ -497,7 +513,8 @@ export interface SessionDetailApiResponse {
   appVersion: string;
   geography: string;
   quality: number;
-  journey: string[];
+  /** Deprecated — use GET /v1/sessions/{id}/journey instead. */
+  journey?: string[];
   interactions: SessionDetailInteraction[];
   networkRequests: SessionDetailNetworkRequest[];
   events?: SessionDetailEvent[];
@@ -664,6 +681,7 @@ export type ImpactedScreens = {
 export type SessionItem = {
   sessionId: string;
   startTime: string;
+  endTime?: string;
   durationMs: number;
   user: string | null;
   qualityScore: number | null;

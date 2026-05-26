@@ -8,6 +8,7 @@ import type {
   SessionListingResponse,
   SessionItem,
   SessionDetailApiResponse,
+  SessionJourneyApiResponse,
   FilterConfigResponse,
 } from "../../../services/sessionReplay/types";
 import type { SnapshotsDataResponse } from "../../../services/sessionReplay/sessionReplaySnapshotTypes";
@@ -674,6 +675,18 @@ export function getMockSessionDetailApiResponse(
   sessionId: string,
 ): SessionDetailApiResponse {
   return generateSessionDetailApiResponse(sessionId);
+}
+
+/** GET /v1/sessions/{sessionId}/journey — lazy user journey for the User Journey tab. */
+export function getMockSessionJourneyResponse(
+  sessionId: string,
+): SessionJourneyApiResponse {
+  const listing = getMockSessionItems().find((s) => s.sessionId === sessionId);
+  if (listing?.journey?.length) {
+    return { journey: listing.journey };
+  }
+  const detail = generateSessionDetailApiResponse(sessionId);
+  return { journey: detail.journey ?? [] };
 }
 
 /** Base timestamp for mock snapshot events; use as session start when mock replay is enabled so image timestamps align with currentTime. */

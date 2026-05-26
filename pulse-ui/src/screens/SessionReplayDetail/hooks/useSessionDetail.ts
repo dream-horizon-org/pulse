@@ -12,6 +12,9 @@ export const SESSION_DETAIL_QUERY_KEY = "sessionDetail";
 
 export interface UseSessionDetailParams {
   sessionId: string | undefined;
+  startTime?: string;
+  endTime?: string;
+  durationMs?: number;
   /** Include events and exceptions for timeline/flame chart. Default true. */
   includeEvents?: boolean;
   enabled?: boolean;
@@ -27,6 +30,9 @@ export interface UseSessionDetailResult {
 
 export function useSessionDetail({
   sessionId,
+  startTime,
+  endTime,
+  durationMs,
   includeEvents = true,
   enabled = true,
 }: UseSessionDetailParams): UseSessionDetailResult {
@@ -39,10 +45,19 @@ export function useSessionDetail({
     error,
     refetch,
   } = useQuery({
-    queryKey: [SESSION_DETAIL_QUERY_KEY, sessionId],
+    queryKey: [
+      SESSION_DETAIL_QUERY_KEY,
+      sessionId,
+      startTime,
+      endTime,
+      durationMs,
+    ],
     queryFn: () =>
       sessionReplayService.getSessionDetail({
         sessionId: sessionId!,
+        startTime,
+        endTime,
+        durationMs,
         include: includeEvents
           ? (["events", "exceptions"] as const)
           : undefined,
