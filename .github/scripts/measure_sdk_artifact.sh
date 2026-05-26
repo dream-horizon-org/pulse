@@ -3,7 +3,7 @@
 # Usage: measure_sdk_artifact.sh <mode> <path>
 #   mode: file | ios_bundle
 #   file: path to APK
-#   ios_bundle: pulse-ios-otel/build directory — sums du -sb for *.xcframework dirs
+#   ios_bundle: pulse-ios-otel/build directory — sums byte size of *.xcframework dirs
 set -euo pipefail
 
 MODE="${1:?mode required (file|ios_bundle)}"
@@ -22,6 +22,15 @@ file_size() {
   fi
 }
 
+dir_byte_size() {
+  local dir="$1"
+  if [[ "$(uname -s)" == Darwin ]]; then
+    find "${dir}" -type f -print0 | xargs -0 stat -f%z 2>/dev/null | awk '{s+=$1} END {print s+0}'
+  else
+    du -sb "${dir}" | awk '{print $1}'
+  fi
+}
+
 ios_bundle_size() {
   local build_dir="$1"
   if [[ ! -d "${build_dir}" ]]; then
@@ -33,7 +42,7 @@ ios_bundle_size() {
   shopt -s nullglob
   for d in "${build_dir}"/*.xcframework; do
     local n
-    n="$(du -sb "${d}" | awk '{print $1}')"
+    n="$(dir_byte_size "${d}")"
     total=$((total + n))
   done
   shopt -u nullglob

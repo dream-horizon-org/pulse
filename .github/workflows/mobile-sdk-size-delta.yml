@@ -69,14 +69,16 @@ jobs:
         run: bash .github/scripts/detect_mobile_dep_changes.sh "origin/${{ github.base_ref }}"
       - name: Read PR labels
         id: labels
+        env:
+          PR_LABELS: ${{ join(github.event.pull_request.labels.*.name, ' ') }}
         run: |
-          LABELS="${{ join(github.event.pull_request.labels.*.name, ' ') }}"
-          if echo "${LABELS}" | grep -qw 'sdk-size-delta'; then
+          set -euo pipefail
+          if echo "${PR_LABELS}" | grep -qw 'sdk-size-delta'; then
             echo "has_size_label=true" >> "$GITHUB_OUTPUT"
           else
             echo "has_size_label=false" >> "$GITHUB_OUTPUT"
           fi
-          if echo "${LABELS}" | grep -qw 'sdk-size-baseline-update'; then
+          if echo "${PR_LABELS}" | grep -qw 'sdk-size-baseline-update'; then
             echo "has_baseline_update_label=true" >> "$GITHUB_OUTPUT"
           else
             echo "has_baseline_update_label=false" >> "$GITHUB_OUTPUT"
@@ -255,9 +257,16 @@ jobs:
       - ios_size
       - rn_size
     if: >-
+      always() &&
       github.event_name == 'pull_request' &&
+      needs.gate.result == 'success' &&
       needs.gate.outputs.has_baseline_update_label == 'true' &&
-      needs.gate.outputs.should_build == 'true'
+      needs.gate.outputs.should_build == 'true' &&
+      (
+        needs.android_size.result == 'success' ||
+        needs.ios_size.result == 'success' ||
+        needs.rn_size.result == 'success'
+      )
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -304,6 +313,7 @@ jobs:
       - name: Verify and commit baselines
         env:
           HEAD_SHA: ${{ needs.gate.outputs.head_sha }}
+          PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
@@ -314,7 +324,7 @@ jobs:
             exit 0
           fi
           git commit -m "chore(ci): update SDK size baselines (${HEAD_SHA})"
-          git push origin "HEAD:${{ github.event.pull_request.head.ref }}"
+          git push origin "HEAD:${PR_HEAD_REF}"
 
   verify_baselines:
     name: Verify baselines after update
@@ -322,7 +332,9 @@ jobs:
       - gate
       - update_baselines
     if: >-
+      always() &&
       github.event_name == 'pull_request' &&
+      needs.gate.result == 'success' &&
       needs.gate.outputs.has_baseline_update_label == 'true' &&
       needs.update_baselines.result == 'success'
     runs-on: ubuntu-latest
@@ -374,10 +386,14 @@ jobs:
       - rn_size
       - update_baselines
       - verify_baselines
+      - test-sdk-size-scripts
     runs-on: ubuntu-latest
     steps:
       - name: Evaluate check
         env:
+          GATE_RESULT: ${{ needs.gate.result }}
+          AUTO_PASS_RESULT: ${{ needs.auto_pass.result }}
+          SCRIPT_TESTS: ${{ needs.test-sdk-size-scripts.result }}
           ANY_DEPS: ${{ needs.gate.outputs.any_deps_changed }}
           HAS_LABEL: ${{ needs.gate.outputs.has_size_label }}
           BASELINE_UPDATE: ${{ needs.gate.outputs.has_baseline_update_label }}
@@ -392,12 +408,16 @@ jobs:
           HEAD_SHA: ${{ needs.gate.outputs.head_sha }}
         run: |
           set -euo pipefail
-          if [[ "${{ needs.gate.result }}" != "success" ]]; then
+          if [[ "${SCRIPT_TESTS}" != "success" ]]; then
+            echo "::error::Script unit tests result=${SCRIPT_TESTS}"
+            exit 1
+          fi
+          if [[ "${GATE_RESULT}" != "success" ]]; then
             echo "::error::Gate job failed; cannot evaluate size delta"
             exit 1
           fi
           if [[ "${ANY_DEPS}" != "true" ]]; then
-            if [[ "${{ needs.auto_pass.result }}" != "success" ]]; then
+            if [[ "${AUTO_PASS_RESULT}" != "success" ]]; then
               echo "::error::auto_pass failed"
               exit 1
             fi
@@ -427,12 +447,12 @@ jobs:
             exit 1
           fi
           if [[ "${BASELINE_UPDATE}" == "true" ]]; then
-            if [[ "${UPDATE}" == "failure" ]]; then
-              echo "::error::update_baselines failed"
+            if [[ "${UPDATE}" != "success" ]]; then
+              echo "::error::update_baselines must succeed when sdk-size-baseline-update is set (result=${UPDATE})"
               exit 1
             fi
-            if [[ "${UPDATE}" == "success" && "${VERIFY}" != "success" ]]; then
-              echo "::error::verify_baselines failed"
+            if [[ "${VERIFY}" != "success" ]]; then
+              echo "::error::verify_baselines failed (result=${VERIFY})"
               exit 1
             fi
           fi
