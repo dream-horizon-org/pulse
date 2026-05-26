@@ -42,6 +42,7 @@ from .session_rca_runner import SessionRcaRunnerError, generate_session_rca_repo
 from .interaction_report_runner import (
     InteractionReportRunnerError,
     generate_interaction_report,
+    interaction_report_request_state_delta,
 )
 from .schemas import (
     InteractionReportGenerateRequest,
@@ -264,6 +265,8 @@ async def generate_interaction_report_endpoint(
     """Run Research → Schema pipeline and return InteractionReportV1."""
     # TODO: Remove this once we have a proper project id
     project_id: str = "TheSouledStoreApp-bV5Uk1m7"
+    # project_id: str = project_id.strip()
+    # project_id: str = "fancode"
     entity_key = "PaymentGatewayHandshakeLatency"
     if not entity_key:
         raise HTTPException(status_code=400, detail="entityKey is required")
@@ -278,7 +281,7 @@ async def generate_interaction_report_endpoint(
 
         period_end = date_type.fromisoformat(request.periodEnd[:10])
 
-    state_delta = request_headers_to_state_delta(http_request)
+    state_delta = interaction_report_request_state_delta(http_request)
     logger.info(
         "Interaction report generate request project_id=%s interaction=%s period_start=%s period_end=%s",
         project_id,

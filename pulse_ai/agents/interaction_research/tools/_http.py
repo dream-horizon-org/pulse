@@ -5,7 +5,10 @@ from __future__ import annotations
 from google.adk.tools import ToolContext
 
 from pulse_ai.client.pulse_client import PulseClient
-from pulse_ai.tool_session_auth import pulse_tool_session_auth_error
+from pulse_ai.tool_session_auth import (
+    pulse_client_kwargs_from_tool_context,
+    pulse_tool_session_auth_error,
+)
 from pulse_ai.agents.em.transformers.response_transformer import parse_error_response
 
 
@@ -20,12 +23,7 @@ async def pulse_get(
     if session_error is not None:
         return session_error
 
-    bearer_token = tool_context.state.get("bearer_token")
-    project_id = tool_context.state.get("project_id")
-    async with PulseClient(
-        authorization_header=bearer_token,
-        project_id=project_id,
-    ) as client:
+    async with PulseClient(**pulse_client_kwargs_from_tool_context(tool_context)) as client:
         response = await client.request("GET", path, params=params or {})
 
         if isinstance(response, dict):

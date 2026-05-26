@@ -18,6 +18,49 @@ _PROJECT = "test-project-id"
 # ---------------------------------------------------------------------------
 
 
+_TENANT = "tenant-abc-123"
+
+
+@respx.mock
+@pytest.mark.asyncio
+async def test_client_sends_tenant_header_when_configured():
+    """GET includes X-Tenant-ID when tenant_id is set on the client."""
+    from pulse_ai.client.pulse_client import PulseClient
+
+    route = respx.get("http://localhost:8080/v1/event-definitions").mock(
+        return_value=httpx.Response(200, json={"data": [], "error": None})
+    )
+
+    async with PulseClient(
+        authorization_header=_AUTH,
+        project_id=_PROJECT,
+        tenant_id=_TENANT,
+    ) as client:
+        await client.request("GET", "/v1/event-definitions")
+
+    assert route.called
+    sent_headers = route.calls[0].request.headers
+    assert sent_headers.get("x-tenant-id") == _TENANT
+
+
+@respx.mock
+@pytest.mark.asyncio
+async def test_client_omits_tenant_header_when_not_configured():
+    """GET does not send X-Tenant-ID when tenant_id is omitted."""
+    from pulse_ai.client.pulse_client import PulseClient
+
+    route = respx.get("http://localhost:8080/v1/interactions").mock(
+        return_value=httpx.Response(200, json={"data": [], "error": None})
+    )
+
+    async with PulseClient(authorization_header=_AUTH, project_id=_PROJECT) as client:
+        await client.request("GET", "/v1/interactions")
+
+    assert route.called
+    sent_headers = route.calls[0].request.headers
+    assert "x-tenant-id" not in sent_headers
+
+
 @respx.mock
 @pytest.mark.asyncio
 async def test_client_sends_auth_and_project_headers():

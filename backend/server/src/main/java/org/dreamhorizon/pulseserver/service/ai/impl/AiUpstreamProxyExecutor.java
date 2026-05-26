@@ -19,6 +19,7 @@ public final class AiUpstreamProxyExecutor {
 
   private static final String AUTHORIZATION_HEADER = "Authorization";
   private static final String PROJECT_HEADER = "X-Project-ID";
+  private static final String TENANT_HEADER = "X-Tenant-ID";
   private static final String CONTENT_TYPE_JSON = "application/json";
   private static final String CONTENT_TYPE_SSE = "text/event-stream";
 
@@ -51,8 +52,18 @@ public final class AiUpstreamProxyExecutor {
       String body,
       String authorization,
       String projectId) {
+    return executeProxy(method, targetUrl, body, authorization, projectId, null);
+  }
+
+  public CompletionStage<AiProxyUpstreamResult> executeProxy(
+      String method,
+      String targetUrl,
+      String body,
+      String authorization,
+      String projectId,
+      String tenantIdOrNull) {
     HttpRequest<Buffer> request = newAbsRequest(method, targetUrl);
-    applyCommonHeaders(request, authorization, projectId);
+    applyCommonHeaders(request, authorization, projectId, tenantIdOrNull);
     request.timeout(UPSTREAM_TIMEOUT_MS);
     return sendWithMethodAndBody(request, method, body)
         .map(this::buildResult)
@@ -71,10 +82,16 @@ public final class AiUpstreamProxyExecutor {
   }
 
   private void applyCommonHeaders(
-      HttpRequest<Buffer> request, String authorization, String projectId) {
+      HttpRequest<Buffer> request,
+      String authorization,
+      String projectId,
+      String tenantIdOrNull) {
     request.putHeader(AUTHORIZATION_HEADER, authorization);
     if (projectId != null && !projectId.isBlank()) {
       request.putHeader(PROJECT_HEADER, projectId.trim());
+    }
+    if (tenantIdOrNull != null && !tenantIdOrNull.isBlank()) {
+      request.putHeader(TENANT_HEADER, tenantIdOrNull.trim());
     }
   }
 

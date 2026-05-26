@@ -562,7 +562,8 @@ class AiProxyServiceImplTest {
       JsonNode out = objectMapper.readTree(result.getBufferedBody());
       assertThat(out.path("cached").asBoolean()).isTrue();
       assertThat(out.path("cachedAt").asText()).isNotBlank();
-      verify(interactionReportProcessor, never()).enqueueProcess(any(), any(), any(), any());
+      verify(interactionReportProcessor, never())
+          .enqueueProcess(any(), any(), any(), any(), any());
     }
 
     @Test
@@ -590,7 +591,7 @@ class AiProxyServiceImplTest {
       assertThat(out.path("jobId").asText()).isEqualTo("rca-job-unit");
       assertThat(out.path("pollUrl").asText()).contains("/v1/ai-rca/job/");
       verify(interactionReportProcessor, times(1))
-          .enqueueProcess(any(), anyString(), eq(AUTH), eq(null));
+          .enqueueProcess(any(), anyString(), eq(AUTH), eq(null), eq(null));
       verify(rcaReportProcessor, never())
           .enqueueProcess(any(), any(), anyBoolean(), any(), any());
     }

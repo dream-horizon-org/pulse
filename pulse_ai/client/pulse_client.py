@@ -27,16 +27,19 @@ class PulseClient:
         self,
         authorization_header: str,
         project_id: str,
+        tenant_id: str | None = None,
     ) -> None:
         """Initialize the client.
 
         Args:
             authorization_header: Full ``Authorization`` header (e.g. ``Bearer <jwt>``).
             project_id: Sent as ``X-Project-ID`` (required for project-scoped APIs).
+            tenant_id: Optional ``X-Tenant-ID`` for tenant-scoped APIs (interaction report).
         """
         base_url = get_pulse_base_url()
         self.authorization_header = authorization_header
         self.project_id = project_id
+        self.tenant_id = tenant_id
         self._client = httpx.AsyncClient(
             base_url=base_url,
             timeout=float(BACKEND_REQUEST_TIMEOUT_SECONDS),
@@ -69,6 +72,8 @@ class PulseClient:
             headers["Authorization"] = auth
         if self.project_id and self.project_id.strip():
             headers["X-Project-ID"] = self.project_id.strip()
+        if self.tenant_id and self.tenant_id.strip():
+            headers["X-Tenant-ID"] = self.tenant_id.strip()
         return headers
 
     async def request(

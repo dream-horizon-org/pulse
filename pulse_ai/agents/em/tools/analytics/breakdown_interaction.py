@@ -8,7 +8,10 @@ import json
 from google.adk.tools import ToolContext
 
 from pulse_ai.client.pulse_client import PulseClient
-from pulse_ai.tool_session_auth import pulse_tool_session_auth_error
+from pulse_ai.tool_session_auth import (
+    pulse_client_kwargs_from_tool_context,
+    pulse_tool_session_auth_error,
+)
 from pulse_ai.agents.em.templates.base import TIME_RANGE_DOC
 from pulse_ai.agents.em.templates.interaction_templates import build_breakdown_query
 from pulse_ai.agents.em.transformers.response_transformer import (
@@ -80,12 +83,7 @@ async def breakdown_interaction(
     if session_error is not None:
         return session_error
 
-    bearer_token = tool_context.state.get("bearer_token")
-    project_id = tool_context.state.get("project_id")
-    async with PulseClient(
-        authorization_header=bearer_token,
-        project_id=project_id,
-    ) as client:
+    async with PulseClient(**pulse_client_kwargs_from_tool_context(tool_context)) as client:
         response = await client.request("POST", DATA_QUERY_PATH, json=query_request)
 
         # Handle network errors

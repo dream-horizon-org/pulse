@@ -9,6 +9,7 @@ import uuid
 from datetime import date
 from typing import Any
 
+from fastapi import Request
 from google.genai.types import Content
 from pydantic import ValidationError
 
@@ -428,6 +429,23 @@ async def _delete_session(runner: Any, session_id: str) -> None:
             session_id,
             exc_info=True,
         )
+
+
+def interaction_report_request_state_delta(
+    http_request: Request,
+) -> dict[str, Any] | None:
+    """Build ADK session state for interaction report (auth, project, tenant)."""
+    authorization = http_request.headers.get("Authorization")
+    project_id = http_request.headers.get("X-Project-ID")
+    tenant_id = http_request.headers.get("X-Tenant-ID")
+    state_delta: dict[str, Any] = {}
+    if authorization:
+        state_delta["bearer_token"] = authorization
+    if project_id and project_id.strip():
+        state_delta["project_id"] = project_id.strip()
+    if tenant_id and tenant_id.strip():
+        state_delta["tenant_id"] = tenant_id.strip()
+    return state_delta or None
 
 
 async def generate_interaction_report(

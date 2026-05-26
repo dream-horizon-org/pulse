@@ -39,10 +39,12 @@ public class InteractionReportProcessor {
       final RcaReportJob job,
       final String requestBody,
       final String authorization,
-      final String rawQuery) {
+      final String rawQuery,
+      final String tenantIdOrNull) {
     vertx.executeBlocking(
         () -> {
-          runPipeline(job, requestBody, authorization, rawQuery).blockingAwait();
+          runPipeline(job, requestBody, authorization, rawQuery, tenantIdOrNull)
+              .blockingAwait();
           return null;
         },
         false,
@@ -59,7 +61,8 @@ public class InteractionReportProcessor {
       final RcaReportJob job,
       final String requestBody,
       final String authorization,
-      final String rawQuery) {
+      final String rawQuery,
+      final String tenantIdOrNull) {
     log.info("Interaction report job {} starting pipeline", job.jobId());
     String targetUrl = upstream.buildTargetUrl(INTERACTION_REPORT_GENERATE_PATH, rawQuery);
     return jobDao
@@ -67,7 +70,12 @@ public class InteractionReportProcessor {
         .andThen(
             Single.fromCompletionStage(
                 upstream.executeProxy(
-                    "POST", targetUrl, requestBody, authorization, job.projectId())))
+                    "POST",
+                    targetUrl,
+                    requestBody,
+                    authorization,
+                    job.projectId(),
+                    tenantIdOrNull)))
         .flatMap(
             proxyResult -> {
               if (!AiProxyUpstreamResult.isSuccessfulBuffered(proxyResult)) {

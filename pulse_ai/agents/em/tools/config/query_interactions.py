@@ -7,7 +7,10 @@ import logging
 from google.adk.tools import ToolContext
 
 from pulse_ai.client.pulse_client import PulseClient
-from pulse_ai.tool_session_auth import pulse_tool_session_auth_error
+from pulse_ai.tool_session_auth import (
+    pulse_client_kwargs_from_tool_context,
+    pulse_tool_session_auth_error,
+)
 from pulse_ai.agents.em.transformers.response_transformer import parse_error_response
 
 VALID_SCOPES = ("list", "detail", "filters", "telemetry_filters")
@@ -49,12 +52,7 @@ async def query_interactions(
     if session_error is not None:
         return session_error
 
-    bearer_token = tool_context.state.get("bearer_token")
-    project_id = tool_context.state.get("project_id")
-    async with PulseClient(
-        authorization_header=bearer_token,
-        project_id=project_id,
-    ) as client:
+    async with PulseClient(**pulse_client_kwargs_from_tool_context(tool_context)) as client:
         if scope == "list":
             params = {"page": page, "size": size, "status": status}
             if name:

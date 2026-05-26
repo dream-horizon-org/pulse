@@ -25,6 +25,7 @@ async def fetch_interaction_root_cause_segments(
     date_value: str | None,
     authorization: str,
     project_id: str,
+    tenant_id: str | None = None,
 ) -> RootCausePayloadSchema:
     """Load tabular RCA via ``GET /v1/interactions/{name}/root-cause`` only.
 
@@ -39,5 +40,6 @@ async def fetch_interaction_root_cause_segments(
     async with PulseClient(
         authorization_header=authorization,
         project_id=project_id,
+        tenant_id=tenant_id,
     ) as client:
         return await _fetch_root_cause_tabular_direct(client, name, effective_date)

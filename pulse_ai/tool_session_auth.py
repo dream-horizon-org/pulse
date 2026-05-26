@@ -44,3 +44,33 @@ def pulse_tool_session_auth_error(tool_context: Any) -> dict | None:
         return {"status": "error", "message": PULSE_TOOL_SESSION_MISSING_PROJECT}
 
     return None
+
+
+def pulse_tool_session_tenant_id(tool_context: Any) -> str | None:
+    """Optional tenant id from ADK session state (interaction report pipeline)."""
+    if tool_context is None:
+        return None
+    state = getattr(tool_context, "state", None)
+    if state is None:
+        return None
+    state_get = getattr(state, "get", None)
+    if not callable(state_get):
+        return None
+    tenant_id = state_get("tenant_id")
+    if isinstance(tenant_id, str) and tenant_id.strip():
+        return tenant_id.strip()
+    return None
+
+
+def pulse_client_kwargs_from_tool_context(tool_context: Any) -> dict[str, str]:
+    """PulseClient constructor kwargs from validated tool session state."""
+    bearer_token = tool_context.state.get("bearer_token")
+    project_id = tool_context.state.get("project_id")
+    kwargs: dict[str, str] = {
+        "authorization_header": bearer_token,
+        "project_id": project_id,
+    }
+    tenant_id = pulse_tool_session_tenant_id(tool_context)
+    if tenant_id:
+        kwargs["tenant_id"] = tenant_id
+    return kwargs

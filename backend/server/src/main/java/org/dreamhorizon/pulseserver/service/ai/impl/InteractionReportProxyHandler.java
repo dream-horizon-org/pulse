@@ -22,6 +22,7 @@ import org.dreamhorizon.pulseserver.service.rca.InteractionReportProcessor;
 import org.dreamhorizon.pulseserver.service.rca.RcaCacheKey;
 import org.dreamhorizon.pulseserver.service.rca.RcaJobDispatch;
 import org.dreamhorizon.pulseserver.service.rca.RcaReportJobService;
+import org.dreamhorizon.pulseserver.tenant.TenantContext;
 
 /**
  * POST {@code interaction-report}: read-through MySQL cache for {@link RcaType#INTERACTION_REPORT};
@@ -67,16 +68,21 @@ final class InteractionReportProxyHandler {
     }
     ParsedPost parsed = ((PostValidation.Valid) validation).parsed();
     KeyParts keyParts = parsed.keyParts();
+    String tenantId = TenantContext.getCurrentTenantId().orElse(null);
     log.info(
-        "Interaction report POST project={} entity={} date={} regenerate={}",
+        "Interaction report POST project={} entity={} date={} regenerate={} tenant={}",
         keyParts.projectId(),
         keyParts.entityKey(),
         keyParts.date(),
-        keyParts.regenerate());
+        keyParts.regenerate(),
+        tenantId);
     if (keyParts.regenerate()) {
-      return withErrorLogging(dispatchAsync(parsed, authorization, rawQuery, keyParts, createdByOrNull));
+      return withErrorLogging(
+          dispatchAsync(parsed, authorization, rawQuery, keyParts, createdByOrNull, tenantId));
     }
-    return withErrorLogging(proxyAfterCacheLookup(keyParts, parsed, authorization, rawQuery, createdByOrNull));
+    return withErrorLogging(
+        proxyAfterCacheLookup(
+            keyParts, parsed, authorization, rawQuery, createdByOrNull, tenantId));
   }
 
   private CompletionStage<AiProxyUpstreamResult> withErrorLogging(
@@ -114,7 +120,8 @@ final class InteractionReportProxyHandler {
       ParsedPost parsed,
       String authorization,
       String rawQuery,
-      String createdByOrNull) {
+      String createdByOrNull,
+      String tenantIdOrNull) {
     CompletableFuture<AiProxyUpstreamResult> resultFuture = new CompletableFuture<>();
     rcaReportCacheDao
         .get(keyParts.projectId(), ENTITY_TYPE, keyParts.entityKey(), keyParts.date())
@@ -131,7 +138,8 @@ final class InteractionReportProxyHandler {
               resultFuture.complete(cacheReadFailedResult());
             },
             () ->
-                dispatchAsync(parsed, authorization, rawQuery, keyParts, createdByOrNull)
+                dispatchAsync(
+                        parsed, authorization, rawQuery, keyParts, createdByOrNull, tenantIdOrNull)
                     .whenComplete(
                         (result, ex) -> {
                           if (ex != null) {
@@ -148,7 +156,8 @@ final class InteractionReportProxyHandler {
       String authorization,
       String rawQuery,
       KeyParts keyParts,
-      String createdByOrNull) {
+      String createdByOrNull,
+      String tenantIdOrNull) {
     CompletableFuture<AiProxyUpstreamResult> done = new CompletableFuture<>();
     RcaCacheKey key =
         new RcaCacheKey(
@@ -165,7 +174,11 @@ final class InteractionReportProxyHandler {
             dispatch -> {
               if (dispatch.shouldEnqueueWorker()) {
                 interactionReportProcessor.enqueueProcess(
-                    dispatch.job(), dispatch.requestBody(), authorization, rawQuery);
+                    dispatch.job(),
+                    dispatch.requestBody(),
+                    authorization,
+                    rawQuery,
+                    tenantIdOrNull);
               }
               done.complete(acceptedResult(dispatch));
             },

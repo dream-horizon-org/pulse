@@ -8,7 +8,10 @@ from pulse_ai.interaction_root_cause_fetch import (
 from pulse_ai.root_cause_payload_fetch import RootCauseFetchError
 from pulse_ai.schemas import RootCausePayloadSchema
 from pulse_ai.schemas.interaction_report_helpers import map_segment_highlights
-from pulse_ai.tool_session_auth import pulse_tool_session_auth_error
+from pulse_ai.tool_session_auth import (
+    pulse_tool_session_auth_error,
+    pulse_tool_session_tenant_id,
+)
 
 
 async def fetch_interaction_root_cause_segments(
@@ -41,6 +44,7 @@ async def fetch_interaction_root_cause_segments(
             date,
             bearer_token,
             project_id,
+            pulse_tool_session_tenant_id(tool_context),
         )
     except RootCauseFetchError as err:
         return {
