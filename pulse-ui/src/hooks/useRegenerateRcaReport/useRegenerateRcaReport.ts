@@ -6,7 +6,7 @@ import {
   getJobIdFromRcaPostResponse,
   unwrapRcaReportPostApiBody,
 } from "../../helpers/rcaResponseUnwrap";
-import { getRcaApiBaseUrl } from "../../utils";
+import { getApiBaseUrl } from "../../utils";
 import { RCA_TYPE } from "../../screens/CriticalInteractionDetails/components/RootCause/RootCause.constants";
 import type {
   RcaJobResponse,
@@ -32,7 +32,7 @@ export const useRegenerateRcaReport = () => {
       windowStartIso,
       windowEndIso,
     }: UseRegenerateRcaReportParams) => {
-      const apiBaseUrl = getRcaApiBaseUrl(rcaType);
+      const apiBaseUrl = getApiBaseUrl();
       const url = `${apiBaseUrl}${POST_RCA_REPORT_ROUTE.apiPath}`;
       const body: Record<string, string | boolean> = {
         rcaType,

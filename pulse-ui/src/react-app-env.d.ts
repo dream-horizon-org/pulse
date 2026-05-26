@@ -13,8 +13,6 @@ declare namespace NodeJS {
     readonly REACT_APP_GCP_MULTI_TENANT_ENABLED?: string;
     readonly REACT_APP_GOOGLE_CLIENT_ID?: string;
     readonly REACT_APP_PULSE_SERVER_URL?: string;
-    /** Optional override for FUNNEL async RCA only (POST /v1/ai/rca/report + job poll). */
-    readonly REACT_APP_FUNNEL_RCA_PULSE_SERVER_URL?: string;
     readonly REACT_APP_GOOGLE_OAUTH_ENABLED?: string;
     /** Comma-separated path substrings that always use real API when mock is on (default: /v1/interactions) */
     readonly REACT_APP_USE_REAL_API_PATHS?: string;

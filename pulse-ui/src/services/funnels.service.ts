@@ -2,7 +2,6 @@ import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 import { API_BASE_URL, API_ROUTES } from "../constants";
 import { makeRequest } from "../helpers/makeRequest";
-import { getFunnelFeatureApiBaseUrl } from "../utils/getApiBaseUrl";
 import { getQueryParamString } from "../helpers/queryParams";
 import type {
   FunnelEventsResponse,
@@ -436,7 +435,7 @@ export async function fetchFunnelDropoff(
 ) {
   const qs = runTime ? `?runTime=${encodeURIComponent(runTime)}` : "";
   return makeRequest<FunnelDropoffResponse>({
-    url: `${getFunnelFeatureApiBaseUrl()}${API_ROUTES.FUNNEL_DROPOFF.apiPath}/${encodeURIComponent(
+    url: `${API_BASE_URL}${API_ROUTES.FUNNEL_DROPOFF.apiPath}/${encodeURIComponent(
       funnelId,
     )}/dropoffs/${stepIndex}${qs}`,
     init: {
@@ -461,7 +460,7 @@ export async function fetchFunnelDropoffEvidence(
   }
   const qs = parts.length ? `?${parts.join("&")}` : "";
   return makeRequest<FunnelDropoffEvidenceResponse>({
-    url: `${getFunnelFeatureApiBaseUrl()}${API_ROUTES.FUNNEL_DROPOFF_EVIDENCE.apiPath}/${encodeURIComponent(
+    url: `${API_BASE_URL}${API_ROUTES.FUNNEL_DROPOFF_EVIDENCE.apiPath}/${encodeURIComponent(
       funnelId,
     )}/dropoffs/${stepIndex}/evidence${qs}`,
     init: {

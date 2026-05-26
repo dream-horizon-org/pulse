@@ -18,7 +18,7 @@ import {
   unwrapRcaJobApiBody,
   unwrapRcaReportPostApiBody,
 } from "../../helpers/rcaResponseUnwrap";
-import { getRcaApiBaseUrl } from "../../utils";
+import { getApiBaseUrl } from "../../utils";
 import {
   extractStructuredReport,
   isRcaStructuredReportV1WithContent,
@@ -99,7 +99,7 @@ async function requestRcaReportPost(
   windowStartIso?: string | null,
   windowEndIso?: string | null,
 ): Promise<ApiResponse<RcaReportResponse | RcaJobResponse>> {
-  const apiBaseUrl = getRcaApiBaseUrl(rcaType);
+  const apiBaseUrl = getApiBaseUrl();
   const url = `${apiBaseUrl}${POST_RCA_REPORT_ROUTE.apiPath}`;
   const headers = buildProjectHeaders(projectId);
   const raw = await makeRequest<RcaReportResponse | RcaJobResponse>({
@@ -128,7 +128,7 @@ async function requestRcaJobGet(
   projectId: string,
   rcaType: string,
 ): Promise<ApiResponse<RcaJobResponse>> {
-  const apiBaseUrl = getRcaApiBaseUrl(rcaType);
+  const apiBaseUrl = getApiBaseUrl();
   const url = `${apiBaseUrl}${GET_RCA_JOB_ROUTE.apiPath(jobId)}`;
   const headers = buildProjectHeaders(projectId);
   const raw = await makeRequest<RcaJobResponse>({
@@ -148,7 +148,7 @@ async function requestRcaStatusGet(
   projectId: string,
   rcaType: string,
 ): Promise<ApiResponse<RcaJobResponse>> {
-  const apiBaseUrl = getRcaApiBaseUrl(rcaType);
+  const apiBaseUrl = getApiBaseUrl();
   const url = `${apiBaseUrl}${GET_RCA_STATUS_ROUTE.apiPath(entityKey, rcaType, date)}`;
   const headers = buildProjectHeaders(projectId);
   return makeRequest<RcaJobResponse>({

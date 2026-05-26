@@ -17,7 +17,6 @@ import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.UriInfo;
 import java.io.IOException;
 import java.lang.reflect.Field;
-import org.dreamhorizon.pulseserver.config.ApplicationConfig;
 import org.dreamhorizon.pulseserver.context.ProjectContext;
 import org.dreamhorizon.pulseserver.service.JwtService;
 import org.dreamhorizon.pulseserver.service.OpenFgaService;
@@ -87,15 +86,7 @@ class AuthorizationFilterTest {
   void setUp() throws Exception {
     filter = new AuthorizationFilter();
     injectDependencies();
-    enableAuthorizationInTests();
     ProjectContext.clear();
-  }
-
-  private void enableAuthorizationInTests() throws Exception {
-    ApplicationConfig config = new ApplicationConfig();
-    config.setGoogleOAuthEnabled(true);
-    config.setAuthorizationEnabled(true);
-    setField(filter, "applicationConfig", config);
   }
 
   @AfterEach
@@ -478,43 +469,6 @@ class AuthorizationFilterTest {
   }
 
   @Nested
-  class DevMode {
-
-    @Test
-    void shouldSkipJwtAndOpenFgaWhenGoogleOAuthDisabled() throws Exception {
-      ApplicationConfig config = new ApplicationConfig();
-      config.setGoogleOAuthEnabled(false);
-      setField(filter, "applicationConfig", config);
-      setupAnnotatedMethod("can_view");
-      setupPath("v1/ai/rca/report");
-      ProjectContext.setProjectId("proj_123");
-
-      filter.filter(requestContext);
-
-      verify(requestContext, never()).abortWith(any(Response.class));
-      verify(jwtService, never()).verifyToken(anyString());
-      verify(openFgaService, never())
-          .checkPermission(anyString(), anyString(), anyString(), anyString());
-    }
-
-    @Test
-    void shouldSkipWhenAuthorizationExplicitlyDisabledEvenIfOAuthEnabled() throws Exception {
-      ApplicationConfig config = new ApplicationConfig();
-      config.setGoogleOAuthEnabled(true);
-      config.setAuthorizationEnabled(false);
-      setField(filter, "applicationConfig", config);
-      setupAnnotatedMethod("can_view");
-      setupPath("v1/ai/rca/report");
-      ProjectContext.setProjectId("proj_123");
-
-      filter.filter(requestContext);
-
-      verify(requestContext, never()).abortWith(any(Response.class));
-      verify(jwtService, never()).verifyToken(anyString());
-    }
-  }
-
-  @Nested
   class V1AiPaths {
 
     @Test
@@ -573,6 +527,7 @@ class AuthorizationFilterTest {
       assertThat(captureAbortStatus()).isEqualTo(401);
     }
   }
+
   @Nested
   class InternalApiAuthorization {
 

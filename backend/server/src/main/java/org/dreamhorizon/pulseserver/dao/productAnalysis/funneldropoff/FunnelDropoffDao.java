@@ -34,7 +34,7 @@ public class FunnelDropoffDao {
    * and freshly-created funnels still populate the panel.
    *
    * @param runTime optional; {@code null} picks the latest run for the funnel.
-   * @param mode either {@code UNIQUE_USERS} or {@code SESSIONS} (case-insensitive).
+   * @param mode    either {@code UNIQUE_USERS} or {@code SESSIONS} (case-insensitive).
    */
   public Single<List<FunnelDropoffCauseRow>> queryCauses(
       String projectId, long funnelId, int stepIndex, String runTime, String mode) {
@@ -44,7 +44,9 @@ public class FunnelDropoffDao {
             : Single.just(rows));
   }
 
-  /** Attribution-only read used by drop-off panel (after precompute) and funnel RCA. */
+  /**
+   * Attribution-only read used by drop-off panel (after precompute) and funnel RCA.
+   */
   public Single<List<FunnelDropoffCauseRow>> queryCausesFromAttribution(
       String projectId, long funnelId, int stepIndex, String runTime) {
     String sql = FunnelDropoffQueries.buildCausesSqlFromAttribution(
@@ -65,10 +67,8 @@ public class FunnelDropoffDao {
             .tenantId(projectId)
             .projectId(projectId)
             .build();
-    // Server-built SQL already filters ProjectId; global pool avoids per-project CH credentials
-    // (needed for local dev when a project has MySQL funnel rows but no clickhouse_project_credentials).
     return clickhouseQueryService
-        .executeGenericQueryWithGlobalPool(config, FunnelDropoffCauseRow.class)
+        .executeQueryOrCreateJob(config, FunnelDropoffCauseRow.class)
         .map(FunnelDropoffDao::causeRowsOrEmpty);
   }
 
@@ -96,7 +96,7 @@ public class FunnelDropoffDao {
             .projectId(projectId)
             .build();
     return clickhouseQueryService
-        .executeGenericQueryWithGlobalPool(config, FunnelDropoffEvidenceRow.class)
+        .executeQueryOrCreateJob(config, FunnelDropoffEvidenceRow.class)
         .map(FunnelDropoffDao::evidenceRowsOrEmpty);
   }
 

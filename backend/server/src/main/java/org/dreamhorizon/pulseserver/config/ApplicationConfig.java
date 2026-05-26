@@ -31,12 +31,6 @@ public class ApplicationConfig {
   public Integer shutdownGracePeriod;
   public String googleOAuthClientId;
   public Boolean googleOAuthEnabled;
-  /**
-   * When {@code false}, {@link org.dreamhorizon.pulseserver.filter.AuthorizationFilter} skips JWT
-   * + OpenFGA (local hybrid testing with prod UI tokens). When unset, falls back to
-   * {@link #googleOAuthEnabled}.
-   */
-  public Boolean authorizationEnabled;
   public String firebaseProjectId;
   public String jwtSecret;
   public String otelCollectorUrl;
@@ -80,7 +74,9 @@ public class ApplicationConfig {
    */
   public Integer redisPort;
 
-  /** Comma-separated opaque tokens accepted by InternalServiceAuthFilter for /internal/* paths. */
+  /**
+   * Comma-separated opaque tokens accepted by InternalServiceAuthFilter for /internal/* paths.
+   */
   public String internalServiceTokens;
 
   /**
@@ -95,18 +91,6 @@ public class ApplicationConfig {
         .map(String::trim)
         .filter(s -> !s.isEmpty())
         .collect(Collectors.toList());
-  }
-
-  /**
-   * Whether {@link org.dreamhorizon.pulseserver.filter.AuthorizationFilter} runs JWT + OpenFGA
-   * checks. Set {@link #authorizationEnabled} to {@code false} for local hybrid testing; when
-   * unset, enabled only if {@link #googleOAuthEnabled} is true.
-   */
-  public boolean isAuthorizationEnabled() {
-    if (authorizationEnabled != null) {
-      return authorizationEnabled;
-    }
-    return googleOAuthEnabled == null || googleOAuthEnabled;
   }
 
   /**

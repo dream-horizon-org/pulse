@@ -30,7 +30,8 @@ class FunnelDropoffDaoTest {
 
   private static final String PROJECT = "test-project";
 
-  @Mock ClickhouseQueryService clickhouseQueryService;
+  @Mock
+  ClickhouseQueryService clickhouseQueryService;
 
   FunnelDropoffDao dao;
 
@@ -57,7 +58,7 @@ class FunnelDropoffDaoTest {
       QueryResultResponse<FunnelDropoffCauseRow> resp =
           QueryResultResponse.<FunnelDropoffCauseRow>builder()
               .rows(List.of(row)).build();
-      when(clickhouseQueryService.executeGenericQueryWithGlobalPool(
+      when(clickhouseQueryService.executeQueryOrCreateJob(
           any(QueryConfiguration.class), eq(FunnelDropoffCauseRow.class)))
           .thenReturn(Single.just(resp));
 
@@ -84,7 +85,7 @@ class FunnelDropoffDaoTest {
           QueryResultResponse.<FunnelDropoffCauseRow>builder()
               .rows(List.of(liveRow)).build();
 
-      when(clickhouseQueryService.executeGenericQueryWithGlobalPool(
+      when(clickhouseQueryService.executeQueryOrCreateJob(
           any(QueryConfiguration.class), eq(FunnelDropoffCauseRow.class)))
           .thenReturn(Single.just(empty), Single.just(liveResp));
 
@@ -100,7 +101,7 @@ class FunnelDropoffDaoTest {
       QueryResultResponse<FunnelDropoffCauseRow> empty =
           QueryResultResponse.<FunnelDropoffCauseRow>builder()
               .rows(Collections.emptyList()).build();
-      when(clickhouseQueryService.executeGenericQueryWithGlobalPool(
+      when(clickhouseQueryService.executeQueryOrCreateJob(
           any(QueryConfiguration.class), eq(FunnelDropoffCauseRow.class)))
           .thenReturn(Single.just(empty), Single.just(empty));
 
@@ -113,7 +114,7 @@ class FunnelDropoffDaoTest {
     void shouldReturnEmptyWhenRowsNull() {
       QueryResultResponse<FunnelDropoffCauseRow> resp =
           QueryResultResponse.<FunnelDropoffCauseRow>builder().rows(null).build();
-      when(clickhouseQueryService.executeGenericQueryWithGlobalPool(
+      when(clickhouseQueryService.executeQueryOrCreateJob(
           any(QueryConfiguration.class), eq(FunnelDropoffCauseRow.class)))
           .thenReturn(Single.just(resp), Single.just(resp));
 
@@ -149,13 +150,13 @@ class FunnelDropoffDaoTest {
       QueryResultResponse<FunnelDropoffEvidenceRow> resp =
           QueryResultResponse.<FunnelDropoffEvidenceRow>builder()
               .rows(List.of(row)).build();
-      when(clickhouseQueryService.executeGenericQueryWithGlobalPool(
+      when(clickhouseQueryService.executeQueryOrCreateJob(
           any(QueryConfiguration.class), eq(FunnelDropoffEvidenceRow.class)))
           .thenReturn(Single.just(resp));
 
       List<FunnelDropoffEvidenceRow> result =
           dao.queryEvidence(PROJECT, 1L, 0, "2026-04-23 10:00:00", "SESSIONS",
-                  List.of("s-1")).blockingGet();
+              List.of("s-1")).blockingGet();
       assertThat(result).hasSize(1);
       assertThat(result.get(0).getSessionId()).isEqualTo("s-1");
       assertThat(result.get(0).getTraceId()).isEqualTo("t-1");
