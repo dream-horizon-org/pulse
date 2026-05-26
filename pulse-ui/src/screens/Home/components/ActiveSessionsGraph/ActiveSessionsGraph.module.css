@@ -90,6 +90,10 @@
   letter-spacing: -1px;
 }
 
+.metricValueSkeleton {
+  margin: 0 auto;
+}
+
 .metricSubtext {
   font-size: 8px !important;
   color: var(--mantine-color-dark-3);

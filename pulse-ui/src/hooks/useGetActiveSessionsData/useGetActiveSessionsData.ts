@@ -1,11 +1,13 @@
 import { useMemo } from "react";
-import { useGetDataQuery } from "../useGetDataQuery";
+import { useGetDataQuery, getDataQueryStatus } from "../useGetDataQuery";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 import { COLUMN_NAME, PulseType } from "../../constants/PulseOtelSemcov";
 import {
   UseGetActiveSessionsDataProps,
   ActiveSessionsData,
+  ActiveSessionsLoadingState,
+  ActiveSessionsFailedState,
 } from "./useGetActiveSessionsData.interface";
 
 dayjs.extend(utc);
@@ -21,15 +23,13 @@ export function useGetActiveSessionsData({
 }: UseGetActiveSessionsDataProps): {
   data: ActiveSessionsData;
   isLoading: boolean;
+  loading: ActiveSessionsLoadingState;
+  failed: ActiveSessionsFailedState;
   error: Error | null;
 } {
-  // Determine data source based on whether screenName is provided
-  // - With screenName: Use TRACES with screen_session/screen_load (screen-specific sessions)
-  // - Without screenName: Use LOGS with session.start (overall app sessions)
   const useTracesTable = !!screenName;
   const dataType = "TRACES";
 
-  // Build filters array
   const buildFilters = useMemo(() => {
     const filterArray: Array<{
       field: string;
@@ -38,7 +38,6 @@ export function useGetActiveSessionsData({
     }> = [];
 
     if (useTracesTable) {
-      // Screen Detail page: TRACES with screen_session/screen_load
       filterArray.push({
         field: COLUMN_NAME.PULSE_TYPE,
         operator: "IN",
@@ -50,7 +49,6 @@ export function useGetActiveSessionsData({
         value: [screenName!],
       });
     } else {
-      // User Engagement page: LOGS with session.start
       filterArray.push({
         field: COLUMN_NAME.PULSE_TYPE,
         operator: "EQ",
@@ -85,9 +83,8 @@ export function useGetActiveSessionsData({
     return filterArray;
   }, [screenName, appVersion, osVersion, device, useTracesTable]);
 
-  // Dedicated last-5-min query for the "Current" metric
   const now = useMemo(() => dayjs().utc(), []);
-  const { data: currentData, isLoading: isLoadingCurrent } = useGetDataQuery({
+  const currentQuery = useGetDataQuery({
     requestBody: {
       dataType,
       timeRange: {
@@ -108,8 +105,7 @@ export function useGetActiveSessionsData({
     enabled: !!startTime && !!endTime,
   });
 
-  // Fetch active sessions
-  const { data, isLoading: isLoadingTrend } = useGetDataQuery({
+  const trendQuery = useGetDataQuery({
     requestBody: {
       dataType,
       timeRange: {
@@ -137,7 +133,12 @@ export function useGetActiveSessionsData({
     enabled: !!startTime && !!endTime,
   });
 
-  // Derive current sessions from dedicated 5-min query
+  const currentData = currentQuery.data;
+  const data = trendQuery.data;
+
+  const currentStatus = getDataQueryStatus(currentQuery);
+  const trendStatus = getDataQueryStatus(trendQuery);
+
   const currentSessions = useMemo(() => {
     const responseData = currentData?.data;
     if (!responseData?.rows || responseData.rows.length === 0) return null;
@@ -145,15 +146,13 @@ export function useGetActiveSessionsData({
     return Math.round(parseFloat(responseData.rows[0][idx]) || 0);
   }, [currentData]);
 
-  // Transform trend data and derive peak/average
-  const { peakSessions, averageSessions, trendData, hasData } = useMemo(() => {
+  const { peakSessions, averageSessions, trendData } = useMemo(() => {
     const responseData = data?.data;
     if (!responseData || !responseData.rows || responseData.rows.length === 0) {
       return {
         peakSessions: null,
         averageSessions: null,
         trendData: [],
-        hasData: false,
       };
     }
 
@@ -175,12 +174,23 @@ export function useGetActiveSessionsData({
       peakSessions: Math.round(peak),
       averageSessions: average,
       trendData: trend,
-      hasData: true,
     };
   }, [data]);
 
+  const hasData = currentSessions !== null || trendData.length > 0;
+
+  const loading: ActiveSessionsLoadingState = {
+    current: currentStatus.loading,
+    trend: trendStatus.loading,
+  };
+
+  const failed: ActiveSessionsFailedState = {
+    current: currentStatus.failed,
+    trend: trendStatus.failed,
+  };
+
+  const isLoading = loading.current || loading.trend;
   const error = null;
-  const isLoading = isLoadingCurrent || isLoadingTrend;
 
   return {
     data: {
@@ -191,6 +201,8 @@ export function useGetActiveSessionsData({
       hasData,
     },
     isLoading,
+    loading,
+    failed,
     error,
   };
 }
