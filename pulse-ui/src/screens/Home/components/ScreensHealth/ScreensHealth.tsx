@@ -59,7 +59,7 @@ export function ScreensHealth({
       };
     }
     const end = dayjs().utc().endOf("day");
-    const start = end.subtract(6, "days").startOf("day");
+    const start = end.subtract(1, "days").startOf("day");
     return {
       startDate: start.toISOString(),
       endDate: end.toISOString(),

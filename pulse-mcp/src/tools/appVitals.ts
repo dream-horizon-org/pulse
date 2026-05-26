@@ -15,7 +15,7 @@ import {
   type FilterField,
   type SelectField,
 } from "./appVitalsHelpers.js";
-import { COLUMN_NAME, PULSE_TYPE_SESSION_START } from "./appVitalsConstants.js";
+import { COLUMN_NAME, PULSE_TYPE_APP_START } from "./appVitalsConstants.js";
 
 const commonListArgs = {
   projectId: z.string().describe("Project ID"),
@@ -119,7 +119,7 @@ export function registerAppVitalsTools(server: McpServer): void {
         {
           field: COLUMN_NAME.PULSE_TYPE,
           operator: "EQ",
-          value: [PULSE_TYPE_SESSION_START],
+          value: [PULSE_TYPE_APP_START],
         },
         ...buildCommonFilters(
           args.appVersion ?? "all",
@@ -134,7 +134,7 @@ export function registerAppVitalsTools(server: McpServer): void {
         {
           function: "CUSTOM",
           param: {
-            expression: `uniqCombined64(nullIf(${COLUMN_NAME.USER_ID}, ''))`,
+            expression: `uniqCombined64(nullIf(${COLUMN_NAME.APP_INSTALLATION_ID}, ''))`,
           },
           alias: "unique_users",
         },
@@ -147,7 +147,7 @@ export function registerAppVitalsTools(server: McpServer): void {
         },
       ];
       const body: DistributionRequestBody = {
-        dataType: "LOGS",
+        dataType: "TRACES",
         timeRange: { start, end },
         filters,
         select,
@@ -216,7 +216,7 @@ export function registerAppVitalsTools(server: McpServer): void {
         {
           function: "CUSTOM",
           param: {
-            expression: `uniqCombined64(nullIf(${COLUMN_NAME.USER_ID}, ''))`,
+            expression: `uniqCombined64(nullIf(${COLUMN_NAME.APP_INSTALLATION_ID}, ''))`,
           },
           alias: "affected_users",
         },
@@ -413,7 +413,7 @@ export function registerAppVitalsTools(server: McpServer): void {
           param: { expression: "ResourceAttributes['network.carrier.name']" },
           alias: "network_provider",
         },
-        { function: "COL", param: { field: "UserId" }, alias: "user_id" },
+        { function: "COL", param: { field: "AppInstallationId" }, alias: "app_installation_id" },
         {
           function: "CUSTOM",
           param: { expression: "arrayStringConcat(Interactions, ', ')" },

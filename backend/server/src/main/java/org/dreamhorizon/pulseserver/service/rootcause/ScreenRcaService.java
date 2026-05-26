@@ -169,14 +169,30 @@ public class ScreenRcaService {
 
   private RootCauseResult fromCacheRow(ScreenRootCauseCacheRow row) {
     Map<String, Object> baseline = parseJsonMapOrThrow(row, row.getBaseline(), CACHE_FIELD_BASELINE);
+    enrichDerivedMetrics(baseline);
     List<RootCauseSegment> segments =
-        parseJsonSegmentsOrThrow(row, row.getSegments(), CACHE_FIELD_SEGMENTS);
+        parseJsonSegmentsOrThrow(row, row.getSegments(), CACHE_FIELD_SEGMENTS).stream()
+            .map(seg -> enrichSegmentFromCache(baseline, seg))
+            .toList();
     return RootCauseResult.builder()
         .baseline(baseline)
         .segments(segments)
         .mode(RootCauseAnalysisMode.fromWireValue(row.getMode()))
         .cachedAt(row.getCachedAt().atZone(ZoneOffset.UTC).toInstant())
         .build();
+  }
+
+  private static RootCauseSegment enrichSegmentFromCache(
+      Map<String, Object> baseline, RootCauseSegment segment) {
+    if (segment == null) {
+      return null;
+    }
+    Map<String, Object> metrics =
+        segment.getMetrics() == null ? new LinkedHashMap<>() : new LinkedHashMap<>(segment.getMetrics());
+    enrichDerivedMetrics(metrics);
+    Map<String, Double> deltas =
+        computeScreenDeltas(baseline, metrics, segment.getDeltas() == null ? Map.of() : segment.getDeltas());
+    return segment.toBuilder().metrics(metrics).deltas(deltas).build();
   }
 
   @SuppressWarnings("unchecked")
@@ -295,18 +311,19 @@ public class ScreenRcaService {
                 .build());
           }
           long totalBad = NumberCoercionUtils.toLong(baselineRow.get(ScreenRcaQueryBuilder.BAD_FRUSTRATION));
+          Map<String, Object> baseline = toBaselineMap(baselineRow);
           if (totalBad == 0) {
             return Single.just(RootCauseResult.builder()
                 .everythingGood(true)
                 .message("Everything is good")
-                .baseline(toBaselineMap(baselineRow))
+                .baseline(baseline)
                 .segments(List.of())
                 .mode(RootCauseAnalysisMode.FLAT)
                 .build());
           }
-          return runAlgorithm(projectId, screenName, window, baselineRow, totalBad)
+          return runAlgorithm(projectId, screenName, window, baseline, totalBad)
               .map(outcome -> RootCauseResult.builder()
-                  .baseline(toBaselineMap(baselineRow))
+                  .baseline(baseline)
                   .segments(outcome.segments())
                   .mode(outcome.mode())
                   .build());
@@ -502,7 +519,7 @@ public class ScreenRcaService {
       Optional<Map.Entry<String, Long>> top = rows.stream()
           .map(r -> {
             Object raw = r.get(dim);
-            String dimValue = raw != null ? raw.toString() : "";
+            String dimValue = normalizeDimensionValue(raw);
             return Map.entry(dimValue, NumberCoercionUtils.toLong(r.get(ScreenRcaQueryBuilder.BAD_FRUSTRATION)));
           })
           .filter(e -> e.getValue() > 0)
@@ -644,11 +661,13 @@ public class ScreenRcaService {
             return Optional.<RootCauseSegment>empty();
           }
           Map<String, Object> row = rows.get(0);
-          Map<String, Double> deltas = computeScreenDeltas(baseline, row);
+          Map<String, Object> metrics = new LinkedHashMap<>(row);
+          enrichDerivedMetrics(metrics);
+          Map<String, Double> deltas = computeScreenDeltas(baseline, metrics);
           RootCauseSegment segment = RootCauseSegment.builder()
               .label(label)
               .dimensions(new LinkedHashMap<>(dimensionFilters))
-              .metrics(new LinkedHashMap<>(row))
+              .metrics(metrics)
               .deltas(deltas)
               .build();
           return Optional.of(segment);
@@ -671,14 +690,34 @@ public class ScreenRcaService {
       if (diff < bestDiff) {
         bestDiff = diff;
         Object val = row.get(dimensionColumn);
-        best = new SegmentPath(dimensionColumn, val != null ? val.toString() : "", false);
+        best = new SegmentPath(dimensionColumn, normalizeDimensionValue(val), false);
       }
     }
     return Optional.ofNullable(best);
   }
 
-  private Map<String, Double> computeScreenDeltas(Map<String, Object> baseline, Map<String, Object> segment) {
-    Map<String, Double> deltas = new LinkedHashMap<>();
+  private static String normalizeDimensionValue(Object raw) {
+    if (raw == null) {
+      return ScreenRcaQueryBuilder.UNKNOWN_DIMENSION;
+    }
+    String s = raw.toString().strip();
+    return s.isEmpty() ? ScreenRcaQueryBuilder.UNKNOWN_DIMENSION : s;
+  }
+
+  private static Map<String, Double> computeScreenDeltas(
+      Map<String, Object> baseline, Map<String, Object> segment) {
+    return computeScreenDeltas(baseline, segment, Map.of());
+  }
+
+  /**
+   * Relative % change vs baseline for each screen RCA metric. Preserves unrelated keys in {@code existingDeltas}
+   * when backfilling cache rows.
+   */
+  private static Map<String, Double> computeScreenDeltas(
+      Map<String, Object> baseline,
+      Map<String, Object> segment,
+      Map<String, Double> existingDeltas) {
+    Map<String, Double> deltas = new LinkedHashMap<>(existingDeltas);
     for (String metric : screenRcaMetricKeys()) {
       Object b = baseline.get(metric);
       Object s = segment.get(metric);
@@ -700,7 +739,27 @@ public class ScreenRcaService {
     return deltas;
   }
 
-  private static List<String> screenRcaMetricKeys() {
+  /**
+   * {@code bad_frustration / click_volume * 100} when volume &gt; 0. Omits the key when undefined (both zero).
+   */
+  static void enrichDerivedMetrics(Map<String, Object> metrics) {
+    if (metrics == null || metrics.isEmpty()) {
+      return;
+    }
+    SegmentSignalGate.metricRate(
+            metrics,
+            ScreenRcaQueryBuilder.BAD_FRUSTRATION,
+            ScreenRcaQueryBuilder.CLICK_VOLUME)
+        .ifPresent(
+            rate -> {
+              if (Double.isFinite(rate)) {
+                metrics.put(
+                    ScreenRcaQueryBuilder.BAD_FRUSTRATION_PERCENTAGE, rate * 100.0);
+              }
+            });
+  }
+
+  private static List<String> screenRcaRawMetricKeys() {
     return List.of(
         ScreenRcaQueryBuilder.CLICK_VOLUME,
         ScreenRcaQueryBuilder.TAP_COUNT,
@@ -709,13 +768,20 @@ public class ScreenRcaService {
         ScreenRcaQueryBuilder.BAD_FRUSTRATION);
   }
 
+  private static List<String> screenRcaMetricKeys() {
+    List<String> keys = new ArrayList<>(screenRcaRawMetricKeys());
+    keys.add(ScreenRcaQueryBuilder.BAD_FRUSTRATION_PERCENTAGE);
+    return keys;
+  }
+
   private static Map<String, Object> toBaselineMap(Map<String, Object> row) {
     Map<String, Object> m = new LinkedHashMap<>();
-    for (String key : screenRcaMetricKeys()) {
+    for (String key : screenRcaRawMetricKeys()) {
       if (row.containsKey(key)) {
         m.put(key, row.get(key));
       }
     }
+    enrichDerivedMetrics(m);
     return m;
   }
 

@@ -121,25 +121,6 @@ public final class SessionListingQueryBuilder {
     }
 
     /**
-     * Builds the journey query for a given set of session IDs.
-     * Queries {@code otel.otel_traces} using bloom_filter on SessionId.
-     */
-    public String buildJourneyQuery(List<String> sessionIds) {
-        if (sessionIds == null || sessionIds.isEmpty()) {
-            throw new IllegalArgumentException("sessionIds must not be empty for journey query");
-        }
-        validate();
-
-        String idList = buildIdList(sessionIds);
-
-        return JOURNEY_SELECT + '\n'
-                + "WHERE ProjectId = " + quote(projectId) + '\n'
-                + "  AND SessionId IN (" + idList + ")\n"
-                + "  AND Timestamp >= " + toDateTime64(startTime) + '\n'
-                + "GROUP BY SessionId";
-    }
-
-    /**
      * Builds the impacted screens query for a given set of session IDs.
      * Queries {@code otel.stack_trace_events} and returns crash/ANR/non-fatal
      * screen names grouped by session.

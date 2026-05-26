@@ -10,12 +10,18 @@ export const SCREEN_ROOT_CAUSE_MESSAGES = {
 } as const;
 
 export const SCREEN_RCA_METRIC_LABELS: Record<string, string> = {
-  click_volume: "Click volume",
-  tap_count: "Tap count",
-  rage_count: "Rage tap count",
-  dead_count: "Dead click count",
-  bad_frustration: "Bad frustration",
+  click_volume: "Total Clicks",
+  tap_count: "Good clicks",
+  rage_count: "Rage clicks",
+  dead_count: "Dead clicks",
+  bad_frustration: "Bad frustration clicks",
+  bad_frustration_percentage: "Bad frustration %",
 };
+
+/** Shown on the metric-row info icon (bad_frustration = dead_count + rage_count). */
+export const SCREEN_RCA_BAD_FRUSTRATION_PERCENTAGE_TOOLTIP =
+  "Bad frustration % = (bad frustration clicks ÷ total clicks) × 100. " +
+  "A click is either a dead click or a rage tap (not both). Bad frustration = dead clicks + rage clicks.";
 
 export const SCREEN_RCA_MODE_LABELS = {
   flat: "Flat",

@@ -28,7 +28,7 @@ const DEBOUNCE_DELAY = 300;
 
 // Build query for fetching scope names with optional search filter
 const buildScopeNamesQuery = (scopeType: AlertScopeType | null, searchTerm?: string) => {
-  const timeRange = { start: dayjs().subtract(7, "day").toISOString(), end: dayjs().toISOString() };
+  const timeRange = { start: dayjs().subtract(1, "hour").toISOString(), end: dayjs().toISOString() };
   const baseFilters: Array<{ field: string; operator: "EQ" | "IN" | "LIKE"; value: string[] }> = [];
 
   if (scopeType === AlertScopeType.Interaction) {
@@ -126,7 +126,7 @@ export const StepMetricsAndExpression: React.FC<StepMetricsAndExpressionProps> =
   const shouldFetchScopeNames = !isAppVitals && !isFunnel && !!scopeNamesQuery;
   const fallbackQuery = useMemo(() => ({
     dataType: "TRACES" as const,
-    timeRange: { start: dayjs().subtract(7, "day").toISOString(), end: dayjs().toISOString() },
+    timeRange: { start: dayjs().subtract(1, "hour").toISOString(), end: dayjs().toISOString() },
     select: [], groupBy: [],
   }), []);
 

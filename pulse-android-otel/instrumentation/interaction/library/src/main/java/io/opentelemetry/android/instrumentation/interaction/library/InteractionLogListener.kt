@@ -20,7 +20,7 @@ internal class InteractionLogListener(
             interactionManager.addEvent(
                 logRecord.bodyValue?.asString() ?: error("Null not possible"),
                 params = logRecord.attributes.asMap().mapKeys { it.key.key },
-                eventTimeInNano = logRecord.observedTimestampEpochNanos,
+                eventTimeInNano = logRecord.timestampEpochNanos,
             )
         }
         if (logRecord.eventName in listOfEventToAddInInteraction) {
@@ -32,7 +32,7 @@ internal class InteractionLogListener(
                 eventName =
                     logRecord.attributes[PulseAttributes.PULSE_TYPE]
                         ?: error("${PulseAttributes.PULSE_TYPE.key} is not defined for eventName = ${logRecord.eventName ?: "null"}"),
-                eventTimeInNano = logRecord.observedTimestampEpochNanos,
+                eventTimeInNano = logRecord.timestampEpochNanos,
                 params =
                     mapOf(
                         LogIncubatingAttributes.LOG_RECORD_UID.key to logRecord.attributes[LogIncubatingAttributes.LOG_RECORD_UID],

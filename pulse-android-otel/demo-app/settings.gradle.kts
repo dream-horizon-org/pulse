@@ -54,5 +54,9 @@ includeBuild("..") {
             .using(project(":instrumentation:location:location-models"))
         substitute(module("org.dreamhorizon:pulse-android-sdk"))
             .using(project(":pulse-android-sdk"))
+        substitute(module("org.dreamhorizon.instrumentation:okhttp3-library"))
+            .using(project(":instrumentation:okhttp3:library"))
+        substitute(module("org.dreamhorizon.instrumentation:okhttp3-agent"))
+            .using(project(":instrumentation:okhttp3:agent"))
     }
 }

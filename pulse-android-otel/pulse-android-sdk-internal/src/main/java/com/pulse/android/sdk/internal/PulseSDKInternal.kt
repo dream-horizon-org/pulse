@@ -433,6 +433,9 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
                         }
                         attributesBuilder.put(AppIncubatingAttributes.APP_INSTALLATION_ID, installationIdManager.installationId)
                         attributesBuilder.put(PulseSessionAttributes.PULSE_METERING_SESSION_ID, meteredSessionProvider.getSessionId())
+                        currentSdkConfig?.run {
+                            attributesBuilder.put(PulseAttributes.PULSE_SDK_CONFIG_VERSION, version.toLong())
+                        }
                         application.resources.displayMetrics.let { dm ->
                             val w = (dm.widthPixels / dm.density).toLong()
                             val h = (dm.heightPixels / dm.density).toLong()
@@ -641,7 +644,7 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
 
     public fun trackEvent(
         name: String,
-        observedTimeStampInMs: Long,
+        timestampInMs: Long,
         params: Map<String, Any?>,
     ) {
         if (!isInitialized()) return
@@ -649,7 +652,8 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
             logger
                 .logRecordBuilder()
                 .apply {
-                    setObservedTimestamp(observedTimeStampInMs, TimeUnit.MILLISECONDS)
+                    setTimestamp(timestampInMs, TimeUnit.MILLISECONDS)
+                    setObservedTimestamp(System.currentTimeMillis(), TimeUnit.MILLISECONDS)
                     setBody(name)
                     setEventName(CUSTOM_EVENT_NAME)
                     setAttribute(
@@ -664,14 +668,15 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
 
     public fun trackNonFatal(
         name: String,
-        observedTimeStampInMs: Long,
+        timestampInMs: Long,
         params: Map<String, Any?>,
     ) {
         if (!isInitialized()) return
         logger
             .logRecordBuilder()
             .apply {
-                setObservedTimestamp(observedTimeStampInMs, TimeUnit.MILLISECONDS)
+                setTimestamp(timestampInMs, TimeUnit.MILLISECONDS)
+                setObservedTimestamp(System.currentTimeMillis(), TimeUnit.MILLISECONDS)
                 setBody(name)
                 setEventName(CUSTOM_NON_FATAL_EVENT_NAME)
                 setAttribute(PulseAttributes.PULSE_TYPE, PulseAttributes.PulseTypeValues.NON_FATAL)
@@ -682,14 +687,15 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
 
     public fun trackNonFatal(
         throwable: Throwable,
-        observedTimeStampInMs: Long,
+        timestampInMs: Long,
         params: Map<String, Any?>,
     ) {
         if (!isInitialized()) return
         logger
             .logRecordBuilder()
             .apply {
-                setObservedTimestamp(observedTimeStampInMs, TimeUnit.MILLISECONDS)
+                setTimestamp(timestampInMs, TimeUnit.MILLISECONDS)
+                setObservedTimestamp(System.currentTimeMillis(), TimeUnit.MILLISECONDS)
                 setBody(throwable.message ?: "Non fatal error of type ${throwable.javaClass.name}")
                 val attributesBuilder =
                     Attributes
