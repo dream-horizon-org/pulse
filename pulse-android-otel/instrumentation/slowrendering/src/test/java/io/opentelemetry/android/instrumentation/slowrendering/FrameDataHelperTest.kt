@@ -435,7 +435,7 @@ internal class FrameDataHelperTest {
     }
 
     @Test
-    fun `interpolates from next two values when three values are present #1`() {
+    fun `interpolates from next two values when three values are present using earliest snapshots`() {
         val events =
             listOf(
                 FrameDataHelper.CumulativeFrameData(2000, 10, 5, 3, 1),
@@ -464,7 +464,7 @@ internal class FrameDataHelperTest {
     }
 
     @Test
-    fun `interpolates from next two values when three values are present #2`() {
+    fun `interpolates from next two values when three values are present and range precedes all snapshots`() {
         val events =
             listOf(
                 FrameDataHelper.CumulativeFrameData(4500, 10, 5, 3, 1),
@@ -790,5 +790,173 @@ internal class FrameDataHelperTest {
         }
 
         assertThat(failure.get()).isNull()
+    }
+
+    @Test
+    fun `interpolates when startBefore has no earlier event by timestamp`() {
+        val events =
+            listOf(
+                FrameDataHelper.CumulativeFrameData(2000, 10, 5, 1, 0),
+                FrameDataHelper.CumulativeFrameData(2000, 20, 10, 2, 1),
+            )
+
+        val result =
+            FrameDataHelper.createCumulativeFrameMetric(
+                events = events,
+                startTimeInMs = 2000,
+                endTimeInMs = 3000,
+            )
+
+        assertThat(result)
+            .usingRecursiveComparison()
+            .isEqualTo(
+                FrameDataHelper.CumulativeFrameData(
+                    timeInMs = 3000,
+                    analysedFrameCount = 10,
+                    unanalysedFrameCount = 5,
+                    slowFrameCount = 2,
+                    frozenFrameCount = 1,
+                ),
+            )
+    }
+
+    @Test
+    fun `interpolates when duplicate boundary snapshots fall within query range`() {
+        val events =
+            listOf(
+                FrameDataHelper.CumulativeFrameData(2000, 10, 5, 1, 0),
+                FrameDataHelper.CumulativeFrameData(2000, 20, 10, 2, 1),
+            )
+
+        val result =
+            FrameDataHelper.createCumulativeFrameMetric(
+                events = events,
+                startTimeInMs = 1000,
+                endTimeInMs = 3000,
+            )
+
+        assertThat(result)
+            .usingRecursiveComparison()
+            .isEqualTo(
+                FrameDataHelper.CumulativeFrameData(
+                    timeInMs = 3000,
+                    analysedFrameCount = 10,
+                    unanalysedFrameCount = 5,
+                    slowFrameCount = 2,
+                    frozenFrameCount = 1,
+                ),
+            )
+    }
+
+    @Test
+    fun `interpolates when endAfter has no later event by timestamp`() {
+        val events =
+            listOf(
+                FrameDataHelper.CumulativeFrameData(3000, 10, 5, 1, 0),
+                FrameDataHelper.CumulativeFrameData(3000, 20, 10, 2, 1),
+            )
+
+        val result =
+            FrameDataHelper.createCumulativeFrameMetric(
+                events = events,
+                startTimeInMs = 1000,
+                endTimeInMs = 3000,
+            )
+
+        assertThat(result)
+            .usingRecursiveComparison()
+            .isEqualTo(
+                FrameDataHelper.CumulativeFrameData(
+                    timeInMs = 3000,
+                    analysedFrameCount = 10,
+                    unanalysedFrameCount = 5,
+                    slowFrameCount = 0,
+                    frozenFrameCount = 0,
+                ),
+            )
+    }
+
+    @Test
+    fun `interpolates when duplicate boundary snapshots span inner pair for extended end time`() {
+        val events =
+            listOf(
+                FrameDataHelper.CumulativeFrameData(3000, 10, 5, 1, 0),
+                FrameDataHelper.CumulativeFrameData(3000, 20, 10, 2, 1),
+            )
+
+        val result =
+            FrameDataHelper.createCumulativeFrameMetric(
+                events = events,
+                startTimeInMs = 1000,
+                endTimeInMs = 4000,
+            )
+
+        assertThat(result)
+            .usingRecursiveComparison()
+            .isEqualTo(
+                FrameDataHelper.CumulativeFrameData(
+                    timeInMs = 4000,
+                    analysedFrameCount = 10,
+                    unanalysedFrameCount = 5,
+                    slowFrameCount = 2,
+                    frozenFrameCount = 1,
+                ),
+            )
+    }
+
+    @Test
+    fun `interpolates when endAfter has no later event and query range follows all snapshots`() {
+        val events =
+            listOf(
+                FrameDataHelper.CumulativeFrameData(3000, 10, 5, 1, 0),
+                FrameDataHelper.CumulativeFrameData(3000, 20, 10, 2, 1),
+            )
+
+        val result =
+            FrameDataHelper.createCumulativeFrameMetric(
+                events = events,
+                startTimeInMs = 4000,
+                endTimeInMs = 5000,
+            )
+
+        assertThat(result)
+            .usingRecursiveComparison()
+            .isEqualTo(
+                FrameDataHelper.CumulativeFrameData(
+                    timeInMs = 5000,
+                    analysedFrameCount = 10,
+                    unanalysedFrameCount = 5,
+                    slowFrameCount = 0,
+                    frozenFrameCount = 0,
+                ),
+            )
+    }
+
+    @Test
+    fun `interpolates when endAfter has no later event and query range precedes all snapshots`() {
+        val events =
+            listOf(
+                FrameDataHelper.CumulativeFrameData(3000, 10, 5, 1, 0),
+                FrameDataHelper.CumulativeFrameData(3000, 20, 10, 2, 1),
+            )
+
+        val result =
+            FrameDataHelper.createCumulativeFrameMetric(
+                events = events,
+                startTimeInMs = 1000,
+                endTimeInMs = 2000,
+            )
+
+        assertThat(result)
+            .usingRecursiveComparison()
+            .isEqualTo(
+                FrameDataHelper.CumulativeFrameData(
+                    timeInMs = 2000,
+                    analysedFrameCount = 10,
+                    unanalysedFrameCount = 5,
+                    slowFrameCount = 0,
+                    frozenFrameCount = 0,
+                ),
+            )
     }
 }

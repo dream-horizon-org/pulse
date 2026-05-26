@@ -1,7 +1,5 @@
 package io.opentelemetry.android.instrumentation.slowrendering
 
-import kotlin.collections.first
-
 internal object FrameDataHelper {
     // Guards all access to frameDataEvents and the two running totals below.
     // Writers run on the FrameMetricsCollector HandlerThread; readers run on
@@ -26,24 +24,32 @@ internal object FrameDataHelper {
     private fun interpolateLinear(
         before: CumulativeFrameData,
         after: CumulativeFrameData,
-        targetStartTime: Long,
-        targetEndTime: Long,
-    ): CumulativeFrameData =
-        CumulativeFrameData(
-            timeInMs = targetEndTime,
+        targetStartTimeInMs: Long,
+        targetEndTimeInMs: Long,
+    ): CumulativeFrameData {
+        val analysedDelta = after.analysedFrameCount - before.analysedFrameCount
+        val unanalysedDelta = after.unanalysedFrameCount - before.unanalysedFrameCount
+        val sourceTimeDelta = after.timeInMs - before.timeInMs
+        val targetTimeDelta = targetEndTimeInMs - targetStartTimeInMs
+
+        return CumulativeFrameData(
+            timeInMs = targetEndTimeInMs,
             analysedFrameCount =
-                (
-                    (after.analysedFrameCount - before.analysedFrameCount).toDouble() / (after.timeInMs - before.timeInMs) *
-                        (targetEndTime - targetStartTime)
-                ).toLong(),
+                if (sourceTimeDelta == 0L) {
+                    analysedDelta
+                } else {
+                    (analysedDelta.toDouble() / sourceTimeDelta * targetTimeDelta).toLong()
+                },
             unanalysedFrameCount =
-                (
-                    (after.unanalysedFrameCount - before.unanalysedFrameCount).toDouble() /
-                        (after.timeInMs - before.timeInMs) * (targetEndTime - targetStartTime)
-                ).toLong(),
+                if (sourceTimeDelta == 0L) {
+                    unanalysedDelta
+                } else {
+                    (unanalysedDelta.toDouble() / sourceTimeDelta * targetTimeDelta).toLong()
+                },
             slowFrameCount = before.slowFrameCount,
             frozenFrameCount = before.frozenFrameCount,
         )
+    }
 
     private fun findBestPairForInterpolation(
         events: List<CumulativeFrameData>,
@@ -77,11 +83,13 @@ internal object FrameDataHelper {
             }
 
             startBefore != null -> {
-                events.last { it.timeInMs < startBefore.timeInMs } to startBefore
+                val before = events.lastOrNull { it.timeInMs < startBefore.timeInMs } ?: events.first()
+                before to startBefore
             }
 
             endAfter != null -> {
-                endAfter to events.first { it.timeInMs > endAfter.timeInMs }
+                val after = events.firstOrNull { it.timeInMs > endAfter.timeInMs } ?: events.last()
+                endAfter to after
             }
 
             else -> {
@@ -147,8 +155,8 @@ internal object FrameDataHelper {
             interpolateLinear(
                 before = bestRangePair.first,
                 after = bestRangePair.second,
-                targetStartTime = startTimeInMs,
-                targetEndTime = endTimeInMs,
+                targetStartTimeInMs = startTimeInMs,
+                targetEndTimeInMs = endTimeInMs,
             )
 
         val (slow, frozen) = findCriticalFrameCounts(events, startTimeInMs, endTimeInMs)
