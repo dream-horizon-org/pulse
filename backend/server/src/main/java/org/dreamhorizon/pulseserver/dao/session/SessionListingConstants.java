@@ -8,7 +8,7 @@ public final class SessionListingConstants {
   public static final String LISTING_SELECT = String.join(", ",
       "sessionId",
       "min(startTime) AS s_startTime",
-      "toString(max(endTime)) AS s_endTime",
+      "max(endTime) AS s_endTime",
       "toUInt64(dateDiff('millisecond', min(startTime), max(endTime))) AS s_durationMs",
       "anyIf(userId, userId != '') AS s_user",
       "if(sum(apdexCount) > 0, round(sum(apdexSum) / sum(apdexCount), 2), null) AS s_qualityScore",
