@@ -31,6 +31,7 @@ export function useExceptionListCount(params: ExceptionListFilterParams) {
     state: params.state ?? "all",
     screenName: params.screenName,
     exceptionType: params.exceptionType,
+    searchQuery: params.searchQuery?.trim() ?? "",
   });
 
   const query = useQuery({

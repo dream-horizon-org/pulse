@@ -3,6 +3,7 @@ import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   useExceptionListInfiniteData,
   useExceptionListCount,
+  useExceptionListSearch,
 } from "./ExceptionTable/hooks";
 import { ExceptionVirtualTable } from "./ExceptionTable/ExceptionVirtualTable";
 import type { ExceptionRow } from "./ExceptionTable/ExceptionTable.interface";
@@ -34,6 +35,8 @@ export const CrashList: React.FC<CrashListProps> = ({
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { projectId } = useParams<{ projectId: string }>();
+  const { searchInput, setSearchInput, searchQuery, activeSearchQuery } =
+    useExceptionListSearch();
 
   const listParams = {
     startTime,
@@ -45,6 +48,7 @@ export const CrashList: React.FC<CrashListProps> = ({
     networkProvider,
     state,
     screenName,
+    searchQuery,
     exceptionType: "crash" as const,
   };
 
@@ -91,6 +95,9 @@ export const CrashList: React.FC<CrashListProps> = ({
       onLoadMore={fetchNextPage}
       hasMore={hasMore}
       isFetchingMore={queryState.isLoadingMore}
+      searchValue={searchInput}
+      onSearchChange={setSearchInput}
+      activeSearchQuery={activeSearchQuery}
     />
   );
 };

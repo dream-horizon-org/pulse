@@ -57,6 +57,7 @@ export function useExceptionListInfiniteData(
     state: params.state ?? "all",
     screenName,
     exceptionType,
+    searchQuery: params.searchQuery?.trim() ?? "",
   });
 
   const infinite = useInfiniteQuery<ExceptionListPage, Error>({

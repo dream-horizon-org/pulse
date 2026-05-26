@@ -3,6 +3,7 @@ import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   useExceptionListInfiniteData,
   useExceptionListCount,
+  useExceptionListSearch,
 } from "./ExceptionTable/hooks";
 import { ExceptionVirtualTable } from "./ExceptionTable/ExceptionVirtualTable";
 import type { ExceptionRow } from "./ExceptionTable/ExceptionTable.interface";
@@ -34,6 +35,8 @@ export const NonFatalList: React.FC<NonFatalListProps> = ({
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { projectId } = useParams<{ projectId: string }>();
+  const { searchInput, setSearchInput, searchQuery, activeSearchQuery } =
+    useExceptionListSearch();
 
   const listParams = {
     startTime,
@@ -45,6 +48,7 @@ export const NonFatalList: React.FC<NonFatalListProps> = ({
     networkProvider,
     state,
     screenName,
+    searchQuery,
     exceptionType: "nonfatal" as const,
   };
 
@@ -93,6 +97,9 @@ export const NonFatalList: React.FC<NonFatalListProps> = ({
       hasMore={hasMore}
       isFetchingMore={queryState.isLoadingMore}
       showTypeColumn
+      searchValue={searchInput}
+      onSearchChange={setSearchInput}
+      activeSearchQuery={activeSearchQuery}
     />
   );
 };

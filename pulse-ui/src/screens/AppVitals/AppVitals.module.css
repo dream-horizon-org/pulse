@@ -344,7 +344,7 @@
 }
 
 .exceptionVirtualScroll {
-  height: min(600px, calc(100vh - 420px));
+  height: min(1000px, calc(100vh - 300px));
   min-height: 400px;
   overflow: auto;
   position: relative;
@@ -358,6 +358,10 @@
     transparent
   );
   box-shadow: inset 3px 0 0 rgba(14, 201, 194, 0.5);
+}
+
+.exceptionListSearch {
+  margin: 0 16px 12px;
 }
 
 .badgeCell {

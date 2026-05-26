@@ -10,7 +10,7 @@ import { EXCEPTION_LIST_ROW_HEIGHT_PX } from "./exceptionList.constants";
 import classes from "../../AppVitals.module.css";
 
 const cellStyle: CSSProperties = {
-  padding: "0 16px",
+  padding: "16px 16px",
   display: "flex",
   alignItems: "center",
   overflow: "hidden",
@@ -55,7 +55,7 @@ export function ExceptionVirtualRow({
       className={classes.exceptionVirtualRow}
     >
       <div style={{ ...cellStyle, width: columnWidths.title }}>
-        <Text fw={500} size="sm" lineClamp={1}>
+        <Text fw={500} size="sm" lineClamp={2}>
           {exception.title || "Untitled Exception"}
         </Text>
       </div>

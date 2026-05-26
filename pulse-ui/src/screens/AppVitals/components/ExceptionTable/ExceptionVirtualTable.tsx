@@ -10,6 +10,7 @@ import { Text, Badge, Box, Center, Loader } from "@mantine/core";
 import type { ExceptionRow } from "./ExceptionTable.interface";
 import { TableSkeleton } from "../../../../components/Skeletons";
 import { ExceptionVirtualRow } from "./ExceptionVirtualRow";
+import { ExceptionListSearchBar } from "./ExceptionListSearchBar";
 import {
   EXCEPTION_LIST_FETCH_MORE_STRIP_HEIGHT_PX,
   EXCEPTION_LIST_HEADER_HEIGHT_PX,
@@ -34,6 +35,10 @@ export interface ExceptionVirtualTableProps {
   hasMore: boolean;
   isFetchingMore: boolean;
   showTypeColumn?: boolean;
+  searchValue: string;
+  onSearchChange: (value: string) => void;
+  /** Debounced term for empty-state messaging */
+  activeSearchQuery?: string;
 }
 
 const headerCellStyle: CSSProperties = {
@@ -62,9 +67,15 @@ export function ExceptionVirtualTable({
   hasMore,
   isFetchingMore,
   showTypeColumn = false,
+  searchValue,
+  onSearchChange,
+  activeSearchQuery,
 }: ExceptionVirtualTableProps) {
   const columnWidths = getExceptionListColumnWidths(showTypeColumn);
   const columnCount = showTypeColumn ? 7 : 6;
+  const resolvedEmptyMessage = activeSearchQuery
+    ? `No results matching "${activeSearchQuery}"`
+    : emptyMessage;
   const parentRef = useRef<HTMLDivElement>(null);
   const sentinelObserverRef = useRef<IntersectionObserver | null>(null);
   const onLoadMoreRef = useRef(onLoadMore);
@@ -135,15 +146,27 @@ export function ExceptionVirtualTable({
       ? totalCount.toLocaleString()
       : exceptions.length.toLocaleString();
 
+  const listHeader = (
+    <>
+      <Box className={classes.tableHeader}>
+        <Box className={classes.tableHeaderContent}>
+          {icon}
+          <Text className={classes.tableHeaderTitle}>{title}</Text>
+          {!isLoading && !isError && exceptions.length > 0 && (
+            <Badge size="sm" variant="light" color={badgeColor} ml="auto">
+              {badgeLabel}
+            </Badge>
+          )}
+        </Box>
+      </Box>
+      <ExceptionListSearchBar value={searchValue} onChange={onSearchChange} />
+    </>
+  );
+
   if (isLoading) {
     return (
       <Box className={classes.issueListTable}>
-        <Box className={classes.tableHeader}>
-          <Box className={classes.tableHeaderContent}>
-            {icon}
-            <Text className={classes.tableHeaderTitle}>{title}</Text>
-          </Box>
-        </Box>
+        {listHeader}
         <Box className={classes.issueTableWrapper}>
           <TableSkeleton columns={columnCount} rows={8} />
         </Box>
@@ -154,12 +177,7 @@ export function ExceptionVirtualTable({
   if (isError) {
     return (
       <Box className={classes.issueListTable}>
-        <Box className={classes.tableHeader}>
-          <Box className={classes.tableHeaderContent}>
-            {icon}
-            <Text className={classes.tableHeaderTitle}>{title}</Text>
-          </Box>
-        </Box>
+        {listHeader}
         <Box className={classes.issueTableWrapper} style={{ padding: "2rem" }}>
           <Text size="sm" c="red" ta="center">
             {errorMessage || "Failed to load data"}
@@ -172,15 +190,10 @@ export function ExceptionVirtualTable({
   if (exceptions.length === 0) {
     return (
       <Box className={classes.issueListTable}>
-        <Box className={classes.tableHeader}>
-          <Box className={classes.tableHeaderContent}>
-            {icon}
-            <Text className={classes.tableHeaderTitle}>{title}</Text>
-          </Box>
-        </Box>
+        {listHeader}
         <Box className={classes.emptyTableState}>
           <Box className={classes.emptyTableIcon}>{emptyIcon}</Box>
-          <Text className={classes.emptyTableText}>{emptyMessage}</Text>
+          <Text className={classes.emptyTableText}>{resolvedEmptyMessage}</Text>
         </Box>
       </Box>
     );
@@ -188,15 +201,7 @@ export function ExceptionVirtualTable({
 
   return (
     <Box className={`${classes.issueListTable} ${classes.fadeIn}`}>
-      <Box className={classes.tableHeader}>
-        <Box className={classes.tableHeaderContent}>
-          {icon}
-          <Text className={classes.tableHeaderTitle}>{title}</Text>
-          <Badge size="sm" variant="light" color={badgeColor} ml="auto">
-            {badgeLabel}
-          </Badge>
-        </Box>
-      </Box>
+      {listHeader}
 
       <Box
         className={classes.issueTableWrapper}

@@ -32,6 +32,33 @@ export interface ExceptionListFilterParams {
   state?: string;
   screenName?: string;
   exceptionType: ExceptionType;
+  /** Debounced; matches Title or AppVersion (OR) via data-query */
+  searchQuery?: string;
+}
+
+/** Escape single quotes for ADDITIONAL filter SQL literals */
+export function escapeExceptionSearchLiteral(term: string): string {
+  return term.replace(/'/g, "''");
+}
+
+/**
+ * OR filter: crash/ANR/non-fatal row matches if Title or AppVersion contains the term
+ * (case-insensitive via ClickHouse ILIKE). Applied before groupBy on raw EXCEPTIONS rows.
+ */
+export function buildExceptionTitleOrVersionSearchFilter(
+  searchQuery?: string,
+): FilterField | null {
+  const term = searchQuery?.trim();
+  if (!term) return null;
+
+  const pattern = `%${escapeExceptionSearchLiteral(term)}%`;
+  return {
+    field: "Additional",
+    operator: "ADDITIONAL",
+    value: [
+      `(Title ILIKE '${pattern}' OR ${COLUMN_NAME.APP_VERSION} ILIKE '${pattern}')`,
+    ],
+  };
 }
 
 export function tryFormatTimeToIso(time: string): string | null {
@@ -70,6 +97,7 @@ export function buildExceptionListFilters({
   state = "all",
   screenName,
   exceptionType,
+  searchQuery,
 }: Pick<
   ExceptionListFilterParams,
   | "appVersion"
@@ -80,6 +108,7 @@ export function buildExceptionListFilters({
   | "state"
   | "screenName"
   | "exceptionType"
+  | "searchQuery"
 >): FilterField[] | undefined {
   const filterArray: FilterField[] = [];
 
@@ -121,6 +150,11 @@ export function buildExceptionListFilters({
       state,
     ),
   );
+
+  const searchFilter = buildExceptionTitleOrVersionSearchFilter(searchQuery);
+  if (searchFilter) {
+    filterArray.push(searchFilter);
+  }
 
   return filterArray.length > 0 ? filterArray : undefined;
 }
