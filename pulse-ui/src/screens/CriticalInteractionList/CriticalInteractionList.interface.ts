@@ -9,3 +9,4 @@ export type FiltersType = {
 };
 
 export const defaultPageSize = 18;
+export const loadMoreDelayMs = 500;

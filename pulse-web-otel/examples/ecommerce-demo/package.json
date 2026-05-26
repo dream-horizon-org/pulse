@@ -11,7 +11,7 @@
     "e2e": "playwright test --config e2e/playwright.config.ts",
     "e2e:m1": "playwright test --config e2e/playwright.config.ts e2e/m1.spec.ts --project=chromium",
     "e2e:m2-interactions": "playwright test --config e2e/playwright.config.ts e2e/m2-interactions.spec.ts --project=chromium",
-    "e2e:web-sdk-gates": "playwright test --config e2e/playwright.config.ts --project=chromium --max-failures=5 e2e/m1.spec.ts e2e/m2-interactions.spec.ts e2e/m3-errors.spec.ts e2e/web-vitals.spec.ts e2e/m3-clicks.spec.ts e2e/m4-network.spec.ts e2e/screen-navigation.spec.ts",
+    "e2e:web-sdk-gates": "playwright test --config e2e/playwright.config.ts --project=chromium --max-failures=5 e2e/m1.spec.ts e2e/m2-interactions.spec.ts e2e/m3-errors.spec.ts e2e/web-vitals.spec.ts e2e/m3-clicks.spec.ts e2e/m4-network.spec.ts e2e/screen-navigation.spec.ts e2e/screen-pathname-encoding.spec.ts e2e/custom-span.spec.ts",
     "e2e:persistence": "playwright test --config e2e/playwright.config.ts --project=chromium e2e/persistence.spec.ts",
     "e2e:synthetic": "playwright test --config e2e/playwright.config.ts e2e/synthetic-user.spec.ts --project=chromium",
     "e2e:synthetic:ingest": "E2E_REAL_OTLP=1 playwright test --config e2e/playwright.config.ts e2e/synthetic-user.spec.ts --project=chromium",
