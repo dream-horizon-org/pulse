@@ -14,8 +14,8 @@ internal class FrameDataHelperTest {
         val result =
             FrameDataHelper.createCumulativeFrameMetric(
                 events = events,
-                startTimeInMs = 0,
-                endTimeInMs = 1000,
+                startTimeInNano = 0,
+                endTimeInNano = 1000,
             )
 
         assertThat(result).isNull()
@@ -32,8 +32,8 @@ internal class FrameDataHelperTest {
         val result =
             FrameDataHelper.createCumulativeFrameMetric(
                 events = events,
-                startTimeInMs = 1000,
-                endTimeInMs = 2000,
+                startTimeInNano = 1000,
+                endTimeInNano = 2000,
             )
 
         assertThat(result).isNotNull()
@@ -57,8 +57,8 @@ internal class FrameDataHelperTest {
         val result =
             FrameDataHelper.createCumulativeFrameMetric(
                 events = events,
-                startTimeInMs = 1000,
-                endTimeInMs = 2001,
+                startTimeInNano = 1000,
+                endTimeInNano = 2001,
             )
 
         assertThat(result).isNotNull()
@@ -82,8 +82,8 @@ internal class FrameDataHelperTest {
         val result =
             FrameDataHelper.createCumulativeFrameMetric(
                 events = events,
-                startTimeInMs = 0,
-                endTimeInMs = 1500,
+                startTimeInNano = 0,
+                endTimeInNano = 1500,
             )
 
         assertThat(result).isNotNull()
@@ -107,8 +107,8 @@ internal class FrameDataHelperTest {
         val result =
             FrameDataHelper.createCumulativeFrameMetric(
                 events = events,
-                startTimeInMs = 1500,
-                endTimeInMs = 2500,
+                startTimeInNano = 1500,
+                endTimeInNano = 2500,
             )
 
         assertThat(result).isNotNull()
@@ -131,15 +131,15 @@ internal class FrameDataHelperTest {
         val result =
             FrameDataHelper.createCumulativeFrameMetric(
                 events = events,
-                startTimeInMs = 0,
-                endTimeInMs = 5000,
+                startTimeInNano = 0,
+                endTimeInNano = 5000,
             )
 
         assertThat(result)
             .usingRecursiveComparison()
             .isEqualTo(
                 FrameDataHelper.CumulativeFrameData(
-                    timeInMs = 5000,
+                    timeInNano = 5000,
                     analysedFrameCount = 1,
                     unanalysedFrameCount = 0,
                     slowFrameCount = 1,
@@ -158,15 +158,15 @@ internal class FrameDataHelperTest {
         val result =
             FrameDataHelper.createCumulativeFrameMetric(
                 events = events,
-                startTimeInMs = 0,
-                endTimeInMs = 5000,
+                startTimeInNano = 0,
+                endTimeInNano = 5000,
             )
 
         assertThat(result)
             .usingRecursiveComparison()
             .isEqualTo(
                 FrameDataHelper.CumulativeFrameData(
-                    timeInMs = 5000,
+                    timeInNano = 5000,
                     analysedFrameCount = 1,
                     unanalysedFrameCount = 0,
                     slowFrameCount = 0,
@@ -185,15 +185,15 @@ internal class FrameDataHelperTest {
         val result =
             FrameDataHelper.createCumulativeFrameMetric(
                 events = events,
-                startTimeInMs = 0,
-                endTimeInMs = 5000,
+                startTimeInNano = 0,
+                endTimeInNano = 5000,
             )
 
         assertThat(result)
             .usingRecursiveComparison()
             .isEqualTo(
                 FrameDataHelper.CumulativeFrameData(
-                    timeInMs = 5000,
+                    timeInNano = 5000,
                     analysedFrameCount = 1,
                     unanalysedFrameCount = 0,
                     slowFrameCount = 0,
@@ -212,8 +212,8 @@ internal class FrameDataHelperTest {
         val result =
             FrameDataHelper.createCumulativeFrameMetric(
                 events = events,
-                startTimeInMs = 0,
-                endTimeInMs = 5000,
+                startTimeInNano = 0,
+                endTimeInNano = 5000,
             )
 
         assertThat(result).isNull()
@@ -229,8 +229,8 @@ internal class FrameDataHelperTest {
         val result =
             FrameDataHelper.createCumulativeFrameMetric(
                 events = events,
-                startTimeInMs = 2000,
-                endTimeInMs = 5000,
+                startTimeInNano = 2000,
+                endTimeInNano = 5000,
             )
 
         assertThat(result).isNull()
@@ -247,15 +247,15 @@ internal class FrameDataHelperTest {
         val result =
             FrameDataHelper.createCumulativeFrameMetric(
                 events = events,
-                startTimeInMs = 0,
-                endTimeInMs = 2000,
+                startTimeInNano = 0,
+                endTimeInNano = 2000,
             )
 
         assertThat(result)
             .usingRecursiveComparison()
             .isEqualTo(
                 FrameDataHelper.CumulativeFrameData(
-                    timeInMs = 2000,
+                    timeInNano = 2000,
                     analysedFrameCount = 40,
                     unanalysedFrameCount = 20,
                     slowFrameCount = 1,
@@ -275,15 +275,15 @@ internal class FrameDataHelperTest {
         val result =
             FrameDataHelper.createCumulativeFrameMetric(
                 events = events,
-                startTimeInMs = 0,
-                endTimeInMs = 2010,
+                startTimeInNano = 0,
+                endTimeInNano = 2010,
             )
 
         assertThat(result)
             .usingRecursiveComparison()
             .isEqualTo(
                 FrameDataHelper.CumulativeFrameData(
-                    timeInMs = 2010,
+                    timeInNano = 2010,
                     analysedFrameCount = 40,
                     unanalysedFrameCount = 20,
                     slowFrameCount = 2,
@@ -303,15 +303,15 @@ internal class FrameDataHelperTest {
         val result =
             FrameDataHelper.createCumulativeFrameMetric(
                 events = events,
-                startTimeInMs = 2000,
-                endTimeInMs = 3000,
+                startTimeInNano = 2000,
+                endTimeInNano = 3000,
             )
 
         assertThat(result)
             .usingRecursiveComparison()
             .isEqualTo(
                 FrameDataHelper.CumulativeFrameData(
-                    timeInMs = 3000,
+                    timeInNano = 3000,
                     analysedFrameCount = 10,
                     unanalysedFrameCount = 5,
                     slowFrameCount = 3,
@@ -331,15 +331,15 @@ internal class FrameDataHelperTest {
         val result =
             FrameDataHelper.createCumulativeFrameMetric(
                 events = events,
-                startTimeInMs = 3000,
-                endTimeInMs = 4000,
+                startTimeInNano = 3000,
+                endTimeInNano = 4000,
             )
 
         assertThat(result)
             .usingRecursiveComparison()
             .isEqualTo(
                 FrameDataHelper.CumulativeFrameData(
-                    timeInMs = 4000,
+                    timeInNano = 4000,
                     analysedFrameCount = 10,
                     unanalysedFrameCount = 5,
                     slowFrameCount = 0,
@@ -360,15 +360,15 @@ internal class FrameDataHelperTest {
         val result =
             FrameDataHelper.createCumulativeFrameMetric(
                 events = events,
-                startTimeInMs = 3000,
-                endTimeInMs = 4000,
+                startTimeInNano = 3000,
+                endTimeInNano = 4000,
             )
 
         assertThat(result)
             .usingRecursiveComparison()
             .isEqualTo(
                 FrameDataHelper.CumulativeFrameData(
-                    timeInMs = 4000,
+                    timeInNano = 4000,
                     analysedFrameCount = 60,
                     unanalysedFrameCount = 0,
                     slowFrameCount = 0,
@@ -389,15 +389,15 @@ internal class FrameDataHelperTest {
         val result =
             FrameDataHelper.createCumulativeFrameMetric(
                 events = events,
-                startTimeInMs = 4000,
-                endTimeInMs = 5000,
+                startTimeInNano = 4000,
+                endTimeInNano = 5000,
             )
 
         assertThat(result)
             .usingRecursiveComparison()
             .isEqualTo(
                 FrameDataHelper.CumulativeFrameData(
-                    timeInMs = 5000,
+                    timeInNano = 5000,
                     analysedFrameCount = 60,
                     unanalysedFrameCount = 0,
                     slowFrameCount = 0,
@@ -417,15 +417,15 @@ internal class FrameDataHelperTest {
         val result =
             FrameDataHelper.createCumulativeFrameMetric(
                 events = events,
-                startTimeInMs = 0,
-                endTimeInMs = 1000,
+                startTimeInNano = 0,
+                endTimeInNano = 1000,
             )
 
         assertThat(result)
             .usingRecursiveComparison()
             .isEqualTo(
                 FrameDataHelper.CumulativeFrameData(
-                    timeInMs = 1000,
+                    timeInNano = 1000,
                     analysedFrameCount = 10,
                     unanalysedFrameCount = 5,
                     slowFrameCount = 0,
@@ -446,15 +446,15 @@ internal class FrameDataHelperTest {
         val result =
             FrameDataHelper.createCumulativeFrameMetric(
                 events = events,
-                startTimeInMs = 0,
-                endTimeInMs = 1000,
+                startTimeInNano = 0,
+                endTimeInNano = 1000,
             )
 
         assertThat(result)
             .usingRecursiveComparison()
             .isEqualTo(
                 FrameDataHelper.CumulativeFrameData(
-                    timeInMs = 1000,
+                    timeInNano = 1000,
                     analysedFrameCount = 10,
                     unanalysedFrameCount = 15,
                     slowFrameCount = 0,
@@ -475,15 +475,15 @@ internal class FrameDataHelperTest {
         val result =
             FrameDataHelper.createCumulativeFrameMetric(
                 events = events,
-                startTimeInMs = 0,
-                endTimeInMs = 1000,
+                startTimeInNano = 0,
+                endTimeInNano = 1000,
             )
 
         assertThat(result)
             .usingRecursiveComparison()
             .isEqualTo(
                 FrameDataHelper.CumulativeFrameData(
-                    timeInMs = 1000,
+                    timeInNano = 1000,
                     analysedFrameCount = 10,
                     unanalysedFrameCount = 15,
                     slowFrameCount = 0,
@@ -503,15 +503,15 @@ internal class FrameDataHelperTest {
         val result =
             FrameDataHelper.createCumulativeFrameMetric(
                 events = events,
-                startTimeInMs = 2500,
-                endTimeInMs = 3500,
+                startTimeInNano = 2500,
+                endTimeInNano = 3500,
             )
 
         assertThat(result)
             .usingRecursiveComparison()
             .isEqualTo(
                 FrameDataHelper.CumulativeFrameData(
-                    timeInMs = 3500,
+                    timeInNano = 3500,
                     analysedFrameCount = 10,
                     unanalysedFrameCount = 5,
                     slowFrameCount = 3,
@@ -532,15 +532,15 @@ internal class FrameDataHelperTest {
         val result =
             FrameDataHelper.createCumulativeFrameMetric(
                 events = events,
-                startTimeInMs = 2500,
-                endTimeInMs = 5500,
+                startTimeInNano = 2500,
+                endTimeInNano = 5500,
             )
 
         assertThat(result)
             .usingRecursiveComparison()
             .isEqualTo(
                 FrameDataHelper.CumulativeFrameData(
-                    timeInMs = 5500,
+                    timeInNano = 5500,
                     analysedFrameCount = 60,
                     unanalysedFrameCount = 30,
                     slowFrameCount = 3,
@@ -560,15 +560,15 @@ internal class FrameDataHelperTest {
         val result =
             FrameDataHelper.createCumulativeFrameMetric(
                 events = events,
-                startTimeInMs = 2000,
-                endTimeInMs = 3000,
+                startTimeInNano = 2000,
+                endTimeInNano = 3000,
             )
 
         assertThat(result)
             .usingRecursiveComparison()
             .isEqualTo(
                 FrameDataHelper.CumulativeFrameData(
-                    timeInMs = 3000,
+                    timeInNano = 3000,
                     analysedFrameCount = 5,
                     unanalysedFrameCount = 2,
                     slowFrameCount = 0,
@@ -590,15 +590,15 @@ internal class FrameDataHelperTest {
         val result =
             FrameDataHelper.createCumulativeFrameMetric(
                 events = events,
-                startTimeInMs = 2000,
-                endTimeInMs = 3000,
+                startTimeInNano = 2000,
+                endTimeInNano = 3000,
             )
 
         assertThat(result)
             .usingRecursiveComparison()
             .isEqualTo(
                 FrameDataHelper.CumulativeFrameData(
-                    timeInMs = 3000,
+                    timeInNano = 3000,
                     analysedFrameCount = 5,
                     unanalysedFrameCount = 2,
                     slowFrameCount = 2,
@@ -622,15 +622,15 @@ internal class FrameDataHelperTest {
         val result =
             FrameDataHelper.createCumulativeFrameMetric(
                 events = events,
-                startTimeInMs = 2000,
-                endTimeInMs = 3000,
+                startTimeInNano = 2000,
+                endTimeInNano = 3000,
             )
 
         assertThat(result)
             .usingRecursiveComparison()
             .isEqualTo(
                 FrameDataHelper.CumulativeFrameData(
-                    timeInMs = 3000,
+                    timeInNano = 3000,
                     analysedFrameCount = 5,
                     unanalysedFrameCount = 2,
                     slowFrameCount = 2,
@@ -652,15 +652,15 @@ internal class FrameDataHelperTest {
         val result =
             FrameDataHelper.createCumulativeFrameMetric(
                 events = events,
-                startTimeInMs = 0,
-                endTimeInMs = 6000,
+                startTimeInNano = 0,
+                endTimeInNano = 6000,
             )
 
         assertThat(result)
             .usingRecursiveComparison()
             .isEqualTo(
                 FrameDataHelper.CumulativeFrameData(
-                    timeInMs = 6000,
+                    timeInNano = 6000,
                     analysedFrameCount = 30,
                     unanalysedFrameCount = 15,
                     slowFrameCount = 6,
@@ -682,15 +682,15 @@ internal class FrameDataHelperTest {
         val result =
             FrameDataHelper.createCumulativeFrameMetric(
                 events = events,
-                startTimeInMs = 3000,
-                endTimeInMs = 4000,
+                startTimeInNano = 3000,
+                endTimeInNano = 4000,
             )
 
         assertThat(result)
             .usingRecursiveComparison()
             .isEqualTo(
                 FrameDataHelper.CumulativeFrameData(
-                    timeInMs = 4000,
+                    timeInNano = 4000,
                     analysedFrameCount = 20,
                     unanalysedFrameCount = 0,
                     slowFrameCount = 0,
@@ -712,8 +712,8 @@ internal class FrameDataHelperTest {
         val result =
             FrameDataHelper.createCumulativeFrameMetric(
                 events = events,
-                startTimeInMs = 3000,
-                endTimeInMs = 3000,
+                startTimeInNano = 3000,
+                endTimeInNano = 3000,
             )
 
         assertThat(result).isNull()
@@ -748,7 +748,7 @@ internal class FrameDataHelperTest {
                             val last = FrameDataHelper.frameDataEvents.lastOrNull()
                             FrameDataHelper.frameDataEvents.add(
                                 FrameDataHelper.CumulativeFrameData(
-                                    timeInMs = t++,
+                                    timeInNano = t++,
                                     analysedFrameCount = (last?.analysedFrameCount ?: 0) + 1,
                                     unanalysedFrameCount = last?.unanalysedFrameCount ?: 0,
                                     slowFrameCount = last?.slowFrameCount ?: 0,
@@ -768,8 +768,8 @@ internal class FrameDataHelperTest {
                 while (System.currentTimeMillis() < deadline && failure.get() == null) {
                     try {
                         FrameDataHelper.createCumulativeFrameMetric(
-                            startTimeInMs = 0,
-                            endTimeInMs = Long.MAX_VALUE,
+                            startTimeInNano = 0,
+                            endTimeInNano = Long.MAX_VALUE,
                         )
                     } catch (e: Throwable) {
                         failure.compareAndSet(null, e)
@@ -803,15 +803,15 @@ internal class FrameDataHelperTest {
         val result =
             FrameDataHelper.createCumulativeFrameMetric(
                 events = events,
-                startTimeInMs = 2000,
-                endTimeInMs = 3000,
+                startTimeInNano = 2000,
+                endTimeInNano = 3000,
             )
 
         assertThat(result)
             .usingRecursiveComparison()
             .isEqualTo(
                 FrameDataHelper.CumulativeFrameData(
-                    timeInMs = 3000,
+                    timeInNano = 3000,
                     analysedFrameCount = 10,
                     unanalysedFrameCount = 5,
                     slowFrameCount = 2,
@@ -831,15 +831,15 @@ internal class FrameDataHelperTest {
         val result =
             FrameDataHelper.createCumulativeFrameMetric(
                 events = events,
-                startTimeInMs = 1000,
-                endTimeInMs = 3000,
+                startTimeInNano = 1000,
+                endTimeInNano = 3000,
             )
 
         assertThat(result)
             .usingRecursiveComparison()
             .isEqualTo(
                 FrameDataHelper.CumulativeFrameData(
-                    timeInMs = 3000,
+                    timeInNano = 3000,
                     analysedFrameCount = 10,
                     unanalysedFrameCount = 5,
                     slowFrameCount = 2,
@@ -859,15 +859,15 @@ internal class FrameDataHelperTest {
         val result =
             FrameDataHelper.createCumulativeFrameMetric(
                 events = events,
-                startTimeInMs = 1000,
-                endTimeInMs = 3000,
+                startTimeInNano = 1000,
+                endTimeInNano = 3000,
             )
 
         assertThat(result)
             .usingRecursiveComparison()
             .isEqualTo(
                 FrameDataHelper.CumulativeFrameData(
-                    timeInMs = 3000,
+                    timeInNano = 3000,
                     analysedFrameCount = 10,
                     unanalysedFrameCount = 5,
                     slowFrameCount = 0,
@@ -887,15 +887,15 @@ internal class FrameDataHelperTest {
         val result =
             FrameDataHelper.createCumulativeFrameMetric(
                 events = events,
-                startTimeInMs = 1000,
-                endTimeInMs = 4000,
+                startTimeInNano = 1000,
+                endTimeInNano = 4000,
             )
 
         assertThat(result)
             .usingRecursiveComparison()
             .isEqualTo(
                 FrameDataHelper.CumulativeFrameData(
-                    timeInMs = 4000,
+                    timeInNano = 4000,
                     analysedFrameCount = 10,
                     unanalysedFrameCount = 5,
                     slowFrameCount = 2,
@@ -915,15 +915,15 @@ internal class FrameDataHelperTest {
         val result =
             FrameDataHelper.createCumulativeFrameMetric(
                 events = events,
-                startTimeInMs = 4000,
-                endTimeInMs = 5000,
+                startTimeInNano = 4000,
+                endTimeInNano = 5000,
             )
 
         assertThat(result)
             .usingRecursiveComparison()
             .isEqualTo(
                 FrameDataHelper.CumulativeFrameData(
-                    timeInMs = 5000,
+                    timeInNano = 5000,
                     analysedFrameCount = 10,
                     unanalysedFrameCount = 5,
                     slowFrameCount = 0,
@@ -943,15 +943,15 @@ internal class FrameDataHelperTest {
         val result =
             FrameDataHelper.createCumulativeFrameMetric(
                 events = events,
-                startTimeInMs = 1000,
-                endTimeInMs = 2000,
+                startTimeInNano = 1000,
+                endTimeInNano = 2000,
             )
 
         assertThat(result)
             .usingRecursiveComparison()
             .isEqualTo(
                 FrameDataHelper.CumulativeFrameData(
-                    timeInMs = 2000,
+                    timeInNano = 2000,
                     analysedFrameCount = 10,
                     unanalysedFrameCount = 5,
                     slowFrameCount = 0,

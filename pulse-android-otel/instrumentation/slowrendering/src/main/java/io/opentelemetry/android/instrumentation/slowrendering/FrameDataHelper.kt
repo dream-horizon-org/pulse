@@ -14,7 +14,7 @@ internal object FrameDataHelper {
     internal fun snapshotEvents(): List<CumulativeFrameData> = synchronized(lock) { frameDataEvents.toList() }
 
     internal data class CumulativeFrameData(
-        val timeInMs: Long,
+        val timeInNano: Long,
         val analysedFrameCount: Long,
         val unanalysedFrameCount: Long,
         val slowFrameCount: Long,
@@ -24,27 +24,27 @@ internal object FrameDataHelper {
     private fun interpolateLinear(
         before: CumulativeFrameData,
         after: CumulativeFrameData,
-        targetStartTimeInMs: Long,
-        targetEndTimeInMs: Long,
+        targetStartTimeInNano: Long,
+        targetEndTimeInNano: Long,
     ): CumulativeFrameData {
         val analysedDelta = after.analysedFrameCount - before.analysedFrameCount
         val unanalysedDelta = after.unanalysedFrameCount - before.unanalysedFrameCount
-        val sourceTimeDelta = after.timeInMs - before.timeInMs
-        val targetTimeDelta = targetEndTimeInMs - targetStartTimeInMs
+        val sourceTimeDelta = after.timeInNano - before.timeInNano
+        val targetTimeDelta = targetEndTimeInNano - targetStartTimeInNano
 
         return CumulativeFrameData(
-            timeInMs = targetEndTimeInMs,
+            timeInNano = targetEndTimeInNano,
             analysedFrameCount =
                 if (sourceTimeDelta == 0L) {
                     analysedDelta
                 } else {
-                    (analysedDelta.toDouble() / sourceTimeDelta * targetTimeDelta).toLong()
+                    analysedDelta * targetTimeDelta / sourceTimeDelta
                 },
             unanalysedFrameCount =
                 if (sourceTimeDelta == 0L) {
                     unanalysedDelta
                 } else {
-                    (unanalysedDelta.toDouble() / sourceTimeDelta * targetTimeDelta).toLong()
+                    unanalysedDelta * targetTimeDelta / sourceTimeDelta
                 },
             slowFrameCount = before.slowFrameCount,
             frozenFrameCount = before.frozenFrameCount,
@@ -53,15 +53,15 @@ internal object FrameDataHelper {
 
     private fun findBestPairForInterpolation(
         events: List<CumulativeFrameData>,
-        startTimeInMs: Long,
-        endTimeInMs: Long,
+        startTimeInNano: Long,
+        endTimeInNano: Long,
     ): Pair<CumulativeFrameData, CumulativeFrameData> {
         if (events.size < 2) error("findBestRangePair: events should have at least 2 elements")
 
-        val startBefore = events.lastOrNull { it.timeInMs <= startTimeInMs }
-        val startAfter = events.firstOrNull { it.timeInMs in startTimeInMs until endTimeInMs }
-        val endBefore = events.lastOrNull { it.timeInMs in (startTimeInMs + 1)..endTimeInMs }
-        val endAfter = events.firstOrNull { it.timeInMs >= endTimeInMs }
+        val startBefore = events.lastOrNull { it.timeInNano <= startTimeInNano }
+        val startAfter = events.firstOrNull { it.timeInNano in startTimeInNano until endTimeInNano }
+        val endBefore = events.lastOrNull { it.timeInNano in (startTimeInNano + 1)..endTimeInNano }
+        val endAfter = events.firstOrNull { it.timeInNano >= endTimeInNano }
 
         return when {
             startBefore != null && endAfter != null -> {
@@ -83,12 +83,12 @@ internal object FrameDataHelper {
             }
 
             startBefore != null -> {
-                val before = events.lastOrNull { it.timeInMs < startBefore.timeInMs } ?: events.first()
+                val before = events.lastOrNull { it.timeInNano < startBefore.timeInNano } ?: events.first()
                 before to startBefore
             }
 
             endAfter != null -> {
-                val after = events.firstOrNull { it.timeInMs > endAfter.timeInMs } ?: events.last()
+                val after = events.firstOrNull { it.timeInNano > endAfter.timeInNano } ?: events.last()
                 endAfter to after
             }
 
@@ -100,10 +100,10 @@ internal object FrameDataHelper {
 
     private fun findCriticalFrameCounts(
         events: List<CumulativeFrameData>,
-        startTimeInMs: Long,
-        endTimeInMs: Long,
+        startTimeInNano: Long,
+        endTimeInNano: Long,
     ): Pair<Long, Long> {
-        val eventsInRange = events.filter { it.timeInMs in startTimeInMs until endTimeInMs }
+        val eventsInRange = events.filter { it.timeInNano in startTimeInNano until endTimeInNano }
 
         return if (eventsInRange.isEmpty()) {
             0L to 0L
@@ -111,7 +111,7 @@ internal object FrameDataHelper {
             // Multiple events: last event - (event before first event, or 0 if no previous)
             val firstEventInRange = eventsInRange.first()
             val lastEventInRange = eventsInRange.last()
-            val eventBeforeFirst = events.lastOrNull { it.timeInMs < firstEventInRange.timeInMs }
+            val eventBeforeFirst = events.lastOrNull { it.timeInNano < firstEventInRange.timeInNano }
 
             val startSlow = eventBeforeFirst?.slowFrameCount ?: 0L
             val startFrozen = eventBeforeFirst?.frozenFrameCount ?: 0L
@@ -123,20 +123,20 @@ internal object FrameDataHelper {
     }
 
     internal fun createCumulativeFrameMetric(
-        startTimeInMs: Long,
-        endTimeInMs: Long,
+        startTimeInNano: Long,
+        endTimeInNano: Long,
         events: List<CumulativeFrameData> = snapshotEvents(),
     ): CumulativeFrameData? {
-        if (startTimeInMs == endTimeInMs) return null
+        if (startTimeInNano == endTimeInNano) return null
         if (events.isEmpty()) return null
 
         if (events.size == 1) {
             val singleEvent = events.first()
-            val eventTime = singleEvent.timeInMs
+            val eventTime = singleEvent.timeInNano
             // If event is inside the range (startTime <= eventTime <= endTime)
-            return if (eventTime in startTimeInMs..endTimeInMs) {
+            return if (eventTime in startTimeInNano..endTimeInNano) {
                 CumulativeFrameData(
-                    timeInMs = endTimeInMs,
+                    timeInNano = endTimeInNano,
                     analysedFrameCount = 1,
                     unanalysedFrameCount = 0,
                     slowFrameCount = if (singleEvent.slowFrameCount > 0) 1 else 0,
@@ -148,21 +148,21 @@ internal object FrameDataHelper {
             }
         }
 
-        val bestRangePair = findBestPairForInterpolation(events, startTimeInMs, endTimeInMs)
+        val bestRangePair = findBestPairForInterpolation(events, startTimeInNano, endTimeInNano)
 
         // Calculate start value
         val interpolatedValue: CumulativeFrameData =
             interpolateLinear(
                 before = bestRangePair.first,
                 after = bestRangePair.second,
-                targetStartTimeInMs = startTimeInMs,
-                targetEndTimeInMs = endTimeInMs,
+                targetStartTimeInNano = startTimeInNano,
+                targetEndTimeInNano = endTimeInNano,
             )
 
-        val (slow, frozen) = findCriticalFrameCounts(events, startTimeInMs, endTimeInMs)
+        val (slow, frozen) = findCriticalFrameCounts(events, startTimeInNano, endTimeInNano)
 
         return CumulativeFrameData(
-            timeInMs = endTimeInMs,
+            timeInNano = endTimeInNano,
             analysedFrameCount = interpolatedValue.analysedFrameCount,
             unanalysedFrameCount = interpolatedValue.unanalysedFrameCount,
             slowFrameCount = slow,
