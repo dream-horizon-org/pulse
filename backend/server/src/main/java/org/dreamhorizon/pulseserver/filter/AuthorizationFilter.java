@@ -15,6 +15,7 @@ import java.io.IOException;
 import java.lang.reflect.Method;
 
 import lombok.extern.slf4j.Slf4j;
+import org.dreamhorizon.pulseserver.config.ApplicationConfig;
 import org.dreamhorizon.pulseserver.context.ProjectContext;
 import org.dreamhorizon.pulseserver.guice.GuiceInjector;
 import org.dreamhorizon.pulseserver.service.JwtService;
@@ -52,9 +53,15 @@ public class AuthorizationFilter implements ContainerRequestFilter {
 
   private OpenFgaService openFgaService;
   private JwtService jwtService;
+  private ApplicationConfig applicationConfig;
 
   @Override
   public void filter(ContainerRequestContext requestContext) throws IOException {
+    if (!isAuthorizationEnabled()) {
+      log.debug("Skipping authorization: disabled via application config (dev / local)");
+      return;
+    }
+
     String path = requestContext.getUriInfo().getPath();
 
     if (isExcludedPath(path)) {
@@ -172,6 +179,18 @@ public class AuthorizationFilter implements ContainerRequestFilter {
       log.debug("Failed to extract user ID from token: {}", e.getMessage());
       return null;
     }
+  }
+
+  private boolean isAuthorizationEnabled() {
+    return getApplicationConfig().isAuthorizationEnabled();
+  }
+
+  private ApplicationConfig getApplicationConfig() {
+    if (applicationConfig == null) {
+      applicationConfig =
+          GuiceInjector.getGuiceInjector().getInstance(ApplicationConfig.class);
+    }
+    return applicationConfig;
   }
 
   private JwtService getJwtService() {
