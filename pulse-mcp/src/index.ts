@@ -32,7 +32,7 @@ try {
 
 const server = new McpServer({
   name: "pulse-mcp",
-  version: "0.0.1-beta.3",
+  version: "0.0.1-beta.4",
 });
 
 registerProjectTools(server);
