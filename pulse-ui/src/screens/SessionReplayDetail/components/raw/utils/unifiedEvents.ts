@@ -135,48 +135,48 @@ export function createUnifiedEvents(
   });
 
   // Critical interactions — Interaction: Name CII: SUCCESS | FAILED
-  sessionData.criticalInteractions.forEach((interaction) => {
-    if (interaction.timestamp !== undefined) {
-      const statusText =
-        interaction.status === "success"
-          ? STATUS_LABELS.SUCCESS
-          : STATUS_LABELS.FAILED;
-      const safeName = sanitizeDisplayText(interaction.displayName);
-      events.push({
-        timestamp: interaction.timestamp,
-        type: EVENT_TYPES.CRITICAL_INTERACTION,
-        description: `${CAT.INTERACTION.label}: ${safeName} CII: ${statusText}`,
-        color: CAT.INTERACTION.color,
-        categoryLabel: CAT.INTERACTION.label,
-        interactionName: interaction.displayName,
-      });
-    }
-  });
+  // sessionData.criticalInteractions.forEach((interaction) => {
+  //   if (interaction.timestamp !== undefined) {
+  //     const statusText =
+  //       interaction.status === "success"
+  //         ? STATUS_LABELS.SUCCESS
+  //         : STATUS_LABELS.FAILED;
+  //     const safeName = sanitizeDisplayText(interaction.displayName);
+  //     events.push({
+  //       timestamp: interaction.timestamp,
+  //       type: EVENT_TYPES.CRITICAL_INTERACTION,
+  //       description: `${CAT.INTERACTION.label}: ${safeName} CII: ${statusText}`,
+  //       color: CAT.INTERACTION.color,
+  //       categoryLabel: CAT.INTERACTION.label,
+  //       interactionName: interaction.displayName,
+  //     });
+  //   }
+  // });
 
-  // Network requests — Network: METHOD url: STATUS (URL sanitized)
-  sessionData.networkRequests.forEach((req) => {
-    const statusStr = String(req.status);
-    const category =
-      req.status >= 200 && req.status < 300 ? CAT.NETWORK : CAT.ERROR;
-    const safeUrl = sanitizeUrl(req.url);
-    events.push({
-      timestamp: req.timestamp,
-      type: EVENT_TYPES.API_CALL,
-      description: `${category.label}: ${req.method} ${safeUrl}: ${statusStr}`,
-      color: category.color,
-      categoryLabel: category.label,
-    });
+  // // Network requests — Network: METHOD url: STATUS (URL sanitized)
+  // sessionData.networkRequests.forEach((req) => {
+  //   const statusStr = String(req.status);
+  //   const category =
+  //     req.status >= 200 && req.status < 300 ? CAT.NETWORK : CAT.ERROR;
+  //   const safeUrl = sanitizeUrl(req.url);
+  //   events.push({
+  //     timestamp: req.timestamp,
+  //     type: EVENT_TYPES.API_CALL,
+  //     description: `${category.label}: ${req.method} ${safeUrl}: ${statusStr}`,
+  //     color: category.color,
+  //     categoryLabel: category.label,
+  //   });
 
-    if (req.duration > 2000) {
-      events.push({
-        timestamp: req.timestamp + req.duration,
-        type: EVENT_TYPES.NETWORK_PERFORMANCE,
-        description: `${CAT.PERFORMANCE.label}: Slow request ${req.duration}ms: ${NA}`,
-        color: CAT.PERFORMANCE.color,
-        categoryLabel: CAT.PERFORMANCE.label,
-      });
-    }
-  });
+  //   if (req.duration > 2000) {
+  //     events.push({
+  //       timestamp: req.timestamp + req.duration,
+  //       type: EVENT_TYPES.NETWORK_PERFORMANCE,
+  //       description: `${CAT.PERFORMANCE.label}: Slow request ${req.duration}ms: ${NA}`,
+  //       color: CAT.PERFORMANCE.color,
+  //       categoryLabel: CAT.PERFORMANCE.label,
+  //     });
+  //   }
+  // });
 
   // Sort by timestamp
   return events.sort((a, b) => a.timestamp - b.timestamp);

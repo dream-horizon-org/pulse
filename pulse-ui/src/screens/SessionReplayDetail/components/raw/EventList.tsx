@@ -16,9 +16,41 @@ import type { FlameChartNode } from "../../../SessionTimeline/utils/flameChartTr
 import { convertEventToFlameChartNode } from "./utils/eventConverter";
 import type { SessionDetailData } from "../../../../services/sessionReplay/mockSessionDetail";
 import { ROUTES } from "../../../../constants";
-import { HEADERS } from "../../constants/strings";
+import {
+  EVENT_TYPES,
+  HEADERS,
+  RAW_EVENT_CATEGORIES,
+} from "../../constants/strings";
 import { TAB_PANEL_SCROLL_MAX } from "../TabPanelScrollArea";
 import { formatSessionTimeFromStartOffset } from "../../adapters/sessionDetailApiToData";
+
+function isNetworkHttpErrorStatus(status: string): boolean {
+  const trimmed = status.trim();
+  if (trimmed.toLowerCase() === "error") return true;
+  if (/^\d+$/.test(trimmed)) {
+    const code = Number(trimmed);
+    // 0 = failed / blocked request (CORS, offline, aborted); 4xx/5xx = HTTP errors
+    return code === 0 || code >= 400;
+  }
+  return false;
+}
+
+function NetworkStatusBadge({ status }: { status: string }) {
+  const isError = isNetworkHttpErrorStatus(status);
+  return (
+    <Badge
+      size="sm"
+      variant="light"
+      color={isError ? "red" : "teal"}
+      style={{
+        flexShrink: 0,
+        marginLeft: "var(--mantine-spacing-sm)",
+      }}
+    >
+      {status}
+    </Badge>
+  );
+}
 
 interface EventListProps {
   unifiedEvents: UnifiedEvent[];
@@ -264,17 +296,23 @@ export function EventList({
                               </ActionIcon>
                             </Tooltip>
                           )}
-                          {status ? (
-                            <Text
-                              size="sm"
-                              c="dimmed"
-                              style={{
-                                flexShrink: 0,
-                                marginLeft: "var(--mantine-spacing-sm)",
-                              }}
-                            >
-                              {status}
-                            </Text>
+                          {status && status !== "—" ? (
+                            event.type === EVENT_TYPES.API_CALL ||
+                            event.categoryLabel ===
+                              RAW_EVENT_CATEGORIES.NETWORK.label ? (
+                              <NetworkStatusBadge status={status} />
+                            ) : (
+                              <Text
+                                size="sm"
+                                c="dimmed"
+                                style={{
+                                  flexShrink: 0,
+                                  marginLeft: "var(--mantine-spacing-sm)",
+                                }}
+                              >
+                                {status}
+                              </Text>
+                            )
                           ) : null}
                         </>
                       );
