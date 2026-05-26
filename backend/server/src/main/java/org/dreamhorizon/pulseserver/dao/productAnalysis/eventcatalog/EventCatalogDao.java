@@ -41,10 +41,10 @@ public class EventCatalogDao {
   }
 
   /**
-   * Distinct {@code ScreenName} from {@code otel.otel_traces} where {@code PulseType = screen_load}.
+   * Distinct {@code ScreenName} from {@code otel.screen_catalog_entries}.
    */
   public Single<List<String>> listScreenNames(String projectId) {
-    String sql = EventCatalogQueries.buildListScreenNamesSql(projectId);
+    String sql = ScreenCatalogQueries.buildListScreenNamesSql(projectId);
     QueryConfiguration config =
       QueryConfiguration.newQuery(sql)
         .timeoutMs(TIMEOUT_MS)

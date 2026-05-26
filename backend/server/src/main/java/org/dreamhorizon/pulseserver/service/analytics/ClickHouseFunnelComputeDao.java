@@ -24,15 +24,18 @@ import org.dreamhorizon.pulseserver.resources.productAnalysis.funnel.models.Funn
  * (materialized from {@code LogAttributes['pulse.type']}).
  * Custom event names are read from the {@code EventName} column.
  *
- * <p>Active builder (called by {@link #buildInsertSqlForDefinition}):
+ * <p>Active builders (called by {@link #buildInsertSqlForDefinition}):
  * <ul>
- *   <li>{@link #buildInsertSqlWindowFunnel(FunnelDefinitionRow)} — default for ordered funnels:
- *       uses ClickHouse {@code windowFunnel} for counts. Fast (~3s). {@code MedianStepSeconds}
- *       is {@code NULL} for all steps. See {@code funnel-query-optimization-single-scan.md}
- *       for why exact median timing is deferred.</li>
- *   <li>{@link #buildInsertSqlUnordered(FunnelDefinitionRow)} — for unordered funnels
- *       ({@code stepOrderType = UNORDERED}): sliding-window distinct-step count.</li>
+ *   <li>EVENT ordered: {@link #buildInsertSqlWindowFunnel(FunnelDefinitionRow)} — {@code otel_logs}
+ *       / {@code custom_event}.</li>
+ *   <li>EVENT unordered: {@link #buildInsertSqlUnordered(FunnelDefinitionRow)}.</li>
+ *   <li>SCREEN ordered: {@link #buildInsertSqlWindowFunnelScreen(FunnelDefinitionRow)} —
+ *       {@code otel_traces} / {@code screen_load}.</li>
+ *   <li>SCREEN unordered: {@link #buildInsertSqlUnorderedScreen(FunnelDefinitionRow)}.</li>
  * </ul>
+ *
+ * <p>Ordered builders use ClickHouse {@code windowFunnel} for counts. Fast (~3s).
+ * {@code MedianStepSeconds} is {@code NULL} for all steps.
  *
  * <p>Retained as backup (not in active use):
  * <ul>
@@ -70,14 +73,17 @@ public final class ClickHouseFunnelComputeDao {
   /**
    * Builds INSERT SQL using the funnel's configured step-order semantics.
    *
-   * <p>{@code stepOrderType == UNORDERED} uses {@link #buildInsertSqlUnordered(FunnelDefinitionRow)};
-   * all other values use {@link #buildInsertSqlWindowFunnel(FunnelDefinitionRow)}.
-   *
-   * <p>{@code MedianStepSeconds} is {@code NULL} for all steps. Median timing requires the
-   * multi-attempt chain walk ({@link #buildInsertSqlChain}) which is too slow for production
-   * data at ~180s. See {@code funnel-query-optimization-single-scan.md} for the tradeoff analysis.
+   * <p>Routes by {@code analysisBasis} (EVENT vs SCREEN) and {@code stepOrderType} (ordered vs
+   * UNORDERED). Event and screen pipelines use separate builders because they read from different
+   * ClickHouse tables.
    */
   public static String buildInsertSqlForDefinition(FunnelDefinitionRow def) {
+    if (isScreenBasis(def)) {
+      if (isUnorderedFunnel(def)) {
+        return buildInsertSqlUnorderedScreen(def);
+      }
+      return buildInsertSqlWindowFunnelScreen(def);
+    }
     if (isUnorderedFunnel(def)) {
       return buildInsertSqlUnordered(def);
     }
@@ -100,68 +106,42 @@ public final class ClickHouseFunnelComputeDao {
    * @return the INSERT SQL, or an empty string if the funnel has no steps
    */
   public static String buildInsertSqlWindowFunnel(FunnelDefinitionRow def) {
-    List<FunnelDefinitionStep> steps = deserializeSteps(def.getStepsJson());
-    if (steps.isEmpty()) {
+    WindowFunnelContext ctx = windowFunnelContext(def);
+    if (ctx == null) {
       return "";
     }
-    List<FunnelAttributeFilter> filters = deserializeFilters(def.getFiltersJson());
-
-    int stepCount = steps.size();
-    long windowSeconds = def.getWindowSeconds();
-    long funnelId = def.getId();
-    String projectId = def.getProjectId();
-    String runTime = runTimeLiteral();
-    AnalyticsSignalSource source = resolveSource(def);
-
-    String groupKey = ClickhouseAnalyticsQueryUtils.resolveMaterializedGroupKey(def.getMode());
-    String startExpr = ClickhouseAnalyticsQueryUtils.resolveStartExpr(
-      def.getFunnelType(), def.getDateRangeDays(), def.getStartTime());
-    String endExpr = ClickhouseAnalyticsQueryUtils.resolveEndExpr(def.getFunnelType(), def.getEndTime());
-
-    String stepInClause = steps.stream()
-      .map(s -> "'" + escape(s.getEventName()) + "'")
-      .collect(Collectors.joining(", "));
-
-    String additionalFilters = filters.stream()
-      .map(ClickhouseAnalyticsConstantsMapper::toSqlClause)
-      .collect(Collectors.joining("\n      "));
-
-    // step_events exposes the step column as EventName (ScreenName AS EventName for SCREEN).
-    String windowFunnelArgs = steps.stream()
-      .map(s -> "EventName = '" + escape(s.getEventName()) + "'")
-      .collect(Collectors.joining(",\n        "));
 
     StringBuilder sql = new StringBuilder(1024);
     sql.append("INSERT INTO otel.funnel_results\n")
       .append("  (FunnelId, ProjectId, RunTime, StepIndex, StepName, UserCount, ConversionPct, MedianStepSeconds)\n")
       .append("WITH\n");
+    appendEventStepEventsCteForWindowFunnel(
+      sql, ctx.groupKey(), ctx.projectId(), ctx.startExpr(), ctx.endExpr(),
+      ctx.stepInClause(), ctx.additionalFilters());
+    appendWindowFunnelComputation(sql, ctx);
+    return sql.toString();
+  }
 
-    appendStepEventsCte(sql, source, groupKey, projectId, startExpr, endExpr, stepInClause, additionalFilters, false, null);
-    sql.append("  ),\n");
-
-    sql.append("  funnel AS (\n")
-      .append("    SELECT uid,\n")
-      .append("      windowFunnel(").append(windowSeconds).append(")(FunnelTs,\n")
-      .append("        ").append(windowFunnelArgs).append("\n")
-      .append("      ) AS winning_depth\n")
-      .append("    FROM (SELECT uid, FunnelTs, EventName FROM step_events ORDER BY uid ASC, FunnelTs ASC)\n")
-      .append("    GROUP BY uid\n")
-      .append("  )\n");/**/
-
-    for (int k = 1; k <= stepCount; k++) {
-      if (k > 1) {
-        sql.append("UNION ALL\n");
-      }
-      String stepName = escape(steps.get(k - 1).getEventName());
-      sql.append("SELECT toUInt64(").append(funnelId).append("), '").append(projectId)
-        .append("', ").append(runTime).append(", toUInt8(").append(k - 1).append("), '").append(stepName).append("',\n")
-        .append("       countIf(winning_depth >= ").append(k).append("),\n")
-        .append("       countIf(winning_depth >= ").append(k)
-        .append(") * 100.0 / greatest(countIf(winning_depth >= 1), 1),\n")
-        .append("       CAST(NULL AS Nullable(Int64))\n")
-        .append("FROM funnel\n");
+  /**
+   * Ordered funnel over {@code otel.otel_traces} ({@code PulseType = screen_load}).
+   *
+   * @param def funnel definition; must have at least one step
+   * @return the INSERT SQL, or an empty string if the funnel has no steps
+   */
+  public static String buildInsertSqlWindowFunnelScreen(FunnelDefinitionRow def) {
+    WindowFunnelContext ctx = windowFunnelContext(def);
+    if (ctx == null) {
+      return "";
     }
 
+    StringBuilder sql = new StringBuilder(1024);
+    sql.append("INSERT INTO otel.funnel_results\n")
+      .append("  (FunnelId, ProjectId, RunTime, StepIndex, StepName, UserCount, ConversionPct, MedianStepSeconds)\n")
+      .append("WITH\n");
+    appendScreenStepEventsCteForWindowFunnel(
+      sql, ctx.groupKey(), ctx.projectId(), ctx.startExpr(), ctx.endExpr(),
+      ctx.stepInClause(), ctx.additionalFilters());
+    appendWindowFunnelComputation(sql, ctx);
     return sql.toString();
   }
 
@@ -365,57 +345,39 @@ public final class ClickHouseFunnelComputeDao {
    * <p>Median step duration is always {@code NULL} for unordered funnels.
    */
   public static String buildInsertSqlUnordered(FunnelDefinitionRow def) {
-    List<FunnelDefinitionStep> steps = deserializeSteps(def.getStepsJson());
-    if (steps.isEmpty()) {
+    UnorderedFunnelContext ctx = unorderedFunnelContext(def);
+    if (ctx == null) {
       return "";
     }
-    List<FunnelAttributeFilter> filters = deserializeFilters(def.getFiltersJson());
-
-    int stepCount = steps.size();
-    long windowSeconds = def.getWindowSeconds();
-    long funnelId = def.getId();
-    String projectId = def.getProjectId();
-
-    String groupKey = ClickhouseAnalyticsQueryUtils.resolveMaterializedGroupKey(def.getMode());
-    String startExpr = ClickhouseAnalyticsQueryUtils.resolveStartExpr(
-      def.getFunnelType(), def.getDateRangeDays(), def.getStartTime());
-    String endExpr = ClickhouseAnalyticsQueryUtils.resolveEndExpr(def.getFunnelType(), def.getEndTime());
-    AnalyticsSignalSource source = resolveSource(def);
-
-    String stepInClause = steps.stream()
-      .map(s -> "'" + escape(s.getEventName()) + "'")
-      .collect(Collectors.joining(", "));
-    String additionalFilters = filters.stream()
-      .map(ClickhouseAnalyticsConstantsMapper::toSqlClause)
-      .collect(Collectors.joining("\n      "));
-
-    String stepRows = buildUnorderedStepRows(steps, funnelId, projectId, runTimeLiteral());
 
     StringBuilder sql = new StringBuilder(2048);
     sql.append("INSERT INTO otel.funnel_results\n")
       .append("  (FunnelId, ProjectId, RunTime, StepIndex, StepName, UserCount, ConversionPct, MedianStepSeconds)\n")
       .append("WITH\n");
-    appendStepEventsCte(sql, source, groupKey, projectId, startExpr, endExpr, stepInClause, additionalFilters, true, steps);
-    sql.append("  ),\n")
-      .append("  window_scores AS (\n")
-      .append("    SELECT a.uid,\n")
-      .append("           a.FunnelTs AS anchor_ts,\n")
-      .append("           uniqExactIf(\n")
-      .append("             b.step_idx,\n")
-      .append("             b.FunnelTs >= a.FunnelTs\n")
-      .append("             AND b.FunnelTs <= a.FunnelTs + INTERVAL ").append(windowSeconds).append(" SECOND\n")
-      .append("           ) AS steps_in_window\n")
-      .append("    FROM step_events a\n")
-      .append("    INNER JOIN step_events b ON a.uid = b.uid\n")
-      .append("    GROUP BY a.uid, a.FunnelTs\n")
-      .append("  ),\n")
-      .append("  best_per_uid AS (\n")
-      .append("    SELECT uid, max(steps_in_window) AS max_steps\n")
-      .append("    FROM window_scores\n")
-      .append("    GROUP BY uid\n")
-      .append("  )\n")
-      .append(stepRows);
+    appendEventStepEventsCteForUnordered(
+      sql, ctx.groupKey(), ctx.projectId(), ctx.startExpr(), ctx.endExpr(),
+      ctx.stepInClause(), ctx.additionalFilters(), ctx.steps());
+    appendUnorderedFunnelComputation(sql, ctx);
+    return sql.toString();
+  }
 
+  /**
+   * Unordered funnel over {@code otel.otel_traces} ({@code PulseType = screen_load}).
+   */
+  public static String buildInsertSqlUnorderedScreen(FunnelDefinitionRow def) {
+    UnorderedFunnelContext ctx = unorderedFunnelContext(def);
+    if (ctx == null) {
+      return "";
+    }
+
+    StringBuilder sql = new StringBuilder(2048);
+    sql.append("INSERT INTO otel.funnel_results\n")
+      .append("  (FunnelId, ProjectId, RunTime, StepIndex, StepName, UserCount, ConversionPct, MedianStepSeconds)\n")
+      .append("WITH\n");
+    appendScreenStepEventsCteForUnordered(
+      sql, ctx.groupKey(), ctx.projectId(), ctx.startExpr(), ctx.endExpr(),
+      ctx.stepInClause(), ctx.additionalFilters(), ctx.steps());
+    appendUnorderedFunnelComputation(sql, ctx);
     return sql.toString();
   }
 
@@ -658,56 +620,249 @@ public final class ClickHouseFunnelComputeDao {
     return stepOrderType != null && STEP_ORDER_UNORDERED.equalsIgnoreCase(stepOrderType);
   }
 
-  private static AnalyticsSignalSource resolveSource(FunnelDefinitionRow def) {
-    return AnalyticsSignalSource.forBasis(AnalysisBasis.fromJsonOrDefault(def.getAnalysisBasis()));
-  }
-
   private static boolean isScreenBasis(FunnelDefinitionRow def) {
     return AnalysisBasis.SCREEN == AnalysisBasis.fromJsonOrDefault(def.getAnalysisBasis());
   }
 
-  private static void appendStepEventsCte(
+  private static WindowFunnelContext windowFunnelContext(FunnelDefinitionRow def) {
+    List<FunnelDefinitionStep> steps = deserializeSteps(def.getStepsJson());
+    if (steps.isEmpty()) {
+      return null;
+    }
+    List<FunnelAttributeFilter> filters = deserializeFilters(def.getFiltersJson());
+    String stepInClause = steps.stream()
+      .map(s -> "'" + escape(s.getEventName()) + "'")
+      .collect(Collectors.joining(", "));
+    String additionalFilters = filters.stream()
+      .map(ClickhouseAnalyticsConstantsMapper::toSqlClause)
+      .collect(Collectors.joining("\n      "));
+    String windowFunnelArgs = steps.stream()
+      .map(s -> "EventName = '" + escape(s.getEventName()) + "'")
+      .collect(Collectors.joining(",\n        "));
+    return new WindowFunnelContext(
+      steps,
+      def.getWindowSeconds(),
+      def.getId(),
+      def.getProjectId(),
+      runTimeLiteral(),
+      ClickhouseAnalyticsQueryUtils.resolveMaterializedGroupKey(def.getMode()),
+      ClickhouseAnalyticsQueryUtils.resolveStartExpr(
+        def.getFunnelType(), def.getDateRangeDays(), def.getStartTime()),
+      ClickhouseAnalyticsQueryUtils.resolveEndExpr(def.getFunnelType(), def.getEndTime()),
+      stepInClause,
+      additionalFilters,
+      windowFunnelArgs);
+  }
+
+  private static UnorderedFunnelContext unorderedFunnelContext(FunnelDefinitionRow def) {
+    List<FunnelDefinitionStep> steps = deserializeSteps(def.getStepsJson());
+    if (steps.isEmpty()) {
+      return null;
+    }
+    List<FunnelAttributeFilter> filters = deserializeFilters(def.getFiltersJson());
+    String stepInClause = steps.stream()
+      .map(s -> "'" + escape(s.getEventName()) + "'")
+      .collect(Collectors.joining(", "));
+    String additionalFilters = filters.stream()
+      .map(ClickhouseAnalyticsConstantsMapper::toSqlClause)
+      .collect(Collectors.joining("\n      "));
+    return new UnorderedFunnelContext(
+      steps,
+      def.getWindowSeconds(),
+      def.getId(),
+      def.getProjectId(),
+      runTimeLiteral(),
+      ClickhouseAnalyticsQueryUtils.resolveMaterializedGroupKey(def.getMode()),
+      ClickhouseAnalyticsQueryUtils.resolveStartExpr(
+        def.getFunnelType(), def.getDateRangeDays(), def.getStartTime()),
+      ClickhouseAnalyticsQueryUtils.resolveEndExpr(def.getFunnelType(), def.getEndTime()),
+      stepInClause,
+      additionalFilters);
+  }
+
+  private static void appendEventStepEventsCteForWindowFunnel(
     StringBuilder sql,
-    AnalyticsSignalSource source,
+    String groupKey,
+    String projectId,
+    String startExpr,
+    String endExpr,
+    String stepInClause,
+    String additionalFilters) {
+    sql.append("  step_events AS (\n")
+      .append("    SELECT ").append(groupKey).append(" AS uid,\n")
+      .append("           toDateTime(Timestamp) AS FunnelTs,\n")
+      .append("           EventName\n")
+      .append("    FROM otel.otel_logs\n")
+      .append("    PREWHERE ProjectId = '").append(projectId).append("'\n")
+      .append("      AND Timestamp BETWEEN ").append(startExpr).append(" AND ").append(endExpr).append("\n")
+      .append("    WHERE PulseType = 'custom_event'\n")
+      .append("      AND EventName IN (").append(stepInClause).append(")\n");
+    if (!additionalFilters.isBlank()) {
+      sql.append("      ").append(additionalFilters).append("\n");
+    }
+    sql.append("  ),\n");
+  }
+
+  private static void appendScreenStepEventsCteForWindowFunnel(
+    StringBuilder sql,
+    String groupKey,
+    String projectId,
+    String startExpr,
+    String endExpr,
+    String stepInClause,
+    String additionalFilters) {
+    sql.append("  step_events AS (\n")
+      .append("    SELECT ").append(groupKey).append(" AS uid,\n")
+      .append("           toDateTime(Timestamp) AS FunnelTs,\n")
+      .append("           ScreenName AS EventName\n")
+      .append("    FROM otel.otel_traces\n")
+      .append("    PREWHERE ProjectId = '").append(projectId).append("'\n")
+      .append("      AND Timestamp BETWEEN ").append(startExpr).append(" AND ").append(endExpr).append("\n")
+      .append("    WHERE PulseType = 'screen_load'\n")
+      .append("      AND ScreenName IN (").append(stepInClause).append(")\n")
+      .append("      AND ScreenName != ''\n");
+    if (!additionalFilters.isBlank()) {
+      sql.append("      ").append(additionalFilters).append("\n");
+    }
+    sql.append("  ),\n");
+  }
+
+  private static void appendWindowFunnelComputation(StringBuilder sql, WindowFunnelContext ctx) {
+    sql.append("  funnel AS (\n")
+      .append("    SELECT uid,\n")
+      .append("      windowFunnel(").append(ctx.windowSeconds()).append(")(FunnelTs,\n")
+      .append("        ").append(ctx.windowFunnelArgs()).append("\n")
+      .append("      ) AS winning_depth\n")
+      .append("    FROM (SELECT uid, FunnelTs, EventName FROM step_events ORDER BY uid ASC, FunnelTs ASC)\n")
+      .append("    GROUP BY uid\n")
+      .append("  )\n");
+
+    int stepCount = ctx.steps().size();
+    for (int k = 1; k <= stepCount; k++) {
+      if (k > 1) {
+        sql.append("UNION ALL\n");
+      }
+      String stepName = escape(ctx.steps().get(k - 1).getEventName());
+      sql.append("SELECT toUInt64(").append(ctx.funnelId()).append("), '").append(ctx.projectId())
+        .append("', ").append(ctx.runTime()).append(", toUInt8(").append(k - 1).append("), '").append(stepName).append("',\n")
+        .append("       countIf(winning_depth >= ").append(k).append("),\n")
+        .append("       countIf(winning_depth >= ").append(k)
+        .append(") * 100.0 / greatest(countIf(winning_depth >= 1), 1),\n")
+        .append("       CAST(NULL AS Nullable(Int64))\n")
+        .append("FROM funnel\n");
+    }
+  }
+
+  private static void appendEventStepEventsCteForUnordered(
+    StringBuilder sql,
     String groupKey,
     String projectId,
     String startExpr,
     String endExpr,
     String stepInClause,
     String additionalFilters,
-    boolean includeStepIdx,
     List<FunnelDefinitionStep> steps) {
     sql.append("  step_events AS (\n")
       .append("    SELECT ").append(groupKey).append(" AS uid,\n")
-      .append("           toDateTime(Timestamp) AS FunnelTs,\n");
-    if (includeStepIdx) {
-      sql.append("           ").append(source.stepSelectExpr()).append(",\n")
-        .append("           multiIf(\n");
-      for (int i = 0; i < steps.size(); i++) {
-        sql.append("             ").append(source.getStepColumn()).append(" = '")
-          .append(escape(steps.get(i).getEventName())).append("', ")
-          .append(i).append(",\n");
-      }
-      sql.append("             -1\n")
-        .append("           ) AS step_idx\n");
-    } else {
-      sql.append("           ").append(source.stepSelectExpr()).append("\n");
-    }
-    sql.append("    FROM ").append(source.getTable()).append("\n");
-    if (includeStepIdx) {
-      sql.append("    WHERE ProjectId = '").append(projectId).append("'\n")
-        .append("      AND PulseType = '").append(source.getPulseType()).append("'\n")
-        .append("      AND Timestamp BETWEEN ").append(startExpr).append(" AND ").append(endExpr).append("\n")
-        .append("      AND ").append(source.getStepColumn()).append(" IN (").append(stepInClause).append(")\n");
-    } else {
-      sql.append("    PREWHERE ProjectId = '").append(projectId).append("'\n")
-        .append("      AND Timestamp BETWEEN ").append(startExpr).append(" AND ").append(endExpr).append("\n")
-        .append("    WHERE PulseType = '").append(source.getPulseType()).append("'\n")
-        .append("      AND ").append(source.getStepColumn()).append(" IN (").append(stepInClause).append(")\n");
-    }
-    sql.append(source.nonEmptyStepFilter());
+      .append("           toDateTime(Timestamp) AS FunnelTs,\n")
+      .append("           EventName,\n")
+      .append("           multiIf(\n");
+    appendStepIdxMultiIf(sql, "EventName", steps);
+    sql.append("           ) AS step_idx\n")
+      .append("    FROM otel.otel_logs\n")
+      .append("    WHERE ProjectId = '").append(projectId).append("'\n")
+      .append("      AND PulseType = 'custom_event'\n")
+      .append("      AND Timestamp BETWEEN ").append(startExpr).append(" AND ").append(endExpr).append("\n")
+      .append("      AND EventName IN (").append(stepInClause).append(")\n");
     if (!additionalFilters.isBlank()) {
-      sql.append("\n      ").append(additionalFilters);
+      sql.append("      ").append(additionalFilters).append("\n");
     }
+    sql.append("  ),\n");
+  }
+
+  private static void appendScreenStepEventsCteForUnordered(
+    StringBuilder sql,
+    String groupKey,
+    String projectId,
+    String startExpr,
+    String endExpr,
+    String stepInClause,
+    String additionalFilters,
+    List<FunnelDefinitionStep> steps) {
+    sql.append("  step_events AS (\n")
+      .append("    SELECT ").append(groupKey).append(" AS uid,\n")
+      .append("           toDateTime(Timestamp) AS FunnelTs,\n")
+      .append("           ScreenName AS EventName,\n")
+      .append("           multiIf(\n");
+    appendStepIdxMultiIf(sql, "ScreenName", steps);
+    sql.append("           ) AS step_idx\n")
+      .append("    FROM otel.otel_traces\n")
+      .append("    WHERE ProjectId = '").append(projectId).append("'\n")
+      .append("      AND PulseType = 'screen_load'\n")
+      .append("      AND Timestamp BETWEEN ").append(startExpr).append(" AND ").append(endExpr).append("\n")
+      .append("      AND ScreenName IN (").append(stepInClause).append(")\n")
+      .append("      AND ScreenName != ''\n");
+    if (!additionalFilters.isBlank()) {
+      sql.append("      ").append(additionalFilters).append("\n");
+    }
+    sql.append("  ),\n");
+  }
+
+  private static void appendStepIdxMultiIf(
+    StringBuilder sql, String stepColumn, List<FunnelDefinitionStep> steps) {
+    for (int i = 0; i < steps.size(); i++) {
+      sql.append("             ").append(stepColumn).append(" = '")
+        .append(escape(steps.get(i).getEventName())).append("', ")
+        .append(i).append(",\n");
+    }
+    sql.append("             -1\n");
+  }
+
+  private static void appendUnorderedFunnelComputation(StringBuilder sql, UnorderedFunnelContext ctx) {
+    sql.append("  window_scores AS (\n")
+      .append("    SELECT a.uid,\n")
+      .append("           a.FunnelTs AS anchor_ts,\n")
+      .append("           uniqExactIf(\n")
+      .append("             b.step_idx,\n")
+      .append("             b.FunnelTs >= a.FunnelTs\n")
+      .append("             AND b.FunnelTs <= a.FunnelTs + INTERVAL ").append(ctx.windowSeconds()).append(" SECOND\n")
+      .append("           ) AS steps_in_window\n")
+      .append("    FROM step_events a\n")
+      .append("    INNER JOIN step_events b ON a.uid = b.uid\n")
+      .append("    GROUP BY a.uid, a.FunnelTs\n")
+      .append("  ),\n")
+      .append("  best_per_uid AS (\n")
+      .append("    SELECT uid, max(steps_in_window) AS max_steps\n")
+      .append("    FROM window_scores\n")
+      .append("    GROUP BY uid\n")
+      .append("  )\n")
+      .append(buildUnorderedStepRows(ctx.steps(), ctx.funnelId(), ctx.projectId(), ctx.runTime()));
+  }
+
+  private record WindowFunnelContext(
+    List<FunnelDefinitionStep> steps,
+    long windowSeconds,
+    long funnelId,
+    String projectId,
+    String runTime,
+    String groupKey,
+    String startExpr,
+    String endExpr,
+    String stepInClause,
+    String additionalFilters,
+    String windowFunnelArgs) {
+  }
+
+  private record UnorderedFunnelContext(
+    List<FunnelDefinitionStep> steps,
+    long windowSeconds,
+    long funnelId,
+    String projectId,
+    String runTime,
+    String groupKey,
+    String startExpr,
+    String endExpr,
+    String stepInClause,
+    String additionalFilters) {
   }
 }

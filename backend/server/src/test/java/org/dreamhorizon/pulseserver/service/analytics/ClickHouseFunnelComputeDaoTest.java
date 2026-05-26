@@ -709,8 +709,8 @@ class ClickHouseFunnelComputeDaoTest {
 
     @Test
     void windowFunnel_shouldReadFromOtelTracesWithScreenLoad() {
-      String sql = ClickHouseFunnelComputeDao.buildInsertSqlWindowFunnel(
-          baseRow().analysisBasis("SCREEN")
+      String sql = ClickHouseFunnelComputeDao.buildInsertSqlWindowFunnelScreen(
+          baseRow()
               .stepsJson("[{\"eventName\":\"Home\"},{\"eventName\":\"Checkout\"}]")
               .build());
       assertThat(sql)
@@ -727,12 +727,32 @@ class ClickHouseFunnelComputeDaoTest {
 
     @Test
     void unordered_shouldReadFromOtelTracesWithScreenLoad() {
-      String sql = ClickHouseFunnelComputeDao.buildInsertSqlUnordered(
-          baseRow().analysisBasis("SCREEN").stepOrderType("UNORDERED").build());
+      String sql = ClickHouseFunnelComputeDao.buildInsertSqlUnorderedScreen(
+          baseRow().stepOrderType("UNORDERED").build());
       assertThat(sql)
           .contains("FROM otel.otel_traces")
           .contains("PulseType = 'screen_load'")
           .contains("ScreenName != ''");
+    }
+
+    @Test
+    void eventWindowFunnel_shouldNotReadFromOtelTraces() {
+      String sql = ClickHouseFunnelComputeDao.buildInsertSqlWindowFunnel(baseRow().build());
+      assertThat(sql)
+          .contains("FROM otel.otel_logs")
+          .contains("PulseType = 'custom_event'")
+          .doesNotContain("FROM otel.otel_traces");
+    }
+
+    @Test
+    void buildInsertSqlForDefinition_shouldRouteScreenBasisToScreenBuilders() {
+      String ordered = ClickHouseFunnelComputeDao.buildInsertSqlForDefinition(
+          baseRow().analysisBasis("SCREEN").build());
+      assertThat(ordered).contains("FROM otel.otel_traces").doesNotContain("FROM otel.otel_logs");
+
+      String unordered = ClickHouseFunnelComputeDao.buildInsertSqlForDefinition(
+          baseRow().analysisBasis("SCREEN").stepOrderType("UNORDERED").build());
+      assertThat(unordered).contains("FROM otel.otel_traces").contains("window_scores AS (");
     }
   }
 }

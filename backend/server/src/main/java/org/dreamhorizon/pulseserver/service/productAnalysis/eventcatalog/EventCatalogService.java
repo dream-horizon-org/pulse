@@ -14,7 +14,7 @@ public interface EventCatalogService {
   Single<FunnelEventsResponse> listEventNames(String projectId);
 
   /**
-   * Distinct screen names from {@code otel.otel_traces} ({@code PulseType = screen_load}).
+   * Distinct screen names from {@code otel.screen_catalog_entries}.
    */
   Single<FunnelScreensResponse> listScreenNames(String projectId);
 

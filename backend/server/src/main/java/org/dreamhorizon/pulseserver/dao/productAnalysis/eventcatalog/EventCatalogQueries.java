@@ -49,13 +49,6 @@ public final class EventCatalogQueries {
       + "' ORDER BY FilterValue";
   }
 
-  public static String buildListScreenNamesSql(String projectId) {
-    String pid = escapeChStringLiteral(projectId);
-    return "SELECT DISTINCT ScreenName AS name FROM otel.otel_traces WHERE ProjectId = '"
-      + pid
-      + "' AND PulseType = 'screen_load' AND ScreenName != '' ORDER BY name LIMIT 500";
-  }
-
   public static String escapeChStringLiteral(String s) {
     if (s == null) {
       return "";
