@@ -3,6 +3,7 @@ import { CriticalInteractionDetailsFilterValues } from "../../../../../../Critic
 export interface RegionalDataPoint {
   name: string;
   value: number;
+  total: number;
 }
 
 export interface RegionalInsightsData {

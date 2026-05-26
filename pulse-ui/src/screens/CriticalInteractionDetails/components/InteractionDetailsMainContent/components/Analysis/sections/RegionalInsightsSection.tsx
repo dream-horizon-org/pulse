@@ -77,6 +77,7 @@ export const RegionalInsightsSection: React.FC<AnalysisSectionProps> = ({
             description="Percentage of users with poor experience • Darker = Higher %"
             metricLabel="poor users"
             metricSuffix="%"
+            totalUnit="users"
           />
         </Box>
       </Flex>
