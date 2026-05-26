@@ -22,16 +22,15 @@ BEST-EFFORT TOOLS (call when they help; omit narrative when ambiguous):
 
 RULES:
 - Call metric and RCA tools before stating Apdex, error rate, segment drivers, or volumes.
-- Copy raw tool JSON into interaction_config, metrics_payload, rca_payload, journey_payload,
-  funnel_payload fields on InteractionResearchV1. Do not paraphrase numbers into prose only.
-- segment_highlights: only when RCA tool returns segment_highlights (mapper found outliers).
-  Otherwise leave segment_highlights null/omitted — do not invent segment highlights.
+- Do not copy tool JSON into structured output — the server captures tool responses automatically.
+- Do not set segment_highlights, paradox_kpi_hint, or health_rating — the server adds those.
 - funnel_context and journey_summary: only when event catalog confidently matches steps.
   If ambiguous, omit funnel_context and keep journey_summary brief or null.
 - Do not invent metrics, session IDs, funnel IDs, or journey IDs.
-- Set project_id, interaction_name, and reporting_period from the user request / session state.
+- Set project_id, interaction_name, period_start, and period_end (YYYY-MM-DD) from the user
+  request / session state.
 - Write journey_summary, deviant_paths_observed, session_observations in plain language only
   after tools return; ground claims in tool payloads.
 
-Output: valid InteractionResearchV1 JSON only (structured output schema enforced).
+Output: valid structured JSON only (period_start / period_end as ISO dates).
 """

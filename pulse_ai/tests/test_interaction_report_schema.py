@@ -141,7 +141,22 @@ class TestInteractionReportV1Schema:
 
     def test_interaction_research_json_schema_exports(self) -> None:
         schema = interaction_research_json_schema()
-        assert schema["title"] == "InteractionResearchV1"
+        assert schema["title"] == "InteractionResearchV1Llm"
+
+    def test_research_from_llm_output_maps_period_fields(self) -> None:
+        from pulse_ai.schemas.interaction_research_v1 import research_from_llm_output
+
+        research = research_from_llm_output(
+            {
+                "version": 1,
+                "project_id": "proj-1",
+                "interaction_name": "Pay",
+                "period_start": "2026-05-01",
+                "period_end": "2026-05-07",
+            }
+        )
+        assert research.reporting_period.start == date(2026, 5, 1)
+        assert research.reporting_period.end == date(2026, 5, 7)
 
     def test_interaction_research_v1_validates(self) -> None:
         research = InteractionResearchV1(

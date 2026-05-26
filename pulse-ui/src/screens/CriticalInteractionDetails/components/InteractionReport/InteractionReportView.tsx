@@ -13,9 +13,9 @@ import type {
   HealthRating,
   InteractionReportV1Wire,
 } from "../../../../hooks/useInteractionReport";
+import classes from "./InteractionReport.module.css";
 
 type UserExperienceCategory = "excellent" | "good" | "average" | "poor";
-import classes from "./InteractionReport.module.css";
 
 const BUSINESS_RISK_LABELS: Record<string, string> = {
   checkout_blocked: "Checkout blocked",

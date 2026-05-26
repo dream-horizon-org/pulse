@@ -32,7 +32,13 @@ from pulse_ai.schemas.interaction_report_v1 import (
     RootCauseEvidence,
     derive_health_rating,
 )
-from pulse_ai.schemas.interaction_research_v1 import InteractionResearchV1
+from pulse_ai.agents.interaction_research.tool_payload_state import (
+    INTERACTION_RESEARCH_TOOL_PAYLOADS_KEY,
+)
+from pulse_ai.schemas.interaction_research_v1 import (
+    InteractionResearchV1,
+    research_from_llm_output,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -368,16 +374,16 @@ async def _load_session_state(runner: Any, session_id: str) -> dict[str, Any]:
     return dict(session.state or {})
 
 
-def _parse_research(raw: object) -> InteractionResearchV1 | None:
+def _parse_research(
+    raw: object,
+    *,
+    tool_payloads: dict[str, Any] | None = None,
+) -> InteractionResearchV1 | None:
     if raw is None:
         return None
     try:
-        if isinstance(raw, str):
-            return InteractionResearchV1.model_validate_json(raw)
-        if isinstance(raw, dict):
-            return InteractionResearchV1.model_validate(raw)
-        return InteractionResearchV1.model_validate(raw)
-    except ValidationError:
+        return research_from_llm_output(raw, tool_payloads=tool_payloads)
+    except (ValidationError, ValueError, TypeError):
         logger.warning("interaction_research_v1 validation failed", exc_info=True)
         return None
 
@@ -459,7 +465,11 @@ async def generate_interaction_report(
         ) from error
 
     state = await _load_session_state(research_runner, session_id)
-    research = _parse_research(state.get(RESEARCH_STATE_KEY))
+    tool_payloads = state.get(INTERACTION_RESEARCH_TOOL_PAYLOADS_KEY)
+    research = _parse_research(
+        state.get(RESEARCH_STATE_KEY),
+        tool_payloads=tool_payloads if isinstance(tool_payloads, dict) else None,
+    )
     if research is None:
         raise InteractionReportRunnerError(
             500,

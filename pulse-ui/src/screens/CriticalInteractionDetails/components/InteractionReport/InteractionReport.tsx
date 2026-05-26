@@ -61,7 +61,7 @@ export function InteractionReport({
       )}
 
       {loading && !report && (
-        <LoaderWithMessage message="Generating interaction health report…" />
+        <LoaderWithMessage loadingMessage="Generating interaction health report…" />
       )}
       {error && <Alert color="red">{error}</Alert>}
       {report && !loading && <InteractionReportView report={report} />}

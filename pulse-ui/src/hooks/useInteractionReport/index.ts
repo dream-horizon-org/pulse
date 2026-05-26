@@ -5,6 +5,7 @@ export {
 } from "./extractInteractionReport";
 export type {
   InteractionReportV1Wire,
+  ExperienceMixWire,
   HealthRating,
   SegmentHighlightWire,
   ImprovementActionWire,

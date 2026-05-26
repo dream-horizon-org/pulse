@@ -10,6 +10,7 @@ from datetime import date, datetime, timezone
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic.json_schema import SkipJsonSchema
 
 HealthRating = Literal["red", "amber", "green"]
 PrimaryKpi = Literal["apdex", "error_rate"]
@@ -209,7 +210,8 @@ class SegmentHighlight(BaseModel):
         ge=1,
         description="RCA serverRank (1 = worst segment); links to Block 6 evidence.",
     )
-    dimensions: dict[str, str] | None = Field(
+    # Excluded from LLM JSON schema: Gemini/ADK reject additionalProperties on dict fields.
+    dimensions: SkipJsonSchema[dict[str, str] | None] = Field(
         default=None,
         description="RCA dimension map (e.g. NetworkProvider → Vi India).",
     )
