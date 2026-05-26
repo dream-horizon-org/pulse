@@ -62,13 +62,18 @@ const formatTime = (time: string): string => {
   const trimmed = typeof time === "string" ? time.trim() : "";
   if (!trimmed) return "";
   if (trimmed.includes("T") || trimmed.includes("Z")) {
+    // Already ISO format
     const d = dayjs.utc(trimmed);
     return d.isValid() ? d.toISOString() : "";
   }
-  const withFormat = dayjs.utc(trimmed, "YYYY-MM-DD HH:mm:ss");
-  if (withFormat.isValid()) return withFormat.toISOString();
-  const loose = dayjs.utc(trimmed);
-  return loose.isValid() ? loose.toISOString() : "";
+  // Treat as IST time (local) and convert to UTC for backend
+  const parsed = dayjs(trimmed, "YYYY-MM-DD HH:mm:ss");
+  if (parsed.isValid()) {
+    return parsed.utc().toISOString();
+  }
+  // Fallback: try loose parsing
+  const loose = dayjs(trimmed);
+  return loose.isValid() ? loose.utc().toISOString() : "";
 };
 
 /**

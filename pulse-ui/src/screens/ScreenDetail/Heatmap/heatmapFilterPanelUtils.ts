@@ -1,8 +1,7 @@
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 import {
-  getDateFromUTCTimeString,
-  isValidUtcWallClockString,
+  isValidIstWallClockString,
 } from "../../../utils/DateUtil";
 import type { HeatmapLocalFilters } from "./heatmapLocalFilters";
 import { canonicalHeatmapBreakpoint } from "./heatmapLocalFilters";
@@ -15,7 +14,7 @@ import {
 
 dayjs.extend(utc);
 
-/** Both bounds set and parse as UTC wall-clock — required before heatmap API calls. */
+/** Both bounds set and parse as IST wall-clock — required before heatmap API calls. */
 export function isHeatmapTimeRangeQueryReady(
   value: Pick<HeatmapLocalFilters, "startTime" | "endTime">,
 ): boolean {
@@ -23,12 +22,12 @@ export function isHeatmapTimeRangeQueryReady(
   return (
     !!startTime?.trim() &&
     !!endTime?.trim() &&
-    isValidUtcWallClockString(startTime) &&
-    isValidUtcWallClockString(endTime)
+    isValidIstWallClockString(startTime) &&
+    isValidIstWallClockString(endTime)
   );
 }
 
-/** UTC wall-clock span for custom (non–quick-preset) ranges — empty if invalid. */
+/** IST wall-clock span for custom (non–quick-preset) ranges — empty if invalid. */
 export function formatHeatmapCustomDateRangeLabel(
   value: Pick<HeatmapLocalFilters, "startTime" | "endTime">,
 ): string {
@@ -36,17 +35,12 @@ export function formatHeatmapCustomDateRangeLabel(
   if (
     !startTime?.trim() ||
     !endTime?.trim() ||
-    !isValidUtcWallClockString(startTime) ||
-    !isValidUtcWallClockString(endTime)
+    !isValidIstWallClockString(startTime) ||
+    !isValidIstWallClockString(endTime)
   ) {
     return "";
   }
-  const startDate = getDateFromUTCTimeString(startTime);
-  const endDate = getDateFromUTCTimeString(endTime);
-  if (!startDate || !endDate) {
-    return "";
-  }
-  return `${dayjs.utc(startTime, "YYYY-MM-DD HH:mm:ss").format("MMM D, HH:mm")} – ${dayjs.utc(endTime, "YYYY-MM-DD HH:mm:ss").format("MMM D, HH:mm")}`;
+  return `${dayjs(startTime, "YYYY-MM-DD HH:mm:ss").format("MMM D, HH:mm")} – ${dayjs(endTime, "YYYY-MM-DD HH:mm:ss").format("MMM D, HH:mm")}`;
 }
 
 /** Clock label: quick-preset name when it matches; otherwise the date span. */

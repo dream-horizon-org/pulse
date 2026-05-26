@@ -34,8 +34,9 @@ export function inferHeatmapTimePreset(
   endTime: string,
 ): string {
   const sub = HEATMAP_TIME_RANGE_SUBTRACT_MINUTES;
-  const expectedEnd = dayjs.utc().subtract(sub, "minute");
-  const end = dayjs.utc(endTime, "YYYY-MM-DD HH:mm:ss");
+  // Use local time for comparison since times are stored in IST
+  const expectedEnd = dayjs().subtract(sub, "minute");
+  const end = dayjs(endTime, "YYYY-MM-DD HH:mm:ss");
   if (!end.isValid()) {
     return HEATMAP_TIME_PRESET_CUSTOM;
   }
@@ -43,14 +44,14 @@ export function inferHeatmapTimePreset(
     return HEATMAP_TIME_PRESET_CUSTOM;
   }
 
-  const start = dayjs.utc(startTime, "YYYY-MM-DD HH:mm:ss");
+  const start = dayjs(startTime, "YYYY-MM-DD HH:mm:ss");
   if (!start.isValid()) {
     return HEATMAP_TIME_PRESET_CUSTOM;
   }
 
   for (const preset of HEATMAP_QUICK_TIME_PRESETS) {
     const { startDate } = getStartAndEndDateTimeString(preset.value, sub);
-    const expectedStart = dayjs.utc(startDate, "YYYY-MM-DD HH:mm:ss");
+    const expectedStart = dayjs(startDate, "YYYY-MM-DD HH:mm:ss");
     if (Math.abs(start.diff(expectedStart, "minute")) <= 3) {
       return preset.value;
     }

@@ -350,3 +350,17 @@ export function formatTimeToISO(time: string): string {
   // Parse "YYYY-MM-DD HH:mm:ss" as UTC and convert to ISO format
   return dayjs.utc(time, "YYYY-MM-DD HH:mm:ss").toISOString();
 }
+
+/** Validate IST wall-clock string format: "YYYY-MM-DD HH:mm:ss" */
+export function isValidIstWallClockString(value: string | undefined): boolean {
+  if (!value?.trim()) return false;
+  return dayjs(value.trim(), "YYYY-MM-DD HH:mm:ss", true).isValid();
+}
+
+/** Get ISO string from IST wall-clock time for API queries (converts IST to UTC) */
+export function getISOStringFromIstTimeString(istTime: string): string {
+  if (!istTime?.trim()) return "";
+  const parsed = dayjs(istTime, "YYYY-MM-DD HH:mm:ss");
+  if (!parsed.isValid()) return "";
+  return parsed.utc().toISOString();
+}

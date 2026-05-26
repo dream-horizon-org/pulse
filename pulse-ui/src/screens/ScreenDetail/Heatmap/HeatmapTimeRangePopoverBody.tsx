@@ -1,11 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Group, Select, Stack, Text } from "@mantine/core";
+import { Button, Divider, Group, Select, Stack, Text } from "@mantine/core";
 import { DateTimePicker } from "@mantine/dates";
 import {
-  getDateFromUTCTimeString,
   getStartAndEndDateTimeString,
-  getUTCDateTimeStringFromDateValue,
-  isValidUtcWallClockString,
+  getDateTimeStringFromDateValue,
+  isValidIstWallClockString,
 } from "../../../utils/DateUtil";
 import type { HeatmapTimeRangePopoverBodyProps } from "./heatmap.ui.types";
 import { formatHeatmapCustomDateRangeLabel } from "./heatmapFilterPanelUtils";
@@ -16,20 +15,26 @@ import {
   inferHeatmapTimePreset,
 } from "./heatmapTimePresets";
 import filterClasses from "../../CriticalInteractionDetails/components/InteractionDetailsFilters/InteractionDetailsFilters.module.css";
+import dayjs from "dayjs";
 
 const PICK_DATES_LABEL = "Pick dates…";
 
 /**
  * Inner content of the time popover: quick presets and optional From / To.
+ * Uses local state for staging changes; only commits via onChange on Apply.
+ * All times are stored and displayed in IST format (YYYY-MM-DD HH:mm:ss).
  */
 export function HeatmapTimeRangePopoverBody({
   opened,
   value,
   onChange,
+  onApply,
 }: HeatmapTimeRangePopoverBodyProps) {
   const preferCustomRangeRef = useRef(false);
 
   const [timePreset, setTimePreset] = useState<string>(HEATMAP_TIME_PRESET_CUSTOM);
+  const [stagedStartTime, setStagedStartTime] = useState(value.startTime);
+  const [stagedEndTime, setStagedEndTime] = useState(value.endTime);
 
   useEffect(() => {
     if (!opened) {
@@ -47,10 +52,15 @@ export function HeatmapTimeRangePopoverBody({
       preferCustomRangeRef.current = false;
     }
     setTimePreset(inferred);
+    setStagedStartTime(value.startTime);
+    setStagedEndTime(value.endTime);
   }, [opened, value.startTime, value.endTime]);
 
   const selectData = useMemo(() => {
-    const rangeText = formatHeatmapCustomDateRangeLabel(value);
+    const rangeText = formatHeatmapCustomDateRangeLabel({
+      startTime: stagedStartTime,
+      endTime: stagedEndTime,
+    });
     const customLabel =
       timePreset === HEATMAP_TIME_PRESET_CUSTOM && rangeText
         ? rangeText
@@ -62,29 +72,56 @@ export function HeatmapTimeRangePopoverBody({
       })),
       { value: HEATMAP_TIME_PRESET_CUSTOM, label: customLabel },
     ];
-  }, [timePreset, value]);
+  }, [timePreset, stagedStartTime, stagedEndTime]);
 
   let startDate: Date | null = null;
-  if (value.startTime?.trim() && isValidUtcWallClockString(value.startTime)) {
-    startDate = getDateFromUTCTimeString(value.startTime);
+  if (stagedStartTime?.trim() && isValidIstWallClockString(stagedStartTime)) {
+    // Parse IST time string to Date object
+    // Format: "YYYY-MM-DD HH:mm:ss"
+    const parsed = dayjs(stagedStartTime, "YYYY-MM-DD HH:mm:ss");
+    if (parsed.isValid()) {
+      startDate = parsed.toDate();
+    }
   }
   let endDate: Date | null = null;
-  if (value.endTime?.trim() && isValidUtcWallClockString(value.endTime)) {
-    endDate = getDateFromUTCTimeString(value.endTime);
+  if (stagedEndTime?.trim() && isValidIstWallClockString(stagedEndTime)) {
+    // Parse IST time string to Date object
+    // Format: "YYYY-MM-DD HH:mm:ss"
+    const parsed = dayjs(stagedEndTime, "YYYY-MM-DD HH:mm:ss");
+    if (parsed.isValid()) {
+      endDate = parsed.toDate();
+    }
   }
 
   const customMode = timePreset === HEATMAP_TIME_PRESET_CUSTOM;
   const fromError =
     customMode &&
-    (!value.startTime?.trim() || !isValidUtcWallClockString(value.startTime));
+    (!stagedStartTime?.trim() || !isValidIstWallClockString(stagedStartTime));
   const toError =
     customMode &&
-    (!value.endTime?.trim() || !isValidUtcWallClockString(value.endTime));
+    (!stagedEndTime?.trim() || !isValidIstWallClockString(stagedEndTime));
+
+  const handleApply = () => {
+    onChange({
+      ...value,
+      startTime: stagedStartTime,
+      endTime: stagedEndTime,
+    });
+    onApply?.();
+  };
+
+  const handleReset = () => {
+    setStagedStartTime(value.startTime);
+    setStagedEndTime(value.endTime);
+    const inferred = inferHeatmapTimePreset(value.startTime, value.endTime);
+    setTimePreset(inferred);
+    preferCustomRangeRef.current = false;
+  };
 
   return (
     <Stack gap="sm">
       <Text size="xs" fw={700} c="dark">
-        Date &amp; time (UTC)
+        Date &amp; time (IST)
       </Text>
       <Select
         label="Quick range"
@@ -93,7 +130,7 @@ export function HeatmapTimeRangePopoverBody({
         data={selectData}
         value={timePreset}
         comboboxProps={{ withinPortal: false }}
-        onChange={(v) => {
+        onChange={(v: string | null) => {
           const next = v ?? HEATMAP_TIME_PRESET_CUSTOM;
           if (next === HEATMAP_TIME_PRESET_CUSTOM) {
             preferCustomRangeRef.current = true;
@@ -106,7 +143,8 @@ export function HeatmapTimeRangePopoverBody({
               next,
               HEATMAP_TIME_RANGE_SUBTRACT_MINUTES,
             );
-            onChange({ ...value, startTime: st, endTime: et });
+            setStagedStartTime(st);
+            setStagedEndTime(et);
           }
         }}
       />
@@ -118,13 +156,10 @@ export function HeatmapTimeRangePopoverBody({
             </Text>
             <DateTimePicker
               value={startDate}
-              onChange={(d) => {
+              onChange={(d: Date | null) => {
                 preferCustomRangeRef.current = true;
                 setTimePreset(HEATMAP_TIME_PRESET_CUSTOM);
-                onChange({
-                  ...value,
-                  startTime: getUTCDateTimeStringFromDateValue(d),
-                });
+                setStagedStartTime(getDateTimeStringFromDateValue(d));
               }}
               size="xs"
               clearable
@@ -140,13 +175,10 @@ export function HeatmapTimeRangePopoverBody({
             </Text>
             <DateTimePicker
               value={endDate}
-              onChange={(d) => {
+              onChange={(d: Date | null) => {
                 preferCustomRangeRef.current = true;
                 setTimePreset(HEATMAP_TIME_PRESET_CUSTOM);
-                onChange({
-                  ...value,
-                  endTime: getUTCDateTimeStringFromDateValue(d),
-                });
+                setStagedEndTime(getDateTimeStringFromDateValue(d));
               }}
               size="xs"
               clearable
@@ -158,6 +190,20 @@ export function HeatmapTimeRangePopoverBody({
           </Stack>
         </Group>
       ) : null}
+      <Divider />
+      <Group justify="flex-end" gap="sm">
+        <Button variant="outline" size="xs" onClick={handleReset}>
+          Reset
+        </Button>
+        <Button
+          variant="filled"
+          size="xs"
+          onClick={handleApply}
+          disabled={customMode && (fromError || toError)}
+        >
+          Apply
+        </Button>
+      </Group>
     </Stack>
   );
 }
