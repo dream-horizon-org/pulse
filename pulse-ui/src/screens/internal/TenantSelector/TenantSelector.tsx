@@ -14,6 +14,7 @@ import {
   IconBuildingSkyscraper,
   IconSettings,
   IconPlus,
+  IconCreditCard,
   IconLogout,
 } from "@tabler/icons-react";
 import { useInternalTenants } from "../../../hooks/useInternalTenants";
@@ -220,17 +221,26 @@ export function TenantSelector() {
                 Create Tenant
               </Button>
               {systemRole === SYSTEM_ROLES.SUPERADMIN ? (
-                <Button
-                  variant="light"
-                  color="teal"
-                  size="sm"
-                  leftSection={<IconSettings size={14} />}
-                  onClick={() =>
-                    navigate(ROUTES.INTERNAL_DEVELOPER_SETTINGS.path)
-                  }
-                >
-                  Developer Settings
-                </Button>
+                <>
+                  <Button
+                    variant="light"
+                    color="violet"
+                    size="sm"
+                    leftSection={<IconCreditCard size={14} />}
+                    onClick={() => navigate(ROUTES.INTERNAL_SUBSCRIPTION_MANAGEMENT.path)}
+                  >
+                    Subscriptions
+                  </Button>
+                  <Button
+                    variant="light"
+                    color="teal"
+                    size="sm"
+                    leftSection={<IconSettings size={14} />}
+                    onClick={() => navigate(ROUTES.INTERNAL_DEVELOPER_SETTINGS.path)}
+                  >
+                    Developer Settings
+                  </Button>
+                </>
               ) : null}
               <Button
                 variant="light"

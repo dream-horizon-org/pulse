@@ -27,6 +27,10 @@ import { showNotification } from "../../helpers/showNotification";
 import classes from "./OrganizationProjects.module.css";
 import { TIERS } from "../../constants/Tiers";
 import { TENANT_ROLES } from "../../constants/Roles";
+import {
+  PROJECT_SELECT_SOURCES,
+  type ProjectSelectSource,
+} from "../../constants";
 
 export function OrganizationProjects() {
   const { organizationId } = useParams<{ organizationId: string }>();
@@ -41,7 +45,10 @@ export function OrganizationProjects() {
   const [error, setError] = useState<string | null>(null);
 
   const handleProjectClick = useCallback(
-    async (selectedProjectId: string) => {
+    async (
+      selectedProjectId: string,
+      source: ProjectSelectSource = PROJECT_SELECT_SOURCES.MANUAL,
+    ) => {
       try {
         const selectedProject = projects.find(
           (p) => p.projectId === selectedProjectId,
@@ -93,7 +100,10 @@ export function OrganizationProjects() {
       const lastUsedProjectId = sessionStorage.getItem("pulse_last_project_id");
       const projectToSelect =
         projects.find((p) => p.projectId === lastUsedProjectId) || projects[0];
-      handleProjectClick(projectToSelect.projectId);
+      handleProjectClick(
+        projectToSelect.projectId,
+        PROJECT_SELECT_SOURCES.AUTO_SELECT,
+      );
     }
   }, [
     projectId,
