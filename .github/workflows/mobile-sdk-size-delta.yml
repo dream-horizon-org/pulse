@@ -1,0 +1,517 @@
+# Mobile SDK size delta — label-gated 25 KB check for Android / iOS / RN SDK PRs.
+# See .github/sdk-size-baselines/README.md
+name: Mobile SDK size delta
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+    paths:
+      - 'pulse-android-otel/**'
+      - 'pulse-ios-otel/**'
+      - 'pulse-react-native-otel/**'
+      - '.github/sdk-size-baselines/**'
+      - '.github/workflows/mobile-sdk-size-delta.yml'
+      - '.github/scripts/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mobile-sdk-size-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  test-sdk-size-scripts:
+    name: Script unit tests
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-python@a26af4be64d490b13fed7f345b31fea2a3ebf24e # v5.6.0
+        with:
+          python-version: '3.11'
+      - name: Install pytest
+        run: pip install pytest
+      - name: Pytest
+        run: pytest .github/scripts/tests/test_check_sdk_size_delta.py -q
+      - name: Shell tests
+        run: bash .github/scripts/tests/run_shell_tests.sh
+
+  gate:
+    name: Gate
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    outputs:
+      any_deps_changed: ${{ steps.deps.outputs.any_deps_changed }}
+      has_size_label: ${{ steps.labels.outputs.has_size_label }}
+      has_baseline_update_label: ${{ steps.labels.outputs.has_baseline_update_label }}
+      should_build: ${{ steps.decide.outputs.should_build }}
+      run_android: ${{ steps.platforms.outputs.run_android }}
+      run_ios: ${{ steps.platforms.outputs.run_ios }}
+      run_rn: ${{ steps.platforms.outputs.run_rn }}
+      head_sha: ${{ github.event.pull_request.head.sha }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+      - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
+        id: paths
+        with:
+          list-files: csv
+          filters: |
+            android:
+              - 'pulse-android-otel/**'
+            ios:
+              - 'pulse-ios-otel/**'
+            rn:
+              - 'pulse-react-native-otel/**'
+      - name: Detect dependency manifest changes
+        id: deps
+        run: bash .github/scripts/detect_mobile_dep_changes.sh "origin/${{ github.base_ref }}"
+      - name: Read PR labels
+        id: labels
+        run: |
+          LABELS="${{ join(github.event.pull_request.labels.*.name, ' ') }}"
+          if echo "${LABELS}" | grep -qw 'sdk-size-delta'; then
+            echo "has_size_label=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_size_label=false" >> "$GITHUB_OUTPUT"
+          fi
+          if echo "${LABELS}" | grep -qw 'sdk-size-baseline-update'; then
+            echo "has_baseline_update_label=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_baseline_update_label=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Resolve platform jobs
+        id: platforms
+        env:
+          paths_android: ${{ steps.paths.outputs.android == 'true' }}
+          paths_ios: ${{ steps.paths.outputs.ios == 'true' }}
+          paths_rn: ${{ steps.paths.outputs.rn == 'true' }}
+          android_deps_changed: ${{ steps.deps.outputs.android_deps_changed }}
+          ios_deps_changed: ${{ steps.deps.outputs.ios_deps_changed }}
+          rn_deps_changed: ${{ steps.deps.outputs.rn_deps_changed }}
+        run: bash .github/scripts/resolve_platforms.sh
+      - name: Decide should_build
+        id: decide
+        run: |
+          if [[ "${{ steps.deps.outputs.any_deps_changed }}" == "true" && "${{ steps.labels.outputs.has_size_label }}" == "true" ]]; then
+            echo "should_build=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "should_build=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  auto_pass:
+    name: Auto pass (no manifest changes)
+    needs: gate
+    if: github.event_name == 'pull_request' && needs.gate.outputs.any_deps_changed == 'false'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Report
+        run: |
+          python3 .github/scripts/emit_auto_pass_report.py \
+            --head-sha "${{ needs.gate.outputs.head_sha }}"
+
+  android_size:
+    name: Android size
+    needs: gate
+    if: >-
+      github.event_name == 'pull_request' &&
+      needs.gate.outputs.should_build == 'true' &&
+      needs.gate.outputs.run_android == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-java@c5195efecf7bdfc987ee8bae7a71cb8b11521c00 # v4.7.1
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@4d9f0ba0025fe599b4ebab900eb7f3a1d93ef4c2 # v5.0.0
+      - name: Prepare demo-app
+        working-directory: pulse-android-otel
+        run: touch demo-app/local.properties
+      - name: assembleDebug
+        working-directory: pulse-android-otel/demo-app
+        run: ./gradlew assembleDebug --no-daemon
+      - name: Measure and compare
+        id: measure
+        env:
+          APK: pulse-android-otel/demo-app/build/outputs/apk/debug/demo-app-debug.apk
+          BASELINE_UPDATE: ${{ needs.gate.outputs.has_baseline_update_label }}
+        run: |
+          set -euo pipefail
+          BYTES="$(bash .github/scripts/measure_sdk_artifact.sh file "${APK}")"
+          echo "{\"android.demo_app.debug_apk\": ${BYTES}}" > measured-android.json
+          if [[ "${BASELINE_UPDATE}" == "true" ]]; then
+            echo "Deferring compare until baselines are updated on PR branch"
+            exit 0
+          fi
+          python3 .github/scripts/check_sdk_size_delta.py \
+            --baseline .github/sdk-size-baselines/android.json \
+            --measured measured-android.json \
+            --platform android \
+            --head-sha "${{ needs.gate.outputs.head_sha }}"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e933515c5acb271ac2 # v4.6.2
+        with:
+          name: measured-android
+          path: measured-android.json
+
+  ios_size:
+    name: iOS size
+    needs: gate
+    if: >-
+      github.event_name == 'pull_request' &&
+      needs.gate.outputs.should_build == 'true' &&
+      needs.gate.outputs.run_ios == 'true'
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: maxim-lobanov/setup-xcode@60606e260d2fc5762a71e64e74b2174e8ea3c8bd # v1.6.0
+        with:
+          xcode-version: '16.4'
+      - name: Pod install
+        working-directory: pulse-ios-otel/Examples/PulseIOSExample
+        run: gem install cocoapods && pod install
+      - name: Build XCFrameworks
+        working-directory: pulse-ios-otel
+        run: |
+          chmod +x Scripts/build-xcframework.sh
+          ./Scripts/build-xcframework.sh
+      - name: Measure and compare
+        env:
+          BASELINE_UPDATE: ${{ needs.gate.outputs.has_baseline_update_label }}
+        run: |
+          set -euo pipefail
+          BYTES="$(bash .github/scripts/measure_sdk_artifact.sh ios_bundle pulse-ios-otel/build)"
+          echo "{\"ios.pulsekit_xcframework_bundle\": ${BYTES}}" > measured-ios.json
+          if [[ "${BASELINE_UPDATE}" == "true" ]]; then
+            echo "Deferring compare until baselines are updated on PR branch"
+            exit 0
+          fi
+          python3 .github/scripts/check_sdk_size_delta.py \
+            --baseline .github/sdk-size-baselines/ios.json \
+            --measured measured-ios.json \
+            --platform ios \
+            --head-sha "${{ needs.gate.outputs.head_sha }}"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e933515c5acb271ac2 # v4.6.2
+        with:
+          name: measured-ios
+          path: measured-ios.json
+
+  rn_size:
+    name: RN size
+    needs: gate
+    if: >-
+      github.event_name == 'pull_request' &&
+      needs.gate.outputs.should_build == 'true' &&
+      needs.gate.outputs.run_rn == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: pulse-react-native-otel/.nvmrc
+          cache: yarn
+          cache-dependency-path: pulse-react-native-otel/yarn.lock
+      - name: Yarn install
+        working-directory: pulse-react-native-otel
+        run: corepack enable && yarn install --immutable
+      - uses: actions/setup-java@c5195efecf7bdfc987ee8bae7a71cb8b11521c00 # v4.7.1
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: assembleDebug
+        working-directory: pulse-react-native-otel/example/android
+        env:
+          JAVA_OPTS: '-XX:MaxHeapSize=6g'
+        run: ./gradlew assembleDebug -x lint -x test --no-daemon
+      - name: Measure and compare
+        env:
+          APK: pulse-react-native-otel/example/android/app/build/outputs/apk/debug/app-debug.apk
+          BASELINE_UPDATE: ${{ needs.gate.outputs.has_baseline_update_label }}
+        run: |
+          set -euo pipefail
+          BYTES="$(bash .github/scripts/measure_sdk_artifact.sh file "${APK}")"
+          echo "{\"rn.example_app.debug_apk\": ${BYTES}}" > measured-rn.json
+          if [[ "${BASELINE_UPDATE}" == "true" ]]; then
+            echo "Deferring compare until baselines are updated on PR branch"
+            exit 0
+          fi
+          python3 .github/scripts/check_sdk_size_delta.py \
+            --baseline .github/sdk-size-baselines/rn.json \
+            --measured measured-rn.json \
+            --platform rn \
+            --head-sha "${{ needs.gate.outputs.head_sha }}"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e933515c5acb271ac2 # v4.6.2
+        with:
+          name: measured-rn
+          path: measured-rn.json
+
+  update_baselines:
+    name: Update baselines on PR
+    needs:
+      - gate
+      - android_size
+      - ios_size
+      - rn_size
+    if: >-
+      github.event_name == 'pull_request' &&
+      needs.gate.outputs.has_baseline_update_label == 'true' &&
+      needs.gate.outputs.should_build == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+      - uses: actions/download-artifact@fa0a81b6868b52e83be899ac0ab03cda420cdd13 # v4.3.0
+        with:
+          name: measured-android
+          path: artifacts
+        continue-on-error: true
+      - uses: actions/download-artifact@fa0a81b6868b52e83be899ac0ab03cda420cdd13 # v4.3.0
+        with:
+          name: measured-ios
+          path: artifacts
+        continue-on-error: true
+      - uses: actions/download-artifact@fa0a81b6868b52e83be899ac0ab03cda420cdd13 # v4.3.0
+        with:
+          name: measured-rn
+          path: artifacts
+        continue-on-error: true
+      - name: Update baseline JSON files
+        env:
+          HEAD_SHA: ${{ needs.gate.outputs.head_sha }}
+        run: |
+          set -euo pipefail
+          update_one() {
+            local platform="$1"
+            local artifact="$2"
+            local measured_file="artifacts/measured-${platform}.json"
+            if [[ -f "${measured_file}" ]]; then
+              python3 .github/scripts/update_sdk_baselines.py \
+                --baseline ".github/sdk-size-baselines/${platform}.json" \
+                --measured "${measured_file}" \
+                --git-sha "${HEAD_SHA}"
+            fi
+          }
+          update_one android android
+          update_one ios ios
+          update_one rn rn
+      - name: Verify and commit baselines
+        env:
+          HEAD_SHA: ${{ needs.gate.outputs.head_sha }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .github/sdk-size-baselines/*.json
+          if git diff --staged --quiet; then
+            echo "::warning::No baseline files changed"
+            exit 0
+          fi
+          git commit -m "chore(ci): update SDK size baselines (${HEAD_SHA})"
+          git push origin "HEAD:${{ github.event.pull_request.head.ref }}"
+
+  verify_baselines:
+    name: Verify baselines after update
+    needs:
+      - gate
+      - update_baselines
+    if: >-
+      github.event_name == 'pull_request' &&
+      needs.gate.outputs.has_baseline_update_label == 'true' &&
+      needs.update_baselines.result == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+      - uses: actions/download-artifact@fa0a81b6868b52e83be899ac0ab03cda420cdd13 # v4.3.0
+        with:
+          name: measured-android
+          path: artifacts
+        continue-on-error: true
+      - uses: actions/download-artifact@fa0a81b6868b52e83be899ac0ab03cda420cdd13 # v4.3.0
+        with:
+          name: measured-ios
+          path: artifacts
+        continue-on-error: true
+      - uses: actions/download-artifact@fa0a81b6868b52e83be899ac0ab03cda420cdd13 # v4.3.0
+        with:
+          name: measured-rn
+          path: artifacts
+        continue-on-error: true
+      - name: Verify with baseline-update
+        run: |
+          set -euo pipefail
+          verify() {
+            local platform="$1"
+            local f="artifacts/measured-${platform}.json"
+            [[ -f "${f}" ]] || return 0
+            python3 .github/scripts/check_sdk_size_delta.py \
+              --baseline ".github/sdk-size-baselines/${platform}.json" \
+              --measured "${f}" \
+              --platform "${platform}" \
+              --head-sha "${{ needs.gate.outputs.head_sha }}" \
+              --baseline-update
+          }
+          verify android
+          verify ios
+          verify rn
+
+  required-status-check:
+    name: Mobile SDK size delta
+    if: always() && github.event_name == 'pull_request'
+    needs:
+      - gate
+      - auto_pass
+      - android_size
+      - ios_size
+      - rn_size
+      - update_baselines
+      - verify_baselines
+    runs-on: ubuntu-latest
+    steps:
+      - name: Evaluate check
+        env:
+          ANY_DEPS: ${{ needs.gate.outputs.any_deps_changed }}
+          HAS_LABEL: ${{ needs.gate.outputs.has_size_label }}
+          BASELINE_UPDATE: ${{ needs.gate.outputs.has_baseline_update_label }}
+          RUN_ANDROID: ${{ needs.gate.outputs.run_android }}
+          RUN_IOS: ${{ needs.gate.outputs.run_ios }}
+          RUN_RN: ${{ needs.gate.outputs.run_rn }}
+          ANDROID: ${{ needs.android_size.result }}
+          IOS: ${{ needs.ios_size.result }}
+          RN: ${{ needs.rn_size.result }}
+          UPDATE: ${{ needs.update_baselines.result }}
+          VERIFY: ${{ needs.verify_baselines.result }}
+          HEAD_SHA: ${{ needs.gate.outputs.head_sha }}
+        run: |
+          set -euo pipefail
+          if [[ "${ANY_DEPS}" != "true" ]]; then
+            if [[ "${{ needs.auto_pass.result }}" != "success" ]]; then
+              echo "::error::auto_pass failed"
+              exit 1
+            fi
+            echo "Pass: no dependency manifest changes (label not required)"
+            exit 0
+          fi
+          if [[ "${HAS_LABEL}" != "true" ]]; then
+            echo "::error::PR changes dependency manifests. Add label sdk-size-delta for commit ${HEAD_SHA}"
+            exit 1
+          fi
+          check_job() {
+            local name="$1" result="$2" required="$3"
+            if [[ "${required}" != "true" ]]; then
+              return 0
+            fi
+            if [[ "${result}" == "success" ]]; then
+              return 0
+            fi
+            echo "::error::Job ${name} required but result=${result}"
+            return 1
+          }
+          fail=0
+          check_job android_size "${ANDROID}" "${RUN_ANDROID}" || fail=1
+          check_job ios_size "${IOS}" "${RUN_IOS}" || fail=1
+          check_job rn_size "${RN}" "${RUN_RN}" || fail=1
+          if [[ "${fail}" -ne 0 ]]; then
+            exit 1
+          fi
+          if [[ "${BASELINE_UPDATE}" == "true" ]]; then
+            if [[ "${UPDATE}" == "failure" ]]; then
+              echo "::error::update_baselines failed"
+              exit 1
+            fi
+            if [[ "${UPDATE}" == "success" && "${VERIFY}" != "success" ]]; then
+              echo "::error::verify_baselines failed"
+              exit 1
+            fi
+          fi
+          echo "Pass: size delta check satisfied for ${HEAD_SHA}"
+
+  seed-baselines:
+    name: Seed baselines (workflow_dispatch)
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-java@c5195efecf7bdfc987ee8bae7a71cb8b11521c00 # v4.7.1
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@4d9f0ba0025fe599b4ebab900eb7f3a1d93ef4c2 # v5.0.0
+      - name: Seed Android baseline
+        run: |
+          set -euo pipefail
+          touch pulse-android-otel/demo-app/local.properties
+          (cd pulse-android-otel/demo-app && ./gradlew assembleDebug --no-daemon)
+          APK="pulse-android-otel/demo-app/build/outputs/apk/debug/demo-app-debug.apk"
+          BYTES="$(bash .github/scripts/measure_sdk_artifact.sh file "${APK}")"
+          echo "{\"android.demo_app.debug_apk\": ${BYTES}}" > /tmp/measured-android.json
+          python3 .github/scripts/update_sdk_baselines.py \
+            --baseline .github/sdk-size-baselines/android.json \
+            --measured /tmp/measured-android.json \
+            --git-sha "${{ github.sha }}"
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: pulse-react-native-otel/.nvmrc
+      - name: Yarn and RN APK
+        run: |
+          set -euo pipefail
+          corepack enable
+          (cd pulse-react-native-otel && yarn install --immutable)
+          (cd pulse-react-native-otel/example/android && ./gradlew assembleDebug -x lint -x test --no-daemon)
+          APK="pulse-react-native-otel/example/android/app/build/outputs/apk/debug/app-debug.apk"
+          BYTES="$(bash .github/scripts/measure_sdk_artifact.sh file "${APK}")"
+          echo "{\"rn.example_app.debug_apk\": ${BYTES}}" > /tmp/measured-rn.json
+          python3 .github/scripts/update_sdk_baselines.py \
+            --baseline .github/sdk-size-baselines/rn.json \
+            --measured /tmp/measured-rn.json \
+            --git-sha "${{ github.sha }}"
+      - name: Commit Android and RN baselines
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .github/sdk-size-baselines/android.json .github/sdk-size-baselines/rn.json
+          git diff --staged --quiet || git commit -m "chore(ci): seed SDK size baselines (android, rn)"
+          git push
+
+  seed-baselines-ios:
+    name: Seed iOS baseline (workflow_dispatch)
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: macos-15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: maxim-lobanov/setup-xcode@60606e260d2fc5762a71e64e74b2174e8ea3c8bd # v1.6.0
+        with:
+          xcode-version: '16.4'
+      - name: Build and seed iOS
+        run: |
+          set -euo pipefail
+          (cd pulse-ios-otel/Examples/PulseIOSExample && gem install cocoapods && pod install)
+          (cd pulse-ios-otel && chmod +x Scripts/build-xcframework.sh && ./Scripts/build-xcframework.sh)
+          BYTES="$(bash .github/scripts/measure_sdk_artifact.sh ios_bundle pulse-ios-otel/build)"
+          echo "{\"ios.pulsekit_xcframework_bundle\": ${BYTES}}" > /tmp/measured-ios.json
+          python3 .github/scripts/update_sdk_baselines.py \
+            --baseline .github/sdk-size-baselines/ios.json \
+            --measured /tmp/measured-ios.json \
+            --git-sha "${{ github.sha }}"
+      - name: Commit iOS baseline
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git pull origin main --rebase
+          git add .github/sdk-size-baselines/ios.json
+          git diff --staged --quiet || git commit -m "chore(ci): seed SDK size baseline (ios)"
+          git push
