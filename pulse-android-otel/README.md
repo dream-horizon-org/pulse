@@ -167,7 +167,7 @@ PulseSDK.INSTANCE.setUserId(null)
 // Track a custom event
 PulseSDK.INSTANCE.trackEvent(
     name = "purchase_completed",
-    observedTimeStampInMs = System.currentTimeMillis(),
+    timestampInMs = System.currentTimeMillis(),
     params = mapOf(
         "amount" to 99.99,
         "currency" to "USD",
@@ -178,7 +178,7 @@ PulseSDK.INSTANCE.trackEvent(
 // Track without attributes
 PulseSDK.INSTANCE.trackEvent(
     name = "app_opened",
-    observedTimeStampInMs = System.currentTimeMillis()
+    timestampInMs = System.currentTimeMillis()
 )
 ```
 
@@ -188,7 +188,7 @@ PulseSDK.INSTANCE.trackEvent(
 // Report a non-fatal error with message
 PulseSDK.INSTANCE.trackNonFatal(
     name = "API request failed",
-    observedTimeStampInMs = System.currentTimeMillis(),
+    timestampInMs = System.currentTimeMillis(),
     params = mapOf(
         "endpoint" to "/api/users",
         "statusCode" to 500,
@@ -202,7 +202,7 @@ try {
 } catch (e: Exception) {
     PulseSDK.INSTANCE.trackNonFatal(
         throwable = e,
-        observedTimeStampInMs = System.currentTimeMillis(),
+        timestampInMs = System.currentTimeMillis(),
         params = mapOf(
             "context" to "payment_flow",
             "userId" to "user-123"
