@@ -11,7 +11,7 @@ import { getTimeBucketSize } from "../../../../utils/TimeBucketUtil";
 import { LatencyTimeSeriesProps } from "./LatencyTimeSeries.interface";
 import classes from "./LatencyTimeSeries.module.css";
 import { COLUMN_NAME, PulseType } from "../../../../constants/PulseOtelSemcov";
-import { formatTimeToISTFromUTCString } from "../../../../utils/DateUtil";
+import { formatTimeToLocalFromUTCString } from "../../../../utils/DateUtil";
 
 dayjs.extend(utc);
 
@@ -241,7 +241,7 @@ export const LatencyTimeSeries: React.FC<LatencyTimeSeriesProps> = ({
               formatter: createTooltipFormatter({
                 valueFormatter: (value: number) => formatLatency(value),
                 customHeaderFormatter: (axisValue: any) =>
-                  axisValue ? formatTimeToISTFromUTCString(String(axisValue), bucketSize) : "",
+                  axisValue ? formatTimeToLocalFromUTCString(String(axisValue), bucketSize) : "",
               }),
             },
             legend: {
@@ -256,7 +256,7 @@ export const LatencyTimeSeries: React.FC<LatencyTimeSeriesProps> = ({
               },
               axisLabel: {
                 fontSize: 10,
-                formatter: (v: string) => formatTimeToISTFromUTCString(v, bucketSize),
+                formatter: (v: string) => formatTimeToLocalFromUTCString(v, bucketSize),
               },
             },
             yAxis: {

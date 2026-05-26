@@ -8,7 +8,7 @@ import {
 } from "./TrendGraphWithData/helpers/trendDataHelpers";
 import type { TimeBucketSize } from "../../../utils/TimeBucketUtil";
 import type { StartEndDateTimeType } from "../../CriticalInteractionDetails/components/DateTimeRangePickerDropDown/DateTimeRangePicker.interface";
-import { formatTimeToISTFromUTCString } from "../../../utils/DateUtil";
+import { formatTimeToLocalFromUTCString } from "../../../utils/DateUtil";
 
 export interface TrendGraphDataPoint {
   bucketTime: string;
@@ -88,14 +88,20 @@ export const TrendGraph: React.FC<TrendGraphProps> = ({
               formatter: createTooltipFormatter({
                 valueFormatter: (value: number) => value.toLocaleString(),
                 customHeaderFormatter: (axisValue: any) =>
-                  axisValue ? formatTimeToISTFromUTCString(String(axisValue), bucketSize) : "",
+                  axisValue
+                    ? formatTimeToLocalFromUTCString(
+                        String(axisValue),
+                        bucketSize,
+                      )
+                    : "",
               }),
             },
             xAxis: {
               type: "category",
               data: data.map((d) => d.bucketTime),
               axisLabel: {
-                formatter: (value: string) => formatTimeToISTFromUTCString(value, bucketSize),
+                formatter: (value: string) =>
+                  formatTimeToLocalFromUTCString(value, bucketSize),
               },
             },
             yAxis: {

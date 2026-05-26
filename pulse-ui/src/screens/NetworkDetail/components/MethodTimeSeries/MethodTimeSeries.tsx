@@ -15,7 +15,7 @@ import { getTimeBucketSize } from "../../../../utils/TimeBucketUtil";
 import { MethodTimeSeriesProps } from "./MethodTimeSeries.interface";
 import classes from "./MethodTimeSeries.module.css";
 import { COLUMN_NAME, PulseType } from "../../../../constants/PulseOtelSemcov";
-import { formatTimeToISTFromUTCString } from "../../../../utils/DateUtil";
+import { formatTimeToLocalFromUTCString } from "../../../../utils/DateUtil";
 
 dayjs.extend(utc);
 
@@ -293,7 +293,7 @@ export const MethodTimeSeries: React.FC<MethodTimeSeriesProps> = ({
                 valueFormatter: (value: number) =>
                   isGraphqlMode ? `${value.toFixed(1)}%` : value.toLocaleString(),
                 customHeaderFormatter: (axisValue: any) =>
-                  axisValue ? formatTimeToISTFromUTCString(String(axisValue), bucketSize) : "",
+                  axisValue ? formatTimeToLocalFromUTCString(String(axisValue), bucketSize) : "",
               }),
             },
             legend: {
@@ -308,7 +308,7 @@ export const MethodTimeSeries: React.FC<MethodTimeSeriesProps> = ({
               },
               axisLabel: {
                 fontSize: 10,
-                formatter: (v: string) => formatTimeToISTFromUTCString(v, bucketSize),
+                formatter: (v: string) => formatTimeToLocalFromUTCString(v, bucketSize),
               },
             },
             yAxis: {
