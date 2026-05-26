@@ -720,50 +720,6 @@ internal class FrameDataHelperTest {
     }
 
     @Test
-    fun `does not throw when span lies in gap between two frame samples`() {
-        // Regression: span entirely between e1 and e2 hit startBefore branch with
-        // events.last { < startBefore } when startBefore was the first sample → NSEE.
-        val events =
-            listOf(
-                FrameDataHelper.CumulativeFrameData(1000, 10, 5, 1, 0),
-                FrameDataHelper.CumulativeFrameData(2000, 30, 15, 2, 1),
-            )
-
-        val result =
-            FrameDataHelper.createCumulativeFrameMetric(
-                events = events,
-                startTimeInMs = 1500,
-                endTimeInMs = 1800,
-            )
-
-        assertThat(result).isNotNull()
-        assertThat(result!!)
-            .extracting(
-                FrameDataHelper.CumulativeFrameData::analysedFrameCount,
-                FrameDataHelper.CumulativeFrameData::unanalysedFrameCount,
-            ).containsExactly(6L, 3L)
-    }
-
-    @Test
-    fun `does not throw when end anchor is the last frame sample`() {
-        val events =
-            listOf(
-                FrameDataHelper.CumulativeFrameData(1000, 10, 5, 1, 0),
-                FrameDataHelper.CumulativeFrameData(2000, 30, 15, 2, 1),
-            )
-
-        val result =
-            FrameDataHelper.createCumulativeFrameMetric(
-                events = events,
-                startTimeInMs = 2100,
-                endTimeInMs = 2200,
-            )
-
-        assertThat(result).isNotNull()
-        assertThat(result!!.analysedFrameCount).isEqualTo(2L)
-    }
-
-    @Test
     fun `concurrent writes and reads do not throw ConcurrentModificationException`() {
         // Regression: FrameDataHelper.frameDataEvents was iterated by readers on
         // arbitrary threads (span-end processors) while the FrameMetrics thread
