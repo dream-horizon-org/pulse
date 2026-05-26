@@ -315,7 +315,7 @@ final class RcaReportProxyHandler {
         return new RcaPostValidation.Invalid(errorResponse);
       }
 
-      if (type == RcaType.SCREEN) {
+      if (type == RcaType.SCREEN || type == RcaType.SCREEN_V2) {
         JsonNode startNode = objectRoot.get("start");
         JsonNode endNode = objectRoot.get("end");
         if (startNode == null

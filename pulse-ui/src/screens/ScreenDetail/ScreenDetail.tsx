@@ -36,8 +36,7 @@ import { useExceptionListData } from "../AppVitals/components/ExceptionTable/hoo
 import { InteractionDetailsFilters } from "../CriticalInteractionDetails/components/InteractionDetailsFilters";
 import { HeatmapPanel } from "./Heatmap/HeatmapPanel";
 import { useHeatmapFromActiveConfig } from "../../hooks";
-import { ScreenRootCause } from "./components/ScreenRootCause";
-import { getRootCauseDateFromEndTime } from "../CriticalInteractionDetails/utils/getRootCauseDateFromEndTime";
+import { ScreenRootCauseV2 } from "./components/ScreenRootCause";
 import { WebVitalsPanel } from "../WebVitals/components";
 
 const isRootCauseEnabled = process.env.REACT_APP_ROOT_CAUSE_ENABLED === "true";
@@ -128,7 +127,6 @@ export function ScreenDetail(_props: ScreenDetailProps) {
     }
   }, [endTime]);
 
-  const rootCauseDate = getRootCauseDateFromEndTime(endTime ?? undefined);
   const rootCauseAsOfIso = formattedEndTime || "";
 
   // Fetch data from API for stats calculation
@@ -455,17 +453,14 @@ export function ScreenDetail(_props: ScreenDetailProps) {
           )}
         </Tabs.Panel>
 
-        {/* Root cause (screen-scoped RCA, same date/asOf contract as interaction RCA) */}
+        {/* Root cause v2 */}
         {isRootCauseEnabled && (
           <Tabs.Panel value="root-cause" pt="md">
-            {rootCauseDate != null &&
-            rootCauseDate !== "" &&
-            rootCauseAsOfIso !== "" ? (
-              <ScreenRootCause
+            {rootCauseAsOfIso !== "" ? (
+              <ScreenRootCauseV2
                 screenName={decodedScreenName}
                 projectId={projectId}
-                date={rootCauseDate}
-                asOfIso={rootCauseAsOfIso}
+                windowEndIso={rootCauseAsOfIso}
               />
             ) : (
               <Text c="dimmed" size="sm">

@@ -212,6 +212,30 @@ public final class ScreenRcaQueryBuilder {
     };
   }
 
+  /**
+   * Dimension expressions for {@code otel.stack_trace_events}, which lacks {@code GeoState} and
+   * {@code NetworkProvider} as materialized columns — those are accessed via {@code LogAttributes}.
+   */
+  static String stackTraceDimensionExpression(String dimensionName) {
+    return switch (dimensionName) {
+      case "Platform" -> "Platform";
+      case "OsVersion" -> "OsVersion";
+      case "AppVersion" -> "AppVersion";
+      case "DeviceModel" -> "DeviceModel";
+      case "NetworkProvider" -> "LogAttributes['network.carrier.name']";
+      case "GeoState" -> "LogAttributes['geo.state']";
+      default -> throw new IllegalArgumentException("Unknown stack_trace dimension: " + dimensionName);
+    };
+  }
+
+  private static String stackTraceDimensionSelectAlias(String dimensionName) {
+    return stackTraceDimensionExpression(dimensionName) + " AS " + dimensionName;
+  }
+
+  private static String stackTraceDimensionEqualityLhs(String dimensionName) {
+    return "(" + stackTraceDimensionExpression(dimensionName) + ")";
+  }
+
   private static String dimensionEqualityLhs(String dimensionName) {
     return "(" + dimensionExpression(dimensionName) + ")";
   }
@@ -228,6 +252,22 @@ public final class ScreenRcaQueryBuilder {
       String pn = acc.nextName();
       acc.add(pn, emptyIfNull(e.getValue()));
       sb.append(" AND ").append(dimensionEqualityLhs(e.getKey())).append(" = :").append(pn);
+    }
+    return sb.toString();
+  }
+
+  private static String appendStackTraceDimensionFilters(
+      String baseWhereSql,
+      RootCauseQueryBuilder.BindAccumulator acc,
+      Map<String, String> dimensionFilters) {
+    if (dimensionFilters == null || dimensionFilters.isEmpty()) {
+      return baseWhereSql;
+    }
+    StringBuilder sb = new StringBuilder(baseWhereSql);
+    for (Map.Entry<String, String> e : dimensionFilters.entrySet()) {
+      String pn = acc.nextName();
+      acc.add(pn, emptyIfNull(e.getValue()));
+      sb.append(" AND ").append(stackTraceDimensionEqualityLhs(e.getKey())).append(" = :").append(pn);
     }
     return sb.toString();
   }
@@ -262,11 +302,11 @@ public final class ScreenRcaQueryBuilder {
       String dimensionColumn,
       Map<String, String> dimensionFilters) {
     RootCauseQueryBuilder.BindAccumulator acc = new RootCauseQueryBuilder.BindAccumulator();
-    String dimSelect = dimensionSelectAlias(dimensionColumn);
+    String dimSelect = stackTraceDimensionSelectAlias(dimensionColumn);
     String metricSelect =
         dimSelect + ", uniq(UserId) AS affected_user_count";
     String where =
-        appendDimensionFilters(
+        appendStackTraceDimensionFilters(
             buildStackTraceBaseWhereSql(acc, projectId, screenName, startInclusive, endExclusive,
                 "'device.crash'"),
             acc, dimensionFilters);
@@ -308,11 +348,11 @@ public final class ScreenRcaQueryBuilder {
       String dimensionColumn,
       Map<String, String> dimensionFilters) {
     RootCauseQueryBuilder.BindAccumulator acc = new RootCauseQueryBuilder.BindAccumulator();
-    String dimSelect = dimensionSelectAlias(dimensionColumn);
+    String dimSelect = stackTraceDimensionSelectAlias(dimensionColumn);
     String metricSelect =
         dimSelect + ", uniq(UserId) AS affected_user_count";
     String where =
-        appendDimensionFilters(
+        appendStackTraceDimensionFilters(
             buildStackTraceBaseWhereSql(acc, projectId, screenName, startInclusive, endExclusive,
                 "'device.anr'"),
             acc, dimensionFilters);
@@ -764,7 +804,7 @@ public final class ScreenRcaQueryBuilder {
             + "WHERE ProjectId = :" + p0
             + " AND PulseType = 'device.crash'"
             + " AND ScreenName = :" + p1
-            + " AND " + dimensionEqualityLhs(dimensionColumn) + " = :" + p4
+            + " AND " + stackTraceDimensionEqualityLhs(dimensionColumn) + " = :" + p4
             + " AND Timestamp >= toDateTime64(:" + p2 + ", 9, 'UTC')"
             + " AND Timestamp < toDateTime64(:" + p3 + ", 9, 'UTC')"
             + " GROUP BY group_id, issue ORDER BY cnt DESC LIMIT 3";
@@ -799,7 +839,7 @@ public final class ScreenRcaQueryBuilder {
             + "WHERE ProjectId = :" + p0
             + " AND PulseType = 'device.anr'"
             + " AND ScreenName = :" + p1
-            + " AND " + dimensionEqualityLhs(dimensionColumn) + " = :" + p4
+            + " AND " + stackTraceDimensionEqualityLhs(dimensionColumn) + " = :" + p4
             + " AND Timestamp >= toDateTime64(:" + p2 + ", 9, 'UTC')"
             + " AND Timestamp < toDateTime64(:" + p3 + ", 9, 'UTC')"
             + " GROUP BY group_id, thread ORDER BY cnt DESC LIMIT 3";

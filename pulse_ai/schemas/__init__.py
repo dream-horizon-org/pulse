@@ -5,6 +5,13 @@ from .rca_structured_v1 import (
     RcaStructuredReportV1,
     RcaStructuredSegmentV1,
 )
+from .screen_rca_structured_v2 import (
+    ScreenRcaEvidences,
+    ScreenRcaMetrics,
+    ScreenRcaProblem,
+    ScreenRcaSpecificIssue,
+    ScreenRcaStructuredV2,
+)
 
 __all__ = [
     "RootCausePayloadSchema",
@@ -13,4 +20,9 @@ __all__ = [
     "RcaStructuredMetricRowV1",
     "RcaStructuredReportV1",
     "RcaStructuredSegmentV1",
+    "ScreenRcaEvidences",
+    "ScreenRcaMetrics",
+    "ScreenRcaProblem",
+    "ScreenRcaSpecificIssue",
+    "ScreenRcaStructuredV2",
 ]

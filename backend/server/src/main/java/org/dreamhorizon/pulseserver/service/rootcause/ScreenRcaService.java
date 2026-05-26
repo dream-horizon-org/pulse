@@ -32,9 +32,11 @@ import org.dreamhorizon.pulseserver.error.ServiceError;
 import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseAnalysisMode;
 import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseResult;
 import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseSegment;
+import org.dreamhorizon.pulseserver.service.rootcause.models.ScreenRcaEvidences;
 import org.dreamhorizon.pulseserver.service.rootcause.models.ScreenRcaMetrics;
 import org.dreamhorizon.pulseserver.service.rootcause.models.ScreenRcaProblemResult;
 import org.dreamhorizon.pulseserver.service.rootcause.models.ScreenRcaSpecificIssue;
+import org.dreamhorizon.pulseserver.service.rootcause.models.ScreenRcaV2Response;
 import org.dreamhorizon.pulseserver.util.NumberCoercionUtils;
 import org.dreamhorizon.pulseserver.util.serialization.ObjectMapperUtil;
 
@@ -64,12 +66,23 @@ public class ScreenRcaService {
    * Screen RCA v2: Returns ranked list of problems across all 9 problem types.
    * Uses explicit window (Instant-based) for flexible time ranges.
    */
-  public Single<List<ScreenRcaProblemResult>> getScreenRootCauseV2(
+  public Single<ScreenRcaV2Response> getScreenRootCauseV2(
       String projectId,
       String screenName,
       RootCauseQueryBuilder.Window window) {
-    return computeAllProblems(projectId, screenName, window)
-        .map(this::rankProblems);
+    return Single.zip(
+        computeAllProblems(projectId, screenName, window).map(this::rankProblems),
+        fetchTopAffectedSessions(projectId, screenName, window),
+        checkHeatmapAvailable(projectId, screenName, window),
+        (problems, sessions, heatmapAvailable) ->
+            ScreenRcaV2Response.builder()
+                .problems(problems)
+                .evidences(ScreenRcaEvidences.builder()
+                    .sessions(sessions)
+                    .heatmapAvailable(heatmapAvailable)
+                    .build())
+                .build()
+    );
   }
 
   /**
@@ -754,6 +767,64 @@ public class ScreenRcaService {
             });
   }
 
+  private Single<List<String>> fetchTopAffectedSessions(
+      String projectId,
+      String screenName,
+      RootCauseQueryBuilder.Window window) {
+    RootCauseQueryBuilder.BindAccumulator acc = new RootCauseQueryBuilder.BindAccumulator();
+    String p0 = acc.nextName();
+    String p1 = acc.nextName();
+    String p2 = acc.nextName();
+    String p3 = acc.nextName();
+    acc.add(p0, projectId);
+    acc.add(p1, screenName);
+    String startStr = window.startInclusive.atOffset(ZoneOffset.UTC)
+        .format(ClickhouseConstants.CLICKHOUSE_TIMESTAMP_LITERAL);
+    String endStr = window.endExclusive.atOffset(ZoneOffset.UTC)
+        .format(ClickhouseConstants.CLICKHOUSE_TIMESTAMP_LITERAL);
+    acc.add(p2, startStr);
+    acc.add(p3, endStr);
+    String sql = "SELECT SessionId AS session_id FROM " + ClickhouseConstants.OTEL_TRACES_TABLE
+        + " WHERE ProjectId = :" + p0
+        + " AND PulseType = 'screen_session'"
+        + " AND nullIf(trimBoth(ScreenName), '') = :" + p1
+        + " AND Timestamp >= toDateTime64(:" + p2 + ", 9, 'UTC')"
+        + " AND Timestamp < toDateTime64(:" + p3 + ", 9, 'UTC')"
+        + " ORDER BY Timestamp DESC LIMIT 3";
+    RootCauseQuerySpec spec = acc.toSpec(sql);
+    return executeQuery(projectId, spec)
+        .map(rows -> rows.stream()
+            .map(r -> String.valueOf(r.get("session_id")))
+            .filter(s -> s != null && !s.isBlank() && !"null".equals(s))
+            .collect(Collectors.toList()))
+        .onErrorReturnItem(List.of());
+  }
+
+  private Single<Boolean> checkHeatmapAvailable(
+      String projectId,
+      String screenName,
+      RootCauseQueryBuilder.Window window) {
+    String startDate = window.startInclusive.atOffset(ZoneOffset.UTC).toLocalDate().toString();
+    String endDate = window.endExclusive.atOffset(ZoneOffset.UTC).toLocalDate().toString();
+    String sql = String.format(
+        "SELECT count(*) AS cnt FROM otel.interaction_heatmaps_daily"
+            + " WHERE ProjectId = '%s' AND ScreenName = '%s'"
+            + " AND Date >= toDate('%s') AND Date < toDate('%s')",
+        projectId.replace("'", "\\'"),
+        screenName.replace("'", "\\'"),
+        startDate,
+        endDate);
+    RootCauseQuerySpec spec = new RootCauseQueryBuilder.BindAccumulator().toSpec(sql);
+    return executeQuery(projectId, spec)
+        .map(rows -> {
+          if (rows.isEmpty()) {
+            return false;
+          }
+          return NumberCoercionUtils.toLong(rows.get(0).get("cnt")) > 0;
+        })
+        .onErrorReturnItem(false);
+  }
+
   // ===== Screen RCA v2: Problem computation with hierarchical/flat segmentation =====
 
   private record ProblemAlgoConfig(
@@ -1133,7 +1204,7 @@ public class ScreenRcaService {
           Map<String, Object> baselineRow = rows.get(0);
           long clickVolume = NumberCoercionUtils.toLong(baselineRow.get(ScreenRcaQueryBuilder.CLICK_VOLUME));
           long badFrustration = NumberCoercionUtils.toLong(baselineRow.get(ScreenRcaQueryBuilder.BAD_FRUSTRATION));
-          if (clickVolume == 0 || badFrustration == 0) {
+          if (clickVolume <= 0 || badFrustration == 0) {
             return Single.just(SKIP);
           }
           double badRate = (double) badFrustration / clickVolume * 100;
@@ -1190,13 +1261,17 @@ public class ScreenRcaService {
     List<ScreenRcaProblemResult> sorted = problems.stream()
         .filter(p -> p.getProblemType() != null)
         .collect(Collectors.toCollection(ArrayList::new));
+    if (sorted.isEmpty()) {
+      return sorted;
+    }
     sorted.sort(java.util.Comparator
         .comparingInt((ScreenRcaProblemResult p) -> -p.getAffectedUserCount().intValue())
         .thenComparingInt(ScreenRcaProblemResult::getTypePriorityOrdinal)
     );
+    double equalWeight = 1.0 / sorted.size();
     for (int i = 0; i < sorted.size(); i++) {
       sorted.get(i).setRank(i + 1);
-      sorted.get(i).setWeightage(1.0 / sorted.size());
+      sorted.get(i).setWeightage(equalWeight);
     }
     return sorted;
   }

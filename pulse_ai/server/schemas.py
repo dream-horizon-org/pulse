@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 
 from pulse_ai.schemas.rca_structured_v1 import RcaStructuredReportV1
 from pulse_ai.schemas.screen_rca_narrative_v1 import ScreenRcaNarrativeV1
+from pulse_ai.schemas.screen_rca_structured_v2 import ScreenRcaStructuredV2
 
 
 class RcaReportRequest(BaseModel):
@@ -48,4 +49,23 @@ class ScreenRcaReportPayloadSchema(BaseModel):
 
 class ScreenRcaReportResponse(BaseModel):
     report: ScreenRcaReportPayloadSchema
+    cached: bool = False
+
+
+class ScreenRcaV2ReportRequest(BaseModel):
+    """V2: Pre-ranked problems + evidences from backend; LLM adds summary + recommendations."""
+
+    screenName: str
+    problems: list[dict[str, Any]]
+    evidences: dict[str, Any]
+    start: str
+    end: str
+
+
+class ScreenRcaV2ReportPayloadSchema(BaseModel):
+    structured: ScreenRcaStructuredV2
+
+
+class ScreenRcaV2ReportResponse(BaseModel):
+    report: ScreenRcaV2ReportPayloadSchema
     cached: bool = False

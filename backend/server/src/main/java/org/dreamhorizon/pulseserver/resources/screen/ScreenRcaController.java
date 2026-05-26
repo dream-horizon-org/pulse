@@ -30,7 +30,7 @@ import org.dreamhorizon.pulseserver.service.rootcause.RootCauseQueryBuilder;
 import org.dreamhorizon.pulseserver.service.rootcause.ScreenRcaService;
 import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseResult;
 import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseSegment;
-import org.dreamhorizon.pulseserver.service.rootcause.models.ScreenRcaProblemResult;
+import org.dreamhorizon.pulseserver.service.rootcause.models.ScreenRcaV2Response;
 
 @Slf4j
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
@@ -68,7 +68,7 @@ public class ScreenRcaController {
   }
 
   // Default lookback for Screen RCA v2. Future: inject from config.
-  private static final int DEFAULT_LOOKBACK_DAYS = 2;
+  private static final int DEFAULT_LOOKBACK_DAYS = 7;
 
   /**
    * Screen RCA v2: UI sends current timestamp as {@code asOf}; Window = [windowEnd − 7d, windowEnd].
@@ -80,7 +80,7 @@ public class ScreenRcaController {
   @Produces(MediaType.APPLICATION_JSON)
   // @RequiresPermission("can_view")
   @Timeout(value = 60000)
-  public CompletionStage<Response<List<ScreenRcaProblemResult>>> getScreenRootCauseV2(
+  public CompletionStage<Response<ScreenRcaV2Response>> getScreenRootCauseV2(
       @PathParam("screenName") String screenName,
       @QueryParam("windowEnd") String windowEndParam,
       @QueryParam("forceRefresh") String forceRefreshParam) {

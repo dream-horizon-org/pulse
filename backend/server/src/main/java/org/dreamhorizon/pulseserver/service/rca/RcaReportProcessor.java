@@ -36,6 +36,7 @@ public class RcaReportProcessor {
 
   private static final String RCA_REPORT_PATH = "rca/report";
   private static final String RCA_SCREEN_REPORT_PATH = "rca/screen-report";
+  private static final String RCA_SCREEN_V2_REPORT_PATH = "rca/screen-report/v2";
   private static final int ERR_MSG_MAX = 4000;
   private static final long HEATMAP_FETCH_TIMEOUT_SEC = 30;
 
@@ -92,7 +93,9 @@ public class RcaReportProcessor {
         .flatMap(
             enrichment -> {
               String aiPath =
-                  job.entityType() == RcaType.SCREEN ? RCA_SCREEN_REPORT_PATH : RCA_REPORT_PATH;
+                  job.entityType() == RcaType.SCREEN_V2 ? RCA_SCREEN_V2_REPORT_PATH
+                      : job.entityType() == RcaType.SCREEN ? RCA_SCREEN_REPORT_PATH
+                      : RCA_REPORT_PATH;
               String targetUrl = upstream.buildTargetUrl(aiPath, rawQuery);
               return Single.fromCompletionStage(
                   upstream.executeProxy(
@@ -164,6 +167,7 @@ public class RcaReportProcessor {
 
     boolean shouldMergeHeatmaps =
         job.entityType() != RcaType.SCREEN
+            && job.entityType() != RcaType.SCREEN_V2
             && enrichment.enrichmentOk()
             && enrichment.rootCause() != null
             && enrichment.rootCause().getSegments() != null

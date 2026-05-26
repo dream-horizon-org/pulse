@@ -20,6 +20,7 @@ from .app import (
     app,
     rca_runner,
     screen_rca_runner,
+    screen_rca_v2_runner,
     runner,
     session_service,
     session_scope_store,
@@ -33,14 +34,22 @@ from .run_sse_utils import (
     user_content_from_parts,
 )
 from pulse_ai.schemas import RootCausePayloadSchema
+from pulse_ai.schemas.screen_rca_structured_v2 import ScreenRcaEvidences, ScreenRcaStructuredV2
 from .root_cause_fetch import RootCauseFetchError, fetch_root_cause_payload
 from .rca_runner import RcaRunnerError, generate_rca_report
-from .screen_rca_runner import ScreenRcaRunnerError, generate_screen_rca_report
+from .screen_rca_runner import (
+    ScreenRcaRunnerError,
+    generate_screen_rca_report,
+    generate_screen_rca_report_v2,
+)
 from .schemas import (
     RcaReportRequest,
     RcaReportResponse,
     ScreenRcaReportRequest,
     ScreenRcaReportResponse,
+    ScreenRcaV2ReportPayloadSchema,
+    ScreenRcaV2ReportRequest,
+    ScreenRcaV2ReportResponse,
 )
 
 logger = logging.getLogger(__name__)
@@ -315,6 +324,75 @@ async def generate_screen_root_cause_narrative(
             end_iso=request.end,
             date_str=request.date,
             as_of_iso=request.asOf,
+        )
+    except ScreenRcaRunnerError as error:
+        raise HTTPException(status_code=error.status_code, detail=error.message) from error
+
+
+def _empty_screen_rca_v2_response(screen_name: str) -> ScreenRcaV2ReportResponse:
+    """Return a no-issues response without calling the LLM."""
+    structured = ScreenRcaStructuredV2(
+        version=2,
+        executive_summary=f"No performance issues were detected for {screen_name} in the selected time window.",
+        problems=[],
+        evidences=ScreenRcaEvidences(sessions=[], heatmap_available=False),
+        recommendations=[],
+    )
+    return ScreenRcaV2ReportResponse(
+        report=ScreenRcaV2ReportPayloadSchema(structured=structured),
+        cached=False,
+    )
+
+
+@app.post("/rca/screen-report/v2")
+async def generate_screen_root_cause_report_v2(
+    request: ScreenRcaV2ReportRequest,
+) -> ScreenRcaV2ReportResponse:
+    """Generate executive summary and recommendations for screen-level multi-problem RCA v2.
+
+    Requires **problems** (pre-ranked list from backend) and **evidences** (session/heatmap data).
+    """
+    if not request.screenName or not str(request.screenName).strip():
+        raise HTTPException(status_code=400, detail="screenName is required")
+    if not request.start or not request.end:
+        raise HTTPException(status_code=400, detail="start and end time windows are required")
+    if not request.problems:
+        return _empty_screen_rca_v2_response(request.screenName.strip())
+
+    try:
+        return await generate_screen_rca_report_v2(
+            runner=screen_rca_v2_runner,
+            problems=request.problems,
+            evidences=request.evidences,
+            screen_name=request.screenName.strip(),
+            start_iso=request.start,
+            end_iso=request.end,
+        )
+    except ScreenRcaRunnerError as error:
+        raise HTTPException(status_code=error.status_code, detail=error.message) from error
+
+
+@app.post("/screen-rca/v2/report", response_model=ScreenRcaV2ReportResponse)
+async def generate_screen_rca_v2_report(
+    request: ScreenRcaV2ReportRequest,
+) -> ScreenRcaV2ReportResponse:
+    """Generate executive summary and recommendations for screen-level multi-problem RCA v2.
+
+    Accepts pre-ranked problems and evidences from backend; LLM adds summary + recommendations.
+    """
+    if not request.screenName or not str(request.screenName).strip():
+        raise HTTPException(status_code=400, detail="screenName is required")
+    if not request.problems:
+        return _empty_screen_rca_v2_response(request.screenName.strip())
+
+    try:
+        return await generate_screen_rca_report_v2(
+            runner=screen_rca_v2_runner,
+            problems=request.problems,
+            evidences=request.evidences,
+            screen_name=request.screenName.strip(),
+            start_iso=request.start,
+            end_iso=request.end,
         )
     except ScreenRcaRunnerError as error:
         raise HTTPException(status_code=error.status_code, detail=error.message) from error
