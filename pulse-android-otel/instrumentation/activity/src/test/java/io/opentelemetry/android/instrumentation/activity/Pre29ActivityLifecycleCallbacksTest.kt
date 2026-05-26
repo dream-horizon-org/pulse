@@ -16,8 +16,8 @@ import io.opentelemetry.android.instrumentation.common.ScreenNameExtractor
 import io.opentelemetry.android.internal.services.visiblescreen.VisibleScreenState
 import io.opentelemetry.android.internal.services.visiblescreen.VisibleScreenTracker
 import io.opentelemetry.sdk.testing.junit5.OpenTelemetryExtension
-import kotlinx.coroutines.flow.MutableStateFlow
 import io.opentelemetry.sdk.trace.data.EventData
+import kotlinx.coroutines.flow.MutableStateFlow
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -49,8 +49,12 @@ internal class Pre29ActivityLifecycleCallbacksTest {
         every { visibleScreenTracker.visibleScreenState } returns
             MutableStateFlow(
                 VisibleScreenState(
-                    screenName = "unknown", activityName = null, fragmentName = null,
-                    previouslyVisibleScreen = null, previouslyVisibleActivity = null, previouslyVisibleFragment = null,
+                    screenName = "unknown",
+                    activityName = null,
+                    fragmentName = null,
+                    previouslyVisibleScreen = null,
+                    previouslyVisibleActivity = null,
+                    previouslyVisibleFragment = null,
                 ),
             )
         val logger =
@@ -174,8 +178,12 @@ internal class Pre29ActivityLifecycleCallbacksTest {
         every { visibleScreenTracker.visibleScreenState } returns
             MutableStateFlow(
                 VisibleScreenState(
-                    screenName = "unknown", activityName = null, fragmentName = null,
-                    previouslyVisibleScreen = "previousScreen", previouslyVisibleActivity = null, previouslyVisibleFragment = null,
+                    screenName = "unknown",
+                    activityName = null,
+                    fragmentName = null,
+                    previouslyVisibleScreen = "previousScreen",
+                    previouslyVisibleActivity = null,
+                    previouslyVisibleFragment = null,
                 ),
             )
 

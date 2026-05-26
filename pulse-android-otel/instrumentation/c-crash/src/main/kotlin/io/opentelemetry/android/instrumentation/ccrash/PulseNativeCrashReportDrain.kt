@@ -32,8 +32,8 @@ internal object PulseNativeCrashReportDrain : CoroutineScope by MainScope() {
         openTelemetry: OpenTelemetrySdk,
         reportsDir: File,
         dispatcher: CoroutineDispatcher = Dispatchers.IO,
-    ): Job {
-        return launch(dispatcher) {
+    ): Job =
+        launch(dispatcher) {
             val crashDirs = reportsDir.listFiles { f -> f.isDirectory }?.toList().orEmpty()
             PulseLogger.logDebug(CCrashInstrumentation.TAG) { "drain crash dirs count=${crashDirs.size}" }
 
@@ -52,17 +52,18 @@ internal object PulseNativeCrashReportDrain : CoroutineScope by MainScope() {
                 val crashMetadata =
                     metadataFile
                         .takeIf { it.isFile && it.exists() }
-                        ?.readText()
-                        ?.fromJson<PulseAppMetadata>(CCrashInstrumentation.TAG)
-                        ?: run {
-                            PulseLogger.logError(CCrashInstrumentation.TAG) {
-                                "metadata file is absent at ${metadataFile.absolutePath}"
-                            }
-                            null
+                        ?.run {
+                            readText().fromJson<PulseAppMetadata>(CCrashInstrumentation.TAG)
+                        } ?: run {
+                        PulseLogger.logError(CCrashInstrumentation.TAG) {
+                            "metadata file is absent at ${metadataFile.absolutePath}"
                         }
+                        null
+                    }
 
-                val crashFile = File(crashDir, CCrashInstrumentation.CRASH_FILE_NAME)
-                    .takeIf { it.isFile && it.exists() }
+                val crashFile =
+                    File(crashDir, CCrashInstrumentation.CRASH_FILE_NAME)
+                        .takeIf { it.isFile && it.exists() }
 
                 try {
                     if (crashFile == null) {
@@ -103,7 +104,6 @@ internal object PulseNativeCrashReportDrain : CoroutineScope by MainScope() {
                 }
             }
         }
-    }
 
     internal fun parseCrashDirName(dirName: String): Pair<Long?, String?> {
         val separatorIndex = dirName.indexOf('_')
@@ -120,23 +120,33 @@ internal object PulseNativeCrashReportDrain : CoroutineScope by MainScope() {
      * match the tombstone-style format produced by the C++ format_stacktrace function.
      */
     private fun formatStackFrames(frames: List<PulseNativeStackFrame>): String =
-        frames.mapIndexed { index, frame ->
-            buildString {
-                append('#').append(index)
-                frame.relPc?.let { pc ->
-                    append(" pc 0x").append(java.lang.Long.toHexString(pc).padStart(16, '0'))
+        frames
+            .mapIndexed { index, frame ->
+                buildString {
+                    append('#').append(index)
+                    frame.relPc?.let { pc ->
+                        append(" pc 0x").append(
+                            java.lang.Long
+                                .toHexString(pc)
+                                .padStart(16, '0'),
+                        )
+                    }
+                    frame.filename?.takeIf { it.isNotBlank() }?.let { append(" ").append(it) }
+                    if (frame.method?.isNotBlank() == true) {
+                        val offset =
+                            if (frame.frameAddress != null && frame.symbolAddress != null &&
+                                frame.frameAddress >= frame.symbolAddress && frame.symbolAddress != 0L
+                            ) {
+                                frame.frameAddress - frame.symbolAddress
+                            } else {
+                                0L
+                            }
+                        append(" (").append(frame.method)
+                        if (offset > 0) append("+0x").append(java.lang.Long.toHexString(offset))
+                        append(')')
+                    }
                 }
-                frame.filename?.takeIf { it.isNotBlank() }?.let { append(" ").append(it) }
-                if (frame.method?.isNotBlank() == true) {
-                    val offset = if (frame.frameAddress != null && frame.symbolAddress != null &&
-                        frame.frameAddress >= frame.symbolAddress && frame.symbolAddress != 0L
-                    ) frame.frameAddress - frame.symbolAddress else 0L
-                    append(" (").append(frame.method)
-                    if (offset > 0) append("+0x").append(java.lang.Long.toHexString(offset))
-                    append(')')
-                }
-            }
-        }.joinToString("\n")
+            }.joinToString("\n")
 
     private fun toAttributes(
         report: PulseNativeCrashReportFile,
@@ -152,46 +162,55 @@ internal object PulseNativeCrashReportDrain : CoroutineScope by MainScope() {
             buildString {
                 append("Native crash")
                 when {
-                    report.signalName != null && report.signal != null ->
-                        append(": ").append(report.signalName).append(" (").append(report.signal).append(")")
+                    report.signalName != null && report.signal != null -> {
+                        append(": ")
+                            .append(report.signalName)
+                            .append(" (")
+                            .append(report.signal)
+                            .append(")")
+                    }
 
-                    report.signalName != null ->
+                    report.signalName != null -> {
                         append(": ").append(report.signalName)
+                    }
 
-                    report.signal != null ->
+                    report.signal != null -> {
                         append(": signal ").append(report.signal)
+                    }
                 }
                 report.faultAddr?.takeIf { it.isNotBlank() }?.let {
                     append(" addr=").append(it)
                 }
             }
 
-        return Attributes.builder()
+        return Attributes
+            .builder()
             .apply {
                 put(EXCEPTION_TYPE, "NativeCrash")
                 put(EXCEPTION_MESSAGE, message)
-                report.threadName?.let { put(THREAD_NAME, it) }
-                report.tid?.let { put(THREAD_ID, it) }
+                if (report.threadName != null) put(THREAD_NAME, report.threadName)
+                if (report.tid != null) put(THREAD_ID, report.tid)
                 if (!stackStr.isNullOrBlank()) {
                     put(EXCEPTION_STACKTRACE, stackStr)
                 }
-                appMetadataAtCrashTime?.let { putMetadata(appMetadataAtCrashTime) }
+                if (appMetadataAtCrashTime != null) putMetadata(appMetadataAtCrashTime)
                 sessionId?.let { put(SESSION_ID, it) }
             }.build()
     }
 
-    private fun AttributesBuilder.putMetadata(crashMetadata: PulseAppMetadata): AttributesBuilder = apply {
-        crashMetadata.stringFields.forEach { (key, value) ->
-            put(AttributeKey.stringKey(key), value)
+    private fun AttributesBuilder.putMetadata(crashMetadata: PulseAppMetadata): AttributesBuilder =
+        apply {
+            crashMetadata.stringFields.forEach { (key, value) ->
+                put(AttributeKey.stringKey(key), value)
+            }
+            crashMetadata.longFields.forEach { (key, value) ->
+                put(AttributeKey.longKey(key), value)
+            }
+            crashMetadata.doubleFields.forEach { (key, value) ->
+                put(AttributeKey.doubleKey(key), value)
+            }
+            crashMetadata.booleanFields.forEach { (key, value) ->
+                put(AttributeKey.booleanKey(key), value)
+            }
         }
-        crashMetadata.longFields.forEach { (key, value) ->
-            put(AttributeKey.longKey(key), value)
-        }
-        crashMetadata.doubleFields.forEach { (key, value) ->
-            put(AttributeKey.doubleKey(key), value)
-        }
-        crashMetadata.booleanFields.forEach { (key, value) ->
-            put(AttributeKey.booleanKey(key), value)
-        }
-    }
 }

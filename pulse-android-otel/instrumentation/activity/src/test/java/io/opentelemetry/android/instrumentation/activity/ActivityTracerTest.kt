@@ -46,8 +46,12 @@ class ActivityTracerTest {
         every { visibleScreenTracker.visibleScreenState } returns
             MutableStateFlow(
                 VisibleScreenState(
-                    screenName = "unknown", activityName = null, fragmentName = null,
-                    previouslyVisibleScreen = null, previouslyVisibleActivity = null, previouslyVisibleFragment = null,
+                    screenName = "unknown",
+                    activityName = null,
+                    fragmentName = null,
+                    previouslyVisibleScreen = null,
+                    previouslyVisibleActivity = null,
+                    previouslyVisibleFragment = null,
                 ),
             )
         activeSpan = ActiveSpan { visibleScreenTracker.visibleScreenState.value.previouslyVisibleScreen }
@@ -184,7 +188,6 @@ class ActivityTracerTest {
 
     @Test
     fun addPreviousScreen_currentSameAsPrevious() {
-
         val trackableTracer =
             ActivityTracer
                 .builder(mockk<Activity>())
@@ -206,8 +209,12 @@ class ActivityTracerTest {
         every { visibleScreenTracker.visibleScreenState } returns
             MutableStateFlow(
                 VisibleScreenState(
-                    screenName = "unknown", activityName = null, fragmentName = null,
-                    previouslyVisibleScreen = "previousScreen", previouslyVisibleActivity = null, previouslyVisibleFragment = null,
+                    screenName = "unknown",
+                    activityName = null,
+                    fragmentName = null,
+                    previouslyVisibleScreen = "previousScreen",
+                    previouslyVisibleActivity = null,
+                    previouslyVisibleFragment = null,
                 ),
             )
 

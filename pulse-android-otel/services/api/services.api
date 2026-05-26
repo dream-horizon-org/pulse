@@ -36,6 +36,62 @@ public abstract interface class io/opentelemetry/android/internal/services/appli
 	public abstract fun onApplicationForegrounded ()V
 }
 
+public final class io/opentelemetry/android/internal/services/metadata/PulseAppMetadata {
+	public static final field ACTIVITY_NAME Ljava/lang/String;
+	public static final field FRAGMENT_NAME Ljava/lang/String;
+	public static final field SCREEN_NAME Ljava/lang/String;
+	public fun <init> ()V
+	public fun <init> (Ljava/util/Map;Ljava/util/Map;Ljava/util/Map;Ljava/util/Map;)V
+	public synthetic fun <init> (Ljava/util/Map;Ljava/util/Map;Ljava/util/Map;Ljava/util/Map;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun getBooleanFields ()Ljava/util/Map;
+	public final fun getDoubleFields ()Ljava/util/Map;
+	public final fun getLongFields ()Ljava/util/Map;
+	public final fun getStringFields ()Ljava/util/Map;
+}
+
+public final class io/opentelemetry/android/internal/services/metadata/PulseAppMetadata$$serializer : kotlinx/serialization/internal/GeneratedSerializer {
+	public static final field INSTANCE Lio/opentelemetry/android/internal/services/metadata/PulseAppMetadata$$serializer;
+	public fun childSerializers ()[Lkotlinx/serialization/KSerializer;
+	public fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Lio/opentelemetry/android/internal/services/metadata/PulseAppMetadata;
+	public synthetic fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Ljava/lang/Object;
+	public fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
+	public fun serialize (Lkotlinx/serialization/encoding/Encoder;Lio/opentelemetry/android/internal/services/metadata/PulseAppMetadata;)V
+	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+}
+
+public final class io/opentelemetry/android/internal/services/metadata/PulseMetadataInstaller : io/opentelemetry/android/internal/services/Service {
+	public static final field Companion Lio/opentelemetry/android/internal/services/metadata/PulseMetadataInstaller$Companion;
+	public fun close ()V
+	public static final fun get (Landroid/app/Application;)Lio/opentelemetry/android/internal/services/metadata/PulseMetadataInstaller;
+	public final fun install (Lio/opentelemetry/android/session/SessionProvider;)V
+}
+
+public final class io/opentelemetry/android/internal/services/metadata/PulseMetadataInstaller$Companion {
+	public final fun get (Landroid/app/Application;)Lio/opentelemetry/android/internal/services/metadata/PulseMetadataInstaller;
+}
+
+public final class io/opentelemetry/android/internal/services/metadata/PulseMetadataUpdater {
+	public static final field Companion Lio/opentelemetry/android/internal/services/metadata/PulseMetadataUpdater$Companion;
+	public static final fun create (Landroid/app/Application;)Lio/opentelemetry/android/internal/services/metadata/PulseMetadataUpdater;
+	public final fun read ()Lio/opentelemetry/android/internal/services/metadata/PulseAppMetadata;
+	public static final fun readCached (Landroid/app/Application;)Lio/opentelemetry/android/internal/services/metadata/PulseAppMetadata;
+	public final fun refreshFromStorage ()Lio/opentelemetry/android/internal/services/metadata/PulseAppMetadata;
+	public final fun subscribeToNetworkProvider (Lio/opentelemetry/android/internal/services/network/CurrentNetworkProvider;)V
+	public final fun subscribeToSessionProvider (Lio/opentelemetry/android/session/SessionProvider;)V
+	public final fun subscribeToUserIdPrefs (Lkotlinx/coroutines/CoroutineScope;Landroid/content/SharedPreferences;Ljava/lang/String;)Lkotlinx/coroutines/Job;
+	public final fun subscribeToVisibleScreenTracker (Lkotlinx/coroutines/CoroutineScope;Lio/opentelemetry/android/internal/services/visiblescreen/VisibleScreenTracker;)Lkotlinx/coroutines/Job;
+	public final fun updateBoolean (Ljava/lang/String;Ljava/lang/Boolean;)V
+	public final fun updateDouble (Ljava/lang/String;Ljava/lang/Double;)V
+	public final fun updateLong (Ljava/lang/String;Ljava/lang/Long;)V
+	public final fun updateString (Ljava/lang/String;Ljava/lang/String;)V
+}
+
+public final class io/opentelemetry/android/internal/services/metadata/PulseMetadataUpdater$Companion {
+	public final fun create (Landroid/app/Application;)Lio/opentelemetry/android/internal/services/metadata/PulseMetadataUpdater;
+	public final fun getMetadataFile (Landroid/content/Context;)Ljava/io/File;
+	public final fun readCached (Landroid/app/Application;)Lio/opentelemetry/android/internal/services/metadata/PulseAppMetadata;
+}
+
 public class io/opentelemetry/android/internal/services/network/CarrierFinder {
 	public fun <init> (Landroid/content/Context;Landroid/telephony/TelephonyManager;)V
 	public fun get ()Lio/opentelemetry/android/common/internal/features/networkattributes/data/Carrier;
@@ -91,13 +147,33 @@ public abstract interface class io/opentelemetry/android/internal/services/stora
 	public abstract fun getCacheDir ()Ljava/io/File;
 }
 
+public final class io/opentelemetry/android/internal/services/visiblescreen/VisibleScreenState {
+	public fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
+	public final fun component1 ()Ljava/lang/String;
+	public final fun component2 ()Ljava/lang/String;
+	public final fun component3 ()Ljava/lang/String;
+	public final fun component4 ()Ljava/lang/String;
+	public final fun component5 ()Ljava/lang/String;
+	public final fun component6 ()Ljava/lang/String;
+	public final fun copy (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Lio/opentelemetry/android/internal/services/visiblescreen/VisibleScreenState;
+	public static synthetic fun copy$default (Lio/opentelemetry/android/internal/services/visiblescreen/VisibleScreenState;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;ILjava/lang/Object;)Lio/opentelemetry/android/internal/services/visiblescreen/VisibleScreenState;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getActivityName ()Ljava/lang/String;
+	public final fun getFragmentName ()Ljava/lang/String;
+	public final fun getPreviouslyVisibleActivity ()Ljava/lang/String;
+	public final fun getPreviouslyVisibleFragment ()Ljava/lang/String;
+	public final fun getPreviouslyVisibleScreen ()Ljava/lang/String;
+	public final fun getScreenName ()Ljava/lang/String;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
 public abstract interface class io/opentelemetry/android/internal/services/visiblescreen/VisibleScreenTracker : io/opentelemetry/android/internal/services/Service {
 	public abstract fun activityPaused (Landroid/app/Activity;)V
 	public abstract fun activityResumed (Landroid/app/Activity;)V
 	public abstract fun fragmentPaused (Landroidx/fragment/app/Fragment;)V
 	public abstract fun fragmentResumed (Landroidx/fragment/app/Fragment;)V
-	public abstract fun getCurrentlyVisibleScreen ()Ljava/lang/String;
-	public abstract fun getPreviouslyVisibleScreen ()Ljava/lang/String;
+	public abstract fun getVisibleScreenState ()Lkotlinx/coroutines/flow/StateFlow;
 }
 
 public abstract interface class io/opentelemetry/android/internal/services/visiblescreen/activities/DefaultingActivityLifecycleCallbacks : android/app/Application$ActivityLifecycleCallbacks {

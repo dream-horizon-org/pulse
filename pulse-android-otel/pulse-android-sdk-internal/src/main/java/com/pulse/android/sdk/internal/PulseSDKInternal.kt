@@ -395,7 +395,11 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
                     projectId = projectId,
                     userIdProvider = { userSessionEmitter.userId?.takeIf { it.isNotEmpty() } ?: "anonymous" },
                     isStartActive = dataCollectionState == PulseDataCollectionConsent.ALLOWED,
-                    screenNameProvider = { Services.get(application).visibleScreenTracker.visibleScreenState.value.screenName },
+                    screenNameProvider = {
+                        Services
+                            .get(application)
+                            .visibleScreenTracker.visibleScreenState.value.screenName
+                    },
                     endpointHeaders = endpointHeaders,
                 ),
             )

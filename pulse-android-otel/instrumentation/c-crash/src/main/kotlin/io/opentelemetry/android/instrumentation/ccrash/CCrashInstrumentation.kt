@@ -45,15 +45,16 @@ class CCrashInstrumentation : AndroidInstrumentation {
 
         PulseNativeCrashReportDrain.drainAndEmit(openTelemetry, reportsDir)
 
-        metaDataInstaller = PulseMetadataInstaller.get(ctx.application).also {
-            it.install(ctx.sessionProvider)
-        }
+        metaDataInstaller =
+            PulseMetadataInstaller.get(ctx.application).apply {
+                install(ctx.sessionProvider)
+            }
 
         (ctx.sessionProvider as? SessionPublisher)?.addObserver(sessionObserver)
 
         val metadataFile = PulseMetadataUpdater.getMetadataFile(ctx.application)
         val sessionId = ctx.sessionProvider.getSessionId()
-        val installed =
+        val isInstalled =
             PulseNativeJni.install(
                 reportsDir.absolutePath,
                 metadataFile.absolutePath,
@@ -61,7 +62,7 @@ class CCrashInstrumentation : AndroidInstrumentation {
                 METADATA_FILE_NAME,
                 sessionId,
             )
-        PulseLogger.logDebug(TAG) { "signal handler installed=$installed" }
+        PulseLogger.logDebug(TAG) { "signal handler installed=$isInstalled" }
     }
 
     override fun uninstall(ctx: InstallationContext) {

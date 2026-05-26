@@ -42,8 +42,12 @@ internal class ActivityCallbacksTest {
         every { visibleScreenTracker.visibleScreenState } returns
             MutableStateFlow(
                 VisibleScreenState(
-                    screenName = "unknown", activityName = null, fragmentName = null,
-                    previouslyVisibleScreen = null, previouslyVisibleActivity = null, previouslyVisibleFragment = null,
+                    screenName = "unknown",
+                    activityName = null,
+                    fragmentName = null,
+                    previouslyVisibleScreen = null,
+                    previouslyVisibleActivity = null,
+                    previouslyVisibleFragment = null,
                 ),
             )
         val extractor = mockk<ScreenNameExtractor>(relaxed = true)
@@ -192,8 +196,12 @@ internal class ActivityCallbacksTest {
         every { visibleScreenTracker.visibleScreenState } returns
             MutableStateFlow(
                 VisibleScreenState(
-                    screenName = "unknown", activityName = null, fragmentName = null,
-                    previouslyVisibleScreen = "previousScreen", previouslyVisibleActivity = null, previouslyVisibleFragment = null,
+                    screenName = "unknown",
+                    activityName = null,
+                    fragmentName = null,
+                    previouslyVisibleScreen = "previousScreen",
+                    previouslyVisibleActivity = null,
+                    previouslyVisibleFragment = null,
                 ),
             )
         val activityCallbacks = createActivityCallbacks()

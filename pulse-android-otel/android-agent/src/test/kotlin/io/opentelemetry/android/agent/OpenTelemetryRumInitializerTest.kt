@@ -13,11 +13,16 @@ import io.opentelemetry.android.Incubating
 import io.opentelemetry.android.agent.session.SessionIdTimeoutHandler
 import io.opentelemetry.android.internal.services.Services
 import io.opentelemetry.android.internal.services.applifecycle.AppLifecycle
+import io.opentelemetry.android.internal.services.storage.CacheStorage
+import io.opentelemetry.android.internal.services.visiblescreen.VisibleScreenState
+import io.opentelemetry.android.internal.services.visiblescreen.VisibleScreenTracker
+import kotlinx.coroutines.flow.MutableStateFlow
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RuntimeEnvironment
+import java.io.File
 
 @RunWith(AndroidJUnit4::class)
 class OpenTelemetryRumInitializerTest {
@@ -53,7 +58,16 @@ class OpenTelemetryRumInitializerTest {
         val services = mockk<Services>()
         every { services.appLifecycle }.returns(appLifecycle)
         every { services.currentNetworkProvider }.returns(mockk(relaxed = true))
-        every { services.visibleScreenTracker }.returns(mockk(relaxed = true))
+        every { services.cacheStorage }.returns(
+            mockk<CacheStorage>().apply {
+                every { cacheDir }.returns(File(""))
+            },
+        )
+        val visibleScreenTracker = mockk<VisibleScreenTracker>()
+        every { visibleScreenTracker.visibleScreenState }.returns(
+            MutableStateFlow(VisibleScreenState("unknown", null, null, null, null, null)),
+        )
+        every { services.visibleScreenTracker }.returns(visibleScreenTracker)
         Services.set(services)
         return services
     }

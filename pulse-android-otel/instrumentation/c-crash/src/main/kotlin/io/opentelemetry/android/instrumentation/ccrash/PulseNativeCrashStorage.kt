@@ -17,4 +17,3 @@ internal object PulseNativeCrashStorage {
         return dir
     }
 }
-

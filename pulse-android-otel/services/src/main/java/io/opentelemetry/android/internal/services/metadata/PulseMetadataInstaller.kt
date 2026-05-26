@@ -22,9 +22,7 @@ class PulseMetadataInstaller internal constructor(
     private var visibleScreenJob: Job? = null
     private var userIdJob: Job? = null
 
-    fun install(
-        sessionProvider: SessionProvider,
-    ) {
+    fun install(sessionProvider: SessionProvider) {
         if (scope != null) {
             return
         }

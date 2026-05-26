@@ -4,6 +4,10 @@ package io.opentelemetry.android.internal.services.metadata
 
 import android.app.Application
 import android.content.Context
+import android.content.SharedPreferences
+import com.pulse.utils.fromJson
+import com.pulse.utils.toFlow
+import com.pulse.utils.toJson
 import io.opentelemetry.android.common.internal.features.networkattributes.CurrentNetworkAttributesExtractor
 import io.opentelemetry.android.internal.services.network.CurrentNetworkProvider
 import io.opentelemetry.android.internal.services.visiblescreen.VisibleScreenTracker
@@ -13,10 +17,6 @@ import io.opentelemetry.android.session.SessionProvider
 import io.opentelemetry.android.session.SessionPublisher
 import io.opentelemetry.api.common.Attributes
 import io.opentelemetry.semconv.incubating.SessionIncubatingAttributes.SESSION_ID
-import android.content.SharedPreferences
-import com.pulse.utils.fromJson
-import com.pulse.utils.toFlow
-import com.pulse.utils.toJson
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch

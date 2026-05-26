@@ -33,39 +33,38 @@ public object PulseSerialisationUtils {
         }
 }
 
-public inline fun <reified M> String?.fromJsonOrDefault(tag: String, defaultProvider: () -> M): M {
-    return this?.fromJson(tag) ?: defaultProvider()
-}
+public inline fun <reified M> String?.fromJsonOrDefault(
+    tag: String,
+    defaultProvider: () -> M,
+): M = this?.fromJson(tag) ?: defaultProvider()
 
-public inline fun <reified M> String.fromJson(tag: String): M? {
-    return try {
+public inline fun <reified M> String.fromJson(tag: String): M? =
+    try {
         PulseSerialisationUtils.jsonConfigForSerialisation.decodeFromString(serializer(), this)
     } catch (e: SerializationException) {
-        PulseLogger.logError(tag, throwable = e) { "String = $this" }
+        PulseLogger.logError(tag, throwable = e) { "SerializationException with value = $this" }
         null
     } catch (e: IllegalArgumentException) {
-        PulseLogger.logError(tag = tag, throwable = e) { "String = $this" }
+        PulseLogger.logError(tag = tag, throwable = e) { "IllegalArgumentException with value = $this" }
         null
     } catch (e: IllegalStateException) {
-        PulseLogger.logError(tag = tag, throwable = e) { "String = $this" }
+        PulseLogger.logError(tag = tag, throwable = e) { "IllegalStateException with value = $this" }
         null
     }
-}
 
-public inline fun <reified M> M.toJson(tag: String): String? {
-    return try {
+public inline fun <reified M> M.toJson(tag: String): String? =
+    try {
         PulseSerialisationUtils.jsonConfigForSerialisation.encodeToString(serializer(), this)
     } catch (e: SerializationException) {
-        PulseLogger.logError(tag = tag, throwable = e) { "model M = $this" }
+        PulseLogger.logError(tag = tag, throwable = e) { "SerializationException with model M = $this" }
         null
     } catch (e: IllegalArgumentException) {
-        PulseLogger.logError(tag = tag, throwable = e) { "model M = $this" }
+        PulseLogger.logError(tag = tag, throwable = e) { "IllegalArgumentException with model M = $this" }
         null
     } catch (e: IllegalStateException) {
-        PulseLogger.logError(tag = tag, throwable = e) { "model M = $this" }
+        PulseLogger.logError(tag = tag, throwable = e) { "IllegalStateException with model M = $this" }
         null
     }
-}
 
 public open class PulseFallbackToUnknownEnumSerializer<T : Enum<T>>(
     enumClass: KClass<T>,

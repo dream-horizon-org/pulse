@@ -14,14 +14,14 @@ class PulseAppMetadata(
         stringFields: Map<String, String> = this.stringFields,
         doubleFields: Map<String, Double> = this.doubleFields,
         booleanFields: Map<String, Boolean> = this.booleanFields,
-    ): PulseAppMetadata {
-        return PulseAppMetadata(
+    ): PulseAppMetadata =
+        PulseAppMetadata(
             longFields = longFields,
             stringFields = stringFields,
             doubleFields = doubleFields,
-            booleanFields = booleanFields
+            booleanFields = booleanFields,
         )
-    }
+
     internal companion object {
         const val ACTIVITY_NAME = "activity.name"
         const val FRAGMENT_NAME = "fragment.name"
