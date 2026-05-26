@@ -28,22 +28,33 @@ internal object FrameDataHelper {
         after: CumulativeFrameData,
         targetStartTime: Long,
         targetEndTime: Long,
-    ): CumulativeFrameData =
-        CumulativeFrameData(
+    ): CumulativeFrameData {
+        val timeDelta = after.timeInMs - before.timeInMs
+        if (timeDelta == 0L) {
+            return CumulativeFrameData(
+                timeInMs = targetEndTime,
+                analysedFrameCount = 0,
+                unanalysedFrameCount = 0,
+                slowFrameCount = before.slowFrameCount,
+                frozenFrameCount = before.frozenFrameCount,
+            )
+        }
+        return CumulativeFrameData(
             timeInMs = targetEndTime,
             analysedFrameCount =
                 (
-                    (after.analysedFrameCount - before.analysedFrameCount).toDouble() / (after.timeInMs - before.timeInMs) *
+                    (after.analysedFrameCount - before.analysedFrameCount).toDouble() / timeDelta *
                         (targetEndTime - targetStartTime)
                 ).toLong(),
             unanalysedFrameCount =
                 (
-                    (after.unanalysedFrameCount - before.unanalysedFrameCount).toDouble() /
-                        (after.timeInMs - before.timeInMs) * (targetEndTime - targetStartTime)
+                    (after.unanalysedFrameCount - before.unanalysedFrameCount).toDouble() / timeDelta *
+                        (targetEndTime - targetStartTime)
                 ).toLong(),
             slowFrameCount = before.slowFrameCount,
             frozenFrameCount = before.frozenFrameCount,
         )
+    }
 
     private fun findBestPairForInterpolation(
         events: List<CumulativeFrameData>,
@@ -77,11 +88,32 @@ internal object FrameDataHelper {
             }
 
             startBefore != null -> {
-                events.last { it.timeInMs < startBefore.timeInMs } to startBefore
+                // Span starts after the first sample but before the next one (gap between events).
+                val after = events.firstOrNull { it.timeInMs > startBefore.timeInMs }
+                if (after != null) {
+                    startBefore to after
+                } else {
+                    val before = events.lastOrNull { it.timeInMs < startBefore.timeInMs }
+                    if (before != null) {
+                        before to startBefore
+                    } else {
+                        startBefore to startBefore
+                    }
+                }
             }
 
             endAfter != null -> {
-                endAfter to events.first { it.timeInMs > endAfter.timeInMs }
+                val next = events.firstOrNull { it.timeInMs > endAfter.timeInMs }
+                if (next != null) {
+                    endAfter to next
+                } else {
+                    val before = events.lastOrNull { it.timeInMs < endAfter.timeInMs }
+                    if (before != null) {
+                        before to endAfter
+                    } else {
+                        endAfter to endAfter
+                    }
+                }
             }
 
             else -> {
