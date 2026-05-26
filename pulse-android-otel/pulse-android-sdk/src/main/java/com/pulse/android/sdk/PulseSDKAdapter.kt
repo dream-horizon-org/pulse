@@ -68,26 +68,26 @@ internal class PulseSDKAdapter(
 
     override fun trackEvent(
         name: String,
-        observedTimeStampInMs: Long,
+        timestampInMs: Long,
         params: Map<String, Any?>,
     ) {
-        delegate.trackEvent(name, observedTimeStampInMs, params)
+        delegate.trackEvent(name, timestampInMs, params)
     }
 
     override fun trackNonFatal(
         name: String,
-        observedTimeStampInMs: Long,
+        timestampInMs: Long,
         params: Map<String, Any?>,
     ) {
-        delegate.trackNonFatal(name, observedTimeStampInMs, params)
+        delegate.trackNonFatal(name, timestampInMs, params)
     }
 
     override fun trackNonFatal(
         throwable: Throwable,
-        observedTimeStampInMs: Long,
+        timestampInMs: Long,
         params: Map<String, Any?>,
     ) {
-        delegate.trackNonFatal(throwable, observedTimeStampInMs, params)
+        delegate.trackNonFatal(throwable, timestampInMs, params)
     }
 
     override fun <T> trackSpan(
