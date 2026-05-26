@@ -50,6 +50,7 @@ export interface HeatmapTimeRangePopoverBodyProps {
   opened: boolean;
   value: HeatmapLocalFilters;
   onChange: (next: HeatmapLocalFilters) => void;
+  onApply?: () => void;
 }
 
 export interface HeatmapAudienceFilterFormProps {
@@ -73,7 +74,8 @@ export interface HeatmapAudienceFilterPopoverProps {
   onOpenChange: (opened: boolean) => void;
   audienceActiveCount: number;
   dropdownWidth?: number;
-  onResetToPage?: () => void;
   audienceHint: string;
   children: ReactNode;
+  onApply?: () => void;
+  onReset?: () => void;
 }

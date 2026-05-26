@@ -12,7 +12,7 @@ import {
   Tooltip,
   Box,
 } from "@mantine/core";
-import { IconTrash } from "@tabler/icons-react";
+import { IconTrash, IconAlertCircle } from "@tabler/icons-react";
 import {
   FilterCondition,
   FilterCategory,
@@ -20,6 +20,7 @@ import {
   FilterFieldDefinition,
   OPERATOR_LABELS,
 } from "../../../services/sessionReplay/filterConfig";
+import { validateCondition } from "./AdvancedFilterBuilder/filterValidation";
 
 interface ConditionRowProps {
   condition: FilterCondition;
@@ -48,23 +49,20 @@ export function ConditionRow({
 }: ConditionRowProps) {
   const categoryFields = getFieldsByCategory(condition.category);
   const fieldDef = getFieldDefinition(condition.field);
+  const validationError = validateCondition(condition);
+  const hasError = !!validationError;
+
+  const isValueFieldDisabled =
+    condition.operator === "exists" ||
+    condition.operator === "not_exists" ||
+    String(condition.operator).toUpperCase() === "EMPTY" ||
+    String(condition.operator).toUpperCase() === "NOT_EMPTY";
 
   const renderValueInput = (
     fieldDef: FilterFieldDefinition,
     condition: FilterCondition,
     onUpdate: (updates: Partial<FilterCondition>) => void,
   ) => {
-    if (
-      condition.operator === "exists" ||
-      condition.operator === "not_exists"
-    ) {
-      return (
-        <Text size="sm" c="dimmed" style={{ paddingTop: 8 }}>
-          No value needed for this operator
-        </Text>
-      );
-    }
-
     switch (fieldDef.type) {
       case "string":
         return (
@@ -73,6 +71,8 @@ export function ConditionRow({
             placeholder="Enter value"
             value={condition.value ?? ""}
             onChange={(e) => onUpdate({ value: e.target.value })}
+            error={hasError ? validationError : false}
+            disabled={isValueFieldDisabled}
           />
         );
 
@@ -83,12 +83,14 @@ export function ConditionRow({
             placeholder="Enter number"
             value={condition.value as number}
             onChange={(value) => onUpdate({ value: value ?? 0 })}
+            error={hasError ? validationError : false}
+            disabled={isValueFieldDisabled}
           />
         );
 
       case "boolean":
         return (
-          <Group gap="xs" style={{ paddingTop: 8 }}>
+          <Group gap="xs" style={{ paddingTop: 0 }}>
             <Text size="sm">Value:</Text>
             <Switch
               checked={condition.value === true}
@@ -96,6 +98,7 @@ export function ConditionRow({
               size="md"
               onLabel="Yes"
               offLabel="No"
+              disabled={isValueFieldDisabled}
             />
           </Group>
         );
@@ -113,6 +116,8 @@ export function ConditionRow({
                 label: v.toString(),
               })) ?? []
             }
+            error={hasError ? validationError : false}
+            disabled={isValueFieldDisabled}
           />
         );
 
@@ -123,6 +128,8 @@ export function ConditionRow({
             placeholder="Enter value"
             value={condition.value?.toString() ?? ""}
             onChange={(e) => onUpdate({ value: e.target.value })}
+            error={hasError ? validationError : false}
+            disabled={isValueFieldDisabled}
           />
         );
     }
@@ -132,9 +139,16 @@ export function ConditionRow({
     <Paper p="md" withBorder radius="md" style={{ backgroundColor: "white" }}>
       <Stack gap="sm">
         <Group justify="space-between" wrap="nowrap">
-          <Badge color="teal" variant="light" size="lg" radius="sm">
-            Condition {index + 1}
-          </Badge>
+          <Group gap="xs" wrap="nowrap">
+            <Badge color="teal" variant="light" size="lg" radius="sm">
+              Condition {index + 1}
+            </Badge>
+            {hasError && (
+              <Tooltip label={validationError}>
+                <IconAlertCircle size={18} color="#fa5252" />
+              </Tooltip>
+            )}
+          </Group>
           <Tooltip label="Remove condition">
             <ActionIcon color="red" variant="subtle" onClick={onRemove}>
               <IconTrash size={16} />
@@ -166,7 +180,7 @@ export function ConditionRow({
             />
           </Group>
 
-          <Group grow wrap="wrap" gap="xs">
+          <Group grow wrap="wrap" gap="xs" align="flex-start">
             <Select
               label="Operator"
               placeholder="Select operator"
@@ -185,7 +199,12 @@ export function ConditionRow({
               }
               disabled={!fieldDef}
             />
-            <Box style={{ minWidth: 180, flex: 1 }}>
+            <Box
+              style={{
+                minWidth: 180,
+                flex: 1,
+              }}
+            >
               {fieldDef && renderValueInput(fieldDef, condition, onUpdate)}
             </Box>
           </Group>

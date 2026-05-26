@@ -1,4 +1,4 @@
-import { Box, Divider, Group, Button } from "@mantine/core";
+import { Box, Divider, Group, Button, Tooltip } from "@mantine/core";
 import { ADVANCED_FILTER_LABELS } from "./constants";
 
 export interface AdvancedFilterModalFooterProps {
@@ -6,6 +6,7 @@ export interface AdvancedFilterModalFooterProps {
   onClear: () => void;
   onCancel: () => void;
   onApply: () => void;
+  isApplyDisabled?: boolean;
 }
 
 export function AdvancedFilterModalFooter({
@@ -13,6 +14,7 @@ export function AdvancedFilterModalFooter({
   onClear,
   onCancel,
   onApply,
+  isApplyDisabled = false,
 }: AdvancedFilterModalFooterProps) {
   return (
     <Box>
@@ -30,10 +32,19 @@ export function AdvancedFilterModalFooter({
           <Button variant="default" onClick={onCancel}>
             {ADVANCED_FILTER_LABELS.cancel}
           </Button>
-          <Button color="teal" onClick={onApply}>
-            {ADVANCED_FILTER_LABELS.apply}{" "}
-            {conditionCount > 0 ? `(${conditionCount})` : ""}
-          </Button>
+          <Tooltip
+            label="Fill all required values to apply filters"
+            disabled={!isApplyDisabled}
+          >
+            <Button
+              color="teal"
+              onClick={onApply}
+              disabled={isApplyDisabled}
+            >
+              {ADVANCED_FILTER_LABELS.apply}{" "}
+              {conditionCount > 0 ? `(${conditionCount})` : ""}
+            </Button>
+          </Tooltip>
         </Group>
       </Group>
     </Box>

@@ -842,16 +842,16 @@
  * on real mobile screenshots at larger widths.
  */
 .phoneInnerLargeTablet {
-  width: min(520px, 100%);
+  width: 460px;
   max-width: 100%;
-  aspect-ratio: 390 / 844;
-  max-height: min(85vh, 960px);
+  aspect-ratio: 5 / 8;
+  max-height: min(85vh, 944px);
 }
 
 .phoneInnerExtraLargeWeb {
-  width: min(560px, 100%);
+  width: 720px;
   max-width: 100%;
-  aspect-ratio: 390 / 844;
+  aspect-ratio: 16 / 9;
   max-height: min(85vh, 960px);
 }
 

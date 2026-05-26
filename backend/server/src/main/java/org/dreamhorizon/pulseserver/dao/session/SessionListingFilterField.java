@@ -37,19 +37,19 @@ public enum SessionListingFilterField {
       "Has User ID", "string", SESSION, EnumSet.of(EMPTY, NOT_EMPTY)),
 
   // User Properties
-  USER_ID("anyIf(userId, userId != '')", ClauseType.HAVING, true,
+  USER_ID("lower(anyIf(userId, userId != ''))", ClauseType.HAVING, true,
       "User ID", "string", USER, EnumSet.of(EQ)),
 
   // Device
-  PLATFORM("anyIf(platform, platform != '')", ClauseType.HAVING, true,
+  PLATFORM("lower(anyIf(platform, platform != ''))", ClauseType.HAVING, true,
       "Platform", "string", DEVICE, EnumSet.of(EQ, IN)),
-  APP_VERSION("anyIf(appVersion, appVersion != '')", ClauseType.HAVING, true,
+  APP_VERSION("lower(anyIf(appVersion, appVersion != ''))", ClauseType.HAVING, true,
       "App Version", "string", DEVICE, EnumSet.of(EQ, IN)),
-  OS_VERSION("anyIf(osVersion, osVersion != '')", ClauseType.HAVING, true,
+  OS_VERSION("lower(anyIf(osVersion, osVersion != ''))", ClauseType.HAVING, true,
       "OS Version", "string", DEVICE, EnumSet.of(EQ, IN)),
-  DEVICE_MODEL("anyIf(deviceModel, deviceModel != '')", ClauseType.HAVING, true,
+  DEVICE_MODEL("lower(anyIf(deviceModel, deviceModel != ''))", ClauseType.HAVING, true,
       "Device Model", "string", DEVICE, EnumSet.of(EQ, IN)),
-  NETWORK_PROVIDER("anyIf(networkProvider, networkProvider != '')", ClauseType.HAVING, true,
+  NETWORK_PROVIDER("lower(anyIf(networkProvider, networkProvider != ''))", ClauseType.HAVING, true,
       "Network Provider", "string", DEVICE, EnumSet.of(EQ, IN)),
 
   // UI Interactions
@@ -59,9 +59,9 @@ public enum SessionListingFilterField {
       "Slow Interactions", "integer", UI_INTERACTIONS, EnumSet.of(GT, EQ)),
   FROZEN_FRAMES("sum(frozenFrameCount)", ClauseType.HAVING, true,
       "Frozen Frames", "float", UI_INTERACTIONS, EnumSet.of(GT, EQ)),
-  INTERACTION_NAME("SpanAttributes['pulse.interaction.name']", ClauseType.WHERE, false,
+  INTERACTION_NAME("lower(SpanAttributes['pulse.interaction.name'])", ClauseType.WHERE, false,
       "Interaction Name", "string", UI_INTERACTIONS, EnumSet.of(EQ, IN)),
-  SCREEN_NAME("ScreenName", ClauseType.WHERE, false,
+  SCREEN_NAME("lower(ScreenName)", ClauseType.WHERE, false,
       "Screen Name", "string", SESSION, EnumSet.of(EQ, IN)),
 
   // Stability / Errors
@@ -75,9 +75,9 @@ public enum SessionListingFilterField {
       "Network Errors", "integer", STABILITY, EnumSet.of(GT, EQ)),
 
   // Geography
-  COUNTRY("anyIf(geoCountry, geoCountry != '')", ClauseType.HAVING, true,
+  COUNTRY("lower(anyIf(geoCountry, geoCountry != ''))", ClauseType.HAVING, true,
       "Country", "string", GEOGRAPHY, EnumSet.of(EQ, IN)),
-  REGION("anyIf(geoRegion, geoRegion != '')", ClauseType.HAVING, true,
+  REGION("lower(anyIf(geoRegion, geoRegion != ''))", ClauseType.HAVING, true,
       "Region / State", "string", GEOGRAPHY, EnumSet.of(EQ, IN));
 
   private final String expression;

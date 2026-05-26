@@ -1,5 +1,6 @@
 import { Button, Group, Popover } from "@mantine/core";
 import { IconClock } from "@tabler/icons-react";
+import { useEffect, useState } from "react";
 import type { HeatmapTimeFilterPopoverProps } from "./heatmap.ui.types";
 import filterClasses from "../../CriticalInteractionDetails/components/InteractionDetailsFilters/InteractionDetailsFilters.module.css";
 
@@ -10,10 +11,21 @@ export function HeatmapTimeFilterPopover({
   dropdownWidth = 420,
   children,
 }: HeatmapTimeFilterPopoverProps) {
+  const [internalOpened, setInternalOpened] = useState(opened);
+
+  useEffect(() => {
+    setInternalOpened(opened);
+  }, [opened]);
+
+  const handleOpenChange = (newOpened: boolean) => {
+    setInternalOpened(newOpened);
+    onOpenChange(newOpened);
+  };
+
   return (
     <Popover
-      opened={opened}
-      onChange={onOpenChange}
+      opened={internalOpened}
+      onChange={handleOpenChange}
       width={dropdownWidth}
       position="bottom-start"
       withArrow
@@ -26,7 +38,7 @@ export function HeatmapTimeFilterPopover({
           variant="transparent"
           size="compact-sm"
           className={filterClasses.filterButton}
-          onClick={() => onOpenChange(!opened)}
+          onClick={() => handleOpenChange(!internalOpened)}
         >
           <Group gap={6} wrap="nowrap">
             <IconClock size={14} stroke={2.5} />

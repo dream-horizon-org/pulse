@@ -110,7 +110,8 @@ public enum SessionListingOperator {
         if (value instanceof Number) {
             return value.toString();
         }
-        return "'" + escapeString(String.valueOf(value)) + "'";
+        String stringValue = String.valueOf(value).toLowerCase();
+        return "'" + escapeString(stringValue) + "'";
     }
 
     static String numericValue(Object value) {

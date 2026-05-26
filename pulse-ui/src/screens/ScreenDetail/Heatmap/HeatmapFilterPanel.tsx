@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { Divider, Group, Stack, Text } from "@mantine/core";
 import { useGetDashboardFilters } from "../../../hooks/useGetDashboardFilters";
 import { useFilterStore } from "../../../stores/useFilterStore";
@@ -9,6 +9,7 @@ import { HeatmapMapViewControls } from "./HeatmapMapViewControls";
 import { HeatmapTimeFilterPopover } from "./HeatmapTimeFilterPopover";
 import { HeatmapTimeRangePopoverBody } from "./HeatmapTimeRangePopoverBody";
 import type { HeatmapFilterPanelProps } from "./heatmap.ui.types";
+import type { HeatmapAudienceFilterFormHandle } from "./HeatmapAudienceFilterForm";
 import {
   countHeatmapAudienceFilters,
   formatHeatmapTimeButtonLabel,
@@ -40,6 +41,7 @@ export function HeatmapFilterPanel({
   const { data: filterOptionsData } = useGetDashboardFilters();
   const [timeOpen, setTimeOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const audienceFormRef = useRef<HeatmapAudienceFilterFormHandle>(null);
 
   useEffect(() => {
     if (filterOptionsData?.data) {
@@ -75,6 +77,7 @@ export function HeatmapFilterPanel({
 
   const audienceForm = (
     <HeatmapAudienceFilterForm
+      ref={audienceFormRef}
       value={value}
       onChange={onChange}
       platformSuggestions={platformSuggestions}
@@ -83,11 +86,34 @@ export function HeatmapFilterPanel({
     />
   );
 
+  const audiencePopover = (
+    <HeatmapAudienceFilterPopover
+      opened={filtersOpen}
+      onOpenChange={setFiltersOpen}
+      audienceActiveCount={audienceActiveCount}
+      dropdownWidth={variant === "dataOnly" && dataOnlyLayout === "inline" ? 400 : 420}
+      audienceHint={
+        matchesPage
+          ? variant === "dataOnly"
+            ? "Using the same audience filters as the page header."
+            : "Heatmap uses the same audience scope as this page unless you change something here."
+          : variant === "dataOnly"
+            ? "Custom audience filters for this side of the comparison."
+            : "Custom audience filters for this heatmap only."
+      }
+      onApply={() => audienceFormRef.current?.apply()}
+      onReset={() => audienceFormRef.current?.reset()}
+    >
+      {audienceForm}
+    </HeatmapAudienceFilterPopover>
+  );
+
   const timePopoverBody = (
     <HeatmapTimeRangePopoverBody
       opened={timeOpen}
       value={value}
       onChange={onChange}
+      onApply={() => setTimeOpen(false)}
     />
   );
 
@@ -100,27 +126,6 @@ export function HeatmapFilterPanel({
     >
       {timePopoverBody}
     </HeatmapTimeFilterPopover>
-  );
-
-  const audiencePopover = (
-    <HeatmapAudienceFilterPopover
-      opened={filtersOpen}
-      onOpenChange={setFiltersOpen}
-      audienceActiveCount={audienceActiveCount}
-      dropdownWidth={variant === "dataOnly" && dataOnlyLayout === "inline" ? 400 : 420}
-      onResetToPage={onResetToPage}
-      audienceHint={
-        matchesPage
-          ? variant === "dataOnly"
-            ? "Using the same audience filters as the page header."
-            : "Heatmap uses the same audience scope as this page unless you change something here."
-          : variant === "dataOnly"
-            ? "Custom audience filters for this side of the comparison."
-            : "Custom audience filters for this heatmap only."
-      }
-    >
-      {audienceForm}
-    </HeatmapAudienceFilterPopover>
   );
 
   if (variant === "dataOnly") {

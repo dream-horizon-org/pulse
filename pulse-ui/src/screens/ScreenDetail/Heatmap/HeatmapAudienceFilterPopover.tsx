@@ -1,5 +1,6 @@
 import { Badge, Button, Divider, Group, Popover, Stack, Text } from "@mantine/core";
 import { IconFilter } from "@tabler/icons-react";
+import { useState } from "react";
 import type { HeatmapAudienceFilterPopoverProps } from "./heatmap.ui.types";
 import filterClasses from "../../CriticalInteractionDetails/components/InteractionDetailsFilters/InteractionDetailsFilters.module.css";
 
@@ -8,14 +9,27 @@ export function HeatmapAudienceFilterPopover({
   onOpenChange,
   audienceActiveCount,
   dropdownWidth = 420,
-  onResetToPage,
   audienceHint,
   children,
+  onApply,
+  onReset,
 }: HeatmapAudienceFilterPopoverProps) {
+  const [internalOpened, setInternalOpened] = useState(opened);
+
+  const handleOpenChange = (newOpened: boolean) => {
+    setInternalOpened(newOpened);
+    onOpenChange(newOpened);
+  };
+
+  const handleApply = () => {
+    onApply?.();
+    handleOpenChange(false);
+  };
+
   return (
     <Popover
-      opened={opened}
-      onChange={onOpenChange}
+      opened={internalOpened}
+      onChange={handleOpenChange}
       width={dropdownWidth}
       position="bottom-start"
       withArrow
@@ -28,7 +42,7 @@ export function HeatmapAudienceFilterPopover({
           variant="transparent"
           size="compact-sm"
           className={filterClasses.filterButton}
-          onClick={() => onOpenChange(!opened)}
+          onClick={() => handleOpenChange(!internalOpened)}
         >
           <Group gap={6} wrap="nowrap">
             <IconFilter size={14} stroke={2.5} />
@@ -44,14 +58,25 @@ export function HeatmapAudienceFilterPopover({
       <Popover.Dropdown className={filterClasses.filterDropdown}>
         <Stack gap="md">
           {children}
-          {onResetToPage ? (
-            <>
-              <Divider />
-              <Button variant="light" color="gray" size="xs" onClick={onResetToPage}>
-                Match this page
-              </Button>
-            </>
-          ) : null}
+          <Divider />
+          <Group justify="flex-end" gap="sm">
+            <Button
+              variant="outline"
+              size="xs"
+              onClick={() => {
+                onReset?.();
+                // Auto-apply the reset
+                setTimeout(() => {
+                  onApply?.();
+                }, 0);
+              }}
+            >
+              Reset
+            </Button>
+            <Button variant="filled" size="xs" onClick={handleApply}>
+              Apply
+            </Button>
+          </Group>
           <Text size="xs" c="dimmed" lh={1.45}>
             {audienceHint}
           </Text>

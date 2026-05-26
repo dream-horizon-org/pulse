@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Modal, Stack, Divider } from "@mantine/core";
 import type { FilterGroup } from "../../../services/sessionReplay/filterConfig";
 import type {
@@ -20,6 +20,7 @@ import { AdvancedFilterModalFooter } from "./AdvancedFilterBuilder/ModalFooter";
 import { SchemaLoadingState } from "./AdvancedFilterBuilder/SchemaLoadingState";
 import { SchemaErrorState } from "./AdvancedFilterBuilder/SchemaErrorState";
 import { MODAL_STYLES } from "./AdvancedFilterBuilder/constants";
+import { validateFilterGroup } from "./AdvancedFilterBuilder/filterValidation";
 
 export interface AdvancedFilterBuilderProps {
   opened: boolean;
@@ -83,9 +84,15 @@ export function AdvancedFilterBuilder({
     [sessionsFilterConfig],
   );
 
+  const validation = useMemo(() => {
+    return validateFilterGroup(filterGroup);
+  }, [filterGroup]);
+
   const handleApply = () => {
-    onApply(filterGroup);
-    onClose();
+    if (validation.isValid) {
+      onApply(filterGroup);
+      onClose();
+    }
   };
 
   const showLoading = !sessionsFilterConfig && schemaLoading;
@@ -138,6 +145,7 @@ export function AdvancedFilterBuilder({
           onClear={handleClear}
           onCancel={onClose}
           onApply={handleApply}
+          isApplyDisabled={!validation.isValid}
         />
       </Stack>
     </Modal>
