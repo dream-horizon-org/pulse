@@ -1,3 +1,50 @@
 .segmentLabel {
   line-height: 1;
 }
+
+.segmentIcon {
+  flex-shrink: 0;
+}
+
+.wrapper[data-disabled="true"] {
+  opacity: 1;
+}
+
+.controlRoot {
+  background: #f1f5f9;
+}
+
+.controlLabel {
+  color: #64748b;
+  font-weight: 500;
+}
+
+.controlLabel:hover {
+  color: #475569;
+}
+
+.controlLabel[data-active] {
+  color: #fff;
+}
+
+.controlLabel[data-active] .segmentIcon {
+  color: #fff;
+}
+
+/* Edit / detail flows — match step badge teal gradient */
+.wrapper[data-accent="teal"] .controlIndicator {
+  background: linear-gradient(135deg, #0ec9c2, #0ba09a);
+}
+
+/* Create wizard — match primary blue SegmentedControl */
+.wrapper[data-accent="blue"] .controlIndicator {
+  background: var(--mantine-color-blue-filled);
+}
+
+.wrapper[data-disabled="true"] .controlLabel {
+  cursor: default;
+}
+
+.wrapper[data-disabled="true"] .controlLabel:not([data-active]) {
+  color: #94a3b8;
+}
