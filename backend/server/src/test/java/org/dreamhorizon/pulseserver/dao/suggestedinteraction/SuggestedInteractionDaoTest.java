@@ -7,9 +7,11 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import jakarta.ws.rs.WebApplicationException;
+import io.reactivex.rxjava3.core.Completable;
 import io.reactivex.rxjava3.core.Single;
 import io.reactivex.rxjava3.observers.TestObserver;
 import io.vertx.rxjava3.mysqlclient.MySQLPool;
@@ -17,7 +19,14 @@ import io.vertx.rxjava3.sqlclient.PreparedQuery;
 import io.vertx.rxjava3.sqlclient.Row;
 import io.vertx.rxjava3.sqlclient.RowIterator;
 import io.vertx.rxjava3.sqlclient.RowSet;
+import io.vertx.rxjava3.sqlclient.SqlConnection;
 import io.vertx.rxjava3.sqlclient.Tuple;
+import java.util.List;
+import org.dreamhorizon.pulseserver.service.interaction.models.CreateSuggestedInteractionsRequest;
+import org.dreamhorizon.pulseserver.service.interaction.models.CreateSuggestedInteractionsResponse;
+import org.dreamhorizon.pulseserver.service.interaction.models.Event;
+import org.dreamhorizon.pulseserver.service.interaction.models.SuggestedInteractionCreateItem;
+import org.dreamhorizon.pulseserver.service.interaction.models.SuggestedInteractionEdge;
 import java.time.LocalDateTime;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
 import org.dreamhorizon.pulseserver.context.ProjectContext;
@@ -49,6 +58,9 @@ class SuggestedInteractionDaoTest {
   MySQLPool readerPool;
   @Mock
   MySQLPool writerPool;
+
+  @Mock
+  SqlConnection sqlConnection;
 
   ObjectMapperUtil objectMapperUtil;
   SuggestedInteractionDao dao;
@@ -260,6 +272,147 @@ class SuggestedInteractionDaoTest {
       assertThat(captured.getString(1)).isEqualTo("admin@test.com");
       assertThat(captured.getLong(2)).isEqualTo(7L);
       assertThat(captured.getString(3)).isEqualTo(PROJECT_ID);
+    }
+  }
+
+  @Nested
+  class GetSuggestedInteractionsByStatus {
+
+    @Test
+    void shouldUseCatalogQueryWhenStatusIsAll() {
+      Row row = mockDataRow(false);
+      RowSet<Row> rowSet = mock(RowSet.class);
+      attachRowIterator(rowSet, row);
+
+      ArgumentCaptor<String> queryCaptor = ArgumentCaptor.forClass(String.class);
+      @SuppressWarnings("unchecked")
+      PreparedQuery<RowSet<Row>> preparedQuery = mock(PreparedQuery.class);
+      when(mysqlClient.getReaderPool()).thenReturn(readerPool);
+      when(readerPool.preparedQuery(queryCaptor.capture())).thenReturn(preparedQuery);
+      when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
+
+      dao.getSuggestionsByStatus("ALL").blockingGet();
+
+      assertThat(queryCaptor.getValue()).isEqualTo(Queries.GET_SUGGESTIONS_CATALOG_BY_PROJECT);
+    }
+
+    @Test
+    void shouldUseStatusFilterQueryWhenStatusIsDismissed() {
+      Row row = mockDataRow(false);
+      when(row.getString("status")).thenReturn("DISMISSED");
+      RowSet<Row> rowSet = mock(RowSet.class);
+      attachRowIterator(rowSet, row);
+
+      ArgumentCaptor<String> queryCaptor = ArgumentCaptor.forClass(String.class);
+      ArgumentCaptor<Tuple> tupleCaptor = ArgumentCaptor.forClass(Tuple.class);
+      @SuppressWarnings("unchecked")
+      PreparedQuery<RowSet<Row>> preparedQuery = mock(PreparedQuery.class);
+      when(mysqlClient.getReaderPool()).thenReturn(readerPool);
+      when(readerPool.preparedQuery(queryCaptor.capture())).thenReturn(preparedQuery);
+      when(preparedQuery.rxExecute(tupleCaptor.capture())).thenReturn(Single.just(rowSet));
+
+      dao.getSuggestionsByStatus("dismissed").blockingGet();
+
+      assertThat(queryCaptor.getValue()).isEqualTo(Queries.GET_SUGGESTIONS_CATALOG_BY_PROJECT_AND_STATUS);
+      assertThat(tupleCaptor.getValue().getString(1)).isEqualTo("DISMISSED");
+    }
+  }
+
+  @Nested
+  class CreateSuggestions {
+
+    private SuggestedInteractionCreateItem buildCreateItem() {
+      return SuggestedInteractionCreateItem.builder()
+          .events(List.of(
+              Event.builder().name("StepOne").props(List.of()).isBlacklisted(false).build()))
+          .totalOccurrences(100)
+          .uniqueSessions(80)
+          .sessionPct(12.5)
+          .meanSpanS(1.1)
+          .medianSpanS(0.9)
+          .p95SpanS(3.2)
+          .cv(0.15)
+          .edges(List.of(
+              SuggestedInteractionEdge.builder().from("StepOne").to("StepTwo").build()))
+          .build();
+    }
+
+    private void stubCreateConnection() {
+      when(mysqlClient.getWriterPool()).thenReturn(writerPool);
+      when(writerPool.rxGetConnection()).thenReturn(Single.just(sqlConnection));
+      when(sqlConnection.rxClose()).thenReturn(Completable.complete());
+    }
+
+    @Test
+    void shouldReturnZeroCountsWhenSuggestionsEmpty() {
+      CreateSuggestedInteractionsRequest request = CreateSuggestedInteractionsRequest.builder()
+          .replacePending(true)
+          .suggestions(List.of())
+          .build();
+
+      CreateSuggestedInteractionsResponse result = dao.createSuggestions(request).blockingGet();
+
+      assertThat(result.getCreatedCount()).isZero();
+      assertThat(result.getReplacedPendingCount()).isZero();
+      verifyNoInteractions(writerPool);
+    }
+
+    @Test
+    void shouldInsertWithoutReplacingPending() {
+      stubCreateConnection();
+      PreparedQuery<RowSet<Row>> insertPq = mock(PreparedQuery.class);
+      RowSet<Row> insertRs = mock(RowSet.class);
+      when(sqlConnection.preparedQuery(Queries.INSERT_SUGGESTION)).thenReturn(insertPq);
+      when(insertPq.rxExecute(any(Tuple.class))).thenReturn(Single.just(insertRs));
+
+      CreateSuggestedInteractionsRequest request = CreateSuggestedInteractionsRequest.builder()
+          .replacePending(false)
+          .suggestions(List.of(buildCreateItem()))
+          .build();
+
+      CreateSuggestedInteractionsResponse result = dao.createSuggestions(request).blockingGet();
+
+      assertThat(result.getCreatedCount()).isEqualTo(1);
+      assertThat(result.getReplacedPendingCount()).isZero();
+      verify(sqlConnection).preparedQuery(Queries.INSERT_SUGGESTION);
+      verify(sqlConnection, org.mockito.Mockito.never()).preparedQuery(Queries.DELETE_PENDING_BY_PROJECT);
+    }
+
+    @Test
+    void shouldReplacePendingThenInsert() {
+      stubCreateConnection();
+      PreparedQuery<RowSet<Row>> deletePq = mock(PreparedQuery.class);
+      PreparedQuery<RowSet<Row>> insertPq = mock(PreparedQuery.class);
+      RowSet<Row> deleteRs = mock(RowSet.class);
+      RowSet<Row> insertRs = mock(RowSet.class);
+      when(deleteRs.rowCount()).thenReturn(2);
+      when(sqlConnection.preparedQuery(Queries.DELETE_PENDING_BY_PROJECT)).thenReturn(deletePq);
+      when(sqlConnection.preparedQuery(Queries.INSERT_SUGGESTION)).thenReturn(insertPq);
+      when(deletePq.rxExecute(any(Tuple.class))).thenReturn(Single.just(deleteRs));
+      when(insertPq.rxExecute(any(Tuple.class))).thenReturn(Single.just(insertRs));
+
+      CreateSuggestedInteractionsRequest request = CreateSuggestedInteractionsRequest.builder()
+          .replacePending(true)
+          .suggestions(List.of(buildCreateItem(), buildCreateItem()))
+          .build();
+
+      CreateSuggestedInteractionsResponse result = dao.createSuggestions(request).blockingGet();
+
+      assertThat(result.getCreatedCount()).isEqualTo(2);
+      assertThat(result.getReplacedPendingCount()).isEqualTo(2);
+    }
+
+    @Test
+    void shouldPropagateErrorOnConnectionFailure() {
+      when(mysqlClient.getWriterPool()).thenReturn(writerPool);
+      when(writerPool.rxGetConnection()).thenReturn(Single.error(new RuntimeException("No connection")));
+
+      CreateSuggestedInteractionsRequest request = CreateSuggestedInteractionsRequest.builder()
+          .suggestions(List.of(buildCreateItem()))
+          .build();
+
+      TestObserver<CreateSuggestedInteractionsResponse> observer = dao.createSuggestions(request).test();
+      observer.assertError(RuntimeException.class);
     }
   }
 

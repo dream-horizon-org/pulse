@@ -1443,6 +1443,66 @@ class InteractionServiceImplTest {
   class TestGetSuggestedInteractionsByStatus {
 
     @Test
+    void shouldFilterPendingStatusAgainstExistingInteractions() {
+      SuggestedInteractionDetails suggestion = buildSuggestedInteraction(1L, eventsFromNames("EventA"));
+      GetSuggestedInteractionsResponse response = GetSuggestedInteractionsResponse.builder()
+          .suggestions(List.of(suggestion))
+          .totalSuggestions(1)
+          .build();
+
+      Mockito.when(suggestedInteractionDao.getSuggestionsByStatus(null))
+          .thenReturn(Single.just(response));
+      Mockito.when(interactionDao.getAllActiveAndRunningInteractions("test"))
+          .thenReturn(Single.just(List.of()));
+
+      TestObserver<GetSuggestedInteractionsResponse> actual =
+          interactionService.getSuggestedInteractions("PENDING").test();
+
+      actual.assertNoErrors()
+          .assertValue(resp -> resp.getTotalSuggestions() == 1);
+      Mockito.verify(suggestedInteractionDao).getSuggestionsByStatus(null);
+      Mockito.verify(interactionDao).getAllActiveAndRunningInteractions("test");
+    }
+
+    @Test
+    void shouldFilterWhenStatusIsBlank() {
+      SuggestedInteractionDetails suggestion = buildSuggestedInteraction(1L, eventsFromNames("EventA"));
+      GetSuggestedInteractionsResponse response = GetSuggestedInteractionsResponse.builder()
+          .suggestions(List.of(suggestion))
+          .totalSuggestions(1)
+          .build();
+
+      Mockito.when(suggestedInteractionDao.getSuggestionsByStatus(null))
+          .thenReturn(Single.just(response));
+      Mockito.when(interactionDao.getAllActiveAndRunningInteractions("test"))
+          .thenReturn(Single.just(List.of()));
+
+      TestObserver<GetSuggestedInteractionsResponse> actual =
+          interactionService.getSuggestedInteractions("   ").test();
+
+      actual.assertNoErrors();
+      Mockito.verify(interactionDao).getAllActiveAndRunningInteractions("test");
+    }
+
+    @Test
+    void shouldReturnDismissedWithoutInteractionFilter() {
+      GetSuggestedInteractionsResponse response = GetSuggestedInteractionsResponse.builder()
+          .suggestions(List.of())
+          .totalSuggestions(0)
+          .build();
+
+      Mockito.when(suggestedInteractionDao.getSuggestionsByStatus("DISMISSED"))
+          .thenReturn(Single.just(response));
+
+      TestObserver<GetSuggestedInteractionsResponse> actual =
+          interactionService.getSuggestedInteractions("DISMISSED").test();
+
+      actual.assertNoErrors();
+      Mockito.verify(suggestedInteractionDao).getSuggestionsByStatus("DISMISSED");
+      Mockito.verify(interactionDao, Mockito.never()).getAllActiveAndRunningInteractions(any());
+    }
+
+    @Test
     void shouldReturnAllStatusesWithoutInteractionFilter() {
       SuggestedInteractionDetails suggestion = buildSuggestedInteraction(1L, eventsFromNames("EventA"));
       GetSuggestedInteractionsResponse response = GetSuggestedInteractionsResponse.builder()
@@ -1489,6 +1549,20 @@ class InteractionServiceImplTest {
 
       actual.assertNoErrors().assertValue(expected);
       Mockito.verify(suggestedInteractionDao, Mockito.times(1)).createSuggestions(request);
+    }
+
+    @Test
+    void shouldPropagateErrorFromDao() {
+      CreateSuggestedInteractionsRequest request = CreateSuggestedInteractionsRequest.builder()
+          .suggestions(List.of())
+          .build();
+      Mockito.when(suggestedInteractionDao.createSuggestions(request))
+          .thenReturn(Single.error(new RuntimeException("DB error")));
+
+      TestObserver<CreateSuggestedInteractionsResponse> actual =
+          interactionService.createSuggestions(request).test();
+
+      actual.assertError(RuntimeException.class);
     }
   }
 
@@ -1760,6 +1834,104 @@ class InteractionServiceImplTest {
 
       InteractionDetails captured = captor.getValue();
       assertThat(captured.getName()).isEqualTo("EventaToEventb (3)");
+    }
+
+    @Test
+    void shouldNotTreatAsDuplicateWhenEventCountDiffers() {
+      SuggestedInteractionDetails suggestion = buildSuggestedInteraction(1L, eventsFromNames("EventA", "EventB"));
+
+      InteractionDetails existingInteraction = InteractionDetails.builder()
+          .id(50L).name("ExistingInteraction").description("existing").status(InteractionStatus.RUNNING)
+          .events(List.of(
+              Event.builder().name("EventA").props(List.of()).isBlacklisted(false).build()))
+          .uptimeLowerLimitInMs(100).uptimeMidLimitInMs(200).uptimeUpperLimitInMs(300).thresholdInMs(400)
+          .createdAt(Timestamp.valueOf(LocalDateTime.now())).createdBy("system")
+          .updatedAt(Timestamp.valueOf(LocalDateTime.now())).updatedBy("system").projectId("test")
+          .build();
+
+      Mockito.when(suggestedInteractionDao.getSuggestionById(1L))
+          .thenReturn(Single.just(suggestion));
+      Mockito.when(interactionDao.getAllActiveAndRunningInteractions("test"))
+          .thenReturn(Single.just(List.of(existingInteraction)));
+      Mockito.when(interactionDao.isInteractionPresent("EventaToEventb"))
+          .thenReturn(Single.just(false));
+
+      InteractionDetails createdInteraction = InteractionDetails.builder()
+          .id(100L).name("EventaToEventb").description("test").status(InteractionStatus.RUNNING)
+          .events(List.of()).uptimeLowerLimitInMs(680).uptimeMidLimitInMs(720)
+          .uptimeUpperLimitInMs(2100).thresholdInMs(4200)
+          .createdAt(Timestamp.valueOf(LocalDateTime.now()))
+          .createdBy(userEmail).updatedAt(Timestamp.valueOf(LocalDateTime.now()))
+          .updatedBy(userEmail).projectId("test")
+          .build();
+      CreateInteractionDaoResponse daoResponse = CreateInteractionDaoResponse.builder()
+          .interactionDetails(createdInteraction)
+          .interactionDetailUploadMetadata(InteractionDetailUploadMetadata.builder().build())
+          .build();
+
+      Mockito.when(interactionDao.createInteractionAndUploadMetadata(any()))
+          .thenReturn(Single.just(daoResponse));
+      Mockito.when(suggestedInteractionDao.updateStatus(1L, "ACTIVATED", userEmail))
+          .thenReturn(Single.just(new EmptyResponse()));
+
+      TestObserver<EmptyResponse> actual = interactionService.activateSuggestion(1L, userEmail).test();
+      actual.assertNoErrors();
+      Mockito.verify(interactionDao).createInteractionAndUploadMetadata(any());
+    }
+
+    @Test
+    void shouldPropagateErrorWhenCreateInteractionFails() {
+      SuggestedInteractionDetails suggestion = buildSuggestedInteraction(1L, eventsFromNames("EventA", "EventB"));
+
+      Mockito.when(suggestedInteractionDao.getSuggestionById(1L))
+          .thenReturn(Single.just(suggestion));
+      Mockito.when(interactionDao.getAllActiveAndRunningInteractions("test"))
+          .thenReturn(Single.just(List.of()));
+      Mockito.when(interactionDao.isInteractionPresent("EventaToEventb"))
+          .thenReturn(Single.just(false));
+      Mockito.when(interactionDao.createInteractionAndUploadMetadata(any()))
+          .thenReturn(Single.error(new RuntimeException("Create failed")));
+
+      TestObserver<EmptyResponse> actual = interactionService.activateSuggestion(1L, userEmail).test();
+      actual.assertError(RuntimeException.class);
+
+      Mockito.verify(suggestedInteractionDao, Mockito.never()).updateStatus(any(), any(), any());
+    }
+
+    @Test
+    void shouldBuildPascalCaseNameFromUnderscoreEventNames() {
+      SuggestedInteractionDetails suggestion = buildSuggestedInteraction(1L,
+          eventsFromNames("checkout_start", "payment_done"));
+
+      Mockito.when(suggestedInteractionDao.getSuggestionById(1L))
+          .thenReturn(Single.just(suggestion));
+      Mockito.when(interactionDao.getAllActiveAndRunningInteractions("test"))
+          .thenReturn(Single.just(List.of()));
+      Mockito.when(interactionDao.isInteractionPresent("CheckoutStartToPaymentDone"))
+          .thenReturn(Single.just(false));
+
+      ArgumentCaptor<InteractionDetails> captor = ArgumentCaptor.forClass(InteractionDetails.class);
+      InteractionDetails createdInteraction = InteractionDetails.builder()
+          .id(100L).name("CheckoutStartToPaymentDone").description("test").status(InteractionStatus.RUNNING)
+          .events(List.of()).uptimeLowerLimitInMs(680).uptimeMidLimitInMs(720)
+          .uptimeUpperLimitInMs(2100).thresholdInMs(4200)
+          .createdAt(Timestamp.valueOf(LocalDateTime.now()))
+          .createdBy(userEmail).updatedAt(Timestamp.valueOf(LocalDateTime.now()))
+          .updatedBy(userEmail).projectId("test")
+          .build();
+      CreateInteractionDaoResponse daoResponse = CreateInteractionDaoResponse.builder()
+          .interactionDetails(createdInteraction)
+          .interactionDetailUploadMetadata(InteractionDetailUploadMetadata.builder().build())
+          .build();
+
+      Mockito.when(interactionDao.createInteractionAndUploadMetadata(captor.capture()))
+          .thenReturn(Single.just(daoResponse));
+      Mockito.when(suggestedInteractionDao.updateStatus(1L, "ACTIVATED", userEmail))
+          .thenReturn(Single.just(new EmptyResponse()));
+
+      TestObserver<EmptyResponse> actual = interactionService.activateSuggestion(1L, userEmail).test();
+      actual.assertNoErrors();
+      assertThat(captor.getValue().getName()).isEqualTo("CheckoutStartToPaymentDone");
     }
 
     @Test

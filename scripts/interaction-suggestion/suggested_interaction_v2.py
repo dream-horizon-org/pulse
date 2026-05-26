@@ -114,6 +114,7 @@ CASCADE_MAX_LEN = 6      # longest pattern to look for
 
 # ─── Quality filters ───
 MIN_SESSIONS = 10        # pattern must appear in at least this many sessions
+MIN_CONFIDENCE = 0.0     # drop patterns with confidence <= this (keep if > threshold)
 CHAIN_CV_MAX = 0.2     # CV of total chain span must be under this (before auto relax)
 EDGE_CV_MAX = 0.3     # CV of each individual edge must be under this (before auto relax)
 AUTO_PATTERN_CV_PERCENTILE = 85.0
@@ -1296,6 +1297,18 @@ def discover_interactions(
     return results
 
 
+def _meets_session_support(
+    unique_sessions: int,
+    min_sessions: int,
+    *,
+    exclusive: bool,
+) -> bool:
+    """exclusive=True requires unique_sessions > min_sessions (e.g. >50 when min_sessions=50)."""
+    if exclusive:
+        return unique_sessions > min_sessions
+    return unique_sessions >= min_sessions
+
+
 def discover_action_interactions(
     chains: list[tuple[str, list[Any], list[str], list[dict[str, Any]]]],
     total_sessions: int,
@@ -1309,6 +1322,8 @@ def discover_action_interactions(
     action_events: set[str],
     blacklisted_prop_keys: frozenset[str] | set[str] | None = None,
     *,
+    min_confidence: float = MIN_CONFIDENCE,
+    min_sessions_exclusive: bool = False,
     auto_pattern_cv: bool = False,
     auto_pattern_cv_percentile: float = AUTO_PATTERN_CV_PERCENTILE,
     auto_pattern_cv_chain_cap: float = AUTO_PATTERN_CV_CHAIN_CAP,
@@ -1334,6 +1349,8 @@ def discover_action_interactions(
         acc,
         total_sessions=total_sessions,
         min_sessions=min_sessions,
+        min_confidence=min_confidence,
+        min_sessions_exclusive=min_sessions_exclusive,
         chain_cv_max=chain_cv_max,
         edge_cv_max=edge_cv_max,
         action_session_counts=action_session_counts,
@@ -1351,6 +1368,8 @@ def _finalize_discovered_patterns(
     *,
     total_sessions: int,
     min_sessions: int,
+    min_confidence: float = MIN_CONFIDENCE,
+    min_sessions_exclusive: bool = False,
     chain_cv_max: float,
     edge_cv_max: float,
     action_session_counts: dict[str, int],
@@ -1387,7 +1406,9 @@ def _finalize_discovered_patterns(
         max_edge_cvs: list[float] = []
         for pat, spans in pat_spans.items():
             unique_sessions = len(pat_sessions[pat])
-            if unique_sessions < min_sessions:
+            if not _meets_session_support(
+                unique_sessions, min_sessions, exclusive=min_sessions_exclusive
+            ):
                 continue
             arr = np.array(spans, dtype=float)
             mu = float(np.mean(arr))
@@ -1432,7 +1453,9 @@ def _finalize_discovered_patterns(
         if not _is_single_action_at_start_pattern(pat, action_events):
             continue
         unique_sessions = len(pat_sessions[pat])
-        if unique_sessions < min_sessions:
+        if not _meets_session_support(
+            unique_sessions, min_sessions, exclusive=min_sessions_exclusive
+        ):
             continue
         arr = np.array(spans, dtype=float)
         mu = float(np.mean(arr))
@@ -1475,6 +1498,8 @@ def _finalize_discovered_patterns(
             event_session_counts.get(terminal_name, 0) / total_sessions if total_sessions > 0 else 0.0
         )
         confidence = unique_sessions / action_sessions
+        if confidence <= float(min_confidence):
+            continue
         lift = confidence / max(terminal_base, 1e-6)
         interaction_score = (
             math.log1p(unique_sessions) * max(0.0, confidence) * max(0.0, min(lift, 50.0))
@@ -1695,6 +1720,8 @@ def run_pipeline(
         action_session_counts, event_session_counts,
         action_events,
         blacklisted_prop_keys=bl,
+        min_confidence=float(args.min_confidence),
+        min_sessions_exclusive=bool(args.min_sessions_exclusive),
         auto_pattern_cv=bool(args.auto_pattern_cv),
         auto_pattern_cv_percentile=float(args.auto_pattern_cv_percentile),
         auto_pattern_cv_chain_cap=float(args.auto_pattern_cv_chain_cap),
@@ -1704,9 +1731,10 @@ def run_pipeline(
     sink_meta.update(cv_meta)
     ceff = cv_meta.get("chain_cv_max_effective", args.chain_cv_max)
     eeff = cv_meta.get("edge_cv_max_effective", args.edge_cv_max)
+    sess_rule = f"sessions>{min_sessions}" if args.min_sessions_exclusive else f"sessions>={min_sessions}"
     print(
         f"Patterns passing all filters "
-        f"(sessions>={min_sessions}, chain_cv<{ceff}, "
+        f"({sess_rule}, confidence>{args.min_confidence}, chain_cv<{ceff}, "
         f"edge_cv<{eeff}): {len(patterns)}"
     )
     if cv_meta.get("auto_pattern_cv"):
@@ -1853,6 +1881,20 @@ def _parse_args() -> argparse.Namespace:
                    help=f"Max total chain duration in seconds (default {MAX_CHAIN_SPAN})")
     p.add_argument("--min-sessions", type=int, default=MIN_SESSIONS,
                    help=f"Min sessions for a pattern (default {MIN_SESSIONS})")
+    p.add_argument(
+        "--min-sessions-exclusive",
+        action="store_true",
+        help="Require unique_sessions > --min-sessions (strict), not >=.",
+    )
+    p.add_argument(
+        "--min-confidence",
+        type=float,
+        default=MIN_CONFIDENCE,
+        help=(
+            "Drop patterns with confidence <= this value "
+            f"(default {MIN_CONFIDENCE}; use 0.7 to keep only >70% action-session coverage)."
+        ),
+    )
     p.add_argument("--chain-cv-max", type=float, default=CHAIN_CV_MAX,
                    help=f"Max CV for total chain span (default {CHAIN_CV_MAX})")
     p.add_argument("--edge-cv-max", type=float, default=EDGE_CV_MAX,
@@ -2280,6 +2322,8 @@ def main() -> None:
                 "max_edge_gap": args.max_edge_gap,
                 "max_chain_span": args.max_chain_span,
                 "min_sessions": args.min_sessions,
+                "min_sessions_exclusive": bool(args.min_sessions_exclusive),
+                "min_confidence": float(args.min_confidence),
                 "chain_cv_max": args.chain_cv_max,
                 "edge_cv_max": args.edge_cv_max,
                 "auto_pattern_cv": args.auto_pattern_cv,

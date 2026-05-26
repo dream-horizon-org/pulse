@@ -22,9 +22,13 @@ import java.time.ZoneOffset;
 import java.util.concurrent.CompletionStage;
 import org.dreamhorizon.pulseserver.config.RootCauseConfig;
 import org.dreamhorizon.pulseserver.context.ProjectContext;
+import org.dreamhorizon.pulseserver.dto.response.EmptyResponse;
 import org.dreamhorizon.pulseserver.resources.interaction.models.RootCauseRestResponse;
 import org.dreamhorizon.pulseserver.rest.io.Response;
 import org.dreamhorizon.pulseserver.service.interaction.InteractionService;
+import org.dreamhorizon.pulseserver.service.interaction.models.CreateSuggestedInteractionsRequest;
+import org.dreamhorizon.pulseserver.service.interaction.models.CreateSuggestedInteractionsResponse;
+import org.dreamhorizon.pulseserver.service.interaction.models.GetSuggestedInteractionsResponse;
 import org.dreamhorizon.pulseserver.service.rootcause.RootCauseService;
 import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseAnalysisMode;
 import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseResult;
@@ -175,6 +179,104 @@ class InteractionControllerTest {
                 .getRootCause(
                     eq("test-project"), eq("my-interaction"), dateCaptor.capture(), any(Instant.class));
             assertEquals(expectedToday, dateCaptor.getValue());
+          });
+          testContext.completeNow();
+        });
+      });
+    }
+  }
+
+  @Nested
+  class SuggestedInteractions {
+
+    @Test
+    void shouldDelegateGetSuggestedInteractions(Vertx vertx, VertxTestContext testContext) {
+      vertx.runOnContext(v -> {
+        GetSuggestedInteractionsResponse serviceResponse = GetSuggestedInteractionsResponse.builder()
+            .suggestions(java.util.List.of())
+            .totalSuggestions(0)
+            .build();
+        when(interactionService.getSuggestedInteractions("PENDING"))
+            .thenReturn(Single.just(serviceResponse));
+
+        CompletionStage<Response<GetSuggestedInteractionsResponse>> result =
+            interactionController.getSuggestedInteractions("PENDING");
+
+        result.whenComplete((resp, err) -> {
+          testContext.verify(() -> {
+            assertNull(err);
+            assertNotNull(resp);
+            assertEquals(0, resp.getData().getTotalSuggestions());
+            verify(interactionService).getSuggestedInteractions("PENDING");
+          });
+          testContext.completeNow();
+        });
+      });
+    }
+
+    @Test
+    void shouldDelegateCreateSuggestions(Vertx vertx, VertxTestContext testContext) {
+      vertx.runOnContext(v -> {
+        CreateSuggestedInteractionsRequest request = CreateSuggestedInteractionsRequest.builder()
+            .replacePending(true)
+            .suggestions(java.util.List.of())
+            .build();
+        CreateSuggestedInteractionsResponse serviceResponse = CreateSuggestedInteractionsResponse.builder()
+            .createdCount(2)
+            .replacedPendingCount(1)
+            .build();
+        when(interactionService.createSuggestions(request)).thenReturn(Single.just(serviceResponse));
+
+        CompletionStage<Response<CreateSuggestedInteractionsResponse>> result =
+            interactionController.createSuggestions(request);
+
+        result.whenComplete((resp, err) -> {
+          testContext.verify(() -> {
+            assertNull(err);
+            assertNotNull(resp);
+            assertEquals(2, resp.getData().getCreatedCount());
+            assertEquals(1, resp.getData().getReplacedPendingCount());
+            verify(interactionService).createSuggestions(request);
+          });
+          testContext.completeNow();
+        });
+      });
+    }
+
+    @Test
+    void shouldDelegateDismissSuggestion(Vertx vertx, VertxTestContext testContext) {
+      vertx.runOnContext(v -> {
+        when(interactionService.dismissSuggestion(9L, "user@test.com"))
+            .thenReturn(Single.just(new EmptyResponse()));
+
+        CompletionStage<Response<EmptyResponse>> result =
+            interactionController.dismissSuggestion(9L, "user@test.com");
+
+        result.whenComplete((resp, err) -> {
+          testContext.verify(() -> {
+            assertNull(err);
+            assertNotNull(resp);
+            verify(interactionService).dismissSuggestion(9L, "user@test.com");
+          });
+          testContext.completeNow();
+        });
+      });
+    }
+
+    @Test
+    void shouldDelegateActivateSuggestion(Vertx vertx, VertxTestContext testContext) {
+      vertx.runOnContext(v -> {
+        when(interactionService.activateSuggestion(12L, "admin@test.com"))
+            .thenReturn(Single.just(new EmptyResponse()));
+
+        CompletionStage<Response<EmptyResponse>> result =
+            interactionController.activateSuggestion(12L, "admin@test.com");
+
+        result.whenComplete((resp, err) -> {
+          testContext.verify(() -> {
+            assertNull(err);
+            assertNotNull(resp);
+            verify(interactionService).activateSuggestion(12L, "admin@test.com");
           });
           testContext.completeNow();
         });
