@@ -242,11 +242,6 @@ export const ROUTES: Routes = {
     basePath: "/projects/:projectId/session-replay/sessions",
     path: "/projects/:projectId/session-replay/sessions",
   },
-  PROJECT_SESSION_QUALITY_RCA: {
-    key: "PROJECT_SESSION_QUALITY_RCA",
-    basePath: "/projects/:projectId/session-replay/quality-rca",
-    path: "/projects/:projectId/session-replay/quality-rca",
-  },
   PROJECT_SESSION_REPLAY_DETAIL: {
     key: "PROJECT_SESSION_REPLAY_DETAIL",
     basePath: "/projects/:projectId/session-replay",
@@ -366,11 +361,6 @@ export const ROUTES: Routes = {
     key: "SESSION_REPLAY_DETAIL",
     basePath: "/session-replay",
     path: "/session-replay/:sessionId",
-  },
-  SESSION_QUALITY_RCA: {
-    key: "SESSION_QUALITY_RCA",
-    basePath: "/session-replay/quality-rca",
-    path: "/session-replay/quality-rca",
   },
 };
 
@@ -1093,6 +1083,16 @@ export const API_ROUTES: StreamverseRoutes = {
   FUNNEL_TAGS: {
     key: "FUNNEL_TAGS",
     apiPath: `/v1/funnels/tags`,
+    method: API_METHODS.GET,
+  },
+  FUNNEL_DROPOFF: {
+    key: "FUNNEL_DROPOFF",
+    apiPath: `/v1/funnels`,
+    method: API_METHODS.GET,
+  },
+  FUNNEL_DROPOFF_EVIDENCE: {
+    key: "FUNNEL_DROPOFF_EVIDENCE",
+    apiPath: `/v1/funnels`,
     method: API_METHODS.GET,
   },
   GET_TNC_STATUS: {

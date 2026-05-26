@@ -1,5 +1,5 @@
 // Export utility functions
-export { getApiBaseUrl } from "./getApiBaseUrl";
+export { getApiBaseUrl, getRcaApiBaseUrl } from "./getApiBaseUrl";
 export { getTimeBucketSize, type TimeBucketSize } from "./TimeBucketUtil";
 export {
   formatDuration,

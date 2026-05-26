@@ -206,6 +206,7 @@ public class ClickHouseBatchServiceImpl implements AnalyticsBatchService {
                   startedAt,
                   LocalDateTime.now());
             })
+        .flatMap(rowCount -> touchFunnelUpdatedAtAfterBatch(all, rowCount))
         .subscribeOn(Schedulers.io())
         .subscribe(
             unused -> { },
@@ -245,10 +246,52 @@ public class ClickHouseBatchServiceImpl implements AnalyticsBatchService {
                   startedAt,
                   LocalDateTime.now());
             })
+        .flatMap(rowCount -> touchJourneyUpdatedAtAfterBatch(all, rowCount))
         .subscribeOn(Schedulers.io())
         .subscribe(
             unused -> { },
             err -> log.error("Failed to finalize JOURNEYS_DAILY job id={}", dbId, err));
+  }
+
+  private Single<Integer> touchFunnelUpdatedAtAfterBatch(
+      List<FunnelDefinitionRow> all, int rowCount) {
+    if (all.isEmpty()) {
+      return Single.just(rowCount);
+    }
+    return Observable.fromIterable(all)
+        .flatMapSingle(
+            funnel ->
+                funnelDefinitionDao
+                    .touchUpdatedAt(funnel.getId())
+                    .doOnError(
+                        err ->
+                            log.warn(
+                                "Failed to touch updated_at for funnel id={}",
+                                funnel.getId(),
+                                err))
+                    .onErrorReturnItem(0))
+        .toList()
+        .map(ignored -> rowCount);
+  }
+
+  private Single<Integer> touchJourneyUpdatedAtAfterBatch(List<JourneyRow> all, int rowCount) {
+    if (all.isEmpty()) {
+      return Single.just(rowCount);
+    }
+    return Observable.fromIterable(all)
+        .flatMapSingle(
+            journey ->
+                journeyDao
+                    .touchUpdatedAt(journey.getId())
+                    .doOnError(
+                        err ->
+                            log.warn(
+                                "Failed to touch updated_at for journey id={}",
+                                journey.getId(),
+                                err))
+                    .onErrorReturnItem(0))
+        .toList()
+        .map(ignored -> rowCount);
   }
 
   @Override

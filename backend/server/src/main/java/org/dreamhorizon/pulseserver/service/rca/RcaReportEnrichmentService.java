@@ -29,6 +29,9 @@ import org.dreamhorizon.pulseserver.service.rootcause.RootCauseQueryBuilder;
 import org.dreamhorizon.pulseserver.service.rootcause.RootCauseService;
 import org.dreamhorizon.pulseserver.service.rootcause.ScreenRcaService;
 import org.dreamhorizon.pulseserver.service.rootcause.SessionEvidenceService;
+import org.dreamhorizon.pulseserver.service.productAnalysis.funnel.FunnelRcaEntityKey;
+import org.dreamhorizon.pulseserver.service.productAnalysis.funnel.FunnelRcaMapper;
+import org.dreamhorizon.pulseserver.service.productAnalysis.funnel.FunnelRcaService;
 import org.dreamhorizon.pulseserver.service.sessionrca.SessionRcaService;
 import org.dreamhorizon.pulseserver.service.rootcause.models.EvidenceSession;
 import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseResult;
@@ -60,6 +63,7 @@ public class RcaReportEnrichmentService {
   private final ErrorAttributionService errorAttributionService;
   private final RootCauseConfig rootCauseConfig;
   private final SessionRcaService sessionRcaService;
+  private final FunnelRcaService funnelRcaService;
 
   /**
    * Enriches the RCA JSON body with root-cause data and example sessions.
@@ -89,6 +93,10 @@ public class RcaReportEnrichmentService {
 
     if (type == RcaType.SESSION) {
       return enrichSessionAsync(parsed, forceRootCauseRefresh);
+    }
+
+    if (type == RcaType.FUNNEL) {
+      return enrichFunnelAsync(parsed);
     }
 
     if (type != RcaType.INTERACTION) {
@@ -205,6 +213,113 @@ public class RcaReportEnrichmentService {
             })
         .onErrorReturnItem(
             new RcaEnrichmentOutcome(fallbackBody, null, anchorDate, windowEndExclusive, false));
+  }
+
+  /**
+   * Funnel RCA: read precomputed attribution for one step and build pulse_ai {@code rca/funnel-report}
+   * body. Requires {@code start} and {@code end} on the POST body (same as screen RCA).
+   */
+  private Single<RcaEnrichmentOutcome> enrichFunnelAsync(RcaParsedReportBody parsed) {
+    String fallbackBody = parsed.rawBody();
+    String projectId = parsed.projectId();
+    LocalDate anchorDate = parsed.date();
+    ObjectNode root = parsed.bodyRoot();
+    JsonNode startNode = root.get(START_FIELD);
+    JsonNode endNode = root.get(END_FIELD);
+    if (startNode == null
+        || endNode == null
+        || !startNode.isTextual()
+        || !endNode.isTextual()
+        || startNode.asText().isBlank()
+        || endNode.asText().isBlank()) {
+      return Single.just(
+          new RcaEnrichmentOutcome(fallbackBody, null, anchorDate, Instant.now(), false));
+    }
+    final Instant windowStartInclusive;
+    final Instant windowEndExclusive;
+    try {
+      windowStartInclusive = Instant.parse(startNode.asText().trim());
+      windowEndExclusive = Instant.parse(endNode.asText().trim());
+    } catch (DateTimeParseException e) {
+      return Single.just(
+          new RcaEnrichmentOutcome(fallbackBody, null, anchorDate, Instant.now(), false));
+    }
+
+    FunnelRcaEntityKey.Parsed key;
+    try {
+      key = FunnelRcaEntityKey.parse(parsed.entityKey());
+    } catch (RuntimeException e) {
+      return Single.just(
+          new RcaEnrichmentOutcome(fallbackBody, null, anchorDate, windowEndExclusive, false));
+    }
+
+    JsonNode runTimeNode = root.get("runTime");
+    String runTime =
+        runTimeNode != null && runTimeNode.isTextual() && !runTimeNode.asText().isBlank()
+            ? runTimeNode.asText().trim()
+            : null;
+
+    return funnelRcaService
+        .getFunnelRootCause(projectId, key.funnelId(), key.focusStepIndex(), runTime)
+        .map(
+            funnelResult ->
+                toFunnelAiEnrichmentOutcome(
+                    key, anchorDate, windowStartInclusive, windowEndExclusive, funnelResult))
+        .onErrorResumeNext(
+            error -> {
+              log.warn(
+                  "Funnel RCA data load failed for funnelId={} step={} — using no-data AI payload: {}",
+                  key.funnelId(),
+                  key.focusStepIndex(),
+                  error.getMessage());
+              RootCauseResult noData =
+                  FunnelRcaMapper.noDataUnavailable(
+                      key.funnelId(),
+                      key.focusStepIndex(),
+                      null,
+                      null,
+                      "Could not load funnel drop-off attribution ("
+                          + error.getMessage()
+                          + ").");
+              return Single.just(
+                  toFunnelAiEnrichmentOutcome(
+                      key, anchorDate, windowStartInclusive, windowEndExclusive, noData));
+            });
+  }
+
+  private RcaEnrichmentOutcome toFunnelAiEnrichmentOutcome(
+      FunnelRcaEntityKey.Parsed key,
+      LocalDate anchorDate,
+      Instant windowStartInclusive,
+      Instant windowEndExclusive,
+      RootCauseResult funnelResult) {
+    try {
+      ObjectNode aiBody = objectMapper.createObjectNode();
+      aiBody.put("funnelId", key.funnelId());
+      aiBody.put("focusStepIndex", key.focusStepIndex());
+      aiBody.put("date", anchorDate.toString());
+      aiBody.put("start", windowStartInclusive.toString());
+      aiBody.put("end", windowEndExclusive.toString());
+      aiBody.set(ROOT_CAUSE_PAYLOAD_FIELD, objectMapper.valueToTree(funnelResult));
+      String body = objectMapper.writeValueAsString(aiBody);
+      return new RcaEnrichmentOutcome(
+          body, funnelResult, anchorDate, windowEndExclusive, true);
+    } catch (Exception e) {
+      log.warn("Funnel RCA enrichment serialize failed: {}", e.getMessage());
+      RootCauseResult noData =
+          FunnelRcaMapper.noDataUnavailable(
+              key.funnelId(),
+              key.focusStepIndex(),
+              null,
+              null,
+              "Failed to serialize funnel RCA payload.");
+      try {
+        return toFunnelAiEnrichmentOutcome(
+            key, anchorDate, windowStartInclusive, windowEndExclusive, noData);
+      } catch (Exception nested) {
+        throw new IllegalStateException("Funnel RCA AI body build failed", nested);
+      }
+    }
   }
 
   /**

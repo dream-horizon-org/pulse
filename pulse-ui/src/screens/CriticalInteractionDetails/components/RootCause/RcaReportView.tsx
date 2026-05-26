@@ -15,7 +15,10 @@ import type {
   RcaStructuredMetricRowV1,
   RcaStructuredReportV1,
 } from "../../../../hooks/useGetRcaReport/useGetRcaReport.interface";
-import type { RcaReportViewProps } from "./RcaReportView.interface";
+import type {
+  RcaReportContextProps,
+  RcaReportViewProps,
+} from "./RcaReportView.interface";
 import { ERROR_ATTRIBUTION_MESSAGES } from "../ErrorAttribution/ErrorAttribution.constants";
 import { RcaEmbeddedErrorAttribution } from "./RcaEmbeddedErrorAttribution";
 import { ROOT_CAUSE_MESSAGES } from "./RootCause.constants";
@@ -143,11 +146,13 @@ const RcaStructuredReportV1View = ({
   cachedAt,
   onRegenerate,
   projectId,
+  reportContext,
 }: {
   structured: RcaStructuredReportV1;
   cachedAt?: string | null;
   onRegenerate?: () => void;
   projectId?: string | null;
+  reportContext?: RcaReportContextProps;
 }) => {
   const executiveSummaryText = structured.executive_summary?.trim() ?? "";
   const hasExecutiveSummary = executiveSummaryText !== "";
@@ -169,6 +174,8 @@ const RcaStructuredReportV1View = ({
 
   const hasRegenerate = typeof onRegenerate === "function";
   const showAsOf = cachedAt != null && cachedAt !== "";
+  const hasReportContext = reportContext != null;
+  const showReportHeader = hasReportContext || showAsOf || hasRegenerate;
   const trimmedProjectId = projectId != null ? String(projectId).trim() : "";
   const hasProjectForHeatmaps = trimmedProjectId !== "";
   const showDrill = hasEmbeddedErrorAttribution && hasProjectForHeatmaps;
@@ -179,32 +186,69 @@ const RcaStructuredReportV1View = ({
   return (
     <Box className={rootCauseClasses.container}>
       <Box className={rcaClasses.reportShell}>
-        {(showAsOf || hasRegenerate) && (
-          <Group
-            className={rcaClasses.reportHeaderRow}
-            justify="space-between"
-            align="flex-start"
-            wrap="wrap"
-            gap="sm"
-          >
-            {showAsOf ? (
-              <Text className={rcaClasses.reportCachedAt} size="sm" c="dimmed">
-                Report as of {cachedAt}
-              </Text>
-            ) : (
-              <div />
-            )}
-            {hasRegenerate ? (
-              <Button
-                variant="light"
-                size="xs"
-                leftSection={<IconRefresh size={14} />}
-                onClick={onRegenerate}
-              >
-                {ROOT_CAUSE_MESSAGES.REGENERATE_REPORT}
-              </Button>
-            ) : null}
-          </Group>
+        {showReportHeader && (
+          <Box className={rcaClasses.reportContextHeader}>
+            <Group
+              justify="space-between"
+              align="flex-start"
+              wrap="wrap"
+              gap="md"
+            >
+              {hasReportContext ? (
+                <Stack gap={4} className={rcaClasses.reportContextMain}>
+                  <Box className={rcaClasses.reportContextTitleRow}>
+                    {reportContext.badge ? (
+                      <Badge variant="light" color="blue" size="sm">
+                        {reportContext.badge}
+                      </Badge>
+                    ) : null}
+                    <Text size="sm" fw={600}>
+                      {reportContext.title}
+                    </Text>
+                  </Box>
+                  {reportContext.subtitle ? (
+                    <Text size="xs" c="dimmed">
+                      {reportContext.subtitle}
+                    </Text>
+                  ) : null}
+                  {reportContext.hint ? (
+                    <Text size="xs" c="dimmed" fs="italic">
+                      {reportContext.hint}
+                    </Text>
+                  ) : null}
+                </Stack>
+              ) : (
+                <div />
+              )}
+              {(showAsOf || hasRegenerate) && (
+                <Stack
+                  gap="xs"
+                  align="flex-end"
+                  className={rcaClasses.reportContextMeta}
+                >
+                  {showAsOf ? (
+                    <Text
+                      className={rcaClasses.reportCachedAt}
+                      size="xs"
+                      c="dimmed"
+                    >
+                      Report as of {cachedAt}
+                    </Text>
+                  ) : null}
+                  {hasRegenerate ? (
+                    <Button
+                      variant="light"
+                      size="xs"
+                      leftSection={<IconRefresh size={14} />}
+                      onClick={onRegenerate}
+                    >
+                      {ROOT_CAUSE_MESSAGES.REGENERATE_REPORT}
+                    </Button>
+                  ) : null}
+                </Stack>
+              )}
+            </Group>
+          </Box>
         )}
         <Stack gap="lg">
           {hasExecutiveSummary && (
@@ -558,6 +602,7 @@ export const RcaReportView = ({
   cachedAt,
   onRegenerate,
   projectId,
+  reportContext,
 }: RcaReportViewProps) => {
   const structured = report.structured;
   const isValidStructured = structured != null && structured.version === 1;
@@ -598,6 +643,7 @@ export const RcaReportView = ({
       cachedAt={cachedAt}
       onRegenerate={onRegenerate}
       projectId={projectId}
+      reportContext={reportContext}
     />
   );
 };

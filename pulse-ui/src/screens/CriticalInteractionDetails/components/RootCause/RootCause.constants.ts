@@ -9,6 +9,7 @@ export const RCA_TYPE = {
   INTERACTION: "INTERACTION",
   SESSION: "SESSION",
   SCREEN: "SCREEN",
+  FUNNEL: "FUNNEL",
 } as const;
 
 export const ROOT_CAUSE_MESSAGES = {

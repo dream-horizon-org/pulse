@@ -2,6 +2,7 @@ import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 import { API_BASE_URL, API_ROUTES } from "../constants";
 import { makeRequest } from "../helpers/makeRequest";
+import { getFunnelFeatureApiBaseUrl } from "../utils/getApiBaseUrl";
 import { getQueryParamString } from "../helpers/queryParams";
 import type {
   FunnelEventsResponse,
@@ -10,9 +11,12 @@ import type {
   FunnelGroupedRequestBody,
   FunnelGroupedResponse,
   FunnelStep,
-  TagsResponse
+  TagsResponse,
 } from "../hooks/useGetFunnelData/useGetFunnelData.interface";
-import type { FilterField, TimeRange } from "../hooks/useGetDataQuery/useGetDataQuery.interface";
+import type {
+  FilterField,
+  TimeRange,
+} from "../hooks/useGetDataQuery/useGetDataQuery.interface";
 
 dayjs.extend(utc);
 
@@ -373,6 +377,95 @@ export async function createFunnel(payload: CreateFunnelRequestBody) {
     init: {
       method: "POST",
       body: JSON.stringify(payload),
+    },
+  });
+}
+
+// -------- Funnel drop-off attribution (OTel correlation) --------
+
+export type FunnelDropoffCauseKind =
+  | "crash"
+  | "anr"
+  | "non_fatal"
+  | "http_5xx"
+  | "http_4xx"
+  | "frozen_frame";
+
+export type FunnelDropoffCause = {
+  causeKind: FunnelDropoffCauseKind | string;
+  causeKey: string;
+  causeLabel: string;
+  dropoffCohort: number;
+  dropoffAffected: number;
+  converterCohort: number;
+  converterAffected: number;
+  lift: number;
+  dropoffRate: number;
+  exampleSessionIds: string[];
+};
+
+export type FunnelDropoffResponse = {
+  funnelId: number;
+  stepIndex: number;
+  stepName: string;
+  mode: "UNIQUE_USERS" | "SESSIONS" | string;
+  dropoffCohort: number;
+  converterCohort: number;
+  causes: FunnelDropoffCause[];
+};
+
+export type FunnelDropoffEvidence = {
+  sessionId: string;
+  userId: string;
+  lastReachedAt: string;
+  traceId: string;
+  screen: string;
+  appVersion: string;
+  platform: string;
+};
+
+export type FunnelDropoffEvidenceResponse = {
+  examples: FunnelDropoffEvidence[];
+};
+
+/** GET /v1/funnels/:funnelId/dropoffs/:stepIndex */
+export async function fetchFunnelDropoff(
+  funnelId: string,
+  stepIndex: number,
+  runTime?: string,
+) {
+  const qs = runTime ? `?runTime=${encodeURIComponent(runTime)}` : "";
+  return makeRequest<FunnelDropoffResponse>({
+    url: `${getFunnelFeatureApiBaseUrl()}${API_ROUTES.FUNNEL_DROPOFF.apiPath}/${encodeURIComponent(
+      funnelId,
+    )}/dropoffs/${stepIndex}${qs}`,
+    init: {
+      method: API_ROUTES.FUNNEL_DROPOFF.method,
+    },
+  });
+}
+
+/** GET /v1/funnels/:funnelId/dropoffs/:stepIndex/evidence */
+export async function fetchFunnelDropoffEvidence(
+  funnelId: string,
+  stepIndex: number,
+  sessionIds: string[],
+  runTime?: string,
+) {
+  const parts: string[] = [];
+  if (sessionIds?.length) {
+    parts.push(`sessionIds=${encodeURIComponent(sessionIds.join(","))}`);
+  }
+  if (runTime) {
+    parts.push(`runTime=${encodeURIComponent(runTime)}`);
+  }
+  const qs = parts.length ? `?${parts.join("&")}` : "";
+  return makeRequest<FunnelDropoffEvidenceResponse>({
+    url: `${getFunnelFeatureApiBaseUrl()}${API_ROUTES.FUNNEL_DROPOFF_EVIDENCE.apiPath}/${encodeURIComponent(
+      funnelId,
+    )}/dropoffs/${stepIndex}/evidence${qs}`,
+    init: {
+      method: API_ROUTES.FUNNEL_DROPOFF_EVIDENCE.method,
     },
   });
 }

@@ -702,5 +702,391 @@ class ClickHouseFunnelComputeDaoTest {
           .contains("CAST(NULL AS Nullable(Int64))")
           .doesNotContain("quantileExactIf(0.5)");
     }
+
+    @Test
+    void shouldThreadSuppliedRunTimeIntoOrderedWindowFunnelBuilder() {
+      // Drop-off bridge alignment requires funnel_results to share the caller's RunTime literal
+      // (not generate its own). If this fails, the bridge tables and funnel_results land at
+      // different RunTime stamps and the drop-off DAO's MAX(RunTime) join returns zero rows.
+      String runTime = "toDateTime64('2026-04-23 10:00:00.000', 3, 'UTC')";
+      String sql = ClickHouseFunnelComputeDao.buildInsertSqlForDefinition(
+          baseRow().stepOrderType("ORDERED").build(), runTime);
+      assertThat(sql)
+          .contains("windowFunnel(")
+          .contains(runTime);
+    }
+
+    @Test
+    void shouldThreadSuppliedRunTimeIntoUnorderedBuilder() {
+      String runTime = "toDateTime64('2026-04-23 10:00:00.000', 3, 'UTC')";
+      String sql = ClickHouseFunnelComputeDao.buildInsertSqlForDefinition(
+          baseRow().stepOrderType("UNORDERED").build(), runTime);
+      assertThat(sql).contains(runTime);
+    }
+  }
+
+  @Nested
+  class BuildSessionStateInsertSql {
+
+    private static final String RUN_TIME = "toDateTime64('2026-04-23 10:00:00.000', 3, 'UTC')";
+
+    @Test
+    void shouldReturnEmptyForUnorderedFunnels() {
+      String sql = ClickHouseFunnelComputeDao.buildSessionStateInsertSql(
+          baseRow().mode("SESSIONS").stepOrderType("UNORDERED").build(), RUN_TIME);
+      assertThat(sql).isEmpty();
+    }
+
+    @Test
+    void shouldReturnEmptyForZeroStepFunnels() {
+      String sql = ClickHouseFunnelComputeDao.buildSessionStateInsertSql(
+          baseRow().mode("SESSIONS").stepsJson("[]").build(), RUN_TIME);
+      assertThat(sql).isEmpty();
+    }
+
+    @Test
+    void shouldAlsoEmitForUniqueUsersFunnelsToPowerXRayDrillIn() {
+      // UNIQUE_USERS cohort/lift comes from funnel_user_state (cross-session view), but the
+      // per-session bridge is still written to power the "show all of this user's attempts"
+      // drill-in and the single-session x-ray UI. Cohort numbers in the panel don't depend
+      // on these rows for UNIQUE_USERS funnels.
+      String sql = ClickHouseFunnelComputeDao.buildSessionStateInsertSql(
+          baseRow().mode("UNIQUE_USERS").stepOrderType("ORDERED").build(), RUN_TIME);
+      assertThat(sql)
+          .isNotEmpty()
+          .contains("INSERT INTO otel.funnel_session_state")
+          .contains("SELECT SessionId AS uid");
+    }
+
+    @Test
+    void shouldTargetFunnelSessionStateTable() {
+      String sql = ClickHouseFunnelComputeDao.buildSessionStateInsertSql(
+          baseRow().mode("SESSIONS").stepOrderType("ORDERED").build(), RUN_TIME);
+      assertThat(sql).contains("INSERT INTO otel.funnel_session_state");
+    }
+
+    @Test
+    void shouldGroupBySessionIdAndSkipEmptySessionIds() {
+      String sql = ClickHouseFunnelComputeDao.buildSessionStateInsertSql(
+          baseRow().mode("SESSIONS").stepOrderType("ORDERED").build(), RUN_TIME);
+      assertThat(sql)
+          .contains("SELECT SessionId AS uid")
+          .contains("AND SessionId != ''");
+    }
+
+    @Test
+    void shouldUseSingleAnchorAttemptMatchingWindowFunnel() {
+      // windowFunnel anchors on the FIRST matching step-0 event per session, not all of them.
+      // The bridge must do the same so cohort sizes align with funnel_results.
+      String sql = ClickHouseFunnelComputeDao.buildSessionStateInsertSql(
+          baseRow().mode("SESSIONS").stepOrderType("ORDERED").build(), RUN_TIME);
+      assertThat(sql)
+          .contains("min(FunnelTs) AS t0")
+          .contains("attempts AS (")
+          .contains("GROUP BY uid");
+    }
+
+    @Test
+    void shouldFilterByProjectAndPulseType() {
+      String sql = ClickHouseFunnelComputeDao.buildSessionStateInsertSql(
+          baseRow().mode("SESSIONS").stepOrderType("ORDERED").build(), RUN_TIME);
+      assertThat(sql)
+          .contains("ProjectId = '" + PROJECT_ID + "'")
+          .contains("PulseType = 'custom_event'");
+    }
+
+    @Test
+    void shouldHydrateDimensionsViaLeftJoinOnOtelLogs() {
+      String sql = ClickHouseFunnelComputeDao.buildSessionStateInsertSql(
+          baseRow().mode("SESSIONS").stepOrderType("ORDERED").build(), RUN_TIME);
+      assertThat(sql)
+          .contains("LEFT JOIN otel.otel_logs l")
+          .contains("l.SessionId = a.SessionId")
+          .contains("any(l.AppVersion)")
+          .contains("any(l.TraceId)")
+          .contains("any(l.Platform)");
+    }
+
+    @Test
+    void shouldEmitDropoffStepAsNegativeOneForConverters() {
+      String sql = ClickHouseFunnelComputeDao.buildSessionStateInsertSql(
+          baseRow().mode("SESSIONS").stepOrderType("ORDERED").build(), RUN_TIME);
+      // stepCount = 3, final index = 2 → converters have LastReachedStep >= 2 → DropoffStep = -1
+      assertThat(sql).contains("a.LastReachedStep >= 2, -1, a.LastReachedStep + 1");
+    }
+
+    @Test
+    void shouldStampEveryRowWithSharedRunTime() {
+      String sql = ClickHouseFunnelComputeDao.buildSessionStateInsertSql(
+          baseRow().mode("SESSIONS").stepOrderType("ORDERED").build(), RUN_TIME);
+      assertThat(sql).contains(RUN_TIME);
+    }
+  }
+
+  @Nested
+  class BuildUserStateInsertSql {
+
+    private static final String RUN_TIME = "toDateTime64('2026-04-23 10:00:00.000', 3, 'UTC')";
+
+    @Test
+    void shouldReturnEmptyForSessionsMode() {
+      String sql = ClickHouseFunnelComputeDao.buildUserStateInsertSql(
+          baseRow().mode("SESSIONS").stepOrderType("ORDERED").build(), RUN_TIME);
+      assertThat(sql).isEmpty();
+    }
+
+    @Test
+    void shouldReturnEmptyForUnorderedFunnels() {
+      String sql = ClickHouseFunnelComputeDao.buildUserStateInsertSql(
+          baseRow().mode("UNIQUE_USERS").stepOrderType("UNORDERED").build(), RUN_TIME);
+      assertThat(sql).isEmpty();
+    }
+
+    @Test
+    void shouldReturnEmptyForZeroStepFunnels() {
+      String sql = ClickHouseFunnelComputeDao.buildUserStateInsertSql(
+          baseRow().mode("UNIQUE_USERS").stepsJson("[]").build(), RUN_TIME);
+      assertThat(sql).isEmpty();
+    }
+
+    @Test
+    void shouldTargetFunnelUserStateTable() {
+      String sql = ClickHouseFunnelComputeDao.buildUserStateInsertSql(
+          baseRow().mode("UNIQUE_USERS").stepOrderType("ORDERED").build(), RUN_TIME);
+      assertThat(sql).contains("INSERT INTO otel.funnel_user_state");
+    }
+
+    @Test
+    void shouldReadDirectlyFromOtelLogsAndGroupByAppInstallationId() {
+      // user_state is now independent of session_state. Cross-session chains require seeing
+      // every event of the user, grouped by AppInstallationId.
+      String sql = ClickHouseFunnelComputeDao.buildUserStateInsertSql(
+          baseRow().mode("UNIQUE_USERS").stepOrderType("ORDERED").build(), RUN_TIME);
+      assertThat(sql)
+          .contains("FROM otel.otel_logs")
+          .contains("AppInstallationId AS uid")
+          .contains("AppInstallationId != ''")
+          .contains("SessionId != ''")
+          .doesNotContain("FROM otel.funnel_session_state");
+    }
+
+    @Test
+    void shouldUseSingleAnchorAttemptMatchingWindowFunnel() {
+      // Cross-session windowFunnel anchors on the user's earliest step-0 event across ALL
+      // their sessions — same single-anchor rule as SESSIONS mode, just on a wider grouping.
+      String sql = ClickHouseFunnelComputeDao.buildUserStateInsertSql(
+          baseRow().mode("UNIQUE_USERS").stepOrderType("ORDERED").build(), RUN_TIME);
+      assertThat(sql)
+          .contains("attempts AS (")
+          .contains("min(FunnelTs) AS t0")
+          .contains("argMin(sid, FunnelTs) AS sid0");
+    }
+
+    @Test
+    void shouldTrackSessionIdAtEveryChainStepViaArgMinIf() {
+      // The canonical session = the session that contributed the deepest matched step.
+      // Each chain CTE tracks both the timestamp AND the session id of its match.
+      String sql = ClickHouseFunnelComputeDao.buildUserStateInsertSql(
+          baseRow().mode("UNIQUE_USERS").stepOrderType("ORDERED").build(), RUN_TIME);
+      assertThat(sql)
+          .contains("argMinIf(e.sid, e.FunnelTs,")
+          .contains("AS sid1")
+          .contains("AS sid2");
+    }
+
+    @Test
+    void shouldComputeSessionAttemptsAsDistinctSessionCount() {
+      // SessionAttempts now means "how many distinct sessions did this user spend on the funnel"
+      // — not "how many bridge rows the user has", since bridge rows aren't 1-to-1 with sessions
+      // anymore in cross-session mode.
+      String sql = ClickHouseFunnelComputeDao.buildUserStateInsertSql(
+          baseRow().mode("UNIQUE_USERS").stepOrderType("ORDERED").build(), RUN_TIME);
+      assertThat(sql)
+          .contains("attempt_counts AS (")
+          .contains("uniqExact(sid) AS session_attempts");
+    }
+
+    @Test
+    void shouldPickCanonicalSessionAsSidOfDeepestMatchedStep() {
+      String sql = ClickHouseFunnelComputeDao.buildUserStateInsertSql(
+          baseRow().mode("UNIQUE_USERS").stepOrderType("ORDERED").build(), RUN_TIME);
+      // multiIf in resolved CTE: prefer sid2 (step 2 reached), then sid1, else sid0.
+      assertThat(sql)
+          .contains("AS CanonicalSessionId")
+          .contains("t2 IS NOT NULL, sid2")
+          .contains("t1 IS NOT NULL, sid1")
+          .contains("sid0");
+    }
+
+    @Test
+    void shouldSetDropoffStepToNegativeOneForConvertersAtFinalStep() {
+      // 3-step funnel: t2 IS NOT NULL means user converted → DropoffStep = -1.
+      String sql = ClickHouseFunnelComputeDao.buildUserStateInsertSql(
+          baseRow().mode("UNIQUE_USERS").stepOrderType("ORDERED").build(), RUN_TIME);
+      assertThat(sql).contains("t2 IS NOT NULL, -1");
+    }
+
+    @Test
+    void shouldHydrateDimensionsViaLeftJoinOnCanonicalSession() {
+      String sql = ClickHouseFunnelComputeDao.buildUserStateInsertSql(
+          baseRow().mode("UNIQUE_USERS").stepOrderType("ORDERED").build(), RUN_TIME);
+      assertThat(sql)
+          .contains("LEFT JOIN otel.otel_logs l")
+          .contains("l.SessionId = r.CanonicalSessionId")
+          .contains("toDateTime(l.Timestamp) = r.CanonicalLastReachedAt")
+          .contains("any(l.AppVersion)")
+          .contains("any(l.TraceId)");
+    }
+
+    @Test
+    void shouldStampEveryRowWithSharedRunTime() {
+      String sql = ClickHouseFunnelComputeDao.buildUserStateInsertSql(
+          baseRow().mode("UNIQUE_USERS").stepOrderType("ORDERED").build(), RUN_TIME);
+      assertThat(sql).contains(RUN_TIME);
+    }
+  }
+
+  @Nested
+  class BuildAttributionInsertSql {
+
+    private static final String RUN_TIME = "toDateTime64('2026-04-23 10:00:00.000', 3, 'UTC')";
+
+    @Test
+    void shouldReturnEmptyForUnorderedFunnels() {
+      String sql = ClickHouseFunnelComputeDao.buildAttributionInsertSql(
+          baseRow().stepOrderType("UNORDERED").build(), RUN_TIME);
+      assertThat(sql).isEmpty();
+    }
+
+    @Test
+    void shouldReturnEmptyForSingleStepFunnels() {
+      // Single-step funnels have no "drop off from step k to k+1" to attribute.
+      String stepsJson = "[{\"eventName\":\"app_open\"}]";
+      String sql = ClickHouseFunnelComputeDao.buildAttributionInsertSql(
+          baseRow().stepsJson(stepsJson).stepOrderType("ORDERED").build(), RUN_TIME);
+      assertThat(sql).isEmpty();
+    }
+
+    @Test
+    void shouldReturnEmptyForZeroStepFunnels() {
+      String sql = ClickHouseFunnelComputeDao.buildAttributionInsertSql(
+          baseRow().stepsJson("[]").stepOrderType("ORDERED").build(), RUN_TIME);
+      assertThat(sql).isEmpty();
+    }
+
+    @Test
+    void shouldTargetFunnelDropoffAttributionTable() {
+      String sql = ClickHouseFunnelComputeDao.buildAttributionInsertSql(
+          baseRow().mode("SESSIONS").stepOrderType("ORDERED").build(), RUN_TIME);
+      assertThat(sql).contains("INSERT INTO otel.funnel_dropoff_attribution");
+    }
+
+    @Test
+    void shouldReadFromSessionStateBridgeForSessionsMode() {
+      String sql = ClickHouseFunnelComputeDao.buildAttributionInsertSql(
+          baseRow().mode("SESSIONS").stepOrderType("ORDERED").build(), RUN_TIME);
+      assertThat(sql)
+          .contains("FROM otel.funnel_session_state")
+          .contains("SessionId AS SessionId")
+          .contains("LastReachedAt AS LastReachedAt")
+          .doesNotContain("CanonicalSessionId AS SessionId");
+    }
+
+    @Test
+    void shouldReadFromUserStateBridgeForUniqueUsersMode() {
+      String sql = ClickHouseFunnelComputeDao.buildAttributionInsertSql(
+          baseRow().mode("UNIQUE_USERS").stepOrderType("ORDERED").build(), RUN_TIME);
+      assertThat(sql)
+          .contains("FROM otel.funnel_user_state")
+          .contains("CanonicalSessionId AS SessionId")
+          .contains("CanonicalLastReachedAt AS LastReachedAt")
+          .doesNotContain("FROM otel.funnel_session_state");
+    }
+
+    @Test
+    void shouldFilterDroppersByDropoffStepGreaterThanZeroAndConvertersByMinusOne() {
+      String sql = ClickHouseFunnelComputeDao.buildAttributionInsertSql(
+          baseRow().mode("SESSIONS").stepOrderType("ORDERED").build(), RUN_TIME);
+      assertThat(sql)
+          .contains("DropoffStep > 0")
+          .contains("DropoffStep = -1");
+    }
+
+    @Test
+    void shouldUseSharedRunTimeForBridgeReads() {
+      String sql = ClickHouseFunnelComputeDao.buildAttributionInsertSql(
+          baseRow().mode("SESSIONS").stepOrderType("ORDERED").build(), RUN_TIME);
+      assertThat(sql).contains("RunTime = " + RUN_TIME);
+    }
+
+    @Test
+    void shouldJoinStackTraceEventsForCrashAnrNonFatalCauses() {
+      String sql = ClickHouseFunnelComputeDao.buildAttributionInsertSql(
+          baseRow().mode("SESSIONS").stepOrderType("ORDERED").build(), RUN_TIME);
+      assertThat(sql)
+          .contains("INNER JOIN otel.stack_trace_events")
+          .contains("lower(e.PulseType) IN ('crash', 'anr', 'non_fatal')")
+          .contains("concat(e.ExceptionType, '@', e.ScreenName) AS cause_key");
+    }
+
+    @Test
+    void shouldJoinOtelTracesForHttp4xxAnd5xxCauses() {
+      String sql = ClickHouseFunnelComputeDao.buildAttributionInsertSql(
+          baseRow().mode("SESSIONS").stepOrderType("ORDERED").build(), RUN_TIME);
+      assertThat(sql)
+          .contains("FROM otel.otel_traces t")
+          .contains("if(http_status >= 500, 'http_5xx', 'http_4xx') AS cause_kind")
+          .contains("http_status >= 400");
+    }
+
+    @Test
+    void shouldJoinSessionSummaryForFrozenFrameCause() {
+      String sql = ClickHouseFunnelComputeDao.buildAttributionInsertSql(
+          baseRow().mode("SESSIONS").stepOrderType("ORDERED").build(), RUN_TIME);
+      assertThat(sql)
+          .contains("INNER JOIN otel.session_summary")
+          .contains("'frozen_frame' AS cause_kind")
+          .contains("frozenFrameCount > 0");
+    }
+
+    @Test
+    void shouldApplyAttributionWindowAroundLastReachedAt() {
+      String sql = ClickHouseFunnelComputeDao.buildAttributionInsertSql(
+          baseRow().mode("SESSIONS").stepOrderType("ORDERED").build(), RUN_TIME);
+      assertThat(sql)
+          .contains("INTERVAL 30 SECOND")  // before window
+          .contains("INTERVAL 60 SECOND"); // after window
+    }
+
+    @Test
+    void shouldSampleExampleSessionsUpToCapPerCause() {
+      String sql = ClickHouseFunnelComputeDao.buildAttributionInsertSql(
+          baseRow().mode("SESSIONS").stepOrderType("ORDERED").build(), RUN_TIME);
+      assertThat(sql).contains("groupArraySample(50)(d.SessionId) AS examples");
+    }
+
+    @Test
+    void shouldComputeLiftWithSentinelWhenConverterCohortIsZero() {
+      String sql = ClickHouseFunnelComputeDao.buildAttributionInsertSql(
+          baseRow().mode("SESSIONS").stepOrderType("ORDERED").build(), RUN_TIME);
+      // Sentinel 999.0 keeps high-signal causes ranked at the top when there's no
+      // converter baseline (e.g. brand-new funnel with zero converters yet).
+      assertThat(sql).contains("if(d_aff > 0, 999.0, 0.0)");
+    }
+
+    @Test
+    void shouldEmitPValueZeroForNowAsChiSquareIsDeferred() {
+      String sql = ClickHouseFunnelComputeDao.buildAttributionInsertSql(
+          baseRow().mode("SESSIONS").stepOrderType("ORDERED").build(), RUN_TIME);
+      assertThat(sql).contains("toFloat64(0.0)");
+    }
+
+    @Test
+    void shouldUnionAllThreeCauseBranches() {
+      String sql = ClickHouseFunnelComputeDao.buildAttributionInsertSql(
+          baseRow().mode("SESSIONS").stepOrderType("ORDERED").build(), RUN_TIME);
+      // stack / http / frame — exactly two UNION ALLs between three branches.
+      assertThat(sql.split("UNION ALL", -1)).hasSize(3);
+    }
   }
 }
