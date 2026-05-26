@@ -18,7 +18,7 @@
             "role": "model",
             "parts": [
               {
-                "text": "{\"summary\": \"All 4 tracked interactions are in a healthy state with apdex scores above 0.85 and error rates below 3%. UserLogin leads with the highest apdex of 0.95 and the largest volume at 22,000 requests. No critical degradation is detected across the portfolio.\", \"context\": \"Apdex range: 0.87-0.95 across 4 interactions in the last 1 hour. Error rates are consistently below 3%. Total volume of approximately 46,700 requests with no anomalies detected.\"}"
+                "text": "{\"poor_interactions\": [], \"fair_or_elevated_interactions\": [], \"trend_note\": null, \"business_impact\": \"healthy portfolio performing as expected\", \"context\": \"SNAPSHOT [2026-05-26T00:00:00Z] window=last_1h\\nContestJoin: apdex=0.87, poor_user_rate=N/A, error_rate=3.0%, p50=N/Ams, severity=EXCELLENT\\nPaymentCheckout: apdex=0.91, poor_user_rate=N/A, error_rate=2.0%, p50=N/Ams, severity=EXCELLENT\\nUserLogin: apdex=0.95, poor_user_rate=N/A, error_rate=1.0%, p50=N/Ams, severity=EXCELLENT\\nProfileUpdate: apdex=0.89, poor_user_rate=N/A, error_rate=2.0%, p50=N/Ams, severity=EXCELLENT\\n\\nTREND NOTES:\\n- Cold start — no prior baseline.\\n\\nWATCH LIST:\\n- None.\"}"
               }
             ]
           },
@@ -45,7 +45,7 @@
             "role": "model",
             "parts": [
               {
-                "text": "{\"summary\": \"All 5 tracked interactions are healthy, with apdex scores between 0.91 and 0.97 in the last hour. Performance has improved slightly across the board compared to the 24-hour baseline, with error rates declining by 20-30% on average. GamePlay has the highest volume at 31,000 requests and maintains a strong apdex of 0.93.\", \"context\": \"Apdex range 0.91-0.97 (last 1h), up from 0.89-0.96 (last 24h baseline). Error rates 0.8%-2.0% vs 1.0%-3.0% baseline. Total volume ~82,100 requests last 1h. Positive trend across all interactions.\"}"
+                "text": "{\"poor_interactions\": [], \"fair_or_elevated_interactions\": [], \"trend_note\": \"All tracked interactions have improved slightly since the last snapshot with error rates declining across the board.\", \"business_impact\": \"healthy portfolio with positive trend\", \"context\": \"SNAPSHOT [2026-05-26T00:00:00Z] window=last_1h\\nGamePlay: apdex=0.93, poor_user_rate=N/A, error_rate=1.2%, p50=N/Ams, severity=EXCELLENT\\nUserLogin: apdex=0.97, poor_user_rate=N/A, error_rate=0.8%, p50=N/Ams, severity=EXCELLENT\\nContestJoin: apdex=0.92, poor_user_rate=N/A, error_rate=2.0%, p50=N/Ams, severity=EXCELLENT\\nPaymentCheckout: apdex=0.94, poor_user_rate=N/A, error_rate=1.5%, p50=N/Ams, severity=EXCELLENT\\nProfileUpdate: apdex=0.91, poor_user_rate=N/A, error_rate=1.8%, p50=N/Ams, severity=EXCELLENT\\n\\nTREND NOTES:\\n- Positive shift across all interactions compared to 24h baseline. Error rates declined 20-30%. Apdex improved by 0.01-0.02 across the board.\\n\\nWATCH LIST:\\n- None.\"}"
               }
             ]
           },

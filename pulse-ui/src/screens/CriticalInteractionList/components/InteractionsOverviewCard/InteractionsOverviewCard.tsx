@@ -100,7 +100,7 @@ export function InteractionsOverviewCard({ interactionNames = [] }: Props) {
   useEffect(() => {
     mutate({});
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [projectId]);
 
   if (isPending) {
     return (

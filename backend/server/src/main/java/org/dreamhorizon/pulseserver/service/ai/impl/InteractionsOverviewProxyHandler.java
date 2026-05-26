@@ -84,7 +84,7 @@ final class InteractionsOverviewProxyHandler {
                 // Both stale and regenerate carry forward prior context for trend continuity.
                 // Cold-start (null previousContext) only happens when there is no DB row at all.
                 String previousContext = extractContext(hit.reportBody());
-                callUpstreamAndStore(targetUrl, authorization, projectId, CACHE_DATE_SENTINEL, previousContext)
+                callUpstreamAndStore(targetUrl, authorization, projectId, previousContext)
                     .whenComplete(
                         (result, ex) -> {
                           if (ex != null) {
@@ -101,7 +101,7 @@ final class InteractionsOverviewProxyHandler {
                   AiProxyUpstreamResult.buffered(HTTP_INTERNAL_ERROR, CONTENT_TYPE_JSON, ERROR_INTERNAL_BODY));
             },
             () ->
-                callUpstreamAndStore(targetUrl, authorization, projectId, CACHE_DATE_SENTINEL, null)
+                callUpstreamAndStore(targetUrl, authorization, projectId, null)
                     .whenComplete(
                         (result, ex) -> {
                           if (ex != null) {
@@ -121,7 +121,6 @@ final class InteractionsOverviewProxyHandler {
       String targetUrl,
       String authorization,
       String projectId,
-      LocalDate cacheDate,
       String previousContext) {
     String upstreamBody = buildUpstreamBody(previousContext);
     return upstream

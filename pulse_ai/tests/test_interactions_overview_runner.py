@@ -18,6 +18,19 @@ from pulse_ai.server.interactions_overview_runner import (
 # Helpers
 # ---------------------------------------------------------------------------
 
+def _make_valid_payload(**overrides) -> dict:
+    """Minimal valid InteractionOverviewOutputV1 payload (no attention needed)."""
+    base = {
+        "poor_interactions": [],
+        "fair_or_elevated_interactions": [],
+        "trend_note": None,
+        "business_impact": "healthy portfolio",
+        "context": "Apdex 0.92 last 1h, stable.",
+    }
+    base.update(overrides)
+    return base
+
+
 def _make_session(state: dict) -> MagicMock:
     session = MagicMock()
     session.state = state
@@ -49,10 +62,7 @@ def _make_runner(session_state: dict) -> MagicMock:
 
 @pytest.mark.asyncio
 async def test_happy_path_returns_summary_context_generatedAt() -> None:
-    result_payload = {
-        "summary": "All 12 interactions are healthy. Apdex 0.92 across the board.",
-        "context": "Apdex 0.92 last 1h, stable from 0.91 last 24h.",
-    }
+    result_payload = _make_valid_payload()
     runner = _make_runner({"interactions_overview_result": result_payload})
 
     resp = await generate_interactions_overview(
@@ -61,17 +71,19 @@ async def test_happy_path_returns_summary_context_generatedAt() -> None:
         project_id="proj-1",
     )
 
-    assert resp.summary == result_payload["summary"]
+    # summary is assembled by _assemble_summary() — not taken from the payload field
+    assert resp.summary
+    # context is sanitize_pii(validated.context) — passes through unchanged when no PII
     assert resp.context == result_payload["context"]
     assert resp.generatedAt  # non-empty ISO string
 
 
 @pytest.mark.asyncio
 async def test_happy_path_pii_redacted_in_summary() -> None:
-    result_payload = {
-        "summary": "User admin@corp.com reported degradation.",
-        "context": "Stable trend.",
-    }
+    # trend_note is appended verbatim by _assemble_summary — PII will be in the assembled summary
+    result_payload = _make_valid_payload(
+        trend_note="User admin@corp.com reported degradation."
+    )
     runner = _make_runner({"interactions_overview_result": result_payload})
 
     resp = await generate_interactions_overview(
@@ -86,10 +98,9 @@ async def test_happy_path_pii_redacted_in_summary() -> None:
 
 @pytest.mark.asyncio
 async def test_happy_path_pii_redacted_in_context() -> None:
-    result_payload = {
-        "summary": "Good health.",
-        "context": "Contact dev@company.com for trend data.",
-    }
+    result_payload = _make_valid_payload(
+        context="Contact dev@company.com for trend data."
+    )
     runner = _make_runner({"interactions_overview_result": result_payload})
 
     resp = await generate_interactions_overview(
@@ -176,7 +187,7 @@ async def test_timeout_raises_504() -> None:
 @pytest.mark.asyncio
 async def test_cold_start_prompt_contains_24h_instruction() -> None:
     """Without previous_context, prompt must use last_24h (cold-start)."""
-    result_payload = {"summary": "Healthy.", "context": "All good."}
+    result_payload = _make_valid_payload()
     runner = _make_runner({"interactions_overview_result": result_payload})
 
     captured_messages: list = []
@@ -215,7 +226,7 @@ async def test_cold_start_prompt_contains_24h_instruction() -> None:
 @pytest.mark.asyncio
 async def test_with_previous_context_prompt_contains_context_and_1h() -> None:
     """With previous_context, prompt should include it and use last_1h only."""
-    result_payload = {"summary": "Healthy.", "context": "All good."}
+    result_payload = _make_valid_payload()
     runner = _make_runner({"interactions_overview_result": result_payload})
 
     captured_messages: list = []
@@ -256,8 +267,7 @@ async def test_with_previous_context_prompt_contains_context_and_1h() -> None:
 @pytest.mark.asyncio
 async def test_session_created_with_bearer_and_project_in_state() -> None:
     """create_session must be called with bearer_token and project_id in state."""
-    result_payload = {"summary": "Ok.", "context": "Stable."}
-    runner = _make_runner({"interactions_overview_result": result_payload})
+    runner = _make_runner({"interactions_overview_result": _make_valid_payload()})
 
     await generate_interactions_overview(
         runner,
@@ -277,8 +287,7 @@ async def test_session_created_with_bearer_and_project_in_state() -> None:
 
 @pytest.mark.asyncio
 async def test_ephemeral_session_deleted_on_success() -> None:
-    result_payload = {"summary": "Ok.", "context": "Stable."}
-    runner = _make_runner({"interactions_overview_result": result_payload})
+    runner = _make_runner({"interactions_overview_result": _make_valid_payload()})
 
     await generate_interactions_overview(
         runner,
@@ -292,17 +301,16 @@ async def test_ephemeral_session_deleted_on_success() -> None:
 @pytest.mark.asyncio
 async def test_cleanup_error_does_not_propagate() -> None:
     """delete_session failure must not bubble up."""
-    result_payload = {"summary": "Ok.", "context": "Stable."}
-    runner = _make_runner({"interactions_overview_result": result_payload})
+    runner = _make_runner({"interactions_overview_result": _make_valid_payload()})
     runner.session_service.delete_session = AsyncMock(side_effect=RuntimeError("db gone"))
 
-    # Should not raise
+    # Should not raise, and summary must be populated
     resp = await generate_interactions_overview(
         runner,
         bearer_token="Bearer tok",
         project_id="proj-1",
     )
-    assert resp.summary == result_payload["summary"]
+    assert resp.summary
 
 
 # ---------------------------------------------------------------------------
@@ -311,9 +319,12 @@ async def test_cleanup_error_does_not_propagate() -> None:
 
 @pytest.mark.asyncio
 async def test_malformed_result_raises_500() -> None:
-    """When ADK stores a value that fails schema validation, must raise 500."""
-    # summary must be a str; passing an int triggers ValidationError
-    malformed_payload = {"summary": 123, "context": "Should fail."}
+    """When ADK stores a value that fails schema validation, must raise 500.
+
+    Missing required fields (poor_interactions, fair_or_elevated_interactions,
+    business_impact) triggers ValidationError.
+    """
+    malformed_payload = {"context": "Should fail — missing required fields."}
     runner = _make_runner({"interactions_overview_result": malformed_payload})
 
     with pytest.raises(InteractionsOverviewRunnerError) as exc_info:
@@ -376,7 +387,7 @@ async def test_session_deleted_on_missing_result() -> None:
 @pytest.mark.asyncio
 async def test_session_deleted_on_validation_error() -> None:
     """delete_session must be called when schema validation fails."""
-    malformed = {"summary": 999, "context": "bad type"}
+    malformed = {"context": "bad — missing required fields"}
     runner = _make_runner({"interactions_overview_result": malformed})
 
     with pytest.raises(InteractionsOverviewRunnerError) as exc_info:
@@ -418,7 +429,7 @@ def test_truncate_previous_context_over_limit_is_capped() -> None:
 @pytest.mark.asyncio
 async def test_oversized_previous_context_is_truncated_before_prompt() -> None:
     """Oversized previousContext must not appear verbatim in the prompt."""
-    result_payload = {"summary": "Ok.", "context": "Stable."}
+    result_payload = _make_valid_payload()
     runner = _make_runner({"interactions_overview_result": result_payload})
 
     captured: list = []
