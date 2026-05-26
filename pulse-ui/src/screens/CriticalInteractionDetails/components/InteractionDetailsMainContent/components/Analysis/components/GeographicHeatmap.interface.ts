@@ -1,6 +1,7 @@
 export interface GeographicLocation {
   name: string;
   value: number;
+  count: number;
 }
 
 export interface GeographicHeatmapProps {

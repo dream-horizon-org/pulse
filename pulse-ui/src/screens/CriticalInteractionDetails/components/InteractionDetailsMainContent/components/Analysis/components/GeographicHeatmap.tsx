@@ -13,7 +13,7 @@ const GeographicHeatmap: React.FC<GeographicHeatmapProps> = ({
   metricSuffix = "",
 }) => {
   const theme = useMantineTheme();
-  const sortedData = [...data].sort((a, b) => b.value - a.value);
+  const sortedFilteredData = [...data].sort((a, b) => b.value - a.value).filter((d) => d.count > 0);
   const maxValue = Math.max(...data.map((d) => d.value), 0);
   const minValue = Math.min(...data.map((d) => d.value), 0);
 
@@ -97,7 +97,7 @@ const GeographicHeatmap: React.FC<GeographicHeatmapProps> = ({
 
       <Box h={334} px="md" style={{ overflowY: "auto" }}>
         <Box style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          {sortedData.map((location) => {
+          {sortedFilteredData.map((location) => {
             const colors = getColorIntensity(location.value);
             const percentage = maxValue > 0 ? ((location.value / maxValue) * 100).toFixed(0) : "0";
             const displayValue = metricSuffix
@@ -108,7 +108,7 @@ const GeographicHeatmap: React.FC<GeographicHeatmapProps> = ({
             return (
               <Tooltip
                 key={displayName}
-                label={`${displayValue} ${metricLabel} (${percentage}% of max)`}
+                label={`${displayValue} ${metricLabel} (${location.count})`}
                 withArrow
               >
                 <Box

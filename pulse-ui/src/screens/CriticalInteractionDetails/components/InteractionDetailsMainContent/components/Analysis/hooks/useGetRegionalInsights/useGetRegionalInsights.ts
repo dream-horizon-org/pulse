@@ -103,6 +103,7 @@ export const useGetRegionalInsights = ({
       return {
         name: normalizeRegionName(row[regionIndex], row[countryIndex]),
         value: errorRate,
+        count: errorCount,
       };
     });
 
@@ -115,6 +116,7 @@ export const useGetRegionalInsights = ({
       return {
         name: normalizeRegionName(row[regionIndex], row[countryIndex]),
         value: poorPercentage,
+        count: userPoor,
       };
     });
 
