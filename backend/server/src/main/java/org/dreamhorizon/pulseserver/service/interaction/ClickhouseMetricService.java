@@ -26,7 +26,7 @@ import org.mapstruct.ap.internal.util.Strings;
 public class ClickhouseMetricService implements PerformanceMetricService {
 
   private final ClickhouseQueryService clickhouseQueryService;
-  private final DateTimeFormatter output = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+  private final DateTimeFormatter output = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSSSSSSSS");
 
   @Override
   public Single<PerformanceMetricDistributionRes> getMetricDistribution(QueryRequest request) {
