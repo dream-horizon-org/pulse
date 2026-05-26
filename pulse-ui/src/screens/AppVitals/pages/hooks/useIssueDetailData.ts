@@ -125,7 +125,7 @@ export function useIssueDetailData({
         {
           function: "CUSTOM" as const,
           param: {
-            expression: `uniq(nullIf(${COLUMN_NAME.USER_ID}, ''))`,
+            expression: `uniq(nullIf(${COLUMN_NAME.INSTALLATION_ID}, ''))`,
           },
           alias: "affected_users",
         },

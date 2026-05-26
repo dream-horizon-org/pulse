@@ -21,7 +21,6 @@ import org.dreamhorizon.pulseserver.resources.session.models.FilterConditionRequ
 import org.dreamhorizon.pulseserver.resources.session.models.FiltersRequest;
 import org.dreamhorizon.pulseserver.resources.session.models.ImpactedInteractionsRow;
 import org.dreamhorizon.pulseserver.resources.session.models.ImpactedScreensRow;
-import org.dreamhorizon.pulseserver.resources.session.models.JourneyRow;
 import org.dreamhorizon.pulseserver.resources.session.models.PageRequest;
 import org.dreamhorizon.pulseserver.resources.session.models.SessionListingRequest;
 import org.dreamhorizon.pulseserver.resources.session.models.SessionListingResponse;
@@ -107,19 +106,16 @@ public class SessionListingService {
                             .map(SessionRow::getSessionId)
                             .collect(Collectors.toList());
 
-                    String journeySql = builder.buildJourneyQuery(sessionIds);
                     String impactedScreensSql = builder.buildImpactedScreensQuery(sessionIds);
                     String impactedInteractionsSql = builder.buildImpactedInteractionsQuery(sessionIds);
-                    log.debug("Journey SQL: {}", journeySql);
                     log.debug("Impacted screens SQL: {}", impactedScreensSql);
                     log.debug("Impacted interactions SQL: {}", impactedInteractionsSql);
 
                     return Single.zip(
-                            executeJourneyQuery(journeySql, projectId),
                             executeImpactedScreensQuery(impactedScreensSql, projectId),
                             executeImpactedInteractionsQuery(impactedInteractionsSql, projectId),
-                            (journeyRows, screenRows, interactionRows) -> buildResponse(
-                                    pageRows, journeyRows, screenRows, interactionRows,
+                            (screenRows, interactionRows) -> buildResponse(
+                                    pageRows, screenRows, interactionRows,
                                     hasMore, pageSize, activeSortField)
                     );
                 })
@@ -257,17 +253,6 @@ public class SessionListingService {
                 .map(result -> result.getRows() != null ? result.getRows() : Collections.emptyList());
     }
 
-    private Single<List<JourneyRow>> executeJourneyQuery(String sql, String tenantId) {
-        QueryConfiguration config = QueryConfiguration.newQuery(sql)
-                .timeoutMs(TIMEOUT_MS)
-                .tenantId(tenantId)
-                .projectId(tenantId)
-                .useQueryConditionCache(true)
-                .build();
-        return clickhouseQueryService.executeQueryOrCreateJob(config, JourneyRow.class)
-                .map(result -> result.getRows() != null ? result.getRows() : Collections.emptyList());
-    }
-
     private Single<List<ImpactedScreensRow>> executeImpactedScreensQuery(String sql, String tenantId) {
         QueryConfiguration config = QueryConfiguration.newQuery(sql)
                 .timeoutMs(TIMEOUT_MS)
@@ -296,20 +281,12 @@ public class SessionListingService {
 
     private SessionListingResponse buildResponse(
             List<SessionRow> rows,
-            List<JourneyRow> journeyRows,
             List<ImpactedScreensRow> screenRows,
             List<ImpactedInteractionsRow> interactionRows,
             boolean hasMore,
             int pageSize,
             SessionListingSortField activeSortField
     ) {
-        Map<String, List<String>> journeyMap = journeyRows.stream()
-                .collect(Collectors.toMap(
-                        JourneyRow::getSessionId,
-                        row -> parseJourney(row.getJourney()),
-                        (a, b) -> a
-                ));
-
         Map<String, Map<String, List<String>>> screensMap = screenRows.stream()
                 .collect(Collectors.toMap(
                         ImpactedScreensRow::getSessionId,
@@ -334,7 +311,7 @@ public class SessionListingService {
                         .issues(buildIssues(row))
                         .platform(row.getPlatform())
                         .spanCount(row.getSpanCount())
-                        .journey(journeyMap.getOrDefault(row.getSessionId(), Collections.emptyList()))
+                        .journey(Collections.emptyList())
                         .impactedScreens(screensMap.getOrDefault(row.getSessionId(), null))
                         .impactedInteractions(interactionsMap.getOrDefault(row.getSessionId(), Collections.emptyList()))
                         .build())
@@ -366,13 +343,6 @@ public class SessionListingService {
             return DEFAULT_LIMIT;
         }
         return Math.min(page.getLimit(), MAX_LIMIT);
-    }
-
-    private static List<String> parseJourney(String delimited) {
-        if (delimited == null || delimited.isEmpty()) {
-            return Collections.emptyList();
-        }
-        return Arrays.asList(delimited.split("\\Q" + JOURNEY_DELIMITER + "\\E", -1));
     }
 
     private static Map<String, List<String>> toScreensMap(ImpactedScreensRow row) {
