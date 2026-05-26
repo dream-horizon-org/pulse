@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 import uuid
 from datetime import date
 from typing import Any
@@ -32,6 +33,7 @@ from pulse_ai.schemas.interaction_report_v1 import (
 )
 from pulse_ai.agents.interaction_research.tool_payload_state import (
     INTERACTION_RESEARCH_TOOL_PAYLOADS_KEY,
+    format_tool_log_response,
 )
 from pulse_ai.schemas.interaction_research_v1 import (
     InteractionResearchV1,
@@ -99,6 +101,15 @@ def extract_metric_triple(
         poor_pct = 100.0 * poor / total_users
 
     return apdex, error_rate, poor_pct
+
+
+def _format_reporting_period(
+    period_start: date | None,
+    period_end: date | None,
+) -> str:
+    if period_start and period_end:
+        return f"{period_start.isoformat()}..{period_end.isoformat()}"
+    return "unspecified"
 
 
 def _build_research_user_message(
@@ -329,7 +340,10 @@ async def _run_agent_once(
     session_id: str,
     message: Content,
     state_delta: dict[str, Any] | None,
-) -> None:
+) -> float:
+    """Run SequentialAgent once; return elapsed seconds."""
+    started = time.perf_counter()
+
     async def _run() -> None:
         async for _ in runner.run_async(
             user_id=USER_ID_INTERACTION_REPORT,
@@ -339,7 +353,20 @@ async def _run_agent_once(
         ):
             pass
 
+    logger.info(
+        "Interaction report SequentialAgent run start pipeline=%s session_id=%s timeout_s=%s",
+        INTERACTION_REPORT_PIPELINE_NAME,
+        session_id,
+        RCA_PIPELINE_TIMEOUT_SECONDS,
+    )
     await asyncio.wait_for(_run(), timeout=RCA_PIPELINE_TIMEOUT_SECONDS)
+    elapsed = time.perf_counter() - started
+    logger.info(
+        "Interaction report SequentialAgent run complete session_id=%s elapsed_s=%.2f",
+        session_id,
+        elapsed,
+    )
+    return elapsed
 
 
 async def _load_session_state(runner: Any, session_id: str) -> dict[str, Any]:
@@ -391,6 +418,10 @@ async def _delete_session(runner: Any, session_id: str) -> None:
             user_id=USER_ID_INTERACTION_REPORT,
             session_id=session_id,
         )
+        logger.debug(
+            "Interaction report ephemeral session deleted session_id=%s",
+            session_id,
+        )
     except Exception:
         logger.warning(
             "Failed to delete ephemeral interaction report session %s",
@@ -413,7 +444,9 @@ async def generate_interaction_report(
 
     Raises InteractionReportRunnerError on timeout or invalid agent outputs.
     """
+    pipeline_started = time.perf_counter()
     session_id = str(uuid.uuid4())
+    period_label = _format_reporting_period(period_start, period_end)
     merged_delta: dict[str, Any] = dict(state_delta or {})
     merged_delta["project_id"] = project_id
     merged_delta["interaction_name"] = interaction_name
@@ -421,6 +454,14 @@ async def generate_interaction_report(
         merged_delta["period_start"] = period_start.isoformat()
     if period_end:
         merged_delta["period_end"] = period_end.isoformat()
+
+    logger.info(
+        "Interaction report pipeline start project_id=%s interaction=%s period=%s session_id=%s",
+        project_id,
+        interaction_name,
+        period_label,
+        session_id,
+    )
 
     research_message = Content.model_validate(
         {
@@ -439,13 +480,20 @@ async def generate_interaction_report(
     )
 
     try:
-        await _run_agent_once(
+        agent_elapsed_s = await _run_agent_once(
             runner,
             session_id=session_id,
             message=research_message,
             state_delta=merged_delta,
         )
     except TimeoutError as error:
+        logger.warning(
+            "Interaction report pipeline timed out project_id=%s interaction=%s session_id=%s timeout_s=%s",
+            project_id,
+            interaction_name,
+            session_id,
+            RCA_PIPELINE_TIMEOUT_SECONDS,
+        )
         await _delete_session(runner, session_id)
         raise InteractionReportRunnerError(
             HTTP_TIMEOUT_GATEWAY,
@@ -453,7 +501,12 @@ async def generate_interaction_report(
         ) from error
     except Exception as error:  # noqa: BLE001
         await _delete_session(runner, session_id)
-        logger.exception("Interaction report pipeline failed")
+        logger.exception(
+            "Interaction report pipeline failed project_id=%s interaction=%s session_id=%s",
+            project_id,
+            interaction_name,
+            session_id,
+        )
         raise InteractionReportRunnerError(
             500,
             "Interaction report pipeline failed",
@@ -461,27 +514,111 @@ async def generate_interaction_report(
 
     state = await _load_session_state(runner, session_id)
     tool_payloads = state.get(INTERACTION_RESEARCH_TOOL_PAYLOADS_KEY)
+    captured_tools: list[str] = []
+    if isinstance(tool_payloads, dict):
+        captured_tools = sorted(tool_payloads.keys())
+        for tool_name in captured_tools:
+            payload = tool_payloads.get(tool_name)
+            if isinstance(payload, dict):
+                logger.info(
+                    "Interaction report captured tool payload tool=%s status=%s response=%s",
+                    tool_name,
+                    payload.get("status", "ok"),
+                    format_tool_log_response(payload),
+                )
+            else:
+                logger.info(
+                    "Interaction report captured tool payload tool=%s response=%s",
+                    tool_name,
+                    format_tool_log_response(payload),
+                )
+    logger.debug(
+        "Interaction report session state loaded session_id=%s state_keys=%s captured_tools=%s",
+        session_id,
+        sorted(state.keys()),
+        captured_tools,
+    )
+
     research = _parse_research(
         state.get(RESEARCH_STATE_KEY),
         tool_payloads=tool_payloads if isinstance(tool_payloads, dict) else None,
     )
     if research is None:
+        logger.warning(
+            "Interaction research output missing or invalid project_id=%s interaction=%s session_id=%s captured_tools=%s",
+            project_id,
+            interaction_name,
+            session_id,
+            captured_tools,
+        )
         await _delete_session(runner, session_id)
         raise InteractionReportRunnerError(
             500,
             "Interaction research output missing or invalid",
         )
 
-    report = _parse_report(state.get(REPORT_STATE_KEY))
-    await _delete_session(runner, session_id)
+    logger.info(
+        "Interaction research parsed project_id=%s interaction=%s session_id=%s health_rating=%s paradox=%s captured_tools=%s",
+        project_id,
+        interaction_name,
+        session_id,
+        research.health_rating,
+        research.paradox_kpi_hint is not None,
+        captured_tools,
+    )
 
+    report = _parse_report(state.get(REPORT_STATE_KEY))
     if report is None:
+        logger.warning(
+            "Interaction report schema output missing or invalid project_id=%s interaction=%s session_id=%s",
+            project_id,
+            interaction_name,
+            session_id,
+        )
+        await _delete_session(runner, session_id)
         raise InteractionReportRunnerError(
             500,
             "Interaction report schema output missing or invalid",
         )
 
-    return postprocess_interaction_report(report, research)
+    logger.info(
+        "Interaction report schema parsed project_id=%s interaction=%s session_id=%s llm_rating=%s primary_kpi=%s agent_elapsed_s=%.2f",
+        project_id,
+        interaction_name,
+        session_id,
+        report.verdict.rating,
+        report.verdict.primary_kpi.metric,
+        agent_elapsed_s,
+    )
+
+    await _delete_session(runner, session_id)
+
+    processed = postprocess_interaction_report(report, research)
+    if processed.verdict.rating != report.verdict.rating:
+        logger.info(
+            "Interaction report postprocess overwrote verdict rating session_id=%s llm_rating=%s final_rating=%s",
+            session_id,
+            report.verdict.rating,
+            processed.verdict.rating,
+        )
+    if processed.verdict.primary_kpi.metric != report.verdict.primary_kpi.metric:
+        logger.info(
+            "Interaction report postprocess overwrote primary_kpi session_id=%s llm=%s final=%s",
+            session_id,
+            report.verdict.primary_kpi.metric,
+            processed.verdict.primary_kpi.metric,
+        )
+
+    total_elapsed_s = time.perf_counter() - pipeline_started
+    logger.info(
+        "Interaction report pipeline complete project_id=%s interaction=%s session_id=%s final_rating=%s total_elapsed_s=%.2f",
+        project_id,
+        interaction_name,
+        session_id,
+        processed.verdict.rating,
+        total_elapsed_s,
+    )
+    return processed
 
 
 def pipeline_agent_name() -> str:

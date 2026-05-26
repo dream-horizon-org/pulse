@@ -88,6 +88,7 @@ SELECT_SUCCESS_COUNT = {"function": "INTERACTION_SUCCESS_COUNT", "alias": "succe
 SELECT_ERROR_COUNT = {"function": "INTERACTION_ERROR_COUNT", "alias": "error_count"}
 SELECT_P50 = {"function": "DURATION_P50", "alias": "p50"}
 SELECT_P95 = {"function": "DURATION_P95", "alias": "p95"}
+SELECT_P99 = {"function": "DURATION_P99", "alias": "p99"}
 SELECT_FROZEN_FRAME = {"function": "FROZEN_FRAME", "alias": "frozen_frame"}
 SELECT_ANR = {"function": "ANR", "alias": "anr"}
 SELECT_CRASH = {"function": "CRASH", "alias": "crash"}
@@ -244,6 +245,73 @@ def build_metrics_query(
         user_filters=user_filters,
         group_by=group_by,
         order_by=order_by,
+        inject_interaction_filters=True,
+        interaction_name=interaction_name,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Template: Metric trends (Interaction Details graphs)
+# Source: useGetInteractionDetailsGraphs.ts — graphDataRequestBody
+# ---------------------------------------------------------------------------
+
+def build_interaction_metric_trends_query(
+    interaction_name: str,
+    time_range: str = "last_7d",
+    start_time: str | None = None,
+    end_time: str | None = None,
+    user_filters: dict | None = None,
+) -> dict:
+    """Build time-bucketed Apdex, error, and user-category trends for Block 5."""
+    from pulse_ai.agents.em.templates.base import compute_time_range
+
+    computed_start, computed_end = compute_time_range(time_range, start_time, end_time)
+    bucket_size = get_time_bucket_size(computed_start, computed_end)
+
+    select = [
+        {
+            "function": "TIME_BUCKET",
+            "param": {"bucket": bucket_size, "field": "Timestamp"},
+            "alias": "t1",
+        },
+        SELECT_APDEX,
+        SELECT_SUCCESS_COUNT,
+        SELECT_ERROR_COUNT,
+        *SELECT_USER_CATEGORIES,
+    ]
+
+    return build_query_request(
+        select=select,
+        time_range=time_range,
+        start_time=start_time,
+        end_time=end_time,
+        user_filters=user_filters,
+        group_by=["t1"],
+        order_by=[{"field": "t1", "direction": "ASC"}],
+        inject_interaction_filters=True,
+        interaction_name=interaction_name,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Template: Latency percentiles including P99
+# Source: pulse-mcp get_interaction_time
+# ---------------------------------------------------------------------------
+
+def build_interaction_latency_percentiles_query(
+    interaction_name: str,
+    time_range: str = "last_7d",
+    start_time: str | None = None,
+    end_time: str | None = None,
+    user_filters: dict | None = None,
+) -> dict:
+    """Build aggregate P50 / P95 / P99 latency for Block 5 latency lens."""
+    return build_query_request(
+        select=[SELECT_P50, SELECT_P95, SELECT_P99],
+        time_range=time_range,
+        start_time=start_time,
+        end_time=end_time,
+        user_filters=user_filters,
         inject_interaction_filters=True,
         interaction_name=interaction_name,
     )
@@ -461,3 +529,220 @@ def build_sessions_query(
             inject_interaction_filters=True,
             interaction_name=interaction_name,
         )
+
+
+# ---------------------------------------------------------------------------
+# Template: Problematic interaction spans (Interaction Details / Session samples)
+# Source: useGetProblematicInteractions.ts
+# ---------------------------------------------------------------------------
+
+VALID_PROBLEMATIC_SPAN_KINDS = (
+    "error",
+    "poor",
+    "crash",
+    "anr",
+    "frozen_frame",
+    "non_fatal",
+)
+
+_SPAN_KIND_EVENT_MAP = {
+    "crash": "device.crash",
+    "anr": "device.anr",
+    "frozen_frame": "app.jank.frozen",
+    "non_fatal": "non_fatal",
+}
+
+_CH_USER_CATEGORY_POOR = (
+    "ifNull(SpanAttributes['pulse.interaction.user_category'], '') = 'Poor'"
+)
+
+_PROBLEMATIC_SPAN_SELECT = [
+    {
+        "function": "CUSTOM",
+        "param": {
+            "expression": "arrayStringConcat(arrayMap(x -> toString(x), Events.Name), ',')",
+        },
+        "alias": "event_names",
+    },
+    {
+        "function": "CUSTOM",
+        "param": {
+            "expression": "arrayStringConcat(arrayMap(x -> toString(x), Events.Timestamp), ',')",
+        },
+        "alias": "event_timestamps",
+    },
+    {"function": "COL", "param": {"field": "Timestamp"}, "alias": "interaction_timestamp"},
+    {"function": "COL", "param": {"field": "SpanId"}, "alias": "spanid"},
+    {"function": "COL", "param": {"field": "TraceId"}, "alias": "traceid"},
+    {"function": "COL", "param": {"field": "SessionId"}, "alias": "sessionid"},
+    {"function": "COL", "param": {"field": "DeviceModel"}, "alias": "device"},
+    {"function": "COL", "param": {"field": "Duration"}, "alias": "duration"},
+    {"function": "COL", "param": {"field": "AppInstallationId"}, "alias": "userid"},
+    {
+        "function": "COL",
+        "param": {"field": "ResourceAttributes['device.manufacturer']"},
+        "alias": "manufacturer",
+    },
+    {"function": "COL", "param": {"field": "Platform"}, "alias": "os_name"},
+    {
+        "function": "COL",
+        "param": {"field": "ResourceAttributes['os.type']"},
+        "alias": "os_type",
+    },
+    {"function": "COL", "param": {"field": "OsVersion"}, "alias": "os_version"},
+    {
+        "function": "COL",
+        "param": {"field": "ResourceAttributes['os.description']"},
+        "alias": "os_description",
+    },
+    {"function": "COL", "param": {"field": "GeoState"}, "alias": "state"},
+    {"function": "COL", "param": {"field": "GeoCountry"}, "alias": "country"},
+    {
+        "function": "CUSTOM",
+        "param": {
+            "expression": "toFloat64OrZero(SpanAttributes['app.interaction.frozen_frame_count'])",
+        },
+        "alias": "frozen_frame",
+    },
+    {"function": "COL", "param": {"field": "SpanAttributes['isError']"}, "alias": "is_error"},
+    {"function": "COL", "param": {"field": "StatusCode"}, "alias": "status_code"},
+    {
+        "function": "COL",
+        "param": {"field": "SpanAttributes['pulse.interaction.user_category']"},
+        "alias": "user_category",
+    },
+]
+
+
+def _span_kind_filter(span_kind: str) -> dict:
+    if span_kind == "error":
+        expr = "(StatusCode = 'Error')"
+    elif span_kind == "poor":
+        expr = _CH_USER_CATEGORY_POOR
+    else:
+        event = _SPAN_KIND_EVENT_MAP.get(span_kind)
+        if not event:
+            raise ValueError(
+                f"Unknown span_kind '{span_kind}'. "
+                f"Valid values: {', '.join(VALID_PROBLEMATIC_SPAN_KINDS)}"
+            )
+        expr = f"has(Events.Name, '{event}')"
+    return {"field": "", "operator": "ADDITIONAL", "value": [expr]}
+
+
+def build_problematic_spans_query(
+    interaction_name: str,
+    span_kind: str = "error",
+    time_range: str = "last_7d",
+    start_time: str | None = None,
+    end_time: str | None = None,
+    user_filters: dict | None = None,
+    limit: int = 5,
+) -> dict:
+    """Build QueryRequest for individual problematic interaction spans (UI-aligned).
+
+    Args:
+        interaction_name: Interaction span name.
+        span_kind: error, poor, crash, anr, frozen_frame, or non_fatal.
+        time_range: Time range enum.
+        start_time: Custom start when time_range=custom.
+        end_time: Custom end when time_range=custom.
+        user_filters: Optional dimension filters.
+        limit: Max spans (capped at 10 by callers).
+    """
+    if span_kind not in VALID_PROBLEMATIC_SPAN_KINDS:
+        raise ValueError(
+            f"Unknown span_kind '{span_kind}'. "
+            f"Valid values: {', '.join(VALID_PROBLEMATIC_SPAN_KINDS)}"
+        )
+
+    return build_query_request(
+        select=list(_PROBLEMATIC_SPAN_SELECT),
+        time_range=time_range,
+        start_time=start_time,
+        end_time=end_time,
+        user_filters=user_filters,
+        base_filters=[_span_kind_filter(span_kind)],
+        order_by=[{"field": "interaction_timestamp", "direction": "DESC"}],
+        limit=limit,
+        inject_interaction_filters=True,
+        interaction_name=interaction_name,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Template: Session trace snapshot (SessionTimeline buildQuery)
+# ---------------------------------------------------------------------------
+
+VALID_SESSION_TRACE_DATA_TYPES = ("traces", "logs")
+
+
+def build_session_trace_snapshot_query(
+    session_id: str,
+    data_type: str = "logs",
+    trace_id: str | None = None,
+    time_range: str = "last_7d",
+    start_time: str | None = None,
+    end_time: str | None = None,
+    limit: int = 100,
+) -> dict:
+    """Build QueryRequest for a compact session or trace timeline sample.
+
+    Args:
+        session_id: Pulse session id.
+        data_type: traces or logs.
+        trace_id: Optional trace id to narrow results.
+        time_range: Time range enum.
+        start_time: Custom start when time_range=custom.
+        end_time: Custom end when time_range=custom.
+        limit: Max rows (callers cap at 200).
+    """
+    if data_type not in VALID_SESSION_TRACE_DATA_TYPES:
+        raise ValueError(
+            f"Unknown data_type '{data_type}'. "
+            f"Valid values: {', '.join(VALID_SESSION_TRACE_DATA_TYPES)}"
+        )
+
+    session_id = (session_id or "").strip()
+    if not session_id:
+        raise ValueError("session_id is required")
+
+    filters: list[dict] = [
+        {"field": "SessionId", "operator": "EQ", "value": [session_id]},
+    ]
+    if trace_id and trace_id.strip():
+        filters.append(
+            {"field": "TraceId", "operator": "EQ", "value": [trace_id.strip()]},
+        )
+
+    if data_type == "logs":
+        select = [
+            {"function": "COL", "param": {"field": "TraceId"}, "alias": "trace_id"},
+            {"function": "COL", "param": {"field": "SpanId"}, "alias": "span_id"},
+            {"function": "COL", "param": {"field": "Timestamp"}, "alias": "timestamp"},
+            {"function": "COL", "param": {"field": "SeverityText"}, "alias": "severity"},
+            {"function": "COL", "param": {"field": "Body"}, "alias": "body"},
+            {"function": "COL", "param": {"field": "PulseType"}, "alias": "pulse_type"},
+        ]
+    else:
+        select = [
+            {"function": "COL", "param": {"field": "TraceId"}, "alias": "trace_id"},
+            {"function": "COL", "param": {"field": "SpanId"}, "alias": "span_id"},
+            {"function": "COL", "param": {"field": "ParentSpanId"}, "alias": "parent_span_id"},
+            {"function": "COL", "param": {"field": "SpanName"}, "alias": "span_name"},
+            {"function": "COL", "param": {"field": "Timestamp"}, "alias": "timestamp"},
+            {"function": "COL", "param": {"field": "Duration"}, "alias": "duration"},
+            {"function": "COL", "param": {"field": "StatusCode"}, "alias": "status_code"},
+            {"function": "COL", "param": {"field": "PulseType"}, "alias": "pulse_type"},
+        ]
+
+    return build_query_request(
+        select=select,
+        time_range=time_range,
+        start_time=start_time,
+        end_time=end_time,
+        base_filters=filters,
+        order_by=[{"field": "timestamp", "direction": "ASC"}],
+        limit=limit,
+        data_type=data_type.upper(),
+    )

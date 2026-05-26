@@ -20,11 +20,17 @@ from pulse_ai.agents.interaction_research.prompts import build_interaction_resea
 from pulse_ai.agents.interaction_research.tool_payload_state import (
     INTERACTION_RESEARCH_TOOL_PAYLOADS_KEY,
     capture_tool_response,
+    format_tool_log_args,
+    format_tool_log_response,
 )
 from pulse_ai.agents.interaction_research.tools import (
     INTERACTION_RESEARCH_TOOL_NAMES,
-    fetch_bad_interaction_sessions,
+    breakdown_interaction_by_dimension,
     fetch_interaction_config,
+    fetch_interaction_latency_percentiles,
+    fetch_interaction_metric_trends,
+    fetch_problematic_interaction_spans,
+    fetch_session_trace_snapshot,
     fetch_interaction_metrics,
     fetch_interaction_root_cause_segments,
     get_funnel,
@@ -46,10 +52,29 @@ def _interaction_research_after_tool(
     tool_response: object,
 ) -> None:
     """Store successful tool responses for deterministic merge after the LLM step."""
-    del args  # unused
     state = getattr(tool_context, "state", None)
     if not isinstance(state, dict):
         return
+    tool_name = getattr(tool, "name", None) or getattr(getattr(tool, "func", tool), "__name__", "unknown")
+    args_text = format_tool_log_args(args)
+    response_text = format_tool_log_response(tool_response)
+    if isinstance(tool_response, dict):
+        status = tool_response.get("status", "ok")
+        log_line = (
+            "Interaction research tool complete tool=%s status=%s args=%s response=%s"
+        )
+        log_args = (tool_name, status, args_text, response_text)
+        if status == "error":
+            logger.warning(log_line, *log_args)
+        else:
+            logger.info(log_line, *log_args)
+    else:
+        logger.info(
+            "Interaction research tool complete tool=%s args=%s response=%s",
+            tool_name,
+            args_text,
+            response_text,
+        )
     capture_tool_response(tool=tool, tool_response=tool_response, state=state)
 
 
@@ -58,6 +83,7 @@ def _interaction_research_after_agent(callback_context: CallbackContext) -> None
     state = callback_context.state
     raw = state.get("interaction_research_v1")
     if raw is None:
+        logger.warning("Interaction research agent finished without interaction_research_v1 in state")
         return
     tool_payloads = state.get(INTERACTION_RESEARCH_TOOL_PAYLOADS_KEY)
     try:
@@ -70,11 +96,19 @@ def _interaction_research_after_agent(callback_context: CallbackContext) -> None
         return
     enriched = enrich_interaction_research(research)
     state["interaction_research_v1"] = enriched.model_dump(mode="json")
+    captured_tools = sorted(tool_payloads.keys()) if isinstance(tool_payloads, dict) else []
+    logger.info(
+        "Interaction research agent complete health_rating=%s paradox=%s captured_tools=%s",
+        enriched.health_rating,
+        enriched.paradox_kpi_hint is not None,
+        captured_tools,
+    )
 
 
 def _interaction_research_before_agent(callback_context: CallbackContext) -> None:
     """Clear per-run tool captures."""
     callback_context.state[INTERACTION_RESEARCH_TOOL_PAYLOADS_KEY] = {}
+    logger.info("Interaction research agent start")
 
 
 interaction_research_agent = LlmAgent(
@@ -94,7 +128,11 @@ interaction_research_agent = LlmAgent(
         list_funnels,
         get_funnel,
         search_event_catalog,
-        fetch_bad_interaction_sessions,
+        fetch_problematic_interaction_spans,
+        fetch_session_trace_snapshot,
+        fetch_interaction_metric_trends,
+        fetch_interaction_latency_percentiles,
+        breakdown_interaction_by_dimension,
     ],
     output_schema=InteractionResearchV1Llm,
     output_key="interaction_research_v1",

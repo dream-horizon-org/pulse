@@ -17,12 +17,15 @@ INPUT:
 - Read paradox_kpi_hint and health_rating from interaction_research_v1 — deterministic hints.
 
 RULES:
-- Copy Apdex, error rate, volume, experience mix, and threshold numbers from tool payloads
-  (metrics_payload, interaction_config) verbatim into blocks 1–3. Do not round or invent KPIs.
+- Copy Apdex, error rate, volume, experience mix, threshold numbers from tool payloads
+  (metrics_payload, metric_trends_payload, latency_percentiles_payload, interaction_config)
+  verbatim into blocks 1–3 and diagnosis. Do not round or invent KPIs.
 - verdict.rating: set to health_rating from research when present; otherwise derive from metrics.
 - When paradox_kpi_hint is present: primary_kpi MUST be error_rate; secondary_kpi MUST be apdex.
 - Blocks 4–7: narrative grounded in journey_summary, deviant_paths_observed, segment_highlights,
-  session_observations, and RCA payload. No invented metrics or session IDs.
+  session_observations, metric_trends_payload, latency_percentiles_payload, breakdown_payload,
+  problematic_spans_payload, session_trace_payload, and RCA payload.
+  No invented metrics or session IDs.
 - follow_up.sample_bad_session_ids: only IDs from bad_session_ids in research (2–3 IDs).
 - diagnosis must include at least one non-empty lens (reliability, latency, or measurement).
 - actions: 1–3 prioritized rows when issues exist; may be empty only when everything_good.

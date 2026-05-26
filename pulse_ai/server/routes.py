@@ -278,6 +278,13 @@ async def generate_interaction_report_endpoint(
         period_end = date_type.fromisoformat(request.periodEnd[:10])
 
     state_delta = request_headers_to_state_delta(http_request)
+    logger.info(
+        "Interaction report generate request project_id=%s interaction=%s period_start=%s period_end=%s",
+        project_id,
+        entity_key,
+        request.periodStart,
+        request.periodEnd,
+    )
     try:
         report = await generate_interaction_report(
             interaction_report_runner,
@@ -288,8 +295,21 @@ async def generate_interaction_report_endpoint(
             state_delta=state_delta,
         )
     except InteractionReportRunnerError as exc:
+        logger.warning(
+            "Interaction report generate failed project_id=%s interaction=%s status=%s detail=%s",
+            project_id,
+            entity_key,
+            exc.status_code,
+            exc.message,
+        )
         raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
 
+    logger.info(
+        "Interaction report generate success project_id=%s interaction=%s rating=%s",
+        project_id,
+        entity_key,
+        report.verdict.rating,
+    )
     return InteractionReportGenerateResponse(
         report=report.model_dump(mode="json"),
         cached=False,

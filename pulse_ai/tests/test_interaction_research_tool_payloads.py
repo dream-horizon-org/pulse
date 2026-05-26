@@ -7,6 +7,8 @@ from datetime import date
 from pulse_ai.agents.interaction_research.tool_payload_state import (
     apply_tool_payloads_to_research,
     capture_tool_response,
+    format_tool_log_args,
+    format_tool_log_response,
 )
 from pulse_ai.schemas.interaction_research_v1 import (
     InteractionResearchV1,
@@ -65,6 +67,78 @@ def test_apply_tool_payloads_overrides_llm_and_normalizes_rca():
     assert "baseline" in merged.rca_payload
 
 
+def test_apply_tool_payloads_extracts_bad_session_ids_from_problematic_spans():
+    research = _minimal_research()
+    merged = apply_tool_payloads_to_research(
+        research,
+        {
+            "fetch_problematic_interaction_spans": {
+                "status": "success",
+                "span_kind": "error",
+                "data": [
+                    {"session_id": "ess_001", "trace_id": "t1"},
+                    {"session_id": "ess_002", "trace_id": "t2"},
+                ],
+            },
+        },
+    )
+    assert merged.bad_session_ids == ["ess_001", "ess_002"]
+    assert merged.problematic_spans_payload is not None
+
+
+def test_capture_merges_problematic_span_calls():
+    state: dict = {}
+    tool = type("T", (), {"name": "fetch_problematic_interaction_spans"})()
+    capture_tool_response(
+        tool=tool,
+        tool_response={
+            "status": "success",
+            "span_kind": "error",
+            "data": [{"session_id": "ess_001", "trace_id": "t1"}],
+        },
+        state=state,
+    )
+    capture_tool_response(
+        tool=tool,
+        tool_response={
+            "status": "success",
+            "span_kind": "poor",
+            "data": [{"session_id": "ess_002", "trace_id": "t2"}],
+        },
+        state=state,
+    )
+    payload = state["interaction_research_tool_payloads"]["fetch_problematic_interaction_spans"]
+    assert payload["count"] == 2
+    assert payload["span_kinds"] == ["error", "poor"]
+
+
+def test_capture_merges_breakdown_dimension_calls():
+    state: dict = {}
+    tool = type("T", (), {"name": "breakdown_interaction_by_dimension"})()
+    capture_tool_response(
+        tool=tool,
+        tool_response={
+            "status": "success",
+            "dimension": "network",
+            "data": [{"network": "Vi", "error_count": 7}],
+        },
+        state=state,
+    )
+    capture_tool_response(
+        tool=tool,
+        tool_response={
+            "status": "success",
+            "dimension": "platform",
+            "data": [{"platform": "android", "error_count": 25}],
+        },
+        state=state,
+    )
+    payload = state["interaction_research_tool_payloads"]["breakdown_interaction_by_dimension"]
+    assert len(payload["breakdowns"]) == 2
+    dims = {b["dimension"] for b in payload["breakdowns"]}
+    assert dims == {"network", "platform"}
+
+
 def test_research_from_llm_output_uses_tool_payloads_not_broken_strings():
     research = research_from_llm_output(
         {
@@ -83,3 +157,17 @@ def test_research_from_llm_output_uses_tool_payloads_not_broken_strings():
         },
     )
     assert research.interaction_config == {"status": "success", "data": {"name": "Pay"}}
+
+
+def test_format_tool_log_args_truncates_long_payloads():
+    long_value = "x" * 2000
+    text = format_tool_log_args({"interaction_name": long_value})
+    assert len(text) <= 803
+    assert text.endswith("...")
+
+
+def test_format_tool_log_response_preserves_small_json():
+    payload = {"status": "success", "data": {"apdex": 0.91}}
+    assert format_tool_log_response(payload, max_chars=500) == (
+        '{"data": {"apdex": 0.91}, "status": "success"}'
+    )

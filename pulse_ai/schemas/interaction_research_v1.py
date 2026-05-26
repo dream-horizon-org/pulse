@@ -62,7 +62,7 @@ class InteractionResearchV1Llm(BaseModel):
     # Tool payloads are captured server-side in session state — not LLM-copied (avoids bad JSON).
     bad_session_ids: list[str] | None = Field(
         default=None,
-        description="Optional; usually filled from fetch_bad_interaction_sessions tool capture.",
+        description="Optional; usually filled from fetch_problematic_interaction_spans tool capture.",
     )
 
 
@@ -113,9 +113,29 @@ class InteractionResearchV1(BaseModel):
         default=None,
         description="Optional funnel tool payload.",
     )
+    problematic_spans_payload: dict[str, Any] | None = Field(
+        default=None,
+        description="Sampled error/poor interaction spans with session and trace IDs.",
+    )
+    session_trace_payload: dict[str, Any] | None = Field(
+        default=None,
+        description="Optional compact session log/trace snapshot for forensics.",
+    )
+    metric_trends_payload: dict[str, Any] | None = Field(
+        default=None,
+        description="Time-bucketed Apdex, error, and user-category trends.",
+    )
+    latency_percentiles_payload: dict[str, Any] | None = Field(
+        default=None,
+        description="Aggregate P50 / P95 / P99 latency for the period.",
+    )
+    breakdown_payload: dict[str, Any] | None = Field(
+        default=None,
+        description="Dimension breakdown slices (platform, network, os, etc.).",
+    )
     bad_session_ids: list[str] | None = Field(
         default=None,
-        description="Session IDs from bad-session tool (for Block 8).",
+        description="Session IDs from problematic span tool (for Block 8).",
     )
 
     segment_highlights: list[SegmentHighlight] | None = Field(
