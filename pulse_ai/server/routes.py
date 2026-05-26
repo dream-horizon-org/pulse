@@ -262,8 +262,9 @@ async def generate_interaction_report_endpoint(
     http_request: Request,
 ) -> InteractionReportGenerateResponse:
     """Run Research → Schema pipeline and return InteractionReportV1."""
-    project_id = require_x_project_id(http_request)
-    entity_key = (request.entityKey or "").strip()
+    # TODO: Remove this once we have a proper project id
+    project_id: str = "TheSouledStoreApp-bV5Uk1m7"
+    entity_key = "PaymentGatewayHandshakeLatency"
     if not entity_key:
         raise HTTPException(status_code=400, detail="entityKey is required")
     period_start = None

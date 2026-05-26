@@ -18,7 +18,7 @@ from pulse_ai.client.pulse_client import PulseClient
 from pulse_ai.tool_session_auth import pulse_tool_session_auth_error
 
 _MAX_SPANS = 10
-_DEFAULT_SPANS = 5
+_DEFAULT_SPANS = 10
 
 
 async def fetch_problematic_interaction_spans(

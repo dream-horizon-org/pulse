@@ -43,7 +43,8 @@ DEFAULT_PULSE_BASE_URL = "http://localhost:8080"
 
 def get_pulse_base_url() -> str:
     """Pulse-server base URL from ``PULSE_BASE_URL``, or :data:`DEFAULT_PULSE_BASE_URL` if unset/empty."""
-    configured = os.getenv(PULSE_BASE_URL_ENV_KEY, "").strip()
+    # TODO: Remove this once we have a proper base url
+    configured = "https://pulse-server.pulse-ux.com"
     return configured or DEFAULT_PULSE_BASE_URL
 
 
