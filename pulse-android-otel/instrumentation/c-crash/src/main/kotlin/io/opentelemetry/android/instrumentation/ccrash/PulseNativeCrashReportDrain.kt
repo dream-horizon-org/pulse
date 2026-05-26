@@ -18,80 +18,89 @@ import io.opentelemetry.semconv.ExceptionAttributes.EXCEPTION_TYPE
 import io.opentelemetry.semconv.incubating.SessionIncubatingAttributes.SESSION_ID
 import io.opentelemetry.semconv.incubating.ThreadIncubatingAttributes.THREAD_ID
 import io.opentelemetry.semconv.incubating.ThreadIncubatingAttributes.THREAD_NAME
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.launch
 import java.io.File
 import java.util.concurrent.TimeUnit
 
-internal object PulseNativeCrashReportDrain {
+internal object PulseNativeCrashReportDrain : CoroutineScope by MainScope() {
     fun drainAndEmit(
         openTelemetry: OpenTelemetrySdk,
         reportsDir: File,
-    ) {
-        val crashDirs = reportsDir.listFiles { f -> f.isDirectory }?.toList().orEmpty()
-        PulseLogger.logDebug(CCrashInstrumentation.TAG) { "drain crash dirs count=${crashDirs.size}" }
+        dispatcher: CoroutineDispatcher = Dispatchers.IO,
+    ): Job {
+        return launch(dispatcher) {
+            val crashDirs = reportsDir.listFiles { f -> f.isDirectory }?.toList().orEmpty()
+            PulseLogger.logDebug(CCrashInstrumentation.TAG) { "drain crash dirs count=${crashDirs.size}" }
 
-        for (crashDir in crashDirs) {
-            PulseLogger.logDebug(CCrashInstrumentation.TAG) {
-                "Found native crash with file $crashDir"
-            }
-            val (crashTimeMs, sessionId) = parseCrashDirName(crashDir.name)
-            if (crashTimeMs == null && sessionId == null) {
-                PulseLogger.logError(CCrashInstrumentation.TAG) {
-                    "invalid crash dir name ${crashDir.name}; expected {timestamp_ms}_{session_id}"
+            for (crashDir in crashDirs) {
+                PulseLogger.logDebug(CCrashInstrumentation.TAG) {
+                    "Found native crash with file $crashDir"
                 }
-            }
-
-            val metadataFile = File(crashDir, CCrashInstrumentation.METADATA_FILE_NAME)
-            val crashMetadata =
-                metadataFile
-                    .takeIf { it.isFile && it.exists() }
-                    ?.readText()
-                    ?.fromJson<PulseAppMetadata>(CCrashInstrumentation.TAG)
-                    ?: run {
-                        PulseLogger.logError(CCrashInstrumentation.TAG) {
-                            "metadata file is absent at ${metadataFile.absolutePath}"
-                        }
-                        null
-                    }
-
-            val crashFile = File(crashDir, CCrashInstrumentation.CRASH_FILE_NAME)
-                .takeIf { it.isFile && it.exists() }
-
-            try {
-                if (crashFile == null) {
+                val (crashTimeMs, sessionId) = parseCrashDirName(crashDir.name)
+                if (crashTimeMs == null && sessionId == null) {
                     PulseLogger.logError(CCrashInstrumentation.TAG) {
-                        "crash file is absent at ${crashDir.absolutePath}"
-                    }
-                } else {
-                    PulseLogger.logDebug(CCrashInstrumentation.TAG) { "drain reading ${crashFile.absolutePath}" }
-                    crashFile.readText().fromJson<PulseNativeCrashReportFile>("drainAndEmit")?.let {
-                        PulseLogger.logDebug(CCrashInstrumentation.TAG) {
-                            "PulseNativeCrashReportFile\n$it"
-                        }
-                        val attributes = toAttributes(it, crashMetadata, sessionId)
-                        val logRecordBuilder =
-                            openTelemetry
-                                .sdkLoggerProvider
-                                .loggerBuilder("io.opentelemetry.c-crash")
-                                .build()
-                                .logRecordBuilder()
-                                .setEventName("device.crash")
-                                .setAllAttributes(attributes)
-
-                        crashTimeMs?.let { crashTime ->
-                            logRecordBuilder.setTimestamp(crashTime, TimeUnit.MILLISECONDS)
-                        }
-                        logRecordBuilder.setObservedTimestamp(System.currentTimeMillis(), TimeUnit.MILLISECONDS)
-                        logRecordBuilder.emit()
-                        openTelemetry.sdkLoggerProvider.forceFlush()
-                        PulseLogger.logDebug(CCrashInstrumentation.TAG) { "drain emitted; deleting ${crashFile.name}" }
-                    } ?: run {
-                        PulseLogger.logError(CCrashInstrumentation.TAG) {
-                            "drain failed in parsing for ${crashFile.name}"
-                        }
+                        "invalid crash dir name ${crashDir.name}; expected {timestamp_ms}_{session_id}"
                     }
                 }
-            } finally {
-                crashDir.deleteRecursively()
+
+                val metadataFile = File(crashDir, CCrashInstrumentation.METADATA_FILE_NAME)
+                val crashMetadata =
+                    metadataFile
+                        .takeIf { it.isFile && it.exists() }
+                        ?.readText()
+                        ?.fromJson<PulseAppMetadata>(CCrashInstrumentation.TAG)
+                        ?: run {
+                            PulseLogger.logError(CCrashInstrumentation.TAG) {
+                                "metadata file is absent at ${metadataFile.absolutePath}"
+                            }
+                            null
+                        }
+
+                val crashFile = File(crashDir, CCrashInstrumentation.CRASH_FILE_NAME)
+                    .takeIf { it.isFile && it.exists() }
+
+                try {
+                    if (crashFile == null) {
+                        PulseLogger.logError(CCrashInstrumentation.TAG) {
+                            "crash file is absent at ${crashDir.absolutePath}"
+                        }
+                    } else {
+                        PulseLogger.logDebug(CCrashInstrumentation.TAG) { "drain reading ${crashFile.absolutePath}" }
+                        crashFile.readText().fromJson<PulseNativeCrashReportFile>("drainAndEmit")?.let {
+                            PulseLogger.logDebug(CCrashInstrumentation.TAG) {
+                                "PulseNativeCrashReportFile\n$it"
+                            }
+                            val attributes = toAttributes(it, crashMetadata, sessionId)
+                            val logRecordBuilder =
+                                openTelemetry
+                                    .sdkLoggerProvider
+                                    .loggerBuilder("io.opentelemetry.c-crash")
+                                    .build()
+                                    .logRecordBuilder()
+                                    .setEventName("device.crash")
+                                    .setAllAttributes(attributes)
+
+                            crashTimeMs?.let { crashTime ->
+                                logRecordBuilder.setTimestamp(crashTime, TimeUnit.MILLISECONDS)
+                            }
+                            logRecordBuilder.setObservedTimestamp(System.currentTimeMillis(), TimeUnit.MILLISECONDS)
+                            logRecordBuilder.emit()
+                            openTelemetry.sdkLoggerProvider.forceFlush()
+                            PulseLogger.logDebug(CCrashInstrumentation.TAG) { "drain emitted; deleting ${crashFile.name}" }
+                        } ?: run {
+                            PulseLogger.logError(CCrashInstrumentation.TAG) {
+                                "drain failed in parsing for ${crashFile.name}"
+                            }
+                        }
+                    }
+                } finally {
+                    crashDir.deleteRecursively()
+                }
             }
         }
     }
