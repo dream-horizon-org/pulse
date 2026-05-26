@@ -1,6 +1,6 @@
 import axios from "axios";
 import { getClient } from "../client.js";
-import { COLUMN_NAME, PULSE_TYPE_SESSION_START } from "./appVitalsConstants.js";
+import { COLUMN_NAME } from "./appVitalsConstants.js";
 
 export type ExceptionKind = "crash" | "anr" | "nonfatal";
 
@@ -194,7 +194,7 @@ export function buildExceptionListBody(args: {
     {
       function: "CUSTOM",
       param: {
-        expression: `uniqCombined64(nullIf(${COLUMN_NAME.USER_ID}, ''))`,
+        expression: `uniqCombined64(nullIf(${COLUMN_NAME.APP_INSTALLATION_ID}, ''))`,
       },
       alias: "affected_users",
     },

@@ -80,7 +80,7 @@ uploadCommand
   )
   .option(
     '-p, --dsym <path>',
-    `${TAG_OPTIONAL} dSYM bundle (directory) or file for native iOS symbolication`
+    `${TAG_OPTIONAL} .dSYM directory or pre-zipped .dSYM.zip or file for native iOS symbolication`
   )
   .option('-d, --debug', `${TAG_OPTIONAL} Show debug information`)
   .action(async (options) => {

@@ -27,10 +27,8 @@ export function useGetUserEngagementData({
   error: Error | null;
 } {
   // Determine data source based on whether screenName is provided
-  // - With screenName: Use TRACES with screen_session/screen_load (screen-specific users)
-  // - Without screenName: Use LOGS with session.start (overall app users)
   const useTracesTable = !!screenName;
-  const dataType = useTracesTable ? "TRACES" : "LOGS";
+  const dataType = "TRACES";
 
   // Build filters array
   const buildFilters = useMemo(() => {
@@ -57,7 +55,7 @@ export function useGetUserEngagementData({
       filterArray.push({
         field: COLUMN_NAME.PULSE_TYPE,
         operator: "EQ",
-        value: [PulseType.SESSION_START],
+        value: [PulseType.APP_START],
       });
     }
 

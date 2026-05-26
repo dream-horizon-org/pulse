@@ -1,0 +1,43 @@
+{
+  "expo": {
+    "name": "expo-example-rn076",
+    "slug": "expo-example-rn076",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "expoexamplern076",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.example.expoexamplern076"
+    },
+    "android": {
+      "edgeToEdgeEnabled": true,
+      "package": "com.example.expoexamplern076"
+    },
+    "plugins": [
+      "expo-router",
+      "./plugins/withMavenLocal",
+      [
+        "@dreamhorizonorg/pulse-react-native",
+        {
+          "apiKey": "default-project_devkey01",
+          "dataCollectionState": "ALLOWED",
+          "android": {
+            "kotlin19Compat": true,
+            "okHttpInstrumentation": { "enabled": true },
+            "instrumentation": {
+              "interaction": { "enabled": true },
+              "activity": { "enabled": true },
+              "network": { "enabled": true },
+              "crash": { "enabled": true }
+            },
+            "coreLibraryDesugaring": {
+              "enabled": true
+            }
+          }
+        }
+      ]
+    ]
+  }
+}

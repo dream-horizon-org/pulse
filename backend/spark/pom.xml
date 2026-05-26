@@ -13,8 +13,8 @@
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <java.version>17</java.version>
-        <spark.version>3.5.3</spark.version>
-        <scala.binary.version>2.12</scala.binary.version>
+        <spark.version>4.1.1</spark.version>
+        <scala.binary.version>2.13</scala.binary.version>
         <jackson.version>2.15.3</jackson.version>
         <maven.compiler.plugin.version>3.13.0</maven.compiler.plugin.version>
         <maven.shade.plugin.version>3.5.2</maven.shade.plugin.version>
@@ -126,7 +126,8 @@
                                 </filter>
                             </filters>
                             <transformers>
-                                <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
+                                <transformer
+                                        implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
                             </transformers>
                             <relocations>
                                 <!-- Relocate Jackson to avoid version conflicts with Spark's bundled Jackson -->

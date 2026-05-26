@@ -227,6 +227,19 @@ test.describe("@ScreenNav feature gate", () => {
 // ─── Screen Name Resolution ───────────────────────────────────────────────────
 
 test.describe("@ScreenNav screen name resolution", () => {
+  test("encoded /screens/ wrapper paths resolve on screen_load (see @ScreenPathname)", async ({
+    page,
+    otlp,
+  }) => {
+    const path =
+      "/projects/default-project/screens/%2Fprojects%2Fdefault-project%2Finteraction-details%2FUI%2520Session%2520Replay%2520Open";
+    await page.goto(path);
+    const load = await otlp.waitForSpan("screen_load", 8000);
+    expect(getAttr(load.attributes, "screen.name")).toBe(
+      "/projects/default-project/interaction-details/UI Session Replay Open",
+    );
+  });
+
   test("screen.name present on screen_load span", async ({ page, otlp }) => {
     await page.goto("/");
     const load = await otlp.waitForSpan("screen_load");

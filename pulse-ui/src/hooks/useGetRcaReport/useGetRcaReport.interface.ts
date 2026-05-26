@@ -29,10 +29,18 @@ export type RcaRelatedHeatmapsV1 = {
 /** NLP layer on pre-computed error-attribution drill (snake_case in API JSON). */
 export type ErrorAttributionInsightV1 = {
   signal: "anr" | "non_fatal" | "api";
-  summary: string;
+  summary?: string | null;
   caveat?: string | null;
 };
 
+/** True when this insight row has user-visible narrative (summary or caveat after trim). */
+export function insightRowHasDisplayableNarrative(
+  row: ErrorAttributionInsightV1,
+): boolean {
+  const summary = row.summary?.trim() ?? "";
+  const caveat = row.caveat?.trim() ?? "";
+  return summary !== "" || caveat !== "";
+}
 export type DegradingInteractionV1 = {
   interactionName: string;
   interactionCount: number;
@@ -52,9 +60,44 @@ export type RcaStructuredSegmentV1 = {
   degrading_interactions?: DegradingInteractionV1[] | null;
 };
 
+/**
+ * True when the segment card should show metrics / impact / insights / evidence blocks
+ * (same rules as `RcaStructuredReportV1View` segment body).
+ */
+export function segmentHasDisplayableBody(
+  segment: RcaStructuredSegmentV1,
+  options: { hasProjectForHeatmaps: boolean },
+): boolean {
+  const metrics = segment.metrics ?? [];
+  if (metrics.length > 0) {
+    return true;
+  }
+  if ((segment.impact?.trim() ?? "") !== "") {
+    return true;
+  }
+  if ((segment.insights?.trim() ?? "") !== "") {
+    return true;
+  }
+  const sessions = segment.affected_sessions ?? [];
+  if (sessions.some((id) => String(id).trim() !== "")) {
+    return true;
+  }
+  if (options.hasProjectForHeatmaps) {
+    const screens = segment.related_heatmaps?.screens ?? [];
+    if (screens.some((s) => String(s).trim() !== "")) {
+      return true;
+    }
+  }
+  return false;
+}
+
 export type RcaStructuredReportV1 = {
   version: 1;
   executive_summary: string;
+  /** True when the agent found no regressions — segments and recommendations will be empty. */
+  everything_good?: boolean | null;
+  /** True when no telemetry data was available for the analysis window — segments empty. */
+  no_data_available?: boolean | null;
   segments: RcaStructuredSegmentV1[];
   recommendations: string[];
   /** Model-generated interpretation of pre-AI ErrorAttributionPayload when present. */
@@ -77,6 +120,8 @@ export type SessionRcaRootCausePayload = {
 
 export type RcaReportPayload = {
   structured?: RcaStructuredReportV1 | null;
+  /** Echoed from pulse-server / pulse_ai; RCA telemetry window in days. */
+  analysisLookbackDays?: number | null;
   /** Backend may return double-wrapped report: { report: { structured } } */
   report?: RcaReportPayload | null;
   /** Session RCA tabular data merged by backend (rcaType=SESSION only). */
@@ -110,22 +155,17 @@ export const isRcaStructuredReportV1WithContent = (
   if (structured == null) {
     return false;
   }
-  const hasAttributionInsightText = (
-    structured.error_attribution_insights ?? []
-  ).some(
-    (row) =>
-      (row.summary?.trim() ?? "") !== "" || (row.caveat?.trim() ?? "") !== "",
-  );
+  if (structured.everything_good || structured.no_data_available) {
+    return (structured.executive_summary?.trim() ?? "") !== "";
+  }
   const drill = structured.error_attribution ?? structured.errorAttribution;
+  /** Insight copy is only shown when this list has rows; do not count NLP-only empty drill. */
   const hasDrillPayload =
-    drill != null &&
-    ((drill.relatedAttributions?.length ?? 0) > 0 ||
-      (drill.disclaimer?.trim() ?? "") !== "");
+    drill != null && (drill.relatedAttributions?.length ?? 0) > 0;
   const hasContent =
     (structured.executive_summary?.trim() ?? "") !== "" ||
     (structured.segments?.length ?? 0) > 0 ||
     (structured.recommendations?.length ?? 0) > 0 ||
-    hasAttributionInsightText ||
     hasDrillPayload;
   return hasContent;
 };

@@ -69,6 +69,10 @@ class AuthorizationFilterTest {
     public void deleteEndpoint() {
     }
 
+    @RequiresPermission("superadmin")
+    public void superadminEndpoint() {
+    }
+
     public void unannotatedEndpoint() {
     }
   }
@@ -116,6 +120,7 @@ class AuthorizationFilterTest {
       case "can_view" -> "viewEndpoint";
       case "can_edit" -> "editEndpoint";
       case "can_delete_project" -> "deleteEndpoint";
+      case "superadmin" -> "superadminEndpoint";
       default -> throw new IllegalArgumentException("Unknown permission: " + permission);
     };
     when(resourceInfo.getResourceMethod())
@@ -334,6 +339,67 @@ class AuthorizationFilterTest {
   }
 
   @Nested
+  class SuperadminPermissionChecks {
+
+    @Test
+    void shouldGrantAccessForSuperadminWhenOpenFgaEnabledAndUserIsSuperadmin() throws Exception {
+      setupAnnotatedMethod("superadmin");
+      setupPath("internal/v1/tiers");
+      setupValidAuth("user1");
+      when(openFgaService.isEnabled()).thenReturn(true);
+      when(openFgaService.isSuperAdmin("user1")).thenReturn(Single.just(true));
+
+      filter.filter(requestContext);
+
+      verify(requestContext, never()).abortWith(any(Response.class));
+      verify(openFgaService).isSuperAdmin("user1");
+      verify(openFgaService, never()).checkPermission(anyString(), anyString(), anyString(), anyString());
+    }
+
+    @Test
+    void shouldAbortForbiddenForSuperadminWhenUserIsNotSuperadmin() throws Exception {
+      setupAnnotatedMethod("superadmin");
+      setupPath("internal/v1/tiers");
+      setupValidAuth("user1");
+      when(openFgaService.isEnabled()).thenReturn(true);
+      when(openFgaService.isSuperAdmin("user1")).thenReturn(Single.just(false));
+
+      filter.filter(requestContext);
+
+      assertThat(captureAbortStatus()).isEqualTo(403);
+      verify(openFgaService).isSuperAdmin("user1");
+      verify(openFgaService, never()).checkPermission(anyString(), anyString(), anyString(), anyString());
+    }
+
+    @Test
+    void shouldSkipSuperadminCheckWhenOpenFgaDisabled() throws Exception {
+      setupAnnotatedMethod("superadmin");
+      setupPath("internal/v1/tiers");
+      setupValidAuth("user1");
+      when(openFgaService.isEnabled()).thenReturn(false);
+
+      filter.filter(requestContext);
+
+      verify(requestContext, never()).abortWith(any(Response.class));
+      verify(openFgaService, never()).isSuperAdmin(anyString());
+      verify(openFgaService, never()).checkPermission(anyString(), anyString(), anyString(), anyString());
+    }
+
+    @Test
+    void shouldAbortUnauthorizedForSuperadminWhenAuthorizationMissing() throws Exception {
+      setupAnnotatedMethod("superadmin");
+      setupPath("internal/v1/tiers");
+      when(requestContext.getHeaderString(HttpHeaders.AUTHORIZATION)).thenReturn(null);
+
+      filter.filter(requestContext);
+
+      assertThat(captureAbortStatus()).isEqualTo(401);
+      verify(openFgaService, never()).isSuperAdmin(anyString());
+      verify(openFgaService, never()).checkPermission(anyString(), anyString(), anyString(), anyString());
+    }
+  }
+
+  @Nested
   class AnnotationResolution {
 
     @Test
@@ -505,6 +571,62 @@ class AuthorizationFilterTest {
       filter.filter(requestContext);
 
       assertThat(captureAbortStatus()).isEqualTo(401);
+    }
+  }
+  @Nested
+  class InternalApiAuthorization {
+
+    @Test
+    void shouldEnforceAuthorizationForInternalApiKeysPath() throws Exception {
+      setupAnnotatedMethod("superadmin");
+      setupPath("internal/v1/api-keys/valid");
+      setupValidAuth("user1");
+      when(openFgaService.isEnabled()).thenReturn(true);
+      when(openFgaService.isSuperAdmin("user1")).thenReturn(Single.just(true));
+
+      filter.filter(requestContext);
+
+      verify(requestContext, never()).abortWith(any(Response.class));
+      verify(openFgaService).isSuperAdmin("user1");
+    }
+
+    @Test
+    void shouldAbortInternalApiForNonSuperadminUser() throws Exception {
+      setupAnnotatedMethod("superadmin");
+      setupPath("internal/v1/tiers");
+      setupValidAuth("user1");
+      when(openFgaService.isEnabled()).thenReturn(true);
+      when(openFgaService.isSuperAdmin("user1")).thenReturn(Single.just(false));
+
+      filter.filter(requestContext);
+
+      assertThat(captureAbortStatus()).isEqualTo(403);
+      verify(openFgaService).isSuperAdmin("user1");
+    }
+
+    @Test
+    void shouldAbortInternalApiWhenAuthorizationMissing() throws Exception {
+      setupAnnotatedMethod("superadmin");
+      setupPath("internal/v1/projects/limits");
+      when(requestContext.getHeaderString(HttpHeaders.AUTHORIZATION)).thenReturn(null);
+
+      filter.filter(requestContext);
+
+      assertThat(captureAbortStatus()).isEqualTo(401);
+      verify(openFgaService, never()).isSuperAdmin(anyString());
+    }
+
+    @Test
+    void shouldSkipAuthorizationWhenInternalAuthPropertyIsSet() throws Exception {
+      setupAnnotatedMethod("superadmin");
+      setupPath("internal/v1/api-keys/sync-to-redis");
+      when(requestContext.getProperty(InternalServiceAuthFilter.PROP_INTERNAL_AUTHENTICATED)).thenReturn(true);
+
+      filter.filter(requestContext);
+
+      verify(requestContext, never()).abortWith(any(Response.class));
+      verify(openFgaService, never()).isSuperAdmin(anyString());
+      verify(openFgaService, never()).checkPermission(anyString(), anyString(), anyString(), anyString());
     }
   }
 }

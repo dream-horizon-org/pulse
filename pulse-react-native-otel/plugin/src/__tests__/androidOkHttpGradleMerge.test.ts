@@ -1,6 +1,7 @@
 import {
   mergePulseOkHttpAppGradle,
   mergePulseOkHttpByteBuddyClasspath,
+  PULSE_OKHTTP_TAG_KOTLIN19_STDLIB_FORCE,
   PULSE_OKHTTP_TAG_OKHTTP_DEPS,
 } from '../androidOkHttpGradleMerge';
 
@@ -154,5 +155,63 @@ describe('mergePulseOkHttpAppGradle', () => {
     const twice = mergePulseOkHttpAppGradle(once, '0.0.10-alpha');
     expect(twice).toEqual(once);
     expect(warn).not.toHaveBeenCalled();
+  });
+
+  it('omits the kotlin-stdlib force block by default (kotlin19Compat off)', () => {
+    jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const out = mergePulseOkHttpAppGradle(APP_MINIMAL, '0.0.10-alpha');
+    expect(out).not.toContain(
+      `@generated begin ${PULSE_OKHTTP_TAG_KOTLIN19_STDLIB_FORCE}`
+    );
+    expect(out).not.toContain('resolutionStrategy');
+  });
+
+  it('emits a kotlin-stdlib force block when kotlin19Compat is true', () => {
+    jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const out = mergePulseOkHttpAppGradle(APP_MINIMAL, '0.0.10-alpha', true);
+    expect(out).toContain(
+      `@generated begin ${PULSE_OKHTTP_TAG_KOTLIN19_STDLIB_FORCE}`
+    );
+    expect(out).toContain('force "org.jetbrains.kotlin:kotlin-stdlib:1.9.25"');
+    expect(out).toContain(
+      'force "org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.9.25"'
+    );
+    expect(out).toContain(
+      'force "org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.9.25"'
+    );
+    expect(out).toContain(
+      'force "org.jetbrains.kotlin:kotlin-stdlib-common:1.9.25"'
+    );
+    // Force block must sit at top-level, not inside dependencies { ... }.
+    const forceIdx = out.indexOf('resolutionStrategy');
+    const depsIdx = out.indexOf('dependencies {');
+    expect(forceIdx).toBeLessThan(depsIdx);
+  });
+
+  it('strips a stale force block when kotlin19Compat is toggled off', () => {
+    jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const withForce = mergePulseOkHttpAppGradle(
+      APP_MINIMAL,
+      '0.0.10-alpha',
+      true
+    );
+    expect(withForce).toContain('resolutionStrategy');
+    const withoutForce = mergePulseOkHttpAppGradle(
+      withForce,
+      '0.0.10-alpha',
+      false
+    );
+    expect(withoutForce).not.toContain(
+      `@generated begin ${PULSE_OKHTTP_TAG_KOTLIN19_STDLIB_FORCE}`
+    );
+    expect(withoutForce).not.toContain('resolutionStrategy');
+  });
+
+  it('is idempotent when kotlin19Compat=true and run twice', () => {
+    jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const once = mergePulseOkHttpAppGradle(APP_MINIMAL, '0.0.10-alpha', true);
+    const twice = mergePulseOkHttpAppGradle(once, '0.0.10-alpha', true);
+    expect(twice).toEqual(once);
+    expect((twice.match(/resolutionStrategy/g) ?? []).length).toBe(1);
   });
 });

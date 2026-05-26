@@ -4,6 +4,9 @@ import com.google.inject.Inject;
 import com.google.inject.Singleton;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.config.EmrServerlessConfig;
+import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
+import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
+import software.amazon.awssdk.auth.credentials.ProfileCredentialsProvider;
 import software.amazon.awssdk.http.urlconnection.UrlConnectionHttpClient;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.emrserverless.EmrServerlessClient;
@@ -26,6 +29,7 @@ public class EmrServerlessJobClient implements AutoCloseable {
       this.client = EmrServerlessClient.builder()
         .region(Region.of(config.getEffectiveRegion()))
         .httpClient(UrlConnectionHttpClient.builder().build())
+        .credentialsProvider(resolveCredentials())
         .build();
       log.info(
         "[EmrServerlessJobClient] Initialized region={} applicationId={}",
@@ -35,6 +39,21 @@ public class EmrServerlessJobClient implements AutoCloseable {
       this.client = null;
       log.info("[EmrServerlessJobClient] EMR Serverless integration is disabled");
     }
+  }
+
+  /**
+   * Resolves AWS credentials in priority order:
+   * 1. {@code AWS_PROFILE} env var → {@link ProfileCredentialsProvider} (handles AWS SSO profiles)
+   * 2. Default chain: env vars, instance metadata, IAM role, IRSA (EKS)
+   */
+  private static AwsCredentialsProvider resolveCredentials() {
+    String profile = System.getenv("AWS_PROFILE");
+    if (profile != null && !profile.isBlank()) {
+      log.info("[EmrServerlessJobClient] Using AWS profile '{}' (set AWS_PROFILE to change)", profile);
+      return ProfileCredentialsProvider.create(profile);
+    }
+    log.info("[EmrServerlessJobClient] Using default AWS credential chain");
+    return DefaultCredentialsProvider.create();
   }
 
   public boolean isEnabled() {

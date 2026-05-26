@@ -23,16 +23,10 @@ public class EventCatalogJob {
 
     private static final Logger log = LoggerFactory.getLogger(EventCatalogJob.class);
 
-    private static final String FILTER_KEY_EVENT           = "EVENT";
-    private static final String FILTER_KEY_APP_BUILD_NAME  = "APP_BUILD_NAME";
-    private static final String FILTER_KEY_OS_VERSION      = "OS_VERSION";
-    private static final String FILTER_KEY_OS_NAME         = "OS_NAME";
-
-    private static final int COLD_LOOKBACK_DAYS   = 7;
-    private static final int DEFAULT_CHUNK_SIZE   = 5_000;
 
     public static void runCatalog(SparkSession spark, MysqlRepository mysql, ClickHouseClient ch,
                                    String s3BucketPrefix, String runTime) throws Exception {
+        OtelS3Reader.configureSparkForParquetMrTimestamps(spark);
         List<String> projectIds = mysql.fetchProjectIds();
         if (projectIds.isEmpty()) {
             log.info("No projects to process");
@@ -62,7 +56,7 @@ public class EventCatalogJob {
         long windowEndEpoch = runEnd.getEpochSecond();
 
         if (priorSucceededStart.isEmpty()) {
-            startDate = endDate.minusDays(COLD_LOOKBACK_DAYS - 1L);
+            startDate = endDate.minusDays(SparkConstants.Catalog.COLD_LOOKBACK_DAYS - 1L);
             windowStartEpoch = startDate.atStartOfDay(ZoneOffset.UTC).toEpochSecond();
             log.info("Project {} cold start: S3 [{} -> {}]", projectId, startDate, endDate);
         } else {
@@ -72,31 +66,31 @@ public class EventCatalogJob {
             log.info("Project {} incremental from {}: S3 [{} -> {}]", projectId, wm, startDate, endDate);
         }
 
-        var s3Base = "s3a://" + s3Prefix + projectId + "/otel_logs/";
-        Dataset<Row> raw = FunnelComputeJob.readS3ByDateRange(spark, s3Base, startDate, endDate);
+        var s3Base = OtelS3Reader.buildS3Base(s3Prefix, projectId, SparkConstants.Tables.S3_OTEL_LOGS);
+        Dataset<Row> raw = OtelS3Reader.readS3ByDateRange(spark, s3Base, startDate, endDate);
         if (raw == null) {
             log.warn("No S3 data for project {} — skipping", projectId);
             return;
         }
 
-        var tsSec = unix_timestamp(col("timestamp"));
+        var tsSec = unix_timestamp(col(SparkConstants.Columns.TIMESTAMP));
         var inTimeWindow = priorSucceededStart.isEmpty()
                 ? tsSec.geq(lit(windowStartEpoch)).and(tsSec.leq(lit(windowEndEpoch)))
                 : tsSec.gt(lit(windowStartEpoch)).and(tsSec.leq(lit(windowEndEpoch)));
 
         Dataset<Row> df = raw
                 .select(
-                        col("project_id"),
-                        col("event_name"),
-                        col("timestamp"),
-                        col("app_build_name"),
-                        col("os_version"),
-                        col("os_name")
+                        col(SparkConstants.Columns.PROJECT_ID),
+                        col(SparkConstants.Columns.EVENT_NAME),
+                        col(SparkConstants.Columns.TIMESTAMP),
+                        col(SparkConstants.Columns.APP_BUILD_NAME),
+                        col(SparkConstants.Columns.OS_VERSION),
+                        col(SparkConstants.Columns.OS_NAME)
                 )
                 .filter(
-                        col("project_id").equalTo(projectId)
-                                .and(col("event_name").isNotNull())
-                                .and(col("event_name").notEqual(""))
+                        col(SparkConstants.Columns.PROJECT_ID).equalTo(projectId)
+                                .and(col(SparkConstants.Columns.EVENT_NAME).isNotNull())
+                                .and(col(SparkConstants.Columns.EVENT_NAME).notEqual(""))
                                 .and(inTimeWindow)
                 )
                 .cache();
@@ -104,8 +98,8 @@ public class EventCatalogJob {
         try {
             List<String> valueRows = buildCatalogInsertRows(df);
             if (!valueRows.isEmpty()) {
-                ch.bulkInsert("event_catalog_entries", "ProjectId,FilterKey,FilterValue",
-                        valueRows, DEFAULT_CHUNK_SIZE);
+                ch.bulkInsert(SparkConstants.Tables.CH_EVENT_CATALOG_ENTRIES, SparkConstants.ChColumns.EVENT_CATALOG_ENTRIES_COLS,
+                        valueRows, SparkConstants.Catalog.DEFAULT_CHUNK_SIZE);
                 log.info("Project {}: wrote {} event_catalog_entries rows (events + dimensions)", projectId, valueRows.size());
             } else {
                 log.info("Project {}: no new event catalog entries", projectId);
@@ -120,15 +114,15 @@ public class EventCatalogJob {
         Column nonBlankFv = col("fv").isNotNull().and(length(trim(col("fv"))).gt(0));
 
         Dataset<Row> events = df.select(
-                col("project_id").alias("pid"),
-                lit(FILTER_KEY_EVENT).alias("fk"),
-                col("event_name").cast("string").alias("fv")
+                col(SparkConstants.Columns.PROJECT_ID).alias("pid"),
+                lit(SparkConstants.FilterKeys.EVENT).alias("fk"),
+                col(SparkConstants.Columns.EVENT_NAME).cast("string").alias("fv")
         ).filter(nonBlankFv);
 
         Dataset<Row> unioned = events
-                .unionByName(dimensionSlice(df, FILTER_KEY_APP_BUILD_NAME, "app_build_name"))
-                .unionByName(dimensionSlice(df, FILTER_KEY_OS_VERSION, "os_version"))
-                .unionByName(dimensionSlice(df, FILTER_KEY_OS_NAME, "os_name"))
+                .unionByName(dimensionSlice(df, SparkConstants.FilterKeys.APP_BUILD_NAME, SparkConstants.Columns.APP_BUILD_NAME))
+                .unionByName(dimensionSlice(df, SparkConstants.FilterKeys.OS_VERSION, SparkConstants.Columns.OS_VERSION))
+                .unionByName(dimensionSlice(df, SparkConstants.FilterKeys.OS_NAME, SparkConstants.Columns.OS_NAME))
                 .distinct();
 
         List<Row> rows = unioned.collectAsList();

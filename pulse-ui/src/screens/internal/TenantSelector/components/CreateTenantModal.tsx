@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
-import { Button, Group, Modal, Stack, Text, TextInput, Textarea } from "@mantine/core";
+import { useEffect, useState } from "react";
+import { Button, Group, Modal, Stack, TextInput, Textarea } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
-import { useCreateProject, useCreateTenant } from "../../../../hooks";
-import type { TenantResponse } from "../../../../hooks/useCreateTenant";
+import { useCreateAdminTenant } from "../../../../hooks";
+import type { TenantResponse } from "../TenantSelector.interface";
 
 interface CreateTenantModalProps {
   opened: boolean;
@@ -10,44 +10,26 @@ interface CreateTenantModalProps {
   onEnterWorkspace: (tenant: TenantResponse) => void;
 }
 
-type Step = "tenant" | "project" | "done";
-
 export function CreateTenantModal({ opened, onClose, onEnterWorkspace }: CreateTenantModalProps) {
-  const [step, setStep] = useState<Step>("tenant");
   const [tenantName, setTenantName] = useState("");
-  const [tenantDescription, setTenantDescription] = useState("");
   const [projectName, setProjectName] = useState("");
   const [projectDescription, setProjectDescription] = useState("");
-  const [createdTenant, setCreatedTenant] = useState<TenantResponse | null>(null);
 
-  const createTenantMutation = useCreateTenant();
-  const createProjectMutation = useCreateProject();
-  const isSubmitting = createTenantMutation.isPending || createProjectMutation.isPending;
-
-  const modalTitle = useMemo(() => {
-    if (step === "tenant") {
-      return "Create Tenant";
-    }
-    if (step === "project") {
-      return "Create First Project";
-    }
-    return "Workspace Ready";
-  }, [step]);
+  const createMutation = useCreateAdminTenant();
 
   useEffect(() => {
     if (!opened) {
-      setStep("tenant");
       setTenantName("");
-      setTenantDescription("");
       setProjectName("");
       setProjectDescription("");
-      setCreatedTenant(null);
     }
   }, [opened]);
 
-  const handleCreateTenant = () => {
-    const trimmedName = tenantName.trim();
-    if (!trimmedName) {
+  const handleSubmit = () => {
+    const trimmedTenantName = tenantName.trim();
+    const trimmedProjectName = projectName.trim();
+
+    if (!trimmedTenantName) {
       notifications.show({
         title: "Tenant name required",
         message: "Please provide a tenant name.",
@@ -55,72 +37,40 @@ export function CreateTenantModal({ opened, onClose, onEnterWorkspace }: CreateT
       });
       return;
     }
-
-    createTenantMutation.mutate(
-      {
-        name: trimmedName,
-        description: tenantDescription.trim() || undefined,
-      },
-      {
-        onSuccess: (response) => {
-          if (response.error || !response.data) {
-            notifications.show({
-              title: "Could not create tenant",
-              message: response.error?.message || "Tenant creation failed. Please try again.",
-              color: "red",
-            });
-            return;
-          }
-          setCreatedTenant(response.data);
-          setStep("project");
-        },
-        onError: (error) => {
-          notifications.show({
-            title: "Could not create tenant",
-            message: error instanceof Error ? error.message : "Tenant creation failed. Please try again.",
-            color: "red",
-          });
-        },
-      },
-    );
-  };
-
-  const handleCreateProject = () => {
-    if (!createdTenant) {
-      return;
-    }
-    const trimmedProjectName = projectName.trim();
     if (!trimmedProjectName) {
       notifications.show({
         title: "Project name required",
-        message: "Please provide a project name or skip this step.",
+        message: "Please provide a project name.",
         color: "red",
       });
       return;
     }
 
-    createProjectMutation.mutate(
+    createMutation.mutate(
       {
-        name: trimmedProjectName,
-        description: projectDescription.trim() || undefined,
-        tenantId: createdTenant.tenantId,
+        tenantName: trimmedTenantName,
+        projectName: trimmedProjectName,
+        projectDescription: projectDescription.trim() || undefined,
       },
       {
         onSuccess: (response) => {
           if (response.error || !response.data) {
             notifications.show({
-              title: "Could not create project",
-              message: response.error?.message || "Project creation failed. You can create it later.",
+              title: "Could not create workspace",
+              message: response.error?.message || "Workspace creation failed. Please try again.",
               color: "red",
             });
             return;
           }
-          setStep("done");
+          onEnterWorkspace({
+            tenantId: response.data.tenantId,
+            name: trimmedTenantName,
+          });
         },
         onError: (error) => {
           notifications.show({
-            title: "Could not create project",
-            message: error instanceof Error ? error.message : "Project creation failed. You can create it later.",
+            title: "Could not create workspace",
+            message: error instanceof Error ? error.message : "Workspace creation failed. Please try again.",
             color: "red",
           });
         },
@@ -128,100 +78,48 @@ export function CreateTenantModal({ opened, onClose, onEnterWorkspace }: CreateT
     );
   };
 
-  const handleEnterWorkspace = () => {
-    if (!createdTenant) {
-      return;
-    }
-    onEnterWorkspace(createdTenant);
-  };
-
-  const renderTenantStep = () => (
-    <Stack gap="sm">
-      <TextInput
-        label="Tenant Name"
-        placeholder="Enter tenant name"
-        value={tenantName}
-        onChange={(event) => setTenantName(event.currentTarget.value)}
-        required
-      />
-      <Textarea
-        label="Description (Optional)"
-        placeholder="Add a short description for this tenant"
-        value={tenantDescription}
-        onChange={(event) => setTenantDescription(event.currentTarget.value)}
-        minRows={3}
-      />
-      <Group justify="flex-end" mt="sm">
-        <Button variant="default" onClick={onClose} disabled={isSubmitting}>
-          Cancel
-        </Button>
-        <Button color="teal" onClick={handleCreateTenant} loading={createTenantMutation.isPending}>
-          Create Tenant
-        </Button>
-      </Group>
-    </Stack>
-  );
-
-  const renderProjectStep = () => (
-    <Stack gap="sm">
-      <Text size="sm" c="dimmed">
-        Tenant &quot;{createdTenant?.name}&quot; created successfully. Add a project now or skip and create it later.
-      </Text>
-      <TextInput
-        label="Project Name"
-        placeholder="Pulse iOS App"
-        value={projectName}
-        onChange={(event) => setProjectName(event.currentTarget.value)}
-      />
-      <Textarea
-        label="Description (Optional)"
-        placeholder="Primary observability project"
-        value={projectDescription}
-        onChange={(event) => setProjectDescription(event.currentTarget.value)}
-        minRows={3}
-      />
-      <Group justify="space-between" mt="sm">
-        <Button variant="default" onClick={() => setStep("done")} disabled={isSubmitting}>
-          Skip
-        </Button>
-        <Button color="teal" onClick={handleCreateProject} loading={createProjectMutation.isPending}>
-          Create Project
-        </Button>
-      </Group>
-    </Stack>
-  );
-
-  const renderDoneStep = () => (
-    <Stack gap="sm">
-      <Text size="sm">
-        Tenant &quot;{createdTenant?.name}&quot; is ready. Open the workspace to start creating
-        projects and inviting team members.
-      </Text>
-      <Group justify="flex-end" mt="sm">
-        <Button variant="default" onClick={onClose} disabled={isSubmitting}>
-          Close
-        </Button>
-        <Button color="teal" onClick={handleEnterWorkspace}>
-          Enter Workspace
-        </Button>
-      </Group>
-    </Stack>
-  );
-
   return (
     <Modal
       opened={opened}
       onClose={onClose}
-      title={modalTitle}
+      title="Create Tenant"
       centered
       size="lg"
-      closeOnClickOutside={!isSubmitting}
-      closeOnEscape={!isSubmitting}
-      withCloseButton={!isSubmitting}
+      closeOnClickOutside={!createMutation.isPending}
+      closeOnEscape={!createMutation.isPending}
+      withCloseButton={!createMutation.isPending}
     >
-      {step === "tenant" && renderTenantStep()}
-      {step === "project" && renderProjectStep()}
-      {step === "done" && renderDoneStep()}
+      <Stack gap="sm">
+        <TextInput
+          label="Tenant Name"
+          placeholder="Enter tenant name"
+          value={tenantName}
+          onChange={(event) => setTenantName(event.currentTarget.value)}
+          required
+        />
+        <TextInput
+          label="Project Name"
+          placeholder="Pulse iOS App"
+          value={projectName}
+          onChange={(event) => setProjectName(event.currentTarget.value)}
+          required
+        />
+        <Textarea
+          label="Project Description (Optional)"
+          placeholder="Add a brief description to help your team understand this project"
+          value={projectDescription}
+          onChange={(event) => setProjectDescription(event.currentTarget.value)}
+          minRows={3}
+        />
+        <Group justify="flex-end" mt="sm">
+          <Button variant="default" onClick={onClose} disabled={createMutation.isPending}>
+            Cancel
+          </Button>
+          <Button color="teal" onClick={handleSubmit} loading={createMutation.isPending}>
+            Create Workspace
+          </Button>
+        </Group>
+      </Stack>
     </Modal>
   );
 }

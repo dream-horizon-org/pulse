@@ -21,7 +21,10 @@ import org.slf4j.LoggerFactory;
  * --secrets_name    optional AWS Secrets Manager name
  * --aws_region      default ap-south-1
  * --s3_bucket_prefix default pulse-otel-
- * --clickhouse_host / port / db / user / password
+ * --clickhouse_host   hostname or {@code https://} / {@code http://} base URL — if URL, no {@code clickhouse_port}; else port defaults {@code 8123}
+ * --clickhouse_url    optional explicit URL ({@code https://…}); wins over {@code clickhouse_host}
+ * --clickhouse_db     defaults {@code otel}
+ * --clickhouse_user / clickhouse_password
  * --mysql_host / port / db / user / password
  */
 public class SparkJobRunner {
@@ -49,13 +52,7 @@ public class SparkJobRunner {
       require(params, "mysql_user"),
       require(params, "mysql_password")
     );
-    var ch = new ClickHouseClient(
-      require(params, "clickhouse_host"),
-      Integer.parseInt(params.getOrDefault("clickhouse_port", "8123")),
-      params.getOrDefault("clickhouse_db", "otel"),
-      params.getOrDefault("clickhouse_user", "default"),
-      params.getOrDefault("clickhouse_password", "")
-    );
+    var ch = createClickHouseClient(params);
     ch.ping();
     log.info("ClickHouse connectivity check passed");
 
@@ -65,8 +62,24 @@ public class SparkJobRunner {
 
     var spark = SparkSession.builder()
       .appName("pulse-spark-%s-%s".formatted(jobType.toLowerCase(), runTime.substring(0, 10)))
+      // ── Parquet / timezone ────────────────────────────────────────────────
       .config("spark.sql.parquet.int96RebaseModeInRead", "CORRECTED")
       .config("spark.sql.session.timeZone", "UTC")
+      // ── SQL tuning ────────────────────────────────────────────────────────
+      .config("spark.sql.shuffle.partitions", "400")
+      .config("spark.sql.adaptive.enabled", "true")
+      .config("spark.sql.adaptive.skewJoin.enabled", "true")
+      // ── Dynamic allocation ────────────────────────────────────────────────
+      .config("spark.dynamicAllocation.enabled", "true")
+      .config("spark.dynamicAllocation.minExecutors", "1")
+      .config("spark.dynamicAllocation.initialExecutors", "4")
+      .config("spark.dynamicAllocation.maxExecutors", "40")
+      // ── Executor / driver resources ───────────────────────────────────────
+      .config("spark.executor.cores", "4")
+      .config("spark.executor.memory", "16g")
+      .config("spark.executor.memoryOverhead", "3g")
+      .config("spark.driver.cores", "4")
+      .config("spark.driver.memory", "8g")
       .getOrCreate();
     normalizeS3TimeoutConfigs(spark);
     spark.sparkContext().setLogLevel("WARN");
@@ -160,6 +173,24 @@ public class SparkJobRunner {
 //      log.warn("Failed to touch updated_at for job_type={}: {}", jobType, e.getMessage());
 //    }
 //  }
+  private static ClickHouseClient createClickHouseClient(Map<String, String> params) {
+    String urlOverride = params.get("clickhouse_url");
+    String endpoint =
+        urlOverride != null && !urlOverride.isBlank()
+            ? urlOverride.trim()
+            : require(params, "clickhouse_host").trim();
+    String db = params.getOrDefault("clickhouse_db", "otel").trim();
+    String user = require(params, "clickhouse_user").trim();
+    String password = require(params, "clickhouse_password");
+    if (ClickHouseClient.looksLikeHttpEndpointUrl(endpoint)) {
+      log.info("ClickHouse via HTTP(S) URL from params");
+      return ClickHouseClient.fromHttpEndpoint(endpoint, db, user, password);
+    }
+    int port = Integer.parseInt(params.getOrDefault("clickhouse_port", "8123").trim());
+    log.info("ClickHouse via host={}, port={}", endpoint, port);
+    return new ClickHouseClient(endpoint, port, db, user, password);
+  }
+
   private static Map<String, String> parseArgs(String[] args) {
     var map = new HashMap<String, String>();
     for (int i = 0; i < args.length - 1; i += 2) {
