@@ -42,12 +42,16 @@ def get_pulse_base_url() -> str:
     return configured or DEFAULT_PULSE_BASE_URL
 
 
-# Root-cause tabular fetch from pulse-server (server/root_cause_fetch.py)
-ROOT_CAUSE_FETCH_DATE_QUERY_PARAM = "date"
-ROOT_CAUSE_FETCH_PATH_TEMPLATE = "/v1/interactions/{interaction}/root-cause"
 # HTTP statuses returned to clients when mapping upstream/timeout failures
 HTTP_TIMEOUT_GATEWAY = 504
 HTTP_BAD_GATEWAY = 502
+
+# Async interaction RCA (pulse-server); see root_cause_payload_fetch.py
+RCA_ASYNC_RCA_TYPE_INTERACTION = "INTERACTION"
+RCA_REPORT_POST_PATH = "/v1/ai/rca/report"
+RCA_REPORT_PEEK_PATH_PREFIX = "/v1/ai-rca/report"
+RCA_JOB_GET_PATH_TEMPLATE = "/v1/ai-rca/job/{job_id}"
+RCA_JOB_POLL_INTERVAL_SEC = 3.0
 
 # pulse_ai tools: user/session-scoped backend calls
 PULSE_TOOL_SESSION_MISSING_CONTEXT = (

@@ -3,6 +3,7 @@ package org.dreamhorizon.pulseserver.service.tenant;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -13,9 +14,14 @@ import io.reactivex.rxjava3.core.Maybe;
 import io.reactivex.rxjava3.core.Single;
 import jakarta.ws.rs.WebApplicationException;
 import org.dreamhorizon.pulseserver.client.chclient.ClickhouseProjectConnectionPoolManager;
+import org.dreamhorizon.pulseserver.dao.project.models.Project;
 import org.dreamhorizon.pulseserver.dao.tenant.TenantDao;
 import org.dreamhorizon.pulseserver.dao.tenant.models.Tenant;
+import org.dreamhorizon.pulseserver.dto.ProjectCreationResult;
+import org.dreamhorizon.pulseserver.dto.request.ReqUserInfo;
 import org.dreamhorizon.pulseserver.service.OpenFgaService;
+import org.dreamhorizon.pulseserver.service.ProjectService;
+import org.dreamhorizon.pulseserver.service.tenant.dto.TenantWithProjectResult;
 import org.dreamhorizon.pulseserver.service.tenant.models.CreateTenantRequest;
 import org.dreamhorizon.pulseserver.service.tenant.models.UpdateTenantRequest;
 import org.dreamhorizon.pulseserver.service.tier.TierService;
@@ -43,11 +49,14 @@ class TenantServiceTest {
   @Mock
   TierService tierService;
 
+  @Mock
+  ProjectService projectService;
+
   TenantService tenantService;
 
   @BeforeEach
   void setUp() {
-    tenantService = new TenantService(tenantDao, poolManager, openFgaService, tierService);
+    tenantService = new TenantService(tenantDao, poolManager, openFgaService, tierService, projectService);
   }
 
   private Tenant createTenant(String tenantId, String name) {
@@ -425,6 +434,105 @@ class TenantServiceTest {
           .test()
           .assertError(RuntimeException.class)
           .assertError(e -> e.getMessage().contains("DB error"));
+    }
+  }
+
+  @Nested
+  class CreateTenantWithProject {
+
+    private ReqUserInfo ownerInfo() {
+      return ReqUserInfo.builder()
+          .userId("user-1")
+          .email("owner@example.com")
+          .name("Owner")
+          .build();
+    }
+
+    @Test
+    void shouldCreateTenantAndProjectAndReturnAllFields() {
+      Tenant tenant = Tenant.builder()
+          .tenantId("tenant-generated")
+          .name("My Org")
+          .isActive(true)
+          .build();
+      Project project = Project.builder()
+          .projectId("my-project-abc12345")
+          .tenantId("tenant-generated")
+          .name("My Project")
+          .isActive(true)
+          .build();
+      ProjectCreationResult projectResult = ProjectCreationResult.builder()
+          .project(project)
+          .rawApiKey("raw-api-key-123")
+          .build();
+
+      when(tenantDao.createTenant(any(Tenant.class))).thenReturn(Single.just(tenant));
+      when(openFgaService.isEnabled()).thenReturn(true);
+      when(openFgaService.linkTenantToSystem(any())).thenReturn(Completable.complete());
+      when(projectService.createProject(any(), any(), any(), any())).thenReturn(Single.just(projectResult));
+      when(openFgaService.assignTenantRole(eq("user-1"), any(), eq("admin"))).thenReturn(Completable.complete());
+
+      TenantWithProjectResult result = tenantService.createTenantWithProject(
+          ownerInfo(), "My Org", "My Project", "desc", "project desc").blockingGet();
+
+      assertThat(result).isNotNull();
+      assertThat(result.getTenantId()).startsWith("tenant-");
+      assertThat(result.getTenantId()).contains("-");
+      assertThat(result.getProjectId()).isEqualTo("my-project-abc12345");
+      assertThat(result.getRawApiKey()).isEqualTo("raw-api-key-123");
+
+      verify(openFgaService).linkTenantToSystem(any());
+      verify(openFgaService).assignTenantRole(eq("user-1"), any(), eq("admin"));
+    }
+
+    @Test
+    void shouldPropagateErrorWhenProjectCreationFails() {
+      Tenant tenant = Tenant.builder()
+          .tenantId("tenant-abc")
+          .name("My Org")
+          .isActive(true)
+          .build();
+
+      when(tenantDao.createTenant(any(Tenant.class))).thenReturn(Single.just(tenant));
+      when(openFgaService.isEnabled()).thenReturn(true);
+      when(openFgaService.linkTenantToSystem(any())).thenReturn(Completable.complete());
+      when(projectService.createProject(any(), any(), any(), any()))
+          .thenReturn(Single.error(new RuntimeException("Project creation failed")));
+
+      tenantService.createTenantWithProject(ownerInfo(), "My Org", "My Project", null, null)
+          .test()
+          .assertError(RuntimeException.class)
+          .assertError(e -> e.getMessage().contains("Project creation failed"));
+    }
+
+    @Test
+    void shouldSkipOpenFgaTenantRoleAssignmentWhenOpenFgaDisabled() {
+      Tenant tenant = Tenant.builder()
+          .tenantId("tenant-abc")
+          .name("My Org")
+          .isActive(true)
+          .build();
+      Project project = Project.builder()
+          .projectId("proj-1")
+          .name("My Project")
+          .isActive(true)
+          .build();
+      ProjectCreationResult projectResult = ProjectCreationResult.builder()
+          .project(project)
+          .rawApiKey("key")
+          .build();
+
+      when(tenantDao.createTenant(any(Tenant.class))).thenReturn(Single.just(tenant));
+      when(openFgaService.isEnabled()).thenReturn(false);
+      when(projectService.createProject(any(), any(), any(), any())).thenReturn(Single.just(projectResult));
+
+      TenantWithProjectResult result = tenantService.createTenantWithProject(
+          ownerInfo(), "My Org", "My Project", null, null).blockingGet();
+
+      assertThat(result).isNotNull();
+      assertThat(result.getProjectId()).isEqualTo("proj-1");
+      verify(openFgaService, never()).assignTenantRole(any(), any(), any());
+      verify(openFgaService, never()).linkTenantToSystem(any());
     }
   }
 }

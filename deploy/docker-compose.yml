@@ -584,6 +584,9 @@ services:
       - SLACK_REDIRECT_URI=${SLACK_REDIRECT_URI:-}
       - SLACK_UI_REDIRECT_URL=${SLACK_UI_REDIRECT_URL:-}
       - SLACK_OAUTH_SCOPES=${SLACK_OAUTH_SCOPES:-}
+
+      # Internal service-to-service auth (pulse-alerts-cron → pulse-server)
+      - CONFIG_SERVICE_APPLICATION_INTERNAL_SERVICE_TOKENS=${CONFIG_SERVICE_APPLICATION_INTERNAL_SERVICE_TOKENS:-}
     networks:
       - pulse-network
     extra_hosts:

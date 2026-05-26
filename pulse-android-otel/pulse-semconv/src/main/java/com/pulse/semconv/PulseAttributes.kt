@@ -29,6 +29,10 @@ public object PulseAttributes {
     @JvmField
     public val PROJECT_ID: AttributeKey<String> = stringKey("project.id")
 
+    /** Remote config version active for this SDK launch (from persisted cache at init). */
+    @JvmField
+    public val PULSE_SDK_CONFIG_VERSION: AttributeKey<Long> = AttributeKey.longKey("pulse.sdk.config.version")
+
     /**
      * Structured context for a click/tap. Model-readable format: `label=X` when a human-readable
      * label was extracted. Set on app.widget.click only. Omitted when nothing extractable.

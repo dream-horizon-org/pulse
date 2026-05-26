@@ -326,13 +326,11 @@ class TenantDaoTest {
     @Test
     void shouldUpdateTenantSuccessfully() {
       setupWriterPool();
-      when(writerPool.preparedQuery(anyString())).thenReturn(preparedQuery);
+      setupReaderPool();
 
-      // First call for update
       RowSet<Row> updateRowSet = mock(RowSet.class);
       when(updateRowSet.rowCount()).thenReturn(1);
 
-      // Second call for getTenantById
       Row tenantRow = createMockTenantRow();
       when(tenantRow.getString("name")).thenReturn("Updated Name");
       RowSet<Row> getRowSet = mock(RowSet.class);
@@ -340,13 +338,14 @@ class TenantDaoTest {
       when(getRowSet.size()).thenReturn(1);
       when(getRowSet.iterator()).thenReturn(iterator);
 
-      when(mysqlClient.getWriterPool()).thenReturn(writerPool);
       when(writerPool.preparedQuery(anyString())).thenReturn(preparedQuery);
+      when(readerPool.preparedQuery(anyString())).thenReturn(preparedQuery);
       when(preparedQuery.rxExecute(any(Tuple.class)))
           .thenReturn(Single.just(updateRowSet))
           .thenReturn(Single.just(getRowSet));
 
       Tenant result = tenantDao.updateTenant(Tenant.builder()
+          .tenantId("test_tenant")
           .name("Updated Name")
           .build()).blockingGet();
 

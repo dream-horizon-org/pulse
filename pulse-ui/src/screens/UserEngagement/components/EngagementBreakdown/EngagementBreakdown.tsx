@@ -82,7 +82,7 @@ export function EngagementBreakdown({
       const attributeAlias = customAttributeName;
 
       return {
-        dataType: "LOGS" as const,
+        dataType: "TRACES" as const,
         timeRange: {
           start: monthlyStartDate,
           end: monthlyEndDate,
@@ -110,7 +110,7 @@ export function EngagementBreakdown({
           {
             field: "PulseType",
             operator: "EQ" as const,
-            value: [PulseType.SESSION_START],
+            value: [PulseType.APP_START],
           },
           {
             field: attributeField,
@@ -127,7 +127,7 @@ export function EngagementBreakdown({
     if (!fieldConfig) return null;
 
     return {
-      dataType: "LOGS" as const,
+      dataType: "TRACES" as const,
       timeRange: {
         start: monthlyStartDate,
         end: monthlyEndDate,
@@ -160,7 +160,7 @@ export function EngagementBreakdown({
         {
           field: "PulseType",
           operator: "EQ" as const,
-          value: [PulseType.SESSION_START],
+          value: [PulseType.APP_START],
         },
       ],
       groupBy: [fieldConfig.alias],

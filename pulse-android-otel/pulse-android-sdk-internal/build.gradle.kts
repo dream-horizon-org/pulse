@@ -39,6 +39,10 @@ dependencies {
         // See android-agent: avoid okhttp-jvm on Android consumer classpaths (duplicate okhttp3.*).
         exclude(group = "com.squareup.okhttp3", module = "okhttp-jvm")
     }
+    // Explicit since pulse-utils now declares okhttp as implementation (not api). This module
+    // passes OkHttpClient instances into pulse-sampling-core APIs, so the type must be on its
+    // own compile classpath.
+    implementation(libs.okhttp)
     implementation(libs.opentelemetry.api)
     implementation(libs.opentelemetry.sdk)
     implementation(libs.opentelemetry.semconv.incubating)

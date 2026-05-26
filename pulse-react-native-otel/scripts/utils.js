@@ -129,7 +129,11 @@ function pulseUploadDetectFileType(filePath) {
   const base = path.basename(filePath);
   const lower = base.toLowerCase();
   const ext = path.extname(base).slice(1).toLowerCase();
-  if (lower.endsWith('.dsym') || ext === 'dsym') {
+  if (
+    lower.endsWith('.dsym.zip') ||
+    lower.endsWith('.dsym') ||
+    ext === 'dsym'
+  ) {
     return 'dsym';
   }
   return 'unknown';

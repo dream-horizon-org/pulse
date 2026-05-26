@@ -1233,10 +1233,10 @@ export const API_ROUTES: StreamverseRoutes = {
     apiPath: `/v1/tenants`,
     method: API_METHODS.GET,
   },
-  /** System-role tenant creation: superadmin/internal_viewer only. */
-  POST_CREATE_TENANT: {
-    key: "POST_CREATE_TENANT",
-    apiPath: `/v1/tenants`,
+  /** Atomic tenant + project creation for admins (superadmin or internal_viewer). */
+  POST_ADMIN_CREATE_TENANT: {
+    key: "POST_ADMIN_CREATE_TENANT",
+    apiPath: `/v1/admin/tenants`,
     method: API_METHODS.POST,
   },
   /** OpenFGA superadmin tuples on system:pulse (JWT-verified; superadmin-only for mutations). */
@@ -1352,6 +1352,11 @@ export const CRITICAL_INTERACTION_FORM_CONSTANTS: Record<string, string> = {
   LOWER_THRESHOLD_VALUE: "16",
   MIDDLE_THRESHOLD_VALUE: "50",
   DEFAULT_INTERACTION_THRESHOLD: "20000",
+  ERROR_THRESHOLD_LABEL: "Error threshold (ms)",
+  ERROR_THRESHOLD_DESCRIPTION:
+    "Interactions that exceed this duration are classified as errors.",
+  ERROR_THRESHOLD_PLACEHOLDER: "20000",
+  ERROR_THRESHOLD_ERROR_MESSAGE: "Error threshold must be greater than 0",
 };
 
 export const USER_ACTION_CATEGORIES_SELECTION: Record<string, boolean> = {

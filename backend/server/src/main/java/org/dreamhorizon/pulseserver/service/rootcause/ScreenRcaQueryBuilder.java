@@ -22,8 +22,14 @@ public final class ScreenRcaQueryBuilder {
   public static final String TAP_COUNT = "tap_count";
   public static final String RAGE_COUNT = "rage_count";
   public static final String DEAD_COUNT = "dead_count";
-  /** Segmentation driver: dead ∪ rage (one row can be both; counted once). */
+  /** Segmentation driver: dead or rage clicks (mutually exclusive per click; equals dead_count + rage_count). */
   public static final String BAD_FRUSTRATION = "bad_frustration";
+
+  /**
+   * {@code bad_frustration / click_volume * 100} (0–100 scale). Not selected in ClickHouse — computed in
+   * {@link ScreenRcaService} from {@link #BAD_FRUSTRATION} and {@link #CLICK_VOLUME} on baseline/segment rows.
+   */
+  public static final String BAD_FRUSTRATION_PERCENTAGE = "bad_frustration_percentage";
 
   /** Materialized {@code ClickType} / {@code Rage} on {@code otel.otel_logs} (see dev DDL). */
   private static final String TAP_COUNT_EXPR = "countIf(ClickType = 'good' AND NOT Rage)";
@@ -162,7 +168,8 @@ public final class ScreenRcaQueryBuilder {
     String where =
         appendDimensionFilters(
             baseWhereSql(acc, projectId, screenName, startInclusive, endExclusive), acc, dimensionFilters);
-    String groupBy = dimensionColumns.stream().collect(Collectors.joining(", "));
+    // CH 25+: GROUP BY select aliases (Platform, …), not the coalesce expression in SELECT
+    String groupBy = String.join(", ", dimensionColumns);
     String sql =
         "SELECT "
             + metricSelect
@@ -179,9 +186,11 @@ public final class ScreenRcaQueryBuilder {
     return dimensionExpression(dimensionName) + " AS " + dimensionName;
   }
 
+  static final String UNKNOWN_DIMENSION = "Unknown";
+
   /** Materialized dimension columns (same definitions as {@code otel.otel_logs} DDL). */
   public static String dimensionExpression(String dimensionName) {
-    return switch (dimensionName) {
+    String col = switch (dimensionName) {
       case "Platform" -> "Platform";
       case "OsVersion" -> "OsVersion";
       case "AppVersion" -> "AppVersion";
@@ -190,6 +199,7 @@ public final class ScreenRcaQueryBuilder {
       case "GeoState" -> "GeoState";
       default -> throw new IllegalArgumentException("Unknown Screen RCA dimension: " + dimensionName);
     };
+    return "ifNull(nullIf(trimBoth(" + col + "), ''), '" + UNKNOWN_DIMENSION + "')";
   }
 
   private static String dimensionEqualityLhs(String dimensionName) {

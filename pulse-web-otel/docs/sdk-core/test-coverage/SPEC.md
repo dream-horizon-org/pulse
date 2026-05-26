@@ -351,6 +351,26 @@ Below: **Playwright `test()` titles** as registered in the repo (grouped by `tes
 - SPA navigation flushes TTFB with `screen.name` from initial route (`PulseRouterEvents` → `notifySoftNavigation` + batch); SPA `screen_load` span carries `navigation_id`; **second SPA nav** (`/products` → `/cart`) yields a **different** `navigation_id` on the latest `screen_load` than after the first client nav
 - Remote gate off → no web_vital logs; local kill switch `?pulse_wv_enabled=false` → no web_vital logs (remote gate may stay on)
 
+#### `@custom-span` (ecommerce-demo)
+
+- J1: manual `startSpan` on products page with session.id, screen.name, custom attributes
+- J2: `trackSpan` wrapping product detail load, duration ≥ nested network span
+- J3: `trackSpan` with abort fetch → ERROR status, network.0 sibling
+- J4: `trackSpan` 404 fetch → ERROR status, network.404 sibling
+- J5: multi-span session continuity across navigation
+- J6: duration > 0, timestamps chronological, nested network spans
+- J7: `addEvent` breadcrumbs with ordered `timeUnixNano`
+- NEG1–3: pre-init no span, throw → ERROR, page refresh → new session
+
+#### `@custom-span-next` (nextjs-demo)
+
+- J8: App Router `/products` RSC render timing span
+- J9: Product detail `trackEvent` coexistence
+- J10: `/search?q=shoes` screen.name on span
+- J11: Multi-hop session continuity (4 page-visit spans)
+- J12–13: Pages Router `/pages-demo` → `/shop` → `[productId]`
+- J14: `/api-demo` network nesting within custom span
+
 #### `@SyntheticUser`
 
 - full app journey (parameterized iterations) — end-to-end smoke across catalog features

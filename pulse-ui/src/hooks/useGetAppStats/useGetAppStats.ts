@@ -42,7 +42,7 @@ export function useGetAppStats({
       {
         field: COLUMN_NAME.PULSE_TYPE,
         operator: "EQ",
-        value: [PulseType.SESSION_START],
+        value: [PulseType.APP_START],
       },
     ];
 
@@ -118,7 +118,7 @@ export function useGetAppStats({
   // Note: LOGS table has direct UserId and SessionId columns
   const requestBody = useMemo(
     () => ({
-      dataType: "LOGS" as const,
+      dataType: "TRACES" as const,
       timeRange: {
         start: formattedStartTime,
         end: formattedEndTime,
