@@ -22,3 +22,14 @@ export interface UserEngagementData {
   hasData: boolean;
 }
 
+export interface UserEngagementLoadingState {
+  daily: boolean;
+  weekly: boolean;
+  monthly: boolean;
+}
+
+export interface UserEngagementFailedState {
+  daily: boolean;
+  weekly: boolean;
+  monthly: boolean;
+}
