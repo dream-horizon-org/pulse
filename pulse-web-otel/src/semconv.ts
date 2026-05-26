@@ -156,6 +156,7 @@ export const PulseWebSemconv = {
     WEB_VITAL: "web_vital",
     SCREEN_LOAD: "screen_load",
     SCREEN_SESSION: "screen_session",
+    CUSTOM_SPAN: "custom_span",
   },
   LogBody: {
     SESSION_START: "session.start",

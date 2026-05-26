@@ -253,18 +253,18 @@ class InteractionManagerTest {
         fun `With events in reverse order with correct time`() =
             runTest(standardTestDispatcher) {
                 initMockInteractionManager(interactionConfigWithTwoEvents)
-                val timeStampInNano = System.nanoTime()
+                val timestampInNano = System.nanoTime()
                 addEventWithNanoTimeFromBoot(
                     "event2",
                     emptyMap(),
-                    timeStampInNano,
+                    timestampInNano,
                 )
                 assertSingleNoOngoingInteraction()
 
                 addEventWithNanoTimeFromBoot(
                     "event1",
                     emptyMap(),
-                    timeStampInNano - 1,
+                    timestampInNano - 1,
                 )
 
                 assertSingleFinalInteraction()

@@ -1,15 +1,16 @@
-import { removeAllCookies } from '../cookies';
-import { googleLogout } from '@react-oauth/google';
-import { signOutFirebase, isGcpMultiTenantEnabled } from '../gcpAuth';
+import { removeAllCookies } from "../cookies";
+import { googleLogout } from "@react-oauth/google";
+import { signOutFirebase, isGcpMultiTenantEnabled } from "../gcpAuth";
+import { clearPulseUserIdentity } from "../../pulse-web-rum/pulseRum";
 
 /**
  * Central logout utility that handles all cleanup
- * 
+ *
  * This function:
  * 1. Signs out from Google/Firebase
  * 2. Clears all cookies
  * 3. Clears sessionStorage (which includes context data)
- * 
+ *
  * Note: React context clearing (clearProject, clearTenant) should be called
  * by the component that invokes this, as this helper doesn't have access to contexts.
  */
@@ -22,8 +23,10 @@ export const performLogout = async (): Promise<void> => {
       googleLogout();
     }
   } catch (error) {
-    console.error('[Logout] Error signing out from auth provider:', error);
+    console.error("[Logout] Error signing out from auth provider:", error);
   }
+
+  clearPulseUserIdentity();
 
   // Clear all cookies
   removeAllCookies();
@@ -37,7 +40,7 @@ export const performLogout = async (): Promise<void> => {
  * Useful for testing or when you want to clear state without signing out
  */
 export const clearContextStorage = (): void => {
-  sessionStorage.removeItem('pulse_project_context');
-  sessionStorage.removeItem('pulse_tenant_context');
-  sessionStorage.removeItem('pulse_last_project_id');
+  sessionStorage.removeItem("pulse_project_context");
+  sessionStorage.removeItem("pulse_tenant_context");
+  sessionStorage.removeItem("pulse_last_project_id");
 };

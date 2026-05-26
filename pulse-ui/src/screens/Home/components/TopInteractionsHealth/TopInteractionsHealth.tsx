@@ -17,7 +17,7 @@ export function TopInteractionsHealth({
       startTime: dayjs()
         .utc()
         .endOf("day")
-        .subtract(6, "days")
+        .subtract(1, "days")
         .startOf("day")
         .toISOString(),
       endTime: dayjs().utc().endOf("day").toISOString(),

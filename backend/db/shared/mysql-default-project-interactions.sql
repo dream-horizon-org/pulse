@@ -8,9 +8,8 @@
 --   interaction_id 100..116 — INT-P / lottery-demo + SDK auto-events
 --   interaction_id 201..554 etc. — Next.js demo E2E mirrors; matches
 --   pulse-web-otel/examples/nextjs-demo/e2e/nextjs-demo.spec.ts
---   (ID map: 501/502 click-bridge, 551 single-event, 554 apdex excellent,
---   544 user mid, 545 middle-required; context 301 / reverse network 304;
---   branch 414 = E125; overlap B = 430.)
+--   interaction_id 600..610 — pulse-ui RUM custom events (Pulse.trackEvent);
+--   see pulse-ui/src/pulse-web-rum/
 -- ============================================================================
 
 INSERT INTO interaction (interaction_id, project_id, name, status, details, is_archived, created_by, updated_by)
@@ -964,8 +963,180 @@ VALUES
         JSON_OBJECT('name', 'nx_err_step2', 'props', JSON_ARRAY(), 'isBlacklisted', false)
     ),
     'globalBlacklistedEvents', JSON_ARRAY()
+), 0, 'system', 'system'),
+
+-- ─── pulse-ui (serviceName pulse-ui) — Pulse.trackEvent journey seeds ───
+(600, 'default-project', 'UI Onboarding Success to Dashboard', 'RUNNING', JSON_OBJECT(
+    'description', 'onboarding_success_viewed → go_to_dashboard_clicked → dashboard_home_viewed. Trigger: land on /projects/:id/onboarding, click Go to Dashboard.',
+    'thresholdInMs', 60000,
+    'uptimeLowerLimitInMs', 3000,
+    'uptimeMidLimitInMs', 15000,
+    'uptimeUpperLimitInMs', 45000,
+    'events', JSON_ARRAY(
+        JSON_OBJECT('name', 'onboarding_success_viewed', 'props', JSON_ARRAY(), 'isBlacklisted', false),
+        JSON_OBJECT('name', 'go_to_dashboard_clicked', 'props', JSON_ARRAY(), 'isBlacklisted', false),
+        JSON_OBJECT('name', 'dashboard_home_viewed', 'props', JSON_ARRAY(), 'isBlacklisted', false)
+    ),
+    'globalBlacklistedEvents', JSON_ARRAY()
+), 0, 'system', 'system'),
+
+(601, 'default-project', 'UI Nav to Interactions Loaded', 'RUNNING', JSON_OBJECT(
+    'description', 'nav_item_clicked[destination=/interactions] → interactions_list_loaded. Trigger: sidebar Interactions → list API ready.',
+    'thresholdInMs', 60000,
+    'uptimeLowerLimitInMs', 3000,
+    'uptimeMidLimitInMs', 15000,
+    'uptimeUpperLimitInMs', 45000,
+    'events', JSON_ARRAY(
+        JSON_OBJECT(
+            'name', 'nav_item_clicked',
+            'props', JSON_ARRAY(
+                JSON_OBJECT('name', 'destination', 'value', '/interactions', 'operator', 'EQUALS')
+            ),
+            'isBlacklisted', false
+        ),
+        JSON_OBJECT('name', 'interactions_list_loaded', 'props', JSON_ARRAY(), 'isBlacklisted', false)
+    ),
+    'globalBlacklistedEvents', JSON_ARRAY()
+), 0, 'system', 'system'),
+
+(602, 'default-project', 'UI Onboarding Complete to Success', 'RUNNING', JSON_OBJECT(
+    'description', 'onboarding_completed → onboarding_success_viewed. Trigger: finish org/project setup form.',
+    'thresholdInMs', 60000,
+    'uptimeLowerLimitInMs', 3000,
+    'uptimeMidLimitInMs', 15000,
+    'uptimeUpperLimitInMs', 45000,
+    'events', JSON_ARRAY(
+        JSON_OBJECT('name', 'onboarding_completed', 'props', JSON_ARRAY(), 'isBlacklisted', false),
+        JSON_OBJECT('name', 'onboarding_success_viewed', 'props', JSON_ARRAY(), 'isBlacklisted', false)
+    ),
+    'globalBlacklistedEvents', JSON_ARRAY()
+), 0, 'system', 'system'),
+
+(603, 'default-project', 'UI Project Select to Home', 'RUNNING', JSON_OBJECT(
+    'description', 'project_selected → dashboard_home_viewed. Trigger: pick a project on org projects page.',
+    'thresholdInMs', 90000,
+    'uptimeLowerLimitInMs', 5000,
+    'uptimeMidLimitInMs', 20000,
+    'uptimeUpperLimitInMs', 60000,
+    'events', JSON_ARRAY(
+        JSON_OBJECT('name', 'project_selected', 'props', JSON_ARRAY(), 'isBlacklisted', false),
+        JSON_OBJECT('name', 'dashboard_home_viewed', 'props', JSON_ARRAY(), 'isBlacklisted', false)
+    ),
+    'globalBlacklistedEvents', JSON_ARRAY()
+), 0, 'system', 'system'),
+
+(604, 'default-project', 'UI Nav Home to Dashboard', 'RUNNING', JSON_OBJECT(
+    'description', 'nav_item_clicked[destination=/] → dashboard_home_viewed. Trigger: sidebar Home from any project sub-route.',
+    'thresholdInMs', 60000,
+    'uptimeLowerLimitInMs', 3000,
+    'uptimeMidLimitInMs', 15000,
+    'uptimeUpperLimitInMs', 45000,
+    'events', JSON_ARRAY(
+        JSON_OBJECT(
+            'name', 'nav_item_clicked',
+            'props', JSON_ARRAY(
+                JSON_OBJECT('name', 'destination', 'value', '/', 'operator', 'EQUALS')
+            ),
+            'isBlacklisted', false
+        ),
+        JSON_OBJECT('name', 'dashboard_home_viewed', 'props', JSON_ARRAY(), 'isBlacklisted', false)
+    ),
+    'globalBlacklistedEvents', JSON_ARRAY()
+), 0, 'system', 'system'),
+
+(605, 'default-project', 'UI Session Replay Open', 'RUNNING', JSON_OBJECT(
+    'description', 'nav_item_clicked[destination=/session-replay/sessions] → session_replay_opened. Requires session replay enabled in SDK config.',
+    'thresholdInMs', 60000,
+    'uptimeLowerLimitInMs', 3000,
+    'uptimeMidLimitInMs', 15000,
+    'uptimeUpperLimitInMs', 45000,
+    'events', JSON_ARRAY(
+        JSON_OBJECT(
+            'name', 'nav_item_clicked',
+            'props', JSON_ARRAY(
+                JSON_OBJECT('name', 'destination', 'value', '/session-replay/sessions', 'operator', 'EQUALS')
+            ),
+            'isBlacklisted', false
+        ),
+        JSON_OBJECT('name', 'session_replay_opened', 'props', JSON_ARRAY(), 'isBlacklisted', false)
+    ),
+    'globalBlacklistedEvents', JSON_ARRAY()
+), 0, 'system', 'system'),
+
+(606, 'default-project', 'UI Create Interaction', 'RUNNING', JSON_OBJECT(
+    'description', 'nav_item_clicked[destination=/interactions] → interaction_created. Trigger: open Interactions, create a new critical interaction.',
+    'thresholdInMs', 300000,
+    'uptimeLowerLimitInMs', 10000,
+    'uptimeMidLimitInMs', 60000,
+    'uptimeUpperLimitInMs', 180000,
+    'events', JSON_ARRAY(
+        JSON_OBJECT(
+            'name', 'nav_item_clicked',
+            'props', JSON_ARRAY(
+                JSON_OBJECT('name', 'destination', 'value', '/interactions', 'operator', 'EQUALS')
+            ),
+            'isBlacklisted', false
+        ),
+        JSON_OBJECT('name', 'interaction_created', 'props', JSON_ARRAY(), 'isBlacklisted', false)
+    ),
+    'globalBlacklistedEvents', JSON_ARRAY()
+), 0, 'system', 'system'),
+
+(607, 'default-project', 'UI AI Chat Message Sent', 'RUNNING', JSON_OBJECT(
+    'description', 'nav_item_clicked[destination=/ai-chat] → ai_chat_message_sent. Requires REACT_APP_ENABLE_AI_CHAT=true.',
+    'thresholdInMs', 120000,
+    'uptimeLowerLimitInMs', 5000,
+    'uptimeMidLimitInMs', 30000,
+    'uptimeUpperLimitInMs', 90000,
+    'events', JSON_ARRAY(
+        JSON_OBJECT(
+            'name', 'nav_item_clicked',
+            'props', JSON_ARRAY(
+                JSON_OBJECT('name', 'destination', 'value', '/ai-chat', 'operator', 'EQUALS')
+            ),
+            'isBlacklisted', false
+        ),
+        JSON_OBJECT('name', 'ai_chat_message_sent', 'props', JSON_ARRAY(), 'isBlacklisted', false)
+    ),
+    'globalBlacklistedEvents', JSON_ARRAY()
+), 0, 'system', 'system'),
+
+(608, 'default-project', 'UI Universal Query Executed', 'RUNNING', JSON_OBJECT(
+    'description', 'Single-step: universal_query_executed. Trigger: run a query on Universal Event Query screen.',
+    'thresholdInMs', 120000,
+    'uptimeLowerLimitInMs', 5000,
+    'uptimeMidLimitInMs', 30000,
+    'uptimeUpperLimitInMs', 90000,
+    'events', JSON_ARRAY(
+        JSON_OBJECT('name', 'universal_query_executed', 'props', JSON_ARRAY(), 'isBlacklisted', false)
+    ),
+    'globalBlacklistedEvents', JSON_ARRAY()
+), 0, 'system', 'system'),
+
+(609, 'default-project', 'UI User Logged In', 'RUNNING', JSON_OBJECT(
+    'description', 'Single-step: user_logged_in. Trigger: sign in via login page (Google or dev dummy).',
+    'thresholdInMs', 60000,
+    'uptimeLowerLimitInMs', 3000,
+    'uptimeMidLimitInMs', 15000,
+    'uptimeUpperLimitInMs', 45000,
+    'events', JSON_ARRAY(
+        JSON_OBJECT('name', 'user_logged_in', 'props', JSON_ARRAY(), 'isBlacklisted', false)
+    ),
+    'globalBlacklistedEvents', JSON_ARRAY()
+), 0, 'system', 'system'),
+
+(610, 'default-project', 'UI User Logged Out', 'RUNNING', JSON_OBJECT(
+    'description', 'Single-step: user_logged_out. Trigger: confirm logout from navbar profile menu.',
+    'thresholdInMs', 30000,
+    'uptimeLowerLimitInMs', 3000,
+    'uptimeMidLimitInMs', 10000,
+    'uptimeUpperLimitInMs', 25000,
+    'events', JSON_ARRAY(
+        JSON_OBJECT('name', 'user_logged_out', 'props', JSON_ARRAY(), 'isBlacklisted', false)
+    ),
+    'globalBlacklistedEvents', JSON_ARRAY()
 ), 0, 'system', 'system')
 
 ON DUPLICATE KEY UPDATE name = name;
 
-ALTER TABLE interaction AUTO_INCREMENT = 600;
+ALTER TABLE interaction AUTO_INCREMENT = 620;
