@@ -61,6 +61,38 @@ Two package roots — never mix them:
 - `settings.gradle.kts` uses `includeFromDir("instrumentation")` to auto-discover modules up to 3 levels deep
 - Typical module depends on `projects.instrumentation.commonApi`, `projects.instrumentation.androidInstrumentation`, `projects.services`, `projects.session`, `projects.common`
 
+## Use libs.versions.toml for dependencies
+
+Do not hardcode dependency coordinates or plugin versions in Gradle files.
+
+### Discouraged
+
+```kotlin
+id("net.bytebuddy.byte-buddy-gradle-plugin") version "1.17.8"
+
+implementation("org.dreamhorizon.instrumentation:okhttp3-library")
+byteBuddy("org.dreamhorizon.instrumentation:okhttp3-agent")
+```
+
+### Preferred
+
+```kotlin
+alias(libs.plugins.bytebuddy)
+
+implementation(libs.okhttp3.library)
+byteBuddy(libs.okhttp3.agent)
+```
+
+### Catalog placement rules
+- SDK/shared dependencies → <root_project>/gradle/libs.versions.toml
+- Demo-app-only dependencies → demo-app/gradle/libs.versions.toml
+- Do not place demo-app-only dependencies in the root catalog
+- When a dependency already exists in the root catalog, access it from demo-app using and do not duplicate the same dependency entry in demo-app/gradle/libs.versions.toml.
+  ```kotlin
+  rootLibs.some.library
+  ```
+- When adding a new dependency and version entry, place it near similar/group-related dependencies in libs.versions.toml
+
 ## File & Class Naming
 
 | Type | Convention | Examples |
