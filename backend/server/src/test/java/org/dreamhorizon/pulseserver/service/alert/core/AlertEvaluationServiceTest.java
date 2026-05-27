@@ -22,6 +22,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.reactivex.rxjava3.core.Maybe;
 import io.reactivex.rxjava3.core.Single;
+import io.reactivex.rxjava3.plugins.RxJavaPlugins;
 import io.reactivex.rxjava3.schedulers.Schedulers;
 import io.vertx.rxjava3.core.Vertx;
 import io.vertx.rxjava3.core.eventbus.EventBus;
@@ -53,6 +54,7 @@ import org.dreamhorizon.pulseserver.service.alert.core.util.MetricToFunctionMapp
 import org.dreamhorizon.pulseserver.service.interaction.ClickhouseMetricService;
 import org.dreamhorizon.pulseserver.util.RxObjectMapper;
 import org.dreamhorizon.pulseserver.util.Utils;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
@@ -114,6 +116,9 @@ class AlertEvaluationServiceTest {
 
   @BeforeEach
   void setUp() {
+    // Suppress OnErrorNotImplementedException from fire-and-forget .subscribe() calls
+    // in triggerEvaluation / triggerFunnelEvaluation (doOnError handles logging there).
+    RxJavaPlugins.setErrorHandler(e -> {});
     when(rxObjectMapper.convertValue(any(), any(TypeReference.class)))
         .thenReturn(Single.just(new HashMap<>()));
     alertEvaluationService = new AlertEvaluationService(
@@ -126,6 +131,11 @@ class AlertEvaluationServiceTest {
         funnelResultsDao,
         applicationConfig
     );
+  }
+
+  @AfterEach
+  void tearDown() {
+    RxJavaPlugins.setErrorHandler(null);
   }
 
   // ==================== PRIVATE METHOD TESTS WITH REFLECTION ====================
