@@ -27,7 +27,7 @@ WORKDIR /app
 COPY --from=builder /app/target/pulse-s3-archiver/pulse-s3-archiver.jar ./pulse-s3-archiver.jar
 COPY --from=builder /app/src/main/resources/conf ./conf
 COPY --from=builder /app/src/main/resources/schemas ./schemas
-COPY --from=builder /app/src/main/resources/logback ./logback
+COPY --from=builder /app/src/main/resources/logback.xml ./logback.xml
 
 RUN mkdir -p /otel /tmp/pulse-archiver
 COPY --from=builder /tmp/opentelemetry-javaagent.jar /otel/opentelemetry-javaagent.jar

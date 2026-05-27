@@ -19,7 +19,6 @@ import org.dreamhorizon.pulseserver.errorgrouping.model.NdkFrame;
 import org.dreamhorizon.pulseserver.errorgrouping.model.Lane;
 import org.dreamhorizon.pulseserver.errorgrouping.model.UploadMetadata;
 import org.dreamhorizon.pulseserver.errorgrouping.service.DsymCache;
-import org.dreamhorizon.pulseserver.errorgrouping.service.NdkSymbolsCache;
 import org.dreamhorizon.pulseserver.errorgrouping.service.SourceMapCache;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -39,13 +38,7 @@ class SymbolicatorTest {
   private DsymCache dsymCache;
 
   @Mock
-  private NdkSymbolsCache ndkSymbolsCache;
-
-  @Mock
   private IosLlvmSymbolicator iosLlvmSymbolicator;
-
-  @Mock
-  private AndroidNdkLlvmSymbolicator androidNdkLlvmSymbolicator;
 
   private io.vertx.core.Vertx coreVertx;
   private Symbolicator symbolicator;
@@ -54,8 +47,7 @@ class SymbolicatorTest {
   void setUp() {
     coreVertx = io.vertx.core.Vertx.vertx();
     Vertx rxVertx = Vertx.newInstance(coreVertx);
-    symbolicator = new Symbolicator(
-        sourceMapCache, dsymCache, ndkSymbolsCache, iosLlvmSymbolicator, androidNdkLlvmSymbolicator, rxVertx);
+    symbolicator = new Symbolicator(sourceMapCache, dsymCache, iosLlvmSymbolicator, rxVertx);
   }
 
   @AfterEach
@@ -393,70 +385,6 @@ class SymbolicatorTest {
           .blockingGet();
       assertEquals(1, out.size());
       assertEquals("App#main", out.get(0));
-    }
-  }
-
-  @Nested
-  class SymbolicateNdkNativeTests {
-    @Test
-    void shouldReturnEmptyWhenNoFrames() {
-      EventMeta meta = EventMeta.builder().platform("android").projectId("p").build();
-      List<String> out = symbolicator.symbolicateNdkNative(Collections.emptyList(), meta, false)
-          .blockingGet();
-      assertTrue(out.isEmpty());
-    }
-
-    @Test
-    void shouldUseTokensWhenNoNdkZipBytes() {
-      NdkFrame f = NdkFrame.builder()
-          .lane(Lane.NDK)
-          .ndkLib("libdemo.so")
-          .ndkPc("0x1234")
-          .ndkSymbol("trigger")
-          .rawLine("  #00 pc 1234 libdemo.so (trigger+12)")
-          .originalPosition(0)
-          .build();
-      EventMeta meta = EventMeta.builder()
-          .platform("android")
-          .appVersion("1")
-          .appVersionCode("1")
-          .projectId("proj")
-          .build();
-      when(ndkSymbolsCache.getNdkSymbols(any(UploadMetadata.class))).thenReturn(Single.just(Optional.empty()));
-      when(androidNdkLlvmSymbolicator.symbolicateFrames(any(), any(), any()))
-          .thenReturn(List.of(f.getRawLine()));
-
-      List<String> out = symbolicator.symbolicateNdkNative(List.of(f), meta, false)
-          .blockingGet();
-      assertEquals(1, out.size());
-      assertEquals("libdemo.so#trigger", out.get(0));
-    }
-
-    @Test
-    void shouldUseSymbolicatedLinesWhenStackTraceFormatTrue() {
-      NdkFrame f = NdkFrame.builder()
-          .lane(Lane.NDK)
-          .ndkLib("libdemo.so")
-          .ndkPc("0x1234")
-          .ndkSymbol("trigger")
-          .rawLine("  #00 pc 1234 libdemo.so (trigger+12)")
-          .originalPosition(0)
-          .build();
-      EventMeta meta = EventMeta.builder()
-          .platform("android")
-          .appVersion("1")
-          .appVersionCode("1")
-          .projectId("proj")
-          .build();
-      when(ndkSymbolsCache.getNdkSymbols(any(UploadMetadata.class)))
-          .thenReturn(Single.just(Optional.of(new byte[] {1, 2, 3})));
-      when(androidNdkLlvmSymbolicator.symbolicateFrames(any(), any(), any()))
-          .thenReturn(List.of("  #00 pc 1234 libdemo.so (trigger demo.cpp:1:0)"));
-
-      List<String> out = symbolicator.symbolicateNdkNative(List.of(f), meta, true)
-          .blockingGet();
-      assertEquals(1, out.size());
-      assertEquals("  #00 pc 1234 libdemo.so (trigger demo.cpp:1:0)", out.get(0));
     }
   }
 }

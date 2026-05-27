@@ -43,8 +43,7 @@ RUN set -eux; \
 # - LLVM_SYMBOLIZER_PATH: full path to llvm-symbolizer executable
 # - LLVM_OBJDUMP_PATH: full path to llvm-objdump executable
 ENV LLVM_SYMBOLIZER_PATH=llvm-symbolizer \
-    LLVM_OBJDUMP_PATH=llvm-objdump \
-    ANDROID_NDK_SYMBOLIZER_PATH=llvm-symbolizer
+    LLVM_OBJDUMP_PATH=llvm-objdump
 
 # Set working directory
 WORKDIR /app

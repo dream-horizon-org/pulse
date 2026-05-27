@@ -1312,24 +1312,17 @@ The request must contain two parts:
    ```json
    [
      {
-       "type": "mapping",
+       "type": "proguard",
        "appVersion": "1.2.3",
        "fileName": "mapping.txt",
-       "platform": "android",
+       "platform": "Android",
        "versionCode": "123"
      },
      {
-       "type": "ndk",
-       "appVersion": "1.2.3",
-       "fileName": "native-symbols.zip",
-       "platform": "android",
-       "versionCode": "123"
-     },
-     {
-       "type": "js",
+       "type": "sourcemap",
        "appVersion": "1.2.3",
        "fileName": "bundle.js.map",
-       "platform": "ios",
+       "platform": "iOS",
        "versionCode": "123"
      }
    ]
@@ -1337,7 +1330,7 @@ The request must contain two parts:
 
 **Metadata Fields:**
 
-- `type` (required): Framework/symbol file type — `js`, `mapping`, `dsym`, or `ndk` (Android native obj zip)
+- `type` (required): Framework/symbol file type (e.g., "proguard", "sourcemap", "retrace")
 - `appVersion` (required): Application version string
 - `fileName` (required): Name of the file (must match the filename in the file part)
 - `platform` (required): Platform identifier (e.g., "Android", "iOS")
@@ -1387,13 +1380,6 @@ curl -X POST http://localhost:8080/v1/symbolicate/file/upload \
 - Files are stored in MySQL and can be retrieved later for symbolication based on app version, platform, and framework
   type
 - Existing files for the same app version/platform/framework combination are automatically replaced
-
-**Android NDK native symbols (`type=ndk`):**
-
-- Upload a zip of unstripped `.so` files from the Gradle task `uploadSymbolFiles` (Pulse Android plugin) or any CI step that zips AGP `build/intermediates/cxx/**/obj`.
-- At symbolication time, pulse-server runs **`llvm-symbolizer`** from the **Android NDK** against those objects.
-- Configure the symbolizer path (in order): `ANDROID_NDK_SYMBOLIZER_PATH`, `LLVM_SYMBOLIZER_PATH`, or auto-resolve from `ANDROID_NDK_HOME` / `NDK_HOME` → `$NDK/toolchains/llvm/prebuilt/*/bin/llvm-symbolizer`.
-- Optional: `LLVM_DEFAULT_ARCH` (default `arm64`), `LLVM_SUBPROCESS_TIMEOUT_SEC` (default `60`).
 
 ## Critical Interactions
 

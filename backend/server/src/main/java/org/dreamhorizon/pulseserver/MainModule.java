@@ -22,7 +22,6 @@ import org.dreamhorizon.pulseserver.dao.project.ProjectDao;
 import org.dreamhorizon.pulseserver.dao.tenant.TenantDao;
 import org.dreamhorizon.pulseserver.guice.OpenFgaServiceProvider;
 import org.dreamhorizon.pulseserver.dao.user.UserDao;
-import org.dreamhorizon.pulseserver.errorgrouping.AndroidNdkLlvmSymbolicator;
 import org.dreamhorizon.pulseserver.errorgrouping.IosLlvmSymbolicator;
 import org.dreamhorizon.pulseserver.errorgrouping.Symbolicator;
 import org.dreamhorizon.pulseserver.errorgrouping.service.*;
@@ -130,9 +129,7 @@ public class MainModule extends VertxAbstractModule {
     bind(SymbolFileService.class).to(MysqlSymbolFileService.class).in(Singleton.class);
     bind(SourceMapCache.class).in(Singleton.class);
     bind(DsymCache.class).in(Singleton.class);
-    bind(NdkSymbolsCache.class).in(Singleton.class);
     bind(IosLlvmSymbolicator.class).in(Singleton.class);
-    bind(AndroidNdkLlvmSymbolicator.class).in(Singleton.class);
     bind(ErrorGroupingService.class).in(Singleton.class);
     bind(Symbolicator.class).in(Singleton.class);
     bind(S3AsyncClient.class).toProvider(this::loadS3Client).in(Singleton.class);

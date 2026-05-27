@@ -12,7 +12,7 @@ import lombok.NoArgsConstructor;
 @Data
 @Builder
 @EqualsAndHashCode
-public class UploadMetadata implements UploadMetadataKeyView {
+public class UploadMetadata {
   private String type;
   private String appVersion;
   private String fileName;
