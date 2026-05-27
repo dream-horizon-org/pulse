@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Modal, Stack, Divider } from "@mantine/core";
 import type { FilterGroup } from "../../../services/sessionReplay/filterConfig";
 import type {

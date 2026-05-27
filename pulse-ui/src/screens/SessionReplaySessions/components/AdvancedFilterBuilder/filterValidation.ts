@@ -15,20 +15,6 @@ const NO_VALUE_OPERATORS: FilterOperator[] = ["exists", "not_exists"];
 const NO_VALUE_OPERATOR_KEYS = ["EMPTY", "NOT_EMPTY", "EXISTS", "NOT_EXISTS"];
 
 /**
- * Operators that require a single value
- */
-const SINGLE_VALUE_OPERATORS: FilterOperator[] = [
-  "equals",
-  "not_equals",
-  "contains",
-  "not_contains",
-  "greater_than",
-  "less_than",
-  "greater_than_or_equal",
-  "less_than_or_equal",
-];
-
-/**
  * Operators that require array/multiple values
  */
 const ARRAY_VALUE_OPERATORS: FilterOperator[] = ["in", "not_in"];
