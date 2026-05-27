@@ -12,14 +12,17 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import org.mockito.ArgumentCaptor;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.reactivex.rxjava3.core.Maybe;
 import io.reactivex.rxjava3.core.Single;
+import io.reactivex.rxjava3.schedulers.Schedulers;
 import io.vertx.rxjava3.core.Vertx;
 import io.vertx.rxjava3.core.eventbus.EventBus;
 import io.vertx.rxjava3.core.eventbus.Message;
@@ -48,6 +51,9 @@ import org.dreamhorizon.pulseserver.service.alert.core.operatror.MetricOperatorF
 import org.dreamhorizon.pulseserver.service.alert.core.operatror.MetricOperatorProcessor;
 import org.dreamhorizon.pulseserver.service.alert.core.util.MetricToFunctionMapper;
 import org.dreamhorizon.pulseserver.service.interaction.ClickhouseMetricService;
+import org.dreamhorizon.pulseserver.util.RxObjectMapper;
+import org.dreamhorizon.pulseserver.util.Utils;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -88,19 +94,35 @@ class AlertEvaluationServiceTest {
   @Mock
   private ApplicationConfig applicationConfig;
 
+  @Mock
+  private RxObjectMapper rxObjectMapper;
+
   // Use real ObjectMapper for coverage
   private ObjectMapper realObjectMapper = new ObjectMapper();
   private AlertEvaluationService alertEvaluationService;
 
+  @BeforeAll
+  static void preloadRxObjectMapper() {
+    // RxObjectMapper has a static initializer that requires GuiceInjector.
+    // Mock Utils.fromVertxEventLoop() while forcing class loading so subsequent
+    // @Mock creation works without GuiceInjector in tests.
+    try (var utilsMock = mockStatic(Utils.class)) {
+      utilsMock.when(Utils::fromVertxEventLoop).thenReturn(Schedulers.trampoline());
+      new RxObjectMapper(new ObjectMapper());
+    }
+  }
+
   @BeforeEach
   void setUp() {
+    when(rxObjectMapper.convertValue(any(), any(TypeReference.class)))
+        .thenReturn(Single.just(new HashMap<>()));
     alertEvaluationService = new AlertEvaluationService(
         alertsDao,
         clickhouseMetricService,
         metricOperatorFactory,
         realObjectMapper,
         vertx,
-        null,
+        rxObjectMapper,
         funnelResultsDao,
         applicationConfig
     );
