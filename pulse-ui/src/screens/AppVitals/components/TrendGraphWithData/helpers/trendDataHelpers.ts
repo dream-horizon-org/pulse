@@ -9,7 +9,10 @@ import {
   getBucketDurationMs,
 } from "../../../../../utils/TimeBucketUtil";
 import { COLUMN_NAME } from "../../../../../constants/PulseOtelSemcov";
-import { formatTimeToISO } from "../../../../../utils/DateUtil";
+import {
+  formatTimeToISO,
+  formatTimeToLocalFromUTCString,
+} from "../../../../../utils/DateUtil";
 import type { StartEndDateTimeType } from "../../../../CriticalInteractionDetails/components/DateTimeRangePickerDropDown/DateTimeRangePicker.interface";
 
 dayjs.extend(utc);
@@ -33,47 +36,12 @@ export function trendRangeSpansMultipleUtcDays(
   return !start.isSame(end, "day");
 }
 
-/**
- * Trend axis labels — same tokens as Home dashboard charts
- * (see UserEngagementGraph / ActiveSessionsGraph: "MMM DD", "MMM DD, HH:mm").
- */
+/** @deprecated Prefer `formatTimeToLocalFromUTCString` from `utils/DateUtil`. */
 export function formatTrendDate(
   timestamp: string,
   bucketSize: TimeBucketSize,
 ): string {
-  const d = dayjs.utc(timestamp);
-
-  // Sub-day buckets: datetime with comma (matches Home tooltips)
-  if (
-    bucketSize === "1m" ||
-    bucketSize === "5m" ||
-    bucketSize === "10m" ||
-    bucketSize === "30m" ||
-    bucketSize === "1h" ||
-    bucketSize === "3h" ||
-    bucketSize === "6h" ||
-    bucketSize === "12h"
-  ) {
-    return d.format("MMM DD, HH:mm");
-  }
-
-  if (bucketSize === "1d" || bucketSize === "3d") {
-    return d.format("MMM DD");
-  }
-
-  if (bucketSize === "1w" || bucketSize === "2w" || bucketSize === "4w") {
-    return d.format("MMM DD");
-  }
-
-  if (bucketSize === "1M" || bucketSize === "3M" || bucketSize === "6M") {
-    return d.format("MMM YYYY");
-  }
-
-  if (bucketSize === "1y") {
-    return d.format("MMM YYYY");
-  }
-
-  return d.format("MMM DD");
+  return formatTimeToLocalFromUTCString(timestamp, bucketSize);
 }
 
 /** Normalize API bucket timestamp to ISO for chart category values (brush selection). */

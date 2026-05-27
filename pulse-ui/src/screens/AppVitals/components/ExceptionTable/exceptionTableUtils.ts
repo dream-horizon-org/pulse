@@ -1,4 +1,4 @@
-import dayjs from "dayjs";
+import { getHumanReadableLocalStringFromUTCDateTimeValue } from "../../../../utils/DateUtil";
 
 /**
  * Formats app versions string into a range (first - last)
@@ -43,8 +43,9 @@ export function formatAppVersionRange(appVersions: string): string {
 }
 
 export function formatExceptionTimestamp(value: string | undefined): string {
-  if (!value || value === "-" || !dayjs(value).isValid()) {
+  if (!value || value === "-") {
     return "-";
   }
-  return dayjs(value).format("MMM DD, YYYY HH:mm:ss");
+  const formatted = getHumanReadableLocalStringFromUTCDateTimeValue(value);
+  return formatted || "-";
 }

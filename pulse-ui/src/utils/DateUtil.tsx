@@ -291,31 +291,31 @@ export function getUTCDateTimeFromLocalStringDateValue(
 
 export function getLocalStringFromUTCDateTimeValue(value: string | undefined) {
   if (!value || value.trim() === "") return "";
-  
+
   // Handle URL encoding: replace + with space (URL encoding for space in query strings)
   let cleanedValue = value.replace(/\+/g, " ").trim();
-  
+
   // Try to decode if still URL-encoded
   try {
     cleanedValue = decodeURIComponent(cleanedValue);
   } catch {
     // Already decoded or invalid, use as is
   }
-  
+
   // Try parsing as UTC with explicit format first, then flexible parsing
   let parsed = dayjs.utc(cleanedValue, "YYYY-MM-DD HH:mm:ss", true); // strict mode
-  
+
   // If strict parsing fails, try flexible parsing
   if (!parsed.isValid()) {
     parsed = dayjs.utc(cleanedValue);
   }
-  
+
   // Validate the parsed date
   if (!parsed.isValid()) {
     console.warn("Invalid date string:", value, "->", cleanedValue);
     return "";
   }
-  
+
   return parsed.local().format("YYYY-MM-DD HH:mm:ss");
 }
 
@@ -327,6 +327,20 @@ export function getHumanReadableLocalStringFromUTCEpoch(value: number) {
   return dayjs.unix(value).format("MMM D, YYYY · hh:mm A");
 }
 
+/**
+ * Human-readable local display for API UTC datetime strings
+ * (e.g. `YYYY-MM-DD HH:mm:ss` or ISO). Uses {@link getLocalStringFromUTCDateTimeValue}.
+ */
+export function getHumanReadableLocalStringFromUTCDateTimeValue(
+  value: string | undefined,
+): string {
+  const local = getLocalStringFromUTCDateTimeValue(value);
+  if (!local) return "";
+  const parsed = dayjs(local, "YYYY-MM-DD HH:mm:ss", true);
+  if (!parsed.isValid()) return "";
+  return parsed.format("MMM DD, YYYY HH:mm:ss");
+}
+
 export function getCurrentEpochSeconds(): number {
   return Math.floor(dayjs.utc().valueOf() / 1000);
 }
@@ -335,44 +349,43 @@ export function getCurrentEpochSeconds(): number {
  * Converts a time string to ISO format (UTC).
  * Handles both "YYYY-MM-DD HH:mm:ss" format (from getStartAndEndDateTimeString)
  * and ISO format (contains 'T' or 'Z').
- * 
+ *
  * @param time - The time string to convert
  * @returns ISO formatted UTC string, or empty string if input is empty
  */
 export function formatTimeToISO(time: string): string {
   if (!time) return "";
-  
+
   // If already in ISO format (contains 'T' or 'Z'), parse and ensure valid
   if (time.includes("T") || time.includes("Z")) {
     return dayjs.utc(time).toISOString();
   }
-  
+
   // Parse "YYYY-MM-DD HH:mm:ss" as UTC and convert to ISO format
   return dayjs.utc(time, "YYYY-MM-DD HH:mm:ss").toISOString();
 }
 
-  /**
-   * Parse store/URL time strings to UTC ISO for API calls.
-   * Brush selection + formatted axis labels historically produced invalid values;
-   * fall back to defaults instead of calling toISOString on Invalid Date.
-   */
+/**
+ * Parse store/URL time strings to UTC ISO for API calls.
+ * Brush selection + formatted axis labels historically produced invalid values;
+ * fall back to defaults instead of calling toISOString on Invalid Date.
+ */
 export const formatToUTC = (time: string, fallback: string): string => {
-    const tryParse = (t: string): dayjs.Dayjs | null => {
-      const s = t?.trim();
-      if (!s || s === "Invalid Date") return null;
-      if (s.includes("T") || s.endsWith("Z")) {
-        const d = dayjs.utc(s);
-        return d.isValid() ? d : null;
-      }
-      const strict = dayjs.utc(s, "YYYY-MM-DD HH:mm:ss", true);
-      if (strict.isValid()) return strict;
-      const loose = dayjs.utc(s);
-      return loose.isValid() ? loose : null;
-    };
-    const parsed = tryParse(time) ?? tryParse(fallback);
-    return parsed ? parsed.toISOString() : "";
+  const tryParse = (t: string): dayjs.Dayjs | null => {
+    const s = t?.trim();
+    if (!s || s === "Invalid Date") return null;
+    if (s.includes("T") || s.endsWith("Z")) {
+      const d = dayjs.utc(s);
+      return d.isValid() ? d : null;
+    }
+    const strict = dayjs.utc(s, "YYYY-MM-DD HH:mm:ss", true);
+    if (strict.isValid()) return strict;
+    const loose = dayjs.utc(s);
+    return loose.isValid() ? loose : null;
   };
-
+  const parsed = tryParse(time) ?? tryParse(fallback);
+  return parsed ? parsed.toISOString() : "";
+};
 
 export const formatTimeToLocalFromUTCString = (
   timestamp: string,

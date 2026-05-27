@@ -3,9 +3,9 @@ import { useMemo } from "react";
 import { LineChart } from "../../../components/Charts";
 import {
   trendRangeSpansMultipleUtcDays,
-  formatTrendDate,
   trendBrushSelectionToTimeFilter,
 } from "./TrendGraphWithData/helpers/trendDataHelpers";
+import { formatTimeToLocalFromUTCString } from "../../../utils/DateUtil";
 import type { TimeBucketSize } from "../../../utils/TimeBucketUtil";
 import type { StartEndDateTimeType } from "../../CriticalInteractionDetails/components/DateTimeRangePickerDropDown/DateTimeRangePicker.interface";
 
@@ -132,7 +132,8 @@ export const OccurrenceTrendChart: React.FC<OccurrenceTrendChartProps> = ({
             data: xCategories,
             axisLabel: {
               interval: getXAxisInterval(),
-              formatter: (value: string) => formatTrendDate(value, bucketSize),
+              formatter: (value: string) =>
+                formatTimeToLocalFromUTCString(value, bucketSize),
             },
           },
           yAxis: {
