@@ -1,11 +1,13 @@
 import { useMemo } from "react";
-import { useGetDataQuery } from "../useGetDataQuery";
+import { useGetDataQuery, getDataQueryStatus } from "../useGetDataQuery";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 import { COLUMN_NAME, PulseType } from "../../constants/PulseOtelSemcov";
 import {
   UseGetUserEngagementDataProps,
   UserEngagementData,
+  UserEngagementLoadingState,
+  UserEngagementFailedState,
 } from "./useGetUserEngagementData.interface";
 
 dayjs.extend(utc);
@@ -24,6 +26,8 @@ export function useGetUserEngagementData({
 }: UseGetUserEngagementDataProps): {
   data: UserEngagementData;
   isLoading: boolean;
+  loading: UserEngagementLoadingState;
+  failed: UserEngagementFailedState;
   error: Error | null;
 } {
   // Determine data source based on whether screenName is provided
@@ -87,7 +91,7 @@ export function useGetUserEngagementData({
   }, [screenName, appVersion, osVersion, device, useTracesTable]);
 
   // Fetch daily unique users (bucketed by day) for trend chart
-  const { data: dailyData, isLoading: isLoadingDaily } = useGetDataQuery({
+  const dailyQuery = useGetDataQuery({
     requestBody: {
       dataType,
       timeRange: {
@@ -116,7 +120,7 @@ export function useGetUserEngagementData({
   });
 
   // WAU: single aggregate over the entire week window (no time bucketing)
-  const { data: weeklyData, isLoading: isLoadingWeekly } = useGetDataQuery({
+  const weeklyQuery = useGetDataQuery({
     requestBody: {
       dataType,
       timeRange: {
@@ -138,7 +142,7 @@ export function useGetUserEngagementData({
   });
 
   // MAU: single aggregate over the entire month window (no time bucketing)
-  const { data: monthlyData, isLoading: isLoadingMonthly } = useGetDataQuery({
+  const monthlyQuery = useGetDataQuery({
     requestBody: {
       dataType,
       timeRange: {
@@ -158,6 +162,14 @@ export function useGetUserEngagementData({
     },
     enabled: !!monthStartDate && !!monthEndDate,
   });
+
+  const dailyData = dailyQuery.data;
+  const weeklyData = weeklyQuery.data;
+  const monthlyData = monthlyQuery.data;
+
+  const dailyStatus = getDataQueryStatus(dailyQuery);
+  const weeklyStatus = getDataQueryStatus(weeklyQuery);
+  const monthlyStatus = getDataQueryStatus(monthlyQuery);
 
   // Transform daily data: use the most recent day's value as the DAU headline
   const { dailyUsers, trendData, hasDailyData } = useMemo(() => {
@@ -216,8 +228,20 @@ export function useGetUserEngagementData({
 
   const hasData = hasDailyData || hasWeeklyData || hasMonthlyData;
 
-  const isLoading = isLoadingDaily || isLoadingWeekly || isLoadingMonthly;
-  const error = null; // You can enhance this to capture errors from queries if needed
+  const loading: UserEngagementLoadingState = {
+    daily: dailyStatus.loading,
+    weekly: weeklyStatus.loading,
+    monthly: monthlyStatus.loading,
+  };
+
+  const failed: UserEngagementFailedState = {
+    daily: dailyStatus.failed,
+    weekly: weeklyStatus.failed,
+    monthly: monthlyStatus.failed,
+  };
+
+  const isLoading = loading.daily || loading.weekly || loading.monthly;
+  const error = null;
 
   return {
     data: {
@@ -228,6 +252,8 @@ export function useGetUserEngagementData({
       hasData,
     },
     isLoading,
+    loading,
+    failed,
     error,
   };
 }

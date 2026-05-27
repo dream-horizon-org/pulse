@@ -74,7 +74,7 @@ Highlights worth restating because they change agent behaviour:
 ## Reference docs
 
 - **`prd/README.md`** — where PRDs live; symlink `PRD.md` → `prd/<slug>.md` for Ralph (or `PRD_PATH`)
-- **`docs/instrumentations/integration/SPEC.md`** — host-app integration entry (exports, init, framework pointers)
+- **`docs/instrumentations/integration/SPEC.md`** — host-app integration entry (exports, init, framework pointers). Agent skill: **`integrate-pulse-web-sdk`** (`.agents/skills/`).
 - **`docs/sdk-core/SPEC.md`** — sdk-core index (links to split topics)
 - **`docs/sdk-core/data-contract/SPEC.md`** — `pulse.type` + shared attributes
 - **`docs/instrumentations/`** — per-feature holy-grail SPECs (errors, network, …)
