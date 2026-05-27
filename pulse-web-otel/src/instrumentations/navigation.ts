@@ -16,6 +16,7 @@ import { resolveScreenNameFromUrl } from "../processors/global-attrs-processor";
 /** OTLP span names — fixed literals for ClickHouse `SpanName` queries (not route strings). */
 const SPAN_SCREEN_LOAD = "screen_load";
 const SPAN_SCREEN_SESSION = "screen_session";
+const SPAN_SCREEN_INTERACTIVE = "screen_interactive";
 
 type NavigationTimingType = "cold" | "reload" | "back_forward";
 
@@ -640,6 +641,38 @@ export class NavigationInstrumentation implements PulseInstrumentation {
       loadSpan.setAttributes(loadAttrs);
       loadSpan.setStatus({ code: SpanStatusCode.OK });
       loadSpan.end(loadEndMs);
+
+      // Emit screen_interactive span when TTI is available (cold/reload only).
+      // Matches RN wire shape (markContentReady pattern). Android does not emit this.
+      // Keep tti on screen_load for backward compat — this span is additive.
+      if (timing.tti !== undefined) {
+        const origin = performance.timeOrigin;
+        const navTimingEntry = performance.getEntriesByType(
+          "navigation",
+        )[0] as PerformanceNavigationTiming | undefined;
+        const interactiveEndMs =
+          navTimingEntry && navTimingEntry.domInteractive
+            ? origin + navTimingEntry.domInteractive
+            : loadStartMs + timing.tti;
+
+        const interactiveSpan = sdk.tracer.startSpan(
+          SPAN_SCREEN_INTERACTIVE,
+          {
+            kind: SpanKind.INTERNAL,
+            startTime: loadStartMs,
+          },
+          ROOT_CONTEXT,
+        );
+        interactiveSpan.setAttributes({
+          [attributeKeys.PULSE_TYPE]: pulseTypes.SCREEN_INTERACTIVE,
+          [attributeKeys.SCREEN_NAME]: screenName,
+          [attributeKeys.SESSION_ID]: sessionId ?? "",
+          [attributeKeys.START_TYPE]: navTimingType,
+          [attributeKeys.TTI]: timing.tti,
+        });
+        interactiveSpan.setStatus({ code: SpanStatusCode.OK });
+        interactiveSpan.end(interactiveEndMs);
+      }
 
       const dwellSnapshot = this.captureDocSnapshot();
       this.sessionDocPath = dwellSnapshot.path;

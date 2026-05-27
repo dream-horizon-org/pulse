@@ -77,6 +77,58 @@ test.describe("session lifecycle", () => {
   });
 });
 
+// ─── screen_interactive ───────────────────────────────────────────────────────
+
+test.describe("screen_interactive span — Next.js", () => {
+  test("emits screen_interactive span on cold load when TTI available", async ({
+    page,
+    otlp,
+  }) => {
+    await page.goto("/");
+    await otlp.waitForLog("session.start");
+    await page.waitForTimeout(500);
+
+    const loadSpans = findAllSpans(otlp.captured, "screen_load");
+    const ttiOnLoad = loadSpans[0]
+      ? getAttr(loadSpans[0].attributes, "tti")
+      : undefined;
+
+    if (ttiOnLoad !== undefined) {
+      const interactiveSpans = findAllSpans(otlp.captured, "screen_interactive");
+      expect(interactiveSpans.length).toBeGreaterThanOrEqual(1);
+      const span = interactiveSpans[0]!;
+      expect(getAttr(span.attributes, "pulse.type")).toBe("screen_interactive");
+      expect(typeof getAttr(span.attributes, "tti")).toBe("number");
+      expect(Number(getAttr(span.attributes, "tti"))).toBeGreaterThanOrEqual(0);
+      expect(getAttr(span.attributes, "screen.name")).toBeTruthy();
+      expect(getAttr(span.attributes, "session.id")).toBeTruthy();
+      expect(getAttr(span.attributes, "start.type")).toMatch(
+        /^(cold|reload|back_forward)$/,
+      );
+    }
+  });
+
+  test("does NOT emit screen_interactive on SPA navigation", async ({
+    page,
+    otlp,
+  }) => {
+    await page.goto("/");
+    await otlp.waitForLog("session.start");
+    otlp.reset();
+
+    await page.click("a[href='/products']");
+    await page.waitForURL("**/products");
+    await page.waitForTimeout(500);
+
+    const spaInteractive = findAllSpans(
+      otlp.captured,
+      "screen_interactive",
+    ).filter((s) => getAttr(s.attributes, "start.type") === "spa");
+
+    expect(spaInteractive.length).toBe(0);
+  });
+});
+
 // ─── Screen tracking ──────────────────────────────────────────────────────────
 
 test.describe("screen tracking — App Router navigation", () => {

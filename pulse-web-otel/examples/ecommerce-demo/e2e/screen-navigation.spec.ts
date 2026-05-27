@@ -331,6 +331,84 @@ test.describe("@ScreenNav pulse.type consistency", () => {
   });
 });
 
+// ─── screen_interactive ───────────────────────────────────────────────────────
+
+test.describe("@ScreenNav screen_interactive span", () => {
+  test("emits screen_interactive span on cold load when TTI available", async ({
+    page,
+    otlp,
+  }) => {
+    await page.goto("/");
+    // Wait for screen_load first to ensure SDK has processed Navigation Timing
+    await otlp.waitForSpan("screen_load", 8000);
+    await page.waitForTimeout(500);
+
+    const interactiveSpans = findAllSpans(otlp.captured, "screen_interactive");
+    // TTI availability depends on Navigation Timing — guard if not present
+    const loadSpans = findAllSpans(otlp.captured, "screen_load");
+    const ttiOnLoad = loadSpans[0]
+      ? getAttr(loadSpans[0].attributes, "tti")
+      : undefined;
+
+    if (ttiOnLoad !== undefined) {
+      expect(interactiveSpans.length).toBeGreaterThanOrEqual(1);
+      const span = interactiveSpans[0]!;
+      expect(getAttr(span.attributes, "pulse.type")).toBe("screen_interactive");
+      expect(typeof getAttr(span.attributes, "tti")).toBe("number");
+      expect(Number(getAttr(span.attributes, "tti"))).toBeGreaterThanOrEqual(0);
+      expect(getAttr(span.attributes, "screen.name")).toBeTruthy();
+      expect(getAttr(span.attributes, "session.id")).toBeTruthy();
+      expect(getAttr(span.attributes, "start.type")).toMatch(
+        /^(cold|reload|back_forward)$/,
+      );
+    }
+  });
+
+  test("screen_interactive tti matches tti on screen_load", async ({
+    page,
+    otlp,
+  }) => {
+    await page.goto("/");
+    await otlp.waitForSpan("screen_load", 8000);
+    await page.waitForTimeout(500);
+
+    const loadSpans = findAllSpans(otlp.captured, "screen_load");
+    const ttiOnLoad = loadSpans[0]
+      ? getAttr(loadSpans[0].attributes, "tti")
+      : undefined;
+
+    if (ttiOnLoad !== undefined) {
+      const interactiveSpans = findAllSpans(otlp.captured, "screen_interactive");
+      expect(interactiveSpans.length).toBeGreaterThanOrEqual(1);
+      const ttiOnInteractive = getAttr(
+        interactiveSpans[0]!.attributes,
+        "tti",
+      );
+      expect(ttiOnInteractive).toBe(ttiOnLoad);
+    }
+  });
+
+  test("does NOT emit screen_interactive on SPA navigation", async ({
+    page,
+    otlp,
+  }) => {
+    await page.goto("/");
+    await otlp.waitForSpan("screen_load", 8000);
+    otlp.reset();
+
+    await page.click('a:has-text("Products")');
+    await otlp.waitForSpan("screen_load", 8000);
+    await page.waitForTimeout(500);
+
+    const spaInteractive = findAllSpans(
+      otlp.captured,
+      "screen_interactive",
+    ).filter((s) => getAttr(s.attributes, "start.type") === "spa");
+
+    expect(spaInteractive.length).toBe(0);
+  });
+});
+
 // ─── Manual gap-close (NAV) ───────────────────────────────────────────────────
 
 test.describe("@ScreenNav manual gap-close", () => {

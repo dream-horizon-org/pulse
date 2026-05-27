@@ -546,7 +546,7 @@ describe("NavigationInstrumentation", () => {
   });
 
   describe("Signal emission — timing extraction and attributes", () => {
-    it("emits screen_load on initial page load (tti on same span attrs)", () => {
+    it("emits screen_load on initial page load with tti attribute", () => {
       const instr = new NavigationInstrumentation();
       const sdk = makeMinimalSdk();
 
@@ -561,15 +561,61 @@ describe("NavigationInstrumentation", () => {
         PulseWebSemconv.PulseType.SCREEN_LOAD,
       );
 
-      for (const { span } of navSpanMocks.created) {
-        const pt =
-          attrsFromSetAttributesCalls(span)[
-            PulseWebSemconv.AttributeKey.PULSE_TYPE
-          ];
-        if (pt !== undefined) {
-          expect(pt).not.toBe("screen_interactive");
-        }
+      instr.uninstall();
+    });
+
+    it("emits screen_interactive span after screen_load when TTI is available", () => {
+      const instr = new NavigationInstrumentation();
+      const sdk = makeMinimalSdk();
+
+      setPath("/home");
+      instr.install(sdk);
+
+      const interactiveSpans = findSpansByName("screen_interactive");
+      // screen_interactive is only emitted when Navigation Timing TTI is available.
+      // In jsdom the timing entry may or may not be present — guard accordingly.
+      const loadSpans = findSpansByName("screen_load");
+      const loadAttrs = attrsFromSetAttributesCalls(loadSpans[0]!);
+      const ttiOnLoad = loadAttrs[PulseWebSemconv.AttributeKey.TTI];
+
+      if (ttiOnLoad !== undefined) {
+        // TTI available → screen_interactive must have been emitted
+        expect(interactiveSpans.length).toBeGreaterThanOrEqual(1);
+        const iAttrs = attrsFromSetAttributesCalls(interactiveSpans[0]!);
+        expect(iAttrs[PulseWebSemconv.AttributeKey.PULSE_TYPE]).toBe(
+          PulseWebSemconv.PulseType.SCREEN_INTERACTIVE,
+        );
+        expect(iAttrs[PulseWebSemconv.AttributeKey.TTI]).toBe(ttiOnLoad);
+        expect(iAttrs[PulseWebSemconv.AttributeKey.SCREEN_NAME]).toBeTruthy();
+        expect(iAttrs[PulseWebSemconv.AttributeKey.SESSION_ID]).toBeTruthy();
+        expect(["cold", "reload", "back_forward"]).toContain(
+          iAttrs[PulseWebSemconv.AttributeKey.START_TYPE],
+        );
+      } else {
+        // No TTI → no screen_interactive span emitted
+        expect(interactiveSpans.length).toBe(0);
       }
+
+      instr.uninstall();
+    });
+
+    it("does NOT emit screen_interactive on SPA navigations", () => {
+      const instr = new NavigationInstrumentation();
+      const sdk = makeMinimalSdk();
+
+      setPath("/home");
+      instr.install(sdk);
+
+      // Trigger SPA navigation
+      history.pushState({}, "", "/about");
+
+      const interactiveSpans = findSpansByName("screen_interactive");
+      // Any screen_interactive spans that exist must be from cold load only, not SPA
+      const spaInteractive = interactiveSpans.filter((s) => {
+        const attrs = attrsFromSetAttributesCalls(s);
+        return attrs[PulseWebSemconv.AttributeKey.START_TYPE] === "spa";
+      });
+      expect(spaInteractive.length).toBe(0);
 
       instr.uninstall();
     });

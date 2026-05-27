@@ -156,6 +156,8 @@ export const PulseWebSemconv = {
     WEB_VITAL: "web_vital",
     SCREEN_LOAD: "screen_load",
     SCREEN_SESSION: "screen_session",
+    /** Emitted after `screen_load` on cold/reload navigations when Navigation Timing TTI is available. RN/Web parity — Android does not emit this. */
+    SCREEN_INTERACTIVE: "screen_interactive",
     CUSTOM_SPAN: "custom_span",
   },
   LogBody: {

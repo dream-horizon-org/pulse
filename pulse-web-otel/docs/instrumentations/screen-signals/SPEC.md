@@ -7,7 +7,7 @@ File: `pulse-web-otel/docs/instrumentations/screen-signals/SPEC.md`
 
 ## 1. Goal
 
-Track **initial page load** and **SPA route transitions** using OTLP **client spans** (`sdk.tracer.startSpan` / `span.end()`), exported to **`otel_traces`**, with `pulse.type` values **`screen_load`** and **`screen_session`**, plus Navigation Timing-derived metrics on loads. Align naming with Android/RN screen analytics while documenting **web-specific** decisions (no separate **`screen_interactive`** signal — **TTI** lives on the **`screen_load`** span attributes).
+Track **initial page load** and **SPA route transitions** using OTLP **client spans** (`sdk.tracer.startSpan` / `span.end()`), exported to **`otel_traces`**, with `pulse.type` values **`screen_load`**, **`screen_session`**, and **`screen_interactive`**, plus Navigation Timing-derived metrics on loads. Align naming with RN screen analytics — Web emits a separate **`screen_interactive`** span on cold/reload navigations when Navigation Timing TTI is available. Android does not emit `screen_interactive`.
 
 **Migration note:** Earlier revisions emitted these signals via `LoggerProvider` log records (`otel_logs`). Web now matches Android by emitting **spans only** for `screen_load` / `screen_session` so Pulse Screens analytics (`dataType: TRACES`) can query them without UI/backend UNION changes.
 
@@ -16,7 +16,7 @@ Track **initial page load** and **SPA route transitions** using OTLP **client sp
 ## 2. Assumptions
 
 - **`screen_load` / `screen_session`:** Shared conceptual model with Android — route entered vs session scoped to a screen.
-- **`screen_interactive` (label):** **React Native** may emit a distinct **`screen_interactive`** span tied to `markContentReady()`. **Web does not** emit a separate `pulse.type = screen_interactive` span — **web-only** clarification (`tti` stamped on **`screen_load`** when Navigation Timing allows).
+- **`screen_interactive`:** Web emits a separate **`screen_interactive`** span on cold/reload navigations when Navigation Timing `domInteractive` is available — matching the RN wire shape (`markContentReady()` pattern). Span start = `performance.timeOrigin`, end = `timeOrigin + domInteractive`. The `tti` attribute is also kept on `screen_load` for backward compatibility. **Android does not emit `screen_interactive`.** SPA and BFCache navigations do not emit this span (no Navigation Timing TTI available).
 - **Consent:** Instrumentation skips install when `dataCollectionState === DENIED`.
 - **Export shape:** `NavigationInstrumentation` uses **`sdk.tracer`** with **`ROOT_CONTEXT`** and **`SpanKind.INTERNAL`** so screen spans are not parented under unrelated active context. Before **`span.end()`**, spans use **`SpanStatusCode.OK`** (not unset).
 
