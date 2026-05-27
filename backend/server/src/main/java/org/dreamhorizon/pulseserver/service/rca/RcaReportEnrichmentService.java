@@ -61,8 +61,7 @@ public class RcaReportEnrichmentService {
   /**
    * Enriches the RCA JSON body with root-cause data and example sessions.
    *
-   * @param forceRootCauseRefresh forwarded to {@link RootCauseService#getRootCause} (interaction) or
-   *     {@link ScreenRcaService#getScreenRootCause} (screen)
+   * @param forceRootCauseRefresh forwarded to {@link RootCauseService#getRootCause} (interaction)
    */
   public CompletionStage<RcaEnrichmentOutcome> enrichAsync(
       RcaParsedReportBody parsed, boolean forceRootCauseRefresh) {
@@ -79,10 +78,6 @@ public class RcaReportEnrichmentService {
     String entityKey = parsed.entityKey();
     LocalDate date = parsed.date();
     Instant windowEndExclusive = Instant.now();
-
-    if (type == RcaType.SCREEN) {
-      return enrichScreenAsync(parsed, forceRootCauseRefresh);
-    }
 
     if (type == RcaType.SCREEN_V2) {
       return enrichScreenV2Async(parsed);
@@ -152,62 +147,6 @@ public class RcaReportEnrichmentService {
   }
 
   /**
-   * Screen RCA async job: recompute tabular root cause (optional cache bypass) and build the pulse_ai
-   * {@code rca/screen-report} JSON body. Does not attach error-attribution (interaction-only).
-   */
-  private Single<RcaEnrichmentOutcome> enrichScreenAsync(
-      RcaParsedReportBody parsed, boolean forceRootCauseRefresh) {
-    String fallbackBody = parsed.rawBody();
-    String projectId = parsed.projectId();
-    String screenName = parsed.entityKey();
-    LocalDate anchorDate = parsed.date();
-    ObjectNode root = parsed.bodyRoot();
-    JsonNode startNode = root.get(START_FIELD);
-    JsonNode endNode = root.get(END_FIELD);
-    if (startNode == null
-        || endNode == null
-        || !startNode.isTextual()
-        || !endNode.isTextual()
-        || startNode.asText().isBlank()
-        || endNode.asText().isBlank()) {
-      return Single.just(
-          new RcaEnrichmentOutcome(fallbackBody, null, anchorDate, Instant.now(), false));
-    }
-    final Instant windowStartInclusive;
-    final Instant windowEndExclusive;
-    try {
-      windowStartInclusive = Instant.parse(startNode.asText().trim());
-      windowEndExclusive = Instant.parse(endNode.asText().trim());
-    } catch (DateTimeParseException e) {
-      return Single.just(
-          new RcaEnrichmentOutcome(fallbackBody, null, anchorDate, Instant.now(), false));
-    }
-    return screenRcaService
-        .getScreenRootCause(
-            projectId, screenName, anchorDate, windowEndExclusive, forceRootCauseRefresh)
-        .map(
-            screenResult -> {
-              try {
-                ObjectNode aiBody = objectMapper.createObjectNode();
-                aiBody.put("screenName", screenName);
-                aiBody.put("date", anchorDate.toString());
-                aiBody.put("start", windowStartInclusive.toString());
-                aiBody.put("end", windowEndExclusive.toString());
-                aiBody.set("rootCausePayload", objectMapper.valueToTree(screenResult));
-                String body = objectMapper.writeValueAsString(aiBody);
-                return new RcaEnrichmentOutcome(
-                    body, screenResult, anchorDate, windowEndExclusive, true);
-              } catch (Exception e) {
-                log.warn("Screen RCA enrichment serialize failed: {}", e.getMessage());
-                return new RcaEnrichmentOutcome(
-                    fallbackBody, null, anchorDate, windowEndExclusive, false);
-              }
-            })
-        .onErrorReturnItem(
-            new RcaEnrichmentOutcome(fallbackBody, null, anchorDate, windowEndExclusive, false));
-  }
-
-  /**
    * Screen RCA v2 async job: fetches ranked problems + evidences from ClickHouse and builds the
    * pulse_ai {@code rca/screen-report/v2} JSON body. No error-attribution or session enrichment.
    */
@@ -242,7 +181,7 @@ public class RcaReportEnrichmentService {
         new RootCauseQueryBuilder.Window(
             resolvedAnchorDate, SCREEN_V2_LOOKBACK_DAYS, windowEndExclusive);
     return screenRcaService
-        .getScreenRootCauseV2(projectId, screenName, window)
+        .getScreenRootCauseV2(projectId, screenName, window, resolvedAnchorDate)
         .map(
             v2Result -> {
               try {

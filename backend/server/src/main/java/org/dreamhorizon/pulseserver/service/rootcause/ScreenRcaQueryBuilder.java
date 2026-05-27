@@ -136,46 +136,6 @@ public final class ScreenRcaQueryBuilder {
     return acc.toSpec(sql);
   }
 
-  /**
-   * Full metric row for a segment (GROUP BY all listed dimensions).
-   */
-  public static RootCauseQuerySpec buildSegmentQuery(
-      String projectId,
-      String screenName,
-      Instant startInclusive,
-      Instant endExclusive,
-      List<String> dimensionColumns,
-      Map<String, String> dimensionFilters) {
-    if (dimensionColumns == null || dimensionColumns.isEmpty()) {
-      throw new IllegalArgumentException("dimensionColumns must be non-empty for segment query");
-    }
-    RootCauseQueryBuilder.BindAccumulator acc = new RootCauseQueryBuilder.BindAccumulator();
-    StringBuilder metricSelect = new StringBuilder();
-    for (String d : dimensionColumns) {
-      if (metricSelect.length() > 0) {
-        metricSelect.append(", ");
-      }
-      metricSelect.append(dimensionSelectAlias(d));
-    }
-    metricSelect.append(", count() AS ").append(CLICK_VOLUME);
-    metricSelect.append(", ").append(RAGE_COUNT_EXPR).append(" AS ").append(RAGE_COUNT);
-    metricSelect.append(", ").append(DEAD_COUNT_EXPR).append(" AS ").append(DEAD_COUNT);
-    String where =
-        appendDimensionFilters(
-            baseWhereSql(acc, projectId, screenName, startInclusive, endExclusive), acc, dimensionFilters);
-    String groupBy = dimensionColumns.stream().collect(Collectors.joining(", "));
-    String sql =
-        "SELECT "
-            + metricSelect
-            + " FROM "
-            + ClickhouseConstants.OTEL_LOGS_TABLE
-            + " WHERE "
-            + where
-            + " GROUP BY "
-            + groupBy;
-    return acc.toSpec(sql);
-  }
-
   static String dimensionSelectAlias(String dimensionName) {
     return dimensionExpression(dimensionName) + " AS " + dimensionName;
   }
@@ -1094,6 +1054,83 @@ public final class ScreenRcaQueryBuilder {
             baseWhereSql(acc, projectId, screenName, startInclusive, endExclusive), acc, dimensionFilters);
     String sql =
         "SELECT " + metricSelect + " FROM " + ClickhouseConstants.OTEL_LOGS_TABLE + " WHERE " + where;
+    return acc.toSpec(sql);
+  }
+
+  /**
+   * Fetches one recent SessionId from {@code otel_logs} for a logs-based problem type
+   * (frozen_frames, slow_rendering, bad_clicks).
+   */
+  public static RootCauseQuerySpec buildLogsSessionEvidenceQuery(
+      String projectId,
+      String screenName,
+      Instant startInclusive,
+      Instant endExclusive,
+      String pulseTypeEq,
+      Map<String, String> dimensionFilters) {
+    RootCauseQueryBuilder.BindAccumulator acc = new RootCauseQueryBuilder.BindAccumulator();
+    String baseWhere = buildLogsBaseWhereSql(acc, projectId, screenName, startInclusive, endExclusive, pulseTypeEq);
+    String where = appendDimensionFilters(baseWhere, acc, dimensionFilters);
+    String sql = "SELECT SessionId AS session_id FROM " + ClickhouseConstants.OTEL_LOGS_TABLE
+        + " WHERE " + where + " AND SessionId != '' LIMIT 1";
+    return acc.toSpec(sql);
+  }
+
+  /**
+   * Fetches one recent SessionId from {@code otel_logs} for network problem types
+   * (network_failures, network_latency) using a LIKE filter on PulseType.
+   */
+  public static RootCauseQuerySpec buildLogsSessionEvidenceQueryLike(
+      String projectId,
+      String screenName,
+      Instant startInclusive,
+      Instant endExclusive,
+      String pulseTypeLike,
+      Map<String, String> dimensionFilters) {
+    RootCauseQueryBuilder.BindAccumulator acc = new RootCauseQueryBuilder.BindAccumulator();
+    String baseWhere = buildLogsBaseWhereSqlWithPulseTypeLike(
+        acc, projectId, screenName, startInclusive, endExclusive, pulseTypeLike);
+    String where = appendDimensionFilters(baseWhere, acc, dimensionFilters);
+    String sql = "SELECT SessionId AS session_id FROM " + ClickhouseConstants.OTEL_LOGS_TABLE
+        + " WHERE " + where + " AND SessionId != '' LIMIT 1";
+    return acc.toSpec(sql);
+  }
+
+  /**
+   * Fetches one recent SessionId from {@code otel_traces} for a problem's most-affected segment.
+   * Used for screen_load and screen_interactive problem types.
+   */
+  public static RootCauseQuerySpec buildTracesSessionEvidenceQuery(
+      String projectId,
+      String screenName,
+      Instant startInclusive,
+      Instant endExclusive,
+      String pulseTypeEq,
+      Map<String, String> dimensionFilters) {
+    RootCauseQueryBuilder.BindAccumulator acc = new RootCauseQueryBuilder.BindAccumulator();
+    String baseWhere = buildTracesBaseWhereSql(acc, projectId, screenName, startInclusive, endExclusive, pulseTypeEq);
+    String where = appendDimensionFilters(baseWhere, acc, dimensionFilters);
+    String sql = "SELECT SessionId AS session_id FROM " + ClickhouseConstants.OTEL_TRACES_TABLE
+        + " WHERE " + where + " AND SessionId != '' LIMIT 1";
+    return acc.toSpec(sql);
+  }
+
+  /**
+   * Fetches one recent SessionId from {@code stack_trace_events} for crash/ANR most-affected segment.
+   */
+  public static RootCauseQuerySpec buildStackTraceSessionEvidenceQuery(
+      String projectId,
+      String screenName,
+      Instant startInclusive,
+      Instant endExclusive,
+      String pulseTypeFilter,
+      Map<String, String> dimensionFilters) {
+    RootCauseQueryBuilder.BindAccumulator acc = new RootCauseQueryBuilder.BindAccumulator();
+    String baseWhere = buildStackTraceBaseWhereSql(acc, projectId, screenName,
+        startInclusive, endExclusive, pulseTypeFilter);
+    String where = appendStackTraceDimensionFilters(baseWhere, acc, dimensionFilters);
+    String sql = "SELECT SessionId AS session_id FROM " + ClickhouseConstants.STACK_TRACE_EVENTS_TABLE
+        + " WHERE " + where + " AND SessionId != '' LIMIT 1";
     return acc.toSpec(sql);
   }
 

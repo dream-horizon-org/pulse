@@ -53,8 +53,8 @@ class RcaReportProcessorTest {
   private static final LocalDate DATE = LocalDate.of(2025, 1, 1);
   private static final String JOB_ID = "rca-job-x";
   private static final String BODY = "{\"rcaType\":\"INTERACTION\",\"entityKey\":\"ix\"}";
-  private static final String SCREEN_BODY =
-      "{\"rcaType\":\"SCREEN\",\"entityKey\":\"Home\",\"date\":\"2025-01-01\","
+  private static final String SCREEN_V2_BODY =
+      "{\"rcaType\":\"SCREEN_V2\",\"entityKey\":\"Home\",\"date\":\"2025-01-01\","
           + "\"start\":\"2024-12-26T00:00:00Z\",\"end\":\"2025-01-01T12:00:00Z\"}";
 
   @Mock private Vertx vertx;
@@ -96,9 +96,9 @@ class RcaReportProcessorTest {
         Instant.now(), null, null, null, null);
   }
 
-  private RcaReportJob screenJob() {
+  private RcaReportJob screenV2Job() {
     return new RcaReportJob(
-        JOB_ID, "p1", RcaType.SCREEN, "Home", DATE, RcaJobStatus.PENDING, null,
+        JOB_ID, "p1", RcaType.SCREEN_V2, "Home", DATE, RcaJobStatus.PENDING, null,
         Instant.now(), null, null, null, null);
   }
 
@@ -154,13 +154,13 @@ class RcaReportProcessorTest {
     failed.completeExceptionally(new RuntimeException("clickhouse timeout"));
     when(enrichmentService.enrichAsync(any(), anyBoolean())).thenReturn(failed);
 
-    processor.enqueueProcess(screenJob(), SCREEN_BODY, false, "Bearer t", null);
+    processor.enqueueProcess(screenV2Job(), SCREEN_V2_BODY, false, "Bearer t", null);
 
     verify(jobDao)
         .markFailed(
             eq(JOB_ID),
             eq("p1"),
-            eq(RcaType.SCREEN),
+            eq(RcaType.SCREEN_V2),
             eq("Home"),
             eq(DATE),
             argThat(msg -> msg != null && msg.contains("clickhouse timeout")));

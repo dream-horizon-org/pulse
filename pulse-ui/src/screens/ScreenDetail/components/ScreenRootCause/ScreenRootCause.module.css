@@ -108,3 +108,12 @@
   min-height: 0;
   overflow: hidden;
 }
+
+.metricInfoIcon {
+  flex-shrink: 0;
+  color: light-dark(var(--mantine-color-gray-5), var(--mantine-color-dark-2));
+}
+
+.metricInfoIcon:hover {
+  color: light-dark(var(--mantine-color-gray-7), var(--mantine-color-gray-4));
+}

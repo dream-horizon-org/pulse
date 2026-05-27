@@ -1,5 +1,5 @@
-"""Screen-scoped RCA narrative agent."""
+"""Screen-scoped RCA v2 agent."""
 
-from .agent import screen_rca_narrative_agent, screen_rca_v2_agent
+from .agent import screen_rca_v2_agent
 
-__all__ = ["screen_rca_narrative_agent", "screen_rca_v2_agent"]
+__all__ = ["screen_rca_v2_agent"]

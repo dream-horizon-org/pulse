@@ -1,14 +1,18 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import dayjs from "dayjs";
+import utc from "dayjs/plugin/utc";
 import { notifications } from "@mantine/notifications";
-import { GET_RCA_JOB_ROUTE, POST_RCA_REPORT_ROUTE } from "../../constants/API";
+import { POST_RCA_REPORT_ROUTE } from "../../constants/API";
 import { makeRequest } from "../../helpers/makeRequest";
+import type { ApiResponse } from "../../helpers/makeRequest";
 import { getApiBaseUrl } from "../../utils";
-import {
-  RCA_JOB_POLL_MS,
-  RCA_TYPE,
-} from "../../screens/CriticalInteractionDetails/components/RootCause/RootCause.constants";
-import { normalizeRcaJobStatus } from "../useGetRcaReport";
-import type { ScreenRcaV2JobResponse } from "../useGetScreenRcaV2Narrative";
+import { RCA_TYPE } from "../../screens/CriticalInteractionDetails/components/RootCause/RootCause.constants";
+import type {
+  ScreenRcaV2JobResponse,
+  ScreenRcaV2ReportApiResponse,
+} from "../useGetScreenRcaV2Narrative/useGetScreenRcaV2Narrative.interface";
+
+dayjs.extend(utc);
 
 export interface RegenerateScreenRcaV2Params {
   screenName: string;
@@ -17,77 +21,101 @@ export interface RegenerateScreenRcaV2Params {
   projectId: string;
 }
 
-async function pollUntilDone(
-  jobId: string,
-  projectId: string,
-  apiBaseUrl: string,
-): Promise<void> {
-  const headers: Record<string, string> = {};
-  if (projectId.trim() !== "") {
-    headers["X-Project-ID"] = projectId.trim();
+function reportDateFromWindowEnd(windowEndIso: string): string {
+  const endMs = Date.parse(windowEndIso);
+  if (Number.isNaN(endMs)) {
+    return windowEndIso;
   }
-  for (;;) {
-    await new Promise<void>((resolve) => window.setTimeout(resolve, RCA_JOB_POLL_MS));
-    const jobUrl = `${apiBaseUrl}${GET_RCA_JOB_ROUTE.apiPath(jobId)}`;
-    const result = await makeRequest<ScreenRcaV2JobResponse>({
-      url: jobUrl,
-      init: { method: GET_RCA_JOB_ROUTE.method, headers },
-      unwrapped: true,
-    });
-    const status = normalizeRcaJobStatus(result.data?.status ?? null);
-    if (status === "COMPLETED") return;
-    if (status === "FAILED" || status === "UNKNOWN") {
-      throw new Error(result.data?.errorMessage ?? "Report generation failed");
-    }
-  }
+  return dayjs.utc(endMs).format("YYYY-MM-DD");
 }
 
+function unwrapScreenV2PostApiBody(
+  res: ApiResponse<ScreenRcaV2ReportApiResponse | ScreenRcaV2JobResponse>,
+): ApiResponse<ScreenRcaV2ReportApiResponse | ScreenRcaV2JobResponse> {
+  const { data } = res;
+  if (data == null || typeof data !== "object") {
+    return res;
+  }
+  if ("jobId" in data || "report" in data || "cachedAt" in data) {
+    return res;
+  }
+  const inner = (data as { data?: unknown }).data;
+  if (inner != null && typeof inner === "object") {
+    return { ...res, data: inner as ScreenRcaV2ReportApiResponse | ScreenRcaV2JobResponse };
+  }
+  return res;
+}
+
+export function getJobIdFromScreenV2PostResponse(
+  res: ApiResponse<ScreenRcaV2ReportApiResponse | ScreenRcaV2JobResponse>,
+): string | null {
+  const { data } = unwrapScreenV2PostApiBody(res);
+  if (data != null && typeof data === "object" && "jobId" in data) {
+    const id = String((data as ScreenRcaV2JobResponse).jobId ?? "").trim();
+    return id !== "" ? id : null;
+  }
+  return null;
+}
+
+/**
+ * Regenerates Screen RCA v2 narrative.
+ * POST /v1/ai/rca/report with regenerate: true; on 202 caller follows job via beginFollowingJob.
+ * Mirrors {@link useRegenerateRcaReport} — no inline poll loop in the mutation.
+ */
 export function useRegenerateScreenRcaV2Narrative() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (params: RegenerateScreenRcaV2Params): Promise<void> => {
+    mutationFn: async (params: RegenerateScreenRcaV2Params) => {
       const apiBaseUrl = getApiBaseUrl();
       const headers: Record<string, string> = { "Content-Type": "application/json" };
-      if (params.projectId.trim() !== "") {
-        headers["X-Project-ID"] = params.projectId.trim();
+      const trimmedProjectId = params.projectId.trim();
+      if (trimmedProjectId !== "") {
+        headers["X-Project-ID"] = trimmedProjectId;
       }
       const body = {
         rcaType: RCA_TYPE.SCREEN_V2,
         entityKey: params.screenName.trim(),
-        date: params.windowEndIso,
+        date: reportDateFromWindowEnd(params.windowEndIso),
         start: params.windowStartIso,
         end: params.windowEndIso,
         regenerate: true,
       };
-      const result = await makeRequest<ScreenRcaV2JobResponse>({
+      const raw = await makeRequest<ScreenRcaV2ReportApiResponse | ScreenRcaV2JobResponse>({
         url: `${apiBaseUrl}${POST_RCA_REPORT_ROUTE.apiPath}`,
-        init: { method: POST_RCA_REPORT_ROUTE.method, body: JSON.stringify(body), headers },
+        init: {
+          method: POST_RCA_REPORT_ROUTE.method,
+          body: JSON.stringify(body),
+          headers,
+        },
         unwrapped: true,
       });
-
-      if (result.status === 200) return; // already cached — nothing to poll
-      if (result.status === 202) {
-        const jobId = result.data?.jobId;
-        if (jobId) {
-          await pollUntilDone(jobId, params.projectId, apiBaseUrl);
-        }
+      return unwrapScreenV2PostApiBody(raw);
+    },
+    onSuccess: (data, variables) => {
+      if (data.status === 200) {
+        void queryClient.invalidateQueries({
+          queryKey: [
+            POST_RCA_REPORT_ROUTE.key,
+            RCA_TYPE.SCREEN_V2,
+            variables.screenName.trim(),
+            variables.projectId.trim(),
+          ],
+          refetchType: "all",
+        });
         return;
       }
-      throw new Error(result.error?.message ?? "Failed to start report regeneration");
-    },
-    onSuccess: (_data, variables) => {
-      // Invalidate so useGetScreenRcaV2Narrative re-fetches (will get 200 cache hit)
-      void queryClient.invalidateQueries({
-        queryKey: [
-          POST_RCA_REPORT_ROUTE.key,
-          RCA_TYPE.SCREEN_V2,
-          variables.screenName.trim(),
-          variables.projectId.trim(),
-          variables.windowEndIso,
-          variables.windowStartIso,
-        ],
-      });
+      if (data.status === 202 && getJobIdFromScreenV2PostResponse(data) == null) {
+        void queryClient.invalidateQueries({
+          queryKey: [
+            POST_RCA_REPORT_ROUTE.key,
+            RCA_TYPE.SCREEN_V2,
+            variables.screenName.trim(),
+            variables.projectId.trim(),
+          ],
+          refetchType: "all",
+        });
+      }
     },
     onError: (e) => {
       notifications.show({

@@ -31,10 +31,19 @@ export interface ScreenRcaProblemV2 {
   metric_id?: string | null;
 }
 
+export interface ScreenRcaIssueSessionEvidenceV2 {
+  rank: number;
+  problem_type: string;
+  segment?: string | null;
+  segment_filters?: Record<string, string> | null;
+  session_id?: string | null;
+}
+
 /** Mirrors pulse_ai ScreenRcaEvidences (snake_case). */
 export interface ScreenRcaEvidencesV2 {
-  sessions?: string[] | null;
+  issue_sessions?: ScreenRcaIssueSessionEvidenceV2[] | null;
   heatmap_available?: boolean;
+  heatmap_date?: string | null;
 }
 
 /** Mirrors backend `ScreenRcaV2Response`. */

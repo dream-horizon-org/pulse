@@ -33,34 +33,12 @@ export const GET_RCA_STATUS_ROUTE = {
   method: "GET",
 } as const;
 
-/** POST /v1/ai/rca/screen-report — AI narrative for screen RCA (proxied to pulse_ai). */
-export const POST_SCREEN_RCA_NARRATIVE_ROUTE = {
-  key: "POST_SCREEN_RCA_NARRATIVE",
-  apiPath: "/v1/ai/rca/screen-report",
-  method: "POST",
-} as const;
-
-/** GET /v1/screens/{screen}/root-cause — `date` + `asOf` (same as interaction RCA). */
-export const GET_SCREEN_ROOT_CAUSE_ROUTE = {
-  key: "GET_SCREEN_ROOT_CAUSE",
-  apiPathPrefix: "/v1/screens",
-  apiPathSuffix: "/root-cause",
-  method: "GET",
-} as const;
-
 /** GET /v1/screens/{screen}/root-cause/v2 — `windowEnd` (ISO instant). */
 export const GET_SCREEN_ROOT_CAUSE_V2_ROUTE = {
   key: "GET_SCREEN_ROOT_CAUSE_V2",
   apiPathPrefix: "/v1/screens",
   apiPathSuffix: "/root-cause/v2",
   method: "GET",
-} as const;
-
-/** POST /v1/ai/rca/screen-report/v2 — AI narrative for screen RCA v2 (proxied to pulse_ai). */
-export const POST_SCREEN_RCA_V2_NARRATIVE_ROUTE = {
-  key: "POST_SCREEN_RCA_V2_NARRATIVE",
-  apiPath: "/v1/ai/rca/screen-report/v2",
-  method: "POST",
 } as const;
 
 /**

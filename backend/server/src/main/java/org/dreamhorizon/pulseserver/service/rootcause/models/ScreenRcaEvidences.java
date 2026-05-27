@@ -1,5 +1,6 @@
 package org.dreamhorizon.pulseserver.service.rootcause.models;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -11,6 +12,10 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ScreenRcaEvidences {
-  private List<String> sessions;
+  @JsonProperty("issue_sessions")
+  private List<ScreenRcaIssueSessionEvidence> issueSessions;
+  @JsonProperty("heatmap_available")
   private boolean heatmapAvailable;
+  @JsonProperty("heatmap_date")
+  private String heatmapDate;
 }

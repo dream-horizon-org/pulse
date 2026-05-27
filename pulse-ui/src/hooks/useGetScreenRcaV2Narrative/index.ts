@@ -9,4 +9,5 @@ export type {
   ScreenRcaSpecificIssueV2,
   ScreenRcaMetricsV2,
   ScreenRcaEvidencesV2,
+  ScreenRcaIssueSessionEvidenceV2,
 } from "./useGetScreenRcaV2Narrative.interface";

@@ -101,34 +101,6 @@ class ScreenRcaQueryBuilderTest {
     }
 
     @Test
-    void shouldBuildSegmentQueryWithGroupByAndFilters() {
-      RootCauseQuerySpec spec =
-          ScreenRcaQueryBuilder.buildSegmentQuery(
-              PROJECT,
-              SCREEN,
-              START,
-              END,
-              List.of("Platform", "GeoState"),
-              Map.of("Platform", "Android"));
-
-      assertThat(spec.sql()).contains("GROUP BY Platform, GeoState");
-      assertThat(spec.sql()).contains("FROM otel.otel_logs");
-      assertThat(spec.sql()).contains("AS click_volume");
-      assertThat(spec.bindValues()).hasSize(5);
-      assertThat(spec.bindValues().get(4)).isEqualTo("Android");
-    }
-
-    @Test
-    void shouldRejectEmptyDimensionListForSegmentQuery() {
-      assertThatThrownBy(
-              () ->
-                  ScreenRcaQueryBuilder.buildSegmentQuery(
-                      PROJECT, SCREEN, START, END, List.of(), Map.of()))
-          .isInstanceOf(IllegalArgumentException.class)
-          .hasMessageContaining("non-empty");
-    }
-
-    @Test
     void shouldBuildBadClickByDimensionQueryWithOptionalFilters() {
       RootCauseQuerySpec spec =
           ScreenRcaQueryBuilder.buildBadClickByDimensionQuery(

@@ -1,17 +1,15 @@
 import {
+  ActionIcon,
   Alert,
   Badge,
   Box,
   Button,
   Card,
-  Divider,
   Group,
   Modal,
-  Popover,
   Skeleton,
   Stack,
   Text,
-  ThemeIcon,
   Tooltip,
 } from "@mantine/core";
 import { IconAlertCircle, IconInfoCircle, IconRefresh, IconSparkles } from "@tabler/icons-react";
@@ -19,9 +17,13 @@ import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
+import { LoaderWithMessage } from "../../../../components/LoaderWithMessage";
+import { filtersToQueryString } from "../../../../helpers/filtersToQueryString";
+import { getJobIdFromScreenV2PostResponse } from "../../../../hooks/useRegenerateScreenRcaV2Narrative/useRegenerateScreenRcaV2Narrative";
 import { useGetScreenRcaV2Narrative } from "../../../../hooks/useGetScreenRcaV2Narrative";
 import { useRegenerateScreenRcaV2Narrative } from "../../../../hooks/useRegenerateScreenRcaV2Narrative";
 
+import { resolveHeatmapEvidenceUtcRange } from "../../../CriticalInteractionDetails/components/RootCause/buildRcaHeatmapEvidenceHref";
 import { RcaRelatedHeatmapCard } from "../../../CriticalInteractionDetails/components/RootCause/RcaRelatedHeatmapCard";
 import { RcaSessionReplayEvidenceCard } from "../../../CriticalInteractionDetails/components/RootCause/RcaSessionReplayEvidenceCard";
 import { ROOT_CAUSE_MESSAGES } from "../../../CriticalInteractionDetails/components/RootCause/RootCause.constants";
@@ -31,10 +33,9 @@ import classes from "./ScreenRootCause.module.css";
 import {
   buildScreenRcaHeatmapFilters,
   DEFAULT_ROOT_CAUSE_LOOKBACK_DAYS,
-  fromDateFromStartInclusiveUtc,
   rcaWindowFromAnchorAndAsOf,
 } from "./buildScreenRcaHeatmapEvidence";
-import type { ScreenRcaProblemV2, ScreenRcaSpecificIssueV2 } from "../../../../hooks/useGetScreenRcaV2Narrative";
+import type { ScreenRcaProblemV2, ScreenRcaSpecificIssueV2, ScreenRcaIssueSessionEvidenceV2 } from "../../../../hooks/useGetScreenRcaV2Narrative";
 
 dayjs.extend(utc);
 
@@ -63,6 +64,11 @@ function displayRate(rate: string | null | undefined): string {
 
 const REGENERATE_DEBOUNCE_MS = 500;
 const NARRATIVE_NOTICE_MODAL_DELAY_MS = 2000;
+
+const RCA_HTTP_STATUS = {
+  OK: 200,
+  ACCEPTED: 202,
+} as const;
 
 const PROBLEM_TYPE_LABELS: Record<string, string> = {
   crashes: "Crashes",
@@ -114,36 +120,95 @@ const METRIC_INFO: Record<string, { label: string; description: string; threshol
   },
   frozen_frame_rate: {
     label: "Frozen Frame Rate",
-    description: "Percentage of sessions with frozen frames detected",
+    description: "Percentage of sessions which experienced frozen frames",
   },
   slow_frame_rate: {
     label: "Slow Rendering Rate",
-    description: "Percentage of sessions with slow render rate",
+    description: "Percentage of sessions which faced slow rendering",
   },
   network_error_rate: {
     label: "Network Error Rate",
-    description: "Percentage of sessions with network failures",
+    description: "Percentage of sessions which experienced network failures",
   },
   bad_network_latency_rate: {
     label: "Bad Network Latency",
-    description: "Percentage of sessions exceeding 1000ms network latency threshold",
+    description: "Percentage of sessions which exceeded the 1000ms network latency threshold",
     threshold: "1000ms",
   },
   bad_screen_load_rate: {
     label: "Bad Screen Load",
-    description: "Percentage of sessions exceeding 500ms screen load time threshold",
+    description: "Percentage of sessions which exceeded the 500ms screen load time threshold",
     threshold: "500ms",
   },
   bad_screen_interactive_rate: {
     label: "Bad Screen Interactive",
-    description: "Percentage of sessions exceeding 7300ms time-to-interactive threshold",
+    description: "Percentage of sessions which exceeded the 7300ms time-to-interactive threshold",
     threshold: "7300ms",
   },
   bad_clicks_rate: {
     label: "Bad Clicks Rate",
-    description: "Percentage of sessions with dead or rage clicks",
+    description: "Percentage of sessions which had dead or rage clicks",
   },
 };
+
+const RATE_ROW_LABELS: Record<string, string> = {
+  crashes: "Crash rate",
+  anr: "ANR rate",
+  frozen_frames: "Frozen frame rate",
+  frozen_frame: "Frozen frame rate",
+  slow_rendering: "Slow rendering rate",
+  slow_render: "Slow rendering rate",
+  slow_render_rate: "Slow rendering rate",
+  network_failures: "Network error rate",
+  network_failure: "Network error rate",
+  network_latency: "Bad network latency rate",
+  screen_load_time: "Bad screen load rate",
+  screen_load: "Bad screen load rate",
+  screen_interactive: "Bad screen interactive rate",
+  screen_interactive_time: "Bad screen interactive rate",
+  bad_clicks: "Bad click rate",
+  bad_click: "Bad click rate",
+};
+
+function getRateRowLabel(problemType: string): string {
+  return RATE_ROW_LABELS[problemType] ?? "Rate";
+}
+
+function formatMetricTooltip(info: { description: string; threshold?: string }): string {
+  if (info.threshold) {
+    return `${info.description}\n\nThreshold: sessions exceeding ${info.threshold} are counted as affected.`;
+  }
+  return info.description;
+}
+
+function MetricLabelWithTooltip({ label, infoKey }: { label: string; infoKey?: string }) {
+  const info = infoKey ? METRIC_INFO[infoKey] : undefined;
+  return (
+    <Group gap={4} align="center" wrap="nowrap">
+      <span>{label}</span>
+      {info ? (
+        <Tooltip
+          label={formatMetricTooltip(info)}
+          position="top"
+          withArrow
+          multiline
+          w={280}
+          styles={{ tooltip: { whiteSpace: "pre-line" } }}
+        >
+          <ActionIcon
+            variant="transparent"
+            color="gray"
+            size="xs"
+            aria-label={`Info about ${label}`}
+            className={classes.metricInfoIcon}
+          >
+            <IconInfoCircle size={14} />
+          </ActionIcon>
+        </Tooltip>
+      ) : null}
+    </Group>
+  );
+}
 
 export interface ScreenRootCauseV2Props {
   screenName: string;
@@ -212,16 +277,42 @@ const TOP_ISSUE_TYPE_LABEL_CLASS: Record<string, string> = {
   gray: classes.topIssueTypeLabel_gray,
 };
 
+function isAppVitalsIssueProblemType(problemType: string): boolean {
+  return problemType === "crashes" || problemType === "anr";
+}
+
+function buildAppVitalsIssueHref(
+  projectId: string,
+  groupId: string,
+  windowStartIso: string,
+  windowEndIso: string,
+): string {
+  const heatmapFilters = buildScreenRcaHeatmapFilters(undefined, windowStartIso, windowEndIso);
+  const { start, end } = resolveHeatmapEvidenceUtcRange(heatmapFilters);
+  const params: Record<string, string> = { quickDateFilter: "-1" };
+  if (start && end) {
+    params.startDate = start;
+    params.endDate = end;
+  }
+  const search = filtersToQueryString(params);
+  const base = `/projects/${encodeURIComponent(projectId)}/app-vitals/${encodeURIComponent(groupId)}`;
+  return search ? `${base}?${search}` : base;
+}
+
 function TopIssueCard({
   issue,
   projectId,
   problemType,
   segmentMetadata,
+  windowStartIso,
+  windowEndIso,
 }: {
   issue: ScreenRcaSpecificIssueV2;
   projectId: string;
   problemType: string;
   segmentMetadata?: string | null;
+  windowStartIso: string;
+  windowEndIso: string;
 }) {
   const title = displayText(
     issue.issue ?? issue.thread_name ?? (issue as { threadName?: string | null }).threadName,
@@ -281,11 +372,12 @@ function TopIssueCard({
   );
 
   if (groupId) {
+    const href =
+      isAppVitalsIssueProblemType(problemType) && windowStartIso && windowEndIso
+        ? buildAppVitalsIssueHref(projectId, groupId, windowStartIso, windowEndIso)
+        : `/projects/${encodeURIComponent(projectId)}/app-vitals/${encodeURIComponent(groupId)}`;
     return (
-      <Link
-        to={`/projects/${encodeURIComponent(projectId)}/app-vitals/${encodeURIComponent(groupId)}`}
-        className={cardClassName}
-      >
+      <Link to={href} className={cardClassName}>
         {cardContent}
       </Link>
     );
@@ -294,70 +386,17 @@ function TopIssueCard({
   return <div className={cardClassName}>{cardContent}</div>;
 }
 
-function MetricInfoPopover({ problems }: { problems: ScreenRcaProblemV2[] }) {
-  const [opened, setOpened] = useState(false);
-
-  // Only show entries for problems actually present in this report
-  const entries = problems
-    .filter((p) => p.metric_id && METRIC_INFO[p.metric_id])
-    .map((p) => ({
-      rank: p.rank,
-      typeLabel: PROBLEM_TYPE_LABELS[p.problem_type] ?? p.problem_type,
-      info: METRIC_INFO[p.metric_id!]!,
-    }));
-
-  if (entries.length === 0) return null;
-
-  return (
-    <Popover
-      opened={opened}
-      onChange={setOpened}
-      width={320}
-      position="bottom-end"
-      withArrow
-      shadow="md"
-      withinPortal
-    >
-      <Popover.Target>
-        <ThemeIcon
-          variant="light"
-          color="gray"
-          size="sm"
-          radius="xl"
-          style={{ cursor: "pointer" }}
-          onClick={() => setOpened((o) => !o)}
-          title="How issues are calculated"
-        >
-          <IconInfoCircle size={14} />
-        </ThemeIcon>
-      </Popover.Target>
-      <Popover.Dropdown>
-        <Stack gap="xs">
-          <Text fw={600} size="sm">How issues are calculated</Text>
-          <Divider />
-          {entries.map((entry, i) => (
-            <Box key={entry.rank}>
-              {i > 0 && <Divider my={4} />}
-              <Group gap={6} mb={2}>
-                <Badge size="xs" variant="light" color="gray">#{entry.rank}</Badge>
-                <Text size="xs" fw={600}>{entry.typeLabel}</Text>
-                <Text size="xs" c="dimmed">· {entry.info.label}</Text>
-              </Group>
-              <Text size="xs" c="dimmed" lh={1.5}>{entry.info.description}</Text>
-              {entry.info.threshold && (
-                <Text size="xs" c="blue.6" mt={2}>
-                  Threshold: sessions exceeding <strong>{entry.info.threshold}</strong> are counted as affected
-                </Text>
-              )}
-            </Box>
-          ))}
-        </Stack>
-      </Popover.Dropdown>
-    </Popover>
-  );
-}
-
-function ProblemCard({ problem, projectId }: { problem: ScreenRcaProblemV2; projectId: string }) {
+function ProblemCard({
+  problem,
+  projectId,
+  windowStartIso,
+  windowEndIso,
+}: {
+  problem: ScreenRcaProblemV2;
+  projectId: string;
+  windowStartIso: string;
+  windowEndIso: string;
+}) {
   const typeLabel = isNullishDisplayValue(problem.problem_type)
     ? UNKNOWN
     : (PROBLEM_TYPE_LABELS[problem.problem_type] ??
@@ -365,9 +404,6 @@ function ProblemCard({ problem, projectId }: { problem: ScreenRcaProblemV2; proj
   const color = PROBLEM_TYPE_COLORS[problem.problem_type] ?? "gray";
   const metrics = problem.metrics;
   const segmentMetrics = problem.segment_metrics;
-  // NOTE: segment_metrics is populated by backend ScreenRcaService.computeXxxProblem() after
-  // segment is identified. Until backend Java changes are complete, segment_metrics will be null,
-  // and VALUE/DELTA columns will show "Unknown" (graceful degradation).
   const issues = problem.specific_issues ?? [];
 
   // Determine which metric rows to show based on problem type
@@ -405,9 +441,26 @@ function ProblemCard({ problem, projectId }: { problem: ScreenRcaProblemV2; proj
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--mantine-color-gray-2)' }}>
                   <th style={{ textAlign: 'left', padding: '8px', fontWeight: 600, fontSize: '12px', color: 'var(--mantine-color-gray-6)' }}>Metric</th>
-                  <th style={{ textAlign: 'right', padding: '8px', fontWeight: 600, fontSize: '12px', color: 'var(--mantine-color-gray-6)' }}>Value</th>
-                  <th style={{ textAlign: 'right', padding: '8px', fontWeight: 600, fontSize: '12px', color: 'var(--mantine-color-gray-6)' }}>Baseline</th>
-                  <th style={{ textAlign: 'right', padding: '8px', fontWeight: 600, fontSize: '12px', color: 'var(--mantine-color-gray-6)' }}>Delta</th>
+                  <th style={{ textAlign: 'right', padding: '8px', fontWeight: 600, fontSize: '12px', color: 'var(--mantine-color-gray-6)' }}>Current segment</th>
+                  <th style={{ textAlign: 'right', padding: '8px', fontWeight: 600, fontSize: '12px', color: 'var(--mantine-color-gray-6)' }}>Last 7 days</th>
+                  <th style={{ textAlign: 'right', padding: '8px', fontWeight: 600, fontSize: '12px', color: 'var(--mantine-color-gray-6)' }}>
+                    <Tooltip
+                      label={
+                        <Box>
+                          <Text size="xs" fw={600} mb={4}>Delta = (segment − baseline) / baseline × 100%</Text>
+                          <Text size="xs">How much the segment differs from the 7-day baseline, as a relative %.</Text>
+                        </Box>
+                      }
+                      multiline
+                      withArrow
+                      position="top-end"
+                      w={260}
+                    >
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, cursor: 'default' }}>
+                        Delta <IconInfoCircle size={12} style={{ opacity: 0.6 }} />
+                      </span>
+                    </Tooltip>
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -443,25 +496,10 @@ function ProblemCard({ problem, projectId }: { problem: ScreenRcaProblemV2; proj
                   return (
                     <tr style={{ borderBottom: '1px solid var(--mantine-color-gray-1)' }}>
                       <td style={{ padding: '8px', fontSize: '13px' }}>
-                        <Group gap={4} align="center" wrap="nowrap">
-                          <span>Rate</span>
-                          {problem.metric_id && METRIC_INFO[problem.metric_id] && (
-                            <Tooltip
-                              label={METRIC_INFO[problem.metric_id]?.description}
-                              position="top"
-                              withArrow
-                              arrowPosition="center"
-                            >
-                              <Text
-                                size="xs"
-                                c="dimmed"
-                                style={{ cursor: 'help', textDecoration: 'underline dotted', whiteSpace: 'nowrap' }}
-                              >
-                                ({METRIC_INFO[problem.metric_id]?.label})
-                              </Text>
-                            </Tooltip>
-                          )}
-                        </Group>
+                        <MetricLabelWithTooltip
+                          label={getRateRowLabel(problem.problem_type)}
+                          infoKey={problem.metric_id ?? undefined}
+                        />
                       </td>
                       <td style={{ textAlign: 'right', padding: '8px', fontWeight: 500 }}>
                         {displayRate(segmentMetrics?.rate)}
@@ -480,8 +518,8 @@ function ProblemCard({ problem, projectId }: { problem: ScreenRcaProblemV2; proj
                   const deltaColor = delta === null
                     ? 'var(--mantine-color-gray-6)'
                     : delta < 0
-                      ? 'var(--mantine-color-green-6)'
-                      : 'var(--mantine-color-red-6)';
+                      ? 'var(--mantine-color-red-6)'
+                      : 'var(--mantine-color-green-6)';
                   return (
                     <tr style={{ borderBottom: '1px solid var(--mantine-color-gray-1)' }}>
                       <td style={{ padding: '8px', fontSize: '13px' }}>P50</td>
@@ -502,8 +540,8 @@ function ProblemCard({ problem, projectId }: { problem: ScreenRcaProblemV2; proj
                   const deltaColor = delta === null
                     ? 'var(--mantine-color-gray-6)'
                     : delta < 0
-                      ? 'var(--mantine-color-green-6)'
-                      : 'var(--mantine-color-red-6)';
+                      ? 'var(--mantine-color-red-6)'
+                      : 'var(--mantine-color-green-6)';
                   return (
                     <tr>
                       <td style={{ padding: '8px', fontSize: '13px' }}>P95</td>
@@ -553,25 +591,7 @@ function ProblemCard({ problem, projectId }: { problem: ScreenRcaProblemV2; proj
 
         {issues.length > 0 && (
           <Box>
-            <Group gap={4} align="center" wrap="nowrap" mb={4}>
-              <Text size="xs" c="dimmed" tt="uppercase" fw={600}>Top issues</Text>
-              {problem.metric_id && METRIC_INFO[problem.metric_id] && (
-                <Tooltip
-                  label={METRIC_INFO[problem.metric_id]?.description}
-                  position="top"
-                  withArrow
-                  arrowPosition="center"
-                >
-                  <Text
-                    size="xs"
-                    c="dimmed"
-                    style={{ cursor: 'help', textDecoration: 'underline dotted' }}
-                  >
-                    ({METRIC_INFO[problem.metric_id]?.label})
-                  </Text>
-                </Tooltip>
-              )}
-            </Group>
+            <Text size="xs" c="dimmed" tt="uppercase" fw={600} mb={4}>Top issues</Text>
             <Box className={classes.topIssuesRow}>
               {issues.map((issue: ScreenRcaSpecificIssueV2, i: number) => (
                 <TopIssueCard
@@ -580,6 +600,8 @@ function ProblemCard({ problem, projectId }: { problem: ScreenRcaProblemV2; proj
                   projectId={projectId}
                   problemType={problem.problem_type}
                   segmentMetadata={problem.most_affected_segment}
+                  windowStartIso={windowStartIso}
+                  windowEndIso={windowEndIso}
                 />
               ))}
             </Box>
@@ -593,6 +615,7 @@ function ProblemCard({ problem, projectId }: { problem: ScreenRcaProblemV2; proj
 export function ScreenRootCauseV2({ screenName, projectId, windowEndIso }: ScreenRootCauseV2Props) {
   const trimmedProjectId = projectId != null ? String(projectId).trim() : "";
   const regenerateDebounceTimerRef = useRef<number | null>(null);
+  const [rcaRequestSession, setRcaRequestSession] = useState(0);
 
   const { windowStartIso } = useMemo(() => {
     const endMs = Date.parse(windowEndIso);
@@ -611,24 +634,52 @@ export function ScreenRootCauseV2({ screenName, projectId, windowEndIso }: Scree
     windowStartIso !== "";
 
   const {
+    data: reportResponse,
     structured,
-    isLoading,
-    isError,
-    errorMessage: errMsg,
-    staleDetected,
+    isFetching: reportFetching,
+    isError: reportError,
+    error: reportErrorDetail,
+    isRcaQueuePending,
+    isProcessing: isRcaProcessing,
+    isUnknown: isRcaJobUnknown,
+    isFailed: isRcaFailed,
+    errorMessage: rcaErrorMessage,
+    isJoiningExistingJob,
+    retry: retryRcaJob,
+    isRetrying,
+    beginFollowingJob,
+    staleRegenerationDetected,
+    stalePollAsyncJobDetected,
+    isAsyncBootstrapping,
+    isAwaitingPollPayload,
+    hasDisplayableCompletedReport,
   } = useGetScreenRcaV2Narrative({
     screenName,
     windowEndIso,
     windowStartIso,
     projectId,
     enabled: narrativeEnabled,
+    requestSession: rcaRequestSession,
   });
 
   const problems = structured?.problems ?? [];
   const evidences = structured?.evidences ?? null;
 
   const regenerate = useRegenerateScreenRcaV2Narrative();
-  const narrativeBusy = isLoading || regenerate.isPending;
+  const isRegenerateMutating = regenerate.isPending;
+  const showReport = hasDisplayableCompletedReport;
+
+  const showAsyncGenerationUi =
+    !isRcaFailed &&
+    !showReport &&
+    (isAsyncBootstrapping ||
+      isAwaitingPollPayload ||
+      isRcaQueuePending ||
+      isRcaProcessing ||
+      isRegenerateMutating ||
+      (reportFetching && reportResponse === undefined));
+
+  const narrativeBusy = showAsyncGenerationUi;
 
   const executiveSummaryText = structured?.executive_summary?.trim() ?? "";
   const recommendationLines = (structured?.recommendations ?? []).filter(
@@ -640,7 +691,7 @@ export function ScreenRootCauseV2({ screenName, projectId, windowEndIso }: Scree
   const regenerateErrMsg =
     regenerate.error instanceof Error ? regenerate.error.message : null;
 
-  const showNarrativeGenerationWait = narrativeEnabled && narrativeBusy && !isError;
+  const showNarrativeGenerationWait = narrativeEnabled && narrativeBusy && !reportError && !isRcaFailed;
 
   const [userDismissedNotice, setUserDismissedNotice] = useState(false);
   const [noticeDelayElapsed, setNoticeDelayElapsed] = useState(false);
@@ -662,19 +713,43 @@ export function ScreenRootCauseV2({ screenName, projectId, windowEndIso }: Scree
 
   const handleRegenerate = useCallback(() => {
     if (!screenName?.trim()) return;
+    if (regenerate.isPending) return;
     if (regenerateDebounceTimerRef.current !== null) {
       window.clearTimeout(regenerateDebounceTimerRef.current);
     }
     regenerateDebounceTimerRef.current = window.setTimeout(() => {
-      regenerate.mutate({
-        screenName: String(screenName).trim(),
-        windowEndIso,
-        windowStartIso,
-        projectId: trimmedProjectId,
-      });
+      regenerate.mutate(
+        {
+          screenName: String(screenName).trim(),
+          windowEndIso,
+          windowStartIso,
+          projectId: trimmedProjectId,
+        },
+        {
+          onSuccess: (res) => {
+            if (res.status === RCA_HTTP_STATUS.ACCEPTED) {
+              const jobId = getJobIdFromScreenV2PostResponse(res);
+              if (jobId) {
+                beginFollowingJob(jobId);
+              }
+              return;
+            }
+            if (res.status === RCA_HTTP_STATUS.OK) {
+              setRcaRequestSession((s) => s + 1);
+            }
+          },
+        },
+      );
       regenerateDebounceTimerRef.current = null;
     }, REGENERATE_DEBOUNCE_MS);
-  }, [screenName, windowEndIso, windowStartIso, trimmedProjectId, regenerate]);
+  }, [
+    screenName,
+    windowEndIso,
+    windowStartIso,
+    trimmedProjectId,
+    regenerate,
+    beginFollowingJob,
+  ]);
 
   useEffect(() => {
     return () => {
@@ -684,30 +759,85 @@ export function ScreenRootCauseV2({ screenName, projectId, windowEndIso }: Scree
     };
   }, []);
 
-  if (isLoading) {
+  if (isRcaJobUnknown) {
     return (
       <Box className={interactionRcaClasses.container}>
-        <div className={interactionRcaClasses.skeletonWrapper}>
-          <Skeleton height={24} width={200} mb="md" />
-          <Skeleton height={120} mb="md" />
-          <Skeleton height={120} mb="md" />
-          <Skeleton height={120} />
-        </div>
-      </Box>
-    );
-  }
-
-  if (isError) {
-    return (
-      <Box className={interactionRcaClasses.container}>
-        <Alert color="red" icon={<IconAlertCircle size={16} />} title="Failed to load">
-          {errMsg ?? "An error occurred loading Screen RCA."}
+        <Alert color="red" icon={<IconAlertCircle size={16} />} title="Unexpected response">
+          <Text size="sm" mb="sm">
+            {ROOT_CAUSE_MESSAGES.RCA_UNKNOWN_JOB_STATUS}
+          </Text>
+          <Button
+            leftSection={<IconRefresh size={14} />}
+            variant="subtle"
+            color="red"
+            size="xs"
+            pl={0}
+            onClick={() => {
+              void retryRcaJob();
+            }}
+          >
+            {ROOT_CAUSE_MESSAGES.RCA_STALE_REFRESH}
+          </Button>
         </Alert>
       </Box>
     );
   }
 
-  if (!isLoading && problems.length === 0) {
+  if (isRcaFailed) {
+    return (
+      <Box className={interactionRcaClasses.container}>
+        <Alert color="red" icon={<IconAlertCircle size={16} />} title="Report generation failed">
+          <Text size="sm" mb="sm">
+            {rcaErrorMessage?.trim()
+              ? rcaErrorMessage
+              : ROOT_CAUSE_MESSAGES.GENERIC_ERROR}
+          </Text>
+          <Button
+            leftSection={<IconRefresh size={14} />}
+            variant="subtle"
+            color="red"
+            size="xs"
+            pl={0}
+            loading={isRetrying}
+            onClick={() => {
+              void retryRcaJob();
+            }}
+          >
+            Retry
+          </Button>
+        </Alert>
+      </Box>
+    );
+  }
+
+  if (showAsyncGenerationUi) {
+    return (
+      <Box className={interactionRcaClasses.container}>
+        <Stack align="center" gap="md" className={interactionRcaClasses.stateMessage}>
+          {isJoiningExistingJob ? (
+            <Alert color="blue" variant="light" maw={520} w="100%">
+              {ROOT_CAUSE_MESSAGES.RCA_JOINING_JOB}
+            </Alert>
+          ) : null}
+          <LoaderWithMessage loadingMessage={ROOT_CAUSE_MESSAGES.RCA_WAITING_IN_QUEUE} />
+        </Stack>
+      </Box>
+    );
+  }
+
+  if (reportError) {
+    return (
+      <Box className={interactionRcaClasses.container}>
+        <Alert color="red" icon={<IconAlertCircle size={16} />} title="Failed to load">
+          {reportErrorDetail instanceof Error
+            ? reportErrorDetail.message
+            : "An error occurred loading Screen RCA."}
+        </Alert>
+      </Box>
+    );
+  }
+
+  if (showReport && problems.length === 0) {
     return (
       <Box className={interactionRcaClasses.container}>
         <Text className={interactionRcaClasses.stateMessage}>
@@ -717,10 +847,24 @@ export function ScreenRootCauseV2({ screenName, projectId, windowEndIso }: Scree
     );
   }
 
-  const sessions = evidences?.sessions ?? [];
+  const issueSessions = (evidences?.issue_sessions ?? []).filter(
+    (s: ScreenRcaIssueSessionEvidenceV2) => s.session_id?.trim(),
+  );
   const heatmapAvailable = evidences?.heatmap_available === true;
-  const fromDate = fromDateFromStartInclusiveUtc(windowStartIso);
-  const evidenceCount = sessions.length + (heatmapAvailable ? 1 : 0);
+  const heatmapDate =
+    evidences?.heatmap_date?.trim() ||
+    (() => {
+      const endMs = Date.parse(windowEndIso);
+      return Number.isNaN(endMs) ? "" : dayjs.utc(endMs).format("YYYY-MM-DD");
+    })();
+  const heatmapWindowStartIso = heatmapDate
+    ? dayjs.utc(heatmapDate, "YYYY-MM-DD").startOf("day").toISOString()
+    : windowStartIso;
+  const heatmapWindowEndIso = heatmapDate
+    ? dayjs.utc(heatmapDate, "YYYY-MM-DD").add(1, "day").startOf("day").toISOString()
+    : windowEndIso;
+  const rank1SegmentFilters = issueSessions.find((s) => s.rank === 1)?.segment_filters ?? null;
+  const evidenceCount = issueSessions.length + (heatmapAvailable ? 1 : 0);
   const showEvidenceStrip = evidenceCount > 0;
 
   return (
@@ -739,9 +883,7 @@ export function ScreenRootCauseV2({ screenName, projectId, windowEndIso }: Scree
 
       <Box className={interactionRcaClasses.container}>
         <Stack gap="lg">
-          {/* Header row with info popover + regenerate button */}
           <Group justify="flex-end" gap="xs">
-            <MetricInfoPopover problems={problems} />
             <Button
               variant="light"
               size="xs"
@@ -753,17 +895,38 @@ export function ScreenRootCauseV2({ screenName, projectId, windowEndIso }: Scree
             </Button>
           </Group>
 
-          {/* Stale report banner */}
-          {staleDetected && !narrativeBusy && (
-            <Alert color="blue" title={ROOT_CAUSE_MESSAGES.RCA_STALE_REPORT_BANNER}>
-              <Group justify="space-between" align="center">
-                <Text size="sm">A newer report is available.</Text>
-                <Button size="xs" variant="light" onClick={() => window.location.reload()}>
+          {staleRegenerationDetected ? (
+            <Alert color="yellow" variant="light" title={ROOT_CAUSE_MESSAGES.RCA_STALE_REPORT_BANNER}>
+              <Stack gap="sm" align="flex-start">
+                <Text size="sm">{ROOT_CAUSE_MESSAGES.RCA_STALE_REPORT_BANNER}</Text>
+                <Button
+                  size="xs"
+                  variant="light"
+                  onClick={() => {
+                    void retryRcaJob();
+                  }}
+                >
                   {ROOT_CAUSE_MESSAGES.RCA_STALE_REFRESH}
                 </Button>
-              </Group>
+              </Stack>
             </Alert>
-          )}
+          ) : null}
+          {stalePollAsyncJobDetected ? (
+            <Alert color="blue" variant="light">
+              <Stack gap="sm" align="flex-start">
+                <Text size="sm">{ROOT_CAUSE_MESSAGES.RCA_STALE_ASYNC_ACTIVITY}</Text>
+                <Button
+                  size="xs"
+                  variant="light"
+                  onClick={() => {
+                    void retryRcaJob();
+                  }}
+                >
+                  {ROOT_CAUSE_MESSAGES.RCA_STALE_REFRESH}
+                </Button>
+              </Stack>
+            </Alert>
+          ) : null}
 
           {/* Narrative loading skeleton */}
           {narrativeBusy && (
@@ -800,7 +963,13 @@ export function ScreenRootCauseV2({ screenName, projectId, windowEndIso }: Scree
               <Badge size="sm" variant="light" color="gray">{problems.length}</Badge>
             </Group>
             {problems.map((p: ScreenRcaProblemV2) => (
-              <ProblemCard key={p.problem_type} problem={p} projectId={trimmedProjectId} />
+              <ProblemCard
+                key={p.problem_type}
+                problem={p}
+                projectId={trimmedProjectId}
+                windowStartIso={windowStartIso}
+                windowEndIso={windowEndIso}
+              />
             ))}
           </Stack>
 
@@ -827,29 +996,33 @@ export function ScreenRootCauseV2({ screenName, projectId, windowEndIso }: Scree
                 </Badge>
               </div>
               <Box className={rcaClasses.evidenceCardRow}>
-                {sessions.map((sessionId: string, sessionIdx: number) => (
+                {issueSessions.map((ev: ScreenRcaIssueSessionEvidenceV2, sessionIdx: number) => {
+                  const segmentLabel =
+                    formatSegmentMetadata(ev.segment) ?? displayText(ev.segment, screenName);
+                  return (
                   <Box
-                    key={sessionId}
+                    key={`${ev.session_id}-${sessionIdx}`}
                     className={rcaClasses.evidenceCardSlot}
                   >
                     <RcaSessionReplayEvidenceCard
-                      sessionId={sessionId}
-                      segmentTitle={screenName}
+                      sessionId={ev.session_id!}
+                      segmentTitle={segmentLabel}
                       projectId={trimmedProjectId}
                       evidenceOrdinal={sessionIdx + 1}
-                      evidenceSessionCount={sessions.length}
+                      evidenceSessionCount={issueSessions.length}
                     />
                   </Box>
-                ))}
-                {heatmapAvailable && windowStartIso ? (
+                  );
+                })}
+                {heatmapAvailable && heatmapWindowStartIso ? (
                   <RcaRelatedHeatmapCard
                     projectId={trimmedProjectId}
                     screenName={screenName}
-                    segmentTitle={`${screenName} — ${fromDate}`}
+                    segmentTitle={`${screenName} — ${heatmapDate}`}
                     heatmapFilters={buildScreenRcaHeatmapFilters(
-                      undefined,
-                      windowStartIso,
-                      windowEndIso,
+                      rank1SegmentFilters ?? undefined,
+                      heatmapWindowStartIso,
+                      heatmapWindowEndIso,
                     )}
                   />
                 ) : null}

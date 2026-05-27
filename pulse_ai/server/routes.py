@@ -19,7 +19,6 @@ from .app import (
     RunSSERequest,
     app,
     rca_runner,
-    screen_rca_runner,
     screen_rca_v2_runner,
     runner,
     session_service,
@@ -39,14 +38,11 @@ from .root_cause_fetch import RootCauseFetchError, fetch_root_cause_payload
 from .rca_runner import RcaRunnerError, generate_rca_report
 from .screen_rca_runner import (
     ScreenRcaRunnerError,
-    generate_screen_rca_report,
     generate_screen_rca_report_v2,
 )
 from .schemas import (
     RcaReportRequest,
     RcaReportResponse,
-    ScreenRcaReportRequest,
-    ScreenRcaReportResponse,
     ScreenRcaV2ReportPayloadSchema,
     ScreenRcaV2ReportRequest,
     ScreenRcaV2ReportResponse,
@@ -295,37 +291,6 @@ async def generate_root_cause_report(
     except RootCauseFetchError as error:
         raise HTTPException(status_code=error.status_code, detail=error.message) from error
     except RcaRunnerError as error:
-        raise HTTPException(status_code=error.status_code, detail=error.message) from error
-
-
-@app.post("/rca/screen-report")
-async def generate_screen_root_cause_narrative(
-    request: ScreenRcaReportRequest,
-) -> ScreenRcaReportResponse:
-    """Generate executive summary and recommendations for screen-level frustration RCA.
-
-    Requires **rootCausePayload** (tabular JSON from GET /v1/screens/{screen}/root-cause).
-    """
-    if not request.screenName or not str(request.screenName).strip():
-        raise HTTPException(status_code=400, detail="screenName is required")
-    try:
-        payload = RootCausePayloadSchema.model_validate(request.rootCausePayload)
-    except Exception as exc:  # noqa: BLE001
-        raise HTTPException(
-            status_code=400,
-            detail=f"Invalid rootCausePayload: {exc}",
-        ) from exc
-    try:
-        return await generate_screen_rca_report(
-            runner=screen_rca_runner,
-            payload=payload,
-            screen_name=request.screenName.strip(),
-            start_iso=request.start,
-            end_iso=request.end,
-            date_str=request.date,
-            as_of_iso=request.asOf,
-        )
-    except ScreenRcaRunnerError as error:
         raise HTTPException(status_code=error.status_code, detail=error.message) from error
 
 

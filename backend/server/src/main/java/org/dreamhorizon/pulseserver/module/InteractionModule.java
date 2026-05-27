@@ -9,7 +9,6 @@ import org.dreamhorizon.pulseserver.dao.productAnalysis.funnelresults.FunnelResu
 import org.dreamhorizon.pulseserver.dao.productAnalysis.journey.JourneyDao;
 import org.dreamhorizon.pulseserver.dao.productAnalysis.journeyresults.JourneyResultsDao;
 import org.dreamhorizon.pulseserver.dao.rootcause.RootCauseCacheDao;
-import org.dreamhorizon.pulseserver.dao.rootcause.ScreenRootCauseCacheDao;
 import org.dreamhorizon.pulseserver.service.configs.ConfigService;
 import org.dreamhorizon.pulseserver.service.configs.impl.ConfigServiceImpl;
 import org.dreamhorizon.pulseserver.service.interaction.ClickhouseMetricService;
@@ -58,7 +57,6 @@ public class InteractionModule extends AbstractModule {
         org.dreamhorizon.pulseserver.service.analytics.RoutingAnalyticsBatchService.class)
         .in(Singleton.class);
     bind(RootCauseCacheDao.class).in(Singleton.class);
-    bind(ScreenRootCauseCacheDao.class).in(Singleton.class);
     bind(RootCauseService.class).in(Singleton.class);
     bind(ScreenRcaService.class).in(Singleton.class);
     bind(ErrorAttributionService.class).in(Singleton.class);

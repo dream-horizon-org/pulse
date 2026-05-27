@@ -95,17 +95,6 @@ export function RcaSessionReplayEvidenceCard({
         ) : null}
       </Group>
 
-      <Text
-        className={classes.cardTitle}
-        fw={700}
-        size="sm"
-        mb={6}
-        lineClamp={2}
-        title={sessionId}
-      >
-        {titleText}
-      </Text>
-
       <Box mb="sm">
         {isLoading ? (
           <Group gap="xs" wrap="nowrap" py={2}>

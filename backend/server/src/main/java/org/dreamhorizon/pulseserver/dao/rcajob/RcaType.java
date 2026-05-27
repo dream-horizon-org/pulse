@@ -4,7 +4,6 @@ package org.dreamhorizon.pulseserver.dao.rcajob;
 public enum RcaType {
   INTERACTION,
   SESSION,
-  SCREEN,
   SCREEN_V2
   // Future: EVENT, USER_SEGMENT, etc.
 }
