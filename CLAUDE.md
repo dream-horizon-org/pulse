@@ -112,6 +112,7 @@ Map task → skill → relevant rule(s). Run the skill rather than freelancing.
 | Alert metric (cross-cutting) | `add-alert-metric` | `alerts-cron.mdc`, `clickhouse-sql.mdc`, `java-backend.mdc` |
 | ClickHouse schema change | `clickhouse-migration` | `clickhouse-sql.mdc` |
 | Web SDK implementation / verification | `web-sdk-instrument`, `web-sdk-e2e-matrix`, `web-sdk-ship` | `pulse-web-otel-contract.mdc`, `pulse-web-otel-conventions.mdc`, `web-sdk.mdc` |
+| Integrate pulse-web SDK into a host app (vanilla / React / Next) | `integrate-pulse-web-sdk` | `pulse-web-otel/docs/instrumentations/integration/SPEC.md` |
 | Build/run a service locally | `deploy-service` | `docker-deploy.mdc` |
 | PR review | `pr-review` | `pr-workflow.mdc`, `commit-conventions.mdc` |
 
@@ -119,7 +120,7 @@ Map task → skill → relevant rule(s). Run the skill rather than freelancing.
 
 `.cursor/{skills,agents,commands,rules}/` and `.claude/{skills,agents,commands,rules}/` symlink to `.agents/` — single canonical copy for both tools.
 
-- **Skills** (`.cursor/skills/`) — prefer these over freelancing: `add-api-endpoint`, `add-ui-screen`, `add-ui-component`, `add-ai-sub-agent`, `add-alert-metric`, `clickhouse-migration`, `deploy-service`, `pr-review`, `web-sdk-instrument`, `web-sdk-e2e-matrix`, `web-sdk-ship`, `pulse-prd-author`, `pulse-prd-review`.
+- **Skills** (`.cursor/skills/`) — prefer these over freelancing: `add-api-endpoint`, `add-ui-screen`, `add-ui-component`, `add-ai-sub-agent`, `add-alert-metric`, `clickhouse-migration`, `deploy-service`, `pr-review`, `web-sdk-instrument`, `web-sdk-e2e-matrix`, `web-sdk-ship`, `integrate-pulse-web-sdk`, `pulse-prd-author`, `pulse-prd-review`.
 - **Sub-agents** (`.cursor/agents/`) — delegate by area: `backend-engineer`, `frontend-engineer`, `ai-agent-engineer`, `mobile-sdk-engineer`, `pulse-web-sdk`, `web-otel-spec-audit-orchestrator`, `devops-engineer`, `data-analyst`, `debugger`, `pr-reviewer`, `unit-test-author`, `backend-test-runner`, `mock-server-maintainer`.
 - **Slash commands** (`.cursor/commands/`) — `quickstart`, `start/stop/check-services`, `view-logs`, `build-{backend,ui,ai}`, `run-{backend,ui}-tests`, `lint-ui`, `query-clickhouse`, `create-pr`, `review-my-changes`, `find-existing`, `onboard`, etc.
 

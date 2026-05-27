@@ -121,3 +121,4 @@ kotlinSerialisation = { id = "org.jetbrains.kotlin.plugin.serialization", versio
 androidApp = { id = "com.android.application", version.ref = "androidPlugin" }
 kover = { id = "org.jetbrains.kotlinx.kover", version.ref = "koverGradlePlugin" }
 detekt = { id = "dev.detekt", version.ref = "detekt" }
+byteBuddyPlugin = { id = "net.bytebuddy.byte-buddy-gradle-plugin", version.ref = "byteBuddy" }

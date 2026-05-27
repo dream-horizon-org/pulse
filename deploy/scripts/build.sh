@@ -194,6 +194,7 @@ build_ui() {
         -t "$IMAGE_UI" \
         --build-arg "REACT_APP_GOOGLE_CLIENT_ID=${REACT_APP_GOOGLE_CLIENT_ID}" \
         --build-arg "REACT_APP_PULSE_SERVER_URL=${REACT_APP_PULSE_SERVER_URL}" \
+        --build-arg "REACT_APP_PULSE_WEB_API_KEY=${REACT_APP_PULSE_WEB_API_KEY:-}" \
         --build-arg "REACT_APP_GOOGLE_OAUTH_ENABLED=${REACT_APP_GOOGLE_OAUTH_ENABLED}" \
         --build-arg "REACT_APP_ROOT_CAUSE_ENABLED=${REACT_APP_ROOT_CAUSE_ENABLED:-false}" \
         -f "$ROOT_DIR/pulse-ui/Dockerfile" \
