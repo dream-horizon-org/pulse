@@ -46,8 +46,8 @@ import io.opentelemetry.android.config.OtelRumConfig
 import io.opentelemetry.android.export.FilteringSpanExporter
 import io.opentelemetry.android.instrumentation.AndroidInstrumentation
 import io.opentelemetry.android.instrumentation.AndroidInstrumentationLoader
-import io.opentelemetry.android.instrumentation.click.ClickContextEnrichmentConfig
 import io.opentelemetry.android.instrumentation.activity.startup.AppStartupTimer
+import io.opentelemetry.android.instrumentation.click.ClickContextEnrichmentConfig
 import io.opentelemetry.android.instrumentation.click.RageConfig
 import io.opentelemetry.android.instrumentation.interaction.library.InteractionInstrumentation
 import io.opentelemetry.android.instrumentation.location.processors.LocationAttributesLogRecordAppender
