@@ -13,6 +13,12 @@
 /.github/CODEOWNERS           @chiragSharmaD11 @anirudhdream11 @princektripathi @yasir6jan @kunalchavhan
 
 # ──────────────────────────────────────────────────────────────────────────────
+# Mobile SDK size baselines (>25 KB bumps: any one of the three may approve)
+# ──────────────────────────────────────────────────────────────────────────────
+/.github/sdk-size-baselines/                    @kunalchavhan @anirudhdream11 @chiragSharmaD11
+/.github/workflows/mobile-sdk-size-delta.yml    @kunalchavhan @anirudhdream11 @chiragSharmaD11
+
+# ──────────────────────────────────────────────────────────────────────────────
 # Mobile SDKs
 # ──────────────────────────────────────────────────────────────────────────────
 /pulse-android-otel/          @atulgpt17 @anirudhdream11 @shubhamguptadream11 @arinjay-d11 @yasir6jan @princektripathi @chiragSharmaD11
