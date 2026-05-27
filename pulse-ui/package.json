@@ -1,10 +1,11 @@
 {
   "name": "pulse-client",
-  "version": "0.1.39-SNAPSHOT",
+  "version": "0.1.43-SNAPSHOT",
   "private": true,
   "dependencies": {
     "@babel/core": "^7.16.0",
     "@dagrejs/dagre": "^3.0.0",
+    "@dreamhorizonorg/pulse-web": "0.0.5",
     "@hello-pangea/dnd": "^16.6.0",
     "@mantine/core": "^7.11.1",
     "@mantine/dates": "^7.11.1",
@@ -101,7 +102,7 @@
     "typescript": "^5.3.3",
     "use-resize-observer": "^9.1.0",
     "uuid": "^10.0.0",
-    "web-vitals": "^2.1.0",
+    "web-vitals": "^5.2.0",
     "webpack": "^5.64.4",
     "webpack-dev-server": "^4.6.0",
     "webpack-manifest-plugin": "^4.0.2",
@@ -113,6 +114,7 @@
     "start": "node scripts/start.js",
     "postinstall": "patch-package",
     "build": "node scripts/build.js",
+    "preview": "npx serve -s build",
     "test": "node scripts/test.js",
     "prepare": "husky"
   },

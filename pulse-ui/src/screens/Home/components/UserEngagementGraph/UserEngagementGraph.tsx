@@ -10,7 +10,11 @@ import utc from "dayjs/plugin/utc";
 import { useMemo } from "react";
 import { UserEngagementGraphProps } from "./UserEngagementGraph.interface";
 import { useGetUserEngagementData } from "../../../../hooks/useGetUserEngagementData";
-import { GraphCardSkeleton } from "../../../../components/Skeletons";
+import {
+  ChartSkeleton,
+  GraphCardSkeleton,
+  SkeletonLoader,
+} from "../../../../components/Skeletons";
 
 dayjs.extend(utc);
 
@@ -32,7 +36,7 @@ export function UserEngagementGraph({
     };
   }, []);
 
-  // Always use last 1 month for weekly and monthly averages (ignore time filter)
+  // Always use last 7 days for WAU (ignore time filter)
   const { weekStartDate, weekEndDate } = useMemo(() => {
     const end = dayjs().utc().endOf("day");
     const start = end.subtract(6, "days").startOf("day");
@@ -44,14 +48,14 @@ export function UserEngagementGraph({
 
   const { monthStartDate, monthEndDate } = useMemo(() => {
     const end = dayjs().utc().endOf("day");
-    const start = end.subtract(27, "days").startOf("day");
+    const start = end.subtract(29, "days").startOf("day");
     return {
       monthStartDate: start.toISOString(),
       monthEndDate: end.toISOString(),
     };
   }, []);
 
-  const { data, isLoading } = useGetUserEngagementData({
+  const { data, loading, failed } = useGetUserEngagementData({
     screenName,
     appVersion,
     osVersion,
@@ -64,16 +68,44 @@ export function UserEngagementGraph({
     monthEndDate,
   });
 
-  const { dailyUsers, weeklyUsers, monthlyUsers, trendData } = data;
+  const { dailyUsers, weeklyUsers, monthlyUsers, trendData, hasData } = data;
+  const isAnyLoading = loading.daily || loading.weekly || loading.monthly;
 
-  if (isLoading) {
-    return <GraphCardSkeleton title="User Engagement" chartHeight={260} metricsCount={3} />;
+  if (!hasData && isAnyLoading) {
+    return (
+      <GraphCardSkeleton
+        title="User Engagement"
+        chartHeight={260}
+        metricsCount={3}
+      />
+    );
   }
 
-  const formatMetricValue = (value: number | null, color: string) => {
-    if (value === null) {
-      return <Text className={classes.metricValue} c="dimmed">N/A</Text>;
+  const formatMetricValue = (
+    value: number | null,
+    color: string,
+    isMetricLoading: boolean,
+    isMetricFailed: boolean,
+  ) => {
+    if (isMetricLoading) {
+      return (
+        <SkeletonLoader
+          height={30}
+          width="55%"
+          radius="sm"
+          className={classes.metricValueSkeleton}
+        />
+      );
     }
+
+    if (isMetricFailed || value === null) {
+      return (
+        <Text className={classes.metricValue} c="dimmed">
+          N/A
+        </Text>
+      );
+    }
+
     return (
       <Text className={classes.metricValue} style={{ color }}>
         {value.toLocaleString()}
@@ -92,75 +124,103 @@ export function UserEngagementGraph({
           w={280}
           position="right"
         >
-          <IconInfoCircle size={14} style={{ opacity: 0.5, cursor: "help", flexShrink: 0 }} />
+          <IconInfoCircle
+            size={14}
+            style={{ opacity: 0.5, cursor: "help", flexShrink: 0 }}
+          />
         </Tooltip>
       </Group>
       <div className={classes.metricsGrid}>
         <div className={classes.metricCard}>
           <Text className={classes.metricLabel}>DAU</Text>
-          {formatMetricValue(dailyUsers, "#0ec9c2")}
+          {formatMetricValue(
+            dailyUsers,
+            "#0ec9c2",
+            loading.daily,
+            failed.daily,
+          )}
         </div>
         <div className={classes.metricCard}>
           <Text className={classes.metricLabel}>WAU</Text>
-          {formatMetricValue(weeklyUsers, "#0ba09a")}
+          {formatMetricValue(
+            weeklyUsers,
+            "#0ba09a",
+            loading.weekly,
+            failed.weekly,
+          )}
         </div>
         <div className={classes.metricCard}>
           <Text className={classes.metricLabel}>MAU</Text>
-          {formatMetricValue(monthlyUsers, "#2c3e50")}
+          {formatMetricValue(
+            monthlyUsers,
+            "#2c3e50",
+            loading.monthly,
+            failed.monthly,
+          )}
         </div>
       </div>
       <div className={classes.chartContainer}>
-        <LineChart
-          height={260}
-          withLegend={false}
-          option={{
-            grid: { left: 60, right: 24, top: 24, bottom: 45 },
-            tooltip: {
-              trigger: "axis",
-              formatter: createTooltipFormatter({
-                valueFormatter: (value: any) => {
-                  const numericValue = Array.isArray(value) ? value[1] : value;
-                  return `${parseFloat(numericValue).toFixed(0)}`;
+        {loading.daily ? (
+          <ChartSkeleton height={260} />
+        ) : failed.daily ? (
+          <Text size="sm" c="dimmed" ta="center" py="xl">
+            Chart unavailable
+          </Text>
+        ) : (
+          <LineChart
+            height={260}
+            withLegend={false}
+            option={{
+              grid: { left: 60, right: 24, top: 24, bottom: 45 },
+              tooltip: {
+                trigger: "axis",
+                formatter: createTooltipFormatter({
+                  valueFormatter: (value: any) => {
+                    const numericValue = Array.isArray(value)
+                      ? value[1]
+                      : value;
+                    return `${parseFloat(numericValue).toFixed(0)}`;
+                  },
+                  customHeaderFormatter: (axisValue: any) => {
+                    if (axisValue && typeof axisValue === "number") {
+                      return dayjs(axisValue).format("MMM DD, HH:mm");
+                    }
+                    return axisValue || "";
+                  },
+                }),
+              },
+              xAxis: {
+                type: "time",
+                axisLabel: {
+                  fontSize: 10,
+                  formatter: (value: number) => dayjs(value).format("MMM DD"),
                 },
-                customHeaderFormatter: (axisValue: any) => {
-                  if (axisValue && typeof axisValue === "number") {
-                    return dayjs(axisValue).format("MMM DD, HH:mm");
-                  }
-                  return axisValue || "";
+              },
+              yAxis: {
+                type: "value",
+                name: "Users",
+                nameGap: 40,
+                nameTextStyle: { fontSize: 11 },
+                axisLabel: {
+                  fontSize: 10,
+                  formatter: (value: number) => `${(value / 1000).toFixed(0)}K`,
                 },
-              }),
-            },
-            xAxis: {
-              type: "time",
-              axisLabel: {
-                fontSize: 10,
-                formatter: (value: number) => dayjs(value).format("MMM DD"),
               },
-            },
-            yAxis: {
-              type: "value",
-              name: "Users",
-              nameGap: 40,
-              nameTextStyle: { fontSize: 11 },
-              axisLabel: {
-                fontSize: 10,
-                formatter: (value: number) => `${(value / 1000).toFixed(0)}K`,
-              },
-            },
-            series: [
-              {
-                name: "DAU",
-                type: "line",
-                smooth: true,
-                data: trendData.map((d) => [d.timestamp, d.dau]),
-                itemStyle: { color: "#0ec9c2" },
-                lineStyle: { width: 2.5, color: "#0ec9c2" },
-                symbol: "circle",
-                symbolSize: 6,
-              },
-            ],
-          }}
-        />
+              series: [
+                {
+                  name: "DAU",
+                  type: "line",
+                  smooth: true,
+                  data: trendData.map((d) => [d.timestamp, d.dau]),
+                  itemStyle: { color: "#0ec9c2" },
+                  lineStyle: { width: 2.5, color: "#0ec9c2" },
+                  symbol: "circle",
+                  symbolSize: 6,
+                },
+              ],
+            }}
+          />
+        )}
       </div>
     </div>
   );

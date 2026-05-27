@@ -8,7 +8,7 @@ export function UserExperienceGraphs() {
   return (
     <InteractionDetailsGraphs
       orientation="horizontal"
-      startTime={dayjs().utc().subtract(7, "days").toISOString()}
+      startTime={dayjs().utc().subtract(1, "days").toISOString()}
       endTime={dayjs().utc().toISOString()}
     />
   );

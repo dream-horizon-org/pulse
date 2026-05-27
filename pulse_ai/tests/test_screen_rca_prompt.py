@@ -24,6 +24,15 @@ def _prompt() -> str:
     return build_screen_rca_system_instruction()
 
 
+def _neutral_metrics_block(prompt: str) -> str:
+    """Bullet list under ### Neutral metrics only (not later sections)."""
+    start = prompt.lower().find("### neutral metric")
+    assert start >= 0
+    end = prompt.find("## Segments", start)
+    assert end > start
+    return prompt[start:end]
+
+
 # ──────────────────────────────────────────────────────────────
 # 1. Schema constraints
 # ──────────────────────────────────────────────────────────────
@@ -72,6 +81,42 @@ class TestScreenRcaPromptMetricDirectionality:
         assert "click_volume" in prompt
         assert "tap_count" in prompt
 
+    def test_bad_frustration_percentage_is_primary_frustration_metric(self):
+        prompt = _prompt()
+        frustration_idx = prompt.lower().find("### frustration")
+        neutral_idx = prompt.lower().find("### neutral")
+        frustration_block = prompt[frustration_idx:neutral_idx]
+        assert "bad_frustration_percentage" in frustration_block
+        assert any(
+            phrase in frustration_block.lower()
+            for phrase in [
+                "primary severity metric",
+                "only frustration metric whose delta",
+                "lead every summary and recommendation",
+            ]
+        )
+        assert frustration_idx < neutral_idx
+
+    def test_bad_frustration_equals_dead_plus_rage_mutually_exclusive(self):
+        prompt = _prompt()
+        frustration_idx = prompt.lower().find("### frustration")
+        neutral_idx = prompt.lower().find("### neutral")
+        block = prompt[frustration_idx:neutral_idx].lower()
+        assert "composition" in block
+        assert "dead_count + rage_count" in block
+        assert "never both" in block or "mutually exclusive" in block
+        assert "double-count" not in block
+
+    def test_frustration_metrics_not_listed_under_neutral_bullets(self):
+        prompt = _prompt()
+        neutral_block = _neutral_metrics_block(prompt)
+        assert "click_volume" in neutral_block
+        assert "tap_count" in neutral_block
+        assert neutral_block.count("rage_count") == 0
+        assert neutral_block.count("dead_count") == 0
+        assert "bad_frustration_percentage" not in neutral_block
+        assert neutral_block.count("bad_frustration") == 0
+
 
 # ──────────────────────────────────────────────────────────────
 # 3. Negative delta must not trigger recommendations
@@ -84,13 +129,33 @@ class TestScreenRcaPromptNegativeDeltaNotActionable:
     wrote "Review the contributing factors that led to zero dead clicks..."
     """
 
-    def test_only_positive_deltas_are_flagged(self):
+    def test_only_bad_frustration_percentage_delta_drives_baseline_worsening(self):
         prompt = _prompt()
-        assert any(phrase in prompt for phrase in [
-            "Only flag or discuss these when their delta is positive",
-            "only when their delta is positive",
-            "positive delta is a degradation signal",
-        ])
+        prompt_lower = prompt.lower()
+        assert "subset math" in prompt_lower or "subset" in prompt_lower
+        assert "bad_frustration_percentage" in prompt
+        assert any(
+            phrase in prompt_lower
+            for phrase in [
+                "only frustration metric whose delta",
+                "reliably means",
+                "lead every summary and recommendation on this metric",
+            ]
+        )
+
+    def test_count_deltas_vs_baseline_not_recommendation_triggers(self):
+        prompt = _prompt()
+        prompt_lower = prompt.lower()
+        assert "never recommend" in prompt_lower
+        assert "rage_count" in prompt
+        assert any(
+            phrase in prompt_lower
+            for phrase in [
+                "deltas vs baseline are ≤ 0",
+                "deltas vs baseline are <= 0",
+                "almost always",
+            ]
+        )
 
     def test_improving_metrics_excluded_from_recommendations(self):
         prompt = _prompt()
@@ -101,16 +166,16 @@ class TestScreenRcaPromptNegativeDeltaNotActionable:
             or "improving" in prompt_lower
         )
 
-    def test_recommendations_grounded_in_frustration_signals_only(self):
+    def test_recommendations_grounded_in_bad_frustration_rate_only(self):
         # Screenshot bug: "Examine if the lower click volumes..." — neutral metric drove a bullet.
-        # Prompt must tie recommendations to frustration signals only.
         prompt = _prompt()
         prompt_lower = prompt.lower()
-        assert (
-            "frustration signal" in prompt_lower
-            or "grounded in frustration" in prompt_lower
-            or ("neutral" in prompt_lower and "recommendation" in prompt_lower)
+        assert "positive `bad_frustration_percentage` delta" in prompt_lower or (
+            "bad_frustration_percentage" in prompt_lower
+            and "mandatory" in prompt_lower
+            and "recommendation" in prompt_lower
         )
+        assert "neutral" in prompt_lower and "recommendation" in prompt_lower
 
 
 # ──────────────────────────────────────────────────────────────
@@ -118,16 +183,24 @@ class TestScreenRcaPromptNegativeDeltaNotActionable:
 # ──────────────────────────────────────────────────────────────
 
 class TestScreenRcaPromptPreAnalysisGate:
-    """everythingGood and noDataAvailable must yield recommendations: [], not generic bullets."""
+    """Input everythingGood / noDataAvailable must yield recommendations: [], not generic bullets."""
 
     def test_everything_good_yields_empty_recommendations(self):
         prompt = _prompt()
         assert "recommendations: []" in prompt
+        assert "everythingGood" in prompt
 
     def test_no_data_available_yields_empty_recommendations(self):
         prompt = _prompt()
-        assert "noDataAvailable" in prompt or "no_data_available" in prompt
+        assert "noDataAvailable" in prompt
         assert "recommendations: []" in prompt
+
+    def test_gate_uses_input_flags_not_output_schema_fields(self):
+        prompt = _prompt()
+        assert "RootCausePayload" in prompt
+        assert "do not emit extra output fields" in prompt.lower()
+        assert "Set `everything_good: true`" not in prompt
+        assert "Set `no_data_available: true`" not in prompt
 
     def test_no_forced_generic_recommendations(self):
         prompt = _prompt()
@@ -179,12 +252,41 @@ class TestScreenRcaPromptExecutiveSummary:
         prompt = _prompt()
         assert "scope of impact when clear from volumes" not in prompt
 
-    def test_leads_with_frustration_concentration(self):
+    def test_leads_with_bad_frustration_percentage(self):
         prompt = _prompt()
         prompt_lower = prompt.lower()
-        assert "concentrate" in prompt_lower or "lead with" in prompt_lower
+        assert "lead with" in prompt_lower
+        assert "bad_frustration_percentage" in prompt_lower
 
     def test_do_not_invent_figures(self):
         prompt = _prompt()
         prompt_lower = prompt.lower()
         assert "do not calculate" in prompt_lower or "do not invent" in prompt_lower or "invent" in prompt_lower
+
+
+# ──────────────────────────────────────────────────────────────
+# 7. Segment list and server gate alignment
+# ──────────────────────────────────────────────────────────────
+
+class TestScreenRcaPromptSegmentTrust:
+    """Prompt must trust server segment order and rate gate."""
+
+    def test_trust_server_segment_list(self):
+        prompt = _prompt()
+        prompt_lower = prompt.lower()
+        assert "do not drop" in prompt_lower or "trust the server" in prompt_lower
+
+    def test_segment_label_citation(self):
+        prompt = _prompt()
+        assert "label" in prompt.lower()
+
+    def test_bad_frustration_percentage_rate_gate(self):
+        prompt = _prompt()
+        assert "bad_frustration_percentage" in prompt
+        assert "strictly greater" in prompt.lower() or "baseline rate" in prompt.lower()
+
+    def test_negative_count_deltas_expected_for_listed_segments(self):
+        prompt = _prompt()
+        prompt_lower = prompt.lower()
+        assert "ignore those count deltas" in prompt_lower or "negative" in prompt_lower
+        assert "rage_count" in prompt

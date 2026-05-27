@@ -346,8 +346,12 @@ Public config types re-export from `src/index.ts` as needed for host TS; authori
 | `Pulse.reportException(error, attrs?)` | Manual non-fatal (`pulse.type = non_fatal`, WARN severity). |
 | `Pulse.reportDeviceCrash(error, attrs?)` | Fatal crash signal (`pulse.type = device.crash`, FATAL severity). |
 | `Pulse.trackNonFatal(name, attrs?)` | Named non-fatal event (`pulse.type = non_fatal`). |
+| `Pulse.startSpan(name, options?)` | Create and return a mutable span handle (`pulse.type = custom_span`). Returns `PulseSpan` with `end(status?)`, `addEvent`, `setAttributes`, `recordException` methods. Caller is responsible for calling `end()`. |
+| `Pulse.trackSpan(name, fn, options?)` | Execute a function or async function within a span, auto-ending on success or error (`pulse.type = custom_span`). Returns the result of `fn`, preserving its type (sync or async). |
 
 Manual error API names differ from Android **`trackNonFatal`** centric APIs — cross-platform map: [`../../instrumentations/integration/SPEC.md`](../../instrumentations/integration/SPEC.md) §5.10.
+
+Custom span API: [`../../instrumentations/custom-span/SPEC.md`](../../instrumentations/custom-span/SPEC.md).
 
 `pulse.type` / attribute contracts: [`../data-contract/SPEC.md`](../data-contract/SPEC.md). Errors instrumentation: [`../../instrumentations/errors/SPEC.md`](../../instrumentations/errors/SPEC.md).
 

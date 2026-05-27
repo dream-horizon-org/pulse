@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "thresholdBytes": 25600,
+  "artifacts": {
+    "ios.pulsekit_xcframework_bundle": {
+      "bytes": 0,
+      "path": "pulse-ios-otel/build",
+      "description": "Sum of du -sb for shipped *.xcframework directories under pulse-ios-otel/build/",
+      "recordedAt": "unseeded",
+      "gitSha": "run-workflow-dispatch-seed-on-main"
+    }
+  }
+}

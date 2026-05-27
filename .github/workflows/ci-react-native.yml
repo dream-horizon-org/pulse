@@ -12,6 +12,8 @@ on:
       - '.github/workflows/rn-android-lint.yml'
       - '.github/workflows/rn-android-build.yml'
       - '.github/workflows/rn-expo-android.yml'
+      - '.github/workflows/rn-expo-android-rn076.yml'
+      - '.github/workflows/rn-bare-android-rn076.yml'
       - '.github/workflows/rn-expo-ios.yml'
       - '.github/workflows/rn-example-ios.yml'
   pull_request:
@@ -25,6 +27,8 @@ on:
       - '.github/workflows/rn-android-lint.yml'
       - '.github/workflows/rn-android-build.yml'
       - '.github/workflows/rn-expo-android.yml'
+      - '.github/workflows/rn-expo-android-rn076.yml'
+      - '.github/workflows/rn-bare-android-rn076.yml'
       - '.github/workflows/rn-expo-ios.yml'
       - '.github/workflows/rn-example-ios.yml'
 
@@ -219,6 +223,21 @@ jobs:
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
 
+      # GitHub-hosted runners ship ~14GB free; publishing the full
+      # pulse-android-otel multi-module build (Layer 1/2/3 AARs + Gradle caches)
+      # tips them over. m2-publish hit a runner-death failure with logs lost
+      # (BlobNotFound) on the same disk-pressure signature as the rn-expo jobs.
+      # Reclaim ~40GB by deleting preinstalled toolchains this job doesn't use.
+      # Ephemeral VM — no cross-job side effects.
+      - name: Free runner disk space
+        run: |
+          set -eu
+          echo "--- before ---"
+          df -h /
+          sudo rm -rf /usr/share/dotnet /opt/ghc /opt/hostedtoolcache/CodeQL /usr/local/share/boost /opt/microsoft /opt/az 2>/dev/null || true
+          echo "--- after ---"
+          df -h /
+
       - name: Set Maven Local cache key
         run: |
           echo "MAVEN_LOCAL_CACHE_KEY=maven-local-pulse-android-${{ hashFiles('pulse-android-otel/**/*.gradle.kts', 'pulse-android-otel/settings.gradle.kts', 'pulse-android-otel/gradle.properties', 'pulse-android-otel/gradle/libs.versions.toml', 'pulse-android-otel/**/src/main/**/*.kt', 'pulse-android-otel/**/src/main/**/*.java') }}" >> $GITHUB_ENV
@@ -313,6 +332,35 @@ jobs:
       - m2-publish
     if: needs.check-changes.outputs.android-sdk-changed == 'true'
     uses: ./.github/workflows/rn-expo-android.yml
+
+  # RN 0.76 / Kotlin 1.9 smoke targets (Expo + bare). See PR #727 for the consumer-compat backstory.
+  rn-expo-rn076:
+    needs: check-changes
+    if: |
+      (needs.check-changes.outputs.react-native-changed == 'true' || needs.check-changes.outputs.android-sdk-changed == 'true') &&
+      needs.check-changes.outputs.android-sdk-changed != 'true'
+    uses: ./.github/workflows/rn-expo-android-rn076.yml
+
+  rn-expo-rn076-sdk:
+    needs:
+      - check-changes
+      - m2-publish
+    if: needs.check-changes.outputs.android-sdk-changed == 'true'
+    uses: ./.github/workflows/rn-expo-android-rn076.yml
+
+  rn-bare-rn076:
+    needs: check-changes
+    if: |
+      (needs.check-changes.outputs.react-native-changed == 'true' || needs.check-changes.outputs.android-sdk-changed == 'true') &&
+      needs.check-changes.outputs.android-sdk-changed != 'true'
+    uses: ./.github/workflows/rn-bare-android-rn076.yml
+
+  rn-bare-rn076-sdk:
+    needs:
+      - check-changes
+      - m2-publish
+    if: needs.check-changes.outputs.android-sdk-changed == 'true'
+    uses: ./.github/workflows/rn-bare-android-rn076.yml
 
   rn-expo-ios:
     needs: check-changes

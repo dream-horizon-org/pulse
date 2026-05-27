@@ -126,6 +126,25 @@ export function findAllSpans(
   return out;
 }
 
+/** Spans whose {@code name} equals {@code spanName} (for custom/trackSpan spans). */
+export function findAllSpansByName(
+  captured: CapturedRequest[],
+  spanName: string,
+): OtlpSpan[] {
+  const out: OtlpSpan[] = [];
+  for (const c of captured) {
+    if (c.type !== "traces") continue;
+    for (const rs of c.body.resourceSpans ?? []) {
+      for (const ss of rs.scopeSpans ?? []) {
+        for (const sp of ss.spans ?? []) {
+          if (sp.name === spanName) out.push(sp);
+        }
+      }
+    }
+  }
+  return out;
+}
+
 const SCREEN_NAME_KEY = "screen.name";
 
 /** Any OTLP log or span whose {@code screen.name} equals {@code name}. */
@@ -327,6 +346,7 @@ export type OtlpFixture = {
   captured: CapturedRequest[];
   waitForLog(pulseType: string, timeoutMs?: number): Promise<OtlpLogRecord>;
   waitForSpan(pulseType: string, timeoutMs?: number): Promise<OtlpSpan>;
+  waitForSpanByName(spanName: string, timeoutMs?: number): Promise<OtlpSpan>;
   reset(): void;
 };
 
@@ -349,6 +369,12 @@ export const test = base.extend<{ otlp: OtlpFixture }>({
           () => findAllSpans(captured, t)[0],
           ms,
           `span(pulse.type="${t}")`,
+        ),
+      waitForSpanByName: (n, ms = 10_000) =>
+        pollUntil(
+          () => findAllSpansByName(captured, n)[0],
+          ms,
+          `span(name="${n}")`,
         ),
       reset: () => {
         captured.length = 0;

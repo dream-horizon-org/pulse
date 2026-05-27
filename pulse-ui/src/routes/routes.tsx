@@ -41,6 +41,7 @@ import { SessionReplayRouteGuard } from "../components/SessionReplayRouteGuard";
 import { PersonalTokens } from "../screens/PersonalTokens";
 import { TenantSelector } from "../screens/internal/TenantSelector";
 import { DeveloperSettings } from "../screens/internal/DeveloperSettings";
+import { SubscriptionManagement } from "../screens/internal/SubscriptionManagement";
 import { InternalRouteGuard } from "../components/InternalRouteGuard";
 
 function SessionReplaySessionsGuarded() {
@@ -95,6 +96,14 @@ function DeveloperSettingsGuarded() {
   return (
     <InternalRouteGuard requireSuperadmin>
       <DeveloperSettings />
+    </InternalRouteGuard>
+  );
+}
+
+function SubscriptionManagementGuarded() {
+  return (
+    <InternalRouteGuard requireSuperadmin>
+      <SubscriptionManagement />
     </InternalRouteGuard>
   );
 }
@@ -317,5 +326,9 @@ export const ROUTES = {
   INTERNAL_DEVELOPER_SETTINGS: {
     ...ROUTE_PATHS.INTERNAL_DEVELOPER_SETTINGS,
     element: DeveloperSettingsGuarded,
+  },
+  INTERNAL_SUBSCRIPTION_MANAGEMENT: {
+    ...ROUTE_PATHS.INTERNAL_SUBSCRIPTION_MANAGEMENT,
+    element: SubscriptionManagementGuarded,
   },
 };
