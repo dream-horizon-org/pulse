@@ -2762,7 +2762,7 @@ test.describe("session.end crash count — Next.js", () => {
 
     const endLog = await otlp.waitForLog("session.end");
     expect(getAttr(endLog.attributes, "pulse.session.crash.count")).toBe(1);
-    expect(getAttr(endLog.attributes, "pulse.session.non_fatal.count")).toBeNull();
+    expect(getAttr(endLog.attributes, "pulse.session.non_fatal.count")).toBeUndefined();
   });
 
   test("session.end carries pulse.session.non_fatal.count after non_fatal", async ({
@@ -2787,7 +2787,7 @@ test.describe("session.end crash count — Next.js", () => {
 
     const endLog = await otlp.waitForLog("session.end");
     expect(getAttr(endLog.attributes, "pulse.session.non_fatal.count")).toBe(1);
-    expect(getAttr(endLog.attributes, "pulse.session.crash.count")).toBeNull();
+    expect(getAttr(endLog.attributes, "pulse.session.crash.count")).toBeUndefined();
   });
 
   test("session.end without errors has no crash count attributes", async ({
@@ -2806,8 +2806,8 @@ test.describe("session.end crash count — Next.js", () => {
     });
 
     const endLog = await otlp.waitForLog("session.end");
-    expect(getAttr(endLog.attributes, "pulse.session.crash.count")).toBeNull();
-    expect(getAttr(endLog.attributes, "pulse.session.non_fatal.count")).toBeNull();
+    expect(getAttr(endLog.attributes, "pulse.session.crash.count")).toBeUndefined();
+    expect(getAttr(endLog.attributes, "pulse.session.non_fatal.count")).toBeUndefined();
   });
 });
 

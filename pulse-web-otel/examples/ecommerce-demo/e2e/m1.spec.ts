@@ -3094,7 +3094,7 @@ test.describe("@Session session.end — pulse.session.crash.count / non_fatal.co
     const endLog = await otlp.waitForLog("session.end");
     expect(getAttr(endLog.attributes, "pulse.session.crash.count")).toBe(1);
     // non_fatal not emitted → attribute must be absent
-    expect(getAttr(endLog.attributes, "pulse.session.non_fatal.count")).toBeNull();
+    expect(getAttr(endLog.attributes, "pulse.session.non_fatal.count")).toBeUndefined();
   });
 
   test("session.end has pulse.session.non_fatal.count = 1 after one non_fatal", async ({
@@ -3119,7 +3119,7 @@ test.describe("@Session session.end — pulse.session.crash.count / non_fatal.co
 
     const endLog = await otlp.waitForLog("session.end");
     expect(getAttr(endLog.attributes, "pulse.session.non_fatal.count")).toBe(1);
-    expect(getAttr(endLog.attributes, "pulse.session.crash.count")).toBeNull();
+    expect(getAttr(endLog.attributes, "pulse.session.crash.count")).toBeUndefined();
   });
 
   test("session.end counts reset across sessions — second session starts at 0", async ({
@@ -3144,7 +3144,11 @@ test.describe("@Session session.end — pulse.session.crash.count / non_fatal.co
     const end1 = await otlp.waitForLog("session.end");
     expect(getAttr(end1.attributes, "pulse.session.crash.count")).toBe(1);
 
-    // Session 2: reload, no crashes → count must be absent
+    // Session 2: reload, no crashes → count must be absent.
+    // Expire session first so reload emits a fresh session.start.
+    await page.evaluate(() => {
+      localStorage.setItem("pulse_session_ts", "0");
+    });
     otlp.reset();
     await page.reload({ waitUntil: "domcontentloaded" });
     await otlp.waitForLog("session.start");
@@ -3156,7 +3160,7 @@ test.describe("@Session session.end — pulse.session.crash.count / non_fatal.co
       );
     });
     const end2 = await otlp.waitForLog("session.end");
-    expect(getAttr(end2.attributes, "pulse.session.crash.count")).toBeNull();
+    expect(getAttr(end2.attributes, "pulse.session.crash.count")).toBeUndefined();
   });
 
   test("session.end without any errors has neither count attribute", async ({
@@ -3175,7 +3179,7 @@ test.describe("@Session session.end — pulse.session.crash.count / non_fatal.co
     });
 
     const endLog = await otlp.waitForLog("session.end");
-    expect(getAttr(endLog.attributes, "pulse.session.crash.count")).toBeNull();
-    expect(getAttr(endLog.attributes, "pulse.session.non_fatal.count")).toBeNull();
+    expect(getAttr(endLog.attributes, "pulse.session.crash.count")).toBeUndefined();
+    expect(getAttr(endLog.attributes, "pulse.session.non_fatal.count")).toBeUndefined();
   });
 });

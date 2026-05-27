@@ -125,12 +125,18 @@ describe("SessionCrashCountProcessor", () => {
     processor.onEmit(makeLog(T.DEVICE_CRASH));
     processor.onEmit(makeLog(T.NON_FATAL));
     processor.reset();
-    expect(processor.getCounters()).toEqual({ crashCount: 0, nonFatalCount: 0 });
+    expect(processor.getCounters()).toEqual({
+      crashCount: 0,
+      nonFatalCount: 0,
+    });
   });
 
   it("shutdown() clears counters and resolves", async () => {
     processor.onEmit(makeLog(T.DEVICE_CRASH));
     await processor.shutdown();
-    expect(processor.getCounters()).toEqual({ crashCount: 0, nonFatalCount: 0 });
+    expect(processor.getCounters()).toEqual({
+      crashCount: 0,
+      nonFatalCount: 0,
+    });
   });
 });
