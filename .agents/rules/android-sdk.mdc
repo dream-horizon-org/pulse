@@ -1,7 +1,7 @@
 ---
 description: Android SDK conventions for pulse-android-otel
 globs: pulse-android-otel/**/*.kt
-alwaysApply: true
+alwaysApply: false
 ---
 
 # Android SDK Conventions
