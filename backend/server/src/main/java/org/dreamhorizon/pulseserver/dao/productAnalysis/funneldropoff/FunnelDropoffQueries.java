@@ -47,10 +47,10 @@ public final class FunnelDropoffQueries {
       String projectId, long funnelId, int stepIndex, String runTime) {
     String pid = esc(projectId);
     String rtExpr = runTimeExpr(pid, funnelId, runTime);
-    // Bridge cohort step convention: DropoffStep = stepIndex + 1 (drops FROM stepIndex
-    // means failed-to-reach stepIndex+1). Attribution table stores StepIndex with the same
-    // "step the user failed to reach" semantics.
-    int targetStep = stepIndex + 1;
+    // stepIndex from the API is the "step the user failed to reach" — matches the
+    // attribution table's StepIndex semantics directly. Spark writes StepIndex = dropoff_step
+    // = (maxStepReached + 1), so users who reached step 0 and stopped → StepIndex=1.
+    int targetStep = stepIndex;
     return "SELECT "
         + "  CauseKind AS causeKind, "
         + "  CauseKey AS causeKey, "
@@ -254,16 +254,17 @@ public final class FunnelDropoffQueries {
    */
   private static String buildAnchorCte(String pid, long funnelId, int stepIndex,
                                         String rtExpr, String mode) {
+    // stepIndex = "step the user failed to reach" — matches DropoffStep in state tables.
     if ("UNIQUE_USERS".equalsIgnoreCase(mode)) {
       return "SELECT CanonicalSessionId AS SessionId, CanonicalLastReachedAt AS LastReachedAt "
           + "FROM otel.funnel_user_state "
           + "WHERE ProjectId = '" + pid + "' AND FunnelId = " + funnelId + " "
-          + "  AND RunTime = " + rtExpr + " AND DropoffStep = " + (stepIndex + 1);
+          + "  AND RunTime = " + rtExpr + " AND DropoffStep = " + stepIndex;
     }
     return "SELECT SessionId, LastReachedAt "
         + "FROM otel.funnel_session_state "
         + "WHERE ProjectId = '" + pid + "' AND FunnelId = " + funnelId + " "
-        + "  AND RunTime = " + rtExpr + " AND DropoffStep = " + (stepIndex + 1);
+        + "  AND RunTime = " + rtExpr + " AND DropoffStep = " + stepIndex;
   }
 
   /** Converter CTE — rows that reached the final step, same shape as droppers. */

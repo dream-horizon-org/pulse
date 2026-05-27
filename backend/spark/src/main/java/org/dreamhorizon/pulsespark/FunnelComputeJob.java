@@ -71,7 +71,10 @@ public class FunnelComputeJob {
         // drop-off attribution has a SessionId anchor into OTel tables.
         emitBridgeAndRollup(leanRaw, funnel, runTime, startEpoch, endEpoch, ch, s3BucketPrefix);
       } finally {
-        leanRaw.unpersist();
+        try {
+          leanRaw.unpersist();
+        } catch (IllegalStateException ignored) {
+        }
       }
     } else {
       Map<String, List<FunnelDefinition>> byProject = new HashMap<>();
@@ -119,7 +122,10 @@ public class FunnelComputeJob {
         }
       }
     } finally {
-      leanRaw.unpersist();
+      try {
+        leanRaw.unpersist();
+      } catch (IllegalStateException ignored) {
+      }
     }
   }
 
@@ -130,7 +136,7 @@ public class FunnelComputeJob {
     // and the DB default ('UNIQUE_USERS' NOT NULL) — only switch to session_id for an explicit
     // "SESSIONS" mode so a stale/missing mode value never silently changes the denominator.
     var identityCol = SparkConstants.Modes.SESSIONS.equalsIgnoreCase(funnel.mode())
-        ? SparkConstants.Columns.SESSION_ID : SparkConstants.Columns.USER_ID;
+      ? SparkConstants.Columns.SESSION_ID : SparkConstants.Columns.USER_ID;
     long windowSecs = funnel.windowSeconds();
     var steps = funnel.steps();
     int numSteps = steps.size();
@@ -435,7 +441,12 @@ public class FunnelComputeJob {
           funnel.id(), e.getMessage(), e);
       }
     } finally {
-      df.unpersist();
+      // Guard: EMR SIGTERM fires SparkShutdownHookManager which stops SparkContext
+      // before this finally block runs — unpersist() would throw IllegalStateException.
+      try {
+        df.unpersist();
+      } catch (IllegalStateException ignored) {
+      }
     }
   }
 
@@ -576,127 +587,156 @@ public class FunnelComputeJob {
     long windowSecs, int numSteps, int finalStepIdx) {
     var steps = funnel.steps();
 
-    Dataset<Row> step0Events = stepEvents(df, steps.get(0), SparkConstants.Columns.USER_ID)
-      .filter(col("identity").isNotNull().and(col("identity").notEqual("")))
-      .join(
-        df.select(
-              col(SparkConstants.Columns.USER_ID),
-              col(SparkConstants.Columns.SESSION_ID),
-              unix_timestamp(col(SparkConstants.Columns.TIMESTAMP)).alias("_ts"))
-          .filter(col(SparkConstants.Columns.EVENT_NAME).equalTo(steps.get(0).eventName())),
-        col("identity").equalTo(col(SparkConstants.Columns.USER_ID))
-          .and(col("ts").equalTo(col("_ts"))),
-        "left"
-      )
-      .select(col("identity"), col("ts"), coalesce(col(SparkConstants.Columns.SESSION_ID), lit("")).alias("sid"));
-
-    // wide: one row per (identity, t0) attempt. step_idx / ts_at_step / sid_at_step updated
-    // inline at each left-join step. ts_prev becomes null on a miss — propagates through all
-    // subsequent steps, preventing a user from skipping ahead in the ordered funnel.
-    Dataset<Row> wide = step0Events
-      .select(
-        col("identity"),
-        col("ts").alias("t0"),
-        col("sid").alias("sid0"),
-        col("ts").alias("ts_prev"),
-        lit(0).alias("step_idx"),
-        col("ts").alias("ts_at_step"),
-        col("sid").alias("sid_at_step")
-      )
-      .cache();
-    if (wide.rdd().isEmpty()) {
-      wide.unpersist();
-      return new ArrayList<>();
-    }
-
-    for (int i = 1; i < numSteps; i++) {
-      Dataset<Row> stepEvts = df.filter(col(SparkConstants.Columns.EVENT_NAME).equalTo(steps.get(i).eventName()))
-        .filter(col(SparkConstants.Columns.USER_ID).isNotNull().and(col(SparkConstants.Columns.USER_ID).notEqual("")))
-        .select(
-          col(SparkConstants.Columns.USER_ID).alias("id_i"),
-          unix_timestamp(col(SparkConstants.Columns.TIMESTAMP)).alias("ts_i"),
-          coalesce(col(SparkConstants.Columns.SESSION_ID), lit("")).alias("sid_i")
-        );
-
-      Column joinCond = col("w.identity").equalTo(col("s.id_i"))
-        .and(col("s.ts_i").gt(col("w.ts_prev")))
-        .and(col("s.ts_i").leq(col("w.t0").plus(windowSecs)));
-
-      Dataset<Row> prevWide = wide;
-      wide = wide.alias("w")
-        .join(stepEvts.alias("s"), joinCond, "left")
-        .groupBy(col("w.identity"), col("w.t0"), col("w.sid0"),
-          col("w.step_idx"), col("w.ts_at_step"), col("w.sid_at_step"))
-        .agg(
-          min(col("s.ts_i")).alias("ts_i_min"),
-          expr("min_by(`s`.`sid_i`, `s`.`ts_i`)").alias("sid_i_min")
-        )
-        .select(
-          col("identity"), col("t0"), col("sid0"),
-          col("ts_i_min").alias("ts_prev"),
-          when(col("ts_i_min").isNotNull(), lit(i)).otherwise(col("step_idx")).alias("step_idx"),
-          when(col("ts_i_min").isNotNull(), col("ts_i_min")).otherwise(col("ts_at_step")).alias("ts_at_step"),
-          when(col("ts_i_min").isNotNull(), col("sid_i_min")).otherwise(col("sid_at_step")).alias("sid_at_step")
-        )
-        .cache();
-      wide.count();
-      prevWide.unpersist();
-    }
-
-    WindowSpec bestWin = Window.partitionBy("identity")
-      .orderBy(col("step_idx").desc(), col("ts_at_step").desc());
-    Dataset<Row> bestPerUser = wide
-      .withColumn("_rn", row_number().over(bestWin))
-      .filter(col("_rn").equalTo(1))
-      .drop("_rn")
-      .cache();
-    wide.unpersist();
-
-    // SessionAttempts: distinct sessions per user across ALL funnel-event types.
+    // Pre-filter df to ONLY funnel-relevant rows once and cache. df is the prepareRaw output
+    //restricting to (event_name ∈ stepNames) + non-null
+    // user_id typically yields <1% of df. Without this we re-scan df once per step
+    // plus the final hydrate self-join against the full df — that's what will time out
     List<String> stepNames = new ArrayList<>(numSteps);
     for (var step : steps) {
       stepNames.add(step.eventName());
     }
-    Dataset<Row> attemptCounts = df.filter(col(SparkConstants.Columns.EVENT_NAME).isin(stepNames.toArray()))
-      .filter(col(SparkConstants.Columns.USER_ID).isNotNull().and(col(SparkConstants.Columns.USER_ID).notEqual("")))
-      .groupBy(col(SparkConstants.Columns.USER_ID))
-      .agg(countDistinct(col(SparkConstants.Columns.SESSION_ID)).alias("session_attempts"));
-
-    // Hydrate dimensions from the canonical session's event row.
-    Dataset<Row> hydrated = bestPerUser.alias("b")
-      .join(
-        df.alias("d"),
-        col("b.sid_at_step").equalTo(col("d." + SparkConstants.Columns.SESSION_ID))
-          .and(unix_timestamp(col("d." + SparkConstants.Columns.TIMESTAMP)).equalTo(col("b.ts_at_step")))
-          .and(col("b.identity").equalTo(col("d." + SparkConstants.Columns.USER_ID))),
-        "left"
-      )
-      .join(
-        attemptCounts.alias("ac"),
-        col("b.identity").equalTo(col("ac." + SparkConstants.Columns.USER_ID)),
-        "left"
-      )
+    Dataset<Row> funnelEvents = df
+      .filter(col(SparkConstants.Columns.EVENT_NAME).isin(stepNames.toArray()))
+      .filter(col(SparkConstants.Columns.USER_ID).isNotNull()
+        .and(col(SparkConstants.Columns.USER_ID).notEqual("")))
       .select(
-        col("b.identity").alias(SparkConstants.Columns.USER_ID),
-        col("b.t0").alias("t0"),
-        col("b.ts_at_step").alias("ts_at_step"),
-        col("b.sid_at_step").alias("canonical_sid"),
-        col("b.step_idx").alias("step_idx"),
-        coalesce(col("d." + SparkConstants.Columns.SCREEN_NAME), lit("")).alias("screen"),
-        coalesce(col("d." + SparkConstants.Columns.APP_BUILD_NAME), lit("")).alias("app_version"),
-        coalesce(col("d." + SparkConstants.Columns.OS_NAME), lit("")).alias(SparkConstants.Columns.OS_NAME),
-        coalesce(col("d." + SparkConstants.Columns.OS_VERSION), lit("")).alias(SparkConstants.Columns.OS_VERSION),
-        coalesce(col("d." + SparkConstants.Columns.DEVICE_MANUFACTURER), lit("")).alias("platform"),
-        coalesce(col("d." + SparkConstants.Columns.DEVICE_MODEL_IDENTIFIER), lit("")).alias("device_model"),
-        coalesce(col("d." + SparkConstants.Columns.NETWORK_CARRIER_ICC), lit("")).alias("network_provider"),
-        coalesce(col("ac.session_attempts"), lit(1L)).alias("session_attempts")
-      )
-      .dropDuplicates(SparkConstants.Columns.USER_ID)
+        col(SparkConstants.Columns.EVENT_NAME).alias("e"),
+        col(SparkConstants.Columns.USER_ID).alias("u"),
+        coalesce(col(SparkConstants.Columns.SESSION_ID), lit("")).alias("s"),
+        unix_timestamp(col(SparkConstants.Columns.TIMESTAMP)).alias("t"),
+        coalesce(col(SparkConstants.Columns.SCREEN_NAME), lit("")).alias("screen"),
+        coalesce(col(SparkConstants.Columns.APP_BUILD_NAME), lit("")).alias("app_version"),
+        coalesce(col(SparkConstants.Columns.OS_NAME), lit("")).alias("os_name"),
+        coalesce(col(SparkConstants.Columns.OS_VERSION), lit("")).alias("os_version"),
+        coalesce(col(SparkConstants.Columns.DEVICE_MANUFACTURER), lit("")).alias("platform"),
+        coalesce(col(SparkConstants.Columns.DEVICE_MODEL_IDENTIFIER), lit("")).alias("device_model"),
+        coalesce(col(SparkConstants.Columns.NETWORK_CARRIER_ICC), lit("")).alias("network_provider"))
       .cache();
 
-    List<Row> collected = hydrated.collectAsList();
-    bestPerUser.unpersist();
-    hydrated.unpersist();
+    try {
+      // step0 events keep session_id directly — no self-join needed (previously rejoined df just
+      // to recover session_id that stepEvents() had dropped).
+      Dataset<Row> step0Events = funnelEvents
+        .filter(col("e").equalTo(steps.get(0).eventName()))
+        .select(col("u").alias("identity"), col("t").alias("ts"), col("s").alias("sid"));
+
+      // wide: one row per (identity, t0) attempt. step_idx / ts_at_step / sid_at_step updated
+      // inline at each left-join step. ts_prev becomes null on a miss — propagates through all
+      // subsequent steps, preventing a user from skipping ahead in the ordered funnel.
+      Dataset<Row> wide = step0Events
+        .select(
+          col("identity"),
+          col("ts").alias("t0"),
+          col("sid").alias("sid0"),
+          col("ts").alias("ts_prev"),
+          lit(0).alias("step_idx"),
+          col("ts").alias("ts_at_step"),
+          col("sid").alias("sid_at_step")
+        )
+        .cache();
+      if (wide.rdd().isEmpty()) {
+        wide.unpersist();
+        return new ArrayList<>();
+      }
+
+      for (int i = 1; i < numSteps; i++) {
+        Dataset<Row> stepEvts = funnelEvents
+          .filter(col("e").equalTo(steps.get(i).eventName()))
+          .select(
+            col("u").alias("id_i"),
+            col("t").alias("ts_i"),
+            col("s").alias("sid_i")
+          );
+
+        Column joinCond = col("w.identity").equalTo(col("s.id_i"))
+          .and(col("s.ts_i").gt(col("w.ts_prev")))
+          .and(col("s.ts_i").leq(col("w.t0").plus(windowSecs)));
+
+        Dataset<Row> prevWide = wide;
+        wide = wide.alias("w")
+          .join(stepEvts.alias("s"), joinCond, "left")
+          .groupBy(col("w.identity"), col("w.t0"), col("w.sid0"),
+            col("w.step_idx"), col("w.ts_at_step"), col("w.sid_at_step"))
+          .agg(
+            min(col("s.ts_i")).alias("ts_i_min"),
+            expr("min_by(`s`.`sid_i`, `s`.`ts_i`)").alias("sid_i_min")
+          )
+          .select(
+            col("identity"), col("t0"), col("sid0"),
+            col("ts_i_min").alias("ts_prev"),
+            when(col("ts_i_min").isNotNull(), lit(i)).otherwise(col("step_idx")).alias("step_idx"),
+            when(col("ts_i_min").isNotNull(), col("ts_i_min")).otherwise(col("ts_at_step")).alias("ts_at_step"),
+            when(col("ts_i_min").isNotNull(), col("sid_i_min")).otherwise(col("sid_at_step")).alias("sid_at_step")
+          )
+          .cache();
+        wide.count();
+        prevWide.unpersist();
+      }
+
+      WindowSpec bestWin = Window.partitionBy("identity")
+        .orderBy(col("step_idx").desc(), col("ts_at_step").desc());
+      Dataset<Row> bestPerUser = wide
+        .withColumn("_rn", row_number().over(bestWin))
+        .filter(col("_rn").equalTo(1))
+        .drop("_rn")
+        .cache();
+      wide.unpersist();
+
+      // SessionAttempts: distinct sessions per user across ALL funnel-event types.
+      // funnelEvents is already filtered to (event ∈ stepNames) ∧ valid user_id, so this is cheap.
+      Dataset<Row> attemptCounts = funnelEvents
+        .groupBy(col("u"))
+        .agg(countDistinct(col("s")).alias("session_attempts"));
+
+      // Hydrate dimensions from the canonical session's event row.
+      // Joining against the small cached funnelEvents (not the full 53M-row df) — this is the
+      // shuffle that was killing funnel 12.
+      Dataset<Row> hydrated = bestPerUser.alias("b")
+        .join(
+          funnelEvents.alias("d"),
+          col("b.sid_at_step").equalTo(col("d.s"))
+            .and(col("d.t").equalTo(col("b.ts_at_step")))
+            .and(col("b.identity").equalTo(col("d.u"))),
+          "left"
+        )
+        .join(
+          attemptCounts.alias("ac"),
+          col("b.identity").equalTo(col("ac.u")),
+          "left"
+        )
+        .select(
+          col("b.identity").alias(SparkConstants.Columns.USER_ID),
+          col("b.t0").alias("t0"),
+          col("b.ts_at_step").alias("ts_at_step"),
+          col("b.sid_at_step").alias("canonical_sid"),
+          col("b.step_idx").alias("step_idx"),
+          coalesce(col("d.screen"), lit("")).alias("screen"),
+          coalesce(col("d.app_version"), lit("")).alias("app_version"),
+          coalesce(col("d.os_name"), lit("")).alias("os_name"),
+          coalesce(col("d.os_version"), lit("")).alias("os_version"),
+          coalesce(col("d.platform"), lit("")).alias("platform"),
+          coalesce(col("d.device_model"), lit("")).alias("device_model"),
+          coalesce(col("d.network_provider"), lit("")).alias("network_provider"),
+          coalesce(col("ac.session_attempts"), lit(1L)).alias("session_attempts")
+        )
+        .dropDuplicates(SparkConstants.Columns.USER_ID)
+        .cache();
+
+      List<Row> collected = hydrated.collectAsList();
+      bestPerUser.unpersist();
+      hydrated.unpersist();
+
+      return buildUserStateRows(collected, funnel, runTime, finalStepIdx);
+    } finally {
+      try {
+        funnelEvents.unpersist();
+      } catch (IllegalStateException ignored) {
+      }
+    }
+  }
+
+  private static List<FunnelUserState> buildUserStateRows(
+    List<Row> collected, FunnelDefinition funnel, String runTime, int finalStepIdx) {
 
     List<FunnelUserState> userRows = new ArrayList<>(collected.size());
     for (Row r : collected) {
@@ -976,17 +1016,17 @@ public class FunnelComputeJob {
     // casting "" → INT throws on Spark 4 strict mode, so guard the cast.
     Column pulseTypeStatusStr = regexp_extract(col(SparkConstants.RawColumns.PULSE_TYPE), SparkConstants.PulseTypes.NETWORK_PATTERN, 1);
     Column pulseTypeStatus = when(pulseTypeStatusStr.notEqual(""),
-        pulseTypeStatusStr.cast(DataTypes.IntegerType))
+      pulseTypeStatusStr.cast(DataTypes.IntegerType))
       .otherwise(lit(0));
 
     // Status from denormalized column / SpanAttributes (legacy / OTel-native path).
     Column rawStatus = hasTopLevelHttp
       ? col("HttpStatusCode").cast(DataTypes.IntegerType)
       : coalesce(
-          col("SpanAttributes").getItem(SparkConstants.HttpAttributes.HTTP_STATUS_CODE),
-          col("SpanAttributes").getItem(SparkConstants.HttpAttributes.HTTP_STATUS_CODE_NEW),
-          lit("0")
-        ).cast(DataTypes.IntegerType);
+      col("SpanAttributes").getItem(SparkConstants.HttpAttributes.HTTP_STATUS_CODE),
+      col("SpanAttributes").getItem(SparkConstants.HttpAttributes.HTTP_STATUS_CODE_NEW),
+      lit("0")
+    ).cast(DataTypes.IntegerType);
 
     // PulseType-derived status takes precedence — SDKs emit it reliably even when
     // HttpStatusCode is 0. Fall back to rawStatus for non-Pulse or older spans.
@@ -995,17 +1035,17 @@ public class FunnelComputeJob {
     Column methodCol = hasTopLevelHttp
       ? lower(coalesce(col("HttpMethod"), lit("")))
       : coalesce(
-          lower(col("SpanAttributes").getItem(SparkConstants.HttpAttributes.HTTP_METHOD)),
-          lower(col("SpanAttributes").getItem(SparkConstants.HttpAttributes.HTTP_METHOD_NEW)),
-          lit("")
-        );
+      lower(col("SpanAttributes").getItem(SparkConstants.HttpAttributes.HTTP_METHOD)),
+      lower(col("SpanAttributes").getItem(SparkConstants.HttpAttributes.HTTP_METHOD_NEW)),
+      lit("")
+    );
     Column hostCol = hasTopLevelHttp
       ? coalesce(col("HttpHost"), lit(""))
       : coalesce(
-          col("SpanAttributes").getItem(SparkConstants.HttpAttributes.NET_PEER_NAME),
-          col("SpanAttributes").getItem(SparkConstants.HttpAttributes.SERVER_ADDRESS),
-          lit("")
-        );
+      col("SpanAttributes").getItem(SparkConstants.HttpAttributes.NET_PEER_NAME),
+      col("SpanAttributes").getItem(SparkConstants.HttpAttributes.SERVER_ADDRESS),
+      lit("")
+    );
 
     Dataset<Row> httpEvents = otelTraces
       .filter(col("ProjectId").equalTo(funnel.projectId()))
