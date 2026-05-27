@@ -872,8 +872,8 @@ class ClickhouseMetricServiceTest {
             verify(clickhouseQueryService).executeQueryOrCreateJob(configCaptor.capture());
 
             String query = configCaptor.getValue().getQuery();
-            assertThat(query).contains("Timestamp >= toDateTime64('2024-01-15 10:30:00',9,'UTC')");
-            assertThat(query).contains("Timestamp <= toDateTime64('2024-01-15 11:45:00',9,'UTC')");
+            assertThat(query).contains("Timestamp >= toDateTime64('2024-01-15 10:30:00.000000000',9,'UTC')");
+            assertThat(query).contains("Timestamp <= toDateTime64('2024-01-15 11:45:00.000000000',9,'UTC')");
         }
     }
 
