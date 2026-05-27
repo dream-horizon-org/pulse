@@ -214,6 +214,7 @@ public class PulseSDK: NSObject {
 
     @objc(pulseReportFullyDrawn)
     public static func reportFullyDrawn() {
+        guard Pulse.shared.isSDKInitialized() else { return }
         Pulse.shared.reportFullyDrawn()
     }
 

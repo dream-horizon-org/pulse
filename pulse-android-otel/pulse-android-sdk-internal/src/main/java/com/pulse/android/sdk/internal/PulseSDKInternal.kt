@@ -47,6 +47,7 @@ import io.opentelemetry.android.export.FilteringSpanExporter
 import io.opentelemetry.android.instrumentation.AndroidInstrumentation
 import io.opentelemetry.android.instrumentation.AndroidInstrumentationLoader
 import io.opentelemetry.android.instrumentation.click.ClickContextEnrichmentConfig
+import io.opentelemetry.android.instrumentation.activity.startup.AppStartupTimer
 import io.opentelemetry.android.instrumentation.click.RageConfig
 import io.opentelemetry.android.instrumentation.interaction.library.InteractionInstrumentation
 import io.opentelemetry.android.instrumentation.location.processors.LocationAttributesLogRecordAppender
@@ -739,9 +740,8 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
     }
 
     public fun reportFullyDrawn() {
-        val timer =
-            io.opentelemetry.android.instrumentation.activity.startup.AppStartupTimer
-                .getInstance()
+        if (isShutdown) return
+        val timer = AppStartupTimer.getInstance()
         if (timer != null) {
             timer.reportFullyDrawn()
         } else {

@@ -925,6 +925,7 @@ public class Pulse {
 
     /// Emits a one-shot AppInteractive span spanning OS process-start → now. No-op on repeat calls.
     public func reportFullyDrawn() {
+        guard isActive else { return }
         AppStartupTimer.shared.reportFullyDrawn()
     }
 

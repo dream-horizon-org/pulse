@@ -46,7 +46,7 @@ public class AppStartupTimer {
     private final AnchoredClock startupClock = AnchoredClock.create(Clock.getDefault());
 
     /** OS process-fork epoch-nanos on API 24+; SDK-init time as fallback. */
-    private final long firstPossibleTimestamp;
+    private final long firstPossibleTimestampInNano;
 
     private final String startAnchorSource;
 
@@ -71,7 +71,7 @@ public class AppStartupTimer {
 
     public AppStartupTimer() {
         StartAnchor anchor = resolveStartAnchor(startupClock);
-        this.firstPossibleTimestamp = anchor.epochNanos;
+        this.firstPossibleTimestampInNano = anchor.epochNanos;
         this.startAnchorSource = anchor.source;
     }
 
@@ -125,7 +125,7 @@ public class AppStartupTimer {
         this.tracer = tracer;
         final Span appStart =
                 tracer.spanBuilder("AppStart")
-                        .setStartTimestamp(firstPossibleTimestamp, TimeUnit.NANOSECONDS)
+                        .setStartTimestamp(firstPossibleTimestampInNano, TimeUnit.NANOSECONDS)
                         .setAttribute(RumConstants.START_TYPE_KEY, "cold")
                         .setAttribute(START_ANCHOR_KEY, startAnchorSource)
                         .startSpan();
@@ -159,7 +159,7 @@ public class AppStartupTimer {
             return;
         }
         uiInitStarted = true;
-        if (firstPossibleTimestamp + MAX_TIME_TO_UI_INIT < startupClock.now()) {
+        if (firstPossibleTimestampInNano + MAX_TIME_TO_UI_INIT < startupClock.now()) {
             Log.d(RumConstants.OTEL_RUM_LOG_TAG, "Max time to UI init exceeded");
             uiInitTooLate = true;
             clear();
@@ -236,7 +236,7 @@ public class AppStartupTimer {
         final long endNanos = startupClock.now();
         final Span span =
                 t.spanBuilder("AppInteractive")
-                        .setStartTimestamp(firstPossibleTimestamp, TimeUnit.NANOSECONDS)
+                        .setStartTimestamp(firstPossibleTimestampInNano, TimeUnit.NANOSECONDS)
                         .setAttribute(START_ANCHOR_KEY, startAnchorSource)
                         .startSpan();
         span.end(endNanos, TimeUnit.NANOSECONDS);

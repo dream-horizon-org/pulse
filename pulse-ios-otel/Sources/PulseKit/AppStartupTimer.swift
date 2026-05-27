@@ -16,7 +16,7 @@ internal class AppStartupTimer {
     private let lock = NSLock()
 
     /// OS process-launch time on supported platforms; SDK-init time as fallback.
-    private let firstPossibleTimestamp: Date
+    private let firstPossibleTimestampInNano: Date
     private let startAnchorSource: String
 
     /// Held across `end()` so `reportFullyDrawn()` can build the span later.
@@ -30,7 +30,7 @@ internal class AppStartupTimer {
 
     private init() {
         let anchor = AppStartupTimer.resolveStartAnchor()
-        self.firstPossibleTimestamp = anchor.timestamp
+        self.firstPossibleTimestampInNano = anchor.timestamp
         self.startAnchorSource = anchor.source
     }
 
@@ -67,7 +67,7 @@ internal class AppStartupTimer {
         guard appStartSpan == nil else { return }
         self.tracer = tracer
         appStartSpan = tracer.spanBuilder(spanName: "AppStart")
-            .setStartTime(time: firstPossibleTimestamp)
+            .setStartTime(time: firstPossibleTimestampInNano)
             .setAttribute(key: PulseAttributes.startType, value: "cold")
             .setAttribute(key: PulseAttributes.pulseType, value: PulseAttributes.PulseTypeValues.appStart)
             .setAttribute(key: PulseAttributes.startAnchor, value: startAnchorSource)
@@ -106,7 +106,7 @@ internal class AppStartupTimer {
 
         guard let tracer = tracer else { return }
         let span = tracer.spanBuilder(spanName: "AppInteractive")
-            .setStartTime(time: firstPossibleTimestamp)
+            .setStartTime(time: firstPossibleTimestampInNano)
             .setAttribute(key: PulseAttributes.startAnchor, value: startAnchorSource)
             .startSpan()
         span.end(time: Date())
