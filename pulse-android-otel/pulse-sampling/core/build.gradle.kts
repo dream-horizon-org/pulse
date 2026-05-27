@@ -26,6 +26,9 @@ dependencies {
     implementation(projects.pulseSamplingRemote)
     implementation(projects.pulseSamplingModels)
     implementation(projects.pulseUtils)
+    // Explicit since pulse-utils / pulse-sampling-remote now declare okhttp as implementation
+    // (not api) — their okhttp types no longer propagate onto this module's compile classpath.
+    implementation(libs.okhttp)
     implementation(libs.kotlin.coroutines)
     testImplementation(testFixtures(projects.pulseSamplingModels))
     testImplementation(testFixtures(projects.pulseUtils))

@@ -519,12 +519,15 @@ public class Pulse {
 
         _samplingSignalProcessors?.setMeterProviderForMetricsToAdd(builtMeterProvider)
 
+        // Extract batch config from SDK config, falling back to defaults
+        let (spanScheduleDelay, spanMaxBatchSize, logScheduleDelay, logMaxBatchSize) = resolveBatchConfig(currentSdkConfig?.batchConfig)
+
         let innerBatchSpanProcessor = BatchSpanProcessor(
             spanExporter: persistentSpanExporter,
-            scheduleDelay: BatchProcessorDefaults.scheduleDelay,
+            scheduleDelay: spanScheduleDelay,
             exportTimeout: BatchProcessorDefaults.exportTimeout,
             maxQueueSize: BatchProcessorDefaults.maxQueueSize,
-            maxExportBatchSize: BatchProcessorDefaults.maxExportBatchSize
+            maxExportBatchSize: spanMaxBatchSize
         )
         let consentSpanProcessor = ConsentSpanProcessor(
             delegate: innerBatchSpanProcessor,
@@ -534,10 +537,10 @@ public class Pulse {
 
         let innerBatchLogProcessor = BatchLogRecordProcessor(
             logRecordExporter: persistentLogExporter,
-            scheduleDelay: BatchProcessorDefaults.scheduleDelay,
+            scheduleDelay: logScheduleDelay,
             exportTimeout: BatchProcessorDefaults.exportTimeout,
             maxQueueSize: BatchProcessorDefaults.maxQueueSize,
-            maxExportBatchSize: BatchProcessorDefaults.maxExportBatchSize
+            maxExportBatchSize: logMaxBatchSize
         )
         let consentLogProcessor = ConsentLogProcessor(
             delegate: innerBatchLogProcessor,
@@ -579,6 +582,19 @@ public class Pulse {
         let openTelemetry = OpenTelemetry.instance
 
         return (tracerProvider, loggerProvider, openTelemetry, headers ?? [:])
+    }
+
+    private func resolveBatchConfig(_ batchConfig: PulseBatchProcessorConfig?) -> (spanScheduleDelay: TimeInterval, spanMaxBatchSize: Int, logScheduleDelay: TimeInterval, logMaxBatchSize: Int) {
+        let batchSpanConfig = batchConfig?.batchSpans
+        let batchLogConfig = batchConfig?.batchLogs
+
+        let spanScheduleDelay = batchSpanConfig.map { TimeInterval($0.scheduleDelay) / 1000.0 } ?? BatchProcessorDefaults.scheduleDelay
+        let spanMaxBatchSize = batchSpanConfig?.maxExportBatchSize ?? BatchProcessorDefaults.maxExportBatchSize
+
+        let logScheduleDelay = batchLogConfig.map { TimeInterval($0.scheduleDelay) / 1000.0 } ?? BatchProcessorDefaults.scheduleDelay
+        let logMaxBatchSize = batchLogConfig?.maxExportBatchSize ?? BatchProcessorDefaults.maxExportBatchSize
+
+        return (spanScheduleDelay, spanMaxBatchSize, logScheduleDelay, logMaxBatchSize)
     }
 
     private func buildProcessors(
@@ -1008,8 +1024,13 @@ public class Pulse {
 
 // MARK: - Batch Processor Constants
 
+/// All spans reported by the SDK implementation are first added to a synchronized queue (with maxQueueSize maximum size, after the size is reached spans are dropped) and exported
+/// every scheduleDelayMillis to the exporter pipeline in batches of maxExportBatchSize.
+/// If the queue gets half full a preemptive notification is sent to the worker thread that
+/// triggers an export. The exportTimeout parameter specifies the maximum duration (in seconds) to wait for an export batch to complete;
+/// if exceeded, the export is abandoned to prevent blocking the application.
 internal enum BatchProcessorDefaults {
-    static let scheduleDelay: TimeInterval = 5
+    static let scheduleDelay: TimeInterval = 10
     static let maxQueueSize: Int = 2048
     static let maxExportBatchSize: Int = 512
     static let exportTimeout: TimeInterval = 30

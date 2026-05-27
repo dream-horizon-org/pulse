@@ -88,7 +88,7 @@ export function ANRMetricsStats({
           function: "CUSTOM",
           param: {
             expression:
-              `uniqCombined64If(nullIf(${COLUMN_NAME.USER_ID}, ''), PulseType = 'device.anr')`,
+              `uniqCombined64If(nullIf(${COLUMN_NAME.INSTALLATION_ID}, ''), PulseType = 'device.anr')`,
           },
           alias: "anr_users",
         },
@@ -182,7 +182,7 @@ export function ANRMetricsStats({
       <Text className={classes.sectionTitle}>ANR Metrics</Text>
       <Box className={classes.metricsGrid}>
         <Box className={classes.statItem}>
-          <Group gap={4} wrap="nowrap" align="center">
+          <Group gap={4} wrap="nowrap" align="center" justify="center">
             <Text className={classes.statLabel}>ANR-Free Users</Text>
             <Tooltip
               label="Unique users are identified by installation ID. The same device can open the app multiple times — each unique installation counts as one user."

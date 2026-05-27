@@ -262,6 +262,8 @@ async def generate_root_cause_report(
     1. **Embedded** – ``rootCausePayload`` in the request body (preferred; avoids callback auth).
     2. **Callback** – omit ``rootCausePayload``; pulse_ai calls pulse-server to fetch it.
        Requires ``Authorization: Bearer <jwt>`` and ``X-Project-ID`` (forwarded by the proxy).
+       Uses the async RCA pipeline (``/v1/ai/rca/report`` + job poll) and reads ``rootCausePayload``
+       from the completed report.
     """
     try:
         if request.rootCausePayload is not None:
@@ -287,6 +289,7 @@ async def generate_root_cause_report(
             interaction_name=request.entityKey,
             example_session_ids=example_sessions,
             error_attribution_payload=request.errorAttributionPayload,
+            analysis_lookback_days=request.analysisLookbackDays,
         )
     except RootCauseFetchError as error:
         raise HTTPException(status_code=error.status_code, detail=error.message) from error
@@ -360,4 +363,50 @@ async def generate_screen_rca_v2_report(
             end_iso=request.end,
         )
     except ScreenRcaRunnerError as error:
+        raise HTTPException(status_code=error.status_code, detail=error.message) from error
+
+
+@app.post("/rca/session-report")
+async def generate_session_root_cause_narrative(
+    request: SessionRcaReportRequest,
+) -> SessionRcaReportResponse:
+    """Generate executive summary, segment insights, and recommendations for session quality RCA.
+
+    Requires **rootCausePayload** (tabular JSON from GET /v1/sessions/rca).
+    """
+    try:
+        payload = RootCausePayloadSchema.model_validate(request.rootCausePayload)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid rootCausePayload: {exc}",
+        ) from exc
+    example_sessions_by_label: dict[str, list[str]] | None = None
+    degrading_interactions_by_label: dict[str, list[dict]] | None = None
+    if isinstance(request.rootCausePayload, dict):
+        raw_segments = request.rootCausePayload.get("segments") or []
+        by_label: dict[str, list[str]] = {}
+        by_label_interactions: dict[str, list[dict]] = {}
+        for seg in raw_segments:
+            label = seg.get("label")
+            ids = seg.get("exampleSessionIds")
+            if label and ids:
+                by_label[label] = ids
+            interactions = seg.get("degradingInteractions")
+            if label and interactions:
+                by_label_interactions[label] = interactions
+        if by_label:
+            example_sessions_by_label = by_label
+        if by_label_interactions:
+            degrading_interactions_by_label = by_label_interactions
+    try:
+        return await generate_session_rca_report(
+            runner=session_rca_runner,
+            payload=payload,
+            date_str=request.date,
+            as_of_iso=request.asOf,
+            example_sessions_by_label=example_sessions_by_label,
+            degrading_interactions_by_label=degrading_interactions_by_label,
+        )
+    except SessionRcaRunnerError as error:
         raise HTTPException(status_code=error.status_code, detail=error.message) from error

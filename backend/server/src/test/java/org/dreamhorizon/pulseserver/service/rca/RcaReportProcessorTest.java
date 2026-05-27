@@ -13,6 +13,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.reactivex.rxjava3.core.Completable;
 import io.reactivex.rxjava3.core.Single;
@@ -26,6 +27,8 @@ import io.vertx.rxjava3.ext.web.client.WebClient;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import org.dreamhorizon.pulseserver.config.RootCauseConfig;
@@ -37,6 +40,8 @@ import org.dreamhorizon.pulseserver.dao.rcareport.RcaReportCacheDao;
 import org.dreamhorizon.pulseserver.service.ai.impl.AiUpstreamProxyExecutor;
 import org.dreamhorizon.pulseserver.service.rootcause.RcaRelatedHeatmapsMerger;
 import org.dreamhorizon.pulseserver.service.rootcause.RootCauseService;
+import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseResult;
+import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseSegment;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -56,6 +61,11 @@ class RcaReportProcessorTest {
   private static final String SCREEN_V2_BODY =
       "{\"rcaType\":\"SCREEN_V2\",\"entityKey\":\"Home\",\"date\":\"2025-01-01\","
           + "\"start\":\"2024-12-26T00:00:00Z\",\"end\":\"2025-01-01T12:00:00Z\"}";
+  private static final String SESSION_BODY =
+      "{\"rcaType\":\"SESSION\",\"entityKey\":\"session-1\",\"date\":\"2025-01-01\"}";
+  /** AI JSON with one segment slot for {@link RcaRelatedHeatmapsMerger#mergeInto}. */
+  private static final String AI_JSON_WITH_ONE_STRUCTURED_SEGMENT =
+      "{\"report\":{\"structured\":{\"segments\":[{}]}}}";
 
   @Mock private Vertx vertx;
   @Mock private RcaReportJobDao jobDao;
@@ -102,6 +112,48 @@ class RcaReportProcessorTest {
         Instant.now(), null, null, null, null);
   }
 
+  private RcaReportJob sessionJob(String entityKey) {
+    return new RcaReportJob(
+        JOB_ID,
+        "p1",
+        RcaType.SESSION,
+        entityKey,
+        DATE,
+        RcaJobStatus.PENDING,
+        null,
+        Instant.now(),
+        null,
+        null,
+        null,
+        null);
+  }
+
+  /** One segment so heatmap merge eligibility and mergeInto run non-trivially. */
+  private RcaEnrichmentOutcome interactionOutcomeWithSegmentsForHeatmap(String requestBody) {
+    RootCauseSegment seg =
+        RootCauseSegment.builder()
+            .label("Android")
+            .dimensions(Map.of("platform", "Android"))
+            .metrics(Map.of("volume", 10))
+            .deltas(Map.of("volume", 0.1))
+            .build();
+    RootCauseResult rc =
+        RootCauseResult.builder()
+            .baseline(Map.of("volume", 100L))
+            .segments(List.of(seg))
+            .build();
+    return new RcaEnrichmentOutcome(requestBody, rc, DATE, Instant.now(), true);
+  }
+
+  private RcaEnrichmentOutcome sessionOutcomeWithRootCause(String requestBody) {
+    RootCauseResult rc =
+        RootCauseResult.builder()
+            .baseline(Map.of("sessions", 500L))
+            .segments(List.of())
+            .build();
+    return new RcaEnrichmentOutcome(requestBody, rc, DATE, Instant.now(), true);
+  }
+
   /** Stubs vertx.executeBlocking to run the callable synchronously on the calling thread. */
   @SuppressWarnings("unchecked")
   private void stubSyncExecution() {
@@ -134,6 +186,15 @@ class RcaReportProcessorTest {
 
   private RcaEnrichmentOutcome simpleOutcome() {
     return new RcaEnrichmentOutcome(BODY, null, DATE, Instant.now(), false);
+  }
+
+  private RcaEnrichmentOutcome outcomeWithRootCause() {
+    RootCauseResult rc =
+        RootCauseResult.builder()
+            .baseline(Map.of("volume", 42L))
+            .segments(List.of())
+            .build();
+    return new RcaEnrichmentOutcome(BODY, rc, DATE, Instant.now(), true);
   }
 
   @Test
@@ -183,6 +244,84 @@ class RcaReportProcessorTest {
   }
 
   @Test
+  void shouldAttachRootCausePayloadToAiJsonWhenEnrichmentHasRootCause() {
+    stubSyncExecution();
+    when(enrichmentService.enrichAsync(any(), anyBoolean()))
+        .thenReturn(CompletableFuture.completedFuture(outcomeWithRootCause()));
+    HttpResponse<Buffer> resp200 = mockHttpResponse(200, "{\"structured\":null}");
+    when(httpRequest.rxSendBuffer(any())).thenReturn(Single.just(resp200));
+
+    processor.enqueueProcess(job(), BODY, false, "Bearer t", null);
+
+    verify(cacheDao)
+        .put(
+            eq("p1"),
+            eq(RcaType.INTERACTION),
+            eq("ix"),
+            eq(DATE),
+            argThat(
+                stored -> {
+                  try {
+                    com.fasterxml.jackson.databind.JsonNode tree =
+                        new ObjectMapper().readTree(stored);
+                    return tree.has("rootCausePayload")
+                        && tree.get("rootCausePayload").path("baseline").path("volume").asInt()
+                            == 42;
+                  } catch (Exception e) {
+                    return false;
+                  }
+                }));
+    verify(jobDao).markCompleted(JOB_ID, "p1", RcaType.INTERACTION, "ix", DATE);
+  }
+
+  @Test
+  void shouldSkipAttachWhenAiBodyIsNotJsonObject() {
+    stubSyncExecution();
+    when(enrichmentService.enrichAsync(any(), anyBoolean()))
+        .thenReturn(CompletableFuture.completedFuture(outcomeWithRootCause()));
+    HttpResponse<Buffer> resp200 = mockHttpResponse(200, "[1,2,3]");
+    when(httpRequest.rxSendBuffer(any())).thenReturn(Single.just(resp200));
+
+    processor.enqueueProcess(job(), BODY, false, "Bearer t", null);
+
+    verify(cacheDao)
+        .put(
+            eq("p1"),
+            eq(RcaType.INTERACTION),
+            eq("ix"),
+            eq(DATE),
+            argThat(
+                stored -> {
+                  try {
+                    return !new ObjectMapper().readTree(stored).has("rootCausePayload");
+                  } catch (Exception e) {
+                    return false;
+                  }
+                }));
+    verify(jobDao).markCompleted(JOB_ID, "p1", RcaType.INTERACTION, "ix", DATE);
+  }
+
+  @Test
+  void shouldReturnOriginalAiBodyWhenAttachCannotParseJson() {
+    stubSyncExecution();
+    when(enrichmentService.enrichAsync(any(), anyBoolean()))
+        .thenReturn(CompletableFuture.completedFuture(outcomeWithRootCause()));
+    HttpResponse<Buffer> resp200 = mockHttpResponse(200, "not-json-at-all");
+    when(httpRequest.rxSendBuffer(any())).thenReturn(Single.just(resp200));
+
+    processor.enqueueProcess(job(), BODY, false, "Bearer t", null);
+
+    verify(cacheDao)
+        .put(
+            eq("p1"),
+            eq(RcaType.INTERACTION),
+            eq("ix"),
+            eq(DATE),
+            argThat(stored -> stored.contains("not-json-at-all")));
+    verify(jobDao).markCompleted(JOB_ID, "p1", RcaType.INTERACTION, "ix", DATE);
+  }
+
+  @Test
   void shouldMarkFailedWhenAiUpstreamReturnsNonSuccessStatus() {
     stubSyncExecution();
     when(enrichmentService.enrichAsync(any(), anyBoolean()))
@@ -222,6 +361,184 @@ class RcaReportProcessorTest {
     verify(jobDao).markFailed(
         eq(JOB_ID), eq("p1"), eq(RcaType.INTERACTION), eq("ix"), eq(DATE),
         argThat(msg -> msg.contains("HTTP 503")));
+  }
+
+  @Test
+  void shouldCallScreenReportUpstreamForSuccessfulScreenPipeline() {
+    stubSyncExecution();
+    when(enrichmentService.enrichAsync(any(), anyBoolean()))
+        .thenReturn(
+            CompletableFuture.completedFuture(
+                new RcaEnrichmentOutcome(SCREEN_BODY, null, DATE, Instant.now(), true)));
+    HttpResponse<Buffer> resp200 = mockHttpResponse(200, "{}");
+    when(httpRequest.rxSendBuffer(any())).thenReturn(Single.just(resp200));
+
+    processor.enqueueProcess(screenJob(), SCREEN_BODY, false, "Bearer t", null);
+
+    verify(webClient).postAbs(eq("http://ai-test/rca/screen-report"));
+    verify(jobDao).markCompleted(JOB_ID, "p1", RcaType.SCREEN, "Home", DATE);
+  }
+
+  @Test
+  void shouldCallSessionReportUpstreamForSuccessfulSessionPipeline() {
+    stubSyncExecution();
+    RcaReportJob sjob = sessionJob("session-1");
+    when(enrichmentService.enrichAsync(any(), anyBoolean()))
+        .thenReturn(
+            CompletableFuture.completedFuture(
+                new RcaEnrichmentOutcome(SESSION_BODY, null, DATE, Instant.now(), true)));
+    HttpResponse<Buffer> resp200 = mockHttpResponse(200, "{}");
+    when(httpRequest.rxSendBuffer(any())).thenReturn(Single.just(resp200));
+
+    processor.enqueueProcess(sjob, SESSION_BODY, false, "Bearer t", null);
+
+    verify(webClient).postAbs(eq("http://ai-test/rca/session-report"));
+    verify(jobDao).markCompleted(JOB_ID, "p1", RcaType.SESSION, "session-1", DATE);
+  }
+
+  @Test
+  void shouldEmbedSessionTabularUnderReportWrapper() {
+    stubSyncExecution();
+    RcaReportJob sjob = sessionJob("session-1");
+    when(enrichmentService.enrichAsync(any(), anyBoolean()))
+        .thenReturn(
+            CompletableFuture.completedFuture(sessionOutcomeWithRootCause(SESSION_BODY)));
+    HttpResponse<Buffer> resp200 = mockHttpResponse(200, "{\"report\":{\"narrative\":\"x\"}}");
+    when(httpRequest.rxSendBuffer(any())).thenReturn(Single.just(resp200));
+
+    processor.enqueueProcess(sjob, SESSION_BODY, false, "Bearer t", null);
+
+    verify(cacheDao)
+        .put(
+            eq("p1"),
+            eq(RcaType.SESSION),
+            eq("session-1"),
+            eq(DATE),
+            argThat(
+                stored -> {
+                  try {
+                    JsonNode tree = new ObjectMapper().readTree(stored);
+                    return tree.has("report")
+                        && tree.path("report").has("rootCausePayload")
+                        && tree.path("report").path("rootCausePayload").path("baseline").path("sessions").asInt()
+                            == 500;
+                  } catch (Exception e) {
+                    return false;
+                  }
+                }));
+    verify(jobDao).markCompleted(JOB_ID, "p1", RcaType.SESSION, "session-1", DATE);
+  }
+
+  @Test
+  void shouldMergeHeatmapsIntoStructuredSegmentsWhenFetchDistinctScreensSucceeds() {
+    stubSyncExecution();
+    when(enrichmentService.enrichAsync(any(), anyBoolean()))
+        .thenReturn(
+            CompletableFuture.completedFuture(interactionOutcomeWithSegmentsForHeatmap(BODY)));
+    HttpResponse<Buffer> resp200 = mockHttpResponse(200, AI_JSON_WITH_ONE_STRUCTURED_SEGMENT);
+    when(httpRequest.rxSendBuffer(any())).thenReturn(Single.just(resp200));
+    when(rootCauseService.fetchDistinctScreensForInteraction(eq("p1"), eq("ix"), any()))
+        .thenReturn(Single.just(List.of("Cart", "Checkout")));
+
+    processor.enqueueProcess(job(), BODY, false, "Bearer t", null);
+
+    verify(rootCauseService).fetchDistinctScreensForInteraction(eq("p1"), eq("ix"), any());
+    verify(cacheDao)
+        .put(
+            eq("p1"),
+            eq(RcaType.INTERACTION),
+            eq("ix"),
+            eq(DATE),
+            argThat(
+                stored -> {
+                  try {
+                    JsonNode seg0 =
+                        new ObjectMapper()
+                            .readTree(stored)
+                            .path("report")
+                            .path("structured")
+                            .path("segments")
+                            .path(0);
+                    return seg0.has("related_heatmaps")
+                        && seg0.path("related_heatmaps").path("screens").toString().contains("Cart");
+                  } catch (Exception e) {
+                    return false;
+                  }
+                }));
+    verify(jobDao).markCompleted(JOB_ID, "p1", RcaType.INTERACTION, "ix", DATE);
+  }
+
+  @Test
+  void shouldPersistAttachedTabularWhenFetchDistinctScreensFails() {
+    stubSyncExecution();
+    when(enrichmentService.enrichAsync(any(), anyBoolean()))
+        .thenReturn(
+            CompletableFuture.completedFuture(interactionOutcomeWithSegmentsForHeatmap(BODY)));
+    HttpResponse<Buffer> resp200 = mockHttpResponse(200, AI_JSON_WITH_ONE_STRUCTURED_SEGMENT);
+    when(httpRequest.rxSendBuffer(any())).thenReturn(Single.just(resp200));
+    when(rootCauseService.fetchDistinctScreensForInteraction(eq("p1"), eq("ix"), any()))
+        .thenReturn(Single.error(new RuntimeException("clickhouse down")));
+
+    processor.enqueueProcess(job(), BODY, false, "Bearer t", null);
+
+    verify(cacheDao)
+        .put(
+            eq("p1"),
+            eq(RcaType.INTERACTION),
+            eq("ix"),
+            eq(DATE),
+            argThat(
+                stored -> {
+                  try {
+                    JsonNode tree = new ObjectMapper().readTree(stored);
+                    return tree.has("rootCausePayload")
+                        && !tree
+                            .path("report")
+                            .path("structured")
+                            .path("segments")
+                            .path(0)
+                            .has("related_heatmaps");
+                  } catch (Exception e) {
+                    return false;
+                  }
+                }));
+    verify(jobDao).markCompleted(JOB_ID, "p1", RcaType.INTERACTION, "ix", DATE);
+  }
+
+  @Test
+  void shouldSkipHeatmapMergeForScreenJobsEvenWhenEnrichmentHasSegments() {
+    stubSyncExecution();
+    when(enrichmentService.enrichAsync(any(), anyBoolean()))
+        .thenReturn(
+            CompletableFuture.completedFuture(
+                interactionOutcomeWithSegmentsForHeatmap(SCREEN_BODY)));
+    HttpResponse<Buffer> resp200 = mockHttpResponse(200, AI_JSON_WITH_ONE_STRUCTURED_SEGMENT);
+    when(httpRequest.rxSendBuffer(any())).thenReturn(Single.just(resp200));
+
+    processor.enqueueProcess(screenJob(), SCREEN_BODY, false, "Bearer t", null);
+
+    verify(rootCauseService, never()).fetchDistinctScreensForInteraction(any(), any(), any());
+    verify(jobDao).markCompleted(JOB_ID, "p1", RcaType.SCREEN, "Home", DATE);
+  }
+
+  @Test
+  void shouldExtractDetailFieldFromUpstreamError() {
+    stubSyncExecution();
+    when(enrichmentService.enrichAsync(any(), anyBoolean()))
+        .thenReturn(CompletableFuture.completedFuture(simpleOutcome()));
+    HttpResponse<Buffer> resp422 = mockHttpResponse(422, "{\"detail\":\"rate limited\"}");
+    when(httpRequest.rxSendBuffer(any())).thenReturn(Single.just(resp422));
+
+    processor.enqueueProcess(job(), BODY, false, "Bearer t", null);
+
+    verify(jobDao)
+        .markFailed(
+            eq(JOB_ID),
+            eq("p1"),
+            eq(RcaType.INTERACTION),
+            eq("ix"),
+            eq(DATE),
+            eq("rate limited"));
   }
 
   @Test

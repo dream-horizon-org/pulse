@@ -19,3 +19,12 @@ export interface ActiveSessionsData {
   hasData: boolean;
 }
 
+export interface ActiveSessionsLoadingState {
+  current: boolean;
+  trend: boolean;
+}
+
+export interface ActiveSessionsFailedState {
+  current: boolean;
+  trend: boolean;
+}

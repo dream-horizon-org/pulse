@@ -14,8 +14,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
-import java.net.HttpURLConnection
-import java.net.URI
+import okhttp3.OkHttpClient
+import okhttp3.Request
 
 class DemoViewModel : ViewModel() {
     val sessionIdState = MutableStateFlow("? unknown ?")
@@ -58,14 +58,16 @@ class DemoViewModel : ViewModel() {
     fun makeNetworkCall() {
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                val connection =
-                    URI.create("https://httpbin.org/get").toURL().openConnection() as HttpURLConnection
-                connection.requestMethod = "GET"
-                connection.connectTimeout = 10_000
-                connection.readTimeout = 10_000
-                val code = connection.responseCode
-                connection.disconnect()
-                _networkMessage.emit("Network call completed (HTTP $code)")
+                val client = OkHttpClient.Builder().build()
+                val request =
+                    Request
+                        .Builder()
+                        .url("https://httpbin.org/get")
+                        .get()
+                        .build()
+                client.newCall(request).execute().use { response ->
+                    _networkMessage.emit("Network call completed (HTTP ${response.code})")
+                }
             } catch (e: Exception) {
                 _networkMessage.emit("Network call failed: ${e.message}")
             }

@@ -15,8 +15,12 @@ if (typeof crypto !== "undefined" && typeof crypto.randomUUID !== "function") {
 // a disk toggle; OTel `DiskBufferingConfigurationSpec` defaults `isEnabled = true`). Pass
 // `diskBuffering: { enabled: false }` to disable IndexedDB replay.
 
-import { trace } from "@opentelemetry/api";
 import type { Tracer } from "@opentelemetry/api";
+import {
+  SpanKind,
+  ROOT_CONTEXT,
+  SpanStatusCode as OtelSpanStatusCode,
+} from "@opentelemetry/api";
 import { logs, SeverityNumber } from "@opentelemetry/api-logs";
 import type { Logger } from "@opentelemetry/api-logs";
 import { metrics } from "@opentelemetry/api";
@@ -70,7 +74,11 @@ import {
 } from "./constants/disk-buffer";
 import { resolveBeforeSend } from "./before-send";
 import { InteractionInstrumentation } from "./instrumentations/interaction";
+import { InteractionLogProcessor } from "./processors/interaction-log-processor";
+import { InteractionContextSpanProcessor } from "./processors/interaction-context-span-processor";
 import type { PulseAttributes } from "./types/attributes";
+import type { PulseSpan, SpanOptions } from "./types/trace";
+import { SpanStatusCode, noopSpan } from "./types/trace";
 
 class PulseSDK implements SdkContext {
   private static _instance: PulseSDK | null = null;
@@ -95,6 +103,9 @@ class PulseSDK implements SdkContext {
   gate: FeatureGate = new FeatureGate(DEFAULT_SDK_CONFIG);
   private _providerCleanup: () => void = () => {};
   private interactionInstrumentation?: InteractionInstrumentation;
+  private readonly interactionLogProcessor = new InteractionLogProcessor();
+  private readonly interactionContextSpanProcessor =
+    new InteractionContextSpanProcessor();
 
   /** Promise for in-flight {@link init}; cleared when {@code finishInit} settles. */
   private _initSettled: Promise<void> | null = null;
@@ -143,27 +154,30 @@ class PulseSDK implements SdkContext {
    */
   init(config: PulseWebConfig): Promise<void> {
     try {
-    if (this._initialized || this._shuttingDown) {
-      return Promise.resolve();
-    }
-    if (this._initializing) {
-      return this.whenReady();
-    }
+      if (this._initialized || this._shuttingDown) {
+        return Promise.resolve();
+      }
+      if (this._initializing) {
+        return this.whenReady();
+      }
 
-    PulseWebLogger.setLevel(config.logLevel ?? PulseLogLevel.NONE);
+      PulseWebLogger.setLevel(config.logLevel ?? PulseLogLevel.NONE);
 
-    const rawKey = config.apiKey as string | undefined | null;
-    if (
-      rawKey === undefined ||
-      rawKey === null ||
-      (typeof rawKey === "string" && rawKey.trim() === "")
-    ) {
+      const rawKey = config.apiKey as string | undefined | null;
+      if (
+        rawKey === undefined ||
+        rawKey === null ||
+        (typeof rawKey === "string" && rawKey.trim() === "")
+      ) {
+        PulseWebLogger.warn(
+          "[Pulse] SDK not initialized — missing or empty apiKey (telemetry disabled).",
+        );
+        return Promise.resolve();
+      }
+    } catch (err: unknown) {
       PulseWebLogger.warn(
-        "[Pulse] SDK not initialized — missing or empty apiKey (telemetry disabled).",
+        `[Pulse] SDK init failed — ${err instanceof Error ? err.message : String(err)}`,
       );
-      return Promise.resolve();
-    }}catch (err: unknown) {
-      PulseWebLogger.warn(`[Pulse] SDK init failed — ${err instanceof Error ? err.message : String(err)}`);
       return Promise.resolve();
     }
 
@@ -328,7 +342,11 @@ class PulseSDK implements SdkContext {
       getPersistedUserProperties(),
     );
 
-    const spanProcessors = [this.globalAttrsProcessor, filterProcessor];
+    const spanProcessors = [
+      this.globalAttrsProcessor,
+      this.interactionContextSpanProcessor,
+      filterProcessor,
+    ];
 
     const lifecycleDebug = PulseWebLogger.getLevel() <= PulseLogLevel.DEBUG;
     const ingressDebugProc = lifecycleDebug
@@ -340,6 +358,7 @@ class PulseSDK implements SdkContext {
     const logProcessors = [
       ...(ingressDebugProc ? [ingressDebugProc] : []),
       this.globalAttrsProcessor,
+      this.interactionLogProcessor,
       filterProcessor,
       ...(preBatchDebugProc ? [preBatchDebugProc] : []),
     ];
@@ -430,7 +449,12 @@ class PulseSDK implements SdkContext {
     const meterProvider = this.meterProvider;
     if (!tracerProvider || !loggerProvider || !meterProvider) return;
 
-    trace.setGlobalTracerProvider(tracerProvider);
+    // register() sets the global tracer provider, installs the W3C propagator,
+    // AND installs the default context manager (ZoneContextManager in browsers).
+    // Without a context manager, context.active() always returns ROOT_CONTEXT
+    // inside context.with() callbacks, so propagation.inject finds no span and
+    // traceparent headers are never written.
+    tracerProvider.register();
     logs.setGlobalLoggerProvider(loggerProvider);
     metrics.setGlobalMeterProvider(meterProvider);
 
@@ -452,6 +476,16 @@ class PulseSDK implements SdkContext {
     this.registry.registerAndInstall(
       this.interactionInstrumentation,
       InstrumentationKeys.INTERACTIONS,
+    );
+    this.interactionLogProcessor.setInstrumentation(
+      this.interactionInstrumentation,
+    );
+    this.interactionContextSpanProcessor.setGetRunning(() =>
+      this.interactionInstrumentation!.getRunningInteractions(),
+    );
+    this.interactionContextSpanProcessor.setTrackEvent(
+      (name, attrs, timeMs) =>
+        this.interactionInstrumentation!.trackEvent(name, attrs, timeMs),
     );
   }
 
@@ -479,10 +513,14 @@ class PulseSDK implements SdkContext {
       this._pagehideListener = undefined;
     }
 
+    this.interactionLogProcessor.setInstrumentation(null);
+    this.interactionContextSpanProcessor.setGetRunning(null);
+    this.interactionContextSpanProcessor.setTrackEvent(null);
     this._providerCleanup();
+    // Emit session.end before uninstalling SessionInstrumentation (unsubscribe runs in uninstall).
+    this.sessionProvider?.shutdown();
     this.registry?.uninstallAll();
     this.interactionInstrumentation = undefined;
-    this.sessionProvider?.shutdown();
 
     await Promise.all([
       this._webTracerProvider?.forceFlush(),
@@ -688,6 +726,9 @@ class PulseSDK implements SdkContext {
     this.logger.emit({
       eventName: PulseWebSemconv.LogEventName.CUSTOM_NON_FATAL,
       body: name,
+      timestamp: Date.now(),
+      severityNumber: SeverityNumber.WARN,
+      severityText: "WARN",
       attributes: {
         [PulseWebSemconv.AttributeKey.EVENT_NAME]:
           PulseWebSemconv.LogEventName.CUSTOM_NON_FATAL,
@@ -735,6 +776,82 @@ class PulseSDK implements SdkContext {
         [attributeKeys.SPAN_EXPORTER]: spanExporterHint,
       },
     });
+  }
+
+  startSpan(name: string, options?: SpanOptions): PulseSpan {
+    if (!this._initialized) return noopSpan;
+
+    const otelSpan = this.tracer.startSpan(
+      name,
+      { kind: SpanKind.INTERNAL, startTime: Date.now() },
+      ROOT_CONTEXT,
+    );
+
+    let ended = false;
+    const mergedAttrs = {
+      ...(options?.attributes ?? {}),
+      [PulseWebSemconv.AttributeKey.PULSE_TYPE]:
+        PulseWebSemconv.PulseType.CUSTOM_SPAN,
+    };
+
+    otelSpan.setAttributes(mergedAttrs);
+
+    return {
+      end: (statusCode?: SpanStatusCode): void => {
+        if (ended) return;
+        ended = true;
+
+        if (statusCode === SpanStatusCode.OK) {
+          otelSpan.setStatus({ code: OtelSpanStatusCode.OK });
+        } else if (statusCode === SpanStatusCode.ERROR) {
+          otelSpan.setStatus({ code: OtelSpanStatusCode.ERROR });
+        }
+
+        otelSpan.end(Date.now());
+      },
+      addEvent: (name: string, attributes?: PulseAttributes): void => {
+        otelSpan.addEvent(name, attributes);
+      },
+      setAttributes: (attributes: PulseAttributes): void => {
+        otelSpan.setAttributes(attributes);
+      },
+      recordException: (error: Error, attributes?: PulseAttributes): void => {
+        const err =
+          error instanceof Error ? error : new Error(String(error));
+        otelSpan.recordException(err);
+      },
+    };
+  }
+
+  trackSpan<T>(
+    name: string,
+    fn: () => T | Promise<T>,
+    options?: SpanOptions,
+  ): T | Promise<T> {
+    if (!this._initialized) return fn();
+
+    const span = this.startSpan(name, options);
+
+    try {
+      const result = fn();
+      if (result instanceof Promise) {
+        return result
+          .then((value) => {
+            span.end(SpanStatusCode.OK);
+            return value;
+          })
+          .catch((error) => {
+            span.end(SpanStatusCode.ERROR);
+            throw error;
+          });
+      } else {
+        span.end(SpanStatusCode.OK);
+        return result;
+      }
+    } catch (error) {
+      span.end(SpanStatusCode.ERROR);
+      throw error;
+    }
   }
 }
 

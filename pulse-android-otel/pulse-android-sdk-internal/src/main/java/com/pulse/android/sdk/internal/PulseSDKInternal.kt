@@ -7,6 +7,7 @@ import android.app.Application
 import android.content.Context
 import com.pulse.android.api.otel.PulseBeforeSendData
 import com.pulse.android.api.otel.PulseDataCollectionConsent
+import com.pulse.android.core.config.InteractionConfigRestFetcher
 import com.pulse.android.sdk.internal.beforesend.PulseBeforeSendLogExporter
 import com.pulse.android.sdk.internal.beforesend.PulseBeforeSendMetricExporter
 import com.pulse.android.sdk.internal.beforesend.PulseBeforeSendSpanExporter
@@ -341,16 +342,18 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
         val logExporter = logExporterChain
         val metricExporter = metricExporterChain
 
+        val interactionConfigUrlProvider: () -> String = {
+            currentSdkConfig?.run { interaction.configUrl }
+                ?: PulseEndpointUtils.getInteractionConfigUrl(apiKey, projectId)
+        }
+
         var sessionReplayConfig: SessionReplayConfig? = null
         instrumentations?.let { configure ->
             val instrumentationConfig =
                 InstrumentationConfiguration(
                     config,
                     endpointHeaders,
-                    interactionUrlProvider = {
-                        currentSdkConfig?.run { interaction.configUrl }
-                            ?: PulseEndpointUtils.getInteractionConfigUrl(apiKey, projectId)
-                    },
+                    interactionUrlProvider = interactionConfigUrlProvider,
                 )
             instrumentationConfig.configure()
             currentSdkConfig
@@ -398,6 +401,8 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
             )
         }
 
+        wireInteractionConfigFetcher(interactionConfigUrlProvider, endpointHeaders)
+
         otelInstance =
             OpenTelemetryRumInitializer.initialize(
                 application = application,
@@ -428,6 +433,9 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
                         }
                         attributesBuilder.put(AppIncubatingAttributes.APP_INSTALLATION_ID, installationIdManager.installationId)
                         attributesBuilder.put(PulseSessionAttributes.PULSE_METERING_SESSION_ID, meteredSessionProvider.getSessionId())
+                        currentSdkConfig?.run {
+                            attributesBuilder.put(PulseAttributes.PULSE_SDK_CONFIG_VERSION, version.toLong())
+                        }
                         application.resources.displayMetrics.let { dm ->
                             val w = (dm.widthPixels / dm.density).toLong()
                             val h = (dm.heightPixels / dm.density).toLong()
@@ -447,6 +455,7 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
                 logRecordExporter = logExporter,
                 metricExporter = metricExporter,
                 shouldIgnoreJavaScriptExceptions = currentSdkName == PulseSdkName.ANDROID_RN,
+                batchConfig = currentSdkConfig?.batchConfig,
             )
 
         // SessionReplayInstrumentation installs from registry during RUM build; get reference for shutdown
@@ -635,7 +644,7 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
 
     public fun trackEvent(
         name: String,
-        observedTimeStampInMs: Long,
+        timestampInMs: Long,
         params: Map<String, Any?>,
     ) {
         if (!isInitialized()) return
@@ -643,7 +652,8 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
             logger
                 .logRecordBuilder()
                 .apply {
-                    setObservedTimestamp(observedTimeStampInMs, TimeUnit.MILLISECONDS)
+                    setTimestamp(timestampInMs, TimeUnit.MILLISECONDS)
+                    setObservedTimestamp(System.currentTimeMillis(), TimeUnit.MILLISECONDS)
                     setBody(name)
                     setEventName(CUSTOM_EVENT_NAME)
                     setAttribute(
@@ -658,14 +668,15 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
 
     public fun trackNonFatal(
         name: String,
-        observedTimeStampInMs: Long,
+        timestampInMs: Long,
         params: Map<String, Any?>,
     ) {
         if (!isInitialized()) return
         logger
             .logRecordBuilder()
             .apply {
-                setObservedTimestamp(observedTimeStampInMs, TimeUnit.MILLISECONDS)
+                setTimestamp(timestampInMs, TimeUnit.MILLISECONDS)
+                setObservedTimestamp(System.currentTimeMillis(), TimeUnit.MILLISECONDS)
                 setBody(name)
                 setEventName(CUSTOM_NON_FATAL_EVENT_NAME)
                 setAttribute(PulseAttributes.PULSE_TYPE, PulseAttributes.PulseTypeValues.NON_FATAL)
@@ -676,14 +687,15 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
 
     public fun trackNonFatal(
         throwable: Throwable,
-        observedTimeStampInMs: Long,
+        timestampInMs: Long,
         params: Map<String, Any?>,
     ) {
         if (!isInitialized()) return
         logger
             .logRecordBuilder()
             .apply {
-                setObservedTimestamp(observedTimeStampInMs, TimeUnit.MILLISECONDS)
+                setTimestamp(timestampInMs, TimeUnit.MILLISECONDS)
+                setObservedTimestamp(System.currentTimeMillis(), TimeUnit.MILLISECONDS)
                 setBody(throwable.message ?: "Non fatal error of type ${throwable.javaClass.name}")
                 val attributesBuilder =
                     Attributes
@@ -869,6 +881,15 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
     private val userProps = ConcurrentHashMap<String, Any>()
     private var application: Application? = null
     private var oldState: PulseDataCollectionConsent? = null
+
+    private fun wireInteractionConfigFetcher(
+        urlProvider: () -> String,
+        headers: Map<String, String>,
+    ) {
+        AndroidInstrumentationLoader
+            .getInstrumentation(InteractionInstrumentation::class.java)
+            .setConfigFetcher(InteractionConfigRestFetcher(urlProvider, headers))
+    }
 
     internal companion object {
         private const val SDK_INSTRUMENTATION_SCOPE = "com.pulse.android.sdk"

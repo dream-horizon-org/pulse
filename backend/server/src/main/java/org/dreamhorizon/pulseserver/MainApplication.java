@@ -68,7 +68,8 @@ public class MainApplication extends Launcher {
       new HeatmapModule(),
       new QueryEngineModule(),
       new EventDefinitionModule(),
-      new WebVitalsModule()
+      new WebVitalsModule(),
+      new StackTraceArchiveModule()
     };
   }
 }

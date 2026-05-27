@@ -32,7 +32,7 @@ Single **entry-point guide** for shipping Pulse Web in a browser application: in
 | Next.js client helpers | `@dreamhorizonorg/pulse-web/next` |
 | `next.config` wrapper + maps | `@dreamhorizonorg/pulse-web/next-config` |
 
-**R3 — Minimal config:** Provide **`apiKey`** + **`dataCollectionState`** — see **`sdk-core`** SPEC §5 for full `PulseWebConfig`.
+**R3 — Minimal config:** Provide **`apiKey`** + **`dataCollectionState`** — see **`sdk-core`** [`config-and-public-api/SPEC.md`](../../sdk-core/config-and-public-api/SPEC.md) for full `PulseWebConfig` and `Pulse.*` surface.
 
 **R4 — Shutdown:** Long-lived SPAs usually omit teardown; tests may call **`Pulse.shutdown()`** via provider prop — see **`react-integration`** SPEC.
 
@@ -63,7 +63,7 @@ aws s3api put-bucket-cors \
 
 ## 4. Architectural Design
 
-```
+```text
 npm install @dreamhorizonorg/pulse-web
 
 Vanilla
@@ -83,6 +83,42 @@ Next.js (client)
 
 Next.js (build)
   const { withPulseConfig } = require("@dreamhorizonorg/pulse-web/next-config");
+```
+
+### 4.1 HLD — package entry vs core SDK
+
+```mermaid
+flowchart TB
+  Host["Host application"]
+  Pkg["@dreamhorizonorg/pulse-web exports"]
+  Core["Pulse.init / sdk-core"]
+  Inst["InstrumentationRegistry"]
+  Host --> Pkg
+  Pkg --> Core
+  Core --> Inst
+```
+
+### 4.2 LD — export subpaths
+
+```mermaid
+flowchart LR
+  Root["."] --> Pulse["Pulse"]
+  React["./react"] --> Prov["PulseProvider"]
+  Rtr["./react/router"] --> PRE["PulseRouterEvents"]
+  Nxt["./next"] --> NPE["PulseRouterEvents next"]
+  NCfg["./next-config"] --> WPC["withPulseConfig"]
+```
+
+### 4.3 Flows — consent and double init
+
+```mermaid
+flowchart TD
+  A[Pulse.init called] --> C{dataCollectionState ALLOWED?}
+  C -->|no| Z[no collectors]
+  C -->|yes| I[initialize SDK]
+  I --> D{already initialized?}
+  D -->|yes| N[no-op idempotent]
+  D -->|no| OK[install instrumentations]
 ```
 
 ---
@@ -105,16 +141,20 @@ Published **`types`** + **`import`** / **`require`** pairs resolve to `dist/*`.
 
 - **Required:** `apiKey`, `dataCollectionState`.
 - **Async:** returns **`Promise<void>`** — await before relying on telemetry (`Pulse.whenReady()`).
-- **Singleton:** double init no-op — details in **`sdk-core`** SPEC §5.
+- **Singleton:** double init no-op — details in **`sdk-core`** [`architecture-and-bootstrap/SPEC.md`](../../sdk-core/architecture-and-bootstrap/SPEC.md).
 
 ### 5.3 Consent + gates
 
 - **`dataCollectionState`:** `ALLOWED` \| `DENIED` \| `PENDING` — only **`ALLOWED`** enables collectors.
-- **Remote config / feature gates:** fetched post-init — **`sdk-core`** SPEC §5.6–5.7.
+- **Remote config / feature gates:** fetched post-init — **`sdk-core`** [`remote-config-features-and-sampling/SPEC.md`](../../sdk-core/remote-config-features-and-sampling/SPEC.md).
 
 ### 5.4 React (`PulseProvider`)
 
 - Wrap the tree once at root — **`react-integration`** SPEC §5.
+- **`shutdownOnUnmount`** defaults **`false`** — keeps **`Pulse`** running when a
+  provider unmounts (typical SPA / nested layouts). Use **`true`** for strict
+  teardown or Vitest suites — behaviour + StrictMode microtask guard:
+  `src/__tests__/pulse-provider.test.tsx`.
 
 ### 5.5 Next.js
 
@@ -129,17 +169,71 @@ The SDK fetches remote config from `pulse-otel-config` S3 via CloudFront (`/conf
 
 - Server **`onRequestError`** helper ships logs separately — does **not** replace browser **`Pulse.init`** for RUM.
 
-### 5.7 Developer ergonomics / API critique
+### 5.8 Developer ergonomics / API critique
 
-**Canonical punch list:** **`docs/instrumentations/sdk-core/SPEC.md` §7** (P0/P1/P2 naming and surface-area gaps). This integration guide intentionally **does not** duplicate that list.
+**Canonical punch list:** [`../../known-gaps-tradeoffs-and-plan.md`](../../known-gaps-tradeoffs-and-plan.md) §1–§4 (gaps, tradeoffs, open questions, plan / archive). This integration guide intentionally **does not** duplicate that list.
+
+### 5.9 Export hooks: config key `beforeSendData` vs inner `beforeSend*`
+
+- **Config surface (`PulseWebConfig`):** the field is **`beforeSendData`**
+  (matches Android `PulseBeforeSendData` / RN docs). Do **not** rename to
+  generic `beforeSend` on the config object without a coordinated cross-SDK
+  major.
+- **Many RUM guides** use the word “`beforeSend`” generically — in Pulse Web,
+  that behaviour lives under **`beforeSendData`**, and the **typed callback
+  object** uses inner keys **`beforeSend`**, **`beforeSendSpan`**,
+  **`beforeSendLog`**, **`beforeSendMetric`** (see **`sdk-core`**
+  [`config-and-public-api/SPEC.md`](../../sdk-core/config-and-public-api/SPEC.md)
+  §5.1.5b and [`exporters-and-persistence/SPEC.md`](../../sdk-core/exporters-and-persistence/SPEC.md)).
+
+### 5.10 Cross-platform manual error APIs (parity)
+
+| Intent | Web (`@dreamhorizonorg/pulse-web`) | Android (`PulseSDK`) | React Native (`Pulse` / native) |
+| --- | --- | --- | --- |
+| Recoverable error / exception | `Pulse.reportException(err, attrs?)` → `non_fatal` | `trackNonFatal(throwable, …)` / `trackNonFatal(name, …)` | `Pulse.reportException(…)` (bridges to Android `trackNonFatal`) |
+| Named non-fatal | `Pulse.trackNonFatal(name, attrs?)` → `non_fatal` | `trackNonFatal(name, …)` | `trackNonFatal` on native modules |
+| Fatal / boundary-style crash | `Pulse.reportDeviceCrash(err, attrs?)` → `device.crash` | Fatal path via crash pipeline (see Android errors instrumentation) | Platform-specific; JS uses `reportException` with fatal flag where applicable |
+
+**Note:** naming differs by platform; **`pulse.type`** values align (`non_fatal`,
+`device.crash`). Normative web behaviour: **`errors`** SPEC + **`sdk-core`**
+[`config-and-public-api/SPEC.md`](../../sdk-core/config-and-public-api/SPEC.md)
+§5.6. A single shared JS method name across web and Android would need an ADR.
+
+### 5.11 Custom span API (cross-platform parity)
+
+| Intent | Web (`@dreamhorizonorg/pulse-web`) | Android (`PulseSDK`) | React Native (`Pulse`) |
+| --- | --- | --- | --- |
+| Manual span creation | `Pulse.startSpan(name, options?)` → `PulseSpan` | `startSpan(name, Map)` → `() -> Unit` | `startSpan(name, options?)` → `Span` (rich object) |
+| Auto-wrap function | `Pulse.trackSpan(name, fn, options?)` | `trackSpan(name, params, fn)` | `trackSpan(name, options, fn)` |
+| Span methods | `end(statusCode?)`, `addEvent(name, attrs)`, `setAttributes(attrs)`, `recordException(error, attrs?)` | No span methods; close callback only | Same as Web |
+| Status codes | `SpanStatusCode.OK / ERROR / UNSET` | Not exposed | Same as Web |
+| Attributes on span | Via `SpanOptions.attributes` or `setAttributes()` | Via `Map` positional arg | Via `SpanOptions.attributes` |
+| pulse.type | `custom_span` (web-only) | Not defined (mobile custom spans carry no type) | Not defined |
+
+**Notes:** Web custom span API is **RN-shaped** (rich object, not Android's callback model). `pulse.type = custom_span` is **web-specific** and does not exist on Android/RN mobile SDKs — backend queries for custom span type will match only web signals. Detailed API and cross-platform divergence: **`custom-span`** SPEC + **`sdk-core`** [`config-and-public-api/SPEC.md`](../../sdk-core/config-and-public-api/SPEC.md) §5.6.
 
 ---
 
 ## 6. Test Coverage
 
-Integration is validated indirectly via:
+### 6.1 Scenario matrix (Given / When / Then)
 
-- Core lifecycle tests — **`sdk-core`** SPEC §6.
+| ID | Type | Given | When | Then | Tests |
+|----|------|-------|------|------|-------|
+| I-P1 | positive | ALLOWED + valid apiKey | `Pulse.init` | SDK ready, exports resolve | `integration-simplified-init.test.ts`, `sdk-lifecycle.test.ts` |
+| I-N1 | negative | consent not ALLOWED | init | no collectors | `sdk-lifecycle.test.ts` |
+| I-E1 | edge | double `Pulse.init` | second call | no-op | `sdk-lifecycle.test.ts` |
+| I-E2 | edge | CORS not allowlisted | remote config fetch | 403 fallback defaults | **gap** — no dedicated Vitest; see `remote-config.ts` / `m1.test.ts` fetch mocks |
+
+Integration smoke: `src/__tests__/integration-simplified-*.test.ts`, `package-exports.test.ts` (paths per repo).
+
+### 6.2 Playwright E2E
+
+End-to-end catalogue (all Playwright `test()` titles, React + Next demos): [`../../sdk-core/test-coverage/SPEC.md`](../../sdk-core/test-coverage/SPEC.md) §6.3–§6.5. CI gate: `yarn e2e:web-sdk-gates` from `pulse-web-otel/`.
+
+### Integration is validated indirectly via
+
+- Core lifecycle tests — **`sdk-core`** [`test-coverage/SPEC.md`](../../sdk-core/test-coverage/SPEC.md).
 - React provider/router tests — **`react-integration`** SPEC §6.
 - Next hooks/config tests — **`nextjs-integration`** SPEC §6.
 
@@ -147,7 +241,7 @@ Integration is validated indirectly via:
 
 ## 7. Known Bugs & Gaps
 
-### P0:
+### P0
 
 Follow **`sdk-core`** SPEC §7 — **P0** items affect emitted telemetry globally.
 

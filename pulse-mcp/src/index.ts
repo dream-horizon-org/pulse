@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { registerProjectTools } from "./tools/projects.js";
@@ -9,9 +10,7 @@ import { registerFunnelTools } from "./tools/funnels.js";
 import { registerJourneyTools } from "./tools/journeys.js";
 import { registerAlertTools } from "./tools/alerts.js";
 import { registerHeatmapTools } from "./tools/heatmap.js";
-import { registerQueryTools } from "./tools/query.js";
 import { registerSdkConfigTools } from "./tools/sdkConfig.js";
-import { registerAnomalyTools } from "./tools/anomaly.js";
 import { registerAppVitalsTools } from "./tools/appVitals.js";
 import { exchangeApiKeyForTokens, saveCredentials } from "./auth.js";
 
@@ -33,7 +32,7 @@ try {
 
 const server = new McpServer({
   name: "pulse-mcp",
-  version: "0.1.0",
+  version: "0.0.1-beta.4",
 });
 
 registerProjectTools(server);
@@ -45,9 +44,7 @@ registerFunnelTools(server);
 registerJourneyTools(server);
 registerAlertTools(server);
 registerHeatmapTools(server);
-registerQueryTools(server);
 registerSdkConfigTools(server);
-registerAnomalyTools(server);
 registerAppVitalsTools(server);
 
 const transport = new StdioServerTransport();

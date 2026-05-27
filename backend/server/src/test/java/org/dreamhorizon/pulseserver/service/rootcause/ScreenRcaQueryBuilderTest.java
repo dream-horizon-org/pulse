@@ -35,9 +35,11 @@ class ScreenRcaQueryBuilderTest {
   class DimensionExpression {
 
     @Test
-    void shouldMapKnownDimensionsToClickHouseColumns() {
-      assertThat(ScreenRcaQueryBuilder.dimensionExpression("Platform")).isEqualTo("Platform");
-      assertThat(ScreenRcaQueryBuilder.dimensionExpression("GeoState")).isEqualTo("GeoState");
+    void shouldMapKnownDimensionsToNormalizedExpression() {
+      assertThat(ScreenRcaQueryBuilder.dimensionExpression("Platform"))
+          .isEqualTo("ifNull(nullIf(trimBoth(Platform), ''), 'Unknown')");
+      assertThat(ScreenRcaQueryBuilder.dimensionExpression("GeoState"))
+          .isEqualTo("ifNull(nullIf(trimBoth(GeoState), ''), 'Unknown')");
     }
 
     @Test
@@ -50,7 +52,8 @@ class ScreenRcaQueryBuilderTest {
     @Test
     void shouldBuildSelectAliasWrappingExpression() {
       assertThat(ScreenRcaQueryBuilder.dimensionSelectAlias("AppVersion"))
-          .isEqualTo("AppVersion AS AppVersion");
+          .isEqualTo(
+              "ifNull(nullIf(trimBoth(AppVersion), ''), 'Unknown') AS AppVersion");
     }
   }
 

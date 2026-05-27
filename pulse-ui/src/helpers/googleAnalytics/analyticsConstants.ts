@@ -1,6 +1,6 @@
 /**
  * Analytics Constants
- * 
+ *
  * Centralized constants for all analytics events, labels, and screen names.
  * This ensures consistency across the application and makes it easy to update
  * event names in one place.
@@ -40,12 +40,12 @@ export const AnalyticsLabels = {
   USER_ENGAGEMENT: "User Engagement",
   UNIVERSAL_QUERY: "Universal Query",
   SETTINGS: "Settings",
-  
+
   // Common actions
   VIEW_JSON: "View JSON",
   USER_LOGGED_OUT: "User logged out",
   UNKNOWN: "unknown",
-  
+
   // Prefixes for dynamic labels
   CRASH_PREFIX: "Crash:",
   ANR_PREFIX: "ANR:",
@@ -58,7 +58,7 @@ export const AnalyticsLabels = {
   FAILED_PREFIX: "Failed:",
   BASED_ON_PREFIX: "Based on v",
   NEW: "New",
-  
+
   // Timing categories
   SCREEN_TIME: "Screen Time",
 } as const;
@@ -110,12 +110,16 @@ export const AnalyticsLabelFormatter = {
   anr: (anrId: string) => `${AnalyticsLabels.ANR_PREFIX} ${anrId}`,
   version: (version: number) => `${AnalyticsLabels.VERSION_PREFIX} ${version}`,
   filterMode: (mode: string) => `${AnalyticsLabels.FILTER_MODE_PREFIX} ${mode}`,
-  samplingRate: (rate: number) => `${AnalyticsLabels.SAMPLING_RATE_PREFIX} ${rate}%`,
-  quickAction: (action: string) => `${AnalyticsLabels.QUICK_ACTION_PREFIX} ${action}`,
+  samplingRate: (rate: number) =>
+    `${AnalyticsLabels.SAMPLING_RATE_PREFIX} ${rate}%`,
+  quickAction: (action: string) =>
+    `${AnalyticsLabels.QUICK_ACTION_PREFIX} ${action}`,
   attempt: (method: string) => `${AnalyticsLabels.ATTEMPT_PREFIX} ${method}`,
   success: (method: string) => `${AnalyticsLabels.SUCCESS_PREFIX} ${method}`,
-  failed: (method: string, reason: string) => `${AnalyticsLabels.FAILED_PREFIX} ${method} - ${reason}`,
-  basedOnVersion: (version: number) => `${AnalyticsLabels.BASED_ON_PREFIX}${version}`,
+  failed: (method: string, reason: string) =>
+    `${AnalyticsLabels.FAILED_PREFIX} ${method} - ${reason}`,
+  basedOnVersion: (version: number) =>
+    `${AnalyticsLabels.BASED_ON_PREFIX}${version}`,
   settingChange: (setting: string, value: string) => `${setting}: ${value}`,
 } as const;
 
@@ -131,6 +135,8 @@ export const AnalyticsParams = {
   NAVIGATION_METHOD: "navigation_method",
   ITEM_TYPE: "item_type",
   PATH: "path",
+  /** Override Pulse event name when forwarding from logEvent (stripped from GA payload). */
+  PULSE_EVENT: "pulse_event",
 } as const;
 
 /**
@@ -147,9 +153,12 @@ export const AnalyticsTimingCategory = {
 /**
  * Type exports for TypeScript
  */
-export type AnalyticsScreenType = typeof AnalyticsScreen[keyof typeof AnalyticsScreen];
-export type AnalyticsLabelType = typeof AnalyticsLabels[keyof typeof AnalyticsLabels];
-export type AnalyticsFilterTypeType = typeof AnalyticsFilterType[keyof typeof AnalyticsFilterType];
-export type AnalyticsTabType = typeof AnalyticsTab[keyof typeof AnalyticsTab];
-export type AnalyticsErrorTypeType = typeof AnalyticsErrorType[keyof typeof AnalyticsErrorType];
-
+export type AnalyticsScreenType =
+  (typeof AnalyticsScreen)[keyof typeof AnalyticsScreen];
+export type AnalyticsLabelType =
+  (typeof AnalyticsLabels)[keyof typeof AnalyticsLabels];
+export type AnalyticsFilterTypeType =
+  (typeof AnalyticsFilterType)[keyof typeof AnalyticsFilterType];
+export type AnalyticsTabType = (typeof AnalyticsTab)[keyof typeof AnalyticsTab];
+export type AnalyticsErrorTypeType =
+  (typeof AnalyticsErrorType)[keyof typeof AnalyticsErrorType];

@@ -83,13 +83,20 @@ export const PulseWebSemconv = {
     /** Logical viewport (`window.innerWidth` / `innerHeight`), Android `device.screen.*` parity. */
     DEVICE_SCREEN_WIDTH: "device.screen.width",
     DEVICE_SCREEN_HEIGHT: "device.screen.height",
-    /** Web vital metric name: LCP, INP, CLS, FCP, FID, TTFB. */
+    /** Web vital metric name: LCP, INP, CLS, FCP, TTFB (`web-vitals` v5+; FID removed upstream). */
     WEB_VITAL_NAME: "web_vital.name",
     WEB_VITAL_VALUE: "web_vital.value",
     WEB_VITAL_RATING: "web_vital.rating",
     WEB_VITAL_NAVIGATION_TYPE: "web_vital.navigation_type",
+    /** UUID per navigation (cold, SPA, BFCache) — join vitals to `screen_load` spans. */
+    NAVIGATION_ID: "navigation_id",
+    /** Derived from {@code Metric.navigationType}: soft-nav vs page load (omitted when undefined). */
+    WEB_VITAL_CONTEXT: "web_vital.context",
+    /** Incremental delta since last callback (CLS/INP with {@code reportAllChanges}). */
+    WEB_VITAL_DELTA: "web_vital.delta",
     /** Stable OTel HTTP semconv keys for CLIENT spans; {@code pulse.type} values are {@code network.<statusCode>} (Android parity). */
     HTTP_REQUEST_METHOD: "http.request.method",
+    HTTP_REQUEST_METHOD_ORIGINAL: "http.request.method_original",
     URL_FULL: "url.full",
     HTTP_RESPONSE_STATUS_CODE: "http.response.status_code",
     HTTP_REQUEST_BODY_SIZE: "http.request.body.size",
@@ -149,6 +156,7 @@ export const PulseWebSemconv = {
     WEB_VITAL: "web_vital",
     SCREEN_LOAD: "screen_load",
     SCREEN_SESSION: "screen_session",
+    CUSTOM_SPAN: "custom_span",
   },
   LogBody: {
     SESSION_START: "session.start",
@@ -181,6 +189,10 @@ export const PulseWebSemconv = {
     IS_ERROR: "pulse.interaction.is_error",
     ERROR_TYPE: "pulse.interaction.error.type",
     ERROR_MESSAGE: "pulse.interaction.error.message",
+    /** String array of in-flight interaction flow names — stamped on concurrent spans. */
+    NAMES: "pulse.interaction.names",
+    /** String array of in-flight interaction IDs — stamped on concurrent spans. */
+    IDS: "pulse.interaction.ids",
   },
   InteractionUserCategory: {
     EXCELLENT: "Excellent",

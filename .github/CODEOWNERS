@@ -1,9 +1,65 @@
-# Code owners file.
-# This file controls who is tagged for review for any given pull request.
+# CODEOWNERS
+# Controls who is auto-requested for review on pull requests.
+# Last matching pattern wins per path. Scoped rules include org-wide approvers where noted.
 
- # For anything not explicitly taken by someone else:
-* @chiragSharmaD11 @atulgpt17 @shubhamguptadream11 @mayankkush1 @yasir6jan @Sarabjyot123 @prathameshy7
-/deploy/ @yasir6jan
-/pulse_ai/ @sarthak-d11
-backend/db/prod/clickhouse/ @mohithemnani11 @Racha2004 @Sarabjyot123
-backend/db/dev/clickhouse/ @mohithemnani11 @Racha2004 @Sarabjyot123
+# ──────────────────────────────────────────────────────────────────────────────
+# Catch-all (paths with no later match)
+# ──────────────────────────────────────────────────────────────────────────────
+* @chiragSharmaD11 @atulgpt17 @shubhamguptadream11 @anirudhdream11 @kunalchavhan @yasir6jan @Sarabjyot123 @prathameshy7 @d11pankaj @princektripathi
+
+# ──────────────────────────────────────────────────────────────────────────────
+# This file (later rule wins over * for .github/CODEOWNERS)
+# ──────────────────────────────────────────────────────────────────────────────
+/.github/CODEOWNERS           @chiragSharmaD11 @anirudhdream11 @princektripathi @yasir6jan @kunalchavhan
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Mobile SDK size baselines (>25 KB bumps: any one of the three may approve)
+# ──────────────────────────────────────────────────────────────────────────────
+/.github/sdk-size-baselines/                    @kunalchavhan @anirudhdream11 @chiragSharmaD11
+/.github/workflows/mobile-sdk-size-delta.yml    @kunalchavhan @anirudhdream11 @chiragSharmaD11
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Mobile SDKs
+# ──────────────────────────────────────────────────────────────────────────────
+/pulse-android-otel/          @atulgpt17 @anirudhdream11 @shubhamguptadream11 @arinjay-d11 @yasir6jan @princektripathi @chiragSharmaD11
+/android-agent/               @atulgpt17 @anirudhdream11 @shubhamguptadream11 @arinjay-d11 @yasir6jan @princektripathi @chiragSharmaD11
+/pulse-ios-otel/              @atulgpt17 @shubhamguptadream11 @anirudhdream11 @arinjay-d11 @chiragSharmaD11 @yasir6jan @princektripathi
+/pulse-react-native-otel/     @atulgpt17 @shubhamguptadream11 @anirudhdream11 @arinjay-d11 @chiragSharmaD11 @yasir6jan @princektripathi
+/pulse-mobile-benchmarks/     @atulgpt17 @anirudhdream11 @Devanshj11 @shubhamguptadream11 @arinjay-d11 @yasir6jan @princektripathi @chiragSharmaD11
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Web / Frontend
+# ──────────────────────────────────────────────────────────────────────────────
+/pulse-ui/                    @JatinDream11 @shrutipathak1234 @anirudhdream11 @princektripathi @yasir6jan @chiragSharmaD11
+/pulse-web-otel/              @JatinDream11 @shrutipathak1234 @anirudhdream11 @princektripathi @yasir6jan @chiragSharmaD11
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Backend
+# ──────────────────────────────────────────────────────────────────────────────
+/backend/                                   @Sarabjyot123 @chiragSharmaD11 @yasir6jan @princektripathi
+/backend/pulse-alerts-cron/                 @princektripathi @yasir6jan @chiragSharmaD11
+/backend/session-capture-service/           @abhishek-dream11 @yasir6jan @princektripathi @chiragSharmaD11
+/backend/session-replay-ingestion/          @abhishek-dream11 @yasir6jan @princektripathi @chiragSharmaD11
+/backend/heatmap-screenshot-ingestion/      @mohithemnani11 @yasir6jan @princektripathi @chiragSharmaD11
+/backend/spark/                             @yasir6jan @chiragSharmaD11 @princektripathi
+/backend/db/                                @mohithemnani11 @Sarabjyot123 @yasir6jan @princektripathi @chiragSharmaD11
+/backend/ingestion/                         @mohithemnani11 @Sarabjyot123 @yasir6jan @princektripathi @chiragSharmaD11
+/backend/db/prod/clickhouse/                @Racha2004 @yasir6jan @princektripathi @chiragSharmaD11
+/backend/db/dev/clickhouse/                 @Racha2004 @yasir6jan @princektripathi @chiragSharmaD11
+
+# ──────────────────────────────────────────────────────────────────────────────
+# AI / Agent tooling
+# ──────────────────────────────────────────────────────────────────────────────
+/pulse_ai/                    @sarthak-d11 @chiragSharmaD11 @shubhamguptadream11 @yasir6jan @princektripathi
+/pulse-mcp/                   @sarthak-d11 @yasir6jan @princektripathi @chiragSharmaD11
+/.agents/                     @sarthak-d11 @kunalchavhan @chiragSharmaD11 @anirudhdream11 @shubhamguptadream11 @yasir6jan @princektripathi
+/.claude/                     @sarthak-d11 @kunalchavhan @chiragSharmaD11 @anirudhdream11 @shubhamguptadream11 @yasir6jan @princektripathi
+/.cursor/                     @sarthak-d11 @kunalchavhan @chiragSharmaD11 @anirudhdream11 @shubhamguptadream11 @yasir6jan @princektripathi
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Infrastructure
+# ──────────────────────────────────────────────────────────────────────────────
+/deploy/                      @yasir6jan @chiragSharmaD11 @mohithemnani11 @princektripathi
+/vector/                      @chiragSharmaD11 @mohithemnani11 @yasir6jan @princektripathi
+/scripts/                     @yasir6jan @chiragSharmaD11 @princektripathi
+/benchmark/                   @atulgpt17 @anirudhdream11 @shubhamguptadream11 @yasir6jan @princektripathi @chiragSharmaD11

@@ -20,6 +20,7 @@ import java.util.List;
 import org.dreamhorizon.pulseserver.config.ApplicationConfig;
 import org.dreamhorizon.pulseserver.dao.AlertsDao;
 import org.dreamhorizon.pulseserver.dto.response.EmptyResponse;
+import org.dreamhorizon.pulseserver.resources.alert.models.AlertConditionDto;
 import org.dreamhorizon.pulseserver.resources.alert.models.AlertFiltersResponseDto;
 import org.dreamhorizon.pulseserver.resources.alert.models.AlertMetricsResponseDto;
 import org.dreamhorizon.pulseserver.resources.alert.models.AlertNotificationChannelResponseDto;
@@ -137,7 +138,7 @@ class AlertServiceTest {
           .evaluationPeriod(60)
           .evaluationInterval(300)
           .severity(1)
-          .notificationChannelId(1)
+          .channelEventMappingId(1L)
           .createdBy("user")
           .updatedBy("user")
           .scope(AlertScope.interaction)
@@ -164,7 +165,7 @@ class AlertServiceTest {
           .evaluationPeriod(60)
           .evaluationInterval(300)
           .severity(1)
-          .notificationChannelId(1)
+          .channelEventMappingId(1L)
           .createdBy("user")
           .updatedBy("user")
           .scope(AlertScope.interaction)
@@ -191,7 +192,7 @@ class AlertServiceTest {
           .evaluationPeriod(60)
           .evaluationInterval(300)
           .severity(1)
-          .notificationChannelId(1)
+          .channelEventMappingId(1L)
           .createdBy("user")
           .updatedBy("user")
           .scope(AlertScope.interaction)
@@ -219,7 +220,7 @@ class AlertServiceTest {
           .evaluationPeriod(60)
           .evaluationInterval(300)
           .severity(1)
-          .notificationChannelId(1)
+          .channelEventMappingId(1L)
           .createdBy("user")
           .updatedBy("user")
           .scope(AlertScope.interaction)
@@ -802,13 +803,16 @@ class AlertServiceTest {
   private Alert createBaseAlert(Integer alertId, LocalDateTime snoozeFrom, LocalDateTime snoozeUntil) {
     return Alert.builder()
         .alertId(alertId)
+        .projectId("test-project")
         .name("Test Alert")
         .description("desc")
+        .scope("interaction")
+        .dimensionFilter("{}")
+        .alerts(List.<AlertConditionDto>of())
+        .conditionExpression("A")
         .evaluationPeriod(1)
         .severityId(1)
-        .notificationChannelId(1)
-        .notificationType("slack")
-        .notificationConfig("https://webhook.url")
+        .channelEventMappingId(1L)
         .createdBy("user")
         .updatedBy("user")
         .createdAt(Timestamp.valueOf(LocalDateTime.now(ZoneOffset.UTC)))

@@ -45,7 +45,7 @@ PulseSDK.INSTANCE.initialize(
 ```kotlin
 PulseSDK.INSTANCE.trackEvent(
     name = "cart_viewed",
-    observedTimeStampInMs = System.currentTimeMillis(),
+    timestampInMs = System.currentTimeMillis(),
     params = mapOf("itemCount" to 3)
 )
 ```
@@ -134,7 +134,7 @@ class CheckoutActivity : AppCompatActivity() {
     fun onPaymentSubmit() {
         PulseSDK.INSTANCE.trackEvent(
             name = "payment_entered",
-            observedTimeStampInMs = System.currentTimeMillis(),
+            timestampInMs = System.currentTimeMillis(),
             params = mapOf("paymentMethod" to "credit_card")
         )
     }
@@ -142,7 +142,7 @@ class CheckoutActivity : AppCompatActivity() {
     fun onOrderSuccess(orderId: String) {
         PulseSDK.INSTANCE.trackEvent(
             name = "order_placed",
-            observedTimeStampInMs = System.currentTimeMillis(),
+            timestampInMs = System.currentTimeMillis(),
             params = mapOf("orderId" to orderId)
         )
     }

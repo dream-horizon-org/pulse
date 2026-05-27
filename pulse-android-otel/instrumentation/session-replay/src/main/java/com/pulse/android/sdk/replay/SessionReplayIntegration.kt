@@ -127,12 +127,7 @@ public class SessionReplayIntegration(
                         try {
                             if (!isActive() || !decorView.isAliveAndAttachedToWindow()) return@post
                             val countAtCollection = drawCounter.get()
-                            viewMaskCache.collectIfNeeded(
-                                decorView,
-                                onDrawCalled = { drawCounter.get() != countAtCollection },
-                            )
-                            val snapshotMasks = ArrayList(viewMaskCache.rects)
-                            val isSnapshotMasksValid = viewMaskCache.isValid
+                            // Masks collected post-PixelCopy via collector in generateSnapshot.
                             val screenshotLayout: ScreenshotLayoutSnapshot? =
                                 if (config.isScreenshot) {
                                     collectScreenshotLayout(decorView, logger)
@@ -143,8 +138,7 @@ public class SessionReplayIntegration(
                                 generateSnapshot(
                                     WeakReference(decorView),
                                     WeakReference(window),
-                                    snapshotMasks,
-                                    isSnapshotMasksValid,
+                                    WeakReference(viewMaskCache),
                                     countAtCollection,
                                     screenshotLayout,
                                 )
@@ -192,8 +186,7 @@ public class SessionReplayIntegration(
     private suspend fun generateSnapshot(
         viewRef: WeakReference<View>,
         windowRef: WeakReference<Window>,
-        preCollectedMasks: List<android.graphics.Rect>,
-        masksValid: Boolean,
+        maskCacheRef: WeakReference<MaskRectCache>,
         drawCountAtCollection: Long,
         screenshotLayout: ScreenshotLayoutSnapshot?,
     ) {
@@ -206,17 +199,23 @@ public class SessionReplayIntegration(
         val wireframe =
             if (config.isScreenshot) {
                 val layout = screenshotLayout ?: return
+                // Collector runs on main inside PixelCopy callback — see [ScreenshotCapture.captureAsync].
+                val collector: () -> Pair<List<android.graphics.Rect>, Boolean> = {
+                    collectMasksFor(maskCacheRef, viewRef)
+                }
                 ScreenshotCapture.captureAsync(
                     window = window,
                     layout = layout,
                     displayMetrics = displayMetrics,
-                    maskRects = preCollectedMasks,
-                    masksValid = masksValid,
+                    maskRects = emptyList(),
+                    masksValid = false,
                     drawCountAtCollection = drawCountAtCollection,
                     currentDrawCount = { drawCounter.get() },
                     logger = logger,
                     screenshotScale = config.effectiveScreenshotScale,
                     screenshotQuality = config.effectiveScreenshotQuality,
+                    mainHandler = mainHandler,
+                    maskCollectorOnMain = collector,
                 )
             } else {
                 WireframeCapture.toWireframe(
@@ -227,6 +226,20 @@ public class SessionReplayIntegration(
                 )
             }
         wireframe?.let { generateSnapshotWithWireframe(it, viewRef, timestamp) }
+    }
+
+    private fun collectMasksFor(
+        cacheRef: WeakReference<MaskRectCache>,
+        viewRef: WeakReference<View>,
+    ): Pair<List<android.graphics.Rect>, Boolean> {
+        val cache = cacheRef.get()
+        val decor = viewRef.get()
+        if (cache == null || decor == null || !decor.isAliveAndAttachedToWindow()) {
+            return emptyList<android.graphics.Rect>() to false
+        }
+        val countNow = drawCounter.get()
+        cache.collectIfNeeded(decor, onDrawCalled = { drawCounter.get() != countNow })
+        return ArrayList(cache.rects) to cache.isValid
     }
 
     private fun generateSnapshotWithWireframe(

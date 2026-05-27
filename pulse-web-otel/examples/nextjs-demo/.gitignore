@@ -1,4 +1,11 @@
 .next/
 node_modules/
+test-results/
+e2e-report/
+playwright-report/
 # Override root .gitignore — lib/ here is TypeScript source, not Java build artifacts
 !lib/
+
+# Playwright / local E2E artifacts
+e2e/e2e-report/
+test-results/

@@ -33,6 +33,7 @@ CONTAINER_MINIO_INIT="pulse-minio-init"
 CONTAINER_SESSION_CAPTURE="pulse-session-capture"
 CONTAINER_SESSION_INGESTION="pulse-session-replay-ingestion"
 CONTAINER_HEATMAP_INGESTION="pulse-heatmap-screenshot-ingestion"
+CONTAINER_S3_ARCHIVER="pulse-s3-archiver"
 
 # Ordered list (start order)
 ALL_CONTAINERS=(
@@ -43,6 +44,7 @@ ALL_CONTAINERS=(
     "$CONTAINER_CLICKHOUSE_INIT"
     "$CONTAINER_MINIO_INIT"
     "$CONTAINER_OTEL_COLLECTOR"
+    "$CONTAINER_S3_ARCHIVER"
     "$CONTAINER_SESSION_CAPTURE"
     "$CONTAINER_SESSION_INGESTION"
     "$CONTAINER_HEATMAP_INGESTION"
@@ -70,6 +72,7 @@ IMAGE_ALERTS_CRON="pulse-alerts-cron:local"
 IMAGE_SESSION_CAPTURE="pulse-session-capture:local"
 IMAGE_SESSION_INGESTION="pulse-session-replay-ingestion:local"
 IMAGE_HEATMAP_INGESTION="pulse-heatmap-screenshot-ingestion:local"
+IMAGE_S3_ARCHIVER="pulse-s3-archiver:local"
 
 # ---------------------------------------------------------------------------
 # Constants -- Network & Volumes
@@ -256,6 +259,7 @@ load_env() {
     export GOOGLE_OAUTH_ENABLED="${GOOGLE_OAUTH_ENABLED:-false}"
     export REACT_APP_GOOGLE_CLIENT_ID="${REACT_APP_GOOGLE_CLIENT_ID:-}"
     export REACT_APP_PULSE_SERVER_URL="${REACT_APP_PULSE_SERVER_URL:-}"
+    export REACT_APP_PULSE_WEB_API_KEY="${REACT_APP_PULSE_WEB_API_KEY:-}"
     export REACT_APP_GOOGLE_OAUTH_ENABLED="${REACT_APP_GOOGLE_OAUTH_ENABLED:-${GOOGLE_OAUTH_ENABLED}}"
     export REACT_APP_ROOT_CAUSE_ENABLED="${REACT_APP_ROOT_CAUSE_ENABLED:-false}"
     export ROOT_CAUSE_ENABLED="${ROOT_CAUSE_ENABLED:-false}"

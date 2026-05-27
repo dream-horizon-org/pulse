@@ -16,6 +16,8 @@ import jakarta.ws.rs.core.MediaType;
 import java.util.concurrent.CompletionStage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.dreamhorizon.pulseserver.constant.Constants;
+import org.dreamhorizon.pulseserver.filter.RequiresPermission;
 import org.dreamhorizon.pulseserver.resources.tiers.models.CreateTierRestRequest;
 import org.dreamhorizon.pulseserver.resources.tiers.models.TierListRestResponse;
 import org.dreamhorizon.pulseserver.resources.tiers.models.TierRestResponse;
@@ -49,6 +51,7 @@ public class InternalTiersController {
    */
   @POST
   @Path("")
+  @RequiresPermission(Constants.PERMISSION_SUPERADMIN)
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public CompletionStage<Response<TierRestResponse>> createTier(
@@ -64,6 +67,7 @@ public class InternalTiersController {
    */
   @PUT
   @Path("/{tierId}")
+  @RequiresPermission(Constants.PERMISSION_SUPERADMIN)
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public CompletionStage<Response<TierRestResponse>> updateTier(
@@ -81,6 +85,7 @@ public class InternalTiersController {
    */
   @PUT
   @Path("/{tierId}/deactivate")
+  @RequiresPermission(Constants.PERMISSION_SUPERADMIN)
   @Consumes(MediaType.WILDCARD)
   @Produces(MediaType.APPLICATION_JSON)
   public CompletionStage<Response<TierRestResponse>> deactivateTier(
@@ -96,6 +101,7 @@ public class InternalTiersController {
    */
   @PUT
   @Path("/{tierId}/activate")
+  @RequiresPermission(Constants.PERMISSION_SUPERADMIN)
   @Consumes(MediaType.WILDCARD)
   @Produces(MediaType.APPLICATION_JSON)
   public CompletionStage<Response<TierRestResponse>> activateTier(
@@ -111,6 +117,7 @@ public class InternalTiersController {
    */
   @GET
   @Path("")
+  @RequiresPermission(Constants.PERMISSION_SUPERADMIN)
   @Consumes(MediaType.WILDCARD)
   @Produces(MediaType.APPLICATION_JSON)
   public CompletionStage<Response<TierListRestResponse>> getAllTiers(
@@ -131,6 +138,7 @@ public class InternalTiersController {
    */
   @GET
   @Path("/{tierId}")
+  @RequiresPermission(Constants.PERMISSION_SUPERADMIN)
   @Consumes(MediaType.WILDCARD)
   @Produces(MediaType.APPLICATION_JSON)
   public CompletionStage<Response<TierRestResponse>> getTier(

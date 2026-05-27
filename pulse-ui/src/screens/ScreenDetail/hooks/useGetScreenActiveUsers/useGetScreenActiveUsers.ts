@@ -51,7 +51,7 @@ export function useGetScreenActiveUsers({
     const end = dayjs(endTime).utc().startOf("day");
     const dailyStart = end.subtract(1, "day");
     const weeklyStart = end.subtract(7, "days");
-    const monthlyStart = end.subtract(30, "days");
+    const monthlyStart = end.subtract(29, "days");
 
     return {
       dailyStartDate: dailyStart.toISOString(),

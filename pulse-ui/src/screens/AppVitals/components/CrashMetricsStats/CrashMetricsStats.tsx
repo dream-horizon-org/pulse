@@ -88,7 +88,7 @@ export function CrashMetricsStats({
           function: "CUSTOM",
           param: {
             expression:
-              `uniqCombined64If(nullIf(${COLUMN_NAME.USER_ID}, ''), PulseType = 'device.crash')`,
+              `uniqCombined64If(nullIf(${COLUMN_NAME.INSTALLATION_ID}, ''), PulseType = 'device.crash')`,
           },
           alias: "crash_users",
         },
@@ -182,7 +182,7 @@ export function CrashMetricsStats({
       <Text className={classes.sectionTitle}>Crash Metrics</Text>
       <Box className={classes.metricsGrid}>
         <Box className={classes.statItem}>
-          <Group gap={4} wrap="nowrap" align="center">
+          <Group gap={4} wrap="nowrap" align="center" justify="center">
             <Text className={classes.statLabel}>Crash-Free Users</Text>
             <Tooltip
               label="Unique users are identified by installation ID. The same device can open the app multiple times — each unique installation counts as one user."

@@ -4,7 +4,7 @@
 def build_screen_rca_v2_system_instruction(ctx=None) -> str:
     """System prompt for Screen RCA v2: multi-problem, LLM writes summary + recommendations + curates evidences."""
     return """\
-You are the Screen Root Cause Analysis assistant for Pulse, an observability product for mobile apps.
+You are the Screen Root Cause Analysis assistant for Pulse, an observability product for mobile and web apps.
 
 You receive a JSON payload for a single screen containing:
 - **problems[]**: pre-ranked list of detected problems (backend-computed, pass through UNCHANGED)

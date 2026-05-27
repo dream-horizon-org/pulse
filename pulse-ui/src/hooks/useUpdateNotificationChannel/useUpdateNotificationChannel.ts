@@ -1,4 +1,8 @@
-import { UseMutationResult, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  UseMutationResult,
+  useMutation,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { ApiResponse, makeRequest } from "../../helpers/makeRequest";
 import { API_BASE_URL, API_ROUTES } from "../../constants";
 import {
@@ -8,7 +12,7 @@ import {
 } from "./useUpdateNotificationChannel.interface";
 
 export const useUpdateNotificationChannel = (
-  options: UseUpdateNotificationChannelOptions = {}
+  options: UseUpdateNotificationChannelOptions = {},
 ): UseMutationResult<
   ApiResponse<UpdateNotificationChannelResponse>,
   unknown,
@@ -16,7 +20,7 @@ export const useUpdateNotificationChannel = (
   unknown
 > => {
   const queryClient = useQueryClient();
-  const updateNotificationChannel = API_ROUTES.UPDATE_NOTIFICATION_CHANNEL;
+  const updateNotificationChannel = API_ROUTES.UPDATE_NOTIFICATION_CHANNEL_V2;
 
   return useMutation<
     ApiResponse<UpdateNotificationChannelResponse>,
@@ -25,7 +29,7 @@ export const useUpdateNotificationChannel = (
   >({
     mutationFn: (params: UpdateNotificationChannelRequest) => {
       return makeRequest<UpdateNotificationChannelResponse>({
-        url: `${API_BASE_URL}${updateNotificationChannel.apiPath}/${params.notification_channel_id}`,
+        url: `${API_BASE_URL}${updateNotificationChannel.apiPath.replace("{channelId}", String(params.channelId))}`,
         init: {
           method: updateNotificationChannel.method,
           headers: {
@@ -33,17 +37,16 @@ export const useUpdateNotificationChannel = (
           },
           body: JSON.stringify({
             name: params.name,
-            type: params.type,
             config: params.config,
+            isActive: params.isActive,
           }),
         },
       });
     },
     onSettled: (data, error, variables, context) => {
-      // Invalidate and refetch notification channels list on success
       if (data?.data && !data?.error) {
-        queryClient.invalidateQueries({ 
-          queryKey: [API_ROUTES.GET_ALERT_NOTIFICATION_CHANNELS.key] 
+        queryClient.invalidateQueries({
+          queryKey: [API_ROUTES.GET_NOTIFICATION_CHANNELS.key],
         });
       }
       options.onSettled?.(data, error, variables, context);

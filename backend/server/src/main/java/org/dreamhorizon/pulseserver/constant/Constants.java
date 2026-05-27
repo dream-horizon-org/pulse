@@ -1,5 +1,7 @@
 package org.dreamhorizon.pulseserver.constant;
 
+import java.util.Map;
+
 public final class Constants {
   /**
    * Redis hash used by Kong: field = raw API key, value = project id. Must match pulse-alerts-cron
@@ -10,6 +12,15 @@ public final class Constants {
   //Alerts
   public static final String ALERT_EVALUATE_AND_TRIGGER_ALERT =
       "/v1/alert/evaluateAndTriggerAlert";
+
+  /** Display symbols for metric operators in human-readable alert condition text. */
+  public static final Map<String, String> ALERT_CONDITION_OPERATOR_SYMBOLS =
+      Map.of(
+          "GREATER_THAN", ">",
+          "LESS_THAN", "<",
+          "GREATER_THAN_EQUAL", ">=",
+          "LESS_THAN_EQUAL", "<=",
+          "EQUAL", "=");
 
   public static final String MYSQL_WRITER_HOST = "mysql_writer_host";
   public static final String MYSQL_READER_HOST = "mysql_reader_host";
@@ -62,6 +73,7 @@ public final class Constants {
   public static final String PERMISSION_CAN_VIEW = "can_view";
   public static final String PERMISSION_CAN_UPLOAD_TNC = "can_upload_tnc";
   public static final String PERMISSION_CAN_ACCEPT_TNC = "can_accept_tnc";
+  public static final String PERMISSION_SUPERADMIN = "superadmin";
 
   // OpenFGA Resource Types
   public static final String RESOURCE_TYPE_TENANT = "tenant";

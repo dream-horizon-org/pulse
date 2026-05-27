@@ -40,6 +40,12 @@ public final class ScreenRcaQueryBuilder {
   /** Users with network latency above this threshold are counted as affected. */
   public static final long NETWORK_LATENCY_BAD_THRESHOLD_MS    = 1000L;
 
+  /**
+   * {@code bad_frustration / click_volume * 100} (0–100 scale). Not selected in ClickHouse — computed in
+   * {@link ScreenRcaService} from {@link #BAD_FRUSTRATION} and {@link #CLICK_VOLUME} on baseline/segment rows.
+   */
+  public static final String BAD_FRUSTRATION_PERCENTAGE = "bad_frustration_percentage";
+
   /** Materialized {@code ClickType} / {@code Rage} on {@code otel.otel_logs} (see dev DDL). */
   private static final String RAGE_COUNT_EXPR = "countIf(Rage)";
 
@@ -140,9 +146,11 @@ public final class ScreenRcaQueryBuilder {
     return dimensionExpression(dimensionName) + " AS " + dimensionName;
   }
 
+  static final String UNKNOWN_DIMENSION = "Unknown";
+
   /** Materialized dimension columns (same definitions as {@code otel.otel_logs} DDL). */
   public static String dimensionExpression(String dimensionName) {
-    return switch (dimensionName) {
+    String col = switch (dimensionName) {
       case "Platform" -> "Platform";
       case "OsVersion" -> "OsVersion";
       case "AppVersion" -> "AppVersion";
@@ -151,6 +159,7 @@ public final class ScreenRcaQueryBuilder {
       case "GeoState" -> "GeoState";
       default -> throw new IllegalArgumentException("Unknown Screen RCA dimension: " + dimensionName);
     };
+    return "ifNull(nullIf(trimBoth(" + col + "), ''), '" + UNKNOWN_DIMENSION + "')";
   }
 
   /**

@@ -12,6 +12,10 @@ class RcaReportRequest(BaseModel):
     entityKey: str
     rcaType: str
     date: str | None = None
+    analysisLookbackDays: int | None = Field(
+        default=None,
+        description="RCA telemetry window in days (pulse-server); echoed on report.",
+    )
     rootCausePayload: dict[str, Any] | None = None
     errorAttributionPayload: dict[str, Any] | None = Field(
         default=None,
@@ -23,6 +27,7 @@ class RcaReportRequest(BaseModel):
 
 class ReportPayloadSchema(BaseModel):
     structured: RcaStructuredReportV1
+    analysisLookbackDays: int | None = None
 
 
 class RcaReportResponse(BaseModel):
@@ -46,4 +51,21 @@ class ScreenRcaV2ReportPayloadSchema(BaseModel):
 
 class ScreenRcaV2ReportResponse(BaseModel):
     report: ScreenRcaV2ReportPayloadSchema
+    cached: bool = False
+
+
+class SessionRcaReportRequest(BaseModel):
+    """Embedded rootCausePayload is required (v1); window fields are echoed into the LLM prompt."""
+
+    rootCausePayload: dict[str, Any]
+    date: str | None = None
+    asOf: str | None = None
+
+
+class SessionRcaReportPayloadSchema(BaseModel):
+    structured: SessionRcaStructuredResponseV1
+
+
+class SessionRcaReportResponse(BaseModel):
+    report: SessionRcaReportPayloadSchema
     cached: bool = False

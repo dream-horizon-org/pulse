@@ -78,6 +78,20 @@ export const ALERTS_SEARCH_PLACEHOLDER: string = "Search your alert here";
 
 export const CREATE_ALERT: string = "Create alert";
 
+export const NOTIFICATION_EVENT_NAMES = {
+  PULSE_ALERT_FIRING: "pulse_alert_firing",
+} as const;
+
+/** postMessage `data.type` when returning from Settings → Notifications (alert wizard flow). */
+export const NOTIFICATION_CHANNELS_UPDATED_MESSAGE =
+  "pulse-notification-channels-updated";
+
+/**
+ * Set when opening notification settings from the alert wizard; cleared after mappings refetch.
+ */
+export const SESSION_STORAGE_ALERT_WIZARD_CHANNEL_REFRESH =
+  "pulse_alert_wizard_channel_refresh";
+
 export const NO_ALERT_CONFIGURED: string = "No alerts have been configured";
 export const IS_UAT: boolean =
   process.env.REACT_APP_PULSE_SERVER_URL?.includes("-uat") ?? false;
@@ -228,6 +242,11 @@ export const ROUTES: Routes = {
     basePath: "/projects/:projectId/session-replay/sessions",
     path: "/projects/:projectId/session-replay/sessions",
   },
+  PROJECT_SESSION_QUALITY_RCA: {
+    key: "PROJECT_SESSION_QUALITY_RCA",
+    basePath: "/projects/:projectId/session-replay/quality-rca",
+    path: "/projects/:projectId/session-replay/quality-rca",
+  },
   PROJECT_SESSION_REPLAY_DETAIL: {
     key: "PROJECT_SESSION_REPLAY_DETAIL",
     basePath: "/projects/:projectId/session-replay",
@@ -328,6 +347,11 @@ export const ROUTES: Routes = {
     path: "/internal/developer-settings",
     basePath: "/internal/developer-settings",
   },
+  INTERNAL_SUBSCRIPTION_MANAGEMENT: {
+    key: "internal-subscription-management",
+    path: "/internal/subscription-management",
+    basePath: "/internal/subscription-management",
+  },
   SESSION_REPLAY: {
     key: "SESSION_REPLAY",
     basePath: "/session-replay",
@@ -347,6 +371,11 @@ export const ROUTES: Routes = {
     key: "SESSION_REPLAY_DETAIL",
     basePath: "/session-replay",
     path: "/session-replay/:sessionId",
+  },
+  SESSION_QUALITY_RCA: {
+    key: "SESSION_QUALITY_RCA",
+    basePath: "/session-replay/quality-rca",
+    path: "/session-replay/quality-rca",
   },
 };
 
@@ -904,6 +933,31 @@ export const API_ROUTES: StreamverseRoutes = {
     apiPath: `/v1/notifications/channels/{channelId}`,
     method: API_METHODS.DELETE,
   },
+  GET_CHANNEL_MAPPINGS: {
+    key: "GET_CHANNEL_MAPPINGS",
+    apiPath: `/v1/notifications/channels/mappings`,
+    method: API_METHODS.GET,
+  },
+  CREATE_CHANNEL_MAPPING: {
+    key: "CREATE_CHANNEL_MAPPING",
+    apiPath: `/v1/notifications/channels/mappings`,
+    method: API_METHODS.POST,
+  },
+  CREATE_CHANNEL_MAPPINGS_BATCH: {
+    key: "CREATE_CHANNEL_MAPPINGS_BATCH",
+    apiPath: `/v1/notifications/channels/mappings/batch`,
+    method: API_METHODS.POST,
+  },
+  UPDATE_CHANNEL_MAPPING: {
+    key: "UPDATE_CHANNEL_MAPPING",
+    apiPath: `/v1/notifications/channels/mappings/{mappingId}`,
+    method: API_METHODS.PUT,
+  },
+  DELETE_CHANNEL_MAPPING: {
+    key: "DELETE_CHANNEL_MAPPING",
+    apiPath: `/v1/notifications/channels/mappings/{mappingId}`,
+    method: API_METHODS.DELETE,
+  },
   // Slack OAuth Integration
   SLACK_INSTALL: {
     key: "SLACK_INSTALL",
@@ -1174,10 +1228,10 @@ export const API_ROUTES: StreamverseRoutes = {
     apiPath: `/v1/tenants`,
     method: API_METHODS.GET,
   },
-  /** System-role tenant creation: superadmin/internal_viewer only. */
-  POST_CREATE_TENANT: {
-    key: "POST_CREATE_TENANT",
-    apiPath: `/v1/tenants`,
+  /** Atomic tenant + project creation for admins (superadmin or internal_viewer). */
+  POST_ADMIN_CREATE_TENANT: {
+    key: "POST_ADMIN_CREATE_TENANT",
+    apiPath: `/v1/admin/tenants`,
     method: API_METHODS.POST,
   },
   /** OpenFGA superadmin tuples on system:pulse (JWT-verified; superadmin-only for mutations). */
@@ -1207,6 +1261,57 @@ export const API_ROUTES: StreamverseRoutes = {
     key: "GET_WEB_VITALS_BY_SCREEN",
     apiPath: `/v1/web-vitals/by-screen`,
     method: API_METHODS.GET,
+  },
+  // Internal subscription management
+  INTERNAL_GET_TIERS: {
+    key: "INTERNAL_GET_TIERS",
+    apiPath: `/internal/v1/tiers`,
+    method: API_METHODS.GET,
+  },
+  INTERNAL_CREATE_TIER: {
+    key: "INTERNAL_CREATE_TIER",
+    apiPath: `/internal/v1/tiers`,
+    method: API_METHODS.POST,
+  },
+  INTERNAL_UPDATE_TIER: {
+    key: "INTERNAL_UPDATE_TIER",
+    apiPath: `/internal/v1/tiers/:tierId`,
+    method: API_METHODS.PUT,
+  },
+  INTERNAL_DEACTIVATE_TIER: {
+    key: "INTERNAL_DEACTIVATE_TIER",
+    apiPath: `/internal/v1/tiers/:tierId/deactivate`,
+    method: API_METHODS.PUT,
+  },
+  INTERNAL_ACTIVATE_TIER: {
+    key: "INTERNAL_ACTIVATE_TIER",
+    apiPath: `/internal/v1/tiers/:tierId/activate`,
+    method: API_METHODS.PUT,
+  },
+  INTERNAL_GET_PROJECT_LIMITS: {
+    key: "INTERNAL_GET_PROJECT_LIMITS",
+    apiPath: `/internal/v1/projects/:projectId/limits`,
+    method: API_METHODS.GET,
+  },
+  INTERNAL_SET_PROJECT_LIMITS: {
+    key: "INTERNAL_SET_PROJECT_LIMITS",
+    apiPath: `/internal/v1/projects/:projectId/limits`,
+    method: API_METHODS.PUT,
+  },
+  INTERNAL_RESET_PROJECT_LIMITS: {
+    key: "INTERNAL_RESET_PROJECT_LIMITS",
+    apiPath: `/internal/v1/projects/:projectId/limits/reset`,
+    method: API_METHODS.POST,
+  },
+  INTERNAL_GET_PROJECT_LIMIT_HISTORY: {
+    key: "INTERNAL_GET_PROJECT_LIMIT_HISTORY",
+    apiPath: `/internal/v1/projects/:projectId/limits/history`,
+    method: API_METHODS.GET,
+  },
+  INTERNAL_UPDATE_TENANT_TIER: {
+    key: "INTERNAL_UPDATE_TENANT_TIER",
+    apiPath: `/internal/v1/tenants/:tenantId/tier`,
+    method: API_METHODS.PUT,
   },
 };
 
@@ -1293,6 +1398,11 @@ export const CRITICAL_INTERACTION_FORM_CONSTANTS: Record<string, string> = {
   LOWER_THRESHOLD_VALUE: "16",
   MIDDLE_THRESHOLD_VALUE: "50",
   DEFAULT_INTERACTION_THRESHOLD: "20000",
+  ERROR_THRESHOLD_LABEL: "Error threshold (ms)",
+  ERROR_THRESHOLD_DESCRIPTION:
+    "Interactions that exceed this duration are classified as errors.",
+  ERROR_THRESHOLD_PLACEHOLDER: "20000",
+  ERROR_THRESHOLD_ERROR_MESSAGE: "Error threshold must be greater than 0",
 };
 
 export const USER_ACTION_CATEGORIES_SELECTION: Record<string, boolean> = {
@@ -1441,6 +1551,21 @@ export const HEADER_CONSTANTS: Record<string, string> = {
 export const LOGIN_PAGE_CONSTANTS: Record<string, string> = {
   SIGNING_IN_MESSAGE: "Authenticating your credentials",
 };
+
+export const LOGIN_METHODS = {
+  GOOGLE: "google",
+  DEV: "dev",
+} as const;
+
+export type LoginMethod = (typeof LOGIN_METHODS)[keyof typeof LOGIN_METHODS];
+
+export const PROJECT_SELECT_SOURCES = {
+  MANUAL: "manual",
+  AUTO_SELECT: "auto_select",
+} as const;
+
+export type ProjectSelectSource =
+  (typeof PROJECT_SELECT_SOURCES)[keyof typeof PROJECT_SELECT_SOURCES];
 
 export const MULTI_TENANT_CONSTANTS = {
   BADGE_LABEL: "Multi-tenant",
@@ -1716,8 +1841,8 @@ export const CRITICAL_INTERACTION_QUICK_TIME_FILTERS = {
 
 // Default time filter for the dashboard (Last 24 hours)
 export const DEFAULT_QUICK_TIME_FILTER =
-  CRITICAL_INTERACTION_QUICK_TIME_FILTERS.LAST_24_HOURS;
-export const DEFAULT_QUICK_TIME_FILTER_INDEX = 7; // Index of LAST_24_HOURS in CRITICAL_INTERACTION_DETAILS_TIME_FILTERS_OPTIONS
+  CRITICAL_INTERACTION_QUICK_TIME_FILTERS.LAST_1_HOUR;
+export const DEFAULT_QUICK_TIME_FILTER_INDEX = 3; // Index of LAST_1_HOUR in CRITICAL_INTERACTION_DETAILS_TIME_FILTERS_OPTIONS
 
 export const SNOOZE_ALERT_QUICK_TIME_FILTERS = {
   NEXT_1_HOUR: "NEXT_1_HOUR",
@@ -1922,3 +2047,34 @@ export const SYSTEM_ROLES = {
 export const LOGIN_RESPONSE_KEYS = {
   SYSTEM_ROLE: "systemRole",
 } as const;
+
+// Usage Limit Enums
+export const WINDOW_TYPES = {
+  WEEKLY: "weekly",
+  MONTHLY: "monthly",
+  YEARLY: "yearly",
+  TOTAL: "total",
+} as const;
+
+export const DATA_TYPES = {
+  INTEGER: "INTEGER",
+  BOOLEAN: "BOOLEAN",
+} as const;
+
+export const WINDOW_TYPE_OPTIONS = [
+  { value: WINDOW_TYPES.WEEKLY, label: "Weekly" },
+  { value: WINDOW_TYPES.MONTHLY, label: "Monthly" },
+  { value: WINDOW_TYPES.YEARLY, label: "Yearly" },
+  { value: WINDOW_TYPES.TOTAL, label: "Total" },
+];
+
+export const DATA_TYPE_OPTIONS = [
+  { value: DATA_TYPES.INTEGER, label: "Integer" },
+  { value: DATA_TYPES.BOOLEAN, label: "Boolean" },
+];
+
+// Required usage limit parameters (must always be present in tier defaults)
+export const REQUIRED_USAGE_LIMIT_PARAMETERS = [
+  "max_user_sessions_per_project",
+  "max_events_per_project",
+] as const;

@@ -1,5 +1,15 @@
-import axios, { AxiosInstance, AxiosRequestConfig, InternalAxiosRequestConfig } from "axios";
-import { Credentials, exchangeApiKeyForTokens, loadCredentials, saveCredentials } from "./auth.js";
+import axios, {
+  AxiosInstance,
+  AxiosRequestConfig,
+  InternalAxiosRequestConfig,
+} from "axios";
+import {
+  Credentials,
+  exchangeApiKeyForTokens,
+  loadCredentials,
+  saveCredentials,
+} from "./auth.js";
+import { decodeAccessTokenEmail } from "./jwtEmail.js";
 
 export class PulseClient {
   private http: AxiosInstance;
@@ -28,7 +38,10 @@ export class PulseClient {
       async (error) => {
         if (error.response?.status === 401) {
           if (!this.refreshPromise) {
-            this.refreshPromise = exchangeApiKeyForTokens(this.baseUrl, this.apiKey)
+            this.refreshPromise = exchangeApiKeyForTokens(
+              this.baseUrl,
+              this.apiKey,
+            )
               .then((creds) => {
                 this.creds = creds;
                 saveCredentials(creds);
@@ -38,18 +51,38 @@ export class PulseClient {
               });
           }
           await this.refreshPromise;
-          error.config.headers["Authorization"] = `Bearer ${this.creds.accessToken}`;
+          error.config.headers["Authorization"] =
+            `Bearer ${this.creds.accessToken}`;
           return this.http.request(error.config);
         }
         return Promise.reject(error);
-      }
+      },
     );
   }
 
-  async get<T>(path: string, projectId?: string, params?: Record<string, unknown>, raw?: boolean): Promise<T> {
+  /** Email claim from the current access token (Pulse JWT). Used e.g. for session listing `user-email` when present. */
+  requireUserEmailFromToken(): string {
+    const email = decodeAccessTokenEmail(this.creds.accessToken);
+    if (!email) {
+      throw new Error(
+        "Access token has no `email` claim. Re-exchange API key or use a token that includes email.",
+      );
+    }
+    return email;
+  }
+
+  async get<T>(
+    path: string,
+    projectId?: string,
+    params?: Record<string, unknown>,
+    raw?: boolean,
+    extraHeaders?: Record<string, string>,
+  ): Promise<T> {
     const config: AxiosRequestConfig = { params };
-    if (projectId) {
-      config.headers = { "X-Project-ID": projectId };
+    const headers: Record<string, string> = { ...(extraHeaders ?? {}) };
+    if (projectId) headers["X-Project-ID"] = projectId;
+    if (Object.keys(headers).length > 0) {
+      config.headers = headers;
     }
     if (raw) {
       const resp = await this.http.get<T>(path, config);
@@ -59,10 +92,22 @@ export class PulseClient {
     return resp.data.data;
   }
 
-  async post<T>(path: string, body: unknown, projectId?: string, raw?: boolean): Promise<T> {
+  async post<T>(
+    path: string,
+    body: unknown,
+    projectId?: string,
+    raw?: boolean,
+    extraHeaders?: Record<string, string>,
+    timeoutMs?: number,
+  ): Promise<T> {
     const config: AxiosRequestConfig = {};
-    if (projectId) {
-      config.headers = { "X-Project-ID": projectId };
+    const headers: Record<string, string> = { ...(extraHeaders ?? {}) };
+    if (projectId) headers["X-Project-ID"] = projectId;
+    if (Object.keys(headers).length > 0) {
+      config.headers = headers;
+    }
+    if (timeoutMs !== undefined) {
+      config.timeout = timeoutMs;
     }
     if (raw) {
       const resp = await this.http.post<T>(path, body, config);

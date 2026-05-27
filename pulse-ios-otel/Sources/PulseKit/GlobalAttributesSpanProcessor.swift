@@ -34,6 +34,10 @@ internal class GlobalAttributesSpanProcessor: SpanProcessor {
         // Add installation ID (persists across app launches until uninstall)
         allAttributes[PulseAttributes.appInstallationId] = AttributeValue.string(pulse.installationIdManager.installationId)
 
+        if let configVersion = pulse.currentSdkConfig?.version {
+            allAttributes[PulseAttributes.pulseSdkConfigVersion] = AttributeValue.int(configVersion)
+        }
+
         // Add dynamic user properties (can be updated after initialization)
         if let userId = pulse.userSessionEmitter.userId {
             allAttributes[PulseAttributes.userId] = AttributeValue.string(userId)

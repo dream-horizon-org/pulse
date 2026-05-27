@@ -1,4 +1,11 @@
-import { Group, SegmentedControl, TagsInput, Text, TextInput, Tooltip } from "@mantine/core";
+import {
+  Group,
+  SegmentedControl,
+  TagsInput,
+  Text,
+  TextInput,
+  Tooltip,
+} from "@mantine/core";
 import { IconInfoCircle } from "@tabler/icons-react";
 import { useMemo, useState } from "react";
 import {
@@ -11,12 +18,16 @@ import {
   EngagementBreakdownProps,
   NonCustomDimension,
 } from "./EngagementBreakdown.interface";
-import { useGetDataQuery } from "../../../../hooks";
+import { useGetDataQuery, getDataQueryStatus } from "../../../../hooks";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
-import { ChartSkeleton, TableSkeleton } from "../../../../components/Skeletons";
-import { ErrorAndEmptyStateWithNotification } from "../../../CriticalInteractionDetails/components/InteractionDetailsMainContent/components/ErrorAndEmptyStateWithNotification";
+import {
+  ChartSkeleton,
+  SkeletonLoader,
+  TableSkeleton,
+} from "../../../../components/Skeletons";
 import { COLUMN_NAME, PulseType } from "../../../../constants/PulseOtelSemcov";
+import { getRegionName } from "../../utils/region";
 
 dayjs.extend(utc);
 
@@ -37,7 +48,6 @@ export function EngagementBreakdown({
   const [customAttributeName, setCustomAttributeName] = useState<string>("");
   const [attributeValues, setAttributeValues] = useState<string[]>([]);
 
-  // Calculate date ranges
   const {
     dailyStartDate,
     dailyEndDate,
@@ -52,12 +62,11 @@ export function EngagementBreakdown({
       dailyEndDate: now.toISOString(),
       weeklyStartDate: now.subtract(6, "days").startOf("day").toISOString(),
       weeklyEndDate: now.endOf("day").toISOString(),
-      monthlyStartDate: now.subtract(27, "days").startOf("day").toISOString(),
+      monthlyStartDate: now.subtract(29, "days").startOf("day").toISOString(),
       monthlyEndDate: now.endOf("day").toISOString(),
     };
   }, []);
 
-  // Get field mapping for dimension
   const dimensionFieldMap = useMemo(() => {
     const map: Record<NonCustomDimension, { field: string; alias: string }> = {
       region: { field: "GeoState", alias: "region" },
@@ -69,10 +78,8 @@ export function EngagementBreakdown({
     return map;
   }, []);
 
-  // Build request body based on dimension
   const requestBody = useMemo(() => {
     if (dimension === "custom") {
-      // For custom attributes, use LogAttributes['attributeName'] format
       if (!customAttributeName.trim() || attributeValues.length === 0) {
         return null;
       }
@@ -81,7 +88,7 @@ export function EngagementBreakdown({
       const attributeAlias = customAttributeName;
 
       return {
-        dataType: "LOGS" as const,
+        dataType: "TRACES" as const,
         timeRange: {
           start: monthlyStartDate,
           end: monthlyEndDate,
@@ -96,7 +103,9 @@ export function EngagementBreakdown({
           },
           {
             function: "CUSTOM" as const,
-            param: { expression: `uniq(nullIf(${COLUMN_NAME.INSTALLATION_ID}, ''))` },
+            param: {
+              expression: `uniq(nullIf(${COLUMN_NAME.INSTALLATION_ID}, ''))`,
+            },
             alias: "user_count",
           },
           {
@@ -109,7 +118,7 @@ export function EngagementBreakdown({
           {
             field: "PulseType",
             operator: "EQ" as const,
-            value: [PulseType.SESSION_START],
+            value: [PulseType.APP_START],
           },
           {
             field: attributeField,
@@ -125,34 +134,48 @@ export function EngagementBreakdown({
     const fieldConfig = dimensionFieldMap[dimension as NonCustomDimension];
     if (!fieldConfig) return null;
 
+    const select = [
+      {
+        function: "COL" as const,
+        param: { field: fieldConfig.field },
+        alias: fieldConfig.alias,
+      },
+      {
+        function: "CUSTOM" as const,
+        param: {
+          expression: `uniq(nullIf(${COLUMN_NAME.INSTALLATION_ID}, ''))`,
+        },
+        alias: "user_count",
+      },
+      {
+        function: "CUSTOM" as const,
+        param: { expression: "uniq(nullIf(SessionId, ''))" },
+        alias: "session_count",
+      },
+    ];
+
+    if (dimension === "region") {
+      select.push({
+        function: "CUSTOM" as const,
+        param: {
+          expression: `any(nullIf(${COLUMN_NAME.COUNTRY}, ''))`,
+        },
+        alias: "country_code",
+      });
+    }
+
     return {
-      dataType: "LOGS" as const,
+      dataType: "TRACES" as const,
       timeRange: {
         start: monthlyStartDate,
         end: monthlyEndDate,
       },
-      select: [
-        {
-          function: "COL" as const,
-          param: { field: fieldConfig.field },
-          alias: fieldConfig.alias,
-        },
-        {
-          function: "CUSTOM" as const,
-          param: { expression: `uniq(nullIf(${COLUMN_NAME.INSTALLATION_ID}, ''))` },
-          alias: "user_count",
-        },
-        {
-          function: "CUSTOM" as const,
-          param: { expression: "uniq(nullIf(SessionId, ''))" },
-          alias: "session_count",
-        },
-      ],
+      select,
       filters: [
         {
           field: "PulseType",
           operator: "EQ" as const,
-          value: [PulseType.SESSION_START],
+          value: [PulseType.APP_START],
         },
       ],
       groupBy: [fieldConfig.alias],
@@ -167,8 +190,7 @@ export function EngagementBreakdown({
     attributeValues,
   ]);
 
-  // Fetch DAU (last 1 day)
-  const { data: dauData, isLoading: isLoadingDau } = useGetDataQuery({
+  const dauQuery = useGetDataQuery({
     requestBody: requestBody
       ? {
           ...requestBody,
@@ -188,8 +210,7 @@ export function EngagementBreakdown({
     enabled: !!requestBody,
   });
 
-  // Fetch WAU (last 7 days)
-  const { data: wauData, isLoading: isLoadingWau } = useGetDataQuery({
+  const wauQuery = useGetDataQuery({
     requestBody: requestBody
       ? {
           ...requestBody,
@@ -209,8 +230,7 @@ export function EngagementBreakdown({
     enabled: !!requestBody,
   });
 
-  // Fetch MAU and Sessions (last 30 days)
-  const { data: mauData, isLoading: isLoadingMau } = useGetDataQuery({
+  const mauQuery = useGetDataQuery({
     requestBody: requestBody || {
       dataType: "LOGS" as const,
       timeRange: {
@@ -222,98 +242,115 @@ export function EngagementBreakdown({
     enabled: !!requestBody,
   });
 
-  // Transform API data to BreakdownItem format
-  const transformedData = useMemo(() => {
-    if (!dauData?.data || !wauData?.data || !mauData?.data) {
-      return [];
-    }
+  const dauData = dauQuery.data;
+  const wauData = wauQuery.data;
+  const mauData = mauQuery.data;
 
+  const dauStatus = getDataQueryStatus(dauQuery);
+  const wauStatus = getDataQueryStatus(wauQuery);
+  const mauStatus = getDataQueryStatus(mauQuery);
+
+  const transformedData = useMemo(() => {
     const segmentAlias =
       dimension === "custom"
         ? customAttributeName
         : dimensionFieldMap[dimension as NonCustomDimension]?.alias ||
           "segment_name";
-    const segmentNameIndex = mauData.data.fields.indexOf(segmentAlias);
-    const userCountIndex = mauData.data.fields.indexOf("user_count");
-    const sessionCountIndex = mauData.data.fields.indexOf("session_count");
 
-    // Helper to normalize empty segment names to "Unknown"
-    const normalizeSegmentName = (value: unknown): string => {
+    const countryCodeIndex =
+      dimension === "region"
+        ? (mauData?.data?.fields.indexOf("country_code") ??
+          dauData?.data?.fields.indexOf("country_code") ??
+          wauData?.data?.fields.indexOf("country_code") ??
+          -1)
+        : -1;
+
+    const normalizeSegmentName = (
+      value: unknown,
+      countryCode?: unknown,
+    ): string => {
       const segment = String(value || "").trim();
+      if (segmentAlias === "region") {
+        return getRegionName(segment, String(countryCode || ""));
+      }
       return segment === "" ? "Unknown" : segment;
     };
 
-    // Get DAU data
-    const dauMap = new Map<string, number>();
-    if (dauData.data.rows) {
-      const dauSegmentIndex = dauData.data.fields.indexOf(segmentAlias);
-      const dauUserIndex = dauData.data.fields.indexOf("user_count");
-      dauData.data.rows.forEach((row) => {
-        const segment = normalizeSegmentName(row[dauSegmentIndex]);
-        const users = parseFloat(row[dauUserIndex]) || 0;
-        // Accumulate values for the same segment (e.g., multiple empty values -> "Unknown")
-        dauMap.set(segment, (dauMap.get(segment) || 0) + users);
+    const buildUserMap = (
+      responseData: NonNullable<typeof dauData>["data"] | undefined,
+    ) => {
+      const map = new Map<string, number>();
+      if (!responseData?.rows?.length) return map;
+
+      const segmentIndex = responseData.fields.indexOf(segmentAlias);
+      const userIndex = responseData.fields.indexOf("user_count");
+
+      responseData.rows.forEach((row) => {
+        const segment = normalizeSegmentName(
+          row[segmentIndex],
+          row[countryCodeIndex],
+        );
+        const users = parseFloat(row[userIndex]) || 0;
+        map.set(segment, (map.get(segment) || 0) + users);
       });
-    }
 
-    // Get WAU data
-    const wauMap = new Map<string, number>();
-    if (wauData.data.rows) {
-      const wauSegmentIndex = wauData.data.fields.indexOf(segmentAlias);
-      const wauUserIndex = wauData.data.fields.indexOf("user_count");
-      wauData.data.rows.forEach((row) => {
-        const segment = normalizeSegmentName(row[wauSegmentIndex]);
-        const users = parseFloat(row[wauUserIndex]) || 0;
-        wauMap.set(segment, (wauMap.get(segment) || 0) + users);
-      });
-    }
+      return map;
+    };
 
-    // Get MAU and Sessions data - use a map to accumulate values for same segment
-    const resultMap = new Map<
-      string,
-      {
-        name: string;
-        dau: number;
-        wau: number;
-        mau: number;
-        sessions: number;
-        wowChange: number;
-      }
-    >();
+    const mauSessionMap = new Map<string, { mau: number; sessions: number }>();
+    if (mauData?.data?.rows?.length) {
+      const segmentIndex = mauData.data.fields.indexOf(segmentAlias);
+      const userCountIndex = mauData.data.fields.indexOf("user_count");
+      const sessionCountIndex = mauData.data.fields.indexOf("session_count");
 
-    if (mauData.data.rows) {
       mauData.data.rows.forEach((row) => {
-        const segment = normalizeSegmentName(row[segmentNameIndex]);
+        const segment = normalizeSegmentName(
+          row[segmentIndex],
+          row[countryCodeIndex],
+        );
         const mau = parseFloat(row[userCountIndex]) || 0;
         const sessions = parseFloat(row[sessionCountIndex]) || 0;
 
-        const existing = resultMap.get(segment);
+        const existing = mauSessionMap.get(segment);
         if (existing) {
           existing.mau += mau;
           existing.sessions += sessions;
         } else {
-          resultMap.set(segment, {
-            name: segment,
-            dau: 0,
-            wau: 0,
-            mau,
-            sessions,
-            wowChange: 0,
-          });
+          mauSessionMap.set(segment, { mau, sessions });
         }
       });
     }
 
-    // Merge DAU and WAU data into results
-    const result = Array.from(resultMap.values()).map((item) => ({
-      ...item,
-      dau: Math.round(dauMap.get(item.name) || 0),
-      wau: Math.round(wauMap.get(item.name) || 0),
-      mau: Math.round(item.mau),
-      sessions: Math.round(item.sessions),
-    }));
+    const dauMap = buildUserMap(dauData?.data);
+    const wauMap = buildUserMap(wauData?.data);
 
-    return result.sort((a, b) => b.mau - a.mau);
+    const segmentNames = new Set<string>([
+      ...Array.from(dauMap.keys()),
+      ...Array.from(wauMap.keys()),
+      ...Array.from(mauSessionMap.keys()),
+    ]);
+
+    if (segmentNames.size === 0) return [];
+
+    return Array.from(segmentNames)
+      .map((name) => ({
+        name,
+        dau: dauMap.has(name) ? Math.round(dauMap.get(name)!) : null,
+        wau: wauMap.has(name) ? Math.round(wauMap.get(name)!) : null,
+        mau: mauSessionMap.has(name)
+          ? Math.round(mauSessionMap.get(name)!.mau)
+          : null,
+        sessions: mauSessionMap.has(name)
+          ? Math.round(mauSessionMap.get(name)!.sessions)
+          : null,
+        wowChange: 0,
+      }))
+      .sort((a, b) => {
+        const aSort = a.mau ?? a.wau ?? a.dau ?? 0;
+        const bSort = b.mau ?? b.wau ?? b.dau ?? 0;
+        return bSort - aSort;
+      })
+      .slice(0, 10);
   }, [
     dimension,
     dimensionFieldMap,
@@ -323,21 +360,20 @@ export function EngagementBreakdown({
     customAttributeName,
   ]);
 
-  const chartItems = useMemo(() => {
-    return transformedData;
-  }, [transformedData]);
-
-  const isLoading = isLoadingDau || isLoadingWau || isLoadingMau;
-  const hasError = dauData?.error || wauData?.error || mauData?.error;
+  const chartItems = transformedData;
+  const isAnyLoading =
+    dauStatus.loading || wauStatus.loading || mauStatus.loading;
+  const hasData = chartItems.length > 0;
+  const showFullSkeleton = !!requestBody && !hasData && isAnyLoading;
 
   const totals = useMemo(
     () =>
       chartItems.reduce(
         (acc, item) => {
-          acc.dau += item.dau;
-          acc.wau += item.wau;
-          acc.mau += item.mau;
-          acc.sessions += item.sessions;
+          acc.dau += item.dau ?? 0;
+          acc.wau += item.wau ?? 0;
+          acc.mau += item.mau ?? 0;
+          acc.sessions += item.sessions ?? 0;
           return acc;
         },
         { dau: 0, wau: 0, mau: 0, sessions: 0 },
@@ -345,8 +381,45 @@ export function EngagementBreakdown({
     [chartItems],
   );
 
-  const barChartOption = useMemo(
-    () => ({
+  const barChartOption = useMemo(() => {
+    const series = [];
+
+    if (!dauStatus.loading && !dauStatus.failed && dauData?.data) {
+      series.push({
+        name: "DAU",
+        type: "bar" as const,
+        barWidth: 14,
+        data: chartItems.map((item) => item.dau ?? 0),
+      });
+    }
+
+    if (!wauStatus.loading && !wauStatus.failed && wauData?.data) {
+      series.push({
+        name: "WAU",
+        type: "bar" as const,
+        barWidth: 14,
+        data: chartItems.map((item) => item.wau ?? 0),
+      });
+    }
+
+    if (!mauStatus.loading && !mauStatus.failed && mauData?.data) {
+      series.push(
+        {
+          name: "MAU",
+          type: "bar" as const,
+          barWidth: 14,
+          data: chartItems.map((item) => item.mau ?? 0),
+        },
+        {
+          name: "Sessions",
+          type: "bar" as const,
+          barWidth: 14,
+          data: chartItems.map((item) => item.sessions ?? 0),
+        },
+      );
+    }
+
+    return {
       color: ["#0ec9c2", "#0ba09a", "#2c3e50", "#a855f7"],
       tooltip: {
         trigger: "axis",
@@ -372,42 +445,55 @@ export function EngagementBreakdown({
             value >= 1000 ? `${(value / 1000).toFixed(0)}K` : `${value}`,
         },
       },
-      series: [
-        {
-          name: "DAU",
-          type: "bar",
-          barWidth: 14,
-          data: chartItems.map((item) => item.dau),
-        },
-        {
-          name: "WAU",
-          type: "bar",
-          barWidth: 14,
-          data: chartItems.map((item) => item.wau),
-        },
-        {
-          name: "MAU",
-          type: "bar",
-          barWidth: 14,
-          data: chartItems.map((item) => item.mau),
-        },
-        {
-          name: "Sessions",
-          type: "bar",
-          barWidth: 14,
-          data: chartItems.map((item) => item.sessions),
-        },
-      ],
-    }),
-    [chartItems],
-  );
+      series,
+    };
+  }, [chartItems, dauData, wauData, mauData, dauStatus, wauStatus, mauStatus]);
+
+  const hasChartSeries = barChartOption.series.length > 0;
 
   const subtitle =
     dimension === "custom"
       ? "Slice engagement metrics by any user-defined attribute."
       : "Dive deeper into how top 10 cohorts contributes to DAU/WAU/MAU and sessions.";
 
-  const hasData = chartItems.length > 0;
+  const renderMetricCell = (
+    value: number | null,
+    isLoading: boolean,
+    isFailed: boolean,
+  ) => {
+    if (isLoading) {
+      return <SkeletonLoader height={14} width="50%" radius="sm" />;
+    }
+
+    if (isFailed) {
+      return (
+        <Text size="sm" c="dimmed">
+          N/A
+        </Text>
+      );
+    }
+
+    return (value ?? 0).toLocaleString();
+  };
+
+  const renderSummaryLine = () => {
+    if (!hasData) {
+      return "Select at least one value to visualise engagement.";
+    }
+
+    const sessionsText = mauStatus.loading
+      ? "…"
+      : mauStatus.failed
+        ? "N/A"
+        : totals.sessions.toLocaleString();
+    const mauText = mauStatus.loading
+      ? "…"
+      : mauStatus.failed
+        ? "N/A"
+        : totals.mau.toLocaleString();
+
+    return `${chartItems.length} segments • ${sessionsText} sessions • ${mauText} MAU`;
+  };
 
   return (
     <div className={classes.card}>
@@ -447,30 +533,26 @@ export function EngagementBreakdown({
       )}
 
       <Text size="xs" c="dimmed">
-        {hasData
-          ? `${chartItems.length} segments • ${totals.sessions.toLocaleString()} sessions • ${totals.mau.toLocaleString()} MAU`
-          : "Select at least one value to visualise engagement."}
+        {renderSummaryLine()}
       </Text>
 
-      {isLoading ? (
+      {showFullSkeleton ? (
         <div className={classes.skeletonContainer}>
           <ChartSkeleton height={360} showLegend />
           <TableSkeleton columns={5} rows={5} />
         </div>
-      ) : hasError ? (
-        <ErrorAndEmptyStateWithNotification
-          message="Failed to load engagement data"
-          errorDetails={
-            dauData?.error?.message ||
-            wauData?.error?.message ||
-            mauData?.error?.message ||
-            "Unknown error"
-          }
-        />
       ) : hasData ? (
         <>
           <div className={classes.chartWrapper}>
-            <BarChart height={360} option={barChartOption} />
+            {hasChartSeries ? (
+              <BarChart height={360} option={barChartOption} />
+            ) : isAnyLoading ? (
+              <ChartSkeleton height={360} showLegend />
+            ) : (
+              <Text size="sm" c="dimmed" ta="center" py="xl">
+                Chart unavailable
+              </Text>
+            )}
           </div>
           <div className={classes.tableWrapper}>
             <table className={classes.breakdownTable}>
@@ -480,29 +562,64 @@ export function EngagementBreakdown({
                   <th>
                     <Group gap={4} wrap="nowrap" align="center">
                       <span>DAU</span>
-                      <Tooltip label="Daily Active Users — unique users active in the last 24 hours. Users are identified by installation ID, not login identity." withArrow multiline w={220}>
-                        <IconInfoCircle size={12} style={{ opacity: 0.5, cursor: "help", flexShrink: 0 }} />
+                      <Tooltip
+                        label="Daily Active Users — unique users active in the last 24 hours. Users are identified by installation ID, not login identity."
+                        withArrow
+                        multiline
+                        w={220}
+                      >
+                        <IconInfoCircle
+                          size={12}
+                          style={{
+                            opacity: 0.5,
+                            cursor: "help",
+                            flexShrink: 0,
+                          }}
+                        />
                       </Tooltip>
                     </Group>
                   </th>
                   <th>
                     <Group gap={4} wrap="nowrap" align="center">
                       <span>WAU</span>
-                      <Tooltip label="Weekly Active Users — unique users active in the last 7 days. Users are identified by installation ID, not login identity." withArrow multiline w={220}>
-                        <IconInfoCircle size={12} style={{ opacity: 0.5, cursor: "help", flexShrink: 0 }} />
+                      <Tooltip
+                        label="Weekly Active Users — unique users active in the last 7 days. Users are identified by installation ID, not login identity."
+                        withArrow
+                        multiline
+                        w={220}
+                      >
+                        <IconInfoCircle
+                          size={12}
+                          style={{
+                            opacity: 0.5,
+                            cursor: "help",
+                            flexShrink: 0,
+                          }}
+                        />
                       </Tooltip>
                     </Group>
                   </th>
                   <th>
                     <Group gap={4} wrap="nowrap" align="center">
                       <span>MAU</span>
-                      <Tooltip label="Monthly Active Users — unique users active in the last 30 days. Users are identified by installation ID, not login identity." withArrow multiline w={220}>
-                        <IconInfoCircle size={12} style={{ opacity: 0.5, cursor: "help", flexShrink: 0 }} />
+                      <Tooltip
+                        label="Monthly Active Users — unique users active in the last 30 days. Users are identified by installation ID, not login identity."
+                        withArrow
+                        multiline
+                        w={220}
+                      >
+                        <IconInfoCircle
+                          size={12}
+                          style={{
+                            opacity: 0.5,
+                            cursor: "help",
+                            flexShrink: 0,
+                          }}
+                        />
                       </Tooltip>
                     </Group>
                   </th>
                   <th>Sessions</th>
-                  {/* <th>WoW change</th> */}
                 </tr>
               </thead>
               <tbody>
@@ -518,20 +635,34 @@ export function EngagementBreakdown({
                         </span>
                       </div>
                     </td>
-                    <td>{item.dau.toLocaleString()}</td>
-                    <td>{item.wau.toLocaleString()}</td>
-                    <td>{item.mau.toLocaleString()}</td>
-                    <td>{item.sessions.toLocaleString()}</td>
-                    {/* <td
-                      className={
-                        item.wowChange >= 0
-                          ? classes.trendPositive
-                          : classes.trendNegative
-                      }
-                    >
-                      {item.wowChange >= 0 ? "+" : ""}
-                      {item.wowChange.toFixed(1)}%
-                    </td> */}
+                    <td>
+                      {renderMetricCell(
+                        item.dau,
+                        dauStatus.loading,
+                        dauStatus.failed,
+                      )}
+                    </td>
+                    <td>
+                      {renderMetricCell(
+                        item.wau,
+                        wauStatus.loading,
+                        wauStatus.failed,
+                      )}
+                    </td>
+                    <td>
+                      {renderMetricCell(
+                        item.mau,
+                        mauStatus.loading,
+                        mauStatus.failed,
+                      )}
+                    </td>
+                    <td>
+                      {renderMetricCell(
+                        item.sessions,
+                        mauStatus.loading,
+                        mauStatus.failed,
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>

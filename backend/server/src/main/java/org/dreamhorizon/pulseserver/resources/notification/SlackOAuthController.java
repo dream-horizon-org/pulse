@@ -7,6 +7,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
@@ -43,8 +44,9 @@ public class SlackOAuthController {
   public CompletionStage<Response<String>> install(
       @HeaderParam("X-Project-Id")
       @NotBlank(message = "X-Project-Id header is required")
-      String projectId) {
-    return slackOAuthService.generateInstallUrl(projectId).to(RestResponse.jaxrsRestHandler());
+      String projectId,
+      @QueryParam("returnPath") String returnPath) {
+    return slackOAuthService.generateInstallUrl(projectId, returnPath).to(RestResponse.jaxrsRestHandler());
   }
 
   @GET
@@ -54,12 +56,12 @@ public class SlackOAuthController {
 
     if (request.hasError()) {
       log.warn("Slack OAuth denied by user: {}", request.getError());
-      return Single.just(buildRedirect(STATUS_ERROR, request.getError()))
+      return Single.just(buildRedirect(STATUS_ERROR, request.getError(), request.getReturnPath()))
           .to(RestResponse.toCompletion());
     }
 
     if (!request.isValid()) {
-      return Single.just(buildRedirect(STATUS_ERROR, request.getValidationError()))
+      return Single.just(buildRedirect(STATUS_ERROR, request.getValidationError(), request.getReturnPath()))
           .to(RestResponse.toCompletion());
     }
 
@@ -71,10 +73,11 @@ public class SlackOAuthController {
                 .map(channel -> buildRedirect(STATUS_SUCCESS,
                     oauthResult.getWorkspaceName() != null
                         ? oauthResult.getWorkspaceName()
-                        : "Slack")))
+                        : "Slack",
+                    request.getReturnPath())))
         .onErrorReturn(err -> {
           log.error("Slack OAuth callback failed", err);
-          return buildRedirect(STATUS_ERROR, err.getMessage());
+          return buildRedirect(STATUS_ERROR, err.getMessage(), request.getReturnPath());
         })
         .to(RestResponse.toCompletion());
   }
@@ -89,8 +92,9 @@ public class SlackOAuthController {
     return slackOAuthService.listWorkspaceChannels(projectId).to(RestResponse.jaxrsRestHandler());
   }
 
-  private jakarta.ws.rs.core.Response buildRedirect(String status, String message) {
-    String base = config.getUiRedirectUrl();
+  private jakarta.ws.rs.core.Response buildRedirect(
+      String status, String message, String returnPath) {
+    String base = buildRedirectBaseUrl(returnPath);
     String separator = base.contains("?") ? "&" : "?";
     String url = base + separator
         + "slack=" + encode(status)
@@ -98,7 +102,41 @@ public class SlackOAuthController {
     return jakarta.ws.rs.core.Response.temporaryRedirect(URI.create(url)).build();
   }
 
+  private String buildRedirectBaseUrl(String returnPath) {
+    String configured = config.getUiRedirectUrl();
+    if (returnPath == null || returnPath.isBlank() || !returnPath.startsWith("/")) {
+      return configured;
+    }
+    // Reject protocol-relative values so we never build paths like https://host//evil.com/...
+    if (returnPath.startsWith("//")) {
+      return configured;
+    }
+    try {
+      URI configuredUri = URI.create(configured);
+      if (configuredUri.getScheme() == null || configuredUri.getHost() == null) {
+        return configured;
+      }
+      URI returnUri = new URI(returnPath);
+      String path = returnUri.getPath();
+      if (path == null || path.isBlank() || !path.startsWith("/") || path.startsWith("//")) {
+        return configured;
+      }
+      return new URI(
+              configuredUri.getScheme(),
+              configuredUri.getRawAuthority(),
+              path,
+              returnUri.getRawQuery(),
+              null)
+          .toString();
+    } catch (IllegalArgumentException | URISyntaxException ignored) {
+      return configured;
+    }
+  }
+
   private static String encode(String value) {
+    if (value == null) {
+      return "";
+    }
     return URLEncoder.encode(value, StandardCharsets.UTF_8);
   }
 }

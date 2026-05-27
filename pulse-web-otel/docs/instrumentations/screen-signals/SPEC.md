@@ -1,6 +1,6 @@
 # Screen Signals (Navigation) — SPEC.md
 
-Package: `@dreamhorizon/pulse-web`  
+Package: `@dreamhorizonorg/pulse-web`  
 File: `pulse-web-otel/docs/instrumentations/screen-signals/SPEC.md`
 
 ---
@@ -32,6 +32,11 @@ Track **initial page load** and **SPA route transitions** using OTLP **client sp
 
 **R3 — Screen naming:** Cold load uses `getCurrentScreenName()` (manual override + URL heuristics). **SPA transitions** stamp `screen.name` using **`resolveScreenNameFromUrl(config)`** — same pathname/heuristic/`routePatterns` rules as the processor but **without** a stale manual override, because History runs synchronously while framework integrations often call `setScreenName` in `useEffect`. The instrumentation then calls **`setScreenName`** with that value so clicks/errors align before the next render.
 
+**R3a — Pathname normalization:** `resolveScreenNameFromUrl()` normalizes the pathname before heuristic matching:
+- **Decode percent-encoded characters:** `%20` → ` `, `%2F` → `/`, etc. (one pass, idempotent).
+- **Unwrap `/screens/<encoded-path>`:** If pathname matches `/screens/(.*)`, extract and decode the captured segment as the route. This pattern handles Pulse UI dashboard URLs where the true route is embedded (e.g., `/screens/%2Fusers%2F123` → `/users/123`). If the segment is a directory `/`, it remains `/`.
+- **Apply `routePatterns` heuristics:** After normalization, apply configured route patterns to derive a friendly `screen.name` (e.g., `/users/123` + pattern `/users/:id` → `/users/:id`). Unmatched routes keep the normalized pathname.
+
 **R4 — Unload and BFCache restore:** `pagehide` ends the active **`screen_session`** span for time-on-screen. **`uninstall`** ends any open **`screen_session`** span. **`pageshow`** with **`event.persisted === true`** (back/forward cache restore) emits a synthetic **`screen_load`** with **`start.type` = `bfcache`** and starts a new **`screen_session`** for dwell from the restore instant. If an open dwell span still exists (some browsers, e.g. Safari on iOS, may omit **`pagehide`** before BFCache), the implementation ends it before emitting restore spans.
 
 ---
@@ -41,6 +46,43 @@ Track **initial page load** and **SPA route transitions** using OTLP **client sp
 ### Navigation spans via History API + Performance
 
 Patch History API for SPA parity with Android activity transitions; reuse Navigation Timing for cold loads. No dual emission: **do not** also emit log records for the same navigation events.
+
+### 4.1 HLD — navigation instrumentation boundary
+
+```mermaid
+flowchart TB
+  Nav["NavigationInstrumentation"]
+  Hist["History pushState/replaceState"]
+  Perf["Performance / Navigation Timing"]
+  Tracer["TracerProvider → screen_load / screen_session"]
+  Nav --> Hist
+  Nav --> Perf
+  Nav --> Tracer
+```
+
+### 4.2 LD — `navigation.ts` modules
+
+```mermaid
+flowchart LR
+  Nav["navigation.ts"] --> Rate["navigationRateLimitMs debounce"]
+  Nav --> NT["Navigation Timing readers"]
+  Nav --> SN["setScreenName / resolveScreenNameFromUrl"]
+```
+
+### 4.3 Flows — consent, BFCache, uninstall
+
+```mermaid
+flowchart TD
+  I[install] --> C{consent ALLOWED?}
+  C -->|no| Z[skip]
+  C -->|yes| L[listen load + history]
+  L --> PH[pagehide]
+  PH --> EndS[end screen_session]
+  L --> BF[pageshow persisted]
+  BF --> SL[emit screen_load bfcache]
+  L --> U[uninstall]
+  U --> E[end open spans + remove hooks]
+```
 
 ---
 
@@ -88,29 +130,29 @@ Patch History API for SPA parity with Android activity transitions; reuse Naviga
 | `session.duration_ms` / `session.duration` | — | set on span at **`end()`** only (with exit snapshot attrs) | Dashboard convenience |
 | `url.path` / `page.title` | — | snapshot for **exited** screen at **`end()`** | Avoid post-navigation URL bleed |
 
-### 5.2 `screen_interactive` naming (**web-only** note)
+### 5.3 `screen_interactive` naming (**web-only** note)
 
 - **No standalone web span** with `pulse.type = screen_interactive` — **`tti`** is attached to **`screen_load`** on initial load when Navigation Timing allows.
 - **React Native** retains different semantics for the **same enum string** — do not assume cross-SDK identity of behaviour.
 
-### 5.3 React SPA
+### 5.4 React SPA
 
 - History hook captures React Router / client routers using History API.
 
-### 5.4 Next.js App Router
+### 5.5 Next.js App Router
 
 - Soft navigations use client-side History updates → **`screen_load`**/**`screen_session`** when pathname-backed screen name changes.
 
-### 5.5 Next.js Pages Router
+### 5.6 Next.js Pages Router
 
 - `routeChangeComplete` flows through client History events — same instrumentation once screen name updates.
 
-### 5.6 Initial vs SPA
+### 5.7 Initial vs SPA
 
 - **Initial:** Navigation Timing on **`screen_load`** span duration and attrs.
 - **SPA:** lighter **`screen_load`** (`start.type: spa`), marker span (**`startTime` ≈ `endTime`**, ~0 duration).
 
-### 5.7 BFCache restore (`pageshow`)
+### 5.8 BFCache restore (`pageshow`)
 
 - **`pagehide`** ends the prior dwell **`screen_session`** (when the browser fires it).
 - **`pageshow`** with **`persisted === true`:** emit marker **`screen_load`** (`start.type: bfcache`, **`startTime` = `endTime`** = restore instant, same ~0-duration pattern as SPA), then start a new **`screen_session`** with identity attrs at **`startSpan`** time. Call **`PulseGlobalAttributesProcessor.setScreenName`** with the restored screen name (same as SPA path) so post-restore signals are not stale.
@@ -120,6 +162,17 @@ Patch History API for SPA parity with Android activity transitions; reuse Naviga
 ---
 
 ## 6. Test Coverage
+
+### 6.1 Scenario matrix (Given / When / Then)
+
+| ID | Type | Given | When | Then | Tests |
+|----|------|-------|------|------|-------|
+| SS-P1 | positive | consent ALLOWED | cold load | `screen_load` span | `navigation-instrumentation.test.ts` |
+| SS-P2 | positive | SPA History change | route after debounce | `screen_load` + `screen_session` cycle | same |
+| SS-N1 | negative | consent DENIED | install | no navigation hooks | same |
+| SS-E1 | edge | BFCache | pageshow persisted | `start.type=bfcache` | same |
+| SS-E2 | edge | uninstall | open dwell span | ended + hooks removed | same |
+| SS-E3 | edge | rate limit | 2 pushState <100ms | single coalesced transition | R2a |
 
 ### `src/__tests__/navigation-instrumentation.test.ts`
 
@@ -136,7 +189,13 @@ Patch History API for SPA parity with Android activity transitions; reuse Naviga
 
 ### `examples/ecommerce-demo/e2e/screen-navigation.spec.ts`
 
-- Playwright OTLP capture: **`waitForSpan("screen_load" | "screen_session")`**, **`findAllSpans`**, gate-off asserts zero **`screen_load`** spans.
+Playwright OTLP capture: **`waitForSpan("screen_load" | "screen_session")`**, **`findAllSpans`**, gate-off asserts zero **`screen_load`** spans.
+
+### 6.2 Playwright E2E scenario titles (`@ScreenNav`)
+
+Full index: [`../../sdk-core/test-coverage/SPEC.md`](../../sdk-core/test-coverage/SPEC.md) §6.3 — **initial load** (`screen_load`, `start.type`, optional TTI); **SPA** (`screen_session`, post-nav `screen_load` + `spa` start.type, repeated navigations, product detail); **feature gate** on/off; **screen.name** / **url.path** / **session** attrs / **pulse.type** / numeric **session.duration**.
+
+**Next.js demo:** App Router navigations assert **`screen.name` on log records** (not span-level `screen_load`/`screen_session` waits) — parity gap vs this SPEC’s primary ecommerce harness; see [`../nextjs-integration/SPEC.md`](../nextjs-integration/SPEC.md) §6.2.
 
 ---
 
@@ -151,6 +210,7 @@ Previously `navigation.ts` used **`logger.emit()`** → **`otel_logs`**. Web scr
 **History-based routing required.** Instrumentation patches `history.pushState` / `replaceState` and listens to `popstate`. Routers that only mutate `location.hash` without touching the History API emit **no** SPA `screen_load` / `screen_session` signals — the SDK behaves correctly given what it receives; this is user misconfiguration, not a data contract break.
 
 **Resolved:** Note now lives in both framework guides:
+
 - `docs/instrumentations/react-integration/SPEC.md` §7 (P2: HashRouter gap)
 - `docs/instrumentations/nextjs-integration/SPEC.md` §7 (P2: hash-only navigation gap)
 
@@ -158,11 +218,11 @@ Previously `navigation.ts` used **`logger.emit()`** → **`otel_logs`**. Web scr
 
 **Was:** No telemetry on BFCache restore after `pagehide` ended the dwell span. **Now:** `pageshow` with **`event.persisted === true`** emits **`screen_load`** (`start.type = bfcache`) and a new **`screen_session`**; see **§3 R4** and **§5.7**.
 
-### P3: 90ms trailing window — clicks/errors carry wrong `screen.name`
+### P3: 100ms trailing window — clicks/errors may carry stale `screen.name`
 
 **Not a dropped navigation.** `onRouteChange` uses a trailing debounce: when two `pushState` calls arrive < 100ms apart, the second cancels and resets the timer; when it fires it reads `window.location` (the final URL) and calls `applyRouteChange` — no navigation is lost.
 
-The actual risk: during the trailing window `currentScreenName` still holds the first URL’s name. Any click or error fired in that window is tagged with the wrong `screen.name`. For auth redirects (common trigger) this is a non-issue — no user interaction happens during a 90ms redirect chain. A human double-tap could mis-tag one or two events.
+The actual risk: during the trailing window `currentScreenName` still holds the first URL’s name. Any click or error fired in that window is tagged with the wrong `screen.name`. For auth redirects (common trigger) this is often a non-issue — little user interaction happens during a sub-100ms redirect chain. A human double-tap could mis-tag one or two events.
 
 **Status:** by-design / known tradeoff, documented in R2a. Revisit if analytics show unexplained `screen.name` mismatches on short-lived screens (< 100ms dwell).
 
@@ -174,13 +234,13 @@ The actual risk: during the trailing window `currentScreenName` still holds the 
 
 ## 8. Verification
 
-**Unit**
+### Unit
 
 ```bash
 cd pulse-web-otel && yarn test:run src/__tests__/navigation-instrumentation.test.ts
 ```
 
-**E2E (ecommerce-demo)**
+### E2E (ecommerce-demo)
 
 ```bash
 cd pulse-web-otel/examples/ecommerce-demo && yarn e2e --grep "@ScreenNav" --project=chromium
