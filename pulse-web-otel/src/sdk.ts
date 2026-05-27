@@ -76,6 +76,7 @@ import { resolveBeforeSend } from "./before-send";
 import { InteractionInstrumentation } from "./instrumentations/interaction";
 import { InteractionLogProcessor } from "./processors/interaction-log-processor";
 import { InteractionContextSpanProcessor } from "./processors/interaction-context-span-processor";
+import { SessionCrashCountProcessor } from "./processors/session-crash-count-processor";
 import type { PulseAttributes } from "./types/attributes";
 import type { PulseSpan, SpanOptions } from "./types/trace";
 import { SpanStatusCode, noopSpan } from "./types/trace";
@@ -104,6 +105,7 @@ class PulseSDK implements SdkContext {
   private _providerCleanup: () => void = () => {};
   private interactionInstrumentation?: InteractionInstrumentation;
   private readonly interactionLogProcessor = new InteractionLogProcessor();
+  private readonly sessionCrashCountProcessor = new SessionCrashCountProcessor();
   private readonly interactionContextSpanProcessor =
     new InteractionContextSpanProcessor();
 
@@ -359,6 +361,9 @@ class PulseSDK implements SdkContext {
       ...(ingressDebugProc ? [ingressDebugProc] : []),
       this.globalAttrsProcessor,
       this.interactionLogProcessor,
+      // Counts device.crash / non_fatal per session; attaches totals to session.end.
+      // Must sit before filterProcessor so it sees all signals regardless of gate config.
+      this.sessionCrashCountProcessor,
       filterProcessor,
       ...(preBatchDebugProc ? [preBatchDebugProc] : []),
     ];
@@ -516,6 +521,7 @@ class PulseSDK implements SdkContext {
     this.interactionLogProcessor.setInstrumentation(null);
     this.interactionContextSpanProcessor.setGetRunning(null);
     this.interactionContextSpanProcessor.setTrackEvent(null);
+    this.sessionCrashCountProcessor.reset();
     this._providerCleanup();
     // Emit session.end before uninstalling SessionInstrumentation (unsubscribe runs in uninstall).
     this.sessionProvider?.shutdown();

@@ -783,8 +783,17 @@ describe("applyPulseHttpClientSpanAttributes", () => {
 });
 
 describe("normalizeUrlPath", () => {
-  it("replaces numeric IDs (3+ digits)", () => {
+  it("replaces numeric IDs with 3+ digits", () => {
     expect(normalizeUrlPath("/api/orders/12345")).toBe("/api/orders/:id");
+    expect(normalizeUrlPath("/api/orders/123")).toBe("/api/orders/:id");
+  });
+
+  it("does NOT replace 1–2 digit segments — Android parity (\\d{3,})", () => {
+    // Android keeps these; web must match to avoid broken ClickHouse joins
+    expect(normalizeUrlPath("/api/users/42")).toBe("/api/users/42");
+    expect(normalizeUrlPath("/api/page/2")).toBe("/api/page/2");
+    expect(normalizeUrlPath("/api/v1/resource")).toBe("/api/v1/resource");
+    expect(normalizeUrlPath("/api/users/99")).toBe("/api/users/99");
   });
 
   it("replaces UUID v4 with dashes", () => {
@@ -818,5 +827,9 @@ describe("normalizeUrlPath", () => {
     expect(
       normalizeUrlPath("/users/12345/orders/507f1f77bcf86cd799439011"),
     ).toBe("/users/:id/orders/:id");
+  });
+
+  it("preserves 2-digit version segments alongside 3+ digit IDs", () => {
+    expect(normalizeUrlPath("/api/v2/users/12345")).toBe("/api/v2/users/:id");
   });
 });

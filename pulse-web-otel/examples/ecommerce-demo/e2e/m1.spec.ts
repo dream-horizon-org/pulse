@@ -3067,3 +3067,115 @@ test.describe("@M1 disk buffer replay", () => {
       .toBeGreaterThanOrEqual(1);
   });
 });
+
+// ─── Session crash count on session.end ──────────────────────────────────────
+test.describe("@Session session.end — pulse.session.crash.count / non_fatal.count", () => {
+  test("session.end has pulse.session.crash.count = 1 after one device.crash", async ({
+    page,
+    otlp,
+  }) => {
+    await page.goto("/error-demo");
+    await seedPulseSdkConfig(page, minimalPulseSdkConfig());
+    await otlp.waitForLog("session.start");
+    otlp.reset();
+
+    // Trigger one unhandled error (→ device.crash log)
+    await page.click('[data-testid="throw-uncaught"]');
+    await otlp.waitForLog("device.crash");
+    otlp.reset();
+
+    // Flush session.end via pagehide
+    await page.evaluate(() => {
+      window.dispatchEvent(
+        new PageTransitionEvent("pagehide", { persisted: false, bubbles: true }),
+      );
+    });
+
+    const endLog = await otlp.waitForLog("session.end");
+    expect(getAttr(endLog.attributes, "pulse.session.crash.count")).toBe(1);
+    // non_fatal not emitted → attribute must be absent
+    expect(getAttr(endLog.attributes, "pulse.session.non_fatal.count")).toBeNull();
+  });
+
+  test("session.end has pulse.session.non_fatal.count = 1 after one non_fatal", async ({
+    page,
+    otlp,
+  }) => {
+    await page.goto("/error-demo");
+    await seedPulseSdkConfig(page, minimalPulseSdkConfig());
+    await otlp.waitForLog("session.start");
+    otlp.reset();
+
+    // Trigger one unhandled promise rejection (→ non_fatal log)
+    await page.click('[data-testid="throw-promise"]');
+    await otlp.waitForLog("non_fatal");
+    otlp.reset();
+
+    await page.evaluate(() => {
+      window.dispatchEvent(
+        new PageTransitionEvent("pagehide", { persisted: false, bubbles: true }),
+      );
+    });
+
+    const endLog = await otlp.waitForLog("session.end");
+    expect(getAttr(endLog.attributes, "pulse.session.non_fatal.count")).toBe(1);
+    expect(getAttr(endLog.attributes, "pulse.session.crash.count")).toBeNull();
+  });
+
+  test("session.end counts reset across sessions — second session starts at 0", async ({
+    page,
+    otlp,
+  }) => {
+    await page.goto("/error-demo");
+    await seedPulseSdkConfig(page, minimalPulseSdkConfig());
+    await otlp.waitForLog("session.start");
+    otlp.reset();
+
+    // Session 1: one crash
+    await page.click('[data-testid="throw-uncaught"]');
+    await otlp.waitForLog("device.crash");
+    otlp.reset();
+
+    await page.evaluate(() => {
+      window.dispatchEvent(
+        new PageTransitionEvent("pagehide", { persisted: false, bubbles: true }),
+      );
+    });
+    const end1 = await otlp.waitForLog("session.end");
+    expect(getAttr(end1.attributes, "pulse.session.crash.count")).toBe(1);
+
+    // Session 2: reload, no crashes → count must be absent
+    otlp.reset();
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await otlp.waitForLog("session.start");
+    otlp.reset();
+
+    await page.evaluate(() => {
+      window.dispatchEvent(
+        new PageTransitionEvent("pagehide", { persisted: false, bubbles: true }),
+      );
+    });
+    const end2 = await otlp.waitForLog("session.end");
+    expect(getAttr(end2.attributes, "pulse.session.crash.count")).toBeNull();
+  });
+
+  test("session.end without any errors has neither count attribute", async ({
+    page,
+    otlp,
+  }) => {
+    await page.goto("/");
+    await seedPulseSdkConfig(page, minimalPulseSdkConfig());
+    await otlp.waitForLog("session.start");
+    otlp.reset();
+
+    await page.evaluate(() => {
+      window.dispatchEvent(
+        new PageTransitionEvent("pagehide", { persisted: false, bubbles: true }),
+      );
+    });
+
+    const endLog = await otlp.waitForLog("session.end");
+    expect(getAttr(endLog.attributes, "pulse.session.crash.count")).toBeNull();
+    expect(getAttr(endLog.attributes, "pulse.session.non_fatal.count")).toBeNull();
+  });
+});

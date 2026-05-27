@@ -1161,3 +1161,76 @@ test.describe("@M4-network feature gates", () => {
     expect(findAllLogs(otlp.captured, "device.crash")).toHaveLength(0);
   });
 });
+
+// ─── URL Normalization — Android parity (≥3 digit threshold) ─────────────────
+test.describe("@Network URL normalization — \\d{3,} threshold (Android parity)", () => {
+  test("3+ digit numeric segment normalized to :id", async ({ page, otlp }) => {
+    await page.route(
+      (url) => url.pathname.includes("/pulse-e2e-norm/"),
+      async (route) => route.fulfill({ status: 200, body: "{}" }),
+    );
+    await page.goto("/");
+    await waitForPulseInitialized(page);
+    await otlp.waitForLog("session.start");
+    otlp.reset();
+
+    await page.evaluate(async () => {
+      await fetch("/pulse-e2e-norm/users/12345/orders");
+    });
+    await flushTraceExport(page);
+
+    const span = await pollProbeHttpSpan(otlp, "pulse-e2e-norm");
+    const full = String(getAttr(span.attributes, "url.full") ?? "");
+    expect(full).toContain("/pulse-e2e-norm/users/:id/orders");
+    expect(full).not.toContain("12345");
+  });
+
+  test("1–2 digit segment NOT normalized — preserved as-is (Android parity)", async ({
+    page,
+    otlp,
+  }) => {
+    await page.route(
+      (url) => url.pathname.includes("/pulse-e2e-norm/"),
+      async (route) => route.fulfill({ status: 200, body: "{}" }),
+    );
+    await page.goto("/");
+    await waitForPulseInitialized(page);
+    await otlp.waitForLog("session.start");
+    otlp.reset();
+
+    // 42 = 2 digits → must stay; 12345 = 5 digits → must become :id
+    await page.evaluate(async () => {
+      await fetch("/pulse-e2e-norm/users/42/orders/12345");
+    });
+    await flushTraceExport(page);
+
+    const span = await pollProbeHttpSpan(otlp, "pulse-e2e-norm");
+    const full = String(getAttr(span.attributes, "url.full") ?? "");
+    expect(full).toContain("/pulse-e2e-norm/users/42/orders/:id");
+    expect(full).not.toContain("12345");
+  });
+
+  test("version segment /v2/ not normalized (not all-digit)", async ({
+    page,
+    otlp,
+  }) => {
+    await page.route(
+      (url) => url.pathname.includes("/pulse-e2e-norm/"),
+      async (route) => route.fulfill({ status: 200, body: "{}" }),
+    );
+    await page.goto("/");
+    await waitForPulseInitialized(page);
+    await otlp.waitForLog("session.start");
+    otlp.reset();
+
+    await page.evaluate(async () => {
+      await fetch("/pulse-e2e-norm/api/v2/users/99999");
+    });
+    await flushTraceExport(page);
+
+    const span = await pollProbeHttpSpan(otlp, "pulse-e2e-norm");
+    const full = String(getAttr(span.attributes, "url.full") ?? "");
+    expect(full).toContain("/pulse-e2e-norm/api/v2/users/:id");
+    expect(full).not.toContain("99999");
+  });
+});

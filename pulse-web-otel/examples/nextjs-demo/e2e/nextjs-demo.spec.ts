@@ -1193,6 +1193,88 @@ test.describe("@M4 network — Next.js demo", () => {
   });
 });
 
+// ─── URL normalization — \d{3,} threshold (Android parity) ──────────────────
+
+test.describe("@Network URL normalization — \\d{3,} threshold (Android parity) — Next.js", () => {
+  // Intercept all /pulse-e2e-norm/ paths so no real server needed.
+  async function setupNormRoute(page: Page): Promise<void> {
+    await page.route(
+      (url) => url.pathname.includes("/pulse-e2e-norm/"),
+      async (route) => {
+        await route.fulfill({ status: 200, body: "{}" });
+      },
+    );
+  }
+
+  test("URL-NORM-N1: 3+ digit numeric segment normalized to :id in url.full", async ({
+    page,
+    otlp,
+  }) => {
+    await setupNormRoute(page);
+    await page.goto("/");
+    await otlp.waitForLog("session.start", 15_000);
+    otlp.reset();
+
+    await page.evaluate(async () => {
+      await fetch("/pulse-e2e-norm/users/12345/orders");
+    });
+    await flushTraceExport(page);
+
+    const span = await pollProbeNetworkSpan(otlp, "pulse-e2e-norm");
+    const full = String(getAttr(span.attributes, "url.full") ?? "");
+
+    expect(full).toContain(":id");
+    expect(full).not.toContain("/12345");
+    expect(full).toContain("/users/");
+    expect(full).toContain("/orders");
+  });
+
+  test("URL-NORM-N2: 1–2 digit segment NOT normalized — preserved as-is (Android parity)", async ({
+    page,
+    otlp,
+  }) => {
+    await setupNormRoute(page);
+    await page.goto("/");
+    await otlp.waitForLog("session.start", 15_000);
+    otlp.reset();
+
+    // 42 is 2 digits → kept; 12345 is 5 digits → :id
+    await page.evaluate(async () => {
+      await fetch("/pulse-e2e-norm/users/42/orders/12345");
+    });
+    await flushTraceExport(page);
+
+    const span = await pollProbeNetworkSpan(otlp, "pulse-e2e-norm");
+    const full = String(getAttr(span.attributes, "url.full") ?? "");
+
+    expect(full).toContain("/42/");        // 2-digit preserved
+    expect(full).toContain(":id");         // 5-digit normalized
+    expect(full).not.toContain("/12345");  // original 5-digit gone
+  });
+
+  test("URL-NORM-N3: version segment /v2/ not normalized (not all-digit)", async ({
+    page,
+    otlp,
+  }) => {
+    await setupNormRoute(page);
+    await page.goto("/");
+    await otlp.waitForLog("session.start", 15_000);
+    otlp.reset();
+
+    await page.evaluate(async () => {
+      await fetch("/pulse-e2e-norm/api/v2/users/99999");
+    });
+    await flushTraceExport(page);
+
+    const span = await pollProbeNetworkSpan(otlp, "pulse-e2e-norm");
+    const full = String(getAttr(span.attributes, "url.full") ?? "");
+
+    expect(full).toContain("/v2/");       // version segment preserved
+    expect(full).toContain(":id");        // 5-digit normalized
+    expect(full).not.toContain("/99999"); // original 5-digit gone
+  });
+});
+
 // ─── ISS-I12: click-bridge interactions in Next.js App Router ─────────────────
 
 /** Flush ClickEventBuffer by simulating tab backgrounding. */
@@ -2653,6 +2735,81 @@ test.describe("@M2 interactions — Next.js unit-parity E2E (INT-P09/P35/P41)", 
       0,
     );
   });
+
+// ─── Session crash count on session.end (Next.js) ────────────────────────────
+
+test.describe("session.end crash count — Next.js", () => {
+  test("session.end carries pulse.session.crash.count after device.crash", async ({
+    page,
+    otlp,
+  }) => {
+    await page.goto("/error-demo");
+    await seedPulseSdkConfig(page, minimalPulseSdkConfig());
+    await otlp.waitForLog("session.start");
+    otlp.reset();
+
+    // Trigger a device.crash via the boundary throw button
+    await page.click("[data-testid='throw-btn']");
+    await otlp.waitForLog("device.crash");
+    otlp.reset();
+
+    // Flush session.end via synthetic pagehide
+    await page.evaluate(() => {
+      window.dispatchEvent(
+        new PageTransitionEvent("pagehide", { persisted: false, bubbles: true }),
+      );
+    });
+
+    const endLog = await otlp.waitForLog("session.end");
+    expect(getAttr(endLog.attributes, "pulse.session.crash.count")).toBe(1);
+    expect(getAttr(endLog.attributes, "pulse.session.non_fatal.count")).toBeNull();
+  });
+
+  test("session.end carries pulse.session.non_fatal.count after non_fatal", async ({
+    page,
+    otlp,
+  }) => {
+    await page.goto("/error-demo");
+    await seedPulseSdkConfig(page, minimalPulseSdkConfig());
+    await otlp.waitForLog("session.start");
+    otlp.reset();
+
+    // Trigger a non_fatal via manual exception button
+    await page.click("[data-testid='manual-exception-btn']");
+    await otlp.waitForLog("non_fatal");
+    otlp.reset();
+
+    await page.evaluate(() => {
+      window.dispatchEvent(
+        new PageTransitionEvent("pagehide", { persisted: false, bubbles: true }),
+      );
+    });
+
+    const endLog = await otlp.waitForLog("session.end");
+    expect(getAttr(endLog.attributes, "pulse.session.non_fatal.count")).toBe(1);
+    expect(getAttr(endLog.attributes, "pulse.session.crash.count")).toBeNull();
+  });
+
+  test("session.end without errors has no crash count attributes", async ({
+    page,
+    otlp,
+  }) => {
+    await page.goto("/");
+    await seedPulseSdkConfig(page, minimalPulseSdkConfig());
+    await otlp.waitForLog("session.start");
+    otlp.reset();
+
+    await page.evaluate(() => {
+      window.dispatchEvent(
+        new PageTransitionEvent("pagehide", { persisted: false, bubbles: true }),
+      );
+    });
+
+    const endLog = await otlp.waitForLog("session.end");
+    expect(getAttr(endLog.attributes, "pulse.session.crash.count")).toBeNull();
+    expect(getAttr(endLog.attributes, "pulse.session.non_fatal.count")).toBeNull();
+  });
+});
 
   // INT-P41 — Error span forces poor apdex + apdex_score=0
   test("INT-P41: error span (timeout) forces user_category=Poor and apdex_score=0", async ({

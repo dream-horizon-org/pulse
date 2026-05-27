@@ -35,8 +35,10 @@ function getNetworkConnection(): NetworkConnection {
  * `docs/instrumentations/network/SPEC.md` §8 (D2, D5).
  */
 export function isDynamicSegment(seg: string): boolean {
-  // Pure integers: 1, 42, 123, 2024 — web normalizes all (Android uses ≥3 digits).
-  if (/^\d+$/.test(seg)) return true;
+  // Pure integers ≥3 digits: 123, 12345, 2026 — matches Android PulseNetworkingUtils.redactUrl (\d{3,}).
+  // 1–2 digit segments (e.g. /v2/, /42/, /page/2) are kept as-is so cross-platform URL joins in
+  // ClickHouse produce consistent keys (Android keeps them too).
+  if (/^\d{3,}$/.test(seg)) return true;
   // Standard UUID v4 (with dashes): 550e8400-e29b-41d4-a716-446655440000
   if (
     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(seg)

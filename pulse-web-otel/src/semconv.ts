@@ -68,6 +68,18 @@ export const PulseWebSemconv = {
     STORAGE_FREE: "storage.free",
     NON_FATAL_TYPE: "non_fatal.type",
     NON_FATAL_IS_MANUAL: "non_fatal.is_manual",
+    /**
+     * Number of `device.crash` logs emitted during the session.
+     * Attached to `session.end` — Android parity: `pulse.session.crash.count`.
+     * Omitted when 0 (matching Android `?.let` pattern).
+     */
+    SESSION_CRASH_COUNT: "pulse.session.crash.count",
+    /**
+     * Number of `non_fatal` logs emitted during the session.
+     * Attached to `session.end` — Android parity: `pulse.session.non_fatal.count`.
+     * Omitted when 0 (matching Android `?.let` pattern).
+     */
+    SESSION_NON_FATAL_COUNT: "pulse.session.non_fatal.count",
     /** Init log (`otel.initialization.events`) — exporter wiring hint (Android parity). */
     SPAN_EXPORTER: "span.exporter",
     CLICK_TYPE: "click.type",
