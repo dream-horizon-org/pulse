@@ -9,7 +9,7 @@ import lombok.EqualsAndHashCode;
 
 @Data
 @EqualsAndHashCode(callSuper = true)
-public class NdkFrame extends Frame {
+public class NdkFrame extends Frame implements NdkFrameView {
   // NDK / iOS native (Mach-O) — same shape: binary name, PC, optional symbol from raw line
   private String ndkLib;
   private String ndkPc;
