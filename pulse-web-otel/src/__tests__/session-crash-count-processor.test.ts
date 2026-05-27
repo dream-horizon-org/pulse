@@ -8,14 +8,12 @@ const T = PulseWebSemconv.PulseType;
 
 // Minimal SdkLogRecord stub — only the fields our processor touches.
 function makeLog(pulseType: string): SdkLogRecord {
-  const extra: Record<string, unknown> = {};
+  const attrs: Record<string, unknown> = { [K.PULSE_TYPE]: pulseType };
   return {
-    attributes: { [K.PULSE_TYPE]: pulseType } as Record<string, unknown>,
+    attributes: attrs,
     setAttribute(key: string, value: unknown) {
-      extra[key] = value;
-      (this.attributes as Record<string, unknown>)[key] = value;
+      attrs[key] = value;
     },
-    _extra: extra,
   } as unknown as SdkLogRecord;
 }
 
