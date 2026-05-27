@@ -1,0 +1,16 @@
+.panel {
+  flex: 1;
+  min-height: 0;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  background: #fff;
+  overflow: hidden;
+}
+
+.emptyState {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+  padding: 16px;
+}

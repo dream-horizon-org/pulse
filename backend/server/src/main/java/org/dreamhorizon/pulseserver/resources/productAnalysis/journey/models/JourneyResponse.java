@@ -68,6 +68,11 @@ public class JourneyResponse {
    */
   private JourneyResultsResponse journeyResults;
 
+  /**
+   * Greedy most-visited path derived from the latest {@code journey_results} run (runtime).
+   */
+  private JourneyTopPathResponse topPath;
+
   private Instant lastRunAt;
 
   /** Tags from {@code funnel_journey_tag} for this journey. */

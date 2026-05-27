@@ -189,6 +189,22 @@ export type FunnelDetail = {
   expiryDate?: string;
 };
 
+// ─── Journey top path (derived from journey_results at runtime) ───────────────
+
+export type JourneyTopPathStep = {
+  position: number;
+  stepName: string;
+  traffic: number;
+};
+
+export type JourneyTopPath = {
+  steps: JourneyTopPathStep[];
+  complete: boolean;
+  anchorTraffic: number;
+  pathTraffic: number;
+  incompletenessReason?: string;
+};
+
 // ─── Journey detail types ──────────────────────────────────────────────────────
 
 /** Single journey returned by GET /v1/journeys/:id. */
@@ -216,6 +232,8 @@ export type JourneyDetail = {
   createdBy: string;
   tags: string[];
   journeyResults?: unknown;
+  /** Greedy most-visited path derived server-side from latest journey results. */
+  topPath?: JourneyTopPath;
   /** @deprecated */
   timeRange?: TimeRange;
   expiryDate?: string;

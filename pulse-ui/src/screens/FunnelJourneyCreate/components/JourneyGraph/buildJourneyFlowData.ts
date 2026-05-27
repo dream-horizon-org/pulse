@@ -1,12 +1,13 @@
 import type { Node, Edge } from "@xyflow/react";
 import type { JourneyResponse } from "../../../../hooks/useGetFunnelData";
 import type { JourneyNodeData, JourneyEdgeData } from "./journeyFlow.types";
+import { JOURNEY_GRAPH_DEPTH_WINDOW } from "./journeyGraph.constants";
 
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 
-const DEPTH_WINDOW = 5;
+const DEPTH_WINDOW = JOURNEY_GRAPH_DEPTH_WINDOW;
 const TOP_N_PER_DEPTH = 8;
 
 // ---------------------------------------------------------------------------

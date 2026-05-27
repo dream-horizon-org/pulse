@@ -1,4 +1,4 @@
-import { ActionIcon, Box, Button, Group, Loader, Text } from "@mantine/core";
+import { ActionIcon, Box, Button, Group, Loader, SegmentedControl, Text } from "@mantine/core";
 import { IconArrowLeft, IconPencil } from "@tabler/icons-react";
 import { generatePath, useNavigate, useParams } from "react-router-dom";
 import { ROUTES } from "../../constants";
@@ -17,7 +17,7 @@ import {
   useGetFunnelEvents,
   useGetFunnelFilters,
 } from "../../hooks";
-import { FunnelType, type AnalysisBasis, type CreateJourneyRequestBody } from "../../services/funnels.service";
+import { FunnelType, type AnalysisBasis, type CreateJourneyRequestBody, type JourneyTopPath } from "../../services/funnels.service";
 import { useUpdateJourney } from "../../hooks/useUpdateJourney";
 import { useStopJourney } from "../../hooks/useStopJourney";
 import { useDeleteJourney } from "../../hooks/useDeleteJourney";
@@ -29,6 +29,9 @@ import {
   JourneyFlowGraph,
   buildJourneyFlowData,
 } from "../FunnelJourneyCreate/components/JourneyGraph";
+import { JourneyTopPathPanel } from "./components/JourneyTopPathPanel";
+
+type JourneyChartView = "graph" | "topPath";
 
 function JourneyDetailView({ detail, isEditing, onEdit }: { detail: any; isEditing: boolean; onEdit: () => void }) {
   const navigate = useNavigate();
@@ -89,6 +92,9 @@ function JourneyDetailView({ detail, isEditing, onEdit }: { detail: any; isEditi
   // ── Expansion state for progressive depth reveal ──
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
   const [globalExpanded, setGlobalExpanded] = useState(false);
+  const [chartView, setChartView] = useState<JourneyChartView>("graph");
+  const topPath = detail.topPath as JourneyTopPath | undefined;
+  const canShowTopPath = (topPath?.steps?.length ?? 0) > 0;
 
   const handleGlobalExpand = useCallback(() => {
     setGlobalExpanded(true);
@@ -345,8 +351,22 @@ function JourneyDetailView({ detail, isEditing, onEdit }: { detail: any; isEditi
                 (saved · depth {detail.depth ?? 5})
               </Text>
 
-              {flowResult ? (
-                <Group gap={8}>
+              <Group gap={8}>
+                <SegmentedControl
+                  size="xs"
+                  value={chartView}
+                  onChange={(value) => setChartView(value as JourneyChartView)}
+                  data={[
+                    { label: "Full journey", value: "graph" },
+                    {
+                      label: "Most visited path",
+                      value: "topPath",
+                      disabled: !canShowTopPath,
+                    },
+                  ]}
+                />
+                {chartView === "graph" && flowResult ? (
+                  <>
                   {flowResult.hasHiddenPaths && !globalExpanded && (
                     <Button
                       size="compact-xs"
@@ -367,8 +387,9 @@ function JourneyDetailView({ detail, isEditing, onEdit }: { detail: any; isEditi
                       Collapse All
                     </Button>
                   )}
-                </Group>
-              ) : null}
+                  </>
+                ) : null}
+              </Group>
             </Group>
 
             {/* ── Chart area — fills remaining height ── */}
@@ -383,6 +404,8 @@ function JourneyDetailView({ detail, isEditing, onEdit }: { detail: any; isEditi
                   might take a few moments. Please check back later.
                 </Text>
               </Box>
+            ) : chartView === "topPath" ? (
+              <JourneyTopPathPanel topPath={topPath} />
             ) : flowResult ? (
               <Box
                 style={{

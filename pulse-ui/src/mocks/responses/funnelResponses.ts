@@ -5,6 +5,7 @@
 import { MockRequest, MockResponse } from "../types";
 import { API_ROUTES } from "../../constants";
 import { FunnelMode, FunnelType, StepOrderType, type AnalysisBasis } from "../../services/funnels.service";
+import { deriveJourneyTopPath } from "../../screens/FunnelJourneyCreate/utils/deriveJourneyTopPath";
 
 /**
  * Single source of truth for funnel conversion KPIs in mocks.
@@ -333,6 +334,19 @@ const MOCK_JOURNEY_REVERSE = {
       value: 45,
     },
   ],
+};
+
+/** Depth-qualified demo payload so mock Top path button works without prod backend. */
+const MOCK_JOURNEY_TOP_PATH_DEMO = {
+  steps: [
+    { position: -3, stepName: "ProductDetail", traffic: 4000 },
+    { position: -2, stepName: "Cart", traffic: 3500 },
+    { position: -1, stepName: "Checkout", traffic: 3200 },
+    { position: 0, stepName: "order_placed", traffic: 5000 },
+  ],
+  complete: true,
+  anchorTraffic: 5000,
+  pathTraffic: 3200,
 };
 
 const MOCK_ONBOARDING_JOURNEY_RESPONSE = {
@@ -1009,6 +1023,7 @@ function projectJourneyDetail(row: MockFunnelJourneyRow) {
   const createdAt =
     row.createdAt ??
     (row.updatedAt ? synthesizeCreatedAt(row.updatedAt) : "2026-02-01T12:00:00Z");
+  const journeyResults = buildJourneyResultsForRow(row);
   return {
     id: row.id,
     name: row.name,
@@ -1031,7 +1046,18 @@ function projectJourneyDetail(row: MockFunnelJourneyRow) {
     updatedAt: row.updatedAt,
     createdBy: row.createdBy,
     tags: row.tags,
-    journeyResults: buildJourneyResultsForRow(row),
+    journeyResults,
+    topPath:
+      deriveJourneyTopPath(
+        journeyResults as {
+          nodes: { name: string }[];
+          links: { source: string; target: string; value: number }[];
+        },
+        row.anchorEvent ?? "",
+        row.direction ?? "START",
+        row.depth ?? 5,
+      ) ??
+      ((row.direction ?? "START") === "END" ? MOCK_JOURNEY_TOP_PATH_DEMO : undefined),
   };
 }
 

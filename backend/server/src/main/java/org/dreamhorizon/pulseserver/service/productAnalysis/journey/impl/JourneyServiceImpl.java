@@ -32,6 +32,8 @@ import org.dreamhorizon.pulseserver.resources.productAnalysis.models.ListFilterO
 import org.dreamhorizon.pulseserver.service.productAnalysis.AnalysisEntityTags;
 import org.dreamhorizon.pulseserver.service.analytics.AnalyticsBatchService;
 import org.dreamhorizon.pulseserver.service.analytics.ClickHouseComputeService;
+import org.dreamhorizon.pulseserver.dao.productAnalysis.journeyresults.models.JourneyResultRow;
+import org.dreamhorizon.pulseserver.service.productAnalysis.journey.JourneyMostVisitedPathDeriver;
 import org.dreamhorizon.pulseserver.service.productAnalysis.journey.JourneyResultsMapper;
 import org.dreamhorizon.pulseserver.service.productAnalysis.journey.JourneyService;
 
@@ -247,10 +249,9 @@ public class JourneyServiceImpl implements JourneyService {
       .toSingle()
       .flatMap(
         row -> {
-          Single<JourneyResultsResponse> graph =
+          Single<List<JourneyResultRow>> resultsRows =
             journeyResultsDao
               .queryLatest(projectId, id, row.getDirection())
-              .map(JourneyResultsMapper::fromRows)
               .onErrorResumeNext(
                 err -> {
                   log.warn(
@@ -259,13 +260,13 @@ public class JourneyServiceImpl implements JourneyService {
                     id,
                     projectId,
                     err.toString());
-                  return Single.just((JourneyResultsResponse) null);
+                  return Single.just(List.<JourneyResultRow>of());
                 });
           Single<List<String>> tags =
             funnelJourneyTagDao
               .listTagsForEntity(projectId, FunnelJourneyTagEntityType.JOURNEY, id)
               .onErrorReturnItem(List.of());
-          return Single.zip(graph, tags, (g, t) -> toResponse(row, g, t));
+          return Single.zip(resultsRows, tags, (rows, t) -> toResponse(row, rows, t));
         });
   }
 
@@ -349,7 +350,7 @@ public class JourneyServiceImpl implements JourneyService {
                     rows.stream()
                       .map(
                         r ->
-                          toResponse(r, null, tagMap.getOrDefault(r.getId(), List.of())))
+                          toResponse(r, List.of(), tagMap.getOrDefault(r.getId(), List.of())))
                       .toList())
                   .totalCount(totalCount)
                   .page(page)
@@ -458,7 +459,17 @@ public class JourneyServiceImpl implements JourneyService {
   }
 
   private JourneyResponse toResponse(
-    JourneyRow row, JourneyResultsResponse journeyResults, List<String> tags) {
+    JourneyRow row, List<JourneyResultRow> resultRows, List<String> tags) {
+    JourneyResultsResponse journeyResults =
+      resultRows == null || resultRows.isEmpty()
+        ? null
+        : JourneyResultsMapper.fromRows(resultRows);
+    JourneyTopPathResponse topPath =
+      JourneyMostVisitedPathDeriver.derive(
+        resultRows,
+        JourneyDirection.fromJson(row.getDirection()),
+        row.getAnchorEvent(),
+        row.getDepth());
     try {
       List<FunnelAttributeFilter> filters = null;
       if (row.getFiltersJson() != null && !row.getFiltersJson().isBlank()) {
@@ -492,6 +503,7 @@ public class JourneyServiceImpl implements JourneyService {
         .createdBy(row.getCreatedBy())
         .lastRunAt(journeyResults != null ? journeyResults.getLastRunAt() : null)
         .journeyResults(journeyResults)
+        .topPath(topPath)
         .tags(tags)
         .build();
     } catch (JsonProcessingException e) {
