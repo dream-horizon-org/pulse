@@ -78,10 +78,6 @@ def _assemble_summary(
             parts.append(validated.trend_note)
         return " ".join(parts)
 
-    # ── Build the headline clause ─────────────────────────────────────────────
-    noun = "interaction" if attention_count == 1 else "interactions"
-    headline = f"{attention_count} {noun} need attention"
-
     # ── POOR group — grouped with apdex range + poor_user_rate range ─────────
     poor_names = [obs.interaction_name for obs in validated.poor_interactions]
     poor_clause = ""
@@ -94,11 +90,20 @@ def _assemble_summary(
         else:
             apdex_range_str = f"{min(apdex_vals):.2f}–{max(apdex_vals):.2f}"
 
+        def _fmt_poor_rate(val: float) -> str:
+            return "< 1%" if val < 1.0 else f"{val:.0f}%"
+
         poor_rate_vals = [r.get("poor_user_rate") for r in poor_rows_data if r.get("poor_user_rate") is not None]
         if len(poor_rate_vals) == 1:
-            poor_rate_range_str = f"{poor_rate_vals[0]:.0f}%"
+            poor_rate_range_str = _fmt_poor_rate(poor_rate_vals[0])
         elif poor_rate_vals:
-            poor_rate_range_str = f"{min(poor_rate_vals):.0f}–{max(poor_rate_vals):.0f}%"
+            lo_val, hi_val = min(poor_rate_vals), max(poor_rate_vals)
+            if hi_val < 1.0:
+                poor_rate_range_str = "< 1%"
+            elif lo_val < 1.0:
+                poor_rate_range_str = f"< 1–{hi_val:.0f}%"
+            else:
+                poor_rate_range_str = f"{lo_val:.0f}–{hi_val:.0f}%"
         else:
             poor_rate_range_str = "N/A"
 
@@ -132,6 +137,11 @@ def _assemble_summary(
         if (health_data.get(obs.interaction_name) or {}).get("severity") == "GOOD"
     ]
     good_elevated_names = [r["interaction_name"] for r in good_elevated_rows if r.get("interaction_name")]
+
+    # ── Headline derived from what's actually described, not health_data count ─
+    described_count = len(poor_names) + len(fair_names) + len(good_elevated_names)
+    noun = "interaction" if described_count == 1 else "interactions"
+    headline = f"{described_count} {noun} need attention"
 
     # ── Assemble flowing sentence ─────────────────────────────────────────────
     clauses: list[str] = []

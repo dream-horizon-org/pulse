@@ -12,7 +12,6 @@ from typing import Any
 from fastapi import HTTPException, Header, Request, Response
 from fastapi.responses import StreamingResponse
 from google.genai.types import Content, Part
-from pydantic import BaseModel
 
 from pulse_ai.constants import APP_NAME
 
@@ -45,6 +44,7 @@ from .rca_runner import RcaRunnerError, generate_rca_report
 from .screen_rca_runner import ScreenRcaRunnerError, generate_screen_rca_report
 from .session_rca_runner import SessionRcaRunnerError, generate_session_rca_report
 from .schemas import (
+    InteractionsOverviewRequest,
     InteractionsOverviewResponse,
     RcaReportRequest,
     RcaReportResponse,
@@ -380,13 +380,9 @@ async def generate_session_root_cause_narrative(
         raise HTTPException(status_code=error.status_code, detail=error.message) from error
 
 
-class _InteractionsOverviewRequest(BaseModel):
-    previousContext: str | None = None
-
-
 @app.post("/interactions/overview")
 async def get_interactions_overview(
-    body: _InteractionsOverviewRequest,
+    body: InteractionsOverviewRequest,
     authorization: str | None = Header(default=None, alias="Authorization"),
     project_id: str | None = Header(default=None, alias="X-Project-ID"),
 ) -> InteractionsOverviewResponse:

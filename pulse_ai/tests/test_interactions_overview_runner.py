@@ -7,8 +7,13 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from pulse_ai.constants import INTERACTIONS_OVERVIEW_PREVIOUS_CONTEXT_MAX_LEN
+from pulse_ai.schemas.interaction_overview_v1 import (
+    InteractionObservation,
+    InteractionOverviewOutputV1,
+)
 from pulse_ai.server.interactions_overview_runner import (
     InteractionsOverviewRunnerError,
+    _assemble_summary,
     _truncate_previous_context,
     generate_interactions_overview,
 )
@@ -458,3 +463,142 @@ async def test_oversized_previous_context_is_truncated_before_prompt() -> None:
     assert long_context not in text
     # But it must contain a truncated prefix
     assert "A" * INTERACTIONS_OVERVIEW_PREVIOUS_CONTEXT_MAX_LEN in text
+
+
+# ---------------------------------------------------------------------------
+# _assemble_summary unit tests (pure function — no runner needed)
+# ---------------------------------------------------------------------------
+
+def _make_validated(**overrides) -> InteractionOverviewOutputV1:
+    base = dict(
+        poor_interactions=[],
+        fair_or_elevated_interactions=[],
+        trend_note=None,
+        business_impact="healthy portfolio",
+        context="snapshot.",
+    )
+    base.update(overrides)
+    return InteractionOverviewOutputV1(**base)
+
+
+def _poor_obs(name: str) -> InteractionObservation:
+    return InteractionObservation(interaction_name=name, hypothesis="slow backend")
+
+
+def _fair_obs(name: str) -> InteractionObservation:
+    return InteractionObservation(interaction_name=name, hypothesis="elevated errors")
+
+
+def _make_health_row(name: str, *, severity: str, error_severity: str = "NORMAL_ERROR_RATE",
+                     apdex: float = 0.5, poor_user_rate: float | None = None,
+                     error_rate: float | None = None, priority_rank: int | None = None,
+                     total_categorized: int = 5000) -> dict:
+    return {
+        "interaction_name": name,
+        "severity": severity,
+        "error_severity": error_severity,
+        "apdex": apdex,
+        "apdex_str": f"{apdex:.2f}",
+        "poor_user_rate": poor_user_rate,
+        "poor_user_rate_str": f"{poor_user_rate:.1f}%" if poor_user_rate is not None else "N/A",
+        "error_rate": error_rate,
+        "error_rate_str": f"{error_rate:.1f}%" if error_rate is not None else "N/A",
+        "priority_rank": priority_rank,
+        "total_categorized": total_categorized,
+    }
+
+
+def test_assemble_summary_all_healthy_returns_performing_well() -> None:
+    validated = _make_validated()
+    health_data = {
+        "login": _make_health_row("login", severity="EXCELLENT", apdex=0.95),
+        "checkout": _make_health_row("checkout", severity="GOOD", apdex=0.75),
+    }
+    result = _assemble_summary(validated, health_data)
+    assert "performing well" in result
+    assert "2 tracked" in result
+
+
+def test_assemble_summary_headline_uses_described_count_not_health_data() -> None:
+    """Headline count must match what's actually in the clauses (LLM fields),
+    not the broader health_data count. Regression for #1."""
+    # health_data has 3 rows that need attention, but LLM only described 1 POOR
+    poor_row = _make_health_row("slow_screen", severity="POOR", apdex=0.3,
+                                poor_user_rate=40.0, error_rate=5.0, priority_rank=1)
+    fair_row = _make_health_row("ok_screen", severity="FAIR", apdex=0.5,
+                                error_severity="ELEVATED_ERROR_RATE", error_rate=15.0)
+    extra_row = _make_health_row("another_screen", severity="POOR", apdex=0.2,
+                                 poor_user_rate=60.0, error_rate=30.0)
+    # LLM only returned 1 POOR — omitted another_screen
+    validated = _make_validated(
+        poor_interactions=[_poor_obs("slow_screen")],
+        fair_or_elevated_interactions=[_fair_obs("ok_screen")],
+        business_impact="blocking key flows",
+    )
+    health_data = {
+        "slow_screen": poor_row,
+        "ok_screen": fair_row,
+        "another_screen": extra_row,
+    }
+    result = _assemble_summary(validated, health_data)
+    # Described: 1 POOR + 1 FAIR = 2; must NOT say 3
+    assert result.startswith("2 interactions need attention")
+
+
+def test_assemble_summary_priority_sentence_single_item() -> None:
+    validated = _make_validated(
+        poor_interactions=[_poor_obs("payment_flow")],
+        business_impact="blocking purchases",
+    )
+    health_data = {
+        "payment_flow": _make_health_row(
+            "payment_flow", severity="POOR", apdex=0.3,
+            poor_user_rate=50.0, error_rate=35.0, priority_rank=1,
+            total_categorized=8000,
+        ),
+    }
+    result = _assemble_summary(validated, health_data)
+    assert "Prioritize fixing" in result
+    assert "payment_flow" in result
+
+
+def test_assemble_summary_priority_sentence_multiple_items() -> None:
+    validated = _make_validated(
+        poor_interactions=[_poor_obs("app_launch"), _poor_obs("payment_flow")],
+        business_impact="blocking core flows",
+    )
+    health_data = {
+        "app_launch": _make_health_row(
+            "app_launch", severity="POOR", apdex=0.35,
+            poor_user_rate=45.0, error_rate=10.0, priority_rank=1,
+            total_categorized=20000,
+        ),
+        "payment_flow": _make_health_row(
+            "payment_flow", severity="POOR", apdex=0.25,
+            poor_user_rate=60.0, error_rate=35.0, priority_rank=2,
+            total_categorized=5000,
+        ),
+    }
+    result = _assemble_summary(validated, health_data)
+    assert "Prioritize fixing" in result
+    assert "app_launch" in result
+    assert "payment_flow" in result
+    assert "first" in result
+
+
+def test_assemble_summary_poor_rate_sub_one_percent_renders_lt_1() -> None:
+    """poor_user_rate < 1 must render as '< 1%', not '0%'. Regression for #3."""
+    validated = _make_validated(
+        poor_interactions=[_poor_obs("obscure_flow")],
+        business_impact="minor impact",
+    )
+    health_data = {
+        "obscure_flow": _make_health_row(
+            "obscure_flow", severity="POOR", apdex=0.3,
+            poor_user_rate=0.4, error_rate=5.0, priority_rank=1,
+            total_categorized=2000,
+        ),
+    }
+    result = _assemble_summary(validated, health_data)
+    assert "0% poor experience" not in result
+    assert "< 1% poor experience" in result

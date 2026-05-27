@@ -527,8 +527,10 @@ class AiProxyServiceImplTest {
       when(rcaReportCacheDao.get(
               eq(PROJECT_ID), eq(RcaType.INTERACTION_OVERVIEW), eq("all"), any()))
           .thenReturn(io.reactivex.rxjava3.core.Maybe.empty());
+      String upstreamBody =
+          "{\"summary\":\"ok\",\"generatedAt\":\"2025-01-01T00:00:00Z\",\"context\":\"snapshot data\"}";
       HttpResponse<Buffer> upstreamResponse =
-          mockBufferedResponse(200, "application/json", "{\"summary\":\"ok\"}");
+          mockBufferedResponse(200, "application/json", upstreamBody);
       stubSendReturns(upstreamResponse);
 
       AiProxyUpstreamResult result =
@@ -539,6 +541,8 @@ class AiProxyServiceImplTest {
       assertThat(result.getStatusCode()).isEqualTo(200);
       JsonNode node = objectMapper.readTree(result.getBufferedBody());
       assertThat(node.path("cached").asBoolean()).isFalse();
+      assertThat(node.has("context")).isFalse();
+      assertThat(node.path("summary").asText()).isEqualTo("ok");
       verify(rcaReportCacheDao).put(eq(PROJECT_ID), eq(RcaType.INTERACTION_OVERVIEW), eq("all"), any(), anyString());
     }
 

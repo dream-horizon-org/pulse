@@ -25,10 +25,10 @@ jest.mock(
   }),
 );
 
-const renderComponent = () =>
+const renderComponent = (props: { interactionNames?: string[] } = {}) =>
   render(
     <MantineProvider>
-      <InteractionsOverviewCard />
+      <InteractionsOverviewCard {...props} />
     </MantineProvider>,
   );
 
@@ -97,6 +97,28 @@ describe("InteractionsOverviewCard", () => {
     fireEvent.click(btn);
 
     expect(mockMutate).toHaveBeenCalledWith({ regenerate: true });
+  });
+
+  it("renders interaction name as an anchor link when interactionNames is provided", () => {
+    mockUseMutation.isSuccess = true;
+    mockUseMutation.data = {
+      data: {
+        summary: "ContestJoin is critically broken and needs immediate attention.",
+        cached: false,
+        cachedAt: "2026-05-22T10:30:00Z",
+      },
+      error: null,
+      status: 200,
+    };
+
+    renderComponent({ interactionNames: ["ContestJoin"] });
+
+    const link = screen.getByRole("link", { name: "ContestJoin" });
+    expect(link).toBeInTheDocument();
+    expect(link).toHaveAttribute(
+      "href",
+      expect.stringContaining("ContestJoin"),
+    );
   });
 
   it("renders inline error message on error and does not crash", () => {

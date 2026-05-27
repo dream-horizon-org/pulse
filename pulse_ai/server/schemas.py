@@ -9,6 +9,10 @@ from pulse_ai.schemas.screen_rca_narrative_v1 import ScreenRcaNarrativeV1
 from pulse_ai.schemas.session_rca_structured_v1 import SessionRcaStructuredResponseV1
 
 
+class InteractionsOverviewRequest(BaseModel):
+    previousContext: str | None = None
+
+
 class InteractionsOverviewResponse(BaseModel):
     summary: str
     context: str        # internal — stripped by pulse-server before returning to UI
