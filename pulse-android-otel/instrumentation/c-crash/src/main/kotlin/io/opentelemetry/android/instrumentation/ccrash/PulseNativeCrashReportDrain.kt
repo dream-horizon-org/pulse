@@ -138,15 +138,22 @@ internal object PulseNativeCrashReportDrain : CoroutineScope by MainScope() {
 
     private fun formatPcColumn(hex: String): String {
         val digits = hex.trim().removePrefix("0x").removePrefix("0X")
-        if (digits.isEmpty()) {
+        if (digits.isBlank()) {
             return hex
         }
         return "0x${digits.lowercase().padStart(16, '0')}"
     }
 
     private fun formatSymbolOffsetSuffix(offset: String?): String? {
-        val digits = offset?.trim()?.removePrefix("0x")?.removePrefix("0X")?.lowercase().orEmpty()
-        if (digits.isEmpty() || digits.all { it == '0' }) {
+        val digits =
+            offset
+                ?.run {
+                    trim()
+                        .removePrefix("0x")
+                        .removePrefix("0X")
+                        .lowercase()
+                }.orEmpty()
+        if (digits.isBlank() || digits.all { it == '0' }) {
             return null
         }
         return "+0x$digits"
