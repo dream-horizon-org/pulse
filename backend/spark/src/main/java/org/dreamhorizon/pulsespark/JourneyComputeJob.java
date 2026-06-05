@@ -27,6 +27,7 @@ public class JourneyComputeJob {
 
     public static void runJourneys(SparkSession spark, MysqlRepository mysql, ClickHouseClient ch,
                                     Long referenceId, String s3BucketPrefix, String runTime) throws Exception {
+        OtelS3Reader.configureSparkForParquetMrTimestamps(spark);
         List<JourneyDefinition> journeys = mysql.fetchJourneys(referenceId);
         if (journeys.isEmpty()) {
             log.info("No journeys to process");
@@ -41,10 +42,10 @@ public class JourneyComputeJob {
             }
             var startDt = journey.startTime().toLocalDateTime();
             var endDt   = journey.endTime().toLocalDateTime();
-            var s3Base  = "s3a://" + s3BucketPrefix + journey.projectId() + "/vector-logs/";
+            var s3Base  = OtelS3Reader.buildS3Base(s3BucketPrefix, journey.projectId(), SparkConstants.Tables.S3_OTEL_LOGS);
 
             log.info("Journey {} window [{} -> {}]", journey.id(), startDt, endDt);
-            Dataset<Row> raw = FunnelComputeJob.readS3ByHours(spark, s3Base, startDt, endDt);
+            Dataset<Row> raw = OtelS3Reader.readS3ByHours(spark, s3Base, startDt, endDt);
             if (raw == null) {
                 log.warn("No S3 data for journey {}", journey.id());
                 return;
@@ -80,10 +81,10 @@ public class JourneyComputeJob {
         int maxDays   = journeys.stream().mapToInt(JourneyDefinition::dateRange).max().orElse(7);
         var endDate   = LocalDate.parse(runTime.substring(0, 10));
         var startDate = endDate.minusDays(maxDays - 1L);
-        var s3Base    = "s3a://" + s3Prefix + projectId + "/vector-logs/";
+        var s3Base    = OtelS3Reader.buildS3Base(s3Prefix, projectId, SparkConstants.Tables.S3_OTEL_LOGS);
 
         log.info("Project {} reading S3 [{} -> {}] for {} journey(s)", projectId, startDate, endDate, journeys.size());
-        Dataset<Row> raw = FunnelComputeJob.readS3ByDateRange(spark, s3Base, startDate, endDate);
+        Dataset<Row> raw = OtelS3Reader.readS3ByDateRange(spark, s3Base, startDate, endDate);
         if (raw == null) {
             log.warn("No S3 data for project {}", projectId);
             return;
@@ -108,8 +109,9 @@ public class JourneyComputeJob {
     private static List<JourneyTransition> computeJourney(Dataset<Row> raw, JourneyDefinition journey,
                                                             String runTime,
                                                             Long startEpochSeconds, Long endEpochSeconds) {
-        var identityCol = "UNIQUE_USERS".equals(journey.mode()) ? "user_id" : "session_id";
-        boolean isStart = "START".equals(journey.direction());
+        var identityCol = SparkConstants.Modes.UNIQUE_USERS.equals(journey.mode())
+            ? SparkConstants.Columns.USER_ID : SparkConstants.Columns.SESSION_ID;
+        boolean isStart = SparkConstants.Modes.START.equals(journey.direction());
         int depth       = journey.depth();
         String anchor   = journey.anchorEvent();
 
@@ -127,17 +129,17 @@ public class JourneyComputeJob {
                             .and(col("timestamp").cast(DataTypes.DateType).leq(lit(endDate.toString())))
             );
         }
-        df = FunnelComputeJob.applyFilters(df, journey.globalFilters());
+        df = FunnelFilterUtils.applyFilters(df, journey.globalFilters());
 
         Dataset<Row> events = df
                 .select(
                         col(identityCol).alias("identity"),
-                        unix_timestamp(col("timestamp")).alias("ts"),
-                        col("event_name")
+                        unix_timestamp(col(SparkConstants.Columns.TIMESTAMP)).alias("ts"),
+                        col(SparkConstants.Columns.EVENT_NAME)
                 )
                 .filter(col("identity").isNotNull().and(col("identity").notEqual("")));
 
-        Dataset<Row> anchorTs = events.filter(col("event_name").equalTo(anchor))
+        Dataset<Row> anchorTs = events.filter(col(SparkConstants.Columns.EVENT_NAME).equalTo(anchor))
                 .groupBy("identity")
                 .agg(isStart ? min("ts").alias("ts_anchor") : max("ts").alias("ts_anchor"));
 

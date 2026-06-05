@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 
 from pulse_ai.schemas.rca_structured_v1 import RcaStructuredReportV1
 from pulse_ai.schemas.screen_rca_narrative_v1 import ScreenRcaNarrativeV1
+from pulse_ai.schemas.funnel_rca_structured_v1 import FunnelRcaStructuredResponseV1
 from pulse_ai.schemas.session_rca_structured_v1 import SessionRcaStructuredResponseV1
 
 
@@ -71,4 +72,24 @@ class SessionRcaReportPayloadSchema(BaseModel):
 
 class SessionRcaReportResponse(BaseModel):
     report: SessionRcaReportPayloadSchema
+    cached: bool = False
+
+
+class FunnelRcaReportRequest(BaseModel):
+    """Embedded rootCausePayload from funnel attribution (required)."""
+
+    funnelId: int
+    focusStepIndex: int
+    rootCausePayload: dict[str, Any]
+    start: str | None = None
+    end: str | None = None
+    date: str | None = None
+
+
+class FunnelRcaReportPayloadSchema(BaseModel):
+    structured: FunnelRcaStructuredResponseV1
+
+
+class FunnelRcaReportResponse(BaseModel):
+    report: FunnelRcaReportPayloadSchema
     cached: bool = False

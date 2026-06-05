@@ -79,15 +79,3 @@ CREATE TABLE IF NOT EXISTS otel.otel_traces
 ON CLUSTER 'pulse-ch'
 AS otel.otel_traces_local
 ENGINE = Distributed('pulse-ch', otel, otel_traces_local, cityHash64(TraceId));
-
-
--- Optional follow-up (NOT applied): network-span hot columns.
--- Apply separately if you proceed with the network-query optimization:
---   ALTER TABLE otel.otel_traces_local ON CLUSTER 'pulse-ch'
---     ADD COLUMN HttpUrl        String                 MATERIALIZED coalesce(nullIf(SpanAttributes['http.url'], ''), nullIf(SpanAttributes['url.full'], ''), '') CODEC(ZSTD(3)),
---     ADD COLUMN HttpHost       LowCardinality(String) MATERIALIZED ifNull(SpanAttributes['net.peer.name'], ifNull(SpanAttributes['server.address'], '')) CODEC(ZSTD(1)),
---     ADD COLUMN HttpMethod     LowCardinality(String) MATERIALIZED coalesce(nullIf(SpanAttributes['http.method'], ''), nullIf(SpanAttributes['http.request.method'], ''), '') CODEC(ZSTD(1)),
---     ADD COLUMN HttpStatusCode UInt16                 MATERIALIZED toUInt16OrZero(coalesce(nullIf(SpanAttributes['http.status_code'], ''), nullIf(SpanAttributes['http.response.status_code'], ''), '0')) CODEC(T64, ZSTD(1)),
---     ADD INDEX  idx_http_host    HttpHost       TYPE bloom_filter(0.01) GRANULARITY 1,
---     ADD INDEX  idx_http_method  HttpMethod     TYPE set(16)            GRANULARITY 1,
---     ADD INDEX  idx_http_status  HttpStatusCode TYPE minmax             GRANULARITY 1;

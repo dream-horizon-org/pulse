@@ -76,6 +76,19 @@ public class FunnelDefinitionDao {
   }
 
   /**
+   * Bumps {@code funnel.updated_at} to {@code CURRENT_TIMESTAMP} for a single funnel id.
+   * Used by the AUTO batch cron after a successful ClickHouse compute so the listing's
+   * "Last updated" reflects the most recent auto-run, not just the last manual edit.
+   */
+  public Single<Integer> touchUpdatedAt(long id) {
+    MySQLPool pool = mysqlClient.getWriterPool();
+    return pool
+      .preparedQuery(FunnelDefinitionQueries.TOUCH_UPDATED_AT)
+      .rxExecute(Tuple.of(id))
+      .map(r -> (int) r.rowCount());
+  }
+
+  /**
    * Stops auto-refresh for an AUTO funnel by flipping it to ONCE and freezing the analysis
    * window. Returns the number of rows updated — {@code 0} when the funnel is already
    * stopped (ONCE), missing, or owned by another project. Combined with the existing
@@ -199,7 +212,9 @@ public class FunnelDefinitionDao {
         });
   }
 
-  /** Distinct non-null created_by values for all funnels in the project. */
+  /**
+   * Distinct non-null created_by values for all funnels in the project.
+   */
   public Single<List<String>> listDistinctCreatedBy(String projectId) {
     MySQLPool pool = mysqlClient.getReaderPool();
     return pool

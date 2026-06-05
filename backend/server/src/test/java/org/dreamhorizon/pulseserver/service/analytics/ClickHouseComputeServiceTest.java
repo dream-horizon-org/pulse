@@ -9,8 +9,10 @@ import static org.mockito.Mockito.when;
 
 import io.reactivex.rxjava3.core.Maybe;
 import io.reactivex.rxjava3.core.Single;
+
 import java.time.LocalDateTime;
 import java.util.List;
+
 import org.dreamhorizon.pulseserver.client.chclient.ClickhouseWriteClient;
 import org.dreamhorizon.pulseserver.dao.analyticsjob.AnalyticsJobDao;
 import org.dreamhorizon.pulseserver.dao.analyticsjob.AnalyticsJobStatus;
@@ -48,7 +50,7 @@ class ClickHouseComputeServiceTest {
   @BeforeEach
   void setUp() {
     service = new ClickHouseComputeService(
-        funnelDefinitionDao, journeyDao, analyticsJobDao, clickhouseWriteClient);
+      funnelDefinitionDao, journeyDao, analyticsJobDao, clickhouseWriteClient);
   }
 
   /**
@@ -57,33 +59,42 @@ class ClickHouseComputeServiceTest {
    */
   private void stubAnalyticsJobLifecycle() {
     when(analyticsJobDao.insertJob(
-            ArgumentMatchers.any(AnalyticsJobType.class),
-            ArgumentMatchers.anyLong(),
-            ArgumentMatchers.isNull(),
-            ArgumentMatchers.eq(AnalyticsJobStatus.RUNNING)))
-        .thenReturn(Single.just(1L));
+      ArgumentMatchers.any(AnalyticsJobType.class),
+      ArgumentMatchers.anyLong(),
+      ArgumentMatchers.isNull(),
+      ArgumentMatchers.eq(AnalyticsJobStatus.RUNNING)))
+      .thenReturn(Single.just(1L));
     when(analyticsJobDao.updateJobStatus(
-            ArgumentMatchers.anyLong(),
-            ArgumentMatchers.any(AnalyticsJobStatus.class),
-            ArgumentMatchers.any(),
-            ArgumentMatchers.any(LocalDateTime.class),
-            ArgumentMatchers.any(LocalDateTime.class)))
-        .thenReturn(Single.just(1));
+      ArgumentMatchers.anyLong(),
+      ArgumentMatchers.any(AnalyticsJobStatus.class),
+      ArgumentMatchers.any(),
+      ArgumentMatchers.any(LocalDateTime.class),
+      ArgumentMatchers.any(LocalDateTime.class)))
+      .thenReturn(Single.just(1));
   }
 
   private FunnelDefinitionRow funnelRow() {
+    return orderedFunnelRow("[{\"eventName\":\"e1\"}]");
+  }
+
+  /** ORDERED funnel with 2+ steps so drop-off attribution INSERT is emitted. */
+  private FunnelDefinitionRow orderedDropoffFunnelRow() {
+    return orderedFunnelRow("[{\"eventName\":\"e1\"},{\"eventName\":\"e2\"}]");
+  }
+
+  private FunnelDefinitionRow orderedFunnelRow(String stepsJson) {
     return FunnelDefinitionRow.builder()
-        .id(42L)
-        .projectId(PROJECT)
-        .name("F")
-        .funnelType("AUTO")
-        .stepOrderType("ORDERED")
-        .mode("UNIQUE_USERS")
-        .dateRangeDays(7)
-        .windowSeconds(3600L)
-        .stepsJson("[{\"eventName\":\"e1\"}]")
-        .filtersJson(null)
-        .build();
+      .id(42L)
+      .projectId(PROJECT)
+      .name("F")
+      .funnelType("AUTO")
+      .stepOrderType("ORDERED")
+      .mode("UNIQUE_USERS")
+      .dateRangeDays(7)
+      .windowSeconds(3600L)
+      .stepsJson(stepsJson)
+      .filtersJson(null)
+      .build();
   }
 
   private JourneyRow journeyRow() {
@@ -95,7 +106,7 @@ class ClickHouseComputeServiceTest {
     when(funnelDefinitionDao.findById(1L)).thenReturn(Maybe.empty());
 
     assertThatThrownBy(() -> service.computeFunnel(1L).blockingGet())
-        .hasMessageContaining("Funnel not found");
+      .hasMessageContaining("Funnel not found");
   }
 
   @Test
@@ -104,7 +115,36 @@ class ClickHouseComputeServiceTest {
     when(clickhouseWriteClient.executeSql(anyString())).thenReturn(Single.just(true));
 
     assertThat(service.computeFunnel(42L).blockingGet()).isTrue();
-    verify(clickhouseWriteClient).executeSql(org.mockito.ArgumentMatchers.argThat(s -> s != null && s.contains("INSERT INTO otel.funnel_results")));
+    verify(clickhouseWriteClient)
+        .executeSql(
+            org.mockito.ArgumentMatchers.argThat(
+                s -> s != null && s.contains("INSERT INTO otel.funnel_results")));
+  }
+
+  @Test
+  void computeFunnel_alsoEmitsAttributionPrecomputeForOrderedFunnels() {
+    // Cascade: funnel_results → session_state → user_state → attribution (needs 2+ steps).
+    when(funnelDefinitionDao.findById(42L)).thenReturn(Maybe.just(orderedDropoffFunnelRow()));
+    when(clickhouseWriteClient.executeSql(anyString())).thenReturn(Single.just(true));
+
+    assertThat(service.computeFunnel(42L).blockingGet()).isTrue();
+    verify(clickhouseWriteClient).executeSql(org.mockito.ArgumentMatchers.argThat(
+        s -> s != null && s.contains("INSERT INTO otel.funnel_dropoff_attribution")));
+  }
+
+  @Test
+  void computeFunnel_swallowsAttributionFailureWhenResultsSucceeded() {
+    // Attribution is best-effort. A failure must not surface — funnel_results already
+    // landed, the side-panel can fall back to the live cause-join query.
+    when(funnelDefinitionDao.findById(42L)).thenReturn(Maybe.just(orderedDropoffFunnelRow()));
+    when(clickhouseWriteClient.executeSql(org.mockito.ArgumentMatchers.argThat(
+        s -> s != null && s.contains("INSERT INTO otel.funnel_dropoff_attribution"))))
+        .thenReturn(Single.error(new RuntimeException("attribution boom")));
+    when(clickhouseWriteClient.executeSql(org.mockito.ArgumentMatchers.argThat(
+        s -> s != null && !s.contains("INSERT INTO otel.funnel_dropoff_attribution"))))
+        .thenReturn(Single.just(true));
+
+    assertThat(service.computeFunnel(42L).blockingGet()).isTrue();
   }
 
   @Test
@@ -112,7 +152,7 @@ class ClickHouseComputeServiceTest {
     when(journeyDao.findById(1L)).thenReturn(Maybe.empty());
 
     assertThatThrownBy(() -> service.computeJourney(1L).blockingGet())
-        .hasMessageContaining("Journey not found");
+      .hasMessageContaining("Journey not found");
   }
 
   @Test
@@ -153,15 +193,15 @@ class ClickHouseComputeServiceTest {
     service.computeJourneyBatch(PROJECT, List.of(start, end)).blockingGet();
 
     verify(analyticsJobDao).insertJob(
-        ArgumentMatchers.eq(AnalyticsJobType.JOURNEY),
-        ArgumentMatchers.eq(1L),
-        ArgumentMatchers.isNull(),
-        ArgumentMatchers.eq(AnalyticsJobStatus.RUNNING));
+      ArgumentMatchers.eq(AnalyticsJobType.JOURNEY),
+      ArgumentMatchers.eq(1L),
+      ArgumentMatchers.isNull(),
+      ArgumentMatchers.eq(AnalyticsJobStatus.RUNNING));
     verify(analyticsJobDao).insertJob(
-        ArgumentMatchers.eq(AnalyticsJobType.JOURNEY),
-        ArgumentMatchers.eq(2L),
-        ArgumentMatchers.isNull(),
-        ArgumentMatchers.eq(AnalyticsJobStatus.RUNNING));
+      ArgumentMatchers.eq(AnalyticsJobType.JOURNEY),
+      ArgumentMatchers.eq(2L),
+      ArgumentMatchers.isNull(),
+      ArgumentMatchers.eq(AnalyticsJobStatus.RUNNING));
   }
 
   @Test
@@ -169,57 +209,96 @@ class ClickHouseComputeServiceTest {
     // Each funnel in the batch must get its own analytics_jobs row with reference_id
     // set to the funnel id, so the listing's latest_job_status subquery resolves.
     FunnelDefinitionRow f1 = FunnelDefinitionRow.builder()
-        .id(7L).projectId(PROJECT).name("F1").funnelType("AUTO").stepOrderType("ORDERED")
-        .mode("UNIQUE_USERS").dateRangeDays(7).windowSeconds(3600L)
-        .stepsJson("[{\"eventName\":\"e1\"}]").filtersJson(null).build();
+      .id(7L).projectId(PROJECT).name("F1").funnelType("AUTO").stepOrderType("ORDERED")
+      .mode("UNIQUE_USERS").dateRangeDays(7).windowSeconds(3600L)
+      .stepsJson("[{\"eventName\":\"e1\"}]").filtersJson(null).build();
     FunnelDefinitionRow f2 = FunnelDefinitionRow.builder()
-        .id(8L).projectId(PROJECT).name("F2").funnelType("AUTO").stepOrderType("ORDERED")
-        .mode("UNIQUE_USERS").dateRangeDays(7).windowSeconds(3600L)
-        .stepsJson("[{\"eventName\":\"e1\"}]").filtersJson(null).build();
+      .id(8L).projectId(PROJECT).name("F2").funnelType("AUTO").stepOrderType("ORDERED")
+      .mode("UNIQUE_USERS").dateRangeDays(7).windowSeconds(3600L)
+      .stepsJson("[{\"eventName\":\"e1\"}]").filtersJson(null).build();
     when(clickhouseWriteClient.executeSql(anyString())).thenReturn(Single.just(true));
     stubAnalyticsJobLifecycle();
 
     service.computeFunnelBatch(PROJECT, List.of(f1, f2)).blockingGet();
 
     verify(analyticsJobDao).insertJob(
-        ArgumentMatchers.eq(AnalyticsJobType.FUNNEL),
-        ArgumentMatchers.eq(7L),
-        ArgumentMatchers.isNull(),
-        ArgumentMatchers.eq(AnalyticsJobStatus.RUNNING));
+      ArgumentMatchers.eq(AnalyticsJobType.FUNNEL),
+      ArgumentMatchers.eq(7L),
+      ArgumentMatchers.isNull(),
+      ArgumentMatchers.eq(AnalyticsJobStatus.RUNNING));
     verify(analyticsJobDao).insertJob(
-        ArgumentMatchers.eq(AnalyticsJobType.FUNNEL),
-        ArgumentMatchers.eq(8L),
-        ArgumentMatchers.isNull(),
-        ArgumentMatchers.eq(AnalyticsJobStatus.RUNNING));
+      ArgumentMatchers.eq(AnalyticsJobType.FUNNEL),
+      ArgumentMatchers.eq(8L),
+      ArgumentMatchers.isNull(),
+      ArgumentMatchers.eq(AnalyticsJobStatus.RUNNING));
   }
 
   private JourneyRow journeyRowWithDirection(long id, String direction) {
     return JourneyRow.builder()
-        .id(id)
-        .projectId(PROJECT)
-        .name("J")
-        .description(null)
-        .anchorEvent("anchor")
-        .direction(direction)
-        .depth(3)
-        .mode("UNIQUE_USERS")
-        .filtersJson(null)
-        .startTime(null)
-        .endTime(null)
-        .journeyType("AUTO")
-        .expiry(null)
-        .dateRangeDays(7)
-        .createdAt(null)
-        .updatedAt(null)
-        .createdBy(null)
-        .latestJobStatus(null)
-        .totalCount(0L)
-        .build();
+      .id(id)
+      .projectId(PROJECT)
+      .name("J")
+      .description(null)
+      .anchorEvent("anchor")
+      .direction(direction)
+      .depth(3)
+      .mode("UNIQUE_USERS")
+      .filtersJson(null)
+      .startTime(null)
+      .endTime(null)
+      .journeyType("AUTO")
+      .expiry(null)
+      .dateRangeDays(7)
+      .createdAt(null)
+      .updatedAt(null)
+      .createdBy(null)
+      .latestJobStatus(null)
+      .totalCount(0L)
+      .build();
   }
 
   @Test
   void executeInsert_blankSql_skipsClient() {
     assertThat(service.executeInsert(PROJECT, "  ").blockingGet()).isTrue();
     assertThat(service.executeInsert(PROJECT, null).blockingGet()).isTrue();
+  }
+
+  @Test
+  void deleteFunnelResults_cascadesAcrossResultsAndDropoffBridgeTables() {
+    // FunnelService.delete depends on this cascade — without it, drop-off bridge rows for
+    // a deleted funnel keep serving the panel until 90d TTL, and re-creating a funnel that
+    // reuses the same id would mix old + new rows.
+    when(clickhouseWriteClient.executeSql(anyString())).thenReturn(Single.just(true));
+
+    assertThat(service.deleteFunnelResults(PROJECT, 42L).blockingGet()).isTrue();
+
+    verify(clickhouseWriteClient).executeSql(org.mockito.ArgumentMatchers.argThat(
+      s -> s != null
+        && s.contains("DELETE FROM otel.funnel_results")
+        && s.contains("ProjectId = 'proj-x'")
+        && s.contains("FunnelId = 42")));
+    verify(clickhouseWriteClient).executeSql(org.mockito.ArgumentMatchers.argThat(
+      s -> s != null && s.contains("DELETE FROM otel.funnel_session_state")
+        && s.contains("FunnelId = 42")));
+    verify(clickhouseWriteClient).executeSql(org.mockito.ArgumentMatchers.argThat(
+      s -> s != null && s.contains("DELETE FROM otel.funnel_user_state")
+        && s.contains("FunnelId = 42")));
+    verify(clickhouseWriteClient).executeSql(org.mockito.ArgumentMatchers.argThat(
+      s -> s != null && s.contains("DELETE FROM otel.funnel_dropoff_attribution")
+        && s.contains("FunnelId = 42")));
+  }
+
+  @Test
+  void deleteFunnelResults_swallowsBridgeFailureWhenPrimaryDeleteSucceeds() {
+    // Primary funnel_results delete must succeed independently — bridge cleanup failures
+    // are best-effort and shouldn't surface to FunnelService.delete.
+    when(clickhouseWriteClient.executeSql(org.mockito.ArgumentMatchers.argThat(
+      s -> s != null && s.contains("DELETE FROM otel.funnel_results"))))
+      .thenReturn(Single.just(true));
+    when(clickhouseWriteClient.executeSql(org.mockito.ArgumentMatchers.argThat(
+      s -> s != null && s.contains("DELETE FROM otel.funnel_session_state"))))
+      .thenReturn(Single.error(new RuntimeException("bridge ch boom")));
+
+    assertThat(service.deleteFunnelResults(PROJECT, 42L).blockingGet()).isTrue();
   }
 }

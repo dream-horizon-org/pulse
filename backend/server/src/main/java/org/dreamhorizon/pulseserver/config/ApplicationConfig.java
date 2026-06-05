@@ -74,7 +74,9 @@ public class ApplicationConfig {
    */
   public Integer redisPort;
 
-  /** Comma-separated opaque tokens accepted by InternalServiceAuthFilter for /internal/* paths. */
+  /**
+   * Comma-separated opaque tokens accepted by InternalServiceAuthFilter for /internal/* paths.
+   */
   public String internalServiceTokens;
 
   /**

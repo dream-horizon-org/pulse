@@ -19,6 +19,8 @@ interface FunnelVisualizationProps {
    * ("users" vs "sessions"). Defaults to UNIQUE_USERS when omitted.
    */
   mode?: FunnelMode;
+  /** Zero-based step the user dropped from; fired when the drop-off segment is clicked. */
+  onStepDropoffClick?: (focusStepIndex: number) => void;
 }
 
 const SLOW_THRESHOLD_SECONDS = 30;
@@ -29,6 +31,7 @@ export function FunnelVisualization({
   conversionTrend,
   medianTimes,
   mode = FunnelMode.UNIQUE_USERS,
+  onStepDropoffClick,
 }: FunnelVisualizationProps) {
   const subjectPlural = mode === FunnelMode.SESSIONS ? "sessions" : "users";
   const maxCompleted = steps.length > 0 ? steps[0].count : 1;
@@ -42,7 +45,9 @@ export function FunnelVisualization({
   return (
     <>
       <Box className={classes.kpiSection}>
-        <Text className={classes.kpiBigNumber}>{formatPct(totalConversionRate)}%</Text>
+        <Text className={classes.kpiBigNumber}>
+          {formatPct(totalConversionRate)}%
+        </Text>
         <Box>
           <Text className={classes.kpiLabel}>Total Conversion</Text>
           <Box
@@ -102,13 +107,37 @@ export function FunnelVisualization({
                   </Box>
                   {dropoffPct > 0 && (
                     <Tooltip
-                      label={`${dropoffCount.toLocaleString()} ${subjectPlural} dropped off at Step ${index + 1}`}
+                      label={
+                        onStepDropoffClick
+                          ? `${dropoffCount.toLocaleString()} ${subjectPlural} dropped off — click to see why`
+                          : `${dropoffCount.toLocaleString()} ${subjectPlural} dropped off at Step ${index + 1}`
+                      }
                       position="top"
                       withArrow
                     >
                       <Box
                         className={classes.chartBarDropoff}
-                        style={{ width: `${dropoffPct}%` }}
+                        style={{
+                          width: `${dropoffPct}%`,
+                          cursor: onStepDropoffClick ? "pointer" : undefined,
+                        }}
+                        role={onStepDropoffClick ? "button" : undefined}
+                        tabIndex={onStepDropoffClick ? 0 : undefined}
+                        onClick={
+                          onStepDropoffClick
+                            ? () => onStepDropoffClick(index - 1)
+                            : undefined
+                        }
+                        onKeyDown={
+                          onStepDropoffClick
+                            ? (e) => {
+                                if (e.key === "Enter" || e.key === " ") {
+                                  e.preventDefault();
+                                  onStepDropoffClick(index - 1);
+                                }
+                              }
+                            : undefined
+                        }
                       >
                         <Text className={classes.chartBarDropoffCount}>
                           -{dropoffCount.toLocaleString()}

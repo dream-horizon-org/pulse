@@ -1,0 +1,1089 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><title>Funnel Drop-off Correlation</title>
+<style>
+body{font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:960px;margin:2rem auto;padding:0 1rem;color:#172b4d;line-height:1.55}
+h1,h2,h3,h4{color:#172b4d;margin-top:1.6em}
+h1{border-bottom:2px solid #dfe1e6;padding-bottom:.3em}
+h2{border-bottom:1px solid #dfe1e6;padding-bottom:.2em}
+code{background:#f4f5f7;padding:.1em .35em;border-radius:3px;font-family:SFMono-Regular,Consolas,monospace;font-size:.9em}
+pre{background:#f4f5f7;padding:1em;border-radius:4px;overflow-x:auto}
+pre code{background:none;padding:0}
+table{border-collapse:collapse;margin:1em 0;width:100%}
+th,td{border:1px solid #dfe1e6;padding:.5em .8em;text-align:left;vertical-align:top}
+th{background:#f4f5f7;font-weight:600}
+blockquote{border-left:4px solid #dfe1e6;margin:1em 0;padding:.3em 1em;color:#6b778c}
+</style></head><body><h1 id="funnel-drop-off-correlation-with-otel-signals">Funnel Drop-off Correlation with OTel Signals</h1>
+<p><strong>Goal:</strong> Bridge the gap between Product and Engineering by correlating every funnel drop-off with its underlying reliability, performance, or UX cause — backed by direct evidence (session replay, traces, heatmaps, stack traces).</p>
+<h2 id="1-the-problem">1. The Problem</h2>
+<p>Today, <code>otel.funnel_results_local</code> stores only per-step aggregates:</p>
+<table>
+<thead>
+<tr>
+<th>Column</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>StepIndex</code></td>
+<td>0-based step</td>
+</tr>
+<tr>
+<td><code>StepName</code></td>
+<td>Event name</td>
+</tr>
+<tr>
+<td><code>UserCount</code></td>
+<td>Unique users/sessions reaching the step</td>
+</tr>
+<tr>
+<td><code>ConversionPct</code></td>
+<td>% from step 0</td>
+</tr>
+<tr>
+<td><code>MedianStepSeconds</code></td>
+<td>Median time from previous step</td>
+</tr>
+</tbody>
+</table>
+<p>This tells us <strong>how many</strong> dropped, but not <strong>who</strong>, <strong>when</strong>, or <strong>why</strong>. The <code>SessionId</code> is discarded at aggregation time, so there is no way to join back to crashes, traces, or replay.</p>
+<p><strong>Core gap:</strong> The funnel pipeline loses the one piece of information needed to correlate drop-offs with OTel signals — the per-session funnel state.</p>
+<h2 id="2-walkthrough-meet-alice">2. Walkthrough: Meet Alice</h2>
+<p>Let's follow one real user through a 5-step checkout funnel to make the design concrete.</p>
+<h3 id="21-the-funnel-definition">2.1 The funnel definition</h3>
+<table>
+<thead>
+<tr>
+<th>Step</th>
+<th>Event name</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0</td>
+<td><code>view_product</code></td>
+</tr>
+<tr>
+<td>1</td>
+<td><code>add_to_cart</code></td>
+</tr>
+<tr>
+<td>2</td>
+<td><code>view_cart</code></td>
+</tr>
+<tr>
+<td>3</td>
+<td><code>start_checkout</code></td>
+</tr>
+<tr>
+<td>4</td>
+<td><code>payment_success</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="22-aggregate-result-from-funnel_results_local">2.2 Aggregate result from <code>funnel_results_local</code></h3>
+<table>
+<thead>
+<tr>
+<th>StepIndex</th>
+<th>StepName</th>
+<th>UserCount</th>
+<th>ConversionPct</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0</td>
+<td>view_product</td>
+<td>100,000</td>
+<td>100%</td>
+</tr>
+<tr>
+<td>1</td>
+<td>add_to_cart</td>
+<td>45,000</td>
+<td>45%</td>
+</tr>
+<tr>
+<td>2</td>
+<td>view_cart</td>
+<td>40,000</td>
+<td>40%</td>
+</tr>
+<tr>
+<td>3</td>
+<td>start_checkout</td>
+<td>30,000</td>
+<td>30%</td>
+</tr>
+<tr>
+<td>4</td>
+<td>payment_success</td>
+<td>18,000</td>
+<td>18%</td>
+</tr>
+</tbody>
+</table>
+<p><strong>12,000 users started checkout but never paid.</strong> The PM clicks this drop-off bar. We need to answer: <em>why?</em></p>
+<h3 id="23-alices-session-in-otel_logs">2.3 Alice's session in <code>otel_logs</code></h3>
+<table>
+<thead>
+<tr>
+<th>Timestamp</th>
+<th>EventName</th>
+<th>SessionId</th>
+<th>UserId</th>
+<th>ScreenName</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>10:00:05</td>
+<td>view_product</td>
+<td>sess_abc</td>
+<td>user_alice</td>
+<td>ProductPage</td>
+</tr>
+<tr>
+<td>10:00:40</td>
+<td>add_to_cart</td>
+<td>sess_abc</td>
+<td>user_alice</td>
+<td>ProductPage</td>
+</tr>
+<tr>
+<td>10:01:10</td>
+<td>view_cart</td>
+<td>sess_abc</td>
+<td>user_alice</td>
+<td>CartPage</td>
+</tr>
+<tr>
+<td>10:01:25</td>
+<td>start_checkout</td>
+<td>sess_abc</td>
+<td>user_alice</td>
+<td>CheckoutPage</td>
+</tr>
+<tr>
+<td>(never emits <code>payment_success</code>)</td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h3 id="24-what-else-happened-in-alices-session">2.4 What else happened in Alice's session</h3>
+<p><strong><code>otel_traces</code></strong> — there's an HTTP call right after she tapped "Checkout":</p>
+<table>
+<thead>
+<tr>
+<th>Timestamp</th>
+<th>SpanName</th>
+<th>SessionId</th>
+<th>HttpStatusCode</th>
+<th>Duration</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>10:01:26</td>
+<td>POST /v2/cart/checkout</td>
+<td>sess_abc</td>
+<td>503</td>
+<td>8,200ms</td>
+</tr>
+</tbody>
+</table>
+<p><strong><code>stack_trace_events</code></strong> — no crash or ANR.</p>
+<p><strong><code>session_summary</code></strong> for <code>sess_abc</code>:</p>
+<ul>
+<li>networkErrors: 1</li>
+<li>crashCount: 0</li>
+<li>frozenFrameCount: 0</li>
+</ul>
+<p><strong><code>session_replay_events</code></strong> — replay blob covering <code>10:01:20 → 10:01:45</code> showing 4 rapid taps on the Checkout button (rage tap), then app close.</p>
+<h3 id="25-the-real-story">2.5 The real story</h3>
+<p>Checkout API returned 503 → Alice rage-tapped → left the app.</p>
+<p>All the evidence exists across our OTel tables. We just can't connect it to her funnel position because her <code>SessionId</code> was discarded.</p>
+<h3 id="26-now-meet-bob-why-per-session-isnt-always-the-right-grain">2.6 Now meet Bob — why "per-session" isn't always the right grain</h3>
+<p>Alice has exactly one session in the funnel window, so there's no ambiguity about who she is or when she dropped off. But Bob uses the app differently:</p>
+<table>
+<thead>
+<tr>
+<th>Timestamp</th>
+<th>Session</th>
+<th>EventName</th>
+<th>Outcome</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Mon 09:12</td>
+<td><code>sess_bob_1</code></td>
+<td>view_product → add_to_cart → view_cart → start_checkout</td>
+<td>503 on checkout API → left</td>
+</tr>
+<tr>
+<td>Mon 09:40</td>
+<td><code>sess_bob_2</code></td>
+<td>view_product → add_to_cart</td>
+<td>Got distracted, closed app</td>
+</tr>
+<tr>
+<td>Tue 18:05</td>
+<td><code>sess_bob_3</code></td>
+<td>view_product → add_to_cart → view_cart → start_checkout → payment_success</td>
+<td>Purchased</td>
+</tr>
+</tbody>
+</table>
+<p>If our funnel is configured to count <strong>sessions</strong>, Bob contributes <em>three</em> data points — one drop-off at step 3, one at step 1, one converter — and <code>sess_bob_1</code>'s crash is a legitimate signal in the step-3 drop-off cohort.</p>
+<p>But if Product asked <em>"how many customers couldn't get through checkout?"</em>, the answer is <strong>zero</strong> — Bob is a converter at the customer grain; his checkout-session crash is a reliability event against him, but not a funnel loss. Same raw data, different question.</p>
+<p>Pulse funnels support both framings via a <code>mode</code> setting: <code>SESSIONS</code> or <code>UNIQUE_USERS</code>. The drop-off correlation system has to respect that setting all the way down. Section 5 covers how.</p>
+<h2 id="3-solution-overview">3. Solution Overview</h2>
+<p>Three new tables bridge funnel state to OTel signals:</p>
+<ol>
+<li><strong><code>funnel_session_state_local</code></strong> — per-session funnel position. Always populated for ordered funnels, both modes. Cohort source for SESSIONS funnels; powers x-ray drill-in for UNIQUE_USERS.</li>
+<li><strong><code>funnel_user_state_local</code></strong> — per-user state, computed independently via cross-session <code>windowFunnel</code>-equivalent chain on <code>otel.otel_logs</code>. Populated only when <code>mode = UNIQUE_USERS</code>. Cohort source for UNIQUE_USERS funnels — captures cross-session converters.</li>
+<li><strong><code>funnel_dropoff_attribution_local</code></strong> — precomputed cause-per-step with lift vs converter baseline.</li>
+</ol>
+<p>All three are populated by either the ClickHouse async funnel compute (<code>ClickHouseFunnelComputeDao</code>, runs SQL inside ClickHouse against <code>otel_logs</code> / <code>otel_traces</code> / <code>session_summary</code>) or the Spark batch job (<code>FunnelComputeJob</code>, runs DataFrame ops on parquet shipped to S3 by the OTel s3-archiver). The dispatcher picks one engine per funnel run; both populate the same downstream tables with the same row shapes and shared <code>RunTime</code> stamp so the drop-off DAO is engine-agnostic.</p>
+<p><strong>Why both tables (independent, not derived):</strong> OTel signals (crashes, traces, replay) are inherently per-session in time — a crash happens in one specific session at one specific moment. The per-session table gives every OTel row a concrete session to anchor on. The user-level table mirrors what <code>windowFunnel</code> does for the displayed funnel chart: groups events by <code>AppInstallationId</code>, tracks chains across sessions, and resolves the canonical session = the one that contained the last matched step. Cohort numbers from <code>funnel_user_state</code> therefore match <code>funnel_results.UserCount</code> exactly, including cross-session conversions.</p>
+<h2 id="4-schema-additions">4. Schema Additions</h2>
+<h3 id="41-funnel_session_state_local-the-per-session-bridge-table">4.1 <code>funnel_session_state_local</code> — the per-session bridge table</h3>
+<p>One row per session that entered the funnel. Keeps <code>SessionId</code> so every other OTel table becomes joinable. <strong>Always populated for ordered funnels, regardless of mode.</strong> What it powers depends on mode:</p>
+<ul>
+<li><strong>SESSIONS funnels:</strong> primary cohort source for the drop-off panel. Cohort = <code>countIf(LastReachedStep &gt;= k)</code>, lift baseline = converter sessions in the same table.</li>
+<li><strong>UNIQUE_USERS funnels:</strong> powers the <strong>x-ray drill-in</strong> (per-session view of one user's funnel attempts) and single-session debug view. The drop-off panel's cohort numbers come from <code>funnel_user_state</code> instead, so a user with cross-session conversions stays correctly classified at the panel level — but the x-ray drill-in can still enumerate that user's per-session journey row by row from this table.</li>
+</ul>
+<p>The chain logic per row is identical in both modes: a session-local single-anchor walk matching <code>windowFunnel</code>. <code>attempts</code> CTE selects <code>min(t0)</code> of step-0 events per session — exactly what <code>windowFunnel</code> would anchor on.</p>
+<pre><code class="language-sql">CREATE TABLE otel.funnel_session_state_local
+ON CLUSTER `pulse-clickhouse`
+(
+    `FunnelId`             UInt64                 CODEC(T64, ZSTD(1)),
+    `ProjectId`            LowCardinality(String) CODEC(ZSTD(1)),
+    `RunTime`              DateTime64(3, 'UTC')   CODEC(DoubleDelta, ZSTD(1)),
+    `SessionId`            String                 CODEC(ZSTD(1)),
+    `UserId`               String                 CODEC(ZSTD(1)),
+    `LastReachedStep`      UInt8                  CODEC(T64, ZSTD(1)),
+    `LastReachedStepName`  LowCardinality(String) CODEC(ZSTD(1)),
+    `LastReachedAt`        DateTime64(3, 'UTC')   CODEC(DoubleDelta, ZSTD(1)),
+    `DropoffStep`          Int8                   CODEC(T64, ZSTD(1)),
+    `TimeToDropoffSec`     Int64                  CODEC(T64, ZSTD(1)),
+    `ScreenAtDropoff`      LowCardinality(String) CODEC(ZSTD(1)),
+    `TraceIdAtDropoff`     String                 CODEC(ZSTD(1)),
+    `AppVersion`           LowCardinality(String) CODEC(ZSTD(1)),
+    `OsName`               LowCardinality(String) CODEC(ZSTD(1)),
+    `OsVersion`            LowCardinality(String) CODEC(ZSTD(1)),
+    `Platform`             LowCardinality(String) CODEC(ZSTD(1)),
+    `DeviceModel`          LowCardinality(String) CODEC(ZSTD(1)),
+    `NetworkProvider`      LowCardinality(String) CODEC(ZSTD(1)),
+    `GeoCountry`           LowCardinality(String) CODEC(ZSTD(1)),
+
+    INDEX idx_session_id SessionId TYPE bloom_filter(0.01) GRANULARITY 1,
+    INDEX idx_user_id    UserId    TYPE bloom_filter(0.01) GRANULARITY 1,
+    INDEX idx_run_time   RunTime   TYPE minmax GRANULARITY 1
+)
+ENGINE = ReplicatedMergeTree('/clickhouse/tables/{shard}/otel/funnel_session_state_local', '{replica}')
+PARTITION BY toYYYYMM(RunTime)
+ORDER BY (ProjectId, FunnelId, RunTime, DropoffStep, SessionId)
+TTL toDateTime(RunTime) + toIntervalDay(7)  TO VOLUME 'cold',
+    toDateTime(RunTime) + toIntervalDay(90) DELETE
+SETTINGS index_granularity = 8192, storage_policy = 'tiered';
+</code></pre>
+<p><code>DropoffStep</code> conventions:</p>
+<ul>
+<li><code>-1</code> → converted (reached final step)</li>
+<li>Otherwise → the step the user <em>failed to reach</em>. (E.g. Alice reached step 3, so <code>DropoffStep = 4</code>.)</li>
+</ul>
+<p>Alice's row:</p>
+<table>
+<thead>
+<tr>
+<th>FunnelId</th>
+<th>SessionId</th>
+<th>UserId</th>
+<th>LastReachedStep</th>
+<th>LastReachedStepName</th>
+<th>LastReachedAt</th>
+<th>DropoffStep</th>
+<th>ScreenAtDropoff</th>
+<th>TraceIdAtDropoff</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>42</td>
+<td>sess_abc</td>
+<td>user_alice</td>
+<td>3</td>
+<td>start_checkout</td>
+<td>10:01:25</td>
+<td>4</td>
+<td>CheckoutPage</td>
+<td>trace_xyz</td>
+</tr>
+</tbody>
+</table>
+<p>Bob's three rows (all land in this same table, one per session):</p>
+<table>
+<thead>
+<tr>
+<th>SessionId</th>
+<th>UserId</th>
+<th>LastReachedStep</th>
+<th>DropoffStep</th>
+<th>LastReachedAt</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>sess_bob_1</td>
+<td>user_bob</td>
+<td>3 (start_checkout)</td>
+<td>4</td>
+<td>Mon 09:12:48</td>
+</tr>
+<tr>
+<td>sess_bob_2</td>
+<td>user_bob</td>
+<td>1 (add_to_cart)</td>
+<td>2</td>
+<td>Mon 09:40:15</td>
+</tr>
+<tr>
+<td>sess_bob_3</td>
+<td>user_bob</td>
+<td>4 (payment_success)</td>
+<td>-1</td>
+<td>Tue 18:05:33</td>
+</tr>
+</tbody>
+</table>
+<h3 id="42-funnel_user_state_local-the-per-user-rollup">4.2 <code>funnel_user_state_local</code> — the per-user rollup</h3>
+<p>One row per user that entered the funnel, derived from the session bridge. <strong>Only populated when the funnel's <code>mode = UNIQUE_USERS</code>.</strong> Picks each user's canonical session — the one that reached the furthest step, latest on ties — so OTel attribution has exactly one <code>LastReachedAt</code> anchor per user.</p>
+<pre><code class="language-sql">CREATE TABLE otel.funnel_user_state_local
+ON CLUSTER `pulse-clickhouse`
+(
+    `FunnelId`                   UInt64                 CODEC(T64, ZSTD(1)),
+    `ProjectId`                  LowCardinality(String) CODEC(ZSTD(1)),
+    `RunTime`                    DateTime64(3, 'UTC')   CODEC(DoubleDelta, ZSTD(1)),
+    `UserId`                     String                 CODEC(ZSTD(1)),
+    `MaxReachedStep`             UInt8                  CODEC(T64, ZSTD(1)),
+    `DropoffStep`                Int8                   CODEC(T64, ZSTD(1)),
+    `CanonicalSessionId`         String                 CODEC(ZSTD(1)),
+    `CanonicalLastReachedAt`     DateTime64(3, 'UTC')   CODEC(DoubleDelta, ZSTD(1)),
+    `CanonicalTraceIdAtDropoff`  String                 CODEC(ZSTD(1)),
+    `CanonicalScreenAtDropoff`   LowCardinality(String) CODEC(ZSTD(1)),
+    `AppVersion`                 LowCardinality(String) CODEC(ZSTD(1)),
+    `OsName`                     LowCardinality(String) CODEC(ZSTD(1)),
+    `OsVersion`                  LowCardinality(String) CODEC(ZSTD(1)),
+    `Platform`                   LowCardinality(String) CODEC(ZSTD(1)),
+    `DeviceModel`                LowCardinality(String) CODEC(ZSTD(1)),
+    `NetworkProvider`            LowCardinality(String) CODEC(ZSTD(1)),
+    `GeoCountry`                 LowCardinality(String) CODEC(ZSTD(1)),
+    `SessionAttempts`            UInt32                 CODEC(T64, ZSTD(1)),
+
+    INDEX idx_user_id        UserId             TYPE bloom_filter(0.01) GRANULARITY 1,
+    INDEX idx_canonical_sess CanonicalSessionId TYPE bloom_filter(0.01) GRANULARITY 1,
+    INDEX idx_run_time       RunTime            TYPE minmax             GRANULARITY 1
+)
+ENGINE = ReplicatedMergeTree('/clickhouse/tables/{shard}/otel/funnel_user_state_local', '{replica}')
+PARTITION BY toYYYYMM(RunTime)
+ORDER BY (ProjectId, FunnelId, RunTime, DropoffStep, UserId)
+TTL toDateTime(RunTime) + toIntervalDay(7)  TO VOLUME 'cold',
+    toDateTime(RunTime) + toIntervalDay(90) DELETE
+SETTINGS index_granularity = 8192, storage_policy = 'tiered';
+</code></pre>
+<p>Derivation rules (computed directly from <code>otel.otel_logs</code> via cross-session windowFunnel chain — independent of <code>funnel_session_state</code>):</p>
+<ul>
+<li>Group events by <code>AppInstallationId</code> (matches what <code>windowFunnel</code> does for UNIQUE_USERS funnel_results).</li>
+<li><code>attempts</code> CTE: <code>min(t0)</code> of step-0 events per user (single-anchor — same rule windowFunnel uses).</li>
+<li><code>s1..s(N-1)</code> CTEs: chain walk forward in time within <code>[t_{k-1}, t0 + window]</code>, tracking <code>SessionId</code> at each match via <code>argMinIf(sid, ts, condition)</code>.</li>
+<li><code>MaxReachedStep</code> = highest k where <code>t_k IS NOT NULL</code>.</li>
+<li><code>DropoffStep</code> = <code>-1</code> if <code>t_{stepCount-1} IS NOT NULL</code> (final step reached, possibly cross-session); else <code>MaxReachedStep + 1</code>.</li>
+<li><code>CanonicalSessionId</code> = <code>sid</code> of the deepest matched step (chosen via <code>multiIf</code> cascade). For cross-session converters, this is the session that contained the final step's match.</li>
+<li><code>CanonicalLastReachedAt</code> = timestamp of the deepest matched step.</li>
+<li>Canonical dimensions (TraceId, ScreenAtDropoff, AppVersion, OS, device, network, geo) hydrated by joining <code>otel.otel_logs</code> on <code>(CanonicalSessionId, CanonicalLastReachedAt)</code>.</li>
+<li><code>SessionAttempts</code> = <code>uniqExact(SessionId)</code> per user across all funnel events — how many distinct sessions touched the funnel.</li>
+</ul>
+<p><strong>Cohort alignment:</strong> <code>countIf(MaxReachedStep &gt;= k)</code> from this table equals <code>funnel_results.UserCount[k]</code> exactly for the same UNIQUE_USERS funnel run. Cross-session converters that windowFunnel sees are correctly captured here too.</p>
+<p>Bob's single user-level row (UNIQUE_USERS mode, payment_success in <code>sess_bob_3</code>):</p>
+<table>
+<thead>
+<tr>
+<th>UserId</th>
+<th>MaxReachedStep</th>
+<th>DropoffStep</th>
+<th>CanonicalSessionId</th>
+<th>CanonicalLastReachedAt</th>
+<th>SessionAttempts</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>user_bob</td>
+<td>4 (payment_success)</td>
+<td>-1 (final step reached)</td>
+<td><code>sess_bob_3</code></td>
+<td>Tue 18:05:33</td>
+<td>3</td>
+</tr>
+</tbody>
+</table>
+<p>If Bob's converting chain were <em>cross-session</em> (e.g. step 0 in <code>sess_bob_1</code>, steps 1-4 in <code>sess_bob_3</code>, all within the configured window), the canonical session would still be <code>sess_bob_3</code> because that's where step 4 happened. OTel correlation anchors on the failure / completion moment, not on where the chain started.</p>
+<h3 id="43-funnel_dropoff_attribution_local-precomputed-causes">4.3 <code>funnel_dropoff_attribution_local</code> — precomputed causes</h3>
+<p>One row per (step × cause) with baseline lift. The side-panel is a single lookup, not a fan-out.</p>
+<pre><code class="language-sql">CREATE TABLE otel.funnel_dropoff_attribution_local
+ON CLUSTER `pulse-clickhouse`
+(
+    `FunnelId`           UInt64                 CODEC(T64, ZSTD(1)),
+    `ProjectId`          LowCardinality(String) CODEC(ZSTD(1)),
+    `RunTime`            DateTime64(3, 'UTC')   CODEC(DoubleDelta, ZSTD(1)),
+    `StepIndex`          UInt8                  CODEC(T64, ZSTD(1)),
+    `CauseKind`          LowCardinality(String) CODEC(ZSTD(1)),
+    `CauseKey`           String                 CODEC(ZSTD(1)),
+    `DropoffCohort`      UInt64                 CODEC(T64, ZSTD(1)),
+    `DropoffAffected`    UInt64                 CODEC(T64, ZSTD(1)),
+    `ConverterAffected`  UInt64                 CODEC(T64, ZSTD(1)),
+    `Lift`               Float64                CODEC(ZSTD(1)),
+    `PValue`             Float64                CODEC(ZSTD(1)),
+    `ExampleSessions`    Array(String)          CODEC(ZSTD(3))
+)
+ENGINE = ReplicatedMergeTree('/clickhouse/tables/{shard}/otel/funnel_dropoff_attribution_local', '{replica}')
+PARTITION BY toYYYYMM(RunTime)
+ORDER BY (ProjectId, FunnelId, RunTime, StepIndex, Lift)
+TTL toDateTime(RunTime) + toIntervalDay(7)  TO VOLUME 'cold',
+    toDateTime(RunTime) + toIntervalDay(90) DELETE
+SETTINGS index_granularity = 8192, storage_policy = 'tiered';
+</code></pre>
+<p><strong>Cohort unit follows funnel mode:</strong> <code>DropoffCohort</code>, <code>DropoffAffected</code>, <code>ConverterAffected</code> count <strong>sessions</strong> for SESSIONS funnels and <strong>users</strong> for UNIQUE_USERS funnels. <code>ExampleSessions</code> is always <code>SessionId</code>s — for UNIQUE_USERS it holds each dropped user's canonical session, for SESSIONS it holds the dropped sessions directly.</p>
+<h4 id="causekind-taxonomy"><code>CauseKind</code> taxonomy</h4>
+<table>
+<thead>
+<tr>
+<th>CauseKind</th>
+<th>Source table</th>
+<th>CauseKey example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>crash</code></td>
+<td><code>stack_trace_events</code></td>
+<td><code>OutOfMemoryError@CheckoutActivity</code> (GroupId)</td>
+</tr>
+<tr>
+<td><code>anr</code></td>
+<td><code>stack_trace_events</code></td>
+<td>ANR GroupId</td>
+</tr>
+<tr>
+<td><code>non_fatal</code></td>
+<td><code>stack_trace_events</code></td>
+<td>Exception GroupId</td>
+</tr>
+<tr>
+<td><code>http_5xx</code></td>
+<td><code>otel_traces</code></td>
+<td><code>POST /v2/cart/checkout</code></td>
+</tr>
+<tr>
+<td><code>http_4xx</code></td>
+<td><code>otel_traces</code></td>
+<td><code>GET /v2/user/profile 401</code></td>
+</tr>
+<tr>
+<td><code>frozen_frame</code></td>
+<td><code>session_summary</code> + span</td>
+<td>ScreenName</td>
+</tr>
+<tr>
+<td><code>slow_interaction</code></td>
+<td><code>session_summary</code> + span</td>
+<td>ScreenName</td>
+</tr>
+<tr>
+<td><code>rage_tap</code></td>
+<td><code>session_replay_events</code></td>
+<td>ScreenName</td>
+</tr>
+<tr>
+<td><code>dead_click</code></td>
+<td><code>session_replay_events</code></td>
+<td>ScreenName + element</td>
+</tr>
+<tr>
+<td><code>network_offline</code></td>
+<td>connectivity spans</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Why store Lift, not raw %:</strong> A 30% "had a 5xx" number is meaningless if 28% of <em>converters</em> also had a 5xx. Ranking the panel by lift (droppers% ÷ converters%) surfaces the real culprits and hides ambient noise.</p>
+<h2 id="5-mode-semantics-sessions-vs-unique_users">5. Mode Semantics: SESSIONS vs UNIQUE_USERS</h2>
+<p>Every funnel is configured with one of two cohort modes. The drop-off system honours that choice end-to-end — the bridge table queried, the cohort denominator, the lift calculation, and the UI copy all branch on it.</p>
+<h3 id="51-side-by-side">5.1 Side-by-side</h3>
+<table>
+<thead>
+<tr>
+<th>Aspect</th>
+<th>SESSIONS mode</th>
+<th>UNIQUE_USERS mode</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Unit counted</td>
+<td>One session = one data point</td>
+<td>One user = one data point (dedup across their sessions)</td>
+</tr>
+<tr>
+<td>Example question</td>
+<td>"Of 10,000 sessions that hit <em>Home</em>, how many reached <em>Checkout</em>?"</td>
+<td>"Of 4,200 unique users that hit <em>Home</em>, how many <em>ever</em> reached <em>Checkout</em>?"</td>
+</tr>
+<tr>
+<td>Good for</td>
+<td>Session-quality, per-visit conversion, funnels where each visit is an independent intent</td>
+<td>Customer-journey, acquisition funnels, funnels where retry across sessions is expected</td>
+</tr>
+<tr>
+<td>Cohort denominator at step k</td>
+<td><code>COUNT(DISTINCT SessionId WHERE LastReachedStep &gt;= k)</code></td>
+<td><code>COUNT(DISTINCT UserId WHERE MaxReachedStep &gt;= k)</code></td>
+</tr>
+<tr>
+<td>OTel anchor per cohort member</td>
+<td>The session itself (one <code>LastReachedAt</code> per session)</td>
+<td>The user's canonical session (furthest-reaching, latest on ties)</td>
+</tr>
+<tr>
+<td>Bridge table queried by DAO</td>
+<td><code>funnel_session_state</code></td>
+<td><code>funnel_user_state</code></td>
+</tr>
+<tr>
+<td>User rollup table written?</td>
+<td>No</td>
+<td>Yes</td>
+</tr>
+</tbody>
+</table>
+<h3 id="52-bobs-three-sessions-under-both-modes">5.2 Bob's three sessions under both modes</h3>
+<p>Using Bob from §2.6 — three sessions, one converted.</p>
+<p><strong>SESSIONS mode — Bob contributes three cohort members:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Step k</th>
+<th>Cohort includes</th>
+<th>Cohort count</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0 → 1</td>
+<td>—</td>
+<td>Bob's three sessions all reached step 1</td>
+<td></td>
+</tr>
+<tr>
+<td>1 → 2</td>
+<td><code>sess_bob_2</code></td>
+<td>1 dropper</td>
+<td><code>sess_bob_2</code> stopped at step 1</td>
+</tr>
+<tr>
+<td>3 → 4</td>
+<td><code>sess_bob_1</code></td>
+<td>1 dropper</td>
+<td><code>sess_bob_1</code> failed at checkout (503)</td>
+</tr>
+<tr>
+<td>converted</td>
+<td><code>sess_bob_3</code></td>
+<td>1 converter</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p>→ Bob is simultaneously a dropper (at step 1 and step 3) AND a converter in the same report. The 503 from <code>sess_bob_1</code> is a legitimate signal in the step-3 dropper cohort AND shows up in the converter baseline (via <code>sess_bob_3</code>, which had no 503).</p>
+<p><strong>UNIQUE_USERS mode — Bob contributes one cohort member:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Step k</th>
+<th>Cohort includes</th>
+<th>Cohort count</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>any step</td>
+<td><code>user_bob</code></td>
+<td>converter only</td>
+<td><code>sess_bob_3</code> converted → <code>DropoffStep = -1</code> → Bob is a converter at every step's dropper/converter split</td>
+</tr>
+</tbody>
+</table>
+<p>→ Bob is purely a converter. His crashed <code>sess_bob_1</code> is <strong>silently excluded</strong> from attribution because his canonical session is <code>sess_bob_3</code>, which had no crash. Any signal the user rollup surfaces for Bob is anchored on <code>sess_bob_3</code>.</p>
+<h3 id="53-the-subtle-consequence">5.3 The subtle consequence</h3>
+<p>For the exact same raw data, SESSIONS mode and UNIQUE_USERS mode will often produce <strong>different lift numbers</strong> for the same cause:</p>
+<ul>
+<li>SESSIONS mode tends to produce <strong>smaller lifts</strong> — dropper sessions and converter sessions can belong to the same user, so bad moments dilute the converter baseline (Bob's 503 counts as an event that happened to a user who also converted).</li>
+<li>UNIQUE_USERS mode tends to produce <strong>larger lifts</strong> for signals concentrated in the dropper cohort — because converter users' "bad sessions" never contribute to the baseline at all (only their canonical/winning session does).</li>
+</ul>
+<p>Both are correct — they answer different questions. The panel's <code>mode</code> field echoes the funnel's configured mode so the UI (and readers of the API) are never guessing.</p>
+<h2 id="6-compute-pipeline">6. Compute Pipeline</h2>
+<p>Extend the existing ClickHouse async funnel job (the one that writes <code>funnel_results_local</code> via <code>windowFunnel</code>). Both bridge inserts share the same <code>RunTime</code> literal as <code>funnel_results</code> so the drop-off DAO's <code>MAX(RunTime)</code> join finds them as one consistent run.</p>
+<h3 id="step-1-per-session-sequencing-always-written-for-ordered-funnels">Step 1 — Per-session sequencing (always written for ordered funnels)</h3>
+<p>For each session in the run window, scan <code>otel_logs</code> ordered by <code>Timestamp</code>, run a single-anchor chain walk (matching <code>windowFunnel</code> semantics — anchor on the first step-0 event, walk forward in time), and emit one <code>funnel_session_state</code> row.</p>
+<ul>
+<li>Identity is always <code>SessionId</code> regardless of funnel mode.</li>
+<li><code>attempts</code> CTE: <code>min(t0)</code> per session — single anchor, not multi-attempt.</li>
+<li>For SESSIONS funnels this table IS the cohort source.</li>
+<li>For UNIQUE_USERS funnels this table powers the x-ray drill-in only — cohort numbers come from Step 2.</li>
+</ul>
+<h3 id="step-2-cross-session-user-state-unique_users-only">Step 2 — Cross-session user state (UNIQUE_USERS only)</h3>
+<p>Independently from Step 1, scan <code>otel_logs</code> again grouped by <code>AppInstallationId</code> and emit one <code>funnel_user_state</code> row per user. The chain walks across sessions: step k can be in a different session than step k-1, as long as both fall within <code>[t0, t0 + window]</code>.</p>
+<ul>
+<li><code>attempts</code> CTE: <code>min(t0)</code> of step-0 events per user (matches <code>windowFunnel</code>'s anchoring rule).</li>
+<li><code>s1..s(N-1)</code> CTEs: forward chain walk via <code>LEFT JOIN step_events</code>, with <code>argMinIf(sid, ts, condition)</code> tracking which session contributed each match.</li>
+<li><code>MaxReachedStep</code> = highest <code>k</code> where <code>t_k IS NOT NULL</code>.</li>
+<li><code>DropoffStep</code> = <code>-1</code> if <code>t_{stepCount-1} IS NOT NULL</code> (final step matched, possibly cross-session); else <code>MaxReachedStep + 1</code>.</li>
+<li><code>CanonicalSessionId</code> = <code>sid</code> of the deepest matched step (multiIf cascade picks <code>sid_{depth-1}</code>).</li>
+<li><code>SessionAttempts</code> = <code>uniqExact(SessionId)</code> per user across funnel events.</li>
+<li>Dimensions hydrated from <code>otel_logs</code> joined on <code>(CanonicalSessionId, CanonicalLastReachedAt)</code>.</li>
+</ul>
+<p>Skipped for SESSIONS funnels and unordered funnels.</p>
+<p><code>funnel_user_state</code> is <strong>NOT derived from <code>funnel_session_state</code></strong> — it scans <code>otel_logs</code> directly. This is what guarantees cohort alignment with <code>funnel_results</code>: a user whose conversion chain spans sessions is invisible to a per-session view but correctly captured by the cross-session walk.</p>
+<h3 id="step-3-cohort-split">Step 3 — Cohort split</h3>
+<p>Partition the bridge rows by <code>DropoffStep</code>. <code>DropoffStep = -1</code> is the converter cohort; any other value is a dropper cohort for that step. The DAO reads from <code>funnel_session_state</code> for SESSIONS funnels and <code>funnel_user_state</code> for UNIQUE_USERS — the cohort query is otherwise identical.</p>
+<h3 id="step-4-cause-join">Step 4 — Cause join</h3>
+<p>For each dropped session (or, in UNIQUE_USERS mode, each dropped user's canonical session), in a window <code>[LastReachedAt - 30s, LastReachedAt + 60s]</code>, join against:</p>
+<ul>
+<li><code>stack_trace_events</code> → crash / ANR / non-fatal (group by <code>GroupId</code>, <code>ExceptionType</code>)</li>
+<li><code>otel_traces</code> where <code>StatusCode = 'Error'</code> or HTTP status ≥ 400 → network errors</li>
+<li><code>session_summary</code> where <code>frozenFrameCount &gt; 0</code> or <code>slowInteractionCount &gt; 0</code></li>
+<li><code>session_replay_events</code> → rage-tap / dead-click heuristics from interaction events</li>
+</ul>
+<h3 id="step-5-baseline">Step 5 — Baseline</h3>
+<p>Run the same join on the converter cohort, anchored at equivalent step-completion time, with the same window length. Same bridge table as step 4 — SESSIONS mode anchors on each converting session's final-step timestamp; UNIQUE_USERS mode anchors on each converter's canonical session.</p>
+<h3 id="step-6-lift-significance">Step 6 — Lift + significance</h3>
+<p>For each (step × cause):</p>
+<pre><code>Lift   = (DropoffAffected / DropoffCohort) / (ConverterAffected / ConverterCohort)
+PValue = chi-square or Fisher's exact
+</code></pre>
+<p>Keep only causes with <code>Lift &gt; 1.5</code> and <code>PValue &lt; 0.05</code>.</p>
+<h3 id="step-7-evidence-sampling">Step 7 — Evidence sampling</h3>
+<p>Reservoir-sample top-N (cap ~50) <code>SessionId</code>s per cause, biased toward sessions that have a <code>session_replay_events</code> blob available. In UNIQUE_USERS mode these are canonical session IDs; in SESSIONS mode they're the dropped sessions directly.</p>
+<h3 id="step-8-write-funnel_dropoff_attribution">Step 8 — Write (<code>funnel_dropoff_attribution</code>)</h3>
+<p>Steps 3–7 above are executed in a single <code>INSERT INTO otel.funnel_dropoff_attribution … WITH …</code> SQL block built by <code>ClickHouseFunnelComputeDao.buildAttributionInsertSql(def, runTime)</code>. One row per <code>(FunnelId, RunTime, StepIndex, CauseKind, CauseKey)</code> with cohort sizes, affected counts, lift, and a capped 50-element <code>ExampleSessions</code> array.</p>
+<ul>
+<li>Bridge table read mode-switches: SESSIONS funnels read <code>funnel_session_state</code>, UNIQUE_USERS funnels read <code>funnel_user_state</code> (with <code>CanonicalSessionId</code> aliased to <code>SessionId</code> and <code>CanonicalLastReachedAt</code> aliased to <code>LastReachedAt</code> so the cause-join SQL is identical for both modes).</li>
+<li>Per-step dropper cohort sizes via a <code>dropper_cohorts</code> CTE keyed on <code>step</code>; scalar converter cohort via <code>converter_cohort</code>.</li>
+<li>Three cause branches UNION ALL'd together: stack_trace_events (<code>crash</code> / <code>anr</code> / <code>non_fatal</code>), otel_traces (<code>http_5xx</code> / <code>http_4xx</code>), session_summary (<code>frozen_frame</code>). <code>groupArraySample(50)</code> per (step × cause) caps example session IDs.</li>
+<li><code>PValue</code> is emitted as <code>0.0</code> in v1 — chi-square / Fisher's exact deferred. Lift filtering does most of the ranking work.</li>
+<li>Skipped for unordered funnels and funnels with fewer than 2 steps (nothing to attribute).</li>
+</ul>
+<p><strong>Read path:</strong> <code>FunnelDropoffQueries.buildCausesSqlFromAttribution</code> does a single indexed lookup against <code>funnel_dropoff_attribution</code> filtered on <code>(ProjectId, FunnelId, RunTime, StepIndex)</code>. The DAO tries this precomputed path first; if it returns zero rows (e.g. for an old run that predates the attribution writer), it falls back to the live <code>buildCausesSql</code> join against the OTel signal tables. UI behavior is identical either way.</p>
+<p><strong>Shared RunTime contract:</strong> All four inserts — <code>funnel_results</code>, <code>funnel_session_state</code>, <code>funnel_user_state</code>, <code>funnel_dropoff_attribution</code> — MUST share one <code>RunTime</code> literal so the drop-off DAO's <code>MAX(RunTime)</code> lookup returns them as one consistent run. The ClickHouse compute path threads this via <code>ClickHouseFunnelComputeDao.newRunTimeLiteral()</code> → <code>buildInsertSqlForDefinition(def, runTime)</code> → <code>buildInsertSqlWindowFunnel(def, runTime)</code>, plus the three bridge/attribution builders. The Spark compute path uses the same contract — <code>runTime</code> is a method parameter passed through <code>FunnelComputeJob.runFunnels</code> → <code>computeFunnel</code> → <code>emitBridgeAndRollup</code> → <code>emitAttribution</code>, then stamped into every row of all four inserts via <code>ClickHouseClient</code>.</p>
+<p><strong>Cause coverage across engines:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Cause kind</th>
+<th>CH compute path</th>
+<th>Spark compute path</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>crash</code> / <code>anr</code> / <code>non_fatal</code></td>
+<td>✅ via <code>stack_trace_events</code> JOIN</td>
+<td>✅ via <code>otel_logs</code> parquet filtered by <code>pulse_type</code></td>
+</tr>
+<tr>
+<td><code>http_5xx</code> / <code>http_4xx</code></td>
+<td>✅ via <code>otel_traces</code> JOIN</td>
+<td>✅ via <code>otel_traces</code> parquet HTTP attributes</td>
+</tr>
+<tr>
+<td><code>frozen_frame</code></td>
+<td>✅ via <code>session_summary</code> JOIN</td>
+<td>⚠️ deferred — session_summary is a CH materialized view, not S3-archived. DAO falls back to live join for this one cause when Spark ran the funnel.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="7-lift-example-alices-step">7. Lift Example — Alice's Step</h2>
+<p>Aggregating over all 12,000 sessions that dropped at step 3 (SESSIONS mode):</p>
+<table>
+<thead>
+<tr>
+<th>CauseKind</th>
+<th>CauseKey</th>
+<th>Droppers %</th>
+<th>Converters %</th>
+<th>Lift</th>
+<th>Signal</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>http_5xx</code></td>
+<td>POST /v2/cart/checkout</td>
+<td>30.0%</td>
+<td>1.5%</td>
+<td><strong>20×</strong></td>
+<td>strong</td>
+</tr>
+<tr>
+<td><code>crash</code></td>
+<td>OOM@CheckoutActivity</td>
+<td>17.5%</td>
+<td>0.2%</td>
+<td><strong>85×</strong></td>
+<td>strong</td>
+</tr>
+<tr>
+<td><code>frozen_frame</code></td>
+<td>CheckoutPage</td>
+<td>6.7%</td>
+<td>4.0%</td>
+<td>1.7×</td>
+<td>weak</td>
+</tr>
+<tr>
+<td><code>http_4xx</code></td>
+<td>GET /v2/user/profile 401</td>
+<td>4.2%</td>
+<td>3.9%</td>
+<td>1.07×</td>
+<td>noise</td>
+</tr>
+</tbody>
+</table>
+<p>Lift separates real culprits from ambient errors.</p>
+<p>If the same funnel were configured as UNIQUE_USERS, the same query against <code>funnel_user_state</code> would typically produce higher lift numbers for the same causes, because any converter user's own "bad sessions" don't count against the converter baseline — only their canonical (winning) session does. Exact numbers depend on how many converters had prior failed sessions in the window.</p>
+<h2 id="8-side-panel-api-contract">8. Side-Panel API Contract</h2>
+<h3 id="request">Request</h3>
+<pre><code>GET /v1/funnels/{funnelId}/dropoffs/{stepIndex}?runTime=2026-04-19T00:00:00Z
+</code></pre>
+<h3 id="response-sessions-mode-alices-funnel">Response (SESSIONS mode — Alice's funnel)</h3>
+<pre><code class="language-json">{
+  &quot;funnelId&quot;: 42,
+  &quot;stepIndex&quot;: 3,
+  &quot;stepName&quot;: &quot;start_checkout&quot;,
+  &quot;mode&quot;: &quot;SESSIONS&quot;,
+  &quot;dropoffCohort&quot;: 12000,
+  &quot;converterCohort&quot;: 18000,
+  &quot;causes&quot;: [
+    {
+      &quot;causeKind&quot;: &quot;crash&quot;,
+      &quot;causeKey&quot;: &quot;OutOfMemoryError@CheckoutActivity&quot;,
+      &quot;causeLabel&quot;: &quot;OOM @ CheckoutActivity&quot;,
+      &quot;dropoffAffected&quot;: 2100,
+      &quot;converterAffected&quot;: 36,
+      &quot;lift&quot;: 85.0,
+      &quot;dropoffRate&quot;: 17.5,
+      &quot;exampleSessionIds&quot;: [&quot;sess_abc&quot;, &quot;sess_def&quot;, &quot;sess_ghi&quot;]
+    },
+    {
+      &quot;causeKind&quot;: &quot;http_5xx&quot;,
+      &quot;causeKey&quot;: &quot;POST /v2/cart/checkout&quot;,
+      &quot;causeLabel&quot;: &quot;HTTP 503 · POST /v2/cart/checkout&quot;,
+      &quot;dropoffAffected&quot;: 3600,
+      &quot;converterAffected&quot;: 270,
+      &quot;lift&quot;: 20.0,
+      &quot;dropoffRate&quot;: 30.0,
+      &quot;exampleSessionIds&quot;: [&quot;sess_abc&quot;, &quot;sess_jkl&quot;, &quot;sess_mno&quot;]
+    }
+  ]
+}
+</code></pre>
+<h3 id="response-unique_users-mode-same-funnel-same-moment">Response (UNIQUE_USERS mode — same funnel, same moment)</h3>
+<pre><code class="language-json">{
+  &quot;funnelId&quot;: 42,
+  &quot;stepIndex&quot;: 3,
+  &quot;stepName&quot;: &quot;start_checkout&quot;,
+  &quot;mode&quot;: &quot;UNIQUE_USERS&quot;,
+  &quot;dropoffCohort&quot;: 9500,
+  &quot;converterCohort&quot;: 15200,
+  &quot;causes&quot;: [
+    {
+      &quot;causeKind&quot;: &quot;crash&quot;,
+      &quot;causeKey&quot;: &quot;OutOfMemoryError@CheckoutActivity&quot;,
+      &quot;causeLabel&quot;: &quot;OOM @ CheckoutActivity&quot;,
+      &quot;dropoffAffected&quot;: 1980,
+      &quot;converterAffected&quot;: 12,
+      &quot;lift&quot;: 267.0,
+      &quot;dropoffRate&quot;: 20.8,
+      &quot;exampleSessionIds&quot;: [&quot;sess_abc&quot;, &quot;sess_def&quot;, &quot;sess_ghi&quot;]
+    },
+    {
+      &quot;causeKind&quot;: &quot;http_5xx&quot;,
+      &quot;causeKey&quot;: &quot;POST /v2/cart/checkout&quot;,
+      &quot;causeLabel&quot;: &quot;HTTP 503 · POST /v2/cart/checkout&quot;,
+      &quot;dropoffAffected&quot;: 3120,
+      &quot;converterAffected&quot;: 140,
+      &quot;lift&quot;: 35.6,
+      &quot;dropoffRate&quot;: 32.8,
+      &quot;exampleSessionIds&quot;: [&quot;sess_abc&quot;, &quot;sess_jkl&quot;, &quot;sess_mno&quot;]
+    }
+  ]
+}
+</code></pre>
+<p>Same underlying incident — different cohort unit, different lift numbers. The <code>mode</code> field tells the UI (and downstream API consumers) which unit the numbers are in. Cohort sizes shrink (users &lt; sessions) and lifts grow because converter users' bad sessions no longer dilute the baseline.</p>
+<h3 id="rendered-panel-sessions-mode">Rendered panel (SESSIONS mode)</h3>
+<pre><code>12,000 sessions dropped at: start_checkout → pay
+-------------------------------------------------
+Crash: OOM @ CheckoutActivity     85x lift
+  2,100 affected  · [view group] [3 examples]
+-------------------------------------------------
+HTTP 503: POST /v2/cart/checkout  20x lift
+  3,600 affected  · [view traces] [3 examples]
+-------------------------------------------------
+Frozen frames on CheckoutPage     1.7x lift
+  800 affected  · [heatmap] [3 examples]
+</code></pre>
+<h3 id="rendered-panel-unique_users-mode">Rendered panel (UNIQUE_USERS mode)</h3>
+<pre><code>9,500 users dropped at: start_checkout → pay
+-------------------------------------------------
+Crash: OOM @ CheckoutActivity    267x lift
+  1,980 affected  · [view group] [3 examples]
+-------------------------------------------------
+HTTP 503: POST /v2/cart/checkout  36x lift
+  3,120 affected  · [view traces] [3 examples]
+-------------------------------------------------
+Frozen frames on CheckoutPage     2.1x lift
+  640 affected  · [heatmap] [3 examples]
+</code></pre>
+<p>The only UI copy that branches on mode is the header unit ("sessions" ↔ "users") and the KPI subtitles. Cause rows, evidence drill-in, and the significant-lift colour threshold are identical.</p>
+<h2 id="9-evidence-linking">9. Evidence Linking</h2>
+<p>For each <code>evidenceSession</code>, the backend builds drill-in links at fetch time. The session used is the session directly in SESSIONS mode, and the canonical session in UNIQUE_USERS mode — either way it's one concrete SessionId tied to one <code>LastReachedAt</code>.</p>
+<table>
+<thead>
+<tr>
+<th>Evidence</th>
+<th>Source</th>
+<th>Join key</th>
+<th>UX</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Session replay</td>
+<td><code>session_replay_events.BlockUrls</code> + <code>BlockFirstTimestamps</code> nearest <code>LastReachedAt</code></td>
+<td><code>SessionId</code></td>
+<td>Replay player deep-linked to ±10s of dropoff</td>
+</tr>
+<tr>
+<td>Trace waterfall</td>
+<td><code>otel_traces</code></td>
+<td><code>TraceIdAtDropoff</code></td>
+<td>Full trace view, FE + BE spans</td>
+</tr>
+<tr>
+<td>Stack trace group</td>
+<td><code>stack_trace_events</code></td>
+<td><code>GroupId</code> / <code>Fingerprint</code></td>
+<td>Existing crash view</td>
+</tr>
+<tr>
+<td>Heatmap</td>
+<td>replay interaction events aggregated by <code>ScreenName</code></td>
+<td><code>ScreenName = ScreenAtDropoff</code></td>
+<td>Tap-density over screen screenshot</td>
+</tr>
+</tbody>
+</table>
+<p>For UNIQUE_USERS funnels, the evidence panel shows the user's canonical session. A future "show me all of this user's attempts" drill-in would iterate <code>funnel_session_state</code> filtered on the user's <code>UserId</code> — cheap because the <code>idx_user_id</code> bloom filter is already in place.</p>
+<h2 id="10-query-examples">10. Query Examples</h2>
+<h3 id="101-pull-the-drop-off-cohort-sessions-mode">10.1 Pull the drop-off cohort — SESSIONS mode</h3>
+<pre><code class="language-sql">SELECT SessionId, UserId, LastReachedAt, TraceIdAtDropoff
+FROM otel.funnel_session_state
+WHERE ProjectId   = 'proj-123'
+  AND FunnelId    = 42
+  AND RunTime     = (SELECT max(RunTime) FROM otel.funnel_session_state
+                     WHERE ProjectId = 'proj-123' AND FunnelId = 42)
+  AND DropoffStep = 4;
+</code></pre>
+<h3 id="102-pull-the-drop-off-cohort-unique_users-mode">10.2 Pull the drop-off cohort — UNIQUE_USERS mode</h3>
+<pre><code class="language-sql">SELECT UserId, CanonicalSessionId AS SessionId,
+       CanonicalLastReachedAt AS LastReachedAt,
+       CanonicalTraceIdAtDropoff AS TraceIdAtDropoff,
+       SessionAttempts
+FROM otel.funnel_user_state
+WHERE ProjectId   = 'proj-123'
+  AND FunnelId    = 42
+  AND RunTime     = (SELECT max(RunTime) FROM otel.funnel_user_state
+                     WHERE ProjectId = 'proj-123' AND FunnelId = 42)
+  AND DropoffStep = 4;
+</code></pre>
+<p>Note the DAO pattern: alias the canonical columns back to their SESSIONS-mode names (<code>LastReachedAt</code>, <code>TraceIdAtDropoff</code>) so the downstream cause join SQL is literally the same string for both modes — only the <code>FROM</code> table switches.</p>
+<h3 id="103-correlate-network-errors">10.3 Correlate network errors</h3>
+<pre><code class="language-sql">SELECT
+    ifNull(t.SpanAttributes['http.url'], '') AS url,
+    count() AS droppers_affected
+FROM otel.funnel_session_state AS s
+INNER JOIN otel.otel_traces AS t
+    ON s.SessionId = t.SessionId
+   AND t.Timestamp BETWEEN s.LastReachedAt - INTERVAL 30 SECOND
+                       AND s.LastReachedAt + INTERVAL 60 SECOND
+WHERE s.FunnelId    = 42
+  AND s.DropoffStep = 4
+  AND toUInt16OrZero(t.SpanAttributes['http.status_code']) &gt;= 500
+GROUP BY url
+ORDER BY droppers_affected DESC;
+</code></pre>
+<p>For UNIQUE_USERS mode, replace <code>otel.funnel_session_state AS s</code> with:</p>
+<pre><code class="language-sql">(SELECT UserId, CanonicalSessionId AS SessionId, CanonicalLastReachedAt AS LastReachedAt
+ FROM otel.funnel_user_state
+ WHERE FunnelId = 42 AND DropoffStep = 4 AND RunTime = …) AS s
+</code></pre>
+<p>…and the cohort denominator becomes <code>count(DISTINCT UserId)</code> instead of <code>count()</code>. Everything else is identical.</p>
+<p>Run the same query with <code>DropoffStep = -1</code> (converters), divide the two rates → <strong>lift</strong>.</p>
+<h3 id="104-correlate-crashes-anrs">10.4 Correlate crashes / ANRs</h3>
+<pre><code class="language-sql">SELECT
+    e.ExceptionType,
+    e.GroupId,
+    count() AS droppers_affected
+FROM otel.funnel_session_state AS s
+INNER JOIN otel.stack_trace_events AS e
+    ON s.SessionId = e.SessionId
+   AND e.Timestamp BETWEEN s.LastReachedAt - INTERVAL 30 SECOND
+                       AND s.LastReachedAt + INTERVAL 60 SECOND
+WHERE s.FunnelId    = 42
+  AND s.DropoffStep = 4
+GROUP BY e.ExceptionType, e.GroupId
+ORDER BY droppers_affected DESC;
+</code></pre>
+<h3 id="105-segment-a-unique_users-drop-off-by-retry-behaviour">10.5 Segment a UNIQUE_USERS drop-off by retry behaviour</h3>
+<p><code>SessionAttempts</code> falls out of the user rollup for free — cheap segmentation:</p>
+<pre><code class="language-sql">SELECT
+    multiIf(SessionAttempts = 1, 'one-and-done',
+            SessionAttempts &lt;= 3, '2-3 attempts',
+            '4+ attempts') AS retry_bucket,
+    count() AS users
+FROM otel.funnel_user_state
+WHERE FunnelId    = 42
+  AND DropoffStep = 4
+GROUP BY retry_bucket;
+</code></pre>
+<p>"One-and-done" droppers usually hit a hard failure (crash, 503). "4+ attempts" droppers usually hit a soft-loop (UX friction, validation error) — very different triage paths.</p>
+<h2 id="11-what-else-this-unlocks">11. What Else This Unlocks</h2>
+<p>The bridge table is the leverage point — once sessions are tagged with funnel position, many adjacent features come almost for free.</p>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Capability</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>Release regression view</td>
+<td>Diff cause-mix between two <code>AppVersion</code>s on the same step. "v4.2.1 introduced a 503 on <code>/v2/cart</code> costing 3% checkout conversion, Android-only."</td>
+</tr>
+<tr>
+<td>2</td>
+<td>Segment lift</td>
+<td>Attribution pivoted by Platform / OsVersion / DeviceModel / NetworkProvider / GeoCountry. "This is a low-end Android on 3G problem, not a product problem."</td>
+</tr>
+<tr>
+<td>3</td>
+<td>Cross-step blame</td>
+<td>A crash at step 2 often surfaces as dropout at step 3. Attribute the crash to the next observed dropout.</td>
+</tr>
+<tr>
+<td>4</td>
+<td>Frustration signals as soft causes</td>
+<td>Rage-taps, dead-clicks, back-navigations. Not all drop-offs are technical — some are UX friction.</td>
+</tr>
+<tr>
+<td>5</td>
+<td>Slow / frozen-frame bridge</td>
+<td><code>session_summary.slowInteractionCount</code> + <code>frozenFrameCount</code> at the dropoff screen → "users waited &gt;5s, then left."</td>
+</tr>
+<tr>
+<td>6</td>
+<td>Screen-scoped heatmap</td>
+<td>Aggregate interaction coordinates across <em>just the drop-off cohort</em> on the drop-off screen → where confused users tap.</td>
+</tr>
+<tr>
+<td>7</td>
+<td>Anomaly detection on cause mix</td>
+<td>Detect spikes in <code>(StepIndex, CauseKind, CauseKey)</code> vs a 7d rolling baseline; auto-open an incident with linked release + evidence.</td>
+</tr>
+<tr>
+<td>8</td>
+<td>Funnel SLO / error budget</td>
+<td>Define target conversion per step; when reliability-attributed loss exceeds budget, page the owning team via a <code>cause_kind → team</code> map.</td>
+</tr>
+<tr>
+<td>9</td>
+<td>Predictive dropoff</td>
+<td>Forecast next-hour step loss from rate-of-change in crash/ANR rate on the step's screen. Useful during staged rollouts.</td>
+</tr>
+<tr>
+<td>10</td>
+<td>LLM narrative summary</td>
+<td>Feed top causes + lift + segments to Claude → one-paragraph "what changed this week" for the funnel owner.</td>
+</tr>
+<tr>
+<td>11</td>
+<td>Trace-level Product↔Eng bridge</td>
+<td>Trace waterfall from <code>TraceIdAtDropoff</code> shows BE latency / 5xx vs FE render. PM hands engineer a trace, not a Jira description.</td>
+</tr>
+<tr>
+<td>12</td>
+<td>"Moment" deep-link in replay</td>
+<td><code>BlockFirstTimestamps</code> jumps the player to the exact moment of <code>LastReachedAt</code>. No more scrubbing 12-minute replays.</td>
+</tr>
+<tr>
+<td>13</td>
+<td>Cohort export</td>
+<td>Dropped-at-step-N users/sessions → email campaign, in-app nudge, support outreach. UNIQUE_USERS mode makes the "users, not sessions" export trivial.</td>
+</tr>
+<tr>
+<td>14</td>
+<td>Single-session funnel x-ray</td>
+<td>Inverse view: pick one session, see its step-by-step path with errors / spans / replay inline. Useful for support tickets.</td>
+</tr>
+<tr>
+<td>15</td>
+<td>Retry-behaviour segmentation</td>
+<td><code>funnel_user_state.SessionAttempts</code> splits "one-and-done" vs "kept retrying" droppers — usually different root causes, different triage paths. (See §10.5.)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="12-minimum-viable-slice">12. Minimum Viable Slice</h2>
+<p><strong>Fastest path to ship.</strong> If the roadmap needs a quick win, build in this order:</p>
+<ol>
+<li>✅ Add <code>funnel_session_state_local</code>. Supports SESSIONS-mode funnels end-to-end.</li>
+<li>✅ Side-panel runs the cause query on-demand against <code>stack_trace_events</code> + <code>session_summary</code> + <code>otel_traces</code> for the dropped cohort. Sub-second for most projects. (Retained as the fallback path when precomputed rows are absent.)</li>
+<li>✅ Add <code>funnel_user_state_local</code> so UNIQUE_USERS funnels get the user-level cohort unit. Independently computed cross-session windowFunnel chain (not derived from session_state) so cross-session converters are captured.</li>
+<li>✅ Add <code>funnel_dropoff_attribution_local</code> + baseline/lift. Side-panel reads precomputed rows; falls back to live join when no rows exist for the requested RunTime.</li>
+<li>Uncomment the HTTP materialized columns in <code>clickhouse_cluster_migration.sql</code> (lines 134–140): <code>HttpUrl</code>, <code>HttpHost</code>, <code>HttpMethod</code>, <code>HttpStatusCode</code> + indexes. Makes the network-cause query an indexed lookup instead of a Map scan. <em>(still pending)</em></li>
+</ol>
+<h2 id="13-mental-model">13. Mental Model</h2>
+<p>The funnel chart knows <strong>how many</strong> dropped. The two bridge tables remember <strong>who</strong> dropped, <strong>when</strong>, and (for cross-session chains) <strong>which session held the final step</strong>. Every other OTel table we already have — traces, crashes, session replay, heatmaps — becomes joinable on those rows.</p>
+<p>Two tables, two questions, both answered with <code>windowFunnel</code> semantics:</p>
+<ul>
+<li><strong><code>funnel_session_state</code></strong> — "for each session that touched this funnel, how far did it get and when did it stop?" Answers SESSIONS-mode cohort questions, plus per-session drill-in for any user.</li>
+<li><strong><code>funnel_user_state</code></strong> — "for each user that touched this funnel, anywhere across their sessions, how far did the cross-session chain reach and which session contained the final matched step?" Answers UNIQUE_USERS-mode cohort questions; cohort numbers match the funnel chart exactly because both use <code>windowFunnel</code>.</li>
+</ul>
+<p>Everything in section 11 — release diffs, segment lift, anomaly detection, LLM summaries, predictive dropoff — is a different query on top of these two tables. The two are <strong>independent</strong>: <code>funnel_user_state</code> scans <code>otel_logs</code> directly, not <code>funnel_session_state</code>. That's the design choice that lets cross-session converters stay correctly classified.</p>
+<h2 id="open-questions">Open Questions</h2>
+<ul>
+<li>Retention: keep <code>funnel_session_state</code> and <code>funnel_user_state</code> for the standard 7d hot / 90d cold, or shorter since they're denormalized? Current: same TTL as <code>funnel_results</code>.</li>
+<li>Compute cadence: re-run attribution hourly, daily, or on-demand? Affects <code>funnel_dropoff_attribution</code> volume.</li>
+<li>Unordered funnels: per-user rollup needs a different "furthest step" definition when steps can occur in any order — current v1 skips bridge + rollup for unordered funnels.</li>
+<li>Step-definition flexibility: today steps are a linear event sequence. Do we need branching steps (any-of) for this v1?</li>
+</ul></body></html>

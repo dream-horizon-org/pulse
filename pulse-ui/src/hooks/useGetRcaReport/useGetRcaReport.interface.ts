@@ -214,4 +214,7 @@ export type UseGetRcaReportParams = {
    * Increment when forcing a new POST (e.g. after regenerate returns 200) while entityKey/date/project are unchanged.
    */
   requestSession?: number;
+  /** Required for SCREEN and FUNNEL RCA (ISO-8601 instants). */
+  windowStartIso?: string | null;
+  windowEndIso?: string | null;
 };

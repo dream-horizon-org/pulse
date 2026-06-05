@@ -28,21 +28,25 @@ export const useRegenerateRcaReport = () => {
       entityKey,
       date,
       projectId,
+      rcaType = RCA_TYPE.INTERACTION,
+      windowStartIso,
+      windowEndIso,
     }: UseRegenerateRcaReportParams) => {
       const apiBaseUrl = getApiBaseUrl();
       const url = `${apiBaseUrl}${POST_RCA_REPORT_ROUTE.apiPath}`;
-      const body: {
-        rcaType: string;
-        entityKey: string;
-        date?: string;
-        regenerate: boolean;
-      } = {
-        rcaType: RCA_TYPE.INTERACTION,
+      const body: Record<string, string | boolean> = {
+        rcaType,
         entityKey,
         regenerate: true,
       };
       if (isValidRcaDateParam(date)) {
         body.date = date;
+      }
+      const start = windowStartIso != null ? String(windowStartIso).trim() : "";
+      const end = windowEndIso != null ? String(windowEndIso).trim() : "";
+      if (start !== "" && end !== "") {
+        body.start = start;
+        body.end = end;
       }
       const headers: Record<string, string> = {};
       const trimmedProjectId = String(projectId).trim();
@@ -66,7 +70,7 @@ export const useRegenerateRcaReport = () => {
         POST_RCA_REPORT_ROUTE.key,
         variables.entityKey,
         variables.date ?? null,
-        RCA_TYPE.INTERACTION,
+        variables.rcaType ?? RCA_TYPE.INTERACTION,
         trimmedProjectId,
       ];
 

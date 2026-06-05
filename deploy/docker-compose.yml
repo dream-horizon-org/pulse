@@ -474,7 +474,7 @@ services:
       - CONFIG_SERVICE_APPLICATION_SPARK_JOB_EVENTS_MAIN_CLASS=${CONFIG_SERVICE_APPLICATION_SPARK_JOB_EVENTS_MAIN_CLASS:-org.dreamhorizon.pulsespark.SparkJobRunner}
 
       # Product analytics batch engine (conf/analytics-engine-default.conf): spark | clickhouse
-      - ANALYTICS_COMPUTE_ENGINE=${ANALYTICS_COMPUTE_ENGINE:-clickhouse}
+      - ANALYTICS_COMPUTE_ENGINE=${ANALYTICS_COMPUTE_ENGINE:-spark}
       # Max concurrent per-project ClickHouse batch queries when ANALYTICS_COMPUTE_ENGINE=clickhouse (prod requires > 0)
       - ANALYTICS_BATCH_PROJECT_CONCURRENCY=${ANALYTICS_BATCH_PROJECT_CONCURRENCY:-1}
 

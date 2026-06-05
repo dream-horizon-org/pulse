@@ -527,6 +527,7 @@ class AuthorizationFilterTest {
       assertThat(captureAbortStatus()).isEqualTo(401);
     }
   }
+
   @Nested
   class InternalApiAuthorization {
 
