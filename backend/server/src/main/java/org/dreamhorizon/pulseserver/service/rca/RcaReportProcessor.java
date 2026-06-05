@@ -37,6 +37,7 @@ public class RcaReportProcessor {
   private static final String RCA_REPORT_PATH = "rca/report";
   private static final String RCA_SCREEN_REPORT_PATH = "rca/screen-report";
   private static final String RCA_SESSION_REPORT_PATH = "rca/session-report";
+  private static final String RCA_FUNNEL_REPORT_PATH = "rca/funnel-report";
   private static final int ERR_MSG_MAX = 4000;
   private static final long HEATMAP_FETCH_TIMEOUT_SEC = 30;
 
@@ -92,11 +93,18 @@ public class RcaReportProcessor {
         .flatMap(parsed -> Single.fromCompletionStage(enrichmentService.enrichAsync(parsed, forceRootCauseRefresh)))
         .flatMap(
             enrichment -> {
+              if (!enrichment.enrichmentOk() && requiresEnrichedAiBody(job.entityType())) {
+                String message = enrichmentFailureMessage(job.entityType());
+                return markJobFailed(job, message)
+                    .andThen(Single.error(new RuntimeException(message)));
+              }
               String aiPath;
               if (job.entityType() == RcaType.SCREEN) {
                 aiPath = RCA_SCREEN_REPORT_PATH;
               } else if (job.entityType() == RcaType.SESSION) {
                 aiPath = RCA_SESSION_REPORT_PATH;
+              } else if (job.entityType() == RcaType.FUNNEL) {
+                aiPath = RCA_FUNNEL_REPORT_PATH;
               } else {
                 aiPath = RCA_REPORT_PATH;
               }
@@ -181,6 +189,7 @@ public class RcaReportProcessor {
     boolean shouldMergeHeatmaps =
         job.entityType() != RcaType.SCREEN
             && job.entityType() != RcaType.SESSION
+            && job.entityType() != RcaType.FUNNEL
             && enrichment.enrichmentOk()
             && enrichment.rootCause() != null
             && enrichment.rootCause().getSegments() != null
@@ -323,6 +332,21 @@ public class RcaReportProcessor {
    * Tries to read {@code error} or {@code message} fields from the JSON body; falls back to a
    * generic status-code message so raw JSON never reaches the user-facing error field.
    */
+  private static boolean requiresEnrichedAiBody(final RcaType entityType) {
+    return entityType == RcaType.FUNNEL
+        || entityType == RcaType.SCREEN
+        || entityType == RcaType.SESSION;
+  }
+
+  private static String enrichmentFailureMessage(final RcaType entityType) {
+    return switch (entityType) {
+      case FUNNEL -> "Funnel RCA enrichment failed: start, end, and entityKey are required.";
+      case SCREEN -> "Screen RCA enrichment failed: start, end, and screen metadata are required.";
+      case SESSION -> "Session RCA enrichment failed: could not load session RCA data.";
+      default -> "RCA enrichment failed.";
+    };
+  }
+
   private String extractUpstreamErrorMessage(final int statusCode, final String body) {
     if (body != null && !body.isBlank()) {
       try {
@@ -333,6 +357,15 @@ public class RcaReportProcessor {
             String text = candidate.asText().trim();
             if (!text.isEmpty()) {
               return text;
+            }
+          }
+          if (candidate != null && candidate.isArray() && !candidate.isEmpty()) {
+            JsonNode first = candidate.get(0);
+            if (first != null && first.has("msg")) {
+              String text = first.get("msg").asText("").trim();
+              if (!text.isEmpty()) {
+                return text;
+              }
             }
           }
         }

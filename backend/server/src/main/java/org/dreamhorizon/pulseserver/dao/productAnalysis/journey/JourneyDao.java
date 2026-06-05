@@ -8,14 +8,12 @@ import io.vertx.rxjava3.mysqlclient.MySQLClient;
 import io.vertx.rxjava3.mysqlclient.MySQLPool;
 import io.vertx.rxjava3.sqlclient.Row;
 import io.vertx.rxjava3.sqlclient.Tuple;
-
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
@@ -31,57 +29,57 @@ public class JourneyDao {
   public Single<Long> insert(JourneyRow row) {
     MySQLPool pool = mysqlClient.getWriterPool();
     return pool
-      .preparedQuery(JourneyQueries.INSERT)
-      .rxExecute(
-        Tuple.from(
-          Arrays.asList(
-            row.getProjectId(),
-            row.getName(),
-            row.getDescription(),
-            row.getAnchorEvent(),
-            row.getDirection(),
-            row.getDepth(),
-            row.getMode(),
-            row.getFiltersJson(),
-            localDateTimeOrNull(row.getStartTime()),
-            localDateTimeOrNull(row.getEndTime()),
-            row.getJourneyType(),
-            localDateTimeOrNull(row.getExpiry()),
-            row.getDateRangeDays(),
-            row.getCreatedBy())))
-      .map(r -> r.property(MySQLClient.LAST_INSERTED_ID));
+        .preparedQuery(JourneyQueries.INSERT)
+        .rxExecute(
+            Tuple.from(
+                Arrays.asList(
+                    row.getProjectId(),
+                    row.getName(),
+                    row.getDescription(),
+                    row.getAnchorEvent(),
+                    row.getDirection(),
+                    row.getDepth(),
+                    row.getMode(),
+                    row.getFiltersJson(),
+                    localDateTimeOrNull(row.getStartTime()),
+                    localDateTimeOrNull(row.getEndTime()),
+                    row.getJourneyType(),
+                    localDateTimeOrNull(row.getExpiry()),
+                    row.getDateRangeDays(),
+                    row.getCreatedBy())))
+        .map(r -> r.property(MySQLClient.LAST_INSERTED_ID));
   }
 
   public Single<Integer> update(long id, String projectId, JourneyRow row) {
     MySQLPool pool = mysqlClient.getWriterPool();
     return pool
-      .preparedQuery(JourneyQueries.UPDATE)
-      .rxExecute(
-        Tuple.from(
-          Arrays.asList(
-            row.getName(),
-            row.getDescription(),
-            row.getAnchorEvent(),
-            row.getDirection(),
-            row.getDepth(),
-            row.getMode(),
-            row.getFiltersJson(),
-            localDateTimeOrNull(row.getStartTime()),
-            localDateTimeOrNull(row.getEndTime()),
-            row.getJourneyType(),
-            localDateTimeOrNull(row.getExpiry()),
-            row.getDateRangeDays(),
-            projectId,
-            id)))
-      .map(r -> (int) r.rowCount());
+        .preparedQuery(JourneyQueries.UPDATE)
+        .rxExecute(
+            Tuple.from(
+                Arrays.asList(
+                    row.getName(),
+                    row.getDescription(),
+                    row.getAnchorEvent(),
+                    row.getDirection(),
+                    row.getDepth(),
+                    row.getMode(),
+                    row.getFiltersJson(),
+                    localDateTimeOrNull(row.getStartTime()),
+                    localDateTimeOrNull(row.getEndTime()),
+                    row.getJourneyType(),
+                    localDateTimeOrNull(row.getExpiry()),
+                    row.getDateRangeDays(),
+                    projectId,
+                    id)))
+        .map(r -> (int) r.rowCount());
   }
 
   public Single<Integer> delete(String projectId, long id) {
     MySQLPool pool = mysqlClient.getWriterPool();
     return pool
-      .preparedQuery(JourneyQueries.DELETE)
-      .rxExecute(Tuple.of(projectId, id))
-      .map(r -> (int) r.rowCount());
+        .preparedQuery(JourneyQueries.DELETE)
+        .rxExecute(Tuple.of(projectId, id))
+        .map(r -> (int) r.rowCount());
   }
 
   /**
@@ -93,9 +91,9 @@ public class JourneyDao {
   public Single<Integer> stopAuto(String projectId, long id) {
     MySQLPool pool = mysqlClient.getWriterPool();
     return pool
-      .preparedQuery(JourneyQueries.STOP_AUTO)
-      .rxExecute(Tuple.of(projectId, id))
-      .map(r -> (int) r.rowCount());
+        .preparedQuery(JourneyQueries.STOP_AUTO)
+        .rxExecute(Tuple.of(projectId, id))
+        .map(r -> (int) r.rowCount());
   }
 
   /**
@@ -106,60 +104,60 @@ public class JourneyDao {
   public Single<Integer> touchUpdatedAt(long id) {
     MySQLPool pool = mysqlClient.getWriterPool();
     return pool
-      .preparedQuery(JourneyQueries.TOUCH_UPDATED_AT)
-      .rxExecute(Tuple.of(id))
-      .map(r -> (int) r.rowCount());
+        .preparedQuery(JourneyQueries.TOUCH_UPDATED_AT)
+        .rxExecute(Tuple.of(id))
+        .map(r -> (int) r.rowCount());
   }
 
   public Maybe<JourneyRow> findByProjectAndId(String projectId, long id) {
     MySQLPool pool = mysqlClient.getReaderPool();
     return pool
-      .preparedQuery(JourneyQueries.SELECT_BY_PROJECT_AND_ID)
-      .rxExecute(Tuple.of(projectId, id))
-      .flatMapMaybe(
-        rows -> {
-          var it = rows.iterator();
-          if (!it.hasNext()) {
-            return Maybe.empty();
-          }
-          return Maybe.just(mapRow(it.next()));
-        });
+        .preparedQuery(JourneyQueries.SELECT_BY_PROJECT_AND_ID)
+        .rxExecute(Tuple.of(projectId, id))
+        .flatMapMaybe(
+            rows -> {
+              var it = rows.iterator();
+              if (!it.hasNext()) {
+                return Maybe.empty();
+              }
+              return Maybe.just(mapRow(it.next()));
+            });
   }
 
   public Maybe<JourneyRow> findById(long id) {
     MySQLPool pool = mysqlClient.getReaderPool();
     return pool
-      .preparedQuery(JourneyQueries.SELECT_BY_ID)
-      .rxExecute(Tuple.of(id))
-      .flatMapMaybe(
-        rows -> {
-          var it = rows.iterator();
-          if (!it.hasNext()) {
-            return Maybe.empty();
-          }
-          return Maybe.just(mapRow(it.next()));
-        });
+        .preparedQuery(JourneyQueries.SELECT_BY_ID)
+        .rxExecute(Tuple.of(id))
+        .flatMapMaybe(
+            rows -> {
+              var it = rows.iterator();
+              if (!it.hasNext()) {
+                return Maybe.empty();
+              }
+              return Maybe.just(mapRow(it.next()));
+            });
   }
 
   public Single<List<JourneyRow>> listAllAuto() {
     MySQLPool pool = mysqlClient.getReaderPool();
     return pool
-      .preparedQuery(JourneyQueries.SELECT_ALL_AUTO)
-      .rxExecute()
-      .map(rows -> {
-        List<JourneyRow> out = new ArrayList<>();
-        rows.forEach(row -> out.add(mapRow(row)));
-        return out;
-      });
+        .preparedQuery(JourneyQueries.SELECT_ALL_AUTO)
+        .rxExecute()
+        .map(rows -> {
+          List<JourneyRow> out = new ArrayList<>();
+          rows.forEach(row -> out.add(mapRow(row)));
+          return out;
+        });
   }
 
   public Single<List<JourneyRow>> listByProject(String projectId, JourneyListParams p) {
     StringBuilder sql =
-      new StringBuilder(
-        "SELECT journey.id, journey.project_id, journey.name, journey.description, journey.anchor_event, "
-          + "journey.direction, journey.depth, journey.mode, journey.filters_json, journey.start_time, "
-          + "journey.end_time, journey.journey_type, journey.expiry, journey.date_range, "
-          + "journey.created_at, journey.updated_at, journey.created_by, ");
+        new StringBuilder(
+            "SELECT journey.id, journey.project_id, journey.name, journey.description, journey.anchor_event, "
+                + "journey.direction, journey.depth, journey.mode, journey.filters_json, journey.start_time, "
+                + "journey.end_time, journey.journey_type, journey.expiry, journey.date_range, "
+                + "journey.created_at, journey.updated_at, journey.created_by, ");
     sql.append(JourneyQueries.LATEST_JOURNEY_JOB_STATUS).append(" AS latest_job_status, ");
     sql.append("COUNT(*) OVER() AS total_count ");
     sql.append("FROM journey WHERE journey.project_id = ? ");
@@ -203,54 +201,58 @@ public class JourneyDao {
 
     MySQLPool pool = mysqlClient.getReaderPool();
     return pool
-      .preparedQuery(sql.toString())
-      .rxExecute(Tuple.from(params))
-      .map(
-        rows -> {
-          List<JourneyRow> out = new ArrayList<>();
-          rows.forEach(row -> out.add(mapRow(row)));
+        .preparedQuery(sql.toString())
+        .rxExecute(Tuple.from(params))
+        .map(
+            rows -> {
+              List<JourneyRow> out = new ArrayList<>();
+              rows.forEach(row -> out.add(mapRow(row)));
+              return out;
+            });
+  }
+
+  /**
+   * Distinct non-null created_by values for all journeys in the project.
+   */
+  public Single<List<String>> listDistinctCreatedBy(String projectId) {
+    MySQLPool pool = mysqlClient.getReaderPool();
+    return pool
+        .preparedQuery(JourneyQueries.SELECT_DISTINCT_CREATED_BY)
+        .rxExecute(Tuple.of(projectId))
+        .map(rows -> {
+          List<String> out = new ArrayList<>();
+          rows.forEach(row -> {
+            String v = row.getString("created_by");
+            if (v != null) {
+              out.add(v);
+            }
+          });
           return out;
         });
   }
 
-  /** Distinct non-null created_by values for all journeys in the project. */
-  public Single<List<String>> listDistinctCreatedBy(String projectId) {
-    MySQLPool pool = mysqlClient.getReaderPool();
-    return pool
-      .preparedQuery(JourneyQueries.SELECT_DISTINCT_CREATED_BY)
-      .rxExecute(Tuple.of(projectId))
-      .map(rows -> {
-        List<String> out = new ArrayList<>();
-        rows.forEach(row -> {
-          String v = row.getString("created_by");
-          if (v != null) out.add(v);
-        });
-        return out;
-      });
-  }
-
   private static JourneyRow mapRow(Row row) {
     return JourneyRow.builder()
-      .id(row.getLong("id"))
-      .projectId(row.getString("project_id"))
-      .name(row.getString("name"))
-      .description(row.getString("description"))
-      .anchorEvent(row.getString("anchor_event"))
-      .direction(row.getString("direction"))
-      .depth(row.getInteger("depth"))
-      .mode(row.getString("mode"))
-      .filtersJson(row.getValue("filters_json") != null ? row.getValue("filters_json").toString() : null)
-      .startTime(toInstant(row, "start_time"))
-      .endTime(toInstant(row, "end_time"))
-      .journeyType(row.getString("journey_type"))
-      .expiry(toInstant(row, "expiry"))
-      .dateRangeDays(row.getInteger("date_range"))
-      .createdAt(toInstant(row, "created_at"))
-      .updatedAt(toInstant(row, "updated_at"))
-      .createdBy(row.getString("created_by"))
-      .latestJobStatus(row.getString("latest_job_status"))
-      .totalCount(row.getColumnIndex("total_count") >= 0 ? row.getLong("total_count") : 0)
-      .build();
+        .id(row.getLong("id"))
+        .projectId(row.getString("project_id"))
+        .name(row.getString("name"))
+        .description(row.getString("description"))
+        .anchorEvent(row.getString("anchor_event"))
+        .direction(row.getString("direction"))
+        .depth(row.getInteger("depth"))
+        .mode(row.getString("mode"))
+        .filtersJson(row.getValue("filters_json") != null ? row.getValue("filters_json").toString() : null)
+        .startTime(toInstant(row, "start_time"))
+        .endTime(toInstant(row, "end_time"))
+        .journeyType(row.getString("journey_type"))
+        .expiry(toInstant(row, "expiry"))
+        .dateRangeDays(row.getInteger("date_range"))
+        .createdAt(toInstant(row, "created_at"))
+        .updatedAt(toInstant(row, "updated_at"))
+        .createdBy(row.getString("created_by"))
+        .latestJobStatus(row.getString("latest_job_status"))
+        .totalCount(row.getColumnIndex("total_count") >= 0 ? row.getLong("total_count") : 0)
+        .build();
   }
 
   private static Instant toInstant(Row row, String column) {

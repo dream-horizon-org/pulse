@@ -73,7 +73,8 @@ public final class FunnelDropoffMapper {
     return v == null ? 0L : v;
   }
 
-  private static List<String> splitCsv(String csv) {
+  /** Splits comma-separated session IDs from ClickHouse attribution rows. */
+  public static List<String> splitCsv(String csv) {
     if (csv == null || csv.isBlank()) {
       return Collections.emptyList();
     }

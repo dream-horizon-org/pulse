@@ -15,7 +15,9 @@ import org.dreamhorizon.pulseserver.resources.productAnalysis.models.ReplaceEnti
 import org.dreamhorizon.pulseserver.rest.io.Response;
 import org.dreamhorizon.pulseserver.rest.io.RestResponse;
 import org.dreamhorizon.pulseserver.service.productAnalysis.funnel.FunnelDropoffService;
+import org.dreamhorizon.pulseserver.service.productAnalysis.funnel.FunnelRcaService;
 import org.dreamhorizon.pulseserver.service.productAnalysis.funnel.FunnelService;
+import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseResult;
 
 import java.util.Collections;
 import java.util.List;
@@ -30,6 +32,7 @@ public class FunnelsController {
 
   private final FunnelService funnelService;
   private final FunnelDropoffService funnelDropoffService;
+  private final FunnelRcaService funnelRcaService;
 
   /**
    * Distinct funnel/journey tag labels in the project ({@code funnel_journey_tag}). Literal path
@@ -119,6 +122,24 @@ public class FunnelsController {
    * Replaces all tags for the funnel (empty {@code tags} clears them). Mappings:
    * {@code funnel_journey_tag}.
    */
+  /**
+   * Tabular funnel RCA payload (precomputed attribution) for async narrative enrichment.
+   * {@code focusStepIndex} is the zero-based step the user dropped from.
+   */
+  @GET
+  @RequiresPermission("can_view")
+  @Path("/{id: \\d+}/root-cause")
+  public CompletionStage<Response<RootCauseResult>> getFunnelRootCause(
+      @HeaderParam("X-Project-Id") @NotBlank(message = "X-Project-Id header is required")
+          String projectId,
+      @PathParam("id") long id,
+      @QueryParam("focusStepIndex") int focusStepIndex,
+      @QueryParam("runTime") String runTime) {
+    return funnelRcaService
+        .getFunnelRootCause(projectId, id, focusStepIndex, runTime)
+        .to(RestResponse.jaxrsRestHandler());
+  }
+
   /**
    * Ranked drop-off causes for one step of the funnel (side-panel payload).
    * {@code runTime} is optional; when absent the service picks the latest run.

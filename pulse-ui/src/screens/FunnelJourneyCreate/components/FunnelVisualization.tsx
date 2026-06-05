@@ -19,11 +19,8 @@ interface FunnelVisualizationProps {
    * ("users" vs "sessions"). Defaults to UNIQUE_USERS when omitted.
    */
   mode?: FunnelMode;
-  /**
-   * Invoked when the user clicks the drop-off segment on a step bar. Parent uses
-   * this to open the drop-off correlation side-panel. Zero-based step index.
-   */
-  onStepDropoffClick?: (stepIndex: number) => void;
+  /** Zero-based step the user dropped from; fired when the drop-off segment is clicked. */
+  onStepDropoffClick?: (focusStepIndex: number) => void;
 }
 
 const SLOW_THRESHOLD_SECONDS = 30;
@@ -48,7 +45,9 @@ export function FunnelVisualization({
   return (
     <>
       <Box className={classes.kpiSection}>
-        <Text className={classes.kpiBigNumber}>{formatPct(totalConversionRate)}%</Text>
+        <Text className={classes.kpiBigNumber}>
+          {formatPct(totalConversionRate)}%
+        </Text>
         <Box>
           <Text className={classes.kpiLabel}>Total Conversion</Text>
           <Box
@@ -120,21 +119,21 @@ export function FunnelVisualization({
                         className={classes.chartBarDropoff}
                         style={{
                           width: `${dropoffPct}%`,
-                          cursor: onStepDropoffClick ? "pointer" : "default",
+                          cursor: onStepDropoffClick ? "pointer" : undefined,
                         }}
-                        onClick={
-                          onStepDropoffClick
-                            ? () => onStepDropoffClick(index)
-                            : undefined
-                        }
                         role={onStepDropoffClick ? "button" : undefined}
                         tabIndex={onStepDropoffClick ? 0 : undefined}
+                        onClick={
+                          onStepDropoffClick
+                            ? () => onStepDropoffClick(index - 1)
+                            : undefined
+                        }
                         onKeyDown={
                           onStepDropoffClick
                             ? (e) => {
                                 if (e.key === "Enter" || e.key === " ") {
                                   e.preventDefault();
-                                  onStepDropoffClick(index);
+                                  onStepDropoffClick(index - 1);
                                 }
                               }
                             : undefined

@@ -22,17 +22,17 @@ import org.dreamhorizon.pulseserver.service.errorattribution.ErrorAttributionSer
 import org.dreamhorizon.pulseserver.service.productAnalysis.eventcatalog.EventCatalogService;
 import org.dreamhorizon.pulseserver.service.productAnalysis.eventcatalog.impl.EventCatalogServiceImpl;
 import org.dreamhorizon.pulseserver.service.productAnalysis.funnel.FunnelDropoffService;
+import org.dreamhorizon.pulseserver.service.productAnalysis.funnel.FunnelRcaService;
 import org.dreamhorizon.pulseserver.service.productAnalysis.funnel.FunnelService;
 import org.dreamhorizon.pulseserver.service.productAnalysis.funnel.impl.FunnelDropoffServiceImpl;
+import org.dreamhorizon.pulseserver.service.productAnalysis.funnel.impl.FunnelRcaServiceImpl;
 import org.dreamhorizon.pulseserver.service.productAnalysis.funnel.impl.FunnelServiceImpl;
 import org.dreamhorizon.pulseserver.service.productAnalysis.journey.JourneyService;
 import org.dreamhorizon.pulseserver.service.productAnalysis.journey.impl.JourneyServiceImpl;
-import org.dreamhorizon.pulseserver.dao.sessionrca.SessionRcaCacheDao;
 import org.dreamhorizon.pulseserver.service.rootcause.RootCauseService;
 import org.dreamhorizon.pulseserver.service.rootcause.ScreenRcaService;
 import org.dreamhorizon.pulseserver.service.rootcause.SessionEvidenceService;
 import org.dreamhorizon.pulseserver.service.rootcause.SessionEvidenceServiceImpl;
-import org.dreamhorizon.pulseserver.service.sessionrca.SessionRcaService;
 
 public class InteractionModule extends AbstractModule {
 
@@ -53,6 +53,7 @@ public class InteractionModule extends AbstractModule {
     bind(FunnelService.class).to(FunnelServiceImpl.class).in(Singleton.class);
     bind(FunnelDropoffDao.class).in(Singleton.class);
     bind(FunnelDropoffService.class).to(FunnelDropoffServiceImpl.class).in(Singleton.class);
+    bind(FunnelRcaService.class).to(FunnelRcaServiceImpl.class).in(Singleton.class);
     bind(JourneyDao.class).in(Singleton.class);
     bind(JourneyService.class).to(JourneyServiceImpl.class).in(Singleton.class);
     bind(org.dreamhorizon.pulseserver.service.analytics.AnalyticsBatchServiceImpl.class)
@@ -68,8 +69,6 @@ public class InteractionModule extends AbstractModule {
     bind(ScreenRootCauseCacheDao.class).in(Singleton.class);
     bind(RootCauseService.class).in(Singleton.class);
     bind(ScreenRcaService.class).in(Singleton.class);
-    bind(SessionRcaCacheDao.class).in(Singleton.class);
-    bind(SessionRcaService.class).in(Singleton.class);
     bind(ErrorAttributionService.class).in(Singleton.class);
     bind(ErrorAttributionDrillDownService.class).in(Singleton.class);
     bind(SessionEvidenceService.class).to(SessionEvidenceServiceImpl.class).in(Singleton.class);

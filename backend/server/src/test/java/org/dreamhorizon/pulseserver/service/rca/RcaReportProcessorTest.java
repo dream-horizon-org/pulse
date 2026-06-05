@@ -63,6 +63,9 @@ class RcaReportProcessorTest {
           + "\"start\":\"2024-12-26T00:00:00Z\",\"end\":\"2025-01-01T12:00:00Z\"}";
   private static final String SESSION_BODY =
       "{\"rcaType\":\"SESSION\",\"entityKey\":\"session-1\",\"date\":\"2025-01-01\"}";
+  private static final String FUNNEL_BODY =
+      "{\"rcaType\":\"FUNNEL\",\"entityKey\":\"7:0\",\"date\":\"2025-01-01\","
+          + "\"start\":\"2024-12-26T00:00:00Z\",\"end\":\"2025-01-01T12:00:00Z\"}";
   /** AI JSON with one segment slot for {@link RcaRelatedHeatmapsMerger#mergeInto}. */
   private static final String AI_JSON_WITH_ONE_STRUCTURED_SEGMENT =
       "{\"report\":{\"structured\":{\"segments\":[{}]}}}";
@@ -118,6 +121,22 @@ class RcaReportProcessorTest {
         "p1",
         RcaType.SESSION,
         entityKey,
+        DATE,
+        RcaJobStatus.PENDING,
+        null,
+        Instant.now(),
+        null,
+        null,
+        null,
+        null);
+  }
+
+  private RcaReportJob funnelJob() {
+    return new RcaReportJob(
+        JOB_ID,
+        "p1",
+        RcaType.FUNNEL,
+        "7:0",
         DATE,
         RcaJobStatus.PENDING,
         null,
@@ -377,6 +396,23 @@ class RcaReportProcessorTest {
 
     verify(webClient).postAbs(eq("http://ai-test/rca/screen-report"));
     verify(jobDao).markCompleted(JOB_ID, "p1", RcaType.SCREEN, "Home", DATE);
+  }
+
+  @Test
+  void shouldCallFunnelReportUpstreamForSuccessfulFunnelPipeline() {
+    stubSyncExecution();
+    when(enrichmentService.enrichAsync(any(), anyBoolean()))
+        .thenReturn(
+            CompletableFuture.completedFuture(
+                new RcaEnrichmentOutcome(FUNNEL_BODY, null, DATE, Instant.now(), true)));
+    HttpResponse<Buffer> resp200 = mockHttpResponse(200, "{}");
+    when(httpRequest.rxSendBuffer(any())).thenReturn(Single.just(resp200));
+
+    processor.enqueueProcess(funnelJob(), FUNNEL_BODY, false, "Bearer t", null);
+
+    verify(webClient).postAbs(eq("http://ai-test/rca/funnel-report"));
+    verify(jobDao).markCompleted(JOB_ID, "p1", RcaType.FUNNEL, "7:0", DATE);
+    verify(rootCauseService, never()).fetchDistinctScreensForInteraction(any(), any(), any());
   }
 
   @Test

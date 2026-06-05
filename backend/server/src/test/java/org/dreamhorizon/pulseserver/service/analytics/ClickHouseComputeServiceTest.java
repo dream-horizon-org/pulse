@@ -74,6 +74,15 @@ class ClickHouseComputeServiceTest {
   }
 
   private FunnelDefinitionRow funnelRow() {
+    return orderedFunnelRow("[{\"eventName\":\"e1\"}]");
+  }
+
+  /** ORDERED funnel with 2+ steps so drop-off attribution INSERT is emitted. */
+  private FunnelDefinitionRow orderedDropoffFunnelRow() {
+    return orderedFunnelRow("[{\"eventName\":\"e1\"},{\"eventName\":\"e2\"}]");
+  }
+
+  private FunnelDefinitionRow orderedFunnelRow(String stepsJson) {
     return FunnelDefinitionRow.builder()
       .id(42L)
       .projectId(PROJECT)
@@ -83,7 +92,7 @@ class ClickHouseComputeServiceTest {
       .mode("UNIQUE_USERS")
       .dateRangeDays(7)
       .windowSeconds(3600L)
-      .stepsJson("[{\"eventName\":\"e1\"}]")
+      .stepsJson(stepsJson)
       .filtersJson(null)
       .build();
   }
@@ -106,14 +115,16 @@ class ClickHouseComputeServiceTest {
     when(clickhouseWriteClient.executeSql(anyString())).thenReturn(Single.just(true));
 
     assertThat(service.computeFunnel(42L).blockingGet()).isTrue();
-    verify(clickhouseWriteClient).executeSql(org.mockito.ArgumentMatchers.argThat(s -> s != null && s.contains("INSERT INTO otel.funnel_results")));
+    verify(clickhouseWriteClient)
+        .executeSql(
+            org.mockito.ArgumentMatchers.argThat(
+                s -> s != null && s.contains("INSERT INTO otel.funnel_results")));
   }
 
   @Test
   void computeFunnel_alsoEmitsAttributionPrecomputeForOrderedFunnels() {
-    // Cascade order is funnel_results → session_state → user_state → attribution. All four
-    // INSERTs must fire for an ORDERED funnel so the side-panel can read precomputed causes.
-    when(funnelDefinitionDao.findById(42L)).thenReturn(Maybe.just(funnelRow()));
+    // Cascade: funnel_results → session_state → user_state → attribution (needs 2+ steps).
+    when(funnelDefinitionDao.findById(42L)).thenReturn(Maybe.just(orderedDropoffFunnelRow()));
     when(clickhouseWriteClient.executeSql(anyString())).thenReturn(Single.just(true));
 
     assertThat(service.computeFunnel(42L).blockingGet()).isTrue();
@@ -125,7 +136,7 @@ class ClickHouseComputeServiceTest {
   void computeFunnel_swallowsAttributionFailureWhenResultsSucceeded() {
     // Attribution is best-effort. A failure must not surface — funnel_results already
     // landed, the side-panel can fall back to the live cause-join query.
-    when(funnelDefinitionDao.findById(42L)).thenReturn(Maybe.just(funnelRow()));
+    when(funnelDefinitionDao.findById(42L)).thenReturn(Maybe.just(orderedDropoffFunnelRow()));
     when(clickhouseWriteClient.executeSql(org.mockito.ArgumentMatchers.argThat(
         s -> s != null && s.contains("INSERT INTO otel.funnel_dropoff_attribution"))))
         .thenReturn(Single.error(new RuntimeException("attribution boom")));
@@ -262,17 +273,18 @@ class ClickHouseComputeServiceTest {
     assertThat(service.deleteFunnelResults(PROJECT, 42L).blockingGet()).isTrue();
 
     verify(clickhouseWriteClient).executeSql(org.mockito.ArgumentMatchers.argThat(
-      s -> s.contains("DELETE FROM otel.funnel_results")
+      s -> s != null
+        && s.contains("DELETE FROM otel.funnel_results")
         && s.contains("ProjectId = 'proj-x'")
         && s.contains("FunnelId = 42")));
     verify(clickhouseWriteClient).executeSql(org.mockito.ArgumentMatchers.argThat(
-      s -> s.contains("DELETE FROM otel.funnel_session_state")
+      s -> s != null && s.contains("DELETE FROM otel.funnel_session_state")
         && s.contains("FunnelId = 42")));
     verify(clickhouseWriteClient).executeSql(org.mockito.ArgumentMatchers.argThat(
-      s -> s.contains("DELETE FROM otel.funnel_user_state")
+      s -> s != null && s.contains("DELETE FROM otel.funnel_user_state")
         && s.contains("FunnelId = 42")));
     verify(clickhouseWriteClient).executeSql(org.mockito.ArgumentMatchers.argThat(
-      s -> s.contains("DELETE FROM otel.funnel_dropoff_attribution")
+      s -> s != null && s.contains("DELETE FROM otel.funnel_dropoff_attribution")
         && s.contains("FunnelId = 42")));
   }
 
@@ -281,10 +293,10 @@ class ClickHouseComputeServiceTest {
     // Primary funnel_results delete must succeed independently — bridge cleanup failures
     // are best-effort and shouldn't surface to FunnelService.delete.
     when(clickhouseWriteClient.executeSql(org.mockito.ArgumentMatchers.argThat(
-      s -> s.contains("DELETE FROM otel.funnel_results"))))
+      s -> s != null && s.contains("DELETE FROM otel.funnel_results"))))
       .thenReturn(Single.just(true));
     when(clickhouseWriteClient.executeSql(org.mockito.ArgumentMatchers.argThat(
-      s -> s.contains("DELETE FROM otel.funnel_session_state"))))
+      s -> s != null && s.contains("DELETE FROM otel.funnel_session_state"))))
       .thenReturn(Single.error(new RuntimeException("bridge ch boom")));
 
     assertThat(service.deleteFunnelResults(PROJECT, 42L).blockingGet()).isTrue();

@@ -29,6 +29,7 @@ import org.dreamhorizon.pulseserver.service.errorattribution.ErrorAttributionWit
 import org.dreamhorizon.pulseserver.service.rootcause.RootCauseService;
 import org.dreamhorizon.pulseserver.service.rootcause.ScreenRcaService;
 import org.dreamhorizon.pulseserver.service.rootcause.SessionEvidenceService;
+import org.dreamhorizon.pulseserver.service.productAnalysis.funnel.FunnelRcaService;
 import org.dreamhorizon.pulseserver.service.sessionrca.SessionRcaService;
 import org.dreamhorizon.pulseserver.service.rootcause.models.EvidenceSession;
 import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseAnalysisMode;
@@ -66,6 +67,9 @@ class RcaReportEnrichmentServiceTest {
   @Mock
   private SessionRcaService sessionRcaService;
 
+  @Mock
+  private FunnelRcaService funnelRcaService;
+
   private RcaReportEnrichmentService service;
 
   private ObjectMapper objectMapper;
@@ -81,7 +85,8 @@ class RcaReportEnrichmentServiceTest {
             sessionEvidenceService,
             errorAttributionService,
             RootCauseConfig.withDefaults(null),
-            sessionRcaService);
+            sessionRcaService,
+            funnelRcaService);
     when(errorAttributionService.getErrorAttributionWithOptionalDrillDown(
             any(), any(), any(), any(), any()))
         .thenReturn(Single.just(new ErrorAttributionWithDrillDown(List.of(), 2.0)));
@@ -593,6 +598,138 @@ class RcaReportEnrichmentServiceTest {
       assertThat(outcome.enrichmentOk()).isFalse();
       assertThat(outcome.body()).isEqualTo(rawBody);
       assertThat(outcome.rootCause()).isNull();
+    }
+  }
+
+  @Nested
+  class FunnelRcaEnrichment {
+
+    @Test
+    void shouldEnrichFunnelRcaPayload()
+        throws ExecutionException, InterruptedException, TimeoutException {
+      RootCauseResult funnelResult =
+          RootCauseResult.builder()
+              .baseline(Map.of("dropoff_cohort", 100L))
+              .segments(List.of())
+              .mode(RootCauseAnalysisMode.FLAT)
+              .build();
+      when(funnelRcaService.getFunnelRootCause(eq("p1"), eq(99L), eq(1), eq(null)))
+          .thenReturn(Single.just(funnelResult));
+
+      ObjectNode body = objectMapper.createObjectNode();
+      body.put("date", "2025-06-01");
+      body.put("start", "2025-06-01T00:00:00Z");
+      body.put("end", "2025-06-02T00:00:00Z");
+      RcaParsedReportBody parsed =
+          new RcaParsedReportBody(
+              body.toString(), body, "p1", RcaType.FUNNEL, "99:1", DATE, false);
+
+      RcaEnrichmentOutcome outcome =
+          service.enrichAsync(parsed, false).toCompletableFuture().get(5, TimeUnit.SECONDS);
+
+      assertThat(outcome.enrichmentOk()).isTrue();
+      assertThat(outcome.body()).contains("funnelId");
+      assertThat(outcome.body()).contains("focusStepIndex");
+      assertThat(outcome.body()).contains("rootCausePayload");
+      verifyNoInteractions(rootCauseService);
+    }
+
+    @Test
+    void shouldBuildValidAiBodyWhenFunnelServiceFails() throws Exception {
+      when(funnelRcaService.getFunnelRootCause(eq("p1"), eq(5L), eq(0), eq(null)))
+          .thenReturn(Single.error(new RuntimeException("FUNNEL_NOT_FOUND")));
+
+      ObjectNode body = objectMapper.createObjectNode();
+      body.put("date", "2025-06-01");
+      body.put("start", "2025-06-01T00:00:00Z");
+      body.put("end", "2025-06-02T00:00:00Z");
+      RcaParsedReportBody parsed =
+          new RcaParsedReportBody(
+              body.toString(), body, "p1", RcaType.FUNNEL, "5:0", DATE, false);
+
+      RcaEnrichmentOutcome outcome =
+          service.enrichAsync(parsed, false).toCompletableFuture().get(5, TimeUnit.SECONDS);
+
+      assertThat(outcome.enrichmentOk()).isTrue();
+      assertThat(outcome.body()).contains("\"funnelId\":5");
+      assertThat(outcome.body()).contains("\"focusStepIndex\":0");
+      assertThat(outcome.body()).contains("rootCausePayload");
+      assertThat(outcome.body()).contains("noDataAvailable");
+    }
+
+    @Test
+    void shouldReturnFallbackWhenStartEndMissing() throws Exception {
+      ObjectNode body = objectMapper.createObjectNode();
+      body.put("date", "2025-06-01");
+      RcaParsedReportBody parsed =
+          new RcaParsedReportBody(
+              body.toString(), body, "p1", RcaType.FUNNEL, "99:1", DATE, false);
+
+      RcaEnrichmentOutcome outcome =
+          service.enrichAsync(parsed, false).toCompletableFuture().get(5, TimeUnit.SECONDS);
+
+      assertThat(outcome.enrichmentOk()).isFalse();
+      verifyNoInteractions(funnelRcaService);
+    }
+
+    @Test
+    void shouldReturnFallbackWhenEntityKeyInvalid() throws Exception {
+      ObjectNode body = objectMapper.createObjectNode();
+      body.put("date", "2025-06-01");
+      body.put("start", "2025-06-01T00:00:00Z");
+      body.put("end", "2025-06-02T00:00:00Z");
+      RcaParsedReportBody parsed =
+          new RcaParsedReportBody(
+              body.toString(), body, "p1", RcaType.FUNNEL, "not-valid", DATE, false);
+
+      RcaEnrichmentOutcome outcome =
+          service.enrichAsync(parsed, false).toCompletableFuture().get(5, TimeUnit.SECONDS);
+
+      assertThat(outcome.enrichmentOk()).isFalse();
+      verifyNoInteractions(funnelRcaService);
+    }
+
+    @Test
+    void shouldReturnFallbackWhenStartEndNotParseable() throws Exception {
+      ObjectNode body = objectMapper.createObjectNode();
+      body.put("date", "2025-06-01");
+      body.put("start", "yesterday");
+      body.put("end", "tomorrow");
+      RcaParsedReportBody parsed =
+          new RcaParsedReportBody(
+              body.toString(), body, "p1", RcaType.FUNNEL, "99:1", DATE, false);
+
+      RcaEnrichmentOutcome outcome =
+          service.enrichAsync(parsed, false).toCompletableFuture().get(5, TimeUnit.SECONDS);
+
+      assertThat(outcome.enrichmentOk()).isFalse();
+      verifyNoInteractions(funnelRcaService);
+    }
+
+    @Test
+    void shouldPassRunTimeToFunnelService() throws Exception {
+      RootCauseResult funnelResult =
+          RootCauseResult.builder()
+              .baseline(Map.of("dropoff_cohort", 10L))
+              .segments(List.of())
+              .build();
+      when(funnelRcaService.getFunnelRootCause(eq("p1"), eq(12L), eq(2), eq("2026-05-01")))
+          .thenReturn(Single.just(funnelResult));
+
+      ObjectNode body = objectMapper.createObjectNode();
+      body.put("date", "2025-06-01");
+      body.put("start", "2025-06-01T00:00:00Z");
+      body.put("end", "2025-06-02T00:00:00Z");
+      body.put("runTime", "2026-05-01");
+      RcaParsedReportBody parsed =
+          new RcaParsedReportBody(
+              body.toString(), body, "p1", RcaType.FUNNEL, "12:2", DATE, false);
+
+      RcaEnrichmentOutcome outcome =
+          service.enrichAsync(parsed, false).toCompletableFuture().get(5, TimeUnit.SECONDS);
+
+      assertThat(outcome.enrichmentOk()).isTrue();
+      verify(funnelRcaService).getFunnelRootCause(eq("p1"), eq(12L), eq(2), eq("2026-05-01"));
     }
   }
 }

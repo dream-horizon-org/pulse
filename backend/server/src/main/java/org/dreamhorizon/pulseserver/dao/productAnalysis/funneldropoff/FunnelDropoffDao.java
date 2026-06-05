@@ -3,10 +3,8 @@ package org.dreamhorizon.pulseserver.dao.productAnalysis.funneldropoff;
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
 import io.reactivex.rxjava3.core.Single;
-
 import java.util.Collections;
 import java.util.List;
-
 import lombok.RequiredArgsConstructor;
 import org.dreamhorizon.pulseserver.client.chclient.ClickhouseQueryService;
 import org.dreamhorizon.pulseserver.dao.productAnalysis.funneldropoff.models.FunnelDropoffCauseRow;
@@ -15,20 +13,11 @@ import org.dreamhorizon.pulseserver.model.QueryConfiguration;
 import org.dreamhorizon.pulseserver.model.QueryResultResponse;
 
 /**
- * Data access for the funnel drop-off attribution panel.
+ * Data access for funnel drop-off attribution reads and evidence drill-in.
  *
- * <p>Two read paths:
- * <ul>
- *   <li>{@link #queryCauses} — ranked causes per (funnel × step × run), joining the
- *       bridge table against {@code stack_trace_events}, {@code otel_traces}, and
- *       {@code session_summary}.</li>
- *   <li>{@link #queryEvidence} — hydrates one-row-per-session context for the
- *       "View examples" drill-in once the user picks a cause.</li>
- * </ul>
- *
- * <p>{@code mode} selects whether cohorts are sessions (SESSIONS funnels) or users
- * anchored on a canonical session (UNIQUE_USERS funnels). The table swap is pushed
- * into {@link FunnelDropoffQueries} so the DAO stays thin.
+ * <p>{@link #queryCauses} tries precomputed {@code funnel_dropoff_attribution} first, then
+ * falls back to live OTel joins when empty. {@link #queryCausesFromAttribution} is
+ * attribution-only (used by funnel RCA).
  */
 @Singleton
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
@@ -41,17 +30,11 @@ public class FunnelDropoffDao {
   /**
    * Ranked drop-off causes for the given step of the given funnel run.
    *
-   * <p>Two-tier read: first tries the precomputed {@code funnel_dropoff_attribution} table
-   * (one indexed lookup, no OTel scans). If that returns zero rows — typically because the
-   * funnel hasn't been recomputed since the attribution feature shipped, or no signals
-   * fired in the window — falls back to the live join against
-   * {@code stack_trace_events} / {@code otel_traces} / {@code session_summary} so older
-   * runs and freshly-created funnels still get a populated panel.
-   *
-   * <p>Returns an empty list when both paths come back empty (no cohort, no signals).
+   * <p>Two-tier read: precomputed attribution first; live join when empty so older runs
+   * and freshly-created funnels still populate the panel.
    *
    * @param runTime optional; {@code null} picks the latest run for the funnel.
-   * @param mode either {@code UNIQUE_USERS} or {@code SESSIONS} (case-insensitive).
+   * @param mode    either {@code UNIQUE_USERS} or {@code SESSIONS} (case-insensitive).
    */
   public Single<List<FunnelDropoffCauseRow>> queryCauses(
       String projectId, long funnelId, int stepIndex, String runTime, String mode) {
@@ -61,24 +44,23 @@ public class FunnelDropoffDao {
             : Single.just(rows));
   }
 
-  private Single<List<FunnelDropoffCauseRow>> queryCausesFromAttribution(
+  /**
+   * Attribution-only read used by drop-off panel (after precompute) and funnel RCA.
+   */
+  public Single<List<FunnelDropoffCauseRow>> queryCausesFromAttribution(
       String projectId, long funnelId, int stepIndex, String runTime) {
     String sql = FunnelDropoffQueries.buildCausesSqlFromAttribution(
         projectId, funnelId, stepIndex, runTime);
-    QueryConfiguration config =
-        QueryConfiguration.newQuery(sql)
-            .timeoutMs(TIMEOUT_MS)
-            .tenantId(projectId)
-            .projectId(projectId)
-            .build();
-    return clickhouseQueryService
-        .executeQueryOrCreateJob(config, FunnelDropoffCauseRow.class)
-        .map(FunnelDropoffDao::causeRowsOrEmpty);
+    return executeCauseQuery(projectId, sql);
   }
 
   private Single<List<FunnelDropoffCauseRow>> queryCausesLive(
       String projectId, long funnelId, int stepIndex, String runTime, String mode) {
     String sql = FunnelDropoffQueries.buildCausesSql(projectId, funnelId, stepIndex, runTime, mode);
+    return executeCauseQuery(projectId, sql);
+  }
+
+  private Single<List<FunnelDropoffCauseRow>> executeCauseQuery(String projectId, String sql) {
     QueryConfiguration config =
         QueryConfiguration.newQuery(sql)
             .timeoutMs(TIMEOUT_MS)
@@ -96,7 +78,11 @@ public class FunnelDropoffDao {
    * typically 5 per cause.
    */
   public Single<List<FunnelDropoffEvidenceRow>> queryEvidence(
-      String projectId, long funnelId, int stepIndex, String runTime, String mode,
+      String projectId,
+      long funnelId,
+      int stepIndex,
+      String runTime,
+      String mode,
       List<String> sessionIds) {
     if (sessionIds == null || sessionIds.isEmpty()) {
       return Single.just(Collections.emptyList());

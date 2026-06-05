@@ -10,9 +10,12 @@ import type {
   FunnelGroupedRequestBody,
   FunnelGroupedResponse,
   FunnelStep,
-  TagsResponse
+  TagsResponse,
 } from "../hooks/useGetFunnelData/useGetFunnelData.interface";
-import type { FilterField, TimeRange } from "../hooks/useGetDataQuery/useGetDataQuery.interface";
+import type {
+  FilterField,
+  TimeRange,
+} from "../hooks/useGetDataQuery/useGetDataQuery.interface";
 
 dayjs.extend(utc);
 
@@ -428,12 +431,12 @@ export type FunnelDropoffEvidenceResponse = {
 export async function fetchFunnelDropoff(
   funnelId: string,
   stepIndex: number,
-  runTime?: string
+  runTime?: string,
 ) {
   const qs = runTime ? `?runTime=${encodeURIComponent(runTime)}` : "";
   return makeRequest<FunnelDropoffResponse>({
     url: `${API_BASE_URL}${API_ROUTES.FUNNEL_DROPOFF.apiPath}/${encodeURIComponent(
-      funnelId
+      funnelId,
     )}/dropoffs/${stepIndex}${qs}`,
     init: {
       method: API_ROUTES.FUNNEL_DROPOFF.method,
@@ -446,7 +449,7 @@ export async function fetchFunnelDropoffEvidence(
   funnelId: string,
   stepIndex: number,
   sessionIds: string[],
-  runTime?: string
+  runTime?: string,
 ) {
   const parts: string[] = [];
   if (sessionIds?.length) {
@@ -458,7 +461,7 @@ export async function fetchFunnelDropoffEvidence(
   const qs = parts.length ? `?${parts.join("&")}` : "";
   return makeRequest<FunnelDropoffEvidenceResponse>({
     url: `${API_BASE_URL}${API_ROUTES.FUNNEL_DROPOFF_EVIDENCE.apiPath}/${encodeURIComponent(
-      funnelId
+      funnelId,
     )}/dropoffs/${stepIndex}/evidence${qs}`,
     init: {
       method: API_ROUTES.FUNNEL_DROPOFF_EVIDENCE.method,

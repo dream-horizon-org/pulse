@@ -25,7 +25,10 @@ import {
   type RcaStructuredMetricRowV1,
   type RcaStructuredReportV1,
 } from "../../../../hooks/useGetRcaReport/useGetRcaReport.interface";
-import type { RcaReportViewProps } from "./RcaReportView.interface";
+import type {
+  RcaReportContextProps,
+  RcaReportViewProps,
+} from "./RcaReportView.interface";
 import { ERROR_ATTRIBUTION_MESSAGES } from "../ErrorAttribution/ErrorAttribution.constants";
 import { RcaEmbeddedErrorAttribution } from "./RcaEmbeddedErrorAttribution";
 import {
@@ -199,12 +202,14 @@ const RcaStructuredReportV1View = ({
   analysisLookbackDays,
   onRegenerate,
   projectId,
+  reportContext,
 }: {
   structured: RcaStructuredReportV1;
   cachedAt?: string | null;
   analysisLookbackDays?: number | null;
   onRegenerate?: () => void;
   projectId?: string | null;
+  reportContext?: RcaReportContextProps;
 }) => {
   const isEverythingGood = structured.everything_good === true;
   const isNoDataAvailable = structured.no_data_available === true;
@@ -226,10 +231,13 @@ const RcaStructuredReportV1View = ({
 
   const hasRegenerate = typeof onRegenerate === "function";
   const showAsOf = cachedAt != null && cachedAt !== "";
+  const hasReportContext = reportContext != null;
   const showLookback =
     typeof analysisLookbackDays === "number" &&
     analysisLookbackDays > 0 &&
     Number.isFinite(analysisLookbackDays);
+  const showReportHeader =
+    hasReportContext || showAsOf || showLookback || hasRegenerate;
   const trimmedProjectId = projectId != null ? String(projectId).trim() : "";
   const hasProjectForHeatmaps = trimmedProjectId !== "";
   const allSegmentsBodyEmpty =
@@ -291,43 +299,75 @@ const RcaStructuredReportV1View = ({
   return (
     <Box className={rootCauseClasses.container}>
       <Box className={rcaClasses.reportShell}>
-        {(showAsOf || showLookback || hasRegenerate) && (
-          <Group
-            className={rcaClasses.reportHeaderRow}
-            justify="space-between"
-            align="flex-start"
-            wrap="wrap"
-            gap="sm"
-          >
-            <Stack gap={4} align="flex-start">
-              {showAsOf ? (
-                <Text
-                  className={rcaClasses.reportCachedAt}
-                  size="sm"
-                  c="dimmed"
+        {showReportHeader && (
+          <Box className={rcaClasses.reportContextHeader}>
+            <Group
+              justify="space-between"
+              align="flex-start"
+              wrap="wrap"
+              gap="md"
+            >
+              {hasReportContext ? (
+                <Stack gap={4} className={rcaClasses.reportContextMain}>
+                  <Box className={rcaClasses.reportContextTitleRow}>
+                    {reportContext.badge ? (
+                      <Badge variant="light" color="blue" size="sm">
+                        {reportContext.badge}
+                      </Badge>
+                    ) : null}
+                    <Text size="sm" fw={600}>
+                      {reportContext.title}
+                    </Text>
+                  </Box>
+                  {reportContext.subtitle ? (
+                    <Text size="xs" c="dimmed">
+                      {reportContext.subtitle}
+                    </Text>
+                  ) : null}
+                  {reportContext.hint ? (
+                    <Text size="xs" c="dimmed" fs="italic">
+                      {reportContext.hint}
+                    </Text>
+                  ) : null}
+                </Stack>
+              ) : (
+                <div />
+              )}
+              {(showAsOf || showLookback || hasRegenerate) && (
+                <Stack
+                  gap="xs"
+                  align="flex-end"
+                  className={rcaClasses.reportContextMeta}
                 >
-                  Report as of {cachedAt}
-                </Text>
-              ) : null}
-              {showLookback ? (
-                <Text size="sm" c="dimmed">
-                  Telemetry lookback: {analysisLookbackDays}{" "}
-                  {analysisLookbackDays === 1 ? "day" : "days"}
-                </Text>
-              ) : null}
-              {!showAsOf && !showLookback ? <div /> : null}
-            </Stack>
-            {hasRegenerate ? (
-              <Button
-                variant="light"
-                size="xs"
-                leftSection={<IconRefresh size={14} />}
-                onClick={onRegenerate}
-              >
-                {ROOT_CAUSE_MESSAGES.REGENERATE_REPORT}
-              </Button>
-            ) : null}
-          </Group>
+                  {showAsOf ? (
+                    <Text
+                      className={rcaClasses.reportCachedAt}
+                      size="xs"
+                      c="dimmed"
+                    >
+                      Report as of {cachedAt}
+                    </Text>
+                  ) : null}
+                  {showLookback ? (
+                    <Text size="xs" c="dimmed">
+                      Telemetry lookback: {analysisLookbackDays}{" "}
+                      {analysisLookbackDays === 1 ? "day" : "days"}
+                    </Text>
+                  ) : null}
+                  {hasRegenerate ? (
+                    <Button
+                      variant="light"
+                      size="xs"
+                      leftSection={<IconRefresh size={14} />}
+                      onClick={onRegenerate}
+                    >
+                      {ROOT_CAUSE_MESSAGES.REGENERATE_REPORT}
+                    </Button>
+                  ) : null}
+                </Stack>
+              )}
+            </Group>
+          </Box>
         )}
         <Stack gap="lg">
           {hasExecutiveSummary && (
@@ -707,6 +747,7 @@ export const RcaReportView = ({
   cachedAt,
   onRegenerate,
   projectId,
+  reportContext,
 }: RcaReportViewProps) => {
   const analysisLookbackDays =
     report.analysisLookbackDays ?? report.report?.analysisLookbackDays ?? null;
@@ -742,6 +783,7 @@ export const RcaReportView = ({
       analysisLookbackDays={analysisLookbackDays}
       onRegenerate={onRegenerate}
       projectId={projectId}
+      reportContext={reportContext}
     />
   );
 };

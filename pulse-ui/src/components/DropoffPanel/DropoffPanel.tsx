@@ -22,11 +22,16 @@ export function DropoffPanel({
   funnelId,
   stepIndex,
   runTime,
+  onFullRcaClick,
 }: DropoffPanelProps) {
-  const { data: response, isLoading, isError } = useFunnelDropoff(
+  const {
+    data: response,
+    isLoading,
+    isError,
+  } = useFunnelDropoff(
     opened ? funnelId : undefined,
     opened ? stepIndex : undefined,
-    runTime
+    runTime,
   );
   const data = response?.data ?? null;
 
@@ -82,9 +87,7 @@ export function DropoffPanel({
             <Text className={classes.kpiLabel}>Converters</Text>
           </Box>
           <Box className={classes.kpi}>
-            <Text className={classes.kpiValue}>
-              {data.causes?.length ?? 0}
-            </Text>
+            <Text className={classes.kpiValue}>{data.causes?.length ?? 0}</Text>
             <Text className={classes.kpiLabel}>Causes</Text>
           </Box>
         </Box>
@@ -118,6 +121,25 @@ export function DropoffPanel({
             </Text>
           </Box>
         )}
+
+        {onFullRcaClick &&
+          !isLoading &&
+          !isError &&
+          data &&
+          data.causes?.length > 0 && (
+            <Box mb="md">
+              <Button
+                variant="light"
+                size="sm"
+                onClick={() => {
+                  onClose();
+                  onFullRcaClick();
+                }}
+              >
+                Full RCA report
+              </Button>
+            </Box>
+          )}
 
         {!isLoading && !isError && data && data.causes?.length > 0 && (
           <>

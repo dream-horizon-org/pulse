@@ -14,6 +14,30 @@
   }
 }
 
+.reportContextHeader {
+  margin-bottom: var(--mantine-spacing-md);
+  padding-bottom: var(--mantine-spacing-sm);
+  border-bottom: 1px solid
+    light-dark(var(--mantine-color-gray-2), var(--mantine-color-dark-4));
+}
+
+.reportContextMain {
+  flex: 1;
+  min-width: min(100%, 14rem);
+}
+
+.reportContextTitleRow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--mantine-spacing-xs);
+}
+
+.reportContextMeta {
+  flex-shrink: 0;
+  text-align: end;
+}
+
 .reportHeaderRow {
   margin-bottom: var(--mantine-spacing-sm);
 }

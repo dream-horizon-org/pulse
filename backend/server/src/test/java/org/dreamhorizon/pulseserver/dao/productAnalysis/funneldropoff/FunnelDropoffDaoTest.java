@@ -30,7 +30,8 @@ class FunnelDropoffDaoTest {
 
   private static final String PROJECT = "test-project";
 
-  @Mock ClickhouseQueryService clickhouseQueryService;
+  @Mock
+  ClickhouseQueryService clickhouseQueryService;
 
   FunnelDropoffDao dao;
 
@@ -49,7 +50,6 @@ class FunnelDropoffDaoTest {
   class QueryCauses {
     @Test
     void shouldReturnMappedRowsFromPrecomputedAttribution() {
-      // First call (precomputed) returns a row → no fallback needed.
       FunnelDropoffCauseRow row = FunnelDropoffCauseRow.builder()
           .causeKind("crash").causeKey("NPE@Checkout").causeLabel("NPE @ Checkout")
           .dropoffCohort(100L).dropoffAffected(42L)
@@ -72,8 +72,6 @@ class FunnelDropoffDaoTest {
 
     @Test
     void shouldFallBackToLiveJoinWhenAttributionTableIsEmpty() {
-      // First call (precomputed) returns empty → DAO falls back to live join, which returns
-      // a row. Both paths share the same row mapper so the result shape is identical.
       QueryResultResponse<FunnelDropoffCauseRow> empty =
           QueryResultResponse.<FunnelDropoffCauseRow>builder()
               .rows(Collections.emptyList()).build();
@@ -105,7 +103,7 @@ class FunnelDropoffDaoTest {
               .rows(Collections.emptyList()).build();
       when(clickhouseQueryService.executeQueryOrCreateJob(
           any(QueryConfiguration.class), eq(FunnelDropoffCauseRow.class)))
-          .thenReturn(Single.just(empty));
+          .thenReturn(Single.just(empty), Single.just(empty));
 
       List<FunnelDropoffCauseRow> result =
           dao.queryCauses(PROJECT, 1L, 0, null, "SESSIONS").blockingGet();
@@ -118,7 +116,7 @@ class FunnelDropoffDaoTest {
           QueryResultResponse.<FunnelDropoffCauseRow>builder().rows(null).build();
       when(clickhouseQueryService.executeQueryOrCreateJob(
           any(QueryConfiguration.class), eq(FunnelDropoffCauseRow.class)))
-          .thenReturn(Single.just(resp));
+          .thenReturn(Single.just(resp), Single.just(resp));
 
       List<FunnelDropoffCauseRow> result =
           dao.queryCauses(PROJECT, 1L, 0, null, "SESSIONS").blockingGet();
@@ -158,7 +156,7 @@ class FunnelDropoffDaoTest {
 
       List<FunnelDropoffEvidenceRow> result =
           dao.queryEvidence(PROJECT, 1L, 0, "2026-04-23 10:00:00", "SESSIONS",
-                  List.of("s-1")).blockingGet();
+              List.of("s-1")).blockingGet();
       assertThat(result).hasSize(1);
       assertThat(result.get(0).getSessionId()).isEqualTo("s-1");
       assertThat(result.get(0).getTraceId()).isEqualTo("t-1");

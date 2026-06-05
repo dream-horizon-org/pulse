@@ -3,21 +3,23 @@ import { fetchFunnelDropoffEvidence } from "../../services/funnels.service";
 import { useProjectQueryEnabled } from "../useProjectQueryEnabled";
 
 /**
- * Hydrates the side-panel's "View examples" drill-in. {@code sessionIds} is
- * expected to come from a {@code FunnelDropoffCause.exampleSessionIds} array;
- * the hook stays disabled until at least one ID is supplied.
+ * Hydrates the side-panel's "View examples" drill-in. {@code sessionIds} comes from
+ * {@code FunnelDropoffCause.exampleSessionIds}; disabled until at least one ID is set.
  */
 export const useFunnelDropoffEvidence = (
   funnelId: string | undefined,
   stepIndex: number | undefined,
   sessionIds: string[] | undefined,
-  runTime?: string
+  runTime?: string,
 ) => {
-  const hasIds = !!sessionIds && sessionIds.length > 0;
+  const hasSessions =
+    Array.isArray(sessionIds) && sessionIds.some((id) => id.trim() !== "");
   const enabled = useProjectQueryEnabled(
-    !!funnelId && typeof stepIndex === "number" && hasIds
+    !!funnelId && stepIndex != null && stepIndex >= 0 && hasSessions,
   );
-  const idsKey = hasIds ? (sessionIds as string[]).slice().sort().join(",") : "";
+  const idsKey = hasSessions
+    ? (sessionIds as string[]).slice().sort().join(",")
+    : "";
 
   return useQuery({
     queryKey: [
@@ -32,10 +34,9 @@ export const useFunnelDropoffEvidence = (
         funnelId as string,
         stepIndex as number,
         sessionIds as string[],
-        runTime
+        runTime,
       ),
-    enabled:
-      enabled && !!funnelId && typeof stepIndex === "number" && hasIds,
+    enabled,
     refetchOnWindowFocus: false,
   });
 };

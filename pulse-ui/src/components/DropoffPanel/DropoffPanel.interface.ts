@@ -11,4 +11,6 @@ export interface DropoffPanelProps {
    * the backend picks the latest run for the funnel.
    */
   runTime?: string;
+  /** Opens the full async RCA report (e.g. funnel detail root-cause tab). */
+  onFullRcaClick?: () => void;
 }

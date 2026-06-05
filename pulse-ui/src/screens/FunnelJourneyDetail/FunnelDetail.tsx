@@ -1,4 +1,12 @@
-import { ActionIcon, Box, Button, Group, Loader, Text } from "@mantine/core";
+import {
+  ActionIcon,
+  Box,
+  Button,
+  Group,
+  Loader,
+  Tabs,
+  Text,
+} from "@mantine/core";
 import { IconArrowLeft, IconPencil } from "@tabler/icons-react";
 import { generatePath, useNavigate, useParams } from "react-router-dom";
 import { ROUTES } from "../../constants";
@@ -18,7 +26,10 @@ import {
   useGetFunnelEvents,
   useGetFunnelFilters,
 } from "../../hooks";
-import { getDateRangeFromPreset } from "../FunnelJourneyCreate/FunnelJourneyCreate.util";
+import {
+  getDateRangeFromPreset,
+  resolveFunnelRcaWindow,
+} from "../FunnelJourneyCreate/FunnelJourneyCreate.util";
 import { useUpdateFunnel } from "../../hooks/useUpdateFunnel";
 import { useStopFunnel } from "../../hooks/useStopFunnel";
 import { useDeleteFunnel } from "../../hooks/useDeleteFunnel";
@@ -28,12 +39,16 @@ import { FunnelBuilder } from "../FunnelJourneyCreate/components/FunnelBuilder";
 import { FunnelVisualization } from "../FunnelJourneyCreate/components/FunnelVisualization";
 import { FunnelDataTable } from "../FunnelJourneyCreate/components/FunnelDataTable";
 import { DropoffPanel } from "../../components/DropoffPanel";
+import { FunnelRootCause } from "./components/FunnelRootCause/FunnelRootCause";
+import { getRootCauseDateFromEndTime } from "../CriticalInteractionDetails/utils/getRootCauseDateFromEndTime";
 import {
   FunnelMode,
   FunnelType,
   StepOrderType,
   type UpdateFunnelRequestBody,
 } from "../../services/funnels.service";
+
+const isRootCauseEnabled = process.env.REACT_APP_ROOT_CAUSE_ENABLED === "true";
 
 /** Extracts an integer day-count from a preset string like "7d" → 7. */
 function extractDateRangeDays(preset: string): number {
@@ -42,7 +57,15 @@ function extractDateRangeDays(preset: string): number {
   return 1;
 }
 
-function FunnelDetailView({ detail, isEditing, onEdit }: { detail: any; isEditing: boolean; onEdit: () => void }) {
+function FunnelDetailView({
+  detail,
+  isEditing,
+  onEdit,
+}: {
+  detail: any;
+  isEditing: boolean;
+  onEdit: () => void;
+}) {
   const navigate = useNavigate();
   const { projectId } = useParams<{ projectId: string; funnelId: string }>();
   const [name, setName] = useState(detail.name || "");
@@ -97,15 +120,26 @@ function FunnelDetailView({ detail, isEditing, onEdit }: { detail: any; isEditin
     detail.windowSeconds ? String(detail.windowSeconds) : "86400",
   );
   const [, setShouldFetch] = useState(false);
-  /** Zero-based step whose drop-off side-panel is currently open (null when closed). */
-  const [dropoffStepIndex, setDropoffStepIndex] = useState<number | null>(null);
+  /** Zero-based step for the drop-off drawer (null when closed). */
+  const [dropoffPanelStepIndex, setDropoffPanelStepIndex] = useState<
+    number | null
+  >(null);
+  /** Zero-based step for async RCA; kept when the drawer closes. */
+  const [rcaFocusStepIndex, setRcaFocusStepIndex] = useState(0);
+  const [detailTab, setDetailTab] = useState<string | null>("overview");
 
   const { data: eventsData } = useGetFunnelEvents();
   const availableEvents = eventsData?.data?.events ?? [];
 
   const { data: filtersData } = useGetFunnelFilters();
-  const filterKeys = useMemo(() => filtersData?.data?.filters ?? [], [filtersData?.data?.filters]);
-  const filterValuesResults = useGetAllFilterValues(filterKeys, filterKeys.length > 0);
+  const filterKeys = useMemo(
+    () => filtersData?.data?.filters ?? [],
+    [filtersData?.data?.filters],
+  );
+  const filterValuesResults = useGetAllFilterValues(
+    filterKeys,
+    filterKeys.length > 0,
+  );
 
   const filterOptions = useMemo(() => {
     const result: Record<string, string[]> = {};
@@ -143,6 +177,36 @@ function FunnelDetailView({ detail, isEditing, onEdit }: { detail: any; isEditin
     [detail.timeRange],
   );
 
+  const {
+    windowStartIso: funnelWindowStartIso,
+    windowEndIso: funnelWindowEndIso,
+  } = useMemo(
+    () =>
+      resolveFunnelRcaWindow({
+        funnelType: detail.funnelType,
+        startTime: detail.startTime,
+        endTime: detail.endTime,
+        dateRangeDays: detail.dateRangeDays,
+        timeRange: detail.timeRange,
+      }),
+    [
+      detail.funnelType,
+      detail.startTime,
+      detail.endTime,
+      detail.dateRangeDays,
+      detail.timeRange,
+    ],
+  );
+  const funnelRcaAnchorDate = getRootCauseDateFromEndTime(
+    detail.endTime ?? funnelWindowEndIso,
+  );
+
+  useEffect(() => {
+    const stepCount = detail.steps?.length ?? 0;
+    setRcaFocusStepIndex(stepCount > 1 ? stepCount - 2 : 0);
+    setDropoffPanelStepIndex(null);
+  }, [detail.id, detail.steps?.length]);
+
   useEffect(() => {
     if ((detail.funnelType || FunnelType.AUTO) === FunnelType.ONCE) {
       if (detail.startTime) setCustomStartDate(new Date(detail.startTime));
@@ -173,12 +237,18 @@ function FunnelDetailView({ detail, isEditing, onEdit }: { detail: any; isEditin
         .sort(([a], [b]) => a.localeCompare(b))
         .map(([field, values]) => ({ field, values: [...values].sort() }));
     };
-    const currentFiltersFlat = filters.map((f) => ({ field: f.property, value: f.value }));
+    const currentFiltersFlat = filters.map((f) => ({
+      field: f.property,
+      value: f.value,
+    }));
     const originalFiltersFlat = (detail.filters || []).flatMap((f: any) => {
       const vals: string[] = Array.isArray(f.value) ? f.value : [f.value];
       return vals.map((v) => ({ field: f.field, value: String(v) }));
     });
-    if (JSON.stringify(toGrouped(currentFiltersFlat)) !== JSON.stringify(toGrouped(originalFiltersFlat)))
+    if (
+      JSON.stringify(toGrouped(currentFiltersFlat)) !==
+      JSON.stringify(toGrouped(originalFiltersFlat))
+    )
       return true;
 
     const origStartIso = detail.startTime
@@ -258,6 +328,18 @@ function FunnelDetailView({ detail, isEditing, onEdit }: { detail: any; isEditin
     | { steps: any[]; overallConversionRate: number }
     | undefined;
 
+  const rcaFocusStepName = useMemo(() => {
+    const fromResult = funnelResult?.steps?.[rcaFocusStepIndex]?.stepName;
+    if (fromResult != null && String(fromResult).trim() !== "") {
+      return String(fromResult).trim();
+    }
+    const fromDefinition = detail.steps?.[rcaFocusStepIndex]?.eventName;
+    if (fromDefinition != null && String(fromDefinition).trim() !== "") {
+      return String(fromDefinition).trim();
+    }
+    return null;
+  }, [funnelResult?.steps, detail.steps, rcaFocusStepIndex]);
+
   return (
     <>
       <GlobalFilterBar
@@ -295,43 +377,43 @@ function FunnelDetailView({ detail, isEditing, onEdit }: { detail: any; isEditin
             }}
           >
             <div style={{ pointerEvents: isEditing ? undefined : "none" }}>
-            <FunnelBuilder
-              name={name}
-              onNameChange={setName}
-              description={description}
-              onDescriptionChange={setDescription}
-              tags={tags}
-              onTagsChange={setTags}
-              rollingType={rollingType}
-              onRollingTypeChange={setRollingType}
-              dateRange={dateRange}
-              onDateRangeChange={setDateRange}
-              customStartDate={customStartDate}
-              onCustomStartDateChange={setCustomStartDate}
-              customEndDate={customEndDate}
-              onCustomEndDateChange={setCustomEndDate}
-              expiryDate={expiryDate}
-              onExpiryDateChange={setExpiryDate}
-              steps={steps}
-              onStepsChange={(s) => {
-                setSteps(s);
-                setShouldFetch(false);
-              }}
-              funnelMode={funnelMode}
-              onFunnelModeChange={setFunnelMode}
-              analysisMode={analysisMode}
-              onAnalysisModeChange={setAnalysisMode}
-              conversionWindow={conversionWindow}
-              onConversionWindowChange={(v) => {
-                setConversionWindow(v);
-                setShouldFetch(false);
-              }}
-              onAnalyze={handleUpdate}
-              isCreating={isUpdating}
-              availableEvents={availableEvents}
-              isUpdateMode={true}
-              isValid={isChanged}
-            />
+              <FunnelBuilder
+                name={name}
+                onNameChange={setName}
+                description={description}
+                onDescriptionChange={setDescription}
+                tags={tags}
+                onTagsChange={setTags}
+                rollingType={rollingType}
+                onRollingTypeChange={setRollingType}
+                dateRange={dateRange}
+                onDateRangeChange={setDateRange}
+                customStartDate={customStartDate}
+                onCustomStartDateChange={setCustomStartDate}
+                customEndDate={customEndDate}
+                onCustomEndDateChange={setCustomEndDate}
+                expiryDate={expiryDate}
+                onExpiryDateChange={setExpiryDate}
+                steps={steps}
+                onStepsChange={(s) => {
+                  setSteps(s);
+                  setShouldFetch(false);
+                }}
+                funnelMode={funnelMode}
+                onFunnelModeChange={setFunnelMode}
+                analysisMode={analysisMode}
+                onAnalysisModeChange={setAnalysisMode}
+                conversionWindow={conversionWindow}
+                onConversionWindowChange={(v) => {
+                  setConversionWindow(v);
+                  setShouldFetch(false);
+                }}
+                onAnalyze={handleUpdate}
+                isCreating={isUpdating}
+                availableEvents={availableEvents}
+                isUpdateMode={true}
+                isValid={isChanged}
+              />
             </div>
           </div>
         </Box>
@@ -357,34 +439,64 @@ function FunnelDetailView({ detail, isEditing, onEdit }: { detail: any; isEditin
               </Text>
             </Box>
           ) : funnelResult?.steps?.length ? (
-            <>
-              <FunnelVisualization
-                steps={funnelResult.steps}
-                totalConversionRate={
-                  detail.overallConversionRate ??
-                  funnelResult.overallConversionRate ??
-                  0
-                }
-                // Backend's detail response carries `conversionTrend` for the same
-                // funnel that the listing shows; surface that instead of hardcoding 0.
-                conversionTrend={detail.conversionTrend ?? 0}
-                medianTimes={funnelResult.steps.map((s: any) => s.medianStepSeconds ?? null)}
-                mode={analysisMode}
-                onStepDropoffClick={(idx) => setDropoffStepIndex(idx)}
-              />
-              <DropoffPanel
-                opened={dropoffStepIndex !== null}
-                onClose={() => setDropoffStepIndex(null)}
-                funnelId={detail.id != null ? String(detail.id) : undefined}
-                stepIndex={dropoffStepIndex ?? undefined}
-              />
-              <FunnelDataTable
-                steps={funnelResult.steps}
-                timeRange={visualizationTimeRange}
-                apiSteps={apiSteps}
-                mode={analysisMode}
-              />
-            </>
+            <Tabs value={detailTab} onChange={setDetailTab}>
+              <Tabs.List mb="md">
+                <Tabs.Tab value="overview">Overview</Tabs.Tab>
+                {isRootCauseEnabled && (
+                  <Tabs.Tab value="root-cause">Root cause</Tabs.Tab>
+                )}
+              </Tabs.List>
+              <Tabs.Panel value="overview">
+                <FunnelVisualization
+                  steps={funnelResult.steps}
+                  totalConversionRate={
+                    detail.overallConversionRate ??
+                    funnelResult.overallConversionRate ??
+                    0
+                  }
+                  conversionTrend={detail.conversionTrend ?? 0}
+                  medianTimes={funnelResult.steps.map(
+                    (s: any) => s.medianStepSeconds ?? null,
+                  )}
+                  mode={analysisMode}
+                  onStepDropoffClick={(idx) => {
+                    setRcaFocusStepIndex(idx);
+                    setDropoffPanelStepIndex(idx);
+                    setDetailTab("overview");
+                  }}
+                />
+                <DropoffPanel
+                  opened={dropoffPanelStepIndex !== null}
+                  onClose={() => setDropoffPanelStepIndex(null)}
+                  funnelId={detail.id != null ? String(detail.id) : undefined}
+                  stepIndex={dropoffPanelStepIndex ?? undefined}
+                  onFullRcaClick={
+                    isRootCauseEnabled
+                      ? () => setDetailTab("root-cause")
+                      : undefined
+                  }
+                />
+                <FunnelDataTable
+                  steps={funnelResult.steps}
+                  timeRange={visualizationTimeRange}
+                  apiSteps={apiSteps}
+                  mode={analysisMode}
+                />
+              </Tabs.Panel>
+              {isRootCauseEnabled && (
+                <Tabs.Panel value="root-cause" pt="md">
+                  <FunnelRootCause
+                    funnelId={detail.id}
+                    focusStepIndex={rcaFocusStepIndex}
+                    focusStepName={rcaFocusStepName}
+                    projectId={projectId ?? null}
+                    windowStartIso={funnelWindowStartIso}
+                    windowEndIso={funnelWindowEndIso}
+                    anchorDate={funnelRcaAnchorDate}
+                  />
+                </Tabs.Panel>
+              )}
+            </Tabs>
           ) : (
             <Box className={funnelClasses.emptyState}>
               <Text size="sm" c="dimmed">
@@ -421,7 +533,8 @@ export function FunnelDetail() {
   };
 
   const { mutate: stopFunnelMutation, isPending: isStopping } = useStopFunnel();
-  const { mutate: deleteFunnelMutation, isPending: isDeleting } = useDeleteFunnel();
+  const { mutate: deleteFunnelMutation, isPending: isDeleting } =
+    useDeleteFunnel();
 
   const handleDeleteFunnel = () => {
     if (!detail) return;
@@ -497,7 +610,11 @@ export function FunnelDetail() {
         onDelete={handleDeleteFunnel}
         isDeleting={isDeleting}
       />
-      <FunnelDetailView detail={detail} isEditing={isEditing} onEdit={() => setIsEditing(true)} />
+      <FunnelDetailView
+        detail={detail}
+        isEditing={isEditing}
+        onEdit={() => setIsEditing(true)}
+      />
     </Box>
   );
 }

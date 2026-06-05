@@ -68,8 +68,10 @@ function buildPostBody(
   date: string | null | undefined,
   rcaType: string = RCA_TYPE.INTERACTION,
   regenerate = false,
-): { rcaType: string; entityKey: string; date?: string; regenerate?: boolean } {
-  const body: { rcaType: string; entityKey: string; date?: string; regenerate?: boolean } = {
+  windowStartIso?: string | null,
+  windowEndIso?: string | null,
+): Record<string, string | boolean> {
+  const body: Record<string, string | boolean> = {
     rcaType,
     entityKey,
   };
@@ -78,6 +80,12 @@ function buildPostBody(
   }
   if (regenerate) {
     body.regenerate = true;
+  }
+  const start = windowStartIso != null ? String(windowStartIso).trim() : "";
+  const end = windowEndIso != null ? String(windowEndIso).trim() : "";
+  if (start !== "" && end !== "") {
+    body.start = start;
+    body.end = end;
   }
   return body;
 }
@@ -88,6 +96,8 @@ async function requestRcaReportPost(
   projectId: string,
   rcaType: string = RCA_TYPE.INTERACTION,
   regenerate = false,
+  windowStartIso?: string | null,
+  windowEndIso?: string | null,
 ): Promise<ApiResponse<RcaReportResponse | RcaJobResponse>> {
   const apiBaseUrl = getApiBaseUrl();
   const url = `${apiBaseUrl}${POST_RCA_REPORT_ROUTE.apiPath}`;
@@ -96,7 +106,16 @@ async function requestRcaReportPost(
     url,
     init: {
       method: POST_RCA_REPORT_ROUTE.method,
-      body: JSON.stringify(buildPostBody(entityKey, date, rcaType, regenerate)),
+      body: JSON.stringify(
+        buildPostBody(
+          entityKey,
+          date,
+          rcaType,
+          regenerate,
+          windowStartIso,
+          windowEndIso,
+        ),
+      ),
       headers,
     },
     unwrapped: true,
@@ -107,6 +126,7 @@ async function requestRcaReportPost(
 async function requestRcaJobGet(
   jobId: string,
   projectId: string,
+  rcaType: string,
 ): Promise<ApiResponse<RcaJobResponse>> {
   const apiBaseUrl = getApiBaseUrl();
   const url = `${apiBaseUrl}${GET_RCA_JOB_ROUTE.apiPath(jobId)}`;
@@ -211,6 +231,8 @@ export function useGetRcaReport({
   enabled = true,
   projectId,
   requestSession = 0,
+  windowStartIso,
+  windowEndIso,
 }: UseGetRcaReportParams) {
   const queryClient = useQueryClient();
   const trimmedProjectId =
@@ -225,7 +247,15 @@ export function useGetRcaReport({
   useEffect(() => {
     setPollJobId(null);
     autoRetryCompletedMissRef.current = false;
-  }, [entityKey, date, rcaType, trimmedProjectId, requestSession]);
+  }, [
+    entityKey,
+    date,
+    rcaType,
+    trimmedProjectId,
+    requestSession,
+    windowStartIso,
+    windowEndIso,
+  ]);
 
   const postReportQuery = useQuery({
     queryKey: [
@@ -236,6 +266,8 @@ export function useGetRcaReport({
       trimmedProjectId,
       "post",
       requestSession,
+      windowStartIso ?? null,
+      windowEndIso ?? null,
     ],
     queryFn: async (): Promise<
       ApiResponse<RcaReportResponse | RcaJobResponse>
@@ -251,7 +283,15 @@ export function useGetRcaReport({
           status: 400,
         };
       }
-      return requestRcaReportPost(entityKey, date ?? null, trimmedProjectId, rcaType, requestSession > 0);
+      return requestRcaReportPost(
+        entityKey,
+        date ?? null,
+        trimmedProjectId,
+        rcaType,
+        requestSession > 0,
+        windowStartIso,
+        windowEndIso,
+      );
     },
     enabled: baseEnabled && pollJobId === null,
     retry: false,
@@ -293,7 +333,7 @@ export function useGetRcaReport({
           status: 400,
         };
       }
-      return requestRcaJobGet(pollJobId, trimmedProjectId);
+      return requestRcaJobGet(pollJobId, trimmedProjectId, rcaType);
     },
     enabled: baseEnabled && pollJobId !== null,
     refetchInterval: (query) => {

@@ -7,6 +7,7 @@
  */
 import React from "react";
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MantineProvider } from "@mantine/core";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { DropoffPanel } from "../DropoffPanel";
@@ -78,12 +79,7 @@ describe("DropoffPanel", () => {
       error: null,
     });
     withProviders(
-      <DropoffPanel
-        opened
-        onClose={() => {}}
-        funnelId="f-1"
-        stepIndex={1}
-      />,
+      <DropoffPanel opened onClose={() => {}} funnelId="f-1" stepIndex={1} />,
     );
     expect(
       await screen.findByText(/NullPointerException @ Checkout/),
@@ -105,15 +101,54 @@ describe("DropoffPanel", () => {
       error: null,
     });
     withProviders(
-      <DropoffPanel
-        opened
-        onClose={() => {}}
-        funnelId="f-1"
-        stepIndex={0}
-      />,
+      <DropoffPanel opened onClose={() => {}} funnelId="f-1" stepIndex={0} />,
     );
     expect(
       await screen.findByText(/No OTel signals lined up/i),
     ).toBeInTheDocument();
+  });
+
+  test("closes the drawer and invokes onFullRcaClick when Full RCA report is clicked", async () => {
+    const onClose = jest.fn();
+    const onFullRcaClick = jest.fn();
+    mockedFetch.mockResolvedValue({
+      data: {
+        funnelId: 1,
+        stepIndex: 0,
+        stepName: "MatchCardClicked",
+        mode: "UNIQUE_USERS",
+        dropoffCohort: 499,
+        converterCohort: 40935,
+        causes: [
+          {
+            causeKind: "anr",
+            causeKey: "anr@match-list",
+            causeLabel: "ANR on match list",
+            dropoffCohort: 499,
+            dropoffAffected: 25,
+            converterCohort: 40935,
+            converterAffected: 40,
+            lift: 51.2,
+            dropoffRate: 5.0,
+            exampleSessionIds: [],
+          },
+        ],
+      },
+      error: null,
+    });
+    withProviders(
+      <DropoffPanel
+        opened
+        onClose={onClose}
+        funnelId="f-1"
+        stepIndex={0}
+        onFullRcaClick={onFullRcaClick}
+      />,
+    );
+    await userEvent.click(
+      await screen.findByRole("button", { name: /Full RCA report/i }),
+    );
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(onFullRcaClick).toHaveBeenCalledTimes(1);
   });
 });
