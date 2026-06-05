@@ -684,16 +684,6 @@
                             <artifactId>lombok</artifactId>
                             <version>1.18.30</version>
                         </path>
-                        <!-- Makes Lombok and MapStruct cooperate across annotation-processing
-                             rounds. Without it, MapStruct may defer a mapper whose body
-                             references Lombok-generated builders (e.g. EventDefinitionMapper)
-                             and re-emit its *Impl in a later round, throwing
-                             "Attempt to recreate a file for type ...MapperImpl". -->
-                        <path>
-                            <groupId>org.projectlombok</groupId>
-                            <artifactId>lombok-mapstruct-binding</artifactId>
-                            <version>0.2.0</version>
-                        </path>
                         <path>
                             <groupId>io.vertx</groupId>
                             <artifactId>vertx-codegen</artifactId>
