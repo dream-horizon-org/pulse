@@ -1,5 +1,3 @@
-import { RCA_TYPE } from "../screens/CriticalInteractionDetails/components/RootCause/RootCause.constants";
-
 const PULSE_SERVER_ENV_KEY = "REACT_APP_PULSE_SERVER_URL" as const;
 
 const ERROR_MESSAGES = {
