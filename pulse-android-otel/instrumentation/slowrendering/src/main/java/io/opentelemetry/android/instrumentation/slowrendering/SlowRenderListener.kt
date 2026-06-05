@@ -14,6 +14,7 @@ import android.util.Log
 import androidx.annotation.RequiresApi
 import io.opentelemetry.android.common.RumConstants
 import io.opentelemetry.android.internal.services.visiblescreen.activities.DefaultingActivityLifecycleCallbacks
+import io.opentelemetry.sdk.common.Clock
 import java.time.Duration
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentMap
@@ -27,15 +28,17 @@ internal class SlowRenderListener(
     private val executorService: ScheduledExecutorService,
     private val frameMetricsHandler: Handler,
     private val pollInterval: Duration,
+    private val clock: Clock,
 ) : DefaultingActivityLifecycleCallbacks {
     private val activities: ConcurrentMap<Activity, PerActivityListener> = ConcurrentHashMap()
-    private var lastNormalFrameDataTimeInMs: Long = 0
+    private var lastNormalFrameDataTimeInNano: Long = 0
 
     constructor(jankReporter: JankReporter, pollInterval: Duration) : this(
         jankReporter,
         Executors.newScheduledThreadPool(1),
         Handler(startFrameMetricsLoop()),
         pollInterval,
+        Clock.getDefault(),
     )
 
     // the returned future is very unlikely to fail
@@ -78,7 +81,7 @@ internal class SlowRenderListener(
                         val lastEvent = FrameDataHelper.frameDataEvents.lastOrNull()
                         FrameDataHelper.frameDataEvents.add(
                             FrameDataHelper.CumulativeFrameData(
-                                timeInMs = System.currentTimeMillis(),
+                                timeInNano = clock.now(),
                                 analysedFrameCount = FrameDataHelper.totalAnalysedFrames,
                                 unanalysedFrameCount = FrameDataHelper.totalUnanalysedDroppedFrames,
                                 slowFrameCount =
@@ -95,22 +98,22 @@ internal class SlowRenderListener(
                         FrameDataHelper.totalAnalysedFrames += 1
                         FrameDataHelper.totalUnanalysedDroppedFrames += frameData.unanalysedFrameSinceLastCall
 
-                        val currentTimeInMs = System.currentTimeMillis()
-                        if (lastNormalFrameDataTimeInMs == 0L ||
-                            currentTimeInMs - lastNormalFrameDataTimeInMs >= THRESHOLD_ADD_DATA_IN_MS
+                        val currentTimeInNano = clock.now()
+                        if (lastNormalFrameDataTimeInNano == 0L ||
+                            currentTimeInNano - lastNormalFrameDataTimeInNano >= THRESHOLD_ADD_DATA_IN_NANO
                         ) {
                             ensureMaxCountNotExceeded()
                             val lastEvent = FrameDataHelper.frameDataEvents.lastOrNull()
                             FrameDataHelper.frameDataEvents.add(
                                 FrameDataHelper.CumulativeFrameData(
-                                    timeInMs = currentTimeInMs,
+                                    timeInNano = currentTimeInNano,
                                     analysedFrameCount = FrameDataHelper.totalAnalysedFrames,
                                     unanalysedFrameCount = FrameDataHelper.totalUnanalysedDroppedFrames,
                                     slowFrameCount = lastEvent?.slowFrameCount ?: 0,
                                     frozenFrameCount = lastEvent?.frozenFrameCount ?: 0,
                                 ),
                             )
-                            lastNormalFrameDataTimeInMs = currentTimeInMs
+                            lastNormalFrameDataTimeInNano = currentTimeInNano
                         }
                     }
                 }
@@ -146,7 +149,7 @@ internal class SlowRenderListener(
     }
 
     companion object {
-        private const val THRESHOLD_ADD_DATA_IN_MS = 1000L
+        private const val THRESHOLD_ADD_DATA_IN_NANO = 1_000_000_000L
         private val frameMetricsThread = HandlerThread("FrameMetricsCollector")
 
         private fun startFrameMetricsLoop(): Looper {

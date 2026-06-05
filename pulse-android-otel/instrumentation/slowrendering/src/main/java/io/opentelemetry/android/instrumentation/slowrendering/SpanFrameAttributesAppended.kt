@@ -24,8 +24,8 @@ class SpanFrameAttributesAppended : ExtendedSpanProcessor {
         val spanData = span.toSpanData()
         FrameDataHelper
             .createCumulativeFrameMetric(
-                spanData.startEpochNanos / 1000_000,
-                spanData.endEpochNanos / 1000_000,
+                spanData.startEpochNanos,
+                spanData.endEpochNanos,
             )?.let { frameData ->
                 span.setAllAttributes(getFrameAttributes(frameData))
             }
