@@ -103,6 +103,14 @@ public class SparkJobRunner {
         log.info("Dispatching job_type={} (attempt=1)", jobType);
         dispatch(jobType, spark, mysql, ch, referenceId, s3Prefix, runTime);
       } catch (Exception firstEx) {
+        // EMR Serverless can SIGTERM the job mid-run: SparkShutdownHookManager stops the
+        // SparkContext, then any Spark API call throws IllegalStateException. Retrying on a
+        // dead context is pointless — cloneSession() crashes immediately at attempt 2.
+        if (spark.sparkContext().isStopped()) {
+          log.error("Job {} failed and SparkContext is already stopped (EMR SIGTERM?) — skipping retry",
+            jobType, firstEx);
+          throw firstEx;
+        }
         log.warn("Job {} failed on first attempt: {} — retrying once", jobType, firstEx.getMessage(), firstEx);
         log.info("Dispatching job_type={} (attempt=2)", jobType);
         dispatch(jobType, spark, mysql, ch, referenceId, s3Prefix, runTime);
@@ -176,9 +184,9 @@ public class SparkJobRunner {
   private static ClickHouseClient createClickHouseClient(Map<String, String> params) {
     String urlOverride = params.get("clickhouse_url");
     String endpoint =
-        urlOverride != null && !urlOverride.isBlank()
-            ? urlOverride.trim()
-            : require(params, "clickhouse_host").trim();
+      urlOverride != null && !urlOverride.isBlank()
+        ? urlOverride.trim()
+        : require(params, "clickhouse_host").trim();
     String db = params.getOrDefault("clickhouse_db", "otel").trim();
     String user = require(params, "clickhouse_user").trim();
     String password = require(params, "clickhouse_password");
