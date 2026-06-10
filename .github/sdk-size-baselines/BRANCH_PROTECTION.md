@@ -10,10 +10,6 @@ Apply on the default branch after baselines are seeded via **workflow_dispatch**
 
 When `.github/sdk-size-baselines/**` changes, require **review from Code Owners**:
 
-- `@kunalchavhan`
-- `@anirudhdream11`
-- `@chiragSharmaD11`
-
 **One** approval from any of the three is sufficient.
 
 ## GitHub Actions
