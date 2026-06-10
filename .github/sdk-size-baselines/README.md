@@ -27,10 +27,6 @@ Committed byte sizes for reference debug builds. PR CI compares measured artifac
 
 When baseline files change, require **≥1** approval from:
 
-- `@kunalchavhan`
-- `@anirudhdream11`
-- `@chiragSharmaD11`
-
 ## Seed baselines on `main`
 
 Before enabling the required check **Mobile SDK size delta**, run once on `main`:

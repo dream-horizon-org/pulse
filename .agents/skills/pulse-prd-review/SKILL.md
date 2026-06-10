@@ -56,7 +56,6 @@ Walk every item. For each, mark `✅ Pass`, `⚠️ Soft`, or `❌ Blocking`. Ca
 - [ ] Goals are concrete outcomes, not activities.
 - [ ] Non-goals section exists and is non-empty.
 - [ ] Dependencies cover all relevant areas: Backend / SDK / Pulse UI / Ingestion / AI Agent. If a clearly-touched area is missing, that is a Blocking finding for `in-review` PRDs.
-- [ ] Rollout Plan present, with FanCode dogfood + design partner stages identified.
 - [ ] Out of Scope / Future Work present.
 
 ### Renderer contract
