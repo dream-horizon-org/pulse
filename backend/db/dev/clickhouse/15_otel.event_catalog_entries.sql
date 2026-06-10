@@ -68,7 +68,7 @@ WHERE ProjectId != ''
 
 -- Event names
 -- SELECT FilterValue FROM otel.event_catalog_entries FINAL
--- WHERE ProjectId = 'fancode' AND FilterKey = 'EVENT' ORDER BY FilterValue;
+-- WHERE ProjectId = 'demo-streaming' AND FilterKey = 'EVENT' ORDER BY FilterValue;
 -- App build names
 -- SELECT FilterValue FROM otel.event_catalog_entries FINAL
--- WHERE ProjectId = 'fancode' AND FilterKey = 'APP_BUILD_NAME' ORDER BY FilterValue;
+-- WHERE ProjectId = 'demo-streaming' AND FilterKey = 'APP_BUILD_NAME' ORDER BY FilterValue;

@@ -10,7 +10,7 @@ public class ErrorGroupingUtils {
 
   private static final String[] JS_OUT_OF_APP_CONTAINS = {"/node_modules/", "node_modules/"};
 
-  // In-app rules (tweak for Dream11)
+  // In-app rules (tweak per app)
   private static final String[] JAVA_INAPP_PREFIXES = {""};
 
   // OPTIMIZATION: Reuse MessageDigest instances per thread for better performance

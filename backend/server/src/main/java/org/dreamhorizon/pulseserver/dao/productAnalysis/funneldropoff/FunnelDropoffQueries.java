@@ -47,10 +47,10 @@ public final class FunnelDropoffQueries {
       String projectId, long funnelId, int stepIndex, String runTime) {
     String pid = esc(projectId);
     String rtExpr = runTimeExpr(pid, funnelId, runTime);
-    // stepIndex from the API is the "step the user failed to reach" — matches the
-    // attribution table's StepIndex semantics directly. Spark writes StepIndex = dropoff_step
-    // = (maxStepReached + 1), so users who reached step 0 and stopped → StepIndex=1.
-    int targetStep = stepIndex;
+    // stepIndex from the API is the zero-based step the user dropped FROM (last reached).
+    // The compute writes StepIndex = DropoffStep = (lastReachedStep + 1), so a user who
+    // reached step 0 and stopped is stored as StepIndex=1. Convert dropped-from → failed-to-reach.
+    int targetStep = stepIndex + 1;
     return "SELECT "
         + "  CauseKind AS causeKind, "
         + "  CauseKey AS causeKey, "
@@ -254,17 +254,19 @@ public final class FunnelDropoffQueries {
    */
   private static String buildAnchorCte(String pid, long funnelId, int stepIndex,
                                         String rtExpr, String mode) {
-    // stepIndex = "step the user failed to reach" — matches DropoffStep in state tables.
+    // stepIndex from the API is the step the user dropped FROM; the state tables store
+    // DropoffStep = the step they failed to reach (= lastReachedStep + 1).
+    int dropoffStep = stepIndex + 1;
     if ("UNIQUE_USERS".equalsIgnoreCase(mode)) {
       return "SELECT CanonicalSessionId AS SessionId, CanonicalLastReachedAt AS LastReachedAt "
           + "FROM otel.funnel_user_state "
           + "WHERE ProjectId = '" + pid + "' AND FunnelId = " + funnelId + " "
-          + "  AND RunTime = " + rtExpr + " AND DropoffStep = " + stepIndex;
+          + "  AND RunTime = " + rtExpr + " AND DropoffStep = " + dropoffStep;
     }
     return "SELECT SessionId, LastReachedAt "
         + "FROM otel.funnel_session_state "
         + "WHERE ProjectId = '" + pid + "' AND FunnelId = " + funnelId + " "
-        + "  AND RunTime = " + rtExpr + " AND DropoffStep = " + stepIndex;
+        + "  AND RunTime = " + rtExpr + " AND DropoffStep = " + dropoffStep;
   }
 
   /** Converter CTE — rows that reached the final step, same shape as droppers. */

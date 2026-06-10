@@ -1892,7 +1892,7 @@ export class DataQueryMockGeneratorV2 {
       "pulse.screen.name": "HomeScreen",
       "pulse.session.id": "session-abc-123",
       "http.method": "GET",
-      "http.url": "https://api.fancode.com/v1/user/profile",
+      "http.url": "https://api.example.com/v1/user/profile",
       "http.status_code": "200",
       "http.response_content_length": "2458",
       "http.request_content_length": "0",
@@ -2477,9 +2477,7 @@ export class DataQueryMockGeneratorV2 {
     let normalizedField = groupByField.toLowerCase();
 
     // Extract actual field name from SpanAttributes notation
-    if (
-      normalizedField.includes(COLUMN_NAME.SCREEN_NAME)
-    ) {
+    if (normalizedField.includes(COLUMN_NAME.SCREEN_NAME)) {
       normalizedField = "screen_name";
     }
     if (normalizedField.includes(COLUMN_NAME.HTTP_URL)) {
@@ -2827,16 +2825,16 @@ export class DataQueryMockGeneratorV2 {
         "OrderListScreen",
       ],
       url: [
-        "https://api.fancode.com/v1/contests/live",
-        "https://api.fancode.com/v1/contests/upcoming",
-        "https://api.fancode.com/v1/teams/my-teams",
-        "https://api.fancode.com/v1/players/list",
-        "https://api.fancode.com/v1/matches/live-score",
-        "https://api.fancode.com/v1/user/profile",
-        "https://api.fancode.com/v1/notifications/list",
-        "https://www.fancode.com/graphql",
-        "https://api.fancode.com/v1/auth/refresh",
-        "https://api.fancode.com/v1/config/app",
+        "https://api.example.com/v1/contests/live",
+        "https://api.example.com/v1/contests/upcoming",
+        "https://api.example.com/v1/teams/my-teams",
+        "https://api.example.com/v1/players/list",
+        "https://api.example.com/v1/matches/live-score",
+        "https://api.example.com/v1/user/profile",
+        "https://api.example.com/v1/notifications/list",
+        "https://www.example.com/graphql",
+        "https://api.example.com/v1/auth/refresh",
+        "https://api.example.com/v1/config/app",
       ],
     };
 
@@ -2984,43 +2982,43 @@ export class DataQueryMockGeneratorV2 {
 
     // Fantasy sports specific network APIs with complete URLs
     const networkApis = [
-      { method: "GET", url: "https://api.fancode.com/v1/contests/live" },
-      { method: "GET", url: "https://api.fancode.com/v1/contests/upcoming" },
-      { method: "POST", url: "https://api.fancode.com/v1/contests/join" },
-      { method: "GET", url: "https://api.fancode.com/v1/teams/my-teams" },
-      { method: "POST", url: "https://api.fancode.com/v1/teams/create" },
-      { method: "PUT", url: "https://api.fancode.com/v1/teams/update" },
-      { method: "GET", url: "https://api.fancode.com/v1/players/list" },
-      { method: "GET", url: "https://api.fancode.com/v1/players/stats" },
-      { method: "GET", url: "https://api.fancode.com/v1/matches/live-score" },
-      { method: "GET", url: "https://api.fancode.com/v1/matches/schedule" },
-      { method: "GET", url: "https://api.fancode.com/v1/user/profile" },
-      { method: "GET", url: "https://api.fancode.com/v1/user/wallet" },
-      { method: "POST", url: "https://api.fancode.com/v1/wallet/deposit" },
-      { method: "POST", url: "https://api.fancode.com/v1/wallet/withdraw" },
-      { method: "GET", url: "https://api.fancode.com/v1/leaderboard/global" },
-      { method: "GET", url: "https://api.fancode.com/v1/leaderboard/contest" },
-      { method: "GET", url: "https://api.fancode.com/v1/notifications/list" },
-      { method: "POST", url: "https://api.fancode.com/v1/auth/refresh" },
+      { method: "GET", url: "https://api.example.com/v1/contests/live" },
+      { method: "GET", url: "https://api.example.com/v1/contests/upcoming" },
+      { method: "POST", url: "https://api.example.com/v1/contests/join" },
+      { method: "GET", url: "https://api.example.com/v1/teams/my-teams" },
+      { method: "POST", url: "https://api.example.com/v1/teams/create" },
+      { method: "PUT", url: "https://api.example.com/v1/teams/update" },
+      { method: "GET", url: "https://api.example.com/v1/players/list" },
+      { method: "GET", url: "https://api.example.com/v1/players/stats" },
+      { method: "GET", url: "https://api.example.com/v1/matches/live-score" },
+      { method: "GET", url: "https://api.example.com/v1/matches/schedule" },
+      { method: "GET", url: "https://api.example.com/v1/user/profile" },
+      { method: "GET", url: "https://api.example.com/v1/user/wallet" },
+      { method: "POST", url: "https://api.example.com/v1/wallet/deposit" },
+      { method: "POST", url: "https://api.example.com/v1/wallet/withdraw" },
+      { method: "GET", url: "https://api.example.com/v1/leaderboard/global" },
+      { method: "GET", url: "https://api.example.com/v1/leaderboard/contest" },
+      { method: "GET", url: "https://api.example.com/v1/notifications/list" },
+      { method: "POST", url: "https://api.example.com/v1/auth/refresh" },
       {
         method: "POST",
-        url: "https://www.fancode.com/graphql",
+        url: "https://www.example.com/graphql",
         operationName: "GetContests",
         operationType: "QUERY",
       },
       {
         method: "POST",
-        url: "https://www.fancode.com/graphql",
+        url: "https://www.example.com/graphql",
         operationName: "JoinContest",
         operationType: "MUTATION",
       },
       {
         method: "POST",
-        url: "https://www.fancode.com/graphql",
+        url: "https://www.example.com/graphql",
         operationName: "SubscribeScores",
         operationType: "SUBSCRIPTION",
       },
-      { method: "GET", url: "https://api.fancode.com/v1/config/app" },
+      { method: "GET", url: "https://api.example.com/v1/config/app" },
     ];
 
     // For detail query, filter to specific url (and optional GraphQL operation)
@@ -3031,13 +3029,11 @@ export class DataQueryMockGeneratorV2 {
       );
       const graphqlNameFilter = filters?.find(
         (f) =>
-          f.field === COLUMN_NAME.GRAPHQL_OPERATION_NAME &&
-          f.operator === "EQ",
+          f.field === COLUMN_NAME.GRAPHQL_OPERATION_NAME && f.operator === "EQ",
       );
       const graphqlTypeFilter = filters?.find(
         (f) =>
-          f.field === COLUMN_NAME.GRAPHQL_OPERATION_TYPE &&
-          f.operator === "EQ",
+          f.field === COLUMN_NAME.GRAPHQL_OPERATION_TYPE && f.operator === "EQ",
       );
 
       const targetUrl = urlFilter
@@ -3100,9 +3096,7 @@ export class DataQueryMockGeneratorV2 {
     // For list query, we might need to filter by screen name if provided
     if (!isDetailQuery) {
       const screenNameFilter = filters?.find(
-        (f) =>
-          f.field === COLUMN_NAME.SCREEN_NAME &&
-          f.operator === "EQ",
+        (f) => f.field === COLUMN_NAME.SCREEN_NAME && f.operator === "EQ",
       );
       if (screenNameFilter) {
         // In a real scenario, we'd filter by screen name, but for mock we'll return all
@@ -3732,30 +3726,30 @@ export class DataQueryMockGeneratorV2 {
 
     // Realistic complete API URLs for a fantasy sports app
     const networkApis = [
-      "https://api.fancode.com/v1/contests/live",
-      "https://api.fancode.com/v1/contests/upcoming",
-      "https://api.fancode.com/v1/contests/join",
-      "https://api.fancode.com/v1/teams/my-teams",
-      "https://api.fancode.com/v1/teams/create",
-      "https://api.fancode.com/v1/players/list",
-      "https://api.fancode.com/v1/players/stats",
-      "https://api.fancode.com/v1/matches/live-score",
-      "https://api.fancode.com/v1/matches/schedule",
-      "https://api.fancode.com/v1/user/profile",
-      "https://api.fancode.com/v1/user/wallet",
-      "https://api.fancode.com/v1/wallet/deposit",
-      "https://api.fancode.com/v1/wallet/withdraw",
-      "https://api.fancode.com/v1/leaderboard/global",
-      "https://api.fancode.com/v1/leaderboard/contest",
-      "https://api.fancode.com/v1/notifications/list",
-      "https://api.fancode.com/v1/auth/refresh",
-      "https://api.fancode.com/v1/auth/login",
-      "https://www.fancode.com/graphql",
-      "https://api.fancode.com/v1/analytics/track",
-      "https://api.fancode.com/v1/config/app",
-      "https://cdn.fancode.com/assets/images",
-      "https://api.fancode.com/v1/search/players",
-      "https://api.fancode.com/v1/payment/initiate",
+      "https://api.example.com/v1/contests/live",
+      "https://api.example.com/v1/contests/upcoming",
+      "https://api.example.com/v1/contests/join",
+      "https://api.example.com/v1/teams/my-teams",
+      "https://api.example.com/v1/teams/create",
+      "https://api.example.com/v1/players/list",
+      "https://api.example.com/v1/players/stats",
+      "https://api.example.com/v1/matches/live-score",
+      "https://api.example.com/v1/matches/schedule",
+      "https://api.example.com/v1/user/profile",
+      "https://api.example.com/v1/user/wallet",
+      "https://api.example.com/v1/wallet/deposit",
+      "https://api.example.com/v1/wallet/withdraw",
+      "https://api.example.com/v1/leaderboard/global",
+      "https://api.example.com/v1/leaderboard/contest",
+      "https://api.example.com/v1/notifications/list",
+      "https://api.example.com/v1/auth/refresh",
+      "https://api.example.com/v1/auth/login",
+      "https://www.example.com/graphql",
+      "https://api.example.com/v1/analytics/track",
+      "https://api.example.com/v1/config/app",
+      "https://cdn.example.com/assets/images",
+      "https://api.example.com/v1/search/players",
+      "https://api.example.com/v1/payment/initiate",
     ];
 
     // Generate rows for each API

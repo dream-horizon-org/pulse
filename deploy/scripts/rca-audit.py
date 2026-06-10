@@ -342,7 +342,7 @@ def _headers(token, project_id):
     return {
         "Authorization": f"Bearer {token}",
         "X-Project-ID": project_id,
-        "user-email": "sarthak.agarwal@dream11.com",
+        "user-email": "user@example.com",
         "Content-Type": "application/json",
         "Accept": "application/json",
     }

@@ -16,7 +16,7 @@ Link issues / discussion / docs if relevant. -->
 If this PR changes dependency manifests (`build.gradle.kts`, `package.json`, `yarn.lock`, `Podfile`, etc.) under `pulse-android-otel/`, `pulse-ios-otel/`, or `pulse-react-native-otel/`:
 
 - Add label **`sdk-size-delta`** before merge (triggers size build; **25 KB** limit per artifact).
-- If growth **> 25 KB** is intentional: add **`sdk-size-baseline-update`**, then get **one** approval from **@kunalchavhan**, **@anirudhdream11**, or **@chiragSharmaD11** (baseline files on the PR).
+- If growth **> 25 KB** is intentional: add **`sdk-size-baseline-update`**.
 - Code-only SDK changes (no manifest diff): **no label** — check passes automatically.
 
 See [`.github/sdk-size-baselines/README.md`](.github/sdk-size-baselines/README.md).

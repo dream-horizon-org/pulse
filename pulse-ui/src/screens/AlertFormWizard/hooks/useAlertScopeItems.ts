@@ -5,7 +5,10 @@
 import { useMemo } from "react";
 import { useGetInteractions } from "../../../hooks/useGetInteractions";
 import { useGetScreenNames } from "../../../hooks/useGetScreenNames";
-import { useGetDataQuery, DataQueryRequestBody } from "../../../hooks/useGetDataQuery";
+import {
+  useGetDataQuery,
+  DataQueryRequestBody,
+} from "../../../hooks/useGetDataQuery";
 import { AlertScopeType, ScopeItem } from "../types";
 import { UI_CONSTANTS } from "../constants";
 import dayjs from "dayjs";
@@ -22,12 +25,17 @@ const getTimeRange = () => ({
   end: dayjs().toISOString(),
 });
 
-export const useAlertScopeItems = ({ scopeType, searchStr = "", enabled = true }: UseAlertScopeItemsParams) => {
+export const useAlertScopeItems = ({
+  scopeType,
+  searchStr = "",
+  enabled = true,
+}: UseAlertScopeItemsParams) => {
   const timeRange = useMemo(getTimeRange, []);
   const limit = UI_CONSTANTS.SCOPE_ITEMS_LIMIT;
 
   // Interactions
-  const interactionsEnabled = enabled && scopeType === AlertScopeType.Interaction;
+  const interactionsEnabled =
+    enabled && scopeType === AlertScopeType.Interaction;
   const interactionsQuery = useGetInteractions({
     queryParams: { size: limit, interactionName: searchStr || undefined },
     enabled: interactionsEnabled,
@@ -44,19 +52,34 @@ export const useAlertScopeItems = ({ scopeType, searchStr = "", enabled = true }
 
   // Network APIs - fetch both method and url for {method}_{url} format
   const networkEnabled = enabled && scopeType === AlertScopeType.NetworkAPI;
-  const networkRequestBody = useMemo((): DataQueryRequestBody => ({
-    dataType: "TRACES",
-    timeRange: { start: timeRange.start, end: timeRange.end },
-    select: [
-      { function: "COL", param: { field: "SpanAttributes['http.method']" }, alias: "method" },
-      { function: "COL", param: { field: COLUMN_NAME.HTTP_URL }, alias: "url" },
-      { function: "CUSTOM", param: { expression: "COUNT()" }, alias: "count" },
-    ],
-    groupBy: ["method", "url"],
-    orderBy: [{ field: "count", direction: "DESC" }],
-    limit,
-    filters: [{ field: "PulseType", operator: "LIKE", value: ["network%"] }],
-  }), [timeRange, limit]);
+  const networkRequestBody = useMemo(
+    (): DataQueryRequestBody => ({
+      dataType: "TRACES",
+      timeRange: { start: timeRange.start, end: timeRange.end },
+      select: [
+        {
+          function: "COL",
+          param: { field: "SpanAttributes['http.method']" },
+          alias: "method",
+        },
+        {
+          function: "COL",
+          param: { field: COLUMN_NAME.HTTP_URL },
+          alias: "url",
+        },
+        {
+          function: "CUSTOM",
+          param: { expression: "COUNT()" },
+          alias: "count",
+        },
+      ],
+      groupBy: ["method", "url"],
+      orderBy: [{ field: "count", direction: "DESC" }],
+      limit,
+      filters: [{ field: "PulseType", operator: "LIKE", value: ["network%"] }],
+    }),
+    [timeRange, limit],
+  );
 
   const { data: networkData, isLoading: loadingNetwork } = useGetDataQuery({
     requestBody: networkRequestBody,
@@ -65,12 +88,23 @@ export const useAlertScopeItems = ({ scopeType, searchStr = "", enabled = true }
 
   // Transform to ScopeItem[]
   const items = useMemo((): ScopeItem[] => {
-    if (scopeType === AlertScopeType.Interaction && interactionsQuery.data?.data?.interactions) {
+    if (
+      scopeType === AlertScopeType.Interaction &&
+      interactionsQuery.data?.data?.interactions
+    ) {
       const interactions = interactionsQuery.data.data.interactions;
-      return interactions.slice(0, limit).map((i) => ({ id: i.name || "", name: i.name || "", displayLabel: i.name || "" }));
+      return interactions
+        .slice(0, limit)
+        .map((i) => ({
+          id: i.name || "",
+          name: i.name || "",
+          displayLabel: i.name || "",
+        }));
     }
     if (scopeType === AlertScopeType.Screen && screenNames) {
-      return screenNames.slice(0, limit).map((name) => ({ id: name, name, displayLabel: name }));
+      return screenNames
+        .slice(0, limit)
+        .map((name) => ({ id: name, name, displayLabel: name }));
     }
     if (scopeType === AlertScopeType.NetworkAPI && networkData?.data?.rows) {
       const methodIdx = networkData.data.fields.indexOf("method");
@@ -78,7 +112,7 @@ export const useAlertScopeItems = ({ scopeType, searchStr = "", enabled = true }
       return networkData.data.rows.slice(0, limit).map((row) => {
         const method = String(row[methodIdx] || "get").toLowerCase();
         const url = String(row[urlIdx] || "");
-        // Format: {method}_{url} (e.g., "get_https://www.fancode.com/graphql")
+        // Format: {method}_{url} (e.g., "get_https://www.example.com/graphql")
         const scopeName = `${method}_${url}`;
         // Display label shows method in uppercase prefix
         const displayLabel = `[${method.toUpperCase()}] ${url}`;
@@ -88,9 +122,14 @@ export const useAlertScopeItems = ({ scopeType, searchStr = "", enabled = true }
     return [];
   }, [scopeType, interactionsQuery.data, screenNames, networkData, limit]);
 
-  const isLoading = (scopeType === AlertScopeType.Interaction && interactionsQuery.isLoading) ||
+  const isLoading =
+    (scopeType === AlertScopeType.Interaction && interactionsQuery.isLoading) ||
     (scopeType === AlertScopeType.Screen && loadingScreens) ||
     (scopeType === AlertScopeType.NetworkAPI && loadingNetwork);
 
-  return { items, isLoading, isAppVitals: scopeType === AlertScopeType.AppVitals };
+  return {
+    items,
+    isLoading,
+    isAppVitals: scopeType === AlertScopeType.AppVitals,
+  };
 };

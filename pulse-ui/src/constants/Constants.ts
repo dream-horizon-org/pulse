@@ -40,7 +40,7 @@ export const APP_NAME: string = "Pulse";
 export const HELP_BAR_TEXT: string = "About Critical Interaction";
 
 export const HELP_LINK: string =
-  "https://dream11.atlassian.net/wiki/spaces/FE/pages/3222176234/SOP+User+experience+monitoring+dashboard";
+  "https://pulse-ux.com/docs/category/developer-guide";
 
 /** Public docs — SDK integration, instrumentation, platform guides */
 export const PULSE_DEVELOPER_DOCS_URL: string =
@@ -1491,9 +1491,9 @@ export const CRITICAL_INTERACTION_DETAILS_PAGE_CONSTANTS: Record<
   TIME_RANGE_LABEL_TEXT: "Time Range",
   IFRAME_LOAD_ERROR_MESSAGE: "An error occured while loading dashboard.",
   ALL_INTERACTION_IFRAME_URL:
-    "https://hodor.dream11.com/d-solo/ee2c5914-7a74-4323-b202-a3cb9507fc50/tv-dashboard?orgId=1&refresh=1m&panelId=4&from=now-30m&to=now",
+    "https://grafana.example.com/d-solo/REPLACE_WITH_DASHBOARD_UID/tv-dashboard?orgId=1&refresh=1m&panelId=4&from=now-30m&to=now",
   ALL_INTERACTION_CATEGORY_IFRAME_URL:
-    "https://hodor.dream11.com/d-solo/ee2c5914-7a74-4323-b202-a3cb9507fc50/tv-dashboard?orgId=1&refresh=1m&panelId=2",
+    "https://grafana.example.com/d-solo/REPLACE_WITH_DASHBOARD_UID/tv-dashboard?orgId=1&refresh=1m&panelId=2",
 };
 
 export const ANALYTICS_REPORT_CONSTANTS: Record<string, string> = {

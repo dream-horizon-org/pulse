@@ -2262,7 +2262,7 @@ Some metrics require data from multiple tables and are calculated after merging 
 
 For `network_api` scope, alerts support HTTP method differentiation:
 
-- Scope names use format: `{method}_{url}` (e.g., `get_https://www.fancode.com/graphql`)
+- Scope names use format: `{method}_{url}` (e.g., `get_https://www.example.com/graphql`)
 - Queries include `http.method` in SELECT and GROUP BY clauses
 - Evaluation matches both method and URL from query results
 

@@ -140,31 +140,31 @@ INSERT INTO projects (project_id, tenant_id, name, description, slug, is_active,
 ('pulse-web-dashboard', 'default', 'Pulse Web Dashboard', 'Web dashboard for monitoring and analytics', 'pulse-web', TRUE, 'system')
 ON DUPLICATE KEY UPDATE name = name;
 
--- Insert Fancode tenant (example multi-tenant setup)
+-- Insert example streaming tenant (example multi-tenant setup)
 INSERT INTO tenants (tenant_id, name, description, is_active, gcp_tenant_id, domain_name)
-VALUES ('fancode', 'Fancode', 'Fancode sports streaming platform', TRUE, 'Fancode-1rsts', 'fancode.com')
+VALUES ('acme-streaming', 'Acme Streaming', 'Acme sports streaming platform', TRUE, 'acme-streaming-1', 'acme-streaming.example.com')
 ON DUPLICATE KEY UPDATE name = name;
 
--- Insert Fancode projects
+-- Insert example streaming projects
 INSERT INTO projects (project_id, tenant_id, name, description, slug, is_active, created_by) VALUES
-('fancode-mobile-android', 'fancode', 'Fancode Android', 'Fancode Android mobile app', 'android', TRUE, 'system'),
-('fancode-mobile-ios', 'fancode', 'Fancode iOS', 'Fancode iOS mobile app', 'ios', TRUE, 'system'),
-('fancode-mobile-rn', 'fancode', 'Fancode React Native', 'Fancode React Native shared codebase', 'react-native', TRUE, 'system'),
-('fancode-web', 'fancode', 'Fancode Web', 'Fancode web application', 'web', TRUE, 'system'),
-('fancode-tv', 'fancode', 'Fancode TV', 'Fancode TV application (Android TV, Fire TV)', 'tv', TRUE, 'system')
+('acme-streaming-android', 'acme-streaming', 'Acme Streaming Android', 'Acme Streaming Android mobile app', 'android', TRUE, 'system'),
+('acme-streaming-ios', 'acme-streaming', 'Acme Streaming iOS', 'Acme Streaming iOS mobile app', 'ios', TRUE, 'system'),
+('acme-streaming-rn', 'acme-streaming', 'Acme Streaming React Native', 'Acme Streaming React Native shared codebase', 'react-native', TRUE, 'system'),
+('acme-streaming-web', 'acme-streaming', 'Acme Streaming Web', 'Acme Streaming web application', 'web', TRUE, 'system'),
+('acme-streaming-tv', 'acme-streaming', 'Acme Streaming TV', 'Acme Streaming TV application (Android TV, Fire TV)', 'tv', TRUE, 'system')
 ON DUPLICATE KEY UPDATE name = name;
 
--- Insert Dream11 tenant (another example)
+-- Insert example fantasy tenant (another example)
 INSERT INTO tenants (tenant_id, name, description, is_active, gcp_tenant_id, domain_name)
-VALUES ('dream11', 'Dream11', 'Dream11 fantasy sports platform', TRUE, 'Dream11-abcde', 'dream11.com')
+VALUES ('globex-fantasy', 'Globex Fantasy', 'Globex fantasy sports platform', TRUE, 'globex-fantasy-1', 'globex-fantasy.example.com')
 ON DUPLICATE KEY UPDATE name = name;
 
--- Insert Dream11 projects
+-- Insert example fantasy projects
 INSERT INTO projects (project_id, tenant_id, name, description, slug, is_active, created_by) VALUES
-('dream11-android', 'dream11', 'Dream11 Android', 'Dream11 Android application', 'android', TRUE, 'system'),
-('dream11-ios', 'dream11', 'Dream11 iOS', 'Dream11 iOS application', 'ios', TRUE, 'system'),
-('dream11-web', 'dream11', 'Dream11 Web', 'Dream11 web platform', 'web', TRUE, 'system'),
-('dream11-pwa', 'dream11', 'Dream11 PWA', 'Dream11 Progressive Web App', 'pwa', TRUE, 'system')
+('globex-fantasy-android', 'globex-fantasy', 'Globex Fantasy Android', 'Globex Fantasy Android application', 'android', TRUE, 'system'),
+('globex-fantasy-ios', 'globex-fantasy', 'Globex Fantasy iOS', 'Globex Fantasy iOS application', 'ios', TRUE, 'system'),
+('globex-fantasy-web', 'globex-fantasy', 'Globex Fantasy Web', 'Globex Fantasy web platform', 'web', TRUE, 'system'),
+('globex-fantasy-pwa', 'globex-fantasy', 'Globex Fantasy PWA', 'Globex Fantasy Progressive Web App', 'pwa', TRUE, 'system')
 ON DUPLICATE KEY UPDATE name = name;
 
 -- ============================================================================
