@@ -96,7 +96,7 @@ export function generateSessionDetailApiResponse(
       spanId: `span_${sessionId}_0`,
       timestamp: t(0),
       eventType: "navigation" as const,
-      description: "Navigate to /dream11-home",
+      description: "Navigate to /home",
       durationNs: 0,
     },
     {
@@ -309,7 +309,7 @@ export function generateSessionDetailApiResponse(
     },
   ];
   const paymentGatewayStack = [
-    "com.dream11.payment.PaymentGatewayTimeout: 504 Gateway Timeout",
+    "com.example.app.payment.PaymentGatewayTimeout: 504 Gateway Timeout",
     "Caused by: retrofit2.HttpException: HTTP 504 ",
     "\tat retrofit2.KotlinExtensions$await$2$2.onResponse(KotlinExtensions.kt:53)",
     "\tat retrofit2.OkHttpCall$1.onResponse(OkHttpCall.java:161)",
@@ -323,14 +323,14 @@ export function generateSessionDetailApiResponse(
     "\tat okhttp3.internal.connection.Exchange.readResponseHeaders(Exchange.kt:110)",
     "\tat okhttp3.internal.http.CallServerInterceptor.intercept(CallServerInterceptor.kt:93)",
     "\tat okhttp3.internal.http.RealInterceptorChain.proceed(RealInterceptorChain.kt:109)",
-    "\tat com.dream11.network.LoggingInterceptor.intercept(LoggingInterceptor.kt:42)",
+    "\tat com.example.app.network.LoggingInterceptor.intercept(LoggingInterceptor.kt:42)",
     "\tat okhttp3.internal.http.RealInterceptorChain.proceed(RealInterceptorChain.kt:109)",
-    "\tat com.dream11.network.AuthHeaderInterceptor.intercept(AuthHeaderInterceptor.kt:28)",
+    "\tat com.example.app.network.AuthHeaderInterceptor.intercept(AuthHeaderInterceptor.kt:28)",
     "--- Request ---",
     "POST https://api.example.com/api/payment HTTP/2",
     "Content-Type: application/json",
     "X-Request-Id: req_pay_8f2a9c1d",
-    "User-Agent: Dream11/2.3.1 (Android 14; Pixel 6)",
+    "User-Agent: DemoApp/2.3.1 (Android 14; Pixel 6)",
     "",
     "--- Response ---",
     "HTTP/2 504",
@@ -342,8 +342,8 @@ export function generateSessionDetailApiResponse(
   ].join("\n");
   const cartValidationStack = [
     "java.lang.IllegalStateException: Cart line item missing price snapshot",
-    "\tat com.dream11.cart.CartRepository.validateLineItems(CartRepository.kt:214)",
-    "\tat com.dream11.cart.CartRepository.syncCart$lambda$3(CartRepository.kt:98)",
+    "\tat com.example.app.cart.CartRepository.validateLineItems(CartRepository.kt:214)",
+    "\tat com.example.app.cart.CartRepository.syncCart$lambda$3(CartRepository.kt:98)",
     "\tat kotlinx.coroutines.DispatchedTask.run(DispatchedTask.kt:108)",
     "\tat android.os.Handler.handleCallback(Handler.java:959)",
     "\tat android.os.Handler.dispatchMessage(Handler.java:100)",
@@ -379,8 +379,8 @@ export function generateSessionDetailApiResponse(
       timestamp: 15300,
       title: "NetworkSlowWarning",
       exceptionStackTrace: [
-        "com.dream11.network.SlowResponseWarning: GET /api/products/recs exceeded p95 (245ms > 200ms)",
-        "\tat com.dream11.network.TelemetryInterceptor.intercept(TelemetryInterceptor.kt:71)",
+        "com.example.app.network.SlowResponseWarning: GET /api/products/recs exceeded p95 (245ms > 200ms)",
+        "\tat com.example.app.network.TelemetryInterceptor.intercept(TelemetryInterceptor.kt:71)",
         "\tat okhttp3.internal.http.RealInterceptorChain.proceed(RealInterceptorChain.kt:109)",
         "\tat okhttp3.internal.connection.ConnectInterceptor.intercept(ConnectInterceptor.kt:34)",
         "\tat okhttp3.internal.http.RealInterceptorChain.proceed(RealInterceptorChain.kt:109)",

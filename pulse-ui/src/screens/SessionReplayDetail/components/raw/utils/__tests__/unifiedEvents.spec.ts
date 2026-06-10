@@ -139,7 +139,7 @@ describe("unifiedEvents", () => {
         {
           timestamp: 5000,
           type: "api_call",
-          description: "POST https://www.fancode.com/graphql 200",
+          description: "POST https://www.example.com/graphql 200",
           details: {},
         },
         {
@@ -155,7 +155,8 @@ describe("unifiedEvents", () => {
     const result = createUnifiedEvents(sessionData);
 
     const withStatus = result.find(
-      (e) => e.type === EVENT_TYPES.API_CALL && e.description.includes("graphql"),
+      (e) =>
+        e.type === EVENT_TYPES.API_CALL && e.description.includes("graphql"),
     );
     expect(withStatus).toBeDefined();
     // Status code should be extracted from description, NOT embedded in content

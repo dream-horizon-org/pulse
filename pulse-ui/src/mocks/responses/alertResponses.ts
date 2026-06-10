@@ -23,7 +23,11 @@ export const mockAlertScopes = {
 // Note: 'name' is Integer (severity level) in backend
 // =============================================================================
 export const mockAlertSeverities = [
-  { severity_id: 1, name: 1, description: "Critical - Requires immediate attention" },
+  {
+    severity_id: 1,
+    name: 1,
+    description: "Critical - Requires immediate attention",
+  },
   { severity_id: 2, name: 2, description: "Warning - Should be reviewed soon" },
   { severity_id: 3, name: 3, description: "Info - For tracking purposes" },
 ];
@@ -32,14 +36,29 @@ export const mockAlertSeverities = [
 // GET /v1/alert/metrics?scope={scopeId} - AlertMetricsResponseDto
 // =============================================================================
 // Keys must match scope names (lowercase, matches AlertScopeType enum)
-export const mockAlertMetrics: Record<string, { scope: string; metrics: Array<{ id: number; name: string; label: string }> }> = {
+export const mockAlertMetrics: Record<
+  string,
+  { scope: string; metrics: Array<{ id: number; name: string; label: string }> }
+> = {
   interaction: {
     scope: "interaction",
     metrics: [
       { id: 1, name: "APDEX", label: "APDEX value [0,1]" },
-      { id: 2, name: "INTERACTION_SUCCESS_COUNT", label: "INTERACTION_SUCCESS_COUNT value >= 0" },
-      { id: 3, name: "INTERACTION_ERROR_COUNT", label: "INTERACTION_ERROR_COUNT value >= 0" },
-      { id: 4, name: "INTERACTION_ERROR_DISTINCT_USERS", label: "INTERACTION_ERROR_DISTINCT_USERS value >= 0" },
+      {
+        id: 2,
+        name: "INTERACTION_SUCCESS_COUNT",
+        label: "INTERACTION_SUCCESS_COUNT value >= 0",
+      },
+      {
+        id: 3,
+        name: "INTERACTION_ERROR_COUNT",
+        label: "INTERACTION_ERROR_COUNT value >= 0",
+      },
+      {
+        id: 4,
+        name: "INTERACTION_ERROR_DISTINCT_USERS",
+        label: "INTERACTION_ERROR_DISTINCT_USERS value >= 0",
+      },
       { id: 5, name: "DURATION_P99", label: "DURATION_P99 value >= 0" },
       { id: 6, name: "DURATION_P95", label: "DURATION_P95 value >= 0" },
       { id: 7, name: "DURATION_P50", label: "DURATION_P50 value >= 0" },
@@ -66,26 +85,58 @@ export const mockAlertMetrics: Record<string, { scope: string; metrics: Array<{ 
   app_vitals: {
     scope: "app_vitals",
     metrics: [
-      { id: 29, name: "CRASH_FREE_USERS_PERCENTAGE", label: "CRASH FREE USERS PERCENTAGE value [0,1]" },
-      { id: 30, name: "CRASH_FREE_SESSIONS_PERCENTAGE", label: "CRASH FREE SESSIONS PERCENTAGE value [0,1]" },
+      {
+        id: 29,
+        name: "CRASH_FREE_USERS_PERCENTAGE",
+        label: "CRASH FREE USERS PERCENTAGE value [0,1]",
+      },
+      {
+        id: 30,
+        name: "CRASH_FREE_SESSIONS_PERCENTAGE",
+        label: "CRASH FREE SESSIONS PERCENTAGE value [0,1]",
+      },
       { id: 31, name: "CRASH_USERS", label: "CRASH USERS value >= 0" },
       { id: 32, name: "CRASH_SESSIONS", label: "CRASH SESSIONS value >= 0" },
       { id: 33, name: "ALL_USERS", label: "ALL USERS value >= 0" },
       { id: 34, name: "ALL_SESSIONS", label: "ALL SESSIONS value >= 0" },
-      { id: 35, name: "ANR_FREE_USERS_PERCENTAGE", label: "ANR FREE USERS PERCENTAGE value [0,1]" },
-      { id: 36, name: "ANR_FREE_SESSIONS_PERCENTAGE", label: "ANR FREE SESSIONS PERCENTAGE value [0,1]" },
+      {
+        id: 35,
+        name: "ANR_FREE_USERS_PERCENTAGE",
+        label: "ANR FREE USERS PERCENTAGE value [0,1]",
+      },
+      {
+        id: 36,
+        name: "ANR_FREE_SESSIONS_PERCENTAGE",
+        label: "ANR FREE SESSIONS PERCENTAGE value [0,1]",
+      },
       { id: 37, name: "ANR_USERS", label: "ANR USERS value >= 0" },
       { id: 38, name: "ANR_SESSIONS", label: "ANR SESSIONS value >= 0" },
-      { id: 39, name: "NON_FATAL_FREE_USERS_PERCENTAGE", label: "NON FATAL FREE USERS PERCENTAGE value [0,1]" },
-      { id: 40, name: "NON_FATAL_FREE_SESSIONS_PERCENTAGE", label: "NON FATAL FREE SESSIONS PERCENTAGE value [0,1]" },
+      {
+        id: 39,
+        name: "NON_FATAL_FREE_USERS_PERCENTAGE",
+        label: "NON FATAL FREE USERS PERCENTAGE value [0,1]",
+      },
+      {
+        id: 40,
+        name: "NON_FATAL_FREE_SESSIONS_PERCENTAGE",
+        label: "NON FATAL FREE SESSIONS PERCENTAGE value [0,1]",
+      },
       { id: 41, name: "NON_FATAL_USERS", label: "NON FATAL USERS value >= 0" },
-      { id: 42, name: "NON_FATAL_SESSIONS", label: "NON FATAL SESSIONS value >= 0" },
+      {
+        id: 42,
+        name: "NON_FATAL_SESSIONS",
+        label: "NON FATAL SESSIONS value >= 0",
+      },
     ],
   },
   screen: {
     scope: "screen",
     metrics: [
-      { id: 17, name: "SCREEN_DAILY_USERS", label: "SCREEN DAILY USERS value >= 0" },
+      {
+        id: 17,
+        name: "SCREEN_DAILY_USERS",
+        label: "SCREEN DAILY USERS value >= 0",
+      },
       { id: 18, name: "ERROR_RATE", label: "SCREEN ERROR RATE value [0,1]" },
       { id: 19, name: "SCREEN_TIME", label: "SCREEN TIME value >= 0" },
       { id: 20, name: "LOAD_TIME", label: "LOAD TIME value >= 0" },
@@ -99,11 +150,41 @@ export const mockAlertMetrics: Record<string, { scope: string; metrics: Array<{ 
 // Note: Currently only Slack is supported. Email support coming soon.
 // =============================================================================
 export const mockNotificationChannels = [
-  { notification_channel_id: 1, name: "Slack - #alerts-critical", type: "slack", config: "https://hooks.slack.com/services/xxx", is_active: true },
-  { notification_channel_id: 2, name: "Slack - #engineering", type: "slack", config: "https://hooks.slack.com/services/yyy", is_active: true },
-  { notification_channel_id: 3, name: "Slack - #alerts-warning", type: "slack", config: "https://hooks.slack.com/services/zzz", is_active: true },
-  { notification_channel_id: 4, name: "Slack - #devops", type: "slack", config: "https://hooks.slack.com/services/aaa", is_active: true },
-  { notification_channel_id: 5, name: "Slack - #old-alerts (Deleted)", type: "slack", config: "https://hooks.slack.com/services/bbb", is_active: false },
+  {
+    notification_channel_id: 1,
+    name: "Slack - #alerts-critical",
+    type: "slack",
+    config: "https://hooks.slack.com/services/xxx",
+    is_active: true,
+  },
+  {
+    notification_channel_id: 2,
+    name: "Slack - #engineering",
+    type: "slack",
+    config: "https://hooks.slack.com/services/yyy",
+    is_active: true,
+  },
+  {
+    notification_channel_id: 3,
+    name: "Slack - #alerts-warning",
+    type: "slack",
+    config: "https://hooks.slack.com/services/zzz",
+    is_active: true,
+  },
+  {
+    notification_channel_id: 4,
+    name: "Slack - #devops",
+    type: "slack",
+    config: "https://hooks.slack.com/services/aaa",
+    is_active: true,
+  },
+  {
+    notification_channel_id: 5,
+    name: "Slack - #old-alerts (Deleted)",
+    type: "slack",
+    config: "https://hooks.slack.com/services/bbb",
+    is_active: false,
+  },
 ];
 
 // =============================================================================
@@ -127,7 +208,7 @@ const alertTemplates = [
     scope: "interaction",
     metric: "DURATION_P99",
     operator: "GREATER_THAN",
-    thresholds: { "PaymentSubmit": 4000, "PaymentConfirm": 3500, "PaymentOTP": 3000 },
+    thresholds: { PaymentSubmit: 4000, PaymentConfirm: 3500, PaymentOTP: 3000 },
     severity_id: 1,
   },
   {
@@ -136,7 +217,11 @@ const alertTemplates = [
     scope: "network_api",
     metric: "ERROR_RATE",
     operator: "GREATER_THAN",
-    thresholds: { "post_https://api.fancode.com/v1/checkout/initiate": 0.05, "post_https://api.fancode.com/v1/checkout/confirm": 0.03, "post_https://api.fancode.com/v1/payment/process": 0.02 },
+    thresholds: {
+      "post_https://api.example.com/v1/checkout/initiate": 0.05,
+      "post_https://api.example.com/v1/checkout/confirm": 0.03,
+      "post_https://api.example.com/v1/payment/process": 0.02,
+    },
     severity_id: 1,
   },
   {
@@ -145,7 +230,7 @@ const alertTemplates = [
     scope: "app_vitals",
     metric: "CRASH_RATE",
     operator: "GREATER_THAN",
-    thresholds: { "Android": 0.02, "iOS": 0.015 },
+    thresholds: { Android: 0.02, iOS: 0.015 },
     severity_id: 1,
   },
   {
@@ -154,7 +239,11 @@ const alertTemplates = [
     scope: "screen",
     metric: "SCREEN_LOAD_TIME_P95",
     operator: "GREATER_THAN",
-    thresholds: { "HomeScreen": 3000, "ProductListScreen": 2500, "CategoryScreen": 2000 },
+    thresholds: {
+      HomeScreen: 3000,
+      ProductListScreen: 2500,
+      CategoryScreen: 2000,
+    },
     severity_id: 2,
   },
   {
@@ -163,7 +252,7 @@ const alertTemplates = [
     scope: "interaction",
     metric: "INTERACTION_ERROR_COUNT",
     operator: "GREATER_THAN",
-    thresholds: { "LoginSubmit": 100, "OTPVerify": 50, "BiometricAuth": 30 },
+    thresholds: { LoginSubmit: 100, OTPVerify: 50, BiometricAuth: 30 },
     severity_id: 2,
   },
   {
@@ -172,7 +261,10 @@ const alertTemplates = [
     scope: "network_api",
     metric: "DURATION_P99",
     operator: "GREATER_THAN",
-    thresholds: { "get_https://api.fancode.com/v1/search/products": 2000, "get_https://api.fancode.com/v1/search/suggest": 500 },
+    thresholds: {
+      "get_https://api.example.com/v1/search/products": 2000,
+      "get_https://api.example.com/v1/search/suggest": 500,
+    },
     severity_id: 2,
   },
   {
@@ -181,7 +273,7 @@ const alertTemplates = [
     scope: "app_vitals",
     metric: "ANR_RATE",
     operator: "GREATER_THAN",
-    thresholds: { "Android": 0.01, "iOS": 0.005 },
+    thresholds: { Android: 0.01, iOS: 0.005 },
     severity_id: 2,
   },
   {
@@ -190,7 +282,7 @@ const alertTemplates = [
     scope: "screen",
     metric: "SCREEN_LOAD_TIME_P50",
     operator: "GREATER_THAN",
-    thresholds: { "ProductDetailScreen": 1500, "ProductImageGallery": 1200 },
+    thresholds: { ProductDetailScreen: 1500, ProductImageGallery: 1200 },
     severity_id: 3,
   },
   {
@@ -199,7 +291,7 @@ const alertTemplates = [
     scope: "interaction",
     metric: "APDEX",
     operator: "LESS_THAN",
-    thresholds: { "AddToCart": 0.85, "UpdateCart": 0.90, "RemoveFromCart": 0.88 },
+    thresholds: { AddToCart: 0.85, UpdateCart: 0.9, RemoveFromCart: 0.88 },
     severity_id: 3,
   },
   {
@@ -208,7 +300,10 @@ const alertTemplates = [
     scope: "network_api",
     metric: "NET_5XX_RATE",
     operator: "GREATER_THAN",
-    thresholds: { "post_https://api.fancode.com/v1/notifications/send": 0.01, "get_https://api.fancode.com/v1/notifications/status": 0.02 },
+    thresholds: {
+      "post_https://api.example.com/v1/notifications/send": 0.01,
+      "get_https://api.example.com/v1/notifications/status": 0.02,
+    },
     severity_id: 2,
   },
 ];
@@ -225,14 +320,17 @@ const generateMockAlerts = () => {
     const isFiring = i % 5 === 1; // Every 5th alert starting from 1 is firing
     const isSnoozed = i === 3 || i === 11; // Alert 3 and 11 are snoozed for easy testing
     const createdDaysAgo = Math.floor(Math.random() * 30) + 1;
-    const lastTriggered = isFiring ? new Date(Date.now() - Math.random() * 3600000).toISOString() : null;
-    
+    const lastTriggered = isFiring
+      ? new Date(Date.now() - Math.random() * 3600000).toISOString()
+      : null;
+
     // Snooze until 4 hours from now for better visibility
     const snoozeUntil = Date.now() + 4 * 60 * 60 * 1000;
 
     alerts.push({
       alert_id: i,
-      name: i <= alertTemplates.length ? template.name : `${template.name} #${i}`,
+      name:
+        i <= alertTemplates.length ? template.name : `${template.name} #${i}`,
       description: template.description,
       scope: template.scope,
       dimension_filter: null,
@@ -253,8 +351,12 @@ const generateMockAlerts = () => {
       notification_config: mockNotificationChannels[i % 4].config,
       created_by: users[i % users.length],
       updated_by: users[(i + 1) % users.length],
-      created_at: new Date(Date.now() - createdDaysAgo * 86400000).toISOString(),
-      updated_at: new Date(Date.now() - Math.random() * 86400000 * 7).toISOString(),
+      created_at: new Date(
+        Date.now() - createdDaysAgo * 86400000,
+      ).toISOString(),
+      updated_at: new Date(
+        Date.now() - Math.random() * 86400000 * 7,
+      ).toISOString(),
       is_active: true,
       status: isFiring ? "FIRING" : isSnoozed ? "SNOOZED" : "NORMAL",
       is_snoozed: isSnoozed,
@@ -269,17 +371,23 @@ const generateMockAlerts = () => {
 
 export const mockAlertsList = generateMockAlerts();
 
-export const getMockAlertsPage = (offset: number, limit: number, filters?: { name?: string; scope?: string; created_by?: string }) => {
+export const getMockAlertsPage = (
+  offset: number,
+  limit: number,
+  filters?: { name?: string; scope?: string; created_by?: string },
+) => {
   let filtered = [...mockAlertsList];
-  
+
   if (filters?.name) {
-    filtered = filtered.filter(a => a.name.toLowerCase().includes(filters.name!.toLowerCase()));
+    filtered = filtered.filter((a) =>
+      a.name.toLowerCase().includes(filters.name!.toLowerCase()),
+    );
   }
   if (filters?.scope) {
-    filtered = filtered.filter(a => a.scope === filters.scope);
+    filtered = filtered.filter((a) => a.scope === filters.scope);
   }
   if (filters?.created_by) {
-    filtered = filtered.filter(a => a.created_by === filters.created_by);
+    filtered = filtered.filter((a) => a.created_by === filters.created_by);
   }
 
   return {
@@ -294,7 +402,7 @@ export const getMockAlertsPage = (offset: number, limit: number, filters?: { nam
 // GET /v1/alert/{id} - AlertDetailsResponseDto (single alert)
 // =============================================================================
 export const getMockAlertDetails = (alertId: number) => {
-  return mockAlertsList.find(a => a.alert_id === alertId) || null;
+  return mockAlertsList.find((a) => a.alert_id === alertId) || null;
 };
 
 // =============================================================================

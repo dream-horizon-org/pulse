@@ -61,7 +61,7 @@ class ConfigControllerTest {
 
   ConfigController configController;
 
-  final String userEmail = "test@dream11.com";
+  final String userEmail = "test@example.com";
 
   @BeforeEach
   void setup() {

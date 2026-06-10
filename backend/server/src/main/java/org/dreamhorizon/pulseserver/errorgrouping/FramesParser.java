@@ -38,7 +38,7 @@ public final class FramesParser {
   // frames is the equivalent sweet spot.
   public static final int TOP_N_FRAMES = 3;
 
-  public static final Set<String> NDK_INAPP_LIBS = Set.of(); // e.g., "libdream11.so"
+  public static final Set<String> NDK_INAPP_LIBS = Set.of(); // e.g., "libyourapp.so"
 
   public static ParsedFrames parse(List<String> lines) {
     ParsedFrames st = new ParsedFrames();

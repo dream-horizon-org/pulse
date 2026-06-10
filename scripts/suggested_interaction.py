@@ -34,8 +34,8 @@ import pandas as pd
 
 # ─── Data roots ───
 JSON_DIRS: list[Path] = [
-    Path("/Users/shivamsengar/fancode_vector_json/fancode_28_data"),
-    Path("/Users/shivamsengar/fancode_vector_json/fancode_29_data"),
+    Path("./data/vector_json/batch_28_data"),
+    Path("./data/vector_json/batch_29_data"),
 ]
 
 # ─── Interaction rules ───

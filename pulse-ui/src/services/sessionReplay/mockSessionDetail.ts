@@ -292,7 +292,7 @@ export interface SessionDetailData {
 }
 
 const MOCK_PAYMENT_GATEWAY_STACK = [
-  "com.dream11.payment.PaymentGatewayTimeout: 504 Gateway Timeout",
+  "com.example.app.payment.PaymentGatewayTimeout: 504 Gateway Timeout",
   "Caused by: retrofit2.HttpException: HTTP 504 ",
   "\tat retrofit2.KotlinExtensions$await$2$2.onResponse(KotlinExtensions.kt:53)",
   "\tat retrofit2.OkHttpCall$1.onResponse(OkHttpCall.java:161)",
@@ -306,8 +306,8 @@ const MOCK_PAYMENT_GATEWAY_STACK = [
   "\tat okhttp3.internal.connection.Exchange.readResponseHeaders(Exchange.kt:110)",
   "\tat okhttp3.internal.http.CallServerInterceptor.intercept(CallServerInterceptor.kt:93)",
   "\tat okhttp3.internal.http.RealInterceptorChain.proceed(RealInterceptorChain.kt:109)",
-  "\tat com.dream11.network.LoggingInterceptor.intercept(LoggingInterceptor.kt:42)",
-  "\tat com.dream11.network.AuthHeaderInterceptor.intercept(AuthHeaderInterceptor.kt:28)",
+  "\tat com.example.app.network.LoggingInterceptor.intercept(LoggingInterceptor.kt:42)",
+  "\tat com.example.app.network.AuthHeaderInterceptor.intercept(AuthHeaderInterceptor.kt:28)",
   "--- Request ---",
   "POST https://api.example.com/api/payment HTTP/2",
   "X-Request-Id: req_pay_8f2a9c1d",
@@ -318,8 +318,8 @@ const MOCK_PAYMENT_GATEWAY_STACK = [
 
 const MOCK_CART_VALIDATION_STACK = [
   "java.lang.IllegalStateException: Cart line item missing price snapshot",
-  "\tat com.dream11.cart.CartRepository.validateLineItems(CartRepository.kt:214)",
-  "\tat com.dream11.cart.CartRepository.syncCart$lambda$3(CartRepository.kt:98)",
+  "\tat com.example.app.cart.CartRepository.validateLineItems(CartRepository.kt:214)",
+  "\tat com.example.app.cart.CartRepository.syncCart$lambda$3(CartRepository.kt:98)",
   "\tat kotlinx.coroutines.DispatchedTask.run(DispatchedTask.kt:108)",
   "\tat android.os.Handler.handleCallback(Handler.java:959)",
   "\tat android.os.Looper.loopOnce(Looper.java:232)",
@@ -327,8 +327,8 @@ const MOCK_CART_VALIDATION_STACK = [
 ].join("\n");
 
 const MOCK_NETWORK_SLOW_STACK = [
-  "com.dream11.network.SlowResponseWarning: GET /api/products/recs exceeded p95 (245ms > 200ms)",
-  "\tat com.dream11.network.TelemetryInterceptor.intercept(TelemetryInterceptor.kt:71)",
+  "com.example.app.network.SlowResponseWarning: GET /api/products/recs exceeded p95 (245ms > 200ms)",
+  "\tat com.example.app.network.TelemetryInterceptor.intercept(TelemetryInterceptor.kt:71)",
   "\tat okhttp3.internal.http.RealInterceptorChain.proceed(RealInterceptorChain.kt:109)",
   "Thread: OkHttp https://api.example.com/...",
   "DNS: 12ms, TCP connect: 28ms, TLS: 41ms, TTFB: 164ms",
