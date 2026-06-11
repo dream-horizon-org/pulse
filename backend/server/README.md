@@ -2235,7 +2235,7 @@ Alert evaluation queries data from multiple ClickHouse tables based on metric ty
 
 - **TRACES**: Used for most metrics (screen metrics, network API metrics, interaction metrics)
 - **EXCEPTIONS**: Used for crash/ANR/non-fatal user and session counts
-- **LOGS**: Used for total users/sessions in APP_VITALS scope (with `PulseType = 'session.start'`)
+- **TRACES**: Used for total users/sessions in APP_VITALS scope (with `PulseType = 'app_start'`)
 
 #### Composite Metrics
 
@@ -2252,8 +2252,8 @@ Some metrics require data from multiple tables and are calculated after merging 
 
 **APP_VITALS Scope:**
 
-- `CRASH_FREE_USERS_PERCENTAGE`: Calculated from `ALL_USERS` (LOGS) and `CRASH_USERS` (EXCEPTIONS)
-- `CRASH_FREE_SESSIONS_PERCENTAGE`: Calculated from `ALL_SESSIONS` (LOGS) and `CRASH_SESSIONS` (EXCEPTIONS)
+- `CRASH_FREE_USERS_PERCENTAGE`: Calculated from `ALL_USERS` (TRACES) and `CRASH_USERS` (EXCEPTIONS)
+- `CRASH_FREE_SESSIONS_PERCENTAGE`: Calculated from `ALL_SESSIONS` (TRACES) and `CRASH_SESSIONS` (EXCEPTIONS)
 - Similar pattern for ANR and non-fatal metrics
 
 **Formula:** `((total - exception) / total) * 100`
@@ -2262,7 +2262,7 @@ Some metrics require data from multiple tables and are calculated after merging 
 
 For `network_api` scope, alerts support HTTP method differentiation:
 
-- Scope names use format: `{method}_{url}` (e.g., `get_https://www.fancode.com/graphql`)
+- Scope names use format: `{method}_{url}` (e.g., `get_https://www.example.com/graphql`)
 - Queries include `http.method` in SELECT and GROUP BY clauses
 - Evaluation matches both method and URL from query results
 

@@ -21,7 +21,7 @@ kotlin {
 dependencies {
     implementation(projects.pulseSamplingModels)
     implementation(projects.pulseUtils)
-    api(libs.okhttp)
+    implementation(libs.okhttp)
     api(libs.kotlin.serialisation)
     implementation(libs.retrofit)
     implementation(libs.retrofit.kotlinSerialisation)

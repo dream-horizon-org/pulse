@@ -107,8 +107,10 @@ public class TenantDao {
             return Single.error(new RuntimeException("Tenant not found: " + tenant.getTenantId()));
           }
           log.info("Updated tenant: {}", tenant.getTenantId());
-          // Return the updated tenant (we know the values since we just set them)
-          return Single.just(tenant);
+          return getTenantById(tenant.getTenantId())
+              .switchIfEmpty(
+                  Maybe.error(new RuntimeException("Tenant not found: " + tenant.getTenantId())))
+              .toSingle();
         })
         .doOnError(error -> log.error("Failed to update tenant: {}", tenant.getTenantId(), error));
   }

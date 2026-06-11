@@ -73,6 +73,7 @@ public final class Constants {
   public static final String PERMISSION_CAN_VIEW = "can_view";
   public static final String PERMISSION_CAN_UPLOAD_TNC = "can_upload_tnc";
   public static final String PERMISSION_CAN_ACCEPT_TNC = "can_accept_tnc";
+  public static final String PERMISSION_SUPERADMIN = "superadmin";
 
   // OpenFGA Resource Types
   public static final String RESOURCE_TYPE_TENANT = "tenant";

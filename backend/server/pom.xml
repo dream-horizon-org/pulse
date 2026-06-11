@@ -5,7 +5,7 @@
 
     <groupId>org.dreamhorizon</groupId>
     <artifactId>pulse-server</artifactId>
-    <version>1.28-SNAPSHOT</version>
+    <version>1.39-SNAPSHOT</version>
     <packaging>jar</packaging>
     <name>pulse-server</name>
 
@@ -16,6 +16,8 @@
         <app.release.artifact>/target/pulse-server</app.release.artifact>
         <google.guava.version>32.0.1-jre</google.guava.version>
         <mapstruct.version>1.6.3</mapstruct.version>
+        <lombok.version>1.18.30</lombok.version>
+        <lombok-mapstruct-binding.version>0.2.0</lombok-mapstruct-binding.version>
         <clickhouse.r2dbc.version>0.9.1</clickhouse.r2dbc.version>
         <r2dbc-pool.version>0.8.0.RELEASE</r2dbc-pool.version>
         <vertx.version>4.5.10</vertx.version>
@@ -24,11 +26,13 @@
         <maven.failsafe.plugin.version>3.2.5</maven.failsafe.plugin.version>
         <vertx-rest.version>1.1.0</vertx-rest.version>
         <guice.version>5.1.0</guice.version>
-        <awssdk.version>2.20.8</awssdk.version>
+        <awssdk.version>2.25.69</awssdk.version>
+        <parquet.version>1.14.1</parquet.version>
+        <hadoop.version>3.3.6</hadoop.version>
 
         <!-- Use an older version until https://issues.apache.org/jira/browse/MRESOURCES-237 -->
         <maven.resources.plugin.version>2.7</maven.resources.plugin.version>
-        <kotlin.version>2.2.20</kotlin.version>
+        <kotlin.version>2.2.0</kotlin.version>
         <kotlin.compiler.incremental>true</kotlin.compiler.incremental>
     </properties>
 
@@ -212,6 +216,8 @@
             <groupId>org.mapstruct</groupId>
             <artifactId>mapstruct-processor</artifactId>
             <version>${mapstruct.version}</version>
+            <scope>provided</scope>
+            <optional>true</optional>
         </dependency>
 
         <!-- JUnit Jupiter for new tests -->
@@ -306,6 +312,97 @@
             <groupId>io.opentelemetry.proto</groupId>
             <artifactId>opentelemetry-proto</artifactId>
             <version>1.9.0-alpha</version>
+        </dependency>
+
+        <!-- Parquet archive for stack_trace_events (mirrors pulse-s3-archiver) -->
+        <dependency>
+            <groupId>org.apache.parquet</groupId>
+            <artifactId>parquet-avro</artifactId>
+            <version>${parquet.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.parquet</groupId>
+            <artifactId>parquet-hadoop</artifactId>
+            <version>${parquet.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.hadoop</groupId>
+            <artifactId>hadoop-common</artifactId>
+            <version>${hadoop.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.apache.zookeeper</groupId>
+                    <artifactId>zookeeper</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.apache.kerby</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.eclipse.jetty</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.sun.jersey</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>javax.servlet.jsp</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.apache.hadoop</groupId>
+                    <artifactId>hadoop-hdfs-client</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.google.protobuf</groupId>
+                    <artifactId>protobuf-java</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.hadoop</groupId>
+            <artifactId>hadoop-mapreduce-client-core</artifactId>
+            <version>${hadoop.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.apache.zookeeper</groupId>
+                    <artifactId>zookeeper</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.apache.kerby</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.eclipse.jetty</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.sun.jersey</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.apache.hadoop</groupId>
+                    <artifactId>hadoop-hdfs-client</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.google.protobuf</groupId>
+                    <artifactId>protobuf-java</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.apache.hadoop</groupId>
+                    <artifactId>hadoop-yarn-common</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.apache.hadoop</groupId>
+                    <artifactId>hadoop-yarn-client</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.avro</groupId>
+            <artifactId>avro</artifactId>
+            <version>1.11.3</version>
         </dependency>
 
         <dependency>
@@ -474,6 +571,23 @@
             </exclusions>
         </dependency>
 
+        <!-- SSO credential chain — all three required for AWS CLI v2 SSO profiles -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>sso</artifactId>
+            <version>${awssdk.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>ssooidc</artifactId>
+            <version>${awssdk.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>sts</artifactId>
+            <version>${awssdk.version}</version>
+        </dependency>
+
     </dependencies>
 
     <repositories>
@@ -557,6 +671,15 @@
                     <languageVersion>2.2</languageVersion>
                     <apiVersion>2.2</apiVersion>
                 </configuration>
+                <!-- Kotlin sources do not use Lombok/MapStruct. default-kapt was running the
+                     same annotation processors as maven-compiler, writing *MapperImpl under
+                     target/generated-sources/kapt before javac tried to recreate them. -->
+                <executions>
+                    <execution>
+                        <id>default-kapt</id>
+                        <phase>none</phase>
+                    </execution>
+                </executions>
             </plugin>
             <plugin>
                 <artifactId>maven-compiler-plugin</artifactId>
@@ -568,30 +691,31 @@
                     <encoding>${project.build.sourceEncoding}</encoding>
                     <useIncrementalCompilation>false</useIncrementalCompilation>
 
+                    <!-- Processor order: Lombok → binding → MapStruct → Vert.x codegen.
+                         Avoids listing processors twice (paths + annotationProcessors), which
+                         caused FilerException "Attempt to recreate" for every *MapperImpl. -->
                     <annotationProcessorPaths>
                         <path>
                             <groupId>org.projectlombok</groupId>
                             <artifactId>lombok</artifactId>
-                            <version>1.18.30</version>
+                            <version>${lombok.version}</version>
                         </path>
                         <path>
-                            <groupId>io.vertx</groupId>
-                            <artifactId>vertx-codegen</artifactId>
-                            <version>${vertx.version}</version>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok-mapstruct-binding</artifactId>
+                            <version>${lombok-mapstruct-binding.version}</version>
                         </path>
                         <path>
                             <groupId>org.mapstruct</groupId>
                             <artifactId>mapstruct-processor</artifactId>
                             <version>${mapstruct.version}</version>
                         </path>
+                        <path>
+                            <groupId>io.vertx</groupId>
+                            <artifactId>vertx-codegen</artifactId>
+                            <version>${vertx.version}</version>
+                        </path>
                     </annotationProcessorPaths>
-
-                    <annotationProcessors>
-                        <annotationProcessor>lombok.launch.AnnotationProcessorHider$AnnotationProcessor
-                        </annotationProcessor>
-                        <annotationProcessor>io.vertx.codegen.CodeGenProcessor</annotationProcessor>
-                        <annotationProcessor>org.mapstruct.ap.MappingProcessor</annotationProcessor>
-                    </annotationProcessors>
                     <generatedSourcesDirectory>${project.build.directory}/generated-sources/annotations
                     </generatedSourcesDirectory>
                     <compilerArgs>

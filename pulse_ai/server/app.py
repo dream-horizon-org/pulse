@@ -18,6 +18,8 @@ from pydantic import BaseModel
 from pulse_ai.agent import root_agent
 from pulse_ai.agents.rca import rca_agent
 from pulse_ai.agents.screen_rca import screen_rca_narrative_agent
+from pulse_ai.agents.funnel_rca import funnel_rca_agent
+from pulse_ai.agents.session_rca import session_rca_narrative_agent
 from pulse_ai.constants import APP_NAME, DEFAULT_CORS_ORIGINS
 from pulse_ai.server.compacting_session_service import CompactingSessionService
 from pulse_ai.server.middleware import AuthMiddleware
@@ -94,6 +96,20 @@ screen_rca_runner = Runner(
     agent=screen_rca_narrative_agent,
     app_name=APP_NAME,
     session_service=session_service,
+    auto_create_session=True,
+)
+
+session_rca_runner = Runner(
+    agent=session_rca_narrative_agent,
+    app_name=APP_NAME,
+    session_service=session_service,
+    auto_create_session=True,
+)
+
+funnel_rca_runner = Runner(
+    agent=funnel_rca_agent,
+    app_name=APP_NAME,
+    session_service=_rca_session_service,
     auto_create_session=True,
 )
 

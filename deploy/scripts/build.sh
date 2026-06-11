@@ -4,14 +4,14 @@
 # Pulse Observability - Build Script
 # Builds Docker images for pulse-ui, pulse-server, pulse-alerts-cron,
 # pulse-session-capture, pulse-session-replay-ingestion,
-# pulse-heatmap-screenshot-ingestion, and pulse-ai-agent (included in default / "all" build).
+# pulse-heatmap-screenshot-ingestion, pulse-s3-archiver, and pulse-ai-agent (included in default / "all" build).
 # Uses Docker Compose if available, otherwise falls back to Docker CLI.
 #
 # Usage:
-#   ./build.sh [--no-cache] [ui|server|cron|capture|ingestion|heatmap-ingestion|ai|all]
+#   ./build.sh [--no-cache] [ui|server|cron|capture|ingestion|heatmap-ingestion|s3-archiver|ai|all]
 #
 # Examples:
-#   ./build.sh              # ui + server + cron + capture + ingestion + heatmap-ingestion + ai
+#   ./build.sh              # ui + server + cron + capture + ingestion + heatmap-ingestion + s3-archiver + ai
 #   ./build.sh ai           # pulse-ai-agent only
 #   ./build.sh ui           # pulse-ui only
 #   ./build.sh --no-cache   # Build all without cache
@@ -111,17 +111,21 @@ while [[ $# -gt 0 ]]; do
             SERVICES+=("heatmap-ingestion")
             shift
             ;;
+        s3-archiver|pulse-s3-archiver)
+            SERVICES+=("s3-archiver")
+            shift
+            ;;
         all)
             SERVICES=()
             shift
             ;;
         -h|--help)
-            echo "Usage: $0 [--no-cache] [ui|server|cron|capture|ingestion|heatmap-ingestion|ai|all]"
+            echo "Usage: $0 [--no-cache] [ui|server|cron|capture|ingestion|heatmap-ingestion|s3-archiver|ai|all]"
             exit 0
             ;;
         *)
             print_error "Unknown option: $1"
-            echo "Usage: $0 [--no-cache] [ui|server|cron|capture|ingestion|heatmap-ingestion|ai|all]"
+            echo "Usage: $0 [--no-cache] [ui|server|cron|capture|ingestion|heatmap-ingestion|s3-archiver|ai|all]"
             exit 1
             ;;
     esac
@@ -129,7 +133,7 @@ done
 
 # Default: full application stack including pulse-ai-agent
 if [ ${#SERVICES[@]} -eq 0 ]; then
-    SERVICES=("ui" "server" "cron" "capture" "ingestion" "heatmap-ingestion" "ai")
+    SERVICES=("ui" "server" "cron" "capture" "ingestion" "heatmap-ingestion" "s3-archiver" "ai")
 fi
 
 # Validate encryption key when building server or cron (required at runtime)
@@ -157,6 +161,7 @@ if has_compose; then
             capture)   COMPOSE_SERVICES="$COMPOSE_SERVICES pulse-session-capture" ;;
             ingestion) COMPOSE_SERVICES="$COMPOSE_SERVICES pulse-session-replay-ingestion" ;;
             heatmap-ingestion) COMPOSE_SERVICES="$COMPOSE_SERVICES pulse-heatmap-screenshot-ingestion" ;;
+            s3-archiver) COMPOSE_SERVICES="$COMPOSE_SERVICES pulse-s3-archiver" ;;
         esac
     done
 
@@ -189,6 +194,7 @@ build_ui() {
         -t "$IMAGE_UI" \
         --build-arg "REACT_APP_GOOGLE_CLIENT_ID=${REACT_APP_GOOGLE_CLIENT_ID}" \
         --build-arg "REACT_APP_PULSE_SERVER_URL=${REACT_APP_PULSE_SERVER_URL}" \
+        --build-arg "REACT_APP_PULSE_WEB_API_KEY=${REACT_APP_PULSE_WEB_API_KEY:-}" \
         --build-arg "REACT_APP_GOOGLE_OAUTH_ENABLED=${REACT_APP_GOOGLE_OAUTH_ENABLED}" \
         --build-arg "REACT_APP_ROOT_CAUSE_ENABLED=${REACT_APP_ROOT_CAUSE_ENABLED:-false}" \
         -f "$ROOT_DIR/pulse-ui/Dockerfile" \
@@ -255,6 +261,16 @@ build_heatmap_ingestion() {
     print_success "pulse-heatmap-screenshot-ingestion image built -> $IMAGE_HEATMAP_INGESTION"
 }
 
+build_s3_archiver() {
+    print_info "Building pulse-s3-archiver image..."
+    docker build \
+        $NO_CACHE \
+        -t "$IMAGE_S3_ARCHIVER" \
+        -f "$ROOT_DIR/backend/pulse-s3-archiver/Dockerfile" \
+        "$ROOT_DIR/backend/pulse-s3-archiver"
+    print_success "pulse-s3-archiver image built -> $IMAGE_S3_ARCHIVER"
+}
+
 # When building multiple images, run them in parallel with per-service log files
 BUILD_LOG_DIR=$(mktemp -d)
 PIDS=()
@@ -272,6 +288,7 @@ for svc in "${SERVICES[@]}"; do
             capture)   build_capture   > "$local_log" 2>&1 & PIDS+=($!); NAMES+=("capture")   ;;
             ingestion) build_ingestion > "$local_log" 2>&1 & PIDS+=($!); NAMES+=("ingestion") ;;
             heatmap-ingestion) build_heatmap_ingestion > "$local_log" 2>&1 & PIDS+=($!); NAMES+=("heatmap-ingestion") ;;
+            s3-archiver) build_s3_archiver > "$local_log" 2>&1 & PIDS+=($!); NAMES+=("s3-archiver") ;;
         esac
     else
         case $svc in
@@ -282,6 +299,7 @@ for svc in "${SERVICES[@]}"; do
             capture)   build_capture   || FAILED=1 ;;
             ingestion) build_ingestion || FAILED=1 ;;
             heatmap-ingestion) build_heatmap_ingestion || FAILED=1 ;;
+            s3-archiver) build_s3_archiver || FAILED=1 ;;
         esac
     fi
 done

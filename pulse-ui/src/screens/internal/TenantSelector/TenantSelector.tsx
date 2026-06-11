@@ -14,32 +14,36 @@ import {
   IconBuildingSkyscraper,
   IconSettings,
   IconPlus,
+  IconCreditCard,
+  IconLogout,
 } from "@tabler/icons-react";
 import { useInternalTenants } from "../../../hooks/useInternalTenants";
 import { InternalTenant } from "../../../hooks/useInternalTenants/useInternalTenants.interface";
-import type { TenantResponse } from "../../../hooks/useCreateTenant";
+import type { TenantResponse } from "./TenantSelector.interface";
 import { getCookies, setCookies } from "../../../helpers/cookies";
-import { API_ROUTES, COOKIES_KEY, ROUTES, SYSTEM_ROLES } from "../../../constants";
+import { getAndSetAccessTokenFromRefreshToken } from "../../../helpers/getAccessTokenFromRefreshToken";
+import { COOKIES_KEY, ROUTES, SYSTEM_ROLES } from "../../../constants";
 import { useTenantContext, useProjectContext } from "../../../contexts";
 import { TIERS } from "../../../constants/Tiers";
 import { TENANT_ROLES } from "../../../constants/Roles";
 import { PageHeader } from "../../../components/PageHeader";
 import { ErrorAndEmptyState } from "../../../components/ErrorAndEmptyState";
 import { TableSkeleton } from "../../../components/Skeletons";
+import { ConfirmationModal } from "../../../components/ConfirmationModal";
+import { performLogout } from "../../../helpers/logout";
 import { CreateTenantModal } from "./components";
 import classes from "./TenantSelector.module.css";
-
-const SHOW_CREATE_TENANT_ACTION = false;
 
 export function TenantSelector() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { data: tenants, isLoading, isError } = useInternalTenants();
-  const { setTenantInfo } = useTenantContext();
+  const { setTenantInfo, clearTenant } = useTenantContext();
   const { clearProject } = useProjectContext();
   const systemRole = getCookies(COOKIES_KEY.SYSTEM_ROLE);
   const [search, setSearch] = useState("");
   const [isCreateTenantOpen, setIsCreateTenantOpen] = useState(false);
+  const [logoutModalOpened, setLogoutModalOpened] = useState(false);
 
   useEffect(() => {
     if (!systemRole) navigate(ROUTES.LOGIN.basePath, { replace: true });
@@ -56,12 +60,12 @@ export function TenantSelector() {
     );
   }, [tenants, search]);
 
-  const handleSelectTenant = (tenant: InternalTenant) => {
+  const handleSelectTenant = async (tenant: InternalTenant) => {
     const resolvedTenantRole = tenant.userRole || TENANT_ROLES.MEMBER;
 
     clearProject();
     sessionStorage.removeItem("pulse_last_project_id");
-    queryClient.removeQueries({ queryKey: [API_ROUTES.GET_USER_PROJECTS.key] });
+    queryClient.removeQueries({ predicate: () => true });
 
     setCookies(COOKIES_KEY.TENANT_ID, tenant.tenantId);
     setCookies(COOKIES_KEY.TENANT_NAME, tenant.tenantName);
@@ -76,6 +80,14 @@ export function TenantSelector() {
         (tenant.tier as (typeof TIERS)[keyof typeof TIERS]) || TIERS.FREE,
     });
 
+    // Await the token refresh so the new JWT (carrying the selected tenantId)
+    // is in the cookie before navigation — prevents a race where the first
+    // API call on the projects page triggers its own refresh without tenantId
+    // and overwrites the cookie with tenantId:"default".
+    await getAndSetAccessTokenFromRefreshToken(tenant.tenantId).catch(() => {
+      // Non-fatal: stale token will be rotated on the next 401 cycle.
+    });
+
     navigate(`/${tenant.tenantId}/projects`);
   };
 
@@ -87,6 +99,15 @@ export function TenantSelector() {
       tier: TIERS.FREE,
     });
     setIsCreateTenantOpen(false);
+  };
+
+  const onLogoutClick = async () => {
+    setLogoutModalOpened(false);
+
+    clearTenant();
+    await performLogout();
+
+    navigate(ROUTES.LOGIN.basePath);
   };
 
   const renderContent = () => {
@@ -190,30 +211,46 @@ export function TenantSelector() {
         actions={
           systemRole === SYSTEM_ROLES.SUPERADMIN || systemRole === SYSTEM_ROLES.INTERNAL_VIEWER ? (
             <Box style={{ display: "flex", gap: "8px" }}>
-              {SHOW_CREATE_TENANT_ACTION ? (
-                <Button
-                  variant="light"
-                  color="teal"
-                  size="sm"
-                  leftSection={<IconPlus size={14} />}
-                  onClick={() => setIsCreateTenantOpen(true)}
-                >
-                  Create Tenant
-                </Button>
-              ) : null}
+              <Button
+                variant="light"
+                color="teal"
+                size="sm"
+                leftSection={<IconPlus size={14} />}
+                onClick={() => setIsCreateTenantOpen(true)}
+              >
+                Create Tenant
+              </Button>
               {systemRole === SYSTEM_ROLES.SUPERADMIN ? (
-                <Button
-                  variant="light"
-                  color="teal"
-                  size="sm"
-                  leftSection={<IconSettings size={14} />}
-                  onClick={() =>
-                    navigate(ROUTES.INTERNAL_DEVELOPER_SETTINGS.path)
-                  }
-                >
-                  Developer Settings
-                </Button>
+                <>
+                  <Button
+                    variant="light"
+                    color="violet"
+                    size="sm"
+                    leftSection={<IconCreditCard size={14} />}
+                    onClick={() => navigate(ROUTES.INTERNAL_SUBSCRIPTION_MANAGEMENT.path)}
+                  >
+                    Subscriptions
+                  </Button>
+                  <Button
+                    variant="light"
+                    color="teal"
+                    size="sm"
+                    leftSection={<IconSettings size={14} />}
+                    onClick={() => navigate(ROUTES.INTERNAL_DEVELOPER_SETTINGS.path)}
+                  >
+                    Developer Settings
+                  </Button>
+                </>
               ) : null}
+              <Button
+                variant="light"
+                color="red"
+                size="sm"
+                leftSection={<IconLogout size={14} />}
+                onClick={() => setLogoutModalOpened(true)}
+              >
+                Logout
+              </Button>
             </Box>
           ) : undefined
         }
@@ -240,6 +277,16 @@ export function TenantSelector() {
         opened={isCreateTenantOpen}
         onClose={() => setIsCreateTenantOpen(false)}
         onEnterWorkspace={handleEnterWorkspace}
+      />
+
+      <ConfirmationModal
+        opened={logoutModalOpened}
+        onClose={() => setLogoutModalOpened(false)}
+        onConfirm={onLogoutClick}
+        title="Logout"
+        message="Are you sure you want to logout?"
+        confirmLabel="Logout"
+        confirmColor="red"
       />
     </Box>
   );

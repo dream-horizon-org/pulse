@@ -41,10 +41,20 @@ export interface OtlpSpanStatus {
   message?: string;
 }
 
+export interface OtlpSpanEvent {
+  name: string;
+  timeUnixNano?: string;
+  attributes?: OtlpAttr[];
+}
+
 export interface OtlpSpan {
   name: string;
   attributes: OtlpAttr[];
   status?: OtlpSpanStatus;
+  events?: OtlpSpanEvent[];
+  /** OTLP JSON export — often string; tests coerce with Number(). */
+  startTimeUnixNano?: string | number;
+  endTimeUnixNano?: string | number;
 }
 
 type LogsBody = {
@@ -109,6 +119,25 @@ export function findAllSpans(
       for (const ss of rs.scopeSpans ?? []) {
         for (const sp of ss.spans ?? []) {
           if (getAttr(sp.attributes, "pulse.type") === pulseType) out.push(sp);
+        }
+      }
+    }
+  }
+  return out;
+}
+
+/** Spans whose {@code name} equals {@code spanName} (for custom/trackSpan spans). */
+export function findAllSpansByName(
+  captured: CapturedRequest[],
+  spanName: string,
+): OtlpSpan[] {
+  const out: OtlpSpan[] = [];
+  for (const c of captured) {
+    if (c.type !== "traces") continue;
+    for (const rs of c.body.resourceSpans ?? []) {
+      for (const ss of rs.scopeSpans ?? []) {
+        for (const sp of ss.spans ?? []) {
+          if (sp.name === spanName) out.push(sp);
         }
       }
     }
@@ -316,6 +345,8 @@ export async function attachSdkConfigStub(
 export type OtlpFixture = {
   captured: CapturedRequest[];
   waitForLog(pulseType: string, timeoutMs?: number): Promise<OtlpLogRecord>;
+  waitForSpan(pulseType: string, timeoutMs?: number): Promise<OtlpSpan>;
+  waitForSpanByName(spanName: string, timeoutMs?: number): Promise<OtlpSpan>;
   reset(): void;
 };
 
@@ -332,6 +363,18 @@ export const test = base.extend<{ otlp: OtlpFixture }>({
           () => findAllLogs(captured, t)[0],
           ms,
           `log(pulse.type="${t}")`,
+        ),
+      waitForSpan: (t, ms = 10_000) =>
+        pollUntil(
+          () => findAllSpans(captured, t)[0],
+          ms,
+          `span(pulse.type="${t}")`,
+        ),
+      waitForSpanByName: (n, ms = 10_000) =>
+        pollUntil(
+          () => findAllSpansByName(captured, n)[0],
+          ms,
+          `span(name="${n}")`,
         ),
       reset: () => {
         captured.length = 0;

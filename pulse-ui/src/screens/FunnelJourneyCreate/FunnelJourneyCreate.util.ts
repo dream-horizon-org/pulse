@@ -29,6 +29,43 @@ export function formatDuration(seconds: number): string {
   return `${(seconds / 3600).toFixed(1)}h`;
 }
 
+/** Analysis window for funnel RCA POST (`start` / `end` required). */
+export function resolveFunnelRcaWindow(detail: {
+  funnelType?: string;
+  startTime?: string;
+  endTime?: string;
+  dateRangeDays?: number;
+  timeRange?: { start?: string; end?: string };
+}): { windowStartIso: string; windowEndIso: string } {
+  if (detail.startTime && detail.endTime) {
+    return {
+      windowStartIso: new Date(detail.startTime).toISOString(),
+      windowEndIso: new Date(detail.endTime).toISOString(),
+    };
+  }
+
+  if (detail.timeRange?.start && detail.timeRange?.end) {
+    return {
+      windowStartIso: detail.timeRange.start,
+      windowEndIso: detail.timeRange.end,
+    };
+  }
+
+  if (detail.funnelType === "ONCE") {
+    const range = buildRollingTimeRange(
+      "ONCE",
+      "7d",
+      detail.startTime ? new Date(detail.startTime) : null,
+      detail.endTime ? new Date(detail.endTime) : null,
+    );
+    return { windowStartIso: range.start, windowEndIso: range.end };
+  }
+
+  const days = detail.dateRangeDays ?? 7;
+  const range = getDateRangeFromPreset(`${days}d`);
+  return { windowStartIso: range.start, windowEndIso: range.end };
+}
+
 export function getDateRangeFromPreset(preset: string): {
   start: string;
   end: string;

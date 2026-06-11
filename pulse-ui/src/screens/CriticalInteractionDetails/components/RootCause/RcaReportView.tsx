@@ -1,4 +1,6 @@
 import {
+  ActionIcon,
+  Alert,
   Badge,
   Box,
   Button,
@@ -8,17 +10,31 @@ import {
   Stack,
   Table,
   Text,
+  Tooltip,
 } from "@mantine/core";
-import { IconRefresh, IconSparkles } from "@tabler/icons-react";
-import type {
-  ErrorAttributionInsightV1,
-  RcaStructuredMetricRowV1,
-  RcaStructuredReportV1,
+import {
+  IconCircleCheck,
+  IconInfoCircle,
+  IconRefresh,
+  IconSparkles,
+} from "@tabler/icons-react";
+import {
+  insightRowHasDisplayableNarrative,
+  segmentHasDisplayableBody,
+  type ErrorAttributionInsightV1,
+  type RcaStructuredMetricRowV1,
+  type RcaStructuredReportV1,
 } from "../../../../hooks/useGetRcaReport/useGetRcaReport.interface";
-import type { RcaReportViewProps } from "./RcaReportView.interface";
+import type {
+  RcaReportContextProps,
+  RcaReportViewProps,
+} from "./RcaReportView.interface";
 import { ERROR_ATTRIBUTION_MESSAGES } from "../ErrorAttribution/ErrorAttribution.constants";
 import { RcaEmbeddedErrorAttribution } from "./RcaEmbeddedErrorAttribution";
-import { ROOT_CAUSE_MESSAGES } from "./RootCause.constants";
+import {
+  RCA_METRICS_COLUMN_TOOLTIPS,
+  ROOT_CAUSE_MESSAGES,
+} from "./RootCause.constants";
 import { getMetricValueTone } from "./rcaMetricTone";
 import rcaClasses from "./RcaReportView.module.css";
 import rootCauseClasses from "./RootCause.module.css";
@@ -29,6 +45,48 @@ import { RcaSessionReplayEvidenceCard } from "./RcaSessionReplayEvidenceCard";
 const HEATMAP_EVIDENCE_MAX = 2;
 
 const RCA_ERROR_ATTRIBUTION_HEADING = `${ERROR_ATTRIBUTION_MESSAGES.SECTION_TITLE} (correlative)`;
+
+function RcaMetricsThWithHint({
+  label,
+  tooltip,
+  labelClassName,
+  alignEnd,
+}: {
+  label: string;
+  tooltip: string;
+  labelClassName: string;
+  alignEnd: boolean;
+}) {
+  return (
+    <div className={labelClassName}>
+      <Group
+        gap={4}
+        wrap="nowrap"
+        justify={alignEnd ? "flex-end" : "flex-start"}
+        align="center"
+      >
+        <span>{label}</span>
+        <Tooltip
+          label={tooltip}
+          multiline
+          maw={300}
+          withArrow
+          events={{ hover: true, focus: true, touch: true }}
+        >
+          <ActionIcon
+            variant="subtle"
+            color="gray"
+            size="xs"
+            radius="xl"
+            aria-label={`${label}: more information`}
+          >
+            <IconInfoCircle size={14} />
+          </ActionIcon>
+        </Tooltip>
+      </Group>
+    </div>
+  );
+}
 
 /** Metric sort order for RCA table - volume first, then by severity. */
 const METRIC_PRIORITY_ORDER: string[] = [
@@ -141,19 +199,24 @@ const StructuredMetricRow = ({ row }: { row: RcaStructuredMetricRowV1 }) => {
 const RcaStructuredReportV1View = ({
   structured,
   cachedAt,
+  analysisLookbackDays,
   onRegenerate,
   projectId,
+  reportContext,
 }: {
   structured: RcaStructuredReportV1;
   cachedAt?: string | null;
+  analysisLookbackDays?: number | null;
   onRegenerate?: () => void;
   projectId?: string | null;
+  reportContext?: RcaReportContextProps;
 }) => {
+  const isEverythingGood = structured.everything_good === true;
+  const isNoDataAvailable = structured.no_data_available === true;
   const executiveSummaryText = structured.executive_summary?.trim() ?? "";
   const hasExecutiveSummary = executiveSummaryText !== "";
   const segments = structured.segments ?? [];
-  const segmentCount = segments.length;
-  const hasSegments = segmentCount > 0;
+  const hasSegments = segments.length > 0;
   const recommendations = (structured.recommendations ?? []).filter(
     (line) => String(line).trim() !== "",
   );
@@ -162,39 +225,50 @@ const RcaStructuredReportV1View = ({
     structured.error_attribution ?? structured.errorAttribution ?? null;
   const hasEmbeddedErrorAttribution = embeddedErrorAttribution != null;
   const attributionInsights = structured.error_attribution_insights ?? [];
-  const hasAttributionInsights = attributionInsights.some(
-    (row) =>
-      (row.summary?.trim() ?? "") !== "" || (row.caveat?.trim() ?? "") !== "",
+  const hasMeaningfulAttributionInsights = attributionInsights.some(
+    insightRowHasDisplayableNarrative,
   );
 
   const hasRegenerate = typeof onRegenerate === "function";
   const showAsOf = cachedAt != null && cachedAt !== "";
+  const hasReportContext = reportContext != null;
+  const showLookback =
+    typeof analysisLookbackDays === "number" &&
+    analysisLookbackDays > 0 &&
+    Number.isFinite(analysisLookbackDays);
+  const showReportHeader =
+    hasReportContext || showAsOf || showLookback || hasRegenerate;
   const trimmedProjectId = projectId != null ? String(projectId).trim() : "";
   const hasProjectForHeatmaps = trimmedProjectId !== "";
+  const allSegmentsBodyEmpty =
+    segments.length > 0 &&
+    segments.every(
+      (seg) => !segmentHasDisplayableBody(seg, { hasProjectForHeatmaps }),
+    );
   const showDrill = hasEmbeddedErrorAttribution && hasProjectForHeatmaps;
-  const showUnifiedErrorAttribution = hasAttributionInsights || showDrill;
   const relatedCount =
     embeddedErrorAttribution?.relatedAttributions?.length ?? 0;
+  const hasRelatedAttributionRows = relatedCount > 0;
+  const showMeaningfulDrill =
+    showDrill && embeddedErrorAttribution != null && relatedCount > 0;
+  /** No drill rows ⇒ nothing to list; hide the whole card (avoid insight-only boilerplate). */
+  const showUnifiedErrorAttribution =
+    hasRelatedAttributionRows &&
+    (hasMeaningfulAttributionInsights || showMeaningfulDrill);
 
-  return (
-    <Box className={rootCauseClasses.container}>
-      <Box className={rcaClasses.reportShell}>
-        {(showAsOf || hasRegenerate) && (
-          <Group
-            className={rcaClasses.reportHeaderRow}
-            justify="space-between"
-            align="flex-start"
-            wrap="wrap"
-            gap="sm"
-          >
-            {showAsOf ? (
-              <Text className={rcaClasses.reportCachedAt} size="sm" c="dimmed">
-                Report as of {cachedAt}
-              </Text>
-            ) : (
-              <div />
-            )}
-            {hasRegenerate ? (
+  if (isEverythingGood || isNoDataAvailable) {
+    const alertColor = isEverythingGood ? "teal" : "gray";
+    const alertTitle = isEverythingGood
+      ? ROOT_CAUSE_MESSAGES.EVERYTHING_GOOD
+      : ROOT_CAUSE_MESSAGES.NO_DATA_AVAILABLE;
+    const alertIcon = isEverythingGood ? (
+      <IconCircleCheck size={16} />
+    ) : undefined;
+    return (
+      <Box className={rootCauseClasses.container}>
+        <Box className={rcaClasses.reportShell}>
+          {hasRegenerate ? (
+            <Group justify="flex-end" mb="sm">
               <Button
                 variant="light"
                 size="xs"
@@ -203,8 +277,97 @@ const RcaStructuredReportV1View = ({
               >
                 {ROOT_CAUSE_MESSAGES.REGENERATE_REPORT}
               </Button>
+            </Group>
+          ) : null}
+          <Alert
+            color={alertColor}
+            variant="light"
+            icon={alertIcon}
+            title={alertTitle}
+          >
+            {hasExecutiveSummary ? (
+              <Text size="sm" lh={1.65}>
+                {executiveSummaryText}
+              </Text>
             ) : null}
-          </Group>
+          </Alert>
+        </Box>
+      </Box>
+    );
+  }
+
+  return (
+    <Box className={rootCauseClasses.container}>
+      <Box className={rcaClasses.reportShell}>
+        {showReportHeader && (
+          <Box className={rcaClasses.reportContextHeader}>
+            <Group
+              justify="space-between"
+              align="flex-start"
+              wrap="wrap"
+              gap="md"
+            >
+              {hasReportContext ? (
+                <Stack gap={4} className={rcaClasses.reportContextMain}>
+                  <Box className={rcaClasses.reportContextTitleRow}>
+                    {reportContext.badge ? (
+                      <Badge variant="light" color="blue" size="sm">
+                        {reportContext.badge}
+                      </Badge>
+                    ) : null}
+                    <Text size="sm" fw={600}>
+                      {reportContext.title}
+                    </Text>
+                  </Box>
+                  {reportContext.subtitle ? (
+                    <Text size="xs" c="dimmed">
+                      {reportContext.subtitle}
+                    </Text>
+                  ) : null}
+                  {reportContext.hint ? (
+                    <Text size="xs" c="dimmed" fs="italic">
+                      {reportContext.hint}
+                    </Text>
+                  ) : null}
+                </Stack>
+              ) : (
+                <div />
+              )}
+              {(showAsOf || showLookback || hasRegenerate) && (
+                <Stack
+                  gap="xs"
+                  align="flex-end"
+                  className={rcaClasses.reportContextMeta}
+                >
+                  {showAsOf ? (
+                    <Text
+                      className={rcaClasses.reportCachedAt}
+                      size="xs"
+                      c="dimmed"
+                    >
+                      Report as of {cachedAt}
+                    </Text>
+                  ) : null}
+                  {showLookback ? (
+                    <Text size="xs" c="dimmed">
+                      Telemetry lookback: {analysisLookbackDays}{" "}
+                      {analysisLookbackDays === 1 ? "day" : "days"}
+                    </Text>
+                  ) : null}
+                  {hasRegenerate ? (
+                    <Button
+                      variant="light"
+                      size="xs"
+                      leftSection={<IconRefresh size={14} />}
+                      onClick={onRegenerate}
+                    >
+                      {ROOT_CAUSE_MESSAGES.REGENERATE_REPORT}
+                    </Button>
+                  ) : null}
+                </Stack>
+              )}
+            </Group>
+          </Box>
         )}
         <Stack gap="lg">
           {hasExecutiveSummary && (
@@ -230,19 +393,28 @@ const RcaStructuredReportV1View = ({
             </Card>
           )}
 
-          {hasSegments && (
+          {hasSegments && allSegmentsBodyEmpty ? (
+            <Text size="sm" c="dimmed" lh={1.65}>
+              {ROOT_CAUSE_MESSAGES.NO_DATA}
+            </Text>
+          ) : null}
+
+          {hasSegments && !allSegmentsBodyEmpty ? (
             <Box>
               <div className={rcaClasses.segmentsSectionTitleRow}>
                 <Text fw={700} size="md" tt="uppercase" c="gray.7">
                   Top contributing segments
                 </Text>
                 <Badge size="sm" variant="light" color="gray">
-                  {segmentCount}
+                  {segments.length}
                 </Badge>
               </div>
               <Stack gap="md">
                 {segments.map((segment, index) => {
                   const rank = segment.rank ?? index + 1;
+                  const showSegmentBody = segmentHasDisplayableBody(segment, {
+                    hasProjectForHeatmaps,
+                  });
                   const impactText = segment.impact?.trim() ?? "";
                   const hasImpact = impactText !== "";
                   const insightsText = segment.insights?.trim() ?? "";
@@ -282,7 +454,12 @@ const RcaStructuredReportV1View = ({
                           {segment.title}
                         </Text>
                       </div>
-                      {metrics.length > 0 ? (
+                      {!showSegmentBody ? (
+                        <Text size="sm" c="dimmed" mt="xs" lh={1.65}>
+                          {ROOT_CAUSE_MESSAGES.RCA_SEGMENT_NO_DETAIL}
+                        </Text>
+                      ) : null}
+                      {showSegmentBody && metrics.length > 0 ? (
                         <div className={rcaClasses.tableWrap}>
                           <Table.ScrollContainer minWidth={480}>
                             <Table
@@ -313,48 +490,60 @@ const RcaStructuredReportV1View = ({
                                   <Table.Th
                                     className={rcaClasses.metricsColMetric}
                                   >
-                                    <span
-                                      className={
+                                    <RcaMetricsThWithHint
+                                      label="Metric"
+                                      tooltip={
+                                        RCA_METRICS_COLUMN_TOOLTIPS.METRIC
+                                      }
+                                      labelClassName={
                                         rcaClasses.metricsThLabelMetric
                                       }
-                                    >
-                                      Metric
-                                    </span>
+                                      alignEnd={false}
+                                    />
                                   </Table.Th>
                                   <Table.Th
                                     className={rcaClasses.metricsColNumeric}
                                   >
-                                    <span
-                                      className={
+                                    <RcaMetricsThWithHint
+                                      label="Value"
+                                      tooltip={
+                                        RCA_METRICS_COLUMN_TOOLTIPS.VALUE
+                                      }
+                                      labelClassName={
                                         rcaClasses.metricsThLabelNumeric
                                       }
-                                    >
-                                      Value
-                                    </span>
+                                      alignEnd
+                                    />
                                   </Table.Th>
                                   <Table.Th
                                     className={rcaClasses.metricsColNumeric}
                                   >
-                                    <span
-                                      className={
+                                    <RcaMetricsThWithHint
+                                      label="Baseline"
+                                      tooltip={
+                                        RCA_METRICS_COLUMN_TOOLTIPS.BASELINE
+                                      }
+                                      labelClassName={
                                         rcaClasses.metricsThLabelNumeric
                                       }
-                                    >
-                                      Baseline
-                                    </span>
+                                      alignEnd
+                                    />
                                   </Table.Th>
                                   <Table.Th
                                     className={
                                       rcaClasses.metricsColNumericNarrow
                                     }
                                   >
-                                    <span
-                                      className={
+                                    <RcaMetricsThWithHint
+                                      label="Delta"
+                                      tooltip={
+                                        RCA_METRICS_COLUMN_TOOLTIPS.DELTA
+                                      }
+                                      labelClassName={
                                         rcaClasses.metricsThLabelNumeric
                                       }
-                                    >
-                                      Delta
-                                    </span>
+                                      alignEnd
+                                    />
                                   </Table.Th>
                                 </Table.Tr>
                               </Table.Thead>
@@ -372,7 +561,7 @@ const RcaStructuredReportV1View = ({
                           </Table.ScrollContainer>
                         </div>
                       ) : null}
-                      {hasImpact && (
+                      {showSegmentBody && hasImpact && (
                         <div className={rcaClasses.impactCallout}>
                           <Text size="xs" fw={600} c="dimmed" mb={6}>
                             Impact
@@ -382,7 +571,7 @@ const RcaStructuredReportV1View = ({
                           </Text>
                         </div>
                       )}
-                      {hasInsights && (
+                      {showSegmentBody && hasInsights && (
                         <div className={rcaClasses.insightsCallout}>
                           <Text size="xs" fw={600} c="dimmed" mb={6}>
                             Insights
@@ -392,7 +581,7 @@ const RcaStructuredReportV1View = ({
                           </Text>
                         </div>
                       )}
-                      {showEvidenceStrip ? (
+                      {showSegmentBody && showEvidenceStrip ? (
                         <Box className={rcaClasses.evidenceSection}>
                           <div className={rcaClasses.evidenceSectionTitleRow}>
                             <Text
@@ -447,7 +636,7 @@ const RcaStructuredReportV1View = ({
                 })}
               </Stack>
             </Box>
-          )}
+          ) : null}
 
           {hasRecommendations && (
             <Card
@@ -482,7 +671,7 @@ const RcaStructuredReportV1View = ({
                 <Text fw={700} size="md" tt="uppercase" c="gray.7">
                   {RCA_ERROR_ATTRIBUTION_HEADING}
                 </Text>
-                {showDrill && relatedCount > 0 ? (
+                {showMeaningfulDrill ? (
                   <Badge size="sm" variant="light" color="gray">
                     {relatedCount}
                   </Badge>
@@ -494,12 +683,12 @@ const RcaStructuredReportV1View = ({
                 root cause.
               </Text>
 
-              {hasAttributionInsights ? (
+              {hasMeaningfulAttributionInsights ? (
                 <Stack gap="md">
                   {attributionInsights.map((row) => {
                     const summaryText = row.summary?.trim() ?? "";
                     const caveatText = row.caveat?.trim() ?? "";
-                    if (summaryText === "" && caveatText === "") {
+                    if (!insightRowHasDisplayableNarrative(row)) {
                       return null;
                     }
                     return (
@@ -534,11 +723,11 @@ const RcaStructuredReportV1View = ({
                 </Stack>
               ) : null}
 
-              {hasAttributionInsights && showDrill ? (
+              {hasMeaningfulAttributionInsights && showMeaningfulDrill ? (
                 <Divider my="lg" label="Drill-down" labelPosition="left" />
               ) : null}
 
-              {showDrill && embeddedErrorAttribution != null ? (
+              {showMeaningfulDrill && embeddedErrorAttribution != null ? (
                 <RcaEmbeddedErrorAttribution
                   hideSectionTitle
                   data={embeddedErrorAttribution}
@@ -558,35 +747,30 @@ export const RcaReportView = ({
   cachedAt,
   onRegenerate,
   projectId,
+  reportContext,
 }: RcaReportViewProps) => {
-  const structured = report.structured;
+  const analysisLookbackDays =
+    report.analysisLookbackDays ?? report.report?.analysisLookbackDays ?? null;
+  const structured =
+    report.structured ?? report.report?.structured ?? undefined;
   const isValidStructured = structured != null && structured.version === 1;
   const executiveSummaryText = structured?.executive_summary?.trim() ?? "";
   const hasSegmentOrRec =
     (structured?.segments?.length ?? 0) > 0 ||
     (structured?.recommendations?.length ?? 0) > 0;
-  const hasAttributionNlp = (structured?.error_attribution_insights ?? []).some(
-    (row) =>
-      (row.summary?.trim() ?? "") !== "" || (row.caveat?.trim() ?? "") !== "",
-  );
   const drill =
     structured?.error_attribution ?? structured?.errorAttribution ?? null;
-  const hasDrillOnly =
-    drill != null &&
-    ((drill.relatedAttributions?.length ?? 0) > 0 ||
-      (drill.disclaimer?.trim() ?? "") !== "");
+  const hasDrillPayload =
+    drill != null && (drill.relatedAttributions?.length ?? 0) > 0;
   const hasRenderableContent =
     isValidStructured &&
-    (executiveSummaryText !== "" ||
-      hasSegmentOrRec ||
-      hasAttributionNlp ||
-      hasDrillOnly);
+    (executiveSummaryText !== "" || hasSegmentOrRec || hasDrillPayload);
 
   if (!hasRenderableContent || structured == null || structured.version !== 1) {
     return (
       <Box className={rootCauseClasses.container}>
         <Text className={rootCauseClasses.stateMessage}>
-          No report content available.
+          {ROOT_CAUSE_MESSAGES.NO_DATA}
         </Text>
       </Box>
     );
@@ -596,8 +780,10 @@ export const RcaReportView = ({
     <RcaStructuredReportV1View
       structured={structured}
       cachedAt={cachedAt}
+      analysisLookbackDays={analysisLookbackDays}
       onRegenerate={onRegenerate}
       projectId={projectId}
+      reportContext={reportContext}
     />
   );
 };

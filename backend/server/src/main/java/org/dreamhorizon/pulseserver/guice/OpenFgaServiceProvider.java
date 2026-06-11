@@ -28,14 +28,15 @@ public class OpenFgaServiceProvider implements Provider<OpenFgaService> {
   @Override
   public OpenFgaService get() {
     OpenFgaConfig config = SharedDataUtils.get(vertx, OpenFgaConfig.class);
-    if (config == null || !config.isEnabled()) {
-      return null;
-    }
     try {
       return new OpenFgaService(config, tenantDao, projectDao);
     } catch (Exception e) {
-      log.error("Failed to initialize OpenFgaService: {}", e.getMessage());
-      return null;
+      log.error("Failed to initialize OpenFgaService, falling back to disabled instance: {}", e.getMessage());
+      try {
+        return new OpenFgaService(OpenFgaConfig.builder().enabled(false).build(), tenantDao, projectDao);
+      } catch (Exception inner) {
+        throw new IllegalStateException("Failed to build disabled OpenFgaService fallback", inner);
+      }
     }
   }
 }

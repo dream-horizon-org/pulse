@@ -5,6 +5,7 @@ import com.google.inject.Singleton;
 import org.dreamhorizon.pulseserver.dao.productAnalysis.eventcatalog.EventCatalogDao;
 import org.dreamhorizon.pulseserver.dao.productAnalysis.funneldefinition.FunnelDefinitionDao;
 import org.dreamhorizon.pulseserver.dao.productAnalysis.funneljourneytag.FunnelJourneyTagDao;
+import org.dreamhorizon.pulseserver.dao.productAnalysis.funneldropoff.FunnelDropoffDao;
 import org.dreamhorizon.pulseserver.dao.productAnalysis.funnelresults.FunnelResultsDao;
 import org.dreamhorizon.pulseserver.dao.productAnalysis.journey.JourneyDao;
 import org.dreamhorizon.pulseserver.dao.productAnalysis.journeyresults.JourneyResultsDao;
@@ -20,7 +21,11 @@ import org.dreamhorizon.pulseserver.service.errorattribution.ErrorAttributionDri
 import org.dreamhorizon.pulseserver.service.errorattribution.ErrorAttributionService;
 import org.dreamhorizon.pulseserver.service.productAnalysis.eventcatalog.EventCatalogService;
 import org.dreamhorizon.pulseserver.service.productAnalysis.eventcatalog.impl.EventCatalogServiceImpl;
+import org.dreamhorizon.pulseserver.service.productAnalysis.funnel.FunnelDropoffService;
+import org.dreamhorizon.pulseserver.service.productAnalysis.funnel.FunnelRcaService;
 import org.dreamhorizon.pulseserver.service.productAnalysis.funnel.FunnelService;
+import org.dreamhorizon.pulseserver.service.productAnalysis.funnel.impl.FunnelDropoffServiceImpl;
+import org.dreamhorizon.pulseserver.service.productAnalysis.funnel.impl.FunnelRcaServiceImpl;
 import org.dreamhorizon.pulseserver.service.productAnalysis.funnel.impl.FunnelServiceImpl;
 import org.dreamhorizon.pulseserver.service.productAnalysis.journey.JourneyService;
 import org.dreamhorizon.pulseserver.service.productAnalysis.journey.impl.JourneyServiceImpl;
@@ -46,6 +51,9 @@ public class InteractionModule extends AbstractModule {
     bind(FunnelResultsDao.class).in(Singleton.class);
     bind(JourneyResultsDao.class).in(Singleton.class);
     bind(FunnelService.class).to(FunnelServiceImpl.class).in(Singleton.class);
+    bind(FunnelDropoffDao.class).in(Singleton.class);
+    bind(FunnelDropoffService.class).to(FunnelDropoffServiceImpl.class).in(Singleton.class);
+    bind(FunnelRcaService.class).to(FunnelRcaServiceImpl.class).in(Singleton.class);
     bind(JourneyDao.class).in(Singleton.class);
     bind(JourneyService.class).to(JourneyServiceImpl.class).in(Singleton.class);
     bind(org.dreamhorizon.pulseserver.service.analytics.AnalyticsBatchServiceImpl.class)

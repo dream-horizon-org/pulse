@@ -27,6 +27,8 @@ public enum PulseAttributes {
 
     /// Project identifier; used as resource attribute "project.id" and in HTTP header X-API-KEY.
     public static let projectId = "project.id"
+    /// Remote config version active for this SDK launch (from persisted cache at init).
+    public static let pulseSdkConfigVersion = "pulse.sdk.config.version"
     internal static let apiKeyHeaderKey = "X-API-KEY"
 
     // Click instrumentation attributes

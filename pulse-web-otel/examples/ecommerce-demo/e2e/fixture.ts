@@ -47,6 +47,7 @@ export interface OtlpAttr {
 export interface OtlpLogRecord {
   timeUnixNano?: string;
   severityText?: string;
+  severityNumber?: number;
   body?: { stringValue?: string };
   attributes: OtlpAttr[];
 }
@@ -57,6 +58,12 @@ export interface OtlpSpanStatus {
   message?: string;
 }
 
+export interface OtlpSpanEvent {
+  name: string;
+  timeUnixNano?: string;
+  attributes?: OtlpAttr[];
+}
+
 export interface OtlpSpan {
   traceId?: string;
   spanId?: string;
@@ -65,6 +72,8 @@ export interface OtlpSpan {
   startTimeUnixNano?: string;
   endTimeUnixNano?: string;
   attributes: OtlpAttr[];
+  /** Step markers etc. — present when SDK calls {@code Span.addEvent}. */
+  events?: OtlpSpanEvent[];
   status?: OtlpSpanStatus;
 }
 

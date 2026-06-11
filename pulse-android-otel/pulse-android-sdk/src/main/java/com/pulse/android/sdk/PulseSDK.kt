@@ -67,19 +67,19 @@ public interface PulseSDK {
 
     public fun trackEvent(
         name: String,
-        observedTimeStampInMs: Long,
+        timestampInMs: Long,
         params: Map<String, Any?> = emptyMap(),
     )
 
     public fun trackNonFatal(
         name: String,
-        observedTimeStampInMs: Long,
+        timestampInMs: Long,
         params: Map<String, Any?> = emptyMap(),
     )
 
     public fun trackNonFatal(
         throwable: Throwable,
-        observedTimeStampInMs: Long,
+        timestampInMs: Long,
         params: Map<String, Any?> = emptyMap(),
     )
 

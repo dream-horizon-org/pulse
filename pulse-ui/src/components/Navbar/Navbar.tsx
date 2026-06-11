@@ -47,6 +47,13 @@ import { isGcpMultiTenantEnabled } from "../../helpers/gcpAuth";
 import { useProjectContext, useTenantContext } from "../../contexts";
 import { usePermissions } from "../../hooks";
 import { useSessionReplayFromActiveConfig } from "../../hooks/useSessionReplayFromActiveConfig";
+import {
+  EventAction,
+  EventCategory,
+  logEvent,
+  trackLogin,
+} from "../../helpers/googleAnalytics";
+import { AnalyticsParams } from "../../helpers/googleAnalytics/analyticsConstants";
 import { performLogout } from "../../helpers/logout";
 import { ConfirmationModal } from "../ConfirmationModal";
 
@@ -108,7 +115,18 @@ export function Navbar({
     setPopoverOpened(false);
   };
 
-  function onItemClick(routeTo: string) {
+  function onItemClick(routeTo: string, navLabel?: string) {
+    logEvent(
+      EventAction.MENU_CLICK,
+      navLabel,
+      EventCategory.NAVIGATION,
+      undefined,
+      {
+        [AnalyticsParams.PULSE_EVENT]: "nav_item_clicked",
+        destination: routeTo,
+        ...(navLabel ? { nav_label: navLabel } : {}),
+      },
+    );
     // Transform flat routes to project-scoped routes
     if (
       contextProjectId &&
@@ -133,17 +151,14 @@ export function Navbar({
       }
       const afterProjectId = segments.slice(2);
       const projectSubPath =
-        afterProjectId.length === 0
-          ? "/"
-          : `/${afterProjectId.join("/")}`;
+        afterProjectId.length === 0 ? "/" : `/${afterProjectId.join("/")}`;
 
       // Home is "/": every other path also starts with "/", so only match the project root.
       if (navPath === NAVBAR_ROUTES.HOME) {
         return afterProjectId.length === 0;
       }
 
-      const normalizedNav =
-        navPath.startsWith("/") ? navPath : `/${navPath}`;
+      const normalizedNav = navPath.startsWith("/") ? navPath : `/${navPath}`;
       return (
         projectSubPath === normalizedNav ||
         projectSubPath.startsWith(`${normalizedNav}/`)
@@ -180,6 +195,8 @@ export function Navbar({
     // Clear all React contexts explicitly
     clearProject();
     clearTenant();
+
+    trackLogin.logout();
 
     // Perform logout (clears cookies, sessionStorage, and signs out)
     await performLogout();
@@ -258,7 +275,7 @@ export function Navbar({
                 <Box
                   key={item.tabName}
                   className={`${classes.navbarItem} ${active ? classes.navbarItemActive : ""}`}
-                  onClick={() => onItemClick(item.routeTo)}
+                  onClick={() => onItemClick(item.routeTo, item.tabName)}
                   style={{
                     justifyContent: opened ? "flex-start" : "center",
                     padding: opened ? "12px" : "12px 8px",

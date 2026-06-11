@@ -488,11 +488,11 @@ public class AlertEvaluationService {
 
   private void addPulseTypeFilter(List<QueryRequest.Filter> filters, QueryRequest.DataType dataType,
                                   boolean isAppVitals, String scope) {
-    if (dataType == QueryRequest.DataType.LOGS && isAppVitals) {
+    if (dataType == QueryRequest.DataType.TRACES && isAppVitals) {
       QueryRequest.Filter pulseTypeFilter = new QueryRequest.Filter();
       pulseTypeFilter.setField("PulseType");
       pulseTypeFilter.setOperator(QueryRequest.Operator.EQ);
-      pulseTypeFilter.setValue(new ArrayList<Object>(List.of("session.start")));
+      pulseTypeFilter.setValue(new ArrayList<Object>(List.of("app_start")));
       filters.add(pulseTypeFilter);
     } else if (!isAppVitals && dataType == QueryRequest.DataType.TRACES
         && scope != null && !scope.isEmpty()) {

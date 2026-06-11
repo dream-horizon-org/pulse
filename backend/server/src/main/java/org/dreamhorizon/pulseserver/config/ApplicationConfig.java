@@ -1,6 +1,8 @@
 package org.dreamhorizon.pulseserver.config;
 
 import com.google.inject.Singleton;
+import java.util.List;
+import java.util.stream.Collectors;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -71,6 +73,25 @@ public class ApplicationConfig {
    * Redis port for Kong plugin materialization.
    */
   public Integer redisPort;
+
+  /**
+   * Comma-separated opaque tokens accepted by InternalServiceAuthFilter for /internal/* paths.
+   */
+  public String internalServiceTokens;
+
+  /**
+   * Returns the list of valid internal service tokens. Empty list when the config value is absent
+   * or blank (disables token validation in non-dev mode — callers must handle this defensively).
+   */
+  public List<String> getInternalServiceTokenList() {
+    if (internalServiceTokens == null || internalServiceTokens.isBlank()) {
+      return List.of();
+    }
+    return java.util.Arrays.stream(internalServiceTokens.split(","))
+        .map(String::trim)
+        .filter(s -> !s.isEmpty())
+        .collect(Collectors.toList());
+  }
 
   /**
    * Get the dev mode API key with a sensible default.

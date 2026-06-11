@@ -6,7 +6,7 @@ opentelemetry-semconv-alpha = "1.37.0-alpha"
 opentelemetry-contrib = "1.50.0-alpha"
 junit = "6.0.0"
 byteBuddy = "1.17.8"
-okhttp = "5.0.0-alpha.14"
+okhttp = "4.12.0"
 retrofit = "2.11.0"
 retrofit-kotlinx-serialisation = "3.0.0"
 gson = "2.13.2"
@@ -121,3 +121,4 @@ kotlinSerialisation = { id = "org.jetbrains.kotlin.plugin.serialization", versio
 androidApp = { id = "com.android.application", version.ref = "androidPlugin" }
 kover = { id = "org.jetbrains.kotlinx.kover", version.ref = "koverGradlePlugin" }
 detekt = { id = "dev.detekt", version.ref = "detekt" }
+byteBuddyPlugin = { id = "net.bytebuddy.byte-buddy-gradle-plugin", version.ref = "byteBuddy" }

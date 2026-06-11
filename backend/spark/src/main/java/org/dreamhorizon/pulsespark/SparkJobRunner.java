@@ -6,6 +6,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.regex.Pattern;
+
 import org.apache.spark.sql.SparkSession;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -20,7 +21,10 @@ import org.slf4j.LoggerFactory;
  * --secrets_name    optional AWS Secrets Manager name
  * --aws_region      default ap-south-1
  * --s3_bucket_prefix default pulse-otel-
- * --clickhouse_host / port / db / user / password
+ * --clickhouse_host   hostname or {@code https://} / {@code http://} base URL — if URL, no {@code clickhouse_port}; else port defaults {@code 8123}
+ * --clickhouse_url    optional explicit URL ({@code https://…}); wins over {@code clickhouse_host}
+ * --clickhouse_db     defaults {@code otel}
+ * --clickhouse_user / clickhouse_password
  * --mysql_host / port / db / user / password
  */
 public class SparkJobRunner {
@@ -39,22 +43,16 @@ public class SparkJobRunner {
     Long referenceId = params.containsKey("reference_id") ? Long.parseLong(params.get("reference_id")) : null;
     validateJobArguments(jobType, referenceId);
     log.info("Spark job starting. job_type={}, reference_id={}, analytics_job_id={}, s3_bucket_prefix={}",
-        jobType, referenceId, analyticsJobId, s3Prefix);
+      jobType, referenceId, analyticsJobId, s3Prefix);
 
     var mysql = new MysqlRepository(
-        require(params, "mysql_host"),
-        Integer.parseInt(params.getOrDefault("mysql_port", "3306")),
-        require(params, "mysql_db"),
-        require(params, "mysql_user"),
-        require(params, "mysql_password")
+      require(params, "mysql_host"),
+      Integer.parseInt(params.getOrDefault("mysql_port", "3306")),
+      require(params, "mysql_db"),
+      require(params, "mysql_user"),
+      require(params, "mysql_password")
     );
-    var ch = new ClickHouseClient(
-        require(params, "clickhouse_host"),
-        Integer.parseInt(params.getOrDefault("clickhouse_port", "8123")),
-        params.getOrDefault("clickhouse_db", "otel"),
-        params.getOrDefault("clickhouse_user", "default"),
-        params.getOrDefault("clickhouse_password", "")
-    );
+    var ch = createClickHouseClient(params);
     ch.ping();
     log.info("ClickHouse connectivity check passed");
 
@@ -63,19 +61,35 @@ public class SparkJobRunner {
     }
 
     var spark = SparkSession.builder()
-        .appName("pulse-spark-%s-%s".formatted(jobType.toLowerCase(), runTime.substring(0, 10)))
-        .config("spark.sql.parquet.int96RebaseModeInRead", "CORRECTED")
-        .config("spark.sql.session.timeZone", "UTC")
-        .getOrCreate();
+      .appName("pulse-spark-%s-%s".formatted(jobType.toLowerCase(), runTime.substring(0, 10)))
+      // ── Parquet / timezone ────────────────────────────────────────────────
+      .config("spark.sql.parquet.int96RebaseModeInRead", "CORRECTED")
+      .config("spark.sql.session.timeZone", "UTC")
+      // ── SQL tuning ────────────────────────────────────────────────────────
+      .config("spark.sql.shuffle.partitions", "400")
+      .config("spark.sql.adaptive.enabled", "true")
+      .config("spark.sql.adaptive.skewJoin.enabled", "true")
+      // ── Dynamic allocation ────────────────────────────────────────────────
+      .config("spark.dynamicAllocation.enabled", "true")
+      .config("spark.dynamicAllocation.minExecutors", "1")
+      .config("spark.dynamicAllocation.initialExecutors", "4")
+      .config("spark.dynamicAllocation.maxExecutors", "40")
+      // ── Executor / driver resources ───────────────────────────────────────
+      .config("spark.executor.cores", "4")
+      .config("spark.executor.memory", "16g")
+      .config("spark.executor.memoryOverhead", "3g")
+      .config("spark.driver.cores", "4")
+      .config("spark.driver.memory", "8g")
+      .getOrCreate();
     normalizeS3TimeoutConfigs(spark);
     spark.sparkContext().setLogLevel("WARN");
     try {
       var ctx = (org.apache.logging.log4j.core.LoggerContext)
-          org.apache.logging.log4j.LogManager.getContext(false);
+        org.apache.logging.log4j.LogManager.getContext(false);
       var cfg = ctx.getConfiguration();
       var lc = new org.apache.logging.log4j.core.config.LoggerConfig(
-          "org.dreamhorizon.pulsespark",
-          org.apache.logging.log4j.Level.INFO, true);
+        "org.dreamhorizon.pulsespark",
+        org.apache.logging.log4j.Level.INFO, true);
       cfg.addLogger("org.dreamhorizon.pulsespark", lc);
       ctx.updateLoggers();
     } catch (Exception | NoClassDefFoundError ignored) {
@@ -89,6 +103,14 @@ public class SparkJobRunner {
         log.info("Dispatching job_type={} (attempt=1)", jobType);
         dispatch(jobType, spark, mysql, ch, referenceId, s3Prefix, runTime);
       } catch (Exception firstEx) {
+        // EMR Serverless can SIGTERM the job mid-run: SparkShutdownHookManager stops the
+        // SparkContext, then any Spark API call throws IllegalStateException. Retrying on a
+        // dead context is pointless — cloneSession() crashes immediately at attempt 2.
+        if (spark.sparkContext().isStopped()) {
+          log.error("Job {} failed and SparkContext is already stopped (EMR SIGTERM?) — skipping retry",
+            jobType, firstEx);
+          throw firstEx;
+        }
         log.warn("Job {} failed on first attempt: {} — retrying once", jobType, firstEx.getMessage(), firstEx);
         log.info("Dispatching job_type={} (attempt=2)", jobType);
         dispatch(jobType, spark, mysql, ch, referenceId, s3Prefix, runTime);
@@ -131,6 +153,52 @@ public class SparkJobRunner {
     }
   }
 
+  /**
+   * Touches updated_at for funnels/journeys based on job type.
+   * Called after successful Spark job completion so listing shows latest auto-run.
+   */
+//  private static void touchUpdatedAtForJobType(MysqlRepository mysql, String jobType, Long referenceId) {
+//    try {
+//      switch (jobType) {
+//        case "FUNNELS_DAILY" -> mysql.touchAllAutoFunnelsUpdatedAt();
+//        case "JOURNEYS_DAILY" -> mysql.touchAllAutoJourneysUpdatedAt();
+//        case "FUNNEL" -> {
+//          if (referenceId != null) {
+//            mysql.touchFunnelUpdatedAt(referenceId);
+//          }
+//        }
+//        case "JOURNEY" -> {
+//          if (referenceId != null) {
+//            mysql.touchJourneyUpdatedAt(referenceId);
+//          }
+//        }
+//        default -> {
+//          // EVENTS_INCREMENTAL and others - no touching needed
+//        }
+//      }
+//    } catch (Exception e) {
+//      // Log but don't fail the job - this is a best-effort update
+//      log.warn("Failed to touch updated_at for job_type={}: {}", jobType, e.getMessage());
+//    }
+//  }
+  private static ClickHouseClient createClickHouseClient(Map<String, String> params) {
+    String urlOverride = params.get("clickhouse_url");
+    String endpoint =
+      urlOverride != null && !urlOverride.isBlank()
+        ? urlOverride.trim()
+        : require(params, "clickhouse_host").trim();
+    String db = params.getOrDefault("clickhouse_db", "otel").trim();
+    String user = require(params, "clickhouse_user").trim();
+    String password = require(params, "clickhouse_password");
+    if (ClickHouseClient.looksLikeHttpEndpointUrl(endpoint)) {
+      log.info("ClickHouse via HTTP(S) URL from params");
+      return ClickHouseClient.fromHttpEndpoint(endpoint, db, user, password);
+    }
+    int port = Integer.parseInt(params.getOrDefault("clickhouse_port", "8123").trim());
+    log.info("ClickHouse via host={}, port={}", endpoint, port);
+    return new ClickHouseClient(endpoint, port, db, user, password);
+  }
+
   private static Map<String, String> parseArgs(String[] args) {
     var map = new HashMap<String, String>();
     for (int i = 0; i < args.length - 1; i += 2) {
@@ -167,12 +235,12 @@ public class SparkJobRunner {
   private static void normalizeS3TimeoutConfigs(SparkSession spark) {
     var hadoopConf = spark.sparkContext().hadoopConfiguration();
     String[] keys = {
-        "fs.s3a.connection.establish.timeout",
-        "fs.s3a.connection.timeout",
-        "fs.s3a.connection.request.timeout",
-        "fs.s3a.connection.acquisition.timeout",
-        "fs.s3a.socket.timeout",
-        "fs.s3a.attempts.maximum"
+      "fs.s3a.connection.establish.timeout",
+      "fs.s3a.connection.timeout",
+      "fs.s3a.connection.request.timeout",
+      "fs.s3a.connection.acquisition.timeout",
+      "fs.s3a.socket.timeout",
+      "fs.s3a.attempts.maximum"
     };
 
     for (String key : keys) {

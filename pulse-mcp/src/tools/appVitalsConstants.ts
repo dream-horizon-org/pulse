@@ -14,7 +14,9 @@ export const COLUMN_NAME = {
   TIMESTAMP: "Timestamp",
   SESSION_ID: "SessionId",
   PULSE_TYPE: "PulseType",
+  APP_INSTALLATION_ID: "AppInstallationId",
 } as const;
 
-/** session.start filter value for denominator queries */
+/** app start filter value for denominator queries */
+export const PULSE_TYPE_APP_START = "app_start";
 export const PULSE_TYPE_SESSION_START = "session.start";

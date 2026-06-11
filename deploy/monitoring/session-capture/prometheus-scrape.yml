@@ -19,7 +19,8 @@
   scheme: http
   static_configs:
     - targets:
-        - "10.250.0.112:3400"
+        # Replace with your instance private IP(s), e.g. "10.0.0.10:3400"
+        - "REPLACE_WITH_INSTANCE_PRIVATE_IP:3400"
       labels:
         env: production
         service: pulse-session-capture

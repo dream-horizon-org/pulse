@@ -136,7 +136,7 @@ Prefer framework metrics from [Metrics & Glossary](../frameworks/execution-frame
 | Stage | Audience | Exit Criteria |
 |---|---|---|
 | Behind flag | Internal | |
-| FanCode dogfood | FanCode | |
+| Dogfood | Internal customer | |
 | Design partners | Selected partners | |
 | General availability | All customers | |
 

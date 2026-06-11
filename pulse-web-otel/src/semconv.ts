@@ -156,6 +156,7 @@ export const PulseWebSemconv = {
     WEB_VITAL: "web_vital",
     SCREEN_LOAD: "screen_load",
     SCREEN_SESSION: "screen_session",
+    CUSTOM_SPAN: "custom_span",
   },
   LogBody: {
     SESSION_START: "session.start",
@@ -188,6 +189,10 @@ export const PulseWebSemconv = {
     IS_ERROR: "pulse.interaction.is_error",
     ERROR_TYPE: "pulse.interaction.error.type",
     ERROR_MESSAGE: "pulse.interaction.error.message",
+    /** String array of in-flight interaction flow names — stamped on concurrent spans. */
+    NAMES: "pulse.interaction.names",
+    /** String array of in-flight interaction IDs — stamped on concurrent spans. */
+    IDS: "pulse.interaction.ids",
   },
   InteractionUserCategory: {
     EXCELLENT: "Excellent",

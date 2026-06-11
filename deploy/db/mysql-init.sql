@@ -140,31 +140,31 @@ INSERT INTO projects (project_id, tenant_id, name, description, slug, is_active,
 ('pulse-web-dashboard', 'default', 'Pulse Web Dashboard', 'Web dashboard for monitoring and analytics', 'pulse-web', TRUE, 'system')
 ON DUPLICATE KEY UPDATE name = name;
 
--- Insert Fancode tenant (example multi-tenant setup)
+-- Insert example streaming tenant (example multi-tenant setup)
 INSERT INTO tenants (tenant_id, name, description, is_active, gcp_tenant_id, domain_name)
-VALUES ('fancode', 'Fancode', 'Fancode sports streaming platform', TRUE, 'Fancode-1rsts', 'fancode.com')
+VALUES ('acme-streaming', 'Acme Streaming', 'Acme sports streaming platform', TRUE, 'acme-streaming-1', 'acme-streaming.example.com')
 ON DUPLICATE KEY UPDATE name = name;
 
--- Insert Fancode projects
+-- Insert example streaming projects
 INSERT INTO projects (project_id, tenant_id, name, description, slug, is_active, created_by) VALUES
-('fancode-mobile-android', 'fancode', 'Fancode Android', 'Fancode Android mobile app', 'android', TRUE, 'system'),
-('fancode-mobile-ios', 'fancode', 'Fancode iOS', 'Fancode iOS mobile app', 'ios', TRUE, 'system'),
-('fancode-mobile-rn', 'fancode', 'Fancode React Native', 'Fancode React Native shared codebase', 'react-native', TRUE, 'system'),
-('fancode-web', 'fancode', 'Fancode Web', 'Fancode web application', 'web', TRUE, 'system'),
-('fancode-tv', 'fancode', 'Fancode TV', 'Fancode TV application (Android TV, Fire TV)', 'tv', TRUE, 'system')
+('acme-streaming-android', 'acme-streaming', 'Acme Streaming Android', 'Acme Streaming Android mobile app', 'android', TRUE, 'system'),
+('acme-streaming-ios', 'acme-streaming', 'Acme Streaming iOS', 'Acme Streaming iOS mobile app', 'ios', TRUE, 'system'),
+('acme-streaming-rn', 'acme-streaming', 'Acme Streaming React Native', 'Acme Streaming React Native shared codebase', 'react-native', TRUE, 'system'),
+('acme-streaming-web', 'acme-streaming', 'Acme Streaming Web', 'Acme Streaming web application', 'web', TRUE, 'system'),
+('acme-streaming-tv', 'acme-streaming', 'Acme Streaming TV', 'Acme Streaming TV application (Android TV, Fire TV)', 'tv', TRUE, 'system')
 ON DUPLICATE KEY UPDATE name = name;
 
--- Insert Dream11 tenant (another example)
+-- Insert example fantasy tenant (another example)
 INSERT INTO tenants (tenant_id, name, description, is_active, gcp_tenant_id, domain_name)
-VALUES ('dream11', 'Dream11', 'Dream11 fantasy sports platform', TRUE, 'Dream11-abcde', 'dream11.com')
+VALUES ('globex-fantasy', 'Globex Fantasy', 'Globex fantasy sports platform', TRUE, 'globex-fantasy-1', 'globex-fantasy.example.com')
 ON DUPLICATE KEY UPDATE name = name;
 
--- Insert Dream11 projects
+-- Insert example fantasy projects
 INSERT INTO projects (project_id, tenant_id, name, description, slug, is_active, created_by) VALUES
-('dream11-android', 'dream11', 'Dream11 Android', 'Dream11 Android application', 'android', TRUE, 'system'),
-('dream11-ios', 'dream11', 'Dream11 iOS', 'Dream11 iOS application', 'ios', TRUE, 'system'),
-('dream11-web', 'dream11', 'Dream11 Web', 'Dream11 web platform', 'web', TRUE, 'system'),
-('dream11-pwa', 'dream11', 'Dream11 PWA', 'Dream11 Progressive Web App', 'pwa', TRUE, 'system')
+('globex-fantasy-android', 'globex-fantasy', 'Globex Fantasy Android', 'Globex Fantasy Android application', 'android', TRUE, 'system'),
+('globex-fantasy-ios', 'globex-fantasy', 'Globex Fantasy iOS', 'Globex Fantasy iOS application', 'ios', TRUE, 'system'),
+('globex-fantasy-web', 'globex-fantasy', 'Globex Fantasy Web', 'Globex Fantasy web platform', 'web', TRUE, 'system'),
+('globex-fantasy-pwa', 'globex-fantasy', 'Globex Fantasy PWA', 'Globex Fantasy Progressive Web App', 'pwa', TRUE, 'system')
 ON DUPLICATE KEY UPDATE name = name;
 
 -- ============================================================================
@@ -200,153 +200,11 @@ CREATE TABLE interaction (
 );
 
 -- ============================================================================
--- default-project interactions: keep in sync with backend/db/dev/mysql/mysql-init.sql
---   Web flows interaction_id 1..5 = pulse-web-otel/.../interaction-config.mock.json
---   BasicInteraction + FullShopping after (auto ids 6, 7).
+-- default-project critical interactions: canonical backend/db/shared/mysql-default-project-interactions.sql
+-- Docker: mounted at /docker-entrypoint-initdb.d/includes/mysql-default-project-interactions.sql
+-- (Prod mysql-init omits this SOURCE — demo seeds are dev/deploy only.)
 -- ============================================================================
-INSERT INTO interaction (interaction_id, project_id, name, status, details, is_archived, created_by, updated_by)
-VALUES
-(1, 'default-project', 'Checkout Happy Path', 'RUNNING', JSON_OBJECT(
-    'description', 'Checkout Happy Path',
-    'thresholdInMs', 3000,
-    'uptimeLowerLimitInMs', 700,
-    'uptimeMidLimitInMs', 1400,
-    'uptimeUpperLimitInMs', 2500,
-    'events', JSON_ARRAY(
-        JSON_OBJECT('name', 'checkout_step_1', 'props', JSON_ARRAY(), 'isBlacklisted', false),
-        JSON_OBJECT('name', 'checkout_step_2', 'props', JSON_ARRAY(), 'isBlacklisted', false),
-        JSON_OBJECT('name', 'checkout_step_3', 'props', JSON_ARRAY(), 'isBlacklisted', false)
-    ),
-    'globalBlacklistedEvents', JSON_ARRAY(
-        JSON_OBJECT('name', 'ad_impression', 'props', JSON_ARRAY(), 'isBlacklisted', true)
-    )
-), 0, 'system', 'system'),
-
-(2, 'default-project', 'Cart Open To Checkout Click', 'RUNNING', JSON_OBJECT(
-    'description', 'Cart Open To Checkout Click',
-    'thresholdInMs', 2500,
-    'uptimeLowerLimitInMs', 500,
-    'uptimeMidLimitInMs', 1000,
-    'uptimeUpperLimitInMs', 1800,
-    'events', JSON_ARRAY(
-        JSON_OBJECT('name', 'cart_open', 'props', JSON_ARRAY(), 'isBlacklisted', false),
-        JSON_OBJECT(
-            'name', 'cart_checkout_click',
-            'props', JSON_ARRAY(
-                JSON_OBJECT('name', 'item_count', 'value', '0', 'operator', 'NOTEQUALS')
-            ),
-            'isBlacklisted', false
-        )
-    ),
-    'globalBlacklistedEvents', JSON_ARRAY(
-        JSON_OBJECT('name', 'device.crash', 'props', JSON_ARRAY(), 'isBlacklisted', true)
-    )
-), 0, 'system', 'system'),
-
-(3, 'default-project', 'Product List Quick Add', 'RUNNING', JSON_OBJECT(
-    'description', 'Product List Quick Add',
-    'thresholdInMs', 2000,
-    'uptimeLowerLimitInMs', 350,
-    'uptimeMidLimitInMs', 900,
-    'uptimeUpperLimitInMs', 1600,
-    'events', JSON_ARRAY(
-        JSON_OBJECT(
-            'name', 'product_item_visible',
-            'props', JSON_ARRAY(
-                JSON_OBJECT('name', 'source', 'value', 'product_list', 'operator', 'EQUALS')
-            ),
-            'isBlacklisted', false
-        ),
-        JSON_OBJECT(
-            'name', 'add_to_cart',
-            'props', JSON_ARRAY(
-                JSON_OBJECT('name', 'source', 'value', 'product_list', 'operator', 'EQUALS')
-            ),
-            'isBlacklisted', false
-        )
-    ),
-    'globalBlacklistedEvents', JSON_ARRAY(
-        JSON_OBJECT('name', 'error_demo_throw_uncaught', 'props', JSON_ARRAY(), 'isBlacklisted', true)
-    )
-), 0, 'system', 'system'),
-
-(4, 'default-project', 'Product Detail Add To Cart', 'RUNNING', JSON_OBJECT(
-    'description', 'Product Detail Add To Cart',
-    'thresholdInMs', 3500,
-    'uptimeLowerLimitInMs', 800,
-    'uptimeMidLimitInMs', 1500,
-    'uptimeUpperLimitInMs', 2800,
-    'events', JSON_ARRAY(
-        JSON_OBJECT(
-            'name', 'product_detail_open',
-            'props', JSON_ARRAY(
-                JSON_OBJECT('name', 'path', 'value', '/products/', 'operator', 'STARTSWITH')
-            ),
-            'isBlacklisted', false
-        ),
-        JSON_OBJECT(
-            'name', 'add_to_cart',
-            'props', JSON_ARRAY(
-                JSON_OBJECT('name', 'source', 'value', 'product_detail', 'operator', 'EQUALS')
-            ),
-            'isBlacklisted', false
-        )
-    ),
-    'globalBlacklistedEvents', JSON_ARRAY(
-        JSON_OBJECT('name', 'ad_impression', 'props', JSON_ARRAY(), 'isBlacklisted', true)
-    )
-), 0, 'system', 'system'),
-
-(5, 'default-project', 'Cart Remove Item Then Checkout', 'RUNNING', JSON_OBJECT(
-    'description', 'Cart Remove Item Then Checkout',
-    'thresholdInMs', 2600,
-    'uptimeLowerLimitInMs', 600,
-    'uptimeMidLimitInMs', 1200,
-    'uptimeUpperLimitInMs', 2100,
-    'events', JSON_ARRAY(
-        JSON_OBJECT('name', 'cart_remove_item', 'props', JSON_ARRAY(), 'isBlacklisted', false),
-        JSON_OBJECT(
-            'name', 'cart_checkout_click',
-            'props', JSON_ARRAY(
-                JSON_OBJECT('name', 'item_count', 'value', '0', 'operator', 'NOTEQUALS')
-            ),
-            'isBlacklisted', false
-        )
-    ),
-    'globalBlacklistedEvents', JSON_ARRAY(
-        JSON_OBJECT('name', 'device.crash', 'props', JSON_ARRAY(), 'isBlacklisted', true)
-    )
-), 0, 'system', 'system');
-
-INSERT INTO interaction (project_id, name, status, details, is_archived, created_by, updated_by)
-VALUES
-('default-project', 'BasicInteraction', 'RUNNING', JSON_OBJECT(
-    'description', 'NewInteraction',
-    'uptimeLowerLimitInMs', 16,
-    'uptimeMidLimitInMs', 50,
-    'uptimeUpperLimitInMs', 100,
-    'thresholdInMs', 20000,
-    'events', JSON_ARRAY(
-        JSON_OBJECT('name', 'Go shopping', 'props', JSON_ARRAY(), 'isBlacklisted', false),
-        JSON_OBJECT('name', 'Telescope selected', 'props', JSON_ARRAY(), 'isBlacklisted', false)
-    ),
-    'globalBlacklistedEvents', JSON_ARRAY()
-), 0, 'system', 'system'),
-
-('default-project', 'FullShopping', 'RUNNING', JSON_OBJECT(
-    'description', 'FullShopping',
-    'uptimeLowerLimitInMs', 16,
-    'uptimeMidLimitInMs', 50,
-    'uptimeUpperLimitInMs', 100,
-    'thresholdInMs', 20000,
-    'events', JSON_ARRAY(
-        JSON_OBJECT('name', 'Go shopping', 'props', JSON_ARRAY(), 'isBlacklisted', false),
-        JSON_OBJECT('name', 'Telescope selected', 'props', JSON_ARRAY(), 'isBlacklisted', false),
-        JSON_OBJECT('name', 'Add to cart', 'props', JSON_ARRAY(), 'isBlacklisted', false)
-    ),
-    'globalBlacklistedEvents', JSON_ARRAY()
-), 0, 'system', 'system')
-ON DUPLICATE KEY UPDATE name = name;
+SOURCE /docker-entrypoint-initdb.d/includes/mysql-default-project-interactions.sql;
 
 -- Suggested interactions table (AI-mined interaction patterns)
 CREATE TABLE suggested_interaction (

@@ -11,6 +11,16 @@ Link issues / discussion / docs if relevant. -->
 - Closes #ISSUE_ID
 - Related: #ANOTHER_ISSUE_ID
 
+## Mobile SDK size delta (Android / iOS / RN only)
+
+If this PR changes dependency manifests (`build.gradle.kts`, `package.json`, `yarn.lock`, `Podfile`, etc.) under `pulse-android-otel/`, `pulse-ios-otel/`, or `pulse-react-native-otel/`:
+
+- Add label **`sdk-size-delta`** before merge (triggers size build; **25 KB** limit per artifact).
+- If growth **> 25 KB** is intentional: add **`sdk-size-baseline-update`**.
+- Code-only SDK changes (no manifest diff): **no label** — check passes automatically.
+
+See [`.github/sdk-size-baselines/README.md`](.github/sdk-size-baselines/README.md).
+
 ## What Changed
 
 <!-- Short, implementation-focused bullets.

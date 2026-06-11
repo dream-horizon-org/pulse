@@ -9,6 +9,15 @@ export const PULSE_OKHTTP_TAG_BYTEBUDDY_ROOT =
 export const PULSE_OKHTTP_TAG_BYTEBUDDY_APPLY =
   'pulse-expo-android-apply-byte-buddy';
 export const PULSE_OKHTTP_TAG_OKHTTP_DEPS = 'pulse-expo-android-okhttp-deps';
+export const PULSE_OKHTTP_TAG_KOTLIN19_STDLIB_FORCE =
+  'pulse-expo-android-kotlin19-stdlib-force';
+
+/**
+ * Pinned Kotlin stdlib version emitted by the force block when both
+ * `okHttpInstrumentation` and `kotlin19Compat` are enabled. Highest patch in
+ * the 1.9 line; sits inside the SDK's `[1.9, 2.1)` cap.
+ */
+const KOTLIN19_STDLIB_FORCE_VERSION = '1.9.25';
 
 const KOTLIN_GRADLE_PLUGIN_CLASSPATH =
   /classpath\(['"]org\.jetbrains\.kotlin:kotlin-gradle-plugin['"]\)/;
@@ -68,7 +77,8 @@ export function mergePulseOkHttpByteBuddyClasspath(
  */
 export function mergePulseOkHttpAppGradle(
   src: string,
-  okhttpLibraryVersion: string
+  okhttpLibraryVersion: string,
+  kotlin19Compat: boolean = false
 ): string {
   let working = removeContents({
     src,
@@ -77,6 +87,12 @@ export function mergePulseOkHttpAppGradle(
   working = removeContents({
     src: working,
     tag: PULSE_OKHTTP_TAG_OKHTTP_DEPS,
+  }).contents;
+  // Always strip any prior force block first so toggling `kotlin19Compat` off
+  // cleans up after itself on the next prebuild.
+  working = removeContents({
+    src: working,
+    tag: PULSE_OKHTTP_TAG_KOTLIN19_STDLIB_FORCE,
   }).contents;
 
   if (
@@ -107,7 +123,7 @@ apply plugin: "net.bytebuddy.byte-buddy-gradle-plugin"`,
   ].join('\n');
 
   if (JSC_FLAVOR_LINE.test(working)) {
-    return mergeContents({
+    working = mergeContents({
       src: working,
       newSrc,
       tag: PULSE_OKHTTP_TAG_OKHTTP_DEPS,
@@ -115,14 +131,42 @@ apply plugin: "net.bytebuddy.byte-buddy-gradle-plugin"`,
       anchor: JSC_FLAVOR_LINE,
       offset: 2,
     }).contents;
+  } else {
+    working = mergeContents({
+      src: working,
+      newSrc,
+      tag: PULSE_OKHTTP_TAG_OKHTTP_DEPS,
+      comment: '//',
+      anchor: DEPENDENCIES_OPEN,
+      offset: 1,
+    }).contents;
   }
 
-  return mergeContents({
-    src: working,
-    newSrc,
-    tag: PULSE_OKHTTP_TAG_OKHTTP_DEPS,
-    comment: '//',
-    anchor: DEPENDENCIES_OPEN,
-    offset: 1,
-  }).contents;
+  // When `kotlin19Compat` is also on, the okhttp3-library AAR's transitive
+  // `kotlin-stdlib:2.1.x` request lands on a `:app` path that bypasses the
+  // SDK module's strict `[1.9, 2.1)` constraint, and Gradle errors out
+  // ("Cannot find a version of kotlin-stdlib that satisfies the version
+  // constraints"). Pin the stdlib at consumer level so both flags coexist.
+  // No effect when `kotlin19Compat` is off.
+  if (kotlin19Compat) {
+    const forceBlock = `
+configurations.all {
+    resolutionStrategy {
+        force "org.jetbrains.kotlin:kotlin-stdlib:${KOTLIN19_STDLIB_FORCE_VERSION}"
+        force "org.jetbrains.kotlin:kotlin-stdlib-jdk7:${KOTLIN19_STDLIB_FORCE_VERSION}"
+        force "org.jetbrains.kotlin:kotlin-stdlib-jdk8:${KOTLIN19_STDLIB_FORCE_VERSION}"
+        force "org.jetbrains.kotlin:kotlin-stdlib-common:${KOTLIN19_STDLIB_FORCE_VERSION}"
+    }
+}`;
+    working = mergeContents({
+      src: working,
+      newSrc: forceBlock,
+      tag: PULSE_OKHTTP_TAG_KOTLIN19_STDLIB_FORCE,
+      comment: '//',
+      anchor: REACT_APPLY_PLUGIN,
+      offset: 1,
+    }).contents;
+  }
+
+  return working;
 }

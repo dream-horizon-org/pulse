@@ -96,8 +96,8 @@ export * from "./useTenantMembers";
 export * from "./useProjectMembers";
 
 // Project management hooks
+export * from "./useCreateAdminTenant";
 export * from "./useCreateProject";
-export * from "./useCreateTenant";
 export * from "./useProjectApiKeys";
 
 // Auth hooks
@@ -116,6 +116,8 @@ export { FILTER_MAPPING, EVENT_TYPE } from "./hooks.interface";
 
 // Funnel hooks
 export * from "./useGetFunnelData";
+export * from "./useFunnelDropoff";
+export * from "./useFunnelDropoffEvidence";
 
 // Web Vitals hooks
 export * from "./useWebVitalsSummary";

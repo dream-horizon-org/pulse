@@ -12,7 +12,8 @@ import java.lang.annotation.Target;
  * uses this value instead of inferring the permission from the HTTP method.
  * This is useful for POST endpoints that are read-only (e.g. analytics queries).
  *
- * Valid values: "can_view", "can_edit", "can_delete_project"
+ * Valid values: "can_view", "can_edit", "can_delete_project", "superadmin".
+ * via {@code OpenFgaService.isSuperAdmin(userId)}.
  */
 @Target({ElementType.METHOD, ElementType.TYPE})
 @Retention(RetentionPolicy.RUNTIME)

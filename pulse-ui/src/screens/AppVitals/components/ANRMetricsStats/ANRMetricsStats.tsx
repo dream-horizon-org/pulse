@@ -88,7 +88,7 @@ export function ANRMetricsStats({
           function: "CUSTOM",
           param: {
             expression:
-              `uniqCombined64If(nullIf(${COLUMN_NAME.USER_ID}, ''), PulseType = 'device.anr')`,
+              `uniqCombined64If(nullIf(${COLUMN_NAME.INSTALLATION_ID}, ''), PulseType = 'device.anr')`,
           },
           alias: "anr_users",
         },

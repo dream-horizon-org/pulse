@@ -37,10 +37,10 @@ public class InteractionConfigMockFetcher: InteractionConfigFetcher {
             ),
             InteractionConfig(
                 id: 2,
-                name: "FancodeCrashTesting",
+                name: "DemoCrashTesting",
                 events: [
-                    InteractionEvent(name: "fancode_event1", props: nil, isBlacklisted: false),
-                    InteractionEvent(name: "fancode_event2", props: nil, isBlacklisted: false)
+                    InteractionEvent(name: "demo_event1", props: nil, isBlacklisted: false),
+                    InteractionEvent(name: "demo_event2", props: nil, isBlacklisted: false)
                 ],
                 globalBlacklistedEvents: [],
                 uptimeLowerLimitInMs: 100,

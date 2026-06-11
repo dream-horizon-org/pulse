@@ -315,30 +315,10 @@ final class RcaReportProxyHandler {
         return new RcaPostValidation.Invalid(errorResponse);
       }
 
-      if (type == RcaType.SCREEN) {
-        JsonNode startNode = objectRoot.get("start");
-        JsonNode endNode = objectRoot.get("end");
-        if (startNode == null
-            || endNode == null
-            || !startNode.isTextual()
-            || !endNode.isTextual()
-            || startNode.asText().isBlank()
-            || endNode.asText().isBlank()) {
-          AiProxyUpstreamResult errorResponse =
-              badRequest(
-                  ServiceError.INCORRECT_OR_MISSING_BODY_PARAMETERS,
-                  "start and end (ISO-8601 instants) are required for screen RCA");
-          return new RcaPostValidation.Invalid(errorResponse);
-        }
-        try {
-          Instant.parse(startNode.asText().trim());
-          Instant.parse(endNode.asText().trim());
-        } catch (DateTimeParseException e) {
-          AiProxyUpstreamResult errorResponse =
-              badRequest(
-                  ServiceError.INCORRECT_OR_MISSING_BODY_PARAMETERS,
-                  "start and end must be valid ISO-8601 instants");
-          return new RcaPostValidation.Invalid(errorResponse);
+      if (type == RcaType.SCREEN || type == RcaType.FUNNEL) {
+        AiProxyUpstreamResult windowError = validateStartEndWindow(objectRoot, type);
+        if (windowError != null) {
+          return new RcaPostValidation.Invalid(windowError);
         }
       }
 
@@ -406,6 +386,31 @@ final class RcaReportProxyHandler {
     } catch (DateTimeParseException e) {
       return LocalDate.now(ZoneOffset.UTC);
     }
+  }
+
+  private static AiProxyUpstreamResult validateStartEndWindow(ObjectNode objectRoot, RcaType type) {
+    String typeLabel = type == RcaType.FUNNEL ? "funnel" : "screen";
+    JsonNode startNode = objectRoot.get("start");
+    JsonNode endNode = objectRoot.get("end");
+    if (startNode == null
+        || endNode == null
+        || !startNode.isTextual()
+        || !endNode.isTextual()
+        || startNode.asText().isBlank()
+        || endNode.asText().isBlank()) {
+      return badRequest(
+          ServiceError.INCORRECT_OR_MISSING_BODY_PARAMETERS,
+          "start and end (ISO-8601 instants) are required for " + typeLabel + " RCA");
+    }
+    try {
+      Instant.parse(startNode.asText().trim());
+      Instant.parse(endNode.asText().trim());
+    } catch (DateTimeParseException e) {
+      return badRequest(
+          ServiceError.INCORRECT_OR_MISSING_BODY_PARAMETERS,
+          "start and end must be valid ISO-8601 instants");
+    }
+    return null;
   }
 
   private String applyCacheMetadata(String body, boolean cached, Instant cachedAt) {

@@ -24,7 +24,7 @@ kotlin {
 
 dependencies {
     implementation(projects.pulseUtils)
-    api(libs.okhttp)
+    implementation(libs.okhttp)
     implementation(libs.retrofit)
     testImplementation(libs.okhttp.mockwebserver)
     testImplementation(libs.bundles.junit)
