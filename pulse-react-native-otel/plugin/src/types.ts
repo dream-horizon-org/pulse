@@ -1,0 +1,205 @@
+/**
+ * OpenTelemetry attribute value types.
+ * Based on OpenTelemetry JavaScript SDK attribute types.
+ * @see https://github.com/open-telemetry/opentelemetry-js/blob/main/api/src/common/Attributes.ts
+ */
+export type PulseAttributeValue =
+  | string
+  | number
+  | boolean
+  | string[]
+  | number[]
+  | boolean[];
+
+export type PulseAttributes = Record<
+  string,
+  PulseAttributeValue | undefined | null
+>;
+
+export type PulseDataCollectionState = 'PENDING' | 'ALLOWED' | 'DENIED';
+
+/** Values allowed in `app.json` / Expo plugin options for `logLevel` (case-insensitive when parsed). */
+export type PulseLogLevelConfig =
+  | 'VERBOSE'
+  | 'DEBUG'
+  | 'INFO'
+  | 'WARN'
+  | 'ERROR'
+  | 'NONE';
+
+/**
+ * Ordinal log level for native codegen (Kotlin / Swift). Maps from {@link PulseLogLevelConfig}.
+ */
+export enum PulseLogLevelValue {
+  VERBOSE = 0,
+  DEBUG = 1,
+  INFO = 2,
+  WARN = 3,
+  ERROR = 4,
+  NONE = 5,
+}
+
+/** Simple on/off for `app.json` instrumentation (Android + iOS). */
+export interface PulseInstrumentationEnabled {
+  enabled?: boolean;
+}
+
+/** Android interaction block; `url` → Kotlin `setConfigUrl`. */
+export interface PulseAndroidInteractionInstrumentation {
+  enabled: boolean;
+}
+
+/** Android `Pulse.initialize { … }` (under `android` only). */
+export interface PulseAndroidInstrumentationProps {
+  interaction?: PulseAndroidInteractionInstrumentation;
+  activity?: PulseInstrumentationEnabled;
+  network?: PulseInstrumentationEnabled;
+  anr?: PulseInstrumentationEnabled;
+  crash?: PulseInstrumentationEnabled;
+  slowRendering?: PulseInstrumentationEnabled;
+  fragment?: PulseInstrumentationEnabled;
+}
+
+/** iOS interaction toggles; interaction config URL comes from remote SDK config. */
+export interface PulseIosInteractionInstrumentation {
+  enabled?: boolean;
+}
+
+export interface PulseIosUIKitTapInstrumentation {
+  captureContext?: boolean;
+}
+
+/** iOS session replay - only code-level masking rules are configurable. Backend controls all other settings. */
+export interface PulseIosSessionReplayInstrumentation {
+  maskViewClasses?: string[];
+  unmaskViewClasses?: string[];
+}
+
+/** iOS URL session instrumentation (`URLSessionInstrumentationConfig`). */
+export interface PulseIosUrlSessionInstrumentation {
+  enabled?: boolean;
+}
+
+/** iOS sessions instrumentation (`SessionsInstrumentationConfig`); times are seconds. */
+export interface PulseIosSessionsInstrumentation {
+  enabled?: boolean;
+  maxLifetimeSeconds?: number;
+  backgroundInactivityTimeoutSeconds?: number;
+  shouldPersist?: boolean;
+}
+
+/** iOS `ios.instrumentation` → PulseKit `InstrumentationConfiguration` (Swift `instrumentations:`). */
+export interface PulseIosInstrumentationProps {
+  urlSession?: PulseIosUrlSessionInstrumentation;
+  sessions?: PulseIosSessionsInstrumentation;
+  signPost?: PulseInstrumentationEnabled;
+  interaction?: PulseIosInteractionInstrumentation;
+  location?: PulseInstrumentationEnabled;
+  crash?: PulseInstrumentationEnabled;
+  appLifecycle?: PulseInstrumentationEnabled;
+  screenLifecycle?: PulseInstrumentationEnabled;
+  appStartup?: PulseInstrumentationEnabled;
+  uiKitTap?: PulseIosUIKitTapInstrumentation;
+  sessionReplay?: PulseIosSessionReplayInstrumentation;
+}
+
+/** iOS `PulseKitConfiguration` (`configuration: { kit in … }`). */
+export interface PulseIosKitConfigurationProps {
+  includeScreenAttributes?: boolean;
+  includeNetworkAttributes?: boolean;
+  includeGlobalAttributes?: boolean;
+}
+
+/** Per-platform overrides; merged with top-level `apiKey` + `dataCollectionState` (both required after merge). */
+export type PulseNativeInitFields = {
+  apiKey?: string;
+  dataCollectionState?: PulseDataCollectionState;
+  globalAttributes?: PulseAttributes;
+  /** Override top-level `logLevel` for this platform when set. */
+  logLevel?: PulseLogLevelConfig;
+};
+
+export interface PulseAndroidCoreLibraryDesugaring {
+  enabled?: boolean;
+  /** `com.android.tools:desugar_jdk_libs` version; used only when `enabled` is true. Default `2.1.4`. */
+  version?: string;
+}
+
+/** Android OkHttp / Byte Buddy Gradle wiring (under `android` only), parallel to `coreLibraryDesugaring`. */
+export interface PulseAndroidOkHttpInstrumentation {
+  enabled?: boolean;
+  /** `net.bytebuddy:byte-buddy-gradle-plugin` on root `buildscript` classpath; default when omitted: see `androidBuildConstants`. */
+  byteBuddyGradlePluginVersion?: string;
+  /**
+   * When `true` (default) and {@link enabled} is `true`, prebuild merges `net.bytebuddy` into
+   * `android.jetifier.ignorelist` **only if** `android.enableJetifier=true` is already present in
+   * `gradle.properties`. Set `false` to skip that merge (e.g. you edit `gradle.properties` yourself).
+   */
+  ensureJetifierIgnoresByteBuddy?: boolean;
+}
+
+export interface PulseAndroidSection extends PulseNativeInitFields {
+  instrumentation?: PulseAndroidInstrumentationProps;
+  coreLibraryDesugaring?: PulseAndroidCoreLibraryDesugaring;
+  okHttpInstrumentation?: PulseAndroidOkHttpInstrumentation;
+  /**
+   * Opt-in for consumers compiling with Kotlin 1.9.x (e.g., RN 0.76 default).
+   * When `true`, prebuild adds `PulseReactNativeOtel_kotlin19Compat=true` to `android/gradle.properties`,
+   * which activates a dependency cap inside the SDK's `build.gradle` that holds transitive Kotlin
+   * runtime artifacts below the version a 1.9 compiler cannot read. Default `false` — leave off for
+   * Kotlin 2.0+ consumers; cannot coexist with a consumer-side strict requirement on Kotlin 2.1.x.
+   */
+  kotlin19Compat?: boolean;
+}
+
+export interface PulseIosSection extends PulseNativeInitFields {
+  instrumentation?: PulseIosInstrumentationProps;
+  configuration?: PulseIosKitConfigurationProps;
+}
+
+/** Merged init passed to native codegen. */
+export interface PulsePlatformInitProps {
+  apiKey: string;
+  dataCollectionState: PulseDataCollectionState;
+  globalAttributes?: PulseAttributes;
+  logLevel?: PulseLogLevelValue;
+}
+
+export type ResolvedAndroidPulseProps = PulsePlatformInitProps & {
+  instrumentation?: PulseAndroidInstrumentationProps;
+  coreLibraryDesugaring: {
+    enabled: boolean;
+    /** Meaningful when `enabled`; always set for stable plugin internals. */
+    version: string;
+  };
+  okHttpInstrumentation: {
+    enabled: boolean;
+    /** Meaningful when `enabled`; always set for stable plugin internals (defaults from androidBuildConstants). */
+    byteBuddyGradlePluginVersion: string;
+    /** When `enabled`, default `true`; prebuild may merge `android.jetifier.ignorelist` if `enableJetifier=true` in gradle.properties. */
+    ensureJetifierIgnoresByteBuddy: boolean;
+  };
+  /** Resolved opt-in for the Kotlin-1.9 transitive cap; default `false`. */
+  kotlin19Compat: boolean;
+};
+
+export type ResolvedIosPulseProps = PulsePlatformInitProps & {
+  configuration?: PulseIosKitConfigurationProps;
+  instrumentation?: PulseIosInstrumentationProps;
+};
+
+/**
+ * Expo config plugin props. Top-level `apiKey` and `dataCollectionState` are required.
+ * `android` / `ios`: optional init overrides, `globalAttributes`, `instrumentation`; iOS also `configuration`.
+ * Do not put `globalAttributes`, `instrumentation`, or `configuration` at the top level.
+ * Optional `logLevel`: `VERBOSE` | `DEBUG` | `INFO` | `WARN` | `ERROR` | `NONE` at the top level
+ * and/or overridden per platform.
+ */
+export interface PulsePluginProps {
+  apiKey: string;
+  dataCollectionState: PulseDataCollectionState;
+  logLevel?: PulseLogLevelConfig;
+
+  android?: PulseAndroidSection;
+  ios?: PulseIosSection;
+}

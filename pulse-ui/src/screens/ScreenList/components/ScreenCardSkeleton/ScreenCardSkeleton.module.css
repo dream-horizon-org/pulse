@@ -1,0 +1,146 @@
+.screenCard {
+  position: relative;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 20px;
+  padding: 0;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+  transform-style: preserve-3d;
+  overflow: hidden;
+  box-shadow:
+    0 8px 20px rgba(0, 0, 0, 0.04),
+    inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  display: flex;
+  flex-direction: column;
+  min-width: 280px;
+  flex-shrink: 0;
+}
+
+.screenCard::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 20px;
+  background: linear-gradient(
+    145deg,
+    rgba(255, 255, 255, 0.9) 0%,
+    rgba(255, 255, 255, 0.6) 100%
+  );
+  pointer-events: none;
+  z-index: 0;
+}
+
+.screenCard > * {
+  position: relative;
+  z-index: 1;
+}
+
+.screenMockup {
+  position: relative;
+  background: linear-gradient(
+    135deg,
+    rgba(14, 201, 194, 0.03) 0%,
+    rgba(14, 201, 194, 0.08) 100%
+  );
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  min-height: 120px;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  border-bottom: 1px solid rgba(14, 201, 194, 0.1);
+}
+
+.screenHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0;
+  margin: 0;
+  width: 100%;
+  position: relative;
+  z-index: 1;
+}
+
+.screenContent {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  justify-content: center;
+  position: relative;
+  z-index: 1;
+}
+
+.screenIcon {
+  width: 56px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(
+    135deg,
+    rgba(14, 201, 194, 0.12),
+    rgba(14, 201, 194, 0.2)
+  );
+  border-radius: 14px;
+  color: #0ba09a;
+  border: 2px solid rgba(14, 201, 194, 0.25);
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(14, 201, 194, 0.15);
+}
+
+.screenName {
+  font-size: 13px !important;
+  font-weight: 700;
+  color: var(--mantine-color-dark-8);
+  text-align: center;
+  line-height: 1.2;
+  letter-spacing: -0.3px;
+}
+
+.healthIndicator {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(14, 201, 194, 0.4) 50%,
+    transparent 100%
+  );
+  opacity: 0.6;
+  transition: all 0.3s ease;
+  border-radius: 0 0 20px 20px;
+}
+
+.metricsRow {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1px;
+  background: rgba(14, 201, 194, 0.12);
+  padding: 0;
+}
+
+.metricItem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 12px 8px;
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.95),
+    rgba(250, 251, 252, 0.95)
+  );
+  min-width: 0;
+  transition: all 0.3s ease;
+  position: relative;
+}

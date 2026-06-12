@@ -1,0 +1,394 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>User Search Fix Test</title>
+    <style>
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          sans-serif;
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+        background-color: #f5f5f5;
+      }
+      .container {
+        background: white;
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      }
+      .header {
+        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        color: white;
+        padding: 20px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+      }
+      .form-group {
+        margin-bottom: 15px;
+      }
+      .form-group label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: 500;
+      }
+      .form-group input {
+        width: 100%;
+        padding: 8px 12px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 14px;
+      }
+      .btn {
+        background: #007bff;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+        margin-right: 10px;
+        margin-bottom: 10px;
+      }
+      .btn:hover {
+        background: #0056b3;
+      }
+      .btn-success {
+        background: #28a745;
+      }
+      .btn-success:hover {
+        background: #1e7e34;
+      }
+      .results {
+        margin-top: 20px;
+        padding: 15px;
+        background: #f8f9fa;
+        border-radius: 4px;
+        border-left: 4px solid #007bff;
+      }
+      .error {
+        border-left-color: #dc3545;
+        background: #f8d7da;
+        color: #721c24;
+      }
+      .success {
+        border-left-color: #28a745;
+        background: #d4edda;
+        color: #155724;
+      }
+      .json-display {
+        background: #f8f9fa;
+        border: 1px solid #e9ecef;
+        border-radius: 4px;
+        padding: 15px;
+        margin-top: 10px;
+        font-family: "Courier New", monospace;
+        font-size: 12px;
+        white-space: pre-wrap;
+        max-height: 400px;
+        overflow-y: auto;
+      }
+      .test-case {
+        border: 1px solid #e0e0e0;
+        border-radius: 4px;
+        padding: 15px;
+        margin-bottom: 15px;
+        background: white;
+      }
+      .test-case h4 {
+        margin-top: 0;
+        color: #333;
+      }
+      .status {
+        display: inline-block;
+        padding: 4px 8px;
+        border-radius: 12px;
+        font-size: 12px;
+        font-weight: 500;
+        margin-left: 10px;
+      }
+      .status-success {
+        background: #d4edda;
+        color: #155724;
+      }
+      .status-error {
+        background: #f8d7da;
+        color: #721c24;
+      }
+      .status-pending {
+        background: #fff3cd;
+        color: #856404;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="header">
+      <h1>🔧 User Search Flow Fix Test</h1>
+      <p>
+        Testing the fixed user search functionality with phone number validation
+      </p>
+    </div>
+
+    <div class="container">
+      <h3>Manual Test Cases</h3>
+
+      <div class="test-case">
+        <h4>Test Case 1: Valid Phone Number (Should show "User not found")</h4>
+        <div class="form-group">
+          <label for="phone1">Phone Number (10 digits):</label>
+          <input
+            type="text"
+            id="phone1"
+            placeholder="9876543210"
+            maxlength="10"
+            value="9876543210"
+          />
+        </div>
+        <button class="btn" onclick="testUserDetails('phone1')">
+          Test User Details
+        </button>
+        <button class="btn" onclick="testUserLastActive('phone1')">
+          Test Last Active
+        </button>
+        <button class="btn" onclick="testUserExperiments('phone1')">
+          Test Experiments
+        </button>
+        <div id="results1" class="results" style="display: none"></div>
+      </div>
+
+      <div class="test-case">
+        <h4>Test Case 2: Invalid Phone Number (too short)</h4>
+        <div class="form-group">
+          <label for="phone2">Phone Number (9 digits):</label>
+          <input
+            type="text"
+            id="phone2"
+            placeholder="987654321"
+            maxlength="10"
+            value="987654321"
+          />
+        </div>
+        <button class="btn" onclick="testUserDetails('phone2')">
+          Test User Details
+        </button>
+        <button class="btn" onclick="testUserLastActive('phone2')">
+          Test Last Active
+        </button>
+        <button class="btn" onclick="testUserExperiments('phone2')">
+          Test Experiments
+        </button>
+        <div id="results2" class="results" style="display: none"></div>
+      </div>
+
+      <div class="test-case">
+        <h4>Test Case 3: Empty Phone Number</h4>
+        <div class="form-group">
+          <label for="phone3">Phone Number (empty):</label>
+          <input
+            type="text"
+            id="phone3"
+            placeholder=""
+            maxlength="10"
+            value=""
+          />
+        </div>
+        <button class="btn" onclick="testUserDetails('phone3')">
+          Test User Details
+        </button>
+        <button class="btn" onclick="testUserLastActive('phone3')">
+          Test Last Active
+        </button>
+        <button class="btn" onclick="testUserExperiments('phone3')">
+          Test Experiments
+        </button>
+        <div id="results3" class="results" style="display: none"></div>
+      </div>
+
+      <div class="test-case">
+        <h4>Test Case 4: Non-numeric Phone Number</h4>
+        <div class="form-group">
+          <label for="phone4">Phone Number (non-numeric):</label>
+          <input
+            type="text"
+            id="phone4"
+            placeholder="abc123def"
+            maxlength="10"
+            value="abc123def"
+          />
+        </div>
+        <button class="btn" onclick="testUserDetails('phone4')">
+          Test User Details
+        </button>
+        <button class="btn" onclick="testUserLastActive('phone4')">
+          Test Last Active
+        </button>
+        <button class="btn" onclick="testUserExperiments('phone4')">
+          Test Experiments
+        </button>
+        <div id="results4" class="results" style="display: none"></div>
+      </div>
+    </div>
+
+    <div class="container">
+      <h3>Automated Test Results</h3>
+      <button class="btn btn-success" onclick="runAllTests()">
+        Run All Tests
+      </button>
+      <div id="automatedResults" class="results" style="display: none"></div>
+    </div>
+
+    <script>
+      async function makeRequest(url, options = {}) {
+        try {
+          const response = await fetch(url, {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            ...options,
+          });
+          return await response.json();
+        } catch (error) {
+          return { error: error.message };
+        }
+      }
+
+      function showResults(elementId, data, isError = false) {
+        const element = document.getElementById(elementId);
+        element.style.display = "block";
+        element.className = `results ${isError ? "error" : "success"}`;
+        element.innerHTML = `<div class="json-display">${JSON.stringify(data, null, 2)}</div>`;
+      }
+
+      function showLoading(elementId, message) {
+        const element = document.getElementById(elementId);
+        element.style.display = "block";
+        element.className = "results status-pending";
+        element.innerHTML = `<div>${message}</div>`;
+      }
+
+      async function testUserDetails(phoneInputId) {
+        const phoneNumber = document.getElementById(phoneInputId).value;
+        const resultsId = phoneInputId.replace("phone", "results");
+
+        showLoading(resultsId, "Testing user details...");
+        const data = await makeRequest(`/user/${phoneNumber}`);
+        showResults(resultsId, data, !!data.error);
+      }
+
+      async function testUserLastActive(phoneInputId) {
+        const phoneNumber = document.getElementById(phoneInputId).value;
+        const resultsId = phoneInputId.replace("phone", "results");
+
+        showLoading(resultsId, "Testing user last active...");
+        const data = await makeRequest(`/user/${phoneNumber}/active-today`);
+        showResults(resultsId, data, !!data.error);
+      }
+
+      async function testUserExperiments(phoneInputId) {
+        const phoneNumber = document.getElementById(phoneInputId).value;
+        const resultsId = phoneInputId.replace("phone", "results");
+
+        showLoading(resultsId, "Testing user experiments...");
+        const data = await makeRequest(`/user/${phoneNumber}/experiments`);
+        showResults(resultsId, data, !!data.error);
+      }
+
+      async function runAllTests() {
+        const resultsElement = document.getElementById("automatedResults");
+        resultsElement.style.display = "block";
+        resultsElement.className = "results status-pending";
+        resultsElement.innerHTML = "<div>Running automated tests...</div>";
+
+        const testCases = [
+          {
+            phone: "9876543210",
+            expected: "error",
+            description:
+              "Valid 10-digit phone number (should show user not found)",
+          },
+          {
+            phone: "987654321",
+            expected: "error",
+            description: "Invalid 9-digit phone number",
+          },
+          { phone: "", expected: "error", description: "Empty phone number" },
+          {
+            phone: "abc123def",
+            expected: "error",
+            description: "Non-numeric phone number",
+          },
+        ];
+
+        let results = [];
+
+        for (const testCase of testCases) {
+          try {
+            const userDetailsResponse = await makeRequest(
+              `/user/${testCase.phone}`,
+            );
+            const lastActiveResponse = await makeRequest(
+              `/user/${testCase.phone}/active-today`,
+            );
+            const experimentsResponse = await makeRequest(
+              `/user/${testCase.phone}/experiments`,
+            );
+
+            const hasError =
+              userDetailsResponse.error ||
+              lastActiveResponse.error ||
+              experimentsResponse.error;
+            const actualResult = hasError ? "error" : "success";
+            const passed = actualResult === testCase.expected;
+
+            results.push({
+              phone: testCase.phone,
+              description: testCase.description,
+              expected: testCase.expected,
+              actual: actualResult,
+              passed: passed,
+              userDetails: userDetailsResponse,
+              lastActive: lastActiveResponse,
+              experiments: experimentsResponse,
+            });
+          } catch (error) {
+            results.push({
+              phone: testCase.phone,
+              description: testCase.description,
+              expected: testCase.expected,
+              actual: "error",
+              passed: testCase.expected === "error",
+              error: error.message,
+            });
+          }
+        }
+
+        const passedTests = results.filter((r) => r.passed).length;
+        const totalTests = results.length;
+
+        let html = `<h4>Test Results: ${passedTests}/${totalTests} passed</h4>`;
+
+        results.forEach((result) => {
+          const statusClass = result.passed ? "status-success" : "status-error";
+          const statusText = result.passed ? "PASS" : "FAIL";
+
+          html += `
+                    <div class="test-case">
+                        <h4>${result.description} <span class="status ${statusClass}">${statusText}</span></h4>
+                        <p><strong>Phone:</strong> "${result.phone}"</p>
+                        <p><strong>Expected:</strong> ${result.expected}</p>
+                        <p><strong>Actual:</strong> ${result.actual}</p>
+                        ${result.error ? `<p><strong>Error:</strong> ${result.error}</p>` : ""}
+                    </div>
+                `;
+        });
+
+        resultsElement.innerHTML = html;
+        resultsElement.className = `results ${passedTests === totalTests ? "success" : "error"}`;
+      }
+    </script>
+  </body>
+</html>

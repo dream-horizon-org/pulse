@@ -1,0 +1,87 @@
+variable "aws_region" {
+  description = "AWS region"
+  type        = string
+}
+
+variable "ami_id" {
+  description = "AMI ID for the instance"
+  type        = string
+}
+
+variable "instance_types" {
+  description = "List of EC2 instance types for the ASG mixed instances policy"
+  type        = list(string)
+}
+
+variable "asg_on_demand_base_capacity" {
+  description = "Number of on-demand instances to maintain as base capacity in ASG"
+  type        = number
+  default     = 0
+}
+
+variable "instance_count" {
+  description = "Number of instances"
+  type        = number
+}
+
+variable "private_ec2_subnet_ids" {
+  description = "List of subnet IDs for instances"
+  type        = list(string)
+}
+
+variable "security_group_ids" {
+  description = "Security group to attach to all resources"
+  type        = list(string)
+}
+
+variable "nlb_security_group_ids" {
+  description = "Security group IDs to attach to the OTEL NLB"
+  type        = list(string)
+}
+
+variable "ssh_key_name" {
+  description = "Existing SSH keypair name"
+  type        = string
+}
+
+variable "instance_profile_name" {
+  description = "IAM instance profile name"
+  type        = string
+}
+
+variable "vpc_id" {
+  description = "VPC ID"
+  type        = string
+}
+
+variable "route53_zone_id" {
+  description = "Route53 hosted zone ID"
+  type        = string
+}
+
+variable "route53_record_name" {
+  description = "DNS record name"
+  type        = string
+}
+
+variable "healthcheck_path" {
+  description = "Healthcheck path for ALB TG"
+  type        = string
+}
+
+variable "healthcheck_port" {
+  description = "Healthcheck port"
+  type        = number
+}
+
+
+variable "otel_listen_port" {
+  description = "OTEL collector port"
+  type        = number
+}
+
+variable "private_nlb_subnet_ids" {
+  description = "List of private subnets for the NLB"
+  type        = list(string)
+}
+

@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>More Details Test</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 20px;
+      }
+      .test-result {
+        margin: 10px 0;
+        padding: 10px;
+        border-radius: 4px;
+      }
+      .success {
+        background-color: #d4edda;
+        border: 1px solid #c3e6cb;
+        color: #155724;
+      }
+      .error {
+        background-color: #f8d7da;
+        border: 1px solid #f5c6cb;
+        color: #721c24;
+      }
+      .info {
+        background-color: #d1ecf1;
+        border: 1px solid #bee5eb;
+        color: #0c5460;
+      }
+      button {
+        padding: 10px 20px;
+        margin: 5px;
+        cursor: pointer;
+      }
+      pre {
+        background: #f8f9fa;
+        padding: 10px;
+        border-radius: 4px;
+        overflow-x: auto;
+      }
+      .job-details {
+        margin: 10px 0;
+        padding: 15px;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        background: #f9f9f9;
+      }
+      .date-test {
+        margin: 10px 0;
+        padding: 10px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        background: #fff;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>📅 More Details Test</h1>
+
+    <div id="status" class="test-result info">
+      <strong>Status:</strong> Ready to test More Details date formatting
+    </div>
+
+    <div>
+      <button onclick="testMoreDetails('ContestJoinSuccess')">
+        Test ContestJoinSuccess Details
+      </button>
+      <button onclick="testMoreDetails('CreateTeamSuccess')">
+        Test CreateTeamSuccess Details
+      </button>
+      <button onclick="testAllMoreDetails()">Test All Job Details</button>
+    </div>
+
+    <div id="results"></div>
+
+    <script>
+      // Set environment variables for testing
+      window.process = window.process || {};
+      window.process.env = {
+        ...window.process.env,
+        REACT_APP_USE_MOCK_SERVER: "true",
+        REACT_APP_MOCK_DELAY: "100",
+        REACT_APP_MOCK_ERROR_RATE: "0.0",
+        REACT_APP_MOCK_LOGGING: "true",
+      };
+
+      function updateStatus(message, type = "info") {
+        const status = document.getElementById("status");
+        status.className = `test-result ${type}`;
+        status.innerHTML = `<strong>Status:</strong> ${message}`;
+      }
+
+      function addResult(title, data, success = true) {
+        const results = document.getElementById("results");
+        const resultDiv = document.createElement("div");
+        resultDiv.className = `test-result ${success ? "success" : "error"}`;
+        resultDiv.innerHTML = `
+                <h3>${title}</h3>
+                <pre>${JSON.stringify(data, null, 2)}</pre>
+            `;
+        results.appendChild(resultDiv);
+      }
+
+      function addJobDetails(job) {
+        const results = document.getElementById("results");
+        const jobDiv = document.createElement("div");
+        jobDiv.className = "job-details";
+
+        // Test date formatting like the MoreDetails component does
+        const formatter = (date) => {
+          return date.toLocaleString("en-US", {
+            year: "numeric",
+            month: "long",
+            day: "2-digit",
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit",
+          });
+        };
+
+        const createdDate = new Date(Number(job.createdAt));
+        const updatedDate = new Date(Number(job.updatedAt));
+
+        jobDiv.innerHTML = `
+                <h3>${job.name}</h3>
+                <p><strong>Description:</strong> ${job.description}</p>
+                <p><strong>Status:</strong> ${job.status}</p>
+                <div class="date-test">
+                    <h4>Date Formatting Test:</h4>
+                    <p><strong>Created By:</strong> ${job.createdBy}</p>
+                    <p><strong>Created At (Raw):</strong> ${job.createdAt}</p>
+                    <p><strong>Created At (Formatted):</strong> ${formatter(createdDate)}</p>
+                    <p><strong>Updated By:</strong> ${job.updatedBy}</p>
+                    <p><strong>Updated At (Raw):</strong> ${job.updatedAt}</p>
+                    <p><strong>Updated At (Formatted):</strong> ${formatter(updatedDate)}</p>
+                    <p><strong>Is Valid Created Date:</strong> ${!isNaN(createdDate.getTime()) ? "✅ Yes" : "❌ No"}</p>
+                    <p><strong>Is Valid Updated Date:</strong> ${!isNaN(updatedDate.getTime()) ? "✅ Yes" : "❌ No"}</p>
+                </div>
+            `;
+        results.appendChild(jobDiv);
+      }
+
+      async function testMoreDetails(useCaseId) {
+        updateStatus(`Testing More Details for ${useCaseId}...`, "info");
+        try {
+          const response = await fetch(
+            `/v2/getJobDetails?useCaseId=${useCaseId}`,
+          );
+          const data = await response.json();
+
+          if (response.ok && data.data) {
+            addResult(
+              `✅ More Details Test for ${useCaseId}`,
+              {
+                status: response.status,
+                jobDetails: data.data,
+              },
+              true,
+            );
+            addJobDetails(data.data);
+          } else {
+            addResult(
+              `❌ More Details Test Failed for ${useCaseId}`,
+              {
+                status: response.status,
+                error: data.error || data.message,
+              },
+              false,
+            );
+          }
+        } catch (error) {
+          addResult(
+            `❌ More Details Test Failed for ${useCaseId}`,
+            { error: error.message },
+            false,
+          );
+        }
+      }
+
+      async function testAllMoreDetails() {
+        updateStatus("Testing All More Details...", "info");
+        document.getElementById("results").innerHTML = "";
+
+        const interactions = [
+          "ContestJoinSuccess",
+          "CreateTeamSuccess",
+          "CreateTeamPageLoaded",
+          "ContestHomeLanded",
+          "AddCashLoaded",
+        ];
+
+        for (const interaction of interactions) {
+          await testMoreDetails(interaction);
+          await new Promise((resolve) => setTimeout(resolve, 100));
+        }
+
+        updateStatus("All More Details tests completed!", "success");
+      }
+
+      // Test date conversion directly
+      function testDateConversion() {
+        const testTimestamp = 1705312800000; // 2024-01-15T10:00:00Z
+        const testDate = new Date(Number(testTimestamp));
+        const formatter = (date) => {
+          return date.toLocaleString("en-US", {
+            year: "numeric",
+            month: "long",
+            day: "2-digit",
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit",
+          });
+        };
+
+        addResult(
+          "🧪 Date Conversion Test",
+          {
+            originalTimestamp: testTimestamp,
+            convertedDate: testDate.toString(),
+            formattedDate: formatter(testDate),
+            isValid: !isNaN(testDate.getTime()),
+          },
+          !isNaN(testDate.getTime()),
+        );
+      }
+
+      // Auto-run test on page load
+      window.onload = function () {
+        updateStatus(
+          "More Details test page loaded. Click buttons to test date formatting.",
+          "info",
+        );
+        testDateConversion();
+      };
+    </script>
+  </body>
+</html>

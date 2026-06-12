@@ -1,0 +1,2038 @@
+"""
+Generates comprehensive e-commerce telemetry data for Pulse.
+
+Simulates a large Indian e-commerce platform with 17 critical interactions,
+realistic device/network/geo distributions, and intentional bad/good segments
+per interaction for the AI root cause engine to discover.
+
+Special E2E test interactions:
+  - notifications_open: no bad_segments, base_error_rate 0 → baseline problematic_count 0
+    → pulse-server everythingGood shortcut (flat, no segments) → agent everything_good=true
+  - deeplink_open:      one bad segment only → agent must NOT pad with a second segment
+  - product_search:     good_segments (iOS 4.3.0 improved) → direction filter must NOT flag it
+  - home_feed_load:     good_segments (wifi+4.3.0 improved) → direction filter must NOT flag it
+  - wishlist_add:       3-way cross-category compounds (device×app_version×geo, platform×device×network)
+  - coupon_apply:       4-way compound (platform×OS×device×network) + 2-way (app_version×geo)
+  - review_submit:      OS×app_version×geo (software stack+location) + device×platform×app_version
+
+Also inserts a Track B block: correlated sessions for interaction `add_to_cart`
+(session ids `tb_*`) with Poor/Good splits, stack events (crash / ANR / non_fatal),
+and `network.http` Error spans — see `generate_track_b_error_attribution_rows`.
+
+`app_launch` uses `pick_app_launch_device_context()` (per-span, unique `al_*` session ids) to
+concentrate spans into Android OS 10 + Jio and a standalone SM-A135F cohort so RCA (with
+`maxSegments` ≥ 5, hybrid ordering) can surface NetworkProvider / OS / device slices for db-audit,
+without changing global ANDROID_* / NETWORK_* weight tables used by other interactions.
+`home_feed_load` uses `hf_*` sessions and `pick_home_feed_load_context()` for BSNL / Redmi Note 12 / 4.1.0 cohort volume.
+`payment_processing` uses `pp_*` + `pick_payment_processing_context()`; `category_browse` uses `cb_*`
++ `pick_category_browse_context()` to concentrate RCA cohorts without session_id reuse noise.
+
+Before seeding, the script checks MySQL for tenants and projects. If there are
+multiple tenants, it prompts you to choose which tenant (and project) to insert
+data for. Set PROJECT_ID in the environment to skip the prompt and seed that
+project directly.
+
+Usage:
+    python3 deploy/scripts/seed-ecommerce-data.py [--clear]
+    --clear       Wipe existing seed data for the chosen project before seeding
+    PROJECT_ID=x  (env) Use this project_id; skip tenant/project selection
+"""
+
+import random
+import uuid
+import sys
+import urllib.request
+import urllib.error
+from datetime import datetime, timedelta, timezone
+
+# ─── ClickHouse connection ────────────────────────────────────────────────────
+import os
+CH_HOST = os.environ.get("CH_HOST", "127.0.0.1")
+CH_PORT = os.environ.get("CH_PORT", "8123")
+CH_USER = os.environ.get("CH_USER", "pulse_user")
+CH_PASSWORD = os.environ.get("CH_PASSWORD", "pulse_password")
+CH_DB = os.environ.get("CH_DB", "otel")
+
+# ─── MySQL connection ────────────────────────────────────────────────────────
+MYSQL_HOST = os.environ.get("MYSQL_HOST", "127.0.0.1")
+MYSQL_PORT = os.environ.get("MYSQL_PORT", "3307")
+MYSQL_USER = os.environ.get("MYSQL_USER", "pulse_user")
+MYSQL_PASSWORD = os.environ.get("MYSQL_PASSWORD", "pulse_password")
+MYSQL_DB = os.environ.get("MYSQL_DB", "pulse_db")
+MYSQL_MODE = os.environ.get("MYSQL_MODE", "docker")  # "docker" = docker exec, "direct" = mysql client
+
+random.seed(2026)
+
+# ─── Helpers ──────────────────────────────────────────────────────────────────
+
+def ch_query(query):
+    url = f"http://{CH_HOST}:{CH_PORT}/?database={CH_DB}&user={CH_USER}&password={CH_PASSWORD}"
+    req = urllib.request.Request(url, data=query.encode("utf-8"))
+    try:
+        resp = urllib.request.urlopen(req)
+        return resp.read().decode("utf-8")
+    except urllib.error.HTTPError as e:
+        body = e.read().decode("utf-8")
+        print(f"  ClickHouse error ({e.code}): {body[:500]}")
+        sys.exit(1)
+
+
+def ch_query_safe(query, skip_codes=(60,)):
+    """Like ch_query but silently skips specified ClickHouse error codes.
+    Code 60 = UNKNOWN_TABLE (table not yet created — safe to skip on first run)."""
+    url = f"http://{CH_HOST}:{CH_PORT}/?database={CH_DB}&user={CH_USER}&password={CH_PASSWORD}"
+    req = urllib.request.Request(url, data=query.encode("utf-8"))
+    try:
+        resp = urllib.request.urlopen(req)
+        return resp.read().decode("utf-8")
+    except urllib.error.HTTPError as e:
+        body = e.read().decode("utf-8")
+        for code in skip_codes:
+            if f"Code: {code}." in body:
+                return None
+        print(f"  ClickHouse error ({e.code}): {body[:500]}")
+        sys.exit(1)
+
+
+# Tables the seeder inserts into (must match deploy clickhouse-init SQL).
+_REQUIRED_CH_TABLES = ("otel_traces", "otel_logs", "stack_trace_events")
+
+
+def ensure_clickhouse_seed_schema():
+    """Fail fast with setup hints if OTEL tables were never created (or DB is partial)."""
+    db_esc = CH_DB.replace("\\", "\\\\").replace("'", "''")
+    in_list = ",".join(f"'{n}'" for n in _REQUIRED_CH_TABLES)
+    n = int(
+        ch_query(
+            f"SELECT count() FROM system.tables WHERE database = '{db_esc}' AND name IN ({in_list})"
+        ).strip()
+    )
+    if n >= len(_REQUIRED_CH_TABLES):
+        return
+    print(
+        "\n  ClickHouse is missing required OTEL tables "
+        f"({', '.join(_REQUIRED_CH_TABLES)}) in database `{CH_DB}`.\n"
+        "  Apply the dev schema first, then re-run this script. For Docker Compose:\n"
+        "    docker compose -f deploy/docker-compose.yml run --rm clickhouse-init\n"
+        "  (needs pulse-clickhouse healthy; compose also waits for Kafka for this service.)\n"
+        "  Or bring the full stack up once so init runs: ./deploy/scripts/start.sh -d\n"
+        "  SQL files: backend/db/dev/clickhouse/*.sql\n"
+    )
+    sys.exit(1)
+
+
+def mysql_query(query):
+    import subprocess
+    if MYSQL_MODE == "direct":
+        cmd = [
+            "mysql", "-h", MYSQL_HOST, "-P", str(MYSQL_PORT),
+            "-u", MYSQL_USER, f"-p{MYSQL_PASSWORD}", "--skip-ssl", MYSQL_DB,
+            "-e", query
+        ]
+    else:
+        cmd = [
+            "docker", "exec", "pulse-mysql",
+            "mysql", "-u", MYSQL_USER, f"-p{MYSQL_PASSWORD}", MYSQL_DB,
+            "-e", query
+        ]
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        stderr = result.stderr.replace("mysql: [Warning] Using a password on the command line interface can be insecure.\n", "")
+        if stderr.strip():
+            print(f"  MySQL error: {stderr.strip()}")
+            sys.exit(1)
+    return result.stdout
+
+
+def mysql_query_rows(query):
+    """Run MySQL query with -N (no column names), return rows as list of lists (tab-separated)."""
+    import subprocess
+    if MYSQL_MODE == "direct":
+        cmd = [
+            "mysql", "-h", MYSQL_HOST, "-P", str(MYSQL_PORT),
+            "-u", MYSQL_USER, f"-p{MYSQL_PASSWORD}", "--skip-ssl", "-N", MYSQL_DB,
+            "-e", query
+        ]
+    else:
+        cmd = [
+            "docker", "exec", "pulse-mysql",
+            "mysql", "-u", MYSQL_USER, f"-p{MYSQL_PASSWORD}", "-N", MYSQL_DB,
+            "-e", query
+        ]
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        stderr = result.stderr.replace("mysql: [Warning] Using a password on the command line interface can be insecure.\n", "")
+        if stderr.strip():
+            print(f"  MySQL error: {stderr.strip()}")
+            sys.exit(1)
+    out = result.stdout.strip()
+    if not out:
+        return []
+    return [line.split("\t") for line in out.splitlines()]
+
+
+TENANTS_PROJECTS_QUERY = """
+SELECT t.tenant_id, t.name, p.project_id, p.name
+FROM tenants t
+JOIN projects p ON p.tenant_id = t.tenant_id
+WHERE t.is_active = TRUE AND p.is_active = TRUE
+ORDER BY t.name, p.name;
+"""
+
+
+def resolve_project_id():
+    """
+    Check tenants in DB; if multiple, ask user which tenant/project.
+    Returns project_id. Exits if no tenants or projects.
+    """
+    rows = mysql_query_rows(TENANTS_PROJECTS_QUERY)
+    if not rows:
+        print("\n  No tenants or projects found in the database.")
+        print("  Create a tenant and project first (e.g. via onboarding or admin).")
+        sys.exit(1)
+
+    # Build: tenant_id -> (tenant_name, [(project_id, project_name), ...])
+    by_tenant = {}
+    for row in rows:
+        tenant_id, tenant_name, project_id, project_name = row[0], row[1], row[2], row[3]
+        if tenant_id not in by_tenant:
+            by_tenant[tenant_id] = (tenant_name, [])
+        by_tenant[tenant_id][1].append((project_id, project_name))
+
+    tenants_list = list(by_tenant.items())
+
+    if len(tenants_list) == 1:
+        tenant_id, (tenant_name, projects) = tenants_list[0]
+        if len(projects) == 1:
+            project_id, pname = projects[0]
+            print(f"\n  Using tenant '{tenant_name}' and project '{pname}' ({project_id})")
+            return project_id
+        print(f"\n  Tenant: {tenant_name}")
+        print("  Projects:")
+        for i, (pid, pname) in enumerate(projects, 1):
+            print(f"    {i}. {pname} ({pid})")
+        while True:
+            try:
+                choice = input("  Enter project number: ").strip()
+                idx = int(choice)
+                if 1 <= idx <= len(projects):
+                    project_id, project_name = projects[idx - 1]
+                    print(f"  Using project: {project_name} ({project_id})")
+                    return project_id
+            except ValueError:
+                pass
+            print("  Invalid choice. Try again.")
+
+    # Multiple tenants
+    print("\n  Multiple tenants found. Select tenant:")
+    for i, (tid, (tname, projs)) in enumerate(tenants_list, 1):
+        print(f"    {i}. {tname} (tenant_id={tid}) — {len(projs)} project(s)")
+    while True:
+        try:
+            choice = input("  Enter tenant number: ").strip()
+            idx = int(choice)
+            if 1 <= idx <= len(tenants_list):
+                tenant_id, (tenant_name, projects) = tenants_list[idx - 1]
+                break
+        except ValueError:
+            pass
+        print("  Invalid choice. Try again.")
+
+    if len(projects) == 1:
+        project_id, pname = projects[0]
+        print(f"  Using project: {pname} ({project_id})")
+        return project_id
+    print(f"\n  Tenant '{tenant_name}' has multiple projects:")
+    for i, (pid, pname) in enumerate(projects, 1):
+        print(f"    {i}. {pname} ({pid})")
+    while True:
+        try:
+            choice = input("  Enter project number: ").strip()
+            idx = int(choice)
+            if 1 <= idx <= len(projects):
+                project_id, project_name = projects[idx - 1]
+                print(f"  Using project: {project_name} ({project_id})")
+                return project_id
+        except ValueError:
+            pass
+        print("  Invalid choice. Try again.")
+
+
+def wc(choices, weights):
+    return random.choices(choices, weights=weights, k=1)[0]
+
+
+def escape(s):
+    return s.replace("\\", "\\\\").replace("'", "\\'")
+
+
+# ─── Realistic Indian e-commerce data distributions ──────────────────────────
+
+PLATFORMS = ["android", "ios"]
+PLATFORM_WEIGHTS = [75, 25]  # India is heavily Android
+
+ANDROID_VERSIONS = ["10", "11", "12", "13", "14"]
+ANDROID_VERSION_WEIGHTS = [15, 20, 25, 25, 15]
+
+IOS_VERSIONS = ["16.0", "16.4", "17.0", "17.2", "17.4"]
+IOS_VERSION_WEIGHTS = [10, 15, 30, 25, 20]
+
+APP_VERSIONS = ["4.0.0", "4.1.0", "4.2.0", "4.2.1", "4.3.0"]
+APP_VERSION_WEIGHTS = [5, 10, 25, 10, 50]
+
+ANDROID_DEVICES = [
+    "SM-A135F",    # Samsung Galaxy A13 (budget)
+    "SM-A546B",    # Samsung Galaxy A54 (mid)
+    "SM-S911B",    # Samsung Galaxy S23 (flagship)
+    "SM-M346B",    # Samsung Galaxy M34 (mid)
+    "Pixel 7",
+    "Pixel 8",
+    "OnePlus 11",
+    "Redmi Note 12",
+    "Realme 10 Pro",
+    "Vivo Y56",
+    "POCO M5",
+]
+ANDROID_DEVICE_WEIGHTS = [18, 10, 5, 12, 4, 3, 6, 16, 10, 9, 7]
+
+IOS_DEVICES = [
+    "iPhone13,2",   # iPhone 12
+    "iPhone14,5",   # iPhone 13
+    "iPhone15,2",   # iPhone 14 Pro
+    "iPhone15,4",   # iPhone 15
+    "iPhone16,1",   # iPhone 15 Pro
+]
+IOS_DEVICE_WEIGHTS = [15, 25, 20, 25, 15]
+
+NETWORKS = ["Jio", "Airtel", "Vi", "BSNL", "wifi"]
+NETWORK_WEIGHTS = [32, 28, 12, 8, 20]
+
+STATES = [
+    "IN-MH", "IN-UP", "IN-KA", "IN-TN", "IN-DL",
+    "IN-AP", "IN-RJ", "IN-GJ", "IN-WB", "IN-KL",
+    "IN-MP", "IN-BR", "IN-HR",
+]
+STATE_WEIGHTS = [14, 13, 10, 9, 8, 8, 7, 7, 6, 5, 5, 4, 4]
+
+SDK_VERSIONS = ["2.1.0", "2.2.0", "2.3.0"]
+SDK_WEIGHTS = [15, 35, 50]
+
+# ─── 12 E-commerce Interactions ──────────────────────────────────────────────
+
+INTERACTIONS = [
+    {
+        "name": "app_launch",
+        "description": "Cold start from tap to home screen fully rendered",
+        "lower": 800, "mid": 1500, "upper": 2500, "threshold": 5000,
+        "events": [
+            {"name": "process_start", "screenName": "SplashScreen"},
+            {"name": "home_rendered", "screenName": "HomeScreen"},
+        ],
+        "base_duration": (1100, 350),
+        "base_error_rate": 0.03,
+        "volume": 8000,
+        # bad_segments: last match wins. SM-A135F row must be FIRST so Os10+Jio / IN-AP rows
+        # still win when they also match (otherwise SM-A135F would override IN-AP and dilute Os10+Jio).
+        "bad_segments": [
+            {
+                # Standalone SM-A135F (non-OS10 so it's a separate DeviceModel dimension in RCA top-N)
+                "match": lambda p, ov, d, n, s, av: d == "SM-A135F",
+                "duration": (3000, 600), "error_rate": 0.55, "crash": 0.08, "anr": 0.04, "frozen": (3, 9, 0.40),
+            },
+            {
+                # Primary cohort: ~_APP_LAUNCH_OS10_JIO_BIAS of spans use Android OS10+Jio (see
+                # pick_app_launch_device_context). Strong error/poor boosts NetworkProvider: Jio
+                # in hybrid ordering and extra flat slots when maxSegments > 4.
+                "match": lambda p, ov, d, n, s, av: ov == "10" and n == "Jio",
+                "duration": (3200, 700), "error_rate": 0.38, "crash": 0.12, "anr": 0.08, "frozen": (2, 9, 0.38),
+            },
+            {
+                # IN-AP sub-cluster — last match wins over generic Os10+Jio for Andhra sessions
+                "match": lambda p, ov, d, n, s, av: ov == "10" and n == "Jio" and s == "IN-AP",
+                "duration": (4200, 900), "error_rate": 0.45, "crash": 0.18, "anr": 0.12, "frozen": (5, 14, 0.55),
+            },
+        ],
+        # 4.2.1 is healthy in app_launch — direction filter must discard it, not send to LLM
+        "good_segments": [
+            {
+                "match": lambda p, ov, d, n, s, av: av == "4.2.1",
+                "duration": (950, 200), "error_rate": 0.003, "crash": 0.0, "anr": 0.0, "frozen": (0, 0, 0.0),
+            },
+            # 4.3.0 baseline healthy for RCA top-N — AppVersion slot is not volume-only noise (global APP weight 50%).
+            {
+                "match": lambda p, ov, d, n, s, av: av == "4.3.0",
+                "duration": (900, 190), "error_rate": 0.003, "crash": 0.0, "anr": 0.0, "frozen": (0, 0, 0.0),
+            },
+        ],
+    },
+    {
+        "name": "home_feed_load",
+        "description": "Loading the personalized home feed with product recommendations",
+        "lower": 600, "mid": 1200, "upper": 2000, "threshold": 4000,
+        "events": [
+            {"name": "feed_request_start", "screenName": "HomeScreen"},
+            {"name": "feed_rendered", "screenName": "HomeScreen"},
+        ],
+        "base_duration": (900, 280),
+        "base_error_rate": 0.04,
+        "volume": 7000,
+        "bad_segments": [
+            {
+                "match": lambda p, ov, d, n, s, av: n == "BSNL",
+                "duration": (2800, 600), "error_rate": 0.55, "crash": 0.01, "anr": 0.03, "frozen": (2, 6, 0.30),
+            },
+            {
+                "match": lambda p, ov, d, n, s, av: d == "Redmi Note 12" and p == "android",
+                "duration": (2200, 450), "error_rate": 0.45, "crash": 0.03, "anr": 0.04, "frozen": (3, 10, 0.40),
+            },
+            {
+                "match": lambda p, ov, d, n, s, av: av == "4.1.0",
+                "duration": (1800, 400), "error_rate": 0.50, "crash": 0.06, "anr": 0.0, "frozen": (0, 0, 0.0),
+            },
+        ],
+        # E2E: direction-filter test — wifi + 4.3.0 sessions are significantly faster and
+        # error-free vs baseline. Agent must NOT flag this as an anomaly.
+        # List wifi+4.3.0 BEFORE generic 4.3.0 (non-wifi) so first match wins in apply_good_segments.
+        "good_segments": [
+            {
+                "match": lambda p, ov, d, n, s, av: n == "wifi" and av == "4.3.0",
+                "duration": (370, 75), "error_rate": 0.004, "crash": 0.0, "anr": 0.0, "frozen": (0, 0, 0.0),
+            },
+            {
+                # 4.3.0 on cellular — healthy so AppVersion does not inflate problematic_count vs baseline.
+                "match": lambda p, ov, d, n, s, av: av == "4.3.0" and n != "wifi",
+                "duration": (820, 200), "error_rate": 0.003, "crash": 0.0, "anr": 0.0, "frozen": (0, 0, 0.0),
+            },
+        ],
+    },
+    {
+        "name": "product_search",
+        "description": "User search query to search results fully rendered",
+        "lower": 500, "mid": 1000, "upper": 1800, "threshold": 3500,
+        "events": [
+            {"name": "search_submitted", "screenName": "SearchScreen"},
+            {"name": "results_rendered", "screenName": "SearchResultsScreen"},
+        ],
+        "base_duration": (750, 250),
+        "base_error_rate": 0.03,
+        "volume": 6000,
+        "bad_segments": [
+            {
+                "match": lambda p, ov, d, n, s, av: n == "BSNL" and s in ("IN-UP", "IN-BR", "IN-MP"),
+                "duration": (3500, 800), "error_rate": 0.65, "crash": 0.02, "anr": 0.05, "frozen": (1, 4, 0.20),
+            },
+            {
+                "match": lambda p, ov, d, n, s, av: p == "android" and ov == "11" and s == "IN-UP",
+                "duration": (2400, 500), "error_rate": 0.55, "crash": 0.04, "anr": 0.06, "frozen": (2, 7, 0.30),
+            },
+        ],
+        # E2E: direction-filter test — iOS 4.3.0 has much BETTER metrics than baseline.
+        # Agent must NOT flag this as an anomaly (direction filter: value < baseline required).
+        "good_segments": [
+            {
+                "match": lambda p, ov, d, n, s, av: p == "ios" and av == "4.3.0",
+                "duration": (310, 60), "error_rate": 0.003, "crash": 0.0, "anr": 0.0, "frozen": (0, 0, 0.0),
+            },
+        ],
+    },
+    {
+        "name": "product_detail_view",
+        "description": "Tapping a product card to full product detail page render",
+        "lower": 400, "mid": 900, "upper": 1600, "threshold": 3000,
+        "events": [
+            {"name": "product_tap", "screenName": "FeedScreen"},
+            {"name": "detail_rendered", "screenName": "ProductDetailScreen"},
+        ],
+        "base_duration": (650, 200),
+        "base_error_rate": 0.025,
+        "volume": 9000,
+        "bad_segments": [
+            {
+                "match": lambda p, ov, d, n, s, av: av == "4.1.0" and p == "android",
+                "duration": (1800, 400), "error_rate": 0.50, "crash": 0.09, "anr": 0.02, "frozen": (1, 4, 0.15),
+            },
+            {
+                "match": lambda p, ov, d, n, s, av: p == "android" and ov == "10",
+                "duration": (2000, 500), "error_rate": 0.40, "crash": 0.03, "anr": 0.02, "frozen": (2, 6, 0.25),
+            },
+            {
+                "match": lambda p, ov, d, n, s, av: d in ("Vivo Y56", "POCO M5") and n == "Vi",
+                "duration": (2500, 600), "error_rate": 0.18, "crash": 0.05, "anr": 0.04, "frozen": (3, 9, 0.35),
+            },
+        ],
+    },
+    {
+        "name": "add_to_cart",
+        "description": "Add to cart button tap to cart update confirmation",
+        "lower": 300, "mid": 600, "upper": 1200, "threshold": 2500,
+        "events": [
+            {"name": "add_cart_tap", "screenName": "ProductDetailScreen"},
+            {"name": "cart_updated", "screenName": "ProductDetailScreen"},
+        ],
+        "base_duration": (400, 150),
+        "base_error_rate": 0.02,
+        "volume": 5000,
+        "bad_segments": [
+            {
+                "match": lambda p, ov, d, n, s, av: p == "ios" and av == "4.0.0",
+                "duration": (1500, 400), "error_rate": 0.60, "crash": 0.04, "anr": 0.0, "frozen": (0, 0, 0.0),
+            },
+            {
+                "match": lambda p, ov, d, n, s, av: s == "IN-GJ" and n in ("Vi", "BSNL"),
+                "duration": (2000, 500), "error_rate": 0.50, "crash": 0.01, "anr": 0.02, "frozen": (1, 3, 0.15),
+            },
+        ],
+    },
+    {
+        "name": "checkout_start",
+        "description": "Cart page load to checkout page ready with address and payment options",
+        "lower": 600, "mid": 1200, "upper": 2200, "threshold": 4500,
+        "events": [
+            {"name": "checkout_initiated", "screenName": "CartScreen"},
+            {"name": "checkout_ready", "screenName": "CheckoutScreen"},
+        ],
+        "base_duration": (950, 300),
+        "base_error_rate": 0.04,
+        "volume": 4000,
+        "bad_segments": [
+            {
+                "match": lambda p, ov, d, n, s, av: n == "Vi" and p == "android",
+                "duration": (3000, 700), "error_rate": 0.55, "crash": 0.02, "anr": 0.06, "frozen": (3, 8, 0.35),
+            },
+            {
+                "match": lambda p, ov, d, n, s, av: d == "SM-A135F",
+                "duration": (2800, 600), "error_rate": 0.45, "crash": 0.03, "anr": 0.04, "frozen": (4, 12, 0.45),
+            },
+        ],
+        # 4.2.1 is healthy in checkout_start — direction filter must discard it
+        "good_segments": [
+            {
+                "match": lambda p, ov, d, n, s, av: av == "4.2.1",
+                "duration": (850, 200), "error_rate": 0.003, "crash": 0.0, "anr": 0.0, "frozen": (0, 0, 0.0),
+            },
+            # 4.3.0 baseline healthy for RCA top-N so AppVersion slot is not volume-only noise.
+            {
+                "match": lambda p, ov, d, n, s, av: av == "4.3.0",
+                "duration": (820, 190), "error_rate": 0.003, "crash": 0.0, "anr": 0.0, "frozen": (0, 0, 0.0),
+            },
+        ],
+    },
+    {
+        "name": "payment_processing",
+        "description": "Payment initiation to payment confirmation or failure",
+        "lower": 1000, "mid": 2500, "upper": 4000, "threshold": 8000,
+        "events": [
+            {"name": "payment_initiated", "screenName": "PaymentScreen"},
+            {"name": "payment_result", "screenName": "PaymentResultScreen"},
+        ],
+        "base_duration": (2000, 600),
+        "base_error_rate": 0.06,
+        "volume": 3500,
+        "bad_segments": [
+            {
+                "match": lambda p, ov, d, n, s, av: p == "android" and ov == "13" and n == "Airtel",
+                "duration": (5500, 1200), "error_rate": 0.55, "crash": 0.05, "anr": 0.08, "frozen": (2, 6, 0.20),
+            },
+            {
+                "match": lambda p, ov, d, n, s, av: s == "IN-WB",
+                "duration": (4000, 800), "error_rate": 0.55, "crash": 0.03, "anr": 0.04, "frozen": (1, 4, 0.15),
+            },
+            {
+                "match": lambda p, ov, d, n, s, av: av == "4.2.0" and p == "ios",
+                "duration": (3500, 700), "error_rate": 0.45, "crash": 0.07, "anr": 0.0, "frozen": (0, 0, 0.0),
+            },
+        ],
+    },
+    {
+        "name": "order_confirmation",
+        "description": "After successful payment to order confirmation screen with order details",
+        "lower": 500, "mid": 1000, "upper": 1800, "threshold": 3500,
+        "events": [
+            {"name": "order_placed", "screenName": "PaymentResultScreen"},
+            {"name": "confirmation_rendered", "screenName": "OrderConfirmationScreen"},
+        ],
+        "base_duration": (800, 250),
+        "base_error_rate": 0.03,
+        "volume": 3000,
+        "bad_segments": [
+            {
+                "match": lambda p, ov, d, n, s, av: av == "4.2.0" and p == "android",
+                "duration": (1600, 400), "error_rate": 0.45, "crash": 0.10, "anr": 0.03, "frozen": (0, 0, 0.0),
+            },
+        ],
+    },
+    {
+        "name": "order_tracking",
+        "description": "Opening order tracking page with delivery status and map",
+        "lower": 700, "mid": 1400, "upper": 2500, "threshold": 5000,
+        "events": [
+            {"name": "tracking_requested", "screenName": "OrdersListScreen"},
+            {"name": "tracking_rendered", "screenName": "OrderTrackingScreen"},
+        ],
+        "base_duration": (1000, 300),
+        "base_error_rate": 0.035,
+        "volume": 4500,
+        "bad_segments": [
+            {
+                "match": lambda p, ov, d, n, s, av: n == "BSNL" and s in ("IN-RJ", "IN-MP", "IN-BR"),
+                "duration": (4000, 900), "error_rate": 0.60, "crash": 0.02, "anr": 0.05, "frozen": (2, 7, 0.25),
+            },
+            {
+                "match": lambda p, ov, d, n, s, av: p == "ios" and ov == "16.0",
+                "duration": (2500, 500), "error_rate": 0.55, "crash": 0.06, "anr": 0.0, "frozen": (0, 0, 0.0),
+            },
+        ],
+        # 4.2.1 is healthy in order_tracking — direction filter must discard it
+        "good_segments": [
+            {
+                "match": lambda p, ov, d, n, s, av: av == "4.2.1",
+                "duration": (900, 200), "error_rate": 0.003, "crash": 0.0, "anr": 0.0, "frozen": (0, 0, 0.0),
+            },
+        ],
+    },
+    {
+        "name": "category_browse",
+        "description": "Selecting a product category to category page fully rendered with filters",
+        "lower": 500, "mid": 1000, "upper": 1800, "threshold": 3500,
+        "events": [
+            {"name": "category_selected", "screenName": "HomeScreen"},
+            {"name": "category_rendered", "screenName": "CategoryScreen"},
+        ],
+        "base_duration": (800, 250),
+        "base_error_rate": 0.03,
+        "volume": 5500,
+        "bad_segments": [
+            {
+                "match": lambda p, ov, d, n, s, av: n == "Jio" and s == "IN-AP",
+                "duration": (2800, 600), "error_rate": 0.50, "crash": 0.02, "anr": 0.03, "frozen": (4, 12, 0.45),
+            },
+            {
+                "match": lambda p, ov, d, n, s, av: d == "OnePlus 11" and p == "android",
+                "duration": (1800, 400), "error_rate": 0.35, "crash": 0.12, "anr": 0.02, "frozen": (1, 3, 0.10),
+            },
+            {
+                "match": lambda p, ov, d, n, s, av: av == "4.0.0",
+                "duration": (2200, 500), "error_rate": 0.55, "crash": 0.04, "anr": 0.03, "frozen": (2, 6, 0.20),
+            },
+        ],
+    },
+    {
+        "name": "image_gallery_load",
+        "description": "Product image gallery tap to full-screen swipeable gallery loaded",
+        "lower": 400, "mid": 800, "upper": 1500, "threshold": 3000,
+        "events": [
+            {"name": "gallery_tap", "screenName": "ProductDetailScreen"},
+            {"name": "gallery_loaded", "screenName": "ImageGalleryScreen"},
+        ],
+        "base_duration": (600, 200),
+        "base_error_rate": 0.025,
+        "volume": 6500,
+        "bad_segments": [
+            {
+                "match": lambda p, ov, d, n, s, av: d in ("SM-A135F", "Vivo Y56", "POCO M5", "Realme 10 Pro"),
+                "duration": (2000, 500), "error_rate": 0.12, "crash": 0.03, "anr": 0.02, "frozen": (3, 10, 0.35),
+            },
+            {
+                "match": lambda p, ov, d, n, s, av: d == "SM-A135F" and n == "Jio",
+                "duration": (3000, 700), "error_rate": 0.25, "crash": 0.08, "anr": 0.05, "frozen": (5, 15, 0.50),
+            },
+        ],
+        # 4.2.1 is healthy in image_gallery_load — direction filter must discard it
+        "good_segments": [
+            {
+                "match": lambda p, ov, d, n, s, av: av == "4.2.1",
+                "duration": (550, 150), "error_rate": 0.003, "crash": 0.0, "anr": 0.0, "frozen": (0, 0, 0.0),
+            },
+            # 4.3.0 baseline healthy for RCA top-N so AppVersion slot is not volume-only noise.
+            {
+                "match": lambda p, ov, d, n, s, av: av == "4.3.0",
+                "duration": (530, 145), "error_rate": 0.003, "crash": 0.0, "anr": 0.0, "frozen": (0, 0, 0.0),
+            },
+        ],
+    },
+    {
+        "name": "profile_update",
+        "description": "Tapping profile tab to full account page with order history rendered",
+        "lower": 500, "mid": 1000, "upper": 1800, "threshold": 3500,
+        "events": [
+            {"name": "profile_tab_tap", "screenName": "HomeScreen"},
+            {"name": "profile_rendered", "screenName": "ProfileScreen"},
+        ],
+        "base_duration": (750, 220),
+        "base_error_rate": 0.03,
+        "volume": 4000,
+        "bad_segments": [
+            {
+                "match": lambda p, ov, d, n, s, av: s == "IN-KA" and n == "Vi",
+                "duration": (2500, 550), "error_rate": 0.55, "crash": 0.04, "anr": 0.06, "frozen": (2, 6, 0.25),
+            },
+            {
+                "match": lambda p, ov, d, n, s, av: av == "4.0.0" and p == "android",
+                "duration": (2200, 500), "error_rate": 0.50, "crash": 0.05, "anr": 0.03, "frozen": (1, 4, 0.15),
+            },
+        ],
+    },
+    # ── E2E test case: everything_good ───────────────────────────────────────
+    # No bad_segments. baseline_error_rate MUST be 0: RCA problematic_count is
+    # countIf(Error OR user_category='Poor') per span. Any Error span skips the
+    # everythingGood shortcut (totalProblematic==0) and runAlgorithm emits segments.
+    # Duration uses fast p50 vs apdex bounds so Gaussian tails stay below `upper`
+    # (Poor) with negligible probability at this volume.
+    {
+        "name": "notifications_open",
+        "description": "Opening notifications panel to full list rendered — healthy baseline, no regressions",
+        "lower": 200, "mid": 400, "upper": 700, "threshold": 1500,
+        "events": [
+            {"name": "notif_tap", "screenName": "HomeScreen"},
+            {"name": "notif_rendered", "screenName": "NotificationsScreen"},
+        ],
+        "base_duration": (260, 70),
+        "base_error_rate": 0.0,
+        "volume": 2500,
+        "bad_segments": [],
+    },
+    # ── E2E test case: single eligible segment ────────────────────────────────
+    # Exactly ONE bad segment (iOS 16.0 + Vi). Agent must NOT pad with a second
+    # invented segment — output should have segments=[1 entry].
+    {
+        "name": "deeplink_open",
+        "description": "Deep link from push notification to product page — single isolated bad segment",
+        "lower": 300, "mid": 600, "upper": 1000, "threshold": 2000,
+        "events": [
+            {"name": "deeplink_received", "screenName": "SplashScreen"},
+            {"name": "deeplink_rendered", "screenName": "ProductDetailScreen"},
+        ],
+        "base_duration": (420, 130),
+        "base_error_rate": 0.02,
+        "volume": 3000,
+        "bad_segments": [
+            {
+                "match": lambda p, ov, d, n, s, av: p == "ios" and ov == "16.0" and n == "Vi",
+                "duration": (2800, 600), "error_rate": 0.38, "crash": 0.09, "anr": 0.0, "frozen": (0, 0, 0.0),
+            },
+        ],
+        # Most volume is android/4.3.0 — mark 4.3.0 healthy so RCA is not dominated by AppVersion noise.
+        "good_segments": [
+            {
+                "match": lambda p, ov, d, n, s, av: av == "4.3.0",
+                "duration": (400, 120), "error_rate": 0.003, "crash": 0.0, "anr": 0.0, "frozen": (0, 0, 0.0),
+            },
+        ],
+    },
+
+    # ── E2E test case: cross-category 3-way compounds (device + app_version + geo) ──
+    # Tests that the segmentation backend discovers clusters spanning hardware,
+    # software version, AND geography simultaneously — and that the AI narratives
+    # the compound coherently without collapsing it into single-dimension findings.
+    {
+        "name": "wishlist_add",
+        "description": "Adding a product to the wishlist — cross-category 3-way compounds",
+        "lower": 200, "mid": 500, "upper": 900, "threshold": 2000,
+        "events": [
+            {"name": "wishlist_tap", "screenName": "ProductDetailScreen"},
+            {"name": "wishlist_updated", "screenName": "ProductDetailScreen"},
+        ],
+        "base_duration": (340, 110),
+        "base_error_rate": 0.02,
+        "volume": 4500,
+        "bad_segments": [
+            {
+                # device + app_version + geo — hardware × software × location
+                "match": lambda p, ov, d, n, s, av: d == "SM-A135F" and av == "4.2.0" and s in ("IN-UP", "IN-BR"),
+                "duration": (2300, 550), "error_rate": 0.30, "crash": 0.07, "anr": 0.03, "frozen": (2, 7, 0.25),
+            },
+            {
+                # platform + device_cluster + network — hardware × carrier × OS family
+                "match": lambda p, ov, d, n, s, av: p == "android" and d in ("Vivo Y56", "POCO M5") and n == "BSNL",
+                "duration": (1900, 420), "error_rate": 0.20, "crash": 0.03, "anr": 0.05, "frozen": (1, 4, 0.20),
+            },
+        ],
+    },
+
+    # ── E2E test case: 4-way cross-category compound ─────────────────────────
+    # platform + OS + device + network in one segment — the deepest compound in
+    # the seed. Tests that the backend's hierarchical splitter can surface a
+    # 4-dimension cluster and the AI does not flatten it.
+    {
+        "name": "coupon_apply",
+        "description": "Applying a coupon code at checkout — 4-way and 2-way cross-category compounds",
+        "lower": 400, "mid": 800, "upper": 1500, "threshold": 3000,
+        "events": [
+            {"name": "coupon_submitted", "screenName": "CheckoutScreen"},
+            {"name": "coupon_validated", "screenName": "CheckoutScreen"},
+        ],
+        "base_duration": (500, 160),
+        "base_error_rate": 0.03,
+        "volume": 3500,
+        "bad_segments": [
+            {
+                # platform + OS version + device + network — 4-way: hardware × OS × carrier × platform
+                "match": lambda p, ov, d, n, s, av: p == "android" and ov == "12" and d == "Redmi Note 12" and n == "Jio",
+                "duration": (2600, 650), "error_rate": 0.35, "crash": 0.05, "anr": 0.09, "frozen": (3, 9, 0.35),
+            },
+            {
+                # app_version + geo — software × location (2-way cross-category)
+                "match": lambda p, ov, d, n, s, av: av == "4.1.0" and s in ("IN-RJ", "IN-MP"),
+                "duration": (1700, 380), "error_rate": 0.18, "crash": 0.04, "anr": 0.02, "frozen": (0, 0, 0.0),
+            },
+        ],
+    },
+
+    # ── E2E test case: OS version + app_version + geo (software stack + location) ─
+    # All three dimensions come from different conceptual categories but none is
+    # the physical device — tests a purely software+geo compound.
+    # Also has device + platform + app_version to cover hardware × platform × software.
+    {
+        "name": "review_submit",
+        "description": "Submitting a product review — OS×app_version×geo and device×platform×app_version compounds",
+        "lower": 500, "mid": 1000, "upper": 1800, "threshold": 3500,
+        "events": [
+            {"name": "review_drafted", "screenName": "ProductDetailScreen"},
+            {"name": "review_submitted", "screenName": "ProductDetailScreen"},
+        ],
+        "base_duration": (650, 200),
+        "base_error_rate": 0.025,
+        "volume": 2800,
+        "bad_segments": [
+            {
+                # OS version + app_version + geo — software stack × location (no device/platform)
+                "match": lambda p, ov, d, n, s, av: ov == "13" and av == "4.2.0" and s == "IN-WB",
+                "duration": (2400, 580), "error_rate": 0.28, "crash": 0.06, "anr": 0.04, "frozen": (1, 4, 0.15),
+            },
+            {
+                # device + platform + app_version — hardware × OS family × software version
+                "match": lambda p, ov, d, n, s, av: d == "OnePlus 11" and p == "android" and av == "4.3.0",
+                "duration": (1800, 400), "error_rate": 0.14, "crash": 0.08, "anr": 0.02, "frozen": (2, 6, 0.20),
+            },
+        ],
+    },
+]
+
+# ─── Span generation ─────────────────────────────────────────────────────────
+
+now = datetime.now(timezone.utc)
+start_time = now - timedelta(hours=24)
+
+# Global cache of session_id -> device_context to ensure consistency across ALL function calls
+# This ensures that when the same session_id is used in multiple interactions or RUM events,
+# it always gets the same platform/device/os_version/app_version combination
+GLOBAL_SESSION_CONTEXTS = {}
+
+
+def pick_device_context():
+    platform = wc(PLATFORMS, PLATFORM_WEIGHTS)
+    if platform == "android":
+        os_version = wc(ANDROID_VERSIONS, ANDROID_VERSION_WEIGHTS)
+        device = wc(ANDROID_DEVICES, ANDROID_DEVICE_WEIGHTS)
+    else:
+        os_version = wc(IOS_VERSIONS, IOS_VERSION_WEIGHTS)
+        device = wc(IOS_DEVICES, IOS_DEVICE_WEIGHTS)
+    network = wc(NETWORKS, NETWORK_WEIGHTS)
+    state = wc(STATES, STATE_WEIGHTS)
+    app_version = wc(APP_VERSIONS, APP_VERSION_WEIGHTS)
+    sdk_version = wc(SDK_VERSIONS, SDK_WEIGHTS)
+    return platform, os_version, device, network, state, app_version, sdk_version
+
+
+# Share of app_launch spans forced into Android OS 10 + Jio (matches Os10+Jio bad_segment).
+# Unique al_* sessions per app_launch span avoid GLOBAL_SESSION_CONTEXTS diluting this cohort
+# when the same session_id appears in other interactions.
+_APP_LAUNCH_OS10_JIO_BIAS = 0.48
+# Android SM-A135F on OS != 10 so only the SM-A135F bad row applies — boosts DeviceModel in RCA top-N.
+_APP_LAUNCH_SM_A135F_STANDALONE_BIAS = 0.10
+
+
+def pick_app_launch_device_context():
+    """
+    Bias app_launch toward Android OS 10 + Jio so OsVersion:10 and NetworkProvider: Jio get
+    enough problematic mass (hybrid ordering + extra segments). A dedicated SM-A135F cohort
+    (non–OS 10) keeps the borderline DeviceModel slice in play.
+    """
+    r = random.random()
+    if r < _APP_LAUNCH_SM_A135F_STANDALONE_BIAS:
+        platform = "android"
+        device = "SM-A135F"
+        os_version = wc(["11", "12", "13", "14"], [28, 28, 24, 20])
+        network = wc(NETWORKS, NETWORK_WEIGHTS)
+        state = wc(STATES, STATE_WEIGHTS)
+        app_version = wc(APP_VERSIONS, APP_VERSION_WEIGHTS)
+        sdk_version = wc(SDK_VERSIONS, SDK_WEIGHTS)
+        return platform, os_version, device, network, state, app_version, sdk_version
+    if r < _APP_LAUNCH_SM_A135F_STANDALONE_BIAS + _APP_LAUNCH_OS10_JIO_BIAS:
+        platform = "android"
+        os_version = "10"
+        network = "Jio"
+        device = wc(ANDROID_DEVICES, ANDROID_DEVICE_WEIGHTS)
+        state = wc(STATES, STATE_WEIGHTS)
+        app_version = wc(APP_VERSIONS, APP_VERSION_WEIGHTS)
+        sdk_version = wc(SDK_VERSIONS, SDK_WEIGHTS)
+        return platform, os_version, device, network, state, app_version, sdk_version
+    return pick_device_context()
+
+
+# ~54% of home_feed_load spans biased into BSNL / Redmi / 4.1.0 (per-span hf_* sessions).
+# Slightly higher bias + uneven t-split boosts 4.1.0 share for RCA without starving BSNL/Redmi.
+_HOME_FEED_BAD_COHORT_BIAS = 0.54
+
+
+def pick_home_feed_load_context():
+    """
+    Per-span bias so BSNL, Redmi Note 12 (android), and app 4.1.0 cohorts have enough volume
+    in RCA top-N without relying on GLOBAL_SESSION_CONTEXTS session reuse.
+    """
+    r = random.random()
+    if r >= _HOME_FEED_BAD_COHORT_BIAS:
+        return pick_device_context()
+    t = random.random()
+    if t < 0.30:
+        p, ov, d, _, s, av, sv = pick_device_context()
+        return p, ov, d, "BSNL", s, av, sv
+    if t < 0.58:
+        ov = wc(ANDROID_VERSIONS, ANDROID_VERSION_WEIGHTS)
+        n = wc(NETWORKS, NETWORK_WEIGHTS)
+        s = wc(STATES, STATE_WEIGHTS)
+        av = wc(APP_VERSIONS, APP_VERSION_WEIGHTS)
+        sdk = wc(SDK_VERSIONS, SDK_WEIGHTS)
+        return "android", ov, "Redmi Note 12", n, s, av, sdk
+    p, ov, d, n, s, _, sv = pick_device_context()
+    return p, ov, d, n, s, "4.1.0", sv
+
+
+# ~52% of payment_processing spans mirror the three bad_segment cohorts (per-span pp_* sessions).
+_PAYMENT_PROCESSING_BAD_COHORT_BIAS = 0.52
+
+
+def pick_payment_processing_context():
+    """
+    Concentrate volume into android OS13+Airtel, IN-WB geo, and ios+4.2.0 (same order as bad_segments)
+    so RCA surfaces those dimensions; remainder uses the global device mix.
+    """
+    r = random.random()
+    if r >= _PAYMENT_PROCESSING_BAD_COHORT_BIAS:
+        return pick_device_context()
+    t = random.random()
+    if t < 1 / 3:
+        device = wc(ANDROID_DEVICES, ANDROID_DEVICE_WEIGHTS)
+        s = wc(STATES, STATE_WEIGHTS)
+        av = wc(APP_VERSIONS, APP_VERSION_WEIGHTS)
+        sv = wc(SDK_VERSIONS, SDK_WEIGHTS)
+        return "android", "13", device, "Airtel", s, av, sv
+    if t < 2 / 3:
+        p, ov, d, n, _, av, sv = pick_device_context()
+        return p, ov, d, n, "IN-WB", av, sv
+    ov = wc(IOS_VERSIONS, IOS_VERSION_WEIGHTS)
+    d = wc(IOS_DEVICES, IOS_DEVICE_WEIGHTS)
+    n = wc(NETWORKS, NETWORK_WEIGHTS)
+    s = wc(STATES, STATE_WEIGHTS)
+    sv = wc(SDK_VERSIONS, SDK_WEIGHTS)
+    return "ios", ov, d, n, s, "4.2.0", sv
+
+
+_CATEGORY_BROWSE_BAD_COHORT_BIAS = 0.50
+
+
+def pick_category_browse_context(idx):
+    """
+    ~50% into rotating bad cohorts (Jio+IN-AP, OnePlus 11+android, app 4.0.0) matching category_browse
+    bad_segments; remainder uses pick_device_context(). Session ids are cb_* per span (caller).
+    """
+    r = random.random()
+    if r >= _CATEGORY_BROWSE_BAD_COHORT_BIAS:
+        return pick_device_context()
+    bucket = idx % 3
+    if bucket == 0:
+        p, ov, d, _, s, av, sv = pick_device_context()
+        return p, ov, d, "Jio", "IN-AP", av, sv
+    if bucket == 1:
+        ov = wc(ANDROID_VERSIONS, ANDROID_VERSION_WEIGHTS)
+        n = wc(NETWORKS, NETWORK_WEIGHTS)
+        s = wc(STATES, STATE_WEIGHTS)
+        av = wc(APP_VERSIONS, APP_VERSION_WEIGHTS)
+        sdk = wc(SDK_VERSIONS, SDK_WEIGHTS)
+        return "android", ov, "OnePlus 11", n, s, av, sdk
+    p, ov, d, n, s, _, sv = pick_device_context()
+    return p, ov, d, n, s, "4.0.0", sv
+
+
+def apply_bad_segments(interaction, platform, os_version, device, network, state, app_version):
+    """Return the most specific matching bad segment (last match wins)."""
+    result = None
+    for seg in interaction.get("bad_segments", []):
+        if seg["match"](platform, os_version, device, network, state, app_version):
+            result = seg
+    return result
+
+
+def apply_good_segments(interaction, platform, os_version, device, network, state, app_version):
+    """Return the first matching good (improved) segment, or None. Bad segments take priority."""
+    for seg in interaction.get("good_segments", []):
+        if seg["match"](platform, os_version, device, network, state, app_version):
+            return seg
+    return None
+
+
+def compute_apdex(duration_ms, is_error, lower, mid, upper):
+    if is_error:
+        return "0", ""
+    if duration_ms < lower:
+        return "1.0", "Excellent"
+    elif duration_ms < mid:
+        return "0.75", "Good"
+    elif duration_ms < upper:
+        return "0.25", "Average"
+    else:
+        return "0.0", "Poor"
+
+
+def generate_interaction_rows(interaction, project_id):
+    rows = []
+    vol = interaction["volume"]
+    base_dur_mean, base_dur_std = interaction["base_duration"]
+    base_err = interaction["base_error_rate"]
+    lower, mid, upper = interaction["lower"], interaction["mid"], interaction["upper"]
+    span_name = interaction["name"]
+
+    for idx in range(vol):
+        ts = start_time + timedelta(seconds=random.randint(0, 86400))
+        ts_str = ts.strftime("%Y-%m-%d %H:%M:%S.%f000")
+
+        trace_id = uuid.uuid4().hex
+        span_id = uuid.uuid4().hex[:16]
+        user_id = f"u_{random.randint(1, 800)}"
+
+        if span_name == "app_launch":
+            # One session per span so OS10+Jio bias is not washed out by cross-interaction reuse.
+            session_id = f"al_{idx:05d}"
+            platform, os_version, device, network, state, app_version, sdk_version = (
+                pick_app_launch_device_context()
+            )
+        elif span_name == "home_feed_load":
+            session_id = f"hf_{idx:05d}"
+            platform, os_version, device, network, state, app_version, sdk_version = (
+                pick_home_feed_load_context()
+            )
+        elif span_name == "payment_processing":
+            session_id = f"pp_{idx:05d}"
+            platform, os_version, device, network, state, app_version, sdk_version = (
+                pick_payment_processing_context()
+            )
+        elif span_name == "category_browse":
+            session_id = f"cb_{idx:05d}"
+            platform, os_version, device, network, state, app_version, sdk_version = (
+                pick_category_browse_context(idx)
+            )
+        else:
+            session_id = f"s_{random.randint(1, 2000)}"
+            # Use GLOBAL cached device context for this session, or generate a new one
+            if session_id not in GLOBAL_SESSION_CONTEXTS:
+                GLOBAL_SESSION_CONTEXTS[session_id] = pick_device_context()
+            platform, os_version, device, network, state, app_version, sdk_version = (
+                GLOBAL_SESSION_CONTEXTS[session_id]
+            )
+
+        dur_mean, dur_std = base_dur_mean, base_dur_std
+        error_rate = base_err
+        crash_rate = 0.005
+        anr_rate = 0.002
+        frozen_min, frozen_max, frozen_prob = 0, 0, 0.0
+
+        bad = apply_bad_segments(interaction, platform, os_version, device, network, state, app_version)
+        good = None if bad else apply_good_segments(interaction, platform, os_version, device, network, state, app_version)
+        seg = bad or good
+        if seg:
+            dur_mean, dur_std = seg["duration"]
+            error_rate = seg["error_rate"]
+            crash_rate = seg["crash"]
+            anr_rate = seg["anr"]
+            frozen_min, frozen_max, frozen_prob = seg["frozen"]
+
+        is_error = random.random() < error_rate
+        duration_ms = max(100, random.gauss(dur_mean, dur_std))
+        duration_ns = int(duration_ms * 1e6)
+
+        has_crash = random.random() < crash_rate
+        has_anr = random.random() < anr_rate
+        frozen_frames = random.randint(frozen_min, frozen_max) if frozen_prob > 0 and random.random() < frozen_prob else 0
+
+        apdex_score, user_category = compute_apdex(duration_ms, is_error, lower, mid, upper)
+        status_code = "Error" if is_error else "Ok"
+
+        event_names = []
+        if has_crash:
+            event_names.append("device.crash")
+        if has_anr:
+            event_names.append("device.anr")
+
+        events_name_str = "[" + ",".join(f"'{e}'" for e in event_names) + "]"
+        events_ts_str = "[" + ",".join(f"'{ts_str}'" for _ in event_names) + "]"
+        events_attr_str = "[" + ",".join("map()" for _ in event_names) + "]"
+
+        analysed = frozen_frames + random.randint(50, 200) if frozen_frames > 0 else 0
+        unanalysed = random.randint(0, 10) if frozen_frames > 0 else 0
+
+        span_attrs_parts = [
+            "'pulse.type','interaction'",
+            f"'session.id','{escape(session_id)}'",
+            f"'user.id','{escape(user_id)}'",
+            f"'geo.region.iso_code','{escape(state)}'",
+            "'geo.country','IN'",
+            f"'network.carrier.name','{escape(network)}'",
+            f"'pulse.interaction.apdex_score','{apdex_score}'",
+        ]
+        if user_category:
+            span_attrs_parts.append(f"'pulse.interaction.user_category','{user_category}'")
+        if frozen_frames > 0:
+            span_attrs_parts.append(f"'app.interaction.frozen_frame_count','{frozen_frames}'")
+            span_attrs_parts.append(f"'app.interaction.analysed_frame_count','{analysed}'")
+            span_attrs_parts.append(f"'app.interaction.unanalysed_frame_count','{unanalysed}'")
+
+        span_attr_str = "map(" + ",".join(span_attrs_parts) + ")"
+
+        resource_attrs_parts = [
+            f"'os.type','{escape(platform)}'",
+            f"'os.version','{escape(os_version)}'",
+            f"'app.version','{escape(app_version)}'",
+            f"'device.model.identifier','{escape(device)}'",
+            f"'project.id','{escape(project_id)}'",
+            f"'telemetry.sdk.version','{escape(sdk_version)}'",
+        ]
+        resource_attr_str = "map(" + ",".join(resource_attrs_parts) + ")"
+
+        row = (
+            f"('{ts_str}','{trace_id}','{span_id}','','','{span_name}','CLIENT','pulse-sdk',"
+            f"{resource_attr_str},'pulse','1.0',{span_attr_str},"
+            f"{duration_ns},'{status_code}','',{events_ts_str},{events_name_str},{events_attr_str},"
+            f"[],[],[],[])"
+        )
+        rows.append(row)
+
+    return rows
+
+
+# ─── Track B (error attribution) — correlated otel_traces + stack_trace_events ─
+# GET /v1/interactions/{name}/error-attribution uses universe U = sessions with an
+# interaction span for SpanName; trace_agg joins all spans in U; stack_agg joins
+# stack_trace_events on SessionId. This block adds sessions that share ids across
+# interaction + stack (and optional network.* Error rows) so local QA can exceed
+# the 1,000 Poor-session gate and exercise all four signals.
+TRACK_B_INTERACTION_NAME = "add_to_cart"
+
+
+def _track_b_resource_attrs(project_id, platform, os_version, device, app_version, sdk_version):
+    return (
+        "map("
+        f"'os.type','{escape(platform)}',"
+        f"'os.version','{escape(os_version)}',"
+        f"'app.version','{escape(app_version)}',"
+        f"'device.model.identifier','{escape(device)}',"
+        f"'project.id','{escape(project_id)}',"
+        f"'telemetry.sdk.version','{escape(sdk_version)}')"
+    )
+
+
+def _track_b_interaction_span_row(
+    ts_str,
+    trace_id,
+    span_id,
+    session_id,
+    user_id,
+    state,
+    network,
+    project_id,
+    platform,
+    os_version,
+    device,
+    app_version,
+    sdk_version,
+    duration_ms,
+    user_category,
+    status_code,
+):
+    """Single interaction pulse span; PulseType materialized from SpanAttributes."""
+    duration_ns = int(max(100, duration_ms) * 1e6)
+    resource_attr_str = _track_b_resource_attrs(
+        project_id, platform, os_version, device, app_version, sdk_version
+    )
+    span_attrs_parts = [
+        "'pulse.type','interaction'",
+        f"'session.id','{escape(session_id)}'",
+        f"'user.id','{escape(user_id)}'",
+        f"'geo.region.iso_code','{escape(state)}'",
+        "'geo.country','IN'",
+        f"'network.carrier.name','{escape(network)}'",
+        f"'pulse.interaction.name','{escape(TRACK_B_INTERACTION_NAME)}'",
+    ]
+    if user_category:
+        span_attrs_parts.append(f"'pulse.interaction.user_category','{escape(user_category)}'")
+    span_attr_str = "map(" + ",".join(span_attrs_parts) + ")"
+    return (
+        f"('{ts_str}','{trace_id}','{span_id}','','','{TRACK_B_INTERACTION_NAME}',"
+        f"'CLIENT','pulse-sdk',{resource_attr_str},'pulse','1.0',{span_attr_str},"
+        f"{duration_ns},'{status_code}','',[],[],[],[],[],[],[])"
+    )
+
+
+def _track_b_network_error_span_row(
+    ts_str,
+    trace_id,
+    span_id,
+    session_id,
+    user_id,
+    state,
+    network,
+    project_id,
+    platform,
+    os_version,
+    device,
+    app_version,
+    sdk_version,
+):
+    """network.* + StatusCode Error → t_api in error-attribution trace_agg."""
+    resource_attr_str = _track_b_resource_attrs(
+        project_id, platform, os_version, device, app_version, sdk_version
+    )
+    span_attrs_parts = [
+        "'pulse.type','network.http'",
+        f"'session.id','{escape(session_id)}'",
+        f"'user.id','{escape(user_id)}'",
+        f"'geo.region.iso_code','{escape(state)}'",
+        "'geo.country','IN'",
+        f"'network.carrier.name','{escape(network)}'",
+    ]
+    span_attr_str = "map(" + ",".join(span_attrs_parts) + ")"
+    return (
+        f"('{ts_str}','{trace_id}','{span_id}','','','HTTP POST /api/checkout',"
+        f"'CLIENT','pulse-sdk',{resource_attr_str},'pulse','1.0',{span_attr_str},"
+        f"1200000000,'Error','timeout',[],[],[],[],[],[],[])"
+    )
+
+
+def _track_b_stack_row(
+    ts_str,
+    session_id,
+    user_id,
+    project_id,
+    platform,
+    os_version,
+    device,
+    app_version,
+    sdk_version,
+    state,
+    network,
+    event_name,
+    pulse_type_log,
+    exc_type,
+    exc_message,
+):
+    import hashlib
+
+    trace_id = uuid.uuid4().hex
+    span_id = uuid.uuid4().hex[:16]
+    screen = "ProductDetailScreen"
+    interactions_str = f"['{escape(TRACK_B_INTERACTION_NAME)}']"
+    sig_input = f"v1|{platform}|{event_name}|{exc_type}|{exc_message[:40]}"
+    fingerprint = hashlib.sha1(sig_input.encode()).hexdigest()
+    group_id = f"TB-{fingerprint[:8].upper()}"
+    title = f"{exc_type}: {exc_message[:80]} [{group_id}]"
+    stack_trace = f"{exc_type}: {exc_message}\n  at com.app.TrackBSeed.seed(TrackB.java:42)"
+    log_attrs = f"map('pulse.type','{escape(pulse_type_log)}')"
+    resource_attrs = _track_b_resource_attrs(
+        project_id, platform, os_version, device, app_version, sdk_version
+    )
+    return (
+        f"('{ts_str}','{escape(event_name)}','{escape(title)}',"
+        f"'{escape(stack_trace)}','{escape(stack_trace)}','{escape(exc_message)}','{escape(exc_type)}',"
+        f"{interactions_str},'{escape(screen)}',"
+        f"'{escape(user_id)}','{escape(session_id)}',"
+        f"'{escape(platform)}','{escape(os_version)}','{escape(device)}',"
+        f"'1','{escape(app_version)}','{escape(sdk_version)}','',"
+        f"'{trace_id}','{span_id}',"
+        f"'{escape(group_id)}','{escape(sig_input)}','{fingerprint}',"
+        f"map(),{log_attrs},{resource_attrs})"
+    )
+
+
+def generate_track_b_error_attribution_rows(project_id):
+    """
+    Correlated sessions for Track B manual / API testing (see docs/causal/plan testing plan).
+
+    - Interaction: TRACK_B_INTERACTION_NAME (add_to_cart) with explicit Poor / Good categories.
+    - Timestamps uniformly in the same 24h window as bulk otel seed (start_time .. start_time+24h)
+      so they stay inside the RCA 7-day error-attribution window longer than the old "last 6h only"
+      slice (which aged out quickly).
+    - Stack / network error timestamps are strictly before the Poor interaction timestamp so
+      drill-down with issueMustPrecedePoor (first_issue_ts < poor_ts) is not starved.
+    - >= 1_100 Poor sessions in U so the nPoorInU >= 1_000 gate can pass.
+    """
+    trace_rows = []
+    stack_rows = []
+
+    window_end = start_time + timedelta(hours=24)
+    window_start = start_time
+
+    def pick_ts():
+        delta = (window_end - window_start).total_seconds()
+        return window_start + timedelta(seconds=random.randint(0, max(1, int(delta) - 1)))
+
+    def issue_ts_before_poor_interaction_ts():
+        """
+        Return (issue_ts, interaction_ts) with issue_ts < interaction_ts.
+
+        Error-attribution drill-down with issueMustPrecedePoor requires
+        first_issue_ts < poor_ts (strict). Using the same Timestamp for stack
+        and interaction makes n_treated_low drop to zero.
+        """
+        interaction_ts = pick_ts()
+        issue_ts = interaction_ts - timedelta(seconds=120)
+        if issue_ts < window_start:
+            issue_ts = window_start
+            interaction_ts = min(
+                window_end - timedelta(milliseconds=1),
+                issue_ts + timedelta(seconds=180),
+            )
+        return issue_ts, interaction_ts
+
+    # Fixed android context for stable stack signatures (optional variety later)
+    platform, os_version, device = "android", "13", "Pixel 6"
+    app_version, sdk_version = "4.2.0", "2.3.0"
+    state, network = "IN-GJ", "Vi"
+
+    # 1_100 Poor + crash (stack_trace_events device.crash, same SessionId)
+    for i in range(1100):
+        session_id = f"tb_poor_crash_{i:05d}"
+        user_id = f"tb_u_{i:05d}"
+        ts_issue, ts = issue_ts_before_poor_interaction_ts()
+        ts_stack_str = ts_issue.strftime("%Y-%m-%d %H:%M:%S.%f000")
+        ts_str = ts.strftime("%Y-%m-%d %H:%M:%S.%f000")
+        trace_id = uuid.uuid4().hex
+        span_i = uuid.uuid4().hex[:16]
+        trace_rows.append(
+            _track_b_interaction_span_row(
+                ts_str,
+                trace_id,
+                span_i,
+                session_id,
+                user_id,
+                state,
+                network,
+                project_id,
+                platform,
+                os_version,
+                device,
+                app_version,
+                sdk_version,
+                1500.0,
+                "Poor",
+                "Ok",
+            )
+        )
+        stack_rows.append(
+            _track_b_stack_row(
+                ts_stack_str,
+                session_id,
+                user_id,
+                project_id,
+                platform,
+                os_version,
+                device,
+                app_version,
+                sdk_version,
+                state,
+                network,
+                "device.crash",
+                "device.crash",
+                "java.lang.IllegalStateException",
+                "Track B seed crash",
+            )
+        )
+
+    # 150 Poor + ANR
+    for i in range(150):
+        session_id = f"tb_poor_anr_{i:04d}"
+        user_id = f"tb_ua_{i:04d}"
+        ts_issue, ts = issue_ts_before_poor_interaction_ts()
+        ts_stack_str = ts_issue.strftime("%Y-%m-%d %H:%M:%S.%f000")
+        ts_str = ts.strftime("%Y-%m-%d %H:%M:%S.%f000")
+        trace_id = uuid.uuid4().hex
+        span_i = uuid.uuid4().hex[:16]
+        trace_rows.append(
+            _track_b_interaction_span_row(
+                ts_str,
+                trace_id,
+                span_i,
+                session_id,
+                user_id,
+                state,
+                network,
+                project_id,
+                platform,
+                os_version,
+                device,
+                app_version,
+                sdk_version,
+                1500.0,
+                "Poor",
+                "Ok",
+            )
+        )
+        stack_rows.append(
+            _track_b_stack_row(
+                ts_stack_str,
+                session_id,
+                user_id,
+                project_id,
+                platform,
+                os_version,
+                device,
+                app_version,
+                sdk_version,
+                state,
+                network,
+                "device.anr",
+                "device.anr",
+                "ANR",
+                "Track B seed ANR",
+            )
+        )
+
+    # 120 Poor + non_fatal stack
+    for i in range(120):
+        session_id = f"tb_poor_nf_{i:04d}"
+        user_id = f"tb_unf_{i:04d}"
+        ts_issue, ts = issue_ts_before_poor_interaction_ts()
+        ts_stack_str = ts_issue.strftime("%Y-%m-%d %H:%M:%S.%f000")
+        ts_str = ts.strftime("%Y-%m-%d %H:%M:%S.%f000")
+        trace_id = uuid.uuid4().hex
+        span_i = uuid.uuid4().hex[:16]
+        trace_rows.append(
+            _track_b_interaction_span_row(
+                ts_str,
+                trace_id,
+                span_i,
+                session_id,
+                user_id,
+                state,
+                network,
+                project_id,
+                platform,
+                os_version,
+                device,
+                app_version,
+                sdk_version,
+                1500.0,
+                "Poor",
+                "Ok",
+            )
+        )
+        stack_rows.append(
+            _track_b_stack_row(
+                ts_stack_str,
+                session_id,
+                user_id,
+                project_id,
+                platform,
+                os_version,
+                device,
+                app_version,
+                sdk_version,
+                state,
+                network,
+                "non_fatal",
+                "non_fatal",
+                "NonFatalException",
+                "Track B seed non-fatal",
+            )
+        )
+
+    # 130 Poor + API error (network span in otel_traces, no stack requirement)
+    for i in range(130):
+        session_id = f"tb_poor_api_{i:04d}"
+        user_id = f"tb_uapi_{i:04d}"
+        ts_issue, ts = issue_ts_before_poor_interaction_ts()
+        ts_net_str = ts_issue.strftime("%Y-%m-%d %H:%M:%S.%f000")
+        ts_str = ts.strftime("%Y-%m-%d %H:%M:%S.%f000")
+        trace_id = uuid.uuid4().hex
+        span_i = uuid.uuid4().hex[:16]
+        span_n = uuid.uuid4().hex[:16]
+        trace_rows.append(
+            _track_b_interaction_span_row(
+                ts_str,
+                trace_id,
+                span_i,
+                session_id,
+                user_id,
+                state,
+                network,
+                project_id,
+                platform,
+                os_version,
+                device,
+                app_version,
+                sdk_version,
+                1500.0,
+                "Poor",
+                "Ok",
+            )
+        )
+        trace_rows.append(
+            _track_b_network_error_span_row(
+                ts_net_str,
+                trace_id,
+                span_n,
+                session_id,
+                user_id,
+                state,
+                network,
+                project_id,
+                platform,
+                os_version,
+                device,
+                app_version,
+                sdk_version,
+            )
+        )
+
+    # 250 control sessions: Good experience, no stack / network errors (control arms)
+    for i in range(250):
+        session_id = f"tb_good_{i:04d}"
+        user_id = f"tb_ug_{i:04d}"
+        ts = pick_ts()
+        ts_str = ts.strftime("%Y-%m-%d %H:%M:%S.%f000")
+        trace_id = uuid.uuid4().hex
+        span_i = uuid.uuid4().hex[:16]
+        trace_rows.append(
+            _track_b_interaction_span_row(
+                ts_str,
+                trace_id,
+                span_i,
+                session_id,
+                user_id,
+                state,
+                network,
+                project_id,
+                platform,
+                os_version,
+                device,
+                app_version,
+                sdk_version,
+                450.0,
+                "Good",
+                "Ok",
+            )
+        )
+
+    print(
+        "    Track B CH Timestamp window (UTC): "
+        f"{window_start.strftime('%Y-%m-%d %H:%M:%S')} .. "
+        f"{window_end.strftime('%Y-%m-%d %H:%M:%S')} — use Root Cause on "
+        f"'{TRACK_B_INTERACTION_NAME}' only; re-seed with --clear if attribution is empty."
+    )
+    return trace_rows, stack_rows
+
+
+def generate_rum_events(interaction_name, count, project_id):
+    """Generate standalone crash/ANR RUM events in otel_traces."""
+    rows = []
+    for _ in range(count):
+        ts = start_time + timedelta(seconds=random.randint(0, 86400))
+        ts_str = ts.strftime("%Y-%m-%d %H:%M:%S.%f000")
+        trace_id = uuid.uuid4().hex
+        span_id = uuid.uuid4().hex[:16]
+        session_id = f"s_{random.randint(1, 2000)}"
+        user_id = f"u_{random.randint(1, 800)}"
+
+        # Use GLOBAL cached device context for this session, or generate a new one
+        if session_id not in GLOBAL_SESSION_CONTEXTS:
+            GLOBAL_SESSION_CONTEXTS[session_id] = pick_device_context()
+        platform, os_version, device, network, state, app_version, sdk_version = GLOBAL_SESSION_CONTEXTS[session_id]
+        pulse_type = wc(["device.crash", "device.anr"], [60, 40])
+
+        span_attrs_parts = [
+            f"'pulse.type','{pulse_type}'",
+            f"'session.id','{escape(session_id)}'",
+            f"'user.id','{escape(user_id)}'",
+            f"'geo.region.iso_code','{escape(state)}'",
+            "'geo.country','IN'",
+            f"'network.carrier.name','{escape(network)}'",
+        ]
+        span_attr_str = "map(" + ",".join(span_attrs_parts) + ")"
+
+        resource_attrs_parts = [
+            f"'os.type','{escape(platform)}'",
+            f"'os.version','{escape(os_version)}'",
+            f"'app.version','{escape(app_version)}'",
+            f"'device.model.identifier','{escape(device)}'",
+            f"'project.id','{escape(project_id)}'",
+            f"'telemetry.sdk.version','{escape(sdk_version)}'",
+        ]
+        resource_attr_str = "map(" + ",".join(resource_attrs_parts) + ")"
+
+        row = (
+            f"('{ts_str}','{trace_id}','{span_id}','','','{pulse_type}','CLIENT','pulse-sdk',"
+            f"{resource_attr_str},'pulse','1.0',{span_attr_str},"
+            f"0,'Ok','',[],[],[],"
+            f"[],[],[],[])"
+        )
+        rows.append(row)
+
+    return rows
+
+
+# ─── Realistic crash/ANR exception types ─────────────────────────────────────
+
+ANDROID_CRASH_TYPES = [
+    ("java.lang.NullPointerException", [
+        "Attempt to invoke virtual method 'void android.widget.ImageView.setImageBitmap(android.graphics.Bitmap)' on a null object reference",
+        "Attempt to read from field 'int com.app.model.Product.price' on a null object reference",
+        "Attempt to invoke interface method 'int java.util.List.size()' on a null object reference",
+    ]),
+    ("java.lang.OutOfMemoryError", [
+        "Failed to allocate a 48MB allocation with 16MB free",
+        "pthread_create (1040KB stack) failed: Try again",
+        "Failed to allocate a 12MB allocation with 4MB free",
+    ]),
+    ("java.lang.IllegalStateException", [
+        "Fragment ProductDetailFragment not attached to a context",
+        "Can not perform this action after onSaveInstanceState",
+        "Expected BEGIN_OBJECT but was STRING at line 1 column 1 path $",
+    ]),
+    ("java.lang.IndexOutOfBoundsException", [
+        "Index: 5, Size: 3",
+        "Inconsistency detected. Invalid view holder adapter positionViewHolder",
+    ]),
+    ("android.database.sqlite.SQLiteException", [
+        "database disk image is malformed (code 11 SQLITE_CORRUPT)",
+        "no such table: cart_items (code 1 SQLITE_ERROR)",
+    ]),
+]
+
+IOS_CRASH_TYPES = [
+    ("EXC_BAD_ACCESS", [
+        "KERN_INVALID_ADDRESS at 0x0000000000000010",
+        "KERN_PROTECTION_FAILURE at 0x000000016fdfc000",
+    ]),
+    ("NSInvalidArgumentException", [
+        "-[__NSCFString objectForKeyedSubscript:]: unrecognized selector sent to instance",
+        "-[NSNull length]: unrecognized selector sent to instance 0x1f5a29340",
+    ]),
+    ("NSRangeException", [
+        "*** -[__NSArrayM objectAtIndexedSubscript:]: index 4 beyond bounds [0 .. 2]",
+    ]),
+    ("EXC_CRASH (SIGABRT)", [
+        "Fatal error: Unexpectedly found nil while unwrapping an Optional value",
+    ]),
+]
+
+ANR_TITLES = [
+    "Input dispatching timed out (Waiting to send non-key event because the touched window has not finished processing input events)",
+    "Input dispatching timed out (Application does not have a focused window)",
+    "Broadcast of Intent { act=com.app.SYNC_COMPLETE }",
+    "executing service com.app/.service.SyncService",
+    "Input dispatching timed out (Waiting because no window has focus but there is a focused application)",
+]
+
+SCREEN_NAMES = [
+    "HomeScreen", "ProductDetailScreen", "SearchResultsScreen", "CartScreen",
+    "CheckoutScreen", "PaymentScreen", "OrderConfirmationScreen", "OrderTrackingScreen",
+    "CategoryScreen", "ProfileScreen", "ImageGalleryScreen", "WishlistScreen",
+]
+
+
+def generate_stack_trace_events(total_crashes, total_anrs, project_id):
+    """Generate crash/ANR rows for the stack_trace_events table (Vitals page)."""
+    import hashlib
+    rows = []
+
+    for i in range(total_crashes + total_anrs):
+        is_crash = i < total_crashes
+        pulse_type = "device.crash" if is_crash else "device.anr"
+
+        ts = start_time + timedelta(seconds=random.randint(0, 86400))
+        ts_str = ts.strftime("%Y-%m-%d %H:%M:%S.%f000")
+        trace_id = uuid.uuid4().hex
+        span_id = uuid.uuid4().hex[:16]
+        session_id = f"s_{random.randint(1, 2000)}"
+        user_id = f"u_{random.randint(1, 800)}"
+
+        # Use GLOBAL cached device context for this session, or generate a new one
+        if session_id not in GLOBAL_SESSION_CONTEXTS:
+            GLOBAL_SESSION_CONTEXTS[session_id] = pick_device_context()
+        platform, os_version, device, network, state, app_version, sdk_version = GLOBAL_SESSION_CONTEXTS[session_id]
+        screen = wc(SCREEN_NAMES, [15, 15, 10, 8, 7, 7, 5, 5, 8, 7, 8, 5])
+
+        interactions = wc(
+            [["app_launch"], ["home_feed_load"], ["product_detail_view"], ["cart_checkout"],
+             ["payment_processing"], ["product_search"], ["category_browse"], ["image_gallery_load"]],
+            [15, 15, 20, 10, 10, 10, 10, 10],
+        )
+
+        if is_crash:
+            if platform == "android":
+                exc_type, messages = wc(ANDROID_CRASH_TYPES, [35, 15, 20, 15, 15])
+            else:
+                exc_type, messages = wc(IOS_CRASH_TYPES, [30, 30, 20, 20])
+            exc_message = wc(messages, [1] * len(messages))
+            event_name = "device.crash"
+        else:
+            exc_type = "ANR"
+            exc_message = wc(ANR_TITLES, [1] * len(ANR_TITLES))
+            event_name = "device.anr"
+
+        sig_input = f"v1|{platform}|exc:{exc_type}|msg:{exc_message[:80]}"
+        fingerprint = hashlib.sha1(sig_input.encode()).hexdigest()
+        group_id = f"EXC-{fingerprint[:10].upper()}"
+        title = f"{exc_type}: {exc_message[:120]} [{group_id}]"
+
+        stack_lines = [
+            f"  at com.app.{screen.lower()}.{wc(['onCreate','onResume','loadData','render','bind','process'],  [1]*6)}({screen}.java:{random.randint(50,500)})",
+            f"  at com.app.core.{wc(['NetworkManager','DataManager','CacheManager','ImageLoader'],  [1]*4)}.{wc(['fetch','load','process','execute'],  [1]*4)}(Unknown Source:{random.randint(100,800)})",
+            f"  at com.app.util.{wc(['JsonParser','ViewHelper','Analytics','Logger'],  [1]*4)}.{wc(['parse','handle','track','log'],  [1]*4)}(Unknown Source:{random.randint(50,300)})",
+        ]
+        stack_trace = f"{exc_type}: {exc_message}\n" + "\n".join(stack_lines)
+
+        interactions_str = "[" + ",".join(f"'{escape(n)}'" for n in interactions) + "]"
+
+        log_attrs = f"map('pulse.type','{pulse_type}')"
+        resource_attrs = (
+            f"map('project.id','{escape(project_id)}','os.type','{escape(platform)}',"
+            f"'os.version','{escape(os_version)}',"
+            f"'app.build_name','{escape(app_version)}',"
+            f"'device.model.name','{escape(device)}',"
+            f"'rum.sdk.version','{escape(sdk_version)}')"
+        )
+
+        row = (
+            f"('{ts_str}','{escape(event_name)}','{escape(title)}',"
+            f"'{escape(stack_trace)}','{escape(stack_trace)}','{escape(exc_message)}','{escape(exc_type)}',"
+            f"{interactions_str},'{escape(screen)}',"
+            f"'{escape(user_id)}','{escape(session_id)}',"
+            f"'{escape(platform)}','{escape(os_version)}','{escape(device)}',"
+            f"'1','{escape(app_version)}','{escape(sdk_version)}','',"
+            f"'{trace_id}','{span_id}',"
+            f"'{escape(group_id)}','{escape(sig_input)}','{fingerprint}',"
+            f"map(),{log_attrs},{resource_attrs})"
+        )
+        rows.append(row)
+
+    return rows
+
+
+def generate_session_start_logs(count, project_id):
+    """Generate session.start log entries in otel_logs for total user/session counts."""
+    rows = []
+    for _ in range(count):
+        ts = start_time + timedelta(seconds=random.randint(0, 86400))
+        ts_str = ts.strftime("%Y-%m-%d %H:%M:%S.%f000")
+        trace_id = uuid.uuid4().hex
+        span_id = uuid.uuid4().hex[:16]
+        session_id = f"s_{random.randint(1, 2000)}"
+        user_id = f"u_{random.randint(1, 800)}"
+
+        # Use GLOBAL cached device context for this session, or generate a new one
+        if session_id not in GLOBAL_SESSION_CONTEXTS:
+            GLOBAL_SESSION_CONTEXTS[session_id] = pick_device_context()
+        platform, os_version, device, network, state, app_version, sdk_version = GLOBAL_SESSION_CONTEXTS[session_id]
+
+        log_attrs = (
+            f"map('pulse.type','session.start',"
+            f"'session.id','{escape(session_id)}',"
+            f"'user.id','{escape(user_id)}',"
+            f"'geo.region.iso_code','{escape(state)}',"
+            f"'geo.country.iso_code','IN',"
+            f"'network.carrier.name','{escape(network)}')"
+        )
+        resource_attrs = (
+            f"map('project.id','{escape(project_id)}',"
+            f"'os.type','{escape(platform)}',"
+            f"'os.version','{escape(os_version)}',"
+            f"'app.build_name','{escape(app_version)}',"
+            f"'device.model.name','{escape(device)}',"
+            f"'rum.sdk.version','{escape(sdk_version)}')"
+        )
+
+        # EventName is MATERIALIZED on otel_logs (not insertable). PulseType comes from
+        # LogAttributes['pulse.type'] and is what App Vitals / backend filters use.
+        row = (
+            f"('{ts_str}','{trace_id}','{span_id}',0,"
+            f"'INFO',6,'pulse-sdk','session.start',"
+            f"{resource_attrs},{log_attrs})"
+        )
+        rows.append(row)
+
+    return rows
+
+
+def insert_trace_rows(rows, label=""):
+    BATCH_SIZE = 500
+    total = len(rows)
+    for batch_start in range(0, total, BATCH_SIZE):
+        batch = rows[batch_start : batch_start + BATCH_SIZE]
+        insert_sql = (
+            "INSERT INTO otel_traces "
+            "(Timestamp, TraceId, SpanId, ParentSpanId, TraceState, SpanName, SpanKind, ServiceName, "
+            "ResourceAttributes, ScopeName, ScopeVersion, SpanAttributes, "
+            "Duration, StatusCode, StatusMessage, `Events.Timestamp`, `Events.Name`, `Events.Attributes`, "
+            "`Links.TraceId`, `Links.SpanId`, `Links.TraceState`, `Links.Attributes`) "
+            "VALUES " + ",".join(batch)
+        )
+        ch_query(insert_sql)
+        done = min(batch_start + BATCH_SIZE, total)
+        pct = int(done / total * 100)
+        print(f"    {done}/{total} ({pct}%) {label}")
+
+
+def insert_stack_trace_rows(rows, label=""):
+    BATCH_SIZE = 500
+    total = len(rows)
+    for batch_start in range(0, total, BATCH_SIZE):
+        batch = rows[batch_start : batch_start + BATCH_SIZE]
+        insert_sql = (
+            "INSERT INTO stack_trace_events "
+            "(Timestamp, EventName, Title, "
+            "ExceptionStackTrace, ExceptionStackTraceRaw, ExceptionMessage, ExceptionType, "
+            "Interactions, ScreenName, "
+            "UserId, SessionId, "
+            "Platform, OsVersion, DeviceModel, "
+            "AppVersionCode, AppVersion, SdkVersion, BundleId, "
+            "TraceId, SpanId, "
+            "GroupId, Signature, Fingerprint, "
+            "ScopeAttributes, LogAttributes, ResourceAttributes) "
+            "VALUES " + ",".join(batch)
+        )
+        ch_query(insert_sql)
+        done = min(batch_start + BATCH_SIZE, total)
+        pct = int(done / total * 100)
+        print(f"    {done}/{total} ({pct}%) {label}")
+
+
+def insert_log_rows(rows, label=""):
+    BATCH_SIZE = 500
+    total = len(rows)
+    for batch_start in range(0, total, BATCH_SIZE):
+        batch = rows[batch_start : batch_start + BATCH_SIZE]
+        insert_sql = (
+            "INSERT INTO otel_logs "
+            "(Timestamp, TraceId, SpanId, TraceFlags, "
+            "SeverityText, SeverityNumber, ServiceName, Body, "
+            "ResourceAttributes, LogAttributes) "
+            "VALUES " + ",".join(batch)
+        )
+        ch_query(insert_sql)
+        done = min(batch_start + BATCH_SIZE, total)
+        pct = int(done / total * 100)
+        print(f"    {done}/{total} ({pct}%) {label}")
+
+
+# ─── Main ─────────────────────────────────────────────────────────────────────
+
+if __name__ == "__main__":
+    clear = "--clear" in sys.argv
+    project_id = os.environ.get("PROJECT_ID", "").strip()
+
+    print("=" * 60)
+    print("  E-commerce Data Seeder for Pulse")
+    print("=" * 60)
+
+    if project_id:
+        print(f"\n  Using project_id from env: {project_id}")
+    else:
+        project_id = resolve_project_id()
+
+    ensure_clickhouse_seed_schema()
+
+    # Clear the global session contexts cache for this seed run
+    GLOBAL_SESSION_CONTEXTS.clear()
+
+    project_id_mysql = project_id.replace("\\", "\\\\").replace("'", "''")
+    project_id_ch = escape(project_id)
+
+    if clear:
+        import time as _time
+        print("\n[0/6] Clearing existing seed data for this project...")
+        ch_query_safe(f"ALTER TABLE otel_traces DELETE WHERE ProjectId = '{project_id_ch}'")
+        ch_query_safe(f"ALTER TABLE otel_logs DELETE WHERE ProjectId = '{project_id_ch}'")
+        ch_query_safe(f"ALTER TABLE stack_trace_events DELETE WHERE ProjectId = '{project_id_ch}'")
+        print("  Waiting for ClickHouse mutations to complete (async DELETE)...")
+        for attempt in range(60):
+            pending = ch_query_safe(
+                "SELECT count() FROM system.mutations "
+                "WHERE database='otel' AND table IN ('otel_traces','otel_logs','stack_trace_events') AND is_done=0"
+            )
+            count = int(pending.strip()) if pending and pending.strip() else 0
+            if count == 0:
+                break
+            print(f"    {count} mutation(s) still running, waiting 2s... ({attempt+1}/60)")
+            _time.sleep(2)
+        else:
+            print("  WARNING: Mutations did not complete in 120s — proceeding anyway")
+        print("  Cleared ClickHouse data for this project")
+        mysql_query(f"DELETE FROM interaction WHERE project_id = '{project_id_mysql}' AND created_by = 'seed-script';")
+        print("  Cleared MySQL interactions for this project")
+
+    # ── Step 1: Insert interactions in MySQL ──────────────────────────────
+    print("\n[1/6] Creating interactions in MySQL...")
+    for ix in INTERACTIONS:
+        import json
+        details = json.dumps({
+            "description": ix["description"],
+            "uptimeLowerLimitInMs": ix["lower"],
+            "uptimeMidLimitInMs": ix["mid"],
+            "uptimeUpperLimitInMs": ix["upper"],
+            "thresholdInMs": ix["threshold"],
+            "events": [{"name": e["name"], "isBlacklisted": False} for e in ix["events"]],
+            "globalBlacklistedEvents": [],
+        })
+        details_escaped = details.replace("\\", "\\\\").replace("'", "\\'")
+        sql = (
+            f"INSERT INTO interaction (project_id, name, status, details, created_by, updated_by) "
+            f"VALUES ('{project_id_mysql}', '{ix['name']}', 'RUNNING', '{details_escaped}', 'seed-script', 'seed-script') "
+            f"ON DUPLICATE KEY UPDATE status = VALUES(status), details = VALUES(details), updated_by = VALUES(updated_by);"
+        )
+        mysql_query(sql)
+        print(f"  + {ix['name']}: lower={ix['lower']}ms mid={ix['mid']}ms upper={ix['upper']}ms")
+
+    # ── Step 2: Generate interaction traces ───────────────────────────────
+    print("\n[2/6] Generating interaction traces (otel_traces)...")
+    total_rows = 0
+    for ix in INTERACTIONS:
+        print(f"\n  Generating {ix['volume']} spans for '{ix['name']}'...")
+        rows = generate_interaction_rows(ix, project_id)
+        insert_trace_rows(rows, label=ix["name"])
+        total_rows += len(rows)
+
+    # ── Step 3: Track B error-attribution correlated sessions ─────────────
+    print("\n[3/6] Track B error-attribution seed (correlated sessions, add_to_cart)...")
+    tb_traces, tb_stacks = generate_track_b_error_attribution_rows(project_id)
+    insert_trace_rows(tb_traces, label="track_b otel_traces")
+    insert_stack_trace_rows(tb_stacks, label="track_b stack_trace_events")
+    total_rows += len(tb_traces) + len(tb_stacks)
+    print(
+        f"    + {len(tb_traces)} otel_traces rows, {len(tb_stacks)} stack_trace_events "
+        f"(session prefix tb_* ; interaction '{TRACK_B_INTERACTION_NAME}')"
+    )
+
+    # ── Step 4: Generate standalone crash/ANR in otel_traces ──────────────
+    print("\n[4/6] Generating standalone crash/ANR RUM events (otel_traces)...")
+    rum_rows = generate_rum_events("global", 800, project_id)
+    insert_trace_rows(rum_rows, label="crash/ANR events")
+    total_rows += len(rum_rows)
+
+    # ── Step 5: Generate crash/ANR for Vitals (stack_trace_events) ────────
+    num_crashes = 600
+    num_anrs = 350
+    print(f"\n[5/6] Generating {num_crashes} crashes + {num_anrs} ANRs (stack_trace_events for Vitals)...")
+    ste_rows = generate_stack_trace_events(num_crashes, num_anrs, project_id)
+    insert_stack_trace_rows(ste_rows, label="stack_trace_events")
+    total_rows += len(ste_rows)
+
+    # ── Step 6: Generate session.start logs (otel_logs for total user counts) ─
+    num_sessions = 5000
+    print(f"\n[6/6] Generating {num_sessions} session.start logs (otel_logs)...")
+    log_rows = generate_session_start_logs(num_sessions, project_id)
+    insert_log_rows(log_rows, label="session.start logs")
+    total_rows += len(log_rows)
+
+    # ── Verification ──────────────────────────────────────────────────────
+    print("\n" + "=" * 60)
+    print("  Verification")
+    print("=" * 60)
+    print(f"\n  Total rows inserted: {total_rows}")
+
+    ch_where = f" AND ProjectId = '{project_id_ch}'"
+    print("\n  Interaction traces (otel_traces):")
+    for ix in INTERACTIONS:
+        count = ch_query(f"SELECT count() FROM otel_traces WHERE SpanName = '{ix['name']}'{ch_where}").strip()
+        apdex = ch_query(
+            f"SELECT round(avgIf(toFloat64OrNull(SpanAttributes['pulse.interaction.apdex_score']), "
+            f"StatusCode != 'Error'), 3) FROM otel_traces WHERE SpanName = '{ix['name']}'{ch_where}"
+        ).strip()
+        err = ch_query(
+            f"SELECT round(countIf(StatusCode = 'Error') / count() * 100, 1) "
+            f"FROM otel_traces WHERE SpanName = '{ix['name']}'{ch_where}"
+        ).strip()
+        print(f"    {ix['name']:25s}  vol={count:>6s}  apdex={apdex:>6s}  err%={err:>5s}")
+
+    crash_trace = ch_query(f"SELECT count() FROM otel_traces WHERE PulseType = 'device.crash'{ch_where}").strip()
+    anr_trace = ch_query(f"SELECT count() FROM otel_traces WHERE PulseType = 'device.anr'{ch_where}").strip()
+    print(f"\n  otel_traces standalone: crashes={crash_trace}, ANRs={anr_trace}")
+
+    crash_ste = ch_query(f"SELECT count() FROM stack_trace_events WHERE EventName = 'device.crash'{ch_where}").strip()
+    anr_ste = ch_query(f"SELECT count() FROM stack_trace_events WHERE EventName = 'device.anr'{ch_where}").strip()
+    groups = ch_query(f"SELECT uniqExact(GroupId) FROM stack_trace_events{ch_where.replace(' AND ', ' WHERE ', 1)}").strip()
+    print(f"  stack_trace_events:    crashes={crash_ste}, ANRs={anr_ste}, unique groups={groups}")
+
+    tb_sessions = ch_query(
+        f"SELECT uniqExact(SessionId) FROM otel_traces WHERE SpanName = '{TRACK_B_INTERACTION_NAME}'"
+        f"{ch_where} AND startsWith(SessionId, 'tb_')"
+    ).strip()
+    tb_poor = ch_query(
+        f"SELECT uniqExact(SessionId) FROM otel_traces WHERE SpanName = '{TRACK_B_INTERACTION_NAME}'"
+        f"{ch_where} AND startsWith(SessionId, 'tb_')"
+        f" AND ifNull(SpanAttributes['pulse.interaction.user_category'], '') = 'Poor'"
+    ).strip()
+    print(
+        f"\n  Track B seed (`{TRACK_B_INTERACTION_NAME}`, session id prefix tb_):"
+        f" distinct_sessions={tb_sessions}, poor_sessions={tb_poor} (expect poor >= 1100 for gate)"
+    )
+
+    session_logs = ch_query(f"SELECT count() FROM otel_logs WHERE PulseType = 'session.start'{ch_where}").strip()
+    unique_users = ch_query(f"SELECT uniqExact(LogAttributes['user.id']) FROM otel_logs WHERE PulseType = 'session.start'{ch_where}").strip()
+    print(f"  otel_logs:             sessions={session_logs}, unique_users={unique_users}")
+
+    # E2E spot-checks for the two new test interactions
+    notif_count = ch_query(f"SELECT count() FROM otel_traces WHERE SpanName = 'notifications_open'{ch_where}").strip()
+    notif_err = ch_query(
+        f"SELECT round(countIf(StatusCode = 'Error') / count() * 100, 2) "
+        f"FROM otel_traces WHERE SpanName = 'notifications_open'{ch_where}"
+    ).strip()
+    print(
+        f"\n  E2E — notifications_open (expect everything_good=true): vol={notif_count}, err%={notif_err} "
+        f"(expect 0% — no Error spans; baseline problematic_count for RCA)"
+    )
+
+    deeplink_count = ch_query(f"SELECT count() FROM otel_traces WHERE SpanName = 'deeplink_open'{ch_where}").strip()
+    deeplink_bad = ch_query(
+        f"SELECT count() FROM otel_traces WHERE SpanName = 'deeplink_open'{ch_where}"
+        f" AND Platform = 'ios' AND SpanAttributes['network.carrier.name'] = 'Vi'"
+    ).strip()
+    print(f"  E2E — deeplink_open (expect single segment): vol={deeplink_count}, ios+Vi bad sessions={deeplink_bad}")
+
+    ps_good = ch_query(
+        f"SELECT count() FROM otel_traces WHERE SpanName = 'product_search'{ch_where}"
+        f" AND Platform = 'ios' AND AppVersion = '4.3.0'"
+    ).strip()
+    hfl_good = ch_query(
+        f"SELECT count() FROM otel_traces WHERE SpanName = 'home_feed_load'{ch_where}"
+        f" AND SpanAttributes['network.carrier.name'] = 'wifi' AND AppVersion = '4.3.0'"
+    ).strip()
+    print(f"  E2E — direction filter: product_search ios+4.3.0 good sessions={ps_good}, home_feed_load wifi+4.3.0 good sessions={hfl_good}")
+
+    wishlist_3way = ch_query(
+        f"SELECT count() FROM otel_traces WHERE SpanName = 'wishlist_add'{ch_where}"
+        f" AND DeviceModel = 'SM-A135F' AND AppVersion = '4.2.0'"
+    ).strip()
+    coupon_4way = ch_query(
+        f"SELECT count() FROM otel_traces WHERE SpanName = 'coupon_apply'{ch_where}"
+        f" AND Platform = 'android' AND DeviceModel = 'Redmi Note 12'"
+        f" AND SpanAttributes['network.carrier.name'] = 'Jio'"
+    ).strip()
+    review_3way = ch_query(
+        f"SELECT count() FROM otel_traces WHERE SpanName = 'review_submit'{ch_where}"
+        f" AND AppVersion = '4.2.0' AND GeoState = 'IN-WB'"
+    ).strip()
+    print(f"  E2E — compound segments: wishlist SM-A135F×4.2.0×UP/BR={wishlist_3way}, coupon android×12×Redmi×Jio={coupon_4way}, review 13×4.2.0×WB={review_3way}")
+
+    print("\n" + "=" * 60)
+    print("  Seed complete!")
+    print("=" * 60)
+    print("\n  Open Pulse UI and you should see:")
+    print("    - 17 interactions on the Critical Interactions page")
+    print("    - Crashes & ANRs on the App Vitals page")
+    print("    - Each interaction has unique bad segments for the AI to discover")
+    print("    - notifications_open → RCA should return everything_good=true (no bad segments)")
+    print("    - deeplink_open → RCA should return exactly 1 segment (iOS 16.0 + Vi only)")
+    print("    - product_search / home_feed_load → improved segments must NOT appear in RCA output")
+    print(
+        f"    - Track B: open interaction '{TRACK_B_INTERACTION_NAME}' → Root Cause tab → error attribution;"
+        " data is in the last 24h window (tb_* timestamps uniform across that window)\n"
+    )

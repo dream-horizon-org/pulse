@@ -1,0 +1,74 @@
+.detailsCard {
+  background: #ffffff;
+  border: 1px solid rgba(14, 201, 194, 0.2);
+  border-radius: var(--mantine-radius-lg);
+  padding: var(--mantine-spacing-md);
+  box-shadow: 0 4px 12px rgba(14, 201, 194, 0.1);
+  margin-bottom: var(--mantine-spacing-md);
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+.detailsCard::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #0ec9c2 0%, #0ba09a 100%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.detailsCard:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(14, 201, 194, 0.15);
+  border-color: rgba(14, 201, 194, 0.3);
+}
+
+.detailsCard:hover::before {
+  opacity: 1;
+}
+
+.errorMessage {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--mantine-color-dark-8);
+  line-height: 1.4;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.compactStats {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.compactStatItem {
+  display: flex;
+  align-items: center;
+}
+
+.compactStatLabel {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--mantine-color-dark-5);
+}
+
+.compactStatValue {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--mantine-color-dark-8);
+}
+
+.versionBadge {
+  font-weight: 700;
+}
+
+.statIcon {
+  color: #0ba09a;
+}

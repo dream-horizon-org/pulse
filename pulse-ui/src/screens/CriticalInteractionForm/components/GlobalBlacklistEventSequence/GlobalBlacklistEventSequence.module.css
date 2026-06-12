@@ -1,0 +1,47 @@
+.globalBlacklistContainer {
+  display: flex;
+  flex-direction: column;
+  width: 80%;
+}
+
+.infoBox {
+  display: flex;
+  align-items: center;
+  text-align: center;
+  border: 1px dashed var(--mantine-color-gray-3);
+  padding: var(--mantine-spacing-lg);
+  margin-top: var(--mantine-spacing-sm);
+}
+
+.globalblacklistEventContainer {
+  margin-top: var(--mantine-spacing-md);
+}
+
+.sectionButtons {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-top: 36px;
+}
+
+.sectionButton {
+  margin-left: var(--mantine-spacing-sm);
+}
+
+.addEvent {
+  border-left: 3px solid var(--mantine-color-blue-5) !important;
+  border-radius: 0px !important;
+  margin-bottom: var(--mantine-spacing-xs);
+}
+
+.sectionLabel {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  margin-bottom: var(--mantine-spacing-sm);
+}
+
+.infoIcon {
+  margin-left: var(--mantine-spacing-md);
+}

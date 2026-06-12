@@ -1,0 +1,265 @@
+.menuSectionContainer {
+  justify-content: center;
+  align-items: center;
+  display: flex;
+}
+
+.navbarContainer {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  background: linear-gradient(180deg, #fafbfc 0%, #ffffff 100%);
+  border-right: 1px solid rgba(14, 201, 194, 0.12);
+  flex-direction: column-reverse;
+}
+
+.navbarItem {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 12px;
+  margin-bottom: 6px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: visible;
+  min-height: 48px;
+}
+
+.navbarItem::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: linear-gradient(180deg, #0ec9c2 0%, #0ba09a 100%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.navbarItem:hover {
+  background: linear-gradient(
+    135deg,
+    rgba(14, 201, 194, 0.06),
+    rgba(14, 201, 194, 0.12)
+  );
+  transform: translateX(4px);
+}
+
+.navbarItem:hover::before {
+  opacity: 1;
+}
+
+.navbarItemActive {
+  background: linear-gradient(
+    135deg,
+    rgba(14, 201, 194, 0.08),
+    rgba(14, 201, 194, 0.15)
+  );
+  border: 1px solid rgba(14, 201, 194, 0.2);
+  border-radius: 0;
+}
+
+.navbarItemActive::before {
+  opacity: 1;
+}
+
+.navbarIcon {
+  flex-shrink: 0;
+  transition: all 0.3s ease;
+}
+
+.navbarItem:hover .navbarIcon {
+  transform: scale(1.1);
+}
+
+.navbarText {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--mantine-color-dark-7);
+  letter-spacing: -0.2px;
+  white-space: nowrap;
+}
+
+.navbarItemActive .navbarText {
+  color: #0ba09a;
+  font-weight: 700;
+}
+
+.helpLink {
+  text-decoration: none;
+  color: inherit;
+}
+
+.helpLink:hover {
+  text-decoration: none;
+}
+
+/* Header Section */
+.navbarHeader {
+  /* Removed padding-bottom to align with header height */
+}
+
+.logoSection {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--mantine-spacing-sm);
+}
+
+.logoExpanded {
+  display: flex;
+  align-items: center;
+  gap: var(--mantine-spacing-sm);
+  cursor: pointer;
+  flex: 1;
+  padding: 0;
+  border-radius: var(--mantine-radius-md);
+  transition: background 0.2s ease;
+}
+
+.logoExpanded:hover {
+  background: rgba(14, 201, 194, 0.06);
+}
+
+.logo {
+  width: 32px;
+  height: 32px;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+
+.logo:hover {
+  transform: scale(1.05);
+}
+
+.logoCollapsed {
+  width: 40px;
+  height: 40px;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+  margin: 0 auto;
+}
+
+.logoCollapsed:hover {
+  transform: scale(1.1);
+}
+
+.appName {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--mantine-color-dark-8);
+  letter-spacing: -0.3px;
+  white-space: nowrap;
+}
+
+.toggleIcon {
+  cursor: pointer;
+  flex-shrink: 0;
+  color: #64748b;
+  transition: all 0.2s ease;
+}
+
+.toggleIcon:hover {
+  color: #0ba09a;
+  transform: scale(1.1);
+}
+
+/* Footer Section */
+.footerSection {
+  padding: 12px;
+  border-radius: var(--mantine-radius-md);
+  background: linear-gradient(
+    135deg,
+    rgba(14, 201, 194, 0.04),
+    rgba(14, 201, 194, 0.08)
+  );
+  border: 1px solid rgba(14, 201, 194, 0.15);
+  margin-bottom: 8px;
+}
+
+/* User Section */
+.userSection {
+  display: flex;
+  align-items: center;
+  gap: var(--mantine-spacing-sm);
+  padding: 12px;
+  border-radius: var(--mantine-radius-md);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: linear-gradient(
+    135deg,
+    rgba(14, 201, 194, 0.04),
+    rgba(14, 201, 194, 0.08)
+  );
+  border: 1px solid rgba(14, 201, 194, 0.15);
+}
+
+.userSection:hover {
+  background: linear-gradient(
+    135deg,
+    rgba(14, 201, 194, 0.08),
+    rgba(14, 201, 194, 0.12)
+  );
+  border-color: rgba(14, 201, 194, 0.25);
+  transform: translateY(-2px);
+}
+
+.userAvatar {
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+
+.userAvatar:hover {
+  transform: scale(1.05);
+}
+
+/* Menu Button */
+.menuButton {
+  transition: all 0.3s ease;
+}
+
+.menuButton:hover {
+  transform: translateY(-2px);
+}
+
+.menuButtonCollapsed {
+  margin: 0 auto;
+  display: flex;
+  transition: all 0.3s ease;
+}
+
+.menuButtonCollapsed:hover {
+  transform: translateY(-2px) scale(1.05);
+}
+
+.menuItem {
+  padding: 8px;
+  border-radius: var(--mantine-radius-md);
+  transition: background 0.2s ease;
+  display: block;
+}
+
+.menuItem:hover {
+  background: rgba(14, 201, 194, 0.06);
+}
+
+.menuFooterMessage {
+  display: flex;
+  padding: 10px;
+  border-radius: var(--mantine-radius-md);
+  background: linear-gradient(
+    135deg,
+    rgba(14, 201, 194, 0.04),
+    rgba(14, 201, 194, 0.08)
+  );
+  border: 1px solid rgba(14, 201, 194, 0.15);
+}
+
+.menuFooterMessageContent {
+  align-items: center;
+  display: flex;
+}

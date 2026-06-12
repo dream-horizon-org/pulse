@@ -1,0 +1,264 @@
+{
+  "schema_version": "1.1",
+  "type_definitions": [
+    {
+      "type": "user"
+    },
+    {
+      "type": "system",
+      "relations": {
+        "superadmin": {
+          "this": {}
+        },
+        "internal_viewer": {
+          "this": {}
+        },
+        "can_upload_tnc": {
+          "computedUserset": {"relation": "superadmin"}
+        }
+      },
+      "metadata": {
+        "relations": {
+          "superadmin": {"directly_related_user_types": [{"type": "user"}]},
+          "internal_viewer": {"directly_related_user_types": [{"type": "user"}]}
+        }
+      }
+    },
+    {
+      "type": "tenant",
+      "relations": {
+        "system_parent": {
+          "this": {}
+        },
+        "superadmin": {
+          "tupleToUserset": {
+            "tupleset": {"relation": "system_parent"},
+            "computedUserset": {"relation": "superadmin"}
+          }
+        },
+        "internal_viewer": {
+          "tupleToUserset": {
+            "tupleset": {"relation": "system_parent"},
+            "computedUserset": {"relation": "internal_viewer"}
+          }
+        },
+        "admin": {
+          "this": {}
+        },
+        "member": {
+          "this": {}
+        },
+        "belongs_to": {
+          "union": {
+            "child": [
+              {"computedUserset": {"relation": "superadmin"}},
+              {"computedUserset": {"relation": "internal_viewer"}},
+              {"computedUserset": {"relation": "admin"}},
+              {"computedUserset": {"relation": "member"}}
+            ]
+          }
+        },
+        "can_manage_tenant": {
+          "union": {
+            "child": [
+              {"computedUserset": {"relation": "superadmin"}},
+              {"computedUserset": {"relation": "admin"}}
+            ]
+          }
+        },
+        "can_manage_projects": {
+          "union": {
+            "child": [
+              {"computedUserset": {"relation": "superadmin"}},
+              {"computedUserset": {"relation": "admin"}}
+            ]
+          }
+        },
+        "can_invite_users": {
+          "union": {
+            "child": [
+              {"computedUserset": {"relation": "superadmin"}},
+              {"computedUserset": {"relation": "admin"}}
+            ]
+          }
+        },
+        "can_view_tenant": {
+          "computedUserset": {"relation": "belongs_to"}
+        },
+        "can_accept_tnc": {
+          "union": {
+            "child": [
+              {"computedUserset": {"relation": "superadmin"}},
+              {"computedUserset": {"relation": "admin"}}
+            ]
+          }
+        }
+      },
+      "metadata": {
+        "relations": {
+          "system_parent": {"directly_related_user_types": [{"type": "system"}]},
+          "admin": {"directly_related_user_types": [{"type": "user"}]},
+          "member": {"directly_related_user_types": [{"type": "user"}]}
+        }
+      }
+    },
+    {
+      "type": "project",
+      "relations": {
+        "parent": {
+          "this": {}
+        },
+        "admin": {
+          "this": {}
+        },
+        "editor": {
+          "this": {}
+        },
+        "viewer": {
+          "this": {}
+        },
+        "has_project_access": {
+          "union": {
+            "child": [
+              {"computedUserset": {"relation": "admin"}},
+              {"computedUserset": {"relation": "editor"}},
+              {"computedUserset": {"relation": "viewer"}}
+            ]
+          }
+        },
+        "effective_admin": {
+          "union": {
+            "child": [
+              {"computedUserset": {"relation": "admin"}},
+              {"tupleToUserset": {"tupleset": {"relation": "parent"}, "computedUserset": {"relation": "can_manage_projects"}}}
+            ]
+          }
+        },
+        "can_delete_project": {
+          "computedUserset": {"relation": "effective_admin"}
+        },
+        "can_manage_settings": {
+          "computedUserset": {"relation": "effective_admin"}
+        },
+        "can_manage_members": {
+          "computedUserset": {"relation": "effective_admin"}
+        },
+        "can_edit": {
+          "union": {
+            "child": [
+              {"computedUserset": {"relation": "effective_admin"}},
+              {"computedUserset": {"relation": "editor"}}
+            ]
+          }
+        },
+        "can_view": {
+          "union": {
+            "child": [
+              {"computedUserset": {"relation": "effective_admin"}},
+              {"computedUserset": {"relation": "editor"}},
+              {"computedUserset": {"relation": "viewer"}},
+              {"tupleToUserset": {"tupleset": {"relation": "parent"}, "computedUserset": {"relation": "can_view_tenant"}}}
+            ]
+          }
+        }
+      },
+      "metadata": {
+        "relations": {
+          "parent": {"directly_related_user_types": [{"type": "tenant"}]},
+          "admin": {"directly_related_user_types": [{"type": "user"}]},
+          "editor": {"directly_related_user_types": [{"type": "user"}]},
+          "viewer": {"directly_related_user_types": [{"type": "user"}]}
+        }
+      }
+    },
+    {
+      "type": "alert",
+      "relations": {
+        "parent": {
+          "this": {}
+        },
+        "can_delete": {
+          "tupleToUserset": {"tupleset": {"relation": "parent"}, "computedUserset": {"relation": "can_manage_settings"}}
+        },
+        "can_edit": {
+          "tupleToUserset": {"tupleset": {"relation": "parent"}, "computedUserset": {"relation": "can_edit"}}
+        },
+        "can_view": {
+          "tupleToUserset": {"tupleset": {"relation": "parent"}, "computedUserset": {"relation": "can_view"}}
+        }
+      },
+      "metadata": {
+        "relations": {
+          "parent": {"directly_related_user_types": [{"type": "project"}]}
+        }
+      }
+    },
+    {
+      "type": "sdk_config",
+      "relations": {
+        "parent": {
+          "this": {}
+        },
+        "can_delete": {
+          "tupleToUserset": {"tupleset": {"relation": "parent"}, "computedUserset": {"relation": "can_manage_settings"}}
+        },
+        "can_edit": {
+          "tupleToUserset": {"tupleset": {"relation": "parent"}, "computedUserset": {"relation": "can_edit"}}
+        },
+        "can_view": {
+          "tupleToUserset": {"tupleset": {"relation": "parent"}, "computedUserset": {"relation": "can_view"}}
+        }
+      },
+      "metadata": {
+        "relations": {
+          "parent": {"directly_related_user_types": [{"type": "project"}]}
+        }
+      }
+    },
+    {
+      "type": "interaction",
+      "relations": {
+        "parent": {
+          "this": {}
+        },
+        "can_delete": {
+          "tupleToUserset": {"tupleset": {"relation": "parent"}, "computedUserset": {"relation": "can_manage_settings"}}
+        },
+        "can_edit": {
+          "tupleToUserset": {"tupleset": {"relation": "parent"}, "computedUserset": {"relation": "can_edit"}}
+        },
+        "can_view": {
+          "tupleToUserset": {"tupleset": {"relation": "parent"}, "computedUserset": {"relation": "can_view"}}
+        }
+      },
+      "metadata": {
+        "relations": {
+          "parent": {"directly_related_user_types": [{"type": "project"}]}
+        }
+      }
+    },
+    {
+      "type": "dashboard",
+      "relations": {
+        "parent": {
+          "this": {}
+        },
+        "can_delete": {
+          "tupleToUserset": {"tupleset": {"relation": "parent"}, "computedUserset": {"relation": "can_manage_settings"}}
+        },
+        "can_edit": {
+          "tupleToUserset": {"tupleset": {"relation": "parent"}, "computedUserset": {"relation": "can_edit"}}
+        },
+        "can_view": {
+          "tupleToUserset": {"tupleset": {"relation": "parent"}, "computedUserset": {"relation": "can_view"}}
+        }
+      },
+      "metadata": {
+        "relations": {
+          "parent": {"directly_related_user_types": [{"type": "project"}]}
+        }
+      }
+    }
+  ]
+}
+

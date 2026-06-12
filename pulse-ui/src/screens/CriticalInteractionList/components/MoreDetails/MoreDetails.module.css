@@ -1,0 +1,16 @@
+.infoText {
+  padding-top: 15px !important;
+  padding-bottom: 15px !important;
+}
+
+.infoButton {
+  padding: 0 !important;
+  margin-left: 4px;
+}
+
+.moreDetailsContainer {
+  flex-grow: 1;
+  justify-content: right;
+  align-items: right;
+  display: flex;
+}

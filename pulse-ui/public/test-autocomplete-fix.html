@@ -1,0 +1,301 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Test AutoComplete Fix</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 20px;
+        background-color: #f5f5f5;
+      }
+      .container {
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        margin-bottom: 20px;
+      }
+      .test-button {
+        background: #007bff;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 4px;
+        cursor: pointer;
+        margin: 5px;
+      }
+      .test-button:hover {
+        background: #0056b3;
+      }
+      .response {
+        background: #f8f9fa;
+        border: 1px solid #e9ecef;
+        border-radius: 4px;
+        padding: 15px;
+        margin-top: 10px;
+        white-space: pre-wrap;
+        font-family: monospace;
+        max-height: 400px;
+        overflow-y: auto;
+      }
+      .success {
+        background: #d4edda;
+        border-color: #c3e6cb;
+        color: #155724;
+      }
+      .error {
+        background: #f8d7da;
+        border-color: #f5c6cb;
+        color: #721c24;
+      }
+      .event-item {
+        background: #fff3cd;
+        border: 1px solid #ffeaa7;
+        border-radius: 4px;
+        padding: 10px;
+        margin: 5px 0;
+      }
+      .property-item {
+        background: #e9ecef;
+        border: 1px solid #dee2e6;
+        border-radius: 3px;
+        padding: 4px 8px;
+        margin: 2px;
+        display: inline-block;
+        font-size: 11px;
+      }
+      .screen-name {
+        background: #d1ecf1;
+        border: 1px solid #bee5eb;
+        border-radius: 3px;
+        padding: 2px 6px;
+        margin: 2px;
+        display: inline-block;
+        font-size: 11px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>🧪 AutoComplete Fix Test</h1>
+
+    <div class="container">
+      <h2>Test Configuration</h2>
+      <p><strong>Base URL:</strong> <span id="baseUrl"></span></p>
+      <p>
+        <strong>Mock Server Status:</strong>
+        <span id="mockStatus">Checking...</span>
+      </p>
+    </div>
+
+    <div class="container">
+      <h2>Test Screen Name to Event Mapping API</h2>
+      <p>
+        This test verifies that the screen name to event mapping API now returns
+        proper data structure to prevent the "Cannot read properties of
+        undefined (reading 'forEach')" error.
+      </p>
+
+      <button class="test-button" onclick="testScreenNameMapping('')">
+        Test Empty Search
+      </button>
+
+      <button class="test-button" onclick="testScreenNameMapping('contest')">
+        Test Contest Search
+      </button>
+
+      <button class="test-button" onclick="testScreenNameMapping('team')">
+        Test Team Search
+      </button>
+
+      <button class="test-button" onclick="testScreenNameMapping('payment')">
+        Test Payment Search
+      </button>
+
+      <button class="test-button" onclick="testScreenNameMapping('login')">
+        Test Login Search
+      </button>
+
+      <div id="mappingResponse" class="response" style="display: none"></div>
+    </div>
+
+    <script>
+      const baseUrl = window.location.origin;
+      document.getElementById("baseUrl").textContent = baseUrl;
+
+      // Check mock server status
+      async function checkMockServerStatus() {
+        try {
+          const response = await fetch(
+            `${baseUrl}/v1/events?search_string=contest&limit=10`,
+          );
+          if (response.ok) {
+            document.getElementById("mockStatus").textContent =
+              "✅ Mock Server Active";
+            document.getElementById("mockStatus").style.color = "green";
+          } else {
+            document.getElementById("mockStatus").textContent =
+              "❌ Mock Server Error";
+            document.getElementById("mockStatus").style.color = "red";
+          }
+        } catch (error) {
+          document.getElementById("mockStatus").textContent =
+            "❌ Mock Server Unavailable";
+          document.getElementById("mockStatus").style.color = "red";
+        }
+      }
+
+      // Test screen name mapping
+      async function testScreenNameMapping(searchString) {
+        const responseDiv = document.getElementById("mappingResponse");
+        responseDiv.style.display = "block";
+        responseDiv.className = "response";
+        responseDiv.textContent = "Loading...";
+
+        try {
+          const url = `${baseUrl}/v1/events?search_string=${encodeURIComponent(searchString)}&limit=10`;
+          const response = await fetch(url);
+          const data = await response.json();
+
+          if (response.ok) {
+            responseDiv.className = "response success";
+            responseDiv.innerHTML = formatMappingResponse(
+              `Screen Name Mapping: "${searchString || "Empty Search"}"`,
+              data,
+            );
+          } else {
+            responseDiv.className = "response error";
+            responseDiv.textContent = `Error: ${response.status}\n${JSON.stringify(data, null, 2)}`;
+          }
+        } catch (error) {
+          responseDiv.className = "response error";
+          responseDiv.textContent = `Network Error: ${error.message}`;
+        }
+      }
+
+      // Format mapping response
+      function formatMappingResponse(title, data) {
+        if (!data.data) {
+          return `<h3>${title}</h3><p>No mapping data found</p>`;
+        }
+
+        const mappingData = data.data;
+        let html = `<h3>${title}</h3>`;
+        html += `<p><strong>Total Count:</strong> ${mappingData.totalCount || 0}</p>`;
+        html += `<p><strong>Search String:</strong> "${mappingData.searchString || ""}"</p>`;
+        html += `<p><strong>Limit:</strong> ${mappingData.limit || 10}</p>`;
+
+        if (!mappingData.eventList || !Array.isArray(mappingData.eventList)) {
+          html += `<p style="color: red;">❌ eventList is missing or not an array!</p>`;
+          return html;
+        }
+
+        if (mappingData.eventList.length === 0) {
+          html += `<p>No events found for the search criteria.</p>`;
+          return html;
+        }
+
+        html += `<p>Found ${mappingData.eventList.length} events:</p>`;
+
+        mappingData.eventList.forEach((event, index) => {
+          const metadata = event.metadata || {};
+          const properties = event.properties || [];
+
+          html += `<div class="event-item">`;
+          html += `<h4>Event ${index + 1}: ${metadata.eventName || "Unknown Event"}</h4>`;
+          html += `<p><strong>Description:</strong> ${metadata.description || "No description"}</p>`;
+
+          // Screen Names
+          if (metadata.screenNames && Array.isArray(metadata.screenNames)) {
+            html += `<p><strong>Screen Names:</strong> `;
+            metadata.screenNames.forEach((screenName) => {
+              html += `<span class="screen-name">${screenName}</span>`;
+            });
+            html += `</p>`;
+          } else {
+            html += `<p style="color: red;">❌ screenNames is missing or not an array!</p>`;
+          }
+
+          // Properties
+          if (properties.length > 0) {
+            html += `<p><strong>Properties:</strong> `;
+            properties.forEach((prop) => {
+              html += `<span class="property-item">${prop.propertyName}: ${prop.description}</span>`;
+            });
+            html += `</p>`;
+          } else {
+            html += `<p><strong>Properties:</strong> None</p>`;
+          }
+
+          html += `</div>`;
+        });
+
+        // Validation
+        html += `<div class="event-item">`;
+        html += `<h4>Validation Results</h4>`;
+
+        const validations = [
+          {
+            name: "eventList exists",
+            valid: !!(
+              mappingData.eventList && Array.isArray(mappingData.eventList)
+            ),
+            message:
+              mappingData.eventList && Array.isArray(mappingData.eventList)
+                ? "✅ eventList exists and is an array"
+                : "❌ eventList is missing or not an array",
+          },
+          {
+            name: "All events have metadata",
+            valid: mappingData.eventList.every((event) => event.metadata),
+            message: mappingData.eventList.every((event) => event.metadata)
+              ? "✅ All events have metadata"
+              : "❌ Some events are missing metadata",
+          },
+          {
+            name: "All events have screenNames",
+            valid: mappingData.eventList.every(
+              (event) =>
+                event.metadata &&
+                event.metadata.screenNames &&
+                Array.isArray(event.metadata.screenNames),
+            ),
+            message: mappingData.eventList.every(
+              (event) =>
+                event.metadata &&
+                event.metadata.screenNames &&
+                Array.isArray(event.metadata.screenNames),
+            )
+              ? "✅ All events have screenNames array"
+              : "❌ Some events are missing screenNames or it's not an array",
+          },
+          {
+            name: "All events have properties",
+            valid: mappingData.eventList.every(
+              (event) => event.properties && Array.isArray(event.properties),
+            ),
+            message: mappingData.eventList.every(
+              (event) => event.properties && Array.isArray(event.properties),
+            )
+              ? "✅ All events have properties array"
+              : "❌ Some events are missing properties or it's not an array",
+          },
+        ];
+
+        validations.forEach((validation) => {
+          html += `<p>${validation.message}</p>`;
+        });
+
+        html += `</div>`;
+
+        return html;
+      }
+
+      // Initialize on page load
+      checkMockServerStatus();
+    </script>
+  </body>
+</html>

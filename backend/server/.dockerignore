@@ -1,0 +1,34 @@
+# Maven
+target/
+!target/pulse-server/pulse-server.jar
+*.class
+
+# IDE
+.idea
+.vscode
+*.iml
+.project
+.classpath
+.settings/
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+Dockerfile
+.dockerignore
+
+# Documentation
+README.md
+docs/
+
+# Test files
+src/test/
+
+# Generated files
+src/main/generated/
+

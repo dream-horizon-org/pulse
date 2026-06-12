@@ -1,0 +1,21 @@
+@import url("https://fonts.googleapis.com/css2?family=Rubik:ital,wght@0,300..900;1,300..900&display=swap");
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Rubik", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, "Courier New",
+    monospace;
+}
+
+:root {
+  --critical-interaction-form-width: 50%;
+  --critical-interaction-form-border-radius: 10px;
+  --critical-interaction-action-button-padding: 13px;
+  --critical-interaction-action-button-border-radius: 5px;
+  --critical-interaction-form-margin: 5px;
+}

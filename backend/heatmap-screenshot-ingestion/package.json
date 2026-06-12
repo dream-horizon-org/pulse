@@ -1,0 +1,25 @@
+{
+  "name": "pulse-heatmap-screenshot-ingestion",
+  "version": "0.2.0-SNAPSHOT",
+  "private": true,
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1013.0",
+    "@opentelemetry/auto-instrumentations-node": "^0.74.0",
+    "ioredis": "^5.10.1",
+    "luxon": "^3.4.0",
+    "node-rdkafka": "^2.18.0",
+    "zod": "^3.22.0"
+  },
+  "devDependencies": {
+    "@types/luxon": "^3.3.0",
+    "@types/node": "^20.0.0",
+    "typescript": "^5.2.0",
+    "vitest": "^2.1.0"
+  }
+}

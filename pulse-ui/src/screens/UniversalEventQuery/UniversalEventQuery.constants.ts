@@ -1,0 +1,31 @@
+export const UNIVERSAL_QUERY_TEXTS = {
+  TITLE: "Real Time Querying",
+  TABLES: "Tables",
+  QUERY_PLACEHOLDER: "Write your SQL query here...",
+  VALIDATE_QUERY: "Validate Query",
+  EXECUTE_QUERY: "Run Query",
+  QUERY_VALIDATION_ERROR: "Query Validation Error",
+  QUERY_VALIDATION_SUCCESS: "Query Validated",
+  QUERY_INVALID: "Query Invalid",
+  QUERY_EXECUTION_ERROR: "Query Execution Error",
+  QUERY_EXECUTION_SUCCESS: "Query Executed",
+  QUERY_EXECUTION_FAILED: "Query Execution Failed",
+  NO_TABLES: "No tables available",
+  NO_COLUMNS: "No columns available",
+  LOADING_TABLES: "Loading tables...",
+  LOADING_COLUMNS: "Loading columns...",
+  EMPTY_QUERY_RESULTS: "Run a query to see results",
+  MAX_RECORDS_DISPLAY: "Max 1000 records are displayed.",
+  VALIDATION_FAILED: "Validation failed",
+  VALIDATION_FAILED_DESCRIPTION: "An error occurred while validating the query",
+  QUERY_EXECUTED_SUCCESSFULLY: "The query was executed successfully.",
+  CANCEL_QUERY: "Cancel Query",
+  QUERY_HISTORY: "History",
+  SUGGESTED_QUERIES: "Suggested Queries",
+};
+
+export const NOTIFICATION_MESSAGES = {
+  SUCCESS_DEFAULT: "Operation completed successfully.",
+  ERROR_DEFAULT: "An unexpected error occurred.",
+  NO_ADDITIONAL_INFO: "No additional information available.",
+};

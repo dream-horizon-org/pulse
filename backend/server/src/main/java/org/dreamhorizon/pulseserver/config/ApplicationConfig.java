@@ -1,0 +1,148 @@
+package org.dreamhorizon.pulseserver.config;
+
+import com.google.inject.Singleton;
+import java.util.List;
+import java.util.stream.Collectors;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Singleton
+public class ApplicationConfig {
+  public String appEnvironment;
+  public String cronManagerBaseUrl;
+  /**
+   * Public Pulse UI origin (env {@code CONFIG_SERVICE_APPLICATION_DASHBOARDBASEURL}). Used for
+   * {@code {{dashboardUrl}}} in all notification templates; see {@link
+   * #resolveDashboardBaseUrlForNotifications()}.
+   */
+  public String dashboardBaseUrl;
+
+  /**
+   * Fallback when {@link #dashboardBaseUrl} is unset or blank after normalization.
+   */
+  public static final String DEFAULT_DASHBOARD_BASE_URL = "https://app.pulse-ux.com";
+  public String serviceUrl;
+  public Integer shutdownGracePeriod;
+  public String googleOAuthClientId;
+  public Boolean googleOAuthEnabled;
+  public String firebaseProjectId;
+  public String jwtSecret;
+  public String otelCollectorUrl;
+  public String interactionConfigUrl;
+  public String logsCollectorUrl;
+  public String metricCollectorUrl;
+  public String spanCollectorUrl;
+  public String customEventCollectorUrl;
+  public String s3BucketName;
+  public String configDetailsS3BucketFilePath;
+  public String cloudFrontDistributionId;
+  public String configDetailCloudFrontAssetPath;
+  public String webhookUrl;
+  public String interactionDetailsS3BucketFilePath;
+  public String interactionDetailCloudFrontAssetPath;
+  public String encryptionMasterKey;
+  public String tncS3BucketName;
+  public String aiServiceUrl;
+  public String symbolFilesS3BucketName;
+  public String devModeApiKey;
+  public SessionReplayS3Config sessionReplayS3;
+  public String replayApiBaseUrl;
+  /**
+   * S3 key prefix for heatmap screenshot JSON (ingestion default: heatmap-screenshots).
+   */
+  public String heatmapScreenshotsS3Prefix;
+  /**
+   * When {@code bucket} is set, heatmap screenshot list/presign uses this bucket; otherwise session
+   * replay S3 bucket. Endpoint/keys fall back to session replay when omitted (same MinIO). Optional
+   * {@code presignEndpoint} sets browser-facing hosts in presigned URLs only (see {@code
+   * HEATMAP_S3_PRESIGN_ENDPOINT}).
+   */
+  public HeatmapS3Config heatmapS3;
+
+  /**
+   * Redis host for Kong plugin materialization (API key map, usage credits in Part B).
+   */
+  public String redisHost;
+  /**
+   * Redis port for Kong plugin materialization.
+   */
+  public Integer redisPort;
+
+  /**
+   * Comma-separated opaque tokens accepted by InternalServiceAuthFilter for /internal/* paths.
+   */
+  public String internalServiceTokens;
+
+  /**
+   * Returns the list of valid internal service tokens. Empty list when the config value is absent
+   * or blank (disables token validation in non-dev mode — callers must handle this defensively).
+   */
+  public List<String> getInternalServiceTokenList() {
+    if (internalServiceTokens == null || internalServiceTokens.isBlank()) {
+      return List.of();
+    }
+    return java.util.Arrays.stream(internalServiceTokens.split(","))
+        .map(String::trim)
+        .filter(s -> !s.isEmpty())
+        .collect(Collectors.toList());
+  }
+
+  /**
+   * Get the dev mode API key with a sensible default.
+   * This key is used when GOOGLE_OAUTH_ENABLED=false.
+   */
+  public String getDevModeApiKey() {
+    return devModeApiKey != null && !devModeApiKey.isBlank()
+        ? devModeApiKey
+        : "default-project_devkey01";
+  }
+
+  /**
+   * Per-project URL for interaction mapping JSON. Normalizes a trailing slash on
+   * {@code interactionConfigUrl} so values like {@code http://host/v1/interaction-configs/} do not
+   * produce a double slash before {@code /projects/...}.
+   *
+   * @return {@code null} when the base URL is missing or blank (avoids the literal
+   * {@code "null/projects/..."} that {@link String#format} would otherwise produce)
+   */
+  public String buildInteractionConfigFileUrl(String projectId) {
+    if (interactionConfigUrl == null || interactionConfigUrl.isBlank()) {
+      return null;
+    }
+    String base = stripTrailingSlashes(interactionConfigUrl);
+    return String.format("%s/projects/%s/interaction-config.json", base, projectId);
+  }
+
+  private static String stripTrailingSlashes(String url) {
+    if (url == null || url.isEmpty()) {
+      return url;
+    }
+    int end = url.length();
+    while (end > 0 && url.charAt(end - 1) == '/') {
+      end--;
+    }
+    return url.substring(0, end);
+  }
+
+  /**
+   * Normalized public UI base for email and other templates ({@code {{dashboardUrl}}}). Trims
+   * {@link #dashboardBaseUrl}, strips trailing slashes, then falls back to {@link
+   * #DEFAULT_DASHBOARD_BASE_URL} when unset or blank.
+   */
+  public String resolveDashboardBaseUrlForNotifications() {
+    if (dashboardBaseUrl == null) {
+      return DEFAULT_DASHBOARD_BASE_URL;
+    }
+    String trimmed = dashboardBaseUrl.trim();
+    if (trimmed.isEmpty()) {
+      return DEFAULT_DASHBOARD_BASE_URL;
+    }
+    return stripTrailingSlashes(trimmed);
+  }
+}

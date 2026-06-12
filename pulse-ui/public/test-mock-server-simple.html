@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Simple Mock Server Test</title>
+    <style>
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          sans-serif;
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+        background-color: #f5f5f5;
+      }
+      .container {
+        background: white;
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      }
+      .header {
+        background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+        color: white;
+        padding: 20px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+      }
+      .btn {
+        background: #28a745;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+        margin-right: 10px;
+        margin-bottom: 10px;
+      }
+      .btn:hover {
+        background: #1e7e34;
+      }
+      .results {
+        margin-top: 20px;
+        padding: 15px;
+        background: #f8f9fa;
+        border-radius: 4px;
+        border-left: 4px solid #007bff;
+      }
+      .json-display {
+        background: #f8f9fa;
+        border: 1px solid #e9ecef;
+        border-radius: 4px;
+        padding: 15px;
+        margin-top: 10px;
+        font-family: "Courier New", monospace;
+        font-size: 12px;
+        white-space: pre-wrap;
+        max-height: 400px;
+        overflow-y: auto;
+      }
+      .status-success {
+        border-left-color: #28a745;
+        background: #d4edda;
+        color: #155724;
+      }
+      .status-error {
+        border-left-color: #dc3545;
+        background: #f8d7da;
+        color: #721c24;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="header">
+      <h1>🔧 Simple Mock Server Test</h1>
+      <p>Testing if the mock server is working for user details</p>
+    </div>
+
+    <div class="container">
+      <h3>Test User Details API</h3>
+      <p>
+        This will test the <code>/user/9876543210</code> endpoint to see if the
+        mock server is working.
+      </p>
+      <button class="btn" onclick="testUserAPI()">Test User API</button>
+      <div id="results" class="results" style="display: none"></div>
+    </div>
+
+    <div class="container">
+      <h3>Console Logs</h3>
+      <p>Check the browser console for detailed logs about the mock server.</p>
+      <div id="consoleInfo">
+        <p>Open browser console (F12) to see detailed logs.</p>
+        <p>
+          Look for messages starting with <code>[makeRequestToServer]</code> and
+          <code>[Mock Server]</code>.
+        </p>
+      </div>
+    </div>
+
+    <script>
+      async function testUserAPI() {
+        const resultsDiv = document.getElementById("results");
+        resultsDiv.style.display = "block";
+        resultsDiv.innerHTML = "Testing...";
+
+        try {
+          console.log("Starting user API test...");
+
+          const response = await fetch("/user/9876543210", {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+            },
+          });
+
+          console.log("Response received:", response);
+          console.log("Response status:", response.status);
+          console.log("Response headers:", [...response.headers.entries()]);
+
+          const data = await response.json();
+          console.log("Response data:", data);
+
+          const hasError = !!data.error;
+          const statusClass = hasError ? "status-error" : "status-success";
+
+          resultsDiv.className = `results ${statusClass}`;
+          resultsDiv.innerHTML = `
+                    <h4>Test Results:</h4>
+                    <p><strong>Status:</strong> ${response.status} ${response.statusText}</p>
+                    <p><strong>URL:</strong> /user/9876543210</p>
+                    <p><strong>Has Error:</strong> ${hasError ? "Yes" : "No"}</p>
+                    ${
+                      hasError
+                        ? `<p><strong>Error:</strong> ${data.error?.message || "Unknown error"}</p>`
+                        : `<p><strong>Success:</strong> User details retrieved successfully</p>`
+                    }
+                    <div class="json-display">${JSON.stringify(data, null, 2)}</div>
+                `;
+        } catch (error) {
+          console.error("Test error:", error);
+          resultsDiv.className = "results status-error";
+          resultsDiv.innerHTML = `
+                    <h4>Test Failed:</h4>
+                    <p><strong>Error:</strong> ${error.message}</p>
+                    <p>This might indicate that the mock server is not working or the request is not being intercepted.</p>
+                `;
+        }
+      }
+
+      // Auto-run test on page load
+      window.addEventListener("load", () => {
+        console.log("Page loaded, starting auto-test...");
+        setTimeout(() => {
+          testUserAPI();
+        }, 1000);
+      });
+    </script>
+  </body>
+</html>

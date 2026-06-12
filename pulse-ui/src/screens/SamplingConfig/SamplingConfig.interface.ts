@@ -1,0 +1,324 @@
+/**
+ * SDK Configuration Interfaces
+ * Aligned with Backend PulseConfig Schema
+ */
+
+// ============================================================================
+// ENUMS - Must match backend enums exactly
+// ============================================================================
+
+// SDK platforms - matches backend Sdk enum
+export type SdkEnum =
+  | "pulse_android_java"
+  | "pulse_android_rn"
+  | "pulse_ios_swift"
+  | "pulse_ios_rn";
+
+// Telemetry scopes - matches backend Scope enum
+export type ScopeEnum = "logs" | "traces" | "metrics" | "baggage";
+
+// Sampling rule names - matches backend rules enum
+export type SamplingRuleName =
+  | "os_version"
+  | "app_version"
+  | "country"
+  | "platform"
+  | "state"
+  | "device"
+  | "network";
+
+// Feature names - matches backend Features enum
+export type FeatureName =
+  | "interaction"
+  | "java_crash"
+  | "js_crash"
+  | "java_anr"
+  | "network_change"
+  | "custom_events"
+  | "memory"
+  | "battery"
+  | "rn_screen_load"
+  | "rn_screen_interactive"
+  | "rn_screen_session"
+  | "screen_session"
+  | "session_replay"
+  | "click"
+  | "heatmap"
+  | "ios_network"
+  | "rn_network"
+  | "network_instrumentation"
+  | "ios_crash"
+  | "ios_lifecycle"
+  | "android_activity"
+  | "android_fragment"
+  | "android_slowrendering";
+
+export type TextAndInputPrivacy =
+  | "MASK_ALL"
+  | "MASK_ALL_INPUTS"
+  | "MASK_SENSITIVE_INPUTS";
+export type ImagePrivacy = "MASK_ALL" | "MASK_NONE";
+
+export interface SessionReplayFeatureConfig {
+  featureName?: "session_replay";
+  textAndInputPrivacy?: TextAndInputPrivacy;
+  imagePrivacy?: ImagePrivacy;
+  throttleDelayMs?: number;
+  screenshotScale?: number;
+  screenshotQuality?: number;
+  flushIntervalSeconds?: number;
+  flushAt?: number;
+  maxBatchSize?: number;
+  replayApiBaseUrl?: string;
+}
+
+/** Rage-tap clustering for heatmaps — matches backend {@code RageConfig}. */
+export interface RageConfig {
+  timeWindowMs?: number;
+  threshold?: number;
+  radius?: number;
+}
+
+/** Click / tap instrumentation — matches backend {@code ClickFeatureConfig}. */
+export interface ClickFeatureConfig {
+  featureName?: "click";
+  captureContext?: boolean;
+  rage?: RageConfig;
+}
+
+// ============================================================================
+// EVENT FILTER TYPES
+// ============================================================================
+
+// Event property match (for attribute add/drop conditions)
+export interface EventPropMatch {
+  name: string;
+  value: string; // Regex pattern
+}
+
+// Event filter rule - matches backend EventFilter
+export interface EventFilter {
+  id?: string; // For UI tracking only (stripped before API calls)
+  name: string;
+  props: EventPropMatch[];
+  scopes: ScopeEnum[];
+  sdks: SdkEnum[];
+}
+
+// Attribute value for adding attributes
+export interface AttributeValue {
+  name: string;
+  value: string;
+}
+
+// Attribute to add with condition
+export interface AttributeToAdd {
+  id?: string; // For UI tracking only
+  values: AttributeValue[];
+  condition: EventFilter;
+}
+
+// Attribute to drop with condition
+export interface AttributeToDrop {
+  id?: string; // For UI tracking only
+  values: string[]; // Attribute names to drop
+  condition: EventFilter;
+}
+
+// ============================================================================
+// SAMPLING CONFIGURATION
+// ============================================================================
+
+// Default sampling config
+export interface DefaultSampling {
+  sessionSampleRate: number; // 0.0 - 1.0
+}
+
+// Sampling rule - matches backend SamplingRule
+export interface SamplingRule {
+  id?: string; // For UI tracking only
+  name: SamplingRuleName;
+  sdks: SdkEnum[];
+  value: string; // Regex or value to match
+  sessionSampleRate: number; // 0.0 - 1.0
+}
+
+// Critical policy rule - matches backend CriticalPolicyRule
+export interface CriticalPolicyRule {
+  id?: string; // For UI tracking only
+  name: string;
+  props: EventPropMatch[];
+  scopes: ScopeEnum[];
+  sdks: SdkEnum[];
+}
+
+// Critical session policies container
+export interface CriticalSessionPolicies {
+  alwaysSend: CriticalPolicyRule[];
+}
+
+// Sampling configuration - matches backend SamplingConfig
+export interface SamplingConfig {
+  default: DefaultSampling;
+  rules: SamplingRule[];
+  criticalSessionPolicies: CriticalSessionPolicies;
+}
+
+// ============================================================================
+// SIGNALS CONFIGURATION
+// ============================================================================
+
+// Signals configuration - matches backend SignalsConfig
+export interface SignalsConfig {
+  scheduleDurationMs: number;
+  logsCollectorUrl?: string; // Auto-filled by backend if not provided
+  metricCollectorUrl?: string; // Auto-filled by backend if not provided
+  spanCollectorUrl?: string; // Auto-filled by backend if not provided
+  customEventCollectorUrl?: string; // Auto-filled by backend if not provided
+  attributesToDrop: AttributeToDrop[];
+  attributesToAdd?: AttributeToAdd[];
+}
+
+// ============================================================================
+// INTERACTION CONFIGURATION
+// ============================================================================
+
+// Interaction configuration - matches backend InteractionConfig
+export interface InteractionConfig {
+  collectorUrl?: string; // Auto-filled by backend if not provided
+  configUrl?: string; // Auto-filled by backend if not provided
+  beforeInitQueueSize: number;
+}
+
+// ============================================================================
+// FEATURE CONFIGURATION
+// ============================================================================
+
+// Feature configuration - matches backend FeatureConfig
+// Note: sessionSampleRate is 0 (disabled) or 1 (enabled) - UI shows as toggle
+export interface FeatureConfig {
+  id?: string; // For UI tracking only
+  featureName: FeatureName;
+  sessionSampleRate: number; // 0 = disabled, 1 = enabled (UI shows as on/off toggle)
+  sdks: SdkEnum[];
+  config?: SessionReplayFeatureConfig | ClickFeatureConfig | null;
+}
+
+// ============================================================================
+// MAIN PULSE CONFIG - Matches backend PulseConfig
+// ============================================================================
+
+export interface PulseConfig {
+  version?: number; // Set by backend on creation
+  description: string;
+  sampling: SamplingConfig;
+  signals: SignalsConfig;
+  interaction: InteractionConfig;
+  features: FeatureConfig[];
+}
+
+// ============================================================================
+// API RESPONSE TYPES
+// ============================================================================
+
+// Config details for listing - matches backend AllConfigdetails.Configdetails
+export interface ConfigVersion {
+  version: number;
+  isactive: boolean;
+  description: string;
+  createdBy: string;
+  createdAt: string;
+}
+
+// All config details response - matches backend AllConfigdetails
+export interface AllConfigDetailsResponse {
+  configDetails: ConfigVersion[];
+}
+
+// Create config response - matches backend CreateConfigResponse
+export interface CreateConfigResponse {
+  version: number;
+}
+
+// Rules and features response - matches backend RulesAndFeaturesResponse
+export interface RulesAndFeaturesResponse {
+  rules: string[];
+  features: string[];
+}
+
+// Scopes and SDKs response - matches backend GetScopeAndSdksResponse
+export interface ScopesAndSdksResponse {
+  scope: string[];
+  sdks: string[];
+}
+
+// ============================================================================
+// UI-SPECIFIC TYPES
+// ============================================================================
+
+// Pipeline stats for visualization
+export interface PipelineStats {
+  totalEvents: number;
+  afterSampling: number;
+  afterFeatures: number;
+  finalSent: number;
+  samplingDropRate: number;
+  featureDropRate: number;
+  totalSentRate: number;
+}
+
+// Editor mode
+export type ConfigEditorMode = "create" | "edit" | "view";
+
+// ============================================================================
+// COMPONENT PROPS
+// ============================================================================
+
+export interface DataPipelineProps {
+  stats: PipelineStats;
+  isLoading?: boolean;
+}
+
+export interface AttributesToDropProps {
+  attributes: AttributeToDrop[];
+  onChange: (attributes: AttributeToDrop[]) => void;
+  disabled?: boolean;
+}
+
+export interface SamplingConfigProps {
+  config: SamplingConfig;
+  onChange: (config: SamplingConfig) => void;
+  disabled?: boolean;
+}
+
+export interface SignalsConfigProps {
+  config: SignalsConfig;
+  onChange?: (config: SignalsConfig) => void;
+  readOnly?: boolean;
+}
+
+export interface InteractionConfigProps {
+  config: InteractionConfig;
+  onChange?: (config: InteractionConfig) => void;
+  readOnly?: boolean;
+}
+
+export interface FeatureConfigsProps {
+  configs: FeatureConfig[];
+  onChange: (configs: FeatureConfig[]) => void;
+  disabled?: boolean;
+}
+
+export interface ConfigEditorProps {
+  initialConfig?: PulseConfig;
+  mode: ConfigEditorMode;
+  onSave?: (config: PulseConfig) => void;
+  onCancel?: () => void;
+  onEdit?: () => void;
+  viewingVersion?: number | null;
+}
+
+export interface ConfigVersionListProps {
+  onViewVersion: (version: number) => void;
+  onCreateNew: (baseVersion?: number) => void;
+}

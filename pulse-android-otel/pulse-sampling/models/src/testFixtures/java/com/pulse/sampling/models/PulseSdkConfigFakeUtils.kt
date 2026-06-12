@@ -1,0 +1,206 @@
+@file:Suppress("RedundantVisibilityModifier", "unused") // explicit api requires public modifier mentioned
+
+package com.pulse.sampling.models
+
+import com.pulse.sampling.models.matchers.PulseSignalMatchCondition
+
+public object PulseSdkConfigFakeUtils {
+    public fun createFakeConfig(
+        version: Int = 1,
+        sessionSampleRate: Float = 1.0f,
+        scheduleDurationMs: Long = 1000L,
+        collectorUrl: String = "https://example.com/",
+        configUrl: String = "https://example.com/configs/active",
+        beforeInitQueueSize: Int = 100,
+        attributesToDrop: List<PulseAttributesToDropEntry> = emptyList(),
+        attributesToAdd: List<PulseAttributesToAddEntry> = emptyList(),
+        metricsToAdd: List<PulseMetricsToAddEntry> = emptyList(),
+        features: List<PulseFeatureConfig> = emptyList(),
+        sampling: PulseSamplingConfig =
+            PulseSamplingConfig(
+                default =
+                    PulseDefaultSamplingConfig(
+                        sessionSampleRate = sessionSampleRate,
+                    ),
+                rules = emptyList(),
+            ),
+    ): PulseSdkConfig =
+        PulseSdkConfig(
+            version = version,
+            description = "This is test description",
+            sampling = sampling,
+            signals =
+                PulseSignalConfig(
+                    scheduleDurationMs = scheduleDurationMs,
+                    logsCollectorUrl = collectorUrl + "v1/logs",
+                    spanCollectorUrl = collectorUrl + "v1/spans",
+                    metricCollectorUrl = collectorUrl + "v1/metrics",
+                    customEventCollectorUrl = collectorUrl + "v1/custom-events",
+                    attributesToDrop = attributesToDrop,
+                    attributesToAdd = attributesToAdd,
+                    metricsToAdd = metricsToAdd,
+                ),
+            interaction =
+                PulseInteractionConfig(
+                    collectorUrl = collectorUrl,
+                    configUrl = configUrl,
+                    beforeInitQueueSize = beforeInitQueueSize,
+                ),
+            features = features,
+        )
+
+    public fun createFakeSamplingConfig(
+        default: PulseDefaultSamplingConfig = createFakeDefaultSamplingConfig(),
+        rules: List<PulseSessionSamplingRule> = emptyList(),
+        criticalSessionPolicies: PulseCriticalEventPolicies? = null,
+        signalsToSample: List<PulseSignalsToSampleEntry> = emptyList(),
+    ): PulseSamplingConfig =
+        PulseSamplingConfig(
+            default = default,
+            rules = rules,
+            criticalSessionPolicies = criticalSessionPolicies,
+            signalsToSample = signalsToSample,
+        )
+
+    public fun createFakeDefaultSamplingConfig(sessionSampleRate: SamplingRate = 1.0f): PulseDefaultSamplingConfig =
+        PulseDefaultSamplingConfig(
+            sessionSampleRate = sessionSampleRate,
+        )
+
+    public fun createFakeSessionSamplingRule(
+        name: PulseDeviceAttributeName = PulseDeviceAttributeName.OS_VERSION,
+        value: String = ".*",
+        sdks: Set<PulseSdkName> = setOf(PulseSdkName.ANDROID_JAVA),
+        sessionSampleRate: SamplingRate = 1.0f,
+    ): PulseSessionSamplingRule =
+        PulseSessionSamplingRule(
+            name = name,
+            value = value,
+            sdks = sdks,
+            sessionSampleRate = sessionSampleRate,
+        )
+
+    public fun createFakeSignalMatchCondition(
+        name: String = ".*",
+        props: Set<PulseProp> = emptySet(),
+        scopes: Set<PulseSignalScope> = setOf(PulseSignalScope.TRACES, PulseSignalScope.LOGS),
+        sdks: Set<PulseSdkName> = setOf(PulseSdkName.ANDROID_JAVA),
+    ): PulseSignalMatchCondition =
+        PulseSignalMatchCondition(
+            name = name,
+            props = props,
+            scopes = scopes,
+            sdks = sdks,
+        )
+
+    public fun createFakeProp(
+        name: String = "fake-prop-name",
+        value: String? = "fake-prop-value",
+    ): PulseProp =
+        PulseProp(
+            name = name,
+            value = value,
+        )
+
+    public fun createFakeAttributeValue(
+        name: String = "fake-attr-name",
+        value: String = "fake-attr-value",
+        type: PulseAttributeType = PulseAttributeType.STRING,
+    ): PulseAttributeValue =
+        PulseAttributeValue(
+            name = name,
+            value = value,
+            type = type,
+        )
+
+    public fun createFakeAttributesToAddEntry(
+        values: List<PulseAttributeValue> = listOf(createFakeAttributeValue()),
+        matcher: PulseSignalMatchCondition = createFakeSignalMatchCondition(),
+    ): PulseAttributesToAddEntry =
+        PulseAttributesToAddEntry(
+            values = values,
+            condition = matcher,
+        )
+
+    public fun createFakeAttributesToDropEntry(
+        values: List<String> = emptyList(),
+        condition: PulseSignalMatchCondition = createFakeSignalMatchCondition(),
+    ): PulseAttributesToDropEntry =
+        PulseAttributesToDropEntry(
+            values = values,
+            condition = condition,
+        )
+
+    public fun createFakeFeatureConfig(
+        featureName: PulseFeatureName,
+        sessionSampleRate: SamplingRate = 1.0f,
+        sdks: Collection<PulseSdkName> = listOf(PulseSdkName.ANDROID_JAVA),
+        config: PulseFeatureConfigData? = null,
+    ): PulseFeatureConfig =
+        PulseFeatureConfig(
+            featureName = featureName,
+            sessionSampleRate = sessionSampleRate,
+            sdks = sdks,
+            config = config,
+        )
+
+    public fun createFakeCriticalEventPolicies(
+        alwaysSend: List<PulseSignalMatchCondition> = listOf(createFakeSignalMatchCondition()),
+    ): PulseCriticalEventPolicies =
+        PulseCriticalEventPolicies(
+            alwaysSend = alwaysSend,
+        )
+
+    public fun createFakeSignalsToSampleEntry(
+        condition: PulseSignalMatchCondition = createFakeSignalMatchCondition(),
+        sampleRate: SamplingRate = 1.0f,
+    ): PulseSignalsToSampleEntry =
+        PulseSignalsToSampleEntry(
+            condition = condition,
+            sampleRate = sampleRate,
+        )
+
+    public fun createFakeMetricsToAddEntry(
+        name: String = "fake_metric",
+        target: PulseMetricsToAddTarget = PulseMetricsToAddTarget.Name(type = "name"),
+        condition: PulseSignalMatchCondition = createFakeSignalMatchCondition(),
+        type: PulseMetricsType = createFakeCounter(),
+        attributesToPick: Collection<PulseSignalMatchCondition> = emptySet(),
+    ): PulseMetricsToAddEntry =
+        PulseMetricsToAddEntry(
+            name = name,
+            target = target,
+            condition = condition,
+            type = type,
+            attributesToPick = attributesToPick,
+        )
+
+    public fun createFakeCounter(): PulseMetricsType.Counter =
+        PulseMetricsType.Counter(
+            type = "counter",
+        )
+
+    public fun createFakeGauge(isFraction: Boolean = false): PulseMetricsType.Gauge =
+        PulseMetricsType.Gauge(type = "gauge", isFraction = isFraction)
+
+    public fun createFakeHistogram(
+        bucket: List<Double>? = null,
+        isFraction: Boolean = false,
+    ): PulseMetricsType.Histogram =
+        PulseMetricsType.Histogram(
+            type = "histogram",
+            bucket = bucket,
+            isFraction = isFraction,
+        )
+
+    public fun createFakeSum(
+        isFraction: Boolean = false,
+        isMonotonic: Boolean = false,
+    ): PulseMetricsType.Sum = PulseMetricsType.Sum(type = "sum", isFraction = isFraction, isMonotonic = isMonotonic)
+
+    public fun createFakeMetricsToAddTargetAttribute(
+        condition: PulseSignalMatchCondition = createFakeSignalMatchCondition(),
+        shouldAddPropNameAsSuffix: Boolean = false,
+    ): PulseMetricsToAddTarget.Attribute =
+        PulseMetricsToAddTarget.Attribute(type = "attribute", condition = condition, shouldAddPropNameAsSuffix = shouldAddPropNameAsSuffix)
+}

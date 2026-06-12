@@ -1,0 +1,38 @@
+{
+  "name": "ecommerce-demo",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "build:all": "yarn --cwd ../.. build && yarn run build",
+    "preview": "vite preview",
+    "e2e": "playwright test --config e2e/playwright.config.ts",
+    "e2e:m1": "playwright test --config e2e/playwright.config.ts e2e/m1.spec.ts --project=chromium",
+    "e2e:m2-interactions": "playwright test --config e2e/playwright.config.ts e2e/m2-interactions.spec.ts --project=chromium",
+    "e2e:web-sdk-gates": "playwright test --config e2e/playwright.config.ts --project=chromium --max-failures=5 e2e/m1.spec.ts e2e/m2-interactions.spec.ts e2e/m3-errors.spec.ts e2e/web-vitals.spec.ts e2e/m3-clicks.spec.ts e2e/m4-network.spec.ts e2e/screen-navigation.spec.ts e2e/screen-pathname-encoding.spec.ts e2e/custom-span.spec.ts",
+    "e2e:persistence": "playwright test --config e2e/playwright.config.ts --project=chromium e2e/persistence.spec.ts",
+    "e2e:synthetic": "playwright test --config e2e/playwright.config.ts e2e/synthetic-user.spec.ts --project=chromium",
+    "e2e:synthetic:ingest": "E2E_REAL_OTLP=1 playwright test --config e2e/playwright.config.ts e2e/synthetic-user.spec.ts --project=chromium",
+    "e2e:headed": "playwright test --config e2e/playwright.config.ts --headed",
+    "e2e:report": "playwright test --config e2e/playwright.config.ts; playwright show-report e2e-report",
+    "e2e:ch": "playwright test --config e2e/playwright.ch.config.ts",
+    "e2e:ch:headed": "playwright test --config e2e/playwright.ch.config.ts --headed",
+    "test": "yarn --cwd ../.. vitest run --config examples/ecommerce-demo/vitest.config.ts examples/ecommerce-demo/src/__tests__"
+  },
+  "dependencies": {
+    "@dreamhorizonorg/pulse-web": "0.0.3",
+    "react": "^18.3.0",
+    "react-dom": "^18.3.0",
+    "react-router-dom": "^6.26.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.47.0",
+    "@types/react": "^18.3.0",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.0",
+    "typescript": "^5.6.0",
+    "vite": "5.4.21"
+  }
+}

@@ -1,0 +1,25 @@
+.filterElement {
+  margin-top: var(--mantine-spacing-md);
+}
+
+.loadingElemet {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: var(--mantine-spacing-lg);
+}
+
+.filterContainer {
+  min-width: 300px;
+}
+
+.filterButton {
+  flex-grow: 1;
+}
+
+.filterButtonContainer {
+  display: flex;
+  gap: var(--mantine-spacing-md);
+  width: 100%;
+  margin-top: 10%;
+}

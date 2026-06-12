@@ -1,0 +1,55 @@
+.metricsGrid {
+  display: flex;
+  gap: 8px;
+  margin-bottom: var(--mantine-spacing-sm);
+}
+
+.metricCard {
+  background: linear-gradient(
+    135deg,
+    rgba(14, 201, 194, 0.05) 0%,
+    rgba(14, 201, 194, 0.1) 100%
+  );
+  border: 1px solid rgba(14, 201, 194, 0.15);
+  border-radius: var(--mantine-radius-md);
+  padding: 14px 12px;
+  text-align: center;
+  flex: 1;
+  min-width: 0;
+  transition: all 0.2s ease;
+}
+
+.metricCard:hover {
+  background: linear-gradient(
+    135deg,
+    rgba(14, 201, 194, 0.1) 0%,
+    rgba(14, 201, 194, 0.15) 100%
+  );
+  border-color: rgba(14, 201, 194, 0.25);
+  transform: translateY(-2px);
+}
+
+.metricLabel {
+  font-size: 10px !important;
+  font-weight: 500;
+  color: var(--mantine-color-dark-4);
+  text-transform: capitalize;
+  letter-spacing: 0.2px;
+  margin-bottom: 8px;
+}
+
+.metricValue {
+  font-size: var(--mantine-font-size-xxl) !important;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: -1px;
+}
+
+.metricSubtext {
+  font-size: 8px !important;
+  color: var(--mantine-color-dark-3);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  margin-top: 4px;
+}

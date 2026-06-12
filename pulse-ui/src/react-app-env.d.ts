@@ -1,0 +1,37 @@
+/// <reference types="react-scripts" />
+
+declare namespace NodeJS {
+  interface ProcessEnv {
+    readonly NODE_ENV: "development" | "production" | "test";
+    readonly PUBLIC_URL: string;
+    readonly REACT_APP_FIREBASE_API_KEY?: string;
+    readonly REACT_APP_FIREBASE_AUTH_DOMAIN?: string;
+    readonly REACT_APP_FIREBASE_PROJECT_ID?: string;
+    readonly REACT_APP_FIREBASE_APP_ID?: string;
+    readonly REACT_APP_FIREBASE_AUTH_EMULATOR?: string;
+    readonly REACT_APP_FIREBASE_AUTH_EMULATOR_URL?: string;
+    readonly REACT_APP_GCP_MULTI_TENANT_ENABLED?: string;
+    readonly REACT_APP_GOOGLE_CLIENT_ID?: string;
+    readonly REACT_APP_PULSE_SERVER_URL?: string;
+    readonly REACT_APP_GOOGLE_OAUTH_ENABLED?: string;
+    /** Comma-separated path substrings that always use real API when mock is on (default: /v1/interactions) */
+    readonly REACT_APP_USE_REAL_API_PATHS?: string;
+    /** When "true", show Root Cause tab under Critical Interaction Details */
+    readonly REACT_APP_ROOT_CAUSE_ENABLED?: string;
+  }
+}
+
+declare module "*.module.css" {
+  const classes: { readonly [key: string]: string };
+  export default classes;
+}
+
+declare module "*.module.scss" {
+  const classes: { readonly [key: string]: string };
+  export default classes;
+}
+
+declare module "*.module.sass" {
+  const classes: { readonly [key: string]: string };
+  export default classes;
+}

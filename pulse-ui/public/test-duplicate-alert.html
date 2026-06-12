@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Duplicate Alert Test</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 20px;
+      }
+      .test-result {
+        margin: 10px 0;
+        padding: 10px;
+        border-radius: 4px;
+      }
+      .success {
+        background-color: #d4edda;
+        border: 1px solid #c3e6cb;
+        color: #155724;
+      }
+      .error {
+        background-color: #f8d7da;
+        border: 1px solid #f5c6cb;
+        color: #721c24;
+      }
+      .info {
+        background-color: #d1ecf1;
+        border: 1px solid #bee5eb;
+        color: #0c5460;
+      }
+      button {
+        padding: 10px 20px;
+        margin: 5px;
+        cursor: pointer;
+      }
+      pre {
+        background: #f8f9fa;
+        padding: 10px;
+        border-radius: 4px;
+        overflow-x: auto;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>📋 Duplicate Alert Test</h1>
+
+    <div id="status" class="test-result info">
+      <strong>Status:</strong> Ready to test duplicate alert functionality
+    </div>
+
+    <div>
+      <button onclick="testDuplicateAlert()">Test Duplicate Alert</button>
+      <button onclick="testCreateNewAlert()">Test Create New Alert</button>
+    </div>
+
+    <div id="results"></div>
+
+    <script>
+      // Set environment variables for testing
+      window.process = window.process || {};
+      window.process.env = {
+        ...window.process.env,
+        REACT_APP_USE_MOCK_SERVER: "true",
+        REACT_APP_MOCK_DELAY: "100",
+        REACT_APP_MOCK_ERROR_RATE: "0.0",
+        REACT_APP_MOCK_LOGGING: "true",
+      };
+
+      function updateStatus(message, type = "info") {
+        const status = document.getElementById("status");
+        status.className = `test-result ${type}`;
+        status.innerHTML = `<strong>Status:</strong> ${message}`;
+      }
+
+      function addResult(title, data, success = true) {
+        const results = document.getElementById("results");
+        const resultDiv = document.createElement("div");
+        resultDiv.className = `test-result ${success ? "success" : "error"}`;
+        resultDiv.innerHTML = `
+                <h3>${title}</h3>
+                <pre>${JSON.stringify(data, null, 2)}</pre>
+            `;
+        results.appendChild(resultDiv);
+      }
+
+      async function testDuplicateAlert() {
+        updateStatus("Testing duplicate alert...", "info");
+
+        // Simulate duplicating an existing alert
+        const duplicateAlertData = {
+          name: "COPY OF High Error Rate Alert",
+          description: "Alert when error rate exceeds 10% threshold",
+          appdex_threshold: 0.1,
+          severity_id: "3",
+          service_name: "ContestJoinSuccess",
+          roster_name: "Frontend Team",
+          metric: "ERROR_RATE",
+          metric_operator: "GREATER_THAN",
+          threshold: 0.1,
+          min_total_interactions: 100,
+          min_success_interactions: 90,
+          min_error_interactions: 10,
+          evaluation_interval: 300,
+          evaluation_period: 600,
+          created_by: "user1@example.com",
+          updated_by: "user1@example.com",
+        };
+
+        try {
+          const response = await fetch("/v3/alert", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(duplicateAlertData),
+          });
+          const data = await response.json();
+
+          if (response.ok) {
+            addResult(
+              "✅ Duplicate Alert Test",
+              {
+                status: response.status,
+                alertId: data.data?.alert_id,
+                alertName: data.data?.name,
+                created: data.data?.created_at,
+              },
+              true,
+            );
+          } else {
+            addResult(
+              "❌ Duplicate Alert Test Failed",
+              {
+                status: response.status,
+                error: data.error || data.message,
+              },
+              false,
+            );
+          }
+        } catch (error) {
+          addResult(
+            "❌ Duplicate Alert Test Failed",
+            { error: error.message },
+            false,
+          );
+        }
+      }
+
+      async function testCreateNewAlert() {
+        updateStatus("Testing create new alert...", "info");
+
+        const newAlertData = {
+          name: "Test New Alert",
+          description: "This is a test alert created via API",
+          appdex_threshold: 0.8,
+          severity_id: "2",
+          service_name: "TestService",
+          roster_name: "Test Team",
+          metric: "APDEX",
+          metric_operator: "LESS_THAN",
+          threshold: 0.8,
+          min_total_interactions: 50,
+          min_success_interactions: 45,
+          min_error_interactions: 5,
+          evaluation_interval: 600,
+          evaluation_period: 1200,
+          created_by: "test@example.com",
+          updated_by: "test@example.com",
+        };
+
+        try {
+          const response = await fetch("/v3/alert", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(newAlertData),
+          });
+          const data = await response.json();
+
+          if (response.ok) {
+            addResult(
+              "✅ Create New Alert Test",
+              {
+                status: response.status,
+                alertId: data.data?.alert_id,
+                alertName: data.data?.name,
+                created: data.data?.created_at,
+              },
+              true,
+            );
+          } else {
+            addResult(
+              "❌ Create New Alert Test Failed",
+              {
+                status: response.status,
+                error: data.error || data.message,
+              },
+              false,
+            );
+          }
+        } catch (error) {
+          addResult(
+            "❌ Create New Alert Test Failed",
+            { error: error.message },
+            false,
+          );
+        }
+      }
+
+      // Auto-run test on page load
+      window.onload = function () {
+        updateStatus(
+          "Test page loaded. Click buttons to test duplicate alert functionality.",
+          "info",
+        );
+      };
+    </script>
+  </body>
+</html>

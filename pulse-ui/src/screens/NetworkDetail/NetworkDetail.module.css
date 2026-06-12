@@ -1,0 +1,65 @@
+.pageContainer {
+  padding: var(--mantine-spacing-md);
+  width: 100%;
+  box-sizing: border-box;
+  background: linear-gradient(180deg, #fafbfc 0%, #ffffff 100%);
+  min-height: 100vh;
+}
+
+.headerContainer {
+  display: flex;
+  align-items: center;
+  gap: var(--mantine-spacing-md);
+  margin-bottom: var(--mantine-spacing-lg);
+}
+
+.backButton {
+  color: #0ec9c2;
+  font-weight: 600;
+  font-size: 14px;
+  transition: all 0.3s ease;
+}
+
+.backButton:hover {
+  background-color: rgba(14, 201, 194, 0.08);
+  color: #0ba09a;
+}
+
+.titleSection {
+  flex: 1;
+  padding-left: 12px;
+  position: relative;
+}
+
+.titleSection::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 4px;
+  height: 32px;
+  background: linear-gradient(180deg, #0ec9c2 0%, #0ba09a 100%);
+  border-radius: 2px;
+}
+
+.pageTitle {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--mantine-color-dark-8);
+  margin: 0;
+  letter-spacing: -0.5px;
+}
+
+.subtitle {
+  margin-top: 4px;
+  font-size: 13px;
+  color: #6c757d;
+  font-family: "SF Mono", "Monaco", "Inconsolata", "Fira Code", monospace;
+}
+
+.errorBreakdownGrid {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}

@@ -1,0 +1,5 @@
+.UserCategorisationDetailsContainer {
+  padding: var(--mantine-spacing-xs);
+  padding-top: 40px;
+  font-weight: 400;
+}

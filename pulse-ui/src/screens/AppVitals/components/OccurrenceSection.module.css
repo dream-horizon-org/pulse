@@ -1,0 +1,83 @@
+.sectionContainer {
+  background: #ffffff;
+  border: 1px solid rgba(14, 201, 194, 0.2);
+  border-radius: var(--mantine-radius-lg);
+  padding: var(--mantine-spacing-lg);
+  box-shadow: 0 4px 12px rgba(14, 201, 194, 0.1);
+  margin-bottom: var(--mantine-spacing-md);
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+.sectionContainer::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #0ec9c2 0%, #0ba09a 100%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.sectionContainer:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(14, 201, 194, 0.15);
+  border-color: rgba(14, 201, 194, 0.3);
+}
+
+.sectionContainer:hover::before {
+  opacity: 1;
+}
+
+.sectionTitle {
+  font-size: 16px;
+  font-weight: 700;
+  color: #0ba09a;
+  letter-spacing: -0.2px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.segmentedControl {
+  background: linear-gradient(
+    135deg,
+    rgba(14, 201, 194, 0.05),
+    rgba(14, 201, 194, 0.1)
+  );
+  border: 1px solid rgba(14, 201, 194, 0.2);
+  padding: 4px;
+  border-radius: 8px;
+  margin-bottom: var(--mantine-spacing-md);
+  width: fit-content;
+}
+
+.segmentedControl :global(.mantine-SegmentedControl-root) {
+  width: auto;
+}
+
+.segmentedControl :global(.mantine-SegmentedControl-label) {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--mantine-color-dark-6);
+  padding: 6px 12px;
+  white-space: nowrap;
+}
+
+.segmentedControl :global(.mantine-SegmentedControl-indicator) {
+  background: linear-gradient(135deg, #0ec9c2, #0ba09a);
+  border: 1px solid rgba(14, 201, 194, 0.3);
+  box-shadow: 0 2px 6px rgba(14, 201, 194, 0.25);
+  border-radius: 6px;
+}
+
+.segmentedControl :global(.mantine-SegmentedControl-control[data-active]) {
+  color: var(--mantine-color-white);
+  font-weight: 700;
+}
+
+.contentContainer {
+  margin-top: 0;
+}

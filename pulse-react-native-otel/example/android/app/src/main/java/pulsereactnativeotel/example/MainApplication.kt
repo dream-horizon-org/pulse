@@ -1,0 +1,61 @@
+package pulsereactnativeotel.example
+
+import android.app.Application
+import android.util.Log
+import com.facebook.react.PackageList
+import com.facebook.react.ReactApplication
+import com.facebook.react.ReactHost
+import com.facebook.react.ReactNativeApplicationEntryPoint.loadReactNative
+import com.facebook.react.ReactNativeHost
+import com.facebook.react.ReactPackage
+import com.facebook.react.defaults.DefaultReactHost.getDefaultReactHost
+import com.facebook.react.defaults.DefaultReactNativeHost
+import com.pulse.android.api.otel.PulseDataCollectionConsent
+import com.pulse.utils.PulseLogLevel
+import com.pulsereactnativeotel.Pulse
+import io.opentelemetry.android.instrumentation.AndroidInstrumentationLoader
+import io.opentelemetry.instrumentation.library.okhttp.v3_0.OkHttpInstrumentation
+
+class MainApplication : Application(), ReactApplication {
+
+  override val reactNativeHost: ReactNativeHost =
+      object : DefaultReactNativeHost(this) {
+        override fun getPackages(): List<ReactPackage> =
+          PackageList(this).packages.apply {
+            // Add native network module for testing native OkHttp calls
+            add(NativePulseExamplePackage())
+          }
+
+        override fun getJSMainModuleName(): String = "index"
+
+        override fun getUseDeveloperSupport(): Boolean = BuildConfig.DEBUG
+
+        override val isNewArchEnabled: Boolean = BuildConfig.IS_NEW_ARCHITECTURE_ENABLED
+        override val isHermesEnabled: Boolean = BuildConfig.IS_HERMES_ENABLED
+      }
+
+  override val reactHost: ReactHost
+    get() = getDefaultReactHost(applicationContext, reactNativeHost)
+
+  override fun onCreate() {
+    super.onCreate()
+
+    try {
+      AndroidInstrumentationLoader.getInstrumentation(OkHttpInstrumentation::class.java)
+    } catch (e: Exception) {
+      Log.w("MainApplication", "OkHttp instrumentation not available: ${e.message}")
+    }
+
+    Pulse.initialize(
+        application = this,
+        apiKey = "default-project_devkey01",
+        dataCollectionState = PulseDataCollectionConsent.ALLOWED,
+        logLevel = PulseLogLevel.DEBUG,
+    ) {
+      interaction {
+        enabled(true)
+      }
+    }
+    loadReactNative(this)
+  }
+}

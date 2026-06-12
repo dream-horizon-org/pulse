@@ -1,0 +1,48 @@
+import type {
+  PulseInstrumentation,
+  SdkContext,
+} from "../instrumentation-registry";
+import { InteractionFeature } from "../interactions/interaction-feature";
+import type { PulseAttributes } from "../types/attributes";
+import { PulseInstrumentationName } from "../constants/pulse-otel-runtime";
+
+export class InteractionInstrumentation implements PulseInstrumentation {
+  readonly name = PulseInstrumentationName.INTERACTIONS;
+  private feature?: InteractionFeature;
+
+  install(sdk: SdkContext): void {
+    this.feature = new InteractionFeature(
+      sdk.endpointBaseUrl,
+      sdk.config,
+      sdk.gate,
+      sdk.config.instrumentations?.interactions?.enabled ?? true,
+      sdk.tracer,
+    );
+    void this.feature.init();
+  }
+
+  trackEvent(
+    name: string,
+    attrs?: PulseAttributes,
+    timestampMs?: number,
+  ): void {
+    this.feature?.trackEvent(name, attrs, timestampMs);
+  }
+
+  addMarkerToAll(
+    name: string,
+    attrs?: PulseAttributes,
+    timestampMs?: number,
+  ): void {
+    this.feature?.addMarkerToAll(name, attrs, timestampMs);
+  }
+
+  getRunningInteractions(): Array<{ id: string; name: string }> {
+    return this.feature?.getRunningInteractions() ?? [];
+  }
+
+  uninstall(): void {
+    this.feature?.shutdown();
+    this.feature = undefined;
+  }
+}

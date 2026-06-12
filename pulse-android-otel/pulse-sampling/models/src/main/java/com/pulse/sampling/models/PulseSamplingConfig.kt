@@ -1,0 +1,61 @@
+package com.pulse.sampling.models
+
+import android.content.Context
+import androidx.annotation.Keep
+import com.pulse.sampling.models.matchers.PulseSignalMatchCondition
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
+
+public typealias SamplingRate = Float
+
+@Keep
+@Serializable
+public class PulseSignalsToSampleEntry internal constructor(
+    @SerialName("condition") public val condition: PulseSignalMatchCondition,
+    @SerialName("sampleRate") public val sampleRate: SamplingRate,
+)
+
+@Keep
+@Serializable
+public class PulseSamplingConfig internal constructor(
+    @SerialName("default")
+    public val default: PulseDefaultSamplingConfig = PulseDefaultSamplingConfig(),
+    /**
+     * Set of rules sorted by descending priority
+     */
+    @SerialName("rules")
+    public val rules: List<PulseSessionSamplingRule> = emptyList(),
+    @SerialName("criticalSessionPolicies")
+    public val criticalSessionPolicies: PulseCriticalEventPolicies? = null,
+    @SerialName("signalsToSample")
+    public val signalsToSample: List<PulseSignalsToSampleEntry> = emptyList(),
+)
+
+@Keep
+@Serializable
+public class PulseSessionSamplingRule internal constructor(
+    @SerialName("name")
+    public val name: PulseDeviceAttributeName = PulseDeviceAttributeName.UNKNOWN,
+    @SerialName("value")
+    public val value: String = "",
+    @SerialName("sdks")
+    public val sdks: Collection<PulseSdkName> = emptySet(),
+    @SerialName("sessionSampleRate")
+    public val sessionSampleRate: SamplingRate = 1.0f,
+) {
+    public fun matches(context: Context): Boolean = name.matches(context, value)
+}
+
+@Keep
+@Serializable
+public class PulseDefaultSamplingConfig internal constructor(
+    @SerialName("sessionSampleRate")
+    public val sessionSampleRate: SamplingRate = 1.0f,
+)
+
+@Keep
+@Serializable
+public class PulseCriticalEventPolicies internal constructor(
+    @SerialName("alwaysSend")
+    public val alwaysSend: Collection<PulseSignalMatchCondition>,
+)

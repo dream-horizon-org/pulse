@@ -1,0 +1,627 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Test Anomaly Detection Mocks</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 20px;
+        background-color: #f5f5f5;
+      }
+      .container {
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        margin-bottom: 20px;
+      }
+      .test-section {
+        margin-bottom: 30px;
+        padding: 15px;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+      }
+      .test-button {
+        background: #007bff;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 4px;
+        cursor: pointer;
+        margin: 5px;
+      }
+      .test-button:hover {
+        background: #0056b3;
+      }
+      .response {
+        background: #f8f9fa;
+        border: 1px solid #e9ecef;
+        border-radius: 4px;
+        padding: 15px;
+        margin-top: 10px;
+        white-space: pre-wrap;
+        font-family: monospace;
+        max-height: 400px;
+        overflow-y: auto;
+      }
+      .error {
+        background: #f8d7da;
+        border-color: #f5c6cb;
+        color: #721c24;
+      }
+      .success {
+        background: #d4edda;
+        border-color: #c3e6cb;
+        color: #155724;
+      }
+      .anomaly-item {
+        background: #fff3cd;
+        border: 1px solid #ffeaa7;
+        border-radius: 4px;
+        padding: 10px;
+        margin: 5px 0;
+      }
+      .anomaly-timestamp {
+        font-weight: bold;
+        color: #856404;
+      }
+      .anomaly-metric {
+        background: #dc3545;
+        color: white;
+        padding: 2px 6px;
+        border-radius: 3px;
+        font-size: 12px;
+        margin-right: 10px;
+      }
+      .anomaly-users {
+        background: #ffc107;
+        color: #212529;
+        padding: 2px 6px;
+        border-radius: 3px;
+        font-size: 12px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>🧪 Anomaly Detection Mock Server Test</h1>
+
+    <div class="container">
+      <h2>Test Configuration</h2>
+      <p><strong>Base URL:</strong> <span id="baseUrl"></span></p>
+      <p>
+        <strong>Mock Server Status:</strong>
+        <span id="mockStatus">Checking...</span>
+      </p>
+    </div>
+
+    <div class="container">
+      <h2>Apdex Anomalies Test</h2>
+      <div class="test-section">
+        <h3>GET /anomaly/apdex</h3>
+        <p>Test the Apdex anomalies endpoint with various parameters.</p>
+
+        <button class="test-button" onclick="testApdexAnomalies()">
+          Test Apdex Anomalies
+        </button>
+
+        <button class="test-button" onclick="testApdexAnomaliesWithFilters()">
+          Test with Filters
+        </button>
+
+        <button class="test-button" onclick="testApdexAnomaliesInvalid()">
+          Test Invalid Parameters
+        </button>
+
+        <div id="apdexResponse" class="response" style="display: none"></div>
+      </div>
+    </div>
+
+    <div class="container">
+      <h2>Error Rate Anomalies Test</h2>
+      <div class="test-section">
+        <h3>GET /anomaly/error-rate</h3>
+        <p>Test the Error Rate anomalies endpoint with various parameters.</p>
+
+        <button class="test-button" onclick="testErrorRateAnomalies()">
+          Test Error Rate Anomalies
+        </button>
+
+        <button
+          class="test-button"
+          onclick="testErrorRateAnomaliesWithFilters()"
+        >
+          Test with Filters
+        </button>
+
+        <button class="test-button" onclick="testErrorRateAnomaliesInvalid()">
+          Test Invalid Parameters
+        </button>
+
+        <div
+          id="errorRateResponse"
+          class="response"
+          style="display: none"
+        ></div>
+      </div>
+    </div>
+
+    <div class="container">
+      <h2>Anomaly Details Test</h2>
+      <div class="test-section">
+        <h3>GET /anomaly/details</h3>
+        <p>
+          Test the anomaly details endpoint when tapping on individual anomaly
+          items.
+        </p>
+
+        <button class="test-button" onclick="testAnomalyDetails()">
+          Test Anomaly Details
+        </button>
+
+        <button class="test-button" onclick="testAnomalyDetailsWithFilters()">
+          Test with Filters
+        </button>
+
+        <button class="test-button" onclick="testAnomalyDetailsInvalid()">
+          Test Invalid Parameters
+        </button>
+
+        <div
+          id="anomalyDetailsResponse"
+          class="response"
+          style="display: none"
+        ></div>
+      </div>
+    </div>
+
+    <div class="container">
+      <h2>Anomaly Data Visualization</h2>
+      <div class="test-section">
+        <h3>Combined Anomaly View</h3>
+        <p>Display both Apdex and Error Rate anomalies in a combined view.</p>
+
+        <button class="test-button" onclick="testCombinedAnomalies()">
+          Load Combined Anomalies
+        </button>
+
+        <div id="combinedResponse" class="response" style="display: none"></div>
+      </div>
+    </div>
+
+    <script>
+      const baseUrl = window.location.origin;
+      document.getElementById("baseUrl").textContent = baseUrl;
+
+      // Check mock server status
+      async function checkMockServerStatus() {
+        try {
+          const response = await fetch(
+            `${baseUrl}/anomaly/apdex?useCaseId=test&startTime=2024-01-01T00:00:00Z&endTime=2024-01-02T00:00:00Z`,
+          );
+          if (response.ok) {
+            document.getElementById("mockStatus").textContent =
+              "✅ Mock Server Active";
+            document.getElementById("mockStatus").style.color = "green";
+          } else {
+            document.getElementById("mockStatus").textContent =
+              "❌ Mock Server Error";
+            document.getElementById("mockStatus").style.color = "red";
+          }
+        } catch (error) {
+          document.getElementById("mockStatus").textContent =
+            "❌ Mock Server Unavailable";
+          document.getElementById("mockStatus").style.color = "red";
+        }
+      }
+
+      // Test Apdex anomalies
+      async function testApdexAnomalies() {
+        const responseDiv = document.getElementById("apdexResponse");
+        responseDiv.style.display = "block";
+        responseDiv.className = "response";
+        responseDiv.textContent = "Loading...";
+
+        try {
+          const url = `${baseUrl}/anomaly/apdex?useCaseId=CreateTeamSuccess&startTime=2024-01-15T00:00:00Z&endTime=2024-01-15T23:59:59Z`;
+          const response = await fetch(url);
+          const data = await response.json();
+
+          if (response.ok) {
+            responseDiv.className = "response success";
+            responseDiv.innerHTML = formatAnomalyResponse(
+              "Apdex Anomalies",
+              data,
+            );
+          } else {
+            responseDiv.className = "response error";
+            responseDiv.textContent = `Error: ${response.status}\n${JSON.stringify(data, null, 2)}`;
+          }
+        } catch (error) {
+          responseDiv.className = "response error";
+          responseDiv.textContent = `Network Error: ${error.message}`;
+        }
+      }
+
+      // Test Apdex anomalies with filters
+      async function testApdexAnomaliesWithFilters() {
+        const responseDiv = document.getElementById("apdexResponse");
+        responseDiv.style.display = "block";
+        responseDiv.className = "response";
+        responseDiv.textContent = "Loading...";
+
+        try {
+          const url = `${baseUrl}/anomaly/apdex?useCaseId=CreateTeamSuccess&startTime=2024-01-15T00:00:00Z&endTime=2024-01-15T23:59:59Z&platform=android&appVersion=2.1.0&osVersion=12&networkProvider=airtel&state=maharashtra`;
+          const response = await fetch(url);
+          const data = await response.json();
+
+          if (response.ok) {
+            responseDiv.className = "response success";
+            responseDiv.innerHTML = formatAnomalyResponse(
+              "Apdex Anomalies (with filters)",
+              data,
+            );
+          } else {
+            responseDiv.className = "response error";
+            responseDiv.textContent = `Error: ${response.status}\n${JSON.stringify(data, null, 2)}`;
+          }
+        } catch (error) {
+          responseDiv.className = "response error";
+          responseDiv.textContent = `Network Error: ${error.message}`;
+        }
+      }
+
+      // Test Apdex anomalies with invalid parameters
+      async function testApdexAnomaliesInvalid() {
+        const responseDiv = document.getElementById("apdexResponse");
+        responseDiv.style.display = "block";
+        responseDiv.className = "response";
+        responseDiv.textContent = "Loading...";
+
+        try {
+          const url = `${baseUrl}/anomaly/apdex?useCaseId=CreateTeamSuccess`;
+          const response = await fetch(url);
+          const data = await response.json();
+
+          if (response.ok) {
+            responseDiv.className = "response success";
+            responseDiv.textContent = `Unexpected success: ${JSON.stringify(data, null, 2)}`;
+          } else {
+            responseDiv.className = "response error";
+            responseDiv.textContent = `Expected Error (${response.status}):\n${JSON.stringify(data, null, 2)}`;
+          }
+        } catch (error) {
+          responseDiv.className = "response error";
+          responseDiv.textContent = `Network Error: ${error.message}`;
+        }
+      }
+
+      // Test Error Rate anomalies
+      async function testErrorRateAnomalies() {
+        const responseDiv = document.getElementById("errorRateResponse");
+        responseDiv.style.display = "block";
+        responseDiv.className = "response";
+        responseDiv.textContent = "Loading...";
+
+        try {
+          const url = `${baseUrl}/anomaly/error-rate?useCaseId=CreateTeamSuccess&startTime=2024-01-15T00:00:00Z&endTime=2024-01-15T23:59:59Z`;
+          const response = await fetch(url);
+          const data = await response.json();
+
+          if (response.ok) {
+            responseDiv.className = "response success";
+            responseDiv.innerHTML = formatAnomalyResponse(
+              "Error Rate Anomalies",
+              data,
+            );
+          } else {
+            responseDiv.className = "response error";
+            responseDiv.textContent = `Error: ${response.status}\n${JSON.stringify(data, null, 2)}`;
+          }
+        } catch (error) {
+          responseDiv.className = "response error";
+          responseDiv.textContent = `Network Error: ${error.message}`;
+        }
+      }
+
+      // Test Error Rate anomalies with filters
+      async function testErrorRateAnomaliesWithFilters() {
+        const responseDiv = document.getElementById("errorRateResponse");
+        responseDiv.style.display = "block";
+        responseDiv.className = "response";
+        responseDiv.textContent = "Loading...";
+
+        try {
+          const url = `${baseUrl}/anomaly/error-rate?useCaseId=CreateTeamSuccess&startTime=2024-01-15T00:00:00Z&endTime=2024-01-15T23:59:59Z&platform=ios&appVersion=2.0.5&osVersion=15&networkProvider=jio&state=karnataka`;
+          const response = await fetch(url);
+          const data = await response.json();
+
+          if (response.ok) {
+            responseDiv.className = "response success";
+            responseDiv.innerHTML = formatAnomalyResponse(
+              "Error Rate Anomalies (with filters)",
+              data,
+            );
+          } else {
+            responseDiv.className = "response error";
+            responseDiv.textContent = `Error: ${response.status}\n${JSON.stringify(data, null, 2)}`;
+          }
+        } catch (error) {
+          responseDiv.className = "response error";
+          responseDiv.textContent = `Network Error: ${error.message}`;
+        }
+      }
+
+      // Test Error Rate anomalies with invalid parameters
+      async function testErrorRateAnomaliesInvalid() {
+        const responseDiv = document.getElementById("errorRateResponse");
+        responseDiv.style.display = "block";
+        responseDiv.className = "response";
+        responseDiv.textContent = "Loading...";
+
+        try {
+          const url = `${baseUrl}/anomaly/error-rate?useCaseId=CreateTeamSuccess&startTime=2024-01-15T00:00:00Z`;
+          const response = await fetch(url);
+          const data = await response.json();
+
+          if (response.ok) {
+            responseDiv.className = "response success";
+            responseDiv.textContent = `Unexpected success: ${JSON.stringify(data, null, 2)}`;
+          } else {
+            responseDiv.className = "response error";
+            responseDiv.textContent = `Expected Error (${response.status}):\n${JSON.stringify(data, null, 2)}`;
+          }
+        } catch (error) {
+          responseDiv.className = "response error";
+          responseDiv.textContent = `Network Error: ${error.message}`;
+        }
+      }
+
+      // Test anomaly details
+      async function testAnomalyDetails() {
+        const responseDiv = document.getElementById("anomalyDetailsResponse");
+        responseDiv.style.display = "block";
+        responseDiv.className = "response";
+        responseDiv.textContent = "Loading...";
+
+        try {
+          const timestamp = new Date("2024-01-15T12:00:00Z").toISOString();
+          const url = `${baseUrl}/anomaly/details?useCaseId=CreateTeamSuccess&timestamp=${timestamp}`;
+          const response = await fetch(url);
+          const data = await response.json();
+
+          if (response.ok) {
+            responseDiv.className = "response success";
+            responseDiv.innerHTML = formatAnomalyDetailsResponse(
+              "Anomaly Details",
+              data,
+            );
+          } else {
+            responseDiv.className = "response error";
+            responseDiv.textContent = `Error: ${response.status}\n${JSON.stringify(data, null, 2)}`;
+          }
+        } catch (error) {
+          responseDiv.className = "response error";
+          responseDiv.textContent = `Network Error: ${error.message}`;
+        }
+      }
+
+      // Test anomaly details with filters
+      async function testAnomalyDetailsWithFilters() {
+        const responseDiv = document.getElementById("anomalyDetailsResponse");
+        responseDiv.style.display = "block";
+        responseDiv.className = "response";
+        responseDiv.textContent = "Loading...";
+
+        try {
+          const timestamp = new Date("2024-01-15T12:00:00Z").toISOString();
+          const url = `${baseUrl}/anomaly/details?useCaseId=CreateTeamSuccess&timestamp=${timestamp}&appVersion=5.45.0&platform=androidplaystore&state=Bihar&networkProvider=JIO 4G&osVersion=VANILLA_ICE_CREAM&metric=APDEX_ANOMALY&limit=5&offSet=0`;
+          const response = await fetch(url);
+          const data = await response.json();
+
+          if (response.ok) {
+            responseDiv.className = "response success";
+            responseDiv.innerHTML = formatAnomalyDetailsResponse(
+              "Anomaly Details (with filters)",
+              data,
+            );
+          } else {
+            responseDiv.className = "response error";
+            responseDiv.textContent = `Error: ${response.status}\n${JSON.stringify(data, null, 2)}`;
+          }
+        } catch (error) {
+          responseDiv.className = "response error";
+          responseDiv.textContent = `Network Error: ${error.message}`;
+        }
+      }
+
+      // Test anomaly details with invalid parameters
+      async function testAnomalyDetailsInvalid() {
+        const responseDiv = document.getElementById("anomalyDetailsResponse");
+        responseDiv.style.display = "block";
+        responseDiv.className = "response";
+        responseDiv.textContent = "Loading...";
+
+        try {
+          const url = `${baseUrl}/anomaly/details?useCaseId=CreateTeamSuccess`;
+          const response = await fetch(url);
+          const data = await response.json();
+
+          if (response.ok) {
+            responseDiv.className = "response success";
+            responseDiv.textContent = `Unexpected success: ${JSON.stringify(data, null, 2)}`;
+          } else {
+            responseDiv.className = "response error";
+            responseDiv.textContent = `Expected Error (${response.status}):\n${JSON.stringify(data, null, 2)}`;
+          }
+        } catch (error) {
+          responseDiv.className = "response error";
+          responseDiv.textContent = `Network Error: ${error.message}`;
+        }
+      }
+
+      // Test combined anomalies
+      async function testCombinedAnomalies() {
+        const responseDiv = document.getElementById("combinedResponse");
+        responseDiv.style.display = "block";
+        responseDiv.className = "response";
+        responseDiv.textContent = "Loading...";
+
+        try {
+          const [apdexResponse, errorRateResponse] = await Promise.all([
+            fetch(
+              `${baseUrl}/anomaly/apdex?useCaseId=CreateTeamSuccess&startTime=2024-01-15T00:00:00Z&endTime=2024-01-15T23:59:59Z`,
+            ),
+            fetch(
+              `${baseUrl}/anomaly/error-rate?useCaseId=CreateTeamSuccess&startTime=2024-01-15T00:00:00Z&endTime=2024-01-15T23:59:59Z`,
+            ),
+          ]);
+
+          const apdexData = await apdexResponse.json();
+          const errorRateData = await errorRateResponse.json();
+
+          if (apdexResponse.ok && errorRateResponse.ok) {
+            responseDiv.className = "response success";
+            responseDiv.innerHTML = formatCombinedAnomalyResponse(
+              apdexData,
+              errorRateData,
+            );
+          } else {
+            responseDiv.className = "response error";
+            responseDiv.textContent = `Error loading anomalies:\nApdex: ${apdexResponse.status}\nError Rate: ${errorRateResponse.status}`;
+          }
+        } catch (error) {
+          responseDiv.className = "response error";
+          responseDiv.textContent = `Network Error: ${error.message}`;
+        }
+      }
+
+      // Format anomaly response for display
+      function formatAnomalyResponse(title, data) {
+        if (!data.readings || data.readings.length === 0) {
+          return `<h3>${title}</h3><p>No anomalies found</p>`;
+        }
+
+        let html = `<h3>${title}</h3><p>Found ${data.readings.length} anomalies:</p>`;
+
+        data.readings.forEach((anomaly, index) => {
+          const timestamp = new Date(anomaly.timestamp * 1000).toLocaleString();
+          html += `
+                    <div class="anomaly-item">
+                        <div class="anomaly-timestamp">${timestamp}</div>
+                        <div>
+                            <span class="anomaly-metric">APDEX</span>
+                            <span class="anomaly-users">${anomaly.distinctUsers} users</span>
+                            <strong>Score: ${anomaly.reading}</strong>
+                        </div>
+                        <div style="margin-top: 8px; font-size: 14px; color: #666;">
+                            ${anomaly.anomalyContributions}
+                        </div>
+                    </div>
+                `;
+        });
+
+        return html;
+      }
+
+      // Format anomaly details response for display
+      function formatAnomalyDetailsResponse(title, data) {
+        if (!data.readings || data.readings.length === 0) {
+          return `<h3>${title}</h3><p>No anomaly details found</p>`;
+        }
+
+        let html = `<h3>${title}</h3>`;
+        html += `<p><strong>Total Count:</strong> ${data.totalCount} | <strong>Limit:</strong> ${data.limit} | <strong>Offset:</strong> ${data.offSet}</p>`;
+        html += `<p>Found ${data.readings.length} detailed readings:</p>`;
+
+        data.readings.forEach((reading, index) => {
+          const timestamp = new Date(reading.timestamp).toLocaleString();
+          const metricColor =
+            reading.anomalyType === "APDEX_ANOMALY" ? "#dc3545" : "#ffc107";
+
+          html += `
+                    <div class="anomaly-item" style="margin-bottom: 15px;">
+                        <div class="anomaly-timestamp">${timestamp}</div>
+                        <div style="margin: 8px 0;">
+                            <span class="anomaly-metric" style="background: ${metricColor}">${reading.anomalyType}</span>
+                            <span class="anomaly-users">${reading.distinctUsers} users</span>
+                            <strong>Value: ${reading.reading}</strong>
+                            <span style="color: #666; margin-left: 10px;">Range: ${reading.lowerBound} - ${reading.upperBound}</span>
+                        </div>
+                        <div style="margin: 8px 0; font-size: 14px;">
+                            <strong>App Version:</strong> ${reading.appVersion} | 
+                            <strong>Platform:</strong> ${reading.platform} | 
+                            <strong>OS:</strong> ${reading.osVersion}
+                        </div>
+                        <div style="margin: 8px 0; font-size: 14px;">
+                            <strong>State:</strong> ${reading.state} | 
+                            <strong>Network:</strong> ${reading.networkProvider}
+                        </div>
+                    </div>
+                `;
+        });
+
+        return html;
+      }
+
+      // Format combined anomaly response
+      function formatCombinedAnomalyResponse(apdexData, errorRateData) {
+        const allAnomalies = [];
+
+        if (apdexData.readings) {
+          apdexData.readings.forEach((anomaly) => {
+            allAnomalies.push({
+              ...anomaly,
+              metric: "APDEX",
+              color: "#dc3545",
+            });
+          });
+        }
+
+        if (errorRateData.readings) {
+          errorRateData.readings.forEach((anomaly) => {
+            allAnomalies.push({
+              ...anomaly,
+              metric: "ERROR_RATE",
+              color: "#ffc107",
+            });
+          });
+        }
+
+        // Sort by timestamp
+        allAnomalies.sort((a, b) => a.timestamp - b.timestamp);
+
+        if (allAnomalies.length === 0) {
+          return "<h3>Combined Anomalies</h3><p>No anomalies found</p>";
+        }
+
+        let html = `<h3>Combined Anomalies (${allAnomalies.length} total)</h3>`;
+
+        allAnomalies.forEach((anomaly, index) => {
+          const timestamp = new Date(anomaly.timestamp * 1000).toLocaleString();
+          html += `
+                    <div class="anomaly-item">
+                        <div class="anomaly-timestamp">${timestamp}</div>
+                        <div>
+                            <span class="anomaly-metric" style="background: ${anomaly.color}">${anomaly.metric}</span>
+                            <span class="anomaly-users">${anomaly.distinctUsers} users</span>
+                            <strong>Value: ${anomaly.reading}</strong>
+                        </div>
+                        <div style="margin-top: 8px; font-size: 14px; color: #666;">
+                            ${anomaly.anomalyContributions}
+                        </div>
+                    </div>
+                `;
+        });
+
+        return html;
+      }
+
+      // Initialize on page load
+      checkMockServerStatus();
+    </script>
+  </body>
+</html>

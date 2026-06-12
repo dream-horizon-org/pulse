@@ -1,0 +1,37 @@
+.detailsContainer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mantine-spacing-md);
+}
+
+.detailRow {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.label {
+  font-size: var(--mantine-font-size-xs) !important;
+  text-transform: uppercase;
+  font-weight: 400 !important;
+  color: var(--mantine-color-dark-6);
+}
+
+.valuePill {
+  font-size: 12px;
+  font-weight: 500;
+  font-family: "Monaco", "Menlo", "Ubuntu Mono", monospace;
+  padding: 6px 12px;
+  border-radius: 12px;
+  width: fit-content;
+  background: rgba(14, 201, 194, 0.1) !important;
+  color: var(--mantine-color-dark-7);
+  border: 1px solid rgba(14, 201, 194, 0.15);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  transition: all 0.2s ease;
+}
+
+.valuePill:hover {
+  border-color: rgba(14, 201, 194, 0.25);
+  box-shadow: 0 2px 6px rgba(14, 201, 194, 0.1);
+}

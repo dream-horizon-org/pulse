@@ -1,0 +1,96 @@
+.eventRow {
+  position: relative;
+  display: flex;
+  margin-bottom: var(--mantine-spacing-xs);
+  min-height: 32px;
+}
+
+.eventList {
+  padding: 0 var(--mantine-spacing-sm);
+  height: 100%;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  width: 100%;
+  cursor: pointer;
+}
+
+.eventName {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-right: 8px;
+}
+
+.timelineVisualization {
+  position: relative;
+  height: 100%;
+  width: 100%;
+  min-width: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+.timelineBar {
+  position: absolute;
+  height: 8px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: visible;
+  top: calc(50% - 10px);
+  cursor: pointer;
+}
+
+.timelineBar:hover {
+  opacity: 0.8;
+  transform: scaleY(1.2);
+}
+
+.durationLabel {
+  position: absolute;
+  top: calc(50% + 6px);
+  font-size: 11px;
+  color: var(--mantine-color-dark-7);
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 10;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  padding: 0 2px;
+}
+
+.expandButton {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--mantine-color-gray-6);
+  transition: color 0.2s ease;
+}
+
+.expandButton:hover {
+  color: var(--mantine-color-primary-6);
+}
+
+.expandSpacer {
+  width: 18px;
+}
+
+.durationText {
+  margin-left: 8px;
+  font-weight: 500;
+  flex-shrink: 0;
+  white-space: nowrap;
+}

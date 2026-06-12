@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Start/Stop Test</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 20px;
+      }
+      .test-result {
+        margin: 10px 0;
+        padding: 10px;
+        border-radius: 4px;
+      }
+      .success {
+        background-color: #d4edda;
+        border: 1px solid #c3e6cb;
+        color: #155724;
+      }
+      .error {
+        background-color: #f8d7da;
+        border: 1px solid #f5c6cb;
+        color: #721c24;
+      }
+      .info {
+        background-color: #d1ecf1;
+        border: 1px solid #bee5eb;
+        color: #0c5460;
+      }
+      button {
+        padding: 10px 20px;
+        margin: 5px;
+        cursor: pointer;
+      }
+      pre {
+        background: #f8f9fa;
+        padding: 10px;
+        border-radius: 4px;
+        overflow-x: auto;
+      }
+      .action-card {
+        margin: 10px 0;
+        padding: 15px;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        background: #f9f9f9;
+      }
+      .running {
+        border-left: 4px solid #28a745;
+      }
+      .stopped {
+        border-left: 4px solid #dc3545;
+      }
+      .action-buttons {
+        display: flex;
+        gap: 10px;
+        margin-top: 10px;
+      }
+      .btn-start {
+        background-color: #28a745;
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+      .btn-stop {
+        background-color: #dc3545;
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>▶️ Start/Stop Test</h1>
+
+    <div id="status" class="test-result info">
+      <strong>Status:</strong> Ready to test start/stop functionality
+    </div>
+
+    <div>
+      <button onclick="testStartStop('ContestJoinSuccess')">
+        Test ContestJoinSuccess Start/Stop
+      </button>
+      <button onclick="testStartStop('CreateTeamSuccess')">
+        Test CreateTeamSuccess Start/Stop
+      </button>
+      <button onclick="testAllStartStop()">
+        Test All Interactions Start/Stop
+      </button>
+    </div>
+
+    <div id="results"></div>
+
+    <script>
+      // Set environment variables for testing
+      window.process = window.process || {};
+      window.process.env = {
+        ...window.process.env,
+        REACT_APP_USE_MOCK_SERVER: "true",
+        REACT_APP_MOCK_DELAY: "100",
+        REACT_APP_MOCK_ERROR_RATE: "0.0",
+        REACT_APP_MOCK_LOGGING: "true",
+      };
+
+      function updateStatus(message, type = "info") {
+        const status = document.getElementById("status");
+        status.className = `test-result ${type}`;
+        status.innerHTML = `<strong>Status:</strong> ${message}`;
+      }
+
+      function addResult(title, data, success = true) {
+        const results = document.getElementById("results");
+        const resultDiv = document.createElement("div");
+        resultDiv.className = `test-result ${success ? "success" : "error"}`;
+        resultDiv.innerHTML = `
+                <h3>${title}</h3>
+                <pre>${JSON.stringify(data, null, 2)}</pre>
+            `;
+        results.appendChild(resultDiv);
+      }
+
+      function addActionCard(interaction, currentStatus) {
+        const results = document.getElementById("results");
+        const cardDiv = document.createElement("div");
+        cardDiv.className = `action-card ${currentStatus === "RUNNING" ? "running" : "stopped"}`;
+
+        cardDiv.innerHTML = `
+                <h4>${interaction} - ${currentStatus === "RUNNING" ? "🟢 RUNNING" : "🔴 STOPPED"}</h4>
+                <p><strong>Current Status:</strong> ${currentStatus}</p>
+                <div class="action-buttons">
+                    <button class="btn-start" onclick="startInteraction('${interaction}')">▶️ Start</button>
+                    <button class="btn-stop" onclick="stopInteraction('${interaction}')">⏹️ Stop</button>
+                </div>
+            `;
+        results.appendChild(cardDiv);
+      }
+
+      async function startInteraction(useCaseId) {
+        updateStatus(`Starting ${useCaseId}...`, "info");
+        try {
+          const response = await fetch("/v3/updateJobStatus", {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              useCaseId: useCaseId,
+              action: "RUNNING",
+              user: "test@example.com",
+            }),
+          });
+          const data = await response.json();
+
+          addResult(
+            `✅ Started ${useCaseId}`,
+            {
+              status: response.status,
+              response: data,
+            },
+            true,
+          );
+
+          // Refresh the action card
+          refreshActionCard(useCaseId);
+        } catch (error) {
+          addResult(
+            `❌ Failed to start ${useCaseId}`,
+            { error: error.message },
+            false,
+          );
+        }
+      }
+
+      async function stopInteraction(useCaseId) {
+        updateStatus(`Stopping ${useCaseId}...`, "info");
+        try {
+          const response = await fetch("/v3/updateJobStatus", {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              useCaseId: useCaseId,
+              action: "STOPPED",
+              user: "test@example.com",
+            }),
+          });
+          const data = await response.json();
+
+          addResult(
+            `✅ Stopped ${useCaseId}`,
+            {
+              status: response.status,
+              response: data,
+            },
+            true,
+          );
+
+          // Refresh the action card
+          refreshActionCard(useCaseId);
+        } catch (error) {
+          addResult(
+            `❌ Failed to stop ${useCaseId}`,
+            { error: error.message },
+            false,
+          );
+        }
+      }
+
+      async function getJobStatus(useCaseId) {
+        try {
+          const response = await fetch(
+            `/v2/getJobDetails?useCaseId=${useCaseId}`,
+          );
+          const data = await response.json();
+          return data.data?.status || "UNKNOWN";
+        } catch (error) {
+          return "UNKNOWN";
+        }
+      }
+
+      async function refreshActionCard(useCaseId) {
+        const status = await getJobStatus(useCaseId);
+        // Remove existing card and add new one
+        const results = document.getElementById("results");
+        const existingCard = results.querySelector(
+          `[data-interaction="${useCaseId}"]`,
+        );
+        if (existingCard) {
+          existingCard.remove();
+        }
+
+        const cardDiv = document.createElement("div");
+        cardDiv.className = `action-card ${status === "RUNNING" ? "running" : "stopped"}`;
+        cardDiv.setAttribute("data-interaction", useCaseId);
+
+        cardDiv.innerHTML = `
+                <h4>${useCaseId} - ${status === "RUNNING" ? "🟢 RUNNING" : "🔴 STOPPED"}</h4>
+                <p><strong>Current Status:</strong> ${status}</p>
+                <div class="action-buttons">
+                    <button class="btn-start" onclick="startInteraction('${useCaseId}')">▶️ Start</button>
+                    <button class="btn-stop" onclick="stopInteraction('${useCaseId}')">⏹️ Stop</button>
+                </div>
+            `;
+        results.appendChild(cardDiv);
+      }
+
+      async function testStartStop(useCaseId) {
+        updateStatus(`Testing Start/Stop for ${useCaseId}...`, "info");
+        const status = await getJobStatus(useCaseId);
+        addActionCard(useCaseId, status);
+      }
+
+      async function testAllStartStop() {
+        updateStatus("Testing All Start/Stop Actions...", "info");
+        document.getElementById("results").innerHTML = "";
+
+        const interactions = [
+          "ContestJoinSuccess",
+          "CreateTeamSuccess",
+          "CreateTeamPageLoaded",
+          "ContestHomeLanded",
+          "AddCashLoaded",
+        ];
+
+        for (const interaction of interactions) {
+          await testStartStop(interaction);
+          await new Promise((resolve) => setTimeout(resolve, 100));
+        }
+
+        updateStatus("All start/stop tests completed!", "success");
+      }
+
+      // Auto-run test on page load
+      window.onload = function () {
+        updateStatus(
+          "Start/Stop test page loaded. Click buttons to test start/stop functionality.",
+          "info",
+        );
+      };
+    </script>
+  </body>
+</html>

@@ -1,0 +1,31 @@
+.tabsContainer {
+  display: flex;
+  flex-direction: column;
+}
+
+.tabsHeader {
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  padding-bottom: var(--mantine-spacing-xs);
+  border-bottom: 1px solid rgba(14, 201, 194, 0.1);
+  margin-bottom: var(--mantine-spacing-sm);
+  flex-shrink: 0;
+}
+
+.tabs {
+  display: flex;
+  flex-direction: row;
+  gap: 0;
+  align-items: center;
+  width: 100%;
+}
+
+.tabs > * {
+  flex: 1;
+}
+
+.tabContent {
+  flex: 0 1 auto;
+  overflow: visible;
+}

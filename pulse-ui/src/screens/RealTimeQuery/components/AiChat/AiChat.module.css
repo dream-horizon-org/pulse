@@ -1,0 +1,679 @@
+/* ── Container ── */
+.container {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 140px);
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid rgba(14, 201, 194, 0.12);
+  box-shadow: 0 2px 8px rgba(14, 201, 194, 0.06);
+  background: #ffffff;
+}
+
+/* ── Tabs bar (Chrome-like) ── */
+.tabsBar {
+  flex-shrink: 0;
+  border-bottom: 1px solid rgba(14, 201, 194, 0.12);
+  background: rgba(14, 201, 194, 0.03);
+  padding: 4px 8px 0;
+  min-height: 40px;
+}
+
+.tabsList {
+  flex: 1;
+  display: flex;
+  gap: 2px;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  min-width: 0;
+}
+
+.tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px 8px;
+  border-radius: 8px 8px 0 0;
+  cursor: pointer;
+  min-width: 80px;
+  max-width: 180px;
+  flex-shrink: 0;
+  border: 1px solid transparent;
+  border-bottom: none;
+  background: rgba(14, 201, 194, 0.04);
+  transition: all 0.15s ease;
+}
+
+.tab:hover {
+  background: rgba(14, 201, 194, 0.08);
+}
+
+.tabActive {
+  background: #ffffff !important;
+  border-color: rgba(14, 201, 194, 0.12);
+  box-shadow: 0 -2px 4px rgba(0, 0, 0, 0.04);
+}
+
+.tabTitle {
+  flex: 1;
+  min-width: 0;
+  color: var(--mantine-color-dark-6);
+  font-weight: 500;
+}
+
+.tabActive .tabTitle {
+  color: var(--mantine-color-teal-8);
+  font-weight: 600;
+}
+
+.tabClose {
+  flex-shrink: 0;
+  opacity: 0.6;
+}
+
+.tab:hover .tabClose {
+  opacity: 1;
+}
+
+.tabNew {
+  flex-shrink: 0;
+  margin-left: 4px;
+}
+
+/* Content area (chat + detail) */
+.chatContent {
+  display: grid;
+  grid-template-columns: 45% 55%;
+  flex: 1;
+  min-height: 0;
+}
+
+/* ── Chat Thread (left panel) ── */
+.chatThread {
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid rgba(14, 201, 194, 0.12);
+  background: linear-gradient(180deg, #fafbfc 0%, #ffffff 100%);
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* Pinned Findings Banner */
+.pinnedBanner {
+  border-bottom: 1px solid rgba(14, 201, 194, 0.12);
+  background: rgba(14, 201, 194, 0.03);
+}
+
+.pinnedHeader {
+  padding: 8px 12px;
+}
+
+.pinnedList {
+  padding: 0 12px 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.pinnedItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 6px 10px;
+  background: rgba(14, 201, 194, 0.06);
+  border-radius: 6px;
+  border-left: 3px solid rgba(14, 201, 194, 0.4);
+}
+
+.pinnedText {
+  flex: 1;
+  line-height: 1.4;
+  color: var(--mantine-color-dark-6);
+}
+
+.pinnedRemove {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+/* Messages scroll area */
+.messagesArea {
+  flex: 1;
+  min-height: 0;
+}
+
+.messagesList {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Empty state */
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  min-height: 300px;
+}
+
+.suggestionsGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 16px;
+  width: 100%;
+  max-width: 360px;
+}
+
+.suggestionChip {
+  font-size: 13px;
+  cursor: pointer;
+  border: 1px solid rgba(14, 201, 194, 0.15);
+  border-radius: 10px;
+  padding: 10px 14px;
+  background: rgba(14, 201, 194, 0.04);
+  color: var(--mantine-color-teal-7);
+  transition: all 0.15s ease;
+  text-align: left;
+}
+
+.suggestionChip:hover {
+  background: rgba(14, 201, 194, 0.12);
+  border-color: rgba(14, 201, 194, 0.3);
+  transform: translateX(4px);
+}
+
+/* Input area */
+.inputArea {
+  padding: 10px 12px;
+  border-top: 1px solid rgba(14, 201, 194, 0.12);
+  background: #ffffff;
+}
+
+.chatInput textarea {
+  font-size: 13px;
+  border-radius: 10px;
+  border: 1px solid rgba(14, 201, 194, 0.2);
+  padding-right: 40px;
+}
+
+.chatInput textarea:focus {
+  border-color: rgba(14, 201, 194, 0.5);
+  box-shadow: 0 0 0 2px rgba(14, 201, 194, 0.12);
+}
+
+.sendButton {
+  border-radius: 8px;
+}
+
+/* ── Message Bubbles ── */
+.messageBubble {
+  display: flex;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  transition: all 0.15s ease;
+  cursor: default;
+}
+
+.userBubble {
+  background: rgba(14, 201, 194, 0.08);
+  border: 1px solid rgba(14, 201, 194, 0.12);
+}
+
+.assistantBubble {
+  background: var(--mantine-color-gray-0);
+  border: 1px solid var(--mantine-color-gray-2);
+  cursor: pointer;
+}
+
+.assistantBubble:hover {
+  border-color: rgba(14, 201, 194, 0.3);
+  background: rgba(14, 201, 194, 0.04);
+}
+
+.selectedBubble {
+  border-color: rgba(14, 201, 194, 0.5) !important;
+  background: rgba(14, 201, 194, 0.08) !important;
+  box-shadow: 0 0 0 2px rgba(14, 201, 194, 0.12);
+}
+
+.messageAvatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.userBubble .messageAvatar {
+  background: linear-gradient(135deg, #0ec9c2 0%, #0ba09a 100%);
+  color: white;
+}
+
+.assistantBubble .messageAvatar {
+  background: var(--mantine-color-gray-2);
+  color: var(--mantine-color-gray-7);
+}
+
+.selectedBubble .messageAvatar {
+  background: linear-gradient(135deg, #0ec9c2 0%, #0ba09a 100%);
+  color: white;
+}
+
+.messageContent {
+  flex: 1;
+  min-width: 0;
+}
+
+.loadingIndicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ── AI Loading Animation ── */
+.aiLoading {
+  position: relative;
+  padding: 12px 16px;
+  border-radius: 10px;
+  overflow: hidden;
+  background: linear-gradient(
+    135deg,
+    rgba(14, 201, 194, 0.06) 0%,
+    rgba(14, 201, 194, 0.02) 50%,
+    rgba(99, 102, 241, 0.04) 100%
+  );
+  border: 1px solid rgba(14, 201, 194, 0.15);
+}
+
+.aiLoadingOrbs {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.aiOrb {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #0ec9c2 0%, #6366f1 100%);
+  opacity: 0.8;
+  animation: aiOrbPulse 1.4s ease-in-out infinite both;
+}
+
+.aiOrb:nth-child(1) {
+  animation-delay: 0s;
+}
+
+.aiOrb:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.aiOrb:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes aiOrbPulse {
+  0%,
+  80%,
+  100% {
+    transform: scale(0.6);
+    opacity: 0.4;
+  }
+  40% {
+    transform: scale(1.2);
+    opacity: 1;
+  }
+}
+
+.aiLoadingShimmer {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    110deg,
+    transparent 0%,
+    transparent 40%,
+    rgba(255, 255, 255, 0.4) 50%,
+    transparent 60%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: aiShimmer 2s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes aiShimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.aiLoadingContent {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  z-index: 1;
+}
+
+.aiLoadingIcon {
+  color: var(--mantine-color-teal-6);
+  animation: aiIconFloat 2s ease-in-out infinite;
+}
+
+@keyframes aiIconFloat {
+  0%,
+  100% {
+    transform: translateY(0) rotate(0deg);
+    opacity: 1;
+  }
+  50% {
+    transform: translateY(-2px) rotate(5deg);
+    opacity: 0.9;
+  }
+}
+
+.aiLoadingDots {
+  display: inline-flex;
+  gap: 4px;
+  margin-left: 2px;
+}
+
+.aiLoadingDots span {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--mantine-color-teal-5);
+  animation: aiDotBounce 1.2s ease-in-out infinite both;
+}
+
+.aiLoadingDots span:nth-child(1) {
+  animation-delay: 0s;
+}
+
+.aiLoadingDots span:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.aiLoadingDots span:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+@keyframes aiDotBounce {
+  0%,
+  60%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.5;
+  }
+  30% {
+    transform: translateY(-4px);
+    opacity: 1;
+  }
+}
+
+/* ── Response Detail (right panel) ── */
+.detailPanel {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: #ffffff;
+}
+
+.detailEmpty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 40px;
+}
+
+.detailScroll {
+  height: 100%;
+}
+
+.detailContent {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* Answer Card */
+.answerCard {
+  background: linear-gradient(135deg, rgba(14, 201, 194, 0.08) 0%, rgba(14, 201, 194, 0.04) 100%);
+  border-left: 4px solid rgba(14, 201, 194, 0.6);
+  border-radius: 8px;
+  padding: 16px 20px;
+}
+
+/* ── Summary metric strip ── */
+.summaryStrip {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  scrollbar-width: thin;
+}
+
+.metricPill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--mantine-color-gray-2);
+  background: var(--mantine-color-gray-0);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.metricPillCritical {
+  border-color: rgba(239, 68, 68, 0.25);
+  background: rgba(239, 68, 68, 0.04);
+}
+
+.metricPillWarning {
+  border-color: rgba(245, 158, 11, 0.25);
+  background: rgba(245, 158, 11, 0.04);
+}
+
+.metricPillHealthy {
+  border-color: rgba(16, 185, 129, 0.25);
+  background: rgba(16, 185, 129, 0.04);
+}
+
+.metricPillInfo {
+  border-color: rgba(99, 102, 241, 0.15);
+  background: rgba(99, 102, 241, 0.04);
+}
+
+/* Key Points Section */
+.keyPointsSection {
+  /* nothing special */
+}
+
+.keyPointItem {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 10px 12px;
+  background: var(--mantine-color-gray-0);
+  border-radius: 8px;
+  border-left: 4px solid var(--mantine-color-gray-3);
+  transition: all 0.15s ease;
+}
+
+.keyPointItem:hover {
+  background: rgba(14, 201, 194, 0.04);
+}
+
+/* Severity-specific border and tint */
+.keyPointCritical {
+  border-left-color: #ef4444;
+  background: rgba(239, 68, 68, 0.03);
+}
+
+.keyPointCritical:hover {
+  background: rgba(239, 68, 68, 0.06);
+}
+
+.keyPointWarning {
+  border-left-color: #f59e0b;
+  background: rgba(245, 158, 11, 0.03);
+}
+
+.keyPointWarning:hover {
+  background: rgba(245, 158, 11, 0.06);
+}
+
+.keyPointHealthy {
+  border-left-color: #10b981;
+  background: rgba(16, 185, 129, 0.03);
+}
+
+.keyPointHealthy:hover {
+  background: rgba(16, 185, 129, 0.06);
+}
+
+.keyPointInfo {
+  border-left-color: #6366f1;
+  background: rgba(99, 102, 241, 0.03);
+}
+
+.keyPointInfo:hover {
+  background: rgba(99, 102, 241, 0.06);
+}
+
+.keyPointPinned {
+  box-shadow: 0 0 0 1px rgba(14, 201, 194, 0.3);
+}
+
+.keyPointExpanded {
+  /* keep severity color, just slightly stronger background */
+}
+
+.keyPointText {
+  flex: 1;
+  line-height: 1.5;
+  font-weight: 600;
+  color: var(--mantine-color-dark-7);
+}
+
+.metricBadge {
+  flex-shrink: 0;
+}
+
+.pinButton {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+/* Expanded finding content */
+.keyPointExpandedContent {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.keyPointDetail {
+  color: var(--mantine-color-dark-4);
+  line-height: 1.65;
+}
+
+.keyPointEvidence {
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.02);
+  border: 1px solid var(--mantine-color-gray-2);
+}
+
+.evidenceList {
+  color: var(--mantine-color-gray-7);
+}
+
+/* Per-finding inline chart */
+.findingChartInline {
+  border-radius: 8px;
+  overflow: hidden;
+  background: #ffffff;
+  border: 1px solid var(--mantine-color-gray-2);
+  padding: 8px;
+}
+
+.chartUnavailable {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 12px 16px;
+  color: var(--mantine-color-gray-4);
+}
+
+/* Sources Footer */
+.sourcesFooter {
+  background: var(--mantine-color-gray-0);
+  border-radius: 8px;
+  padding: 12px 16px;
+  border: 1px solid var(--mantine-color-gray-2);
+}
+
+/* Chart Section */
+.chartSection {
+  border: 1px solid rgba(14, 201, 194, 0.15);
+  border-radius: 10px;
+  padding: 16px;
+  background: linear-gradient(180deg, rgba(14, 201, 194, 0.03) 0%, #ffffff 100%);
+}
+
+.chartContainer {
+  /* Wrapper around the chart title + chart */
+}
+
+.chartWrapper {
+  border-radius: 8px;
+  overflow: hidden;
+  background: #ffffff;
+}
+
+/* Raw Data Section */
+.rawDataSection {
+  border-top: 1px solid var(--mantine-color-gray-2);
+  padding-top: 16px;
+}
+
+/* ── Responsive ── */
+@media (max-width: 900px) {
+  .container {
+    height: auto;
+  }
+
+  .chatContent {
+    grid-template-columns: 1fr;
+  }
+
+  .chatThread {
+    border-right: none;
+    border-bottom: 1px solid rgba(14, 201, 194, 0.12);
+    max-height: 400px;
+  }
+}
+

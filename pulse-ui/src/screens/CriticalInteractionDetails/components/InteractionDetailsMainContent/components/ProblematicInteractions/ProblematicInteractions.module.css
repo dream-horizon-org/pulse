@@ -1,0 +1,81 @@
+.tableWrapper :global(.mantine-Table-root) {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.tableWrapper :global(.mantine-Table-thead) {
+  background: linear-gradient(
+    135deg,
+    rgba(14, 201, 194, 0.03),
+    rgba(14, 201, 194, 0.06)
+  );
+}
+
+.tableWrapper :global(.mantine-Table-th) {
+  padding: 14px 16px !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  color: var(--mantine-color-dark-6) !important;
+  text-transform: capitalize;
+  letter-spacing: -0.2px;
+  border-bottom: 2px solid rgba(14, 201, 194, 0.15) !important;
+  background: transparent;
+  text-align: left !important;
+}
+
+.tableWrapper :global(.mantine-Table-td) {
+  padding: 14px 16px;
+  font-size: var(--mantine-font-size-sm);
+  border-bottom: 1px solid rgba(14, 201, 194, 0.08);
+}
+
+.tableWrapper :global(.mantine-Table-tr:hover) {
+  background-color: rgba(14, 201, 194, 0.02);
+}
+
+.tableCard {
+  background: #ffffff;
+  border: 1px solid rgba(14, 201, 194, 0.2);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(14, 201, 194, 0.1);
+  position: relative;
+}
+
+.tableCard::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #0ec9c2 0%, #0ba09a 100%);
+  border-radius: 12px 12px 0 0;
+  z-index: 1;
+}
+.tableWrapper > Table > thead > tr {
+  color: #0ba09a !important;
+}
+.tableWrapper > Table th {
+  text-align: left;
+  padding: var(--mantine-spacing-md);
+}
+.tableCardRow > td {
+  padding: var(--mantine-spacing-md);
+}
+.tableCardRow:hover {
+  background: linear-gradient(
+    135deg,
+    rgba(14, 201, 194, 0.04),
+    rgba(14, 201, 194, 0.08)
+  );
+  border-color: rgba(14, 201, 194, 0.15);
+}
+
+.actionButtonContainer {
+  padding-left: var(--mantine-spacing-lg);
+}
+.actionButton {
+  color: #0ba09a;
+  transition: all 0.3s ease;
+}

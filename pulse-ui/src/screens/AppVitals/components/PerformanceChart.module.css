@@ -1,0 +1,42 @@
+.chartCard {
+  background: #ffffff;
+  border: 1px solid rgba(14, 201, 194, 0.2);
+  border-radius: var(--mantine-radius-lg);
+  padding: var(--mantine-spacing-md);
+  box-shadow: 0 4px 12px rgba(14, 201, 194, 0.1);
+  height: 100%;
+  width: 100%;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+.chartCard:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(14, 201, 194, 0.15);
+  border-color: rgba(14, 201, 194, 0.3);
+}
+
+.chartCard:hover .topAccent {
+  opacity: 1;
+}
+
+.topAccent {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #0ec9c2 0%, #0ba09a 100%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.chartTitle {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--mantine-color-dark-7);
+  margin-bottom: var(--mantine-spacing-sm);
+  text-align: center;
+  letter-spacing: -0.2px;
+}

@@ -1,0 +1,23 @@
+public abstract interface class io/opentelemetry/android/instrumentation/interaction/library/InteractionAttributesExtractor : kotlin/jvm/functions/Function2 {
+}
+
+public final class io/opentelemetry/android/instrumentation/interaction/library/InteractionInstrumentation : io/opentelemetry/android/instrumentation/AndroidInstrumentation, kotlinx/coroutines/CoroutineScope {
+	public static final field Companion Lio/opentelemetry/android/instrumentation/interaction/library/InteractionInstrumentation$Companion;
+	public static final field INSTRUMENTATION_NAME Ljava/lang/String;
+	public fun <init> ()V
+	public final fun addAttributesExtractor (Lio/opentelemetry/android/instrumentation/interaction/library/InteractionAttributesExtractor;)Lio/opentelemetry/android/instrumentation/interaction/library/InteractionInstrumentation;
+	public static final fun createLogProcessor (Lcom/pulse/android/core/InteractionManager;)Lio/opentelemetry/sdk/logs/LogRecordProcessor;
+	public static final fun createSpanProcessor (Lcom/pulse/android/core/InteractionManager;)Lio/opentelemetry/sdk/trace/SpanProcessor;
+	public fun getCoroutineContext ()Lkotlin/coroutines/CoroutineContext;
+	public final fun getInteractionManagerInstance ()Lcom/pulse/android/core/InteractionManager;
+	public fun getName ()Ljava/lang/String;
+	public fun install (Lio/opentelemetry/android/instrumentation/InstallationContext;)V
+	public final fun setConfigFetcher (Lcom/pulse/android/core/config/InteractionConfigFetcher;)Lio/opentelemetry/android/instrumentation/interaction/library/InteractionInstrumentation;
+	public fun uninstall (Lio/opentelemetry/android/instrumentation/InstallationContext;)V
+}
+
+public final class io/opentelemetry/android/instrumentation/interaction/library/InteractionInstrumentation$Companion {
+	public final fun createLogProcessor (Lcom/pulse/android/core/InteractionManager;)Lio/opentelemetry/sdk/logs/LogRecordProcessor;
+	public final fun createSpanProcessor (Lcom/pulse/android/core/InteractionManager;)Lio/opentelemetry/sdk/trace/SpanProcessor;
+}
+

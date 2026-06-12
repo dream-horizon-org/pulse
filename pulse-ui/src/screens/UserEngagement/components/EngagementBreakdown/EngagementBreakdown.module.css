@@ -1,0 +1,118 @@
+.card {
+  background: var(--mantine-color-white);
+  border-radius: var(--mantine-radius-lg);
+  padding: var(--mantine-spacing-lg);
+  border: 1px solid var(--mantine-color-gray-2);
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: var(--mantine-spacing-md);
+}
+
+.headerRow {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--mantine-spacing-sm);
+}
+
+.title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--mantine-color-dark-8);
+  margin: 0;
+}
+
+.subtitle {
+  font-size: 13px;
+  color: var(--mantine-color-gray-7);
+  max-width: 520px;
+}
+
+.controls {
+  display: flex;
+  gap: var(--mantine-spacing-sm);
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.customControls {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--mantine-spacing-sm);
+}
+
+.chartWrapper {
+  width: 100%;
+  min-height: 320px;
+}
+
+.tableWrapper {
+  overflow-x: auto;
+}
+
+.breakdownTable {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 600px;
+}
+
+.breakdownTable thead {
+  background-color: var(--mantine-color-gray-0);
+}
+
+.breakdownTable th {
+  text-align: left;
+  padding: 10px 12px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.35px;
+  color: var(--mantine-color-gray-6);
+}
+
+.breakdownTable td {
+  padding: 12px;
+  border-bottom: 1px solid var(--mantine-color-gray-2);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--mantine-color-dark-7);
+}
+
+.segmentCell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.segmentName {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.segmentHelper {
+  font-size: 12px;
+  color: var(--mantine-color-gray-6);
+}
+
+.trendPositive {
+  color: #0f9d58;
+}
+
+.trendNegative {
+  color: #d93025;
+}
+
+.emptyState {
+  border: 1px dashed var(--mantine-color-gray-4);
+  border-radius: var(--mantine-radius-md);
+  padding: var(--mantine-spacing-md);
+  text-align: center;
+  color: var(--mantine-color-gray-6);
+  font-size: 13px;
+}
+
+.skeletonContainer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mantine-spacing-md);
+}

@@ -1,0 +1,99 @@
+.replayCard {
+  background: #ffffff;
+  border: 1px solid rgba(14, 201, 194, 0.2);
+  border-radius: var(--mantine-radius-lg);
+  padding: var(--mantine-spacing-md);
+  box-shadow: 0 4px 12px rgba(14, 201, 194, 0.1);
+  height: 100%;
+  width: 100%;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+.replayCard:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(14, 201, 194, 0.15);
+  border-color: rgba(14, 201, 194, 0.3);
+}
+
+.replayCard:hover .topAccent {
+  opacity: 1;
+}
+
+.topAccent {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #0ec9c2 0%, #0ba09a 100%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.cardTitle {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--mantine-color-dark-7);
+  margin-bottom: var(--mantine-spacing-sm);
+  text-align: center;
+  letter-spacing: -0.2px;
+}
+
+.videoPlaceholder {
+  position: relative;
+  width: 100%;
+  height: 200px;
+  background: #0f172a;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.playButtonWrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: var(--mantine-spacing-sm);
+}
+
+.videoIcon {
+  color: #334155;
+  margin-bottom: 8px;
+}
+
+.playButton {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  transition: transform 0.2s ease;
+}
+
+.playButton:hover {
+  transform: translate(-50%, -50%) scale(1.1);
+}
+
+.recordingText {
+  font-size: 13px;
+  color: var(--mantine-color-dimmed);
+  text-align: center;
+  margin-top: var(--mantine-spacing-xs);
+}
+
+.durationText {
+  font-size: 11px;
+  color: var(--mantine-color-dimmed);
+  margin-top: 4px;
+}
+
+.sessionIdText {
+  font-size: 11px;
+  color: var(--mantine-color-dimmed);
+  margin-top: 4px;
+}

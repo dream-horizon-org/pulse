@@ -1,0 +1,327 @@
+/** Swift snippets for Expo AppDelegate injection (see Android `buildPulseInitializationCode`). */
+
+import type {
+  PulseAttributes,
+  PulseDataCollectionState,
+  PulseInstrumentationEnabled,
+  PulseIosInstrumentationProps,
+  PulseIosInteractionInstrumentation,
+  PulseIosKitConfigurationProps,
+  PulseIosSessionReplayInstrumentation,
+  PulseIosSessionsInstrumentation,
+  PulseIosUIKitTapInstrumentation,
+  PulseIosUrlSessionInstrumentation,
+  PulseLogLevelValue,
+  ResolvedIosPulseProps,
+} from './types';
+
+export const PULSE_IOS_IMPORT = 'import PulseReactNativeOtel\n';
+
+export const PULSE_IOS_OTEL_API_IMPORT = 'import OpenTelemetryApi\n';
+
+const SWIFT_LOG_LEVEL_NAMES = [
+  'verbose',
+  'debug',
+  'info',
+  'warn',
+  'error',
+  'none',
+] as const;
+
+function swiftPulseLogLevelLabel(level: PulseLogLevelValue): string {
+  return SWIFT_LOG_LEVEL_NAMES[level];
+}
+
+function escapeSwiftString(value: string): string {
+  return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+}
+
+function buildSwiftGlobalAttributesLiteral(
+  attributes: PulseAttributes
+): string {
+  const lines: string[] = [];
+
+  Object.entries(attributes)
+    .filter(([, value]) => {
+      if (value === null || value === undefined) return false;
+      if (typeof value === 'string' && value === '') return false;
+      if (Array.isArray(value) && value.length === 0) return false;
+      return true;
+    })
+    .forEach(([k, v]) => {
+      const key = escapeSwiftString(k);
+      if (typeof v === 'string') {
+        lines.push(
+          `      "${key}": AttributeValue.string("${escapeSwiftString(v)}")`
+        );
+      } else if (typeof v === 'number') {
+        if (Number.isInteger(v)) {
+          lines.push(`      "${key}": AttributeValue.int(${v})`);
+        } else {
+          lines.push(`      "${key}": AttributeValue.double(${v})`);
+        }
+      } else if (typeof v === 'boolean') {
+        lines.push(`      "${key}": AttributeValue.bool(${v})`);
+      } else if (Array.isArray(v)) {
+        const first = v[0];
+        if (typeof first === 'string') {
+          const elems = (v as string[])
+            .map((x) => `AttributeValue.string("${escapeSwiftString(x)}")`)
+            .join(', ');
+          lines.push(
+            `      "${key}": AttributeValue.array(AttributeArray(values: [${elems}]))`
+          );
+        } else if (typeof first === 'number') {
+          const allInts = (v as number[]).every((x) => Number.isInteger(x));
+          const elems = (v as number[])
+            .map((x) =>
+              allInts
+                ? `AttributeValue.int(${x})`
+                : `AttributeValue.double(${x})`
+            )
+            .join(', ');
+          lines.push(
+            `      "${key}": AttributeValue.array(AttributeArray(values: [${elems}]))`
+          );
+        } else if (typeof first === 'boolean') {
+          const elems = (v as boolean[])
+            .map((x) => `AttributeValue.bool(${x})`)
+            .join(', ');
+          lines.push(
+            `      "${key}": AttributeValue.array(AttributeArray(values: [${elems}]))`
+          );
+        }
+      }
+    });
+
+  if (lines.length === 0) {
+    return 'nil';
+  }
+
+  return `[\n${lines.join(',\n')}\n    ]`;
+}
+
+function swiftConsentCase(state: PulseDataCollectionState): string {
+  switch (state) {
+    case 'ALLOWED':
+      return 'allowed';
+    case 'DENIED':
+      return 'denied';
+    default:
+      return 'pending';
+  }
+}
+
+/** Swift `configuration:` or `nil`. */
+export function buildSwiftConfigurationArg(
+  cfg: PulseIosKitConfigurationProps | undefined
+): string {
+  if (!cfg) {
+    return 'nil';
+  }
+  const lines: string[] = [];
+  if (cfg.includeScreenAttributes !== undefined) {
+    lines.push(
+      `      kit.includeScreenAttributes = ${cfg.includeScreenAttributes}`
+    );
+  }
+  if (cfg.includeNetworkAttributes !== undefined) {
+    lines.push(
+      `      kit.includeNetworkAttributes = ${cfg.includeNetworkAttributes}`
+    );
+  }
+  if (cfg.includeGlobalAttributes !== undefined) {
+    lines.push(
+      `      kit.includeGlobalAttributes = ${cfg.includeGlobalAttributes}`
+    );
+  }
+  if (lines.length === 0) {
+    return 'nil';
+  }
+  return `{ kit in\n${lines.join('\n')}\n    }`;
+}
+
+function emitIosInstrumentationEnabled(
+  body: string[],
+  method: string,
+  cfg: PulseInstrumentationEnabled | undefined
+): void {
+  if (cfg === undefined || cfg.enabled === undefined) {
+    return;
+  }
+  body.push(`      config.${method} { $0.enabled(${cfg.enabled}) }`);
+}
+
+function emitIosUrlSession(
+  body: string[],
+  cfg: PulseIosUrlSessionInstrumentation | undefined
+): void {
+  if (cfg === undefined || cfg.enabled === undefined) {
+    return;
+  }
+  body.push(`      config.urlSession { $0.enabled(${cfg.enabled}) }`);
+}
+
+function emitIosSessions(
+  body: string[],
+  cfg: PulseIosSessionsInstrumentation | undefined
+): void {
+  if (cfg === undefined) {
+    return;
+  }
+  const hasAny =
+    cfg.enabled !== undefined ||
+    cfg.maxLifetimeSeconds !== undefined ||
+    cfg.backgroundInactivityTimeoutSeconds !== undefined ||
+    cfg.shouldPersist !== undefined;
+  if (!hasAny) {
+    return;
+  }
+  const lines: string[] = [];
+  if (cfg.enabled !== undefined) {
+    lines.push(`s.enabled(${cfg.enabled})`);
+  }
+  if (cfg.maxLifetimeSeconds !== undefined) {
+    lines.push(`s.maxLifetime(${cfg.maxLifetimeSeconds})`);
+  }
+  if (cfg.backgroundInactivityTimeoutSeconds !== undefined) {
+    lines.push(
+      `s.backgroundInactivityTimeout(${cfg.backgroundInactivityTimeoutSeconds})`
+    );
+  }
+  if (cfg.shouldPersist !== undefined) {
+    lines.push(`s.shouldPersist(${cfg.shouldPersist})`);
+  }
+  body.push(
+    `      config.sessions { s in\n        ${lines.join('\n        ')}\n      }`
+  );
+}
+
+function emitIosInteraction(
+  body: string[],
+  cfg: PulseIosInteractionInstrumentation | undefined
+): void {
+  if (cfg === undefined) {
+    return;
+  }
+  const parts: string[] = [];
+  if (cfg.enabled !== undefined) {
+    parts.push(`$0.enabled(${cfg.enabled})`);
+  }
+  if (parts.length > 0) {
+    body.push(`      config.interaction { ${parts.join('; ')} }`);
+  }
+}
+
+function emitIosUIKitTap(
+  body: string[],
+  cfg: PulseIosUIKitTapInstrumentation | undefined
+): void {
+  if (cfg === undefined) {
+    return;
+  }
+  const inner: string[] = [];
+  if (cfg.captureContext !== undefined) {
+    inner.push(`tap.captureContext(${cfg.captureContext})`);
+  }
+  if (inner.length > 0) {
+    body.push(
+      `      config.uiKitTap { tap in\n        ${inner.join('\n        ')}\n      }`
+    );
+  }
+}
+
+function emitIosSessionReplay(
+  body: string[],
+  cfg: PulseIosSessionReplayInstrumentation | undefined
+): void {
+  if (cfg === undefined) {
+    return;
+  }
+  const replayLines: string[] = [];
+  if (cfg.maskViewClasses !== undefined && cfg.maskViewClasses.length > 0) {
+    for (const className of cfg.maskViewClasses) {
+      const escapedClass = escapeSwiftString(className);
+      replayLines.push(`replay.addMaskViewClass("${escapedClass}")`);
+    }
+  }
+  if (cfg.unmaskViewClasses !== undefined && cfg.unmaskViewClasses.length > 0) {
+    for (const className of cfg.unmaskViewClasses) {
+      const escapedClass = escapeSwiftString(className);
+      replayLines.push(`replay.addUnmaskViewClass("${escapedClass}")`);
+    }
+  }
+  if (replayLines.length > 0) {
+    body.push(
+      `      config.sessionReplay { replay in\n        ${replayLines.join('\n        ')}\n      }`
+    );
+  }
+}
+
+/** Swift `instrumentations:` closure or `nil`. */
+export function buildSwiftInstrumentationsArg(
+  inst: PulseIosInstrumentationProps | undefined
+): string {
+  if (!inst) {
+    return 'nil';
+  }
+  const body: string[] = [];
+  emitIosUrlSession(body, inst.urlSession);
+  emitIosSessions(body, inst.sessions);
+  emitIosInstrumentationEnabled(body, 'signPost', inst.signPost);
+  emitIosInteraction(body, inst.interaction);
+  emitIosInstrumentationEnabled(body, 'location', inst.location);
+  emitIosInstrumentationEnabled(body, 'crash', inst.crash);
+  emitIosInstrumentationEnabled(body, 'appLifecycle', inst.appLifecycle);
+  emitIosInstrumentationEnabled(body, 'screenLifecycle', inst.screenLifecycle);
+  emitIosInstrumentationEnabled(body, 'appStartup', inst.appStartup);
+  emitIosUIKitTap(body, inst.uiKitTap);
+  emitIosSessionReplay(body, inst.sessionReplay);
+  if (body.length === 0) {
+    return 'nil';
+  }
+  return `{ config in\n${body.join('\n')}\n    }`;
+}
+
+/** Swift `PulseSDK.initialize` for AppDelegate (before `startReactNative`). */
+export function buildSwiftPulseSdkInitialization(
+  props: ResolvedIosPulseProps
+): string {
+  const {
+    apiKey,
+    dataCollectionState,
+    globalAttributes,
+    logLevel,
+    configuration,
+    instrumentation,
+  } = props;
+
+  const globalAttrsArg =
+    globalAttributes && Object.keys(globalAttributes).length > 0
+      ? buildSwiftGlobalAttributesLiteral(globalAttributes)
+      : 'nil';
+
+  const consent = swiftConsentCase(dataCollectionState);
+  const configurationArg = buildSwiftConfigurationArg(configuration);
+  const instrumentationsArg = buildSwiftInstrumentationsArg(instrumentation);
+  const logLevelLine =
+    logLevel !== undefined
+      ? `,\n      logLevel: .${swiftPulseLogLevelLabel(logLevel)}`
+      : '';
+
+  return `
+    PulseSDK.initialize(
+      apiKey: "${escapeSwiftString(apiKey)}",
+      dataCollectionState: .${consent},
+      globalAttributes: ${globalAttrsArg},
+      resource: nil,
+      configuration: ${configurationArg},
+      instrumentations: ${instrumentationsArg},
+      beforeSendSpan: nil,
+      beforeSendLog: nil,
+      beforeSendMetric: nil,
+      tracerProviderCustomizer: nil,
+      loggerProviderCustomizer: nil${logLevelLine}
+    )
+`;
+}

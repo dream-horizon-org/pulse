@@ -1,0 +1,470 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Test User Categorization - 8% Poor Users</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 20px;
+        background-color: #f5f5f5;
+      }
+      .container {
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        margin-bottom: 20px;
+      }
+      .test-button {
+        background: #007bff;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 4px;
+        cursor: pointer;
+        margin: 5px;
+      }
+      .test-button:hover {
+        background: #0056b3;
+      }
+      .response {
+        background: #f8f9fa;
+        border: 1px solid #e9ecef;
+        border-radius: 4px;
+        padding: 15px;
+        margin-top: 10px;
+        white-space: pre-wrap;
+        font-family: monospace;
+        max-height: 400px;
+        overflow-y: auto;
+      }
+      .success {
+        background: #d4edda;
+        border-color: #c3e6cb;
+        color: #155724;
+      }
+      .error {
+        background: #f8d7da;
+        border-color: #f5c6cb;
+        color: #721c24;
+      }
+      .categorization-item {
+        background: #fff3cd;
+        border: 1px solid #ffeaa7;
+        border-radius: 4px;
+        padding: 10px;
+        margin: 5px 0;
+      }
+      .percentage {
+        font-weight: bold;
+        color: #856404;
+      }
+      .poor-users {
+        background: #dc3545;
+        color: white;
+        padding: 2px 6px;
+        border-radius: 3px;
+        font-size: 12px;
+        margin-right: 10px;
+      }
+      .excellent-users {
+        background: #28a745;
+        color: white;
+        padding: 2px 6px;
+        border-radius: 3px;
+        font-size: 12px;
+        margin-right: 10px;
+      }
+      .good-users {
+        background: #17a2b8;
+        color: white;
+        padding: 2px 6px;
+        border-radius: 3px;
+        font-size: 12px;
+        margin-right: 10px;
+      }
+      .average-users {
+        background: #ffc107;
+        color: #212529;
+        padding: 2px 6px;
+        border-radius: 3px;
+        font-size: 12px;
+        margin-right: 10px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>🧪 User Categorization - 8% Poor Users Test</h1>
+
+    <div class="container">
+      <h2>Test Configuration</h2>
+      <p><strong>Base URL:</strong> <span id="baseUrl"></span></p>
+      <p>
+        <strong>Mock Server Status:</strong>
+        <span id="mockStatus">Checking...</span>
+      </p>
+    </div>
+
+    <div class="container">
+      <h2>Test User Categorization Data</h2>
+      <p>
+        This test verifies that the user categorization chart now shows
+        approximately 8% users in the Poor category.
+      </p>
+
+      <button class="test-button" onclick="testUserCategorization()">
+        Test User Categorization (Regular Flow)
+      </button>
+
+      <button class="test-button" onclick="testAnalyticsReport()">
+        Test Analytics Report (Incident Analysis)
+      </button>
+
+      <button class="test-button" onclick="testMultipleSamples()">
+        Test Multiple Samples (Statistical Analysis)
+      </button>
+
+      <div
+        id="categorizationResponse"
+        class="response"
+        style="display: none"
+      ></div>
+    </div>
+
+    <script>
+      const baseUrl = window.location.origin;
+      document.getElementById("baseUrl").textContent = baseUrl;
+
+      // Check mock server status
+      async function checkMockServerStatus() {
+        try {
+          const response = await fetch(
+            `${baseUrl}/v3/metric/getApdexScore?useCaseId=CreateTeamSuccess&startTime=2024-01-15T00:00:00Z&endTime=2024-01-15T23:59:59Z`,
+          );
+          if (response.ok) {
+            document.getElementById("mockStatus").textContent =
+              "✅ Mock Server Active";
+            document.getElementById("mockStatus").style.color = "green";
+          } else {
+            document.getElementById("mockStatus").textContent =
+              "❌ Mock Server Error";
+            document.getElementById("mockStatus").style.color = "red";
+          }
+        } catch (error) {
+          document.getElementById("mockStatus").textContent =
+            "❌ Mock Server Unavailable";
+          document.getElementById("mockStatus").style.color = "red";
+        }
+      }
+
+      // Test user categorization (regular flow)
+      async function testUserCategorization() {
+        const responseDiv = document.getElementById("categorizationResponse");
+        responseDiv.style.display = "block";
+        responseDiv.className = "response";
+        responseDiv.textContent = "Loading...";
+
+        try {
+          const url = `${baseUrl}/v3/metric/getUserCategorization?useCaseId=CreateTeamSuccess&startTime=2024-01-15T00:00:00Z&endTime=2024-01-15T23:59:59Z`;
+          const response = await fetch(url);
+          const data = await response.json();
+
+          if (response.ok) {
+            responseDiv.className = "response success";
+            responseDiv.innerHTML = formatUserCategorizationResponse(
+              "User Categorization (Regular Flow)",
+              data,
+            );
+          } else {
+            responseDiv.className = "response error";
+            responseDiv.textContent = `Error: ${response.status}\n${JSON.stringify(data, null, 2)}`;
+          }
+        } catch (error) {
+          responseDiv.className = "response error";
+          responseDiv.textContent = `Network Error: ${error.message}`;
+        }
+      }
+
+      // Test analytics report (incident analysis)
+      async function testAnalyticsReport() {
+        const responseDiv = document.getElementById("categorizationResponse");
+        responseDiv.style.display = "block";
+        responseDiv.className = "response";
+        responseDiv.textContent = "Loading...";
+
+        try {
+          const url = `${baseUrl}/analytics-report`;
+          const response = await fetch(url);
+          const data = await response.json();
+
+          if (response.ok) {
+            responseDiv.className = "response success";
+            responseDiv.innerHTML = formatAnalyticsReportResponse(
+              "Analytics Report (Incident Analysis)",
+              data,
+            );
+          } else {
+            responseDiv.className = "response error";
+            responseDiv.textContent = `Error: ${response.status}\n${JSON.stringify(data, null, 2)}`;
+          }
+        } catch (error) {
+          responseDiv.className = "response error";
+          responseDiv.textContent = `Network Error: ${error.message}`;
+        }
+      }
+
+      // Test multiple samples for statistical analysis
+      async function testMultipleSamples() {
+        const responseDiv = document.getElementById("categorizationResponse");
+        responseDiv.style.display = "block";
+        responseDiv.className = "response";
+        responseDiv.textContent = "Loading...";
+
+        try {
+          const samples = [];
+          for (let i = 0; i < 10; i++) {
+            const url = `${baseUrl}/v3/metric/getUserCategorization?useCaseId=CreateTeamSuccess&startTime=2024-01-15T00:00:00Z&endTime=2024-01-15T23:59:59Z`;
+            const response = await fetch(url);
+            const data = await response.json();
+            if (response.ok && data.data && data.data.readings) {
+              samples.push(data.data.readings);
+            }
+          }
+
+          responseDiv.className = "response success";
+          responseDiv.innerHTML = formatStatisticalAnalysis(
+            "Statistical Analysis (10 Samples)",
+            samples,
+          );
+        } catch (error) {
+          responseDiv.className = "response error";
+          responseDiv.textContent = `Network Error: ${error.message}`;
+        }
+      }
+
+      // Format user categorization response
+      function formatUserCategorizationResponse(title, data) {
+        if (
+          !data.data ||
+          !data.data.readings ||
+          data.data.readings.length === 0
+        ) {
+          return `<h3>${title}</h3><p>No user categorization data found</p>`;
+        }
+
+        let html = `<h3>${title}</h3>`;
+        html += `<p>Found ${data.data.readings.length} data points:</p>`;
+
+        // Calculate average percentages
+        let totalPoor = 0;
+        let totalExcellent = 0;
+        let totalGood = 0;
+        let totalAverage = 0;
+        let totalUsers = 0;
+
+        data.data.readings.forEach((reading, index) => {
+          const timestamp = new Date(reading.timestamp * 1000).toLocaleString();
+          const poor = reading.poor || 0;
+          const excellent = reading.excellent || 0;
+          const good = reading.good || 0;
+          const average = reading.average || 0;
+          const distinctUsers = reading.distinctUsers || 0;
+
+          totalPoor += poor;
+          totalExcellent += excellent;
+          totalGood += good;
+          totalAverage += average;
+          totalUsers += distinctUsers;
+
+          const poorPercent =
+            distinctUsers > 0 ? ((poor / distinctUsers) * 100).toFixed(1) : 0;
+          const excellentPercent =
+            distinctUsers > 0
+              ? ((excellent / distinctUsers) * 100).toFixed(1)
+              : 0;
+          const goodPercent =
+            distinctUsers > 0 ? ((good / distinctUsers) * 100).toFixed(1) : 0;
+          const averagePercent =
+            distinctUsers > 0
+              ? ((average / distinctUsers) * 100).toFixed(1)
+              : 0;
+
+          html += `
+            <div class="categorization-item">
+              <div style="font-weight: bold; color: #856404;">${timestamp}</div>
+              <div style="margin: 8px 0;">
+                <span class="poor-users">Poor: ${poor} (${poorPercent}%)</span>
+                <span class="average-users">Average: ${average} (${averagePercent}%)</span>
+                <span class="good-users">Good: ${good} (${goodPercent}%)</span>
+                <span class="excellent-users">Excellent: ${excellent} (${excellentPercent}%)</span>
+              </div>
+              <div style="margin: 8px 0; font-size: 14px; color: #666;">
+                Total Users: ${distinctUsers}
+              </div>
+            </div>
+          `;
+        });
+
+        // Calculate overall averages
+        const avgPoorPercent =
+          totalUsers > 0 ? ((totalPoor / totalUsers) * 100).toFixed(1) : 0;
+        const avgExcellentPercent =
+          totalUsers > 0 ? ((totalExcellent / totalUsers) * 100).toFixed(1) : 0;
+        const avgGoodPercent =
+          totalUsers > 0 ? ((totalGood / totalUsers) * 100).toFixed(1) : 0;
+        const avgAveragePercent =
+          totalUsers > 0 ? ((totalAverage / totalUsers) * 100).toFixed(1) : 0;
+
+        html += `
+          <div style="background: #e9ecef; padding: 15px; border-radius: 4px; margin-top: 15px;">
+            <h4>Overall Averages:</h4>
+            <p><strong>Poor Users:</strong> ${avgPoorPercent}% (Target: ~8%)</p>
+            <p><strong>Excellent Users:</strong> ${avgExcellentPercent}%</p>
+            <p><strong>Good Users:</strong> ${avgGoodPercent}%</p>
+            <p><strong>Average Users:</strong> ${avgAveragePercent}%</p>
+            <p><strong>Total Users:</strong> ${totalUsers}</p>
+          </div>
+        `;
+
+        return html;
+      }
+
+      // Format analytics report response
+      function formatAnalyticsReportResponse(title, data) {
+        if (
+          !data.data ||
+          !data.data.report1 ||
+          !data.data.report1.interactions
+        ) {
+          return `<h3>${title}</h3><p>No analytics report data found</p>`;
+        }
+
+        let html = `<h3>${title}</h3>`;
+        html += `<p>Found ${data.data.report1.interactions.length} interactions:</p>`;
+
+        data.data.report1.interactions.forEach((interaction, index) => {
+          const readings = interaction.userCategorizationResults.readings || [];
+          if (readings.length > 0) {
+            const firstReading = readings[0];
+            const lastReading = readings[readings.length - 1];
+
+            const firstPoorPercent =
+              firstReading.distinctUsers > 0
+                ? (
+                    (firstReading.poor / firstReading.distinctUsers) *
+                    100
+                  ).toFixed(1)
+                : 0;
+            const lastPoorPercent =
+              lastReading.distinctUsers > 0
+                ? (
+                    (lastReading.poor / lastReading.distinctUsers) *
+                    100
+                  ).toFixed(1)
+                : 0;
+
+            html += `
+              <div class="categorization-item">
+                <div style="font-weight: bold; color: #856404;">${interaction.interactionName}</div>
+                <div style="margin: 8px 0;">
+                  <span class="poor-users">Poor: ${firstReading.poor} (${firstPoorPercent}%) → ${lastReading.poor} (${lastPoorPercent}%)</span>
+                </div>
+                <div style="margin: 8px 0; font-size: 14px; color: #666;">
+                  Data Points: ${readings.length} | Total Users: ${firstReading.distinctUsers} → ${lastReading.distinctUsers}
+                </div>
+              </div>
+            `;
+          }
+        });
+
+        return html;
+      }
+
+      // Format statistical analysis
+      function formatStatisticalAnalysis(title, samples) {
+        if (samples.length === 0) {
+          return `<h3>${title}</h3><p>No samples found</p>`;
+        }
+
+        let html = `<h3>${title}</h3>`;
+        html += `<p>Analyzed ${samples.length} samples:</p>`;
+
+        const poorPercentages = [];
+        const excellentPercentages = [];
+        const goodPercentages = [];
+        const averagePercentages = [];
+
+        samples.forEach((sample, sampleIndex) => {
+          let samplePoor = 0;
+          let sampleExcellent = 0;
+          let sampleGood = 0;
+          let sampleAverage = 0;
+          let sampleTotal = 0;
+
+          sample.forEach((reading) => {
+            samplePoor += reading.poor || 0;
+            sampleExcellent += reading.excellent || 0;
+            sampleGood += reading.good || 0;
+            sampleAverage += reading.average || 0;
+            sampleTotal += reading.distinctUsers || 0;
+          });
+
+          const poorPercent =
+            sampleTotal > 0 ? (samplePoor / sampleTotal) * 100 : 0;
+          const excellentPercent =
+            sampleTotal > 0 ? (sampleExcellent / sampleTotal) * 100 : 0;
+          const goodPercent =
+            sampleTotal > 0 ? (sampleGood / sampleTotal) * 100 : 0;
+          const averagePercent =
+            sampleTotal > 0 ? (sampleAverage / sampleTotal) * 100 : 0;
+
+          poorPercentages.push(poorPercent);
+          excellentPercentages.push(excellentPercent);
+          goodPercentages.push(goodPercent);
+          averagePercentages.push(averagePercent);
+
+          html += `
+            <div class="categorization-item">
+              <div style="font-weight: bold; color: #856404;">Sample ${sampleIndex + 1}</div>
+              <div style="margin: 8px 0;">
+                <span class="poor-users">Poor: ${poorPercent.toFixed(1)}%</span>
+                <span class="average-users">Average: ${averagePercent.toFixed(1)}%</span>
+                <span class="good-users">Good: ${goodPercent.toFixed(1)}%</span>
+                <span class="excellent-users">Excellent: ${excellentPercent.toFixed(1)}%</span>
+              </div>
+            </div>
+          `;
+        });
+
+        // Calculate statistics
+        const avgPoor =
+          poorPercentages.reduce((a, b) => a + b, 0) / poorPercentages.length;
+        const minPoor = Math.min(...poorPercentages);
+        const maxPoor = Math.max(...poorPercentages);
+        const stdDevPoor = Math.sqrt(
+          poorPercentages.reduce((a, b) => a + Math.pow(b - avgPoor, 2), 0) /
+            poorPercentages.length,
+        );
+
+        html += `
+          <div style="background: #e9ecef; padding: 15px; border-radius: 4px; margin-top: 15px;">
+            <h4>Poor Users Statistics:</h4>
+            <p><strong>Average:</strong> ${avgPoor.toFixed(1)}% (Target: ~8%)</p>
+            <p><strong>Range:</strong> ${minPoor.toFixed(1)}% - ${maxPoor.toFixed(1)}%</p>
+            <p><strong>Standard Deviation:</strong> ${stdDevPoor.toFixed(1)}%</p>
+            <p><strong>Target Achievement:</strong> ${avgPoor >= 7 && avgPoor <= 9 ? "✅" : "❌"} (${avgPoor >= 7 && avgPoor <= 9 ? "Within 7-9% range" : "Outside 7-9% range"})</p>
+          </div>
+        `;
+
+        return html;
+      }
+
+      // Initialize on page load
+      checkMockServerStatus();
+    </script>
+  </body>
+</html>

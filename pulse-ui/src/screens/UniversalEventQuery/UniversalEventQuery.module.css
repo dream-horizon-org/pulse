@@ -1,0 +1,20 @@
+.titleContainer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.editor {
+  /* min-width: 800px; */
+  width: 800px;
+  flex-grow: 1;
+}
+
+.editorContainer {
+  display: flex;
+  flex-direction: row;
+}
+
+.editorSidebar {
+  width: 300px;
+}

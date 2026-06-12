@@ -1,0 +1,2118 @@
+@file:OptIn(ExperimentalCoroutinesApi::class)
+@file:Suppress("ClassName")
+
+package com.pulse.android.core
+
+import com.pulse.android.core.config.InteractionConfigFetcher
+import com.pulse.android.remote.InteractionRemoteFakeUtils
+import com.pulse.android.remote.models.InteractionConfig
+import io.mockk.coEvery
+import io.mockk.impl.annotations.MockK
+import io.mockk.junit5.MockKExtension
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.advanceTimeBy
+import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runCurrent
+import kotlinx.coroutines.test.runTest
+import org.assertj.core.api.Assertions
+import org.assertj.core.api.ThrowingConsumer
+import org.assertj.core.api.iterable.ThrowingExtractor
+import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.Disabled
+import org.junit.jupiter.api.Nested
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.extension.ExtendWith
+import java.util.concurrent.TimeUnit
+import kotlin.error
+import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.nanoseconds
+import kotlin.time.Duration.Companion.seconds
+
+@ExtendWith(MockKExtension::class)
+class InteractionManagerTest {
+    private lateinit var mockInteractionManager: InteractionManager
+
+    @MockK
+    lateinit var mockConfigFetcher: InteractionConfigFetcher
+
+    private val standardTestDispatcher =
+        StandardTestDispatcher(name = "InteractionManagerTest\$standardTestDispatcher")
+
+    @BeforeEach
+    fun init() {
+        mockInteractionManager =
+            InteractionManager(
+                mockConfigFetcher,
+                standardTestDispatcher,
+                standardTestDispatcher,
+            )
+    }
+
+    @Test
+    fun `When interaction init is not done interactionTrackers should be null`() =
+        runTest(standardTestDispatcher) {
+            coEvery { mockConfigFetcher.getConfigs() } returns emptyList()
+            advanceUntilIdle()
+            Assertions.assertThat(mockInteractionManager.interactionTrackers).isNull()
+        }
+
+    @Test
+    fun `When interactions are empty interaction trackers should be empty`() =
+        runTest(standardTestDispatcher) {
+            coEvery { mockConfigFetcher.getConfigs() } returns emptyList()
+            mockInteractionManager.init()
+            advanceUntilIdle()
+            Assertions.assertThat(mockInteractionManager.interactionTrackers).isEmpty()
+        }
+
+    @Test
+    fun `When interaction is one interaction trackers should be one`() =
+        runTest(standardTestDispatcher) {
+            coEvery { mockConfigFetcher.getConfigs() } returns listOf(InteractionRemoteFakeUtils.createFakeInteractionConfig())
+            mockInteractionManager.init()
+            advanceUntilIdle()
+            Assertions.assertThat(mockInteractionManager.interactionTrackers).hasSize(1)
+        }
+
+    @Test
+    fun `When interaction is two interaction trackers should be two`() =
+        runTest(standardTestDispatcher) {
+            coEvery { mockConfigFetcher.getConfigs() } returns
+                listOf(
+                    InteractionRemoteFakeUtils.createFakeInteractionConfig(),
+                    InteractionRemoteFakeUtils.createFakeInteractionConfig(),
+                )
+            mockInteractionManager.init()
+            advanceUntilIdle()
+            Assertions.assertThat(mockInteractionManager.interactionTrackers).hasSize(2)
+        }
+
+    @Test
+    fun `When interaction config has no event config throw with assertion`() =
+        runTest(standardTestDispatcher) {
+            org.junit.jupiter.api.Assertions.assertThrows(NoSuchElementException::class.java) {
+                InteractionRemoteFakeUtils.createFakeInteractionConfig(
+                    eventSequence = emptyList(),
+                )
+            }
+        }
+
+    @Test
+    fun `When interaction config has all blacklisted config throws with exception`() =
+        runTest(standardTestDispatcher) {
+            org.junit.jupiter.api.Assertions.assertThrows(AssertionError::class.java) {
+                InteractionRemoteFakeUtils.createFakeInteractionConfig(
+                    eventSequence =
+                        listOf(
+                            InteractionRemoteFakeUtils.createFakeInteractionEvent(
+                                "blacklisted",
+                                isBlacklisted = true,
+                            ),
+                        ),
+                )
+            }
+        }
+
+    @Nested
+    inner class `With two length interaction config` {
+        private val interactionConfigWithTwoEvents =
+            InteractionRemoteFakeUtils.createFakeInteractionConfig(
+                eventSequence =
+                    listOf(
+                        InteractionRemoteFakeUtils.createFakeInteractionEvent(
+                            name = "event1",
+                        ),
+                        InteractionRemoteFakeUtils.createFakeInteractionEvent(
+                            name = "event2",
+                        ),
+                    ),
+                globalBlacklistedEvents =
+                    listOf(
+                        InteractionRemoteFakeUtils.createFakeInteractionEvent(
+                            name = "blacklist1",
+                        ),
+                    ),
+            )
+
+        @Test
+        fun `With events in same order and correct time`() =
+            runTest(standardTestDispatcher) {
+                initMockInteractionManager(interactionConfigWithTwoEvents)
+                addEventWithNanoTimeFromBoot(
+                    "event1",
+                    emptyMap(),
+                )
+                val ongoingId = assertSingleOngoingInteraction()
+
+                addEventWithNanoTimeFromBoot(
+                    "event2",
+                    emptyMap(),
+                )
+
+                assertSingleFinalInteraction(ongoingId)
+            }
+
+        @Test
+        fun `With events in same order with reverse time`() =
+            runTest(standardTestDispatcher) {
+                initMockInteractionManager(interactionConfigWithTwoEvents)
+                val timeInNano = System.nanoTime()
+                addEventWithNanoTimeFromBoot(
+                    "event1",
+                    emptyMap(),
+                    timeInNano,
+                )
+                assertSingleOngoingInteraction()
+
+                addEventWithNanoTimeFromBoot(
+                    "event2",
+                    emptyMap(),
+                    timeInNano - 1,
+                )
+
+                assertSingleOngoingInteraction()
+            }
+
+        @Test
+        fun `With events in same order with props`() =
+            runTest(standardTestDispatcher) {
+                val config =
+                    InteractionRemoteFakeUtils.createFakeInteractionConfig(
+                        eventSequence =
+                            listOf(
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent(
+                                    name = "event1",
+                                ),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent(
+                                    name = "event2",
+                                    props =
+                                        listOf(
+                                            InteractionRemoteFakeUtils.createFakeInteractionAttrsEntry(
+                                                "key1",
+                                                "value1",
+                                                operator = InteractionConstant.Operators.EQUALS.name,
+                                            ),
+                                        ),
+                                ),
+                            ),
+                    )
+                initMockInteractionManager(config)
+                addEventWithNanoTimeFromBoot(
+                    "event1",
+                    emptyMap(),
+                )
+                assertSingleOngoingInteraction()
+
+                addEventWithNanoTimeFromBoot(
+                    "event2",
+                    emptyMap(),
+                )
+
+                assertSingleOngoingInteraction()
+
+                addEventWithNanoTimeFromBoot(
+                    "event2",
+                    mapOf("key1" to "value1"),
+                )
+
+                assertSingleFinalInteraction()
+            }
+
+        @Test
+        fun `With events in same order with reverse time 1`() =
+            runTest(standardTestDispatcher) {
+                initMockInteractionManager(interactionConfigWithTwoEvents)
+                val timeInNano = System.nanoTime()
+                addEventWithNanoTimeFromBoot(
+                    "event1",
+                    emptyMap(),
+                    timeInNano,
+                )
+                assertSingleOngoingInteraction()
+
+                addEventWithNanoTimeFromBoot(
+                    "event2",
+                    emptyMap(),
+                    timeInNano - 1,
+                )
+
+                assertSingleOngoingInteraction()
+
+                addEventWithNanoTimeFromBoot(
+                    "event2",
+                    emptyMap(),
+                    timeInNano + 1,
+                )
+
+                assertSingleFinalInteraction()
+            }
+
+        @Test
+        fun `With events in reverse order with correct time`() =
+            runTest(standardTestDispatcher) {
+                initMockInteractionManager(interactionConfigWithTwoEvents)
+                val timestampInNano = System.nanoTime()
+                addEventWithNanoTimeFromBoot(
+                    "event2",
+                    emptyMap(),
+                    timestampInNano,
+                )
+                assertSingleNoOngoingInteraction()
+
+                addEventWithNanoTimeFromBoot(
+                    "event1",
+                    emptyMap(),
+                    timestampInNano - 1,
+                )
+
+                assertSingleFinalInteraction()
+            }
+
+        @Test
+        fun `When events happen with same timestamp`() =
+            runTest(standardTestDispatcher) {
+                val sameEventTime = System.nanoTime()
+                initMockInteractionManager(interactionConfigWithTwoEvents)
+                addEventWithNanoTimeFromBoot(
+                    "event2",
+                    emptyMap(),
+                    eventTimeInNano = sameEventTime,
+                )
+                assertSingleNoOngoingInteraction()
+
+                addEventWithNanoTimeFromBoot(
+                    "event1",
+                    emptyMap(),
+                    eventTimeInNano = sameEventTime,
+                )
+
+                assertSingleFinalInteraction()
+            }
+
+        @Test
+        fun `event1, event2, blacklist1 before event2 gives ongoing then no interaction`() =
+            runTest(standardTestDispatcher) {
+                val sameEventTime = System.nanoTime()
+                initMockInteractionManager(interactionConfigWithTwoEvents)
+                addEventWithNanoTimeFromBoot(
+                    "event1",
+                    emptyMap(),
+                    eventTimeInNano = sameEventTime,
+                )
+                val interactionId = assertSingleOngoingInteraction()
+
+                addEventWithNanoTimeFromBoot(
+                    "event2",
+                    emptyMap(),
+                    eventTimeInNano = sameEventTime + 2,
+                )
+
+                addEventWithNanoTimeFromBoot(
+                    "blacklist1",
+                    emptyMap(),
+                    eventTimeInNano = sameEventTime + 1,
+                )
+                assertSingleFinalInteraction(interactionId)
+            }
+
+        @Test
+        fun `event1, event2, blacklist1 before event1 gives ongoing then final interaction`() =
+            runTest(standardTestDispatcher) {
+                val sameEventTime = System.nanoTime()
+                initMockInteractionManager(interactionConfigWithTwoEvents)
+                addEventWithNanoTimeFromBoot(
+                    "event1",
+                    emptyMap(),
+                    eventTimeInNano = sameEventTime,
+                )
+                val interactionId = assertSingleOngoingInteraction()
+
+                addEventWithNanoTimeFromBoot(
+                    "event2",
+                    emptyMap(),
+                    eventTimeInNano = sameEventTime + 2,
+                )
+
+                addEventWithNanoTimeFromBoot(
+                    "blacklist1",
+                    emptyMap(),
+                    eventTimeInNano = sameEventTime - 1,
+                )
+
+                assertSingleFinalInteraction(interactionId)
+            }
+
+        @Test
+        fun `event1, event2, blacklist1 after event2 gives ongoing then final interaction`() =
+            runTest(standardTestDispatcher) {
+                val sameEventTime = System.nanoTime()
+                initMockInteractionManager(interactionConfigWithTwoEvents)
+                addEventWithNanoTimeFromBoot(
+                    "event1",
+                    emptyMap(),
+                    eventTimeInNano = sameEventTime,
+                )
+                val interactionId = assertSingleOngoingInteraction()
+
+                addEventWithNanoTimeFromBoot(
+                    "event2",
+                    emptyMap(),
+                    eventTimeInNano = sameEventTime + 2,
+                )
+
+                addEventWithNanoTimeFromBoot(
+                    "blacklist1",
+                    emptyMap(),
+                    eventTimeInNano = sameEventTime + 3,
+                )
+
+                assertSingleFinalInteraction(interactionId)
+            }
+
+        @Test
+        fun `With config of two same event event four of that event trigger two interactions`() =
+            runTest(standardTestDispatcher) {
+                initMockInteractionManager(interactionConfigWithTwoEvents)
+                addEventWithNanoTimeFromBoot(
+                    "event1",
+                    emptyMap(),
+                )
+                val ongoingId = assertSingleOngoingInteraction()
+
+                addEventWithNanoTimeFromBoot(
+                    "event2",
+                    emptyMap(),
+                )
+
+                assertSingleFinalInteraction(ongoingId)
+
+                addEventWithNanoTimeFromBoot(
+                    "event1",
+                    emptyMap(),
+                )
+
+                val newOngoingId1 = assertSingleOngoingInteraction()
+
+                Assertions.assertThat(ongoingId).isNotEqualTo(newOngoingId1)
+
+                addEventWithNanoTimeFromBoot(
+                    "event2",
+                    emptyMap(),
+                )
+
+                val (final2ndInteractionId, _) = assertSingleFinalInteraction()
+
+                Assertions.assertThat(newOngoingId1).isEqualTo(final2ndInteractionId)
+            }
+
+        @Test
+        fun `With one correct event and second different event keeps the ongoing interaction`() =
+            runTest(standardTestDispatcher) {
+                initMockInteractionManager(interactionConfigWithTwoEvents)
+                addEventWithNanoTimeFromBoot(
+                    "event1",
+                    emptyMap(),
+                )
+                val id = assertSingleOngoingInteraction()
+
+                addEventWithNanoTimeFromBoot(
+                    "eventUnknown",
+                    emptyMap(),
+                )
+
+                assertSingleOngoingInteraction(id)
+            }
+
+        @Test
+        fun `event1, unknown event, event2 keeps gives the final interaction`() =
+            runTest(standardTestDispatcher) {
+                initMockInteractionManager(interactionConfigWithTwoEvents)
+                addEventWithNanoTimeFromBoot(
+                    "event1",
+                    emptyMap(),
+                )
+                val id = assertSingleOngoingInteraction()
+
+                addEventWithNanoTimeFromBoot(
+                    "eventUnknown",
+                    emptyMap(),
+                )
+                assertSingleOngoingInteraction(id)
+
+                addEventWithNanoTimeFromBoot(
+                    "event2",
+                    emptyMap(),
+                )
+                assertSingleFinalInteraction(id)
+            }
+
+        @Test
+        fun `after completed interaction stray event2 then event1 event2 uses new interaction id`() =
+            runTest(standardTestDispatcher) {
+                initMockInteractionManager(interactionConfigWithTwoEvents)
+                addEventWithNanoTimeFromBoot("event1")
+                addEventWithNanoTimeFromBoot("event2")
+                val (firstCompletionId, _) = assertSingleFinalInteraction()
+
+                addEventWithNanoTimeFromBoot("event2")
+                advanceTimeBy(1.seconds)
+
+                addEventWithNanoTimeFromBoot("event1")
+                val secondRunOngoingId = assertSingleOngoingInteraction()
+                Assertions.assertThat(secondRunOngoingId).isNotEqualTo(firstCompletionId)
+
+                addEventWithNanoTimeFromBoot("event2")
+                val (secondCompletionId, _) = assertSingleFinalInteraction()
+                Assertions.assertThat(secondCompletionId).isNotEqualTo(firstCompletionId)
+                Assertions.assertThat(secondCompletionId).isEqualTo(secondRunOngoingId)
+            }
+
+        @Test
+        fun `two interaction config with same event sequence`() =
+            runTest(standardTestDispatcher) {
+                val firstConfig =
+                    InteractionRemoteFakeUtils.createFakeInteractionConfig(
+                        id = 1,
+                        eventSequence =
+                            listOf(
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent(
+                                    name = "event1",
+                                ),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent(
+                                    name = "event2",
+                                ),
+                            ),
+                    )
+                val secondConfig =
+                    InteractionRemoteFakeUtils.createFakeInteractionConfig(
+                        id = 2,
+                        eventSequence =
+                            listOf(
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent(
+                                    name = "event1",
+                                ),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent(
+                                    name = "event2",
+                                ),
+                            ),
+                    )
+
+                initMockInteractionManager(firstConfig, secondConfig)
+                addEventWithNanoTimeFromBoot(
+                    "event1",
+                    emptyMap(),
+                )
+                advanceTimeBy(100.milliseconds)
+                Assertions
+                    .assertThat(mockInteractionManager.interactionTrackerStatesState.value)
+                    .hasSize(2)
+                    .allSatisfy { it is InteractionRunningStatus.OngoingMatch }
+                    .allSatisfy { ((it ?: error("null assertion")) as InteractionRunningStatus.OngoingMatch).interaction == null }
+                    .extracting(
+                        { interactionRunningStatus ->
+                            ((interactionRunningStatus ?: error("null assertion")) as InteractionRunningStatus.OngoingMatch).interactionId
+                        },
+                    ).doesNotHaveDuplicates()
+
+                val ids = mockInteractionManager.interactionTrackerStatesState.value.runningIds
+
+                addEventWithNanoTimeFromBoot(
+                    "eventUnknown",
+                    emptyMap(),
+                )
+                advanceTimeBy(100.milliseconds)
+                Assertions
+                    .assertThat(mockInteractionManager.interactionTrackerStatesState.value)
+                    .hasSize(2)
+                    .allSatisfy { it is InteractionRunningStatus.OngoingMatch }
+                    .allSatisfy { ((it ?: error("null assertion")) as InteractionRunningStatus.OngoingMatch).interaction == null }
+                    .extracting(
+                        { interactionRunningStatus ->
+                            ((interactionRunningStatus ?: error("null assertion")) as InteractionRunningStatus.OngoingMatch).interactionId
+                        },
+                    ).doesNotHaveDuplicates()
+
+                Assertions.assertThat(mockInteractionManager.interactionTrackerStatesState.value.runningIds).containsAll(ids)
+                addEventWithNanoTimeFromBoot(
+                    "event2",
+                    emptyMap(),
+                )
+                advanceTimeBy(100.milliseconds)
+                Assertions
+                    .assertThat(mockInteractionManager.interactionTrackerStatesState.value)
+                    .hasSize(2)
+                    .allSatisfy { it is InteractionRunningStatus.OngoingMatch }
+                    .allSatisfy { ((it ?: error("null assertion")) as InteractionRunningStatus.OngoingMatch).interaction != null }
+                    .extracting(
+                        { interactionRunningStatus ->
+                            ((interactionRunningStatus ?: error("null assertion")) as InteractionRunningStatus.OngoingMatch).interactionId
+                        },
+                    ).doesNotHaveDuplicates()
+
+                Assertions
+                    .assertThat(
+                        mockInteractionManager.interactionTrackerStatesState.value.map {
+                            (it as InteractionRunningStatus.OngoingMatch).interaction!!.id
+                        },
+                    ).containsAll(ids)
+            }
+    }
+
+    @Nested
+    inner class `With global black listed event` {
+        private val doubleEventConfig =
+            InteractionRemoteFakeUtils.createFakeInteractionConfig(
+                eventSequence =
+                    listOf(
+                        InteractionRemoteFakeUtils.createFakeInteractionEvent("event1"),
+                        InteractionRemoteFakeUtils.createFakeInteractionEvent("event2"),
+                    ),
+                globalBlacklistedEvents =
+                    listOf(
+                        InteractionRemoteFakeUtils.createFakeInteractionEvent("blacklist1"),
+                        InteractionRemoteFakeUtils.createFakeInteractionEvent("blacklist2"),
+                    ),
+            )
+
+        @Test
+        fun `with double event config, when event start with correct 1st then blacklisted event then correct 1st event`() =
+            runTest(standardTestDispatcher) {
+                initMockInteractionManager(doubleEventConfig)
+                addEventWithNanoTimeFromBoot("event1")
+                val interactionId1st = assertSingleOngoingInteraction()
+                advanceTimeBy(1.seconds)
+                addEventWithNanoTimeFromBoot("blacklist1")
+                assertSingleNoOngoingInteraction()
+                addEventWithNanoTimeFromBoot("event1")
+                val interactionId2nd = assertSingleOngoingInteraction()
+
+                Assertions.assertThat(interactionId2nd).isNotEqualTo(interactionId1st)
+            }
+
+        @Test
+        fun `with double event config, when event start with correct 1st then blacklisted event then correct 2nd event`() =
+            runTest(standardTestDispatcher) {
+                initMockInteractionManager(doubleEventConfig)
+                addEventWithNanoTimeFromBoot("event1")
+                assertSingleOngoingInteraction()
+                addEventWithNanoTimeFromBoot("blacklist1")
+                assertSingleNoOngoingInteraction()
+                addEventWithNanoTimeFromBoot("event2")
+                assertSingleNoOngoingInteraction()
+            }
+
+        @Test
+        fun `with double event config, when event start with correct 1st then blacklisted event then 1st then 2nd`() =
+            runTest(standardTestDispatcher) {
+                initMockInteractionManager(doubleEventConfig)
+                addEventWithNanoTimeFromBoot("event1")
+                assertSingleOngoingInteraction()
+                addEventWithNanoTimeFromBoot("blacklist1")
+                assertSingleNoOngoingInteraction()
+                addEventWithNanoTimeFromBoot("event1")
+                val interactionId = assertSingleOngoingInteraction()
+                addEventWithNanoTimeFromBoot("event2")
+                assertSingleFinalInteraction(interactionId)
+            }
+
+        @Test
+        fun `with 2 event config and global blacklisted with props, event1, blacklist1 without props, event2 gives final interaction`() =
+            runTest(standardTestDispatcher) {
+                initMockInteractionManager(
+                    InteractionRemoteFakeUtils.createFakeInteractionConfig(
+                        eventSequence =
+                            listOf(
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event1"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event2"),
+                            ),
+                        globalBlacklistedEvents =
+                            listOf(
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent(
+                                    "blacklist1",
+                                    props =
+                                        listOf(
+                                            InteractionRemoteFakeUtils.createFakeInteractionAttrsEntry(
+                                                "key1",
+                                                "value1",
+                                                InteractionConstant.Operators.EQUALS.name,
+                                            ),
+                                        ),
+                                ),
+                            ),
+                    ),
+                )
+                addEventWithNanoTimeFromBoot("event1")
+                val interactionId = assertSingleOngoingInteraction()
+                addEventWithNanoTimeFromBoot("blacklist1")
+                assertSingleOngoingInteraction()
+                addEventWithNanoTimeFromBoot("event2")
+                assertSingleFinalInteraction(interactionId)
+            }
+
+        @Test
+        fun `with 2 event config and global blacklisted with props, event1, blacklist1 with props, event2 stopes ongoing interaction`() =
+            runTest(standardTestDispatcher) {
+                initMockInteractionManager(
+                    InteractionRemoteFakeUtils.createFakeInteractionConfig(
+                        eventSequence =
+                            listOf(
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event1"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event2"),
+                            ),
+                        globalBlacklistedEvents =
+                            listOf(
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent(
+                                    "blacklist1",
+                                    props =
+                                        listOf(
+                                            InteractionRemoteFakeUtils.createFakeInteractionAttrsEntry(
+                                                "key1",
+                                                "value1",
+                                                InteractionConstant.Operators.EQUALS.name,
+                                            ),
+                                        ),
+                                ),
+                            ),
+                    ),
+                )
+                addEventWithNanoTimeFromBoot("event1")
+                assertSingleOngoingInteraction()
+                addEventWithNanoTimeFromBoot("blacklist1", mapOf("key1" to "value1"))
+                assertSingleNoOngoingInteraction()
+                addEventWithNanoTimeFromBoot("event2")
+                assertSingleNoOngoingInteraction()
+            }
+    }
+
+    @Nested
+    inner class `With local black listed event` {
+        @Test
+        fun `when correct event happen without blacklisted event`() =
+            runTest(standardTestDispatcher) {
+                val interactionConfig =
+                    InteractionRemoteFakeUtils.createFakeInteractionConfig(
+                        eventSequence =
+                            listOf(
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event1"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent(
+                                    "blacklist",
+                                    isBlacklisted = true,
+                                ),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event2"),
+                            ),
+                    )
+                initMockInteractionManager(interactionConfig)
+                addEventWithNanoTimeFromBoot("event1")
+                val interactionId = assertSingleOngoingInteraction()
+                addEventWithNanoTimeFromBoot("event2")
+                assertSingleFinalInteraction(interactionId)
+            }
+
+        @Disabled("Single event not supported")
+        @Test
+        fun `config with one event and trailing blacklisted events when first event is correct`() =
+            runTest(standardTestDispatcher) {
+                val interactionConfig =
+                    InteractionRemoteFakeUtils.createFakeInteractionConfig(
+                        eventSequence =
+                            listOf(
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event1"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent(
+                                    "blacklist1",
+                                    isBlacklisted = true,
+                                ),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent(
+                                    "blacklist2",
+                                    isBlacklisted = true,
+                                ),
+                            ),
+                    )
+                initMockInteractionManager(interactionConfig)
+                addEventWithNanoTimeFromBoot("event1")
+                assertSingleFinalInteraction()
+            }
+
+        @Disabled("Trailing black list ")
+        @Test
+        fun `config with two event and trailing blacklisted events when first event is correct`() =
+            runTest(standardTestDispatcher) {
+                val interactionConfig =
+                    InteractionRemoteFakeUtils.createFakeInteractionConfig(
+                        eventSequence =
+                            listOf(
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event1"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent(
+                                    "blacklist1",
+                                    isBlacklisted = true,
+                                ),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event2"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent(
+                                    "blacklist2",
+                                    isBlacklisted = true,
+                                ),
+                            ),
+                    )
+                initMockInteractionManager(interactionConfig)
+                addEventWithNanoTimeFromBoot("event1")
+                assertSingleOngoingInteraction()
+            }
+
+        @Disabled("Trailing black list ")
+        @Test
+        fun `config with two event and trailing blacklisted events when first event is correct and second is incorrect`() =
+            runTest(standardTestDispatcher) {
+                val interactionConfig =
+                    InteractionRemoteFakeUtils.createFakeInteractionConfig(
+                        eventSequence =
+                            listOf(
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event1"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event2"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent(
+                                    "blacklist1",
+                                    isBlacklisted = true,
+                                ),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent(
+                                    "blacklist2",
+                                    isBlacklisted = true,
+                                ),
+                            ),
+                    )
+                initMockInteractionManager(interactionConfig)
+                addEventWithNanoTimeFromBoot("event1")
+                assertSingleOngoingInteraction()
+
+                addEventWithNanoTimeFromBoot("eventUnknown")
+                assertSingleOngoingInteraction()
+            }
+
+        @Test
+        fun `config with two event and trailing blacklisted events, when first(event1) comes twice to break the ongoing interaction`() =
+            runTest(standardTestDispatcher) {
+                val interactionConfig =
+                    InteractionRemoteFakeUtils.createFakeInteractionConfig(
+                        eventSequence =
+                            listOf(
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event1"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event2"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent(
+                                    "blacklist1",
+                                    isBlacklisted = true,
+                                ),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent(
+                                    "blacklist2",
+                                    isBlacklisted = true,
+                                ),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event3"),
+                            ),
+                    )
+                initMockInteractionManager(interactionConfig)
+                addEventWithNanoTimeFromBoot("event1")
+                assertSingleOngoingInteraction()
+
+                addEventWithNanoTimeFromBoot("event1")
+                advanceTimeBy(1.seconds)
+                Assertions.assertThat(mockInteractionManager.interactionTrackerStatesState.value).hasSize(2)
+                val interactionId1 =
+                    assertSingleFinalInteraction(
+                        interactionRunningStatus = mockInteractionManager.interactionTrackerStatesState.value.first(),
+                        isSuccess = false,
+                    )
+                val interactionId2 = assertSingleOngoingInteraction(mockInteractionManager.interactionTrackerStatesState.value.last())
+                Assertions.assertThat(interactionId2).isNotEqualTo(interactionId1.first)
+            }
+
+        @Test
+        fun `config with two event and trailing blacklisted events when first and second event is config second event`() =
+            runTest(standardTestDispatcher) {
+                val interactionConfig =
+                    InteractionRemoteFakeUtils.createFakeInteractionConfig(
+                        eventSequence =
+                            listOf(
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event1"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event2"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent(
+                                    "blacklist1",
+                                    isBlacklisted = true,
+                                ),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent(
+                                    "blacklist2",
+                                    isBlacklisted = true,
+                                ),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event3"),
+                            ),
+                    )
+                initMockInteractionManager(interactionConfig)
+                addEventWithNanoTimeFromBoot("event2")
+                assertSingleNoOngoingInteraction()
+
+                addEventWithNanoTimeFromBoot("event2")
+                assertSingleNoOngoingInteraction()
+            }
+
+        @Test
+        fun `config with two events and fron blacklisted event`() =
+            runTest(standardTestDispatcher) {
+                val interactionConfig =
+                    InteractionRemoteFakeUtils.createFakeInteractionConfig(
+                        eventSequence =
+                            listOf(
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event0"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent(
+                                    "blacklist1",
+                                    isBlacklisted = true,
+                                ),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent(
+                                    "blacklist2",
+                                    isBlacklisted = true,
+                                ),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event1"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event2"),
+                            ),
+                    )
+                initMockInteractionManager(interactionConfig)
+                addEventWithNanoTimeFromBoot("event0")
+                val interactionId = assertSingleOngoingInteraction()
+                addEventWithNanoTimeFromBoot("event1")
+                assertSingleOngoingInteraction(interactionId)
+
+                addEventWithNanoTimeFromBoot("event2")
+                assertSingleFinalInteraction(interactionId)
+            }
+    }
+
+    // todo add queue for events before config download
+    //  clear that queue even config api fails or interaction is empty
+
+    @Nested
+    inner class `When event matching gets broken by config allowed events` {
+        @Test
+        fun `When first event comes to break the ongoing match and then completed the interaction`() =
+            runTest(standardTestDispatcher) {
+                val interactionConfig =
+                    InteractionRemoteFakeUtils.createFakeInteractionConfig(
+                        eventSequence =
+                            listOf(
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event1"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event2"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent(
+                                    "blacklist1",
+                                    isBlacklisted = true,
+                                ),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent(
+                                    "blacklist2",
+                                    isBlacklisted = true,
+                                ),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event3"),
+                            ),
+                    )
+                initMockInteractionManager(interactionConfig)
+                addEventWithNanoTimeFromBoot("event1")
+                val interactionId = assertSingleOngoingInteraction()
+
+                addEventWithNanoTimeFromBoot("event2")
+                assertSingleOngoingInteraction(interactionId)
+
+                addEventWithNanoTimeFromBoot("event1")
+                advanceTimeBy(1.seconds)
+                val (interactionId2, _) =
+                    assertSingleFinalInteraction(
+                        interactionRunningStatus = mockInteractionManager.interactionTrackerStatesState.value.first(),
+                        isSuccess = false,
+                    )
+                val interactionId3 = assertSingleOngoingInteraction(mockInteractionManager.interactionTrackerStatesState.value.last())
+                Assertions.assertThat(interactionId2).isEqualTo(interactionId)
+                Assertions.assertThat(interactionId2).isNotEqualTo(interactionId3)
+
+                addEventWithNanoTimeFromBoot("event2")
+                assertSingleOngoingInteraction(interactionId3)
+
+                addEventWithNanoTimeFromBoot("event3")
+                assertSingleFinalInteraction(interactionId3)
+            }
+
+        @Test
+        fun `When first event comes instead of second event to break the ongoing match`() =
+            runTest(standardTestDispatcher) {
+                val interactionConfig =
+                    InteractionRemoteFakeUtils.createFakeInteractionConfig(
+                        eventSequence =
+                            listOf(
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event1"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event2"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event3"),
+                            ),
+                    )
+                initMockInteractionManager(interactionConfig)
+                addEventWithNanoTimeFromBoot("event1")
+                val interactionId1 = assertSingleOngoingInteraction()
+
+                addEventWithNanoTimeFromBoot("event1")
+                // advancing so that interactions are set
+                advanceTimeBy(1.seconds)
+                Assertions.assertThat(mockInteractionManager.interactionTrackerStatesState.value).hasSize(2)
+                val (interactionId2, _) =
+                    assertSingleFinalInteraction(
+                        interactionRunningStatus = mockInteractionManager.interactionTrackerStatesState.value.first(),
+                        isSuccess = false,
+                    )
+                Assertions.assertThat(interactionId1).isEqualTo(interactionId2)
+                val interactionId3 = assertSingleOngoingInteraction(mockInteractionManager.interactionTrackerStatesState.value.last())
+                Assertions.assertThat(interactionId2).isNotEqualTo(interactionId3)
+            }
+    }
+
+    @Nested
+    inner class `With multiple interaction running simultaneously` {
+        @Test
+        fun `two config with one longer then the previous one`() =
+            runTest(standardTestDispatcher) {
+                val interactionConfigLen2 =
+                    InteractionRemoteFakeUtils.createFakeInteractionConfig(
+                        eventSequence =
+                            listOf(
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event1"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event2"),
+                            ),
+                    )
+
+                val interactionConfigLen3 =
+                    InteractionRemoteFakeUtils.createFakeInteractionConfig(
+                        eventSequence =
+                            listOf(
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event1"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event2"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event3"),
+                            ),
+                    )
+
+                initMockInteractionManager(interactionConfigLen2, interactionConfigLen3)
+
+                addEventWithNanoTimeFromBoot("event1")
+                assertAllInteraction<InteractionRunningStatus.OngoingMatch>(2)
+
+                addEventWithNanoTimeFromBoot("event2")
+
+                advanceTimeBy(1.seconds)
+                Assertions
+                    .assertThat(mockInteractionManager.interactionTrackerStatesState.value)
+                    .hasSize(2)
+                    .hasOnlyElementsOfType(InteractionRunningStatus.OngoingMatch::class.java)
+                    .satisfiesOnlyOnce(
+                        ThrowingConsumer {
+                            Assertions.assertThat((it as? InteractionRunningStatus.OngoingMatch)?.interaction).isNotNull
+                        },
+                    )
+
+                addEventWithNanoTimeFromBoot("event3")
+
+                advanceUntilIdle()
+
+                Assertions
+                    .assertThat(mockInteractionManager.interactionTrackerStatesState.value)
+                    .hasSize(2)
+                    .hasOnlyElementsOfType(InteractionRunningStatus.OngoingMatch::class.java)
+                    .allSatisfy(
+                        ThrowingConsumer {
+                            Assertions
+                                .assertThat(
+                                    (it as? InteractionRunningStatus.OngoingMatch ?: throwNotOfOngoingType(it)).interaction,
+                                ).isNotNull
+                        },
+                    ).extracting(
+                        ThrowingExtractor {
+                            (it as? InteractionRunningStatus.OngoingMatch ?: throwNotOfOngoingType(it)).interaction?.id
+                                ?: error("interaction is missing from Ongoing match")
+                        },
+                    ).doesNotHaveDuplicates()
+            }
+    }
+
+    @Nested
+    inner class `With delay processing` {
+        @Disabled("Not supported as of now, we can support this with props acting as dimensions")
+        @Nested
+        inner class `With multi interactions` {
+            /*
+            e1     e2
+                e1    e2
+             */
+            @Test
+            fun `event1, event1, event1 after first event1, event2 gives two interaction with two event config`() =
+                runTest(standardTestDispatcher) {
+                    val interactionConfig =
+                        InteractionRemoteFakeUtils.createFakeInteractionConfig(
+                            eventSequence =
+                                listOf(
+                                    InteractionRemoteFakeUtils.createFakeInteractionEvent("event1"),
+                                    InteractionRemoteFakeUtils.createFakeInteractionEvent("event2"),
+                                ),
+                        )
+                    initMockInteractionManager(interactionConfig)
+                    addEventWithNanoTimeFromBoot("event1")
+                    advanceTimeBy(1.seconds)
+                    assertSingleOngoingInteraction(skipAdvancing = true)
+
+                    addEventWithNanoTimeFromBoot("event1")
+                    advanceTimeBy(1.seconds)
+                    assertAllInteraction<InteractionRunningStatus.OngoingMatch>(
+                        2,
+                        skipAdvancing = true,
+                    )
+
+                    advanceTimeBy(19.seconds)
+                    assertAllInteraction<InteractionRunningStatus.OngoingMatch>(
+                        2,
+                        skipAdvancing = true,
+                    )
+                    Assertions
+                        .assertThat(
+                            mockInteractionManager.interactionTrackerStatesState.value
+                                .filterIsInstance<InteractionRunningStatus.OngoingMatch>(),
+                        ).filteredOn { it.interaction != null }
+                        .hasSize(1)
+
+                    advanceTimeBy(1.seconds)
+                    Assertions
+                        .assertThat(
+                            mockInteractionManager.interactionTrackerStatesState.value
+                                .filterIsInstance<InteractionRunningStatus.OngoingMatch>(),
+                        ).filteredOn { it.interaction != null }
+                        .hasSize(2)
+                }
+
+            /*
+            e1      e2
+                  e1     e2
+               gb
+             */
+            @Test
+            fun `event1, event1, event1 after first event1, event2, gb after first event1 gives one interaction with two event config`() =
+                runTest(standardTestDispatcher) {
+                    val interactionConfig =
+                        InteractionRemoteFakeUtils.createFakeInteractionConfig(
+                            eventSequence =
+                                listOf(
+                                    InteractionRemoteFakeUtils.createFakeInteractionEvent("event1"),
+                                    InteractionRemoteFakeUtils.createFakeInteractionEvent("event2"),
+                                ),
+                        )
+                    initMockInteractionManager(interactionConfig)
+                    addEventWithNanoTimeFromBoot("event1")
+                    advanceTimeBy(1.seconds)
+                    assertSingleOngoingInteraction(skipAdvancing = true)
+
+                    addEventWithNanoTimeFromBoot("event1")
+                    advanceTimeBy(1.seconds)
+                    assertAllInteraction<InteractionRunningStatus.OngoingMatch>(
+                        2,
+                        skipAdvancing = true,
+                    )
+
+                    advanceTimeBy(19.seconds)
+                    assertAllInteraction<InteractionRunningStatus.OngoingMatch>(
+                        2,
+                        skipAdvancing = true,
+                    )
+                    Assertions
+                        .assertThat(
+                            mockInteractionManager.interactionTrackerStatesState.value
+                                .filterIsInstance<InteractionRunningStatus.OngoingMatch>(),
+                        ).filteredOn { it.interaction != null }
+                        .hasSize(1)
+
+                    advanceTimeBy(1.seconds)
+                    Assertions
+                        .assertThat(
+                            mockInteractionManager.interactionTrackerStatesState.value
+                                .filterIsInstance<InteractionRunningStatus.OngoingMatch>(),
+                        ).filteredOn { it.interaction != null }
+                        .hasSize(2)
+                }
+
+            /*
+            e1      e2
+                 e1    gb e2
+
+             */
+            @Test
+            fun `event1, event1, event1 after first event1, event2, gb after first event2 gives one interaction with two event config`() =
+                runTest(standardTestDispatcher) {
+                    val interactionConfig =
+                        InteractionRemoteFakeUtils.createFakeInteractionConfig(
+                            eventSequence =
+                                listOf(
+                                    InteractionRemoteFakeUtils.createFakeInteractionEvent("event1"),
+                                    InteractionRemoteFakeUtils.createFakeInteractionEvent("event2"),
+                                ),
+                        )
+                    initMockInteractionManager(interactionConfig)
+                    addEventWithNanoTimeFromBoot("event1")
+                    advanceTimeBy(1.seconds)
+                    assertSingleOngoingInteraction(skipAdvancing = true)
+
+                    addEventWithNanoTimeFromBoot("event1")
+                    advanceTimeBy(1.seconds)
+                    assertAllInteraction<InteractionRunningStatus.OngoingMatch>(
+                        2,
+                        skipAdvancing = true,
+                    )
+
+                    advanceTimeBy(19.seconds)
+                    assertAllInteraction<InteractionRunningStatus.OngoingMatch>(
+                        2,
+                        skipAdvancing = true,
+                    )
+                    Assertions
+                        .assertThat(
+                            mockInteractionManager.interactionTrackerStatesState.value
+                                .filterIsInstance<InteractionRunningStatus.OngoingMatch>(),
+                        ).filteredOn { it.interaction != null }
+                        .hasSize(1)
+
+                    advanceTimeBy(1.seconds)
+                    Assertions
+                        .assertThat(
+                            mockInteractionManager.interactionTrackerStatesState.value
+                                .filterIsInstance<InteractionRunningStatus.OngoingMatch>(),
+                        ).filteredOn { it.interaction != null }
+                        .hasSize(2)
+                }
+
+            /*
+            e1          e2
+                 e1  gb     e2
+
+             */
+            @Test
+            fun `event1, event1, event1 after first event1, event2, gb after e1 before e2 gives one interaction with two event config`() =
+                runTest(standardTestDispatcher) {
+                    val interactionConfig =
+                        InteractionRemoteFakeUtils.createFakeInteractionConfig(
+                            eventSequence =
+                                listOf(
+                                    InteractionRemoteFakeUtils.createFakeInteractionEvent("event1"),
+                                    InteractionRemoteFakeUtils.createFakeInteractionEvent("event2"),
+                                ),
+                        )
+                    initMockInteractionManager(interactionConfig)
+                    addEventWithNanoTimeFromBoot("event1")
+                    advanceTimeBy(1.seconds)
+                    assertSingleOngoingInteraction(skipAdvancing = true)
+
+                    addEventWithNanoTimeFromBoot("event1")
+                    advanceTimeBy(1.seconds)
+                    assertAllInteraction<InteractionRunningStatus.OngoingMatch>(
+                        2,
+                        skipAdvancing = true,
+                    )
+
+                    advanceTimeBy(19.seconds)
+                    assertAllInteraction<InteractionRunningStatus.OngoingMatch>(
+                        2,
+                        skipAdvancing = true,
+                    )
+                    Assertions
+                        .assertThat(
+                            mockInteractionManager.interactionTrackerStatesState.value
+                                .filterIsInstance<InteractionRunningStatus.OngoingMatch>(),
+                        ).filteredOn { it.interaction != null }
+                        .hasSize(1)
+
+                    advanceTimeBy(1.seconds)
+                    Assertions
+                        .assertThat(
+                            mockInteractionManager.interactionTrackerStatesState.value
+                                .filterIsInstance<InteractionRunningStatus.OngoingMatch>(),
+                        ).filteredOn { it.interaction != null }
+                        .hasSize(2)
+                }
+        }
+
+        // update to drop delay processing
+        @Test
+        fun `event1, event2 gives ongoing interaction then goes to final interaction`() =
+            runTest(standardTestDispatcher) {
+                val interactionConfig =
+                    InteractionRemoteFakeUtils.createFakeInteractionConfig(
+                        eventSequence =
+                            listOf(
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event1"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event2"),
+                            ),
+                    )
+                initMockInteractionManager(interactionConfig)
+                addEventWithNanoTimeFromBoot("event1")
+                advanceTimeBy(1.seconds)
+                val interactionId1 = assertSingleOngoingInteraction(skipAdvancing = true)
+                addEventWithNanoTimeFromBoot("event2")
+                advanceTimeBy(1.seconds)
+                assertSingleFinalInteraction(interactionId1, skipAdvancing = true)
+
+                // terminal state
+                advanceTimeBy(30.seconds)
+                assertSingleFinalInteraction(interactionId1, skipAdvancing = true)
+            }
+
+        @Test
+        fun `event1, event2, unknownEvent gives ongoing interaction then final interaction with two event config`() =
+            runTest(standardTestDispatcher) {
+                val interactionConfig =
+                    InteractionRemoteFakeUtils.createFakeInteractionConfig(
+                        eventSequence =
+                            listOf(
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event1"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event2"),
+                            ),
+                    )
+                initMockInteractionManager(interactionConfig)
+                addEventWithNanoTimeFromBoot("event1")
+                advanceTimeBy(1.seconds)
+                val interactionId1 = assertSingleOngoingInteraction(skipAdvancing = true)
+
+                addEventWithNanoTimeFromBoot("event2")
+                advanceTimeBy(1.seconds)
+                assertSingleFinalInteraction(interactionId1, skipAdvancing = true)
+
+                addEventWithNanoTimeFromBoot("unknownEvent")
+                advanceTimeBy(1.seconds)
+                assertSingleFinalInteraction(interactionId1, skipAdvancing = true)
+
+                // terminal state
+                advanceTimeBy(30.seconds)
+                assertSingleFinalInteraction(interactionId1)
+            }
+
+        @Test
+        fun `event1, event2, globalBlacklist1 with older than event2 timestamp gives ongoing then no interaction`() =
+            runTest(standardTestDispatcher) {
+                val interactionConfig =
+                    InteractionRemoteFakeUtils.createFakeInteractionConfig(
+                        eventSequence =
+                            listOf(
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event1"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event2"),
+                            ),
+                        globalBlacklistedEvents =
+                            listOf(
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("blacklist1"),
+                            ),
+                    )
+                initMockInteractionManager(interactionConfig)
+                val timeInNano = System.nanoTime()
+                addEventWithNanoTimeFromBoot("event1", eventTimeInNano = timeInNano)
+                advanceTimeBy(1.seconds)
+                val interactionId1 = assertSingleOngoingInteraction(skipAdvancing = true)
+                addEventWithNanoTimeFromBoot("event2", eventTimeInNano = timeInNano + 10)
+                advanceTimeBy(10.seconds)
+                // no delay processing, can be changed to ongoing interaction after persistence
+                assertSingleFinalInteraction(interactionId1, skipAdvancing = true)
+                addEventWithNanoTimeFromBoot("blacklist1", eventTimeInNano = timeInNano + 5)
+                advanceTimeBy(5.seconds)
+                assertSingleFinalInteraction(interactionId1, skipAdvancing = true)
+
+                // terminal state
+                advanceTimeBy(30.seconds)
+                assertSingleFinalInteraction(interactionId1, skipAdvancing = true)
+            }
+
+        @Test
+        fun `event1, event2, globalBlacklist1 gives ongoing then final interaction`() =
+            runTest(standardTestDispatcher) {
+                val interactionConfig =
+                    InteractionRemoteFakeUtils.createFakeInteractionConfig(
+                        eventSequence =
+                            listOf(
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event1"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event2"),
+                            ),
+                        globalBlacklistedEvents =
+                            listOf(
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("blacklist1"),
+                            ),
+                    )
+                initMockInteractionManager(interactionConfig)
+                val timeInNano = System.nanoTime()
+                addEventWithNanoTimeFromBoot("event1", eventTimeInNano = timeInNano)
+                advanceTimeBy(1.seconds)
+                val interactionId1 = assertSingleOngoingInteraction(skipAdvancing = true)
+                addEventWithNanoTimeFromBoot("event2", eventTimeInNano = timeInNano + 1)
+                advanceTimeBy(10.seconds)
+                // no delay processing, can be changed to ongoing interaction after persistence
+                assertSingleFinalInteraction(interactionId1, skipAdvancing = true)
+                addEventWithNanoTimeFromBoot("blacklist1", eventTimeInNano = timeInNano + 2)
+                advanceTimeBy(11.seconds)
+                assertSingleFinalInteraction(skipAdvancing = true)
+
+                // terminal state
+                advanceTimeBy(30.seconds)
+                assertSingleFinalInteraction(skipAdvancing = true)
+            }
+
+        @Test
+        fun `event1, event2, globalBlacklist1 before event1 gives ongoing then final interaction`() =
+            runTest(standardTestDispatcher) {
+                val interactionConfig =
+                    InteractionRemoteFakeUtils.createFakeInteractionConfig(
+                        eventSequence =
+                            listOf(
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event1"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event2"),
+                            ),
+                        globalBlacklistedEvents =
+                            listOf(
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("blacklist1"),
+                            ),
+                    )
+                initMockInteractionManager(interactionConfig)
+                val timeInNano = System.nanoTime()
+                addEventWithNanoTimeFromBoot("event1", eventTimeInNano = timeInNano)
+                advanceTimeBy(1.seconds)
+                val interactionId1 = assertSingleOngoingInteraction(skipAdvancing = true)
+                addEventWithNanoTimeFromBoot("event2", eventTimeInNano = timeInNano + 1)
+                advanceTimeBy(10.seconds)
+                // no delay processing, can be changed to ongoing interaction after persistence
+                assertSingleFinalInteraction(interactionId1, skipAdvancing = true)
+                addEventWithNanoTimeFromBoot("blacklist1", eventTimeInNano = timeInNano - 2)
+                advanceTimeBy(11.seconds)
+                assertSingleFinalInteraction(skipAdvancing = true)
+
+                // terminal state
+                advanceTimeBy(30.seconds)
+                assertSingleFinalInteraction(skipAdvancing = true)
+            }
+
+        @Test
+        fun `after completed interaction stray event2 then event1 event2 uses new interaction id`() =
+            runTest(standardTestDispatcher) {
+                initMockInteractionManager(
+                    InteractionRemoteFakeUtils.createFakeInteractionConfig(
+                        eventSequence =
+                            listOf(
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent(
+                                    name = "event1",
+                                ),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent(
+                                    name = "event2",
+                                ),
+                            ),
+                    ),
+                )
+                addEventWithNanoTimeFromBoot("event1")
+                addEventWithNanoTimeFromBoot("event2")
+                val (firstCompletionId, _) = assertSingleFinalInteraction()
+
+                val timeEvent2 = addEventWithNanoTimeFromBoot("event2")
+                advanceTimeBy(1.seconds)
+
+                addEventWithNanoTimeFromBoot("event1", eventTimeInNano = timeEvent2 - 1)
+                val (secondFinalInteractionId, _) = assertSingleFinalInteraction()
+
+                Assertions.assertThat(secondFinalInteractionId).isNotEqualTo(firstCompletionId)
+            }
+
+        @Disabled("Out of order processing is not supported")
+        @Test
+        fun `event1, event2, localBlacklist1, event3 with localBlacklist1 older than event2 timestamp gives ongoing then no interaction`() =
+            runTest(standardTestDispatcher) {
+                val interactionConfig =
+                    InteractionRemoteFakeUtils.createFakeInteractionConfig(
+                        eventSequence =
+                            listOf(
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event1"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("localBlacklist1"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event2"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event3"),
+                            ),
+                    )
+                initMockInteractionManager(interactionConfig)
+                val timeInNano = System.nanoTime()
+                addEventWithNanoTimeFromBoot("event1", eventTimeInNano = timeInNano)
+                advanceTimeBy(1.seconds)
+                val interactionId1 = assertSingleOngoingInteraction(skipAdvancing = true)
+                advanceTimeBy(10.seconds)
+                assertSingleOngoingInteraction(interactionId1, skipAdvancing = true)
+                addEventWithNanoTimeFromBoot("event2", eventTimeInNano = timeInNano + 10)
+                advanceTimeBy(10.seconds)
+                assertSingleOngoingInteraction(interactionId1, skipAdvancing = true)
+                addEventWithNanoTimeFromBoot("localBlacklist1", eventTimeInNano = timeInNano + 5)
+                advanceTimeBy(10.seconds)
+                assertSingleNoOngoingInteraction(skipAdvancing = true)
+
+                addEventWithNanoTimeFromBoot("event3", eventTimeInNano = timeInNano + 15)
+                advanceTimeBy(10.seconds)
+                assertSingleNoOngoingInteraction(skipAdvancing = true)
+
+                // terminal state
+                advanceTimeBy(30.seconds)
+                assertSingleNoOngoingInteraction(skipAdvancing = true)
+            }
+
+        @Disabled("Out of order processing is not supported")
+        @Test
+        fun `event1, event2, globalBlacklist1 with older than event1 timestamp gives ongoing then final interaction`() =
+            runTest(standardTestDispatcher) {
+                val interactionConfig =
+                    InteractionRemoteFakeUtils.createFakeInteractionConfig(
+                        eventSequence =
+                            listOf(
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event1"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("localBlacklist1"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event2"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event3"),
+                            ),
+                    )
+                initMockInteractionManager(interactionConfig)
+                val timeInNano = System.nanoTime()
+                addEventWithNanoTimeFromBoot("event1", eventTimeInNano = timeInNano)
+                advanceTimeBy(1.seconds)
+                val interactionId1 = assertSingleOngoingInteraction(skipAdvancing = true)
+                advanceTimeBy(10.seconds)
+                assertSingleOngoingInteraction(interactionId1, skipAdvancing = true)
+                addEventWithNanoTimeFromBoot("localBlacklist1", eventTimeInNano = timeInNano + 10)
+                advanceTimeBy(10.seconds)
+                assertSingleOngoingInteraction(interactionId1, skipAdvancing = true)
+                // older than event1
+                addEventWithNanoTimeFromBoot("event2", eventTimeInNano = timeInNano + 5)
+                advanceTimeBy(5.seconds)
+                assertSingleOngoingInteraction(interactionId1, skipAdvancing = true)
+
+                addEventWithNanoTimeFromBoot("event3", eventTimeInNano = timeInNano + 5)
+                advanceTimeBy(5.seconds)
+                assertSingleFinalInteraction(interactionId1, skipAdvancing = true)
+
+                // terminal state
+                advanceTimeBy(30.seconds)
+                assertSingleFinalInteraction(interactionId1, skipAdvancing = true)
+            }
+    }
+
+    @Nested
+    inner class `With timeout events` {
+        @Test
+        fun `event1, and then 20s delay gives error interaction`() =
+            runTest(standardTestDispatcher) {
+                val interactionConfig =
+                    InteractionRemoteFakeUtils.createFakeInteractionConfig(
+                        eventSequence =
+                            listOf(
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event1"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event2"),
+                            ),
+                        thresholdInNanos = TimeUnit.SECONDS.toNanos(20),
+                    )
+
+                initMockInteractionManager(interactionConfig)
+
+                val time1 = addEventWithNanoTimeFromBoot("event1")
+                advanceTimeBy(20.seconds)
+                assertSingleOngoingInteraction(skipAdvancing = true)
+                advanceTimeBy(1.seconds)
+                val (_, timeoutInteraction) =
+                    assertSingleFinalInteraction(skipAdvancing = true, isSuccess = false)
+                assertFinalInteractionTimeRange(time1, time1 + interactionConfig.thresholdInMs * 1000000)
+                Assertions
+                    .assertThat(timeoutInteraction.errorTypeCode)
+                    .isEqualTo(InteractionErrorType.TIMEOUT.code)
+                Assertions
+                    .assertThat(timeoutInteraction.errorMessage)
+                    .isEqualTo("Timed out while waiting for event \"event2\".")
+            }
+
+        @Test
+        fun `event1, and then 20s delay gives error interaction with event1 and event 2 gives final interaction`() =
+            runTest(standardTestDispatcher) {
+                val interactionConfig =
+                    InteractionRemoteFakeUtils.createFakeInteractionConfig(
+                        eventSequence =
+                            listOf(
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event1"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event2"),
+                            ),
+                        thresholdInNanos = TimeUnit.SECONDS.toNanos(20),
+                    )
+
+                initMockInteractionManager(interactionConfig)
+
+                val time1 = addEventWithNanoTimeFromBoot("event1")
+                advanceTimeBy(20.seconds)
+                assertSingleOngoingInteraction(skipAdvancing = true)
+                advanceTimeBy(1.seconds)
+                assertSingleFinalInteraction(skipAdvancing = true, isSuccess = false)
+                assertFinalInteractionTimeRange(time1, time1 + interactionConfig.thresholdInMs * 1000000)
+
+                addEventWithNanoTimeFromBoot("event1")
+                advanceTimeBy(1.seconds)
+                assertSingleOngoingInteraction(skipAdvancing = true)
+
+                addEventWithNanoTimeFromBoot("event2")
+                advanceTimeBy(1.seconds)
+                assertSingleFinalInteraction(skipAdvancing = true)
+
+                // terminal state
+                advanceTimeBy(40.seconds)
+                assertSingleFinalInteraction(skipAdvancing = true)
+            }
+
+        @Test
+        fun `event1, event2 with after 20s delay doesn't give final interaction`() =
+            runTest(standardTestDispatcher) {
+                val interactionConfig =
+                    InteractionRemoteFakeUtils.createFakeInteractionConfig(
+                        eventSequence =
+                            listOf(
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event1"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event2"),
+                            ),
+                        thresholdInNanos = TimeUnit.SECONDS.toNanos(20),
+                    )
+
+                initMockInteractionManager(interactionConfig)
+
+                val time1 = addEventWithNanoTimeFromBoot("event1")
+                advanceTimeBy(1.seconds)
+                assertSingleOngoingInteraction(skipAdvancing = true)
+                advanceTimeBy(20.seconds)
+                assertSingleFinalInteraction(skipAdvancing = true, isSuccess = false)
+                addEventWithNanoTimeFromBoot("event2")
+                advanceTimeBy(1.seconds)
+                assertSingleFinalInteraction(skipAdvancing = true, isSuccess = false)
+                assertFinalInteractionTimeRange(time1, time1 + interactionConfig.thresholdInMs * 1000000)
+            }
+
+        @Test
+        fun `event1, event2 with after 19s delay does give final interaction`() =
+            runTest(standardTestDispatcher) {
+                val interactionConfig =
+                    InteractionRemoteFakeUtils.createFakeInteractionConfig(
+                        eventSequence =
+                            listOf(
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event1"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event2"),
+                            ),
+                        thresholdInNanos = TimeUnit.SECONDS.toNanos(20),
+                    )
+
+                initMockInteractionManager(interactionConfig)
+
+                addEventWithNanoTimeFromBoot("event1")
+                advanceTimeBy(19.seconds)
+                assertSingleOngoingInteraction(skipAdvancing = true)
+                addEventWithNanoTimeFromBoot("event2")
+                advanceTimeBy(1.seconds)
+                assertSingleFinalInteraction(skipAdvancing = true)
+            }
+
+        @Test
+        fun `event1, event2 with after 19s delay, event3 after 19s delay does give final interaction`() =
+            runTest(standardTestDispatcher) {
+                val interactionConfig =
+                    InteractionRemoteFakeUtils.createFakeInteractionConfig(
+                        eventSequence =
+                            listOf(
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event1"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event2"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event3"),
+                            ),
+                        thresholdInNanos = TimeUnit.SECONDS.toNanos(20),
+                    )
+
+                initMockInteractionManager(interactionConfig)
+
+                addEventWithNanoTimeFromBoot("event1")
+                advanceTimeBy(19.seconds)
+                assertSingleOngoingInteraction(skipAdvancing = true)
+                addEventWithNanoTimeFromBoot("event2")
+                advanceTimeBy(19.seconds)
+                assertSingleOngoingInteraction(skipAdvancing = true)
+                addEventWithNanoTimeFromBoot("event3")
+                advanceTimeBy(19.seconds)
+                assertSingleFinalInteraction(skipAdvancing = true)
+
+                // terminal state
+                advanceTimeBy(40.seconds)
+                assertSingleFinalInteraction(skipAdvancing = true)
+            }
+
+        @Test
+        fun `event1, eventUnknown doesn't reset the timer`() =
+            runTest(standardTestDispatcher) {
+                val interactionConfig =
+                    InteractionRemoteFakeUtils.createFakeInteractionConfig(
+                        eventSequence =
+                            listOf(
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event1"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event2"),
+                            ),
+                        thresholdInNanos = TimeUnit.SECONDS.toNanos(20),
+                    )
+
+                initMockInteractionManager(interactionConfig)
+
+                val time1 = addEventWithNanoTimeFromBoot("event1")
+                advanceTimeBy(18.seconds)
+                assertSingleOngoingInteraction(skipAdvancing = true)
+                addEventWithNanoTimeFromBoot("eventUnknown")
+                advanceTimeBy(1.seconds)
+                assertSingleOngoingInteraction(skipAdvancing = true)
+                advanceTimeBy(5.seconds)
+                assertSingleFinalInteraction(skipAdvancing = true, isSuccess = false)
+                assertFinalInteractionTimeRange(time1, time1 + interactionConfig.thresholdInMs * 1000000)
+            }
+    }
+
+    @Nested
+    inner class `With wrong events` {
+        @Test
+        fun `with no ongoing match, event2(out of order) doesn't give error interaction`() =
+            runTest(standardTestDispatcher) {
+                val interactionConfig =
+                    InteractionRemoteFakeUtils.createFakeInteractionConfig(
+                        eventSequence =
+                            listOf(
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event1"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event2"),
+                            ),
+                    )
+                initMockInteractionManager(interactionConfig)
+
+                addEventWithNanoTimeFromBoot("event2")
+                assertSingleNoOngoingInteraction()
+            }
+
+        @Test
+        fun `with ongoing match, event1 event3 gives error interaction`() =
+            runTest(standardTestDispatcher) {
+                val interactionConfig =
+                    InteractionRemoteFakeUtils.createFakeInteractionConfig(
+                        eventSequence =
+                            listOf(
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event1"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event2"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event3"),
+                            ),
+                    )
+                initMockInteractionManager(interactionConfig)
+
+                val time1 = addEventWithNanoTimeFromBoot("event1")
+                advanceTimeBy(1.seconds)
+                val interactionId = assertSingleOngoingInteraction(skipAdvancing = true)
+
+                addEventWithNanoTimeFromBoot("event3")
+                advanceTimeBy(1.seconds)
+                val (interactionId2, failedInteraction) =
+                    assertSingleFinalInteraction(
+                        skipAdvancing = true,
+                        isSuccess = false,
+                    )
+                assertFinalInteractionTimeRange(time1, time1)
+                Assertions
+                    .assertThat(failedInteraction.errorTypeCode)
+                    .isEqualTo(InteractionErrorType.SEQUENCE_VIOLATION.code)
+                Assertions.assertThat(interactionId2).isEqualTo(interactionId)
+
+                // terminal state
+                advanceTimeBy(40.seconds)
+                val (interactionId3, _) =
+                    assertSingleFinalInteraction(
+                        skipAdvancing = true,
+                        isSuccess = false,
+                    )
+                Assertions.assertThat(interactionId3).isEqualTo(interactionId)
+            }
+
+        @Test
+        fun `after error interaction success interaction is made`() =
+            runTest(standardTestDispatcher) {
+                val interactionConfig =
+                    InteractionRemoteFakeUtils.createFakeInteractionConfig(
+                        eventSequence =
+                            listOf(
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event1"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event2"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event3"),
+                            ),
+                    )
+                initMockInteractionManager(interactionConfig)
+
+                val time1 = addEventWithNanoTimeFromBoot("event1")
+                advanceTimeBy(1.seconds)
+
+                addEventWithNanoTimeFromBoot("event3")
+                advanceTimeBy(1.seconds)
+
+                val (failedInteractionId, failedInteraction) = assertSingleFinalInteraction(isSuccess = false)
+                assertFinalInteractionTimeRange(time1, time1)
+                Assertions
+                    .assertThat(failedInteraction.errorTypeCode)
+                    .isEqualTo(InteractionErrorType.SEQUENCE_VIOLATION.code)
+
+                addEventWithNanoTimeFromBoot("event1")
+                advanceTimeBy(1.seconds)
+                addEventWithNanoTimeFromBoot("event2")
+                advanceTimeBy(1.seconds)
+                addEventWithNanoTimeFromBoot("event3")
+                advanceTimeBy(1.seconds)
+                val (successInteractionId, _) = assertSingleFinalInteraction()
+                Assertions.assertThat(successInteractionId).isNotEqualTo(failedInteractionId)
+            }
+    }
+
+    @Nested
+    inner class `With marker events` {
+        private val twoEventConfig =
+            InteractionRemoteFakeUtils.createFakeInteractionConfig(
+                eventSequence =
+                    listOf(
+                        InteractionRemoteFakeUtils.createFakeInteractionEvent("event1"),
+                        InteractionRemoteFakeUtils.createFakeInteractionEvent("event2"),
+                    ),
+            )
+
+        @Test
+        fun `In successful interaction of two events, adding marker events gets reflected`() =
+            runTest(standardTestDispatcher) {
+                initMockInteractionManager(twoEventConfig)
+                val t0 = System.nanoTime()
+                addEventWithNanoTimeFromBoot("event1", eventTimeInNano = t0)
+                runCurrent()
+                addMarkerWithNanoTimeFromBoot("marker1", eventTimeInNano = t0 + 1)
+                runCurrent()
+                addEventWithNanoTimeFromBoot("event2", eventTimeInNano = t0 + 2)
+                runCurrent()
+                val (_, interaction) = assertSingleFinalInteraction(skipAdvancing = true)
+                Assertions.assertThat(interaction.markerEvents.map { it.name }).containsExactly("marker1")
+            }
+
+        @Test
+        fun `In failed interaction of two events, adding marker events gets reflected`() =
+            runTest(standardTestDispatcher) {
+                initMockInteractionManager(twoEventConfig)
+                val t0 = System.nanoTime()
+                addEventWithNanoTimeFromBoot("event1", eventTimeInNano = t0)
+                runCurrent()
+                addMarkerWithNanoTimeFromBoot("marker_fail", eventTimeInNano = t0 + 1)
+                runCurrent()
+                addEventWithNanoTimeFromBoot("event1", eventTimeInNano = t0 + 2)
+                runCurrent()
+                val (_, interaction) =
+                    assertSingleFinalInteraction(
+                        interactionRunningStatus = mockInteractionManager.interactionTrackerStatesState.value.first(),
+                        skipAdvancing = true,
+                        isSuccess = false,
+                    )
+                Assertions.assertThat(interaction.markerEvents.map { it.name }).containsExactly("marker_fail")
+            }
+
+        @Test
+        fun `In two successful interactions of two events, marker events of first interaction doesn't get added to second interaction`() =
+            runTest(standardTestDispatcher) {
+                initMockInteractionManager(twoEventConfig)
+                val t0 = System.nanoTime()
+                addEventWithNanoTimeFromBoot("event1", eventTimeInNano = t0)
+                runCurrent()
+                addMarkerWithNanoTimeFromBoot("marker_first", eventTimeInNano = t0 + 1)
+                runCurrent()
+                addEventWithNanoTimeFromBoot("event2", eventTimeInNano = t0 + 2)
+                runCurrent()
+                val (_, firstInteraction) = assertSingleFinalInteraction(skipAdvancing = true)
+                Assertions.assertThat(firstInteraction.markerEvents.map { it.name }).containsExactly("marker_first")
+
+                val t1 = System.nanoTime()
+                addEventWithNanoTimeFromBoot("event1", eventTimeInNano = t1)
+                runCurrent()
+                addMarkerWithNanoTimeFromBoot("marker_second", eventTimeInNano = t1 + 1)
+                runCurrent()
+                addEventWithNanoTimeFromBoot("event2", eventTimeInNano = t1 + 2)
+                runCurrent()
+                val (_, secondInteraction) = assertSingleFinalInteraction(skipAdvancing = true)
+                Assertions.assertThat(secondInteraction.markerEvents.map { it.name }).containsExactly("marker_second")
+                Assertions.assertThat(secondInteraction.markerEvents.map { it.name }).doesNotContain("marker_first")
+            }
+
+        @Test
+        fun `With timed out and successful interactions, marker events of first interaction doesn't get added to second interaction`() =
+            runTest(standardTestDispatcher) {
+                val interactionConfig =
+                    InteractionRemoteFakeUtils.createFakeInteractionConfig(
+                        eventSequence =
+                            listOf(
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event1"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event2"),
+                            ),
+                        thresholdInNanos = TimeUnit.SECONDS.toNanos(20),
+                    )
+                initMockInteractionManager(interactionConfig)
+                val t0 = System.nanoTime()
+                addEventWithNanoTimeFromBoot("event1", eventTimeInNano = t0)
+                runCurrent()
+                addMarkerWithNanoTimeFromBoot("marker_timeout", eventTimeInNano = t0 + 1)
+                runCurrent()
+                advanceTimeBy(21.seconds)
+                runCurrent()
+                val (_, timedOutInteraction) = assertSingleFinalInteraction(skipAdvancing = true, isSuccess = false)
+                Assertions.assertThat(timedOutInteraction.markerEvents.map { it.name }).containsExactly("marker_timeout")
+
+                val t1 = System.nanoTime()
+                addEventWithNanoTimeFromBoot("event1", eventTimeInNano = t1)
+                runCurrent()
+                addMarkerWithNanoTimeFromBoot("marker_success", eventTimeInNano = t1 + 1)
+                runCurrent()
+                addEventWithNanoTimeFromBoot("event2", eventTimeInNano = t1 + 2)
+                runCurrent()
+                val (_, successInteraction) = assertSingleFinalInteraction(skipAdvancing = true)
+                Assertions.assertThat(successInteraction.markerEvents.map { it.name }).containsExactly("marker_success")
+                Assertions.assertThat(successInteraction.markerEvents.map { it.name }).doesNotContain("marker_timeout")
+            }
+
+        @Test
+        fun `Successful interaction excludes marker events before start time and after end time`() =
+            runTest(standardTestDispatcher) {
+                initMockInteractionManager(twoEventConfig)
+                val t0 = System.nanoTime()
+                addMarkerWithNanoTimeFromBoot("marker_before_start", eventTimeInNano = t0 - 100)
+                runCurrent()
+                addEventWithNanoTimeFromBoot("event1", eventTimeInNano = t0)
+                runCurrent()
+                addMarkerWithNanoTimeFromBoot("marker_during", eventTimeInNano = t0 + 1)
+                runCurrent()
+                addMarkerWithNanoTimeFromBoot("marker_after_end", eventTimeInNano = t0 + 100)
+                runCurrent()
+                addEventWithNanoTimeFromBoot("event2", eventTimeInNano = t0 + 2)
+                runCurrent()
+                val (_, interaction) = assertSingleFinalInteraction(skipAdvancing = true)
+                Assertions.assertThat(interaction.markerEvents.map { it.name }).containsExactly("marker_during")
+            }
+
+        @Test
+        fun `Timed out interaction excludes marker events before start time and after end time`() =
+            runTest(standardTestDispatcher) {
+                val twoEventConfigWith20SecTimeout =
+                    InteractionRemoteFakeUtils.createFakeInteractionConfig(
+                        eventSequence =
+                            listOf(
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event1"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event2"),
+                            ),
+                        thresholdInNanos = 20.seconds.inWholeNanoseconds,
+                    )
+                initMockInteractionManager(twoEventConfigWith20SecTimeout)
+                val t0 = System.nanoTime()
+                addMarkerWithNanoTimeFromBoot("marker_before_start", eventTimeInNano = t0 - 100)
+                advanceTimeBy(100.nanoseconds)
+                addEventWithNanoTimeFromBoot("event1", eventTimeInNano = t0)
+                advanceTimeBy(1.nanoseconds)
+                addMarkerWithNanoTimeFromBoot("marker_during", eventTimeInNano = t0 + 1)
+                advanceTimeBy(100.nanoseconds)
+                addMarkerWithNanoTimeFromBoot("marker_during_after_100ns", eventTimeInNano = t0 + 101)
+                advanceTimeBy(19.seconds)
+                addMarkerWithNanoTimeFromBoot("marker_during_after_19s", eventTimeInNano = t0 + 101)
+                advanceTimeBy(2.seconds)
+                addMarkerWithNanoTimeFromBoot("marker_after_timeout", eventTimeInNano = t0 + 101 + 20.seconds.inWholeNanoseconds)
+                val (_, interaction) = assertSingleFinalInteraction(skipAdvancing = true, isSuccess = false)
+                Assertions.assertThat(interaction.markerEvents.map { it.name }).containsExactly(
+                    "marker_during",
+                    "marker_during_after_100ns",
+                    "marker_during_after_19s",
+                )
+            }
+    }
+
+    private fun TestScope.initMockInteractionManager(vararg interactionConfigs: InteractionConfig) {
+        coEvery { mockConfigFetcher.getConfigs() } returns interactionConfigs.toList()
+        mockInteractionManager.init()
+        advanceUntilIdle()
+    }
+
+    private fun TestScope.assertSingleNoOngoingInteraction(skipAdvancing: Boolean = false): InteractionRunningStatus? {
+        if (!skipAdvancing) advanceTimeBy(1.seconds)
+        Assertions
+            .assertThat(mockInteractionManager.interactionTrackerStatesState.value)
+            .hasSize(1)
+            .first()
+            .isInstanceOf(InteractionRunningStatus.NoOngoingMatch::class.java)
+            .isNotNull
+
+        return (
+            mockInteractionManager.interactionTrackerStatesState.value.first() as? InteractionRunningStatus.NoOngoingMatch
+                ?: error("Not of type OngoingMatch")
+        ).oldOngoingInteractionRunningStatus
+    }
+
+    private inline fun <reified M : InteractionRunningStatus> TestScope.assertAllInteraction(
+        size: Int? = null,
+        skipAdvancing: Boolean = false,
+    ): Int {
+        if (!skipAdvancing) advanceTimeBy(1.seconds)
+        val listAssertions =
+            Assertions
+                .assertThat(mockInteractionManager.interactionTrackerStatesState.value)
+                .hasOnlyElementsOfType(M::class.java)
+
+        if (M::class.java == InteractionRunningStatus.OngoingMatch::class.java) {
+            listAssertions
+                .extracting<String> { (it as? InteractionRunningStatus.OngoingMatch ?: error("Not of type OngoingMatch")).interactionId }
+                .doesNotHaveDuplicates()
+        }
+
+        if (size != null) listAssertions.hasSize(size)
+
+        return mockInteractionManager.interactionTrackerStatesState.value.size
+    }
+
+    private fun TestScope.assertSingleOngoingInteraction(
+        previousIdToMatch: String? = null,
+        skipAdvancing: Boolean = false,
+    ): String {
+        if (!skipAdvancing) advanceTimeBy(1.seconds)
+        Assertions
+            .assertThat(mockInteractionManager.interactionTrackerStatesState.value)
+            .hasSize(1)
+            .first()
+            .isNotNull
+
+        return assertSingleOngoingInteraction(
+            interactionRunningStatus = mockInteractionManager.interactionTrackerStatesState.value.first(),
+            previousIdToMatch = previousIdToMatch,
+            skipAdvancing = skipAdvancing,
+        )
+    }
+
+    fun throwNotOfOngoingType(interactionRunningStatus: InteractionRunningStatus): Nothing =
+        error("interactionRunningStatus = $interactionRunningStatus is not of type OngoingMatch")
+
+    private fun TestScope.assertSingleOngoingInteraction(
+        interactionRunningStatus: InteractionRunningStatus,
+        previousIdToMatch: String? = null,
+        skipAdvancing: Boolean = false,
+    ): String {
+        if (!skipAdvancing) advanceTimeBy(1.seconds)
+        val ongoingMatchStatus =
+            interactionRunningStatus as? InteractionRunningStatus.OngoingMatch ?: throwNotOfOngoingType(interactionRunningStatus)
+        Assertions
+            .assertThat(interactionRunningStatus)
+            .isInstanceOf(InteractionRunningStatus.OngoingMatch::class.java)
+            .extracting { ongoingMatchStatus.interaction }
+            .isNull()
+
+        previousIdToMatch?.let {
+            Assertions
+                .assertThat(
+                    (
+                        mockInteractionManager.interactionTrackerStatesState.value[0] as? InteractionRunningStatus.OngoingMatch
+                            ?: throwNotOfOngoingType(interactionRunningStatus)
+                    ).interactionId,
+                ).isEqualTo(it)
+        }
+
+        Assertions.assertThat(listOf(interactionRunningStatus).runningIds).containsExactly(ongoingMatchStatus.interactionId)
+
+        return interactionRunningStatus.interactionId
+    }
+
+    private fun TestScope.assertSingleFinalInteraction(
+        previousIdToMatch: String? = null,
+        skipAdvancing: Boolean = false,
+        isSuccess: Boolean = true,
+    ): Pair<String, Interaction> {
+        if (!skipAdvancing) advanceTimeBy(1.seconds)
+        val value = mockInteractionManager.interactionTrackerStatesState.value
+        val matchWithInteraction =
+            value
+                .filterIsInstance<InteractionRunningStatus.OngoingMatch>()
+                .firstOrNull { it.interaction != null }
+                ?: error("expected OngoingMatch with interaction in $value")
+        Assertions.assertThat(matchWithInteraction).isInstanceOf(InteractionRunningStatus.OngoingMatch::class.java)
+
+        return assertSingleFinalInteraction(
+            interactionRunningStatus = matchWithInteraction,
+            previousIdToMatch = previousIdToMatch,
+            skipAdvancing = skipAdvancing,
+            isSuccess = isSuccess,
+        )
+    }
+
+    private fun TestScope.assertSingleFinalInteraction(
+        interactionRunningStatus: InteractionRunningStatus,
+        previousIdToMatch: String? = null,
+        skipAdvancing: Boolean = false,
+        isSuccess: Boolean = true,
+    ): Pair<String, Interaction> {
+        if (!skipAdvancing) advanceTimeBy(1.seconds)
+        Assertions
+            .assertThat(interactionRunningStatus)
+            .isInstanceOf(InteractionRunningStatus.OngoingMatch::class.java)
+            .extracting { (it as? InteractionRunningStatus.OngoingMatch ?: throwNotOfOngoingType(interactionRunningStatus)).interaction }
+            .isNotNull
+
+        val finalInteractionOngoingStatus =
+            interactionRunningStatus as? InteractionRunningStatus.OngoingMatch ?: throwNotOfOngoingType(interactionRunningStatus)
+        val interaction =
+            finalInteractionOngoingStatus.interaction ?: error("Interaction should not be null")
+        Assertions
+            .assertThat(finalInteractionOngoingStatus.interactionId)
+            .isEqualTo(interaction.id)
+        Assertions
+            .assertThat(interaction.isErrored)
+            .isEqualTo(!isSuccess)
+        previousIdToMatch?.let {
+            Assertions.assertThat(finalInteractionOngoingStatus.interactionId).isEqualTo(it)
+        }
+        Assertions.assertThat(listOf(interactionRunningStatus).runningIds).isEmpty()
+        Assertions
+            .assertThat(
+                interaction.getTimeSpanInNanos(interactionRunningStatus),
+            ).isNotNull
+        return finalInteractionOngoingStatus.interactionId to interaction
+    }
+
+    private fun assertFinalInteractionTimeRange(
+        startInNs: Long,
+        endInNs: Long,
+    ) {
+        val states = mockInteractionManager.interactionTrackerStatesState.value
+        val finalInteractionOngoingStatus =
+            states
+                .filterIsInstance<InteractionRunningStatus.OngoingMatch>()
+                .firstOrNull { it.interaction != null }
+                ?: error("No OngoingMatch with non-null interaction in $states")
+        val interaction =
+            finalInteractionOngoingStatus.interaction ?: error("Interaction should not be null")
+        Assertions
+            .assertThat(interaction.getTimeSpanInNanos(finalInteractionOngoingStatus.interactionConfig.thresholdInMs))
+            .isNotNull
+            .isEqualTo(startInNs to endInNs)
+    }
+
+    /**
+     * This method ensures that nano time is used
+     */
+    private fun addEventWithNanoTimeFromBoot(
+        eventName: String,
+        params: Map<String, Any?> = emptyMap(),
+        eventTimeInNano: Long? = null,
+    ): Long {
+        val time = eventTimeInNano ?: System.nanoTime()
+        mockInteractionManager.addEvent(
+            eventName = eventName,
+            eventTimeInNano = time,
+            params = params,
+        )
+        return time
+    }
+
+    private fun addMarkerWithNanoTimeFromBoot(
+        eventName: String,
+        params: Map<String, Any?> = emptyMap(),
+        eventTimeInNano: Long? = null,
+    ): Long {
+        val time = eventTimeInNano ?: System.nanoTime()
+        mockInteractionManager.addMarkerEvent(
+            eventName = eventName,
+            params = params,
+            eventTimeInNano = time,
+        )
+        return time
+    }
+}

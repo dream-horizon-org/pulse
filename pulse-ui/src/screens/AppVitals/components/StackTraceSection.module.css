@@ -1,0 +1,230 @@
+.sectionContainer {
+  background: #ffffff;
+  border: 1px solid rgba(14, 201, 194, 0.2);
+  border-radius: var(--mantine-radius-lg);
+  padding: var(--mantine-spacing-lg);
+  box-shadow: 0 4px 12px rgba(14, 201, 194, 0.1);
+  margin-bottom: var(--mantine-spacing-md);
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+.sectionContainer::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #0ec9c2 0%, #0ba09a 100%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.sectionContainer:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(14, 201, 194, 0.15);
+  border-color: rgba(14, 201, 194, 0.3);
+}
+
+.sectionContainer:hover::before {
+  opacity: 1;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--mantine-spacing-md);
+}
+
+.sectionTitle {
+  font-size: 16px;
+  font-weight: 700;
+  color: #0ba09a;
+  letter-spacing: -0.2px;
+}
+
+.navButton {
+  background: linear-gradient(
+    135deg,
+    rgba(14, 201, 194, 0.08),
+    rgba(14, 201, 194, 0.12)
+  );
+  border: 1px solid rgba(14, 201, 194, 0.2);
+  transition: all 0.2s ease;
+}
+
+.navButton:hover {
+  background: linear-gradient(
+    135deg,
+    rgba(14, 201, 194, 0.15),
+    rgba(14, 201, 194, 0.2)
+  );
+  transform: translateY(-1px);
+}
+
+.occurrenceLabel {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--mantine-color-dark-6);
+  min-width: 160px;
+  text-align: center;
+}
+
+.titleHeader {
+  background: linear-gradient(
+    135deg,
+    rgba(239, 68, 68, 0.04),
+    rgba(239, 68, 68, 0.08)
+  );
+  border: 1px solid rgba(239, 68, 68, 0.18);
+  border-left: 4px solid #ef4444;
+  border-radius: 8px;
+  padding: var(--mantine-spacing-sm) var(--mantine-spacing-md);
+  margin-bottom: var(--mantine-spacing-sm);
+}
+
+.errorTitle {
+  font-size: 14px;
+  font-weight: 700;
+  color: #dc2626;
+  font-family: source-code-pro, Menlo, Monaco, Consolas, "Courier New",
+    monospace;
+  word-break: break-word;
+}
+
+.errorMessage {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--mantine-color-dark-5);
+  margin-top: 4px;
+  word-break: break-word;
+}
+
+.compactHeader {
+  background: linear-gradient(
+    135deg,
+    rgba(14, 201, 194, 0.04),
+    rgba(14, 201, 194, 0.08)
+  );
+  border: 1px solid rgba(14, 201, 194, 0.18);
+  border-radius: 8px;
+  padding: var(--mantine-spacing-sm) var(--mantine-spacing-md);
+  margin-bottom: var(--mantine-spacing-md);
+}
+
+.infoLabel {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--mantine-color-dark-5);
+  text-transform: capitalize;
+  letter-spacing: -0.2px;
+}
+
+.infoValue {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--mantine-color-dark-7);
+}
+
+.infoValueMono {
+  font-size: 13px;
+  font-weight: 700;
+  color: #0ba09a;
+}
+
+.errorTypeBadge {
+  flex-shrink: 0;
+  font-family: source-code-pro, Menlo, Monaco, Consolas, "Courier New",
+    monospace;
+  font-size: 11px;
+  letter-spacing: 0.2px;
+}
+
+.detailsRow {
+  background: rgba(0, 0, 0, 0.02);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 6px;
+  padding: 6px var(--mantine-spacing-md);
+  margin-bottom: var(--mantine-spacing-md);
+}
+
+.tabs {
+  margin-top: 0;
+}
+
+.tabsList {
+  border-bottom: 1px solid rgba(14, 201, 194, 0.15);
+  margin-bottom: var(--mantine-spacing-sm);
+}
+
+.tab {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--mantine-color-dark-4);
+  padding: var(--mantine-spacing-xs) var(--mantine-spacing-sm);
+  transition: color 0.2s ease;
+}
+
+.tab[data-active] {
+  color: #0ba09a;
+  border-bottom-color: #0ec9c2;
+}
+
+.tab:hover {
+  color: #0ba09a;
+  background: transparent;
+}
+
+.traceContainer {
+  background: #f8f9fa;
+  border: 1px solid rgba(14, 201, 194, 0.15);
+  border-radius: 8px;
+  padding: var(--mantine-spacing-md);
+  overflow: auto;
+  max-height: 400px;
+}
+
+/**
+ * Definite height so the inner Session timeline (`flex: 1` + `overflow-y: auto`)
+ * gets a bounded box — `max-height` alone lets the middle grow with content and
+ * scroll never activates.
+ */
+.breadcrumbsTabPanel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* Shell only: Mantine Paper root is `display: block` and wins over module flex. */
+.breadcrumbsPanel {
+  background: #f8f9fa;
+  border: 1px solid rgba(14, 201, 194, 0.15);
+  border-radius: 8px;
+  padding: 0;
+  overflow: hidden;
+  width: 100%;
+  height: clamp(280px, 52vh, 480px);
+  max-height: clamp(280px, 52vh, 480px);
+}
+
+/* Inner flex fills the fixed-height Paper so the timeline list gets a real flex slot + scroll. */
+.breadcrumbsInner {
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.tracePre {
+  margin: 0;
+  font-family: source-code-pro, Menlo, Monaco, Consolas, "Courier New",
+    monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #000000;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}

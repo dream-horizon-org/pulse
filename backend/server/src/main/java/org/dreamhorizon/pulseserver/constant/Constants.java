@@ -1,0 +1,147 @@
+package org.dreamhorizon.pulseserver.constant;
+
+import java.util.Map;
+
+public final class Constants {
+  /**
+   * Redis hash used by Kong: field = raw API key, value = project id. Must match pulse-alerts-cron
+   * historical key and Kong plugin expectations.
+   */
+  public static final String KONG_API_KEY_MAP_REDIS_KEY = "{pulse}:apikey_map";
+
+  //Alerts
+  public static final String ALERT_EVALUATE_AND_TRIGGER_ALERT =
+      "/v1/alert/evaluateAndTriggerAlert";
+
+  /** Display symbols for metric operators in human-readable alert condition text. */
+  public static final Map<String, String> ALERT_CONDITION_OPERATOR_SYMBOLS =
+      Map.of(
+          "GREATER_THAN", ">",
+          "LESS_THAN", "<",
+          "GREATER_THAN_EQUAL", ">=",
+          "LESS_THAN_EQUAL", "<=",
+          "EQUAL", "=");
+
+  public static final String MYSQL_WRITER_HOST = "mysql_writer_host";
+  public static final String MYSQL_READER_HOST = "mysql_reader_host";
+  public static final String MYSQL_PORT = "mysql_port";
+  public static final String MYSQL_DATABASE = "mysql_database";
+  public static final String MYSQL_USER = "mysql_user";
+  public static final String MYSQL_PASSWORD = "mysql_password";
+  public static final String MYSQL_WRITER_MAX_POOL_SIZE = "mysql_writer_max_pool_size";
+  public static final String MYSQL_READER_MAX_POOL_SIZE = "mysql_reader_max_pool_size";
+
+  public static final String HTTP_CONNECT_TIMEOUT = "http_connect_timeout";
+  public static final String HTTP_READ_TIMEOUT = "http_read_timeout";
+  public static final String HTTP_WRITE_TIMEOUT = "http_write_timeout";
+  public static final String HTTP_CLIENT_KEEP_ALIVE = "http_client_keep_alive";
+  public static final String HTTP_CLIENT_KEEP_ALIVE_TIMEOUT = "http_client_keep_alive_timeout";
+  public static final String HTTP_CLIENT_IDLE_TIMEOUT = "http_client_idle_timeout";
+  public static final String HTTP_CLIENT_CONNECTION_POOL_MAX_SIZE =
+      "http_client_connection_pool_max_size";
+  public static final String SHUTDOWN_STATUS = "__shutdown__";
+
+  public static final String QUERY_COMPLETED_STATUS = "Query completed";
+
+  public static final String EVENT_BUS_RESPONSE_UPDATE_ALERT_EVALUATION_LOGS_CHANNEL =
+      "athena.query.response.updateAlertEvaluationLogs";
+  public static final String EVENT_BUS_RESPONSE_UPDATE_ALERT_STATE_CHANNEL = "athena.query.response.updateAlertState";
+
+  public static final String RESULT_SET_KEY = "resultSet";
+  public static final String STATUS_KEY = "status";
+  public static final String ERROR_KEY = "error";
+  public static final String ALERT_EVALUATION_QUERY_TIME = "timeTaken";
+  public static final String ALERT_EVALUATION_START_TIME = "evaluationStartTime";
+  public static final String ALERT_EVALUATION_END_TIME = "evaluationEndTime";
+
+  public static final int QUERY_TIMEOUT_SECONDS = 3;
+  public static final int RESULT_FETCH_DELAY_MS = 200;
+  public static final int MAX_RESULT_FETCH_RETRIES = 5;
+  public static final int RESULT_FETCH_RETRY_DELAY_MS = 300;
+  public static final int QUERY_POLL_INTERVAL_MS = 200;
+  public static final int MAX_QUERY_RESULTS = 1000;
+  public static final int MIN_QUERY_RESULTS = 1;
+  public static final int ATHENA_WAIT_COMPLETION_DELAY_MS = 2000;
+
+  // Query Engine Configuration
+  public static final String QUERY_ENGINE_ENV_VAR = "CONFIG_SERVICE_APPLICATION_QUERY_ENGINE";
+  public static final String DEFAULT_QUERY_ENGINE = "athena";
+  public static final String ATHENA_ENGINE = "athena";
+  public static final String GCP_ENGINE = "gcp";
+
+  // OpenFGA Permissions
+  public static final String PERMISSION_CAN_VIEW = "can_view";
+  public static final String PERMISSION_CAN_UPLOAD_TNC = "can_upload_tnc";
+  public static final String PERMISSION_CAN_ACCEPT_TNC = "can_accept_tnc";
+  public static final String PERMISSION_SUPERADMIN = "superadmin";
+
+  // OpenFGA Resource Types
+  public static final String RESOURCE_TYPE_TENANT = "tenant";
+  public static final String RESOURCE_TYPE_SYSTEM = "system";
+  public static final String RESOURCE_SYSTEM_PULSE = "pulse";
+  public static final String RESOURCE_TYPE_PROJECT = "project";
+
+  // HTTP header names (reused across Vert.x routes and JAX-RS controllers)
+  public static final String HEADER_AUTHORIZATION = "Authorization";
+  public static final String HEADER_PROJECT_ID = "X-Project-ID";
+  public static final String HEADER_CONTENT_TYPE = "Content-Type";
+  public static final String HEADER_CACHE_CONTROL = "Cache-Control";
+  public static final String HEADER_CONNECTION = "Connection";
+  public static final String HEADER_X_ACCEL_BUFFERING = "X-Accel-Buffering";
+
+  /** Token prefix for Bearer auth. Includes trailing space. */
+  public static final String BEARER_PREFIX = "Bearer ";
+
+  /**
+   * {@code Content-Type} for SSE streams returned by {@link
+   * org.dreamhorizon.pulseserver.verticle.RestVerticle} when proxying Pulse AI {@code run_sse}.
+   */
+  public static final String CONTENT_TYPE_TEXT_EVENT_STREAM = "text/event-stream";
+
+  /** {@code Cache-Control} for proxied SSE so intermediaries do not buffer or cache the stream. */
+  public static final String SSE_PROXY_CACHE_CONTROL = "no-cache";
+
+  /** {@code Connection} for long-lived proxied SSE responses. */
+  public static final String SSE_PROXY_CONNECTION = "keep-alive";
+
+  /**
+   * Value for {@link #HEADER_X_ACCEL_BUFFERING} on proxied SSE (disables nginx response buffering).
+   */
+  public static final String SSE_PROXY_X_ACCEL_BUFFERING = "no";
+
+  // AI streaming endpoint
+  /** Vert.x route path for the SSE proxy. Must match the ADK {@code /run_sse} path. */
+  public static final String AI_RUN_SSE_PATH = "/v1/ai/run_sse";
+
+  /**
+   * Per-request upstream timeout (ms) for calls to the Pulse AI service. Shared between
+   * the Vert.x SSE proxy and the JAX-RS {@code @Timeout} annotation on
+   * {@code AiProxyController}.
+   */
+  public static final long AI_UPSTREAM_TIMEOUT_MS = 120_000L;
+
+  /** OpenFGA object id for the Pulse system resource (tuples use type:id form). */
+  public static final String OPENFGA_OBJECT_SYSTEM_PULSE =
+      RESOURCE_TYPE_SYSTEM + ":" + RESOURCE_SYSTEM_PULSE;
+
+  public static final String RELATION_SUPERADMIN = "superadmin";
+  public static final String RELATION_INTERNAL_VIEWER = "internal_viewer";
+  public static final String RELATION_SYSTEM_PARENT = "system_parent";
+  public static final String RELATION_BELONGS_TO = "belongs_to";
+  public static final String OBJECT_TYPE_TENANT = "tenant";
+
+  /**
+   * {@link io.vertx.rxjava3.ext.web.client.WebClient} stored in {@link
+   * org.dreamhorizon.pulseserver.vertx.SharedDataUtils} and bound in Guice with {@link
+   * com.google.inject.name.Named} for long-timeout outbound calls to Pulse AI (SSE / run_sse).
+   */
+  public static final String WEB_CLIENT_AI_PROXY = "aiProxy";
+
+  /**
+   * {@link org.dreamhorizon.pulseserver.vertx.AiStreamingHttpClient} stored in {@link
+   * org.dreamhorizon.pulseserver.vertx.SharedDataUtils} for true chunk-by-chunk SSE proxying to the
+   * Pulse AI service (core {@link io.vertx.core.http.HttpClient} with {@code ReadStream<Buffer>},
+   * not {@link io.vertx.rxjava3.ext.web.client.WebClient}).
+   */
+  public static final String HTTP_CLIENT_AI_STREAMING = "aiStreaming";
+}

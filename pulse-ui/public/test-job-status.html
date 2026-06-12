@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Job Status Test</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 20px;
+      }
+      .test-result {
+        margin: 10px 0;
+        padding: 10px;
+        border-radius: 4px;
+      }
+      .success {
+        background-color: #d4edda;
+        border: 1px solid #c3e6cb;
+        color: #155724;
+      }
+      .error {
+        background-color: #f8d7da;
+        border: 1px solid #f5c6cb;
+        color: #721c24;
+      }
+      .info {
+        background-color: #d1ecf1;
+        border: 1px solid #bee5eb;
+        color: #0c5460;
+      }
+      button {
+        padding: 10px 20px;
+        margin: 5px;
+        cursor: pointer;
+      }
+      pre {
+        background: #f8f9fa;
+        padding: 10px;
+        border-radius: 4px;
+        overflow-x: auto;
+      }
+      .status-badge {
+        display: inline-block;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 12px;
+        font-weight: bold;
+        margin-left: 10px;
+      }
+      .status-running {
+        background-color: #28a745;
+        color: white;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>🔧 Job Status Test</h1>
+
+    <div id="status" class="test-result info">
+      <strong>Status:</strong> Ready to test job status
+    </div>
+
+    <div>
+      <button onclick="testJobStatus(1)">Test Job Status ID: 1</button>
+      <button onclick="testJobStatus(2)">Test Job Status ID: 2</button>
+      <button onclick="testJobStatus(3)">Test Job Status ID: 3</button>
+      <button onclick="testAllJobStatuses()">Test All Job Statuses</button>
+    </div>
+
+    <div id="results"></div>
+
+    <script>
+      // Set environment variables for testing
+      window.process = window.process || {};
+      window.process.env = {
+        ...window.process.env,
+        REACT_APP_USE_MOCK_SERVER: "true",
+        REACT_APP_MOCK_DELAY: "100",
+        REACT_APP_MOCK_ERROR_RATE: "0.0",
+        REACT_APP_MOCK_LOGGING: "true",
+      };
+
+      function updateStatus(message, type = "info") {
+        const status = document.getElementById("status");
+        status.className = `test-result ${type}`;
+        status.innerHTML = `<strong>Status:</strong> ${message}`;
+      }
+
+      function addResult(title, data, success = true) {
+        const results = document.getElementById("results");
+        const resultDiv = document.createElement("div");
+        resultDiv.className = `test-result ${success ? "success" : "error"}`;
+        resultDiv.innerHTML = `
+                <h3>${title}</h3>
+                <pre>${JSON.stringify(data, null, 2)}</pre>
+            `;
+        results.appendChild(resultDiv);
+      }
+
+      function addStatusBadge(jobId, status) {
+        const results = document.getElementById("results");
+        const badgeDiv = document.createElement("div");
+        badgeDiv.className = "test-result info";
+        badgeDiv.innerHTML = `
+                <h4>Job ID: ${jobId} <span class="status-badge status-running">${status}</span></h4>
+            `;
+        results.appendChild(badgeDiv);
+      }
+
+      async function testJobStatus(jobId) {
+        updateStatus(`Testing Job Status for ID: ${jobId}...`, "info");
+        try {
+          const response = await fetch(`/v3/getJobStatus?jobId=${jobId}`);
+          const data = await response.json();
+
+          addResult(
+            `✅ Job Status Test (ID: ${jobId})`,
+            {
+              status: response.status,
+              jobId: jobId,
+              jobStatus: data.data?.status || "UNKNOWN",
+            },
+            true,
+          );
+
+          if (data.data?.status) {
+            addStatusBadge(jobId, data.data.status);
+          }
+        } catch (error) {
+          addResult(
+            `❌ Job Status Test Failed (ID: ${jobId})`,
+            { error: error.message },
+            false,
+          );
+        }
+      }
+
+      async function testAllJobStatuses() {
+        updateStatus("Testing All Job Statuses...", "info");
+        document.getElementById("results").innerHTML = "";
+
+        for (let i = 1; i <= 12; i++) {
+          await testJobStatus(i);
+          await new Promise((resolve) => setTimeout(resolve, 100));
+        }
+
+        updateStatus("All job status tests completed!", "success");
+      }
+
+      // Auto-run test on page load
+      window.onload = function () {
+        updateStatus(
+          "Job status test page loaded. Click buttons to test job statuses.",
+          "info",
+        );
+      };
+    </script>
+  </body>
+</html>

@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Simple Evaluation History Test</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 20px;
+      }
+      .test-result {
+        margin: 10px 0;
+        padding: 10px;
+        border-radius: 4px;
+      }
+      .success {
+        background-color: #d4edda;
+        border: 1px solid #c3e6cb;
+        color: #155724;
+      }
+      .error {
+        background-color: #f8d7da;
+        border: 1px solid #f5c6cb;
+        color: #721c24;
+      }
+      .info {
+        background-color: #d1ecf1;
+        border: 1px solid #bee5eb;
+        color: #0c5460;
+      }
+      button {
+        padding: 10px 20px;
+        margin: 5px;
+        cursor: pointer;
+      }
+      pre {
+        background: #f8f9fa;
+        padding: 10px;
+        border-radius: 4px;
+        overflow-x: auto;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>🔍 Simple Evaluation History Test</h1>
+
+    <div id="status" class="test-result info">
+      <strong>Status:</strong> Ready to test evaluation history response
+    </div>
+
+    <div>
+      <button onclick="testResponse()">Test Response</button>
+    </div>
+
+    <div id="results"></div>
+
+    <script>
+      // Set environment variables for testing
+      window.process = window.process || {};
+      window.process.env = {
+        ...window.process.env,
+        REACT_APP_USE_MOCK_SERVER: "true",
+        REACT_APP_MOCK_DELAY: "100",
+        REACT_APP_MOCK_ERROR_RATE: "0.0",
+        REACT_APP_MOCK_LOGGING: "true",
+      };
+
+      function updateStatus(message, type = "info") {
+        const status = document.getElementById("status");
+        status.className = `test-result ${type}`;
+        status.innerHTML = `<strong>Status:</strong> ${message}`;
+      }
+
+      function addResult(title, data, success = true) {
+        const results = document.getElementById("results");
+        const resultDiv = document.createElement("div");
+        resultDiv.className = `test-result ${success ? "success" : "error"}`;
+        resultDiv.innerHTML = `
+                <h3>${title}</h3>
+                <pre>${JSON.stringify(data, null, 2)}</pre>
+            `;
+        results.appendChild(resultDiv);
+      }
+
+      async function testResponse() {
+        updateStatus("Testing evaluation history response...", "info");
+
+        try {
+          const response = await fetch("/v1/alert/1/evaluationHistory");
+          const responseData = await response.json();
+
+          addResult(
+            "🔍 Raw Response",
+            {
+              status: response.status,
+              responseData: responseData,
+              dataType: typeof responseData,
+              dataKeys: responseData ? Object.keys(responseData) : "null",
+            },
+            true,
+          );
+
+          // Check the data property
+          if (responseData.data) {
+            addResult(
+              "🔍 Data Property Analysis",
+              {
+                dataType: typeof responseData.data,
+                isArray: Array.isArray(responseData.data),
+                length: responseData.data.length,
+                firstItem: responseData.data[0],
+                hasForEach: typeof responseData.data.forEach,
+              },
+              true,
+            );
+          }
+
+          // Simulate what the hook would return
+          const hookResult = {
+            data: responseData.data,
+            error: null,
+            status: response.status,
+          };
+
+          addResult(
+            "🔍 What Hook Returns",
+            {
+              hookResult: hookResult,
+              dataType: typeof hookResult.data,
+              isArray: Array.isArray(hookResult.data),
+              length: hookResult.data?.length,
+            },
+            true,
+          );
+        } catch (error) {
+          addResult("❌ Test Failed", { error: error.message }, false);
+        }
+      }
+
+      // Auto-run test on page load
+      window.onload = function () {
+        updateStatus(
+          "Test page loaded. Click button to test response.",
+          "info",
+        );
+        testResponse();
+      };
+    </script>
+  </body>
+</html>

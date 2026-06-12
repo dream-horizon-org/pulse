@@ -1,0 +1,55 @@
+.heroMetricsContainer {
+  width: 100%;
+  margin: 0;
+  background-color: var(--mantine-color-white);
+}
+
+.metricSection {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+.sectionBadge {
+  text-transform: uppercase;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  font-size: 10px;
+}
+
+/* 2x2 Grid for Interaction Health */
+.gridTwoByTwo {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--mantine-spacing-xs);
+  width: 100%;
+}
+
+/* 3+2 Grid for Network Health */
+.gridThreePlusTwo {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: var(--mantine-spacing-xs);
+  width: 100%;
+}
+
+/* First row: 3 items, each spanning 2 columns */
+.gridThreePlusTwo > :nth-child(1),
+.gridThreePlusTwo > :nth-child(2),
+.gridThreePlusTwo > :nth-child(3) {
+  grid-column: span 2;
+}
+
+/* Second row: 2 items, each spanning 3 columns (full width) */
+.gridThreePlusTwo > :nth-child(4),
+.gridThreePlusTwo > :nth-child(5) {
+  grid-column: span 3;
+}
+
+/* Default grid fallback */
+.gridDefault {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: var(--mantine-spacing-xs);
+  width: 100%;
+}

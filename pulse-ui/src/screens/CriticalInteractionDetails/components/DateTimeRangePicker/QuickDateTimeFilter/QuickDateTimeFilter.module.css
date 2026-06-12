@@ -1,0 +1,45 @@
+.root {
+  position: relative;
+  width: fit-content;
+  border-radius: var(--mantine-radius-md);
+  height: 200px;
+  overflow: scroll;
+  padding-top: var(--mantine-spacing-lg);
+  margin-bottom: var(--mantine-spacing-lg);
+}
+
+.control {
+  padding: 7px 12px !important;
+  margin-bottom: var(--mantine-spacing-sm);
+  line-height: 1;
+  color: light-dark(var(--mantine-color-gray-7), var(--mantine-color-dark-2));
+  border-radius: var(--mantine-radius-md);
+  font-size: var(--mantine-font-size-sm) !important;
+  @mixin hover {
+    color: light-dark(var(--mantine-color-black), var(--mantine-color-white));
+    background-color: light-dark(
+      var(--mantine-color-gray-1),
+      var(--mantine-color-dark-7)
+    );
+  }
+
+  &[data-active] {
+    color: var(--mantine-color-white) !important;
+  }
+}
+
+.controlLabel {
+  position: relative;
+  z-index: 1;
+}
+
+.indicator {
+  background-color: var(--mantine-primary-color-filled) !important;
+  border-radius: var(--mantine-radius-md) !important;
+  color: var(--mantine-color-white) !important;
+  font-weight: 500;
+
+  &:hover {
+    color: var(--mantine-color-white);
+  }
+}

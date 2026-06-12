@@ -1,0 +1,50 @@
+package org.dreamhorizon.pulseserver.dao.session;
+
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.Getter;
+import org.dreamhorizon.pulseserver.util.serialization.ObjectMapperFactory;
+import lombok.RequiredArgsConstructor;
+
+import java.util.Base64;
+
+/**
+ * Encodes/decodes opaque session-listing pagination cursors (sort value + sessionId).
+ */
+public final class SessionListingCursorCodec {
+
+    private static final ObjectMapper MAPPER = ObjectMapperFactory.get();
+
+    private SessionListingCursorCodec() {}
+
+    public static String encode(Object sortValue, String sessionId) {
+        try {
+            byte[] json = MAPPER.writeValueAsBytes(new CursorPayload(sortValue, sessionId));
+            return Base64.getUrlEncoder().withoutPadding().encodeToString(json);
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to encode cursor", e);
+        }
+    }
+
+    public static CursorValue decode(String cursor) {
+        try {
+            byte[] json = Base64.getUrlDecoder().decode(cursor);
+            CursorPayload payload = MAPPER.readValue(json, CursorPayload.class);
+            return new CursorValue(payload.v, payload.s);
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Invalid cursor: " + cursor, e);
+        }
+    }
+
+    @Getter
+    @RequiredArgsConstructor
+    public static class CursorValue {
+        private final Object sortValue;
+        private final String sessionId;
+    }
+
+    private record CursorPayload(
+            @JsonProperty("v") Object v,
+            @JsonProperty("s") String s
+    ) {}
+}

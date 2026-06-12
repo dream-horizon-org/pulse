@@ -1,0 +1,2 @@
+export { QueryResults } from "./QueryResults";
+

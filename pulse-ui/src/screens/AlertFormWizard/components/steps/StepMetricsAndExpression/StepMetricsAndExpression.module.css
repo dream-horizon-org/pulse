@@ -1,0 +1,54 @@
+.container {
+  width: 100%;
+}
+
+.conditionsContainer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mantine-spacing-md);
+}
+
+.conditionCard {
+  padding: var(--mantine-spacing-md);
+  background: rgba(14, 201, 194, 0.03);
+  border-radius: var(--mantine-radius-md);
+  border: 1px solid rgba(14, 201, 194, 0.12);
+}
+
+.thresholdsGrid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mantine-spacing-xs);
+}
+
+.thresholdRow {
+  display: flex;
+  align-items: center;
+  padding: var(--mantine-spacing-xs) var(--mantine-spacing-sm);
+  background: rgba(14, 201, 194, 0.05);
+  border-radius: var(--mantine-radius-sm);
+  border: 1px solid rgba(14, 201, 194, 0.08);
+}
+
+.scopeNameLabel {
+  flex: 1;
+  min-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.thresholdInput {
+  width: 120px;
+  flex-shrink: 0;
+}
+
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: var(--mantine-spacing-xl);
+  background: rgba(14, 201, 194, 0.03);
+  border-radius: var(--mantine-radius-md);
+  border: 1px dashed rgba(14, 201, 194, 0.3);
+}

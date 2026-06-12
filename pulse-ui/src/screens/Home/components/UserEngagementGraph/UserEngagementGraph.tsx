@@ -1,0 +1,227 @@
+import { Group, Text, Tooltip } from "@mantine/core";
+import { IconInfoCircle } from "@tabler/icons-react";
+import {
+  createTooltipFormatter,
+  LineChart,
+} from "../../../../components/Charts";
+import classes from "./UserEngagementGraph.module.css";
+import dayjs from "dayjs";
+import utc from "dayjs/plugin/utc";
+import { useMemo } from "react";
+import { UserEngagementGraphProps } from "./UserEngagementGraph.interface";
+import { useGetUserEngagementData } from "../../../../hooks/useGetUserEngagementData";
+import {
+  ChartSkeleton,
+  GraphCardSkeleton,
+  SkeletonLoader,
+} from "../../../../components/Skeletons";
+
+dayjs.extend(utc);
+
+export function UserEngagementGraph({
+  screenName,
+  appVersion,
+  osVersion,
+  device,
+  startTime,
+  endTime,
+}: UserEngagementGraphProps = {}) {
+  // Always use last 7 days for daily graph (ignore time filter)
+  const { dailyStartDate, dailyEndDate } = useMemo(() => {
+    const end = dayjs().utc().endOf("day");
+    const start = end.subtract(6, "days").startOf("day");
+    return {
+      dailyStartDate: start.toISOString(),
+      dailyEndDate: end.toISOString(),
+    };
+  }, []);
+
+  // Always use last 7 days for WAU (ignore time filter)
+  const { weekStartDate, weekEndDate } = useMemo(() => {
+    const end = dayjs().utc().endOf("day");
+    const start = end.subtract(6, "days").startOf("day");
+    return {
+      weekStartDate: start.toISOString(),
+      weekEndDate: end.toISOString(),
+    };
+  }, []);
+
+  const { monthStartDate, monthEndDate } = useMemo(() => {
+    const end = dayjs().utc().endOf("day");
+    const start = end.subtract(29, "days").startOf("day");
+    return {
+      monthStartDate: start.toISOString(),
+      monthEndDate: end.toISOString(),
+    };
+  }, []);
+
+  const { data, loading, failed } = useGetUserEngagementData({
+    screenName,
+    appVersion,
+    osVersion,
+    device,
+    dailyStartDate,
+    dailyEndDate,
+    weekStartDate,
+    weekEndDate,
+    monthStartDate,
+    monthEndDate,
+  });
+
+  const { dailyUsers, weeklyUsers, monthlyUsers, trendData, hasData } = data;
+  const isAnyLoading = loading.daily || loading.weekly || loading.monthly;
+
+  if (!hasData && isAnyLoading) {
+    return (
+      <GraphCardSkeleton
+        title="User Engagement"
+        chartHeight={260}
+        metricsCount={3}
+      />
+    );
+  }
+
+  const formatMetricValue = (
+    value: number | null,
+    color: string,
+    isMetricLoading: boolean,
+    isMetricFailed: boolean,
+  ) => {
+    if (isMetricLoading) {
+      return (
+        <SkeletonLoader
+          height={30}
+          width="55%"
+          radius="sm"
+          className={classes.metricValueSkeleton}
+        />
+      );
+    }
+
+    if (isMetricFailed || value === null) {
+      return (
+        <Text className={classes.metricValue} c="dimmed">
+          N/A
+        </Text>
+      );
+    }
+
+    return (
+      <Text className={classes.metricValue} style={{ color }}>
+        {value.toLocaleString()}
+      </Text>
+    );
+  };
+
+  return (
+    <div className={classes.graphCard}>
+      <Group gap={6} align="center" className={classes.graphTitle}>
+        <span>User Engagement</span>
+        <Tooltip
+          label="Users are identified by app installation ID. The same installation can open the app multiple times — each unique installation ID counts as one user."
+          withArrow
+          multiline
+          w={280}
+          position="right"
+        >
+          <IconInfoCircle
+            size={14}
+            style={{ opacity: 0.5, cursor: "help", flexShrink: 0 }}
+          />
+        </Tooltip>
+      </Group>
+      <div className={classes.metricsGrid}>
+        <div className={classes.metricCard}>
+          <Text className={classes.metricLabel}>DAU</Text>
+          {formatMetricValue(
+            dailyUsers,
+            "#0ec9c2",
+            loading.daily,
+            failed.daily,
+          )}
+        </div>
+        <div className={classes.metricCard}>
+          <Text className={classes.metricLabel}>WAU</Text>
+          {formatMetricValue(
+            weeklyUsers,
+            "#0ba09a",
+            loading.weekly,
+            failed.weekly,
+          )}
+        </div>
+        <div className={classes.metricCard}>
+          <Text className={classes.metricLabel}>MAU</Text>
+          {formatMetricValue(
+            monthlyUsers,
+            "#2c3e50",
+            loading.monthly,
+            failed.monthly,
+          )}
+        </div>
+      </div>
+      <div className={classes.chartContainer}>
+        {loading.daily ? (
+          <ChartSkeleton height={260} />
+        ) : failed.daily ? (
+          <Text size="sm" c="dimmed" ta="center" py="xl">
+            Chart unavailable
+          </Text>
+        ) : (
+          <LineChart
+            height={260}
+            withLegend={false}
+            option={{
+              grid: { left: 60, right: 24, top: 24, bottom: 45 },
+              tooltip: {
+                trigger: "axis",
+                formatter: createTooltipFormatter({
+                  valueFormatter: (value: any) => {
+                    const numericValue = Array.isArray(value)
+                      ? value[1]
+                      : value;
+                    return `${parseFloat(numericValue).toFixed(0)}`;
+                  },
+                  customHeaderFormatter: (axisValue: any) => {
+                    if (axisValue && typeof axisValue === "number") {
+                      return dayjs(axisValue).format("MMM DD, HH:mm");
+                    }
+                    return axisValue || "";
+                  },
+                }),
+              },
+              xAxis: {
+                type: "time",
+                axisLabel: {
+                  fontSize: 10,
+                  formatter: (value: number) => dayjs(value).format("MMM DD"),
+                },
+              },
+              yAxis: {
+                type: "value",
+                name: "Users",
+                nameGap: 40,
+                nameTextStyle: { fontSize: 11 },
+                axisLabel: {
+                  fontSize: 10,
+                  formatter: (value: number) => `${(value / 1000).toFixed(0)}K`,
+                },
+              },
+              series: [
+                {
+                  name: "DAU",
+                  type: "line",
+                  smooth: true,
+                  data: trendData.map((d) => [d.timestamp, d.dau]),
+                  itemStyle: { color: "#0ec9c2" },
+                  lineStyle: { width: 2.5, color: "#0ec9c2" },
+                  symbol: "circle",
+                  symbolSize: 6,
+                },
+              ],
+            }}
+          />
+        )}
+      </div>
+    </div>
+  );
+}

@@ -1,0 +1,222 @@
+package org.dreamhorizon.pulseserver.tenant;
+
+import io.jsonwebtoken.Claims;
+import jakarta.annotation.Priority;
+import jakarta.ws.rs.Priorities;
+import jakarta.ws.rs.container.ContainerRequestContext;
+import jakarta.ws.rs.container.ContainerRequestFilter;
+import jakarta.ws.rs.container.ContainerResponseContext;
+import jakarta.ws.rs.container.ContainerResponseFilter;
+import jakarta.ws.rs.core.HttpHeaders;
+import jakarta.ws.rs.ext.Provider;
+
+import java.io.IOException;
+
+import lombok.extern.slf4j.Slf4j;
+import org.dreamhorizon.pulseserver.context.ProjectContext;
+import org.dreamhorizon.pulseserver.filter.InternalServiceAuthFilter;
+import org.dreamhorizon.pulseserver.guice.GuiceInjector;
+import org.dreamhorizon.pulseserver.service.JwtService;
+
+/**
+ * JAX-RS filter that extracts tenant and project information from the request.
+ * Sets TenantContext and ProjectContext for the request scope.
+ *
+ * <p>Tenant resolution order:</p>
+ * <ol>
+ *   <li>JWT token tenantId claim from Authorization header</li>
+ *   <li>X-Tenant-ID header (explicit override, useful for admin operations)</li>
+ *   <li>X-API-KEY header (API key for authentication)</li>
+ * </ol>
+ *
+ * <p>Project resolution:</p>
+ * <ul>
+ *   <li>X-Project-ID header (required for project-scoped resources)</li>
+ * </ul>
+ */
+@Slf4j
+@Provider
+@Priority(Priorities.AUTHENTICATION + 10) // Run after authentication but before authorization
+public class TenantFilter implements ContainerRequestFilter, ContainerResponseFilter {
+
+  public static final String TENANT_HEADER = "X-Tenant-ID";
+  public static final String API_KEY_HEADER = "X-API-KEY";
+  public static final String PROJECT_HEADER = "X-Project-ID";
+  private static final String HEALTHCHECK_PATH = "healthcheck";
+  private static final String AUTH_PATH_PREFIX = "v1/auth";
+  private static final String ONBOARDING_PATH_PREFIX = "v1/onboarding";
+  private static final String INVITE_ACCEPT_PATH_PREFIX = "v1/invites/accept";
+  private static final String BEARER_PREFIX = "Bearer ";
+  private static final String CLAIM_TENANT_ID = "tenantId";
+  private static final String CLAIM_SYSTEM_ROLE = "systemRole";
+  private static final String ALERTS_PATH_PREFIX = "alerts";
+  private static final String LOGS_INGESTION_PATH = "v1/logs";
+  private static final String TNC_DOCUMENTS_PATH = "v1/tnc/documents";
+  private static final String NOTIFICATIONS_PATH_PREFIX = "v1/notifications";
+  private static final String INTEGRATIONS_PATH_PREFIX = "v1/integrations";
+  private static final String SLACK_INTERACTIVE = "v1/incidents/slack/interactive";
+  private static final String NOTIFICATIONS_CONTACT_US_PATH = NOTIFICATIONS_PATH_PREFIX + "/contact-us";
+
+  private JwtService jwtService;
+
+  /**
+   * Sets the JwtService for testing purposes.
+   *
+   * @param jwtService the JwtService to use
+   */
+  void setJwtService(JwtService jwtService) {
+    this.jwtService = jwtService;
+  }
+
+  @Override
+  public void filter(ContainerRequestContext requestContext) throws IOException {
+    String path = requestContext.getUriInfo().getPath();
+
+    // Skip tenant/project resolution for excluded paths
+    if (isExcludedPath(path)) {
+      log.debug("Skipping tenant resolution for excluded path: {}", path);
+      return;
+    }
+
+    if (Boolean.TRUE.equals(requestContext.getProperty(InternalServiceAuthFilter.PROP_INTERNAL_AUTHENTICATED))) {
+      log.debug("Skipping tenant resolution for internally-authenticated path: {}", path);
+      return;
+    }
+
+    String projectId = resolveProjectId(requestContext);
+    if (projectId != null && !projectId.isBlank()) {
+      ProjectContext.setProjectId(projectId.trim());
+      log.debug("Request Project context set to: {} for path: {}", projectId, path);
+    }
+
+    resolveAndSetTenantContext(requestContext);
+  }
+
+  private boolean isExcludedPath(String path) {
+    if (path == null) {
+      return false;
+    }
+    // Normalize path by removing leading slash
+    String normalizedPath = path.startsWith("/") ? path.substring(1) : path;
+    return normalizedPath.equals(HEALTHCHECK_PATH)
+      || normalizedPath.startsWith(HEALTHCHECK_PATH + "/")
+      || normalizedPath.startsWith(AUTH_PATH_PREFIX)
+      || normalizedPath.startsWith(ONBOARDING_PATH_PREFIX)
+      || normalizedPath.startsWith(INVITE_ACCEPT_PATH_PREFIX)  // Users accepting invites don't have tenant yet
+      || normalizedPath.startsWith(ALERTS_PATH_PREFIX)
+      || normalizedPath.startsWith(LOGS_INGESTION_PATH)
+      || normalizedPath.startsWith(TNC_DOCUMENTS_PATH)
+      || normalizedPath.contains(SLACK_INTERACTIVE)
+      || normalizedPath.startsWith(INTEGRATIONS_PATH_PREFIX)
+      || isNotificationsPathExcludedFromTenantResolution(normalizedPath);
+  }
+
+    /**
+     * Most {@code v1/notifications} routes use API keys / explicit headers; tenant JWT context is skipped.
+     * {@code v1/notifications/contact-us} is session-authenticated and needs {@link TenantContext}.
+     */
+    private boolean isNotificationsPathExcludedFromTenantResolution(String normalizedPath) {
+        if (!normalizedPath.startsWith(NOTIFICATIONS_PATH_PREFIX)) {
+            return false;
+        }
+        if (normalizedPath.equals(NOTIFICATIONS_CONTACT_US_PATH)
+                || normalizedPath.startsWith(NOTIFICATIONS_CONTACT_US_PATH + "/")) {
+            return false;
+        }
+        return true;
+    }
+
+  @Override
+  public void filter(ContainerRequestContext requestContext, ContainerResponseContext responseContext)
+    throws IOException {
+    // Clear both tenant and project context after request processing
+    TenantContext.clear();
+    ProjectContext.clear();
+  }
+
+  /**
+   * Resolves the tenant ID from the request.
+   *
+   * @param requestContext the request context
+   * @return the resolved tenant ID, or default if header not present
+   */
+  private String resolveProjectId(ContainerRequestContext requestContext) {
+    String headerProjectId = requestContext.getHeaderString(PROJECT_HEADER);
+    if (headerProjectId != null && !headerProjectId.isBlank()) {
+      log.debug("Project ID resolved from header: {}", headerProjectId);
+      return headerProjectId.trim();
+    }
+
+    String apiKey = requestContext.getHeaderString(API_KEY_HEADER);
+    if (apiKey != null && !apiKey.isBlank()) {
+      String projectId = extractProjectIdFromApiKey(apiKey.trim());
+      log.debug("Project ID extracted from API key header: {} (from: {})", projectId, apiKey);
+      return projectId;
+    }
+    return null;
+  }
+
+  /**
+   * Sets {@link TenantContext} from the JWT {@code tenantId} claim, with an optional
+   * X-Tenant-ID header override for system-role tokens (superadmin / internal_viewer)
+   * so workspace switching from the internal UI works without re-issuing a JWT.
+   */
+  private void resolveAndSetTenantContext(ContainerRequestContext requestContext) {
+    String authHeader = requestContext.getHeaderString(HttpHeaders.AUTHORIZATION);
+    if (authHeader == null || !authHeader.startsWith(BEARER_PREFIX)) {
+      return;
+    }
+
+    String token = authHeader.substring(BEARER_PREFIX.length()).trim();
+    if (token.isBlank()) {
+      return;
+    }
+
+    try {
+      JwtService service = getJwtService();
+      if (service == null) {
+        log.warn("JwtService not available, skipping token-based tenant resolution");
+        return;
+      }
+
+      Claims claims = service.verifyToken(token);
+      String jwtTenantId = claims.get(CLAIM_TENANT_ID, String.class);
+      String systemRole = claims.get(CLAIM_SYSTEM_ROLE, String.class);
+      String headerTenantId = requestContext.getHeaderString(TENANT_HEADER);
+
+      String effectiveTenantId = jwtTenantId;
+      if (headerTenantId != null && !headerTenantId.isBlank()
+          && ("superadmin".equals(systemRole) || "internal_viewer".equals(systemRole))) {
+        effectiveTenantId = headerTenantId.trim();
+        log.debug("Tenant ID from {} for system-role user (role={}): {}",
+            TENANT_HEADER, systemRole, effectiveTenantId);
+      } else if (jwtTenantId != null && !jwtTenantId.isBlank()) {
+        log.debug("Tenant ID resolved from JWT token: {}", jwtTenantId);
+      }
+
+      if (effectiveTenantId != null && !effectiveTenantId.isBlank()) {
+        TenantContext.setTenantId(effectiveTenantId);
+      }
+    } catch (Exception e) {
+      log.debug("Failed to resolve tenant from token: {}", e.getMessage());
+    }
+  }
+
+  private JwtService getJwtService() {
+    if (jwtService == null) {
+      jwtService = GuiceInjector.getGuiceInjector().getInstance(JwtService.class);
+    }
+    return jwtService;
+  }
+
+  private String extractProjectIdFromApiKey(String apiKey) {
+    int lastUnderscoreIndex = apiKey.lastIndexOf('_');
+    if (lastUnderscoreIndex == -1) {
+      // No underscore found, return original string
+      return apiKey;
+    }
+
+    // Extract everything before the last underscore
+    return apiKey.substring(0, lastUnderscoreIndex);
+  }
+}

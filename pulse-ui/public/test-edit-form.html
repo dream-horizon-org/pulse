@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Edit Form Test</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 20px;
+      }
+      .test-result {
+        margin: 10px 0;
+        padding: 10px;
+        border-radius: 4px;
+      }
+      .success {
+        background-color: #d4edda;
+        border: 1px solid #c3e6cb;
+        color: #155724;
+      }
+      .error {
+        background-color: #f8d7da;
+        border: 1px solid #f5c6cb;
+        color: #721c24;
+      }
+      .info {
+        background-color: #d1ecf1;
+        border: 1px solid #bee5eb;
+        color: #0c5460;
+      }
+      button {
+        padding: 10px 20px;
+        margin: 5px;
+        cursor: pointer;
+      }
+      pre {
+        background: #f8f9fa;
+        padding: 10px;
+        border-radius: 4px;
+        overflow-x: auto;
+      }
+      .job-details {
+        margin: 10px 0;
+        padding: 15px;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        background: #f9f9f9;
+      }
+      .form-test {
+        margin: 10px 0;
+        padding: 10px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        background: #fff;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>✏️ Edit Form Test</h1>
+
+    <div id="status" class="test-result info">
+      <strong>Status:</strong> Ready to test Edit Form functionality
+    </div>
+
+    <div>
+      <button onclick="testEditForm('ContestJoinSuccess')">
+        Test ContestJoinSuccess Edit Form
+      </button>
+      <button onclick="testEditForm('CreateTeamSuccess')">
+        Test CreateTeamSuccess Edit Form
+      </button>
+      <button onclick="testAllEditForms()">Test All Edit Forms</button>
+    </div>
+
+    <div id="results"></div>
+
+    <script>
+      // Set environment variables for testing
+      window.process = window.process || {};
+      window.process.env = {
+        ...window.process.env,
+        REACT_APP_USE_MOCK_SERVER: "true",
+        REACT_APP_MOCK_DELAY: "100",
+        REACT_APP_MOCK_ERROR_RATE: "0.0",
+        REACT_APP_MOCK_LOGGING: "true",
+      };
+
+      function updateStatus(message, type = "info") {
+        const status = document.getElementById("status");
+        status.className = `test-result ${type}`;
+        status.innerHTML = `<strong>Status:</strong> ${message}`;
+      }
+
+      function addResult(title, data, success = true) {
+        const results = document.getElementById("results");
+        const resultDiv = document.createElement("div");
+        resultDiv.className = `test-result ${success ? "success" : "error"}`;
+        resultDiv.innerHTML = `
+                <h3>${title}</h3>
+                <pre>${JSON.stringify(data, null, 2)}</pre>
+            `;
+        results.appendChild(resultDiv);
+      }
+
+      function addJobDetails(jobDetails) {
+        const results = document.getElementById("results");
+        const jobDiv = document.createElement("div");
+        jobDiv.className = "job-details";
+
+        jobDiv.innerHTML = `
+                <h3>${jobDetails.useCaseName}</h3>
+                <p><strong>Job ID:</strong> ${jobDetails.jobId}</p>
+                <p><strong>Description:</strong> ${jobDetails.description}</p>
+                <p><strong>Job Version:</strong> ${jobDetails.jobVersion}</p>
+                <div class="form-test">
+                    <h4>Form Data Structure:</h4>
+                    <p><strong>Event Sequence:</strong> ${jobDetails.eventSeq.join(" → ")}</p>
+                    <p><strong>Up Time Limits:</strong> ${jobDetails.upTimeLowerLimit}ms - ${jobDetails.upTimeUpperLimit}ms (Mid: ${jobDetails.upTimeMidLimit}ms)</p>
+                    <p><strong>Window Interval:</strong> ${jobDetails.windowInterval}ms</p>
+                    <p><strong>Hop Window Interval:</strong> ${jobDetails.hopWindowInterval}ms</p>
+                    <p><strong>Global Blacklisted Events:</strong> ${jobDetails.globalBlacklistedEvents.join(", ") || "None"}</p>
+                    <p><strong>Blacklisted Events:</strong> ${Object.keys(jobDetails.blacklistedEvents).length > 0 ? JSON.stringify(jobDetails.blacklistedEvents) : "None"}</p>
+                    <p><strong>Props Filter:</strong> ${Object.keys(jobDetails.propsFilter).length > 0 ? JSON.stringify(jobDetails.propsFilter) : "None"}</p>
+                </div>
+                <div class="form-test">
+                    <h4>Metadata:</h4>
+                    <p><strong>Status:</strong> ${jobDetails.metaData.status}</p>
+                    <p><strong>Created By:</strong> ${jobDetails.metaData.createdBy}</p>
+                    <p><strong>Updated By:</strong> ${jobDetails.metaData.updatedBy}</p>
+                    <p><strong>Created At:</strong> ${new Date(jobDetails.metaData.createdAt).toLocaleString()}</p>
+                    <p><strong>Updated At:</strong> ${new Date(jobDetails.metaData.updatedAt).toLocaleString()}</p>
+                </div>
+            `;
+        results.appendChild(jobDiv);
+      }
+
+      async function testEditForm(useCaseId) {
+        updateStatus(`Testing Edit Form for ${useCaseId}...`, "info");
+        try {
+          const response = await fetch(
+            `/v2/getJobDetails?useCaseId=${useCaseId}`,
+          );
+          const data = await response.json();
+
+          if (response.ok && data.data) {
+            addResult(
+              `✅ Edit Form Test for ${useCaseId}`,
+              {
+                status: response.status,
+                jobDetails: data.data,
+              },
+              true,
+            );
+            addJobDetails(data.data);
+          } else {
+            addResult(
+              `❌ Edit Form Test Failed for ${useCaseId}`,
+              {
+                status: response.status,
+                error: data.error || data.message,
+              },
+              false,
+            );
+          }
+        } catch (error) {
+          addResult(
+            `❌ Edit Form Test Failed for ${useCaseId}`,
+            { error: error.message },
+            false,
+          );
+        }
+      }
+
+      async function testAllEditForms() {
+        updateStatus("Testing All Edit Forms...", "info");
+        document.getElementById("results").innerHTML = "";
+
+        const interactions = [
+          "ContestJoinSuccess",
+          "CreateTeamSuccess",
+          "CreateTeamPageLoaded",
+          "ContestHomeLanded",
+          "AddCashLoaded",
+        ];
+
+        for (const interaction of interactions) {
+          await testEditForm(interaction);
+          await new Promise((resolve) => setTimeout(resolve, 100));
+        }
+
+        updateStatus("All Edit Form tests completed!", "success");
+      }
+
+      // Test the edit form URL navigation
+      function testEditFormNavigation() {
+        const interactions = [
+          "ContestJoinSuccess",
+          "CreateTeamSuccess",
+          "CreateTeamPageLoaded",
+        ];
+
+        addResult(
+          "🧪 Edit Form Navigation URLs",
+          {
+            message:
+              "These are the URLs that the edit button should navigate to:",
+            urls: interactions.map((interaction) => ({
+              interaction: interaction,
+              editUrl: `/critical-interaction-form/${interaction}`,
+              description: "Click edit button to navigate to this URL",
+            })),
+          },
+          true,
+        );
+      }
+
+      // Auto-run test on page load
+      window.onload = function () {
+        updateStatus(
+          "Edit Form test page loaded. Click buttons to test edit form data loading.",
+          "info",
+        );
+        testEditFormNavigation();
+      };
+    </script>
+  </body>
+</html>

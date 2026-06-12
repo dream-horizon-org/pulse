@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <item
+        android:id="@+id/navigation_exit"
+        android:icon="@drawable/exit_to_main"
+        android:title="@string/exit" />
+
+    <item
+        android:id="@+id/navigation_app_features"
+        android:title="@string/app_features" />
+
+    <item
+        android:id="@+id/navigation_about_opentelemetry"
+        android:title="@string/about_opentelemetry" />
+
+</menu>

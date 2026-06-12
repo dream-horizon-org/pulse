@@ -1,0 +1,41 @@
+/*  Tooltip Styles */
+.header {
+  margin-bottom: var(--mantine-spacing-md);
+  font-weight: bold;
+  font-size: var(--mantine-font-size-md);
+  font-family: var(--mantine-font-family);
+  min-width: 10.625rem; /* ~170px */
+}
+
+.itemRow {
+  display: flex;
+  align-items: center;
+  margin-bottom: var(--mantine-spacing-sm);
+  justify-content: space-between;
+  font-family: var(--mantine-font-family);
+}
+.itemRow:last-child {
+  margin-bottom: 0;
+}
+.leftSection {
+  display: flex;
+  align-items: center;
+}
+
+.indicator {
+  display: inline-block;
+  width: var(--mantine-spacing-sm);
+  height: var(--mantine-spacing-sm);
+  border-radius: 50%;
+  margin-right: var(--mantine-spacing-xs);
+}
+
+.seriesName {
+  color: var(--mantine-color-gray-7);
+  font-size: var(--mantine-font-size-sm);
+}
+
+.value {
+  color: var(--mantine-color-gray-7);
+  font-size: var(--mantine-font-size-sm);
+}

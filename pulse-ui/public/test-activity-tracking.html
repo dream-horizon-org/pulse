@@ -1,0 +1,609 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Activity Tracking Mock Server Test</title>
+    <style>
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          sans-serif;
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 20px;
+        background-color: #f5f5f5;
+      }
+      .container {
+        background: white;
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      }
+      .header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 20px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+      }
+      .test-section {
+        margin-bottom: 30px;
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        overflow: hidden;
+      }
+      .test-header {
+        background: #f8f9fa;
+        padding: 15px;
+        border-bottom: 1px solid #e0e0e0;
+        font-weight: 600;
+      }
+      .test-content {
+        padding: 20px;
+      }
+      .form-group {
+        margin-bottom: 15px;
+      }
+      .form-group label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: 500;
+      }
+      .form-group input,
+      .form-group textarea {
+        width: 100%;
+        padding: 8px 12px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 14px;
+      }
+      .form-group textarea {
+        height: 100px;
+        resize: vertical;
+      }
+      .btn {
+        background: #007bff;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+        margin-right: 10px;
+        margin-bottom: 10px;
+      }
+      .btn:hover {
+        background: #0056b3;
+      }
+      .btn-success {
+        background: #28a745;
+      }
+      .btn-success:hover {
+        background: #1e7e34;
+      }
+      .btn-warning {
+        background: #ffc107;
+        color: #212529;
+      }
+      .btn-warning:hover {
+        background: #e0a800;
+      }
+      .btn-danger {
+        background: #dc3545;
+      }
+      .btn-danger:hover {
+        background: #c82333;
+      }
+      .results {
+        margin-top: 20px;
+        padding: 15px;
+        background: #f8f9fa;
+        border-radius: 4px;
+        border-left: 4px solid #007bff;
+      }
+      .error {
+        border-left-color: #dc3545;
+        background: #f8d7da;
+        color: #721c24;
+      }
+      .success {
+        border-left-color: #28a745;
+        background: #d4edda;
+        color: #155724;
+      }
+      .loading {
+        border-left-color: #ffc107;
+        background: #fff3cd;
+        color: #856404;
+      }
+      .json-display {
+        background: #f8f9fa;
+        border: 1px solid #e9ecef;
+        border-radius: 4px;
+        padding: 15px;
+        margin-top: 10px;
+        font-family: "Courier New", monospace;
+        font-size: 12px;
+        white-space: pre-wrap;
+        max-height: 400px;
+        overflow-y: auto;
+      }
+      .status-badge {
+        display: inline-block;
+        padding: 4px 8px;
+        border-radius: 12px;
+        font-size: 12px;
+        font-weight: 500;
+        margin-left: 10px;
+      }
+      .status-success {
+        background: #d4edda;
+        color: #155724;
+      }
+      .status-error {
+        background: #f8d7da;
+        color: #721c24;
+      }
+      .status-pending {
+        background: #fff3cd;
+        color: #856404;
+      }
+      .event-item {
+        border: 1px solid #e0e0e0;
+        border-radius: 4px;
+        padding: 10px;
+        margin-bottom: 10px;
+        background: white;
+      }
+      .event-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 5px;
+      }
+      .event-name {
+        font-weight: 600;
+        color: #333;
+      }
+      .event-timestamp {
+        color: #666;
+        font-size: 12px;
+      }
+      .event-properties {
+        margin-top: 10px;
+        padding-top: 10px;
+        border-top: 1px solid #f0f0f0;
+      }
+      .property {
+        margin-bottom: 5px;
+      }
+      .property-key {
+        font-weight: 500;
+        color: #555;
+      }
+      .property-value {
+        color: #666;
+        margin-left: 10px;
+      }
+      .ai-response {
+        background: #e3f2fd;
+        border: 1px solid #bbdefb;
+        border-radius: 4px;
+        padding: 15px;
+        margin-top: 10px;
+      }
+      .ai-response h4 {
+        margin-top: 0;
+        color: #1976d2;
+      }
+      .experiment-item {
+        border: 1px solid #e0e0e0;
+        border-radius: 4px;
+        padding: 10px;
+        margin-bottom: 10px;
+        background: white;
+      }
+      .experiment-name {
+        font-weight: 600;
+        color: #333;
+      }
+      .experiment-status {
+        display: inline-block;
+        padding: 2px 6px;
+        border-radius: 10px;
+        font-size: 11px;
+        font-weight: 500;
+        margin-left: 10px;
+      }
+      .status-active {
+        background: #d4edda;
+        color: #155724;
+      }
+      .status-inactive {
+        background: #f8d7da;
+        color: #721c24;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="header">
+      <h1>🎯 Activity Tracking Mock Server Test</h1>
+      <p>Test all API endpoints used by the Activity Tracking page</p>
+    </div>
+
+    <!-- User Search Test -->
+    <div class="container">
+      <div class="test-section">
+        <div class="test-header">🔍 User Search & Details</div>
+        <div class="test-content">
+          <div class="form-group">
+            <label for="phoneNumber">Phone Number (10 digits):</label>
+            <input
+              type="text"
+              id="phoneNumber"
+              placeholder="9876543210"
+              maxlength="10"
+            />
+          </div>
+          <button class="btn" onclick="testUserDetails()">
+            Get User Details
+          </button>
+          <button class="btn" onclick="testUserLastActive()">
+            Get Last Active Today
+          </button>
+          <button class="btn" onclick="testUserExperiments()">
+            Get User Experiments
+          </button>
+          <div
+            id="userDetailsResults"
+            class="results"
+            style="display: none"
+          ></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- AI Insights Test -->
+    <div class="container">
+      <div class="test-section">
+        <div class="test-header">🤖 AI Insights & Session Management</div>
+        <div class="test-content">
+          <div class="form-group">
+            <label for="aiQuery">AI Query:</label>
+            <textarea
+              id="aiQuery"
+              placeholder="Did this user face payment issues? Has this user encountered login problems?"
+            ></textarea>
+          </div>
+          <button class="btn btn-success" onclick="testCreateAISession()">
+            Create AI Session
+          </button>
+          <button class="btn btn-warning" onclick="testAIInsights()">
+            Get AI Insights
+          </button>
+          <div id="aiResults" class="results" style="display: none"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- User Events Test -->
+    <div class="container">
+      <div class="test-section">
+        <div class="test-header">📊 User Events & Activity Tracking</div>
+        <div class="test-content">
+          <div class="form-group">
+            <label for="fromDate">From Date:</label>
+            <input type="datetime-local" id="fromDate" />
+          </div>
+          <div class="form-group">
+            <label for="toDate">To Date:</label>
+            <input type="datetime-local" id="toDate" />
+          </div>
+          <div class="form-group">
+            <label for="eventPattern">Event Pattern (optional):</label>
+            <input type="text" id="eventPattern" placeholder="contest_join" />
+          </div>
+          <button class="btn" onclick="testGetRequestId()">
+            Get Request ID
+          </button>
+          <button class="btn" onclick="testGetEvents()">Get Events</button>
+          <button class="btn btn-danger" onclick="testCancelQuery()">
+            Cancel Query
+          </button>
+          <div id="eventsResults" class="results" style="display: none"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Event Properties Test -->
+    <div class="container">
+      <div class="test-section">
+        <div class="test-header">🔧 Event Properties & Mapping</div>
+        <div class="test-content">
+          <div class="form-group">
+            <label for="eventName">Event Name:</label>
+            <input
+              type="text"
+              id="eventName"
+              placeholder="contest_join_success"
+            />
+          </div>
+          <div class="form-group">
+            <label for="eventTimestamp">Event Timestamp:</label>
+            <input type="text" id="eventTimestamp" placeholder="1705312800" />
+          </div>
+          <button class="btn" onclick="testEventProperties()">
+            Get Event Properties
+          </button>
+          <button class="btn" onclick="testScreenMapping()">
+            Get Screen Mapping
+          </button>
+          <div
+            id="eventPropsResults"
+            class="results"
+            style="display: none"
+          ></div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // Set default values
+      document.getElementById("phoneNumber").value = "9876543210";
+      document.getElementById("aiQuery").value =
+        "Did this user face payment issues?";
+      document.getElementById("eventName").value = "contest_join_success";
+      document.getElementById("eventTimestamp").value = Math.floor(
+        Date.now() / 1000,
+      ).toString();
+
+      // Set default date range (last 1 hour)
+      const now = new Date();
+      const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
+      document.getElementById("fromDate").value = oneHourAgo
+        .toISOString()
+        .slice(0, 16);
+      document.getElementById("toDate").value = now.toISOString().slice(0, 16);
+
+      let currentSessionId = null;
+      let currentRequestId = null;
+
+      async function makeRequest(url, options = {}) {
+        try {
+          const response = await fetch(url, {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            ...options,
+          });
+          return await response.json();
+        } catch (error) {
+          return { error: error.message };
+        }
+      }
+
+      function showResults(elementId, data, isError = false) {
+        const element = document.getElementById(elementId);
+        element.style.display = "block";
+        element.className = `results ${isError ? "error" : "success"}`;
+        element.innerHTML = `<div class="json-display">${JSON.stringify(data, null, 2)}</div>`;
+      }
+
+      function showLoading(elementId, message) {
+        const element = document.getElementById(elementId);
+        element.style.display = "block";
+        element.className = "results loading";
+        element.innerHTML = `<div>${message}</div>`;
+      }
+
+      async function testUserDetails() {
+        const phoneNumber = document.getElementById("phoneNumber").value;
+        if (!phoneNumber || phoneNumber.length !== 10) {
+          showResults(
+            "userDetailsResults",
+            { error: "Please enter a valid 10-digit phone number" },
+            true,
+          );
+          return;
+        }
+
+        showLoading("userDetailsResults", "Fetching user details...");
+        const data = await makeRequest(`/user/${phoneNumber}`);
+        showResults("userDetailsResults", data, !!data.error);
+      }
+
+      async function testUserLastActive() {
+        const phoneNumber = document.getElementById("phoneNumber").value;
+        if (!phoneNumber || phoneNumber.length !== 10) {
+          showResults(
+            "userDetailsResults",
+            { error: "Please enter a valid 10-digit phone number" },
+            true,
+          );
+          return;
+        }
+
+        showLoading("userDetailsResults", "Fetching user last active time...");
+        const data = await makeRequest(`/user/${phoneNumber}/active-today`);
+        showResults("userDetailsResults", data, !!data.error);
+      }
+
+      async function testUserExperiments() {
+        const phoneNumber = document.getElementById("phoneNumber").value;
+        if (!phoneNumber || phoneNumber.length !== 10) {
+          showResults(
+            "userDetailsResults",
+            { error: "Please enter a valid 10-digit phone number" },
+            true,
+          );
+          return;
+        }
+
+        showLoading("userDetailsResults", "Fetching user experiments...");
+        const data = await makeRequest(`/user/${phoneNumber}/experiments`);
+        showResults("userDetailsResults", data, !!data.error);
+      }
+
+      async function testCreateAISession() {
+        showLoading("aiResults", "Creating AI session...");
+        const data = await makeRequest("/pulse-ai/session", {
+          method: "POST",
+          body: JSON.stringify({}),
+        });
+
+        if (data.data && data.data.session_id) {
+          currentSessionId = data.data.session_id;
+          showResults("aiResults", data, !!data.error);
+        } else {
+          showResults("aiResults", data, true);
+        }
+      }
+
+      async function testAIInsights() {
+        const query = document.getElementById("aiQuery").value;
+        if (!query.trim()) {
+          showResults("aiResults", { error: "Please enter a query" }, true);
+          return;
+        }
+
+        if (!currentSessionId) {
+          showResults(
+            "aiResults",
+            { error: "Please create an AI session first" },
+            true,
+          );
+          return;
+        }
+
+        showLoading("aiResults", "Getting AI insights...");
+        const data = await makeRequest("/pulse-ai/user-query", {
+          method: "POST",
+          body: JSON.stringify({
+            "session-id": currentSessionId,
+            "user-id": document.getElementById("phoneNumber").value,
+            query: query,
+          }),
+        });
+        showResults("aiResults", data, !!data.error);
+      }
+
+      async function testGetRequestId() {
+        const fromDate = document.getElementById("fromDate").value;
+        const toDate = document.getElementById("toDate").value;
+        const pattern = document.getElementById("eventPattern").value;
+        const phoneNumber = document.getElementById("phoneNumber").value;
+
+        if (!fromDate || !toDate) {
+          showResults(
+            "eventsResults",
+            { error: "Please select both from and to dates" },
+            true,
+          );
+          return;
+        }
+
+        const params = new URLSearchParams({
+          from_date: fromDate,
+          to_date: toDate,
+          email: `${phoneNumber}@example.com`,
+          userId: phoneNumber,
+        });
+
+        if (pattern) {
+          params.append("pattern", pattern);
+        }
+
+        showLoading("eventsResults", "Getting request ID...");
+        const data = await makeRequest(`/v2/events/queryRequestId?${params}`);
+
+        if (data.data && data.data.requestId) {
+          currentRequestId = data.data.requestId;
+          showResults("eventsResults", data, !!data.error);
+        } else {
+          showResults("eventsResults", data, true);
+        }
+      }
+
+      async function testGetEvents() {
+        if (!currentRequestId) {
+          showResults(
+            "eventsResults",
+            { error: "Please get a request ID first" },
+            true,
+          );
+          return;
+        }
+
+        showLoading("eventsResults", "Fetching events...");
+        const data = await makeRequest(
+          `/v2/events/eventsByRequestId?requestId=${currentRequestId}&pageToken=`,
+        );
+        showResults("eventsResults", data, !!data.error);
+      }
+
+      async function testCancelQuery() {
+        if (!currentRequestId) {
+          showResults(
+            "eventsResults",
+            { error: "Please get a request ID first" },
+            true,
+          );
+          return;
+        }
+
+        showLoading("eventsResults", "Cancelling query...");
+        const data = await makeRequest("/v2/cancelQueryRequest", {
+          method: "POST",
+          body: JSON.stringify({
+            requestId: currentRequestId,
+          }),
+        });
+        showResults("eventsResults", data, !!data.error);
+      }
+
+      async function testEventProperties() {
+        const eventName = document.getElementById("eventName").value;
+        const eventTimestamp = document.getElementById("eventTimestamp").value;
+        const phoneNumber = document.getElementById("phoneNumber").value;
+
+        if (!eventName || !eventTimestamp) {
+          showResults(
+            "eventPropsResults",
+            { error: "Please enter event name and timestamp" },
+            true,
+          );
+          return;
+        }
+
+        const params = new URLSearchParams({
+          eventName: eventName,
+          eventTimestamp: eventTimestamp,
+          userId: phoneNumber,
+        });
+
+        showLoading("eventPropsResults", "Fetching event properties...");
+        const data = await makeRequest(`/v2/events/eventname?${params}`);
+        showResults("eventPropsResults", data, !!data.error);
+      }
+
+      async function testScreenMapping() {
+        const searchString = document.getElementById("eventName").value;
+        const params = new URLSearchParams({
+          search_string: searchString,
+          limit: "10",
+        });
+
+        showLoading("eventPropsResults", "Fetching screen mapping...");
+        const data = await makeRequest(`/v1/events?${params}`);
+        showResults("eventPropsResults", data, !!data.error);
+      }
+
+      // Auto-create AI session on page load
+      window.addEventListener("load", () => {
+        testCreateAISession();
+      });
+    </script>
+  </body>
+</html>

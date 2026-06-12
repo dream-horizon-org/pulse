@@ -1,0 +1,215 @@
+TC,Scenario,How to Trigger,Expected Signal,Status (Android),Status (iOS),Comment (success metric),Coverage,E2E reference,Notes
+Topic 1 — SDK Initialization & Remote Config,,,,,,,,,
+INIT-01,Cold first load — IDs created,Clear localStorage + hard-reload /,"pulse_session_id, pulse_installation_id written to localStorage",,Pass,,Automation,m1.spec.ts: session.start emitted; m1.spec.ts: pulse_installation_id UUID,OTLP + pulse_installation_id; not only raw pulse_session_id key name
+INIT-02,Installation ID stable across sessions,Note install ID → close tab → reopen,Same install ID in localStorage,,Pass,,Automation,m1.spec.ts: installation.id survives page reload,Close/reopen approximated via reload
+INIT-03,"When session expires and a navigation happens, multiple session.start signals fire at the exact same millisecond with different session IDs but the same previous_id, ideally it should n ot get craeted",Manually expire pulse_session_ts → navigate,no multiple session id should be created,,fixed,,Automation,m1.spec.ts: INIT-03 single session.start per rotate batch,gap-close v2.3
+INIT-03.1,Session ID rotates on timeout,Manually expire pulse_session_ts → navigate,"New session_id, old one in session.previous_id attr",,Pass,,Automation,m1.spec.ts: 3.6 session rotates after simulated 30-min inactivity,Uses simulated clock not real background tab
+INIT-04,Remote config fetched on boot,PulseHealthCheck console,HTTP 200 from /v1/configs/active/,,Pass,,Automation,m1.spec.ts: INIT-04 configs/active 200,gap-close v2.3
+INIT-05,API key injected correctly,Network → /v1/configs/active/ headers,"x-api-key present, matches NEXT_PUBLIC_PULSE_API_KEY",,Pass,,Automation,m1.spec.ts: x-api-key header sent on every OTLP request,OTLP export headers; manual says configs/active — same key contract
+Topic 2 — Session Lifecycle,,,,,,,,,
+SESS-01,session.start on fresh load,Clear storage → load /,"pulse.type=session.start, session.id=<uuid>, platform=web, session.start_reason=sdk_init fresh",,Pass,,Automation,m1.spec.ts: session.start emitted on page load + session.start log carries required data-contract attributes,strict ecommerce E2E (e2e:web-sdk-gates)
+SESS-02,session.start carries install ID,Check SESS-01 resource attributes,installation.id present in resource attrs,,Pass,,Automation,m1.spec.ts: installation.id in localStorage matches session.start,strict ecommerce E2E (e2e:web-sdk-gates)
+SESS-03,session.end on tab close,Open → navigate → close tab,"pulse.type=session.end, session.duration_ms > 0, session.end_reason=page_unload",,Pass,,Automation,m1.spec.ts SESS-03 about:blank unload duration + page_unload,strict ecommerce E2E v2.4
+SESS-04,Timeout → new session with chain,Background tab past timeout → foreground,"session.end with end_reason=inactivity_timeout, then session.start with session.previous_id previous_session_id",,Pass,,Automation,m1.spec.ts 3.6/3.11 inactivity_timeout chain (simulated; not real background tab),strict ecommerce E2E v2.4
+SESS-05,Session ID consistent within session,5 navigations + purchase → check all logs,All events share same session.id,,Not Picked,,Automation,m1.spec.ts: SESS-05 checkout journey session.id,gap-close v2.3
+SESS-07,session.previous_id absent on very first session,Clear all storage → first ever load,session.previous_id absent or empty string — not a stale UUID,,Pass,,Automation,m1.spec.ts: SESS-07 first start; SESS-07 chain rotation previous_id,gap-close v2.3
+SESS-08,pulse.type,"""session.start""",,,Pass,,Automation,m1.spec.ts: session.start log carries required data-contract attributes,strict ecommerce E2E (e2e:web-sdk-gates)
+SESS-09,session.id,UUID v4,empty string,,Pass,,Automation,m1.spec.ts: session.start emitted on page load,strict ecommerce E2E (e2e:web-sdk-gates)
+SESS-10,session.start_reason,"""sdk_init"" / ""inactivity_timeout"" / ""max_lifetime""","""fresh"" / ""new"" / ""init"" wrong enums",,Pass,,Automation,m1.spec.ts: session.start log carries required data-contract attributes,strict ecommerce E2E (e2e:web-sdk-gates)
+SESS-11,session.previous_id previous_session_id,"UUID of prior session, or empty string on very first",absent (key differs — session.previous_id),,Pass,,Automation,m1.spec.ts: 3.11/3.12 rotation emits previous id chain,strict ecommerce E2E (e2e:web-sdk-gates)
+SESS-12,pulse.type,"""session.end""",,,Pass,,Automation,m1.spec.ts: session.end emitted on pagehide,strict ecommerce E2E (e2e:web-sdk-gates)
+SESS-13,session.id,UUID,null,,Pass,,Automation,m1.spec.ts: session.end emitted on pagehide,strict ecommerce E2E (e2e:web-sdk-gates)
+SESS-14,session.duration_ms,integer ms > 0,0 / negative,,Pass,,Automation,m1.spec.ts: 3.13 very short session duration_ms; screen-navigation session.duration,strict ecommerce E2E (e2e:web-sdk-gates)
+SESS-15,session.end_reason,"""inactivity_timeout"" / ""shutdown"" / ""page_unload"" / ""max_lifetime""","""tab_close"" doesn't exist / ""timeout""",,Pass,,Automation,m1.spec.ts page_unload + max_lifetime + shutdown end_reason + 3.6 inactivity,strict ecommerce E2E v2.4
+Topic 3 — Network Instrumentation (Fetch + XHR),,,,,,,,,
+NET-01,Happy-path GET captured,Load any page that fires a GET request,"pulse.type=network.200, http.request.method=GET, http.response.status_code=200, server.address set, server.port set (integer), url.full set, session.id set, screen.name set",,Pass,,Automation,m4-network.spec.ts: fetch GET network.200; nextjs-demo.spec.ts: NET-01,strict ecommerce E2E (e2e:web-sdk-gates)
+NET-02,POST captured,Fire a POST fetch (e.g. form submit / purchase),"pulse.type=network.200, http.request.method=POST, url.full contains endpoint path, http.response.status_code=200",,Pass,,Automation,m4-network.spec.ts: NET-02 POST; nextjs-demo.spec.ts: NET-02,strict ecommerce E2E (e2e:web-sdk-gates)
+NET-03,4xx captured,Request a URL that returns 404,"pulse.type=network.404, http.response.status_code=404, error.type=4xx, span status ERROR",,Pass,,Automation,m4-network.spec.ts: fetch 404; nextjs-demo.spec.ts: NET-03,strict ecommerce E2E (e2e:web-sdk-gates)
+NET-04,5xx captured,Request a URL that returns 500,"pulse.type=network.500, http.response.status_code=500, error.type=5xx, span status ERROR",,Pass,,Automation,m4-network.spec.ts: 500 fetch; nextjs-demo.spec.ts: NET-04,strict ecommerce E2E (e2e:web-sdk-gates)
+NET-05,Abort / timeout → network.0,AbortController.abort() or XHR timeout on in-flight request,"pulse.type=network.0, error.type=network_error, span status ERROR",,Pass,,Automation,m4-network.spec.ts: XHR abort/timeout; nextjs-demo.spec.ts: NET-05,strict ecommerce E2E (e2e:web-sdk-gates)
+NET-06,XHR GET captured,new XMLHttpRequest() open + send (GET),"pulse.type=network.200, http.request.method=GET, http.response.status_code=200, url.full set",,Pass,,Automation,m4-network.spec.ts: P3 XMLHttpRequest; nextjs-demo.spec.ts: NET-06,strict ecommerce E2E (e2e:web-sdk-gates)
+NET-07,http.duration from PerformanceResourceTiming,Fetch with a measurable server delay,"http.duration present, integer (ms), value ≥ delay introduced; sourced from PerformanceResourceTiming.responseEnd − requestStart",,Pass,,Automation,m4-network.spec.ts: NET-07; nextjs-demo.spec.ts: NET-07,strict ecommerce E2E (e2e:web-sdk-gates)
+NET-08,CORS opaque response → cors_error,"fetch(crossOriginUrl, { mode: 'no-cors' })","pulse.type=network.0, error.type=cors_error, span status ERROR",,Pass,,Automation,m4-network.spec.ts: E3 no-cors; nextjs-demo.spec.ts: NET-08,strict ecommerce E2E (e2e:web-sdk-gates)
+NET-09,Query params stripped by default,GET with ?token=x&id=1 (captureQueryParams default false),"url.full contains no ?, no query key or value leaked; credentials (user:pass@host) also stripped",,Pass,"URLs show ?status=404, ?status=429, ?_rsc=... — query params NOT stripped",Automation,m4-network.spec.ts: P1/P2/P4 + NET-09 demo /api/products.json; http.url synced,gap-close v2.3
+NET-10,captureQueryParams: true — sensitive values redacted,"Configure captureQueryParams: true, GET with ?search=ok&token=secret",url.full contains search=ok; token=*; raw secret value absent,,Pass,,Automation,m4-network.spec.ts: NET-10; nextjs-demo.spec.ts: NET-10,strict ecommerce E2E (e2e:web-sdk-gates)
+NET-11,blockedUrls — matched URL produces no span,"Configure blockedUrls: [""/analytics/""], fire fetch to that path",Zero network.* spans for the blocked URL; other requests still traced,,Pass,,Automation,m4-network.spec.ts: NET-11; nextjs-demo.spec.ts: NET-11,strict ecommerce E2E (e2e:web-sdk-gates)
+NET-12,peerServiceMap — peer.service stamped,"Configure peerServiceMap: { ""api.example.com"": ""orders-svc"" }, fetch to that host",peer.service=orders-svc on span,,Pass,peer.service is empty on all 18 spans,Automation,m4-network.spec.ts: NET-12 URL override + default demo /api/products.json peer.service,demo seed v2.3
+NET-13,Concurrent requests all captured,"Promise.all([fetch(A), fetch(B), fetch(C)]) — 3 parallel calls","3 separate network.* spans, one per URL; no deduplication or merging",,Pass,,Automation,m4-network.spec.ts: NET-13; nextjs-demo.spec.ts: NET-13,strict ecommerce E2E (e2e:web-sdk-gates)
+NET-14,Feature gate off → no spans,Remote config: network_instrumentation gate sessionSampleRate=0,"Zero network.* spans; other instrumentation (sessions, errors) unaffected",,Pass,,Automation,m4-network.spec.ts: G1 gate off; nextjs-demo.spec.ts: NET-14,strict ecommerce E2E (e2e:web-sdk-gates)
+NET-15,Consent denied → no spans,dataCollectionState=DENIED,"Zero network.* spans, zero session.start; no OTLP export at all",,Pass,,Automation,m4-network.spec.ts: C1 DENIED; nextjs-demo.spec.ts: NET-15,strict ecommerce E2E (e2e:web-sdk-gates)
+NET-16,Local network.enabled: false → no spans,instrumentations.network.enabled: false in SDK config,Zero network.* spans; session and error signals still exported,,Pass,,Automation,m4-network.spec.ts: E2 enabled false; nextjs-demo.spec.ts: NET-16,strict ecommerce E2E (e2e:web-sdk-gates)
+NET-17,OTLP self-exclusion,Any page load (SDK exports traces/logs to collector),"No span whose url.full matches /v1/traces, /v1/logs, or /v1/metrics — SDK export calls never traced",,Pass,,Automation,m4-network.spec.ts: P5; nextjs-demo.spec.ts: NET-17,strict ecommerce E2E (e2e:web-sdk-gates)
+NET-18,propagateTraceHeaderCorsUrls — W3C trace context injected,"Configure propagateTraceHeaderCorsUrls for a host, fire fetch to it",Outbound request carries traceparent header matching 00-<32 hex>-<16 hex>-0[01]; corresponding network.* span exists,,Pass,,Automation,m4-network.spec.ts: NET-18; nextjs-demo.spec.ts: NET-18,strict ecommerce E2E (e2e:web-sdk-gates)
+Topic 4 — Error Capture (device.crash / non_fatal),,,,,,,,,
+ERR-01,Sync throw captured,"SDK Lab → ""Throw JS Error""","pulse.type=device.crash, SeverityText=FATAL, SeverityNumber=21, exception.message + exception.stacktrace present",,fixed,"
+Row 7: stacktrace = '@unknown:138:28' (was '@') — fallback frame with lineno+colno ✅",Automation,m3-errors.spec.ts: uncaught JS error; m3-ch.spec.ts: TC1 CH,Manual says verify stack depth in CH — E2E OTLP not full manual bar
+ERR-02,Unhandled promise rejection,"SDK Lab → ""Reject Promise""","pulse.type=non_fatal, SeverityText=WARN, SeverityNumber=13, non_fatal.is_manual=false (boolean not string)",,Pass,,Automation,m3-errors.spec.ts: unhandled rejection; nextjs-demo.spec.ts: ERR-02/ERR-31,strict ecommerce E2E (e2e:web-sdk-gates)
+ERR-03,Dedup — same error within 5s,Same error 3× rapidly (< 5s),Only 1 device.crash in that window,,Pass,,Automation,m3-errors.spec.ts: dedupe window; nextjs-demo.spec.ts: ERR-03,strict ecommerce E2E (e2e:web-sdk-gates)
+ERR-04,Different errors within 5s not deduped,Throw Error A then Error B,2 distinct device.crash logs,,Pass,,Automation,m3-errors.spec.ts: different fingerprints are not deduplicated,strict ecommerce E2E (e2e:web-sdk-gates)
+ERR-05,Handled (try/catch) NOT captured,try { throw new Error() } catch {},Zero device.crash emitted,,Pass,,Automation,m3-errors.spec.ts ERR-05 handled try/catch,strict ecommerce E2E v2.4
+ERR-06,Battery + storage on crash,ERR-01 in browser with Battery API (Chromium/Android WebView),"battery.percent integer 0–100; storage.free integer ≥ 0. Absent if API unavailable — absence acceptable, wrong key is not",,Pass,,Automation,m3-errors.spec.ts: ERR-06 battery.percent on device.crash,gap-close v2.3
+ERR-07,Error location attrs present,Inspect ERR-01,"error.filename non-empty string (bundle URL in browser e.g. https://cdn.app.com/main.js); error.lineno + error.colno positive integers. In jsdom error.filename may be ""unknown"" — acceptable",,fixed,"
+Row 7: stacktrace = '@unknown:138:28' (was '@') — fallback frame with lineno+colno ✅",Automation,m3-errors.spec.ts ERR-07 error.filename + lineno + colno,strict ecommerce E2E v2.4
+ERR-08,url.path on crash,Inspect ERR-01,url.path = pathname only e.g. /error-demo — not full URL,,Pass,,Automation,m3-ch.spec.ts: TC5 url.path; nextjs-demo error tests,strict ecommerce E2E (e2e:web-sdk-gates)
+ERR-09,Stacktrace is multi-line with file+line,Inspect exception.stacktrace on ERR-01,"Contains \n; each frame has file reference + line number; not ""[object Error]"", not single-line",,fixed,"
+Row 7: stacktrace = '@unknown:138:28' (was '@') — fallback frame with lineno+colno ✅",Automation,m3-errors.spec.ts ERR-09 multiline stack,strict ecommerce E2E v2.4
+ERR-10,session.id tied to session,Inspect ERR-01,session.id UUID matches session.start of same session,,Pass,,Automation,nextjs-demo.spec.ts: device.crash carries session.id; m3-errors implicit,strict ecommerce E2E (e2e:web-sdk-gates)
+ERR-11,pulse.type,"""device.crash""",any other string,,Pass,,Automation,m3-errors.spec.ts: uncaught JS error device.crash,strict ecommerce E2E (e2e:web-sdk-gates)
+ERR-12,SeverityText,"""FATAL""","""ERROR""",,Pass,,Automation,m3-errors.spec.ts ERR-12/13 FATAL/21,strict ecommerce E2E v2.4
+ERR-13,SeverityNumber,21,outside 17–24,,Pass,,Automation,m3-errors.spec.ts ERR-12/13 FATAL/21,strict ecommerce E2E v2.4
+ERR-14,exception.type,"actual class name — ""TypeError"", ""RangeError"", ""Error""","""Error"" stamped for every class regardless",,Pass,,Automation,m3-errors.spec.ts: cross-origin; nextjs-demo.spec.ts: ERR-09/ERR-14,strict ecommerce E2E (e2e:web-sdk-gates)
+ERR-15,exception.message,actual message string,"""[object Object]""",,Pass,,Automation,m3-errors.spec.ts ERR-15 exception.message,strict ecommerce E2E v2.4
+ERR-16,exception.stacktrace,"multi-line, file + line per frame","single-line / ""null"" / """" for non-cross-origin errors",,fixed,"Multi-line on 7/8 rows ✅,Row 7: filename = 'unknown' (was 'undefined') ✅",Automation,m3-errors.spec.ts ERR-16 multiline stack,strict ecommerce E2E v2.4
+ERR-17,error.filename,"bundle URL or source path, non-empty; """" only for cross-origin stub",empty string on same-origin errors,,fixed,"
+Row 7: stacktrace = '@unknown:138:28' (was '@') — fallback frame with lineno+colno ✅",Automation,nextjs-demo.spec.ts: ERR-17 error.filename,strict ecommerce E2E (e2e:web-sdk-gates)
+ERR-18,error.lineno,positive integer,string / 0 / absent,,Pass,,Automation,m3-errors uncaught + ERR-07 error.lineno > 0,strict ecommerce E2E v2.4
+ERR-19,error.colno,non-negative integer,string / absent,,Pass,,Automation,m3-errors uncaught error.colno >= 0,strict ecommerce E2E v2.4
+ERR-20,url.path,pathname e.g. /checkout,full URL e.g. https://app.com/checkout,,Pass,,Automation,nextjs-demo.spec.ts ERR-08/ERR-20 comments; m3-ch TC5,strict ecommerce E2E (e2e:web-sdk-gates)
+ERR-21,battery.percent,key must be battery.percent; integer 0–100; absent if API unavailable,key device.battery_percentage; negative value,,Pass,,Automation,m3-errors.spec.ts ERR-06 battery.percent (same manual bar),strict ecommerce E2E v2.4
+ERR-22,storage.free,key must be storage.free; integer ≥ 0; absent if API unavailable,key storage.free_bytes; negative value,,Pass,,Automation,m3-errors.spec.ts: ERR-22 storage.free on device.crash,gap-close v2.3
+ERR-23,session.id,UUID string,null / undefined / empty string,,Pass,,Automation,nextjs-demo.spec.ts session.id on errors,strict ecommerce E2E (e2e:web-sdk-gates)
+ERR-24,pulse.type,"""non_fatal""","""device.crash""",,Pass,,Automation,m3-errors.spec.ts: unhandled rejection,strict ecommerce E2E (e2e:web-sdk-gates)
+ERR-25,SeverityText,"""WARN""","""ERROR"" / ""FATAL""",,Pass,,Automation,m3-errors.spec.ts ERR-25/26 WARN/13,strict ecommerce E2E v2.4
+ERR-26,SeverityNumber,13,outside WARN range,,Pass,,Automation,m3-errors.spec.ts ERR-25/26 WARN/13,strict ecommerce E2E v2.4
+ERR-27,exception.type,"actual class — ""TypeError"", ""RangeError""","""Error"" for every rejection regardless",,Pass,,Automation,m3-errors.spec.ts ERR-27 TypeError rejection,strict ecommerce E2E v2.4
+ERR-28,exception.message unwrapped,"Promise.reject(""string"") → exception.message = ""string""","""[object Promise]""",,Pass,,Automation,m3-errors.spec.ts ERR-28 Promise.reject(string),strict ecommerce E2E v2.4
+ERR-29,exception.stacktrace,"string — populated or """", never absent",null / absent,,Pass,,Automation,m3-errors.spec.ts ERR-29 stacktrace string,strict ecommerce E2E v2.4
+ERR-30,url.path,pathname only,full URL,,Pass,,Automation,m3-errors.spec.ts ERR-30 url.path pathname,strict ecommerce E2E v2.4
+ERR-31,non_fatal.is_manual,false (boolean) for auto-captured,"string ""false""",,Pass,,Automation,m3-errors.spec.ts: manual=false; nextjs-demo.spec.ts: ERR-31,strict ecommerce E2E (e2e:web-sdk-gates)
+ERR-32,session.id,UUID matching session.start,null / empty,,Pass,,Automation,nextjs-demo.spec.ts: non_fatal same session.id,strict ecommerce E2E (e2e:web-sdk-gates)
+Topic 5 — Navigation & Screen Tracking,,,,,,,,,
+NAV-01,Initial load — screen_load emitted,Hard-reload /,"pulse.type=screen_load, start.type=cold load_type, ttfb web.ttfb_ms > 0, page.load_time > 0",,,,Automation,screen-navigation.spec.ts: emits screen_load on page load,strict ecommerce E2E (e2e:web-sdk-gates)
+NAV-02,SPA navigation — screen_load per route,Click Lottery → click Orders,"One span per route, start.type=spa",,,,Automation,screen-navigation.spec.ts: SPA screen_load; m15 TC 15.3/15.4,strict ecommerce E2E (e2e:web-sdk-gates)
+NAV-03,screen_session dwell time accurate,Spend ~5s on /lottery/[id] → navigate away,"screen_session span, DurationNano ≥ 4,800,000,000",,,,Automation,screen-navigation.spec.ts: NAV-03 page.clock.tick 5500ms dwell,gap-close v2.3
+NAV-04,Screen name resolution,Navigate to /lottery/abc-123,"screen.name = /lottery/:id, not raw UUID",,,,Automation,m1.spec.ts: screen.name normalizes UUID; screen-navigation screen.name,strict ecommerce E2E (e2e:web-sdk-gates)
+NAV-05,back_forward navigation,Forward 3 pages → browser back,start.type=back_forward load_type,,,,Automation,screen-navigation.spec.ts: NAV-05 goBack start.type back_forward,gap-close v2.3
+NAV-07,Rapid navigation debounced at 100ms 500ms,Click 5 routes in < 100ms,1 screen_load per settled route,,,,Automation,screen-navigation.spec.ts: NAV-07 burst navigations,gap-close v2.3
+NAV-08,screen_session emitted on last page before close,Visit 2 pages → close tab,screen_session for page 2 in ClickHouse,,,,Manual,,Real tab close → ClickHouse screen_session; Playwright cannot assert CH after close
+NAV-09,PerformanceNavigationTiming attrs,Inspect cold screen_load,"ttfb web.ttfb_ms, dns.time web.dns_ms, tcp.time web.tcp_ms, dom.processing_time web.dom_processing_ms, tti all present",,,,Manual,,Full PerformanceNavigationTiming on cold screen_load — E2E flaky (timing race); manual CH/DevTools until stable Playwright coverage
+NAV-10,No LCP on screen_load,Inspect any screen_load span attrs,No web.lcp_ms or lcp attr — LCP lives in web_vital logs only,,,,Automation,screen-navigation.spec.ts: NAV-10 no lcp on screen_load,gap-close v2.3
+NAV-11,url.path + page.title on screen_load,Any screen_load span,"url.path = pathname, page.title = document.title",,,,Automation,screen-navigation.spec.ts: NAV-11 url.path + page.title,gap-close v2.3
+Topic 6 — Web Vitals,,,,,,,,,
+VIT-01,LCP captured,Load image-heavy page → switch tab,"web_vital.name=LCP metric.name, value > 0 ms",,Pass,,Automation,web-vitals.spec.ts: emits LCP web_vital log,strict ecommerce E2E (e2e:web-sdk-gates)
+VIT-02,CLS captured,Skeleton → content layout shift,"web_vital.name=CLS, value ≥ 0 (unitless)",,Pass,,Automation,web-vitals.spec.ts: emits CLS web_vital,strict ecommerce E2E (e2e:web-sdk-gates)
+VIT-03,INP captured,Click several buttons/cards,"web_vital.name=INP, value > 0 ms",,Pass,,Automation,web-vitals.spec.ts: emits INP web_vital,strict ecommerce E2E (e2e:web-sdk-gates)
+VIT-04,FCP captured,Load / → switch tab,"web_vital.name=FCP, value > 0 ms",,Pass,,Automation,web-vitals.spec.ts: emits FCP web_vital,strict ecommerce E2E (e2e:web-sdk-gates)
+VIT-05,TTFB captured,Load / → switch tab,"web_vital.name=TTFB, value > 0 ms",,Pass,,Automation,web-vitals.spec.ts: TTFB; nextjs-demo web-vitals.spec.ts: TTFB,strict ecommerce E2E (e2e:web-sdk-gates)
+VIT-06,Rating thresholds correct,CPU throttle 6× + Slow 3G → load,web_vital.rating=poor metric.rating for LCP > 4000ms,,Pass,,Manual,,CPU throttle 6× + Slow 3G poor LCP rating
+VIT-07,"Vitals emitted on tab hide, not before",Load → query ClickHouse immediately,No vitals yet → switch tab → vitals appear,,Pass,,Automation,web-vitals.spec.ts: VIT-07 zero before hide then flush,strengthen v2.3
+VIT-08,navigation_type attribute present,Any vitals log,"web_vital.navigation_type navigation.type in (navigate,reload,back_forward,prerender)",,Pass,,Automation,web-vitals.spec.ts: WEB_VITAL_NAVIGATION_TYPES; nextjs web-vitals,strict ecommerce E2E (e2e:web-sdk-gates)
+VIT-09,BFCache flush,Browser back (BFCache hit),Vitals from previous page appear,,Pass,,Automation,web-vitals.spec.ts: VIT-09 BFCache pagehide web_vital,gap-close v2.3
+VIT-10,FID may be absent on modern Chrome,Modern Chrome,Do not fail if FID missing — INP is the replacement,,Pass,,Automation,web-vitals.spec.ts: never emits FID,strict ecommerce E2E (e2e:web-sdk-gates)
+VIT-11,pulse.type,"""web_vital""",,,Pass,,Automation,web-vitals.spec.ts helper assertions,strict ecommerce E2E (e2e:web-sdk-gates)
+VIT-12,web_vital.name metric.name,"""LCP"" / ""CLS"" / ""INP"" / ""FCP"" / ""FID"" / ""TTFB""",lowercase / metric.name wrong key,,Pass,,Automation,web-vitals.spec.ts per-metric tests,strict ecommerce E2E (e2e:web-sdk-gates)
+VIT-13,web_vital.value metric.value,float ≥ 0; LCP/FCP/TTFB/INP in ms; CLS unitless,negative / string,,Pass,,Automation,web-vitals.spec.ts finite value asserts,strict ecommerce E2E (e2e:web-sdk-gates)
+VIT-14,web_vital.rating metric.rating,"""good"" / ""needs-improvement"" / ""poor""","""bad"" / ""ok"" / metric.rating wrong key",,Pass,,Automation,web-vitals.spec.ts rating enum per metric,strict ecommerce E2E (e2e:web-sdk-gates)
+VIT-15,web_vital.navigation_type navigation.type,"""navigate"" / ""reload"" / ""back_forward"" / ""prerender"" or absent",raw integer / navigation.type wrong key,,Pass,,Automation,web-vitals.spec.ts navigation type helper,strict ecommerce E2E (e2e:web-sdk-gates)
+VIT-16,session.id,UUID,null,,Pass,,Automation,web-vitals.spec.ts contract floor session.id,strict ecommerce E2E (e2e:web-sdk-gates)
+Topic 7 — Click & Rage-Click Tracking,,,,,,,,,
+CLK-01,Basic click captured,"Click ""Buy Now"" button","pulse.type=app.click, app.screen.coordinate.x click.x, app.screen.coordinate.y click.y, app.widget.name click.widget_name",,,,Automation,m3-clicks.spec.ts: Shop Now app.click contract attrs,strict ecommerce E2E (e2e:web-sdk-gates)
+CLK-02,Coordinates normalized,Click near top-left corner,"app.screen.coordinate.nx click.normalized_x ≈ 0.0, app.screen.coordinate.ny click.normalized_y ≈ 0.0; both in [0.0, 1.0]",,,,Automation,m3-clicks.spec.ts: CLK-02 top-left nx/ny,strengthen v2.3
+CLK-03,Widget name resolved,"Click button with id=""buy-now-btn""","app.widget.name = ""buy-now-btn"" or text content; not raw tag",,,,Automation,m3-clicks.spec.ts: CLK-03 BUTTON on add-to-cart,strengthen v2.3
+CLK-04,Widget ID set,"Click <button id=""buy-now-btn"">","app.widget.id click.widget_id = ""buy-now-btn""",,,,Automation,m3-clicks.spec.ts: CLK-04 buy-now-btn,gap-close v2.3
+CLK-05,Rage click: correct attrs,"Click disabled ""Buy Now"" 5× rapidly","click.is_rage=true, click.rage_count=5, click.type = ""good"" or ""dead"" — not ""rage"" click.type=rage is wrong",,,,Automation,m3-clicks.spec.ts: triple tap rage is_rage rage_count,strict ecommerce E2E (e2e:web-sdk-gates)
+CLK-08,Viewport dimensions,Any click,device.screen.width viewport.width + device.screen.height viewport.height; match window.innerWidth/innerHeight,,,,Automation,m3-clicks.spec.ts: CLK-08 innerWidth/Height match,strengthen v2.3
+CLK-09,Click context captured,Click inside a card,app.click.context click.context = nearest named ancestor,,,,Automation,m3-clicks.spec.ts: CLK-09 app.click.context,gap-close v2.3
+CLK-10,Clicks flushed on tab background,Click elements → switch tab,All clicks in ClickHouse after backgrounding,,,,Automation,m3-clicks.spec.ts: flushClickBuffer visibilitychange,strict ecommerce E2E (e2e:web-sdk-gates)
+CLK-11,session.id on click logs,Any click log,session.id = current session,,,,Automation,m3-clicks.spec.ts: CLK-11 session.id UUID,strict ecommerce E2E (e2e:web-sdk-gates)
+CLK-12,pulse.type,"""app.click""",,,,,Automation,m3-clicks.spec.ts,strict ecommerce E2E (e2e:web-sdk-gates)
+CLK-13,app.screen.coordinate.x click.x,integer px = Math.round(event.clientX),negative,,,,Automation,m3-clicks.spec.ts: app.screen.coordinate.x,strict ecommerce E2E (e2e:web-sdk-gates)
+CLK-14,app.screen.coordinate.y click.y,integer px = Math.round(event.clientY),negative,,,,Automation,m3-clicks.spec.ts: app.screen.coordinate.y,strict ecommerce E2E (e2e:web-sdk-gates)
+CLK-15,app.screen.coordinate.nx click.normalized_x,"float = x ÷ viewportWidth, in [0.0, 1.0]",> 1 / negative,,,,Automation,m3-clicks.spec.ts: app.screen.coordinate.nx,strict ecommerce E2E (e2e:web-sdk-gates)
+CLK-16,app.screen.coordinate.ny click.normalized_y,"float = y ÷ viewportHeight, in [0.0, 1.0]",> 1,,,,Automation,m3-clicks.spec.ts: app.screen.coordinate.ny,strict ecommerce E2E (e2e:web-sdk-gates)
+CLK-17,app.widget.name click.widget_name,"id, aria-label, or text; human-readable","raw tag ""DIV""",,,,Automation,m3-clicks.spec.ts: app.widget.name,strict ecommerce E2E (e2e:web-sdk-gates)
+CLK-18,app.widget.id click.widget_id,element id or absent,empty string (should be absent if no id),,,,Automation,m3-clicks.spec.ts: absent on dead click (negative),strict ecommerce E2E (e2e:web-sdk-gates)
+CLK-19,app.click.context click.context,nearest named ancestor,"""BODY"" / null",,,,Automation,m3-clicks.spec.ts: CLK-09 app.click.context,strict ecommerce E2E (e2e:web-sdk-gates)
+CLK-20,click.type,"""good"" or ""dead"" only","""rage"" doesn't exist as a click.type value",,,,Automation,m3-clicks.spec.ts: good and dead,strict ecommerce E2E (e2e:web-sdk-gates)
+CLK-21,click.is_rage,boolean true — only on rage events,absent on non-rage (correct),,,,Automation,m3-clicks.spec.ts: rage test,strict ecommerce E2E (e2e:web-sdk-gates)
+CLK-22,click.rage_count,integer ≥ 2 — only on rage events,1,,,,Automation,m3-clicks.spec.ts: rage_count >= 3,strict ecommerce E2E (e2e:web-sdk-gates)
+CLK-23,device.screen.width viewport.width,integer = window.innerWidth,window.screen.width physical px,,,,Automation,m3-clicks.spec.ts: device.screen.width,strict ecommerce E2E (e2e:web-sdk-gates)
+CLK-24,device.screen.height viewport.height,integer = window.innerHeight,window.screen.height,,,,Automation,m3-clicks.spec.ts: device.screen.height,strict ecommerce E2E (e2e:web-sdk-gates)
+CLK-25,session.id,UUID,null,,,,Automation,m3-clicks.spec.ts: session.id,strict ecommerce E2E (e2e:web-sdk-gates)
+Topic 8 — Data Contract & ClickHouse Schema Integrity,,,,,,,,,
+CTR-01,platform=web universal,"722/722 rows = web, 0 non-web",,,Pass,os.name = web (correct for web runtime),Manual,,Bulk CH audit 722/722 platform=web
+CTR-02,ProjectId populated,722/722 non-empty,,,Pass,default-project-lottery-gGqK4tv6,Manual,,Bulk CH ProjectId population audit
+CTR-03,session.id on all logs,722/722 non-empty,,,Pass,Zero missing,Manual,,Bulk CH session.id on all logs audit
+CTR-04,Timestamps valid,"13:34–14:18 UTC, 0 epoch-zero, 0 future",,,Pass,All within session window,Automation,m1.spec.ts: CTR-04 assertTimestampSanity,strengthen v2.3
+CTR-05,Multi-tenant isolation,Only default-project-lottery-gGqK4tv6 in ProjectId,,,Pass,No cross-project leakage,Manual,,Multi-tenant CH isolation audit
+CTR-06,installation.id stable,deb21eb6 same across 2 sessions; c1d18ff1 and d0a248b4 have different install IDs (different devices/browsers),,,Pass,Same device = same install ID,Automation,m1.spec.ts installation.id survives reload,strict ecommerce E2E v2.4
+CTR-07,app.build_name matches version,1.0.0 = NEXT_PUBLIC_APP_VERSION,,,Pass,Not 0.0.0 / unknown,Manual,,CH app.build_name vs env version match
+CTR-08,No admin credentials,currentUser() = pulse_user (not default),,,Pass,Tenant user in use,Manual,,Ops: tenant user not admin credentials
+Topic 9 — Consent & Feature Gates,,,,,,,,,
+CON-01,Consent DENIED → zero signals,dataCollectionState: DENIED → hard-reload,"Zero OTLP calls, no localStorage session keys",,,,Automation,m1.spec.ts: DENIED zero OTLP; m4-network C1; m3-errors DENIED,strict ecommerce E2E (e2e:web-sdk-gates)
+CON-02,Consent ALLOWED → all signals,Default lottery-demo state,session.start within 2s of load,,,,Automation,m1.spec.ts: CON-02 session.start within 2s,parity v2.3
+CON-03,Consent change requires remount revoke mid-session,Remount <PulseProvider> with DENIED config,Signals stop after remount; no mid-session revoke without remount,,,,Automation,m1.spec.ts: CON-03 + ConsentLab Root providerKey remount,gap-close v2.3
+CON-04,Gate: errors disabled,instrumentations.errors.enabled=false errorsEnabled → throw JS error,No device.crash,,,,Automation,m3-errors.spec.ts js_crash gate off,strict ecommerce E2E v2.4
+CON-05,Gate: network disabled,instrumentations.network.enabled=false networkEnabled → make API calls,No network.* spans,,,,Automation,m4-network.spec.ts: E2 network.enabled false,strict ecommerce E2E (e2e:web-sdk-gates)
+CON-06,Gate: web vitals disabled,instrumentations.webVitals.enabled=false webVitalsEnabled → switch tabs,No web_vital logs,,,,Automation,web-vitals.spec.ts: web_vitals feature gate disabled,strict ecommerce E2E (e2e:web-sdk-gates)
+CON-07,Gate: screen/nav disabled,instrumentations.navigation.enabled=false screenEnabled → navigate 3 routes,No screen_load or screen_session spans,,,,Automation,screen-navigation.spec.ts: screen_navigation disabled,strict ecommerce E2E (e2e:web-sdk-gates)
+CON-08,Gate: session disabled,instrumentations.session.enabled=false sessionEnabled → fresh load,No session.start or session.end,,,,Automation,m1.spec.ts: CON-08 session feature gate 0,gap-close v2.3
+CON-09,Remote feature gate,Disable js_crash in remote config (not errors),ErrorInstrumentation not installed,,,,Automation,m3-errors.spec.ts: js_crash gate off,strict ecommerce E2E (e2e:web-sdk-gates)
+CON-10,One gate off doesn't kill others,Disable errors gate only,All other signal types still flow,,,,Automation,m4-network.spec.ts CON-10 network on errors off,strict ecommerce E2E v2.4
+Topic 10 — Persistence & Reliability,,,,,,,,,
+PER-01,Signals survive slow collector,Throttle to Slow 3G → use app 30s,All appear in ClickHouse within 60s,,,,Manual,,Slow 3G + signals in CH within 60s
+PER-03,IndexedDB buffer drains on reconnect,Go offline → interact 2 min → go online,Debug panel IndexedDB count > 0 offline; drains to ~0 within 30s,,,,Automation,persistence.spec.ts: PER-03 offline IDB drain,e2e:persistence v2.3
+PER-04,Page refresh doesn't lose buffered data,Go offline → interact → hard-refresh → go online,Pre-refresh signals still appear,,,,Automation,persistence.spec.ts: PER-04 reload replay,e2e:persistence v2.3
+PER-05,No duplicate signals on retry,Collector returns 503 → SDK retries,Count = 1 per unique event,,,,Automation,persistence.spec.ts: PER-05 logs 503→200 once,e2e:persistence v2.3
+Topic 11 — Framework Integration (Next.js + Capacitor),,,,,,,,,
+FW-01,App Router SSR boundary,Check 'use client' on PulseProvider.tsx,"No ""window is not defined"" in server logs",,,,Manual,,SSR server log scan for window is not defined
+FW-02,App Router navigations captured,Click 4 routes via Next.js <Link>,"screen_load per route, start.type=spa",,,,Automation,nextjs-demo.spec.ts: multi-hop navigation; nextjs web-vitals navigation_id,strict ecommerce E2E (e2e:web-sdk-gates)
+FW-03,Capacitor Android WebView — signals flow,npx cap run android → interact,"session.start, screen_load, clicks present; platform = ""web""",,,,Manual,,Capacitor Android WebView device QA
+Topic 12 — Performance & Overhead,,,,,,,,,
+PERF-01,LCP not degraded,Lighthouse: SDK on vs. off,LCP delta < 100ms (informational),,,,Manual,,Lighthouse SDK on vs off
+PERF-02,No memory leak over navigation,50-route navigation → heap snapshot,Heap growth < 5MB; no growing detached nodes,,,,Manual,,50-route heap snapshot leak check
+PERF-03,Click handler doesn't block main thread,CPU throttle 6× → rapid clicks,No long task > 50ms from SDK,,,,Manual,,CPU throttle long-task <50ms from SDK
+Topic 13 — Attribute Completeness & Value Assertions,,,,,,,,,
+,,,,,,,,,
+Topic 13 — Attribute Completeness & Value Assertions,,,,,,,,,
+TOPIC-13-NETWORK-ATTRS,CH sample network span attrs table,,,,,,Manual,,Post-hoc CH network span sampling table
+TOPIC-13-RESOURCE,Mobile vs desktop resource attribute matrix,,,,,,Manual,,WKWebView vs Chrome resource matrix — device lab
+TOPIC-13-SCREEN-LOAD,CH sample screen_load attrs,,,,,,Manual,,Post-hoc CH screen_load sampling + last.screen.name chain
+TOPIC-13-SCREEN-SESSION,CH sample screen_session attrs,,,,,,Manual,,Post-hoc CH screen_session sampling
+,,,,,,,,,
+Topic 14 — Interaction Flow Tracking (INT-P panel),,,,,,,,,
+INT-P01,Single-event flow completes,Define 1-step flow; Pulse.trackEvent(step_1),interaction span; pulse.interaction.name; is_error=false,,,,Automation,m2-interactions.spec.ts: single-event interaction,e2e:web-sdk-gates
+INT-P02,Two-event flow completes in order,2-step flow; trackEvent step_1 then step_2 within threshold,Span with contract attrs; is_error=false,,,,Automation,m2-interactions.spec.ts: two-event interaction,e2e:web-sdk-gates; span timeline events not asserted in E2E
+INT-P03,Three-event flow completes in order,3-step flow; fire all steps in order within threshold,Span emitted; pulse.interaction.complete_time reflects duration (ns),,,,Automation,m2-interactions.spec.ts: multi-event interaction,e2e:web-sdk-gates
+INT-P04,Apdex — Excellent,Complete flow within uptimeLowerLimitInMs,user_category=Excellent; apdex_score=1.0,,,,Automation,m2-interactions.spec.ts: apdex category Excellent,e2e:web-sdk-gates
+INT-P05,Apdex — Good,Complete between lower and mid limit,user_category=Good; apdex_score=0.5 (band),,,,Automation,m2-interactions.spec.ts: apdex category Good,"E2E asserts score in (0,1) not exact 0.5"
+INT-P06,Apdex — Average,Complete between mid and upper limit,user_category=Average; apdex_score=0.25 (band),,,,Automation,m2-interactions.spec.ts: apdex category Average,"E2E asserts score in (0,1) not exact 0.25"
+INT-P07,Apdex — Poor,Complete beyond uptimeUpperLimitInMs,user_category=Poor; apdex_score=0.0,,,,Automation,m2-interactions.spec.ts: apdex category Poor,e2e:web-sdk-gates
+INT-P08,Two independent flows run and complete,Two single-step flows; complete both independently,Two interaction spans; each is_error=false,,,,Automation,m2-interactions.spec.ts: two independent interactions,e2e:web-sdk-gates
+INT-P09,Step event timestamps appear on span,Complete a 3-step flow,3 span events with correct names between start/end,,,,Automation,m2-interactions.spec.ts: three-step success span includes ordered step events,e2e:web-sdk-gates; asserts OTLP Span.events names + times vs span bounds
+INT-P10,Property operator — EQUALS matches,Filter status EQUALS success; fire status=success,Flow advances / completes,,,,Automation,m2-interactions.spec.ts: property operator EQUALS,e2e:web-sdk-gates
+INT-P11,Property operator — CONTAINS matches,Filter label CONTAINS cart; fire label=add_to_cart,Flow advances,,,,Automation,m2-interactions.spec.ts: property operator CONTAINS,e2e:web-sdk-gates
+INT-P12,Property operator — STARTS_WITH matches,Filter screen STARTSWITH product; fire screen=product_detail,Flow advances,,,,Automation,m2-interactions.spec.ts: property operator STARTSWITH,e2e:web-sdk-gates
+INT-P13,Shared prefix — correct branch completes,Two flows share step_1+step_2; fire step_1 → step_2 → step_3A,Only matching flow emits span,,,,Automation,m2-interactions.spec.ts: shared prefix branching,e2e:web-sdk-gates
+INT-P14,User ID updated mid-interaction,Start flow; Pulse.setUserId(new-user); complete,Span carries updated user.id,,,,Automation,m2-interactions.spec.ts: user id updated mid-interaction,e2e:web-sdk-gates
+INT-P15,Config fetch succeeds after SDK init,Init → background config load → trackEvent,Flow matches; span emitted; no race,,,,Automation,m2-interactions.spec.ts: gotoAndWaitInteractionInit pattern (all tests),Implicit in every m2 test via seed + wait
+INT-P16,Remote feature gate OFF,PulseFeature.INTERACTION=off in remote config; trackEvent,No coordinator; no interaction span,,,,Automation,m2-interactions.spec.ts: remote interaction feature gate off,e2e:web-sdk-gates; seeded pulse_sdk_config + blockActiveConfigFetch (CON-08 pattern)
+INT-P17,Local config disabled,instrumentations.interactions.enabled:false; trackEvent,Feature never starts; no span,,,,Automation,m2-interactions.spec.ts: local interactions instrumentation disabled,e2e:web-sdk-gates; Root.tsx ?pulse_interactions_enabled=0
+INT-P18,Config fetch fails (server down),/v1/interaction-configs/ returns 503; trackEvent,No span; SDK alive; other features work,,,,Automation,m2-interactions.spec.ts: interaction config fetch unavailable,e2e:web-sdk-gates; uses 503 not 500
+INT-P19,Sequence violation — wrong step at stage 1,Flow step_1→step_2; fire step_1 then step_2_WRONG,is_error=true; error.type=sequence_violation,,,,Automation,m2-interactions.spec.ts: sequence violation at stage-1,e2e:web-sdk-gates
+INT-P20,Sequence violation — wrong step at stage 2,3-step flow; fire step_1→step_2→step_3_WRONG,error.type=sequence_violation,,,,Automation,m2-interactions.spec.ts: sequence violation at stage-2,e2e:web-sdk-gates
+INT-P21,Timeout — second step never comes,2-step flow threshold 2000ms; fire step_1; wait >2s,is_error=true; error.type=timeout,,,,Automation,m2-interactions.spec.ts: timeout at stage-1,e2e:web-sdk-gates
+INT-P22,Global blacklist cancels in-flight flow,Global blacklist event after step_1,No completion span; flow cancelled,,,,Automation,m2-interactions.spec.ts: global blacklist cancels,e2e:web-sdk-gates
+INT-P23,Local blacklist cancels flow,Local blacklisted step in flow definition,No completion span; other flows unaffected,,,,Automation,m2-interactions.spec.ts: local blacklisted step,e2e:web-sdk-gates
+INT-P24,trackEvent called before Pulse.init,trackEvent before init,No crash; event dropped,,,,Manual,,Log-only in interaction-feature.ts; no Playwright assertion
+INT-P25,trackEvent called after SDK shutdown,init → shutdown → trackEvent,No crash; no span,,,,Automation,m2-interactions.spec.ts: after Pulse.shutdown trackEvent no interaction spans,e2e:web-sdk-gates
+INT-P26,"First step never fired, second alone",2-step flow; fire only step_2,No span — sequence never started,,,,Automation,m2-interactions.spec.ts: firing only second step of two-step flow,e2e:web-sdk-gates
+INT-P27,Property operator — EQUALS no match,Filter status EQUALS success; fire status=failure,Flow does not advance,,,,Automation,m2-interactions.spec.ts: operator negative match (EQUALS etc.),e2e:web-sdk-gates
+INT-P28,Out-of-order event timestamps,step_2 timeMs earlier than step_1,Timeout error span,,,,Automation,m2-interactions.spec.ts: out-of-order event timestamp,e2e:web-sdk-gates
+INT-P29,Overlapping configs — same stream,Flow A step_1→step_2; Flow B step_1→step_3; fire both,Each flow emits own span,,,,Automation,m2-interactions.spec.ts: overlapping configs,e2e:web-sdk-gates
+INT-P30,Middle step is not skippable,Flow A→B→C; fire A→C (skip B),No completion span,,,,Automation,m2-interactions.spec.ts: middle step not skippable,E2E observes sequence_violation error span (documented behavior)
+INT-P31,Restart after sequence violation,wrong step then correct sequence,Error span + success span,,,,Automation,m2-interactions.spec.ts: restart after sequence violation,e2e:web-sdk-gates
+INT-P32,Multiple global blacklist hits,step_1; two blacklist events; complete later,First cancelled; second attempt succeeds,,,,Automation,m2-interactions.spec.ts: multiple global blacklist hits,e2e:web-sdk-gates
+INT-P33,Uninstall during pending partial sequence,step_1 fired; Pulse.uninstall before step_2,No span; no leak; no crash,,,,Manual,,Unit: interaction-instrumentation uninstall; no m2 E2E
+INT-P34,Config refresh mid-flight,In-flight flow; 30-min config refresh,In-flight uses old defs; new defs for next flow,,,,Manual,,Requires time-mocked 30min refresh; not in gates
+INT-P35,Empty definitions from server,Config returns [],No span; SDK alive,,,,Automation,m2-interactions.spec.ts: empty interaction config array,e2e:web-sdk-gates
+INT-P36,Invalid config payload (schema mismatch),Config includes {id:bad} missing fields,Warning; definitions rejected; SDK alive,,,,Automation,m2-interactions.spec.ts: mixed valid + invalid config payload,e2e:web-sdk-gates; rejects whole payload when any invalid
+INT-P37,Apdex exact boundary — lower limit,Complete at exactly uptimeLowerLimitInMs,user_category=Excellent,,,,Automation,m2-interactions.spec.ts: apdex exact boundary lower,e2e:web-sdk-gates
+INT-P38,Apdex exact boundary — upper limit,Complete at exactly uptimeUpperLimitInMs,user_category=Average,,,,Automation,m2-interactions.spec.ts: apdex exact boundary (with lower+mid),e2e:web-sdk-gates
+INT-P39,"Shared prefix — first branch terminal, second alive",Two flows share prefix; complete flow A terminal,Flow A span; Flow B still waiting,,,,Automation,m2-interactions.spec.ts: shared prefix branching,Branching test covers terminal per branch; not explicit wait state
+INT-P40,complete_time nanos vs span start/end,Complete any flow; inspect OTLP,complete_time ≈ end-start within 1ms,,,,Automation,m2-interactions.spec.ts: complete_time nanos consistent,e2e:web-sdk-gates
+INT-P41,Error span forces poor apdex,Timeout or sequence_violation,apdex_score=0.0; user_category=Poor,,,,Automation,m2-interactions.spec.ts: timeout stage-1 + sequence violation stage-1,e2e:web-sdk-gates; asserts apdex_score and user_category on error terminals
+INT-P42,pulse.interaction.config.id empty when missing,Config definition without id field,"pulse.interaction.config.id=""""",,,,Manual,,No E2E for missing id; makeConfig always sets id

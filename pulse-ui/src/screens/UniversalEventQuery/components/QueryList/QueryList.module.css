@@ -1,0 +1,23 @@
+.queryListContainer {
+  border-radius: 8px;
+  background-color: #fff;
+  flex-direction: column;
+}
+
+.tableScrollable {
+  height: 70vh;
+  overflow-y: auto;
+  margin-bottom: 16px;
+}
+
+.loader {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.error {
+  display: flex;
+  justify-content: center !important;
+  min-height: 70vh;
+}

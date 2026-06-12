@@ -1,0 +1,35 @@
+# Pulse session-capture — Prometheus scrape job
+#
+# TWO INSTANCES + ONE NLB + ONE ROUTE53 NAME
+# -----------------------------------------
+# Do NOT scrape only the Route53/NLB hostname for metrics: each request is load-balanced, so each
+# Prometheus scrape hits a random instance — time series flicker and rates/alerts are wrong.
+#
+# Instead, scrape EACH EC2 backend directly on the app port (same PORT as Secrets Manager, default 3400):
+#   - Use private IPs from the ASG (Console → EC2 → instances → Private IPv4), or
+#   - Use per-instance DNS (ip-10-x-x-x.region.compute.internal), or
+#   - Use Prometheus AWS EC2 service discovery filtered by ASG/tag (advanced).
+#
+# Paste ONE `- job_name:` block below into your existing `scrape_configs:` list.
+
+- job_name: pulse_session_capture
+  scrape_interval: 15s
+  scrape_timeout: 10s
+  metrics_path: /metrics
+  scheme: http
+  static_configs:
+    - targets:
+        # Replace with your instance private IP(s), e.g. "10.0.0.10:3400"
+        - "REPLACE_WITH_INSTANCE_PRIVATE_IP:3400"
+      labels:
+        env: production
+        service: pulse-session-capture
+  relabel_configs:
+    - source_labels: [ __address__ ]
+      regex: "([^:]+):.*"
+      target_label: instance
+      replacement: "${1}"
+
+# Aggregating in Grafana/PromQL across replicas (optional):
+#   sum(rate(http_requests_total{service="pulse-session-capture"}[5m]))
+#   sum(capture_events_received_total{service="pulse-session-capture"})

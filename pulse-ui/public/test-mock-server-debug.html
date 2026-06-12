@@ -1,0 +1,310 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mock Server Debug Test</title>
+    <style>
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          sans-serif;
+        max-width: 1000px;
+        margin: 0 auto;
+        padding: 20px;
+        background-color: #f5f5f5;
+      }
+      .container {
+        background: white;
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      }
+      .header {
+        background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+        color: white;
+        padding: 20px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+      }
+      .debug-section {
+        background: #f8f9fa;
+        border: 1px solid #e9ecef;
+        border-radius: 4px;
+        padding: 15px;
+        margin: 10px 0;
+      }
+      .debug-section h4 {
+        margin-top: 0;
+        color: #495057;
+      }
+      .json-display {
+        background: #f8f9fa;
+        border: 1px solid #e9ecef;
+        border-radius: 4px;
+        padding: 15px;
+        margin-top: 10px;
+        font-family: "Courier New", monospace;
+        font-size: 12px;
+        white-space: pre-wrap;
+        max-height: 300px;
+        overflow-y: auto;
+      }
+      .btn {
+        background: #007bff;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+        margin-right: 10px;
+        margin-bottom: 10px;
+      }
+      .btn:hover {
+        background: #0056b3;
+      }
+      .btn-success {
+        background: #28a745;
+      }
+      .btn-success:hover {
+        background: #1e7e34;
+      }
+      .status-indicator {
+        display: inline-block;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        margin-right: 8px;
+      }
+      .status-success {
+        background: #28a745;
+      }
+      .status-error {
+        background: #dc3545;
+      }
+      .status-warning {
+        background: #ffc107;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="header">
+      <h1>🔍 Mock Server Debug Test</h1>
+      <p>Debugging why user details are not showing up</p>
+    </div>
+
+    <div class="container">
+      <h3>Environment Check</h3>
+      <div class="debug-section">
+        <h4>Environment Variables</h4>
+        <div id="envCheck">Checking...</div>
+      </div>
+    </div>
+
+    <div class="container">
+      <h3>Mock Server Status</h3>
+      <div class="debug-section">
+        <h4>Mock Server Availability</h4>
+        <div id="mockServerStatus">Checking...</div>
+      </div>
+    </div>
+
+    <div class="container">
+      <h3>API Test</h3>
+      <div class="debug-section">
+        <h4>Direct API Call Test</h4>
+        <button class="btn btn-success" onclick="testDirectAPI()">
+          Test /user/9876543210
+        </button>
+        <div id="apiTestResult">Click the button to test...</div>
+      </div>
+    </div>
+
+    <div class="container">
+      <h3>Console Logs</h3>
+      <div class="debug-section">
+        <h4>Browser Console Output</h4>
+        <div id="consoleLogs">Check browser console for detailed logs...</div>
+      </div>
+    </div>
+
+    <script>
+      // Check environment variables
+      function checkEnvironment() {
+        const envCheck = document.getElementById("envCheck");
+
+        // Check if we're in development mode
+        const isDev =
+          window.location.hostname === "localhost" ||
+          window.location.hostname === "127.0.0.1";
+
+        // Check for React environment variables (these might not be accessible in browser)
+        const reactAppUseMockServer = process?.env?.REACT_APP_USE_MOCK_SERVER;
+
+        envCheck.innerHTML = `
+                <div>
+                    <span class="status-indicator ${isDev ? "status-success" : "status-warning"}"></span>
+                    <strong>Development Mode:</strong> ${isDev ? "Yes" : "No"}
+                </div>
+                <div>
+                    <span class="status-indicator ${reactAppUseMockServer === "true" ? "status-success" : "status-error"}"></span>
+                    <strong>REACT_APP_USE_MOCK_SERVER:</strong> ${reactAppUseMockServer || "undefined"}
+                </div>
+                <div>
+                    <strong>Current URL:</strong> ${window.location.href}
+                </div>
+                <div>
+                    <strong>User Agent:</strong> ${navigator.userAgent}
+                </div>
+            `;
+      }
+
+      // Check mock server availability
+      async function checkMockServer() {
+        const mockServerStatus = document.getElementById("mockServerStatus");
+
+        try {
+          // Try to access the mock server module
+          const response = await fetch("/src/mocks/index.ts");
+          const mockServerStatus = document.getElementById("mockServerStatus");
+
+          if (response.ok) {
+            mockServerStatus.innerHTML = `
+                        <div>
+                            <span class="status-indicator status-success"></span>
+                            <strong>Mock Server Module:</strong> Accessible
+                        </div>
+                        <div>
+                            <strong>Note:</strong> Mock server is loaded dynamically in the React app
+                        </div>
+                    `;
+          } else {
+            mockServerStatus.innerHTML = `
+                        <div>
+                            <span class="status-indicator status-error"></span>
+                            <strong>Mock Server Module:</strong> Not accessible (${response.status})
+                        </div>
+                    `;
+          }
+        } catch (error) {
+          mockServerStatus.innerHTML = `
+                    <div>
+                        <span class="status-indicator status-error"></span>
+                        <strong>Mock Server Module:</strong> Error - ${error.message}
+                    </div>
+                `;
+        }
+      }
+
+      // Test direct API call
+      async function testDirectAPI() {
+        const apiTestResult = document.getElementById("apiTestResult");
+        apiTestResult.innerHTML = "Testing...";
+
+        try {
+          console.log("Testing direct API call to /user/9876543210");
+
+          const response = await fetch("/user/9876543210", {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+            },
+          });
+
+          console.log("Response status:", response.status);
+          console.log("Response headers:", [...response.headers.entries()]);
+
+          const data = await response.json();
+          console.log("Response data:", data);
+
+          const hasError = !!data.error;
+          const statusClass = hasError ? "status-error" : "status-success";
+          const statusText = hasError ? "ERROR" : "SUCCESS";
+
+          apiTestResult.innerHTML = `
+                    <div>
+                        <span class="status-indicator ${statusClass}"></span>
+                        <strong>API Response:</strong> ${statusText} (${response.status})
+                    </div>
+                    <div>
+                        <strong>URL Called:</strong> /user/9876543210
+                    </div>
+                    <div>
+                        <strong>Response Time:</strong> ${Date.now()}ms
+                    </div>
+                    <div class="json-display">${JSON.stringify(data, null, 2)}</div>
+                `;
+        } catch (error) {
+          console.error("API test error:", error);
+          apiTestResult.innerHTML = `
+                    <div>
+                        <span class="status-indicator status-error"></span>
+                        <strong>API Error:</strong> ${error.message}
+                    </div>
+                `;
+        }
+      }
+
+      // Monitor console logs
+      function monitorConsole() {
+        const consoleLogs = document.getElementById("consoleLogs");
+
+        // Override console.log to capture logs
+        const originalLog = console.log;
+        const originalError = console.error;
+        const originalWarn = console.warn;
+
+        let logCount = 0;
+        const maxLogs = 10;
+
+        function addLog(type, args) {
+          if (logCount >= maxLogs) return;
+
+          const logEntry = document.createElement("div");
+          logEntry.style.marginBottom = "5px";
+          logEntry.style.padding = "5px";
+          logEntry.style.backgroundColor =
+            type === "error"
+              ? "#f8d7da"
+              : type === "warn"
+                ? "#fff3cd"
+                : "#d1ecf1";
+          logEntry.style.borderRadius = "3px";
+          logEntry.style.fontSize = "12px";
+          logEntry.innerHTML = `<strong>[${type.toUpperCase()}]</strong> ${Array.from(args).join(" ")}`;
+
+          consoleLogs.appendChild(logEntry);
+          logCount++;
+        }
+
+        console.log = function (...args) {
+          originalLog.apply(console, args);
+          addLog("log", args);
+        };
+
+        console.error = function (...args) {
+          originalError.apply(console, args);
+          addLog("error", args);
+        };
+
+        console.warn = function (...args) {
+          originalWarn.apply(console, args);
+          addLog("warn", args);
+        };
+      }
+
+      // Initialize
+      window.addEventListener("load", () => {
+        checkEnvironment();
+        checkMockServer();
+        monitorConsole();
+
+        // Auto-run API test
+        setTimeout(() => {
+          testDirectAPI();
+        }, 1000);
+      });
+    </script>
+  </body>
+</html>

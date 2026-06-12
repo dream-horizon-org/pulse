@@ -1,0 +1,77 @@
+.eventSequenceItem {
+  border-radius: var(--critical-interaction-form-border-radius);
+  border: 1px solid var(--mantine-color-default-border);
+  padding: var(--mantine-spacing-sm);
+  margin-bottom: var(--mantine-spacing-sm);
+  background-color: white;
+  z-index: 1;
+  position: relative;
+}
+
+.blackListedEventSequenceItem {
+  border: 1px solid var(--mantine-color-red-6);
+}
+
+.eventSequenceItemDragging {
+  box-shadow: var(--mantine-shadow-sm);
+}
+
+.eventSequenceInputAndButtonContainer {
+  display: flex;
+  flex-grow: 1;
+  width: 100%;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.dragHandle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* height: 100%; */
+  color: var(--mantine-color-gray-6);
+  cursor: grab;
+  /* flex-wrap: wrap; */
+}
+
+.eventSequenceButtonsContainer {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  padding-top: 24px;
+  align-items: center;
+}
+
+.eventSequenceActionButtons {
+  display: flex;
+  padding: var(--mantine-spacing-xs) !important;
+  margin-left: var(--mantine-spacing-sm);
+  border: 1px solid var(--mantine-color-black);
+  background-color: transparent;
+  color: var(--mantine-color-black);
+  border-radius: var(--critical-interaction-action-button-border-radius);
+  cursor: pointer;
+  &:hover {
+    border-color: var(--mantine-color-red-6);
+    color: var(--mantine-color-red-6);
+  }
+}
+
+.redColor {
+  background-color: var(--mantine-color-red-6);
+  color: white;
+  border: 1px solid var(--mantine-color-red-6);
+  &:hover {
+    color: white;
+  }
+}
+
+.eventSequenceInputMainContainer {
+  display: flex;
+  flex-direction: column;
+}
+
+.eventMidSequenceInputContainer {
+  display: flex;
+}

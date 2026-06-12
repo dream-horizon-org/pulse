@@ -1,0 +1,65 @@
+.criticalInteractionFormContainer {
+  display: flex;
+  flex-direction: column;
+  padding: var(--mantine-spacing-lg);
+}
+
+.criticalInteractionFormHeading {
+  margin-left: var(--mantine-spacing-lg);
+}
+
+.criticalInteractionFormDivider {
+  margin-top: 3%;
+}
+
+.criticalInteractionStepsDivider {
+  height: 76vh;
+}
+
+.criticalInteractionForm {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+}
+
+.stepperContainer {
+  display: flex;
+  flex-direction: row;
+  max-height: 52vh;
+  width: 25%;
+  background-color: var(--mantine-color-gray-0);
+}
+
+.stepper {
+  width: 100%;
+}
+
+.stepperItem {
+  width: 100%;
+  height: 6vh;
+  display: flex;
+  align-items: center;
+}
+
+.stepperWrapper {
+  margin-left: var(--mantine-spacing-lg);
+}
+
+.form {
+  width: 55%;
+  flex-grow: 1;
+  padding: 2vw;
+}
+
+.modalContainer {
+  display: flex;
+  justify-content: center !important;
+  align-items: center !important;
+  padding: var(--mantine-spacing-lg);
+}
+
+.thresholdLoader {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}

@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Evaluation History Test</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 20px;
+      }
+      .test-result {
+        margin: 10px 0;
+        padding: 10px;
+        border-radius: 4px;
+      }
+      .success {
+        background-color: #d4edda;
+        border: 1px solid #c3e6cb;
+        color: #155724;
+      }
+      .error {
+        background-color: #f8d7da;
+        border: 1px solid #f5c6cb;
+        color: #721c24;
+      }
+      .info {
+        background-color: #d1ecf1;
+        border: 1px solid #bee5eb;
+        color: #0c5460;
+      }
+      button {
+        padding: 10px 20px;
+        margin: 5px;
+        cursor: pointer;
+      }
+      pre {
+        background: #f8f9fa;
+        padding: 10px;
+        border-radius: 4px;
+        overflow-x: auto;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 10px 0;
+      }
+      th,
+      td {
+        border: 1px solid #ddd;
+        padding: 8px;
+        text-align: left;
+      }
+      th {
+        background-color: #f2f2f2;
+      }
+      .badge {
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 12px;
+        font-weight: bold;
+      }
+      .badge-firing {
+        background-color: #f8d7da;
+        color: #721c24;
+      }
+      .badge-normal {
+        background-color: #d4edda;
+        color: #155724;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>📊 Evaluation History Test</h1>
+
+    <div id="status" class="test-result info">
+      <strong>Status:</strong> Ready to test Evaluation History data structure
+    </div>
+
+    <div>
+      <label for="alertIdInput">Alert ID:</label>
+      <input
+        type="number"
+        id="alertIdInput"
+        value="1"
+        min="1"
+        style="margin-right: 10px"
+      />
+      <button onclick="testEvaluationHistory()">Test Evaluation History</button>
+      <button onclick="testAllAlertIds()">Test All Alert IDs</button>
+    </div>
+
+    <div id="results"></div>
+
+    <script>
+      // Set environment variables for testing
+      window.process = window.process || {};
+      window.process.env = {
+        ...window.process.env,
+        REACT_APP_USE_MOCK_SERVER: "true",
+        REACT_APP_MOCK_DELAY: "100",
+        REACT_APP_MOCK_ERROR_RATE: "0.0",
+        REACT_APP_MOCK_LOGGING: "true",
+      };
+
+      function updateStatus(message, type = "info") {
+        const status = document.getElementById("status");
+        status.className = `test-result ${type}`;
+        status.innerHTML = `<strong>Status:</strong> ${message}`;
+      }
+
+      function addResult(title, data, success = true) {
+        const results = document.getElementById("results");
+        const resultDiv = document.createElement("div");
+        resultDiv.className = `test-result ${success ? "success" : "error"}`;
+        resultDiv.innerHTML = `
+                <h3>${title}</h3>
+                <pre>${JSON.stringify(data, null, 2)}</pre>
+            `;
+        results.appendChild(resultDiv);
+      }
+
+      function renderHistoryTable(history) {
+        const results = document.getElementById("results");
+        const tableDiv = document.createElement("div");
+        tableDiv.innerHTML = `
+                <h3>📊 Evaluation History Table</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Reading</th>
+                            <th>Threshold</th>
+                            <th>Total Interactions</th>
+                            <th>Success Interactions</th>
+                            <th>Error Interactions</th>
+                            <th>State</th>
+                            <th>Evaluation Time</th>
+                            <th>Evaluated At</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${history
+                          .map(
+                            (item) => `
+                            <tr>
+                                <td>${item.reading.toFixed(3)}</td>
+                                <td>${item.threshold}</td>
+                                <td>${item.total_interaction_count}</td>
+                                <td>${item.success_interaction_count}</td>
+                                <td>${item.error_interaction_count}</td>
+                                <td><span class="badge badge-${item.current_state.toLowerCase()}">${item.current_state}</span></td>
+                                <td>${item.evaluation_time.toFixed(2)}s</td>
+                                <td>${new Date(item.evaluated_at).toLocaleString()}</td>
+                            </tr>
+                        `,
+                          )
+                          .join("")}
+                    </tbody>
+                </table>
+            `;
+        results.appendChild(tableDiv);
+      }
+
+      async function testEvaluationHistory() {
+        updateStatus("Testing Evaluation History data structure...", "info");
+        const alertId = document.getElementById("alertIdInput").value;
+
+        try {
+          const response = await fetch(
+            `/v1/alert/${alertId}/evaluationHistory`,
+          );
+          const data = await response.json();
+
+          if (response.ok) {
+            addResult(
+              `✅ Evaluation History Test for ID ${alertId}`,
+              {
+                status: response.status,
+                totalEvaluations: data.data?.length || 0,
+                dataStructure:
+                  "Array of evaluation history items (after processServerResponse)",
+                sampleItem: data.data?.[0] || null,
+              },
+              true,
+            );
+
+            if (data.data && data.data.length > 0) {
+              renderHistoryTable(data.data);
+            }
+          } else {
+            addResult(
+              `❌ Evaluation History Test Failed for ID ${alertId}`,
+              {
+                status: response.status,
+                error: data.error || data.message,
+              },
+              false,
+            );
+          }
+        } catch (error) {
+          addResult(
+            `❌ Evaluation History Test Failed for ID ${alertId}`,
+            { error: error.message },
+            false,
+          );
+        }
+      }
+
+      async function testAllAlertIds() {
+        updateStatus("Testing Evaluation History for all alert IDs...", "info");
+        document.getElementById("results").innerHTML = "";
+
+        for (let alertId = 1; alertId <= 5; alertId++) {
+          try {
+            const response = await fetch(
+              `/v1/alert/${alertId}/evaluationHistory`,
+            );
+            const data = await response.json();
+
+            if (response.ok) {
+              addResult(
+                `✅ Alert ID ${alertId} - ${data.data?.length || 0} evaluations`,
+                {
+                  status: response.status,
+                  totalEvaluations: data.data?.length || 0,
+                  sampleItem: data.data?.[0] || null,
+                },
+                true,
+              );
+            } else {
+              addResult(
+                `❌ Alert ID ${alertId} - Failed`,
+                {
+                  status: response.status,
+                  error: data.error || data.message,
+                },
+                false,
+              );
+            }
+          } catch (error) {
+            addResult(
+              `❌ Alert ID ${alertId} - Error`,
+              { error: error.message },
+              false,
+            );
+          }
+
+          // Small delay between requests
+          await new Promise((resolve) => setTimeout(resolve, 100));
+        }
+
+        updateStatus("All alert IDs tested!", "success");
+      }
+
+      // Auto-run test on page load
+      window.onload = function () {
+        updateStatus(
+          "Evaluation History test page loaded. Click buttons to test data structure.",
+          "info",
+        );
+      };
+    </script>
+  </body>
+</html>

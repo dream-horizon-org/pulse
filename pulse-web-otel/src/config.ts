@@ -1,0 +1,72 @@
+import type { PulseWebConfig } from "./types/config";
+import { validateBeforeSendConfig } from "./before-send";
+
+export { PulseDataCollectionConsent } from "./types/config";
+export { InstrumentationKeys } from "./types/config";
+export type {
+  InstrumentationKey,
+  InstrumentationConfig,
+  PulseWebDiskBufferingConfig,
+  PulseWebConfig,
+} from "./types/config";
+export type {
+  PulseBeforeSendResult,
+  PulseExportSignal,
+  PulseWebBeforeSendCallbacks,
+  PulseWebBeforeSendConfig,
+} from "./types/before-send";
+export { PulseLogLevel } from "./pulse-log-level";
+
+export function validateConfig(config: PulseWebConfig): void {
+  if (!config.apiKey) throw new Error("[Pulse] apiKey is required");
+  validateBeforeSendConfig(config.beforeSendData);
+  const diskOn = config.diskBuffering?.enabled !== false;
+  const disk = config.diskBuffering;
+  if (diskOn && disk !== undefined) {
+    if (
+      disk.maxAgeMs !== undefined &&
+      (!Number.isFinite(disk.maxAgeMs) || disk.maxAgeMs <= 0)
+    ) {
+      throw new Error(
+        "[Pulse] diskBuffering.maxAgeMs must be a positive finite number",
+      );
+    }
+    if (
+      disk.maxCacheSizeBytes !== undefined &&
+      (!Number.isFinite(disk.maxCacheSizeBytes) || disk.maxCacheSizeBytes <= 0)
+    ) {
+      throw new Error(
+        "[Pulse] diskBuffering.maxCacheSizeBytes must be a positive finite number",
+      );
+    }
+  }
+}
+
+export const PULSE_PROD_ENDPOINT_URL =
+  "https://pulse-otel-collector.pulse-ux.com";
+
+/**
+ * Mirrors Android's PulseSDKInternal.isApiLocalDev().
+ * Matches: default-project* — covers default-project_devkey01 and
+ * project slugs like default-project-lottery-<id>_<secret>.
+ */
+export function isLocalEnvironment(apiKey: string): boolean {
+  return /^default-project.*_.*/.test(apiKey);
+}
+
+/**
+ * Mirrors Android's PulseEndpointUtils.getBaseUrl().
+ * Local: http://localhost:4318
+ * Prod: https://pulse-otel-collector.pulse-ux.com
+ * Internal only — not part of the public config surface.
+ */
+export function resolveEndpointBaseUrl(
+  apiKey: string,
+  provided?: string,
+): string {
+  if (provided) return provided;
+  if (isLocalEnvironment(apiKey)) {
+    return "http://localhost:4318";
+  }
+  return PULSE_PROD_ENDPOINT_URL;
+}

@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>User Not Found Test</title>
+    <style>
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          sans-serif;
+        max-width: 600px;
+        margin: 0 auto;
+        padding: 20px;
+        background-color: #f5f5f5;
+      }
+      .container {
+        background: white;
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      }
+      .header {
+        background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+        color: white;
+        padding: 20px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+      }
+      .form-group {
+        margin-bottom: 15px;
+      }
+      .form-group label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: 500;
+      }
+      .form-group input {
+        width: 100%;
+        padding: 8px 12px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 14px;
+      }
+      .btn {
+        background: #dc3545;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+        margin-right: 10px;
+        margin-bottom: 10px;
+      }
+      .btn:hover {
+        background: #c82333;
+      }
+      .results {
+        margin-top: 20px;
+        padding: 15px;
+        background: #f8f9fa;
+        border-radius: 4px;
+        border-left: 4px solid #dc3545;
+      }
+      .error {
+        border-left-color: #dc3545;
+        background: #f8d7da;
+        color: #721c24;
+      }
+      .success {
+        border-left-color: #28a745;
+        background: #d4edda;
+        color: #155724;
+      }
+      .json-display {
+        background: #f8f9fa;
+        border: 1px solid #e9ecef;
+        border-radius: 4px;
+        padding: 15px;
+        margin-top: 10px;
+        font-family: "Courier New", monospace;
+        font-size: 12px;
+        white-space: pre-wrap;
+        max-height: 400px;
+        overflow-y: auto;
+      }
+      .toast-simulation {
+        background: #dc3545;
+        color: white;
+        padding: 15px;
+        border-radius: 4px;
+        margin-top: 10px;
+        font-weight: 500;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="header">
+      <h1>❌ User Not Found Test</h1>
+      <p>Testing that all phone numbers return "User not found" error</p>
+    </div>
+
+    <div class="container">
+      <h3>Test User Search</h3>
+      <div class="form-group">
+        <label for="phoneNumber">Phone Number:</label>
+        <input
+          type="text"
+          id="phoneNumber"
+          placeholder="Enter any 10-digit phone number"
+          maxlength="10"
+          value="9876543210"
+        />
+      </div>
+      <button class="btn" onclick="testAllEndpoints()">
+        Test All Endpoints
+      </button>
+      <div id="results" class="results" style="display: none"></div>
+    </div>
+
+    <div class="container">
+      <h3>Expected Behavior</h3>
+      <p>All user-related endpoints should return:</p>
+      <ul>
+        <li><strong>Status:</strong> 404 (Not Found)</li>
+        <li><strong>Error Code:</strong> USER_NOT_FOUND</li>
+        <li><strong>Message:</strong> "User not found"</li>
+        <li>
+          <strong>Cause:</strong> "No user found with the provided phone number"
+        </li>
+      </ul>
+      <p>
+        This should trigger a toast notification in the UI saying "User not
+        found".
+      </p>
+    </div>
+
+    <script>
+      async function makeRequest(url, options = {}) {
+        try {
+          const response = await fetch(url, {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            ...options,
+          });
+          return await response.json();
+        } catch (error) {
+          return { error: error.message };
+        }
+      }
+
+      function showResults(data, isError = false) {
+        const element = document.getElementById("results");
+        element.style.display = "block";
+        element.className = `results ${isError ? "error" : "success"}`;
+
+        let html = "<h4>Test Results:</h4>";
+
+        if (data.userDetails) {
+          html += `
+                    <div class="test-result">
+                        <h5>User Details API:</h5>
+                        <div class="json-display">${JSON.stringify(data.userDetails, null, 2)}</div>
+                        ${data.userDetails.error ? '<div class="toast-simulation">🔴 Toast: "User not found"</div>' : ""}
+                    </div>
+                `;
+        }
+
+        if (data.lastActive) {
+          html += `
+                    <div class="test-result">
+                        <h5>User Last Active API:</h5>
+                        <div class="json-display">${JSON.stringify(data.lastActive, null, 2)}</div>
+                        ${data.lastActive.error ? '<div class="toast-simulation">🔴 Toast: "User not found"</div>' : ""}
+                    </div>
+                `;
+        }
+
+        if (data.experiments) {
+          html += `
+                    <div class="test-result">
+                        <h5>User Experiments API:</h5>
+                        <div class="json-display">${JSON.stringify(data.experiments, null, 2)}</div>
+                        ${data.experiments.error ? '<div class="toast-simulation">🔴 Toast: "User not found"</div>' : ""}
+                    </div>
+                `;
+        }
+
+        element.innerHTML = html;
+      }
+
+      async function testAllEndpoints() {
+        const phoneNumber = document.getElementById("phoneNumber").value;
+
+        if (!phoneNumber || phoneNumber.length !== 10) {
+          showResults(
+            { error: "Please enter a valid 10-digit phone number" },
+            true,
+          );
+          return;
+        }
+
+        try {
+          const [userDetails, lastActive, experiments] = await Promise.all([
+            makeRequest(`/user/${phoneNumber}`),
+            makeRequest(`/user/${phoneNumber}/active-today`),
+            makeRequest(`/user/${phoneNumber}/experiments`),
+          ]);
+
+          const allHaveErrors =
+            userDetails.error && lastActive.error && experiments.error;
+          const allAreUserNotFound =
+            userDetails.error?.code === "USER_NOT_FOUND" &&
+            lastActive.error?.code === "USER_NOT_FOUND" &&
+            experiments.error?.code === "USER_NOT_FOUND";
+
+          showResults(
+            {
+              userDetails,
+              lastActive,
+              experiments,
+              allHaveErrors,
+              allAreUserNotFound,
+            },
+            !allHaveErrors || !allAreUserNotFound,
+          );
+        } catch (error) {
+          showResults({ error: error.message }, true);
+        }
+      }
+
+      // Auto-test on page load
+      window.addEventListener("load", () => {
+        testAllEndpoints();
+      });
+    </script>
+  </body>
+</html>

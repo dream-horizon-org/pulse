@@ -1,0 +1,131 @@
+.quickLinksGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: var(--mantine-spacing-md);
+  perspective: 1000px;
+}
+
+.quickLinkCard {
+  background: linear-gradient(145deg, #ffffff 0%, #fafbfc 100%);
+  border: 1px solid rgba(14, 201, 194, 0.12);
+  border-radius: 16px;
+  padding: 16px;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+  text-decoration: none;
+  color: inherit;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  position: relative;
+  overflow: hidden;
+  box-shadow:
+    0 4px 12px rgba(14, 201, 194, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  transform-style: preserve-3d;
+}
+
+.quickLinkCard::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, #0ec9c2 0%, #0ba09a 50%, transparent 100%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.quickLinkCard:hover {
+  border-color: rgba(14, 201, 194, 0.25);
+  box-shadow:
+    0 12px 24px rgba(14, 201, 194, 0.12),
+    0 6px 12px rgba(0, 0, 0, 0.04),
+    inset 0 1px 0 rgba(255, 255, 255, 1);
+  transform: translateY(-4px) scale(1.01);
+}
+
+.quickLinkCard:hover::before {
+  opacity: 1;
+}
+
+.quickLinkIcon {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: linear-gradient(
+    135deg,
+    rgba(14, 201, 194, 0.08),
+    rgba(14, 201, 194, 0.15)
+  );
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: #0ba09a;
+  border: 1px solid rgba(14, 201, 194, 0.2);
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+.quickLinkIcon::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: 12px;
+  padding: 1px;
+  background: linear-gradient(135deg, rgba(14, 201, 194, 0.3), transparent);
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.quickLinkCard:hover .quickLinkIcon {
+  background: linear-gradient(
+    135deg,
+    rgba(14, 201, 194, 0.15),
+    rgba(14, 201, 194, 0.25)
+  );
+  transform: scale(1.05) rotate(5deg);
+}
+
+.quickLinkCard:hover .quickLinkIcon::after {
+  opacity: 1;
+}
+
+.quickLinkContent {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.quickLinkTitle {
+  color: var(--mantine-color-dark-8);
+  margin-bottom: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  letter-spacing: -0.2px;
+  transition: color 0.3s ease;
+}
+
+.quickLinkCard:hover .quickLinkTitle {
+  color: #0ba09a;
+}
+
+.quickLinkDescription {
+  color: var(--mantine-color-dark-4);
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  letter-spacing: 0.1px;
+}

@@ -1,0 +1,49 @@
+.eventPropsContainer {
+  display: flex;
+  flex-direction: column;
+}
+
+.propsInputMainContainer {
+  display: flex;
+  flex-direction: column;
+  margin-top: var(--mantine-spacing-md);
+}
+
+.addPropsFilterButton {
+  cursor: pointer;
+  display: flex;
+  justify-content: flex-start;
+  text-align: center;
+  align-items: center;
+  color: var(--mantine-color-blue-6);
+  margin-top: var(--mantine-spacing-sm);
+}
+
+.propsInputContainer {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  display: flex;
+  margin-top: var(--mantine-spacing-md);
+}
+
+.propsInputContainer div {
+  margin-right: var(--critical-interaction-form-margin);
+  flex-grow: 1;
+}
+
+.deletePropsButton {
+  display: flex;
+  /* padding: var(--critical-interaction-action-button-padding);*/
+  align-items: center;
+  border: 1px solid var(--mantine-color-black);
+  background-color: transparent;
+  color: var(--mantine-color-black);
+  cursor: pointer;
+  padding: var(--mantine-spacing-xs) !important;
+  border-radius: var(--critical-interaction-action-button-border-radius);
+  &:hover {
+    border-color: var(--mantine-color-red-6);
+    color: var(--mantine-color-red-6);
+  }
+}

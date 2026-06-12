@@ -1,0 +1,213 @@
+import { useState } from 'react';
+import { Text, View, StyleSheet, ScrollView, Pressable } from 'react-native';
+import { Pulse, PulseLogLevel } from '@dreamhorizonorg/pulse-react-native';
+import ButtonWithTitle from './components/ButtonWithTitle';
+import NavigationExample from './examples/NavigationExample';
+import TraceExample from './examples/TraceExample';
+import StackExample from './examples/StackExample';
+import EventExample from './examples/EventExample';
+import ErrorHandlerExample from './examples/ErrorHandlerExample';
+import NetworkInterceptorExample from './examples/NetworkInterceptorExample';
+import ErrorBoundaryExample from './examples/ErrorBoundaryExample';
+import NativeFeaturesExample from './examples/NativeFeaturesExample';
+import InteractionDemo from './examples/InteractionDemo';
+import PulseAttributesExample from './examples/PulseAttributesExample';
+import SessionReplayExample from './examples/SessionReplayExample';
+import UserManagementExample from './examples/UserManagementExample';
+
+Pulse.start({
+  networkHeaders: {
+    requestHeaders: ['Content-Type', 'Authorization'],
+    responseHeaders: ['Content-Type', 'Cache-Control'],
+  },
+  logLevel: PulseLogLevel.DEBUG,
+});
+
+type DemoConfig = {
+  id: string;
+  label: string;
+  title: string;
+  color: string;
+  component: React.ComponentType;
+};
+
+const DEMO_CONFIGS: DemoConfig[] = [
+  {
+    id: 'sessionReplayMask',
+    label: '🔐 Session Replay Masking',
+    title: 'Session Replay Privacy Masking',
+    color: '#E91E63',
+    component: SessionReplayExample,
+  },
+  {
+    id: 'navigation',
+    label: '🚀 Native Stack Navigation',
+    title: 'Native Stack Navigation Tracking',
+    color: '#2196F3',
+    component: NavigationExample,
+  },
+  {
+    id: 'stack',
+    label: '📱 JS Stack Navigator',
+    title: 'JS Stack Navigation Tracking',
+    color: '#4CAF50',
+    component: StackExample,
+  },
+  {
+    id: 'errorHandler',
+    label: '🛡️ Error Handling',
+    title: 'Global Error Handler & Crash Reports',
+    color: '#F44336',
+    component: ErrorHandlerExample,
+  },
+  {
+    id: 'network',
+    label: '🌐 Network Monitoring',
+    title: 'HTTP Request Interceptor',
+    color: '#9c27b0',
+    component: NetworkInterceptorExample,
+  },
+  {
+    id: 'trace',
+    label: '📊 Tracing & Spans',
+    title: 'Tracing & Spans Tracking',
+    color: '#FF9800',
+    component: TraceExample,
+  },
+  {
+    id: 'event',
+    label: '📝 Event Tracking',
+    title: 'Custom Events & Analytics',
+    color: '#00BCD4',
+    component: EventExample,
+  },
+  {
+    id: 'errorBoundary',
+    label: '🛡️ Error Boundary',
+    title: 'Error Boundary Demo',
+    color: '#FF9800',
+    component: ErrorBoundaryExample,
+  },
+  {
+    id: 'nativeFeatures',
+    label: '🤖 Native Features',
+    title: 'Native Features Testing',
+    color: '#795548',
+    component: NativeFeaturesExample,
+  },
+  {
+    id: 'interaction',
+    label: '🎯 Interaction Demo',
+    title: 'Interaction Event Tracking',
+    color: '#9C27B0',
+    component: InteractionDemo,
+  },
+  {
+    id: 'userManagement',
+    label: '👤 User Management',
+    title: 'User ID & Properties',
+    color: '#607D8B',
+    component: UserManagementExample,
+  },
+  {
+    id: 'pulseAttributes',
+    label: '🧪 PulseAttributes Testing',
+    title: 'PulseAttributes Testing',
+    color: '#E91E63',
+    component: PulseAttributesExample,
+  },
+];
+
+type DemoScreenProps = {
+  demo: DemoConfig;
+  onBack: () => void;
+};
+
+function DemoScreen({ demo, onBack }: DemoScreenProps) {
+  const DemoComponent = demo.component;
+
+  return (
+    <View style={styles.fullContainer}>
+      <Pressable
+        style={({ pressed }) => [
+          styles.backButton,
+          { opacity: pressed ? 0.6 : 1.0 },
+        ]}
+        onPress={onBack}
+      >
+        <Text style={styles.backButtonText}>← Back to Tests</Text>
+      </Pressable>
+      <DemoComponent />
+    </View>
+  );
+}
+
+export default function App() {
+  const [activeDemo, setActiveDemo] = useState<string | null>(null);
+
+  const activeDemoConfig = DEMO_CONFIGS.find((demo) => demo.id === activeDemo);
+
+  if (activeDemoConfig) {
+    return (
+      <DemoScreen demo={activeDemoConfig} onBack={() => setActiveDemo(null)} />
+    );
+  }
+
+  return (
+    <ScrollView contentContainerStyle={styles.container}>
+      <Text style={styles.title}>Pulse React Native OpenTelemetry Test</Text>
+
+      {DEMO_CONFIGS.map((demo) => (
+        <ButtonWithTitle
+          key={demo.id}
+          label={demo.label}
+          title={demo.title}
+          color={demo.color}
+          onPress={() => setActiveDemo(demo.id)}
+        />
+      ))}
+
+      <Text style={styles.info}>
+        Check Android Logcat for OpenTelemetry telemetry data
+      </Text>
+    </ScrollView>
+  );
+}
+
+const styles = StyleSheet.create({
+  fullContainer: {
+    flex: 1,
+  },
+  backButton: {
+    padding: 15,
+    backgroundColor: '#f0f0f0',
+    borderBottomWidth: 1,
+    borderBottomColor: '#ddd',
+    marginTop: 12,
+  },
+  backButtonText: {
+    fontSize: 16,
+    color: '#2196F3',
+    fontWeight: '600',
+  },
+  container: {
+    flexGrow: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20,
+  },
+  title: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 30,
+    textAlign: 'center',
+  },
+
+  info: {
+    marginTop: 30,
+    fontSize: 12,
+    color: '#666',
+    textAlign: 'center',
+    fontStyle: 'italic',
+  },
+});

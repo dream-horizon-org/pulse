@@ -1,0 +1,60 @@
+---
+description: pulse-web-otel — telemetry contract, SPEC map, agent/skills, rule stack (pair with pulse-web-otel-conventions.mdc for code/tests).
+globs: pulse-web-otel/**/*.{ts,tsx,js,json},pulse-web-otel/docs/**/*.md
+alwaysApply: false
+---
+
+# pulse-web-otel — contract & docs
+
+Same npm package / folder **`pulse-web-otel/`** — this file is the **product + wiring** layer (what ships on the wire, where SPECs live, which agent/skills apply). For **how to write TS, tests, and layout**, use **`pulse-web-otel-conventions.mdc`** (narrower glob on `*.ts`/`*.tsx`).
+
+## Rule stack (two layers, one package)
+
+| Rule file | Globs | Role |
+|-----------|-------|------|
+| **`pulse-web-otel-conventions.mdc`** | `pulse-web-otel/**/*.{ts,tsx}` | Conventions — TS style, Vitest/E2E, gates, source layout + folder placement, commits |
+| **`pulse-web-otel-contract.mdc`** (this file) | `pulse-web-otel/**/*.{ts,tsx,js,json}` | Contract — `platform`, `pulse.type`, public API, SPEC map, agent/skills index |
+
+When both match a `.ts`/`.tsx` file, **conventions** win for implementation detail; **contract** still applies for telemetry/API promises.
+
+**Legacy rule filenames (symlinks under `.cursor/rules/`):** `web-sdk.mdc` → contract; `pulse-web-otel.mdc` → conventions.
+
+**Primary agent:** [`pulse-web-sdk.md`](../agents/pulse-web-sdk.md) — loads **web-sdk-ship**, **web-sdk-instrument**, **web-sdk-e2e-matrix** as needed. *(Cursor: `.cursor/agents/pulse-web-sdk.md` → this file; Claude Code: `.claude/agents/pulse-web-sdk.md` → this file.)*
+
+**Skills (canonical under `.agents/skills/`; same paths symlinked as `.cursor/skills/` and `.claude/skills/`):**
+
+| Folder | Purpose |
+|--------|---------|
+| `web-sdk-ship/` | Ship-ready workflow — tests, Step 5 diff audit, doc sync |
+| `web-sdk-instrument/` | Phased instrumentation (research → implementation) |
+| `web-sdk-e2e-matrix/` | `DESIGN.md` / plan folder → exhaustive Playwright matrix |
+
+---
+
+## Canonical docs
+
+1. **`pulse-web-otel/docs/instrumentations/integration/SPEC.md`** — integrate (exports, init, frameworks).
+2. **`pulse-web-otel/docs/sdk-core/SPEC.md`** (rollup) — links to topic `sdk-core/<topic>/SPEC.md`; wire tables: **`sdk-core/data-contract/SPEC.md`**.
+3. **`pulse-web-otel/docs/instrumentations/<feature>/SPEC.md`** — one file per instrumentation area.
+
+## Non-negotiable rules
+
+- Every signal must carry `platform = 'web'`. `pulse.type` and attributes: **`src/semconv.ts`** + **`docs/sdk-core/data-contract/SPEC.md`** — do not invent wire values without an ADR.
+- Public API: only **`src/index.ts`** (and published `package.json` `exports`).
+
+## TypeScript (summary)
+
+- Strict mode; ESM-first; CJS via tsup dual build.
+- No `any` — use `unknown` + type guards.
+
+## Testing (summary)
+
+- Vitest + jsdom; **`yarn e2e:web-sdk-gates`** — **authoritative commands and patterns** live in **`pulse-web-otel-conventions.mdc`**.
+
+## Size budget
+
+- Run **`yarn size-limit`** before adding dependencies or large code paths; limits in **`pulse-web-otel/.size-limit.json`**.
+
+## Progress tracking (optional)
+
+- **`pulse-web-otel/docs/sdk-core/SPEC.md`** (spec index); **`pulse-web-otel/CLAUDE.md`** (package manual).

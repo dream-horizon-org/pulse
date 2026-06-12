@@ -1,0 +1,122 @@
+@file:OptIn(Incubating::class)
+
+package com.pulse.android.sdk
+
+import android.app.Application
+import com.pulse.android.api.otel.PulseBeforeSendData
+import com.pulse.android.api.otel.PulseDataCollectionConsent
+import com.pulse.android.sdk.internal.PulseSDKInternal
+import com.pulse.utils.PulseLogLevel
+import io.opentelemetry.android.Incubating
+import io.opentelemetry.android.OpenTelemetryRum
+import io.opentelemetry.android.agent.dsl.instrumentation.InstrumentationConfiguration
+import io.opentelemetry.api.common.Attributes
+import io.opentelemetry.sdk.resources.ResourceBuilder
+
+/**
+ * Interface defining the public API for the PulseSDK
+ */
+@Suppress("ComplexInterface")
+public interface PulseSDK {
+    public fun isInitialized(): Boolean
+
+    /**
+     * Initialize the Pulse SDK, multiple call to the SDK will be ignored
+     * Call this method at the earliest so that info related app start can be captured more
+     * accurately
+     */
+    public fun initialize(
+        application: Application,
+        apiKey: String,
+        /**
+         * Initial data collection consent state. See [com.pulse.android.api.otel.PulseDataCollectionConsent] for different values
+         */
+        dataCollectionState: PulseDataCollectionConsent,
+        resource: (ResourceBuilder.() -> Unit)? = null,
+        globalAttributes: (() -> Attributes)? = null,
+        beforeSendData: PulseBeforeSendData? = null,
+        logLevel: PulseLogLevel = PulseLogLevel.NONE,
+        instrumentations: (InstrumentationConfiguration.() -> Unit)? = null,
+    )
+
+    /**
+     * Updates the data collection consent state. See [PulseDataCollectionConsent] for all allowed values
+     */
+    public fun setDataCollectionState(newState: PulseDataCollectionConsent)
+
+    /**
+     * Set user id for the session. Setting null will reset the id
+     * Also see [setUserProperty]
+     */
+    public fun setUserId(id: String?)
+
+    /**
+     * Set user property for this session. Passing null will remove the property from the key
+     * Also see [setUserId]
+     */
+    public fun setUserProperty(
+        name: String,
+        value: Any?,
+    )
+
+    /**
+     * Set user properties for this session. Passing null will remove the property from the key
+     * Also see [setUserProperty] and [setUserId]
+     */
+    public fun setUserProperties(builderAction: MutableMap<String, Any?>.() -> Unit)
+
+    public fun trackEvent(
+        name: String,
+        timestampInMs: Long,
+        params: Map<String, Any?> = emptyMap(),
+    )
+
+    public fun trackNonFatal(
+        name: String,
+        timestampInMs: Long,
+        params: Map<String, Any?> = emptyMap(),
+    )
+
+    public fun trackNonFatal(
+        throwable: Throwable,
+        timestampInMs: Long,
+        params: Map<String, Any?> = emptyMap(),
+    )
+
+    /**
+     * Starts the span, executes the action and then close the span automatically.
+     * Also see [startSpan]
+     */
+    public fun <T> trackSpan(
+        spanName: String,
+        params: Map<String, Any?> = emptyMap(),
+        action: () -> T,
+    )
+
+    /**
+     * Starts the span and returns a callback which can be invoked to close the span
+     */
+    public fun startSpan(
+        spanName: String,
+        params: Map<String, Any?> = emptyMap(),
+    ): () -> Unit
+
+    public fun getOtelOrNull(): OpenTelemetryRum?
+
+    public fun getOtelOrThrow(): OpenTelemetryRum
+
+    public fun reportFullyDrawn()
+
+    /**
+     * Shuts down the Pulse SDK: flushes and releases OpenTelemetry resources and uninstalls
+     * instrumentation. After shutdown, the SDK cannot be re-initialized in this process.
+     */
+    public fun shutdown()
+
+    public companion object {
+        @JvmStatic
+        public val INSTANCE: PulseSDK by lazy {
+            PulseSDKAdapter(PulseSDKInternal())
+        }
+    }
+}

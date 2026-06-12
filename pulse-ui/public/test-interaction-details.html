@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Interaction Details Test</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 20px;
+      }
+      .test-result {
+        margin: 10px 0;
+        padding: 10px;
+        border-radius: 4px;
+      }
+      .success {
+        background-color: #d4edda;
+        border: 1px solid #c3e6cb;
+        color: #155724;
+      }
+      .error {
+        background-color: #f8d7da;
+        border: 1px solid #f5c6cb;
+        color: #721c24;
+      }
+      .info {
+        background-color: #d1ecf1;
+        border: 1px solid #bee5eb;
+        color: #0c5460;
+      }
+      button {
+        padding: 10px 20px;
+        margin: 5px;
+        cursor: pointer;
+      }
+      pre {
+        background: #f8f9fa;
+        padding: 10px;
+        border-radius: 4px;
+        overflow-x: auto;
+      }
+      .interaction-card {
+        margin: 10px 0;
+        padding: 15px;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        background: #f9f9f9;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>🔍 Interaction Details Test</h1>
+
+    <div id="status" class="test-result info">
+      <strong>Status:</strong> Ready to test interaction details
+    </div>
+
+    <div>
+      <button onclick="testInteractionDetails('ContestJoinSuccess')">
+        Test ContestJoinSuccess Details
+      </button>
+      <button onclick="testInteractionDetails('CreateTeamSuccess')">
+        Test CreateTeamSuccess Details
+      </button>
+      <button onclick="testInteractionDetails('CreateTeamPageLoaded')">
+        Test CreateTeamPageLoaded Details
+      </button>
+      <button onclick="testAllInteractionDetails()">
+        Test All Interaction Details
+      </button>
+    </div>
+
+    <div id="results"></div>
+
+    <script>
+      // Set environment variables for testing
+      window.process = window.process || {};
+      window.process.env = {
+        ...window.process.env,
+        REACT_APP_USE_MOCK_SERVER: "true",
+        REACT_APP_MOCK_DELAY: "100",
+        REACT_APP_MOCK_ERROR_RATE: "0.0",
+        REACT_APP_MOCK_LOGGING: "true",
+      };
+
+      function updateStatus(message, type = "info") {
+        const status = document.getElementById("status");
+        status.className = `test-result ${type}`;
+        status.innerHTML = `<strong>Status:</strong> ${message}`;
+      }
+
+      function addResult(title, data, success = true) {
+        const results = document.getElementById("results");
+        const resultDiv = document.createElement("div");
+        resultDiv.className = `test-result ${success ? "success" : "error"}`;
+        resultDiv.innerHTML = `
+                <h3>${title}</h3>
+                <pre>${JSON.stringify(data, null, 2)}</pre>
+            `;
+        results.appendChild(resultDiv);
+      }
+
+      function addInteractionCard(interaction) {
+        const results = document.getElementById("results");
+        const cardDiv = document.createElement("div");
+        cardDiv.className = "interaction-card";
+
+        cardDiv.innerHTML = `
+                <h4>${interaction.useCaseName || interaction.name}</h4>
+                <p><strong>Description:</strong> ${interaction.description}</p>
+                <p><strong>Status:</strong> ${interaction.status}</p>
+                <p><strong>Created By:</strong> ${interaction.createdBy}</p>
+                <p><strong>Job ID:</strong> ${interaction.jobId || interaction.id}</p>
+                <p><strong>Event Sequence:</strong> ${interaction.eventSeq?.join(" → ") || "N/A"}</p>
+                <p><strong>Window Interval:</strong> ${interaction.windowInterval}ms</p>
+            `;
+        results.appendChild(cardDiv);
+      }
+
+      async function testInteractionDetails(useCaseName) {
+        updateStatus(
+          `Testing Interaction Details for: ${useCaseName}...`,
+          "info",
+        );
+        try {
+          const response = await fetch(
+            `/v2/getJobDetails?useCaseId=${useCaseName}`,
+          );
+          const data = await response.json();
+
+          addResult(
+            `✅ Interaction Details Test (${useCaseName})`,
+            {
+              status: response.status,
+              useCaseName: useCaseName,
+              hasData: !!data.data,
+              dataKeys: data.data ? Object.keys(data.data) : [],
+            },
+            true,
+          );
+
+          if (data.data) {
+            addInteractionCard(data.data);
+          }
+        } catch (error) {
+          addResult(
+            `❌ Interaction Details Test Failed (${useCaseName})`,
+            { error: error.message },
+            false,
+          );
+        }
+      }
+
+      async function testAllInteractionDetails() {
+        updateStatus("Testing All Interaction Details...", "info");
+        document.getElementById("results").innerHTML = "";
+
+        const interactions = [
+          "ContestJoinSuccess",
+          "CreateTeamSuccess",
+          "CreateTeamPageLoaded",
+          "ContestHomeLanded",
+          "AddCashLoaded",
+          "PaymentSuccess",
+          "ProfileUpdateSuccess",
+          "MatchListLoaded",
+          "WalletRechargeSuccess",
+          "LeaderboardLoaded",
+          "WithdrawRequestSuccess",
+          "LiveScoreLoaded",
+        ];
+
+        for (const interaction of interactions) {
+          await testInteractionDetails(interaction);
+          await new Promise((resolve) => setTimeout(resolve, 100));
+        }
+
+        updateStatus("All interaction details tests completed!", "success");
+      }
+
+      // Auto-run test on page load
+      window.onload = function () {
+        updateStatus(
+          "Interaction details test page loaded. Click buttons to test interaction details.",
+          "info",
+        );
+      };
+    </script>
+  </body>
+</html>

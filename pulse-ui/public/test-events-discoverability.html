@@ -1,0 +1,280 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Events Discoverability Test</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 20px;
+      }
+      .test-result {
+        margin: 10px 0;
+        padding: 10px;
+        border-radius: 4px;
+      }
+      .success {
+        background-color: #d4edda;
+        border: 1px solid #c3e6cb;
+        color: #155724;
+      }
+      .error {
+        background-color: #f8d7da;
+        border: 1px solid #f5c6cb;
+        color: #721c24;
+      }
+      .info {
+        background-color: #d1ecf1;
+        border: 1px solid #bee5eb;
+        color: #0c5460;
+      }
+      button {
+        padding: 10px 20px;
+        margin: 5px;
+        cursor: pointer;
+      }
+      pre {
+        background: #f8f9fa;
+        padding: 10px;
+        border-radius: 4px;
+        overflow-x: auto;
+      }
+      .event-card {
+        border: 1px solid #ddd;
+        padding: 10px;
+        margin: 5px 0;
+        border-radius: 4px;
+        background: #f9f9f9;
+      }
+      .event-header {
+        font-weight: bold;
+        color: #333;
+        margin-bottom: 5px;
+      }
+      .event-details {
+        font-size: 12px;
+        color: #666;
+      }
+      .event-props {
+        margin-top: 5px;
+        padding-left: 10px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>🔍 Events Discoverability Test</h1>
+
+    <div id="status" class="test-result info">
+      <strong>Status:</strong> Ready to test events discoverability
+      functionality
+    </div>
+
+    <div>
+      <label for="phoneInput">Phone Number:</label>
+      <input
+        type="text"
+        id="phoneInput"
+        value="9876543210"
+        style="margin-right: 10px"
+      />
+      <button onclick="testGetUserEvents()">Test Get User Events</button>
+      <button onclick="testMultipleCalls()">
+        Test Multiple Calls (Polling)
+      </button>
+    </div>
+
+    <div id="results"></div>
+
+    <script>
+      // Set environment variables for testing
+      window.process = window.process || {};
+      window.process.env = {
+        ...window.process.env,
+        REACT_APP_USE_MOCK_SERVER: "true",
+        REACT_APP_MOCK_DELAY: "100",
+        REACT_APP_MOCK_ERROR_RATE: "0.0",
+        REACT_APP_MOCK_LOGGING: "true",
+      };
+
+      function updateStatus(message, type = "info") {
+        const status = document.getElementById("status");
+        status.className = `test-result ${type}`;
+        status.innerHTML = `<strong>Status:</strong> ${message}`;
+      }
+
+      function addResult(title, data, success = true) {
+        const results = document.getElementById("results");
+        const resultDiv = document.createElement("div");
+        resultDiv.className = `test-result ${success ? "success" : "error"}`;
+        resultDiv.innerHTML = `
+                <h3>${title}</h3>
+                <pre>${JSON.stringify(data, null, 2)}</pre>
+            `;
+        results.appendChild(resultDiv);
+      }
+
+      function renderEvents(events) {
+        const results = document.getElementById("results");
+        const eventsDiv = document.createElement("div");
+        eventsDiv.innerHTML = "<h3>📋 Generated Events</h3>";
+
+        events.forEach((event, index) => {
+          const eventCard = document.createElement("div");
+          eventCard.className = "event-card";
+          eventCard.innerHTML = `
+                    <div class="event-header">${event.eventName} (${index + 1})</div>
+                    <div class="event-details">
+                        <strong>Event ID:</strong> ${event.eventId}<br>
+                        <strong>Timestamp:</strong> ${new Date(Number(event.globalProps.eventTimestamp) * 1000).toLocaleString()}<br>
+                        <strong>Screen:</strong> ${event.props.screenName}<br>
+                        <strong>Action:</strong> ${event.props.action}<br>
+                        <strong>Category:</strong> ${event.props.category}<br>
+                        <strong>Platform:</strong> ${event.globalProps.platform}<br>
+                        <strong>User ID:</strong> ${event.globalProps.userId}
+                    </div>
+                    <div class="event-props">
+                        <strong>Event Props:</strong><br>
+                        ${Object.entries(event.props)
+                          .map(([key, value]) => `${key}: ${value}`)
+                          .join("<br>")}
+                    </div>
+                `;
+          eventsDiv.appendChild(eventCard);
+        });
+
+        results.appendChild(eventsDiv);
+      }
+
+      async function testGetUserEvents() {
+        updateStatus("Testing Get User Events API...", "info");
+        const phoneNo = document.getElementById("phoneInput").value;
+        const fetchTime = new Date()
+          .toISOString()
+          .slice(0, 19)
+          .replace("T", " ");
+
+        try {
+          const response = await fetch("/v2/getUserEvent", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              phoneNo: phoneNo,
+              fetchTime: fetchTime,
+            }),
+          });
+          const data = await response.json();
+
+          if (response.ok) {
+            addResult(
+              `✅ Get User Events Test for ${phoneNo}`,
+              {
+                status: response.status,
+                eventCount: data.data?.count || 0,
+                sampleEvent: data.data?.events?.[0] || null,
+              },
+              true,
+            );
+
+            if (data.data?.events) {
+              renderEvents(data.data.events);
+            }
+          } else {
+            addResult(
+              `❌ Get User Events Test Failed for ${phoneNo}`,
+              {
+                status: response.status,
+                error: data.error || data.message,
+              },
+              false,
+            );
+          }
+        } catch (error) {
+          addResult(
+            `❌ Get User Events Test Failed for ${phoneNo}`,
+            { error: error.message },
+            false,
+          );
+        }
+      }
+
+      async function testMultipleCalls() {
+        updateStatus("Testing Multiple Calls (Polling Simulation)...", "info");
+        const phoneNo = document.getElementById("phoneInput").value;
+        let fetchTime = new Date().toISOString().slice(0, 19).replace("T", " ");
+
+        // Clear previous results
+        document.getElementById("results").innerHTML = "";
+
+        for (let i = 0; i < 3; i++) {
+          try {
+            const response = await fetch("/v2/getUserEvent", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                phoneNo: phoneNo,
+                fetchTime: fetchTime,
+              }),
+            });
+            const data = await response.json();
+
+            if (response.ok) {
+              addResult(
+                `✅ Polling Call ${i + 1} - ${data.data?.count || 0} events`,
+                {
+                  status: response.status,
+                  eventCount: data.data?.count || 0,
+                  fetchTime: fetchTime,
+                },
+                true,
+              );
+
+              // Update fetchTime for next call (simulate polling)
+              if (data.data?.events && data.data.events.length > 0) {
+                const lastEvent = data.data.events[data.data.events.length - 1];
+                fetchTime = new Date(
+                  Number(lastEvent.globalProps.eventTimestamp) * 1000,
+                )
+                  .toISOString()
+                  .slice(0, 19)
+                  .replace("T", " ");
+              }
+            } else {
+              addResult(
+                `❌ Polling Call ${i + 1} Failed`,
+                {
+                  status: response.status,
+                  error: data.error || data.message,
+                },
+                false,
+              );
+            }
+          } catch (error) {
+            addResult(
+              `❌ Polling Call ${i + 1} Failed`,
+              { error: error.message },
+              false,
+            );
+          }
+
+          // Small delay between calls
+          await new Promise((resolve) => setTimeout(resolve, 500));
+        }
+
+        updateStatus("Multiple calls test completed!", "success");
+      }
+
+      // Auto-run test on page load
+      window.onload = function () {
+        updateStatus(
+          "Test page loaded. Enter phone number and click buttons to test events discoverability.",
+          "info",
+        );
+      };
+    </script>
+  </body>
+</html>

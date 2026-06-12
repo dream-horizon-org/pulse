@@ -1,0 +1,1 @@
+export { AttributeTabs } from "./AttributeTabs";

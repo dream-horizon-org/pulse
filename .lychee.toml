@@ -1,0 +1,48 @@
+timeout = 30
+retry_wait_time = 5
+max_retries = 6
+max_concurrency = 4
+
+# Accept insecure certificates (for self-signed or expired certs)
+insecure = true
+
+# Check link anchors
+include_fragments = true
+
+# excluding links to pull requests and issues is done for performance
+exclude = [
+  "^http://localhost:\\d{4,5}(/.*)?$",
+  '^https://github.com/open-telemetry/opentelemetry-android/(issues|pull)/\d+$',
+  "^https://maven-badges.sml.io/maven-central/io.opentelemetry.android/.*$",
+  "^https://central.sonatype.com/service/rest/repository/browse/maven-snapshots/.*$",
+  # TODO validate why not able to resolve below url
+  "https://www.npmjs.com/package/@dreamhorizonorg/pulse-react-native",
+  # TODO: Exclude placeholder docs URLs until documentation site is live
+  "^https://pulse.dreamhorizon.org/docs/.*$",
+  # iOS SDK docs: legacy standalone repo URLs (private, renamed, or superseded by monorepo)
+  "^https://github\\.com/dream-horizon-org/pulse-ios(\\.git|-sdk(\\.git)?)?$",
+  # Fragment checks against README anchors are brittle; full page is enough
+  "^https://github\\.com/open-telemetry/community#",
+  # Apple Developer Documentation often rate-limits or returns non-200 to automated clients
+  "^https://developer\\.apple\\.com/documentation/",
+  # OTel semconv registry paths move between doc releases
+  "^https://opentelemetry\\.io/docs/specs/semconv/registry/",
+  # GitHub PR listing pages often return 502 to automated clients
+  "^https://github\\.com/open-telemetry/opentelemetry-android/pulls$",
+  # GitHub release pages often return 502 to automated clients
+  "^https://github\\.com/open-telemetry/opentelemetry-java-instrumentation/releases/tag/.*$",
+  # npm returns 403 to unauthenticated / bot clients for org creation, package ACL, and token settings
+  "^https://www\\.npmjs\\.com/org/create$",
+  "^https://www\\.npmjs\\.com/package/@dreamhorizonorg/pulse-web/access$",
+  "^https://www\\.npmjs\\.com/package/@dreamhorizonorg/pulse-web$",
+  "^https://www\\.npmjs\\.com/settings/.*$",
+  # Private repo settings URLs return 404 to unauthenticated API clients
+  "^https://github\\.com/dream-horizon-org/pulse/settings/.*$",
+  # Monorepo root URLs: return 404 to unauthenticated lychee (use GITHUB_TOKEN in CI when repo is private)
+  "^https://github\\.com/dream-horizon-org/pulse(/tree/[^?#\\s]*)?$",
+]
+
+exclude_path = [
+  # TODO also test url with %PUBLIC_URL%
+  "pulse-ui/public/index.html",
+]

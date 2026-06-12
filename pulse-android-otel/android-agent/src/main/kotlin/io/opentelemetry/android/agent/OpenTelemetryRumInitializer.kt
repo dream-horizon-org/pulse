@@ -1,0 +1,204 @@
+/*
+ * Copyright The OpenTelemetry Authors
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+package io.opentelemetry.android.agent
+
+import android.app.Application
+import com.pulse.sampling.models.PulseBatchProcessorConfig
+import io.opentelemetry.android.AndroidResource
+import io.opentelemetry.android.Incubating
+import io.opentelemetry.android.OpenTelemetryRum
+import io.opentelemetry.android.OpenTelemetryRumBuilder
+import io.opentelemetry.android.agent.connectivity.EndpointConnectivity
+import io.opentelemetry.android.agent.connectivity.HttpEndpointConnectivity
+import io.opentelemetry.android.agent.dsl.DiskBufferingConfigurationSpec
+import io.opentelemetry.android.agent.session.SessionConfig
+import io.opentelemetry.android.agent.session.SessionIdTimeoutHandler
+import io.opentelemetry.android.agent.session.SessionManager
+import io.opentelemetry.android.config.OtelRumConfig
+import io.opentelemetry.android.features.diskbuffering.DiskBufferingConfig
+import io.opentelemetry.android.internal.services.Services
+import io.opentelemetry.android.session.SessionProvider
+import io.opentelemetry.api.common.Attributes
+import io.opentelemetry.exporter.otlp.http.logs.OtlpHttpLogRecordExporter
+import io.opentelemetry.exporter.otlp.http.metrics.OtlpHttpMetricExporter
+import io.opentelemetry.exporter.otlp.http.trace.OtlpHttpSpanExporter
+import io.opentelemetry.sdk.common.Clock
+import io.opentelemetry.sdk.logs.SdkLoggerProviderBuilder
+import io.opentelemetry.sdk.logs.export.LogRecordExporter
+import io.opentelemetry.sdk.metrics.SdkMeterProviderBuilder
+import io.opentelemetry.sdk.metrics.export.MetricExporter
+import io.opentelemetry.sdk.resources.ResourceBuilder
+import io.opentelemetry.sdk.trace.SdkTracerProviderBuilder
+import io.opentelemetry.sdk.trace.export.SpanExporter
+import java.util.function.BiFunction
+import kotlin.time.Duration.Companion.minutes
+
+@OptIn(Incubating::class)
+object OpenTelemetryRumInitializer {
+    private lateinit var builder: OpenTelemetryRumBuilder
+
+    @Volatile
+    private var isSetupExportersDone = false
+
+    /**
+     * Opinionated [OpenTelemetryRum] initialization.
+     *
+     * @param application Your android app's application object.
+     * @param shouldStartSendingData If data sending work start immediately
+     * @param endpointBaseUrl The base endpoint for exporting all your signals.
+     * @param endpointHeaders These will be added to each signal export request.
+     * @param spanEndpointConnectivity Span-specific endpoint configuration.
+     * @param logEndpointConnectivity Log-specific endpoint configuration.
+     * @param metricEndpointConnectivity Metric-specific endpoint configuration.
+     * @param resource Configures the resource attributes that are used globally by acting on a [ResourceBuilder].
+     * @param sessionConfig The session configuration, which includes inactivity timeout and maximum lifetime durations.
+     * @param meteredSessionProvider The session configuration for metering
+     * @param globalAttributes Configures the set of global attributes to emit with every span and event.
+     * @param diskBuffering Configures the disk buffering feature.
+     * @param tracerProviderCustomizer Configures the tracer provider
+     * @param meterProviderCustomizer Configures the meter provider
+     * @param loggerProviderCustomizer Configures the logger provider
+     * @param spanExporter To customise [SpanExporter] by default it is [OtlpHttpSpanExporter]
+     * @param logRecordExporter To customise [LogRecordExporter] by default it is [OtlpHttpLogRecordExporter]
+     * @param metricExporter To customise [MetricExporter] by default it is [OtlpHttpMetricExporter]
+     * @param rumConfig [OtelRumConfig] to customise the sdk behaviour
+     * @param shouldIgnoreJavaScriptExceptions When true, native device.crash is not emitted for com.facebook.react.common.JavascriptException
+     * @param batchConfig Optional batch configuration for spans and logs
+     */
+    @Suppress("LongParameterList")
+    @JvmStatic
+    fun initialize(
+        application: Application,
+        shouldStartSendingData: Boolean,
+        endpointBaseUrl: String,
+        endpointHeaders: Map<String, String> = emptyMap(),
+        spanEndpointConnectivity: EndpointConnectivity =
+            HttpEndpointConnectivity.forTraces(
+                endpointBaseUrl,
+                endpointHeaders,
+            ),
+        logEndpointConnectivity: EndpointConnectivity =
+            HttpEndpointConnectivity.forLogs(
+                endpointBaseUrl,
+                endpointHeaders,
+            ),
+        metricEndpointConnectivity: EndpointConnectivity =
+            HttpEndpointConnectivity.forMetrics(
+                endpointBaseUrl,
+                endpointHeaders,
+            ),
+        resource: (ResourceBuilder.() -> Unit)? = null,
+        sessionConfig: SessionConfig = SessionConfig.withDefaults(),
+        meteredSessionProvider: SessionProvider? = null,
+        globalAttributes: (() -> Attributes)? = null,
+        diskBuffering: (DiskBufferingConfigurationSpec.() -> Unit)? = null,
+        tracerProviderCustomizer: BiFunction<SdkTracerProviderBuilder, Application, SdkTracerProviderBuilder>? = null,
+        meterProviderCustomizer: BiFunction<SdkMeterProviderBuilder, Application, SdkMeterProviderBuilder>? = null,
+        loggerProviderCustomizer: BiFunction<SdkLoggerProviderBuilder, Application, SdkLoggerProviderBuilder>? = null,
+        spanExporter: SpanExporter =
+            OtlpHttpSpanExporter
+                .builder()
+                .setEndpoint(spanEndpointConnectivity.getUrl())
+                .setHeaders(spanEndpointConnectivity::getHeaders)
+                .build(),
+        logRecordExporter: LogRecordExporter =
+            OtlpHttpLogRecordExporter
+                .builder()
+                .setEndpoint(logEndpointConnectivity.getUrl())
+                .setHeaders(logEndpointConnectivity::getHeaders)
+                .build(),
+        metricExporter: MetricExporter =
+            OtlpHttpMetricExporter
+                .builder()
+                .setEndpoint(metricEndpointConnectivity.getUrl())
+                .setHeaders(metricEndpointConnectivity::getHeaders)
+                .build(),
+        rumConfig: OtelRumConfig = OtelRumConfig(),
+        shouldIgnoreJavaScriptExceptions: Boolean = false,
+        batchConfig: PulseBatchProcessorConfig? = null,
+    ): OpenTelemetryRum {
+        val diskBufferingConfigurationSpec = DiskBufferingConfigurationSpec()
+        diskBuffering?.invoke(diskBufferingConfigurationSpec)
+        rumConfig.setDiskBufferingConfig(DiskBufferingConfig.create(enabled = diskBufferingConfigurationSpec.isEnabled))
+
+        globalAttributes?.let {
+            rumConfig.setGlobalAttributes(it::invoke)
+        }
+
+        // Build resource with default Android resource and user customization
+        val resourceBuilder = AndroidResource.createDefault(application).toBuilder()
+        resource?.invoke(resourceBuilder)
+        val finalResource = resourceBuilder.build()
+
+        builder =
+            OpenTelemetryRum
+                .builder(application, rumConfig)
+                .apply {
+                    setShouldStartSendingData(shouldStartSendingData)
+                    setResource(finalResource)
+                    setSessionProvider(createSessionProvider(application, sessionConfig))
+                    meteredSessionProvider?.let { setMeteredSessionProvider(it) }
+                    addSpanExporterCustomizer { spanExporter }
+                    addLogRecordExporterCustomizer { logRecordExporter }
+                    addMetricExporterCustomizer { metricExporter }
+                    if (tracerProviderCustomizer != null) addTracerProviderCustomizer(tracerProviderCustomizer)
+                    if (meterProviderCustomizer != null) addMeterProviderCustomizer(meterProviderCustomizer)
+                    if (loggerProviderCustomizer != null) addLoggerProviderCustomizer(loggerProviderCustomizer)
+                    setShouldIgnoreJavaScriptExceptions(shouldIgnoreJavaScriptExceptions)
+                    batchConfig?.batchSpans?.let { setSpanBatchConfig(it.scheduleDelay.toLong(), it.maxExportBatchSize) }
+                    batchConfig?.batchLogs?.let { setLogBatchConfig(it.scheduleDelay.toLong(), it.maxExportBatchSize) }
+                }
+
+        if (shouldStartSendingData) {
+            isSetupExportersDone = true
+        }
+        return builder.build()
+    }
+
+    fun setupExporters() {
+        synchronized(OpenTelemetryRumInitializer) {
+            if (::builder.isInitialized && !isSetupExportersDone) {
+                builder.setupExporters()
+                isSetupExportersDone = true
+            }
+        }
+    }
+
+    fun disposeExporters() {
+        builder.disposeExporters()
+    }
+
+    private fun createSessionProvider(
+        application: Application,
+        sessionConfig: SessionConfig,
+    ): SessionProvider {
+        val timeoutHandler: SessionIdTimeoutHandler? =
+            sessionConfig.backgroundInactivityTimeout?.let {
+                val handler = SessionIdTimeoutHandler(Clock.getDefault(), it)
+                Services.get(application).appLifecycle.registerListener(handler)
+                handler
+            }
+
+        return SessionManager.create(application, timeoutHandler, sessionConfig)
+    }
+
+    @OptIn(Incubating::class)
+    @JvmStatic
+    fun createMeteredSessionManager(application: Application): SessionProvider {
+        val meteredSessionConfig =
+            SessionConfig(
+                backgroundInactivityTimeout = null,
+                maxLifetime = 30.minutes,
+                shouldPersist = true,
+            )
+        return SessionManager.create(
+            application = application,
+            timeoutHandler = null,
+            sessionConfig = meteredSessionConfig,
+            storageKey = "pulse_metered_session_storage",
+        )
+    }
+}

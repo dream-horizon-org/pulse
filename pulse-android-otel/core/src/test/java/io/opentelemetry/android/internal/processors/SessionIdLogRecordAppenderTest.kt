@@ -1,0 +1,67 @@
+/*
+ * Copyright The OpenTelemetry Authors
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+package io.opentelemetry.android.internal.processors
+
+import io.mockk.MockKAnnotations
+import io.mockk.every
+import io.mockk.impl.annotations.MockK
+import io.mockk.verify
+import io.opentelemetry.android.common.RumConstants.Events.EVENT_SESSION_END
+import io.opentelemetry.android.common.RumConstants.Events.EVENT_SESSION_START
+import io.opentelemetry.android.session.SessionProvider
+import io.opentelemetry.api.common.AttributeKey
+import io.opentelemetry.context.Context
+import io.opentelemetry.sdk.logs.ReadWriteLogRecord
+import io.opentelemetry.semconv.incubating.SessionIncubatingAttributes
+import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.Test
+
+private const val SESSION_ID_VALUE = "0666"
+
+class SessionIdLogRecordAppenderTest {
+    @MockK
+    lateinit var sessionProvider: SessionProvider
+
+    @MockK
+    lateinit var log: ReadWriteLogRecord
+
+    @BeforeEach
+    fun setUp() {
+        MockKAnnotations.init(this)
+        every { sessionProvider.getSessionId() }.returns(SESSION_ID_VALUE)
+        every { log.setAttribute(any<AttributeKey<String>>(), any<String>()) } returns log
+    }
+
+    @Test
+    fun `should set sessionId as log record attribute`() {
+        every { log.eventName } returns null
+        val underTest = SessionIdLogRecordAppender(sessionProvider)
+
+        underTest.onEmit(Context.root(), log)
+
+        verify { log.setAttribute(SessionIncubatingAttributes.SESSION_ID, SESSION_ID_VALUE) }
+    }
+
+    @Test
+    fun shouldNotSetSessionIdForSessionStartEvent() {
+        every { log.eventName } returns EVENT_SESSION_START
+        val underTest = SessionIdLogRecordAppender(sessionProvider)
+
+        underTest.onEmit(Context.root(), log)
+
+        verify(exactly = 0) { log.setAttribute(any<AttributeKey<String>>(), any<String>()) }
+    }
+
+    @Test
+    fun shouldNotSetSessionIdForSessionEndEvent() {
+        every { log.eventName } returns EVENT_SESSION_END
+        val underTest = SessionIdLogRecordAppender(sessionProvider)
+
+        underTest.onEmit(Context.root(), log)
+
+        verify(exactly = 0) { log.setAttribute(any<AttributeKey<String>>(), any<String>()) }
+    }
+}

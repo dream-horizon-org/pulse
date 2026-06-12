@@ -1,0 +1,103 @@
+.dateTimeRangePickerContainer {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.dateTimeRangePicker {
+  flex-grow: 1;
+  margin-top: var(--mantine-spacing-xs);
+}
+
+.filterButton {
+  background: linear-gradient(
+    135deg,
+    rgba(14, 201, 194, 0.08),
+    rgba(14, 201, 194, 0.12)
+  );
+  border: 1px solid rgba(14, 201, 194, 0.2);
+  border-radius: 10px;
+  margin: 0;
+  padding: 8px 14px;
+  font-weight: 600;
+  height: auto;
+  color: #0ba09a !important;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 6px rgba(14, 201, 194, 0.08);
+  font-size: 13px !important;
+  letter-spacing: -0.2px;
+}
+
+.filterButton:hover {
+  background: linear-gradient(
+    135deg,
+    rgba(14, 201, 194, 0.12),
+    rgba(14, 201, 194, 0.18)
+  );
+  border-color: rgba(14, 201, 194, 0.3);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(14, 201, 194, 0.15);
+}
+
+.filterButton span {
+  font-size: 13px !important;
+}
+
+.filterIcon {
+  padding-right: 6px;
+  font-weight: bold;
+}
+
+.leftSectionInputText {
+  padding: var(--mantine-spacing-xs);
+}
+
+.timeFilterPopupTitle {
+  font-weight: 500 !important;
+}
+
+.timeFilterPopup {
+  background: linear-gradient(145deg, #ffffff 0%, #fafbfc 100%);
+  border: 1px solid rgba(14, 201, 194, 0.15);
+  border-radius: 12px;
+  box-shadow:
+    0 8px 24px rgba(14, 201, 194, 0.12),
+    0 4px 12px rgba(0, 0, 0, 0.04);
+}
+
+.filterApplyButtonContainer {
+  flex-grow: 1;
+  display: flex;
+  align-items: right;
+  justify-content: right;
+  margin-top: var(--mantine-spacing-sm);
+  gap: var(--mantine-spacing-sm);
+}
+
+.refreshButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  color: #0ba09a !important;
+  background: linear-gradient(
+    135deg,
+    rgba(14, 201, 194, 0.08),
+    rgba(14, 201, 194, 0.12)
+  );
+  border: 1px solid rgba(14, 201, 194, 0.2);
+  border-radius: 8px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 6px rgba(14, 201, 194, 0.08);
+}
+
+.refreshButton:hover {
+  background: linear-gradient(
+    135deg,
+    rgba(14, 201, 194, 0.12),
+    rgba(14, 201, 194, 0.18)
+  );
+  border-color: rgba(14, 201, 194, 0.3);
+  transform: translateY(-1px) rotate(180deg);
+  box-shadow: 0 4px 12px rgba(14, 201, 194, 0.15);
+}

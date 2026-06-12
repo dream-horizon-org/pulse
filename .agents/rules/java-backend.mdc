@@ -1,0 +1,129 @@
+---
+description: Java/Vert.x backend coding conventions for pulse-server
+globs: backend/**/*.java
+alwaysApply: false
+---
+
+# Java Backend Conventions
+
+## Package Structure
+
+```
+org.dreamhorizon.pulseserver/
+├── resources/          # REST controllers, grouped by domain
+│   ├── <domain>/
+│   │   ├── <Domain>Controller.java
+│   │   ├── Rest<Domain>Mapper.java      # MapStruct (REST ↔ service)
+│   │   ├── models/                      # REST request/response DTOs
+│   │   └── validators/                  # Validation logic (where needed)
+│   └── v1/                              # Versioned endpoints
+├── service/            # Business logic, grouped by domain
+│   ├── <domain>/
+│   │   ├── <Domain>Service.java         # Interface
+│   │   ├── impl/
+│   │   │   └── <Domain>ServiceImpl.java # Implementation
+│   │   └── models/                      # Service-layer models
+├── tenant/             # Multi-tenancy domain
+│   ├── TenantService.java
+│   ├── TenantDao.java
+│   ├── TenantFilter.java
+│   ├── TenantContext.java
+│   └── TenantsController.java
+├── dao/                # Data access, grouped by domain
+│   ├── <domain>/
+│   │   ├── <Domain>Dao.java
+│   │   ├── Queries.java                 # SQL as static constants
+│   │   ├── Dao<Domain>Mapper.java       # MapStruct (DAO ↔ service)
+│   │   └── models/                      # Row/DB models
+│   ├── clickhousecredentialsdao/        # ClickHouse tenant credentials
+│   ├── tenantdao/                       # Tenant data access
+├── client/             # External clients (ClickHouse, MySQL, Athena, S3)
+├── config/             # Application configuration
+├── constant/           # Shared constants
+├── dto/                # Shared DTOs
+├── error/              # ServiceError enum
+├── errorgrouping/      # Symbolication and error grouping
+├── guice/              # Guice injector setup
+├── healthcheck/        # Health check endpoints
+├── model/              # Shared domain models
+├── module/             # Guice modules (*Module.java)
+├── rest/               # Response wrappers, error handling
+├── util/               # Utilities
+├── verticle/           # Vert.x verticles (MainVerticle, RestVerticle)
+└── vertx/              # Vert.x helpers
+```
+
+**Caveats on structure:**
+- `service/<domain>/impl/` is used for complex domains (interaction, configs). Simpler services may keep `*ServiceImpl` at the domain level (e.g., `service/query/QueryServiceImpl.java`).
+- `validators/` exists only where complex validation is needed (currently `resources/interaction/validators/`).
+- Query classes are usually `Queries.java`, but some domains use `*Query.java` or `*Queries.java` (e.g., `AlertsQuery.java`, `AthenaJobQueries.java`).
+
+## File Naming
+
+| Type | Convention | Examples |
+|------|------------|---------|
+| REST controllers | `*Controller` | `InteractionController`, `AlertController` |
+| Service interfaces | `*Service` | `InteractionService`, `ConfigService` |
+| Service implementations | `*ServiceImpl` | `InteractionServiceImpl`, `ConfigServiceImpl` |
+| DAOs | `*Dao` | `InteractionDao`, `AlertsDao`, `SdkConfigsDao` |
+| SQL constants | `Queries` (preferred) | `dao/interaction/Queries.java` |
+| MapStruct mappers | `*Mapper` + `INSTANCE` | `RestInteractionMapper`, `DaoInteractionMapper` |
+| Guice modules | `*Module` | `InteractionModule`, `ConfigModule`, `MainModule` |
+| Verticles | `*Verticle` | `MainVerticle`, `RestVerticle` |
+
+## Verticle Pattern
+
+- **`MainVerticle`**: loads config (MySQL, ClickHouse, Athena, WebClient), stores in `SharedDataUtils`, deploys `RestVerticle` (one instance per CPU core)
+- **`RestVerticle`**: extends `AbstractRestVerticle`, scans package for JAX-RS resources, sets up `GuiceInjector`, configures CORS/router
+
+## Service Layer
+
+- Define an **interface** and an **impl** for complex domains in `service/<domain>/impl/`
+- Return RxJava3 `Single<T>`, `Maybe<T>`, or `Completable` — never block
+- Inject via Guice: `@RequiredArgsConstructor(onConstructor = @__({@Inject}))`
+- Annotate with `@Slf4j` for logging
+
+## DAO Layer
+
+- SQL strings live in a `Queries` class (static `UPPER_SNAKE_CASE` constants)
+- Use `MysqlClient` (writer/reader pools) or `ClickhouseQueryService`
+- Name classes `*Dao`
+- DAO-level row models go in `dao/<domain>/models/`
+
+## DTOs
+
+- Lombok `@Data` on all DTOs
+- Jackson `@JsonIgnoreProperties(ignoreUnknown = true)` on response DTOs
+- MapStruct mappers with `INSTANCE = Mappers.getMapper(...)` pattern
+
+## Error Handling
+
+- Use `ServiceError` enum (codes like `BE1001`) implementing `RestError`
+- Throw via `ServiceError.X.getException()` or `getCustomException(message, cause)`
+- Response shape: `Response<T>` with `data` and `Error.of(code, message)`
+
+## REST Controllers
+
+- JAX-RS annotations (`@Path`, `@GET`, `@POST`, etc.) from `vertx-rest`
+- Use `RestResponse.jaxrsRestHandler()` to bridge RxJava to Vert.x
+- Group by domain in `resources/` package
+
+## Validation
+
+- `ConstraintViolation` → 400 with `errors` array
+- Validation logic in dedicated `ValidationModule`
+
+## Testing
+
+- JUnit 5 + Mockito + AssertJ
+- Test classes mirror main package structure in `src/test/java/`
+- Method naming: `should*` (e.g., `shouldThrowExceptionIfInteractionAlreadyPresent`)
+- Group tests with `@Nested` classes for logical groups
+- JaCoCo enforced: **35% overall**, **80% on changed files**
+
+## Code Style
+
+- Google Checkstyle (`.checkstyle/checks.xml`): 140-char lines, 2-space indent
+- No wildcard imports (enforced by Checkstyle `AvoidStarImport`)
+- Constants: `UPPER_SNAKE_CASE`
+- Lombok annotations: `@Data`, `@Slf4j`, `@RequiredArgsConstructor(onConstructor = @__({@Inject}))`

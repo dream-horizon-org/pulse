@@ -1,0 +1,26 @@
+package org.dreamhorizon.pulseserver.resources.configs;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.dreamhorizon.pulseserver.resources.configs.models.PulseConfig;
+import org.dreamhorizon.pulseserver.util.serialization.ObjectMapperFactory;
+import org.dreamhorizon.pulseserver.service.configs.models.ConfigData;
+
+/**
+ * Maps REST {@link PulseConfig} (nested DTOs) to service {@link ConfigData}. Uses Jackson instead of
+ * MapStruct so Kotlin config models ({@code SignalsToSampleEntry}, metrics types, etc.) participate
+ * without MapStruct APT limitations on Kotlin bytecode.
+ */
+public final class RestConfigMapper {
+
+  public static final RestConfigMapper INSTANCE = new RestConfigMapper();
+
+  private static final ObjectMapper MAPPER = ObjectMapperFactory.get();
+
+  private RestConfigMapper() {}
+
+  public ConfigData toServiceCreateConfigRequest(PulseConfig request, String user) {
+    ConfigData data = MAPPER.convertValue(request, ConfigData.class);
+    data.setUser(user);
+    return data;
+  }
+}

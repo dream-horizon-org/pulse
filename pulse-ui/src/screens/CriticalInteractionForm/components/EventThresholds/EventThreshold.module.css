@@ -1,0 +1,43 @@
+.eventThresholdsContainer {
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+}
+
+.infoIcon {
+  margin-left: var(--mantine-spacing-md);
+}
+
+.sectionLabel {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: var(--mantine-spacing-sm);
+}
+
+.thresoldInputContainer {
+  display: flex;
+  flex-direction: column;
+}
+
+.upperThresholdTextInput {
+  margin-top: var(--mantine-spacing-lg);
+}
+
+.sectionButtons {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-top: 50px !important;
+}
+
+.sectionButton {
+  margin-left: var(--mantine-spacing-sm);
+}
+
+.userActionCategoriesContainer {
+  padding-left: var(--mantine-spacing-lg) !important;
+  border-left: 1px solid var(--mantine-color-gray-3);
+}

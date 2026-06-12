@@ -1,0 +1,126 @@
+pipeline {
+    agent {
+        node { label 'pulse-artifact-build-default-ec2-fleet' }
+    }
+
+    options {
+        ansiColor('xterm')
+    }
+
+    environment {
+        ARTIFACT_VERSION = ''
+        GITBOT_USERNAME = credentials('github-bot-username')
+        DEPLOYMENT_SLACK_CHANNEL = credentials('DEPLOYMENT_SLACK_CHANNEL')
+    }
+
+    stages {
+        stage('Clear Existing Workspace') {
+            steps {
+                cleanWs()
+            }
+        }
+
+        stage('Clone repository') {
+            steps {
+                checkout([
+                        $class: 'GitSCM',
+                        branches: [[name: '*/main']],
+                        userRemoteConfigs: [[url: 'https://github.com/dream-horizon-org/pulse.git', credentialsId: 'd11-horizon-bot']]
+                ])
+            }
+        }
+
+        stage('Read Version') {
+            steps {
+                script {
+                    // Get version from pyproject.toml
+                    def version = sh(
+                        script: """
+                            cd pulse_ai
+                            if [ -f pyproject.toml ]; then
+                                grep -E '^version' pyproject.toml | head -1 | sed 's/version = "//;s/"//' | tr -d '[:space:]'
+                            else
+                                echo "0.1.0"
+                            fi
+                        """,
+                        returnStdout: true
+                    ).trim()
+
+                    ARTIFACT_VERSION = "${version}"
+                    echo "Version to be published: ${ARTIFACT_VERSION}"
+                }
+            }
+        }
+
+        stage('Publish Artifact') {
+            steps {
+                script {
+                    sh """
+                            #!/bin/bash -el
+                            chmod +x ./deploy/jenkinsfile/pulse-ai/publish-artifact.sh
+                            ./deploy/jenkinsfile/pulse-ai/publish-artifact.sh -v ${ARTIFACT_VERSION}
+                        """
+                }
+            }
+        }
+
+        stage('Bump Version') {
+            steps {
+                script {
+                    withCredentials([usernamePassword(credentialsId: 'yasir6jan', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_TOKEN')]) {
+                        def nextVersion = bumpMinorVersion(ARTIFACT_VERSION)
+                        sh """
+                            #!/bin/bash -el
+                            cd pulse_ai
+
+                            # Update version in pyproject.toml if it exists
+                            if [ -f pyproject.toml ]; then
+                                sed -i 's/^version = "[0-9]\\+.[0-9]\\+.[0-9]\\+"/version = "${nextVersion}"/' pyproject.toml
+
+                                git config user.email "${GITBOT_USERNAME}@users.noreply.github.com"
+                                git config user.name "${GITBOT_USERNAME}"
+
+                                git add pyproject.toml
+                                git commit -m "chore: bump pulse-ai version to ${nextVersion}"
+                                git push https://\${GIT_USER}:\${GIT_TOKEN}@github.com/dream-horizon-org/pulse.git HEAD:main
+                            else
+                                echo "No pyproject.toml found, skipping version bump"
+                            fi
+                        """
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            script {
+                wrap([$class: 'BuildUser']) {
+                    def message = "<!channel> Pulse AI version *${ARTIFACT_VERSION}* published to CodeArtifact by ${BUILD_USER_EMAIL}\n" +
+                            "<${env.BUILD_URL}|${env.JOB_NAME} ${env.BUILD_DISPLAY_NAME}>"
+                    def channel = "${env.DEPLOYMENT_SLACK_CHANNEL}"
+                    slackSend(teamDomain: 'dreamsports.enterprise', channel: channel, color: 'good', message: message, tokenCredentialId: 'slack-creds', botUser: true)
+                }
+            }
+        }
+        failure {
+            script {
+                wrap([$class: 'BuildUser']) {
+                    def message = "<!channel> Pulse AI version *${ARTIFACT_VERSION}* publish failed (triggered by ${BUILD_USER_EMAIL})\n" +
+                            "<${env.BUILD_URL}|${env.JOB_NAME} ${env.BUILD_DISPLAY_NAME}>"
+                    def channel = "${env.DEPLOYMENT_SLACK_CHANNEL}"
+                    slackSend(teamDomain: 'dreamsports.enterprise', channel: channel, color: 'danger', message: message, tokenCredentialId: 'slack-creds', botUser: true)
+                }
+            }
+        }
+    }
+}
+
+// Helper functions for version management
+def bumpMinorVersion(String version) {
+    def parts = version.tokenize('.')
+    def major = parts[0] as int
+    def minor = parts.size() > 1 ? parts[1] as int : 0
+    return "${major}.${minor + 1}.0"
+}

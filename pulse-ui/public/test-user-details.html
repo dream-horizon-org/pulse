@@ -1,0 +1,340 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>User Details Test</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 20px;
+      }
+      .test-result {
+        margin: 10px 0;
+        padding: 10px;
+        border-radius: 4px;
+      }
+      .success {
+        background-color: #d4edda;
+        border: 1px solid #c3e6cb;
+        color: #155724;
+      }
+      .error {
+        background-color: #f8d7da;
+        border: 1px solid #f5c6cb;
+        color: #721c24;
+      }
+      .info {
+        background-color: #d1ecf1;
+        border: 1px solid #bee5eb;
+        color: #0c5460;
+      }
+      button {
+        padding: 10px 20px;
+        margin: 5px;
+        cursor: pointer;
+      }
+      pre {
+        background: #f8f9fa;
+        padding: 10px;
+        border-radius: 4px;
+        overflow-x: auto;
+      }
+      .user-section {
+        border: 1px solid #ddd;
+        padding: 15px;
+        margin: 10px 0;
+        border-radius: 4px;
+        background: #f9f9f9;
+      }
+      .user-header {
+        font-weight: bold;
+        color: #333;
+        margin-bottom: 10px;
+      }
+      .user-details {
+        font-size: 14px;
+        color: #666;
+      }
+      .user-field {
+        margin: 5px 0;
+        padding: 5px;
+        background: #fff;
+        border-radius: 3px;
+      }
+      .field-name {
+        font-weight: bold;
+        color: #333;
+      }
+      .field-value {
+        color: #666;
+        margin-left: 10px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>👤 User Details Test</h1>
+
+    <div id="status" class="test-result info">
+      <strong>Status:</strong> Ready to test user details functionality
+    </div>
+
+    <div class="user-section">
+      <div class="user-header">Test User Details API</div>
+      <button onclick="testUserDetails()">
+        Test User Details (Valid Phone)
+      </button>
+      <button onclick="testUserDetailsInvalid()">
+        Test User Details (Invalid Phone)
+      </button>
+      <button onclick="testUserLastActive()">
+        Test User Last Active Today
+      </button>
+    </div>
+
+    <div id="results"></div>
+
+    <script>
+      // Set environment variables for testing
+      window.process = window.process || {};
+      window.process.env = {
+        ...window.process.env,
+        REACT_APP_USE_MOCK_SERVER: "true",
+        REACT_APP_MOCK_DELAY: "100",
+        REACT_APP_MOCK_ERROR_RATE: "0.0",
+        REACT_APP_MOCK_LOGGING: "true",
+      };
+
+      function updateStatus(message, type = "info") {
+        const status = document.getElementById("status");
+        status.className = `test-result ${type}`;
+        status.innerHTML = `<strong>Status:</strong> ${message}`;
+      }
+
+      function addResult(title, data, success = true) {
+        const results = document.getElementById("results");
+        const resultDiv = document.createElement("div");
+        resultDiv.className = `test-result ${success ? "success" : "error"}`;
+        resultDiv.innerHTML = `
+                <h3>${title}</h3>
+                <pre>${JSON.stringify(data, null, 2)}</pre>
+            `;
+        results.appendChild(resultDiv);
+      }
+
+      function renderUserDetails(userDetails) {
+        if (!userDetails) return;
+
+        const results = document.getElementById("results");
+        const userDiv = document.createElement("div");
+        userDiv.className = "user-section";
+        userDiv.innerHTML = `
+                <div class="user-header">👤 User Details</div>
+                <div class="user-details">
+                    <div class="user-field">
+                        <span class="field-name">User ID:</span>
+                        <span class="field-value">${userDetails.userId}</span>
+                    </div>
+                    <div class="user-field">
+                        <span class="field-name">Phone:</span>
+                        <span class="field-value">${userDetails.phoneNumber}</span>
+                    </div>
+                    <div class="user-field">
+                        <span class="field-name">Email:</span>
+                        <span class="field-value">${userDetails.email}</span>
+                    </div>
+                    <div class="user-field">
+                        <span class="field-name">Name:</span>
+                        <span class="field-value">${userDetails.firstName} ${userDetails.lastName}</span>
+                    </div>
+                    <div class="user-field">
+                        <span class="field-name">Platform:</span>
+                        <span class="field-value">${userDetails.platform}</span>
+                    </div>
+                    <div class="user-field">
+                        <span class="field-name">App Version:</span>
+                        <span class="field-value">${userDetails.appVersion}</span>
+                    </div>
+                    <div class="user-field">
+                        <span class="field-name">Total Deposits:</span>
+                        <span class="field-value">₹${userDetails.totalDeposits}</span>
+                    </div>
+                    <div class="user-field">
+                        <span class="field-name">Total Winnings:</span>
+                        <span class="field-value">₹${userDetails.totalWinnings}</span>
+                    </div>
+                    <div class="user-field">
+                        <span class="field-name">Location:</span>
+                        <span class="field-value">${userDetails.city}, ${userDetails.state}, ${userDetails.country}</span>
+                    </div>
+                </div>
+            `;
+        results.appendChild(userDiv);
+      }
+
+      function renderLastActiveData(lastActiveData) {
+        if (!lastActiveData || !lastActiveData.rows) return;
+
+        const results = document.getElementById("results");
+        const activeDiv = document.createElement("div");
+        activeDiv.className = "user-section";
+
+        const timestamp = lastActiveData.rows[0]?.f?.[0]?.v;
+        const lastActiveTime = timestamp
+          ? new Date(parseInt(timestamp) * 1000).toLocaleString()
+          : "Unknown";
+
+        activeDiv.innerHTML = `
+                <div class="user-header">⏰ Last Active Today</div>
+                <div class="user-details">
+                    <div class="user-field">
+                        <span class="field-name">Last Active:</span>
+                        <span class="field-value">${lastActiveTime}</span>
+                    </div>
+                    <div class="user-field">
+                        <span class="field-name">Timestamp:</span>
+                        <span class="field-value">${timestamp}</span>
+                    </div>
+                </div>
+            `;
+        results.appendChild(activeDiv);
+      }
+
+      async function testUserDetails() {
+        updateStatus("Testing User Details API...", "info");
+
+        const phoneNo = "9876543210"; // Valid 10-digit phone number
+
+        try {
+          const response = await fetch(`/user/${phoneNo}`, {
+            method: "GET",
+          });
+          const data = await response.json();
+
+          if (response.ok) {
+            addResult(
+              `✅ User Details Test (${phoneNo})`,
+              {
+                status: response.status,
+                userId: data.data?.userId,
+                phoneNumber: data.data?.phoneNumber,
+                email: data.data?.email,
+              },
+              true,
+            );
+
+            if (data.data) {
+              renderUserDetails(data.data);
+            }
+          } else {
+            addResult(
+              `❌ User Details Test Failed (${phoneNo})`,
+              {
+                status: response.status,
+                error: data.error || data.message,
+              },
+              false,
+            );
+          }
+        } catch (error) {
+          addResult(
+            `❌ User Details Test Failed (${phoneNo})`,
+            { error: error.message },
+            false,
+          );
+        }
+      }
+
+      async function testUserDetailsInvalid() {
+        updateStatus("Testing User Details API with Invalid Phone...", "info");
+
+        const phoneNo = "123"; // Invalid phone number
+
+        try {
+          const response = await fetch(`/user/${phoneNo}`, {
+            method: "GET",
+          });
+          const data = await response.json();
+
+          if (response.ok) {
+            addResult(
+              `✅ User Details Test (${phoneNo}) - Unexpected Success`,
+              {
+                status: response.status,
+                data: data.data,
+              },
+              false,
+            );
+          } else {
+            addResult(
+              `✅ User Details Test (${phoneNo}) - Expected Error`,
+              {
+                status: response.status,
+                error: data.error || data.message,
+              },
+              true,
+            );
+          }
+        } catch (error) {
+          addResult(
+            `❌ User Details Test Failed (${phoneNo})`,
+            { error: error.message },
+            false,
+          );
+        }
+      }
+
+      async function testUserLastActive() {
+        updateStatus("Testing User Last Active Today API...", "info");
+
+        const phoneNo = "9876543210"; // Valid 10-digit phone number
+
+        try {
+          const response = await fetch(`/user/${phoneNo}/active-today`, {
+            method: "GET",
+          });
+          const data = await response.json();
+
+          if (response.ok) {
+            addResult(
+              `✅ User Last Active Test (${phoneNo})`,
+              {
+                status: response.status,
+                totalRows: data.data?.totalRows,
+                jobComplete: data.data?.jobComplete,
+              },
+              true,
+            );
+
+            if (data.data) {
+              renderLastActiveData(data.data);
+            }
+          } else {
+            addResult(
+              `❌ User Last Active Test Failed (${phoneNo})`,
+              {
+                status: response.status,
+                error: data.error || data.message,
+              },
+              false,
+            );
+          }
+        } catch (error) {
+          addResult(
+            `❌ User Last Active Test Failed (${phoneNo})`,
+            { error: error.message },
+            false,
+          );
+        }
+      }
+
+      // Auto-run test on page load
+      window.onload = function () {
+        updateStatus(
+          "Test page loaded. Click buttons to test user details functionality.",
+          "info",
+        );
+      };
+    </script>
+  </body>
+</html>

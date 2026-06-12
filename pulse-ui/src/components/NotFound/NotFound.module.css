@@ -1,0 +1,12 @@
+.pageNotFoundContainer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-direction: column;
+}
+
+.pageNotFoundMessage {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}

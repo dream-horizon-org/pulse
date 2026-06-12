@@ -1,0 +1,341 @@
+/**
+ * Combined Step: Metrics, Thresholds & Expression
+ * 
+ * Users first select global scope names (with debounced search), then define
+ * conditions with thresholds for each scope name.
+ */
+
+import React, { useCallback, useMemo, useEffect, useState, useRef } from "react";
+import { Box, Text, Button, TextInput, Divider, MultiSelect, Loader } from "@mantine/core";
+import { IconPlus } from "@tabler/icons-react";
+import { useAlertFormContext } from "../../../context";
+import { useAlertFormValidation } from "../../../hooks";
+import { useGetAlertMetrics } from "../../../../../hooks/useGetAlertMetrics";
+import { useGetDataQuery } from "../../../../../hooks/useGetDataQuery";
+import { useGetFunnelsList } from "../../../../../hooks/useGetFunnelsList";
+import { MetricCondition, MetricOperator, isAppVitalsScope, AlertScopeType } from "../../../types";
+import { UI_CONSTANTS } from "../../../constants";
+import { MetricConditionCard } from "./MetricConditionCard";
+import { useDebouncedValue } from "../../../hooks/useDebouncedValue";
+import classes from "./StepMetricsAndExpression.module.css";
+import sharedClasses from "../shared.module.css";
+import dayjs from "dayjs";
+import { COLUMN_NAME } from "../../../../../constants/PulseOtelSemcov";
+
+export interface StepMetricsAndExpressionProps { className?: string; }
+
+const DEBOUNCE_DELAY = 300;
+
+// Build query for fetching scope names with optional search filter
+const buildScopeNamesQuery = (scopeType: AlertScopeType | null, searchTerm?: string) => {
+  const timeRange = { start: dayjs().subtract(1, "hour").toISOString(), end: dayjs().toISOString() };
+  const baseFilters: Array<{ field: string; operator: "EQ" | "IN" | "LIKE"; value: string[] }> = [];
+
+  if (scopeType === AlertScopeType.Interaction) {
+    if (searchTerm) baseFilters.push({ field: "SpanName", operator: "LIKE", value: [`%${searchTerm}%`] });
+    return {
+      dataType: "TRACES" as const, timeRange,
+      select: [{ function: "COL" as const, param: { field: "SpanName" }, alias: "interaction_name" }, { function: "CUSTOM" as const, param: { expression: "COUNT()" }, alias: "count" }],
+      groupBy: ["interaction_name"], orderBy: [{ field: "count", direction: "DESC" as const }], limit: 20,
+      filters: [{ field: "PulseType", operator: "EQ" as const, value: ["interaction"] }, ...baseFilters],
+    };
+  }
+  if (scopeType === AlertScopeType.Screen) {
+    if (searchTerm) baseFilters.push({ field: COLUMN_NAME.SCREEN_NAME, operator: "LIKE", value: [`%${searchTerm}%`] });
+    return {
+      dataType: "TRACES" as const, timeRange,
+      select: [{ function: "COL" as const, param: { field: COLUMN_NAME.SCREEN_NAME }, alias: "screen_name" }, { function: "CUSTOM" as const, param: { expression: "COUNT()" }, alias: "count" }],
+      groupBy: ["screen_name"], orderBy: [{ field: "count", direction: "DESC" as const }], limit: 20,
+      filters: [{ field: "PulseType", operator: "IN" as const, value: ["screen_session", "screen_load"] }, ...baseFilters],
+    };
+  }
+  if (scopeType === AlertScopeType.NetworkAPI) {
+    // Network API scope uses {method}_{url} format
+    if (searchTerm) baseFilters.push({ field: COLUMN_NAME.HTTP_URL, operator: "LIKE", value: [`%${searchTerm}%`] });
+    return {
+      dataType: "TRACES" as const, timeRange,
+      select: [
+        { function: "COL" as const, param: { field: "SpanAttributes['http.method']" }, alias: "method" },
+        { function: "COL" as const, param: { field: COLUMN_NAME.HTTP_URL }, alias: "url" },
+        { function: "CUSTOM" as const, param: { expression: "COUNT()" }, alias: "count" },
+      ],
+      groupBy: ["method", "url"], orderBy: [{ field: "count", direction: "DESC" as const }], limit: 20,
+      filters: [{ field: "PulseType", operator: "LIKE" as const, value: ["network%"] }, ...baseFilters],
+    };
+  }
+  return null;
+};
+
+const createDefaultCondition = (): MetricCondition => ({
+  id: `cond_${Date.now()}`, alias: "A", metric: "", operator: MetricOperator.GREATER_THAN, threshold: {},
+});
+
+export const StepMetricsAndExpression: React.FC<StepMetricsAndExpressionProps> = ({ className }) => {
+  const { formData, updateStepData } = useAlertFormContext();
+  const { validateMetricCondition, validateConditionExpression } = useAlertFormValidation();
+  const { conditions: rawConditions, selectedScopeNames: globalScopeNames } = formData.metricsConditions;
+  const { expression } = formData.conditionExpression;
+  const scopeType = formData.scopeType.scopeType;
+  const isAppVitals = isAppVitalsScope(scopeType);
+  const isFunnel = scopeType === AlertScopeType.Funnel;
+  
+  // Collect validation errors for all conditions
+  const conditionValidationErrors = useMemo(() => {
+    const errors: Record<string, string> = {};
+    (rawConditions || []).forEach((cond, idx) => {
+      const condErrors = validateMetricCondition(cond, idx);
+      Object.assign(errors, condErrors);
+    });
+    return errors;
+  }, [rawConditions, validateMetricCondition]);
+  
+  // Validate expression
+  const expressionValidation = useMemo(() => {
+    return validateConditionExpression(expression);
+  }, [expression, validateConditionExpression]);
+
+  // Search state with debounce
+  const [searchValue, setSearchValue] = useState("");
+  const debouncedSearch = useDebouncedValue(searchValue, DEBOUNCE_DELAY);
+  
+  // Track if we've initialized the default condition
+  const hasInitializedCondition = useRef(false);
+  const defaultConditionRef = useRef<MetricCondition>(createDefaultCondition());
+
+  // Use existing conditions or a stable default for rendering
+  const conditions = useMemo(() => {
+    return rawConditions && rawConditions.length > 0 ? rawConditions : [defaultConditionRef.current];
+  }, [rawConditions]);
+
+  // Initialize default condition only once if none exist
+  useEffect(() => {
+    if ((!rawConditions || rawConditions.length === 0) && !hasInitializedCondition.current) {
+      hasInitializedCondition.current = true;
+      updateStepData("metricsConditions", { selectedScopeNames: globalScopeNames || [], conditions: [defaultConditionRef.current] });
+      updateStepData("conditionExpression", { expression: "A" });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Fetch metrics
+  const { data: metricsResponse, isLoading: isMetricsLoading } = useGetAlertMetrics({ scope: scopeType || "" });
+  const metrics = useMemo(() => metricsResponse?.data?.metrics || [], [metricsResponse]);
+
+  // Fetch available scope names with search filter
+  const scopeNamesQuery = useMemo(() => buildScopeNamesQuery(scopeType, debouncedSearch), [scopeType, debouncedSearch]);
+  const shouldFetchScopeNames = !isAppVitals && !isFunnel && !!scopeNamesQuery;
+  const fallbackQuery = useMemo(() => ({
+    dataType: "TRACES" as const,
+    timeRange: { start: dayjs().subtract(1, "hour").toISOString(), end: dayjs().toISOString() },
+    select: [], groupBy: [],
+  }), []);
+
+  const { data: scopeNamesData, isLoading: isScopeNamesLoading, isFetching } = useGetDataQuery({
+    requestBody: scopeNamesQuery || fallbackQuery,
+    enabled: shouldFetchScopeNames,
+  });
+
+  // Fetch funnels for funnel scope; debounced search reuses the same input
+  const { data: funnelsResponse, isLoading: isFunnelsLoading, isFetching: isFunnelsFetching } = useGetFunnelsList({
+    queryParams: {
+      search: isFunnel ? (debouncedSearch || null) : null,
+      pageSize: 50,
+      page: 1,
+    },
+  });
+
+  const funnelLabelById = useMemo(() => {
+    const map: Record<string, string> = {};
+    if (!isFunnel) return map;
+    const items = funnelsResponse?.data?.items || [];
+    items.forEach(f => { map[String(f.id)] = f.name; });
+    return map;
+  }, [isFunnel, funnelsResponse]);
+
+  const availableScopeNames = useMemo(() => {
+    if (isAppVitals) return [];
+    if (isFunnel) {
+      const items = funnelsResponse?.data?.items || [];
+      return items.map(f => String(f.id)).filter(id => id.trim());
+    }
+    if (!scopeNamesData?.data?.rows) return [];
+    const fields = scopeNamesData.data.fields;
+
+    // For network_api scope, combine method and url into {method}_{url} format
+    const methodIdx = fields.indexOf("method");
+    const urlIdx = fields.indexOf("url");
+    if (methodIdx !== -1 && urlIdx !== -1) {
+      // Network API scope - combine method and url
+      return scopeNamesData.data.rows.map((row: (string | number)[]) => {
+        const method = String(row[methodIdx] || "get").toLowerCase();
+        const url = String(row[urlIdx] || "");
+        return `${method}_${url}`;
+      }).filter((n: string) => n?.trim() && n !== "_");
+    }
+
+    // For other scopes, use the single field
+    const idx = fields.findIndex((f: string) => f === "interaction_name" || f === "screen_name");
+    if (idx === -1) return [];
+    return scopeNamesData.data.rows.map((row: (string | number)[]) => String(row[idx])).filter((n: string) => n?.trim());
+  }, [isAppVitals, isFunnel, scopeNamesData, funnelsResponse]);
+
+  // Helper to format scope name for display
+  const formatScopeNameLabel = useCallback((scopeName: string): string => {
+    // For network_api scope names in {method}_{url} format, show "METHOD URL"
+    if (scopeType === AlertScopeType.NetworkAPI && scopeName.includes("_")) {
+      const underscoreIdx = scopeName.indexOf("_");
+      const method = scopeName.substring(0, underscoreIdx).toUpperCase();
+      const url = scopeName.substring(underscoreIdx + 1);
+      return `${method} ${url}`;
+    }
+    if (scopeType === AlertScopeType.Funnel) {
+      return funnelLabelById[scopeName] || scopeName;
+    }
+    return scopeName;
+  }, [scopeType, funnelLabelById]);
+
+  // Combine already selected values with search results
+  const multiSelectData = useMemo(() => {
+    const selectedSet = new Set(globalScopeNames || []);
+    const searchResults = availableScopeNames.filter((s: string) => !selectedSet.has(s));
+    const allOptions = [...(globalScopeNames || []), ...searchResults];
+    return allOptions.map(s => ({ value: s, label: formatScopeNameLabel(s) }));
+  }, [globalScopeNames, availableScopeNames, formatScopeNameLabel]);
+
+  // Track previous scope names to detect actual changes
+  const prevScopeNamesRef = useRef<string[]>([]);
+
+  const isScopeListLoading = isFunnel ? isFunnelsLoading : isScopeNamesLoading;
+  const isScopeListFetching = isFunnel ? isFunnelsFetching : isFetching;
+
+  // Sync condition thresholds when global scope names change
+  useEffect(() => {
+    if (isAppVitals || !globalScopeNames) return;
+    
+    // Only proceed if globalScopeNames actually changed
+    const prevNames = prevScopeNamesRef.current;
+    const namesChanged = prevNames.length !== globalScopeNames.length || 
+      prevNames.some((n, i) => n !== globalScopeNames[i]);
+    
+    if (!namesChanged) return;
+    prevScopeNamesRef.current = globalScopeNames;
+
+    const updatedConditions = conditions.map(cond => {
+      const newThreshold: Record<string, number> = {};
+      globalScopeNames.forEach(scopeName => { newThreshold[scopeName] = cond.threshold[scopeName] ?? 0; });
+      return { ...cond, threshold: newThreshold };
+    });
+    
+    updateStepData("metricsConditions", { selectedScopeNames: globalScopeNames, conditions: updatedConditions });
+  }, [globalScopeNames, conditions, isAppVitals, updateStepData]);
+
+  const handleScopeNamesChange = useCallback((newScopeNames: string[]) => {
+    updateStepData("metricsConditions", { selectedScopeNames: newScopeNames, conditions });
+  }, [updateStepData, conditions]);
+
+  const handleSearchChange = useCallback((value: string) => {
+    setSearchValue(value);
+  }, []);
+
+  const addCondition = useCallback(() => {
+    if (conditions.length >= UI_CONSTANTS.MAX_CONDITIONS) return;
+    const alias = String.fromCharCode(65 + conditions.length);
+    const threshold: Record<string, number> = {};
+    (globalScopeNames || []).forEach(name => { threshold[name] = 0; });
+    const newCondition: MetricCondition = { id: `cond_${Date.now()}`, alias, metric: "", operator: MetricOperator.GREATER_THAN, threshold };
+    updateStepData("metricsConditions", { selectedScopeNames: globalScopeNames || [], conditions: [...conditions, newCondition] });
+    updateStepData("conditionExpression", { expression: [...conditions.map(c => c.alias), alias].join(" && ") });
+  }, [conditions, updateStepData, globalScopeNames]);
+
+  const updateCondition = useCallback((index: number, updates: Partial<MetricCondition>) => {
+    const updated = conditions.map((c, i) => i === index ? { ...c, ...updates } : c);
+    updateStepData("metricsConditions", { selectedScopeNames: globalScopeNames || [], conditions: updated });
+  }, [conditions, updateStepData, globalScopeNames]);
+
+  const removeCondition = useCallback((index: number) => {
+    if (conditions.length <= 1) return;
+    const updated = conditions.filter((_, i) => i !== index);
+    updateStepData("metricsConditions", { selectedScopeNames: globalScopeNames || [], conditions: updated });
+    updateStepData("conditionExpression", { expression: updated.map(c => c.alias).join(" && ") });
+  }, [conditions, updateStepData, globalScopeNames]);
+
+  const isSearching = isScopeListFetching && searchValue.length > 0;
+
+  return (
+    <Box className={`${classes.container} ${className || ""}`}>
+      {/* Global Scope Names Selector with Search */}
+      {!isAppVitals && (
+        <>
+          <Text className={sharedClasses.stepTitle}>{isFunnel ? "Funnels to Monitor" : "Scope Names to Monitor"}</Text>
+          <Text className={sharedClasses.stepDescription}>
+            {isFunnel
+              ? "Search and select funnels. These will apply to all conditions."
+              : "Search and select scope names. These will apply to all conditions."}
+          </Text>
+          <Divider className={sharedClasses.stepDivider} />
+          {isScopeListLoading && !searchValue ? (
+            <Loader size="sm" />
+          ) : (
+            <MultiSelect
+              data={multiSelectData}
+              value={globalScopeNames || []}
+              onChange={handleScopeNamesChange}
+              onSearchChange={handleSearchChange}
+              searchValue={searchValue}
+              placeholder={isFunnel ? "Type to search funnels..." : "Type to search scope names..."}
+              searchable
+              clearable
+              maxDropdownHeight={200}
+              mb="lg"
+              mt="lg"
+              nothingFoundMessage={isSearching ? "Searching..." : "No results found"}
+              rightSection={isSearching ? <Loader size="xs" /> : undefined}
+            />
+          )}
+          <Divider my="lg" />
+        </>
+      )}
+
+      <Text className={sharedClasses.stepTitle}>Alert Conditions</Text>
+      <Text className={sharedClasses.stepDescription}>Define metric conditions with thresholds for each scope name.</Text>
+      <Divider className={sharedClasses.stepDivider} />
+
+      <Box className={classes.conditionsContainer}>
+        {conditions.map((condition, idx) => (
+          <MetricConditionCard
+            key={condition.id}
+            condition={condition}
+            conditionIndex={idx}
+            metrics={metrics}
+            globalScopeNames={isAppVitals ? [] : (globalScopeNames || [])}
+            isAppVitals={isAppVitals}
+            isMetricsLoading={isMetricsLoading}
+            onUpdate={(updates) => updateCondition(idx, updates)}
+            onRemove={() => removeCondition(idx)}
+            canRemove={conditions.length > 1}
+            validationErrors={conditionValidationErrors}
+            scopeNameLabels={isFunnel ? funnelLabelById : undefined}
+          />
+        ))}
+
+        {conditions.length < UI_CONSTANTS.MAX_CONDITIONS && (
+          <Button variant="subtle" leftSection={<IconPlus size={16} />} onClick={addCondition} color="teal">
+            Add Another Condition
+          </Button>
+        )}
+      </Box>
+
+      <Divider my="lg" />
+
+      <Text className={sharedClasses.stepTitle}>Condition Expression</Text>
+      <Text className={sharedClasses.stepDescription}>Combine conditions using && (AND) or || (OR). Example: A && B, A || B, (A && B) || C</Text>
+      <Divider className={sharedClasses.stepDivider} mb="lg" />
+      <TextInput 
+        value={expression} 
+        onChange={(e) => updateStepData("conditionExpression", { expression: e.target.value })} 
+        placeholder="A && B" 
+        error={!expressionValidation.isValid ? expressionValidation.error : undefined}
+      />
+    </Box>
+  );
+};

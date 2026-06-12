@@ -1,0 +1,28 @@
+.globalBlacklistEventItemMainContainer {
+  margin-bottom: var(--mantine-spacing-md);
+  border: 1px solid var(--mantine-color-gray-3);
+  border-radius: var(--mantine-radius-md);
+  padding: var(--mantine-spacing-md);
+  width: 100%;
+}
+
+.globalBlacklistEventItemContainer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.deleteBlacklistEventsButton {
+  display: flex;
+  padding: var(--critical-interaction-action-button-padding);
+  margin-left: var(--mantine-spacing-sm);
+  border: 1px solid var(--mantine-color-black);
+  background-color: transparent;
+  cursor: pointer;
+  color: var(--mantine-color-black);
+  border-radius: var(--critical-interaction-action-button-border-radius);
+  &:hover {
+    border-color: var(--mantine-color-red-6);
+    color: var(--mantine-color-red-6);
+  }
+}

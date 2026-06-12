@@ -1,0 +1,69 @@
+package org.dreamhorizon.pulseserver.service.productAnalysis.journey;
+
+import org.dreamhorizon.pulseserver.dao.productAnalysis.journeyresults.models.JourneyResultRow;
+import org.dreamhorizon.pulseserver.resources.productAnalysis.journey.models.JourneyResultsResponse;
+import org.dreamhorizon.pulseserver.resources.productAnalysis.journey.models.JourneySankeyLink;
+import org.dreamhorizon.pulseserver.resources.productAnalysis.journey.models.JourneySankeyNode;
+
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
+import java.util.List;
+
+/**
+ * Maps {@code otel.journey_results} rows to Sankey {@code nodes} + {@code links}.
+ */
+public final class JourneyResultsMapper {
+
+  private JourneyResultsMapper() {
+  }
+
+  public static JourneyResultsResponse fromRows(List<JourneyResultRow> rows) {
+    if (rows == null || rows.isEmpty()) {
+      return JourneyResultsResponse.builder()
+        .nodes(List.of())
+        .links(List.of())
+        .build();
+    }
+
+    LinkedHashSet<String> nodeNames = new LinkedHashSet<>();
+    List<JourneySankeyLink> links = new ArrayList<>(rows.size());
+
+    for (JourneyResultRow r : rows) {
+      String src = nodeLabel(r.getPosFrom(), r.getEventFrom());
+      String tgt = nodeLabel(r.getPosTo(), r.getEventTo());
+      nodeNames.add(src);
+      nodeNames.add(tgt);
+      long uv = r.getUserCount() == null ? 0L : r.getUserCount();
+      links.add(
+        JourneySankeyLink.builder().source(src).target(tgt).value(uv).build());
+    }
+
+    List<JourneySankeyNode> nodes =
+      nodeNames.stream().map(n -> JourneySankeyNode.builder().name(n).build()).toList();
+
+    return JourneyResultsResponse.builder()
+      .nodes(nodes)
+      .links(links)
+      .lastRunAt(rows.get(0).getRunTime())
+      .build();
+  }
+
+  /**
+   * Produces a depth-qualified node label so the same event at different depth
+   * levels maps to separate Sankey nodes (e.g. {@code "HomeLoaded::0"},
+   * {@code "SearchIconDisplayed::1"}).
+   *
+   * <p>ENTRY edges ({@code pos_from = -1}, empty event) stay as plain "ENTRY".
+   */
+  private static String nodeLabel(Integer pos, String event) {
+    int p = pos == null ? Integer.MIN_VALUE : pos;
+    boolean emptyEvent = event == null || event.isBlank();
+    if (p == -1 && emptyEvent) {
+      return "ENTRY";
+    }
+    if (!emptyEvent) {
+      return event.trim() + "::" + p;
+    }
+    return "@" + p;
+  }
+}

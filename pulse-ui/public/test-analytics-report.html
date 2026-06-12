@@ -1,0 +1,435 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Analytics Report Test</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 20px;
+      }
+      .test-result {
+        margin: 10px 0;
+        padding: 10px;
+        border-radius: 4px;
+      }
+      .success {
+        background-color: #d4edda;
+        border: 1px solid #c3e6cb;
+        color: #155724;
+      }
+      .error {
+        background-color: #f8d7da;
+        border: 1px solid #f5c6cb;
+        color: #721c24;
+      }
+      .info {
+        background-color: #d1ecf1;
+        border: 1px solid #bee5eb;
+        color: #0c5460;
+      }
+      button {
+        padding: 10px 20px;
+        margin: 5px;
+        cursor: pointer;
+      }
+      pre {
+        background: #f8f9fa;
+        padding: 10px;
+        border-radius: 4px;
+        overflow-x: auto;
+      }
+      .report-section {
+        border: 1px solid #ddd;
+        padding: 15px;
+        margin: 10px 0;
+        border-radius: 4px;
+        background: #f9f9f9;
+      }
+      .report-header {
+        font-weight: bold;
+        color: #333;
+        margin-bottom: 10px;
+      }
+      .interaction-details {
+        font-size: 14px;
+        color: #666;
+        margin: 10px 0;
+        padding: 10px;
+        background: #fff;
+        border-radius: 4px;
+      }
+      .interaction-name {
+        font-weight: bold;
+        color: #0066cc;
+        margin-bottom: 5px;
+      }
+      .chart-data {
+        font-size: 12px;
+        color: #888;
+        margin: 5px 0;
+      }
+      .time-range {
+        background: #e8f4fd;
+        padding: 8px;
+        border-radius: 4px;
+        margin: 10px 0;
+      }
+      .reference-line {
+        background: #fff3cd;
+        border: 2px solid #ffc107;
+        padding: 8px;
+        border-radius: 4px;
+        margin: 10px 0;
+        font-weight: bold;
+        color: #856404;
+      }
+      .baseline-data {
+        background: #d1ecf1;
+        border-left: 4px solid #17a2b8;
+        padding: 8px;
+        margin: 5px 0;
+      }
+      .impact-data {
+        background: #f8d7da;
+        border-left: 4px solid #dc3545;
+        padding: 8px;
+        margin: 5px 0;
+      }
+      .error-rate-info {
+        background: #fff3cd;
+        border: 1px solid #ffc107;
+        padding: 8px;
+        border-radius: 4px;
+        margin: 10px 0;
+        font-size: 14px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>📊 Analytics Report Test</h1>
+
+    <div id="status" class="test-result info">
+      <strong>Status:</strong> Ready to test analytics report functionality
+    </div>
+
+    <div class="report-section">
+      <div class="report-header">Test Analytics Report APIs</div>
+      <button onclick="testCreateReport()">Test Create Report</button>
+      <button onclick="testGetReport()">Test Get Report</button>
+      <button onclick="testGetReportInvalid()">
+        Test Get Report (Invalid ID)
+      </button>
+    </div>
+
+    <div id="results"></div>
+
+    <script>
+      // Set environment variables for testing
+      window.process = window.process || {};
+      window.process.env = {
+        ...window.process.env,
+        REACT_APP_USE_MOCK_SERVER: "true",
+        REACT_APP_MOCK_DELAY: "100",
+        REACT_APP_MOCK_ERROR_RATE: "0.0",
+        REACT_APP_MOCK_LOGGING: "true",
+      };
+
+      let testReportId = null;
+
+      function updateStatus(message, type = "info") {
+        const status = document.getElementById("status");
+        status.className = `test-result ${type}`;
+        status.innerHTML = `<strong>Status:</strong> ${message}`;
+      }
+
+      function addResult(title, data, success = true) {
+        const results = document.getElementById("results");
+        const resultDiv = document.createElement("div");
+        resultDiv.className = `test-result ${success ? "success" : "error"}`;
+        resultDiv.innerHTML = `
+                <h3>${title}</h3>
+                <pre>${JSON.stringify(data, null, 2)}</pre>
+            `;
+        results.appendChild(resultDiv);
+      }
+
+      function renderReportData(reportData) {
+        if (!reportData) return;
+
+        const results = document.getElementById("results");
+
+        // Calculate reference time (middle of the time range)
+        const startTime = new Date(reportData.report1.startTime);
+        const endTime = new Date(reportData.report1.endTime);
+        const referenceTime = new Date(
+          (startTime.getTime() + endTime.getTime()) / 2,
+        );
+
+        // Format times for display
+        const formatTime = (date) => {
+          return date.toLocaleString("en-US", {
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit",
+            hour12: true,
+          });
+        };
+
+        // Add reference line info
+        const referenceDiv = document.createElement("div");
+        referenceDiv.className = "reference-line";
+        referenceDiv.innerHTML = `
+                <div>⚠️ <strong>Reference Line (Incident Time):</strong> ${formatTime(referenceTime)} (5:15 PM)</div>
+                <div style="font-size: 14px; margin-top: 5px;">
+                    <span style="color: #17a2b8;">📊 Baseline Data:</span> ${formatTime(startTime)} - ${formatTime(referenceTime)} (22.5 minutes)<br>
+                    <span style="color: #dc3545;">📈 Impact Data:</span> ${formatTime(referenceTime)} - ${formatTime(endTime)} (22.5 minutes)<br>
+                    <span style="color: #6c757d;">⏱️ Total Timeline:</span> 45 minutes
+                </div>
+            `;
+        results.appendChild(referenceDiv);
+
+        // Add error rate behavior info
+        const errorRateDiv = document.createElement("div");
+        errorRateDiv.className = "error-rate-info";
+        errorRateDiv.innerHTML = `
+                <div><strong>📈 Error Rate Behavior:</strong></div>
+                <div style="margin-top: 5px;">
+                    <span style="color: #17a2b8;">📊 Before 5:15 PM:</span> 0-2% error rate (excellent baseline)<br>
+                    <span style="color: #dc3545;">📈 After 5:15 PM:</span> 15-60% error rate (dramatic spike)<br>
+                    <span style="color: #6c757d;">⚡ Pattern:</span> Error rate jumps to 15% immediately at incident time, then increases by 5% per minute
+                </div>
+            `;
+        results.appendChild(errorRateDiv);
+
+        // Add user categorization impact info
+        const userImpactDiv = document.createElement("div");
+        userImpactDiv.className = "error-rate-info";
+        userImpactDiv.innerHTML = `
+                <div><strong>👥 User Experience Impact:</strong></div>
+                <div style="margin-top: 5px;">
+                    <span style="color: #17a2b8;">📊 Before 5:15 PM:</span> 50-70% Excellent, 20-30% Good, 5-15% Average, 0-5% Poor<br>
+                    <span style="color: #dc3545;">📈 After 5:15 PM:</span> 5-15% Excellent, 10-20% Good, 20-40% Average, 30-50% Poor<br>
+                    <span style="color: #6c757d;">⚡ Impact:</span> Severe degradation in user experience quality
+                </div>
+            `;
+        results.appendChild(userImpactDiv);
+
+        // Render Report 1 (Baseline)
+        if (reportData.report1) {
+          const report1Div = document.createElement("div");
+          report1Div.className = "report-section baseline-data";
+          report1Div.innerHTML = `
+                    <div class="report-header">📊 ${reportData.report1.name}</div>
+                    <div class="time-range">
+                        <strong>Time Range:</strong> ${new Date(reportData.report1.startTime).toLocaleString()} - ${new Date(reportData.report1.endTime).toLocaleString()}
+                    </div>
+                    <div class="interaction-details">
+                        <strong>Interactions (${reportData.report1.interactions.length}):</strong><br>
+                        ${reportData.report1.interactions
+                          .map(
+                            (interaction) => `
+                            <div class="interaction-name">${interaction.interactionName}</div>
+                            <div class="chart-data">
+                                User Categorization: ${interaction.userCategorizationResults.readings.length} data points (1-min intervals)<br>
+                                Error Results: ${interaction.errorResult.readings.length} data points (1-min intervals)<br>
+                                Description: ${interaction.description}
+                            </div>
+                        `,
+                          )
+                          .join("")}
+                    </div>
+                `;
+          results.appendChild(report1Div);
+        }
+
+        // Render Report 2 (Impact)
+        if (reportData.report2) {
+          const report2Div = document.createElement("div");
+          report2Div.className = "report-section impact-data";
+          report2Div.innerHTML = `
+                    <div class="report-header">📈 ${reportData.report2.name}</div>
+                    <div class="time-range">
+                        <strong>Time Range:</strong> ${new Date(reportData.report2.startTime).toLocaleString()} - ${new Date(reportData.report2.endTime).toLocaleString()}
+                    </div>
+                    <div class="interaction-details">
+                        <strong>Interactions (${reportData.report2.interactions.length}):</strong><br>
+                        ${reportData.report2.interactions
+                          .map(
+                            (interaction) => `
+                            <div class="interaction-name">${interaction.interactionName}</div>
+                            <div class="chart-data">
+                                User Categorization: ${interaction.userCategorizationResults.readings.length} data points (1-min intervals)<br>
+                                Error Results: ${interaction.errorResult.readings.length} data points (1-min intervals)<br>
+                                Description: ${interaction.description}
+                            </div>
+                        `,
+                          )
+                          .join("")}
+                    </div>
+                `;
+          results.appendChild(report2Div);
+        }
+      }
+
+      async function testCreateReport() {
+        updateStatus("Testing Create Analytics Report...", "info");
+
+        const startTime = new Date(
+          Date.now() - 24 * 60 * 60 * 1000,
+        ).toISOString(); // 24 hours ago
+        const endTime = new Date().toISOString(); // Now
+
+        try {
+          const response = await fetch("/v2/incident/generateReport", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              startTime: startTime,
+              endTime: endTime,
+            }),
+          });
+          const data = await response.json();
+
+          if (response.ok) {
+            addResult(
+              `✅ Create Report Test`,
+              {
+                status: response.status,
+                analyticsReportUrl: data.data?.analyticsReportUrl,
+              },
+              true,
+            );
+
+            // Extract report ID from URL for next test
+            if (data.data?.analyticsReportUrl) {
+              const url = new URL(
+                data.data.analyticsReportUrl,
+                window.location.origin,
+              );
+              testReportId = url.searchParams.get("reportId");
+              updateStatus(
+                `Report created successfully! Report ID: ${testReportId}`,
+                "success",
+              );
+            }
+          } else {
+            addResult(
+              `❌ Create Report Test Failed`,
+              {
+                status: response.status,
+                error: data.error || data.message,
+              },
+              false,
+            );
+          }
+        } catch (error) {
+          addResult(
+            `❌ Create Report Test Failed`,
+            { error: error.message },
+            false,
+          );
+        }
+      }
+
+      async function testGetReport() {
+        updateStatus("Testing Get Analytics Report...", "info");
+
+        const reportId = testReportId || "test_report_123";
+
+        try {
+          const response = await fetch(
+            `/analytics-report?reportId=${reportId}`,
+            {
+              method: "GET",
+            },
+          );
+          const data = await response.json();
+
+          if (response.ok) {
+            addResult(
+              `✅ Get Report Test (${reportId})`,
+              {
+                status: response.status,
+                hasReport1: !!data.data?.report1,
+                hasReport2: !!data.data?.report2,
+                report1Interactions:
+                  data.data?.report1?.interactions?.length || 0,
+                report2Interactions:
+                  data.data?.report2?.interactions?.length || 0,
+              },
+              true,
+            );
+
+            if (data.data) {
+              renderReportData(data.data);
+            }
+          } else {
+            addResult(
+              `❌ Get Report Test Failed (${reportId})`,
+              {
+                status: response.status,
+                error: data.error || data.message,
+              },
+              false,
+            );
+          }
+        } catch (error) {
+          addResult(
+            `❌ Get Report Test Failed (${reportId})`,
+            { error: error.message },
+            false,
+          );
+        }
+      }
+
+      async function testGetReportInvalid() {
+        updateStatus("Testing Get Report with Invalid ID...", "info");
+
+        try {
+          const response = await fetch("/analytics-report", {
+            method: "GET",
+          });
+          const data = await response.json();
+
+          if (response.ok) {
+            addResult(
+              `✅ Get Report Test (No ID) - Unexpected Success`,
+              {
+                status: response.status,
+                data: data.data,
+              },
+              false,
+            );
+          } else {
+            addResult(
+              `✅ Get Report Test (No ID) - Expected Error`,
+              {
+                status: response.status,
+                error: data.error || data.message,
+              },
+              true,
+            );
+          }
+        } catch (error) {
+          addResult(
+            `❌ Get Report Test Failed (No ID)`,
+            { error: error.message },
+            false,
+          );
+        }
+      }
+
+      // Auto-run test on page load
+      window.onload = function () {
+        updateStatus(
+          "Test page loaded. Click buttons to test analytics report functionality.",
+          "info",
+        );
+      };
+    </script>
+  </body>
+</html>

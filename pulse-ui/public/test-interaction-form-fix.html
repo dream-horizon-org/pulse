@@ -1,0 +1,460 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Test Interaction Form Fix</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 20px;
+        background-color: #f5f5f5;
+      }
+      .container {
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        margin-bottom: 20px;
+      }
+      .test-button {
+        background: #007bff;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 4px;
+        cursor: pointer;
+        margin: 5px;
+      }
+      .test-button:hover {
+        background: #0056b3;
+      }
+      .response {
+        background: #f8f9fa;
+        border: 1px solid #e9ecef;
+        border-radius: 4px;
+        padding: 15px;
+        margin-top: 10px;
+        white-space: pre-wrap;
+        font-family: monospace;
+        max-height: 400px;
+        overflow-y: auto;
+      }
+      .success {
+        background: #d4edda;
+        border-color: #c3e6cb;
+        color: #155724;
+      }
+      .error {
+        background: #f8d7da;
+        border-color: #f5c6cb;
+        color: #721c24;
+      }
+      .job-details {
+        background: #fff3cd;
+        border: 1px solid #ffeaa7;
+        border-radius: 4px;
+        padding: 10px;
+        margin: 5px 0;
+      }
+      .props-filter {
+        background: #e9ecef;
+        border: 1px solid #dee2e6;
+        border-radius: 4px;
+        padding: 8px;
+        margin: 5px 0;
+        font-size: 12px;
+      }
+      .prop-item {
+        background: #f8f9fa;
+        border: 1px solid #e9ecef;
+        border-radius: 3px;
+        padding: 4px 8px;
+        margin: 2px;
+        display: inline-block;
+        font-size: 11px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>🧪 Interaction Form Fix Test</h1>
+
+    <div class="container">
+      <h2>Test Configuration</h2>
+      <p><strong>Base URL:</strong> <span id="baseUrl"></span></p>
+      <p>
+        <strong>Mock Server Status:</strong>
+        <span id="mockStatus">Checking...</span>
+      </p>
+    </div>
+
+    <div class="container">
+      <h2>Test Job Details API</h2>
+      <p>
+        This test verifies that the job details API now returns proper
+        propsFilter structure to prevent the "Cannot read properties of
+        undefined (reading 'error_event')" error.
+      </p>
+
+      <button class="test-button" onclick="testJobDetails('CreateTeamSuccess')">
+        Test CreateTeamSuccess Job
+      </button>
+
+      <button
+        class="test-button"
+        onclick="testJobDetails('ContestJoinSuccess')"
+      >
+        Test ContestJoinSuccess Job
+      </button>
+
+      <button class="test-button" onclick="testJobDetails('AddCashLoaded')">
+        Test AddCashLoaded Job
+      </button>
+
+      <button class="test-button" onclick="testAllJobs()">Test All Jobs</button>
+
+      <div id="jobDetailsResponse" class="response" style="display: none"></div>
+    </div>
+
+    <script>
+      const baseUrl = window.location.origin;
+      document.getElementById("baseUrl").textContent = baseUrl;
+
+      // Check mock server status
+      async function checkMockServerStatus() {
+        try {
+          const response = await fetch(
+            `${baseUrl}/v2/getJobDetails?useCaseId=CreateTeamSuccess`,
+          );
+          if (response.ok) {
+            document.getElementById("mockStatus").textContent =
+              "✅ Mock Server Active";
+            document.getElementById("mockStatus").style.color = "green";
+          } else {
+            document.getElementById("mockStatus").textContent =
+              "❌ Mock Server Error";
+            document.getElementById("mockStatus").style.color = "red";
+          }
+        } catch (error) {
+          document.getElementById("mockStatus").textContent =
+            "❌ Mock Server Unavailable";
+          document.getElementById("mockStatus").style.color = "red";
+        }
+      }
+
+      // Test specific job details
+      async function testJobDetails(useCaseId) {
+        const responseDiv = document.getElementById("jobDetailsResponse");
+        responseDiv.style.display = "block";
+        responseDiv.className = "response";
+        responseDiv.textContent = "Loading...";
+
+        try {
+          const url = `${baseUrl}/v2/getJobDetails?useCaseId=${useCaseId}`;
+          const response = await fetch(url);
+          const data = await response.json();
+
+          if (response.ok) {
+            responseDiv.className = "response success";
+            responseDiv.innerHTML = formatJobDetailsResponse(
+              `Job Details: ${useCaseId}`,
+              data,
+            );
+          } else {
+            responseDiv.className = "response error";
+            responseDiv.textContent = `Error: ${response.status}\n${JSON.stringify(data, null, 2)}`;
+          }
+        } catch (error) {
+          responseDiv.className = "response error";
+          responseDiv.textContent = `Network Error: ${error.message}`;
+        }
+      }
+
+      // Test all jobs
+      async function testAllJobs() {
+        const responseDiv = document.getElementById("jobDetailsResponse");
+        responseDiv.style.display = "block";
+        responseDiv.className = "response";
+        responseDiv.textContent = "Loading...";
+
+        try {
+          const jobs = [
+            "CreateTeamSuccess",
+            "ContestJoinSuccess",
+            "CreateTeamPageLoaded",
+            "ContestHomeLanded",
+            "AddCashLoaded",
+            "PaymentSuccess",
+            "ProfileUpdateSuccess",
+            "MatchListLoaded",
+            "WalletRechargeSuccess",
+            "LeaderboardLoaded",
+            "WithdrawSuccess",
+            "LiveScoreLoaded",
+          ];
+
+          const results = [];
+          for (const job of jobs) {
+            try {
+              const url = `${baseUrl}/v2/getJobDetails?useCaseId=${job}`;
+              const response = await fetch(url);
+              const data = await response.json();
+              results.push({ job, success: response.ok, data });
+            } catch (error) {
+              results.push({ job, success: false, error: error.message });
+            }
+          }
+
+          responseDiv.className = "response success";
+          responseDiv.innerHTML = formatAllJobsResponse(
+            "All Jobs Test",
+            results,
+          );
+        } catch (error) {
+          responseDiv.className = "response error";
+          responseDiv.textContent = `Network Error: ${error.message}`;
+        }
+      }
+
+      // Format job details response
+      function formatJobDetailsResponse(title, data) {
+        if (!data.data) {
+          return `<h3>${title}</h3><p>No job details found</p>`;
+        }
+
+        const job = data.data;
+        let html = `<h3>${title}</h3>`;
+        html += `<div class="job-details">`;
+        html += `<h4>Job Information</h4>`;
+        html += `<p><strong>Job ID:</strong> ${job.jobId}</p>`;
+        html += `<p><strong>Use Case Name:</strong> ${job.useCaseName}</p>`;
+        html += `<p><strong>Description:</strong> ${job.description}</p>`;
+        html += `<p><strong>Status:</strong> ${job.status}</p>`;
+        html += `<p><strong>Event Sequence:</strong> ${job.eventSeq.join(" → ")}</p>`;
+        html += `</div>`;
+
+        // PropsFilter structure
+        html += `<div class="job-details">`;
+        html += `<h4>PropsFilter Structure</h4>`;
+
+        if (job.propsFilter) {
+          html += `<div class="props-filter">`;
+          html += `<strong>eventT1:</strong> `;
+          if (
+            job.propsFilter.eventT1 &&
+            Object.keys(job.propsFilter.eventT1).length > 0
+          ) {
+            Object.entries(job.propsFilter.eventT1).forEach(
+              ([event, props]) => {
+                html += `<div style="margin: 5px 0;">`;
+                html += `<strong>${event}:</strong> `;
+                props.forEach((prop) => {
+                  html += `<span class="prop-item">${prop.propName}: ${prop.propValue}</span>`;
+                });
+                html += `</div>`;
+              },
+            );
+          } else {
+            html += `{}`;
+          }
+          html += `</div>`;
+
+          html += `<div class="props-filter">`;
+          html += `<strong>eventT2:</strong> `;
+          if (
+            job.propsFilter.eventT2 &&
+            Object.keys(job.propsFilter.eventT2).length > 0
+          ) {
+            Object.entries(job.propsFilter.eventT2).forEach(
+              ([event, props]) => {
+                html += `<div style="margin: 5px 0;">`;
+                html += `<strong>${event}:</strong> `;
+                props.forEach((prop) => {
+                  html += `<span class="prop-item">${prop.propName}: ${prop.propValue}</span>`;
+                });
+                html += `</div>`;
+              },
+            );
+          } else {
+            html += `{}`;
+          }
+          html += `</div>`;
+
+          html += `<div class="props-filter">`;
+          html += `<strong>whiteListedEvent:</strong> `;
+          if (
+            job.propsFilter.whiteListedEvent &&
+            Object.keys(job.propsFilter.whiteListedEvent).length > 0
+          ) {
+            Object.entries(job.propsFilter.whiteListedEvent).forEach(
+              ([event, props]) => {
+                html += `<div style="margin: 5px 0;">`;
+                html += `<strong>${event}:</strong> `;
+                props.forEach((prop) => {
+                  html += `<span class="prop-item">${prop.propName}: ${prop.propValue}</span>`;
+                });
+                html += `</div>`;
+              },
+            );
+          } else {
+            html += `{}`;
+          }
+          html += `</div>`;
+
+          html += `<div class="props-filter">`;
+          html += `<strong>globalBlackListedEvent:</strong> `;
+          if (
+            job.propsFilter.globalBlackListedEvent &&
+            Object.keys(job.propsFilter.globalBlackListedEvent).length > 0
+          ) {
+            Object.entries(job.propsFilter.globalBlackListedEvent).forEach(
+              ([event, props]) => {
+                html += `<div style="margin: 5px 0;">`;
+                html += `<strong>${event}:</strong> `;
+                props.forEach((prop) => {
+                  html += `<span class="prop-item">${prop.propName}: ${prop.propValue}</span>`;
+                });
+                html += `</div>`;
+              },
+            );
+          } else {
+            html += `{}`;
+          }
+          html += `</div>`;
+
+          html += `<div class="props-filter">`;
+          html += `<strong>blacklistedEvents:</strong> `;
+          if (
+            job.propsFilter.blacklistedEvents &&
+            Object.keys(job.propsFilter.blacklistedEvents).length > 0
+          ) {
+            Object.entries(job.propsFilter.blacklistedEvents).forEach(
+              ([event, props]) => {
+                html += `<div style="margin: 5px 0;">`;
+                html += `<strong>${event}:</strong> `;
+                props.forEach((prop) => {
+                  html += `<span class="prop-item">${prop.propName}: ${prop.propValue}</span>`;
+                });
+                html += `</div>`;
+              },
+            );
+          } else {
+            html += `{}`;
+          }
+          html += `</div>`;
+        } else {
+          html += `<p style="color: red;">❌ propsFilter is missing!</p>`;
+        }
+
+        html += `</div>`;
+
+        // Validation
+        html += `<div class="job-details">`;
+        html += `<h4>Validation Results</h4>`;
+
+        const validations = [
+          {
+            name: "propsFilter exists",
+            valid: !!job.propsFilter,
+            message: job.propsFilter
+              ? "✅ propsFilter exists"
+              : "❌ propsFilter is missing",
+          },
+          {
+            name: "whiteListedEvent exists",
+            valid: !!(job.propsFilter && job.propsFilter.whiteListedEvent),
+            message:
+              job.propsFilter && job.propsFilter.whiteListedEvent
+                ? "✅ whiteListedEvent exists"
+                : "❌ whiteListedEvent is missing",
+          },
+          {
+            name: "eventT1 exists",
+            valid: !!(job.propsFilter && job.propsFilter.eventT1),
+            message:
+              job.propsFilter && job.propsFilter.eventT1
+                ? "✅ eventT1 exists"
+                : "❌ eventT1 is missing",
+          },
+          {
+            name: "eventT2 exists",
+            valid: !!(job.propsFilter && job.propsFilter.eventT2),
+            message:
+              job.propsFilter && job.propsFilter.eventT2
+                ? "✅ eventT2 exists"
+                : "❌ eventT2 is missing",
+          },
+          {
+            name: "globalBlackListedEvent exists",
+            valid: !!(
+              job.propsFilter && job.propsFilter.globalBlackListedEvent
+            ),
+            message:
+              job.propsFilter && job.propsFilter.globalBlackListedEvent
+                ? "✅ globalBlackListedEvent exists"
+                : "❌ globalBlackListedEvent is missing",
+          },
+          {
+            name: "blacklistedEvents exists",
+            valid: !!(job.propsFilter && job.propsFilter.blacklistedEvents),
+            message:
+              job.propsFilter && job.propsFilter.blacklistedEvents
+                ? "✅ blacklistedEvents exists"
+                : "❌ blacklistedEvents is missing",
+          },
+        ];
+
+        validations.forEach((validation) => {
+          html += `<p>${validation.message}</p>`;
+        });
+
+        html += `</div>`;
+
+        return html;
+      }
+
+      // Format all jobs response
+      function formatAllJobsResponse(title, results) {
+        let html = `<h3>${title}</h3>`;
+        html += `<p>Tested ${results.length} jobs:</p>`;
+
+        const successCount = results.filter((r) => r.success).length;
+        const failureCount = results.filter((r) => !r.success).length;
+
+        html += `<div class="job-details">`;
+        html += `<h4>Summary</h4>`;
+        html += `<p><strong>Success:</strong> ${successCount} jobs</p>`;
+        html += `<p><strong>Failed:</strong> ${failureCount} jobs</p>`;
+        html += `</div>`;
+
+        results.forEach((result) => {
+          const status = result.success ? "✅" : "❌";
+          html += `<div class="job-details">`;
+          html += `<h4>${status} ${result.job}</h4>`;
+
+          if (result.success) {
+            const job = result.data.data;
+            if (job.propsFilter) {
+              html += `<p>✅ propsFilter structure is present</p>`;
+              html += `<p>✅ whiteListedEvent: ${Object.keys(job.propsFilter.whiteListedEvent || {}).length} events</p>`;
+              html += `<p>✅ eventT1: ${Object.keys(job.propsFilter.eventT1 || {}).length} events</p>`;
+              html += `<p>✅ eventT2: ${Object.keys(job.propsFilter.eventT2 || {}).length} events</p>`;
+            } else {
+              html += `<p>❌ propsFilter structure is missing</p>`;
+            }
+          } else {
+            html += `<p>❌ Error: ${result.error}</p>`;
+          }
+          html += `</div>`;
+        });
+
+        return html;
+      }
+
+      // Initialize on page load
+      checkMockServerStatus();
+    </script>
+  </body>
+</html>

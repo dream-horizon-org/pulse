@@ -1,0 +1,45 @@
+.statSection {
+  background: #ffffff;
+  border: 1px solid rgba(14, 201, 194, 0.2);
+  border-radius: var(--mantine-radius-lg);
+  padding: var(--mantine-spacing-md);
+  box-shadow: 0 4px 12px rgba(14, 201, 194, 0.1);
+  position: relative;
+  overflow: hidden;
+}
+
+.sectionTitle {
+  font-size: 13px;
+  font-weight: 700;
+  color: #0ba09a;
+  margin-bottom: var(--mantine-spacing-sm);
+  letter-spacing: -0.2px;
+  text-transform: capitalize;
+}
+
+.metricsGrid {
+  display: flex;
+  gap: 8px;
+}
+
+.statItem {
+  background: linear-gradient(
+    135deg,
+    rgba(14, 201, 194, 0.05) 0%,
+    rgba(14, 201, 194, 0.1) 100%
+  );
+  border: 1px solid rgba(14, 201, 194, 0.15);
+  border-radius: var(--mantine-radius-md);
+  padding: 14px 12px;
+  text-align: center;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+}
+
+.valueSkeleton {
+  margin-top: 8px;
+}

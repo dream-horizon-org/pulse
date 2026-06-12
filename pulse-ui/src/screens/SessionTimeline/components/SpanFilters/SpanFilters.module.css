@@ -1,0 +1,5 @@
+.filtersSection {
+  background: var(--mantine-color-white);
+  border-radius: var(--mantine-radius-md);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}

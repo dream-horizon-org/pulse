@@ -1,0 +1,222 @@
+.alertsContainer {
+  background: linear-gradient(145deg, #ffffff 0%, #fffafa 100%);
+  border: 1px solid rgba(239, 68, 68, 0.15);
+  border-radius: var(--mantine-radius-lg);
+  padding: var(--mantine-spacing-md);
+  padding-bottom: var(--mantine-spacing-xs);
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.08);
+  transition: all 0.3s ease;
+  position: relative;
+  height: 100%;
+}
+
+.alertsContainer::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #ef4444 0%, #dc2626 100%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.alertsContainer:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(239, 68, 68, 0.15);
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+.alertsContainer:hover::before {
+  opacity: 1;
+}
+
+.summaryCards {
+  display: flex;
+  gap: var(--mantine-spacing-sm);
+  margin-bottom: var(--mantine-spacing-sm);
+}
+
+.summaryCard {
+  flex: 1;
+  background: linear-gradient(
+    135deg,
+    rgba(239, 68, 68, 0.05) 0%,
+    rgba(239, 68, 68, 0.1) 100%
+  );
+  border: 1px solid rgba(239, 68, 68, 0.15);
+  border-radius: var(--mantine-radius-md);
+  padding: 10px;
+  transition: all 0.2s ease;
+}
+
+.summaryCard:hover {
+  background: linear-gradient(
+    135deg,
+    rgba(239, 68, 68, 0.1) 0%,
+    rgba(239, 68, 68, 0.15) 100%
+  );
+  border-color: rgba(239, 68, 68, 0.25);
+  transform: translateY(-2px);
+}
+
+.cardHeader {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.iconWrapper {
+  width: 24px;
+  height: 24px;
+  border-radius: var(--mantine-radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: transparent !important;
+}
+
+.icon {
+  opacity: 0.7;
+}
+
+.cardLabel {
+  color: var(--mantine-color-dark-4);
+  text-transform: capitalize;
+}
+
+.cardValue {
+  font-size: 30px !important;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: -1px;
+  margin-bottom: 6px;
+}
+
+.severityBreakdown {
+  display: flex;
+  gap: 8px;
+}
+
+.severityItem {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.severityDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.severityText {
+  color: var(--mantine-color-dark-4);
+}
+
+.recentAlertsSection {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.sectionTitle {
+  color: #dc2626;
+  margin-bottom: 8px;
+  letter-spacing: -0.2px;
+}
+
+.alertsList {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 2px;
+}
+
+.alertsList::-webkit-scrollbar {
+  width: 4px;
+}
+
+.alertsList::-webkit-scrollbar-track {
+  background: rgba(239, 68, 68, 0.05);
+  border-radius: 2px;
+}
+
+.alertsList::-webkit-scrollbar-thumb {
+  background: rgba(239, 68, 68, 0.3);
+  border-radius: 2px;
+}
+
+.alertsList::-webkit-scrollbar-thumb:hover {
+  background: rgba(239, 68, 68, 0.5);
+}
+
+.alertItem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  background: linear-gradient(
+    135deg,
+    rgba(254, 252, 252, 0.5) 0%,
+    rgba(255, 255, 255, 0.8) 100%
+  );
+  border: 1px solid rgba(239, 68, 68, 0.1);
+  border-radius: var(--mantine-radius-sm);
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.alertItem:hover {
+  background: rgba(239, 68, 68, 0.05);
+  border-color: rgba(239, 68, 68, 0.2);
+  transform: translateX(2px);
+}
+
+.alertIconWrapper {
+  width: 20px;
+  height: 20px;
+  border-radius: var(--mantine-radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.alertContent {
+  flex: 1;
+  min-width: 0;
+}
+
+.alertName {
+  color: var(--mantine-color-dark-7);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 1px;
+  line-height: 1.3;
+}
+
+.alertMeta {
+  color: var(--mantine-color-dark-4);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.severityBadge {
+  padding: 3px 6px;
+  border-radius: var(--mantine-radius-sm);
+  text-transform: capitalize;
+  white-space: nowrap;
+}

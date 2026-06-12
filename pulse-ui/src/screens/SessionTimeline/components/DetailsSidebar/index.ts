@@ -1,0 +1,2 @@
+export { DetailsSidebar } from "./DetailsSidebar";
+

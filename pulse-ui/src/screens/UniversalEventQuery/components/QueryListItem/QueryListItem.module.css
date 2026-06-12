@@ -1,0 +1,44 @@
+.listItemContainer {
+  background: #f5f5f5;
+  padding: 10px;
+  border-radius: 5px;
+  margin-bottom: 12px;
+  display: flex;
+}
+
+.queryContent {
+  font-family: monospace;
+  white-space: pre-wrap;
+  width: calc(100% - 10px);
+  font-size: var(--mantine-font-size-sm);
+}
+
+.copyButton {
+  font-size: var(--mantine-font-size-xs);
+  transition: background-color 0.3s ease;
+  display: flex;
+  align-items: flex-end;
+  margin-left: auto;
+}
+
+.copyButton:hover {
+  background-color: #f1f3f5;
+}
+
+.headerContainer {
+  display: flex;
+  flex-direction: column;
+}
+
+.header {
+  font-size: var(--mantine-font-size-md);
+  font-weight: bold;
+  color: #333;
+}
+
+.subHeader {
+  font-size: var(--mantine-font-size-sm);
+  font-style: italic;
+  color: #666;
+  margin-bottom: 8px;
+}

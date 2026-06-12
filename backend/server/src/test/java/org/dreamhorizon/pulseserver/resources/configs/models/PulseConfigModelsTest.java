@@ -1,0 +1,801 @@
+package org.dreamhorizon.pulseserver.resources.configs.models;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import org.dreamhorizon.pulseserver.service.configs.models.Features;
+import org.dreamhorizon.pulseserver.service.configs.models.Scope;
+import org.dreamhorizon.pulseserver.service.configs.models.Sdk;
+import org.dreamhorizon.pulseserver.service.configs.models.rules;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
+
+class PulseConfigModelsTest {
+
+  // AttributeValue Tests - specifically for getType() and setType() methods
+  @Nested
+  class TestAttributeValue {
+
+    @Test
+    void shouldCreateWithNoArgs() {
+      PulseConfig.AttributeValue attributeValue = new PulseConfig.AttributeValue();
+      assertNotNull(attributeValue);
+    }
+
+    @Test
+    void shouldCreateWithBuilder() {
+      PulseConfig.AttributeValue attributeValue = PulseConfig.AttributeValue.builder()
+          .name("testAttribute")
+          .value("testValue")
+          .build();
+
+      assertEquals("testAttribute", attributeValue.getName());
+      assertEquals("testValue", attributeValue.getValue());
+    }
+
+    @Test
+    void shouldCreateWithAllArgsConstructor() {
+      PulseConfig.AttributeValue attributeValue = new PulseConfig.AttributeValue(
+          "attributeName", "attributeValue");
+
+      assertEquals("attributeName", attributeValue.getName());
+      assertEquals("attributeValue", attributeValue.getValue());
+    }
+
+    @Test
+    void shouldSetAndGetName() {
+      PulseConfig.AttributeValue attributeValue = new PulseConfig.AttributeValue();
+
+      attributeValue.setName("newName");
+
+      assertEquals("newName", attributeValue.getName());
+    }
+
+    @Test
+    void shouldSetAndGetValue() {
+      PulseConfig.AttributeValue attributeValue = new PulseConfig.AttributeValue();
+
+      attributeValue.setValue("newValue");
+
+      assertEquals("newValue", attributeValue.getValue());
+    }
+
+    @Test
+    void shouldAlwaysReturnStringForGetType() {
+      PulseConfig.AttributeValue attributeValue = new PulseConfig.AttributeValue();
+
+      // getType() should always return "string" regardless of any other state
+      assertEquals("string", attributeValue.getType());
+    }
+
+    @Test
+    void shouldReturnStringTypeAfterSettingDifferentType() {
+      PulseConfig.AttributeValue attributeValue = new PulseConfig.AttributeValue();
+
+      // Call setType with a different value
+      attributeValue.setType("integer");
+
+      // getType() should still return "string" - the setType is a no-op
+      assertEquals("string", attributeValue.getType());
+    }
+
+    @Test
+    void shouldReturnStringTypeAfterSettingNullType() {
+      PulseConfig.AttributeValue attributeValue = new PulseConfig.AttributeValue();
+
+      // Call setType with null
+      attributeValue.setType(null);
+
+      // getType() should still return "string"
+      assertEquals("string", attributeValue.getType());
+    }
+
+    @Test
+    void shouldReturnStringTypeAfterSettingEmptyType() {
+      PulseConfig.AttributeValue attributeValue = new PulseConfig.AttributeValue();
+
+      // Call setType with empty string
+      attributeValue.setType("");
+
+      // getType() should still return "string"
+      assertEquals("string", attributeValue.getType());
+    }
+
+    @Test
+    void shouldReturnStringTypeAfterMultipleSetTypeCalls() {
+      PulseConfig.AttributeValue attributeValue = new PulseConfig.AttributeValue();
+
+      // Call setType multiple times with different values
+      attributeValue.setType("boolean");
+      attributeValue.setType("number");
+      attributeValue.setType("object");
+
+      // getType() should still return "string"
+      assertEquals("string", attributeValue.getType());
+    }
+
+    @Test
+    void shouldReturnStringTypeEvenWhenBuilderUsed() {
+      PulseConfig.AttributeValue attributeValue = PulseConfig.AttributeValue.builder()
+          .name("attr")
+          .value("val")
+          .build();
+
+      // getType() should return "string"
+      assertEquals("string", attributeValue.getType());
+    }
+
+    @Test
+    void shouldHaveCorrectEqualsAndHashCode() {
+      PulseConfig.AttributeValue attr1 = PulseConfig.AttributeValue.builder()
+          .name("testName")
+          .value("testValue")
+          .build();
+      PulseConfig.AttributeValue attr2 = PulseConfig.AttributeValue.builder()
+          .name("testName")
+          .value("testValue")
+          .build();
+
+      assertEquals(attr1, attr2);
+      assertEquals(attr1.hashCode(), attr2.hashCode());
+    }
+
+    @Test
+    void shouldHaveCorrectToString() {
+      PulseConfig.AttributeValue attributeValue = PulseConfig.AttributeValue.builder()
+          .name("attr")
+          .value("val")
+          .build();
+
+      String toString = attributeValue.toString();
+      assertNotNull(toString);
+      assertTrue(toString.contains("attr"));
+      assertTrue(toString.contains("val"));
+    }
+  }
+
+  // AttributeToAdd Tests
+  @Nested
+  class TestAttributeToAdd {
+
+    @Test
+    void shouldCreateWithNoArgs() {
+      PulseConfig.AttributeToAdd attributeToAdd = new PulseConfig.AttributeToAdd();
+      assertNotNull(attributeToAdd);
+    }
+
+    @Test
+    void shouldCreateWithBuilder() {
+      List<PulseConfig.AttributeValue> values = Arrays.asList(
+          PulseConfig.AttributeValue.builder().name("attr1").value("val1").build(),
+          PulseConfig.AttributeValue.builder().name("attr2").value("val2").build()
+      );
+      PulseConfig.EventFilter condition = PulseConfig.EventFilter.builder()
+          .name("eventName")
+          .build();
+
+      PulseConfig.AttributeToAdd attributeToAdd = PulseConfig.AttributeToAdd.builder()
+          .values(values)
+          .condition(condition)
+          .build();
+
+      assertEquals(values, attributeToAdd.getValues());
+      assertEquals(condition, attributeToAdd.getCondition());
+    }
+
+    @Test
+    void shouldSetAndGetValues() {
+      PulseConfig.AttributeToAdd attributeToAdd = new PulseConfig.AttributeToAdd();
+      List<PulseConfig.AttributeValue> values = new ArrayList<>();
+
+      attributeToAdd.setValues(values);
+
+      assertEquals(values, attributeToAdd.getValues());
+    }
+
+    @Test
+    void shouldSetAndGetCondition() {
+      PulseConfig.AttributeToAdd attributeToAdd = new PulseConfig.AttributeToAdd();
+      PulseConfig.EventFilter condition = PulseConfig.EventFilter.builder()
+          .name("test")
+          .build();
+
+      attributeToAdd.setCondition(condition);
+
+      assertEquals(condition, attributeToAdd.getCondition());
+    }
+
+    @Test
+    void shouldVerifyTypeFieldInAttributeValues() {
+      PulseConfig.AttributeValue attr1 = PulseConfig.AttributeValue.builder()
+          .name("environment")
+          .value("production")
+          .build();
+      PulseConfig.AttributeValue attr2 = PulseConfig.AttributeValue.builder()
+          .name("team")
+          .value("backend")
+          .build();
+
+      List<PulseConfig.AttributeValue> values = Arrays.asList(attr1, attr2);
+      PulseConfig.AttributeToAdd attributeToAdd = PulseConfig.AttributeToAdd.builder()
+          .values(values)
+          .build();
+
+      // Verify each AttributeValue in the list returns "string" for type
+      for (PulseConfig.AttributeValue value : attributeToAdd.getValues()) {
+        assertEquals("string", value.getType());
+      }
+    }
+  }
+
+  // AttributeToDrop Tests
+  @Nested
+  class TestAttributeToDrop {
+
+    @Test
+    void shouldCreateWithNoArgs() {
+      PulseConfig.AttributeToDrop attributeToDrop = new PulseConfig.AttributeToDrop();
+      assertNotNull(attributeToDrop);
+    }
+
+    @Test
+    void shouldCreateWithBuilder() {
+      List<String> values = Arrays.asList("sensitiveAttr1", "sensitiveAttr2");
+      PulseConfig.EventFilter condition = PulseConfig.EventFilter.builder()
+          .name("http.request")
+          .props(new ArrayList<>())
+          .scopes(Arrays.asList(Scope.logs))
+          .sdks(Arrays.asList(Sdk.pulse_android_java))
+          .build();
+
+      PulseConfig.AttributeToDrop attributeToDrop = PulseConfig.AttributeToDrop.builder()
+          .values(values)
+          .condition(condition)
+          .build();
+
+      assertEquals(values, attributeToDrop.getValues());
+      assertEquals(condition, attributeToDrop.getCondition());
+      assertEquals(2, attributeToDrop.getValues().size());
+    }
+
+    @Test
+    void shouldCreateWithAllArgsConstructor() {
+      List<String> values = Arrays.asList("attr1", "attr2");
+      PulseConfig.EventFilter condition = PulseConfig.EventFilter.builder()
+          .name("testEvent")
+          .build();
+
+      PulseConfig.AttributeToDrop attributeToDrop = new PulseConfig.AttributeToDrop(values, condition);
+
+      assertEquals(values, attributeToDrop.getValues());
+      assertEquals(condition, attributeToDrop.getCondition());
+    }
+
+    @Test
+    void shouldSetAndGetValues() {
+      PulseConfig.AttributeToDrop attributeToDrop = new PulseConfig.AttributeToDrop();
+      List<String> values = Arrays.asList("attr1", "attr2", "attr3");
+
+      attributeToDrop.setValues(values);
+
+      assertEquals(values, attributeToDrop.getValues());
+      assertEquals(3, attributeToDrop.getValues().size());
+    }
+
+    @Test
+    void shouldSetAndGetCondition() {
+      PulseConfig.AttributeToDrop attributeToDrop = new PulseConfig.AttributeToDrop();
+      PulseConfig.EventFilter condition = PulseConfig.EventFilter.builder()
+          .name("test")
+          .build();
+
+      attributeToDrop.setCondition(condition);
+
+      assertEquals(condition, attributeToDrop.getCondition());
+    }
+
+    @Test
+    void shouldHaveCorrectEqualsAndHashCode() {
+      List<String> values = Arrays.asList("attr1", "attr2");
+      PulseConfig.EventFilter condition = PulseConfig.EventFilter.builder()
+          .name("event")
+          .build();
+
+      PulseConfig.AttributeToDrop attr1 = PulseConfig.AttributeToDrop.builder()
+          .values(values)
+          .condition(condition)
+          .build();
+      PulseConfig.AttributeToDrop attr2 = PulseConfig.AttributeToDrop.builder()
+          .values(values)
+          .condition(condition)
+          .build();
+
+      assertEquals(attr1, attr2);
+      assertEquals(attr1.hashCode(), attr2.hashCode());
+    }
+
+    @Test
+    void shouldHaveCorrectToString() {
+      PulseConfig.AttributeToDrop attributeToDrop = PulseConfig.AttributeToDrop.builder()
+          .values(Arrays.asList("sensitiveAttr"))
+          .build();
+
+      String toString = attributeToDrop.toString();
+      assertNotNull(toString);
+      assertTrue(toString.contains("sensitiveAttr"));
+    }
+
+    @Test
+    void shouldHandleNullFields() {
+      PulseConfig.AttributeToDrop attributeToDrop = PulseConfig.AttributeToDrop.builder()
+          .values(null)
+          .condition(null)
+          .build();
+
+      assertEquals(null, attributeToDrop.getValues());
+      assertEquals(null, attributeToDrop.getCondition());
+    }
+
+    @Test
+    void shouldHandleEmptyValues() {
+      PulseConfig.AttributeToDrop attributeToDrop = PulseConfig.AttributeToDrop.builder()
+          .values(new ArrayList<>())
+          .build();
+
+      assertNotNull(attributeToDrop.getValues());
+      assertTrue(attributeToDrop.getValues().isEmpty());
+    }
+  }
+
+  // EventFilter Tests
+  @Nested
+  class TestEventFilter {
+
+    @Test
+    void shouldCreateWithNoArgs() {
+      PulseConfig.EventFilter eventFilter = new PulseConfig.EventFilter();
+      assertNotNull(eventFilter);
+    }
+
+    @Test
+    void shouldCreateWithBuilder() {
+      List<PulseConfig.EventPropMatch> props = new ArrayList<>();
+      List<Scope> scopes = Arrays.asList(Scope.logs, Scope.traces);
+      List<Sdk> sdks = Arrays.asList(Sdk.pulse_android_java);
+
+      PulseConfig.EventFilter eventFilter = PulseConfig.EventFilter.builder()
+          .name("testEvent")
+          .props(props)
+          .scopes(scopes)
+          .sdks(sdks)
+          .build();
+
+      assertEquals("testEvent", eventFilter.getName());
+      assertEquals(props, eventFilter.getProps());
+      assertEquals(scopes, eventFilter.getScopes());
+      assertEquals(sdks, eventFilter.getSdks());
+    }
+
+    @Test
+    void shouldSetAndGetAllFields() {
+      PulseConfig.EventFilter eventFilter = new PulseConfig.EventFilter();
+
+      eventFilter.setName("eventName");
+      eventFilter.setProps(new ArrayList<>());
+      eventFilter.setScopes(Arrays.asList(Scope.metrics));
+      eventFilter.setSdks(Arrays.asList(Sdk.pulse_ios_swift));
+
+      assertEquals("eventName", eventFilter.getName());
+      assertNotNull(eventFilter.getProps());
+      assertEquals(1, eventFilter.getScopes().size());
+      assertEquals(1, eventFilter.getSdks().size());
+    }
+  }
+
+  // EventPropMatch Tests
+  @Nested
+  class TestEventPropMatch {
+
+    @Test
+    void shouldCreateWithNoArgs() {
+      PulseConfig.EventPropMatch propMatch = new PulseConfig.EventPropMatch();
+      assertNotNull(propMatch);
+    }
+
+    @Test
+    void shouldCreateWithBuilder() {
+      PulseConfig.EventPropMatch propMatch = PulseConfig.EventPropMatch.builder()
+          .name("propName")
+          .value("propValue.*")
+          .build();
+
+      assertEquals("propName", propMatch.getName());
+      assertEquals("propValue.*", propMatch.getValue());
+    }
+
+    @Test
+    void shouldSetAndGetFields() {
+      PulseConfig.EventPropMatch propMatch = new PulseConfig.EventPropMatch();
+
+      propMatch.setName("testProp");
+      propMatch.setValue("testRegex");
+
+      assertEquals("testProp", propMatch.getName());
+      assertEquals("testRegex", propMatch.getValue());
+    }
+  }
+
+  // SamplingConfig Tests
+  @Nested
+  class TestSamplingConfig {
+
+    @Test
+    void shouldCreateWithNoArgs() {
+      PulseConfig.SamplingConfig samplingConfig = new PulseConfig.SamplingConfig();
+      assertNotNull(samplingConfig);
+    }
+
+    @Test
+    void shouldCreateWithBuilder() {
+      PulseConfig.DefaultSampling defaultSampling = PulseConfig.DefaultSampling.builder()
+          .sessionSampleRate(0.5)
+          .build();
+      List<PulseConfig.SamplingRule> rules = new ArrayList<>();
+
+      PulseConfig.SamplingConfig samplingConfig = PulseConfig.SamplingConfig.builder()
+          .defaultSampling(defaultSampling)
+          .rules(rules)
+          .build();
+
+      assertEquals(defaultSampling, samplingConfig.getDefaultSampling());
+      assertEquals(rules, samplingConfig.getRules());
+    }
+  }
+
+  // DefaultSampling Tests
+  @Nested
+  class TestDefaultSampling {
+
+    @Test
+    void shouldCreateWithNoArgs() {
+      PulseConfig.DefaultSampling defaultSampling = new PulseConfig.DefaultSampling();
+      assertNotNull(defaultSampling);
+    }
+
+    @Test
+    void shouldCreateWithBuilder() {
+      PulseConfig.DefaultSampling defaultSampling = PulseConfig.DefaultSampling.builder()
+          .sessionSampleRate(0.75)
+          .build();
+
+      assertEquals(0.75, defaultSampling.getSessionSampleRate());
+    }
+
+    @Test
+    void shouldSetAndGetSessionSampleRate() {
+      PulseConfig.DefaultSampling defaultSampling = new PulseConfig.DefaultSampling();
+
+      defaultSampling.setSessionSampleRate(0.9);
+
+      assertEquals(0.9, defaultSampling.getSessionSampleRate());
+    }
+  }
+
+  // SamplingRule Tests
+  @Nested
+  class TestSamplingRule {
+
+    @Test
+    void shouldCreateWithNoArgs() {
+      PulseConfig.SamplingRule samplingRule = new PulseConfig.SamplingRule();
+      assertNotNull(samplingRule);
+    }
+
+    @Test
+    void shouldCreateWithBuilder() {
+      PulseConfig.SamplingRule samplingRule = PulseConfig.SamplingRule.builder()
+          .name(rules.os_version)
+          .sdks(Arrays.asList(Sdk.pulse_android_java))
+          .value("14")
+          .sessionSampleRate(1.0)
+          .build();
+
+      assertEquals(rules.os_version, samplingRule.getName());
+      assertEquals("14", samplingRule.getValue());
+      assertEquals(1.0, samplingRule.getSessionSampleRate());
+    }
+
+    @Test
+    void shouldSetAndGetAllFields() {
+      PulseConfig.SamplingRule samplingRule = new PulseConfig.SamplingRule();
+
+      samplingRule.setName(rules.app_version);
+      samplingRule.setSdks(Arrays.asList(Sdk.pulse_ios_swift));
+      samplingRule.setValue("2.0.0");
+      samplingRule.setSessionSampleRate(0.8);
+
+      assertEquals(rules.app_version, samplingRule.getName());
+      assertEquals("2.0.0", samplingRule.getValue());
+      assertEquals(0.8, samplingRule.getSessionSampleRate());
+    }
+  }
+
+  // CriticalSessionPolicies Tests
+  @Nested
+  class TestCriticalSessionPolicies {
+
+    @Test
+    void shouldCreateWithNoArgs() {
+      PulseConfig.CriticalSessionPolicies policies = new PulseConfig.CriticalSessionPolicies();
+      assertNotNull(policies);
+    }
+
+    @Test
+    void shouldCreateWithBuilder() {
+      List<PulseConfig.CriticalPolicyRule> alwaysSend = new ArrayList<>();
+      PulseConfig.CriticalSessionPolicies policies = PulseConfig.CriticalSessionPolicies.builder()
+          .alwaysSend(alwaysSend)
+          .build();
+
+      assertEquals(alwaysSend, policies.getAlwaysSend());
+    }
+  }
+
+  // CriticalPolicyRule Tests
+  @Nested
+  class TestCriticalPolicyRule {
+
+    @Test
+    void shouldCreateWithNoArgs() {
+      PulseConfig.CriticalPolicyRule rule = new PulseConfig.CriticalPolicyRule();
+      assertNotNull(rule);
+    }
+
+    @Test
+    void shouldCreateWithBuilder() {
+      List<PulseConfig.EventPropMatch> props = new ArrayList<>();
+      List<Scope> scopes = Arrays.asList(Scope.logs);
+      List<Sdk> sdks = Arrays.asList(Sdk.pulse_android_java);
+
+      PulseConfig.CriticalPolicyRule rule = PulseConfig.CriticalPolicyRule.builder()
+          .name("crashEvent")
+          .props(props)
+          .scopes(scopes)
+          .sdks(sdks)
+          .build();
+
+      assertEquals("crashEvent", rule.getName());
+      assertEquals(props, rule.getProps());
+      assertEquals(scopes, rule.getScopes());
+      assertEquals(sdks, rule.getSdks());
+    }
+  }
+
+  // SignalsConfig Tests
+  @Nested
+  class TestSignalsConfig {
+
+    @Test
+    void shouldCreateWithNoArgs() {
+      PulseConfig.SignalsConfig signalsConfig = new PulseConfig.SignalsConfig();
+      assertNotNull(signalsConfig);
+    }
+
+    @Test
+    void shouldCreateWithBuilder() {
+      List<PulseConfig.AttributeToDrop> attributesToDrop = new ArrayList<>();
+      List<PulseConfig.AttributeToAdd> attributesToAdd = new ArrayList<>();
+
+      PulseConfig.SignalsConfig signalsConfig = PulseConfig.SignalsConfig.builder()
+          .scheduleDurationMs(5000)
+          .logsCollectorUrl("http://logs.example.com")
+          .metricCollectorUrl("http://metrics.example.com")
+          .spanCollectorUrl("http://spans.example.com")
+          .customEventCollectorUrl("http://custom-events.example.com")
+          .attributesToDrop(attributesToDrop)
+          .attributesToAdd(attributesToAdd)
+          .build();
+
+      assertEquals(5000, signalsConfig.getScheduleDurationMs());
+      assertEquals("http://logs.example.com", signalsConfig.getLogsCollectorUrl());
+      assertEquals("http://metrics.example.com", signalsConfig.getMetricCollectorUrl());
+      assertEquals("http://spans.example.com", signalsConfig.getSpanCollectorUrl());
+      assertEquals("http://custom-events.example.com", signalsConfig.getCustomEventCollectorUrl());
+      assertEquals(attributesToDrop, signalsConfig.getAttributesToDrop());
+      assertEquals(attributesToAdd, signalsConfig.getAttributesToAdd());
+    }
+
+    @Test
+    void shouldSetAndGetAllFields() {
+      PulseConfig.SignalsConfig signalsConfig = new PulseConfig.SignalsConfig();
+
+      signalsConfig.setScheduleDurationMs(10000);
+      signalsConfig.setLogsCollectorUrl("http://new-logs.example.com");
+      signalsConfig.setMetricCollectorUrl("http://new-metrics.example.com");
+      signalsConfig.setSpanCollectorUrl("http://new-spans.example.com");
+      signalsConfig.setCustomEventCollectorUrl("http://new-custom-events.example.com");
+      signalsConfig.setAttributesToDrop(new ArrayList<>());
+      signalsConfig.setAttributesToAdd(new ArrayList<>());
+
+      assertEquals(10000, signalsConfig.getScheduleDurationMs());
+      assertEquals("http://new-logs.example.com", signalsConfig.getLogsCollectorUrl());
+      assertEquals("http://new-metrics.example.com", signalsConfig.getMetricCollectorUrl());
+      assertEquals("http://new-spans.example.com", signalsConfig.getSpanCollectorUrl());
+      assertEquals("http://new-custom-events.example.com", signalsConfig.getCustomEventCollectorUrl());
+    }
+
+    /**
+     * Tests that customEventCollectorUrl can be set to null.
+     * This verifies the field is optional and handles null values correctly.
+     */
+    @Test
+    void shouldHandleNullCustomEventCollectorUrl() {
+      PulseConfig.SignalsConfig signalsConfig = PulseConfig.SignalsConfig.builder()
+          .customEventCollectorUrl(null)
+          .build();
+
+      assertEquals(null, signalsConfig.getCustomEventCollectorUrl());
+    }
+
+    /**
+     * Tests that customEventCollectorUrl can be set to an empty string.
+     * This verifies edge case handling for empty URL values.
+     */
+    @Test
+    void shouldHandleEmptyCustomEventCollectorUrl() {
+      PulseConfig.SignalsConfig signalsConfig = new PulseConfig.SignalsConfig();
+
+      signalsConfig.setCustomEventCollectorUrl("");
+
+      assertEquals("", signalsConfig.getCustomEventCollectorUrl());
+    }
+  }
+
+  // InteractionConfig Tests
+  @Nested
+  class TestInteractionConfig {
+
+    @Test
+    void shouldCreateWithNoArgs() {
+      PulseConfig.InteractionConfig interactionConfig = new PulseConfig.InteractionConfig();
+      assertNotNull(interactionConfig);
+    }
+
+    @Test
+    void shouldCreateWithBuilder() {
+      PulseConfig.InteractionConfig interactionConfig = PulseConfig.InteractionConfig.builder()
+          .collectorUrl("http://collector.example.com")
+          .configUrl("http://config.example.com")
+          .beforeInitQueueSize(100)
+          .build();
+
+      assertEquals("http://collector.example.com", interactionConfig.getCollectorUrl());
+      assertEquals("http://config.example.com", interactionConfig.getConfigUrl());
+      assertEquals(100, interactionConfig.getBeforeInitQueueSize());
+    }
+
+    @Test
+    void shouldSetAndGetAllFields() {
+      PulseConfig.InteractionConfig interactionConfig = new PulseConfig.InteractionConfig();
+
+      interactionConfig.setCollectorUrl("http://new-collector.example.com");
+      interactionConfig.setConfigUrl("http://new-config.example.com");
+      interactionConfig.setBeforeInitQueueSize(200);
+
+      assertEquals("http://new-collector.example.com", interactionConfig.getCollectorUrl());
+      assertEquals("http://new-config.example.com", interactionConfig.getConfigUrl());
+      assertEquals(200, interactionConfig.getBeforeInitQueueSize());
+    }
+  }
+
+  // FeatureConfig Tests
+  @Nested
+  class TestFeatureConfig {
+
+    @Test
+    void shouldCreateWithNoArgs() {
+      PulseConfig.FeatureConfig featureConfig = new PulseConfig.FeatureConfig();
+      assertNotNull(featureConfig);
+    }
+
+    @Test
+    void shouldCreateWithBuilder() {
+      PulseConfig.FeatureConfig featureConfig = PulseConfig.FeatureConfig.builder()
+          .featureName(Features.java_crash)
+          .sessionSampleRate(1.0)
+          .sdks(Arrays.asList(Sdk.pulse_android_java))
+          .build();
+
+      assertEquals(Features.java_crash, featureConfig.getFeatureName());
+      assertEquals(1.0, featureConfig.getSessionSampleRate());
+      assertEquals(1, featureConfig.getSdks().size());
+    }
+
+    @Test
+    void shouldSetAndGetAllFields() {
+      PulseConfig.FeatureConfig featureConfig = new PulseConfig.FeatureConfig();
+
+      featureConfig.setFeatureName(Features.java_anr);
+      featureConfig.setSessionSampleRate(0.5);
+      featureConfig.setSdks(Arrays.asList(Sdk.pulse_android_rn, Sdk.pulse_ios_rn));
+
+      assertEquals(Features.java_anr, featureConfig.getFeatureName());
+      assertEquals(0.5, featureConfig.getSessionSampleRate());
+      assertEquals(2, featureConfig.getSdks().size());
+    }
+  }
+
+  // PulseConfig (main class) Tests
+  @Nested
+  class TestPulseConfig {
+
+    @Test
+    void shouldCreateWithNoArgs() {
+      PulseConfig pulseConfig = new PulseConfig();
+      assertNotNull(pulseConfig);
+    }
+
+    @Test
+    void shouldCreateWithBuilder() {
+      PulseConfig.SamplingConfig sampling = PulseConfig.SamplingConfig.builder().build();
+      PulseConfig.SignalsConfig signals = PulseConfig.SignalsConfig.builder().build();
+      PulseConfig.InteractionConfig interaction = PulseConfig.InteractionConfig.builder().build();
+      List<PulseConfig.FeatureConfig> features = new ArrayList<>();
+
+      PulseConfig pulseConfig = PulseConfig.builder()
+          .version(1L)
+          .description("Test Config")
+          .sampling(sampling)
+          .signals(signals)
+          .interaction(interaction)
+          .features(features)
+          .build();
+
+      assertEquals(1L, pulseConfig.getVersion());
+      assertEquals("Test Config", pulseConfig.getDescription());
+      assertEquals(sampling, pulseConfig.getSampling());
+      assertEquals(signals, pulseConfig.getSignals());
+      assertEquals(interaction, pulseConfig.getInteraction());
+      assertEquals(features, pulseConfig.getFeatures());
+    }
+
+    @Test
+    void shouldSetAndGetAllFields() {
+      PulseConfig pulseConfig = new PulseConfig();
+
+      pulseConfig.setVersion(2L);
+      pulseConfig.setDescription("Updated Config");
+      pulseConfig.setSampling(new PulseConfig.SamplingConfig());
+      pulseConfig.setSignals(new PulseConfig.SignalsConfig());
+      pulseConfig.setInteraction(new PulseConfig.InteractionConfig());
+      pulseConfig.setFeatures(new ArrayList<>());
+
+      assertEquals(2L, pulseConfig.getVersion());
+      assertEquals("Updated Config", pulseConfig.getDescription());
+      assertNotNull(pulseConfig.getSampling());
+      assertNotNull(pulseConfig.getSignals());
+      assertNotNull(pulseConfig.getInteraction());
+      assertNotNull(pulseConfig.getFeatures());
+    }
+
+    @Test
+    void shouldHaveCorrectEqualsAndHashCode() {
+      PulseConfig config1 = PulseConfig.builder()
+          .version(1L)
+          .description("Test")
+          .build();
+      PulseConfig config2 = PulseConfig.builder()
+          .version(1L)
+          .description("Test")
+          .build();
+
+      assertEquals(config1, config2);
+      assertEquals(config1.hashCode(), config2.hashCode());
+    }
+  }
+}
+

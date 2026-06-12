@@ -1,0 +1,127 @@
+.graphsMainContainer {
+  padding-top: var(--mantine-spacing-md);
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  width: 100%;
+  gap: var(--mantine-spacing-md);
+}
+
+/* vertical layout (Apdex with latency and error metrics on top, User categorisation full width) */
+.vertical .graphcolumn:nth-child(3) { grid-column: 1 / span 2; } 
+
+/* Horizontal layout (User categorisation first, then Apdex with latency, then Error metrics) */
+.horizontal {
+  grid-template-columns: repeat(3, 1fr);
+}
+.horizontal .graphcolumn:nth-child(1) { order: 2; } 
+.horizontal .graphcolumn:nth-child(2) { order: 3; } 
+.horizontal .graphcolumn:nth-child(3) { order: 1; } 
+
+.graphContainer {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid rgba(14, 201, 194, 0.12);
+  border-radius: 16px;
+  flex: 1;
+  min-width: 0;
+  margin-bottom: var(--mantine-spacing-md);
+  position: relative;
+  background: linear-gradient(145deg, #ffffff 0%, #fafbfc 100%);
+  box-shadow:
+    0 4px 12px rgba(14, 201, 194, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+}
+
+.graphContainer::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, #0ec9c2 0%, #0ba09a 50%, transparent 100%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  z-index: 1;
+}
+
+.graphContainer:hover {
+  box-shadow:
+    0 8px 20px rgba(14, 201, 194, 0.1),
+    0 4px 12px rgba(0, 0, 0, 0.04),
+    inset 0 1px 0 rgba(255, 255, 255, 1);
+  transform: translateY(-2px);
+  border-color: rgba(14, 201, 194, 0.2);
+}
+
+.graphContainer:hover::before {
+  opacity: 1;
+}
+
+.graph {
+  display: flex;
+  flex-grow: 1;
+  margin-bottom: var(--mantine-spacing-sm);
+  padding-right: var(--mantine-spacing-lg);
+}
+
+.graphTitle {
+  padding: var(--mantine-spacing-xs) var(--mantine-spacing-sm);
+  padding-left: var(--mantine-spacing-sm);
+  font-size: 14px !important;
+  font-weight: 700;
+  color: #0ba09a;
+  letter-spacing: -0.2px;
+}
+
+.graphrow {
+  display: flex;
+  flex-direction: row;
+  gap: var(--mantine-spacing-sm);
+  position: relative;
+  width: 100%;
+  margin-bottom: var(--mantine-spacing-sm);
+}
+
+.errorOverlay {
+  position: absolute;
+  height: 100%;
+  width: 100%;
+  opacity: 0.7;
+  background-color: var(--mantine-color-red-2);
+  color: var(--mantine-color-red-9);
+  top: 0;
+  left: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  font-size: var(--mantine-font-size-sm);
+}
+
+.rowTitle {
+  padding-bottom: var(--mantine-spacing-lg);
+}
+
+.absoluteCardContainer {
+  display: flex;
+  gap: 8px;
+  padding: var(--mantine-spacing-sm);
+  padding-top: 0;
+  padding-bottom: var(--mantine-spacing-sm);
+}
+
+.progressBarContainer {
+  margin-top: -3px;
+}
+
+.rowTitle {
+  text-decoration: none;
+  color: var(--mantine-color-dark-6);
+  font-size: var(--mantine-font-size-sm);
+  font-weight: var(--mantine-font-weight-bold);
+  padding-bottom: var(--mantine-spacing-lg);
+  display: block;
+}

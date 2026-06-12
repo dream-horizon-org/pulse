@@ -1,0 +1,80 @@
+public abstract interface class com/pulse/sampling/core/PulseSessionParser {
+	public static final field Companion Lcom/pulse/sampling/core/PulseSessionParser$Companion;
+	public abstract fun parses (Landroid/content/Context;Lcom/pulse/sampling/models/PulseSamplingConfig;Lcom/pulse/sampling/models/PulseSdkName;)F
+}
+
+public final class com/pulse/sampling/core/PulseSessionParser$Companion {
+}
+
+public abstract interface class com/pulse/sampling/core/PulseSignalMatcher {
+	public abstract fun matches (Lcom/pulse/sampling/models/PulseSignalScope;Ljava/lang/String;Lio/opentelemetry/api/common/Attributes;Lcom/pulse/sampling/models/matchers/PulseSignalMatchCondition;Lcom/pulse/sampling/models/PulseSdkName;)Z
+}
+
+public final class com/pulse/sampling/core/exporters/PulseSamplingSignalProcessors {
+	public final fun getEnabledFeatures ()Ljava/util/List;
+}
+
+public final class com/pulse/sampling/core/exporters/PulseSamplingSignalProcessors$SampledLogExporter : io/opentelemetry/sdk/logs/export/LogRecordExporter {
+	public fun <init> (Lcom/pulse/sampling/core/exporters/PulseSamplingSignalProcessors;Lio/opentelemetry/sdk/logs/export/LogRecordExporter;)V
+	public fun close ()V
+	public fun export (Ljava/util/Collection;)Lio/opentelemetry/sdk/common/CompletableResultCode;
+	public fun flush ()Lio/opentelemetry/sdk/common/CompletableResultCode;
+	public fun shutdown ()Lio/opentelemetry/sdk/common/CompletableResultCode;
+}
+
+public final class com/pulse/sampling/core/exporters/PulseSamplingSignalProcessors$SampledMetricExporter : io/opentelemetry/sdk/metrics/export/MetricExporter {
+	public fun <init> (Lcom/pulse/sampling/core/exporters/PulseSamplingSignalProcessors;Lio/opentelemetry/sdk/metrics/export/MetricExporter;)V
+	public fun close ()V
+	public fun export (Ljava/util/Collection;)Lio/opentelemetry/sdk/common/CompletableResultCode;
+	public fun flush ()Lio/opentelemetry/sdk/common/CompletableResultCode;
+	public fun getAggregationTemporality (Lio/opentelemetry/sdk/metrics/InstrumentType;)Lio/opentelemetry/sdk/metrics/data/AggregationTemporality;
+	public fun getDefaultAggregation (Lio/opentelemetry/sdk/metrics/InstrumentType;)Lio/opentelemetry/sdk/metrics/Aggregation;
+	public fun getMemoryMode ()Lio/opentelemetry/sdk/common/export/MemoryMode;
+	public fun shutdown ()Lio/opentelemetry/sdk/common/CompletableResultCode;
+	public fun with (Lio/opentelemetry/sdk/metrics/InstrumentType;Lio/opentelemetry/sdk/metrics/Aggregation;)Lio/opentelemetry/sdk/metrics/export/DefaultAggregationSelector;
+}
+
+public final class com/pulse/sampling/core/exporters/PulseSamplingSignalProcessors$SampledSpanExporter : io/opentelemetry/sdk/trace/export/SpanExporter {
+	public fun <init> (Lcom/pulse/sampling/core/exporters/PulseSamplingSignalProcessors;Lio/opentelemetry/sdk/trace/export/SpanExporter;)V
+	public fun close ()V
+	public fun export (Ljava/util/Collection;)Lio/opentelemetry/sdk/common/CompletableResultCode;
+	public fun flush ()Lio/opentelemetry/sdk/common/CompletableResultCode;
+	public fun shutdown ()Lio/opentelemetry/sdk/common/CompletableResultCode;
+}
+
+public final class com/pulse/sampling/core/exporters/PulseSamplingSignalProcessorsKt {
+	public static final fun PulseSamplingSignalProcessors (Landroid/content/Context;Lcom/pulse/sampling/models/PulseSdkConfig;Lcom/pulse/sampling/models/PulseSdkName;Lkotlin/Lazy;)Lcom/pulse/sampling/core/exporters/PulseSamplingSignalProcessors;
+}
+
+public final class com/pulse/sampling/core/exporters/PulseSignalSelectExporter {
+}
+
+public final class com/pulse/sampling/core/exporters/PulseSignalSelectExporter$SelectedLogExporter : io/opentelemetry/sdk/logs/export/LogRecordExporter {
+	public fun <init> (Lcom/pulse/sampling/core/exporters/PulseSignalSelectExporter;Ljava/util/List;)V
+	public fun close ()V
+	public fun export (Ljava/util/Collection;)Lio/opentelemetry/sdk/common/CompletableResultCode;
+	public fun flush ()Lio/opentelemetry/sdk/common/CompletableResultCode;
+	public fun shutdown ()Lio/opentelemetry/sdk/common/CompletableResultCode;
+}
+
+public final class com/pulse/sampling/core/exporters/PulseSignalSelectExporter$SelectedSpanExporter : io/opentelemetry/sdk/trace/export/SpanExporter {
+	public fun <init> (Lcom/pulse/sampling/core/exporters/PulseSignalSelectExporter;Ljava/util/List;)V
+	public fun export (Ljava/util/Collection;)Lio/opentelemetry/sdk/common/CompletableResultCode;
+	public fun flush ()Lio/opentelemetry/sdk/common/CompletableResultCode;
+	public fun shutdown ()Lio/opentelemetry/sdk/common/CompletableResultCode;
+}
+
+public final class com/pulse/sampling/core/exporters/PulseSignalSelectExporterKt {
+	public static final fun PulseSignalSelectExporter (Lcom/pulse/sampling/models/PulseSdkName;)Lcom/pulse/sampling/core/exporters/PulseSignalSelectExporter;
+}
+
+public abstract interface class com/pulse/sampling/core/providers/PulseSdkConfigProvider {
+	public abstract fun provide (Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+}
+
+public final class com/pulse/sampling/core/providers/PulseSdkConfigRestProvider : com/pulse/sampling/core/providers/PulseSdkConfigProvider {
+	public fun <init> (Ljava/io/File;Lokhttp3/OkHttpClient;Ljava/util/Map;Lkotlin/jvm/functions/Function0;)V
+	public synthetic fun <init> (Ljava/io/File;Lokhttp3/OkHttpClient;Ljava/util/Map;Lkotlin/jvm/functions/Function0;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun provide (Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+}
+

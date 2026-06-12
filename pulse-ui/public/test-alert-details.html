@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Alert Details Test</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 20px;
+      }
+      .test-result {
+        margin: 10px 0;
+        padding: 10px;
+        border-radius: 4px;
+      }
+      .success {
+        background-color: #d4edda;
+        border: 1px solid #c3e6cb;
+        color: #155724;
+      }
+      .error {
+        background-color: #f8d7da;
+        border: 1px solid #f5c6cb;
+        color: #721c24;
+      }
+      .info {
+        background-color: #d1ecf1;
+        border: 1px solid #bee5eb;
+        color: #0c5460;
+      }
+      button {
+        padding: 10px 20px;
+        margin: 5px;
+        cursor: pointer;
+      }
+      pre {
+        background: #f8f9fa;
+        padding: 10px;
+        border-radius: 4px;
+        overflow-x: auto;
+      }
+      .alert-details {
+        margin: 10px 0;
+        padding: 15px;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        background: #f9f9f9;
+      }
+      .metric-info {
+        background: #e9ecef;
+        padding: 10px;
+        border-radius: 4px;
+        margin: 10px 0;
+      }
+      .threshold-display {
+        font-weight: bold;
+        color: #dc3545;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>🔍 Alert Details Test</h1>
+
+    <div id="status" class="test-result info">
+      <strong>Status:</strong> Ready to test Alert Details and Metric Values
+    </div>
+
+    <div>
+      <button onclick="testAlertDetails(1)">Test Alert 1 Details</button>
+      <button onclick="testAlertDetails(2)">Test Alert 2 Details</button>
+      <button onclick="testAlertDetails(3)">Test Alert 3 Details</button>
+      <button onclick="testAllAlertDetails()">Test All Alert Details</button>
+    </div>
+
+    <div id="results"></div>
+
+    <script>
+      // Set environment variables for testing
+      window.process = window.process || {};
+      window.process.env = {
+        ...window.process.env,
+        REACT_APP_USE_MOCK_SERVER: "true",
+        REACT_APP_MOCK_DELAY: "100",
+        REACT_APP_MOCK_ERROR_RATE: "0.0",
+        REACT_APP_MOCK_LOGGING: "true",
+      };
+
+      function updateStatus(message, type = "info") {
+        const status = document.getElementById("status");
+        status.className = `test-result ${type}`;
+        status.innerHTML = `<strong>Status:</strong> ${message}`;
+      }
+
+      function addResult(title, data, success = true) {
+        const results = document.getElementById("results");
+        const resultDiv = document.createElement("div");
+        resultDiv.className = `test-result ${success ? "success" : "error"}`;
+        resultDiv.innerHTML = `
+                <h3>${title}</h3>
+                <pre>${JSON.stringify(data, null, 2)}</pre>
+            `;
+        results.appendChild(resultDiv);
+      }
+
+      function getThresholdValueUnit(metric) {
+        switch (metric) {
+          case "INTERACTION_CATEGORY_AVERAGE":
+          case "INTERACTION_CATEGORY_GOOD":
+          case "INTERACTION_CATEGORY_POOR":
+          case "INTERACTION_CATEGORY_EXCELLENT":
+          case "ERROR_RATE":
+            return "%";
+          case "INTERACTION_TIME_P50":
+          case "INTERACTION_TIME_P95":
+          case "INTERACTION_TIME_P99":
+            return "ms";
+          default:
+            return "";
+        }
+      }
+
+      function getThresholdValue(metric, threshold) {
+        switch (metric) {
+          case "INTERACTION_CATEGORY_AVERAGE":
+          case "INTERACTION_CATEGORY_GOOD":
+          case "INTERACTION_CATEGORY_POOR":
+          case "INTERACTION_CATEGORY_EXCELLENT":
+          case "ERROR_RATE":
+            return (Number(threshold) * 100).toFixed(2);
+          case "INTERACTION_TIME_P50":
+          case "INTERACTION_TIME_P95":
+          case "INTERACTION_TIME_P99":
+            return threshold.toString();
+          default:
+            return threshold.toString();
+        }
+      }
+
+      function getMetricLabel(metric) {
+        const labels = {
+          ERROR_RATE: "Error Rate",
+          APDEX: "Apdex Score",
+          INTERACTION_TIME_P50: "Interaction Time P50",
+          INTERACTION_TIME_P95: "Interaction Time P95",
+          INTERACTION_TIME_P99: "Interaction Time P99",
+          INTERACTION_CATEGORY_EXCELLENT: "Excellent Interactions",
+          INTERACTION_CATEGORY_GOOD: "Good Interactions",
+          INTERACTION_CATEGORY_AVERAGE: "Average Interactions",
+          INTERACTION_CATEGORY_POOR: "Poor Interactions",
+        };
+        return labels[metric] || metric;
+      }
+
+      function getOperatorLabel(operator) {
+        const labels = {
+          GREATER_THAN: "greater than",
+          LESS_THAN: "less than",
+          GREATER_THAN_EQUAL: "greater than or equal to",
+          LESS_THAN_EQUAL: "less than or equal to",
+        };
+        return labels[operator] || operator;
+      }
+
+      function addAlertDetails(alert) {
+        const results = document.getElementById("results");
+        const alertDiv = document.createElement("div");
+        alertDiv.className = "alert-details";
+
+        const thresholdValue = getThresholdValue(alert.metric, alert.threshold);
+        const thresholdUnit = getThresholdValueUnit(alert.metric);
+        const metricLabel = getMetricLabel(alert.metric);
+        const operatorLabel = getOperatorLabel(alert.metric_operator);
+
+        alertDiv.innerHTML = `
+                <h3>${alert.name}</h3>
+                <p><strong>Description:</strong> ${alert.description}</p>
+                <p><strong>Service:</strong> ${alert.service_name} (Job: ${alert.job_name})</p>
+                <p><strong>Current State:</strong> ${alert.current_state}</p>
+                <p><strong>Severity:</strong> ${alert.severity_id} | <strong>Roster:</strong> ${alert.roster_name}</p>
+                
+                <div class="metric-info">
+                    <h4>📊 Metric Configuration:</h4>
+                    <p><strong>Metric:</strong> ${metricLabel}</p>
+                    <p><strong>Operator:</strong> ${operatorLabel}</p>
+                    <p><strong>Threshold:</strong> <span class="threshold-display">${thresholdValue}${thresholdUnit}</span></p>
+                    <p><strong>Raw Threshold Value:</strong> ${alert.threshold}</p>
+                    <p><strong>Appdex Threshold:</strong> ${alert.appdex_threshold}</p>
+                </div>
+                
+                <div class="metric-info">
+                    <h4>⚙️ Evaluation Settings:</h4>
+                    <p><strong>Evaluation Interval:</strong> ${alert.evaluation_interval} seconds</p>
+                    <p><strong>Evaluation Period:</strong> ${alert.evaluation_period} seconds</p>
+                    <p><strong>Min Total Interactions:</strong> ${alert.min_total_interactions}</p>
+                    <p><strong>Min Success Interactions:</strong> ${alert.min_success_interactions}</p>
+                    <p><strong>Min Error Interactions:</strong> ${alert.min_error_interactions}</p>
+                </div>
+                
+                <div class="metric-info">
+                    <h4>📝 Alert Rule:</h4>
+                    <p><strong>Trigger if:</strong> ${metricLabel} is ${operatorLabel} <span class="threshold-display">${thresholdValue}${thresholdUnit}</span> over the last ${alert.evaluation_period} seconds and total number of ${alert.min_error_interactions > 0 ? "errored" : alert.min_success_interactions > 0 ? "successful" : ""} interactions are greater than or equal to ${alert.min_error_interactions > 0 ? alert.min_error_interactions : alert.min_success_interactions > 0 ? alert.min_success_interactions : alert.min_total_interactions}</p>
+                    <p><strong>Evaluates every:</strong> ${alert.evaluation_interval} seconds</p>
+                </div>
+                
+                <p><strong>Created By:</strong> ${alert.created_by} | <strong>Last Evaluated:</strong> ${new Date(alert.last_evaluated_at).toLocaleString()}</p>
+                <p><strong>Snoozed:</strong> ${alert.is_snoozed ? `Yes (${new Date(alert.snoozed_from).toLocaleString()} - ${new Date(alert.snoozed_until).toLocaleString()})` : "No"}</p>
+            `;
+        results.appendChild(alertDiv);
+      }
+
+      async function testAlertDetails(alertId) {
+        updateStatus(`Testing Alert Details for ID ${alertId}...`, "info");
+        try {
+          const response = await fetch(`/v1/alert/${alertId}`);
+          const data = await response.json();
+
+          if (response.ok && data.data) {
+            addResult(
+              `✅ Alert Details Test for ID ${alertId}`,
+              {
+                status: response.status,
+                alertDetails: data.data,
+              },
+              true,
+            );
+            addAlertDetails(data.data);
+          } else {
+            addResult(
+              `❌ Alert Details Test Failed for ID ${alertId}`,
+              {
+                status: response.status,
+                error: data.error || data.message,
+              },
+              false,
+            );
+          }
+        } catch (error) {
+          addResult(
+            `❌ Alert Details Test Failed for ID ${alertId}`,
+            { error: error.message },
+            false,
+          );
+        }
+      }
+
+      async function testAllAlertDetails() {
+        updateStatus("Testing All Alert Details...", "info");
+        document.getElementById("results").innerHTML = "";
+
+        const alertIds = [1, 2, 3, 4, 5];
+
+        for (const alertId of alertIds) {
+          await testAlertDetails(alertId);
+          await new Promise((resolve) => setTimeout(resolve, 100));
+        }
+
+        updateStatus("All Alert Details tests completed!", "success");
+      }
+
+      // Auto-run test on page load
+      window.onload = function () {
+        updateStatus(
+          "Alert Details test page loaded. Click buttons to test alert details and metric values.",
+          "info",
+        );
+      };
+    </script>
+  </body>
+</html>

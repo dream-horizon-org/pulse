@@ -1,0 +1,605 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Universal Querying Test</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 20px;
+      }
+      .test-result {
+        margin: 10px 0;
+        padding: 10px;
+        border-radius: 4px;
+      }
+      .success {
+        background-color: #d4edda;
+        border: 1px solid #c3e6cb;
+        color: #155724;
+      }
+      .error {
+        background-color: #f8d7da;
+        border: 1px solid #f5c6cb;
+        color: #721c24;
+      }
+      .info {
+        background-color: #d1ecf1;
+        border: 1px solid #bee5eb;
+        color: #0c5460;
+      }
+      button {
+        padding: 10px 20px;
+        margin: 5px;
+        cursor: pointer;
+      }
+      pre {
+        background: #f8f9fa;
+        padding: 10px;
+        border-radius: 4px;
+        overflow-x: auto;
+      }
+      .query-section {
+        border: 1px solid #ddd;
+        padding: 15px;
+        margin: 10px 0;
+        border-radius: 4px;
+        background: #f9f9f9;
+      }
+      .query-header {
+        font-weight: bold;
+        color: #333;
+        margin-bottom: 10px;
+      }
+      .query-content {
+        font-family: monospace;
+        background: #f8f9fa;
+        padding: 10px;
+        border-radius: 4px;
+        margin: 5px 0;
+      }
+      .table-section {
+        border: 1px solid #ddd;
+        padding: 10px;
+        margin: 5px 0;
+        border-radius: 4px;
+        background: #fff;
+      }
+      .table-name {
+        font-weight: bold;
+        color: #0066cc;
+        margin-bottom: 5px;
+      }
+      .column-list {
+        font-size: 12px;
+        color: #666;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>🔍 Universal Querying Test</h1>
+
+    <div id="status" class="test-result info">
+      <strong>Status:</strong> Ready to test universal querying functionality
+    </div>
+
+    <div class="query-section">
+      <div class="query-header">Test Query Validation</div>
+      <button onclick="testValidateQuery()">Test Validate Query</button>
+      <button onclick="testInvalidQuery()">Test Invalid Query</button>
+    </div>
+
+    <div class="query-section">
+      <div class="query-header">Test Query Execution</div>
+      <button onclick="testRunQuery()">Test Run Query</button>
+      <button onclick="testFetchQueryData()">Test Fetch Query Data</button>
+      <button onclick="testCancelQuery()">Test Cancel Query</button>
+    </div>
+
+    <div class="query-section">
+      <div class="query-header">Test Query History & Suggestions</div>
+      <button onclick="testQueryHistory()">Test Query History</button>
+      <button onclick="testSuggestedQueries()">Test Suggested Queries</button>
+    </div>
+
+    <div class="query-section">
+      <div class="query-header">Test Table & Column Info</div>
+      <button onclick="testGetTables()">Test Get Tables</button>
+      <button onclick="testGetTableColumns()">Test Get Table Columns</button>
+    </div>
+
+    <div id="results"></div>
+
+    <script>
+      // Set environment variables for testing
+      window.process = window.process || {};
+      window.process.env = {
+        ...window.process.env,
+        REACT_APP_USE_MOCK_SERVER: "true",
+        REACT_APP_MOCK_DELAY: "100",
+        REACT_APP_MOCK_ERROR_RATE: "0.0",
+        REACT_APP_MOCK_LOGGING: "true",
+      };
+
+      function updateStatus(message, type = "info") {
+        const status = document.getElementById("status");
+        status.className = `test-result ${type}`;
+        status.innerHTML = `<strong>Status:</strong> ${message}`;
+      }
+
+      function addResult(title, data, success = true) {
+        const results = document.getElementById("results");
+        const resultDiv = document.createElement("div");
+        resultDiv.className = `test-result ${success ? "success" : "error"}`;
+        resultDiv.innerHTML = `
+                <h3>${title}</h3>
+                <pre>${JSON.stringify(data, null, 2)}</pre>
+            `;
+        results.appendChild(resultDiv);
+      }
+
+      function renderQueryResults(data) {
+        if (!data || !data.rows) return;
+
+        const results = document.getElementById("results");
+        const resultsDiv = document.createElement("div");
+        resultsDiv.className = "query-section";
+        resultsDiv.innerHTML = `
+                <div class="query-header">📊 Query Results (${data.totalRows} total rows)</div>
+                <div class="query-content">
+                    <strong>Schema:</strong> ${JSON.stringify(data.schema, null, 2)}<br><br>
+                    <strong>Sample Rows:</strong><br>
+                    ${data.rows
+                      .slice(0, 5)
+                      .map(
+                        (row, i) =>
+                          `Row ${i + 1}: ${JSON.stringify(row.f.map((cell) => cell.v))}`,
+                      )
+                      .join("<br>")}
+                    ${data.rows.length > 5 ? "<br>... and more rows" : ""}
+                </div>
+            `;
+        results.appendChild(resultsDiv);
+      }
+
+      function renderTables(tables) {
+        if (!tables) return;
+
+        const results = document.getElementById("results");
+        const tablesDiv = document.createElement("div");
+        tablesDiv.className = "query-section";
+        tablesDiv.innerHTML = `
+                <div class="query-header">📋 Available Tables (${tables.length} tables)</div>
+                ${tables.map((table) => `<div class="table-name">${table.name || table}</div>`).join("")}
+            `;
+        results.appendChild(tablesDiv);
+      }
+
+      function renderTableColumns(columns, tableName) {
+        if (!columns) return;
+
+        const results = document.getElementById("results");
+        const columnsDiv = document.createElement("div");
+        columnsDiv.className = "table-section";
+        columnsDiv.innerHTML = `
+                <div class="table-name">Columns for ${tableName}</div>
+                <div class="column-list">
+                    ${columns.map((col) => `${col.name} (${col.type})`).join("<br>")}
+                </div>
+            `;
+        results.appendChild(columnsDiv);
+      }
+
+      async function testValidateQuery() {
+        updateStatus("Testing Query Validation...", "info");
+
+        const validQuery =
+          "SELECT eventName, COUNT(*) as count FROM d11_stream_analytics_multi_region.processed_events_partitioned_hourly WHERE eventTimestamp BETWEEN TIMESTAMP_SUB(CURRENT_TIMESTAMP(), interval 5 minute) AND CURRENT_TIMESTAMP() GROUP BY eventName ORDER BY count DESC LIMIT 10";
+
+        try {
+          const response = await fetch("/v2/validateQuery", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ query: validQuery }),
+          });
+          const data = await response.json();
+
+          if (response.ok) {
+            addResult(
+              `✅ Query Validation Test`,
+              {
+                status: response.status,
+                success: data.data?.success,
+                errorMessage: data.data?.errorMessage,
+              },
+              true,
+            );
+          } else {
+            addResult(
+              `❌ Query Validation Test Failed`,
+              {
+                status: response.status,
+                error: data.error || data.message,
+              },
+              false,
+            );
+          }
+        } catch (error) {
+          addResult(
+            `❌ Query Validation Test Failed`,
+            { error: error.message },
+            false,
+          );
+        }
+      }
+
+      async function testInvalidQuery() {
+        updateStatus("Testing Invalid Query Validation...", "info");
+
+        const invalidQuery = "INVALID SQL SYNTAX HERE";
+
+        try {
+          const response = await fetch("/v2/validateQuery", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ query: invalidQuery }),
+          });
+          const data = await response.json();
+
+          if (response.ok) {
+            addResult(
+              `✅ Invalid Query Validation Test`,
+              {
+                status: response.status,
+                success: data.data?.success,
+                errorMessage: data.data?.errorMessage,
+              },
+              true,
+            );
+          } else {
+            addResult(
+              `❌ Invalid Query Validation Test Failed`,
+              {
+                status: response.status,
+                error: data.error || data.message,
+              },
+              false,
+            );
+          }
+        } catch (error) {
+          addResult(
+            `❌ Invalid Query Validation Test Failed`,
+            { error: error.message },
+            false,
+          );
+        }
+      }
+
+      async function testRunQuery() {
+        updateStatus("Testing Run Query...", "info");
+
+        const query =
+          "SELECT eventName, platform, COUNT(*) as count FROM d11_stream_analytics_multi_region.processed_events_partitioned_hourly WHERE eventTimestamp BETWEEN TIMESTAMP_SUB(CURRENT_TIMESTAMP(), interval 1 hour) AND CURRENT_TIMESTAMP() GROUP BY eventName, platform ORDER BY count DESC LIMIT 10";
+
+        try {
+          const response = await fetch("/v2/getQueryResult", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              query: query,
+              emailId: "test@example.com",
+            }),
+          });
+          const data = await response.json();
+
+          if (response.ok) {
+            addResult(
+              `✅ Run Query Test`,
+              {
+                status: response.status,
+                requestId: data.data?.requestId,
+              },
+              true,
+            );
+
+            // Store requestId for fetch test
+            window.testRequestId = data.data?.requestId;
+          } else {
+            addResult(
+              `❌ Run Query Test Failed`,
+              {
+                status: response.status,
+                error: data.error || data.message,
+              },
+              false,
+            );
+          }
+        } catch (error) {
+          addResult(
+            `❌ Run Query Test Failed`,
+            { error: error.message },
+            false,
+          );
+        }
+      }
+
+      async function testFetchQueryData() {
+        updateStatus("Testing Fetch Query Data...", "info");
+
+        const requestId = window.testRequestId || "test_query_123";
+
+        try {
+          const response = await fetch("/v2/fetchQueryData", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              requestId: requestId,
+              pageToken: "",
+            }),
+          });
+          const data = await response.json();
+
+          if (response.ok) {
+            addResult(
+              `✅ Fetch Query Data Test`,
+              {
+                status: response.status,
+                jobComplete: data.data?.jobComplete,
+                totalRows: data.data?.totalRows,
+                pageToken: data.data?.pageToken,
+              },
+              true,
+            );
+
+            if (data.data?.rows) {
+              renderQueryResults(data.data);
+            }
+          } else {
+            addResult(
+              `❌ Fetch Query Data Test Failed`,
+              {
+                status: response.status,
+                error: data.error || data.message,
+              },
+              false,
+            );
+          }
+        } catch (error) {
+          addResult(
+            `❌ Fetch Query Data Test Failed`,
+            { error: error.message },
+            false,
+          );
+        }
+      }
+
+      async function testCancelQuery() {
+        updateStatus("Testing Cancel Query...", "info");
+
+        const requestId = window.testRequestId || "test_query_123";
+
+        try {
+          const response = await fetch("/v2/cancelQueryRequest", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              requestId: requestId,
+            }),
+          });
+          const data = await response.json();
+
+          if (response.ok) {
+            addResult(
+              `✅ Cancel Query Test`,
+              {
+                status: response.status,
+                success: data.data?.success,
+              },
+              true,
+            );
+          } else {
+            addResult(
+              `❌ Cancel Query Test Failed`,
+              {
+                status: response.status,
+                error: data.error || data.message,
+              },
+              false,
+            );
+          }
+        } catch (error) {
+          addResult(
+            `❌ Cancel Query Test Failed`,
+            { error: error.message },
+            false,
+          );
+        }
+      }
+
+      async function testQueryHistory() {
+        updateStatus("Testing Query History...", "info");
+
+        try {
+          const response = await fetch(
+            "/v2/getQuery/user?emailId=test@example.com",
+            {
+              method: "GET",
+            },
+          );
+          const data = await response.json();
+
+          if (response.ok) {
+            addResult(
+              `✅ Query History Test`,
+              {
+                status: response.status,
+                totalQueries: data.data?.totalQueries,
+                sampleQueries: data.data?.queries?.slice(0, 2),
+              },
+              true,
+            );
+          } else {
+            addResult(
+              `❌ Query History Test Failed`,
+              {
+                status: response.status,
+                error: data.error || data.message,
+              },
+              false,
+            );
+          }
+        } catch (error) {
+          addResult(
+            `❌ Query History Test Failed`,
+            { error: error.message },
+            false,
+          );
+        }
+      }
+
+      async function testSuggestedQueries() {
+        updateStatus("Testing Suggested Queries...", "info");
+
+        try {
+          const response = await fetch("/v2/getQuery/suggested", {
+            method: "GET",
+          });
+          const data = await response.json();
+
+          if (response.ok) {
+            addResult(
+              `✅ Suggested Queries Test`,
+              {
+                status: response.status,
+                suggestedCount: data.data?.suggestedQuery?.length,
+                sampleQueries: data.data?.suggestedQuery?.slice(0, 2),
+              },
+              true,
+            );
+          } else {
+            addResult(
+              `❌ Suggested Queries Test Failed`,
+              {
+                status: response.status,
+                error: data.error || data.message,
+              },
+              false,
+            );
+          }
+        } catch (error) {
+          addResult(
+            `❌ Suggested Queries Test Failed`,
+            { error: error.message },
+            false,
+          );
+        }
+      }
+
+      async function testGetTables() {
+        updateStatus("Testing Get Tables...", "info");
+
+        try {
+          const response = await fetch("/v2/getListOfTables", {
+            method: "GET",
+          });
+          const data = await response.json();
+
+          if (response.ok) {
+            addResult(
+              `✅ Get Tables Test`,
+              {
+                status: response.status,
+                tableCount: data.data?.length,
+              },
+              true,
+            );
+
+            if (data.data) {
+              renderTables(data.data);
+            }
+          } else {
+            addResult(
+              `❌ Get Tables Test Failed`,
+              {
+                status: response.status,
+                error: data.error || data.message,
+              },
+              false,
+            );
+          }
+        } catch (error) {
+          addResult(
+            `❌ Get Tables Test Failed`,
+            { error: error.message },
+            false,
+          );
+        }
+      }
+
+      async function testGetTableColumns() {
+        updateStatus("Testing Get Table Columns...", "info");
+
+        const tableName = "d11_stream_analytics_multi_region.events";
+
+        try {
+          const response = await fetch(
+            `/v2/getColumnNamesOfTable?table=${encodeURIComponent(tableName)}`,
+            {
+              method: "GET",
+            },
+          );
+          const data = await response.json();
+
+          if (response.ok) {
+            addResult(
+              `✅ Get Table Columns Test`,
+              {
+                status: response.status,
+                columnCount: data.data?.length,
+              },
+              true,
+            );
+
+            if (data.data) {
+              renderTableColumns(data.data, tableName);
+            }
+          } else {
+            addResult(
+              `❌ Get Table Columns Test Failed`,
+              {
+                status: response.status,
+                error: data.error || data.message,
+              },
+              false,
+            );
+          }
+        } catch (error) {
+          addResult(
+            `❌ Get Table Columns Test Failed`,
+            { error: error.message },
+            false,
+          );
+        }
+      }
+
+      // Auto-run test on page load
+      window.onload = function () {
+        updateStatus(
+          "Test page loaded. Click buttons to test universal querying functionality.",
+          "info",
+        );
+      };
+    </script>
+  </body>
+</html>

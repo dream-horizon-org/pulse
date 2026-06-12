@@ -1,0 +1,381 @@
+name: React Native - Main Orchestrator
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'pulse-react-native-otel/**'
+      - 'pulse-android-otel/**'
+      - 'pulse-ios-otel/**'
+      - '.github/workflows/ci-react-native.yml'
+      - '.github/workflows/rn-android-lint.yml'
+      - '.github/workflows/rn-android-build.yml'
+      - '.github/workflows/rn-expo-android.yml'
+      - '.github/workflows/rn-expo-android-rn076.yml'
+      - '.github/workflows/rn-bare-android-rn076.yml'
+      - '.github/workflows/rn-expo-ios.yml'
+      - '.github/workflows/rn-example-ios.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'pulse-react-native-otel/**'
+      - 'pulse-android-otel/**'
+      - 'pulse-ios-otel/**'
+      - '.github/workflows/ci-react-native.yml'
+      - '.github/workflows/rn-android-lint.yml'
+      - '.github/workflows/rn-android-build.yml'
+      - '.github/workflows/rn-expo-android.yml'
+      - '.github/workflows/rn-expo-android-rn076.yml'
+      - '.github/workflows/rn-bare-android-rn076.yml'
+      - '.github/workflows/rn-expo-ios.yml'
+      - '.github/workflows/rn-example-ios.yml'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  check-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      react-native-changed: ${{ steps.filter.outputs.pulse-react-native-otel }}
+      android-sdk-changed: ${{ steps.filter.outputs.pulse-android-otel }}
+      ios-sdk-changed: ${{ steps.filter.outputs.pulse-ios-otel }}
+      rn-expo-ios-config-changed: ${{ steps.filter.outputs.rn-expo-ios-config }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+      
+      - name: Check changed files
+        uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36  # v3.0.2
+        id: filter
+        with:
+          filters: |
+            pulse-react-native-otel:
+              - 'pulse-react-native-otel/**'
+            pulse-android-otel:
+              - 'pulse-android-otel/**'
+            pulse-ios-otel:
+              - 'pulse-ios-otel/**'
+            rn-expo-ios-config:
+              - '.github/workflows/ci-react-native.yml'
+              - '.github/workflows/rn-expo-ios.yml'
+              - '.github/workflows/rn-example-ios.yml'
+
+  lint:
+    needs: check-changes
+    if: needs.check-changes.outputs.react-native-changed == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
+        with:
+          node-version-file: pulse-react-native-otel/.nvmrc
+
+      - name: Restore dependencies
+        id: yarn-cache
+        uses: actions/cache/restore@5a3ec84eff668545956fd18022155c47e93e2684  # v4.2.3
+        with:
+          path: |
+            pulse-react-native-otel/**/node_modules
+            pulse-react-native-otel/.yarn/install-state.gz
+          key: ${{ runner.os }}-yarn-rn-${{ hashFiles('pulse-react-native-otel/yarn.lock') }}-${{ hashFiles('pulse-react-native-otel/package.json') }}
+          restore-keys: |
+            ${{ runner.os }}-yarn-rn-${{ hashFiles('pulse-react-native-otel/yarn.lock') }}
+            ${{ runner.os }}-yarn-rn-
+
+      - name: Install dependencies
+        if: steps.yarn-cache.outputs.cache-hit != 'true'
+        working-directory: pulse-react-native-otel
+        run: yarn install --immutable
+
+      - name: Cache dependencies
+        if: steps.yarn-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@5a3ec84eff668545956fd18022155c47e93e2684  # v4.2.3
+        with:
+          path: |
+            pulse-react-native-otel/**/node_modules
+            pulse-react-native-otel/.yarn/install-state.gz
+          key: ${{ runner.os }}-yarn-rn-${{ hashFiles('pulse-react-native-otel/yarn.lock') }}-${{ hashFiles('pulse-react-native-otel/package.json') }}
+
+      - name: Lint files
+        working-directory: pulse-react-native-otel
+        run: yarn lint
+
+      - name: Typecheck files
+        working-directory: pulse-react-native-otel
+        run: yarn typecheck
+
+  test:
+    needs: check-changes
+    if: needs.check-changes.outputs.react-native-changed == 'true' || needs.check-changes.outputs.android-sdk-changed == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
+        with:
+          node-version-file: pulse-react-native-otel/.nvmrc
+
+      - name: Restore dependencies
+        id: yarn-cache
+        uses: actions/cache/restore@5a3ec84eff668545956fd18022155c47e93e2684  # v4.2.3
+        with:
+          path: |
+            pulse-react-native-otel/**/node_modules
+            pulse-react-native-otel/.yarn/install-state.gz
+          key: ${{ runner.os }}-yarn-rn-${{ hashFiles('pulse-react-native-otel/yarn.lock') }}-${{ hashFiles('pulse-react-native-otel/package.json') }}
+          restore-keys: |
+            ${{ runner.os }}-yarn-rn-${{ hashFiles('pulse-react-native-otel/yarn.lock') }}
+            ${{ runner.os }}-yarn-rn-
+
+      - name: Install dependencies
+        if: steps.yarn-cache.outputs.cache-hit != 'true'
+        working-directory: pulse-react-native-otel
+        run: yarn install --immutable
+
+      - name: Cache dependencies
+        if: steps.yarn-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@5a3ec84eff668545956fd18022155c47e93e2684  # v4.2.3
+        with:
+          path: |
+            pulse-react-native-otel/**/node_modules
+            pulse-react-native-otel/.yarn/install-state.gz
+          key: ${{ runner.os }}-yarn-rn-${{ hashFiles('pulse-react-native-otel/yarn.lock') }}-${{ hashFiles('pulse-react-native-otel/package.json') }}
+
+      - name: Run unit tests
+        working-directory: pulse-react-native-otel
+        run: yarn test --maxWorkers=2 --coverage
+
+  build-library:
+    needs: check-changes
+    if: needs.check-changes.outputs.react-native-changed == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
+        with:
+          node-version-file: pulse-react-native-otel/.nvmrc
+
+      - name: Restore dependencies
+        id: yarn-cache
+        uses: actions/cache/restore@5a3ec84eff668545956fd18022155c47e93e2684  # v4.2.3
+        with:
+          path: |
+            pulse-react-native-otel/**/node_modules
+            pulse-react-native-otel/.yarn/install-state.gz
+          key: ${{ runner.os }}-yarn-rn-${{ hashFiles('pulse-react-native-otel/yarn.lock') }}-${{ hashFiles('pulse-react-native-otel/package.json') }}
+          restore-keys: |
+            ${{ runner.os }}-yarn-rn-${{ hashFiles('pulse-react-native-otel/yarn.lock') }}
+            ${{ runner.os }}-yarn-rn-
+
+      - name: Install dependencies
+        if: steps.yarn-cache.outputs.cache-hit != 'true'
+        working-directory: pulse-react-native-otel
+        run: yarn install --immutable
+
+      - name: Cache dependencies
+        if: steps.yarn-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@5a3ec84eff668545956fd18022155c47e93e2684  # v4.2.3
+        with:
+          path: |
+            pulse-react-native-otel/**/node_modules
+            pulse-react-native-otel/.yarn/install-state.gz
+          key: ${{ runner.os }}-yarn-rn-${{ hashFiles('pulse-react-native-otel/yarn.lock') }}-${{ hashFiles('pulse-react-native-otel/package.json') }}
+
+      - name: Build package
+        working-directory: pulse-react-native-otel
+        run: yarn prepare
+
+  # Publish pulse-android-otel to ~/.m2. RN-only PRs: rn-lint / rn-build / rn-expo restore ~/.m2
+  # in parallel. Android SDK PRs: *-sdk jobs wait for m2-publish first.
+  m2-publish:
+    needs: check-changes
+    if: needs.check-changes.outputs.react-native-changed == 'true' || needs.check-changes.outputs.android-sdk-changed == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+
+      # GitHub-hosted runners ship ~14GB free; publishing the full
+      # pulse-android-otel multi-module build (Layer 1/2/3 AARs + Gradle caches)
+      # tips them over. m2-publish hit a runner-death failure with logs lost
+      # (BlobNotFound) on the same disk-pressure signature as the rn-expo jobs.
+      # Reclaim ~40GB by deleting preinstalled toolchains this job doesn't use.
+      # Ephemeral VM — no cross-job side effects.
+      - name: Free runner disk space
+        run: |
+          set -eu
+          echo "--- before ---"
+          df -h /
+          sudo rm -rf /usr/share/dotnet /opt/ghc /opt/hostedtoolcache/CodeQL /usr/local/share/boost /opt/microsoft /opt/az 2>/dev/null || true
+          echo "--- after ---"
+          df -h /
+
+      - name: Set Maven Local cache key
+        run: |
+          echo "MAVEN_LOCAL_CACHE_KEY=maven-local-pulse-android-${{ hashFiles('pulse-android-otel/**/*.gradle.kts', 'pulse-android-otel/settings.gradle.kts', 'pulse-android-otel/gradle.properties', 'pulse-android-otel/gradle/libs.versions.toml', 'pulse-android-otel/**/src/main/**/*.kt', 'pulse-android-otel/**/src/main/**/*.java') }}" >> $GITHUB_ENV
+
+      - name: Install JDK
+        uses: actions/setup-java@c5195efecf7bdfc987ee8bae7a71cb8b11521c00  # v4.7.1
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Finalize Android SDK
+        run: |
+          /bin/bash -c "yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses > /dev/null"
+
+      - name: Cache Gradle (Android SDK)
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684  # v4.2.3
+        with:
+          path: |
+            ~/.gradle/wrapper
+            ~/.gradle/caches
+          key: ${{ runner.os }}-gradle-android-sdk-${{ hashFiles('pulse-android-otel/gradle/wrapper/gradle-wrapper.properties', 'pulse-android-otel/settings.gradle.kts') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-android-sdk-
+            ${{ runner.os }}-gradle-
+
+      - name: Restore Maven Local
+        id: m2-cache
+        uses: actions/cache/restore@5a3ec84eff668545956fd18022155c47e93e2684  # v4.2.3
+        with:
+          path: ~/.m2/repository
+          key: ${{ env.MAVEN_LOCAL_CACHE_KEY }}
+          restore-keys: |
+            maven-local-pulse-android-
+
+      - name: Publish Android SDK to Maven Local
+        id: publish-sdk
+        if: needs.check-changes.outputs.android-sdk-changed == 'true' || steps.m2-cache.outputs.cache-hit != 'true'
+        working-directory: pulse-android-otel
+        env:
+          JAVA_OPTS: "-XX:MaxHeapSize=6g"
+          CI: "false"
+        run: |
+          ./gradlew publishToMavenLocal -Pfinal=true --no-daemon
+
+      - name: Save Maven Local cache
+        if: success() && steps.publish-sdk.outcome == 'success'
+        uses: actions/cache/save@5a3ec84eff668545956fd18022155c47e93e2684  # v4.2.3
+        with:
+          path: ~/.m2/repository
+          key: ${{ env.MAVEN_LOCAL_CACHE_KEY }}
+
+  rn-lint:
+    needs: check-changes
+    if: |
+      (needs.check-changes.outputs.react-native-changed == 'true' || needs.check-changes.outputs.android-sdk-changed == 'true') &&
+      needs.check-changes.outputs.android-sdk-changed != 'true'
+    uses: ./.github/workflows/rn-android-lint.yml
+
+  rn-lint-sdk:
+    needs:
+      - check-changes
+      - m2-publish
+    if: needs.check-changes.outputs.android-sdk-changed == 'true'
+    uses: ./.github/workflows/rn-android-lint.yml
+
+  rn-build:
+    needs: check-changes
+    if: |
+      (needs.check-changes.outputs.react-native-changed == 'true' || needs.check-changes.outputs.android-sdk-changed == 'true') &&
+      needs.check-changes.outputs.android-sdk-changed != 'true'
+    uses: ./.github/workflows/rn-android-build.yml
+
+  rn-build-sdk:
+    needs:
+      - check-changes
+      - m2-publish
+    if: needs.check-changes.outputs.android-sdk-changed == 'true'
+    uses: ./.github/workflows/rn-android-build.yml
+
+  # example/: Android — rn-build (rn-android-build.yml). iOS — rn-example-ios (rn-example-ios.yml).
+  # expo-example: rn-expo / rn-expo-sdk + rn-expo-ios.yml.
+  rn-expo:
+    needs: check-changes
+    if: |
+      (needs.check-changes.outputs.react-native-changed == 'true' || needs.check-changes.outputs.android-sdk-changed == 'true') &&
+      needs.check-changes.outputs.android-sdk-changed != 'true'
+    uses: ./.github/workflows/rn-expo-android.yml
+
+  rn-expo-sdk:
+    needs:
+      - check-changes
+      - m2-publish
+    if: needs.check-changes.outputs.android-sdk-changed == 'true'
+    uses: ./.github/workflows/rn-expo-android.yml
+
+  # RN 0.76 / Kotlin 1.9 smoke targets (Expo + bare). See PR #727 for the consumer-compat backstory.
+  rn-expo-rn076:
+    needs: check-changes
+    if: |
+      (needs.check-changes.outputs.react-native-changed == 'true' || needs.check-changes.outputs.android-sdk-changed == 'true') &&
+      needs.check-changes.outputs.android-sdk-changed != 'true'
+    uses: ./.github/workflows/rn-expo-android-rn076.yml
+
+  rn-expo-rn076-sdk:
+    needs:
+      - check-changes
+      - m2-publish
+    if: needs.check-changes.outputs.android-sdk-changed == 'true'
+    uses: ./.github/workflows/rn-expo-android-rn076.yml
+
+  rn-bare-rn076:
+    needs: check-changes
+    if: |
+      (needs.check-changes.outputs.react-native-changed == 'true' || needs.check-changes.outputs.android-sdk-changed == 'true') &&
+      needs.check-changes.outputs.android-sdk-changed != 'true'
+    uses: ./.github/workflows/rn-bare-android-rn076.yml
+
+  rn-bare-rn076-sdk:
+    needs:
+      - check-changes
+      - m2-publish
+    if: needs.check-changes.outputs.android-sdk-changed == 'true'
+    uses: ./.github/workflows/rn-bare-android-rn076.yml
+
+  rn-expo-ios:
+    needs: check-changes
+    if: |
+      needs.check-changes.outputs.react-native-changed == 'true' ||
+      needs.check-changes.outputs.android-sdk-changed == 'true' ||
+      needs.check-changes.outputs.ios-sdk-changed == 'true' ||
+      needs.check-changes.outputs.rn-expo-ios-config-changed == 'true'
+    uses: ./.github/workflows/rn-expo-ios.yml
+
+  rn-example-ios:
+    needs: check-changes
+    if: |
+      needs.check-changes.outputs.react-native-changed == 'true' ||
+      needs.check-changes.outputs.android-sdk-changed == 'true' ||
+      needs.check-changes.outputs.ios-sdk-changed == 'true' ||
+      needs.check-changes.outputs.rn-expo-ios-config-changed == 'true'
+    uses: ./.github/workflows/rn-example-ios.yml

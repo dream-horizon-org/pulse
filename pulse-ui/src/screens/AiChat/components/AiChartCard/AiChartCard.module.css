@@ -1,0 +1,36 @@
+/* ── Chart Card ── */
+.container {
+  margin-top: var(--mantine-spacing-sm);
+  border: 1px solid var(--ai-teal-15);
+  border-radius: 10px;
+  overflow: hidden;
+  background: linear-gradient(
+    180deg,
+    var(--ai-teal-03) 0%,
+    var(--mantine-color-white) 100%
+  );
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 14px;
+  background: var(--ai-teal-06);
+  border-bottom: 1px solid var(--ai-teal-10);
+}
+
+.headerIcon {
+  margin-right: 4px;
+  vertical-align: middle;
+}
+
+.chartWrapper {
+  padding: var(--mantine-spacing-sm);
+  background: var(--mantine-color-white);
+}
+
+.description {
+  padding: 0 var(--mantine-spacing-sm) var(--mantine-spacing-xs);
+  color: var(--mantine-color-gray-6);
+}

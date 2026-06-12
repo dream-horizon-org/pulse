@@ -1,0 +1,4 @@
+.container {
+  display: flex;
+  gap: var(--mantine-spacing-sm);
+}

@@ -1,0 +1,18 @@
+.loaderWithMessageContainer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 80vh;
+}
+
+.fetchingLoader {
+  display: flex;
+  justify-content: center;
+}
+
+.loaderCenterAligned {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 50vh;
+}

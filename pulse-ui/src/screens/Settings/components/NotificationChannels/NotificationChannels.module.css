@@ -1,0 +1,446 @@
+/* Notification Channels Styles - Matching ConfigVersionList Theme */
+
+.pageContainer {
+  min-height: 100vh;
+  background: linear-gradient(
+    135deg,
+    rgba(248, 250, 252, 1) 0%,
+    rgba(255, 255, 255, 1) 50%,
+    rgba(248, 253, 252, 1) 100%
+  );
+  padding: var(--mantine-spacing-md);
+}
+
+.pageHeader {
+  margin-bottom: var(--mantine-spacing-lg);
+  background: linear-gradient(145deg, #ffffff 0%, #fafbfc 100%);
+  padding: var(--mantine-spacing-md);
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(14, 201, 194, 0.04);
+  border: 1px solid rgba(14, 201, 194, 0.08);
+}
+
+.headerGroup {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.titleSection {
+  display: flex;
+  align-items: baseline;
+  gap: var(--mantine-spacing-sm);
+  padding-left: 12px;
+  position: relative;
+}
+
+.titleSection::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 4px;
+  height: 20px;
+  background: linear-gradient(180deg, #0ec9c2 0%, #0ba09a 100%);
+  border-radius: 2px;
+}
+
+.pageTitle {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--mantine-color-dark-8);
+  margin: 0;
+  letter-spacing: -0.3px;
+}
+
+.pageSubtitle {
+  font-size: 13px;
+  color: var(--mantine-color-dimmed);
+  margin-left: var(--mantine-spacing-sm);
+}
+
+/* Table Container */
+.channelListTable {
+  background: #ffffff;
+  border: 1px solid rgba(14, 201, 194, 0.2);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(14, 201, 194, 0.1);
+  position: relative;
+}
+
+.channelListTable::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #0ec9c2 0%, #0ba09a 100%);
+  border-radius: 12px 12px 0 0;
+  z-index: 1;
+}
+
+.tableHeader {
+  padding: 16px;
+  border-bottom: 1px solid rgba(14, 201, 194, 0.08);
+  background: linear-gradient(
+    135deg,
+    rgba(14, 201, 194, 0.02),
+    rgba(14, 201, 194, 0.04)
+  );
+}
+
+.tableHeaderContent {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.tableHeaderTitle {
+  font-size: 14px;
+  font-weight: 700;
+  color: #0ba09a;
+  text-transform: capitalize;
+  letter-spacing: -0.2px;
+  margin: 0;
+}
+
+.tableWrapper :global(.mantine-Table-root) {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.tableWrapper :global(.mantine-Table-thead) {
+  background: linear-gradient(
+    135deg,
+    rgba(14, 201, 194, 0.03),
+    rgba(14, 201, 194, 0.06)
+  );
+}
+
+.tableWrapper :global(.mantine-Table-th) {
+  padding: 14px 16px !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  color: var(--mantine-color-dark-6) !important;
+  text-transform: capitalize;
+  letter-spacing: -0.2px;
+  border-bottom: 2px solid rgba(14, 201, 194, 0.15) !important;
+  background: transparent;
+}
+
+.tableWrapper :global(.mantine-Table-tr) {
+  border-bottom: 1px solid rgba(14, 201, 194, 0.06);
+  transition: all 0.2s ease;
+}
+
+.tableWrapper
+  :global(
+    .mantine-Table-tbody
+      .mantine-Table-tr:not([data-section-header]):not([data-tinted-row]):hover
+  ) {
+  background: linear-gradient(
+    90deg,
+    rgba(14, 201, 194, 0.04),
+    rgba(14, 201, 194, 0.02),
+    transparent
+  ) !important;
+  transform: translateX(2px);
+  box-shadow: inset 3px 0 0 rgba(14, 201, 194, 0.5);
+}
+
+.tableWrapper
+  :global(.mantine-Table-tbody .mantine-Table-tr[data-tinted-row]:hover) {
+  background: rgba(14, 201, 194, 0.045) !important;
+  transform: none;
+  box-shadow: none;
+}
+
+.tableWrapper :global(.mantine-Table-tbody .mantine-Table-tr:last-child) {
+  border-bottom: none;
+}
+
+/* Section blocks: clear separation between Slack Connect / Webhook / Email */
+.sectionHeaderRow :global(.mantine-Table-td) {
+  border-bottom: none !important;
+}
+
+.sectionHeaderCell {
+  padding: 16px 16px 14px !important;
+  vertical-align: middle !important;
+}
+
+.sectionHeaderRow:not(.sectionHeaderRowFirst) .sectionHeaderCell {
+  border-top: 10px solid var(--mantine-color-gray-1) !important;
+  box-shadow: inset 0 1px 0 rgba(0, 0, 0, 0.04);
+}
+
+.sectionTitle {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--mantine-color-dark-8);
+  letter-spacing: -0.02em;
+}
+
+.sectionSubtitle {
+  font-size: 12px;
+  color: var(--mantine-color-dimmed);
+  padding-left: 42px;
+  line-height: 1.35;
+  max-width: 520px;
+}
+
+.sectionIconWrap {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.sectionCountBadge {
+  flex-shrink: 0;
+}
+
+.sectionAccentSlack .sectionIconWrap {
+  background: rgba(14, 201, 194, 0.14);
+  color: #0ba09a;
+}
+
+.sectionAccentWebhook .sectionIconWrap {
+  background: rgba(14, 201, 194, 0.14);
+  color: #0ba09a;
+}
+
+.sectionAccentEmail .sectionIconWrap {
+  background: rgba(14, 201, 194, 0.14);
+  color: #0ba09a;
+}
+
+.sectionAccentDefault .sectionIconWrap {
+  background: rgba(14, 201, 194, 0.1);
+  color: #0ba09a;
+}
+
+.sectionAccentSlack.sectionHeaderRow {
+  background: linear-gradient(
+    180deg,
+    rgba(14, 201, 194, 0.1) 0%,
+    rgba(14, 201, 194, 0.02) 100%
+  );
+}
+
+.sectionAccentWebhook.sectionHeaderRow {
+  background: linear-gradient(
+    180deg,
+    rgba(14, 201, 194, 0.1) 0%,
+    rgba(14, 201, 194, 0.02) 100%
+  );
+}
+
+.sectionAccentEmail.sectionHeaderRow {
+  background: linear-gradient(
+    180deg,
+    rgba(14, 201, 194, 0.1) 0%,
+    rgba(14, 201, 194, 0.02) 100%
+  );
+}
+
+.sectionAccentDefault.sectionHeaderRow {
+  background: linear-gradient(
+    180deg,
+    rgba(14, 201, 194, 0.06) 0%,
+    rgba(248, 250, 252, 1) 100%
+  );
+}
+
+.dataRowUnderSection :global(.mantine-Table-td) {
+  background: rgba(255, 255, 255, 0.92);
+}
+
+/* Remove divider between back-to-back mapping rows (same section); keeps section gaps from header borders */
+.tableWrapper
+  :global(.mantine-Table-tbody tr[data-tinted-row]:has(+ tr[data-tinted-row])) {
+  border-bottom: none !important;
+}
+
+.tableWrapper :global(.mantine-Table-td) {
+  padding: 16px !important;
+  font-size: 13px !important;
+  color: var(--mantine-color-dark-7);
+  vertical-align: middle;
+}
+
+/* Type Badge */
+.typeBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.typeBadgeSlack {
+  background: rgba(14, 201, 194, 0.1);
+  color: #0ba09a;
+  border: 1px solid rgba(14, 201, 194, 0.22);
+}
+
+.typeBadgeEmail {
+  background: rgba(14, 201, 194, 0.1);
+  color: #0ba09a;
+  border: 1px solid rgba(14, 201, 194, 0.22);
+}
+
+/* Config Cell */
+.configCell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.configText {
+  font-size: 12px;
+  color: var(--mantine-color-dimmed);
+  font-family: monospace;
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Empty State */
+.emptyState {
+  text-align: center;
+  padding: 64px 24px;
+  color: var(--mantine-color-dimmed);
+}
+
+.emptyStateIcon {
+  font-size: 48px;
+  opacity: 0.2;
+  margin-bottom: 16px;
+}
+
+.emptyStateText {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+/* Modal Styles */
+.modalContent {
+  padding: var(--mantine-spacing-md) 0;
+}
+
+.formField {
+  margin-bottom: var(--mantine-spacing-md);
+}
+
+.modalActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--mantine-spacing-sm);
+  margin-top: var(--mantine-spacing-lg);
+  padding-top: var(--mantine-spacing-md);
+  border-top: 1px solid var(--mantine-color-gray-2);
+}
+
+/* Type Selector Cards */
+.typeSelector {
+  display: flex;
+  gap: var(--mantine-spacing-md);
+  margin-bottom: var(--mantine-spacing-md);
+}
+
+.typeCard {
+  flex: 1;
+  padding: var(--mantine-spacing-md);
+  border: 2px solid var(--mantine-color-gray-3);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--mantine-spacing-xs);
+}
+
+.typeCard:hover {
+  border-color: var(--mantine-color-teal-4);
+  background: rgba(14, 201, 194, 0.02);
+}
+
+.typeCardSelected {
+  border-color: var(--mantine-color-teal-6);
+  background: rgba(14, 201, 194, 0.05);
+}
+
+.typeCardIcon {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.typeCardSlack {
+  background: rgba(74, 21, 75, 0.1);
+  color: #4a154b;
+}
+
+.typeCardEmail {
+  background: rgba(59, 130, 246, 0.1);
+  color: #3b82f6;
+}
+
+.typeCardDisabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  border-color: var(--mantine-color-gray-3);
+}
+
+.typeCardDisabled:hover {
+  border-color: var(--mantine-color-gray-3);
+  background: transparent;
+  transform: none;
+}
+
+/* Animation */
+.fadeIn {
+  animation: fadeIn 0.3s ease-in;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .pageContainer {
+    padding: var(--mantine-spacing-sm);
+  }
+
+  .headerGroup {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--mantine-spacing-sm);
+  }
+
+  .typeSelector {
+    flex-direction: column;
+  }
+}

@@ -1,0 +1,30 @@
+@file:Suppress("UnstableApiUsage")
+
+plugins {
+    id("otel.android-library-conventions")
+    id("otel.publish-conventions")
+    alias(libs.plugins.kotlinSerialisation)
+}
+
+android {
+    namespace = "com.pulse.sampling.remote"
+
+    testOptions {
+        unitTests.isReturnDefaultValues = true
+    }
+}
+
+kotlin {
+    explicitApi()
+}
+
+dependencies {
+    implementation(projects.pulseSamplingModels)
+    implementation(projects.pulseUtils)
+    implementation(libs.okhttp)
+    api(libs.kotlin.serialisation)
+    implementation(libs.retrofit)
+    implementation(libs.retrofit.kotlinSerialisation)
+    testImplementation(libs.okhttp.mockwebserver)
+    testImplementation(libs.kotlin.coroutinesTest)
+}

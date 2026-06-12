@@ -1,0 +1,280 @@
+package org.dreamhorizon.pulseserver.resources.configs.models;
+
+import com.fasterxml.jackson.annotation.JsonProperty;
+import jakarta.validation.constraints.NotNull;
+import java.util.List;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import org.dreamhorizon.pulseserver.service.configs.models.*;
+import org.dreamhorizon.pulseserver.service.configs.models.BatchProcessorConfig;
+
+@Data
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
+public class PulseConfig {
+
+    @JsonProperty("version")
+    private Long version;
+
+    @NotNull
+    @JsonProperty("description")
+    private String description;
+
+    @NotNull
+    @JsonProperty("sampling")
+    private SamplingConfig sampling;
+
+    @NotNull
+    @JsonProperty("signals")
+    private SignalsConfig signals;
+
+    @NotNull
+    @JsonProperty("interaction")
+    private InteractionConfig interaction;
+
+    @NotNull
+    @JsonProperty("features")
+    private List<FeatureConfig> features;
+
+    @JsonProperty("batchConfig")
+    private BatchProcessorConfig batchConfig;
+
+    @Data
+    @Builder
+    @AllArgsConstructor
+    @NoArgsConstructor
+    @NotNull
+    public static class EventFilter {
+
+        @JsonProperty("name")
+        private String name;
+
+        @JsonProperty("props")
+        private List<EventPropMatch> props;
+
+        @JsonProperty("scopes")
+        private List<Scope> scopes;
+
+        @JsonProperty("sdks")
+        private List<Sdk> sdks;
+    }
+
+    @Data
+    @Builder
+    @AllArgsConstructor
+    @NoArgsConstructor
+    @NotNull
+    public static class EventPropMatch {
+
+        @JsonProperty("name")
+        private String name;
+
+        @JsonProperty("value")
+        private String value; // regex string
+    }
+
+    @Data
+    @Builder
+    @AllArgsConstructor
+    @NoArgsConstructor
+    @NotNull
+    public static class AttributeValue {
+
+        @JsonProperty("name")
+        private String name;
+
+        @JsonProperty("value")
+        private String value;
+
+        @JsonProperty("type")
+        public String getType() {
+            return "string";
+        }
+
+        @JsonProperty("type")
+        public void setType(String type) {
+            // Ignore the incoming type value - we always return "string"
+        }
+    }
+
+    @Data
+    @Builder
+    @AllArgsConstructor
+    @NoArgsConstructor
+    @NotNull
+    public static class AttributeToAdd {
+
+        @JsonProperty("values")
+        private List<AttributeValue> values;
+
+        @JsonProperty("condition")
+        private EventFilter condition;
+    }
+
+    @Data
+    @Builder
+    @AllArgsConstructor
+    @NoArgsConstructor
+    @NotNull
+    public static class AttributeToDrop {
+
+        @JsonProperty("values")
+        private List<String> values;
+
+        @JsonProperty("condition")
+        private EventFilter condition;
+    }
+
+    @Data
+    @Builder
+    @AllArgsConstructor
+    @NoArgsConstructor
+    @NotNull
+    public static class SamplingConfig {
+
+        @JsonProperty("default")
+        private DefaultSampling defaultSampling;
+
+        @JsonProperty("rules")
+        private List<SamplingRule> rules;
+
+        @JsonProperty("criticalSessionPolicies")
+        private CriticalSessionPolicies criticalSessionPolicies;
+
+        @JsonProperty("signalsToSample")
+        private List<SignalsToSampleEntry> signalsToSample;
+    }
+
+    @Data
+    @Builder
+    @AllArgsConstructor
+    @NoArgsConstructor
+    @NotNull
+    public static class DefaultSampling {
+        @JsonProperty("sessionSampleRate")
+        private double sessionSampleRate;
+    }
+
+    @Data
+    @Builder
+    @AllArgsConstructor
+    @NoArgsConstructor
+    @NotNull
+    public static class SamplingRule {
+
+        @JsonProperty("name")
+        private rules name;
+
+        @JsonProperty("sdks")
+        private List<Sdk> sdks;
+
+        @JsonProperty("value")
+        private String value;
+
+        @JsonProperty("sessionSampleRate")
+        private double sessionSampleRate;
+    }
+
+    @Data
+    @Builder
+    @AllArgsConstructor
+    @NoArgsConstructor
+    @NotNull
+    public static class CriticalSessionPolicies {
+        @JsonProperty("alwaysSend")
+        private List<CriticalPolicyRule> alwaysSend;
+    }
+
+    @Data
+    @Builder
+    @AllArgsConstructor
+    @NoArgsConstructor
+    @NotNull
+    public static class CriticalPolicyRule {
+
+        @JsonProperty("name")
+        private String name;
+
+        @JsonProperty("props")
+        private List<EventPropMatch> props;
+
+        @JsonProperty("scopes")
+        private List<Scope> scopes;
+
+        @JsonProperty("sdks")
+        private List<Sdk> sdks;
+    }
+
+    @Data
+    @Builder
+    @AllArgsConstructor
+    @NoArgsConstructor
+    public static class SignalsConfig {
+
+        @NotNull
+        @JsonProperty("scheduleDurationMs")
+        private int scheduleDurationMs;
+
+        @JsonProperty("logsCollectorUrl")
+        private String logsCollectorUrl;
+
+        @JsonProperty("metricCollectorUrl")
+        private String metricCollectorUrl;
+
+        @JsonProperty("spanCollectorUrl")
+        private String spanCollectorUrl;
+
+        @JsonProperty("customEventCollectorUrl")
+        private String customEventCollectorUrl;
+
+        @NotNull
+        @JsonProperty("attributesToDrop")
+        private List<AttributeToDrop> attributesToDrop;
+
+        @JsonProperty("attributesToAdd")
+        private List<AttributeToAdd> attributesToAdd;
+
+        @JsonProperty("metricsToAdd")
+        private List<MetricsToAddEntry> metricsToAdd;
+    }
+
+    @Data
+    @Builder
+    @AllArgsConstructor
+    @NoArgsConstructor
+    public static class InteractionConfig {
+
+        @JsonProperty("collectorUrl")
+        private String collectorUrl;
+
+        @JsonProperty("configUrl")
+        private String configUrl;
+
+        @NotNull
+        @JsonProperty("beforeInitQueueSize")
+        private int beforeInitQueueSize;
+    }
+
+    @Data
+    @Builder
+    @AllArgsConstructor
+    @NoArgsConstructor
+    @NotNull
+    public static class FeatureConfig {
+
+        @JsonProperty("featureName")
+        private Features featureName;
+
+        @JsonProperty("sessionSampleRate")
+        private Double sessionSampleRate;
+
+        @JsonProperty("sdks")
+        private List<Sdk> sdks;
+
+        @JsonProperty("config")
+        private FeatureConfigProperties config;
+    }
+}

@@ -1,0 +1,25 @@
+/* Shared Step Styles */
+
+.stepHeader {
+  /* margin-bottom: var(--mantine-spacing-md); */
+}
+
+.stepTitle {
+  font-size: 20px;
+  font-weight: 700 !important;
+  color: var(--mantine-color-dark-8);
+  margin-bottom: 4px !important;
+}
+
+.stepDescription {
+  font-size: 14px !important;
+  color: var(--mantine-color-gray-6) !important;
+  line-height: 1.5;
+  margin-bottom: var(--mantine-spacing-md) !important;
+}
+
+.stepDivider {
+  /* margin-bottom: var(--mantine-spacing-md) !important; */
+  border-color: rgba(14, 201, 194, 0.15);
+}
+

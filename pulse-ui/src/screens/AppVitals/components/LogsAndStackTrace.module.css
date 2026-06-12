@@ -1,0 +1,171 @@
+.logsCard {
+  background: #ffffff;
+  border: 1px solid rgba(14, 201, 194, 0.2);
+  border-radius: var(--mantine-radius-lg);
+  padding: var(--mantine-spacing-lg);
+  box-shadow: 0 4px 12px rgba(14, 201, 194, 0.1);
+  margin-bottom: var(--mantine-spacing-md);
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+.logsCard:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(14, 201, 194, 0.15);
+  border-color: rgba(14, 201, 194, 0.3);
+}
+
+.logsCard:hover .topAccent {
+  opacity: 1;
+}
+
+.topAccent {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #0ec9c2 0%, #0ba09a 100%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.cardTitle {
+  font-size: 16px;
+  font-weight: 700;
+  color: #0ba09a;
+  letter-spacing: -0.2px;
+}
+
+.viewToggle {
+  background: linear-gradient(
+    135deg,
+    rgba(14, 201, 194, 0.05),
+    rgba(14, 201, 194, 0.1)
+  );
+  border: 1px solid rgba(14, 201, 194, 0.2);
+  padding: 4px;
+  border-radius: 8px;
+}
+
+.viewToggle :global(.mantine-SegmentedControl-label) {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--mantine-color-dark-6);
+  padding: 6px 16px;
+}
+
+.viewToggle :global(.mantine-SegmentedControl-indicator) {
+  background: linear-gradient(135deg, #0ec9c2, #0ba09a);
+  border: 1px solid rgba(14, 201, 194, 0.3);
+  box-shadow: 0 2px 6px rgba(14, 201, 194, 0.25);
+  border-radius: 6px;
+}
+
+.viewToggle :global(.mantine-SegmentedControl-control[data-active]) {
+  color: var(--mantine-color-white);
+  font-weight: 700;
+}
+
+.searchInput :global(.mantine-Input-input) {
+  border-color: rgba(14, 201, 194, 0.15);
+  border-radius: 8px;
+}
+
+.searchInput :global(.mantine-Input-input:focus) {
+  border-color: rgba(14, 201, 194, 0.4);
+  box-shadow: 0 0 0 2px rgba(14, 201, 194, 0.1);
+}
+
+.logsTable :global(.mantine-Table-thead),
+.stackTable :global(.mantine-Table-thead) {
+  position: sticky;
+  top: 0;
+  background: linear-gradient(
+    135deg,
+    rgba(14, 201, 194, 0.03),
+    rgba(14, 201, 194, 0.06)
+  );
+  z-index: 1;
+}
+
+.logsTable :global(.mantine-Table-th),
+.stackTable :global(.mantine-Table-th) {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--mantine-color-dark-6);
+  text-transform: capitalize;
+  letter-spacing: -0.2px;
+  padding: 12px;
+  border-bottom: 2px solid rgba(14, 201, 194, 0.15);
+}
+
+.logsTable :global(.mantine-Table-td),
+.stackTable :global(.mantine-Table-td) {
+  padding: 12px;
+  border-bottom: 1px solid rgba(14, 201, 194, 0.06);
+  font-size: 13px;
+}
+
+.logsTable :global(.mantine-Table-tr:hover),
+.stackTable :global(.mantine-Table-tr:hover) {
+  background: linear-gradient(
+    90deg,
+    rgba(14, 201, 194, 0.03),
+    rgba(14, 201, 194, 0.01),
+    transparent
+  );
+}
+
+.errorRow {
+  background: rgba(239, 68, 68, 0.05);
+}
+
+.primaryFrame {
+  background: rgba(14, 201, 194, 0.08);
+}
+
+.timestampCell {
+  font-size: 12px;
+  white-space: nowrap;
+  color: var(--mantine-color-dark-6);
+}
+
+.tagCell {
+  font-size: 13px;
+  color: var(--mantine-color-dark-7);
+}
+
+.messageCell {
+  font-size: 13px;
+  word-break: break-word;
+  color: var(--mantine-color-dark-8);
+}
+
+.indexCell {
+  font-weight: 600;
+  color: var(--mantine-color-dark-6);
+}
+
+.classCell {
+  font-size: 12px;
+  color: var(--mantine-color-dark-8);
+}
+
+.methodCell {
+  font-size: 12px;
+  color: #0ba09a;
+  font-weight: 600;
+}
+
+.fileCell {
+  font-size: 12px;
+  color: var(--mantine-color-dark-5);
+}
+
+.lineCell {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--mantine-color-dark-8);
+}

@@ -1,0 +1,71 @@
+name: Android - Publish to Maven
+
+on:
+  workflow_dispatch:
+    inputs:
+      final:
+        description: 'Is this a final release? (true for releases, false for snapshots)'
+        required: true
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+        default: 'true'
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    name: "Publish Android SDK to Maven Central"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+
+      - name: Set up JDK
+        uses: actions/setup-java@c5195efecf7bdfc987ee8bae7a71cb8b11521c00  # v4.7.1
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Configure Gradle
+        uses: gradle/gradle-build-action@ac2d340dc04d9e1113182899e983b5400c17cda1  # v3.5.0
+
+      - name: Publish to Maven Central
+        working-directory: pulse-android-otel
+        env:
+          SONATYPE_USER: ${{ secrets.SONATYPE_USER }}
+          SONATYPE_KEY: ${{ secrets.SONATYPE_KEY }}
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+          GPG_PASSWORD: ${{ secrets.GPG_PASSWORD }}
+          CI: true
+        run: |
+          if [ "${{ inputs.final }}" == "true" ]; then
+            ./gradlew publishToSonatype closeAndReleaseSonatypeStagingRepository -Pfinal=true --no-build-cache --no-configuration-cache --no-parallel
+          else
+            ./gradlew publishToSonatype --no-build-cache --no-configuration-cache --no-parallel
+          fi
+
+      - name: Publish Summary
+        if: success()
+        working-directory: pulse-android-otel
+        run: |
+          VERSION=$(grep "^version=" gradle.properties | cut -d'=' -f2)
+          echo "## ✅ Published Successfully" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** $VERSION" >> $GITHUB_STEP_SUMMARY
+          echo "**Type:** ${{ inputs.final == 'true' && 'Release' || 'SNAPSHOT' }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ inputs.final }}" == "true" ]; then
+            echo "Artifact will be available at Maven Central in ~2 hours:" >> $GITHUB_STEP_SUMMARY
+            echo "- \`org.dreamhorizon:pulse-android-sdk:$VERSION\`" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "SNAPSHOT artifact is available at:" >> $GITHUB_STEP_SUMMARY
+            echo "- \`org.dreamhorizon:pulse-android-sdk:$VERSION-SNAPSHOT\`" >> $GITHUB_STEP_SUMMARY
+            echo "- Repository: https://s01.oss.sonatype.org/content/repositories/snapshots/" >> $GITHUB_STEP_SUMMARY
+          fi
+

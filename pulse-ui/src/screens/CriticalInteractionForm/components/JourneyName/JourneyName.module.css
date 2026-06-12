@@ -1,0 +1,25 @@
+.eventNameContainer {
+  display: flex;
+  flex-direction: column;
+  width: 80%;
+  gap: var(--mantine-spacing-md);
+}
+
+.eventNameLabel {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: var(--mantine-spacing-sm);
+}
+
+.labelIcon {
+  margin-left: var(--mantine-spacing-md);
+}
+
+.nextButtonContainer {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  margin-top: 36px;
+}

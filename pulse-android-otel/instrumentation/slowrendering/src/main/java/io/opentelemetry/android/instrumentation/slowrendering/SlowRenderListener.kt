@@ -1,0 +1,164 @@
+/*
+ * Copyright The OpenTelemetry Authors
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+package io.opentelemetry.android.instrumentation.slowrendering
+
+import android.app.Activity
+import android.os.Build
+import android.os.Handler
+import android.os.HandlerThread
+import android.os.Looper
+import android.util.Log
+import androidx.annotation.RequiresApi
+import io.opentelemetry.android.common.RumConstants
+import io.opentelemetry.android.internal.services.visiblescreen.activities.DefaultingActivityLifecycleCallbacks
+import io.opentelemetry.sdk.common.Clock
+import java.time.Duration
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ConcurrentMap
+import java.util.concurrent.Executors
+import java.util.concurrent.ScheduledExecutorService
+import java.util.concurrent.TimeUnit
+
+@RequiresApi(api = Build.VERSION_CODES.N)
+internal class SlowRenderListener(
+    private val jankReporter: JankReporter,
+    private val executorService: ScheduledExecutorService,
+    private val frameMetricsHandler: Handler,
+    private val pollInterval: Duration,
+    private val clock: Clock,
+) : DefaultingActivityLifecycleCallbacks {
+    private val activities: ConcurrentMap<Activity, PerActivityListener> = ConcurrentHashMap()
+    private var lastNormalFrameDataTimeInNano: Long = 0
+
+    constructor(jankReporter: JankReporter, pollInterval: Duration) : this(
+        jankReporter,
+        Executors.newScheduledThreadPool(1),
+        Handler(startFrameMetricsLoop()),
+        pollInterval,
+        Clock.getDefault(),
+    )
+
+    // the returned future is very unlikely to fail
+    fun start() {
+        executorService.scheduleWithFixedDelay(
+            { this.reportSlowRenders() },
+            pollInterval.toMillis(),
+            pollInterval.toMillis(),
+            TimeUnit.MILLISECONDS,
+        )
+    }
+
+    fun shutdown() {
+        executorService.shutdownNow()
+        for (entry in activities.entries) {
+            val activity: Activity = entry.key!!
+            val listener = entry.value
+            activity.window.removeOnFrameMetricsAvailableListener(listener)
+        }
+        activities.clear()
+    }
+
+    override fun onActivityResumed(activity: Activity) {
+        if (executorService.isShutdown) {
+            return
+        }
+
+        fun ensureMaxCountNotExceeded() {
+            if (FrameDataHelper.frameDataEvents.size > FrameDataHelper.FRAME_EVENTS_MAX_COUNT) {
+                FrameDataHelper.frameDataEvents.removeFirst()
+            }
+        }
+        val listener =
+            PerActivityListener(activity) { frameData ->
+                // Synchronize on FrameDataHelper.lock so concurrent readers (span end
+                // processors on arbitrary threads) iterate a stable snapshot.
+                synchronized(FrameDataHelper.lock) {
+                    if (frameData.type != PerActivityListener.FrameData.NORMAL) {
+                        ensureMaxCountNotExceeded()
+                        val lastEvent = FrameDataHelper.frameDataEvents.lastOrNull()
+                        FrameDataHelper.frameDataEvents.add(
+                            FrameDataHelper.CumulativeFrameData(
+                                timeInNano = clock.now(),
+                                analysedFrameCount = FrameDataHelper.totalAnalysedFrames,
+                                unanalysedFrameCount = FrameDataHelper.totalUnanalysedDroppedFrames,
+                                slowFrameCount =
+                                    (
+                                        lastEvent?.slowFrameCount ?: 0
+                                    ) + if (frameData.type == PerActivityListener.FrameData.SLOW) 1 else 0,
+                                frozenFrameCount =
+                                    (
+                                        lastEvent?.frozenFrameCount ?: 0
+                                    ) + if (frameData.type == PerActivityListener.FrameData.FROZEN) 1 else 0,
+                            ),
+                        )
+                    } else {
+                        FrameDataHelper.totalAnalysedFrames += 1
+                        FrameDataHelper.totalUnanalysedDroppedFrames += frameData.unanalysedFrameSinceLastCall
+
+                        val currentTimeInNano = clock.now()
+                        if (lastNormalFrameDataTimeInNano == 0L ||
+                            currentTimeInNano - lastNormalFrameDataTimeInNano >= THRESHOLD_ADD_DATA_IN_NANO
+                        ) {
+                            ensureMaxCountNotExceeded()
+                            val lastEvent = FrameDataHelper.frameDataEvents.lastOrNull()
+                            FrameDataHelper.frameDataEvents.add(
+                                FrameDataHelper.CumulativeFrameData(
+                                    timeInNano = currentTimeInNano,
+                                    analysedFrameCount = FrameDataHelper.totalAnalysedFrames,
+                                    unanalysedFrameCount = FrameDataHelper.totalUnanalysedDroppedFrames,
+                                    slowFrameCount = lastEvent?.slowFrameCount ?: 0,
+                                    frozenFrameCount = lastEvent?.frozenFrameCount ?: 0,
+                                ),
+                            )
+                            lastNormalFrameDataTimeInNano = currentTimeInNano
+                        }
+                    }
+                }
+            }
+        val existing = activities.putIfAbsent(activity, listener)
+        if (existing == null) {
+            activity.window.addOnFrameMetricsAvailableListener(listener, frameMetricsHandler)
+        }
+    }
+
+    override fun onActivityPaused(activity: Activity) {
+        if (executorService.isShutdown) {
+            return
+        }
+        val listener = activities.remove(activity)
+        if (listener != null) {
+            activity.window.removeOnFrameMetricsAvailableListener(listener)
+            val durationToCountHistogram = listener.resetMetrics()
+            jankReporter.reportSlow(durationToCountHistogram, pollInterval.toSeconds().toDouble(), listener.getActivityName())
+        }
+    }
+
+    @Suppress("TooGenericExceptionCaught")
+    private fun reportSlowRenders() {
+        try {
+            activities.forEach { (_: Activity?, listener: PerActivityListener) ->
+                val durationToCountHistogram = listener.resetMetrics()
+                jankReporter.reportSlow(durationToCountHistogram, pollInterval.toSeconds().toDouble(), listener.getActivityName())
+            }
+        } catch (e: Exception) {
+            Log.w(RumConstants.OTEL_RUM_LOG_TAG, "Exception while processing frame metrics", e)
+        }
+    }
+
+    companion object {
+        private const val THRESHOLD_ADD_DATA_IN_NANO = 1_000_000_000L
+        private val frameMetricsThread = HandlerThread("FrameMetricsCollector")
+
+        private fun startFrameMetricsLoop(): Looper {
+            // just a precaution: this is supposed to be called only once, and the thread should always
+            // be not started here
+            if (!frameMetricsThread.isAlive) {
+                frameMetricsThread.start()
+            }
+            return frameMetricsThread.looper
+        }
+    }
+}

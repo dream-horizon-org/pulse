@@ -1,0 +1,307 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Alert Actions Test</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 20px;
+      }
+      .test-result {
+        margin: 10px 0;
+        padding: 10px;
+        border-radius: 4px;
+      }
+      .success {
+        background-color: #d4edda;
+        border: 1px solid #c3e6cb;
+        color: #155724;
+      }
+      .error {
+        background-color: #f8d7da;
+        border: 1px solid #f5c6cb;
+        color: #721c24;
+      }
+      .info {
+        background-color: #d1ecf1;
+        border: 1px solid #bee5eb;
+        color: #0c5460;
+      }
+      button {
+        padding: 10px 20px;
+        margin: 5px;
+        cursor: pointer;
+      }
+      pre {
+        background: #f8f9fa;
+        padding: 10px;
+        border-radius: 4px;
+        overflow-x: auto;
+      }
+      .action-test {
+        margin: 10px 0;
+        padding: 15px;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        background: #f9f9f9;
+      }
+      .action-buttons {
+        display: flex;
+        gap: 10px;
+        margin: 10px 0;
+      }
+      .btn {
+        padding: 8px 16px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+      .btn-primary {
+        background-color: #007bff;
+        color: white;
+      }
+      .btn-success {
+        background-color: #28a745;
+        color: white;
+      }
+      .btn-warning {
+        background-color: #ffc107;
+        color: black;
+      }
+      .btn-danger {
+        background-color: #dc3545;
+        color: white;
+      }
+      .btn-info {
+        background-color: #17a2b8;
+        color: white;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>🔧 Alert Actions Test</h1>
+
+    <div id="status" class="test-result info">
+      <strong>Status:</strong> Ready to test Alert Button Actions
+    </div>
+
+    <div>
+      <button onclick="testSnoozeAlert()">Test Snooze Alert</button>
+      <button onclick="testResumeAlert()">Test Resume Alert</button>
+      <button onclick="testEvaluationHistory()">Test Evaluation History</button>
+      <button onclick="testAllAlertActions()">Test All Alert Actions</button>
+    </div>
+
+    <div id="results"></div>
+
+    <script>
+      // Set environment variables for testing
+      window.process = window.process || {};
+      window.process.env = {
+        ...window.process.env,
+        REACT_APP_USE_MOCK_SERVER: "true",
+        REACT_APP_MOCK_DELAY: "100",
+        REACT_APP_MOCK_ERROR_RATE: "0.0",
+        REACT_APP_MOCK_LOGGING: "true",
+      };
+
+      function updateStatus(message, type = "info") {
+        const status = document.getElementById("status");
+        status.className = `test-result ${type}`;
+        status.innerHTML = `<strong>Status:</strong> ${message}`;
+      }
+
+      function addResult(title, data, success = true) {
+        const results = document.getElementById("results");
+        const resultDiv = document.createElement("div");
+        resultDiv.className = `test-result ${success ? "success" : "error"}`;
+        resultDiv.innerHTML = `
+                <h3>${title}</h3>
+                <pre>${JSON.stringify(data, null, 2)}</pre>
+            `;
+        results.appendChild(resultDiv);
+      }
+
+      function addActionTest(title, description, actions) {
+        const results = document.getElementById("results");
+        const actionDiv = document.createElement("div");
+        actionDiv.className = "action-test";
+
+        actionDiv.innerHTML = `
+                <h3>${title}</h3>
+                <p>${description}</p>
+                <div class="action-buttons">
+                    ${actions}
+                </div>
+            `;
+        results.appendChild(actionDiv);
+      }
+
+      async function testSnoozeAlert() {
+        updateStatus("Testing Snooze Alert Action...", "info");
+        const alertId = 1;
+        const snoozeData = {
+          snoozeFrom: Date.now(),
+          snoozeUntil: Date.now() + 3600000, // 1 hour
+        };
+
+        try {
+          const response = await fetch(`/v3/alert/${alertId}/snooze`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(snoozeData),
+          });
+          const data = await response.json();
+
+          if (response.ok) {
+            addResult(
+              `✅ Snooze Alert Test for ID ${alertId}`,
+              {
+                status: response.status,
+                snoozeData: snoozeData,
+                response: data,
+              },
+              true,
+            );
+          } else {
+            addResult(
+              `❌ Snooze Alert Test Failed for ID ${alertId}`,
+              {
+                status: response.status,
+                error: data.error || data.message,
+              },
+              false,
+            );
+          }
+        } catch (error) {
+          addResult(
+            `❌ Snooze Alert Test Failed for ID ${alertId}`,
+            { error: error.message },
+            false,
+          );
+        }
+      }
+
+      async function testResumeAlert() {
+        updateStatus("Testing Resume Alert Action...", "info");
+        const alertId = 2; // This alert is currently snoozed
+
+        try {
+          const response = await fetch(`/v3/alert/${alertId}/snooze`, {
+            method: "DELETE",
+            headers: {
+              "Content-Type": "application/json",
+            },
+          });
+          const data = await response.json();
+
+          if (response.ok) {
+            addResult(
+              `✅ Resume Alert Test for ID ${alertId}`,
+              {
+                status: response.status,
+                response: data,
+              },
+              true,
+            );
+          } else {
+            addResult(
+              `❌ Resume Alert Test Failed for ID ${alertId}`,
+              {
+                status: response.status,
+                error: data.error || data.message,
+              },
+              false,
+            );
+          }
+        } catch (error) {
+          addResult(
+            `❌ Resume Alert Test Failed for ID ${alertId}`,
+            { error: error.message },
+            false,
+          );
+        }
+      }
+
+      async function testEvaluationHistory() {
+        updateStatus("Testing Evaluation History Action...", "info");
+        const alertId = 1;
+
+        try {
+          const response = await fetch(
+            `/v1/alert/${alertId}/evaluationHistory`,
+          );
+          const data = await response.json();
+
+          if (response.ok) {
+            addResult(
+              `✅ Evaluation History Test for ID ${alertId}`,
+              {
+                status: response.status,
+                totalEvaluations: data.data?.length || 0,
+                sampleHistory: data.data?.[0] || null,
+                response: data,
+              },
+              true,
+            );
+          } else {
+            addResult(
+              `❌ Evaluation History Test Failed for ID ${alertId}`,
+              {
+                status: response.status,
+                error: data.error || data.message,
+              },
+              false,
+            );
+          }
+        } catch (error) {
+          addResult(
+            `❌ Evaluation History Test Failed for ID ${alertId}`,
+            { error: error.message },
+            false,
+          );
+        }
+      }
+
+      async function testAllAlertActions() {
+        updateStatus("Testing All Alert Actions...", "info");
+        document.getElementById("results").innerHTML = "";
+
+        await testSnoozeAlert();
+        await new Promise((resolve) => setTimeout(resolve, 200));
+        await testResumeAlert();
+        await new Promise((resolve) => setTimeout(resolve, 200));
+        await testEvaluationHistory();
+
+        updateStatus("All Alert Actions tests completed!", "success");
+      }
+
+      function showAlertActionsDemo() {
+        addActionTest(
+          "🔧 Alert Button Actions Demo",
+          "These are the button actions available on each alert list item:",
+          `
+                    <button class="btn btn-info" onclick="testEvaluationHistory()">📊 View History</button>
+                    <button class="btn btn-primary" onclick="alert('Edit Alert - Would navigate to /configure-alert/{id}')">✏️ Edit Alert</button>
+                    <button class="btn btn-success" onclick="alert('Duplicate Alert - Would create a copy')">📋 Duplicate Alert</button>
+                    <button class="btn btn-warning" onclick="testSnoozeAlert()">🔕 Snooze Alert</button>
+                    <button class="btn btn-danger" onclick="testResumeAlert()">🔔 Resume Alert</button>
+                `,
+        );
+      }
+
+      // Auto-run test on page load
+      window.onload = function () {
+        updateStatus(
+          "Alert Actions test page loaded. Click buttons to test alert actions.",
+          "info",
+        );
+        showAlertActionsDemo();
+      };
+    </script>
+  </body>
+</html>

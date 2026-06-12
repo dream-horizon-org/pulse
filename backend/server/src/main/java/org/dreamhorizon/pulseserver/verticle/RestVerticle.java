@@ -1,0 +1,94 @@
+package org.dreamhorizon.pulseserver.verticle;
+
+import com.dream11.rest.AbstractRestVerticle;
+import com.dream11.rest.ClassInjector;
+import com.dream11.rest.filter.RequestResponseFilter;
+import io.vertx.core.http.HttpMethod;
+import io.vertx.core.http.HttpServerOptions;
+import io.vertx.rxjava3.ext.web.Router;
+import io.vertx.rxjava3.ext.web.handler.BodyHandler;
+import io.vertx.rxjava3.ext.web.handler.CorsHandler;
+import io.vertx.rxjava3.ext.web.handler.ResponseContentTypeHandler;
+import io.vertx.rxjava3.ext.web.handler.StaticHandler;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import org.dreamhorizon.pulseserver.constant.Constants;
+import org.dreamhorizon.pulseserver.filter.PulseResponseHttpStatusFilter;
+import org.dreamhorizon.pulseserver.filter.StreamingSafeLoggerFilter;
+import org.dreamhorizon.pulseserver.guice.GuiceInjector;
+import org.dreamhorizon.pulseserver.service.alert.core.AlertEvaluationService;
+
+public class RestVerticle extends AbstractRestVerticle {
+  private static final String PACKAGE_NAME = "org.dreamhorizon.pulseserver";
+  private static final String JSON_CONTENT_TYPE = "application/json";
+
+  protected RestVerticle(HttpServerOptions httpServerOptions) {
+    super(PACKAGE_NAME, httpServerOptions);
+  }
+
+  @Override
+  protected ClassInjector getInjector() {
+    return GuiceInjector.getGuiceInjector();
+  }
+
+  @Override
+  protected RequestResponseFilter getReqResFilter() {
+    return new StreamingSafeLoggerFilter();
+  }
+
+  @Override
+  protected List<Class<?>> getProviders() {
+    List<Class<?>> providers = super.getProviders();
+    providers.removeIf(clazz -> RequestResponseFilter.class.isAssignableFrom(clazz));
+    providers.add(PulseResponseHttpStatusFilter.class);
+    providers.add(StreamingSafeLoggerFilter.class);
+    return providers;
+  }
+
+  @Override
+  protected Router getRouter() {
+    Router router = Router.router(vertx);
+    router.route().handler(BodyHandler.create());
+    router.route().handler(ResponseContentTypeHandler.create());
+    router.route().handler(StaticHandler.create());
+
+    AlertEvaluationService alertEvaluationService = GuiceInjector.getGuiceInjector().getInstance(AlertEvaluationService.class);
+    alertEvaluationService.registerConsumers();
+
+    final Set<String> allowedHeaders = new HashSet<>();
+    allowedHeaders.add("x-requested-with");
+    allowedHeaders.add("Access-Control-Allow-Origin");
+    allowedHeaders.add("Access-Control-Allow-Methods");
+    allowedHeaders.add("Access-Control-Allow-Headers");
+    allowedHeaders.add("Access-Control-Allow-Credentials");
+    allowedHeaders.add("origin");
+    allowedHeaders.add("Content-Type");
+    allowedHeaders.add("accept");
+    allowedHeaders.add("X-PINGARUNER");
+    allowedHeaders.add("Authorization");
+    allowedHeaders.add("user-email");   // User email header for audit trails
+    allowedHeaders.add("X-API-KEY");  // API key for authentication
+    allowedHeaders.add("X-Project-ID"); // Project-level isolation support
+
+    final Set<HttpMethod> allowedMethods = new HashSet<>();
+    allowedMethods.add(HttpMethod.GET);
+    allowedMethods.add(HttpMethod.POST);
+    allowedMethods.add(HttpMethod.OPTIONS);
+    allowedMethods.add(HttpMethod.DELETE);
+    allowedMethods.add(HttpMethod.PATCH);
+    allowedMethods.add(HttpMethod.PUT);
+    router.route().handler(CorsHandler.create()
+        .addRelativeOrigin(".*.")
+        .allowCredentials(true)
+        .allowedMethods(allowedMethods)
+        .allowedHeaders(allowedHeaders));
+
+    // Exact-match native Vert.x route for SSE. Registered before the JAX-RS scanner so it takes
+    // priority over AiProxyController's wildcard @Path("/{path:.*}"). Do not reorder.
+    AiSseProxyHandler sseHandler = new AiSseProxyHandler(vertx);
+    router.post(Constants.AI_RUN_SSE_PATH).handler(sseHandler::handle);
+
+    return router;
+  }
+}

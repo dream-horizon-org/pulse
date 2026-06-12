@@ -1,0 +1,156 @@
+---
+description: React Native SDK conventions for pulse-react-native-otel
+globs: pulse-react-native-otel/**/*.{ts,tsx}
+alwaysApply: false
+---
+
+# React Native SDK Conventions
+
+## Tech Stack
+
+TypeScript (strict), React Native Builder Bob, OpenTelemetry, Yarn workspaces
+
+## Project Structure
+
+```
+pulse-react-native-otel/
+├── src/                        # Library source
+│   ├── index.tsx               # Public API — single Pulse facade
+│   ├── config.ts               # SDK configuration / start
+│   ├── trace.ts                # Span/tracing API
+│   ├── events.ts               # Custom events
+│   ├── errorHandler.ts         # Global error handler
+│   ├── errorBoundary.tsx       # React ErrorBoundary component
+│   ├── user.ts                 # User identification
+│   ├── globalAttributes.ts     # Global attribute management
+│   ├── initialization.ts       # Platform checks
+│   ├── utility.ts              # Shared helpers
+│   ├── pulse.interface.ts      # Shared types
+│   ├── pulse.constants.ts      # Constants
+│   ├── NativePulseReactNativeOtel.ts  # Codegen native module
+│   ├── navigation/             # React Navigation integration
+│   │   ├── index.ts            # Public exports
+│   │   ├── navigation.interface.ts
+│   │   ├── useNavigationTracking.ts
+│   │   ├── screen-session.ts
+│   │   ├── screen-load.ts
+│   │   └── screen-interactive.ts
+│   ├── network-interceptor/    # HTTP instrumentation
+│   │   ├── initialization.ts
+│   │   ├── request-tracker.ts
+│   │   ├── request-tracker-xhr.ts
+│   │   ├── span-helpers.ts
+│   │   ├── url-helper.ts
+│   │   ├── header-helper.ts
+│   │   ├── graphql-helper.ts
+│   │   └── network.interface.ts
+│   └── __tests__/              # Unit tests
+├── android/                    # Native Android module (Kotlin)
+├── ios/                        # Native iOS module (ObjC/Swift)
+├── plugin/                     # Expo config plugin
+├── example/                    # Example app
+└── expo-example/               # Expo example app
+```
+
+## Public API Pattern
+
+The SDK exposes a single `Pulse` facade object from `src/index.tsx`:
+
+```typescript
+export const Pulse = {
+  start, isInitialized, useNavigationTracking, markContentReady,
+  trackEvent, reportException, trackSpan, startSpan,
+  setGlobalAttribute, setUserId, setUserProperty, setUserProperties,
+  ErrorBoundary, withErrorBoundary,
+};
+```
+
+All new public methods must be added to this object.
+
+## File Naming
+
+| Type | Convention | Examples |
+|------|------------|---------|
+| Source files | camelCase | `errorHandler.ts`, `config.ts`, `globalAttributes.ts` |
+| Interface files | `*.interface.ts` | `pulse.interface.ts`, `navigation.interface.ts` |
+| Constants files | `*.constants.ts` | `pulse.constants.ts` |
+| Test files | `*.test.ts` in `__tests__/` | `utility.test.ts`, `url-helper.test.ts` |
+| Feature folders | kebab-case | `network-interceptor/`, `__tests__/` |
+| React components | PascalCase | `ErrorBoundary` |
+| Hooks | `use*` | `useNavigationTracking` |
+| Codegen native module | PascalCase (exception) | `NativePulseReactNativeOtel.ts` |
+
+## Feature Modules
+
+Group related functionality into feature folders under `src/`:
+- Each feature folder should have an `index.ts` for public exports
+- Keep interfaces in `*.interface.ts` co-located with the feature
+- Helper files use `*-helper.ts` naming
+
+## Platform Guards
+
+All native calls must be wrapped with `isSupportedPlatform()` from `initialization.ts`. Currently supports Android only (`Platform.OS === 'android'`). Native calls without this guard will crash on unsupported platforms.
+
+## TypeScript Configuration
+
+- `strict: true` — all strict checks enabled
+- `noUncheckedIndexedAccess: true` — safe indexing
+- `verbatimModuleSyntax: true` — explicit `import type`
+
+## Span Types (`pulse.type`)
+
+- `interaction` — critical user interaction spans
+- `screen_session` / `screen_load` — screen tracking
+- `app_start` — cold/warm start
+- `device.anr` / `device.crash` / `non_fatal` — stability events
+- `app.jank.frozen` / `app.jank.slow` — rendering performance
+- `network.<status>` / `network.change` — network calls and connectivity
+- `session.start` / `session.end` — session boundaries
+- `custom_event` — developer-defined events
+- `app.click` — touch/click events
+
+## Span Attributes
+
+Use `pulse.*` prefixed attributes for Pulse-specific data:
+- `pulse.type` — categorizes the span
+- `pulse.interaction.name`, `pulse.interaction.id`, `pulse.interaction.apdex_score`
+- `screen.name`, `last.screen.name` — screen identifiers
+
+## Resource Attributes
+
+- `app.build_name` — app version (materialized as `AppVersion` in ClickHouse)
+- `os.name` — platform (materialized as `Platform`)
+- `os.version`, `device.model.name`, `rum.sdk.version`
+
+## Best Practices
+
+- All imports must be relative (`./`, `../`) — no path aliases in source
+- Log messages must use `[Pulse]`, `[Pulse RN]`, or `[Pulse <Feature>]` prefixes
+- Prettier: single quotes, 2-space indent, trailing commas (ES5) — configured in `package.json`
+- No wildcard imports
+
+## Code Quality
+
+- **ESLint**: flat config (`eslint.config.mjs`), extends `@react-native`, Prettier as error
+- **Lefthook**: pre-commit runs lint + typecheck, commit-msg runs commitlint
+- **Commitlint**: `@commitlint/config-conventional` — all commits must be conventional
+
+## Commands
+
+```bash
+yarn install                # install deps
+yarn typecheck              # TypeScript check
+yarn lint                   # ESLint
+yarn test                   # unit tests (Jest)
+yarn example start          # run example app
+yarn example android        # run Android example
+yarn example ios            # run iOS example
+```
+
+## Build
+
+React Native Builder Bob for library builds. Supports both `example/` and `expo-example/` apps.
+
+## Publishing
+
+Automated via `.github/workflows/publish-react-native.yml`

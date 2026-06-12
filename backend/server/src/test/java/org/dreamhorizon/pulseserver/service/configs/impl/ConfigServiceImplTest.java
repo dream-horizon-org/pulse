@@ -1,0 +1,545 @@
+package org.dreamhorizon.pulseserver.service.configs.impl;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
+import static org.mockito.Mockito.when;
+
+import io.reactivex.rxjava3.core.Single;
+import io.vertx.core.Context;
+import io.vertx.core.Vertx;
+import java.util.Arrays;
+import java.util.List;
+import java.util.stream.Collectors;
+import org.dreamhorizon.pulseserver.config.ApplicationConfig;
+import org.dreamhorizon.pulseserver.context.ProjectContext;
+import org.dreamhorizon.pulseserver.dao.configs.SdkConfigsDao;
+import org.dreamhorizon.pulseserver.dto.response.EmptyResponse;
+import org.dreamhorizon.pulseserver.resources.configs.models.AllConfigdetails;
+import org.dreamhorizon.pulseserver.resources.configs.models.GetScopeAndSdksResponse;
+import org.dreamhorizon.pulseserver.resources.configs.models.PulseConfig;
+import org.dreamhorizon.pulseserver.resources.configs.models.RulesAndFeaturesResponse;
+import org.dreamhorizon.pulseserver.service.configs.UploadConfigDetailService;
+import org.dreamhorizon.pulseserver.service.configs.models.ConfigData;
+import org.dreamhorizon.pulseserver.service.configs.models.FeatureConfig;
+import org.dreamhorizon.pulseserver.service.configs.models.Features;
+import org.dreamhorizon.pulseserver.service.configs.models.InteractionConfig;
+import org.dreamhorizon.pulseserver.service.configs.models.SamplingConfig;
+import org.dreamhorizon.pulseserver.service.configs.models.Scope;
+import org.dreamhorizon.pulseserver.service.configs.models.Sdk;
+import org.dreamhorizon.pulseserver.service.configs.models.SessionReplayFeatureConfig;
+import org.dreamhorizon.pulseserver.service.configs.models.SignalsConfig;
+import org.dreamhorizon.pulseserver.service.configs.models.rules;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
+
+@ExtendWith(MockitoExtension.class)
+class ConfigServiceImplTest {
+
+  @Mock
+  SdkConfigsDao sdkConfigsDao;
+
+  @Mock
+  Vertx vertx;
+
+  @Mock
+  Context context;
+
+  @Mock
+  UploadConfigDetailService uploadConfigDetailService;
+
+  @Mock
+  ApplicationConfig applicationConfig;
+
+  ConfigServiceImpl configService;
+
+  private static final String TEST_PROJECT_ID = "test-project";
+
+  @BeforeEach
+  void setUp() {
+    // Set up project context for multi-tenancy tests
+    ProjectContext.setProjectId(TEST_PROJECT_ID);
+
+    when(vertx.getOrCreateContext()).thenReturn(context);
+    // Mock the context.runOnContext to just run the command immediately
+    doAnswer(invocation -> {
+      io.vertx.core.Handler<Void> handler = invocation.getArgument(0);
+      handler.handle(null);
+      return null;
+    }).when(context).runOnContext(any());
+    when(applicationConfig.buildInteractionConfigFileUrl(anyString())).thenAnswer(invocation -> {
+      String pid = invocation.getArgument(0);
+      return "https://cdn.example.com/projects/" + pid + "/interaction-config.json";
+    });
+    when(applicationConfig.getOtelCollectorUrl()).thenReturn("https://collector.example.com/v1/traces");
+    when(applicationConfig.getLogsCollectorUrl()).thenReturn("https://collector.example.com/v1/logs");
+    when(applicationConfig.getMetricCollectorUrl()).thenReturn("https://collector.example.com/v1/metrics");
+    when(applicationConfig.getSpanCollectorUrl()).thenReturn("https://collector.example.com/v1/traces");
+    when(applicationConfig.getCustomEventCollectorUrl()).thenReturn("https://collector.example.com/v1/events");
+    when(applicationConfig.getReplayApiBaseUrl()).thenReturn("https://replay.example.com");
+    configService = new ConfigServiceImpl(vertx, sdkConfigsDao, uploadConfigDetailService, applicationConfig);
+  }
+
+  @AfterEach
+  void tearDown() {
+    ProjectContext.clear();
+  }
+
+  @Nested
+  @ExtendWith(MockitoExtension.class)
+  @MockitoSettings(strictness = Strictness.LENIENT)
+  class TestGetConfigByVersion {
+
+    @Test
+    void shouldGetConfigByVersionSuccessfully() {
+      // Given
+      long version = 1L;
+      PulseConfig expectedConfig = PulseConfig.builder()
+          .version(version)
+          .description("Test Config")
+          .build();
+
+      when(sdkConfigsDao.getConfig(TEST_PROJECT_ID, version)).thenReturn(Single.just(expectedConfig));
+
+      // When
+      PulseConfig result = configService.getSdkConfig(TEST_PROJECT_ID, version).blockingGet();
+
+      // Then
+      assertThat(result).isNotNull();
+      assertThat(result.getVersion()).isEqualTo(version);
+      assertThat(result.getDescription()).isEqualTo("Test Config");
+
+      verify(sdkConfigsDao, times(1)).getConfig(TEST_PROJECT_ID, version);
+      verifyNoMoreInteractions(sdkConfigsDao);
+    }
+
+    @Test
+    void shouldPropagateErrorWhenDaoFails() {
+      // Given
+      long version = 1L;
+      RuntimeException daoError = new RuntimeException("Config not found");
+
+      when(sdkConfigsDao.getConfig(TEST_PROJECT_ID, version)).thenReturn(Single.error(daoError));
+
+      // When
+      var testObserver = configService.getSdkConfig(TEST_PROJECT_ID, version).test();
+
+      // Then
+      testObserver.assertError(RuntimeException.class);
+      testObserver.assertError(e -> e.getMessage().equals("Config not found"));
+
+      verify(sdkConfigsDao, times(1)).getConfig(TEST_PROJECT_ID, version);
+      verifyNoMoreInteractions(sdkConfigsDao);
+    }
+  }
+
+  @Nested
+  @ExtendWith(MockitoExtension.class)
+  @MockitoSettings(strictness = Strictness.LENIENT)
+  class TestGetActiveConfig {
+
+    @Test
+    void shouldGetActiveConfigSuccessfully() {
+      // Given
+      PulseConfig expectedConfig = PulseConfig.builder()
+          .version(5L)
+          .description("Active Config")
+          .build();
+
+      when(sdkConfigsDao.getConfig(TEST_PROJECT_ID)).thenReturn(Single.just(expectedConfig));
+
+      // When
+      PulseConfig result = configService.getActiveSdkConfig(TEST_PROJECT_ID).blockingGet();
+
+      // Then
+      assertThat(result).isNotNull();
+      assertThat(result.getVersion()).isEqualTo(5L);
+      assertThat(result.getDescription()).isEqualTo("Active Config");
+
+      verify(sdkConfigsDao, times(1)).getConfig(TEST_PROJECT_ID);
+    }
+
+    @Test
+    void shouldReturnCachedConfigOnSubsequentCalls() {
+      // Given
+      PulseConfig expectedConfig = PulseConfig.builder()
+          .version(5L)
+          .description("Active Config")
+          .build();
+
+      when(sdkConfigsDao.getConfig(TEST_PROJECT_ID)).thenReturn(Single.just(expectedConfig));
+
+      // When - first call
+      PulseConfig result1 = configService.getActiveSdkConfig(TEST_PROJECT_ID).blockingGet();
+      // Second call - should use cache
+      PulseConfig result2 = configService.getActiveSdkConfig(TEST_PROJECT_ID).blockingGet();
+
+      // Then
+      assertThat(result1).isNotNull();
+      assertThat(result2).isNotNull();
+      assertThat(result1.getVersion()).isEqualTo(result2.getVersion());
+
+      // DAO should only be called once because of caching
+      verify(sdkConfigsDao, times(1)).getConfig(TEST_PROJECT_ID);
+    }
+
+    @Test
+    void shouldPropagateErrorWhenCacheLoadFails() {
+      // Given
+      RuntimeException daoError = new RuntimeException("Failed to load config");
+
+      when(sdkConfigsDao.getConfig(TEST_PROJECT_ID)).thenReturn(Single.error(daoError));
+
+      // When
+      var testObserver = configService.getActiveSdkConfig(TEST_PROJECT_ID).test();
+
+      // Then
+      testObserver.assertError(Throwable.class);
+    }
+  }
+
+  @Nested
+  @ExtendWith(MockitoExtension.class)
+  @MockitoSettings(strictness = Strictness.LENIENT)
+  class TestCreateConfig {
+
+    @Test
+    void shouldCreateConfigSuccessfully() {
+      // Given
+      ConfigData configData = ConfigData.builder()
+          .description("New Config")
+          .user("test_user")
+          .sampling(SamplingConfig.builder().build())
+          .signals(SignalsConfig.builder()
+              .scheduleDurationMs(5000)
+              .logsCollectorUrl("http://logs.example.com")
+              .metricCollectorUrl("http://metrics.example.com")
+              .spanCollectorUrl("http://spans.example.com")
+              .attributesToDrop(List.of())
+              .attributesToAdd(List.of())
+              .build())
+          .interaction(InteractionConfig.builder()
+              .collectorUrl("http://interaction.example.com")
+              .configUrl("http://config.example.com")
+              .beforeInitQueueSize(100)
+              .build())
+          .features(List.of(
+              FeatureConfig.builder()
+                  .featureName(Features.java_crash)
+                  .sessionSampleRate(1.0)
+                  .sdks(List.of())
+                  .build()
+          ))
+          .build();
+
+      PulseConfig createdConfig = PulseConfig.builder()
+          .version(10L)
+          .description("New Config")
+          .build();
+
+      when(sdkConfigsDao.createConfig(TEST_PROJECT_ID, configData)).thenReturn(Single.just(createdConfig));
+      when(uploadConfigDetailService.pushInteractionDetailsToObjectStore(TEST_PROJECT_ID))
+          .thenReturn(Single.just(EmptyResponse.emptyResponse));
+
+      // When
+      PulseConfig result = configService.createSdkConfig(TEST_PROJECT_ID, configData).blockingGet();
+
+      // Then
+      assertThat(result).isNotNull();
+      assertThat(result.getVersion()).isEqualTo(10L);
+      assertThat(result.getDescription()).isEqualTo("New Config");
+
+      verify(sdkConfigsDao, times(1)).createConfig(TEST_PROJECT_ID, configData);
+    }
+
+    @Test
+    void shouldInvalidateCacheAfterCreatingConfig() {
+      // Given
+      PulseConfig initialConfig = PulseConfig.builder()
+          .version(5L)
+          .description("Initial Config")
+          .build();
+
+      PulseConfig newConfig = PulseConfig.builder()
+          .version(6L)
+          .description("New Config")
+          .build();
+
+      ConfigData configData = ConfigData.builder()
+          .description("New Config")
+          .user("test_user")
+          .build();
+
+      // First load to populate cache
+      when(sdkConfigsDao.getConfig(TEST_PROJECT_ID)).thenReturn(Single.just(initialConfig), Single.just(newConfig));
+      when(sdkConfigsDao.createConfig(TEST_PROJECT_ID, configData)).thenReturn(Single.just(newConfig));
+      when(uploadConfigDetailService.pushInteractionDetailsToObjectStore(TEST_PROJECT_ID))
+          .thenReturn(Single.just(EmptyResponse.emptyResponse));
+
+      // When
+      // First call populates cache
+      configService.getActiveSdkConfig(TEST_PROJECT_ID).blockingGet();
+      // Create config should invalidate cache
+      configService.createSdkConfig(TEST_PROJECT_ID, configData).blockingGet();
+      // This should reload from DAO, not cache
+      PulseConfig result = configService.getActiveSdkConfig(TEST_PROJECT_ID).blockingGet();
+
+      // Then
+      assertThat(result.getVersion()).isEqualTo(6L);
+      // getConfig() should be called twice (initial load + after cache invalidation)
+      verify(sdkConfigsDao, times(2)).getConfig(TEST_PROJECT_ID);
+    }
+
+    @Test
+    void shouldPropagateErrorWhenCreateFails() {
+      // Given
+      ConfigData configData = ConfigData.builder()
+          .description("New Config")
+          .user("test_user")
+          .build();
+
+      RuntimeException createError = new RuntimeException("Failed to create config");
+
+      when(sdkConfigsDao.createConfig(TEST_PROJECT_ID, configData)).thenReturn(Single.error(createError));
+
+      // When
+      var testObserver = configService.createSdkConfig(TEST_PROJECT_ID, configData).test();
+
+      // Then
+      testObserver.assertError(RuntimeException.class);
+      testObserver.assertError(e -> e.getMessage().equals("Failed to create config"));
+
+      verify(sdkConfigsDao, times(1)).createConfig(TEST_PROJECT_ID, configData);
+      verifyNoMoreInteractions(sdkConfigsDao);
+    }
+  }
+
+  @Nested
+  @ExtendWith(MockitoExtension.class)
+  @MockitoSettings(strictness = Strictness.LENIENT)
+  class TestCreateInitialConfig {
+
+    @Test
+    void shouldCreateInitialConfigWithProjectSpecificInteractionConfigUrl() {
+      // Given
+      io.vertx.rxjava3.sqlclient.SqlConnection conn = mock(io.vertx.rxjava3.sqlclient.SqlConnection.class);
+      PulseConfig createdConfig = PulseConfig.builder()
+          .version(1L)
+          .description("Default initial configuration")
+          .build();
+
+      when(sdkConfigsDao.createInitialConfig(any(), any(), any())).thenReturn(Single.just(createdConfig));
+
+      // When
+      PulseConfig result = configService.createInitialConfig(conn, TEST_PROJECT_ID, "creator@example.com").blockingGet();
+
+      // Then
+      assertThat(result).isNotNull();
+      assertThat(result.getVersion()).isEqualTo(1L);
+
+      // Verify the ConfigData passed to DAO has a project-specific interaction configUrl
+      org.mockito.ArgumentCaptor<ConfigData> captor = org.mockito.ArgumentCaptor.forClass(ConfigData.class);
+      verify(sdkConfigsDao).createInitialConfig(any(), any(), captor.capture());
+      ConfigData captured = captor.getValue();
+      assertThat(captured.getInteraction()).isNotNull();
+      assertThat(captured.getInteraction().getConfigUrl())
+          .endsWith("/projects/" + TEST_PROJECT_ID + "/interaction-config.json");
+      assertThat(captured.getInteraction().getCollectorUrl())
+          .isEqualTo("https://collector.example.com/v1/traces");
+      assertThat(captured.getSignals()).isNotNull();
+      assertThat(captured.getSignals().getLogsCollectorUrl())
+          .isEqualTo("https://collector.example.com/v1/logs");
+      assertThat(captured.getSignals().getSpanCollectorUrl())
+          .isEqualTo("https://collector.example.com/v1/traces");
+      SessionReplayFeatureConfig sessionReplay = captured.getFeatures().stream()
+          .filter(f -> f.getFeatureName() == Features.session_replay)
+          .map(FeatureConfig::getConfig)
+          .map(SessionReplayFeatureConfig.class::cast)
+          .findFirst()
+          .orElseThrow();
+      assertThat(sessionReplay.getReplayApiBaseUrl()).isEqualTo("https://replay.example.com");
+    }
+  }
+
+  @Nested
+  @ExtendWith(MockitoExtension.class)
+  @MockitoSettings(strictness = Strictness.LENIENT)
+  class TestGetAllConfigDetails {
+
+    @Test
+    void shouldGetAllConfigDetailsSuccessfully() {
+      // Given
+      AllConfigdetails expectedDetails = AllConfigdetails.builder()
+          .configDetails(List.of(
+              AllConfigdetails.Configdetails.builder()
+                  .version(1L)
+                  .description("Config 1")
+                  .createdBy("user1")
+                  .createdAt("2024-01-01 00:00:00")
+                  .isactive(false)
+                  .build(),
+              AllConfigdetails.Configdetails.builder()
+                  .version(2L)
+                  .description("Config 2")
+                  .createdBy("user2")
+                  .createdAt("2024-01-02 00:00:00")
+                  .isactive(true)
+                  .build()
+          ))
+          .build();
+
+      when(sdkConfigsDao.getAllConfigDetails()).thenReturn(Single.just(expectedDetails));
+
+      // When
+      AllConfigdetails result = configService.getAllSdkConfigDetails().blockingGet();
+
+      // Then
+      assertThat(result).isNotNull();
+      assertThat(result.getConfigDetails()).hasSize(2);
+      assertThat(result.getConfigDetails().get(0).getVersion()).isEqualTo(1L);
+      assertThat(result.getConfigDetails().get(1).getVersion()).isEqualTo(2L);
+      assertThat(result.getConfigDetails().get(1).isIsactive()).isTrue();
+
+      verify(sdkConfigsDao, times(1)).getAllConfigDetails();
+      verifyNoMoreInteractions(sdkConfigsDao);
+    }
+
+    @Test
+    void shouldReturnEmptyListWhenNoConfigs() {
+      // Given
+      AllConfigdetails emptyDetails = AllConfigdetails.builder()
+          .configDetails(List.of())
+          .build();
+
+      when(sdkConfigsDao.getAllConfigDetails()).thenReturn(Single.just(emptyDetails));
+
+      // When
+      AllConfigdetails result = configService.getAllSdkConfigDetails().blockingGet();
+
+      // Then
+      assertThat(result).isNotNull();
+      assertThat(result.getConfigDetails()).isEmpty();
+
+      verify(sdkConfigsDao, times(1)).getAllConfigDetails();
+      verifyNoMoreInteractions(sdkConfigsDao);
+    }
+
+    @Test
+    void shouldPropagateErrorWhenDaoFails() {
+      // Given
+      RuntimeException daoError = new RuntimeException("Database error");
+
+      when(sdkConfigsDao.getAllConfigDetails()).thenReturn(Single.error(daoError));
+
+      // When
+      var testObserver = configService.getAllSdkConfigDetails().test();
+
+      // Then
+      testObserver.assertError(RuntimeException.class);
+      testObserver.assertError(e -> e.getMessage().equals("Database error"));
+
+      verify(sdkConfigsDao, times(1)).getAllConfigDetails();
+      verifyNoMoreInteractions(sdkConfigsDao);
+    }
+  }
+
+  @Nested
+  @ExtendWith(MockitoExtension.class)
+  @MockitoSettings(strictness = Strictness.LENIENT)
+  class TestGetRulesAndFeatures {
+
+    @Test
+    void shouldGetRulesAndFeaturesSuccessfully() {
+      // When
+      RulesAndFeaturesResponse result = configService.getRulesandFeatures().blockingGet();
+
+      // Then
+      assertThat(result).isNotNull();
+      assertThat(result.getRules()).isNotNull();
+      assertThat(result.getFeatures()).isNotNull();
+
+      // Verify rules contains all enum values
+      List<String> expectedRules = rules.getRules();
+      assertThat(result.getRules()).containsExactlyInAnyOrderElementsOf(expectedRules);
+      assertThat(result.getRules()).contains("os_version", "app_version", "country", "platform", "state", "device", "network");
+
+      // Verify features contains all enum values
+      List<String> expectedFeatures = Features.getFeatures();
+      assertThat(result.getFeatures()).containsExactlyInAnyOrderElementsOf(expectedFeatures);
+      assertThat(result.getFeatures()).contains("interaction", "java_crash", "java_anr", "network_change",
+          "rn_screen_session", "session_replay", "ios_crash", "ios_lifecycle", "android_activity", "android_fragment", "memory", "battery");
+    }
+  }
+
+  @Nested
+  @ExtendWith(MockitoExtension.class)
+  @MockitoSettings(strictness = Strictness.LENIENT)
+  class TestGetScopeAndSdks {
+
+    @Test
+    void shouldGetScopeAndSdksSuccessfully() {
+      // When
+      GetScopeAndSdksResponse result = configService.getScopeAndSdks().blockingGet();
+
+      // Then
+      assertThat(result).isNotNull();
+      assertThat(result.getScope()).isNotNull();
+      assertThat(result.getSdks()).isNotNull();
+
+      // Verify scope contains all enum values
+      List<String> expectedScopes = Arrays.stream(Scope.values())
+          .map(Enum::name)
+          .collect(Collectors.toList());
+      assertThat(result.getScope()).containsExactlyInAnyOrderElementsOf(expectedScopes);
+      assertThat(result.getScope()).contains("logs", "traces", "metrics", "baggage");
+
+      // Verify sdks contains all enum values
+      List<String> expectedSdks = Arrays.stream(Sdk.values())
+          .map(Enum::name)
+          .collect(Collectors.toList());
+      assertThat(result.getSdks()).containsExactlyInAnyOrderElementsOf(expectedSdks);
+      assertThat(result.getSdks()).contains(
+          "pulse_android_java",
+          "pulse_android_rn",
+          "pulse_ios_swift",
+          "pulse_ios_rn",
+          "pulse_web_js");
+    }
+  }
+
+  @Nested
+  @ExtendWith(MockitoExtension.class)
+  @MockitoSettings(strictness = Strictness.LENIENT)
+  class TestConstructor {
+
+    @Test
+    void shouldThrowExceptionWhenContextIsNull() {
+      // Given
+      Vertx mockVertx = mock(Vertx.class);
+      SdkConfigsDao mockSdkConfigsDao = mock(SdkConfigsDao.class);
+      UploadConfigDetailService mockUploadService = mock(UploadConfigDetailService.class);
+      ApplicationConfig mockAppConfig = mock(ApplicationConfig.class);
+      when(mockVertx.getOrCreateContext()).thenReturn(null);
+
+      // When & Then
+      try {
+        new ConfigServiceImpl(mockVertx, mockSdkConfigsDao, mockUploadService, mockAppConfig);
+        org.junit.jupiter.api.Assertions.fail("Expected NullPointerException");
+      } catch (NullPointerException e) {
+        assertThat(e.getMessage()).contains("ConfigServiceImpl must be created on a Vert.x context thread");
+      }
+    }
+  }
+}

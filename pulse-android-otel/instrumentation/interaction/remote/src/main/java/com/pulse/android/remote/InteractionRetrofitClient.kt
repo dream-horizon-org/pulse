@@ -1,0 +1,30 @@
+package com.pulse.android.remote
+
+import com.pulse.utils.PulseNetworkingUtils
+import com.pulse.utils.PulseSerialisationUtils
+import kotlinx.serialization.json.Json
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.OkHttpClient
+import retrofit2.Retrofit
+import retrofit2.converter.kotlinx.serialization.asConverterFactory
+
+public class InteractionRetrofitClient(
+    private val url: String,
+    private val okHttpClient: OkHttpClient,
+    private val json: Json = PulseSerialisationUtils.jsonConfigForSerialisation,
+) {
+    private val retrofit: Retrofit by lazy {
+        Retrofit
+            .Builder()
+            .baseUrl(PulseNetworkingUtils.extractBaseUrlWithSlash(url))
+            .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
+            .client(okHttpClient)
+            .build()
+    }
+
+    public val apiService: InteractionApiService by lazy {
+        retrofit.create(InteractionApiService::class.java)
+    }
+
+    public fun newInstance(url: String): InteractionRetrofitClient = InteractionRetrofitClient(url, okHttpClient, json)
+}

@@ -1,0 +1,26 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "skipLibCheck": true,
+    "allowImportingTsExtensions": true,
+    "noEmit": true,
+    "baseUrl": ".",
+    "paths": {
+      "@dreamhorizonorg/pulse-web": ["../../src/index.ts"],
+      "@dreamhorizonorg/pulse-web/react": [
+        "../../src/integrations/react/index.ts"
+      ],
+      "@dreamhorizonorg/pulse-web/react/router": [
+        "../../src/integrations/react/router.ts"
+      ]
+    }
+  },
+  "include": ["src", "e2e"],
+  "exclude": ["node_modules", "dist"]
+}

@@ -1,0 +1,61 @@
+.eventsSequenceContainer {
+  display: flex;
+  flex-direction: column;
+  width: 80%;
+  max-width: 700px;
+}
+
+.sectionLabel {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  margin-bottom: var(--mantine-spacing-sm);
+}
+
+.infoIcon {
+  margin-left: var(--mantine-spacing-md);
+}
+
+.droppableContainer {
+  align-items: left;
+  justify-content: left;
+  text-align: left;
+  flex-grow: 1;
+}
+
+.sectionButtons {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-top: 36px;
+}
+
+.sectionButton {
+  margin-left: var(--mantine-spacing-sm);
+}
+
+.addEvent {
+  /* border-left: 4px solid var(--mantine-color-blue-5) !important; */
+  border-radius: 0px !important;
+  margin-bottom: var(--mantine-spacing-xs);
+  background-color: white !important;
+  padding-left: var(--mantine-spacing-lg) !important;
+  /* margin-left: 21px; */
+}
+
+.eventsSequenceSectionContainer {
+  display: flex;
+  flex-direction: row;
+  position: relative;
+}
+
+.eventSequenceContainerDivider {
+  background-color: var(--mantine-color-blue-5);
+  width: 3px;
+  z-index: 0;
+  position: absolute;
+  left: 22px;
+  height: 90% !important;
+  top: 5px;
+}

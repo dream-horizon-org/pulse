@@ -1,0 +1,51 @@
+.item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--mantine-spacing-xs);
+  padding: var(--mantine-spacing-xs);
+  border-radius: var(--mantine-radius-sm);
+  transition: background-color 0.15s ease;
+}
+
+.item:hover {
+  background-color: var(--mantine-color-gray-1);
+}
+
+.keyValue {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.key {
+  color: var(--mantine-color-primary-7);
+  font-family: "Monaco", "Menlo", "Ubuntu Mono", monospace;
+}
+
+.value {
+  color: var(--mantine-color-dark-7);
+  font-family: "Monaco", "Menlo", "Ubuntu Mono", monospace;
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+
+.copyButton {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--mantine-color-gray-6);
+  border-radius: var(--mantine-radius-sm);
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.copyButton:hover {
+  background-color: var(--mantine-color-gray-2);
+  color: var(--mantine-color-primary-6);
+}

@@ -1,0 +1,41 @@
+package org.dreamhorizon.pulseserver.service.configs.models;
+
+import com.fasterxml.jackson.annotation.JsonProperty;
+import jakarta.validation.constraints.NotNull;
+import java.util.List;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
+@NotNull
+public class SignalsConfig {
+
+  @JsonProperty("scheduleDurationMs")
+  private int scheduleDurationMs;
+
+  @JsonProperty("logsCollectorUrl")
+  private String logsCollectorUrl;
+
+  @JsonProperty("metricCollectorUrl")
+  private String metricCollectorUrl;
+
+  @JsonProperty("spanCollectorUrl")
+  private String spanCollectorUrl;
+
+  @JsonProperty("customEventCollectorUrl")
+  private String customEventCollectorUrl;
+
+  @JsonProperty("attributesToDrop")
+  private List<AttributeToDrop> attributesToDrop;
+
+  @JsonProperty("attributesToAdd")
+  private List<AttributeToAdd> attributesToAdd;
+
+  @JsonProperty("metricsToAdd")
+  private List<MetricsToAddEntry> metricsToAdd;
+}

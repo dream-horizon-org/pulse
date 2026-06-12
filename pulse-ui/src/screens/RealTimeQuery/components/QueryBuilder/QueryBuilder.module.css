@@ -1,0 +1,169 @@
+/**
+ * QueryBuilder Styles - Light Theme (matches page theme)
+ */
+
+.container {
+  background: var(--mantine-color-white);
+  border-color: var(--mantine-color-gray-3);
+  border-radius: var(--mantine-radius-md);
+  overflow: hidden;
+}
+
+/* Toggle Row at Top */
+.toggleRow {
+  padding: 12px 16px;
+  background: var(--mantine-color-gray-0);
+  border-bottom: 1px solid var(--mantine-color-gray-2);
+}
+
+/* Section Styling */
+.section {
+  padding: 16px;
+  border-bottom: 1px solid var(--mantine-color-gray-2);
+}
+
+
+
+/* Read-only input for dataset/table */
+.readOnlyInput {
+  background: var(--mantine-color-gray-1) !important;
+  border-color: var(--mantine-color-gray-3) !important;
+  color: var(--mantine-color-dark-6) !important;
+  cursor: default !important;
+}
+
+/* Item Row (columns, filters) */
+.itemRow {
+  padding: 8px 12px;
+  background: var(--mantine-color-gray-0);
+  border-radius: var(--mantine-radius-sm);
+  border: 1px solid var(--mantine-color-gray-3);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.itemRow:hover {
+  border-color: var(--mantine-color-gray-4);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+/* Add Button */
+.addButton {
+  width: fit-content;
+  margin-top: 4px;
+  color: var(--mantine-color-gray-6);
+}
+
+.addButton:hover {
+  background: var(--mantine-color-gray-1);
+  color: var(--mantine-color-gray-8);
+}
+
+/* Chip-style Group By Items */
+.chipItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 6px 6px 12px;
+  background: var(--mantine-color-white);
+  border-radius: var(--mantine-radius-md);
+  border: 1px solid var(--mantine-color-gray-3);
+  min-height: 34px;
+}
+
+.chipItem:hover {
+  border-color: var(--mantine-color-gray-4);
+  background: var(--mantine-color-gray-0);
+}
+
+/* Group by container */
+.groupByContainer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+/* SQL Preview Section */
+.previewSection {
+  padding: 16px;
+  background: var(--mantine-color-gray-0);
+  border-top: 1px solid var(--mantine-color-gray-2);
+}
+
+.sqlCode {
+  background: var(--mantine-color-gray-1) !important;
+  color: var(--mantine-color-teal-7) !important;
+  font-size: 12px;
+  padding: 12px;
+  border-radius: var(--mantine-radius-sm);
+  max-height: 200px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+  border: 1px solid var(--mantine-color-gray-3);
+}
+
+/* Switch styling for light theme */
+.container :global(.mantine-Switch-track) {
+  background-color: var(--mantine-color-gray-4) !important;
+  border-color: var(--mantine-color-gray-4) !important;
+}
+
+.container :global(.mantine-Switch-root[data-checked] .mantine-Switch-track),
+.container :global(.mantine-Switch-track[data-checked]) {
+  background-color: var(--mantine-color-teal-6) !important;
+  border-color: var(--mantine-color-teal-6) !important;
+}
+
+.container :global(.mantine-Switch-thumb) {
+  background-color: var(--mantine-color-white);
+  border-color: var(--mantine-color-gray-3);
+}
+
+.container :global(.mantine-Switch-label) {
+  color: var(--mantine-color-gray-7);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.container :global(.mantine-Switch-root[data-checked] .mantine-Switch-label) {
+  color: var(--mantine-color-teal-7);
+}
+
+/* Select input styling */
+.container :global(.mantine-Select-input),
+.container :global(.mantine-TextInput-input),
+.container :global(.mantine-NumberInput-input) {
+  background: var(--mantine-color-white);
+  border-color: var(--mantine-color-gray-3);
+}
+
+.container :global(.mantine-Select-input:focus),
+.container :global(.mantine-TextInput-input:focus),
+.container :global(.mantine-NumberInput-input:focus) {
+  border-color: var(--mantine-color-teal-5);
+}
+
+/* SegmentedControl styling */
+.container :global(.mantine-SegmentedControl-root) {
+  background: var(--mantine-color-gray-1);
+}
+
+.container :global(.mantine-SegmentedControl-indicator) {
+  background: var(--mantine-color-white);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+/* ActionIcon styling */
+.container :global(.mantine-ActionIcon-root[data-variant="subtle"]:hover) {
+  background: var(--mantine-color-gray-1);
+}
+
+.container :global(.mantine-ActionIcon-root[data-variant="light"]) {
+  background: var(--mantine-color-gray-1);
+  color: var(--mantine-color-gray-6);
+}
+
+.container :global(.mantine-ActionIcon-root[data-variant="light"]:hover) {
+  background: var(--mantine-color-gray-2);
+}

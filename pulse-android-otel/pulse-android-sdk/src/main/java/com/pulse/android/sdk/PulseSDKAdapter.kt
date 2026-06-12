@@ -1,0 +1,117 @@
+@file:OptIn(Incubating::class)
+
+package com.pulse.android.sdk
+
+import android.app.Application
+import com.pulse.android.api.otel.PulseBeforeSendData
+import com.pulse.android.api.otel.PulseDataCollectionConsent
+import com.pulse.android.sdk.internal.PulseSDKInternal
+import com.pulse.utils.PulseLogLevel
+import io.opentelemetry.android.Incubating
+import io.opentelemetry.android.OpenTelemetryRum
+import io.opentelemetry.android.agent.dsl.instrumentation.InstrumentationConfiguration
+import io.opentelemetry.api.common.Attributes
+import io.opentelemetry.sdk.resources.ResourceBuilder
+
+/**
+ * Adapter that implements PulseSDK by delegating to the internal implementation.
+ * This allows pulse-android-sdk to provide INSTANCE without creating a cyclic dependency
+ * with pulse-android-sdk-internal (which does not depend on PulseSDK interface).
+ */
+internal class PulseSDKAdapter(
+    private val delegate: PulseSDKInternal,
+) : PulseSDK {
+    override fun isInitialized(): Boolean = delegate.isInitialized()
+
+    override fun initialize(
+        application: Application,
+        apiKey: String,
+        dataCollectionState: PulseDataCollectionConsent,
+        resource: (ResourceBuilder.() -> Unit)?,
+        globalAttributes: (() -> Attributes)?,
+        beforeSendData: PulseBeforeSendData?,
+        logLevel: PulseLogLevel,
+        instrumentations: (InstrumentationConfiguration.() -> Unit)?,
+    ) {
+        delegate.initialize(
+            application = application,
+            apiKey = apiKey,
+            resource = resource,
+            globalAttributes = globalAttributes,
+            logLevel = logLevel,
+            instrumentations = instrumentations,
+            tracerProviderCustomizer = null,
+            loggerProviderCustomizer = null,
+            beforeSendData = beforeSendData,
+            dataCollectionState = dataCollectionState,
+        )
+    }
+
+    override fun setDataCollectionState(newState: PulseDataCollectionConsent) {
+        delegate.setDataCollectionState(newState)
+    }
+
+    override fun setUserId(id: String?) {
+        delegate.setUserId(id)
+    }
+
+    override fun setUserProperty(
+        name: String,
+        value: Any?,
+    ) {
+        delegate.setUserProperty(name, value)
+    }
+
+    override fun setUserProperties(builderAction: MutableMap<String, Any?>.() -> Unit) {
+        delegate.setUserProperties(builderAction)
+    }
+
+    override fun trackEvent(
+        name: String,
+        timestampInMs: Long,
+        params: Map<String, Any?>,
+    ) {
+        delegate.trackEvent(name, timestampInMs, params)
+    }
+
+    override fun trackNonFatal(
+        name: String,
+        timestampInMs: Long,
+        params: Map<String, Any?>,
+    ) {
+        delegate.trackNonFatal(name, timestampInMs, params)
+    }
+
+    override fun trackNonFatal(
+        throwable: Throwable,
+        timestampInMs: Long,
+        params: Map<String, Any?>,
+    ) {
+        delegate.trackNonFatal(throwable, timestampInMs, params)
+    }
+
+    override fun <T> trackSpan(
+        spanName: String,
+        params: Map<String, Any?>,
+        action: () -> T,
+    ) {
+        delegate.trackSpan(spanName, params, action)
+    }
+
+    override fun startSpan(
+        spanName: String,
+        params: Map<String, Any?>,
+    ): () -> Unit = delegate.startSpan(spanName, params)
+
+    override fun reportFullyDrawn() {
+        delegate.reportFullyDrawn()
+    }
+
+    override fun shutdown() {
+        delegate.shutdown()
+    }
+
+    override fun getOtelOrNull(): OpenTelemetryRum? = delegate.getOtelOrNull()
+
+    override fun getOtelOrThrow(): OpenTelemetryRum = delegate.getOtelOrThrow()
+}

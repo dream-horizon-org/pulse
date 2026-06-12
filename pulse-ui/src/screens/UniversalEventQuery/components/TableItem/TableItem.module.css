@@ -1,0 +1,37 @@
+.column {
+  border-radius: 4;
+  margin-bottom: "4px";
+}
+
+.columnName {
+  background: "transparent";
+  font-size: "14px";
+  color: "#e604ff";
+}
+
+.columnType {
+  font-size: "14px";
+}
+
+.tableName {
+  font-size: var(--mantine-font-size-xs) !important;
+  background-color: transparent !important;
+  word-wrap: break-word;
+  max-width: 300px;
+  cursor: pointer;
+}
+
+.tableItem {
+  margin-bottom: var(--mantine-spacing-xs);
+}
+
+.tableColumn {
+  font-size: var(--mantine-font-size-xs);
+  color: var(--mantine-color-blue-6);
+  background: transparent !important;
+}
+
+.tableColumnType {
+  font-size: var(--mantine-font-size-xs) !important;
+  color: var(--mantine-color-blue-6) !important;
+}

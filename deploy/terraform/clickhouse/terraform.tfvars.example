@@ -1,0 +1,38 @@
+aws_region    = "ap-south-1"
+cluster_name  = "demo-clickhouse-cluster"
+shard_count   = 1
+replica_count = 2
+
+ami_id        = "ami-0123456789abcdef0"  # dummy ClickHouse AMI
+instance_type = "t3.large"
+key_name      = "DemoKeyPair"
+
+# Map of AZ -> subnetId (all private)
+subnets = {
+  "ap-south-1a" = "subnet-0aaaaaaaaaaaaaaa1"
+  "ap-south-1b" = "subnet-0bbbbbbbbbbbbbbb2"
+}
+
+vpc_security_group_ids = [
+  "sg-0ccccccccccccccc3"
+]
+
+iam_instance_profile = "demo_service_role"
+
+data_volume_size = 50
+data_volume_type = "gp3"
+
+private_zone_id     = "Z0DUMMYZONEID12345"
+private_zone_domain = "example.internal"
+
+
+keeper_ami_id          = "ami-0fedcba9876543210"
+keeper_instance_type   = "t3.medium"
+keeper_count           = 2
+
+
+clickhouse_user     = "dummy_user"
+clickhouse_password = "dummy_password_123!"
+
+data_volume_iops       = 3000
+data_volume_throughput = 125

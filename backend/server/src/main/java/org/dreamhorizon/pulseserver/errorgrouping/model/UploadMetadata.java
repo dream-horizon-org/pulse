@@ -1,0 +1,29 @@
+package org.dreamhorizon.pulseserver.errorgrouping.model;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
+import lombok.NoArgsConstructor;
+
+
+@NoArgsConstructor
+@AllArgsConstructor
+@Data
+@Builder
+@EqualsAndHashCode
+public class UploadMetadata {
+  private String type;
+  private String appVersion;
+  private String fileName;
+  private String platform;
+  private String versionCode;
+  private String bundleId;
+  private String projectId;
+
+  @Override
+  public String toString() {
+    return String.format("UploadMetadata{type=%s, platform=%s, version=%s, versionCode=%s, bundleId=%s, projectId=%s}",
+        type, platform, appVersion, versionCode, bundleId, projectId);
+  }
+}

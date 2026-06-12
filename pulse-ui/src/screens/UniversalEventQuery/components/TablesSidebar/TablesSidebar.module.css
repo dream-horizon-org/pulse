@@ -1,0 +1,12 @@
+.tablesSidebar {
+  max-height: 300px;
+  min-width: 500px !important;
+  overflow-y: auto;
+}
+
+.tableHeader {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--mantine-color-gray-6);
+  margin-bottom: 10px;
+}

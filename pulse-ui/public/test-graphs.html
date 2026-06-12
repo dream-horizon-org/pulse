@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Graph Components Test</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 20px;
+      }
+      .test-result {
+        margin: 10px 0;
+        padding: 10px;
+        border-radius: 4px;
+      }
+      .success {
+        background-color: #d4edda;
+        border: 1px solid #c3e6cb;
+        color: #155724;
+      }
+      .error {
+        background-color: #f8d7da;
+        border: 1px solid #f5c6cb;
+        color: #721c24;
+      }
+      .info {
+        background-color: #d1ecf1;
+        border: 1px solid #bee5eb;
+        color: #0c5460;
+      }
+      button {
+        padding: 10px 20px;
+        margin: 5px;
+        cursor: pointer;
+      }
+      pre {
+        background: #f8f9fa;
+        padding: 10px;
+        border-radius: 4px;
+        overflow-x: auto;
+      }
+      .graph-container {
+        margin: 20px 0;
+        padding: 20px;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>📊 Graph Components Test</h1>
+
+    <div id="status" class="test-result info">
+      <strong>Status:</strong> Ready to test graph APIs
+    </div>
+
+    <div>
+      <button onclick="testApdexScoreAPI()">Test Apdex Score API</button>
+      <button onclick="testErrorRateAPI()">Test Error Rate API</button>
+      <button onclick="testInteractionTimeAPI()">
+        Test Interaction Time API
+      </button>
+      <button onclick="testUserCategorizationAPI()">
+        Test User Categorization API
+      </button>
+      <button onclick="testAllGraphAPIs()">Test All Graph APIs</button>
+    </div>
+
+    <div id="results"></div>
+
+    <script>
+      // Set environment variables for testing
+      window.process = window.process || {};
+      window.process.env = {
+        ...window.process.env,
+        REACT_APP_USE_MOCK_SERVER: "true",
+        REACT_APP_MOCK_DELAY: "100",
+        REACT_APP_MOCK_ERROR_RATE: "0.0",
+        REACT_APP_MOCK_LOGGING: "true",
+      };
+
+      function updateStatus(message, type = "info") {
+        const status = document.getElementById("status");
+        status.className = `test-result ${type}`;
+        status.innerHTML = `<strong>Status:</strong> ${message}`;
+      }
+
+      function addResult(title, data, success = true) {
+        const results = document.getElementById("results");
+        const resultDiv = document.createElement("div");
+        resultDiv.className = `test-result ${success ? "success" : "error"}`;
+        resultDiv.innerHTML = `
+                <h3>${title}</h3>
+                <pre>${JSON.stringify(data, null, 2)}</pre>
+            `;
+        results.appendChild(resultDiv);
+      }
+
+      async function testApdexScoreAPI() {
+        updateStatus("Testing Apdex Score API...", "info");
+        try {
+          const response = await fetch("/v3/metric/getApdexScore", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              useCaseId: "ContestJoinSuccess",
+              startTime: "2024-01-15 10:00:00",
+              endTime: "2024-01-15 11:00:00",
+              platform: "android",
+              appVersion: "1.0.0",
+            }),
+          });
+          const data = await response.json();
+          addResult(
+            "✅ Apdex Score API Test",
+            {
+              status: response.status,
+              dataPoints: data.data?.readings?.length || 0,
+              sample: data.data?.readings?.[0] || null,
+            },
+            true,
+          );
+        } catch (error) {
+          addResult(
+            "❌ Apdex Score API Test Failed",
+            { error: error.message },
+            false,
+          );
+        }
+      }
+
+      async function testErrorRateAPI() {
+        updateStatus("Testing Error Rate API...", "info");
+        try {
+          const response = await fetch("/v3/metric/getErrorRate", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              useCaseId: "ContestJoinSuccess",
+              startTime: "2024-01-15 10:00:00",
+              endTime: "2024-01-15 11:00:00",
+              platform: "android",
+              appVersion: "1.0.0",
+            }),
+          });
+          const data = await response.json();
+          addResult(
+            "✅ Error Rate API Test",
+            {
+              status: response.status,
+              dataPoints: data.data?.readings?.length || 0,
+              sample: data.data?.readings?.[0] || null,
+            },
+            true,
+          );
+        } catch (error) {
+          addResult(
+            "❌ Error Rate API Test Failed",
+            { error: error.message },
+            false,
+          );
+        }
+      }
+
+      async function testInteractionTimeAPI() {
+        updateStatus("Testing Interaction Time API...", "info");
+        try {
+          const response = await fetch(
+            "/v3/metric/composite/getInteractionTime",
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                useCaseId: "ContestJoinSuccess",
+                startTime: "2024-01-15 10:00:00",
+                endTime: "2024-01-15 11:00:00",
+                platform: "android",
+                appVersion: "1.0.0",
+              }),
+            },
+          );
+          const data = await response.json();
+          addResult(
+            "✅ Interaction Time API Test",
+            {
+              status: response.status,
+              dataPoints: data.data?.readings?.length || 0,
+              sample: data.data?.readings?.[0] || null,
+            },
+            true,
+          );
+        } catch (error) {
+          addResult(
+            "❌ Interaction Time API Test Failed",
+            { error: error.message },
+            false,
+          );
+        }
+      }
+
+      async function testUserCategorizationAPI() {
+        updateStatus(
+          "Testing User Categorization API (Ultra-Stable Lines)...",
+          "info",
+        );
+        try {
+          const response = await fetch(
+            "/v3/metric/composite/getInteractionCategory",
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                useCaseId: "ContestJoinSuccess",
+                startTime: "2024-01-15 10:00:00",
+                endTime: "2024-01-15 11:00:00",
+                platform: "android",
+                appVersion: "1.0.0",
+              }),
+            },
+          );
+          const data = await response.json();
+          addResult(
+            "✅ User Categorization API Test (Ultra-Stable)",
+            {
+              status: response.status,
+              dataPoints: data.data?.readings?.length || 0,
+              sample: data.data?.readings?.[0] || null,
+              note: "Lines should be almost perfectly horizontal with minimal variation",
+            },
+            true,
+          );
+        } catch (error) {
+          addResult(
+            "❌ User Categorization API Test Failed",
+            { error: error.message },
+            false,
+          );
+        }
+      }
+
+      async function testAllGraphAPIs() {
+        updateStatus("Testing All Graph APIs...", "info");
+        document.getElementById("results").innerHTML = "";
+
+        await testApdexScoreAPI();
+        await new Promise((resolve) => setTimeout(resolve, 200));
+        await testErrorRateAPI();
+        await new Promise((resolve) => setTimeout(resolve, 200));
+        await testInteractionTimeAPI();
+        await new Promise((resolve) => setTimeout(resolve, 200));
+        await testUserCategorizationAPI();
+
+        updateStatus("All graph API tests completed!", "success");
+      }
+
+      // Auto-run test on page load
+      window.onload = function () {
+        updateStatus(
+          "Graph components test page loaded. Click buttons to test APIs.",
+          "info",
+        );
+      };
+    </script>
+  </body>
+</html>

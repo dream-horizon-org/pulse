@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Alerts Test</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 20px;
+      }
+      .test-result {
+        margin: 10px 0;
+        padding: 10px;
+        border-radius: 4px;
+      }
+      .success {
+        background-color: #d4edda;
+        border: 1px solid #c3e6cb;
+        color: #155724;
+      }
+      .error {
+        background-color: #f8d7da;
+        border: 1px solid #f5c6cb;
+        color: #721c24;
+      }
+      .info {
+        background-color: #d1ecf1;
+        border: 1px solid #bee5eb;
+        color: #0c5460;
+      }
+      button {
+        padding: 10px 20px;
+        margin: 5px;
+        cursor: pointer;
+      }
+      pre {
+        background: #f8f9fa;
+        padding: 10px;
+        border-radius: 4px;
+        overflow-x: auto;
+      }
+      .alert-card {
+        margin: 10px 0;
+        padding: 15px;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        background: #f9f9f9;
+      }
+      .alert-card.firing {
+        border-left: 4px solid #dc3545;
+      }
+      .alert-card.normal {
+        border-left: 4px solid #28a745;
+      }
+      .alert-card.silenced {
+        border-left: 4px solid #ffc107;
+      }
+      .alert-card.errored {
+        border-left: 4px solid #6c757d;
+      }
+      .alert-card.no_data {
+        border-left: 4px solid #17a2b8;
+      }
+      .alert-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 10px;
+      }
+      .alert-status {
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 12px;
+        font-weight: bold;
+      }
+      .status-firing {
+        background-color: #f8d7da;
+        color: #721c24;
+      }
+      .status-normal {
+        background-color: #d4edda;
+        color: #155724;
+      }
+      .status-silenced {
+        background-color: #fff3cd;
+        color: #856404;
+      }
+      .status-errored {
+        background-color: #d1ecf1;
+        color: #0c5460;
+      }
+      .status-no_data {
+        background-color: #d1ecf1;
+        color: #0c5460;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>🚨 Alerts Test</h1>
+
+    <div id="status" class="test-result info">
+      <strong>Status:</strong> Ready to test Alerts functionality
+    </div>
+
+    <div>
+      <button onclick="testAlertsList()">Test Alerts List</button>
+      <button onclick="testAlertFilters()">Test Alert Filters</button>
+      <button onclick="testAllAlerts()">Test All Alerts APIs</button>
+    </div>
+
+    <div id="results"></div>
+
+    <script>
+      // Set environment variables for testing
+      window.process = window.process || {};
+      window.process.env = {
+        ...window.process.env,
+        REACT_APP_USE_MOCK_SERVER: "true",
+        REACT_APP_MOCK_DELAY: "100",
+        REACT_APP_MOCK_ERROR_RATE: "0.0",
+        REACT_APP_MOCK_LOGGING: "true",
+      };
+
+      function updateStatus(message, type = "info") {
+        const status = document.getElementById("status");
+        status.className = `test-result ${type}`;
+        status.innerHTML = `<strong>Status:</strong> ${message}`;
+      }
+
+      function addResult(title, data, success = true) {
+        const results = document.getElementById("results");
+        const resultDiv = document.createElement("div");
+        resultDiv.className = `test-result ${success ? "success" : "error"}`;
+        resultDiv.innerHTML = `
+                <h3>${title}</h3>
+                <pre>${JSON.stringify(data, null, 2)}</pre>
+            `;
+        results.appendChild(resultDiv);
+      }
+
+      function addAlertCard(alert) {
+        const results = document.getElementById("results");
+        const alertDiv = document.createElement("div");
+        alertDiv.className = `alert-card ${alert.current_state.toLowerCase()}`;
+
+        const statusClass = `status-${alert.current_state.toLowerCase()}`;
+
+        alertDiv.innerHTML = `
+                <div class="alert-header">
+                    <h3>${alert.name}</h3>
+                    <span class="alert-status ${statusClass}">${alert.current_state}</span>
+                </div>
+                <p><strong>Description:</strong> ${alert.description}</p>
+                <p><strong>Service:</strong> ${alert.service_name} (Job: ${alert.job_name})</p>
+                <p><strong>Metric:</strong> ${alert.metric} ${alert.metric_operator} ${alert.threshold}</p>
+                <p><strong>Conditions:</strong> ${alert.conditions}</p>
+                <p><strong>Severity:</strong> ${alert.severity_id} | <strong>Roster:</strong> ${alert.roster_name}</p>
+                <p><strong>Created By:</strong> ${alert.created_by} | <strong>Last Evaluated:</strong> ${new Date(alert.last_evaluated_at).toLocaleString()}</p>
+                <p><strong>Evaluation:</strong> Every ${alert.evaluation_interval}s for ${alert.evaluation_period}s</p>
+                <p><strong>Interactions:</strong> ${alert.min_total_interactions} total, ${alert.min_success_interactions} success, ${alert.min_error_interactions} error</p>
+                <p><strong>Snoozed:</strong> ${alert.is_snoozed ? `Yes (${new Date(alert.snoozed_from).toLocaleString()} - ${new Date(alert.snoozed_until).toLocaleString()})` : "No"}</p>
+            `;
+        results.appendChild(alertDiv);
+      }
+
+      async function testAlertsList() {
+        updateStatus("Testing Alerts List API...", "info");
+        try {
+          const response = await fetch("/v1/alert?offset=0&limit=10");
+          const data = await response.json();
+
+          if (response.ok && data.data) {
+            addResult(
+              "✅ Alerts List API Test",
+              {
+                status: response.status,
+                totalAlerts: data.data.total_alerts,
+                alertsCount: data.data.alerts.length,
+                sampleAlert: data.data.alerts[0] || null,
+              },
+              true,
+            );
+
+            // Display all alerts as cards
+            data.data.alerts.forEach((alert) => {
+              addAlertCard(alert);
+            });
+          } else {
+            addResult(
+              "❌ Alerts List API Test Failed",
+              {
+                status: response.status,
+                error: data.error || data.message,
+              },
+              false,
+            );
+          }
+        } catch (error) {
+          addResult(
+            "❌ Alerts List API Test Failed",
+            { error: error.message },
+            false,
+          );
+        }
+      }
+
+      async function testAlertFilters() {
+        updateStatus("Testing Alert Filters API...", "info");
+        try {
+          const response = await fetch("/v1/alert/filters");
+          const data = await response.json();
+
+          if (response.ok && data.data) {
+            addResult(
+              "✅ Alert Filters API Test",
+              {
+                status: response.status,
+                filters: data.data,
+              },
+              true,
+            );
+          } else {
+            addResult(
+              "❌ Alert Filters API Test Failed",
+              {
+                status: response.status,
+                error: data.error || data.message,
+              },
+              false,
+            );
+          }
+        } catch (error) {
+          addResult(
+            "❌ Alert Filters API Test Failed",
+            { error: error.message },
+            false,
+          );
+        }
+      }
+
+      async function testAllAlerts() {
+        updateStatus("Testing All Alerts APIs...", "info");
+        document.getElementById("results").innerHTML = "";
+
+        await testAlertsList();
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        await testAlertFilters();
+
+        updateStatus("All Alerts tests completed!", "success");
+      }
+
+      // Auto-run test on page load
+      window.onload = function () {
+        updateStatus(
+          "Alerts test page loaded. Click buttons to test alerts functionality.",
+          "info",
+        );
+      };
+    </script>
+  </body>
+</html>

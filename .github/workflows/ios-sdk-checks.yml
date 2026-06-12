@@ -1,0 +1,237 @@
+# Validates pulse-ios-otel (SwiftPM + CocoaPods example + XCFramework).
+#
+# Jobs:
+# - SwiftLint: style on Sources/ (see pulse-ios-otel/.swiftlint.yml).
+# - UnitTests: SwiftPM `swift test` — all test targets under pulse-ios-otel/Tests/ (PulseKit,
+#   Instrumentation, Exporters, etc.) on the macOS host (Xcode toolchain).
+# - iOS: build-for-testing + test-without-building for the Swift package on the iOS Simulator (Makefile).
+# - ExampleApp: CocoaPods workspace build for Examples/PulseIOSExample.
+# - XCFramework: build-xcframework.sh + sanity build example against vendored frameworks.
+name: iOS -  Lint, Test, Build, and Verify
+
+on:
+  pull_request:
+    paths:
+      - 'pulse-ios-otel/**'
+      - '.github/workflows/ios-sdk-checks.yml'
+  push:
+    branches:
+      - main
+      - release/*
+    paths:
+      - 'pulse-ios-otel/**'
+      - '.github/workflows/ios-sdk-checks.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  SwiftLint:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      - name: SwiftLint
+        run: |
+          brew install swiftlint
+          cd pulse-ios-otel && swiftlint lint --strict
+
+  UnitTests:
+    runs-on: macos-15
+    defaults:
+      run:
+        working-directory: pulse-ios-otel
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      - uses: maxim-lobanov/setup-xcode@60606e260d2fc5762a71e64e74b2174e8ea3c8bd # v1.6.0
+        with:
+          xcode-version: 16.4
+      - name: Run unit tests (SwiftPM)
+        run: swift test --no-parallel
+
+  iOS:
+    runs-on: macos-15
+    defaults:
+      run:
+        working-directory: pulse-ios-otel
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      - uses: maxim-lobanov/setup-xcode@60606e260d2fc5762a71e64e74b2174e8ea3c8bd # v1.6.0
+        with:
+          xcode-version: 16.4
+      - name: Install Homebrew kegs
+        run: make setup-brew
+      - name: Build for iOS
+        run: make build-for-testing-ios
+      - name: Test for iOS
+        run: make test-without-building-ios
+
+  ExampleApp:
+    runs-on: macos-15
+    defaults:
+      run:
+        working-directory: pulse-ios-otel/Examples/PulseIOSExample
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      - uses: maxim-lobanov/setup-xcode@60606e260d2fc5762a71e64e74b2174e8ea3c8bd # v1.6.0
+        with:
+          xcode-version: 16.4
+      - name: Install CocoaPods
+        run: gem install cocoapods
+      - name: Pod install
+        run: pod install
+      - name: Build Example App
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -workspace PulseIOSExample.xcworkspace \
+            -scheme PulseIOSExample \
+            -configuration Debug \
+            -destination 'platform=iOS Simulator,name=iPhone 16,arch=arm64' \
+            -derivedDataPath ./build \
+            build
+
+  XCFramework:
+    runs-on: macos-15
+    defaults:
+      run:
+        working-directory: pulse-ios-otel
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      - uses: maxim-lobanov/setup-xcode@60606e260d2fc5762a71e64e74b2174e8ea3c8bd # v1.6.0
+        with:
+          xcode-version: 16.4
+      - name: Install CocoaPods
+        run: gem install cocoapods
+      - name: Pod install
+        working-directory: pulse-ios-otel/Examples/PulseIOSExample
+        run: pod install
+      - name: Build XCFramework
+        run: |
+          chmod +x Scripts/build-xcframework.sh
+          ./Scripts/build-xcframework.sh
+      - name: Verify XCFramework output
+        run: |
+          for fw in PulseKit KSCrash OpenTelemetryApi OpenTelemetrySdk SwiftProtobuf libwebp; do
+            if [ ! -d "build/${fw}.xcframework" ]; then
+              echo "::error::build/${fw}.xcframework was not created"
+              exit 1
+            fi
+          done
+          echo "PulseKit.xcframework size: $(du -sh build/PulseKit.xcframework | cut -f1)"
+          echo "Architectures:"
+          find build/PulseKit.xcframework -name "PulseKit" -type f | while read f; do
+            echo "  $f: $(file "$f" | sed 's/.*: //')"
+          done
+      - name: Test XCFramework with Example App
+        run: |
+          set -euo pipefail
+          for fw in PulseKit KSCrash OpenTelemetryApi OpenTelemetrySdk SwiftProtobuf libwebp; do
+            if [ ! -d "build/${fw}.xcframework" ]; then
+              echo "::error::Missing build/${fw}.xcframework (run build-xcframework.sh first)"
+              exit 1
+            fi
+          done
+
+          ruby <<'RUBY'
+          path = "PulseKit.podspec"
+          text = File.read(path)
+
+          def strip_spec_array_attr(text, attr)
+            lines = text.lines
+            out = []
+            i = 0
+            re_start = /^  spec\.#{Regexp.escape(attr)} = \[$/
+            re_close = /^  \]\s*$/
+            while i < lines.size
+              if lines[i].match?(re_start)
+                i += 1
+                while i < lines.size && !lines[i].match?(re_close)
+                  i += 1
+                end
+                i += 1 if i < lines.size
+                next
+              end
+              out << lines[i]
+              i += 1
+            end
+            out.join
+          end
+
+          text = strip_spec_array_attr(text, "source_files")
+          text = strip_spec_array_attr(text, "exclude_files")
+          text.gsub!(/^  spec\.dependency .+\n/, "")
+          text.sub!(/^  spec\.pod_target_xcconfig = [^\n]+\n/, "")
+
+          vendored = [
+            "  spec.vendored_frameworks = [",
+            '    "build/PulseKit.xcframework",',
+            '    "build/KSCrash.xcframework",',
+            '    "build/OpenTelemetryApi.xcframework",',
+            '    "build/OpenTelemetrySdk.xcframework",',
+            '    "build/SwiftProtobuf.xcframework",',
+            '    "build/libwebp.xcframework",',
+            "  ]",
+            "",
+          ].join("\n")
+
+          marker = "  spec.module_name = \"PulseKit\"\n\n"
+          abort "PulseKit.podspec: missing module_name anchor" unless text.include?(marker)
+          abort "PulseKit.podspec: already has vendored_frameworks" if text.include?("spec.vendored_frameworks")
+          text.sub!(marker, marker + vendored)
+
+          File.write(path, text)
+          RUBY
+
+          echo "::group::Modified PulseKit.podspec"
+          cat PulseKit.podspec
+          echo "::endgroup::"
+
+          cd Examples/PulseIOSExample
+          pod install
+
+          set -o pipefail
+          xcodebuild \
+            -workspace PulseIOSExample.xcworkspace \
+            -scheme PulseIOSExample \
+            -configuration Debug \
+            -destination 'platform=iOS Simulator,name=iPhone 16' \
+            build
+
+  workflow-notification:
+    permissions:
+      contents: read
+      issues: write
+    needs:
+      - SwiftLint
+      - UnitTests
+      - iOS
+      - ExampleApp
+      - XCFramework
+    if: >-
+      always() && github.run_attempt == 1 &&
+      (needs.SwiftLint.result == 'failure' || needs.UnitTests.result == 'failure' ||
+       needs.iOS.result == 'failure' || needs.ExampleApp.result == 'failure' ||
+       needs.XCFramework.result == 'failure')
+    uses: ./.github/workflows/reusable-workflow-notification.yml
+    with:
+      success: >-
+        ${{ needs.SwiftLint.result == 'success' && needs.UnitTests.result == 'success' &&
+            needs.iOS.result == 'success' && needs.ExampleApp.result == 'success' &&
+            needs.XCFramework.result == 'success' }}
+
+  required-status-check:
+    needs:
+      - SwiftLint
+      - UnitTests
+      - iOS
+      - ExampleApp
+      - XCFramework
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - if: >-
+          ${{ needs.SwiftLint.result != 'success' || needs.UnitTests.result != 'success' ||
+              needs.iOS.result != 'success' || needs.ExampleApp.result != 'success' ||
+              needs.XCFramework.result != 'success' }}
+        run: exit 1

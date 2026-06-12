@@ -1,0 +1,233 @@
+package org.dreamhorizon.pulseserver.resources.usagelimits;
+
+import com.google.inject.Inject;
+import io.jsonwebtoken.Claims;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotNull;
+import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.DefaultValue;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.HeaderParam;
+import jakarta.ws.rs.POST;
+import jakarta.ws.rs.PUT;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.PathParam;
+import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.QueryParam;
+import jakarta.ws.rs.core.HttpHeaders;
+import jakarta.ws.rs.core.MediaType;
+import java.util.concurrent.CompletionStage;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.dreamhorizon.pulseserver.constant.Constants;
+import org.dreamhorizon.pulseserver.filter.RequiresPermission;
+import org.dreamhorizon.pulseserver.resources.usagelimits.models.MarkNotificationsRestRequest;
+import org.dreamhorizon.pulseserver.resources.usagelimits.models.NotificationStatusRestResponse;
+import org.dreamhorizon.pulseserver.resources.usagelimits.models.ProjectLimitHistoryRestResponse;
+import org.dreamhorizon.pulseserver.resources.usagelimits.models.ProjectUsageLimitListRestResponse;
+import org.dreamhorizon.pulseserver.resources.usagelimits.models.ProjectUsageLimitRestResponse;
+import org.dreamhorizon.pulseserver.resources.usagelimits.models.ResetLimitsRestRequest;
+import org.dreamhorizon.pulseserver.resources.usagelimits.models.SetCustomLimitsRestRequest;
+import org.dreamhorizon.pulseserver.resources.internal.models.CronRedisSyncJobAcceptedRestResponse;
+import org.dreamhorizon.pulseserver.rest.io.Response;
+import org.dreamhorizon.pulseserver.rest.io.RestResponse;
+import org.dreamhorizon.pulseserver.service.JwtService;
+import org.dreamhorizon.pulseserver.service.cron.CronRedisMaterializationJobService;
+import org.dreamhorizon.pulseserver.service.usagelimit.UsageLimitService;
+
+/**
+ * Controller for project usage limits - internal endpoints.
+ * 
+ * Internal endpoints:
+ * - GET /internal/v1/projects/{projectId}/limits - Get project limits (full info)
+ * - GET /internal/v1/projects/limits - Get all active project limits
+ * - POST /internal/v1/projects/limits/sync-to-redis - Enqueue async ClickHouse + limits → Kong Redis credits (HTTP 202)
+ * - POST /internal/v1/projects/limits/process-usage-notifications - Enqueue async usage notifications batch (HTTP 202)
+ * - PUT /internal/v1/projects/{projectId}/limits - Set custom limits
+ * - POST /internal/v1/projects/{projectId}/limits/reset - Reset to tier defaults
+ * - GET /internal/v1/projects/{projectId}/limits/history - Get limit change history
+ * - POST /internal/v1/projects/{projectId}/limits/notifications - Mark thresholds as notified
+ */
+@Slf4j
+@RequiredArgsConstructor(onConstructor = @__({@Inject}))
+@Path("/internal/v1/projects")
+public class InternalUsageLimitsController {
+
+  private static final UsageLimitMapper mapper = UsageLimitMapper.INSTANCE;
+
+  private final UsageLimitService usageLimitService;
+  private final CronRedisMaterializationJobService cronRedisMaterializationJobService;
+  private final JwtService jwtService;
+
+  /**
+   * Get project usage limits (full info for internal use).
+   */
+  @GET
+  @Path("/{projectId}/limits")
+  @RequiresPermission(Constants.PERMISSION_SUPERADMIN)
+  @Consumes(MediaType.WILDCARD)
+  @Produces(MediaType.APPLICATION_JSON)
+  public CompletionStage<Response<ProjectUsageLimitRestResponse>> getProjectLimits(
+      @NotNull @PathParam("projectId") String projectId
+  ) {
+    return usageLimitService.getProjectLimits(projectId)
+        .map(mapper::toRestResponse)
+        .switchIfEmpty(io.reactivex.rxjava3.core.Single.error(
+            new RuntimeException("Limits not found for project: " + projectId)))
+        .to(RestResponse.jaxrsRestHandler());
+  }
+
+  /**
+   * Get all active project usage limits.
+   */
+  @GET
+  @Path("/limits")
+  @RequiresPermission(Constants.PERMISSION_SUPERADMIN)
+  @Consumes(MediaType.WILDCARD)
+  @Produces(MediaType.APPLICATION_JSON)
+  public CompletionStage<Response<ProjectUsageLimitListRestResponse>> getAllActiveLimits(
+      @QueryParam("activeOnly") @DefaultValue("true") Boolean activeOnly
+  ) {
+    var flowable = activeOnly
+        ? usageLimitService.getAllActiveLimits()
+        : usageLimitService.getAllLimits();
+
+    return flowable
+        .toList()
+        .map(mapper::toListRestResponse)
+        .to(RestResponse.jaxrsRestHandler());
+  }
+
+  /**
+   * Enqueues loading current-month usage from ClickHouse, merging active limits from MySQL, and
+   * writing {@code project:{projectId}:credit} hashes to Redis for Kong. Returns HTTP 202 Accepted
+   * immediately; work runs in the background.
+   */
+  @POST
+  @Path("/limits/sync-to-redis")
+  @RequiresPermission(Constants.PERMISSION_SUPERADMIN)
+  @Consumes(MediaType.WILDCARD)
+  @Produces(MediaType.APPLICATION_JSON)
+  public CompletionStage<Response<CronRedisSyncJobAcceptedRestResponse>> syncUsageCreditsToRedis() {
+    return cronRedisMaterializationJobService
+        .acceptUsageCreditsSyncToRedis()
+        .to(RestResponse.jaxrsRestHandler(
+            jakarta.ws.rs.core.Response.Status.ACCEPTED.getStatusCode()));
+  }
+
+  /**
+   * Enqueues usage-limit email notifications (get due, send, mark). Returns HTTP 202; work is async
+   * with {@code cron_jobs_history} (same pattern as {@code /limits/sync-to-redis}).
+   */
+  @POST
+  @Path("/limits/process-usage-notifications")
+  @RequiresPermission(Constants.PERMISSION_SUPERADMIN)
+  @Consumes(MediaType.WILDCARD)
+  @Produces(MediaType.APPLICATION_JSON)
+  public CompletionStage<Response<CronRedisSyncJobAcceptedRestResponse>> processUsageLimitNotifications() {
+    return cronRedisMaterializationJobService
+        .acceptUsageLimitNotifications()
+        .to(
+            RestResponse.jaxrsRestHandler(
+                jakarta.ws.rs.core.Response.Status.ACCEPTED.getStatusCode()));
+  }
+
+  /**
+   * Set custom limits for a project (internal only).
+   * Supports partial updates - only provided limits are changed.
+   * Validates that the project's tenant is on enterprise tier.
+   */
+  @PUT
+  @Path("/{projectId}/limits")
+  @RequiresPermission(Constants.PERMISSION_SUPERADMIN)
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Produces(MediaType.APPLICATION_JSON)
+  public CompletionStage<Response<ProjectUsageLimitRestResponse>> setCustomLimits(
+      @HeaderParam(HttpHeaders.AUTHORIZATION) String authorization,
+      @NotNull @PathParam("projectId") String projectId,
+      @NotNull @Valid SetCustomLimitsRestRequest request
+  ) {
+    String performedBy = extractUserEmail(authorization);
+    return usageLimitService.setCustomLimits(mapper.toSetCustomLimitsRequest(projectId, request, performedBy))
+        .map(mapper::toRestResponse)
+        .to(RestResponse.jaxrsRestHandler());
+  }
+
+  /**
+   * Reset project limits to tier defaults (internal only).
+   * If tierId is not provided in request, defaults to free tier (1).
+   */
+  @POST
+  @Path("/{projectId}/limits/reset")
+  @RequiresPermission(Constants.PERMISSION_SUPERADMIN)
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Produces(MediaType.APPLICATION_JSON)
+  public CompletionStage<Response<ProjectUsageLimitRestResponse>> resetToDefaults(
+      @HeaderParam(HttpHeaders.AUTHORIZATION) String authorization,
+      @NotNull @PathParam("projectId") String projectId,
+      @Valid ResetLimitsRestRequest request
+  ) {
+    String performedBy = extractUserEmail(authorization);
+    ResetLimitsRestRequest effectiveRequest = request != null ? request : new ResetLimitsRestRequest();
+    
+    return usageLimitService.resetToDefaults(
+            mapper.toResetLimitsRequest(projectId, effectiveRequest, performedBy))
+        .map(mapper::toRestResponse)
+        .to(RestResponse.jaxrsRestHandler());
+  }
+
+  /**
+   * Get limit change history for a project (internal only).
+   */
+  @GET
+  @Path("/{projectId}/limits/history")
+  @RequiresPermission(Constants.PERMISSION_SUPERADMIN)
+  @Consumes(MediaType.WILDCARD)
+  @Produces(MediaType.APPLICATION_JSON)
+  public CompletionStage<Response<ProjectLimitHistoryRestResponse>> getProjectLimitHistory(
+      @NotNull @PathParam("projectId") String projectId
+  ) {
+    return usageLimitService.getProjectLimitHistory(projectId)
+        .toList()
+        .map(history -> mapper.toHistoryRestResponse(projectId, history))
+        .to(RestResponse.jaxrsRestHandler());
+  }
+
+  /**
+   * Mark specific thresholds as notified for the current month (internal only).
+   * Used by alerts cron to track which notifications have been sent.
+   */
+  @POST
+  @Path("/{projectId}/limits/notifications")
+  @RequiresPermission(Constants.PERMISSION_SUPERADMIN)
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Produces(MediaType.APPLICATION_JSON)
+  public CompletionStage<Response<NotificationStatusRestResponse>> markThresholdsNotified(
+      @NotNull @PathParam("projectId") String projectId,
+      @NotNull @Valid MarkNotificationsRestRequest request
+  ) {
+    log.info(
+        "Internal API: mark usage-limit notifications received — projectId={} thresholds={}",
+        projectId,
+        request.getThresholds());
+    return usageLimitService.markThresholdsNotified(projectId, request.getThresholds())
+        .map(mapper::toNotificationStatusRestResponse)
+        .to(RestResponse.jaxrsRestHandler());
+  }
+
+  // ==================== HELPER METHODS ====================
+
+  private String extractUserEmail(String authorization) {
+    if (authorization == null || !authorization.startsWith("Bearer ")) {
+      return "system";
+    }
+    try {
+      Claims claims = jwtService.verifyToken(authorization.substring(7).trim());
+      String email = claims.get("email", String.class);
+      return email != null ? email : "system";
+    } catch (Exception e) {
+      log.debug("Failed to extract user email from token: {}", e.getMessage());
+      return "system";
+    }
+  }
+}

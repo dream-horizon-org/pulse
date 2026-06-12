@@ -1,0 +1,20 @@
+public final class io/opentelemetry/android/instrumentation/slowrendering/SlowRenderingInstrumentation : io/opentelemetry/android/instrumentation/AndroidInstrumentation {
+	public fun <init> ()V
+	public final fun enableDeprecatedZeroDurationSpan ()Lio/opentelemetry/android/instrumentation/slowrendering/SlowRenderingInstrumentation;
+	public final fun enableVerboseDebugLogging ()Lio/opentelemetry/android/instrumentation/slowrendering/SlowRenderingInstrumentation;
+	public fun getName ()Ljava/lang/String;
+	public fun install (Lio/opentelemetry/android/instrumentation/InstallationContext;)V
+	public final fun setSlowRenderingDetectionPollInterval (Ljava/time/Duration;)Lio/opentelemetry/android/instrumentation/slowrendering/SlowRenderingInstrumentation;
+	public fun uninstall (Lio/opentelemetry/android/instrumentation/InstallationContext;)V
+}
+
+public final class io/opentelemetry/android/instrumentation/slowrendering/SpanFrameAttributesAppended : io/opentelemetry/sdk/trace/internal/ExtendedSpanProcessor {
+	public fun <init> ()V
+	public fun isEndRequired ()Z
+	public fun isOnEndingRequired ()Z
+	public fun isStartRequired ()Z
+	public fun onEnd (Lio/opentelemetry/sdk/trace/ReadableSpan;)V
+	public fun onEnding (Lio/opentelemetry/sdk/trace/ReadWriteSpan;)V
+	public fun onStart (Lio/opentelemetry/context/Context;Lio/opentelemetry/sdk/trace/ReadWriteSpan;)V
+}
+

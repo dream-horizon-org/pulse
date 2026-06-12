@@ -1,0 +1,17 @@
+public final class io/opentelemetry/android/instrumentation/location/core/BuildConfig {
+	public static final field BUILD_TYPE Ljava/lang/String;
+	public static final field DEBUG Z
+	public static final field LIBRARY_PACKAGE_NAME Ljava/lang/String;
+	public fun <init> ()V
+}
+
+public final class io/opentelemetry/android/instrumentation/location/core/LocationProvider : kotlinx/coroutines/CoroutineScope {
+	public fun <init> (Landroid/content/Context;Landroid/content/SharedPreferences;)V
+	public fun <init> (Landroid/content/Context;Landroid/content/SharedPreferences;J)V
+	public fun <init> (Landroid/content/Context;Landroid/content/SharedPreferences;JLkotlinx/coroutines/CoroutineDispatcher;)V
+	public synthetic fun <init> (Landroid/content/Context;Landroid/content/SharedPreferences;JLkotlinx/coroutines/CoroutineDispatcher;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun getCoroutineContext ()Lkotlin/coroutines/CoroutineContext;
+	public final fun startPeriodicRefresh ()V
+	public final fun stopPeriodicRefresh ()V
+}
+

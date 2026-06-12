@@ -1,0 +1,408 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>User Details Flow Test</title>
+    <style>
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          sans-serif;
+        max-width: 1000px;
+        margin: 0 auto;
+        padding: 20px;
+        background-color: #f5f5f5;
+      }
+      .container {
+        background: white;
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      }
+      .header {
+        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        color: white;
+        padding: 20px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+      }
+      .form-group {
+        margin-bottom: 15px;
+      }
+      .form-group label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: 500;
+      }
+      .form-group input {
+        width: 100%;
+        padding: 8px 12px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 14px;
+      }
+      .btn {
+        background: #007bff;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+        margin-right: 10px;
+        margin-bottom: 10px;
+      }
+      .btn:hover {
+        background: #0056b3;
+      }
+      .btn-success {
+        background: #28a745;
+      }
+      .btn-success:hover {
+        background: #1e7e34;
+      }
+      .results {
+        margin-top: 20px;
+        padding: 15px;
+        background: #f8f9fa;
+        border-radius: 4px;
+        border-left: 4px solid #007bff;
+      }
+      .error {
+        border-left-color: #dc3545;
+        background: #f8d7da;
+        color: #721c24;
+      }
+      .success {
+        border-left-color: #28a745;
+        background: #d4edda;
+        color: #155724;
+      }
+      .json-display {
+        background: #f8f9fa;
+        border: 1px solid #e9ecef;
+        border-radius: 4px;
+        padding: 15px;
+        margin-top: 10px;
+        font-family: "Courier New", monospace;
+        font-size: 12px;
+        white-space: pre-wrap;
+        max-height: 400px;
+        overflow-y: auto;
+      }
+      .user-details-card {
+        background: white;
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        padding: 20px;
+        margin-top: 15px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      }
+      .user-details-card h3 {
+        margin-top: 0;
+        color: #333;
+        border-bottom: 1px solid #e0e0e0;
+        padding-bottom: 10px;
+      }
+      .detail-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 8px 0;
+        border-bottom: 1px solid #f0f0f0;
+      }
+      .detail-label {
+        font-weight: 500;
+        color: #666;
+      }
+      .detail-value {
+        color: #333;
+      }
+      .status-badge {
+        display: inline-block;
+        padding: 4px 8px;
+        border-radius: 12px;
+        font-size: 12px;
+        font-weight: 500;
+        margin-left: 10px;
+      }
+      .status-success {
+        background: #d4edda;
+        color: #155724;
+      }
+      .status-error {
+        background: #f8d7da;
+        color: #721c24;
+      }
+      .test-scenario {
+        background: #f8f9fa;
+        border: 1px solid #e9ecef;
+        border-radius: 4px;
+        padding: 15px;
+        margin: 10px 0;
+      }
+      .test-scenario h4 {
+        margin-top: 0;
+        color: #495057;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="header">
+      <h1>👤 User Details Flow Test</h1>
+      <p>Testing the complete user details flow from search to display</p>
+    </div>
+
+    <div class="container">
+      <h3>Test Scenarios</h3>
+
+      <div class="test-scenario">
+        <h4>Scenario 1: Empty Search (Initial State)</h4>
+        <p>This should not show any errors and should not make API calls.</p>
+        <button class="btn" onclick="testEmptySearch()">
+          Test Empty Search
+        </button>
+      </div>
+
+      <div class="test-scenario">
+        <h4>Scenario 2: Valid Phone Number</h4>
+        <p>This should make API calls and return user details.</p>
+        <div class="form-group">
+          <label for="phoneNumber">Phone Number (10 digits):</label>
+          <input
+            type="text"
+            id="phoneNumber"
+            placeholder="Enter a 10-digit phone number"
+            maxlength="10"
+            value="9876543210"
+          />
+        </div>
+        <button class="btn btn-success" onclick="testValidPhone()">
+          Test Valid Phone
+        </button>
+      </div>
+
+      <div class="test-scenario">
+        <h4>Scenario 3: Invalid Phone Number</h4>
+        <p>This should show validation errors.</p>
+        <div class="form-group">
+          <label for="invalidPhone">Invalid Phone Number:</label>
+          <input
+            type="text"
+            id="invalidPhone"
+            placeholder="Enter invalid phone"
+            maxlength="10"
+            value="123"
+          />
+        </div>
+        <button class="btn" onclick="testInvalidPhone()">
+          Test Invalid Phone
+        </button>
+      </div>
+
+      <div id="results" class="results" style="display: none"></div>
+    </div>
+
+    <div class="container">
+      <h3>Expected Behavior</h3>
+      <ul>
+        <li>
+          ✅ <strong>Empty Search:</strong> No errors, no API calls, no user
+          details displayed
+        </li>
+        <li>
+          ✅ <strong>Valid Phone:</strong> API calls made, user details returned
+          and displayed
+        </li>
+        <li>
+          ✅ <strong>Invalid Phone:</strong> Validation error shown, no API
+          calls made
+        </li>
+        <li>
+          ✅ <strong>Mock Server:</strong> Should intercept API calls and return
+          mock data
+        </li>
+      </ul>
+    </div>
+
+    <script>
+      async function makeRequest(url, options = {}) {
+        try {
+          const response = await fetch(url, {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            ...options,
+          });
+          return await response.json();
+        } catch (error) {
+          return { error: error.message };
+        }
+      }
+
+      function showResults(data, isError = false) {
+        const element = document.getElementById("results");
+        element.style.display = "block";
+        element.className = `results ${isError ? "error" : "success"}`;
+
+        let html = "<h4>Test Results:</h4>";
+
+        if (data.userDetails) {
+          const hasError = !!data.userDetails.error;
+          const statusClass = hasError ? "status-error" : "status-success";
+          const statusText = hasError ? "ERROR" : "SUCCESS";
+
+          html += `
+                    <div class="user-details-card">
+                        <h3>User Details API <span class="status-badge ${statusClass}">${statusText}</span></h3>
+                        ${
+                          hasError
+                            ? `<p style="color: #dc3545;">❌ Error: ${data.userDetails.error?.message || "Unknown error"}</p>`
+                            : `<div class="detail-row">
+                                <span class="detail-label">User ID:</span>
+                                <span class="detail-value">${data.userDetails.data?.userId || "-"}</span>
+                            </div>
+                            <div class="detail-row">
+                                <span class="detail-label">Name:</span>
+                                <span class="detail-value">${data.userDetails.data?.teamName || "-"}</span>
+                            </div>
+                            <div class="detail-row">
+                                <span class="detail-label">Email:</span>
+                                <span class="detail-value">${data.userDetails.data?.emailId || "-"}</span>
+                            </div>
+                            <div class="detail-row">
+                                <span class="detail-label">Comm Email:</span>
+                                <span class="detail-value">${data.userDetails.data?.commEmailId || "-"}</span>
+                            </div>`
+                        }
+                        <div class="json-display">${JSON.stringify(data.userDetails, null, 2)}</div>
+                    </div>
+                `;
+        }
+
+        if (data.lastActive) {
+          const hasError = !!data.lastActive.error;
+          const statusClass = hasError ? "status-error" : "status-success";
+          const statusText = hasError ? "ERROR" : "SUCCESS";
+
+          html += `
+                    <div class="user-details-card">
+                        <h3>Last Active Today API <span class="status-badge ${statusClass}">${statusText}</span></h3>
+                        ${
+                          hasError
+                            ? `<p style="color: #dc3545;">❌ Error: ${data.lastActive.error?.message || "Unknown error"}</p>`
+                            : `<div class="detail-row">
+                                <span class="detail-label">Request ID:</span>
+                                <span class="detail-value">${data.lastActive.data?.requestId || "-"}</span>
+                            </div>`
+                        }
+                        <div class="json-display">${JSON.stringify(data.lastActive, null, 2)}</div>
+                    </div>
+                `;
+        }
+
+        if (data.experiments) {
+          const hasError = !!data.experiments.error;
+          const statusClass = hasError ? "status-error" : "status-success";
+          const statusText = hasError ? "ERROR" : "SUCCESS";
+
+          html += `
+                    <div class="user-details-card">
+                        <h3>User Experiments API <span class="status-badge ${statusClass}">${statusText}</span></h3>
+                        ${
+                          hasError
+                            ? `<p style="color: #dc3545;">❌ Error: ${data.experiments.error?.message || "Unknown error"}</p>`
+                            : `<div class="detail-row">
+                                <span class="detail-label">Total Experiments:</span>
+                                <span class="detail-value">${data.experiments.data?.total_count || 0}</span>
+                            </div>
+                            <div class="detail-row">
+                                <span class="detail-label">User ID:</span>
+                                <span class="detail-value">${data.experiments.data?.user_id || "-"}</span>
+                            </div>`
+                        }
+                        <div class="json-display">${JSON.stringify(data.experiments, null, 2)}</div>
+                    </div>
+                `;
+        }
+
+        element.innerHTML = html;
+      }
+
+      async function testEmptySearch() {
+        console.log("Testing empty search...");
+
+        // Simulate the hook behavior with empty phone number
+        const mockHookResponse = {
+          data: null,
+          error: null,
+        };
+
+        showResults({
+          userDetails: mockHookResponse,
+          lastActive: mockHookResponse,
+          experiments: mockHookResponse,
+        });
+      }
+
+      async function testValidPhone() {
+        const phoneNumber = document.getElementById("phoneNumber").value;
+        console.log("Testing valid phone:", phoneNumber);
+
+        if (!phoneNumber || phoneNumber.length !== 10) {
+          showResults(
+            { error: "Please enter a valid 10-digit phone number" },
+            true,
+          );
+          return;
+        }
+
+        try {
+          const [userDetails, lastActive, experiments] = await Promise.all([
+            makeRequest(`/user/${phoneNumber}`),
+            makeRequest(`/user/${phoneNumber}/active-today`),
+            makeRequest(`/user/${phoneNumber}/experiments`),
+          ]);
+
+          showResults({
+            userDetails,
+            lastActive,
+            experiments,
+          });
+        } catch (error) {
+          showResults({ error: error.message }, true);
+        }
+      }
+
+      async function testInvalidPhone() {
+        const phoneNumber = document.getElementById("invalidPhone").value;
+        console.log("Testing invalid phone:", phoneNumber);
+
+        // Simulate the hook validation behavior
+        const mockHookResponse = {
+          data: null,
+          error: {
+            code: "",
+            message: "Please enter a valid phone number",
+            cause: "",
+          },
+        };
+
+        showResults({
+          userDetails: mockHookResponse,
+          lastActive: mockHookResponse,
+          experiments: mockHookResponse,
+        });
+      }
+
+      // Auto-test on page load
+      window.addEventListener("load", () => {
+        console.log("Page loaded, starting auto-tests...");
+        setTimeout(() => {
+          testEmptySearch();
+        }, 1000);
+      });
+    </script>
+  </body>
+</html>

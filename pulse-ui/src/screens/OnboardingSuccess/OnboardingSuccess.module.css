@@ -1,0 +1,209 @@
+.container {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #0ec9c2 0%, #0ba09a 100%);
+  padding: 40px 20px;
+}
+
+.mainContainer {
+  padding-top: 40px;
+  padding-bottom: 60px;
+}
+
+.successHeader {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.iconWrapper {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 80px;
+  height: 80px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+  margin-bottom: 20px;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.4);
+  }
+  50% {
+    transform: scale(1.05);
+    box-shadow: 0 0 0 10px rgba(255, 255, 255, 0);
+  }
+}
+
+.successIcon {
+  color: #ffffff;
+}
+
+.title {
+  font-size: 32px !important;
+  font-weight: 700 !important;
+  color: #ffffff !important;
+  text-align: center !important;
+  margin-bottom: 12px;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  display: block;
+  width: 100%;
+}
+
+.subtitle {
+  font-size: 16px !important;
+  color: rgba(255, 255, 255, 0.95) !important;
+  text-align: center !important;
+  max-width: 600px;
+  margin: 16px auto 0 auto !important;
+  line-height: 1.6;
+  display: block;
+  width: 100%;
+}
+
+.primaryCtaButton {
+  background: #ffffff !important;
+  color: #0ec9c2 !important;
+  border: none;
+  font-weight: 700;
+  font-size: 18px;
+  padding: 14px 56px;
+  height: auto;
+  border-radius: 12px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+  transition: all 0.3s ease;
+}
+
+.primaryCtaButton:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.25);
+  background: #ffffff !important;
+}
+
+.setupHint {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.85);
+  font-weight: 500;
+}
+
+.section {
+  background: #ffffff;
+  border: 1px solid #e9ecef;
+  transition: all 0.3s ease;
+}
+
+.section:hover {
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1) !important;
+  transform: translateY(-2px);
+}
+
+.apiKeyGroup {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.apiKeyDisplay {
+  flex: 1;
+  min-width: 300px;
+  padding: 12px 16px;
+  font-size: 14px;
+  font-family: "Courier New", monospace;
+  background: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
+.tabs {
+  width: 100%;
+}
+
+.codeBlock {
+  background: #1e1e1e;
+  border-radius: 8px;
+  padding: 16px;
+  overflow-x: auto;
+  border: 1px solid #343a40;
+}
+
+.codeContent {
+  margin: 0;
+  font-family: "Courier New", monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #d4d4d4;
+  white-space: pre;
+  overflow-x: auto;
+}
+
+.ctaButton {
+  background: linear-gradient(135deg, #0ec9c2 0%, #0ba09a 100%);
+  border: none;
+  font-weight: 600;
+  font-size: 16px;
+  padding: 12px 48px;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(14, 201, 194, 0.3);
+  transition: all 0.3s ease;
+}
+
+.ctaButton:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(14, 201, 194, 0.4);
+  background: linear-gradient(135deg, #0ba09a 0%, #0ec9c2 100%);
+}
+
+.secondaryCtaButton {
+  color: #ffffff !important;
+  border: 2px solid rgba(255, 255, 255, 0.3) !important;
+  background: rgba(255, 255, 255, 0.1) !important;
+  font-weight: 600;
+  font-size: 16px;
+  padding: 12px 48px;
+  height: auto;
+  border-radius: 12px;
+  backdrop-filter: blur(10px);
+  transition: all 0.3s ease;
+}
+
+.secondaryCtaButton:hover {
+  transform: translateY(-2px);
+  border-color: rgba(255, 255, 255, 0.5) !important;
+  background: rgba(255, 255, 255, 0.15) !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .title {
+    font-size: 24px;
+  }
+
+  .subtitle {
+    font-size: 14px;
+  }
+
+  .primaryCtaButton {
+    font-size: 16px;
+    padding: 12px 40px;
+  }
+
+  .setupHint {
+    font-size: 13px;
+  }
+
+  .apiKeyDisplay {
+    min-width: 100%;
+  }
+
+  .apiKeyGroup {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

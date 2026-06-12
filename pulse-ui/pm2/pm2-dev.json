@@ -1,0 +1,18 @@
+{
+  "apps": [
+    {
+      "name": "pulse-ui",
+      "script": "scripts/start.js",
+      "instances": "1",
+      "watch": false,
+      "merge_logs": true,
+      "exec_mode": "cluster",
+      "log_date_format": "DD-MM-YYYY HH:mm Z",
+      "cwd": "./",
+      "env": {
+        "NODE_ENV": "development",
+        "PORT": 3000
+      }
+    }
+  ]
+}

@@ -1,0 +1,42 @@
+diff --git a/node_modules/@mantine/core/cjs/components/Combobox/OptionsDropdown/validate-options.cjs b/node_modules/@mantine/core/cjs/components/Combobox/OptionsDropdown/validate-options.cjs
+index 84a3418..ef747d4 100644
+--- a/node_modules/@mantine/core/cjs/components/Combobox/OptionsDropdown/validate-options.cjs
++++ b/node_modules/@mantine/core/cjs/components/Combobox/OptionsDropdown/validate-options.cjs
+@@ -19,11 +19,11 @@ function validateOptions(options, valuesSet = /* @__PURE__ */ new Set()) {
+           `[@mantine/core] Option value must be a string, other data formats are not supported, got ${typeof option.value}`
+         );
+       }
+-      if (valuesSet.has(option.value)) {
+-        throw new Error(
+-          `[@mantine/core] Duplicate options are not supported. Option with value "${option.value}" was provided more than once`
+-        );
+-      }
++      // if (valuesSet.has(option.value)) {
++      //   throw new Error(
++      //     `[@mantine/core] Duplicate options are not supported. Option with value "${option.value}" was provided more than once`
++      //   );
++      // }
+       valuesSet.add(option.value);
+     }
+   }
+diff --git a/node_modules/@mantine/core/esm/components/Combobox/OptionsDropdown/validate-options.mjs b/node_modules/@mantine/core/esm/components/Combobox/OptionsDropdown/validate-options.mjs
+index ec75330..95580bf 100644
+--- a/node_modules/@mantine/core/esm/components/Combobox/OptionsDropdown/validate-options.mjs
++++ b/node_modules/@mantine/core/esm/components/Combobox/OptionsDropdown/validate-options.mjs
+@@ -17,11 +17,11 @@ function validateOptions(options, valuesSet = /* @__PURE__ */ new Set()) {
+           `[@mantine/core] Option value must be a string, other data formats are not supported, got ${typeof option.value}`
+         );
+       }
+-      if (valuesSet.has(option.value)) {
+-        throw new Error(
+-          `[@mantine/core] Duplicate options are not supported. Option with value "${option.value}" was provided more than once`
+-        );
+-      }
++      // if (valuesSet.has(option.value)) {
++      //   throw new Error(
++      //     `[@mantine/core] Duplicate options are not supported. Option with value "${option.value}" was provided more than once`
++      //   );
++      // }
+       valuesSet.add(option.value);
+     }
+   }

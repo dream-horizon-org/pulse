@@ -1,0 +1,193 @@
+---
+# replace-broker.yml
+#
+# Replaces a broker instance with a new EC2 instance while preserving
+# the existing EBS data volume and node ID.
+#
+# Use this when an instance has failed or needs to be replaced
+# (e.g., after an AMI update). The broker ID stays the same, so
+# Kafka sees it as the same node rejoining the cluster.
+#
+# Steps:
+#   1. Verify the EBS data volume is attached (Terraform should have done this)
+#   2. Mount EBS and detect it is already formatted (skip kafka-storage format)
+#   3. Write server.properties (same node_id)
+#   4. Start Kafka — it reads existing data and rejoins the cluster
+#   5. Verify the broker has rejoined
+#
+# Required extra_vars:
+#   target_host       – FQDN of the replacement broker, e.g. pulse-kafka-02.pulse.local
+#   node_id           – Same node ID as before (e.g. 2)
+#   kraft_cluster_id  – from SSM /pulse/kafka/production/kraft_cluster_id
+#   num_brokers       – total broker count
+#   route53_zone_name – e.g. pulse.local
+#
+# Example:
+#   ansible-playbook replace-broker.yml \
+#     -i inventory/hosts.ini \
+#     -e target_host=pulse-kafka-02.pulse.local \
+#     -e node_id=2 \
+#     -e kraft_cluster_id=<id> \
+#     -e num_brokers=2 \
+#     -e route53_zone_name=pulse.local
+
+- name: Replace broker instance (preserve EBS data)
+  hosts: "{{ target_host }}"
+  become: true
+  vars:
+    process_roles: "broker,controller"
+
+  tasks:
+    # ------------------------------------------------------------------
+    # 1. Mount existing EBS data volume
+    # ------------------------------------------------------------------
+    - name: Create data directory
+      file:
+        path: "{{ kafka_data_dir }}"
+        state: directory
+        mode: "0755"
+
+    - name: Find data disk
+      shell: |
+        ROOT_SRC="$(findmnt -n -o SOURCE /)"
+        ROOT_DISK="$(lsblk -no PKNAME "$ROOT_SRC" 2>/dev/null || basename "$ROOT_SRC" | sed 's/p[0-9]*$//')"
+        lsblk -ndo NAME,TYPE | while read name type; do
+          [ "$type" != "disk" ] && continue
+          [ "$name" = "$ROOT_DISK" ] && continue
+          echo "/dev/$name"
+          break
+        done
+      register: data_disk_result
+      changed_when: false
+
+    - name: Fail if no data disk found
+      fail:
+        msg: "No secondary data disk found. Ensure the EBS volume is attached to this instance."
+      when: data_disk_result.stdout == ""
+
+    - name: Mount existing EBS volume (already formatted — do NOT mkfs)
+      mount:
+        path: "{{ kafka_data_dir }}"
+        src: "{{ data_disk_result.stdout }}"
+        fstype: ext4
+        opts: defaults,nofail
+        state: mounted
+
+    - name: Verify KRaft marker file exists on EBS
+      stat:
+        path: "{{ kafka_log_dir }}/.kraft_formatted"
+      register: kraft_marker
+
+    - name: Warn if KRaft marker missing (unexpected — volume may be wrong)
+      debug:
+        msg: >-
+          WARNING: .kraft_formatted marker not found at {{ kafka_log_dir }}.
+          This may mean the wrong EBS volume is attached. Verify before proceeding.
+      when: not kraft_marker.stat.exists
+
+    # ------------------------------------------------------------------
+    # 2. Build quorum voters and write server.properties
+    # ------------------------------------------------------------------
+    - name: Build quorum voters via shell
+      shell: |
+        QUORUM=""
+        for i in $(seq 1 {{ num_brokers }}); do
+          IDX=$(printf "%02d" $i)
+          ENTRY="${i}@pulse-kafka-${IDX}.{{ route53_zone_name }}:9093"
+          if [ -z "$QUORUM" ]; then QUORUM="$ENTRY"; else QUORUM="$QUORUM,$ENTRY"; fi
+        done
+        echo "$QUORUM"
+      register: quorum_result
+      changed_when: false
+
+    - name: Create KRaft config directory
+      file:
+        path: "{{ kafka_dir }}/config/kraft"
+        state: directory
+        mode: "0755"
+
+    - name: Write server.properties
+      copy:
+        dest: "{{ kafka_dir }}/config/kraft/server.properties"
+        mode: "0644"
+        content: |
+          process.roles={{ process_roles }}
+          node.id={{ node_id }}
+          controller.quorum.voters={{ quorum_result.stdout }}
+          listener.security.protocol.map=INTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT
+          controller.listener.names=CONTROLLER
+          inter.broker.listener.name=INTERNAL
+          listeners=INTERNAL://0.0.0.0:9092,CONTROLLER://pulse-kafka-{{ '%02d' | format(node_id | int) }}.{{ route53_zone_name }}:9093
+          advertised.listeners=INTERNAL://pulse-kafka-{{ '%02d' | format(node_id | int) }}.{{ route53_zone_name }}:9092
+          log.dirs={{ kafka_log_dir }}
+          default.replication.factor={{ replication_factor }}
+          min.insync.replicas={{ min_insync_replicas }}
+          offsets.topic.replication.factor={{ replication_factor }}
+          transaction.state.log.replication.factor={{ replication_factor }}
+          transaction.state.log.min.isr={{ min_insync_replicas }}
+          log.retention.ms={{ retention_ms }}
+          log.retention.check.interval.ms=300000
+          log.segment.bytes=1073741824
+          compression.type={{ compression_type }}
+          num.network.threads=3
+          num.io.threads=8
+          socket.send.buffer.bytes=102400
+          socket.receive.buffer.bytes=102400
+          socket.request.max.bytes=104857600
+
+    # ------------------------------------------------------------------
+    # 3. Deploy JMX exporter config
+    # ------------------------------------------------------------------
+    - name: Deploy JMX exporter config
+      copy:
+        src: ../../monitoring/kafka/kafka-jmx-config.yml
+        dest: "{{ kafka_dir }}/config/kafka-jmx-config.yml"
+        mode: "0644"
+
+    # ------------------------------------------------------------------
+    # 4. Write systemd unit and start Kafka
+    # ------------------------------------------------------------------
+    - name: Write kafka.service unit
+      copy:
+        dest: /etc/systemd/system/kafka.service
+        mode: "0644"
+        content: |
+          [Unit]
+          Description=Apache Kafka {{ kafka_version }} (KRaft) — node {{ node_id }}
+          After=network.target
+
+          [Service]
+          Type=simple
+          WorkingDirectory={{ kafka_dir }}
+          Environment="KAFKA_HEAP_OPTS=-Xmx4g -Xms4g"
+          Environment="KAFKA_OPTS=-javaagent:{{ kafka_dir }}/libs/jmx_prometheus_javaagent.jar={{ jmx_exporter_port }}:{{ kafka_dir }}/config/kafka-jmx-config.yml"
+          ExecStart={{ kafka_dir }}/bin/kafka-server-start.sh {{ kafka_dir }}/config/kraft/server.properties
+          ExecStop={{ kafka_dir }}/bin/kafka-server-stop.sh
+          Restart=on-failure
+          RestartSec=5
+          LimitNOFILE=100000
+
+          [Install]
+          WantedBy=multi-user.target
+
+    - name: Enable and start kafka
+      systemd:
+        name: kafka
+        enabled: true
+        state: started
+        daemon_reload: true
+
+    # ------------------------------------------------------------------
+    # 4. Verify broker has rejoined the cluster
+    # ------------------------------------------------------------------
+    - name: Wait for Kafka to accept connections
+      shell: "{{ kafka_dir }}/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list"
+      register: kafka_ready
+      retries: 60
+      delay: 5
+      until: kafka_ready.rc == 0
+      changed_when: false
+
+    - name: Broker replace complete
+      debug:
+        msg: "Broker {{ node_id }} ({{ target_host }}) has rejoined the cluster successfully."

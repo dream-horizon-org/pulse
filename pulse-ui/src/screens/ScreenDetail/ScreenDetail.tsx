@@ -1,0 +1,671 @@
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import {
+  SimpleGrid,
+  Box,
+  Group,
+  Text,
+  Tabs,
+  Title,
+  Tooltip,
+} from "@mantine/core";
+import { IconArrowNarrowLeft, IconInfoCircle } from "@tabler/icons-react";
+import { ScreenDetailProps } from "./ScreenDetail.interface";
+import classes from "./ScreenDetail.module.css";
+import vitalsClasses from "../AppVitals/AppVitals.module.css";
+import { useMemo, useState, useEffect } from "react";
+import { TimeSpentGraph } from "./components/TimeSpentGraph";
+import { NetworkList } from "../NetworkList/NetworkList";
+import { useGetScreenEngagementData } from "./hooks/useGetScreenEngagementData";
+import { UserEngagementGraph } from "../Home/components/UserEngagementGraph";
+import { ActiveSessionsGraph } from "../Home/components/ActiveSessionsGraph";
+import {
+  CrashList,
+  ANRList,
+  NonFatalList,
+  VitalsFilters,
+  CrashTrendGraph,
+  ANRTrendGraph,
+  NonFatalTrendGraph,
+  CrashMetricsStats,
+  ANRMetricsStats,
+} from "../AppVitals/components";
+import {
+  ISSUE_TYPES,
+  IssueType,
+  GRAPH_CONFIGS,
+} from "../AppVitals/AppVitals.constants";
+import DateTimeRangePicker from "../CriticalInteractionDetails/components/DateTimeRangePicker/DateTimeRangePicker";
+import { StartEndDateTimeType } from "../CriticalInteractionDetails/components/DateTimeRangePickerDropDown/DateTimeRangePicker.interface";
+import { DEFAULT_QUICK_TIME_FILTER } from "../../constants";
+import { useFilterStore } from "../../stores/useFilterStore";
+import { getStartAndEndDateTimeString } from "../../utils/DateUtil";
+import dayjs from "dayjs";
+import { useExceptionListData } from "../AppVitals/components/ExceptionTable/hooks";
+import { InteractionDetailsFilters } from "../CriticalInteractionDetails/components/InteractionDetailsFilters";
+import { HeatmapPanel } from "./Heatmap/HeatmapPanel";
+import { useHeatmapFromActiveConfig } from "../../hooks";
+import { ScreenRootCause } from "./components/ScreenRootCause";
+import { getRootCauseDateFromEndTime } from "../CriticalInteractionDetails/utils/getRootCauseDateFromEndTime";
+import { WebVitalsPanel } from "../WebVitals/components";
+
+const isRootCauseEnabled = process.env.REACT_APP_ROOT_CAUSE_ENABLED === "true";
+
+export function ScreenDetail(_props: ScreenDetailProps) {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const { screenName, projectId } = useParams<{
+    screenName: string;
+    projectId: string;
+  }>();
+  const decodedScreenName = screenName ? decodeURIComponent(screenName) : "";
+
+  // Global filter store
+  const {
+    startTime: storeStartTime,
+    endTime: storeEndTime,
+    quickTimeRangeString,
+    quickTimeRangeFilterIndex,
+    handleTimeFilterChange: storeHandleTimeFilterChange,
+    initializeFromUrlParams,
+    selectedTimeFilter,
+  } = useFilterStore();
+
+  const {
+    isHeatmapEnabled: heatmapEnabledFromActiveConfig,
+    isLoading: heatmapConfigLoading,
+  } = useHeatmapFromActiveConfig({
+    enabled: Boolean(projectId),
+    projectId,
+  });
+
+  // Tab state (?tab=heatmap deep link).
+  const [activeTab, setActiveTab] = useState<string | null>("engagement");
+
+  // Local filter state (app version, OS version, device)
+  const [appVersion] = useState("all");
+  const [osVersion] = useState("all");
+  const [device] = useState("all");
+
+  // Performance & Stability filters (separate state for issue type)
+  const [issueType, setIssueType] = useState<IssueType>(ISSUE_TYPES.CRASHES);
+
+  // Initialize default time values (Last 24 hours) if not set in store
+  const getDefaultTimeRange = () => {
+    return getStartAndEndDateTimeString(DEFAULT_QUICK_TIME_FILTER, 2);
+  };
+
+  // Use store values if available, otherwise use defaults
+  const startTime = useMemo(() => {
+    return storeStartTime || getDefaultTimeRange().startDate;
+  }, [storeStartTime]);
+
+  const endTime = useMemo(() => {
+    return storeEndTime || getDefaultTimeRange().endDate;
+  }, [storeEndTime]);
+
+  // Filter handlers
+  const handleTimeFilterChange = (value: StartEndDateTimeType) => {
+    // Update time filter options which now also updates startTime and endTime
+    storeHandleTimeFilterChange(value);
+  };
+
+  const handleIssueTypeChange = (value: string) => {
+    setIssueType(value as IssueType);
+  };
+
+  const handleBack = () => {
+    navigate(`/projects/${projectId}/screens`);
+  };
+
+  // Format time for API calls (convert to ISO string)
+  const formattedStartTime = useMemo(() => {
+    if (!startTime) return "";
+    try {
+      return dayjs.utc(startTime).toISOString();
+    } catch {
+      return "";
+    }
+  }, [startTime]);
+
+  const formattedEndTime = useMemo(() => {
+    if (!endTime) return "";
+    try {
+      return dayjs.utc(endTime).toISOString();
+    } catch {
+      return "";
+    }
+  }, [endTime]);
+
+  const rootCauseDate = getRootCauseDateFromEndTime(endTime ?? undefined);
+  const rootCauseAsOfIso = formattedEndTime || "";
+
+  // Fetch data from API for stats calculation
+  const { exceptions: crashes } = useExceptionListData({
+    startTime: formattedStartTime,
+    endTime: formattedEndTime,
+    appVersion: appVersion !== "all" ? appVersion : undefined,
+    osVersion: osVersion !== "all" ? osVersion : undefined,
+    device: device !== "all" ? device : undefined,
+    screenName: decodedScreenName,
+    exceptionType: "crash",
+  });
+
+  const { exceptions: anrs } = useExceptionListData({
+    startTime: formattedStartTime,
+    endTime: formattedEndTime,
+    appVersion: appVersion !== "all" ? appVersion : undefined,
+    osVersion: osVersion !== "all" ? osVersion : undefined,
+    device: device !== "all" ? device : undefined,
+    screenName: decodedScreenName,
+    exceptionType: "anr",
+  });
+
+  const { exceptions: nonFatals } = useExceptionListData({
+    startTime: formattedStartTime,
+    endTime: formattedEndTime,
+    appVersion: appVersion !== "all" ? appVersion : undefined,
+    osVersion: osVersion !== "all" ? osVersion : undefined,
+    device: device !== "all" ? device : undefined,
+    screenName: decodedScreenName,
+    exceptionType: "nonfatal",
+  });
+
+  // Calculate stats for VitalsFilters (using API data)
+  const vitalsStats = useMemo(() => {
+    return {
+      crashes: crashes.length,
+      anrs: anrs.length,
+      nonFatals: nonFatals.length,
+      crashFreeUsers: 0,
+      crashFreeSessions: 0,
+      anrFreeUsers: 0,
+      anrFreeSessions: 0,
+      firingAlerts: 0,
+      activeAlerts: 0,
+    };
+  }, [crashes, anrs, nonFatals]);
+
+  // Filtered screen metrics - simulates API filtering (uses filters)
+  // Fetch screen engagement data (time spent, sessions, load time)
+  const {
+    data: engagementData,
+    isLoading: isLoadingEngagement,
+    error: engagementError,
+  } = useGetScreenEngagementData({
+    screenName: decodedScreenName,
+    startTime: startTime || "",
+    endTime: endTime || "",
+    appVersion: appVersion !== "all" ? appVersion : undefined,
+    osVersion: osVersion !== "all" ? osVersion : undefined,
+    device: device !== "all" ? device : undefined,
+  });
+
+  // Get graph config based on selected issue type
+  const graphConfig = GRAPH_CONFIGS[issueType];
+
+  useEffect(() => {
+    initializeFromUrlParams(searchParams);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
+  useEffect(() => {
+    const t = searchParams.get("tab");
+    if (t === "heatmap" && heatmapEnabledFromActiveConfig) {
+      setActiveTab("heatmap");
+    } else if (t === "root-cause" && isRootCauseEnabled) {
+      setActiveTab("root-cause");
+    } else if (t === "web-vitals") {
+      setActiveTab("web-vitals");
+    }
+  }, [searchParams, heatmapEnabledFromActiveConfig]);
+
+  const handleTabChange = (value: string | null) => {
+    setActiveTab(value);
+    const next = new URLSearchParams(searchParams);
+    if (value === "heatmap") {
+      next.set("tab", "heatmap");
+    } else if (value === "root-cause") {
+      next.set("tab", "root-cause");
+    } else if (value === "web-vitals") {
+      next.set("tab", "web-vitals");
+    } else {
+      next.delete("tab");
+    }
+    setSearchParams(next, { replace: true });
+  };
+
+  return (
+    <Tabs
+      value={activeTab}
+      onChange={handleTabChange}
+      variant="unstyled"
+      classNames={classes}
+      className={classes.tabs}
+    >
+      <div className={classes.screenDetailContainer}>
+        {/* Header - Consistent with CriticalInteractionDetails */}
+        <div className={classes.screenDetailHeader}>
+          {/* Left Section - Back Button, Title */}
+          <div className={classes.screenDetailHeaderContent}>
+            <Tooltip label="Back to screens">
+              <span
+                onClick={handleBack}
+                className={classes.backButtonContainer}
+              >
+                <IconArrowNarrowLeft className={classes.backButton} size={18} />
+              </span>
+            </Tooltip>
+            <div className={classes.titleSection}>
+              <Title order={5} className={classes.pageTitle}>
+                {decodedScreenName || "Screen Details"}
+              </Title>
+            </div>
+          </div>
+
+          {/* Right Section - Filters, Time Picker */}
+          <div className={classes.headerRightSection}>
+            <InteractionDetailsFilters />
+            <div className={classes.verticalDivider} />
+            <DateTimeRangePicker
+              handleTimefilterChange={handleTimeFilterChange}
+              selectedQuickTimeFilterIndex={quickTimeRangeFilterIndex || 0}
+              defaultQuickTimeFilterString={quickTimeRangeString || ""}
+              defaultEndTime={selectedTimeFilter?.endDate || endTime}
+              defaultStartTime={selectedTimeFilter?.startDate || startTime}
+            />
+          </div>
+        </div>
+
+        <Tabs.List>
+          <Tabs.Tab value="engagement">User Engagement</Tabs.Tab>
+          <Tabs.Tab value="performance">Performance & Stability</Tabs.Tab>
+          <Tabs.Tab value="network">Network</Tabs.Tab>
+          <Tabs.Tab value="web-vitals">Web Vitals</Tabs.Tab>
+          {isRootCauseEnabled && (
+            <Tabs.Tab value="root-cause">Root cause</Tabs.Tab>
+          )}
+          {!heatmapConfigLoading && heatmapEnabledFromActiveConfig && (
+            <Tabs.Tab value="heatmap">Heatmap</Tabs.Tab>
+          )}
+        </Tabs.List>
+
+        {/* User Engagement Tab */}
+        <Tabs.Panel value="engagement">
+          {/* Detailed Graphs */}
+          <SimpleGrid cols={{ base: 1, lg: 3 }} spacing="md">
+            <TimeSpentGraph
+              avgTimeSpent={engagementData?.avgTimeSpent ?? null}
+              trendData={
+                engagementData?.trendData.map((d) => ({
+                  timestamp: d.timestamp,
+                  avgTimeSpent: d.avgTimeSpent,
+                })) || []
+              }
+              isLoading={isLoadingEngagement}
+              error={engagementError}
+              onTimeFilterChange={handleTimeFilterChange}
+            />
+            <UserEngagementGraph
+              screenName={decodedScreenName}
+              appVersion={appVersion !== "all" ? appVersion : undefined}
+              osVersion={osVersion !== "all" ? osVersion : undefined}
+              device={device !== "all" ? device : undefined}
+              startTime={startTime || undefined}
+              endTime={endTime || undefined}
+            />
+            <ActiveSessionsGraph
+              screenName={decodedScreenName}
+              appVersion={appVersion !== "all" ? appVersion : undefined}
+              osVersion={osVersion !== "all" ? osVersion : undefined}
+              device={device !== "all" ? device : undefined}
+              startTime={startTime || undefined}
+              endTime={endTime || undefined}
+              onTimeFilterChange={handleTimeFilterChange}
+            />
+          </SimpleGrid>
+        </Tabs.Panel>
+
+        {/* Performance & Stability Tab */}
+        <Tabs.Panel value="performance">
+          {/* Issue Type Filter */}
+          <Box mb="md">
+            <VitalsFilters
+              issueType={issueType}
+              onIssueTypeChange={handleIssueTypeChange}
+              stats={vitalsStats}
+            />
+          </Box>
+
+          {/* Stats Cards - 3 Sections */}
+          <Box className={vitalsClasses.statsContainer}>
+            <CrashMetricsStats
+              startTime={formattedStartTime}
+              endTime={formattedEndTime}
+              appVersion={appVersion !== "all" ? appVersion : undefined}
+              osVersion={osVersion !== "all" ? osVersion : undefined}
+              device={device !== "all" ? device : undefined}
+              screenName={decodedScreenName}
+              externalTotalUsers={engagementData?.totalUsers}
+              externalTotalSessions={engagementData?.totalSessions}
+            />
+            <ANRMetricsStats
+              startTime={formattedStartTime}
+              endTime={formattedEndTime}
+              appVersion={appVersion !== "all" ? appVersion : undefined}
+              osVersion={osVersion !== "all" ? osVersion : undefined}
+              device={device !== "all" ? device : undefined}
+              screenName={decodedScreenName}
+              externalTotalUsers={engagementData?.totalUsers}
+              externalTotalSessions={engagementData?.totalSessions}
+            />
+            {/* Section 3: Performance Metrics */}
+            <Box className={vitalsClasses.statSection}>
+              <Text className={vitalsClasses.sectionTitle}>Performance</Text>
+              <Box className={vitalsClasses.metricsGrid}>
+                <Box className={vitalsClasses.statItem}>
+                  <Group gap={4} wrap="nowrap" align="center" justify="center">
+                    <Text className={vitalsClasses.statLabel}>
+                      Screen Load Time
+                    </Text>
+                    <Tooltip
+                      label="Average screen load time: mean span duration of all screen load events for this screen in the selected range."
+                      withArrow
+                      multiline
+                      w={260}
+                    >
+                      <IconInfoCircle
+                        size={13}
+                        style={{
+                          opacity: 0.5,
+                          cursor: "help",
+                          flexShrink: 0,
+                        }}
+                      />
+                    </Tooltip>
+                  </Group>
+                  <Text
+                    className={vitalsClasses.statValue}
+                    c={
+                      engagementData?.avgLoadTime !== null &&
+                      engagementData?.avgLoadTime !== undefined
+                        ? "teal"
+                        : "dimmed"
+                    }
+                  >
+                    {engagementData?.avgLoadTime !== null &&
+                    engagementData?.avgLoadTime !== undefined
+                      ? engagementData.avgLoadTime >= 1
+                        ? `${engagementData.avgLoadTime.toFixed(1)}s`
+                        : `${(engagementData.avgLoadTime * 1000).toFixed(0)}ms`
+                      : "N/A"}
+                  </Text>
+                </Box>
+                {engagementData?.tti_p50 !== null &&
+                  engagementData?.tti_p50 !== undefined && (
+                    <Box className={vitalsClasses.statItem}>
+                      <Group
+                        gap={4}
+                        wrap="nowrap"
+                        align="center"
+                        justify="center"
+                      >
+                        <Text className={vitalsClasses.statLabel}>
+                        TTI P50
+                        </Text>
+                        <Tooltip
+                          label="P50 time to interactive: 50th percentile of screen interactive durations for this screen in the selected range."
+                          withArrow
+                          multiline
+                          w={260}
+                        >
+                          <IconInfoCircle
+                            size={13}
+                            style={{
+                              opacity: 0.5,
+                              cursor: "help",
+                              flexShrink: 0,
+                            }}
+                          />
+                        </Tooltip>
+                      </Group>
+                      <Text
+                        className={vitalsClasses.statValue}
+                        c={
+                          engagementData?.tti_p50 !== null &&
+                          engagementData?.tti_p50 !== undefined
+                            ? "teal"
+                            : "dimmed"
+                        }
+                      >
+                        {engagementData?.tti_p50 !== null &&
+                        engagementData?.tti_p50 !== undefined
+                          ? engagementData.tti_p50 >= 1
+                            ? `${engagementData.tti_p50.toFixed(1)}s`
+                            : `${(engagementData.tti_p50 * 1000).toFixed(0)}ms`
+                          : "N/A"}
+                      </Text>
+                    </Box>
+                  )}
+                {engagementData?.tti_p95 !== null &&
+                  engagementData?.tti_p95 !== undefined && (
+                    <Box className={vitalsClasses.statItem}>
+                      <Group
+                        gap={4}
+                        wrap="nowrap"
+                        align="center"
+                        justify="center"
+                      >
+                        <Text className={vitalsClasses.statLabel}>
+                        TTI P95
+                        </Text>
+                        <Tooltip
+                          label="P95 time to interactive: 95th percentile of screen interactive durations for this screen in the selected range."
+                          withArrow
+                          multiline
+                          w={260}
+                        >
+                          <IconInfoCircle
+                            size={13}
+                            style={{
+                              opacity: 0.5,
+                              cursor: "help",
+                              flexShrink: 0,
+                            }}
+                          />
+                        </Tooltip>
+                      </Group>
+                      <Text
+                        className={vitalsClasses.statValue}
+                        c={
+                          engagementData?.tti_p95 !== null &&
+                          engagementData?.tti_p95 !== undefined
+                            ? "teal"
+                            : "dimmed"
+                        }
+                      >
+                        {engagementData?.tti_p95 !== null &&
+                        engagementData?.tti_p95 !== undefined
+                          ? engagementData.tti_p95 >= 1
+                            ? `${engagementData.tti_p95.toFixed(1)}s`
+                            : `${(engagementData.tti_p95 * 1000).toFixed(0)}ms`
+                          : "N/A"}
+                      </Text>
+                    </Box>
+                  )}
+                  
+              </Box>
+            </Box>
+          </Box>
+
+          {/* Trend Graph */}
+          {issueType === ISSUE_TYPES.CRASHES && (
+            <CrashTrendGraph
+              startTime={formattedStartTime}
+              endTime={formattedEndTime}
+              appVersion={appVersion !== "all" ? appVersion : undefined}
+              osVersion={osVersion !== "all" ? osVersion : undefined}
+              device={device !== "all" ? device : undefined}
+              screenName={decodedScreenName}
+              title={graphConfig.title}
+              lineColor={graphConfig.color}
+              onTimeFilterChange={handleTimeFilterChange}
+            />
+          )}
+          {issueType === ISSUE_TYPES.ANRS && (
+            <ANRTrendGraph
+              startTime={formattedStartTime}
+              endTime={formattedEndTime}
+              appVersion={appVersion !== "all" ? appVersion : undefined}
+              osVersion={osVersion !== "all" ? osVersion : undefined}
+              device={device !== "all" ? device : undefined}
+              screenName={decodedScreenName}
+              title={graphConfig.title}
+              lineColor={graphConfig.color}
+              onTimeFilterChange={handleTimeFilterChange}
+            />
+          )}
+          {issueType === ISSUE_TYPES.NON_FATALS && (
+            <NonFatalTrendGraph
+              startTime={formattedStartTime}
+              endTime={formattedEndTime}
+              appVersion={appVersion !== "all" ? appVersion : undefined}
+              osVersion={osVersion !== "all" ? osVersion : undefined}
+              device={device !== "all" ? device : undefined}
+              screenName={decodedScreenName}
+              title={graphConfig.title}
+              lineColor={graphConfig.color}
+              onTimeFilterChange={handleTimeFilterChange}
+            />
+          )}
+
+          {/* Issues List - Single view based on selected tab */}
+          {issueType === ISSUE_TYPES.CRASHES && (
+            <CrashList
+              startTime={formattedStartTime}
+              endTime={formattedEndTime}
+              appVersion={appVersion !== "all" ? appVersion : undefined}
+              osVersion={osVersion !== "all" ? osVersion : undefined}
+              device={device !== "all" ? device : undefined}
+              screenName={decodedScreenName}
+            />
+          )}
+          {issueType === ISSUE_TYPES.ANRS && (
+            <ANRList
+              startTime={formattedStartTime}
+              endTime={formattedEndTime}
+              appVersion={appVersion !== "all" ? appVersion : undefined}
+              osVersion={osVersion !== "all" ? osVersion : undefined}
+              device={device !== "all" ? device : undefined}
+              screenName={decodedScreenName}
+            />
+          )}
+          {issueType === ISSUE_TYPES.NON_FATALS && (
+            <NonFatalList
+              startTime={formattedStartTime}
+              endTime={formattedEndTime}
+              appVersion={appVersion !== "all" ? appVersion : undefined}
+              osVersion={osVersion !== "all" ? osVersion : undefined}
+              device={device !== "all" ? device : undefined}
+              screenName={decodedScreenName}
+            />
+          )}
+        </Tabs.Panel>
+
+        {/* Root cause (screen-scoped RCA, same date/asOf contract as interaction RCA) */}
+        {isRootCauseEnabled && (
+          <Tabs.Panel value="root-cause" pt="md">
+            {rootCauseDate != null &&
+            rootCauseDate !== "" &&
+            rootCauseAsOfIso !== "" ? (
+              <ScreenRootCause
+                screenName={decodedScreenName}
+                projectId={projectId}
+                date={rootCauseDate}
+                asOfIso={rootCauseAsOfIso}
+              />
+            ) : (
+              <Text c="dimmed" size="sm">
+                Set a time range (end time) in the header to load root cause
+                analysis.
+              </Text>
+            )}
+          </Tabs.Panel>
+        )}
+
+        {/* Network Tab */}
+        <Tabs.Panel value="network">
+          <NetworkList
+            screenName={decodedScreenName}
+            showHeader={false}
+            showFilters={false}
+            externalStartTime={startTime}
+            externalEndTime={endTime}
+            externalFilters={useMemo(() => {
+              const filters: Array<{
+                field: string;
+                operator: "LIKE" | "EQ";
+                value: string[];
+              }> = [];
+
+              if (appVersion !== "all") {
+                filters.push({
+                  field: "ResourceAttributes['app.version']",
+                  operator: "EQ" as const,
+                  value: [appVersion],
+                });
+              }
+
+              if (osVersion !== "all") {
+                filters.push({
+                  field: "ResourceAttributes['os.version']",
+                  operator: "EQ" as const,
+                  value: [osVersion],
+                });
+              }
+
+              if (device !== "all") {
+                filters.push({
+                  field: "ResourceAttributes['device.model']",
+                  operator: "EQ" as const,
+                  value: [device],
+                });
+              }
+
+              return filters;
+            }, [appVersion, osVersion, device])}
+          />
+        </Tabs.Panel>
+
+        {/* Web Vitals Tab */}
+        <Tabs.Panel value="web-vitals" pt="md">
+          <WebVitalsPanel
+            screenName={decodedScreenName}
+            startTime={formattedStartTime}
+            endTime={formattedEndTime}
+          />
+        </Tabs.Panel>
+
+        {/* Heatmap Tab */}
+        {!heatmapConfigLoading && heatmapEnabledFromActiveConfig && (
+          <Tabs.Panel value="heatmap">
+            <HeatmapPanel
+              key={decodedScreenName}
+              screenName={decodedScreenName}
+              startTime={startTime || ""}
+              endTime={endTime || ""}
+              engagement={
+                engagementData
+                  ? {
+                      avgTimeSpent: engagementData.avgTimeSpent,
+                      totalSessions: engagementData.totalSessions,
+                      totalUsers: engagementData.totalUsers,
+                    }
+                  : null
+              }
+            />
+          </Tabs.Panel>
+        )}
+      </div>
+    </Tabs>
+  );
+}

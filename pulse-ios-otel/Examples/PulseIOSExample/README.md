@@ -1,0 +1,92 @@
+# PulseIOSExample
+
+Example iOS app demonstrating PulseKit integration.
+
+- **Option 1** — Default: compile PulseKit **from source** in this repo (normal SDK development).
+- **Option 2** — Run the app against **local xcframeworks** from `./Scripts/build-xcframework.sh`.
+
+---
+
+## Option 1: Build from source (default)
+
+The **`Podfile`** uses the development podspec at the repo root:
+
+```ruby
+pod 'PulseKit', path: '../../'
+```
+
+PulseKit compiles as **Swift**; other deps (including **`libwebp`**) come from **CocoaPods**. The default Podfile uses **`use_frameworks!`** so `pod install` succeeds—Swift + trunk **`libwebp`** needs that **or** a line **`pod 'libwebp', :modular_headers => true`** above `PulseKit` if you drop `use_frameworks!`.
+
+```bash
+cd Examples/PulseIOSExample
+pod install
+open PulseIOSExample.xcworkspace
+```
+
+Build and run (**⌘R**) on an iOS 13.0+ simulator (newer simulators are fine).
+
+---
+
+## Option 2: Build with XCFrameworks
+
+Use this to validate the **binary** layout: PulseKit **and** its peer frameworks from **`build/`**, with **no** trunk pods for those dependencies.
+
+### Step 1: Produce xcframeworks
+
+The archive script expects the Example workspace to exist first:
+
+From the **`pulse-ios-otel`** root (in a full monorepo clone that is **`pulse/pulse-ios-otel/`**):
+
+```bash
+cd Examples/PulseIOSExample
+pod install
+cd ../..
+./Scripts/build-xcframework.sh
+```
+
+The second **`cd`** lands in **`pulse-ios-otel/`** (folder with **Package.swift** and **Scripts/**).
+
+Outputs land under **`build/`** at the **SDK root** (e.g. `PulseKit.xcframework`, `KSCrash.xcframework`, `OpenTelemetryApi.xcframework`, `OpenTelemetrySdk.xcframework`, `SwiftProtobuf.xcframework`, `libwebp.xcframework`).
+
+### Step 2: Switch podspec to use the frameworks
+
+Edit **`PulseKit.podspec`** at the **SDK root** (`pulse-ios-otel/PulseKit.podspec`):
+
+1. **Comment out** `spec.source_files`, `spec.exclude_files`, and `spec.pod_target_xcconfig`.
+2. **Comment out** every **`spec.dependency`** line (OpenTelemetry-Swift-Api, OpenTelemetry-Swift-Sdk, SwiftProtobuf, KSCrash, libwebp). Those libraries are already inside the xcframeworks; leaving the dependencies in place would pull duplicate trunk pods.
+3. **Add** `spec.vendored_frameworks` pointing at **all** artifacts under `build/`, not only PulseKit — same set as the release podspec, for example:
+
+```ruby
+spec.vendored_frameworks = [
+  "build/PulseKit.xcframework",
+  "build/KSCrash.xcframework",
+  "build/OpenTelemetryApi.xcframework",
+  "build/OpenTelemetrySdk.xcframework",
+  "build/SwiftProtobuf.xcframework",
+  "build/libwebp.xcframework",
+]
+```
+
+You can keep **`spec.resources`** / **`spec.preserve_paths`** (e.g. sourcemap upload scripts) if you still need them for the example.
+
+### Step 3: Reinstall pods and build
+
+Leave the **`Podfile`** on **`pod 'PulseKit', path: '../../'`** so it picks up the edited podspec.
+
+```bash
+cd Examples/PulseIOSExample
+pod install
+open PulseIOSExample.xcworkspace
+```
+
+Build and run (**⌘R**). You should see a single **PulseKit** pod with no separate OpenTelemetry / SwiftProtobuf / KSCrash / libwebp pods. No `post_install` hook is required.
+
+### Step 4: Restore the development podspec
+
+When you go back to **Option 1**, **revert** **`PulseKit.podspec`** (e.g. `git checkout -- PulseKit.podspec`) so source files and dependencies are active again.
+
+---
+
+## Configuration
+
+Telemetry defaults to `http://127.0.0.1:4318`. Change the endpoint in **`AppDelegate.swift`** if needed.

@@ -1,0 +1,18 @@
+name: Markdown Link Check
+
+on:
+  push:
+    branches:
+      - main
+      - release/*
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  markdown-link-check:
+    # release branches are excluded to avoid unnecessary maintenance
+    if: ${{ !startsWith(github.ref_name, 'release/') }}
+    uses: ./.github/workflows/reusable-link-check.yml

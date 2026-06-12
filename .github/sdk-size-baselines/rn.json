@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "thresholdBytes": 25600,
+  "artifacts": {
+    "rn.example_app.debug_apk": {
+      "bytes": 0,
+      "path": "pulse-react-native-otel/example/android/app/build/outputs/apk/debug/app-debug.apk",
+      "recordedAt": "unseeded",
+      "gitSha": "run-workflow-dispatch-seed-on-main"
+    }
+  }
+}

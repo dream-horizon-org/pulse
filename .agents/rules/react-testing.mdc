@@ -1,0 +1,43 @@
+---
+description: React testing conventions for pulse-ui
+globs: pulse-ui/**/*.{test,spec}.{ts,tsx}
+alwaysApply: false
+---
+
+# React Testing Conventions
+
+## Framework
+
+Jest + React Testing Library (`@testing-library/react`, `@testing-library/jest-dom`)
+
+## Setup
+
+- Global setup in `setupTests.ts`
+- Wrap components with `MantineProvider` for rendering
+
+## Patterns
+
+```typescript
+import { render, screen } from "@testing-library/react";
+import { MantineProvider } from "@mantine/core";
+
+function renderWithProvider(ui: React.ReactElement) {
+  return render(<MantineProvider>{ui}</MantineProvider>);
+}
+
+test("renders heading", () => {
+  renderWithProvider(<MyComponent />);
+  expect(screen.getByText("Title")).toBeInTheDocument();
+});
+```
+
+## File Location
+
+- `__tests__/` directories or `*.test.tsx` / `*.spec.tsx` co-located with components
+
+## Best Practices
+
+- Query by accessible roles/text, not implementation details
+- Test user interactions with `userEvent`
+- Mock API calls at the `makeRequest` level
+- Use `waitFor` for async state updates

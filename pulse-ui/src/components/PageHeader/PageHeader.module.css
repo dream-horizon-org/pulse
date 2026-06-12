@@ -1,0 +1,116 @@
+.pageHeader {
+  padding: 20px 24px;
+  background: linear-gradient(145deg, #ffffff 0%, #fafbfc 100%);
+  border-bottom: 1px solid rgba(14, 201, 194, 0.12);
+  box-shadow: 0 2px 8px rgba(14, 201, 194, 0.06);
+  position: relative;
+  margin-bottom: var(--mantine-spacing-lg);
+}
+
+.pageHeader::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: linear-gradient(180deg, #0ec9c2 0%, #0ba09a 100%);
+}
+
+.headerContent {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--mantine-spacing-lg);
+  flex-wrap: wrap;
+}
+
+.leftSection {
+  display: flex;
+  align-items: center;
+  gap: var(--mantine-spacing-md);
+  flex: 1;
+  min-width: 0;
+}
+
+.backButton {
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.backButton:hover {
+  transform: translateX(-4px);
+}
+
+.titleSection {
+  display: flex;
+  align-items: center;
+  gap: var(--mantine-spacing-md);
+  flex: 1;
+  min-width: 0;
+}
+
+.titleWrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
+
+.titleRow {
+  display: flex;
+  align-items: center;
+  gap: var(--mantine-spacing-sm);
+  flex-wrap: wrap;
+}
+
+.pageTitle {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--mantine-color-dark-8);
+  margin: 0;
+  letter-spacing: -0.5px;
+  background: linear-gradient(135deg, #0ec9c2 0%, #0ba09a 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.pageSubtitle {
+  font-size: 11px;
+  color: var(--mantine-color-gray-6);
+  margin: 0;
+  line-height: 1.4;
+}
+
+.countBadge {
+  font-size: 13px;
+  font-weight: 600;
+  color: #0ba09a;
+  padding: 4px 12px;
+  background: rgba(14, 201, 194, 0.08);
+  border-radius: 12px;
+  border: 1px solid rgba(14, 201, 194, 0.15);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.actionsSection {
+  display: flex;
+  align-items: center;
+  gap: var(--mantine-spacing-sm);
+  flex-wrap: wrap;
+}
+
+@media (max-width: 768px) {
+  .headerContent {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .actionsSection {
+    width: 100%;
+    justify-content: flex-start;
+  }
+}

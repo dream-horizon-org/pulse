@@ -1,0 +1,936 @@
+@file:OptIn(Incubating::class)
+@file:Suppress("unused")
+
+package com.pulse.android.sdk.internal
+
+import android.app.Application
+import android.content.Context
+import com.pulse.android.api.otel.PulseBeforeSendData
+import com.pulse.android.api.otel.PulseDataCollectionConsent
+import com.pulse.android.core.config.InteractionConfigRestFetcher
+import com.pulse.android.sdk.internal.beforesend.PulseBeforeSendLogExporter
+import com.pulse.android.sdk.internal.beforesend.PulseBeforeSendMetricExporter
+import com.pulse.android.sdk.internal.beforesend.PulseBeforeSendSpanExporter
+import com.pulse.android.sdk.replay.ImagePrivacy
+import com.pulse.android.sdk.replay.SessionReplayBootstrap
+import com.pulse.android.sdk.replay.SessionReplayConfig
+import com.pulse.android.sdk.replay.SessionReplayRegistry
+import com.pulse.android.sdk.replay.TextAndInputPrivacy
+import com.pulse.sampling.core.exporters.PulseSamplingSignalProcessors
+import com.pulse.sampling.core.exporters.PulseSignalSelectExporter
+import com.pulse.sampling.models.PulseFeatureConfigData
+import com.pulse.sampling.models.PulseFeatureName
+import com.pulse.sampling.models.PulseProp
+import com.pulse.sampling.models.PulseSdkConfig
+import com.pulse.sampling.models.PulseSdkName
+import com.pulse.sampling.models.PulseSignalScope
+import com.pulse.sampling.models.matchers.PulseSignalMatchCondition
+import com.pulse.semconv.PulseAttributes
+import com.pulse.semconv.PulseDeviceAttributes
+import com.pulse.semconv.PulseSessionAttributes
+import com.pulse.semconv.PulseUserAttributes
+import com.pulse.utils.DiskUsageBytes
+import com.pulse.utils.PulseLogLevel
+import com.pulse.utils.PulseLogger
+import com.pulse.utils.PulseMathUtils
+import com.pulse.utils.putAttributesFrom
+import com.pulse.utils.toAttributes
+import io.opentelemetry.android.AndroidResource
+import io.opentelemetry.android.Incubating
+import io.opentelemetry.android.OpenTelemetryRum
+import io.opentelemetry.android.agent.OpenTelemetryRumInitializer
+import io.opentelemetry.android.agent.connectivity.EndpointConnectivity
+import io.opentelemetry.android.agent.connectivity.HttpEndpointConnectivity
+import io.opentelemetry.android.agent.dsl.instrumentation.InstrumentationConfiguration
+import io.opentelemetry.android.agent.session.SessionConfig
+import io.opentelemetry.android.config.OtelRumConfig
+import io.opentelemetry.android.export.FilteringSpanExporter
+import io.opentelemetry.android.instrumentation.AndroidInstrumentation
+import io.opentelemetry.android.instrumentation.AndroidInstrumentationLoader
+import io.opentelemetry.android.instrumentation.activity.startup.AppStartupTimer
+import io.opentelemetry.android.instrumentation.click.ClickContextEnrichmentConfig
+import io.opentelemetry.android.instrumentation.click.RageConfig
+import io.opentelemetry.android.instrumentation.interaction.library.InteractionInstrumentation
+import io.opentelemetry.android.instrumentation.location.processors.LocationAttributesLogRecordAppender
+import io.opentelemetry.android.instrumentation.location.processors.LocationAttributesSpanAppender
+import io.opentelemetry.android.instrumentation.location.processors.LocationInstrumentationConstants
+import io.opentelemetry.android.internal.services.Services
+import io.opentelemetry.android.session.SessionProvider
+import io.opentelemetry.api.common.AttributeKey
+import io.opentelemetry.api.common.Attributes
+import io.opentelemetry.api.logs.Logger
+import io.opentelemetry.api.trace.Tracer
+import io.opentelemetry.exporter.otlp.http.logs.OtlpHttpLogRecordExporter
+import io.opentelemetry.exporter.otlp.http.metrics.OtlpHttpMetricExporter
+import io.opentelemetry.exporter.otlp.http.trace.OtlpHttpSpanExporter
+import io.opentelemetry.sdk.logs.SdkLoggerProviderBuilder
+import io.opentelemetry.sdk.logs.export.LogRecordExporter
+import io.opentelemetry.sdk.metrics.export.MetricExporter
+import io.opentelemetry.sdk.resources.ResourceBuilder
+import io.opentelemetry.sdk.trace.SdkTracerProviderBuilder
+import io.opentelemetry.sdk.trace.export.SpanExporter
+import io.opentelemetry.semconv.ExceptionAttributes
+import io.opentelemetry.semconv.incubating.AppIncubatingAttributes
+import io.opentelemetry.semconv.incubating.UserIncubatingAttributes
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.launch
+import java.io.File
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.TimeUnit
+import java.util.function.BiFunction
+import java.util.function.Predicate
+import kotlin.system.measureNanoTime
+import io.opentelemetry.android.BuildConfig as OtelAndroidBuildConfig
+
+/**
+ * Internal PulseSDK implementation. This is internal module so API compatibility and behaviour is not guaranteed.
+ * Provides initialization with tracer and logger provider customizers for React Native
+ * and other integrations that need to add custom processors.
+ */
+@Suppress("LargeClass")
+public class PulseSDKInternal : CoroutineScope by MainScope() {
+    public fun isInitialized(): Boolean = isInitialised && !isShutdown
+
+    /**
+     * Initialize the Pulse SDK with optional tracer and logger provider customizers.
+     * Used by React Native to add RN-specific screen attribute processors.
+     */
+    @Suppress("LongParameterList", "LongMethod", "CyclomaticComplexMethod")
+    public fun initialize(
+        application: Application,
+        apiKey: String,
+        dataCollectionState: PulseDataCollectionConsent,
+        resource: (ResourceBuilder.() -> Unit)?,
+        globalAttributes: (() -> Attributes)?,
+        beforeSendData: PulseBeforeSendData? = null,
+        tracerProviderCustomizer: BiFunction<SdkTracerProviderBuilder, Application, SdkTracerProviderBuilder>?,
+        loggerProviderCustomizer: BiFunction<SdkLoggerProviderBuilder, Application, SdkLoggerProviderBuilder>?,
+        logLevel: PulseLogLevel = PulseLogLevel.NONE,
+        instrumentations: (InstrumentationConfiguration.() -> Unit)?,
+    ) {
+        PulseLogger.logLevel = logLevel
+        if (isShutdown) {
+            PulseLogger.logWarn(TAG) { "sdk.init skipped reason=shutdown" }
+            return
+        }
+        if (isInitialized()) {
+            PulseLogger.logDebug(TAG) { "sdk.init skipped reason=already_initialized" }
+            return
+        }
+        this.application = application
+        val meteredSessionManager = OpenTelemetryRumInitializer.createMeteredSessionManager(application)
+        val headers = createApiKeyHeader(apiKey) + createMeteringSessionHeader(meteredSessionManager.getSessionId())
+        val projectId = extractProjectID(apiKey)
+        measureNanoTime {
+            @Suppress("InjectDispatcher") // we are not exposing this dispatchers to client
+            initializeInternal(
+                application = application,
+                endpointBaseUrl = PulseEndpointUtils.getBaseUrl(apiKey),
+                projectId = projectId,
+                apiKey = apiKey,
+                dataCollectionState = dataCollectionState,
+                tracerProviderCustomizer = tracerProviderCustomizer,
+                loggerProviderCustomizer = loggerProviderCustomizer,
+                spanEndpointConnectivity = HttpEndpointConnectivity.forTraces(PulseEndpointUtils.getBaseUrl(apiKey), headers),
+                logEndpointConnectivity = HttpEndpointConnectivity.forLogs(PulseEndpointUtils.getBaseUrl(apiKey), headers),
+                metricEndpointConnectivity = HttpEndpointConnectivity.forMetrics(PulseEndpointUtils.getBaseUrl(apiKey), headers),
+                customEventConnectivity = HttpEndpointConnectivity.forLogs(PulseEndpointUtils.getBaseUrl(apiKey), headers),
+                configEndpointUrl = PulseEndpointUtils.getActiveConfigUrl(apiKey, projectId),
+                resource = resource,
+                instrumentations = instrumentations,
+                endpointHeaders = headers,
+                sessionConfig = SessionConfig.withDefaults(),
+                meteredSessionProvider = meteredSessionManager,
+                globalAttributes = globalAttributes,
+                ioDispatcher = Dispatchers.IO,
+                beforeSendData = beforeSendData,
+            )
+        }.also { ns ->
+            val durationMs = ns / 1_000_000
+            val enabledFeatures = pulseSamplingProcessors?.getEnabledFeatures()
+            val featuresJoined =
+                enabledFeatures?.joinToString(",") { it.name.lowercase() }.orEmpty()
+            val isInitSuccess = otelInstance != null
+            PulseLogger.logInfo(TAG) {
+                "sdk.init success=$isInitSuccess duration_ms=$durationMs sdk_version=${OtelAndroidBuildConfig.OTEL_ANDROID_VERSION} " +
+                    "features_enabled=$featuresJoined"
+            }
+            PulseLogger.logInfo(TAG) {
+                "sdk.startup.overhead_ms value=$durationMs"
+            }
+            if (isInitSuccess) {
+                runCatching {
+                    val usage = DiskUsageBytes.forDirectoryRoot(File(application.cacheDir, "opentelemetry"))
+                    if (usage > 0L) {
+                        PulseLogger.logDebug(TAG) {
+                            "sdk.disk.usage_bytes path=opentelemetry_cache value=$usage"
+                        }
+                    }
+                }
+            }
+        }
+        if (otelInstance != null) {
+            isInitialised = true
+        } else {
+            PulseLogger.logDebug(TAG) { "SDK not marked initialized: no OpenTelemetryRum instance (e.g. DENIED at startup)" }
+        }
+    }
+
+    @Suppress("LongParameterList", "LongMethod", "CyclomaticComplexMethod")
+    private fun initializeInternal(
+        application: Application,
+        endpointBaseUrl: String,
+        projectId: String,
+        apiKey: String,
+        dataCollectionState: PulseDataCollectionConsent,
+        tracerProviderCustomizer: BiFunction<SdkTracerProviderBuilder, Application, SdkTracerProviderBuilder>?,
+        loggerProviderCustomizer: BiFunction<SdkLoggerProviderBuilder, Application, SdkLoggerProviderBuilder>?,
+        spanEndpointConnectivity: EndpointConnectivity,
+        logEndpointConnectivity: EndpointConnectivity,
+        metricEndpointConnectivity: EndpointConnectivity,
+        customEventConnectivity: EndpointConnectivity,
+        configEndpointUrl: String?,
+        resource: (ResourceBuilder.() -> Unit)?,
+        endpointHeaders: Map<String, String>,
+        sessionConfig: SessionConfig,
+        meteredSessionProvider: SessionProvider,
+        globalAttributes: (() -> Attributes)?,
+        beforeSendData: PulseBeforeSendData? = null,
+        ioDispatcher: CoroutineDispatcher,
+        instrumentations: (InstrumentationConfiguration.() -> Unit)?,
+    ) {
+        if (dataCollectionState == PulseDataCollectionConsent.DENIED) {
+            oldState = PulseDataCollectionConsent.DENIED
+            PulseLogger.logInfo(TAG) { "sdk.init skipped reason=denied_consent" }
+            return
+        }
+        val sharedPrefs =
+            application.getSharedPreferences(
+                "pulse_sdk_config",
+                Context.MODE_PRIVATE,
+            )
+
+        val currentSdkConfig =
+            PulseSdkConfigRefresher.loadAndRefresh(
+                cacheDir = application.cacheDir,
+                configUrl = PulseSdkConfigRefresher.resolveConfigUrl(configEndpointUrl, endpointBaseUrl),
+                headers = endpointHeaders,
+                sharedPrefs = sharedPrefs,
+                prefsKey = PrefsName.PULSE_SDK_CONFIG_KEY,
+                scope = this,
+                ioDispatcher = ioDispatcher,
+            )
+
+        PulseLogger.logInfo(TAG) {
+            "sdk.config version=${currentSdkConfig?.let { "${it.version}" } ?: "none"}"
+        }
+
+        val resourceBuilder = AndroidResource.createDefault(application).toBuilder()
+        resourceBuilder.put(PulseAttributes.TELEMETRY_SDK_NAME_KEY, PulseAttributes.PulseSdkNames.ANDROID_JAVA)
+        resource?.invoke(resourceBuilder)
+        val builtResource = resourceBuilder.build()
+        val currentSdkName =
+            PulseSdkName.fromName(
+                builtResource.getAttribute(PulseAttributes.TELEMETRY_SDK_NAME_KEY),
+            )
+
+        val androidJavaResource: (ResourceBuilder.() -> Unit) = {
+            put(PulseAttributes.TELEMETRY_SDK_NAME_KEY, PulseAttributes.PulseSdkNames.ANDROID_JAVA)
+            put(PulseAttributes.PROJECT_ID, projectId)
+            resource?.invoke(this)
+        }
+
+        pulseSamplingProcessors =
+            currentSdkConfig?.let {
+                PulseSamplingSignalProcessors(
+                    context = application,
+                    sdkConfig = currentSdkConfig,
+                    currentSdkName = currentSdkName,
+                    meterProviderLazy = meterProviderLazy,
+                )
+            }
+        pulseSpanProcessor = PulseSdkSignalProcessors()
+        val config = OtelRumConfig()
+        val (internalTracerProviderCustomizer, internalLoggerProviderCustomizer) = createSignalsProcessors(config)
+        val mergedTracerProviderCustomizer =
+            PulseCustomizerUtils.mergeTracerCustomizers(
+                internal = internalTracerProviderCustomizer,
+                external = tracerProviderCustomizer,
+            )
+        val mergedLoggerProviderCustomizer =
+            PulseCustomizerUtils.mergeLoggerCustomizers(
+                internal = internalLoggerProviderCustomizer,
+                external = loggerProviderCustomizer,
+            )
+
+        val resolvedEndpoints =
+            PulseEndpointUtils.resolve(
+                sdkConfig = currentSdkConfig,
+                headers = endpointHeaders,
+                fallbackSpan = spanEndpointConnectivity,
+                fallbackLog = logEndpointConnectivity,
+                fallbackMetric = metricEndpointConnectivity,
+                fallbackCustomEvent = customEventConnectivity,
+            )
+        val finalSpanEndpointConnectivity = resolvedEndpoints.span
+        val finalLogEndpointConnectivity = resolvedEndpoints.log
+        val finalMetricEndpointConnectivity = resolvedEndpoints.metric
+        val finalCustomEventEndpointConnectivity = resolvedEndpoints.customEvent
+
+        val otlpSpanExporter: SpanExporter =
+            OtlpHttpSpanExporter
+                .builder()
+                .setEndpoint(finalSpanEndpointConnectivity.getUrl())
+                .setHeaders { endpointHeaders }
+                .build()
+
+        val attrRejects = mutableMapOf<AttributeKey<*>, Predicate<*>>()
+        attrRejects[AttributeKey.booleanKey("pulse.internal")] = Predicate<Boolean> { it == true }
+        val filteredSpanExporter =
+            FilteringSpanExporter
+                .builder(otlpSpanExporter)
+                .rejectSpansWithAttributesMatching(attrRejects)
+                .build()
+
+        val otlpLogExporter: LogRecordExporter =
+            PulseSignalSelectExporter(currentSdkName).SelectedLogExporter(
+                listOf(
+                    PulseSignalMatchCondition.allMatchLogCondition to
+                        OtlpHttpLogRecordExporter
+                            .builder()
+                            .setEndpoint(finalLogEndpointConnectivity.getUrl())
+                            .setHeaders { endpointHeaders }
+                            .build(),
+                    PulseSignalMatchCondition(
+                        name = ".*",
+                        props =
+                            setOf(
+                                PulseProp(name = PulseAttributes.PULSE_TYPE.key, value = PulseAttributes.PulseTypeValues.CUSTOM_EVENT),
+                            ),
+                        scopes = PulseSignalScope.allValuesExceptUnknown,
+                        sdks = PulseSdkName.allValuesExceptUnknown,
+                    ) to
+                        OtlpHttpLogRecordExporter
+                            .builder()
+                            .setEndpoint(finalCustomEventEndpointConnectivity.getUrl())
+                            .setHeaders { endpointHeaders }
+                            .build(),
+                ),
+            )
+
+        val otlMetricExporter: MetricExporter =
+            OtlpHttpMetricExporter
+                .builder()
+                .setEndpoint(finalMetricEndpointConnectivity.getUrl())
+                .setHeaders { endpointHeaders }
+                .build()
+
+        val baseSpanExporter: SpanExporter = pulseSamplingProcessors?.SampledSpanExporter(filteredSpanExporter) ?: filteredSpanExporter
+        val baseLogExporter: LogRecordExporter = pulseSamplingProcessors?.SampledLogExporter(otlpLogExporter) ?: otlpLogExporter
+        val baseMetricExporter: MetricExporter = pulseSamplingProcessors?.SampledMetricExporter(otlMetricExporter) ?: otlMetricExporter
+
+        val spanExporterChain: SpanExporter =
+            beforeSendData?.let { PulseBeforeSendSpanExporter(it, baseSpanExporter) } ?: baseSpanExporter
+        val logExporterChain: LogRecordExporter =
+            beforeSendData?.let { PulseBeforeSendLogExporter(it, baseLogExporter) } ?: baseLogExporter
+        val metricExporterChain: MetricExporter =
+            beforeSendData?.let { PulseBeforeSendMetricExporter(it, baseMetricExporter) } ?: baseMetricExporter
+
+        val spanExporter = spanExporterChain
+        val logExporter = logExporterChain
+        val metricExporter = metricExporterChain
+
+        val interactionConfigUrlProvider: () -> String = {
+            currentSdkConfig?.run { interaction.configUrl }
+                ?: PulseEndpointUtils.getInteractionConfigUrl(apiKey, projectId)
+        }
+
+        var sessionReplayConfig: SessionReplayConfig? = null
+        instrumentations?.let { configure ->
+            val instrumentationConfig =
+                InstrumentationConfiguration(
+                    config,
+                    endpointHeaders,
+                    interactionUrlProvider = interactionConfigUrlProvider,
+                )
+            instrumentationConfig.configure()
+            currentSdkConfig
+                ?.features
+                ?.firstOrNull { it.featureName == PulseFeatureName.CLICK }
+                ?.config
+                ?.let { it as? PulseFeatureConfigData.ClickInstrumentation }
+                ?.let { clickConfig ->
+                    clickConfig.shouldCaptureContext?.let { shouldCapture ->
+                        ClickContextEnrichmentConfig.isViewClickContextEnrichmentEnabled = shouldCapture
+                        ClickContextEnrichmentConfig.isComposeClickContextEnrichmentEnabled = shouldCapture
+                    }
+                    clickConfig.rage?.let { remoteRage ->
+                        val local = ClickContextEnrichmentConfig.rageConfig
+                        ClickContextEnrichmentConfig.rageConfig =
+                            RageConfig(
+                                timeWindowMs = remoteRage.timeWindowMs ?: local.timeWindowMs,
+                                threshold = remoteRage.threshold ?: local.threshold,
+                                radiusDp = remoteRage.radiusDp ?: local.radiusDp,
+                            )
+                    }
+                }
+            val localReplayConfig = instrumentationConfig.getSessionReplayConfig()
+            sessionReplayConfig = resolveSessionReplayConfig(currentSdkConfig, localReplayConfig, endpointBaseUrl)
+            pulseSamplingProcessors?.run {
+                PulseLogger.logDebug(TAG) { "Applying feature flags" }
+                val flagResult = PulseFeatureFlagUtils.apply(config, this)
+                isCustomEventEnabled = flagResult.isCustomEventEnabled
+            } ?: run {
+                config.suppressInstrumentation("view.click")
+                config.suppressInstrumentation("compose.click")
+            }
+        }
+
+        sessionReplayConfig?.let { replayConfig ->
+            SessionReplayRegistry.set(
+                SessionReplayBootstrap(
+                    config = replayConfig,
+                    projectId = projectId,
+                    userIdProvider = { userSessionEmitter.userId?.takeIf { it.isNotEmpty() } ?: "anonymous" },
+                    isStartActive = dataCollectionState == PulseDataCollectionConsent.ALLOWED,
+                    screenNameProvider = { Services.get(application).visibleScreenTracker.currentlyVisibleScreen },
+                    endpointHeaders = endpointHeaders,
+                ),
+            )
+        }
+
+        wireInteractionConfigFetcher(interactionConfigUrlProvider, endpointHeaders)
+
+        otelInstance =
+            OpenTelemetryRumInitializer.initialize(
+                application = application,
+                endpointBaseUrl = endpointBaseUrl,
+                shouldStartSendingData = dataCollectionState == PulseDataCollectionConsent.ALLOWED,
+                endpointHeaders = endpointHeaders,
+                // todo make it explicit as to which config should be chosen
+                //  1. Either remove this value
+                //  2. Or give options like LocalOnly, ConfigOrFallback
+                spanEndpointConnectivity = finalSpanEndpointConnectivity,
+                logEndpointConnectivity = finalLogEndpointConnectivity,
+                metricEndpointConnectivity = finalMetricEndpointConnectivity,
+                sessionConfig = sessionConfig,
+                meteredSessionProvider = meteredSessionProvider,
+                globalAttributes =
+                    {
+                        val attributesBuilder = Attributes.builder()
+                        if (userProps.isNotEmpty()) {
+                            for ((key, value) in userProps) {
+                                attributesBuilder.put(
+                                    PulseUserAttributes.PULSE_USER_PARAMETER.getAttributeKey(key),
+                                    value.toString(),
+                                )
+                            }
+                        }
+                        if (userSessionEmitter.userId != null) {
+                            attributesBuilder.put(UserIncubatingAttributes.USER_ID, userSessionEmitter.userId)
+                        }
+                        attributesBuilder.put(AppIncubatingAttributes.APP_INSTALLATION_ID, installationIdManager.installationId)
+                        attributesBuilder.put(PulseSessionAttributes.PULSE_METERING_SESSION_ID, meteredSessionProvider.getSessionId())
+                        currentSdkConfig?.run {
+                            attributesBuilder.put(PulseAttributes.PULSE_SDK_CONFIG_VERSION, version.toLong())
+                        }
+                        application.resources.displayMetrics.let { dm ->
+                            val w = (dm.widthPixels / dm.density).toLong()
+                            val h = (dm.heightPixels / dm.density).toLong()
+                            val g = PulseMathUtils.gcd(w, h)
+                            attributesBuilder.put(PulseDeviceAttributes.DEVICE_SCREEN_ASPECT_RATIO, "${w / g}:${h / g}")
+                        }
+                        if (globalAttributes != null) {
+                            attributesBuilder.putAll(globalAttributes.invoke())
+                        }
+                        attributesBuilder.build()
+                    },
+                resource = androidJavaResource,
+                rumConfig = config,
+                tracerProviderCustomizer = mergedTracerProviderCustomizer,
+                loggerProviderCustomizer = mergedLoggerProviderCustomizer,
+                spanExporter = spanExporter,
+                logRecordExporter = logExporter,
+                metricExporter = metricExporter,
+                shouldIgnoreJavaScriptExceptions = currentSdkName == PulseSdkName.ANDROID_RN,
+                batchConfig = currentSdkConfig?.batchConfig,
+            )
+
+        // SessionReplayInstrumentation installs from registry during RUM build; get reference for shutdown
+        sessionReplay = SessionReplayRegistry.getIntegration()
+        oldState = dataCollectionState
+    }
+
+    /**
+     * Resolves session replay config. Backend is the sole gatekeeper:
+     * - No backend config fetched → disabled
+     * - Backend config exists but `session_replay` absent from features → disabled
+     * - `session_replay` present with `sessionSampleRate <= 0` → disabled
+     * - `session_replay` present with `sessionSampleRate > 0` → enabled, merging local DSL defaults + backend overrides
+     *
+     * The local DSL (`instrumentations { sessionReplay { ... } }`) only provides code-level
+     * integrations (drawableConverter, mask/unmask view classes). All other config is backend-controlled.
+     */
+    private fun resolveSessionReplayConfig(
+        sdkConfig: PulseSdkConfig?,
+        localConfig: SessionReplayConfig?,
+        endpointBaseUrl: String,
+    ): SessionReplayConfig? {
+        if (sdkConfig == null) {
+            PulseLogger.logDebug(TAG) { "Session replay disabled: no backend config fetched yet" }
+            return null
+        }
+
+        val backendFeature =
+            sdkConfig.features
+                .firstOrNull { it.featureName == PulseFeatureName.SESSION_REPLAY }
+
+        if (backendFeature == null) {
+            PulseLogger.logDebug(TAG) { "Session replay disabled: feature absent from backend config" }
+            return null
+        }
+
+        if (backendFeature.sessionSampleRate <= 0F) {
+            PulseLogger.logDebug(TAG) { "Session replay disabled: sessionSampleRate=${backendFeature.sessionSampleRate}" }
+            return null
+        }
+
+        PulseLogger.logDebug(TAG) { "Session replay enabled by backend (rate=${backendFeature.sessionSampleRate})" }
+
+        val base = localConfig ?: SessionReplayConfig()
+
+        val featureConfig = backendFeature.config as? PulseFeatureConfigData.SessionReplay
+        if (featureConfig == null) {
+            val configType = backendFeature.config?.run { javaClass.simpleName } ?: "null"
+            PulseLogger.logDebug(TAG) {
+                "Session replay config missing or failed to parse (config type=$configType), " +
+                    "using base with endpointBaseUrl fallback"
+            }
+            return base.copy(replayApiBaseUrl = base.replayApiBaseUrl ?: endpointBaseUrl)
+        }
+
+        val replayUrl = featureConfig.replayApiBaseUrl ?: "null"
+        PulseLogger.logDebug(TAG) { "Applying backend session replay config (replayApiBaseUrl=$replayUrl)" }
+
+        val resolvedTextPrivacy =
+            featureConfig.textAndInputPrivacy?.let { value ->
+                runCatching { TextAndInputPrivacy.valueOf(value) }
+                    .onFailure { PulseLogger.logDebug(TAG) { "Unknown textAndInputPrivacy: $value" } }
+                    .getOrNull()
+            }
+        val resolvedImagePrivacy =
+            featureConfig.imagePrivacy?.let { value ->
+                runCatching { ImagePrivacy.valueOf(value) }
+                    .onFailure { PulseLogger.logDebug(TAG) { "Unknown imagePrivacy: $value" } }
+                    .getOrNull()
+            }
+
+        return base.copy(
+            textAndInputPrivacy = resolvedTextPrivacy ?: base.textAndInputPrivacy,
+            imagePrivacy = resolvedImagePrivacy ?: base.imagePrivacy,
+            throttleDelayMs = featureConfig.throttleDelayMs ?: base.throttleDelayMs,
+            screenshotScale = featureConfig.screenshotScale ?: base.screenshotScale,
+            screenshotQuality = featureConfig.screenshotQuality ?: base.screenshotQuality,
+            flushIntervalSeconds = featureConfig.flushIntervalSeconds ?: base.flushIntervalSeconds,
+            flushAt = featureConfig.flushAt ?: base.flushAt,
+            maxBatchSize = featureConfig.maxBatchSize ?: base.maxBatchSize,
+            replayApiBaseUrl = featureConfig.replayApiBaseUrl ?: base.replayApiBaseUrl ?: endpointBaseUrl,
+        )
+    }
+
+    private fun createSignalsProcessors(
+        config: OtelRumConfig,
+    ): Pair<
+        BiFunction<SdkTracerProviderBuilder, Application, SdkTracerProviderBuilder>,
+        BiFunction<SdkLoggerProviderBuilder, Application, SdkLoggerProviderBuilder>,
+        // @formatter:off
+    > {
+        // @formatter:on
+        val shouldAddLocationProcessor =
+            AndroidInstrumentationLoader
+                .get()
+                .getByName<AndroidInstrumentation>(LocationInstrumentationConstants.INSTRUMENTATION_NAME) != null &&
+                !config.isSuppressed(LocationInstrumentationConstants.INSTRUMENTATION_NAME)
+        val tracerProviderCustomizer =
+            BiFunction<SdkTracerProviderBuilder, Application, SdkTracerProviderBuilder> { tracerProviderBuilder, app ->
+                tracerProviderBuilder.addSpanProcessor(
+                    PulseSdkSignalProcessors.PulseSpanTypeAttributesAppender(),
+                )
+                // interaction specific attributes to be attached to other spans
+                if (!config.isSuppressed(InteractionInstrumentation.INSTRUMENTATION_NAME)) {
+                    tracerProviderBuilder.addSpanProcessor(
+                        InteractionInstrumentation.createSpanProcessor(
+                            AndroidInstrumentationLoader
+                                .getInstrumentation(
+                                    InteractionInstrumentation::class.java,
+                                ).interactionManagerInstance,
+                        ),
+                    )
+                }
+                // location attributes
+                if (shouldAddLocationProcessor) {
+                    val sharedPreferences =
+                        app.getSharedPreferences(
+                            PrefsName.LOCATION_PREF_FILE_NAME,
+                            Context.MODE_PRIVATE,
+                        )
+                    tracerProviderBuilder.addSpanProcessor(
+                        LocationAttributesSpanAppender.create(sharedPreferences),
+                    )
+                }
+                tracerProviderBuilder
+            }
+
+        val loggerProviderCustomizer =
+            BiFunction<SdkLoggerProviderBuilder, Application, SdkLoggerProviderBuilder> { loggerProviderBuilder, app ->
+                loggerProviderBuilder.addLogRecordProcessor(
+                    pulseSpanProcessor.PulseLogTypeAttributesAppender(),
+                )
+                if (!config.isSuppressed(InteractionInstrumentation.INSTRUMENTATION_NAME)) {
+                    loggerProviderBuilder.addLogRecordProcessor(
+                        InteractionInstrumentation.createLogProcessor(
+                            AndroidInstrumentationLoader
+                                .getInstrumentation(
+                                    InteractionInstrumentation::class.java,
+                                ).interactionManagerInstance,
+                        ),
+                    )
+                }
+                // location attributes
+                if (shouldAddLocationProcessor) {
+                    val sharedPreferences =
+                        app.getSharedPreferences(
+                            PrefsName.LOCATION_PREF_FILE_NAME,
+                            Context.MODE_PRIVATE,
+                        )
+                    loggerProviderBuilder.addLogRecordProcessor(
+                        LocationAttributesLogRecordAppender.create(sharedPreferences),
+                    )
+                }
+                loggerProviderBuilder
+            }
+        return tracerProviderCustomizer to loggerProviderCustomizer
+    }
+
+    public fun setUserId(id: String?) {
+        if (!isInitialized()) return
+        userSessionEmitter.userId = id
+    }
+
+    public fun setUserProperty(
+        name: String,
+        value: Any?,
+    ) {
+        if (isShutdown) return
+        if (value != null) {
+            userProps[name] = value
+        } else {
+            userProps.remove(name)
+        }
+    }
+
+    public fun setUserProperties(properties: Map<String, Any?>) {
+        properties.forEach {
+            setUserProperty(it.key, it.value)
+        }
+    }
+
+    public fun setUserProperties(builderAction: MutableMap<String, Any?>.() -> Unit) {
+        if (isShutdown) return
+        setUserProperties(mutableMapOf<String, Any?>().apply(builderAction))
+    }
+
+    public fun trackEvent(
+        name: String,
+        timestampInMs: Long,
+        params: Map<String, Any?>,
+    ) {
+        if (!isInitialized()) return
+        if (isCustomEventEnabled) {
+            logger
+                .logRecordBuilder()
+                .apply {
+                    setTimestamp(timestampInMs, TimeUnit.MILLISECONDS)
+                    setObservedTimestamp(System.currentTimeMillis(), TimeUnit.MILLISECONDS)
+                    setBody(name)
+                    setEventName(CUSTOM_EVENT_NAME)
+                    setAttribute(
+                        PulseAttributes.PULSE_TYPE,
+                        PulseAttributes.PulseTypeValues.CUSTOM_EVENT,
+                    )
+                    setAllAttributes(params.toAttributes())
+                    emit()
+                }
+        }
+    }
+
+    public fun trackNonFatal(
+        name: String,
+        timestampInMs: Long,
+        params: Map<String, Any?>,
+    ) {
+        if (!isInitialized()) return
+        logger
+            .logRecordBuilder()
+            .apply {
+                setTimestamp(timestampInMs, TimeUnit.MILLISECONDS)
+                setObservedTimestamp(System.currentTimeMillis(), TimeUnit.MILLISECONDS)
+                setBody(name)
+                setEventName(CUSTOM_NON_FATAL_EVENT_NAME)
+                setAttribute(PulseAttributes.PULSE_TYPE, PulseAttributes.PulseTypeValues.NON_FATAL)
+                setAllAttributes(params.toAttributes())
+                emit()
+            }
+    }
+
+    public fun trackNonFatal(
+        throwable: Throwable,
+        timestampInMs: Long,
+        params: Map<String, Any?>,
+    ) {
+        if (!isInitialized()) return
+        logger
+            .logRecordBuilder()
+            .apply {
+                setTimestamp(timestampInMs, TimeUnit.MILLISECONDS)
+                setObservedTimestamp(System.currentTimeMillis(), TimeUnit.MILLISECONDS)
+                setBody(throwable.message ?: "Non fatal error of type ${throwable.javaClass.name}")
+                val attributesBuilder =
+                    Attributes
+                        .builder()
+                        .put(ExceptionAttributes.EXCEPTION_MESSAGE, throwable.message)
+                        .put(
+                            ExceptionAttributes.EXCEPTION_STACKTRACE,
+                            throwable.stackTraceToString(),
+                        ).put(ExceptionAttributes.EXCEPTION_TYPE, throwable.javaClass.name)
+                attributesBuilder putAttributesFrom params
+                setAllAttributes(attributesBuilder.build())
+                setEventName(CUSTOM_NON_FATAL_EVENT_NAME)
+                setAttribute(PulseAttributes.PULSE_TYPE, PulseAttributes.PulseTypeValues.NON_FATAL)
+                emit()
+            }
+    }
+
+    public fun <T> trackSpan(
+        spanName: String,
+        params: Map<String, Any?>,
+        action: () -> T,
+    ) {
+        if (!isInitialized()) {
+            action()
+            return
+        }
+        val span =
+            tracer
+                .spanBuilder(spanName)
+                .setAllAttributes(params.toAttributes())
+                .startSpan()
+        try {
+            action()
+        } finally {
+            span.end()
+        }
+    }
+
+    public fun startSpan(
+        spanName: String,
+        params: Map<String, Any?>,
+    ): () -> Unit {
+        if (!isInitialized()) return {}
+        val span =
+            tracer
+                .spanBuilder(spanName)
+                .setAllAttributes(params.toAttributes())
+                .startSpan()
+        return {
+            span.end()
+        }
+    }
+
+    public fun reportFullyDrawn() {
+        if (isShutdown) return
+        val timer = AppStartupTimer.getInstance()
+        if (timer != null) {
+            timer.reportFullyDrawn()
+        } else {
+            PulseLogger.logDebug(
+                TAG,
+            ) { "reportFullyDrawn() called but AppStartupTimer instance not available (already reported or SDK not started)" }
+        }
+    }
+
+    public fun shutdown() {
+        if (isShutdown) {
+            PulseLogger.logDebug(TAG) { "Shutdown skipped: already shut down" }
+            return
+        }
+        launch(Dispatchers.Main.immediate) {
+            if (isShutdown) {
+                PulseLogger.logDebug(TAG) { "Shutdown skipped: already shut down in main thread" }
+                return@launch
+            }
+            sessionReplay?.flush()
+            sessionReplay?.uninstall()
+            sessionReplay = null
+            SessionReplayRegistry.clearIntegration()
+            OpenTelemetryRumInitializer.disposeExporters()
+            otelInstance?.shutdown()
+            isShutdown = true
+            otelInstance = null
+            PulseLogger.logInfo(TAG) { "sdk.shutdown graceful=true" }
+        }
+    }
+
+    public fun setDataCollectionState(newState: PulseDataCollectionConsent) {
+        if (!isInitialized()) {
+            val reason = if (isShutdown) "has been shut down" else "is not initialized"
+            PulseLogger.logDebug(TAG) { "setDataCollectionState skipped: SDK $reason" }
+            return
+        }
+        if (oldState == PulseDataCollectionConsent.DENIED) {
+            PulseLogger.logDebug(TAG) { "setDataCollectionState skipped: SDK has been denied" }
+            return
+        }
+        if (newState == oldState) {
+            PulseLogger.logDebug(TAG) {
+                "setDataCollectionState skipped: oldState = ${oldState ?: "null"} is equal to newState = $newState"
+            }
+            return
+        }
+
+        val prev = oldState
+        PulseLogger.logInfo(TAG) {
+            "sdk.consent.changed from=${prev?.name ?: "null"} to=${newState.name}"
+        }
+
+        when (newState) {
+            PulseDataCollectionConsent.PENDING -> {
+                sessionReplay?.stop()
+                oldState = newState
+            }
+
+            PulseDataCollectionConsent.DENIED -> {
+                PulseLogger.logWarn(TAG) { "sdk.consent.data_dropped signal=all reason=user_denied" }
+                shutdown()
+                oldState = newState
+            }
+
+            PulseDataCollectionConsent.ALLOWED -> {
+                OpenTelemetryRumInitializer.setupExporters()
+                sessionReplay?.start(resumeCurrent = true)
+                oldState = newState
+            }
+        }
+    }
+
+    public fun getOtelOrNull(): OpenTelemetryRum? = if (isShutdown) null else otelInstance
+
+    public fun getOtelOrThrow(): OpenTelemetryRum {
+        if (isShutdown) throwShutdownError()
+        return otelInstance ?: throwSdkNotInitError()
+    }
+
+    @Suppress("NOTHING_TO_INLINE")
+    private inline fun throwSdkNotInitError(): Nothing {
+        error("Pulse SDK is not initialized. Please call PulseSDK.initialize")
+    }
+
+    @Suppress("NOTHING_TO_INLINE")
+    private inline fun throwShutdownError(): Nothing {
+        error("Pulse SDK has been shut down. No further API calls are allowed.")
+    }
+
+    private val logger: Logger by lazy {
+        getOtelOrThrow()
+            .getOpenTelemetry()
+            .logsBridge
+            .loggerBuilder("$SDK_INSTRUMENTATION_SCOPE.logger")
+            .build()
+    }
+
+    private val tracer: Tracer by lazy {
+        getOtelOrThrow()
+            .getOpenTelemetry()
+            .tracerProvider
+            .tracerBuilder("$SDK_INSTRUMENTATION_SCOPE.tracer")
+            .build()
+    }
+
+    private val meterProviderLazy =
+        lazy {
+            getOtelOrThrow()
+                .getOpenTelemetry()
+                .meterProvider
+        }
+
+    private val sharedPrefsData by lazy {
+        val application = application ?: throwSdkNotInitError()
+        application.getSharedPreferences(
+            "pulse_sdk_data",
+            Context.MODE_PRIVATE,
+        )
+    }
+
+    private val userSessionEmitter: PulseUserSessionEmitter by lazy {
+        PulseUserSessionEmitter({ logger }, sharedPrefsData)
+    }
+
+    private val installationIdManager: PulseInstallationIdManager by lazy {
+        PulseInstallationIdManager(sharedPrefsData) { logger }
+    }
+
+    private var isInitialised: Boolean = false
+    private var isShutdown: Boolean = false
+
+    private lateinit var pulseSpanProcessor: PulseSdkSignalProcessors
+    private var pulseSamplingProcessors: PulseSamplingSignalProcessors? = null
+    private var isCustomEventEnabled = true
+    private var otelInstance: OpenTelemetryRum? = null
+    private var sessionReplay: com.pulse.android.sdk.replay.SessionReplayIntegration? = null
+
+    private val userProps = ConcurrentHashMap<String, Any>()
+    private var application: Application? = null
+    private var oldState: PulseDataCollectionConsent? = null
+
+    private fun wireInteractionConfigFetcher(
+        urlProvider: () -> String,
+        headers: Map<String, String>,
+    ) {
+        AndroidInstrumentationLoader
+            .getInstrumentation(InteractionInstrumentation::class.java)
+            .setConfigFetcher(InteractionConfigRestFetcher(urlProvider, headers))
+    }
+
+    internal companion object {
+        private const val SDK_INSTRUMENTATION_SCOPE = "com.pulse.android.sdk"
+        private const val CUSTOM_EVENT_NAME = "pulse.custom_event"
+        internal const val CUSTOM_NON_FATAL_EVENT_NAME = "pulse.custom_non_fatal"
+        private const val TAG = "AndroidSDK"
+        private const val API_KEY_HEADER = "X-API-KEY"
+        private const val METERING_SESSION_HEADER_KEY = "X-Pulse-Metering-Session-ID"
+
+        internal object PrefsName {
+            internal const val LOCATION_PREF_FILE_NAME = "pulse_location_data"
+            internal const val PULSE_SDK_CONFIG_KEY = "sdk_config"
+        }
+
+        internal fun extractProjectID(apiKey: String): String {
+            val lastUnderscoreIndex = apiKey.lastIndexOf('_')
+            return if (lastUnderscoreIndex > 0) {
+                apiKey.take(lastUnderscoreIndex)
+            } else {
+                apiKey
+            }
+        }
+
+        internal fun isApiLocalDev(apiKey: String): Boolean = apiKey.matches("default-project_.*".toRegex())
+
+        private fun createApiKeyHeader(apiKey: String): Map<String, String> = mapOf(API_KEY_HEADER to apiKey)
+
+        private fun createMeteringSessionHeader(meteringSessionId: String): Map<String, String> =
+            mapOf(METERING_SESSION_HEADER_KEY to meteringSessionId)
+    }
+}

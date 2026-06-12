@@ -1,0 +1,4 @@
+.eventSequenceItemAutocomplete {
+  margin: var(--mantines-spacing-sm);
+  flex-grow: 1;
+}

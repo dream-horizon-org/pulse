@@ -1,0 +1,19 @@
+{
+  "apps": [
+    {
+      "name": "pulse-ui",
+      "script": "npx",
+      "args": "serve -s build -l 3000",
+      "instances": "MAX",
+      "watch": false,
+      "merge_logs": true,
+      "exec_mode": "cluster",
+      "log_date_format": "DD-MM-YYYY HH:mm Z",
+      "cwd": "./",
+      "env": {
+        "NODE_ENV": "production",
+        "PORT": 3000
+      }
+    }
+  ]
+}

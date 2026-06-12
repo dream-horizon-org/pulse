@@ -1,0 +1,817 @@
+package org.dreamhorizon.pulseserver.service;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import io.reactivex.rxjava3.core.Completable;
+import io.reactivex.rxjava3.core.Maybe;
+import io.reactivex.rxjava3.core.Single;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
+import org.dreamhorizon.pulseserver.dao.project.ProjectDao;
+import org.dreamhorizon.pulseserver.dao.project.models.Project;
+import org.dreamhorizon.pulseserver.model.User;
+import org.dreamhorizon.pulseserver.resources.notification.models.NotificationBatchResponseDto;
+import org.dreamhorizon.pulseserver.service.notification.NotificationService;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
+
+@ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
+class ProjectMemberServiceTest {
+
+  @Mock
+  UserService userService;
+
+  @Mock
+  ProjectDao projectDao;
+
+  @Mock
+  OpenFgaService openFgaService;
+
+  @Mock
+  NotificationService notificationService;
+
+  @Mock
+  TenantMemberService tenantMemberService;
+
+  ProjectMemberService projectMemberService;
+
+  private static final String PROJECT_ID = "proj-1";
+  private static final String TENANT_ID = "tenant-1";
+  private static final String ADMIN_ID = "admin-1";
+  private static final String USER_ID = "user-1";
+
+  @BeforeEach
+  void setUp() {
+    projectMemberService = new ProjectMemberService(
+        userService, projectDao, openFgaService, tenantMemberService, notificationService);
+    // Stub notification service for fire-and-forget calls in success paths
+    when(notificationService.sendNotificationAsync(anyString(), any()))
+        .thenReturn(Single.just(NotificationBatchResponseDto.builder().idempotencyKey("batch-1").build()));
+    // Stub so add-member flow can call getUserByEmail(email).isEmpty() without NPE
+    when(userService.getUserByEmail(any())).thenReturn(Maybe.empty());
+    // Default: user has no existing tenants (happy-path baseline; cross-tenant tests override this)
+    when(openFgaService.getUserDirectTenants(any())).thenReturn(Single.just(List.of()));
+  }
+
+  private Project createProject(String projectId, String tenantId, String name) {
+    return Project.builder()
+        .projectId(projectId)
+        .tenantId(tenantId)
+        .name(name)
+        .isActive(true)
+        .build();
+  }
+
+  private User createUser(String userId, String email, String name) {
+    return User.builder()
+        .userId(userId)
+        .email(email)
+        .name(name)
+        .build();
+  }
+
+  @Nested
+  class AddMemberToProject {
+
+    @Test
+    void shouldRejectInvalidRole() {
+      Exception ex = assertThrows(IllegalArgumentException.class, () ->
+          projectMemberService.addMemberToProject(PROJECT_ID, "user@test.com", "invalid-role", ADMIN_ID)
+              .blockingGet());
+
+      assertThat(ex.getMessage()).contains("Invalid project role");
+      assertThat(ex.getMessage()).contains("admin, editor, viewer");
+      verify(openFgaService, never()).assignProjectRole(any(), any(), any());
+    }
+
+    @Test
+    void shouldFailWhenProjectNotFound() {
+      when(projectDao.getProjectByProjectId(PROJECT_ID)).thenReturn(Maybe.empty());
+      when(userService.getUserById(ADMIN_ID)).thenReturn(Single.just(createUser(ADMIN_ID, "a@t.com", "Admin")));
+      when(openFgaService.isProjectAdmin(ADMIN_ID, PROJECT_ID)).thenReturn(Single.just(true));
+
+      Exception ex = assertThrows(RuntimeException.class, () ->
+          projectMemberService.addMemberToProject(PROJECT_ID, "user@test.com", "viewer", ADMIN_ID)
+              .blockingGet());
+
+      assertThat(ex.getMessage()).contains("Project not found");
+    }
+
+    @Test
+    void shouldFailWhenAddedByIsNotAdmin() {
+      Project project = createProject(PROJECT_ID, TENANT_ID, "My Project");
+      User admin = createUser(ADMIN_ID, "admin@test.com", "Admin");
+
+      when(projectDao.getProjectByProjectId(PROJECT_ID)).thenReturn(Maybe.just(project));
+      when(userService.getUserById(ADMIN_ID)).thenReturn(Single.just(admin));
+      when(openFgaService.isProjectAdmin(ADMIN_ID, PROJECT_ID)).thenReturn(Single.just(false));
+
+      Exception ex = assertThrows(IllegalArgumentException.class, () ->
+          projectMemberService.addMemberToProject(PROJECT_ID, "newuser@test.com", "viewer", ADMIN_ID)
+              .blockingGet());
+
+      assertThat(ex.getMessage()).contains("Only project admins can add members");
+    }
+
+    @Test
+    void shouldAddMemberSuccessfully() {
+      Project project = createProject(PROJECT_ID, TENANT_ID, "My Project");
+      User admin = createUser(ADMIN_ID, "admin@test.com", "Admin User");
+      User newUser = createUser(USER_ID, "newuser@test.com", "New User");
+
+      when(projectDao.getProjectByProjectId(PROJECT_ID)).thenReturn(Maybe.just(project));
+      when(userService.getUserById(ADMIN_ID)).thenReturn(Single.just(admin));
+      when(openFgaService.isProjectAdmin(ADMIN_ID, PROJECT_ID)).thenReturn(Single.just(true));
+      when(userService.getOrCreateUser("newuser@test.com", "newuser@test.com"))
+          .thenReturn(Single.just(newUser));
+      when(openFgaService.getUserProjectRole(USER_ID, PROJECT_ID))
+          .thenReturn(Single.just(Optional.empty()));
+      // User already in this tenant — ensureUserInTenant should short-circuit
+      when(openFgaService.getUserDirectTenants(USER_ID))
+          .thenReturn(Single.just(List.of(TENANT_ID)));
+      when(openFgaService.assignProjectRole(USER_ID, PROJECT_ID, "viewer"))
+          .thenReturn(Completable.complete());
+
+      User result = projectMemberService.addMemberToProject(
+          PROJECT_ID, "newuser@test.com", "viewer", ADMIN_ID).blockingGet();
+
+      assertThat(result).isNotNull();
+      assertThat(result.getUserId()).isEqualTo(USER_ID);
+      assertThat(result.getEmail()).isEqualTo("newuser@test.com");
+      verify(openFgaService).assignProjectRole(USER_ID, PROJECT_ID, "viewer");
+      verify(notificationService).sendNotificationAsync(anyString(), any());
+    }
+
+    @Test
+    void shouldFailWhenAdminUserNotFound() {
+      Project project = createProject(PROJECT_ID, TENANT_ID, "My Project");
+      when(projectDao.getProjectByProjectId(PROJECT_ID)).thenReturn(Maybe.just(project));
+      when(userService.getUserById(ADMIN_ID)).thenReturn(Single.error(new RuntimeException("User not found")));
+      when(openFgaService.isProjectAdmin(ADMIN_ID, PROJECT_ID)).thenReturn(Single.just(true));
+
+      Exception ex = assertThrows(RuntimeException.class, () ->
+          projectMemberService.addMemberToProject(PROJECT_ID, "newuser@test.com", "viewer", ADMIN_ID)
+              .blockingGet());
+
+      assertThat(ex.getMessage()).contains("Admin user not found");
+      verify(openFgaService, never()).assignProjectRole(any(), any(), any());
+    }
+
+    @Test
+    void shouldAddMemberAndAutoAddToTenantWhenNotInTenant() {
+      Project project = createProject(PROJECT_ID, TENANT_ID, "My Project");
+      User admin = createUser(ADMIN_ID, "admin@test.com", "Admin User");
+      User newUser = createUser(USER_ID, "newuser@test.com", "New User");
+
+      when(projectDao.getProjectByProjectId(PROJECT_ID)).thenReturn(Maybe.just(project));
+      when(userService.getUserById(ADMIN_ID)).thenReturn(Single.just(admin));
+      when(openFgaService.isProjectAdmin(ADMIN_ID, PROJECT_ID)).thenReturn(Single.just(true));
+      when(userService.getOrCreateUser("newuser@test.com", "newuser@test.com"))
+          .thenReturn(Single.just(newUser));
+      when(openFgaService.getUserProjectRole(USER_ID, PROJECT_ID))
+          .thenReturn(Single.just(Optional.empty()));
+      // User not in any tenant — ensureUserInTenant should auto-add; default @BeforeEach stub returns []
+      when(tenantMemberService.addUserToTenantInternal(TENANT_ID, "newuser@test.com"))
+          .thenReturn(Single.just(newUser));
+      when(openFgaService.assignProjectRole(USER_ID, PROJECT_ID, "editor"))
+          .thenReturn(Completable.complete());
+
+      User result = projectMemberService.addMemberToProject(
+          PROJECT_ID, "newuser@test.com", "editor", ADMIN_ID).blockingGet();
+
+      assertThat(result).isNotNull();
+      assertThat(result.getUserId()).isEqualTo(USER_ID);
+      verify(tenantMemberService).addUserToTenantInternal(TENANT_ID, "newuser@test.com");
+      verify(openFgaService).assignProjectRole(USER_ID, PROJECT_ID, "editor");
+    }
+  }
+
+  @Nested
+  class RemoveMemberFromProject {
+
+    @Test
+    void shouldFailWhenProjectNotFound() {
+      when(projectDao.getProjectByProjectId(PROJECT_ID)).thenReturn(Maybe.empty());
+      when(userService.getUserById(ADMIN_ID)).thenReturn(Single.just(createUser(ADMIN_ID, "a@t.com", "Admin")));
+      when(userService.getUserById(USER_ID)).thenReturn(Single.just(createUser(USER_ID, "u@t.com", "User")));
+
+      Exception ex = assertThrows(RuntimeException.class, () ->
+          projectMemberService.removeMemberFromProject(PROJECT_ID, USER_ID, ADMIN_ID)
+              .blockingAwait());
+
+      assertThat(ex.getMessage()).contains("Project not found");
+    }
+
+    @Test
+    void shouldFailWhenOnlyProjectAdminsCanRemove() {
+      Project project = createProject(PROJECT_ID, TENANT_ID, "My Project");
+      User admin = createUser(ADMIN_ID, "admin@test.com", "Admin");
+      User userToRemove = createUser(USER_ID, "user@test.com", "User");
+
+      when(projectDao.getProjectByProjectId(PROJECT_ID)).thenReturn(Maybe.just(project));
+      when(userService.getUserById(ADMIN_ID)).thenReturn(Single.just(admin));
+      when(userService.getUserById(USER_ID)).thenReturn(Single.just(userToRemove));
+      when(openFgaService.isProjectAdmin(ADMIN_ID, PROJECT_ID)).thenReturn(Single.just(false));
+
+      Exception ex = assertThrows(IllegalArgumentException.class, () ->
+          projectMemberService.removeMemberFromProject(PROJECT_ID, USER_ID, ADMIN_ID)
+              .blockingAwait());
+
+      assertThat(ex.getMessage()).contains("Only project admins can remove members");
+    }
+
+    @Test
+    void shouldRemoveMemberSuccessfully() {
+      Project project = createProject(PROJECT_ID, TENANT_ID, "My Project");
+      User admin = createUser(ADMIN_ID, "admin@test.com", "Admin");
+      User userToRemove = createUser(USER_ID, "user@test.com", "User");
+
+      when(projectDao.getProjectByProjectId(PROJECT_ID)).thenReturn(Maybe.just(project));
+      when(userService.getUserById(ADMIN_ID)).thenReturn(Single.just(admin));
+      when(userService.getUserById(USER_ID)).thenReturn(Single.just(userToRemove));
+      when(openFgaService.isProjectAdmin(ADMIN_ID, PROJECT_ID)).thenReturn(Single.just(true));
+      when(openFgaService.getUserProjectRole(USER_ID, PROJECT_ID)).thenReturn(Single.just(Optional.of("viewer")));
+      when(openFgaService.removeProjectMember(USER_ID, PROJECT_ID)).thenReturn(Completable.complete());
+
+      projectMemberService.removeMemberFromProject(PROJECT_ID, USER_ID, ADMIN_ID).blockingAwait();
+
+      verify(openFgaService).removeProjectMember(USER_ID, PROJECT_ID);
+      verify(notificationService).sendNotificationAsync(anyString(), any());
+    }
+
+    @Test
+    void shouldFailWhenRemovingLastAdmin() {
+      Project project = createProject(PROJECT_ID, TENANT_ID, "My Project");
+      User admin = createUser(ADMIN_ID, "admin@test.com", "Admin");
+      User userToRemove = createUser(USER_ID, "user@test.com", "User Admin");
+
+      when(projectDao.getProjectByProjectId(PROJECT_ID)).thenReturn(Maybe.just(project));
+      when(userService.getUserById(ADMIN_ID)).thenReturn(Single.just(admin));
+      when(userService.getUserById(USER_ID)).thenReturn(Single.just(userToRemove));
+      when(openFgaService.isProjectAdmin(ADMIN_ID, PROJECT_ID)).thenReturn(Single.just(true));
+      when(openFgaService.getUserProjectRole(USER_ID, PROJECT_ID)).thenReturn(Single.just(Optional.of("admin")));
+      when(openFgaService.countProjectAdmins(PROJECT_ID)).thenReturn(Single.just(1));
+
+      Exception ex = assertThrows(IllegalStateException.class, () ->
+          projectMemberService.removeMemberFromProject(PROJECT_ID, USER_ID, ADMIN_ID)
+              .blockingAwait());
+
+      assertThat(ex.getMessage()).contains("Cannot remove the last admin from project");
+      verify(openFgaService, never()).removeProjectMember(anyString(), anyString());
+    }
+
+    @Test
+    void shouldRemoveAdminSuccessfullyWhenMultipleAdmins() {
+      Project project = createProject(PROJECT_ID, TENANT_ID, "My Project");
+      User admin = createUser(ADMIN_ID, "admin@test.com", "Admin");
+      User adminToRemove = createUser(USER_ID, "admin2@test.com", "Admin 2");
+
+      when(projectDao.getProjectByProjectId(PROJECT_ID)).thenReturn(Maybe.just(project));
+      when(userService.getUserById(ADMIN_ID)).thenReturn(Single.just(admin));
+      when(userService.getUserById(USER_ID)).thenReturn(Single.just(adminToRemove));
+      when(openFgaService.isProjectAdmin(ADMIN_ID, PROJECT_ID)).thenReturn(Single.just(true));
+      when(openFgaService.getUserProjectRole(USER_ID, PROJECT_ID)).thenReturn(Single.just(Optional.of("admin")));
+      when(openFgaService.countProjectAdmins(PROJECT_ID)).thenReturn(Single.just(2));
+      when(openFgaService.removeProjectMember(USER_ID, PROJECT_ID)).thenReturn(Completable.complete());
+
+      projectMemberService.removeMemberFromProject(PROJECT_ID, USER_ID, ADMIN_ID).blockingAwait();
+
+      verify(openFgaService).removeProjectMember(USER_ID, PROJECT_ID);
+    }
+
+    @Test
+    void shouldFailWhenAdminUserNotFound() {
+      Project project = createProject(PROJECT_ID, TENANT_ID, "My Project");
+      when(projectDao.getProjectByProjectId(PROJECT_ID)).thenReturn(Maybe.just(project));
+      when(userService.getUserById(ADMIN_ID)).thenReturn(Single.error(new RuntimeException("Not found")));
+      when(userService.getUserById(USER_ID)).thenReturn(Single.just(createUser(USER_ID, "u@t.com", "User")));
+
+      Exception ex = assertThrows(RuntimeException.class, () ->
+          projectMemberService.removeMemberFromProject(PROJECT_ID, USER_ID, ADMIN_ID)
+              .blockingAwait());
+
+      assertThat(ex.getMessage()).contains("Admin user not found");
+    }
+
+    @Test
+    void shouldFailWhenUserToRemoveNotFound() {
+      Project project = createProject(PROJECT_ID, TENANT_ID, "My Project");
+      when(projectDao.getProjectByProjectId(PROJECT_ID)).thenReturn(Maybe.just(project));
+      when(userService.getUserById(ADMIN_ID)).thenReturn(Single.just(createUser(ADMIN_ID, "a@t.com", "Admin")));
+      when(userService.getUserById(USER_ID)).thenReturn(Single.error(new RuntimeException("Not found")));
+
+      Exception ex = assertThrows(RuntimeException.class, () ->
+          projectMemberService.removeMemberFromProject(PROJECT_ID, USER_ID, ADMIN_ID)
+              .blockingAwait());
+
+      assertThat(ex.getMessage()).contains("User to remove not found");
+    }
+  }
+
+  @Nested
+  class LeaveProject {
+
+    @Test
+    void shouldFailWhenLeavingAsLastAdmin() {
+      when(openFgaService.getUserProjectRole(USER_ID, PROJECT_ID)).thenReturn(Single.just(Optional.of("admin")));
+      when(openFgaService.countProjectAdmins(PROJECT_ID)).thenReturn(Single.just(1));
+
+      Exception ex = assertThrows(IllegalStateException.class, () ->
+          projectMemberService.leaveProject(PROJECT_ID, USER_ID).blockingAwait());
+
+      assertThat(ex.getMessage()).contains("Cannot leave project as the last admin");
+    }
+
+    @Test
+    void shouldLeaveProjectSuccessfullyWhenNotAdmin() {
+      when(openFgaService.getUserProjectRole(USER_ID, PROJECT_ID)).thenReturn(Single.just(Optional.of("viewer")));
+      when(openFgaService.removeProjectMember(USER_ID, PROJECT_ID)).thenReturn(Completable.complete());
+
+      projectMemberService.leaveProject(PROJECT_ID, USER_ID).blockingAwait();
+
+      verify(openFgaService).removeProjectMember(USER_ID, PROJECT_ID);
+    }
+
+    @Test
+    void shouldLeaveProjectSuccessfullyWhenAdminWithOtherAdmins() {
+      when(openFgaService.getUserProjectRole(USER_ID, PROJECT_ID)).thenReturn(Single.just(Optional.of("admin")));
+      when(openFgaService.countProjectAdmins(PROJECT_ID)).thenReturn(Single.just(2));
+      when(openFgaService.removeProjectMember(USER_ID, PROJECT_ID)).thenReturn(Completable.complete());
+
+      projectMemberService.leaveProject(PROJECT_ID, USER_ID).blockingAwait();
+
+      verify(openFgaService).removeProjectMember(USER_ID, PROJECT_ID);
+    }
+  }
+
+  @Nested
+  class UpdateMemberRole {
+
+    @Test
+    void shouldRejectSelfRoleChange() {
+      Exception ex = assertThrows(IllegalArgumentException.class, () ->
+          projectMemberService.updateMemberRole(PROJECT_ID, USER_ID, "viewer", USER_ID)
+              .blockingAwait());
+
+      assertThat(ex.getMessage()).contains("You cannot change your own role");
+    }
+
+    @Test
+    void shouldRejectInvalidRole() {
+      Exception ex = assertThrows(IllegalArgumentException.class, () ->
+          projectMemberService.updateMemberRole(PROJECT_ID, USER_ID, "owner", ADMIN_ID)
+              .blockingAwait());
+
+      assertThat(ex.getMessage()).contains("Invalid project role");
+    }
+
+    @Test
+    void shouldFailWhenOnlyProjectAdminsCanUpdate() {
+      Project project = createProject(PROJECT_ID, TENANT_ID, "My Project");
+      User admin = createUser(ADMIN_ID, "admin@test.com", "Admin");
+      User userToUpdate = createUser(USER_ID, "user@test.com", "User");
+
+      when(projectDao.getProjectByProjectId(PROJECT_ID)).thenReturn(Maybe.just(project));
+      when(userService.getUserById(ADMIN_ID)).thenReturn(Single.just(admin));
+      when(userService.getUserById(USER_ID)).thenReturn(Single.just(userToUpdate));
+      when(openFgaService.isProjectAdmin(ADMIN_ID, PROJECT_ID)).thenReturn(Single.just(false));
+
+      Exception ex = assertThrows(IllegalArgumentException.class, () ->
+          projectMemberService.updateMemberRole(PROJECT_ID, USER_ID, "editor", ADMIN_ID)
+              .blockingAwait());
+
+      assertThat(ex.getMessage()).contains("Only project admins can update member roles");
+    }
+
+    @Test
+    void shouldFailWhenProjectNotFound() {
+      when(projectDao.getProjectByProjectId(PROJECT_ID)).thenReturn(Maybe.empty());
+      when(userService.getUserById(ADMIN_ID)).thenReturn(Single.just(createUser(ADMIN_ID, "a@t.com", "Admin")));
+      when(userService.getUserById(USER_ID)).thenReturn(Single.just(createUser(USER_ID, "u@t.com", "User")));
+
+      Exception ex = assertThrows(RuntimeException.class, () ->
+          projectMemberService.updateMemberRole(PROJECT_ID, USER_ID, "editor", ADMIN_ID)
+              .blockingAwait());
+
+      assertThat(ex.getMessage()).contains("Project not found");
+    }
+
+    @Test
+    void shouldFailWhenAdminUserNotFound() {
+      Project project = createProject(PROJECT_ID, TENANT_ID, "My Project");
+      when(projectDao.getProjectByProjectId(PROJECT_ID)).thenReturn(Maybe.just(project));
+      when(userService.getUserById(ADMIN_ID)).thenReturn(Single.error(new RuntimeException("Not found")));
+      when(userService.getUserById(USER_ID)).thenReturn(Single.just(createUser(USER_ID, "u@t.com", "User")));
+
+      Exception ex = assertThrows(RuntimeException.class, () ->
+          projectMemberService.updateMemberRole(PROJECT_ID, USER_ID, "editor", ADMIN_ID)
+              .blockingAwait());
+
+      assertThat(ex.getMessage()).contains("Admin user not found");
+    }
+
+    @Test
+    void shouldFailWhenUserToUpdateNotFound() {
+      Project project = createProject(PROJECT_ID, TENANT_ID, "My Project");
+      when(projectDao.getProjectByProjectId(PROJECT_ID)).thenReturn(Maybe.just(project));
+      when(userService.getUserById(ADMIN_ID)).thenReturn(Single.just(createUser(ADMIN_ID, "a@t.com", "Admin")));
+      when(userService.getUserById(USER_ID)).thenReturn(Single.error(new RuntimeException("Not found")));
+
+      Exception ex = assertThrows(RuntimeException.class, () ->
+          projectMemberService.updateMemberRole(PROJECT_ID, USER_ID, "editor", ADMIN_ID)
+              .blockingAwait());
+
+      assertThat(ex.getMessage()).contains("User to update not found");
+    }
+
+    @Test
+    void shouldUpdateMemberRoleSuccessfully() {
+      Project project = createProject(PROJECT_ID, TENANT_ID, "My Project");
+      User admin = createUser(ADMIN_ID, "admin@test.com", "Admin");
+      User userToUpdate = createUser(USER_ID, "user@test.com", "User");
+
+      when(projectDao.getProjectByProjectId(PROJECT_ID)).thenReturn(Maybe.just(project));
+      when(userService.getUserById(ADMIN_ID)).thenReturn(Single.just(admin));
+      when(userService.getUserById(USER_ID)).thenReturn(Single.just(userToUpdate));
+      when(openFgaService.isProjectAdmin(ADMIN_ID, PROJECT_ID)).thenReturn(Single.just(true));
+      when(openFgaService.getUserProjectRole(USER_ID, PROJECT_ID)).thenReturn(Single.just(Optional.of("viewer")));
+      when(openFgaService.updateProjectRole(USER_ID, PROJECT_ID, "editor"))
+          .thenReturn(Completable.complete());
+
+      projectMemberService.updateMemberRole(PROJECT_ID, USER_ID, "editor", ADMIN_ID).blockingAwait();
+
+      verify(openFgaService).updateProjectRole(USER_ID, PROJECT_ID, "editor");
+      verify(notificationService).sendNotificationAsync(anyString(), any());
+    }
+
+    @Test
+    void shouldFailWhenDowngradingLastAdmin() {
+      Project project = createProject(PROJECT_ID, TENANT_ID, "My Project");
+      User admin = createUser(ADMIN_ID, "admin@test.com", "Admin");
+      User userToUpdate = createUser(USER_ID, "user@test.com", "User");
+
+      when(projectDao.getProjectByProjectId(PROJECT_ID)).thenReturn(Maybe.just(project));
+      when(userService.getUserById(ADMIN_ID)).thenReturn(Single.just(admin));
+      when(userService.getUserById(USER_ID)).thenReturn(Single.just(userToUpdate));
+      when(openFgaService.isProjectAdmin(ADMIN_ID, PROJECT_ID)).thenReturn(Single.just(true));
+      when(openFgaService.getUserProjectRole(USER_ID, PROJECT_ID)).thenReturn(Single.just(Optional.of("admin")));
+      when(openFgaService.countProjectAdmins(PROJECT_ID)).thenReturn(Single.just(1));
+
+      Exception ex = assertThrows(IllegalStateException.class, () ->
+          projectMemberService.updateMemberRole(PROJECT_ID, USER_ID, "editor", ADMIN_ID)
+              .blockingAwait());
+
+      assertThat(ex.getMessage()).contains("Cannot downgrade the last admin");
+      verify(openFgaService, never()).updateProjectRole(anyString(), anyString(), anyString());
+    }
+
+    @Test
+    void shouldUpdateAdminToEditorWhenMultipleAdmins() {
+      Project project = createProject(PROJECT_ID, TENANT_ID, "My Project");
+      User admin = createUser(ADMIN_ID, "admin@test.com", "Admin");
+      User userToUpdate = createUser(USER_ID, "user@test.com", "User Admin");
+
+      when(projectDao.getProjectByProjectId(PROJECT_ID)).thenReturn(Maybe.just(project));
+      when(userService.getUserById(ADMIN_ID)).thenReturn(Single.just(admin));
+      when(userService.getUserById(USER_ID)).thenReturn(Single.just(userToUpdate));
+      when(openFgaService.isProjectAdmin(ADMIN_ID, PROJECT_ID)).thenReturn(Single.just(true));
+      when(openFgaService.getUserProjectRole(USER_ID, PROJECT_ID)).thenReturn(Single.just(Optional.of("admin")));
+      when(openFgaService.countProjectAdmins(PROJECT_ID)).thenReturn(Single.just(2));
+      when(openFgaService.updateProjectRole(USER_ID, PROJECT_ID, "editor"))
+          .thenReturn(Completable.complete());
+
+      projectMemberService.updateMemberRole(PROJECT_ID, USER_ID, "editor", ADMIN_ID).blockingAwait();
+
+      verify(openFgaService).updateProjectRole(USER_ID, PROJECT_ID, "editor");
+    }
+  }
+
+  @Nested
+  class ListProjectMembers {
+
+    @Test
+    void shouldReturnEmptyListWhenNoMembers() {
+      when(openFgaService.getProjectMembers(PROJECT_ID)).thenReturn(Single.just(new HashSet<>()));
+
+      List<User> result = projectMemberService.listProjectMembers(PROJECT_ID, ADMIN_ID).blockingGet();
+
+      assertThat(result).isEmpty();
+    }
+
+    @Test
+    void shouldReturnMembersWithDetails() {
+      when(openFgaService.getProjectMembers(PROJECT_ID))
+          .thenReturn(Single.just(Set.of(USER_ID)));
+      User user = createUser(USER_ID, "user@test.com", "User");
+      when(userService.getUsersByIds(any())).thenReturn(Single.just(List.of(user)));
+
+      List<User> result = projectMemberService.listProjectMembers(PROJECT_ID, ADMIN_ID).blockingGet();
+
+      assertThat(result).hasSize(1);
+      assertThat(result.get(0).getUserId()).isEqualTo(USER_ID);
+      assertThat(result.get(0).getEmail()).isEqualTo("user@test.com");
+    }
+
+    @Test
+    void shouldPropagateErrorWhenGetProjectMembersFails() {
+      when(openFgaService.getProjectMembers(PROJECT_ID))
+          .thenReturn(Single.error(new RuntimeException("OpenFGA connection failed")));
+
+      Exception ex = assertThrows(RuntimeException.class, () ->
+          projectMemberService.listProjectMembers(PROJECT_ID, ADMIN_ID).blockingGet());
+
+      assertThat(ex.getMessage()).contains("OpenFGA connection failed");
+    }
+
+    @Test
+    void shouldPropagateErrorWhenGetUsersByIdsFails() {
+      when(openFgaService.getProjectMembers(PROJECT_ID))
+          .thenReturn(Single.just(Set.of(USER_ID)));
+      when(userService.getUsersByIds(any()))
+          .thenReturn(Single.error(new RuntimeException("User service unavailable")));
+
+      Exception ex = assertThrows(RuntimeException.class, () ->
+          projectMemberService.listProjectMembers(PROJECT_ID, ADMIN_ID).blockingGet());
+
+      assertThat(ex.getMessage()).contains("User service unavailable");
+    }
+  }
+
+  @Nested
+  class AddMembersToProject {
+
+    @Test
+    void shouldAddMultipleMembersSuccessfully() {
+      Project project = createProject(PROJECT_ID, TENANT_ID, "My Project");
+      User admin = createUser(ADMIN_ID, "admin@test.com", "Admin User");
+      User user1 = createUser("user-1", "user1@test.com", "User 1");
+      User user2 = createUser("user-2", "user2@test.com", "User 2");
+
+      List<String> emails = List.of("user1@test.com", "user2@test.com");
+
+      when(projectDao.getProjectByProjectId(PROJECT_ID)).thenReturn(Maybe.just(project));
+      when(userService.getUserById(ADMIN_ID)).thenReturn(Single.just(admin));
+      when(openFgaService.isProjectAdmin(ADMIN_ID, PROJECT_ID)).thenReturn(Single.just(true));
+      when(userService.getOrCreateUser("user1@test.com", "user1@test.com")).thenReturn(Single.just(user1));
+      when(userService.getOrCreateUser("user2@test.com", "user2@test.com")).thenReturn(Single.just(user2));
+      when(openFgaService.getUserProjectRole(any(), eq(PROJECT_ID)))
+          .thenReturn(Single.just(Optional.empty()));
+      // Users already in this tenant — ensureUserInTenant should short-circuit
+      when(openFgaService.getUserDirectTenants(any())).thenReturn(Single.just(List.of(TENANT_ID)));
+      when(openFgaService.assignProjectRole(any(), eq(PROJECT_ID), eq("viewer")))
+          .thenReturn(Completable.complete());
+
+      var result = projectMemberService.addMembersToProject(PROJECT_ID, emails, "viewer", ADMIN_ID).blockingGet();
+
+      assertThat(result).isNotNull();
+      assertThat(result.getSuccessCount()).isEqualTo(2);
+      assertThat(result.getFailureCount()).isEqualTo(0);
+      assertThat(result.getSuccessEmails()).containsExactlyInAnyOrder("user1@test.com", "user2@test.com");
+    }
+
+    @Test
+    void shouldTrimAndValidateEmails() {
+      Project project = createProject(PROJECT_ID, TENANT_ID, "My Project");
+      User admin = createUser(ADMIN_ID, "admin@test.com", "Admin User");
+      User user1 = createUser("user-1", "user1@test.com", "User 1");
+
+      List<String> emails = List.of("  user1@test.com  ", " user1@test.com");
+
+      when(projectDao.getProjectByProjectId(PROJECT_ID)).thenReturn(Maybe.just(project));
+      when(userService.getUserById(ADMIN_ID)).thenReturn(Single.just(admin));
+      when(openFgaService.isProjectAdmin(ADMIN_ID, PROJECT_ID)).thenReturn(Single.just(true));
+      when(userService.getOrCreateUser("user1@test.com", "user1@test.com")).thenReturn(Single.just(user1));
+      when(openFgaService.getUserProjectRole(any(), eq(PROJECT_ID)))
+          .thenReturn(Single.just(Optional.empty()));
+      // User already in this tenant
+      when(openFgaService.getUserDirectTenants(any())).thenReturn(Single.just(List.of(TENANT_ID)));
+      when(openFgaService.assignProjectRole(any(), eq(PROJECT_ID), eq("viewer")))
+          .thenReturn(Completable.complete());
+
+      var result = projectMemberService.addMembersToProject(PROJECT_ID, emails, "viewer", ADMIN_ID).blockingGet();
+
+      assertThat(result.getSuccessCount()).isEqualTo(1);
+      assertThat(result.getSuccessEmails()).containsExactly("user1@test.com");
+    }
+
+    @Test
+    void shouldHandlePartialFailures() {
+      Project project = createProject(PROJECT_ID, TENANT_ID, "My Project");
+      User admin = createUser(ADMIN_ID, "admin@test.com", "Admin User");
+      User user1 = createUser("user-1", "user1@test.com", "User 1");
+
+      List<String> emails = List.of("user1@test.com", "user2@test.com");
+
+      when(projectDao.getProjectByProjectId(PROJECT_ID)).thenReturn(Maybe.just(project));
+      when(userService.getUserById(ADMIN_ID)).thenReturn(Single.just(admin));
+      when(openFgaService.isProjectAdmin(ADMIN_ID, PROJECT_ID)).thenReturn(Single.just(true));
+      when(userService.getOrCreateUser("user1@test.com", "user1@test.com")).thenReturn(Single.just(user1));
+      when(userService.getOrCreateUser("user2@test.com", "user2@test.com"))
+          .thenReturn(Single.error(new RuntimeException("User creation failed")));
+      when(openFgaService.getUserProjectRole(any(), eq(PROJECT_ID)))
+          .thenReturn(Single.just(Optional.empty()));
+      // user-1 already in this tenant; default @BeforeEach stub covers user-2 (fails before ensureUserInTenant)
+      when(openFgaService.getUserDirectTenants("user-1")).thenReturn(Single.just(List.of(TENANT_ID)));
+      when(openFgaService.assignProjectRole("user-1", PROJECT_ID, "editor"))
+          .thenReturn(Completable.complete());
+
+      var result = projectMemberService.addMembersToProject(PROJECT_ID, emails, "editor", ADMIN_ID).blockingGet();
+
+      assertThat(result.getSuccessCount()).isEqualTo(1);
+      assertThat(result.getFailureCount()).isEqualTo(1);
+      assertThat(result.getSuccessEmails()).containsExactly("user1@test.com");
+      assertThat(result.getFailedEmails()).hasSize(1);
+      assertThat(result.getFailedEmails().get(0)).contains("user2@test.com");
+    }
+
+    @Test
+    void shouldAutoAddToTenantForNewUsers() {
+      Project project = createProject(PROJECT_ID, TENANT_ID, "My Project");
+      User admin = createUser(ADMIN_ID, "admin@test.com", "Admin User");
+      User user1 = createUser("user-1", "user1@test.com", "User 1");
+
+      List<String> emails = List.of("user1@test.com");
+
+      when(projectDao.getProjectByProjectId(PROJECT_ID)).thenReturn(Maybe.just(project));
+      when(userService.getUserById(ADMIN_ID)).thenReturn(Single.just(admin));
+      when(openFgaService.isProjectAdmin(ADMIN_ID, PROJECT_ID)).thenReturn(Single.just(true));
+      when(userService.getOrCreateUser("user1@test.com", "user1@test.com")).thenReturn(Single.just(user1));
+      when(openFgaService.getUserProjectRole(any(), eq(PROJECT_ID)))
+          .thenReturn(Single.just(Optional.empty()));
+      // User not in any tenant — default @BeforeEach stub returns [] so auto-add kicks in
+      when(tenantMemberService.addUserToTenantInternal(TENANT_ID, "user1@test.com"))
+          .thenReturn(Single.just(user1));
+      when(openFgaService.assignProjectRole("user-1", PROJECT_ID, "viewer"))
+          .thenReturn(Completable.complete());
+
+      var result = projectMemberService.addMembersToProject(PROJECT_ID, emails, "viewer", ADMIN_ID).blockingGet();
+
+      assertThat(result.getSuccessCount()).isEqualTo(1);
+      verify(tenantMemberService).addUserToTenantInternal(TENANT_ID, "user1@test.com");
+    }
+
+    @Test
+    void shouldReturnBulkInviteResults() {
+      Project project = createProject(PROJECT_ID, TENANT_ID, "My Project");
+      User admin = createUser(ADMIN_ID, "admin@test.com", "Admin User");
+      User user1 = createUser("user-1", "user1@test.com", "User 1");
+
+      List<String> emails = List.of("user1@test.com", "invalid@test.com");
+
+      when(projectDao.getProjectByProjectId(PROJECT_ID)).thenReturn(Maybe.just(project));
+      when(userService.getUserById(ADMIN_ID)).thenReturn(Single.just(admin));
+      when(openFgaService.isProjectAdmin(ADMIN_ID, PROJECT_ID)).thenReturn(Single.just(true));
+      when(userService.getOrCreateUser("user1@test.com", "user1@test.com")).thenReturn(Single.just(user1));
+      when(userService.getOrCreateUser("invalid@test.com", "invalid@test.com"))
+          .thenReturn(Single.error(new IllegalArgumentException("Invalid email")));
+      when(openFgaService.getUserProjectRole(any(), eq(PROJECT_ID)))
+          .thenReturn(Single.just(Optional.empty()));
+      // user-1 already in this tenant
+      when(openFgaService.getUserDirectTenants("user-1")).thenReturn(Single.just(List.of(TENANT_ID)));
+      when(openFgaService.assignProjectRole("user-1", PROJECT_ID, "viewer"))
+          .thenReturn(Completable.complete());
+
+      var result = projectMemberService.addMembersToProject(PROJECT_ID, emails, "viewer", ADMIN_ID).blockingGet();
+
+      assertThat(result).isNotNull();
+      assertThat(result.getSuccessCount()).isEqualTo(1);
+      assertThat(result.getFailureCount()).isEqualTo(1);
+      assertThat(result.getSkippedCount()).isEqualTo(0);
+      assertThat(result.getSuccessEmails()).containsExactly("user1@test.com");
+      assertThat(result.getFailedEmails()).hasSize(1);
+      assertThat(result.getFailedEmails().get(0)).contains("invalid@test.com").contains("Invalid email");
+    }
+
+    @Test
+    void shouldRecordCrossTenantBulkInviteFailureInFailedEmails() {
+      Project project = createProject(PROJECT_ID, TENANT_ID, "My Project");
+      User admin = createUser(ADMIN_ID, "admin@test.com", "Admin User");
+      User user1 = createUser("user-1", "ok@test.com", "User 1");
+      User crossTenantUser = createUser("user-2", "cross@test.com", "Cross User");
+
+      List<String> emails = List.of("ok@test.com", "cross@test.com");
+
+      when(projectDao.getProjectByProjectId(PROJECT_ID)).thenReturn(Maybe.just(project));
+      when(userService.getUserById(ADMIN_ID)).thenReturn(Single.just(admin));
+      when(openFgaService.isProjectAdmin(ADMIN_ID, PROJECT_ID)).thenReturn(Single.just(true));
+      when(userService.getOrCreateUser("ok@test.com", "ok@test.com")).thenReturn(Single.just(user1));
+      when(userService.getOrCreateUser("cross@test.com", "cross@test.com")).thenReturn(Single.just(crossTenantUser));
+      when(openFgaService.getUserProjectRole(any(), eq(PROJECT_ID)))
+          .thenReturn(Single.just(Optional.empty()));
+      // user-1 already in this tenant — short-circuit
+      when(openFgaService.getUserDirectTenants("user-1")).thenReturn(Single.just(List.of(TENANT_ID)));
+      // user-2 belongs to a different tenant — cross-tenant violation
+      when(openFgaService.getUserDirectTenants("user-2")).thenReturn(Single.just(List.of("other-tenant-id")));
+      when(openFgaService.assignProjectRole("user-1", PROJECT_ID, "viewer"))
+          .thenReturn(Completable.complete());
+
+      var result = projectMemberService.addMembersToProject(PROJECT_ID, emails, "viewer", ADMIN_ID).blockingGet();
+
+      assertThat(result.getSuccessCount()).isEqualTo(1);
+      assertThat(result.getFailureCount()).isEqualTo(1);
+      assertThat(result.getFailedEmails()).hasSize(1);
+      assertThat(result.getFailedEmails().get(0)).contains("cross@test.com").contains("different organization");
+    }
+  }
+
+  @Nested
+  class CrossTenantValidation {
+
+    @Test
+    void addMemberToProject_blockedWhenUserAlreadyInDifferentTenant() {
+      Project project = createProject(PROJECT_ID, TENANT_ID, "My Project");
+      User admin = createUser(ADMIN_ID, "admin@test.com", "Admin User");
+      User newUser = createUser(USER_ID, "newuser@test.com", "New User");
+
+      when(projectDao.getProjectByProjectId(PROJECT_ID)).thenReturn(Maybe.just(project));
+      when(userService.getUserById(ADMIN_ID)).thenReturn(Single.just(admin));
+      when(openFgaService.isProjectAdmin(ADMIN_ID, PROJECT_ID)).thenReturn(Single.just(true));
+      when(userService.getOrCreateUser("newuser@test.com", "newuser@test.com"))
+          .thenReturn(Single.just(newUser));
+      when(openFgaService.getUserProjectRole(USER_ID, PROJECT_ID))
+          .thenReturn(Single.just(Optional.empty()));
+      // User already belongs to a different tenant
+      when(openFgaService.getUserDirectTenants(USER_ID))
+          .thenReturn(Single.just(List.of("other-tenant-id")));
+
+      Exception ex = assertThrows(IllegalStateException.class, () ->
+          projectMemberService.addMemberToProject(PROJECT_ID, "newuser@test.com", "viewer", ADMIN_ID)
+              .blockingGet());
+
+      assertThat(ex.getMessage()).contains("different organization");
+      verify(openFgaService, never()).assignProjectRole(any(), any(), any());
+      verify(tenantMemberService, never()).addUserToTenantInternal(any(), any());
+    }
+
+    @Test
+    void addMemberToProject_completesWhenUserAlreadyInTargetTenant() {
+      Project project = createProject(PROJECT_ID, TENANT_ID, "My Project");
+      User admin = createUser(ADMIN_ID, "admin@test.com", "Admin User");
+      User newUser = createUser(USER_ID, "newuser@test.com", "New User");
+
+      when(projectDao.getProjectByProjectId(PROJECT_ID)).thenReturn(Maybe.just(project));
+      when(userService.getUserById(ADMIN_ID)).thenReturn(Single.just(admin));
+      when(openFgaService.isProjectAdmin(ADMIN_ID, PROJECT_ID)).thenReturn(Single.just(true));
+      when(userService.getOrCreateUser("newuser@test.com", "newuser@test.com"))
+          .thenReturn(Single.just(newUser));
+      when(openFgaService.getUserProjectRole(USER_ID, PROJECT_ID))
+          .thenReturn(Single.just(Optional.empty()));
+      // User already in this tenant — short-circuit without calling addUserToTenantInternal
+      when(openFgaService.getUserDirectTenants(USER_ID))
+          .thenReturn(Single.just(List.of(TENANT_ID)));
+      when(openFgaService.assignProjectRole(USER_ID, PROJECT_ID, "viewer"))
+          .thenReturn(Completable.complete());
+
+      User result = projectMemberService.addMemberToProject(
+          PROJECT_ID, "newuser@test.com", "viewer", ADMIN_ID).blockingGet();
+
+      assertThat(result).isNotNull();
+      assertThat(result.getUserId()).isEqualTo(USER_ID);
+      verify(tenantMemberService, never()).addUserToTenantInternal(any(), any());
+      verify(openFgaService).assignProjectRole(USER_ID, PROJECT_ID, "viewer");
+    }
+
+    @Test
+    void addMemberToProject_autoAddsToTenantWhenUserHasNoTenant() {
+      Project project = createProject(PROJECT_ID, TENANT_ID, "My Project");
+      User admin = createUser(ADMIN_ID, "admin@test.com", "Admin User");
+      User newUser = createUser(USER_ID, "newuser@test.com", "New User");
+
+      when(projectDao.getProjectByProjectId(PROJECT_ID)).thenReturn(Maybe.just(project));
+      when(userService.getUserById(ADMIN_ID)).thenReturn(Single.just(admin));
+      when(openFgaService.isProjectAdmin(ADMIN_ID, PROJECT_ID)).thenReturn(Single.just(true));
+      when(userService.getOrCreateUser("newuser@test.com", "newuser@test.com"))
+          .thenReturn(Single.just(newUser));
+      when(openFgaService.getUserProjectRole(USER_ID, PROJECT_ID))
+          .thenReturn(Single.just(Optional.empty()));
+      // User has no tenant — default @BeforeEach stub returns [] so auto-add kicks in
+      when(tenantMemberService.addUserToTenantInternal(TENANT_ID, "newuser@test.com"))
+          .thenReturn(Single.just(newUser));
+      when(openFgaService.assignProjectRole(USER_ID, PROJECT_ID, "editor"))
+          .thenReturn(Completable.complete());
+
+      User result = projectMemberService.addMemberToProject(
+          PROJECT_ID, "newuser@test.com", "editor", ADMIN_ID).blockingGet();
+
+      assertThat(result).isNotNull();
+      verify(tenantMemberService).addUserToTenantInternal(TENANT_ID, "newuser@test.com");
+      verify(openFgaService).assignProjectRole(USER_ID, PROJECT_ID, "editor");
+    }
+  }
+}

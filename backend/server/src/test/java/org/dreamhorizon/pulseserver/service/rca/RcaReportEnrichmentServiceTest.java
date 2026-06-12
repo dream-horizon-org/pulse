@@ -1,0 +1,735 @@
+package org.dreamhorizon.pulseserver.service.rca;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import io.reactivex.rxjava3.core.Single;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import org.dreamhorizon.pulseserver.config.RootCauseConfig;
+import org.dreamhorizon.pulseserver.dao.rcajob.RcaType;
+import org.dreamhorizon.pulseserver.service.errorattribution.ErrorAttributionService;
+import org.dreamhorizon.pulseserver.service.errorattribution.ErrorAttributionWithDrillDown;
+import org.dreamhorizon.pulseserver.service.rootcause.RootCauseService;
+import org.dreamhorizon.pulseserver.service.rootcause.ScreenRcaService;
+import org.dreamhorizon.pulseserver.service.rootcause.SessionEvidenceService;
+import org.dreamhorizon.pulseserver.service.productAnalysis.funnel.FunnelRcaService;
+import org.dreamhorizon.pulseserver.service.sessionrca.SessionRcaService;
+import org.dreamhorizon.pulseserver.service.rootcause.models.EvidenceSession;
+import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseAnalysisMode;
+import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseResult;
+import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseSegment;
+import org.dreamhorizon.pulseserver.service.rootcause.models.SessionEvidenceResult;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
+
+@ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
+class RcaReportEnrichmentServiceTest {
+
+  private static final LocalDate DATE = LocalDate.of(2025, 6, 1);
+
+  @Mock
+  private RootCauseService rootCauseService;
+
+  @Mock
+  private ScreenRcaService screenRcaService;
+
+  @Mock
+  private SessionEvidenceService sessionEvidenceService;
+
+  @Mock
+  private ErrorAttributionService errorAttributionService;
+
+  @Mock
+  private SessionRcaService sessionRcaService;
+
+  @Mock
+  private FunnelRcaService funnelRcaService;
+
+  private RcaReportEnrichmentService service;
+
+  private ObjectMapper objectMapper;
+
+  @BeforeEach
+  void setUp() {
+    objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
+    service =
+        new RcaReportEnrichmentService(
+            objectMapper,
+            rootCauseService,
+            screenRcaService,
+            sessionEvidenceService,
+            errorAttributionService,
+            RootCauseConfig.withDefaults(null),
+            sessionRcaService,
+            funnelRcaService);
+    when(errorAttributionService.getErrorAttributionWithOptionalDrillDown(
+            any(), any(), any(), any(), any()))
+        .thenReturn(Single.just(new ErrorAttributionWithDrillDown(List.of(), 2.0)));
+  }
+
+  @Test
+  void shouldIncludeLowVolumeSegmentPreviouslyDroppedForAiPayload()
+      throws ExecutionException, InterruptedException, TimeoutException {
+    // Below 5% of baseline 1000 (= 50) — old sanitize filter removed; LLM must still receive this row
+    RootCauseSegment smallVol =
+        RootCauseSegment.builder()
+            .label("OsVersion: 16.0")
+            .dimensions(Map.of("os_version", "16.0"))
+            .metrics(Map.of("error_rate", 0.5, "volume", 10L, "problematic_count", 8L))
+            .build();
+    RootCauseResult rootCause =
+        RootCauseResult.builder()
+            .baseline(Map.of("volume", 1000L))
+            .segments(List.of(smallVol))
+            .build();
+    when(rootCauseService.getRootCause(eq("p1"), eq("ix"), eq(DATE), any(), eq(false)))
+        .thenReturn(Single.just(rootCause));
+    when(sessionEvidenceService.getSessionEvidence(
+            eq("p1"),
+            eq("ix"),
+            any(),
+            any(),
+            eq(smallVol.getDimensions()),
+            any(),
+            eq(2)))
+        .thenReturn(
+            Single.just(
+                SessionEvidenceResult.builder()
+                    .sessions(List.of(EvidenceSession.builder().sessionId("sess-small").build()))
+                    .build()));
+
+    ObjectNode body = objectMapper.createObjectNode();
+    body.put("entityKey", "ix");
+    body.put("date", "2025-06-01");
+    RcaParsedReportBody parsed =
+        new RcaParsedReportBody(body.toString(), body, "p1", RcaType.INTERACTION, "ix", DATE, false);
+
+    RcaEnrichmentOutcome outcome =
+        service.enrichAsync(parsed, false).toCompletableFuture().get(5, TimeUnit.SECONDS);
+
+    assertThat(outcome.enrichmentOk()).isTrue();
+    assertThat(outcome.body()).contains("OsVersion: 16.0").contains("sess-small").contains("\"serverRank\":1");
+  }
+
+  @Test
+  void shouldEnrichSuccessfullyForOneSegment()
+      throws ExecutionException, InterruptedException, TimeoutException {
+    // Segment volume and problematic_count used for session evidence; serverRank follows API order
+    RootCauseSegment segment =
+        RootCauseSegment.builder()
+            .label("s1")
+            .dimensions(Map.of("platform", "Android"))
+            .metrics(Map.of("error_rate", 0.1, "volume", 100L, "problematic_count", 10L))
+            .build();
+    RootCauseResult rootCause =
+        RootCauseResult.builder()
+            .baseline(Map.of("volume", 1000L))
+            .segments(List.of(segment))
+            .build();
+    when(rootCauseService.getRootCause(eq("p1"), eq("ix"), eq(DATE), any(), eq(false)))
+        .thenReturn(Single.just(rootCause));
+    when(sessionEvidenceService.getSessionEvidence(
+            eq("p1"),
+            eq("ix"),
+            any(),
+            any(),
+            eq(segment.getDimensions()),
+            any(),
+            eq(2)))
+        .thenReturn(
+            Single.just(
+                SessionEvidenceResult.builder()
+                    .sessions(List.of(EvidenceSession.builder().sessionId("sess-1").build()))
+                    .build()));
+
+    ObjectNode body = objectMapper.createObjectNode();
+    body.put("entityKey", "ix");
+    body.put("date", "2025-06-01");
+    RcaParsedReportBody parsed =
+        new RcaParsedReportBody(body.toString(), body, "p1", RcaType.INTERACTION, "ix", DATE, false);
+
+    CompletableFuture<RcaEnrichmentOutcome> done =
+        service.enrichAsync(parsed, false).toCompletableFuture();
+
+    RcaEnrichmentOutcome outcome = done.get(5, TimeUnit.SECONDS);
+    assertThat(outcome.enrichmentOk()).isTrue();
+  }
+
+  @Test
+  void shouldCollectSessionsForAllSegmentsConcurrently()
+      throws Exception {
+    // Order preserved from root-cause API (here: seg1 then seg2)
+    RootCauseSegment seg1 =
+        RootCauseSegment.builder()
+            .label("s1")
+            .dimensions(Map.of("platform", "Android"))
+            .metrics(Map.of("error_rate", 0.2, "volume", 150L, "problematic_count", 20L))
+            .build();
+    RootCauseSegment seg2 =
+        RootCauseSegment.builder()
+            .label("s2")
+            .dimensions(Map.of("platform", "iOS"))
+            .metrics(Map.of("apdex", 0.7, "volume", 100L, "problematic_count", 10L))
+            .build();
+
+    when(rootCauseService.getRootCause(any(), any(), any(), any(), anyBoolean()))
+        .thenReturn(Single.just(
+            RootCauseResult.builder()
+                .baseline(Map.of("volume", 1000L))
+                .segments(List.of(seg1, seg2))
+                .build()));
+    when(sessionEvidenceService.getSessionEvidence(
+            any(), any(), any(), any(), eq(seg1.getDimensions()), any(), anyInt()))
+        .thenReturn(
+            Single.just(
+                SessionEvidenceResult.builder()
+                    .sessions(List.of(EvidenceSession.builder().sessionId("sess-a1").build()))
+                    .build()));
+    when(sessionEvidenceService.getSessionEvidence(
+            any(), any(), any(), any(), eq(seg2.getDimensions()), any(), anyInt()))
+        .thenReturn(
+            Single.just(
+                SessionEvidenceResult.builder()
+                    .sessions(List.of(EvidenceSession.builder().sessionId("sess-b1").build()))
+                    .build()));
+
+    ObjectNode body = objectMapper.createObjectNode();
+    body.put("entityKey", "ix");
+    RcaParsedReportBody parsed =
+        new RcaParsedReportBody(body.toString(), body, "p1", RcaType.INTERACTION, "ix", DATE, false);
+
+    RcaEnrichmentOutcome outcome =
+        service.enrichAsync(parsed, false).toCompletableFuture().get(5, TimeUnit.SECONDS);
+
+    assertThat(outcome.enrichmentOk()).isTrue();
+    assertThat(outcome.body()).contains("sess-a1").contains("sess-b1");
+
+    JsonNode payload = objectMapper.readTree(outcome.body()).get("rootCausePayload");
+    JsonNode segs = payload.get("segments");
+    assertThat(segs).hasSize(2);
+    assertThat(segs.get(0).get("serverRank").asInt()).isEqualTo(1);
+    assertThat(segs.get(0).get("label").asText()).isEqualTo("s1");
+    assertThat(segs.get(1).get("serverRank").asInt()).isEqualTo(2);
+    assertThat(segs.get(1).get("label").asText()).isEqualTo("s2");
+  }
+
+  @Test
+  void shouldAssignServerRankInRootCauseListOrderNotByProblematicCount()
+      throws Exception {
+    RootCauseSegment segLow =
+        RootCauseSegment.builder()
+            .label("low")
+            .dimensions(Map.of("platform", "iOS"))
+            .metrics(Map.of("volume", 100L, "problematic_count", 5L))
+            .build();
+    RootCauseSegment segHigh =
+        RootCauseSegment.builder()
+            .label("high")
+            .dimensions(Map.of("platform", "Android"))
+            .metrics(Map.of("volume", 200L, "problematic_count", 50L))
+            .build();
+
+    when(rootCauseService.getRootCause(any(), any(), any(), any(), anyBoolean()))
+        .thenReturn(
+            Single.just(
+                RootCauseResult.builder()
+                    .baseline(Map.of("volume", 1000L))
+                    .segments(List.of(segLow, segHigh))
+                    .build()));
+    when(sessionEvidenceService.getSessionEvidence(
+            any(), any(), any(), any(), any(), any(), anyInt()))
+        .thenReturn(
+            Single.just(
+                SessionEvidenceResult.builder()
+                    .sessions(List.of(EvidenceSession.builder().sessionId("x").build()))
+                    .build()));
+
+    ObjectNode body = objectMapper.createObjectNode();
+    body.put("entityKey", "ix");
+    RcaParsedReportBody parsed =
+        new RcaParsedReportBody(body.toString(), body, "p1", RcaType.INTERACTION, "ix", DATE, false);
+
+    RcaEnrichmentOutcome outcome =
+        service.enrichAsync(parsed, false).toCompletableFuture().get(5, TimeUnit.SECONDS);
+
+    assertThat(outcome.enrichmentOk()).isTrue();
+    JsonNode segs = objectMapper.readTree(outcome.body()).get("rootCausePayload").get("segments");
+    assertThat(segs.get(0).get("label").asText()).isEqualTo("low");
+    assertThat(segs.get(0).get("serverRank").asInt()).isEqualTo(1);
+    assertThat(segs.get(1).get("label").asText()).isEqualTo("high");
+    assertThat(segs.get(1).get("serverRank").asInt()).isEqualTo(2);
+  }
+
+  @Nested
+  class SkipSessionEvidence {
+
+    @Test
+    void shouldSkipSessionEvidenceWhenCachedRootCauseAlreadyHasSessions()
+        throws ExecutionException, InterruptedException, TimeoutException {
+      // cachedAt != null → isCachedFromStore = true; segment has sessions → skip
+      RootCauseSegment seg =
+          RootCauseSegment.builder()
+              .label("s1")
+              .metrics(Map.of("volume", 100L, "problematic_count", 10L))
+              .exampleSessionIds(List.of("existing-sess"))
+              .build();
+      RootCauseResult rootCause =
+          RootCauseResult.builder()
+              .baseline(Map.of("volume", 1000L))
+              .segments(List.of(seg))
+              .cachedAt(Instant.now())
+              .build();
+      when(rootCauseService.getRootCause(any(), any(), any(), any(), anyBoolean()))
+          .thenReturn(Single.just(rootCause));
+
+      ObjectNode body = objectMapper.createObjectNode();
+      body.put("entityKey", "ix");
+      RcaParsedReportBody parsed =
+          new RcaParsedReportBody(body.toString(), body, "p1", RcaType.INTERACTION, "ix", DATE, false);
+
+      RcaEnrichmentOutcome outcome =
+          service.enrichAsync(parsed, false).toCompletableFuture().get(5, TimeUnit.SECONDS);
+
+      assertThat(outcome.enrichmentOk()).isTrue();
+      verifyNoInteractions(sessionEvidenceService);
+    }
+
+    @Test
+    void shouldQuerySessionEvidenceWhenCachedRootCauseHasNoSessions()
+        throws ExecutionException, InterruptedException, TimeoutException {
+      // cachedAt != null but segment has NO sessions → must still query
+      RootCauseSegment seg =
+          RootCauseSegment.builder()
+              .label("s1")
+              .dimensions(Map.of("platform", "iOS"))
+              .metrics(Map.of("volume", 100L, "problematic_count", 10L))
+              .exampleSessionIds(List.of()) // empty
+              .build();
+      RootCauseResult rootCause =
+          RootCauseResult.builder()
+              .baseline(Map.of("volume", 1000L))
+              .segments(List.of(seg))
+              .cachedAt(Instant.now())
+              .build();
+      when(rootCauseService.getRootCause(any(), any(), any(), any(), anyBoolean()))
+          .thenReturn(Single.just(rootCause));
+      when(sessionEvidenceService.getSessionEvidence(any(), any(), any(), any(), any(), any(), anyInt()))
+          .thenReturn(
+              Single.just(
+                  SessionEvidenceResult.builder()
+                      .sessions(List.of(EvidenceSession.builder().sessionId("s-new").build()))
+                      .build()));
+
+      ObjectNode body = objectMapper.createObjectNode();
+      body.put("entityKey", "ix");
+      RcaParsedReportBody parsed =
+          new RcaParsedReportBody(body.toString(), body, "p1", RcaType.INTERACTION, "ix", DATE, false);
+
+      RcaEnrichmentOutcome outcome =
+          service.enrichAsync(parsed, false).toCompletableFuture().get(5, TimeUnit.SECONDS);
+
+      assertThat(outcome.enrichmentOk()).isTrue();
+      assertThat(outcome.body()).contains("s-new");
+    }
+  }
+
+  @Nested
+  class FallbackPaths {
+
+    @Test
+    void shouldReturnFallbackBodyWhenRootCauseSegmentsIsNull() throws Exception {
+      when(rootCauseService.getRootCause(any(), any(), any(), any(), anyBoolean()))
+          .thenReturn(Single.just(RootCauseResult.builder().segments(null).build()));
+
+      String rawBody = "{\"interactionName\":\"ix\"}";
+      ObjectNode body = (ObjectNode) objectMapper.readTree(rawBody);
+      RcaParsedReportBody parsed =
+          new RcaParsedReportBody(rawBody, body, "p1", RcaType.INTERACTION, "ix", DATE, false);
+
+      RcaEnrichmentOutcome outcome =
+          service.enrichAsync(parsed, false).toCompletableFuture().get(5, TimeUnit.SECONDS);
+
+      assertThat(outcome.enrichmentOk()).isFalse();
+      assertThat(outcome.body()).isEqualTo(rawBody);
+      verifyNoInteractions(errorAttributionService);
+    }
+
+    @Test
+    void shouldReturnFallbackBodyWhenRootCauseFails() throws Exception {
+      when(rootCauseService.getRootCause(any(), any(), any(), any(), anyBoolean()))
+          .thenReturn(Single.error(new RuntimeException("connection refused")));
+
+      String rawBody = "{\"interactionName\":\"ix\"}";
+      ObjectNode body = (ObjectNode) objectMapper.readTree(rawBody);
+      RcaParsedReportBody parsed =
+          new RcaParsedReportBody(rawBody, body, "p1", RcaType.INTERACTION, "ix", DATE, false);
+
+      RcaEnrichmentOutcome outcome =
+          service.enrichAsync(parsed, false).toCompletableFuture().get(5, TimeUnit.SECONDS);
+
+      assertThat(outcome.enrichmentOk()).isFalse();
+      assertThat(outcome.body()).isEqualTo(rawBody);
+      assertThat(outcome.rootCause()).isNull();
+      verifyNoInteractions(errorAttributionService);
+    }
+
+    @Test
+    void shouldCompleteWhenSessionEvidenceQueryFails()
+        throws ExecutionException, InterruptedException, TimeoutException {
+      RootCauseSegment segment =
+          RootCauseSegment.builder()
+              .label("s1")
+              .dimensions(Map.of("platform", "Android"))
+              .metrics(Map.of("volume", 100L, "problematic_count", 10L))
+              .build();
+      when(rootCauseService.getRootCause(any(), any(), any(), any(), anyBoolean()))
+          .thenReturn(Single.just(
+              RootCauseResult.builder()
+                  .baseline(Map.of("volume", 1000L))
+                  .segments(List.of(segment))
+                  .build()));
+      when(sessionEvidenceService.getSessionEvidence(any(), any(), any(), any(), any(), any(), anyInt()))
+          .thenReturn(Single.error(new RuntimeException("evidence query failed")));
+
+      ObjectNode body = objectMapper.createObjectNode();
+      body.put("entityKey", "ix");
+      RcaParsedReportBody parsed =
+          new RcaParsedReportBody(body.toString(), body, "p1", RcaType.INTERACTION, "ix", DATE, false);
+
+      // Must complete without exception — falls back to partial working body
+      RcaEnrichmentOutcome outcome =
+          service.enrichAsync(parsed, false).toCompletableFuture().get(5, TimeUnit.SECONDS);
+
+      assertThat(outcome).isNotNull();
+    }
+
+    @Test
+    void shouldReturnEnrichedBodyWithNoSegmentsWhenSegmentListIsEmpty()
+        throws ExecutionException, InterruptedException, TimeoutException {
+      when(rootCauseService.getRootCause(any(), any(), any(), any(), anyBoolean()))
+          .thenReturn(Single.just(
+              RootCauseResult.builder()
+                  .baseline(Map.of("volume", 1000L))
+                  .segments(List.of())
+                  .build()));
+
+      ObjectNode body = objectMapper.createObjectNode();
+      body.put("entityKey", "ix");
+      RcaParsedReportBody parsed =
+          new RcaParsedReportBody(body.toString(), body, "p1", RcaType.INTERACTION, "ix", DATE, false);
+
+      RcaEnrichmentOutcome outcome =
+          service.enrichAsync(parsed, false).toCompletableFuture().get(5, TimeUnit.SECONDS);
+
+      assertThat(outcome.enrichmentOk()).isTrue();
+      verifyNoInteractions(sessionEvidenceService);
+      assertThat(outcome.body()).contains("errorAttributionPayload");
+    }
+  }
+
+  @Nested
+  class BodyTransformation {
+
+    @Test
+    void shouldStripRegenerateFieldFromEnrichedBody()
+        throws ExecutionException, InterruptedException, TimeoutException {
+      when(rootCauseService.getRootCause(any(), any(), any(), any(), anyBoolean()))
+          .thenReturn(Single.just(
+              RootCauseResult.builder()
+                  .baseline(Map.of("volume", 1000L))
+                  .segments(List.of())
+                  .build()));
+
+      ObjectNode body = objectMapper.createObjectNode();
+      body.put("entityKey", "ix");
+      body.put("regenerate", true);
+      RcaParsedReportBody parsed =
+          new RcaParsedReportBody(body.toString(), body, "p1", RcaType.INTERACTION, "ix", DATE, true);
+
+      RcaEnrichmentOutcome outcome =
+          service.enrichAsync(parsed, true).toCompletableFuture().get(5, TimeUnit.SECONDS);
+
+      assertThat(outcome.enrichmentOk()).isTrue();
+      assertThat(outcome.body()).doesNotContain("\"regenerate\"");
+    }
+  }
+
+  @Nested
+  class MetricExtraction {
+
+    @SuppressWarnings("unchecked")
+    @Test
+    void shouldConvertIntegerMetricToDouble()
+        throws ExecutionException, InterruptedException, TimeoutException {
+      // error_rate is an Integer (whole-number JSON value) — objectMapper.convertValue must handle it
+      RootCauseSegment segment =
+          RootCauseSegment.builder()
+              .label("s1")
+              .dimensions(Map.of("platform", "Android"))
+              .metrics(Map.of("error_rate", 5, "volume", 100L, "problematic_count", 10L)) // Integer, not Double
+              .build();
+      when(rootCauseService.getRootCause(any(), any(), any(), any(), anyBoolean()))
+          .thenReturn(Single.just(
+              RootCauseResult.builder()
+                  .baseline(Map.of("volume", 1000L))
+                  .segments(List.of(segment))
+                  .build()));
+      when(sessionEvidenceService.getSessionEvidence(any(), any(), any(), any(), any(), any(), anyInt()))
+          .thenReturn(
+              Single.just(SessionEvidenceResult.builder().sessions(List.of()).build()));
+
+      ObjectNode body = objectMapper.createObjectNode();
+      body.put("entityKey", "ix");
+      RcaParsedReportBody parsed =
+          new RcaParsedReportBody(body.toString(), body, "p1", RcaType.INTERACTION, "ix", DATE, false);
+
+      service.enrichAsync(parsed, false).toCompletableFuture().get(5, TimeUnit.SECONDS);
+
+      ArgumentCaptor<Map<String, Double>> metricsCaptor = ArgumentCaptor.forClass(Map.class);
+      verify(sessionEvidenceService)
+          .getSessionEvidence(any(), any(), any(), any(), any(), metricsCaptor.capture(), anyInt());
+      assertThat(metricsCaptor.getValue()).containsEntry("error_rate", 5.0);
+    }
+
+    @SuppressWarnings("unchecked")
+    @Test
+    void shouldHandleBothErrorRateAndApdexMetrics()
+        throws ExecutionException, InterruptedException, TimeoutException {
+      RootCauseSegment segment =
+          RootCauseSegment.builder()
+              .label("s1")
+              .dimensions(Map.of("platform", "Android"))
+              .metrics(Map.of("error_rate", 0.15, "apdex", 0.8, "volume", 100L, "problematic_count", 10L))
+              .build();
+      when(rootCauseService.getRootCause(any(), any(), any(), any(), anyBoolean()))
+          .thenReturn(Single.just(
+              RootCauseResult.builder()
+                  .baseline(Map.of("volume", 1000L))
+                  .segments(List.of(segment))
+                  .build()));
+      when(sessionEvidenceService.getSessionEvidence(any(), any(), any(), any(), any(), any(), anyInt()))
+          .thenReturn(
+              Single.just(SessionEvidenceResult.builder().sessions(List.of()).build()));
+
+      ObjectNode body = objectMapper.createObjectNode();
+      body.put("entityKey", "ix");
+      RcaParsedReportBody parsed =
+          new RcaParsedReportBody(body.toString(), body, "p1", RcaType.INTERACTION, "ix", DATE, false);
+
+      service.enrichAsync(parsed, false).toCompletableFuture().get(5, TimeUnit.SECONDS);
+
+      ArgumentCaptor<Map<String, Double>> metricsCaptor = ArgumentCaptor.forClass(Map.class);
+      verify(sessionEvidenceService)
+          .getSessionEvidence(any(), any(), any(), any(), any(), metricsCaptor.capture(), anyInt());
+      assertThat(metricsCaptor.getValue())
+          .containsEntry("error_rate", 0.15)
+          .containsEntry("apdex", 0.8);
+    }
+  }
+
+  @Nested
+  class SessionRcaEnrichment {
+
+    @Test
+    void shouldEnrichSessionRcaPayload()
+        throws ExecutionException, InterruptedException, TimeoutException {
+      RootCauseResult sessionResult =
+          RootCauseResult.builder()
+              .baseline(Map.of("volume", 1000L))
+              .segments(List.of())
+              .mode(RootCauseAnalysisMode.FLAT)
+              .build();
+      when(sessionRcaService.getSessionRca(eq("p1"), eq(DATE), any(), eq(false)))
+          .thenReturn(Single.just(sessionResult));
+
+      ObjectNode body = objectMapper.createObjectNode();
+      body.put("date", "2025-06-01");
+      RcaParsedReportBody parsed =
+          new RcaParsedReportBody(body.toString(), body, "p1", RcaType.SESSION, "", DATE, false);
+
+      RcaEnrichmentOutcome outcome =
+          service.enrichAsync(parsed, false).toCompletableFuture().get(5, TimeUnit.SECONDS);
+
+      assertThat(outcome.enrichmentOk()).isTrue();
+      assertThat(outcome.body()).contains("rootCausePayload");
+      assertThat(outcome.body()).contains("asOf");
+      verifyNoInteractions(rootCauseService);
+      verifyNoInteractions(sessionEvidenceService);
+    }
+
+    @Test
+    void shouldReturnFallbackBodyWhenSessionRcaFails() throws Exception {
+      when(sessionRcaService.getSessionRca(any(), any(), any(), anyBoolean()))
+          .thenReturn(Single.error(new RuntimeException("session rca failed")));
+
+      String rawBody = "{\"date\":\"2025-06-01\"}";
+      ObjectNode body = (ObjectNode) objectMapper.readTree(rawBody);
+      RcaParsedReportBody parsed =
+          new RcaParsedReportBody(rawBody, body, "p1", RcaType.SESSION, "", DATE, false);
+
+      RcaEnrichmentOutcome outcome =
+          service.enrichAsync(parsed, false).toCompletableFuture().get(5, TimeUnit.SECONDS);
+
+      assertThat(outcome.enrichmentOk()).isFalse();
+      assertThat(outcome.body()).isEqualTo(rawBody);
+      assertThat(outcome.rootCause()).isNull();
+    }
+  }
+
+  @Nested
+  class FunnelRcaEnrichment {
+
+    @Test
+    void shouldEnrichFunnelRcaPayload()
+        throws ExecutionException, InterruptedException, TimeoutException {
+      RootCauseResult funnelResult =
+          RootCauseResult.builder()
+              .baseline(Map.of("dropoff_cohort", 100L))
+              .segments(List.of())
+              .mode(RootCauseAnalysisMode.FLAT)
+              .build();
+      when(funnelRcaService.getFunnelRootCause(eq("p1"), eq(99L), eq(1), eq(null)))
+          .thenReturn(Single.just(funnelResult));
+
+      ObjectNode body = objectMapper.createObjectNode();
+      body.put("date", "2025-06-01");
+      body.put("start", "2025-06-01T00:00:00Z");
+      body.put("end", "2025-06-02T00:00:00Z");
+      RcaParsedReportBody parsed =
+          new RcaParsedReportBody(
+              body.toString(), body, "p1", RcaType.FUNNEL, "99:1", DATE, false);
+
+      RcaEnrichmentOutcome outcome =
+          service.enrichAsync(parsed, false).toCompletableFuture().get(5, TimeUnit.SECONDS);
+
+      assertThat(outcome.enrichmentOk()).isTrue();
+      assertThat(outcome.body()).contains("funnelId");
+      assertThat(outcome.body()).contains("focusStepIndex");
+      assertThat(outcome.body()).contains("rootCausePayload");
+      verifyNoInteractions(rootCauseService);
+    }
+
+    @Test
+    void shouldBuildValidAiBodyWhenFunnelServiceFails() throws Exception {
+      when(funnelRcaService.getFunnelRootCause(eq("p1"), eq(5L), eq(0), eq(null)))
+          .thenReturn(Single.error(new RuntimeException("FUNNEL_NOT_FOUND")));
+
+      ObjectNode body = objectMapper.createObjectNode();
+      body.put("date", "2025-06-01");
+      body.put("start", "2025-06-01T00:00:00Z");
+      body.put("end", "2025-06-02T00:00:00Z");
+      RcaParsedReportBody parsed =
+          new RcaParsedReportBody(
+              body.toString(), body, "p1", RcaType.FUNNEL, "5:0", DATE, false);
+
+      RcaEnrichmentOutcome outcome =
+          service.enrichAsync(parsed, false).toCompletableFuture().get(5, TimeUnit.SECONDS);
+
+      assertThat(outcome.enrichmentOk()).isTrue();
+      assertThat(outcome.body()).contains("\"funnelId\":5");
+      assertThat(outcome.body()).contains("\"focusStepIndex\":0");
+      assertThat(outcome.body()).contains("rootCausePayload");
+      assertThat(outcome.body()).contains("noDataAvailable");
+    }
+
+    @Test
+    void shouldReturnFallbackWhenStartEndMissing() throws Exception {
+      ObjectNode body = objectMapper.createObjectNode();
+      body.put("date", "2025-06-01");
+      RcaParsedReportBody parsed =
+          new RcaParsedReportBody(
+              body.toString(), body, "p1", RcaType.FUNNEL, "99:1", DATE, false);
+
+      RcaEnrichmentOutcome outcome =
+          service.enrichAsync(parsed, false).toCompletableFuture().get(5, TimeUnit.SECONDS);
+
+      assertThat(outcome.enrichmentOk()).isFalse();
+      verifyNoInteractions(funnelRcaService);
+    }
+
+    @Test
+    void shouldReturnFallbackWhenEntityKeyInvalid() throws Exception {
+      ObjectNode body = objectMapper.createObjectNode();
+      body.put("date", "2025-06-01");
+      body.put("start", "2025-06-01T00:00:00Z");
+      body.put("end", "2025-06-02T00:00:00Z");
+      RcaParsedReportBody parsed =
+          new RcaParsedReportBody(
+              body.toString(), body, "p1", RcaType.FUNNEL, "not-valid", DATE, false);
+
+      RcaEnrichmentOutcome outcome =
+          service.enrichAsync(parsed, false).toCompletableFuture().get(5, TimeUnit.SECONDS);
+
+      assertThat(outcome.enrichmentOk()).isFalse();
+      verifyNoInteractions(funnelRcaService);
+    }
+
+    @Test
+    void shouldReturnFallbackWhenStartEndNotParseable() throws Exception {
+      ObjectNode body = objectMapper.createObjectNode();
+      body.put("date", "2025-06-01");
+      body.put("start", "yesterday");
+      body.put("end", "tomorrow");
+      RcaParsedReportBody parsed =
+          new RcaParsedReportBody(
+              body.toString(), body, "p1", RcaType.FUNNEL, "99:1", DATE, false);
+
+      RcaEnrichmentOutcome outcome =
+          service.enrichAsync(parsed, false).toCompletableFuture().get(5, TimeUnit.SECONDS);
+
+      assertThat(outcome.enrichmentOk()).isFalse();
+      verifyNoInteractions(funnelRcaService);
+    }
+
+    @Test
+    void shouldPassRunTimeToFunnelService() throws Exception {
+      RootCauseResult funnelResult =
+          RootCauseResult.builder()
+              .baseline(Map.of("dropoff_cohort", 10L))
+              .segments(List.of())
+              .build();
+      when(funnelRcaService.getFunnelRootCause(eq("p1"), eq(12L), eq(2), eq("2026-05-01")))
+          .thenReturn(Single.just(funnelResult));
+
+      ObjectNode body = objectMapper.createObjectNode();
+      body.put("date", "2025-06-01");
+      body.put("start", "2025-06-01T00:00:00Z");
+      body.put("end", "2025-06-02T00:00:00Z");
+      body.put("runTime", "2026-05-01");
+      RcaParsedReportBody parsed =
+          new RcaParsedReportBody(
+              body.toString(), body, "p1", RcaType.FUNNEL, "12:2", DATE, false);
+
+      RcaEnrichmentOutcome outcome =
+          service.enrichAsync(parsed, false).toCompletableFuture().get(5, TimeUnit.SECONDS);
+
+      assertThat(outcome.enrichmentOk()).isTrue();
+      verify(funnelRcaService).getFunnelRootCause(eq("p1"), eq(12L), eq(2), eq("2026-05-01"));
+    }
+  }
+}

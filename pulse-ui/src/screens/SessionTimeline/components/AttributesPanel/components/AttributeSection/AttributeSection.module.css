@@ -1,0 +1,26 @@
+.section {
+  background: var(--mantine-color-gray-0);
+  border-color: var(--mantine-color-gray-2);
+}
+
+.sectionTitle {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--mantine-color-dark-7);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.items {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mantine-spacing-xs);
+}
+
+.eventItem {
+  padding: var(--mantine-spacing-xs);
+  background: var(--mantine-color-white);
+  border-radius: var(--mantine-radius-sm);
+  border: 1px solid var(--mantine-color-gray-2);
+  margin-top: var(--mantine-spacing-xs);
+}

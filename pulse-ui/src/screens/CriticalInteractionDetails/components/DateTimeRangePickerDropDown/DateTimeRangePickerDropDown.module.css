@@ -1,0 +1,51 @@
+.dateTimeRangePickerContainer {
+  display: flex;
+  gap: var(--mantine-spacing-sm);
+  /* flex-grow: 1; */
+}
+
+.dateTimeRangePicker {
+  flex-grow: 1;
+  margin-top: var(--mantine-spacing-sm);
+}
+
+.filterButton {
+  background-color: transparent;
+  margin-top: var(--mantine-spacing-sm);
+  margin-bottom: var(--mantine-spacing-sm);
+  font-weight: 600;
+  flex-grow: 1;
+}
+
+.filterButton span {
+  font-size: var(--mantine-font-size-sm);
+}
+
+.filterIcon {
+  padding-right: var(--mantine-spacing-xs);
+  font-weight: bold;
+}
+
+.leftSectionInputText {
+  padding: var(--mantine-spacing-xs);
+}
+
+.timeFilterPopupTitle {
+  font-weight: 500 !important;
+}
+
+.filterApplyButtonContainer {
+  flex-grow: 1;
+  display: flex;
+  align-items: right;
+  justify-content: right;
+  margin-top: var(--mantine-spacing-sm);
+  gap: var(--mantine-spacing-sm);
+}
+
+.refreshButton {
+  display: flex;
+  align-items: center;
+  margin-right: var(--mantine-spacing-md);
+  color: var(--mantine-color-blue-6) !important;
+}

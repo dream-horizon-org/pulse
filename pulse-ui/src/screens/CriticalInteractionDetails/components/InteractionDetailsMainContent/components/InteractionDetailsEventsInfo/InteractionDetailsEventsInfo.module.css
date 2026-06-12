@@ -1,0 +1,18 @@
+.EventSequenceDetailsConatiner {
+  padding: var(--mantine-spacing-sm);
+  padding-top: var(--mantine-spacing-md);
+}
+
+.sectionHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--mantine-spacing-sm);
+  padding-bottom: var(--mantine-spacing-xs);
+  border-bottom: 1px solid var(--mantine-color-gray-2);
+}
+
+.EventInfoDivider {
+  margin-top: var(--mantine-spacing-md);
+  margin-bottom: var(--mantine-spacing-md);
+}

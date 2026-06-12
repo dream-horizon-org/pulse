@@ -1,0 +1,313 @@
+import { AppState, type AppStateStatus } from 'react-native';
+import type {
+  NavigationContainer,
+  NavigationIntegrationOptions,
+  ReactNavigationIntegration,
+} from './navigation.interface';
+import { DEFAULT_NAVIGATION_OPTIONS } from './navigation.interface';
+import { pushRecentRouteKey } from './utils';
+import { discardSpan } from '../trace';
+import { PulseLogger } from '../PulseLogger';
+import {
+  createScreenLoadTracker,
+  type ScreenLoadState,
+  INITIAL_SCREEN_LOAD_STATE,
+} from './screen-load';
+import {
+  createScreenInteractiveTracker,
+  markContentReady,
+  clearGlobalMarkContentReady,
+  type ScreenInteractiveState,
+  INITIAL_SCREEN_INTERACTIVE_STATE,
+} from './screen-interactive';
+import {
+  createScreenSessionTracker,
+  type ScreenSessionState,
+  INITIAL_SCREEN_SESSION_STATE,
+} from './screen-session';
+import { isSupportedPlatform } from '../initialization';
+import PulseReactNativeOtel from '../NativePulseReactNativeOtel';
+import { getFeaturesFromRemoteConfig } from '../remoteFeatures';
+import {
+  PULSE_FEATURE_NAMES,
+  type NavigationFeatureName,
+} from '../pulse.constants';
+
+export type {
+  NavigationRoute,
+  NavigationIntegrationOptions,
+  ReactNavigationIntegration,
+} from './navigation.interface';
+export { DEFAULT_NAVIGATION_OPTIONS } from './navigation.interface';
+
+let currentNavigationUnregister: (() => void) | null = null;
+
+export function uninstallNavigationIntegration(): void {
+  if (currentNavigationUnregister) {
+    currentNavigationUnregister();
+    currentNavigationUnregister = null;
+  }
+}
+
+function resolveNavigationFeatureState(
+  features: ReturnType<typeof getFeaturesFromRemoteConfig>,
+  featureName: NavigationFeatureName,
+  optionValue: boolean
+): boolean {
+  if (features !== undefined && features !== null)
+    return features[featureName] ?? optionValue;
+  return optionValue;
+}
+
+export function createReactNavigationIntegration(
+  options?: NavigationIntegrationOptions
+): ReactNavigationIntegration {
+  const features = getFeaturesFromRemoteConfig();
+
+  const screenSessionTracking = resolveNavigationFeatureState(
+    features,
+    PULSE_FEATURE_NAMES.RN_SCREEN_SESSION,
+    options?.screenSessionTracking ??
+      DEFAULT_NAVIGATION_OPTIONS.screenSessionTracking
+  );
+
+  const screenNavigationTracking = resolveNavigationFeatureState(
+    features,
+    PULSE_FEATURE_NAMES.RN_SCREEN_LOAD,
+    options?.screenNavigationTracking ??
+      DEFAULT_NAVIGATION_OPTIONS.screenNavigationTracking
+  );
+
+  const screenInteractiveTracking = resolveNavigationFeatureState(
+    features,
+    PULSE_FEATURE_NAMES.RN_SCREEN_INTERACTIVE,
+    options?.screenInteractiveTracking ??
+      DEFAULT_NAVIGATION_OPTIONS.screenInteractiveTracking
+  );
+
+  let navigationContainer: NavigationContainer | undefined;
+  let recentRouteKeys: string[] = [];
+  let isInitialized = false;
+  let appStateSubscription: { remove: () => void } | undefined;
+
+  const screenLoadState: ScreenLoadState = {
+    ...INITIAL_SCREEN_LOAD_STATE,
+  };
+
+  const screenInteractiveState: ScreenInteractiveState = {
+    ...INITIAL_SCREEN_INTERACTIVE_STATE,
+  };
+
+  const screenSessionState: ScreenSessionState = {
+    ...INITIAL_SCREEN_SESSION_STATE,
+  };
+
+  const screenInteractiveTracker = createScreenInteractiveTracker(
+    screenInteractiveTracking,
+    screenInteractiveState,
+    navigationContainer
+  );
+
+  const screenLoadTracker = createScreenLoadTracker(
+    screenNavigationTracking,
+    screenLoadState,
+    () => recentRouteKeys,
+    (key: string) => {
+      recentRouteKeys = pushRecentRouteKey(recentRouteKeys, key);
+    },
+    undefined
+  );
+
+  const screenSessionTracker = createScreenSessionTracker(
+    screenSessionTracking,
+    screenSessionState
+  );
+
+  const setCurrentScreenName = (screenName: string): void => {
+    if (isSupportedPlatform()) {
+      PulseReactNativeOtel.setCurrentScreenName(screenName);
+    }
+  };
+
+  const onNavigationDispatch = (): void => {
+    try {
+      if (screenInteractiveTracking) {
+        screenInteractiveTracker.discardScreenInteractive(
+          'user navigated away'
+        );
+      }
+
+      if (screenSessionTracking && screenSessionState.screenSessionSpan) {
+        screenSessionTracker.endScreenSession();
+      }
+
+      screenLoadTracker.startNavigationSpan();
+    } catch (error) {
+      PulseLogger.warn(`Navigation: Error in onNavigationDispatch: ${error}`);
+
+      if (screenLoadState.navigationSpan?.spanId) {
+        discardSpan(screenLoadState.navigationSpan.spanId);
+        screenLoadState.navigationSpan = undefined;
+      }
+    }
+  };
+
+  const onStateChange = (): void => {
+    try {
+      if (!navigationContainer) {
+        return;
+      }
+
+      const currentRoute = navigationContainer.getCurrentRoute();
+      if (!currentRoute) {
+        return;
+      }
+
+      if (currentRoute.name) {
+        setCurrentScreenName(currentRoute.name);
+      }
+
+      screenLoadTracker.handleStateChange(currentRoute);
+
+      const appState = AppState.currentState as AppStateStatus;
+      if (screenSessionTracking) {
+        screenSessionTracker.syncSessionToCurrentRoute(currentRoute, appState);
+      }
+
+      if (screenInteractiveTracking) {
+        screenInteractiveTracker.startScreenInteractive(currentRoute);
+      }
+    } catch (error) {
+      PulseLogger.warn(`Navigation: Error in onStateChange: ${error}`);
+      if (screenLoadState.navigationSpan?.spanId) {
+        discardSpan(screenLoadState.navigationSpan.spanId);
+        screenLoadState.navigationSpan = undefined;
+      }
+    }
+  };
+
+  const handleAppStateChange = (nextAppState: AppStateStatus): void => {
+    try {
+      screenSessionTracker.handleAppStateChange(
+        nextAppState,
+        navigationContainer
+      );
+    } catch (error) {
+      PulseLogger.warn(`Navigation: Error in handleAppStateChange: ${error}`);
+    }
+  };
+
+  const registerNavigationContainer = (
+    maybeNavigationContainer: unknown
+  ): (() => void) => {
+    try {
+      let container: NavigationContainer | undefined;
+      if (
+        typeof maybeNavigationContainer === 'object' &&
+        maybeNavigationContainer !== null &&
+        'current' in maybeNavigationContainer
+      ) {
+        container = maybeNavigationContainer.current as NavigationContainer;
+      } else {
+        container = maybeNavigationContainer as NavigationContainer;
+      }
+
+      if (!container) {
+        PulseLogger.warn('Navigation: Invalid navigation container ref');
+        return () => {};
+      }
+
+      if (isInitialized && navigationContainer === container) {
+        return () => {
+          if (screenSessionTracking && screenSessionState.screenSessionSpan) {
+            screenSessionTracker.endScreenSession();
+          }
+        };
+      }
+
+      navigationContainer = container;
+
+      const updatedInteractiveTracker = createScreenInteractiveTracker(
+        screenInteractiveTracking,
+        screenInteractiveState,
+        navigationContainer
+      );
+
+      navigationContainer.addListener(
+        '__unsafe_action__',
+        onNavigationDispatch
+      );
+      navigationContainer.addListener('state', onStateChange);
+
+      const unmountCleanup = (): void => {
+        if (screenSessionTracking && screenSessionState.screenSessionSpan) {
+          screenSessionTracker.endScreenSession();
+        }
+
+        if (screenInteractiveTracking) {
+          screenInteractiveTracker.discardScreenInteractive(
+            'navigation container unmounted'
+          );
+        }
+
+        screenLoadTracker.endNavigationSpan();
+
+        if (navigationContainer === container) {
+          if (appStateSubscription) {
+            appStateSubscription.remove();
+            appStateSubscription = undefined;
+          }
+          navigationContainer = undefined;
+          isInitialized = false;
+          if (currentNavigationUnregister === unmountCleanup) {
+            currentNavigationUnregister = null;
+          }
+
+          clearGlobalMarkContentReady(
+            updatedInteractiveTracker.markContentReady
+          );
+        }
+      };
+
+      const currentRoute = container.getCurrentRoute();
+      if (currentRoute) {
+        screenLoadState.latestRoute = currentRoute;
+        recentRouteKeys = pushRecentRouteKey(recentRouteKeys, currentRoute.key);
+        if (currentRoute.name) {
+          setCurrentScreenName(currentRoute.name);
+        }
+
+        const appState = AppState.currentState as AppStateStatus;
+        if (screenSessionTracking) {
+          screenSessionTracker.syncSessionToCurrentRoute(
+            currentRoute,
+            appState
+          );
+        }
+
+        if (screenInteractiveTracking) {
+          updatedInteractiveTracker.startScreenInteractive(currentRoute);
+        }
+      }
+
+      appStateSubscription = AppState.addEventListener(
+        'change',
+        handleAppStateChange
+      );
+      isInitialized = true;
+
+      currentNavigationUnregister = unmountCleanup;
+      return unmountCleanup;
+    } catch (error) {
+      PulseLogger.error(`Navigation: Error registering container: ${error}`);
+      return () => {};
+    }
+  };
+
+  return {
+    registerNavigationContainer,
+    markContentReady: screenInteractiveTracker.markContentReady,
+  };
+}
+
+export { markContentReady };

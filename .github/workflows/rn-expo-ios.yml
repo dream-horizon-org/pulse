@@ -1,0 +1,94 @@
+# Reusable workflow only (see ci-react-native.yml).
+#
+# Purpose: prove `pulse-react-native-otel/expo-example` still prebuilds and compiles for iOS
+# (Expo config plugin + CocoaPods + PulseKit :path → pulse-ios-otel). No Maven / m2-publish.
+#
+# Invoked once as job `rn-expo-ios` on macOS (separate from Ubuntu `rn-expo-android.yml`).
+name: Expo iOS - Build
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  expo-ios:
+    runs-on: macos-15
+    env:
+      LANG: en_US.UTF-8
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+
+      - uses: maxim-lobanov/setup-xcode@60606e260d2fc5762a71e64e74b2174e8ea3c8bd  # v1.6.0
+        with:
+          xcode-version: '16.4'
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
+        with:
+          node-version-file: pulse-react-native-otel/.nvmrc
+
+      - id: yarn-cache
+        uses: actions/cache/restore@5a3ec84eff668545956fd18022155c47e93e2684  # v4.2.3
+        with:
+          path: |
+            pulse-react-native-otel/**/node_modules
+            pulse-react-native-otel/.yarn/install-state.gz
+          key: ${{ runner.os }}-yarn-rn-${{ hashFiles('pulse-react-native-otel/yarn.lock') }}-${{ hashFiles('pulse-react-native-otel/package.json') }}
+          restore-keys: |
+            ${{ runner.os }}-yarn-rn-${{ hashFiles('pulse-react-native-otel/yarn.lock') }}
+            ${{ runner.os }}-yarn-rn-
+
+      - if: steps.yarn-cache.outputs.cache-hit != 'true'
+        working-directory: pulse-react-native-otel
+        run: yarn install --immutable
+
+      - if: steps.yarn-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@5a3ec84eff668545956fd18022155c47e93e2684  # v4.2.3
+        with:
+          path: |
+            pulse-react-native-otel/**/node_modules
+            pulse-react-native-otel/.yarn/install-state.gz
+          key: ${{ runner.os }}-yarn-rn-${{ hashFiles('pulse-react-native-otel/yarn.lock') }}-${{ hashFiles('pulse-react-native-otel/package.json') }}
+
+      - working-directory: pulse-react-native-otel
+        run: yarn build:plugin
+
+      - id: expo-cache
+        uses: actions/cache/restore@5a3ec84eff668545956fd18022155c47e93e2684  # v4.2.3
+        with:
+          path: pulse-react-native-otel/expo-example/node_modules
+          key: ${{ runner.os }}-npm-expo-${{ hashFiles('pulse-react-native-otel/expo-example/package.json') }}
+          restore-keys: |
+            ${{ runner.os }}-npm-expo-
+
+      - if: steps.expo-cache.outputs.cache-hit != 'true'
+        working-directory: pulse-react-native-otel/expo-example
+        run: npm install
+
+      - if: steps.expo-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@5a3ec84eff668545956fd18022155c47e93e2684  # v4.2.3
+        with:
+          path: pulse-react-native-otel/expo-example/node_modules
+          key: ${{ runner.os }}-npm-expo-${{ hashFiles('pulse-react-native-otel/expo-example/package.json') }}
+
+      - name: Expo prebuild (iOS)
+        working-directory: pulse-react-native-otel/expo-example
+        run: npx expo prebuild --platform ios --clean
+
+      - name: CocoaPods install
+        working-directory: pulse-react-native-otel/expo-example/ios
+        run: |
+          gem install cocoapods --no-document
+          pod install
+
+      - name: Build iOS (simulator)
+        working-directory: pulse-react-native-otel/expo-example/ios
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -workspace expoexample.xcworkspace \
+            -scheme expoexample \
+            -configuration Debug \
+            -destination 'platform=iOS Simulator,name=iPhone 16,arch=arm64' \
+            -derivedDataPath ./build \
+            build

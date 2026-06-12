@@ -1,0 +1,46 @@
+public final class io/opentelemetry/android/instrumentation/activity/ActivityLifecycleInstrumentation : io/opentelemetry/android/instrumentation/AndroidInstrumentation {
+	public fun <init> ()V
+	public fun getName ()Ljava/lang/String;
+	public fun install (Lio/opentelemetry/android/instrumentation/InstallationContext;)V
+	public final fun setScreenNameExtractor (Lio/opentelemetry/android/instrumentation/common/ScreenNameExtractor;)V
+	public final fun setTracerCustomizer (Lkotlin/jvm/functions/Function1;)V
+	public fun uninstall (Lio/opentelemetry/android/instrumentation/InstallationContext;)V
+}
+
+public final class io/opentelemetry/android/instrumentation/activity/ActivityTracer {
+	public synthetic fun <init> (Lio/opentelemetry/android/instrumentation/activity/ActivityTracer$Builder;Lkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun addEvent (Ljava/lang/String;)Lio/opentelemetry/android/instrumentation/activity/ActivityTracer;
+	public final fun addPreviousScreenAttribute ()Lio/opentelemetry/android/instrumentation/activity/ActivityTracer;
+	public final fun endActiveSpan ()V
+	public final fun endSpanForActivityResumed ()V
+}
+
+public final class io/opentelemetry/android/instrumentation/activity/ActivityTracerCache {
+	public fun <init> (Lio/opentelemetry/api/trace/Tracer;Lio/opentelemetry/android/internal/services/visiblescreen/VisibleScreenTracker;Lio/opentelemetry/android/instrumentation/activity/startup/AppStartupTimer;Lio/opentelemetry/android/instrumentation/common/ScreenNameExtractor;)V
+	public final fun addEvent (Landroid/app/Activity;Ljava/lang/String;)Lio/opentelemetry/android/instrumentation/activity/ActivityTracer;
+	public final fun initiateRestartSpanIfNecessary (Landroid/app/Activity;)Lio/opentelemetry/android/instrumentation/activity/ActivityTracer;
+	public final fun startActivityCreation (Landroid/app/Activity;)Lio/opentelemetry/android/instrumentation/activity/ActivityTracer;
+	public final fun startActivitySession (Landroid/app/Activity;)Lio/opentelemetry/android/instrumentation/activity/ActivityTracer;
+	public final fun startSpanIfNoneInProgress (Landroid/app/Activity;Ljava/lang/String;)Lio/opentelemetry/android/instrumentation/activity/ActivityTracer;
+	public final fun stopActivitySession (Landroid/app/Activity;)Lio/opentelemetry/android/instrumentation/activity/ActivityTracer;
+}
+
+public final class io/opentelemetry/android/instrumentation/activity/startup/AnchoredClock {
+	public static fun create (Lio/opentelemetry/sdk/common/Clock;)Lio/opentelemetry/android/instrumentation/activity/startup/AnchoredClock;
+	public fun now ()J
+}
+
+public class io/opentelemetry/android/instrumentation/activity/startup/AppStartupTimer {
+	public fun <init> ()V
+	public fun clockNow ()J
+	public fun createLifecycleCallback ()Landroid/app/Application$ActivityLifecycleCallbacks;
+	public fun detectBackgroundStart (Landroid/os/Handler;)V
+	public fun end ()V
+	public static fun getInstance ()Lio/opentelemetry/android/instrumentation/activity/startup/AppStartupTimer;
+	public fun getStartupSpan ()Lio/opentelemetry/api/trace/Span;
+	public fun reportFullyDrawn ()V
+	public fun runCompletionCallback ()V
+	public fun setCompletionCallback (Ljava/lang/Runnable;)V
+	public fun start (Lio/opentelemetry/api/trace/Tracer;)Lio/opentelemetry/api/trace/Span;
+}
+

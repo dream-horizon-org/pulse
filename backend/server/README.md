@@ -1,0 +1,2858 @@
+# Pulse Server - Backend Application
+
+<div align="center">
+
+**High-performance reactive backend built with Java and Vert.x**
+
+[![Java](https://img.shields.io/badge/Java-17-orange.svg)](https://www.oracle.com/java/)
+[![Vert.x](https://img.shields.io/badge/Vert.x-4.5.10-purple.svg)](https://vertx.io/)
+[![Maven](https://img.shields.io/badge/Maven-3.8+-blue.svg)](https://maven.apache.org/)
+
+</div>
+
+---
+
+## 📑 Table of Contents
+
+- [Overview](#-overview)
+- [Architecture](#-architecture)
+- [Features](#-features)
+- [Technology Stack](#-technology-stack)
+- [Getting Started](#-getting-started)
+- [API Documentation](#api-documentation)
+    - [Authentication](#authentication)
+    - [Metrics](#metrics)
+    - [OpenTelemetry Logs Ingestion](#opentelemetry-logs-ingestion)
+
+    - [Symbol File Upload](#symbol-file-upload)
+    - [Critical Interactions](#critical-interactions)
+    - [Alerts](#alerts)
+- [Database Schema](#-database-schema)
+- [Configuration](#-configuration)
+- [Testing](#testing)
+
+## 🌟 Overview
+
+Pulse Server is a reactive, high-performance backend service built with Vert.x for the Pulse Observability Platform. It
+provides RESTful APIs for managing users, alerts, critical interactions, and analytics queries. The service handles
+real-time data processing and integrates with multiple databases for optimal performance.
+
+## 🏗️ Architecture
+
+### System Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                     Pulse Server (Vert.x)                   │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  ┌───────────────┐  ┌───────────────┐  ┌──────────────┐     │
+│  │  HTTP Router  │  │  Auth Service │  │ Alert Service│     │
+│  └───────┬───────┘  └───────┬───────┘  └──────┬───────┘     │
+│          │                  │                 │             │
+│  ┌───────▼──────────────────▼─────────────────▼───────-──┐  │
+│  │              Service Layer (Business Logic)           │  │
+│  └───────┬───────────────────┬──────────────────-────────┘  │
+│          │                   │                              │
+│  ┌───────▼───────┐  ┌────────▼────────┐                     |
+│  │  MySQL Client │  │ClickHouse Client│                     |
+│  └───────┬───────┘  └────────┬────────┘                     |
+└──────────┼───────────────────┼────────────────----──────────┘
+           │                   │                   
+     ┌─────▼─────┐        ┌────▼───────┐       
+     │   MySQL   │        │ClickHouse  │       
+     │ (Metadata)│        │(Analytics) │       
+     └───────────┘        └────────────┘       
+```
+
+## ✨ Features
+
+### Core Features
+
+- **🔐 Authentication & Authorization**
+    - Google OAuth 2.0 integration
+    - JWT token-based authentication
+    - Session management
+
+
+- **📊 Critical Interactions**
+    - Track key user interactions
+    - Interaction analytics
+    - Performance monitoring
+    - Custom event tracking
+
+### Technical Features
+
+- **Reactive Architecture**: Built on Vert.x event loop for high concurrency
+- **Multi-Database**: MySQL for metadata, ClickHouse for analytics
+- **Connection Pooling**: Optimized database connections
+- **Async Processing**: Non-blocking I/O operations
+- **Error Handling**: Comprehensive error handling and recovery
+- **Metrics**: Built-in metrics with Dropwizard
+- **Health Checks**: Endpoint for service health monitoring
+- **Dependency Injection**: Google Guice for DI
+
+## 🛠️ Technology Stack
+
+### Core Technologies
+
+- **Java**: 17 (LTS)
+- **Vert.x**: 4.5.10 - Reactive framework
+- **Maven**: Build and dependency management
+
+### Frameworks & Libraries
+
+- **vertx-rest**: 1.1.0 - REST API framework
+- **vertx-rx-java3**: Reactive extensions
+- **Google Guice**: 5.1.0 - Dependency injection
+- **Lombok**: 1.18.30 - Boilerplate reduction
+
+### Databases
+
+- **MySQL**: 8.0 - Relational database for metadata
+- **ClickHouse**: Time-series database for analytics
+- **R2DBC**: Reactive database connectivity
+
+### Authentication & Security
+
+- **Google OAuth**: OAuth 2.0 integration
+- **JJWT**: 0.12.5 - JWT token generation and validation
+- **Google API Client**: 2.2.0 - ID token verification
+
+### Monitoring & Metrics
+
+- **Dropwizard Metrics**: 4.0.2 - Application metrics
+- **StatsD**: Metrics reporting
+
+### Testing
+
+- **JUnit**: 5.10.2 - Unit testing
+- **Mockito**: 4.11.0 - Mocking framework
+- **AssertJ**: 3.24.2 - Fluent assertions
+- **Vert.x JUnit5**: Integration testing
+
+### Integration
+
+<!-- 
+- **Slack API**: 1.42.0 - Slack notifications
+- **AWS SDK**: 2.20.8 - AWS services integration -->
+
+- **OpenTelemetry**: Protocol buffer support
+
+## 🚀 Getting Started
+
+### Prerequisites
+
+- **Java**: 17 or higher
+- **Maven**: 3.8+
+- **MySQL**: 8.0+
+- **ClickHouse**: Latest version
+- **Docker**: (optional) for containerized deployment
+
+### Installation
+
+1. **Clone the repository**
+
+```bash
+cd pulse/backend/server
+```
+
+2. **Install dependencies**
+
+```bash
+mvn clean install
+```
+
+3. **Configure environment**
+
+Set environment variables or update configuration files in `src/main/resources/config/`.
+
+4. **Build the project**
+
+```bash
+mvn clean package
+```
+
+The output JAR will be in `target/pulse-server/pulse-server.jar`.
+
+### Running Locally
+
+```bash
+# specify the env variables and run the application
+java -jar target/pulse-server/pulse-server.jar
+```
+
+The server will start on `http://localhost:8080`.
+
+### Running with Docker
+
+```bash
+# Build Docker image
+docker build -t pulse-server:latest .
+
+# Run container
+docker run -p 8080:8080 \
+  -e CONFIG_SERVICE_APPLICATION_MYSQL_HOST=mysql \
+  -e CONFIG_SERVICE_APPLICATION_CLICKHOUSE_HOST=clickhouse \
+  pulse-server:latest
+```
+
+### Verify Installation
+
+```bash
+# Health check
+curl http://localhost:8080/healthcheck
+
+# Should return: {"status":"UP"}
+```
+
+# API Documentation
+
+Complete API reference for Pulse backend services.
+
+## Base URL
+
+```
+http://localhost:8080
+```
+
+Most endpoints require authentication using JWT tokens. Include the token in the Authorization header:
+
+```
+Authorization: Bearer {token}
+```
+
+## Authentication
+
+### Social Authenticate
+
+**Description:** Authenticates user via Google OAuth, validates ID token and returns access/refresh tokens.
+
+```http
+POST /v1/auth/social/authenticate
+Content-Type: application/json
+
+{
+  "responseType": "token",
+  "grantType": "authorization_code",
+  "identifier": "google-id-token",
+  "idProvider": "google",
+  "resources": ["pulse"]
+}
+```
+
+Response:
+
+```json
+{
+  "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "expiresIn": 3600,
+  "idToken": "eyJhbGciOiJSUzI1NiIsImtpZCI6IjEyMzQ1NiJ9...",
+  "refreshToken": "refresh-token-12345",
+  "tokenType": "Bearer"
+}
+```
+
+### Verify Auth Token
+
+**Description:** Verifies if the provided authorization token is valid.
+
+```http
+GET /v1/auth/token/verify
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+```
+
+Response:
+
+```json
+{
+  "isAuthTokenValid": true
+}
+```
+
+### Refresh Token
+
+**Description:** Gets a new access token using a refresh token.
+
+```http
+POST /v1/auth/token/refresh
+Content-Type: application/json
+
+{
+  "refreshToken": "refresh-token-12345"
+}
+```
+
+Response:
+
+```json
+{
+  "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "expiresIn": 3600,
+  "refreshToken": "refresh-token-12345",
+  "tokenType": "Bearer"
+}
+```
+
+## Metrics
+
+### Performance Metric Distribution
+
+**Description:** Queries telemetry data with custom aggregations and filters for analytics. Builds ClickHouse SQL query
+from request parameters.
+
+#### Request Fields
+
+**dataType** (required): Specifies which ClickHouse table to query. Accepts `TRACES`, `METRICS`, `LOGS`, or`EXCEPTIONS`.
+Determines source table: `otel_traces`, `otel_metrics`, `otel_logs`, or `stack_trace_events`.
+
+**timeRange** (required): ISO-8601 UTC timestamps for filtering data. `start` and `end` fields define the time window
+for query execution.
+
+**select** (required): Array of functions to calculate metrics. Each item contains:
+
+- `function`: Predefined metric function (see available functions below)
+- `param`: Optional parameters specific to function (e.g., field name for COL, expression for CUSTOM, bucket size for
+  TIME_BUCKET)
+- `alias`: Optional custom name for the result column
+
+**filters** (optional): Array of WHERE clause conditions. Each filter contains:
+
+- `field`: Column name to filter on (e.g., "span.name", "page.url")
+- `operator`: Comparison operator - `IN` (matches any value in list), `LIKE` (pattern matching), `EQ` (equals),
+  `ADDITIONAL` (raw query)
+- `value`: Array of values to match against
+
+**groupBy** (optional): Array of field names or aliases to group results by. Used for aggregation, must match
+non-aggregated select items.
+
+**orderBy** (optional): Array of sorting specifications. Each contains:
+
+- `field`: Field or alias name to sort by
+- `direction`: `ASC` (ascending) or `DESC` (descending)
+
+**limit** (optional): Maximum number of rows to return. Defaults to 100 if not specified.
+
+#### Available Functions
+
+**Duration & Performance Metrics:**
+
+- **APDEX**: Calculates average APDEX score from span attributes, excluding error status codes (value range: [0,1])
+- **DURATION_P99**: 99th percentile duration in milliseconds, excluding errors
+- **DURATION_P95**: 95th percentile duration in milliseconds, excluding errors
+- **DURATION_P50**: 50th percentile duration in milliseconds, excluding errors
+
+**Frame Metrics:**
+
+- **FROZEN_FRAME**: Sum of frozen frame counts from span attributes
+- **ANALYSED_FRAME**: Sum of analysed frame counts from span attributes
+- **UNANALYSED_FRAME**: Sum of unanalysed frame counts from span attributes
+- **FROZEN_FRAME_RATE**: Percentage of frozen frames to total frames (value range: 0-100%)
+
+**Error & Crash Metrics:**
+
+- **CRASH**: Count of crash events (device.crash)
+- **ANR**: Count of Application Not Responding events (device.anr)
+- **CRASH_RATE**: Percentage of crash events to total events (value range: 0-100%)
+- **ANR_RATE**: Percentage of ANR events to total events (value range: 0-100%)
+- **ERROR_RATE**: Percentage of error status codes to total interactions (value range: 0-100%)
+
+**Interaction Metrics:**
+
+- **INTERACTION_SUCCESS_COUNT**: Count of successful interactions (non-error status codes)
+- **INTERACTION_ERROR_COUNT**: Count of failed interactions (error status codes)
+- **INTERACTION_ERROR_DISTINCT_USERS**: Count of distinct users who encountered errors
+
+**User Category Metrics:**
+
+- **USER_CATEGORY_EXCELLENT**: Count of users in EXCELLENT category
+- **USER_CATEGORY_GOOD**: Count of users in GOOD category
+- **USER_CATEGORY_AVERAGE**: Count of users in AVERAGE category
+- **USER_CATEGORY_POOR**: Count of users in POOR category
+- **EXCELLENT_USER_RATE**: Percentage of excellent users to total users (value range: 0-100%)
+- **GOOD_USER_RATE**: Percentage of good users to total users (value range: 0-100%)
+- **AVERAGE_USER_RATE**: Percentage of average users to total users (value range: 0-100%)
+- **POOR_USER_RATE**: Percentage of poor users to total users (value range: 0-100%)
+
+**Network Metrics:**
+
+- **NET_0**: Sum of network connection errors (network.0 events)
+- **NET_2XX**: Sum of successful HTTP responses (2xx status codes)
+- **NET_3XX**: Sum of redirect responses (3xx status codes)
+- **NET_4XX**: Sum of client error responses (4xx status codes)
+- **NET_5XX**: Sum of server error responses (5xx status codes)
+- **NET_4XX_RATE**: Percentage of 4xx responses to total network requests (value range: 0-100%)
+- **NET_5XX_RATE**: Percentage of 5xx responses to total network requests (value range: 0-100%)
+- **NET_COUNT**: Total count of network requests
+- **DURATION_P99**: 99th percentile duration in milliseconds for network requests, excluding errors
+- **DURATION_P95**: 95th percentile duration in milliseconds for network requests, excluding errors
+- **DURATION_P50**: 50th percentile duration in milliseconds for network requests, excluding errors
+- **ERROR_RATE**: Percentage of error status codes to total network requests (value range: 0-100%)
+
+**Screen Metrics:**
+
+- **SCREEN_DAILY_USERS**: Count of distinct daily users for screen events
+- **ERROR_RATE**: Percentage of error status codes to total screen events (value range: 0-100%)
+- **SCREEN_TIME**: Average time spent on screen sessions in milliseconds
+- **LOAD_TIME**: Average time for screen load events in milliseconds
+
+**App Vitals Metrics (EXCEPTIONS data type):**
+
+- **CRASH_FREE_USERS_PERCENTAGE**: Percentage of users without crash events (value range: 0-100%)
+- **CRASH_FREE_SESSIONS_PERCENTAGE**: Percentage of sessions without crash events (value range: 0-100%)
+- **CRASH_USERS**: Count of distinct users with crash events (value >= 0)
+- **CRASH_SESSIONS**: Count of distinct sessions with crash events (value >= 0)
+- **ALL_USERS**: Total count of distinct users (value >= 0)
+- **ALL_SESSIONS**: Total count of distinct sessions (value >= 0)
+- **ANR_FREE_USERS_PERCENTAGE**: Percentage of users without ANR events (value range: 0-100%)
+- **ANR_FREE_SESSIONS_PERCENTAGE**: Percentage of sessions without ANR events (value range: 0-100%)
+- **ANR_USERS**: Count of distinct users with ANR events (value >= 0)
+- **ANR_SESSIONS**: Count of distinct sessions with ANR events (value >= 0)
+- **NON_FATAL_FREE_USERS_PERCENTAGE**: Percentage of users without non-fatal errors (value range: 0-100%)
+- **NON_FATAL_FREE_SESSIONS_PERCENTAGE**: Percentage of sessions without non-fatal errors (value range: 0-100%)
+- **NON_FATAL_USERS**: Count of distinct users with non-fatal errors (value >= 0)
+- **NON_FATAL_SESSIONS**: Count of distinct sessions with non-fatal errors (value >= 0)
+
+**Utility Functions:**
+
+- **COL**: Selects a column directly. Requires `param.field` with column name
+- **TIME_BUCKET**: Groups timestamps into time buckets. Requires `param.bucket` (e.g., "1d", "1h") and `param.field` (
+  timestamp column)
+- **CUSTOM**: Executes custom ClickHouse expression. Requires `param.expression` with SQL expression
+- **ARR_TO_STR**: Converts array to comma-separated string. Requires `param.field` with array column name
+
+#### Example Request
+
+```http
+POST /v1/interactions/performance-metric/distribution
+Content-Type: application/json
+
+{
+  "dataType": "TRACES",
+  "timeRange": {
+    "start": "2025-11-07T08:40:00Z",
+    "end": "2025-11-12T14:40:00Z"
+  },
+  "select": [
+    { "function": "COL", "param": {"field": "os.version"}, "alias": "osVersion"},
+    { "function": "DURATION_P99", "alias": "duration_p99"},
+    { "function": "APDEX"},
+    { "function": "TIME_BUCKET", "param": {"bucket": "1d", "field": "Timestamp"}, "alias": "t1"},
+    { "function": "CUSTOM", "param": { "expression": "countIf(StatusCode!='Error')"}, "alias": "success_count"}
+  ],
+  "filters": [
+    { "field": "span.name", "operator": "IN", "value": ["page_load"] },
+    { "field": "page.url", "operator": "LIKE", "value": ["https%://my-store.com/checkout/%"] }
+  ],
+  "groupBy": [
+    "osVersion"
+  ],
+  "orderBy": [
+    { "field": "t1", "direction": "ASC" },
+    { "field": "apdex", "direction": "ASC" }
+  ],
+  "limit": 1000
+}
+```
+
+Response:
+
+```json
+{
+  "status": 200,
+  "data": {
+    "fields": [
+      "osVersion",
+      "duration_p99",
+      "apdex",
+      "t1",
+      "success_count"
+    ],
+    "rows": [
+      [
+        "1.0_1",
+        "0.547",
+        "0.68",
+        "2025-11-08T08:40:00Z",
+        "24"
+      ],
+      [
+        "1.0_2",
+        "0.566",
+        "0.677",
+        "2025-11-09T08:40:00Z",
+        "23"
+      ]
+    ]
+  },
+  "error": null
+}
+```
+
+#### Example: App Vitals Crash Metrics
+
+```http
+POST /v1/interactions/performance-metric/distribution
+Content-Type: application/json
+
+{
+  "dataType": "EXCEPTIONS",
+  "timeRange": {
+    "start": "2025-12-05T00:00:00.000Z",
+    "end": "2025-12-12T23:59:59.999Z"
+  },
+  "select": [
+    { "function": "CUSTOM", "param": { "expression": "uniqCombinedIf(UserId, PulseType = 'device.crash')" }, "alias": "crash_users" },
+    { "function": "CUSTOM", "param": { "expression": "uniqCombinedIf(SessionId, PulseType = 'device.crash')" }, "alias": "crash_sessions" },
+    { "function": "CUSTOM", "param": { "expression": "uniqCombined(UserId)" }, "alias": "all_users" },
+    { "function": "CUSTOM", "param": { "expression": "uniqCombined(SessionId)" }, "alias": "all_sessions" },
+    { "function": "CRASH_FREE_USERS_PERCENTAGE", "alias": "crash_free_users_percentage" },
+    { "function": "CRASH_FREE_SESSIONS_PERCENTAGE", "alias": "crash_free_sessions_percentage" }
+  ]
+}
+```
+
+Response:
+
+```json
+{
+  "status": 200,
+  "data": {
+    "fields": [
+      "crash_users",
+      "crash_sessions",
+      "all_users",
+      "all_sessions",
+      "crash_free_users_percentage",
+      "crash_free_sessions_percentage"
+    ],
+    "rows": [
+      [
+        "150",
+        "320",
+        "10000",
+        "25000",
+        "0.985",
+        "0.9872"
+      ]
+    ]
+  },
+  "error": null
+}
+```
+
+#### Example: App Vitals ANR Metrics
+
+```http
+POST /v1/interactions/performance-metric/distribution
+Content-Type: application/json
+
+{
+  "dataType": "EXCEPTIONS",
+  "timeRange": {
+    "start": "2025-12-05T00:00:00.000Z",
+    "end": "2025-12-12T23:59:59.999Z"
+  },
+  "select": [
+    { "function": "ANR_USERS", "alias": "anr_users" },
+    { "function": "ANR_SESSIONS", "alias": "anr_sessions" },
+    { "function": "ALL_USERS", "alias": "all_users" },
+    { "function": "ALL_SESSIONS", "alias": "all_sessions" },
+    { "function": "ANR_FREE_USERS_PERCENTAGE", "alias": "anr_free_users_percentage" },
+    { "function": "ANR_FREE_SESSIONS_PERCENTAGE", "alias": "anr_free_sessions_percentage" }
+  ]
+}
+```
+
+Response:
+
+```json
+{
+  "status": 200,
+  "data": {
+    "fields": [
+      "anr_users",
+      "anr_sessions",
+      "all_users",
+      "all_sessions",
+      "anr_free_users_percentage",
+      "anr_free_sessions_percentage"
+    ],
+    "rows": [
+      [
+        "75",
+        "180",
+        "10000",
+        "25000",
+        "0.9925",
+        "0.9928"
+      ]
+    ]
+  },
+  "error": null
+}
+```
+
+#### Example: App Vitals Non-Fatal Metrics
+
+```http
+POST /v1/interactions/performance-metric/distribution
+Content-Type: application/json
+
+{
+  "dataType": "EXCEPTIONS",
+  "timeRange": {
+    "start": "2025-12-05T00:00:00.000Z",
+    "end": "2025-12-12T23:59:59.999Z"
+  },
+  "filters": [
+    { "field": "PulseType", "operator": "EQ", "value": ["non_fatal"] }
+  ],
+  "select": [
+    { "function": "NON_FATAL_USERS", "alias": "non_fatal_users" },
+    { "function": "NON_FATAL_SESSIONS", "alias": "non_fatal_sessions" },
+    { "function": "ALL_USERS", "alias": "all_users" },
+    { "function": "ALL_SESSIONS", "alias": "all_sessions" },
+    { "function": "NON_FATAL_FREE_USERS_PERCENTAGE", "alias": "non_fatal_free_users_percentage" },
+    { "function": "NON_FATAL_FREE_SESSIONS_PERCENTAGE", "alias": "non_fatal_free_sessions_percentage" }
+  ]
+}
+```
+
+Response:
+
+```json
+{
+  "status": 200,
+  "data": {
+    "fields": [
+      "non_fatal_users",
+      "non_fatal_sessions",
+      "all_users",
+      "all_sessions",
+      "non_fatal_free_users_percentage",
+      "non_fatal_free_sessions_percentage"
+    ],
+    "rows": [
+      [
+        "500",
+        "1200",
+        "10000",
+        "25000",
+        "0.95",
+        "0.952"
+      ]
+    ]
+  },
+  "error": null
+}
+```
+
+## OpenTelemetry Logs Ingestion
+
+### Export Logs
+
+**Description:** Receives OpenTelemetry log data via OTLP (OpenTelemetry Protocol) and processes stack trace events for
+error grouping and analysis. This endpoint implements the OTLP/HTTP logs exporter specification, accepting
+protobuf-encoded log data and processing it through the error grouping service for symbolication and storage in
+ClickHouse.
+
+**Business Logic:** The endpoint receives OpenTelemetry `ExportLogsServiceRequest` containing log records with stack
+traces. It processes these logs through the `ErrorGroupingService`, which:
+
+- Extracts stack trace events from log records
+- Identifies the platform/lane (JavaScript, Java, or NDK) for each stack trace
+- Symbolicates stack traces (converts obfuscated/minified code to readable format)
+- Groups similar errors together for analysis
+- Stores processed events in ClickHouse for analytics and error tracking
+
+The service supports automatic gzip compression/decompression for efficient data transfer. On success, it returns an
+empty protobuf response. On error, it returns a Google RPC Status message with sanitized error details.
+
+```http
+POST /v1/logs
+Content-Type: application/x-protobuf
+Content-Encoding: gzip (optional)
+Accept-Encoding: gzip (optional)
+
+[Protobuf-encoded ExportLogsServiceRequest body]
+```
+
+**Request Headers:**
+
+- `Content-Type`: Must be `application/x-protobuf`
+- `Content-Encoding`: Optional. If set to `gzip`, the request body will be automatically decompressed
+- `Accept-Encoding`: Optional. If set to `gzip`, the response will be compressed
+
+**Request Body:**
+The request body must be a protobuf-encoded `ExportLogsServiceRequest` message following the OpenTelemetry Protocol
+specification. The body can be optionally gzip-compressed if `Content-Encoding: gzip` header is present.
+
+**Success Response:**
+
+```http
+HTTP/1.1 200 OK
+Content-Type: application/x-protobuf
+Content-Encoding: gzip (if Accept-Encoding: gzip was sent)
+
+[Empty protobuf response]
+```
+
+**Error Response:**
+
+```http
+HTTP/1.1 400 Bad Request
+Content-Type: application/x-protobuf
+Content-Encoding: gzip (if Accept-Encoding: gzip was sent)
+
+[Google RPC Status protobuf message with error details]
+```
+
+**Example Request (using curl):**
+
+```bash
+# Without compression
+curl -X POST http://localhost:8080/v1/logs \
+  -H "Content-Type: application/x-protobuf" \
+  --data-binary @logs_request.pb
+
+# With gzip compression
+curl -X POST http://localhost:8080/v1/logs \
+  -H "Content-Type: application/x-protobuf" \
+  -H "Content-Encoding: gzip" \
+  -H "Accept-Encoding: gzip" \
+  --data-binary @logs_request.pb.gz
+```
+
+**Notes:**
+
+- This endpoint follows the OTLP/HTTP specification for log ingestion
+- Error messages in responses are sanitized (newlines and carriage returns are replaced with spaces)
+- The endpoint processes logs asynchronously and returns a completion stage
+- Stack traces are automatically symbolicated based on the detected platform (JS, Java, or NDK)
+
+## Query Service
+
+The query service provides a generic interface for executing SQL queries against various query engines (AWS Athena,
+BigQuery, etc.) with pagination support. Queries are automatically optimized with partition filters for better
+performance.
+
+**Base Path:** `/query`
+
+**Authentication:** These endpoints may require authentication depending on your server configuration.
+
+**Note:** The service is designed to be engine-agnostic. Currently, AWS Athena is the default implementation, but the
+architecture supports plugging in other query engines (e.g., BigQuery, GCP) by implementing the `QueryClient` and
+`QueryJobDao` interfaces.
+
+### Submit Query
+
+**Description:** Submits a SQL query for execution. The service validates that the query is a SELECT statement and
+includes a timestamp filter in the WHERE clause. If the query completes within 3 seconds, results are returned
+immediately. Otherwise, a job ID is returned for status checking and result retrieval.
+
+**Business Logic:** The endpoint:
+
+- Submits query to the configured query engine and polls for completion (up to 3 seconds)
+- Returns results immediately if query completes within 3 seconds
+- Returns job ID for asynchronous status checking if query takes longer
+
+```http
+POST /query
+Content-Type: application/json
+```
+
+**Request Body:**
+
+```json
+{
+  "queryString": "SELECT * FROM pulse_athena_db.otel_data WHERE \"timestamp\" >= TIMESTAMP '2025-12-23 11:00:00' AND \"timestamp\" <= TIMESTAMP '2025-12-23 11:59:59' LIMIT 10"
+}
+```
+
+**Request Fields:**
+
+- `queryString` (required): SQL query string. Must be a SELECT query and must include a timestamp filter in the WHERE
+  clause. The timestamp filter can be either:
+    - TIMESTAMP literals: `TIMESTAMP 'YYYY-MM-DD HH:MM:SS'` format
+    - Timestamp column: `timestamp` column with comparison operators (>=, <=, >, <, =, !=, <>)
+
+**Success Response (Query completed within 3 seconds):**
+
+```json
+{
+  "data": {
+    "jobId": "e8a98c57-c987-40bd-b1f5-a6f534e371df",
+    "status": "COMPLETED",
+    "message": "Query completed successfully within 3 seconds",
+    "queryExecutionId": "5e7ea4ab-9e26-48f0-9a5c-abb9702d3d1d",
+    "resultLocation": "s3://puls-otel-config/5e7ea4ab-9e26-48f0-9a5c-abb9702d3d1d.csv",
+    "resultData": [
+      {
+        "column1": "value1",
+        "column2": "value2"
+      }
+    ],
+    "nextToken": "AXzl4c3EaYUFTNQNmBrZsT9jIA...",
+    "dataScannedInBytes": 2639,
+    "createdAt": 1766738293000,
+    "completedAt": 1766738295000
+  },
+  "error": null
+}
+```
+
+**Success Response (Query still running after 3 seconds):**
+
+```json
+{
+  "data": {
+    "jobId": "e8a98c57-c987-40bd-b1f5-a6f534e371df",
+    "status": "RUNNING",
+    "message": "Query submitted successfully. Use GET /athena/job/{jobId} to check status and get results.",
+    "queryExecutionId": "5e7ea4ab-9e26-48f0-9a5c-abb9702d3d1d",
+    "dataScannedInBytes": null,
+    "createdAt": 1766738293000
+  },
+  "error": null
+}
+```
+
+**Response Fields:**
+
+- `jobId`: Unique identifier for the query job
+- `status`: Job status (COMPLETED, RUNNING, FAILED, CANCELLED)
+- `message`: Human-readable status message
+- `queryExecutionId`: AWS Athena query execution ID
+- `resultLocation`: S3 location where results are stored (if completed)
+- `resultData`: Array of result rows (if completed within 3 seconds)
+- `nextToken`: Token for pagination (if more results available)
+- `dataScannedInBytes`: Amount of data scanned by the query in bytes
+- `createdAt`: Job creation timestamp
+- `completedAt`: Job completion timestamp (if completed)
+
+**Error Response (Missing user email):**
+
+```json
+{
+  "data": null,
+  "error": {
+    "message": "User email is required and cannot be null or empty",
+    "code": "UNKNOWN_EXCEPTION"
+  }
+}
+```
+
+**Error Response (Invalid query - not SELECT):**
+
+```json
+{
+  "data": null,
+  "error": {
+    "message": "Query must start with SELECT",
+    "code": "UNKNOWN_EXCEPTION"
+  }
+}
+```
+
+**Error Response (Missing timestamp filter):**
+
+```json
+{
+  "data": null,
+  "error": {
+    "message": "Query must include timestamp filter in WHERE clause. Use one of: (1) timestamp column with comparison operators, or (2) TIMESTAMP literals",
+    "code": "UNKNOWN_EXCEPTION"
+  }
+}
+```
+
+**Headers:**
+
+- `user-email` (required): Email address of the user submitting the query
+
+**Example Request (using curl):**
+
+```bash
+curl --location 'http://localhost:8080/query' \
+  --header 'Content-Type: application/json' \
+  --header 'user-email: user@example.com' \
+  --data '{
+    "queryString": "SELECT * FROM pulse_athena_db.otel_data WHERE \"timestamp\" >= TIMESTAMP '\''2025-12-23 11:00:00'\'' AND \"timestamp\" <= TIMESTAMP '\''2025-12-23 11:59:59'\'' LIMIT 10",
+    "parameters": []
+  }'
+```
+
+**Validation Rules:**
+
+- **Query Type**: Only SELECT queries are allowed. INSERT, UPDATE, DELETE, DROP, and other DDL/DML operations are
+  rejected.
+- **Timestamp Filter**: The query must include a timestamp filter in the WHERE clause. This can be satisfied in one of
+  two ways:
+    - **Timestamp Column**: Use the `timestamp` column (with or without quotes) with comparison
+      operators (>=, <=, >, <, =, !=, <>) in the WHERE clause. Example:
+      `WHERE timestamp >= date_add('hour', -24, current_timestamp)`
+    - **TIMESTAMP Literals**: Include at least one `TIMESTAMP 'YYYY-MM-DD HH:MM:SS'` literal in the WHERE clause
+- **Query Length**: Maximum query length is 100,000 characters
+- **Security**: Queries containing potentially dangerous operations (SQL injection patterns) are rejected
+
+**Notes:**
+
+- The `queryString` and `userEmail` are stored in the database for audit and history tracking
+- Queries that complete within 3 seconds return results immediately in the response
+- For longer-running queries, use the job ID to check status and retrieve results
+- The service includes retry logic to handle cases where results aren't immediately available after query completion
+- All timestamps (`createdAt`, `updatedAt`, `completedAt`) are sourced from the AWS Athena API for accuracy
+- Query execution statistics (data scanned, execution time, queue time) are captured from AWS Athena and stored in the
+  database
+- The service architecture is engine-agnostic and supports multiple query engines through pluggable implementations
+
+### Get Job Status
+
+**Description:** Retrieves the status and results of a query job. If the job is completed, results can be
+retrieved with pagination support.
+
+```http
+GET /query/job/{jobId}?maxResults=100&nextToken=AXzl4c3EaYUFTNQNmBrZsT9jIA...
+```
+
+**Path Parameters:**
+
+- `jobId` (required): The job ID returned from the submit query endpoint
+
+**Query Parameters:**
+
+- `maxResults` (optional): Maximum number of results to return (1-1000). Defaults to 1000 if not specified.
+- `nextToken` (optional): Token for pagination. Use the `nextToken` from the previous response to get the next page of
+  results.
+
+**Success Response:**
+
+```json
+{
+  "data": {
+    "jobId": "e8a98c57-c987-40bd-b1f5-a6f534e371df",
+    "status": "COMPLETED",
+    "queryString": "SELECT * FROM pulse_athena_db.otel_data WHERE year = 2025 AND month = 12 AND day = 23 AND hour = 11 AND \"timestamp\" >= TIMESTAMP '2025-12-23 11:00:00' AND \"timestamp\" <= TIMESTAMP '2025-12-23 11:59:59' LIMIT 10",
+    "queryExecutionId": "5e7ea4ab-9e26-48f0-9a5c-abb9702d3d1d",
+    "resultLocation": "s3://puls-otel-config/5e7ea4ab-9e26-48f0-9a5c-abb9702d3d1d.csv",
+    "resultData": [
+      {
+        "column1": "value1",
+        "column2": "value2"
+      }
+    ],
+    "nextToken": "AXzl4c3EaYUFTNQNmBrZsT9jIA...",
+    "dataScannedInBytes": 2639,
+    "createdAt": 1766738293000,
+    "completedAt": 1766738295000
+  },
+  "error": null
+}
+```
+
+**Example Request (using curl):**
+
+```bash
+curl --location 'http://localhost:8080/query/job/e8a98c57-c987-40bd-b1f5-a6f534e371df?maxResults=100&nextToken=AXzl4c3EaYUFTNQNmBrZsT9jIA...'
+```
+
+**Notes:**
+
+- Results are fetched from the query engine API at runtime, not stored in the database
+- Pagination is supported using `maxResults` and `nextToken` parameters
+- The `nextToken` is URL-encoded and should be passed as-is in subsequent requests
+- If the job is still running, the status will be "RUNNING" and `resultData` will be null
+
+### Cancel Query
+
+**Description:** Cancels a running query job. If the query is already in a final state (COMPLETED, FAILED, or
+CANCELLED), it cannot be cancelled and the current status is returned.
+
+```http
+DELETE /query/job/{jobId}
+```
+
+**Path Parameters:**
+
+- `jobId` (required): The job ID of the query to cancel
+
+**Success Response:**
+
+```json
+{
+  "data": {
+    "jobId": "e8a98c57-c987-40bd-b1f5-a6f534e371df",
+    "status": "CANCELLED",
+    "message": "Query cancelled successfully",
+    "queryExecutionId": "5e7ea4ab-9e26-48f0-9a5c-abb9702d3d1d",
+    "dataScannedInBytes": 1234,
+    "updatedAt": 1766738295000
+  },
+  "error": null
+}
+```
+
+**Response Fields:**
+
+- `jobId`: Unique identifier for the query job
+- `status`: Updated job status (CANCELLED if successful, or current status if already in final state)
+- `message`: Human-readable status message
+- `queryExecutionId`: AWS Athena query execution ID
+- `dataScannedInBytes`: Amount of data scanned before cancellation (if available)
+- `updatedAt`: Timestamp when the job was updated
+
+**Example Request (using curl):**
+
+```bash
+curl --location --request DELETE 'http://localhost:8080/query/job/e8a98c57-c987-40bd-b1f5-a6f534e371df'
+```
+
+**Notes:**
+
+- Only queries in RUNNING or SUBMITTED state can be cancelled
+- Queries in final states (COMPLETED, FAILED, CANCELLED) cannot be cancelled
+- The cancellation request is sent to the query engine (e.g., AWS Athena) to stop the query execution
+- If the query has no execution ID yet, it will be marked as CANCELLED in the database
+
+### Get Query History
+
+**Description:** Retrieves a paginated list of historical queries for a specific user, ordered by submission time (most
+recent first). The endpoint automatically checks the status of up to 20 running queries in parallel and updates their
+status in the database before returning results.
+
+```http
+GET /query/history?limit=20&offset=0
+```
+
+**Headers:**
+
+- `user-email` (required): Email address of the user whose query history to retrieve
+
+**Query Parameters:**
+
+- `limit` (optional, default: 20): Maximum number of queries to return
+- `offset` (optional, default: 0): Pagination offset
+
+**Success Response:**
+
+```json
+{
+  "data": {
+    "queries": [
+      {
+        "jobId": "e8a98c57-c987-40bd-b1f5-a6f534e371df",
+        "queryString": "SELECT * FROM pulse_athena_db.otel_data WHERE \"timestamp\" >= TIMESTAMP '2025-12-23 11:00:00'",
+        "queryExecutionId": "5e7ea4ab-9e26-48f0-9a5c-abb9702d3d1d",
+        "status": "COMPLETED",
+        "resultLocation": "s3://puls-otel-config/5e7ea4ab-9e26-48f0-9a5c-abb9702d3d1d.csv",
+        "errorMessage": null,
+        "dataScannedInBytes": 2639,
+        "createdAt": 1766738293000,
+        "updatedAt": 1766738295000,
+        "completedAt": 1766738295000
+      }
+    ],
+    "total": 1,
+    "limit": 20,
+    "offset": 0
+  },
+  "error": null
+}
+```
+
+**Response Fields:**
+
+- `queries`: Array of query history items
+    - `jobId`: Unique identifier for the query job
+    - `queryString`: The query string that was executed
+    - `queryExecutionId`: AWS Athena query execution ID
+    - `status`: Job status (SUBMITTED, RUNNING, COMPLETED, FAILED, CANCELLED)
+    - `resultLocation`: S3 location where results are stored (if completed)
+    - `errorMessage`: Error message (if failed)
+    - `dataScannedInBytes`: Amount of data scanned by the query in bytes
+    - `createdAt`: Job creation timestamp (from AWS API)
+    - `updatedAt`: Last update timestamp (from AWS API)
+    - `completedAt`: Job completion timestamp (from AWS API, if completed)
+- `total`: Total number of queries in the result set
+- `limit`: Maximum number of queries per page
+- `offset`: Pagination offset
+
+**Example Request (using curl):**
+
+```bash
+curl --location 'http://localhost:8080/query/history?limit=20&offset=0' \
+  --header 'user-email: user@example.com'
+```
+
+**Notes:**
+
+- Queries are ordered by submission time (most recent first)
+- The endpoint automatically checks the status of up to 20 running queries in parallel
+- Running queries are updated in the database with their latest status from the query engine
+- All timestamps (`createdAt`, `updatedAt`, `completedAt`) are sourced from the AWS Athena API, not generated by the
+  application
+
+### Get Query Statistics
+
+**Description:** Retrieves aggregated statistics for all queries run by a specific user within an optional date range.
+Statistics include summary metrics, data scanned, and execution time information.
+
+```http
+GET /query/stats?startDate=2026-01-01T00:00:00&endDate=2026-01-12T23:59:59
+```
+
+**Headers:**
+
+- `user-email` (required): Email address of the user whose query statistics to retrieve
+
+**Query Parameters:**
+
+- `startDate` (optional): Start date in ISO-8601 format (e.g., "2026-01-01T00:00:00"). If not provided, statistics are
+  calculated from the earliest query.
+- `endDate` (optional): End date in ISO-8601 format (e.g., "2026-01-12T23:59:59"). If not provided, statistics are
+  calculated up to the latest query.
+
+**Success Response:**
+
+```json
+{
+  "data": {
+    "summary": {
+      "totalQueries": 150,
+      "completedQueries": 140,
+      "failedQueries": 8,
+      "cancelledQueries": 2,
+      "runningQueries": 0
+    },
+    "data": {
+      "totalDataScanned": 52428800,
+      "averageDataScanned": 349525,
+      "maxDataScanned": 10485760,
+      "minDataScanned": 1024
+    },
+    "time": {
+      "totalExecutionTime": 450000,
+      "averageExecutionTime": 3214,
+      "maxExecutionTime": 30000,
+      "minExecutionTime": 100,
+      "totalEngineExecutionTime": 420000,
+      "averageEngineExecutionTime": 3000,
+      "totalQueryQueueTime": 5000,
+      "averageQueryQueueTime": 35
+    },
+    "period": {
+      "startDate": "2026-01-01T00:00:00",
+      "endDate": "2026-01-12T23:59:59"
+    },
+    "queries": [
+      {
+        "jobId": "e8a98c57-c987-40bd-b1f5-a6f534e371df",
+        "queryString": "SELECT * FROM pulse_athena_db.otel_data WHERE year = 2025",
+        "status": "COMPLETED",
+        "dataScannedInBytes": 2639,
+        "executionTimeMillis": 1500,
+        "createdAt": 1766738293000,
+        "completedAt": 1766738295000
+      }
+    ]
+  },
+  "error": null
+}
+```
+
+**Response Fields:**
+
+- `summary`: Summary statistics
+    - `totalQueries`: Total number of queries
+    - `completedQueries`: Number of completed queries
+    - `failedQueries`: Number of failed queries
+    - `cancelledQueries`: Number of cancelled queries
+    - `runningQueries`: Number of currently running queries
+- `data`: Data scanning statistics (in bytes)
+    - `totalDataScanned`: Total data scanned across all queries
+    - `averageDataScanned`: Average data scanned per query
+    - `maxDataScanned`: Maximum data scanned in a single query
+    - `minDataScanned`: Minimum data scanned in a single query
+- `time`: Execution time statistics (in milliseconds)
+    - `totalExecutionTime`: Total execution time across all queries
+    - `averageExecutionTime`: Average execution time per query
+    - `maxExecutionTime`: Maximum execution time for a single query
+    - `minExecutionTime`: Minimum execution time for a single query
+    - `totalEngineExecutionTime`: Total engine execution time
+    - `averageEngineExecutionTime`: Average engine execution time
+    - `totalQueryQueueTime`: Total time queries spent in queue
+    - `averageQueryQueueTime`: Average queue time per query
+- `period`: Date range for the statistics
+    - `startDate`: Start date of the period
+    - `endDate`: End date of the period
+- `queries`: Array of individual query items with their statistics
+
+**Example Request (using curl):**
+
+```bash
+curl --location 'http://localhost:8080/query/stats?startDate=2026-01-01T00:00:00&endDate=2026-01-12T23:59:59' \
+  --header 'user-email: user@example.com'
+```
+
+**Notes:**
+
+- Statistics are calculated from data stored in the database
+- Execution time metrics (`executionTimeMillis`, `engineExecutionTimeMillis`, `queryQueueTimeMillis`) are sourced from
+  AWS Athena API
+- If `startDate` or `endDate` are not provided, statistics are calculated for all queries
+- Only queries with available statistics are included in the calculations
+
+### Get Tables and Columns
+
+**Description:** Retrieves metadata for all tables and their columns from the configured Athena database. This endpoint
+queries the `information_schema` to provide a complete catalog of available tables and their structure.
+
+```http
+GET /query/tables
+```
+
+**Success Response:**
+
+```json
+{
+  "data": [
+    {
+      "tableName": "otel_data",
+      "tableSchema": "pulse_athena_db",
+      "tableType": "EXTERNAL_TABLE",
+      "columns": [
+        {
+          "columnName": "timestamp",
+          "dataType": "timestamp",
+          "ordinalPosition": 1,
+          "isNullable": "YES"
+        },
+        {
+          "columnName": "year",
+          "dataType": "int",
+          "ordinalPosition": 2,
+          "isNullable": "NO"
+        },
+        {
+          "columnName": "month",
+          "dataType": "int",
+          "ordinalPosition": 3,
+          "isNullable": "NO"
+        }
+      ]
+    }
+  ],
+  "error": null
+}
+```
+
+**Response Fields:**
+
+- Array of table metadata objects:
+    - `tableName`: Name of the table
+    - `tableSchema`: Schema/database name
+    - `tableType`: Type of table (e.g., "EXTERNAL_TABLE", "VIEW")
+    - `columns`: Array of column metadata:
+        - `columnName`: Name of the column
+        - `dataType`: Data type of the column
+        - `ordinalPosition`: Position of the column in the table (1-based)
+        - `isNullable`: Whether the column allows NULL values ("YES" or "NO")
+
+**Example Request (using curl):**
+
+```bash
+curl --location 'http://localhost:8080/query/tables'
+```
+
+**Notes:**
+
+- Tables are sorted alphabetically by name
+- Columns within each table are sorted by ordinal position
+- This endpoint queries Athena's `information_schema` database
+- The database name is determined from the Athena configuration
+
+## Symbol File Upload
+
+### Upload Mapping/Symbol Files
+
+**Description:** Uploads symbol files (such as ProGuard mapping files, source maps, or other symbolication files) that
+are used to convert obfuscated or minified stack traces back to readable format. This endpoint accepts multipart form
+data containing both the file content and metadata describing the file's context (app version, platform, framework
+type).
+
+**Business Logic:** The endpoint receives symbol/mapping files along with metadata through a multipart form upload. The
+service:
+
+- Validates that both file content and metadata are provided
+- Matches each uploaded file with its corresponding metadata entry by filename
+- Stores files in MySQL database with metadata (app version, version code, platform, framework type)
+- Uses `ON DUPLICATE KEY UPDATE` to replace existing files for the same app version/platform/framework combination
+- These uploaded files are later retrieved during error symbolication process when processing stack traces from logs
+- Supports multiple file uploads in a single request, processing them concurrently
+
+The symbol files are essential for the error grouping service to properly symbolicate stack traces, converting
+obfuscated class names, method names, and line numbers back to their original readable format for better error analysis
+and debugging.
+
+```http
+POST /v1/symbolicate/file/upload
+Content-Type: multipart/form-data
+```
+
+**Request Body (Multipart Form Data):**
+
+The request must contain two parts:
+
+1. **`fileContent`** (one or more file parts): The actual symbol/mapping file(s) to upload
+    - Each file part should have a `Content-Disposition` header with a `filename` parameter
+    - Multiple files can be uploaded in a single request
+
+2. **`metadata`** (JSON string): An array of metadata objects describing each file
+   ```json
+   [
+     {
+       "type": "proguard",
+       "appVersion": "1.2.3",
+       "fileName": "mapping.txt",
+       "platform": "Android",
+       "versionCode": "123"
+     },
+     {
+       "type": "sourcemap",
+       "appVersion": "1.2.3",
+       "fileName": "bundle.js.map",
+       "platform": "iOS",
+       "versionCode": "123"
+     }
+   ]
+   ```
+
+**Metadata Fields:**
+
+- `type` (required): Framework/symbol file type (e.g., "proguard", "sourcemap", "retrace")
+- `appVersion` (required): Application version string
+- `fileName` (required): Name of the file (must match the filename in the file part)
+- `platform` (required): Platform identifier (e.g., "Android", "iOS")
+- `versionCode` (required): Version code/build number
+
+**Success Response:**
+
+```json
+{
+  "status": 200,
+  "data": true,
+  "error": null
+}
+```
+
+**Error Response:**
+
+```json
+{
+  "status": 200,
+  "data": false,
+  "error": null
+}
+```
+
+Note: The endpoint returns `false` in the data field if:
+
+- Metadata is empty or invalid
+- File parts are missing
+- Filename doesn't match any metadata entry
+- Upload fails for any file
+
+**Example Request (using curl):**
+
+```bash
+curl -X POST http://localhost:8080/v1/symbolicate/file/upload \
+  -F "fileContent=@mapping.txt" \
+  -F "fileContent=@bundle.js.map" \
+  -F 'metadata=[{"type":"proguard","appVersion":"1.2.3","fileName":"mapping.txt","platform":"Android","versionCode":"123"},{"type":"sourcemap","appVersion":"1.2.3","fileName":"bundle.js.map","platform":"iOS","versionCode":"123"}]'
+```
+
+**Notes:**
+
+- File names in the `fileContent` parts must exactly match the `fileName` field in the metadata array
+- Files with unknown filenames or without matching metadata are skipped
+- If any file upload fails, the entire operation returns `false`
+- Files are stored in MySQL and can be retrieved later for symbolication based on app version, platform, and framework
+  type
+- Existing files for the same app version/platform/framework combination are automatically replaced
+
+## Critical Interactions
+
+See [Interaction.md](Interaction.md), to know more about Interactions.
+
+All endpoints require user-email in header.
+
+```
+user-email: user@example.com
+```
+
+### Get Interactions
+
+**Description:** Retrieves paginated list of critical interactions with filtering options. Requires page and size query
+params, optional interactionName and userEmail for filtering.
+
+```http
+GET /v1/interactions?page=0&size=10&interactionName=ContestJoinSuccess&userEmail=user@example.com
+```
+
+Response:
+
+```json
+{
+  data: {
+    interactions: [
+      {
+        "interactionName": "ContestJoinSuccess",
+        "id": 123456,
+        "description": "Some description",
+        "uptimeLowerLimitInMs": 100,
+        // in Ms
+        "uptimeMidLimitInMs": 200,
+        // in Ms
+        "uptimeUpperLimitInMs": 300,
+        // in Ms
+        "thresholdInMs": 60000,
+        // in Ms
+        "status": "RUNNING"
+        /
+        "STOPPED"
+        "events": [
+          {
+            "name": "event1",
+            "props": [
+              {
+                "name": "property1",
+                "value": "value1",
+                "operator": "EQUALS"
+              },
+              {
+                "name": "property2",
+                "value": "value2",
+                "operator": "CONTAINS"
+                // default EQUALS
+              }
+            ],
+            "isBlacklisted": true/false/null
+          },
+          {
+            "name": "event2",
+            "props": [
+              {
+                "name": "property3",
+                "value": "value3",
+                "operator": "NOTEQUALS"
+                // default EQUALS
+              }
+            ],
+            "isBlacklisted": true/false/null
+          }
+        ],
+        "globalBlacklistedEvents": [
+          {
+            "name": "blacklisted_event",
+            "props": [
+              {
+                "name": "property4",
+                "value": "value4",
+                "operator": "NOTCONTAINS"
+              }
+            ],
+            "isBlacklisted": true/true
+          }
+        ],
+        "createdAt": 17874817100,
+        "createdBy": "user@example.com",
+        "updatedAt": "17874817100",
+        "updatedBy": "user@example.com"
+      }
+    ],
+    "totalInteractions": 100
+  }
+}
+```
+
+### Get All Interactions
+
+**Description:** Returns complete list of all interactions without pagination. No parameters required, used for dropdown
+selection or bulk operations.
+
+```http
+GET /v1/interactions/all
+```
+
+### Get Interaction Details
+
+**Description:** Fetches complete interaction configuration including events, thresholds, and blacklisted events.
+Requires name path parameter to identify specific interaction.
+
+Request:
+
+```http
+GET /v1/interactions/{name}
+```
+
+Response:
+
+```json
+{
+  data: {
+    "name": "example_interaction",
+    "description": "Some description",
+    "id": 123456,
+    "uptimeLowerLimitInMs": 100,
+    // in Ms
+    "uptimeMidLimitInMs": 200,
+    // in Ms
+    "uptimeUpperLimitInMs": 300,
+    // in Ms
+    "thresholdInMS": 60000,
+    // in Ms
+    "status": "RUNNING"
+    /
+    "STOPPED"
+    "events": [
+      {
+        "name": "event1",
+        "props": [
+          {
+            "name": "property1",
+            "value": "value1",
+            "operator": "EQUALS"
+          },
+          {
+            "name": "property2",
+            "value": "value2",
+            "operator": "CONTAINS"
+            // default EQUALS
+          }
+        ],
+        "isBlacklisted": true/false/null
+      },
+      {
+        "name": "event2",
+        "props": [
+          {
+            "name": "property3",
+            "value": "value3",
+            "operator": "NOTEQUALS"
+            // default EQUALS
+          }
+        ],
+        "isBlacklisted": true/false/null
+      }
+    ],
+    "globalBlacklistedEvents": [
+      {
+        "name": "blacklisted_event",
+        "props": [
+          {
+            "name": "property4",
+            "value": "value4",
+            "operator": "NOTCONTAINS"
+          }
+        ],
+        "isBlacklisted": true/true
+      }
+    ],
+    "createdAt": "17874817100,
+    "createdBy": "user@example.com",
+    "updatedAt": "17874817100",
+    "updatedBy": "huser@example.com"
+  }
+}
+```
+
+### Create Interaction
+
+**Description:** Creates new critical interaction definition for monitoring user flows. Requires name, events array,
+uptime limits, and thresholdInMs fields in request body.
+
+Request:
+
+```http
+POST /v1/interactions
+Content-Type: application/json
+{
+  "name": "example_interaction",
+  "description": "Some description",
+  "uptimeLowerLimitInMs": 100, // in Ms
+  "uptimeMidLimitInMS": 200, // in Ms
+  "uptimeUpperLimitInMs": 300, // in Ms
+  "thresholdInMs": 60000, // in Ms
+  "events": [
+    {
+      "name": "event1",
+      "props": [
+        {
+          "name": "property1",
+          "value": "value1",
+          "operator": "EQUALS"
+        },
+        {
+          "name": "property2",
+          "value": "value2",
+          "operator": "CONTAINS" // default EQUALS
+        }
+      ],
+      "isBlacklisted": true/false/null
+    },
+    {
+      "name": "event2",
+      "props": [
+        {
+          "vame": "property3",
+          "value": "value3",
+          "operator": "NOTEQUALS" // default EQUALS
+        }
+      ],
+      "isBlacklisted": true/false/null
+    }
+  ],
+  "globalBlacklistedEvents": [
+    {
+      "name": "blacklisted_event",
+      "props": [
+        {
+          "name": "property4",
+          "value": "value4",
+          "operator": "NOTCONTAINS"
+        }
+      ],
+      "isBlacklisted": true/true
+    }
+  ]
+}
+```
+
+Response:
+
+```json
+{
+  data: {
+    "id": 123
+  }
+}
+```
+
+### Update Interaction
+
+**Description:** Modifies existing interaction configuration with new events or thresholds. Requires name path parameter
+to identify interaction, updated fields in body to change configuration.
+
+```http
+PUT /v1/interactions/{name}
+Content-Type: application/json
+```
+
+### Delete Interaction
+
+**Description:** Removes critical interaction definition from system permanently. Requires name path parameter to
+specify which interaction to delete.
+
+```http
+DELETE /v1/interactions/{name}
+```
+
+## Interaction Filter Options
+
+**Description:** Returns available filter options for interaction queries. No parameters required, provides statuses and
+creator emails for filtering interactions.
+
+```http
+GET /v1/interactions/filter-options
+```
+
+Response:
+
+```json
+{
+  "data": {
+    "statuses": [
+      "RUNNING",
+      "STOPPED",
+      "DELETED"
+    ],
+    "createdBy": [
+      "user1@example.com",
+      "user2@example.com",
+      "user3@example.com"
+    ]
+  }
+}
+```
+
+## Telemetry Filter Options
+
+**Description:** Returns available telemetry filter values for data queries. No parameters required, provides app
+versions, device models, platforms, and OS versions for filtering.
+
+```http
+GET /v1/interactions/telemetry-filters
+```
+
+Response:
+
+```json
+{
+  "data": {
+    "appVersionCodes": [
+      "1.0.0",
+      "1.1.0",
+      "1.2.0",
+      "2.0.0"
+    ],
+    "deviceModels": [
+      "iPhone 14",
+      "iPhone 14 Pro",
+      "OnePlus 11",
+      "Samsung Galaxy S23"
+    ],
+    "networkProviders": [
+      "Airtel",
+      "Jio",
+      "Vodafone"
+    ],
+    "platforms": [
+      "Android",
+      "iOS"
+    ],
+    "osVersions": [
+      "Android 13",
+      "Android 14",
+      "iOS 16.5",
+      "iOS 17.0"
+    ],
+    "states": [
+      "IN-DL",
+      "IN-KA",
+      "IN-MH",
+      "IN-TN"
+    ]
+  }
+}
+```
+
+## Alerts
+
+Complete API reference for managing alerts, alert scopes, metrics, evaluation history, and alert-related configurations.
+
+All alert endpoints require authentication using JWT tokens. Include the token in the Authorization header:
+
+```
+Authorization: Bearer {token}
+```
+
+### Get Alerts (Paginated)
+
+**Description:** Retrieves a paginated list of alerts with optional filtering by name, scope, created_by, or updated_by.
+
+```http
+GET /v1/alert?name=alert_name&scope=interaction&created_by=user@example.com&limit=10&offset=0
+```
+
+**Query Parameters:**
+
+- `name` (optional): Filter by alert name
+- `scope` (optional): Filter by scope (interaction, screen, app_vitals, network_api)
+- `created_by` (optional): Filter by creator email
+- `updated_by` (optional): Filter by last updater email
+- `limit` (optional, default: 10): Number of results per page
+- `offset` (optional, default: 0): Pagination offset
+
+**Response:**
+
+```json
+{
+  "status": 200,
+  "data": {
+    "alerts": [
+      {
+        "id": 1,
+        "name": "High Error Rate Alert",
+        "description": "Alert for high error rates",
+        "scope": "interaction",
+        "evaluation_period": 1000,
+        "evaluation_interval": 60,
+        "severity_id": 4,
+        "notification_channel_id": 1,
+        "created_by": "user@example.com",
+        "updated_by": "user@example.com",
+        "created_at": "2025-01-01T00:00:00Z",
+        "updated_at": "2025-01-01T00:00:00Z"
+      }
+    ],
+    "total": 100
+  },
+  "error": null
+}
+```
+
+### Get All Alerts
+
+**Description:** Returns complete list of all alerts without pagination. Used for dropdown selection or bulk operations.
+
+```http
+GET /v1/alerts
+```
+
+**Response:**
+
+```json
+{
+  "status": 200,
+  "data": {
+    "alerts": [
+      {
+        "id": 1,
+        "name": "High Error Rate Alert",
+        "description": "Alert for high error rates",
+        "scope": "interaction"
+      }
+    ]
+  },
+  "error": null
+}
+```
+
+### Get Alert Details
+
+**Description:** Fetches complete alert configuration including scopes, conditions, and evaluation settings.
+
+```http
+GET /v1/alert/{id}
+```
+
+**Path Parameters:**
+
+- `id` (required): Alert ID
+
+**Response:**
+
+```json
+{
+  "status": 200,
+  "data": {
+    "id": 1,
+    "name": "High Error Rate Alert",
+    "description": "Alert for high error rates",
+    "scope": {
+      "name": "interaction",
+      "conditions": {
+        "interactionNames": [
+          "page_load",
+          "checkout"
+        ]
+      }
+    },
+    "dimension_filters": "AppVersion = '1.0.0'",
+    "condition_expression": "A AND B",
+    "alerts": [
+      {
+        "alias": "A",
+        "metric": "ERROR_RATE",
+        "metric_operator": "GREATER_THAN",
+        "threshold": {
+          "interaction": 0.05
+        }
+      }
+    ],
+    "evaluation_period": 1000,
+    "evaluation_interval": 60,
+    "severity_id": 4,
+    "notification_channel_id": 1,
+    "created_by": "user@example.com",
+    "updated_by": "user@example.com",
+    "created_at": "2025-01-01T00:00:00Z",
+    "updated_at": "2025-01-01T00:00:00Z"
+  },
+  "error": null
+}
+```
+
+### Create Alert
+
+**Description:** Creates a new alert with specified scope, conditions, metrics, and evaluation settings.
+
+```http
+POST /v1/alert
+Content-Type: application/json
+
+{
+  "name": "High Error Rate Alert",
+  "description": "Alert for high error rates",
+  "scope": {
+    "name": "interaction",
+    "conditions": {
+      "interactionNames": ["page_load", "checkout"]
+    }
+  },
+  "dimension_filters": "AppVersion = '1.0.0'",
+  "condition_expression": "A AND B",
+  "alerts": [
+    {
+      "alias": "A",
+      "metric": "ERROR_RATE",
+      "metric_operator": "GREATER_THAN",
+      "threshold": {
+        "interaction": 0.05
+      }
+    }
+  ],
+  "evaluation_period": 1000,
+  "evaluation_interval": 60,
+  "severity_id": 4,
+  "notification_channel_id": 1,
+  "created_by": "user@example.com",
+  "updated_by": "user@example.com"
+}
+```
+
+**Request Fields:**
+
+- `name` (required): Alert name
+- `description` (required): Alert description
+- `scope` (required): Alert scope object with name and conditions
+- `dimension_filters` (optional): Additional dimension filters as SQL-like string
+- `condition_expression` (required): Boolean expression combining alert conditions (e.g., "A AND B")
+- `alerts` (required): Array of alert conditions with alias, metric, operator, and threshold
+- `evaluation_period` (required): Evaluation period in milliseconds
+- `evaluation_interval` (required): Evaluation interval in seconds
+- `severity_id` (required): Severity level ID
+- `notification_channel_id` (required): Notification channel ID
+- `created_by` (required): Creator email
+- `updated_by` (required): Updater email
+
+**Response:**
+
+```json
+{
+  "status": 200,
+  "data": {
+    "id": 1
+  },
+  "error": null
+}
+```
+
+### Update Alert
+
+**Description:** Updates an existing alert configuration. Same request structure as Create Alert, but requires alert ID
+in the request body.
+
+```http
+PUT /v1/alert
+Content-Type: application/json
+
+{
+  "id": 1,
+  "name": "Updated Alert Name",
+  "description": "Updated description",
+  "scope": {
+    "name": "interaction",
+    "conditions": {
+      "interactionNames": ["page_load"]
+    }
+  },
+  "condition_expression": "A",
+  "alerts": [
+    {
+      "alias": "A",
+      "metric": "ERROR_RATE",
+      "metric_operator": "GREATER_THAN",
+      "threshold": {
+        "interaction": 0.1
+      }
+    }
+  ],
+  "evaluation_period": 2000,
+  "evaluation_interval": 120,
+  "severity_id": 4,
+  "notification_channel_id": 1,
+  "updated_by": "user@example.com"
+}
+```
+
+**Response:**
+
+```json
+{
+  "status": 200,
+  "data": {
+    "id": 1
+  },
+  "error": null
+}
+```
+
+### Delete Alert
+
+**Description:** Deletes an alert permanently from the system.
+
+```http
+DELETE /v1/alert/{id}
+```
+
+**Path Parameters:**
+
+- `id` (required): Alert ID
+
+**Response:**
+
+```json
+{
+  "status": 200,
+  "data": true,
+  "error": null
+}
+```
+
+### Get Alert Scopes
+
+**Description:** Returns available alert scopes with their IDs, names, and labels.
+
+```http
+GET /v1/alert/scopes
+```
+
+**Response:**
+
+```json
+{
+  "status": 200,
+  "data": {
+    "scopes": [
+      {
+        "id": 1,
+        "name": "interaction",
+        "label": "Interactions"
+      },
+      {
+        "id": 2,
+        "name": "network_api",
+        "label": "Network APIs"
+      },
+      {
+        "id": 3,
+        "name": "screen",
+        "label": "Screen"
+      },
+      {
+        "id": 4,
+        "name": "app_vitals",
+        "label": "App Vitals"
+      }
+    ]
+  },
+  "error": null
+}
+```
+
+### Get Alert Metrics
+
+**Description:** Returns available metrics for a specific scope.
+
+```http
+GET /v1/alert/metrics?scope=interaction
+```
+
+**Query Parameters:**
+
+- `scope` (required): Scope name (interaction, screen, app_vitals, network_api)
+
+**Response:**
+
+```json
+{
+  "status": 200,
+  "data": {
+    "scope": "interaction",
+    "metrics": [
+      {
+        "id": 1,
+        "name": "APDEX",
+        "label": "APDEX value [0,1]"
+      },
+      {
+        "id": 2,
+        "name": "CRASH",
+        "label": "CRASH value >= 0"
+      },
+      {
+        "id": 3,
+        "name": "ERROR_RATE",
+        "label": "ERROR_RATE value [0,1]"
+      }
+    ]
+  },
+  "error": null
+}
+```
+
+### Get Alert Evaluation History
+
+**Description:** Returns evaluation history for all scopes associated with an alert, grouped by scope.
+
+```http
+GET /v1/alert/{id}/evaluationHistory
+```
+
+**Path Parameters:**
+
+- `id` (required): Alert ID
+
+**Response:**
+
+```json
+{
+  "status": 200,
+  "data": [
+    {
+      "scope_id": 1,
+      "scope_name": "interaction",
+      "evaluation_history": [
+        {
+          "evaluation_id": 100,
+          "evaluation_result": "TRIGGERED",
+          "state": "ALERT",
+          "evaluated_at": "2025-01-01T12:00:00Z"
+        },
+        {
+          "evaluation_id": 99,
+          "evaluation_result": "NORMAL",
+          "state": "NORMAL",
+          "evaluated_at": "2025-01-01T11:00:00Z"
+        }
+      ]
+    }
+  ],
+  "error": null
+}
+```
+
+### Evaluate and Trigger Alert
+
+**Description:** Manually triggers evaluation of an alert. The evaluation is performed asynchronously, and this endpoint
+returns immediately with the alert ID. The actual evaluation results are processed in the background and stored in the
+evaluation history.
+
+```http
+GET /v1/alert/evaluateAndTriggerAlert?alertId=1
+```
+
+**Query Parameters:**
+
+- `alertId` (required): Alert ID to evaluate
+
+**Response:**
+
+```json
+{
+  "status": 200,
+  "data": {
+    "alert_id": "1"
+  },
+  "error": null
+}
+```
+
+**Note:** To view the evaluation results, use the [Get Alert Evaluation History](#get-alert-evaluation-history) endpoint
+after the evaluation completes.
+
+### Snooze Alert
+
+**Description:** Snoozes an alert for a specified time period. During the snooze period, the alert will not trigger
+notifications.
+
+```http
+POST /v1/alert/{id}/snooze
+Content-Type: application/json
+Authorization: Bearer {token}
+
+{
+  "snoozeFrom": 1765751323047,
+  "snoozeUntil": 1765837723047
+}
+```
+
+**Path Parameters:**
+
+- `id` (required): Alert ID
+
+**Request Body:**
+
+- `snoozeFrom` (required): Start time in milliseconds (epoch timestamp)
+- `snoozeUntil` (required): End time in milliseconds (epoch timestamp)
+
+**Response:**
+
+```json
+{
+  "status": 200,
+  "data": {
+    "isSnoozed": true,
+    "snoozedFrom": 1765751323047,
+    "snoozedUntil": 1765837723047
+  },
+  "error": null
+}
+```
+
+### Delete Snooze
+
+**Description:** Removes the snooze period from an alert, allowing it to trigger notifications again.
+
+```http
+DELETE /v1/alert/{id}/snooze
+Authorization: Bearer {token}
+```
+
+**Path Parameters:**
+
+- `id` (required): Alert ID
+
+**Response:**
+
+```json
+{
+  "status": 200,
+  "data": {
+    "message": "success"
+  },
+  "error": null
+}
+```
+
+### Alert Evaluation and Metrics
+
+#### Data Sources
+
+Alert evaluation queries data from multiple ClickHouse tables based on metric type:
+
+- **TRACES**: Used for most metrics (screen metrics, network API metrics, interaction metrics)
+- **EXCEPTIONS**: Used for crash/ANR/non-fatal user and session counts
+- **TRACES**: Used for total users/sessions in APP_VITALS scope (with `PulseType = 'app_start'`)
+
+#### Composite Metrics
+
+Some metrics require data from multiple tables and are calculated after merging results:
+
+**Screen Scope:**
+
+- `CRASH_FREE_USERS_PERCENTAGE`: Calculated from `ALL_USERS` (TRACES) and `CRASH_USERS` (EXCEPTIONS)
+- `CRASH_FREE_SESSIONS_PERCENTAGE`: Calculated from `ALL_SESSIONS` (TRACES) and `CRASH_SESSIONS` (EXCEPTIONS)
+- `ANR_FREE_USERS_PERCENTAGE`: Calculated from `ALL_USERS` (TRACES) and `ANR_USERS` (EXCEPTIONS)
+- `ANR_FREE_SESSIONS_PERCENTAGE`: Calculated from `ALL_SESSIONS` (TRACES) and `ANR_SESSIONS` (EXCEPTIONS)
+- `NON_FATAL_FREE_USERS_PERCENTAGE`: Calculated from `ALL_USERS` (TRACES) and `NON_FATAL_USERS` (EXCEPTIONS)
+- `NON_FATAL_FREE_SESSIONS_PERCENTAGE`: Calculated from `ALL_SESSIONS` (TRACES) and `NON_FATAL_SESSIONS` (EXCEPTIONS)
+
+**APP_VITALS Scope:**
+
+- `CRASH_FREE_USERS_PERCENTAGE`: Calculated from `ALL_USERS` (TRACES) and `CRASH_USERS` (EXCEPTIONS)
+- `CRASH_FREE_SESSIONS_PERCENTAGE`: Calculated from `ALL_SESSIONS` (TRACES) and `CRASH_SESSIONS` (EXCEPTIONS)
+- Similar pattern for ANR and non-fatal metrics
+
+**Formula:** `((total - exception) / total) * 100`
+
+#### Network API Scope
+
+For `network_api` scope, alerts support HTTP method differentiation:
+
+- Scope names use format: `{method}_{url}` (e.g., `get_https://www.example.com/graphql`)
+- Queries include `http.method` in SELECT and GROUP BY clauses
+- Evaluation matches both method and URL from query results
+
+#### Evaluation Process
+
+1. **Metric Grouping**: Metrics are grouped by required data type (TRACES, EXCEPTIONS, LOGS)
+2. **Parallel Queries**: Separate queries are executed in parallel for each data type
+3. **Result Merging**: Results are merged by time bucket and scope name (and method for NETWORK_API)
+4. **Composite Calculation**: Composite metrics are calculated from base metrics after merging
+5. **Evaluation**: Each metric is evaluated against its threshold using the specified operator
+
+#### Available Metrics by Scope
+
+**Screen Scope:**
+
+- `SCREEN_DAILY_USERS`, `ERROR_RATE`, `SCREEN_TIME`, `LOAD_TIME`
+- `CRASH_FREE_USERS_PERCENTAGE`, `CRASH_FREE_SESSIONS_PERCENTAGE`
+- `ANR_FREE_USERS_PERCENTAGE`, `ANR_FREE_SESSIONS_PERCENTAGE`
+- `NON_FATAL_FREE_USERS_PERCENTAGE`, `NON_FATAL_FREE_SESSIONS_PERCENTAGE`
+
+**Network API Scope:**
+
+- `NET_0`, `NET_2XX`, `NET_3XX`, `NET_4XX`, `NET_5XX`, `NET_COUNT`
+- `NET_4XX_RATE`, `NET_5XX_RATE`, `ERROR_RATE`
+- `DURATION_P99`, `DURATION_P95`, `DURATION_P50`
+
+**APP_VITALS Scope:**
+
+- `CRASH_FREE_USERS_PERCENTAGE`, `CRASH_FREE_SESSIONS_PERCENTAGE`
+- `ANR_FREE_USERS_PERCENTAGE`, `ANR_FREE_SESSIONS_PERCENTAGE`
+- `NON_FATAL_FREE_USERS_PERCENTAGE`, `NON_FATAL_FREE_SESSIONS_PERCENTAGE`
+- `CRASH_USERS`, `CRASH_SESSIONS`, `ANR_USERS`, `ANR_SESSIONS`
+- `NON_FATAL_USERS`, `NON_FATAL_SESSIONS`, `ALL_USERS`, `ALL_SESSIONS`
+
+**Interaction Scope:**
+
+- `APDEX`, `CRASH`, `ANR`, `ERROR_RATE`, `CRASH_RATE`, `ANR_RATE`
+- `FROZEN_FRAME_RATE`, `POOR_USER_RATE`, `AVERAGE_USER_RATE`, `GOOD_USER_RATE`, `EXCELLENT_USER_RATE`
+- `DURATION_P99`, `DURATION_P95`, `DURATION_P50`
+- `INTERACTION_SUCCESS_COUNT`, `INTERACTION_ERROR_COUNT`, `INTERACTION_ERROR_DISTINCT_USERS`
+
+### Get Alert Filters
+
+**Description:** Returns available filter options for alert queries, including creators, updaters, and alert states.
+
+```http
+GET /v1/alert/filters
+```
+
+**Response:**
+
+```json
+{
+  "status": 200,
+  "data": {
+    "job_id": null,
+    "created_by": [
+      "user1@example.com",
+      "user2@example.com"
+    ],
+    "updated_by": [
+      "user1@example.com",
+      "user2@example.com"
+    ],
+    "current_state": [
+      "NORMAL",
+      "FIRING",
+      "NO_DATA"
+    ]
+  },
+  "error": null
+}
+```
+
+**Response Fields:**
+
+- `job_id`: List of job IDs (currently not populated, returns null)
+- `created_by`: List of unique creator email addresses
+- `updated_by`: List of unique updater email addresses
+- `current_state`: List of unique alert states (NORMAL, FIRING, NO_DATA, etc.)
+
+### Get Alert Severity List
+
+**Description:** Returns list of available alert severity levels.
+
+```http
+GET /v1/alert/severity
+```
+
+**Response:**
+
+```json
+{
+  "status": 200,
+  "data": [
+    {
+      "severity_id": 1,
+      "name": 1,
+      "description": "Critical: Production outage or severe degradation with significant user impact. Requires immediate action and incident management."
+    },
+    {
+      "severity_id": 2,
+      "name": 2,
+      "description": "Warning: Degraded performance, elevated errors, or risk of user impact. Should be investigated soon but is not a full outage."
+    },
+    {
+      "severity_id": 3,
+      "name": 3,
+      "description": "Info: Informational or low-risk condition. No immediate action required; useful for visibility, trend analysis, or validation of changes."
+    }
+  ],
+  "error": null
+}
+```
+
+**Response Fields:**
+
+- `severity_id`: Unique identifier for the severity level
+- `name`: Severity level number (1, 2, 3, etc.)
+- `description`: Detailed description of the severity level
+
+### Create Alert Severity
+
+**Description:** Creates a new alert severity level.
+
+```http
+POST /v1/alert/severity
+Content-Type: application/json
+
+{
+  "name": 4,
+  "description": "Critical: Production outage or severe degradation with significant user impact. Requires immediate action and incident management."
+}
+```
+
+**Request Body:**
+
+- `name` (required): Severity level number (Integer, e.g., 1, 2, 3, 4)
+- `description` (required): Detailed description of the severity level
+
+**Response:**
+
+```json
+{
+  "status": 200,
+  "data": true,
+  "error": null
+}
+```
+
+### Get Alert Notification Channels
+
+**Description:** Returns list of available notification channels for alerts.
+
+```http
+GET /v1/alert/notificationChannels
+```
+
+**cURL Example:**
+
+```bash
+curl -X GET 'http://localhost:8080/v1/alert/notificationChannels' \
+  -H 'Accept: application/json' \
+  -H 'Authorization: Bearer {token}'
+```
+
+**Response:**
+
+```json
+{
+  "status": 200,
+  "data": [
+    {
+      "notification_channel_id": 1,
+      "name": "Incident management",
+      "type": "slack",
+      "config": "http://whistlebot.local/declare-incident",
+      "is_active": true
+    },
+    {
+      "notification_channel_id": 2,
+      "name": "Team Email",
+      "type": "email",
+      "config": "team@example.com",
+      "is_active": true
+    }
+  ],
+  "error": null
+}
+```
+
+**Response Fields:**
+
+- `notification_channel_id`: Unique identifier for the notification channel
+- `name`: Name of the notification channel
+- `type`: Notification type (`slack` or `email`)
+- `config`: Configuration value (string, not JSON)
+    - For `slack`: Webhook URL (e.g., `https://hooks.slack.com/services/...`)
+    - For `email`: Email address (e.g., `team@example.com`)
+- `is_active`: Boolean indicating if the channel is active (only active channels are returned)
+
+### Create Alert Notification Channel
+
+**Description:** Creates a new notification channel for alerts.
+
+```http
+POST /v1/alert/notificationChannels
+Content-Type: application/json
+
+{
+  "name": "PagerDuty",
+  "type": "slack",
+  "config": "http://whistlebot.local/declare-incident"
+}
+```
+
+**Request Body:**
+
+- `name` (required): Channel name
+- `type` (required): Notification type (`slack` or `email`)
+- `config` (required): Configuration value (string)
+    - For `slack`: Webhook URL (e.g., `https://hooks.slack.com/services/...`)
+    - For `email`: Email address (e.g., `recipient@example.com`)
+
+**Response:**
+
+```json
+{
+  "status": 200,
+  "data": true,
+  "error": null
+}
+```
+
+**cURL Example for Slack:**
+
+```bash
+curl -X POST 'http://localhost:8080/v1/alert/notificationChannels' \
+  -H 'Content-Type: application/json' \
+  -H 'Accept: application/json' \
+  -H 'Authorization: Bearer {token}' \
+  -d '{
+    "name": "Slack Channel",
+    "type": "slack",
+    "config": "https://hooks.slack.com/services/YOUR/WEBHOOK/URL"
+  }'
+```
+
+**cURL Example for Email:**
+
+```bash
+curl -X POST 'http://localhost:8080/v1/alert/notificationChannels' \
+  -H 'Content-Type: application/json' \
+  -H 'Accept: application/json' \
+  -H 'Authorization: Bearer {token}' \
+  -d '{
+    "name": "Team Email",
+    "type": "email",
+    "config": "team@example.com"
+  }'
+```
+
+**Notes:**
+
+- When an alert is triggered during evaluation, the system automatically fetches the notification channel configuration
+  from the database using the `notification_channel_id` associated with the alert
+- Only active notification channels (`is_active = TRUE`) are used for sending notifications during alert evaluation
+- For `slack` type channels, the `config` field contains the webhook URL directly, and notifications are sent to that
+  URL
+- For `email` type channels, the `config` field contains the email address directly (email sending implementation can be
+  added later)
+- The notification channel details (type and config) are retrieved from the `notification_channels` table at the time of
+  alert evaluation
+- Only active channels are returned by the GET endpoint
+
+### Update Alert Notification Channel
+
+**Description:** Updates an existing notification channel.
+
+```http
+PUT /v1/alert/notificationChannels/{notificationChannelId}
+Content-Type: application/json
+
+{
+  "name": "Updated Channel Name",
+  "type": "slack",
+  "config": "https://hooks.slack.com/services/NEW/WEBHOOK/URL"
+}
+```
+
+**Path Parameters:**
+
+- `notificationChannelId` (required): The ID of the notification channel to update
+
+**Request Body:**
+
+- `name` (required): Updated channel name
+- `type` (required): Notification type (`slack` or `email`)
+- `config` (required): Updated configuration value (string)
+
+**Response:**
+
+```json
+{
+  "status": 200,
+  "data": true,
+  "error": null
+}
+```
+
+**cURL Example:**
+
+```bash
+curl -X PUT 'http://localhost:8080/v1/alert/notificationChannels/1' \
+  -H 'Content-Type: application/json' \
+  -H 'Accept: application/json' \
+  -H 'Authorization: Bearer {token}' \
+  -d '{
+    "name": "Updated Slack Channel",
+    "type": "slack",
+    "config": "https://hooks.slack.com/services/NEW/WEBHOOK/URL"
+  }'
+```
+
+**cURL Example for Email Update:**
+
+```bash
+curl -X PUT 'http://localhost:8080/v1/alert/notificationChannels/2' \
+  -H 'Content-Type: application/json' \
+  -H 'Accept: application/json' \
+  -H 'Authorization: Bearer {token}' \
+  -d '{
+    "name": "Updated Team Email",
+    "type": "email",
+    "config": "updated-team@example.com"
+  }'
+```
+
+### Get Alert Notification Channel by ID
+
+**Description:** Returns a specific notification channel by its ID. Returns the channel even if it's inactive.
+
+```http
+GET /v1/alert/notificationChannels/{notificationChannelId}
+```
+
+**Path Parameters:**
+
+- `notificationChannelId` (required): The ID of the notification channel to retrieve
+
+**Response:**
+
+```json
+{
+  "status": 200,
+  "data": {
+    "notification_channel_id": 1,
+    "name": "Incident management",
+    "type": "slack",
+    "config": "http://whistlebot.local/declare-incident",
+    "is_active": true
+  },
+  "error": null
+}
+```
+
+**cURL Example:**
+
+```bash
+curl -X GET 'http://localhost:8080/v1/alert/notificationChannels/1' \
+  -H 'Accept: application/json' \
+  -H 'Authorization: Bearer {token}'
+```
+
+**Error Response (404):**
+
+```json
+{
+  "status": 404,
+  "data": null,
+  "error": {
+    "message": "Not Found",
+    "cause": "Notification channel not found",
+    "code": "404"
+  }
+}
+```
+
+### Delete Alert Notification Channel
+
+**Description:** Soft deletes a notification channel by setting `is_active = FALSE`. The channel will no longer be
+returned by the GET endpoint and will not be used for alert notifications.
+
+```http
+DELETE /v1/alert/notificationChannels/{notificationChannelId}
+```
+
+**Path Parameters:**
+
+- `notificationChannelId` (required): The ID of the notification channel to delete
+
+**Response:**
+
+```json
+{
+  "status": 200,
+  "data": true,
+  "error": null
+}
+```
+
+**cURL Example:**
+
+```bash
+curl -X DELETE 'http://localhost:8080/v1/alert/notificationChannels/1' \
+  -H 'Accept: application/json' \
+  -H 'Authorization: Bearer {token}'
+```
+
+**Notes:**
+
+- This is a soft delete operation - the channel is marked as inactive but not removed from the database
+- Deleted channels will not appear in the GET notification channels list
+- Deleted channels will not be used for sending notifications during alert evaluation
+- To reactivate a deleted channel, you can update it using the UPDATE endpoint (though the current implementation
+  requires the channel to be active for updates)
+
+## 🗄️ Database Schema
+
+### ClickHouse Schema
+
+See backend/db/clickhouse/ for schemas.
+
+## ⚙️ Configuration
+
+### Application Configuration
+
+Configuration is done via environment variables with the prefix `CONFIG_SERVICE_APPLICATION_*`.
+
+**MySQL Configuration**
+
+```bash
+CONFIG_SERVICE_APPLICATION_MYSQL_HOST=localhost
+CONFIG_SERVICE_APPLICATION_MYSQL_PORT=3306
+CONFIG_SERVICE_APPLICATION_MYSQL_DATABASE=pulse_db
+CONFIG_SERVICE_APPLICATION_MYSQL_USER=pulse_user
+CONFIG_SERVICE_APPLICATION_MYSQL_PASSWORD=pulse_password
+```
+
+**ClickHouse Configuration**
+
+```bash
+CONFIG_SERVICE_APPLICATION_CLICKHOUSE_HOST=localhost
+CONFIG_SERVICE_APPLICATION_CLICKHOUSE_PORT=8123
+CONFIG_SERVICE_APPLICATION_CLICKHOUSE_DATABASE=otel
+CONFIG_SERVICE_APPLICATION_CLICKHOUSE_USER=default
+CONFIG_SERVICE_APPLICATION_CLICKHOUSE_PASSWORD=
+```
+
+**Server Configuration**
+
+```bash
+CONFIG_SERVICE_APPLICATION_SERVER_PORT=8080
+CONFIG_SERVICE_APPLICATION_SERVER_HOST=0.0.0.0
+```
+
+**Product analytics batch engine (funnel / journey)**
+
+Mapped from `src/main/resources/conf/analytics-engine-default.conf`. Use `spark` (EMR batch jobs) or `clickhouse` (
+in-process ClickHouse compute). When `APP_ENVIRONMENT` is `prod` and the engine is `clickhouse`,
+`ANALYTICS_BATCH_PROJECT_CONCURRENCY` must be a positive integer (`StartupConfigValidator`).
+
+```bash
+ANALYTICS_COMPUTE_ENGINE=spark
+ANALYTICS_BATCH_PROJECT_CONCURRENCY=4
+```
+
+Docker / quickstart defaults: `deploy/docker-compose.yml`, `deploy/.env.example`, and `deploy/scripts/common.sh` (
+`load_env`).
+
+**Authentication Configuration**
+
+```bash
+VAULT_SERVICE_GOOGLE_CLIENT_ID=your-google-client-id
+VAULT_SERVICE_JWT_SECRET=your-jwt-secret
+```
+
+**Query Engine Configuration**
+
+The query service supports multiple query engines through pluggable implementations. Currently, AWS Athena is the
+default implementation.
+
+**Athena Configuration:**
+
+Configuration is done via `src/main/resources/conf/athena-default.conf` or environment-specific config files:
+
+```hocon
+athena {
+  athenaRegion = "ap-south-1"
+  database = "pulse_athena_db"
+  outputLocation = "s3://puls-otel-config/"
+  awsAccessKeyId = ${?AWS_ACCESS_KEY_ID}
+  awsSecretAccessKey = ${?AWS_SECRET_ACCESS_KEY}
+  awsSessionToken = ${?AWS_SESSION_TOKEN}
+}
+```
+
+**AWS Credentials:**
+
+The application supports AWS credentials through multiple methods:
+
+1. **Environment Variables** (recommended for local development):
+    - `AWS_ACCESS_KEY_ID`: AWS access key ID
+    - `AWS_SECRET_ACCESS_KEY`: AWS secret access key
+    - `AWS_SESSION_TOKEN`: AWS session token (optional, for temporary credentials)
+
+2. **Config File**: Credentials can be specified in the config file (mapped from environment variables as shown above)
+
+3. **AWS SDK Default Credential Provider Chain**: If credentials are not provided via environment variables or config
+   file, the AWS SDK automatically looks for credentials in the following order:
+    - Environment variables (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN`)
+    - Java system properties
+    - Web identity token from AWS STS
+    - Shared credentials file (`~/.aws/credentials`)
+    - EC2 instance profile credentials
+    - ECS container credentials
+    - Lambda execution environment credentials
+
+**Note:** For production deployments, it's recommended to use IAM roles (EC2 instance profiles, ECS task roles, or
+Lambda execution roles) rather than hardcoding credentials. For local development, use environment variables or AWS
+credential files.
+
+**EMR Serverless (batch job API client):**
+
+Configuration is in `src/main/resources/conf/emr-serverless-default.conf`. All keys are read from environment
+variables (same pattern as ClickHouse). Set them in `deploy/.env` / your orchestrator; local Docker supplies defaults
+via `deploy/docker-compose.yml`.
+
+When `CONFIG_SERVICE_APPLICATION_EMR_SERVERLESS_ENABLED` is `false`, leave ARNs and `applicationId` empty. When
+`enabled` is `true`, all of the following must be non-blank:
+
+- `CONFIG_SERVICE_APPLICATION_EMR_SERVERLESS_ENABLED`
+- `CONFIG_SERVICE_APPLICATION_EMR_SERVERLESS_REGION`
+- `CONFIG_SERVICE_APPLICATION_EMR_SERVERLESS_APPLICATION_ID`
+- `CONFIG_SERVICE_APPLICATION_EMR_SERVERLESS_EXECUTION_ROLE_ARN`
+
+When `APP_ENVIRONMENT` is `prod`, startup validation additionally requires EMR to be **enabled** and every value above
+to be set (`StartupConfigValidator`).
+
+The server uses `software.amazon.awssdk:emrserverless` with `DefaultCredentialsProvider` (same chain as other AWS SDK
+usage). Provision the EMR Serverless application and IAM roles in AWS manually (or your own tooling); no Terraform for
+this module lives in this repo.
+
+**Adding Support for Other Query Engines:**
+
+To add support for a new query engine (e.g., BigQuery, GCP):
+
+1. Implement the `QueryClient` interface with engine-specific logic
+2. Implement the `QueryJobDao` interface (or reuse existing implementation if compatible)
+3. Create a Guice module that binds `QueryClient` and `QueryJobDao` to your implementations
+4. The `QueryService` implementation will automatically work with your new engine
+
+The service architecture is designed to be engine-agnostic, making it easy to switch between or support multiple query
+engines simultaneously.
+
+### Running Tests
+
+```bash
+# Run all tests
+mvn test
+
+# Run with coverage
+mvn test jacoco:report
+
+# Run integration tests
+mvn verify
+```
+
+### Code Coverage
+
+Code coverage reports are generated with JaCoCo:
+
+```bash
+mvn clean test jacoco:report
+```
+
+## 📄 License
+
+Part of the Pulse Observability Platform. See [LICENSE](../../LICENSE) for details.
+
+---
+
+**Built with ❤️ by the Pulse Backend Team**

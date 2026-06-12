@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Interactions Test</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 20px;
+      }
+      .test-result {
+        margin: 10px 0;
+        padding: 10px;
+        border-radius: 4px;
+      }
+      .success {
+        background-color: #d4edda;
+        border: 1px solid #c3e6cb;
+        color: #155724;
+      }
+      .error {
+        background-color: #f8d7da;
+        border: 1px solid #f5c6cb;
+        color: #721c24;
+      }
+      .info {
+        background-color: #d1ecf1;
+        border: 1px solid #bee5eb;
+        color: #0c5460;
+      }
+      button {
+        padding: 10px 20px;
+        margin: 5px;
+        cursor: pointer;
+      }
+      pre {
+        background: #f8f9fa;
+        padding: 10px;
+        border-radius: 4px;
+        overflow-x: auto;
+      }
+      .interaction-card {
+        margin: 10px 0;
+        padding: 15px;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        background: #f9f9f9;
+      }
+      .status-badge {
+        display: inline-block;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 12px;
+        font-weight: bold;
+        margin-left: 10px;
+      }
+      .status-running {
+        background-color: #28a745;
+        color: white;
+      }
+      .status-stopped {
+        background-color: #6c757d;
+        color: white;
+      }
+      .status-failed {
+        background-color: #dc3545;
+        color: white;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>🎯 Interactions Test Page</h1>
+
+    <div id="status" class="test-result info">
+      <strong>Status:</strong> Ready to test interactions
+    </div>
+
+    <div>
+      <button onclick="testGetJobs()">Test GET_JOBS API</button>
+      <button onclick="testGetJobStatus()">Test GET_JOB_STATUS API</button>
+      <button onclick="testGetJobFilters()">Test GET_JOB_FILTERS API</button>
+      <button onclick="testAllInteractions()">
+        Test All Interactions APIs
+      </button>
+    </div>
+
+    <div id="results"></div>
+
+    <script>
+      // Set environment variables for testing
+      window.process = window.process || {};
+      window.process.env = {
+        ...window.process.env,
+        REACT_APP_USE_MOCK_SERVER: "true",
+        REACT_APP_MOCK_DELAY: "100",
+        REACT_APP_MOCK_ERROR_RATE: "0.0",
+        REACT_APP_MOCK_LOGGING: "true",
+      };
+
+      function updateStatus(message, type = "info") {
+        const status = document.getElementById("status");
+        status.className = `test-result ${type}`;
+        status.innerHTML = `<strong>Status:</strong> ${message}`;
+      }
+
+      function addResult(title, data, success = true) {
+        const results = document.getElementById("results");
+        const resultDiv = document.createElement("div");
+        resultDiv.className = `test-result ${success ? "success" : "error"}`;
+        resultDiv.innerHTML = `
+                <h3>${title}</h3>
+                <pre>${JSON.stringify(data, null, 2)}</pre>
+            `;
+        results.appendChild(resultDiv);
+      }
+
+      function addInteractionCard(interaction) {
+        const results = document.getElementById("results");
+        const cardDiv = document.createElement("div");
+        cardDiv.className = "interaction-card";
+
+        const statusClass = `status-${interaction.status?.toLowerCase() || "unknown"}`;
+
+        cardDiv.innerHTML = `
+                <h4>${interaction.name} <span class="status-badge ${statusClass}">${interaction.status || "UNKNOWN"}</span></h4>
+                <p><strong>Description:</strong> ${interaction.description}</p>
+                <p><strong>Created By:</strong> ${interaction.createdBy}</p>
+                <p><strong>Created At:</strong> ${new Date(interaction.createdAt).toLocaleString()}</p>
+                <p><strong>Use Case:</strong> ${interaction.useCaseName}</p>
+            `;
+        results.appendChild(cardDiv);
+      }
+
+      async function testGetJobs() {
+        updateStatus("Testing GET_JOBS API...", "info");
+        try {
+          const response = await fetch("/v2/getJobs?page=0&size=20");
+          const data = await response.json();
+
+          addResult(
+            "✅ GET_JOBS API Test",
+            {
+              status: response.status,
+              totalJobs: data.data?.totalJobs || 0,
+              jobsCount: data.data?.jobs?.length || 0,
+            },
+            true,
+          );
+
+          // Display interaction cards
+          if (data.data?.jobs) {
+            data.data.jobs.forEach((interaction) => {
+              addInteractionCard(interaction);
+            });
+          }
+        } catch (error) {
+          addResult(
+            "❌ GET_JOBS API Test Failed",
+            { error: error.message },
+            false,
+          );
+        }
+      }
+
+      async function testGetJobStatus() {
+        updateStatus("Testing GET_JOB_STATUS API...", "info");
+        try {
+          // Test with job ID 1
+          const response = await fetch("/v3/getJobStatus?jobId=1");
+          const data = await response.json();
+
+          addResult(
+            "✅ GET_JOB_STATUS API Test (Job ID: 1)",
+            {
+              status: response.status,
+              jobStatus: data.data?.status || "UNKNOWN",
+            },
+            true,
+          );
+
+          // Test with job ID 2
+          const response2 = await fetch("/v3/getJobStatus?jobId=2");
+          const data2 = await response2.json();
+
+          addResult(
+            "✅ GET_JOB_STATUS API Test (Job ID: 2)",
+            {
+              status: response2.status,
+              jobStatus: data2.data?.status || "UNKNOWN",
+            },
+            true,
+          );
+        } catch (error) {
+          addResult(
+            "❌ GET_JOB_STATUS API Test Failed",
+            { error: error.message },
+            false,
+          );
+        }
+      }
+
+      async function testGetJobFilters() {
+        updateStatus("Testing GET_JOB_FILTERS API...", "info");
+        try {
+          const response = await fetch("/v2/getJobFilters");
+          const data = await response.json();
+
+          addResult(
+            "✅ GET_JOB_FILTERS API Test",
+            {
+              status: response.status,
+              filters: data.data,
+            },
+            true,
+          );
+        } catch (error) {
+          addResult(
+            "❌ GET_JOB_FILTERS API Test Failed",
+            { error: error.message },
+            false,
+          );
+        }
+      }
+
+      async function testAllInteractions() {
+        updateStatus("Testing All Interactions APIs...", "info");
+        document.getElementById("results").innerHTML = "";
+
+        await testGetJobs();
+        await new Promise((resolve) => setTimeout(resolve, 200));
+        await testGetJobStatus();
+        await new Promise((resolve) => setTimeout(resolve, 200));
+        await testGetJobFilters();
+
+        updateStatus("All interactions API tests completed!", "success");
+      }
+
+      // Auto-run test on page load
+      window.onload = function () {
+        updateStatus(
+          "Interactions test page loaded. Click buttons to test APIs.",
+          "info",
+        );
+      };
+    </script>
+  </body>
+</html>
